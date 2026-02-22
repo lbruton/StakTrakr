@@ -7,3 +7,8 @@
 **Vulnerability:** Weak random number generation in `generateUUID` fallback.
 **Learning:** The implementation was missing the `crypto.getRandomValues()` fallback documented in `AGENTS.md` and jumped straight to `Math.random()` when `crypto.randomUUID()` was unavailable.
 **Prevention:** Ensure implementation matches security documentation. Use `crypto.getRandomValues()` as a standard fallback for `crypto.randomUUID()` before resorting to insecure PRNGs.
+
+## 2026-05-22 - OAuth State Predictability
+**Vulnerability:** Use of `Date.now()` for OAuth `state` parameter generation.
+**Learning:** Using a predictable timestamp for the `state` parameter in OAuth flows significantly weakens protection against CSRF attacks, as an attacker can potentially guess the state.
+**Prevention:** Always use a cryptographically secure random string (like a UUID v4) for OAuth state parameters to ensure unpredictability and robust CSRF protection.

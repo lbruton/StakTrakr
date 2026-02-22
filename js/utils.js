@@ -3089,6 +3089,7 @@ const setButtonLoading = (btn, isLoading, loadingText = '') => {
 
 if (typeof window !== 'undefined') {
   window.getContrastColor = getContrastColor;
+  window.generateUUID = generateUUID;
   window.generateStorageReport = generateStorageReport;
   window.updateSpotTimestamp = updateSpotTimestamp;
   /**

@@ -336,7 +336,7 @@ function cloudAuthStart(provider) {
   var config = CLOUD_PROVIDERS[provider];
   if (!config) return;
 
-  var state = provider + '_' + Date.now();
+  var state = provider + '_' + generateUUID();
   sessionStorage.setItem('cloud_oauth_state', state);
 
   var params = new URLSearchParams({
