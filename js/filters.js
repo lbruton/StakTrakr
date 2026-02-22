@@ -8,6 +8,32 @@
 let activeFilters = {};
 
 /**
+ * Cache for computed search strings to optimize filter performance.
+ * Key: inventory item object
+ * Value: lowercase concatenated search string
+ */
+let searchCache = new WeakMap();
+
+/**
+ * Invalidates the search cache for a specific item.
+ * Call this when an item's properties or tags are modified in place.
+ * @param {Object} item - The inventory item to invalidate
+ */
+window.invalidateSearchCache = (item) => {
+  if (item && typeof item === 'object') {
+    searchCache.delete(item);
+  }
+};
+
+/**
+ * Resets the entire search cache.
+ * Call this for bulk updates or when many items change.
+ */
+window.resetSearchCache = () => {
+  searchCache = new WeakMap();
+};
+
+/**
  * Clears all active filters and resets search input and pagination.
  */
 const clearAllFilters = () => {
@@ -861,23 +887,27 @@ const filterInventoryAdvanced = () => {
         // if all words exist as separate word boundaries without conflicting words
         const exactPhrase = q.toLowerCase();
         // STAK-126: include tags in searchable text
-        const _searchTags = typeof getItemTags === 'function' ? getItemTags(item.uuid).join(' ') : '';
-        const itemText = [
-          item.metal,
-          item.composition || '',
-          item.name,
-          item.type,
-          item.purchaseLocation,
-          item.storageLocation || '',
-          item.notes || '',
-          String(item.year || ''),
-          item.grade || '',
-          item.gradingAuthority || '',
-          String(item.certNumber || ''),
-          String(item.numistaId || ''),
-          item.serialNumber || '',
-          _searchTags
-        ].join(' ').toLowerCase();
+        let itemText = searchCache.get(item);
+        if (!itemText) {
+          const _searchTags = typeof getItemTags === 'function' ? getItemTags(item.uuid).join(' ') : '';
+          itemText = [
+            item.metal,
+            item.composition || '',
+            item.name,
+            item.type,
+            item.purchaseLocation,
+            item.storageLocation || '',
+            item.notes || '',
+            String(item.year || ''),
+            item.grade || '',
+            item.gradingAuthority || '',
+            String(item.certNumber || ''),
+            String(item.numistaId || ''),
+            item.serialNumber || '',
+            _searchTags
+          ].join(' ').toLowerCase();
+          searchCache.set(item, itemText);
+        }
 
         // Check for exact phrase match first
         if (itemText.includes(exactPhrase)) {

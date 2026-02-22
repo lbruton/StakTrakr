@@ -1069,6 +1069,11 @@ const applyBulkEdit = async () => {
       item[fieldId] = coerceFieldValue(fieldId, valuesToApply[fieldId]);
     });
 
+    // STACK-62: Invalidate search cache for modified item
+    if (typeof window.invalidateSearchCache === 'function') {
+      window.invalidateSearchCache(item);
+    }
+
     // Log changes for undo support
     if (typeof logItemChanges === 'function') {
       logItemChanges(oldItem, item);

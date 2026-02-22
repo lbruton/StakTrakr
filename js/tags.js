@@ -33,6 +33,18 @@ const saveItemTags = () => {
 };
 
 /**
+ * Helper to find an inventory item by UUID for cache invalidation.
+ * @param {string} uuid - The item UUID
+ * @returns {Object|null} The inventory item or null
+ */
+const findItemByUuid = (uuid) => {
+  if (typeof inventory !== 'undefined' && Array.isArray(inventory)) {
+    return inventory.find(i => i.uuid === uuid) || null;
+  }
+  return null;
+};
+
+/**
  * Get all tags for an item.
  * @param {string} uuid - Item UUID
  * @returns {string[]} Array of tag strings (never null)
@@ -67,6 +79,12 @@ const addItemTag = (uuid, tag, persist = true) => {
   itemTags[uuid].push(trimmed);
 
   if (persist) saveItemTags();
+
+  if (typeof window.invalidateSearchCache === 'function') {
+    const item = findItemByUuid(uuid);
+    if (item) window.invalidateSearchCache(item);
+  }
+
   return true;
 };
 
@@ -90,6 +108,12 @@ const removeItemTag = (uuid, tag) => {
   }
 
   saveItemTags();
+
+  if (typeof window.invalidateSearchCache === 'function') {
+    const item = findItemByUuid(uuid);
+    if (item) window.invalidateSearchCache(item);
+  }
+
   return true;
 };
 
@@ -101,6 +125,11 @@ const deleteItemTags = (uuid) => {
   if (!uuid || !itemTags[uuid]) return;
   delete itemTags[uuid];
   saveItemTags();
+
+  if (typeof window.invalidateSearchCache === 'function') {
+    const item = findItemByUuid(uuid);
+    if (item) window.invalidateSearchCache(item);
+  }
 };
 
 /**
@@ -144,7 +173,12 @@ const renameTag = (oldName, newName) => {
       if (tags.length === 0) delete itemTags[uuid];
     }
   }
-  if (affected > 0) saveItemTags();
+  if (affected > 0) {
+    saveItemTags();
+    if (typeof window.resetSearchCache === 'function') {
+      window.resetSearchCache();
+    }
+  }
   return affected;
 };
 
@@ -164,7 +198,12 @@ const deleteTagGlobal = (tag) => {
       if (tags.length === 0) delete itemTags[uuid];
     }
   }
-  if (affected > 0) saveItemTags();
+  if (affected > 0) {
+    saveItemTags();
+    if (typeof window.resetSearchCache === 'function') {
+      window.resetSearchCache();
+    }
+  }
   return affected;
 };
 
@@ -190,6 +229,12 @@ const applyNumistaTags = (uuid, numistaTags, persist = true) => {
     }
   }
   if (persist && added > 0) saveItemTags();
+
+  if (added > 0 && typeof window.invalidateSearchCache === 'function') {
+    const item = findItemByUuid(uuid);
+    if (item) window.invalidateSearchCache(item);
+  }
+
   return added;
 };
 
