@@ -243,7 +243,7 @@ const syncSettingsUI = () => {
   }
 
   // Chip max count — sync with inline control
-  const chipMaxSetting = document.getElementById('settingsChipMaxCount');
+  const chipMaxSetting = safeGetElement('settingsChipMaxCount');
   if (chipMaxSetting) {
     chipMaxSetting.value = localStorage.getItem('chipMaxCount') || '0';
   }
