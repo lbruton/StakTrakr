@@ -7056,6 +7056,13 @@ a.about-badge:hover {
   flex: 1;
 }
 
+.format-desc {
+  display: block;
+  font-size: 0.75em;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
 .import-export-grid {
   display: grid;
   grid-template-columns: 1fr;

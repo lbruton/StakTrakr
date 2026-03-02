@@ -29,6 +29,7 @@
   var _conflictResolutions = {}; // { 'c0': 'local'|'remote', ... }
   var _collapsedCategories = {}; // { added: true, ... }
   var _expandedModified = {};    // { 0: true, 1: false, ... }
+  var _selectAllState = 0;  // 0=none, 1=added+modified, 2=all
 
   // ── Helpers ──
 
@@ -58,6 +59,72 @@
       if (_checkedItems.hasOwnProperty(k) && _checkedItems[k]) count++;
     }
     return count;
+  }
+
+  /**
+   * Compute the projected inventory count after applying selected changes.
+   * Formula: localCount + selectedAdded - selectedDeleted
+   * (modified items do not change net count)
+   */
+  function _computeProjectedCount() {
+    if (!_options) return 0;
+    const localCount = _options.localCount != null ? _options.localCount : 0;
+    const diff = _options.diff || {};
+    const added = diff.added || [];
+    const deleted = diff.deleted || [];
+    let selectedAdded = 0;
+    let selectedDeleted = 0;
+    for (let a = 0; a < added.length; a++) {
+      if (_checkedItems['added-' + a] !== false) selectedAdded++;
+    }
+    for (let d = 0; d < deleted.length; d++) {
+      if (_checkedItems['deleted-' + d] !== false) selectedDeleted++;
+    }
+    return localCount + selectedAdded - selectedDeleted;
+  }
+
+  /**
+   * Update the count row and warning div in the modal header.
+   * Only renders when backupCount and localCount are both provided.
+   * Also calls onSelectionChange if provided.
+   */
+  function _updateCountRow() {
+    if (!_options) return;
+    const backupCount = _options.backupCount;
+    const localCount = _options.localCount;
+    const countRowEl = safeGetElement('diffReviewCountRow');
+    const warningEl = safeGetElement('diffReviewCountWarning');
+
+    if (backupCount != null && localCount != null) {
+      const projectedCount = _computeProjectedCount();
+
+      if (countRowEl) {
+        countRowEl.innerHTML = 'Backup: <strong>' + backupCount + '</strong> items'
+          + ' &nbsp;|&nbsp; Current: <strong>' + localCount + '</strong> items'
+          + ' &nbsp;|&nbsp; After import: <strong>' + projectedCount + '</strong>';
+        countRowEl.style.display = '';
+      }
+
+      if (warningEl) {
+        const missing = backupCount - projectedCount;
+        if (missing > 0) {
+          warningEl.textContent = missing + ' item' + (missing > 1 ? 's' : '') + ' from the backup will not be imported (e.g., skipped due to validation errors, not selected, or already present locally).';
+          warningEl.style.display = '';
+        } else {
+          warningEl.textContent = '';
+          warningEl.style.display = 'none';
+        }
+      }
+
+      // Fire onSelectionChange callback if provided
+      if (typeof _options.onSelectionChange === 'function') {
+        const selected = _buildSelectedChanges();
+        _options.onSelectionChange(selected, projectedCount);
+      }
+    } else {
+      if (countRowEl) countRowEl.style.display = 'none';
+      if (warningEl) warningEl.style.display = 'none';
+    }
   }
 
   /** Get the header title based on source type */
@@ -220,6 +287,9 @@
       applyBtn.disabled = count === 0;
       applyBtn.style.opacity = count === 0 ? '0.4' : '';
     }
+
+    // Count row (backup import flow only)
+    _updateCountRow();
   }
 
   /** Render a meta cell for the source info row */
@@ -349,6 +419,7 @@
       applyBtn.disabled = count === 0;
       applyBtn.style.opacity = count === 0 ? '0.4' : '';
     }
+    _updateCountRow();
   }
 
   // ── Select All / Deselect All ──
@@ -358,14 +429,44 @@
     for (var i = 0; i < (diff.added || []).length; i++) _checkedItems['added-' + i] = true;
     for (var j = 0; j < (diff.modified || []).length; j++) _checkedItems['modified-' + j] = true;
     for (var k = 0; k < (diff.deleted || []).length; k++) _checkedItems['deleted-' + k] = true;
-    _render();
+    _render(); // _render calls _updateCountRow internally
   }
 
   function _deselectAll() {
     for (var key in _checkedItems) {
       if (_checkedItems.hasOwnProperty(key)) _checkedItems[key] = false;
     }
-    _render();
+    _render(); // _render calls _updateCountRow internally
+  }
+
+  /**
+   * Toggle "Select All / Deselect All" for the backup import flow.
+   * First call selects all added + modified; label changes to "Deselect All".
+   * Second call deselects all; label goes back to "Select All".
+   */
+  function _toggleSelectAll() {
+    const diff = _options ? _options.diff || {} : {};
+    _selectAllState = (_selectAllState + 1) % 3;
+    if (_selectAllState === 1) {
+      // First press: select added + modified, keep deleted unchecked
+      for (let i = 0; i < (diff.added || []).length; i++) _checkedItems['added-' + i] = true;
+      for (let j = 0; j < (diff.modified || []).length; j++) _checkedItems['modified-' + j] = true;
+      for (let k = 0; k < (diff.deleted || []).length; k++) _checkedItems['deleted-' + k] = false;
+    } else if (_selectAllState === 2) {
+      // Second press: also select deleted rows
+      for (let k = 0; k < (diff.deleted || []).length; k++) _checkedItems['deleted-' + k] = true;
+    } else {
+      // Third press: deselect all
+      for (const key in _checkedItems) {
+        if (_checkedItems.hasOwnProperty(key)) _checkedItems[key] = false;
+      }
+    }
+    const toggleBtn = safeGetElement('diffReviewSelectAllToggle');
+    if (toggleBtn) {
+      const labels = ['Select All', 'Add Deleted', 'Deselect All'];
+      toggleBtn.textContent = labels[_selectAllState];
+    }
+    _render(); // _render calls _updateCountRow internally
   }
 
   // ── Apply / Cancel ──
@@ -437,9 +538,13 @@
     var conflictsEl = safeGetElement('diffReviewConflicts');
     var selectAllBtn = safeGetElement('diffReviewSelectAll');
     var deselectAllBtn = safeGetElement('diffReviewDeselectAll');
+    var selectAllToggleBtn = safeGetElement('diffReviewSelectAllToggle');
     var applyBtn = safeGetElement('diffReviewApplyBtn');
     var cancelBtn = safeGetElement('diffReviewCancelBtn');
     var dismissX = safeGetElement('diffReviewDismissX');
+
+    // Determine whether we're in backup-count mode
+    var hasBackupCount = _options && _options.backupCount != null;
 
     // Event delegation on list
     if (listEl) {
@@ -457,13 +562,37 @@
     var btnStyle = 'display:inline-flex;align-items:center;gap:0.3rem;border-radius:999px;font-size:0.73rem;font-weight:500;cursor:pointer;transition:all 0.15s;';
 
     if (selectAllBtn) {
-      selectAllBtn.onclick = _selectAll;
-      selectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      if (hasBackupCount) {
+        selectAllBtn.style.display = 'none';
+      } else {
+        selectAllBtn.style.display = '';
+        selectAllBtn.onclick = _selectAll;
+        selectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      }
     }
     if (deselectAllBtn) {
-      deselectAllBtn.onclick = _deselectAll;
-      deselectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      if (hasBackupCount) {
+        deselectAllBtn.style.display = 'none';
+      } else {
+        deselectAllBtn.style.display = '';
+        deselectAllBtn.onclick = _deselectAll;
+        deselectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      }
     }
+
+    // Select All toggle button — only shown when backupCount is provided
+    if (selectAllToggleBtn) {
+      if (hasBackupCount) {
+        selectAllToggleBtn.textContent = ['Select All', 'Add Deleted', 'Deselect All'][_selectAllState];
+        selectAllToggleBtn.onclick = _toggleSelectAll;
+        selectAllToggleBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+        selectAllToggleBtn.style.display = '';
+      } else {
+        selectAllToggleBtn.style.display = 'none';
+        selectAllToggleBtn.onclick = null;
+      }
+    }
+
     if (cancelBtn) {
       cancelBtn.onclick = _onCancel;
       cancelBtn.setAttribute('style', btnStyle + 'padding:0.45rem 1rem;font-size:0.8rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
@@ -490,6 +619,9 @@
      * @param {object} [options.meta] - { deviceId, timestamp, itemCount, appVersion }
      * @param {function} options.onApply - Called with array of selected changes
      * @param {function} options.onCancel - Called when user cancels
+     * @param {number} [options.backupCount] - Total items in backup file; enables count header and Select All toggle
+     * @param {number} [options.localCount] - Current local inventory count; required alongside backupCount for projected count
+     * @param {function} [options.onSelectionChange] - Fires on every checkbox toggle with (selectedChanges, projectedCount)
      */
     show: function (options) {
       _options = options || {};
@@ -499,6 +631,7 @@
       _conflictResolutions = {};
       _collapsedCategories = {};
       _expandedModified = {};
+      _selectAllState = 0;
 
       // Default all items to checked
       var diff = _options.diff || {};

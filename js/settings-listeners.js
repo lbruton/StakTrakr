@@ -205,6 +205,18 @@ const bindFilterAndNumistaListeners = () => {
     });
   }
 
+  const chipMaxSetting = getExistingElement('settingsChipMaxCount');
+  if (chipMaxSetting) {
+    chipMaxSetting.addEventListener('change', () => {
+      const val = chipMaxSetting.value;
+      localStorage.setItem('chipMaxCount', val);
+      const chipMaxInline = getExistingElement('chipMaxCount');
+      if (chipMaxInline) chipMaxInline.value = val;
+      if (typeof renderActiveFilters === 'function') renderActiveFilters();
+      if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+    });
+  }
+
   wireFeatureFlagToggle('settingsGroupNameChips', 'GROUPED_NAME_CHIPS', {
     syncId: 'groupNameChips',
     onApply: () => { if (typeof renderActiveFilters === 'function') renderActiveFilters(); },
