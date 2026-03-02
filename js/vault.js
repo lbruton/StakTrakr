@@ -519,6 +519,11 @@ async function vaultRestoreWithPreview(fileBytes, password) {
       showToast('Diff preview unavailable — restoring full backup');
     }
     await restoreVaultData(payload);
+    // Post-restore summary banner (STAK-374) — item count from payload meta or backupItems
+    var _fallbackCount = (payload && payload._meta && payload._meta.itemCount) ? payload._meta.itemCount : 0;
+    if (typeof showImportSummaryBanner === 'function') {
+      showImportSummaryBanner({ added: _fallbackCount, modified: 0, deleted: 0, skipped: 0, skippedReasons: [] });
+    }
     return;
   }
 
@@ -589,11 +594,21 @@ async function vaultRestoreWithPreview(fileBytes, password) {
   // 7. Build metadata from payload._meta
   var payloadMeta = payload._meta || {};
 
+  // Compute count header values for DiffModal (STAK-374)
+  var _vaultBackupCount = (typeof backupItems !== 'undefined' && Array.isArray(backupItems))
+    ? backupItems.length
+    : (payloadMeta.itemCount ? payloadMeta.itemCount : 0);
+  var _vaultLocalCount = (typeof inventory !== 'undefined' && Array.isArray(inventory))
+    ? inventory.length
+    : (typeof loadDataSync === 'function' ? (loadDataSync('metalInventory', []).length) : 0);
+
   // 8. Show DiffModal
   DiffModal.show({
     source: { type: 'vault', label: 'Encrypted Backup' },
     diff: diffResult,
     settingsDiff: settingsDiff,
+    backupCount: _vaultBackupCount,
+    localCount: _vaultLocalCount,
     meta: {
       timestamp: payloadMeta.exportTimestamp || null,
       itemCount: backupItems.length,
@@ -645,6 +660,18 @@ async function vaultRestoreWithPreview(fileBytes, password) {
         if (typeof showToast === 'function') {
           showToast('Backup restored: ' + (parts.length > 0 ? parts.join(', ') : 'no changes applied'));
         }
+
+        // Post-import summary banner (STAK-374)
+        if (typeof showImportSummaryBanner === 'function') {
+          showImportSummaryBanner({
+            added: addCount,
+            modified: modCount,
+            deleted: delCount,
+            skipped: 0,
+            skippedReasons: []
+          });
+        }
+
         // Restore companion photo vault if present
         if (capturedImageFile && typeof vaultDecryptAndRestoreImages === 'function') {
           vaultDecryptAndRestoreImages(capturedImageFile, password).then(function (imgCount) {

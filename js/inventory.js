@@ -2786,6 +2786,9 @@ const showImportDiffReview = (parsedItems, sourceInfo, options, onComplete) => {
     debugLog('showImportDiffReview fallback', 'DiffEngine/DiffModal unavailable');
     inventory = inventory.concat(parsedItems);
     _postImportCleanup(parsedItems, options.pendingTagsByUuid);
+    if (typeof showImportSummaryBanner === 'function') {
+      showImportSummaryBanner({ added: parsedItems.length, modified: 0, deleted: 0, skipped: 0, skippedReasons: [] });
+    }
     if (onComplete) onComplete({ added: parsedItems.length, modified: 0, deleted: 0 });
     return;
   }
@@ -2817,10 +2820,16 @@ const showImportDiffReview = (parsedItems, sourceInfo, options, onComplete) => {
     return;
   }
 
+  // Compute count header values for DiffModal (STAK-374)
+  var _backupCount = parsedItems.length + (options.validationResult ? (options.validationResult.skippedCount || 0) : 0);
+  var _localCount = (typeof inventory !== 'undefined' && Array.isArray(inventory)) ? inventory.length : 0;
+
   DiffModal.show({
     source: sourceInfo,
     diff: diffResult,
     settingsDiff: settingsDiff,
+    backupCount: _backupCount,
+    localCount: _localCount,
     onApply: function(selectedChanges) {
       if (!selectedChanges || selectedChanges.length === 0) return;
 
@@ -2862,6 +2871,21 @@ const showImportDiffReview = (parsedItems, sourceInfo, options, onComplete) => {
       if (delCount > 0) parts.push(delCount + ' removed');
       if (typeof showToast === 'function') {
         showToast('Import complete: ' + (parts.length > 0 ? parts.join(', ') : 'no changes applied'));
+      }
+
+      // Post-import summary banner (STAK-374)
+      if (typeof showImportSummaryBanner === 'function') {
+        var _skippedReasons = [];
+        if (options.validationResult && options.validationResult.invalid) {
+          _skippedReasons = options.validationResult.invalid.slice(0, 5).map(function(i) { return i.reasons[0]; });
+        }
+        showImportSummaryBanner({
+          added: selectedChanges.filter(function(c) { return c.type === 'add'; }).length,
+          modified: selectedChanges.filter(function(c) { return c.type === 'modify'; }).length,
+          deleted: selectedChanges.filter(function(c) { return c.type === 'delete'; }).length,
+          skipped: options.validationResult ? (options.validationResult.skippedCount || 0) : 0,
+          skippedReasons: _skippedReasons
+        });
       }
 
       if (onComplete) onComplete({ added: addCount, modified: modCount, deleted: delCount });
