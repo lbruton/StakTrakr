@@ -3563,7 +3563,7 @@ const importJson = (file, override = false) => {
         parsedMeta = rawParsed.exportMeta || null;
       } else {
         if (typeof showAppAlert === 'function') {
-          showAppAlert('Invalid JSON format. Expected an array of inventory items or { items: [], settings: {} }.', 'JSON Import');
+          showAppAlert('Invalid JSON format. Expected an array of inventory items, { items: [], settings: {} }, or { items: [], exportMeta: {} } (exportMeta is optional).', 'JSON Import');
         }
         return;
       }

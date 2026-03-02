@@ -54,7 +54,9 @@ test.describe('Backup and Restore', () => {
     
     const jsonContent = fs.readFileSync(downloadPath, 'utf8');
     const backupData = JSON.parse(jsonContent);
-    expect(Array.isArray(backupData)).toBeTruthy();
+    // exportJson now emits { items: [...], exportMeta: {...} }; plain array is also accepted for legacy imports
+    const backupItems = Array.isArray(backupData) ? backupData : backupData.items;
+    expect(Array.isArray(backupItems)).toBeTruthy();
     
     const storageSection = page.locator('#settingsModal .settings-nav-item[data-section="storage"]');
     await storageSection.click();
