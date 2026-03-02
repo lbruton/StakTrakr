@@ -1135,7 +1135,7 @@ const validateInventoryItem = (item) => {
  * @returns {{ valid: Array, invalid: Array, skippedNonPM: Array, skippedCount: number }}
  */
 const buildImportValidationResult = (items, skippedNonPM) => {
-  skippedNonPM = skippedNonPM || [];
+  const skippedItems = skippedNonPM || [];
   const valid = [];
   const invalid = [];
   for (let i = 0; i < items.length; i++) {
@@ -1154,8 +1154,8 @@ const buildImportValidationResult = (items, skippedNonPM) => {
   return {
     valid,
     invalid,
-    skippedNonPM,
-    skippedCount: invalid.length + skippedNonPM.length,
+    skippedNonPM: skippedItems,
+    skippedCount: invalid.length + skippedItems.length,
   };
 };
 
@@ -1197,10 +1197,10 @@ const showImportSummaryBanner = (result) => {
     '</div>';
 
   // Try to insert before the inventory table container
-  const target = safeGetElement('inventory-container') ||
-                 safeGetElement('inventoryTable') ||
-                 safeGetElement('tableContainer');
-  if (target && target.parentNode) {
+  const target = document.getElementById('inventory-container') ||
+                 document.getElementById('inventoryTable') ||
+                 document.getElementById('tableContainer');
+  if (target) {
     const div = document.createElement('div');
     div.innerHTML = bannerHtml;
     target.parentNode.insertBefore(div.firstChild, target);

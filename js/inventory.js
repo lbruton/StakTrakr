@@ -2925,8 +2925,9 @@ const importCsv = (file, override = false) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      comments: '#',
       complete: function(results) {
-        const imported = [];
+        let imported = [];
         const totalRows = results.data.length;
         startImportProgress(totalRows);
         let processed = 0;
@@ -3149,6 +3150,7 @@ const importNumistaCsv = (file, override = false) => {
         const results = Papa.parse(csvText, {
           header: true,
           skipEmptyLines: true,
+          comments: '#',
           transformHeader: (h) => h.trim(), // Handle Numista headers with trailing spaces
         });
         const rawTable = results.data;
@@ -3563,7 +3565,7 @@ const importJson = (file, override = false) => {
       }
 
       // Process each item
-      const imported = [];
+      let imported = [];
       const skippedDetails = [];
       const skippedNonPM = [];
       const supportedMetals = ['Silver', 'Gold', 'Platinum', 'Palladium'];

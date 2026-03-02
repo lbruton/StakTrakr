@@ -108,7 +108,7 @@
       if (warningEl) {
         const missing = backupCount - projectedCount;
         if (missing > 0) {
-          warningEl.textContent = missing + ' item' + (missing > 1 ? 's' : '') + ' from the backup will not be imported because they were not selected.';
+          warningEl.textContent = missing + ' item' + (missing > 1 ? 's' : '') + ' from the backup will not be imported (e.g., skipped due to validation errors, not selected, or already present locally).';
           warningEl.style.display = '';
         } else {
           warningEl.textContent = '';
@@ -451,6 +451,8 @@
       // Select all added and modified (spec: added + modified only for backup flow)
       for (let i = 0; i < (diff.added || []).length; i++) _checkedItems['added-' + i] = true;
       for (let j = 0; j < (diff.modified || []).length; j++) _checkedItems['modified-' + j] = true;
+      // Explicitly deselect deleted items (first toggle selects added+modified only)
+      for (let k = 0; k < (diff.deleted || []).length; k++) _checkedItems['deleted-' + k] = false;
     } else {
       // Deselect all
       for (const key in _checkedItems) {

@@ -609,7 +609,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     : (payloadMeta.itemCount ? payloadMeta.itemCount : 0);
   var _vaultLocalCount = (typeof inventory !== 'undefined' && Array.isArray(inventory))
     ? inventory.length
-    : (typeof loadDataSync === 'function' ? (loadDataSync('metalInventory', []).length) : 0);
+    : (typeof loadDataSync === 'function' ? (loadDataSync(LS_KEY, []).length) : 0);
 
   // 8. Show DiffModal
   DiffModal.show({
