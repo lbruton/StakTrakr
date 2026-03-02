@@ -10,13 +10,13 @@ relatedPages: []
 
 # Home Poller (Ubuntu VM)
 
-> **Last verified:** 2026-02-25 — Ubuntu 24.04.3 LTS LXC at 192.168.1.81, user `stakpoller`. Verified from VM console.
+> **Last verified:** 2026-03-02 — Ubuntu 24.04.3 LTS LXC at 192.168.1.81, user `stakpoller`. Verified from VM console. Home spot poller (`/etc/cron.d/spot-poller` at `15,45`) confirmed active.
 
 ---
 
 ## Overview
 
-A secondary retail poller running on an Ubuntu Server LXC container. Runs at `:30` past every hour (once per hour). The Fly.io poller runs at `:00` — with the 30-minute offset, fresh data arrives every 30 minutes.
+A secondary poller host running on an Ubuntu Server LXC container. Hosts two cron-driven pollers: a **retail scraper** (`run-home.sh` at `:30`) and a **spot price poller** (`run-spot-home.sh` at `:15/:45`). The retail scraper offsets 30 min from Fly.io retail at `:00`. The spot poller interleaves with Fly.io spot at `:00/:30`, giving fresh spot prices every 15 minutes across both hosts.
 
 Both pollers write to the **same Turso database**. `run-publish.sh` on Fly.io merges their data using `readLatestPerVendor()`. The home poller never touches Git.
 

@@ -337,7 +337,14 @@ const renderActiveFilters = () => {
   if (searchQuery && searchQuery.trim()) {
     chips.push({ field: 'search', value: searchQuery });
   }
-  
+
+  // Add disposed-only mode chip (STAK-388)
+  var activeDisposedBtnChip = document.querySelector('#disposedFilterGroup .chip-sort-btn.active');
+  var disposedModeChip = (activeDisposedBtnChip && activeDisposedBtnChip.dataset && activeDisposedBtnChip.dataset.disposedMode) || 'hide';
+  if (disposedModeChip === 'show-only') {
+    chips.push({ field: 'disposed-mode', value: 'show-only' });
+  }
+
   // Generate category summary chips from filtered inventory
   const categorySummary = generateCategorySummary(filteredInventory);
   
@@ -523,7 +530,9 @@ const renderActiveFilters = () => {
       : simplifyChipValue(f.value, f.field);
     let label;
 
-    if (f.field === 'search') {
+    if (f.field === 'disposed-mode') {
+      label = 'Showing: Disposed Items';
+    } else if (f.field === 'search') {
       label = displayValue;
     } else if (f.count !== undefined && f.total !== undefined) {
       // For category summary chips, show count badge if enabled
@@ -572,6 +581,18 @@ const renderActiveFilters = () => {
         }
         applyQuickFilter(f.field, f.value, f.isGrouped || f.isCustomGroup || f.isDynamic || false);
       });
+    } else if (f.field === 'disposed-mode') {
+      // Disposed-mode chip — clicking resets disposed filter back to 'hide'
+      chip.title = 'Showing disposed items only (click to hide disposed)';
+      chip.addEventListener('click', function() {
+        const dfg = safeGetElement('disposedFilterGroup');
+        dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
+          b.classList.toggle('active', b.dataset.disposedMode === 'hide');
+        });
+        if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
+        if (typeof renderTable === 'function') renderTable();
+        renderActiveFilters();
+      });
     } else {
       // Active filter chips - clicking removes filter
       chip.title = f.field === 'search'
@@ -586,9 +607,21 @@ const renderActiveFilters = () => {
     close.setAttribute('role', 'button');
     close.setAttribute('tabindex', '0');
     close.setAttribute('aria-label', `Remove filter ${displayValue}`);
+    // Helper to reset disposed filter to 'hide' (for chip × button)
+    const _resetDisposedFilter = function() {
+      const dfg = safeGetElement('disposedFilterGroup');
+      dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.disposedMode === 'hide');
+      });
+      if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
+      if (typeof renderTable === 'function') renderTable();
+      renderActiveFilters();
+    };
     close.onclick = (e) => {
       e.stopPropagation();
-      if (isActiveFilter) {
+      if (f.field === 'disposed-mode') {
+        _resetDisposedFilter();
+      } else if (isActiveFilter) {
         // Active filter chip × — always removes the filter (de-activate, not exclude)
         removeFilter(f.field, f.value);
         renderActiveFilters();
@@ -604,7 +637,9 @@ const renderActiveFilters = () => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         e.stopPropagation();
-        if (isActiveFilter) {
+        if (f.field === 'disposed-mode') {
+          _resetDisposedFilter();
+        } else if (isActiveFilter) {
           removeFilter(f.field, f.value);
           renderActiveFilters();
         } else if (f.count !== undefined && f.total !== undefined && f.field !== 'search') {
@@ -777,11 +812,15 @@ const getChipColors = (field, value, index) => {
 const filterInventoryAdvanced = () => {
   let result = inventory;
 
-  // Filter out disposed items unless toggle is active (STAK-72)
-  const showDisposed = document.getElementById('showDisposedToggle')?.checked || false;
-  if (!showDisposed) {
-    result = result.filter(item => !item.disposition);
+  // Three-state disposed filter (STAK-388)
+  var activeDisposedBtn = document.querySelector('#disposedFilterGroup .chip-sort-btn.active');
+  var disposedMode = (activeDisposedBtn && activeDisposedBtn.dataset && activeDisposedBtn.dataset.disposedMode) || 'hide';
+  if (disposedMode === 'hide') {
+    result = result.filter(function(item) { return !item.disposition; });
+  } else if (disposedMode === 'show-only') {
+    result = result.filter(function(item) { return isDisposed(item); });
   }
+  // 'show-all' → no filter applied
 
   // Apply advanced filters
   Object.entries(activeFilters).forEach(([field, criteria]) => {
