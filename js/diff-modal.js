@@ -29,7 +29,7 @@
   var _conflictResolutions = {}; // { 'c0': 'local'|'remote', ... }
   var _collapsedCategories = {}; // { added: true, ... }
   var _expandedModified = {};    // { 0: true, 1: false, ... }
-  var _selectAllToggle = false;  // true = currently "all selected" (button shows "Deselect All")
+  var _selectAllState = 0;  // 0=none, 1=added+modified, 2=all
 
   // ── Helpers ──
 
@@ -445,24 +445,26 @@
    * Second call deselects all; label goes back to "Select All".
    */
   function _toggleSelectAll() {
-    _selectAllToggle = !_selectAllToggle;
     const diff = _options ? _options.diff || {} : {};
-    if (_selectAllToggle) {
-      // Select all added and modified (spec: added + modified only for backup flow)
+    _selectAllState = (_selectAllState + 1) % 3;
+    if (_selectAllState === 1) {
+      // First press: select added + modified, keep deleted unchecked
       for (let i = 0; i < (diff.added || []).length; i++) _checkedItems['added-' + i] = true;
       for (let j = 0; j < (diff.modified || []).length; j++) _checkedItems['modified-' + j] = true;
-      // Explicitly deselect deleted items (first toggle selects added+modified only)
       for (let k = 0; k < (diff.deleted || []).length; k++) _checkedItems['deleted-' + k] = false;
+    } else if (_selectAllState === 2) {
+      // Second press: also select deleted rows
+      for (let k = 0; k < (diff.deleted || []).length; k++) _checkedItems['deleted-' + k] = true;
     } else {
-      // Deselect all
+      // Third press: deselect all
       for (const key in _checkedItems) {
         if (_checkedItems.hasOwnProperty(key)) _checkedItems[key] = false;
       }
     }
-    // Update toggle button label
     const toggleBtn = safeGetElement('diffReviewSelectAllToggle');
     if (toggleBtn) {
-      toggleBtn.textContent = _selectAllToggle ? 'Deselect All' : 'Select All';
+      const labels = ['Select All', 'Add Deleted', 'Deselect All'];
+      toggleBtn.textContent = labels[_selectAllState];
     }
     _render(); // _render calls _updateCountRow internally
   }
@@ -560,18 +562,28 @@
     var btnStyle = 'display:inline-flex;align-items:center;gap:0.3rem;border-radius:999px;font-size:0.73rem;font-weight:500;cursor:pointer;transition:all 0.15s;';
 
     if (selectAllBtn) {
-      selectAllBtn.onclick = _selectAll;
-      selectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      if (hasBackupCount) {
+        selectAllBtn.style.display = 'none';
+      } else {
+        selectAllBtn.style.display = '';
+        selectAllBtn.onclick = _selectAll;
+        selectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      }
     }
     if (deselectAllBtn) {
-      deselectAllBtn.onclick = _deselectAll;
-      deselectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      if (hasBackupCount) {
+        deselectAllBtn.style.display = 'none';
+      } else {
+        deselectAllBtn.style.display = '';
+        deselectAllBtn.onclick = _deselectAll;
+        deselectAllBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
+      }
     }
 
     // Select All toggle button — only shown when backupCount is provided
     if (selectAllToggleBtn) {
       if (hasBackupCount) {
-        selectAllToggleBtn.textContent = _selectAllToggle ? 'Deselect All' : 'Select All';
+        selectAllToggleBtn.textContent = ['Select All', 'Add Deleted', 'Deselect All'][_selectAllState];
         selectAllToggleBtn.onclick = _toggleSelectAll;
         selectAllToggleBtn.setAttribute('style', btnStyle + 'padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)');
         selectAllToggleBtn.style.display = '';
@@ -619,7 +631,7 @@
       _conflictResolutions = {};
       _collapsedCategories = {};
       _expandedModified = {};
-      _selectAllToggle = false;
+      _selectAllState = 0;
 
       // Default all items to checked
       var diff = _options.diff || {};

@@ -946,6 +946,16 @@
                 </select>
               </div>
               <div class="control-group">
+                <label for="chipMaxCount" class="control-label">Max chips:</label>
+                <select id="chipMaxCount" class="control-select" title="Maximum number of filter chips to display">
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="500">500</option>
+                  <option value="0" selected>All</option>
+                </select>
+              </div>
+              <div class="control-group">
                 <span class="control-label">Smart Grouping:</span>
                 <div class="chip-sort-toggle" id="groupNameChips" title="Group similar item names (e.g., 'American Silver Eagle (3)' instead of separate year chips)">
                   <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
@@ -1184,7 +1194,7 @@
          - JSON: Native application format preserving all data
          
          EXPORT OPTIONS:
-         - CSV: Compatible with spreadsheet applications
+         - CSV: Inventory items with embedded import metadata
          - JSON: Full data backup with metadata
          - PDF: Print-ready report with totals and formatting
          - HTML: Standalone web page with embedded styles
@@ -2412,6 +2422,18 @@
               </div>
 
               <div class="settings-group">
+                <div class="settings-group-label">Filter chip max count</div>
+                <p class="settings-subtext">Maximum number of filter chips to display. All = no limit.</p>
+                <select id="settingsChipMaxCount">
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="500">500</option>
+                  <option value="0">All</option>
+                </select>
+              </div>
+
+              <div class="settings-group">
                 <div class="settings-group-label">Smart name grouping</div>
                 <p class="settings-subtext">Group item names by base name (e.g., "American Silver Eagle (3)").</p>
                 <div class="chip-sort-toggle" id="settingsGroupNameChips">
@@ -3332,7 +3354,7 @@
                       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.4rem">
                         <div>
                           <button class="btn info" id="exportCsvBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;width:100%">Export CSV</button>
-                          <small class="format-desc">Inventory items only — spreadsheet compatible</small>
+                          <small class="format-desc">Inventory items, CSV (includes metadata header)</small>
                         </div>
                         <div>
                           <button class="btn info" id="exportJsonBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;width:100%">Export JSON</button>

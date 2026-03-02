@@ -520,11 +520,6 @@ async function vaultRestoreWithPreview(fileBytes, password) {
       showToast('Diff preview unavailable — restoring full backup');
     }
     await restoreVaultData(payload);
-    // Post-restore summary banner (STAK-374) — item count from payload meta or backupItems
-    var _fallbackCount = (payload && payload._meta && payload._meta.itemCount) ? payload._meta.itemCount : 0;
-    if (typeof showImportSummaryBanner === 'function') {
-      showImportSummaryBanner({ added: _fallbackCount, modified: 0, deleted: 0, skipped: 0, skippedReasons: [] });
-    }
     return;
   }
 
