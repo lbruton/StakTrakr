@@ -311,6 +311,7 @@ function collectVaultData(scope) {
     _meta: {
       appVersion: typeof APP_VERSION !== "undefined" ? APP_VERSION : "unknown",
       exportTimestamp: new Date().toISOString(),
+      exportOrigin: (typeof window !== 'undefined' && window.location) ? window.location.origin : '',
       scope: scope,
     },
     data: {},
@@ -593,6 +594,14 @@ async function vaultRestoreWithPreview(fileBytes, password) {
 
   // 7. Build metadata from payload._meta
   var payloadMeta = payload._meta || {};
+
+  // Cross-domain origin warning (STAK-374): warn when restoring from a different domain
+  var _vaultOrigin = payloadMeta.exportOrigin || null;
+  var _currentOriginVault = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
+  if (_vaultOrigin && _currentOriginVault && _vaultOrigin !== _currentOriginVault && typeof showToast === 'function') {
+    var _safeVaultFrom = typeof sanitizeHtml === 'function' ? sanitizeHtml(_vaultOrigin) : _vaultOrigin;
+    showToast('\u26A0 This vault was exported from a different domain (' + _safeVaultFrom + '). Check item counts carefully.');
+  }
 
   // Compute count header values for DiffModal (STAK-374)
   var _vaultBackupCount = (typeof backupItems !== 'undefined' && Array.isArray(backupItems))

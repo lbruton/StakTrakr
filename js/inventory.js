@@ -120,6 +120,7 @@ const createBackupZip = async () => {
     const settings = {
       version: APP_VERSION,
       exportDate: new Date().toISOString(),
+      exportOrigin: (typeof window !== 'undefined' && window.location) ? window.location.origin : '',
       spotPrices: spotPrices,
       theme: localStorage.getItem(THEME_KEY) || 'light',
       itemsPerPage: itemsPerPage,
@@ -2824,6 +2825,14 @@ const showImportDiffReview = (parsedItems, sourceInfo, options, onComplete) => {
   var _backupCount = parsedItems.length + (options.validationResult ? (options.validationResult.skippedCount || 0) : 0);
   var _localCount = (typeof inventory !== 'undefined' && Array.isArray(inventory)) ? inventory.length : 0;
 
+  // Cross-domain origin warning (STAK-374): warn when importing from a different domain
+  var _parsedOrigin = options.exportMeta && options.exportMeta.exportOrigin ? options.exportMeta.exportOrigin : null;
+  var _currentOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
+  if (_parsedOrigin && _currentOrigin && _parsedOrigin !== _currentOrigin && typeof showToast === 'function') {
+    var _safeFrom = typeof sanitizeHtml === 'function' ? sanitizeHtml(_parsedOrigin) : _parsedOrigin;
+    showToast('\u26A0 This backup is from a different domain (' + _safeFrom + '). Check item counts carefully.');
+  }
+
   DiffModal.show({
     source: sourceInfo,
     diff: diffResult,
@@ -3506,7 +3515,9 @@ const exportCsv = () => {
     ]);
   }
 
-  const csv = Papa.unparse([headers, ...rows]);
+  var _csvOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
+  var _originComment = '# exportOrigin: ' + _csvOrigin + '\n';
+  const csv = _originComment + Papa.unparse([headers, ...rows]);
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
 
@@ -3534,14 +3545,16 @@ const importJson = (file, override = false) => {
     try {
       const rawParsed = JSON.parse(e.target.result);
 
-      // Support both plain array and { items: [], settings: {} } object formats
+      // Support both plain array and { items: [], settings: {}, exportMeta: {} } object formats
       let data;
       let parsedSettings = null;
+      let parsedMeta = null;
       if (Array.isArray(rawParsed)) {
         data = rawParsed;
       } else if (rawParsed && typeof rawParsed === 'object' && Array.isArray(rawParsed.items)) {
         data = rawParsed.items;
         parsedSettings = rawParsed.settings || null;
+        parsedMeta = rawParsed.exportMeta || null;
       } else {
         if (typeof showAppAlert === 'function') {
           showAppAlert('Invalid JSON format. Expected an array of inventory items or { items: [], settings: {} }.', 'JSON Import');
@@ -3788,6 +3801,7 @@ const importJson = (file, override = false) => {
         settingsDiff: settingsDiff,
         pendingTagsByUuid: pendingTagsByUuid,
         validationResult: _validationResult,
+        exportMeta: parsedMeta,
       }, function(summary) {
         debugLog('importJson DiffEngine complete', summary.added, 'added', summary.modified, 'modified', summary.deleted, 'deleted');
       });
@@ -3844,7 +3858,19 @@ const exportJson = () => {
     fieldMeta: item.fieldMeta || null
   }));
 
-  const json = JSON.stringify(exportData, null, 2);
+  // Wrap in metadata envelope so importJson can detect export origin (STAK-374)
+  var _exportOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
+  const exportPayload = {
+    items: exportData,
+    exportMeta: {
+      exportOrigin: _exportOrigin,
+      exportDate: new Date().toISOString(),
+      version: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '',
+      itemCount: exportData.length
+    }
+  };
+
+  const json = JSON.stringify(exportPayload, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
