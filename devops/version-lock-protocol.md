@@ -87,7 +87,10 @@ Add a new entry to the `claims` array and write the file:
     {
       "version": "3.32.29",
       "claimed_by": "claude / STAK-315 vault images",
+      "spec": "vault-image-upload",
       "issue": "STAK-315",
+      "files_touched": ["js/vault.js", "js/image-cache.js"],
+      "status": "implementing",
       "claimed_at": "2026-02-24T10:00:00Z",
       "expires_at": "2026-02-24T10:30:00Z"
     }
@@ -98,8 +101,11 @@ Add a new entry to the `claims` array and write the file:
 Fields:
 - `version` — the version number you are claiming (matches your computed version)
 - `claimed_by` — agent name + brief task description
+- `spec` — spec folder name (e.g. `"vault-image-upload"`), or `null` if not spec-driven
 - `issue` — Linear issue ID (e.g. `"STAK-315"`), or `null` if not issue-driven
-- `claimed_at` / `expires_at` — ISO 8601 UTC timestamps, 30-minute TTL
+- `files_touched` — list of files this agent will modify (enables conflict detection)
+- `status` — one of `"queued"` → `"implementing"` → `"pr_open"` → `"done"`
+- `claimed_at` / `expires_at` — ISO 8601 UTC timestamps; **30-minute TTL for hotfixes, 4-hour TTL for spec implementations**
 
 The `version` becomes the **anchor** for all work: Linear notes, changelog bullets,
 commit messages, and mem0 handoffs should all reference this version number.
@@ -180,14 +186,20 @@ git push origin --delete patch/VERSION
     {
       "version": "3.32.29",
       "claimed_by": "claude / STAK-315 vault images",
+      "spec": "vault-image-upload",
       "issue": "STAK-315",
+      "files_touched": ["js/vault.js", "js/image-cache.js"],
+      "status": "implementing",
       "claimed_at": "2026-02-24T10:00:00Z",
-      "expires_at": "2026-02-24T10:30:00Z"
+      "expires_at": "2026-02-24T14:00:00Z"
     },
     {
       "version": "3.32.30",
       "claimed_by": "user / local hotfix",
+      "spec": null,
       "issue": null,
+      "files_touched": ["js/retail.js"],
+      "status": "pr_open",
       "claimed_at": "2026-02-24T10:05:00Z",
       "expires_at": "2026-02-24T10:35:00Z"
     }
@@ -195,10 +207,20 @@ git push origin --delete patch/VERSION
 }
 ```
 
-- `version` — the version number being worked on (matches `APP_VERSION` bump target)
-- `claimed_by` — agent name + brief task description (for human visibility)
-- `issue` — Linear issue ID or `null`
-- `claimed_at` / `expires_at` — ISO 8601 UTC timestamps, 30-minute TTL
+| Field | Description |
+|-------|-------------|
+| `version` | Version number being worked on (matches `APP_VERSION` bump target) |
+| `claimed_by` | Agent name + brief task description (for human visibility) |
+| `spec` | Spec folder name, or `null` if not spec-driven |
+| `issue` | Linear issue ID, or `null` |
+| `files_touched` | Files this agent will modify — enables conflict detection by other agents |
+| `status` | `"queued"` → `"implementing"` → `"pr_open"` → `"done"` |
+| `claimed_at` / `expires_at` | ISO 8601 UTC timestamps |
+
+**TTL rules:**
+- Hotfix (no spec): **30-minute TTL**
+- Spec implementation: **4-hour TTL**
+- Pre-assigned queued slot: **4-hour TTL**
 
 Multiple agents can hold concurrent claims on **different** version numbers. No agent
 ever takes over another agent's version — each claim is independently owned.
@@ -207,14 +229,21 @@ ever takes over another agent's version — each claim is independently owned.
 
 ## TTL Rule
 
-Each claim expires **30 minutes** after `claimed_at`. An agent **refreshes** its own
-`expires_at` when it makes a commit (proves liveness):
+Claim TTL depends on work type:
+
+| Work type | TTL | Refresh trigger |
+|-----------|-----|-----------------|
+| Hotfix (no spec) | **30 minutes** | Each commit |
+| Spec implementation | **4 hours** | Each commit |
+| Pre-assigned queued slot | **4 hours** | Agent activates slot |
+
+An agent **refreshes** its own `expires_at` when it makes a commit (proves liveness):
 
 ```json
-"expires_at": "<commit time + 30 minutes>"
+"expires_at": "<commit time + TTL>"
 ```
 
-Healthy agents always release (remove their entry from the array) before 30 minutes are up.
+Healthy agents always release (remove their entry from the array) before TTL expires.
 
 On any read, prune expired entries before computing the next available version.
 
@@ -232,6 +261,22 @@ Agent A (STAK-315) and Agent B (hotfix) start at the same time:
 3. Agent B reads again → sees `3.32.29` → computes `3.32.30`, appends → `claims: [{...29}, {...30}]`
 4. Each creates its own worktree: `patch-3.32.29` and `patch-3.32.30`
 5. Both work independently, push PRs, merge — no blocking, no TTL contention
+
+---
+
+## Integration with /dispatching-parallel-specs
+
+When multiple specs are Phase 4-ready at once, use `/dispatching-parallel-specs` before
+any agent claims a version. That skill:
+
+1. Reads the current lock state and active claims
+2. Finds all Phase 4-ready specs and extracts their file touch sets
+3. Builds a conflict matrix (shared files, `js/constants.js`, `index.html`)
+4. Produces a parallel/serial/handoff dispatch plan
+5. Optionally pre-assigns version slots into the lock file (4-hour TTL, `status: "queued"`)
+
+Agents activating a pre-assigned slot update `status` from `"queued"` to `"implementing"`.
+Other agents see `files_touched` in the lock and can skip conflicting specs without starting.
 
 ---
 
