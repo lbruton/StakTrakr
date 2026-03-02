@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.24] - 2026-03-02
+
+### Added — Backup Integrity Audit (STAK-374)
+
+- **Added**: `exportOrigin` metadata to all export formats (CSV, JSON, vault) identifying the source app and version
+- **Added**: Cross-domain import warning when importing data from a different StakTrakr instance
+- **Added**: Pre-validation step in `importJson` and `importCsv` — checks structure before applying changes
+- **Added**: DiffModal count header showing added/modified/deleted item counts with Select All toggle
+- **Added**: Post-import summary banner showing import results (added, updated, skipped)
+- **Fixed**: CSV import with `# exportOrigin:` comment header now uses PapaParse `comments: '#'` option to skip the comment line correctly
+- **Fixed**: `const imported = []` reassignment crash in `importCsv` and `importJson` — changed to `let`
+- **Fixed**: `showImportSummaryBanner` target element detection — switched from `safeGetElement` (truthy dummy) to `document.getElementById` for correct `||` fallback chain
+- **Fixed**: `_toggleSelectAll` now explicitly deselects deleted items when entering added+modified-only mode
+
+---
+
 ## [3.33.23] - 2026-03-02
 
 ### Added — Chip Max Count Setting (STAK-169)

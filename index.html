@@ -1194,7 +1194,7 @@
          - JSON: Native application format preserving all data
          
          EXPORT OPTIONS:
-         - CSV: Compatible with spreadsheet applications
+         - CSV: Inventory items with embedded import metadata
          - JSON: Full data backup with metadata
          - PDF: Print-ready report with totals and formatting
          - HTML: Standalone web page with embedded styles
@@ -3352,10 +3352,22 @@
                   <div style="border-top:1px solid var(--border);padding-top:0.6rem;margin-top:0.5rem">
                     <div class="export-block">
                       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.4rem">
-                        <button class="btn info" id="exportCsvBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0">Export CSV</button>
-                        <button class="btn info" id="exportJsonBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0">Export JSON</button>
-                        <button class="btn info" id="exportPdfBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0">Export PDF</button>
-                        <button class="btn info" id="exportZipBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0">Export ZIP</button>
+                        <div>
+                          <button class="btn info" id="exportCsvBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;width:100%">Export CSV</button>
+                          <small class="format-desc">Inventory items, CSV (includes metadata header)</small>
+                        </div>
+                        <div>
+                          <button class="btn info" id="exportJsonBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;width:100%">Export JSON</button>
+                          <small class="format-desc">Inventory items only — no settings or price history</small>
+                        </div>
+                        <div>
+                          <button class="btn info" id="exportPdfBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;width:100%">Export PDF</button>
+                          <small class="format-desc">Inventory items only — printable report</small>
+                        </div>
+                        <div>
+                          <button class="btn info" id="exportZipBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;width:100%">Export ZIP</button>
+                          <small class="format-desc">Full backup — inventory, settings, price history, and images</small>
+                        </div>
                         <button class="btn warning" id="importZipBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;grid-column:span 2">Restore ZIP Backup</button>
                         <input accept=".zip" hidden id="importZipFile" type="file" />
                       </div>
@@ -3372,7 +3384,10 @@
                   <p class="settings-subtext">AES-GCM encrypted vault file. Use to back up and restore all inventory data.</p>
                   <div style="border-top:1px solid var(--border);padding-top:0.6rem;margin-top:0.5rem">
                     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.4rem">
-                      <button class="btn" id="vaultExportBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0">Export Backup</button>
+                      <div>
+                        <button class="btn" id="vaultExportBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0;width:100%">Export Backup</button>
+                        <small class="format-desc">Encrypted full backup — inventory, settings, price history, and images</small>
+                      </div>
                       <button class="btn info" id="vaultImportBtn" style="font-size:0.82rem;padding:0.4rem 0.6rem;min-height:0">Restore Backup</button>
                     </div>
                     <input type="file" id="vaultImportFile" accept=".stvault" hidden />
@@ -4526,6 +4541,8 @@
         </div>
         <div class="modal-body">
           <div class="cloud-sync-update-meta" id="diffReviewSource"></div>
+          <div id="diffReviewCountRow" style="display:none;margin:0.5rem 0 0.25rem;font-size:0.8rem;color:var(--text-muted,#64748b)"></div>
+          <div id="diffReviewCountWarning" style="display:none;margin:0.2rem 0 0.5rem;font-size:0.78rem;color:var(--warning,#d97706)"></div>
           <div id="diffReviewSummary" class="settings-subtext" style="margin:0.75rem 0;font-weight:600;"></div>
           <div id="diffReviewConflicts" style="display:none;margin-bottom:1rem;"></div>
           <div id="diffReviewList" style="max-height:320px;overflow-y:auto;border:1px solid var(--border-color,#ddd);border-radius:6px;padding:0.5rem;margin-bottom:1rem;font-size:0.9rem;"></div>
@@ -4533,6 +4550,7 @@
           <div class="encryption-actions" style="gap:0.5rem;flex-wrap:wrap">
             <button class="btn btn-sm" id="diffReviewSelectAll">Select All</button>
             <button class="btn btn-sm" id="diffReviewDeselectAll">Deselect All</button>
+            <button class="btn btn-sm" id="diffReviewSelectAllToggle" style="display:none">Select All</button>
             <button class="btn success" id="diffReviewApplyBtn">Apply Changes</button>
             <button class="btn" id="diffReviewCancelBtn">Cancel</button>
           </div>
