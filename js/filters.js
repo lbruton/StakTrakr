@@ -447,6 +447,21 @@ const renderActiveFilters = () => {
     }
   }
 
+  // Apply chipMaxCount cap to category chips only — search chips and active/excluded chips are always appended after this
+  const chipMaxCountEl = safeGetElement('chipMaxCount');
+  const maxCount = chipMaxCountEl
+    ? parseInt(chipMaxCountEl.value, 10)
+    : parseInt(localStorage.getItem('chipMaxCount') || '0', 10);
+  if (maxCount > 0) {
+    const uncappedChips = chips.filter(c => c && c.field === 'search');
+    const cappedCandidates = chips.filter(c => !c || c.field !== 'search');
+    if (cappedCandidates.length > maxCount) {
+      cappedCandidates.splice(maxCount);
+    }
+    chips.length = 0;
+    chips.push(...uncappedChips, ...cappedCandidates);
+  }
+
   // Add any explicitly applied filter chips (but not if they duplicate category chips)
   Object.entries(activeFilters).forEach(([field, criteria]) => {
     // Skip fields already rendered as category summary chips to avoid duplicates

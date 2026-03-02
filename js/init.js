@@ -296,6 +296,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       // ignore storage errors
     }
 
+    // Ensure chipMaxCount has a sensible default for new installs
+    try {
+      const chipMaxEl = document.getElementById('chipMaxCount');
+      const savedMax = localStorage.getItem('chipMaxCount');
+      if (!savedMax) {
+        localStorage.setItem('chipMaxCount', '0');
+      }
+      if (chipMaxEl) {
+        chipMaxEl.value = localStorage.getItem('chipMaxCount') || '0';
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
+
     // Details modal elements
     debugLog("Phase 7: Initializing details modal elements...");
     elements.detailsModal = safeGetElement("detailsModal");
