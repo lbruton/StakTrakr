@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.25] - 2026-03-02
+
+### Fixed — JSON Export Format Follow-up (STAK-374)
+
+- **Fixed**: `backup-restore.spec.js` now handles new `{ items, exportMeta }` export envelope — was asserting `Array.isArray` on the outer object
+- **Fixed**: JSON import error message updated to mention `exportMeta` is optional, matching actual accepted formats
+- **Docs**: Wiki pages for backup-restore and frontend-overview updated for STAK-374
+
+---
+
 ## [3.33.24] - 2026-03-02
 
 ### Added — Backup Integrity Audit (STAK-374)

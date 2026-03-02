@@ -1,5 +1,6 @@
 ## What's New
 
+- **JSON Export Format Follow-up (v3.33.25)**: Test and error message fixes for the new `{ items, exportMeta }` JSON export envelope introduced in v3.33.24 (STAK-374).
 - **Backup Integrity Audit (v3.33.24)**: exportOrigin metadata added to all export formats. Pre-import validation, DiffModal count header with Select All, and post-import summary banner. Fixes CSV round-trip breakage from comment header, const reassignment crash, and import target detection bug (STAK-374).
 - **Chip Max Count Setting (v3.33.23)**: New `chipMaxCount` setting caps the filter chip bar to prevent overflow. Search chips always render regardless of cap. Configure in Settings.
 - **Storage Error Modal Suppressed for Intraday Cache (v3.33.22)**: saveRetailIntradayData() failures now log a console warning instead of showing a user-visible Storage Error modal — transient 24h sparkline cache is non-critical
