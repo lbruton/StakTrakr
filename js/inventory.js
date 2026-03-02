@@ -3034,6 +3034,21 @@ const importCsv = (file, override = false) => {
           return;
         }
 
+        // Pre-validation — surface skipped items before DiffModal opens
+        var _validationResult = null;
+        if (typeof buildImportValidationResult === 'function') {
+          _validationResult = buildImportValidationResult(imported, skippedNonPM);
+          if (_validationResult.valid.length === 0) {
+            var _firstReason = _validationResult.invalid.length > 0 ? _validationResult.invalid[0].reasons[0] : 'Unknown error';
+            if (typeof showToast === 'function') showToast('No items could be imported: ' + _firstReason);
+            return;
+          }
+          if (_validationResult.skippedCount > 0) {
+            if (typeof showToast === 'function') showToast(_validationResult.skippedCount + ' item(s) could not be imported and were skipped.');
+          }
+          imported = _validationResult.valid;
+        }
+
         // --- Override path: skip DiffEngine, import all items directly ---
         if (override) {
           inventory = imported;
@@ -3065,7 +3080,9 @@ const importCsv = (file, override = false) => {
         }
 
         // --- Merge path: use shared DiffEngine + DiffModal helper ---
-        showImportDiffReview(imported, { type: 'csv', label: file.name }, {}, function(summary) {
+        showImportDiffReview(imported, { type: 'csv', label: file.name }, {
+          validationResult: _validationResult,
+        }, function(summary) {
           debugLog('importCsv DiffEngine complete', summary.added, 'added', summary.modified, 'modified', summary.deleted, 'deleted');
         });
       },
@@ -3672,6 +3689,21 @@ const importJson = (file, override = false) => {
         return;
       }
 
+      // Pre-validation — surface skipped items before DiffModal opens
+      var _validationResult = null;
+      if (typeof buildImportValidationResult === 'function') {
+        _validationResult = buildImportValidationResult(imported, skippedNonPM);
+        if (_validationResult.valid.length === 0) {
+          var _firstReason = _validationResult.invalid.length > 0 ? _validationResult.invalid[0].reasons[0] : 'Unknown error';
+          if (typeof showToast === 'function') showToast('No items could be imported: ' + _firstReason);
+          return;
+        }
+        if (_validationResult.skippedCount > 0) {
+          if (typeof showToast === 'function') showToast(_validationResult.skippedCount + ' item(s) could not be imported and were skipped.');
+        }
+        imported = _validationResult.valid;
+      }
+
       // ── Override path: skip DiffEngine, import all directly ──
       if (override) {
         if (typeof addItemTag === 'function') {
@@ -3731,6 +3763,7 @@ const importJson = (file, override = false) => {
       showImportDiffReview(imported, { type: 'json', label: file.name }, {
         settingsDiff: settingsDiff,
         pendingTagsByUuid: pendingTagsByUuid,
+        validationResult: _validationResult,
       }, function(summary) {
         debugLog('importJson DiffEngine complete', summary.added, 'added', summary.modified, 'modified', summary.deleted, 'deleted');
       });
