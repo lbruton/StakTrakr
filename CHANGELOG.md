@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.33.25] - 2026-03-02
 
-### Fixed — JSON Export Format Follow-up (STAK-374)
+### Added — Browserbase Test Runbook v2 (STAK-396)
 
-- **Fixed**: `backup-restore.spec.js` now handles new `{ items, exportMeta }` export envelope — was asserting `Array.isArray` on the outer object
-- **Fixed**: JSON import error message updated to mention `exportMeta` is optional, matching actual accepted formats
-- **Docs**: Wiki pages for backup-restore and frontend-overview updated for STAK-374
+- **Added**: Modular test runbook at `tests/runbook/` — 75+ tests across 8 section files (01-page-load, 02-crud, 03-backup-restore, 04-import-export, 05-market, 06-ui-ux, 07-activity-log, 08-spot-prices)
+- **Changed**: `/bb-test` skill rewritten as a runtime runbook reader — parses `tests/runbook/*.md` at run time, supports `sections=`, `tags=`, and `dry-run` filter flags, auto-discovers PR preview URL from `gh pr checks`
+- **Changed**: `browserbase-test-maintenance` skill updated to point agents to `tests/runbook/*.md` instead of legacy TypeScript files
+- **Added**: Manual execution guide — Chrome DevTools and Claude browser extension as $0 alternatives for 1-3 test verification (STAK-396)
 
 ---
 
