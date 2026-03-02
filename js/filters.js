@@ -585,13 +585,11 @@ const renderActiveFilters = () => {
       // Disposed-mode chip — clicking resets disposed filter back to 'hide'
       chip.title = 'Showing disposed items only (click to hide disposed)';
       chip.addEventListener('click', function() {
-        var dfg = document.getElementById('disposedFilterGroup');
-        if (dfg) {
-          dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
-            b.classList.toggle('active', b.dataset.disposedMode === 'hide');
-          });
-          if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
-        }
+        const dfg = safeGetElement('disposedFilterGroup');
+        dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
+          b.classList.toggle('active', b.dataset.disposedMode === 'hide');
+        });
+        if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
         if (typeof renderTable === 'function') renderTable();
         renderActiveFilters();
       });
@@ -610,14 +608,12 @@ const renderActiveFilters = () => {
     close.setAttribute('tabindex', '0');
     close.setAttribute('aria-label', `Remove filter ${displayValue}`);
     // Helper to reset disposed filter to 'hide' (for chip × button)
-    var _resetDisposedFilter = function() {
-      var dfg = document.getElementById('disposedFilterGroup');
-      if (dfg) {
-        dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
-          b.classList.toggle('active', b.dataset.disposedMode === 'hide');
-        });
-        if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
-      }
+    const _resetDisposedFilter = function() {
+      const dfg = safeGetElement('disposedFilterGroup');
+      dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.disposedMode === 'hide');
+      });
+      if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
       if (typeof renderTable === 'function') renderTable();
       renderActiveFilters();
     };

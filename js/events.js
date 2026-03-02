@@ -689,12 +689,13 @@ const setupSearchAndChipListeners = () => {
   }
 
   // Disposed filter three-state toggle (STAK-388)
-  var savedDisposedMode = localStorage.getItem('disposedFilterMode') || 'hide';
+  const savedDisposedMode = localStorage.getItem('disposedFilterMode') || 'hide';
   document.querySelectorAll('#disposedFilterGroup .chip-sort-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.disposedMode === savedDisposedMode);
   });
-  document.getElementById('disposedFilterGroup') && document.getElementById('disposedFilterGroup').addEventListener('click', function(e) {
-    var btn = e.target.closest('.chip-sort-btn');
+  const dfg = safeGetElement('disposedFilterGroup');
+  dfg.addEventListener('click', function(e) {
+    const btn = e.target.closest('.chip-sort-btn');
     if (!btn) return;
     document.querySelectorAll('#disposedFilterGroup .chip-sort-btn').forEach(function(b) {
       b.classList.remove('active');

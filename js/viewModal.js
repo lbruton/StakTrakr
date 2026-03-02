@@ -741,14 +741,13 @@ function _renderFooterActions(item, index) {
     restoreBtn.setAttribute('aria-label', 'Restore item to active inventory');
     restoreBtn.onclick = async function() {
       await undoDisposition(index);
-      const modal = safeGetElement('viewItemModal');
-      if (modal) modal.style.display = 'none';
+      closeViewModal();
     };
-    footer.insertBefore(restoreBtn, footer.firstChild);
+    left.insertBefore(restoreBtn, left.firstChild);
   }
 
   // Wire up header close X button
-  const closeX = document.getElementById('viewModalCloseX');
+  const closeX = safeGetElement('viewModalCloseX');
   if (closeX) {
     closeX.onclick = closeViewModal;
   }

@@ -230,14 +230,13 @@ const toggleChange = (logIdx) => {
       try {
         item.disposition = JSON.parse(entry.newValue);
       } catch (e) { return; }
+      saveInventory();
       entry.undone = false;
       if (typeof showToast === 'function') showToast(sanitizeHtml(item.name) + ' re-disposed.');
     } else {
       // Undo: clear the disposition
-      const oldDisposition = JSON.stringify(item.disposition);
       item.disposition = null;
       saveInventory();
-      logChange(item.name, 'Disposition Undone', oldDisposition, '', entry.idx);
       entry.undone = true;
       if (typeof showToast === 'function') showToast(sanitizeHtml(item.name) + ' restored to active inventory.');
     }
