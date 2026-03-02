@@ -2,14 +2,17 @@
 title: "Backup & Restore"
 category: frontend
 owner: staktrakr
-lastUpdated: v3.33.19
-date: 2026-03-01
+lastUpdated: v3.33.24
+date: 2026-03-02
 sourceFiles:
   - js/inventory.js
   - js/vault.js
   - js/cloud-sync.js
   - js/cloud-storage.js
   - js/image-cache.js
+  - js/utils.js
+  - js/diff-modal.js
+  - index.html
 relatedPages:
   - cloud-sync.md
   - image-pipeline.md
@@ -19,8 +22,8 @@ relatedPages:
 ---
 # Backup & Restore
 
-> **Last updated:** v3.33.19 — 2026-03-01
-> **Source files:** `js/inventory.js`, `js/vault.js`, `js/cloud-sync.js`, `js/cloud-storage.js`, `js/image-cache.js`
+> **Last updated:** v3.33.24 — 2026-03-02
+> **Source files:** `js/inventory.js`, `js/vault.js`, `js/cloud-sync.js`, `js/cloud-storage.js`, `js/image-cache.js`, `js/utils.js`, `js/diff-modal.js`, `index.html`
 
 ## Overview
 
@@ -42,6 +45,136 @@ StakTrakr has **4 backup/restore mechanisms**. Each covers a different slice of 
 - **`coinImages` IDB store is legacy — never touch it.** The schema is retained to avoid a forced migration but is never read or written. ZIP restore explicitly skips this folder.
 - **`SYNC_SCOPE_KEYS`** intentionally excludes API keys, OAuth tokens, and spot history. Cloud sync is scoped to inventory + display prefs.
 - When modifying restore logic, always verify the post-restore call sequence: `loadInventory()` → `renderTable()` → `renderActiveFilters()` → `loadSpotHistory()`.
+- **All imports go through `buildImportValidationResult()` before DiffModal opens.** Items that fail validation are surfaced as a pre-validation warning toast and excluded from the DiffModal. If all items are invalid, the import is aborted with an error toast.
+- **All exports embed `exportOrigin` (`window.location.origin`).** On import, if the file's `exportOrigin` differs from the current domain, a cross-domain warning toast is shown before the DiffModal opens. This is informational only and never blocks the import.
+- **DiffModal now shows a live count header** (Backup / Current / After import) and a warning when the projected count is less than the backup count.
+- **A summary banner appears after every import** (`showImportSummaryBanner()`) showing added / updated / removed / skipped counts, with collapsible skip reasons when items were rejected.
+
+---
+
+## Import Validation & Feedback (STAK-374)
+
+All import paths (JSON, CSV, vault) now share a consistent validation and feedback pipeline built from two new utilities in `js/utils.js`.
+
+### `buildImportValidationResult(items, skippedNonPM)`
+
+Batch-validates an array of sanitized inventory items by calling `validateInventoryItem()` on each one.
+
+**Parameters:**
+- `items` — Array of items already processed by `sanitizeImportedItem()`
+- `skippedNonPM` — Optional array of items pre-filtered as non-precious-metal (CSV only); defaults to `[]`
+
+**Returns:**
+```json
+{
+  "valid": [ /* items that passed validation */ ],
+  "invalid": [
+    { "index": 0, "name": "Item Name", "reasons": ["Missing name or weight"] }
+  ],
+  "skippedNonPM": [ /* pre-filtered non-PM items */ ],
+  "skippedCount": 3
+}
+```
+
+`skippedCount` = `invalid.length` + `skippedNonPM.length`
+
+Called in `importJson` and `importCsv` before `showImportDiffReview()` is invoked. If all items are invalid, the import is aborted and an error toast is shown. If some items are invalid, a warning toast is shown and only valid items proceed to the DiffModal.
+
+### `showImportSummaryBanner(result)`
+
+Renders a persistent, dismissible import summary banner above the inventory table after every import completes.
+
+**Parameter shape:**
+```json
+{
+  "added": 5,
+  "modified": 2,
+  "deleted": 0,
+  "skipped": 1,
+  "skippedReasons": ["Item 3: missing weight"]
+}
+```
+
+**Behavior:**
+- Removes any previously rendered banner before inserting a new one (element id `import-summary-banner`, class `import-summary-banner`)
+- Shows a success icon (`banner-success`) when `skipped === 0`, or a warning icon (`banner-warn`) when items were skipped
+- Displays count line: `+ N added  ~N updated  −N removed` plus skipped count when nonzero
+- Includes a `<details>` element listing up to 5 skip reasons when skipped > 0
+- Inserts before the inventory table container via `safeGetElement()`; falls back to `showToast()` if the DOM target is not found
+- Dismiss button (`class="banner-dismiss"`) removes the banner element on click
+
+Called in `showImportDiffReview()` (inside the `onApply` callback) and in `vaultRestoreWithPreview()` (also in `onApply`).
+
+### Cross-domain origin warning
+
+When a file is imported whose `exportOrigin` differs from `window.location.origin` (e.g., importing a backup made on `www.staktrakr.com` while running on `beta.staktrakr.com`), a yellow warning toast is shown before the DiffModal opens. The warning is non-blocking — it does not prevent the import. The origin string is sanitized with `sanitizeHtml()` before display.
+
+This warning appears for:
+- JSON imports (checked in `showImportDiffReview()` via `options.exportMeta.exportOrigin`)
+- Vault restores (checked in `vaultRestoreWithPreview()` via `payload._meta.exportOrigin`)
+
+### DiffModal count header
+
+`DiffModal.show()` accepts two new optional fields:
+- `backupCount` — total items in the backup (valid items + skippedCount)
+- `localCount` — current inventory item count
+
+When both are provided, a count row is rendered in the modal header:
+```
+Backup: 47 items | Current: 45 items | After import: 47
+```
+
+The projected count updates live as checkboxes are toggled (`localCount + selectedAdded − selectedDeleted`). A warning appears below the row when projected count is less than backup count, showing how many items will not be imported.
+
+A **Select All / Deselect All** toggle button cycles through three states:
+1. First click — selects all added and modified rows; button label becomes "Deselect All"
+2. Second click — deselects all; button label reverts to "Select All"
+
+---
+
+## Export Origin Metadata
+
+All export formats now embed `exportOrigin` (`window.location.origin`) so that imports can detect cross-domain transfers.
+
+| Format | Where stored |
+|--------|-------------|
+| JSON (`exportJson`) | `exportMeta.exportOrigin` in the wrapper object |
+| ZIP (`createBackupZip`) | `exportOrigin` field in `settings.json` |
+| Vault (`collectVaultData`) | `_meta.exportOrigin` in the vault payload |
+| CSV (`exportCsv`) | Comment line at the very top: `# exportOrigin: https://...` |
+
+Old exports without `exportOrigin` import silently with no warning.
+
+**JSON export format change:** `exportJson()` now wraps the item array in an object:
+```json
+{
+  "items": [ /* inventory items */ ],
+  "exportMeta": {
+    "exportOrigin": "https://www.staktrakr.com",
+    "exportDate": "2026-03-02T00:00:00.000Z",
+    "version": "3.33.24",
+    "itemCount": 47
+  }
+}
+```
+
+`importJson` handles both the new wrapped format and the legacy plain array format.
+
+---
+
+## Export Format UI Labels
+
+The backup/export panel in `index.html` now shows a `<small class="format-desc">` description beneath each format option to help users choose the right format:
+
+| Format | Description label |
+|--------|------------------|
+| CSV | "Inventory items only — spreadsheet compatible" |
+| JSON | "Inventory items only — no settings or price history" |
+| HTML report | "Inventory items only — printable report" |
+| ZIP | "Full backup — inventory, settings, price history, and images" |
+| .stvault | "Encrypted full backup — inventory, settings, price history, and images" |
+
+CSS: `.format-desc { display: block; font-size: 0.75em; opacity: 0.7; margin-top: 2px; }`
 
 ---
 
@@ -56,7 +189,7 @@ StakTrakr has **4 backup/restore mechanisms**. Each covers a different slice of 
 | File in ZIP | Contents | Storage restored to |
 |-------------|----------|---------------------|
 | `inventory_data.json` | Full inventory array (includes CDN URLs: `obverseImageUrl`, `reverseImageUrl`) | localStorage (`LS_KEY`) |
-| `settings.json` | Theme, catalog mappings, feature flags, chip config, table settings | localStorage (multiple keys) |
+| `settings.json` | Theme, catalog mappings, feature flags, chip config (`chipMinCount`, `chipMaxCount`), table settings | localStorage (multiple keys) |
 | `spot_price_history.json` | Historical spot prices | localStorage (`SPOT_HISTORY_KEY`) |
 | `item_price_history.json` | Per-item price history | Merged via `mergeItemPriceHistory()` |
 | `item_tags.json` | Item tags | localStorage |
@@ -202,7 +335,7 @@ All `userImages` IDB records serialized as base64 blobs.
 
 ### Sync scope
 
-`SYNC_SCOPE_KEYS` (defined in `js/constants.js`) includes: `metalInventory`, `itemTags`, display preferences.
+`SYNC_SCOPE_KEYS` (defined in `js/constants.js`) includes: `metalInventory`, `itemTags`, display preferences, `chipMinCount`, `chipMaxCount`.
 
 Intentionally excludes: API keys, OAuth tokens, spot price history.
 
@@ -266,6 +399,10 @@ Intentionally excludes: API keys, OAuth tokens, spot price history.
 | "Numista images came back immediately after vault restore" | Expected behavior. Numista CDN URLs (`obverseImageUrl`, `reverseImageUrl`) are stored on the inventory items in localStorage, so they survive any vault restore without touching IDB. | No action needed — this is correct. |
 | "Image vault upload failed during cloud push" | Image vault upload is non-fatal — the inventory vault still succeeds. | Check Dropbox token validity. The next successful push will retry the image vault if the hash changed. |
 | "Conflict prompt appeared after cloud pull" | Both local and remote have diverged — last push is more recent than last pull, meaning both sides have independent changes. | Review the conflict UI and choose which version to keep. |
+| "DiffModal shows fewer items than I expected" | Pre-validation in `buildImportValidationResult()` filters out invalid items before DiffModal opens. The count header shows backup count (including skipped) vs. projected count. | Check the pre-validation warning toast for the number of skipped items and their reasons. The post-import summary banner also lists skip reasons. |
+| "I see a yellow cross-domain warning on import" | The file's `exportOrigin` (e.g., `https://beta.staktrakr.com`) differs from the current domain. This means you are importing a backup from a different environment — inventories are separate. | The warning is informational only. Proceed if you intentionally want to merge across environments. |
+| "The JSON file I exported doesn't look like a plain array anymore" | As of v3.33.24, `exportJson()` wraps items in an object with `items` and `exportMeta` fields. | Both the wrapped format and the legacy plain-array format are supported on import. Old files still import correctly. |
+| "Import shows a banner but also a toast" | If `safeGetElement()` cannot find the inventory table container, `showImportSummaryBanner()` falls back to `showToast()`. | Verify the inventory container element id is present in the DOM at import time. |
 
 > **Never modify the `coinImages` IDB store.** It is a legacy store retained only to avoid a forced migration. It is never read or written. ZIP restore explicitly skips `coinImages/` and logs: `"skipping legacy coinImages folder (store deprecated)"`.
 

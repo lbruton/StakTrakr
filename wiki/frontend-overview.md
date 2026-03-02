@@ -2,11 +2,15 @@
 title: Frontend Overview
 category: frontend
 owner: staktrakr
-lastUpdated: v3.33.19
-date: 2026-03-01
+lastUpdated: v3.33.24
+date: 2026-03-02
 sourceFiles:
   - index.html
   - js/constants.js
+  - js/filters.js
+  - js/events.js
+  - js/changeLog.js
+  - js/viewModal.js
   - sw.js
   - js/file-protocol-fix.js
 relatedPages:
@@ -19,8 +23,8 @@ relatedPages:
 ---
 # Frontend Overview
 
-> **Last updated:** v3.33.19 — 2026-03-01
-> **Source files:** `index.html`, `js/constants.js`, `sw.js`, `js/file-protocol-fix.js`
+> **Last updated:** v3.33.24 — 2026-03-02
+> **Source files:** `index.html`, `js/constants.js`, `js/filters.js`, `js/events.js`, `js/changeLog.js`, `js/viewModal.js`, `sw.js`, `js/file-protocol-fix.js`
 
 ## Overview
 
@@ -106,6 +110,8 @@ Active feature flags as of v3.33.19:
 | `isDisposed(item)` | `js/constants.js` | Helper predicate — returns `true` if an item has a `disposition` record |
 | `SYNC_MANIFEST_PATH` | `js/constants.js` | Dropbox path for encrypted change manifest (`/StakTrakr/sync/staktrakr-sync.stmanifest`) |
 | `SYNC_MANIFEST_PATH_LEGACY` | `js/constants.js` | Legacy Dropbox path for change manifest (flat root) |
+| `buildImportValidationResult(items, skippedNonPM)` | `js/utils.js` | Batch-validates sanitized import items; returns `{ valid, invalid, skippedNonPM, skippedCount }` (added v3.33.24) |
+| `showImportSummaryBanner(result)` | `js/utils.js` | Renders a persistent post-import summary banner above the inventory table (added v3.33.24) |
 
 ### Key subsystems
 
@@ -117,7 +123,7 @@ Active feature flags as of v3.33.19:
 | Market list view | `js/retail.js` | Full-width card layout with search/sort/charts (feature-flagged, v3.33.06) |
 | Spot prices | `js/spot.js`, `js/priceHistory.js` | Polls hourly and 15-min feeds from `api.staktrakr.com` |
 | Cloud sync | `js/cloud-sync.js`, `js/cloud-storage.js` | Backup/restore via encrypted cloud vault |
-| Diff/Merge | `js/diff-engine.js`, `js/diff-modal.js` | Change-set diffing and interactive merge review UI (STAK-184) |
+| Diff/Merge | `js/diff-engine.js`, `js/diff-modal.js` | Change-set diffing and interactive merge review UI (STAK-184). DiffModal accepts optional `backupCount`/`localCount` fields to render a live count header (Backup / Current / After import) with projected-count updates and a Select All toggle (STAK-374). |
 | Catalog | `js/catalog-manager.js`, `js/seed-images.js` | Coin/bar catalog with image cache |
 | Image cache | `js/image-cache.js` | Per-item user photo storage; dynamic quota; byte tracking per store |
 | Service worker | `sw.js` | Offline support, PWA installability, cache versioning |
@@ -145,6 +151,30 @@ The Market Prices section in `index.html` now has **two mutually exclusive heade
 
 `renderRetailCards()` in `js/retail.js` checks the feature flag at entry and either delegates to `_renderMarketListView()` or falls through to the original grid renderer. The grid path explicitly hides `#marketListHeader` and removes `.market-list-mode` from the grid container to ensure a clean state.
 
+### Filter chip max count (v3.33.23 — STAK-169)
+
+The search toolbar (`#searchSectionEl` in `index.html`) includes an inline `#chipMaxCount` `<select>` control beside the existing `#chipMinCount` control. Selecting a value caps the number of category chips rendered by `renderActiveFilters()` in `js/filters.js`.
+
+**How it works:**
+
+- The inline toolbar select (`id="chipMaxCount"`) and the Settings modal mirror select (`id="settingsChipMaxCount"`) both write to `localStorage.chipMaxCount`.
+- `renderActiveFilters()` reads the element value first (preferred, always reflects the current DOM state) and falls back to `localStorage.getItem('chipMaxCount')` if the element is absent.
+- The cap is applied **only to category chips** — after Phase A grouping and before Phase B explicit-filter chips are appended. Active-filter chips (e.g. an applied text filter) are always shown regardless of the cap.
+- `maxCount === 0` means no cap (the "All" option, default for new installs).
+- The chip cap is clamped via `Array.prototype.splice(maxCount)` when `chips.length > maxCount`.
+
+**Storage:** `chipMaxCount` is a scalar string stored directly in `localStorage` (not via `saveData`). It is registered in both `ALLOWED_STORAGE_KEYS` and `SYNC_SCOPE_KEYS` in `js/constants.js`, so it survives `cleanupStorage()` and is included in cloud sync vaults.
+
+**Inline toolbar options:** `25` | `50` | `100` | `500` | `0 (All, default)`
+
+**Settings modal:** `settingsChipMaxCount` in Settings → Filters mirrors the inline control. Changes in either location are immediately reflected in the other and re-render the filter bar.
+
+**Backup/restore:** `chipMaxCount` is exported in `settings.json` inside the ZIP backup and restored by `restoreBackupZip()` in `js/inventory.js`.
+
+**Default:** `'0'` (no cap) written on first install by `js/init.js`.
+
+---
+
 ### Disposition workflow (v3.33.17 — STAK-72)
 
 Items can be marked as disposed via the remove-item modal (`#removeItemModal` in `index.html`), which combines delete and disposition tracking with a checkbox toggle. Disposition types are defined in `DISPOSITION_TYPES` in `js/constants.js`:
@@ -161,11 +191,13 @@ Items can be marked as disposed via the remove-item modal (`#removeItemModal` in
 
 **Visual indicators:** Disposed items show a colored badge (`.disposition-badge--{type}`) in both table rows and card views. Disposed table rows receive `.disposed-row` (opacity + strikethrough); disposed cards receive `.disposed-card`. Badge colors are theme-aware (light and dark variants in `css/styles.css`).
 
-**Filter toggle:** A "Show disposed" toggle (`#showDisposedToggle`) in the filter bar controls whether disposed items appear in the inventory list. When unchecked (default), `js/filters.js` strips items with a `disposition` property.
+**Filter toggle:** A three-state chip-sort-toggle (`#disposedFilterGroup`) in the filter bar controls disposed item visibility. Three modes cycle on click: **Hide** (default — `js/filters.js` strips all disposed items), **Show All** (active + disposed items rendered together), and **Disposed Only** (only disposed items shown). The selected mode is persisted as `disposedFilterMode` (`'hide'` | `'show-all'` | `'show-only'`) in localStorage. An active filter chip is rendered in the filter bar when the mode is not `'hide'`.
 
 **Portfolio summary:** Each metal's summary card and the "All" summary card include a disposed-items breakdown with realized G/L when disposed items exist (`#disposedWrap{Metal}`, `#disposedWrapAll`).
 
-**Undo:** `undoDisposition(idx)` restores a disposed item to active inventory after user confirmation, clearing the `disposition` property and logging the change.
+**Undo:** `undoDisposition(idx)` restores a disposed item to active inventory after user confirmation, clearing the `disposition` property and logging the change. The `toggleChange()` function in `js/changeLog.js` has a dedicated `'Disposed'` branch that correctly clears `item.disposition` when an undo change-log entry is replayed.
+
+**Restore from view modal:** The item view modal (`js/viewModal.js`) renders a **Restore to Inventory** button in its footer actions when the viewed item is disposed. Clicking it calls `undoDisposition()` directly, allowing a one-click restore without navigating to the inventory table.
 
 **CSV export:** Four disposition columns are appended to the export: Disposition Type, Disposition Date, Disposition Amount, Realized G/L.
 
