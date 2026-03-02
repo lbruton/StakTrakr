@@ -733,8 +733,21 @@ function _renderFooterActions(item, index) {
   footer.appendChild(left);
   footer.appendChild(right);
 
+  // Restore to Inventory button for disposed items (STAK-388)
+  if (isDisposed(item)) {
+    const restoreBtn = document.createElement('button');
+    restoreBtn.textContent = 'Restore to Inventory';
+    restoreBtn.className = 'view-footer-btn secondary';
+    restoreBtn.setAttribute('aria-label', 'Restore item to active inventory');
+    restoreBtn.onclick = async function() {
+      await undoDisposition(index);
+      closeViewModal();
+    };
+    left.insertBefore(restoreBtn, left.firstChild);
+  }
+
   // Wire up header close X button
-  const closeX = document.getElementById('viewModalCloseX');
+  const closeX = safeGetElement('viewModalCloseX');
   if (closeX) {
     closeX.onclick = closeViewModal;
   }

@@ -963,8 +963,12 @@
                 <button type="button" class="chip-sort-btn save-filter-btn" id="saveSearchPatternBtn" title="Save current search as a custom filter chip">Save Filter</button>
               </div>
               <div class="control-group">
-                <label for="showDisposedToggle" class="control-label">Disposed:</label>
-                <input type="checkbox" id="showDisposedToggle" title="Show disposed items in the inventory view">
+                <span class="control-label">Disposed:</span>
+                <div class="chip-sort-toggle" id="disposedFilterGroup" title="Filter disposed items">
+                  <button type="button" class="chip-sort-btn active" data-disposed-mode="hide">Hide</button>
+                  <button type="button" class="chip-sort-btn" data-disposed-mode="show-all">Show All</button>
+                  <button type="button" class="chip-sort-btn" data-disposed-mode="show-only">Disposed Only</button>
+                </div>
               </div>
             </div>
             <div class="filter-row">

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.21] - 2026-03-02
+
+### Fixed — Disposed Items: Restore and View (STAK-388)
+
+- **Fixed**: Three-state disposed filter replaces checkbox — Hide (default), Show All, Disposed Only with persistent selection and active-filter chip (STAK-388)
+- **Fixed**: Changelog undo now correctly reverses disposition — previously set spurious `item['Disposed']` property instead of clearing `item.disposition` (STAK-388)
+- **Fixed**: "Restore to Inventory" button added to view modal footer for disposed items (STAK-388)
+
+---
+
 ## [3.33.20] - 2026-03-02
 
 ### Fixed — Market Panel Bug Fixes (STAK-389)
