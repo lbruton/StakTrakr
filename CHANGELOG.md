@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.22] - 2026-03-02
+
+### Fixed — Suppress Storage Error Modal for Intraday Cache (STAK-383)
+
+- **Fixed**: `saveRetailIntradayData()` catch block now uses `debugLog` warn instead of `_handleSaveError`, suppressing user-visible Storage Error modal for non-critical 24h sparkline cache save failures (STAK-383)
+
+---
+
 ## [3.33.21] - 2026-03-02
 
 ### Fixed — Disposed Items: Restore and View (STAK-388)
