@@ -6,7 +6,7 @@
 - **GitHub PR:** [#NNN](https://github.com/lbruton/StakTrakr/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{{spec-name}}/`
 
-{/* VERSION CHECKOUT GATE — MANDATORY
+<!-- VERSION CHECKOUT GATE — MANDATORY
 Before implementing ANY task below, you MUST:
 1. Run /release patch (or /start-patch) to claim a version and create a worktree
 2. Record the assigned version (e.g., 3.34.01) in the first implementation log
@@ -21,7 +21,7 @@ After ALL tasks are [x] and implementation logs are recorded:
 2. Close all linked Linear issues (move to Done)
 3. Verify /bb-test passes or file follow-up Linear issues for any new failures
 4. The spec is NOT complete until all three are verified.
-*/}
+-->
 
 ---
 

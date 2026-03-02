@@ -1,5 +1,8 @@
 ## What's New
 
+- **Chip Max Count Setting (v3.33.23)**: New `chipMaxCount` setting caps the filter chip bar to prevent overflow. Search chips always render regardless of cap. Configure in Settings.
+- **Storage Error Modal Suppressed for Intraday Cache (v3.33.22)**: saveRetailIntradayData() failures now log a console warning instead of showing a user-visible Storage Error modal — transient 24h sparkline cache is non-critical
+- **Disposed Items: Restore &amp; View (v3.33.21)**: Three-state disposed filter (Hide/Show All/Disposed Only). Changelog undo now correctly reverses dispositions. "Restore to Inventory" button added to view modal for disposed items
 - **Market Panel Bug Fixes (v3.33.20)**: API-driven item names via getRetailCoinMeta() as source of truth. Grid/list sync status shows "just now" after sync, time-ago when lingering, error state on API failure. Activity log dropdown dynamically populated from API manifest
 - **DiffMerge Integration (v3.33.19)**: Selective apply for cloud sync pull and encrypted vault restore. DiffModal preview replaces full overwrite — users choose which changes to accept. Shared _applyAndFinalize helper consolidates post-apply sequence
 - **Diff/Merge Architecture Foundation (v3.33.18)**: Manifest path constants, pruning threshold storage key, diffReviewModal HTML scaffold, and diff-modal.js script registration for the reusable change-review UI

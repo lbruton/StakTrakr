@@ -243,7 +243,7 @@ const saveRetailIntradayData = () => {
   try {
     saveDataSync(RETAIL_INTRADAY_KEY, retailIntradayData);
   } catch (err) {
-    _handleSaveError("retail intraday data", err);
+    debugWarn(`[retail] Failed to save retail intraday data: ${err.message} (non-critical cache)`);
   }
 };
 
