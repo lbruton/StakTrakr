@@ -440,6 +440,15 @@ const renderActiveFilters = () => {
     }
   }
 
+  // Apply chipMaxCount cap to category chips only — active/excluded chips are always appended after this
+  const chipMaxCountEl = document.getElementById('chipMaxCount');
+  const maxCount = chipMaxCountEl
+    ? parseInt(chipMaxCountEl.value, 10)
+    : parseInt(localStorage.getItem('chipMaxCount') || '0', 10);
+  if (maxCount > 0 && chips.length > maxCount) {
+    chips.splice(maxCount);
+  }
+
   // Add any explicitly applied filter chips (but not if they duplicate category chips)
   Object.entries(activeFilters).forEach(([field, criteria]) => {
     // Skip fields already rendered as category summary chips to avoid duplicates

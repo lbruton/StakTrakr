@@ -242,6 +242,12 @@ const syncSettingsUI = () => {
     chipMinSetting.value = localStorage.getItem('chipMinCount') || '3';
   }
 
+  // Chip max count — sync with inline control
+  const chipMaxSetting = document.getElementById('settingsChipMaxCount');
+  if (chipMaxSetting) {
+    chipMaxSetting.value = localStorage.getItem('chipMaxCount') || '0';
+  }
+
   // Smart name grouping — sync with inline toggle
   const groupSetting = document.getElementById('settingsGroupNameChips');
   if (groupSetting && window.featureFlags) {
@@ -1954,6 +1960,7 @@ const STORAGE_KEY_LABELS = {
   layoutSectionConfig:             { label: 'Layout Section Config',      icon: '⚙️', category: 'Settings' },
   viewModalSectionConfig:          { label: 'View Modal Section Config',  icon: '⚙️', category: 'Settings' },
   chipMinCount:                    { label: 'Chip Min Count',             icon: '⚙️', category: 'Settings' },
+  chipMaxCount:                    { label: 'Chip Max Count',             icon: '⚙️', category: 'Settings' },
   chipCustomGroups:                { label: 'Chip Custom Groups',         icon: '⚙️', category: 'Settings' },
   chipBlacklist:                   { label: 'Chip Blacklist',             icon: '⚙️', category: 'Settings' },
   inlineChipConfig:                { label: 'Inline Chip Config',         icon: '⚙️', category: 'Settings' },

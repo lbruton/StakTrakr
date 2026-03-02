@@ -803,6 +803,7 @@ const SYNC_SCOPE_KEYS = [
   'filterChipCategoryConfig', // filter chip category config
   'viewModalSectionConfig',   // view modal section visibility
   'chipMinCount',     // minimum count for filter chips
+  'chipMaxCount',     // maximum chip count for filter bar
 ];
 
 const ALLOWED_STORAGE_KEYS = [
@@ -825,6 +826,7 @@ const ALLOWED_STORAGE_KEYS = [
   "spotPlatinum",
   "spotPalladium",
   "chipMinCount",
+  "chipMaxCount",
   "changeLog",
   "autocomplete_lookup_cache",
   "autocomplete_cache_timestamp",

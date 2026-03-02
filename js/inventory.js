@@ -132,6 +132,7 @@ const createBackupZip = async () => {
       chipCustomGroups: loadDataSync('chipCustomGroups', []),
       chipBlacklist: loadDataSync('chipBlacklist', []),
       chipMinCount: localStorage.getItem('chipMinCount'),
+      chipMaxCount: localStorage.getItem('chipMaxCount'),
       featureFlags: localStorage.getItem(FEATURE_FLAGS_KEY),
       // Inline chip config (v3.17.00+)
       inlineChipConfig: localStorage.getItem('inlineChipConfig'),
@@ -380,6 +381,9 @@ const restoreBackupZip = async (file) => {
       }
       if (settingsObj.chipMinCount != null) {
         localStorage.setItem('chipMinCount', settingsObj.chipMinCount);
+      }
+      if (settingsObj.chipMaxCount != null) {
+        localStorage.setItem('chipMaxCount', settingsObj.chipMaxCount);
       }
       if (settingsObj.featureFlags != null) {
         localStorage.setItem(FEATURE_FLAGS_KEY, settingsObj.featureFlags);
