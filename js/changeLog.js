@@ -221,6 +221,31 @@ const toggleChange = (logIdx) => {
       }
       entry.undone = true;
     }
+  // Disposition undo/redo (STAK-388)
+  } else if (entry.field === 'Disposed') {
+    const item = inventory[entry.idx];
+    if (!item) return;
+    if (entry.undone) {
+      // Redo: re-apply the disposition from newValue
+      try {
+        item.disposition = JSON.parse(entry.newValue);
+      } catch (e) { return; }
+      saveInventory();
+      entry.undone = false;
+      if (typeof showToast === 'function') showToast(sanitizeHtml(item.name) + ' re-disposed.');
+    } else {
+      // Undo: clear the disposition
+      item.disposition = null;
+      saveInventory();
+      entry.undone = true;
+      if (typeof showToast === 'function') showToast(sanitizeHtml(item.name) + ' restored to active inventory.');
+    }
+    renderTable();
+    if (typeof renderActiveFilters === 'function') renderActiveFilters();
+    if (typeof updateSummary === 'function') updateSummary();
+    renderChangeLog();
+    saveDataSync('changeLog', changeLog);
+    return;
   } else {
     const item = inventory[entry.idx];
     if (!item) return;
