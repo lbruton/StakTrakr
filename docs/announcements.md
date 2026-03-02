@@ -1,6 +1,7 @@
 ## What's New
 
 - **Backup Integrity Audit (v3.33.24)**: exportOrigin metadata added to all export formats. Pre-import validation, DiffModal count header with Select All, and post-import summary banner. Fixes CSV round-trip breakage from comment header, const reassignment crash, and import target detection bug (STAK-374).
+- **Chip Max Count Setting (v3.33.23)**: New `chipMaxCount` setting caps the filter chip bar to prevent overflow. Search chips always render regardless of cap. Configure in Settings.
 - **Storage Error Modal Suppressed for Intraday Cache (v3.33.22)**: saveRetailIntradayData() failures now log a console warning instead of showing a user-visible Storage Error modal — transient 24h sparkline cache is non-critical
 - **Disposed Items: Restore &amp; View (v3.33.21)**: Three-state disposed filter (Hide/Show All/Disposed Only). Changelog undo now correctly reverses dispositions. "Restore to Inventory" button added to view modal for disposed items
 - **Market Panel Bug Fixes (v3.33.20)**: API-driven item names via getRetailCoinMeta() as source of truth. Grid/list sync status shows "just now" after sync, time-ago when lingering, error state on API failure. Activity log dropdown dynamically populated from API manifest

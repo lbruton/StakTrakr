@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.23] - 2026-03-02
+
+### Added — Chip Max Count Setting (STAK-169)
+
+- **Added**: `chipMaxCount` setting to cap the number of filter chips displayed in the chip bar — prevents overflow on small screens
+- **Added**: `settingsChipMaxCount` selector in Settings panel to configure the cap (0 = unlimited)
+- **Fixed**: Search-term chips excluded from the cap so they always render regardless of the limit
+
+---
+
 ## [3.33.22] - 2026-03-02
 
 ### Fixed — Suppress Storage Error Modal for Intraday Cache (STAK-383)

@@ -658,6 +658,24 @@ const setupSearchAndChipListeners = () => {
     );
   }
 
+  // Chip maximum count dropdown (inline)
+  const chipMaxCountEl = safeGetElement('chipMaxCount');
+  if (chipMaxCountEl) {
+    safeAttachListener(
+      chipMaxCountEl,
+      'change',
+      (e) => {
+        const maxCount = parseInt(e.target.value, 10);
+        localStorage.setItem('chipMaxCount', maxCount.toString());
+        const settingsChipMax = safeGetElement('settingsChipMaxCount');
+        if (settingsChipMax) settingsChipMax.value = maxCount.toString();
+        if (typeof renderActiveFilters === 'function') renderActiveFilters();
+        if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+      },
+      'Chip max count select',
+    );
+  }
+
   // Grouped name chips toggle (inline) — uses global helper from settings.js
   const groupNameChipsEl = document.getElementById('groupNameChips');
   if (groupNameChipsEl && window.featureFlags) {
