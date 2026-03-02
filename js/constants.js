@@ -919,6 +919,7 @@ const ALLOWED_STORAGE_KEYS = [
   "cloud_sync_migrated",                               // string: "v2" — cloud folder migration flag (flat → /sync/ + /backups/)
   "cloud_backup_history_depth",                        // string: "3"|"5"|"10"|"20" — max cloud backups to retain
   "manifestPruningThreshold",                          // number string: max sync cycles to retain in manifest before pruning older entries (STAK-184)
+  "disposedFilterMode",                                // string: "hide"|"show-all"|"show-only" — three-state disposed filter (STAK-388)
 ];
 
 // =============================================================================

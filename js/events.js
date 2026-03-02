@@ -688,14 +688,22 @@ const setupSearchAndChipListeners = () => {
     wireChipSortToggle('chipSortOrder', 'settingsChipSortOrder');
   }
 
-  // Show Disposed toggle (STAK-72)
-  const showDisposedToggle = document.getElementById('showDisposedToggle');
-  if (showDisposedToggle) {
-    showDisposedToggle.addEventListener('change', () => {
-      if (typeof renderTable === 'function') renderTable();
-      if (typeof renderActiveFilters === 'function') renderActiveFilters();
+  // Disposed filter three-state toggle (STAK-388)
+  var savedDisposedMode = loadData('disposedFilterMode') || 'hide';
+  document.querySelectorAll('#disposedFilterGroup .chip-sort-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.disposedMode === savedDisposedMode);
+  });
+  document.getElementById('disposedFilterGroup') && document.getElementById('disposedFilterGroup').addEventListener('click', function(e) {
+    var btn = e.target.closest('.chip-sort-btn');
+    if (!btn) return;
+    document.querySelectorAll('#disposedFilterGroup .chip-sort-btn').forEach(function(b) {
+      b.classList.remove('active');
     });
-  }
+    btn.classList.add('active');
+    saveData('disposedFilterMode', btn.dataset.disposedMode);
+    if (typeof filterInventory === 'function') filterInventory();
+    if (typeof renderActiveFilters === 'function') renderActiveFilters();
+  });
 };
 
 /**
