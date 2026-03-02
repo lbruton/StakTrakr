@@ -2822,14 +2822,14 @@ const showImportDiffReview = (parsedItems, sourceInfo, options, onComplete) => {
   }
 
   // Compute count header values for DiffModal (STAK-374)
-  var _backupCount = parsedItems.length + (options.validationResult ? (options.validationResult.skippedCount || 0) : 0);
-  var _localCount = (typeof inventory !== 'undefined' && Array.isArray(inventory)) ? inventory.length : 0;
+  const _backupCount = parsedItems.length + (options.validationResult ? (options.validationResult.skippedCount || 0) : 0);
+  const _localCount = (typeof inventory !== 'undefined' && Array.isArray(inventory)) ? inventory.length : 0;
 
   // Cross-domain origin warning (STAK-374): warn when importing from a different domain
-  var _parsedOrigin = options.exportMeta && options.exportMeta.exportOrigin ? options.exportMeta.exportOrigin : null;
-  var _currentOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
+  const _parsedOrigin = options.exportMeta && options.exportMeta.exportOrigin ? options.exportMeta.exportOrigin : null;
+  const _currentOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
   if (_parsedOrigin && _currentOrigin && _parsedOrigin !== _currentOrigin && typeof showToast === 'function') {
-    var _safeFrom = typeof sanitizeHtml === 'function' ? sanitizeHtml(_parsedOrigin) : _parsedOrigin;
+    const _safeFrom = typeof sanitizeHtml === 'function' ? sanitizeHtml(_parsedOrigin) : _parsedOrigin;
     showToast('\u26A0 This backup is from a different domain (' + _safeFrom + '). Check item counts carefully.');
   }
 

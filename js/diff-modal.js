@@ -68,16 +68,16 @@
    */
   function _computeProjectedCount() {
     if (!_options) return 0;
-    var localCount = _options.localCount != null ? _options.localCount : 0;
-    var diff = _options.diff || {};
-    var added = diff.added || [];
-    var deleted = diff.deleted || [];
-    var selectedAdded = 0;
-    var selectedDeleted = 0;
-    for (var a = 0; a < added.length; a++) {
+    const localCount = _options.localCount != null ? _options.localCount : 0;
+    const diff = _options.diff || {};
+    const added = diff.added || [];
+    const deleted = diff.deleted || [];
+    let selectedAdded = 0;
+    let selectedDeleted = 0;
+    for (let a = 0; a < added.length; a++) {
       if (_checkedItems['added-' + a] !== false) selectedAdded++;
     }
-    for (var d = 0; d < deleted.length; d++) {
+    for (let d = 0; d < deleted.length; d++) {
       if (_checkedItems['deleted-' + d] !== false) selectedDeleted++;
     }
     return localCount + selectedAdded - selectedDeleted;
@@ -90,13 +90,13 @@
    */
   function _updateCountRow() {
     if (!_options) return;
-    var backupCount = _options.backupCount;
-    var localCount = _options.localCount;
-    var countRowEl = safeGetElement('diffReviewCountRow');
-    var warningEl = safeGetElement('diffReviewCountWarning');
+    const backupCount = _options.backupCount;
+    const localCount = _options.localCount;
+    const countRowEl = safeGetElement('diffReviewCountRow');
+    const warningEl = safeGetElement('diffReviewCountWarning');
 
     if (backupCount != null && localCount != null) {
-      var projectedCount = _computeProjectedCount();
+      const projectedCount = _computeProjectedCount();
 
       if (countRowEl) {
         countRowEl.innerHTML = 'Backup: <strong>' + backupCount + '</strong> items'
@@ -106,7 +106,7 @@
       }
 
       if (warningEl) {
-        var missing = backupCount - projectedCount;
+        const missing = backupCount - projectedCount;
         if (missing > 0) {
           warningEl.textContent = missing + ' item' + (missing > 1 ? 's' : '') + ' from the backup will not be imported because they were not selected.';
           warningEl.style.display = '';
@@ -118,7 +118,7 @@
 
       // Fire onSelectionChange callback if provided
       if (typeof _options.onSelectionChange === 'function') {
-        var selected = _buildSelectedChanges();
+        const selected = _buildSelectedChanges();
         _options.onSelectionChange(selected, projectedCount);
       }
     } else {
@@ -446,19 +446,19 @@
    */
   function _toggleSelectAll() {
     _selectAllToggle = !_selectAllToggle;
-    var diff = _options ? _options.diff || {} : {};
+    const diff = _options ? _options.diff || {} : {};
     if (_selectAllToggle) {
       // Select all added and modified (spec: added + modified only for backup flow)
-      for (var i = 0; i < (diff.added || []).length; i++) _checkedItems['added-' + i] = true;
-      for (var j = 0; j < (diff.modified || []).length; j++) _checkedItems['modified-' + j] = true;
+      for (let i = 0; i < (diff.added || []).length; i++) _checkedItems['added-' + i] = true;
+      for (let j = 0; j < (diff.modified || []).length; j++) _checkedItems['modified-' + j] = true;
     } else {
       // Deselect all
-      for (var key in _checkedItems) {
+      for (const key in _checkedItems) {
         if (_checkedItems.hasOwnProperty(key)) _checkedItems[key] = false;
       }
     }
     // Update toggle button label
-    var toggleBtn = safeGetElement('diffReviewSelectAllToggle');
+    const toggleBtn = safeGetElement('diffReviewSelectAllToggle');
     if (toggleBtn) {
       toggleBtn.textContent = _selectAllToggle ? 'Deselect All' : 'Select All';
     }
