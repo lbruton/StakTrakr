@@ -6,7 +6,7 @@
 - **GitHub PR:** [#NNN](https://github.com/lbruton/StakTrakr/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{{spec-name}}/`
 
-{/* VERSION CHECKOUT GATE — MANDATORY
+<!-- VERSION CHECKOUT GATE — MANDATORY
 Before implementing ANY task below, you MUST:
 1. Run /release patch (or /start-patch) to claim a version and create a worktree
 2. Record the assigned version (e.g., 3.34.01) in the first implementation log
@@ -21,7 +21,7 @@ After ALL tasks are [x] and implementation logs are recorded:
 2. Close all linked Linear issues (move to Done)
 3. Verify /bb-test passes or file follow-up Linear issues for any new failures
 4. The spec is NOT complete until all three are verified.
-*/}
+-->
 
 ---
 
@@ -33,7 +33,7 @@ After ALL tasks are [x] and implementation logs are recorded:
 - **innerHTML**: always wrap user content in `sanitizeHtml()`
 - **New JS files**: add to BOTH `index.html` (correct load-order position) AND `sw.js` CORE_ASSETS
 - **Duplicate check**: before editing `events.js` or `api.js`, grep for the function name in both files
-- **Variable declarations**: use `var` in files that already use `var`; use `const`/`let` only if the file already uses them
+- **Variable declarations**: always use `const`/`let` — `var` is banned per AGENTS.md coding style
 
 ---
 
