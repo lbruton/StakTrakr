@@ -592,7 +592,7 @@ const renderActiveFilters = () => {
           });
           if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
         }
-        if (typeof filterInventory === 'function') filterInventory();
+        if (typeof renderTable === 'function') renderTable();
         renderActiveFilters();
       });
     } else {
@@ -618,7 +618,7 @@ const renderActiveFilters = () => {
         });
         if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
       }
-      if (typeof filterInventory === 'function') filterInventory();
+      if (typeof renderTable === 'function') renderTable();
       renderActiveFilters();
     };
     close.onclick = (e) => {

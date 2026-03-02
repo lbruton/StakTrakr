@@ -689,7 +689,7 @@ const setupSearchAndChipListeners = () => {
   }
 
   // Disposed filter three-state toggle (STAK-388)
-  var savedDisposedMode = loadData('disposedFilterMode') || 'hide';
+  var savedDisposedMode = localStorage.getItem('disposedFilterMode') || 'hide';
   document.querySelectorAll('#disposedFilterGroup .chip-sort-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.disposedMode === savedDisposedMode);
   });
@@ -700,8 +700,8 @@ const setupSearchAndChipListeners = () => {
       b.classList.remove('active');
     });
     btn.classList.add('active');
-    saveData('disposedFilterMode', btn.dataset.disposedMode);
-    if (typeof filterInventory === 'function') filterInventory();
+    localStorage.setItem('disposedFilterMode', btn.dataset.disposedMode);
+    if (typeof renderTable === 'function') renderTable();
     if (typeof renderActiveFilters === 'function') renderActiveFilters();
   });
 };
