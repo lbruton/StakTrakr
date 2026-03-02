@@ -99,7 +99,10 @@ devops/hub/
 
 # Git worktrees for isolated agent work — content dirs are transient, not project history
 .claude/worktrees/
-.spec-workflow/
+# Ignore spec-workflow transient data (specs, logs, approvals) but track user-templates
+.spec-workflow/*
+!.spec-workflow/user-templates/
+!.spec-workflow/user-templates/**
 
 # Wiki nightwatch — local rotation state, not project history
 wiki/.nightwatch-log.json
