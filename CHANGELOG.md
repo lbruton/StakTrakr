@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.59] - 2026-03-07
+
+### Added — STAK-455: DiffModal Settings Cards Rich Renderers
+
+- **Added**: Five type-dispatch renderers (chip-strip, toggle-map, slug-chips, kv-pills, count-summary) replace opaque "N items" text with interactive chip strips for complex settings in DiffModal (STAK-455)
+- **Added**: Per-element click-to-pick merge selection for settings arrays and objects — users can cherry-pick individual chip config, seed rules, and provider priorities (STAK-455)
+- **Fixed**: `itemTags` UUID-to-tag mappings no longer leak into settings diff via cloud-sync, eliminating the massive "Other" category blob (STAK-455)
+
+---
+
 ## [3.33.58] - 2026-03-07
 
 ### Added — STAK-454: DiffModal Item Cards

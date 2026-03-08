@@ -2573,14 +2573,14 @@ async function pullWithPreview(remoteMeta) {
       if (remotePayload.data) {
         var _rsKeys = Object.keys(remotePayload.data);
         for (var rs = 0; rs < _rsKeys.length; rs++) {
-          if (_rsKeys[rs] !== 'metalInventory') {
+          if (_rsKeys[rs] !== 'metalInventory' && _rsKeys[rs] !== 'itemTags') {
             remoteSettings[_rsKeys[rs]] = remotePayload.data[_rsKeys[rs]];
           }
         }
       }
       if (typeof SYNC_SCOPE_KEYS !== 'undefined') {
         for (var i = 0; i < SYNC_SCOPE_KEYS.length; i++) {
-          if (SYNC_SCOPE_KEYS[i] === 'metalInventory') continue;
+          if (SYNC_SCOPE_KEYS[i] === 'metalInventory' || SYNC_SCOPE_KEYS[i] === 'itemTags') continue;
           var v = loadDataSync(SYNC_SCOPE_KEYS[i], null);
           if (v !== null && v !== undefined) localSettings[SYNC_SCOPE_KEYS[i]] = v;
         }

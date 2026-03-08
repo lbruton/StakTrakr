@@ -2,8 +2,8 @@
 title: Cloud Sync
 category: frontend
 owner: staktrakr
-lastUpdated: v3.33.55
-date: 2026-03-06
+lastUpdated: v3.33.59
+date: 2026-03-07
 sourceFiles:
   - js/cloud-sync.js
   - js/cloud-storage.js
@@ -13,7 +13,7 @@ relatedPages:
 ---
 # Cloud Sync
 
-> **Last updated:** v3.33.51 — 2026-03-05
+> **Last updated:** v3.33.59 — 2026-03-07
 > **Source files:** `js/cloud-sync.js`, `js/cloud-storage.js`
 
 ---
@@ -265,6 +265,9 @@ pullWithPreview(remoteMeta)
   └─ Vault-first fallback (if manifest unavailable or DiffModal missing):
        ├─ Download /sync/staktrakr-sync.stvault
        ├─ vaultDecryptToData() → DiffEngine.compareItems() + compareSettings()
+       ├─ itemTags excluded from settings diff (STAK-455): both remoteSettings and localSettings
+       │    filter out `itemTags` before `DiffEngine.compareSettings()` — UUID-to-tag mappings
+       │    flow through item comparison instead, preventing a massive "Other" category blob
        ├─ await showRestorePreviewModal(diffResult, settingsDiff, ...)
        │    ├─ returns Promise<void> — resolves on Apply or Cancel
        │    └─ onApply: _applyAndFinalize() → resolve()

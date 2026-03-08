@@ -101,6 +101,390 @@
     'metalApiConfig': 'API Keys'
   };
 
+  var SETTINGS_VALUE_TYPE = {
+    inlineChipConfig: 'chip-strip',
+    filterChipCategoryConfig: 'chip-strip',
+    viewModalSectionConfig: 'chip-strip',
+    chipCustomGroups: 'chip-strip',
+    numistaViewFields: 'toggle-map',
+    enabledSeedRules: 'slug-chips',
+    headerBtnOrder: 'slug-chips',
+    chipBlacklist: 'slug-chips',
+    tagBlacklist: 'slug-chips',
+    providerPriority: 'kv-pills',
+    numistaLookupRules: 'count-summary',
+    metalOrderConfig: 'count-summary'
+  };
+
+  var SLUG_LABELS = {
+    // Seed rule coin slugs — from RETAIL_COIN_META keys
+    'ase': 'American Silver Eagle',
+    'maple-silver': 'Silver Maple Leaf',
+    'britannia-silver': 'Silver Britannia',
+    'krugerrand-silver': 'Silver Krugerrand',
+    'kangaroo-silver': 'Silver Kangaroo',
+    'koala-silver': 'Silver Koala',
+    'kookaburra-silver': 'Silver Kookaburra',
+    'generic-silver-round': 'Generic Silver Round',
+    'generic-silver-bar-10oz': 'Generic 10oz Silver Bar',
+    'age': 'American Gold Eagle',
+    'buffalo': 'American Gold Buffalo',
+    'maple-gold': 'Gold Maple Leaf',
+    'krugerrand-gold': 'Gold Krugerrand',
+    'ape': 'American Platinum Eagle',
+    'goldback-oklahoma-g1': 'G1 Oklahoma Goldback',
+    // Header button slugs
+    'themeBtn': 'Theme',
+    'cloudSyncBtn': 'Cloud Sync',
+    'settingsBtn': 'Settings',
+    'aboutBtn': 'About',
+    'backupBtn': 'Backup',
+    'importBtn': 'Import',
+    'addItemBtn': 'Add Item',
+    'sortBtn': 'Sort',
+    'filterBtn': 'Filter',
+    'searchBtn': 'Search',
+    'marketBtn': 'Market',
+    'vaultBtn': 'Vault',
+    'trendBtn': 'Trend',
+    'restoreBtn': 'Restore',
+    'currencyBtn': 'Currency'
+  };
+
+  // ── Settings sub-renderers (STAK-455) ──
+
+  function _renderChipStrip(key, localArr, remoteArr) {
+    var localById = {};
+    var remoteById = {};
+    var i, id;
+    for (i = 0; i < localArr.length; i++) {
+      id = localArr[i].id || localArr[i].label || i;
+      localById[id] = localArr[i];
+    }
+    for (i = 0; i < remoteArr.length; i++) {
+      id = remoteArr[i].id || remoteArr[i].label || i;
+      remoteById[id] = remoteArr[i];
+    }
+    var allIds = {};
+    for (id in localById) allIds[id] = true;
+    for (id in remoteById) allIds[id] = true;
+
+    var matchedHtml = '';
+    var localHtml = '';
+    var remoteHtml = '';
+    var diffCount = 0;
+    var overflowLocal = '';
+    var overflowRemote = '';
+
+    for (id in allIds) {
+      var loc = localById[id];
+      var rem = remoteById[id];
+      var chipLabel = (loc ? (loc.label || id) : (rem ? (rem.label || id) : id));
+      var fieldKey = 'setting-' + key + '-' + id;
+      var selSide = _fieldSelections[fieldKey] || '';
+
+      if (loc && rem && loc.enabled === rem.enabled) {
+        var icon = loc.enabled ? '\u2713' : '\u2717';
+        matchedHtml += '<span class="dm-chip-matched">' + icon + ' ' + _esc(String(chipLabel)) + '</span> ';
+      } else {
+        diffCount++;
+        var localChip = '';
+        var remoteChip = '';
+        if (loc) {
+          var lIcon = loc.enabled ? '\u2713' : '\u2717';
+          var lCls = 'dm-chip-local ' + (loc.enabled ? 'dm-chip-enabled' : 'dm-chip-disabled') + (selSide === 'local' ? ' dm-selected' : '');
+          localChip = '<span class="' + lCls + '" data-field="' + _esc(fieldKey) + '" data-side="local">' + lIcon + ' ' + _esc(String(chipLabel)) + '</span> ';
+        }
+        if (rem) {
+          var rIcon = rem.enabled ? '\u2713' : '\u2717';
+          var rCls = 'dm-chip-remote ' + (rem.enabled ? 'dm-chip-enabled' : 'dm-chip-disabled') + (selSide === 'remote' ? ' dm-selected' : '');
+          remoteChip = '<span class="' + rCls + '" data-field="' + _esc(fieldKey) + '" data-side="remote">' + rIcon + ' ' + _esc(String(chipLabel)) + '</span> ';
+        }
+        if (diffCount <= 15) {
+          localHtml += localChip;
+          remoteHtml += remoteChip;
+        } else {
+          overflowLocal += localChip;
+          overflowRemote += remoteChip;
+        }
+      }
+    }
+
+    var html = '';
+    if (matchedHtml) html += '<div class="dm-setting-expanded">' + matchedHtml + '</div>';
+    html += '<div class="dm-setting-sides">';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
+    if (overflowLocal) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show ' + (diffCount - 15) + ' more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
+    }
+    html += '</div></div>';
+    html += '<div class="dm-setting-arrow">\u2192</div>';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
+    if (overflowRemote) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show ' + (diffCount - 15) + ' more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
+    }
+    html += '</div></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function _renderToggleMap(key, localObj, remoteObj) {
+    var allKeys = {};
+    var k;
+    for (k in localObj) allKeys[k] = true;
+    for (k in remoteObj) allKeys[k] = true;
+
+    var matchedHtml = '';
+    var localHtml = '';
+    var remoteHtml = '';
+    var diffCount = 0;
+    var overflowLocal = '';
+    var overflowRemote = '';
+
+    for (k in allKeys) {
+      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
+      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
+      var fieldKey = 'setting-' + key + '-' + k;
+      var selSide = _fieldSelections[fieldKey] || '';
+      var humanLabel = _titleCase(k);
+
+      if (lv !== undefined && rv !== undefined && lv === rv) {
+        var mIcon = lv ? '\u2713' : '\u2717';
+        matchedHtml += '<span class="dm-chip-matched">' + mIcon + ' ' + _esc(humanLabel) + '</span> ';
+      } else {
+        diffCount++;
+        var localChip = '';
+        var remoteChip = '';
+        if (lv !== undefined) {
+          var lIcon = lv ? '\u2713' : '\u2717';
+          var lCls = 'dm-chip-local ' + (lv ? 'dm-chip-enabled' : 'dm-chip-disabled') + (selSide === 'local' ? ' dm-selected' : '');
+          localChip = '<span class="' + lCls + '" data-field="' + _esc(fieldKey) + '" data-side="local">' + lIcon + ' ' + _esc(humanLabel) + '</span> ';
+        }
+        if (rv !== undefined) {
+          var rIcon = rv ? '\u2713' : '\u2717';
+          var rCls = 'dm-chip-remote ' + (rv ? 'dm-chip-enabled' : 'dm-chip-disabled') + (selSide === 'remote' ? ' dm-selected' : '');
+          remoteChip = '<span class="' + rCls + '" data-field="' + _esc(fieldKey) + '" data-side="remote">' + rIcon + ' ' + _esc(humanLabel) + '</span> ';
+        }
+        if (diffCount <= 15) {
+          localHtml += localChip;
+          remoteHtml += remoteChip;
+        } else {
+          overflowLocal += localChip;
+          overflowRemote += remoteChip;
+        }
+      }
+    }
+
+    var html = '';
+    if (matchedHtml) html += '<div class="dm-setting-expanded">' + matchedHtml + '</div>';
+    html += '<div class="dm-setting-sides">';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
+    if (overflowLocal) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show ' + (diffCount - 15) + ' more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
+    }
+    html += '</div></div>';
+    html += '<div class="dm-setting-arrow">\u2192</div>';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
+    if (overflowRemote) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show ' + (diffCount - 15) + ' more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
+    }
+    html += '</div></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function _renderSlugChips(key, localArr, remoteArr) {
+    var localSet = {};
+    var remoteSet = {};
+    var i;
+    for (i = 0; i < localArr.length; i++) localSet[localArr[i]] = true;
+    for (i = 0; i < remoteArr.length; i++) remoteSet[remoteArr[i]] = true;
+
+    var matchedHtml = '';
+    var localHtml = '';
+    var remoteHtml = '';
+    var totalChips = 0;
+    var overflowLocal = '';
+    var overflowRemote = '';
+    var overflowMatched = '';
+
+    var allSlugs = {};
+    for (i = 0; i < localArr.length; i++) allSlugs[localArr[i]] = true;
+    for (i = 0; i < remoteArr.length; i++) allSlugs[remoteArr[i]] = true;
+
+    for (var slug in allSlugs) {
+      var inLocal = localSet[slug];
+      var inRemote = remoteSet[slug];
+      var humanLabel = SLUG_LABELS[slug] || _titleCase(slug);
+      totalChips++;
+
+      if (inLocal && inRemote) {
+        var mChip = '<span class="dm-chip-matched">' + _esc(humanLabel) + '</span> ';
+        if (totalChips <= 15) {
+          matchedHtml += mChip;
+        } else {
+          overflowMatched += mChip;
+        }
+      } else {
+        var fieldKey = 'setting-' + key + '-' + slug;
+        var selSide = _fieldSelections[fieldKey] || '';
+        if (inLocal) {
+          var lCls = 'dm-chip-local dm-chip-enabled' + (selSide === 'local' ? ' dm-selected' : '');
+          var lChip = '<span class="' + lCls + '" data-field="' + _esc(fieldKey) + '" data-side="local">' + _esc(humanLabel) + '</span> ';
+          if (totalChips <= 15) {
+            localHtml += lChip;
+          } else {
+            overflowLocal += lChip;
+          }
+        }
+        if (inRemote) {
+          var rCls = 'dm-chip-remote dm-chip-enabled' + (selSide === 'remote' ? ' dm-selected' : '');
+          var rChip = '<span class="' + rCls + '" data-field="' + _esc(fieldKey) + '" data-side="remote">' + _esc(humanLabel) + '</span> ';
+          if (totalChips <= 15) {
+            remoteHtml += rChip;
+          } else {
+            overflowRemote += rChip;
+          }
+        }
+      }
+    }
+
+    var html = '';
+    if (matchedHtml || overflowMatched) {
+      html += '<div class="dm-setting-expanded">' + matchedHtml;
+      if (overflowMatched) {
+        html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-matched">Show ' + (totalChips - 15) + ' more\u2026</span>';
+        html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-matched">' + overflowMatched + '</div>';
+      }
+      html += '</div>';
+    }
+    html += '<div class="dm-setting-sides">';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
+    if (overflowLocal) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
+    }
+    html += '</div></div>';
+    html += '<div class="dm-setting-arrow">\u2192</div>';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
+    if (overflowRemote) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
+    }
+    html += '</div></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function _renderKvPills(key, localObj, remoteObj) {
+    var allKeys = {};
+    var k;
+    for (k in localObj) allKeys[k] = true;
+    for (k in remoteObj) allKeys[k] = true;
+
+    var matchedHtml = '';
+    var localHtml = '';
+    var remoteHtml = '';
+    var diffCount = 0;
+    var overflowLocal = '';
+    var overflowRemote = '';
+
+    for (k in allKeys) {
+      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
+      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
+      var fieldKey = 'setting-' + key + '-' + k;
+      var selSide = _fieldSelections[fieldKey] || '';
+      var humanKey = _titleCase(k);
+
+      if (lv !== undefined && rv !== undefined && lv === rv) {
+        matchedHtml += '<span class="dm-kv-pill matched">' + _esc(humanKey) + ': ' + _esc(String(lv)) + '</span> ';
+      } else {
+        diffCount++;
+        var localPill = '';
+        var remotePill = '';
+        if (lv !== undefined) {
+          var lCls = 'dm-kv-pill local' + (selSide === 'local' ? ' dm-selected' : '');
+          localPill = '<span class="' + lCls + '" data-field="' + _esc(fieldKey) + '" data-side="local">' + _esc(humanKey) + ': ' + _esc(String(lv)) + '</span> ';
+        }
+        if (rv !== undefined) {
+          var rCls = 'dm-kv-pill remote' + (selSide === 'remote' ? ' dm-selected' : '');
+          remotePill = '<span class="' + rCls + '" data-field="' + _esc(fieldKey) + '" data-side="remote">' + _esc(humanKey) + ': ' + _esc(String(rv)) + '</span> ';
+        }
+        if (diffCount <= 15) {
+          localHtml += localPill;
+          remoteHtml += remotePill;
+        } else {
+          overflowLocal += localPill;
+          overflowRemote += remotePill;
+        }
+      }
+    }
+
+    var html = '';
+    if (matchedHtml) html += '<div class="dm-setting-expanded">' + matchedHtml + '</div>';
+    html += '<div class="dm-setting-sides">';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
+    if (overflowLocal) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show ' + (diffCount - 15) + ' more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
+    }
+    html += '</div></div>';
+    html += '<div class="dm-setting-arrow">\u2192</div>';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
+    if (overflowRemote) {
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show ' + (diffCount - 15) + ' more\u2026</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
+    }
+    html += '</div></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function _renderCountSummary(key, localVal, remoteVal) {
+    var resKey = 'setting-' + key;
+    var selected = _conflictResolutions[resKey] || '';
+    var localCount = 0;
+    var remoteCount = 0;
+    if (Array.isArray(localVal)) localCount = localVal.length;
+    else if (localVal && typeof localVal === 'object') localCount = Object.keys(localVal).length;
+    else if (localVal !== null && localVal !== undefined) localCount = 1;
+    if (Array.isArray(remoteVal)) remoteCount = remoteVal.length;
+    else if (remoteVal && typeof remoteVal === 'object') remoteCount = Object.keys(remoteVal).length;
+    else if (remoteVal !== null && remoteVal !== undefined) remoteCount = 1;
+
+    var localBtnCls = 'dm-count-btn' + (selected === 'local' ? ' active' : '');
+    var remoteBtnCls = 'dm-count-btn' + (selected === 'remote' ? ' active' : '');
+
+    var html = '<div class="dm-count-summary">';
+    html += '<span class="dm-count-badge">' + _esc(String(localCount)) + ' local</span>';
+    html += '<span class="dm-count-badge">' + _esc(String(remoteCount)) + ' remote</span>';
+    html += '<span class="' + localBtnCls + '" data-setting-resolution="' + _esc(resKey) + '" data-side="local">Keep Local</span>';
+    html += '<span class="' + remoteBtnCls + '" data-setting-resolution="' + _esc(resKey) + '" data-side="remote">Use Remote</span>';
+    html += '</div>';
+    return html;
+  }
+
+  function _renderSettingRow(key, localVal, remoteVal) {
+    var type = SETTINGS_VALUE_TYPE[key];
+    if (!type) return null;
+    if (type === 'chip-strip' && !Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+    if (type === 'toggle-map' && (typeof localVal !== 'object' || localVal === null) && (typeof remoteVal !== 'object' || remoteVal === null)) return null;
+    if (type === 'slug-chips' && !Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+    if (type === 'kv-pills' && (typeof localVal !== 'object' || localVal === null) && (typeof remoteVal !== 'object' || remoteVal === null)) return null;
+    switch (type) {
+      case 'chip-strip': return _renderChipStrip(key, localVal || [], remoteVal || []);
+      case 'toggle-map': return _renderToggleMap(key, localVal || {}, remoteVal || {});
+      case 'slug-chips': return _renderSlugChips(key, localVal || [], remoteVal || []);
+      case 'kv-pills': return _renderKvPills(key, localVal || {}, remoteVal || {});
+      case 'count-summary': return _renderCountSummary(key, localVal, remoteVal);
+      default: return null;
+    }
+  }
+
   function _groupByItem(conflictsArray) {
     var grouped = {};
     if (!conflictsArray || !conflictsArray.length) return grouped;
@@ -531,6 +915,19 @@
       // Changed setting rows
       for (var ci2 = 0; ci2 < catChanged.length; ci2++) {
         var entry = catChanged[ci2];
+        var label = SETTINGS_LABELS[entry.key] || _titleCase(entry.key);
+
+        // Try rich renderer first
+        var expandedHtml = _renderSettingRow(entry.key, entry.localVal, entry.remoteVal);
+        if (expandedHtml !== null) {
+          html += '<div style="padding:0.3rem 0">';
+          html += '<div style="font-size:0.78rem;opacity:0.6;margin-bottom:0.3rem">' + _esc(label) + '</div>';
+          html += expandedHtml;
+          html += '</div>';
+          continue;
+        }
+
+        // Fallback: simple inline buttons
         var resKey = 'setting-' + entry.key;
         var selected = _conflictResolutions[resKey] || '';
         var localBtnStyle = 'padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.8rem;';
@@ -546,8 +943,6 @@
           localBtnStyle += 'border:1px solid transparent';
           remoteBtnStyle += 'border:1px solid transparent';
         }
-
-        var label = SETTINGS_LABELS[entry.key] || _titleCase(entry.key);
 
         html += '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0">';
         html += '<span style="min-width:120px;font-size:0.78rem;opacity:0.6">' + _esc(label) + '</span>';
@@ -586,11 +981,33 @@
 
     // Event delegation
     container.onclick = function(e) {
+      var fieldBtn = e.target.closest('[data-field]');
+      if (fieldBtn) {
+        var field = fieldBtn.getAttribute('data-field');
+        var side = fieldBtn.getAttribute('data-side');
+        if (_fieldSelections[field] === side) {
+          delete _fieldSelections[field];
+        } else {
+          _fieldSelections[field] = side;
+        }
+        _renderSettingsCards(container, settingsDiff);
+        return;
+      }
+      var showMore = e.target.closest('.dm-show-more');
+      if (showMore) {
+        var expandKey = showMore.getAttribute('data-expand');
+        var expandEl = document.getElementById('expand-' + expandKey);
+        if (expandEl) {
+          expandEl.classList.add('expanded');
+          showMore.style.display = 'none';
+        }
+        return;
+      }
       var btn = e.target.closest('[data-setting-resolution]');
       if (btn) {
         var key = btn.getAttribute('data-setting-resolution');
-        var side = btn.getAttribute('data-side');
-        _conflictResolutions[key] = side;
+        var rSide = btn.getAttribute('data-side');
+        _conflictResolutions[key] = rSide;
         _renderSettingsCards(container, settingsDiff);
         return;
       }
@@ -1371,6 +1788,112 @@
 
   // ── Apply / Cancel ──
 
+  /**
+   * Reconstruct a merged setting value from per-element _fieldSelections.
+   * Returns merged value, or null on type mismatch (caller falls back to whole-setting).
+   */
+  function _mergeSettingElements(type, key, localVal, remoteVal) {
+    var prefix = 'setting-' + key + '-';
+
+    if (type === 'chip-strip') {
+      // Array of {id, label, enabled, ...} — merge by id
+      if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+      var lArr = Array.isArray(localVal) ? localVal : [];
+      var rArr = Array.isArray(remoteVal) ? remoteVal : [];
+      var lById = {};
+      var rById = {};
+      var i, id;
+      for (i = 0; i < lArr.length; i++) {
+        id = lArr[i].id || lArr[i].label || i;
+        lById[id] = lArr[i];
+      }
+      for (i = 0; i < rArr.length; i++) {
+        id = rArr[i].id || rArr[i].label || i;
+        rById[id] = rArr[i];
+      }
+      // Start with remote as base (default), apply local picks
+      var merged = [];
+      // Process all ids from both sides
+      var allIds = {};
+      for (id in lById) allIds[id] = true;
+      for (id in rById) allIds[id] = true;
+      for (id in allIds) {
+        var sel = _fieldSelections[prefix + id];
+        if (sel === 'local' && lById[id]) {
+          merged.push(lById[id]);
+        } else if (sel === 'remote' && rById[id]) {
+          merged.push(rById[id]);
+        } else if (rById[id]) {
+          merged.push(rById[id]); // default: remote wins
+        } else if (lById[id]) {
+          merged.push(lById[id]); // only in local, no selection
+        }
+      }
+      return merged;
+    }
+
+    if (type === 'toggle-map' || type === 'kv-pills') {
+      // Object merge — key by key
+      if ((typeof localVal !== 'object' || localVal === null) &&
+          (typeof remoteVal !== 'object' || remoteVal === null)) return null;
+      var lObj = (typeof localVal === 'object' && localVal !== null) ? localVal : {};
+      var rObj = (typeof remoteVal === 'object' && remoteVal !== null) ? remoteVal : {};
+      var result = {};
+      var allKeys = {};
+      var k;
+      for (k in lObj) allKeys[k] = true;
+      for (k in rObj) allKeys[k] = true;
+      for (k in allKeys) {
+        var kSel = _fieldSelections[prefix + k];
+        if (kSel === 'local' && lObj.hasOwnProperty(k)) {
+          result[k] = lObj[k];
+        } else if (kSel === 'remote' && rObj.hasOwnProperty(k)) {
+          result[k] = rObj[k];
+        } else if (rObj.hasOwnProperty(k)) {
+          result[k] = rObj[k]; // default: remote
+        } else if (lObj.hasOwnProperty(k)) {
+          result[k] = lObj[k]; // only in local
+        }
+      }
+      return result;
+    }
+
+    if (type === 'slug-chips') {
+      // String array — set merge
+      if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+      var lSet = {};
+      var rSet = {};
+      var lList = Array.isArray(localVal) ? localVal : [];
+      var rList = Array.isArray(remoteVal) ? remoteVal : [];
+      for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
+      for (i = 0; i < rList.length; i++) rSet[rList[i]] = true;
+      var mergedArr = [];
+      // Common items always included
+      var allSlugs = {};
+      for (i = 0; i < lList.length; i++) allSlugs[lList[i]] = true;
+      for (i = 0; i < rList.length; i++) allSlugs[rList[i]] = true;
+      for (var slug in allSlugs) {
+        var inL = !!lSet[slug];
+        var inR = !!rSet[slug];
+        if (inL && inR) {
+          mergedArr.push(slug); // common — always include
+        } else {
+          var slugSel = _fieldSelections[prefix + slug];
+          if (inL && slugSel === 'local') {
+            mergedArr.push(slug); // local-only, user picked local
+          } else if (inR && (slugSel === 'remote' || !slugSel)) {
+            mergedArr.push(slug); // remote-only, user picked remote or default
+          }
+          // else: local-only with no selection or remote pick → exclude
+          // or: remote-only with local pick → exclude
+        }
+      }
+      return mergedArr;
+    }
+
+    return null; // unknown type — fallback
+  }
+
   function _buildSelectedChanges() {
     var diff = _options.diff || {};
     var result = [];
@@ -1446,11 +1969,34 @@
       });
     }
 
-    // Settings changes
+    // Settings changes — per-element merge for rich renderer types, whole-setting for others
     var settingsDiff = _options.settingsDiff || {};
     var changedSettings = settingsDiff.changed || [];
     for (var s = 0; s < changedSettings.length; s++) {
       var setting = changedSettings[s];
+      var sType = SETTINGS_VALUE_TYPE[setting.key];
+      var sPrefix = 'setting-' + setting.key + '-';
+
+      // Check for per-element selections (skip count-summary — whole-setting only)
+      var hasElementPicks = false;
+      if (sType && sType !== 'count-summary') {
+        for (var fk in _fieldSelections) {
+          if (_fieldSelections.hasOwnProperty(fk) && fk.indexOf(sPrefix) === 0) {
+            hasElementPicks = true;
+            break;
+          }
+        }
+      }
+
+      if (hasElementPicks) {
+        var mergedVal = _mergeSettingElements(sType, setting.key, setting.localVal, setting.remoteVal);
+        if (mergedVal !== null) {
+          result.push({ type: 'setting', key: setting.key, value: mergedVal });
+          continue;
+        }
+      }
+
+      // Fallback: whole-setting pick via _conflictResolutions (default remote)
       var resolution = _conflictResolutions['setting-' + setting.key];
       var value = (resolution === 'local') ? setting.localVal : setting.remoteVal;
       result.push({ type: 'setting', key: setting.key, value: value });

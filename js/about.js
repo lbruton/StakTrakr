@@ -283,11 +283,11 @@ const setupAckModalEvents = () => {
  */
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.59 &ndash; DiffModal Settings Renderers</strong>: Five rich chip-strip renderers replace opaque &ldquo;N items&rdquo; text for complex settings. Per-element click-to-pick merge for chip configs, seed rules, and provider priorities. itemTags leak fixed (STAK-455)</li>
     <li><strong>v3.33.58 &ndash; DiffModal Item Cards</strong>: Item cards with bordered layout, metal-colored image placeholders, async image loading, and click-to-pick field selection for granular merge control on modified items (STAK-454)</li>
     <li><strong>v3.33.57 &ndash; Australian Coin Names Fix</strong>: Kangaroo, Koala, and Kookaburra silver coins now display proper names instead of raw slugs in Market view (STAK-452)</li>
     <li><strong>v3.33.56 &ndash; DiffModal UX Overhaul</strong>: Card-based diff review with summary dashboard, per-item conflict cards with click-to-pick resolution, 7 settings category groups with human-readable labels, progress tracker for sync conflicts (STAK-451)</li>
     <li><strong>v3.33.55 &ndash; Dropbox Multi-Account UX</strong>: Connected Dropbox account email and display name now shown in Cloud settings. Switch Account button forces re-authentication (STAK-449)</li>
-    <li><strong>v3.33.54 &ndash; Dateless Items Sort as Oldest</strong>: Items with no purchase date now sort as &ldquo;infinitely old&rdquo; &mdash; top when oldest-first, bottom when newest-first (STAK-448)</li>
   `;
 };
 

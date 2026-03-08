@@ -1,10 +1,10 @@
 ## What's New
 
+- **DiffModal Settings Renderers (v3.33.59)**: Five rich chip-strip renderers replace opaque "N items" text for complex settings. Per-element click-to-pick merge for chip configs, seed rules, and provider priorities. itemTags leak fixed (STAK-455).
 - **DiffModal Item Cards (v3.33.58)**: Item cards with bordered layout, metal-colored image placeholders, async image loading, and click-to-pick field selection for granular merge control on modified items (STAK-454).
 - **Australian Coin Names Fix (v3.33.57)**: Kangaroo, Koala, and Kookaburra silver coins now display proper names instead of raw slugs in Market view (STAK-452).
 - **DiffModal UX Overhaul (v3.33.56)**: Card-based diff review with summary dashboard, per-item conflict cards with click-to-pick resolution, 7 settings category groups with human-readable labels, progress tracker for sync conflicts (STAK-451).
 - **Dropbox Multi-Account UX (v3.33.55)**: Connected Dropbox account email and display name now shown in Cloud settings. Switch Account button forces re-authentication (STAK-449).
-- **Dateless Items Sort as Oldest (v3.33.54)**: Items with no purchase date now sort as "infinitely old" — top when oldest-first, bottom when newest-first (STAK-448).
 
 ## Development Roadmap
 

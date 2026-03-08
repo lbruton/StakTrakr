@@ -2,7 +2,7 @@
 title: Frontend Overview
 category: frontend
 owner: staktrakr
-lastUpdated: v3.33.58
+lastUpdated: v3.33.59
 date: 2026-03-07
 sourceFiles:
   - index.html
