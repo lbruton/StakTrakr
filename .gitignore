@@ -3,36 +3,12 @@
 .AppleDouble
 .LSOverride
 
-# Claude Code — all project skills tracked in git to prevent loss;
-# user-level skills live in ~/.claude/skills/ (outside repo)
+# Claude Code — skills and commands tracked, everything else ignored
 .claude/*
 !.claude/skills/
-.claude/skills/*
-!.claude/skills/api-infrastructure/
-!.claude/skills/bb-test/
-!.claude/skills/brainstorming/
-!.claude/skills/browserbase-test-maintenance/
-!.claude/skills/bug-report/
-!.claude/skills/coding-standards/
-!.claude/skills/devops-dashboard/
-!.claude/skills/finishing-a-development-branch/
-!.claude/skills/homepoller-ssh/
-!.claude/skills/markdown-standards/
-!.claude/skills/prime/
-!.claude/skills/release/
-!.claude/skills/repo-boundaries/
-!.claude/skills/retail-poller/
-!.claude/skills/retail-provider-fix/
-!.claude/skills/scan-mentions/
-!.claude/skills/seed-sync/
-!.claude/skills/ship/
-!.claude/skills/sync-poller/
-!.claude/skills/ui-mockup/
-!.claude/skills/wiki-audit/
-!.claude/skills/wiki-search/
-!.claude/skills/wiki-sweep/
-!.claude/skills/wiki-update/
-.claude/commands/
+!.claude/skills/**
+!.claude/commands/
+!.claude/commands/**
 .mcp.json
 SPRINT.md
 

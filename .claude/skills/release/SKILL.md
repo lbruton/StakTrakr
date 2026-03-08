@@ -105,21 +105,37 @@ Use the `version` from your claim as the target for all subsequent steps — do 
 **4. Create the worktree + branch immediately:**
 
 ```bash
-git worktree add .claude/worktrees/patch-VERSION -b patch/VERSION
+git worktree add .worktrees/patch-VERSION -b patch/VERSION
 ```
 
-Example: `git worktree add .claude/worktrees/patch-3.32.29 -b patch/3.32.29`
+Example: `git worktree add .worktrees/patch-3.32.29 -b patch/3.32.29`
+
+**5. Write a session lock file** to prevent other sessions from using this worktree concurrently:
+
+```bash
+cat > .worktrees/patch-VERSION/.worktree.lock <<LOCK
+{
+  "session_id": "$(date +%s)-$$",
+  "claimed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "branch": "patch/VERSION",
+  "task": "STAK-XXX brief description"
+}
+LOCK
+```
+
+Before entering any existing worktree, check for a lock file. If `.worktree.lock` exists and `claimed_at` is less than 2 hours old, **STOP** — another session may be active. Ask the user before proceeding.
 
 **All subsequent work (file edits, version bumps, commits) happens inside the worktree directory.**
 If you are running as an interactive Claude Code session, inform the user:
 
 ```
-Worktree created at: .claude/worktrees/patch-VERSION/
+Worktree created at: .worktrees/patch-VERSION/
 Branch: patch/VERSION
 
 All work for this release will happen in that worktree.
 After merging to dev, run cleanup:
-  git worktree remove .claude/worktrees/patch-VERSION --force
+  rm -f .worktrees/patch-VERSION/.worktree.lock
+  git worktree remove .worktrees/patch-VERSION --force
   git branch -d patch/VERSION
   Remove your claim entry from devops/version.lock (leave other active claims intact)
 ```
@@ -337,7 +353,8 @@ git tag vNEW_VERSION origin/dev
 git push origin vNEW_VERSION
 
 # Remove the worktree
-git worktree remove .claude/worktrees/patch-VERSION --force
+rm -f .worktrees/patch-VERSION/.worktree.lock
+git worktree remove .worktrees/patch-VERSION --force
 
 # Delete the local branch
 git branch -d patch/VERSION
