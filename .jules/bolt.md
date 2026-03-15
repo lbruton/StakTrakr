@@ -16,3 +16,7 @@
 **Finding:** Instantiating `Intl.NumberFormat` is a known expensive operation in JavaScript.
 **Learning:** Functions like `formatCurrency` and `getCurrencySymbol` in `js/utils.js` were instantiating `Intl.NumberFormat` on every call. For large dataset renderings (e.g. lists of items), this initialization overhead can add up significantly.
 **Action:** Caching these instances in a `Map` using a combination of the locale and the currency code (e.g., `'default-USD'`) reduces the overhead of formatting operations from ~1ms to <0.1ms per call. When formatting strings or dates, always look for opportunities to cache and reuse `Intl` instances.
+
+## 2026-03-15 - Optimize DOM reflows with DocumentFragment
+**Learning:** In text-heavy loops constructing DOM elements, making iterative `container.appendChild()` calls triggers excessive DOM reflows and repaints, increasing the execution overhead from O(1) to O(N).
+**Action:** Always batch DOM insertions in a loop by appending nodes to a temporary `DocumentFragment` first (`document.createDocumentFragment()`), and then append the complete fragment to the target DOM container exactly once.
