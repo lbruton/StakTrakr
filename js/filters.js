@@ -499,6 +499,11 @@ const renderActiveFilters = () => {
   
   container.style.display = '';
 
+  // ⚡ Bolt Optimization: Use DocumentFragment to batch DOM insertions.
+  // This reduces browser reflows/repaints from O(N) to O(1) when rendering
+  // multiple filter chips, significantly improving layout performance.
+  const fragment = document.createDocumentFragment();
+
   chips.forEach((f, i) => {
     const chip = document.createElement('span');
     chip.className = 'filter-chip';
@@ -666,7 +671,7 @@ const renderActiveFilters = () => {
       }
     };
 
-    container.appendChild(chip);
+    fragment.appendChild(chip);
   });
 
   // Add clear button if there are any chips (check for both active and summary chips)
@@ -678,8 +683,10 @@ const renderActiveFilters = () => {
     clearButton.onclick = () => {
       clearAllFilters();
     };
-    container.appendChild(clearButton);
+    fragment.appendChild(clearButton);
   }
+
+  container.appendChild(fragment);
 };
 
 /**
