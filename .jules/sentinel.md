@@ -22,3 +22,8 @@
 **Vulnerability:** Mutation XSS (mXSS) risk from using custom DOM-based HTML escaping (`div.textContent = str; return div.innerHTML;`).
 **Learning:** Browsers can mutate HTML during the parsing process, introducing mXSS vulnerabilities when using properties like `innerHTML` and `textContent` sequentially. The regex-based `escapeHtml` function provided globally in `js/utils.js` prevents these parsing anomalies.
 **Prevention:** Avoid custom DOM-based HTML escaping. Always use the globally available, regex-based `escapeHtml` function defined in `js/utils.js`.
+
+## 2026-06-25 - XSS via Insufficient Attribute Escaping in innerHTML
+**Vulnerability:** XSS vulnerability caused by manually escaping quotes (`.replace(/"/g, '&quot;')`) instead of using a comprehensive HTML escaping utility when injecting user-controlled data into HTML attributes via `innerHTML`.
+**Learning:** When using template literals and `innerHTML` to construct HTML with dynamic attributes, escaping only double quotes is insufficient. Attackers can inject payloads if they break out of the context or use other HTML special characters.
+**Prevention:** Always use robust HTML escaping functions (like the regex-based `escapeHtml` utility in `js/utils.js`) for *all* dynamic content interpolated into HTML strings, particularly when setting HTML element attributes. Even better, avoid `innerHTML` entirely and use DOM methods (`createElement` and `value` property assignment) for dynamically constructing inputs.

@@ -1672,8 +1672,8 @@ const renderCustomPatternRules = async () => {
     editForm.style.display = 'none';
     editForm.innerHTML = `
       <div class="edit-form-fields">
-        <label>Pattern <input type="text" class="edit-pattern" value="${rule.pattern.replace(/"/g, '&quot;')}" /></label>
-        <label>Replacement <input type="text" class="edit-replacement" value="${(rule.replacement || '').replace(/"/g, '&quot;')}" /></label>
+        <label>Pattern <input type="text" class="edit-pattern" value="${escapeHtml(rule.pattern)}" /></label>
+        <label>Replacement <input type="text" class="edit-replacement" value="${escapeHtml(rule.replacement || '')}" /></label>
         <label>Obverse <input type="file" class="edit-obverse" accept="image/*" /></label>
         <label>Reverse <input type="file" class="edit-reverse" accept="image/*" /></label>
       </div>
