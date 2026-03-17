@@ -50,12 +50,11 @@ services:
     image: ghcr.io/thephaseless/byparr:latest
     container_name: staktrakr-byparr
     restart: unless-stopped
+    shm_size: "1g"
     environment:
       LOG_LEVEL: info
     ports:
       - "8191:8191"   # Exposed for Fly.io → Tailscale → Byparr CF bypass
-    volumes:
-      - /dev/shm:/dev/shm
     logging:
       driver: json-file
       options:
