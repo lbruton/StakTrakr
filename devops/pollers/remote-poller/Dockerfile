@@ -219,7 +219,7 @@ RUN mkdir -p /var/lib/rabbitmq /var/log/rabbitmq \
 # ── Cron jobs ───────────────────────────────────────────
 RUN (echo "0 * * * * root . /etc/environment; /app/run-local.sh >> /var/log/retail-poller.log 2>&1"; \
      echo "0,30 * * * * root . /etc/environment; /app/run-spot.sh >> /var/log/spot-poller.log 2>&1"; \
-     echo "1 * * * * root . /etc/environment; /app/run-goldback.sh >> /var/log/goldback-poller.log 2>&1"; \
+     echo "20 * * * * root . /etc/environment; /app/run-goldback.sh >> /var/log/goldback-poller.log 2>&1"; \
      echo "*/5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1") \
     > /etc/cron.d/retail-poller \
     && chmod 0644 /etc/cron.d/retail-poller

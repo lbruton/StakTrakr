@@ -74,7 +74,7 @@ Three feeds served from `lbruton/StakTrakrApi` **api branch** via GitHub Pages a
 |---|---|---|---|
 | Market prices | `data/api/manifest.json` | Fly.io retail cron | 30 min |
 | Spot prices | `data/hourly/YYYY/MM/DD/HH.json` | Fly.io `run-spot.sh` cron | 75 min |
-| Goldback | `data/api/goldback-spot.json` | Fly.io `run-goldback.sh` hourly :01 | 25h |
+| Goldback | `data/api/goldback-spot.json` | Fly.io `run-goldback.sh` hourly :20 | 25h |
 
 **Critical:** `spot-history-YYYY.json` is a **seed file** (noon UTC daily), NOT live data.
 
