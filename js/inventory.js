@@ -39,8 +39,8 @@ const getItemIndexMap = () => {
 // No need for the global catalogMap variable anymore
 
 const getNextSerial = () => {
-  const next = (parseInt(localStorage.getItem(SERIAL_KEY) || '0', 10) + 1);
-  localStorage.setItem(SERIAL_KEY, next);
+  const next = (parseInt(loadDataSync(SERIAL_KEY, 0), 10) + 1);
+  saveDataSync(SERIAL_KEY, next);
   return next;
 };
 window.getNextSerial = getNextSerial;
@@ -148,7 +148,7 @@ const loadInventory = async () => {
     return sanitizeImportedItem(normalized);
   });
 
-  let serialCounter = parseInt(localStorage.getItem(SERIAL_KEY) || '0', 10);
+  let serialCounter = parseInt(loadDataSync(SERIAL_KEY, 0), 10);
   
   // Process each inventory item: assign serials and sync with catalog manager
   inventory.forEach(item => {
@@ -168,7 +168,7 @@ const loadInventory = async () => {
   });
   
   // Save updated serial counter
-  localStorage.setItem(SERIAL_KEY, serialCounter);
+  saveDataSync(SERIAL_KEY, serialCounter);
   
   // Clean up any orphaned catalog mappings
   if (typeof catalogManager.cleanupOrphans === 'function') {
@@ -416,29 +416,29 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
   if (!item) return;
 
-  const idxInput = document.getElementById('removeItemIdx');
+  const idxInput = safeGetElement('removeItemIdx');
   if (idxInput) idxInput.value = idx;
 
-  const nameEl = document.getElementById('removeItemName');
+  const nameEl = safeGetElement('removeItemName');
   if (nameEl) nameEl.textContent = item.name || 'Unnamed item';
 
-  const checkbox = document.getElementById('removeItemDisposeCheck');
-  const fieldsWrap = document.getElementById('removeItemDisposeFields');
-  const deleteBtn = document.getElementById('removeItemDeleteBtn');
-  const disposeBtn = document.getElementById('removeItemDisposeBtn');
+  const checkbox = safeGetElement('removeItemDisposeCheck');
+  const fieldsWrap = safeGetElement('removeItemDisposeFields');
+  const deleteBtn = safeGetElement('removeItemDeleteBtn');
+  const disposeBtn = safeGetElement('removeItemDisposeBtn');
 
   // Reset disposition fields
-  const typeSelect = document.getElementById('dispositionType');
+  const typeSelect = safeGetElement('dispositionType');
   if (typeSelect) typeSelect.value = 'sold';
-  const dateInput = document.getElementById('dispositionDate');
+  const dateInput = safeGetElement('dispositionDate');
   if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-  const amountInput = document.getElementById('dispositionAmount');
+  const amountInput = safeGetElement('dispositionAmount');
   if (amountInput) amountInput.value = '';
-  const recipientInput = document.getElementById('dispositionRecipient');
+  const recipientInput = safeGetElement('dispositionRecipient');
   if (recipientInput) recipientInput.value = '';
-  const notesInput = document.getElementById('dispositionNotes');
+  const notesInput = safeGetElement('dispositionNotes');
   if (notesInput) notesInput.value = '';
-  const amountGroup = document.getElementById('dispositionAmountGroup');
+  const amountGroup = safeGetElement('dispositionAmountGroup');
   if (amountGroup) amountGroup.style.display = '';
 
   // Set checkbox state and toggle fields/buttons
@@ -465,21 +465,21 @@ const disposeItem = (idx) => {
  * Reads checkbox state to decide between plain delete and disposition.
  */
 const confirmRemoveItem = () => {
-  const idxInput = document.getElementById('removeItemIdx');
+  const idxInput = safeGetElement('removeItemIdx');
   const idx = parseInt(idxInput?.value, 10);
   if (isNaN(idx) || !inventory[idx]) return;
 
   const item = inventory[idx];
-  const checkbox = document.getElementById('removeItemDisposeCheck');
+  const checkbox = safeGetElement('removeItemDisposeCheck');
   const isDispose = checkbox?.checked;
 
   if (isDispose) {
     // Disposition flow — validate fields
-    const type = document.getElementById('dispositionType')?.value;
-    const date = document.getElementById('dispositionDate')?.value;
-    const amount = parseFloat(document.getElementById('dispositionAmount')?.value) || 0;
-    const recipient = document.getElementById('dispositionRecipient')?.value?.trim() || '';
-    const notes = document.getElementById('dispositionNotes')?.value?.trim() || '';
+    const type = safeGetElement('dispositionType')?.value;
+    const date = safeGetElement('dispositionDate')?.value;
+    const amount = parseFloat(safeGetElement('dispositionAmount')?.value) || 0;
+    const recipient = safeGetElement('dispositionRecipient')?.value?.trim() || '';
+    const notes = safeGetElement('dispositionNotes')?.value?.trim() || '';
 
     if (!type || !DISPOSITION_TYPES[type]) {
       showToast('Please select a disposition type.');
@@ -569,8 +569,8 @@ const showNotes = (idx) => {
   const item = inventory[idx];
   
   // Add fallbacks and better error handling
-  const textareaElement = elements.notesTextarea || document.getElementById('notesTextarea');
-  const modalElement = elements.notesModal || document.getElementById('notesModal');
+  const textareaElement = elements.notesTextarea || safeGetElement('notesTextarea');
+  const modalElement = elements.notesModal || safeGetElement('notesModal');
   
   if (textareaElement) {
     textareaElement.value = item.notes || '';
@@ -601,7 +601,7 @@ const showNotes = (idx) => {
  */
 const populateNumistaDataFields = (catalogId, itemData) => {
   const set = (id, val) => {
-    const el = document.getElementById(id);
+    const el = safeGetElement(id);
     if (el) el.value = val || '';
   };
 
@@ -625,11 +625,11 @@ const populateNumistaDataFields = (catalogId, itemData) => {
 
   // Clear all fields
   fieldMap.forEach(f => set(f.id, ''));
-  const commCb = document.getElementById('numistaCommemorative');
+  const commCb = safeGetElement('numistaCommemorative');
   if (commCb) commCb.checked = false;
-  const commDescWrap = document.getElementById('numistaCommemorativeDescWrap');
+  const commDescWrap = safeGetElement('numistaCommemorativeDescWrap');
   if (commDescWrap) commDescWrap.style.display = 'none';
-  const commDesc = document.getElementById('numistaCommemorativeDesc');
+  const commDesc = safeGetElement('numistaCommemorativeDesc');
   if (commDesc) commDesc.value = '';
 
   /**
@@ -638,7 +638,7 @@ const populateNumistaDataFields = (catalogId, itemData) => {
    */
   const applySource = (getData) => {
     fieldMap.forEach(f => {
-      const el = document.getElementById(f.id);
+      const el = safeGetElement(f.id);
       if (el && !el.value) {
         const val = getData(f);
         if (val) el.value = val;
@@ -707,7 +707,7 @@ const editItem = (idx, logIdx = null) => {
 
   // Weight: use real <select> instead of dataset.unit (BUG FIX)
   if (item.weightUnit === 'gb') {
-    const denomSelect = elements.itemGbDenom || document.getElementById('itemGbDenom');
+    const denomSelect = elements.itemGbDenom || safeGetElement('itemGbDenom');
     elements.itemWeight.value = parseFloat(item.weight);
     elements.itemWeightUnit.value = 'gb';
     if (denomSelect) denomSelect.value = String(parseFloat(item.weight));
@@ -761,15 +761,15 @@ const editItem = (idx, logIdx = null) => {
   if (elements.itemObverseImageUrl) elements.itemObverseImageUrl.value = item.obverseImageUrl || '';
   if (elements.itemReverseImageUrl) elements.itemReverseImageUrl.value = item.reverseImageUrl || '';
   // STAK-332: Populate ignorePatternImages checkbox from item data
-  const ignorePatternEl = document.getElementById('itemIgnorePatternImages');
+  const ignorePatternEl = safeGetElement('itemIgnorePatternImages');
   if (ignorePatternEl) ignorePatternEl.checked = !!item.ignorePatternImages;
   if (elements.itemSerial) elements.itemSerial.value = item.serial;
 
   // Pre-fill purity: match a preset or show custom input
   const purityVal = parseFloat(item.purity) || 1.0;
-  const puritySelect = elements.itemPuritySelect || document.getElementById('itemPuritySelect');
-  const purityCustom = elements.purityCustomWrapper || document.getElementById('purityCustomWrapper');
-  const purityInput = elements.itemPurity || document.getElementById('itemPurity');
+  const puritySelect = elements.itemPuritySelect || safeGetElement('itemPuritySelect');
+  const purityCustom = elements.purityCustomWrapper || safeGetElement('purityCustomWrapper');
+  const purityInput = elements.itemPurity || safeGetElement('itemPurity');
   if (puritySelect) {
     const presetOption = Array.from(puritySelect.options).find(o => o.value !== 'custom' && parseFloat(o.value) === purityVal);
     if (presetOption) {
@@ -784,11 +784,11 @@ const editItem = (idx, logIdx = null) => {
   }
 
   // Show/hide PCGS verified icon next to Cert# label
-  const certVerifiedIcon = document.getElementById('certVerifiedIcon');
+  const certVerifiedIcon = safeGetElement('certVerifiedIcon');
   if (certVerifiedIcon) certVerifiedIcon.style.display = item.pcgsVerified ? 'inline-flex' : 'none';
 
   // Show price history link in edit mode (STAK-109)
-  const retailHistoryLink = document.getElementById('retailPriceHistoryLink');
+  const retailHistoryLink = safeGetElement('retailPriceHistoryLink');
   if (retailHistoryLink) retailHistoryLink.style.display = 'inline';
 
   // Show/hide Undo button based on changelog context
@@ -811,9 +811,9 @@ const editItem = (idx, logIdx = null) => {
    * @param {'obverse'|'reverse'} side - Side name for setEditPreviewUrl
    */
   const showPreview = (url, suffix, side) => {
-    const previewContainer = document.getElementById('itemImagePreview' + suffix);
-    const previewImg = document.getElementById('itemImagePreviewImg' + suffix);
-    const removeBtn = document.getElementById('itemImageRemoveBtn' + suffix);
+    const previewContainer = safeGetElement('itemImagePreview' + suffix);
+    const previewImg = safeGetElement('itemImagePreviewImg' + suffix);
+    const removeBtn = safeGetElement('itemImageRemoveBtn' + suffix);
     if (previewImg) previewImg.src = url;
     if (previewContainer) previewContainer.style.display = 'block';
     if (removeBtn) removeBtn.style.display = '';
@@ -874,7 +874,7 @@ const editItem = (idx, logIdx = null) => {
   if (typeof updateNumistaModalDot === 'function') updateNumistaModalDot();
   // Show URL inputs if item has URL values (STAK-173)
   ['Obv', 'Rev'].forEach(suffix => {
-    const urlInputWrap = document.getElementById('itemImageUrlInput' + suffix);
+    const urlInputWrap = safeGetElement('itemImageUrlInput' + suffix);
     const urlField = suffix === 'Obv' ? elements.itemObverseImageUrl : elements.itemReverseImageUrl;
     if (urlInputWrap && urlField && urlField.value) urlInputWrap.style.display = '';
     else if (urlInputWrap) urlInputWrap.style.display = 'none';
@@ -883,7 +883,7 @@ const editItem = (idx, logIdx = null) => {
   // Show clone/view/remove buttons in edit mode (STAK-173, STAK-72)
   if (elements.cloneItemBtn) elements.cloneItemBtn.style.display = '';
   if (elements.viewItemFromEditBtn) elements.viewItemFromEditBtn.style.display = '';
-  const deleteFromEditBtn = document.getElementById('deleteFromEditBtn');
+  const deleteFromEditBtn = safeGetElement('deleteFromEditBtn');
   if (deleteFromEditBtn) deleteFromEditBtn.style.display = '';
 
   // Populate Numista Data fields: item data first, API cache as fallback (STAK-173)
@@ -892,8 +892,8 @@ const editItem = (idx, logIdx = null) => {
   // STAK-343: Populate tags in edit modal
   if (item.uuid && typeof getItemTags === 'function') {
     const itemTagsList = getItemTags(item.uuid);
-    const numistaChips = document.getElementById('numistaTagsChips');
-    const customChips = document.getElementById('customTagsChips');
+    const numistaChips = safeGetElement('numistaTagsChips');
+    const customChips = safeGetElement('customTagsChips');
 
     // Determine which tags came from Numista (check cached metadata)
     let numistaTagSet = new Set();
@@ -1022,7 +1022,7 @@ const duplicateItem = (idx) => {
 
   // Weight: same conversion logic as editItem
   if (item.weightUnit === 'gb') {
-    const denomSelect = elements.itemGbDenom || document.getElementById('itemGbDenom');
+    const denomSelect = elements.itemGbDenom || safeGetElement('itemGbDenom');
     elements.itemWeight.value = parseFloat(item.weight);
     elements.itemWeightUnit.value = 'gb';
     if (denomSelect) denomSelect.value = String(parseFloat(item.weight));
@@ -1067,9 +1067,9 @@ const duplicateItem = (idx) => {
 
   // Pre-fill purity (same logic as editItem)
   const dupPurity = parseFloat(item.purity) || 1.0;
-  const dupPuritySelect = elements.itemPuritySelect || document.getElementById('itemPuritySelect');
-  const dupPurityCustom = elements.purityCustomWrapper || document.getElementById('purityCustomWrapper');
-  const dupPurityInput = elements.itemPurity || document.getElementById('itemPurity');
+  const dupPuritySelect = elements.itemPuritySelect || safeGetElement('itemPuritySelect');
+  const dupPurityCustom = elements.purityCustomWrapper || safeGetElement('purityCustomWrapper');
+  const dupPurityInput = elements.itemPurity || safeGetElement('itemPurity');
   if (dupPuritySelect) {
     const presetOpt = Array.from(dupPuritySelect.options).find(o => o.value !== 'custom' && parseFloat(o.value) === dupPurity);
     if (presetOpt) {
@@ -1084,7 +1084,7 @@ const duplicateItem = (idx) => {
   }
 
   // Hide PCGS verified icon — duplicate is a new unverified item
-  const certVerifiedIcon = document.getElementById('certVerifiedIcon');
+  const certVerifiedIcon = safeGetElement('certVerifiedIcon');
   if (certVerifiedIcon) certVerifiedIcon.style.display = 'none';
 
   // Update currency symbols in modal (STACK-50)
@@ -1157,7 +1157,7 @@ const exportJson = () => {
   }));
 
   // Wrap in metadata envelope so importJson can detect export origin (STAK-374)
-  var _exportOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
+  const _exportOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
   const exportPayload = {
     items: exportData,
     exportMeta: {
@@ -1306,7 +1306,7 @@ const exportPdf = () => {
 const applyRealizedVisibility = (show) => {
   const metals = ['Silver', 'Gold', 'Platinum', 'Palladium', 'All'];
   metals.forEach(m => {
-    const el = document.getElementById(`realizedGainLoss${m}`);
+    const el = safeGetElement(`realizedGainLoss${m}`);
     if (el && el.parentElement) el.parentElement.style.display = show ? '' : 'none';
   });
 };
@@ -1336,9 +1336,9 @@ window.showNotes = showNotes;
 const showNotesView = (idx) => {
   const item = inventory[idx];
   if (!item) return;
-  const titleEl = document.getElementById('notesViewTitle');
-  const contentEl = document.getElementById('notesViewContent');
-  const editBtn = document.getElementById('notesViewEditBtn');
+  const titleEl = safeGetElement('notesViewTitle');
+  const contentEl = safeGetElement('notesViewContent');
+  const editBtn = safeGetElement('notesViewEditBtn');
   if (!contentEl) return;
 
   if (titleEl) titleEl.textContent = item.name ? `Notes — ${item.name}` : 'Notes';
@@ -1532,7 +1532,7 @@ document.addEventListener('click', (e) => {
  */
 function _openThumbPopover(cell, item) {
   // Toggle off if same cell clicked again
-  const existing = document.getElementById('thumbPopover');
+  const existing = safeGetElement('thumbPopover');
   if (existing) {
     existing.remove();
     if (existing.dataset.forUuid === (item.uuid || '')) return;
@@ -1543,7 +1543,7 @@ function _openThumbPopover(cell, item) {
   const showCamera = isMobile && isSecure;
 
   const { showObv, showRev } = (() => {
-    const s = localStorage.getItem('tableImageSides') || 'both';
+    const s = loadDataSync('tableImageSides', 'both');
     return { showObv: s === 'both' || s === 'obverse', showRev: s === 'both' || s === 'reverse' };
   })();
 
@@ -1604,8 +1604,8 @@ function _openThumbPopover(cell, item) {
 
   // Load existing images into previews
   const _loadPreview = async (sideKey, side) => {
-    const previewEl = document.getElementById(`thumbPop_${sideKey}_preview`);
-    const removeBtn = document.getElementById(`thumbPop_${sideKey}_remove`);
+    const previewEl = safeGetElement(`thumbPop_${sideKey}_preview`);
+    const removeBtn = safeGetElement(`thumbPop_${sideKey}_remove`);
     if (!previewEl) return;
 
     let url = null;
@@ -1677,10 +1677,10 @@ function _openThumbPopover(cell, item) {
 
   // Wire Upload + Camera buttons for each visible side
   const _wireSide = (sideKey, side) => {
-    const fileInput = document.getElementById(`thumbPop_${sideKey}_file`);
-    const uploadBtn = document.getElementById(`thumbPop_${sideKey}_upload`);
-    const cameraBtn = document.getElementById(`thumbPop_${sideKey}_camera`);
-    const removeBtn = document.getElementById(`thumbPop_${sideKey}_remove`);
+    const fileInput = safeGetElement(`thumbPop_${sideKey}_file`);
+    const uploadBtn = safeGetElement(`thumbPop_${sideKey}_upload`);
+    const cameraBtn = safeGetElement(`thumbPop_${sideKey}_camera`);
+    const removeBtn = safeGetElement(`thumbPop_${sideKey}_remove`);
     if (!fileInput) return;
 
     if (uploadBtn) {
