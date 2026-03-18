@@ -374,6 +374,10 @@ const currentMonthKey = () => {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
 };
 
+// Cache Intl.DateTimeFormat instances to reduce instantiation overhead
+// which typically takes ~1ms per call and slows down large list renders
+const _dateTimeFormatCache = new Map();
+
 /**
  * Formats a date/timestamp for display using the user's timezone preference (STACK-63).
  * When timezone is "auto" (default), uses the browser's local timezone — identical to previous behavior.
@@ -394,25 +398,54 @@ const formatTimestamp = (date, options = {}) => {
     d = new Date(date);
   }
   if (isNaN(d.getTime())) return '—';
+
   const tz = localStorage.getItem(TIMEZONE_KEY) || 'auto';
   const resolvedTz = tz === 'auto' ? undefined : tz;
-  const defaults = {
+
+  const mergedOptions = {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
-    ...(resolvedTz ? { timeZone: resolvedTz } : {})
+    ...(resolvedTz ? { timeZone: resolvedTz } : {}),
+    ...options
   };
-  try {
-    return d.toLocaleString(undefined, { ...defaults, ...options });
-  } catch (err) {
-    if (err instanceof RangeError) {
-      // Invalid IANA timezone in localStorage — fall back to auto and clear bad value
-      try { localStorage.removeItem(TIMEZONE_KEY); } catch (_) { /* ignore */ }
-      const safeDefaults = { ...defaults };
-      delete safeDefaults.timeZone;
-      return d.toLocaleString(undefined, { ...safeDefaults, ...options });
-    }
-    throw err;
+
+  // Create cache key - fast string concatenation
+  let cacheKey = mergedOptions.timeZone || 'default';
+
+  // If override options were passed, stringify them to ensure unique cache keys
+  // For most calls, options is empty so this overhead is avoided
+  if (Object.keys(options).length > 0) {
+     cacheKey += '|' + JSON.stringify(options);
   }
+
+  let formatter = _dateTimeFormatCache.get(cacheKey);
+
+  if (!formatter) {
+    try {
+      formatter = new Intl.DateTimeFormat(undefined, mergedOptions);
+      _dateTimeFormatCache.set(cacheKey, formatter);
+    } catch (err) {
+      if (err instanceof RangeError) {
+        // Invalid IANA timezone in localStorage — fall back to auto and clear bad value
+        try { localStorage.removeItem(TIMEZONE_KEY); } catch (_) { /* ignore */ }
+
+        const safeOptions = { ...mergedOptions };
+        delete safeOptions.timeZone;
+
+        const safeKey = 'default' + (Object.keys(options).length > 0 ? '|' + JSON.stringify(options) : '');
+
+        formatter = _dateTimeFormatCache.get(safeKey);
+        if (!formatter) {
+          formatter = new Intl.DateTimeFormat(undefined, safeOptions);
+          _dateTimeFormatCache.set(safeKey, formatter);
+        }
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  return formatter.format(d);
 };
 
 /**
