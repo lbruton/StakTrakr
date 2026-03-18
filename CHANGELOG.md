@@ -9,6 +9,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.70] - 2026-03-18
+
+### Added — Intraday trends, aggregation fixes, CF bypass hardening
+
+- **Added**: Intraday trend toggle for Market Prices cards — pill button switches between current price and hourly % change (STAK-464)
+- **Added**: Chart polish — dashed line segments for OOS vendors + 7-day Goldback baseline on spot charts (STAK-474)
+- **Fixed**: aggregateWindows data merge — dropped UNIQUE constraint that caused data loss, upsert cache rows, 30-min consensus buckets carry forward vendor prices across windows (STAK-476)
+- **Fixed**: Retail scraper CF bypass — Byparr before Firecrawl phase, JSON-LD price=0 treated as OOS, Camoufox shm_size 1g for shared memory (STAK-475)
+- **Fixed**: Goldback cron staggered from :01 to :20 to avoid Fly.io overlap (STAK-477)
+- **Changed**: Removed wiki/ after DocVault migration (STAK-471)
+- **Changed**: CodeQL warnings cleanup — pre-existing issues resolved (STAK-460)
+- **Changed**: Cache Intl.NumberFormat instances for faster rendering
+- **Changed**: Reverse tabnabbing mitigation on all window.open() calls
+- **Changed**: Vault-based issue tracking replaces Linear section
+
+---
+
+## [3.33.69] - 2026-03-11
+
+### Fixed — STAK-470: Storage hygiene + silent settings-only sync merge
+
+- **Fixed**: `disposedFilterMode` not registered in `ALLOWED_STORAGE_KEYS` — `cleanupStorage()` silently deleted the disposed filter preference on every page reload, resetting it to "hide" (STAK-470)
+- **Fixed**: Raw `localStorage` calls for disposed filter in `events.js` replaced with `loadDataSync`/`saveDataSync` to follow project storage conventions (STAK-470)
+- **Fixed**: Version upgrades that add new `SYNC_SCOPE_KEYS` no longer trigger a phantom DiffModal — one-sided settings key diffs (key exists on only one side) are now auto-merged silently during cloud sync polling, with a push scheduled to propagate local-only keys back to the remote (STAK-470)
+
+---
+
+## [3.33.68] - 2026-03-11
+
+### Fixed — STAK-469: Catalog Data not saving for items without Numista number
+
+- **Fixed**: Catalog Data fields (diameter, thickness, country, composition, shape, etc.) silently discarded on save for any item without a Numista number — removed overly aggressive early return in `parseNumistaDataFields()` that wiped all metadata when the N# field was empty, even for items that never had one (STAK-469)
+
+---
+
+## [3.33.67] - 2026-03-10
+
+### Fixed — STAK-467: Phase 0 price extraction false positives
+
+- **Fixed**: Strip `nav/header/footer` from page before capturing `innerText` in Phase 0 Playwright direct — prevents spot price tickers in site headers (e.g. Provident Metals gold ticker ~$5,320) from being matched instead of the actual product price (STAK-467)
+- **Fixed**: Hero Bullion moved to Firecrawl path — Phase 0 plain text lacks pipe characters so `firstTableRowFirstPrice` always returns null, falling through to `firstInRangePriceProse` which matched the "As Low As" bulk discount price instead of the 1-unit table price (STAK-467)
+- **Fixed**: Gainesville Coins moved to Firecrawl path — Phase 0 Playwright direct always times out (15s wasted per coin per run); Firecrawl succeeds reliably (STAK-467)
+
+---
+
+## [3.33.66] - 2026-03-10
+
+### Fixed — STAK-462: Fix cf-clearance.js endpoint for Byparr sidecar
+
+- **Fixed**: `cf-clearance.js` now calls Byparr's FlareSolverr-compatible `POST /v1` endpoint with correct hostname (`staktrakr-byparr:8191`) — previous version targeted the wrong sidecar type (`cf-clearance-scraper:5000`), causing all Byparr bypass attempts to fail with "fetch failed" (STAK-462)
+
+---
+
+## [3.33.65] - 2026-03-10
+
+### Fixed — STAK-462: Byparr Phase 2 fallback for CF invisible challenge
+
+- **Fixed**: Price scraper now triggers Byparr CF bypass when Firecrawl returns a 200 Cloudflare JS-challenge page (no price) — previously only fired on 403. Covers bullionexchanges and jmbullion invisible-challenge pattern (STAK-462)
+
+---
+
+## [3.33.64] - 2026-03-10
+
+### Fixed — STAK-462: Switch Byparr to upstream GHCR image
+
+- **Fixed**: Replaced vendored Byparr source build with `ghcr.io/thephaseless/byparr:latest` image pull — eliminates build-time Camoufox download and Docker multi-stage entrypoint issues (STAK-462)
+
+---
+
+## [3.33.63] - 2026-03-10
+
+### Fixed — STAK-462: Switch CF bypass sidecar to Byparr
+
+- **Fixed**: Replaced `xewdy444/cf-clearance-scraper` sidecar with `Byparr` (Camoufox Firefox engine) — better Cloudflare Bot Management evasion rate and correctly resolves GHCR pull auth issues (STAK-462)
+
+---
+
+## [3.33.62] - 2026-03-10
+
+### Fixed — STAK-463: 7-Day Trend Chart Endpoint Spike Detection and Roll-Forward Drift
+
+- **Fixed**: Endpoint spikes (day 0 / day 6) in the 7-day trend chart now caught by lookahead/lookback peer comparison (10% threshold), preventing anomalous first/last data points from distorting the chart (STAK-463)
+- **Fixed**: Cross-vendor median guard lowered from 3 to 2 vendors for endpoint slots, with stricter 20% threshold, so sparse endpoint coverage no longer lets outliers slip through (STAK-463)
+- **Fixed**: OOS carry-forward no longer drifts — when a vendor is out-of-stock but the scraper still returns a price, the last in-stock price is used as the carry anchor instead, keeping dotted lines flat (STAK-463)
+
+---
+
+## [3.33.61] - 2026-03-10
+
+### Added — STAK-462: CF-Clearance-Scraper sidecar for home poller
+
+- **Added**: CF-Clearance-Scraper Docker sidecar as Phase 2 fallback in home poller scraping pipeline — Cloudflare-blocked vendors (Bullion Exchanges, JM Bullion) now attempt a Zendriver-based cookie bypass before recording terminal 403 failures (STAK-462)
+
+---
+
 ## [3.33.60] - 2026-03-08
 
 ### Fixed — STAK-457: ZIP Backup Restore Routes Through DiffModal

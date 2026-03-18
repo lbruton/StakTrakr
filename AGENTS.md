@@ -459,7 +459,6 @@ The following MCP servers were live-tested on **2026-02-21**. Availability can v
 |---|---|---|
 | `code-graph-context` | 🐳 docker-required | `docker exec cgc-server cgc list` |
 | `mem0` | ✅ reachable | `mcp__mem0__search_memories` |
-| `memento` | ⛔ archived | Neo4j knowledge graph — retired 2026-02-22, historical archive only |
 | `sequential-thinking` | ✅ reachable | `mcp__sequential-thinking__sequentialthinking` |
 | `linear` | ✅ reachable | Claude: built-in plugin (`claude_ai_Linear`); Gemini/Codex: MCP via `mcp-remote` |
 | `codacy` | ✅ reachable | `mcp__codacy__codacy_list_tools` |
@@ -479,13 +478,10 @@ The following MCP servers were live-tested on **2026-02-21**. Availability can v
 - `mem0`: Primary memory backend (sole backend as of 2026-02-22). Use `search_memories`
   for recall, `add_memory` to save insights/sessions/handoffs, `get_memories` to list all.
   Automatic conversational memory — saves preferences, decisions, and context across sessions.
-  Do NOT call `mcp__memento__*` tools — Memento is retired.
   **Entity scoping:** Project-specific memories use `agent_id` (e.g., `staktrakr`, `hextrackr`).
   Cross-project memories use `user_id: "lbruton"` (default when no `agent_id` is passed).
   **Search rule:** Always run TWO searches in parallel — one with `agent_id` filter for the
   current project, one without (cross-project). Merge and deduplicate results.
-- `memento`: **RETIRED 2026-02-22.** Historical archive only — still in `.mcp.json` but do not call.
-  All Memento entities were migrated to mem0. Use `mcp__mem0__search_memories` for recall.
 - `sequential-thinking`: Structured iterative reasoning for complex planning/debugging tasks.  
   Use it when a task needs branching, revisions, and explicit stepwise hypothesis checks.
 - `linear`: Workspace issue/project operations (list/create/update issues, projects, comments, status updates).  
@@ -521,8 +517,6 @@ The following MCP servers were live-tested on **2026-02-21**. Availability can v
 - `.mcp.json` may include servers that are not exposed in every Codex runtime (`playwright`,
   `browserbase`, or `code-graph-context` in non-Docker sessions). Always verify
   actual tool namespace availability before relying on them in workflow plans.
-- `stitch` has been removed from all MCP configs as of 2026-02-22. Use Gemini's native
-  integration for UI mockup work instead.
 - When onboarding new MCP servers, add them to this section with:
   - one confirmed health-check call,
   - intended use cases,
@@ -534,8 +528,7 @@ All agents run on the same Mac and share the same Docker/IP stack.
 
 | Server | Claude | Gemini | Codex | Notes |
 |---|---|---|---|---|
-| `mem0` | ✅ | ✅ | ✅ | Sole memory backend — Memento retired 2026-02-22 |
-| `memento` | ⛔ | ⛔ | ⛔ | Retired 2026-02-22 — historical archive, do not call |
+| `mem0` | ✅ | ✅ | ✅ | Sole memory backend |
 | `sequential-thinking` | ✅ | ✅ | ✅ | Structured reasoning |
 | `brave-search` | ✅ | ✅ | ✅ | Web search |
 | `claude-context` | ✅ | ✅ | ✅ | Semantic code search (Milvus) |
@@ -548,7 +541,6 @@ All agents run on the same Mac and share the same Docker/IP stack.
 | `browserbase` | ✅ | ✅ | ✅ | Cloud NL tests (paid, use sparingly) |
 | `code-graph-context` | ✅ | ✅ | ✅ | Structural graph (Docker required) |
 | `infisical` | ✅ | ✅ | ✅ | Self-hosted secrets manager |
-| `stitch` | — | — | — | Removed from all configs 2026-02-22 |
 
 ## Claude Relay Invocation Safeguards
 

@@ -107,8 +107,7 @@ All agents run on the same Mac and share the same Docker/IP stack.
 
 | Server | Claude | Gemini | Codex | Notes |
 |---|---|---|---|---|
-| `mem0` | ✅ | ✅ | ✅ | Sole memory backend — Memento retired 2026-02-22 |
-| `memento` | ⛔ | ⛔ | ⛔ | Retired 2026-02-22 — historical archive, do not call |
+| `mem0` | ✅ | ✅ | ✅ | Sole memory backend |
 | `sequential-thinking` | ✅ | ✅ | ✅ | Structured reasoning |
 | `brave-search` | ✅ | ✅ | ✅ | Web search |
 | `claude-context` | ✅ | ✅ | ✅ | Semantic code search (Milvus) |
@@ -121,14 +120,12 @@ All agents run on the same Mac and share the same Docker/IP stack.
 | `browserbase` | ✅ | ✅ | ✅ | Cloud NL tests (paid, use sparingly) |
 | `code-graph-context` | ✅ | ✅ | ✅ | Structural graph (Docker required) |
 | `infisical` | ✅ | ✅ | ✅ | Self-hosted secrets manager |
-| `stitch` | — | — | — | Removed from all configs 2026-02-22 |
 
 ### mem0 (Primary Memory Backend)
 
-Sole memory backend for all agents as of 2026-02-22. Memento has been retired.
-Automatically saves conversational context, preferences, and decisions across sessions.
+Sole memory backend for all agents. Automatically saves conversational context, preferences, and decisions across sessions.
 
-**When to use:** Recall what was discussed in previous sessions, save preferences, store session insights, handoffs, decisions. Use mem0 for everything — do NOT call `mcp__memento__*` tools.
+**When to use:** Recall what was discussed in previous sessions, save preferences, store session insights, handoffs, decisions.
 
 **Entity scoping:**
 
@@ -174,10 +171,6 @@ mcp__mem0__add_memory({
 ```
 
 **Secrets policy:** Never store raw secrets in mem0 without explicit user approval. Prefer references (env var name, Infisical label) — not raw values.
-
-### Memento (Knowledge Graph — RETIRED)
-
-**RETIRED 2026-02-22.** Do not call `mcp__memento__*` tools. Historical archive only — still in `.mcp.json` but inactive. All Memento entities were migrated to mem0. Use `mcp__mem0__search_memories` for recall.
 
 ### Linear (Project Management)
 
@@ -231,14 +224,6 @@ scraping, crawling, and web search without consuming cloud credits.
 **Not available in self-hosted mode:** `/agent` endpoint (cloud only).
 
 **Requires:** `cd devops/firecrawl-docker && docker compose up -d` before use.
-
-### Stitch (UI Design — REMOVED)
-
-Stitch MCP extension has been removed from all agent configs as of 2026-02-22. Do not attempt to
-call `mcp__stitch__*` tools — they will not resolve.
-
-For UI mockup work, use the `ui-mockup` skill via Claude Code or the Google AI Studio interface
-directly if Gemini native integration is available.
 
 ### Browserbase (Cloud Browser Automation)
 

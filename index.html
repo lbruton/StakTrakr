@@ -254,6 +254,7 @@
         }
       }
 
+
     </style>
   </head>
   <body>
@@ -3729,6 +3730,18 @@
                     <input type="search" id="marketSearchInput" class="market-search"
                            placeholder="Search items, metals, vendors..." autocomplete="off"
                            aria-label="Search market items">
+                    <div class="market-sort-wrap">
+                      <span class="market-header-btn market-sort-label">Sort: Name <span class="btn-chevron">&#9662;</span></span>
+                      <select id="marketSortSelect" aria-label="Sort market items">
+                        <option value="name" selected>Name</option>
+                        <option value="metal">Metal</option>
+                        <option value="price-low">Price: Low</option>
+                        <option value="price-high">Price: High</option>
+                        <option value="trend">Trend</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="market-header-controls-row market-header-view-row">
                     <div class="market-filter-pills" id="marketFilterPills">
                       <button class="market-filter-pill active" data-metal="all" type="button" aria-pressed="true">All</button>
                       <button class="market-filter-pill" data-metal="silver" type="button" aria-pressed="false">Silver</button>
@@ -3738,17 +3751,9 @@
                       <button class="market-filter-pill" data-metal="palladium" type="button" aria-pressed="false">Palladium</button>
                     </div>
                     <div class="market-header-controls-right">
-                      <div class="market-sort-wrap">
-                        <span class="market-header-btn market-sort-label">Sort: Name <span class="btn-chevron">&#9662;</span></span>
-                        <select id="marketSortSelect" aria-label="Sort market items">
-                          <option value="name" selected>Name</option>
-                          <option value="metal">Metal</option>
-                          <option value="price-low">Price: Low</option>
-                          <option value="price-high">Price: High</option>
-                          <option value="trend">Trend</option>
-                        </select>
-                      </div>
-                      <button class="market-header-btn" id="marketExpandAllBtn" type="button">Expand All</button>
+                      <button class="market-header-btn market-expand-btn" id="marketExpandAllBtn" type="button" title="Expand All" aria-label="Expand All">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -94,9 +94,9 @@ const getAppTitle = (baseTitle = "StakTrakr") => {
  */
 const getFooterDomain = () => {
   const host = window.location.hostname.toLowerCase();
-  if (host.includes("staktrakr.com")) return "staktrakr.com";
-  if (host.includes("stackrtrackr.com")) return "stackrtrackr.com";
-  if (host.includes("stackertrackr.com")) return "stackertrackr.com";
+  if (host === "staktrakr.com" || host.endsWith(".staktrakr.com")) return "staktrakr.com";
+  if (host === "stackrtrackr.com" || host.endsWith(".stackrtrackr.com")) return "stackrtrackr.com";
+  if (host === "stackertrackr.com" || host.endsWith(".stackertrackr.com")) return "stackertrackr.com";
   return "staktrakr.com";
 };
 
@@ -550,6 +550,10 @@ const formatDisplayDate = (dateStr) => {
   return `${month}/${day}/${yy}`;
 };
 
+// Cache Intl.NumberFormat instances to reduce instantiation overhead
+// Key format: 'default-USD', 'en-EUR' — locale prefix + uppercase currency code
+const numberFormatCache = new Map();
+
 /**
  * Formats a number as a currency string using the default currency
  *
@@ -564,10 +568,17 @@ const formatCurrency = (value, currency = (typeof displayCurrency !== 'undefined
   const rate = (typeof getExchangeRate === 'function') ? getExchangeRate(currency) : 1;
   const converted = num * rate;
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-    }).format(converted);
+    const upperCurrency = currency.toUpperCase();
+    const cacheKey = `default-${upperCurrency}`;
+    let formatter = numberFormatCache.get(cacheKey);
+    if (!formatter) {
+      formatter = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: upperCurrency,
+      });
+      numberFormatCache.set(cacheKey, formatter);
+    }
+    return formatter.format(converted);
   } catch (e) {
     // Fallback for environments without Intl support
     return `${currency} ${converted.toFixed(2)}`;
@@ -602,9 +613,15 @@ const saveDisplayCurrency = (code) => {
  * @returns {string} Currency symbol (e.g. "$", "€", "£", "₽")
  */
 const getCurrencySymbol = (currency) => {
-  const code = currency || (typeof displayCurrency !== 'undefined' ? displayCurrency : 'USD');
+  const code = (currency || (typeof displayCurrency !== 'undefined' ? displayCurrency : 'USD')).toUpperCase();
   try {
-    const parts = new Intl.NumberFormat('en', { style: 'currency', currency: code }).formatToParts(0);
+    const cacheKey = `en-${code}`;
+    let formatter = numberFormatCache.get(cacheKey);
+    if (!formatter) {
+      formatter = new Intl.NumberFormat('en', { style: 'currency', currency: code });
+      numberFormatCache.set(cacheKey, formatter);
+    }
+    const parts = formatter.formatToParts(0);
     const sym = parts.find(p => p.type === 'currency');
     return sym ? sym.value : code;
   } catch (e) { return code; }
@@ -894,15 +911,17 @@ const stripNonAlphanumeric = (str = "", { allowHyphen = false, allowSlash = fals
  * @param {string} str - Input string
  * @returns {string} Cleaned string
  */
-const cleanString = (str = "") =>
-  str
-    .toString()
-    .replace(/<[^>]*>/g, "")
+const cleanString = (str = "") => {
+  let s = str.toString();
+  let prev;
+  do { prev = s; s = s.replace(/<[^>]*>/g, ''); } while (s !== prev);
+  return s
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+};
 
 /**
  * Sanitizes all string properties of an object by stripping non-alphanumeric characters.
@@ -1211,10 +1230,11 @@ const sanitizeImportedItem = (item) => {
 
   // Normalize and sanitize string fields
   const basicFields = ['name', 'type', 'purchaseLocation', 'storageLocation'];
-  const cleanMultilineString = (str = '') =>
-    str
-      .toString()
-      .replace(/<[^>]*>/g, '')
+  const cleanMultilineString = (str = '') => {
+    let s = str.toString();
+    let prev;
+    do { prev = s; s = s.replace(/<[^>]*>/g, ''); } while (s !== prev);
+    return s
       .normalize('NFD')
       .replace(/\p{Diacritic}/gu, '')
       .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
@@ -1222,6 +1242,7 @@ const sanitizeImportedItem = (item) => {
       .replace(/[ \t]+/g, ' ')
       .replace(/ *\n */g, '\n')
       .trim();
+  };
   for (const field of basicFields) {
     sanitized[field] = cleanString(sanitized[field]);
   }

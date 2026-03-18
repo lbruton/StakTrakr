@@ -136,26 +136,73 @@ function vendorMap(rows) {
  * includes per-vendor prices for individual chart lines.
  * Excludes out-of-stock vendors (in_stock = 0).
  */
-function aggregateWindows(allRows) {
-  const byWindow = new Map();
+/**
+ * Aggregate raw snapshot rows into consensus time-bucket windows with
+ * carry-forward so every window has all vendors.
+ *
+ * 1. Bucket rows by time (30-min default) — merge both pollers.
+ * 2. Walk buckets chronologically, carrying forward each vendor's last
+ *    known price into any window where that vendor has no new data.
+ * 3. Recompute median/low from the FULL vendor set (carried + fresh).
+ *
+ * Result: every window always has all vendors. Fresh data overwrites
+ * carried data. The API serves complete, clean consensus windows.
+ *
+ * @param {Array} allRows  Raw price_snapshots rows (must include scraped_at)
+ * @param {number} bucketMinutes  Bucket size in minutes: 15, 30, or 60
+ * @returns {Array<{window: string, median: number, low: number, vendors: Object}>}
+ */
+function aggregateWindows(allRows, bucketMinutes = 30) {
+  // Step 1: Bucket rows — keep most recent price per vendor per bucket
+  const byBucket = new Map();
   for (const row of allRows) {
     if (row.price === null || row.in_stock !== 1) continue;  // Skip OOS
-    if (!byWindow.has(row.window_start)) byWindow.set(row.window_start, { prices: [], vendors: {} });
-    const entry = byWindow.get(row.window_start);
-    entry.prices.push(row.price);
-    entry.vendors[row.vendor] = Math.round(row.price * 100) / 100;
+    const d = new Date(row.window_start);
+    const mins = d.getUTCMinutes();
+    d.setUTCMinutes(mins - (mins % bucketMinutes), 0, 0);
+    const bucketKey = d.toISOString();
+    if (!byBucket.has(bucketKey)) byBucket.set(bucketKey, { vendors: {} });
+    const entry = byBucket.get(bucketKey);
+    const existing = entry.vendors[row.vendor];
+    if (!existing || row.scraped_at > existing.scraped_at) {
+      entry.vendors[row.vendor] = {
+        price: Math.round(row.price * 100) / 100,
+        scraped_at: row.scraped_at,
+      };
+    }
   }
+
+  // Step 2: Sort buckets chronologically, then carry forward
+  const sortedKeys = [...byBucket.keys()].sort();
+  const lastSeen = {};  // vendorId → { price, scraped_at }
+
   const result = [];
-  for (const [window, { prices, vendors }] of byWindow) {
+  for (const bucket of sortedKeys) {
+    const { vendors } = byBucket.get(bucket);
+
+    // Update lastSeen with any fresh data in this bucket
+    for (const [vendorId, data] of Object.entries(vendors)) {
+      lastSeen[vendorId] = data;
+    }
+
+    // Build the full vendor map: fresh data + carried-forward
+    const vendorPrices = {};
+    for (const [vendorId, data] of Object.entries(lastSeen)) {
+      vendorPrices[vendorId] = data.price;
+    }
+
+    const prices = Object.values(vendorPrices);
+    if (prices.length === 0) continue;
     const sorted = [...prices].sort((a, b) => a - b);
+
     result.push({
-      window,
-      median:  Math.round(sorted[Math.floor(sorted.length / 2)] * 100) / 100,
-      low:     Math.round(sorted[0] * 100) / 100,
-      vendors,
+      window: bucket,
+      median: Math.round(sorted[Math.floor(sorted.length / 2)] * 100) / 100,
+      low:    Math.round(sorted[0] * 100) / 100,
+      vendors: vendorPrices,
     });
   }
-  return result.sort((a, b) => a.window.localeCompare(b.window));
+  return result;
 }
 
 /**
@@ -462,8 +509,7 @@ function openOrCreateCache(cachePath) {
         source       TEXT NOT NULL,
         confidence   INTEGER,
         is_failed    INTEGER NOT NULL DEFAULT 0,
-        in_stock     INTEGER NOT NULL DEFAULT 1,
-        UNIQUE(coin_slug, vendor, window_start)
+        in_stock     INTEGER NOT NULL DEFAULT 1
       );
       CREATE INDEX idx_coin_window ON price_snapshots(coin_slug, window_start);
       CREATE INDEX idx_window ON price_snapshots(window_start);
@@ -533,10 +579,12 @@ async function main() {
       return;
     }
 
-    // Insert new rows with INSERT OR IGNORE (deduplicates dual pollers)
+    // Insert all Turso rows into cache — no UNIQUE constraint, no deduplication.
+    // The cache is a dumb mirror of Turso. aggregateWindows() handles deduplication
+    // by keeping the latest scraped_at per vendor per time bucket.
     if (tursoRows.length > 0) {
       const insertStmt = db.prepare(`
-        INSERT OR IGNORE INTO price_snapshots (
+        INSERT INTO price_snapshots (
           scraped_at, window_start, coin_slug, vendor, price,
           source, confidence, is_failed, in_stock
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -551,7 +599,7 @@ async function main() {
         }
       });
       insertMany(tursoRows);
-      log(`Inserted/deduplicated ${tursoRows.length} rows into cache`);
+      log(`Inserted ${tursoRows.length} rows into cache`);
     }
 
     // Prune old data (keep 31 days)
@@ -762,9 +810,10 @@ async function main() {
       }
     }
 
-    // 24h windows time series — aggregate across all windows
+    // 24h windows time series — aggregate into 30-min consensus buckets
+    // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors
     const recentRows = readRecentWindows(db, slug, 96);
-    const windows24h = aggregateWindows(recentRows);
+    const windows24h = aggregateWindows(recentRows, 30);
 
     writeApiFile(`${slug}/latest.json`, {
       slug,

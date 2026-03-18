@@ -1,12 +1,12 @@
 ---
 name: sync-instructions
-description: Synchronize instruction files and skills across Claude Code and Codex after codebase changes. Use when new JS files are added, globals change, patterns evolve, version info updates, or skills are modified.
+description: Synchronize instruction files and skills across Claude Code, Codex, and Gemini after codebase changes. Use when new JS files are added, globals change, patterns evolve, version info updates, skills are modified, or MCP servers are added/removed.
 user-invocable: true
 ---
 
 # Sync Instructions & Skills
 
-Keep instruction files and tracked skills aligned across Claude Code and Codex.
+Keep instruction files and tracked skills aligned across Claude Code, Codex, and Gemini.
 
 ## Project Detection
 
@@ -32,7 +32,8 @@ Use `REPO` and `PROJECT_PATH` where project-specific names appear below.
 | File | Audience | Git-tracked | Focus |
 |------|----------|-------------|-------|
 | `CLAUDE.md` | Claude Code (local Mac) | No | Full context + MCP servers + local skills/commands |
-| `AGENTS.md` | Codex, Claude Code web, remote agents | Yes | Codebase context only, no local tooling |
+| `AGENTS.md` | Codex, Claude Code web, GitHub Actions, Jules | Yes | Full codebase context + MCP guide + handoff protocol |
+| `GEMINI.md` | Gemini CLI | Yes | Codebase context + MCP guide + Gemini-specific conventions |
 | `.github/copilot-instructions.md` | GitHub Copilot PR reviews | Yes | PR review rules, globals list, ESLint/PMD, patterns to enforce |
 
 ## Sync Process
@@ -47,14 +48,15 @@ Use `REPO` and `PROJECT_PATH` where project-specific names appear below.
 
 ### Phase 2: Identify Gaps
 
-| Change Type | CLAUDE.md | AGENTS.md | copilot-instructions.md |
-|-------------|-----------|-----------|------------------------|
-| New JS file | Add to file listing + load order | Add to file listing + load order | Add globals if exported |
-| New global | Add to relevant section | Add to globals table | Add to globals list (critical) |
-| New localStorage key | Mention if significant | Mention if significant | Not needed |
-| New pattern/convention | Add to Critical Patterns | Add to Critical Patterns | Add to Patterns to Enforce |
-| Script order change | Update load order block | Update load order block | Mention if relevant |
-| New feature module | Add to Feature Modules | Add to Feature Modules | Add globals + review focus |
+| Change Type | CLAUDE.md | AGENTS.md | GEMINI.md | copilot-instructions.md |
+|-------------|-----------|-----------|-----------|------------------------|
+| New JS file | Add to file listing + load order | Add to file listing + load order | Add to Project Structure | Add globals if exported |
+| New global | Add to relevant section | Add to globals table | Mention if significant | Add to globals list (critical) |
+| New localStorage key | Mention if significant | Mention if significant | Not needed | Not needed |
+| New pattern/convention | Add to Critical Patterns | Add to Critical Patterns | Add to Core Mandates | Add to Patterns to Enforce |
+| Script order change | Update load order block | Update load order block | Update js/ description | Mention if relevant |
+| New feature module | Add to Feature Modules | Add to Feature Modules | Add to Project Structure | Add globals + review focus |
+| New MCP server | Add to `.mcp.json` + CLAUDE.md | Add to MCP table + usage block | Add to MCP Server Usage | Not needed |
 
 ### Phase 3: Apply Updates
 
@@ -76,6 +78,7 @@ Changes detected:
 Files updated:
   - CLAUDE.md: [what changed]
   - AGENTS.md: [what changed]
+  - GEMINI.md: [what changed]
   - copilot-instructions.md: [what changed]
 
 No changes needed: [list any files that were already current]
@@ -83,70 +86,102 @@ No changes needed: [list any files that were already current]
 
 ## Rules
 
-- **Never strip local-only content from CLAUDE.md** — MCP servers, local skills, and commands belong there
-- **Never add local-only content to AGENTS.md** — no MCP servers, no mem0, no Linear team IDs
-- **Never remove the MCP or handoff protocol sections from AGENTS.md** — those are Codex-managed
+- **Never strip local-only Mac tooling from CLAUDE.md** — local paths, local Claude skills invocations, and Mac-specific commands belong there only
+- **AGENTS.md may include MCP, mem0, and Linear info** — Codex needs these; what it must NOT have is Mac-local paths, Claude skill invocations (like `/release`), or Mac keychain commands
+- **GEMINI.md** — same scope as AGENTS.md but with Gemini-specific conventions (hooks, `/memory`, rewind). Keep in sync with AGENTS.md for shared sections
+- **Never remove the MCP or handoff protocol sections from AGENTS.md or GEMINI.md** — those are agent-managed
 - **copilot-instructions.md is the most detailed for globals** — Copilot needs explicit "do not flag" lists to avoid false positives
-- **AGENTS.md is the most concise** — remote agents don't need ESLint rule tables or PMD config
-- **Keep the script load order block identical** across CLAUDE.md and AGENTS.md
+- **Keep the script load order block identical** across CLAUDE.md and AGENTS.md (GEMINI.md may abbreviate)
 - **Update script count** whenever files are added/removed
 - **Codacy instructions** are managed separately by Codacy — do not modify
 
 ## Phase 5: Skills Sync
 
-Skills live in two tiers:
+Skills live in three tiers:
 
-| Tier | Location | Audience |
-|------|----------|----------|
-| User-level | `~/.claude/skills/` | Claude Code (all projects) |
-| Project-level | `.agents/skills/` | Codex (per-repo) |
+| Tier | Location | Audience | Invocation |
+|------|----------|----------|------------|
+| Claude Code user-level | `~/.claude/skills/` | Claude Code (all projects) | `/skillname` |
+| Claude Code project-level | `.claude/skills/` | Claude Code (this repo) | `/skillname` |
+| Codex user-level | `~/.codex/skills/` | Codex (all projects) | `@skillname` |
+| Codex project-level | `.agents/skills/` | Codex (this repo) | `@skillname` |
+| Gemini user-level | `~/.gemini/skills/` | Gemini (all projects) | by name/description |
+| Gemini project-level | `.gemini/skills/` | Gemini (this repo) | by name/description |
 
-Some skills exist in both (independent copies). Each agent may tune its copy.
+Some skills exist across tiers (independent copies, adapted per agent). Each agent may tune its copy.
 
-### Step 1: Compare skill copies
+**Cross-agent skill adaptation expectations:**
+- Claude skills use `Agent` tool dispatch, MCP tool names prefixed `mcp__*`, and `/skillname` invocation
+- Codex skills use sequential shell + MCP calls, `@plugin` format, and handle no parallel-agent dispatch
+- Gemini skills are similar to Codex but note: no `chrome-devtools`, use `/rewind`, `1M context window`
 
-For each skill that exists in both locations, diff them:
+### Step 1: Inventory all skill copies
 
 ```bash
-diff ~/.claude/skills/<name>/SKILL.md .agents/skills/<name>/SKILL.md
+# Claude Code user-level
+ls ~/.claude/skills/
+
+# Claude Code project-level
+ls .claude/skills/ 2>/dev/null
+
+# Codex user-level
+ls ~/.codex/skills/
+
+# Codex project-level
+ls .agents/skills/ 2>/dev/null
+
+# Gemini user-level
+ls ~/.gemini/skills/
+
+# Gemini project-level
+ls .gemini/skills/ 2>/dev/null
 ```
 
-For project-only skills in `.agents/skills/`, check if they also exist in the project `.claude/skills/`.
+### Step 2: Compare skill copies for drift
 
-### Step 2: Report drift
+For each skill that exists in multiple tiers, compare:
+
+```bash
+diff ~/.claude/skills/<name>/SKILL.md ~/.codex/skills/<name>/SKILL.md
+diff ~/.claude/skills/<name>/SKILL.md ~/.gemini/skills/<name>/SKILL.md
+diff ~/.codex/skills/<name>/SKILL.md ~/.gemini/skills/<name>/SKILL.md
+```
+
+### Step 3: Report drift
 
 ```text
-Skill: remember
-  ~/.claude/skills/:  180 lines, modified 2026-02-18
-  .agents/skills/:    180 lines, modified 2026-02-18
-  Drift: none
+Skill: prime
+  ~/.claude/skills/:  310 lines, modified 2026-03-09
+  ~/.codex/skills/:   200 lines, modified 2026-03-09  [adapted — no Agent dispatch]
+  ~/.gemini/skills/:  210 lines, modified 2026-03-09  [adapted — adds /rewind]
+  Drift: intentional adaptation (expected)
 
-Skill: coding-standards
-  .agents/skills/:    532 lines, modified 2026-02-18
-  .claude/skills/:    528 lines, modified 2026-02-15
-  Drift: 4 lines differ (description field)
-  Direction: Codex is newer
+Skill: linear
+  ~/.claude/skills/:  N/A
+  ~/.codex/skills/:   150 lines, modified 2026-02-18
+  ~/.gemini/skills/:  N/A
+  Status: Codex-only — consider creating Gemini version
 ```
 
-### Step 3: Reconcile
+### Step 4: Reconcile
 
-For each skill with drift, present diffs and ask:
+For each skill with unintended drift, present diffs and ask:
 
-1. **Claude Code -> Codex**: Update `.agents/skills/`
-2. **Codex -> Claude Code**: Update `~/.claude/skills/` or `.claude/skills/`
-3. **Manual merge**: Show side-by-side
-4. **Skip**: Intentional divergence
+1. **Claude Code → Codex/Gemini**: Update adapted copies with new logic
+2. **Codex/Gemini → Claude Code**: Update user-level copy with improvements
+3. **Manual merge**: Show side-by-side for complex changes
+4. **Skip**: Intentional divergence (note why)
 
 **Expected divergences** (do not flag):
+- `Agent` tool dispatch → sequential MCP calls (Claude → Codex/Gemini)
+- `/skillname` → `@skillname` (Claude → Codex)
+- Path references (`~/.claude/skills/` vs `~/.codex/skills/` etc.)
+- Gemini-specific sections (`/rewind`, `/memory reload`, hooks)
+- Codex-specific sections (`codex resume <ID>`, `config.toml`)
 
-- Path references: `~/.claude/skills/` vs `.agents/skills/`
-- Tool names: Claude Code vs Codex tool names
-- Invocation style: `/skillname` vs implicit activation
-- Project detection sections (user-level skills detect via project.json; Codex copies may hardcode)
+### Step 5: Verify utility scripts
 
-### Step 4: Verify utility scripts
-
-If any skill has utility scripts (e.g., seed-sync `update-today.py`), check both copies are identical.
+If any skill has utility scripts (e.g., seed-sync `update-today.py`), check all copies are identical.
 
 ## Phase 5.5: MCP Server Sync (when `.mcp.json` changes)
 
@@ -180,8 +215,10 @@ Servers without real secrets (e.g., `firecrawl-local`) use literal values direct
 - [ ] `StakTrakr/.mcp.json` — Claude Code config (gitignored)
 - [ ] `~/.gemini/settings.json` — Gemini CLI config
 - [ ] `~/.codex/config.toml` — Codex CLI config
-- [ ] `GEMINI.md` — add MCP usage block under `## MCP Server Usage`
-- [ ] `AGENTS.md` — add row to MCP server table
+- [ ] `GEMINI.md` (project) — add MCP usage block under `## MCP Server Usage`
+- [ ] `~/.gemini/GEMINI.md` (global) — update MCP server table
+- [ ] `AGENTS.md` (project) — add row to MCP server table
+- [ ] `~/.codex/AGENTS.md` (global) — update MCP server table
 - [ ] Refresh secrets backup: `zip -j ~/.claude/backups/staktrakr-secrets-$(date +%Y-%m-%d).zip StakTrakr/.mcp.json ~/.gemini/settings.json ~/.codex/config.toml`
 
 ## Phase 6: Backup — Two Tiers, Two Destinations

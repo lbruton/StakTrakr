@@ -168,6 +168,31 @@
 
   // ── Settings sub-renderers (STAK-455) ──
 
+  // Shared output scaffold for all settings sub-renderers.
+  // matchedSection: pre-built HTML string (caller wraps it; may include its own overflow expand).
+  // overflowCount: number → "Show N more…"; null → "Show more…"
+  function _buildDiffSides(key, matchedSection, localHtml, remoteHtml, overflowLocal, overflowRemote, overflowCount) {
+    var html = matchedSection || '';
+    html += '<div class="dm-setting-sides">';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
+    if (overflowLocal) {
+      var lLabel = overflowCount != null ? 'Show ' + overflowCount + ' more\u2026' : 'Show more\u2026';
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">' + lLabel + '</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
+    }
+    html += '</div></div>';
+    html += '<div class="dm-setting-arrow">\u2192</div>';
+    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
+    if (overflowRemote) {
+      var rLabel = overflowCount != null ? 'Show ' + overflowCount + ' more\u2026' : 'Show more\u2026';
+      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">' + rLabel + '</span>';
+      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
+    }
+    html += '</div></div>';
+    html += '</div>';
+    return html;
+  }
+
   function _renderChipStrip(key, localArr, remoteArr) {
     // Guard: if either side is still a string after parsing, bail to inline renderer
     if (!Array.isArray(localArr) && !Array.isArray(remoteArr)) return null;
@@ -229,24 +254,8 @@
       }
     }
 
-    var html = '';
-    if (matchedHtml) html += '<div class="dm-setting-expanded">' + matchedHtml + '</div>';
-    html += '<div class="dm-setting-sides">';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
-    if (overflowLocal) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show ' + (diffCount - 15) + ' more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
-    }
-    html += '</div></div>';
-    html += '<div class="dm-setting-arrow">\u2192</div>';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
-    if (overflowRemote) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show ' + (diffCount - 15) + ' more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
-    }
-    html += '</div></div>';
-    html += '</div>';
-    return html;
+    var matchedSection = matchedHtml ? '<div class="dm-setting-expanded">' + matchedHtml + '</div>' : '';
+    return _buildDiffSides(key, matchedSection, localHtml, remoteHtml, overflowLocal, overflowRemote, diffCount - 15);
   }
 
   function _renderToggleMap(key, localObj, remoteObj) {
@@ -299,24 +308,8 @@
       }
     }
 
-    var html = '';
-    if (matchedHtml) html += '<div class="dm-setting-expanded">' + matchedHtml + '</div>';
-    html += '<div class="dm-setting-sides">';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
-    if (overflowLocal) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show ' + (diffCount - 15) + ' more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
-    }
-    html += '</div></div>';
-    html += '<div class="dm-setting-arrow">\u2192</div>';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
-    if (overflowRemote) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show ' + (diffCount - 15) + ' more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
-    }
-    html += '</div></div>';
-    html += '</div>';
-    return html;
+    var matchedSection = matchedHtml ? '<div class="dm-setting-expanded">' + matchedHtml + '</div>' : '';
+    return _buildDiffSides(key, matchedSection, localHtml, remoteHtml, overflowLocal, overflowRemote, diffCount - 15);
   }
 
   function _renderSlugChips(key, localArr, remoteArr) {
@@ -380,31 +373,16 @@
       }
     }
 
-    var html = '';
+    var matchedSection = '';
     if (matchedHtml || overflowMatched) {
-      html += '<div class="dm-setting-expanded">' + matchedHtml;
+      matchedSection = '<div class="dm-setting-expanded">' + matchedHtml;
       if (overflowMatched) {
-        html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-matched">Show ' + matchedOverflowCount + ' more\u2026</span>';
-        html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-matched">' + overflowMatched + '</div>';
+        matchedSection += '<span class="dm-show-more" data-expand="' + _esc(key) + '-matched">Show ' + matchedOverflowCount + ' more\u2026</span>';
+        matchedSection += '<div class="dm-expandable" id="expand-' + _esc(key) + '-matched">' + overflowMatched + '</div>';
       }
-      html += '</div>';
+      matchedSection += '</div>';
     }
-    html += '<div class="dm-setting-sides">';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
-    if (overflowLocal) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
-    }
-    html += '</div></div>';
-    html += '<div class="dm-setting-arrow">\u2192</div>';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
-    if (overflowRemote) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
-    }
-    html += '</div></div>';
-    html += '</div>';
-    return html;
+    return _buildDiffSides(key, matchedSection, localHtml, remoteHtml, overflowLocal, overflowRemote, null);
   }
 
   function _renderKvPills(key, localObj, remoteObj) {
@@ -454,24 +432,8 @@
       }
     }
 
-    var html = '';
-    if (matchedHtml) html += '<div class="dm-setting-expanded">' + matchedHtml + '</div>';
-    html += '<div class="dm-setting-sides">';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' + localHtml;
-    if (overflowLocal) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">Show ' + (diffCount - 15) + ' more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-local">' + overflowLocal + '</div>';
-    }
-    html += '</div></div>';
-    html += '<div class="dm-setting-arrow">\u2192</div>';
-    html += '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' + remoteHtml;
-    if (overflowRemote) {
-      html += '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">Show ' + (diffCount - 15) + ' more\u2026</span>';
-      html += '<div class="dm-expandable" id="expand-' + _esc(key) + '-remote">' + overflowRemote + '</div>';
-    }
-    html += '</div></div>';
-    html += '</div>';
-    return html;
+    var matchedSection = matchedHtml ? '<div class="dm-setting-expanded">' + matchedHtml + '</div>' : '';
+    return _buildDiffSides(key, matchedSection, localHtml, remoteHtml, overflowLocal, overflowRemote, diffCount - 15);
   }
 
   function _renderCountSummary(key, localVal, remoteVal) {

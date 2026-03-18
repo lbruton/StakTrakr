@@ -6,6 +6,9 @@ primary_region = 'iad'
 
 [build]
   dockerfile = "Dockerfile"
+  # Build context is parent dir (devops/pollers/) so Dockerfile can reach
+  # both shared/ and remote-poller/ as sibling directories.
+  context = ".."
 
 [env]
   POLLER_ID = "api"

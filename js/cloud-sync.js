@@ -2436,6 +2436,55 @@ async function pullWithPreview(remoteMeta) {
             throw new Error('Manifest stale: post-apply count mismatch');
           }
 
+          // STAK-470: If inventory has no changes but settings changes are ALL
+          // one-sided (key exists on only one side), this is a version upgrade —
+          // one device has newer SYNC_SCOPE_KEYS the other doesn't know about.
+          // Auto-merge silently: apply remote-only keys locally, keep local-only
+          // keys (they'll be pushed on next sync). No DiffModal needed.
+          // Placed AFTER the manifest completeness guard so a stale manifest
+          // cannot cause this branch to skip real inventory changes.
+          if (_mNoChanges && !_mNoSettingsChanges) {
+            var _allOneSided = manifestSettingsDiff.changed.every(function(c) {
+              return c.localVal === null || c.remoteVal === null;
+            });
+            if (_allOneSided) {
+              var _appliedCount = 0;
+              var _failedCount = 0;
+              for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
+                var _sc = manifestSettingsDiff.changed[_si];
+                // Guard: only apply keys in the ALLOWED_STORAGE_KEYS allowlist
+                if (typeof ALLOWED_STORAGE_KEYS !== 'undefined' && ALLOWED_STORAGE_KEYS.indexOf(_sc.key) === -1) {
+                  continue;
+                }
+                if (_sc.remoteVal !== null && _sc.localVal === null) {
+                  // Write raw localStorage value directly — remoteVal is the exact
+                  // stored form from the remote device (may include JSON encoding or
+                  // compression from saveDataSync). Re-encoding via saveDataSync
+                  // would double-encode.
+                  try { localStorage.setItem(_sc.key, _sc.remoteVal); _appliedCount++; } catch (_e) { _failedCount++; }
+                }
+              }
+              // Only record the pull if all writes succeeded — if any failed
+              // (e.g. QuotaExceededError), leave lastPull stale so the next
+              // poll cycle retries
+              if (_failedCount === 0) {
+                syncSetLastPull({
+                  syncId: remoteMeta ? remoteMeta.syncId : null,
+                  timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
+                  rev: remoteMeta ? remoteMeta.rev : null,
+                });
+              }
+              console.warn('[CloudSync] STAK-470: Version-upgrade settings diff — auto-merged ' + _appliedCount + ' remote-only keys, ' + (manifestSettingsDiff.changed.length - _appliedCount) + ' local-only keys kept' + (_failedCount > 0 ? ', ' + _failedCount + ' failed' : ''));
+              logCloudSyncActivity('auto_sync_pull', _failedCount > 0 ? 'partial' : 'success', 'Version-upgrade settings merged silently (' + _appliedCount + ' applied, ' + (manifestSettingsDiff.changed.length - _appliedCount) + ' local-only' + (_failedCount > 0 ? ', ' + _failedCount + ' failed' : '') + ')');
+              updateSyncStatusIndicator('idle', 'just now');
+              // Push to update remote manifest with local-only keys
+              if (_appliedCount < manifestSettingsDiff.changed.length && typeof scheduleSyncPush === 'function') {
+                scheduleSyncPush();
+              }
+              return;
+            }
+          }
+
           // Stash pull metadata
           _previewPullMeta = {
             syncId: remoteMeta ? remoteMeta.syncId : null,

@@ -1040,7 +1040,7 @@ const loadCatalogHistory = () => {
 const purgeCatalogHistory = (days = 180) => {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = cutoff.toISOString().slice(0, 10).replace(/-/g, "-");
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
   catalogHistory = catalogHistory.filter(
     (e) => e.timestamp >= cutoffStr
   );

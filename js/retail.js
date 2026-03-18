@@ -171,6 +171,22 @@ let _retailSyncError = false;
 /** Active sparkline Chart instances keyed by slug — destroyed before re-render to prevent Canvas reuse errors */
 const _retailSparklines = new Map();
 
+/** Current trend display mode: "7d" (default) or "intraday" */
+let _retailTrendMode = "7d";
+
+const _loadRetailTrendMode = () => {
+  const stored = loadDataSync(RETAIL_TREND_MODE_KEY, null);
+  if (stored === "intraday") _retailTrendMode = "intraday";
+};
+
+const _setRetailTrendMode = (mode) => {
+  _retailTrendMode = mode;
+  saveDataSync(RETAIL_TREND_MODE_KEY, mode);
+  _marketChartInstances.forEach((chart) => chart.destroy());
+  _marketChartInstances.clear();
+  _renderMarketListView();
+};
+
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
@@ -729,6 +745,27 @@ const _computeRetailTrend = (slug) => {
   return { dir: "flat", pct: "0.0" };
 };
 
+const _computeIntradayTrend = (slug) => {
+  const intraday = retailIntradayData[slug];
+  if (!intraday || !Array.isArray(intraday.windows_24h) || intraday.windows_24h.length < 2) return null;
+  // Use the same pipeline as the chart for consistency
+  if (typeof window.retailBucketWindows !== "function") return null;
+  const bucketed = window.retailBucketWindows(intraday.windows_24h);
+  if (bucketed.length < 2) return null;
+  const earliest = Number(bucketed[0].median);
+  const latest = Number(bucketed[bucketed.length - 1].median);
+  if (!isFinite(earliest) || !isFinite(latest) || earliest === 0) return null;
+  const change = ((latest - earliest) / earliest) * 100;
+  const pct = Math.abs(change).toFixed(1);
+  if (change > 0.2) return { dir: "up", pct };
+  if (change < -0.2) return { dir: "down", pct };
+  return { dir: "flat", pct: "0.0" };
+};
+
+const _getActiveTrend = (slug) => {
+  return _retailTrendMode === "intraday" ? _computeIntradayTrend(slug) : _computeRetailTrend(slug);
+};
+
 
 /**
  * Builds a single coin price card element.
@@ -876,7 +913,8 @@ const _buildRetailCard = (slug, meta, priceData) => {
         link.addEventListener("click", (e) => {
           e.preventDefault();
           const popup = window.open(vendorUrl, `retail_vendor_${key}`, "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no");
-          if (!popup) window.open(vendorUrl, "_blank");
+          if (popup) popup.opener = null;
+          else window.open(vendorUrl, "_blank", "noopener,noreferrer");
         });
         nameEl.appendChild(link);
       } else {
@@ -1081,7 +1119,7 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   card.appendChild(statsCol);
 
   // === Trend badge — playground: .market-card-trend .up/.down/.flat ===
-  const trend = _computeRetailTrend(slug);
+  const trend = _getActiveTrend(slug);
   const trendDir = trend ? trend.dir : "flat";
   const trendCol = document.createElement("div");
   trendCol.className = `market-card-trend ${trendDir}`;
@@ -1177,12 +1215,15 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   const tArrow = trend ? ({ up: "\u2191", down: "\u2193", flat: "\u2192" }[trend.dir]) : "\u2192";
   const tSign = trend ? (trend.dir === "up" ? "+" : trend.dir === "down" ? "\u2212" : "") : "";
   const tPct = trend ? trend.pct : "0.0";
-  summary.textContent = `7-Day Trend \u00A0${tArrow} ${tSign}${tPct}%`;
+  const trendLabel = _retailTrendMode === "intraday" ? "Intraday Trend" : "7-Day Trend";
+  summary.textContent = `${trendLabel} \u00A0${tArrow} ${tSign}${tPct}%`;
   details.appendChild(summary);
   const chartContainer = document.createElement("div");
   chartContainer.className = "market-chart-container";
   const history = retailPriceHistory[slug];
-  if (!history || history.length < 2) {
+  const intradayWindows = retailIntradayData[slug] && Array.isArray(retailIntradayData[slug].windows_24h) ? retailIntradayData[slug].windows_24h : [];
+  const hasChartData = (history && history.length >= 2) || intradayWindows.length >= 2;
+  if (!hasChartData) {
     const msg = document.createElement("p");
     msg.className = "text-muted market-chart-empty";
     msg.textContent = "Not enough data for chart";
@@ -1195,7 +1236,11 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   details.appendChild(chartContainer);
   details.addEventListener("toggle", () => {
     if (details.open) {
-      _initMarketCardChart(slug, details);
+      if (_retailTrendMode === "intraday") {
+        _initMarketCardIntradayChart(slug, details);
+      } else {
+        _initMarketCardChart(slug, details);
+      }
     } else if (_marketChartInstances.has(slug)) {
       _marketChartInstances.get(slug).destroy();
       _marketChartInstances.delete(slug);
@@ -1254,10 +1299,11 @@ const _filterHistorySpikes = (entries, vendorIds) => {
         prices[vid][t] = lastKnown;
         estimated[vid][t] = true;
       } else if (val != null && isOOS) {
-        // OOS but has a price (e.g. last scraped) — use it, mark estimated
-        prices[vid][t] = val;
+        // OOS but scraper returned a price — prefer last in-stock anchor for carry-forward
+        // so the dotted line stays flat at the last real price, not drifting with OOS prices
+        prices[vid][t] = lastKnown != null ? lastKnown : val;
         estimated[vid][t] = true;
-        lastKnown = val;
+        // Do NOT update lastKnown — keep last in-stock price as the carry anchor
       } else {
         // No data at all
         prices[vid][t] = null;
@@ -1290,12 +1336,53 @@ const _filterHistorySpikes = (entries, vendorIds) => {
     }
   }
 
+  // Pass 1b: Endpoint spike detection (t=0 and t=length-1 have no symmetric neighbors)
+  // Compare each endpoint against the average of the nearest 2 real interior data points.
+  // Uses 2× the neighbor tolerance (10%) since we're comparing one side only.
+  const endpointTol = neighborTol * 2;
+  for (const vid of vendorIds) {
+    const arr = prices[vid];
+    const est = estimated[vid];
+    const n = arr.length;
+    // Leading endpoint (t=0): look ahead for 2 real non-estimated data points
+    if (!est[0] && arr[0] != null) {
+      const peers = [];
+      for (let j = 1; j < n && peers.length < 2; j++) {
+        if (!est[j] && arr[j] != null) peers.push(arr[j]);
+      }
+      if (peers.length >= 2) {
+        const peerAvg = (peers[0] + peers[1]) / 2;
+        if (peerAvg !== 0 && Math.abs(arr[0] - peerAvg) / peerAvg > endpointTol) {
+          arr[0] = null;
+          est[0] = false;
+        }
+      }
+    }
+    // Trailing endpoint (t=n-1): look back for 2 real non-estimated data points
+    if (!est[n - 1] && arr[n - 1] != null) {
+      const peers = [];
+      for (let j = n - 2; j >= 0 && peers.length < 2; j--) {
+        if (!est[j] && arr[j] != null) peers.push(arr[j]);
+      }
+      if (peers.length >= 2) {
+        const peerAvg = (peers[0] + peers[1]) / 2;
+        if (peerAvg !== 0 && Math.abs(arr[n - 1] - peerAvg) / peerAvg > endpointTol) {
+          arr[n - 1] = null;
+          est[n - 1] = false;
+        }
+      }
+    }
+  }
+
   // Pass 2: Cross-vendor median consensus (only on non-estimated points)
   for (let t = 0; t < entries.length; t++) {
+    const isEndpoint = (t === 0 || t === entries.length - 1);
     const valid = vendorIds
       .map((vid) => ({ vid, price: prices[vid][t], est: estimated[vid][t] }))
       .filter((x) => x.price != null && !x.est);
-    if (valid.length < 3) continue;
+    // Endpoints: allow 2 vendors and tighter threshold (20%); interior: 3 vendors, 40%
+    if (valid.length < (isEndpoint ? 2 : 3)) continue;
+    const threshold = isEndpoint ? medianThreshold * 0.5 : medianThreshold;
     const sorted = valid.map((x) => x.price).sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
@@ -1303,7 +1390,7 @@ const _filterHistorySpikes = (entries, vendorIds) => {
     let flagged = 0;
     const candidates = [];
     for (const { vid, price } of valid) {
-      if (Math.abs(price - median) / median > medianThreshold) {
+      if (Math.abs(price - median) / median > threshold) {
         candidates.push(vid);
         flagged++;
       }
@@ -1399,10 +1486,11 @@ const _initMarketCardChart = (slug, detailsEl) => {
           pointBackgroundColor: (ctx) => interp[ctx.dataIndex] ? "transparent" : baseColor,
           tension: 0.3,
           spanGaps: true,
-          segment: {
-            borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
-            borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "50" : baseColor,
-          },
+          // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
+          // segment: {
+          //   borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
+          //   borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "50" : baseColor,
+          // },
         };
       }).filter(Boolean)
     : [{
@@ -1414,6 +1502,25 @@ const _initMarketCardChart = (slug, detailsEl) => {
         pointRadius: 3,
         tension: 0.3,
       }];
+
+  // Goldback reference baseline (STAK-474) — flat line at goldback.com price
+  if (typeof getGoldbackVendorPrice === "function") {
+    const gbPrice = getGoldbackVendorPrice(slug);
+    if (gbPrice && gbPrice.price != null) {
+      datasets.push({
+        label: "Goldback",
+        data: last7.map(() => gbPrice.price),
+        borderColor: "#d4a017",
+        backgroundColor: "transparent",
+        borderWidth: 1,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        pointHoverRadius: 2,
+        tension: 0,
+      });
+    }
+  }
+
   const chart = new Chart(canvas, {
     type: "line",
     data: { labels: last7.map((e) => e.date), datasets },
@@ -1437,6 +1544,106 @@ const _initMarketCardChart = (slug, detailsEl) => {
       },
       scales: {
         x: { ticks: { maxTicksLimit: 7, font: { size: 11 } } },
+        y: { ticks: { callback: (v) => `$${Number(v).toFixed(0)}` } },
+      },
+      animation: false,
+    },
+  });
+  _marketChartInstances.set(slug, chart);
+};
+
+const _initMarketCardIntradayChart = (slug, detailsEl) => {
+  if (typeof Chart === "undefined") return;
+  if (_marketChartInstances.has(slug)) return;
+  const canvas = detailsEl.querySelector(`#market-chart-${slug}`);
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+
+  if (typeof window.retailBucketWindows !== "function" ||
+      typeof window.retailForwardFillVendors !== "function" ||
+      typeof window.retailFlagAnomalies !== "function") return;
+
+  const intraday = retailIntradayData[slug];
+  const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  if (windows.length < 2) return;
+
+  const filled = window.retailForwardFillVendors(window.retailBucketWindows(windows));
+  let bucketed;
+  try {
+    bucketed = window.retailFlagAnomalies(filled);
+  } catch (e) {
+    debugLog("[retail] _flagAnomalies threw — anomaly detection skipped: " + e.message, "warn");
+    bucketed = filled;
+  }
+  if (bucketed.length < 2) return;
+
+  const labels = bucketed.map((w) => {
+    const d = w.window ? new Date(w.window) : null;
+    return typeof window.retailFmtIntradayTime === "function" ? window.retailFmtIntradayTime(d) : (d ? d.toISOString().slice(11, 16) : "");
+  });
+
+  const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const activeVendors = knownVendors.filter((v) =>
+    bucketed.some((w) => (w.vendors && w.vendors[v] != null) || (w._anomalyOriginals && w._anomalyOriginals[v] != null))
+  );
+
+  const datasets = activeVendors.length > 0
+    ? activeVendors.map((vendorId) => {
+        const _vd = getVendorDisplay(vendorId);
+        const color = RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8";
+        const carriedIndices = new Set();
+        bucketed.forEach((w, i) => {
+          if (w._carriedVendors && w._carriedVendors.has(vendorId)) carriedIndices.add(i);
+        });
+        return {
+          label: _vd.name,
+          data: bucketed.map((w) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null)),
+          borderColor: color,
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          pointRadius: (ctx) => carriedIndices.has(ctx.dataIndex) ? 0 : 0,
+          pointHoverRadius: (ctx) => carriedIndices.has(ctx.dataIndex) ? 2 : 3,
+          tension: 0.2,
+          spanGaps: true,
+          _carriedIndices: carriedIndices,
+          // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
+          // segment: {
+          //   borderDash: (ctx) => (carriedIndices.has(ctx.p0DataIndex) || carriedIndices.has(ctx.p1DataIndex)) ? [4, 3] : [],
+          //   borderColor: (ctx) => (carriedIndices.has(ctx.p0DataIndex) || carriedIndices.has(ctx.p1DataIndex)) ? color + "50" : color,
+          // },
+        };
+      })
+    : [{
+        label: "Median",
+        data: bucketed.map((w) => w.median),
+        borderColor: "#3b82f6",
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.3,
+      }];
+
+  const chart = new Chart(canvas, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              if (ctx.raw === null) return `${ctx.dataset.label}: Out of stock`;
+              const carried = ctx.dataset._carriedIndices && ctx.dataset._carriedIndices.has(ctx.dataIndex);
+              return `${ctx.dataset.label}: ${carried ? "~" : ""}$${Number(ctx.raw).toFixed(2)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 12, autoSkip: true, maxRotation: 0, font: { size: 10 } } },
         y: { ticks: { callback: (v) => `$${Number(v).toFixed(0)}` } },
       },
       animation: false,
@@ -1496,8 +1703,8 @@ const _getFilteredSortedSlugs = (query, sortKey) => {
         return pb - pa;
       }
       case "trend": {
-        const ta = _computeRetailTrend(a);
-        const tb = _computeRetailTrend(b);
+        const ta = _getActiveTrend(a);
+        const tb = _getActiveTrend(b);
         const va = ta ? parseFloat(ta.pct) * (ta.dir === "down" ? -1 : 1) : 0;
         const vb = tb ? parseFloat(tb.pct) * (tb.dir === "down" ? -1 : 1) : 0;
         return vb - va;
@@ -1543,7 +1750,27 @@ const _renderMarketListView = () => {
 
   // Reset expand button before any early-return path
   const expandBtn = safeGetElement("marketExpandAllBtn");
-  if (expandBtn) expandBtn.textContent = "Expand All";
+  if (expandBtn) expandBtn.title = "Expand All";
+
+  // Trend mode toggle pill (STAK-464) — inject into view-row controls-right
+  const viewRow = listHeader ? listHeader.querySelector(".market-header-view-row") : null;
+  const controlsRight = viewRow ? viewRow.querySelector(".market-header-controls-right") : null;
+  if (controlsRight) {
+    const existing = controlsRight.querySelector(".market-trend-toggle");
+    if (existing) existing.remove();
+    const trendToggle = document.createElement("div");
+    trendToggle.className = "market-trend-toggle";
+    ["7d", "intraday"].forEach((mode) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "market-trend-toggle-btn" + (_retailTrendMode === mode ? " market-trend-toggle-btn--active" : "");
+      btn.setAttribute("aria-pressed", _retailTrendMode === mode ? "true" : "false");
+      btn.textContent = mode === "7d" ? "7-Day" : "Intraday";
+      btn.addEventListener("click", () => _setRetailTrendMode(mode));
+      trendToggle.appendChild(btn);
+    });
+    controlsRight.insertBefore(trendToggle, controlsRight.firstChild);
+  }
 
   if (_retailSyncInProgress) {
     emptyState.style.display = "none";
@@ -1641,7 +1868,7 @@ const _initMarketListViewListeners = () => {
       else d.setAttribute("open", "");
       d.dispatchEvent(new Event("toggle"));
     });
-    expandBtn.textContent = allOpen ? "Expand All" : "Collapse All";
+    expandBtn.title = allOpen ? "Expand All" : "Collapse All";
   });
 
   const pillContainer = safeGetElement("marketFilterPills");
@@ -1857,6 +2084,7 @@ const initRetailPrices = () => {
   loadRetailPrices();
   loadRetailPriceHistory();
   loadRetailIntradayData();
+  _loadRetailTrendMode();
   loadRetailProviders();
   loadRetailAvailability();
   _initMarketListViewListeners();

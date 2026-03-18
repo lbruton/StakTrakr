@@ -12331,6 +12331,40 @@ th {
   align-items: center;
   gap: 10px;
 }
+.market-header-view-row {
+  margin-top: 8px;
+}
+/* STAK-464: Intraday trend toggle pill */
+.market-trend-toggle {
+  display: inline-flex;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border, var(--bs-border-color));
+}
+.market-trend-toggle-btn {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6c757d);
+}
+.market-trend-toggle-btn:hover {
+  color: var(--text-primary, var(--bs-body-color));
+}
+.market-trend-toggle-btn--active {
+  background: var(--primary, #4a9eff);
+  color: #fff;
+}
+/* Expand/Collapse icon button */
+.market-expand-btn {
+  padding: 4px 8px;
+  line-height: 1;
+}
+.market-expand-btn svg {
+  display: block;
+}
 .market-header-controls-right {
   display: flex;
   align-items: center;
