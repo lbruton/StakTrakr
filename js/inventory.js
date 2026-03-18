@@ -1016,6 +1016,24 @@ const getStorageLocationColor = loc =>
   (loc === 'Unknown' || loc === '—') ? 'var(--text-muted)' : getColor(storageLocationColors, loc);
 
 /**
+ * Opens a purchase link URL in a popup window using the popup.opener=null
+ * security pattern. Falls back to a plain _blank open if the popup is blocked.
+ *
+ * @param {string} href - The URL to open
+ * @param {Event} [e] - Optional event to stop propagation on
+ */
+window._openPurchaseLink = (href, e) => {
+  if (e) e.stopPropagation();
+  const popup = window.open(href, '_blank', 'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no');
+  if (popup) {
+    popup.opener = null;
+  } else {
+    const fallback = window.open(href, '_blank', 'noopener,noreferrer');
+    if (fallback) fallback.opener = null;
+  }
+};
+
+/**
  * Formats Purchase Location for table display, wrapping URLs in hyperlinks
  * while preserving filter behavior.
  *
@@ -1051,7 +1069,7 @@ const formatPurchaseLocation = (loc) => {
       href = `https://${href}`;
     }
     const safeHref = escapeAttribute(href);
-    return `<a href="#" onclick="event.stopPropagation(); window.open('${safeHref}', '_blank', 'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no'); return false;" class="purchase-link" title="${safeHref}">
+    return `<a href="#" onclick="_openPurchaseLink('${safeHref}', event); return false;" class="purchase-link" title="${safeHref}">
       <svg class="purchase-link-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: currentColor; margin-right: 4px;" aria-hidden="true">
         <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
       </svg>
@@ -4185,6 +4203,7 @@ document.addEventListener('click', (e) => {
       if (!popup) {
         appAlert(`Popup blocked! Please allow popups or manually visit:\n${url}`);
       } else {
+        popup.opener = null;
         popup.focus();
       }
     }
@@ -4207,6 +4226,7 @@ document.addEventListener('click', (e) => {
       if (!popup) {
         appAlert(`Popup blocked! Please allow popups or manually visit:\n${url}`);
       } else {
+        popup.opener = null;
         popup.focus();
       }
     }

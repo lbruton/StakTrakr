@@ -693,8 +693,18 @@ const setupSearchAndChipListeners = () => {
     wireChipSortToggle('chipSortOrder', 'settingsChipSortOrder');
   }
 
-  // Disposed filter three-state toggle (STAK-388)
-  const savedDisposedMode = localStorage.getItem('disposedFilterMode') || 'hide';
+  // Disposed filter three-state toggle (STAK-388, STAK-470)
+  // Migration shim: pre-v3.33.69 stored raw strings ("hide"/"show"/"only") via
+  // localStorage.setItem. loadDataSync JSON.parse fails on these, silently
+  // resetting to default. Detect raw strings and re-encode via saveDataSync.
+  const _rawDisposed = localStorage.getItem('disposedFilterMode');
+  let savedDisposedMode = 'hide';
+  if (_rawDisposed === 'hide' || _rawDisposed === 'show' || _rawDisposed === 'only') {
+    savedDisposedMode = _rawDisposed;
+    if (typeof saveDataSync === 'function') saveDataSync('disposedFilterMode', _rawDisposed);
+  } else if (typeof loadDataSync === 'function') {
+    savedDisposedMode = loadDataSync('disposedFilterMode', 'hide') || 'hide';
+  }
   document.querySelectorAll('#disposedFilterGroup .chip-sort-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.disposedMode === savedDisposedMode);
   });
@@ -706,7 +716,7 @@ const setupSearchAndChipListeners = () => {
       b.classList.remove('active');
     });
     btn.classList.add('active');
-    localStorage.setItem('disposedFilterMode', btn.dataset.disposedMode);
+    if (typeof saveDataSync === 'function') saveDataSync('disposedFilterMode', btn.dataset.disposedMode);
     if (typeof renderTable === 'function') renderTable();
     if (typeof renderActiveFilters === 'function') renderActiveFilters();
   });
@@ -1040,9 +1050,6 @@ const parseItemFormFields = (isEditing, existingItem) => {
  * @returns {Object} Numista data fields with source tracking
  */
 const parseNumistaDataFields = (isEditing, existingItem, catalog = '') => {
-  // When N# is being cleared while editing, wipe all Numista metadata (STAK-309)
-  if (isEditing && !catalog) return {};
-
   const get = (id) => (document.getElementById(id)?.value?.trim() ?? '');
   const prev = (isEditing && existingItem?.numistaData) ? existingItem.numistaData : {};
 
@@ -2042,11 +2049,12 @@ const setupNoteAndModalListeners = () => {
 
   optionalListener(document.getElementById('goldbackExchangeRateLink'), "click", (e) => {
     e.preventDefault();
-    window.open(
+    const popup = window.open(
       'https://www.goldback.com/exchange-rates/',
       'goldback_rates',
       'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no',
     );
+    if (popup) popup.opener = null;
   }, "Goldback exchange rates link");
 
   optionalListener(document.getElementById('spotLookupCloseBtn'), "click", () => {

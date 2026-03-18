@@ -396,10 +396,10 @@ const renderSpotLookupEmpty = (container, metalName, dateStr) => {
   if (avail.available) {
     if (avail.withinLimit) {
       html += `<button class="btn secondary spot-lookup-fetch-btn" type="button" `
-           + `data-metal="${metalName}" data-date="${dateStr}">`;
-      html += `Fetch from ${avail.providerName}</button>`;
+           + `data-metal="${escapeHtml(metalName)}" data-date="${escapeHtml(dateStr)}">`;
+      html += `Fetch from ${escapeHtml(avail.providerName)}</button>`;
     } else {
-      html += `<p class="spot-lookup-hint">Date is beyond ${avail.providerName}'s ${avail.maxDays}-day history limit.</p>`;
+      html += `<p class="spot-lookup-hint">Date is beyond ${escapeHtml(avail.providerName)}'s ${escapeHtml(avail.maxDays)}-day history limit.</p>`;
     }
   } else {
     html += '<p class="spot-lookup-hint">Configure an API key in Settings to fetch historical prices.</p>';

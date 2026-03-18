@@ -2,7 +2,7 @@
 name: start-patch
 description: Use when starting a new patch session and needing to pick a Linear issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
-allowed-tools: Bash, Read, mcp__claude_ai_Linear__list_issues, mcp__claude_ai_Linear__get_issue, mcp__mem0__search_memories
+allowed-tools: Bash, Read, mcp__infisical__get-secret, mcp__mem0__search_memories
 ---
 
 # Start Patch
@@ -48,44 +48,26 @@ git log --oneline -5
 git status --short
 ```
 
-### Linear queries (3 in parallel)
+### Linear query (single GraphQL call replaces 3 MCP calls)
 
-Using `linearTeamId` from project.json:
-
-**Query A — In Progress:**
+Fetch the API key from Infisical:
 ```
-mcp__claude_ai_Linear__list_issues
-  teamId: linearTeamId
-  filter: { state: { name: { eq: "In Progress" } } }
-  first: 10
-  includeArchived: false
+mcp__infisical__get-secret(secretName: "LINEAR_API_KEY", environmentSlug: "dev", projectId: "319a1db5-207d-49d0-a61d-3f3e6b440ded")
 ```
 
-**Query B — Todo (Urgent + High priority only):**
-```
-mcp__claude_ai_Linear__list_issues
-  teamId: linearTeamId
-  filter: {
-    state: { name: { eq: "Todo" } },
-    priority: { gte: 2 }
-  }
-  first: 20
-  includeArchived: false
+Then run a single query that returns In Progress, Todo, and Backlog issues:
+
+```bash
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$(cat <<'GRAPHQL'
+{"query": "{ team(id: \"<TEAM_ID>\") { issues(filter: { state: { type: { nin: [\"completed\", \"canceled\"] } } }, orderBy: priority, first: 50) { nodes { identifier title priority state { name type } assignee { name } labels { nodes { name } } createdAt } } }"}
+GRAPHQL
+)"
 ```
 
-**Query C — Backlog (Urgent + High priority only):**
-```
-mcp__claude_ai_Linear__list_issues
-  teamId: linearTeamId
-  filter: {
-    state: { name: { eq: "Backlog" } },
-    priority: { gte: 2 }
-  }
-  first: 20
-  includeArchived: false
-```
-
-> Linear priority values: 1 = Urgent, 2 = High, 3 = Medium, 4 = Low. `gte: 2` = Urgent + High only.
+> Linear priority values: 1 = Urgent, 2 = High, 3 = Medium, 4 = Low.
 
 ### mem0 — session continuity
 

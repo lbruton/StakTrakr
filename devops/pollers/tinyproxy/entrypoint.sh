@@ -43,4 +43,13 @@ if ip addr 2>/dev/null | grep -q '100\.'; then
   echo "tinyproxy: Tailscale IP ${TS_IP} ready after ${ELAPSED}s"
 fi
 
+# Forward port 8191 from Tailscale namespace to Docker host → Byparr container.
+# Fly.io reaches Byparr at 100.112.198.50:8191 via Tailscale, socat routes to
+# the Docker bridge gateway (host port 8191 → staktrakr-byparr:8191).
+GATEWAY=$(ip route | grep default | awk '{print $3}')
+if [ -n "$GATEWAY" ]; then
+  echo "tinyproxy: starting socat port 8191 forwarder to gateway ${GATEWAY}"
+  socat TCP-LISTEN:8191,fork,reuseaddr TCP:${GATEWAY}:8191 &
+fi
+
 exec tinyproxy -d

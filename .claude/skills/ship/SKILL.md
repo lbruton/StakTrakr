@@ -45,8 +45,25 @@ git log --format="%s" "$tag"^.."$tag" | head -1
 ## Step 3: Fetch Linear issue titles
 
 For each `STAK-###` reference found across tag names and commit messages,
-call `mcp__claude_ai_Linear__get_issue` to get the current title and URL.
-This ensures the PR description is accurate, not just copy-pasted from commits.
+fetch the current title and URL via the Linear GraphQL API. This ensures
+the PR description is accurate, not just copy-pasted from commits.
+
+```bash
+# Fetch API key from Infisical first (see linear skill)
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ issue(id: \"STAK-###\") { identifier title url state { name } } }"}'
+```
+
+For multiple issues, batch them in a single aliased query:
+
+```bash
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ a: issue(id: \"STAK-462\") { identifier title url } b: issue(id: \"STAK-463\") { identifier title url } }"}'
+```
 
 ## Step 3.5: Audit announcements & about.js (MANDATORY)
 
@@ -131,7 +148,21 @@ before the PR goes to final review.
 
 Mark all referenced STAK-### issues as **Done** — they ship with this merge.
 
-Use `mcp__claude_ai_Linear__update_issue` with `state: "Done"` for each.
+Use the Linear GraphQL API to update each issue's state to Done:
+
+```bash
+# First get the "Done" state ID for the team
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ team(id: \"f876864d-ff80-4231-ae6c-a8e5cb69aca4\") { states(filter: { type: { eq: \"completed\" } }) { nodes { id name } } } }"}'
+
+# Then batch-update all issues
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation { a: issueUpdate(id: \"<UUID_1>\", input: { stateId: \"<DONE_STATE_ID>\" }) { issue { identifier } } b: issueUpdate(id: \"<UUID_2>\", input: { stateId: \"<DONE_STATE_ID>\" }) { issue { identifier } } }"}'
+```
 
 ## Step 7: After the PR merges to main — GitHub Release (MANDATORY)
 

@@ -17,55 +17,56 @@ Works on `file://` and HTTP. Runtime artifact: zero build step, zero install. Se
 
 **Patch versioning habit**: Run `/release patch` after every meaningful committed change — bug fix, UX tweak, feature addition. Each patch tag (`v3.32.03`) is a breadcrumb that lets us reconstruct a clean changelog at release time. Don't batch multiple changes under one version bump. The rule: **one meaningful change = one patch tag**.
 
-## Wiki — Project Technical Documentation
+## DocVault — Project Technical Documentation
 
-`wiki/` (in-repo) is the **only** technical documentation for this project. There are no other doc sources. **Wiki updates MUST be committed to the branch BEFORE pushing or creating a PR.** This is a blocking step — wiki changes after PR creation are orphaned. Use `/wiki-update` (blocking) to auto-detect affected pages via frontmatter `sourceFiles`. For widespread changes, use `/wiki-sweep`.
+Technical documentation lives in **DocVault** (Obsidian vault) at `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`. This is the single source of truth — there is no in-repo wiki. **DocVault updates MUST be committed BEFORE pushing or creating a PR.** Use `/vault-update` to auto-detect affected pages via frontmatter `sourceFiles`. For widespread changes, use `/wiki-sweep` (adapted for DocVault).
 
-If a wiki page would become inaccurate after your change, updating it is not optional — treat it as part of the PR diff.
+If a DocVault page would become inaccurate after your change, updating it is not optional — treat it as part of the PR diff.
 
-### Source File → Wiki Page Matrix
+### Source File → DocVault Page Matrix
 
-When you change a file, update every wiki page listed in its row.
+When you change a file, update every DocVault page listed in its row. All pages are at `DocVault/Projects/StakTrakr/`.
 
-| Source File | Wiki Pages to Update |
+| Source File | DocVault Pages to Update |
 |---|---|
-| `index.html` | [frontend-overview](wiki/frontend-overview.md) |
-| `sw.js` | [frontend-overview](wiki/frontend-overview.md), [service-worker](wiki/service-worker.md) |
-| `devops/hooks/stamp-sw-cache.sh` | [service-worker](wiki/service-worker.md) |
-| `devops/version.lock` | [release-workflow](wiki/release-workflow.md) |
-| `.claude/skills/release/SKILL.md` | [release-workflow](wiki/release-workflow.md) |
-| `.claude/skills/ship/SKILL.md` | [release-workflow](wiki/release-workflow.md) |
-| `js/constants.js` | [frontend-overview](wiki/frontend-overview.md), [data-model](wiki/data-model.md), [storage-patterns](wiki/storage-patterns.md), [release-workflow](wiki/release-workflow.md) |
-| `js/types.js` | [data-model](wiki/data-model.md) |
-| `js/utils.js` | [data-model](wiki/data-model.md), [storage-patterns](wiki/storage-patterns.md), [dom-patterns](wiki/dom-patterns.md), [backup-restore](wiki/backup-restore.md) |
-| `js/about.js` | [dom-patterns](wiki/dom-patterns.md) |
-| `js/init.js` | [dom-patterns](wiki/dom-patterns.md) |
-| `js/file-protocol-fix.js` | [frontend-overview](wiki/frontend-overview.md) |
-| `js/api.js` | [api-consumption](wiki/api-consumption.md), [vendor-quirks](wiki/vendor-quirks.md) |
-| `js/api-health.js` | [api-consumption](wiki/api-consumption.md) |
-| `js/cloud-sync.js` | [sync-cloud](wiki/sync-cloud.md), [backup-restore](wiki/backup-restore.md) |
-| `js/cloud-storage.js` | [sync-cloud](wiki/sync-cloud.md), [backup-restore](wiki/backup-restore.md) |
-| `js/retail.js` | [retail-modal](wiki/retail-modal.md), [vendor-quirks](wiki/vendor-quirks.md) |
-| `js/retail-view-modal.js` | [retail-modal](wiki/retail-modal.md), [vendor-quirks](wiki/vendor-quirks.md) |
-| `js/image-cache.js` | [image-pipeline](wiki/image-pipeline.md) |
-| `js/image-processor.js` | [image-pipeline](wiki/image-pipeline.md) |
-| `js/image-cache-modal.js` | [image-pipeline](wiki/image-pipeline.md) |
-| `js/bulk-image-cache.js` | [image-pipeline](wiki/image-pipeline.md) |
-| `js/seed-images.js` | [image-pipeline](wiki/image-pipeline.md) |
+| `index.html` | Frontend Overview |
+| `sw.js` | Frontend Overview, Service Worker |
+| `devops/hooks/stamp-sw-cache.sh` | Service Worker |
+| `devops/version.lock` | Release Workflow |
+| `.claude/skills/release/SKILL.md` | Release Workflow |
+| `.claude/skills/ship/SKILL.md` | Release Workflow |
+| `js/constants.js` | Frontend Overview, Data Model, Storage Patterns, Release Workflow |
+| `js/types.js` | Data Model |
+| `js/utils.js` | Data Model, Storage Patterns, DOM Patterns, Backup & Restore |
+| `js/about.js` | DOM Patterns |
+| `js/init.js` | DOM Patterns |
+| `js/file-protocol-fix.js` | Frontend Overview |
+| `js/api.js` | API Consumption, Vendor Quirks |
+| `js/api-health.js` | API Consumption |
+| `js/cloud-sync.js` | Cloud Sync, Backup & Restore |
+| `js/cloud-storage.js` | Cloud Sync, Backup & Restore |
+| `js/retail.js` | Retail Modal, Vendor Quirks |
+| `js/retail-view-modal.js` | Retail Modal, Vendor Quirks |
+| `js/image-cache.js` | Image Pipeline |
+| `js/image-processor.js` | Image Pipeline |
+| `js/image-cache-modal.js` | Image Pipeline |
+| `js/bulk-image-cache.js` | Image Pipeline |
+| `js/seed-images.js` | Image Pipeline |
 
-**Infrastructure pages** (`owner: staktrakr-api`) are maintained by StakTrakrApi agents — only update their frontmatter, never rewrite technical content from this repo.
+**Infrastructure pages** (tagged `owner/staktrakr-api`) are maintained by StakTrakrApi agents — only update their frontmatter, never rewrite technical content from this repo.
 
 ## Code Search Paths
 
 - `mcp__claude-context__search_code` path: `/Volumes/DATA/GitHub/StakTrakr`
-- Wiki search: `mcp__claude-context__search_code` with path `/Volumes/DATA/GitHub/StakTrakr/wiki`
+- DocVault search: `mcp__claude-context__search_code` with path `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr`
+- Full vault search: `mcp__claude-context__search_code` with path `/Volumes/DATA/GitHub/DocVault`
 - **CGC setup**: `cd devops/cgc && docker compose up -d`
 
 ## API Infrastructure
 
-> **Poller code ownership:** All poller scripts live in `StakTrakr/devops/pollers/` (shared core + home-poller + remote-poller). Home VM deploys via Portainer API from git. Fly.io container still deploys from `StakTrakrApi/devops/fly-poller/` (transitioning). See `repo-boundaries` skill for full ownership map.
+> **Poller code ownership:** All poller scripts live in `StakTrakr/devops/pollers/` (shared core + home-poller + remote-poller). Home VM deploys via Portainer API from git. Fly.io deploys from `devops/pollers/remote-poller/` in this same repo — `StakTrakrApi/devops/fly-poller/` no longer exists. See `repo-boundaries` skill for full ownership map.
 
-**Runbook:** See wiki/ for current runbooks: [`health.md`](wiki/health.md), [`fly-container.md`](wiki/fly-container.md), [`spot-pipeline.md`](wiki/spot-pipeline.md).
+**Runbook:** See DocVault for current runbooks: Health Checks, Remote Poller, Spot Pipeline (all in `DocVault/Projects/StakTrakr/`).
 
 Three feeds served from `lbruton/StakTrakrApi` **api branch** via GitHub Pages at `api.staktrakr.com`:
 
@@ -73,7 +74,7 @@ Three feeds served from `lbruton/StakTrakrApi` **api branch** via GitHub Pages a
 |---|---|---|---|
 | Market prices | `data/api/manifest.json` | Fly.io retail cron | 30 min |
 | Spot prices | `data/hourly/YYYY/MM/DD/HH.json` | Fly.io `run-spot.sh` cron | 75 min |
-| Goldback | `data/api/goldback-spot.json` | Fly.io `run-goldback.sh` hourly :01 | 25h |
+| Goldback | `data/api/goldback-spot.json` | Fly.io `run-goldback.sh` hourly :20 | 25h |
 
 **Critical:** `spot-history-YYYY.json` is a **seed file** (noon UTC daily), NOT live data.
 
@@ -118,15 +119,15 @@ fly logs --app staktrakr | grep -E 'spot|run-spot' | tail -5
 
 **Deprecated tests:** `tests/depreciated/` contains archived Playwright `.spec.js` files and legacy Browserbase TypeScript tests (`tests/depreciated/browserbase-legacy/`). These are kept as reference only — do not add to or run them.
 
-## Linear
+## Issue Tracking
 
-Team: `f876864d-ff80-4231-ae6c-a8e5cb69aca4`
+Issues tracked in DocVault vault. Prefix: `STAK` (see `issue` skill).
 
 **Jules PRs**: always draft, always context-blind. Verify PR targets `dev` not `main`. Run `/pr-resolve` before approving.
 
 ## Project Skills
 
-In `.claude/skills/`: `api-infrastructure`, `bb-test`, `brainstorming`, `browserbase-test-maintenance`, `bug-report`, `coding-standards`, `finishing-a-development-branch`, `firecrawl-infra`, `gsd`, `release`, `repo-boundaries`, `retail-poller`, `retail-provider-fix`, `seed-sync`, `ship`, `start-patch`, `sw-cache`, `sync-instructions`, `wiki-audit`, `wiki-sweep`, `wiki-update`.
+In `.claude/skills/`: `api-infrastructure`, `bb-test`, `brainstorming`, `browserbase-test-maintenance`, `bug-report`, `coding-standards`, `finishing-a-development-branch`, `firecrawl-infra`, `gsd`, `release`, `repo-boundaries`, `retail-poller`, `retail-provider-fix`, `seed-sync`, `ship`, `start-patch`, `sw-cache`, `sync-instructions`.
 
 User-level infrastructure skills: `home-infrastructure`, `cloud-infrastructure`, `proxmox`, `secrets`.
 

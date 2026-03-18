@@ -1,7 +1,7 @@
 ---
 name: bb-test
 description: Browserbase runbook test runner for StakTrakr — reads tests/runbook/*.md section files and executes them via Stagehand against the PR preview URL. Supports targeted sections, tag filtering, and dry-run mode.
-allowed-tools: Bash, Read, mcp__browserbase__browserbase_session_create, mcp__browserbase__browserbase_session_close, mcp__browserbase__browserbase_stagehand_navigate, mcp__browserbase__browserbase_stagehand_act, mcp__browserbase__browserbase_stagehand_extract, mcp__browserbase__browserbase_stagehand_observe, mcp__browserbase__browserbase_screenshot, mcp__claude_ai_Linear__create_issue, mcp__claude_ai_Linear__update_issue
+allowed-tools: Bash, Read, mcp__browserbase__browserbase_session_create, mcp__browserbase__browserbase_session_close, mcp__browserbase__browserbase_stagehand_navigate, mcp__browserbase__browserbase_stagehand_act, mcp__browserbase__browserbase_stagehand_extract, mcp__browserbase__browserbase_stagehand_observe, mcp__browserbase__browserbase_screenshot, mcp__infisical__get-secret
 ---
 
 # Browserbase Runbook Test Runner — StakTrakr
@@ -289,41 +289,25 @@ For each `fail` or `warn` result:
 
 For each new failure (not in the known active bugs list):
 
-Call `mcp__claude_ai_Linear__create_issue`:
-- **team:** `f876864d-ff80-4231-ae6c-a8e5cb69aca4`
-- **title:** `BUG: [{Section} Test {N.M} — {testName}] — {brief description of failure}`
-- **priority:** `2` (High) for fail · `3` (Normal) for warn
-- **labels:** Bug label
-- **description:**
-
-```markdown
-## Bug Report — Runbook Run {DATE}
-
-**Test:** {Section} Test {N.M} — {testName}
-**Status:** Fail / Warn
-**Section:** {section filename}
-**Environment:** {PREVIEW_URL} (PR preview)
-**Session Recording:** {SESSION_DASHBOARD_URL}
-
-## Observed Behavior
-
-{What was extracted or observed — include actual extract return values}
-
-## Expected Behavior
-
-{The → expect: value from the test step}
-
-## Reproduction Steps
-
-1. Navigate to {PREVIEW_URL}/index.html
-2. Run `/bb-test section={NN-section-name}` (or `/bb-test sections={NN}`)
-3. {Relevant steps from the test block definition}
-
----
-_Surfaced during runbook run on {DATE} via /bb-test skill (Browserbase Stagehand automation). Test ID: {N.M}._
+Fetch the Linear API key from Infisical:
+```
+mcp__infisical__get-secret(secretName: "LINEAR_API_KEY", environmentSlug: "dev", projectId: "319a1db5-207d-49d0-a61d-3f3e6b440ded")
 ```
 
-Record each filed issue's ID and URL in `NEW_ISSUES` for use in Phase 5.
+Then create the issue via GraphQL:
+
+```bash
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$(cat <<GRAPHQL
+{"query": "mutation { issueCreate(input: { teamId: \"f876864d-ff80-4231-ae6c-a8e5cb69aca4\", title: \"BUG: [{Section} Test {N.M} — {testName}] — {brief description}\", priority: 2, description: \"## Bug Report — Runbook Run {DATE}\\n\\n**Test:** {Section} Test {N.M} — {testName}\\n**Status:** Fail / Warn\\n**Section:** {section filename}\\n**Environment:** {PREVIEW_URL} (PR preview)\\n**Session Recording:** {SESSION_DASHBOARD_URL}\\n\\n## Observed Behavior\\n\\n{actual extract values}\\n\\n## Expected Behavior\\n\\n{expected value}\\n\\n## Reproduction Steps\\n\\n1. Navigate to {PREVIEW_URL}/index.html\\n2. Run /bb-test section={NN}\\n3. {steps}\\n\\n---\\n_Surfaced via /bb-test skill. Test ID: {N.M}._\" }) { issue { id identifier url } }"}
+GRAPHQL
+)"
+```
+
+- **priority:** `2` (High) for fail, `3` (Normal) for warn
+- Record each filed issue's `identifier` and `url` in `NEW_ISSUES` for use in Phase 5.
 
 ---
 
@@ -331,7 +315,7 @@ Record each filed issue's ID and URL in `NEW_ISSUES` for use in Phase 5.
 
 **Skip this phase entirely if `DRY_RUN` is true.**
 
-Call `mcp__claude_ai_Linear__create_issue`:
+Create the run record issue via GraphQL (same pattern as Phase 4, with these values):
 - **team:** `f876864d-ff80-4231-ae6c-a8e5cb69aca4`
 - **title:** `QA: Runbook Run — {DATE formatted as "Mar 01, 2026"} {RESULT}`
 - **priority:** `4` (Low)
@@ -385,7 +369,15 @@ Call `mcp__claude_ai_Linear__create_issue`:
 _Logged by Claude via /bb-test skill. Run covered: {list of sections with test counts}._
 ```
 
-After creating the run record issue, call `mcp__claude_ai_Linear__update_issue` to set the status to **Done**.
+After creating the run record issue, update it to Done via GraphQL:
+
+```bash
+# Get the Done state ID, then update
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation { issueUpdate(id: \"<ISSUE_UUID>\", input: { stateId: \"<DONE_STATE_ID>\" }) { issue { identifier state { name } } } }"}'
+```
 
 ---
 
@@ -425,7 +417,7 @@ If `DRY_RUN` is true:
 - Execute all checks normally via Browserbase (session is still created, steps still run)
 - Print the full results table
 - Print what Linear issues WOULD be created (title, priority, description preview)
-- Do NOT call `mcp__claude_ai_Linear__create_issue` or `mcp__claude_ai_Linear__update_issue`
+- Do NOT call Linear GraphQL mutations (no issue creation or state updates)
 - End with: `Dry run complete — no Linear issues created.`
 
 ---

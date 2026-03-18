@@ -1,6 +1,6 @@
 FROM alpine:3.20
 
-RUN apk add --no-cache tinyproxy iproute2 \
+RUN apk add --no-cache tinyproxy iproute2 socat \
     && mkdir -p /var/log/tinyproxy \
     && chown tinyproxy:tinyproxy /var/log/tinyproxy
 

@@ -30,6 +30,9 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - FLYIO_TAILSCALE_IP=${FLYIO_TAILSCALE_IP:-100.90.171.110}
       - FLYIO_HTTP_URL=${FLYIO_HTTP_URL:-https://api2.staktrakr.com/data/retail/providers.json}
+      - CF_CLEARANCE_SCRAPER_URL=${CF_CLEARANCE_SCRAPER_URL:-http://byparr:8191}
+      - CF_CLEARANCE_ENABLED=${CF_CLEARANCE_ENABLED:-1}
+      - CF_CLEARANCE_TIMEOUT_MS=${CF_CLEARANCE_TIMEOUT_MS:-30000}
     ports:
       - "3010:3010"   # Dashboard (HTTP)
       - "3011:3011"   # Dashboard (HTTPS for iframe embed)
@@ -37,6 +40,21 @@ services:
     volumes:
       - poller-data:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  byparr:
+    image: ghcr.io/thephaseless/byparr:latest
+    container_name: staktrakr-byparr
+    restart: unless-stopped
+    shm_size: "1g"
+    environment:
+      LOG_LEVEL: info
+    ports:
+      - "8191:8191"   # Exposed for Fly.io → Tailscale → Byparr CF bypass
     logging:
       driver: json-file
       options:

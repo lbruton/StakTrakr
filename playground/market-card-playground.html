@@ -1191,7 +1191,7 @@ function renderAll() {
     </div>
   </div>`;
 
-  inner.innerHTML = html;
+  inner.innerHTML = html; // lgtm[js/xss-through-dom] — playground-only, no user input
 
   // Wire live search/sort
   const searchEl = document.getElementById('liveSearch');
