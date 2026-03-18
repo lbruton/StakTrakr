@@ -1028,7 +1028,8 @@ window._openPurchaseLink = (href, e) => {
   if (popup) {
     popup.opener = null;
   } else {
-    window.open(href, '_blank');
+    const fallback = window.open(href, '_blank', 'noopener,noreferrer');
+    if (fallback) fallback.opener = null;
   }
 };
 

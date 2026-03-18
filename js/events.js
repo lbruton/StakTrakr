@@ -697,8 +697,8 @@ const setupSearchAndChipListeners = () => {
   // Migration shim: pre-v3.33.69 stored raw strings ("hide"/"show"/"only") via
   // localStorage.setItem. loadDataSync JSON.parse fails on these, silently
   // resetting to default. Detect raw strings and re-encode via saveDataSync.
-  var _rawDisposed = localStorage.getItem('disposedFilterMode');
-  var savedDisposedMode = 'hide';
+  const _rawDisposed = localStorage.getItem('disposedFilterMode');
+  let savedDisposedMode = 'hide';
   if (_rawDisposed === 'hide' || _rawDisposed === 'show' || _rawDisposed === 'only') {
     savedDisposedMode = _rawDisposed;
     if (typeof saveDataSync === 'function') saveDataSync('disposedFilterMode', _rawDisposed);
