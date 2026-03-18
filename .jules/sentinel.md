@@ -22,3 +22,8 @@
 **Vulnerability:** Mutation XSS (mXSS) risk from using custom DOM-based HTML escaping (`div.textContent = str; return div.innerHTML;`).
 **Learning:** Browsers can mutate HTML during the parsing process, introducing mXSS vulnerabilities when using properties like `innerHTML` and `textContent` sequentially. The regex-based `escapeHtml` function provided globally in `js/utils.js` prevents these parsing anomalies.
 **Prevention:** Avoid custom DOM-based HTML escaping. Always use the globally available, regex-based `escapeHtml` function defined in `js/utils.js`.
+
+## 2026-10-27 - Reverse Tabnabbing via window.open
+**Vulnerability:** Inconsistent enforcement of `popup.opener = null` after `window.open`.
+**Learning:** External links opened via `window.open` can potentially manipulate the opener window's location unless explicitly cleared. While most of the codebase did this correctly, newer additions in `about.js`, `retail.js`, and `retail-view-modal.js` had regressions.
+**Prevention:** Enforce `popup.opener = null` consistently, keeping in mind popup blockers that return `null` from `window.open` (requiring a `if (popup)` null check).

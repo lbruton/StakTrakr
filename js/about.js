@@ -191,11 +191,14 @@ const loadAnnouncements = async () => {
  */
 const showFullChangelog = () => {
   // Try to open changelog documentation
-  window.open(
+  const popup = window.open(
     "https://github.com/lbruton/StakTrakr/blob/main/CHANGELOG.md",
     "_blank",
     "noopener,noreferrer",
   );
+  if (popup) {
+    popup.opener = null;
+  }
 };
 
 /**
