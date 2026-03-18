@@ -1005,7 +1005,7 @@ const filterInventoryAdvanced = () => {
 
     // Handle comma-separated terms (OR logic between comma terms)
     return parsedTerms.some(termData => {
-      const { words, exactPhrase, expandedPhrase, compiledWordRegexes, compiledFieldRegexes } = termData;
+      const { q, words, exactPhrase, expandedPhrase, compiledWordRegexes, compiledFieldRegexes } = termData;
 
       // Special handling for multi-word searches to prevent partial matches
       // If searching for "American Eagle", it should only match items that have both words
