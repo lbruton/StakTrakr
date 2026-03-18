@@ -1306,7 +1306,8 @@ const exportPdf = () => {
 const applyRealizedVisibility = (show) => {
   const metals = ['Silver', 'Gold', 'Platinum', 'Palladium', 'All'];
   metals.forEach(m => {
-    const el = safeGetElement(`realizedGainLoss${m}`);
+    // Use getElementById directly — this runs from events.js top-level (before init.js defines safeGetElement)
+    const el = document.getElementById(`realizedGainLoss${m}`);
     if (el && el.parentElement) el.parentElement.style.display = show ? '' : 'none';
   });
 };
