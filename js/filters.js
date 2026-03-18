@@ -236,7 +236,8 @@ const generateCategorySummary = (inventory) => {
   }
 
   // Apply minCount threshold to all categories
-  const filteredMetals = applyMinCountThreshold(metals, minCount);
+  // Metals always show (max 5 values, primary categorization) — threshold 1
+  const filteredMetals = applyMinCountThreshold(metals, 1);
   const filteredTypes = applyMinCountThreshold(types, minCount);
   const filteredPurchaseLocations = applyMinCountThreshold(purchaseLocations, minCount);
   const filteredStorageLocations = applyMinCountThreshold(storageLocations, minCount);
