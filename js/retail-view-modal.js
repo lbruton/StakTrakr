@@ -450,27 +450,23 @@ const _buildIntradayChart = (slug) => {
       return _fmtIntradayTime(d);
     });
 
+    // Build carried-index sets for each active vendor
+    const carriedSets = activeVendors.map((vendorId) => {
+      const s = new Set();
+      bucketed.forEach((w, i) => {
+        if (w._carriedVendors && w._carriedVendors.has(vendorId)) s.add(i);
+      });
+      return s;
+    });
+
     const datasets = useVendorLines
-      ? activeVendors.map((vendorId) => {
-          const label = (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId;
-          const color = RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8";
-          const carriedIndices = new Set();
-          bucketed.forEach((w, i) => {
-            if (w._carriedVendors && w._carriedVendors.has(vendorId)) carriedIndices.add(i);
-          });
-          return {
-            label,
-            data: bucketed.map((w) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null)),
-            borderColor: color,
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            pointHoverRadius: 3,
+      ? buildVendorDatasets(activeVendors, bucketed,
+          (w, vendorId) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null),
+          {
+            labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
             tension: 0.2,
-            spanGaps: true,
-            _carriedIndices: carriedIndices,
-          };
-        })
+            carriedIndices: carriedSets,
+          })
       : [
           {
             label: "Median",
@@ -495,47 +491,29 @@ const _buildIntradayChart = (slug) => {
           },
         ];
 
-    _retailViewIntradayChart = new Chart(canvas, {
-      type: "line",
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: !useVendorLines, position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                if (ctx.raw == null) return null;
-                const carried = ctx.dataset._carriedIndices && ctx.dataset._carriedIndices.has(ctx.dataIndex);
-                return `${ctx.dataset.label}: ${carried ? '~' : ''}$${Number(ctx.raw).toFixed(2)}`;
-              },
-            },
-          },
+    _retailViewIntradayChart = createTimeSeriesChart(canvas, labels, datasets, {
+      showLegend: !useVendorLines,
+      tooltipCallbacks: {
+        label: chartPriceTooltip({ interpSuffix: "" }),
+      },
+      xTicks: {
+        maxTicksLimit: 12,
+        autoSkip: true,
+        maxRotation: 0,
+        color: function(context) {
+          const label = context.chart.data.labels[context.index] || '';
+          const mins = label.split(':')[1];
+          const base = typeof getChartTextColor === "function" ? getChartTextColor() : '#94a3b8';
+          if (mins === '00') return base;
+          return base.startsWith('#') && base.length === 7 ? base + '80' : base;
         },
-        scales: {
-          x: {
-            ticks: {
-              maxTicksLimit: 12,
-              autoSkip: true,
-              maxRotation: 0,
-              color: function(context) {
-                const label = context.chart.data.labels[context.index] || '';
-                const mins = label.split(':')[1];
-                const base = typeof getChartTextColor === "function" ? getChartTextColor() : '#94a3b8';
-                if (mins === '00') return base;
-                return base.startsWith('#') && base.length === 7 ? base + '80' : base;
-              },
-              font: function(context) {
-                const label = context.chart.data.labels[context.index] || '';
-                const mins = label.split(':')[1];
-                return { size: mins === '00' ? 11 : 9 };
-              },
-            },
-          },
-          y: { ticks: _retailYTicks() },
+        font: function(context) {
+          const label = context.chart.data.labels[context.index] || '';
+          const mins = label.split(':')[1];
+          return { size: mins === '00' ? 11 : 9 };
         },
       },
+      yTicks: _retailYTicks(),
     });
   }
 
@@ -605,22 +583,17 @@ const openRetailViewModal = (slug) => {
     );
     const useVendorHistLines = activeHistVendors.length > 0;
 
+    const histValueExtractor = (entry, vendorId) => {
+      const vendorData = entry.vendors && entry.vendors[vendorId];
+      if (vendorData && vendorData.inStock === false) return null;
+      return vendorData ? vendorData.avg : null;
+    };
+
     const histDatasets = useVendorHistLines
-      ? activeHistVendors.map((vendorId) => ({
-          label: (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
-          data: sorted.map((e) => {
-            const vendorData = e.vendors && e.vendors[vendorId];
-            // If vendor is out of stock, return null to create gap
-            if (vendorData && vendorData.inStock === false) return null;
-            return vendorData ? vendorData.avg : null;
-          }),
-          borderColor: RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8",
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          pointRadius: 2,
-          tension: 0.3,
+      ? buildVendorDatasets(activeHistVendors, sorted, histValueExtractor, {
+          labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
           spanGaps: false,
-        }))
+        }).map((ds) => ({ ...ds, pointRadius: 2 }))
       : [{
           label: "Avg Median",
           data: sorted.map((e) => e.avg_median),
@@ -630,33 +603,12 @@ const openRetailViewModal = (slug) => {
           tension: 0.3,
         }];
 
-    _retailViewModalChart = new Chart(chartCanvas, {
-      type: "line",
-      data: { labels: sorted.map((e) => e.date), datasets: histDatasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: !useVendorHistLines },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                const label = context.dataset.label || "";
-                const value = context.parsed.y;
-
-                if (value === null) {
-                  return `${label}: Out of stock`;
-                }
-
-                return `${label}: $${Number(value).toFixed(2)}`;
-              }
-            }
-          }
-        },
-        scales: {
-          y: { ticks: _retailYTicks() },
-        },
+    _retailViewModalChart = createTimeSeriesChart(chartCanvas, sorted.map((e) => e.date), histDatasets, {
+      showLegend: !useVendorHistLines,
+      tooltipCallbacks: {
+        label: chartPriceTooltip(),
       },
+      yTicks: _retailYTicks(),
     });
   }
 

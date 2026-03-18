@@ -8,7 +8,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 
 
 
-const CACHE_NAME = 'staktrakr-v3.33.70-b1773842533';
+const CACHE_NAME = 'staktrakr-v3.33.71-b1773867935';
 
 
 
@@ -48,6 +48,7 @@ const CORE_ASSETS = [
   './js/changeLog.js',
   './js/diff-engine.js',
   './js/diff-modal.js',
+  './js/chart-utils.js',
   './js/charts.js',
   './js/theme.js',
   './js/search.js',
@@ -73,6 +74,9 @@ const CORE_ASSETS = [
   './js/pcgs-api.js',
   './js/catalog-providers.js',
   './js/catalog-manager.js',
+  './js/inventory-backup.js',
+  './js/inventory-import.js',
+  './js/inventory-table.js',
   './js/inventory.js',
   './js/vault.js',
   './js/cloud-storage.js',

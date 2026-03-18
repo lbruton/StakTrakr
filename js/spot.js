@@ -711,7 +711,7 @@ const updateSparkline = async (metalKey) => {
   if (!canvas || !canvas.getContext) return;
 
   // Destroy existing chart instance early to avoid stale visuals during async fetch
-  if (sparklineInstances[metalKey]) {
+  if (sparklineInstances[metalKey] && typeof sparklineInstances[metalKey].destroy === 'function') {
     sparklineInstances[metalKey].destroy();
     sparklineInstances[metalKey] = null;
   }
@@ -757,7 +757,7 @@ const updateSparkline = async (metalKey) => {
   gradient.addColorStop(0, color);
   gradient.addColorStop(1, "transparent");
 
-  sparklineInstances[metalKey] = new Chart(ctx, {
+  const sparklineConfig = {
     type: "line",
     data: {
       datasets: [
@@ -791,9 +791,6 @@ const updateSparkline = async (metalKey) => {
         y: {
           display: false,
           beginAtZero: false,
-          // Ensure Y axis spans at least 2% of the current price so flat
-          // intraday data (e.g. Gold ±$1 on a $5100 base) doesn't over-zoom
-          // and render micro-fluctuations as jarring spikes.
           suggestedMin: data.length ? Math.min(...data) * 0.99 : undefined,
           suggestedMax: data.length ? Math.max(...data) * 1.01 : undefined,
         },
@@ -801,7 +798,8 @@ const updateSparkline = async (metalKey) => {
       animation: { duration: 400 },
       interaction: { enabled: false },
     },
-  });
+  };
+  replaceChart(sparklineInstances, metalKey, canvas, sparklineConfig);
 
   updateSpotChangePercent(metalKey, data);
 };

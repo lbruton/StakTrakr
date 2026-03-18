@@ -642,27 +642,8 @@ const _renderRetailSparkline = (slug) => {
   if (_retailSparklines.has(slug)) {
     _retailSparklines.get(slug).destroy();
   }
-  const chart = new Chart(canvas, {
-    type: "line",
-    data: {
-      labels: Array(data.length).fill(""),
-      datasets: [{
-        data,
-        borderColor: "#3b82f6",
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.3,
-        fill: false,
-      }],
-    },
-    options: {
-      responsive: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: { x: { display: false }, y: { display: false } },
-      animation: false,
-    },
-  });
-  _retailSparklines.set(slug, chart);
+  const chart = createSparkline(canvas, data);
+  if (chart) _retailSparklines.set(slug, chart);
 };
 
 /** Updates the sync timestamp element based on current sync state. Shared by grid and list views. */
@@ -1466,33 +1447,25 @@ const _initMarketCardChart = (slug, detailsEl) => {
     ? _filterHistorySpikes(last7, activeVendors)
     : null;
 
-  const datasets = activeVendors.length > 0
-    ? activeVendors.map((vendorId) => {
-        const { filled, interp } = _interpolateGaps(spikeResult.prices[vendorId], spikeResult.estimated[vendorId]);
-        // Require 2+ real (non-estimated) data points — a single dot adds noise, not signal
-        const realCount = interp.filter((v, i) => !v && filled[i] != null).length;
-        if (realCount < 2) return null;
-        const _cvd = getVendorDisplay(vendorId);
-        const baseColor = _cvd.color;
-        return {
-          label: _cvd.name,
-          data: filled,
-          _interp: interp, // stashed for tooltip + segment callbacks
-          borderColor: baseColor,
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          pointRadius: (ctx) => interp[ctx.dataIndex] ? 2 : 3,
-          pointBorderColor: (ctx) => interp[ctx.dataIndex] ? baseColor + "60" : baseColor,
-          pointBackgroundColor: (ctx) => interp[ctx.dataIndex] ? "transparent" : baseColor,
-          tension: 0.3,
-          spanGaps: true,
-          // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
-          // segment: {
-          //   borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
-          //   borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "50" : baseColor,
-          // },
-        };
-      }).filter(Boolean)
+  // Pre-compute interpolated data per vendor for buildVendorDatasets
+  const interpMap = {};
+  const qualifiedVendors = activeVendors.filter((vendorId) => {
+    const { filled, interp } = _interpolateGaps(spikeResult.prices[vendorId], spikeResult.estimated[vendorId]);
+    // Require 2+ real (non-estimated) data points — a single dot adds noise, not signal
+    const realCount = interp.filter((v, i) => !v && filled[i] != null).length;
+    if (realCount < 2) return false;
+    interpMap[vendorId] = { filled, interp };
+    return true;
+  });
+
+  const datasets = qualifiedVendors.length > 0
+    ? buildVendorDatasets(qualifiedVendors, last7, (row, vendorId) => {
+        const rowIdx = last7.indexOf(row);
+        return interpMap[vendorId].filled[rowIdx];
+      }, {
+        colorMap: RETAIL_VENDOR_COLORS,
+        labelFn: (vendorId) => getVendorDisplay(vendorId).name,
+      })
     : [{
         label: "Avg Median",
         data: last7.map((e) => Number(e.avg_median)),
@@ -1502,6 +1475,24 @@ const _initMarketCardChart = (slug, detailsEl) => {
         pointRadius: 3,
         tension: 0.3,
       }];
+
+  // Augment vendor datasets with interpolation-specific properties
+  if (qualifiedVendors.length > 0) {
+    datasets.forEach((ds, idx) => {
+      const vendorId = qualifiedVendors[idx];
+      const { interp } = interpMap[vendorId];
+      const baseColor = ds.borderColor;
+      ds._interp = interp; // stashed for tooltip + segment callbacks
+      ds.pointRadius = (ctx) => interp[ctx.dataIndex] ? 2 : 3;
+      ds.pointBorderColor = (ctx) => interp[ctx.dataIndex] ? baseColor + "60" : baseColor;
+      ds.pointBackgroundColor = (ctx) => interp[ctx.dataIndex] ? "transparent" : baseColor;
+      // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
+      // ds.segment = {
+      //   borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
+      //   borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "50" : baseColor,
+      // };
+    });
+  }
 
   // Goldback reference baseline (STAK-474) — flat line at goldback.com price
   if (typeof getGoldbackVendorPrice === "function") {
@@ -1521,35 +1512,16 @@ const _initMarketCardChart = (slug, detailsEl) => {
     }
   }
 
-  const chart = new Chart(canvas, {
-    type: "line",
-    data: { labels: last7.map((e) => e.date), datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: (items) => items[0]?.label || "",
-            label: (ctx) => {
-              if (ctx.raw === null) return `${ctx.dataset.label}: Out of stock`;
-              const isInterp = ctx.dataset._interp && ctx.dataset._interp[ctx.dataIndex];
-              const prefix = isInterp ? "~" : "";
-              return `${ctx.dataset.label}: ${prefix}$${Number(ctx.raw).toFixed(2)}${isInterp ? " (est.)" : ""}`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: { ticks: { maxTicksLimit: 7, font: { size: 11 } } },
-        y: { ticks: { callback: (v) => `$${Number(v).toFixed(0)}` } },
-      },
-      animation: false,
+  const labels = last7.map((e) => e.date);
+  const chart = createTimeSeriesChart(canvas, labels, datasets, {
+    tooltipCallbacks: {
+      title: (items) => items[0]?.label || "",
+      label: chartPriceTooltip({ interpSuffix: " (est.)" }),
     },
+    xTicks: { maxTicksLimit: 7, font: { size: 11 } },
+    yTicks: { callback: chartDollarTicks() },
   });
-  _marketChartInstances.set(slug, chart);
+  if (chart) _marketChartInstances.set(slug, chart);
 };
 
 const _initMarketCardIntradayChart = (slug, detailsEl) => {
@@ -1586,31 +1558,23 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
     bucketed.some((w) => (w.vendors && w.vendors[v] != null) || (w._anomalyOriginals && w._anomalyOriginals[v] != null))
   );
 
+  // Pre-compute carried indices per vendor for buildVendorDatasets
+  const carriedPerVendor = activeVendors.map((vendorId) => {
+    const carried = new Set();
+    bucketed.forEach((w, i) => {
+      if (w._carriedVendors && w._carriedVendors.has(vendorId)) carried.add(i);
+    });
+    return carried;
+  });
+
   const datasets = activeVendors.length > 0
-    ? activeVendors.map((vendorId) => {
-        const _vd = getVendorDisplay(vendorId);
-        const color = RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8";
-        const carriedIndices = new Set();
-        bucketed.forEach((w, i) => {
-          if (w._carriedVendors && w._carriedVendors.has(vendorId)) carriedIndices.add(i);
-        });
-        return {
-          label: _vd.name,
-          data: bucketed.map((w) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null)),
-          borderColor: color,
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          pointRadius: (ctx) => carriedIndices.has(ctx.dataIndex) ? 0 : 0,
-          pointHoverRadius: (ctx) => carriedIndices.has(ctx.dataIndex) ? 2 : 3,
-          tension: 0.2,
-          spanGaps: true,
-          _carriedIndices: carriedIndices,
-          // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
-          // segment: {
-          //   borderDash: (ctx) => (carriedIndices.has(ctx.p0DataIndex) || carriedIndices.has(ctx.p1DataIndex)) ? [4, 3] : [],
-          //   borderColor: (ctx) => (carriedIndices.has(ctx.p0DataIndex) || carriedIndices.has(ctx.p1DataIndex)) ? color + "50" : color,
-          // },
-        };
+    ? buildVendorDatasets(activeVendors, bucketed, (w, vendorId) => {
+        return w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null;
+      }, {
+        colorMap: RETAIL_VENDOR_COLORS,
+        labelFn: (vendorId) => getVendorDisplay(vendorId).name,
+        tension: 0.2,
+        carriedIndices: carriedPerVendor,
       })
     : [{
         label: "Median",
@@ -1623,33 +1587,29 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
         tension: 0.3,
       }];
 
-  const chart = new Chart(canvas, {
-    type: "line",
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              if (ctx.raw === null) return `${ctx.dataset.label}: Out of stock`;
-              const carried = ctx.dataset._carriedIndices && ctx.dataset._carriedIndices.has(ctx.dataIndex);
-              return `${ctx.dataset.label}: ${carried ? "~" : ""}$${Number(ctx.raw).toFixed(2)}`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: { ticks: { maxTicksLimit: 12, autoSkip: true, maxRotation: 0, font: { size: 10 } } },
-        y: { ticks: { callback: (v) => `$${Number(v).toFixed(0)}` } },
-      },
-      animation: false,
+  // Augment vendor datasets with carried-aware point callbacks
+  if (activeVendors.length > 0) {
+    datasets.forEach((ds, idx) => {
+      const carried = carriedPerVendor[idx];
+      ds.pointRadius = (ctx) => carriedPerVendor[idx].has(ctx.dataIndex) ? 0 : 0;
+      ds.pointHoverRadius = (ctx) => carried.has(ctx.dataIndex) ? 2 : 3;
+      // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
+      // const color = ds.borderColor;
+      // ds.segment = {
+      //   borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [4, 3] : [],
+      //   borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? color + "50" : color,
+      // };
+    });
+  }
+
+  const chart = createTimeSeriesChart(canvas, labels, datasets, {
+    tooltipCallbacks: {
+      label: chartPriceTooltip({ interpSuffix: "" }),
     },
+    xTicks: { maxTicksLimit: 12, autoSkip: true, maxRotation: 0, font: { size: 10 } },
+    yTicks: { callback: chartDollarTicks() },
   });
-  _marketChartInstances.set(slug, chart);
+  if (chart) _marketChartInstances.set(slug, chart);
 };
 
 /**

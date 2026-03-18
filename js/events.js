@@ -756,12 +756,12 @@ const setupHeaderButtonListeners = () => {
   }
 
   // Cloud sync header icon button (STAK-264)
-  var headerCloudSyncBtn = safeGetElement('headerCloudSyncBtn');
+  const headerCloudSyncBtn = safeGetElement('headerCloudSyncBtn');
   if (headerCloudSyncBtn) {
     safeAttachListener(headerCloudSyncBtn, 'click', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      var state = headerCloudSyncBtn.dataset.syncState;
+      const state = headerCloudSyncBtn.dataset.syncState;
       if (state === 'orange') {
         // Needs password setup — open inline popover
         if (typeof _openCloudSyncPopover === 'function') _openCloudSyncPopover();
@@ -797,15 +797,15 @@ const setupHeaderButtonListeners = () => {
 
   // Close popover on outside click
   document.addEventListener('mousedown', function (e) {
-    var wrapper = safeGetElement('headerCloudSyncWrapper');
-    var popover = safeGetElement('cloudSyncHeaderPopover');
+    const wrapper = safeGetElement('headerCloudSyncWrapper');
+    const popover = safeGetElement('cloudSyncHeaderPopover');
     if (popover && popover.style.display !== 'none') {
       if (wrapper && !wrapper.contains(e.target)) {
         popover.style.display = 'none';
         // Clear handlers so stale state doesn't persist on next open
-        var inputEl = safeGetElement('cloudSyncPopoverInput');
-        var unlockEl = safeGetElement('cloudSyncPopoverUnlockBtn');
-        var cancelEl = safeGetElement('cloudSyncPopoverCancelBtn');
+        const inputEl = safeGetElement('cloudSyncPopoverInput');
+        const unlockEl = safeGetElement('cloudSyncPopoverUnlockBtn');
+        const cancelEl = safeGetElement('cloudSyncPopoverCancelBtn');
         if (inputEl) inputEl.onkeydown = null;
         if (unlockEl) unlockEl.onclick = null;
         if (cancelEl) cancelEl.onclick = null;
@@ -2276,7 +2276,7 @@ const setupVaultListeners = () => {
     "Vault import button");
 
   optionalListener(elements.vaultImportFile, "change", function (e) {
-    var file = e.target.files && e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     if (file) {
       openVaultModal("import", file);
       e.target.value = "";
@@ -2321,19 +2321,19 @@ const setupVaultListeners = () => {
   // Image vault companion file picker (import mode only)
   const vaultImageImportFile = document.getElementById("vaultImageImportFile");
   optionalListener(vaultImageImportFile, "change", function (e) {
-    var imgFile = e.target.files && e.target.files[0];
+    const imgFile = e.target.files && e.target.files[0];
     if (!imgFile) return;
-    var imgFileInfoEl = document.getElementById("vaultImageFileInfo");
-    var imgPickerRowEl = document.getElementById("vaultImagePickerRow");
-    var imgFileNameEl = document.getElementById("vaultImageFileName");
-    var imgFileSizeEl = document.getElementById("vaultImageFileSize");
+    const imgFileInfoEl = safeGetElement("vaultImageFileInfo");
+    const imgPickerRowEl = safeGetElement("vaultImagePickerRow");
+    const imgFileNameEl = safeGetElement("vaultImageFileName");
+    const imgFileSizeEl = safeGetElement("vaultImageFileSize");
     if (imgFileNameEl) imgFileNameEl.textContent = imgFile.name;
     if (imgFileSizeEl && typeof formatFileSize === "function") {
       imgFileSizeEl.textContent = formatFileSize(imgFile.size);
     }
     if (imgFileInfoEl) imgFileInfoEl.style.display = "";
     if (imgPickerRowEl) imgPickerRowEl.style.display = "none";
-    var imgReader = new FileReader();
+    const imgReader = new FileReader();
     imgReader.onload = function (ev) {
       if (typeof setVaultPendingImageFile === "function") {
         setVaultPendingImageFile(new Uint8Array(ev.target.result));
@@ -3177,11 +3177,11 @@ const setupApiEvents = () => {
 
 /** Open the inline Secure-mode password popover below the header cloud button. */
 function _openCloudSyncPopover() {
-  var popover = safeGetElement('cloudSyncHeaderPopover');
-  var input = safeGetElement('cloudSyncPopoverInput');
-  var unlockBtn = safeGetElement('cloudSyncPopoverUnlockBtn');
-  var cancelBtn = safeGetElement('cloudSyncPopoverCancelBtn');
-  var errorEl = safeGetElement('cloudSyncPopoverError');
+  const popover = safeGetElement('cloudSyncHeaderPopover');
+  const input = safeGetElement('cloudSyncPopoverInput');
+  const unlockBtn = safeGetElement('cloudSyncPopoverUnlockBtn');
+  const cancelBtn = safeGetElement('cloudSyncPopoverCancelBtn');
+  const errorEl = safeGetElement('cloudSyncPopoverError');
   if (!popover) return;
 
   if (input) input.value = '';
@@ -3197,7 +3197,7 @@ function _openCloudSyncPopover() {
   }
 
   function onUnlock() {
-    var pw = input ? input.value : '';
+    const pw = input ? input.value : '';
     if (!pw || pw.length < 8) {
       if (errorEl) {
         errorEl.textContent = 'Password must be at least 8 characters.';
@@ -3210,7 +3210,7 @@ function _openCloudSyncPopover() {
     if (typeof cloudCachePassword === 'function') cloudCachePassword('dropbox', pw);
     if (typeof updateCloudSyncHeaderBtn === 'function') updateCloudSyncHeaderBtn();
     // STAK-398: poll for remote changes first, then push. Check account_id is present.
-    var hasAccountId = !!localStorage.getItem('cloud_dropbox_account_id');
+    const hasAccountId = !!localStorage.getItem('cloud_dropbox_account_id');
     debugWarn('[CloudSync] Popover unlock: password set, accountId:', hasAccountId);
     if (!hasAccountId) {
       debugWarn('[CloudSync] Popover unlock: no account_id — sync key incomplete, skipping sync');
@@ -3242,10 +3242,10 @@ function _openCloudSyncPopover() {
 }
 
 function handleAdvancedSavePassword() {
-  var input = safeGetElement('cloudAdvancedNewPassword');
-  var errorEl = safeGetElement('cloudAdvancedPasswordError');
+  const input = safeGetElement('cloudAdvancedNewPassword');
+  const errorEl = safeGetElement('cloudAdvancedPasswordError');
   if (!input) return;
-  var pw = input.value;
+  const pw = input.value;
   if (!pw || pw.length < 8) {
     if (errorEl) { errorEl.textContent = 'Password must be at least 8 characters.'; errorEl.style.display = ''; }
     return;

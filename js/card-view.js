@@ -882,70 +882,62 @@ function _initCardCharts(container) {
       },
     ];
 
-    const chart = new Chart(canvas, {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 0 },
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-          x: {
-            ticks: {
-              color: typeof getChartTextColor === 'function' ? getChartTextColor() : '#8b949e',
-              maxTicksLimit: 4,
-              autoSkip: true,
-              font: { size: 8 },
-              maxRotation: 0,
-            },
-            grid: { display: false },
-          },
-          y: {
-            ticks: {
-              color: typeof getChartTextColor === 'function' ? getChartTextColor() : '#8b949e',
-              maxTicksLimit: 3,
-              font: { size: 8 },
-              callback: function(value) {
-                return typeof formatCurrency === 'function' ? formatCurrency(value) : '$' + value;
-              },
-            },
-            grid: { color: 'rgba(128,128,128,0.08)' },
-          },
+    const cvTextColor = typeof getChartTextColor === 'function' ? getChartTextColor() : '#8b949e';
+    const chart = createTimeSeriesChart(canvas, labels, datasets, {
+      animation: false,
+      showLegend: true,
+      xTicks: {
+        color: cvTextColor,
+        maxTicksLimit: 4,
+        autoSkip: true,
+        font: { size: 8 },
+        maxRotation: 0,
+      },
+      yTicks: {
+        color: cvTextColor,
+        maxTicksLimit: 3,
+        font: { size: 8 },
+        callback: function(value) {
+          return typeof formatCurrency === 'function' ? formatCurrency(value) : '$' + value;
         },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'bottom',
-            labels: {
-              color: typeof getChartTextColor === 'function' ? getChartTextColor() : '#8b949e',
-              usePointStyle: true,
-              pointStyle: 'line',
-              padding: 6,
-              boxWidth: 16,
-              font: { size: 8 },
-            },
-          },
-          tooltip: {
-            enabled: true,
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            titleColor: '#fff',
-            bodyColor: '#fff',
-            padding: 6,
-            bodyFont: { size: 10 },
-            titleFont: { size: 10 },
-            callbacks: {
-              label: function(ctx) {
-                if (ctx.parsed.y === null) return null;
-                const val = typeof formatCurrency === 'function' ? formatCurrency(ctx.parsed.y) : '$' + ctx.parsed.y.toFixed(2);
-                return `${ctx.dataset.label}: ${val}`;
-              }
-            }
-          }
+      },
+      tooltipCallbacks: {
+        label: function(ctx) {
+          if (ctx.parsed.y === null) return null;
+          const val = typeof formatCurrency === 'function' ? formatCurrency(ctx.parsed.y) : '$' + ctx.parsed.y.toFixed(2);
+          return `${ctx.dataset.label}: ${val}`;
         }
-      }
+      },
     });
-    _cvChartInstances.push(chart);
+
+    // Apply chart-specific overrides not covered by createTimeSeriesChart
+    if (chart) {
+      const chartOpts = chart.options;
+      chartOpts.scales.x.grid = { display: false };
+      chartOpts.scales.y.grid = { color: 'rgba(128,128,128,0.08)' };
+      Object.assign(chartOpts.plugins.legend, {
+        position: 'bottom',
+        labels: {
+          color: cvTextColor,
+          usePointStyle: true,
+          pointStyle: 'line',
+          padding: 6,
+          boxWidth: 16,
+          font: { size: 8 },
+        },
+      });
+      Object.assign(chartOpts.plugins.tooltip, {
+        enabled: true,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        padding: 6,
+        bodyFont: { size: 10 },
+        titleFont: { size: 10 },
+      });
+      chart.update('none');
+    }
+    if (chart) _cvChartInstances.push(chart);
   }
 }
 
