@@ -1467,63 +1467,55 @@ function _createPriceHistoryChart(canvas, allSpotEntries, allRetailEntries, purc
     },
   ];
 
-  _viewModalChartInstance = new Chart(canvas, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 400 },
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          ticks: {
-            color: textColor,
-            maxTicksLimit: 6,
-            autoSkip: true,
-            font: { size: 10 }
-          },
-          grid: { display: false }
-        },
-        y: {
-          ticks: {
-            color: textColor,
-            font: { size: 10 },
-            callback: function(value) {
-              return typeof formatCurrency === 'function' ? formatCurrency(value) : '$' + value;
-            }
-          },
-          grid: { color: 'rgba(128,128,128,0.1)' }
-        }
-      },
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: textColor,
-            usePointStyle: true,
-            pointStyle: 'line',
-            padding: 12,
-            font: { size: 10 }
-          }
-        },
-        tooltip: {
-          backgroundColor: bgColor,
-          titleColor: textColor,
-          bodyColor: textColor,
-          borderColor: textColor,
-          borderWidth: 1,
-          callbacks: {
-            label: function(ctx) {
-              if (ctx.parsed.y === null) return null;
-              const val = typeof formatCurrency === 'function' ? formatCurrency(ctx.parsed.y) : '$' + ctx.parsed.y;
-              return `${ctx.dataset.label}: ${val}`;
-            }
-          }
-        }
+  _viewModalChartInstance = createTimeSeriesChart(canvas, labels, datasets, {
+    animation: { duration: 400 },
+    showLegend: true,
+    xTicks: {
+      color: textColor,
+      maxTicksLimit: 6,
+      autoSkip: true,
+      font: { size: 10 }
+    },
+    yTicks: {
+      color: textColor,
+      font: { size: 10 },
+      callback: function(value) {
+        return typeof formatCurrency === 'function' ? formatCurrency(value) : '$' + value;
       }
-    }
+    },
+    tooltipCallbacks: {
+      label: function(ctx) {
+        if (ctx.parsed.y === null) return null;
+        const val = typeof formatCurrency === 'function' ? formatCurrency(ctx.parsed.y) : '$' + ctx.parsed.y;
+        return `${ctx.dataset.label}: ${val}`;
+      }
+    },
   });
+
+  // Apply chart-specific overrides not covered by createTimeSeriesChart
+  if (_viewModalChartInstance) {
+    const chartOpts = _viewModalChartInstance.options;
+    chartOpts.scales.x.grid = { display: false };
+    chartOpts.scales.y.grid = { color: 'rgba(128,128,128,0.1)' };
+    Object.assign(chartOpts.plugins.legend, {
+      position: 'bottom',
+      labels: {
+        color: textColor,
+        usePointStyle: true,
+        pointStyle: 'line',
+        padding: 12,
+        font: { size: 10 }
+      }
+    });
+    Object.assign(chartOpts.plugins.tooltip, {
+      backgroundColor: bgColor,
+      titleColor: textColor,
+      bodyColor: textColor,
+      borderColor: textColor,
+      borderWidth: 1,
+    });
+    _viewModalChartInstance.update('none');
+  }
 }
 
 // ---------------------------------------------------------------------------
