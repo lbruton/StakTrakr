@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.71] - 2026-03-18
+
+### Added — Modularize large JS files: chart-utils, inventory split, convention migration
+
+- **Added**: Shared chart utility library `js/chart-utils.js` with 6 exported functions — eliminates 11 duplicate `new Chart()` patterns across 7 files (STAK-484)
+- **Changed**: Split `inventory.js` (4,504 → 1,744 lines) into 4 focused modules: `inventory-backup.js`, `inventory-import.js`, `inventory-table.js`, plus core (STAK-484)
+- **Changed**: Migrated 53 `getElementById` → `safeGetElement`, 5 `localStorage` → `saveData`/`loadData`, 23 `var` → `const` across inventory and events files (STAK-484)
+- **Changed**: All new modules use IIFE + `window.*` pattern — `file://` protocol continues to work
+
+---
+
 ## [3.33.70] - 2026-03-18
 
 ### Added — Intraday trends, aggregation fixes, CF bypass hardening
