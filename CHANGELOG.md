@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.70] - 2026-03-18
+
+### Added — Intraday trends, aggregation fixes, CF bypass hardening
+
+- **Added**: Intraday trend toggle for Market Prices cards — pill button switches between current price and hourly % change (STAK-464)
+- **Added**: Chart polish — dashed line segments for OOS vendors + 7-day Goldback baseline on spot charts (STAK-474)
+- **Fixed**: aggregateWindows data merge — dropped UNIQUE constraint that caused data loss, upsert cache rows, 30-min consensus buckets carry forward vendor prices across windows (STAK-476)
+- **Fixed**: Retail scraper CF bypass — Byparr before Firecrawl phase, JSON-LD price=0 treated as OOS, Camoufox shm_size 1g for shared memory (STAK-475)
+- **Fixed**: Goldback cron staggered from :01 to :20 to avoid Fly.io overlap (STAK-477)
+- **Changed**: Removed wiki/ after DocVault migration (STAK-471)
+- **Changed**: CodeQL warnings cleanup — pre-existing issues resolved (STAK-460)
+- **Changed**: Cache Intl.NumberFormat instances for faster rendering
+- **Changed**: Reverse tabnabbing mitigation on all window.open() calls
+- **Changed**: Vault-based issue tracking replaces Linear section
+
+---
+
 ## [3.33.69] - 2026-03-11
 
 ### Fixed — STAK-470: Storage hygiene + silent settings-only sync merge

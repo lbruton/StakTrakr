@@ -283,11 +283,11 @@ const setupAckModalEvents = () => {
  */
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.70 &ndash; Intraday Trends &amp; Reliability</strong>: Intraday trend toggle on Market Prices cards. Aggregation fixes stop data loss from UNIQUE constraint and carry forward vendor prices across 30-min windows. CF bypass hardened with Byparr-first phase and shm_size fix (STAK-464, STAK-474, STAK-475, STAK-476, STAK-477)</li>
     <li><strong>v3.33.69 &ndash; Storage &amp; Sync Hygiene</strong>: Fixed disposed filter preference resetting on every page reload. Version upgrades no longer trigger phantom cloud sync diff popups &mdash; settings-only key diffs from new versions are auto-merged silently (STAK-470)</li>
     <li><strong>v3.33.68 &ndash; Catalog Data Fix</strong>: Fixed a bug where Catalog Data fields (diameter, thickness, country, etc.) were silently discarded on save for items without a Numista number (STAK-469)</li>
     <li><strong>v3.33.67 &ndash; Retail Price Accuracy</strong>: Fixed Provident Metals picking up spot ticker instead of product price; fixed Hero Bullion returning bulk &ldquo;As Low As&rdquo; price instead of 1-unit table price; Gainesville Coins no longer wastes 15s on a Playwright timeout per coin (STAK-467)</li>
-    <li><strong>v3.33.61&ndash;v3.33.66 &ndash; Retail Price Reliability</strong>: Improved scraping success rate for Bullion Exchanges and JM Bullion &mdash; Cloudflare-blocked requests now fall back to a Byparr (Camoufox) cookie-based bypass. Fixed sidecar API endpoint so CF cookies are actually retrieved (STAK-462)</li>
-    <li><strong>v3.33.62 &ndash; Market Price Chart Fixes</strong>: 7-day trend charts now correctly detect anomalous first/last data points and carry OOS prices as flat dotted lines instead of drifting trends (STAK-463)</li>
+    <li><strong>v3.33.61&ndash;v3.33.66 &ndash; Retail Price Reliability</strong>: Improved scraping success rate for Bullion Exchanges and JM Bullion &mdash; Cloudflare-blocked requests now fall back to a Byparr (Camoufox) cookie-based bypass (STAK-462)</li>
   `;
 };
 
@@ -297,9 +297,9 @@ const getEmbeddedWhatsNew = () => {
  */
 const getEmbeddedRoadmap = () => {
   return `
+    <li><strong>Settings Redesign (STAK-436&ndash;447)</strong>: 12-issue suite covering Appearance, Filters, and API settings tabs</li>
     <li><strong>Market Page Phase 3</strong>: Inventory-to-market linking with auto-update retail prices</li>
     <li><strong>Cloud Backup Conflict Detection (STAK-150)</strong>: Smarter conflict resolution using item count direction, not just timestamps</li>
-    <li><strong>Accessible Table Mode (STAK-144)</strong>: Style D with horizontal scroll, long-press to edit, 300% zoom support</li>
   `;
 };
 
