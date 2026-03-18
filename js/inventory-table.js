@@ -13,6 +13,9 @@
     }
   });
 
+  // Expose tracker so inventory.js popover can register blob URLs for revocation
+  window._trackThumbBlobUrl = (url) => { if (url) _thumbBlobUrls.push(url); };
+
   // ---------------------------------------------------------------------------
   // Color constants and dynamic color maps
   // ---------------------------------------------------------------------------
@@ -59,14 +62,7 @@
     return `hsl(${map[key]}, 70%, ${lightness}%)`;
   };
 
-  const escapeAttribute = (text) =>
-    text
-      .toString()
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  const escapeAttribute = escapeHtml;
 
   const filterLink = (field, value, color, displayValue = value, title, allowHtml = false) => {
     const handler = `applyColumnFilter('${field}', ${JSON.stringify(value)})`;
@@ -124,7 +120,7 @@
         href = `https://${href}`;
       }
       const safeHref = escapeAttribute(href);
-      return `<a href="#" onclick="_openPurchaseLink('${safeHref}', event); return false;" class="purchase-link" title="${safeHref}">
+      return `<a href="#" data-href="${safeHref}" onclick="_openPurchaseLink(this.dataset.href, event); return false;" class="purchase-link" title="${safeHref}">
       <svg class="purchase-link-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: currentColor; margin-right: 4px;" aria-hidden="true">
         <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
       </svg>

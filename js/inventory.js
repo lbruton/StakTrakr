@@ -1543,7 +1543,7 @@ function _openThumbPopover(cell, item) {
   const showCamera = isMobile && isSecure;
 
   const { showObv, showRev } = (() => {
-    const s = loadDataSync('tableImageSides', 'both');
+    const s = localStorage.getItem('tableImageSides') || 'both';
     return { showObv: s === 'both' || s === 'obverse', showRev: s === 'both' || s === 'reverse' };
   })();
 
@@ -1600,7 +1600,7 @@ function _openThumbPopover(cell, item) {
 
   // Track blob URLs created here so they're revoked with the main pool
   const _popBlobUrls = [];
-  const _track = (url) => { if (url) { _thumbBlobUrls.push(url); _popBlobUrls.push(url); } return url; };
+  const _track = (url) => { if (url) { if (typeof window._trackThumbBlobUrl === 'function') window._trackThumbBlobUrl(url); _popBlobUrls.push(url); } return url; };
 
   // Load existing images into previews
   const _loadPreview = async (sideKey, side) => {

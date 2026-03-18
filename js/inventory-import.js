@@ -163,8 +163,18 @@
   
         // Apply settings changes if present
         if (settingsDiff && settingsDiff.changed && settingsDiff.changed.length > 0) {
+          // Raw-string settings stored via localStorage.setItem, not JSON-encoded
+          const _rawKeys = new Set([
+            'appTheme', 'tableImageSides', 'tableImagesEnabled',
+            'chipMinCount', 'chipMaxCount', 'settingsItemsPerPage',
+            'defaultSortColumn', 'defaultSortDir', 'featureFlags', 'inlineChipConfig'
+          ]);
           for (const sc of settingsDiff.changed) {
-            saveDataSync(sc.key, sc.remoteVal);
+            if (_rawKeys.has(sc.key)) {
+              localStorage.setItem(sc.key, String(sc.remoteVal));
+            } else {
+              saveDataSync(sc.key, sc.remoteVal);
+            }
           }
         }
   

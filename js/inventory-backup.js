@@ -572,16 +572,16 @@
     <tbody>
       ${sortedInventory.map(item => `
         <tr>
-          <td>${getCompositionFirstWords(item.composition || item.metal)}</td>
-          <td>${item.name}</td>
+          <td>${escapeHtml(getCompositionFirstWords(item.composition || item.metal))}</td>
+          <td>${escapeHtml(item.name)}</td>
           <td>${item.qty}</td>
-          <td>${item.type}</td>
+          <td>${escapeHtml(item.type)}</td>
           <td>${formatWeight(item.weight, item.weightUnit)}</td>
           <td>${formatCurrency(item.price)}</td>
-          <td>${item.purchaseLocation}</td>
-          <td>${item.storageLocation || ''}</td>
-          <td>${item.notes || ''}</td>
-          <td>${item.date}</td>
+          <td>${escapeHtml(item.purchaseLocation)}</td>
+          <td>${escapeHtml(item.storageLocation || '')}</td>
+          <td>${escapeHtml(item.notes || '')}</td>
+          <td>${escapeHtml(item.date)}</td>
         </tr>
       `).join('')}
     </tbody>

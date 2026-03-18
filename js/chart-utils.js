@@ -130,7 +130,10 @@
 
     if (isMap) {
       if (instanceMap.has(key)) {
-        instanceMap.get(key).destroy();
+        const instance = instanceMap.get(key);
+        if (instance && typeof instance.destroy === 'function') {
+          instance.destroy();
+        }
       }
     } else if (instanceMap && key in instanceMap) {
       if (instanceMap[key] && typeof instanceMap[key].destroy === "function") {
