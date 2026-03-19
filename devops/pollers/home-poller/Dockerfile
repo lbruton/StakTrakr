@@ -84,6 +84,8 @@ COPY shared/package.json ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install --omit=dev
 
+# Cache-bust: change this value to force rebuild of JS layer
+ARG CACHE_BUST=2026-03-19a
 COPY shared/*.js ./
 COPY shared/.env.example ./.env.example
 
