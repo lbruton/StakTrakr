@@ -50,8 +50,27 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 function getTursoClient() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url || !authToken) return null;
-  return createClient({ url, authToken });
+  if (!url) return null;
+  return createClient({ url, ...(authToken ? { authToken } : {}) });
+}
+
+/**
+ * Check Turso Cloud DR backup connectivity (separate from primary sqld).
+ * Uses TURSO_BACKUP_URL + TURSO_BACKUP_TOKEN env vars.
+ * Returns { up: boolean, error?: string }
+ */
+async function checkTursoBackup() {
+  const url = process.env.TURSO_BACKUP_URL;
+  const authToken = process.env.TURSO_BACKUP_TOKEN;
+  if (!url) return { up: false, error: "TURSO_BACKUP_URL not set" };
+  try {
+    const client = createClient({ url, ...(authToken ? { authToken } : {}) });
+    await client.execute("SELECT 1");
+    await client.close();
+    return { up: true };
+  } catch (err) {
+    return { up: false, error: err.message };
+  }
 }
 
 async function fetchRunsFromTurso() {
@@ -424,7 +443,7 @@ function renderStatsCards(stats) {
   </div>`;
 }
 
-function renderFlyioCard(h, flyRuns, tursoUp) {
+function renderFlyioCard(h, flyRuns, tursoUp, tursoBackup) {
   // HTTP health (from check-flyio.sh JSON file)
   let httpLine = "";
   if (h) {
@@ -443,9 +462,11 @@ function renderFlyioCard(h, flyRuns, tursoUp) {
       <span class="stat-val" style="color:#a1a1aa">Awaiting first check</span></div>`;
   }
 
-  // Turso connectivity
-  const tursoColor = tursoUp ? "#22c55e" : "#ef4444";
-  const tursoLabel = tursoUp ? "OK" : "OFFLINE";
+  // Database connectivity — local sqld (primary) + Turso Cloud (DR backup)
+  const sqldColor = tursoUp ? "#22c55e" : "#ef4444";
+  const sqldLabel = tursoUp ? "OK" : "OFFLINE";
+  const backupColor = tursoBackup?.up ? "#22c55e" : (tursoBackup?.error === "TURSO_BACKUP_URL not set" ? "#a1a1aa" : "#ef4444");
+  const backupLabel = tursoBackup?.up ? "OK" : (tursoBackup?.error === "TURSO_BACKUP_URL not set" ? "NOT SET" : "OFFLINE");
 
   // Fly.io last-hour summary
   let runsHtml = "";
@@ -476,8 +497,10 @@ function renderFlyioCard(h, flyRuns, tursoUp) {
 
   return `<div class="card">
     <h2>Fly.io Container</h2>
-    <div class="stat-row"><span>Turso DB</span>
-      <span class="stat-val" style="color:${tursoColor}">${tursoLabel}</span></div>
+    <div class="stat-row"><span>Local DB (sqld)</span>
+      <span class="stat-val" style="color:${sqldColor}">${sqldLabel}</span></div>
+    <div class="stat-row"><span>Turso DR Backup</span>
+      <span class="stat-val" style="color:${backupColor}">${backupLabel}</span></div>
     ${httpLine}
     ${runsHtml}
   </div>`;
@@ -702,7 +725,7 @@ function renderFailureTrendChart(trend) {
 }
 
 function renderMainPage(data) {
-  const { net, cpu, uptime, supervisord, systemd, logLines, tursoRuns, tursoError, tursoUp, flyioHealth, runStats, failureCount, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus } = data;
+  const { net, cpu, uptime, supervisord, systemd, logLines, tursoRuns, tursoError, tursoUp, tursoBackup, flyioHealth, runStats, failureCount, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus } = data;
 
   const supRows = supervisord.map((s) => `
     <tr>
@@ -842,7 +865,7 @@ ${renderNav("home", failureCount)}
     }).join("")}
   </div>
 
-  ${renderFlyioCard(flyioHealth, flyRuns, tursoUp)}
+  ${renderFlyioCard(flyioHealth, flyRuns, tursoUp, tursoBackup)}
 </div>
 
 <script>
@@ -2417,8 +2440,9 @@ async function handleRequest(req, res) {
   }
 
   const client = getTursoClient();
-  const [tursoResult, runStats, failureCount, net, cpu, uptime, supervisord, systemd, logLines, flyioHealth, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus] = await Promise.all([
+  const [tursoResult, tursoBackup, runStats, failureCount, net, cpu, uptime, supervisord, systemd, logLines, flyioHealth, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus] = await Promise.all([
     fetchRunsFromTurso().then(rows => ({ rows, error: null })).catch(err => ({ rows: null, error: err.message })),
+    checkTursoBackup(),
     client ? getRunStats(client).catch(() => null) : Promise.resolve(null),
     client ? getFailureCount(client) : Promise.resolve(0),
     Promise.resolve(getNetStats()),
@@ -2441,6 +2465,7 @@ async function handleRequest(req, res) {
     tursoRuns: tursoResult.rows,
     tursoError: tursoResult.error,
     tursoUp: !tursoResult.error,
+    tursoBackup,
     runStats,
     failureCount,
     coverageStats,
