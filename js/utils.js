@@ -401,15 +401,34 @@ const formatTimestamp = (date, options = {}) => {
     hour: '2-digit', minute: '2-digit',
     ...(resolvedTz ? { timeZone: resolvedTz } : {})
   };
+
+  const finalOptions = { ...defaults, ...options };
+  // A simple but effective cache key using stable JSON stringification of the options
+  const cacheKey = JSON.stringify(finalOptions);
+
   try {
-    return d.toLocaleString(undefined, { ...defaults, ...options });
+    let formatter = dateTimeFormatCache.get(cacheKey);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat(undefined, finalOptions);
+      dateTimeFormatCache.set(cacheKey, formatter);
+    }
+    return formatter.format(d);
   } catch (err) {
     if (err instanceof RangeError) {
       // Invalid IANA timezone in localStorage — fall back to auto and clear bad value
       try { localStorage.removeItem(TIMEZONE_KEY); } catch (_) { /* ignore */ }
       const safeDefaults = { ...defaults };
       delete safeDefaults.timeZone;
-      return d.toLocaleString(undefined, { ...safeDefaults, ...options });
+
+      const safeOptions = { ...safeDefaults, ...options };
+      const safeCacheKey = JSON.stringify(safeOptions);
+
+      let safeFormatter = dateTimeFormatCache.get(safeCacheKey);
+      if (!safeFormatter) {
+        safeFormatter = new Intl.DateTimeFormat(undefined, safeOptions);
+        dateTimeFormatCache.set(safeCacheKey, safeFormatter);
+      }
+      return safeFormatter.format(d);
     }
     throw err;
   }
@@ -553,6 +572,7 @@ const formatDisplayDate = (dateStr) => {
 // Cache Intl.NumberFormat instances to reduce instantiation overhead
 // Key format: 'default-USD', 'en-EUR' — locale prefix + uppercase currency code
 const numberFormatCache = new Map();
+const dateTimeFormatCache = new Map();
 
 /**
  * Formats a number as a currency string using the default currency
