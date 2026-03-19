@@ -31,13 +31,14 @@ cat > /etc/cron.d/home-poller << 'CRON'
 31 * * * * root . /etc/environment; cd /app && node goldback-scraper.js >> /data/logs/goldback-poller.log 2>&1
 */5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /data/logs/provider-export.log 2>&1
 */5 * * * * root . /etc/environment; /app/check-flyio.sh >> /data/logs/flyio-check.log 2>&1
+0 3 * * * root . /etc/environment; node /app/turso-backup-sync.js >> /data/logs/turso-sync.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/home-poller
 
 # ── 4. Create log files (on persistent volume) ───────────────────────────
 touch /data/logs/retail-poller.log /data/logs/spot-poller.log \
       /data/logs/goldback-poller.log /data/logs/provider-export.log \
-      /data/logs/flyio-check.log
+      /data/logs/flyio-check.log /data/logs/turso-sync.log
 # Symlink for dashboard compatibility
 ln -sf /data/logs/retail-poller.log /var/log/retail-poller.log
 
