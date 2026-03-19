@@ -34,7 +34,8 @@ services:
     environment:
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_USERSPACE=false
-      - TS_EXTRA_ARGS=--accept-dns=false --advertise-exit-node --advertise-routes=192.168.1.0/24 --reset
+      - TS_ROUTES=192.168.1.0/24
+      - TS_EXTRA_ARGS=--accept-dns=false --advertise-exit-node --reset
     healthcheck:
       test: ["CMD-SHELL", "tailscale status --peers=false 2>/dev/null | grep -q '100\\.'"]
       interval: 10s
