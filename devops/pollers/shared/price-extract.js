@@ -630,7 +630,7 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (html): ${providerId} price=${price.price}`);
-      return { price: price.price, inStock: inStock.inStock, source: "cf-clearance" };
+      return { price: price.price, inStock: inStock.inStock, source: `cf-clearance:${price.matchedBy}` };
     }
     warn(`[cf-clearance] no price from Byparr HTML for ${providerId} — falling through to Playwright`);
     // Don't return null — fall through to Playwright with the cookie.
@@ -695,12 +695,12 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     }
     if (jsonLdPrice !== null) {
       log(`[cf-clearance] success via jsonLd: ${providerId} price=${jsonLdPrice}`);
-      return { price: jsonLdPrice, inStock: inStock.inStock, source: "cf-clearance" };
+      return { price: jsonLdPrice, inStock: inStock.inStock, source: "cf-clearance:jsonLd" };
     }
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (playwright): ${providerId} price=${price.price}`);
-      return { price: price.price, inStock: inStock.inStock, source: "cf-clearance" };
+      return { price: price.price, inStock: inStock.inStock, source: `cf-clearance:${price.matchedBy}` };
     }
     warn(`[cf-clearance] no price extracted for ${providerId}`);
     return null;
@@ -879,7 +879,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     }
     if (jsonLdPrice !== null) {
       log(`  extractPrice ${providerId}: matched=jsonLd price=$${jsonLdPrice.toFixed(2)}`);
-      return { price: jsonLdPrice, inStock: stock.inStock, source: "playwright-direct" };
+      return { price: jsonLdPrice, inStock: stock.inStock, source: "playwright-direct:jsonLd" };
     }
 
     const extracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
@@ -887,7 +887,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     if (extracted) log(`  extractPrice ${providerId}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`);
 
     if (price !== null) {
-      return { price, inStock: stock.inStock, source: "playwright-direct" };
+      return { price, inStock: stock.inStock, source: `playwright-direct:${extracted.matchedBy}` };
     }
 
     // OOS with no price — still useful stock status info, but let Firecrawl try for a price
@@ -1106,7 +1106,7 @@ async function main() {
               if (proxyExtracted) {
                 log(`  extractPrice ${provider.id}: matched=${proxyExtracted.matchedBy} price=$${proxyExtracted.price.toFixed(2)} (fly-proxy)`);
                 price = proxyExtracted.price;
-                source = "fly-proxy";
+                source = `fly-proxy:${proxyExtracted.matchedBy}`;
                 inStock = proxyStock.inStock;
                 finalUrl = url;
                 log(`  \u2713 ${coinSlug}/${provider.id}: $${price.toFixed(2)} (fly-proxy)${!inStock ? " OOS" : ""}`);
@@ -1139,6 +1139,7 @@ async function main() {
             if (oosExtracted) log(`  extractPrice ${provider.id}: matched=${oosExtracted.matchedBy} price=$${oosExtracted.price.toFixed(2)} (OOS)`);
             if (oosPrice !== null) {
               price = oosPrice;
+              source = `firecrawl:${oosExtracted.matchedBy}`;
               finalUrl = url;
               log(`  ✓ ${coinSlug}/${provider.id}: $${oosPrice.toFixed(2)} (firecrawl, OOS)`);
             }
@@ -1154,6 +1155,7 @@ async function main() {
           if (extracted) log(`  extractPrice ${provider.id}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`);
           if (p !== null) {
             price = p;
+            source = `firecrawl:${extracted.matchedBy}`;
             finalUrl = url;
             log(`  ✓ ${coinSlug}/${provider.id}: $${p.toFixed(2)} (firecrawl)${urls.length > 1 ? ` [url${i}]` : ""}`);
             break;
@@ -1184,7 +1186,7 @@ async function main() {
               if (retryExtracted) log(`  extractPrice ${provider.id}: matched=${retryExtracted.matchedBy} price=$${retryExtracted.price.toFixed(2)} (retry)`);
               if (retryPrice !== null) {
                 price = retryPrice;
-                source = "firecrawl-retry";
+                source = `firecrawl-retry:${retryExtracted.matchedBy}`;
                 inStock = retryStock.inStock;
                 finalUrl = url;
                 log(`  ✓ ${coinSlug}/${provider.id}: $${retryPrice.toFixed(2)} (firecrawl-retry)${!inStock ? " OOS" : ""}`);
