@@ -75,14 +75,14 @@ Four Docker stacks on the `staktrakr-net` bridge network, managed by Portainer:
 
 ---
 
-## Dual-Poller Turso Write-Through
+## Dual-Poller sqld Write-Through
 
-Both pollers write to the same Turso DB (`price_snapshots` table). Only Fly.io publishes to GitHub.
+Both pollers write to the same sqld database (`price_snapshots` table). Only Fly.io publishes to GitHub.
 
 | Poller | POLLER_ID | Writes to | Publishes to Git |
 |--------|-----------|-----------|-----------------|
-| Fly.io container | `api` | Turso | Yes — `run-publish.sh` force-pushes to `api` branch |
-| Home container | `home` | Turso | No — never touches git |
+| Fly.io container | `api` | sqld | Yes — `run-publish.sh` force-pushes to `api` branch |
+| Home container | `home` | sqld | No — never touches git |
 
 `readLatestPerVendor(db, coinSlug, lookbackHours=2)` — most recent row per vendor within 2h wins at publish time.
 

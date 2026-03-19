@@ -14,13 +14,13 @@ Reference guide for the retail market price polling system. Scrapes dealer websi
 ```
 providers.json (api branch)
        ↓
-price-extract.js  (Firecrawl → Turso)
+price-extract.js  (Firecrawl → sqld)
        +
 capture.js  (Browserbase/browserless → screenshots)
        +
 extract-vision.js  (Gemini Vision → per-coin vision JSON)
        ↓
-api-export.js  (Turso + vision JSON → data/api/ REST endpoints → api branch)
+api-export.js  (sqld + vision JSON → data/api/ REST endpoints → api branch)
 ```
 
 > **Repo:** All poller scripts now live in `StakTrakr/devops/pollers/` — shared core in `shared/`, Fly.io config in `remote-poller/`, home VM config in `home-poller/`. Deploy: `cd devops/pollers && fly deploy --config remote-poller/fly.toml`. The old `StakTrakrApi/devops/fly-poller/` location is deprecated.
@@ -36,7 +36,7 @@ api-export.js  (Turso + vision JSON → data/api/ REST endpoints → api branch)
 **Key constraint:** `providers.json` lives on the **`api` branch**, not `main` or `dev`.
 Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 
-**Vision verification + fallback:** Vision runs inline — no separate follow-up step. Screenshots go to `ARTIFACT_DIR` (`/tmp/retail-screenshots/{date}` on Fly.io). `extract-vision.js` reads `MANIFEST_PATH` AND reads Firecrawl prices from Turso to pass as context in the Gemini prompt. Vision JSON writes to `DATA_DIR/retail/{slug}/{date}-vision.json` with fields: `firecrawl_by_site` (Firecrawl prices for comparison) and `agreement_by_site` (per-vendor boolean: does Vision confirm Firecrawl's price?). `api-export.js` loads via `loadVisionData()` and resolves via `resolveVendorPrice()` — 99% confidence when both agree, Vision-only fallback when Firecrawl returns null, median-based tiebreaker when they disagree. `merge-prices.js` is legacy and not called.
+**Vision verification + fallback:** Vision runs inline — no separate follow-up step. Screenshots go to `ARTIFACT_DIR` (`/tmp/retail-screenshots/{date}` on Fly.io). `extract-vision.js` reads `MANIFEST_PATH` AND reads Firecrawl prices from sqld to pass as context in the Gemini prompt. Vision JSON writes to `DATA_DIR/retail/{slug}/{date}-vision.json` with fields: `firecrawl_by_site` (Firecrawl prices for comparison) and `agreement_by_site` (per-vendor boolean: does Vision confirm Firecrawl's price?). `api-export.js` loads via `loadVisionData()` and resolves via `resolveVendorPrice()` — 99% confidence when both agree, Vision-only fallback when Firecrawl returns null, median-based tiebreaker when they disagree. `merge-prices.js` is legacy and not called.
 
 ---
 
@@ -44,13 +44,13 @@ Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 
 | File | Purpose |
 |------|---------|
-| `devops/pollers/shared/price-extract.js` | Primary scraper — Firecrawl + Playwright fallback → Turso |
+| `devops/pollers/shared/price-extract.js` | Primary scraper — Firecrawl + Playwright fallback → sqld |
 | `devops/pollers/shared/capture.js` | Screenshot capture — `BROWSER_MODE=browserless` / `browserbase` / `local` |
 | `devops/pollers/shared/extract-vision.js` | Gemini Vision price extraction from screenshots → per-coin JSON files |
-| `devops/pollers/shared/api-export.js` | Turso + vision JSON → `data/api/` static JSON endpoints with confidence scoring |
-| `devops/pollers/shared/export-providers-json.js` | Turso → `/data/retail/providers.json` (runs every 5 min via cron) |
-| `devops/pollers/shared/turso-client.js` | Turso client factory |
-| `devops/pollers/shared/provider-db.js` | Provider CRUD + export from Turso |
+| `devops/pollers/shared/api-export.js` | sqld + vision JSON → `data/api/` static JSON endpoints with confidence scoring |
+| `devops/pollers/shared/export-providers-json.js` | sqld → `/data/retail/providers.json` (runs every 5 min via cron) |
+| `devops/pollers/shared/turso-client.js` | sqld/libSQL client factory |
+| `devops/pollers/shared/provider-db.js` | Provider CRUD + export from sqld |
 | `devops/pollers/remote-poller/run-local.sh` | Full Fly.io run: extract → capture → vision → export → push |
 | `devops/pollers/remote-poller/run-publish.sh` | API export + git push to api branch |
 | `devops/pollers/remote-poller/docker-entrypoint.sh` | Container startup (creates `/data/retail/`, writes crontab, exports env) |
@@ -94,14 +94,14 @@ Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 
 ## Provider Sync (export-providers-json.js)
 
-Both pollers run `export-providers-json.js` every 5 minutes via cron to sync `providers.json` from Turso to local volume.
+Both pollers run `export-providers-json.js` every 5 minutes via cron to sync `providers.json` from sqld to local volume.
 
 | Poller | Cron | Log Path | Volume Path |
 |---|---|---|---|
 | Fly.io | `*/5 * * * *` | `/var/log/provider-export.log` | `/data/retail/providers.json` |
 | Home VM | `*/5 * * * *` | `/data/logs/provider-export.log` | `/data/retail/providers.json` |
 
-The `/data/retail/` directory must exist before the script runs. The Fly.io entrypoint creates it via `mkdir -p /data/retail` at startup. The script also does `mkdirSync(dirname(outPath), { recursive: true })` as a safety net. Non-fatal — if Turso is down, the existing file is kept as-is.
+The `/data/retail/` directory must exist before the script runs. The Fly.io entrypoint creates it via `mkdir -p /data/retail` at startup. The script also does `mkdirSync(dirname(outPath), { recursive: true })` as a safety net. Non-fatal — if the database is down, the existing file is kept as-is.
 
 ---
 
@@ -180,17 +180,17 @@ If Firecrawl returns no price, `scrapeWithPlaywright()` tries a browserless remo
 
 ### FBP Gap-Fill
 
-After primary scrapes, any coin with failures scrapes `fbp_url` (FindBullionPrices comparison table). `extractFbpPrices()` parses FBP table rows, maps dealer names via `FBP_DEALER_NAME_MAP`, writes as `source: "fbp"` to Turso.
+After primary scrapes, any coin with failures scrapes `fbp_url` (FindBullionPrices comparison table). `extractFbpPrices()` parses FBP table rows, maps dealer names via `FBP_DEALER_NAME_MAP`, writes as `source: "fbp"` to sqld.
 
 `run-fbp.sh` (the PM cron at 3pm ET) runs `PATCH_GAPS=1 node price-extract.js` to fill only today's gaps.
 
 ---
 
-## Turso Database
+## Database (sqld)
 
-**Provider:** Turso cloud (libSQL) — NOT local SQLite. Credentials in Infisical + Fly secrets (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`).
+**Provider:** sqld (self-hosted libSQL server on home VM at `192.168.1.81:8080`). Both pollers connect via Docker DNS (`http://staktrakr-sqld:8080`) or Tailscale subnet routing (`http://192.168.1.81:8080` from Fly.io). Turso Cloud is retained as DR backup only (nightly sync). Credentials in Infisical + Fly secrets (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`).
 
-**Dual-poller write-through:** Both Fly.io (`POLLER_ID=api`) and Portainer VM (`POLLER_ID=home`) write to the same Turso DB. `api-export.js` uses `readLatestPerVendor()` to merge — most recent row per vendor within last 2h wins. Check home poller logs via Portainer API — see `home-infrastructure` skill.
+**Dual-poller write-through:** Both Fly.io (`POLLER_ID=api`) and Portainer VM (`POLLER_ID=home`) write to the same sqld database. `api-export.js` uses `readLatestPerVendor()` to merge — most recent row per vendor within last 2h wins. Check home poller logs via Portainer API — see `home-infrastructure` skill.
 
 **Table:** `price_snapshots`
 
@@ -295,7 +295,7 @@ node price-extract.js
 # Dry-run single coin
 COINS=ase DRY_RUN=1 DATA_DIR=/path/to/api-branch/data node price-extract.js
 
-# Export API JSON from existing Turso data
+# Export API JSON from existing sqld data
 DATA_DIR=/path/to/api-branch/data node api-export.js
 
 # Gap-fill only (FBP scrape for failed vendors)
@@ -333,7 +333,7 @@ Keep the final `git pull --rebase origin api` before push (that one is correct �
 
 No retail GHA workflow is active. `retail-price-poller.yml` was deleted. If you need to work on the api branch manually (backfilling data, patching providers.json), the only active writers are:
 - Fly.io `run-publish.sh` (every 15 min)
-- Home VM (writes to Turso only, never pushes to git)
+- Home VM (writes to sqld only, never pushes to git)
 
 You can safely push to the api branch without disabling any GHA workflow.
 
@@ -375,12 +375,12 @@ gh api "repos/lbruton/StakTrakrApi/commits?sha=api&per_page=5" \
 
 If the most recent `retail: YYYY-MM-DD api export` commit is >15 minutes old, the container is stuck — run the recovery steps above.
 
-### Turso row count verification
+### sqld row count verification
 
-If the Turso DB appears suspect, verify the row count:
+If the database appears suspect, verify the row count:
 
 ```bash
-# Verify Turso row count
+# Verify sqld row count
 fly ssh console --app staktrakr -C "node -e \"
 const {createClient} = require('@libsql/client');
 const db = createClient({url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN});
@@ -400,6 +400,6 @@ db.execute('SELECT COUNT(*) as n FROM price_snapshots').then(r => { console.log(
 
 **price = null:** Firecrawl got a page but no parseable price, AND Playwright fallback also failed. Check if the URL is still valid and page structure changed.
 
-**FBP fallback triggered:** Check `source: "fbp"` in Turso — means primary scrape failed. FBP prices are wire/ACH prices (lowest available).
+**FBP fallback triggered:** Check `source: "fbp"` in sqld — means primary scrape failed. FBP prices are wire/ACH prices (lowest available).
 
 **Retail prices frozen, spot still updating:** Stuck rebase in the container. See API Branch Git Safety section above.

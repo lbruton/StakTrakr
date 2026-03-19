@@ -14,7 +14,7 @@ All feeds served from `lbruton/StakTrakrApi` `main` branch via GitHub Pages at `
 | **Market prices** | `data/api/manifest.json` | Fly.io `run-local.sh` + `run-publish.sh` | 30 min |
 | **Spot prices** | `data/hourly/YYYY/MM/DD/HH.json` | Fly.io `run-spot.sh` cron (`5,20,35,50 * * * *`) | 75 min |
 | **Goldback** | `data/api/goldback-spot.json` | Fly.io via `goldback-g1` coin in `run-local.sh` | 25h (info only) |
-| **Turso** | `price_snapshots` table | Dual-poller write-through (Fly.io `POLLER_ID=api` + Portainer VM `POLLER_ID=home`). Manage via Portainer API — see `home-infrastructure` skill | internal |
+| **sqld** | `price_snapshots` table | Dual-poller write-through (Fly.io `POLLER_ID=api` + Portainer VM `POLLER_ID=home`). Manage via Portainer API — see `home-infrastructure` skill | internal |
 
 **Critical:** `spot-history-YYYY.json` is a **seed file** (noon UTC daily) — never use it for freshness checks. Live spot data is always in `data/hourly/`.
 
@@ -42,16 +42,17 @@ All feeds served from `lbruton/StakTrakrApi` `main` branch via GitHub Pages at `
 
 ---
 
-## Turso Data Store
+## Database (sqld)
 
-Turso is a free-tier cloud libSQL database — internal to the retail poller. NOT a public endpoint.
+sqld is a self-hosted libSQL server on the home VM (`192.168.1.81:8080`). Both pollers write to it. Turso Cloud is retained as a nightly DR backup only.
 
-- **Database:** `staktrakrapi-lbruton.aws-us-east-2.turso.io`
+- **Primary:** `http://staktrakr-sqld:8080` (Docker) / `http://192.168.1.81:8080` (Tailscale)
+- **DR backup:** `staktrakrapi-lbruton.aws-us-east-2.turso.io` (Turso Cloud free tier, nightly sync)
 - **Credentials:** `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (Infisical)
 - **Table:** `price_snapshots` — one row per scrape attempt, per vendor, per 15-min window
 - **Used by:** `price-extract.js`, `extract-vision.js`, `api-export.js` (retail-poller only)
 - **NOT used by:** spot-poller (Python, writes to files directly — see STAK-331)
-- **Free tier:** zero cost, zero ops — no action needed
+- **Schema:** see `turso-schema.md` (sqld schema page — filename retained from pre-migration)
 
 ---
 
