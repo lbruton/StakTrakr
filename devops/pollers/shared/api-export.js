@@ -810,10 +810,10 @@ async function main() {
       }
     }
 
-    // 24h windows time series — aggregate into 30-min consensus buckets
-    // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors
+    // 24h windows time series — aggregate into 60-min (hourly) buckets
+    // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors (STAK-476)
     const recentRows = readRecentWindows(db, slug, 96);
-    const windows24h = aggregateWindows(recentRows, 30);
+    const windows24h = aggregateWindows(recentRows, 60);
 
     writeApiFile(`${slug}/latest.json`, {
       slug,
