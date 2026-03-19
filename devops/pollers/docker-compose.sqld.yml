@@ -1,0 +1,34 @@
+# StakTrakr sqld (libSQL Server) — Self-hosted database
+# ────────────────────────────────────────────────────
+# Deploy: Portainer stack from git repo
+#
+# Replaces Turso cloud with a self-hosted libSQL server.
+# Auth is not configured yet — add SQLD_HTTP_AUTH once
+# the migration is validated.
+
+services:
+  sqld:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    platform: linux/amd64
+    container_name: staktrakr-sqld
+    restart: unless-stopped
+    environment:
+      - SQLD_NODE=primary
+    ports:
+      - "8080:8080"
+    volumes:
+      - sqld-data:/var/lib/sqld
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  sqld-data:
+    name: staktrakr-sqld-data
+
+networks:
+  default:
+    name: staktrakr-net
+    external: true
