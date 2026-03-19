@@ -16,7 +16,7 @@
 import { createClient } from "@libsql/client";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
-const WATERMARK_PATH = "/data/turso-sync-watermark.json";
+const WATERMARK_PATH = process.env.SYNC_WATERMARK_PATH || "/data/turso-sync-watermark.json";
 const BATCH_SIZE = 1000;
 
 const TAG = "[turso-sync]";
@@ -255,32 +255,46 @@ async function main() {
     summary.provider_failures = "ERROR";
   }
 
-  // ── provider_coins (full sync — small table) ─────────────────────────
+  // ── provider tables (full sync — delete vendors first to respect FK) ──
+  // provider_vendors references provider_coins(slug), so delete child first
   try {
-    const cols = [
+    await target.execute("DELETE FROM provider_vendors");
+    await target.execute("DELETE FROM provider_coins");
+
+    // Re-insert coins first (parent), then vendors (child)
+    const coinCols = [
       "slug", "metal", "name", "weight_oz", "fbp_url",
       "notes", "enabled", "created_at", "updated_at",
     ];
-    const count = await fullSync(source, target, "provider_coins", cols);
-    summary.provider_coins = count;
-    log(`provider_coins: ${count} rows (full sync)`);
-  } catch (err) {
-    logError(`provider_coins sync failed: ${err.message}`);
-    summary.provider_coins = "ERROR";
-  }
+    const coinRows = (await source.execute("SELECT * FROM provider_coins")).rows;
+    if (coinRows.length > 0) {
+      const stmts = coinRows.map((row) => ({
+        sql: `INSERT INTO provider_coins (${coinCols.join(",")}) VALUES (${coinCols.map(() => "?").join(",")})`,
+        args: coinCols.map((c) => row[c] ?? null),
+      }));
+      await target.batch(stmts);
+    }
+    summary.provider_coins = coinRows.length;
+    log(`provider_coins: ${coinRows.length} rows (full sync)`);
 
-  // ── provider_vendors (full sync — small table) ────────────────────────
-  try {
-    const cols = [
+    const vendorCols = [
       "id", "coin_slug", "vendor_id", "vendor_name", "url",
       "enabled", "selector", "hints", "created_at", "updated_at",
     ];
-    const count = await fullSync(source, target, "provider_vendors", cols);
-    summary.provider_vendors = count;
-    log(`provider_vendors: ${count} rows (full sync)`);
+    const vendorRows = (await source.execute("SELECT * FROM provider_vendors")).rows;
+    if (vendorRows.length > 0) {
+      const stmts = vendorRows.map((row) => ({
+        sql: `INSERT INTO provider_vendors (${vendorCols.join(",")}) VALUES (${vendorCols.map(() => "?").join(",")})`,
+        args: vendorCols.map((c) => row[c] ?? null),
+      }));
+      await target.batch(stmts);
+    }
+    summary.provider_vendors = vendorRows.length;
+    log(`provider_vendors: ${vendorRows.length} rows (full sync)`);
   } catch (err) {
-    logError(`provider_vendors sync failed: ${err.message}`);
-    summary.provider_vendors = "ERROR";
+    logError(`provider tables sync failed: ${err.message}`);
+    summary.provider_coins = summary.provider_coins || "ERROR";
+    summary.provider_vendors = summary.provider_vendors || "ERROR";
   }
 
   // ── Summary ───────────────────────────────────────────────────────────
