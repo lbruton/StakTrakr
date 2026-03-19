@@ -96,7 +96,7 @@ const switchSettingsSection = (name) => {
     if (countEl || weightEl || meltEl || modEl) {
       try {
         const items = loadDataSync(LS_KEY, []);
-        if (countEl) countEl.textContent = items.length + ' items';
+        if (countEl) countEl.textContent = items.reduce((sum, it) => sum + (Number(it.qty) || 1), 0) + ' items';
         // Total weight — sum all items in troy oz (convert Goldback denominations)
         if (weightEl) {
           const totalOz = items.reduce((sum, it) => {

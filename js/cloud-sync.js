@@ -316,7 +316,7 @@ function syncSaveOverrideBackup() {
     }
     var backup = {
       timestamp: Date.now(),
-      itemCount: typeof inventory !== 'undefined' ? inventory.length : 0,
+      itemCount: typeof cloudSafeItemCount === 'function' ? cloudSafeItemCount() : 0,
       appVersion: typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown',
       data: data,
     };
@@ -1345,7 +1345,7 @@ async function pushSyncVault() {
 
     var syncId = typeof generateUUID === 'function' ? generateUUID() : _syncFallbackUUID();
     var now = Date.now();
-    var itemCount = typeof inventory !== 'undefined' ? inventory.length : 0;
+    var itemCount = typeof cloudSafeItemCount === 'function' ? cloudSafeItemCount() : 0;
     var appVersion = typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown';
     var deviceId = getSyncDeviceId();
 
