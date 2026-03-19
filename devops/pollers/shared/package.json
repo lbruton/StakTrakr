@@ -1,6 +1,6 @@
 {
   "name": "staktrakr-retail-poller",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Retail precious metals price extraction via local Firecrawl Docker + Playwright fallback",
   "type": "module",
