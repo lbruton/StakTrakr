@@ -153,20 +153,6 @@ const showFullChangelog = () => {
   );
 };
 
-const setupAboutCollapsibleCards = () => {
-  const panel = safeGetElement('settingsPanel_about');
-  if (!panel || panel._collapsibleBound) return;
-  panel._collapsibleBound = true;
-  panel.addEventListener('click', (e) => {
-    const header = e.target.closest('.about-version-card-header');
-    if (!header) return;
-    const card = header.closest('.about-version-card');
-    if (!card) return;
-    const isExpanded = card.classList.toggle('expanded');
-    header.setAttribute('aria-expanded', isExpanded);
-  });
-};
-
 const showWhatsNewPopup = () => {
   const overlay = safeGetElement('whatsNewPopup');
   if (!overlay) return;
@@ -268,7 +254,6 @@ if (typeof window !== "undefined") {
   window.populateAckModal = populateAckModal;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
   window.getEmbeddedRoadmap = getEmbeddedRoadmap;
-  window.setupAboutCollapsibleCards = setupAboutCollapsibleCards;
   window.showWhatsNewPopup = showWhatsNewPopup;
   window.hideWhatsNewPopup = hideWhatsNewPopup;
   window.setupWhatsNewPopupEvents = setupWhatsNewPopupEvents;

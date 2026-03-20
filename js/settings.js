@@ -90,7 +90,6 @@ const switchSettingsSection = (name) => {
   // Populate About tab content when switching to it
   if (targetName === 'about') {
     if (typeof populateAboutTab === 'function') populateAboutTab();
-    if (typeof setupAboutCollapsibleCards === 'function') setupAboutCollapsibleCards();
   }
 
   // Populate Inventory Summary card and show/hide Cloud section when switching to Inventory
