@@ -3650,7 +3650,7 @@ input[type="submit"] {
 .about-logo-wrap svg { border-radius: 16px; }
 .about-hero-text { display: flex; flex-direction: column; gap: 6px; }
 .about-app-name { font-size: 20px; font-weight: 700; letter-spacing: 3px; }
-.about-app-name .stak { color: #e2e8f0; }
+.about-app-name .stak { color: var(--text-secondary, #e2e8f0); }
 .about-app-name .trakr { color: #d4a017; }
 .about-version { font-size: 12px; color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace; }
 .about-tagline { font-size: 13px; color: var(--text-secondary); font-style: italic; }
@@ -3694,7 +3694,7 @@ input[type="submit"] {
 .whats-new-popup-header svg { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; }
 .popup-title-group { display: flex; flex-direction: column; gap: 2px; }
 .popup-title { font-size: 15px; font-weight: 600; letter-spacing: 2px; }
-.popup-title .stak { color: #e2e8f0; }
+.popup-title .stak { color: var(--text-secondary, #e2e8f0); }
 .popup-title .trakr { color: #d4a017; }
 .popup-version { font-size: 11px; color: var(--text-muted); font-family: monospace; }
 .whats-new-popup-body { padding: 0 20px 16px; }

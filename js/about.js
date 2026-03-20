@@ -164,11 +164,13 @@ const showWhatsNewPopup = () => {
   // Load announcements into the popup's versionChanges list
   if (typeof loadAnnouncements === 'function') loadAnnouncements();
   overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
 };
 
 const hideWhatsNewPopup = () => {
   const overlay = safeGetElement('whatsNewPopup');
   if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
   // Acknowledge version so popup doesn't show again
   if (typeof APP_VERSION !== 'undefined') {
     localStorage.setItem(VERSION_ACK_KEY, APP_VERSION);
@@ -184,9 +186,7 @@ const setupWhatsNewPopupEvents = () => {
     changelogBtn.addEventListener('click', () => {
       hideWhatsNewPopup();
       // Open Settings to About tab
-      if (typeof switchSettingsSection === 'function') switchSettingsSection('about');
-      const settingsModal = safeGetElement('settingsModal');
-      if (settingsModal) settingsModal.style.display = 'flex';
+      if (typeof showSettingsModal === 'function') showSettingsModal('about');
     });
   }
 
@@ -197,6 +197,14 @@ const setupWhatsNewPopupEvents = () => {
       if (e.target === overlay) hideWhatsNewPopup();
     });
   }
+
+  // Escape key to dismiss
+  document.addEventListener('keydown', (e) => {
+    const popup = safeGetElement('whatsNewPopup');
+    if (e.key === 'Escape' && popup && popup.style.display === 'flex') {
+      hideWhatsNewPopup();
+    }
+  });
 };
 
 const setupAckModalEvents = () => {
