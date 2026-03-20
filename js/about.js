@@ -1,36 +1,6 @@
-// ABOUT & DISCLAIMER MODAL - Enhanced
+// ABOUT TAB & ACKNOWLEDGMENT — Enhanced
 // =============================================================================
 
-/**
- * Shows the About modal and populates it with current data
- */
-const showAboutModal = () => {
-  if (elements.aboutModal) {
-    populateAboutModal();
-    if (window.openModalById) openModalById('aboutModal');
-    else {
-      elements.aboutModal.style.display = "flex";
-      document.body.style.overflow = "hidden";
-    }
-  }
-};
-
-/**
- * Hides the About modal
- */
-const hideAboutModal = () => {
-  if (elements.aboutModal) {
-    if (window.closeModalById) closeModalById('aboutModal');
-    else {
-      elements.aboutModal.style.display = "none";
-      document.body.style.overflow = "";
-    }
-  }
-};
-
-/**
- * Shows the acknowledgment modal on load
- */
 const showAckModal = () => {
   const ackModal = document.getElementById("ackModal");
   if (ackModal && !localStorage.getItem(ACK_DISMISSED_KEY)) {
@@ -43,9 +13,6 @@ const showAckModal = () => {
   }
 };
 
-/**
- * Hides the acknowledgment modal
- */
 const hideAckModal = () => {
   const ackModal = document.getElementById("ackModal");
   if (ackModal) {
@@ -57,22 +24,15 @@ const hideAckModal = () => {
   }
 };
 
-/**
- * Accepts the acknowledgment and hides the modal
- */
 const acceptAck = () => {
   localStorage.setItem(ACK_DISMISSED_KEY, "1");
   hideAckModal();
 };
 
-/**
- * Populates the about modal with current version and changelog information
- */
-const populateAboutModal = () => {
-  // Update version displays
-  const aboutVersion = document.getElementById("aboutVersion");
-  const aboutCurrentVersion = document.getElementById("aboutCurrentVersion");
-  const aboutAppName = document.getElementById("aboutAppName");
+const populateAboutTab = () => {
+  const aboutVersion = safeGetElement("aboutVersion");
+  const aboutCurrentVersion = safeGetElement("aboutCurrentVersion");
+  const aboutAppName = safeGetElement("aboutAppName");
 
   if (aboutVersion && typeof APP_VERSION !== "undefined") {
     aboutVersion.textContent = `v${APP_VERSION}`;
@@ -90,9 +50,6 @@ const populateAboutModal = () => {
   loadAnnouncements();
 };
 
-/**
- * Populates the acknowledgment modal with version information
- */
 const populateAckModal = () => {
   const ackVersion = document.getElementById("ackVersion");
   const ackAppName = document.getElementById("ackAppName");
@@ -104,9 +61,6 @@ const populateAckModal = () => {
   }
 };
 
-/**
- * Loads announcements and populates changelog and roadmap sections
- */
 const loadAnnouncements = async () => {
   const whatsNewTargets = [
     document.getElementById("aboutChangelogLatest"),
@@ -174,11 +128,11 @@ const loadAnnouncements = async () => {
     }
   } catch (e) {
     console.warn("Could not load announcements, using embedded data:", e);
-    
+
     // Fallback to embedded announcements data
     const embeddedWhatsNew = getEmbeddedWhatsNew();
     const embeddedRoadmap = getEmbeddedRoadmap();
-    
+
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
     whatsNewTargets.forEach((el) => (el.innerHTML = embeddedWhatsNew));
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
@@ -186,9 +140,6 @@ const loadAnnouncements = async () => {
   }
 };
 
-/**
- * Shows full changelog in a new window or navigates to documentation
- */
 const showFullChangelog = () => {
   // Try to open changelog documentation
   window.open(
@@ -198,57 +149,66 @@ const showFullChangelog = () => {
   );
 };
 
-/**
- * Sets up event listeners for about modal elements
- */
-const setupAboutModalEvents = () => {
-  const aboutCloseBtn = document.getElementById("aboutCloseBtn");
-  const aboutShowChangelogBtn = document.getElementById(
-    "aboutShowChangelogBtn",
-  );
-  const versionShowChangelogBtn = document.getElementById(
-    "versionShowChangelogBtn",
-  );
-  const aboutModal = document.getElementById("aboutModal");
-
-  // Close button
-  if (aboutCloseBtn) {
-    aboutCloseBtn.addEventListener("click", hideAboutModal);
-  }
-
-  // Show changelog button
-  if (aboutShowChangelogBtn) {
-    aboutShowChangelogBtn.addEventListener("click", showFullChangelog);
-  }
-
-  if (versionShowChangelogBtn) {
-    versionShowChangelogBtn.addEventListener("click", showFullChangelog);
-  }
-
-  // Click outside to close
-  if (aboutModal) {
-    aboutModal.addEventListener("click", (e) => {
-      if (e.target === aboutModal) {
-        hideAboutModal();
-      }
-    });
-  }
-
-  // Escape key to close
-  document.addEventListener("keydown", (e) => {
-    if (
-      e.key === "Escape" &&
-      aboutModal &&
-      aboutModal.style.display === "flex"
-    ) {
-      hideAboutModal();
-    }
+const setupAboutCollapsibleCards = () => {
+  const panel = safeGetElement('settingsPanel_about');
+  if (!panel || panel._collapsibleBound) return;
+  panel._collapsibleBound = true;
+  panel.addEventListener('click', (e) => {
+    const header = e.target.closest('.about-version-card-header');
+    if (!header) return;
+    const card = header.closest('.about-version-card');
+    if (!card) return;
+    const isExpanded = card.classList.toggle('expanded');
+    header.setAttribute('aria-expanded', isExpanded);
   });
 };
 
-/**
- * Sets up event listeners for acknowledgment modal elements
- */
+const showWhatsNewPopup = () => {
+  const overlay = safeGetElement('whatsNewPopup');
+  if (!overlay) return;
+  // Populate version
+  const versionEl = safeGetElement('whatsNewVersion');
+  if (versionEl && typeof APP_VERSION !== 'undefined') {
+    versionEl.textContent = `v${APP_VERSION} — Updated!`;
+  }
+  // Load announcements into the popup's versionChanges list
+  if (typeof loadAnnouncements === 'function') loadAnnouncements();
+  overlay.style.display = 'flex';
+};
+
+const hideWhatsNewPopup = () => {
+  const overlay = safeGetElement('whatsNewPopup');
+  if (overlay) overlay.style.display = 'none';
+  // Acknowledge version so popup doesn't show again
+  if (typeof APP_VERSION !== 'undefined') {
+    localStorage.setItem(VERSION_ACK_KEY, APP_VERSION);
+  }
+};
+
+const setupWhatsNewPopupEvents = () => {
+  const dismissBtn = safeGetElement('whatsNewDismissBtn');
+  if (dismissBtn) dismissBtn.addEventListener('click', hideWhatsNewPopup);
+
+  const changelogBtn = safeGetElement('whatsNewChangelogBtn');
+  if (changelogBtn) {
+    changelogBtn.addEventListener('click', () => {
+      hideWhatsNewPopup();
+      // Open Settings to About tab
+      if (typeof switchSettingsSection === 'function') switchSettingsSection('about');
+      const settingsModal = safeGetElement('settingsModal');
+      if (settingsModal) settingsModal.style.display = 'flex';
+    });
+  }
+
+  // Click overlay background to dismiss
+  const overlay = safeGetElement('whatsNewPopup');
+  if (overlay) {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) hideWhatsNewPopup();
+    });
+  }
+};
+
 const setupAckModalEvents = () => {
   const ackCloseBtn = document.getElementById("ackCloseBtn");
   const ackAcceptBtn = document.getElementById("ackAcceptBtn");
@@ -277,10 +237,6 @@ const setupAckModalEvents = () => {
   });
 };
 
-/**
- * Provides embedded "What's New" data as fallback when file fetch fails
- * @returns {string} HTML string of recent announcements
- */
 const getEmbeddedWhatsNew = () => {
   return `
     <li><strong>v3.33.73 &ndash; Image URL Consistency</strong>: Stored URLs are now the single source of truth for images everywhere &mdash; view modal no longer fetches from Numista API independently. Fill Fields now overwrites existing image URLs when checkbox is checked (STAK-488, STAK-489)</li>
@@ -292,10 +248,6 @@ const getEmbeddedWhatsNew = () => {
   `;
 };
 
-/**
- * Provides embedded roadmap data as fallback when file fetch fails
- * @returns {string} HTML string of development roadmap
- */
 const getEmbeddedRoadmap = () => {
   return `
     <li><strong>Settings Redesign (STAK-436&ndash;447)</strong>: 12-issue suite covering Appearance, Filters, and API settings tabs</li>
@@ -306,16 +258,17 @@ const getEmbeddedRoadmap = () => {
 
 // Expose globally for access from other modules
 if (typeof window !== "undefined") {
-  window.showAboutModal = showAboutModal;
-  window.hideAboutModal = hideAboutModal;
   window.showAckModal = showAckModal;
   window.hideAckModal = hideAckModal;
   window.acceptAck = acceptAck;
   window.loadAnnouncements = loadAnnouncements;
-  window.setupAboutModalEvents = setupAboutModalEvents;
   window.setupAckModalEvents = setupAckModalEvents;
-  window.populateAboutModal = populateAboutModal;
+  window.populateAboutTab = populateAboutTab;
   window.populateAckModal = populateAckModal;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
   window.getEmbeddedRoadmap = getEmbeddedRoadmap;
+  window.setupAboutCollapsibleCards = setupAboutCollapsibleCards;
+  window.showWhatsNewPopup = showWhatsNewPopup;
+  window.hideWhatsNewPopup = hideWhatsNewPopup;
+  window.setupWhatsNewPopupEvents = setupWhatsNewPopupEvents;
 }
