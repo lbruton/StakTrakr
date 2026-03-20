@@ -283,6 +283,7 @@ const setupAckModalEvents = () => {
  */
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.73 &ndash; Image URL Consistency</strong>: Stored URLs are now the single source of truth for images everywhere &mdash; view modal no longer fetches from Numista API independently. Fill Fields now overwrites existing image URLs when checkbox is checked (STAK-488, STAK-489)</li>
     <li><strong>v3.33.72 &ndash; Numista Metadata Fix</strong>: Numista metadata fields (KM Reference, country, etc.) can now be cleared and saved as empty &mdash; previously clearing a field would restore the old value on save (STAK-487)</li>
     <li><strong>v3.33.71 &ndash; Codebase Modularization</strong>: Shared chart utility library eliminates 11 duplicate Chart.js patterns. Inventory split: 4,504 &rarr; 1,744 lines across 4 focused modules. Convention sweep: 53 getElementById, 5 localStorage, 23 var fixes (STAK-484)</li>
     <li><strong>v3.33.70 &ndash; Intraday Trends &amp; Reliability</strong>: Intraday trend toggle on Market Prices cards. Aggregation fixes stop data loss from UNIQUE constraint and carry forward vendor prices across 30-min windows. CF bypass hardened with Byparr-first phase and shm_size fix (STAK-464, STAK-474, STAK-475, STAK-476, STAK-477)</li>

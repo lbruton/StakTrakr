@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.73] - 2026-03-20
+
+### Fixed — Stored URLs as single source of truth for images
+
+- **Fixed**: View modal no longer independently fetches images from Numista API — stored URLs and user uploads are the single source of truth for images everywhere (STAK-489)
+- **Fixed**: Numista search "Fill Fields" now always writes image URLs when checkbox is checked, even when editing items with existing images (STAK-488)
+- **Fixed**: Image URL input wrappers now become visible after Fill Fields, giving visual feedback that URLs were populated (STAK-488)
+
+---
+
 ## [3.33.72] - 2026-03-20
 
 ### Fixed — Allow clearing Numista metadata fields
