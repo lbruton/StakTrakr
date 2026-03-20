@@ -16,3 +16,8 @@
 **Finding:** Instantiating `Intl.NumberFormat` is a known expensive operation in JavaScript.
 **Learning:** Functions like `formatCurrency` and `getCurrencySymbol` in `js/utils.js` were instantiating `Intl.NumberFormat` on every call. For large dataset renderings (e.g. lists of items), this initialization overhead can add up significantly.
 **Action:** Caching these instances in a `Map` using a combination of the locale and the currency code (e.g., `'default-USD'`) reduces the overhead of formatting operations from ~1ms to <0.1ms per call. When formatting strings or dates, always look for opportunities to cache and reuse `Intl` instances.
+
+## 2026-03-22 - Cache Intl.DateTimeFormat Instantiation
+**Finding:** Instantiating `Intl.DateTimeFormat` (like `Intl.NumberFormat`) is a known expensive operation in JavaScript.
+**Learning:** `formatTimestamp` function (used extensively throughout the UI to show dates) was internally calling `Date.toLocaleString()`, which instantiates a new `Intl.DateTimeFormat` object on every call. Given `formatTimestamp` gets repeatedly called during large dataset renderings (like the inventory tables or settings history logs), this overhead adds up.
+**Action:** Implemented caching for `Intl.DateTimeFormat` instances in a `Map` within `js/utils.js` (using `JSON.stringify(options)` as the key) to reuse formatters. When repeatedly formatting dates or numbers in loops, always cache and reuse `Intl` formatter instances to eliminate >10x instantiation penalty.
