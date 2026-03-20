@@ -71,15 +71,13 @@ async function showViewModal(index) {
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
-  // Load images and Numista data asynchronously after modal is visible
-  // Share a single API result to avoid duplicate calls
+  // Load images from stored URLs / user uploads only — no API fallback.
+  // STAK-489: Stored URLs are the single source of truth for images everywhere.
+  // Users populate images via Search → Fill Fields or manual URL entry in the edit form.
   const catalogId = item.numistaId || '';
   let apiResult = null;
 
-  // Try loading images from cache/item first
-  const cacheResult = await loadViewImages(item, body);
-  const imagesLoaded = cacheResult.loaded;
-  const imageSource = cacheResult.source;
+  await loadViewImages(item, body);
 
   // Check whether metadata is already cached in IndexedDB
   let metaCached = false;
@@ -90,29 +88,12 @@ async function showViewModal(index) {
     } catch { /* ignore */ }
   }
 
-  // Only hit the API when images are missing OR metadata is not in cache
-  if (catalogId && (!imagesLoaded || !metaCached)) {
+  // Fetch API result only for metadata enrichment — not for images
+  if (catalogId && !metaCached) {
     apiResult = await _fetchNumistaResult(catalogId);
   }
 
-  // Fill images from API result when no images were loaded at all
-  const shouldReplaceWithApi = !imagesLoaded;
-
-  if (shouldReplaceWithApi && apiResult && (apiResult.imageUrl || apiResult.reverseImageUrl)) {
-    const section = body.querySelector('#viewImageSection');
-    if (section) {
-      const slots = section.querySelectorAll('.view-image-slot');
-      if (apiResult.imageUrl) _setSlotImage(slots[0], apiResult.imageUrl);
-      if (apiResult.reverseImageUrl) _setSlotImage(slots[1], apiResult.reverseImageUrl);
-    }
-  }
-
-  // Do NOT persist CDN URLs from the view modal back to the inventory item (STAK-311).
-  // Writing here bypasses the save-path image priority cascade and can stick URLs to
-  // items that the user has deliberately cleared. URLs are written only via the edit
-  // form save path and the bulk-sync operation.
-
-  // Load Numista enrichment section
+  // Load Numista enrichment section (country, denomination, composition, etc.)
   await loadViewNumistaData(item, body, apiResult);
 }
 
