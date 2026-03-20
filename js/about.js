@@ -283,11 +283,11 @@ const setupAckModalEvents = () => {
  */
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.72 &ndash; Numista Metadata Fix</strong>: Numista metadata fields (KM Reference, country, etc.) can now be cleared and saved as empty &mdash; previously clearing a field would restore the old value on save (STAK-487)</li>
     <li><strong>v3.33.71 &ndash; Codebase Modularization</strong>: Shared chart utility library eliminates 11 duplicate Chart.js patterns. Inventory split: 4,504 &rarr; 1,744 lines across 4 focused modules. Convention sweep: 53 getElementById, 5 localStorage, 23 var fixes (STAK-484)</li>
     <li><strong>v3.33.70 &ndash; Intraday Trends &amp; Reliability</strong>: Intraday trend toggle on Market Prices cards. Aggregation fixes stop data loss from UNIQUE constraint and carry forward vendor prices across 30-min windows. CF bypass hardened with Byparr-first phase and shm_size fix (STAK-464, STAK-474, STAK-475, STAK-476, STAK-477)</li>
     <li><strong>v3.33.69 &ndash; Storage &amp; Sync Hygiene</strong>: Fixed disposed filter preference resetting on every page reload. Version upgrades no longer trigger phantom cloud sync diff popups &mdash; settings-only key diffs from new versions are auto-merged silently (STAK-470)</li>
     <li><strong>v3.33.68 &ndash; Catalog Data Fix</strong>: Fixed a bug where Catalog Data fields (diameter, thickness, country, etc.) were silently discarded on save for items without a Numista number (STAK-469)</li>
-    <li><strong>v3.33.67 &ndash; Retail Price Accuracy</strong>: Fixed Provident Metals picking up spot ticker instead of product price; fixed Hero Bullion returning bulk &ldquo;As Low As&rdquo; price instead of 1-unit table price; Gainesville Coins no longer wastes 15s on a Playwright timeout per coin (STAK-467)</li>
   `;
 };
 

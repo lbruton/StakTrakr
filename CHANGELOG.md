@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.72] - 2026-03-20
+
+### Fixed — Allow clearing Numista metadata fields
+
+- **Fixed**: Numista metadata fields (KM Reference, country, denomination, etc.) can now be cleared and saved as empty — previously the `||` fallback chain treated empty strings as falsy and restored the previous value, making it impossible to delete incorrect data (STAK-487)
+
+---
+
 ## [3.33.71] - 2026-03-18
 
 ### Added — Modularize large JS files: chart-utils, inventory split, convention migration
