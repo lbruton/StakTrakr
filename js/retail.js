@@ -60,6 +60,8 @@ const RETAIL_VENDOR_NAMES = {
   bullionexchanges: "BullionX",
   summitmetals:     "Summit",
   goldback:         "Goldback",
+  providentmetals:  "Provident",
+  gainesvillecoins: "Gainesville",
 };
 
 /** Vendor homepage URLs for popup links */
@@ -72,6 +74,8 @@ const RETAIL_VENDOR_URLS = {
   bullionexchanges: "https://www.bullionexchanges.com",
   summitmetals:     "https://www.summitmetals.com",
   goldback:         "https://www.goldback.com",
+  providentmetals:  "https://www.providentmetals.com",
+  gainesvillecoins: "https://www.gainesvillecoins.com",
 };
 
 /** Per-vendor brand colors — shared with retail-view-modal.js for chart lines and card labels */
@@ -84,6 +88,8 @@ const RETAIL_VENDOR_COLORS = {
   bullionexchanges: "#f472b6",  // bright pink (was #ec4899)
   summitmetals:     "#22d3ee",  // bright cyan (was #06b6d4)
   goldback:         "#d4a017",  // deep gold — goldback branding
+  providentmetals:  "#a3e635",  // lime green — distinct from emerald (SDB)
+  gainesvillecoins: "#fb923c",  // orange — distinct from amber (JM)
 };
 
 // ---------------------------------------------------------------------------
@@ -1437,8 +1443,16 @@ const _initMarketCardChart = (slug, detailsEl) => {
   if (!history || history.length < 2) return;
   // History is chronological (oldest first) — take last 7 entries for newest week
   const last7 = history.slice(-7);
-  const knownVendors = Object.keys(RETAIL_VENDOR_NAMES);
-  const activeVendors = knownVendors.filter((v) =>
+  // Discover all vendors present in the data (not limited to RETAIL_VENDOR_NAMES)
+  const vendorSet = new Set();
+  last7.forEach((e) => {
+    if (e.vendors) Object.keys(e.vendors).forEach((v) => vendorSet.add(v));
+  });
+  const knownOrder = Object.keys(RETAIL_VENDOR_NAMES);
+  const activeVendors = [
+    ...knownOrder.filter((v) => vendorSet.has(v)),
+    ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
+  ].filter((v) =>
     last7.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null)
   );
 
@@ -1486,11 +1500,10 @@ const _initMarketCardChart = (slug, detailsEl) => {
       ds.pointRadius = (ctx) => interp[ctx.dataIndex] ? 2 : 3;
       ds.pointBorderColor = (ctx) => interp[ctx.dataIndex] ? baseColor + "60" : baseColor;
       ds.pointBackgroundColor = (ctx) => interp[ctx.dataIndex] ? "transparent" : baseColor;
-      // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
-      // ds.segment = {
-      //   borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
-      //   borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "50" : baseColor,
-      // };
+      ds.segment = {
+        borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
+        borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "80" : baseColor,
+      };
     });
   }
 
@@ -1553,10 +1566,18 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
     return typeof window.retailFmtIntradayTime === "function" ? window.retailFmtIntradayTime(d) : (d ? d.toISOString().slice(11, 16) : "");
   });
 
-  const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-  const activeVendors = knownVendors.filter((v) =>
-    bucketed.some((w) => (w.vendors && w.vendors[v] != null) || (w._anomalyOriginals && w._anomalyOriginals[v] != null))
-  );
+  // Discover all vendors present in the data (not limited to RETAIL_VENDOR_NAMES)
+  const vendorSet = new Set();
+  bucketed.forEach((w) => {
+    if (w.vendors) Object.keys(w.vendors).forEach((v) => vendorSet.add(v));
+    if (w._anomalyOriginals) Object.keys(w._anomalyOriginals).forEach((v) => vendorSet.add(v));
+  });
+  // Sort: known vendors first (in RETAIL_VENDOR_NAMES order), then unknown vendors alphabetically
+  const knownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const activeVendors = [
+    ...knownOrder.filter((v) => vendorSet.has(v)),
+    ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
+  ];
 
   // Pre-compute carried indices per vendor for buildVendorDatasets
   const carriedPerVendor = activeVendors.map((vendorId) => {
@@ -1587,18 +1608,17 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
         tension: 0.3,
       }];
 
-  // Augment vendor datasets with carried-aware point callbacks
+  // Augment vendor datasets with carried-aware dashed segments (STAK-474)
   if (activeVendors.length > 0) {
     datasets.forEach((ds, idx) => {
       const carried = carriedPerVendor[idx];
-      ds.pointRadius = (ctx) => carriedPerVendor[idx].has(ctx.dataIndex) ? 0 : 0;
+      ds.pointRadius = 0;
       ds.pointHoverRadius = (ctx) => carried.has(ctx.dataIndex) ? 2 : 3;
-      // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
-      // const color = ds.borderColor;
-      // ds.segment = {
-      //   borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [4, 3] : [],
-      //   borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? color + "50" : color,
-      // };
+      const color = ds.borderColor;
+      ds.segment = {
+        borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [4, 3] : [],
+        borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? color + "80" : color,
+      };
     });
   }
 
