@@ -2037,122 +2037,7 @@
         </div>
       </div>
     </div>
-    <div class="modal" id="aboutModal" style="display: none">
-      <div class="modal-content about-modal-content">
-        <div class="modal-header about-modal-header">
-          <button
-            aria-label="Close modal"
-            class="modal-close"
-            id="aboutCloseBtn"
-          >
-            ×
-          </button>
-        </div>
-        <div class="modal-body about-modal-body">
-          <h2 class="about-title" id="aboutTitle">
-            <span id="aboutAppName">StakTrakr</span>
-            <span id="aboutVersion"></span>
-          </h2>
-          <div class="about-description">
-            A free, open-source precious metals portfolio tracker. Monitor live
-            spot prices, track purchase cost vs melt value, and compute gain/loss
-            across Silver, Gold, Platinum, and Palladium. All data stays in your
-            browser — nothing is ever sent to a server. Export to CSV, JSON, PDF,
-            or HTML backup at any time.
-            <div class="about-badges">
-              <a id="aboutSiteLink" href="https://www.staktrakr.com" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <span id="aboutSiteDomain">staktrakr.com</span>
-              </a>
-              <a href="https://github.com/lbruton/StakTrakr" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-                Source
-              </a>
-              <a href="https://www.reddit.com/r/staktrakr/" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
-                Community
-              </a>
-              <a href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                MIT License
-              </a>
-              <a href="docs/api/index.html" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                API Docs
-              </a>
-              <a href="https://github.com/sponsors/lbruton" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                Sponsor
-              </a>
-              <button class="about-badge" onclick="if(window.showFaqModal)window.showFaqModal()">
-                ❓ FAQ
-              </button>
-              <button class="about-badge" onclick="if(window.openModalById)openModalById('privacyModal')">
-                🔒 Privacy
-              </button>
-              <button class="about-badge" id="apiHealthBadgeAbout" onclick="if(window.showApiHealthModal)window.showApiHealthModal()">
-                📡 API Health
-              </button>
-            </div>
-          </div>
-
-          <div class="about-alert about-alert-compact">
-            <span class="alert-icon">⚠️</span>
-            All data is stored locally in your browser and never sent to a server.
-            Export regularly to keep a backup. See <button class="about-alert-link" onclick="if(window.showFaqModal)window.showFaqModal()">FAQ</button> for full details.
-          </div>
-          <!-- What's New and Roadmap -->
-          <div class="about-info-grid">
-            <div class="about-section">
-              <div class="section-title">🚀 What's New in <span id="aboutCurrentVersion"></span></div>
-              <ul id="aboutChangelogLatest" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <button class="about-card-link" id="aboutShowChangelogBtn">View Full Changelog →</button>
-              </div>
-            </div>
-
-            <div class="about-section" id="aboutRoadmapSection">
-              <div class="section-title">🗺️ Development Roadmap</div>
-              <ul id="aboutRoadmapList" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <a class="about-card-link" href="https://github.com/lbruton/StakTrakr/blob/main/docs/announcements.md" target="_blank" rel="noopener">View Full Roadmap →</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="modal" id="versionModal" style="display: none">
-      <div class="modal-content about-modal-content">
-        <div class="modal-header about-modal-header">
-          <h1 class="about-title">What's New <span id="versionModalVersion"></span></h1>
-          <button aria-label="Close modal" class="modal-close" id="versionCloseBtn">×</button>
-        </div>
-        <div class="modal-body about-modal-body">
-          <div class="about-info-grid">
-            <div class="about-section">
-              <div class="section-title">🚀 What's New</div>
-              <ul id="versionChanges" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <button class="about-card-link" id="versionShowChangelogBtn">View Full Changelog →</button>
-              </div>
-            </div>
-
-            <div class="about-section">
-              <div class="section-title">🗺️ Development Roadmap</div>
-              <ul id="versionRoadmapList" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <a class="about-card-link" href="https://github.com/lbruton/StakTrakr/blob/main/docs/announcements.md" target="_blank" rel="noopener">View Full Roadmap →</a>
-              </div>
-            </div>
-          </div>
-
-          <div class="alert-actions">
-            <button class="btn premium" id="versionAcceptBtn">Accept and continue</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- aboutModal and versionModal removed — content moved to settingsPanel_about + whatsNewPopup -->
     <!-- =============================================================================
        ============================================================================= -->
 
@@ -2171,7 +2056,12 @@
         <div class="settings-modal-layout">
           <!-- Sidebar Navigation -->
           <nav class="settings-sidebar">
-            <button class="settings-nav-item active" data-section="site">
+            <button class="settings-nav-item active" data-section="about">
+              <svg viewBox="0 0 512 512" width="16" height="16" fill="none"><rect width="512" height="512" rx="96" fill="#0f1729"/><rect x="170" y="120" width="180" height="28" rx="14" fill="#94a3b8" opacity="0.45"/><rect x="140" y="165" width="140" height="28" rx="14" fill="#94a3b8" opacity="0.68"/><rect x="150" y="216" width="200" height="32" rx="16" fill="#d4a017"/><rect x="222" y="268" width="140" height="28" rx="14" fill="#94a3b8" opacity="0.68"/><rect x="142" y="313" width="180" height="28" rx="14" fill="#94a3b8" opacity="0.45"/></svg>
+              About
+            </button>
+            <hr class="stk-nav-separator">
+            <button class="settings-nav-item" data-section="site">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="16" cy="20" r="2.5"/><circle cx="7" cy="20" r="2.5"/><circle cx="4" cy="13" r="2.5"/><circle cx="12" cy="13" r="3"/></svg>
               Appearance
             </button>
@@ -2230,8 +2120,97 @@
           <!-- Content Area -->
           <div class="settings-content-area">
 
+            <!-- ===== ABOUT PANEL ===== -->
+            <div class="settings-section-panel" id="settingsPanel_about" style="display: block">
+
+              <!-- Hero -->
+              <div class="about-hero layout-left">
+                <div class="about-logo-wrap">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="80" height="80">
+                    <defs>
+                      <linearGradient id="bgIcon" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
+                      <linearGradient id="silverIcon" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
+                      <linearGradient id="goldIcon" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
+                    </defs>
+                    <rect width="512" height="512" rx="96" fill="url(#bgIcon)"/>
+                    <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverIcon)" opacity="0.45"/>
+                    <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverIcon)" opacity="0.68"/>
+                    <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldIcon)"/>
+                    <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverIcon)" opacity="0.68"/>
+                    <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverIcon)" opacity="0.45"/>
+                  </svg>
+                </div>
+                <div class="about-hero-text">
+                  <div class="about-app-name" id="aboutAppName"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
+                  <div class="about-version" id="aboutVersion"></div>
+                  <div class="about-tagline">Track Your Stack</div>
+                  <p class="about-desc">
+                    A free, open-source precious metals portfolio tracker. Monitor live spot prices,
+                    track purchase cost vs melt value, and compute gain/loss across Silver, Gold,
+                    Platinum, and Palladium. All data stays in your browser — nothing is ever sent
+                    to a server.
+                  </p>
+                  <div class="about-badges">
+                    <a id="aboutSiteLink" href="https://www.staktrakr.com" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      <span id="aboutSiteDomain">staktrakr.com</span>
+                    </a>
+                    <a href="https://github.com/lbruton/StakTrakr" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                      Source
+                    </a>
+                    <a href="https://www.reddit.com/r/staktrakr/" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+                      Community
+                    </a>
+                    <a href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      MIT License
+                    </a>
+                    <a href="https://github.com/sponsors/lbruton" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" width="13" height="13"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                      Sponsor
+                    </a>
+                    <button class="about-badge-item" id="apiHealthBadgeAbout" onclick="if(window.showApiHealthModal)showApiHealthModal()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                      API Status
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- What's New -->
+              <div class="about-section">
+                <div class="about-section-title">WHAT'S NEW IN <span id="aboutCurrentVersion"></span></div>
+                <ul id="aboutChangelogLatest" class="about-whats-new-list"></ul>
+                <div class="about-section-footer" style="margin-top:8px;">
+                  <button class="about-card-link" id="aboutShowChangelogBtn" onclick="if(window.showFullChangelog)showFullChangelog()">View Full Changelog</button>
+                </div>
+              </div>
+
+              <!-- Roadmap -->
+              <div class="about-section">
+                <div class="about-section-title">ROADMAP</div>
+                <ul id="aboutRoadmapList" class="about-roadmap-list"></ul>
+              </div>
+
+              <!-- Disclaimer -->
+              <div class="about-disclaimer" id="aboutDisclaimer">
+                <strong>Disclaimer:</strong> Data is stored locally in your browser. Export regularly to keep a backup.
+                Spot prices are for reference only and may not reflect real-time market conditions.
+                Use at your own risk. <a href="#" onclick="var d=document.getElementById('aboutDisclaimerFull');if(d){d.style.display=d.style.display==='none'?'block':'none';this.textContent=d.style.display==='none'?'Show full disclaimer':'Hide disclaimer'}return false;" style="color:var(--primary,#3b82f6);">Show full disclaimer</a>
+                <div id="aboutDisclaimerFull" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+                  <p style="margin:0 0 8px"><strong>Your Privacy is Protected:</strong> All data is stored locally in your browser using localStorage and <em>never transmitted to any server</em>. Your precious metals inventory information remains completely private and under your control.</p>
+                  <p style="margin:0 0 8px"><strong>Data Backup Responsibility:</strong> Since data is stored locally, it will be lost if you clear browser history, reset browser data, or use private browsing mode. Remember to export your data regularly to keep a copy.</p>
+                  <p style="margin:0 0 8px"><strong>Use at Your Own Risk:</strong> This tool is provided for informational and organizational purposes only. The developer assumes no responsibility for any financial decisions, investment choices, or data loss. Always verify spot prices and calculations independently.</p>
+                  <p style="margin:0"><strong>Spot Price Accuracy:</strong> Prices displayed are for reference only and may not reflect real-time market conditions. Always confirm current pricing with your dealer or official market sources before making transactions.</p>
+                </div>
+              </div>
+
+            </div><!-- #settingsPanel_about -->
+
             <!-- ===== APPEARANCE SETTINGS ===== -->
-            <div class="settings-section-panel" id="settingsPanel_site" style="display: block">
+            <div class="settings-section-panel" id="settingsPanel_site" style="display: none">
               <h3>Appearance</h3>
 
               <!-- ── Card 1: Visual style pickers ── -->
@@ -4256,6 +4235,39 @@
         <div class="settings-footer" id="settingsFooter"></div>
       </div><!-- .settings-modal-content -->
     </div><!-- #settingsModal -->
+
+    <!-- ===== WHAT'S NEW POPUP (thin version splash) ===== -->
+    <div class="whats-new-overlay" id="whatsNewPopup" style="display: none">
+      <div class="whats-new-popup">
+        <div class="whats-new-popup-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
+            <defs>
+              <linearGradient id="bgPopup" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
+              <linearGradient id="silverPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
+              <linearGradient id="goldPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
+            </defs>
+            <rect width="512" height="512" rx="96" fill="url(#bgPopup)"/>
+            <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
+            <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
+            <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldPopup)"/>
+            <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
+            <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
+          </svg>
+          <div class="popup-title-group">
+            <div class="popup-title"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
+            <div class="popup-version" id="whatsNewVersion"></div>
+          </div>
+        </div>
+        <div class="whats-new-popup-body">
+          <h4>What's New</h4>
+          <ul id="versionChanges"></ul>
+        </div>
+        <div class="whats-new-popup-footer">
+          <button class="btn secondary" id="whatsNewChangelogBtn">Full Changelog</button>
+          <button class="btn premium" id="whatsNewDismissBtn">Got it!</button>
+        </div>
+      </div>
+    </div><!-- #whatsNewPopup -->
 
     <div class="modal" id="cloudSyncModal" style="display: none">
       <div class="modal-content">

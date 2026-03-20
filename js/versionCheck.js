@@ -23,65 +23,11 @@ const checkVersionChange = () => {
   if (acknowledged === current) return;
 
   if (typeof window !== 'undefined' && typeof window.debugLog === "function") {
-    window.debugLog(`versionCheck: mismatch — showing What's New modal`);
+    window.debugLog(`versionCheck: mismatch — showing What's New popup`);
   }
-  populateVersionModal(current);
-};
-
-/**
- * Populates and shows the version modal
- * Content is loaded by loadAnnouncements() into the versionChanges element
- * @param {string} version - Current application version
- */
-const populateVersionModal = (version) => {
-  const modal = document.getElementById("versionModal");
-  const ver = document.getElementById("versionModalVersion");
-  if (ver) ver.textContent = `v${version}`;
-  if (!modal) return;
-  modal.style.display = "flex";
-  document.body.style.overflow = "hidden";
-  setupVersionModalEvents(version);
-  if (typeof loadAnnouncements === "function") {
-    loadAnnouncements();
+  if (typeof showWhatsNewPopup === 'function') {
+    showWhatsNewPopup();
   }
-};
-
-/**
- * Sets up modal event handlers for version acknowledgment
- * @param {string} version - Current application version
- */
-const setupVersionModalEvents = (version) => {
-  const modal = document.getElementById("versionModal");
-  const acceptBtn = document.getElementById("versionAcceptBtn");
-  const closeBtn = document.getElementById("versionCloseBtn");
-
-  const accept = () => {
-    localStorage.setItem(VERSION_ACK_KEY, version);
-    if (modal) modal.style.display = "none";
-    document.body.style.overflow = "";
-  };
-
-  if (acceptBtn) {
-    acceptBtn.addEventListener("click", accept);
-  }
-
-  if (closeBtn) {
-    closeBtn.addEventListener("click", accept);
-  }
-
-  if (modal) {
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) {
-        accept();
-      }
-    });
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && modal && modal.style.display !== "none" && modal.style.display !== "") {
-      accept();
-    }
-  });
 };
 
 /**

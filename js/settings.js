@@ -3,9 +3,9 @@
 
 /**
  * Opens the unified Settings modal, optionally navigating to a section.
- * @param {string} [section='site'] - Section to display: 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
+ * @param {string} [section='about'] - Section to display: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
  */
-const showSettingsModal = (section = 'site') => {
+const showSettingsModal = (section = 'about') => {
   const modal = document.getElementById('settingsModal');
   if (!modal) return;
 
@@ -35,10 +35,10 @@ const hideSettingsModal = () => {
 
 /**
  * Switches the visible section panel in the Settings modal.
- * @param {string} name - Section key: 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
+ * @param {string} name - Section key: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
  */
 const switchSettingsSection = (name) => {
-  const targetName = document.getElementById(`settingsPanel_${name}`) ? name : 'system';
+  const targetName = document.getElementById(`settingsPanel_${name}`) ? name : 'about';
 
   // Hide all panels
   document.querySelectorAll('.settings-section-panel').forEach(panel => {
@@ -85,6 +85,11 @@ const switchSettingsSection = (name) => {
   // Populate Storage section when switching to it
   if (targetName === 'storage' && typeof renderStorageSection === 'function') {
     renderStorageSection();
+  }
+
+  // Populate About tab content when switching to it
+  if (targetName === 'about') {
+    if (typeof populateAboutTab === 'function') populateAboutTab();
   }
 
   // Populate Inventory Summary card and show/hide Cloud section when switching to Inventory

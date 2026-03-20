@@ -202,7 +202,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.cloudSyncModal = safeGetElement("cloudSyncModal");
     elements.vaultModal = safeGetElement("vaultModal");
     elements.apiQuotaModal = safeGetElement("apiQuotaModal");
-    elements.aboutModal = safeGetElement("aboutModal");
     elements.ackModal = safeGetElement("ackModal");
     elements.ackAcceptBtn = safeGetElement("ackAcceptBtn");
     // Unified item modal elements (add/edit)
@@ -218,8 +217,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof setupAckModalEvents === "function") {
       setupAckModalEvents();
     }
-    if (typeof setupAboutModalEvents === "function") {
-      setupAboutModalEvents();
+    if (typeof setupWhatsNewPopupEvents === 'function') {
+      setupWhatsNewPopupEvents();
     }
     if (typeof setupFaqModalEvents === "function") {
       setupFaqModalEvents();
