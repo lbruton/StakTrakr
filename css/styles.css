@@ -3657,7 +3657,7 @@ input[type="submit"] {
 .about-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
 
 /* B) Badges */
-.about-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.about-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; justify-content: flex-start; }
 .about-badge-item { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 11px; text-decoration: none; transition: all 0.15s; cursor: pointer; }
 .about-badge-item:hover { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-hover, var(--border)); }
 .about-badge-item svg { width: 13px; height: 13px; }
@@ -5839,13 +5839,7 @@ td input:checked + .slider:before {
   border: 1px solid var(--border);
 }
 
-.about-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-top: 1rem;
-}
+/* Old .about-badges removed — replaced by STAK-490 About Tab styles */
 
 .about-badge {
   display: inline-flex;
