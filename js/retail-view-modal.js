@@ -438,9 +438,17 @@ const _buildIntradayChart = (slug) => {
     _retailViewIntradayChart = null;
   }
 
-  // Collect the vendor set across all bucketed entries (preserves display order from RETAIL_VENDOR_NAMES)
-  const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-  const activeVendors = knownVendors.filter((v) => bucketed.some((w) => (w.vendors && w.vendors[v] != null) || (w._anomalyOriginals && w._anomalyOriginals[v] != null)));
+  // Discover all vendors present in the data (not limited to RETAIL_VENDOR_NAMES)
+  const vendorSet = new Set();
+  bucketed.forEach((w) => {
+    if (w.vendors) Object.keys(w.vendors).forEach((v) => vendorSet.add(v));
+    if (w._anomalyOriginals) Object.keys(w._anomalyOriginals).forEach((v) => vendorSet.add(v));
+  });
+  const knownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const activeVendors = [
+    ...knownOrder.filter((v) => vendorSet.has(v)),
+    ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
+  ];
   // Fall back to median+low when windows predate the per-vendor format
   const useVendorLines = activeVendors.length > 0;
 
@@ -577,8 +585,14 @@ const openRetailViewModal = (slug) => {
   if (chartWrap) chartWrap.style.display = hasEnoughHistory ? "" : "none";
   if (hasEnoughHistory && chartCanvas instanceof HTMLCanvasElement && typeof Chart !== "undefined") {
     const sorted = [...history].reverse();
-    const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-    const activeHistVendors = knownVendors.filter((v) =>
+    // Discover all vendors present in history data
+    const histVendorSet = new Set();
+    sorted.forEach((e) => { if (e.vendors) Object.keys(e.vendors).forEach((v) => histVendorSet.add(v)); });
+    const histKnownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+    const activeHistVendors = [
+      ...histKnownOrder.filter((v) => histVendorSet.has(v)),
+      ...[...histVendorSet].filter((v) => !histKnownOrder.includes(v)).sort(),
+    ].filter((v) =>
       sorted.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null)
     );
     const useVendorHistLines = activeHistVendors.length > 0;
