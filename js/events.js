@@ -1057,7 +1057,7 @@ const parseNumistaDataFields = (isEditing, existingItem, catalog = '') => {
   // absent from the DOM. Previous || fallback treated '' as falsy, making it
   // impossible for users to clear metadata fields.
   const getOrPrev = (id, prevVal) => {
-    const el = document.getElementById(id);
+    const el = safeGetElement(id);
     return el ? el.value.trim() : (prevVal ?? '');
   };
 
@@ -1073,7 +1073,7 @@ const parseNumistaDataFields = (isEditing, existingItem, catalog = '') => {
     mintage: getOrPrev('numistaMintage', prev.mintage),
     rarityIndex: getOrPrev('numistaRarity', prev.rarityIndex),
     kmRef: getOrPrev('numistaKmRef', prev.kmRef),
-    commemorative: document.getElementById('numistaCommemorative')?.checked || false,
+    commemorative: (() => { const el = safeGetElement('numistaCommemorative'); return el ? el.checked : (prev.commemorative ?? false); })(),
     commemorativeDesc: getOrPrev('numistaCommemorativeDesc', prev.commemorativeDesc),
     obverseDesc: getOrPrev('numistaObverseDesc', prev.obverseDesc),
     reverseDesc: getOrPrev('numistaReverseDesc', prev.reverseDesc),
