@@ -2171,6 +2171,10 @@
                       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" width="13" height="13"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
                       Sponsor
                     </a>
+                    <button class="about-badge-item" id="apiHealthBadgeAbout" onclick="if(window.showApiHealthModal)showApiHealthModal()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                      API Status
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2191,10 +2195,16 @@
               </div>
 
               <!-- Disclaimer -->
-              <div class="about-disclaimer">
+              <div class="about-disclaimer" id="aboutDisclaimer">
                 <strong>Disclaimer:</strong> Data is stored locally in your browser. Export regularly to keep a backup.
                 Spot prices are for reference only and may not reflect real-time market conditions.
-                Use at your own risk. <a href="#" onclick="if(window.openModalById)openModalById('ackModal');return false;" style="color:var(--accent,#3b82f6);">Full disclaimer</a>
+                Use at your own risk. <a href="#" onclick="var d=document.getElementById('aboutDisclaimerFull');if(d){d.style.display=d.style.display==='none'?'block':'none';this.textContent=d.style.display==='none'?'Show full disclaimer':'Hide disclaimer'}return false;" style="color:var(--primary,#3b82f6);">Show full disclaimer</a>
+                <div id="aboutDisclaimerFull" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+                  <p style="margin:0 0 8px"><strong>Your Privacy is Protected:</strong> All data is stored locally in your browser using localStorage and <em>never transmitted to any server</em>. Your precious metals inventory information remains completely private and under your control.</p>
+                  <p style="margin:0 0 8px"><strong>Data Backup Responsibility:</strong> Since data is stored locally, it will be lost if you clear browser history, reset browser data, or use private browsing mode. Remember to export your data regularly to keep a copy.</p>
+                  <p style="margin:0 0 8px"><strong>Use at Your Own Risk:</strong> This tool is provided for informational and organizational purposes only. The developer assumes no responsibility for any financial decisions, investment choices, or data loss. Always verify spot prices and calculations independently.</p>
+                  <p style="margin:0"><strong>Spot Price Accuracy:</strong> Prices displayed are for reference only and may not reflect real-time market conditions. Always confirm current pricing with your dealer or official market sources before making transactions.</p>
+                </div>
               </div>
 
             </div><!-- #settingsPanel_about -->
