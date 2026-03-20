@@ -813,15 +813,15 @@ const setupHeaderButtonListeners = () => {
     }
   });
 
-  // About Button
+  // About Button — opens Settings modal at the About tab
   if (elements.aboutBtn) {
     safeAttachListener(
       elements.aboutBtn,
       "click",
       (e) => {
         e.preventDefault();
-        if (typeof showAboutModal === "function") {
-          showAboutModal();
+        if (typeof showSettingsModal === 'function') {
+          showSettingsModal('about');
         }
       },
       "About Button",
@@ -2526,12 +2526,6 @@ const setupEventListeners = () => {
     // API MODAL EVENT LISTENERS
     debugLog("Setting up API modal listeners...");
     setupApiEvents();
-
-    // ABOUT MODAL EVENT LISTENERS
-    debugLog("Setting up about modal listeners...");
-    if (typeof setupAboutModalEvents === "function") {
-      setupAboutModalEvents();
-    }
 
     debugLog("✓ All event listeners setup complete");
   } catch (error) {
