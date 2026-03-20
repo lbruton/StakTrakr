@@ -1050,26 +1050,34 @@ const parseItemFormFields = (isEditing, existingItem) => {
  * @returns {Object} Numista data fields with source tracking
  */
 const parseNumistaDataFields = (isEditing, existingItem, catalog = '') => {
-  const get = (id) => (document.getElementById(id)?.value?.trim() ?? '');
   const prev = (isEditing && existingItem?.numistaData) ? existingItem.numistaData : {};
 
+  // STAK-487: Respect intentional clearing — if the form element exists, trust its
+  // value (even empty string). Only fall back to previous data when the element is
+  // absent from the DOM. Previous || fallback treated '' as falsy, making it
+  // impossible for users to clear metadata fields.
+  const getOrPrev = (id, prevVal) => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : (prevVal ?? '');
+  };
+
   const fields = {
-    country: get('numistaCountry') || prev.country || '',
-    denomination: get('numistaDenomination') || prev.denomination || '',
-    composition: get('numistaComposition') || prev.composition || '',
-    shape: get('numistaShape') || prev.shape || '',
-    diameter: get('numistaDiameter') || prev.diameter || '',
-    thickness: get('numistaThickness') || prev.thickness || '',
-    orientation: get('numistaOrientation') || prev.orientation || '',
-    technique: get('numistaTechnique') || prev.technique || '',
-    mintage: get('numistaMintage') || prev.mintage || '',
-    rarityIndex: get('numistaRarity') || prev.rarityIndex || '',
-    kmRef: get('numistaKmRef') || prev.kmRef || '',
+    country: getOrPrev('numistaCountry', prev.country),
+    denomination: getOrPrev('numistaDenomination', prev.denomination),
+    composition: getOrPrev('numistaComposition', prev.composition),
+    shape: getOrPrev('numistaShape', prev.shape),
+    diameter: getOrPrev('numistaDiameter', prev.diameter),
+    thickness: getOrPrev('numistaThickness', prev.thickness),
+    orientation: getOrPrev('numistaOrientation', prev.orientation),
+    technique: getOrPrev('numistaTechnique', prev.technique),
+    mintage: getOrPrev('numistaMintage', prev.mintage),
+    rarityIndex: getOrPrev('numistaRarity', prev.rarityIndex),
+    kmRef: getOrPrev('numistaKmRef', prev.kmRef),
     commemorative: document.getElementById('numistaCommemorative')?.checked || false,
-    commemorativeDesc: get('numistaCommemorativeDesc') || prev.commemorativeDesc || '',
-    obverseDesc: get('numistaObverseDesc') || prev.obverseDesc || '',
-    reverseDesc: get('numistaReverseDesc') || prev.reverseDesc || '',
-    edgeDesc: get('numistaEdgeDesc') || prev.edgeDesc || '',
+    commemorativeDesc: getOrPrev('numistaCommemorativeDesc', prev.commemorativeDesc),
+    obverseDesc: getOrPrev('numistaObverseDesc', prev.obverseDesc),
+    reverseDesc: getOrPrev('numistaReverseDesc', prev.reverseDesc),
+    edgeDesc: getOrPrev('numistaEdgeDesc', prev.edgeDesc),
   };
 
   // Track data source: 'user' if any field was manually changed from the API value,
