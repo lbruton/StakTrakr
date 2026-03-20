@@ -90,6 +90,20 @@ function warn(msg) {
   console.warn(`[${new Date().toISOString().slice(11, 19)}] WARN: ${msg}`);
 }
 
+/** Wrapper around writeSnapshot that catches DB errors so a single failed
+ *  write doesn't crash the entire run. Returns true on success. */
+let _dbWriteFailures = 0;
+async function safeWriteSnapshot(db, row) {
+  try {
+    await writeSnapshot(db, row);
+    return true;
+  } catch (err) {
+    _dbWriteFailures++;
+    warn(`DB write failed for ${row.coinSlug}/${row.vendor} (non-fatal): ${err.message.slice(0, 100)}`);
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Price extraction from Firecrawl markdown
 // ---------------------------------------------------------------------------
@@ -1011,7 +1025,7 @@ async function main() {
           price, source, inStock, ok: true, error: null,
         });
         if (db) {
-          await writeSnapshot(db, {
+          await safeWriteSnapshot(db, {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price, source,
             isFailed: false, inStock,
@@ -1029,7 +1043,7 @@ async function main() {
           price: null, source: cfResult.source, inStock: false, ok: true, error: null,
         });
         if (db) {
-          await writeSnapshot(db, {
+          await safeWriteSnapshot(db, {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price: null, source: cfResult.source,
             isFailed: false, inStock: false,
@@ -1069,7 +1083,7 @@ async function main() {
           price, source, inStock, ok: true, error: null,
         });
         if (db) {
-          await writeSnapshot(db, {
+          await safeWriteSnapshot(db, {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price, source,
             isFailed: false, inStock,
@@ -1259,7 +1273,7 @@ async function main() {
 
     // Record to Turso
     if (db) {
-      await writeSnapshot(db, {
+      await safeWriteSnapshot(db, {
         scrapedAt,
         windowStart: winStart,
         coinSlug,
@@ -1295,18 +1309,21 @@ async function main() {
   const ok = scrapeResults.filter(r => r.ok).length;
   const fail = scrapeResults.length - ok;
 
-  log(`Done: ${ok}/${scrapeResults.length} prices captured, ${fail} failures, cf-clearance: ${cfAttempts} attempts ${cfSuccess} ok ${cfFailures} failed`);
+  log(`Done: ${ok}/${scrapeResults.length} prices captured, ${fail} failures, ${_dbWriteFailures} DB write errors, cf-clearance: ${cfAttempts} attempts ${cfSuccess} ok ${cfFailures} failed`);
 
   // Finish run log entry in Turso
   if (db && runId) {
     try {
+      const errorMsg = ok === 0 ? "All scrapes failed"
+        : _dbWriteFailures > 0 ? `${_dbWriteFailures} DB write(s) failed`
+        : null;
       await finishRunLog(db, {
         runId,
         finishedAt: new Date().toISOString(),
         captured: ok,
         failures: fail,
         fbpFilled: 0,
-        error: ok === 0 ? "All scrapes failed" : null,
+        error: errorMsg,
       });
     } catch (err) {
       warn(`Run log finish failed (non-fatal): ${err.message.slice(0, 80)}`);

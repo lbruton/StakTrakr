@@ -53,20 +53,31 @@ fi
 # API repo is no longer cloned at entrypoint — stateless clone in run-local.sh
 
 # ── 5.5. Dynamic cron schedule (overrides Dockerfile baked-in crontab) ──
+# ENV toggles: set RETAIL_ENABLED=0 or GOLDBACK_ENABLED=0 to disable those crons.
+# When retail is disabled, retry is also skipped (no retail data to retry).
+RETAIL_ENABLED="${RETAIL_ENABLED:-1}"
+GOLDBACK_ENABLED="${GOLDBACK_ENABLED:-1}"
 CRON_SCHEDULE="${CRON_SCHEDULE:-15,45}"
-if ! echo "$CRON_SCHEDULE" | grep -qE '^[0-9*/,\-]+$'; then
+if [ "$RETAIL_ENABLED" = "1" ] && ! echo "$CRON_SCHEDULE" | grep -qE '^[0-9*/,\-]+$'; then
   echo "[entrypoint] ERROR: Invalid CRON_SCHEDULE '${CRON_SCHEDULE}' — aborting." >&2
   exit 1
 fi
-echo "[entrypoint] Writing cron schedule: ${CRON_SCHEDULE}"
-(echo "${CRON_SCHEDULE} * * * * root . /etc/environment; /app/run-local.sh >> /var/log/retail-poller.log 2>&1"; \
- echo "0,30 * * * * root . /etc/environment; /app/run-spot.sh >> /var/log/spot-poller.log 2>&1"; \
- echo "8,23,38,53 * * * * root . /etc/environment; /app/run-publish.sh >> /var/log/publish.log 2>&1"; \
- echo "15 * * * * root . /etc/environment; /app/run-retry.sh >> /var/log/retail-retry.log 2>&1"; \
- echo "1 * * * * root . /etc/environment; /app/run-goldback.sh >> /var/log/goldback-poller.log 2>&1"; \
- echo "*/5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1"; \
-) \
-  > /etc/cron.d/retail-poller
+echo "[entrypoint] Writing cron schedule (retail=${RETAIL_ENABLED}, goldback=${GOLDBACK_ENABLED})..."
+: > /etc/cron.d/retail-poller
+if [ "$RETAIL_ENABLED" = "1" ]; then
+  echo "${CRON_SCHEDULE} * * * * root . /etc/environment; /app/run-local.sh >> /var/log/retail-poller.log 2>&1" >> /etc/cron.d/retail-poller
+  echo "15 * * * * root . /etc/environment; /app/run-retry.sh >> /var/log/retail-retry.log 2>&1" >> /etc/cron.d/retail-poller
+else
+  echo "[entrypoint] Retail + retry crons DISABLED"
+fi
+echo "0,30 * * * * root . /etc/environment; /app/run-spot.sh >> /var/log/spot-poller.log 2>&1" >> /etc/cron.d/retail-poller
+echo "8,23,38,53 * * * * root . /etc/environment; /app/run-publish.sh >> /var/log/publish.log 2>&1" >> /etc/cron.d/retail-poller
+if [ "$GOLDBACK_ENABLED" = "1" ]; then
+  echo "1 * * * * root . /etc/environment; /app/run-goldback.sh >> /var/log/goldback-poller.log 2>&1" >> /etc/cron.d/retail-poller
+else
+  echo "[entrypoint] Goldback cron DISABLED"
+fi
+echo "*/5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1" >> /etc/cron.d/retail-poller
 chmod 0644 /etc/cron.d/retail-poller
 
 # ── 5.6. Tailscale state directory (on persistent /data volume) ───────
