@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [3.33.75] - 2026-03-20
+## [3.33.75] - 2026-03-21
 
 ### Fixed — Cloud sync field coverage (STAK-493)
 

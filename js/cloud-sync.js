@@ -2258,12 +2258,9 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           var needsResolve = !change.item
             || (!change.item.uuid && !change.item.metal);
 
-          if (needsResolve && lookupKey) {
+          if (needsResolve && lookupKey && typeof DiffEngine !== 'undefined' && typeof DiffEngine.computeItemKey === 'function') {
             for (var j = 0; j < remoteItems.length; j++) {
-              var candidateKey = typeof DiffEngine.computeItemKey === 'function'
-                ? DiffEngine.computeItemKey(remoteItems[j])
-                : '';
-              if (candidateKey === lookupKey) {
+              if (DiffEngine.computeItemKey(remoteItems[j]) === lookupKey) {
                 change.item = remoteItems[j];
                 break;
               }

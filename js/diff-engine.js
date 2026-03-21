@@ -8,9 +8,11 @@
  *   Primary:  item.serial (numeric internal serial — exact match)
  *   Fallback: `${item.numistaId}|${item.name}|${item.date}` composite key
  *
- * Fields compared in item diff cover ALL user-editable InventoryItem fields
- * (js/types.js). Both DIFF_FIELDS and changeLog.js logItemChanges() must
- * stay in sync — see STAK-493 for the bug caused by an incomplete list.
+ * Fields compared in item diff cover all sync-relevant InventoryItem fields.
+ * Both DIFF_FIELDS and changeLog.js logItemChanges() must stay in sync —
+ * see STAK-493 for the bug caused by an incomplete list.
+ * Note: runtime-only fields in types.js (uuid, serial) are excluded because
+ * they are identity keys, not diffable data.
  */
 
 /* eslint-disable no-unused-vars */
@@ -39,7 +41,6 @@ const DIFF_FIELDS = [
   'type',
   'date',
   'year',
-  'mintmark',
   // Financials
   'price',
   'purchasePrice',
@@ -62,6 +63,8 @@ const DIFF_FIELDS = [
   // Catalog & collection
   'numistaId',
   'collectable',
+  'ignorePatternImages',
+  'currency',
   // Images (STAK-493: these were missing, causing silent data loss during sync)
   'obverseImageUrl',
   'reverseImageUrl',
@@ -89,11 +92,25 @@ function _valuesEqual(a, b) {
   a = norm(a); b = norm(b);
   if (a === b) return true;
   if (a === null || b === null) return false;
-  // Deep compare for objects (e.g. disposition) — sorted-key stringify
+  // Deep compare for objects (e.g. disposition) — recursive stable stringify
   if (typeof a === 'object' && typeof b === 'object') {
-    return JSON.stringify(a, Object.keys(a).sort()) === JSON.stringify(b, Object.keys(b).sort());
+    return _stableStringify(a) === _stableStringify(b);
   }
   return false;
+}
+
+/**
+ * Recursively stable JSON stringify — sorts object keys at every depth.
+ * Arrays preserve element order; only plain-object keys are sorted.
+ * @param {*} val
+ * @returns {string}
+ */
+function _stableStringify(val) {
+  if (val === null || val === undefined) return 'null';
+  if (typeof val !== 'object') return JSON.stringify(val);
+  if (Array.isArray(val)) return '[' + val.map(_stableStringify).join(',') + ']';
+  var keys = Object.keys(val).sort();
+  return '{' + keys.map(function(k) { return JSON.stringify(k) + ':' + _stableStringify(val[k]); }).join(',') + '}';
 }
 
 /**
