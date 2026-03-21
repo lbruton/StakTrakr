@@ -507,8 +507,11 @@ class NumistaProvider extends CatalogProvider {
    * @returns {Promise<Array>} Array of standardized item data
    */
   async searchItems(query, filters = {}) {
+    // STAK-494: Strip characters the Numista API interprets as search operators
+    // - hyphens are negation, parentheses are grouping, plus is required-term
+    const sanitized = query.replace(/[-()+"]/g, ' ').replace(/\s{2,}/g, ' ').trim();
     const params = new URLSearchParams({
-      q: query,
+      q: sanitized,
       count: Math.min(filters.limit || 20, 50),
       lang: 'en'
     });
