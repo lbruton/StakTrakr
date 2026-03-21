@@ -1408,6 +1408,7 @@ async function pushSyncVault() {
 
     // Upload image vault if user photos exist and have changed (STAK-181)
     var imageVaultMeta = null;
+    var _imageVaultPreserved = false; // True when carrying forward another device's metadata
     try {
       if (typeof collectAndHashImageVault === 'function') {
         var imgData = await collectAndHashImageVault();
@@ -1433,8 +1434,18 @@ async function pushSyncVault() {
             debugLog('[CloudSync] Image vault unchanged — skipping upload');
             logCloudSyncActivity('image_vault_push', 'skipped', 'Hash unchanged — ' + imgData.imageCount + ' photos');
           }
+        } else if (_remoteImageVaultMeta) {
+          // STAK-497: No local images but remote has an image vault from
+          // another device. Preserve the reference so pulling devices can
+          // still find it. Do NOT delete, and do NOT store imageHash in
+          // local pushMeta (to avoid triggering the deletion path next push).
+          imageVaultMeta = _remoteImageVaultMeta;
+          _imageVaultPreserved = true;
+          debugLog('[CloudSync] No local photos — preserving remote image vault reference:', _remoteImageVaultMeta.imageCount, 'photos');
+          logCloudSyncActivity('image_vault_push', 'skipped', 'No local photos — preserved remote reference (' + _remoteImageVaultMeta.imageCount + ' photos)');
         } else if (lastImageHash) {
-          // STAK-426: All local photos deleted — propagate deletion to remote
+          // STAK-426: This device previously uploaded photos and they were
+          // all deleted locally. Propagate deletion to remote.
           try {
             var delArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
             var delResp = await fetch('https://api.dropboxapi.com/2/files/delete_v2', {
@@ -1456,18 +1467,7 @@ async function pushSyncVault() {
           }
           // imageVaultMeta stays null → imageHash cleared in pushMeta
         } else {
-          // No local images and no previous hash — carry forward remote
-          // image vault metadata if another device uploaded photos. Without
-          // this, a push from a device with no photos erases the imageVault
-          // pointer from the sync metadata, making the image file on Dropbox
-          // invisible to future pulls.
-          if (_remoteImageVaultMeta) {
-            imageVaultMeta = _remoteImageVaultMeta;
-            debugLog('[CloudSync] No local photos — preserving remote image vault reference:', _remoteImageVaultMeta.imageCount, 'photos');
-            logCloudSyncActivity('image_vault_push', 'skipped', 'No local photos — preserved remote reference (' + _remoteImageVaultMeta.imageCount + ' photos)');
-          } else {
-            logCloudSyncActivity('image_vault_push', 'skipped', 'No user photos on this device');
-          }
+          logCloudSyncActivity('image_vault_push', 'skipped', 'No user photos on this device');
         }
       }
     } catch (imgErr) {
@@ -1543,7 +1543,11 @@ async function pushSyncVault() {
 
     // Persist push state
     var pushMeta = { syncId: syncId, timestamp: now, rev: rev, itemCount: itemCount };
-    if (imageVaultMeta) pushMeta.imageHash = imageVaultMeta.hash;
+    // Only store imageHash when this device actually uploaded images (not when
+    // preserving another device's reference). Storing a preserved hash would
+    // cause the next push to enter the "all local photos deleted" path and
+    // erroneously delete the remote image vault file.
+    if (imageVaultMeta && !_imageVaultPreserved) pushMeta.imageHash = imageVaultMeta.hash;
     syncSetLastPush(pushMeta);
     syncSetCursor(rev);
 
