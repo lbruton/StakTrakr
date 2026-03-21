@@ -14,7 +14,7 @@ function createDummyElement() {
     checked: false,
     disabled: false,
     dataset: {},
-    classList: { add: () => {}, remove: () => {}, toggle: () => false, contains: () => false },
+    classList: { add: () => {}, remove: () => {}, toggle: () => false, contains: () => false, replace: () => false, forEach: () => {}, length: 0 },
     addEventListener: () => {},
     removeEventListener: () => {},
     remove: () => {},
