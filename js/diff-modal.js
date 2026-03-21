@@ -1241,6 +1241,16 @@
       var changes = mod.changes || [];
       var mColor = _metalColor(item.metal);
       var uuid = item.uuid || '';
+      // Manifest stubs lack uuid/metal — resolve from local inventory by itemKey
+      if (!uuid && item.itemKey && typeof inventory !== 'undefined' && Array.isArray(inventory) && typeof DiffEngine !== 'undefined' && DiffEngine.computeItemKey) {
+        for (var ri = 0; ri < inventory.length; ri++) {
+          if (DiffEngine.computeItemKey(inventory[ri]) === item.itemKey) {
+            uuid = inventory[ri].uuid || '';
+            if (!item.metal) mColor = _metalColor(inventory[ri].metal);
+            break;
+          }
+        }
+      }
       var isResolved = _resolvedConflicts[i];
       var itemKey = _itemKey(item);
 
@@ -1336,6 +1346,30 @@
             }
           }
           itemByUuid[mergedItem.uuid] = mergedItem;
+        } else if (modItem && modItem.itemKey) {
+          // Manifest stub — resolve from local inventory by itemKey
+          if (typeof inventory !== 'undefined' && Array.isArray(inventory) && typeof DiffEngine !== 'undefined' && DiffEngine.computeItemKey) {
+            for (var ri = 0; ri < inventory.length; ri++) {
+              if (DiffEngine.computeItemKey(inventory[ri]) === modItem.itemKey && inventory[ri].uuid) {
+                var resolved = inventory[ri];
+                // Merge remote image URLs from changes if local item lacks them
+                var resolvedMerged = resolved;
+                var rmChanges = modEntry.changes || [];
+                for (var rci = 0; rci < rmChanges.length; rci++) {
+                  var rch = rmChanges[rci];
+                  if ((rch.field === 'obverseImageUrl' || rch.field === 'reverseImageUrl') && rch.remoteVal && !resolved[rch.field]) {
+                    if (resolvedMerged === resolved) {
+                      resolvedMerged = {};
+                      for (var rk in resolved) { if (resolved.hasOwnProperty(rk)) resolvedMerged[rk] = resolved[rk]; }
+                    }
+                    resolvedMerged[rch.field] = rch.remoteVal;
+                  }
+                }
+                itemByUuid[resolvedMerged.uuid] = resolvedMerged;
+                break;
+              }
+            }
+          }
         } else {
           allItems.push(modItem);
         }

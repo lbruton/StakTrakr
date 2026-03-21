@@ -2221,7 +2221,7 @@ function _buildDiffFromManifest(manifest) {
           remoteVal: fields[f].newValue,
         });
       }
-      modified.push({ item: { name: change.itemName || change.itemKey }, changes: modChanges });
+      modified.push({ item: { name: change.itemName || change.itemKey, itemKey: change.itemKey }, changes: modChanges });
     } else if (change.type === 'delete') {
       deleted.push({ name: change.itemName || change.itemKey, itemKey: change.itemKey });
     }
