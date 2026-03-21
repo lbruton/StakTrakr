@@ -43,18 +43,17 @@ const populateAboutTab = () => {
   }
 
   if (aboutAppName) {
-    const brand = getBrandingName();
-    const split = BRANDING_DOMAIN_OPTIONS && BRANDING_DOMAIN_OPTIONS.logoSplit
-      ? BRANDING_DOMAIN_OPTIONS.logoSplit[brand]
-      : null;
     const stakSpan = aboutAppName.querySelector('.stak');
     const trakrSpan = aboutAppName.querySelector('.trakr');
-    if (stakSpan && trakrSpan && split) {
-      stakSpan.textContent = split[0].toUpperCase();
-      trakrSpan.textContent = split[1].toUpperCase();
-    } else if (stakSpan && trakrSpan) {
-      stakSpan.textContent = 'STAK';
-      trakrSpan.textContent = 'TRAKR';
+    if (stakSpan && trakrSpan) {
+      const brand = getBrandingName();
+      const split = BRANDING_DOMAIN_OPTIONS?.logoSplit?.[brand];
+      stakSpan.textContent = Array.isArray(split) && split.length >= 2
+        ? split[0].toUpperCase()
+        : 'STAK';
+      trakrSpan.textContent = Array.isArray(split) && split.length >= 2
+        ? split[1].toUpperCase()
+        : 'TRAKR';
     }
   }
 
