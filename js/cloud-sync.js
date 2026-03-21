@@ -1415,8 +1415,11 @@ async function pushSyncVault() {
         var lastPush = syncGetLastPush();
         var lastImageHash = lastPush ? lastPush.imageHash : null;
         if (imgData) {
-          if (imgData.hash !== lastImageHash) {
-            debugLog('[CloudSync] Image vault changed — uploading', imgData.imageCount, 'photos');
+          // Upload if hash changed OR remote metadata is missing imageVault
+          // (the file may have been deleted by another device's stale push).
+          var _remoteFileMissing = !_remoteImageVaultMeta;
+          if (imgData.hash !== lastImageHash || _remoteFileMissing) {
+            debugLog('[CloudSync] Image vault', _remoteFileMissing ? 'missing from remote — re-uploading' : 'changed — uploading', imgData.imageCount, 'photos');
             var imageBytes = await vaultEncryptImageVault(password, imgData.payload);
             var imgArg = JSON.stringify({ path: SYNC_IMAGES_PATH, mode: 'overwrite', autorename: false, mute: true });
             var imgResp = await fetch('https://content.dropboxapi.com/2/files/upload', {
@@ -1427,7 +1430,7 @@ async function pushSyncVault() {
             if (!imgResp.ok) throw new Error('Image vault upload failed: ' + imgResp.status);
             imageVaultMeta = { imageCount: imgData.imageCount, hash: imgData.hash };
             debugLog('[CloudSync] Image vault uploaded:', imgData.imageCount, 'photos');
-            logCloudSyncActivity('image_vault_push', 'success', imgData.imageCount + ' photos, ' + Math.round(imageBytes.byteLength / 1024) + ' KB');
+            logCloudSyncActivity('image_vault_push', 'success', imgData.imageCount + ' photos, ' + Math.round(imageBytes.byteLength / 1024) + ' KB' + (_remoteFileMissing ? ' (re-upload)' : ''));
           } else {
             // Hash unchanged — carry forward existing meta so other devices can still detect it
             imageVaultMeta = lastImageHash ? { imageCount: imgData.imageCount, hash: imgData.hash } : null;
