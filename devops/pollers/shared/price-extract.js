@@ -140,11 +140,11 @@ const OUT_OF_STOCK_PATTERNS = [
 // Soft 404 patterns — React SPAs return HTTP 200 but render "not found" content.
 // When detected, the scraper should record inStock=false and price=null (STAK-475).
 const SOFT_404_PATTERNS = [
-  /page\s*(not|can.t be)\s*found/i,
+  /page\s*(not|can['\u2019]?t be|cannot be)\s*found/i,
   /product\s*(not|no longer)\s*(found|available)/i,
   /404\s*[-–—]\s*(page|not found)/i,
-  /this\s+page\s+(doesn.t|does not)\s+exist/i,
-  /we\s+couldn.t\s+find/i,
+  /this\s+page\s+(doesn['\u2019]?t|does not)\s+exist/i,
+  /we\s+couldn['\u2019]?t\s+find/i,
   /the\s+page\s+you\s+(requested|are looking for)/i,
   /no\s+longer\s+available/i,
   /has\s+been\s+(removed|discontinued)/i,

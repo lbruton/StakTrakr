@@ -860,17 +860,19 @@ const _buildRetailCard = (slug, meta, priceData) => {
       ...Object.keys(availability),
     ]);
 
-    // Sort: high-confidence in-stock vendors (≥60) by price asc, then low-confidence, then OOS vendors
+    // Sort: in-stock vendors by price asc, then OOS vendors by last-known price asc
     const sortedVendorEntries = Array.from(allVendorKeys)
       .map((key) => {
         const vendorData = vendorMap[key];
         const isAvailable = availability[key] !== false; // default true if not specified
         const price = vendorData ? vendorData.price : null;
+        // OOS vendors with no current price: use last-known price for display (STAK-495)
+        const displayPrice = price ?? (lastKnownPrices[key] ?? null);
         const score = vendorData ? vendorData.confidence : null;
         const label = getVendorDisplay(key).name;
-        return { key, label, price, score, isAvailable };
+        return { key, label, price: displayPrice, score, isAvailable };
       })
-      .filter(({ price }) => price != null) // show only vendors with a price
+      .filter(({ price }) => price != null) // show only vendors with a displayable price
       .sort((a, b) => {
         // In-stock vendors first (by price asc), then OOS vendors (by price asc)
         if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
