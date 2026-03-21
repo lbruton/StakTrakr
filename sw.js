@@ -8,7 +8,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 
 
 
-const CACHE_NAME = 'staktrakr-v3.33.73-b1774061730';
+const CACHE_NAME = 'staktrakr-v3.33.73-b1774062553';
 
 
 
@@ -97,6 +97,9 @@ const CORE_ASSETS = [
   './data/spot-history-2026.json',
   './images/safe-favicon.svg',
   './images/staktrakr-logo.svg',
+  './images/icon-logo.svg',
+  './images/banner-logo.svg',
+  './images/banner-logo-compact.svg',
   './images/icon-192.png',
   './images/icon-512.png',
   './manifest.json',
