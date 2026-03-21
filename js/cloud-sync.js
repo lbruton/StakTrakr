@@ -2846,6 +2846,29 @@ async function pullWithPreview(remoteMeta) {
       var _noSettingsChanges = !settingsDiff || !settingsDiff.changed || settingsDiff.changed.length === 0;
       if (_noItemChanges && _noSettingsChanges) {
         console.warn('[CloudSync] Pull preview: diff is EMPTY (no item or settings changes) — silently recording pull');
+        // STAK-497: Pull image vault even when items/settings are unchanged
+        try {
+          if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+            var _vfSpLastPull = syncGetLastPull();
+            var _vfSpLocalHash = _vfSpLastPull ? _vfSpLastPull.imageHash : null;
+            if (remoteMeta.imageVault.hash !== _vfSpLocalHash) {
+              debugLog('[CloudSync] Vault-first silent-pull: image vault changed — pulling');
+              var _vfSpImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+              var _vfSpImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _vfSpImgArg },
+              });
+              if (_vfSpImgResp.ok) {
+                var _vfSpImgBytes = new Uint8Array(await _vfSpImgResp.arrayBuffer());
+                var _vfSpRestored = await vaultDecryptAndRestoreImages(_vfSpImgBytes, password);
+                _previewPullMeta.imageHash = remoteMeta.imageVault.hash;
+                logCloudSyncActivity('image_vault_pull', 'success', (_vfSpRestored || '?') + ' photos restored (vault-first silent)');
+              }
+            }
+          }
+        } catch (_vfSpImgErr) {
+          debugLog('[CloudSync] Vault-first silent-pull: image vault failed (non-blocking):', _vfSpImgErr.message);
+        }
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity('auto_sync_pull', 'success', 'No changes — pull recorded silently');
@@ -2866,6 +2889,38 @@ async function pullWithPreview(remoteMeta) {
         _previewPullMeta = null;
       } else {
         await shownPromise;
+      }
+
+      // STAK-497: Pull image vault after vault-first DiffModal or fallback restore.
+      // showRestorePreviewModal's onApply only handles items + settings — not images.
+      try {
+        if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+          var _vfLastPull = syncGetLastPull();
+          var _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
+          if (remoteMeta.imageVault.hash !== _vfLocalHash) {
+            debugLog('[CloudSync] Vault-first path: pulling image vault');
+            var _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+            var _vfImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _vfImgArg },
+            });
+            if (_vfImgResp.ok) {
+              var _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
+              var _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
+              debugLog('[CloudSync] Vault-first path: image vault restored:', _vfRestored, 'photos');
+              logCloudSyncActivity('image_vault_pull', 'success', (_vfRestored || '?') + ' photos restored (vault-first path)');
+              // Update pull meta with image hash
+              var _vfPullMeta = syncGetLastPull();
+              if (_vfPullMeta) {
+                _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
+                syncSetLastPull(_vfPullMeta);
+              }
+            }
+          }
+        }
+      } catch (_vfImgErr) {
+        debugLog('[CloudSync] Vault-first path: image vault failed (non-blocking):', _vfImgErr.message);
+        logCloudSyncActivity('image_vault_pull', 'fail', 'Vault-first path: ' + _vfImgErr.message);
       }
 
     } catch (decryptErr) {
