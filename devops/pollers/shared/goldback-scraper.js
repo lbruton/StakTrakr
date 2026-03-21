@@ -4,14 +4,17 @@
  * =======================================
  * Scrapes goldback.com/goldback-value/ for the current G1 USD exchange rate.
  * Writes:
- *   DATA_DIR/api/goldback-spot.json   -- latest rate (overwritten each day)
- *   DATA_DIR/goldback-{YYYY}.json     -- rolling daily log (appended)
+ *   sqld price_snapshots table        -- coin_slug="goldback-g1", vendor="goldback"
+ *   DATA_DIR/api/goldback-spot.json   -- latest rate (local backup, overwritten each day)
+ *   DATA_DIR/goldback-{YYYY}.json     -- rolling daily log (local backup, appended)
  *
  * Usage:
  *   DATA_DIR=/path/to/data node goldback-scraper.js
  *
  * Environment:
  *   DATA_DIR            Path to repo data/ folder (default: ../../data)
+ *   TURSO_DATABASE_URL  sqld/Turso connection string
+ *   TURSO_AUTH_TOKEN    sqld/Turso auth token
  *   FIRECRAWL_BASE_URL  Self-hosted Firecrawl (default: http://firecrawl:3002)
  *   FIRECRAWL_API_KEY   Cloud Firecrawl only (omit for self-hosted)
  *   DRY_RUN             Set to "1" to skip writes
@@ -20,6 +23,7 @@
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { openTursoDb, writeSnapshot, windowFloor } from "./db.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -195,6 +199,27 @@ async function main() {
   }
 
   log(`G1 rate: $${g1Rate}`);
+
+  // Write to sqld so Fly.io publisher can export goldback-spot.json
+  try {
+    const client = await openTursoDb();
+    await writeSnapshot(client, {
+      scrapedAt,
+      windowStart: windowFloor(now),
+      coinSlug: "goldback-g1",
+      vendor: "goldback",
+      price: g1Rate,
+      source: "firecrawl",
+      isFailed: false,
+    });
+    client.close();
+    log("Wrote goldback rate to sqld");
+  } catch (err) {
+    // DB write failure is non-fatal — local files still get written
+    warn(`sqld write failed (non-fatal): ${err.message}`);
+  }
+
+  // Local file writes (backup on home poller, primary on Fly.io legacy path)
   writeLatestJson(g1Rate, dateStr, scrapedAt);
   appendHistoryJson(g1Rate, dateStr, scrapedAt);
   log("Done.");

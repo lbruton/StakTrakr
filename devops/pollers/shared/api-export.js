@@ -910,6 +910,41 @@ async function main() {
         confidence: "high",
       });
     }
+
+    // goldback-{YYYY}.json — daily history from DB (replaces file-based append)
+    const gbAllRows = db
+      .prepare(`
+        SELECT scraped_at, price
+        FROM price_snapshots
+        WHERE coin_slug = 'goldback-g1' AND vendor = 'goldback' AND price IS NOT NULL
+        ORDER BY scraped_at DESC
+      `)
+      .all();
+
+    // Aggregate: one entry per date (latest scrape wins)
+    const byDate = {};
+    for (const row of gbAllRows) {
+      const date = row.scraped_at.slice(0, 10);
+      if (!byDate[date]) {
+        byDate[date] = { date, g1_usd: Math.round(row.price * 100) / 100, scraped_at: row.scraped_at };
+      }
+    }
+
+    // Group by year and write each year file
+    const byYear = {};
+    for (const entry of Object.values(byDate)) {
+      const year = entry.date.slice(0, 4);
+      if (!byYear[year]) byYear[year] = [];
+      byYear[year].push(entry);
+    }
+    for (const [year, entries] of Object.entries(byYear)) {
+      entries.sort((a, b) => b.date.localeCompare(a.date)); // newest first
+      const histPath = join(DATA_DIR, `goldback-${year}.json`);
+      if (!DRY_RUN) {
+        writeFileSync(histPath, JSON.stringify(entries, null, 2) + "\n");
+        log(`Wrote ${histPath} (${entries.length} entries)`);
+      }
+    }
   }
 
   log(`API export complete: ${coinSlugs.length} coin(s), ${windowCount} window(s) in history`);
