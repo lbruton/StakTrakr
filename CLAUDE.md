@@ -100,7 +100,7 @@ fly logs --app staktrakr | grep -E 'spot|run-spot' | tail -5
 - **DOM**: `safeGetElement(id)` — never raw `document.getElementById()` (except startup in `about.js` / `init.js`)
 - **Storage**: `saveData()`/`loadData()` from `js/utils.js` — never direct `localStorage`
 - **Storage keys**: must be in `ALLOWED_STORAGE_KEYS` in `js/constants.js`
-- **New JS files**: add to `sw.js` CORE_ASSETS AND script load order in `index.html` (67 script tags: 59 JS + 7 vendor + 1 data bundle)
+- **New JS files**: add to `sw.js` CORE_ASSETS AND script load order in `index.html` (71 external scripts: 63 JS + 7 vendor + 1 data bundle)
 - **innerHTML**: always `sanitizeHtml()` on user content
 - **sw.js CACHE_NAME**: auto-stamped by pre-commit hook (`devops/hooks/stamp-sw-cache.sh`)
 - **Duplicate check**: when editing frontend code, check `events.js` AND `api.js` for duplicate function definitions before making changes — edits to the wrong file are a recurring source of lost time

@@ -67,7 +67,7 @@ This file provides foundational mandates and project-specific context for Gemini
 ## Project Structure
 
 - `index.html`: The single entry point.
-- `js/`: 67 JavaScript files loaded in strict dependency order via `index.html`.
+- `js/`: 63 JavaScript files loaded in strict dependency order via `index.html` (plus 7 vendor libs + 1 data bundle = 71 external scripts).
   - `constants.js`: Global configuration and storage keys.
   - `state.js`: Centralized application state.
   - `utils.js`: Formatting, validation, and storage helpers.
@@ -77,6 +77,7 @@ This file provides foundational mandates and project-specific context for Gemini
 - `data/`: Bundled historical spot price data.
 - `devops/`: Build scripts, hooks, Docker poller, mockups.
 - `.agents/skills/`: Specialized agent instructions (Codex).
+- `.gemini/skills/`: Specialized agent instructions (Gemini).
 
 ## API Infrastructure
 
@@ -101,7 +102,7 @@ CF bypass strategy: FlareSolverr nodriver fork (`21hsmw/flaresolverr:nodriver`) 
 
 Gemini has access to the following MCP servers. Use them as described.
 
-### Agent MCP Parity (as of 2026-02-22)
+### Agent MCP Parity (as of 2026-03-21)
 
 All agents run on the same Mac and share the same Docker/IP stack.
 
@@ -109,17 +110,19 @@ All agents run on the same Mac and share the same Docker/IP stack.
 |---|---|---|---|---|
 | `mem0` | ✅ | ✅ | ✅ | Sole memory backend |
 | `sequential-thinking` | ✅ | ✅ | ✅ | Structured reasoning |
-| `brave-search` | ✅ | ✅ | ✅ | Web search |
+| `brave-search` | ✅ | ✅ | ✅ | Web search (supplemented by web-search skill) |
 | `claude-context` | ✅ | ✅ | ✅ | Semantic code search (Milvus) |
 | `context7` | ✅ | ✅ | ✅ | Library documentation |
 | `firecrawl-local` | ✅ | ✅ | ✅ | Self-hosted scraping (port 3002) |
-| `linear` | ✅ | ✅ | ✅ | Issue tracking |
 | `codacy` | ✅ | ✅ | ✅ | Code quality analysis |
-| `chrome-devtools` | ✅ | — | ✅ | Gemini omits — use Playwright instead |
+| `chrome-devtools` | ✅ | ✅ | ✅ | Browser DevTools automation |
 | `playwright` | ✅ | ✅ | ✅ | Browser automation / test authoring |
 | `browserbase` | ✅ | ✅ | ✅ | Cloud NL tests (paid, use sparingly) |
 | `code-graph-context` | ✅ | ✅ | ✅ | Structural graph (Docker required) |
 | `infisical` | ✅ | ✅ | ✅ | Self-hosted secrets manager |
+| `spec-workflow` | plugin | ✅ | ✅ | Spec-driven dev orchestrator |
+
+**Issue tracking** uses DocVault vault-based issues (prefix `STAK-`), not Linear.
 
 ### mem0 (Primary Memory Backend)
 
@@ -134,7 +137,7 @@ Sole memory backend for all agents. Automatically saves conversational context, 
 | Project-specific | `agent_id: "staktrakr"` | Decisions, patterns, architecture, bugs for one project |
 | Cross-project | `user_id: "lbruton"` (default) | Workflow prefs, infra, tool configs shared across all projects |
 
-Agent IDs: `staktrakr`, `staktrakr-api`, `staktrakr-wiki`, `hextrackr`, `hellokittyfriends`, `whoseonfirst`, `playground`
+Agent IDs: `staktrakr`, `staktrakr-api`, `staktrakr-wiki`, `hextrackr`, `mymelo`, `whoseonfirst`, `playground`
 
 **Search rule:** Always run **two searches in parallel** — one with `agent_id` filter for the current project, one without (cross-project `user_id` scope). Merge and deduplicate results.
 
@@ -172,26 +175,18 @@ mcp__mem0__add_memory({
 
 **Secrets policy:** Never store raw secrets in mem0 without explicit user approval. Prefer references (env var name, Infisical label) — not raw values.
 
-### Linear (Project Management)
+### Issue Tracking (DocVault)
 
-Issue tracking and project management for StakTrakr.
-
-**Key IDs:**
-
-- StakTrakr team: `f876864d-ff80-4231-ae6c-a8e5cb69aca4` — feature issues, bugs, sprints
-- Developers team: `38d57c9f-388c-41ec-9cd2-259a21a5df1c` — cross-agent handoffs, notes, logs
-- StakTrakr project (in Developers): `c4bc2838-4783-487d-bfb5-89f052c681c8`
-- Documentation project: `6b7588f2-49f2-44cc-ab97-43ca5bf9e392`
+Issues are tracked as markdown files in **DocVault** (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues/`). Prefix: `STAK`.
 
 **Rules:**
 
 - Reference issues as `STAK-###` in commit messages and documentation
-- Update issue status as work progresses (`Todo` -> `In Progress` -> `Done`)
+- Update issue status as work progresses
 - Post handoff comments using the standard template (see Handoff section)
-- **Never put secrets in Linear** — use Infisical label references only
-- When creating issues, set appropriate priority (1=Urgent, 2=High, 3=Normal, 4=Low)
+- **Never put secrets in issue files** — use Infisical label references only
 
-**Agent delegation labels:** Issues may carry labels like `Codex`, `Sonnet`, `Opus` indicating which AI agent should handle them. Gemini-delegated work should use a `Gemini` label.
+**Agent delegation labels:** Issues may carry labels indicating which AI agent should handle them.
 
 ### Brave Search (Web Search)
 
@@ -291,45 +286,44 @@ Structured reasoning tool for complex multi-step analysis.
 
 Use when planning architecture, evaluating trade-offs, or breaking down complex problems before implementation.
 
-## Documentation (Wiki)
+## Documentation (DocVault)
 
-StakTrakr maintains an in-repo wiki at `wiki/` (served via Docsify) — single source of truth for the codebase architecture and patterns. Reference it before making architectural changes or when researching how a subsystem works.
+StakTrakr documentation lives in **DocVault** (Obsidian vault) at `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`. This is the single source of truth for codebase architecture and patterns. Reference it before making architectural changes or when researching how a subsystem works.
 
-### Frontend pages (maintained by Claude Code / StakTrakr agents)
+### Key DocVault Pages
 
 | Page | Topic |
 |------|-------|
-| `wiki/frontend-overview.md` | File structure, 67-script load order, service worker, PWA |
-| `wiki/data-model.md` | Portfolio model, storage keys, coin/entry schema |
-| `wiki/storage-patterns.md` | saveData/loadData wrappers, sync variants, key validation |
-| `wiki/dom-patterns.md` | safeGetElement, sanitizeHtml, event delegation |
-| `wiki/sync-cloud.md` | Cloud backup/restore, vault encryption, sync flow |
-| `wiki/retail-modal.md` | Coin detail modal, vendor legend, OOS detection, price carry-forward |
-| `wiki/api-consumption.md` | Spot feed, market price feed, goldback feed, health checks |
-| `wiki/release-workflow.md` | Patch cycle, version bump, worktree pattern, ship to main |
-| `wiki/service-worker.md` | CORE_ASSETS, cache strategy, pre-commit stamp hook |
+| Frontend Overview | File structure, 63-script load order, service worker, PWA |
+| Data Model | Portfolio model, storage keys, coin/entry schema |
+| Storage Patterns | saveData/loadData wrappers, sync variants, key validation |
+| DOM Patterns | safeGetElement, sanitizeHtml, event delegation |
+| Cloud Sync | Cloud backup/restore, vault encryption, sync flow |
+| Retail Modal | Coin detail modal, vendor legend, OOS detection, price carry-forward |
+| API Consumption | Spot feed, market price feed, goldback feed, health checks |
+| Release Workflow | Patch cycle, version bump, worktree pattern, ship to main |
+| Service Worker | CORE_ASSETS, cache strategy, pre-commit stamp hook |
+| Image Pipeline | Image processing, IndexedDB cache, bulk operations |
 
 ### Infrastructure pages (maintained by StakTrakrApi agents)
 
-Architecture, data pipelines, Fly.io, pollers, and secrets — see `wiki/README.md` for full index.
+Architecture, data pipelines, Fly.io, pollers, and secrets — see `DocVault/Projects/StakTrakr/` for full index.
 
 ### Accessing pages
 
-Pages live at `wiki/*.md` in this repo. Read them directly with file tools or search with `claude-context`.
+Pages live at `DocVault/Projects/StakTrakr/*.md` in the DocVault repo. Read them directly with file tools or search with `claude-context`.
 
 ## Documentation Policy
 
-The `wiki/` subfolder is the single source of truth for all
-architecture, operational runbooks, and pattern documentation.
-New documentation goes in `wiki/` (or `docs/plans/` for planning artifacts).
+DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`) is the single source of truth for all architecture, operational runbooks, and pattern documentation. DocVault updates MUST be committed BEFORE pushing or creating a PR.
 
-After any commit that changes behavior, update the relevant wiki page directly.
-Use `claude-context` to search the wiki: index path includes `wiki/` within the StakTrakr repo.
+After any commit that changes behavior, update the relevant DocVault page directly.
+Use `claude-context` to search documentation:
 
 ```
 mcp__claude-context__search_code
   query: "your question about how something works"
-  path: /Volumes/DATA/GitHub/StakTrakr
+  path: /Volumes/DATA/GitHub/DocVault/Projects/StakTrakr
 ```
 
 ---
@@ -349,8 +343,8 @@ StakTrakr uses a multi-agent development workflow. Four agents collaborate:
 
 When completing work or passing context to another agent:
 
-1. **Save to mem0** — Call `mcp__mem0__add_memory` with `type: handoff` and Linear issue ID in the text
-2. **Post to Linear** — Comment on the related issue, or create an issue in the Developers team
+1. **Save to mem0** — Call `mcp__mem0__add_memory` with `type: handoff` and issue ID in the text
+2. **Post to issue** — Comment on the related DocVault issue or GitHub PR
 3. **Include all fields:** scope, validation, next steps, owner, risks, memory reference
 
 ### Handoff comment template
@@ -362,7 +356,7 @@ Agent handoff update:
 - Scope: <what changed>
 - Validation: <what was run/verified>
 - Next: <explicit next step + owner>
-- Links: <Linear issue/PR links>
+- Links: <issue ID/PR links>
 - Memory: <mem0 topic keyword for recall>
 - Risks: <known risks/assumptions>
 ```
@@ -393,7 +387,7 @@ Uses a **claims array** — multiple agents can hold concurrent claims on differ
 }
 ```
 
-Both `devops/version.lock` and `.claude/worktrees/` are **gitignored** — neither should ever
+Both `devops/version.lock` and `.worktrees/` are **gitignored** — neither should ever
 appear in a commit diff. If you see them in a diff, that is a bug.
 
 ### Protocol
@@ -403,16 +397,16 @@ appear in a commit diff. If you see them in a diff, that is a bug.
 3. **Compute version:** Find highest `version` in remaining active claims. If none, read `APP_VERSION` from `js/constants.js`. Increment PATCH by 1.
 4. **Claim:** Append your entry to the array and write the full `claims` array back to `devops/version.lock`.
 5. **Create worktree + branch:**
-   `git worktree add .claude/worktrees/patch-VERSION -b patch/VERSION`
+   `git worktree add .worktrees/patch-VERSION -b patch/VERSION`
 6. **Do all work in the worktree** — file edits, version bump, commit.
 7. **Push + open draft PR** `patch/VERSION → dev`. Cloudflare generates a preview URL.
 8. **QA preview → merge to dev.**
 9. **Cleanup after merge:**
-   `git worktree remove .claude/worktrees/patch-VERSION --force`
+   `git worktree remove .worktrees/patch-VERSION --force`
    `git branch -d patch/VERSION`
    Remove **only your claim entry** from `devops/version.lock` (leave other active claims intact).
 
-The locked version is the **anchor** — all Linear notes, changelog entries, and mem0 handoffs
+The locked version is the **anchor** — all issue notes, changelog entries, and mem0 handoffs
 reference it.
 
 **Never push directly to `main`** — Cloudflare auto-deploys to staktrakr.com on every push.
@@ -427,4 +421,4 @@ reference it.
 
 ---
 
-*Last Updated: 2026-02-23*
+*Last Updated: 2026-03-21*

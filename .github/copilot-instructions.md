@@ -4,7 +4,7 @@ Custom review instructions for GitHub Copilot PR reviews.
 
 ## Project Context
 
-StakTrakr is a single-page vanilla JavaScript app (no framework, no build step). It runs on both `file://` protocol and HTTP servers. The runtime artifact is `index.html` plus JS/CSS assets -- no bundler, no transpiler. 67 script files load in strict dependency order via `<script defer>` tags.
+StakTrakr is a single-page vanilla JavaScript app (no framework, no build step). It runs on both `file://` protocol and HTTP servers. The runtime artifact is `index.html` plus JS/CSS assets -- no bundler, no transpiler. 63 JS files plus 7 vendor libs and 1 data bundle (71 external scripts total) load in strict dependency order via `<script defer>` tags.
 
 For full codebase context, see `AGENTS.md` in the repository root.
 
@@ -34,7 +34,7 @@ Prefer `saveData()`/`loadData()` (async) or `saveDataSync()`/`loadDataSync()` fr
 
 Scripts load via `<script>` tags in `index.html` in strict dependency order. `file-protocol-fix.js` loads first (no `defer`), `init.js` loads last. If a PR adds a new script file, verify it's placed correctly in `index.html`.
 
-**CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across 67 files. The following globals are defined in other files and are intentionally available throughout the app:
+**CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across 63 JS files (71 scripts total). The following globals are defined in other files and are intentionally available throughout the app:
 
 **From `js/state.js`:**
 
@@ -73,6 +73,15 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 **From `js/image-processor.js`:**
 
 - `imageProcessor` (object) -- image resize/compress utility
+
+**From `js/chart-utils.js`:**
+
+- `createSparkline(canvas, data, opts)` -- shared sparkline chart builder
+- `buildVendorDatasets(vendors, entries)` -- Chart.js vendor dataset factory
+- `createTimeSeriesChart(canvas, datasets, opts)` -- time series chart builder
+- `replaceChart(chartRef, canvas, config)` -- safe chart replacement (destroys old, creates new)
+- `chartPriceTooltip(context)` -- currency-formatted tooltip callback
+- `chartDollarTicks(value)` -- currency-formatted Y-axis tick callback
 
 **From `js/filters.js`:**
 
@@ -147,7 +156,10 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 
 **From other modules:**
 
-- `renderTable()`, `saveInventory()`, `loadInventory()` -- inventory.js
+- `createBackupZip()`, `restoreBackupZip()`, `generateBackupHtml()` -- inventory-backup.js
+- `importCsv()`, `importJson()`, `exportCsv()`, `exportNumistaCsv()`, `showImportDiffReview()` -- inventory-import.js
+- `renderTable()`, `updateSummary()`, `hideEmptyColumns()`, `recalcItem()`, `persistInventoryAndRefresh()`, `METAL_COLORS`, `METAL_TEXT_COLORS`, `getTypeColor()`, `getColor()` -- inventory-table.js
+- `saveInventory()`, `loadInventory()` -- inventory.js
 - `catalogManager`, `catalogAPI` -- catalog-*.js
 - `NumistaLookup` -- numista-lookup.js
 - `pcgsVerifyCert()`, `pcgsLookupCoin()` -- pcgs-api.js
@@ -179,9 +191,9 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 
 - `loadSeedImages()` -- first-run seed image loader
 
-- Plus many others across 67 script files
+- Plus many others across 63 JS files (71 scripts total)
 
-**IMPORTANT: Do NOT flag any variable as "not defined" in PR reviews.** This is a vanilla JS app with global scope across 67 files. The `no-undef` ESLint rule is intentionally OFF. Every "X is not defined" comment is a false positive. If you are uncertain whether a variable exists, check the other script files before flagging -- it will be defined in another file loaded earlier in the script order.
+**IMPORTANT: Do NOT flag any variable as "not defined" in PR reviews.** This is a vanilla JS app with global scope across 63 JS files (71 scripts total). The `no-undef` ESLint rule is intentionally OFF. Every "X is not defined" comment is a false positive. If you are uncertain whether a variable exists, check the other script files before flagging -- it will be defined in another file loaded earlier in the script order.
 
 ### 4. Service Worker -- respondWith() Must Always Resolve to a Response
 
@@ -318,11 +330,10 @@ The project uses `ruleset.xml` at the project root. PMD analyzes JavaScript for 
 
 ## Documentation Policy
 
-The `wiki/` subfolder is the single source of truth for all
-architecture, operational runbooks, and pattern documentation.
-New documentation goes in `wiki/` (or `docs/plans/` for planning artifacts).
+DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`) is the single source of truth for all architecture, operational runbooks, and pattern documentation.
+New documentation goes in DocVault (or `docs/plans/` for planning artifacts).
 
-After any commit that changes behavior, update the relevant wiki page directly.
+After any commit that changes behavior, update the relevant DocVault page directly.
 
 ---
 
