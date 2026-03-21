@@ -67,7 +67,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Adjust SVG viewBox for longer brand names
       if (logoSplit[2]) {
         const logoSvg = document.querySelector('.stackr-logo');
-        if (logoSvg) logoSvg.setAttribute('viewBox', `0 0 ${logoSplit[2]} 200`);
+        if (logoSvg) logoSvg.setAttribute('viewBox', `0 0 ${logoSplit[2]} 80`);
       }
     }
     const appLogo = document.getElementById('appLogo');

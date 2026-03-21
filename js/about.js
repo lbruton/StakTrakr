@@ -43,7 +43,18 @@ const populateAboutTab = () => {
   }
 
   if (aboutAppName) {
-    aboutAppName.textContent = getBrandingName();
+    const stakSpan = aboutAppName.querySelector('.stak');
+    const trakrSpan = aboutAppName.querySelector('.trakr');
+    if (stakSpan && trakrSpan) {
+      const brand = getBrandingName();
+      const split = BRANDING_DOMAIN_OPTIONS?.logoSplit?.[brand];
+      stakSpan.textContent = Array.isArray(split) && split.length >= 2
+        ? split[0].toUpperCase()
+        : 'STAK';
+      trakrSpan.textContent = Array.isArray(split) && split.length >= 2
+        ? split[1].toUpperCase()
+        : 'TRAKR';
+    }
   }
 
   // Load announcements for latest changes and roadmap
@@ -185,8 +196,7 @@ const setupWhatsNewPopupEvents = () => {
   if (changelogBtn) {
     changelogBtn.addEventListener('click', () => {
       hideWhatsNewPopup();
-      // Open Settings to About tab
-      if (typeof showSettingsModal === 'function') showSettingsModal('about');
+      showFullChangelog();
     });
   }
 
@@ -263,6 +273,7 @@ if (typeof window !== "undefined") {
   window.populateAckModal = populateAckModal;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
   window.getEmbeddedRoadmap = getEmbeddedRoadmap;
+  window.showFullChangelog = showFullChangelog;
   window.showWhatsNewPopup = showWhatsNewPopup;
   window.hideWhatsNewPopup = hideWhatsNewPopup;
   window.setupWhatsNewPopupEvents = setupWhatsNewPopupEvents;

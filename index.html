@@ -262,114 +262,67 @@
     <div class="app-header">
       <div>
         <h1 class="app-logo" id="appLogo" aria-label="StakTrakr">
-          <svg class="stackr-logo" viewBox="35 5 355 145" xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 666px;">
+          <svg class="stackr-logo" viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 560px;">
             <defs>
-              <!-- Light Mode Gradients -->
-              <linearGradient id="goldLight" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#FFD700"/>
-                <stop offset="30%" stop-color="#FFA500"/>
-                <stop offset="70%" stop-color="#B8860B"/>
-                <stop offset="100%" stop-color="#8B6914"/>
+              <!-- S-stack bar gradients (shared across themes) -->
+              <linearGradient id="silverBar" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/>
               </linearGradient>
-              
-              <linearGradient id="silverLight" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#F8F8FF"/>
-                <stop offset="30%" stop-color="#E5E5E5"/>
-                <stop offset="70%" stop-color="#C0C0C0"/>
-                <stop offset="100%" stop-color="#A0A0A0"/>
+              <linearGradient id="goldBar" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/>
               </linearGradient>
-              
-              <!-- Dark Mode Gradients -->
-              <linearGradient id="goldDark" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#FFED4E"/>
-                <stop offset="30%" stop-color="#FFD700"/>
-                <stop offset="70%" stop-color="#FFA500"/>
-                <stop offset="100%" stop-color="#CC8400"/>
+              <!-- Light mode bar gradient (darker for contrast on light bg) -->
+              <linearGradient id="silverBarLight" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#475569"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/>
               </linearGradient>
-              
-              <linearGradient id="silverDark" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#FFFFFF"/>
-                <stop offset="30%" stop-color="#F5F5F5"/>
-                <stop offset="70%" stop-color="#E0E0E0"/>
-                <stop offset="100%" stop-color="#C0C0C0"/>
+              <!-- Sepia mode bar gradient -->
+              <linearGradient id="silverBarSepia" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#8d8d8d"/><stop offset="50%" stop-color="#d1c2a5"/><stop offset="100%" stop-color="#a8a29e"/>
               </linearGradient>
-              
-              <!-- Sepia Mode Gradients -->
-              <linearGradient id="goldSepia" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#D4A574"/>
-                <stop offset="30%" stop-color="#B58900"/>
-                <stop offset="70%" stop-color="#8B6914"/>
-                <stop offset="100%" stop-color="#6B5416"/>
-              </linearGradient>
-              
-              <linearGradient id="silverSepia" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#F2E7D5"/>
-                <stop offset="30%" stop-color="#D1C2A5"/>
-                <stop offset="70%" stop-color="#A8A29E"/>
-                <stop offset="100%" stop-color="#8D8D8D"/>
+              <linearGradient id="goldBarSepia" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#6b5416"/><stop offset="50%" stop-color="#b58900"/><stop offset="100%" stop-color="#8b6914"/>
               </linearGradient>
             </defs>
-            
+
             <!-- Light Mode Group -->
             <g class="light-mode">
-              <!-- Shadow layer for light mode -->
-              <text x="53" y="83" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="rgba(0,0,0,0.3)">
-                <tspan class="logo-silver">Stak</tspan><tspan class="logo-gold">Trakr</tspan>
-              </text>
-              <!-- Main title -->
-              <text x="50" y="80" font-family="Arial, sans-serif" font-size="72" font-weight="bold">
-                <tspan class="logo-silver" fill="url(#silverLight)">Stak</tspan><tspan class="logo-gold" fill="url(#goldLight)">Trakr</tspan>
-              </text>
-
-              <!-- Tagline shadow -->
-              <text x="52" y="132" font-family="Arial, sans-serif" font-size="32" fill="rgba(0,0,0,0.2)">
-                Your Stack. Your Way.
-              </text>
-              <!-- Tagline -->
-              <text x="50" y="130" font-family="Arial, sans-serif" font-size="32" fill="#666666">
-                Your Stack. Your Way.
+              <g transform="translate(8, 8) scale(0.125)">
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBar)"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
+              </g>
+              <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
+                <tspan class="logo-silver" fill="#334155">STAK</tspan><tspan class="logo-gold" fill="#b8860b">TRAKR</tspan>
               </text>
             </g>
-            
+
             <!-- Dark Mode Group -->
             <g class="dark-mode">
-              <!-- Shadow layer for dark mode -->
-              <text x="53" y="83" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="rgba(0,0,0,0.5)">
-                <tspan class="logo-silver">Stak</tspan><tspan class="logo-gold">Trakr</tspan>
-              </text>
-              <!-- Main title -->
-              <text x="50" y="80" font-family="Arial, sans-serif" font-size="72" font-weight="bold">
-                <tspan class="logo-silver" fill="url(#silverDark)">Stak</tspan><tspan class="logo-gold" fill="url(#goldDark)">Trakr</tspan>
-              </text>
-
-              <!-- Tagline shadow -->
-              <text x="52" y="132" font-family="Arial, sans-serif" font-size="32" fill="rgba(0,0,0,0.3)">
-                Your Stack. Your Way.
-              </text>
-              <!-- Tagline -->
-              <text x="50" y="130" font-family="Arial, sans-serif" font-size="32" fill="#E0E0E0">
-                Your Stack. Your Way.
+              <g transform="translate(8, 8) scale(0.125)">
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBar)" opacity="0.45"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBar)" opacity="0.68"/>
+                <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBar)"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBar)" opacity="0.68"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBar)" opacity="0.45"/>
+              </g>
+              <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
+                <tspan class="logo-silver" fill="#e2e8f0">STAK</tspan><tspan class="logo-gold" fill="#d4a017">TRAKR</tspan>
               </text>
             </g>
-            
+
             <!-- Sepia Mode Group -->
             <g class="sepia-mode">
-              <!-- Shadow layer for sepia mode -->
-              <text x="53" y="83" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="rgba(62,47,30,0.4)">
-                <tspan class="logo-silver">Stak</tspan><tspan class="logo-gold">Trakr</tspan>
-              </text>
-              <!-- Main title -->
-              <text x="50" y="80" font-family="Arial, sans-serif" font-size="72" font-weight="bold">
-                <tspan class="logo-silver" fill="url(#silverSepia)">Stak</tspan><tspan class="logo-gold" fill="url(#goldSepia)">Trakr</tspan>
-              </text>
-
-              <!-- Tagline shadow -->
-              <text x="52" y="132" font-family="Arial, sans-serif" font-size="32" fill="rgba(62,47,30,0.3)">
-                Your Stack. Your Way.
-              </text>
-              <!-- Tagline -->
-              <text x="50" y="130" font-family="Arial, sans-serif" font-size="32" fill="#6F604E">
-                Your Stack. Your Way.
+              <g transform="translate(8, 8) scale(0.125)">
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.5"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.7"/>
+                <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBarSepia)"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.7"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.5"/>
+              </g>
+              <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
+                <tspan class="logo-silver" fill="#5c4f3a">STAK</tspan><tspan class="logo-gold" fill="#8b6914">TRAKR</tspan>
               </text>
             </g>
           </svg>
@@ -2128,16 +2081,23 @@
                 <div class="about-logo-wrap">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="80" height="80">
                     <defs>
-                      <linearGradient id="bgIcon" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
-                      <linearGradient id="silverIcon" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
-                      <linearGradient id="goldIcon" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
+                      <linearGradient id="bgAbout" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
+                      <linearGradient id="silverAbout" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
+                      <linearGradient id="goldAbout" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
                     </defs>
-                    <rect width="512" height="512" rx="96" fill="url(#bgIcon)"/>
-                    <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverIcon)" opacity="0.45"/>
-                    <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverIcon)" opacity="0.68"/>
-                    <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldIcon)"/>
-                    <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverIcon)" opacity="0.68"/>
-                    <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverIcon)" opacity="0.45"/>
+                    <rect width="512" height="512" rx="96" fill="url(#bgAbout)"/>
+                    <!-- S-stack (scaled down with wordmark below) -->
+                    <rect x="188" y="90" width="180" height="26" rx="13" fill="url(#silverAbout)" opacity="0.45"/>
+                    <rect x="152" y="128" width="145" height="26" rx="13" fill="url(#silverAbout)" opacity="0.68"/>
+                    <rect x="156" y="172" width="200" height="30" rx="15" fill="url(#goldAbout)"/>
+                    <rect x="215" y="218" width="145" height="26" rx="13" fill="url(#silverAbout)" opacity="0.68"/>
+                    <rect x="144" y="256" width="192" height="26" rx="13" fill="url(#silverAbout)" opacity="0.45"/>
+                    <!-- Wordmark -->
+                    <text x="256" y="348" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="52" font-weight="700" letter-spacing="4">
+                      <tspan fill="#e2e8f0">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+                    </text>
+                    <!-- Tagline -->
+                    <text x="256" y="386" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="13" fill="#475569" letter-spacing="3">TRACK YOUR STACK</text>
                   </svg>
                 </div>
                 <div class="about-hero-text">
