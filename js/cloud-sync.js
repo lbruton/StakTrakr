@@ -2487,11 +2487,37 @@ async function pullWithPreview(remoteMeta) {
           var _mNoSettingsChanges = !manifestSettingsDiff || !manifestSettingsDiff.changed || manifestSettingsDiff.changed.length === 0;
           if (_mNoChanges && _mNoSettingsChanges) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
-            syncSetLastPull({
+            var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
               timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
               rev: remoteMeta ? remoteMeta.rev : null,
-            });
+            };
+            // STAK-497: Even when items/settings are unchanged, the image vault
+            // may need syncing (e.g. new photos uploaded on another device).
+            try {
+              if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+                var _spLastPull = syncGetLastPull();
+                var _spLocalHash = _spLastPull ? _spLastPull.imageHash : null;
+                if (remoteMeta.imageVault.hash !== _spLocalHash) {
+                  debugLog('[CloudSync] Silent-pull path: image vault changed — pulling', remoteMeta.imageVault.imageCount, 'photos');
+                  var _spImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+                  var _spImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _spImgArg },
+                  });
+                  if (_spImgResp.ok) {
+                    var _spImgBytes = new Uint8Array(await _spImgResp.arrayBuffer());
+                    var _spRestored = await vaultDecryptAndRestoreImages(_spImgBytes, password);
+                    _silentPullMeta.imageHash = remoteMeta.imageVault.hash;
+                    debugLog('[CloudSync] Silent-pull path: image vault restored:', _spRestored, 'photos');
+                    logCloudSyncActivity('image_vault_pull', 'success', (_spRestored || '?') + ' photos restored (silent-pull path)');
+                  }
+                }
+              }
+            } catch (_spImgErr) {
+              debugLog('[CloudSync] Silent-pull path: image vault pull failed (non-blocking):', _spImgErr.message);
+            }
+            syncSetLastPull(_silentPullMeta);
             logCloudSyncActivity('auto_sync_pull', 'success', 'No changes — pull recorded silently (manifest)');
             updateSyncStatusIndicator('idle', 'just now');
             return;
@@ -2552,6 +2578,41 @@ async function pullWithPreview(remoteMeta) {
               console.warn('[CloudSync] STAK-470: Version-upgrade settings diff — auto-merged ' + _appliedCount + ' remote-only keys, ' + (manifestSettingsDiff.changed.length - _appliedCount) + ' local-only keys kept' + (_failedCount > 0 ? ', ' + _failedCount + ' failed' : ''));
               logCloudSyncActivity('auto_sync_pull', _failedCount > 0 ? 'partial' : 'success', 'Version-upgrade settings merged silently (' + _appliedCount + ' applied, ' + (manifestSettingsDiff.changed.length - _appliedCount) + ' local-only' + (_failedCount > 0 ? ', ' + _failedCount + ' failed' : '') + ')');
               updateSyncStatusIndicator('idle', 'just now');
+              // STAK-497: Pull image vault on the auto-merge path (previously skipped).
+              // Without this, a device that only has settings diffs (no item changes)
+              // never downloads uploaded photos from the remote image vault.
+              try {
+                if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+                  var _amLastPull = syncGetLastPull();
+                  var _amLocalHash = _amLastPull ? _amLastPull.imageHash : null;
+                  if (remoteMeta.imageVault.hash !== _amLocalHash) {
+                    debugLog('[CloudSync] STAK-470 path: image vault changed — pulling', remoteMeta.imageVault.imageCount, 'photos');
+                    var _amImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+                    var _amImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+                      method: 'POST',
+                      headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _amImgArg },
+                    });
+                    if (_amImgResp.ok) {
+                      var _amImgBytes = new Uint8Array(await _amImgResp.arrayBuffer());
+                      var _amRestored = await vaultDecryptAndRestoreImages(_amImgBytes, password);
+                      debugLog('[CloudSync] STAK-470 path: image vault restored:', _amRestored, 'photos');
+                      logCloudSyncActivity('image_vault_pull', 'success', (_amRestored || '?') + ' photos restored (auto-merge path)');
+                      // Update pull metadata with image hash
+                      if (_failedCount === 0) {
+                        syncSetLastPull({
+                          syncId: remoteMeta ? remoteMeta.syncId : null,
+                          timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
+                          rev: remoteMeta ? remoteMeta.rev : null,
+                          imageHash: remoteMeta.imageVault.hash,
+                        });
+                      }
+                    }
+                  }
+                }
+              } catch (_amImgErr) {
+                debugLog('[CloudSync] STAK-470 path: image vault pull failed (non-blocking):', _amImgErr.message);
+                logCloudSyncActivity('image_vault_pull', 'fail', 'Auto-merge path: ' + _amImgErr.message);
+              }
               // Push to update remote manifest with local-only keys
               if (_appliedCount < manifestSettingsDiff.changed.length && typeof scheduleSyncPush === 'function') {
                 scheduleSyncPush();
