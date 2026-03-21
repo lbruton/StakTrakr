@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.75] - 2026-03-20
+
+### Fixed — Cloud sync field coverage (STAK-493)
+
+- **Fixed**: Cloud sync now compares all item fields during diff — previously 15+ fields including image URLs, numistaId, year, grading, and disposition were silently dropped on matched items (STAK-493-A)
+- **Fixed**: Manifest-first sync path now resolves full item objects from the vault instead of inserting stub items missing all fields except name (STAK-493-B)
+- **Fixed**: changeLog manifest tracks all item fields to match diff engine coverage (STAK-493-A)
+
+---
+
 ## [3.33.74] - 2026-03-21
 
 ### Fixed — Graceful SW update — auto-reload on cache miss

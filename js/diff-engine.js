@@ -8,10 +8,9 @@
  *   Primary:  item.serial (numeric internal serial — exact match)
  *   Fallback: `${item.numistaId}|${item.name}|${item.date}` composite key
  *
- * Fields compared in item diff mirror logItemChanges() in changeLog.js plus
- * the additional fields relevant to cloud sync:
- *   date, type, metal, name, qty, weight, price, marketValue,
- *   purchaseLocation, notes, purity, purchasePrice, retailPrice, grade
+ * Fields compared in item diff cover ALL user-editable InventoryItem fields
+ * (js/types.js). Both DIFF_FIELDS and changeLog.js logItemChanges() must
+ * stay in sync — see STAK-493 for the bug caused by an incomplete list.
  */
 
 /* eslint-disable no-unused-vars */
@@ -24,25 +23,52 @@
 
 /**
  * Fields compared during item-level diffing.
- * Superset of changeLog.js logItemChanges() fields, covering all sync-relevant
- * item properties.
+ * Must cover ALL user-editable fields on InventoryItem (js/types.js).
+ * When adding a new field to the item schema, add it here too — otherwise
+ * cloud sync will silently drop it on matched items (STAK-493).
  */
 const DIFF_FIELDS = [
+  // Core identity & physical
   'name',
   'metal',
+  'composition',
   'weight',
+  'weightUnit',
   'purity',
   'qty',
+  'type',
+  'date',
+  'year',
+  'mintmark',
+  // Financials
+  'price',
   'purchasePrice',
   'retailPrice',
-  'date',
-  'grade',
-  'notes',
-  'type',
-  'price',
   'marketValue',
   'purchaseLocation',
-  'weightUnit',
+  'spotPriceAtPurchase',
+  'premiumPerOz',
+  'totalPremium',
+  // Storage & notes
+  'storageLocation',
+  'notes',
+  // Grading & certification
+  'grade',
+  'gradingAuthority',
+  'certNumber',
+  'serialNumber',
+  'pcgsNumber',
+  'pcgsVerified',
+  // Catalog & collection
+  'numistaId',
+  'collectable',
+  // Images (STAK-493: these were missing, causing silent data loss during sync)
+  'obverseImageUrl',
+  'reverseImageUrl',
+  'obverseSharedImageId',
+  'reverseSharedImageId',
+  // Disposition
+  'disposition',
 ];
 
 // ---------------------------------------------------------------------------
@@ -60,7 +86,14 @@ const DIFF_FIELDS = [
  */
 function _valuesEqual(a, b) {
   const norm = (v) => (v === undefined ? null : v);
-  return norm(a) === norm(b);
+  a = norm(a); b = norm(b);
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  // Deep compare for objects (e.g. disposition) — sorted-key stringify
+  if (typeof a === 'object' && typeof b === 'object') {
+    return JSON.stringify(a, Object.keys(a).sort()) === JSON.stringify(b, Object.keys(b).sort());
+  }
+  return false;
 }
 
 /**
