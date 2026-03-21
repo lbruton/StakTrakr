@@ -47,17 +47,44 @@ const logChange = (itemName, field, oldValue, newValue, idx) => {
  * @param {Object|null} newItem - Updated item values (null for deletions)
  */
 const logItemChanges = (oldItem, newItem) => {
+  // Must match DIFF_FIELDS in diff-engine.js — if a field is compared during
+  // sync, it must also be tracked here so manifests capture the change (STAK-493).
   const fields = [
-    'date',
-    'type',
-    'metal',
     'name',
-    'qty',
+    'metal',
+    'composition',
     'weight',
+    'weightUnit',
+    'purity',
+    'qty',
+    'type',
+    'date',
+    'year',
     'price',
+    'purchasePrice',
+    'retailPrice',
     'marketValue',
     'purchaseLocation',
+    'spotPriceAtPurchase',
+    'premiumPerOz',
+    'totalPremium',
+    'storageLocation',
     'notes',
+    'grade',
+    'gradingAuthority',
+    'certNumber',
+    'serialNumber',
+    'pcgsNumber',
+    'pcgsVerified',
+    'numistaId',
+    'collectable',
+    'ignorePatternImages',
+    'currency',
+    'obverseImageUrl',
+    'reverseImageUrl',
+    'obverseSharedImageId',
+    'reverseSharedImageId',
+    'disposition',
   ];
 
   const refItem = newItem || oldItem;

@@ -2234,17 +2234,33 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           debugLog('[CloudSync] Could not parse metalInventory from vault:', parseErr.message);
         }
 
-        // For 'add' changes that have an itemKey but no item object (manifest
-        // preview only provides keys), find the matching item in the decrypted
-        // vault and attach it so applySelectedChanges can insert it.
+        // STAK-493-B: For 'add' changes from the manifest-first path, the
+        // DiffModal receives stub items ({ name, itemKey }) — not full item
+        // objects. Resolve full items from the decrypted vault before
+        // applySelectedChanges inserts them.
+        //
+        // Detection: a stub item lacks core fields like 'uuid' or 'metal'.
+        // The original condition (change.itemKey && !change.item) never fired
+        // because DiffModal sets change.item to the stub and doesn't set
+        // change.itemKey at the top level of the change object.
         for (var i = 0; i < selectedChanges.length; i++) {
           var change = selectedChanges[i];
-          if (change.type === 'add' && change.itemKey && !change.item) {
+          if (change.type !== 'add') continue;
+
+          // Determine the lookup key: prefer top-level itemKey, fall back to
+          // item.itemKey (manifest stub), or compute from the item object.
+          var lookupKey = change.itemKey
+            || (change.item && change.item.itemKey)
+            || (change.item && change.item.uuid)
+            || null;
+
+          // Resolve if: no item at all, or item is a manifest stub (missing uuid/metal)
+          var needsResolve = !change.item
+            || (!change.item.uuid && !change.item.metal);
+
+          if (needsResolve && lookupKey && typeof DiffEngine !== 'undefined' && typeof DiffEngine.computeItemKey === 'function') {
             for (var j = 0; j < remoteItems.length; j++) {
-              var candidateKey = typeof DiffEngine.computeItemKey === 'function'
-                ? DiffEngine.computeItemKey(remoteItems[j])
-                : '';
-              if (candidateKey === change.itemKey) {
+              if (DiffEngine.computeItemKey(remoteItems[j]) === lookupKey) {
                 change.item = remoteItems[j];
                 break;
               }
