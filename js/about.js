@@ -248,6 +248,7 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.74 &ndash; Graceful SW Update</strong>: Network-first navigation prevents stale HTML after deploys. Smart error recovery auto-reloads on cache miss. Cloud sync guard prevents data corruption during transitions (STAK-485)</li>
     <li><strong>v3.33.73 &ndash; Image URL Consistency</strong>: Stored URLs are now the single source of truth for images everywhere &mdash; view modal no longer fetches from Numista API independently. Fill Fields now overwrites existing image URLs when checkbox is checked (STAK-488, STAK-489)</li>
     <li><strong>v3.33.72 &ndash; Numista Metadata Fix</strong>: Numista metadata fields (KM Reference, country, etc.) can now be cleared and saved as empty &mdash; previously clearing a field would restore the old value on save (STAK-487)</li>
     <li><strong>v3.33.71 &ndash; Codebase Modularization</strong>: Shared chart utility library eliminates 11 duplicate Chart.js patterns. Inventory split: 4,504 &rarr; 1,744 lines across 4 focused modules (STAK-484)</li>

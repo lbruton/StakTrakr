@@ -1014,6 +1014,11 @@ async function buildAndUploadManifest(token, password, syncId) {
  * Skips silently if not connected or sync is disabled.
  */
 async function pushSyncVault() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping push — app initialization failed');
+    return;
+  }
   debugLog('[CloudSync] pushSyncVault called. enabled:', syncIsEnabled(), 'provider:', _syncProvider);
 
   if (!syncIsEnabled()) {
@@ -1548,6 +1553,11 @@ async function pushSyncVault() {
  * Skips silently if not connected or sync is disabled.
  */
 async function pollForRemoteChanges() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping poll — app initialization failed');
+    return;
+  }
   if (!syncIsEnabled()) return;
   if (!_syncIsLeader) {
     debugLog('cloud-sync', 'Not leader tab — skipping poll');
@@ -2817,6 +2827,11 @@ function stopSyncPoller() {
  * @param {string} [provider='dropbox']
  */
 async function enableCloudSync(provider) {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping enable — app initialization failed');
+    return;
+  }
   _syncProvider = provider || 'dropbox';
   try { localStorage.setItem('cloud_sync_enabled', 'true'); } catch (_) { /* ignore */ }
 
@@ -2897,6 +2912,11 @@ function disableCloudSync() {
  * Creates the debounced push function and starts the poller if sync was enabled.
  */
 function initCloudSync() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping init — app initialization failed');
+    return;
+  }
   // Initialize multi-tab coordination (Layer 7)
   initSyncTabCoordination();
 
@@ -2992,6 +3012,11 @@ document.addEventListener('visibilitychange', function () {
  * Ensures a valid password exists before attempting any sync operations.
  */
 async function syncNow() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping syncNow — app initialization failed');
+    return;
+  }
   // Ensure we have a password before attempting sync.  If no silent password
   // is available, prompt the user interactively.
   var pw = getSyncPasswordSilent();

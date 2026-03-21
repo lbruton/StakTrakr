@@ -8,7 +8,9 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 
 
 
-const CACHE_NAME = 'staktrakr-v3.33.73-b1774062553';
+
+const CACHE_NAME = 'staktrakr-v3.33.74-b1774061557';
+
 
 
 
@@ -179,23 +181,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests (PWA launch, page reload) — serve cached app shell
+  // Navigation requests (PWA launch, page reload) — network-first for fresh HTML
   if (event.request.mode === 'navigate' && url.origin === self.location.origin) {
     event.respondWith(
-      caches.match('./')
-        .then((cached) => {
-          if (cached) return cached;
-          console.log('[SW] Cache miss for ./, fetching from network');
-          return fetchAndCache(event.request);
-        })
+      fetch(event.request)
         .then((response) => {
-          if (response) return response;
-          console.warn('[SW] No response from cache or network, serving offline page');
-          return offlineResponse();
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('./', clone))
+              .catch((err) => console.warn('[SW] Nav cache put failed:', err));
+            return response;
+          }
+          // Non-OK response (4xx/5xx) — fall back to cache instead of serving error
+          return caches.match('./').then((cached) => cached || response);
         })
-        .catch((err) => {
-          console.error('[SW] Navigation handler failed:', err);
-          return offlineResponse();
+        .catch(() => {
+          return caches.match('./')
+            .then((cached) => cached || offlineResponse())
+            .catch(() => offlineResponse());
         })
     );
     return;

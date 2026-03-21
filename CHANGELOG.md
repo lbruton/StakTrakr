@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.74] - 2026-03-21
+
+### Fixed — Graceful SW update — auto-reload on cache miss
+
+- **Fixed**: Network-first navigation prevents stale HTML after file-restructuring deploys (STAK-485)
+- **Fixed**: Smart error recovery detects stale cache ReferenceErrors and auto-reloads instead of showing a scary error dialog (STAK-485)
+- **Fixed**: Cloud sync guard prevents data corruption during SW cache transitions (STAK-485)
+
+---
+
 ## [3.33.73] - 2026-03-20
 
 ### Fixed — Stored URLs as single source of truth for images
