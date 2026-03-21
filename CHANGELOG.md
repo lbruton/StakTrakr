@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.77] - 2026-03-21
+
+### Fixed — Numista search on names with special characters (STAK-494)
+
+- **Fixed**: Numista search now strips operator characters (hyphens, parentheses, quotes, plus) from queries before sending to the API — items with official Numista-style names like "1 Dollar - Charles III (1st Portrait - Australian Kookaburra)" no longer timeout or return empty results (STAK-494)
+
+---
+
 ## [3.33.76] - 2026-03-21
 
 ### Fixed — Image thumbnail popover crash (STAK-492)

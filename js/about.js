@@ -247,6 +247,7 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.77 &ndash; Numista Search Fix</strong>: Numista search now strips operator characters from queries &mdash; items with official names containing hyphens and parentheses no longer timeout or return empty results (STAK-494)</li>
     <li><strong>v3.33.76 &ndash; Image Popover Fix</strong>: Image thumbnail popovers now open correctly in table and card view. Previously clicking a thumbnail crashed silently due to a dummy DOM element missing .remove() (STAK-492)</li>
     <li><strong>v3.33.75 &ndash; Cloud Sync Field Fix</strong>: Cloud sync now compares all item fields during merge &mdash; previously image URLs, numistaId, year, grading, disposition, and 10+ other fields were silently dropped on matched items. Manifest add path also fixed (STAK-493)</li>
     <li><strong>v3.33.74 &ndash; Graceful SW Update</strong>: Network-first navigation prevents stale HTML after deploys. Smart error recovery auto-reloads on cache miss. Cloud sync guard prevents data corruption during transitions (STAK-485)</li>
