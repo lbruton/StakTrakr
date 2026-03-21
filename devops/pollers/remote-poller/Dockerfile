@@ -16,7 +16,8 @@ FROM node:20-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# System packages: git (for GitHub Pages push), cron, supervisor, curl
+# System packages: git (GitHub Pages push), cron, supervisor, jq (publish logging),
+# python3/make/g++ (native addon compilation for better-sqlite3)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     cron \
@@ -24,7 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     curl \
     gnupg \
-    lsb-release \
+    jq \
+    python3 \
+    make \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Tailscale (kept for diagnostics — free, no harm)
@@ -41,6 +45,7 @@ WORKDIR /app
 
 # Shared poller code (single source of truth)
 COPY shared/package.json ./
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install --omit=dev
 
 COPY shared/*.js ./
