@@ -179,8 +179,13 @@ async function computeSettingsHash() {
     var settings = {};
     for (var i = 0; i < keys.length; i++) {
       if (keys[i] === 'metalInventory') continue; // skip inventory — covered by inventoryHash
-      var val = loadDataSync(keys[i], null);
-      if (val !== null && val !== undefined) settings[keys[i]] = val;
+      // STAK-497: Use raw localStorage.getItem to match the manifest snapshot
+      // format. loadDataSync JSON-parses the value, which fails for scalar
+      // settings stored as raw strings (e.g. "dark" instead of '"dark"'),
+      // producing a different hash from the manifest and triggering infinite
+      // sync loops.
+      var val = localStorage.getItem(keys[i]);
+      if (val !== null) settings[keys[i]] = val;
     }
     var sorted = JSON.stringify(settings, Object.keys(settings).sort());
     var encoded = new TextEncoder().encode(sorted);
@@ -2700,8 +2705,11 @@ async function pullWithPreview(remoteMeta) {
       if (typeof SYNC_SCOPE_KEYS !== 'undefined') {
         for (var i = 0; i < SYNC_SCOPE_KEYS.length; i++) {
           if (SYNC_SCOPE_KEYS[i] === 'metalInventory' || SYNC_SCOPE_KEYS[i] === 'itemTags') continue;
-          var v = loadDataSync(SYNC_SCOPE_KEYS[i], null);
-          if (v !== null && v !== undefined) localSettings[SYNC_SCOPE_KEYS[i]] = v;
+          // STAK-497: Use raw localStorage.getItem to match vault payload format.
+          // loadDataSync JSON-parses values, which fails for scalar settings
+          // stored as raw strings, causing false diffs.
+          var v = localStorage.getItem(SYNC_SCOPE_KEYS[i]);
+          if (v !== null) localSettings[SYNC_SCOPE_KEYS[i]] = v;
         }
       }
       var settingsDiff = typeof DiffEngine !== 'undefined'
