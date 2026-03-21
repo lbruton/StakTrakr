@@ -1316,7 +1316,29 @@
       var diff = _options ? _options.diff || {} : {};
       var allItems = (diff.added || []).concat(diff.deleted || []);
       for (var mi = 0; mi < (diff.modified || []).length; mi++) {
-        allItems.push((diff.modified || [])[mi].item);
+        var modEntry = (diff.modified || [])[mi];
+        var modItem = modEntry.item;
+        if (modItem && modItem.uuid) {
+          // For modified items, the item is the LOCAL version which may lack
+          // image URLs on the pulling device. Check the diff changes for
+          // remote image URLs and merge them so thumbnails can resolve.
+          var mergedItem = modItem;
+          var modChanges = modEntry.changes || [];
+          for (var mci = 0; mci < modChanges.length; mci++) {
+            var ch = modChanges[mci];
+            if ((ch.field === 'obverseImageUrl' || ch.field === 'reverseImageUrl') && ch.remoteVal && !modItem[ch.field]) {
+              // Lazy-clone on first image URL merge to avoid mutating diff data
+              if (mergedItem === modItem) {
+                mergedItem = {};
+                for (var mk in modItem) { if (modItem.hasOwnProperty(mk)) mergedItem[mk] = modItem[mk]; }
+              }
+              mergedItem[ch.field] = ch.remoteVal;
+            }
+          }
+          itemByUuid[mergedItem.uuid] = mergedItem;
+        } else {
+          allItems.push(modItem);
+        }
       }
       for (var ai = 0; ai < allItems.length; ai++) {
         if (allItems[ai] && allItems[ai].uuid) {
