@@ -727,6 +727,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       && !sessionStorage.getItem('sw-recovery-attempted');
 
     if (isStaleCache) {
+      document._swReloading = true;
       sessionStorage.setItem('sw-recovery-attempted', '1');
       console.warn('[Init] Stale cache detected — reloading for new version');
       document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Updating to new version\u2026</p></div>';

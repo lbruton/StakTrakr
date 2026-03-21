@@ -8,7 +8,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 
 
 
-const CACHE_NAME = 'staktrakr-v3.33.74-b1774059927';
+const CACHE_NAME = 'staktrakr-v3.33.74-b1774061557';
 
 
 
@@ -185,12 +185,15 @@ self.addEventListener('fetch', (event) => {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put('./', clone))
               .catch((err) => console.warn('[SW] Nav cache put failed:', err));
+            return response;
           }
-          return response;
+          // Non-OK response (4xx/5xx) — fall back to cache instead of serving error
+          return caches.match('./').then((cached) => cached || response);
         })
         .catch(() => {
           return caches.match('./')
-            .then((cached) => cached || offlineResponse());
+            .then((cached) => cached || offlineResponse())
+            .catch(() => offlineResponse());
         })
     );
     return;
