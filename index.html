@@ -2544,7 +2544,7 @@
                     <div class="settings-group-label">Metadata Sync</div>
                     <p class="settings-subtext">
                       Sync metadata for all inventory items with Numista catalog IDs.
-                      Images are loaded on-demand when viewing items. Uses your API key (counts toward monthly quota).
+                      Uses your API key (counts toward monthly quota).
                     </p>
 
                     <!-- Stats bar -->
@@ -3051,34 +3051,6 @@
             <div class="settings-section-panel" id="settingsPanel_images" style="display: none">
               <h3>Images</h3>
 
-              <!-- ── Cache Actions ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Image Cache</div>
-                <div class="image-actions-row">
-                  <button class="btn" id="importImagesBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Import
-                  </button>
-                  <button class="btn" id="exportAllImagesBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Export
-                  </button>
-                  <button class="btn secondary" id="syncImageUrlsBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
-                    Download URLs
-                  </button>
-                  <button class="btn warning" id="purgeNumistaUrlsBtn" type="button" title="Remove all Numista CDN image URLs from inventory items (keeps user uploads and pattern images)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    Purge Numista URLs
-                  </button>
-                  <button class="btn danger" id="clearAllImagesBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                    Clear Cache
-                  </button>
-                  <input type="file" id="importImagesFile" accept=".zip" style="display:none" />
-                </div>
-              </div>
-
               <!-- ── Image Display ── -->
               <div class="settings-fieldset">
                 <div class="settings-fieldset-title">Image Display</div>
@@ -3169,11 +3141,6 @@
                     <span class="storage-gauge-label">📷 Your Photos</span>
                     <div class="storage-gauge-bar-wrap"><div id="gaugeUserBar" class="storage-gauge-bar"></div></div>
                     <span id="gaugeUserSize" class="storage-gauge-size">—</span>
-                  </div>
-                  <div class="storage-gauge-row">
-                    <span class="storage-gauge-label">🪙 Numista Cache</span>
-                    <div class="storage-gauge-bar-wrap"><div id="gaugeNumistaBar" class="storage-gauge-bar"></div></div>
-                    <span id="gaugeNumistaSize" class="storage-gauge-size">—</span>
                   </div>
                   <div id="gaugePersistLine" class="storage-gauge-persist">—</div>
                 </div>

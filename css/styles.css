@@ -3711,13 +3711,6 @@ input[type="submit"] {
 }
 
 
-/* Image actions row — flex wrap of action buttons */
-.image-actions-row {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
 /* Image input row — file input + camera button side by side */
 .image-input-row {
   display: flex;

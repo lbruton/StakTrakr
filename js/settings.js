@@ -1797,8 +1797,6 @@ const renderImageStorageStats = async () => {
 
   const userBar = document.getElementById('gaugeUserBar');
   const userSize = document.getElementById('gaugeUserSize');
-  const numistaBar = document.getElementById('gaugeNumistaBar');
-  const numistaSize = document.getElementById('gaugeNumistaSize');
   const persistLine = document.getElementById('gaugePersistLine');
 
   if (userBar) {
@@ -1807,13 +1805,6 @@ const renderImageStorageStats = async () => {
   }
   if (userSize) {
     userSize.textContent = `${fmt(usage.userImageBytes || 0)} (${usage.userImageCount} items)`;
-  }
-  if (numistaBar) {
-    numistaBar.style.width = pct(usage.numistaBytes || 0) + '%';
-    numistaBar.style.background = barColor(usage.numistaBytes || 0);
-  }
-  if (numistaSize) {
-    numistaSize.textContent = `${fmt(usage.numistaBytes || 0)} (${usage.numistaCount} coins)`;
   }
   if (persistLine) {
     const granted = localStorage.getItem(STORAGE_PERSIST_GRANTED_KEY);
