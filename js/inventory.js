@@ -1532,8 +1532,8 @@ document.addEventListener('click', (e) => {
  * @param {Object} item                   - the full inventory item object
  */
 function _openThumbPopover(cell, item) {
-  // Toggle off if same cell clicked again
-  const existing = safeGetElement('thumbPopover');
+  // Toggle off if same cell clicked again (use getElementById — need real null when absent)
+  const existing = document.getElementById('thumbPopover');
   if (existing) {
     existing.remove();
     if (existing.dataset.forUuid === (item.uuid || '')) return;

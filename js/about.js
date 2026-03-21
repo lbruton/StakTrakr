@@ -247,10 +247,10 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.76 &ndash; Image Popover Fix</strong>: Image thumbnail popovers now open correctly in table and card view. Previously clicking a thumbnail crashed silently due to a dummy DOM element missing .remove() (STAK-492)</li>
     <li><strong>v3.33.75 &ndash; Cloud Sync Field Fix</strong>: Cloud sync now compares all item fields during merge &mdash; previously image URLs, numistaId, year, grading, disposition, and 10+ other fields were silently dropped on matched items. Manifest add path also fixed (STAK-493)</li>
     <li><strong>v3.33.74 &ndash; Graceful SW Update</strong>: Network-first navigation prevents stale HTML after deploys. Smart error recovery auto-reloads on cache miss. Cloud sync guard prevents data corruption during transitions (STAK-485)</li>
     <li><strong>v3.33.73 &ndash; Image URL Consistency</strong>: Stored URLs are now the single source of truth for images everywhere &mdash; view modal no longer fetches from Numista API independently. Fill Fields now overwrites existing image URLs when checkbox is checked (STAK-488, STAK-489)</li>
-    <li><strong>v3.33.72 &ndash; Numista Metadata Fix</strong>: Numista metadata fields (KM Reference, country, etc.) can now be cleared and saved as empty &mdash; previously clearing a field would restore the old value on save (STAK-487)</li>
   `;
 };
 

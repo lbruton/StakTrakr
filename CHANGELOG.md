@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.76] - 2026-03-21
+
+### Fixed — Image thumbnail popover crash (STAK-492)
+
+- **Fixed**: Image thumbnail popover now opens correctly — `safeGetElement` returns a dummy object (not null) when element is absent, so `_openThumbPopover` crashed calling `.remove()` on the dummy. Existence check now uses `document.getElementById` directly (STAK-492)
+- **Fixed**: `createDummyElement()` now includes `.remove()`, `.dataset`, and `.classList` to prevent similar crashes in other callers
+
+---
+
 ## [3.33.75] - 2026-03-21
 
 ### Fixed — Cloud sync field coverage (STAK-493)
