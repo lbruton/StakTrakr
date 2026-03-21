@@ -1,5 +1,6 @@
 ## What's New
 
+- **Numista Search Fix (v3.33.77)**: Numista search now strips operator characters from queries &mdash; items with official names containing hyphens and parentheses no longer timeout or return empty results (STAK-494).
 - **Image Popover Fix (v3.33.76)**: Image thumbnail popovers now open correctly in table and card view. Previously clicking a thumbnail crashed silently due to a dummy DOM element missing `.remove()` (STAK-492).
 - **Cloud Sync Field Fix (v3.33.75)**: Cloud sync now compares all item fields during merge &mdash; previously image URLs, numistaId, grading, disposition, and 15+ other fields were silently dropped on matched items. Manifest add path also fixed (STAK-493).
 - **Graceful SW Update (v3.33.74)**: Network-first navigation prevents stale HTML after deploys. Smart error recovery auto-reloads on cache miss instead of showing scary error dialogs. Cloud sync guard prevents data corruption during transitions (STAK-485).
