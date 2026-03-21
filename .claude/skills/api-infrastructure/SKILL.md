@@ -7,27 +7,26 @@ description: Use when making any change to API feeds, pollers, feed thresholds, 
 
 ## Three-Feed Architecture
 
-All feeds served from `lbruton/StakTrakrApi` `main` branch via GitHub Pages at `api.staktrakr.com`.
+All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `api.staktrakr.com`.
 
 | Feed | File | Poller | Threshold |
 |------|------|--------|-----------|
 | **Market prices** | `data/api/manifest.json` | Fly.io `run-local.sh` + `run-publish.sh` | 30 min |
 | **Spot prices** | `data/hourly/YYYY/MM/DD/HH.json` | Fly.io `run-spot.sh` cron (`5,20,35,50 * * * *`) | 75 min |
-| **Goldback** | `data/api/goldback-spot.json` | Fly.io via `goldback-g1` coin in `run-local.sh` | 25h (info only) |
+| **Goldback** | `data/api/goldback-spot.json` | Home poller scrapes → sqld → Fly.io `api-export.js` publishes (STAK-491) | 25h (info only) |
 | **sqld** | `price_snapshots` table | Dual-poller write-through (Fly.io `POLLER_ID=api` + Portainer VM `POLLER_ID=home`). Manage via Portainer API — see `home-infrastructure` skill | internal |
 
 **Critical:** `spot-history-YYYY.json` is a **seed file** (noon UTC daily) — never use it for freshness checks. Live spot data is always in `data/hourly/`.
 
 ---
 
-## Fly.io Container (`staktrakr`)
+## Fly.io Container (`staktrakr`) — Thin Publisher (STAK-478)
 
-- **App:** `staktrakr` — region `dfw`, 4096MB RAM, 4 shared CPUs
-- **Config:** `StakTrakrApi/devops/fly-poller/fly.toml` + `Dockerfile` — **not in the StakTrakr repo**
-- **Runs:** Firecrawl + Playwright + Redis + RabbitMQ + PostgreSQL + retail cron + spot cron + goldback + serve.js
-- **Spot prices run here** — `run-spot.sh` at `5,20,35,50 * * * *` (NOT GHA)
-- **Deploy:** From `lbruton/StakTrakrApi` repo: `cd devops/fly-poller && fly deploy`
-- **NEVER run `fly deploy` from the StakTrakr or stakscrapr repos**
+- **App:** `staktrakr` — region `iad`, 1024MB RAM, 1 shared CPU
+- **Config:** `StakTrakr/devops/pollers/remote-poller/fly.toml` + `Dockerfile`
+- **Runs:** Spot cron (`0,30`), publish cron (`8,23,38,53`), provider export (`*/5`), serve.js. Retail/goldback disabled — handled by home poller.
+- **Deploy:** From StakTrakr repo: `cd devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`
+- **NEVER deploy from StakTrakrApi** (code migrated to StakTrakr)
 - **Logs:** `fly logs --app staktrakr`
 - **SSH:** `fly ssh console --app staktrakr`
 
@@ -62,19 +61,17 @@ sqld is a self-hosted libSQL server on the home VM (`192.168.1.81:8080`). Both p
 |----------|---------------|
 | `js/api-health.js` | Stale thresholds, feed URLs, `_normalizeTs` logic |
 | `CLAUDE.md` API Infrastructure table | Feed/threshold/healthy-check summary |
-| `wiki/` (in-repo, single source of truth): | |
-| — `wiki/health.md` | Health checks, stale thresholds, diagnosis commands |
-| — `wiki/fly-container.md` | Fly config, crons, VM spec, GHA workflow table |
-| — `wiki/rest-api-reference.md` | Endpoint map, schemas, confidence tiers |
-| — `wiki/turso-schema.md` | Database tables, indexes, key queries |
-| — `wiki/cron-schedule.md` | Full cron timeline |
-| — `wiki/spot-pipeline.md` | Spot poller architecture |
-| — `wiki/goldback-pipeline.md` | Per-state slugs, denomination generation |
-| — `wiki/retail-pipeline.md` | Dual-poller, T1–T5 resilience |
+| DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`): | |
+| — `Health Checks.md` | Health checks, stale thresholds, diagnosis commands |
+| — `Remote Poller.md` | Fly config, crons, VM spec, GHA workflow table |
+| — `API Reference.md` | Endpoint map, schemas, confidence tiers |
+| — `Turso Schema.md` | Database tables, indexes, key queries |
+| — `Home Poller.md` | Home poller crons, dashboard, Firecrawl |
+| — `Poller Parity.md` | Scrape pipeline comparison between pollers |
 | `lbruton/StakTrakrApi` `README.md` | If endpoints, branches, or directory structure changes |
 
-> **Lookup:** Search via `mcp__claude-context__search_code` with `path: /Volumes/DATA/GitHub/StakTrakr/wiki`.
-> **Deprecated:** `docs/devops/api-infrastructure-runbook.md` — do not update, will be deleted.
+> **Lookup:** `Read /Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/<page>.md` or `Grep` on the vault.
+> **Deprecated:** In-repo `wiki/` and `docs/devops/api-infrastructure-runbook.md` — do not update.
 
 ---
 
@@ -125,5 +122,4 @@ EOF
 | Notion infrastructure pages | Deprecated 2026-02-25 — do not update |
 | `docs/devops/api-infrastructure-runbook.md` | Deprecated — will be deleted after next wiki audit |
 
-**`wiki/` (in-repo) is the single source of truth.** All documentation changes go there.
-See `/wiki-search` for how to search the wiki.
+**DocVault is the single source of truth.** All documentation changes go there via `/vault-update`.

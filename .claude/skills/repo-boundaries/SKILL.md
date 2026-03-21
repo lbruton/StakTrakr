@@ -11,7 +11,7 @@ description: Use when doing any cross-repo work, deploying, or when unsure which
 |------|------|--------------|
 | `lbruton/StakTrakr` | Frontend HTML/JS/CSS, `.claude/` skills, CLAUDE.md, smoke tests, **ALL poller code** (`devops/pollers/`), home-poller Docker configs, tinyproxy/tailscale compose files | Fly.io fly.toml (transitioning), GHA data workflows |
 | `lbruton/StakTrakrApi` | Fly.io fly.toml (legacy, transitioning to StakTrakr), `api` branch data publishing, GHA workflows | Frontend code, poller scripts (migrated to StakTrakr) |
-| `StakTrakr/wiki/` (in-repo) | **Single source of truth** for all project documentation — architecture, patterns, operations, runbooks. Lookup: `mcp__claude-context__search_code` with `path: /Volumes/DATA/GitHub/StakTrakr/wiki` | Code, config, scripts |
+| DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`) | **Single source of truth** for all project documentation — architecture, patterns, operations, runbooks | Code, config, scripts |
 
 > **`stakscrapr` is retired.** Home VM config was previously in a separate repo. All poller code now lives in `StakTrakr/devops/pollers/`.
 
@@ -38,12 +38,12 @@ description: Use when doing any cross-repo work, deploying, or when unsure which
 | Home poller redeploy | Portainer API (`PUT /api/stacks/7/git/redeploy?endpointId=3`) | Direct file editing on VM, SSH, docker CLI on VM |
 | Tailscale/tinyproxy redeploy | Portainer API (stacks 8/5) | Direct docker run on VM, SSH |
 | Firecrawl redeploy | Portainer API (stack 4) | Direct docker run on VM, SSH |
-| `fly deploy` (Fly.io container) | `StakTrakrApi/devops/fly-poller/` on this Mac only | StakTrakr repo, home VM, anywhere else |
+| `fly deploy` (Fly.io container) | `StakTrakr/devops/pollers/` on this Mac only (run from `pollers/` dir with `--config remote-poller/fly.toml`) | StakTrakrApi repo (legacy), home VM, anywhere else |
 | `git push` to `api` branch (data files) | Fly.io container `run-publish.sh` only — via force-push | Local Mac, home VM, any GHA, manually |
 | `providers.json` URL fix | Direct push to `api` branch in `StakTrakrApi` | Any other method |
 
 > **NEVER edit files directly on the home VM.** All code deploys from git via Portainer. Changes made via `docker exec` are lost on next redeploy.
-> **NEVER run `fly deploy` from the StakTrakr repo.** The only valid `fly deploy` path: `cd /path/to/StakTrakrApi/devops/fly-poller && fly deploy`
+> **NEVER run `fly deploy` from the StakTrakrApi repo.** The only valid `fly deploy` path: `cd StakTrakr/devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`
 
 ---
 
@@ -65,13 +65,15 @@ Four Docker stacks on the `staktrakr-net` bridge network, managed by Portainer:
 
 ---
 
-## Fly.io Container — Current State
+## Fly.io Container — Current State (Thin Publisher, STAK-478)
 
-**`StakTrakrApi/devops/fly-poller/fly.toml`** is the authoritative fly.toml (transitioning to `StakTrakr/devops/pollers/remote-poller/`).
+**`StakTrakr/devops/pollers/remote-poller/fly.toml`** is the authoritative fly.toml.
 
-- 4096MB RAM, 4 shared CPUs, region dfw
-- Supervisord runs: redis, rabbitmq, postgres, playwright-service, firecrawl-api, firecrawl-worker, firecrawl-extract-worker, cron, http-server
-- Publishes data to `api` branch via `run-publish.sh`
+- 1024MB RAM, 1 shared CPU, region iad
+- Retail and goldback scraping disabled (`RETAIL_ENABLED=0`, `GOLDBACK_ENABLED=0`) — handled by home poller
+- Active crons: spot (`0,30`), publish (`8,23,38,53`), provider export (`*/5`)
+- Firecrawl/Playwright/Redis/RabbitMQ/PostgreSQL still in image but idle
+- Publishes data to `api` branch via `run-publish.sh` (sole Git writer)
 
 ---
 
@@ -100,12 +102,12 @@ Both pollers write to the same sqld database (`price_snapshots` table). Only Fly
 ## Change Gate: Fly.io Container Change
 
 ```
-1. Edit shared files in StakTrakr/devops/pollers/shared/
-   (or Fly-specific files in StakTrakrApi/devops/fly-poller/ until migration complete)
-2. For shared files: copy to StakTrakrApi/devops/fly-poller/ (temporary — until remote-poller migration)
-3. Open PR to StakTrakrApi main
-4. Review + merge
-5. cd StakTrakrApi/devops/fly-poller && fly deploy
+1. Edit files in StakTrakr/devops/pollers/ (shared/ or remote-poller/)
+2. Commit and push to dev (or merge PR)
+3. cd StakTrakr/devops/pollers
+4. fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile
 ```
 
-**providers.json URL changes** skip steps 2-5 entirely — push directly to `api` branch.
+> **Migration complete (2026-03-07):** All code now in `StakTrakr/devops/pollers/`. No longer deploy from StakTrakrApi.
+
+**providers.json URL changes** skip deploy entirely — pollers read from Turso on each run.
