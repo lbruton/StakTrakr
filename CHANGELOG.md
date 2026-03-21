@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.78] - 2026-03-21
+
+### Fixed — Retail scraper consistency + OOS availability pipeline (STAK-475, STAK-495)
+
+- **Fixed**: JM Bullion extraction removes "As Low As" fallback — volume discount prices (10-90% below retail) no longer recorded (STAK-475 P2)
+- **Fixed**: Soft 404 detection for React SPAs — Monument Metals and similar sites now correctly flag OOS instead of scraping nav ticker spot prices (STAK-475)
+- **Fixed**: Monument Metals header/nav spot tickers stripped before price extraction to prevent false matches (STAK-475)
+- **Fixed**: Intraday chart carry-forward removed from API export — frontend `_forwardFillVendors()` now detects gaps and renders dashed lines for carried/stale prices (STAK-495-B)
+- **Added**: OOS vendor indicators on retail cards — dimmed rows with strikethrough price and "(OOS)" label, sorted below in-stock vendors (STAK-495-C)
+
+---
+
 ## [3.33.77] - 2026-03-21
 
 ### Fixed — Numista search on names with special characters (STAK-494)
