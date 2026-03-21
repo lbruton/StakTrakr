@@ -172,22 +172,19 @@ function aggregateWindows(allRows, bucketMinutes = 30) {
     }
   }
 
-  // Step 2: Sort buckets chronologically, then carry forward
+  // Step 2: Sort buckets chronologically — NO carry-forward.
+  // Carry-forward is handled by the frontend's _forwardFillVendors() which
+  // marks carried prices in _carriedVendors → triggers dashed-line rendering.
+  // Pre-filling here made all prices look fresh to the frontend (STAK-495-B).
   const sortedKeys = [...byBucket.keys()].sort();
-  const lastSeen = {};  // vendorId → { price, scraped_at }
 
   const result = [];
   for (const bucket of sortedKeys) {
     const { vendors } = byBucket.get(bucket);
 
-    // Update lastSeen with any fresh data in this bucket
-    for (const [vendorId, data] of Object.entries(vendors)) {
-      lastSeen[vendorId] = data;
-    }
-
-    // Build the full vendor map: fresh data + carried-forward
+    // Only include vendors with fresh data in this bucket
     const vendorPrices = {};
-    for (const [vendorId, data] of Object.entries(lastSeen)) {
+    for (const [vendorId, data] of Object.entries(vendors)) {
       vendorPrices[vendorId] = data.price;
     }
 
