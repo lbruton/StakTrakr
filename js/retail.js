@@ -860,25 +860,34 @@ const _buildRetailCard = (slug, meta, priceData) => {
       ...Object.keys(availability),
     ]);
 
-    // Sort: high-confidence in-stock vendors (≥60) by price asc, then low-confidence, then OOS vendors
+    // Sort: in-stock vendors by price asc, then OOS vendors by last-known price asc
     const sortedVendorEntries = Array.from(allVendorKeys)
       .map((key) => {
         const vendorData = vendorMap[key];
         const isAvailable = availability[key] !== false; // default true if not specified
         const price = vendorData ? vendorData.price : null;
+        // OOS vendors with no current price: use last-known price for display (STAK-495)
+        const displayPrice = price ?? (lastKnownPrices[key] ?? null);
         const score = vendorData ? vendorData.confidence : null;
         const label = getVendorDisplay(key).name;
-        return { key, label, price, score, isAvailable };
+        return { key, label, price: displayPrice, score, isAvailable };
       })
-      .filter(({ price }) => price != null) // show only vendors with a price
-      .sort((a, b) => a.price - b.price); // sort by price ascending
+      .filter(({ price }) => price != null) // show only vendors with a displayable price
+      .sort((a, b) => {
+        // In-stock vendors first (by price asc), then OOS vendors (by price asc)
+        if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
+        return a.price - b.price;
+      });
 
-    // Award medals to top 3 vendors by price
-    const top3 = sortedVendorEntries.slice(0, 3).map(({ key }) => key);
+    // Award medals to top 3 IN-STOCK vendors by price (STAK-495)
+    const top3 = sortedVendorEntries
+      .filter(({ isAvailable }) => isAvailable)
+      .slice(0, 3).map(({ key }) => key);
 
-    sortedVendorEntries.forEach(({ key, label, price }) => {
+    sortedVendorEntries.forEach(({ key, label, price, isAvailable }) => {
       const row = document.createElement("div");
       row.className = "retail-vendor-row";
+      if (!isAvailable) row.classList.add("retail-vendor-row--oos");
       const medalIndex = top3.indexOf(key);
       if (medalIndex !== -1) {
         row.classList.add(`retail-vendor-row--medal-${medalIndex + 1}`);
@@ -894,7 +903,7 @@ const _buildRetailCard = (slug, meta, priceData) => {
       if (vendorUrl) {
         const link = document.createElement("a");
         link.href = "#";
-        link.textContent = label;
+        link.textContent = !isAvailable ? `${label} (OOS)` : label;
         link.className = "retail-vendor-link";
         if (vendorColor) link.style.color = vendorColor;
         link.addEventListener("click", (e) => {

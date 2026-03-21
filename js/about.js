@@ -247,11 +247,11 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.78 &ndash; Retail Scraper + OOS Pipeline</strong>: JM Bullion no longer grabs volume discount prices. Soft 404 detection for React SPAs. OOS vendors shown dimmed with strikethrough on retail cards. Intraday charts now render dashed lines for carried/stale prices (STAK-475, STAK-495)</li>
     <li><strong>v3.33.77 &ndash; Numista Search Fix</strong>: Numista search now strips operator characters from queries &mdash; items with official names containing hyphens and parentheses no longer timeout or return empty results (STAK-494)</li>
     <li><strong>v3.33.76 &ndash; Image Popover Fix</strong>: Image thumbnail popovers now open correctly in table and card view. Previously clicking a thumbnail crashed silently due to a dummy DOM element missing .remove() (STAK-492)</li>
     <li><strong>v3.33.75 &ndash; Cloud Sync Field Fix</strong>: Cloud sync now compares all item fields during merge &mdash; previously image URLs, numistaId, year, grading, disposition, and 10+ other fields were silently dropped on matched items. Manifest add path also fixed (STAK-493)</li>
     <li><strong>v3.33.74 &ndash; Graceful SW Update</strong>: Network-first navigation prevents stale HTML after deploys. Smart error recovery auto-reloads on cache miss. Cloud sync guard prevents data corruption during transitions (STAK-485)</li>
-    <li><strong>v3.33.73 &ndash; Image URL Consistency</strong>: Stored URLs are now the single source of truth for images everywhere &mdash; view modal no longer fetches from Numista API independently. Fill Fields now overwrites existing image URLs when checkbox is checked (STAK-488, STAK-489)</li>
   `;
 };
 

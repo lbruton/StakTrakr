@@ -137,16 +137,16 @@ function vendorMap(rows) {
  * Excludes out-of-stock vendors (in_stock = 0).
  */
 /**
- * Aggregate raw snapshot rows into consensus time-bucket windows with
- * carry-forward so every window has all vendors.
+ * Aggregate raw snapshot rows into sparse time-bucket windows.
+ * Only vendors with fresh data in each bucket are included.
  *
  * 1. Bucket rows by time (30-min default) — merge both pollers.
- * 2. Walk buckets chronologically, carrying forward each vendor's last
- *    known price into any window where that vendor has no new data.
- * 3. Recompute median/low from the FULL vendor set (carried + fresh).
+ * 2. Emit only fresh data per bucket — NO carry-forward.
+ * 3. Compute median/low from fresh vendors only.
  *
- * Result: every window always has all vendors. Fresh data overwrites
- * carried data. The API serves complete, clean consensus windows.
+ * The frontend's _forwardFillVendors() handles carry-forward and marks
+ * carried vendors in _carriedVendors for dashed-line chart rendering.
+ * Pre-filling here made all prices look fresh to the frontend (STAK-495-B).
  *
  * @param {Array} allRows  Raw price_snapshots rows (must include scraped_at)
  * @param {number} bucketMinutes  Bucket size in minutes: 15, 30, or 60
@@ -172,22 +172,19 @@ function aggregateWindows(allRows, bucketMinutes = 30) {
     }
   }
 
-  // Step 2: Sort buckets chronologically, then carry forward
+  // Step 2: Sort buckets chronologically — NO carry-forward.
+  // Carry-forward is handled by the frontend's _forwardFillVendors() which
+  // marks carried prices in _carriedVendors → triggers dashed-line rendering.
+  // Pre-filling here made all prices look fresh to the frontend (STAK-495-B).
   const sortedKeys = [...byBucket.keys()].sort();
-  const lastSeen = {};  // vendorId → { price, scraped_at }
 
   const result = [];
   for (const bucket of sortedKeys) {
     const { vendors } = byBucket.get(bucket);
 
-    // Update lastSeen with any fresh data in this bucket
-    for (const [vendorId, data] of Object.entries(vendors)) {
-      lastSeen[vendorId] = data;
-    }
-
-    // Build the full vendor map: fresh data + carried-forward
+    // Only include vendors with fresh data in this bucket
     const vendorPrices = {};
-    for (const [vendorId, data] of Object.entries(lastSeen)) {
+    for (const [vendorId, data] of Object.entries(vendors)) {
       vendorPrices[vendorId] = data.price;
     }
 

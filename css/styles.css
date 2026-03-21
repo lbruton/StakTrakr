@@ -11948,6 +11948,15 @@ th {
   font-weight: 600;
 }
 
+/* STAK-495: OOS vendor visual indicator */
+.retail-vendor-row--oos {
+  opacity: 0.5;
+}
+.retail-vendor-row--oos .retail-vendor-price {
+  text-decoration: line-through;
+  font-style: italic;
+}
+
 .retail-vendor-details { margin-top: 0.25rem; }
 
 /* STAK-217: Loading skeleton shimmer */

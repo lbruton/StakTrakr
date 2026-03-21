@@ -137,6 +137,19 @@ const OUT_OF_STOCK_PATTERNS = [
   /pre-?order/i,
 ];
 
+// Soft 404 patterns — React SPAs return HTTP 200 but render "not found" content.
+// When detected, the scraper should record inStock=false and price=null (STAK-475).
+const SOFT_404_PATTERNS = [
+  /page\s*(not|can['\u2019]?t be|cannot be)\s*found/i,
+  /product\s*(not|no longer)\s*(found|available)/i,
+  /404\s*[-–—]\s*(page|not found)/i,
+  /this\s+page\s+(doesn['\u2019]?t|does not)\s+exist/i,
+  /we\s+couldn['\u2019]?t\s+find/i,
+  /the\s+page\s+you\s+(requested|are looking for)/i,
+  /no\s+longer\s+available/i,
+  /has\s+been\s+(removed|discontinued)/i,
+];
+
 // Providers whose "Pre-Order" / "Presale" items still show live purchasable prices.
 // For these, skip the pre-?order OOS pattern — treat presale as in-stock.
 const PREORDER_TOLERANT_PROVIDERS = new Set(["jmbullion", "monumentmetals"]);
@@ -167,6 +180,10 @@ const MARKDOWN_HEADER_SKIP_PATTERNS = {
   // followed by the nav mega-menu. The product area starts after the nav.
   // We skip past the spot ticker to avoid false gold-price matches.
   jmbullion: /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[A-Z]{2,4}/,
+  // Monument Metals (React SPA) — nav has spot tickers like "Gold $3,120.50 Silver $32.10".
+  // Skip past the header/nav area to avoid firstInRangeProse grabbing spot prices.
+  // The product title typically follows a breadcrumb containing "Home >" or the product name.
+  monumentmetals: /(?:Home\s*>|Bullion\s*>|Coins?\s*>)/,
 };
 
 function preprocessMarkdown(markdown, providerId) {
@@ -211,6 +228,18 @@ function preprocessMarkdown(markdown, providerId) {
 function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
   if (!markdown) {
     return { inStock: true, reason: "no_markdown", detectedText: null };
+  }
+
+  // Check for soft 404 pages (React SPAs returning HTTP 200 with "not found" content)
+  for (const pattern of SOFT_404_PATTERNS) {
+    const match = markdown.match(pattern);
+    if (match) {
+      return {
+        inStock: false,
+        reason: "soft_404",
+        detectedText: match[0]
+      };
+    }
   }
 
   // Check for out-of-stock text patterns
@@ -429,19 +458,15 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
   }
 
   if (providerId === "jmbullion") {
-    // JM Bullion: pipe table → prose table → "As Low As" fallback.
-    // Silver pages often render pipe tables; gold pages render as plain text.
-    // jmPriceFromProseTable() handles the plain-text layout:
-    //   "(e)Check/Wire" header → "1-9" qty tier → first dollar amount.
-    // NOTE: firstInRangePriceProse() is intentionally NOT used here — JMBullion's
-    // mega-menu (after nav stripping) can contain goldback category prices in the
-    // $5-$25 range that appear before the product price and produce false matches.
+    // JM Bullion: pipe table → prose table ONLY. No "As Low As" fallback.
+    // "As Low As" is a volume discount (100+ units via ACH) — NOT the single-unit
+    // retail price. Using it causes 10-90% price spread vs. actual retail (STAK-475 P2).
+    // Better to return null (missed window) than record a volume discount.
     const tblFirst = firstTableRowFirstPrice();
     if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
     const proseTbl = jmPriceFromProseTable();
     if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
-    const ala = asLowAsPrices();
-    if (ala.length > 0) return { price: Math.min(...ala), matchedBy: "asLowAs" };
+    // No asLowAs fallback — return null below.
   } else if (USES_AS_LOW_AS.has(providerId)) {
     // Reserved for vendors that have no pricing table, only "As Low As" display.
     // Currently empty — all vendors now use table-first extraction.
