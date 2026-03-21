@@ -113,7 +113,17 @@ async function computeInventoryHash(items) {
     var arr = Array.isArray(items) ? items : [];
     var keys = [];
     for (var i = 0; i < arr.length; i++) {
-      keys.push(typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(arr[i]) : String(i));
+      var item = arr[i];
+      var itemKey = typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(item) : String(i);
+      // Include a content fingerprint so field-level changes (image URLs,
+      // numistaId, grade, disposition) produce a different hash even when
+      // the item key (name+metal+weight+date) is unchanged.
+      var contentSample = (item.obverseImageUrl || '') + '|'
+        + (item.reverseImageUrl || '') + '|'
+        + (item.numistaId || '') + '|'
+        + (item.grade || '') + '|'
+        + (item.disposition ? JSON.stringify(item.disposition) : '');
+      keys.push(itemKey + '::' + contentSample);
     }
     keys.sort();
     var joined = keys.join('|');
@@ -1059,6 +1069,7 @@ async function pushSyncVault() {
   _syncPushInFlight = true;
   updateSyncStatusIndicator('syncing');
   var pushStart = Date.now();
+  var _remoteImageVaultMeta = null; // Preserve remote image vault reference across pushes
 
   try {
     // -----------------------------------------------------------------------
@@ -1224,6 +1235,13 @@ async function pushSyncVault() {
       // Only fail-open for network errors; log prominently so we can diagnose
       console.warn('[CloudSync] Pre-push check: EXCEPTION (fail-open):', prePushErr.message);
       debugLog('[CloudSync] Pre-push remote check failed (non-blocking):', prePushErr.message);
+    }
+
+    // Capture remote imageVault metadata so we can preserve it when this
+    // device has no local photos (prevents erasing another device's uploads).
+    if (typeof prePushMeta !== 'undefined' && prePushMeta && prePushMeta.imageVault) {
+      _remoteImageVaultMeta = prePushMeta.imageVault;
+      debugLog('[CloudSync] Pre-push: remote has image vault —', _remoteImageVaultMeta.imageCount, 'photos, hash:', _remoteImageVaultMeta.hash);
     }
 
     // -----------------------------------------------------------------------
@@ -1408,10 +1426,12 @@ async function pushSyncVault() {
             if (!imgResp.ok) throw new Error('Image vault upload failed: ' + imgResp.status);
             imageVaultMeta = { imageCount: imgData.imageCount, hash: imgData.hash };
             debugLog('[CloudSync] Image vault uploaded:', imgData.imageCount, 'photos');
+            logCloudSyncActivity('image_vault_push', 'success', imgData.imageCount + ' photos, ' + Math.round(imageBytes.byteLength / 1024) + ' KB');
           } else {
             // Hash unchanged — carry forward existing meta so other devices can still detect it
             imageVaultMeta = lastImageHash ? { imageCount: imgData.imageCount, hash: imgData.hash } : null;
             debugLog('[CloudSync] Image vault unchanged — skipping upload');
+            logCloudSyncActivity('image_vault_push', 'skipped', 'Hash unchanged — ' + imgData.imageCount + ' photos');
           }
         } else if (lastImageHash) {
           // STAK-426: All local photos deleted — propagate deletion to remote
@@ -1427,6 +1447,7 @@ async function pushSyncVault() {
             });
             if (delResp.ok || delResp.status === 409) {
               debugLog('[CloudSync] Remote image vault deleted (all local photos removed)');
+              logCloudSyncActivity('image_vault_push', 'success', 'All local photos removed — remote vault deleted');
             } else {
               debugLog('[CloudSync] Image vault deletion returned status:', delResp.status);
             }
@@ -1434,6 +1455,19 @@ async function pushSyncVault() {
             debugLog('[CloudSync] Image vault deletion failed (non-blocking):', delErr.message);
           }
           // imageVaultMeta stays null → imageHash cleared in pushMeta
+        } else {
+          // No local images and no previous hash — carry forward remote
+          // image vault metadata if another device uploaded photos. Without
+          // this, a push from a device with no photos erases the imageVault
+          // pointer from the sync metadata, making the image file on Dropbox
+          // invisible to future pulls.
+          if (_remoteImageVaultMeta) {
+            imageVaultMeta = _remoteImageVaultMeta;
+            debugLog('[CloudSync] No local photos — preserving remote image vault reference:', _remoteImageVaultMeta.imageCount, 'photos');
+            logCloudSyncActivity('image_vault_push', 'skipped', 'No local photos — preserved remote reference (' + _remoteImageVaultMeta.imageCount + ' photos)');
+          } else {
+            logCloudSyncActivity('image_vault_push', 'skipped', 'No user photos on this device');
+          }
         }
       }
     } catch (imgErr) {
@@ -1883,6 +1917,7 @@ async function pullSyncVault(remoteMeta) {
             var restoredCount = await vaultDecryptAndRestoreImages(imgBytes, password);
             pulledImageHash = remoteMeta.imageVault.hash;
             debugLog('[CloudSync] Image vault restored:', restoredCount, 'photos');
+            logCloudSyncActivity('image_vault_pull', 'success', restoredCount + ' photos restored');
           } else if (imgPullResp.status === 404) {
             // File not yet uploaded (fresh account or first push in progress) — not an error.
             // Set hash sentinel to stop retry loop until manifest changes.
@@ -2321,13 +2356,15 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
                 });
                 if (_dvImgResp.ok) {
                   var _dvImgBytes = new Uint8Array(await _dvImgResp.arrayBuffer());
-                  await vaultDecryptAndRestoreImages(_dvImgBytes, password);
+                  var _dvRestoredCount = await vaultDecryptAndRestoreImages(_dvImgBytes, password);
                   debugLog('[CloudSync] Manifest-path: image vault restored');
+                  logCloudSyncActivity('image_vault_pull', 'success', (_dvRestoredCount || '?') + ' photos restored (manifest path)');
                 }
               }
             }
           } catch (_dvImgErr) {
             debugLog('[CloudSync] Manifest-path image restore failed (non-blocking):', _dvImgErr.message);
+            logCloudSyncActivity('image_vault_pull', 'fail', 'Manifest path: ' + _dvImgErr.message);
           }
 
           return;

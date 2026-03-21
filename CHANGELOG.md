@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.79] - 2026-03-21
+
+### Fixed — Cloud sync image vault erasure on cross-device push (STAK-497)
+
+- **Fixed**: Cloud sync preserves image vault metadata when pushing device has no photos — prevents erasing uploaded images from other devices (STAK-497)
+- **Fixed**: Inventory hash now includes content fingerprint (image URLs, numistaId, grade, disposition) — prevents silent poll skip when items have same keys but different field values (STAK-497)
+- **Fixed**: Image vault push/pull now logs all outcomes (success, skipped, fail) to Activity Log — previously only failures were visible (STAK-497)
+
+---
+
 ## [3.33.78] - 2026-03-21
 
 ### Fixed — Retail scraper consistency + OOS availability pipeline (STAK-475, STAK-495)
