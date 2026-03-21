@@ -36,6 +36,16 @@ function safeGetElement(id, required = false) {
   return element || createDummyElement();
 }
 
+// Auto-reload when a new service worker takes control (STAK-485)
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!document._swReloading) {
+      document._swReloading = true;
+      window.location.reload();
+    }
+  });
+}
+
 /**
  * Main application initialization function
  *
@@ -700,12 +710,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }, 250);
 
+    // Clear stale-cache recovery flag on successful init (STAK-485)
+    sessionStorage.removeItem('sw-recovery-attempted');
+
   } catch (error) {
     console.error("=== CRITICAL INITIALIZATION ERROR ===");
     console.error("Error:", error.message);
     console.error("Stack:", error.stack);
 
-    // Try to show a user-friendly error message
+    // Flag init failure for cloud sync guard (STAK-485)
+    window._initFailed = true;
+
+    // Detect stale SW cache: ReferenceError for a function that should exist
+    const isStaleCache = error instanceof ReferenceError
+      && 'serviceWorker' in navigator
+      && !sessionStorage.getItem('sw-recovery-attempted');
+
+    if (isStaleCache) {
+      sessionStorage.setItem('sw-recovery-attempted', '1');
+      console.warn('[Init] Stale cache detected — reloading for new version');
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Updating to new version\u2026</p></div>';
+      setTimeout(() => window.location.reload(), 800);
+      return;
+    }
+
+    // Standard error dialog for non-cache errors
     setTimeout(() => {
       appAlert(
         `Application initialization failed: ${error.message}\n\nPlease refresh the page and try again. If the problem persists, check the browser console for more details.`,
