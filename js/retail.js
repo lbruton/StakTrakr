@@ -99,11 +99,14 @@ let _manifestSlugs = null;
 let _manifestCoinMeta = null;
 let _manifestVendorMeta = null;
 
-/** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback */
+/** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback.
+ *  Excludes goldback-g1 — that slug is a baseline reference price for state-specific
+ *  goldback cards, not a user-facing product (STAK-498 Task 7). */
 const getActiveRetailSlugs = () => {
   if (!_manifestSlugs) return RETAIL_SLUGS;
   if (!retailPrices?.prices) return _manifestSlugs;
   return _manifestSlugs.filter((slug) => {
+    if (slug === "goldback-g1") return false;
     const entry = retailPrices.prices[slug];
     if (!entry) return false;
     if (entry.median_price != null || entry.lowest_price != null) return true;
