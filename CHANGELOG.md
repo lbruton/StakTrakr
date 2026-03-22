@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.80] - 2026-03-21
+
+### Fixed — Chart daily average diverges from current price on volatile days (STAK-483)
+
+- **Fixed**: 7-day trend chart and trend badge now use live vendor prices for today's data point instead of a running daily average — eliminates visible divergence from market card on volatile days (STAK-483)
+
+---
+
 ## [3.33.79] - 2026-03-21
 
 ### Fixed — Cloud sync image vault erasure on cross-device push (STAK-497)

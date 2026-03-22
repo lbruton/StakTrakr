@@ -1,10 +1,10 @@
 ## What's New
 
+- **Chart Accuracy Fix (v3.33.80)**: 7-day trend chart and trend badge now use live prices for today's data point instead of a running daily average &mdash; no more confusing divergence from market card on volatile days (STAK-483).
 - **Cloud Sync Image Fix (v3.33.79)**: Pushing from a device without photos no longer erases the image vault reference. Inventory hash now detects field-level changes (image URLs, numistaId). Image vault activity now visible in Activity Log (STAK-497).
 - **Retail Scraper + OOS Pipeline (v3.33.78)**: JM Bullion no longer grabs volume discount prices. Soft 404 detection for React SPAs. OOS vendors shown dimmed with strikethrough on retail cards (STAK-475, STAK-495).
 - **Numista Search Fix (v3.33.77)**: Numista search now strips operator characters from queries &mdash; items with official names containing hyphens and parentheses no longer timeout or return empty results (STAK-494).
 - **Cloud Sync Field Fix (v3.33.75)**: Cloud sync now compares all item fields during merge &mdash; previously image URLs, numistaId, grading, disposition, and 15+ other fields were silently dropped on matched items (STAK-493).
-- **Graceful SW Update (v3.33.74)**: Network-first navigation prevents stale HTML after deploys. Smart error recovery auto-reloads on cache miss instead of showing scary error dialogs (STAK-485).
 
 ## Development Roadmap
 
