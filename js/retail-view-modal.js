@@ -142,7 +142,7 @@ const _bucketWindows = (windows) => {
     if (!w.window) continue;
     const d = new Date(w.window);
     if (isNaN(d.getTime())) continue;
-    // Round down to nearest 30-min boundary
+    // Round down to nearest 60-min (hourly) boundary
     const mins = 0;
     const slotDate = new Date(Date.UTC(
       d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
@@ -451,8 +451,15 @@ const _buildIntradayChart = (slug) => {
     ...knownOrder.filter((v) => vendorSet.has(v)),
     ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
   ];
+  // Exclude OOS vendors with zero real (non-carried) prices
+  const qualifiedVendors = activeVendors.filter((vendorId) =>
+    bucketed.some((w) =>
+      w.vendors && w.vendors[vendorId] != null &&
+      !(w._carriedVendors && w._carriedVendors.has(vendorId))
+    )
+  );
   // Fall back to median+low when windows predate the per-vendor format
-  const useVendorLines = activeVendors.length > 0;
+  const useVendorLines = qualifiedVendors.length > 0;
 
   if (bucketed.length >= 2 && canvas instanceof HTMLCanvasElement && typeof Chart !== "undefined") {
     const labels = bucketed.map((w) => {
@@ -461,16 +468,21 @@ const _buildIntradayChart = (slug) => {
     });
 
     // Build carried-index sets for each active vendor
-    const carriedSets = activeVendors.map((vendorId) => {
+    // Multi-hop only: mark carried when previous window also carried (2+ consecutive hours missing)
+    const carriedSets = qualifiedVendors.map((vendorId) => {
       const s = new Set();
       bucketed.forEach((w, i) => {
-        if (w._carriedVendors && w._carriedVendors.has(vendorId)) s.add(i);
+        if (w._carriedVendors && w._carriedVendors.has(vendorId)) {
+          if (i === 0 || (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))) {
+            s.add(i);
+          }
+        }
       });
       return s;
     });
 
     const datasets = useVendorLines
-      ? buildVendorDatasets(activeVendors, bucketed,
+      ? buildVendorDatasets(qualifiedVendors, bucketed,
           (w, vendorId) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null),
           {
             labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
