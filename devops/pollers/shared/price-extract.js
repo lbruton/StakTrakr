@@ -1008,7 +1008,7 @@ async function main() {
     try {
       const spotRows = await readSpotCurrent(db);
       for (const row of spotRows) {
-        if (row.metal && row.price != null) _spotByMetal[row.metal] = Number(row.price);
+        if (row.metal && row.spot != null) _spotByMetal[row.metal] = Number(row.spot);
       }
       log(`[bounds-guard] Spot prices loaded: ${Object.entries(_spotByMetal).map(([m, p]) => `${m}=$${p}`).join(", ") || "none"}`);
     } catch (err) {
