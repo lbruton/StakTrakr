@@ -144,6 +144,7 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 **From `js/retail-view-modal.js`:**
 
 - `openRetailViewModal(slug)`, `closeRetailViewModal()` -- per-coin detail modal
+- `retailTrimTo24h(windows)` -- 24h time filter for intraday chart data (window bridge)
 
 **From `js/priceHistory.js`:**
 

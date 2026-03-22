@@ -17,10 +17,10 @@ chmod 600 /etc/environment
 mkdir -p /data/retail /data/api /data/hourly /data/logs
 
 # ── 3. Write cron schedule ──────────────────────────────────────────────
-# Home poller offsets from Fly.io to stagger Turso writes:
-#   Retail:  :30 (Fly.io runs at :00)
-#   Spot:    :15,:45 (Fly.io runs at :00,:30)
-#   Goldback: :31 (Fly.io runs at :01)
+# Home poller cron schedule (STAK-478: home is sole retail+goldback scraper):
+#   Retail:  :30 (home only — Fly.io does NOT scrape retail)
+#   Spot:    :15,:45 (staggered from Fly.io spot at :00,:30)
+#   Goldback: :31 (home only — Fly.io reads goldback from sqld)
 #   Provider export: every 5 min (same as Fly.io)
 #   Fly.io health check: every 5 min
 echo "[entrypoint] Writing cron schedule..."
