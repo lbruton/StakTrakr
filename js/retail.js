@@ -424,9 +424,9 @@ const _processSlugResult = (slug, latest, hist30) => {
       const livePrices = [];
       const patchedVendors = {};
       for (const [vid, vdata] of Object.entries(latest.vendors)) {
-        const p = vdata.price != null ? Number(vdata.price) : null;
-        if (p != null && isFinite(p)) livePrices.push(p);
-        patchedVendors[vid] = { avg: p, inStock: vdata.in_stock !== false };
+        const p = (vdata.price !== null && vdata.price !== undefined && vdata.price > 0 && isFinite(vdata.price)) ? Number(vdata.price) : null;
+        if (p !== null) livePrices.push(p);
+        patchedVendors[vid] = { avg: p, inStock: vdata.inStock !== false };
       }
       if (livePrices.length > 0) {
         const sorted = [...livePrices].sort((a, b) => a - b);
