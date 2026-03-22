@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.82] - 2026-03-22
+
+### Removed — Remove decommissioned grid/card view code (STAK-473)
+
+- **Removed**: Dead grid/card view rendering code from retail.js (~260 lines) — `_buildRetailCard()`, `_renderRetailSparkline()`, `_retailSparklines` Map, and grid branch of `renderRetailCards()` (STAK-473)
+- **Removed**: `MARKET_LIST_VIEW` feature flag from constants.js — list view is now unconditional (STAK-473)
+- **Removed**: Orphaned `.retail-card-footer` and `.retail-sparkline` CSS rules (STAK-473)
+
+---
+
 ## [3.33.81] - 2026-03-21
 
 ### Added — Price bounds guard for retail poller (STAK-496)
