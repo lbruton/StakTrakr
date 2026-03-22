@@ -43,6 +43,7 @@ const CREATE_PROVIDER_VENDORS = `
     enabled     INTEGER NOT NULL DEFAULT 1,
     selector    TEXT,
     hints       TEXT,
+    skip_bounds INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(coin_slug, vendor_id)
@@ -68,6 +69,12 @@ export async function initProviderSchema(client) {
   for (const sql of CREATE_INDEXES) {
     await client.execute(sql);
   }
+  // STAK-496: Add skip_bounds column if missing (migration for existing DBs)
+  try {
+    await client.execute("ALTER TABLE provider_vendors ADD COLUMN skip_bounds INTEGER NOT NULL DEFAULT 0");
+  } catch {
+    // Column already exists — expected on subsequent runs
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +94,7 @@ export async function getProviders(client) {
     "SELECT slug, metal, name, weight_oz, fbp_url, notes, enabled FROM provider_coins ORDER BY slug"
   );
   const vendorsResult = await client.execute(
-    "SELECT coin_slug, vendor_id, vendor_name, url, enabled, selector, hints FROM provider_vendors ORDER BY coin_slug, vendor_id"
+    "SELECT coin_slug, vendor_id, vendor_name, url, enabled, selector, hints, skip_bounds FROM provider_vendors ORDER BY coin_slug, vendor_id"
   );
 
   // Index vendors by coin_slug for fast lookup
@@ -102,6 +109,7 @@ export async function getProviders(client) {
       url: row.url || undefined,
       ...(row.selector ? { selector: row.selector } : {}),
       ...(row.hints ? { hints: row.hints } : {}),
+      ...(row.skip_bounds === 1 ? { skipPriceBounds: true } : {}),
     });
   }
 
@@ -129,7 +137,7 @@ export async function getProviders(client) {
  */
 export async function getProvidersByCoin(client, coinSlug) {
   const result = await client.execute({
-    sql: "SELECT vendor_id, vendor_name, url, enabled, selector, hints FROM provider_vendors WHERE coin_slug = ? ORDER BY vendor_id",
+    sql: "SELECT vendor_id, vendor_name, url, enabled, selector, hints, skip_bounds FROM provider_vendors WHERE coin_slug = ? ORDER BY vendor_id",
     args: [coinSlug],
   });
   return result.rows.map((row) => ({
@@ -139,6 +147,7 @@ export async function getProvidersByCoin(client, coinSlug) {
     enabled: row.enabled === 1,
     ...(row.selector ? { selector: row.selector } : {}),
     ...(row.hints ? { hints: row.hints } : {}),
+    ...(row.skip_bounds === 1 ? { skipPriceBounds: true } : {}),
   }));
 }
 

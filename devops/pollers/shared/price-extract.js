@@ -22,7 +22,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openTursoDb, writeSnapshot, windowFloor, startRunLog, finishRunLog, recordFailure } from "./db.js";
+import { openTursoDb, writeSnapshot, windowFloor, startRunLog, finishRunLog, recordFailure, readSpotCurrent } from "./db.js";
 import { loadProviders } from "./provider-db.js";
 import { getCFClearanceCookie } from "./cf-clearance.js";
 
@@ -1000,6 +1000,54 @@ async function main() {
   const scrapedAt = new Date().toISOString();
   const winStart = windowFloor();
 
+  // STAK-496: Load spot prices + goldback baseline for price bounds guard.
+  // Computed once at startup — used by safeWriteSnapshot for each target.
+  const _spotByMetal = {};  // { gold: 2650.00, silver: 31.50, ... }
+  let _goldbackG1 = null;   // goldback.com G1 rate in USD
+  if (db) {
+    try {
+      const spotRows = await readSpotCurrent(db);
+      for (const row of spotRows) {
+        if (row.metal && row.price != null) _spotByMetal[row.metal] = Number(row.price);
+      }
+      log(`[bounds-guard] Spot prices loaded: ${Object.entries(_spotByMetal).map(([m, p]) => `${m}=$${p}`).join(", ") || "none"}`);
+    } catch (err) {
+      warn(`[bounds-guard] Spot prices unavailable (non-fatal): ${err.message.slice(0, 80)}`);
+    }
+    try {
+      const gbPath = join(DATA_DIR, "api", "goldback-spot.json");
+      if (existsSync(gbPath)) {
+        const gb = JSON.parse(readFileSync(gbPath, "utf-8"));
+        if (gb.g1_usd > 0) _goldbackG1 = gb.g1_usd;
+      }
+      if (_goldbackG1 == null && _spotByMetal.gold) {
+        _goldbackG1 = _spotByMetal.gold * 0.003085;  // fallback: gold spot × G1 weight
+      }
+      if (_goldbackG1) log(`[bounds-guard] Goldback G1 baseline: $${_goldbackG1.toFixed(2)}`);
+    } catch (err) {
+      warn(`[bounds-guard] Goldback baseline unavailable (non-fatal): ${err.message.slice(0, 80)}`);
+    }
+  }
+
+  /**
+   * Compute the dynamic price baseline for a given coin.
+   * @param {string} coinSlug
+   * @param {object} coin  { metal, weight_oz }
+   * @returns {number|null}  baseline price in USD, or null if unavailable
+   */
+  function computeBaseline(coinSlug, coin) {
+    if (coin.metal === "goldback") {
+      // Goldback denominations: G1, G5, G10, G25, G50
+      if (!_goldbackG1) return null;
+      const denomMatch = coinSlug.match(/goldback-.*?-?g(\d+)$/i) || coinSlug.match(/goldback-g(\d+)/i);
+      const multiplier = denomMatch ? Number(denomMatch[1]) : 1;
+      return _goldbackG1 * multiplier;
+    }
+    const spot = _spotByMetal[coin.metal];
+    if (!spot || !coin.weight_oz) return null;
+    return spot * coin.weight_oz;
+  }
+
   // Start run log entry in Turso.
   // First, mark any orphaned "running" rows from previous crashed runs as "error".
   let runId = null;
@@ -1023,6 +1071,10 @@ async function main() {
   for (let targetIdx = 0; targetIdx < targets.length; targetIdx++) {
     const { coinSlug, coin, provider, urls } = targets[targetIdx];
     log(`Scraping ${coinSlug}/${provider.id}${urls.length > 1 ? ` (${urls.length} URL(s))` : ""}`);
+
+    // STAK-496: Per-target bounds check params
+    const _baseline = computeBaseline(coinSlug, coin);
+    const _skipBounds = provider.skipPriceBounds === true;
 
     let price = null;
     let source = "firecrawl";
@@ -1054,6 +1106,7 @@ async function main() {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price, source,
             isFailed: false, inStock,
+            baseline: _baseline, skipPriceBounds: _skipBounds,
           });
         }
         if (targetIdx < targets.length - 1) { await jitter(); }
@@ -1072,6 +1125,7 @@ async function main() {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price: null, source: cfResult.source,
             isFailed: false, inStock: false,
+            baseline: _baseline, skipPriceBounds: _skipBounds,
           });
         }
         if (targetIdx < targets.length - 1) { await jitter(); }
@@ -1112,6 +1166,7 @@ async function main() {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price, source,
             isFailed: false, inStock,
+            baseline: _baseline, skipPriceBounds: _skipBounds,
           });
         }
         if (targetIdx < targets.length - 1) { await jitter(); }
@@ -1306,6 +1361,7 @@ async function main() {
         price,
         source,
         isFailed:  price === null && inStock,  // Only failed if in stock but no price
+        baseline: _baseline, skipPriceBounds: _skipBounds,
         inStock,
       });
 
