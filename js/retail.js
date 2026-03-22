@@ -174,9 +174,6 @@ let _retailSyncInProgress = false;
 /** True when the last sync attempt failed — drives error display in grid/list views */
 let _retailSyncError = false;
 
-/** Active sparkline Chart instances keyed by slug — destroyed before re-render to prevent Canvas reuse errors */
-const _retailSparklines = new Map();
-
 /** Current trend display mode: "7d" (default) or "intraday" */
 let _retailTrendMode = "7d";
 
@@ -648,32 +645,6 @@ const _buildSkeletonCard = () => {
   return card;
 };
 
-/**
- * Renders a 15-min intraday sparkline on a card's canvas (last 48 windows = 12h).
- * Falls back to 7-day daily history if no intraday data is available.
- * Destroys any prior Chart instance first to prevent Canvas reuse errors.
- * @param {string} slug
- */
-const _renderRetailSparkline = (slug) => {
-  const canvas = safeGetElement(`retail-spark-${slug}`);
-  if (!(canvas instanceof HTMLCanvasElement) || typeof Chart === "undefined") return;
-  const intraday = retailIntradayData[slug];
-  let data;
-  if (intraday && Array.isArray(intraday.windows_24h) && intraday.windows_24h.length >= 2) {
-    data = intraday.windows_24h.slice(-48).map((w) => Number(w.median)).filter((v) => isFinite(v));
-  } else {
-    // Fallback: 7-day daily history
-    data = (retailPriceHistory[slug] || []).slice(0, 7).reverse()
-      .map((e) => Number(e.avg_median ?? e.average_price)).filter((v) => isFinite(v));
-  }
-  if (data.length < 2) return;
-  if (_retailSparklines.has(slug)) {
-    _retailSparklines.get(slug).destroy();
-  }
-  const chart = createSparkline(canvas, data);
-  if (chart) _retailSparklines.set(slug, chart);
-};
-
 /** Updates the sync timestamp element based on current sync state. Shared by grid and list views. */
 const _updateLastSyncEl = (el) => {
   if (_retailSyncError) {
@@ -691,46 +662,7 @@ const _updateLastSyncEl = (el) => {
 
 /** Called on market section open and after each sync. */
 const renderRetailCards = () => {
-  // Market list view branch (feature flag)
-  if (typeof isFeatureEnabled === "function" && isFeatureEnabled("MARKET_LIST_VIEW")) {
-    _renderMarketListView();
-    return;
-  }
-
-  const grid = safeGetElement("retailCardsGrid");
-  const lastSyncEl = safeGetElement("retailLastSync");
-  const disclaimer = safeGetElement("retailDisclaimer");
-
-  // Ensure grid header is visible when using grid view
-  const listHeader = safeGetElement("marketListHeader");
-  const gridHeader = safeGetElement("marketGridHeader");
-  if (listHeader) listHeader.style.display = "none";
-  if (gridHeader) gridHeader.style.display = "";
-  grid.classList.remove("market-list-mode");
-
-  _updateLastSyncEl(lastSyncEl);
-
-  grid.innerHTML = "";
-  if (_retailSyncInProgress) {
-    disclaimer.style.display = "";
-    safeGetElement("retailEmptyState").style.display = "none";
-    getActiveRetailSlugs().forEach(() => grid.appendChild(_buildSkeletonCard()));
-    return;
-  }
-
-  const emptyState = safeGetElement("retailEmptyState");
-  const hasData = retailPrices && retailPrices.prices && Object.keys(retailPrices.prices).length > 0;
-  emptyState.style.display = hasData ? "none" : "";
-  disclaimer.style.display = hasData ? "" : "none";
-  if (!hasData) return;
-
-  const activeSlugs = getActiveRetailSlugs();
-  activeSlugs.forEach((slug) => {
-    const meta = getRetailCoinMeta(slug);
-    const priceData = retailPrices && retailPrices.prices ? retailPrices.prices[slug] || null : null;
-    grid.appendChild(_buildRetailCard(slug, meta, priceData));
-  });
-  activeSlugs.forEach((slug) => _renderRetailSparkline(slug));
+  _renderMarketListView();
 };
 
 /** Metal emoji icons keyed by metal name */
@@ -776,221 +708,6 @@ const _getActiveTrend = (slug) => {
 };
 
 
-/**
- * Builds a single coin price card element.
- * @param {string} slug
- * @param {{name:string, weight:number, metal:string}} meta
- * @param {Object|null} priceData
- * @returns {HTMLElement}
- */
-const _buildRetailCard = (slug, meta, priceData) => {
-  const card = document.createElement("div");
-  card.className = "retail-price-card";
-  card.dataset.slug = slug;
-
-  const header = document.createElement("div");
-  header.className = "retail-card-header";
-
-  const nameSpan = document.createElement("span");
-  nameSpan.className = "retail-coin-name";
-  nameSpan.textContent = meta.name;
-
-  const badge = document.createElement("span");
-  badge.className = `retail-metal-badge retail-metal-badge--${meta.metal}`;
-  const emoji = RETAIL_METAL_EMOJI[meta.metal];
-  const metalLabel = meta.metal === "platinum" ? "PLAT" : meta.metal.toUpperCase();
-  badge.textContent = emoji ? `${emoji} ${metalLabel}` : metalLabel;
-
-  header.appendChild(nameSpan);
-  header.appendChild(badge);
-  card.appendChild(header);
-
-  const weightEl = document.createElement("div");
-  weightEl.className = "retail-coin-weight";
-  weightEl.textContent = `${meta.weight} troy oz`;
-  card.appendChild(weightEl);
-
-  if (!priceData) {
-    const noData = document.createElement("div");
-    noData.className = "retail-no-data";
-    noData.textContent = "No data — click Sync";
-    card.appendChild(noData);
-  } else {
-    const summary = document.createElement("div");
-    summary.className = "retail-summary-row";
-    [["Med", priceData.median_price], ["Low", priceData.lowest_price]].forEach(([label, val]) => {
-      const item = document.createElement("span");
-      item.className = "retail-summary-item";
-      const lbl = document.createElement("span");
-      lbl.className = "retail-label";
-      lbl.textContent = label;
-      const valSpan = document.createElement("span");
-      valSpan.className = "retail-summary-value";
-      valSpan.textContent = _fmtRetailPrice(val);
-      item.appendChild(lbl);
-      item.appendChild(valSpan);
-      summary.appendChild(item);
-    });
-
-    // Add trend chip to the right side of the summary row
-    const trend = _computeRetailTrend(slug);
-    if (trend) {
-      const trendEl = document.createElement("span");
-      const arrow = { up: "\u2191", down: "\u2193", flat: "\u2192" }[trend.dir];
-      const sign  = trend.dir === "up" ? "+" : trend.dir === "down" ? "-" : "";
-      trendEl.className = `retail-trend retail-trend--${trend.dir}`;
-      trendEl.textContent = `${arrow} ${sign}${trend.pct}%`;
-      summary.appendChild(trendEl);
-    }
-
-    card.appendChild(summary);
-
-    const vendorDetails = document.createElement("div");
-    vendorDetails.className = "retail-vendor-details";
-
-    const vendors = document.createElement("div");
-    vendors.className = "retail-vendors";
-
-    // Goldback vendor reference price (grid view)
-    if (typeof getGoldbackVendorPrice === "function") {
-      const gbPrice = getGoldbackVendorPrice(slug);
-      if (gbPrice) {
-        const gbRow = document.createElement("div");
-        gbRow.className = "retail-vendor-row";
-        if (gbPrice.isStale) gbRow.style.opacity = "0.6";
-        const gbName = document.createElement("span");
-        gbName.className = "retail-vendor-name";
-        gbName.style.color = "#d4a017";
-        gbName.textContent = "Goldback";
-        gbRow.appendChild(gbName);
-        const gbVal = document.createElement("span");
-        gbVal.className = "retail-vendor-price";
-        gbVal.textContent = _fmtRetailPrice(gbPrice.price) + (gbPrice.isStale ? " (stale)" : "");
-        gbRow.appendChild(gbVal);
-        vendors.appendChild(gbRow);
-      }
-    }
-
-    const vendorMap = priceData.vendors || {};
-    const availability = retailAvailability[slug] || {};
-    const lastKnownPrices = retailLastKnownPrices[slug] || {};
-    const lastKnownDates = retailLastAvailableDates[slug] || {};
-
-    // Build list of all vendors (in-stock and OOS)
-    const allVendorKeys = new Set([
-      ...Object.keys(vendorMap),
-      ...Object.keys(availability),
-    ]);
-
-    // Sort: in-stock vendors by price asc, then OOS vendors by last-known price asc
-    const sortedVendorEntries = Array.from(allVendorKeys)
-      .map((key) => {
-        const vendorData = vendorMap[key];
-        const isAvailable = availability[key] !== false; // default true if not specified
-        const price = vendorData ? vendorData.price : null;
-        // OOS vendors with no current price: use last-known price for display (STAK-495)
-        const displayPrice = price ?? (lastKnownPrices[key] ?? null);
-        const score = vendorData ? vendorData.confidence : null;
-        const label = getVendorDisplay(key).name;
-        return { key, label, price: displayPrice, score, isAvailable };
-      })
-      .filter(({ price }) => price != null) // show only vendors with a displayable price
-      .sort((a, b) => {
-        // In-stock vendors first (by price asc), then OOS vendors (by price asc)
-        if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
-        return a.price - b.price;
-      });
-
-    // Award medals to top 3 IN-STOCK vendors by price (STAK-495)
-    const top3 = sortedVendorEntries
-      .filter(({ isAvailable }) => isAvailable)
-      .slice(0, 3).map(({ key }) => key);
-
-    sortedVendorEntries.forEach(({ key, label, price, isAvailable }) => {
-      const row = document.createElement("div");
-      row.className = "retail-vendor-row";
-      if (!isAvailable) row.classList.add("retail-vendor-row--oos");
-      const medalIndex = top3.indexOf(key);
-      if (medalIndex !== -1) {
-        row.classList.add(`retail-vendor-row--medal-${medalIndex + 1}`);
-      }
-
-      const nameEl = document.createElement("span");
-      nameEl.className = "retail-vendor-name";
-      const _vd = getVendorDisplay(key);
-      const vendorColor = _vd.color;
-      // Prefer specific product page from providers.json; fall back to vendor homepage
-      const vendorUrl = (retailProviders && retailProviders[slug] && retailProviders[slug][key])
-        || _vd.url;
-      if (vendorUrl) {
-        const link = document.createElement("a");
-        link.href = "#";
-        link.textContent = !isAvailable ? `${label} (OOS)` : label;
-        link.className = "retail-vendor-link";
-        if (vendorColor) link.style.color = vendorColor;
-        link.addEventListener("click", (e) => {
-          e.preventDefault();
-          const popup = window.open(vendorUrl, `retail_vendor_${key}`, "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no");
-          if (popup) popup.opener = null;
-          else window.open(vendorUrl, "_blank", "noopener,noreferrer");
-        });
-        nameEl.appendChild(link);
-      } else {
-        nameEl.textContent = label;
-        if (vendorColor) nameEl.style.color = vendorColor;
-      }
-
-      const priceEl = document.createElement("span");
-      priceEl.className = "retail-vendor-price";
-      priceEl.textContent = _fmtRetailPrice(price);
-
-      row.appendChild(nameEl);
-      row.appendChild(priceEl);
-      vendors.appendChild(row);
-    });
-
-    vendorDetails.appendChild(vendors);
-    card.appendChild(vendorDetails);
-
-    const footer = document.createElement("div");
-    footer.className = "retail-card-footer";
-    const dateSpan = document.createElement("span");
-    dateSpan.className = "retail-data-date";
-    dateSpan.textContent = retailPrices && retailPrices.window_start ? "today" : "—";
-    footer.appendChild(dateSpan);
-    const sparkCanvas = document.createElement("canvas");
-    sparkCanvas.id = `retail-spark-${slug}`;
-    sparkCanvas.className = "retail-sparkline";
-    sparkCanvas.width = 80;
-    sparkCanvas.height = 28;
-    footer.appendChild(sparkCanvas);
-    card.appendChild(footer);
-  }
-
-  const btnRow = document.createElement("div");
-  btnRow.className = "retail-card-btn-row";
-
-  const viewBtn = document.createElement("button");
-  viewBtn.className = "retail-card-action retail-view-btn";
-  viewBtn.type = "button";
-  viewBtn.dataset.retailViewSlug = slug;
-  viewBtn.textContent = "View";
-  btnRow.appendChild(viewBtn);
-
-  const histBtn = document.createElement("button");
-  histBtn.className = "retail-card-action retail-history-btn";
-  histBtn.type = "button";
-  histBtn.dataset.retailHistorySlug = slug;
-  histBtn.textContent = "History";
-  btnRow.appendChild(histBtn);
-
-  card.appendChild(btnRow);
-
-  return card;
-};
-
-// ---------------------------------------------------------------------------
-// Market List View (MARKET_LIST_VIEW feature flag)
 // ---------------------------------------------------------------------------
 
 /** Medal text labels and CSS classes for top-3 vendors (matches playground) */
@@ -1728,7 +1445,7 @@ const _getFilteredSortedSlugs = (query, sortKey) => {
 };
 
 /**
- * Renders the market list view when MARKET_LIST_VIEW is enabled.
+ * Renders the market list view.
  * Shows list header, iterates filtered+sorted slugs, builds cards.
  */
 const _renderMarketListView = () => {
