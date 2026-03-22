@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.86] - 2026-03-22
+
+### Fixed — What's New modal flash fix (STAK-500)
+
+- **Fixed**: What's New modal no longer flashes old content before showing current announcements — loadAnnouncements() race condition eliminated (STAK-500)
+
+---
+
 ## [3.33.84] - 2026-03-22
 
 ### Fixed — Market price fixes (STAK-498)

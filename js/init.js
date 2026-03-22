@@ -413,9 +413,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (footerDomainEl) {
       footerDomainEl.textContent = getFooterDomain();
     }
-    if (typeof loadAnnouncements === "function") {
-      loadAnnouncements();
-    }
+    // STAK-500: Removed redundant loadAnnouncements() call — it's called by
+    // showWhatsNewPopup() (which internally awaits loadAnnouncements()) and populateAboutTab() when those are needed
 
     // Phase 12: Data Initialization
     debugLog("Phase 12: Loading application data...");
