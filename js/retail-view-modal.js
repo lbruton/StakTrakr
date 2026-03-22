@@ -125,13 +125,15 @@ const _buildVendorLegend = (slug) => {
   });
 };
 
-/**
- * Buckets raw windows_24h into 30-min aligned slots (HH:00 and HH:30).
- * For each slot, picks the most recent window whose timestamp falls within it.
- * Returns up to 48 entries covering the 24h window, oldest first.
- * @param {Array} windows - raw windows_24h from API
- * @returns {Array}
- */
+const _trimTo24h = (windows) => {
+  if (!windows || windows.length === 0) return [];
+  const validWindows = windows.filter(w => w && w.window);
+  if (validWindows.length === 0) return [];
+  const maxTs = Math.max(...validWindows.map(w => new Date(w.window).getTime()));
+  const cutoff = maxTs - 24 * 60 * 60 * 1000;
+  return validWindows.filter(w => new Date(w.window).getTime() >= cutoff);
+};
+
 const _bucketWindows = (windows) => {
   if (!windows || windows.length === 0) return [];
   // Build a map: slotKey (ISO :00 or :30) → most recent window in that slot
@@ -141,7 +143,7 @@ const _bucketWindows = (windows) => {
     const d = new Date(w.window);
     if (isNaN(d.getTime())) continue;
     // Round down to nearest 30-min boundary
-    const mins = d.getUTCMinutes() >= 30 ? 30 : 0;
+    const mins = 0;
     const slotDate = new Date(Date.UTC(
       d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
       d.getUTCHours(), mins, 0, 0
@@ -301,7 +303,7 @@ const _buildIntradayTable = (slug, bucketed) => {
   if (!bucketed) {
     const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
     const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-    const filled = _forwardFillVendors(_bucketWindows(windows));
+    const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
     try {
       bucketed = _flagAnomalies(filled);
     } catch (e) {
@@ -421,7 +423,7 @@ const _buildIntradayChart = (slug) => {
 
   const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
   const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-  const filled = _forwardFillVendors(_bucketWindows(windows));
+  const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
   let bucketed;
   try {
     bucketed = _flagAnomalies(filled);
@@ -727,6 +729,7 @@ if (typeof window !== "undefined") {
   window.retailForwardFillVendors = _forwardFillVendors;
   window.retailFlagAnomalies = _flagAnomalies;
   window.retailFmtIntradayTime = _fmtIntradayTime;
+  window.retailTrimTo24h = _trimTo24h;
 }
 
 // =============================================================================
