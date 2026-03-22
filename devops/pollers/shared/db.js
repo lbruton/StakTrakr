@@ -248,24 +248,29 @@ export function readWindow(db, windowStart) {
 }
 
 /**
- * Returns per-window rows for a specific coin over the past N windows (chronological).
- * Used for building the 24h time series in api-export.
+ * Returns per-window rows for a specific coin within cutoffHours of the latest
+ * snapshot (chronological). Used for building the 24h time series in api-export.
  *
  * @param {Database.Database} db
  * @param {string} coinSlug
- * @param {number} [windowCount=96]  default 96 = 24h worth of 15-min windows
+ * @param {number} [windowCount=96]  safety-cap LIMIT (default 96 × 20 rows)
+ * @param {number} [cutoffHours=24]  only return rows within this many hours of the latest window
  * @returns {Array<object>}
  */
-export function readRecentWindows(db, coinSlug, windowCount = 96) {
-  return db
-    .prepare(`
+export function readRecentWindows(db, coinSlug, windowCount = 96, cutoffHours = 24) {
+  const latest = db.prepare(
+    "SELECT MAX(window_start) as latest FROM price_snapshots WHERE coin_slug = ? AND price IS NOT NULL"
+  ).get(coinSlug);
+  if (!latest || !latest.latest) return [];
+  const cutoff = new Date(new Date(latest.latest).getTime() - cutoffHours * 60 * 60 * 1000).toISOString();
+  return db.prepare(`
       SELECT *
       FROM price_snapshots
-      WHERE coin_slug = ? AND price IS NOT NULL
+      WHERE coin_slug = ? AND price IS NOT NULL AND window_start >= ?
       ORDER BY window_start DESC
       LIMIT ?
     `)
-    .all(coinSlug, windowCount * 20) // over-fetch then aggregate in JS
+    .all(coinSlug, cutoff, windowCount * 20)
     .reverse();
 }
 
