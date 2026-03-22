@@ -415,6 +415,28 @@ const _processSlugResult = (slug, latest, hist30) => {
   result.lastKnownPriceBySite = latest.last_known_price_by_site || null;
   result.lastAvailableDateBySite = latest.last_available_date_by_site || null;
 
+  // STAK-483: Patch today's history entry with live prices so chart/trend
+  // match the current market card instead of lagging behind a daily average.
+  if (result.history30 && latest.window_start && latest.vendors) {
+    const today = latest.window_start.slice(0, 10);
+    const todayEntry = result.history30.find((e) => e.date === today);
+    if (todayEntry) {
+      const livePrices = [];
+      const patchedVendors = {};
+      for (const [vid, vdata] of Object.entries(latest.vendors)) {
+        const p = (vdata.price !== null && vdata.price !== undefined && vdata.price > 0 && isFinite(vdata.price)) ? Number(vdata.price) : null;
+        if (p !== null) livePrices.push(p);
+        patchedVendors[vid] = { avg: p, inStock: vdata.inStock !== false };
+      }
+      if (livePrices.length > 0) {
+        const sorted = [...livePrices].sort((a, b) => a - b);
+        todayEntry.avg_median = Math.round(sorted[Math.floor(sorted.length / 2)] * 100) / 100;
+        todayEntry.avg_low = Math.round(Math.min(...livePrices) * 100) / 100;
+        todayEntry.vendors = patchedVendors;
+      }
+    }
+  }
+
   return result;
 };
 
