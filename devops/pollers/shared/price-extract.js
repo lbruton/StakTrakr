@@ -458,14 +458,18 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
   }
 
   if (providerId === "jmbullion") {
-    // JM Bullion: pipe table → prose table ONLY. No "As Low As" fallback.
+    // JM Bullion: prose table → pipe table ONLY. No "As Low As" fallback.
+    // Prose parser is tried FIRST because it anchors to the "(e)Check/Wire" column
+    // header — guaranteed to return the eCheck price. The pipe-table parser
+    // (firstTableRowFirstPrice) is column-blind and can grab Card/PayPal when
+    // Firecrawl renders columns in non-standard order (STAK-498 Task 6).
     // "As Low As" is a volume discount (100+ units via ACH) — NOT the single-unit
     // retail price. Using it causes 10-90% price spread vs. actual retail (STAK-475 P2).
     // Better to return null (missed window) than record a volume discount.
-    const tblFirst = firstTableRowFirstPrice();
-    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
     const proseTbl = jmPriceFromProseTable();
     if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
+    const tblFirst = firstTableRowFirstPrice();
+    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
     // No asLowAs fallback — return null below.
   } else if (USES_AS_LOW_AS.has(providerId)) {
     // Reserved for vendors that have no pricing table, only "As Low As" display.

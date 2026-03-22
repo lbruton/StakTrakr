@@ -628,6 +628,11 @@ async function main() {
     warn("Could not load providers from Turso or file — using slugs from DB only");
   }
 
+  // goldback-g1 is a baseline reference price (exported via goldback-spot.json),
+  // not a user-facing product. Exclude from the coins manifest so it doesn't
+  // render as a ghost card in the frontend market view (STAK-498 Task 7).
+  coinSlugs = coinSlugs.filter((s) => s !== "goldback-g1");
+
   log(`API export: ${coinSlugs.length} coins, latest window: ${latestWindow}`);
 
   // --------------------------------------------------------------------------
@@ -841,6 +846,7 @@ async function main() {
   const coinsMeta = {};
   if (providersJson) {
     for (const [slug, coinData] of Object.entries(providersJson.coins || {})) {
+      if (slug === "goldback-g1") continue; // baseline ref, not a product
       coinsMeta[slug] = {
         name: coinData.name,
         metal: coinData.metal,
@@ -884,9 +890,11 @@ async function main() {
 
   // --------------------------------------------------------------------------
   // goldback-spot.json — generated from Turso goldback-g1 data; backward compat
-  // for api-health.js freshness check and denomination lookups
+  // for api-health.js freshness check and denomination lookups.
+  // goldback-g1 is excluded from coinSlugs (not a user-facing product) but
+  // still exported here as a standalone reference file (STAK-498 Task 7).
   // --------------------------------------------------------------------------
-  if (coinSlugs.includes("goldback-g1")) {
+  {
     const gbRows = readLatestPerVendor(db, "goldback-g1", 2);
     const gbVendors = vendorMap(gbRows);
     const g1Raw = gbVendors?.goldback?.price;
