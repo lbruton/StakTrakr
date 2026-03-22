@@ -251,7 +251,7 @@ const loadRetailIntradayData = () => {
 };
 
 const saveRetailIntradayData = () => {
-  // STAK-300: cap windows_24h to last 96 entries per slug (24h of 15-min data)
+  // STAK-300: cap windows_24h to last 96 entries per slug (24h of hourly data)
   // to prevent localStorage quota overflow on large collections
   const pruned = {};
   for (const [slug, entry] of Object.entries(retailIntradayData)) {
@@ -1296,7 +1296,8 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
       typeof window.retailFlagAnomalies !== "function") return;
 
   const intraday = retailIntradayData[slug];
-  const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  const raw = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  const windows = typeof window.retailTrimTo24h === "function" ? window.retailTrimTo24h(raw) : raw;
   if (windows.length < 2) return;
 
   const filled = window.retailForwardFillVendors(window.retailBucketWindows(windows));
@@ -1327,17 +1328,30 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
     ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
   ];
 
+  // Exclude OOS vendors with zero real (non-carried) prices
+  const qualifiedVendors = activeVendors.filter((vendorId) =>
+    bucketed.some((w) =>
+      w.vendors && w.vendors[vendorId] != null &&
+      !(w._carriedVendors && w._carriedVendors.has(vendorId))
+    )
+  );
+
   // Pre-compute carried indices per vendor for buildVendorDatasets
-  const carriedPerVendor = activeVendors.map((vendorId) => {
+  // Multi-hop only: mark carried when previous window also carried (2+ consecutive hours missing)
+  const carriedPerVendor = qualifiedVendors.map((vendorId) => {
     const carried = new Set();
     bucketed.forEach((w, i) => {
-      if (w._carriedVendors && w._carriedVendors.has(vendorId)) carried.add(i);
+      if (w._carriedVendors && w._carriedVendors.has(vendorId)) {
+        if (i === 0 || (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))) {
+          carried.add(i);
+        }
+      }
     });
     return carried;
   });
 
-  const datasets = activeVendors.length > 0
-    ? buildVendorDatasets(activeVendors, bucketed, (w, vendorId) => {
+  const datasets = qualifiedVendors.length > 0
+    ? buildVendorDatasets(qualifiedVendors, bucketed, (w, vendorId) => {
         return w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null;
       }, {
         colorMap: RETAIL_VENDOR_COLORS,
@@ -1357,7 +1371,7 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
       }];
 
   // Augment vendor datasets with carried-aware dashed segments (STAK-474)
-  if (activeVendors.length > 0) {
+  if (qualifiedVendors.length > 0) {
     datasets.forEach((ds, idx) => {
       const carried = carriedPerVendor[idx];
       ds.pointRadius = 0;

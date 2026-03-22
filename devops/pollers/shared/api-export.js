@@ -807,7 +807,7 @@ async function main() {
       }
     }
 
-    // 24h windows time series — aggregate into 60-min (hourly) buckets
+    // 24h windows time series — time-bound to 24h from latest snapshot, aggregated into 60-min buckets
     // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors (STAK-476)
     const recentRows = readRecentWindows(db, slug, 96);
     const windows24h = aggregateWindows(recentRows, 60);

@@ -125,13 +125,17 @@ const _buildVendorLegend = (slug) => {
   });
 };
 
-/**
- * Buckets raw windows_24h into 30-min aligned slots (HH:00 and HH:30).
- * For each slot, picks the most recent window whose timestamp falls within it.
- * Returns up to 48 entries covering the 24h window, oldest first.
- * @param {Array} windows - raw windows_24h from API
- * @returns {Array}
- */
+const _trimTo24h = (windows) => {
+  if (!windows || windows.length === 0) return [];
+  const validWindows = windows.filter(w => w && w.window);
+  if (validWindows.length === 0) return [];
+  const timestamps = validWindows.map(w => new Date(w.window).getTime()).filter(t => !isNaN(t));
+  if (timestamps.length === 0) return [];
+  const maxTs = Math.max(...timestamps);
+  const cutoff = maxTs - 24 * 60 * 60 * 1000;
+  return validWindows.filter(w => { const t = new Date(w.window).getTime(); return !isNaN(t) && t >= cutoff; });
+};
+
 const _bucketWindows = (windows) => {
   if (!windows || windows.length === 0) return [];
   // Build a map: slotKey (ISO :00 or :30) → most recent window in that slot
@@ -140,8 +144,8 @@ const _bucketWindows = (windows) => {
     if (!w.window) continue;
     const d = new Date(w.window);
     if (isNaN(d.getTime())) continue;
-    // Round down to nearest 30-min boundary
-    const mins = d.getUTCMinutes() >= 30 ? 30 : 0;
+    // Round down to nearest 60-min (hourly) boundary
+    const mins = 0;
     const slotDate = new Date(Date.UTC(
       d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
       d.getUTCHours(), mins, 0, 0
@@ -301,7 +305,7 @@ const _buildIntradayTable = (slug, bucketed) => {
   if (!bucketed) {
     const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
     const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-    const filled = _forwardFillVendors(_bucketWindows(windows));
+    const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
     try {
       bucketed = _flagAnomalies(filled);
     } catch (e) {
@@ -421,7 +425,7 @@ const _buildIntradayChart = (slug) => {
 
   const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
   const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-  const filled = _forwardFillVendors(_bucketWindows(windows));
+  const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
   let bucketed;
   try {
     bucketed = _flagAnomalies(filled);
@@ -449,8 +453,15 @@ const _buildIntradayChart = (slug) => {
     ...knownOrder.filter((v) => vendorSet.has(v)),
     ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
   ];
+  // Exclude OOS vendors with zero real (non-carried) prices
+  const qualifiedVendors = activeVendors.filter((vendorId) =>
+    bucketed.some((w) =>
+      w.vendors && w.vendors[vendorId] != null &&
+      !(w._carriedVendors && w._carriedVendors.has(vendorId))
+    )
+  );
   // Fall back to median+low when windows predate the per-vendor format
-  const useVendorLines = activeVendors.length > 0;
+  const useVendorLines = qualifiedVendors.length > 0;
 
   if (bucketed.length >= 2 && canvas instanceof HTMLCanvasElement && typeof Chart !== "undefined") {
     const labels = bucketed.map((w) => {
@@ -459,16 +470,21 @@ const _buildIntradayChart = (slug) => {
     });
 
     // Build carried-index sets for each active vendor
-    const carriedSets = activeVendors.map((vendorId) => {
+    // Multi-hop only: mark carried when previous window also carried (2+ consecutive hours missing)
+    const carriedSets = qualifiedVendors.map((vendorId) => {
       const s = new Set();
       bucketed.forEach((w, i) => {
-        if (w._carriedVendors && w._carriedVendors.has(vendorId)) s.add(i);
+        if (w._carriedVendors && w._carriedVendors.has(vendorId)) {
+          if (i === 0 || (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))) {
+            s.add(i);
+          }
+        }
       });
       return s;
     });
 
     const datasets = useVendorLines
-      ? buildVendorDatasets(activeVendors, bucketed,
+      ? buildVendorDatasets(qualifiedVendors, bucketed,
           (w, vendorId) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null),
           {
             labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
@@ -727,6 +743,7 @@ if (typeof window !== "undefined") {
   window.retailForwardFillVendors = _forwardFillVendors;
   window.retailFlagAnomalies = _flagAnomalies;
   window.retailFmtIntradayTime = _fmtIntradayTime;
+  window.retailTrimTo24h = _trimTo24h;
 }
 
 // =============================================================================
