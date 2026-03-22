@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.83] - 2026-03-22
+
+### Fixed — Intraday chart 24h hourly view (STAK-498)
+
+- **Fixed**: Intraday charts now show exactly 24 hourly data points instead of 2-3 days of multi-day data with excessive dotted lines (STAK-498)
+- **Fixed**: Dotted chart lines only appear for genuinely missing data (2+ consecutive hour gaps), not for normal hourly polling jitter (STAK-498)
+- **Fixed**: Out-of-stock vendors excluded from intraday chart datasets — no more phantom lines for vendors with zero real prices (STAK-498)
+- **Fixed**: API `readRecentWindows()` uses time-based 24h cutoff instead of row-count over-fetch spanning multiple days (STAK-498)
+
+---
+
 ## [3.33.82] - 2026-03-22
 
 ### Removed — Remove decommissioned grid/card view code (STAK-473)
