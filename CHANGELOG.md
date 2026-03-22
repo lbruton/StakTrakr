@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.84] - 2026-03-22
+
+### Fixed — Market price fixes (STAK-498)
+
+- **Fixed**: JM Bullion price extraction now uses column-aware eCheck/Wire parser first, preventing inflated Card/PayPal prices (STAK-498)
+- **Fixed**: Goldback-g1 baseline reference no longer appears as a ghost card in market view (STAK-498)
+
+---
+
 ## [3.33.83] - 2026-03-22
 
 ### Fixed — Intraday chart 24h hourly view (STAK-498)
