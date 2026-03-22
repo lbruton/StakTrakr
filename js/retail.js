@@ -99,14 +99,16 @@ let _manifestSlugs = null;
 let _manifestCoinMeta = null;
 let _manifestVendorMeta = null;
 
+/** Slugs excluded from market card display — baseline references, not user-facing products. */
+const _HIDDEN_SLUGS = new Set(["goldback-g1"]);
+
 /** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback.
- *  Excludes goldback-g1 — that slug is a baseline reference price for state-specific
- *  goldback cards, not a user-facing product (STAK-498 Task 7). */
+ *  Excludes _HIDDEN_SLUGS on ALL return paths (STAK-498 Task 7). */
 const getActiveRetailSlugs = () => {
-  if (!_manifestSlugs) return RETAIL_SLUGS;
-  if (!retailPrices?.prices) return _manifestSlugs;
+  if (!_manifestSlugs) return RETAIL_SLUGS.filter((s) => !_HIDDEN_SLUGS.has(s));
+  if (!retailPrices?.prices) return _manifestSlugs.filter((s) => !_HIDDEN_SLUGS.has(s));
   return _manifestSlugs.filter((slug) => {
-    if (slug === "goldback-g1") return false;
+    if (_HIDDEN_SLUGS.has(slug)) return false;
     const entry = retailPrices.prices[slug];
     if (!entry) return false;
     if (entry.median_price != null || entry.lowest_price != null) return true;

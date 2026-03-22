@@ -846,6 +846,7 @@ async function main() {
   const coinsMeta = {};
   if (providersJson) {
     for (const [slug, coinData] of Object.entries(providersJson.coins || {})) {
+      if (slug === "goldback-g1") continue; // baseline ref, not a product
       coinsMeta[slug] = {
         name: coinData.name,
         metal: coinData.metal,
