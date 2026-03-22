@@ -164,7 +164,7 @@ const showFullChangelog = () => {
   );
 };
 
-const showWhatsNewPopup = () => {
+const showWhatsNewPopup = async () => {
   const overlay = safeGetElement('whatsNewPopup');
   if (!overlay) return;
   // Populate version
@@ -172,8 +172,8 @@ const showWhatsNewPopup = () => {
   if (versionEl && typeof APP_VERSION !== 'undefined') {
     versionEl.textContent = `v${APP_VERSION} — Updated!`;
   }
-  // Load announcements into the popup's versionChanges list
-  if (typeof loadAnnouncements === 'function') loadAnnouncements();
+  // STAK-500: Load announcements BEFORE showing popup to prevent content flash
+  if (typeof loadAnnouncements === 'function') await loadAnnouncements();
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 };
