@@ -1415,13 +1415,6 @@ const FEATURE_FLAGS = {
     description: "Coin image caching and item view modal",
     phase: "beta"
   },
-  MARKET_LIST_VIEW: {
-    enabled: true,
-    urlOverride: true,
-    userToggle: true,
-    description: "New single-row market card layout with search, sort, and inline charts",
-    phase: "beta"
-  },
   MARKET_DASHBOARD_ITEMS: {
     enabled: false,
     urlOverride: true,
