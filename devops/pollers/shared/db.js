@@ -140,7 +140,8 @@ const BOUNDS_REJECT_LOW  = 0.70;  // < -30% below baseline
  * @returns {{ ok: boolean, ratio: number, reason?: string }}
  */
 function checkPriceBounds(price, baseline) {
-  if (baseline <= 0 || !isFinite(baseline)) return { ok: true, ratio: 0 };
+  if (!isFinite(price) || price <= 0) return { ok: false, ratio: NaN, reason: `non-finite or non-positive price (${price})` };
+  if (baseline <= 0 || !isFinite(baseline)) return { ok: true, ratio: 1 };
   const ratio = price / baseline;
   if (ratio > BOUNDS_REJECT_HIGH) {
     return { ok: false, ratio, reason: `${((ratio - 1) * 100).toFixed(1)}% above baseline ($${price.toFixed(2)} vs $${baseline.toFixed(2)})` };

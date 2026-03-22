@@ -1020,7 +1020,7 @@ async function main() {
         const gb = JSON.parse(readFileSync(gbPath, "utf-8"));
         if (gb.g1_usd > 0) _goldbackG1 = gb.g1_usd;
       }
-      if (_goldbackG1 == null && _spotByMetal.gold) {
+      if (_goldbackG1 == null && typeof _spotByMetal.gold === "number" && isFinite(_spotByMetal.gold)) {
         _goldbackG1 = _spotByMetal.gold * 0.003085;  // fallback: gold spot × G1 weight
       }
       if (_goldbackG1) log(`[bounds-guard] Goldback G1 baseline: $${_goldbackG1.toFixed(2)}`);
