@@ -11773,15 +11773,6 @@ th {
   font-size: 0.9rem;
 }
 
-.retail-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.75rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border-color-subtle, var(--bs-border-color));
-}
-
 .retail-card-date {
   font-size: 0.75rem;
   color: var(--text-muted, var(--bs-secondary-color));
@@ -11880,9 +11871,6 @@ th {
   color: var(--text-muted, var(--bs-secondary-color));
   font-style: italic;
 }
-
-/* Reset footer margin — gap on .retail-price-card handles spacing */
-.retail-price-card > .retail-card-footer { margin-top: 0; }
 
 /* STAK-217: Metal badge color coding */
 .retail-metal-badge {
@@ -12006,13 +11994,6 @@ th {
 }
 .retail-sync-cta:hover { opacity: 0.85; }
 
-
-/* STAK-217: Sparkline micro-chart */
-.retail-sparkline {
-  display: block;
-  margin-left: auto;
-  opacity: 0.75;
-}
 
 /* History table in Activity Log */
 .retail-history-controls {
