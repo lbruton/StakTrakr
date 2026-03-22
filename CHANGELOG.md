@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.81] - 2026-03-21
+
+### Added — Price bounds guard for retail poller (STAK-496)
+
+- **Added**: Dynamic price bounds check in `writeSnapshot()` rejects vendor prices >+50% or <-30% of spot-based melt value — prevents data pollution from wrong product pages, multi-packs, and scraper failures (STAK-496)
+- **Added**: Goldback baseline from `goldback-spot.json` G1 rate with gold spot fallback — denomination-aware for G1 through G50 (STAK-496)
+- **Added**: Per-vendor `skip_bounds` exemption in `provider_vendors` table for legitimate outliers like limited edition Goldbacks (STAK-496)
+
+---
+
 ## [3.33.80] - 2026-03-21
 
 ### Fixed — Chart daily average diverges from current price on volatile days (STAK-483)

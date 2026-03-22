@@ -247,11 +247,11 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.81 &ndash; Price Bounds Guard</strong>: Retail poller now rejects implausible vendor prices at write time &mdash; prices &gt;+50% or &lt;-30% of spot-based melt value are flagged as failed. Per-vendor exemptions for legitimate outliers (STAK-496)</li>
     <li><strong>v3.33.80 &ndash; Chart Accuracy Fix</strong>: 7-day trend chart and trend badge now use live prices for today&rsquo;s data point instead of a running daily average &mdash; no more confusing divergence from market card on volatile days (STAK-483)</li>
     <li><strong>v3.33.79 &ndash; Cloud Sync Image Fix</strong>: Pushing from a device without photos no longer erases the image vault reference. Inventory hash now detects field-level changes (image URLs, numistaId). Image vault activity now visible in Activity Log (STAK-497)</li>
     <li><strong>v3.33.78 &ndash; Retail Scraper + OOS Pipeline</strong>: JM Bullion no longer grabs volume discount prices. Soft 404 detection for React SPAs. OOS vendors shown dimmed with strikethrough on retail cards (STAK-475, STAK-495)</li>
     <li><strong>v3.33.77 &ndash; Numista Search Fix</strong>: Numista search now strips operator characters from queries &mdash; items with official names containing hyphens and parentheses no longer timeout or return empty results (STAK-494)</li>
-    <li><strong>v3.33.75 &ndash; Cloud Sync Field Fix</strong>: Cloud sync now compares all item fields during merge &mdash; previously image URLs, numistaId, grading, disposition, and 15+ other fields were silently dropped on matched items (STAK-493)</li>
   `;
 };
 
