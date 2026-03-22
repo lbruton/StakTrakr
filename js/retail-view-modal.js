@@ -129,9 +129,11 @@ const _trimTo24h = (windows) => {
   if (!windows || windows.length === 0) return [];
   const validWindows = windows.filter(w => w && w.window);
   if (validWindows.length === 0) return [];
-  const maxTs = Math.max(...validWindows.map(w => new Date(w.window).getTime()));
+  const timestamps = validWindows.map(w => new Date(w.window).getTime()).filter(t => !isNaN(t));
+  if (timestamps.length === 0) return [];
+  const maxTs = Math.max(...timestamps);
   const cutoff = maxTs - 24 * 60 * 60 * 1000;
-  return validWindows.filter(w => new Date(w.window).getTime() >= cutoff);
+  return validWindows.filter(w => { const t = new Date(w.window).getTime(); return !isNaN(t) && t >= cutoff; });
 };
 
 const _bucketWindows = (windows) => {

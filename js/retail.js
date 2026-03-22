@@ -1371,7 +1371,7 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
       }];
 
   // Augment vendor datasets with carried-aware dashed segments (STAK-474)
-  if (activeVendors.length > 0) {
+  if (qualifiedVendors.length > 0) {
     datasets.forEach((ds, idx) => {
       const carried = carriedPerVendor[idx];
       ds.pointRadius = 0;

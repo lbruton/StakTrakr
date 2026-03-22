@@ -262,7 +262,7 @@ export function readRecentWindows(db, coinSlug, windowCount = 96, cutoffHours = 
     "SELECT MAX(window_start) as latest FROM price_snapshots WHERE coin_slug = ? AND price IS NOT NULL"
   ).get(coinSlug);
   if (!latest || !latest.latest) return [];
-  const cutoff = new Date(new Date(latest.latest).getTime() - cutoffHours * 60 * 60 * 1000).toISOString();
+  const cutoff = new Date(new Date(latest.latest).getTime() - cutoffHours * 60 * 60 * 1000).toISOString().replace(".000Z", "Z");
   return db.prepare(`
       SELECT *
       FROM price_snapshots
