@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="goldEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#b8860b"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+    <linearGradient id="silverBarB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7d8da0"/>
+      <stop offset="40%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="goldBarB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b8860b"/>
+      <stop offset="40%" stop-color="#fcd34d"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bgB)"/>
+  <!-- Compact shield — more badge-like proportions -->
+  <path d="M256 72 L395 130 L395 270 Q395 365 256 410 Q117 365 117 270 L117 130 Z"
+    fill="none" stroke="url(#goldEdge)" stroke-width="4"/>
+  <path d="M256 82 L385 136 L385 266 Q385 355 256 398 Q127 355 127 266 L127 136 Z"
+    fill="#0f1729" fill-opacity="0.7"/>
+  <!-- S formed from alternating silver and gold bars — tighter spacing -->
+  <!-- Top of S -->
+  <rect x="210" y="120" width="120" height="16" rx="8" fill="url(#silverBarB)" opacity="0.55"/>
+  <rect x="185" y="144" width="105" height="16" rx="8" fill="url(#silverBarB)" opacity="0.7"/>
+  <rect x="170" y="168" width="80" height="16" rx="8" fill="url(#silverBarB)" opacity="0.85"/>
+  <!-- Center bar — gold accent -->
+  <rect x="190" y="196" width="132" height="18" rx="9" fill="url(#goldBarB)"/>
+  <!-- Bottom of S -->
+  <rect x="242" y="226" width="80" height="16" rx="8" fill="url(#silverBarB)" opacity="0.85"/>
+  <rect x="217" y="250" width="105" height="16" rx="8" fill="url(#silverBarB)" opacity="0.7"/>
+  <rect x="190" y="274" width="130" height="16" rx="8" fill="url(#silverBarB)" opacity="0.55"/>
+  <!-- Tiny upward trend dots in shield top-right -->
+  <circle cx="340" cy="185" r="3" fill="#60a5fa" opacity="0.5"/>
+  <circle cx="350" cy="170" r="3" fill="#60a5fa" opacity="0.6"/>
+  <circle cx="360" cy="152" r="3" fill="#60a5fa" opacity="0.7"/>
+  <line x1="340" y1="185" x2="360" y2="152" stroke="#60a5fa" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <!-- Wordmark -->
+  <text x="256" y="462" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="700" letter-spacing="3">
+    <tspan fill="#e2e8f0">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+  </text>
+</svg>

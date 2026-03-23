@@ -1,13 +1,13 @@
 ---
 name: start-patch
-description: Use when starting a new patch session and needing to pick a Linear issue to work on before claiming a version lock and creating a worktree.
+description: Use when starting a new patch session and needing to pick a DocVault issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
 allowed-tools: Bash, Read, mcp__infisical__get-secret, mcp__mem0__search_memories
 ---
 
 # Start Patch
 
-Rapid session-start triage: fetch Linear issues, rank by priority + session continuity, let the user pick, then hand off to `release patch` for lock + worktree creation.
+Rapid session-start triage: fetch DocVault issues, rank by priority + session continuity, let the user pick, then hand off to `release patch` for lock + worktree creation.
 
 **Does NOT:** read CHANGELOG, constants, or the full codebase. That's `/prime`.
 **Does NOT:** claim a version lock or create a worktree. That's `/release patch`.

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StakTrakr — Logo Concept Exploration</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0F172A;
+    color: #E2E8F0;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    color: #F8FAFC;
+  }
+  h1 .gold { color: #d4a017; }
+  .subtitle {
+    text-align: center;
+    color: #94A3B8;
+    font-size: 0.9rem;
+    margin-bottom: 48px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #1E293B;
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid #334155;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    border-color: #d4a017;
+  }
+  .card h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #F1F5F9;
+  }
+  .card .tag {
+    display: inline-block;
+    background: #334155;
+    color: #94A3B8;
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .logo-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+    min-height: 200px;
+  }
+  .logo-wrap img {
+    width: 180px;
+    height: auto;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+    border-radius: 18px;
+  }
+  .desc {
+    color: #94A3B8;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    text-align: left;
+  }
+  .desc strong { color: #d4a017; }
+
+  /* Size check section */
+  .section-title {
+    max-width: 1100px;
+    margin: 56px auto 24px;
+    text-align: center;
+    font-weight: 400;
+    font-size: 1rem;
+    color: #64748B;
+  }
+  .size-row {
+    display: flex;
+    justify-content: center;
+    align-items: end;
+    gap: 32px;
+    flex-wrap: wrap;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .size-item {
+    text-align: center;
+  }
+  .size-item img { border-radius: 6px; }
+  .size-item span {
+    display: block;
+    font-size: 0.7rem;
+    color: #475569;
+    margin-top: 6px;
+  }
+
+  /* Background previews */
+  .bg-previews {
+    max-width: 1100px;
+    margin: 48px auto 0;
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .bg-preview {
+    width: 280px;
+    padding: 24px 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .bg-preview.dark { background: #0F172A; border: 1px solid #334155; }
+  .bg-preview.light { background: #F8FAFC; }
+  .bg-preview.navy { background: linear-gradient(135deg, #1e3a5f, #0f1729); border: 1px solid #2d4a6f; }
+  .bg-preview img { width: 56px; height: auto; border-radius: 10px; }
+  .bg-label {
+    width: 100%;
+    text-align: center;
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 8px;
+  }
+  .bg-preview.light .bg-label { color: #94a3b8; }
+
+  /* Brand palette */
+  .palette {
+    max-width: 1100px;
+    margin: 56px auto 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+  }
+  .swatch {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #334155;
+    background: #1E293B;
+  }
+  .swatch-color {
+    height: 60px;
+  }
+  .swatch-info {
+    padding: 8px 10px;
+  }
+  .swatch-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #e2e8f0;
+  }
+  .swatch-hex {
+    font-size: 0.65rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  /* Wordmark variants */
+  .wordmark-row {
+    max-width: 1100px;
+    margin: 48px auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
+  }
+  .wordmark {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: 4px;
+  }
+  .wordmark .stak { color: #f8fafc; }
+  .wordmark .trakr { color: #d4a017; }
+  .wm-label {
+    font-size: 0.65rem;
+    color: #475569;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+  <h1>STAK<span class="gold">TRAKR</span></h1>
+  <p class="subtitle">Brand Identity Exploration — March 2026</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Concept 1 — Stacked Bars</h2>
+      <span class="tag">Growth + Data</span>
+      <div class="logo-wrap">
+        <img src="concept1-stacked-bars.svg" alt="Stacked Bars concept">
+      </div>
+      <p class="desc">Ascending bars in <strong>silver and gold</strong> with a trend line connecting the peaks. Communicates portfolio growth and data tracking. The bars double as a literal "stack." Silver-dominant palette reflects the stacking community. Chart-forward — feels like a fintech app icon.</p>
+    </div>
+
+    <div class="card">
+      <h2>Concept 2 — Coin Stack</h2>
+      <span class="tag">Classic Stacker</span>
+      <div class="logo-wrap">
+        <img src="concept2-coin-stack.svg" alt="Coin Stack concept">
+      </div>
+      <p class="desc">3D isometric stack of <strong>silver, gold, and platinum</strong> coins with an upward arrow. Most literal interpretation of "stack" — immediately recognizable to the r/Silverbugs community. Includes a tagline lockup. The 3D perspective adds depth but may be harder to simplify for small sizes.</p>
+    </div>
+
+    <div class="card">
+      <h2>Concept 3 — Vault Shield</h2>
+      <span class="tag">Security + Trust</span>
+      <div class="logo-wrap">
+        <img src="concept3-vault-shield.svg" alt="Vault Shield concept">
+      </div>
+      <p class="desc">Shield silhouette containing <strong>stacked metal bars</strong> with a subtle blue chart line. Emphasizes security and trust — "your portfolio is protected." The <strong>gold border</strong> on dark navy feels premium. Heavy/bold wordmark below. Good for users who value the privacy-first aspect.</p>
+    </div>
+
+    <div class="card">
+      <h2>Concept 4 — ST Monogram</h2>
+      <span class="tag">Minimal Modern</span>
+      <div class="logo-wrap">
+        <img src="concept4-monogram.svg" alt="ST Monogram concept">
+      </div>
+      <p class="desc">Geometric <strong>"S" built from stacked horizontal bars</strong> (like metal ingots) above a clean "T" — the bars ARE the letter. Silver-to-gold gradient flows across the bars. Most abstract and modern. Scales beautifully to favicon/16px. "Track Your Stack" tagline in a pill. Ultra-clean.</p>
+    </div>
+  </div>
+
+  <h3 class="section-title">Size Check — All Concepts at PWA Icon Sizes</h3>
+  <div class="size-row">
+    <div class="size-item">
+      <img src="concept1-stacked-bars.svg" width="16" height="16" alt="">
+      <img src="concept2-coin-stack.svg" width="16" height="16" alt="">
+      <img src="concept3-vault-shield.svg" width="16" height="16" alt="">
+      <img src="concept4-monogram.svg" width="16" height="16" alt="">
+      <span>16px favicon</span>
+    </div>
+    <div class="size-item">
+      <img src="concept1-stacked-bars.svg" width="32" height="32" alt="">
+      <img src="concept2-coin-stack.svg" width="32" height="32" alt="">
+      <img src="concept3-vault-shield.svg" width="32" height="32" alt="">
+      <img src="concept4-monogram.svg" width="32" height="32" alt="">
+      <span>32px tab</span>
+    </div>
+    <div class="size-item">
+      <img src="concept1-stacked-bars.svg" width="64" height="64" alt="">
+      <img src="concept2-coin-stack.svg" width="64" height="64" alt="">
+      <img src="concept3-vault-shield.svg" width="64" height="64" alt="">
+      <img src="concept4-monogram.svg" width="64" height="64" alt="">
+      <span>64px</span>
+    </div>
+    <div class="size-item">
+      <img src="concept1-stacked-bars.svg" width="128" height="128" alt="">
+      <img src="concept2-coin-stack.svg" width="128" height="128" alt="">
+      <img src="concept3-vault-shield.svg" width="128" height="128" alt="">
+      <img src="concept4-monogram.svg" width="128" height="128" alt="">
+      <span>128px PWA</span>
+    </div>
+    <div class="size-item">
+      <img src="concept1-stacked-bars.svg" width="192" height="192" alt="">
+      <img src="concept2-coin-stack.svg" width="192" height="192" alt="">
+      <img src="concept3-vault-shield.svg" width="192" height="192" alt="">
+      <img src="concept4-monogram.svg" width="192" height="192" alt="">
+      <span>192px Android</span>
+    </div>
+  </div>
+
+  <div class="bg-previews">
+    <div class="bg-preview dark">
+      <img src="concept1-stacked-bars.svg">
+      <img src="concept2-coin-stack.svg">
+      <img src="concept3-vault-shield.svg">
+      <img src="concept4-monogram.svg">
+      <span class="bg-label">Dark Theme (primary)</span>
+    </div>
+    <div class="bg-preview light">
+      <img src="concept1-stacked-bars.svg">
+      <img src="concept2-coin-stack.svg">
+      <img src="concept3-vault-shield.svg">
+      <img src="concept4-monogram.svg">
+      <span class="bg-label">Light Background</span>
+    </div>
+    <div class="bg-preview navy">
+      <img src="concept1-stacked-bars.svg">
+      <img src="concept2-coin-stack.svg">
+      <img src="concept3-vault-shield.svg">
+      <img src="concept4-monogram.svg">
+      <span class="bg-label">Navy Gradient</span>
+    </div>
+  </div>
+
+  <h3 class="section-title">Brand Color Palette</h3>
+  <div class="palette">
+    <div class="swatch">
+      <div class="swatch-color" style="background: #d4a017;"></div>
+      <div class="swatch-info"><div class="swatch-name">Gold Primary</div><div class="swatch-hex">#d4a017</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #fbbf24;"></div>
+      <div class="swatch-info"><div class="swatch-name">Gold Light</div><div class="swatch-hex">#fbbf24</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #94a3b8;"></div>
+      <div class="swatch-info"><div class="swatch-name">Silver</div><div class="swatch-hex">#94a3b8</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #cbd5e1;"></div>
+      <div class="swatch-info"><div class="swatch-name">Silver Light</div><div class="swatch-hex">#cbd5e1</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #60a5fa;"></div>
+      <div class="swatch-info"><div class="swatch-name">Blue Accent</div><div class="swatch-hex">#60a5fa</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #0f1729;"></div>
+      <div class="swatch-info"><div class="swatch-name">Dark Base</div><div class="swatch-hex">#0f1729</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #1e293b;"></div>
+      <div class="swatch-info"><div class="swatch-name">Card Surface</div><div class="swatch-hex">#1e293b</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background: #f8fafc;"></div>
+      <div class="swatch-info"><div class="swatch-name">Text Primary</div><div class="swatch-hex">#f8fafc</div></div>
+    </div>
+  </div>
+
+  <h3 class="section-title">Wordmark Variants</h3>
+  <div class="wordmark-row">
+    <div>
+      <div class="wordmark" style="font-size: 36px; font-weight: 700;"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
+      <div class="wm-label">Bold — Headers, Splash</div>
+    </div>
+    <div>
+      <div class="wordmark" style="font-size: 36px; font-weight: 300;"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
+      <div class="wm-label">Light — Elegant, About Page</div>
+    </div>
+    <div>
+      <div class="wordmark" style="font-size: 36px; font-weight: 700;"><span class="stak">Stak</span><span class="trakr">Trakr</span></div>
+      <div class="wm-label">Title Case — Casual, Community</div>
+    </div>
+    <div>
+      <div class="wordmark" style="font-size: 24px; font-weight: 600; letter-spacing: 6px;"><span style="color:#94a3b8;">STAK</span><span class="trakr">TRAKR</span></div>
+      <div class="wm-label">Silver + Gold — Metal Pairing</div>
+    </div>
+  </div>
+
+</body>
+</html>
