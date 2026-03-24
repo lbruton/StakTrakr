@@ -536,6 +536,18 @@ const RETAIL_API_ENDPOINTS = [
 /** @constant {string} RETAIL_API_BASE_URL - Primary endpoint (backward compat) */
 const RETAIL_API_BASE_URL = RETAIL_API_ENDPOINTS[0];
 
+/** @constant {boolean} USE_V2_API - Feature flag for v2 API migration (internal toggle) */
+const USE_V2_API = false;
+
+/** @constant {string[]} V2_API_ENDPOINTS - Ordered list of v2 API endpoints (primary first) */
+const V2_API_ENDPOINTS = [
+  "https://api.staktrakr.com/data/v2",
+  "https://api2.staktrakr.com/data/v2",
+];
+
+/** @constant {string} V2_API_BASE_URL - Primary v2 endpoint (backward compat) */
+const V2_API_BASE_URL = V2_API_ENDPOINTS[0];
+
 /** @constant {string} GOLDBACK_API_URL - Goldback daily spot price endpoint (g1_usd + denominations) */
 const GOLDBACK_API_URL = "https://api.staktrakr.com/data/api/goldback-spot.json";
 
@@ -996,6 +1008,12 @@ const ALLOWED_STORAGE_KEYS = [
   "cloud_sync_migrated",                               // string: "v2" — cloud folder migration flag (flat → /sync/ + /backups/)
   "cloud_backup_history_depth",                        // string: "3"|"5"|"10"|"20" — max cloud backups to retain
   "manifestPruningThreshold",                          // number string: max sync cycles to retain in manifest before pruning older entries (STAK-184)
+  // STAK-503: v2 API cache keys
+  "v2RetailPrices",                                    // JSON: v2 cached retail prices
+  "v2RetailIntraday",                                  // JSON: v2 standalone intraday data
+  "v2RetailHistory",                                   // JSON: v2 retail history cache
+  "v2SpotHistory",                                     // JSON: v2 spot price history
+  "v2ManifestCache",                                   // JSON: v2 manifest metadata cache
 ];
 
 /**
@@ -1857,6 +1875,10 @@ if (typeof window !== "undefined") {
   window.RETAIL_PROVIDERS_KEY = RETAIL_PROVIDERS_KEY;
   window.RETAIL_API_ENDPOINTS = RETAIL_API_ENDPOINTS;
   window.RETAIL_API_BASE_URL = RETAIL_API_BASE_URL;
+  // STAK-503: v2 API constants
+  window.USE_V2_API = USE_V2_API;
+  window.V2_API_ENDPOINTS = V2_API_ENDPOINTS;
+  window.V2_API_BASE_URL = V2_API_BASE_URL;
   window.RETAIL_INTRADAY_KEY = RETAIL_INTRADAY_KEY;
   window.RETAIL_SYNC_LOG_KEY = RETAIL_SYNC_LOG_KEY;
   window.RETAIL_AVAILABILITY_KEY = RETAIL_AVAILABILITY_KEY;
