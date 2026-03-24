@@ -4236,9 +4236,8 @@ input[type="submit"] {
 .vendor-cards-prev { left: -14px; }
 .vendor-cards-next { right: -14px; }
 
-@media (min-width: 1350px) {
-  .vendor-cards-prev, .vendor-cards-next { display: none; }
-}
+/* Vendor carousel keeps nav arrows at all breakpoints — dynamic card count.
+   Arrows auto-hide via JS when all cards fit (unlike totals which uses CSS). */
 
 /* ── Carousel dot indicators ─────────────────────────────────────────────── */
 .vendor-cards-dots {
@@ -4262,9 +4261,7 @@ input[type="submit"] {
   background: var(--primary);
   transform: scale(1.3);
 }
-@media (min-width: 1350px) {
-  .vendor-cards-dots { display: none; }
-}
+/* Vendor carousel dots auto-hide via JS when all cards fit */
 
 /* ── Empty state hint ────────────────────────────────────────────────────── */
 .vendor-cards-hint {

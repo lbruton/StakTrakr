@@ -207,12 +207,12 @@ const _getVendorPriceRows = (vendorId) => {
     });
   }
 
-  const metalOrder = { gold: 0, silver: 1, platinum: 2, palladium: 3 };
+  // Sort: AGE, APE, ASE, Generic 10oz, Generic 1oz (highest → lowest price naturally)
+  const slugOrder = { 'age': 0, 'ape': 1, 'ase': 2, 'generic-silver-bar-10oz': 3, 'generic-silver-round': 4 };
   rows.sort((a, b) => {
-    const ma = metalOrder[a.metal] ?? 99;
-    const mb = metalOrder[b.metal] ?? 99;
-    if (ma !== mb) return ma - mb;
-    return a.slug.localeCompare(b.slug);
+    const oa = slugOrder[a.slug] ?? 99;
+    const ob = slugOrder[b.slug] ?? 99;
+    return oa - ob;
   });
 
   return rows;
