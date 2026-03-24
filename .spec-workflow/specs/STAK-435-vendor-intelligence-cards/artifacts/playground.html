@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vendor Intelligence Cards — Playground</title>
+<style>
+/* ── Theme system ──────────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-card: #1a1a2e;
+  --text-primary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --primary: #60a5fa;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
+  --radius-lg: 0.75rem;
+  --spacing: 1rem;
+  --spacing-sm: 0.5rem;
+  --spacing-lg: 1.25rem;
+  --transition: box-shadow 0.2s ease;
+  --success: #059669;
+  --danger: #dc2626;
+}
+
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-card: #ffffff;
+  --text-primary: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --primary: #3b82f6;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+[data-theme="sepia"] {
+  --bg-primary: #f5f0e8;
+  --bg-secondary: #ede8df;
+  --bg-card: #f5f0e8;
+  --text-primary: #3d3425;
+  --text-muted: #7a6f5f;
+  --border: #d5cfc4;
+  --primary: #b38728;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* ── Reset & base ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 1.5rem;
+  transition: background 0.3s, color 0.3s;
+}
+
+h1 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Theme switcher ────────────────────────────────────────────────────── */
+.theme-switcher {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.theme-switcher label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+/* ── Empty state toggle ────────────────────────────────────────────────── */
+.toggle-bar {
+  margin-bottom: 1.5rem;
+}
+
+.toggle-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.toggle-btn:hover { background: var(--border); }
+
+.empty-hint {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+  padding: 2rem 1rem;
+  display: none;
+}
+.empty-hint.visible { display: block; }
+
+/* ── Carousel wrapper ──────────────────────────────────────────────────── */
+.vendor-wrapper {
+  position: relative;
+}
+
+.vendor-cards {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--spacing);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 2px var(--spacing-sm);
+}
+.vendor-cards::-webkit-scrollbar { display: none; }
+
+/* ── Cards ─────────────────────────────────────────────────────────────── */
+.vendor-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+  flex: 0 0 calc(100% - 1.5rem);
+  scroll-snap-align: start;
+  min-width: 0;
+  border-top: 3px solid var(--vendor-color, var(--primary));
+}
+.vendor-card:hover { box-shadow: var(--shadow-lg); }
+
+@media (min-width: 580px) {
+  .vendor-card { flex: 0 0 calc(50% - var(--spacing) * 0.5); }
+}
+@media (min-width: 960px) {
+  .vendor-card { flex: 0 0 calc(33.333% - var(--spacing) * 0.667); }
+}
+@media (min-width: 1350px) {
+  .vendor-cards { overflow-x: visible; scroll-snap-type: none; }
+  .vendor-card { flex: 1; }
+}
+
+/* Card header */
+.vendor-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+.vendor-card-header .vendor-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.vendor-card-header .vendor-count {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* Card body rows */
+.vendor-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
+}
+.vendor-card-row .label {
+  color: var(--text-muted);
+}
+.vendor-card-row .value {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.vendor-card-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.4rem 0;
+  opacity: 0.5;
+}
+
+.gain-positive { color: var(--success); }
+.gain-negative { color: var(--danger); }
+
+/* ── Carousel navigation arrows ────────────────────────────────────────── */
+.vendor-nav-btn {
+  position: absolute;
+  top: calc(50% - 16px);
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  transition: background 0.15s, opacity 0.15s;
+  opacity: 0.85;
+  padding: 0;
+}
+.vendor-nav-btn:hover { background: var(--bg-secondary); opacity: 1; }
+.vendor-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.vendor-prev { left: -14px; }
+.vendor-next { right: -14px; }
+
+@media (min-width: 1350px) {
+  .vendor-prev, .vendor-next { display: none; }
+}
+
+/* ── Carousel dot indicators ───────────────────────────────────────────── */
+.vendor-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 0 0;
+}
+.vendor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+.vendor-dot.active {
+  background: var(--primary);
+  transform: scale(1.3);
+}
+@media (min-width: 1350px) {
+  .vendor-dots { display: none; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<h1>Vendor Intelligence Cards — Prototype</h1>
+
+<div class="theme-switcher">
+  <span>Theme:</span>
+  <label><input type="radio" name="theme" value="dark" checked> Dark</label>
+  <label><input type="radio" name="theme" value="light"> Light</label>
+  <label><input type="radio" name="theme" value="sepia"> Sepia</label>
+</div>
+
+<div class="toggle-bar">
+  <button class="toggle-btn" id="emptyToggle">Toggle Empty State</button>
+</div>
+
+<div class="empty-hint" id="emptyHint">
+  Tag items with a vendor source to see vendor intelligence cards.
+</div>
+
+<div class="vendor-wrapper" id="vendorWrapper">
+  <button class="vendor-nav-btn vendor-prev" id="prevBtn" aria-label="Previous">&#8249;</button>
+  <div class="vendor-cards" id="vendorCards"></div>
+  <button class="vendor-nav-btn vendor-next" id="nextBtn" aria-label="Next">&#8250;</button>
+  <div class="vendor-dots" id="vendorDots"></div>
+</div>
+
+<script>
+/* ── Mock data ─────────────────────────────────────────────────────────── */
+const VENDORS = [
+  {
+    name: "APMEX", color: "#60a5fa", items: 60, weight: 49.80,
+    cost: 2728.51, melt: 3382.83, retail: 3441.22,
+    gain: 712.71, gainPct: 26.1, marketPrem: 4.8, myPrem: 5.2
+  },
+  {
+    name: "JM Bullion", color: "#fbbf24", items: 25, weight: 18.50,
+    cost: 1125.00, melt: 1480.20, retail: 1510.50,
+    gain: 385.50, gainPct: 34.3, marketPrem: 3.2, myPrem: 2.1
+  },
+  {
+    name: "Monument Metals", color: "#c4b5fd", items: 15, weight: 12.30,
+    cost: 780.45, melt: 985.60, retail: 1005.80,
+    gain: 225.35, gainPct: 28.9, marketPrem: 5.1, myPrem: 3.8
+  },
+  {
+    name: "Hero Bullion", color: "#f87171", items: 8, weight: 6.20,
+    cost: 412.80, melt: 496.40, retail: 508.20,
+    gain: 95.40, gainPct: 23.1, marketPrem: 6.3, myPrem: 4.5
+  }
+];
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+function fmtDollar(v) {
+  return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtPct(v) { return v.toFixed(1) + "%"; }
+function fmtOz(v) { return v.toFixed(2) + " oz"; }
+
+/* ── Build cards ───────────────────────────────────────────────────────── */
+var container = document.getElementById("vendorCards");
+
+VENDORS.forEach(function(v) {
+  var card = document.createElement("div");
+  card.className = "vendor-card";
+  card.style.setProperty("--vendor-color", v.color);
+
+  var gainClass = v.gain >= 0 ? "gain-positive" : "gain-negative";
+  var gainSign = v.gain >= 0 ? "+" : "";
+
+  card.innerHTML =
+    '<div class="vendor-card-header">' +
+      '<span class="vendor-name">' + v.name + '</span>' +
+      '<span class="vendor-count">' + v.items + ' items</span>' +
+    '</div>' +
+    '<div class="vendor-card-row"><span class="label">Weight</span><span class="value">' + fmtOz(v.weight) + '</span></div>' +
+    '<div class="vendor-card-row"><span class="label">Cost Basis</span><span class="value">' + fmtDollar(v.cost) + '</span></div>' +
+    '<div class="vendor-card-row"><span class="label">Melt Value</span><span class="value">' + fmtDollar(v.melt) + '</span></div>' +
+    '<div class="vendor-card-row"><span class="label">Retail Value</span><span class="value">' + fmtDollar(v.retail) + '</span></div>' +
+    '<div class="vendor-card-row"><span class="label">Gain/Loss</span><span class="value ' + gainClass + '">' + gainSign + fmtDollar(v.gain) + ' (' + gainSign + fmtPct(v.gainPct) + ')</span></div>' +
+    '<hr class="vendor-card-divider">' +
+    '<div class="vendor-card-row"><span class="label">Market Prem</span><span class="value">' + fmtPct(v.marketPrem) + '</span></div>' +
+    '<div class="vendor-card-row"><span class="label">My Premium</span><span class="value">' + fmtPct(v.myPrem) + '</span></div>';
+
+  container.appendChild(card);
+});
+
+/* ── Carousel navigation ───────────────────────────────────────────────── */
+var cards = container.querySelectorAll(".vendor-card");
+var dotsContainer = document.getElementById("vendorDots");
+var prevBtn = document.getElementById("prevBtn");
+var nextBtn = document.getElementById("nextBtn");
+
+/* Build dots */
+cards.forEach(function(_, i) {
+  var dot = document.createElement("button");
+  dot.className = "vendor-dot" + (i === 0 ? " active" : "");
+  dot.setAttribute("aria-label", "Go to card " + (i + 1));
+  dot.addEventListener("click", function() {
+    cards[i].scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+  });
+  dotsContainer.appendChild(dot);
+});
+
+var dots = dotsContainer.querySelectorAll(".vendor-dot");
+
+/* Update active dot on scroll */
+function updateDots() {
+  var scrollLeft = container.scrollLeft;
+  var cardWidth = cards[0].offsetWidth + parseInt(getComputedStyle(container).gap) || 16;
+  var idx = Math.round(scrollLeft / cardWidth);
+  idx = Math.max(0, Math.min(idx, cards.length - 1));
+  dots.forEach(function(d, i) {
+    d.classList.toggle("active", i === idx);
+  });
+  prevBtn.disabled = scrollLeft <= 2;
+  nextBtn.disabled = scrollLeft + container.clientWidth >= container.scrollWidth - 2;
+}
+
+container.addEventListener("scroll", updateDots);
+updateDots();
+
+/* Arrow navigation */
+prevBtn.addEventListener("click", function() {
+  var cardWidth = cards[0].offsetWidth + parseInt(getComputedStyle(container).gap) || 16;
+  container.scrollBy({ left: -cardWidth, behavior: "smooth" });
+});
+nextBtn.addEventListener("click", function() {
+  var cardWidth = cards[0].offsetWidth + parseInt(getComputedStyle(container).gap) || 16;
+  container.scrollBy({ left: cardWidth, behavior: "smooth" });
+});
+
+/* ── Theme switcher ────────────────────────────────────────────────────── */
+document.querySelectorAll('input[name="theme"]').forEach(function(radio) {
+  radio.addEventListener("change", function() {
+    document.body.setAttribute("data-theme", this.value);
+  });
+});
+
+/* ── Empty state toggle ────────────────────────────────────────────────── */
+var emptyHint = document.getElementById("emptyHint");
+var wrapper = document.getElementById("vendorWrapper");
+document.getElementById("emptyToggle").addEventListener("click", function() {
+  var showing = emptyHint.classList.toggle("visible");
+  wrapper.style.display = showing ? "none" : "";
+});
+</script>
+</body>
+</html>
