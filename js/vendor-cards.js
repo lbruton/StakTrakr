@@ -295,12 +295,13 @@ const renderVendorCards = () => {
     card.className = 'vendor-card total-card';
     card.setAttribute('data-vendor-id', vendorId);
 
-    // --- Header: vendor name in brand color, standard border ---
+    // --- Header: vendor name + premium badge on same line, vendor-colored underline ---
     const titleEl = document.createElement('div');
     titleEl.className = 'total-title';
-    titleEl.style.borderBottomColor = 'var(--border)';
-    titleEl.style.textAlign = 'left';
-    titleEl.style.color = vendorDisplay.color;
+    titleEl.style.borderBottomColor = vendorDisplay.color;
+    titleEl.style.display = 'flex';
+    titleEl.style.justifyContent = 'space-between';
+    titleEl.style.alignItems = 'center';
 
     if (vendorDisplay.url) {
       const nameLink = document.createElement('a');
@@ -312,18 +313,20 @@ const renderVendorCards = () => {
       nameLink.style.textDecoration = 'none';
       titleEl.appendChild(nameLink);
     } else {
-      titleEl.textContent = vendorDisplay.name;
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = vendorDisplay.name;
+      nameSpan.style.color = vendorDisplay.color;
+      titleEl.appendChild(nameSpan);
     }
-    card.appendChild(titleEl);
 
-    // --- Premium badge ---
     if (premium !== null) {
-      const badge = document.createElement('div');
+      const badge = document.createElement('span');
       badge.className = 'vendor-card-premium';
       const sign = premium >= 0 ? '+' : '';
       badge.textContent = `Avg ${sign}${(premium * 100).toFixed(1)}%`;
-      card.appendChild(badge);
+      titleEl.appendChild(badge);
     }
+    card.appendChild(titleEl);
 
     // --- Price table (primary content) ---
     const priceGroup = document.createElement('div');
