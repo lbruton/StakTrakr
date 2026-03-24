@@ -1160,6 +1160,7 @@ const LAYOUT_SECTION_DEFAULTS = [
   { id: 'spotPrices', label: 'Spot price cards',    enabled: true },
   { id: 'totals',     label: 'Summary totals',      enabled: true },
   { id: 'search',     label: 'Search & filter bar', enabled: true },
+  { id: 'vendorCards', label: 'Vendor intelligence', enabled: true },
   { id: 'table',      label: 'Inventory table',     enabled: true },
 ];
 

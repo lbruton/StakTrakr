@@ -173,6 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // STACK-54 layout sections
     elements.spotPricesSection = safeGetElement("spotPricesSection");
     elements.totalsSectionEl = safeGetElement("totalsSectionEl");
+    elements.vendorCardsSectionEl = safeGetElement("vendorCardsSectionEl");
     elements.searchSectionEl = safeGetElement("searchSectionEl");
     elements.tableSectionEl = safeGetElement("tableSectionEl");
 
@@ -558,6 +559,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Phase 13: Initial Rendering
     debugLog("Phase 13: Rendering initial display...");
       renderTable();
+      if (typeof window.renderVendorCards === 'function') window.renderVendorCards();
       if (typeof renderActiveFilters === 'function') {
         renderActiveFilters();
       }
@@ -608,6 +610,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           // Re-render with fresh rates
           if (typeof renderTable === 'function') renderTable();
           if (typeof updateSummary === 'function') updateSummary();
+          if (typeof window.renderVendorCards === 'function') window.renderVendorCards();
         }
       }).catch(() => {});
     }

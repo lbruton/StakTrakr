@@ -1479,6 +1479,7 @@ const applyLayoutOrder = () => {
     spotPrices: elements.spotPricesSection,
     totals:     elements.totalsSectionEl,
     search:     elements.searchSectionEl,
+    vendorCards: elements.vendorCardsSectionEl,
     table:      elements.tableSectionEl,
   };
   const container = document.querySelector('.container');

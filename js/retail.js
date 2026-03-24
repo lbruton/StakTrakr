@@ -616,6 +616,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   } finally {
     _retailSyncInProgress = false;
     renderRetailCards();
+    if (typeof window.renderVendorCards === 'function') window.renderVendorCards();
     const mktLogActive = document.querySelector('[data-log-tab="market"].active');
     if (mktLogActive && typeof renderRetailHistoryTable === "function") {
       renderRetailHistoryTable();

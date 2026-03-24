@@ -807,9 +807,19 @@
           <div class="totals-dots" id="totalsDots"></div>
         </div><!-- /.totals-wrapper -->
       </section>
+      <!-- Vendor Intelligence Cards (STAK-435) -->
+      <section id="vendorCardsSectionEl">
+        <div class="vendor-cards-wrapper">
+          <button class="vendor-cards-nav-btn vendor-cards-prev" id="vendorCardsPrev" aria-label="Previous vendor card">&#8249;</button>
+          <div class="vendor-cards" id="vendorCardsCarousel"></div>
+          <button class="vendor-cards-nav-btn vendor-cards-next" id="vendorCardsNext" aria-label="Next vendor card">&#8250;</button>
+        </div>
+        <div class="vendor-cards-dots" id="vendorCardsDots"></div>
+        <div class="vendor-cards-hint" id="vendorCardsHint" style="display:none">Tag items with a vendor source to see vendor intelligence cards.</div>
+      </section>
       <!-- =============================================================================
          INVENTORY FORM SECTION
-         
+
          Primary data entry form for adding new inventory items. Includes fields for:
          - Metal type selection (Silver, Gold, Platinum, Palladium)
          - Item details (name, type, quantity, weight)
@@ -5282,6 +5292,7 @@
     <script defer src="./js/goldback.js"></script>
     <script defer src="./js/retail.js"></script>
     <script defer src="./js/retail-view-modal.js"></script>
+    <script defer src="./js/vendor-cards.js"></script>
     <script defer src="./js/api.js"></script>
     <script defer src="./js/catalog-api.js"></script>
     <script defer src="./js/pcgs-api.js"></script>

@@ -779,6 +779,8 @@
 
     const showRealized = loadDataSync(SHOW_REALIZED_KEY, 'true') !== 'false';
     applyRealizedVisibility(showRealized);
+
+    if (typeof window.renderVendorCards === 'function') window.renderVendorCards();
   };
 
   // ---------------------------------------------------------------------------
