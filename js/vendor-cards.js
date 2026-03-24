@@ -174,22 +174,62 @@ const _getVendorPriceRows = (vendorId) => {
   const rows = [];
   const slugs = getActiveRetailSlugs();
 
-  for (const slug of slugs) {
-    // Only show curated benchmark items on vendor cards
+  // Always show all curated slugs — never leave gaps in the table.
+  // Price resolution chain:
+  //   1. retailPrices.prices[slug].vendors[vendorId] (current window snapshot)
+  //   2. retailIntradayData[slug].windows_24h (scan backwards for most recent 24h report)
+  //   3. retailPriceHistory[slug] (7-day daily avg — always has every vendor)
+  // Delta = today's price vs 7-day vendor average
+  const orderedSlugs = ['age', 'ape', 'ase', 'generic-silver-bar-10oz', 'generic-silver-round'];
+  for (const slug of orderedSlugs) {
     if (!_VENDOR_CARD_SLUGS.has(slug)) continue;
 
-    const entry = retailPrices.prices[slug];
-    if (!entry?.vendors?.[vendorId]) continue;
+    const entry = retailPrices.prices?.[slug];
+    const vendorData = entry?.vendors?.[vendorId];
+    let vendorPrice = vendorData ? Number(vendorData.price) : 0;
 
-    const vendorData = entry.vendors[vendorId];
-    const vendorPrice = Number(vendorData.price);
-    if (!vendorPrice || vendorPrice <= 0) continue;
+    // Fallback 1: scan intraday 24h windows backwards
+    if ((!vendorPrice || vendorPrice <= 0) && typeof retailIntradayData !== 'undefined') {
+      const windows = retailIntradayData?.[slug]?.windows_24h;
+      if (Array.isArray(windows)) {
+        for (let i = windows.length - 1; i >= 0; i--) {
+          const vp = windows[i]?.vendors?.[vendorId];
+          if (typeof vp === 'number' && vp > 0) { vendorPrice = vp; break; }
+        }
+      }
+    }
+
+    // Fallback 2: most recent daily avg from 7-day history
+    if ((!vendorPrice || vendorPrice <= 0) && typeof retailPriceHistory !== 'undefined') {
+      const history = retailPriceHistory?.[slug];
+      if (Array.isArray(history)) {
+        for (let i = history.length - 1; i >= 0; i--) {
+          const dayVendor = history[i]?.vendors?.[vendorId];
+          const avg = dayVendor?.avg;
+          if (avg && Number(avg) > 0) { vendorPrice = Number(avg); break; }
+        }
+      }
+    }
 
     const coinMeta = (typeof getRetailCoinMeta === 'function') ? getRetailCoinMeta(slug) : { name: slug, weight: 0, metal: 'unknown' };
     if (_isExcludedSlug(slug, coinMeta)) continue;
 
-    const medianPrice = Number(entry.median_price) || 0;
-    const delta = medianPrice > 0 ? vendorPrice - medianPrice : 0;
+    // Compute 7-day vendor average for delta comparison
+    let avg7d = 0;
+    if (typeof retailPriceHistory !== 'undefined') {
+      const history = retailPriceHistory?.[slug];
+      if (Array.isArray(history) && history.length > 0) {
+        let sum = 0, count = 0;
+        for (const day of history) {
+          const dayVendor = day?.vendors?.[vendorId];
+          const avg = dayVendor?.avg;
+          if (avg && Number(avg) > 0) { sum += Number(avg); count++; }
+        }
+        if (count > 0) avg7d = sum / count;
+      }
+    }
+
+    const delta = (vendorPrice > 0 && avg7d > 0) ? vendorPrice - avg7d : 0;
 
     let productUrl = null;
     if (typeof retailProviders !== 'undefined' && retailProviders?.[slug]?.[vendorId]) {
@@ -200,10 +240,11 @@ const _getVendorPriceRows = (vendorId) => {
       slug,
       name: _VENDOR_CARD_LABELS[slug] || coinMeta.name || slug,
       metal: coinMeta.metal || 'unknown',
-      price: vendorPrice,
+      price: vendorPrice > 0 ? vendorPrice : null,
       delta,
+      avg7d: avg7d > 0 ? avg7d : null,
       productUrl,
-      inStock: vendorData.inStock !== false,
+      inStock: vendorData ? vendorData.inStock !== false : true,
     });
   }
 
@@ -226,21 +267,45 @@ const _getActiveVendorIds = () => {
   if (typeof getActiveRetailSlugs !== 'function') return vendorIds;
   if (!retailPrices?.prices) return vendorIds;
 
-  const slugs = getActiveRetailSlugs();
-  for (const slug of slugs) {
-    // Only count vendors that carry curated items
-    if (!_VENDOR_CARD_SLUGS.has(slug)) continue;
-
-    const entry = retailPrices.prices[slug];
-    if (!entry?.vendors) continue;
-
+  // Collect vendors from ALL data sources — current window, intraday, and 7-day history.
+  // This ensures every vendor that has EVER reported a price for curated items gets a card.
+  for (const slug of _VENDOR_CARD_SLUGS) {
     const coinMeta = (typeof getRetailCoinMeta === 'function') ? getRetailCoinMeta(slug) : null;
     if (_isExcludedSlug(slug, coinMeta)) continue;
 
-    for (const vid of Object.keys(entry.vendors)) {
-      if (vid === 'goldback') continue;
-      const vd = entry.vendors[vid];
-      if (Number(vd.price) > 0) vendorIds.add(vid);
+    // Source 1: current window snapshot
+    const entry = retailPrices.prices?.[slug];
+    if (entry?.vendors) {
+      for (const vid of Object.keys(entry.vendors)) {
+        if (vid === 'goldback') continue;
+        if (Number(entry.vendors[vid]?.price) > 0) vendorIds.add(vid);
+      }
+    }
+    // Source 2: intraday 24h windows
+    if (typeof retailIntradayData !== 'undefined') {
+      const windows = retailIntradayData?.[slug]?.windows_24h;
+      if (Array.isArray(windows)) {
+        for (const w of windows) {
+          if (!w?.vendors) continue;
+          for (const vid of Object.keys(w.vendors)) {
+            if (vid === 'goldback') continue;
+            if (typeof w.vendors[vid] === 'number' && w.vendors[vid] > 0) vendorIds.add(vid);
+          }
+        }
+      }
+    }
+    // Source 3: 7-day daily history
+    if (typeof retailPriceHistory !== 'undefined') {
+      const history = retailPriceHistory?.[slug];
+      if (Array.isArray(history)) {
+        for (const day of history) {
+          if (!day?.vendors) continue;
+          for (const vid of Object.keys(day.vendors)) {
+            if (vid === 'goldback') continue;
+            if (day.vendors[vid]?.avg > 0) vendorIds.add(vid);
+          }
+        }
+      }
     }
   }
   return vendorIds;
@@ -354,13 +419,19 @@ const renderVendorCards = () => {
 
       const priceSpan = document.createElement('span');
       priceSpan.className = 'total-value';
-      priceSpan.textContent = (typeof formatCurrency === 'function') ? formatCurrency(row.price) : `$${row.price.toFixed(2)}`;
+      if (row.price !== null) {
+        priceSpan.textContent = (typeof formatCurrency === 'function') ? formatCurrency(row.price) : `$${row.price.toFixed(2)}`;
+      } else {
+        priceSpan.textContent = '\u2014';
+        priceSpan.style.color = 'var(--text-muted)';
+      }
 
       const deltaSpan = document.createElement('span');
-      deltaSpan.className = 'vendor-card-delta ' + (Math.abs(row.delta) < 0.005 ? 'neutral' : row.delta > 0 ? 'up' : 'down');
-      if (Math.abs(row.delta) < 0.005) {
+      if (row.price === null || Math.abs(row.delta) < 0.005) {
+        deltaSpan.className = 'vendor-card-delta neutral';
         deltaSpan.textContent = '\u2014';
       } else {
+        deltaSpan.className = 'vendor-card-delta ' + (row.delta > 0 ? 'up' : 'down');
         const icon = row.delta > 0 ? '\u25B2' : '\u25BC';
         const prefix = row.delta > 0 ? '+' : '';
         const fmt = (typeof formatCurrency === 'function') ? formatCurrency(Math.abs(row.delta)) : `$${Math.abs(row.delta).toFixed(2)}`;
