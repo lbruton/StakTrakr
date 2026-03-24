@@ -3,6 +3,8 @@
 // Renders a horizontal carousel of per-vendor market price + portfolio cards.
 // ---------------------------------------------------------------------------
 
+// Vendor alias map: normalised free-text purchaseLocation → vendor ID.
+// Designed for future settings-driven show/hide per vendor.
 const SOURCE_VENDOR_ALIASES = {
   'jm':               'jmbullion',
   'sd':               'sdbullion',
@@ -12,6 +14,16 @@ const SOURCE_VENDOR_ALIASES = {
   'summit':           'summitmetals',
   'provident':        'providentmetals',
   'gainesville':      'gainesvillecoins',
+};
+
+// Slugs excluded from vendor card price tables.
+// Kept as a Set so a future settings toggle can add/remove entries at runtime.
+const _VENDOR_CARD_EXCLUDED_METALS = new Set(['goldback']);
+
+const _isExcludedSlug = (slug, coinMeta) => {
+  if (_VENDOR_CARD_EXCLUDED_METALS.has(coinMeta?.metal)) return true;
+  if (slug.startsWith('goldback-')) return true;
+  return false;
 };
 
 const _resolveVendor = (source) => {
@@ -114,6 +126,8 @@ const _computeMarketPremium = (vendorId) => {
 
     const coinMeta = getRetailCoinMeta(slug);
     if (!coinMeta || !coinMeta.weight || !coinMeta.metal) continue;
+    // Skip excluded metals (goldback etc.) from premium calc
+    if (_isExcludedSlug(slug, coinMeta)) continue;
 
     const metalSpot = spotPrices[coinMeta.metal] || 0;
     if (metalSpot <= 0) continue;
@@ -144,6 +158,9 @@ const _getVendorPriceRows = (vendorId) => {
     if (!vendorPrice || vendorPrice <= 0) continue;
 
     const coinMeta = (typeof getRetailCoinMeta === 'function') ? getRetailCoinMeta(slug) : { name: slug, weight: 0, metal: 'unknown' };
+    // Skip excluded metals (goldback etc.)
+    if (_isExcludedSlug(slug, coinMeta)) continue;
+
     const medianPrice = Number(entry.median_price) || 0;
     const delta = medianPrice > 0 ? vendorPrice - medianPrice : 0;
 
@@ -180,11 +197,40 @@ const _buildDeltaSpan = (delta) => {
   }
   const dir = delta > 0 ? 'up' : 'down';
   const icon = delta > 0 ? '\u25B2' : '\u25BC';
-  const prefix = delta > 0 ? '+' : '-';
+  const prefix = delta > 0 ? '+' : '';
   const formatted = (typeof formatCurrency === 'function') ? formatCurrency(Math.abs(delta)) : `$${Math.abs(delta).toFixed(2)}`;
   return `<span class="vendor-card-delta ${dir}">${icon} ${prefix}${formatted}</span>`;
 };
 
+// ---------------------------------------------------------------------------
+// Build the list of vendor IDs that should get cards (have non-excluded prices)
+// ---------------------------------------------------------------------------
+const _getActiveVendorIds = () => {
+  const vendorIds = new Set();
+  if (typeof getActiveRetailSlugs !== 'function') return vendorIds;
+  if (!retailPrices?.prices) return vendorIds;
+
+  const slugs = getActiveRetailSlugs();
+  for (const slug of slugs) {
+    const entry = retailPrices.prices[slug];
+    if (!entry?.vendors) continue;
+
+    const coinMeta = (typeof getRetailCoinMeta === 'function') ? getRetailCoinMeta(slug) : null;
+    if (_isExcludedSlug(slug, coinMeta)) continue;
+
+    for (const vid of Object.keys(entry.vendors)) {
+      // Skip the goldback vendor entirely
+      if (vid === 'goldback') continue;
+      const vd = entry.vendors[vid];
+      if (Number(vd.price) > 0) vendorIds.add(vid);
+    }
+  }
+  return vendorIds;
+};
+
+// ---------------------------------------------------------------------------
+// Main render
+// ---------------------------------------------------------------------------
 const renderVendorCards = () => {
   const carousel = safeGetElement('vendorCardsCarousel');
   const hint = safeGetElement('vendorCardsHint');
@@ -196,19 +242,7 @@ const renderVendorCards = () => {
     return;
   }
 
-  // Build list of vendors that have at least 1 price row
-  const allVendorIds = new Set();
-  if (typeof getActiveRetailSlugs === 'function') {
-    const slugs = getActiveRetailSlugs();
-    for (const slug of slugs) {
-      const entry = retailPrices.prices[slug];
-      if (!entry?.vendors) continue;
-      for (const vid of Object.keys(entry.vendors)) {
-        const vd = entry.vendors[vid];
-        if (Number(vd.price) > 0) allVendorIds.add(vid);
-      }
-    }
-  }
+  const allVendorIds = _getActiveVendorIds();
 
   if (allVendorIds.size === 0) {
     if (hint) hint.style.display = '';
@@ -223,7 +257,15 @@ const renderVendorCards = () => {
   // Compute vendor stats once for all cards
   const vendorStats = _computeVendorStats();
 
-  for (const vendorId of allVendorIds) {
+  // Sort vendor IDs: vendors where user has items first, then alphabetical
+  const sorted = [...allVendorIds].sort((a, b) => {
+    const aHas = vendorStats.has(a) && vendorStats.get(a).totalItems > 0;
+    const bHas = vendorStats.has(b) && vendorStats.get(b).totalItems > 0;
+    if (aHas !== bHas) return aHas ? -1 : 1;
+    return a.localeCompare(b);
+  });
+
+  for (const vendorId of sorted) {
     const priceRows = _getVendorPriceRows(vendorId);
     if (priceRows.length === 0) continue;
 
@@ -235,11 +277,12 @@ const renderVendorCards = () => {
     card.className = 'vendor-card total-card';
     card.setAttribute('data-vendor-id', vendorId);
 
-    // --- Header: title with vendor color border ---
+    // --- Header: vendor name in brand color, standard border ---
     const titleEl = document.createElement('div');
     titleEl.className = 'total-title';
-    titleEl.style.borderBottomColor = vendorDisplay.color;
+    titleEl.style.borderBottomColor = 'var(--border)';
     titleEl.style.textAlign = 'left';
+    titleEl.style.color = vendorDisplay.color;
 
     if (vendorDisplay.url) {
       const nameLink = document.createElement('a');
@@ -247,7 +290,7 @@ const renderVendorCards = () => {
       nameLink.target = '_blank';
       nameLink.rel = 'noopener noreferrer';
       nameLink.textContent = vendorDisplay.name;
-      nameLink.style.color = 'inherit';
+      nameLink.style.color = vendorDisplay.color;
       nameLink.style.textDecoration = 'none';
       titleEl.appendChild(nameLink);
     } else {
@@ -281,7 +324,8 @@ const renderVendorCards = () => {
         link.rel = 'noopener noreferrer';
         link.textContent = row.name;
         link.style.color = 'inherit';
-        link.style.textDecoration = 'none';
+        link.style.textDecoration = 'underline dotted';
+        link.style.textDecorationColor = 'var(--border)';
         labelSpan.appendChild(link);
       } else {
         labelSpan.textContent = row.name;
@@ -339,11 +383,12 @@ const renderVendorCards = () => {
       const glPct = stats.totalPurchased > 0 ? (gl / stats.totalPurchased) * 100 : 0;
       glLabel.textContent = gl >= 0 ? 'Gain:' : 'Loss:';
       glLabel.style.color = gl >= 0 ? 'var(--success)' : 'var(--danger)';
+      glLabel.style.fontWeight = '600';
       const glValue = document.createElement('span');
       glValue.className = 'total-value';
-      const glPrefix = gl >= 0 ? '+' : '-';
+      const glSign = gl >= 0 ? '+' : '';
       const glFmt = (typeof formatCurrency === 'function') ? formatCurrency(Math.abs(gl)) : `$${Math.abs(gl).toFixed(2)}`;
-      glValue.textContent = `${glPrefix}${glFmt} (${glPrefix}${Math.abs(glPct).toFixed(1)}%)`;
+      glValue.textContent = `${glSign}${gl >= 0 ? '' : '-'}${glFmt} (${glSign}${glPct.toFixed(1)}%)`;
       glValue.style.color = gl >= 0 ? 'var(--success)' : 'var(--danger)';
       glRow.appendChild(glLabel);
       glRow.appendChild(glValue);
@@ -354,7 +399,6 @@ const renderVendorCards = () => {
 
     // --- Click handler: filter inventory to this vendor ---
     if (stats && stats.sourceValues.size > 0) {
-      card.style.cursor = 'pointer';
       card.addEventListener('click', (e) => {
         if (e.target.tagName === 'A') return;
         if (typeof activeFilters !== 'undefined') {
@@ -362,7 +406,7 @@ const renderVendorCards = () => {
         }
         if (typeof renderTable === 'function') renderTable();
         if (typeof renderActiveFilters === 'function') renderActiveFilters();
-        const tableSection = safeGetElement('inventoryTableSection');
+        const tableSection = safeGetElement('tableSectionEl');
         if (tableSection) tableSection.scrollIntoView({ behavior: 'smooth' });
       });
     }
@@ -373,6 +417,9 @@ const renderVendorCards = () => {
   _initVendorCarousel();
 };
 
+// ---------------------------------------------------------------------------
+// Carousel navigation — adapts _initTotalsCarousel from card-view.js
+// ---------------------------------------------------------------------------
 const _initVendorCarousel = () => {
   const carousel = safeGetElement('vendorCardsCarousel');
   const prevBtn = safeGetElement('vendorCardsPrev');
@@ -388,7 +435,7 @@ const _initVendorCarousel = () => {
   dotsEl.innerHTML = '';
   const dots = cards.map((card, i) => {
     const dot = document.createElement('button');
-    dot.className = 'totals-dot' + (i === 0 ? ' active' : '');
+    dot.className = 'vendor-cards-dot' + (i === 0 ? ' active' : '');
     dot.setAttribute('aria-label', `Go to vendor card ${i + 1}`);
     dot.addEventListener('click', () => {
       carousel.scrollTo({ left: card.offsetLeft, behavior: 'smooth' });
@@ -411,7 +458,8 @@ const _initVendorCarousel = () => {
     prevBtn.disabled = scrollLeft < 4;
     nextBtn.disabled = scrollLeft >= maxScroll - 1;
 
-    const activeIdx = Math.round(scrollLeft / getCardWidth());
+    const cardW = getCardWidth();
+    const activeIdx = cardW > 0 ? Math.round(scrollLeft / cardW) : 0;
     dots.forEach((d, i) => d.classList.toggle('active', i === activeIdx));
 
     // Hide nav when all cards fit

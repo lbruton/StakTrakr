@@ -4145,8 +4145,9 @@ input[type="submit"] {
   .vendor-card { flex: 0 0 calc(33.333% - var(--spacing) * 0.667); }
 }
 @media (min-width: 1350px) {
-  .vendor-cards { overflow-x: visible; scroll-snap-type: none; }
-  .vendor-card { flex: 1; }
+  /* Unlike metal cards (fixed 5), vendor count is dynamic (2-10+).
+     Keep carousel scrolling at all breakpoints — never disable overflow. */
+  .vendor-card { flex: 0 0 calc(25% - var(--spacing) * 0.75); }
 }
 
 /* ── Vendor card header — name + premium badge ───────────────────────────── */
