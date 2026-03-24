@@ -20,6 +20,31 @@ const SOURCE_VENDOR_ALIASES = {
 // Kept as a Set so a future settings toggle can add/remove entries at runtime.
 const _VENDOR_CARD_EXCLUDED_METALS = new Set(['goldback']);
 
+// Curated slugs shown on vendor cards — key benchmark items only.
+// Future: make configurable via settings, pulling from full getActiveRetailSlugs().
+const _VENDOR_CARD_SLUGS = new Set([
+  'ase',                     // American Silver Eagle (1oz Ag)
+  'age',                     // American Gold Eagle (1oz Au)
+  'ape',                     // American Platinum Eagle (1oz Pt)
+  'generic-silver-round',    // Generic Silver Round (1oz Ag)
+  'generic-silver-bar-10oz', // Generic 10oz Silver Bar
+]);
+
+// Short display names for vendor card price rows — keep cards compact.
+const _VENDOR_CARD_LABELS = {
+  'ase':                     'ASE 1oz',
+  'age':                     'AGE 1oz',
+  'ape':                     'APE 1oz',
+  'generic-silver-round':    'Generic 1oz Ag',
+  'generic-silver-bar-10oz': 'Generic 10oz Ag',
+  'maple-silver':            'Maple 1oz Ag',
+  'maple-gold':              'Maple 1oz Au',
+  'buffalo':                 'Buffalo 1oz Au',
+  'britannia-silver':        'Britannia 1oz Ag',
+  'krugerrand-gold':         'Kruger 1oz Au',
+  'krugerrand-silver':       'Kruger 1oz Ag',
+};
+
 const _isExcludedSlug = (slug, coinMeta) => {
   if (_VENDOR_CARD_EXCLUDED_METALS.has(coinMeta?.metal)) return true;
   if (slug.startsWith('goldback-')) return true;
@@ -150,6 +175,9 @@ const _getVendorPriceRows = (vendorId) => {
   const slugs = getActiveRetailSlugs();
 
   for (const slug of slugs) {
+    // Only show curated benchmark items on vendor cards
+    if (!_VENDOR_CARD_SLUGS.has(slug)) continue;
+
     const entry = retailPrices.prices[slug];
     if (!entry?.vendors?.[vendorId]) continue;
 
@@ -158,7 +186,6 @@ const _getVendorPriceRows = (vendorId) => {
     if (!vendorPrice || vendorPrice <= 0) continue;
 
     const coinMeta = (typeof getRetailCoinMeta === 'function') ? getRetailCoinMeta(slug) : { name: slug, weight: 0, metal: 'unknown' };
-    // Skip excluded metals (goldback etc.)
     if (_isExcludedSlug(slug, coinMeta)) continue;
 
     const medianPrice = Number(entry.median_price) || 0;
@@ -171,7 +198,7 @@ const _getVendorPriceRows = (vendorId) => {
 
     rows.push({
       slug,
-      name: coinMeta.name || slug,
+      name: _VENDOR_CARD_LABELS[slug] || coinMeta.name || slug,
       metal: coinMeta.metal || 'unknown',
       price: vendorPrice,
       delta,
@@ -191,17 +218,6 @@ const _getVendorPriceRows = (vendorId) => {
   return rows;
 };
 
-const _buildDeltaSpan = (delta) => {
-  if (Math.abs(delta) < 0.005) {
-    return `<span class="vendor-card-delta neutral">\u2014</span>`;
-  }
-  const dir = delta > 0 ? 'up' : 'down';
-  const icon = delta > 0 ? '\u25B2' : '\u25BC';
-  const prefix = delta > 0 ? '+' : '';
-  const formatted = (typeof formatCurrency === 'function') ? formatCurrency(Math.abs(delta)) : `$${Math.abs(delta).toFixed(2)}`;
-  return `<span class="vendor-card-delta ${dir}">${icon} ${prefix}${formatted}</span>`;
-};
-
 // ---------------------------------------------------------------------------
 // Build the list of vendor IDs that should get cards (have non-excluded prices)
 // ---------------------------------------------------------------------------
@@ -212,6 +228,9 @@ const _getActiveVendorIds = () => {
 
   const slugs = getActiveRetailSlugs();
   for (const slug of slugs) {
+    // Only count vendors that carry curated items
+    if (!_VENDOR_CARD_SLUGS.has(slug)) continue;
+
     const entry = retailPrices.prices[slug];
     if (!entry?.vendors) continue;
 
@@ -219,7 +238,6 @@ const _getActiveVendorIds = () => {
     if (_isExcludedSlug(slug, coinMeta)) continue;
 
     for (const vid of Object.keys(entry.vendors)) {
-      // Skip the goldback vendor entirely
       if (vid === 'goldback') continue;
       const vd = entry.vendors[vid];
       if (Number(vd.price) > 0) vendorIds.add(vid);
@@ -331,14 +349,24 @@ const renderVendorCards = () => {
         labelSpan.textContent = row.name;
       }
 
-      const valueSpan = document.createElement('span');
-      valueSpan.className = 'total-value';
-      const priceText = (typeof formatCurrency === 'function') ? formatCurrency(row.price) : `$${row.price.toFixed(2)}`;
-      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-      valueSpan.innerHTML = `${priceText} ${_buildDeltaSpan(row.delta)}`;
+      const priceSpan = document.createElement('span');
+      priceSpan.className = 'total-value';
+      priceSpan.textContent = (typeof formatCurrency === 'function') ? formatCurrency(row.price) : `$${row.price.toFixed(2)}`;
+
+      const deltaSpan = document.createElement('span');
+      deltaSpan.className = 'vendor-card-delta ' + (Math.abs(row.delta) < 0.005 ? 'neutral' : row.delta > 0 ? 'up' : 'down');
+      if (Math.abs(row.delta) < 0.005) {
+        deltaSpan.textContent = '\u2014';
+      } else {
+        const icon = row.delta > 0 ? '\u25B2' : '\u25BC';
+        const prefix = row.delta > 0 ? '+' : '';
+        const fmt = (typeof formatCurrency === 'function') ? formatCurrency(Math.abs(row.delta)) : `$${Math.abs(row.delta).toFixed(2)}`;
+        deltaSpan.textContent = `${icon} ${prefix}${fmt}`;
+      }
 
       rowEl.appendChild(labelSpan);
-      rowEl.appendChild(valueSpan);
+      rowEl.appendChild(priceSpan);
+      rowEl.appendChild(deltaSpan);
       priceGroup.appendChild(rowEl);
     }
 
