@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * StakTrakr v2 API Publisher — Spot Endpoints
- * =============================================
- * Reads spot_prices from Turso, writes v2 JSON endpoints.
+ * StakTrakr v2 API Publisher — Spot + Retail Endpoints
+ * =====================================================
+ * Reads spot_prices and price_snapshots from Turso, writes v2 JSON endpoints.
  * Called by run-publish.sh after api-export.js.
  *
  * Output structure:
@@ -15,6 +15,15 @@
  *         intraday.json
  *         {YYYY}/{MM}/{DD}.json
  *         {YYYY}/{MM}.json
+ *     retail/
+ *       latest.json
+ *       vendors/index.json
+ *       vendors/{vendor-id}.json
+ *       {slug}/
+ *         latest.json
+ *         intraday.json
+ *         history-{7,30,90}d.json
+ *         {YYYY}/{MM}.json
  *
  * Usage:
  *   DATA_DIR=/path/to/data node api-export-v2.js
@@ -24,6 +33,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openTursoDb } from "./db.js";
+import { initProviderSchema, getProviders } from "./provider-db.js";
 import {
   toTimestampPair,
   computeOhlca,
@@ -37,6 +47,20 @@ const DRY_RUN = process.env.DRY_RUN === "1";
 const METALS = ["gold", "silver", "platinum", "palladium"];
 const METAL_TO_ISO = { gold: "xau", silver: "xag", platinum: "xpt", palladium: "xpd" };
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+const VENDOR_META = {
+  apmex:            { name: "APMEX",      color: "#60a5fa", url: "https://www.apmex.com" },
+  jmbullion:        { name: "JM Bullion", color: "#fbbf24", url: "https://www.jmbullion.com" },
+  sdbullion:        { name: "SDB",        color: "#34d399", url: "https://www.sdbullion.com" },
+  monumentmetals:   { name: "Monument",   color: "#c4b5fd", url: "https://www.monumentmetals.com" },
+  herobullion:      { name: "Hero",       color: "#f87171", url: "https://www.herobullion.com" },
+  bullionexchanges: { name: "BullionX",   color: "#f472b6", url: "https://www.bullionexchanges.com" },
+  summitmetals:     { name: "Summit",     color: "#22d3ee", url: "https://www.summitmetals.com" },
+  goldback:         { name: "Goldback",   color: "#d4a017", url: "https://www.goldback.com" },
+  providentmetals:  { name: "Provident",  color: "#a3e635", url: "https://www.providentmetals.com" },
+  gainesvillecoins: { name: "Gainesville",color: "#fb923c", url: "https://www.gainesvillecoins.com" },
+};
 
 // ---------------------------------------------------------------------------
 // Logging
@@ -256,6 +280,430 @@ async function exportSpot(client) {
 }
 
 // ---------------------------------------------------------------------------
+// Turso retail queries
+// ---------------------------------------------------------------------------
+
+async function queryRetailCoinSlugs(client) {
+  const result = await client.execute(
+    "SELECT DISTINCT coin_slug FROM price_snapshots WHERE price IS NOT NULL ORDER BY coin_slug"
+  );
+  return result.rows.map((r) => String(r.coin_slug));
+}
+
+async function queryLatestPerVendor(client, coinSlug, lookbackHours = 2) {
+  const cutoff = new Date(Date.now() - lookbackHours * MS_PER_HOUR)
+    .toISOString()
+    .replace(".000Z", "Z");
+  const result = await client.execute({
+    sql: `
+      SELECT ps.*
+      FROM price_snapshots ps
+      INNER JOIN (
+        SELECT vendor, MAX(scraped_at) AS max_scraped
+        FROM price_snapshots
+        WHERE coin_slug = ? AND scraped_at >= ? AND is_failed = 0 AND price IS NOT NULL
+        GROUP BY vendor
+      ) latest ON ps.vendor = latest.vendor AND ps.scraped_at = latest.max_scraped
+      WHERE ps.coin_slug = ? AND ps.is_failed = 0 AND ps.price IS NOT NULL
+    `,
+    args: [coinSlug, cutoff, coinSlug],
+  });
+  return result.rows;
+}
+
+async function queryCarryForwardPrice(client, coinSlug, vendorId) {
+  const cutoff = new Date(Date.now() - MS_PER_DAY)
+    .toISOString()
+    .replace(".000Z", "Z");
+  const result = await client.execute({
+    sql: `
+      SELECT price, scraped_at, in_stock, confidence
+      FROM price_snapshots
+      WHERE coin_slug = ? AND vendor = ? AND is_failed = 0 AND price IS NOT NULL
+        AND scraped_at >= ?
+      ORDER BY scraped_at DESC
+      LIMIT 1
+    `,
+    args: [coinSlug, vendorId, cutoff],
+  });
+  return result.rows.length ? result.rows[0] : null;
+}
+
+async function queryRetailRange(client, coinSlug, startIso, endIso) {
+  const result = await client.execute({
+    sql: `
+      SELECT *
+      FROM price_snapshots
+      WHERE coin_slug = ? AND price IS NOT NULL AND is_failed = 0
+        AND window_start >= ? AND window_start < ?
+      ORDER BY window_start, vendor
+    `,
+    args: [coinSlug, startIso, endIso],
+  });
+  return result.rows;
+}
+
+async function queryRetailDailyAggregates(client, coinSlug, startIso, endIso) {
+  const result = await client.execute({
+    sql: `
+      SELECT
+        substr(window_start, 1, 10) AS date,
+        vendor,
+        AVG(price) AS avg_price,
+        MIN(price) AS min_price,
+        MAX(price) AS max_price,
+        COUNT(*) AS sample_count,
+        MAX(in_stock) AS in_stock
+      FROM price_snapshots
+      WHERE coin_slug = ? AND price IS NOT NULL AND is_failed = 0
+        AND window_start >= ? AND window_start < ?
+      GROUP BY date, vendor
+      ORDER BY date ASC, vendor ASC
+    `,
+    args: [coinSlug, startIso, endIso],
+  });
+  return result.rows;
+}
+
+async function queryVendor7dAvg(client, vendorId) {
+  const cutoff = new Date(Date.now() - 7 * MS_PER_DAY)
+    .toISOString()
+    .replace(".000Z", "Z");
+  const result = await client.execute({
+    sql: `
+      SELECT coin_slug, AVG(price) AS avg_price
+      FROM price_snapshots
+      WHERE vendor = ? AND price IS NOT NULL AND is_failed = 0
+        AND scraped_at >= ?
+      GROUP BY coin_slug
+    `,
+    args: [vendorId, cutoff],
+  });
+  return result.rows;
+}
+
+// ---------------------------------------------------------------------------
+// Retail helpers
+// ---------------------------------------------------------------------------
+
+function medianOf(prices) {
+  if (!prices.length) return null;
+  const sorted = [...prices].sort((a, b) => a - b);
+  return parseFloat(sorted[Math.floor(sorted.length / 2)].toFixed(2));
+}
+
+function buildRetailOhlcaBuckets(rows, granularity) {
+  const buckets = {};
+  for (const row of rows) {
+    const { t, ts } = toTimestampPair(new Date(String(row.window_start)), granularity);
+    if (!buckets[t]) buckets[t] = { t, ts, samples: [], vendorPrices: {} };
+    const price = Number(row.price);
+    buckets[t].samples.push({ price, timestamp: String(row.window_start) });
+    const vendor = String(row.vendor);
+    if (!buckets[t].vendorPrices[vendor]) buckets[t].vendorPrices[vendor] = [];
+    buckets[t].vendorPrices[vendor].push(price);
+  }
+
+  const entries = [];
+  for (const key of Object.keys(buckets).sort()) {
+    const bucket = buckets[key];
+    const ohlca = computeOhlca(bucket.samples);
+    if (ohlca) {
+      entries.push({ t: bucket.t, ts: bucket.ts, ...ohlca, _vendorPrices: bucket.vendorPrices });
+    }
+  }
+  return entries;
+}
+
+function buildRetailIntradayEntries(rows) {
+  const buckets = {};
+  for (const row of rows) {
+    const { t, ts } = toTimestampPair(new Date(String(row.window_start)), "15min");
+    if (!buckets[t]) buckets[t] = { t, ts, prices: [], vendors: {} };
+    const price = Number(row.price);
+    const vendor = String(row.vendor);
+    buckets[t].prices.push(price);
+    if (!buckets[t].vendors[vendor] || price < buckets[t].vendors[vendor]) {
+      buckets[t].vendors[vendor] = price;
+    }
+  }
+
+  const entries = [];
+  for (const key of Object.keys(buckets).sort()) {
+    const b = buckets[key];
+    if (!b.prices.length) continue;
+    entries.push({
+      t: b.t,
+      ts: b.ts,
+      median: medianOf(b.prices),
+      low: parseFloat(Math.min(...b.prices).toFixed(2)),
+      vendors: b.vendors,
+    });
+  }
+  return entries;
+}
+
+async function applyCarryForward(currentVendors, slug, client, configuredVendorIds) {
+  for (const vendorId of configuredVendorIds) {
+    if (currentVendors[vendorId]) continue;
+
+    const carried = await queryCarryForwardPrice(client, slug, vendorId);
+    if (carried) {
+      currentVendors[vendorId] = {
+        price: parseFloat(Number(carried.price).toFixed(2)),
+        in_stock: carried.in_stock === 1,
+        confidence: carried.confidence != null ? Number(carried.confidence) : null,
+        carried: true,
+        carried_from: String(carried.scraped_at),
+      };
+    } else {
+      currentVendors[vendorId] = {
+        price: null,
+        in_stock: false,
+        confidence: null,
+        carried: false,
+      };
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Retail export
+// ---------------------------------------------------------------------------
+
+async function exportRetail(client) {
+  log("Exporting v2 retail prices...");
+
+  const now = new Date();
+  const nowIso = now.toISOString().replace(".000Z", "Z");
+
+  await initProviderSchema(client);
+  const providersData = await getProviders(client);
+  const coins = providersData.coins || {};
+
+  const coinSlugs = await queryRetailCoinSlugs(client);
+  if (!coinSlugs.length) {
+    warn("No retail data — skipping retail export");
+    return;
+  }
+
+  // --- retail/latest.json (all slugs summary) ---
+  const { t: latestT, ts: latestTs } = toTimestampPair(now, "15min");
+  const allCoinsData = {};
+
+  // Track per-vendor data for vendor endpoints
+  const vendorCoinMap = {};
+
+  for (const slug of coinSlugs) {
+    try {
+      if (slug === "goldback-g1") continue;
+
+      const coinMeta = coins[slug] || {};
+      const metalIso = METAL_TO_ISO[coinMeta.metal] || coinMeta.metal || "unknown";
+      const coinName = coinMeta.name || slug;
+      const weightOz = coinMeta.weight_oz || 1.0;
+
+      // Configured vendor IDs for this coin
+      const configuredVendorIds = (coinMeta.providers || [])
+        .filter((p) => p.enabled !== false)
+        .map((p) => p.id);
+
+      // --- Per-slug latest ---
+      let latestRows = await queryLatestPerVendor(client, slug, 2);
+      if (!latestRows.length) {
+        latestRows = await queryLatestPerVendor(client, slug, 24);
+        if (!latestRows.length) continue;
+      }
+
+      const vendors = {};
+      for (const row of latestRows) {
+        const vid = String(row.vendor);
+        vendors[vid] = {
+          price: parseFloat(Number(row.price).toFixed(2)),
+          in_stock: row.in_stock === 1,
+          confidence: row.confidence != null ? Number(row.confidence) : null,
+          carried: false,
+        };
+      }
+
+      await applyCarryForward(vendors, slug, client, configuredVendorIds);
+
+      // Aggregate including carried prices
+      const allPrices = Object.values(vendors)
+        .filter((v) => v.price !== null && v.in_stock !== false)
+        .map((v) => v.price);
+
+      const median = medianOf(allPrices);
+      const low = allPrices.length ? parseFloat(Math.min(...allPrices).toFixed(2)) : null;
+      const high = allPrices.length ? parseFloat(Math.max(...allPrices).toFixed(2)) : null;
+
+      allCoinsData[slug] = {
+        median,
+        low,
+        high,
+        vendor_count: Object.keys(vendors).filter((v) => vendors[v].price !== null).length,
+        name: coinName,
+        metal: metalIso,
+        weight_oz: weightOz,
+      };
+
+      // --- retail/{slug}/latest.json ---
+      writeV2File(`retail/${slug}/latest.json`, {
+        slug,
+        name: coinName,
+        metal: metalIso,
+        weight_oz: weightOz,
+        t: latestT,
+        ts: latestTs,
+        median,
+        low,
+        high,
+        vendors,
+      }, 1800);
+
+      // --- retail/{slug}/intraday.json ---
+      const intradayStart = new Date(now.getTime() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const intradayRows = await queryRetailRange(client, slug, intradayStart, nowIso);
+      const intradayEntries = buildRetailIntradayEntries(intradayRows);
+      writeV2File(`retail/${slug}/intraday.json`, intradayEntries, 1200);
+
+      // --- retail/{slug}/history-7d.json (hourly OHLCA, up to 168 entries) ---
+      const hist7dStart = new Date(now.getTime() - 7 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const hist7dRows = await queryRetailRange(client, slug, hist7dStart, nowIso);
+      const hist7dEntries = buildRetailOhlcaBuckets(hist7dRows, "hourly");
+      const hist7dClean = hist7dEntries.map(({ _vendorPrices, ...rest }) => rest);
+      writeV2File(`retail/${slug}/history-7d.json`, hist7dClean.slice(-168), 3600);
+
+      // --- retail/{slug}/history-30d.json (daily OHLCA with per-vendor breakdown) ---
+      const hist30dStart = new Date(now.getTime() - 30 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const dailyAgg30d = await queryRetailDailyAggregates(client, slug, hist30dStart, nowIso);
+      const daily30dEntries = buildDailyWithVendors(dailyAgg30d);
+      writeV2File(`retail/${slug}/history-30d.json`, daily30dEntries, 86400);
+
+      // --- retail/{slug}/history-90d.json (daily OHLCA, no per-vendor) ---
+      const hist90dStart = new Date(now.getTime() - 90 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const hist90dRows = await queryRetailRange(client, slug, hist90dStart, nowIso);
+      const hist90dEntries = buildRetailOhlcaBuckets(hist90dRows, "daily");
+      const hist90dClean = hist90dEntries.map(({ _vendorPrices, ...rest }) => rest);
+      writeV2File(`retail/${slug}/history-90d.json`, hist90dClean, 86400);
+
+      // --- retail/{slug}/{YYYY}/{MM}.json (monthly archive) ---
+      const yyyy = String(now.getUTCFullYear());
+      const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+      const monthStart = `${yyyy}-${mm}-01T00:00:00Z`;
+      const monthRows = await queryRetailRange(client, slug, monthStart, nowIso);
+      const monthEntries = buildRetailOhlcaBuckets(monthRows, "daily");
+      const monthClean = monthEntries.map(({ _vendorPrices, ...rest }) => rest);
+      if (monthClean.length) {
+        writeV2File(`retail/${slug}/${yyyy}/${mm}.json`, monthClean, 86400);
+      }
+
+      // Accumulate per-vendor data for vendor endpoints
+      for (const [vid, vdata] of Object.entries(vendors)) {
+        if (!vendorCoinMap[vid]) vendorCoinMap[vid] = {};
+        const providerEntry = (coinMeta.providers || []).find((p) => p.id === vid);
+        vendorCoinMap[vid][slug] = {
+          price: vdata.price,
+          in_stock: vdata.in_stock,
+          carried: vdata.carried || false,
+          ...(vdata.carried_from ? { carried_from: vdata.carried_from } : {}),
+          product_url: providerEntry?.url || null,
+        };
+      }
+    } catch (err) {
+      warn(`retail ${slug}: ${err.message}`);
+      continue;
+    }
+  }
+
+  // --- retail/latest.json ---
+  writeV2File("retail/latest.json", {
+    t: latestT,
+    ts: latestTs,
+    coins: allCoinsData,
+  }, 1800);
+
+  // --- retail/vendors/index.json ---
+  const allVendorIds = new Set();
+  for (const coinData of Object.values(coins)) {
+    for (const p of coinData.providers || []) {
+      if (p.enabled !== false) allVendorIds.add(p.id);
+    }
+  }
+  const vendorIndex = [];
+  for (const vid of [...allVendorIds].sort()) {
+    const meta = VENDOR_META[vid] || { name: vid, color: "#94a3b8", url: null };
+    vendorIndex.push({ id: vid, name: meta.name, color: meta.color, url: meta.url });
+  }
+  writeV2File("retail/vendors/index.json", vendorIndex, 86400);
+
+  // --- retail/vendors/{vendor-id}.json ---
+  for (const vid of [...allVendorIds].sort()) {
+    try {
+      const meta = VENDOR_META[vid] || { name: vid, color: "#94a3b8", url: null };
+      const vendorCoins = vendorCoinMap[vid] || {};
+
+      // Compute history_7d_avg per coin for this vendor
+      const avgRows = await queryVendor7dAvg(client, vid);
+      const avgMap = {};
+      for (const r of avgRows) {
+        avgMap[String(r.coin_slug)] = parseFloat(Number(r.avg_price).toFixed(2));
+      }
+
+      const coinsOut = {};
+      for (const [slug, coinData] of Object.entries(vendorCoins)) {
+        coinsOut[slug] = {
+          ...coinData,
+          history_7d_avg: avgMap[slug] ?? null,
+        };
+      }
+
+      writeV2File(`retail/vendors/${vid}.json`, {
+        vendor: { id: vid, name: meta.name, color: meta.color, url: meta.url },
+        t: latestT,
+        ts: latestTs,
+        coins: coinsOut,
+      }, 1800);
+    } catch (err) {
+      warn(`vendor ${vid}: ${err.message}`);
+      continue;
+    }
+  }
+
+  log("Retail export complete");
+}
+
+function buildDailyWithVendors(dailyAggRows) {
+  const byDate = {};
+  for (const row of dailyAggRows) {
+    const date = String(row.date);
+    if (!byDate[date]) byDate[date] = { allPrices: [], vendors: {} };
+    const avg = Number(row.avg_price);
+    const count = Number(row.sample_count);
+
+    for (let i = 0; i < count; i++) byDate[date].allPrices.push(avg);
+
+    const vendor = String(row.vendor);
+    byDate[date].vendors[vendor] = {
+      avg: parseFloat(avg.toFixed(2)),
+      in_stock: row.in_stock === 1,
+    };
+  }
+
+  const entries = [];
+  for (const date of Object.keys(byDate).sort()) {
+    const { allPrices, vendors } = byDate[date];
+    if (!allPrices.length) continue;
+    const { t, ts } = toTimestampPair(new Date(date + "T12:00:00Z"), "daily");
+    const ohlca = computeOhlca(allPrices.map((p, i) => ({ price: p, timestamp: `${date}T${String(i).padStart(2, "0")}:00:00Z` })));
+    if (ohlca) {
+      entries.push({ t, ts, ...ohlca, vendors });
+    }
+  }
+  return entries;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -266,6 +714,7 @@ async function main() {
   const client = await openTursoDb();
   try {
     await exportSpot(client);
+    await exportRetail(client);
   } finally {
     client.close();
   }
