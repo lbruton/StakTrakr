@@ -447,22 +447,26 @@ async function applyCarryForward(currentVendors, slug, client, configuredVendorI
   for (const vendorId of configuredVendorIds) {
     if (currentVendors[vendorId]) continue;
 
-    const carried = await queryCarryForwardPrice(client, slug, vendorId);
-    if (carried) {
-      currentVendors[vendorId] = {
-        price: parseFloat(Number(carried.price).toFixed(2)),
-        in_stock: carried.in_stock === 1,
-        confidence: carried.confidence != null ? Number(carried.confidence) : null,
-        carried: true,
-        carried_from: String(carried.scraped_at),
-      };
-    } else {
-      currentVendors[vendorId] = {
-        price: null,
-        in_stock: false,
-        confidence: null,
-        carried: false,
-      };
+    try {
+      const carried = await queryCarryForwardPrice(client, slug, vendorId);
+      if (carried) {
+        currentVendors[vendorId] = {
+          price: parseFloat(Number(carried.price).toFixed(2)),
+          in_stock: carried.in_stock === 1,
+          confidence: carried.confidence != null ? Number(carried.confidence) : null,
+          carried: true,
+          carried_from: String(carried.scraped_at),
+        };
+      } else {
+        currentVendors[vendorId] = {
+          price: null,
+          in_stock: false,
+          confidence: null,
+          carried: false,
+        };
+      }
+    } catch (err) {
+      warn(`carry-forward ${slug}/${vendorId}: ${err.message}`);
     }
   }
 }
@@ -695,7 +699,7 @@ function buildDailyWithVendors(dailyAggRows) {
     const { allPrices, vendors } = byDate[date];
     if (!allPrices.length) continue;
     const { t, ts } = toTimestampPair(new Date(date + "T12:00:00Z"), "daily");
-    const ohlca = computeOhlca(allPrices.map((p, i) => ({ price: p, timestamp: `${date}T${String(i).padStart(2, "0")}:00:00Z` })));
+    const ohlca = computeOhlca(allPrices.map((p) => ({ price: p, timestamp: `${date}T12:00:00Z` })));
     if (ohlca) {
       entries.push({ t, ts, ...ohlca, vendors });
     }
