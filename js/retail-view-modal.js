@@ -721,21 +721,23 @@ const openRetailViewModal = (slug) => {
       let intradayUpdated = false;
       let anySuccess = false;
       if (latestResp && latestResp.ok) {
-        const latest = await latestResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn"); return null; });
+        let latest = await latestResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn"); return null; });
+        // Unwrap v2 envelope if present
+        if (latest && latest.v === 2 && latest.data !== undefined) latest = latest.data;
         if (latest) {
           anySuccess = true;
           if (typeof retailIntradayData !== "undefined") {
             retailIntradayData[slug] = {
               window_start: latest.window_start,
-              windows_24h: Array.isArray(latest.windows_24h) ? latest.windows_24h : [],
+              windows_24h: _normalizeV2IntradayWindows(Array.isArray(latest.windows_24h) ? latest.windows_24h : []),
             };
             if (typeof saveRetailIntradayData === "function") saveRetailIntradayData();
             intradayUpdated = true;
           }
           if (latest.vendors && typeof retailPrices !== "undefined" && retailPrices && retailPrices.prices) {
             retailPrices.prices[slug] = {
-              median_price: latest.median_price,
-              lowest_price: latest.lowest_price,
+              median_price: latest.median_price ?? latest.median ?? null,
+              lowest_price: latest.lowest_price ?? latest.low ?? null,
               vendors: latest.vendors,
             };
             if (typeof saveRetailPrices === "function") saveRetailPrices();

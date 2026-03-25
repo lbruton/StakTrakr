@@ -903,7 +903,6 @@ async function writeManifest(client) {
       spot_metal_intraday: "spot/{metal}/intraday.json",
       spot_metal_daily:    "spot/{metal}/{YYYY}/{MM}/{DD}.json",
       spot_metal_monthly:  "spot/{metal}/{YYYY}/{MM}.json",
-      spot_metal_yearly:   "spot/{metal}/{YYYY}.json",
       spot_history:        "spot/history/{N}d.json",
       retail_latest:       "retail/latest.json",
       retail_slug_latest:  "retail/{slug}/latest.json",

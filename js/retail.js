@@ -655,6 +655,7 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
       retailIntradayData[slug] = {
         window_start: intraday.length ? intraday[0].t : null,
         windows_24h: intraday.map((w) => ({
+          window: w.t,
           t: w.t,
           ts: w.ts,
           median: w.median,
