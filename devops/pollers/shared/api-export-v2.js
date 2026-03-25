@@ -36,6 +36,7 @@ const DRY_RUN = process.env.DRY_RUN === "1";
 
 const METALS = ["gold", "silver", "platinum", "palladium"];
 const METAL_TO_ISO = { gold: "xau", silver: "xag", platinum: "xpt", palladium: "xpd" };
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Logging
@@ -54,6 +55,10 @@ function warn(msg) {
 // ---------------------------------------------------------------------------
 
 function writeV2File(relPath, data, staleAfterSeconds) {
+  const resolved = resolve(join(DATA_DIR, "v2", relPath));
+  if (!resolved.startsWith(resolve(join(DATA_DIR, "v2")))) {
+    throw new Error(`Path traversal detected: ${relPath}`);
+  }
   const filePath = join(DATA_DIR, "v2", relPath);
   if (DRY_RUN) {
     log(`[DRY RUN] ${filePath}`);
@@ -100,7 +105,7 @@ async function querySpotRange(client, startIso, endIso) {
 }
 
 async function querySpot24hAgo(client, metal) {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().replace(".000Z", "Z");
+  const cutoff = new Date(Date.now() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
   const result = await client.execute({
     sql: `
       SELECT spot
@@ -174,61 +179,66 @@ async function exportSpot(client) {
 
   // --- Per-metal endpoints ---
   for (const metal of METALS) {
-    const iso = METAL_TO_ISO[metal];
-    const metalRows = currentRows.filter((r) => String(r.metal) === metal);
-    if (!metalRows.length) {
-      warn(`No spot data for ${metal} — skipping`);
+    try {
+      const iso = METAL_TO_ISO[metal];
+      const metalRows = currentRows.filter((r) => String(r.metal) === metal);
+      if (!metalRows.length) {
+        warn(`No spot data for ${metal} — skipping`);
+        continue;
+      }
+
+      // spot/{metal}/latest.json
+      const row = metalRows[0];
+      const { t, ts } = toTimestampPair(new Date(String(row.timestamp_floor)), "15min");
+      const price24hAgo = await querySpot24hAgo(client, metal);
+      const price = Number(row.spot);
+      const perMetalLatest = { metal: iso, price, t, ts };
+      if (price24hAgo !== null && price24hAgo !== 0) {
+        perMetalLatest.change_24h = parseFloat((price - price24hAgo).toFixed(2));
+        perMetalLatest.change_24h_pct = parseFloat((((price - price24hAgo) / price24hAgo) * 100).toFixed(2));
+      }
+      writeV2File(`spot/${iso}/latest.json`, perMetalLatest, 1200);
+
+      // spot/{metal}/intraday.json — rolling 24h of 15-min OHLCA
+      const intradayStart = new Date(now.getTime() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const intradayEnd = now.toISOString().replace(".000Z", "Z");
+      const intradayRows = (await querySpotRange(client, intradayStart, intradayEnd))
+        .filter((r) => String(r.metal) === metal);
+      const intradayEntries = buildOhlcaBuckets(intradayRows, "15min");
+      writeV2File(`spot/${iso}/intraday.json`, intradayEntries, 1200);
+
+      // spot/{metal}/{YYYY}/{MM}/{DD}.json — today's hourly OHLCA
+      const yyyy = String(now.getUTCFullYear());
+      const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(now.getUTCDate()).padStart(2, "0");
+      const dayStart = `${yyyy}-${mm}-${dd}T00:00:00Z`;
+      const nextDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+      const dayEnd = nextDay.toISOString().replace(".000Z", "Z");
+      const dayRows = (await querySpotRange(client, dayStart, dayEnd))
+        .filter((r) => String(r.metal) === metal);
+      const hourlyEntries = buildOhlcaBuckets(dayRows, "hourly");
+      if (hourlyEntries.length) {
+        writeV2File(`spot/${iso}/${yyyy}/${mm}/${dd}.json`, hourlyEntries, 3600);
+      }
+
+      // spot/{metal}/{YYYY}/{MM}.json — current month daily OHLCA (noon UTC)
+      const monthStart = `${yyyy}-${mm}-01T00:00:00Z`;
+      const monthEnd = nextDay.toISOString().replace(".000Z", "Z");
+      const monthRows = (await querySpotRange(client, monthStart, monthEnd))
+        .filter((r) => String(r.metal) === metal);
+      const dailyEntries = buildOhlcaBuckets(monthRows, "daily");
+      if (dailyEntries.length) {
+        writeV2File(`spot/${iso}/${yyyy}/${mm}.json`, dailyEntries, 86400);
+      }
+    } catch (err) {
+      warn(`${metal}: ${err.message}`);
       continue;
-    }
-
-    // spot/{metal}/latest.json
-    const row = metalRows[0];
-    const { t, ts } = toTimestampPair(new Date(String(row.timestamp_floor)), "15min");
-    const price24hAgo = await querySpot24hAgo(client, metal);
-    const price = Number(row.spot);
-    const perMetalLatest = { metal: iso, price, t, ts };
-    if (price24hAgo !== null) {
-      perMetalLatest.change_24h = parseFloat((price - price24hAgo).toFixed(2));
-      perMetalLatest.change_24h_pct = parseFloat((((price - price24hAgo) / price24hAgo) * 100).toFixed(2));
-    }
-    writeV2File(`spot/${iso}/latest.json`, perMetalLatest, 1200);
-
-    // spot/{metal}/intraday.json — rolling 24h of 15-min OHLCA
-    const intradayStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().replace(".000Z", "Z");
-    const intradayEnd = now.toISOString().replace(".000Z", "Z");
-    const intradayRows = (await querySpotRange(client, intradayStart, intradayEnd))
-      .filter((r) => String(r.metal) === metal);
-    const intradayEntries = buildOhlcaBuckets(intradayRows, "15min");
-    writeV2File(`spot/${iso}/intraday.json`, intradayEntries, 1200);
-
-    // spot/{metal}/{YYYY}/{MM}/{DD}.json — today's hourly OHLCA
-    const yyyy = String(now.getUTCFullYear());
-    const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(now.getUTCDate()).padStart(2, "0");
-    const dayStart = `${yyyy}-${mm}-${dd}T00:00:00Z`;
-    const nextDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-    const dayEnd = nextDay.toISOString().replace(".000Z", "Z");
-    const dayRows = (await querySpotRange(client, dayStart, dayEnd))
-      .filter((r) => String(r.metal) === metal);
-    const hourlyEntries = buildOhlcaBuckets(dayRows, "hourly");
-    if (hourlyEntries.length) {
-      writeV2File(`spot/${iso}/${yyyy}/${mm}/${dd}.json`, hourlyEntries, 3600);
-    }
-
-    // spot/{metal}/{YYYY}/{MM}.json — current month daily OHLCA (noon UTC)
-    const monthStart = `${yyyy}-${mm}-01T00:00:00Z`;
-    const monthEnd = nextDay.toISOString().replace(".000Z", "Z");
-    const monthRows = (await querySpotRange(client, monthStart, monthEnd))
-      .filter((r) => String(r.metal) === metal);
-    const dailyEntries = buildOhlcaBuckets(monthRows, "daily");
-    if (dailyEntries.length) {
-      writeV2File(`spot/${iso}/${yyyy}/${mm}.json`, dailyEntries, 86400);
     }
   }
 
   // --- spot/history/{7,30,90}d.json ---
   for (const days of [7, 30, 90]) {
-    const histStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString().replace(".000Z", "Z");
+    const histStart = new Date(now.getTime() - days * MS_PER_DAY).toISOString().replace(".000Z", "Z");
     const histEnd = now.toISOString().replace(".000Z", "Z");
     const histRows = await querySpotRange(client, histStart, histEnd);
     const byMetal = groupByMetal(histRows);
