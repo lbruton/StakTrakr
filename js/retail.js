@@ -534,8 +534,8 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
   }
 
   const { base: apiBase, manifest, generatedAt } = result;
-  _lastSuccessfulApiBase = apiBase;
-  window._lastSuccessfulApiBase = apiBase;
+  _lastSuccessfulApiBase = apiBase + "/retail";
+  window._lastSuccessfulApiBase = _lastSuccessfulApiBase;
 
   if (generatedAt) {
     try { localStorage.setItem(RETAIL_MANIFEST_TS_KEY, generatedAt); } catch { /* ignore */ }
@@ -640,7 +640,7 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
         if (!retailAvailability[slug]) retailAvailability[slug] = {};
         if (!retailLastKnownPrices[slug]) retailLastKnownPrices[slug] = {};
         for (const [vid, vdata] of Object.entries(latest.vendors)) {
-          retailAvailability[slug][vid] = vdata.in_stock === false;
+          retailAvailability[slug][vid] = vdata.in_stock !== false;
           if (vdata.price != null && vdata.price > 0) {
             retailLastKnownPrices[slug][vid] = vdata.price;
           }
