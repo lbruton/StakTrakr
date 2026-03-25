@@ -369,7 +369,7 @@ const _saveV2RetailPrices = () => {
 
 const _loadV2RetailPrices = () => {
   try { retailPrices = loadDataSync(_V2_RETAIL_PRICES_KEY) || null; }
-  catch { retailPrices = null; }
+  catch (e) { retailPrices = null; debugLog("Failed to load v2 retail prices: " + e.message, "warn"); }
 };
 
 const _saveV2RetailIntraday = () => {
@@ -381,7 +381,7 @@ const _loadV2RetailIntraday = () => {
   try {
     const loaded = loadDataSync(_V2_RETAIL_INTRADAY_KEY);
     retailIntradayData = (loaded && typeof loaded === "object" && !Array.isArray(loaded)) ? loaded : {};
-  } catch { retailIntradayData = {}; }
+  } catch (e) { retailIntradayData = {}; debugLog("Failed to load v2 retail intraday: " + e.message, "warn"); }
   if (typeof window !== "undefined") window.retailIntradayData = retailIntradayData;
 };
 
@@ -394,7 +394,7 @@ const _loadV2RetailHistory = () => {
   try {
     const loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
     retailPriceHistory = (loaded && !Array.isArray(loaded) && typeof loaded === "object") ? loaded : {};
-  } catch { retailPriceHistory = {}; }
+  } catch (e) { retailPriceHistory = {}; debugLog("Failed to load v2 retail history: " + e.message, "warn"); }
   if (typeof window !== "undefined") window.retailPriceHistory = retailPriceHistory;
 };
 
@@ -571,6 +571,21 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     }
     try { localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta)); } catch { /* ignore */ }
   }
+
+  // Fetch providers.json for vendor product page URLs (same as v1)
+  try {
+    const providersUrl = `${apiBase}/providers.json`;
+    const providersResp = await fetch(providersUrl, { signal: AbortSignal.timeout(5000) });
+    if (providersResp.ok) {
+      retailProviders = await providersResp.json();
+      if (retailProviders && retailProviders._vendor_meta) {
+        _manifestVendorMeta = retailProviders._vendor_meta;
+      }
+      if (typeof window !== "undefined") window.retailProviders = retailProviders;
+      saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
+      debugLog(`[retail-v2] Loaded ${Object.keys(retailProviders || {}).length} coin provider mappings`, "info");
+    }
+  } catch { /* non-fatal — vendor links degrade to homepage */ }
 
   const slugs = _manifestSlugs.length ? _manifestSlugs : RETAIL_SLUGS;
 
