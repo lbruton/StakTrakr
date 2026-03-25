@@ -2,7 +2,7 @@
 
 ## References
 
-- **Linear Issue:** [PROJ-XXX](https://linear.app/team/issue/PROJ-XXX)
+- **Issue:** PROJ-XXX
 - **GitHub PR:** [#NNN](https://github.com/owner/repo/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{spec-name}/`
 
@@ -34,6 +34,23 @@
 
 1. WHEN [event] THEN [system] SHALL [response]
 2. IF [precondition] THEN [system] SHALL [response]
+
+## Open Questions
+
+> **GATE:** All blocking questions must be resolved before this document can be approved.
+> Non-blocking questions may carry forward to the Design phase.
+
+### Blocking (must resolve before approval)
+
+- [ ] [Question — why it matters]
+
+### Non-blocking (can defer to Design)
+
+- [ ] [Question — context]
+
+### Resolved
+
+- [x] ~~[Question]~~ — [Answer, source]
 
 ## Non-Functional Requirements
 

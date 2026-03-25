@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="metalGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="35%" stop-color="#d4a017"/>
+      <stop offset="65%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="accentLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg4)"/>
+  <!-- Large geometric "S" formed from stacked horizontal lines -->
+  <!-- The S is made of parallel bars that curve like a stack -->
+  <g transform="translate(100, 90)">
+    <!-- S character — built from horizontal bars suggesting stacked metals -->
+    <!-- Top curve of S -->
+    <rect x="80" y="0" width="180" height="16" rx="8" fill="url(#metalGrad)" opacity="0.5"/>
+    <rect x="40" y="28" width="160" height="16" rx="8" fill="url(#metalGrad)" opacity="0.65"/>
+    <rect x="20" y="56" width="120" height="16" rx="8" fill="url(#metalGrad)" opacity="0.8"/>
+    <!-- Middle of S -->
+    <rect x="40" y="84" width="200" height="18" rx="9" fill="url(#metalGrad)"/>
+    <!-- Bottom curve of S -->
+    <rect x="140" y="114" width="120" height="16" rx="8" fill="url(#metalGrad)" opacity="0.8"/>
+    <rect x="100" y="142" width="160" height="16" rx="8" fill="url(#metalGrad)" opacity="0.65"/>
+    <rect x="40" y="170" width="200" height="16" rx="8" fill="url(#metalGrad)" opacity="0.5"/>
+  </g>
+  <!-- Accent horizontal line -->
+  <rect x="80" y="295" width="352" height="2" fill="url(#accentLine)"/>
+  <!-- "T" below the line — clean geometric -->
+  <g transform="translate(180, 310)">
+    <!-- T crossbar -->
+    <rect x="0" y="0" width="152" height="14" rx="4" fill="#e2e8f0"/>
+    <!-- T stem -->
+    <rect x="62" y="14" width="28" height="80" rx="4" fill="#e2e8f0" opacity="0.85"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="256" y="450" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="18" fill="#64748b" letter-spacing="8" font-weight="400">STAKTRAKR</text>
+  <!-- Subtle version badge -->
+  <rect x="200" y="460" width="112" height="18" rx="9" fill="none" stroke="#334155" stroke-width="1"/>
+  <text x="256" y="473" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#475569" letter-spacing="1">TRACK YOUR STACK</text>
+</svg>

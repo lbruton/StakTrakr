@@ -2,7 +2,7 @@
 
 ## References
 
-- **Linear Issue:** [PROJ-XXX](https://linear.app/team/issue/PROJ-XXX)
+- **Issue:** PROJ-XXX
 - **GitHub PR:** [#NNN](https://github.com/owner/repo/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{spec-name}/`
 
@@ -104,6 +104,19 @@ _If **No**, skip this section entirely. If **Yes**, complete all fields below �
 > 3. Both artifact paths are filled in above
 >
 > This gate is enforced in Phase 4 — the orchestrator MUST check this section before dispatching any task tagged with `ui:true`.
+
+## Open Questions
+
+> **GATE:** All blocking questions must be resolved before this document can be approved.
+> Questions carried from Requirements should be resolved here.
+
+### Blocking (must resolve before approval)
+
+- [ ] [Question — why it matters]
+
+### Resolved
+
+- [x] ~~[Question]~~ — [Answer, source]
 
 ## Error Handling
 

@@ -94,14 +94,14 @@ When done, report:
 
 ## Quick Fix / Bug Fix Variant
 
-Use this variant when dispatching for a Linear issue fix WITHOUT a full spec. Replace the "Before You Begin" section above with this adversarial pre-implementation challenge.
+Use this variant when dispatching for an issue fix WITHOUT a full spec. Replace the "Before You Begin" section above with this adversarial pre-implementation challenge.
 
 ```
-You are fixing {LINEAR_ISSUE_ID}: {ISSUE_TITLE}
+You are fixing {ISSUE_ID}: {ISSUE_TITLE}
 
 ## Bug Description
 
-{Description from Linear issue}
+{Description from issue}
 
 ## Adversarial Pre-Check (answer BEFORE writing any code)
 

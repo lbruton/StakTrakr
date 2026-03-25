@@ -33,6 +33,9 @@ cd "$REPO_DIR"
 # Export latest data from Turso → JSON files (picks up data from all pollers)
 DATA_DIR="$REPO_DIR/data" node /app/api-export.js
 
+# Export v2 API files (non-fatal — v1 still publishes if v2 fails)
+DATA_DIR="$REPO_DIR/data" node /app/api-export-v2.js || echo "[$(date -u +%H:%M:%S)] v2 export failed (non-fatal)"
+
 # Generate providers.json from Turso (non-fatal — keeps existing file if Turso is down)
 DATA_DIR="$REPO_DIR/data" node /app/export-providers-json.js || true
 

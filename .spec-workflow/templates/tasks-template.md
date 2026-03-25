@@ -2,7 +2,7 @@
 
 ## References
 
-- **Linear Issue:** [PROJ-XXX](https://linear.app/team/issue/PROJ-XXX)
+- **Issue:** PROJ-XXX
 - **GitHub PR:** [#NNN](https://github.com/owner/repo/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{spec-name}/`
 

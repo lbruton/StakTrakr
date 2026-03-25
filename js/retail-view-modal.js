@@ -4,6 +4,28 @@
 let _retailViewModalChart = null;
 let _retailViewIntradayChart = null;
 let _intradayRowCount = 24;
+
+const _carriedTimeAgo = (timestamp) => {
+  if (!timestamp) return "unknown";
+  const ageMs = Date.now() - new Date(timestamp).getTime();
+  if (isNaN(ageMs) || ageMs < 0) return "just now";
+  const minutes = Math.floor(ageMs / 60000);
+  const hours = Math.floor(ageMs / 3600000);
+  const days = Math.floor(ageMs / 86400000);
+  if (days > 0) return `${days} day${days > 1 ? "s" : ""} ago`;
+  if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  if (minutes > 0) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  return "just now";
+};
+
+const _normalizeV2IntradayWindows = (windows) => {
+  if (!windows || !Array.isArray(windows)) return [];
+  return windows.map((w) => ({
+    ...w,
+    window: w.window || w.t || null,
+  }));
+};
+
 /**
  * Formats a Date as HH:MM in the user's selected timezone (or local if unset).
  * @param {Date} d
@@ -76,6 +98,8 @@ const _buildVendorLegend = (slug) => {
   );
   if (!hasAny) return;
 
+  const isV2 = typeof USE_V2_API !== "undefined" && USE_V2_API;
+
   knownVendors.forEach((vendorId) => {
     const vendorData = vendorMap[vendorId];
     const price = vendorData ? vendorData.price : null;
@@ -93,8 +117,14 @@ const _buildVendorLegend = (slug) => {
     // Skip vendors with no price
     if (price == null) return;
 
+    const isCarried = isV2 && vendorData && vendorData.carried === true;
+    const carriedFrom = isCarried && vendorData.carried_from ? vendorData.carried_from : null;
+
     const item = document.createElement(vendorUrl ? "a" : "span");
     item.className = "retail-legend-item";
+    if (isCarried && carriedFrom) {
+      item.title = `Carried from: ${_carriedTimeAgo(carriedFrom)}`;
+    }
     if (vendorUrl) {
       item.href = "#";
       item.addEventListener("click", (e) => {
@@ -105,14 +135,16 @@ const _buildVendorLegend = (slug) => {
       });
     }
 
+    const displayColor = isCarried ? color + "80" : color;
+
     const swatch = document.createElement("span");
     swatch.className = "retail-legend-swatch";
-    swatch.style.background = color;
+    swatch.style.background = displayColor;
 
     const nameEl = document.createElement("span");
     nameEl.className = "retail-legend-name";
-    nameEl.textContent = label;
-    nameEl.style.color = color;
+    nameEl.textContent = isCarried ? label + " (carried)" : label;
+    nameEl.style.color = displayColor;
 
     const priceEl = document.createElement("span");
     priceEl.className = "retail-legend-price";
@@ -304,12 +336,13 @@ const _buildIntradayTable = (slug, bucketed) => {
   // Fall back to re-bucketing from live data if bucketed not provided
   if (!bucketed) {
     const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
-    const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+    const rawWindows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+    const windows = (typeof USE_V2_API !== "undefined" && USE_V2_API) ? _normalizeV2IntradayWindows(rawWindows) : rawWindows;
     const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
     try {
       bucketed = _flagAnomalies(filled);
     } catch (e) {
-      console.error('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped', e);
+      debugLog('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: ' + e.message, 'warn');
       bucketed = filled;
     }
   }
@@ -423,14 +456,16 @@ const _buildIntradayChart = (slug) => {
   const canvas = safeGetElement("retailViewIntradayChart");
   const noDataEl = safeGetElement("retailViewIntradayNoData");
 
+  const isV2 = typeof USE_V2_API !== "undefined" && USE_V2_API;
   const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
-  const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  const rawWindows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  const windows = isV2 ? _normalizeV2IntradayWindows(rawWindows) : rawWindows;
   const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
   let bucketed;
   try {
     bucketed = _flagAnomalies(filled);
   } catch (e) {
-    console.error('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped', e);
+    debugLog('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: ' + e.message, 'warn');
     bucketed = filled;
   }
 
@@ -514,6 +549,21 @@ const _buildIntradayChart = (slug) => {
             tension: 0.3,
           },
         ];
+
+    // Augment vendor datasets with carried-aware dashed segments
+    if (useVendorLines) {
+      datasets.forEach((ds, idx) => {
+        const carried = carriedSets[idx];
+        if (!carried || carried.size === 0) return;
+        ds.pointRadius = 0;
+        ds.pointHoverRadius = (ctx) => carried.has(ctx.dataIndex) ? 2 : 3;
+        const baseColor = ds.borderColor;
+        ds.segment = {
+          borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [5, 3] : [],
+          borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? baseColor + "80" : baseColor,
+        };
+      });
+    }
 
     _retailViewIntradayChart = createTimeSeriesChart(canvas, labels, datasets, {
       showLegend: !useVendorLines,
@@ -671,21 +721,23 @@ const openRetailViewModal = (slug) => {
       let intradayUpdated = false;
       let anySuccess = false;
       if (latestResp && latestResp.ok) {
-        const latest = await latestResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn"); return null; });
+        let latest = await latestResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn"); return null; });
+        // Unwrap v2 envelope if present
+        if (latest && latest.v === 2 && latest.data !== undefined) latest = latest.data;
         if (latest) {
           anySuccess = true;
           if (typeof retailIntradayData !== "undefined") {
             retailIntradayData[slug] = {
               window_start: latest.window_start,
-              windows_24h: Array.isArray(latest.windows_24h) ? latest.windows_24h : [],
+              windows_24h: _normalizeV2IntradayWindows(Array.isArray(latest.windows_24h) ? latest.windows_24h : []),
             };
             if (typeof saveRetailIntradayData === "function") saveRetailIntradayData();
             intradayUpdated = true;
           }
           if (latest.vendors && typeof retailPrices !== "undefined" && retailPrices && retailPrices.prices) {
             retailPrices.prices[slug] = {
-              median_price: latest.median_price,
-              lowest_price: latest.lowest_price,
+              median_price: latest.median_price ?? latest.median ?? null,
+              lowest_price: latest.lowest_price ?? latest.low ?? null,
               vendors: latest.vendors,
             };
             if (typeof saveRetailPrices === "function") saveRetailPrices();
