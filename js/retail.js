@@ -148,6 +148,11 @@ const _fmtRetailPrice = (v) => (v != null ? `$${Number(v).toLocaleString('en-US'
 // State
 // ---------------------------------------------------------------------------
 
+// STAK-503: v2 storage key constants (strings match ALLOWED_STORAGE_KEYS in constants.js)
+const _V2_RETAIL_PRICES_KEY = "v2RetailPrices";
+const _V2_RETAIL_INTRADAY_KEY = "v2RetailIntraday";
+const _V2_RETAIL_HISTORY_KEY = "v2RetailHistory";
+
 /** @type {{lastSync: string, window_start: string|null, prices: Object}|null} */
 let retailPrices = null;
 
@@ -354,6 +359,46 @@ const saveRetailAvailability = () => {
 };
 
 // ---------------------------------------------------------------------------
+// v2 Persistence (STAK-503)
+// ---------------------------------------------------------------------------
+
+const _saveV2RetailPrices = () => {
+  try { saveDataSync(_V2_RETAIL_PRICES_KEY, retailPrices); }
+  catch (err) { _handleSaveError("v2 retail prices", err); }
+};
+
+const _loadV2RetailPrices = () => {
+  try { retailPrices = loadDataSync(_V2_RETAIL_PRICES_KEY) || null; }
+  catch { retailPrices = null; }
+};
+
+const _saveV2RetailIntraday = () => {
+  try { saveDataSync(_V2_RETAIL_INTRADAY_KEY, retailIntradayData); }
+  catch (err) { debugLog(`[retail-v2] Failed to save intraday: ${err.message}`, "warn"); }
+};
+
+const _loadV2RetailIntraday = () => {
+  try {
+    const loaded = loadDataSync(_V2_RETAIL_INTRADAY_KEY);
+    retailIntradayData = (loaded && typeof loaded === "object" && !Array.isArray(loaded)) ? loaded : {};
+  } catch { retailIntradayData = {}; }
+  if (typeof window !== "undefined") window.retailIntradayData = retailIntradayData;
+};
+
+const _saveV2RetailHistory = () => {
+  try { saveDataSync(_V2_RETAIL_HISTORY_KEY, retailPriceHistory); }
+  catch (err) { _handleSaveError("v2 retail history", err); }
+};
+
+const _loadV2RetailHistory = () => {
+  try {
+    const loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    retailPriceHistory = (loaded && !Array.isArray(loaded) && typeof loaded === "object") ? loaded : {};
+  } catch { retailPriceHistory = {}; }
+  if (typeof window !== "undefined") window.retailPriceHistory = retailPriceHistory;
+};
+
+// ---------------------------------------------------------------------------
 // Accessors
 // ---------------------------------------------------------------------------
 
@@ -443,6 +488,234 @@ const _processSlugResult = (slug, latest, hist30) => {
 };
 
 // ---------------------------------------------------------------------------
+// v2 Sync Helpers (STAK-503)
+// ---------------------------------------------------------------------------
+
+async function _pickFreshestV2Endpoint() {
+  const endpoints = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS : [];
+  for (const base of endpoints) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const envelope = await resp.json();
+      const manifest = (envelope && envelope.v === 2 && envelope.data) ? envelope.data : envelope;
+      return { base, manifest, generatedAt: envelope.generated_at || "" };
+    } catch {
+      // try next endpoint
+    }
+  }
+  return null;
+}
+
+async function _fetchV2Json(base, path) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const resp = await fetch(`${base}/${path}`, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+    if (!resp.ok) return null;
+    const envelope = await resp.json();
+    return (envelope && envelope.v === 2 && envelope.data !== undefined) ? envelope.data : envelope;
+  } catch {
+    return null;
+  }
+}
+
+async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
+  const result = await _pickFreshestV2Endpoint();
+  if (!result) {
+    debugLog("[retail-v2] All v2 endpoints unreachable", "warn");
+    const errorMsg = "All v2 API endpoints unreachable — check your network connection.";
+    if (ui && syncStatus) syncStatus.textContent = errorMsg;
+    _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
+    _retailSyncError = true;
+    return;
+  }
+
+  const { base: apiBase, manifest, generatedAt } = result;
+  _lastSuccessfulApiBase = apiBase;
+  window._lastSuccessfulApiBase = apiBase;
+
+  if (generatedAt) {
+    try { localStorage.setItem(RETAIL_MANIFEST_TS_KEY, generatedAt); } catch { /* ignore */ }
+  }
+  debugLog(`[retail-v2] Using ${apiBase} (generated: ${generatedAt})`, "info");
+
+  // Extract slug list and metadata from v2 manifest
+  const coins = Array.isArray(manifest.coins) ? manifest.coins : [];
+  const vendors = Array.isArray(manifest.vendors) ? manifest.vendors : [];
+
+  // Populate manifest resolver state from v2 manifest
+  _manifestSlugs = coins.map((c) => c.slug);
+  _manifestCoinMeta = {};
+  for (const c of coins) {
+    _manifestCoinMeta[c.slug] = {
+      name: c.name,
+      weight: c.weight_oz || 0,
+      metal: c.metal === "xag" ? "silver" : c.metal === "xau" ? "gold" : c.metal === "xpt" ? "platinum" : c.metal === "xpd" ? "palladium" : c.metal || "unknown",
+    };
+  }
+  if (_manifestSlugs.length) {
+    try { localStorage.setItem(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs)); } catch { /* ignore */ }
+  }
+  if (_manifestCoinMeta) {
+    try { localStorage.setItem(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta)); } catch { /* ignore */ }
+  }
+
+  // Populate vendor metadata from manifest
+  if (vendors.length) {
+    _manifestVendorMeta = {};
+    for (const v of vendors) {
+      _manifestVendorMeta[v.id] = { name: v.name, color: v.color, url: v.url || null };
+    }
+    try { localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta)); } catch { /* ignore */ }
+  }
+
+  const slugs = _manifestSlugs.length ? _manifestSlugs : RETAIL_SLUGS;
+
+  // Fetch per-slug data in parallel: latest, intraday, history-7d, history-30d, history-90d
+  const results = await Promise.allSettled(
+    slugs.map(async (slug) => {
+      const [latest, intraday, hist7, hist30, hist90] = await Promise.all([
+        _fetchV2Json(apiBase, `retail/${slug}/latest.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/intraday.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/history-7d.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/history-30d.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/history-90d.json`),
+      ]);
+      return { slug, latest, intraday, hist7, hist30, hist90 };
+    })
+  );
+
+  let successCount = 0;
+  const newPrices = {};
+
+  results.forEach((r) => {
+    if (r.status !== "fulfilled") {
+      debugLog(`[retail-v2] Slug fetch failed: ${r.reason?.message || r.reason}`, "warn");
+      return;
+    }
+    const { slug, latest, intraday, hist7, hist30, hist90 } = r.value;
+
+    if (latest) {
+      // Build price entry preserving carried/carried_from flags
+      const vendorMap = {};
+      if (latest.vendors) {
+        for (const [vid, vdata] of Object.entries(latest.vendors)) {
+          vendorMap[vid] = {
+            price: vdata.price,
+            inStock: vdata.in_stock !== false,
+            confidence: vdata.confidence || null,
+            carried: vdata.carried || false,
+            carried_from: vdata.carried_from || null,
+          };
+        }
+      }
+
+      newPrices[slug] = {
+        median_price: latest.median ?? null,
+        lowest_price: latest.low ?? null,
+        highest_price: latest.high ?? null,
+        vendors: vendorMap,
+      };
+
+      // Update availability from v2 vendor data
+      if (latest.vendors) {
+        if (!retailAvailability[slug]) retailAvailability[slug] = {};
+        if (!retailLastKnownPrices[slug]) retailLastKnownPrices[slug] = {};
+        for (const [vid, vdata] of Object.entries(latest.vendors)) {
+          retailAvailability[slug][vid] = vdata.in_stock === false;
+          if (vdata.price != null && vdata.price > 0) {
+            retailLastKnownPrices[slug][vid] = vdata.price;
+          }
+        }
+      }
+
+      successCount++;
+    }
+
+    // Store standalone intraday data
+    if (Array.isArray(intraday)) {
+      retailIntradayData[slug] = {
+        window_start: intraday.length ? intraday[0].t : null,
+        windows_24h: intraday.map((w) => ({
+          t: w.t,
+          ts: w.ts,
+          median: w.median,
+          low: w.low,
+          vendors: w.vendors || {},
+        })),
+      };
+    }
+
+    // Merge history data (7d hourly, 30d daily, 90d daily)
+    const historyEntries = [];
+    const addHistory = (data) => {
+      if (!Array.isArray(data)) return;
+      for (const entry of data) {
+        historyEntries.push({
+          date: entry.t ? entry.t.slice(0, 10) : null,
+          t: entry.t,
+          ts: entry.ts,
+          open: entry.open,
+          high: entry.high,
+          low: entry.low,
+          close: entry.close,
+          avg_median: entry.avg ?? entry.close,
+          avg_low: entry.low,
+          n: entry.n,
+          vendors: entry.vendors || null,
+        });
+      }
+    };
+    addHistory(hist90);
+    addHistory(hist30);
+    addHistory(hist7);
+
+    // Deduplicate by date, preferring the latest (finest granularity) entry
+    if (historyEntries.length) {
+      const byDate = new Map();
+      for (const e of historyEntries) {
+        if (e.date) byDate.set(e.date, e);
+      }
+      retailPriceHistory[slug] = [...byDate.values()].sort((a, b) => (a.date > b.date ? 1 : -1));
+    }
+  });
+
+  if (successCount > 0) {
+    retailPrices = {
+      lastSync: new Date().toISOString(),
+      window_start: generatedAt || null,
+      prices: newPrices,
+    };
+    _retailSyncError = false;
+  }
+
+  if (successCount === 0 && slugs.length > 0) {
+    const errorMsg = "All v2 coin price fetches failed — check your network connection.";
+    debugLog(`[retail-v2] ${errorMsg}`, "error");
+    if (ui && syncStatus) syncStatus.textContent = errorMsg;
+    _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
+    _retailSyncError = true;
+    return;
+  }
+
+  if (successCount > 0) {
+    _saveV2RetailPrices();
+    _saveV2RetailHistory();
+    _saveV2RetailIntraday();
+    saveRetailAvailability();
+  }
+
+  const statusMsg = `Synced ${successCount} coin(s) [v2] · ${generatedAt || "unknown"}`;
+  if (ui && syncStatus) syncStatus.textContent = statusMsg;
+  debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
+  _appendSyncLogEntry({ success: true, coins: successCount, window: generatedAt || null, error: null });
+  if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+}
+
+// ---------------------------------------------------------------------------
 // Sync
 // ---------------------------------------------------------------------------
 
@@ -473,6 +746,12 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   renderRetailCards();
 
   try {
+    // STAK-503: v2 API branch
+    if (USE_V2_API) {
+      await _syncRetailV2({ ui, syncBtn, syncStatus });
+      return;
+    }
+
     // Multi-endpoint: race all configured APIs, pick freshest manifest
     let apiBase, manifest;
     const ranked = await _pickFreshestEndpoint();
@@ -1828,9 +2107,15 @@ const initRetailPrices = () => {
     _manifestVendorMeta = null;
     try { localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY); } catch { /* ignore */ }
   }
-  loadRetailPrices();
-  loadRetailPriceHistory();
-  loadRetailIntradayData();
+  if (USE_V2_API) {
+    _loadV2RetailPrices();
+    _loadV2RetailHistory();
+    _loadV2RetailIntraday();
+  } else {
+    loadRetailPrices();
+    loadRetailPriceHistory();
+    loadRetailIntradayData();
+  }
   _loadRetailTrendMode();
   loadRetailProviders();
   loadRetailAvailability();
