@@ -114,15 +114,82 @@ const _parseEndpointHealth = (marketResult, spotResult, goldbackResult) => {
 };
 
 /**
+ * Parses v2 Promise.allSettled results into the standard health shape.
+ * v2 endpoints return envelopes with `generated_at`, `stale_after`, and `data`.
+ * Timestamps are already ISO 8601 Z-suffixed — no _normalizeTs needed.
+ * @param {PromiseSettledResult} manifestResult
+ * @param {PromiseSettledResult} spotResult
+ * @param {PromiseSettledResult} goldbackResult
+ * @returns {{market: object, spot: object, goldback: object}}
+ */
+const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
+  // --- Market prices (v2/manifest.json) ---
+  let market = { ok: false, ageMin: null, ago: null, coins: [], error: null };
+  if (manifestResult.status === "fulfilled") {
+    const envelope = manifestResult.value;
+    const generatedAt = new Date(envelope.generated_at);
+    const staleAfterMin = typeof envelope.stale_after === "number"
+      ? Math.ceil(envelope.stale_after / 60)
+      : API_HEALTH_MARKET_STALE_MIN;
+    if (!isNaN(generatedAt.getTime())) {
+      market.ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
+      market.ago    = _timeAgo(envelope.generated_at);
+      market.ok     = market.ageMin <= staleAfterMin;
+      market.coins  = (envelope.data && envelope.data.coins) || [];
+    } else {
+      market.error = `Invalid timestamp: ${envelope.generated_at}`;
+    }
+  } else {
+    market.error = manifestResult.reason?.message || String(manifestResult.reason);
+  }
+
+  // --- Spot prices (v2/spot/latest.json) ---
+  let spot = { ok: false, ageMin: null, ago: null, error: null };
+  if (spotResult.status === "fulfilled") {
+    const envelope = spotResult.value;
+    const generatedAt = new Date(envelope.generated_at);
+    const staleAfterMin = typeof envelope.stale_after === "number"
+      ? Math.ceil(envelope.stale_after / 60)
+      : API_HEALTH_SPOT_STALE_MIN;
+    if (!isNaN(generatedAt.getTime())) {
+      spot.ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
+      spot.ago    = _timeAgo(envelope.generated_at);
+      spot.ok     = spot.ageMin <= staleAfterMin;
+    } else {
+      spot.error = `Invalid timestamp: ${envelope.generated_at}`;
+    }
+  } else {
+    spot.error = spotResult.reason?.message || String(spotResult.reason);
+  }
+
+  // --- Goldback (v2/goldback/latest.json) ---
+  let goldback = { ok: false, ago: null, error: null };
+  if (goldbackResult.status === "fulfilled") {
+    const envelope = goldbackResult.value;
+    const generatedAt = new Date(envelope.generated_at);
+    const staleAfterMin = typeof envelope.stale_after === "number"
+      ? Math.ceil(envelope.stale_after / 60)
+      : API_HEALTH_GOLDBACK_STALE_MIN;
+    if (!isNaN(generatedAt.getTime())) {
+      const ageMin  = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
+      goldback.ago  = _timeAgo(envelope.generated_at);
+      goldback.ok   = ageMin <= staleAfterMin;
+    } else {
+      goldback.error = `Invalid timestamp: ${envelope.generated_at}`;
+    }
+  } else {
+    goldback.error = goldbackResult.reason?.message || String(goldbackResult.reason);
+  }
+
+  return { market, spot, goldback };
+};
+
+/**
  * Fetches all three API feeds independently from every configured endpoint in
  * parallel. Returns per-endpoint health so the modal can benchmark drift.
  * @returns {Promise<{primary: object, backup: object|null}>}
  */
 const fetchApiHealth = async () => {
-  const apiEndpoints = (typeof RETAIL_API_ENDPOINTS !== "undefined" && RETAIL_API_ENDPOINTS.length)
-    ? RETAIL_API_ENDPOINTS
-    : ["https://api.staktrakr.com/data/api"];
-
   const _fetchWithTimeout = (url, ms = 5000) => {
     const bustUrl = `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
     const ctrl = new AbortController();
@@ -131,6 +198,30 @@ const fetchApiHealth = async () => {
       .then((r) => { clearTimeout(tid); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .catch((e) => { clearTimeout(tid); throw e; });
   };
+
+  if (typeof USE_V2_API !== "undefined" && USE_V2_API) {
+    // --- v2 path: use V2_API_ENDPOINTS with envelope-based staleness ---
+    const v2Endpoints = (typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length)
+      ? V2_API_ENDPOINTS
+      : ["https://api.staktrakr.com/data/v2"];
+
+    const _fetchV2FromEndpoint = async (ep) => {
+      return Promise.allSettled([
+        _fetchWithTimeout(`${ep}/manifest.json`),
+        _fetchWithTimeout(`${ep}/spot/latest.json`),
+        _fetchWithTimeout(`${ep}/goldback/latest.json`),
+      ]);
+    };
+
+    const endpointRaws = await Promise.all(v2Endpoints.map(_fetchV2FromEndpoint));
+    const parsed = endpointRaws.map(([m, s, g]) => _parseV2EndpointHealth(m, s, g));
+    return { primary: parsed[0], backup: parsed[1] ?? null };
+  }
+
+  // --- v1 path (unchanged) ---
+  const apiEndpoints = (typeof RETAIL_API_ENDPOINTS !== "undefined" && RETAIL_API_ENDPOINTS.length)
+    ? RETAIL_API_ENDPOINTS
+    : ["https://api.staktrakr.com/data/api"];
 
   const _hourlyUrl = (dataBase, offsetHours = 0) => {
     const d  = new Date(Date.now() - offsetHours * 3600000);
@@ -141,7 +232,6 @@ const fetchApiHealth = async () => {
     return `${dataBase}/hourly/${y}/${mo}/${dy}/${hr}.json`;
   };
 
-  // Fetch all 3 feeds from a single endpoint independently
   const _fetchFromEndpoint = async (ep) => {
     const dataEp = ep.replace(/\/api$/, "");
     const spotFetch = _fetchWithTimeout(_hourlyUrl(dataEp, 0))
@@ -153,7 +243,6 @@ const fetchApiHealth = async () => {
     ]);
   };
 
-  // Probe all endpoints in parallel — each endpoint is fully independent
   const endpointRaws = await Promise.all(apiEndpoints.map(_fetchFromEndpoint));
   const parsed = endpointRaws.map(([m, s, g]) => _parseEndpointHealth(m, s, g));
 
