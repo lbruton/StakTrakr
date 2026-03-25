@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * StakTrakr v2 API Publisher — Spot + Retail Endpoints
- * =====================================================
+ * StakTrakr v2 API Publisher — Spot + Retail + Goldback + Manifest
+ * ================================================================
  * Reads spot_prices and price_snapshots from Turso, writes v2 JSON endpoints.
  * Called by run-publish.sh after api-export.js.
  *
  * Output structure:
  *   data/v2/
+ *     manifest.json
  *     spot/
  *       latest.json
  *       history/{7,30,90}d.json
@@ -24,6 +25,10 @@
  *         intraday.json
  *         history-{7,30,90}d.json
  *         {YYYY}/{MM}.json
+ *     goldback/
+ *       latest.json
+ *       history-30d.json
+ *       {YYYY}/{MM}.json
  *
  * Usage:
  *   DATA_DIR=/path/to/data node api-export-v2.js
@@ -708,6 +713,216 @@ function buildDailyWithVendors(dailyAggRows) {
 }
 
 // ---------------------------------------------------------------------------
+// Goldback queries
+// ---------------------------------------------------------------------------
+
+async function queryGoldbackLatest(client) {
+  const cutoff = new Date(Date.now() - 2 * MS_PER_HOUR)
+    .toISOString()
+    .replace(".000Z", "Z");
+  const result = await client.execute({
+    sql: `
+      SELECT price, scraped_at
+      FROM price_snapshots
+      WHERE coin_slug = 'goldback-g1' AND vendor = 'goldback'
+        AND price IS NOT NULL AND is_failed = 0
+        AND scraped_at >= ?
+      ORDER BY scraped_at DESC
+      LIMIT 1
+    `,
+    args: [cutoff],
+  });
+  if (result.rows.length) return result.rows[0];
+
+  // Fall back to 24h lookback
+  const cutoff24 = new Date(Date.now() - MS_PER_DAY)
+    .toISOString()
+    .replace(".000Z", "Z");
+  const fallback = await client.execute({
+    sql: `
+      SELECT price, scraped_at
+      FROM price_snapshots
+      WHERE coin_slug = 'goldback-g1' AND vendor = 'goldback'
+        AND price IS NOT NULL AND is_failed = 0
+        AND scraped_at >= ?
+      ORDER BY scraped_at DESC
+      LIMIT 1
+    `,
+    args: [cutoff24],
+  });
+  return fallback.rows.length ? fallback.rows[0] : null;
+}
+
+async function queryGoldbackRange(client, startIso, endIso) {
+  const result = await client.execute({
+    sql: `
+      SELECT price, scraped_at
+      FROM price_snapshots
+      WHERE coin_slug = 'goldback-g1' AND vendor = 'goldback'
+        AND price IS NOT NULL AND is_failed = 0
+        AND scraped_at >= ? AND scraped_at < ?
+      ORDER BY scraped_at ASC
+    `,
+    args: [startIso, endIso],
+  });
+  return result.rows;
+}
+
+// ---------------------------------------------------------------------------
+// Goldback helpers
+// ---------------------------------------------------------------------------
+
+function buildGoldbackDenominations(g1) {
+  return {
+    g1: g1,
+    g5: Math.round(g1 * 5 * 100) / 100,
+    g10: Math.round(g1 * 10 * 100) / 100,
+    g25: Math.round(g1 * 25 * 100) / 100,
+    g50: Math.round(g1 * 50 * 100) / 100,
+  };
+}
+
+function buildGoldbackOhlcaBuckets(rows, granularity) {
+  const buckets = {};
+  for (const row of rows) {
+    const { t, ts } = toTimestampPair(new Date(String(row.scraped_at)), granularity);
+    if (!buckets[t]) buckets[t] = { t, ts, samples: [] };
+    buckets[t].samples.push({ price: Number(row.price), timestamp: String(row.scraped_at) });
+  }
+
+  const entries = [];
+  for (const key of Object.keys(buckets).sort()) {
+    const bucket = buckets[key];
+    const ohlca = computeOhlca(bucket.samples);
+    if (ohlca) {
+      entries.push({ t: bucket.t, ts: bucket.ts, ...ohlca });
+    }
+  }
+  return entries;
+}
+
+// ---------------------------------------------------------------------------
+// Goldback export
+// ---------------------------------------------------------------------------
+
+async function exportGoldback(client) {
+  log("Exporting v2 goldback prices...");
+
+  const now = new Date();
+  const nowIso = now.toISOString().replace(".000Z", "Z");
+
+  // --- goldback/latest.json ---
+  const latestRow = await queryGoldbackLatest(client);
+  if (!latestRow) {
+    warn("No goldback data — skipping goldback export");
+    return;
+  }
+
+  const g1 = Math.round(Number(latestRow.price) * 100) / 100;
+  const { t, ts } = toTimestampPair(new Date(String(latestRow.scraped_at)), "daily");
+
+  writeV2File("goldback/latest.json", {
+    t,
+    ts,
+    g1_usd: g1,
+    denominations: buildGoldbackDenominations(g1),
+    source: "goldback.com",
+  }, 90000);
+
+  // --- goldback/history-30d.json ---
+  try {
+    const hist30dStart = new Date(now.getTime() - 30 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+    const hist30dRows = await queryGoldbackRange(client, hist30dStart, nowIso);
+    const hist30dEntries = buildGoldbackOhlcaBuckets(hist30dRows, "daily");
+    writeV2File("goldback/history-30d.json", hist30dEntries, 86400);
+  } catch (err) {
+    warn(`goldback history-30d: ${err.message}`);
+  }
+
+  // --- goldback/{YYYY}/{MM}.json ---
+  try {
+    const yyyy = String(now.getUTCFullYear());
+    const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const monthStart = `${yyyy}-${mm}-01T00:00:00Z`;
+    const monthRows = await queryGoldbackRange(client, monthStart, nowIso);
+    const monthEntries = buildGoldbackOhlcaBuckets(monthRows, "daily");
+    if (monthEntries.length) {
+      writeV2File(`goldback/${yyyy}/${mm}.json`, monthEntries, 86400);
+    }
+  } catch (err) {
+    warn(`goldback monthly archive: ${err.message}`);
+  }
+
+  log("Goldback export complete");
+}
+
+// ---------------------------------------------------------------------------
+// Manifest
+// ---------------------------------------------------------------------------
+
+async function writeManifest(client) {
+  log("Writing v2 manifest...");
+
+  await initProviderSchema(client);
+  const providersData = await getProviders(client);
+  const coins = providersData.coins || {};
+
+  // Build coins list (exclude goldback-g1 from retail coins)
+  const coinList = [];
+  for (const [slug, meta] of Object.entries(coins)) {
+    if (slug === "goldback-g1") continue;
+    coinList.push({
+      slug,
+      name: meta.name || slug,
+      metal: METAL_TO_ISO[meta.metal] || meta.metal || "unknown",
+      weight_oz: meta.weight_oz || 1.0,
+    });
+  }
+  coinList.sort((a, b) => a.slug.localeCompare(b.slug));
+
+  // Build vendors list from all configured providers
+  const vendorIds = new Set();
+  for (const coinData of Object.values(coins)) {
+    for (const p of coinData.providers || []) {
+      if (p.enabled !== false) vendorIds.add(p.id);
+    }
+  }
+  const vendorList = [];
+  for (const vid of [...vendorIds].sort()) {
+    const meta = VENDOR_META[vid] || { name: vid, color: "#94a3b8", url: null };
+    vendorList.push({ id: vid, name: meta.name, color: meta.color, url: meta.url });
+  }
+
+  writeV2File("manifest.json", {
+    metals: ["xau", "xag", "xpt", "xpd"],
+    coins: coinList,
+    vendors: vendorList,
+    endpoints: {
+      spot_latest:         "v2/spot/latest.json",
+      spot_metal_latest:   "v2/spot/{metal}/latest.json",
+      spot_metal_intraday: "v2/spot/{metal}/intraday.json",
+      spot_metal_daily:    "v2/spot/{metal}/{YYYY}/{MM}/{DD}.json",
+      spot_metal_monthly:  "v2/spot/{metal}/{YYYY}/{MM}.json",
+      spot_metal_yearly:   "v2/spot/{metal}/{YYYY}.json",
+      spot_history:        "v2/spot/history/{N}d.json",
+      retail_latest:       "v2/retail/latest.json",
+      retail_slug_latest:  "v2/retail/{slug}/latest.json",
+      retail_slug_intraday:"v2/retail/{slug}/intraday.json",
+      retail_slug_monthly: "v2/retail/{slug}/{YYYY}/{MM}.json",
+      retail_slug_history: "v2/retail/{slug}/history-{N}d.json",
+      retail_vendors:      "v2/retail/vendors/index.json",
+      retail_vendor:       "v2/retail/vendors/{vendor}.json",
+      goldback_latest:     "v2/goldback/latest.json",
+      goldback_monthly:    "v2/goldback/{YYYY}/{MM}.json",
+      goldback_history:    "v2/goldback/history-30d.json",
+      manifest:            "v2/manifest.json",
+    },
+  }, 1800);
+
+  log("Manifest written");
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -716,14 +931,54 @@ async function main() {
   log(`DATA_DIR: ${DATA_DIR}`);
 
   const client = await openTursoDb();
+  let hadError = false;
+
   try {
-    await exportSpot(client);
-    await exportRetail(client);
+    // Spot export
+    const spotStart = Date.now();
+    try {
+      await exportSpot(client);
+      log(`Spot phase: ${Date.now() - spotStart}ms`);
+    } catch (err) {
+      hadError = true;
+      warn(`Spot export failed: ${err.message}`);
+    }
+
+    // Retail export
+    const retailStart = Date.now();
+    try {
+      await exportRetail(client);
+      log(`Retail phase: ${Date.now() - retailStart}ms`);
+    } catch (err) {
+      hadError = true;
+      warn(`Retail export failed: ${err.message}`);
+    }
+
+    // Goldback export
+    const gbStart = Date.now();
+    try {
+      await exportGoldback(client);
+      log(`Goldback phase: ${Date.now() - gbStart}ms`);
+    } catch (err) {
+      hadError = true;
+      warn(`Goldback export failed: ${err.message}`);
+    }
+
+    // Manifest (always written last, even if some exports failed)
+    const manifestStart = Date.now();
+    try {
+      await writeManifest(client);
+      log(`Manifest phase: ${Date.now() - manifestStart}ms`);
+    } catch (err) {
+      hadError = true;
+      warn(`Manifest write failed: ${err.message}`);
+    }
   } finally {
     client.close();
   }
 
-  log("v2 publisher finished");
+  log(`v2 publisher finished${hadError ? " (with errors)" : ""}`);
+  if (hadError) process.exitCode = 1;
 }
 
 main().catch((err) => {
