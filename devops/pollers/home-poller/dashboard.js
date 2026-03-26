@@ -2335,6 +2335,87 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // ── POST /api/retry — Queue a single-coin re-scrape ────────────────────
+  if (req.method === "POST" && url === "/api/retry") {
+    try {
+      const { coinSlug, vendorId } = JSON.parse(await readBody(req));
+      if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
+
+      // Check if poller is currently running
+      const lockPath = "/tmp/retail-poller.lock";
+      const isLocked = existsSync(lockPath);
+
+      if (isLocked) {
+        // Queue for after the current run (5 min after lock clears)
+        const queueFile = "/tmp/retry-queue.json";
+        let queue = [];
+        try { queue = JSON.parse(readFileSync(queueFile, "utf8")); } catch { /* empty */ }
+        const exists = queue.some(q => q.coinSlug === coinSlug && q.vendorId === vendorId);
+        if (!exists) {
+          queue.push({ coinSlug, vendorId, queuedAt: new Date().toISOString() });
+          writeFileSync(queueFile, JSON.stringify(queue, null, 2));
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, queued: true, message: `Queued ${vendorId}/${coinSlug} for retry after current run completes.` }));
+      } else {
+        // Trigger immediate single-item scrape via child process
+        const cmd = `cd /app && node -e "
+          import('./shared/price-extract.js').then(async m => {
+            const { createClient } = await import('@libsql/client');
+            const client = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN });
+            const { getProvidersByCoin } = await import('./shared/provider-db.js');
+            const vendors = await getProvidersByCoin(client, '${coinSlug.replace(/'/g, "")}');
+            const vendor = vendors.find(v => v.id === '${vendorId.replace(/'/g, "")}');
+            if (!vendor || !vendor.url) { console.log('Vendor not found or no URL'); process.exit(1); }
+            console.log('Retrying: ${coinSlug}/${vendorId} at ' + vendor.url);
+            const result = await m.extractPrice(vendor.url, '${coinSlug.replace(/'/g, "")}', '${vendorId.replace(/'/g, "")}', vendor);
+            console.log('Result:', JSON.stringify(result));
+            await client.close();
+          }).catch(e => { console.error(e); process.exit(1); });
+        "`;
+        const child = spawn("bash", ["-c", cmd], { detached: true, stdio: "ignore" });
+        child.unref();
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, queued: false, message: `Triggered immediate retry for ${vendorId}/${coinSlug}.` }));
+      }
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
+  // ── POST /api/clear-chronic — Clear chronic failure record ─────────────
+  if (req.method === "POST" && url === "/api/clear-chronic") {
+    try {
+      const { coinSlug, vendorId } = JSON.parse(await readBody(req));
+      if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
+      const client = getTursoClient();
+      const result = await clearChronicFailure(client, coinSlug, vendorId);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records for ${vendorId}/${coinSlug}.` }));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
+  // ── POST /api/clear-chronic-all — Clear ALL chronic failures ───────────
+  if (req.method === "POST" && url === "/api/clear-chronic-all") {
+    try {
+      const client = getTursoClient();
+      const result = await clearAllChronicFailures(client);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records.` }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
   // ── POST /api/clear-lock — Remove a stale poller lock file ─────────────
   if (req.method === "POST" && url === "/api/clear-lock") {
     try {
