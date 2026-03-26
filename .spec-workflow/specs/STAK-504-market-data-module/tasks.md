@@ -117,7 +117,7 @@ After ALL tasks are [x] and implementation logs are recorded:
 
 ## Phase 3 — Components (tasks 5-9 are independent — can run in parallel after Phase 1+2)
 
-- [ ] 5. Market data orchestrator and data fetching
+- [x] 5. Market data orchestrator and data fetching
   - File: `js/market-data.js` (CREATE)
   - Create the orchestrator module. `initMarketData()` fetches v2 spot history (4 metals, 7d), reads cached retail/goldback data from localStorage, then calls `renderMarketDataSection()`. `renderMarketDataSection()` reads the component config, clears the container, and renders each enabled component in order by delegating to the appropriate render function. `refreshMarketData()` re-renders from cached data (no fetch). Export `initMarketData`, `refreshMarketData`, `getMarketDataComponentConfig`, `saveMarketDataComponentConfig` on window.
   - Purpose: Central module that coordinates data fetching and component rendering.
