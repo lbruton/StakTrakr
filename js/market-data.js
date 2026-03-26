@@ -176,6 +176,297 @@ const renderBestPriceTicker = () => {
 };
 
 // ---------------------------------------------------------------------------
+// Vendor Prices
+// ---------------------------------------------------------------------------
+
+const _shortVendor = (vid) => {
+  const map = { apmex: 'APMEX', jmbullion: 'JM', sdbullion: 'SD', monumentmetals: 'Monument',
+    herobullion: 'Hero', bullionexchanges: 'BullionX', summitmetals: 'Summit',
+    gainesvillecoins: "G'ville", providentmetals: 'Provident', goldback: 'Goldback' };
+  return map[vid] || vid;
+};
+
+const openMarketDetailModal = (slug) => {
+  debugLog('[market-data] Detail modal not yet implemented for: ' + slug, 'info');
+};
+
+const _renderVendorTable = async (metalCode) => {
+  const container = safeGetElement('vendorPricesContainer');
+  if (!container) return;
+
+  let tableWrap = container.querySelector('.vp-table-area');
+  if (!tableWrap) {
+    tableWrap = document.createElement('div');
+    tableWrap.className = 'vp-table-area';
+    container.appendChild(tableWrap);
+  }
+
+  const coins = _getRetailCoins();
+  const coinMetaMap = _getCoinMeta();
+  const vendorMeta = _getVendorMeta();
+
+  const metalSlugs = [];
+  const slugs = Object.keys(coins);
+  for (const slug of slugs) {
+    let meta;
+    if (coinMetaMap && coinMetaMap[slug]) {
+      meta = coinMetaMap[slug];
+    } else if (typeof window.getRetailCoinMeta === 'function') {
+      meta = window.getRetailCoinMeta(slug);
+    } else {
+      meta = { name: slug, weight: 0, metal: 'unknown' };
+    }
+    const metalLower = (meta.metal || '').toLowerCase();
+    const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
+    if (isoCode === metalCode) {
+      metalSlugs.push({ slug, meta });
+    }
+  }
+
+  if (metalSlugs.length === 0) {
+    tableWrap.textContent = '';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'padding:24px;text-align:center;color:var(--text-muted);font-size:13px;';
+    msg.textContent = 'No coins tracked for this metal';
+    tableWrap.appendChild(msg);
+    return;
+  }
+
+  tableWrap.textContent = '';
+  const loadingMsg = document.createElement('div');
+  loadingMsg.style.cssText = 'padding:24px;text-align:center;color:var(--text-muted);font-size:13px;';
+  loadingMsg.textContent = 'Loading vendor prices\u2026';
+  tableWrap.appendChild(loadingMsg);
+
+  const fetchPromises = metalSlugs.map(({ slug }) =>
+    fetch(V2_API + '/retail/' + slug + '/latest.json', { signal: AbortSignal.timeout(8000) })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => ({ slug, data: json && json.data ? json.data : null }))
+      .catch(() => ({ slug, data: null }))
+  );
+
+  const results = await Promise.allSettled(fetchPromises);
+  const detailMap = {};
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value && r.value.data) {
+      detailMap[r.value.slug] = r.value.data;
+    }
+  }
+
+  const allVendorIds = new Set();
+  for (const slug in detailMap) {
+    const vendors = detailMap[slug].vendors;
+    if (vendors) {
+      for (const vid in vendors) allVendorIds.add(vid);
+    }
+  }
+
+  const vendorIds = Array.from(allVendorIds);
+
+  if (vendorIds.length === 0) {
+    tableWrap.textContent = '';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'padding:24px;text-align:center;color:var(--text-muted);font-size:13px;';
+    msg.textContent = 'No vendor data available for this metal';
+    tableWrap.appendChild(msg);
+    return;
+  }
+
+  tableWrap.textContent = '';
+  const scrollWrap = document.createElement('div');
+  scrollWrap.style.overflowX = 'auto';
+
+  const table = document.createElement('table');
+  table.className = 'vendor-prices-table';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  const thCoin = document.createElement('th');
+  thCoin.textContent = 'COIN';
+  headRow.appendChild(thCoin);
+
+  for (const vid of vendorIds) {
+    const th = document.createElement('th');
+    th.textContent = _shortVendor(vid);
+    headRow.appendChild(th);
+  }
+
+  const thMedian = document.createElement('th');
+  thMedian.textContent = 'MEDIAN';
+  headRow.appendChild(thMedian);
+  const thSpread = document.createElement('th');
+  thSpread.textContent = 'SPREAD';
+  headRow.appendChild(thSpread);
+
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  for (const { slug, meta } of metalSlugs) {
+    const detail = detailMap[slug];
+    if (!detail || !detail.vendors) continue;
+
+    const vData = detail.vendors;
+    const weightOz = detail.weight_oz || meta.weight || 0;
+    const spotPrice = _getSpotPrice(metalCode);
+
+    const inStockPrices = [];
+    for (const vid in vData) {
+      if (vData[vid] && vData[vid].price > 0 && vData[vid].in_stock) {
+        inStockPrices.push(vData[vid].price);
+      }
+    }
+    const lowestPrice = inStockPrices.length > 0 ? Math.min(...inStockPrices) : null;
+
+    const tr = document.createElement('tr');
+
+    const tdName = document.createElement('td');
+    const dot = document.createElement('span');
+    dot.className = 'metal-dot ' + metalCode;
+    tdName.appendChild(dot);
+
+    const nameSpan = document.createElement('span');
+    const displayName = meta.name || slug;
+    nameSpan.textContent = sanitizeHtml(displayName);
+    tdName.appendChild(nameSpan);
+
+    const detailsBtn = document.createElement('button');
+    detailsBtn.className = 'vp-details-btn';
+    detailsBtn.textContent = 'Details';
+    detailsBtn.setAttribute('data-slug', slug);
+    detailsBtn.addEventListener('click', () => { openMarketDetailModal(slug); });
+    tdName.appendChild(detailsBtn);
+
+    tr.appendChild(tdName);
+
+    for (const vid of vendorIds) {
+      const td = document.createElement('td');
+      const vInfo = vData[vid];
+
+      if (!vInfo || vInfo.price == null || vInfo.price <= 0) {
+        td.textContent = '\u2014';
+        td.style.color = 'var(--text-muted)';
+        tr.appendChild(td);
+        continue;
+      }
+
+      if (vInfo.carried) td.classList.add('vp-carried');
+      if (!vInfo.in_stock) {
+        td.classList.add('vp-oos');
+        const oosSpan = document.createElement('span');
+        oosSpan.textContent = 'OOS';
+        td.appendChild(oosSpan);
+        tr.appendChild(td);
+        continue;
+      }
+
+      if (vInfo.price === lowestPrice) td.classList.add('vp-best');
+
+      const priceSpan = document.createElement('span');
+      priceSpan.className = 'vp-price';
+      priceSpan.textContent = '$' + _fmtPrice(vInfo.price);
+      priceSpan.style.cursor = 'pointer';
+      priceSpan.addEventListener('click', () => {
+        const url = (window.retailProviders && window.retailProviders[slug] && window.retailProviders[slug][vid])
+          || (vendorMeta[vid] && vendorMeta[vid].url)
+          || null;
+        if (url) {
+          const popup = window.open(url, 'retail_vendor_' + vid, 'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no');
+          if (popup) popup.opener = null;
+        }
+      });
+      td.appendChild(priceSpan);
+
+      if (spotPrice && spotPrice > 0 && weightOz > 0) {
+        const meltValue = spotPrice * weightOz;
+        const premium = ((vInfo.price - meltValue) / meltValue) * 100;
+        const premClass = premium < 5 ? 'low' : premium < 15 ? 'mid' : 'high';
+        const premBadge = document.createElement('span');
+        premBadge.className = 'vp-premium ' + premClass;
+        premBadge.textContent = (premium >= 0 ? '+' : '') + premium.toFixed(1) + '%';
+        td.appendChild(premBadge);
+      }
+
+      tr.appendChild(td);
+    }
+
+    const coinSummary = coins[slug];
+    const tdMedian = document.createElement('td');
+    tdMedian.className = 'vp-price';
+    tdMedian.textContent = coinSummary && coinSummary.median != null ? '$' + _fmtPrice(coinSummary.median) : '\u2014';
+    tr.appendChild(tdMedian);
+
+    const tdSpread = document.createElement('td');
+    tdSpread.className = 'vp-price';
+    if (coinSummary && coinSummary.highest_price != null && coinSummary.lowest_price != null) {
+      tdSpread.textContent = '$' + _fmtPrice(coinSummary.highest_price - coinSummary.lowest_price);
+    } else {
+      tdSpread.textContent = '\u2014';
+    }
+    tr.appendChild(tdSpread);
+
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+  scrollWrap.appendChild(table);
+  tableWrap.appendChild(scrollWrap);
+};
+
+const renderVendorPrices = () => {
+  const container = safeGetElement('vendorPricesContainer');
+  if (!container) return;
+
+  const coins = _getRetailCoins();
+  if (!coins || Object.keys(coins).length === 0) {
+    container.textContent = '';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'padding:24px;text-align:center;color:var(--text-muted);font-size:13px;';
+    msg.textContent = 'Retail data unavailable';
+    container.appendChild(msg);
+    return;
+  }
+
+  container.textContent = '';
+
+  const tabBar = document.createElement('div');
+  tabBar.className = 'vendor-prices-tabs';
+
+  const metals = [
+    { code: 'xau', label: 'Gold' },
+    { code: 'xag', label: 'Silver' },
+    { code: 'xpt', label: 'Platinum' },
+    { code: 'xpd', label: 'Palladium' },
+    { code: 'goldback', label: 'Goldback' }
+  ];
+
+  const savedTab = loadDataSync('vendorPricesActiveTab', 'xag');
+  let activeTab = savedTab;
+
+  const setActive = (code) => {
+    activeTab = code;
+    saveDataSync('vendorPricesActiveTab', code);
+    const btns = tabBar.querySelectorAll('button');
+    btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-metal') === code));
+    _renderVendorTable(code);
+  };
+
+  for (const m of metals) {
+    const btn = document.createElement('button');
+    btn.className = 'vp-tab' + (m.code === activeTab ? ' active' : '');
+    btn.setAttribute('data-metal', m.code);
+    btn.textContent = m.label;
+    btn.addEventListener('click', () => { setActive(m.code); });
+    tabBar.appendChild(btn);
+  }
+
+  container.appendChild(tabBar);
+
+  _renderVendorTable(activeTab);
+};
+
+// ---------------------------------------------------------------------------
 // Init / Refresh
 // ---------------------------------------------------------------------------
 
@@ -213,14 +504,14 @@ const initMarketData = async () => {
   }
 
   renderBestPriceTicker();
-  // renderVendorPrices() — Task 6
+  renderVendorPrices();
 
   _marketDataInitialized = true;
 };
 
 const refreshMarketData = () => {
   renderBestPriceTicker();
-  // renderVendorPrices() — Task 6
+  renderVendorPrices();
 };
 
 // ---------------------------------------------------------------------------
@@ -231,4 +522,6 @@ if (typeof window !== 'undefined') {
   window.initMarketData = initMarketData;
   window.refreshMarketData = refreshMarketData;
   window.renderBestPriceTicker = renderBestPriceTicker;
+  window.renderVendorPrices = renderVendorPrices;
+  window.openMarketDetailModal = openMarketDetailModal;
 }
