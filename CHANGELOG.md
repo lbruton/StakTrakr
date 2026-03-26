@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.87] - 2026-03-26
+
+### Added — Market Data Module (STAK-504)
+
+- **Added**: Best Price Ticker strip below spot cards showing cheapest vendor per coin with premium percentages (STAK-504)
+- **Added**: Vendor Prices comparison table with metal tabs (Gold/Silver/Platinum/Palladium/Goldback), per-vendor prices, premium badges, and clickable buy links opening vendor product pages (STAK-504)
+- **Added**: Market Detail Modal with TradingView Lightweight Charts 7-day spot history and per-vendor price comparison for any coin (STAK-504)
+- **Added**: Vendor Prices and Best Price Ticker sections are toggleable and reorderable in Settings > Layout (STAK-504)
+
+---
+
 ## [3.33.86] - 2026-03-22
 
 ### Fixed — What's New modal flash fix (STAK-500)
