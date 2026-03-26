@@ -186,8 +186,291 @@ const _shortVendor = (vid) => {
   return map[vid] || vid;
 };
 
-const openMarketDetailModal = (slug) => {
-  debugLog('[market-data] Detail modal not yet implemented for: ' + slug, 'info');
+let _activeModalChart = null;
+
+const _modalEscHandler = (e) => {
+  if (e.key === 'Escape') closeMarketDetailModal();
+};
+
+const closeMarketDetailModal = () => {
+  if (_activeModalChart && typeof destroyCoinChart === 'function') {
+    destroyCoinChart(_activeModalChart);
+  }
+  _activeModalChart = null;
+
+  const content = safeGetElement('marketDetailContent');
+  if (content) content.textContent = '';
+
+  const overlay = safeGetElement('marketDetailModal');
+  if (overlay) overlay.setAttribute('hidden', '');
+
+  document.removeEventListener('keydown', _modalEscHandler);
+};
+
+const openMarketDetailModal = async (slug) => {
+  const overlay = safeGetElement('marketDetailModal');
+  const content = safeGetElement('marketDetailContent');
+  if (!overlay || !content) return;
+
+  content.textContent = '';
+  overlay.removeAttribute('hidden');
+
+  const closeBtn = safeGetElement('marketDetailCloseBtn');
+  if (closeBtn) closeBtn.onclick = () => closeMarketDetailModal();
+  overlay.onclick = (e) => { if (e.target === overlay) closeMarketDetailModal(); };
+  document.addEventListener('keydown', _modalEscHandler);
+
+  const loadingEl = document.createElement('div');
+  loadingEl.style.cssText = 'padding:48px;text-align:center;color:var(--text-muted);font-size:13px;';
+  loadingEl.textContent = 'Loading coin details\u2026';
+  content.appendChild(loadingEl);
+
+  const coinMetaMap = _getCoinMeta();
+  const vendorMeta = _getVendorMeta();
+
+  let coinMeta;
+  if (coinMetaMap && coinMetaMap[slug]) {
+    coinMeta = coinMetaMap[slug];
+  } else if (typeof window.getRetailCoinMeta === 'function') {
+    coinMeta = window.getRetailCoinMeta(slug);
+  } else {
+    coinMeta = { name: slug, weight: 0, metal: 'unknown' };
+  }
+
+  const metalLower = (coinMeta.metal || '').toLowerCase();
+  const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
+
+  const detailPromise = fetch(V2_API + '/retail/' + slug + '/latest.json', { signal: AbortSignal.timeout(10000) })
+    .then(r => r.ok ? r.json() : null)
+    .then(json => json && json.data ? json.data : null)
+    .catch(() => null);
+
+  const cachedHistory = loadDataSync('v2SpotHistory', null);
+  const cachedTs = loadDataSync('v2SpotHistoryTs', null);
+  const historyStale = !cachedHistory || !cachedTs || (Date.now() - new Date(cachedTs).getTime() > 3600000);
+
+  const historyPromise = historyStale
+    ? fetch(V2_API + '/spot/history/7d.json', { signal: AbortSignal.timeout(10000) })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (json) {
+            saveDataSync('v2SpotHistory', json);
+            saveDataSync('v2SpotHistoryTs', new Date().toISOString());
+          }
+          return json;
+        })
+        .catch(() => null)
+    : Promise.resolve(cachedHistory);
+
+  const [detailResult, historyResult] = await Promise.allSettled([detailPromise, historyPromise]);
+  const detail = detailResult.status === 'fulfilled' ? detailResult.value : null;
+
+  content.textContent = '';
+
+  // ── Header ──
+  const header = document.createElement('div');
+  header.className = 'market-detail-header';
+
+  const h2 = document.createElement('h2');
+  const dot = document.createElement('span');
+  dot.className = 'metal-dot' + (metalCode ? ' ' + metalCode : '');
+  h2.appendChild(dot);
+  const nameText = document.createTextNode(' ' + sanitizeHtml(coinMeta.name || slug));
+  h2.appendChild(nameText);
+  header.appendChild(h2);
+
+  const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
+  if (weightOz > 0) {
+    const metalNames = { xau: 'Gold', xag: 'Silver', xpt: 'Platinum', xpd: 'Palladium' };
+    const metalName = metalNames[metalCode] || metalLower;
+    const weightInfo = document.createElement('div');
+    weightInfo.style.cssText = 'font-size:12px;color:var(--text-muted);margin-top:2px;';
+    weightInfo.textContent = weightOz + ' oz ' + metalName;
+    header.appendChild(weightInfo);
+  }
+
+  content.appendChild(header);
+
+  // ── Price summary ──
+  if (detail) {
+    const coins = _getRetailCoins();
+    const coinSummary = coins[slug];
+    const median = coinSummary && coinSummary.median != null ? coinSummary.median : null;
+    const low = detail.lowest_price || (coinSummary && coinSummary.lowest_price) || null;
+    const high = detail.highest_price || (coinSummary && coinSummary.highest_price) || null;
+    const spread = (low != null && high != null) ? (high - low) : null;
+
+    const priceRow = document.createElement('div');
+    priceRow.style.cssText = 'display:flex;gap:24px;flex-wrap:wrap;margin-bottom:1rem;font-size:13px;';
+
+    const addStat = (label, value) => {
+      const stat = document.createElement('div');
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;';
+      lbl.textContent = label;
+      stat.appendChild(lbl);
+      const val = document.createElement('div');
+      val.style.cssText = 'font-family:ui-monospace,monospace;font-size:14px;font-weight:600;';
+      val.textContent = value;
+      stat.appendChild(val);
+      priceRow.appendChild(stat);
+    };
+
+    if (median != null) addStat('Median', '$' + _fmtPrice(median));
+    if (low != null) addStat('Low', '$' + _fmtPrice(low));
+    if (high != null) addStat('High', '$' + _fmtPrice(high));
+    if (spread != null) addStat('Spread', '$' + _fmtPrice(spread));
+
+    content.appendChild(priceRow);
+  }
+
+  // ── Chart ──
+  const chartWrap = document.createElement('div');
+  chartWrap.className = 'market-detail-chart';
+  chartWrap.id = 'marketDetailChartArea';
+  content.appendChild(chartWrap);
+
+  if (typeof createCoinChart === 'function') {
+    _activeModalChart = createCoinChart('marketDetailChartArea', metalCode);
+    if (!_activeModalChart) {
+      const noChart = document.createElement('div');
+      noChart.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;';
+      noChart.textContent = 'Chart unavailable';
+      chartWrap.appendChild(noChart);
+    }
+  } else {
+    const noChart = document.createElement('div');
+    noChart.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;';
+    noChart.textContent = 'Chart unavailable';
+    chartWrap.appendChild(noChart);
+  }
+
+  // ── Vendor comparison table ──
+  if (detail && detail.vendors) {
+    const vData = detail.vendors;
+    const spotPrice = _getSpotPrice(metalCode);
+
+    const vendorEntries = [];
+    for (const vid in vData) {
+      const v = vData[vid];
+      if (!v) continue;
+      vendorEntries.push({ vid, ...v });
+    }
+    vendorEntries.sort((a, b) => {
+      if (a.price > 0 && b.price > 0) return a.price - b.price;
+      if (a.price > 0) return -1;
+      if (b.price > 0) return 1;
+      return 0;
+    });
+
+    if (vendorEntries.length > 0) {
+      const scrollWrap = document.createElement('div');
+      scrollWrap.style.overflowX = 'auto';
+
+      const table = document.createElement('table');
+      table.className = 'vendor-prices-table';
+      table.style.marginTop = '0.5rem';
+
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      const headers = ['Vendor', 'Price', 'Premium', 'Stock', 'Buy'];
+      for (const h of headers) {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headRow.appendChild(th);
+      }
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+
+      for (const entry of vendorEntries) {
+        const tr = document.createElement('tr');
+
+        // Vendor name
+        const tdVendor = document.createElement('td');
+        const vMeta = vendorMeta[entry.vid];
+        const vendorName = sanitizeHtml(_shortVendor(entry.vid));
+        if (vMeta && vMeta.color) {
+          tdVendor.style.color = vMeta.color;
+        }
+        tdVendor.textContent = vendorName;
+        tr.appendChild(tdVendor);
+
+        // Price
+        const tdPrice = document.createElement('td');
+        tdPrice.style.fontFamily = 'ui-monospace, monospace';
+        tdPrice.textContent = entry.price > 0 ? '$' + _fmtPrice(entry.price) : '\u2014';
+        tr.appendChild(tdPrice);
+
+        // Premium
+        const tdPrem = document.createElement('td');
+        if (entry.price > 0 && spotPrice && spotPrice > 0 && weightOz > 0) {
+          const meltValue = spotPrice * weightOz;
+          const premium = ((entry.price - meltValue) / meltValue) * 100;
+          const premClass = premium < 5 ? 'low' : premium < 15 ? 'mid' : 'high';
+          const badge = document.createElement('span');
+          badge.className = 'vp-premium ' + premClass;
+          badge.textContent = (premium >= 0 ? '+' : '') + premium.toFixed(1) + '%';
+          tdPrem.appendChild(badge);
+        } else {
+          tdPrem.textContent = '\u2014';
+          tdPrem.style.color = 'var(--text-muted)';
+        }
+        tr.appendChild(tdPrem);
+
+        // Stock
+        const tdStock = document.createElement('td');
+        if (entry.in_stock) {
+          tdStock.style.color = 'var(--success)';
+          tdStock.textContent = 'In Stock';
+        } else if (entry.carried) {
+          tdStock.style.color = 'var(--warning, #eab308)';
+          tdStock.textContent = 'Carried';
+        } else {
+          tdStock.style.color = 'var(--danger)';
+          tdStock.textContent = 'Out of Stock';
+        }
+        tr.appendChild(tdStock);
+
+        // Buy link
+        const tdBuy = document.createElement('td');
+        const url = (window.retailProviders && window.retailProviders[slug] && window.retailProviders[slug][entry.vid])
+          || (entry.url)
+          || (vMeta && vMeta.url)
+          || null;
+        if (url && entry.price > 0) {
+          const buyBtn = document.createElement('a');
+          buyBtn.textContent = 'Buy';
+          buyBtn.href = '#';
+          buyBtn.style.cssText = 'color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;';
+          buyBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const popup = window.open(url, 'retail_vendor_' + entry.vid, 'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no');
+            if (popup) popup.opener = null;
+          });
+          tdBuy.appendChild(buyBtn);
+        } else {
+          tdBuy.textContent = '\u2014';
+          tdBuy.style.color = 'var(--text-muted)';
+        }
+        tr.appendChild(tdBuy);
+
+        tbody.appendChild(tr);
+      }
+
+      table.appendChild(tbody);
+      scrollWrap.appendChild(table);
+      content.appendChild(scrollWrap);
+    }
+  } else {
+    const noData = document.createElement('div');
+    noData.style.cssText = 'padding:16px;text-align:center;color:var(--text-muted);font-size:13px;';
+    noData.textContent = 'Vendor data unavailable for this coin';
+    content.appendChild(noData);
+  }
+
+  debugLog('[market-data] Detail modal opened for: ' + slug, 'info');
 };
 
 const _renderVendorTable = async (metalCode) => {
@@ -524,4 +807,5 @@ if (typeof window !== 'undefined') {
   window.renderBestPriceTicker = renderBestPriceTicker;
   window.renderVendorPrices = renderVendorPrices;
   window.openMarketDetailModal = openMarketDetailModal;
+  window.closeMarketDetailModal = closeMarketDetailModal;
 }
