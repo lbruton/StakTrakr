@@ -1465,29 +1465,47 @@ if (btnExport) btnExport.addEventListener('click', async () => {
 // Failure queue page (GET /failures)
 // ---------------------------------------------------------------------------
 
-function renderFailuresPage(failures, missingItems, failureCount) {
+function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, failureTrend) {
   const now = new Date().toUTCString();
-  const isEmpty = !failures || failures.length === 0;
 
-  const rows = isEmpty ? "" : failures.map(f => {
-    const age = f.lastFailure
-      ? Math.round((Date.now() - new Date(f.lastFailure)) / 1000)
-      : null;
-    const ageStr = age != null ? (age < 3600 ? `${Math.round(age/60)}m ago` : `${Math.round(age/3600)}h ago`) : "?";
+  // Last scan failures
+  const scanRows = (!lastScanFailures || lastScanFailures.length === 0)
+    ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No failures in the last scan.</p>`
+    : lastScanFailures.map(f => {
+      const time = (f.failedAt || "").slice(11, 19);
+      return `<div style="display:grid;grid-template-columns:2fr 1fr 3fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:12px;border-left:3px solid var(--red);">
+        <div><span style="font-weight:600;">${escHtml(f.coinName)}</span><br><span style="color:var(--muted);font-size:10px;">${escHtml(f.vendorId)}</span></div>
+        <div>${metalBadge(f.metal)}</div>
+        <div style="color:#f87171;font-size:11px;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escAttr(f.error || "")}">${escHtml(f.error || "")}</div>
+        <div style="font-size:11px;color:var(--muted);">${escHtml(time)}</div>
+        <div style="display:flex;gap:4px;">
+          <a class="btn-sm" href="/providers#${escAttr(f.coinSlug)}">Edit</a>
+          <button class="btn-sm primary btn-retry" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Retry</button>
+        </div>
+      </div>`;
+    }).join("");
 
-    return `<tr>
-      <td><strong>${escHtml(f.coinName)}</strong><br><code style="color:var(--muted);font-size:11px;">${escHtml(f.coinSlug)}</code></td>
-      <td>${escHtml(f.vendorId)}</td>
-      <td class="url-cell">${f.url ? `<a href="${escAttr(f.url)}" target="_blank" title="${escAttr(f.url)}" style="color:var(--accent);">${escHtml(f.url.length > 60 ? f.url.slice(0, 57) + "..." : f.url)}</a>` : ""}</td>
-      <td style="color:#f87171;font-weight:700;text-align:center;">${escHtml(String(f.failureCount))}</td>
-      <td style="color:var(--muted);font-size:12px">${ageStr}</td>
-      <td style="color:var(--muted);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(f.lastError || "")}">${escHtml(f.lastError || "")}</td>
-      <td style="white-space:nowrap">
-        <a href="/providers#${escAttr(f.coinSlug)}" style="font-size:12px;margin-right:8px;">Edit URL</a>
-        <button class="btn-disable" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}" style="background:#7f1d1d;color:#fca5a5;">Disable</button>
-      </td>
-    </tr>`;
-  }).join("");
+  // Chronic failures
+  const chronicRows = (!chronicFailures || chronicFailures.length === 0)
+    ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No chronic failures.</p>`
+    : chronicFailures.map(f => {
+      const age = f.lastFailure ? Math.round((Date.now() - new Date(f.lastFailure)) / 1000) : null;
+      const ageStr = age != null ? (age < 3600 ? `${Math.round(age/60)}m ago` : `${Math.round(age/3600)}h ago`) : "?";
+      const countColor = f.failureCount >= 48 ? "var(--red)" : "var(--amber)";
+      return `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:4px;margin-bottom:3px;font-size:12px;border-left:3px solid var(--red);">
+        <div><span style="font-weight:600;">${escHtml(f.coinName)}</span> <span style="color:var(--muted)">/ ${escHtml(f.vendorId)}</span></div>
+        <div style="color:${countColor};font-weight:700;">${f.failureCount} fails</div>
+        <div style="color:var(--muted);font-size:11px;" title="${escAttr(f.lastError || "")}">${escHtml((f.lastError || "").slice(0, 30))}</div>
+        <div style="color:var(--muted);font-size:11px;">Last: ${ageStr}</div>
+        <div style="display:flex;gap:4px;">
+          <a class="btn-sm" href="/providers#${escAttr(f.coinSlug)}">Edit</a>
+          <button class="btn-sm btn-clear-chronic" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Clear</button>
+        </div>
+      </div>`;
+    }).join("");
+
+  // Trend data for Chart.js
+  const trendJson = JSON.stringify((failureTrend || []).map(d => ({ day: d.day, failures: d.failures })));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1495,170 +1513,139 @@ function renderFailuresPage(failures, missingItems, failureCount) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="300">
-<title>Failure Queue \u2014 StakTrakr</title>
+<title>Failures \u2014 StakTrakr</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"><\/script>
 <style>
   ${SHARED_CSS}
-  .url-cell { max-width: 400px; word-break: break-all; font-size: 12px; color: var(--muted); }
-  .subtitle { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
-  .empty { color: var(--muted); font-style: italic; padding: 24px 0; }
 </style>
 </head>
 <body>
 ${renderNav("failures", failureCount)}
-<div style="padding:20px;">
-<h1 style="color:var(--accent);margin-bottom:4px;">Failure Queue</h1>
-<p class="subtitle">Chronic failures (3+ in 7 days) &amp; items missing this hour &bull; Auto-refreshes every 5 min &bull; ${now}</p>
-<div id="toast" style="display:none;position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:6px;font-size:13px;z-index:200;"></div>
-<h2 style="color:var(--accent);font-size:16px;margin:24px 0 8px;">Missing This Hour</h2>
-<p style="color:var(--muted);font-size:12px;margin-bottom:12px;">Enabled vendor-coin pairs with no successful price in the current hour.</p>
-${renderMissingItems(missingItems)}
+<div class="container">
+  <div id="toast" style="display:none;position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:6px;font-size:13px;z-index:200;"></div>
 
-<h2 style="color:var(--accent);font-size:16px;margin:32px 0 8px;">Chronic Failures (3+ in 7 days)</h2>
-${isEmpty
-  ? '<p class="empty">No providers failing above threshold \u2014 all URLs healthy.</p>'
-  : `<table>
-  <thead><tr>
-    <th>Coin</th><th>Vendor</th><th>URL</th><th>Failures</th><th>Last Failed</th><th>Error</th><th>Actions</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-</table>`}
+  <!-- Last Scan Failures -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">
+        <span>Last Scan Failures (${lastScanFailures?.length || 0} of 166)</span>
+        <div style="display:flex;gap:6px;">
+          ${lastScanFailures?.length > 0 ? '<button class="btn-sm primary" id="btn-retry-all">Retry All Failed</button>' : ''}
+        </div>
+      </div>
+      ${scanRows}
+    </div>
+  </div>
+
+  <!-- Chronic Failures -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">
+        <span>Chronic Failures \u2014 24+ in 7 days</span>
+        <div style="display:flex;gap:6px;">
+          ${chronicFailures?.length > 0 ? '<button class="btn-sm danger" id="btn-clear-all">Clear All</button>' : ''}
+        </div>
+      </div>
+      ${chronicRows}
+    </div>
+  </div>
+
+  <!-- Failure Trend Chart -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">Failure Trend \u2014 7 Days</div>
+      <div style="position:relative;height:180px;"><canvas id="failureTrendChart"></canvas></div>
+    </div>
+  </div>
+
 </div>
 <script>
 function showToast(text, ok) {
-  const t = document.getElementById('toast');
+  var t = document.getElementById('toast');
   t.style.display = 'block';
   t.style.background = ok ? '#14532d' : '#7f1d1d';
   t.style.color = ok ? '#86efac' : '#fca5a5';
   t.textContent = text;
-  setTimeout(() => { t.style.display = 'none'; }, 3000);
+  setTimeout(function() { t.style.display = 'none'; }, 3000);
 }
 
-document.querySelectorAll('.btn-disable').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    if (!confirm('Disable ' + btn.dataset.vendor + ' for ' + btn.dataset.coin + '?')) return;
-    const r = await fetch('/providers/toggle', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor, enabled: false })
-    });
-    const j = await r.json();
-    showToast(j.message, r.ok);
-    if (r.ok) btn.closest('tr').style.opacity = '0.4';
+// Retry button
+document.querySelectorAll('.btn-retry').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var coin = this.dataset.coin, vendor = this.dataset.vendor;
+    this.disabled = true; this.textContent = '...';
+    fetch('/api/retry', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ coinSlug: coin, vendorId: vendor })
+    }).then(function(r) { return r.json(); }).then(function(j) {
+      btn.textContent = j.ok ? 'Queued' : 'Err';
+      showToast(j.message || (j.ok ? 'Queued' : 'Failed'), j.ok);
+    }).catch(function() { btn.textContent = 'Err'; btn.disabled = false; });
   });
 });
 
-// ── Diagnose button (Claude Code on VM) ─────────────────────────────────
-document.querySelectorAll('.btn-diagnose').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const coin = btn.dataset.coin;
-    const vendor = btn.dataset.vendor;
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\\u23F3 Running...';
-    btn.style.opacity = '0.6';
-    try {
-      const r = await fetch('/api/diagnose', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ coinSlug: coin, vendorId: vendor, url })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Diagnosis error: ' + j.error);
-      } else {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;justify-content:center;align-items:center;padding:20px;';
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-        const modal = document.createElement('div');
-        modal.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:12px;max-width:850px;width:100%;max-height:85vh;display:flex;flex-direction:column;position:relative;';
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #334155;flex-shrink:0;';
-        header.innerHTML = '<div>'
-          + '<div style="font-size:15px;font-weight:700;color:#e2e8f0;">Diagnosis: ' + coin + ':' + vendor + '</div>'
-          + '<div style="font-size:12px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:600px;">' + url + '</div>'
-          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">Engine: ' + (j.engine || '?') + ' \\u00B7 Firecrawl: ' + (j.scrapeLength || 0) + ' chars \\u00B7 Playwright: ' + (j.playwrightLength || 0) + ' chars</div>'
-          + '</div>';
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '\\u2715';
-        closeBtn.style.cssText = 'background:#334155;color:#e2e8f0;width:32px;height:32px;border-radius:6px;border:none;cursor:pointer;font-size:16px;flex-shrink:0;margin-left:12px;';
-        closeBtn.onmouseover = () => { closeBtn.style.background = '#ef4444'; };
-        closeBtn.onmouseout = () => { closeBtn.style.background = '#334155'; };
-        closeBtn.onclick = () => overlay.remove();
-        header.appendChild(closeBtn);
-        const body = document.createElement('div');
-        body.style.cssText = 'padding:16px 20px;overflow-y:auto;flex:1;font-family:"Cascadia Code","Fira Code",monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;color:#e2e8f0;';
-        body.textContent = j.result || '(no output)';
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display:flex;gap:8px;padding:12px 20px;border-top:1px solid #334155;flex-shrink:0;';
-        const copyBtn = document.createElement('button');
-        copyBtn.textContent = '\\uD83D\\uDCCB Copy Markdown';
-        copyBtn.style.cssText = 'background:#166534;color:#86efac;padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyBtn.onclick = () => {
-          var NL = String.fromCharCode(10);
-          var BT = String.fromCharCode(96,96,96);
-          var parts = ['## Diagnosis: ' + coin + ':' + vendor, '**URL:** ' + url, '**Engine:** ' + (j.engine || '?'), '**Date:** ' + new Date().toISOString(), '', BT, (j.result || ''), BT, ''];
-          navigator.clipboard.writeText(parts.join(NL)).then(function() {
-            copyBtn.textContent = 'Copied!';
-            setTimeout(function() { copyBtn.textContent = 'Copy Markdown'; }, 2000);
-          });
-        };
-        const copyRawBtn = document.createElement('button');
-        copyRawBtn.textContent = '\\uD83D\\uDCC4 Copy Raw';
-        copyRawBtn.style.cssText = 'background:#1e3a5f;color:var(--accent);padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyRawBtn.onclick = function() {
-          navigator.clipboard.writeText(j.result || '').then(function() {
-            copyRawBtn.textContent = 'Copied!';
-            setTimeout(function() { copyRawBtn.textContent = 'Copy Raw'; }, 2000);
-          });
-        };
-        footer.appendChild(copyBtn);
-        footer.appendChild(copyRawBtn);
-        modal.appendChild(header);
-        modal.appendChild(body);
-        modal.appendChild(footer);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-      }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\\uD83E\\uDD16 Diagnose';
-      btn.style.opacity = '1';
-    }
+// Retry all
+var retryAllBtn = document.getElementById('btn-retry-all');
+if (retryAllBtn) retryAllBtn.addEventListener('click', function() {
+  document.querySelectorAll('.btn-retry').forEach(function(btn) { btn.click(); });
+});
+
+// Clear chronic
+document.querySelectorAll('.btn-clear-chronic').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var coin = this.dataset.coin, vendor = this.dataset.vendor;
+    this.disabled = true; this.textContent = '...';
+    fetch('/api/clear-chronic', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ coinSlug: coin, vendorId: vendor })
+    }).then(function(r) { return r.json(); }).then(function(j) {
+      if (j.ok) btn.closest('div[style*="grid"]').style.opacity = '0.3';
+      showToast(j.message || (j.ok ? 'Cleared' : 'Failed'), j.ok);
+    }).catch(function() { btn.textContent = 'Err'; btn.disabled = false; });
   });
 });
 
-// ── Browserbase button ──────────────────────────────────────────────────
-document.querySelectorAll('.btn-browserbase').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\\u23F3 Launching...';
-    try {
-      const r = await fetch('/api/browserbase', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ url, coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Browserbase error: ' + j.error);
-      } else if (j.liveUrl) {
-        window.open(j.liveUrl, '_blank');
-      } else {
-        alert('Session created but no live URL returned.');
+// Clear all chronic
+var clearAllBtn = document.getElementById('btn-clear-all');
+if (clearAllBtn) clearAllBtn.addEventListener('click', function() {
+  if (!confirm('Clear ALL chronic failure records? This cannot be undone.')) return;
+  clearAllBtn.disabled = true; clearAllBtn.textContent = '...';
+  fetch('/api/clear-chronic-all', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      showToast(j.message || (j.ok ? 'Cleared' : 'Failed'), j.ok);
+      if (j.ok) setTimeout(function() { location.reload(); }, 1000);
+    }).catch(function() { clearAllBtn.textContent = 'Err'; clearAllBtn.disabled = false; });
+});
+
+// Failure trend chart
+(function() {
+  var trend = ${trendJson};
+  if (!trend.length) return;
+  var ctx = document.getElementById('failureTrendChart');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: trend.map(function(d) { return d.day.slice(5); }),
+      datasets: [{
+        label: 'Failures',
+        data: trend.map(function(d) { return d.failures; }),
+        backgroundColor: trend.map(function(d) {
+          return d.failures >= 20 ? 'rgba(239,68,68,0.7)' : d.failures >= 10 ? 'rgba(245,158,11,0.7)' : 'rgba(34,197,94,0.7)';
+        }),
+        borderRadius: 3, borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#94a3b8' } },
+      scales: {
+        x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: '#1e293b' }, beginAtZero: true }
       }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\\uD83C\\uDF10 Browserbase';
     }
   });
-});
+})();
 </script>
 </body>
 </html>`;
@@ -1967,17 +1954,18 @@ async function handleRequest(req, res) {
 
   // ── GET /failures ──────────────────────────────────────────────────────
   if (req.method === "GET" && url === "/failures") {
-    let failures = [], missingItems = [], failureCount = 0;
+    let lastScanFailures = [], chronicFailures = [], failureCount = 0, failureTrend = [];
     try {
       const client = getTursoClient();
-      [failures, missingItems] = await Promise.all([
+      [lastScanFailures, chronicFailures, failureTrend] = await Promise.all([
+        getLastScanFailures(client),
         getFailureStats(client),
-        getMissingItems(client),
+        getFailureTrend(client),
       ]);
-      failureCount = failures.length;
+      failureCount = chronicFailures.length;
     } catch { /* empty */ }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(renderFailuresPage(failures, missingItems, failureCount));
+    res.end(renderFailuresPage(lastScanFailures, chronicFailures, failureCount, failureTrend));
     return;
   }
 
