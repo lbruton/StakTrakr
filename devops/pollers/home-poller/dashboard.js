@@ -393,6 +393,7 @@ function renderNav(activePage, failureCount) {
     { href: "/", label: "Dashboard", id: "home" },
     { href: "/providers", label: "Providers", id: "providers" },
     { href: "/failures", label: `Failures${badge}`, id: "failures" },
+    { href: "/api-health", label: "v2 API", id: "api-health" },
   ];
   const navLinks = links.map(l =>
     `<a href="${l.href}" style="font-size:12px;padding:5px 12px;border-radius:4px;color:${l.id === activePage ? 'var(--text)' : 'var(--muted)'};${l.id === activePage ? 'background:var(--surface2);font-weight:700;' : ''}">${l.label}</a>`
@@ -1544,6 +1545,226 @@ document.querySelectorAll('.vendor-section-header').forEach(function(header) {
 }
 
 // ---------------------------------------------------------------------------
+// v2 API Health page (GET /api-health)
+// ---------------------------------------------------------------------------
+
+const V2_BASE = "https://api.staktrakr.com/data/v2";
+
+async function fetchV2Endpoints() {
+  const endpoints = [
+    { key: "manifest", path: "/manifest.json", label: "Manifest" },
+    { key: "spot_latest", path: "/spot/latest.json", label: "Spot Latest" },
+    { key: "spot_7d", path: "/spot/history/7d.json", label: "Spot 7d History" },
+    { key: "retail_latest", path: "/retail/latest.json", label: "Retail Latest" },
+    { key: "vendors", path: "/retail/vendors/index.json", label: "Vendor Index" },
+    { key: "goldback", path: "/goldback/latest.json", label: "Goldback Latest" },
+  ];
+
+  const results = {};
+  await Promise.all(endpoints.map(async (ep) => {
+    try {
+      const resp = await fetch(V2_BASE + ep.path, { signal: AbortSignal.timeout(10_000) });
+      if (!resp.ok) {
+        results[ep.key] = { label: ep.label, status: resp.status, ok: false, data: null };
+        return;
+      }
+      const json = await resp.json();
+      const ageSec = json.generated_at ? Math.round((Date.now() - new Date(json.generated_at).getTime()) / 1000) : null;
+      results[ep.key] = { label: ep.label, status: 200, ok: true, data: json, ageSec, staleAfter: json.stale_after };
+    } catch (err) {
+      results[ep.key] = { label: ep.label, status: 0, ok: false, error: err.message, data: null };
+    }
+  }));
+
+  // Fetch a sample of per-coin endpoints
+  if (results.retail_latest?.ok) {
+    const coins = results.retail_latest.data.data.coins;
+    const slugs = Object.keys(coins).slice(0, 5);
+    const coinResults = {};
+    await Promise.all(slugs.map(async (slug) => {
+      try {
+        const resp = await fetch(`${V2_BASE}/retail/${slug}/latest.json`, { signal: AbortSignal.timeout(10_000) });
+        coinResults[slug] = { ok: resp.ok, status: resp.status };
+        if (resp.ok) {
+          const json = await resp.json();
+          coinResults[slug].vendorCount = Object.keys(json.data.vendors || {}).length;
+        }
+      } catch { coinResults[slug] = { ok: false, status: 0 }; }
+    }));
+    results.perCoinSample = coinResults;
+  }
+
+  return results;
+}
+
+function renderApiHealthPage(v2, failureCount) {
+  const now = new Date().toUTCString();
+
+  // Endpoint health table
+  const epRows = ["manifest", "spot_latest", "spot_7d", "retail_latest", "vendors", "goldback"].map(key => {
+    const ep = v2[key];
+    if (!ep) return "";
+    const statusColor = ep.ok ? "var(--green)" : "var(--red)";
+    const ageStr = ep.ageSec != null ? (ep.ageSec < 60 ? `${ep.ageSec}s` : ep.ageSec < 3600 ? `${Math.round(ep.ageSec / 60)}m` : `${Math.round(ep.ageSec / 3600)}h`) : "--";
+    const staleStr = ep.staleAfter ? `${Math.round(ep.staleAfter / 60)}m` : "--";
+    const isStale = ep.ageSec != null && ep.staleAfter && ep.ageSec > ep.staleAfter;
+    const freshColor = isStale ? "var(--red)" : ep.ok ? "var(--green)" : "var(--muted)";
+    return `<tr>
+      <td>${escHtml(ep.label)}</td>
+      <td><span class="status ${ep.ok ? "status-ok" : "status-failed"}">${ep.status || "ERR"}</span></td>
+      <td style="color:${freshColor}">${ageStr}</td>
+      <td>${staleStr}</td>
+      <td>${isStale ? '<span style="color:var(--red);font-weight:700;">STALE</span>' : ep.ok ? '<span style="color:var(--green);">Fresh</span>' : '<span style="color:var(--red);">Down</span>'}</td>
+    </tr>`;
+  }).join("");
+
+  // Spot prices table
+  let spotHtml = '<p class="no-data">Spot data unavailable</p>';
+  if (v2.spot_latest?.ok) {
+    const spot = v2.spot_latest.data.data;
+    const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
+    const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
+    const spotRows = Object.entries(spot).map(([metal, d]) => {
+      const change = d.change_24h_pct;
+      const changeColor = change > 0 ? "var(--green)" : change < 0 ? "var(--red)" : "var(--muted)";
+      const changeStr = change != null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
+      return `<tr>
+        <td><span style="color:${metalColors[metal] || "var(--text)"};font-weight:600;">${metalNames[metal] || metal.toUpperCase()}</span> <span style="color:var(--muted);font-size:10px;">${metal.toUpperCase()}</span></td>
+        <td style="font-weight:700;font-family:monospace;">$${Number(d.price).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td style="color:${changeColor}">${changeStr}</td>
+      </tr>`;
+    }).join("");
+    spotHtml = `<table><thead><tr><th>Metal</th><th>Price</th><th>24h</th></tr></thead><tbody>${spotRows}</tbody></table>`;
+  }
+
+  // Retail summary — per-coin table
+  let retailHtml = '<p class="no-data">Retail data unavailable</p>';
+  if (v2.retail_latest?.ok) {
+    const coins = v2.retail_latest.data.data.coins;
+    const retailRows = Object.entries(coins).map(([slug, c]) => {
+      const metalColor = ({ xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", goldback: "#a3e635" })[c.metal] || "#94a3b8";
+      return `<tr>
+        <td>${escHtml(c.name)}</td>
+        <td><span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;background:${metalColor};color:#0f172a;">${escHtml(c.metal)}</span></td>
+        <td style="font-family:monospace;font-weight:600;">$${Number(c.median).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td style="color:var(--muted);font-family:monospace;">$${Number(c.low).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+        <td style="color:var(--muted);font-family:monospace;">$${Number(c.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:center;">${c.vendor_count}</td>
+      </tr>`;
+    }).join("");
+    retailHtml = `<table><thead><tr><th>Coin</th><th>Metal</th><th>Median</th><th>Low</th><th>High</th><th>Vendors</th></tr></thead><tbody>${retailRows}</tbody></table>`;
+  }
+
+  // Per-vendor price matrix
+  let matrixHtml = "";
+  if (v2.retail_latest?.ok && v2.vendors?.ok) {
+    const coins = v2.retail_latest.data.data.coins;
+    const vendorList = v2.vendors.data.data;
+    const vendorIds = Array.isArray(vendorList) ? vendorList.map(v => v.id) : Object.keys(vendorList);
+    const vendorNames = {};
+    if (Array.isArray(vendorList)) {
+      for (const v of vendorList) vendorNames[v.id] = v.name || v.id;
+    }
+
+    // We need per-slug data for the matrix. Use the manifest coin list to build it.
+    // For now, show what we know from the retail_latest summary.
+    // The detailed per-vendor data requires per-slug fetches — we'll show a simplified version.
+    matrixHtml = `<p style="color:var(--muted);font-size:11px;margin-top:4px;">Per-vendor breakdown available at <code>/v2/retail/{slug}/latest.json</code> — ${vendorIds.length} vendors, ${Object.keys(coins).length} coins tracked.</p>`;
+  }
+
+  // Per-coin sample endpoints
+  let sampleHtml = "";
+  if (v2.perCoinSample) {
+    const sRows = Object.entries(v2.perCoinSample).map(([slug, s]) => {
+      return `<tr>
+        <td><code>${escHtml(slug)}</code></td>
+        <td><span class="status ${s.ok ? "status-ok" : "status-failed"}">${s.status}</span></td>
+        <td>${s.vendorCount != null ? s.vendorCount + " vendors" : "--"}</td>
+      </tr>`;
+    }).join("");
+    sampleHtml = `<div class="card-title" style="margin-top:12px;">Per-Coin Endpoint Sample (5 of ${Object.keys(v2.retail_latest?.data?.data?.coins || {}).length})</div>
+      <table><thead><tr><th>Slug</th><th>Status</th><th>Vendors</th></tr></thead><tbody>${sRows}</tbody></table>`;
+  }
+
+  // Goldback status
+  let goldbackHtml = '<span style="color:var(--red);">Endpoint 404 — scraper needs deploy</span>';
+  if (v2.goldback?.ok) {
+    const gb = v2.goldback.data.data;
+    goldbackHtml = `<span style="color:var(--green);font-weight:600;">$${gb.g1_usd}</span> <span style="color:var(--muted);font-size:11px;">(${gb.date})</span>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="120">
+<title>v2 API Health \u2014 StakTrakr</title>
+<style>
+  ${SHARED_CSS}
+  .matrix-cell { text-align: center; font-size: 10px; font-family: monospace; }
+  code { background: var(--surface2); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+</style>
+</head>
+<body>
+${renderNav("api-health", failureCount)}
+<div class="container">
+
+  <!-- Endpoint Health -->
+  <div class="row row-2">
+    <div class="card">
+      <div class="card-title">v2 Endpoint Health</div>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Status</th><th>Age</th><th>Stale After</th><th>Freshness</th></tr></thead>
+        <tbody>${epRows}</tbody>
+      </table>
+      ${sampleHtml}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Spot Prices — Live</div>
+      ${spotHtml}
+      <div class="card-title" style="margin-top:16px;">Goldback G1 Rate</div>
+      <div style="padding:8px 0;">${goldbackHtml}</div>
+    </div>
+  </div>
+
+  <!-- Retail Summary -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">Retail Prices — All Coins (${Object.keys(v2.retail_latest?.data?.data?.coins || {}).length} items)</div>
+      <div style="max-height:600px;overflow-y:auto;">
+        ${retailHtml}
+      </div>
+      ${matrixHtml}
+    </div>
+  </div>
+
+  <!-- 7-Day Spot History -->
+  ${v2.spot_7d?.ok ? `<div class="row full">
+    <div class="card">
+      <div class="card-title">Gold Spot — 7 Day OHLCA</div>
+      <table>
+        <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Avg</th><th>Samples</th></tr></thead>
+        <tbody>${(v2.spot_7d.data.data.xau || []).map(d => `<tr>
+          <td>${escHtml((d.t || "").slice(0, 10))}</td>
+          <td style="font-family:monospace;">$${Number(d.open).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;color:var(--green);">$${Number(d.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;color:var(--red);">$${Number(d.low).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;font-weight:600;">$${Number(d.close).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;">$${Number(d.avg).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="text-align:center;">${d.n}</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>
+  </div>` : ""}
+
+</div>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
 // Failure queue page (GET /failures)
 // ---------------------------------------------------------------------------
 
@@ -2033,6 +2254,19 @@ async function handleRequest(req, res) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: `Export failed: ${err.message}` }));
     }
+    return;
+  }
+
+  // ── GET /api-health ────────────────────────────────────────────────────
+  if (req.method === "GET" && url === "/api-health") {
+    let failureCount = 0;
+    try {
+      const client = getTursoClient();
+      failureCount = await getFailureCount(client);
+    } catch { /* ignore */ }
+    const v2 = await fetchV2Endpoints();
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(renderApiHealthPage(v2, failureCount));
     return;
   }
 

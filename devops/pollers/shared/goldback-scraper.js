@@ -2,7 +2,17 @@
 /**
  * StakTrakr Goldback Daily Rate Scraper
  * =======================================
- * Scrapes goldback.com/goldback-value/ for the current G1 USD exchange rate.
+ * Fetches the G1 USD exchange rate from goldback.com's JSON API.
+ * Runs once daily at 11:05 AM EST (16:05 UTC) — goldback.com updates once/day.
+ *
+ * Primary source:  GET https://www.goldback.com/gb-proxy.php
+ *   → { success: true, quotes: { USDUSD: 8.89 } }
+ *   The USDUSD field is the G1 goldback rate in USD.
+ *
+ * Fallback source: GET https://www.goldback.com/wp-admin/admin-ajax.php?action=get_goldback_data
+ *   → { success: true, data: { labels: [...dates], data: [...rates] } }
+ *   Full daily history — last entry is the latest rate.
+ *
  * Writes:
  *   sqld price_snapshots table        -- coin_slug="goldback-g1", vendor="goldback"
  *   DATA_DIR/api/goldback-spot.json   -- latest rate (local backup, overwritten each day)
@@ -15,8 +25,6 @@
  *   DATA_DIR            Path to repo data/ folder (default: ../../data)
  *   TURSO_DATABASE_URL  sqld/Turso connection string
  *   TURSO_AUTH_TOKEN    sqld/Turso auth token
- *   FIRECRAWL_BASE_URL  Self-hosted Firecrawl (default: http://firecrawl:3002)
- *   FIRECRAWL_API_KEY   Cloud Firecrawl only (omit for self-hosted)
  *   DRY_RUN             Set to "1" to skip writes
  */
 
@@ -33,10 +41,9 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
 const DRY_RUN = process.env.DRY_RUN === "1";
-const FIRECRAWL_BASE_URL = process.env.FIRECRAWL_BASE_URL || "http://firecrawl:3002";
-const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY || "not-set";
 
-const GOLDBACK_URL = "https://www.goldback.com/exchange-rates/";
+const GOLDBACK_PROXY_URL = "https://www.goldback.com/gb-proxy.php";
+const GOLDBACK_HISTORY_URL = "https://www.goldback.com/wp-admin/admin-ajax.php?action=get_goldback_data";
 
 // G1 price must fall in this range (sanity check)
 const G1_MIN = 0.50;
@@ -58,60 +65,58 @@ function warn(msg) {
 }
 
 // ---------------------------------------------------------------------------
-// Firecrawl scrape
-// ---------------------------------------------------------------------------
-
-async function scrapeGoldbackPage() {
-  const body = JSON.stringify({
-    url: GOLDBACK_URL,
-    formats: ["markdown"],
-    waitFor: 5000, // prices are JS-rendered; wait for them to inject
-  });
-
-  const headers = {
-    "Content-Type": "application/json",
-    ...(FIRECRAWL_API_KEY !== "not-set" ? { Authorization: `Bearer ${FIRECRAWL_API_KEY}` } : {}),
-  };
-
-  const resp = await fetch(`${FIRECRAWL_BASE_URL}/v1/scrape`, {
-    method: "POST",
-    headers,
-    body,
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`Firecrawl ${resp.status}: ${text.slice(0, 200)}`);
-  }
-
-  const json = await resp.json();
-  return json?.data?.markdown || json?.markdown || "";
-}
-
-// ---------------------------------------------------------------------------
-// Price extraction
+// Data fetchers
 // ---------------------------------------------------------------------------
 
 /**
- * Extract G1 USD rate from Firecrawl markdown.
- * Goldback.com shows the rate as "$3.87" in the page content.
- * Scan all dollar amounts in the valid G1 range and return the most frequent.
+ * Primary: fetch live G1 rate from gb-proxy.php.
+ * Returns the USDUSD quote which is the G1 goldback value in USD.
  */
-function extractG1Rate(markdown) {
-  if (!markdown) return null;
+async function fetchFromProxy() {
+  const resp = await fetch(GOLDBACK_PROXY_URL, {
+    headers: {
+      "Accept": "application/json",
+      "User-Agent": "StakTrakr/1.0 goldback-scraper",
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
 
-  const dollarPattern = /\$\s*(\d+\.\d{1,2})/g;
-  const candidates = [...markdown.matchAll(dollarPattern)]
-    .map(m => parseFloat(m[1]))
-    .filter(val => val >= G1_MIN && val <= G1_MAX);
+  if (!resp.ok) {
+    throw new Error(`gb-proxy.php HTTP ${resp.status}`);
+  }
 
-  if (candidates.length === 0) return null;
+  const json = await resp.json();
+  if (!json.success || !json.quotes?.USDUSD) {
+    throw new Error("gb-proxy.php: missing quotes.USDUSD in response");
+  }
 
-  // Return most common value (robust to repeated display of the same rate)
-  const freq = {};
-  for (const v of candidates) freq[v] = (freq[v] || 0) + 1;
-  return parseFloat(Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0]);
+  return json.quotes.USDUSD;
+}
+
+/**
+ * Fallback: fetch from the chart history endpoint.
+ * Returns the last entry's rate value.
+ */
+async function fetchFromHistory() {
+  const resp = await fetch(GOLDBACK_HISTORY_URL, {
+    headers: {
+      "Accept": "application/json",
+      "User-Agent": "StakTrakr/1.0 goldback-scraper",
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`get_goldback_data HTTP ${resp.status}`);
+  }
+
+  const json = await resp.json();
+  if (!json.success || !json.data?.data?.length) {
+    throw new Error("get_goldback_data: missing data array in response");
+  }
+
+  const rates = json.data.data;
+  return rates[rates.length - 1];
 }
 
 // ---------------------------------------------------------------------------
@@ -179,28 +184,41 @@ async function main() {
   const dateStr = now.toISOString().slice(0, 10);
   const scrapedAt = now.toISOString();
 
-  log(`Goldback rate scrape for ${dateStr}`);
+  log(`Goldback daily rate fetch for ${dateStr}`);
   if (DRY_RUN) log("DRY RUN -- no files written");
 
-  let markdown;
+  // Try primary endpoint, fall back to history endpoint
+  let g1Rate = null;
+  let source = "";
+
   try {
-    markdown = await scrapeGoldbackPage();
-    log(`Firecrawl: ${markdown.length} chars`);
+    g1Rate = await fetchFromProxy();
+    source = "gb-proxy.php";
+    log(`gb-proxy.php: $${g1Rate}`);
   } catch (err) {
-    console.error(`Firecrawl failed: ${err.message}`);
-    process.exit(1);
+    warn(`Primary source failed: ${err.message} -- trying history fallback`);
   }
 
-  const g1Rate = extractG1Rate(markdown);
   if (g1Rate === null) {
-    console.error("Could not extract G1 rate from page. Check goldback.com page structure.");
-    log("No write -- previous data retained.");
+    try {
+      g1Rate = await fetchFromHistory();
+      source = "get_goldback_data";
+      log(`History fallback: $${g1Rate}`);
+    } catch (err) {
+      console.error(`Both sources failed. History: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  // Sanity check
+  if (g1Rate < G1_MIN || g1Rate > G1_MAX) {
+    console.error(`G1 rate $${g1Rate} outside valid range ($${G1_MIN}-$${G1_MAX}). Aborting.`);
     process.exit(1);
   }
 
-  log(`G1 rate: $${g1Rate}`);
+  log(`G1 rate: $${g1Rate} (source: ${source})`);
 
-  // Write to sqld so Fly.io publisher can export goldback-spot.json
+  // Write to sqld so Fly.io publisher can export goldback endpoints
   try {
     const client = await openTursoDb();
     await writeSnapshot(client, {
@@ -209,7 +227,7 @@ async function main() {
       coinSlug: "goldback-g1",
       vendor: "goldback",
       price: g1Rate,
-      source: "firecrawl",
+      source,
       isFailed: false,
     });
     client.close();
