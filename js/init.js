@@ -612,6 +612,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       }).catch(() => {});
     }
 
+    // Market Data Module (STAK-504)
+    if (typeof initMarketData === 'function') {
+      initMarketData().catch(function(e) {
+        if (typeof debugLog === 'function') debugLog('[market-data] Init failed: ' + e.message, 'warn');
+      });
+    }
+
+    // Refresh market data on theme change (STAK-504)
+    const _themeObserver = new MutationObserver(function() {
+      if (typeof refreshMarketData === 'function') refreshMarketData();
+    });
+    _themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
     // Phase 14: Event Listeners Setup (Delayed)
     debugLog("Phase 14: Setting up event listeners...");
 
