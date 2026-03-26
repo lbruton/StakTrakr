@@ -73,7 +73,7 @@ After ALL tasks are [x] and implementation logs are recorded:
 
 ## Phase 1 — Framework (sequential — sets up structure for all components)
 
-- [ ] 1. Constants and config infrastructure
+- [x] 1. Constants and config infrastructure
   - File: `js/constants.js`
   - Add `{ id: 'marketData', label: 'Market Data', enabled: true }` to `LAYOUT_SECTION_DEFAULTS` array (after `table` entry, ~line 1183). Add `MARKET_DATA_COMPONENT_DEFAULTS` array with 5 entries (enhancedSpot, retailRanges, premiumHeatMap, goldbackCalc, bestPriceTicker). Add `getMarketDataComponentConfig()` and `saveMarketDataComponentConfig()` functions using `_loadSectionConfig`/`_saveSectionConfig`. Add 7 new keys to `ALLOWED_STORAGE_KEYS`: `marketDataComponentConfig`, `v2SpotHistory_xag`, `v2SpotHistory_xau`, `v2SpotHistory_xpt`, `v2SpotHistory_xpd`, `v2SpotHistoryTs`, `v2GoldbackData`. Add window exports for all new constants and functions.
   - Purpose: Establish the config infrastructure that all subsequent tasks depend on.

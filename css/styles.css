@@ -12866,3 +12866,322 @@ th {
   .market-card-trend { display: none; }
   .market-card-chart { grid-column: 1 / -1; }
 }
+
+/* =============================================================================
+   MARKET DATA MODULE — Ticker, Vendor Prices Table, Detail Modal
+   STAK-504
+   ============================================================================= */
+
+/* ── Best Price Ticker Strip ── */
+.market-ticker {
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 0;
+}
+
+.ticker-track {
+  display: flex;
+  gap: 12px;
+  animation: ticker-scroll 60s linear infinite;
+}
+
+.ticker-track.static {
+  animation: none;
+  justify-content: center;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.ticker-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ticker-item .coin {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ticker-item .vendor {
+  color: var(--text-muted);
+}
+
+.ticker-item .price {
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--success);
+}
+
+.ticker-item .premium {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ── Metal Dot Helper ── */
+.metal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+.metal-dot.xau { background: var(--gold); }
+.metal-dot.xag { background: var(--silver); }
+.metal-dot.xpt { background: var(--platinum); }
+.metal-dot.xpd { background: var(--palladium); }
+
+/* ── Vendor Prices Section ── */
+.vendor-prices-section {
+  background: var(--bg-card);
+  padding: var(--spacing-lg);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+/* ── Vendor Prices Tab Bar ── */
+.vendor-prices-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.vendor-prices-tabs button {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.vendor-prices-tabs button:hover {
+  color: var(--text-secondary);
+}
+
+.vendor-prices-tabs button.active {
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--primary);
+}
+
+/* ── Vendor Prices Table ── */
+.vendor-prices-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.vendor-prices-table th {
+  padding: 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+.vendor-prices-table th:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--bg-card);
+  z-index: 1;
+}
+
+.vendor-prices-table td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.vendor-prices-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  left: 0;
+  background: var(--bg-card);
+  z-index: 1;
+}
+
+.vendor-prices-table tr:hover td {
+  background: var(--bg-secondary);
+}
+
+/* ── Price Cell ── */
+.vp-price {
+  font-family: monospace;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vp-price:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+/* ── Premium Badge ── */
+.vp-premium {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.vp-premium.low  { color: var(--success); }
+.vp-premium.mid  { color: var(--warning); }
+.vp-premium.high { color: var(--danger); }
+
+/* ── Best Price Highlight ── */
+.vp-best {
+  background: rgba(16, 185, 129, 0.15);
+  font-weight: 700;
+}
+
+/* ── Carried Price ── */
+.vp-carried {
+  border-left: 2px dashed var(--warning);
+}
+
+/* ── Out of Stock ── */
+.vp-oos {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+/* ── Details Button ── */
+.vp-details-btn {
+  font-size: 11px;
+  color: var(--primary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.vp-details-btn:hover {
+  text-decoration: underline;
+}
+
+/* ── Market Detail Overlay ── */
+.market-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* ── Market Detail Modal ── */
+.market-detail-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Modal Close Button ── */
+.market-detail-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.market-detail-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+/* ── Modal Header ── */
+.market-detail-header {
+  margin-bottom: 1rem;
+}
+
+.market-detail-header h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* ── Modal Chart Container ── */
+.market-detail-chart {
+  height: 250px;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ── Theme Overrides ── */
+[data-theme="dark"] .vp-best {
+  background: rgba(16, 185, 129, 0.18);
+}
+
+[data-theme="light"] .vp-best,
+:root .vp-best {
+  background: rgba(5, 150, 105, 0.12);
+}
+
+[data-theme="light"] .market-detail-modal,
+:root .market-detail-modal {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="sepia"] .vp-best {
+  background: rgba(5, 150, 105, 0.12);
+}
+
+[data-theme="sepia"] .market-detail-modal {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Mobile Responsive ── */
+@media (max-width: 768px) {
+  .vendor-prices-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ticker-item {
+    font-size: 10px;
+  }
+}
