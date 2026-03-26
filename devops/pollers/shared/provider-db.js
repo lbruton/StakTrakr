@@ -356,7 +356,8 @@ export async function getVendorScrapeStatus(client) {
 }
 
 /**
- * Get vendors with 3+ failures in the last 10 days.
+ * Get vendors with 24+ failures in the last 7 days (chronic failures).
+ * Threshold: 24 failures = ~1 full day of consecutive hourly failures.
  *
  * @param {import("@libsql/client").Client} client
  * @returns {Promise<Array<{coinSlug: string, coinName: string, vendorId: string, url: string, failureCount: number, lastFailure: string, lastError: string}>>}
@@ -364,7 +365,7 @@ export async function getVendorScrapeStatus(client) {
 export async function getFailureStats(client) {
   const result = await client.execute(`
     SELECT pf.coin_slug, pf.vendor_id, pv.url,
-           pc.name AS coin_name,
+           pc.name AS coin_name, pc.metal,
            COUNT(*) AS failure_count,
            MAX(pf.failed_at) AS last_failure,
            (SELECT pf2.error FROM provider_failures pf2
@@ -375,7 +376,7 @@ export async function getFailureStats(client) {
     JOIN provider_vendors pv ON pv.coin_slug = pf.coin_slug AND pv.vendor_id = pf.vendor_id
     WHERE pf.failed_at > datetime('now', '-7 days')
     GROUP BY pf.coin_slug, pf.vendor_id
-    HAVING COUNT(*) >= 3
+    HAVING COUNT(*) >= 24
     ORDER BY failure_count DESC
   `);
   return result.rows.map((row) => ({
@@ -383,10 +384,119 @@ export async function getFailureStats(client) {
     coinName: row.coin_name,
     vendorId: row.vendor_id,
     url: row.url,
+    metal: row.metal,
     failureCount: row.failure_count,
     lastFailure: row.last_failure,
     lastError: row.last_error,
   }));
+}
+
+/**
+ * Get failures from the last completed poller run (not the current/pending one).
+ * Used by the failure queue to show actionable items from the previous scan.
+ *
+ * @param {import("@libsql/client").Client} client
+ * @returns {Promise<Array<{coinSlug: string, coinName: string, metal: string, vendorId: string, url: string, error: string, failedAt: string, runId: string}>>}
+ */
+export async function getLastScanFailures(client) {
+  const result = await client.execute(`
+    WITH last_run AS (
+      SELECT run_id, started_at, finished_at
+      FROM poller_runs
+      WHERE poller_id IN ('home', 'home-retail')
+        AND status = 'ok'
+        AND finished_at IS NOT NULL
+      ORDER BY finished_at DESC
+      LIMIT 1
+    )
+    SELECT pf.coin_slug, pf.vendor_id, pf.error, pf.failed_at,
+           pc.name AS coin_name, pc.metal,
+           pv.url,
+           lr.run_id
+    FROM provider_failures pf
+    JOIN provider_coins pc ON pc.slug = pf.coin_slug
+    JOIN provider_vendors pv ON pv.coin_slug = pf.coin_slug AND pv.vendor_id = pf.vendor_id
+    CROSS JOIN last_run lr
+    WHERE pf.failed_at >= lr.started_at
+      AND pf.failed_at <= lr.finished_at
+    ORDER BY pf.failed_at ASC
+  `);
+  return result.rows.map((row) => ({
+    coinSlug: row.coin_slug,
+    coinName: row.coin_name,
+    metal: row.metal,
+    vendorId: row.vendor_id,
+    url: row.url,
+    error: row.error,
+    failedAt: row.failed_at,
+    runId: row.run_id,
+  }));
+}
+
+/**
+ * Clear a specific chronic failure entry (dismiss from chronic list).
+ *
+ * @param {import("@libsql/client").Client} client
+ * @param {string} coinSlug
+ * @param {string} vendorId
+ * @returns {Promise<{rowsAffected: number}>}
+ */
+export async function clearChronicFailure(client, coinSlug, vendorId) {
+  const result = await client.execute({
+    sql: "DELETE FROM provider_failures WHERE coin_slug = ? AND vendor_id = ? AND failed_at > datetime('now', '-7 days')",
+    args: [coinSlug, vendorId],
+  });
+  return { rowsAffected: result.rowsAffected };
+}
+
+/**
+ * Clear ALL chronic failure entries (bulk dismiss).
+ *
+ * @param {import("@libsql/client").Client} client
+ * @returns {Promise<{rowsAffected: number}>}
+ */
+export async function clearAllChronicFailures(client) {
+  const result = await client.execute(
+    "DELETE FROM provider_failures WHERE failed_at > datetime('now', '-7 days')"
+  );
+  return { rowsAffected: result.rowsAffected };
+}
+
+/**
+ * Get all providers grouped by vendor (for vendor-centric view).
+ * Returns vendors with their items and aggregate scrape stats.
+ *
+ * @param {import("@libsql/client").Client} client
+ * @returns {Promise<Array<{vendorId: string, vendorName: string, items: Array}>>}
+ */
+export async function getProvidersByVendor(client) {
+  const result = await client.execute(`
+    SELECT pv.vendor_id, pv.vendor_name, pv.coin_slug, pv.url, pv.enabled,
+           pv.selector, pv.hints, pv.skip_bounds,
+           pc.name AS coin_name, pc.metal, pc.weight_oz
+    FROM provider_vendors pv
+    JOIN provider_coins pc ON pc.slug = pv.coin_slug
+    ORDER BY pv.vendor_id, pc.metal, pc.name
+  `);
+
+  const vendorMap = new Map();
+  for (const row of result.rows) {
+    if (!vendorMap.has(row.vendor_id)) {
+      vendorMap.set(row.vendor_id, { vendorId: row.vendor_id, vendorName: row.vendor_name, items: [] });
+    }
+    vendorMap.get(row.vendor_id).items.push({
+      coinSlug: row.coin_slug,
+      coinName: row.coin_name,
+      metal: row.metal,
+      weightOz: row.weight_oz,
+      url: row.url,
+      enabled: row.enabled === 1,
+      selector: row.selector,
+      hints: row.hints,
+      skipBounds: row.skip_bounds === 1,
+    });
+  }
+  return [...vendorMap.values()];
 }
 
 /**
@@ -416,15 +526,18 @@ export async function getFailureTrend(client, days = 7) {
   });
   return result.rows.map(r => ({ day: r.day, failures: Number(r.failures), uniquePairs: Number(r.unique_pairs) }));
 }
-export async function getRunStats(client) {
+export async function getRunStats(client, pollerId = null) {
+  const where = pollerId
+    ? "WHERE started_at > datetime('now', '-24 hours') AND poller_id IN ('" + (Array.isArray(pollerId) ? pollerId.join("','") : pollerId) + "')"
+    : "WHERE started_at > datetime('now', '-24 hours')";
   const result = await client.execute(`
     SELECT
       COUNT(*) AS total_runs,
-      SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS success_rate,
+      SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) AS success_rate,
       AVG(captured * 100.0 / NULLIF(captured + failures, 0)) AS avg_capture_rate,
       AVG(CAST((julianday(finished_at) - julianday(started_at)) * 86400 AS INTEGER)) AS avg_duration_sec
     FROM poller_runs
-    WHERE started_at > datetime('now', '-24 hours')
+    ${where}
   `);
   const row = result.rows[0];
   return {

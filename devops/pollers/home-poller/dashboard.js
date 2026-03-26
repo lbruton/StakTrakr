@@ -23,6 +23,7 @@ import {
   getVendorScrapeStatus, getFailureStats, getFailureTrend, getRunStats, getCoverageStats, getSpotCoverage, getMissingItems, exportProvidersJson,
   batchToggleVendor, batchDeleteVendor, getVendorSummary,
   loadProviders,
+  getLastScanFailures, clearChronicFailure, clearAllChronicFailures, getProvidersByVendor,
 } from "./provider-db.js";
 
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
