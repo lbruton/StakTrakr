@@ -1476,10 +1476,12 @@ window.renderMetalOrderConfigTable = renderMetalOrderConfigTable;
 const applyLayoutOrder = () => {
   const config = getLayoutSectionConfig();
   const sectionMap = {
-    spotPrices: elements.spotPricesSection,
-    totals:     elements.totalsSectionEl,
-    search:     elements.searchSectionEl,
-    table:      elements.tableSectionEl,
+    spotPrices:      elements.spotPricesSection,
+    totals:          elements.totalsSectionEl,
+    search:          elements.searchSectionEl,
+    table:           elements.tableSectionEl,
+    bestPriceTicker: safeGetElement('bestPriceTickerEl'),
+    vendorPrices:    safeGetElement('vendorPricesSectionEl'),
   };
   const container = document.querySelector('.container');
   if (!container) return;
