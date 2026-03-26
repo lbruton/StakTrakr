@@ -1014,6 +1014,9 @@ const ALLOWED_STORAGE_KEYS = [
   "v2RetailHistory",                                   // JSON: v2 retail history cache
   "v2SpotHistory",                                     // JSON: v2 spot price history
   "v2ManifestCache",                                   // JSON: v2 manifest metadata cache
+  // STAK-504: Market data module keys
+  "vendorPricesActiveTab",                             // string: active metal tab in vendor prices section
+  "v2SpotHistoryTs",                                   // string: ISO timestamp of cached v2 spot history
 ];
 
 /**
@@ -1179,6 +1182,8 @@ const LAYOUT_SECTION_DEFAULTS = [
   { id: 'totals',     label: 'Summary totals',      enabled: true },
   { id: 'search',     label: 'Search & filter bar', enabled: true },
   { id: 'table',      label: 'Inventory table',     enabled: true },
+  { id: 'bestPriceTicker', label: 'Best Price Ticker', enabled: true },
+  { id: 'vendorPrices',    label: 'Vendor Prices',     enabled: true },
 ];
 
 /**
