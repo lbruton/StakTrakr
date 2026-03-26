@@ -895,10 +895,57 @@ if (log) log.scrollTop = log.scrollHeight;
 // Provider editor page (GET /providers)
 // ---------------------------------------------------------------------------
 
-function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly) {
+function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups) {
   const coins = providers.coins || {};
   const coinEntries = Object.entries(coins);
   const totalCoins = coinEntries.length;
+
+  // Build vendor-centric view HTML
+  const vendorViewHtml = (vendorGroups || []).map(vg => {
+    const okCount = vg.items.filter(i => {
+      const key = `${i.coinSlug}:${vg.vendorId}`;
+      const st = scrapeStatus?.get(key);
+      return st && !st.isFailed && st.price != null;
+    }).length;
+    const failCount = vg.items.filter(i => {
+      const key = `${i.coinSlug}:${vg.vendorId}`;
+      const st = scrapeStatus?.get(key);
+      return st?.isFailed;
+    }).length;
+    const statsText = `${vg.items.length} items | ${okCount} ok${failCount > 0 ? ` | <span style="color:var(--red);">${failCount} failing</span>` : ""}`;
+
+    const itemRows = vg.items.map(item => {
+      const key = `${item.coinSlug}:${vg.vendorId}`;
+      const st = scrapeStatus?.get(key);
+      let dot = '<span style="width:8px;height:8px;border-radius:50%;background:#475569;display:inline-block;"></span>';
+      let priceText = '';
+      if (st) {
+        if (st.isFailed) {
+          dot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;"></span>';
+          priceText = `<span style="color:var(--red);font-size:11px;">failed</span>`;
+        } else if (st.price != null) {
+          dot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>';
+          priceText = `<span style="color:var(--green);font-size:11px;">$${st.price}</span>`;
+        }
+      }
+      const urlShort = item.url ? (item.url.length > 50 ? item.url.slice(0, 47) + "..." : item.url) : "";
+      return `<div style="display:grid;grid-template-columns:auto 1fr 2fr 1fr auto;gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
+        ${dot}
+        <span style="font-weight:600;">${escHtml(item.coinName)} ${metalBadge(item.metal)}</span>
+        <span style="color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escAttr(item.url || "")}">${escHtml(urlShort)}</span>
+        ${priceText}
+        <a class="btn-sm" href="/providers#${escAttr(item.coinSlug)}">Edit URL</a>
+      </div>`;
+    }).join("");
+
+    return `<div style="margin-bottom:12px;" class="vendor-section" data-vendor="${escAttr(vg.vendorId)}">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:4px;" class="vendor-section-header">
+        <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}</span>
+        <span style="font-size:11px;color:var(--muted);">${statsText}</span>
+      </div>
+      <div class="vendor-section-body" style="display:none;">${itemRows}</div>
+    </div>`;
+  }).join("");
 
   // Build vendorsByMetal map for bulk operations
   const vendorsByMetal = {};
@@ -1028,6 +1075,11 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly) {
 ${renderNav("providers", failureCount)}
 <div style="padding:16px 20px;">
   ${readOnlyBanner}
+  <div style="display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:12px;">
+    <button class="tab-btn active" data-provider-tab="coins" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;border-bottom:2px solid var(--accent);margin-bottom:-2px;text-transform:uppercase;letter-spacing:0.5px;">By Coin</button>
+    <button class="tab-btn" data-provider-tab="vendors" style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;text-transform:uppercase;letter-spacing:0.5px;">By Vendor</button>
+  </div>
+  <div id="provider-tab-coins">
   <div class="toolbar">
     <input type="text" id="search" placeholder="Search coins by name, slug, or metal...">
     <button class="filter-btn active" data-metal="all">All</button>
@@ -1052,6 +1104,11 @@ ${renderNav("providers", failureCount)}
   </div>
 </div>
 ${coinSections}
+</div><!-- /provider-tab-coins -->
+
+<div id="provider-tab-vendors" style="display:none;">
+${vendorViewHtml}
+</div><!-- /provider-tab-vendors -->
 
 <!-- Confirmation Modal -->
 <div class="modal-overlay" id="confirm-modal">
@@ -1456,6 +1513,31 @@ if (btnExport) btnExport.addEventListener('click', async () => {
     showToast('Network error: ' + err.message, false);
   }
 });
+
+// ── Provider tab switching (By Coin / By Vendor) ─────────────────────────
+document.querySelectorAll('[data-provider-tab]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('[data-provider-tab]').forEach(function(b) {
+      b.style.color = 'var(--muted)';
+      b.style.borderBottomColor = 'transparent';
+      b.classList.remove('active');
+    });
+    this.style.color = 'var(--accent)';
+    this.style.borderBottomColor = 'var(--accent)';
+    this.classList.add('active');
+    var tab = this.dataset.providerTab;
+    document.getElementById('provider-tab-coins').style.display = tab === 'coins' ? '' : 'none';
+    document.getElementById('provider-tab-vendors').style.display = tab === 'vendors' ? '' : 'none';
+  });
+});
+
+// ── Vendor section expand/collapse ───────────────────────────────────────
+document.querySelectorAll('.vendor-section-header').forEach(function(header) {
+  header.addEventListener('click', function() {
+    var body = this.nextElementSibling;
+    body.style.display = body.style.display === 'none' ? '' : 'none';
+  });
+});
 </script>
 </body>
 </html>`;
@@ -1686,25 +1768,27 @@ async function handleRequest(req, res) {
   if (req.method === "GET" && url === "/providers") {
     let client = null;
     let readOnly = false;
-    let providers, scrapeStatus, failureCount;
+    let providers, scrapeStatus, failureCount, vendorGroups;
     try {
       client = getTursoClient();
       await initProviderSchema(client);
-      [providers, scrapeStatus, failureCount] = await Promise.all([
+      [providers, scrapeStatus, failureCount, vendorGroups] = await Promise.all([
         getProviders(client),
         getVendorScrapeStatus(client).catch(() => null),
         getFailureCount(client),
+        getProvidersByVendor(client).catch(() => []),
       ]);
     } catch {
       readOnly = true;
       try { providers = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8")); } catch { providers = { coins: {} }; }
       scrapeStatus = null;
       failureCount = 0;
+      vendorGroups = [];
     } finally {
       if (client) try { await client.close(); } catch { /* ignore */ }
     }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(renderProvidersPage(providers, scrapeStatus, failureCount, readOnly));
+    res.end(renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups));
     return;
   }
 
