@@ -335,9 +335,10 @@ const SHARED_CSS = `
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
     --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
     --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+    --surface2: #253348;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
@@ -352,10 +353,34 @@ const SHARED_CSS = `
     padding: 4px 6px; border-radius: 4px; font-size: 13px;
   }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 6px 8px; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; }
-  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 4px 6px; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 10px; text-transform: uppercase; }
+  td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
+  tr:hover { background: rgba(56, 189, 248, 0.03); }
+  .btn-sm { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--border); color: var(--text); border: none; cursor: pointer; display: inline-block; text-decoration: none; }
+  .btn-sm:hover { background: var(--accent); color: #000; text-decoration: none; }
+  .btn-sm.danger { background: var(--red); color: #fff; }
+  .btn-sm.danger:hover { background: #dc2626; }
+  .btn-sm.primary { background: var(--accent); color: #000; }
+  .status { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; color: #fff; }
+  .status-ok { background: var(--green); }
+  .status-running { background: var(--accent); }
+  .status-failed { background: var(--red); }
+  .poller-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; color: #fff; }
+  .poller-tag-hr { background: #7c3aed; }
+  .poller-tag-hs { background: #06b6d4; }
+  .poller-tag-fs { background: #0ea5e9; }
+  .mini-bar { width: 60px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
+  .mini-bar div { height: 100%; border-radius: 2px; }
+  .container { max-width: 1440px; margin: 0 auto; padding: 12px 16px; }
+  .row { display: grid; gap: 12px; margin-bottom: 12px; }
+  .row-2 { grid-template-columns: 1fr 1fr; }
+  .row-3-1 { grid-template-columns: 3fr 1fr; }
+  .full { grid-template-columns: 1fr; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  .card-title { font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  @media (max-width: 900px) { .row-2, .row-3-1 { grid-template-columns: 1fr; } }
 `;
 
 // ---------------------------------------------------------------------------
@@ -363,19 +388,19 @@ const SHARED_CSS = `
 // ---------------------------------------------------------------------------
 
 function renderNav(activePage, failureCount) {
-  const badge = failureCount > 0 ? ` <span class="badge" style="background:var(--red)">${failureCount}</span>` : "";
+  const badge = failureCount > 0 ? `<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;color:#fff;background:var(--red);margin-left:4px;">${failureCount}</span>` : "";
   const links = [
     { href: "/", label: "Dashboard", id: "home" },
-    { href: "/providers", label: "Provider Editor", id: "providers" },
-    { href: "/failures", label: `Failure Queue${badge}`, id: "failures" },
+    { href: "/providers", label: "Providers", id: "providers" },
+    { href: "/failures", label: `Failures${badge}`, id: "failures" },
   ];
   const navLinks = links.map(l =>
-    `<a href="${l.href}" style="color:${l.id === activePage ? 'var(--text)' : 'var(--accent)'};font-size:13px;font-weight:${l.id === activePage ? '700' : '400'}">${l.label}</a>`
+    `<a href="${l.href}" style="font-size:12px;padding:5px 12px;border-radius:4px;color:${l.id === activePage ? 'var(--text)' : 'var(--muted)'};${l.id === activePage ? 'background:var(--surface2);font-weight:700;' : ''}">${l.label}</a>`
   ).join("");
-  return `<header style="background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;">
-    <h1 style="font-size:18px;font-weight:600;color:var(--accent);">StakTrakr Poller Dashboard</h1>
-    <nav style="display:flex;gap:16px;align-items:center;">${navLinks}</nav>
-    <span style="color:var(--muted);font-size:12px;">${new Date().toUTCString()}</span>
+  return `<header style="background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">
+    <h1 style="font-size:15px;font-weight:600;color:var(--accent);">StakTrakr Poller</h1>
+    <nav style="display:flex;gap:4px;align-items:center;">${navLinks}</nav>
+    <span style="color:var(--muted);font-size:11px;">${new Date().toUTCString()}</span>
   </header>`;
 }
 
@@ -383,162 +408,161 @@ function renderNav(activePage, failureCount) {
 // Main dashboard page (GET /)
 // ---------------------------------------------------------------------------
 
-function renderRunsTable(runs) {
+/** Compact poller tag (HR/HS/FS) */
+function pollerTag(pollerId) {
+  const map = { 'home': 'HR', 'home-retail': 'HR', 'home-spot': 'HS', 'api': 'FR', 'fly-retail': 'FR', 'fly-spot': 'FS' };
+  const cls = { 'home': 'hr', 'home-retail': 'hr', 'home-spot': 'hs', 'api': 'hr', 'fly-retail': 'hr', 'fly-spot': 'fs' };
+  const tag = map[pollerId] || pollerId?.slice(0, 2).toUpperCase() || '??';
+  return `<span class="poller-tag poller-tag-${cls[pollerId] || 'hr'}">${tag}</span>`;
+}
+
+function renderCompactRunsTable(runs) {
   if (!runs || runs.length === 0) {
-    return '<p class="no-data">No runs recorded yet \u2014 will appear after next hourly scrape.</p>';
+    return '<p class="no-data">No runs yet.</p>';
   }
-
-  const rows = runs.map((r) => {
-    const total = r.total ?? 0;
+  const rows = runs.slice(0, 12).map((r) => {
     const captured = r.captured ?? 0;
-    const failures = r.failures ?? 0;
-    const fbp = r.fbp_filled ?? 0;
+    const total = r.total ?? 0;
     const rate = total > 0 ? Math.round((captured / total) * 100) : 0;
-    const captureRate = (captured + failures) > 0 ? captured / (captured + failures) : 1;
-    const barColor = rate >= 80 ? "#22c55e" : rate >= 50 ? "#f59e0b" : "#ef4444";
-    const warningClass = captureRate < 0.5 && r.status === "ok" ? ' class="warning-row"' : "";
-
-    const tooltip = `Captured: ${captured} / Total: ${total} / Failures: ${failures} / FBP: ${fbp}`;
-    const progressCell = total > 0
-      ? `<div class="mini-bar" title="${escAttr(tooltip)}"><div style="width:${rate}%;background:${barColor}"></div></div>
-         <small>${captured}/${total}${fbp > 0 ? ` +${fbp} fbp` : ""}</small>`
-      : `<small style="color:var(--muted)">\u2014</small>`;
-
-    const errorCell = r.error
-      ? `<span class="err-text" title="${escAttr(r.error)}">${escHtml(r.error.length > 60 ? r.error.slice(0, 57) + "..." : r.error)}</span>`
-      : "";
-
-    return `<tr${warningClass}>
-      <td><span class="badge" style="background:${pollerBadgeColor(r.poller_id)}">${escHtml(pollerDisplayName(r.poller_id))}</span></td>
-      <td>${escHtml(fmtDateTime(r.started_at))}</td>
-      <td>${escHtml(fmtDuration(r.started_at, r.finished_at))}</td>
-      <td><span class="badge" style="background:${statusColor(r.status)}">${escHtml(r.status)}</span></td>
-      <td>${progressCell}</td>
-      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${errorCell}</td>
+    const barColor = rate >= 80 ? "var(--green)" : rate >= 50 ? "var(--amber)" : "var(--red)";
+    const time = (r.started_at || "").slice(11, 16);
+    const dur = fmtDuration(r.started_at, r.finished_at);
+    const isSpot = r.poller_id?.includes("spot");
+    const resultCell = isSpot
+      ? `<small>${captured || 4}/4</small>`
+      : (total > 0
+        ? `<div class="mini-bar"><div style="width:${rate}%;background:${barColor}"></div></div>${captured}`
+        : `${captured}/${total}`);
+    const statusCls = r.status === "ok" ? "status-ok" : r.status === "running" ? "status-running" : "status-failed";
+    const statusLabel = r.status === "running" ? "run" : r.status;
+    return `<tr>
+      <td>${pollerTag(r.poller_id)}</td>
+      <td>${escHtml(time)}</td>
+      <td>${escHtml(dur)}</td>
+      <td><span class="status ${statusCls}">${escHtml(statusLabel)}</span></td>
+      <td>${resultCell}</td>
     </tr>`;
   }).join("");
-
-  return `<table>
-    <thead>
-      <tr>
-        <th>Poller</th><th>Started (UTC)</th><th>Duration</th><th>Status</th><th>Prices</th><th>Error</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  return `<table><thead><tr><th>Type</th><th>Time</th><th>Dur</th><th>Status</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function renderStatsCards(stats) {
-  if (!stats) return "";
-  const cards = [
-    { label: "Runs (24h)", value: stats.totalRuns },
-    { label: "Success Rate", value: `${stats.successRate}%` },
-    { label: "Avg Capture Rate", value: `${stats.avgCaptureRate}%` },
-    { label: "Avg Duration", value: stats.avgDurationSec > 60 ? `${Math.floor(stats.avgDurationSec / 60)}m ${stats.avgDurationSec % 60}s` : `${stats.avgDurationSec}s` },
-  ];
-  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-    ${cards.map(c => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
-      <div style="color:var(--muted);font-size:11px;text-transform:uppercase;margin-bottom:4px;">${c.label}</div>
-      <div style="color:var(--accent);font-size:24px;font-weight:700;">${c.value}</div>
-    </div>`).join("")}
+function renderKpiStrip(retailStats, spotCov, failureCount, coverageStats) {
+  function kpi(label, value, sub, color) {
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;text-align:center;flex:1;min-width:95px;">
+      <div style="font-size:9px;text-transform:uppercase;color:var(--muted);font-weight:600;letter-spacing:0.5px;">${label}</div>
+      <div style="font-size:20px;font-weight:700;margin-top:2px;color:${color};">${value}</div>
+      ${sub ? `<div style="font-size:9px;color:var(--muted);">${sub}</div>` : ""}
+    </div>`;
+  }
+  const runs = retailStats ? retailStats.totalRuns : 0;
+  const success = retailStats ? retailStats.successRate : 0;
+  const dur = retailStats ? (retailStats.avgDurationSec > 60 ? `${Math.floor(retailStats.avgDurationSec / 60)}m${retailStats.avgDurationSec % 60}s` : `${retailStats.avgDurationSec}s`) : "?";
+  const capture = retailStats ? retailStats.avgCaptureRate : 0;
+  const spotPct = spotCov ? Math.round((spotCov.coveredIntervals / Math.max(spotCov.totalIntervals, 1)) * 100) : 0;
+  const spotLabel = spotCov ? `${spotCov.coveredIntervals}/${spotCov.totalIntervals}` : "?";
+  const covNow = coverageStats?.hours?.[0]?.pct ?? 0;
+  const covCovered = coverageStats?.hours?.[0]?.covered ?? 0;
+  const covTotal = coverageStats?.totalEnabled ?? 0;
+
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+    ${kpi("Retail Runs", runs, "home | 24h", "var(--accent)")}
+    ${kpi("Success", success + "%", runs > 0 ? `${Math.round(runs * success / 100)}/${runs} ok` : "", success >= 90 ? "var(--green)" : success >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Duration", dur, "avg retail", "var(--accent)")}
+    ${kpi("Capture", capture + "%", retailStats ? `${Math.round(capture * 166 / 100)}/166` : "", capture >= 90 ? "var(--green)" : capture >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Spot", spotPct + "%", spotLabel, spotPct >= 90 ? "var(--green)" : spotPct >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Failures", failureCount, "chronic 24+/7d", failureCount > 0 ? "var(--red)" : "var(--green)")}
+    ${kpi("Coverage", covNow + "%", `${covCovered}/${covTotal} now`, covNow >= 80 ? "var(--green)" : covNow >= 50 ? "var(--amber)" : "var(--red)")}
   </div>`;
 }
 
-function renderFlyioCard(h, flyRuns, tursoUp, tursoBackup) {
-  // HTTP health (from check-flyio.sh JSON file)
-  let httpLine = "";
-  if (h) {
-    const age = h.checked_at
-      ? Math.round((Date.now() - new Date(h.checked_at)) / 1000)
-      : null;
-    const ageStr = age != null ? (age < 60 ? `${age}s ago` : `${Math.round(age/60)}m ago`) : "?";
-    const httpColor = h.http_ok ? "#22c55e" : "#ef4444";
-    httpLine = `
-      <div class="stat-row"><span>API endpoint</span>
-        <span class="stat-val" style="color:${httpColor}">${h.http_ok ? `OK (${h.http_code})` : `FAIL (${h.http_code || "no resp"})`}</span></div>
-      <div class="stat-row"><span>Last checked</span>
-        <span class="stat-val">${ageStr}</span></div>`;
-  } else {
-    httpLine = `<div class="stat-row"><span>API endpoint</span>
-      <span class="stat-val" style="color:#a1a1aa">Awaiting first check</span></div>`;
+function renderAttentionSidebar(failures) {
+  if (!failures || failures.length === 0) {
+    return `<div class="card"><div class="card-title">Needs Attention</div>
+      <p style="color:var(--green);font-size:12px;padding:8px 0;">All clear - no chronic failures.</p></div>`;
   }
+  const items = failures.slice(0, 6).map(f =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--red);">
+      <div><span style="font-weight:600;">${escHtml(f.coinName)}</span><br><span style="color:var(--muted);font-size:10px;">${escHtml(f.vendorId)}</span></div>
+      <div style="display:flex;gap:4px;">
+        <a class="btn-sm" href="/providers#${escAttr(f.coinSlug)}">Edit</a>
+        <button class="btn-sm primary btn-retry" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Retry</button>
+      </div>
+    </div>`
+  ).join("");
+  return `<div class="card"><div class="card-title">Needs Attention</div>${items}
+    <div style="margin-top:6px;text-align:center;"><a href="/failures" style="font-size:11px;">View all failures &rarr;</a></div></div>`;
+}
 
-  // Database connectivity — local sqld (primary) + Turso Cloud (DR backup)
-  const sqldColor = tursoUp ? "#22c55e" : "#ef4444";
-  const sqldLabel = tursoUp ? "OK" : "OFFLINE";
-  const backupColor = tursoBackup?.up ? "#22c55e" : (tursoBackup?.error === "TURSO_BACKUP_URL not set" ? "#a1a1aa" : "#ef4444");
-  const backupLabel = tursoBackup?.up ? "OK" : (tursoBackup?.error === "TURSO_BACKUP_URL not set" ? "NOT SET" : "OFFLINE");
+function renderStatusBar(data) {
+  const { cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats, spotCoverage } = data;
+  const items = [];
+  const dot = (color) => `<span style="width:7px;height:7px;border-radius:50%;background:var(--${color});display:inline-block;margin-right:5px;"></span>`;
 
-  // Fly.io last-hour summary
-  let runsHtml = "";
-  if (flyRuns && flyRuns.length > 0) {
-    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
-    const recent = flyRuns.filter(r => r.started_at > oneHourAgo);
-    const retailRuns = recent.filter(r => r.poller_id?.includes("retail"));
-    const spotRuns = recent.filter(r => r.poller_id?.includes("spot"));
-    const lastRetail = retailRuns[0];
-    const retailStatus = lastRetail
-      ? `${lastRetail.captured ?? 0}/${lastRetail.total ?? 0} prices`
-      : "no run";
-    const retailColor = lastRetail?.status === "done" ? "#22c55e" : (lastRetail ? "#3b82f6" : "#a1a1aa");
-    const spotCount = spotRuns.filter(r => r.status === "done").length;
-    const spotTotal = 2; // expected 2 spot runs/hour from fly
-    const spotColor = spotCount >= spotTotal ? "#22c55e" : (spotCount > 0 ? "#eab308" : "#ef4444");
+  // VM
+  const memPct = cpu ? parseFloat(cpu.memUsedPct) : 0;
+  items.push(dot(memPct < 80 ? "green" : memPct < 90 ? "amber" : "red") + `VM: ${cpu ? cpu.memUsedPct + "%" : "?"} mem, ${uptime || "?"}`);
 
-    runsHtml = `
-      <div style="margin-top:8px">
-        <div class="stat-row"><span>Retail (last hour)</span>
-          <span class="stat-val" style="color:${retailColor}">${retailStatus}</span></div>
-        <div class="stat-row"><span>Spot (last hour)</span>
-          <span class="stat-val" style="color:${spotColor}">${spotCount}/${spotTotal} runs</span></div>
-      </div>`;
-  } else {
-    runsHtml = `<p class="no-data" style="margin-top:8px">No Fly.io runs in Turso yet.</p>`;
+  // Retail
+  const success = retailStats?.successRate ?? 0;
+  items.push(dot(success >= 90 ? "green" : success >= 70 ? "amber" : "red") + `Retail: ${success}%`);
+
+  // Spot
+  const spotPct = spotCoverage ? Math.round((spotCoverage.coveredIntervals / Math.max(spotCoverage.totalIntervals, 1)) * 100) : 0;
+  items.push(dot(spotPct >= 90 ? "green" : spotPct >= 70 ? "amber" : "red") + `Spot: ${spotPct}% cov`);
+
+  // Failures
+  items.push(dot(failureCount > 0 ? "red" : "green") + `${failureCount} chronic failures`);
+
+  // Fly.io
+  const flyOk = flyioHealth?.http_ok;
+  items.push(dot(flyOk ? "green" : flyOk === false ? "red" : "amber") + `Fly.io: ${flyOk ? "OK" : flyOk === false ? "DOWN" : "?"}`);
+
+  // Lock
+  const anyLocked = (lockStatus || []).some(l => l.locked);
+  items.push(dot(anyLocked ? "amber" : "green") + `Lock: ${anyLocked ? "BUSY" : "free"}`);
+
+  // Turso
+  items.push(dot(tursoUp ? "green" : "red") + `Turso: ${tursoUp ? "OK" : "DOWN"}`);
+
+  return `<div style="background:var(--surface2);border-bottom:1px solid var(--border);padding:5px 16px;display:flex;gap:16px;align-items:center;font-size:11px;overflow-x:auto;">
+    ${items.map(i => `<div style="display:flex;align-items:center;white-space:nowrap;">${i}</div>`).join("")}
+  </div>`;
+}
+
+function renderInfraRow(data) {
+  const { cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord } = data;
+  const netRx = net ? fmtBytes(net.rx_bytes) : "?";
+  const flyOk = flyioHealth?.http_ok;
+  const anyLocked = (lockStatus || []).some(l => l.locked);
+  const containerCount = (dockerContainers || []).filter(c => c.state === "running").length;
+  const serviceCount = (supervisord || []).filter(s => s.state === "RUNNING").length;
+
+  function item(label, value, color) {
+    return `<div style="display:flex;justify-content:space-between;padding:3px 6px;font-size:11px;"><span style="color:var(--muted)">${label}</span><span style="color:${color || "var(--text)"}">${value}</span></div>`;
   }
-
-  return `<div class="card">
-    <h2>Fly.io Container</h2>
-    <div class="stat-row"><span>Local DB (sqld)</span>
-      <span class="stat-val" style="color:${sqldColor}">${sqldLabel}</span></div>
-    <div class="stat-row"><span>Turso DR Backup</span>
-      <span class="stat-val" style="color:${backupColor}">${backupLabel}</span></div>
-    ${httpLine}
-    ${runsHtml}
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px;">
+    ${item("VM", `${uptime || "?"} | ${cpu ? cpu.memUsedPct + "%" : "?"}`, "var(--green)")}
+    ${item("Load", cpu ? `${cpu.load1}/${cpu.load5}` : "?")}
+    ${item("Net", `${netRx} rx`)}
+    ${item("Lock", anyLocked ? "BUSY" : "Free", anyLocked ? "var(--amber)" : "var(--green)")}
+    ${item("Fly API", flyOk ? "OK" : flyOk === false ? "DOWN" : "?", flyOk ? "var(--green)" : "var(--red)")}
+    ${item("Turso", tursoUp ? "OK" : "DOWN", tursoUp ? "var(--green)" : "var(--red)")}
+    ${item("Containers", `${containerCount} up`, "var(--green)")}
+    ${item("Services", `${serviceCount} up`, "var(--green)")}
   </div>`;
 }
 
 
+// renderMissingItems kept for backward compat but simplified
 function renderMissingItems(items) {
   if (!items || items.length === 0) {
-    return '<p style="color:var(--green);font-size:13px;padding:8px 0;">\u2714 All enabled items have successful prices this hour.</p>';
+    return '<p style="color:var(--green);font-size:12px;padding:8px 0;">All items have prices this hour.</p>';
   }
-
-  const rows = items.map((item) => {
-    const urlShort = item.url ? (item.url.length > 60 ? item.url.slice(0, 57) + "..." : item.url) : "no URL";
-    const metalColor = ({ silver: "#94a3b8", gold: "#fbbf24", goldback: "#a3e635", platinum: "#e2e8f0" })[item.metal] || "#94a3b8";
-
-    return `<tr>
-      <td><span class="badge" style="background:${metalColor};color:#0f172a">${escHtml(item.metal)}</span></td>
-      <td><strong>${escHtml(item.coinName)}</strong><br><code style="color:var(--muted);font-size:11px;">${escHtml(item.coinSlug)}:${escHtml(item.vendor)}</code></td>
-      <td><a href="${escAttr(item.url || "#")}" target="_blank" title="${escAttr(item.url || "")}" style="font-size:12px;">${escHtml(urlShort)}</a></td>
-      <td style="white-space:nowrap;">
-        <button class="btn-diagnose" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(item.vendor)}" data-url="${escAttr(item.url || "")}"
-          style="background:#1e3a5f;color:var(--accent);font-size:11px;padding:4px 10px;margin-right:4px;"
-          title="Run Claude Code diagnosis on the home poller VM">\uD83E\uDD16 Diagnose</button>
-        <button class="btn-browserbase" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(item.vendor)}" data-url="${escAttr(item.url || "")}"
-          style="background:#312e81;color:#a5b4fc;font-size:11px;padding:4px 10px;"
-          title="Open in Browserbase for visual inspection">\uD83C\uDF10 Browserbase</button>
-      </td>
-    </tr>`;
-  }).join("");
-
-  return `<table>
-    <thead><tr><th>Metal</th><th>Item</th><th>URL</th><th style="width:200px;">Actions</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  return `<p style="color:var(--muted);font-size:12px;margin-bottom:8px;">${items.length} items missing prices this hour.</p>`;
 }
 
-function renderCoverageCards(cov, spotCov) {
+// Legacy coverage rendering — replaced by Chart.js in new dashboard
+function renderCoverageCards_LEGACY(cov, spotCov) {
   if (!cov || !cov.hours || cov.hours.length === 0) return '';
 
   // ── Style values (from playground Compact preset + user tweaks) ─────
@@ -692,7 +716,8 @@ function renderCoverageCards(cov, spotCov) {
     + spotSection;
 }
 
-function renderFailureTrendChart(trend) {
+// Legacy SVG trend chart — replaced by Chart.js
+function renderFailureTrendChart_LEGACY(trend) {
   if (!trend || trend.length === 0) {
     return '<p style="color:var(--muted);font-size:13px;padding:8px 0;">No failure data available.</p>';
   }
@@ -726,33 +751,19 @@ function renderFailureTrendChart(trend) {
 }
 
 function renderMainPage(data) {
-  const { net, cpu, uptime, supervisord, systemd, logLines, tursoRuns, tursoError, tursoUp, tursoBackup, flyioHealth, runStats, failureCount, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus } = data;
-
-  const supRows = supervisord.map((s) => `
-    <tr>
-      <td>${s.name}</td>
-      <td><span class="badge" style="background:${stateColor(s.state)}">${s.state}</span></td>
-      <td class="detail">${s.detail}</td>
-    </tr>`).join("");
-
-  const dockerRows = (dockerContainers || []).map((c) => {
-    const stColor = c.state === "running" ? "#22c55e" : c.state === "exited" ? "#ef4444" : "#f59e0b";
-    return `<tr>
-      <td>${escHtml(c.name)}</td>
-      <td><span class="badge" style="background:${stColor}">${c.state}</span></td>
-      <td class="detail">${escHtml(c.status)}</td>
-    </tr>`;
-  }).join("");
+  const { net, cpu, uptime, supervisord, logLines, tursoRuns, tursoUp, flyioHealth, runStats, failureCount, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus, chronicFailures } = data;
 
   const logHtml = logLines.map((l) =>
     `<div class="${logLineClass(l)}">${escHtml(l)}</div>`
   ).join("");
 
-  const netRx = net ? fmtBytes(net.rx_bytes) : "?";
-  const netTx = net ? fmtBytes(net.tx_bytes) : "?";
-  const tursoNote = tursoError
-    ? `<span class="err-text">(Turso unreachable: ${escHtml(tursoError)})</span>`
-    : "";
+  // Prepare Chart.js data as JSON for client-side rendering
+  const covHours = coverageStats?.hours?.slice(0, 48)?.reverse() || [];
+  const chartData = JSON.stringify({
+    coverage: covHours.map(h => ({ x: h.hour, y: h.pct })),
+    // We don't have real spot price data on the dashboard server, use coverage as proxy
+    spotIntervals: (spotCoverage?.intervals || []).map(q => ({ x: q.quarter, y: q.metals * 25 })),
+  });
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -761,32 +772,15 @@ function renderMainPage(data) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="60">
 <title>StakTrakr Poller Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"><\/script>
 <style>
   ${SHARED_CSS}
-  header h1 { font-size: 18px; font-weight: 600; color: var(--accent); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 16px; padding: 16px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-  .card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 12px; }
-  .stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--border); }
-  .stat-row:last-child { border-bottom: none; }
-  .stat-val { font-weight: 600; color: var(--accent); }
-  .mini-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 3px; min-width: 80px; }
-  .mini-bar div { height: 100%; }
-  .mini-bar + small { color: var(--muted); font-size: 11px; }
-  .detail { color: var(--muted); font-size: 11px; }
-  .card-stale { border-color: #f59e0b; }
-  .stale-tag { font-size: 10px; color: #f59e0b; font-weight: 400; margin-left: 6px; text-transform: none; letter-spacing: 0; }
-  .wide-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 0 16px 16px; }
-  .wide-card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 12px; }
-  .scroll-table { max-height: 500px; overflow-y: auto; }
-  .scroll-table thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
-  .warning-row { background: rgba(245,158,11,0.15); }
-  .log-panel { margin: 0 16px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-  .log-panel h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--border); }
-  .log-body { padding: 10px 14px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; max-height: 480px; overflow-y: auto; }
-  .log-ok    { color: #86efac; }
+  .chart-wrap { position: relative; height: 180px; }
+  .log-compact { background: #0c1221; border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: 'SF Mono', monospace; font-size: 10px; line-height: 1.5; max-height: 200px; overflow-y: auto; color: var(--muted); }
+  .log-ok    { color: #86efac; font-weight: 600; }
   .log-warn  { color: #fde68a; }
-  .log-error { color: #f87171; }
+  .log-error { color: #f87171; font-weight: 600; }
   .log-info  { color: var(--accent); }
   .log-fbp   { color: #c084fc; }
   .log-default { color: var(--muted); }
@@ -794,241 +788,104 @@ function renderMainPage(data) {
 </head>
 <body>
 ${renderNav("home", failureCount)}
+${renderStatusBar({ cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats: runStats, spotCoverage })}
 
-<div class="wide-card">
-  <h2>Combined Coverage — All Pollers (hourly union)</h2>
-  ${renderCoverageCards(coverageStats, spotCoverage)}
-</div>
-
-<div class="wide-card">
-  <h2>All Poller Runs \u2014 Turso (last 30) ${tursoNote}</h2>
-  ${renderStatsCards(runStats)}
-  <div class="scroll-table">
-    ${renderRunsTable(tursoRuns?.filter(r => !r.poller_id?.includes('spot')))}
-  </div>
-</div>
-
-<div class="log-panel">
-  <h2>Home Poller Log \u2014 last ${LOG_LINES} lines (${LOG_FILE})</h2>
-  <div class="log-body" id="log">${logHtml}</div>
-</div>
-
-<div class="grid">
-  <div class="card">
-    <h2>System (home poller VM)</h2>
-    <div class="stat-row"><span>Uptime</span><span class="stat-val">${uptime}</span></div>
-    <div class="stat-row"><span>Load avg (1/5/15m)</span><span class="stat-val">${cpu ? `${cpu.load1} / ${cpu.load5} / ${cpu.load15}` : "?"}</span></div>
-    <div class="stat-row"><span>Memory used</span><span class="stat-val">${cpu ? cpu.memUsedPct + "%" : "?"}</span></div>
+<div class="container">
+  <!-- KPI strip -->
+  <div class="row full">
+    ${renderKpiStrip(runStats, spotCoverage, failureCount, coverageStats)}
   </div>
 
-  <div class="card">
-    <h2>Network (${IFACE}) \u2014 cumulative since boot</h2>
-    <div class="stat-row"><span>RX (received)</span><span class="stat-val">${netRx}</span></div>
-    <div class="stat-row"><span>TX (sent)</span><span class="stat-val">${netTx}</span></div>
-    <div class="stat-row"><span>RX packets</span><span class="stat-val">${net ? net.rx_packets.toLocaleString() : "?"}</span></div>
-    <div class="stat-row"><span>TX packets</span><span class="stat-val">${net ? net.tx_packets.toLocaleString() : "?"}</span></div>
+  <!-- Chart + Attention -->
+  <div class="row row-3-1">
+    <div class="card">
+      <div class="card-title">Retail Coverage — 48h</div>
+      <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    </div>
+    ${renderAttentionSidebar(chronicFailures)}
   </div>
 
-  <div class="card">
-    <h2>Services (supervisord)</h2>
-    <table><tbody>${supRows}</tbody></table>
+  <!-- Runs table + Log -->
+  <div class="row row-2">
+    <div class="card">
+      <div class="card-title">Recent Runs</div>
+      ${renderCompactRunsTable(tursoRuns)}
+    </div>
+    <div class="card">
+      <div class="card-title">Scraper Log</div>
+      <div class="log-compact" id="log">${logHtml}</div>
+      <div class="card-title" style="margin-top:12px;">Infrastructure</div>
+      ${renderInfraRow({ cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord })}
+    </div>
   </div>
-
-  <div class="card">
-    <h2>Docker Containers</h2>
-    <table><tbody>${dockerRows || '<tr><td colspan="3" class="no-data">Docker socket not available</td></tr>'}</tbody></table>
-  </div>
-
-  <div class="card${(lockStatus || []).some(l => l.locked) ? ' card-stale' : ''}">
-    <h2>Poller Locks</h2>
-    ${(lockStatus || []).map(l => {
-      const ageStr = l.age != null ? (l.age >= 3600 ? Math.floor(l.age / 3600) + 'h ' + Math.floor((l.age % 3600) / 60) + 'm' : l.age >= 60 ? Math.floor(l.age / 60) + 'm ' + (l.age % 60) + 's' : l.age + 's') : '?';
-      const stale = l.age != null && l.age > 900;
-      if (l.locked) {
-        return `<div class="stat-row">
-          <span>${escHtml(l.name)}</span>
-          <span>
-            <span class="badge" style="background:${stale ? '#ef4444' : '#f59e0b'}">${stale ? 'STALE' : 'LOCKED'}</span>
-            <span class="detail" style="margin-left:6px">${ageStr} ago</span>
-          </span>
-        </div>
-        <div style="margin-top:8px">
-          <button class="btn-clear-lock" data-path="${escHtml(l.path)}" data-name="${escHtml(l.name)}"
-            style="background:#7f1d1d;color:#fca5a5;padding:5px 12px;border-radius:6px;border:1px solid #991b1b;cursor:pointer;font-size:12px;font-weight:600;width:100%">
-            Clear Lock
-          </button>
-        </div>`;
-      }
-      return `<div class="stat-row">
-        <span>${escHtml(l.name)}</span>
-        <span><span class="badge" style="background:#22c55e">OK</span></span>
-      </div>`;
-    }).join("")}
-  </div>
-
-  ${renderFlyioCard(flyioHealth, flyRuns, tursoUp, tursoBackup)}
 </div>
 
 <script>
-  
-// ── Diagnose button (Claude Code on VM) ─────────────────────────────────
-document.querySelectorAll('.btn-diagnose').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const coin = btn.dataset.coin;
-    const vendor = btn.dataset.vendor;
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\u23F3 Running...';
-    btn.style.opacity = '0.6';
-    try {
-      const r = await fetch('/api/diagnose', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ coinSlug: coin, vendorId: vendor, url })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Diagnosis error: ' + j.error);
-      } else {
-        // Show result in a modal overlay
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;justify-content:center;align-items:center;padding:20px;';
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-        const modal = document.createElement('div');
-        modal.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:12px;max-width:850px;width:100%;max-height:85vh;display:flex;flex-direction:column;position:relative;';
-
-        // Header with item context + close button
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #334155;flex-shrink:0;';
-        header.innerHTML = '<div>'
-          + '<div style="font-size:15px;font-weight:700;color:#e2e8f0;">Diagnosis: ' + coin + ':' + vendor + '</div>'
-          + '<div style="font-size:12px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:600px;">' + url + '</div>'
-          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">Engine: ' + (j.engine || '?') + ' \u00B7 Firecrawl: ' + (j.scrapeLength || 0) + ' chars \u00B7 Playwright: ' + (j.playwrightLength || 0) + ' chars</div>'
-          + '</div>';
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '\u2715';
-        closeBtn.style.cssText = 'background:#334155;color:#e2e8f0;width:32px;height:32px;border-radius:6px;border:none;cursor:pointer;font-size:16px;flex-shrink:0;margin-left:12px;';
-        closeBtn.onmouseover = () => { closeBtn.style.background = '#ef4444'; };
-        closeBtn.onmouseout = () => { closeBtn.style.background = '#334155'; };
-        closeBtn.onclick = () => overlay.remove();
-        header.appendChild(closeBtn);
-
-        // Body — scrollable content
-        const body = document.createElement('div');
-        body.style.cssText = 'padding:16px 20px;overflow-y:auto;flex:1;font-family:"Cascadia Code","Fira Code",monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;color:#e2e8f0;';
-        body.textContent = j.result || '(no output)';
-
-        // Footer with copy button
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display:flex;gap:8px;padding:12px 20px;border-top:1px solid #334155;flex-shrink:0;';
-        const copyBtn = document.createElement('button');
-        copyBtn.textContent = '\uD83D\uDCCB Copy Markdown';
-        copyBtn.style.cssText = 'background:#166534;color:#86efac;padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyBtn.onclick = () => {
-          var NL = String.fromCharCode(10);
-          var BT = String.fromCharCode(96,96,96);
-          var parts = ['## Diagnosis: ' + coin + ':' + vendor, '**URL:** ' + url, '**Engine:** ' + (j.engine || '?'), '**Date:** ' + new Date().toISOString(), '', BT, (j.result || ''), BT, ''];
-          navigator.clipboard.writeText(parts.join(NL)).then(function() {
-            copyBtn.textContent = 'Copied!';
-            setTimeout(function() { copyBtn.textContent = 'Copy Markdown'; }, 2000);
-          });
-        };
-        const copyRawBtn = document.createElement('button');
-        copyRawBtn.textContent = '\uD83D\uDCC4 Copy Raw';
-        copyRawBtn.style.cssText = 'background:#1e3a5f;color:var(--accent);padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyRawBtn.onclick = function() {
-          navigator.clipboard.writeText(j.result || '').then(function() {
-            copyRawBtn.textContent = 'Copied!';
-            setTimeout(function() { copyRawBtn.textContent = 'Copy Raw'; }, 2000);
-          });
-        };
-        footer.appendChild(copyBtn);
-        footer.appendChild(copyRawBtn);
-
-        modal.appendChild(header);
-        modal.appendChild(body);
-        modal.appendChild(footer);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
+// Chart.js — Retail Coverage over 48h
+(function() {
+  var chartData = ${chartData};
+  var ctx = document.getElementById('mainChart');
+  if (!ctx || !chartData.coverage.length) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Coverage %',
+        data: chartData.coverage,
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56, 189, 248, 0.06)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 10 }, usePointStyle: true, pointStyle: 'line', padding: 8 } },
+        tooltip: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#94a3b8' }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { tooltipFormat: 'MMM dd HH:mm', displayFormats: { hour: 'HH:mm' } },
+          ticks: { color: '#475569', font: { size: 9 }, maxTicksLimit: 12 },
+          grid: { color: '#1e293b' },
+        },
+        y: {
+          min: 0, max: 100,
+          title: { display: true, text: '%', color: '#38bdf8', font: { size: 9 } },
+          ticks: { color: '#38bdf8', font: { size: 9 } },
+          grid: { color: '#1e293b' },
+        }
       }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\uD83E\uDD16 Diagnose';
-      btn.style.opacity = '1';
     }
+  });
+})();
+
+// Retry button handler
+document.querySelectorAll('.btn-retry').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var coin = this.dataset.coin;
+    var vendor = this.dataset.vendor;
+    this.disabled = true;
+    this.textContent = '...';
+    fetch('/api/retry', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ coinSlug: coin, vendorId: vendor })
+    }).then(function(r) { return r.json(); }).then(function(j) {
+      btn.textContent = j.ok ? 'Queued' : 'Err';
+      btn.style.background = j.ok ? '#166534' : '#7f1d1d';
+    }).catch(function() { btn.textContent = 'Err'; btn.disabled = false; });
   });
 });
 
-// ── Browserbase button ──────────────────────────────────────────────────
-document.querySelectorAll('.btn-browserbase').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\u23F3 Launching...';
-    try {
-      const r = await fetch('/api/browserbase', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ url, coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Browserbase error: ' + j.error);
-      } else if (j.liveUrl) {
-        window.open(j.liveUrl, '_blank');
-      } else {
-        alert('Session created but no live URL returned.');
-      }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\uD83C\uDF10 Browserbase';
-    }
-  });
-});
-
-// ── Clear lock button ────────────────────────────────────────────────────
-document.querySelectorAll('.btn-clear-lock').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const lockPath = btn.dataset.path;
-    const lockName = btn.dataset.name;
-    if (!confirm('Clear the ' + lockName + ' lock file?\\n\\nThis will allow the next scheduled run to proceed.')) return;
-    btn.disabled = true;
-    btn.textContent = 'Clearing...';
-    try {
-      const r = await fetch('/api/clear-lock', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ path: lockPath })
-      });
-      const j = await r.json();
-      if (j.ok) {
-        btn.textContent = 'Cleared!';
-        btn.style.background = '#14532d';
-        btn.style.color = '#86efac';
-        btn.style.borderColor = '#166534';
-        setTimeout(() => location.reload(), 1500);
-      } else {
-        alert('Failed: ' + (j.message || 'Unknown error'));
-        btn.disabled = false;
-        btn.textContent = 'Clear Lock';
-      }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-      btn.disabled = false;
-      btn.textContent = 'Clear Lock';
-    }
-  });
-});
-
-const log = document.getElementById('log');
-  if (log) log.scrollTop = log.scrollHeight;
+var log = document.getElementById('log');
+if (log) log.scrollTop = log.scrollHeight;
 </script>
 </body>
 </html>`;
@@ -2441,38 +2298,32 @@ async function handleRequest(req, res) {
   }
 
   const client = getTursoClient();
-  const [tursoResult, tursoBackup, runStats, failureCount, net, cpu, uptime, supervisord, systemd, logLines, flyioHealth, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus] = await Promise.all([
+  const [tursoResult, runStats, failureCount, chronicFailures, net, cpu, uptime, supervisord, logLines, flyioHealth, coverageStats, spotCoverage, dockerContainers, lockStatus] = await Promise.all([
     fetchRunsFromTurso().then(rows => ({ rows, error: null })).catch(err => ({ rows: null, error: err.message })),
-    checkTursoBackup(),
-    client ? getRunStats(client).catch(() => null) : Promise.resolve(null),
+    client ? getRunStats(client, ["home", "home-retail"]).catch(() => null) : Promise.resolve(null),
     client ? getFailureCount(client) : Promise.resolve(0),
+    client ? getFailureStats(client).catch(() => []) : Promise.resolve([]),
     Promise.resolve(getNetStats()),
     Promise.resolve(getCpuMem()),
     Promise.resolve(getUptime()),
     Promise.resolve(getSupervisordStatus()),
-    Promise.resolve(getSystemdStatus()),
     Promise.resolve(readLog()),
     Promise.resolve(getFlyioHealth()),
     client ? getCoverageStats(client, 48).catch(() => null) : Promise.resolve(null),
     client ? getSpotCoverage(client, 48).catch(() => null) : Promise.resolve(null),
-    client ? getFailureTrend(client).catch(() => []) : Promise.resolve([]),
-    client ? fetchFlyioRuns(client).catch(() => null) : Promise.resolve(null),
     Promise.resolve(getDockerContainers()),
     Promise.resolve(getLockStatus()),
   ]);
 
   const html = renderMainPage({
-    net, cpu, uptime, supervisord, systemd, logLines, flyioHealth,
+    net, cpu, uptime, supervisord, logLines, flyioHealth,
     tursoRuns: tursoResult.rows,
-    tursoError: tursoResult.error,
     tursoUp: !tursoResult.error,
-    tursoBackup,
     runStats,
     failureCount,
+    chronicFailures,
     coverageStats,
     spotCoverage,
-    failureTrend,
-    flyRuns,
     dockerContainers,
     lockStatus,
   });
