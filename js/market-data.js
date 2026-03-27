@@ -120,7 +120,6 @@ const renderBestPriceTicker = () => {
     }
 
     const metalLower = (meta.metal || '').toLowerCase();
-    if (metalLower === 'goldback' || metalLower.startsWith('goldback')) continue;
 
     // Find cheapest in-stock vendor from the cached vendor data
     let bestVid = null;
