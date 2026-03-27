@@ -30,12 +30,16 @@ const _getSpotPrice = (metalCode) => {
 };
 
 const _getRetailCoins = () => {
+  // Check window cache first
   if (typeof window._v2RetailData !== 'undefined' && window._v2RetailData && window._v2RetailData.prices) {
     return window._v2RetailData.prices;
   }
+  // Check v2-specific key
   const v2Cache = loadDataSync('v2RetailPrices', null);
   if (v2Cache && typeof v2Cache === 'object' && v2Cache.prices) return v2Cache.prices;
-  if (v2Cache && typeof v2Cache === 'object' && !v2Cache.prices) return v2Cache;
+  // Check primary retail key (RETAIL_PRICES_KEY = "retailPrices")
+  const retailCache = loadDataSync('retailPrices', null);
+  if (retailCache && typeof retailCache === 'object' && retailCache.prices) return retailCache.prices;
   return {};
 };
 
@@ -761,10 +765,10 @@ const initMarketData = async () => {
     retailData = window._v2RetailData;
   }
   if (!retailData) {
-    retailData = await loadData('v2ManifestCache', null);
+    retailData = await loadData('v2RetailPrices', null);
   }
   if (!retailData) {
-    retailData = await loadData('v2RetailPrices', null);
+    retailData = await loadData('retailPrices', null);
   }
 
   if (typeof window._manifestCoinMeta === 'undefined' || !window._manifestCoinMeta) {
