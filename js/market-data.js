@@ -455,10 +455,10 @@ const openMarketDetailModal = async (slug) => {
   chartSection.appendChild(chartWrap);
   content.appendChild(chartSection);
 
-  // Default to 7D view (shows vendor price trends)
+  // Defer initial chart render until after all modal content is in the DOM
   const hasIntraday = retailIntraday && Array.isArray(retailIntraday) && retailIntraday.length > 0;
   const hasHistory = retailHistory && Array.isArray(retailHistory) && retailHistory.length > 0;
-  _switchChartPeriod(hasHistory ? '7d' : (hasIntraday ? '24h' : '7d'));
+  setTimeout(() => _switchChartPeriod(hasHistory ? '7d' : (hasIntraday ? '24h' : '7d')), 0);
 
   // ── Vendor comparison table ──
   if (detail && detail.vendors) {

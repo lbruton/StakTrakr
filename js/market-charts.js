@@ -97,7 +97,8 @@ const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
       if (data.length > 0) series.setData(data);
     }
 
-    chart.timeScale().fitContent();
+    // Delay fitContent — modal layout needs time to settle before chart can measure
+    setTimeout(() => { try { chart.timeScale().fitContent(); } catch (e) { /* noop */ } }, 150);
   } catch (e) {
     debugLog('[market-charts] Intraday vendor chart error: ' + e.message, 'warn');
   }
@@ -153,7 +154,8 @@ const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
       if (data.length > 0) series.setData(data);
     }
 
-    chart.timeScale().fitContent();
+    // Delay fitContent — modal layout needs time to settle before chart can measure
+    setTimeout(() => { try { chart.timeScale().fitContent(); } catch (e) { /* noop */ } }, 150);
   } catch (e) {
     debugLog('[market-charts] History vendor chart error: ' + e.message, 'warn');
   }
