@@ -13094,9 +13094,8 @@ th {
   font-weight: 500;
   margin-top: 2px;
 }
-.vp-premium.low  { color: var(--success); }
-/* .vp-premium.mid removed — only green/red used */
-.vp-premium.high { color: var(--danger); }
+.vp-premium.low  { color: #f59e0b; }
+.vp-premium.high { color: #ea580c; }
 
 /* ── Best Price Highlight ── */
 .vp-best {

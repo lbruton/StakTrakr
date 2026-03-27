@@ -126,13 +126,20 @@ const renderBestPriceTicker = () => {
 
     const metalLower = (meta.metal || '').toLowerCase();
 
-    // Find cheapest in-stock vendor from the cached vendor data
+    // Find cheapest in-stock vendor — prefer fresh v2 detail data when available
     let bestVid = null;
     let bestPrice = Infinity;
     for (const vid in coin.vendors) {
       const v = coin.vendors[vid];
-      if (v && v.price > 0 && (v.in_stock === true || v.inStock === true) && v.price < bestPrice) {
-        bestPrice = v.price;
+      if (!v || v.price <= 0) continue;
+      // Cross-reference with fresh v2 detail for accurate stock status
+      const fresh = _cachedSlugDetail[slug] && _cachedSlugDetail[slug].vendors && _cachedSlugDetail[slug].vendors[vid];
+      const price = (fresh && fresh.price > 0) ? fresh.price : v.price;
+      const inStock = fresh
+        ? (fresh.in_stock === true || fresh.inStock === true)
+        : (v.in_stock === true || v.inStock === true);
+      if (inStock && price < bestPrice) {
+        bestPrice = price;
         bestVid = vid;
       }
     }
@@ -324,8 +331,16 @@ const openMarketDetailModal = async (slug) => {
         .catch(() => null)
     : Promise.resolve(cachedHistory);
 
-  const [detailResult, historyResult] = await Promise.allSettled([detailPromise, historyPromise]);
+  // Fetch 24h intraday spot data for the selected metal
+  const intradayPromise = fetch(V2_API + '/spot/' + metalCode + '/intraday.json', { signal: AbortSignal.timeout(10000) })
+    .then(r => r.ok ? r.json() : null)
+    .then(json => json && json.data ? json.data : json)
+    .catch(() => null);
+
+  const [detailResult, historyResult, intradayResult] = await Promise.allSettled([detailPromise, historyPromise, intradayPromise]);
   const detail = detailResult.status === 'fulfilled' ? detailResult.value : null;
+  const spotHistory = historyResult.status === 'fulfilled' ? historyResult.value : null;
+  const intradayData = intradayResult.status === 'fulfilled' ? intradayResult.value : null;
 
   content.textContent = '';
 
@@ -387,26 +402,73 @@ const openMarketDetailModal = async (slug) => {
     content.appendChild(priceRow);
   }
 
-  // ── Chart ──
+  // ── Chart with period tabs ──
+  const chartSection = document.createElement('div');
+  chartSection.style.cssText = 'margin-bottom:1rem;';
+
+  const chartTabBar = document.createElement('div');
+  chartTabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:8px;';
+  const periods = [
+    { id: '24h', label: '24H' },
+    { id: '7d', label: '7D' },
+  ];
+
   const chartWrap = document.createElement('div');
   chartWrap.className = 'market-detail-chart';
   chartWrap.id = 'marketDetailChartArea';
-  content.appendChild(chartWrap);
 
-  if (typeof createCoinChart === 'function') {
-    _activeModalChart = createCoinChart('marketDetailChartArea', metalCode);
-    if (!_activeModalChart) {
-      const noChart = document.createElement('div');
-      noChart.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;';
-      noChart.textContent = 'Chart unavailable';
-      chartWrap.appendChild(noChart);
+  const _showNoChart = () => {
+    chartWrap.textContent = '';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;';
+    msg.textContent = 'Chart unavailable';
+    chartWrap.appendChild(msg);
+  };
+
+  const _switchChartPeriod = (periodId) => {
+    // Update tab active state
+    chartTabBar.querySelectorAll('button').forEach(b => {
+      b.style.background = b.getAttribute('data-period') === periodId ? 'var(--bg-secondary)' : 'transparent';
+      b.style.fontWeight = b.getAttribute('data-period') === periodId ? '600' : '400';
+    });
+    // Destroy existing chart
+    if (_activeModalChart && typeof destroyCoinChart === 'function') {
+      destroyCoinChart(_activeModalChart);
     }
-  } else {
-    const noChart = document.createElement('div');
-    noChart.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;';
-    noChart.textContent = 'Chart unavailable';
-    chartWrap.appendChild(noChart);
+    _activeModalChart = null;
+    chartWrap.textContent = '';
+    chartWrap.id = 'marketDetailChartArea';
+
+    if (typeof LightweightCharts === 'undefined') { _showNoChart(); return; }
+
+    if (periodId === '7d') {
+      if (typeof createCoinChart === 'function' && spotHistory) {
+        _activeModalChart = createCoinChart('marketDetailChartArea', metalCode, spotHistory);
+        if (!_activeModalChart) _showNoChart();
+      } else { _showNoChart(); }
+    } else if (periodId === '24h') {
+      if (typeof createIntradayChart === 'function' && intradayData) {
+        _activeModalChart = createIntradayChart('marketDetailChartArea', metalCode, intradayData);
+        if (!_activeModalChart) _showNoChart();
+      } else { _showNoChart(); }
+    }
+  };
+
+  for (const p of periods) {
+    const btn = document.createElement('button');
+    btn.setAttribute('data-period', p.id);
+    btn.textContent = p.label;
+    btn.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:3px 12px;font-size:11px;cursor:pointer;color:var(--text-secondary);background:transparent;';
+    btn.addEventListener('click', () => _switchChartPeriod(p.id));
+    chartTabBar.appendChild(btn);
   }
+
+  chartSection.appendChild(chartTabBar);
+  chartSection.appendChild(chartWrap);
+  content.appendChild(chartSection);
+
+  // Default to 24H view (most actionable for traders)
+  _switchChartPeriod(intradayData ? '24h' : '7d');
 
   // ── Vendor comparison table ──
   if (detail && detail.vendors) {
@@ -762,6 +824,9 @@ const _renderVendorTable = async (metalCode) => {
   table.appendChild(tbody);
   scrollWrap.appendChild(table);
   tableWrap.appendChild(scrollWrap);
+
+  // Re-render ticker now that _cachedSlugDetail has fresh v2 stock data
+  renderBestPriceTicker();
 };
 
 const renderVendorPrices = () => {
@@ -780,22 +845,16 @@ const renderVendorPrices = () => {
 
   container.textContent = '';
 
-  // ── Header: Title + Timestamp + Refresh ──
+  // ── Header: Timestamp + Refresh (no section title — matches other sections) ──
   const headerRow = document.createElement('div');
-  headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;';
-
-  const titleEl = document.createElement('div');
-  titleEl.className = 'section-title';
-  titleEl.style.marginBottom = '0';
-  titleEl.textContent = 'Market';
-  headerRow.appendChild(titleEl);
+  headerRow.style.cssText = 'display:flex;justify-content:flex-end;align-items:center;margin-bottom:0.75rem;';
 
   const rightGroup = document.createElement('div');
   rightGroup.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text-muted);';
 
   const tsSpan = document.createElement('span');
   tsSpan.id = 'marketDataTimestamp';
-  const retailData = loadDataSync('retailPrices', null);
+  const retailData = loadDataSync('v2RetailPrices', null) || loadDataSync('retailPrices', null);
   if (retailData && retailData.lastSync) {
     const d = new Date(retailData.lastSync);
     tsSpan.textContent = 'Updated ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

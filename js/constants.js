@@ -537,7 +537,7 @@ const RETAIL_API_ENDPOINTS = [
 const RETAIL_API_BASE_URL = RETAIL_API_ENDPOINTS[0];
 
 /** @constant {boolean} USE_V2_API - Feature flag for v2 API migration (internal toggle) */
-const USE_V2_API = false;
+const USE_V2_API = true;
 
 /** @constant {string[]} V2_API_ENDPOINTS - Ordered list of v2 API endpoints (primary first) */
 const V2_API_ENDPOINTS = [
@@ -1179,7 +1179,7 @@ const saveFilterChipCategoryConfig = (config) => {
  */
 const LAYOUT_SECTION_DEFAULTS = [
   { id: 'spotPrices', label: 'Spot price cards',    enabled: true },
-  { id: 'bestPriceTicker', label: 'Best Price Ticker', enabled: false },
+  { id: 'bestPriceTicker', label: 'Best Price Ticker', enabled: true },
   { id: 'totals',     label: 'Summary totals',      enabled: true },
   { id: 'search',     label: 'Search & filter bar', enabled: true },
   { id: 'table',      label: 'Inventory table',     enabled: true },
