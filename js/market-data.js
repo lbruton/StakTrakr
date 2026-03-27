@@ -691,7 +691,6 @@ const _renderVendorTable = async (metalCode) => {
         continue;
       }
 
-      if (vInfo.carried) td.classList.add('vp-carried');
       if (!vInfo.in_stock && !vInfo.inStock) {
         td.classList.add('vp-oos');
         const oosSpan = document.createElement('span');
@@ -718,9 +717,15 @@ const _renderVendorTable = async (metalCode) => {
       });
       td.appendChild(priceSpan);
 
+      let premium = null;
       if (spotPrice && spotPrice > 0 && weightOz > 0) {
         const meltValue = spotPrice * weightOz;
-        const premium = ((vInfo.price - meltValue) / meltValue) * 100;
+        premium = ((vInfo.price - meltValue) / meltValue) * 100;
+      } else if (lowestPrice && lowestPrice > 0 && vInfo.price > 0) {
+        // For items without spot (goldbacks) — show % relative to lowest vendor price
+        premium = ((vInfo.price - lowestPrice) / lowestPrice) * 100;
+      }
+      if (premium != null) {
         const premClass = premium < 10 ? 'low' : 'high';
         const premBadge = document.createElement('span');
         premBadge.className = 'vp-premium ' + premClass;
