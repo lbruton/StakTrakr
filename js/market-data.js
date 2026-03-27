@@ -244,7 +244,7 @@ const renderBestPriceTicker = () => {
 const _shortVendor = (vid) => {
   const map = { apmex: 'APMEX', jmbullion: 'JM', sdbullion: 'SD', monumentmetals: 'Monument',
     herobullion: 'Hero', bullionexchanges: 'BullionX', summitmetals: 'Summit',
-    gainesvillecoins: "G'ville", providentmetals: 'Provident', goldback: 'Goldback' };
+    gainesvillecoins: 'Gville', providentmetals: 'Provident', goldback: 'Goldback' };
   return map[vid] || vid;
 };
 
