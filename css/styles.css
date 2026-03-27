@@ -12928,6 +12928,10 @@ th {
   100% { transform: translateX(-50%); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+}
+
 .ticker-item {
   display: flex;
   flex-direction: row;
@@ -13096,7 +13100,7 @@ th {
 
 /* ── Best Price Highlight ── */
 .vp-best {
-  background: rgba(16, 185, 129, 0.15);
+  background: color-mix(in srgb, var(--success) 15%, transparent);
   font-weight: 700;
 }
 
@@ -13195,7 +13199,7 @@ th {
 
 /* ── Theme Overrides ── */
 [data-theme="dark"] .vp-best {
-  background: rgba(16, 185, 129, 0.18);
+  background: color-mix(in srgb, var(--success) 18%, transparent);
 }
 
 [data-theme="light"] .vp-best,
