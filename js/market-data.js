@@ -781,6 +781,51 @@ const renderVendorPrices = () => {
 
   container.textContent = '';
 
+  // ── Header: Title + Timestamp + Refresh ──
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;';
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'section-title';
+  titleEl.style.marginBottom = '0';
+  titleEl.textContent = 'Market';
+  headerRow.appendChild(titleEl);
+
+  const rightGroup = document.createElement('div');
+  rightGroup.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text-muted);';
+
+  const tsSpan = document.createElement('span');
+  tsSpan.id = 'marketDataTimestamp';
+  const retailData = loadDataSync('retailPrices', null);
+  if (retailData && retailData.lastSync) {
+    const d = new Date(retailData.lastSync);
+    tsSpan.textContent = 'Updated ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else {
+    tsSpan.textContent = '';
+  }
+  rightGroup.appendChild(tsSpan);
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.style.cssText = 'background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;';
+  refreshBtn.textContent = '\u21BB Refresh';
+  refreshBtn.addEventListener('click', () => {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '\u21BB\u2026';
+    if (typeof startRetailBackgroundSync === 'function') {
+      startRetailBackgroundSync();
+    }
+    setTimeout(() => {
+      _marketDataInitialized = false;
+      initMarketData().catch(() => {});
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '\u21BB Refresh';
+    }, 5000);
+  });
+  rightGroup.appendChild(refreshBtn);
+
+  headerRow.appendChild(rightGroup);
+  container.appendChild(headerRow);
+
   const tabBar = document.createElement('div');
   tabBar.className = 'vendor-prices-tabs';
 
@@ -829,6 +874,12 @@ const renderVendorPrices = () => {
   container.appendChild(tabBar);
 
   _renderVendorTable(activeTab);
+
+  // ── Footer disclaimer ──
+  const footer = document.createElement('div');
+  footer.style.cssText = 'padding:8px 0 0;font-size:10px;color:var(--text-muted);text-align:center;';
+  footer.textContent = 'Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor.';
+  container.appendChild(footer);
 };
 
 // ---------------------------------------------------------------------------
