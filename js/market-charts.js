@@ -45,11 +45,11 @@ const createCoinChart = (containerId, metalCode) => {
     crosshair: { mode: LightweightCharts.CrosshairMode ? LightweightCharts.CrosshairMode.Normal : 0 },
   });
 
-  const historyRaw = localStorage.getItem('v2SpotHistory');
-  if (historyRaw) {
+  const history = loadDataSync('v2SpotHistory', null);
+  if (history) {
     try {
-      const history = JSON.parse(historyRaw);
-      const rows = history && history[metalCode] ? history[metalCode] : null;
+      const payload = history.data ? history.data : history;
+      const rows = payload && payload[metalCode] ? payload[metalCode] : null;
       if (rows && Array.isArray(rows) && rows.length > 0) {
         const series = chart.addSeries(LightweightCharts.AreaSeries, {
           lineColor: metalColor,
@@ -60,9 +60,19 @@ const createCoinChart = (containerId, metalCode) => {
           priceLineVisible: false,
           lastValueVisible: true,
         });
-        const data = rows.map(r => ({ time: r.t.split('T')[0], value: r.close }));
-        series.setData(data);
-        chart.timeScale().fitContent();
+        const seen = {};
+        const data = [];
+        for (const r of rows) {
+          if (!r.t || r.close == null) continue;
+          const day = r.t.split('T')[0];
+          if (seen[day]) continue;
+          seen[day] = true;
+          data.push({ time: day, value: r.close });
+        }
+        if (data.length > 0) {
+          series.setData(data);
+          chart.timeScale().fitContent();
+        }
       }
     } catch (e) {
       debugLog('[market-charts] Failed to parse spot history: ' + e.message, 'warn');

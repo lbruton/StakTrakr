@@ -12876,15 +12876,19 @@ th {
 .market-ticker {
   width: 100%;
   overflow: hidden;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  padding: 6px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 12px;
+  margin-bottom: 1rem;
 }
 
 .ticker-track {
   display: flex;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 0;
   animation: ticker-scroll 60s linear infinite;
+  will-change: transform;
 }
 
 .ticker-track.static {
@@ -12901,9 +12905,11 @@ th {
   display: flex;
   flex-direction: row;
   align-items: center;
+  flex-shrink: 0;
   gap: 6px;
+  margin: 0 6px;
   padding: 4px 12px;
-  background: var(--bg-card);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 20px;
   font-size: 11px;
@@ -12980,6 +12986,11 @@ th {
 .vendor-prices-tabs button.active {
   color: var(--text-primary);
   border-bottom: 2px solid var(--primary);
+}
+
+/* ── Vendor Prices Table Area ── */
+.vp-table-area {
+  min-height: 400px;
 }
 
 /* ── Vendor Prices Table ── */
@@ -13068,17 +13079,15 @@ th {
   opacity: 0.6;
 }
 
-/* ── Details Button ── */
-.vp-details-btn {
-  font-size: 11px;
-  color: var(--primary);
+/* ── Coin Name Link ── */
+.vp-coin-link {
+  color: var(--text-primary);
   cursor: pointer;
-  border: none;
-  background: transparent;
-  padding: 0;
+  transition: color 0.15s ease;
 }
 
-.vp-details-btn:hover {
+.vp-coin-link:hover {
+  color: var(--primary);
   text-decoration: underline;
 }
 

@@ -5,6 +5,9 @@ let _marketDataInitialized = false;
 const V2_API = 'https://api.staktrakr.com/data/v2';
 
 const _METAL_TO_ISO = { silver: 'xag', gold: 'xau', platinum: 'xpt', palladium: 'xpd' };
+const _ISO_TO_METAL = { xag: 'silver', xau: 'gold', xpt: 'platinum', xpd: 'palladium' };
+
+let _cachedSlugDetail = {};
 
 const _fmtPrice = (n) => {
   if (n == null || isNaN(n)) return '\u2014';
@@ -17,10 +20,11 @@ const _fmtPrice = (n) => {
 // ---------------------------------------------------------------------------
 
 const _getSpotPrice = (metalCode) => {
-  if (typeof spotPrices !== 'undefined' && spotPrices && spotPrices[metalCode] != null) {
-    return spotPrices[metalCode];
+  const englishKey = _ISO_TO_METAL[metalCode] || metalCode;
+  if (typeof spotPrices !== 'undefined' && spotPrices && spotPrices[englishKey] != null) {
+    return spotPrices[englishKey];
   }
-  const capMetal = metalCode.charAt(0).toUpperCase() + metalCode.slice(1);
+  const capMetal = englishKey.charAt(0).toUpperCase() + englishKey.slice(1);
   const displayEl = safeGetElement('spotPriceDisplay' + capMetal);
   if (displayEl) {
     const parsed = parseFloat(displayEl.textContent.replace(/[^0-9.]/g, ''));
@@ -98,13 +102,29 @@ const renderBestPriceTicker = () => {
 
     const vendorCount = coin.vendors ? Object.keys(coin.vendors).length : 0;
 
+    let bestVendorName = null;
+    const cachedDetail = _cachedSlugDetail[slug];
+    if (cachedDetail && cachedDetail.vendors) {
+      let lowestVid = null;
+      let lowestP = Infinity;
+      for (const vid in cachedDetail.vendors) {
+        const v = cachedDetail.vendors[vid];
+        if (v && v.price > 0 && v.in_stock && v.price < lowestP) {
+          lowestP = v.price;
+          lowestVid = vid;
+        }
+      }
+      if (lowestVid) bestVendorName = _shortVendor(lowestVid);
+    }
+
     items.push({
       slug: slug,
       name: meta.name || slug,
       metal: metalLower,
       bestPrice: bestPrice,
       vendorCount: vendorCount,
-      premium: premium
+      premium: premium,
+      bestVendorName: bestVendorName
     });
   }
 
@@ -143,7 +163,7 @@ const renderBestPriceTicker = () => {
 
     const vendorSpan = document.createElement('span');
     vendorSpan.className = 'vendor';
-    vendorSpan.textContent = item.vendorCount + (item.vendorCount === 1 ? ' vendor' : ' vendors');
+    vendorSpan.textContent = item.bestVendorName ? item.bestVendorName : ('Low:');
     el.appendChild(vendorSpan);
 
     const priceSpan = document.createElement('span');
@@ -537,6 +557,7 @@ const _renderVendorTable = async (metalCode) => {
   for (const r of results) {
     if (r.status === 'fulfilled' && r.value && r.value.data) {
       detailMap[r.value.slug] = r.value.data;
+      _cachedSlugDetail[r.value.slug] = r.value.data;
     }
   }
 
@@ -575,6 +596,8 @@ const _renderVendorTable = async (metalCode) => {
   for (const vid of vendorIds) {
     const th = document.createElement('th');
     th.textContent = _shortVendor(vid);
+    const vMeta = vendorMeta[vid];
+    if (vMeta && vMeta.color) th.style.color = vMeta.color;
     headRow.appendChild(th);
   }
 
@@ -616,14 +639,10 @@ const _renderVendorTable = async (metalCode) => {
     const nameSpan = document.createElement('span');
     const displayName = meta.name || slug;
     nameSpan.textContent = sanitizeHtml(displayName);
+    nameSpan.className = 'vp-coin-link';
+    nameSpan.style.cursor = 'pointer';
+    nameSpan.addEventListener('click', () => { openMarketDetailModal(slug); });
     tdName.appendChild(nameSpan);
-
-    const detailsBtn = document.createElement('button');
-    detailsBtn.className = 'vp-details-btn';
-    detailsBtn.textContent = 'Details';
-    detailsBtn.setAttribute('data-slug', slug);
-    detailsBtn.addEventListener('click', () => { openMarketDetailModal(slug); });
-    tdName.appendChild(detailsBtn);
 
     tr.appendChild(tdName);
 
@@ -681,13 +700,16 @@ const _renderVendorTable = async (metalCode) => {
     const coinSummary = coins[slug];
     const tdMedian = document.createElement('td');
     tdMedian.className = 'vp-price';
-    tdMedian.textContent = coinSummary && coinSummary.median != null ? '$' + _fmtPrice(coinSummary.median) : '\u2014';
+    const medianVal = coinSummary ? (coinSummary.median != null ? coinSummary.median : null) : null;
+    tdMedian.textContent = medianVal != null ? '$' + _fmtPrice(medianVal) : '\u2014';
     tr.appendChild(tdMedian);
 
     const tdSpread = document.createElement('td');
     tdSpread.className = 'vp-price';
-    if (coinSummary && coinSummary.highest_price != null && coinSummary.lowest_price != null) {
-      tdSpread.textContent = '$' + _fmtPrice(coinSummary.highest_price - coinSummary.lowest_price);
+    const highVal = coinSummary ? (coinSummary.high != null ? coinSummary.high : coinSummary.highest_price) : null;
+    const lowVal = coinSummary ? (coinSummary.low != null ? coinSummary.low : coinSummary.lowest_price) : null;
+    if (highVal != null && lowVal != null) {
+      tdSpread.textContent = '$' + _fmtPrice(highVal - lowVal);
     } else {
       tdSpread.textContent = '\u2014';
     }
@@ -806,6 +828,8 @@ const initMarketData = async () => {
   initMarketData._retryCount = 0;
   renderBestPriceTicker();
   renderVendorPrices();
+
+  setTimeout(() => { renderBestPriceTicker(); }, 12000);
 
   _marketDataInitialized = true;
 };
