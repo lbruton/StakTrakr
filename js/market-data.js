@@ -881,8 +881,6 @@ const initMarketData = async () => {
   renderBestPriceTicker();
   renderVendorPrices();
 
-  setTimeout(() => { renderBestPriceTicker(); }, 12000);
-
   _marketDataInitialized = true;
 };
 
