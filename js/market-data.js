@@ -314,32 +314,21 @@ const openMarketDetailModal = async (slug) => {
     .then(json => json && json.data ? json.data : null)
     .catch((e) => { debugLog('[market-data] Detail fetch failed: ' + e.message, 'warn'); return null; });
 
-  const cachedHistory = loadDataSync('v2SpotHistory', null);
-  const cachedTs = loadDataSync('v2SpotHistoryTs', null);
-  const historyStale = !cachedHistory || !cachedTs || (Date.now() - new Date(cachedTs).getTime() > 3600000);
+  // Fetch per-vendor retail history (30d — filter to 7 in chart) and intraday (24h)
+  const historyPromise = fetch(V2_API + '/retail/' + slug + '/history-30d.json', { signal: AbortSignal.timeout(10000) })
+    .then(r => r.ok ? r.json() : null)
+    .then(json => json && json.data ? json.data : json)
+    .catch(() => null);
 
-  const historyPromise = historyStale
-    ? fetch(V2_API + '/spot/history/7d.json', { signal: AbortSignal.timeout(10000) })
-        .then(r => r.ok ? r.json() : null)
-        .then(json => {
-          if (json) {
-            try { saveDataSync('v2SpotHistory', json); saveDataSync('v2SpotHistoryTs', new Date().toISOString()); } catch (e) { /* quota exceeded — data still returned */ }
-          }
-          return json;
-        })
-        .catch(() => null)
-    : Promise.resolve(cachedHistory);
-
-  // Fetch 24h intraday spot data for the selected metal
-  const intradayPromise = fetch(V2_API + '/spot/' + metalCode + '/intraday.json', { signal: AbortSignal.timeout(10000) })
+  const intradayPromise = fetch(V2_API + '/retail/' + slug + '/intraday.json', { signal: AbortSignal.timeout(10000) })
     .then(r => r.ok ? r.json() : null)
     .then(json => json && json.data ? json.data : json)
     .catch(() => null);
 
   const [detailResult, historyResult, intradayResult] = await Promise.allSettled([detailPromise, historyPromise, intradayPromise]);
   const detail = detailResult.status === 'fulfilled' ? detailResult.value : null;
-  const spotHistory = historyResult.status === 'fulfilled' ? historyResult.value : null;
-  const intradayData = intradayResult.status === 'fulfilled' ? intradayResult.value : null;
+  const retailHistory = historyResult.status === 'fulfilled' ? historyResult.value : null;
+  const retailIntraday = intradayResult.status === 'fulfilled' ? intradayResult.value : null;
 
   content.textContent = '';
 
@@ -441,13 +430,13 @@ const openMarketDetailModal = async (slug) => {
     if (typeof LightweightCharts === 'undefined') { _showNoChart(); return; }
 
     if (periodId === '7d') {
-      if (typeof createCoinChart === 'function' && spotHistory) {
-        _activeModalChart = createCoinChart('marketDetailChartArea', metalCode, spotHistory);
+      if (typeof createVendorHistoryChart === 'function' && retailHistory && Array.isArray(retailHistory) && retailHistory.length > 0) {
+        _activeModalChart = createVendorHistoryChart('marketDetailChartArea', retailHistory, vendorMeta);
         if (!_activeModalChart) _showNoChart();
       } else { _showNoChart(); }
     } else if (periodId === '24h') {
-      if (typeof createIntradayChart === 'function' && intradayData) {
-        _activeModalChart = createIntradayChart('marketDetailChartArea', metalCode, intradayData);
+      if (typeof createVendorIntradayChart === 'function' && retailIntraday && Array.isArray(retailIntraday) && retailIntraday.length > 0) {
+        _activeModalChart = createVendorIntradayChart('marketDetailChartArea', retailIntraday, vendorMeta);
         if (!_activeModalChart) _showNoChart();
       } else { _showNoChart(); }
     }
@@ -466,8 +455,10 @@ const openMarketDetailModal = async (slug) => {
   chartSection.appendChild(chartWrap);
   content.appendChild(chartSection);
 
-  // Default to 24H view (most actionable for traders)
-  _switchChartPeriod(intradayData ? '24h' : '7d');
+  // Default to 7D view (shows vendor price trends)
+  const hasIntraday = retailIntraday && Array.isArray(retailIntraday) && retailIntraday.length > 0;
+  const hasHistory = retailHistory && Array.isArray(retailHistory) && retailHistory.length > 0;
+  _switchChartPeriod(hasHistory ? '7d' : (hasIntraday ? '24h' : '7d'));
 
   // ── Vendor comparison table ──
   if (detail && detail.vendors) {
@@ -994,14 +985,7 @@ const initMarketData = async () => {
 
   initMarketData._retryCount = 0;
 
-  // Pre-fetch spot history for charts (non-blocking, cached for modal use)
-  const cachedHistory = loadDataSync('v2SpotHistory', null);
-  if (!cachedHistory) {
-    fetch(V2_API + '/spot/history/7d.json', { signal: AbortSignal.timeout(10000) })
-      .then(r => r.ok ? r.json() : null)
-      .then(json => { if (json) { try { saveDataSync('v2SpotHistory', json); saveDataSync('v2SpotHistoryTs', new Date().toISOString()); } catch (e) { /* quota */ } } })
-      .catch(() => {});
-  }
+  // Charts now use per-slug retail data fetched on modal open — no pre-fetch needed
 
   // Fetch goldback G1 rate for premium calculation
   if (!_goldbackG1Rate) {
