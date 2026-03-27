@@ -13093,6 +13093,9 @@ th {
   justify-content: center;
   padding: 1rem;
 }
+.market-detail-overlay[hidden] {
+  display: none;
+}
 
 /* ── Market Detail Modal ── */
 .market-detail-modal {
