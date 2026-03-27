@@ -8,6 +8,7 @@ const _METAL_TO_ISO = { silver: 'xag', gold: 'xau', platinum: 'xpt', palladium: 
 const _ISO_TO_METAL = { xag: 'silver', xau: 'gold', xpt: 'platinum', xpd: 'palladium' };
 
 let _cachedSlugDetail = {};
+let _goldbackG1Rate = null;
 
 const _fmtPrice = (n) => {
   if (n == null || isNaN(n)) return '\u2014';
@@ -721,9 +722,9 @@ const _renderVendorTable = async (metalCode) => {
       if (spotPrice && spotPrice > 0 && weightOz > 0) {
         const meltValue = spotPrice * weightOz;
         premium = ((vInfo.price - meltValue) / meltValue) * 100;
-      } else if (lowestPrice && lowestPrice > 0 && vInfo.price > 0) {
-        // For items without spot (goldbacks) — show % relative to lowest vendor price
-        premium = ((vInfo.price - lowestPrice) / lowestPrice) * 100;
+      } else if (_goldbackG1Rate && _goldbackG1Rate > 0 && vInfo.price > 0) {
+        // Goldback premium over the official G1 rate from goldback.com
+        premium = ((vInfo.price - _goldbackG1Rate) / _goldbackG1Rate) * 100;
       }
       if (premium != null) {
         const premClass = premium < 10 ? 'low' : 'high';
@@ -892,6 +893,22 @@ const initMarketData = async () => {
       .then(r => r.ok ? r.json() : null)
       .then(json => { if (json) { saveDataSync('v2SpotHistory', json); saveDataSync('v2SpotHistoryTs', new Date().toISOString()); } })
       .catch(() => {});
+  }
+
+  // Fetch goldback G1 rate for premium calculation
+  if (!_goldbackG1Rate) {
+    try {
+      const gbResp = await fetch(V2_API + '/goldback/latest.json', { signal: AbortSignal.timeout(10000) });
+      if (gbResp.ok) {
+        const gbJson = await gbResp.json();
+        if (gbJson && gbJson.data && gbJson.data.g1_usd) {
+          _goldbackG1Rate = gbJson.data.g1_usd;
+          debugLog('[market-data] Goldback G1 rate: $' + _goldbackG1Rate, 'info');
+        }
+      }
+    } catch (e) {
+      debugLog('[market-data] Goldback rate fetch failed: ' + e.message, 'warn');
+    }
   }
 
   renderBestPriceTicker();
