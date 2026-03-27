@@ -13091,7 +13091,7 @@ th {
   margin-top: 2px;
 }
 .vp-premium.low  { color: var(--success); }
-.vp-premium.mid  { color: var(--warning); }
+/* .vp-premium.mid removed — only green/red used */
 .vp-premium.high { color: var(--danger); }
 
 /* ── Best Price Highlight ── */

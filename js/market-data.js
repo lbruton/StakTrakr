@@ -468,7 +468,7 @@ const openMarketDetailModal = async (slug) => {
         if (entry.price > 0 && spotPrice && spotPrice > 0 && weightOz > 0) {
           const meltValue = spotPrice * weightOz;
           const premium = ((entry.price - meltValue) / meltValue) * 100;
-          const premClass = premium < 5 ? 'low' : premium < 15 ? 'mid' : 'high';
+          const premClass = premium < 10 ? 'low' : 'high';
           const badge = document.createElement('span');
           badge.className = 'vp-premium ' + premClass;
           badge.textContent = (premium >= 0 ? '+' : '') + premium.toFixed(1) + '%';
@@ -626,7 +626,7 @@ const _renderVendorTable = async (metalCode) => {
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
   const thCoin = document.createElement('th');
-  thCoin.textContent = 'COIN';
+  thCoin.textContent = 'ITEM';
   headRow.appendChild(thCoin);
 
   for (const vid of vendorIds) {
@@ -669,9 +669,6 @@ const _renderVendorTable = async (metalCode) => {
     const tr = document.createElement('tr');
 
     const tdName = document.createElement('td');
-    const dot = document.createElement('span');
-    dot.className = 'metal-dot ' + metalCode;
-    tdName.appendChild(dot);
 
     const nameSpan = document.createElement('span');
     const displayName = meta.name || slug;
@@ -724,7 +721,7 @@ const _renderVendorTable = async (metalCode) => {
       if (spotPrice && spotPrice > 0 && weightOz > 0) {
         const meltValue = spotPrice * weightOz;
         const premium = ((vInfo.price - meltValue) / meltValue) * 100;
-        const premClass = premium < 5 ? 'low' : premium < 15 ? 'mid' : 'high';
+        const premClass = premium < 10 ? 'low' : 'high';
         const premBadge = document.createElement('span');
         premBadge.className = 'vp-premium ' + premClass;
         premBadge.textContent = (premium >= 0 ? '+' : '') + premium.toFixed(1) + '%';
@@ -781,16 +778,30 @@ const renderVendorPrices = () => {
   const tabBar = document.createElement('div');
   tabBar.className = 'vendor-prices-tabs';
 
-  const metals = [
+  // Determine which metals have coins with data
+  const coinMetaMap = _getCoinMeta();
+  const metalHasCoins = {};
+  for (const slug of Object.keys(coins)) {
+    let meta;
+    if (coinMetaMap && coinMetaMap[slug]) meta = coinMetaMap[slug];
+    else meta = { metal: 'unknown' };
+    const metalLower = (meta.metal || '').toLowerCase();
+    const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
+    metalHasCoins[isoCode] = true;
+  }
+
+  const allMetals = [
     { code: 'xau', label: 'Gold' },
     { code: 'xag', label: 'Silver' },
     { code: 'xpt', label: 'Platinum' },
     { code: 'xpd', label: 'Palladium' },
     { code: 'goldback', label: 'Goldback' }
   ];
+  // Only show tabs that have coins
+  const metals = allMetals.filter(m => metalHasCoins[m.code]);
 
   const savedTab = loadDataSync('vendorPricesActiveTab', 'xag');
-  let activeTab = savedTab;
+  let activeTab = metals.some(m => m.code === savedTab) ? savedTab : (metals[0] ? metals[0].code : 'xag');
 
   const setActive = (code) => {
     activeTab = code;
