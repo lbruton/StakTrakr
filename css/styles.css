@@ -12879,7 +12879,28 @@ th {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px 20px;
+  padding: 12px 0;
+  position: relative;
+}
+.market-ticker::before,
+.market-ticker::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  z-index: 2;
+  pointer-events: none;
+}
+.market-ticker::before {
+  left: 0;
+  background: linear-gradient(to right, var(--bg-card), transparent);
+  border-radius: 12px 0 0 12px;
+}
+.market-ticker::after {
+  right: 0;
+  background: linear-gradient(to left, var(--bg-card), transparent);
+  border-radius: 0 12px 12px 0;
 }
 
 .ticker-track {
