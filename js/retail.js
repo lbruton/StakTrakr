@@ -915,6 +915,8 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     if (mktLogActive && typeof renderRetailHistoryTable === "function") {
       renderRetailHistoryTable();
     }
+    // STAK-504: Refresh main-page market data (ticker + vendor table) after sync
+    if (typeof refreshMarketData === 'function') refreshMarketData();
     if (ui) {
       syncBtn.disabled = false;
       syncBtn.textContent = "Sync Now";

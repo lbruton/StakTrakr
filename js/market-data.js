@@ -65,7 +65,9 @@ const _getVendorMeta = () => {
 const _ensureManifest = async () => {
   const coinMeta = _getCoinMeta();
   const vendorMeta = _getVendorMeta();
-  if (coinMeta && Object.keys(coinMeta).length > 0 && vendorMeta && Object.keys(vendorMeta).length > 0) return;
+  // Always re-fetch if either is missing; also re-fetch if we have fewer coins than expected (stale cache)
+  const hasSufficientMeta = coinMeta && Object.keys(coinMeta).length >= 20 && vendorMeta && Object.keys(vendorMeta).length >= 5;
+  if (hasSufficientMeta) return;
   try {
     const resp = await fetch(V2_API + '/manifest.json', { signal: AbortSignal.timeout(10000) });
     if (!resp.ok) return;
