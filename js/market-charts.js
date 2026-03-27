@@ -47,14 +47,17 @@ const _chartConfig = (colors, timeVisible) => ({
   },
 });
 
-// Force chart data to fill the full width via logical range
-const _fitFullWidth = (chart, dataPointCount) => {
+// Force chart data to fill the full width by scaling barSpacing to the data count
+const _fitFullWidth = (chart, container, dataPointCount) => {
   setTimeout(() => {
     try {
-      chart.timeScale().setVisibleLogicalRange({ from: -0.5, to: dataPointCount - 0.5 });
-    } catch (e) {
-      try { chart.timeScale().fitContent(); } catch (e2) { /* noop */ }
-    }
+      const w = container.clientWidth || 800;
+      const priceScaleWidth = 60; // approximate right price scale width
+      const availableWidth = w - priceScaleWidth;
+      const barSpacing = Math.max(12, Math.floor(availableWidth / Math.max(dataPointCount, 1)));
+      chart.timeScale().applyOptions({ barSpacing: barSpacing, rightOffset: 1 });
+      chart.timeScale().fitContent();
+    } catch (e) { /* noop */ }
   }, 150);
 };
 
@@ -109,7 +112,7 @@ const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
       if (data.length > 0) series.setData(data);
     }
 
-    _fitFullWidth(chart, intradayRows.length);
+    _fitFullWidth(chart, container, intradayRows.length);
   } catch (e) {
     debugLog('[market-charts] Intraday vendor chart error: ' + e.message, 'warn');
   }
@@ -164,7 +167,7 @@ const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
       if (data.length > 0) series.setData(data);
     }
 
-    _fitFullWidth(chart, rows.length);
+    _fitFullWidth(chart, container, rows.length);
   } catch (e) {
     debugLog('[market-charts] History vendor chart error: ' + e.message, 'warn');
   }
