@@ -929,13 +929,12 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
           priceText = `<span style="color:var(--green);font-size:11px;">$${st.price}</span>`;
         }
       }
-      const urlShort = item.url ? (item.url.length > 50 ? item.url.slice(0, 47) + "..." : item.url) : "";
       return `<div style="display:grid;grid-template-columns:auto 1fr 2fr 1fr auto;gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
         ${dot}
         <span style="font-weight:600;">${escHtml(item.coinName)} ${metalBadge(item.metal)}</span>
-        <span style="color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escAttr(item.url || "")}">${escHtml(urlShort)}</span>
+        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://...">
         ${priceText}
-        <a class="btn-sm" href="/providers#${escAttr(item.coinSlug)}">Edit URL</a>
+        <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;">${item.enabled !== false ? "On" : "Off"}</button>
       </div>`;
     }).join("");
 
@@ -1539,6 +1538,46 @@ document.querySelectorAll('.vendor-section-header').forEach(function(header) {
     body.style.display = body.style.display === 'none' ? '' : 'none';
   });
 });
+
+// ── By Vendor tab: URL blur-to-save ──────────────────────────────────────
+document.querySelectorAll('.vendor-url-byvendor').forEach(function(input) {
+  var orig = input.value;
+  input.addEventListener('blur', async function() {
+    if (input.value === orig) return;
+    if (input.value && !input.value.startsWith('https://')) {
+      showToast('URL must start with https://', false);
+      return;
+    }
+    const r = await fetch('/providers/update-url', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ coinSlug: input.dataset.coin, vendorId: input.dataset.vendor, url: input.value })
+    });
+    const j = await r.json();
+    showToast(j.message, r.ok);
+    if (r.ok) orig = input.value;
+  });
+});
+
+// ── By Vendor tab: toggle enabled/disabled ───────────────────────────────
+document.querySelectorAll('.vendor-toggle-byvendor').forEach(function(btn) {
+  btn.addEventListener('click', async function() {
+    var isEnabled = btn.dataset.enabled === '1';
+    var newState = !isEnabled;
+    const r = await fetch('/providers/toggle', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor, enabled: newState })
+    });
+    const j = await r.json();
+    showToast(j.message, r.ok);
+    if (r.ok) {
+      btn.dataset.enabled = newState ? '1' : '0';
+      btn.textContent = newState ? 'On' : 'Off';
+      btn.style.background = newState ? 'var(--green)' : 'var(--red)';
+    }
+  });
+});
 </script>
 </body>
 </html>`;
@@ -1594,10 +1633,27 @@ async function fetchV2Endpoints() {
     results.perCoinSample = coinResults;
   }
 
+  // Fetch all per-vendor endpoints for matrix
+  if (results.vendors?.ok) {
+    const vendorList = results.vendors.data.data;
+    const vendorIds = Array.isArray(vendorList) ? vendorList.map(v => v.id) : Object.keys(vendorList);
+    const vendorData = {};
+    await Promise.all(vendorIds.map(async (vid) => {
+      try {
+        const resp = await fetch(`${V2_BASE}/retail/vendors/${vid}.json`, { signal: AbortSignal.timeout(10_000) });
+        if (resp.ok) {
+          const json = await resp.json();
+          vendorData[vid] = json.data;
+        }
+      } catch { /* skip */ }
+    }));
+    results.vendorDetails = vendorData;
+  }
+
   return results;
 }
 
-function renderApiHealthPage(v2, failureCount) {
+function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   const now = new Date().toUTCString();
 
   // Endpoint health table
@@ -1655,21 +1711,77 @@ function renderApiHealthPage(v2, failureCount) {
     retailHtml = `<table><thead><tr><th>Coin</th><th>Metal</th><th>Median</th><th>Low</th><th>High</th><th>Vendors</th></tr></thead><tbody>${retailRows}</tbody></table>`;
   }
 
-  // Per-vendor price matrix
+  // Per-vendor × metal price matrix
   let matrixHtml = "";
-  if (v2.retail_latest?.ok && v2.vendors?.ok) {
-    const coins = v2.retail_latest.data.data.coins;
-    const vendorList = v2.vendors.data.data;
-    const vendorIds = Array.isArray(vendorList) ? vendorList.map(v => v.id) : Object.keys(vendorList);
-    const vendorNames = {};
-    if (Array.isArray(vendorList)) {
-      for (const v of vendorList) vendorNames[v.id] = v.name || v.id;
-    }
+  if (v2.vendorDetails && v2.retail_latest?.ok) {
+    const coinsMeta = v2.retail_latest.data.data.coins; // slug → { metal, name, ... }
+    const metals = ["xau", "xag", "xpt"];
+    const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
+    const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
+    // Map coin_slug metal fields (some use "gold"/"silver" vs "xau"/"xag")
+    const metalNorm = { gold: "xau", silver: "xag", platinum: "xpt", palladium: "xpd", xau: "xau", xag: "xag", xpt: "xpt", xpd: "xpd" };
 
-    // We need per-slug data for the matrix. Use the manifest coin list to build it.
-    // For now, show what we know from the retail_latest summary.
-    // The detailed per-vendor data requires per-slug fetches — we'll show a simplified version.
-    matrixHtml = `<p style="color:var(--muted);font-size:11px;margin-top:4px;">Per-vendor breakdown available at <code>/v2/retail/{slug}/latest.json</code> — ${vendorIds.length} vendors, ${Object.keys(coins).length} coins tracked.</p>`;
+    // Reverse map: xau → gold, xag → silver, xpt → platinum
+    const isoToName = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
+
+    // Build vendor rows from vendorDetails
+    const vendorIds = Object.keys(v2.vendorDetails).sort();
+    const matrixRows = vendorIds.map(vid => {
+      const vd = v2.vendorDetails[vid];
+      if (!vd || !vd.coins) return "";
+      const vendorName = vd.vendor?.name || vid;
+
+      // Aggregate current prices by metal
+      const byMetal = {};
+      for (const [slug, cd] of Object.entries(vd.coins)) {
+        const coinMetal = metalNorm[(coinsMeta[slug]?.metal || "").toLowerCase()] || null;
+        if (!coinMetal || coinMetal === "xpd") continue; // skip goldback and palladium (no retail data)
+        if (!byMetal[coinMetal]) byMetal[coinMetal] = [];
+        if (cd.price != null && cd.price > 0) byMetal[coinMetal].push(cd.price);
+      }
+
+      const cells = metals.map(m => {
+        const prices = byMetal[m] || [];
+        // Turso uses the provider_coins metal name (gold/silver/platinum), try both
+        const avgData = (vendorMetalAvgs || {})[`${vid}:${isoToName[m]}`]
+                     || (vendorMetalAvgs || {})[`${vid}:${m}`]
+                     || {};
+        if (!prices.length && !avgData.avg24h) {
+          return `<td colspan="4" class="matrix-cell" style="color:var(--border);">\u2014</td>`;
+        }
+        const latest = prices.length ? (prices.reduce((a, b) => a + b, 0) / prices.length) : null;
+        const fmtPrice = (v) => v != null ? `$${Number(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '\u2014';
+        return `<td class="matrix-cell">${fmtPrice(latest)}</td>
+                <td class="matrix-cell">${fmtPrice(avgData.avg24h)}</td>
+                <td class="matrix-cell">${fmtPrice(avgData.avg7d)}</td>
+                <td class="matrix-cell">${fmtPrice(avgData.avg30d)}</td>`;
+      }).join("");
+
+      return `<tr><td style="font-weight:600;font-size:11px;white-space:nowrap;">${escHtml(vendorName)}</td>${cells}</tr>`;
+    }).filter(Boolean).join("");
+
+    const metalHeaders = metals.map(m =>
+      `<th colspan="4" style="text-align:center;color:${metalColors[m]};border-bottom:2px solid ${metalColors[m]}30;">${metalNames[m]}</th>`
+    ).join("");
+    const subHeaders = metals.map(() =>
+      `<th class="matrix-cell">Latest</th><th class="matrix-cell">24h</th><th class="matrix-cell">7d</th><th class="matrix-cell">30d</th>`
+    ).join("");
+
+    matrixHtml = `<div class="row full" style="margin-top:12px;">
+      <div class="card">
+        <div class="card-title">Vendor \u00D7 Metal Price Matrix \u2014 Averages</div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th rowspan="2" style="vertical-align:bottom;">Vendor</th>${metalHeaders}</tr>
+              <tr>${subHeaders}</tr>
+            </thead>
+            <tbody>${matrixRows}</tbody>
+          </table>
+        </div>
+        <p style="color:var(--muted);font-size:10px;margin-top:8px;">Latest = mean of current vendor prices for that metal. 24h/7d/30d = historical averages from Turso DB.</p>
+      </div>
+    </div>`;
   }
 
   // Per-coin sample endpoints
@@ -1736,17 +1848,26 @@ ${renderNav("api-health", failureCount)}
       <div style="max-height:600px;overflow-y:auto;">
         ${retailHtml}
       </div>
-      ${matrixHtml}
     </div>
   </div>
 
-  <!-- 7-Day Spot History -->
-  ${v2.spot_7d?.ok ? `<div class="row full">
+  ${matrixHtml}
+
+  <!-- 7-Day Spot History — All Metals -->
+  ${v2.spot_7d?.ok ? [
+    { key: "xau", name: "Gold", color: "#fbbf24" },
+    { key: "xag", name: "Silver", color: "#c0c0c0" },
+    { key: "xpt", name: "Platinum", color: "#a78bfa" },
+    { key: "xpd", name: "Palladium", color: "#f97316" },
+  ].map(m => {
+    const rows = v2.spot_7d.data.data[m.key] || [];
+    if (!rows.length) return "";
+    return `<div class="row full">
     <div class="card">
-      <div class="card-title">Gold Spot — 7 Day OHLCA</div>
+      <div class="card-title"><span style="color:${m.color};">${m.name} Spot</span> \u2014 7 Day OHLCA</div>
       <table>
         <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Avg</th><th>Samples</th></tr></thead>
-        <tbody>${(v2.spot_7d.data.data.xau || []).map(d => `<tr>
+        <tbody>${rows.map(d => `<tr>
           <td>${escHtml((d.t || "").slice(0, 10))}</td>
           <td style="font-family:monospace;">$${Number(d.open).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
           <td style="font-family:monospace;color:var(--green);">$${Number(d.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
@@ -1757,7 +1878,8 @@ ${renderNav("api-health", failureCount)}
         </tr>`).join("")}</tbody>
       </table>
     </div>
-  </div>` : ""}
+  </div>`;
+  }).join("") : ""}
 
 </div>
 </body>
@@ -1782,7 +1904,7 @@ function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, fai
         <div style="color:#f87171;font-size:11px;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escAttr(f.error || "")}">${escHtml(f.error || "")}</div>
         <div style="font-size:11px;color:var(--muted);">${escHtml(time)}</div>
         <div style="display:flex;gap:4px;">
-          <a class="btn-sm" href="/providers#${escAttr(f.coinSlug)}">Edit</a>
+          <button class="btn-sm btn-edit-failure" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}" data-coinname="${escAttr(f.coinName)}" data-url="${escAttr(f.url || "")}">Edit</button>
           <button class="btn-sm primary btn-retry" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Retry</button>
         </div>
       </div>`;
@@ -1801,7 +1923,7 @@ function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, fai
         <div style="color:var(--muted);font-size:11px;" title="${escAttr(f.lastError || "")}">${escHtml((f.lastError || "").slice(0, 30))}</div>
         <div style="color:var(--muted);font-size:11px;">Last: ${ageStr}</div>
         <div style="display:flex;gap:4px;">
-          <a class="btn-sm" href="/providers#${escAttr(f.coinSlug)}">Edit</a>
+          <button class="btn-sm btn-edit-failure" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}" data-coinname="${escAttr(f.coinName)}" data-url="${escAttr(f.url || "")}">Edit</button>
           <button class="btn-sm btn-clear-chronic" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Clear</button>
         </div>
       </div>`;
@@ -1862,6 +1984,23 @@ ${renderNav("failures", failureCount)}
   </div>
 
 </div>
+
+<!-- Edit URL Modal (inline on failures page) -->
+<div id="edit-failure-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;justify-content:center;align-items:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:560px;width:90%;">
+    <h3 style="color:var(--text);margin-bottom:4px;" id="edit-failure-title">Edit Vendor URL</h3>
+    <p style="color:var(--muted);font-size:11px;margin-bottom:16px;" id="edit-failure-subtitle"></p>
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">URL</label>
+      <input type="text" id="edit-failure-url" style="width:100%;padding:8px 10px;font-size:13px;" placeholder="https://...">
+      <div id="edit-failure-err" style="color:#f87171;font-size:11px;margin-top:2px;"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button id="edit-failure-cancel" style="background:var(--border);color:var(--text);padding:6px 16px;">Cancel</button>
+      <button id="edit-failure-save" style="background:#166534;color:#86efac;padding:6px 16px;">Save URL</button>
+    </div>
+  </div>
+</div>
 <script>
 function showToast(text, ok) {
   var t = document.getElementById('toast');
@@ -1871,6 +2010,64 @@ function showToast(text, ok) {
   t.textContent = text;
   setTimeout(function() { t.style.display = 'none'; }, 3000);
 }
+
+// ── Edit URL modal (inline on failures page) ─────────────────────────────
+(function() {
+  var modal = document.getElementById('edit-failure-modal');
+  var urlInput = document.getElementById('edit-failure-url');
+  var errEl = document.getElementById('edit-failure-err');
+  var titleEl = document.getElementById('edit-failure-title');
+  var subtitleEl = document.getElementById('edit-failure-subtitle');
+  var currentCoin = '', currentVendor = '';
+
+  document.querySelectorAll('.btn-edit-failure').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      currentCoin = btn.dataset.coin;
+      currentVendor = btn.dataset.vendor;
+      titleEl.textContent = 'Edit URL — ' + (btn.dataset.coinname || currentCoin);
+      subtitleEl.textContent = 'Vendor: ' + currentVendor;
+      urlInput.value = btn.dataset.url || '';
+      errEl.textContent = '';
+      modal.style.display = 'flex';
+      urlInput.focus();
+    });
+  });
+
+  document.getElementById('edit-failure-cancel').addEventListener('click', function() {
+    modal.style.display = 'none';
+  });
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.style.display = 'none';
+  });
+
+  document.getElementById('edit-failure-save').addEventListener('click', async function() {
+    var url = urlInput.value.trim();
+    errEl.textContent = '';
+    if (url && !url.startsWith('https://')) {
+      errEl.textContent = 'URL must start with https://';
+      return;
+    }
+    try {
+      var r = await fetch('/providers/update-url', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ coinSlug: currentCoin, vendorId: currentVendor, url: url })
+      });
+      var j = await r.json();
+      showToast(j.message, r.ok);
+      if (r.ok) {
+        modal.style.display = 'none';
+        // Update the data-url on the button so re-opening shows the new URL
+        var editBtn = document.querySelector('.btn-edit-failure[data-coin="' + currentCoin + '"][data-vendor="' + currentVendor + '"]');
+        if (editBtn) editBtn.dataset.url = url;
+      } else {
+        errEl.textContent = j.message || 'Save failed';
+      }
+    } catch (err) {
+      errEl.textContent = 'Network error: ' + err.message;
+    }
+  });
+})();
 
 // Retry button
 document.querySelectorAll('.btn-retry').forEach(function(btn) {
@@ -2260,13 +2457,38 @@ async function handleRequest(req, res) {
   // ── GET /api-health ────────────────────────────────────────────────────
   if (req.method === "GET" && url === "/api-health") {
     let failureCount = 0;
+    let vendorMetalAvgs = {};
     try {
       const client = getTursoClient();
-      failureCount = await getFailureCount(client);
+      const [fc, avgResult] = await Promise.all([
+        getFailureCount(client),
+        client.execute(`
+          SELECT pv.vendor_id, pc.metal,
+                 AVG(CASE WHEN ps.scraped_at >= datetime('now', '-1 day') THEN ps.price END) AS avg_24h,
+                 AVG(CASE WHEN ps.scraped_at >= datetime('now', '-7 days') THEN ps.price END) AS avg_7d,
+                 AVG(CASE WHEN ps.scraped_at >= datetime('now', '-30 days') THEN ps.price END) AS avg_30d
+          FROM price_snapshots ps
+          JOIN provider_coins pc ON pc.slug = ps.coin_slug
+          JOIN provider_vendors pv ON pv.coin_slug = ps.coin_slug AND pv.vendor_id = ps.vendor
+          WHERE ps.is_failed = 0 AND ps.price IS NOT NULL AND ps.price > 0
+            AND ps.scraped_at >= datetime('now', '-30 days')
+          GROUP BY pv.vendor_id, pc.metal
+          ORDER BY pv.vendor_id, pc.metal
+        `),
+      ]);
+      failureCount = fc;
+      for (const row of avgResult.rows) {
+        const key = `${row.vendor_id}:${row.metal}`;
+        vendorMetalAvgs[key] = {
+          avg24h: row.avg_24h != null ? parseFloat(Number(row.avg_24h).toFixed(2)) : null,
+          avg7d: row.avg_7d != null ? parseFloat(Number(row.avg_7d).toFixed(2)) : null,
+          avg30d: row.avg_30d != null ? parseFloat(Number(row.avg_30d).toFixed(2)) : null,
+        };
+      }
     } catch { /* ignore */ }
     const v2 = await fetchV2Endpoints();
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(renderApiHealthPage(v2, failureCount));
+    res.end(renderApiHealthPage(v2, failureCount, vendorMetalAvgs));
     return;
   }
 
