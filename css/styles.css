@@ -12879,8 +12879,7 @@ th {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 6px 12px;
-  margin-bottom: 1rem;
+  padding: 10px 20px;
 }
 
 .ticker-track {
