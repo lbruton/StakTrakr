@@ -13101,9 +13101,7 @@ th {
 }
 
 /* ── Carried Price ── */
-.vp-carried {
-  border-left: 2px dashed var(--warning);
-}
+/* .vp-carried border removed — too distracting */
 
 /* ── Out of Stock ── */
 .vp-oos {
