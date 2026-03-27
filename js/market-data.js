@@ -154,12 +154,8 @@ const renderBestPriceTicker = () => {
     });
   }
 
-  items.sort((a, b) => {
-    if (a.premium != null && b.premium != null) return a.premium - b.premium;
-    if (a.premium != null) return -1;
-    if (b.premium != null) return 1;
-    return a.bestPrice - b.bestPrice;
-  });
+  // Sort alphabetically by coin name so vendors are naturally interleaved
+  items.sort((a, b) => a.name.localeCompare(b.name));
 
   if (items.length === 0) {
     container.setAttribute('hidden', '');
