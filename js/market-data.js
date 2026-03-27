@@ -323,8 +323,7 @@ const openMarketDetailModal = async (slug) => {
         .then(r => r.ok ? r.json() : null)
         .then(json => {
           if (json) {
-            saveDataSync('v2SpotHistory', json);
-            saveDataSync('v2SpotHistoryTs', new Date().toISOString());
+            try { saveDataSync('v2SpotHistory', json); saveDataSync('v2SpotHistoryTs', new Date().toISOString()); } catch (e) { /* quota exceeded — data still returned */ }
           }
           return json;
         })
@@ -1000,7 +999,7 @@ const initMarketData = async () => {
   if (!cachedHistory) {
     fetch(V2_API + '/spot/history/7d.json', { signal: AbortSignal.timeout(10000) })
       .then(r => r.ok ? r.json() : null)
-      .then(json => { if (json) { saveDataSync('v2SpotHistory', json); saveDataSync('v2SpotHistoryTs', new Date().toISOString()); } })
+      .then(json => { if (json) { try { saveDataSync('v2SpotHistory', json); saveDataSync('v2SpotHistoryTs', new Date().toISOString()); } catch (e) { /* quota */ } } })
       .catch(() => {});
   }
 
