@@ -12879,14 +12879,13 @@ th {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px 20px;
+  padding: 12px 0;
 }
 
 .ticker-track {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0;
-  animation: ticker-scroll 60s linear infinite;
+  animation: ticker-scroll 45s linear infinite;
   will-change: transform;
 }
 
@@ -12895,9 +12894,17 @@ th {
   justify-content: center;
 }
 
+.ticker-block {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  padding: 0 20px;
+  gap: 10px;
+}
+
 @keyframes ticker-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 .ticker-item {
@@ -12905,27 +12912,33 @@ th {
   flex-direction: row;
   align-items: center;
   flex-shrink: 0;
-  gap: 6px;
-  margin: 0 6px;
-  padding: 4px 12px;
+  gap: 8px;
+  padding: 6px 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
+  transition: background 0.2s;
+}
+.ticker-item:hover {
+  background: var(--border);
 }
 
 .ticker-item .coin {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
+  font-size: 13px;
 }
 
 .ticker-item .vendor {
-  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
 }
 
 .ticker-item .price {
   font-weight: 700;
+  font-size: 13px;
   font-family: monospace;
   color: var(--success);
 }

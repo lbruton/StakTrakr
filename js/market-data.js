@@ -102,14 +102,13 @@ const renderBestPriceTicker = () => {
 
   const coins = _getRetailCoins();
   const coinMetaMap = _getCoinMeta();
-  // vendorMeta available via _getVendorMeta() — used by Task 6 vendor prices
+  const vendorMeta = _getVendorMeta();
 
   const items = [];
 
-  const slugs = Object.keys(coins);
-  for (const slug of slugs) {
+  for (const slug of Object.keys(coins)) {
     const coin = coins[slug];
-    if (!coin) continue;
+    if (!coin || !coin.vendors) continue;
 
     let meta;
     if (coinMetaMap && coinMetaMap[slug]) {
@@ -123,8 +122,17 @@ const renderBestPriceTicker = () => {
     const metalLower = (meta.metal || '').toLowerCase();
     if (metalLower === 'goldback' || metalLower.startsWith('goldback')) continue;
 
-    const bestPrice = coin.lowest_price != null ? coin.lowest_price : null;
-    if (bestPrice == null || bestPrice <= 0) continue;
+    // Find cheapest in-stock vendor from the cached vendor data
+    let bestVid = null;
+    let bestPrice = Infinity;
+    for (const vid in coin.vendors) {
+      const v = coin.vendors[vid];
+      if (v && v.price > 0 && (v.in_stock === true || v.inStock === true) && v.price < bestPrice) {
+        bestPrice = v.price;
+        bestVid = vid;
+      }
+    }
+    if (!bestVid || bestPrice === Infinity) continue;
 
     const weightOz = meta.weight || 0;
     const spot = _getSpotPrice(metalLower);
@@ -134,31 +142,15 @@ const renderBestPriceTicker = () => {
       premium = ((bestPrice - meltValue) / meltValue) * 100;
     }
 
-    const vendorCount = coin.vendors ? Object.keys(coin.vendors).length : 0;
-
-    let bestVendorName = null;
-    const cachedDetail = _cachedSlugDetail[slug];
-    if (cachedDetail && cachedDetail.vendors) {
-      let lowestVid = null;
-      let lowestP = Infinity;
-      for (const vid in cachedDetail.vendors) {
-        const v = cachedDetail.vendors[vid];
-        if (v && v.price > 0 && v.in_stock && v.price < lowestP) {
-          lowestP = v.price;
-          lowestVid = vid;
-        }
-      }
-      if (lowestVid) bestVendorName = _shortVendor(lowestVid);
-    }
+    // Get vendor display info
+    const vendorName = _shortVendor(bestVid);
+    const vendorColor = vendorMeta[bestVid] ? vendorMeta[bestVid].color : null;
+    const vendorUrl = (window.retailProviders && window.retailProviders[slug] && window.retailProviders[slug][bestVid])
+      || (vendorMeta[bestVid] && vendorMeta[bestVid].url) || null;
 
     items.push({
-      slug: slug,
-      name: meta.name || slug,
-      metal: metalLower,
-      bestPrice: bestPrice,
-      vendorCount: vendorCount,
-      premium: premium,
-      bestVendorName: bestVendorName
+      slug, name: meta.name || slug, metal: metalLower,
+      bestPrice, premium, vendorName, vendorColor, vendorUrl, bestVid,
     });
   }
 
@@ -183,6 +175,13 @@ const renderBestPriceTicker = () => {
   const buildTickerItem = (item) => {
     const el = document.createElement('div');
     el.className = 'ticker-item';
+    if (item.vendorUrl) {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => {
+        const popup = window.open(item.vendorUrl, 'retail_vendor_' + item.bestVid, 'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no');
+        if (popup) popup.opener = null;
+      });
+    }
 
     const dot = document.createElement('span');
     const isoCode = _METAL_TO_ISO[item.metal] || '';
@@ -191,13 +190,14 @@ const renderBestPriceTicker = () => {
 
     const coinSpan = document.createElement('span');
     coinSpan.className = 'coin';
-    const displayName = item.name.length > 25 ? item.name.substring(0, 22) + '\u2026' : item.name;
-    coinSpan.textContent = sanitizeHtml(displayName);
+    const displayName = item.name.length > 30 ? item.name.substring(0, 27) + '\u2026' : item.name;
+    coinSpan.textContent = displayName;
     el.appendChild(coinSpan);
 
     const vendorSpan = document.createElement('span');
     vendorSpan.className = 'vendor';
-    vendorSpan.textContent = item.bestVendorName ? item.bestVendorName : ('Low:');
+    vendorSpan.textContent = item.vendorName;
+    if (item.vendorColor) vendorSpan.style.color = item.vendorColor;
     el.appendChild(vendorSpan);
 
     const priceSpan = document.createElement('span');
@@ -208,26 +208,30 @@ const renderBestPriceTicker = () => {
     const premiumSpan = document.createElement('span');
     premiumSpan.className = 'premium';
     if (item.premium != null) {
-      const sign = item.premium >= 0 ? '+' : '';
-      premiumSpan.textContent = sign + item.premium.toFixed(1) + '%';
-    } else {
-      premiumSpan.textContent = '\u2014';
+      premiumSpan.textContent = (item.premium >= 0 ? '+' : '') + item.premium.toFixed(1) + '%';
     }
     el.appendChild(premiumSpan);
 
     return el;
   };
 
+  // Build TWO identical content blocks for seamless loop
+  const block1 = document.createElement('div');
+  block1.className = 'ticker-block';
+  const block2 = document.createElement('div');
+  block2.className = 'ticker-block';
+
   for (const item of items) {
-    track.appendChild(buildTickerItem(item));
+    block1.appendChild(buildTickerItem(item));
+    block2.appendChild(buildTickerItem(item));
   }
 
   if (items.length >= 4) {
-    for (const item of items) {
-      track.appendChild(buildTickerItem(item));
-    }
+    track.appendChild(block1);
+    track.appendChild(block2);
   } else {
     track.classList.add('static');
+    track.appendChild(block1);
   }
 
   container.appendChild(track);
