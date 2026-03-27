@@ -54,8 +54,42 @@ const _getCoinMeta = () => {
 };
 
 const _getVendorMeta = () => {
-  if (typeof window._manifestVendorMeta !== 'undefined' && window._manifestVendorMeta) return window._manifestVendorMeta;
-  return loadDataSync('retailManifestVendorMeta', {});
+  if (typeof window._manifestVendorMeta !== 'undefined' && window._manifestVendorMeta && Object.keys(window._manifestVendorMeta).length > 0) return window._manifestVendorMeta;
+  const cached = loadDataSync('retailManifestVendorMeta', null);
+  if (cached && Object.keys(cached).length > 0) return cached;
+  return {};
+};
+
+// Fetch v2 manifest for coin + vendor metadata if not already cached
+const _ensureManifest = async () => {
+  const coinMeta = _getCoinMeta();
+  const vendorMeta = _getVendorMeta();
+  if (coinMeta && Object.keys(coinMeta).length > 0 && vendorMeta && Object.keys(vendorMeta).length > 0) return;
+  try {
+    const resp = await fetch(V2_API + '/manifest.json', { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) return;
+    const json = await resp.json();
+    const data = json.data || json;
+    if (data.coins && Array.isArray(data.coins)) {
+      const cm = {};
+      for (const c of data.coins) {
+        cm[c.slug] = { name: c.name, metal: c.metal === 'xag' ? 'silver' : c.metal === 'xau' ? 'gold' : c.metal === 'xpt' ? 'platinum' : c.metal === 'xpd' ? 'palladium' : c.metal, weight: c.weight_oz || 0 };
+      }
+      window._manifestCoinMeta = cm;
+      try { saveDataSync('retailManifestCoinMeta', cm); } catch (e) { /* quota */ }
+    }
+    if (data.vendors && Array.isArray(data.vendors)) {
+      const vm = {};
+      for (const v of data.vendors) {
+        vm[v.id] = { name: v.name, color: v.color, url: v.url || null };
+      }
+      window._manifestVendorMeta = vm;
+      try { saveDataSync('retailManifestVendorMeta', vm); } catch (e) { /* quota */ }
+    }
+    debugLog('[market-data] Fetched v2 manifest: ' + (data.coins ? data.coins.length : 0) + ' coins, ' + (data.vendors ? data.vendors.length : 0) + ' vendors', 'info');
+  } catch (e) {
+    debugLog('[market-data] Manifest fetch failed: ' + e.message, 'warn');
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -414,11 +448,10 @@ const openMarketDetailModal = async (slug) => {
         // Vendor name
         const tdVendor = document.createElement('td');
         const vMeta = vendorMeta[entry.vid];
-        const vendorName = sanitizeHtml(_shortVendor(entry.vid));
+        tdVendor.textContent = _shortVendor(entry.vid);
         if (vMeta && vMeta.color) {
           tdVendor.style.color = vMeta.color;
         }
-        tdVendor.textContent = vendorName;
         tr.appendChild(tdVendor);
 
         // Price
@@ -623,7 +656,8 @@ const _renderVendorTable = async (metalCode) => {
 
     const inStockPrices = [];
     for (const vid in vData) {
-      if (vData[vid] && vData[vid].price > 0 && vData[vid].in_stock) {
+      const _vs = vData[vid];
+      if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true)) {
         inStockPrices.push(vData[vid].price);
       }
     }
@@ -658,7 +692,7 @@ const _renderVendorTable = async (metalCode) => {
       }
 
       if (vInfo.carried) td.classList.add('vp-carried');
-      if (!vInfo.in_stock) {
+      if (!vInfo.in_stock && !vInfo.inStock) {
         td.classList.add('vp-oos');
         const oosSpan = document.createElement('span');
         oosSpan.textContent = 'OOS';
@@ -700,16 +734,18 @@ const _renderVendorTable = async (metalCode) => {
     const coinSummary = coins[slug];
     const tdMedian = document.createElement('td');
     tdMedian.className = 'vp-price';
-    const medianVal = coinSummary ? (coinSummary.median != null ? coinSummary.median : null) : null;
+    const medianVal = coinSummary ? (coinSummary.median_price != null ? coinSummary.median_price : coinSummary.median) : null;
     tdMedian.textContent = medianVal != null ? '$' + _fmtPrice(medianVal) : '\u2014';
     tr.appendChild(tdMedian);
 
     const tdSpread = document.createElement('td');
     tdSpread.className = 'vp-price';
-    const highVal = coinSummary ? (coinSummary.high != null ? coinSummary.high : coinSummary.highest_price) : null;
-    const lowVal = coinSummary ? (coinSummary.low != null ? coinSummary.low : coinSummary.lowest_price) : null;
-    if (highVal != null && lowVal != null) {
-      tdSpread.textContent = '$' + _fmtPrice(highVal - lowVal);
+    // Calculate high/low from vendor data since summary may not have these fields
+    const allPrices = inStockPrices.length > 0 ? inStockPrices : [];
+    const calcHigh = allPrices.length > 0 ? Math.max(...allPrices) : null;
+    const calcLow = allPrices.length > 0 ? Math.min(...allPrices) : null;
+    if (calcHigh != null && calcLow != null && calcHigh !== calcLow) {
+      tdSpread.textContent = '$' + _fmtPrice(calcHigh - calcLow);
     } else {
       tdSpread.textContent = '\u2014';
     }
@@ -782,6 +818,9 @@ const renderVendorPrices = () => {
 const initMarketData = async () => {
   if (_marketDataInitialized) return;
 
+  // Ensure v2 manifest (coin + vendor metadata) is available
+  await _ensureManifest();
+
   let retailData = null;
   if (typeof window._v2RetailData !== 'undefined' && window._v2RetailData) {
     retailData = window._v2RetailData;
@@ -826,6 +865,16 @@ const initMarketData = async () => {
   }
 
   initMarketData._retryCount = 0;
+
+  // Pre-fetch spot history for charts (non-blocking, cached for modal use)
+  const cachedHistory = loadDataSync('v2SpotHistory', null);
+  if (!cachedHistory) {
+    fetch(V2_API + '/spot/history/7d.json', { signal: AbortSignal.timeout(10000) })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => { if (json) { saveDataSync('v2SpotHistory', json); saveDataSync('v2SpotHistoryTs', new Date().toISOString()); } })
+      .catch(() => {});
+  }
+
   renderBestPriceTicker();
   renderVendorPrices();
 
