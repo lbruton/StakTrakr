@@ -39,12 +39,24 @@ const _chartConfig = (colors, timeVisible) => ({
     borderColor: colors.border,
     timeVisible: !!timeVisible,
     secondsVisible: false,
+    rightOffset: 1,
   },
   rightPriceScale: { borderColor: colors.border },
   crosshair: {
     mode: LightweightCharts.CrosshairMode ? LightweightCharts.CrosshairMode.Normal : 0,
   },
 });
+
+// Force chart data to fill the full width via logical range
+const _fitFullWidth = (chart, dataPointCount) => {
+  setTimeout(() => {
+    try {
+      chart.timeScale().setVisibleLogicalRange({ from: -0.5, to: dataPointCount - 0.5 });
+    } catch (e) {
+      try { chart.timeScale().fitContent(); } catch (e2) { /* noop */ }
+    }
+  }, 150);
+};
 
 // Short vendor name for legend
 const _shortName = (vid) => {
@@ -97,8 +109,7 @@ const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
       if (data.length > 0) series.setData(data);
     }
 
-    // Delay fitContent — modal layout needs time to settle before chart can measure
-    setTimeout(() => { try { chart.timeScale().fitContent(); } catch (e) { /* noop */ } }, 150);
+    _fitFullWidth(chart, intradayRows.length);
   } catch (e) {
     debugLog('[market-charts] Intraday vendor chart error: ' + e.message, 'warn');
   }
@@ -119,7 +130,6 @@ const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
   const chart = LightweightCharts.createChart(container, _chartConfig(colors, false));
 
   try {
-    // Filter to last 7 entries (days)
     const rows = historyRows.slice(-7);
 
     // Collect all vendor IDs
@@ -154,8 +164,7 @@ const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
       if (data.length > 0) series.setData(data);
     }
 
-    // Delay fitContent — modal layout needs time to settle before chart can measure
-    setTimeout(() => { try { chart.timeScale().fitContent(); } catch (e) { /* noop */ } }, 150);
+    _fitFullWidth(chart, rows.length);
   } catch (e) {
     debugLog('[market-charts] History vendor chart error: ' + e.message, 'warn');
   }
