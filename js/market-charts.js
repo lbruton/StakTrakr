@@ -49,9 +49,9 @@ const _chartConfig = (colors, timeVisible) => ({
   },
 });
 
-// Fit chart content after layout settles (fixLeftEdge/fixRightEdge handle the stretching)
+// Fit chart content after next animation frame (container must be laid out first)
 const _fitAfterLayout = (chart) => {
-  requestAnimationFrame(() => chart.timeScale().fitContent());
+  requestAnimationFrame(() => { try { chart.timeScale().fitContent(); } catch (e) { /* noop */ } });
 };
 
 // Short vendor name for legend

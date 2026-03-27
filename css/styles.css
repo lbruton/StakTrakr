@@ -13196,6 +13196,24 @@ th {
   overflow: hidden;
 }
 
+/* Reset global table/td rules that leak into LightweightCharts' internal table layout */
+.tv-lightweight-charts table,
+.tv-lightweight-charts tr,
+.tv-lightweight-charts td,
+.tv-lightweight-charts th {
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  font-size: inherit;
+  line-height: normal;
+  color: inherit;
+  text-overflow: clip;
+}
+
 /* ── Theme Overrides ── */
 [data-theme="dark"] .vp-best {
   background: color-mix(in srgb, var(--success) 18%, transparent);
