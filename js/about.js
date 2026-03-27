@@ -247,11 +247,11 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.87 &ndash; Market Data Module</strong>: Best Price Ticker, Vendor Prices comparison table with clickable buy links, and Market Detail Modal with TradingView charts &mdash; all powered by the v2 API (STAK-504)</li>
     <li><strong>v3.33.86 &ndash; What&rsquo;s New Modal Fix</strong>: What&rsquo;s New popup no longer flashes old content before showing current announcements on page load (STAK-500)</li>
     <li><strong>v3.33.84 &ndash; Market Price Fixes</strong>: JM Bullion now uses column-aware eCheck/Wire parser first, preventing inflated Card/PayPal prices. Goldback-g1 baseline no longer appears as a ghost card in market view (STAK-498)</li>
     <li><strong>v3.33.83 &ndash; Intraday Chart Fix</strong>: Charts now show exactly 24 hourly data points instead of multi-day spans with excessive dotted lines. Dotted lines only for 2+ hour gaps. OOS vendors excluded from chart datasets (STAK-498)</li>
     <li><strong>v3.33.82 &ndash; Grid View Cleanup</strong>: Removed ~260 lines of dead grid/card view code from retail.js, eliminated the MARKET_LIST_VIEW feature flag, and cleaned up orphaned CSS. List view is now unconditional (STAK-473)</li>
-    <li><strong>v3.33.81 &ndash; Price Bounds Guard</strong>: Retail poller now rejects implausible vendor prices at write time &mdash; prices &gt;+50% or &lt;-30% of spot-based melt value are flagged as failed. Per-vendor exemptions for legitimate outliers (STAK-496)</li>
   `;
 };
 

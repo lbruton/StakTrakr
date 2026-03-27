@@ -290,7 +290,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.33.86";
+const APP_VERSION = "3.33.87";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -537,7 +537,7 @@ const RETAIL_API_ENDPOINTS = [
 const RETAIL_API_BASE_URL = RETAIL_API_ENDPOINTS[0];
 
 /** @constant {boolean} USE_V2_API - Feature flag for v2 API migration (internal toggle) */
-const USE_V2_API = false;
+const USE_V2_API = true;
 
 /** @constant {string[]} V2_API_ENDPOINTS - Ordered list of v2 API endpoints (primary first) */
 const V2_API_ENDPOINTS = [
@@ -1014,6 +1014,9 @@ const ALLOWED_STORAGE_KEYS = [
   "v2RetailHistory",                                   // JSON: v2 retail history cache
   "v2SpotHistory",                                     // JSON: v2 spot price history
   "v2ManifestCache",                                   // JSON: v2 manifest metadata cache
+  // STAK-504: Market data module keys
+  "vendorPricesActiveTab",                             // string: active metal tab in vendor prices section
+  "v2SpotHistoryTs",                                   // string: ISO timestamp of cached v2 spot history
 ];
 
 /**
@@ -1176,9 +1179,11 @@ const saveFilterChipCategoryConfig = (config) => {
  */
 const LAYOUT_SECTION_DEFAULTS = [
   { id: 'spotPrices', label: 'Spot price cards',    enabled: true },
+  { id: 'bestPriceTicker', label: 'Best Price Ticker', enabled: true },
   { id: 'totals',     label: 'Summary totals',      enabled: true },
   { id: 'search',     label: 'Search & filter bar', enabled: true },
   { id: 'table',      label: 'Inventory table',     enabled: true },
+  { id: 'vendorPrices',    label: 'Vendor Prices',     enabled: true },
 ];
 
 /**

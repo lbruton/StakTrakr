@@ -256,6 +256,7 @@
 
 
     </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
   </head>
   <body>
     <!-- Application Header -->
@@ -585,7 +586,10 @@
             </div>
           </div>
         </div>
-      </section><!-- =============================================================================
+      </section>
+      <!-- ── Best Price Ticker (STAK-504) ── -->
+      <div id="bestPriceTickerEl" class="market-ticker" hidden></div>
+      <!-- =============================================================================
          TOTALS SECTION
 
          Comprehensive financial summary cards for each metal type showing:
@@ -1137,6 +1141,10 @@
             </div>
           </div>
         </section>
+      <!-- ── Vendor Prices (STAK-504) ── -->
+      <section class="vendor-prices-section" id="vendorPricesSectionEl">
+        <div id="vendorPricesContainer"></div>
+      </section>
       <!-- =============================================================================
          IMPORT/EXPORT SECTION
          
@@ -5262,6 +5270,8 @@
   <script defer src="./js/diff-engine.js"></script>
   <script defer src="./js/diff-modal.js"></script>
     <script defer src="./js/chart-utils.js"></script>
+    <script defer src="./js/market-charts.js"></script>
+    <script defer src="./js/market-data.js"></script>
     <script defer src="./js/charts.js"></script>
     <script defer src="./js/theme.js"></script>
     <script defer src="./js/search.js"></script>
@@ -5391,5 +5401,12 @@
       </div>
     </div>
   </div>
+    <!-- ── Market Detail Modal (STAK-504) ── -->
+    <div id="marketDetailModal" class="market-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="marketDetailTitle" hidden>
+      <div class="market-detail-modal">
+        <button class="market-detail-close" id="marketDetailCloseBtn" title="Close" aria-label="Close modal">&times;</button>
+        <div id="marketDetailContent"></div>
+      </div>
+    </div>
   </body>
 </html>

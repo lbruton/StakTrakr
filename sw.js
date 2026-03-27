@@ -8,7 +8,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 
 
 
-const CACHE_NAME = 'staktrakr-v3.33.86-b1774455614';
+const CACHE_NAME = 'staktrakr-v3.33.87-b1774619145';
 
 
 
@@ -49,6 +49,8 @@ const CORE_ASSETS = [
   './js/diff-engine.js',
   './js/diff-modal.js',
   './js/chart-utils.js',
+  './js/market-charts.js',
+  './js/market-data.js',
   './js/charts.js',
   './js/theme.js',
   './js/search.js',
