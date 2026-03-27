@@ -782,10 +782,24 @@ const initMarketData = async () => {
 
   const coins = _getRetailCoins();
   if (!coins || Object.keys(coins).length === 0) {
-    debugLog('[market-data] No retail data available — ticker hidden, vendor section empty', 'warn');
+    // Retail sync may still be in progress — retry after a delay (up to 3 attempts)
+    if (!initMarketData._retryCount) initMarketData._retryCount = 0;
+    initMarketData._retryCount++;
+    if (initMarketData._retryCount <= 3) {
+      const delay = initMarketData._retryCount * 5000;
+      debugLog('[market-data] No retail data yet — retry ' + initMarketData._retryCount + '/3 in ' + (delay / 1000) + 's', 'info');
+      _marketDataInitialized = false;
+      setTimeout(() => {
+        _marketDataInitialized = false;
+        initMarketData().catch(() => {});
+      }, delay);
+      return;
+    }
+    debugLog('[market-data] No retail data available after 3 retries — ticker hidden, vendor section empty', 'warn');
     return;
   }
 
+  initMarketData._retryCount = 0;
   renderBestPriceTicker();
   renderVendorPrices();
 
