@@ -1,6 +1,7 @@
-// js/market-charts.js — Lightweight Charts wrapper for Market Detail Modal (STAK-504)
+// js/market-charts.js — Lightweight Charts v4 wrapper for Market Detail Modal (STAK-504)
 // Renders per-vendor price comparison lines for a specific coin (slug).
 // Data sources: /v2/retail/{slug}/intraday.json (24H) and /v2/retail/{slug}/history-30d.json (7D).
+// NOTE: Uses v4 API (chart.addLineSeries) — NOT v5 (chart.addSeries(LineSeries)).
 
 const getChartThemeColors = () => {
   const s = getComputedStyle(document.documentElement);
@@ -40,7 +41,9 @@ const _chartConfig = (colors, timeVisible) => ({
     secondsVisible: false,
   },
   rightPriceScale: { borderColor: colors.border },
-  crosshair: { mode: LightweightCharts.CrosshairMode ? LightweightCharts.CrosshairMode.Normal : 0 },
+  crosshair: {
+    mode: LightweightCharts.CrosshairMode ? LightweightCharts.CrosshairMode.Normal : 0,
+  },
 });
 
 // Short vendor name for legend
@@ -72,11 +75,11 @@ const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
       }
     }
 
-    // Create one line series per vendor
+    // Create one line series per vendor (v4 API: chart.addLineSeries)
     for (const vid of vendorIds) {
       const vMeta = vendorMeta && vendorMeta[vid];
       const color = (vMeta && vMeta.color) || colors.textMuted;
-      const series = chart.addSeries(LightweightCharts.LineSeries, {
+      const series = chart.addLineSeries({
         color: color,
         lineWidth: 2,
         crosshairMarkerVisible: true,
@@ -104,7 +107,7 @@ const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
 
 /**
  * Create a multi-vendor line chart from retail 30d history (filtered to last 7 days).
- * Data format: [{ t, ts, open, high, low, close, avg, n, vendors: { vid: { avg, in_stock } } }, ...]
+ * Data format: [{ t, ts, ..., vendors: { vid: { avg, in_stock } } }, ...]
  */
 const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
   if (typeof LightweightCharts === 'undefined') return null;
@@ -126,11 +129,11 @@ const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
       }
     }
 
-    // Create one line series per vendor
+    // Create one line series per vendor (v4 API: chart.addLineSeries)
     for (const vid of vendorIds) {
       const vMeta = vendorMeta && vendorMeta[vid];
       const color = (vMeta && vMeta.color) || colors.textMuted;
-      const series = chart.addSeries(LightweightCharts.LineSeries, {
+      const series = chart.addLineSeries({
         color: color,
         lineWidth: 2,
         crosshairMarkerVisible: true,
