@@ -101,13 +101,14 @@ const _ensureManifest = async () => {
 // Ticker
 // ---------------------------------------------------------------------------
 
-const TICKER_PIXELS_PER_SECOND = 127;
+const TICKER_SPEED_PIXELS_PER_SECOND = 127;
+const MIN_TICKER_DURATION_SECONDS = 20;
 
 const _buildTickerSignature = (items) => items.map((item) => [
   item.slug,
   item.bestVid,
   Number(item.bestPrice || 0).toFixed(2),
-  item.premium == null ? '' : item.premium.toFixed(3),
+  Number.isFinite(item.premium) ? item.premium.toFixed(3) : '',
 ].join('|')).join('||');
 
 const _getTickerLoopPhase = (track) => {
@@ -149,7 +150,7 @@ const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0, previou
     track.style.removeProperty('--ticker-duration');
     track.style.removeProperty('animation-delay');
   } else {
-    const durationSeconds = Math.max(20, loopWidth / TICKER_PIXELS_PER_SECOND);
+    const durationSeconds = Math.max(MIN_TICKER_DURATION_SECONDS, loopWidth / TICKER_SPEED_PIXELS_PER_SECOND);
     track.dataset.loopWidth = String(loopWidth);
     track.style.setProperty('--ticker-loop-distance', `${loopWidth}px`);
     track.style.setProperty('--ticker-duration', `${durationSeconds.toFixed(3)}s`);

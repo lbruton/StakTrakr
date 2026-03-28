@@ -886,6 +886,8 @@ const SYNC_SCOPE_KEYS = [
   'metalApiConfig',            // API_KEY_STORAGE_KEY — Numista/PCGS/spot provider keys
 ];
 
+const SPOT_HISTORY_RUNTIME_WINDOW_DAYS = 180;
+
 const ALLOWED_STORAGE_KEYS = [
   LS_KEY,
   SERIAL_KEY,
@@ -964,6 +966,7 @@ const ALLOWED_STORAGE_KEYS = [
   LATEST_REMOTE_URL_KEY,      // string: cached latest remote release URL (STACK-67)
   "ff_migration_fuzzy_autocomplete", // one-time migration flag (v3.26.01)
   "migration_hourlySource",          // one-time migration flag: re-tag StakTrakr hourly entries
+  "migration_seedHistoryMerge",      // one-time migration flag: skip redundant seed-history merge writes
   "numistaLookupRules",              // custom Numista search lookup rules (JSON array)
   "numistaViewFields",               // view modal Numista field visibility config (JSON object)
   TIMEZONE_KEY,                        // string: "auto" | "UTC" | IANA zone (STACK-63)
@@ -1838,6 +1841,7 @@ if (typeof window !== "undefined") {
   window.disableFeature = disableFeature;
   window.toggleFeature = toggleFeature;
   window.ALLOWED_STORAGE_KEYS = ALLOWED_STORAGE_KEYS;
+  window.SPOT_HISTORY_RUNTIME_WINDOW_DAYS = SPOT_HISTORY_RUNTIME_WINDOW_DAYS;
   // STAK-149: Cloud auto-sync constants
   window.SYNC_POLL_INTERVAL = SYNC_POLL_INTERVAL;
   window.SYNC_PUSH_DEBOUNCE = SYNC_PUSH_DEBOUNCE;

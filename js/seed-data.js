@@ -18,7 +18,7 @@ const SEED_DATA_YEARS = (() => {
  * Full multi-decade reference history stays in historicalDataCache/year files.
  * @constant {number}
  */
-const SEED_RUNTIME_HISTORY_DAYS = 180;
+const SEED_RUNTIME_HISTORY_DAYS = window.SPOT_HISTORY_RUNTIME_WINDOW_DAYS || 180;
 
 /**
  * Returns a storage-safe recent seed window for in-memory/persisted runtime history.

@@ -6,7 +6,7 @@
  * Writes the content of `spotHistory` to the `SPOT_HISTORY_KEY`.
  * @returns {void}
  */
-const PERSISTED_SEED_HISTORY_DAYS = 180;
+const PERSISTED_SEED_HISTORY_DAYS = window.SPOT_HISTORY_RUNTIME_WINDOW_DAYS || 180;
 
 /**
  * Builds the persisted spot-history snapshot.
@@ -41,8 +41,10 @@ const getPersistedSpotHistorySnapshot = (entries) => {
       !entry ||
       typeof entry.spot !== "number" ||
       entry.spot <= 0 ||
-      !entry.metal ||
-      !entry.timestamp
+      typeof entry.metal !== "string" ||
+      entry.metal === "" ||
+      typeof entry.timestamp !== "string" ||
+      entry.timestamp === ""
     ) {
       removedInvalidEntries++;
       return;
