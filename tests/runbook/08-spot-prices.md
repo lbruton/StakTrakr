@@ -15,8 +15,6 @@ _Added: v3.33.25 (STAK-396)_
 **Tags:** spot-prices, metals, display
 **Section:** 08-spot-prices
 
----
-
 ### Test 8.2 — Values within 75-minute stale threshold
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Page fully loaded with spot data fetched. Spot poller on Fly.io is assumed healthy (data updated within the last 75 minutes).
@@ -68,4 +66,17 @@ _Added: v3.33.25 (STAK-396)_
 - screenshot: "08-spot-prices-stale-note"
 **Pass criteria:** Test documented for manual execution. To verify: when spot data age exceeds 75 minutes, a stale indicator (warning badge, color change, or explicit "stale" label) appears on one or more spot price cards. This confirms the frontend correctly detects and surfaces data freshness violations.
 **Tags:** spot-prices, stale, manual
+**Section:** 08-spot-prices
+
+---
+
+### Test 8.7 — Historical spot UI survives quota-safe startup
+_Added: v3.33.88 (STAK-481)_
+**Preconditions:** Fresh page load completed. Spot prices and inventory cards are visible. Use a cold session when possible so the bundled seed-history startup path runs before verification.
+**Steps:**
+- extract: "each visible spot price card still shows a trend period label (such as 30d or 90d) and a percentage change value next to the live price" → expect: true
+- extract: "at least one inventory card still shows a non-zero melt value after startup finishes" → expect: true
+- screenshot: "08-spot-prices-history-after-startup"
+**Pass criteria:** After the quota-safe startup path runs, the spot cards still display their normal trend/history presentation and inventory melt values remain populated, confirming the storage fix did not regress historical spot-driven UI behavior.
+**Tags:** spot-prices, history, startup, regression
 **Section:** 08-spot-prices

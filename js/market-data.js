@@ -101,6 +101,69 @@ const _ensureManifest = async () => {
 // Ticker
 // ---------------------------------------------------------------------------
 
+const TICKER_SPEED_PIXELS_PER_SECOND = 127;
+const MIN_TICKER_DURATION_SECONDS = 20;
+
+const _buildTickerSignature = (items) => items.map((item) => [
+  item.slug,
+  item.bestVid,
+  Number(item.bestPrice || 0).toFixed(2),
+  Number.isFinite(item.premium) ? item.premium.toFixed(3) : '',
+].join('|')).join('||');
+
+const _getTickerLoopPhase = (track) => {
+  if (!track || track.classList.contains('static')) return 0;
+
+  const loopWidth = Number(track.dataset.loopWidth || 0);
+  if (!(loopWidth > 0)) return 0;
+
+  const transform = window.getComputedStyle(track).transform;
+  if (!transform || transform === 'none') return 0;
+
+  const MatrixCtor = window.DOMMatrixReadOnly || window.WebKitCSSMatrix;
+  if (!MatrixCtor) return 0;
+
+  try {
+    const matrix = new MatrixCtor(transform);
+    const translateX = typeof matrix.m41 === 'number' ? matrix.m41 : 0;
+    const distance = ((-translateX % loopWidth) + loopWidth) % loopWidth;
+    return distance / loopWidth;
+  } catch (error) {
+    debugLog('[market-data] Unable to read ticker transform: ' + error.message, 'debug');
+    return 0;
+  }
+};
+
+const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0, previousTrack = null) => {
+  const loopWidth = Math.ceil(primaryBlock.getBoundingClientRect().width);
+
+  track.style.removeProperty('left');
+  track.style.removeProperty('top');
+  track.style.removeProperty('position');
+  track.style.removeProperty('pointer-events');
+  track.style.removeProperty('visibility');
+
+  if (!(loopWidth > 0)) {
+    track.classList.add('static');
+    track.dataset.loopWidth = '0';
+    track.style.removeProperty('--ticker-loop-distance');
+    track.style.removeProperty('--ticker-duration');
+    track.style.removeProperty('animation-delay');
+  } else {
+    const durationSeconds = Math.max(MIN_TICKER_DURATION_SECONDS, loopWidth / TICKER_SPEED_PIXELS_PER_SECOND);
+    track.dataset.loopWidth = String(loopWidth);
+    track.style.setProperty('--ticker-loop-distance', `${loopWidth}px`);
+    track.style.setProperty('--ticker-duration', `${durationSeconds.toFixed(3)}s`);
+    track.style.animationDelay = phase > 0
+      ? `-${(phase * durationSeconds).toFixed(3)}s`
+      : '0s';
+  }
+
+  if (previousTrack && previousTrack.parentNode === container) {
+    previousTrack.remove();
+  }
+};
+
 const renderBestPriceTicker = () => {
   const container = safeGetElement('bestPriceTickerEl');
   if (!container) return;
@@ -169,15 +232,27 @@ const renderBestPriceTicker = () => {
   items.sort((a, b) => a.name.localeCompare(b.name));
 
   if (items.length === 0) {
+    container.dataset.tickerSignature = '';
     container.setAttribute('hidden', '');
+    while (container.firstChild) container.removeChild(container.firstChild);
     return;
   }
 
+  const signature = _buildTickerSignature(items);
+  const previousTrack = container.querySelector('.ticker-track');
+  if (previousTrack && container.dataset.tickerSignature === signature) {
+    container.removeAttribute('hidden');
+    return;
+  }
+
+  const previousPhase = _getTickerLoopPhase(previousTrack);
+
   container.removeAttribute('hidden');
-  while (container.firstChild) container.removeChild(container.firstChild);
+  container.dataset.tickerSignature = signature;
 
   const track = document.createElement('div');
   track.className = 'ticker-track';
+  track.dataset.signature = signature;
 
   const buildTickerItem = (item) => {
     const el = document.createElement('div');
@@ -225,8 +300,10 @@ const renderBestPriceTicker = () => {
   // Build TWO identical content blocks for seamless loop
   const block1 = document.createElement('div');
   block1.className = 'ticker-block';
+  block1.dataset.tickerBlock = 'primary';
   const block2 = document.createElement('div');
   block2.className = 'ticker-block';
+  block2.dataset.tickerBlock = 'duplicate';
 
   for (const item of items) {
     block1.appendChild(buildTickerItem(item));
@@ -236,12 +313,25 @@ const renderBestPriceTicker = () => {
   if (items.length >= 4) {
     track.appendChild(block1);
     track.appendChild(block2);
+
+    track.style.visibility = 'hidden';
+    if (previousTrack) {
+      track.style.position = 'absolute';
+      track.style.left = '0';
+      track.style.top = '0';
+      track.style.pointerEvents = 'none';
+    }
+
+    container.appendChild(track);
+    requestAnimationFrame(() => {
+      _finalizeTickerTrack(container, track, block1, previousPhase, previousTrack);
+    });
   } else {
     track.classList.add('static');
     track.appendChild(block1);
+    if (previousTrack) previousTrack.remove();
+    container.appendChild(track);
   }
-
-  container.appendChild(track);
 };
 
 // ---------------------------------------------------------------------------
