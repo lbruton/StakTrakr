@@ -134,3 +134,16 @@ _Added: v3.33.25 (STAK-396)_
 **Pass criteria:** The inventory count shown in the UI (badge, header label, or filter chip) reads 8, matching the seed data that ships with the application.
 **Tags:** page-load, inventory, count
 **Section:** 01-page-load
+
+---
+
+### Test 1.12 — Fresh startup stays quota-safe and keeps market UI available
+_Added: v3.33.88 (STAK-481)_
+**Preconditions:** Fresh browser session or cleared preview-origin storage so startup runs the bundled seed-history path from scratch. The acknowledgment modal has been dismissed if it appears.
+**Steps:**
+- extract: "any visible toast, banner, or inline error mentioning 'Storage is full', 'quota', 'spot history', or 'could not be saved'" → expect: false
+- extract: "the best price ticker strip is visible on the page with at least one ticker item or price pill rendered" → expect: true
+- screenshot: "01-page-load-quota-safe-startup"
+**Pass criteria:** A cold startup completes without any visible storage-full/quota messaging, and the Market ticker strip is available on the page after load, confirming the startup storage fix did not block market UI initialization.
+**Tags:** page-load, storage, quota, market
+**Section:** 01-page-load

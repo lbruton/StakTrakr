@@ -12904,14 +12904,19 @@ th {
 }
 
 .ticker-track {
-  display: flex;
+  display: inline-flex;
   flex-wrap: nowrap;
-  animation: ticker-scroll 45s linear infinite;
+  align-items: center;
+  width: max-content;
+  min-width: max-content;
+  animation: ticker-scroll var(--ticker-duration, 45s) linear infinite;
   will-change: transform;
 }
 
 .ticker-track.static {
   animation: none;
+  width: 100%;
+  min-width: 0;
   justify-content: center;
 }
 
@@ -12919,17 +12924,23 @@ th {
   display: flex;
   flex-shrink: 0;
   flex-wrap: nowrap;
+  align-items: center;
+  width: max-content;
+  min-width: max-content;
   padding: 0 20px;
   gap: 10px;
 }
 
 @keyframes ticker-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0%   { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(calc(-1 * var(--ticker-loop-distance, 50%)), 0, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker-track { animation: none; }
+  .ticker-track {
+    animation: none;
+    transform: none;
+  }
 }
 
 .ticker-item {
