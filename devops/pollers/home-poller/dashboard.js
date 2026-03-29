@@ -2797,6 +2797,12 @@ async function handleRequest(req, res) {
       const { coinSlug, vendorId } = JSON.parse(await readBody(req));
       if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
 
+      // Validate inputs — only allow alphanumeric, hyphens, underscores, dots
+      const SAFE_ID = /^[a-zA-Z0-9._-]+$/;
+      if (!SAFE_ID.test(coinSlug) || !SAFE_ID.test(vendorId)) {
+        throw new Error("Invalid coinSlug or vendorId — only alphanumeric, hyphens, underscores, dots allowed");
+      }
+
       // Check if poller is currently running
       const lockPath = "/tmp/retail-poller.lock";
       const isLocked = existsSync(lockPath);
@@ -2815,21 +2821,29 @@ async function handleRequest(req, res) {
         res.end(JSON.stringify({ ok: true, queued: true, message: `Queued ${vendorId}/${coinSlug} for retry after current run completes.` }));
       } else {
         // Trigger immediate single-item scrape via child process
-        const cmd = `cd /app && node -e "
+        // Pass user input via env vars — never interpolate into shell strings
+        const script = `
           import('./shared/price-extract.js').then(async m => {
             const { createClient } = await import('@libsql/client');
             const client = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN });
             const { getProvidersByCoin } = await import('./shared/provider-db.js');
-            const vendors = await getProvidersByCoin(client, '${coinSlug.replace(/'/g, "")}');
-            const vendor = vendors.find(v => v.id === '${vendorId.replace(/'/g, "")}');
+            const slug = process.env.RETRY_COIN_SLUG;
+            const vid = process.env.RETRY_VENDOR_ID;
+            const vendors = await getProvidersByCoin(client, slug);
+            const vendor = vendors.find(v => v.id === vid);
             if (!vendor || !vendor.url) { console.log('Vendor not found or no URL'); process.exit(1); }
-            console.log('Retrying: ${coinSlug}/${vendorId} at ' + vendor.url);
-            const result = await m.extractPrice(vendor.url, '${coinSlug.replace(/'/g, "")}', '${vendorId.replace(/'/g, "")}', vendor);
+            console.log('Retrying: ' + slug + '/' + vid + ' at ' + vendor.url);
+            const result = await m.extractPrice(vendor.url, slug, vid, vendor);
             console.log('Result:', JSON.stringify(result));
             await client.close();
           }).catch(e => { console.error(e); process.exit(1); });
-        "`;
-        const child = spawn("bash", ["-c", cmd], { detached: true, stdio: "ignore" });
+        `;
+        const child = spawn("node", ["-e", script], {
+          cwd: "/app",
+          detached: true,
+          stdio: "ignore",
+          env: { ...process.env, RETRY_COIN_SLUG: coinSlug, RETRY_VENDOR_ID: vendorId },
+        });
         child.unref();
 
         res.writeHead(200, { "Content-Type": "application/json" });

@@ -32,6 +32,7 @@ Generate PNGs from `icon-logo.svg` at 192px and 512px. For maskable, add extra p
 ## Favicon
 
 Generate from `icon-logo.svg`:
+
 - `favicon.ico` — 16x16 + 32x32 multi-size
 - `apple-touch-icon.png` — 180x180
 
