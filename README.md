@@ -14,13 +14,13 @@ A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladiu
 
 ![StakTrakr Dashboard](screenshots/01-hero-overview.png)
 
-### Market Prices & Item View
+## Market Prices & Item View
 
 | Vendor Price Matrix | Item View Modal |
 |---|---|
 | ![Vendor Prices](screenshots/04-vendor-prices.png) | ![Item View](screenshots/06-item-view-modal.png) |
 
-### Settings
+## Settings
 
 | About | Appearance | Inventory |
 |---|---|---|

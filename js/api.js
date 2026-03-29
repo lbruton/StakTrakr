@@ -2138,7 +2138,7 @@ const testApiConnection = async (provider, apiKey) => {
  * @returns {Promise<void>} Resolves when the provider sync attempt completes
  */
 const handleProviderSync = async (provider) => {
-  let apiKey = '';
+  let apiKey = ''; // nosemgrep: codacy.javascript.security.hard-coded-password
   if (providerRequiresKey(provider)) {
     const keyInput = document.getElementById(`apiKey_${provider}`);
     if (!keyInput) return;

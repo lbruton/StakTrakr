@@ -6,7 +6,7 @@
 // Cloud Activity Log — records all cloud sync transactions
 // ---------------------------------------------------------------------------
 
-var CLOUD_ACTIVITY_KEY = 'cloud_activity_log';
+var CLOUD_ACTIVITY_KEY = 'cloud_activity_log'; // nosemgrep: codacy.javascript.security.hard-coded-password
 var CLOUD_ACTIVITY_MAX = 500;
 var CLOUD_ACTIVITY_MAX_AGE_DAYS = 180;
 
