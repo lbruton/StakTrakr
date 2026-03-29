@@ -329,10 +329,10 @@ const SUPPORTED_CURRENCIES = [
 ];
 
 /** @constant {string} DISPLAY_CURRENCY_KEY - LocalStorage key for display currency preference (STACK-50) */
-const DISPLAY_CURRENCY_KEY = "displayCurrency";
+const DISPLAY_CURRENCY_KEY = "displayCurrency"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} EXCHANGE_RATES_KEY - LocalStorage key for cached exchange rates (STACK-50) */
-const EXCHANGE_RATES_KEY = "exchangeRates";
+const EXCHANGE_RATES_KEY = "exchangeRates"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} EXCHANGE_RATE_API_URL - Free exchange rate API (no key required) */
 const EXCHANGE_RATE_API_URL = "https://open.er-api.com/v6/latest/USD";
@@ -499,34 +499,34 @@ function isDisposed(item) {
 }
 
 /** @constant {string} LS_KEY - LocalStorage key for inventory data */
-const LS_KEY = "metalInventory";
+const LS_KEY = "metalInventory"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} SERIAL_KEY - LocalStorage key for inventory serial counter */
-const SERIAL_KEY = "inventorySerial";
+const SERIAL_KEY = "inventorySerial"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} CATALOG_MAP_KEY - LocalStorage key for S#/N# associations */
-const CATALOG_MAP_KEY = "catalogMap";
+const CATALOG_MAP_KEY = "catalogMap"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} SPOT_HISTORY_KEY - LocalStorage key for spot price history */
-const SPOT_HISTORY_KEY = "metalSpotHistory";
+const SPOT_HISTORY_KEY = "metalSpotHistory"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} ITEM_PRICE_HISTORY_KEY - LocalStorage key for per-item price history (STACK-43) */
-const ITEM_PRICE_HISTORY_KEY = "item-price-history";
+const ITEM_PRICE_HISTORY_KEY = "item-price-history"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} GOLDBACK_PRICES_KEY - LocalStorage key for Goldback denomination prices (STACK-45) */
-const GOLDBACK_PRICES_KEY = "goldback-prices";
+const GOLDBACK_PRICES_KEY = "goldback-prices"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} GOLDBACK_PRICE_HISTORY_KEY - LocalStorage key for Goldback price history (STACK-45) */
-const GOLDBACK_PRICE_HISTORY_KEY = "goldback-price-history";
+const GOLDBACK_PRICE_HISTORY_KEY = "goldback-price-history"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_PRICES_KEY - LocalStorage key for current retail price snapshot */
-const RETAIL_PRICES_KEY = "retailPrices";
+const RETAIL_PRICES_KEY = "retailPrices"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_PRICE_HISTORY_KEY - LocalStorage key for retail price history */
-const RETAIL_PRICE_HISTORY_KEY = "retailPriceHistory";
+const RETAIL_PRICE_HISTORY_KEY = "retailPriceHistory"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_PROVIDERS_KEY - LocalStorage key for cached providers.json lookup map */
-const RETAIL_PROVIDERS_KEY = "retailProviders";
+const RETAIL_PROVIDERS_KEY = "retailProviders"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string[]} RETAIL_API_ENDPOINTS - Ordered list of retail API endpoints (primary first) */
 const RETAIL_API_ENDPOINTS = [
@@ -552,13 +552,13 @@ const V2_API_BASE_URL = V2_API_ENDPOINTS[0];
 const GOLDBACK_API_URL = "https://api.staktrakr.com/data/api/goldback-spot.json";
 
 /** @constant {string} RETAIL_INTRADAY_KEY - LocalStorage key for 15-min intraday window data */
-const RETAIL_INTRADAY_KEY = "retailIntradayData";
+const RETAIL_INTRADAY_KEY = "retailIntradayData"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_SYNC_LOG_KEY - LocalStorage key for retail background sync event log */
-const RETAIL_SYNC_LOG_KEY = "retailSyncLog";
+const RETAIL_SYNC_LOG_KEY = "retailSyncLog"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** Retail price availability data (out-of-stock detection) */
-const RETAIL_AVAILABILITY_KEY = "retailAvailability";
+const RETAIL_AVAILABILITY_KEY = "retailAvailability"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} RETAIL_ANOMALY_THRESHOLD - Max fractional deviation from window median before a vendor price is flagged anomalous (cross-vendor pass) */
 const RETAIL_ANOMALY_THRESHOLD = 0.40;
@@ -567,16 +567,16 @@ const RETAIL_ANOMALY_THRESHOLD = 0.40;
 const RETAIL_SPIKE_NEIGHBOR_TOLERANCE = 0.05;
 
 /** @constant {string} GOLDBACK_ENABLED_KEY - LocalStorage key for Goldback pricing toggle (STACK-45) */
-const GOLDBACK_ENABLED_KEY = "goldback-enabled";
+const GOLDBACK_ENABLED_KEY = "goldback-enabled"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} GOLDBACK_ESTIMATE_ENABLED_KEY - LocalStorage key for Goldback estimation toggle (STACK-52) */
-const GOLDBACK_ESTIMATE_ENABLED_KEY = "goldback-estimate-enabled";
+const GOLDBACK_ESTIMATE_ENABLED_KEY = "goldback-estimate-enabled"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} GB_ESTIMATE_PREMIUM - Default estimation premium multiplier (1.0 = no premium, pure 2x spot) */
 const GB_ESTIMATE_PREMIUM = 1.0;
 
 /** @constant {string} GB_ESTIMATE_MODIFIER_KEY - LocalStorage key for user-configurable premium modifier */
-const GB_ESTIMATE_MODIFIER_KEY = "goldback-estimate-modifier";
+const GB_ESTIMATE_MODIFIER_KEY = "goldback-estimate-modifier"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} GB_TO_OZT - Conversion factor: 1 Goldback = 0.001 troy oz 24K gold */
 const GB_TO_OZT = 0.001;
@@ -605,7 +605,7 @@ const GOLDBACK_DENOMINATIONS = [
 ];
 
 /** @constant {string} ITEM_TAGS_KEY - LocalStorage key for item tags mapping (STAK-126) */
-const ITEM_TAGS_KEY = "itemTags";
+const ITEM_TAGS_KEY = "itemTags"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} MAX_TAGS_PER_ITEM - Maximum number of tags allowed per item (STAK-126) */
 const MAX_TAGS_PER_ITEM = 20;
@@ -614,13 +614,13 @@ const MAX_TAGS_PER_ITEM = 20;
 const MAX_TAG_LENGTH = 50;
 
 /** @constant {string} CATALOG_HISTORY_KEY - LocalStorage key for catalog API call history */
-const CATALOG_HISTORY_KEY = "staktrakr.catalog.history";
+const CATALOG_HISTORY_KEY = "staktrakr.catalog.history"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} THEME_KEY - LocalStorage key for theme preference */
-const THEME_KEY = "appTheme";
+const THEME_KEY = "appTheme"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} ACK_DISMISSED_KEY - LocalStorage key for acknowledgment dismissal */
-const ACK_DISMISSED_KEY = "ackDismissed";
+const ACK_DISMISSED_KEY = "ackDismissed"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} STORAGE_PERSIST_GRANTED_KEY - LocalStorage key for storage persistence permission grant */
 const STORAGE_PERSIST_GRANTED_KEY = 'storagePersistGranted';
@@ -629,43 +629,43 @@ const STORAGE_PERSIST_GRANTED_KEY = 'storagePersistGranted';
 const IMAGE_ZIP_MANIFEST_VERSION = '1.0';
 
 /** @constant {string} CLOUD_VAULT_IDLE_TIMEOUT_KEY - LocalStorage key for vault password idle lock timeout in minutes (15|30|60|120|0=never) */
-const CLOUD_VAULT_IDLE_TIMEOUT_KEY = "cloud_vault_idle_timeout";
+const CLOUD_VAULT_IDLE_TIMEOUT_KEY = "cloud_vault_idle_timeout"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** App-namespace salt for Simple mode key derivation. Never change — changing invalidates all Simple-mode syncs. */
 const STAKTRAKR_SIMPLE_SALT = '53544b52:53494d504c45:76310000';
 
 /** @constant {string} API_KEY_STORAGE_KEY - LocalStorage key for API provider information */
-const API_KEY_STORAGE_KEY = "metalApiConfig";
+const API_KEY_STORAGE_KEY = "metalApiConfig"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} API_CACHE_KEY - LocalStorage key for cached API data */
-const API_CACHE_KEY = "metalApiCache";
+const API_CACHE_KEY = "metalApiCache"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} NUMISTA_RESPONSE_CACHE_KEY - 30-day per-type-ID Numista response cache */
-const NUMISTA_RESPONSE_CACHE_KEY = "numista_response_cache";
+const NUMISTA_RESPONSE_CACHE_KEY = "numista_response_cache"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} PCGS_RESPONSE_CACHE_KEY - 30-day per-cert/pcgs-number PCGS response cache */
-const PCGS_RESPONSE_CACHE_KEY = "pcgs_response_cache";
+const PCGS_RESPONSE_CACHE_KEY = "pcgs_response_cache"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} LAST_CACHE_REFRESH_KEY - LocalStorage key for last cache refresh timestamp */
-const LAST_CACHE_REFRESH_KEY = "lastCacheRefresh";
+const LAST_CACHE_REFRESH_KEY = "lastCacheRefresh"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} LAST_API_SYNC_KEY - LocalStorage key for last API sync timestamp */
-const LAST_API_SYNC_KEY = "lastApiSync";
+const LAST_API_SYNC_KEY = "lastApiSync"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} APP_VERSION_KEY - LocalStorage key for current app version */
-const APP_VERSION_KEY = "currentAppVersion";
+const APP_VERSION_KEY = "currentAppVersion"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} VERSION_ACK_KEY - LocalStorage key for acknowledged app version */
-const VERSION_ACK_KEY = "ackVersion";
+const VERSION_ACK_KEY = "ackVersion"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} LAST_VERSION_CHECK_KEY - LocalStorage key for last remote version check timestamp (STACK-67) */
-const LAST_VERSION_CHECK_KEY = "lastVersionCheck";
+const LAST_VERSION_CHECK_KEY = "lastVersionCheck"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} LATEST_REMOTE_VERSION_KEY - LocalStorage key for cached latest remote version (STACK-67) */
-const LATEST_REMOTE_VERSION_KEY = "latestRemoteVersion";
+const LATEST_REMOTE_VERSION_KEY = "latestRemoteVersion"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} LATEST_REMOTE_URL_KEY - LocalStorage key for cached latest remote release URL (STACK-67) */
-const LATEST_REMOTE_URL_KEY = "latestRemoteUrl";
+const LATEST_REMOTE_URL_KEY = "latestRemoteUrl"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} VERSION_CHECK_URL - Remote endpoint for latest version info (STACK-67) */
 const VERSION_CHECK_URL = "https://www.staktrakr.com/version.json";
@@ -674,76 +674,76 @@ const VERSION_CHECK_URL = "https://www.staktrakr.com/version.json";
 const VERSION_CHECK_TTL = 24 * 60 * 60 * 1000;
 
 /** @constant {string} FEATURE_FLAGS_KEY - LocalStorage key for feature flags */
-const FEATURE_FLAGS_KEY = "featureFlags";
+const FEATURE_FLAGS_KEY = "featureFlags"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} SPOT_TREND_RANGE_KEY - LocalStorage key for sparkline trend range preferences */
-const SPOT_TREND_RANGE_KEY = "spotTrendRange";
+const SPOT_TREND_RANGE_KEY = "spotTrendRange"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} SPOT_COMPARE_MODE_KEY - LocalStorage key for 24h % comparison mode (STACK-92) */
-const SPOT_COMPARE_MODE_KEY = "spotCompareMode";
+const SPOT_COMPARE_MODE_KEY = "spotCompareMode"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} TIMEZONE_KEY - LocalStorage key for display timezone preference (STACK-63) */
-const TIMEZONE_KEY = "appTimeZone";
+const TIMEZONE_KEY = "appTimeZone"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} ITEMS_PER_PAGE_KEY - LocalStorage key for items per page setting */
-const ITEMS_PER_PAGE_KEY = "settingsItemsPerPage";
+const ITEMS_PER_PAGE_KEY = "settingsItemsPerPage"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} CARD_STYLE_KEY - LocalStorage key for card view style (A/B/C/D) (STAK-118) */
-const CARD_STYLE_KEY = "cardViewStyle";
+const CARD_STYLE_KEY = "cardViewStyle"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} DESKTOP_CARD_VIEW_KEY - LocalStorage key for desktop card view toggle (STAK-118) */
-const DESKTOP_CARD_VIEW_KEY = "desktopCardView";
+const DESKTOP_CARD_VIEW_KEY = "desktopCardView"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} DEFAULT_SORT_COL_KEY - LocalStorage key for default inventory sort column */
-const DEFAULT_SORT_COL_KEY = "defaultSortColumn";
+const DEFAULT_SORT_COL_KEY = "defaultSortColumn"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} DEFAULT_SORT_DIR_KEY - LocalStorage key for default inventory sort direction */
-const DEFAULT_SORT_DIR_KEY = "defaultSortDir";
+const DEFAULT_SORT_DIR_KEY = "defaultSortDir"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} SHOW_REALIZED_KEY - LocalStorage key for showing realized G/L in summary cards (STAK-72) */
-const SHOW_REALIZED_KEY = "showRealizedGainLoss";
+const SHOW_REALIZED_KEY = "showRealizedGainLoss"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} METAL_ORDER_KEY - LocalStorage key for metal order/visibility config */
-const METAL_ORDER_KEY = "metalOrderConfig";
+const METAL_ORDER_KEY = "metalOrderConfig"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} SPOT_TREND_KEY - LocalStorage key for persisted spot trend period */
-const SPOT_TREND_KEY = "spotTrendPeriod";
+const SPOT_TREND_KEY = "spotTrendPeriod"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} HEADER_TREND_BTN_KEY - LocalStorage key for header trend button visibility */
-const HEADER_TREND_BTN_KEY = "headerTrendBtnVisible";
+const HEADER_TREND_BTN_KEY = "headerTrendBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} HEADER_SYNC_BTN_KEY - LocalStorage key for header sync button visibility */
-const HEADER_SYNC_BTN_KEY = "headerSyncBtnVisible";
+const HEADER_SYNC_BTN_KEY = "headerSyncBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} HEADER_MARKET_BTN_KEY - LocalStorage key for header market button visibility */
-const HEADER_MARKET_BTN_KEY = "headerMarketBtnVisible";
+const HEADER_MARKET_BTN_KEY = "headerMarketBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} HEADER_VAULT_BTN_KEY - LocalStorage key for header vault button visibility */
-const HEADER_VAULT_BTN_KEY = "headerVaultBtnVisible";
+const HEADER_VAULT_BTN_KEY = "headerVaultBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} HEADER_RESTORE_BTN_KEY - LocalStorage key for header restore button visibility */
-const HEADER_RESTORE_BTN_KEY = "headerRestoreBtnVisible";
+const HEADER_RESTORE_BTN_KEY = "headerRestoreBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} HEADER_CLOUD_SYNC_BTN_KEY - LocalStorage key for header cloud sync button visibility */
-const HEADER_CLOUD_SYNC_BTN_KEY = "headerCloudSyncBtnVisible";
+const HEADER_CLOUD_SYNC_BTN_KEY = "headerCloudSyncBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} HEADER_BTN_SHOW_TEXT_KEY - LocalStorage key for show-text-under-icons toggle */
-const HEADER_BTN_SHOW_TEXT_KEY = "headerBtnShowText";
+const HEADER_BTN_SHOW_TEXT_KEY = "headerBtnShowText"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_MANIFEST_TS_KEY - LocalStorage key for market manifest generated_at timestamp */
-const RETAIL_MANIFEST_TS_KEY = "retailManifestGeneratedAt";
+const RETAIL_MANIFEST_TS_KEY = "retailManifestGeneratedAt"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_MANIFEST_SLUGS_KEY - LocalStorage key for cached manifest coin slug list */
-const RETAIL_MANIFEST_SLUGS_KEY = "retailManifestSlugs";
+const RETAIL_MANIFEST_SLUGS_KEY = "retailManifestSlugs"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_MANIFEST_COIN_META_KEY - LocalStorage key for cached manifest coin metadata (canonical names, weights, metals) */
-const RETAIL_MANIFEST_COIN_META_KEY = "retailManifestCoinMeta";
+const RETAIL_MANIFEST_COIN_META_KEY = "retailManifestCoinMeta"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_MANIFEST_VENDOR_META_KEY - LocalStorage key for cached manifest vendor display metadata */
-const RETAIL_MANIFEST_VENDOR_META_KEY = "retailManifestVendorMeta";
+const RETAIL_MANIFEST_VENDOR_META_KEY = "retailManifestVendorMeta"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} RETAIL_TREND_MODE_KEY - LocalStorage key for retail trend display mode; stored values: "7d" or "intraday" */
-const RETAIL_TREND_MODE_KEY = "retailTrendMode";
+const RETAIL_TREND_MODE_KEY = "retailTrendMode"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 // =============================================================================
 // IMAGE PROCESSOR DEFAULTS (STACK-95)
