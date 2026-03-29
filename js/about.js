@@ -88,6 +88,11 @@ const loadAnnouncements = async () => {
     const res = await fetch("docs/announcements.md");
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const text = await res.text();
+    // STAK-513: Cloudflare Pages SPA fallback returns index.html (200 OK)
+    // for missing files. Detect HTML and fall through to embedded content.
+    if (text.trimStart().startsWith('<!') || text.trimStart().startsWith('<html')) {
+      throw new Error('Response is HTML, not markdown — SPA fallback detected');
+    }
 
     const section = (name) => {
       const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
