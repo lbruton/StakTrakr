@@ -623,7 +623,7 @@ const THEME_KEY = "appTheme"; // nosemgrep: codacy.javascript.security.hard-code
 const ACK_DISMISSED_KEY = "ackDismissed"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} STORAGE_PERSIST_GRANTED_KEY - LocalStorage key for storage persistence permission grant */
-const STORAGE_PERSIST_GRANTED_KEY = 'storagePersistGranted';
+const STORAGE_PERSIST_GRANTED_KEY = 'storagePersistGranted'; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} IMAGE_ZIP_MANIFEST_VERSION - Version string for the image ZIP export manifest format */
 const IMAGE_ZIP_MANIFEST_VERSION = '1.0';
@@ -804,7 +804,7 @@ const SYNC_BACKUP_FOLDER = '/StakTrakr/backups';
 const CLOUD_LATEST_FILENAME = 'staktrakr-latest.json';
 
 /** Cloud backup history depth — how many backups to retain */
-const CLOUD_BACKUP_HISTORY_KEY = 'cloud_backup_history_depth';
+const CLOUD_BACKUP_HISTORY_KEY = 'cloud_backup_history_depth'; // nosemgrep: codacy.javascript.security.hard-coded-password
 const CLOUD_BACKUP_HISTORY_DEFAULT = 5;
 const CLOUD_BACKUP_HISTORY_OPTIONS = [3, 5, 10, 20];
 
@@ -1485,7 +1485,7 @@ class FeatureFlags {
 
       // One-time migration (v3.26.01): re-enable FUZZY_AUTOCOMPLETE for users
       // who had it silently disabled before the settings toggle existed
-      const migrationKey = 'ff_migration_fuzzy_autocomplete';
+      const migrationKey = 'ff_migration_fuzzy_autocomplete'; // nosemgrep: codacy.javascript.security.hard-coded-password
       if (!localStorage.getItem(migrationKey) && parsed.FUZZY_AUTOCOMPLETE === false) {
         state.FUZZY_AUTOCOMPLETE = true;
         localStorage.setItem(migrationKey, '1');

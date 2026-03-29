@@ -94,7 +94,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         envBadge.style.display = '';
       }
       // One-time toast per session explaining data isolation
-      const toastKey = 'envToastShown';
+      const toastKey = 'envToastShown'; // nosemgrep: codacy.javascript.security.hard-coded-password
       if (!sessionStorage.getItem(toastKey)) {
         sessionStorage.setItem(toastKey, '1');
         const msg = envLabel.label === 'BETA'

@@ -149,9 +149,9 @@ const _fmtRetailPrice = (v) => (v != null ? `$${Number(v).toLocaleString('en-US'
 // ---------------------------------------------------------------------------
 
 // STAK-503: v2 storage key constants (strings match ALLOWED_STORAGE_KEYS in constants.js)
-const _V2_RETAIL_PRICES_KEY = "v2RetailPrices";
-const _V2_RETAIL_INTRADAY_KEY = "v2RetailIntraday";
-const _V2_RETAIL_HISTORY_KEY = "v2RetailHistory";
+const _V2_RETAIL_PRICES_KEY = "v2RetailPrices"; // nosemgrep: codacy.javascript.security.hard-coded-password
+const _V2_RETAIL_INTRADAY_KEY = "v2RetailIntraday"; // nosemgrep: codacy.javascript.security.hard-coded-password
+const _V2_RETAIL_HISTORY_KEY = "v2RetailHistory"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @type {{lastSync: string, window_start: string|null, prices: Object}|null} */
 let retailPrices = null;
