@@ -159,9 +159,12 @@ const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0, previou
       : '0s';
   }
 
-  if (previousTrack && previousTrack.parentNode === container) {
-    previousTrack.remove();
-  }
+  // STAK-513: Sweep ALL orphaned tracks, not just the one captured at call-time.
+  // Rapid re-renders with changing signatures can accumulate multiple tracks
+  // before any rAF fires — querySelector only finds the first, leaving the rest.
+  container.querySelectorAll('.ticker-track').forEach(t => {
+    if (t !== track) t.remove();
+  });
 };
 
 const renderBestPriceTicker = () => {
@@ -905,8 +908,10 @@ const _renderVendorTable = async (metalCode) => {
   scrollWrap.appendChild(table);
   tableWrap.appendChild(scrollWrap);
 
-  // Re-render ticker now that _cachedSlugDetail has fresh v2 stock data
-  renderBestPriceTicker();
+  // STAK-513: Removed redundant renderBestPriceTicker() call here.
+  // Both initMarketData and refreshMarketData already call it — re-calling
+  // inside the async _renderVendorTable completion was the primary trigger
+  // for the stale-reference race that duplicated ticker rows.
 };
 
 const renderVendorPrices = () => {
