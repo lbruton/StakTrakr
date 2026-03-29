@@ -67,5 +67,6 @@ deprecated/           export-ignore
 wiki/                 export-ignore
 
 # Misc repo assets
-ScreenshotStakTrakr.png  export-ignore
+screenshots/          export-ignore
+about.html            export-ignore
 version.json          export-ignore
