@@ -9,6 +9,161 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.87] - 2026-03-26
+
+### Added — Market Data Module (STAK-504)
+
+- **Added**: Best Price Ticker strip below spot cards showing cheapest vendor per coin with premium percentages (STAK-504)
+- **Added**: Vendor Prices comparison table with metal tabs (Gold/Silver/Platinum/Palladium/Goldback), per-vendor prices, premium badges, and clickable buy links opening vendor product pages (STAK-504)
+- **Added**: Market Detail Modal with TradingView Lightweight Charts 7-day spot history and per-vendor price comparison for any coin (STAK-504)
+- **Added**: Vendor Prices and Best Price Ticker sections are toggleable and reorderable in Settings > Layout (STAK-504)
+
+---
+
+## [3.33.86] - 2026-03-22
+
+### Fixed — What's New modal flash fix (STAK-500)
+
+- **Fixed**: What's New modal no longer flashes old content before showing current announcements — loadAnnouncements() race condition eliminated (STAK-500)
+
+---
+
+## [3.33.84] - 2026-03-22
+
+### Fixed — Market price fixes (STAK-498)
+
+- **Fixed**: JM Bullion price extraction now uses column-aware eCheck/Wire parser first, preventing inflated Card/PayPal prices (STAK-498)
+- **Fixed**: Goldback-g1 baseline reference no longer appears as a ghost card in market view (STAK-498)
+
+---
+
+## [3.33.83] - 2026-03-22
+
+### Fixed — Intraday chart 24h hourly view (STAK-498)
+
+- **Fixed**: Intraday charts now show exactly 24 hourly data points instead of 2-3 days of multi-day data with excessive dotted lines (STAK-498)
+- **Fixed**: Dotted chart lines only appear for genuinely missing data (2+ consecutive hour gaps), not for normal hourly polling jitter (STAK-498)
+- **Fixed**: Out-of-stock vendors excluded from intraday chart datasets — no more phantom lines for vendors with zero real prices (STAK-498)
+- **Fixed**: API `readRecentWindows()` uses time-based 24h cutoff instead of row-count over-fetch spanning multiple days (STAK-498)
+
+---
+
+## [3.33.82] - 2026-03-22
+
+### Removed — Remove decommissioned grid/card view code (STAK-473)
+
+- **Removed**: Dead grid/card view rendering code from retail.js (~260 lines) — `_buildRetailCard()`, `_renderRetailSparkline()`, `_retailSparklines` Map, and grid branch of `renderRetailCards()` (STAK-473)
+- **Removed**: `MARKET_LIST_VIEW` feature flag from constants.js — list view is now unconditional (STAK-473)
+- **Removed**: Orphaned `.retail-card-footer` and `.retail-sparkline` CSS rules (STAK-473)
+
+---
+
+## [3.33.81] - 2026-03-21
+
+### Added — Price bounds guard for retail poller (STAK-496)
+
+- **Added**: Dynamic price bounds check in `writeSnapshot()` rejects vendor prices >+50% or <-30% of spot-based melt value — prevents data pollution from wrong product pages, multi-packs, and scraper failures (STAK-496)
+- **Added**: Goldback baseline from `goldback-spot.json` G1 rate with gold spot fallback — denomination-aware for G1 through G50 (STAK-496)
+- **Added**: Per-vendor `skip_bounds` exemption in `provider_vendors` table for legitimate outliers like limited edition Goldbacks (STAK-496)
+
+---
+
+## [3.33.80] - 2026-03-21
+
+### Fixed — Chart daily average diverges from current price on volatile days (STAK-483)
+
+- **Fixed**: 7-day trend chart and trend badge now use live vendor prices for today's data point instead of a running daily average — eliminates visible divergence from market card on volatile days (STAK-483)
+
+---
+
+## [3.33.79] - 2026-03-21
+
+### Fixed — Cloud sync image vault erasure on cross-device push (STAK-497)
+
+- **Fixed**: Cloud sync preserves image vault metadata when pushing device has no photos — prevents erasing uploaded images from other devices (STAK-497)
+- **Fixed**: Inventory hash now includes content fingerprint (image URLs, numistaId, grade, disposition) — prevents silent poll skip when items have same keys but different field values (STAK-497)
+- **Fixed**: Image vault push/pull now logs all outcomes (success, skipped, fail) to Activity Log — previously only failures were visible (STAK-497)
+
+---
+
+## [3.33.78] - 2026-03-21
+
+### Fixed — Retail scraper consistency + OOS availability pipeline (STAK-475, STAK-495)
+
+- **Fixed**: JM Bullion extraction removes "As Low As" fallback — volume discount prices (10-90% below retail) no longer recorded (STAK-475 P2)
+- **Fixed**: Soft 404 detection for React SPAs — Monument Metals and similar sites now correctly flag OOS instead of scraping nav ticker spot prices (STAK-475)
+- **Fixed**: Monument Metals header/nav spot tickers stripped before price extraction to prevent false matches (STAK-475)
+- **Fixed**: Intraday chart carry-forward removed from API export — frontend `_forwardFillVendors()` now detects gaps and renders dashed lines for carried/stale prices (STAK-495-B)
+- **Added**: OOS vendor indicators on retail cards — dimmed rows with strikethrough price and "(OOS)" label, sorted below in-stock vendors (STAK-495-C)
+
+---
+
+## [3.33.77] - 2026-03-21
+
+### Fixed — Numista search on names with special characters (STAK-494)
+
+- **Fixed**: Numista search now strips operator characters (hyphens, parentheses, quotes, plus) from queries before sending to the API — items with official Numista-style names like "1 Dollar - Charles III (1st Portrait - Australian Kookaburra)" no longer timeout or return empty results (STAK-494)
+
+---
+
+## [3.33.76] - 2026-03-21
+
+### Fixed — Image thumbnail popover crash (STAK-492)
+
+- **Fixed**: Image thumbnail popover now opens correctly — `safeGetElement` returns a dummy object (not null) when element is absent, so `_openThumbPopover` crashed calling `.remove()` on the dummy. Existence check now uses `document.getElementById` directly (STAK-492)
+- **Fixed**: `createDummyElement()` now includes `.remove()`, `.dataset`, and `.classList` to prevent similar crashes in other callers
+
+---
+
+## [3.33.75] - 2026-03-21
+
+### Fixed — Cloud sync field coverage (STAK-493)
+
+- **Fixed**: Cloud sync now compares all item fields during diff — previously 15+ fields including image URLs, numistaId, year, grading, and disposition were silently dropped on matched items (STAK-493-A)
+- **Fixed**: Manifest-first sync path now resolves full item objects from the vault instead of inserting stub items missing all fields except name (STAK-493-B)
+- **Fixed**: changeLog manifest tracks all item fields to match diff engine coverage (STAK-493-A)
+
+---
+
+## [3.33.74] - 2026-03-21
+
+### Fixed — Graceful SW update — auto-reload on cache miss
+
+- **Fixed**: Network-first navigation prevents stale HTML after file-restructuring deploys (STAK-485)
+- **Fixed**: Smart error recovery detects stale cache ReferenceErrors and auto-reloads instead of showing a scary error dialog (STAK-485)
+- **Fixed**: Cloud sync guard prevents data corruption during SW cache transitions (STAK-485)
+
+---
+
+## [3.33.73] - 2026-03-20
+
+### Fixed — Stored URLs as single source of truth for images
+
+- **Fixed**: View modal no longer independently fetches images from Numista API — stored URLs and user uploads are the single source of truth for images everywhere (STAK-489)
+- **Fixed**: Numista search "Fill Fields" now always writes image URLs when checkbox is checked, even when editing items with existing images (STAK-488)
+- **Fixed**: Image URL input wrappers now become visible after Fill Fields, giving visual feedback that URLs were populated (STAK-488)
+
+---
+
+## [3.33.72] - 2026-03-20
+
+### Fixed — Allow clearing Numista metadata fields
+
+- **Fixed**: Numista metadata fields (KM Reference, country, denomination, etc.) can now be cleared and saved as empty — previously the `||` fallback chain treated empty strings as falsy and restored the previous value, making it impossible to delete incorrect data (STAK-487)
+
+---
+
+## [3.33.71] - 2026-03-18
+
+### Added — Modularize large JS files: chart-utils, inventory split, convention migration
+
+- **Added**: Shared chart utility library `js/chart-utils.js` with 6 exported functions — eliminates 11 duplicate `new Chart()` patterns across 7 files (STAK-484)
+- **Changed**: Split `inventory.js` (4,504 → 1,744 lines) into 4 focused modules: `inventory-backup.js`, `inventory-import.js`, `inventory-table.js`, plus core (STAK-484)
+- **Changed**: Migrated 53 `getElementById` → `safeGetElement`, 5 `localStorage` → `saveData`/`loadData`, 23 `var` → `const` across inventory and events files (STAK-484)
+- **Changed**: All new modules use IIFE + `window.*` pattern — `file://` protocol continues to work
+
+---
+
 ## [3.33.70] - 2026-03-18
 
 ### Added — Intraday trends, aggregation fixes, CF bypass hardening

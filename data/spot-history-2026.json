@@ -1,1 +1,1262 @@
-[{"spot": 4386.85, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-02 12:00:00"}, {"spot": 1649.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-02 12:00:00"}, {"spot": 2133.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-02 12:00:00"}, {"spot": 74.215, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-02 12:00:00"}, {"spot": 4436.7, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-05 12:00:00"}, {"spot": 1677.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-05 12:00:00"}, {"spot": 2221.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-05 12:00:00"}, {"spot": 75.07, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-05 12:00:00"}, {"spot": 4452.75, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-06 12:00:00"}, {"spot": 1717.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-06 12:00:00"}, {"spot": 2310.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-06 12:00:00"}, {"spot": 78.475, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-06 12:00:00"}, {"spot": 4459.55, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-07 12:00:00"}, {"spot": 1755.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-07 12:00:00"}, {"spot": 2319.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-07 12:00:00"}, {"spot": 78.985, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-07 12:00:00"}, {"spot": 4432.1, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-08 12:00:00"}, {"spot": 1725.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-08 12:00:00"}, {"spot": 2225.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-08 12:00:00"}, {"spot": 75.205, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-08 12:00:00"}, {"spot": 4471.2, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-09 12:00:00"}, {"spot": 1850.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-09 12:00:00"}, {"spot": 2295.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-09 12:00:00"}, {"spot": 78.14, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-09 12:00:00"}, {"spot": 4587.7, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-12 12:00:00"}, {"spot": 1878.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-12 12:00:00"}, {"spot": 2377.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-12 12:00:00"}, {"spot": 84.07, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-12 12:00:00"}, {"spot": 4582.8, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-13 12:00:00"}, {"spot": 1829.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-13 12:00:00"}, {"spot": 2345.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-13 12:00:00"}, {"spot": 85.82, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-13 12:00:00"}, {"spot": 4633.0, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-14 12:00:00"}, {"spot": 1844.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-14 12:00:00"}, {"spot": 2401.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-14 12:00:00"}, {"spot": 91.095, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-14 12:00:00"}, {"spot": 4611.1, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-15 12:00:00"}, {"spot": 1801.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-15 12:00:00"}, {"spot": 2342.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-15 12:00:00"}, {"spot": 91.265, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-15 12:00:00"}, {"spot": 4607.25, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-16 12:00:00"}, {"spot": 1755.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-16 12:00:00"}, {"spot": 2346.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-16 12:00:00"}, {"spot": 90.8, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-16 12:00:00"}, {"spot": 4664.95, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-19 12:00:00"}, {"spot": 1812.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-19 12:00:00"}, {"spot": 2362.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-19 12:00:00"}, {"spot": 93.005, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-19 12:00:00"}, {"spot": 4723.95, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-20 12:00:00"}, {"spot": 1858.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-20 12:00:00"}, {"spot": 2397.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-20 12:00:00"}, {"spot": 95.7, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-20 12:00:00"}, {"spot": 4860.75, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-21 12:00:00"}, {"spot": 1867.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-21 12:00:00"}, {"spot": 2462.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-21 12:00:00"}, {"spot": 94.855, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-21 12:00:00"}, {"spot": 4825.55, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-22 12:00:00"}, {"spot": 1860.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-22 12:00:00"}, {"spot": 2480.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-22 12:00:00"}, {"spot": 93.38, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-22 12:00:00"}, {"spot": 4926.2, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-23 12:00:00"}, {"spot": 1912.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-23 12:00:00"}, {"spot": 2663.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-23 12:00:00"}, {"spot": 99.0, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-23 12:00:00"}, {"spot": 5093.55, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-26 12:00:00"}, {"spot": 2090.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-26 12:00:00"}, {"spot": 2860.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-26 12:00:00"}, {"spot": 109.605, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-26 12:00:00"}, {"spot": 5088.1, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-27 12:00:00"}, {"spot": 2051.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-27 12:00:00"}, {"spot": 2685.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-27 12:00:00"}, {"spot": 111.565, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-27 12:00:00"}, {"spot": 5277.8, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-28 12:00:00"}, {"spot": 1947.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-28 12:00:00"}, {"spot": 2630.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-28 12:00:00"}, {"spot": 112.795, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-28 12:00:00"}, {"spot": 5501.7, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-29 12:00:00"}, {"spot": 2076.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-29 12:00:00"}, {"spot": 2755.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-29 12:00:00"}, {"spot": 118.45, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-29 12:00:00"}, {"spot": 5063.45, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-30 12:00:00"}, {"spot": 1775.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-30 12:00:00"}, {"spot": 2210.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-30 12:00:00"}, {"spot": 103.19, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-01-30 12:00:00"}, {"spot": 4685.45, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-02 12:00:00"}, {"spot": 1671.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-02 12:00:00"}, {"spot": 2063.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-02 12:00:00"}, {"spot": 81.975, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-02 12:00:00"}, {"spot": 4923.65, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-03 12:00:00"}, {"spot": 1808.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-03 12:00:00"}, {"spot": 2241.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-03 12:00:00"}, {"spot": 87.49, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-03 12:00:00"}, {"spot": 5051.75, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-04 12:00:00"}, {"spot": 1834.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-04 12:00:00"}, {"spot": 2283.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-04 12:00:00"}, {"spot": 90.59, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-04 12:00:00"}, {"spot": 4859.1, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-05 12:00:00"}, {"spot": 1738.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-05 12:00:00"}, {"spot": 2120.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-05 12:00:00"}, {"spot": 78.71, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-05 12:00:00"}, {"spot": 4870.1, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-06 12:00:00"}, {"spot": 1651.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-06 12:00:00"}, {"spot": 2012.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-06 12:00:00"}, {"spot": 74.94, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-06 12:00:00"}, {"spot": 4992.5, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-09 12:00:00"}, {"spot": 1701.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-09 12:00:00"}, {"spot": 2069.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-09 12:00:00"}, {"spot": 80.36, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-09 12:00:00"}, {"spot": 5047.95, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-10 12:00:00"}, {"spot": 1729.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-10 12:00:00"}, {"spot": 2099.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-10 12:00:00"}, {"spot": 82.28, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-10 12:00:00"}, {"spot": 5070.3, "metal": "Gold", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-11 12:00:00"}, {"spot": 1761.0, "metal": "Palladium", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-11 12:00:00"}, {"spot": 2178.0, "metal": "Platinum", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-11 12:00:00"}, {"spot": 86.1, "metal": "Silver", "source": "seed", "provider": "LBMA", "timestamp": "2026-02-11 12:00:00"}, {"spot": 5049.89, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-12 12:00:00"}, {"spot": 1696.59, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-12 12:00:00"}, {"spot": 2083.54, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-12 12:00:00"}, {"spot": 82.39, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-12 12:00:00"}, {"spot": 4952.29, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-13 12:00:00"}, {"spot": 1650.97, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-13 12:00:00"}, {"spot": 2025.47, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-13 12:00:00"}, {"spot": 76.56, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-13 12:00:00"}, {"spot": 5041.6, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-14 12:00:00"}, {"spot": 1698.11, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-14 12:00:00"}, {"spot": 2061.04, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-14 12:00:00"}, {"spot": 77.4, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-14 12:00:00"}, {"spot": 5042.34, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-15 12:00:00"}, {"spot": 1702.87, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-15 12:00:00"}, {"spot": 2065.64, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-15 12:00:00"}, {"spot": 77.4, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-15 12:00:00"}, {"spot": 4977.38, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-16 12:00:00"}, {"spot": 1699.33, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-16 12:00:00"}, {"spot": 2048.2, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-16 12:00:00"}, {"spot": 75.18, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-16 12:00:00"}, {"spot": 4875.96, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-17 12:00:00"}, {"spot": 1691.01, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-17 12:00:00"}, {"spot": 2018.12, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-17 12:00:00"}, {"spot": 73.48, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-17 12:00:00"}, {"spot": 5000.8, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-18 12:00:00"}, {"spot": 1730.83, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-18 12:00:00"}, {"spot": 2085.34, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-18 12:00:00"}, {"spot": 77.88, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-18 12:00:00"}, {"spot": 5001.54, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-19 12:00:00"}, {"spot": 1691.95, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-19 12:00:00"}, {"spot": 2070.99, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-19 12:00:00"}, {"spot": 77.87, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-19 12:00:00"}, {"spot": 5065.11, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-20 12:00:00"}, {"spot": 1757.19, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-20 12:00:00"}, {"spot": 2154.44, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-20 12:00:00"}, {"spot": 82.36, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-20 12:00:00"}, {"spot": 5107.34, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-21 12:00:00"}, {"spot": 1764.33, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-21 12:00:00"}, {"spot": 2161.6, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-21 12:00:00"}, {"spot": 84.72, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-02-21 12:00:00"}, {"spot": 5105.45, "metal": "Gold", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-22 12:00:00"}, {"spot": 1766.71, "metal": "Palladium", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-22 12:00:00"}, {"spot": 2163.5, "metal": "Platinum", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-22 12:00:00"}, {"spot": 84.75, "metal": "Silver", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-22 12:00:00"}, {"spot": 5214.24, "metal": "Gold", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-23 12:00:00"}, {"spot": 1761.83, "metal": "Palladium", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-23 12:00:00"}, {"spot": 2150.46, "metal": "Platinum", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-23 12:00:00"}, {"spot": 87.14, "metal": "Silver", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-23 12:00:00"}, {"spot": 5136.06, "metal": "Gold", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-24 12:00:00"}, {"spot": 1774.73, "metal": "Palladium", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-24 12:00:00"}, {"spot": 2147.33, "metal": "Platinum", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-24 12:00:00"}, {"spot": 87.08, "metal": "Silver", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-24 12:00:00"}, {"spot": 5212.1, "metal": "Gold", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-25 12:00:00"}, {"spot": 1816.48, "metal": "Palladium", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-25 12:00:00"}, {"spot": 2320.54, "metal": "Platinum", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-25 12:00:00"}, {"spot": 90.78, "metal": "Silver", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-25 12:00:00"}, {"spot": 5178.7, "metal": "Gold", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-26 12:00:00"}, {"spot": 1761.6, "metal": "Palladium", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-26 12:00:00"}, {"spot": 2236.96, "metal": "Platinum", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-26 12:00:00"}, {"spot": 86.7, "metal": "Silver", "source": "seed", "provider": "StakTrakr", "timestamp": "2026-02-26 12:00:00"}, {"spot": 5137.1, "metal": "Gold", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-03-09 12:00:00"}, {"spot": 1691.97, "metal": "Palladium", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-03-09 12:00:00"}, {"spot": 2185.18, "metal": "Platinum", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-03-09 12:00:00"}, {"spot": 86.21, "metal": "Silver", "source": "seed", "provider": "MetalPriceAPI", "timestamp": "2026-03-09 12:00:00"}]
+[
+  {
+    "spot": 4386.85,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-02 12:00:00"
+  },
+  {
+    "spot": 1649.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-02 12:00:00"
+  },
+  {
+    "spot": 2133.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-02 12:00:00"
+  },
+  {
+    "spot": 74.215,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-02 12:00:00"
+  },
+  {
+    "spot": 4436.7,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-05 12:00:00"
+  },
+  {
+    "spot": 1677.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-05 12:00:00"
+  },
+  {
+    "spot": 2221.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-05 12:00:00"
+  },
+  {
+    "spot": 75.07,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-05 12:00:00"
+  },
+  {
+    "spot": 4452.75,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-06 12:00:00"
+  },
+  {
+    "spot": 1717.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-06 12:00:00"
+  },
+  {
+    "spot": 2310.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-06 12:00:00"
+  },
+  {
+    "spot": 78.475,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-06 12:00:00"
+  },
+  {
+    "spot": 4459.55,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-07 12:00:00"
+  },
+  {
+    "spot": 1755.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-07 12:00:00"
+  },
+  {
+    "spot": 2319.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-07 12:00:00"
+  },
+  {
+    "spot": 78.985,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-07 12:00:00"
+  },
+  {
+    "spot": 4432.1,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-08 12:00:00"
+  },
+  {
+    "spot": 1725.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-08 12:00:00"
+  },
+  {
+    "spot": 2225.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-08 12:00:00"
+  },
+  {
+    "spot": 75.205,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-08 12:00:00"
+  },
+  {
+    "spot": 4471.2,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-09 12:00:00"
+  },
+  {
+    "spot": 1850.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-09 12:00:00"
+  },
+  {
+    "spot": 2295.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-09 12:00:00"
+  },
+  {
+    "spot": 78.14,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-09 12:00:00"
+  },
+  {
+    "spot": 4587.7,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-12 12:00:00"
+  },
+  {
+    "spot": 1878.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-12 12:00:00"
+  },
+  {
+    "spot": 2377.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-12 12:00:00"
+  },
+  {
+    "spot": 84.07,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-12 12:00:00"
+  },
+  {
+    "spot": 4582.8,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-13 12:00:00"
+  },
+  {
+    "spot": 1829.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-13 12:00:00"
+  },
+  {
+    "spot": 2345.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-13 12:00:00"
+  },
+  {
+    "spot": 85.82,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-13 12:00:00"
+  },
+  {
+    "spot": 4633.0,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-14 12:00:00"
+  },
+  {
+    "spot": 1844.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-14 12:00:00"
+  },
+  {
+    "spot": 2401.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-14 12:00:00"
+  },
+  {
+    "spot": 91.095,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-14 12:00:00"
+  },
+  {
+    "spot": 4611.1,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-15 12:00:00"
+  },
+  {
+    "spot": 1801.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-15 12:00:00"
+  },
+  {
+    "spot": 2342.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-15 12:00:00"
+  },
+  {
+    "spot": 91.265,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-15 12:00:00"
+  },
+  {
+    "spot": 4607.25,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-16 12:00:00"
+  },
+  {
+    "spot": 1755.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-16 12:00:00"
+  },
+  {
+    "spot": 2346.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-16 12:00:00"
+  },
+  {
+    "spot": 90.8,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-16 12:00:00"
+  },
+  {
+    "spot": 4664.95,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-19 12:00:00"
+  },
+  {
+    "spot": 1812.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-19 12:00:00"
+  },
+  {
+    "spot": 2362.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-19 12:00:00"
+  },
+  {
+    "spot": 93.005,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-19 12:00:00"
+  },
+  {
+    "spot": 4723.95,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-20 12:00:00"
+  },
+  {
+    "spot": 1858.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-20 12:00:00"
+  },
+  {
+    "spot": 2397.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-20 12:00:00"
+  },
+  {
+    "spot": 95.7,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-20 12:00:00"
+  },
+  {
+    "spot": 4860.75,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-21 12:00:00"
+  },
+  {
+    "spot": 1867.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-21 12:00:00"
+  },
+  {
+    "spot": 2462.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-21 12:00:00"
+  },
+  {
+    "spot": 94.855,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-21 12:00:00"
+  },
+  {
+    "spot": 4825.55,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-22 12:00:00"
+  },
+  {
+    "spot": 1860.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-22 12:00:00"
+  },
+  {
+    "spot": 2480.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-22 12:00:00"
+  },
+  {
+    "spot": 93.38,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-22 12:00:00"
+  },
+  {
+    "spot": 4926.2,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-23 12:00:00"
+  },
+  {
+    "spot": 1912.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-23 12:00:00"
+  },
+  {
+    "spot": 2663.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-23 12:00:00"
+  },
+  {
+    "spot": 99.0,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-23 12:00:00"
+  },
+  {
+    "spot": 5093.55,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-26 12:00:00"
+  },
+  {
+    "spot": 2090.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-26 12:00:00"
+  },
+  {
+    "spot": 2860.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-26 12:00:00"
+  },
+  {
+    "spot": 109.605,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-26 12:00:00"
+  },
+  {
+    "spot": 5088.1,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-27 12:00:00"
+  },
+  {
+    "spot": 2051.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-27 12:00:00"
+  },
+  {
+    "spot": 2685.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-27 12:00:00"
+  },
+  {
+    "spot": 111.565,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-27 12:00:00"
+  },
+  {
+    "spot": 5277.8,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-28 12:00:00"
+  },
+  {
+    "spot": 1947.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-28 12:00:00"
+  },
+  {
+    "spot": 2630.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-28 12:00:00"
+  },
+  {
+    "spot": 112.795,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-28 12:00:00"
+  },
+  {
+    "spot": 5501.7,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-29 12:00:00"
+  },
+  {
+    "spot": 2076.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-29 12:00:00"
+  },
+  {
+    "spot": 2755.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-29 12:00:00"
+  },
+  {
+    "spot": 118.45,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-29 12:00:00"
+  },
+  {
+    "spot": 5063.45,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-30 12:00:00"
+  },
+  {
+    "spot": 1775.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-30 12:00:00"
+  },
+  {
+    "spot": 2210.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-30 12:00:00"
+  },
+  {
+    "spot": 103.19,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-01-30 12:00:00"
+  },
+  {
+    "spot": 4685.45,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-02 12:00:00"
+  },
+  {
+    "spot": 1671.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-02 12:00:00"
+  },
+  {
+    "spot": 2063.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-02 12:00:00"
+  },
+  {
+    "spot": 81.975,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-02 12:00:00"
+  },
+  {
+    "spot": 4923.65,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-03 12:00:00"
+  },
+  {
+    "spot": 1808.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-03 12:00:00"
+  },
+  {
+    "spot": 2241.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-03 12:00:00"
+  },
+  {
+    "spot": 87.49,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-03 12:00:00"
+  },
+  {
+    "spot": 5051.75,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-04 12:00:00"
+  },
+  {
+    "spot": 1834.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-04 12:00:00"
+  },
+  {
+    "spot": 2283.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-04 12:00:00"
+  },
+  {
+    "spot": 90.59,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-04 12:00:00"
+  },
+  {
+    "spot": 4859.1,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-05 12:00:00"
+  },
+  {
+    "spot": 1738.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-05 12:00:00"
+  },
+  {
+    "spot": 2120.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-05 12:00:00"
+  },
+  {
+    "spot": 78.71,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-05 12:00:00"
+  },
+  {
+    "spot": 4870.1,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-06 12:00:00"
+  },
+  {
+    "spot": 1651.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-06 12:00:00"
+  },
+  {
+    "spot": 2012.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-06 12:00:00"
+  },
+  {
+    "spot": 74.94,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-06 12:00:00"
+  },
+  {
+    "spot": 4992.5,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-09 12:00:00"
+  },
+  {
+    "spot": 1701.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-09 12:00:00"
+  },
+  {
+    "spot": 2069.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-09 12:00:00"
+  },
+  {
+    "spot": 80.36,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-09 12:00:00"
+  },
+  {
+    "spot": 5047.95,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-10 12:00:00"
+  },
+  {
+    "spot": 1729.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-10 12:00:00"
+  },
+  {
+    "spot": 2099.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-10 12:00:00"
+  },
+  {
+    "spot": 82.28,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-10 12:00:00"
+  },
+  {
+    "spot": 5070.3,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-11 12:00:00"
+  },
+  {
+    "spot": 1761.0,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-11 12:00:00"
+  },
+  {
+    "spot": 2178.0,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-11 12:00:00"
+  },
+  {
+    "spot": 86.1,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "LBMA",
+    "timestamp": "2026-02-11 12:00:00"
+  },
+  {
+    "spot": 5049.89,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-12 12:00:00"
+  },
+  {
+    "spot": 1696.59,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-12 12:00:00"
+  },
+  {
+    "spot": 2083.54,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-12 12:00:00"
+  },
+  {
+    "spot": 82.39,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-12 12:00:00"
+  },
+  {
+    "spot": 4952.29,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-13 12:00:00"
+  },
+  {
+    "spot": 1650.97,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-13 12:00:00"
+  },
+  {
+    "spot": 2025.47,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-13 12:00:00"
+  },
+  {
+    "spot": 76.56,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-13 12:00:00"
+  },
+  {
+    "spot": 5041.6,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-14 12:00:00"
+  },
+  {
+    "spot": 1698.11,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-14 12:00:00"
+  },
+  {
+    "spot": 2061.04,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-14 12:00:00"
+  },
+  {
+    "spot": 77.4,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-14 12:00:00"
+  },
+  {
+    "spot": 5042.34,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-15 12:00:00"
+  },
+  {
+    "spot": 1702.87,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-15 12:00:00"
+  },
+  {
+    "spot": 2065.64,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-15 12:00:00"
+  },
+  {
+    "spot": 77.4,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-15 12:00:00"
+  },
+  {
+    "spot": 4977.38,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-16 12:00:00"
+  },
+  {
+    "spot": 1699.33,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-16 12:00:00"
+  },
+  {
+    "spot": 2048.2,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-16 12:00:00"
+  },
+  {
+    "spot": 75.18,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-16 12:00:00"
+  },
+  {
+    "spot": 4875.96,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-17 12:00:00"
+  },
+  {
+    "spot": 1691.01,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-17 12:00:00"
+  },
+  {
+    "spot": 2018.12,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-17 12:00:00"
+  },
+  {
+    "spot": 73.48,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-17 12:00:00"
+  },
+  {
+    "spot": 5000.8,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-18 12:00:00"
+  },
+  {
+    "spot": 1730.83,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-18 12:00:00"
+  },
+  {
+    "spot": 2085.34,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-18 12:00:00"
+  },
+  {
+    "spot": 77.88,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-18 12:00:00"
+  },
+  {
+    "spot": 5001.54,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-19 12:00:00"
+  },
+  {
+    "spot": 1691.95,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-19 12:00:00"
+  },
+  {
+    "spot": 2070.99,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-19 12:00:00"
+  },
+  {
+    "spot": 77.87,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-19 12:00:00"
+  },
+  {
+    "spot": 5065.11,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-20 12:00:00"
+  },
+  {
+    "spot": 1757.19,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-20 12:00:00"
+  },
+  {
+    "spot": 2154.44,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-20 12:00:00"
+  },
+  {
+    "spot": 82.36,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-20 12:00:00"
+  },
+  {
+    "spot": 5107.34,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-21 12:00:00"
+  },
+  {
+    "spot": 1764.33,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-21 12:00:00"
+  },
+  {
+    "spot": 2161.6,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-21 12:00:00"
+  },
+  {
+    "spot": 84.72,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-02-21 12:00:00"
+  },
+  {
+    "spot": 5105.45,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-22 12:00:00"
+  },
+  {
+    "spot": 1766.71,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-22 12:00:00"
+  },
+  {
+    "spot": 2163.5,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-22 12:00:00"
+  },
+  {
+    "spot": 84.75,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-22 12:00:00"
+  },
+  {
+    "spot": 5214.24,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-23 12:00:00"
+  },
+  {
+    "spot": 1761.83,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-23 12:00:00"
+  },
+  {
+    "spot": 2150.46,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-23 12:00:00"
+  },
+  {
+    "spot": 87.14,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-23 12:00:00"
+  },
+  {
+    "spot": 5136.06,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-24 12:00:00"
+  },
+  {
+    "spot": 1774.73,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-24 12:00:00"
+  },
+  {
+    "spot": 2147.33,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-24 12:00:00"
+  },
+  {
+    "spot": 87.08,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-24 12:00:00"
+  },
+  {
+    "spot": 5212.1,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-25 12:00:00"
+  },
+  {
+    "spot": 1816.48,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-25 12:00:00"
+  },
+  {
+    "spot": 2320.54,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-25 12:00:00"
+  },
+  {
+    "spot": 90.78,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-25 12:00:00"
+  },
+  {
+    "spot": 5178.7,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-26 12:00:00"
+  },
+  {
+    "spot": 1761.6,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-26 12:00:00"
+  },
+  {
+    "spot": 2236.96,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-26 12:00:00"
+  },
+  {
+    "spot": 86.7,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "StakTrakr",
+    "timestamp": "2026-02-26 12:00:00"
+  },
+  {
+    "spot": 5137.1,
+    "metal": "Gold",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-03-09 12:00:00"
+  },
+  {
+    "spot": 1691.97,
+    "metal": "Palladium",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-03-09 12:00:00"
+  },
+  {
+    "spot": 2185.18,
+    "metal": "Platinum",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-03-09 12:00:00"
+  },
+  {
+    "spot": 86.21,
+    "metal": "Silver",
+    "source": "seed",
+    "provider": "MetalPriceAPI",
+    "timestamp": "2026-03-09 12:00:00"
+  }
+]

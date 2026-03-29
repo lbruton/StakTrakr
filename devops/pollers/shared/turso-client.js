@@ -56,6 +56,7 @@ export async function initTursoSchema(client) {
     "CREATE INDEX IF NOT EXISTS idx_window ON price_snapshots(window_start);",
     "CREATE INDEX IF NOT EXISTS idx_coin_date ON price_snapshots(coin_slug, substr(window_start, 1, 10));",
     "CREATE INDEX IF NOT EXISTS idx_coin_vendor_stock ON price_snapshots(coin_slug, vendor, in_stock, scraped_at DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_scraped_at ON price_snapshots(scraped_at);",
   ];
 
   for (const sql of indexes) {

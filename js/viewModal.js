@@ -71,15 +71,13 @@ async function showViewModal(index) {
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
-  // Load images and Numista data asynchronously after modal is visible
-  // Share a single API result to avoid duplicate calls
+  // Load images from stored URLs / user uploads only — no API fallback.
+  // STAK-489: Stored URLs are the single source of truth for images everywhere.
+  // Users populate images via Search → Fill Fields or manual URL entry in the edit form.
   const catalogId = item.numistaId || '';
   let apiResult = null;
 
-  // Try loading images from cache/item first
-  const cacheResult = await loadViewImages(item, body);
-  const imagesLoaded = cacheResult.loaded;
-  const imageSource = cacheResult.source;
+  await loadViewImages(item, body);
 
   // Check whether metadata is already cached in IndexedDB
   let metaCached = false;
@@ -90,29 +88,12 @@ async function showViewModal(index) {
     } catch { /* ignore */ }
   }
 
-  // Only hit the API when images are missing OR metadata is not in cache
-  if (catalogId && (!imagesLoaded || !metaCached)) {
+  // Fetch API result only for metadata enrichment — not for images
+  if (catalogId && !metaCached) {
     apiResult = await _fetchNumistaResult(catalogId);
   }
 
-  // Fill images from API result when no images were loaded at all
-  const shouldReplaceWithApi = !imagesLoaded;
-
-  if (shouldReplaceWithApi && apiResult && (apiResult.imageUrl || apiResult.reverseImageUrl)) {
-    const section = body.querySelector('#viewImageSection');
-    if (section) {
-      const slots = section.querySelectorAll('.view-image-slot');
-      if (apiResult.imageUrl) _setSlotImage(slots[0], apiResult.imageUrl);
-      if (apiResult.reverseImageUrl) _setSlotImage(slots[1], apiResult.reverseImageUrl);
-    }
-  }
-
-  // Do NOT persist CDN URLs from the view modal back to the inventory item (STAK-311).
-  // Writing here bypasses the save-path image priority cascade and can stick URLs to
-  // items that the user has deliberately cleared. URLs are written only via the edit
-  // form save path and the bulk-sync operation.
-
-  // Load Numista enrichment section
+  // Load Numista enrichment section (country, denomination, composition, etc.)
   await loadViewNumistaData(item, body, apiResult);
 }
 
@@ -1467,63 +1448,55 @@ function _createPriceHistoryChart(canvas, allSpotEntries, allRetailEntries, purc
     },
   ];
 
-  _viewModalChartInstance = new Chart(canvas, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 400 },
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          ticks: {
-            color: textColor,
-            maxTicksLimit: 6,
-            autoSkip: true,
-            font: { size: 10 }
-          },
-          grid: { display: false }
-        },
-        y: {
-          ticks: {
-            color: textColor,
-            font: { size: 10 },
-            callback: function(value) {
-              return typeof formatCurrency === 'function' ? formatCurrency(value) : '$' + value;
-            }
-          },
-          grid: { color: 'rgba(128,128,128,0.1)' }
-        }
-      },
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: textColor,
-            usePointStyle: true,
-            pointStyle: 'line',
-            padding: 12,
-            font: { size: 10 }
-          }
-        },
-        tooltip: {
-          backgroundColor: bgColor,
-          titleColor: textColor,
-          bodyColor: textColor,
-          borderColor: textColor,
-          borderWidth: 1,
-          callbacks: {
-            label: function(ctx) {
-              if (ctx.parsed.y === null) return null;
-              const val = typeof formatCurrency === 'function' ? formatCurrency(ctx.parsed.y) : '$' + ctx.parsed.y;
-              return `${ctx.dataset.label}: ${val}`;
-            }
-          }
-        }
+  _viewModalChartInstance = createTimeSeriesChart(canvas, labels, datasets, {
+    animation: { duration: 400 },
+    showLegend: true,
+    xTicks: {
+      color: textColor,
+      maxTicksLimit: 6,
+      autoSkip: true,
+      font: { size: 10 }
+    },
+    yTicks: {
+      color: textColor,
+      font: { size: 10 },
+      callback: function(value) {
+        return typeof formatCurrency === 'function' ? formatCurrency(value) : '$' + value;
       }
-    }
+    },
+    tooltipCallbacks: {
+      label: function(ctx) {
+        if (ctx.parsed.y === null) return null;
+        const val = typeof formatCurrency === 'function' ? formatCurrency(ctx.parsed.y) : '$' + ctx.parsed.y;
+        return `${ctx.dataset.label}: ${val}`;
+      }
+    },
   });
+
+  // Apply chart-specific overrides not covered by createTimeSeriesChart
+  if (_viewModalChartInstance) {
+    const chartOpts = _viewModalChartInstance.options;
+    chartOpts.scales.x.grid = { display: false };
+    chartOpts.scales.y.grid = { color: 'rgba(128,128,128,0.1)' };
+    Object.assign(chartOpts.plugins.legend, {
+      position: 'bottom',
+      labels: {
+        color: textColor,
+        usePointStyle: true,
+        pointStyle: 'line',
+        padding: 12,
+        font: { size: 10 }
+      }
+    });
+    Object.assign(chartOpts.plugins.tooltip, {
+      backgroundColor: bgColor,
+      titleColor: textColor,
+      bodyColor: textColor,
+      borderColor: textColor,
+      borderWidth: 1,
+    });
+    _viewModalChartInstance.update('none');
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
-# fly.toml — StakTrakr All-in-One (retail-poller + Firecrawl + serve.js)
-# Fly.io app configuration for the complete scraping/API pipeline.
+# fly.toml — StakTrakr Thin Publisher (spot + publish + serve.js)
+# Fly.io app configuration. Retail/goldback scraping handled by home poller.
+# Full all-in-one config backed up as fly.toml.full.
 
 app = 'staktrakr'
 primary_region = 'iad'
@@ -15,17 +16,12 @@ primary_region = 'iad'
   API_DATA_REPO = "https://github.com/lbruton/StakTrakrApi.git"
   API_EXPORT_DIR = "/data/staktrakr-api-export"
   DATA_REPO_PATH = "/data/staktrakr-api-export"
-  # Firecrawl runs inside this container
+  # Firecrawl still present in image (supervisord starts it) but unused
+  # since retail/goldback crons are disabled via RETAIL_ENABLED=0.
   FIRECRAWL_BASE_URL = "http://localhost:3002"
   BROWSER_MODE = "local"
-  # Enable local Playwright launch for fallback scraping (JM Bullion gold pages)
   PLAYWRIGHT_LAUNCH = "1"
   PLAYWRIGHT_BROWSERS_PATH = "/usr/local/share/playwright"
-  # Home tinyproxy (Cox residential IP via Tailscale). Set as Fly secret.
-  # Required by: supervisord PROXY_SERVER (Firecrawl playwright-service),
-  # price-extract.js Phase 2 (scrapeWithPlaywright), capture.js (vision screenshots).
-  # Chromium does NOT respect the Tailscale exit node — explicit proxy is mandatory.
-  # Must be present (even as empty) so supervisord can expand %(ENV_HOME_PROXY_URL)s.
   HOME_PROXY_URL = ""
 
 # HTTP service — serve.js on port 8080, proxied by Fly
@@ -47,9 +43,10 @@ primary_region = 'iad'
   destination = "/data"
 
 [[vm]]
-  # 8 shared CPUs / 4GB RAM — intentional CPU-over-RAM tradeoff.
-  # Chromium + Firecrawl + Redis + RabbitMQ saturate 4 CPUs under sustained
-  # 30+ min scrape load. Max observed RAM footprint is ~3GB; 8GB was excess.
-  memory = '4096'
+  # Thin publisher mode: spot prices + publish + serve.js.
+  # No retail scraping — Firecrawl/Playwright/Chromium are idle.
+  # 1 shared CPU / 1GB RAM is sufficient for Node.js cron + git push.
+  # Can reduce further to 512MB once slim Dockerfile drops the unused services.
+  memory = '1024'
   cpu_kind = 'shared'
-  cpus = 8
+  cpus = 1

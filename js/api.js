@@ -43,7 +43,32 @@ const _staktrakrFetch = async (urls, path) => {
  * Walks back up to 24 hours from the current UTC hour to find data.
  * Tries the primary endpoint first; falls back to backup after 5 s timeout or error.
  */
+const _V2_METAL_MAP = { xau: 'gold', xag: 'silver', xpt: 'platinum', xpd: 'palladium' };
+
 const fetchStaktrakrPrices = async (selectedMetals) => {
+  if (USE_V2_API) {
+    const data = await _staktrakrFetch(V2_API_ENDPOINTS, '/spot/latest.json');
+    const spotData = data.data || data;
+    const results = {};
+    Object.entries(spotData).forEach(([isoKey, entry]) => {
+      const metalName = _V2_METAL_MAP[isoKey];
+      if (!metalName) return;
+      const price = entry?.price ?? entry;
+      if (selectedMetals.includes(metalName) && price > 0) {
+        results[metalName] = price;
+      }
+    });
+    if (Object.keys(results).length > 0) {
+      const cfg = loadApiConfig();
+      if (cfg.usage?.STAKTRAKR) {
+        cfg.usage.STAKTRAKR.used++;
+        saveApiConfig(cfg);
+      }
+      return results;
+    }
+    throw new Error('No spot data available from StakTrakr v2 API');
+  }
+
   const baseUrls = API_PROVIDERS.STAKTRAKR.hourlyBaseUrls;
   const now = new Date();
 
@@ -56,7 +81,6 @@ const fetchStaktrakrPrices = async (selectedMetals) => {
     const path = `/${yyyy}/${mm}/${dd}/${hh}.json`;
 
     try {
-      // Try primary endpoint first; fall back to backup after 5-second timeout or error
       const data = await _staktrakrFetch(baseUrls, path);
       const { current } = API_PROVIDERS.STAKTRAKR.parseBatchResponse(data);
       const results = {};
@@ -83,22 +107,23 @@ const fetchStaktrakrPrices = async (selectedMetals) => {
  * @returns {Promise<{newCount: number, fetchCount: number}>} Counts of new entries and successful fetches
  */
 const fetchStaktrakrHourlyRange = async (hoursBack) => {
+  if (USE_V2_API) {
+    return _fetchStaktrakrHourlyRangeV2(hoursBack);
+  }
+
   const baseUrls = API_PROVIDERS.STAKTRAKR.hourlyBaseUrls;
   const now = new Date();
 
-  // Build list of UTC hours as Date objects
   const hours = [];
   for (let i = 0; i < hoursBack; i++) {
     hours.push(new Date(now.getTime() - i * 3600000));
   }
 
-  // Purge once, then build dedup set for batch append (avoids N×save)
   purgeSpotHistory();
   const existingKeys = new Set(
     spotHistory.map(e => `${e.timestamp}|${e.metal}`)
   );
 
-  // Fetch hours in batches of 6
   let newCount = 0;
   let fetchCount = 0;
   const batchSize = 6;
@@ -113,10 +138,8 @@ const fetchStaktrakrHourlyRange = async (hoursBack) => {
       const hh = String(h.getUTCHours()).padStart(2, '0');
       const path = `/${yyyy}/${mm}/${dd}/${hh}.json`;
       try {
-        // Try primary endpoint first; fall back to backup after 5-second timeout or error
         const data = await _staktrakrFetch(baseUrls, path);
         const { current } = API_PROVIDERS.STAKTRAKR.parseBatchResponse(data);
-        // Use ISO-format UTC timestamp so recordSpot normalizes consistently
         return { current, timestamp: `${yyyy}-${mm}-${dd}T${hh}:00:00Z` };
       } catch { return null; }
     }));
@@ -145,6 +168,88 @@ const fetchStaktrakrHourlyRange = async (hoursBack) => {
   if (newCount > 0) {
     saveSpotHistory();
     debugLog(`[StakTrakr] Added ${newCount} hourly entries (${fetchCount} files fetched)`);
+  }
+
+  return { newCount, fetchCount };
+};
+
+const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - hoursBack * 3600000);
+
+  purgeSpotHistory();
+  const existingKeys = new Set(
+    spotHistory.map(e => `${e.timestamp}|${e.metal}`)
+  );
+
+  let newCount = 0;
+  let fetchCount = 0;
+  const providerName = API_PROVIDERS.STAKTRAKR.name;
+
+  const uniqueDays = new Map();
+  for (let i = 0; i < hoursBack; i++) {
+    const h = new Date(now.getTime() - i * 3600000);
+    const yyyy = h.getUTCFullYear();
+    const mm = String(h.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(h.getUTCDate()).padStart(2, '0');
+    const dayKey = `${yyyy}/${mm}/${dd}`;
+    if (!uniqueDays.has(dayKey)) uniqueDays.set(dayKey, { yyyy, mm, dd });
+  }
+
+  const metalEntries = Object.entries(_V2_METAL_MAP);
+  const fetchJobs = [];
+  for (const [isoKey, metalName] of metalEntries) {
+    for (const [dayKey] of uniqueDays) {
+      fetchJobs.push({ isoKey, metalName, dayKey });
+    }
+  }
+
+  const batchSize = 6;
+  for (let i = 0; i < fetchJobs.length; i += batchSize) {
+    const batch = fetchJobs.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(async ({ isoKey, metalName, dayKey }) => {
+      const path = `/spot/${isoKey}/${dayKey}.json`;
+      try {
+        const raw = await _staktrakrFetch(V2_API_ENDPOINTS, path);
+        const entries = raw.data || raw;
+        if (!Array.isArray(entries)) return null;
+        return { metalName, entries };
+      } catch { return null; }
+    }));
+
+    const metalConfig = {};
+    Object.values(METALS).forEach(m => { metalConfig[m.key] = m; });
+
+    results.forEach(result => {
+      if (!result) return;
+      fetchCount++;
+      const config = metalConfig[result.metalName];
+      if (!config) return;
+
+      result.entries.forEach(entry => {
+        const spot = entry.close;
+        if (!spot || spot <= 0) return;
+        const ts = entry.t;
+        if (!ts) return;
+        const entryDate = new Date(ts);
+        if (entryDate < cutoff) return;
+        const entryTimestamp = ts.replace("T", " ").replace("Z", "");
+        const isDuplicate = existingKeys.has(`${entryTimestamp}|${config.name}`);
+        if (!isDuplicate) {
+          spotHistory.push({
+            spot, metal: config.name, source: "api-hourly",
+            provider: providerName, timestamp: entryTimestamp,
+          });
+          existingKeys.add(`${entryTimestamp}|${config.name}`);
+          newCount++;
+        }
+      });
+    });
+  }
+
+  if (newCount > 0) {
+    saveSpotHistory();
+    debugLog(`[StakTrakr v2] Added ${newCount} hourly entries (${fetchCount} daily files fetched)`);
   }
 
   return { newCount, fetchCount };

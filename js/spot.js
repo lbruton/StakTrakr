@@ -6,11 +6,105 @@
  * Writes the content of `spotHistory` to the `SPOT_HISTORY_KEY`.
  * @returns {void}
  */
+const PERSISTED_SEED_HISTORY_DAYS = window.SPOT_HISTORY_RUNTIME_WINDOW_DAYS || 180;
+
+/**
+ * Builds the persisted spot-history snapshot.
+ * Static seed/reference entries older than the runtime window stay available
+ * through bundle/year-file sources instead of localStorage.
+ *
+ * @param {Array} entries
+ * @returns {{entries:Array, changed:boolean, trimmedSeedEntries:number, removedInvalidEntries:number, dedupedEntries:number}}
+ */
+const getPersistedSpotHistorySnapshot = (entries) => {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return {
+      entries: [],
+      changed: Array.isArray(entries) ? false : true,
+      trimmedSeedEntries: 0,
+      removedInvalidEntries: 0,
+      dedupedEntries: 0,
+    };
+  }
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - PERSISTED_SEED_HISTORY_DAYS);
+  const cutoffStamp = cutoff.toISOString().replace("T", " ").slice(0, 19);
+
+  let trimmedSeedEntries = 0;
+  let removedInvalidEntries = 0;
+  let dedupedEntries = 0;
+  const byKey = new Map();
+
+  entries.forEach((entry) => {
+    if (
+      !entry ||
+      typeof entry.spot !== "number" ||
+      entry.spot <= 0 ||
+      typeof entry.metal !== "string" ||
+      entry.metal === "" ||
+      typeof entry.timestamp !== "string" ||
+      entry.timestamp === ""
+    ) {
+      removedInvalidEntries++;
+      return;
+    }
+
+    if (entry.source === "seed" && entry.timestamp < cutoffStamp) {
+      trimmedSeedEntries++;
+      return;
+    }
+
+    const key = `${entry.timestamp}|${entry.metal}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, entry);
+      return;
+    }
+
+    dedupedEntries++;
+    if (existing.source === "seed" && entry.source !== "seed") {
+      byKey.set(key, entry);
+    }
+  });
+
+  const persisted = [...byKey.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  return {
+    entries: persisted,
+    changed:
+      trimmedSeedEntries > 0 ||
+      removedInvalidEntries > 0 ||
+      dedupedEntries > 0 ||
+      persisted.length !== entries.length,
+    trimmedSeedEntries,
+    removedInvalidEntries,
+    dedupedEntries,
+  };
+};
+
 const saveSpotHistory = () => {
   try {
-    saveDataSync(SPOT_HISTORY_KEY, spotHistory);
+    const snapshot = getPersistedSpotHistorySnapshot(spotHistory);
+    if (
+      snapshot.changed &&
+      typeof debugLog === "function" &&
+      (snapshot.trimmedSeedEntries > 0 || snapshot.removedInvalidEntries > 0 || snapshot.dedupedEntries > 0)
+    ) {
+      debugLog(
+        "Spot history: persisting sanitized snapshot (" +
+        snapshot.entries.length +
+        " entries, trimmed " +
+        snapshot.trimmedSeedEntries +
+        " old seed, removed " +
+        snapshot.removedInvalidEntries +
+        " invalid, deduped " +
+        snapshot.dedupedEntries +
+        ")",
+      );
+    }
+    saveDataSync(SPOT_HISTORY_KEY, snapshot.entries, { quietQuotaToast: true });
   } catch (error) {
-    console.error('Error saving spot history:', error);
+    console.warn('Spot history save skipped:', error);
   }
 };
 
@@ -20,8 +114,25 @@ const saveSpotHistory = () => {
 const loadSpotHistory = () => {
   try {
     const data = loadDataSync(SPOT_HISTORY_KEY, []);
-    // Ensure data is an array
-    spotHistory = Array.isArray(data) ? data : [];
+    const snapshot = getPersistedSpotHistorySnapshot(Array.isArray(data) ? data : []);
+    spotHistory = snapshot.entries;
+
+    if (snapshot.changed) {
+      try {
+        saveDataSync(SPOT_HISTORY_KEY, snapshot.entries, { quietQuotaToast: true });
+        if (typeof debugLog === "function" && snapshot.trimmedSeedEntries > 0) {
+          debugLog(
+            "Spot history: migrated persisted storage to trimmed runtime snapshot (" +
+            snapshot.entries.length +
+            " entries, removed " +
+            snapshot.trimmedSeedEntries +
+            " old seed entries)",
+          );
+        }
+      } catch (saveError) {
+        console.warn("Spot history migration save failed:", saveError);
+      }
+    }
   } catch (error) {
     console.error('Error loading spot history:', error);
     spotHistory = [];
@@ -711,7 +822,7 @@ const updateSparkline = async (metalKey) => {
   if (!canvas || !canvas.getContext) return;
 
   // Destroy existing chart instance early to avoid stale visuals during async fetch
-  if (sparklineInstances[metalKey]) {
+  if (sparklineInstances[metalKey] && typeof sparklineInstances[metalKey].destroy === 'function') {
     sparklineInstances[metalKey].destroy();
     sparklineInstances[metalKey] = null;
   }
@@ -757,7 +868,7 @@ const updateSparkline = async (metalKey) => {
   gradient.addColorStop(0, color);
   gradient.addColorStop(1, "transparent");
 
-  sparklineInstances[metalKey] = new Chart(ctx, {
+  const sparklineConfig = {
     type: "line",
     data: {
       datasets: [
@@ -791,9 +902,6 @@ const updateSparkline = async (metalKey) => {
         y: {
           display: false,
           beginAtZero: false,
-          // Ensure Y axis spans at least 2% of the current price so flat
-          // intraday data (e.g. Gold ±$1 on a $5100 base) doesn't over-zoom
-          // and render micro-fluctuations as jarring spikes.
           suggestedMin: data.length ? Math.min(...data) * 0.99 : undefined,
           suggestedMax: data.length ? Math.max(...data) * 1.01 : undefined,
         },
@@ -801,7 +909,8 @@ const updateSparkline = async (metalKey) => {
       animation: { duration: 400 },
       interaction: { enabled: false },
     },
-  });
+  };
+  replaceChart(sparklineInstances, metalKey, canvas, sparklineConfig);
 
   updateSpotChangePercent(metalKey, data);
 };

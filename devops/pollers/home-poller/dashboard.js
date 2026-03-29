@@ -23,6 +23,7 @@ import {
   getVendorScrapeStatus, getFailureStats, getFailureTrend, getRunStats, getCoverageStats, getSpotCoverage, getMissingItems, exportProvidersJson,
   batchToggleVendor, batchDeleteVendor, getVendorSummary,
   loadProviders,
+  getLastScanFailures, clearChronicFailure, clearAllChronicFailures, getProvidersByVendor,
 } from "./provider-db.js";
 
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
@@ -50,8 +51,27 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 function getTursoClient() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url || !authToken) return null;
-  return createClient({ url, authToken });
+  if (!url) return null;
+  return createClient({ url, ...(authToken ? { authToken } : {}) });
+}
+
+/**
+ * Check Turso Cloud DR backup connectivity (separate from primary sqld).
+ * Uses TURSO_BACKUP_URL + TURSO_BACKUP_TOKEN env vars.
+ * Returns { up: boolean, error?: string }
+ */
+async function checkTursoBackup() {
+  const url = process.env.TURSO_BACKUP_URL;
+  const authToken = process.env.TURSO_BACKUP_TOKEN;
+  if (!url) return { up: false, error: "TURSO_BACKUP_URL not set" };
+  try {
+    const client = createClient({ url, ...(authToken ? { authToken } : {}) });
+    await client.execute("SELECT 1");
+    await client.close();
+    return { up: true };
+  } catch (err) {
+    return { up: false, error: err.message };
+  }
 }
 
 async function fetchRunsFromTurso() {
@@ -315,9 +335,10 @@ const SHARED_CSS = `
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
     --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
     --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+    --surface2: #253348;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
@@ -332,10 +353,34 @@ const SHARED_CSS = `
     padding: 4px 6px; border-radius: 4px; font-size: 13px;
   }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 6px 8px; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; }
-  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 4px 6px; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 10px; text-transform: uppercase; }
+  td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
+  tr:hover { background: rgba(56, 189, 248, 0.03); }
+  .btn-sm { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--border); color: var(--text); border: none; cursor: pointer; display: inline-block; text-decoration: none; }
+  .btn-sm:hover { background: var(--accent); color: #000; text-decoration: none; }
+  .btn-sm.danger { background: var(--red); color: #fff; }
+  .btn-sm.danger:hover { background: #dc2626; }
+  .btn-sm.primary { background: var(--accent); color: #000; }
+  .status { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; color: #fff; }
+  .status-ok { background: var(--green); }
+  .status-running { background: var(--accent); }
+  .status-failed { background: var(--red); }
+  .poller-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; color: #fff; }
+  .poller-tag-hr { background: #7c3aed; }
+  .poller-tag-hs { background: #06b6d4; }
+  .poller-tag-fs { background: #0ea5e9; }
+  .mini-bar { width: 60px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
+  .mini-bar div { height: 100%; border-radius: 2px; }
+  .container { max-width: 1440px; margin: 0 auto; padding: 12px 16px; }
+  .row { display: grid; gap: 12px; margin-bottom: 12px; }
+  .row-2 { grid-template-columns: 1fr 1fr; }
+  .row-3-1 { grid-template-columns: 3fr 1fr; }
+  .full { grid-template-columns: 1fr; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  .card-title { font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  @media (max-width: 900px) { .row-2, .row-3-1 { grid-template-columns: 1fr; } }
 `;
 
 // ---------------------------------------------------------------------------
@@ -343,19 +388,20 @@ const SHARED_CSS = `
 // ---------------------------------------------------------------------------
 
 function renderNav(activePage, failureCount) {
-  const badge = failureCount > 0 ? ` <span class="badge" style="background:var(--red)">${failureCount}</span>` : "";
+  const badge = failureCount > 0 ? `<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;color:#fff;background:var(--red);margin-left:4px;">${failureCount}</span>` : "";
   const links = [
     { href: "/", label: "Dashboard", id: "home" },
-    { href: "/providers", label: "Provider Editor", id: "providers" },
-    { href: "/failures", label: `Failure Queue${badge}`, id: "failures" },
+    { href: "/providers", label: "Providers", id: "providers" },
+    { href: "/failures", label: `Failures${badge}`, id: "failures" },
+    { href: "/api-health", label: "v2 API", id: "api-health" },
   ];
   const navLinks = links.map(l =>
-    `<a href="${l.href}" style="color:${l.id === activePage ? 'var(--text)' : 'var(--accent)'};font-size:13px;font-weight:${l.id === activePage ? '700' : '400'}">${l.label}</a>`
+    `<a href="${l.href}" style="font-size:12px;padding:5px 12px;border-radius:4px;color:${l.id === activePage ? 'var(--text)' : 'var(--muted)'};${l.id === activePage ? 'background:var(--surface2);font-weight:700;' : ''}">${l.label}</a>`
   ).join("");
-  return `<header style="background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;">
-    <h1 style="font-size:18px;font-weight:600;color:var(--accent);">StakTrakr Poller Dashboard</h1>
-    <nav style="display:flex;gap:16px;align-items:center;">${navLinks}</nav>
-    <span style="color:var(--muted);font-size:12px;">${new Date().toUTCString()}</span>
+  return `<header style="background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">
+    <h1 style="font-size:15px;font-weight:600;color:var(--accent);">StakTrakr Poller</h1>
+    <nav style="display:flex;gap:4px;align-items:center;">${navLinks}</nav>
+    <span style="color:var(--muted);font-size:11px;">${new Date().toUTCString()}</span>
   </header>`;
 }
 
@@ -363,158 +409,161 @@ function renderNav(activePage, failureCount) {
 // Main dashboard page (GET /)
 // ---------------------------------------------------------------------------
 
-function renderRunsTable(runs) {
+/** Compact poller tag (HR/HS/FS) */
+function pollerTag(pollerId) {
+  const map = { 'home': 'HR', 'home-retail': 'HR', 'home-spot': 'HS', 'api': 'FR', 'fly-retail': 'FR', 'fly-spot': 'FS' };
+  const cls = { 'home': 'hr', 'home-retail': 'hr', 'home-spot': 'hs', 'api': 'hr', 'fly-retail': 'hr', 'fly-spot': 'fs' };
+  const tag = map[pollerId] || pollerId?.slice(0, 2).toUpperCase() || '??';
+  return `<span class="poller-tag poller-tag-${cls[pollerId] || 'hr'}">${tag}</span>`;
+}
+
+function renderCompactRunsTable(runs) {
   if (!runs || runs.length === 0) {
-    return '<p class="no-data">No runs recorded yet \u2014 will appear after next hourly scrape.</p>';
+    return '<p class="no-data">No runs yet.</p>';
   }
-
-  const rows = runs.map((r) => {
-    const total = r.total ?? 0;
+  const rows = runs.slice(0, 12).map((r) => {
     const captured = r.captured ?? 0;
-    const failures = r.failures ?? 0;
-    const fbp = r.fbp_filled ?? 0;
+    const total = r.total ?? 0;
     const rate = total > 0 ? Math.round((captured / total) * 100) : 0;
-    const captureRate = (captured + failures) > 0 ? captured / (captured + failures) : 1;
-    const barColor = rate >= 80 ? "#22c55e" : rate >= 50 ? "#f59e0b" : "#ef4444";
-    const warningClass = captureRate < 0.5 && r.status === "ok" ? ' class="warning-row"' : "";
-
-    const tooltip = `Captured: ${captured} / Total: ${total} / Failures: ${failures} / FBP: ${fbp}`;
-    const progressCell = total > 0
-      ? `<div class="mini-bar" title="${escAttr(tooltip)}"><div style="width:${rate}%;background:${barColor}"></div></div>
-         <small>${captured}/${total}${fbp > 0 ? ` +${fbp} fbp` : ""}</small>`
-      : `<small style="color:var(--muted)">\u2014</small>`;
-
-    const errorCell = r.error
-      ? `<span class="err-text" title="${escAttr(r.error)}">${escHtml(r.error.length > 60 ? r.error.slice(0, 57) + "..." : r.error)}</span>`
-      : "";
-
-    return `<tr${warningClass}>
-      <td><span class="badge" style="background:${pollerBadgeColor(r.poller_id)}">${escHtml(pollerDisplayName(r.poller_id))}</span></td>
-      <td>${escHtml(fmtDateTime(r.started_at))}</td>
-      <td>${escHtml(fmtDuration(r.started_at, r.finished_at))}</td>
-      <td><span class="badge" style="background:${statusColor(r.status)}">${escHtml(r.status)}</span></td>
-      <td>${progressCell}</td>
-      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${errorCell}</td>
+    const barColor = rate >= 80 ? "var(--green)" : rate >= 50 ? "var(--amber)" : "var(--red)";
+    const time = (r.started_at || "").slice(11, 16);
+    const dur = fmtDuration(r.started_at, r.finished_at);
+    const isSpot = r.poller_id?.includes("spot");
+    const resultCell = isSpot
+      ? `<small>${captured || 4}/4</small>`
+      : (total > 0
+        ? `<div class="mini-bar"><div style="width:${rate}%;background:${barColor}"></div></div>${captured}`
+        : `${captured}/${total}`);
+    const statusCls = r.status === "ok" ? "status-ok" : r.status === "running" ? "status-running" : "status-failed";
+    const statusLabel = r.status === "running" ? "run" : r.status;
+    return `<tr>
+      <td>${pollerTag(r.poller_id)}</td>
+      <td>${escHtml(time)}</td>
+      <td>${escHtml(dur)}</td>
+      <td><span class="status ${statusCls}">${escHtml(statusLabel)}</span></td>
+      <td>${resultCell}</td>
     </tr>`;
   }).join("");
-
-  return `<table>
-    <thead>
-      <tr>
-        <th>Poller</th><th>Started (UTC)</th><th>Duration</th><th>Status</th><th>Prices</th><th>Error</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  return `<table><thead><tr><th>Type</th><th>Time</th><th>Dur</th><th>Status</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function renderStatsCards(stats) {
-  if (!stats) return "";
-  const cards = [
-    { label: "Runs (24h)", value: stats.totalRuns },
-    { label: "Success Rate", value: `${stats.successRate}%` },
-    { label: "Avg Capture Rate", value: `${stats.avgCaptureRate}%` },
-    { label: "Avg Duration", value: stats.avgDurationSec > 60 ? `${Math.floor(stats.avgDurationSec / 60)}m ${stats.avgDurationSec % 60}s` : `${stats.avgDurationSec}s` },
-  ];
-  return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-    ${cards.map(c => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
-      <div style="color:var(--muted);font-size:11px;text-transform:uppercase;margin-bottom:4px;">${c.label}</div>
-      <div style="color:var(--accent);font-size:24px;font-weight:700;">${c.value}</div>
-    </div>`).join("")}
+function renderKpiStrip(retailStats, spotCov, failureCount, coverageStats) {
+  function kpi(label, value, sub, color) {
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;text-align:center;flex:1;min-width:95px;">
+      <div style="font-size:9px;text-transform:uppercase;color:var(--muted);font-weight:600;letter-spacing:0.5px;">${label}</div>
+      <div style="font-size:20px;font-weight:700;margin-top:2px;color:${color};">${value}</div>
+      ${sub ? `<div style="font-size:9px;color:var(--muted);">${sub}</div>` : ""}
+    </div>`;
+  }
+  const runs = retailStats ? retailStats.totalRuns : 0;
+  const success = retailStats ? retailStats.successRate : 0;
+  const dur = retailStats ? (retailStats.avgDurationSec > 60 ? `${Math.floor(retailStats.avgDurationSec / 60)}m${retailStats.avgDurationSec % 60}s` : `${retailStats.avgDurationSec}s`) : "?";
+  const capture = retailStats ? retailStats.avgCaptureRate : 0;
+  const spotPct = spotCov ? Math.round((spotCov.coveredIntervals / Math.max(spotCov.totalIntervals, 1)) * 100) : 0;
+  const spotLabel = spotCov ? `${spotCov.coveredIntervals}/${spotCov.totalIntervals}` : "?";
+  const covNow = coverageStats?.hours?.[0]?.pct ?? 0;
+  const covCovered = coverageStats?.hours?.[0]?.covered ?? 0;
+  const covTotal = coverageStats?.totalEnabled ?? 0;
+
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+    ${kpi("Retail Runs", runs, "home | 24h", "var(--accent)")}
+    ${kpi("Success", success + "%", runs > 0 ? `${Math.round(runs * success / 100)}/${runs} ok` : "", success >= 90 ? "var(--green)" : success >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Duration", dur, "avg retail", "var(--accent)")}
+    ${kpi("Capture", capture + "%", retailStats ? `${Math.round(capture * 166 / 100)}/166` : "", capture >= 90 ? "var(--green)" : capture >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Spot", spotPct + "%", spotLabel, spotPct >= 90 ? "var(--green)" : spotPct >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Failures", failureCount, "chronic 24+/7d", failureCount > 0 ? "var(--red)" : "var(--green)")}
+    ${kpi("Coverage", covNow + "%", `${covCovered}/${covTotal} now`, covNow >= 80 ? "var(--green)" : covNow >= 50 ? "var(--amber)" : "var(--red)")}
   </div>`;
 }
 
-function renderFlyioCard(h, flyRuns, tursoUp) {
-  // HTTP health (from check-flyio.sh JSON file)
-  let httpLine = "";
-  if (h) {
-    const age = h.checked_at
-      ? Math.round((Date.now() - new Date(h.checked_at)) / 1000)
-      : null;
-    const ageStr = age != null ? (age < 60 ? `${age}s ago` : `${Math.round(age/60)}m ago`) : "?";
-    const httpColor = h.http_ok ? "#22c55e" : "#ef4444";
-    httpLine = `
-      <div class="stat-row"><span>API endpoint</span>
-        <span class="stat-val" style="color:${httpColor}">${h.http_ok ? `OK (${h.http_code})` : `FAIL (${h.http_code || "no resp"})`}</span></div>
-      <div class="stat-row"><span>Last checked</span>
-        <span class="stat-val">${ageStr}</span></div>`;
-  } else {
-    httpLine = `<div class="stat-row"><span>API endpoint</span>
-      <span class="stat-val" style="color:#a1a1aa">Awaiting first check</span></div>`;
+function renderAttentionSidebar(failures) {
+  if (!failures || failures.length === 0) {
+    return `<div class="card"><div class="card-title">Needs Attention</div>
+      <p style="color:var(--green);font-size:12px;padding:8px 0;">All clear - no chronic failures.</p></div>`;
   }
+  const items = failures.slice(0, 6).map(f =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--red);">
+      <div><span style="font-weight:600;">${escHtml(f.coinName)}</span><br><span style="color:var(--muted);font-size:10px;">${escHtml(f.vendorId)}</span></div>
+      <div style="display:flex;gap:4px;">
+        <a class="btn-sm" href="/providers#${escAttr(f.coinSlug)}">Edit</a>
+        <button class="btn-sm primary btn-retry" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Retry</button>
+      </div>
+    </div>`
+  ).join("");
+  return `<div class="card"><div class="card-title">Needs Attention</div>${items}
+    <div style="margin-top:6px;text-align:center;"><a href="/failures" style="font-size:11px;">View all failures &rarr;</a></div></div>`;
+}
 
-  // Turso connectivity
-  const tursoColor = tursoUp ? "#22c55e" : "#ef4444";
-  const tursoLabel = tursoUp ? "OK" : "OFFLINE";
+function renderStatusBar(data) {
+  const { cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats, spotCoverage } = data;
+  const items = [];
+  const dot = (color) => `<span style="width:7px;height:7px;border-radius:50%;background:var(--${color});display:inline-block;margin-right:5px;"></span>`;
 
-  // Fly.io last-hour summary
-  let runsHtml = "";
-  if (flyRuns && flyRuns.length > 0) {
-    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
-    const recent = flyRuns.filter(r => r.started_at > oneHourAgo);
-    const retailRuns = recent.filter(r => r.poller_id?.includes("retail"));
-    const spotRuns = recent.filter(r => r.poller_id?.includes("spot"));
-    const lastRetail = retailRuns[0];
-    const retailStatus = lastRetail
-      ? `${lastRetail.captured ?? 0}/${lastRetail.total ?? 0} prices`
-      : "no run";
-    const retailColor = lastRetail?.status === "done" ? "#22c55e" : (lastRetail ? "#3b82f6" : "#a1a1aa");
-    const spotCount = spotRuns.filter(r => r.status === "done").length;
-    const spotTotal = 2; // expected 2 spot runs/hour from fly
-    const spotColor = spotCount >= spotTotal ? "#22c55e" : (spotCount > 0 ? "#eab308" : "#ef4444");
+  // VM
+  const memPct = cpu ? parseFloat(cpu.memUsedPct) : 0;
+  items.push(dot(memPct < 80 ? "green" : memPct < 90 ? "amber" : "red") + `VM: ${cpu ? cpu.memUsedPct + "%" : "?"} mem, ${uptime || "?"}`);
 
-    runsHtml = `
-      <div style="margin-top:8px">
-        <div class="stat-row"><span>Retail (last hour)</span>
-          <span class="stat-val" style="color:${retailColor}">${retailStatus}</span></div>
-        <div class="stat-row"><span>Spot (last hour)</span>
-          <span class="stat-val" style="color:${spotColor}">${spotCount}/${spotTotal} runs</span></div>
-      </div>`;
-  } else {
-    runsHtml = `<p class="no-data" style="margin-top:8px">No Fly.io runs in Turso yet.</p>`;
+  // Retail
+  const success = retailStats?.successRate ?? 0;
+  items.push(dot(success >= 90 ? "green" : success >= 70 ? "amber" : "red") + `Retail: ${success}%`);
+
+  // Spot
+  const spotPct = spotCoverage ? Math.round((spotCoverage.coveredIntervals / Math.max(spotCoverage.totalIntervals, 1)) * 100) : 0;
+  items.push(dot(spotPct >= 90 ? "green" : spotPct >= 70 ? "amber" : "red") + `Spot: ${spotPct}% cov`);
+
+  // Failures
+  items.push(dot(failureCount > 0 ? "red" : "green") + `${failureCount} chronic failures`);
+
+  // Fly.io
+  const flyOk = flyioHealth?.http_ok;
+  items.push(dot(flyOk ? "green" : flyOk === false ? "red" : "amber") + `Fly.io: ${flyOk ? "OK" : flyOk === false ? "DOWN" : "?"}`);
+
+  // Lock
+  const anyLocked = (lockStatus || []).some(l => l.locked);
+  items.push(dot(anyLocked ? "amber" : "green") + `Lock: ${anyLocked ? "BUSY" : "free"}`);
+
+  // Turso
+  items.push(dot(tursoUp ? "green" : "red") + `Turso: ${tursoUp ? "OK" : "DOWN"}`);
+
+  return `<div style="background:var(--surface2);border-bottom:1px solid var(--border);padding:5px 16px;display:flex;gap:16px;align-items:center;font-size:11px;overflow-x:auto;">
+    ${items.map(i => `<div style="display:flex;align-items:center;white-space:nowrap;">${i}</div>`).join("")}
+  </div>`;
+}
+
+function renderInfraRow(data) {
+  const { cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord } = data;
+  const netRx = net ? fmtBytes(net.rx_bytes) : "?";
+  const flyOk = flyioHealth?.http_ok;
+  const anyLocked = (lockStatus || []).some(l => l.locked);
+  const containerCount = (dockerContainers || []).filter(c => c.state === "running").length;
+  const serviceCount = (supervisord || []).filter(s => s.state === "RUNNING").length;
+
+  function item(label, value, color) {
+    return `<div style="display:flex;justify-content:space-between;padding:3px 6px;font-size:11px;"><span style="color:var(--muted)">${label}</span><span style="color:${color || "var(--text)"}">${value}</span></div>`;
   }
-
-  return `<div class="card">
-    <h2>Fly.io Container</h2>
-    <div class="stat-row"><span>Turso DB</span>
-      <span class="stat-val" style="color:${tursoColor}">${tursoLabel}</span></div>
-    ${httpLine}
-    ${runsHtml}
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px;">
+    ${item("VM", `${uptime || "?"} | ${cpu ? cpu.memUsedPct + "%" : "?"}`, "var(--green)")}
+    ${item("Load", cpu ? `${cpu.load1}/${cpu.load5}` : "?")}
+    ${item("Net", `${netRx} rx`)}
+    ${item("Lock", anyLocked ? "BUSY" : "Free", anyLocked ? "var(--amber)" : "var(--green)")}
+    ${item("Fly API", flyOk ? "OK" : flyOk === false ? "DOWN" : "?", flyOk ? "var(--green)" : "var(--red)")}
+    ${item("Turso", tursoUp ? "OK" : "DOWN", tursoUp ? "var(--green)" : "var(--red)")}
+    ${item("Containers", `${containerCount} up`, "var(--green)")}
+    ${item("Services", `${serviceCount} up`, "var(--green)")}
   </div>`;
 }
 
 
+// renderMissingItems kept for backward compat but simplified
 function renderMissingItems(items) {
   if (!items || items.length === 0) {
-    return '<p style="color:var(--green);font-size:13px;padding:8px 0;">\u2714 All enabled items have successful prices this hour.</p>';
+    return '<p style="color:var(--green);font-size:12px;padding:8px 0;">All items have prices this hour.</p>';
   }
-
-  const rows = items.map((item) => {
-    const urlShort = item.url ? (item.url.length > 60 ? item.url.slice(0, 57) + "..." : item.url) : "no URL";
-    const metalColor = ({ silver: "#94a3b8", gold: "#fbbf24", goldback: "#a3e635", platinum: "#e2e8f0" })[item.metal] || "#94a3b8";
-
-    return `<tr>
-      <td><span class="badge" style="background:${metalColor};color:#0f172a">${escHtml(item.metal)}</span></td>
-      <td><strong>${escHtml(item.coinName)}</strong><br><code style="color:var(--muted);font-size:11px;">${escHtml(item.coinSlug)}:${escHtml(item.vendor)}</code></td>
-      <td><a href="${escAttr(item.url || "#")}" target="_blank" title="${escAttr(item.url || "")}" style="font-size:12px;">${escHtml(urlShort)}</a></td>
-      <td style="white-space:nowrap;">
-        <button class="btn-diagnose" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(item.vendor)}" data-url="${escAttr(item.url || "")}"
-          style="background:#1e3a5f;color:var(--accent);font-size:11px;padding:4px 10px;margin-right:4px;"
-          title="Run Claude Code diagnosis on the home poller VM">\uD83E\uDD16 Diagnose</button>
-        <button class="btn-browserbase" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(item.vendor)}" data-url="${escAttr(item.url || "")}"
-          style="background:#312e81;color:#a5b4fc;font-size:11px;padding:4px 10px;"
-          title="Open in Browserbase for visual inspection">\uD83C\uDF10 Browserbase</button>
-      </td>
-    </tr>`;
-  }).join("");
-
-  return `<table>
-    <thead><tr><th>Metal</th><th>Item</th><th>URL</th><th style="width:200px;">Actions</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  return `<p style="color:var(--muted);font-size:12px;margin-bottom:8px;">${items.length} items missing prices this hour.</p>`;
 }
 
-function renderCoverageCards(cov, spotCov) {
+// Legacy coverage rendering — replaced by Chart.js in new dashboard
+function renderCoverageCards_LEGACY(cov, spotCov) {
   if (!cov || !cov.hours || cov.hours.length === 0) return '';
 
   // ── Style values (from playground Compact preset + user tweaks) ─────
@@ -668,7 +717,8 @@ function renderCoverageCards(cov, spotCov) {
     + spotSection;
 }
 
-function renderFailureTrendChart(trend) {
+// Legacy SVG trend chart — replaced by Chart.js
+function renderFailureTrendChart_LEGACY(trend) {
   if (!trend || trend.length === 0) {
     return '<p style="color:var(--muted);font-size:13px;padding:8px 0;">No failure data available.</p>';
   }
@@ -702,33 +752,19 @@ function renderFailureTrendChart(trend) {
 }
 
 function renderMainPage(data) {
-  const { net, cpu, uptime, supervisord, systemd, logLines, tursoRuns, tursoError, tursoUp, flyioHealth, runStats, failureCount, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus } = data;
-
-  const supRows = supervisord.map((s) => `
-    <tr>
-      <td>${s.name}</td>
-      <td><span class="badge" style="background:${stateColor(s.state)}">${s.state}</span></td>
-      <td class="detail">${s.detail}</td>
-    </tr>`).join("");
-
-  const dockerRows = (dockerContainers || []).map((c) => {
-    const stColor = c.state === "running" ? "#22c55e" : c.state === "exited" ? "#ef4444" : "#f59e0b";
-    return `<tr>
-      <td>${escHtml(c.name)}</td>
-      <td><span class="badge" style="background:${stColor}">${c.state}</span></td>
-      <td class="detail">${escHtml(c.status)}</td>
-    </tr>`;
-  }).join("");
+  const { net, cpu, uptime, supervisord, logLines, tursoRuns, tursoUp, flyioHealth, runStats, failureCount, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus, chronicFailures } = data;
 
   const logHtml = logLines.map((l) =>
     `<div class="${logLineClass(l)}">${escHtml(l)}</div>`
   ).join("");
 
-  const netRx = net ? fmtBytes(net.rx_bytes) : "?";
-  const netTx = net ? fmtBytes(net.tx_bytes) : "?";
-  const tursoNote = tursoError
-    ? `<span class="err-text">(Turso unreachable: ${escHtml(tursoError)})</span>`
-    : "";
+  // Prepare Chart.js data as JSON for client-side rendering
+  const covHours = coverageStats?.hours?.slice(0, 48)?.reverse() || [];
+  const chartData = JSON.stringify({
+    coverage: covHours.map(h => ({ x: h.hour, y: h.pct })),
+    // We don't have real spot price data on the dashboard server, use coverage as proxy
+    spotIntervals: (spotCoverage?.intervals || []).map(q => ({ x: q.quarter, y: q.metals * 25 })),
+  });
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -737,32 +773,15 @@ function renderMainPage(data) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="60">
 <title>StakTrakr Poller Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"><\/script>
 <style>
   ${SHARED_CSS}
-  header h1 { font-size: 18px; font-weight: 600; color: var(--accent); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 16px; padding: 16px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-  .card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 12px; }
-  .stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--border); }
-  .stat-row:last-child { border-bottom: none; }
-  .stat-val { font-weight: 600; color: var(--accent); }
-  .mini-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 3px; min-width: 80px; }
-  .mini-bar div { height: 100%; }
-  .mini-bar + small { color: var(--muted); font-size: 11px; }
-  .detail { color: var(--muted); font-size: 11px; }
-  .card-stale { border-color: #f59e0b; }
-  .stale-tag { font-size: 10px; color: #f59e0b; font-weight: 400; margin-left: 6px; text-transform: none; letter-spacing: 0; }
-  .wide-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 0 16px 16px; }
-  .wide-card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 12px; }
-  .scroll-table { max-height: 500px; overflow-y: auto; }
-  .scroll-table thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
-  .warning-row { background: rgba(245,158,11,0.15); }
-  .log-panel { margin: 0 16px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-  .log-panel h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--border); }
-  .log-body { padding: 10px 14px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; max-height: 480px; overflow-y: auto; }
-  .log-ok    { color: #86efac; }
+  .chart-wrap { position: relative; height: 180px; }
+  .log-compact { background: #0c1221; border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: 'SF Mono', monospace; font-size: 10px; line-height: 1.5; max-height: 200px; overflow-y: auto; color: var(--muted); }
+  .log-ok    { color: #86efac; font-weight: 600; }
   .log-warn  { color: #fde68a; }
-  .log-error { color: #f87171; }
+  .log-error { color: #f87171; font-weight: 600; }
   .log-info  { color: var(--accent); }
   .log-fbp   { color: #c084fc; }
   .log-default { color: var(--muted); }
@@ -770,241 +789,104 @@ function renderMainPage(data) {
 </head>
 <body>
 ${renderNav("home", failureCount)}
+${renderStatusBar({ cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats: runStats, spotCoverage })}
 
-<div class="wide-card">
-  <h2>Combined Coverage — All Pollers (hourly union)</h2>
-  ${renderCoverageCards(coverageStats, spotCoverage)}
-</div>
-
-<div class="wide-card">
-  <h2>All Poller Runs \u2014 Turso (last 30) ${tursoNote}</h2>
-  ${renderStatsCards(runStats)}
-  <div class="scroll-table">
-    ${renderRunsTable(tursoRuns?.filter(r => !r.poller_id?.includes('spot')))}
-  </div>
-</div>
-
-<div class="log-panel">
-  <h2>Home Poller Log \u2014 last ${LOG_LINES} lines (${LOG_FILE})</h2>
-  <div class="log-body" id="log">${logHtml}</div>
-</div>
-
-<div class="grid">
-  <div class="card">
-    <h2>System (home poller VM)</h2>
-    <div class="stat-row"><span>Uptime</span><span class="stat-val">${uptime}</span></div>
-    <div class="stat-row"><span>Load avg (1/5/15m)</span><span class="stat-val">${cpu ? `${cpu.load1} / ${cpu.load5} / ${cpu.load15}` : "?"}</span></div>
-    <div class="stat-row"><span>Memory used</span><span class="stat-val">${cpu ? cpu.memUsedPct + "%" : "?"}</span></div>
+<div class="container">
+  <!-- KPI strip -->
+  <div class="row full">
+    ${renderKpiStrip(runStats, spotCoverage, failureCount, coverageStats)}
   </div>
 
-  <div class="card">
-    <h2>Network (${IFACE}) \u2014 cumulative since boot</h2>
-    <div class="stat-row"><span>RX (received)</span><span class="stat-val">${netRx}</span></div>
-    <div class="stat-row"><span>TX (sent)</span><span class="stat-val">${netTx}</span></div>
-    <div class="stat-row"><span>RX packets</span><span class="stat-val">${net ? net.rx_packets.toLocaleString() : "?"}</span></div>
-    <div class="stat-row"><span>TX packets</span><span class="stat-val">${net ? net.tx_packets.toLocaleString() : "?"}</span></div>
+  <!-- Chart + Attention -->
+  <div class="row row-3-1">
+    <div class="card">
+      <div class="card-title">Retail Coverage — 48h</div>
+      <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    </div>
+    ${renderAttentionSidebar(chronicFailures)}
   </div>
 
-  <div class="card">
-    <h2>Services (supervisord)</h2>
-    <table><tbody>${supRows}</tbody></table>
+  <!-- Runs table + Log -->
+  <div class="row row-2">
+    <div class="card">
+      <div class="card-title">Recent Runs</div>
+      ${renderCompactRunsTable(tursoRuns)}
+    </div>
+    <div class="card">
+      <div class="card-title">Scraper Log</div>
+      <div class="log-compact" id="log">${logHtml}</div>
+      <div class="card-title" style="margin-top:12px;">Infrastructure</div>
+      ${renderInfraRow({ cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord })}
+    </div>
   </div>
-
-  <div class="card">
-    <h2>Docker Containers</h2>
-    <table><tbody>${dockerRows || '<tr><td colspan="3" class="no-data">Docker socket not available</td></tr>'}</tbody></table>
-  </div>
-
-  <div class="card${(lockStatus || []).some(l => l.locked) ? ' card-stale' : ''}">
-    <h2>Poller Locks</h2>
-    ${(lockStatus || []).map(l => {
-      const ageStr = l.age != null ? (l.age >= 3600 ? Math.floor(l.age / 3600) + 'h ' + Math.floor((l.age % 3600) / 60) + 'm' : l.age >= 60 ? Math.floor(l.age / 60) + 'm ' + (l.age % 60) + 's' : l.age + 's') : '?';
-      const stale = l.age != null && l.age > 900;
-      if (l.locked) {
-        return `<div class="stat-row">
-          <span>${escHtml(l.name)}</span>
-          <span>
-            <span class="badge" style="background:${stale ? '#ef4444' : '#f59e0b'}">${stale ? 'STALE' : 'LOCKED'}</span>
-            <span class="detail" style="margin-left:6px">${ageStr} ago</span>
-          </span>
-        </div>
-        <div style="margin-top:8px">
-          <button class="btn-clear-lock" data-path="${escHtml(l.path)}" data-name="${escHtml(l.name)}"
-            style="background:#7f1d1d;color:#fca5a5;padding:5px 12px;border-radius:6px;border:1px solid #991b1b;cursor:pointer;font-size:12px;font-weight:600;width:100%">
-            Clear Lock
-          </button>
-        </div>`;
-      }
-      return `<div class="stat-row">
-        <span>${escHtml(l.name)}</span>
-        <span><span class="badge" style="background:#22c55e">OK</span></span>
-      </div>`;
-    }).join("")}
-  </div>
-
-  ${renderFlyioCard(flyioHealth, flyRuns, tursoUp)}
 </div>
 
 <script>
-  
-// ── Diagnose button (Claude Code on VM) ─────────────────────────────────
-document.querySelectorAll('.btn-diagnose').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const coin = btn.dataset.coin;
-    const vendor = btn.dataset.vendor;
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\u23F3 Running...';
-    btn.style.opacity = '0.6';
-    try {
-      const r = await fetch('/api/diagnose', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ coinSlug: coin, vendorId: vendor, url })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Diagnosis error: ' + j.error);
-      } else {
-        // Show result in a modal overlay
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;justify-content:center;align-items:center;padding:20px;';
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-        const modal = document.createElement('div');
-        modal.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:12px;max-width:850px;width:100%;max-height:85vh;display:flex;flex-direction:column;position:relative;';
-
-        // Header with item context + close button
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #334155;flex-shrink:0;';
-        header.innerHTML = '<div>'
-          + '<div style="font-size:15px;font-weight:700;color:#e2e8f0;">Diagnosis: ' + coin + ':' + vendor + '</div>'
-          + '<div style="font-size:12px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:600px;">' + url + '</div>'
-          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">Engine: ' + (j.engine || '?') + ' \u00B7 Firecrawl: ' + (j.scrapeLength || 0) + ' chars \u00B7 Playwright: ' + (j.playwrightLength || 0) + ' chars</div>'
-          + '</div>';
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '\u2715';
-        closeBtn.style.cssText = 'background:#334155;color:#e2e8f0;width:32px;height:32px;border-radius:6px;border:none;cursor:pointer;font-size:16px;flex-shrink:0;margin-left:12px;';
-        closeBtn.onmouseover = () => { closeBtn.style.background = '#ef4444'; };
-        closeBtn.onmouseout = () => { closeBtn.style.background = '#334155'; };
-        closeBtn.onclick = () => overlay.remove();
-        header.appendChild(closeBtn);
-
-        // Body — scrollable content
-        const body = document.createElement('div');
-        body.style.cssText = 'padding:16px 20px;overflow-y:auto;flex:1;font-family:"Cascadia Code","Fira Code",monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;color:#e2e8f0;';
-        body.textContent = j.result || '(no output)';
-
-        // Footer with copy button
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display:flex;gap:8px;padding:12px 20px;border-top:1px solid #334155;flex-shrink:0;';
-        const copyBtn = document.createElement('button');
-        copyBtn.textContent = '\uD83D\uDCCB Copy Markdown';
-        copyBtn.style.cssText = 'background:#166534;color:#86efac;padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyBtn.onclick = () => {
-          var NL = String.fromCharCode(10);
-          var BT = String.fromCharCode(96,96,96);
-          var parts = ['## Diagnosis: ' + coin + ':' + vendor, '**URL:** ' + url, '**Engine:** ' + (j.engine || '?'), '**Date:** ' + new Date().toISOString(), '', BT, (j.result || ''), BT, ''];
-          navigator.clipboard.writeText(parts.join(NL)).then(function() {
-            copyBtn.textContent = 'Copied!';
-            setTimeout(function() { copyBtn.textContent = 'Copy Markdown'; }, 2000);
-          });
-        };
-        const copyRawBtn = document.createElement('button');
-        copyRawBtn.textContent = '\uD83D\uDCC4 Copy Raw';
-        copyRawBtn.style.cssText = 'background:#1e3a5f;color:var(--accent);padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyRawBtn.onclick = function() {
-          navigator.clipboard.writeText(j.result || '').then(function() {
-            copyRawBtn.textContent = 'Copied!';
-            setTimeout(function() { copyRawBtn.textContent = 'Copy Raw'; }, 2000);
-          });
-        };
-        footer.appendChild(copyBtn);
-        footer.appendChild(copyRawBtn);
-
-        modal.appendChild(header);
-        modal.appendChild(body);
-        modal.appendChild(footer);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
+// Chart.js — Retail Coverage over 48h
+(function() {
+  var chartData = ${chartData};
+  var ctx = document.getElementById('mainChart');
+  if (!ctx || !chartData.coverage.length) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Coverage %',
+        data: chartData.coverage,
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56, 189, 248, 0.06)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 10 }, usePointStyle: true, pointStyle: 'line', padding: 8 } },
+        tooltip: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#94a3b8' }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { tooltipFormat: 'MMM dd HH:mm', displayFormats: { hour: 'HH:mm' } },
+          ticks: { color: '#475569', font: { size: 9 }, maxTicksLimit: 12 },
+          grid: { color: '#1e293b' },
+        },
+        y: {
+          min: 0, max: 100,
+          title: { display: true, text: '%', color: '#38bdf8', font: { size: 9 } },
+          ticks: { color: '#38bdf8', font: { size: 9 } },
+          grid: { color: '#1e293b' },
+        }
       }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\uD83E\uDD16 Diagnose';
-      btn.style.opacity = '1';
     }
+  });
+})();
+
+// Retry button handler
+document.querySelectorAll('.btn-retry').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var coin = this.dataset.coin;
+    var vendor = this.dataset.vendor;
+    this.disabled = true;
+    this.textContent = '...';
+    fetch('/api/retry', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ coinSlug: coin, vendorId: vendor })
+    }).then(function(r) { return r.json(); }).then(function(j) {
+      btn.textContent = j.ok ? 'Queued' : 'Err';
+      btn.style.background = j.ok ? '#166534' : '#7f1d1d';
+    }).catch(function() { btn.textContent = 'Err'; btn.disabled = false; });
   });
 });
 
-// ── Browserbase button ──────────────────────────────────────────────────
-document.querySelectorAll('.btn-browserbase').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\u23F3 Launching...';
-    try {
-      const r = await fetch('/api/browserbase', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ url, coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Browserbase error: ' + j.error);
-      } else if (j.liveUrl) {
-        window.open(j.liveUrl, '_blank');
-      } else {
-        alert('Session created but no live URL returned.');
-      }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\uD83C\uDF10 Browserbase';
-    }
-  });
-});
-
-// ── Clear lock button ────────────────────────────────────────────────────
-document.querySelectorAll('.btn-clear-lock').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const lockPath = btn.dataset.path;
-    const lockName = btn.dataset.name;
-    if (!confirm('Clear the ' + lockName + ' lock file?\\n\\nThis will allow the next scheduled run to proceed.')) return;
-    btn.disabled = true;
-    btn.textContent = 'Clearing...';
-    try {
-      const r = await fetch('/api/clear-lock', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ path: lockPath })
-      });
-      const j = await r.json();
-      if (j.ok) {
-        btn.textContent = 'Cleared!';
-        btn.style.background = '#14532d';
-        btn.style.color = '#86efac';
-        btn.style.borderColor = '#166534';
-        setTimeout(() => location.reload(), 1500);
-      } else {
-        alert('Failed: ' + (j.message || 'Unknown error'));
-        btn.disabled = false;
-        btn.textContent = 'Clear Lock';
-      }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-      btn.disabled = false;
-      btn.textContent = 'Clear Lock';
-    }
-  });
-});
-
-const log = document.getElementById('log');
-  if (log) log.scrollTop = log.scrollHeight;
+var log = document.getElementById('log');
+if (log) log.scrollTop = log.scrollHeight;
 </script>
 </body>
 </html>`;
@@ -1014,10 +896,56 @@ const log = document.getElementById('log');
 // Provider editor page (GET /providers)
 // ---------------------------------------------------------------------------
 
-function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly) {
+function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups) {
   const coins = providers.coins || {};
   const coinEntries = Object.entries(coins);
   const totalCoins = coinEntries.length;
+
+  // Build vendor-centric view HTML
+  const vendorViewHtml = (vendorGroups || []).map(vg => {
+    const okCount = vg.items.filter(i => {
+      const key = `${i.coinSlug}:${vg.vendorId}`;
+      const st = scrapeStatus?.get(key);
+      return st && !st.isFailed && st.price != null;
+    }).length;
+    const failCount = vg.items.filter(i => {
+      const key = `${i.coinSlug}:${vg.vendorId}`;
+      const st = scrapeStatus?.get(key);
+      return st?.isFailed;
+    }).length;
+    const statsText = `${vg.items.length} items | ${okCount} ok${failCount > 0 ? ` | <span style="color:var(--red);">${failCount} failing</span>` : ""}`;
+
+    const itemRows = vg.items.map(item => {
+      const key = `${item.coinSlug}:${vg.vendorId}`;
+      const st = scrapeStatus?.get(key);
+      let dot = '<span style="width:8px;height:8px;border-radius:50%;background:#475569;display:inline-block;"></span>';
+      let priceText = '';
+      if (st) {
+        if (st.isFailed) {
+          dot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;"></span>';
+          priceText = `<span style="color:var(--red);font-size:11px;">failed</span>`;
+        } else if (st.price != null) {
+          dot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>';
+          priceText = `<span style="color:var(--green);font-size:11px;">$${st.price}</span>`;
+        }
+      }
+      return `<div style="display:grid;grid-template-columns:auto 1fr 2fr 1fr auto;gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
+        ${dot}
+        <span style="font-weight:600;">${escHtml(item.coinName)} ${metalBadge(item.metal)}</span>
+        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://...">
+        ${priceText}
+        <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;">${item.enabled !== false ? "On" : "Off"}</button>
+      </div>`;
+    }).join("");
+
+    return `<div style="margin-bottom:12px;" class="vendor-section" data-vendor="${escAttr(vg.vendorId)}">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:4px;" class="vendor-section-header">
+        <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}</span>
+        <span style="font-size:11px;color:var(--muted);">${statsText}</span>
+      </div>
+      <div class="vendor-section-body" style="display:none;">${itemRows}</div>
+    </div>`;
+  }).join("");
 
   // Build vendorsByMetal map for bulk operations
   const vendorsByMetal = {};
@@ -1147,6 +1075,11 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly) {
 ${renderNav("providers", failureCount)}
 <div style="padding:16px 20px;">
   ${readOnlyBanner}
+  <div style="display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:12px;">
+    <button class="tab-btn active" data-provider-tab="coins" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;border-bottom:2px solid var(--accent);margin-bottom:-2px;text-transform:uppercase;letter-spacing:0.5px;">By Coin</button>
+    <button class="tab-btn" data-provider-tab="vendors" style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;text-transform:uppercase;letter-spacing:0.5px;">By Vendor</button>
+  </div>
+  <div id="provider-tab-coins">
   <div class="toolbar">
     <input type="text" id="search" placeholder="Search coins by name, slug, or metal...">
     <button class="filter-btn active" data-metal="all">All</button>
@@ -1171,6 +1104,11 @@ ${renderNav("providers", failureCount)}
   </div>
 </div>
 ${coinSections}
+</div><!-- /provider-tab-coins -->
+
+<div id="provider-tab-vendors" style="display:none;">
+${vendorViewHtml}
+</div><!-- /provider-tab-vendors -->
 
 <!-- Confirmation Modal -->
 <div class="modal-overlay" id="confirm-modal">
@@ -1575,7 +1513,375 @@ if (btnExport) btnExport.addEventListener('click', async () => {
     showToast('Network error: ' + err.message, false);
   }
 });
+
+// ── Provider tab switching (By Coin / By Vendor) ─────────────────────────
+document.querySelectorAll('[data-provider-tab]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('[data-provider-tab]').forEach(function(b) {
+      b.style.color = 'var(--muted)';
+      b.style.borderBottomColor = 'transparent';
+      b.classList.remove('active');
+    });
+    this.style.color = 'var(--accent)';
+    this.style.borderBottomColor = 'var(--accent)';
+    this.classList.add('active');
+    var tab = this.dataset.providerTab;
+    document.getElementById('provider-tab-coins').style.display = tab === 'coins' ? '' : 'none';
+    document.getElementById('provider-tab-vendors').style.display = tab === 'vendors' ? '' : 'none';
+  });
+});
+
+// ── Vendor section expand/collapse ───────────────────────────────────────
+document.querySelectorAll('.vendor-section-header').forEach(function(header) {
+  header.addEventListener('click', function() {
+    var body = this.nextElementSibling;
+    body.style.display = body.style.display === 'none' ? '' : 'none';
+  });
+});
+
+// ── By Vendor tab: URL blur-to-save ──────────────────────────────────────
+document.querySelectorAll('.vendor-url-byvendor').forEach(function(input) {
+  var orig = input.value;
+  input.addEventListener('blur', async function() {
+    if (input.value === orig) return;
+    if (input.value && !input.value.startsWith('https://')) {
+      showToast('URL must start with https://', false);
+      return;
+    }
+    const r = await fetch('/providers/update-url', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ coinSlug: input.dataset.coin, vendorId: input.dataset.vendor, url: input.value })
+    });
+    const j = await r.json();
+    showToast(j.message, r.ok);
+    if (r.ok) orig = input.value;
+  });
+});
+
+// ── By Vendor tab: toggle enabled/disabled ───────────────────────────────
+document.querySelectorAll('.vendor-toggle-byvendor').forEach(function(btn) {
+  btn.addEventListener('click', async function() {
+    var isEnabled = btn.dataset.enabled === '1';
+    var newState = !isEnabled;
+    const r = await fetch('/providers/toggle', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor, enabled: newState })
+    });
+    const j = await r.json();
+    showToast(j.message, r.ok);
+    if (r.ok) {
+      btn.dataset.enabled = newState ? '1' : '0';
+      btn.textContent = newState ? 'On' : 'Off';
+      btn.style.background = newState ? 'var(--green)' : 'var(--red)';
+    }
+  });
+});
 </script>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// v2 API Health page (GET /api-health)
+// ---------------------------------------------------------------------------
+
+const V2_BASE = "https://api.staktrakr.com/data/v2";
+
+async function fetchV2Endpoints() {
+  const endpoints = [
+    { key: "manifest", path: "/manifest.json", label: "Manifest" },
+    { key: "spot_latest", path: "/spot/latest.json", label: "Spot Latest" },
+    { key: "spot_7d", path: "/spot/history/7d.json", label: "Spot 7d History" },
+    { key: "retail_latest", path: "/retail/latest.json", label: "Retail Latest" },
+    { key: "vendors", path: "/retail/vendors/index.json", label: "Vendor Index" },
+    { key: "goldback", path: "/goldback/latest.json", label: "Goldback Latest" },
+  ];
+
+  const results = {};
+  await Promise.all(endpoints.map(async (ep) => {
+    try {
+      const resp = await fetch(V2_BASE + ep.path, { signal: AbortSignal.timeout(10_000) });
+      if (!resp.ok) {
+        results[ep.key] = { label: ep.label, status: resp.status, ok: false, data: null };
+        return;
+      }
+      const json = await resp.json();
+      const ageSec = json.generated_at ? Math.round((Date.now() - new Date(json.generated_at).getTime()) / 1000) : null;
+      results[ep.key] = { label: ep.label, status: 200, ok: true, data: json, ageSec, staleAfter: json.stale_after };
+    } catch (err) {
+      results[ep.key] = { label: ep.label, status: 0, ok: false, error: err.message, data: null };
+    }
+  }));
+
+  // Fetch a sample of per-coin endpoints
+  if (results.retail_latest?.ok) {
+    const coins = results.retail_latest.data.data.coins;
+    const slugs = Object.keys(coins).slice(0, 5);
+    const coinResults = {};
+    await Promise.all(slugs.map(async (slug) => {
+      try {
+        const resp = await fetch(`${V2_BASE}/retail/${slug}/latest.json`, { signal: AbortSignal.timeout(10_000) });
+        coinResults[slug] = { ok: resp.ok, status: resp.status };
+        if (resp.ok) {
+          const json = await resp.json();
+          coinResults[slug].vendorCount = Object.keys(json.data.vendors || {}).length;
+        }
+      } catch { coinResults[slug] = { ok: false, status: 0 }; }
+    }));
+    results.perCoinSample = coinResults;
+  }
+
+  // Fetch all per-vendor endpoints for matrix
+  if (results.vendors?.ok) {
+    const vendorList = results.vendors.data.data;
+    const vendorIds = Array.isArray(vendorList) ? vendorList.map(v => v.id) : Object.keys(vendorList);
+    const vendorData = {};
+    await Promise.all(vendorIds.map(async (vid) => {
+      try {
+        const resp = await fetch(`${V2_BASE}/retail/vendors/${vid}.json`, { signal: AbortSignal.timeout(10_000) });
+        if (resp.ok) {
+          const json = await resp.json();
+          vendorData[vid] = json.data;
+        }
+      } catch { /* skip */ }
+    }));
+    results.vendorDetails = vendorData;
+  }
+
+  return results;
+}
+
+function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
+  const now = new Date().toUTCString();
+
+  // Endpoint health table
+  const epRows = ["manifest", "spot_latest", "spot_7d", "retail_latest", "vendors", "goldback"].map(key => {
+    const ep = v2[key];
+    if (!ep) return "";
+    const statusColor = ep.ok ? "var(--green)" : "var(--red)";
+    const ageStr = ep.ageSec != null ? (ep.ageSec < 60 ? `${ep.ageSec}s` : ep.ageSec < 3600 ? `${Math.round(ep.ageSec / 60)}m` : `${Math.round(ep.ageSec / 3600)}h`) : "--";
+    const staleStr = ep.staleAfter ? `${Math.round(ep.staleAfter / 60)}m` : "--";
+    const isStale = ep.ageSec != null && ep.staleAfter && ep.ageSec > ep.staleAfter;
+    const freshColor = isStale ? "var(--red)" : ep.ok ? "var(--green)" : "var(--muted)";
+    return `<tr>
+      <td>${escHtml(ep.label)}</td>
+      <td><span class="status ${ep.ok ? "status-ok" : "status-failed"}">${ep.status || "ERR"}</span></td>
+      <td style="color:${freshColor}">${ageStr}</td>
+      <td>${staleStr}</td>
+      <td>${isStale ? '<span style="color:var(--red);font-weight:700;">STALE</span>' : ep.ok ? '<span style="color:var(--green);">Fresh</span>' : '<span style="color:var(--red);">Down</span>'}</td>
+    </tr>`;
+  }).join("");
+
+  // Spot prices table
+  let spotHtml = '<p class="no-data">Spot data unavailable</p>';
+  if (v2.spot_latest?.ok) {
+    const spot = v2.spot_latest.data.data;
+    const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
+    const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
+    const spotRows = Object.entries(spot).map(([metal, d]) => {
+      const change = d.change_24h_pct;
+      const changeColor = change > 0 ? "var(--green)" : change < 0 ? "var(--red)" : "var(--muted)";
+      const changeStr = change != null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
+      return `<tr>
+        <td><span style="color:${metalColors[metal] || "var(--text)"};font-weight:600;">${metalNames[metal] || metal.toUpperCase()}</span> <span style="color:var(--muted);font-size:10px;">${metal.toUpperCase()}</span></td>
+        <td style="font-weight:700;font-family:monospace;">$${Number(d.price).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td style="color:${changeColor}">${changeStr}</td>
+      </tr>`;
+    }).join("");
+    spotHtml = `<table><thead><tr><th>Metal</th><th>Price</th><th>24h</th></tr></thead><tbody>${spotRows}</tbody></table>`;
+  }
+
+  // Retail summary — per-coin table
+  let retailHtml = '<p class="no-data">Retail data unavailable</p>';
+  if (v2.retail_latest?.ok) {
+    const coins = v2.retail_latest.data.data.coins;
+    const retailRows = Object.entries(coins).map(([slug, c]) => {
+      const metalColor = ({ xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", goldback: "#a3e635" })[c.metal] || "#94a3b8";
+      return `<tr>
+        <td>${escHtml(c.name)}</td>
+        <td><span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;background:${metalColor};color:#0f172a;">${escHtml(c.metal)}</span></td>
+        <td style="font-family:monospace;font-weight:600;">$${Number(c.median).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td style="color:var(--muted);font-family:monospace;">$${Number(c.low).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+        <td style="color:var(--muted);font-family:monospace;">$${Number(c.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:center;">${c.vendor_count}</td>
+      </tr>`;
+    }).join("");
+    retailHtml = `<table><thead><tr><th>Coin</th><th>Metal</th><th>Median</th><th>Low</th><th>High</th><th>Vendors</th></tr></thead><tbody>${retailRows}</tbody></table>`;
+  }
+
+  // Per-vendor × metal price matrix
+  let matrixHtml = "";
+  if (v2.vendorDetails && v2.retail_latest?.ok) {
+    const coinsMeta = v2.retail_latest.data.data.coins; // slug → { metal, name, ... }
+    const metals = ["xau", "xag", "xpt"];
+    const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
+    const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
+    // Map coin_slug metal fields (some use "gold"/"silver" vs "xau"/"xag")
+    const metalNorm = { gold: "xau", silver: "xag", platinum: "xpt", palladium: "xpd", xau: "xau", xag: "xag", xpt: "xpt", xpd: "xpd" };
+
+    // Reverse map: xau → gold, xag → silver, xpt → platinum
+    const isoToName = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
+
+    // Build vendor rows from vendorDetails
+    const vendorIds = Object.keys(v2.vendorDetails).sort();
+    const matrixRows = vendorIds.map(vid => {
+      const vd = v2.vendorDetails[vid];
+      if (!vd || !vd.coins) return "";
+      const vendorName = vd.vendor?.name || vid;
+
+      // Aggregate current prices by metal
+      const byMetal = {};
+      for (const [slug, cd] of Object.entries(vd.coins)) {
+        const coinMetal = metalNorm[(coinsMeta[slug]?.metal || "").toLowerCase()] || null;
+        if (!coinMetal || coinMetal === "xpd") continue; // skip goldback and palladium (no retail data)
+        if (!byMetal[coinMetal]) byMetal[coinMetal] = [];
+        if (cd.price != null && cd.price > 0) byMetal[coinMetal].push(cd.price);
+      }
+
+      const cells = metals.map(m => {
+        const prices = byMetal[m] || [];
+        // Turso uses the provider_coins metal name (gold/silver/platinum), try both
+        const avgData = (vendorMetalAvgs || {})[`${vid}:${isoToName[m]}`]
+                     || (vendorMetalAvgs || {})[`${vid}:${m}`]
+                     || {};
+        if (!prices.length && !avgData.avg24h) {
+          return `<td colspan="4" class="matrix-cell" style="color:var(--border);">\u2014</td>`;
+        }
+        const latest = prices.length ? (prices.reduce((a, b) => a + b, 0) / prices.length) : null;
+        const fmtPrice = (v) => v != null ? `$${Number(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '\u2014';
+        return `<td class="matrix-cell">${fmtPrice(latest)}</td>
+                <td class="matrix-cell">${fmtPrice(avgData.avg24h)}</td>
+                <td class="matrix-cell">${fmtPrice(avgData.avg7d)}</td>
+                <td class="matrix-cell">${fmtPrice(avgData.avg30d)}</td>`;
+      }).join("");
+
+      return `<tr><td style="font-weight:600;font-size:11px;white-space:nowrap;">${escHtml(vendorName)}</td>${cells}</tr>`;
+    }).filter(Boolean).join("");
+
+    const metalHeaders = metals.map(m =>
+      `<th colspan="4" style="text-align:center;color:${metalColors[m]};border-bottom:2px solid ${metalColors[m]}30;">${metalNames[m]}</th>`
+    ).join("");
+    const subHeaders = metals.map(() =>
+      `<th class="matrix-cell">Latest</th><th class="matrix-cell">24h</th><th class="matrix-cell">7d</th><th class="matrix-cell">30d</th>`
+    ).join("");
+
+    matrixHtml = `<div class="row full" style="margin-top:12px;">
+      <div class="card">
+        <div class="card-title">Vendor \u00D7 Metal Price Matrix \u2014 Averages</div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th rowspan="2" style="vertical-align:bottom;">Vendor</th>${metalHeaders}</tr>
+              <tr>${subHeaders}</tr>
+            </thead>
+            <tbody>${matrixRows}</tbody>
+          </table>
+        </div>
+        <p style="color:var(--muted);font-size:10px;margin-top:8px;">Latest = mean of current vendor prices for that metal. 24h/7d/30d = historical averages from Turso DB.</p>
+      </div>
+    </div>`;
+  }
+
+  // Per-coin sample endpoints
+  let sampleHtml = "";
+  if (v2.perCoinSample) {
+    const sRows = Object.entries(v2.perCoinSample).map(([slug, s]) => {
+      return `<tr>
+        <td><code>${escHtml(slug)}</code></td>
+        <td><span class="status ${s.ok ? "status-ok" : "status-failed"}">${s.status}</span></td>
+        <td>${s.vendorCount != null ? s.vendorCount + " vendors" : "--"}</td>
+      </tr>`;
+    }).join("");
+    sampleHtml = `<div class="card-title" style="margin-top:12px;">Per-Coin Endpoint Sample (5 of ${Object.keys(v2.retail_latest?.data?.data?.coins || {}).length})</div>
+      <table><thead><tr><th>Slug</th><th>Status</th><th>Vendors</th></tr></thead><tbody>${sRows}</tbody></table>`;
+  }
+
+  // Goldback status
+  let goldbackHtml = '<span style="color:var(--red);">Endpoint 404 — scraper needs deploy</span>';
+  if (v2.goldback?.ok) {
+    const gb = v2.goldback.data.data;
+    goldbackHtml = `<span style="color:var(--green);font-weight:600;">$${gb.g1_usd}</span> <span style="color:var(--muted);font-size:11px;">(${gb.date})</span>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="120">
+<title>v2 API Health \u2014 StakTrakr</title>
+<style>
+  ${SHARED_CSS}
+  .matrix-cell { text-align: center; font-size: 10px; font-family: monospace; }
+  code { background: var(--surface2); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+</style>
+</head>
+<body>
+${renderNav("api-health", failureCount)}
+<div class="container">
+
+  <!-- Endpoint Health -->
+  <div class="row row-2">
+    <div class="card">
+      <div class="card-title">v2 Endpoint Health</div>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Status</th><th>Age</th><th>Stale After</th><th>Freshness</th></tr></thead>
+        <tbody>${epRows}</tbody>
+      </table>
+      ${sampleHtml}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Spot Prices — Live</div>
+      ${spotHtml}
+      <div class="card-title" style="margin-top:16px;">Goldback G1 Rate</div>
+      <div style="padding:8px 0;">${goldbackHtml}</div>
+    </div>
+  </div>
+
+  <!-- Retail Summary -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">Retail Prices — All Coins (${Object.keys(v2.retail_latest?.data?.data?.coins || {}).length} items)</div>
+      <div style="max-height:600px;overflow-y:auto;">
+        ${retailHtml}
+      </div>
+    </div>
+  </div>
+
+  ${matrixHtml}
+
+  <!-- 7-Day Spot History — All Metals -->
+  ${v2.spot_7d?.ok ? [
+    { key: "xau", name: "Gold", color: "#fbbf24" },
+    { key: "xag", name: "Silver", color: "#c0c0c0" },
+    { key: "xpt", name: "Platinum", color: "#a78bfa" },
+    { key: "xpd", name: "Palladium", color: "#f97316" },
+  ].map(m => {
+    const rows = v2.spot_7d.data.data[m.key] || [];
+    if (!rows.length) return "";
+    return `<div class="row full">
+    <div class="card">
+      <div class="card-title"><span style="color:${m.color};">${m.name} Spot</span> \u2014 7 Day OHLCA</div>
+      <table>
+        <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Avg</th><th>Samples</th></tr></thead>
+        <tbody>${rows.map(d => `<tr>
+          <td>${escHtml((d.t || "").slice(0, 10))}</td>
+          <td style="font-family:monospace;">$${Number(d.open).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;color:var(--green);">$${Number(d.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;color:var(--red);">$${Number(d.low).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;font-weight:600;">$${Number(d.close).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;">$${Number(d.avg).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="text-align:center;">${d.n}</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>
+  </div>`;
+  }).join("") : ""}
+
+</div>
 </body>
 </html>`;
 }
@@ -1584,29 +1890,47 @@ if (btnExport) btnExport.addEventListener('click', async () => {
 // Failure queue page (GET /failures)
 // ---------------------------------------------------------------------------
 
-function renderFailuresPage(failures, missingItems, failureCount) {
+function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, failureTrend) {
   const now = new Date().toUTCString();
-  const isEmpty = !failures || failures.length === 0;
 
-  const rows = isEmpty ? "" : failures.map(f => {
-    const age = f.lastFailure
-      ? Math.round((Date.now() - new Date(f.lastFailure)) / 1000)
-      : null;
-    const ageStr = age != null ? (age < 3600 ? `${Math.round(age/60)}m ago` : `${Math.round(age/3600)}h ago`) : "?";
+  // Last scan failures
+  const scanRows = (!lastScanFailures || lastScanFailures.length === 0)
+    ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No failures in the last scan.</p>`
+    : lastScanFailures.map(f => {
+      const time = (f.failedAt || "").slice(11, 19);
+      return `<div style="display:grid;grid-template-columns:2fr 1fr 3fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:12px;border-left:3px solid var(--red);">
+        <div><span style="font-weight:600;">${escHtml(f.coinName)}</span><br><span style="color:var(--muted);font-size:10px;">${escHtml(f.vendorId)}</span></div>
+        <div>${metalBadge(f.metal)}</div>
+        <div style="color:#f87171;font-size:11px;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escAttr(f.error || "")}">${escHtml(f.error || "")}</div>
+        <div style="font-size:11px;color:var(--muted);">${escHtml(time)}</div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-sm btn-edit-failure" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}" data-coinname="${escAttr(f.coinName)}" data-url="${escAttr(f.url || "")}">Edit</button>
+          <button class="btn-sm primary btn-retry" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Retry</button>
+        </div>
+      </div>`;
+    }).join("");
 
-    return `<tr>
-      <td><strong>${escHtml(f.coinName)}</strong><br><code style="color:var(--muted);font-size:11px;">${escHtml(f.coinSlug)}</code></td>
-      <td>${escHtml(f.vendorId)}</td>
-      <td class="url-cell">${f.url ? `<a href="${escAttr(f.url)}" target="_blank" title="${escAttr(f.url)}" style="color:var(--accent);">${escHtml(f.url.length > 60 ? f.url.slice(0, 57) + "..." : f.url)}</a>` : ""}</td>
-      <td style="color:#f87171;font-weight:700;text-align:center;">${escHtml(String(f.failureCount))}</td>
-      <td style="color:var(--muted);font-size:12px">${ageStr}</td>
-      <td style="color:var(--muted);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(f.lastError || "")}">${escHtml(f.lastError || "")}</td>
-      <td style="white-space:nowrap">
-        <a href="/providers#${escAttr(f.coinSlug)}" style="font-size:12px;margin-right:8px;">Edit URL</a>
-        <button class="btn-disable" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}" style="background:#7f1d1d;color:#fca5a5;">Disable</button>
-      </td>
-    </tr>`;
-  }).join("");
+  // Chronic failures
+  const chronicRows = (!chronicFailures || chronicFailures.length === 0)
+    ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No chronic failures.</p>`
+    : chronicFailures.map(f => {
+      const age = f.lastFailure ? Math.round((Date.now() - new Date(f.lastFailure)) / 1000) : null;
+      const ageStr = age != null ? (age < 3600 ? `${Math.round(age/60)}m ago` : `${Math.round(age/3600)}h ago`) : "?";
+      const countColor = f.failureCount >= 48 ? "var(--red)" : "var(--amber)";
+      return `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:4px;margin-bottom:3px;font-size:12px;border-left:3px solid var(--red);">
+        <div><span style="font-weight:600;">${escHtml(f.coinName)}</span> <span style="color:var(--muted)">/ ${escHtml(f.vendorId)}</span></div>
+        <div style="color:${countColor};font-weight:700;">${f.failureCount} fails</div>
+        <div style="color:var(--muted);font-size:11px;" title="${escAttr(f.lastError || "")}">${escHtml((f.lastError || "").slice(0, 30))}</div>
+        <div style="color:var(--muted);font-size:11px;">Last: ${ageStr}</div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-sm btn-edit-failure" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}" data-coinname="${escAttr(f.coinName)}" data-url="${escAttr(f.url || "")}">Edit</button>
+          <button class="btn-sm btn-clear-chronic" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Clear</button>
+        </div>
+      </div>`;
+    }).join("");
+
+  // Trend data for Chart.js
+  const trendJson = JSON.stringify((failureTrend || []).map(d => ({ day: d.day, failures: d.failures })));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1614,170 +1938,214 @@ function renderFailuresPage(failures, missingItems, failureCount) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="300">
-<title>Failure Queue \u2014 StakTrakr</title>
+<title>Failures \u2014 StakTrakr</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"><\/script>
 <style>
   ${SHARED_CSS}
-  .url-cell { max-width: 400px; word-break: break-all; font-size: 12px; color: var(--muted); }
-  .subtitle { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
-  .empty { color: var(--muted); font-style: italic; padding: 24px 0; }
 </style>
 </head>
 <body>
 ${renderNav("failures", failureCount)}
-<div style="padding:20px;">
-<h1 style="color:var(--accent);margin-bottom:4px;">Failure Queue</h1>
-<p class="subtitle">Chronic failures (3+ in 7 days) &amp; items missing this hour &bull; Auto-refreshes every 5 min &bull; ${now}</p>
-<div id="toast" style="display:none;position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:6px;font-size:13px;z-index:200;"></div>
-<h2 style="color:var(--accent);font-size:16px;margin:24px 0 8px;">Missing This Hour</h2>
-<p style="color:var(--muted);font-size:12px;margin-bottom:12px;">Enabled vendor-coin pairs with no successful price in the current hour.</p>
-${renderMissingItems(missingItems)}
+<div class="container">
+  <div id="toast" style="display:none;position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:6px;font-size:13px;z-index:200;"></div>
 
-<h2 style="color:var(--accent);font-size:16px;margin:32px 0 8px;">Chronic Failures (3+ in 7 days)</h2>
-${isEmpty
-  ? '<p class="empty">No providers failing above threshold \u2014 all URLs healthy.</p>'
-  : `<table>
-  <thead><tr>
-    <th>Coin</th><th>Vendor</th><th>URL</th><th>Failures</th><th>Last Failed</th><th>Error</th><th>Actions</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-</table>`}
+  <!-- Last Scan Failures -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">
+        <span>Last Scan Failures (${lastScanFailures?.length || 0} of 166)</span>
+        <div style="display:flex;gap:6px;">
+          ${lastScanFailures?.length > 0 ? '<button class="btn-sm primary" id="btn-retry-all">Retry All Failed</button>' : ''}
+        </div>
+      </div>
+      ${scanRows}
+    </div>
+  </div>
+
+  <!-- Chronic Failures -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">
+        <span>Chronic Failures \u2014 24+ in 7 days</span>
+        <div style="display:flex;gap:6px;">
+          ${chronicFailures?.length > 0 ? '<button class="btn-sm danger" id="btn-clear-all">Clear All</button>' : ''}
+        </div>
+      </div>
+      ${chronicRows}
+    </div>
+  </div>
+
+  <!-- Failure Trend Chart -->
+  <div class="row full">
+    <div class="card">
+      <div class="card-title">Failure Trend \u2014 7 Days</div>
+      <div style="position:relative;height:180px;"><canvas id="failureTrendChart"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit URL Modal (inline on failures page) -->
+<div id="edit-failure-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;justify-content:center;align-items:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:560px;width:90%;">
+    <h3 style="color:var(--text);margin-bottom:4px;" id="edit-failure-title">Edit Vendor URL</h3>
+    <p style="color:var(--muted);font-size:11px;margin-bottom:16px;" id="edit-failure-subtitle"></p>
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">URL</label>
+      <input type="text" id="edit-failure-url" style="width:100%;padding:8px 10px;font-size:13px;" placeholder="https://...">
+      <div id="edit-failure-err" style="color:#f87171;font-size:11px;margin-top:2px;"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button id="edit-failure-cancel" style="background:var(--border);color:var(--text);padding:6px 16px;">Cancel</button>
+      <button id="edit-failure-save" style="background:#166534;color:#86efac;padding:6px 16px;">Save URL</button>
+    </div>
+  </div>
 </div>
 <script>
 function showToast(text, ok) {
-  const t = document.getElementById('toast');
+  var t = document.getElementById('toast');
   t.style.display = 'block';
   t.style.background = ok ? '#14532d' : '#7f1d1d';
   t.style.color = ok ? '#86efac' : '#fca5a5';
   t.textContent = text;
-  setTimeout(() => { t.style.display = 'none'; }, 3000);
+  setTimeout(function() { t.style.display = 'none'; }, 3000);
 }
 
-document.querySelectorAll('.btn-disable').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    if (!confirm('Disable ' + btn.dataset.vendor + ' for ' + btn.dataset.coin + '?')) return;
-    const r = await fetch('/providers/toggle', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor, enabled: false })
+// ── Edit URL modal (inline on failures page) ─────────────────────────────
+(function() {
+  var modal = document.getElementById('edit-failure-modal');
+  var urlInput = document.getElementById('edit-failure-url');
+  var errEl = document.getElementById('edit-failure-err');
+  var titleEl = document.getElementById('edit-failure-title');
+  var subtitleEl = document.getElementById('edit-failure-subtitle');
+  var currentCoin = '', currentVendor = '';
+
+  document.querySelectorAll('.btn-edit-failure').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      currentCoin = btn.dataset.coin;
+      currentVendor = btn.dataset.vendor;
+      titleEl.textContent = 'Edit URL — ' + (btn.dataset.coinname || currentCoin);
+      subtitleEl.textContent = 'Vendor: ' + currentVendor;
+      urlInput.value = btn.dataset.url || '';
+      errEl.textContent = '';
+      modal.style.display = 'flex';
+      urlInput.focus();
     });
-    const j = await r.json();
-    showToast(j.message, r.ok);
-    if (r.ok) btn.closest('tr').style.opacity = '0.4';
+  });
+
+  document.getElementById('edit-failure-cancel').addEventListener('click', function() {
+    modal.style.display = 'none';
+  });
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.style.display = 'none';
+  });
+
+  document.getElementById('edit-failure-save').addEventListener('click', async function() {
+    var url = urlInput.value.trim();
+    errEl.textContent = '';
+    if (url && !url.startsWith('https://')) {
+      errEl.textContent = 'URL must start with https://';
+      return;
+    }
+    try {
+      var r = await fetch('/providers/update-url', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ coinSlug: currentCoin, vendorId: currentVendor, url: url })
+      });
+      var j = await r.json();
+      showToast(j.message, r.ok);
+      if (r.ok) {
+        modal.style.display = 'none';
+        // Update the data-url on the button so re-opening shows the new URL
+        var editBtn = document.querySelector('.btn-edit-failure[data-coin="' + currentCoin + '"][data-vendor="' + currentVendor + '"]');
+        if (editBtn) editBtn.dataset.url = url;
+      } else {
+        errEl.textContent = j.message || 'Save failed';
+      }
+    } catch (err) {
+      errEl.textContent = 'Network error: ' + err.message;
+    }
+  });
+})();
+
+// Retry button
+document.querySelectorAll('.btn-retry').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var coin = this.dataset.coin, vendor = this.dataset.vendor;
+    this.disabled = true; this.textContent = '...';
+    fetch('/api/retry', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ coinSlug: coin, vendorId: vendor })
+    }).then(function(r) { return r.json(); }).then(function(j) {
+      btn.textContent = j.ok ? 'Queued' : 'Err';
+      showToast(j.message || (j.ok ? 'Queued' : 'Failed'), j.ok);
+    }).catch(function() { btn.textContent = 'Err'; btn.disabled = false; });
   });
 });
 
-// ── Diagnose button (Claude Code on VM) ─────────────────────────────────
-document.querySelectorAll('.btn-diagnose').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const coin = btn.dataset.coin;
-    const vendor = btn.dataset.vendor;
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\\u23F3 Running...';
-    btn.style.opacity = '0.6';
-    try {
-      const r = await fetch('/api/diagnose', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ coinSlug: coin, vendorId: vendor, url })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Diagnosis error: ' + j.error);
-      } else {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;justify-content:center;align-items:center;padding:20px;';
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-        const modal = document.createElement('div');
-        modal.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:12px;max-width:850px;width:100%;max-height:85vh;display:flex;flex-direction:column;position:relative;';
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #334155;flex-shrink:0;';
-        header.innerHTML = '<div>'
-          + '<div style="font-size:15px;font-weight:700;color:#e2e8f0;">Diagnosis: ' + coin + ':' + vendor + '</div>'
-          + '<div style="font-size:12px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:600px;">' + url + '</div>'
-          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">Engine: ' + (j.engine || '?') + ' \\u00B7 Firecrawl: ' + (j.scrapeLength || 0) + ' chars \\u00B7 Playwright: ' + (j.playwrightLength || 0) + ' chars</div>'
-          + '</div>';
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '\\u2715';
-        closeBtn.style.cssText = 'background:#334155;color:#e2e8f0;width:32px;height:32px;border-radius:6px;border:none;cursor:pointer;font-size:16px;flex-shrink:0;margin-left:12px;';
-        closeBtn.onmouseover = () => { closeBtn.style.background = '#ef4444'; };
-        closeBtn.onmouseout = () => { closeBtn.style.background = '#334155'; };
-        closeBtn.onclick = () => overlay.remove();
-        header.appendChild(closeBtn);
-        const body = document.createElement('div');
-        body.style.cssText = 'padding:16px 20px;overflow-y:auto;flex:1;font-family:"Cascadia Code","Fira Code",monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;color:#e2e8f0;';
-        body.textContent = j.result || '(no output)';
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display:flex;gap:8px;padding:12px 20px;border-top:1px solid #334155;flex-shrink:0;';
-        const copyBtn = document.createElement('button');
-        copyBtn.textContent = '\\uD83D\\uDCCB Copy Markdown';
-        copyBtn.style.cssText = 'background:#166534;color:#86efac;padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyBtn.onclick = () => {
-          var NL = String.fromCharCode(10);
-          var BT = String.fromCharCode(96,96,96);
-          var parts = ['## Diagnosis: ' + coin + ':' + vendor, '**URL:** ' + url, '**Engine:** ' + (j.engine || '?'), '**Date:** ' + new Date().toISOString(), '', BT, (j.result || ''), BT, ''];
-          navigator.clipboard.writeText(parts.join(NL)).then(function() {
-            copyBtn.textContent = 'Copied!';
-            setTimeout(function() { copyBtn.textContent = 'Copy Markdown'; }, 2000);
-          });
-        };
-        const copyRawBtn = document.createElement('button');
-        copyRawBtn.textContent = '\\uD83D\\uDCC4 Copy Raw';
-        copyRawBtn.style.cssText = 'background:#1e3a5f;color:var(--accent);padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;';
-        copyRawBtn.onclick = function() {
-          navigator.clipboard.writeText(j.result || '').then(function() {
-            copyRawBtn.textContent = 'Copied!';
-            setTimeout(function() { copyRawBtn.textContent = 'Copy Raw'; }, 2000);
-          });
-        };
-        footer.appendChild(copyBtn);
-        footer.appendChild(copyRawBtn);
-        modal.appendChild(header);
-        modal.appendChild(body);
-        modal.appendChild(footer);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-      }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\\uD83E\\uDD16 Diagnose';
-      btn.style.opacity = '1';
-    }
+// Retry all
+var retryAllBtn = document.getElementById('btn-retry-all');
+if (retryAllBtn) retryAllBtn.addEventListener('click', function() {
+  document.querySelectorAll('.btn-retry').forEach(function(btn) { btn.click(); });
+});
+
+// Clear chronic
+document.querySelectorAll('.btn-clear-chronic').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var coin = this.dataset.coin, vendor = this.dataset.vendor;
+    this.disabled = true; this.textContent = '...';
+    fetch('/api/clear-chronic', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ coinSlug: coin, vendorId: vendor })
+    }).then(function(r) { return r.json(); }).then(function(j) {
+      if (j.ok) btn.closest('div[style*="grid"]').style.opacity = '0.3';
+      showToast(j.message || (j.ok ? 'Cleared' : 'Failed'), j.ok);
+    }).catch(function() { btn.textContent = 'Err'; btn.disabled = false; });
   });
 });
 
-// ── Browserbase button ──────────────────────────────────────────────────
-document.querySelectorAll('.btn-browserbase').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const url = btn.dataset.url;
-    if (!url) { alert('No URL configured for this vendor.'); return; }
-    btn.disabled = true;
-    btn.textContent = '\\u23F3 Launching...';
-    try {
-      const r = await fetch('/api/browserbase', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ url, coinSlug: btn.dataset.coin, vendorId: btn.dataset.vendor })
-      });
-      const j = await r.json();
-      if (j.error) {
-        alert('Browserbase error: ' + j.error);
-      } else if (j.liveUrl) {
-        window.open(j.liveUrl, '_blank');
-      } else {
-        alert('Session created but no live URL returned.');
+// Clear all chronic
+var clearAllBtn = document.getElementById('btn-clear-all');
+if (clearAllBtn) clearAllBtn.addEventListener('click', function() {
+  if (!confirm('Clear ALL chronic failure records? This cannot be undone.')) return;
+  clearAllBtn.disabled = true; clearAllBtn.textContent = '...';
+  fetch('/api/clear-chronic-all', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      showToast(j.message || (j.ok ? 'Cleared' : 'Failed'), j.ok);
+      if (j.ok) setTimeout(function() { location.reload(); }, 1000);
+    }).catch(function() { clearAllBtn.textContent = 'Err'; clearAllBtn.disabled = false; });
+});
+
+// Failure trend chart
+(function() {
+  var trend = ${trendJson};
+  if (!trend.length) return;
+  var ctx = document.getElementById('failureTrendChart');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: trend.map(function(d) { return d.day.slice(5); }),
+      datasets: [{
+        label: 'Failures',
+        data: trend.map(function(d) { return d.failures; }),
+        backgroundColor: trend.map(function(d) {
+          return d.failures >= 20 ? 'rgba(239,68,68,0.7)' : d.failures >= 10 ? 'rgba(245,158,11,0.7)' : 'rgba(34,197,94,0.7)';
+        }),
+        borderRadius: 3, borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#94a3b8' } },
+      scales: {
+        x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: '#1e293b' }, beginAtZero: true }
       }
-    } catch (err) {
-      alert('Request failed: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '\\uD83C\\uDF10 Browserbase';
     }
   });
-});
+})();
 </script>
 </body>
 </html>`;
@@ -1818,25 +2186,27 @@ async function handleRequest(req, res) {
   if (req.method === "GET" && url === "/providers") {
     let client = null;
     let readOnly = false;
-    let providers, scrapeStatus, failureCount;
+    let providers, scrapeStatus, failureCount, vendorGroups;
     try {
       client = getTursoClient();
       await initProviderSchema(client);
-      [providers, scrapeStatus, failureCount] = await Promise.all([
+      [providers, scrapeStatus, failureCount, vendorGroups] = await Promise.all([
         getProviders(client),
         getVendorScrapeStatus(client).catch(() => null),
         getFailureCount(client),
+        getProvidersByVendor(client).catch(() => []),
       ]);
     } catch {
       readOnly = true;
       try { providers = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8")); } catch { providers = { coins: {} }; }
       scrapeStatus = null;
       failureCount = 0;
+      vendorGroups = [];
     } finally {
       if (client) try { await client.close(); } catch { /* ignore */ }
     }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(renderProvidersPage(providers, scrapeStatus, failureCount, readOnly));
+    res.end(renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups));
     return;
   }
 
@@ -2084,19 +2454,58 @@ async function handleRequest(req, res) {
     return;
   }
 
-  // ── GET /failures ──────────────────────────────────────────────────────
-  if (req.method === "GET" && url === "/failures") {
-    let failures = [], missingItems = [], failureCount = 0;
+  // ── GET /api-health ────────────────────────────────────────────────────
+  if (req.method === "GET" && url === "/api-health") {
+    let failureCount = 0;
+    let vendorMetalAvgs = {};
     try {
       const client = getTursoClient();
-      [failures, missingItems] = await Promise.all([
-        getFailureStats(client),
-        getMissingItems(client),
+      const [fc, avgResult] = await Promise.all([
+        getFailureCount(client),
+        client.execute(`
+          SELECT pv.vendor_id, pc.metal,
+                 AVG(CASE WHEN ps.scraped_at >= datetime('now', '-1 day') THEN ps.price END) AS avg_24h,
+                 AVG(CASE WHEN ps.scraped_at >= datetime('now', '-7 days') THEN ps.price END) AS avg_7d,
+                 AVG(CASE WHEN ps.scraped_at >= datetime('now', '-30 days') THEN ps.price END) AS avg_30d
+          FROM price_snapshots ps
+          JOIN provider_coins pc ON pc.slug = ps.coin_slug
+          JOIN provider_vendors pv ON pv.coin_slug = ps.coin_slug AND pv.vendor_id = ps.vendor
+          WHERE ps.is_failed = 0 AND ps.price IS NOT NULL AND ps.price > 0
+            AND ps.scraped_at >= datetime('now', '-30 days')
+          GROUP BY pv.vendor_id, pc.metal
+          ORDER BY pv.vendor_id, pc.metal
+        `),
       ]);
-      failureCount = failures.length;
+      failureCount = fc;
+      for (const row of avgResult.rows) {
+        const key = `${row.vendor_id}:${row.metal}`;
+        vendorMetalAvgs[key] = {
+          avg24h: row.avg_24h != null ? parseFloat(Number(row.avg_24h).toFixed(2)) : null,
+          avg7d: row.avg_7d != null ? parseFloat(Number(row.avg_7d).toFixed(2)) : null,
+          avg30d: row.avg_30d != null ? parseFloat(Number(row.avg_30d).toFixed(2)) : null,
+        };
+      }
+    } catch { /* ignore */ }
+    const v2 = await fetchV2Endpoints();
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(renderApiHealthPage(v2, failureCount, vendorMetalAvgs));
+    return;
+  }
+
+  // ── GET /failures ──────────────────────────────────────────────────────
+  if (req.method === "GET" && url === "/failures") {
+    let lastScanFailures = [], chronicFailures = [], failureCount = 0, failureTrend = [];
+    try {
+      const client = getTursoClient();
+      [lastScanFailures, chronicFailures, failureTrend] = await Promise.all([
+        getLastScanFailures(client),
+        getFailureStats(client),
+        getFailureTrend(client),
+      ]);
+      failureCount = chronicFailures.length;
     } catch { /* empty */ }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(renderFailuresPage(failures, missingItems, failureCount));
+    res.end(renderFailuresPage(lastScanFailures, chronicFailures, failureCount, failureTrend));
     return;
   }
 
@@ -2382,6 +2791,101 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // ── POST /api/retry — Queue a single-coin re-scrape ────────────────────
+  if (req.method === "POST" && url === "/api/retry") {
+    try {
+      const { coinSlug, vendorId } = JSON.parse(await readBody(req));
+      if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
+
+      // Validate inputs — only allow alphanumeric, hyphens, underscores, dots
+      const SAFE_ID = /^[a-zA-Z0-9._-]+$/;
+      if (!SAFE_ID.test(coinSlug) || !SAFE_ID.test(vendorId)) {
+        throw new Error("Invalid coinSlug or vendorId — only alphanumeric, hyphens, underscores, dots allowed");
+      }
+
+      // Check if poller is currently running
+      const lockPath = "/tmp/retail-poller.lock";
+      const isLocked = existsSync(lockPath);
+
+      if (isLocked) {
+        // Queue for after the current run (5 min after lock clears)
+        const queueFile = "/tmp/retry-queue.json";
+        let queue = [];
+        try { queue = JSON.parse(readFileSync(queueFile, "utf8")); } catch { /* empty */ }
+        const exists = queue.some(q => q.coinSlug === coinSlug && q.vendorId === vendorId);
+        if (!exists) {
+          queue.push({ coinSlug, vendorId, queuedAt: new Date().toISOString() });
+          writeFileSync(queueFile, JSON.stringify(queue, null, 2));
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, queued: true, message: `Queued ${vendorId}/${coinSlug} for retry after current run completes.` }));
+      } else {
+        // Trigger immediate single-item scrape via child process
+        // Pass user input via env vars — never interpolate into shell strings
+        const script = `
+          import('./shared/price-extract.js').then(async m => {
+            const { createClient } = await import('@libsql/client');
+            const client = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN });
+            const { getProvidersByCoin } = await import('./shared/provider-db.js');
+            const slug = process.env.RETRY_COIN_SLUG;
+            const vid = process.env.RETRY_VENDOR_ID;
+            const vendors = await getProvidersByCoin(client, slug);
+            const vendor = vendors.find(v => v.id === vid);
+            if (!vendor || !vendor.url) { console.log('Vendor not found or no URL'); process.exit(1); }
+            console.log('Retrying: ' + slug + '/' + vid + ' at ' + vendor.url);
+            const result = await m.extractPrice(vendor.url, slug, vid, vendor);
+            console.log('Result:', JSON.stringify(result));
+            await client.close();
+          }).catch(e => { console.error(e); process.exit(1); });
+        `;
+        const child = spawn("node", ["-e", script], {
+          cwd: "/app",
+          detached: true,
+          stdio: "ignore",
+          env: { ...process.env, RETRY_COIN_SLUG: coinSlug, RETRY_VENDOR_ID: vendorId },
+        });
+        child.unref();
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, queued: false, message: `Triggered immediate retry for ${vendorId}/${coinSlug}.` }));
+      }
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
+  // ── POST /api/clear-chronic — Clear chronic failure record ─────────────
+  if (req.method === "POST" && url === "/api/clear-chronic") {
+    try {
+      const { coinSlug, vendorId } = JSON.parse(await readBody(req));
+      if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
+      const client = getTursoClient();
+      const result = await clearChronicFailure(client, coinSlug, vendorId);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records for ${vendorId}/${coinSlug}.` }));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
+  // ── POST /api/clear-chronic-all — Clear ALL chronic failures ───────────
+  if (req.method === "POST" && url === "/api/clear-chronic-all") {
+    try {
+      const client = getTursoClient();
+      const result = await clearAllChronicFailures(client);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records.` }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
   // ── POST /api/clear-lock — Remove a stale poller lock file ─────────────
   if (req.method === "POST" && url === "/api/clear-lock") {
     try {
@@ -2417,36 +2921,32 @@ async function handleRequest(req, res) {
   }
 
   const client = getTursoClient();
-  const [tursoResult, runStats, failureCount, net, cpu, uptime, supervisord, systemd, logLines, flyioHealth, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus] = await Promise.all([
+  const [tursoResult, runStats, failureCount, chronicFailures, net, cpu, uptime, supervisord, logLines, flyioHealth, coverageStats, spotCoverage, dockerContainers, lockStatus] = await Promise.all([
     fetchRunsFromTurso().then(rows => ({ rows, error: null })).catch(err => ({ rows: null, error: err.message })),
-    client ? getRunStats(client).catch(() => null) : Promise.resolve(null),
+    client ? getRunStats(client, ["home", "home-retail"]).catch(() => null) : Promise.resolve(null),
     client ? getFailureCount(client) : Promise.resolve(0),
+    client ? getFailureStats(client).catch(() => []) : Promise.resolve([]),
     Promise.resolve(getNetStats()),
     Promise.resolve(getCpuMem()),
     Promise.resolve(getUptime()),
     Promise.resolve(getSupervisordStatus()),
-    Promise.resolve(getSystemdStatus()),
     Promise.resolve(readLog()),
     Promise.resolve(getFlyioHealth()),
     client ? getCoverageStats(client, 48).catch(() => null) : Promise.resolve(null),
     client ? getSpotCoverage(client, 48).catch(() => null) : Promise.resolve(null),
-    client ? getFailureTrend(client).catch(() => []) : Promise.resolve([]),
-    client ? fetchFlyioRuns(client).catch(() => null) : Promise.resolve(null),
     Promise.resolve(getDockerContainers()),
     Promise.resolve(getLockStatus()),
   ]);
 
   const html = renderMainPage({
-    net, cpu, uptime, supervisord, systemd, logLines, flyioHealth,
+    net, cpu, uptime, supervisord, logLines, flyioHealth,
     tursoRuns: tursoResult.rows,
-    tursoError: tursoResult.error,
     tursoUp: !tursoResult.error,
     runStats,
     failureCount,
+    chronicFailures,
     coverageStats,
     spotCoverage,
-    failureTrend,
-    flyRuns,
     dockerContainers,
     lockStatus,
   });

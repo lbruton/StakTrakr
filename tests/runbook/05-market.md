@@ -130,3 +130,30 @@ _Added: v3.33.25 (STAK-396)_
 **Pass criteria:** At least one market item shows a source or provider badge identifying the data origin (e.g., "eBay", "APMEX", or the API source name), confirming source attribution is rendered correctly.
 **Tags:** market, source-badge, provider
 **Section:** 05-market
+
+---
+
+### Test 5.11 — Best price ticker completes one full seamless cycle
+_Added: v3.33.88 (STAK-481)_
+**Preconditions:** MANUAL/VISUAL TEST — the best price ticker strip is visible after page load or with the Market panel open. Allow roughly 45-50 seconds to observe one full cycle.
+**Steps:**
+- screenshot: "05-market-ticker-cycle-start"
+- act: "observe the ticker continuously through one full pass until the starting items reappear"
+- screenshot: "05-market-ticker-cycle-end"
+**Pass criteria:** The ticker scrolls through the entire list and returns to an identical seam without a visible flash, jump, blank gap, or early reset near the mid-list silver products (for example around the Koala/Kookaburra area).
+**Tags:** market, ticker, manual, visual
+**Section:** 05-market
+
+---
+
+### Test 5.12 — Best price ticker remains continuous after market refresh
+_Added: v3.33.88 (STAK-481)_
+**Preconditions:** Market panel is open and the best price ticker is already moving (5.11 is recommended first).
+**Steps:**
+- act: "click the market Refresh button"
+- extract: "the market updated timestamp changes or refresh feedback appears" → expect: true
+- act: "observe the ticker for 10 seconds immediately after refresh"
+- screenshot: "05-market-ticker-post-refresh"
+**Pass criteria:** After a manual market refresh, the ticker continues moving with duplicated content intact and no visible snap back to the start, flash, or partial-cycle restart.
+**Tags:** market, ticker, refresh, manual
+**Section:** 05-market

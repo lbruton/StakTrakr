@@ -290,7 +290,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.33.70";
+const APP_VERSION = "3.33.87";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -535,6 +535,18 @@ const RETAIL_API_ENDPOINTS = [
 ];
 /** @constant {string} RETAIL_API_BASE_URL - Primary endpoint (backward compat) */
 const RETAIL_API_BASE_URL = RETAIL_API_ENDPOINTS[0];
+
+/** @constant {boolean} USE_V2_API - Feature flag for v2 API migration (internal toggle) */
+const USE_V2_API = true;
+
+/** @constant {string[]} V2_API_ENDPOINTS - Ordered list of v2 API endpoints (primary first) */
+const V2_API_ENDPOINTS = [
+  "https://api.staktrakr.com/data/v2",
+  "https://api2.staktrakr.com/data/v2",
+];
+
+/** @constant {string} V2_API_BASE_URL - Primary v2 endpoint (backward compat) */
+const V2_API_BASE_URL = V2_API_ENDPOINTS[0];
 
 /** @constant {string} GOLDBACK_API_URL - Goldback daily spot price endpoint (g1_usd + denominations) */
 const GOLDBACK_API_URL = "https://api.staktrakr.com/data/api/goldback-spot.json";
@@ -874,6 +886,8 @@ const SYNC_SCOPE_KEYS = [
   'metalApiConfig',            // API_KEY_STORAGE_KEY — Numista/PCGS/spot provider keys
 ];
 
+const SPOT_HISTORY_RUNTIME_WINDOW_DAYS = 180;
+
 const ALLOWED_STORAGE_KEYS = [
   LS_KEY,
   SERIAL_KEY,
@@ -952,6 +966,7 @@ const ALLOWED_STORAGE_KEYS = [
   LATEST_REMOTE_URL_KEY,      // string: cached latest remote release URL (STACK-67)
   "ff_migration_fuzzy_autocomplete", // one-time migration flag (v3.26.01)
   "migration_hourlySource",          // one-time migration flag: re-tag StakTrakr hourly entries
+  "migration_seedHistoryMerge",      // one-time migration flag: skip redundant seed-history merge writes
   "numistaLookupRules",              // custom Numista search lookup rules (JSON array)
   "numistaViewFields",               // view modal Numista field visibility config (JSON object)
   TIMEZONE_KEY,                        // string: "auto" | "UTC" | IANA zone (STACK-63)
@@ -996,6 +1011,15 @@ const ALLOWED_STORAGE_KEYS = [
   "cloud_sync_migrated",                               // string: "v2" — cloud folder migration flag (flat → /sync/ + /backups/)
   "cloud_backup_history_depth",                        // string: "3"|"5"|"10"|"20" — max cloud backups to retain
   "manifestPruningThreshold",                          // number string: max sync cycles to retain in manifest before pruning older entries (STAK-184)
+  // STAK-503: v2 API cache keys
+  "v2RetailPrices",                                    // JSON: v2 cached retail prices
+  "v2RetailIntraday",                                  // JSON: v2 standalone intraday data
+  "v2RetailHistory",                                   // JSON: v2 retail history cache
+  "v2SpotHistory",                                     // JSON: v2 spot price history
+  "v2ManifestCache",                                   // JSON: v2 manifest metadata cache
+  // STAK-504: Market data module keys
+  "vendorPricesActiveTab",                             // string: active metal tab in vendor prices section
+  "v2SpotHistoryTs",                                   // string: ISO timestamp of cached v2 spot history
 ];
 
 /**
@@ -1158,9 +1182,11 @@ const saveFilterChipCategoryConfig = (config) => {
  */
 const LAYOUT_SECTION_DEFAULTS = [
   { id: 'spotPrices', label: 'Spot price cards',    enabled: true },
+  { id: 'bestPriceTicker', label: 'Best Price Ticker', enabled: true },
   { id: 'totals',     label: 'Summary totals',      enabled: true },
   { id: 'search',     label: 'Search & filter bar', enabled: true },
   { id: 'table',      label: 'Inventory table',     enabled: true },
+  { id: 'vendorPrices',    label: 'Vendor Prices',     enabled: true },
 ];
 
 /**
@@ -1413,13 +1439,6 @@ const FEATURE_FLAGS = {
     urlOverride: true,
     userToggle: true,
     description: "Coin image caching and item view modal",
-    phase: "beta"
-  },
-  MARKET_LIST_VIEW: {
-    enabled: true,
-    urlOverride: true,
-    userToggle: true,
-    description: "New single-row market card layout with search, sort, and inline charts",
     phase: "beta"
   },
   MARKET_DASHBOARD_ITEMS: {
@@ -1822,6 +1841,7 @@ if (typeof window !== "undefined") {
   window.disableFeature = disableFeature;
   window.toggleFeature = toggleFeature;
   window.ALLOWED_STORAGE_KEYS = ALLOWED_STORAGE_KEYS;
+  window.SPOT_HISTORY_RUNTIME_WINDOW_DAYS = SPOT_HISTORY_RUNTIME_WINDOW_DAYS;
   // STAK-149: Cloud auto-sync constants
   window.SYNC_POLL_INTERVAL = SYNC_POLL_INTERVAL;
   window.SYNC_PUSH_DEBOUNCE = SYNC_PUSH_DEBOUNCE;
@@ -1864,6 +1884,10 @@ if (typeof window !== "undefined") {
   window.RETAIL_PROVIDERS_KEY = RETAIL_PROVIDERS_KEY;
   window.RETAIL_API_ENDPOINTS = RETAIL_API_ENDPOINTS;
   window.RETAIL_API_BASE_URL = RETAIL_API_BASE_URL;
+  // STAK-503: v2 API constants
+  window.USE_V2_API = USE_V2_API;
+  window.V2_API_ENDPOINTS = V2_API_ENDPOINTS;
+  window.V2_API_BASE_URL = V2_API_BASE_URL;
   window.RETAIL_INTRADAY_KEY = RETAIL_INTRADAY_KEY;
   window.RETAIL_SYNC_LOG_KEY = RETAIL_SYNC_LOG_KEY;
   window.RETAIL_AVAILABILITY_KEY = RETAIL_AVAILABILITY_KEY;

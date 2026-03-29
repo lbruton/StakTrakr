@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgE" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="silverE" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="50%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="goldE" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#92700c"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bgE)"/>
+  <!-- S-stack bars — centered, generous sizing -->
+  <!-- Top of S -->
+  <rect x="195" y="80" width="170" height="28" rx="14" fill="url(#silverE)" opacity="0.5"/>
+  <rect x="155" y="122" width="135" height="28" rx="14" fill="url(#silverE)" opacity="0.72"/>
+  <!-- Center gold bar -->
+  <rect x="175" y="168" width="170" height="32" rx="16" fill="url(#goldE)"/>
+  <!-- Bottom of S -->
+  <rect x="222" y="216" width="135" height="28" rx="14" fill="url(#silverE)" opacity="0.72"/>
+  <rect x="147" y="258" width="180" height="28" rx="14" fill="url(#silverE)" opacity="0.5"/>
+  <!-- Wordmark -->
+  <text x="256" y="360" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="56" font-weight="700" letter-spacing="3">
+    <tspan fill="#e2e8f0">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+  </text>
+  <!-- Tagline -->
+  <text x="256" y="398" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="14" fill="#475569" letter-spacing="4">TRACK YOUR STACK</text>
+</svg>

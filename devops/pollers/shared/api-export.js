@@ -137,16 +137,16 @@ function vendorMap(rows) {
  * Excludes out-of-stock vendors (in_stock = 0).
  */
 /**
- * Aggregate raw snapshot rows into consensus time-bucket windows with
- * carry-forward so every window has all vendors.
+ * Aggregate raw snapshot rows into sparse time-bucket windows.
+ * Only vendors with fresh data in each bucket are included.
  *
  * 1. Bucket rows by time (30-min default) — merge both pollers.
- * 2. Walk buckets chronologically, carrying forward each vendor's last
- *    known price into any window where that vendor has no new data.
- * 3. Recompute median/low from the FULL vendor set (carried + fresh).
+ * 2. Emit only fresh data per bucket — NO carry-forward.
+ * 3. Compute median/low from fresh vendors only.
  *
- * Result: every window always has all vendors. Fresh data overwrites
- * carried data. The API serves complete, clean consensus windows.
+ * The frontend's _forwardFillVendors() handles carry-forward and marks
+ * carried vendors in _carriedVendors for dashed-line chart rendering.
+ * Pre-filling here made all prices look fresh to the frontend (STAK-495-B).
  *
  * @param {Array} allRows  Raw price_snapshots rows (must include scraped_at)
  * @param {number} bucketMinutes  Bucket size in minutes: 15, 30, or 60
@@ -172,22 +172,19 @@ function aggregateWindows(allRows, bucketMinutes = 30) {
     }
   }
 
-  // Step 2: Sort buckets chronologically, then carry forward
+  // Step 2: Sort buckets chronologically — NO carry-forward.
+  // Carry-forward is handled by the frontend's _forwardFillVendors() which
+  // marks carried prices in _carriedVendors → triggers dashed-line rendering.
+  // Pre-filling here made all prices look fresh to the frontend (STAK-495-B).
   const sortedKeys = [...byBucket.keys()].sort();
-  const lastSeen = {};  // vendorId → { price, scraped_at }
 
   const result = [];
   for (const bucket of sortedKeys) {
     const { vendors } = byBucket.get(bucket);
 
-    // Update lastSeen with any fresh data in this bucket
-    for (const [vendorId, data] of Object.entries(vendors)) {
-      lastSeen[vendorId] = data;
-    }
-
-    // Build the full vendor map: fresh data + carried-forward
+    // Only include vendors with fresh data in this bucket
     const vendorPrices = {};
-    for (const [vendorId, data] of Object.entries(lastSeen)) {
+    for (const [vendorId, data] of Object.entries(vendors)) {
       vendorPrices[vendorId] = data.price;
     }
 
@@ -631,6 +628,11 @@ async function main() {
     warn("Could not load providers from Turso or file — using slugs from DB only");
   }
 
+  // goldback-g1 is a baseline reference price (exported via goldback-spot.json),
+  // not a user-facing product. Exclude from the coins manifest so it doesn't
+  // render as a ghost card in the frontend market view (STAK-498 Task 7).
+  coinSlugs = coinSlugs.filter((s) => s !== "goldback-g1");
+
   log(`API export: ${coinSlugs.length} coins, latest window: ${latestWindow}`);
 
   // --------------------------------------------------------------------------
@@ -810,10 +812,10 @@ async function main() {
       }
     }
 
-    // 24h windows time series — aggregate into 30-min consensus buckets
-    // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors
+    // 24h windows time series — time-bound to 24h from latest snapshot, aggregated into 60-min buckets
+    // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors (STAK-476)
     const recentRows = readRecentWindows(db, slug, 96);
-    const windows24h = aggregateWindows(recentRows, 30);
+    const windows24h = aggregateWindows(recentRows, 60);
 
     writeApiFile(`${slug}/latest.json`, {
       slug,
@@ -844,6 +846,7 @@ async function main() {
   const coinsMeta = {};
   if (providersJson) {
     for (const [slug, coinData] of Object.entries(providersJson.coins || {})) {
+      if (slug === "goldback-g1") continue; // baseline ref, not a product
       coinsMeta[slug] = {
         name: coinData.name,
         metal: coinData.metal,
@@ -887,9 +890,11 @@ async function main() {
 
   // --------------------------------------------------------------------------
   // goldback-spot.json — generated from Turso goldback-g1 data; backward compat
-  // for api-health.js freshness check and denomination lookups
+  // for api-health.js freshness check and denomination lookups.
+  // goldback-g1 is excluded from coinSlugs (not a user-facing product) but
+  // still exported here as a standalone reference file (STAK-498 Task 7).
   // --------------------------------------------------------------------------
-  if (coinSlugs.includes("goldback-g1")) {
+  {
     const gbRows = readLatestPerVendor(db, "goldback-g1", 2);
     const gbVendors = vendorMap(gbRows);
     const g1Raw = gbVendors?.goldback?.price;
@@ -909,6 +914,41 @@ async function main() {
         source:     "goldback.com",
         confidence: "high",
       });
+    }
+
+    // goldback-{YYYY}.json — daily history from DB (replaces file-based append)
+    const gbAllRows = db
+      .prepare(`
+        SELECT scraped_at, price
+        FROM price_snapshots
+        WHERE coin_slug = 'goldback-g1' AND vendor = 'goldback' AND price IS NOT NULL
+        ORDER BY scraped_at DESC
+      `)
+      .all();
+
+    // Aggregate: one entry per date (latest scrape wins)
+    const byDate = {};
+    for (const row of gbAllRows) {
+      const date = row.scraped_at.slice(0, 10);
+      if (!byDate[date]) {
+        byDate[date] = { date, g1_usd: Math.round(row.price * 100) / 100, scraped_at: row.scraped_at };
+      }
+    }
+
+    // Group by year and write each year file
+    const byYear = {};
+    for (const entry of Object.values(byDate)) {
+      const year = entry.date.slice(0, 4);
+      if (!byYear[year]) byYear[year] = [];
+      byYear[year].push(entry);
+    }
+    for (const [year, entries] of Object.entries(byYear)) {
+      entries.sort((a, b) => b.date.localeCompare(a.date)); // newest first
+      const histPath = join(DATA_DIR, `goldback-${year}.json`);
+      if (!DRY_RUN) {
+        writeFileSync(histPath, JSON.stringify(entries, null, 2) + "\n");
+        log(`Wrote ${histPath} (${entries.length} entries)`);
+      }
     }
   }
 

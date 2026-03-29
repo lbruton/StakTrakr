@@ -4,6 +4,28 @@
 let _retailViewModalChart = null;
 let _retailViewIntradayChart = null;
 let _intradayRowCount = 24;
+
+const _carriedTimeAgo = (timestamp) => {
+  if (!timestamp) return "unknown";
+  const ageMs = Date.now() - new Date(timestamp).getTime();
+  if (isNaN(ageMs) || ageMs < 0) return "just now";
+  const minutes = Math.floor(ageMs / 60000);
+  const hours = Math.floor(ageMs / 3600000);
+  const days = Math.floor(ageMs / 86400000);
+  if (days > 0) return `${days} day${days > 1 ? "s" : ""} ago`;
+  if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  if (minutes > 0) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  return "just now";
+};
+
+const _normalizeV2IntradayWindows = (windows) => {
+  if (!windows || !Array.isArray(windows)) return [];
+  return windows.map((w) => ({
+    ...w,
+    window: w.window || w.t || null,
+  }));
+};
+
 /**
  * Formats a Date as HH:MM in the user's selected timezone (or local if unset).
  * @param {Date} d
@@ -76,6 +98,8 @@ const _buildVendorLegend = (slug) => {
   );
   if (!hasAny) return;
 
+  const isV2 = typeof USE_V2_API !== "undefined" && USE_V2_API;
+
   knownVendors.forEach((vendorId) => {
     const vendorData = vendorMap[vendorId];
     const price = vendorData ? vendorData.price : null;
@@ -93,8 +117,14 @@ const _buildVendorLegend = (slug) => {
     // Skip vendors with no price
     if (price == null) return;
 
+    const isCarried = isV2 && vendorData && vendorData.carried === true;
+    const carriedFrom = isCarried && vendorData.carried_from ? vendorData.carried_from : null;
+
     const item = document.createElement(vendorUrl ? "a" : "span");
     item.className = "retail-legend-item";
+    if (isCarried && carriedFrom) {
+      item.title = `Carried from: ${_carriedTimeAgo(carriedFrom)}`;
+    }
     if (vendorUrl) {
       item.href = "#";
       item.addEventListener("click", (e) => {
@@ -105,14 +135,16 @@ const _buildVendorLegend = (slug) => {
       });
     }
 
+    const displayColor = isCarried ? color + "80" : color;
+
     const swatch = document.createElement("span");
     swatch.className = "retail-legend-swatch";
-    swatch.style.background = color;
+    swatch.style.background = displayColor;
 
     const nameEl = document.createElement("span");
     nameEl.className = "retail-legend-name";
-    nameEl.textContent = label;
-    nameEl.style.color = color;
+    nameEl.textContent = isCarried ? label + " (carried)" : label;
+    nameEl.style.color = displayColor;
 
     const priceEl = document.createElement("span");
     priceEl.className = "retail-legend-price";
@@ -125,13 +157,17 @@ const _buildVendorLegend = (slug) => {
   });
 };
 
-/**
- * Buckets raw windows_24h into 30-min aligned slots (HH:00 and HH:30).
- * For each slot, picks the most recent window whose timestamp falls within it.
- * Returns up to 48 entries covering the 24h window, oldest first.
- * @param {Array} windows - raw windows_24h from API
- * @returns {Array}
- */
+const _trimTo24h = (windows) => {
+  if (!windows || windows.length === 0) return [];
+  const validWindows = windows.filter(w => w && w.window);
+  if (validWindows.length === 0) return [];
+  const timestamps = validWindows.map(w => new Date(w.window).getTime()).filter(t => !isNaN(t));
+  if (timestamps.length === 0) return [];
+  const maxTs = Math.max(...timestamps);
+  const cutoff = maxTs - 24 * 60 * 60 * 1000;
+  return validWindows.filter(w => { const t = new Date(w.window).getTime(); return !isNaN(t) && t >= cutoff; });
+};
+
 const _bucketWindows = (windows) => {
   if (!windows || windows.length === 0) return [];
   // Build a map: slotKey (ISO :00 or :30) → most recent window in that slot
@@ -140,8 +176,8 @@ const _bucketWindows = (windows) => {
     if (!w.window) continue;
     const d = new Date(w.window);
     if (isNaN(d.getTime())) continue;
-    // Round down to nearest 30-min boundary
-    const mins = d.getUTCMinutes() >= 30 ? 30 : 0;
+    // Round down to nearest 60-min (hourly) boundary
+    const mins = 0;
     const slotDate = new Date(Date.UTC(
       d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
       d.getUTCHours(), mins, 0, 0
@@ -300,12 +336,13 @@ const _buildIntradayTable = (slug, bucketed) => {
   // Fall back to re-bucketing from live data if bucketed not provided
   if (!bucketed) {
     const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
-    const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-    const filled = _forwardFillVendors(_bucketWindows(windows));
+    const rawWindows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+    const windows = (typeof USE_V2_API !== "undefined" && USE_V2_API) ? _normalizeV2IntradayWindows(rawWindows) : rawWindows;
+    const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
     try {
       bucketed = _flagAnomalies(filled);
     } catch (e) {
-      console.error('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped', e);
+      debugLog('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: ' + e.message, 'warn');
       bucketed = filled;
     }
   }
@@ -419,14 +456,16 @@ const _buildIntradayChart = (slug) => {
   const canvas = safeGetElement("retailViewIntradayChart");
   const noDataEl = safeGetElement("retailViewIntradayNoData");
 
+  const isV2 = typeof USE_V2_API !== "undefined" && USE_V2_API;
   const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
-  const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-  const filled = _forwardFillVendors(_bucketWindows(windows));
+  const rawWindows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  const windows = isV2 ? _normalizeV2IntradayWindows(rawWindows) : rawWindows;
+  const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
   let bucketed;
   try {
     bucketed = _flagAnomalies(filled);
   } catch (e) {
-    console.error('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped', e);
+    debugLog('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: ' + e.message, 'warn');
     bucketed = filled;
   }
 
@@ -438,11 +477,26 @@ const _buildIntradayChart = (slug) => {
     _retailViewIntradayChart = null;
   }
 
-  // Collect the vendor set across all bucketed entries (preserves display order from RETAIL_VENDOR_NAMES)
-  const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-  const activeVendors = knownVendors.filter((v) => bucketed.some((w) => (w.vendors && w.vendors[v] != null) || (w._anomalyOriginals && w._anomalyOriginals[v] != null)));
+  // Discover all vendors present in the data (not limited to RETAIL_VENDOR_NAMES)
+  const vendorSet = new Set();
+  bucketed.forEach((w) => {
+    if (w.vendors) Object.keys(w.vendors).forEach((v) => vendorSet.add(v));
+    if (w._anomalyOriginals) Object.keys(w._anomalyOriginals).forEach((v) => vendorSet.add(v));
+  });
+  const knownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const activeVendors = [
+    ...knownOrder.filter((v) => vendorSet.has(v)),
+    ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
+  ];
+  // Exclude OOS vendors with zero real (non-carried) prices
+  const qualifiedVendors = activeVendors.filter((vendorId) =>
+    bucketed.some((w) =>
+      w.vendors && w.vendors[vendorId] != null &&
+      !(w._carriedVendors && w._carriedVendors.has(vendorId))
+    )
+  );
   // Fall back to median+low when windows predate the per-vendor format
-  const useVendorLines = activeVendors.length > 0;
+  const useVendorLines = qualifiedVendors.length > 0;
 
   if (bucketed.length >= 2 && canvas instanceof HTMLCanvasElement && typeof Chart !== "undefined") {
     const labels = bucketed.map((w) => {
@@ -450,27 +504,28 @@ const _buildIntradayChart = (slug) => {
       return _fmtIntradayTime(d);
     });
 
+    // Build carried-index sets for each active vendor
+    // Multi-hop only: mark carried when previous window also carried (2+ consecutive hours missing)
+    const carriedSets = qualifiedVendors.map((vendorId) => {
+      const s = new Set();
+      bucketed.forEach((w, i) => {
+        if (w._carriedVendors && w._carriedVendors.has(vendorId)) {
+          if (i === 0 || (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))) {
+            s.add(i);
+          }
+        }
+      });
+      return s;
+    });
+
     const datasets = useVendorLines
-      ? activeVendors.map((vendorId) => {
-          const label = (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId;
-          const color = RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8";
-          const carriedIndices = new Set();
-          bucketed.forEach((w, i) => {
-            if (w._carriedVendors && w._carriedVendors.has(vendorId)) carriedIndices.add(i);
-          });
-          return {
-            label,
-            data: bucketed.map((w) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null)),
-            borderColor: color,
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            pointHoverRadius: 3,
+      ? buildVendorDatasets(qualifiedVendors, bucketed,
+          (w, vendorId) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null),
+          {
+            labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
             tension: 0.2,
-            spanGaps: true,
-            _carriedIndices: carriedIndices,
-          };
-        })
+            carriedIndices: carriedSets,
+          })
       : [
           {
             label: "Median",
@@ -495,47 +550,44 @@ const _buildIntradayChart = (slug) => {
           },
         ];
 
-    _retailViewIntradayChart = new Chart(canvas, {
-      type: "line",
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: !useVendorLines, position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                if (ctx.raw == null) return null;
-                const carried = ctx.dataset._carriedIndices && ctx.dataset._carriedIndices.has(ctx.dataIndex);
-                return `${ctx.dataset.label}: ${carried ? '~' : ''}$${Number(ctx.raw).toFixed(2)}`;
-              },
-            },
-          },
+    // Augment vendor datasets with carried-aware dashed segments
+    if (useVendorLines) {
+      datasets.forEach((ds, idx) => {
+        const carried = carriedSets[idx];
+        if (!carried || carried.size === 0) return;
+        ds.pointRadius = 0;
+        ds.pointHoverRadius = (ctx) => carried.has(ctx.dataIndex) ? 2 : 3;
+        const baseColor = ds.borderColor;
+        ds.segment = {
+          borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [5, 3] : [],
+          borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? baseColor + "80" : baseColor,
+        };
+      });
+    }
+
+    _retailViewIntradayChart = createTimeSeriesChart(canvas, labels, datasets, {
+      showLegend: !useVendorLines,
+      tooltipCallbacks: {
+        label: chartPriceTooltip({ interpSuffix: "" }),
+      },
+      xTicks: {
+        maxTicksLimit: 12,
+        autoSkip: true,
+        maxRotation: 0,
+        color: function(context) {
+          const label = context.chart.data.labels[context.index] || '';
+          const mins = label.split(':')[1];
+          const base = typeof getChartTextColor === "function" ? getChartTextColor() : '#94a3b8';
+          if (mins === '00') return base;
+          return base.startsWith('#') && base.length === 7 ? base + '80' : base;
         },
-        scales: {
-          x: {
-            ticks: {
-              maxTicksLimit: 12,
-              autoSkip: true,
-              maxRotation: 0,
-              color: function(context) {
-                const label = context.chart.data.labels[context.index] || '';
-                const mins = label.split(':')[1];
-                const base = typeof getChartTextColor === "function" ? getChartTextColor() : '#94a3b8';
-                if (mins === '00') return base;
-                return base.startsWith('#') && base.length === 7 ? base + '80' : base;
-              },
-              font: function(context) {
-                const label = context.chart.data.labels[context.index] || '';
-                const mins = label.split(':')[1];
-                return { size: mins === '00' ? 11 : 9 };
-              },
-            },
-          },
-          y: { ticks: _retailYTicks() },
+        font: function(context) {
+          const label = context.chart.data.labels[context.index] || '';
+          const mins = label.split(':')[1];
+          return { size: mins === '00' ? 11 : 9 };
         },
       },
+      yTicks: _retailYTicks(),
     });
   }
 
@@ -599,28 +651,29 @@ const openRetailViewModal = (slug) => {
   if (chartWrap) chartWrap.style.display = hasEnoughHistory ? "" : "none";
   if (hasEnoughHistory && chartCanvas instanceof HTMLCanvasElement && typeof Chart !== "undefined") {
     const sorted = [...history].reverse();
-    const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-    const activeHistVendors = knownVendors.filter((v) =>
+    // Discover all vendors present in history data
+    const histVendorSet = new Set();
+    sorted.forEach((e) => { if (e.vendors) Object.keys(e.vendors).forEach((v) => histVendorSet.add(v)); });
+    const histKnownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+    const activeHistVendors = [
+      ...histKnownOrder.filter((v) => histVendorSet.has(v)),
+      ...[...histVendorSet].filter((v) => !histKnownOrder.includes(v)).sort(),
+    ].filter((v) =>
       sorted.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null)
     );
     const useVendorHistLines = activeHistVendors.length > 0;
 
+    const histValueExtractor = (entry, vendorId) => {
+      const vendorData = entry.vendors && entry.vendors[vendorId];
+      if (vendorData && vendorData.inStock === false) return null;
+      return vendorData ? vendorData.avg : null;
+    };
+
     const histDatasets = useVendorHistLines
-      ? activeHistVendors.map((vendorId) => ({
-          label: (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
-          data: sorted.map((e) => {
-            const vendorData = e.vendors && e.vendors[vendorId];
-            // If vendor is out of stock, return null to create gap
-            if (vendorData && vendorData.inStock === false) return null;
-            return vendorData ? vendorData.avg : null;
-          }),
-          borderColor: RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8",
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          pointRadius: 2,
-          tension: 0.3,
+      ? buildVendorDatasets(activeHistVendors, sorted, histValueExtractor, {
+          labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
           spanGaps: false,
-        }))
+        }).map((ds) => ({ ...ds, pointRadius: 2 }))
       : [{
           label: "Avg Median",
           data: sorted.map((e) => e.avg_median),
@@ -630,33 +683,12 @@ const openRetailViewModal = (slug) => {
           tension: 0.3,
         }];
 
-    _retailViewModalChart = new Chart(chartCanvas, {
-      type: "line",
-      data: { labels: sorted.map((e) => e.date), datasets: histDatasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: !useVendorHistLines },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                const label = context.dataset.label || "";
-                const value = context.parsed.y;
-
-                if (value === null) {
-                  return `${label}: Out of stock`;
-                }
-
-                return `${label}: $${Number(value).toFixed(2)}`;
-              }
-            }
-          }
-        },
-        scales: {
-          y: { ticks: _retailYTicks() },
-        },
+    _retailViewModalChart = createTimeSeriesChart(chartCanvas, sorted.map((e) => e.date), histDatasets, {
+      showLegend: !useVendorHistLines,
+      tooltipCallbacks: {
+        label: chartPriceTooltip(),
       },
+      yTicks: _retailYTicks(),
     });
   }
 
@@ -689,21 +721,23 @@ const openRetailViewModal = (slug) => {
       let intradayUpdated = false;
       let anySuccess = false;
       if (latestResp && latestResp.ok) {
-        const latest = await latestResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn"); return null; });
+        let latest = await latestResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn"); return null; });
+        // Unwrap v2 envelope if present
+        if (latest && latest.v === 2 && latest.data !== undefined) latest = latest.data;
         if (latest) {
           anySuccess = true;
           if (typeof retailIntradayData !== "undefined") {
             retailIntradayData[slug] = {
               window_start: latest.window_start,
-              windows_24h: Array.isArray(latest.windows_24h) ? latest.windows_24h : [],
+              windows_24h: _normalizeV2IntradayWindows(Array.isArray(latest.windows_24h) ? latest.windows_24h : []),
             };
             if (typeof saveRetailIntradayData === "function") saveRetailIntradayData();
             intradayUpdated = true;
           }
           if (latest.vendors && typeof retailPrices !== "undefined" && retailPrices && retailPrices.prices) {
             retailPrices.prices[slug] = {
-              median_price: latest.median_price,
-              lowest_price: latest.lowest_price,
+              median_price: latest.median_price ?? latest.median ?? null,
+              lowest_price: latest.lowest_price ?? latest.low ?? null,
               vendors: latest.vendors,
             };
             if (typeof saveRetailPrices === "function") saveRetailPrices();
@@ -761,6 +795,7 @@ if (typeof window !== "undefined") {
   window.retailForwardFillVendors = _forwardFillVendors;
   window.retailFlagAnomalies = _flagAnomalies;
   window.retailFmtIntradayTime = _fmtIntradayTime;
+  window.retailTrimTo24h = _trimTo24h;
 }
 
 // =============================================================================

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="shieldStrokeA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#94a3b8"/>
+      <stop offset="40%" stop-color="#d4a017"/>
+      <stop offset="70%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="metalGradA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="30%" stop-color="#d4a017"/>
+      <stop offset="60%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="shieldFillA" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0f1729" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bgA)"/>
+  <!-- Shield shape — centered, generous size -->
+  <path d="M256 62 L410 125 L410 290 Q410 385 256 430 Q102 385 102 290 L102 125 Z"
+    fill="url(#shieldFillA)" stroke="url(#shieldStrokeA)" stroke-width="3"/>
+  <!-- Inner shield subtle line -->
+  <path d="M256 85 L390 140 L390 282 Q390 365 256 407 Q122 365 122 282 L122 140 Z"
+    fill="none" stroke="#d4a017" stroke-width="0.5" opacity="0.2"/>
+  <!-- S monogram inside shield — stacked bars forming the letter -->
+  <!-- Top curve of S — bars sweep right -->
+  <rect x="215" y="115" width="130" height="18" rx="9" fill="url(#metalGradA)" opacity="0.5"/>
+  <rect x="185" y="143" width="120" height="18" rx="9" fill="url(#metalGradA)" opacity="0.65"/>
+  <rect x="165" y="171" width="90" height="18" rx="9" fill="url(#metalGradA)" opacity="0.8"/>
+  <!-- Middle crossbar of S -->
+  <rect x="185" y="203" width="142" height="20" rx="10" fill="url(#metalGradA)"/>
+  <!-- Bottom curve of S — bars sweep left -->
+  <rect x="237" y="235" width="90" height="18" rx="9" fill="url(#metalGradA)" opacity="0.8"/>
+  <rect x="207" y="263" width="120" height="18" rx="9" fill="url(#metalGradA)" opacity="0.65"/>
+  <rect x="177" y="291" width="148" height="18" rx="9" fill="url(#metalGradA)" opacity="0.5"/>
+  <!-- Subtle chart line weaving through the S -->
+  <polyline points="170,182 220,155 270,128 310,210 340,248 300,275 260,300"
+    fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+  <!-- Wordmark below shield -->
+  <text x="256" y="472" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="40" font-weight="700" letter-spacing="3">
+    <tspan fill="#f8fafc">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+  </text>
+</svg>

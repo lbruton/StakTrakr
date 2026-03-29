@@ -670,7 +670,10 @@ function cloudBuildVersionedFilename() {
 // ---------------------------------------------------------------------------
 
 function cloudSafeItemCount() {
-  try { return typeof inventory !== 'undefined' ? inventory.length : 0; } catch (_) { return 0; }
+  try {
+    if (typeof inventory === 'undefined' || !Array.isArray(inventory)) return 0;
+    return inventory.reduce(function(sum, it) { return sum + (Number(it.qty) || 1); }, 0);
+  } catch (_) { return 0; }
 }
 
 function cloudSafeAppVersion() {

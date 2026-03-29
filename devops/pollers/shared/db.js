@@ -125,6 +125,33 @@ function appendPriceLog(row) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// STAK-496: Price bounds guard — reject implausible prices at write time.
+// If row.baseline is provided (spot-based melt value or goldback G1 rate),
+// prices outside the reject threshold are written as is_failed=1, price=null.
+// ---------------------------------------------------------------------------
+const BOUNDS_REJECT_HIGH = 1.50;  // > +50% above baseline
+const BOUNDS_REJECT_LOW  = 0.70;  // < -30% below baseline
+
+/**
+ * Check whether a price is within plausible bounds of its baseline.
+ * @param {number} price
+ * @param {number} baseline
+ * @returns {{ ok: boolean, ratio: number, reason?: string }}
+ */
+function checkPriceBounds(price, baseline) {
+  if (!isFinite(price) || price <= 0) return { ok: false, ratio: NaN, reason: `non-finite or non-positive price (${price})` };
+  if (baseline <= 0 || !isFinite(baseline)) return { ok: true, ratio: 1 };
+  const ratio = price / baseline;
+  if (ratio > BOUNDS_REJECT_HIGH) {
+    return { ok: false, ratio, reason: `${((ratio - 1) * 100).toFixed(1)}% above baseline ($${price.toFixed(2)} vs $${baseline.toFixed(2)})` };
+  }
+  if (ratio < BOUNDS_REJECT_LOW) {
+    return { ok: false, ratio, reason: `${((1 - ratio) * 100).toFixed(1)}% below baseline ($${price.toFixed(2)} vs $${baseline.toFixed(2)})` };
+  }
+  return { ok: true, ratio };
+}
+
 /**
  * Insert a single price snapshot row.
  *
@@ -139,9 +166,24 @@ function appendPriceLog(row) {
  * @param {number|null} [row.confidence]  populated later by merge step
  * @param {boolean} [row.isFailed]  true if this scrape returned no price
  * @param {boolean} [row.inStock]   false if product is out of stock (defaults to true)
+ * @param {number|null} [row.baseline]  dynamic baseline for bounds check (STAK-496)
+ * @param {boolean} [row.skipPriceBounds]  true to exempt from bounds check
  */
 export async function writeSnapshot(client, row) {
-  appendPriceLog(row);
+  let price = row.price;
+  let isFailed = row.isFailed ? 1 : 0;
+
+  // STAK-496: Bounds check — reject implausible prices
+  if (price != null && row.baseline != null && !row.skipPriceBounds) {
+    const bounds = checkPriceBounds(price, row.baseline);
+    if (!bounds.ok) {
+      console.warn(`[bounds-guard] REJECTED ${row.coinSlug}/${row.vendor}: ${bounds.reason}`);
+      price = null;
+      isFailed = 1;
+    }
+  }
+
+  appendPriceLog({ ...row, price, isFailed: isFailed === 1 });
 
   await client.execute({
     sql: `
@@ -155,10 +197,10 @@ export async function writeSnapshot(client, row) {
       row.windowStart,
       row.coinSlug,
       row.vendor,
-      row.price,
+      price,
       row.source,
       row.confidence || null,
-      row.isFailed ? 1 : 0,
+      isFailed,
       row.inStock === false ? 0 : 1,
     ],
   });
@@ -206,24 +248,29 @@ export function readWindow(db, windowStart) {
 }
 
 /**
- * Returns per-window rows for a specific coin over the past N windows (chronological).
- * Used for building the 24h time series in api-export.
+ * Returns per-window rows for a specific coin within cutoffHours of the latest
+ * snapshot (chronological). Used for building the 24h time series in api-export.
  *
  * @param {Database.Database} db
  * @param {string} coinSlug
- * @param {number} [windowCount=96]  default 96 = 24h worth of 15-min windows
+ * @param {number} [windowCount=96]  safety-cap LIMIT (default 96 × 20 rows)
+ * @param {number} [cutoffHours=24]  only return rows within this many hours of the latest window
  * @returns {Array<object>}
  */
-export function readRecentWindows(db, coinSlug, windowCount = 96) {
-  return db
-    .prepare(`
+export function readRecentWindows(db, coinSlug, windowCount = 96, cutoffHours = 24) {
+  const latest = db.prepare(
+    "SELECT MAX(window_start) as latest FROM price_snapshots WHERE coin_slug = ? AND price IS NOT NULL"
+  ).get(coinSlug);
+  if (!latest || !latest.latest) return [];
+  const cutoff = new Date(new Date(latest.latest).getTime() - cutoffHours * 60 * 60 * 1000).toISOString().replace(".000Z", "Z");
+  return db.prepare(`
       SELECT *
       FROM price_snapshots
-      WHERE coin_slug = ? AND price IS NOT NULL
+      WHERE coin_slug = ? AND price IS NOT NULL AND window_start >= ?
       ORDER BY window_start DESC
       LIMIT ?
     `)
-    .all(coinSlug, windowCount * 20) // over-fetch then aggregate in JS
+    .all(coinSlug, cutoff, windowCount * 20)
     .reverse();
 }
 

@@ -256,120 +256,74 @@
 
 
     </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
   </head>
   <body>
     <!-- Application Header -->
     <div class="app-header">
       <div>
         <h1 class="app-logo" id="appLogo" aria-label="StakTrakr">
-          <svg class="stackr-logo" viewBox="35 5 355 145" xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 666px;">
+          <svg class="stackr-logo" viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 560px;">
             <defs>
-              <!-- Light Mode Gradients -->
-              <linearGradient id="goldLight" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#FFD700"/>
-                <stop offset="30%" stop-color="#FFA500"/>
-                <stop offset="70%" stop-color="#B8860B"/>
-                <stop offset="100%" stop-color="#8B6914"/>
+              <!-- S-stack bar gradients (shared across themes) -->
+              <linearGradient id="silverBar" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/>
               </linearGradient>
-              
-              <linearGradient id="silverLight" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#F8F8FF"/>
-                <stop offset="30%" stop-color="#E5E5E5"/>
-                <stop offset="70%" stop-color="#C0C0C0"/>
-                <stop offset="100%" stop-color="#A0A0A0"/>
+              <linearGradient id="goldBar" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/>
               </linearGradient>
-              
-              <!-- Dark Mode Gradients -->
-              <linearGradient id="goldDark" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#FFED4E"/>
-                <stop offset="30%" stop-color="#FFD700"/>
-                <stop offset="70%" stop-color="#FFA500"/>
-                <stop offset="100%" stop-color="#CC8400"/>
+              <!-- Light mode bar gradient (darker for contrast on light bg) -->
+              <linearGradient id="silverBarLight" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#475569"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/>
               </linearGradient>
-              
-              <linearGradient id="silverDark" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#FFFFFF"/>
-                <stop offset="30%" stop-color="#F5F5F5"/>
-                <stop offset="70%" stop-color="#E0E0E0"/>
-                <stop offset="100%" stop-color="#C0C0C0"/>
+              <!-- Sepia mode bar gradient -->
+              <linearGradient id="silverBarSepia" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#8d8d8d"/><stop offset="50%" stop-color="#d1c2a5"/><stop offset="100%" stop-color="#a8a29e"/>
               </linearGradient>
-              
-              <!-- Sepia Mode Gradients -->
-              <linearGradient id="goldSepia" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#D4A574"/>
-                <stop offset="30%" stop-color="#B58900"/>
-                <stop offset="70%" stop-color="#8B6914"/>
-                <stop offset="100%" stop-color="#6B5416"/>
-              </linearGradient>
-              
-              <linearGradient id="silverSepia" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#F2E7D5"/>
-                <stop offset="30%" stop-color="#D1C2A5"/>
-                <stop offset="70%" stop-color="#A8A29E"/>
-                <stop offset="100%" stop-color="#8D8D8D"/>
+              <linearGradient id="goldBarSepia" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#6b5416"/><stop offset="50%" stop-color="#b58900"/><stop offset="100%" stop-color="#8b6914"/>
               </linearGradient>
             </defs>
-            
+
             <!-- Light Mode Group -->
             <g class="light-mode">
-              <!-- Shadow layer for light mode -->
-              <text x="53" y="83" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="rgba(0,0,0,0.3)">
-                <tspan class="logo-silver">Stak</tspan><tspan class="logo-gold">Trakr</tspan>
-              </text>
-              <!-- Main title -->
-              <text x="50" y="80" font-family="Arial, sans-serif" font-size="72" font-weight="bold">
-                <tspan class="logo-silver" fill="url(#silverLight)">Stak</tspan><tspan class="logo-gold" fill="url(#goldLight)">Trakr</tspan>
-              </text>
-
-              <!-- Tagline shadow -->
-              <text x="52" y="132" font-family="Arial, sans-serif" font-size="32" fill="rgba(0,0,0,0.2)">
-                Your Stack. Your Way.
-              </text>
-              <!-- Tagline -->
-              <text x="50" y="130" font-family="Arial, sans-serif" font-size="32" fill="#666666">
-                Your Stack. Your Way.
+              <g transform="translate(8, 8) scale(0.125)">
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBar)"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
+              </g>
+              <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
+                <tspan class="logo-silver" fill="#334155">STAK</tspan><tspan class="logo-gold" fill="#b8860b">TRAKR</tspan>
               </text>
             </g>
-            
+
             <!-- Dark Mode Group -->
             <g class="dark-mode">
-              <!-- Shadow layer for dark mode -->
-              <text x="53" y="83" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="rgba(0,0,0,0.5)">
-                <tspan class="logo-silver">Stak</tspan><tspan class="logo-gold">Trakr</tspan>
-              </text>
-              <!-- Main title -->
-              <text x="50" y="80" font-family="Arial, sans-serif" font-size="72" font-weight="bold">
-                <tspan class="logo-silver" fill="url(#silverDark)">Stak</tspan><tspan class="logo-gold" fill="url(#goldDark)">Trakr</tspan>
-              </text>
-
-              <!-- Tagline shadow -->
-              <text x="52" y="132" font-family="Arial, sans-serif" font-size="32" fill="rgba(0,0,0,0.3)">
-                Your Stack. Your Way.
-              </text>
-              <!-- Tagline -->
-              <text x="50" y="130" font-family="Arial, sans-serif" font-size="32" fill="#E0E0E0">
-                Your Stack. Your Way.
+              <g transform="translate(8, 8) scale(0.125)">
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBar)" opacity="0.45"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBar)" opacity="0.68"/>
+                <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBar)"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBar)" opacity="0.68"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBar)" opacity="0.45"/>
+              </g>
+              <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
+                <tspan class="logo-silver" fill="#e2e8f0">STAK</tspan><tspan class="logo-gold" fill="#d4a017">TRAKR</tspan>
               </text>
             </g>
-            
+
             <!-- Sepia Mode Group -->
             <g class="sepia-mode">
-              <!-- Shadow layer for sepia mode -->
-              <text x="53" y="83" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="rgba(62,47,30,0.4)">
-                <tspan class="logo-silver">Stak</tspan><tspan class="logo-gold">Trakr</tspan>
-              </text>
-              <!-- Main title -->
-              <text x="50" y="80" font-family="Arial, sans-serif" font-size="72" font-weight="bold">
-                <tspan class="logo-silver" fill="url(#silverSepia)">Stak</tspan><tspan class="logo-gold" fill="url(#goldSepia)">Trakr</tspan>
-              </text>
-
-              <!-- Tagline shadow -->
-              <text x="52" y="132" font-family="Arial, sans-serif" font-size="32" fill="rgba(62,47,30,0.3)">
-                Your Stack. Your Way.
-              </text>
-              <!-- Tagline -->
-              <text x="50" y="130" font-family="Arial, sans-serif" font-size="32" fill="#6F604E">
-                Your Stack. Your Way.
+              <g transform="translate(8, 8) scale(0.125)">
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.5"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.7"/>
+                <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBarSepia)"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.7"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarSepia)" opacity="0.5"/>
+              </g>
+              <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
+                <tspan class="logo-silver" fill="#5c4f3a">STAK</tspan><tspan class="logo-gold" fill="#8b6914">TRAKR</tspan>
               </text>
             </g>
           </svg>
@@ -632,7 +586,10 @@
             </div>
           </div>
         </div>
-      </section><!-- =============================================================================
+      </section>
+      <!-- ── Best Price Ticker (STAK-504) ── -->
+      <div id="bestPriceTickerEl" class="market-ticker" hidden></div>
+      <!-- =============================================================================
          TOTALS SECTION
 
          Comprehensive financial summary cards for each metal type showing:
@@ -1184,6 +1141,10 @@
             </div>
           </div>
         </section>
+      <!-- ── Vendor Prices (STAK-504) ── -->
+      <section class="vendor-prices-section" id="vendorPricesSectionEl">
+        <div id="vendorPricesContainer"></div>
+      </section>
       <!-- =============================================================================
          IMPORT/EXPORT SECTION
          
@@ -2037,122 +1998,7 @@
         </div>
       </div>
     </div>
-    <div class="modal" id="aboutModal" style="display: none">
-      <div class="modal-content about-modal-content">
-        <div class="modal-header about-modal-header">
-          <button
-            aria-label="Close modal"
-            class="modal-close"
-            id="aboutCloseBtn"
-          >
-            ×
-          </button>
-        </div>
-        <div class="modal-body about-modal-body">
-          <h2 class="about-title" id="aboutTitle">
-            <span id="aboutAppName">StakTrakr</span>
-            <span id="aboutVersion"></span>
-          </h2>
-          <div class="about-description">
-            A free, open-source precious metals portfolio tracker. Monitor live
-            spot prices, track purchase cost vs melt value, and compute gain/loss
-            across Silver, Gold, Platinum, and Palladium. All data stays in your
-            browser — nothing is ever sent to a server. Export to CSV, JSON, PDF,
-            or HTML backup at any time.
-            <div class="about-badges">
-              <a id="aboutSiteLink" href="https://www.staktrakr.com" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <span id="aboutSiteDomain">staktrakr.com</span>
-              </a>
-              <a href="https://github.com/lbruton/StakTrakr" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-                Source
-              </a>
-              <a href="https://www.reddit.com/r/staktrakr/" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
-                Community
-              </a>
-              <a href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                MIT License
-              </a>
-              <a href="docs/api/index.html" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                API Docs
-              </a>
-              <a href="https://github.com/sponsors/lbruton" target="_blank" rel="noopener" class="about-badge">
-                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                Sponsor
-              </a>
-              <button class="about-badge" onclick="if(window.showFaqModal)window.showFaqModal()">
-                ❓ FAQ
-              </button>
-              <button class="about-badge" onclick="if(window.openModalById)openModalById('privacyModal')">
-                🔒 Privacy
-              </button>
-              <button class="about-badge" id="apiHealthBadgeAbout" onclick="if(window.showApiHealthModal)window.showApiHealthModal()">
-                📡 API Health
-              </button>
-            </div>
-          </div>
-
-          <div class="about-alert about-alert-compact">
-            <span class="alert-icon">⚠️</span>
-            All data is stored locally in your browser and never sent to a server.
-            Export regularly to keep a backup. See <button class="about-alert-link" onclick="if(window.showFaqModal)window.showFaqModal()">FAQ</button> for full details.
-          </div>
-          <!-- What's New and Roadmap -->
-          <div class="about-info-grid">
-            <div class="about-section">
-              <div class="section-title">🚀 What's New in <span id="aboutCurrentVersion"></span></div>
-              <ul id="aboutChangelogLatest" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <button class="about-card-link" id="aboutShowChangelogBtn">View Full Changelog →</button>
-              </div>
-            </div>
-
-            <div class="about-section" id="aboutRoadmapSection">
-              <div class="section-title">🗺️ Development Roadmap</div>
-              <ul id="aboutRoadmapList" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <a class="about-card-link" href="https://github.com/lbruton/StakTrakr/blob/main/docs/announcements.md" target="_blank" rel="noopener">View Full Roadmap →</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="modal" id="versionModal" style="display: none">
-      <div class="modal-content about-modal-content">
-        <div class="modal-header about-modal-header">
-          <h1 class="about-title">What's New <span id="versionModalVersion"></span></h1>
-          <button aria-label="Close modal" class="modal-close" id="versionCloseBtn">×</button>
-        </div>
-        <div class="modal-body about-modal-body">
-          <div class="about-info-grid">
-            <div class="about-section">
-              <div class="section-title">🚀 What's New</div>
-              <ul id="versionChanges" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <button class="about-card-link" id="versionShowChangelogBtn">View Full Changelog →</button>
-              </div>
-            </div>
-
-            <div class="about-section">
-              <div class="section-title">🗺️ Development Roadmap</div>
-              <ul id="versionRoadmapList" class="changelog-list"></ul>
-              <div class="about-section-footer">
-                <a class="about-card-link" href="https://github.com/lbruton/StakTrakr/blob/main/docs/announcements.md" target="_blank" rel="noopener">View Full Roadmap →</a>
-              </div>
-            </div>
-          </div>
-
-          <div class="alert-actions">
-            <button class="btn premium" id="versionAcceptBtn">Accept and continue</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- aboutModal and versionModal removed — content moved to settingsPanel_about + whatsNewPopup -->
     <!-- =============================================================================
        ============================================================================= -->
 
@@ -2171,7 +2017,12 @@
         <div class="settings-modal-layout">
           <!-- Sidebar Navigation -->
           <nav class="settings-sidebar">
-            <button class="settings-nav-item active" data-section="site">
+            <button class="settings-nav-item active" data-section="about">
+              <svg viewBox="0 0 512 512" width="16" height="16" fill="none"><rect width="512" height="512" rx="96" fill="#0f1729"/><rect x="170" y="120" width="180" height="28" rx="14" fill="#94a3b8" opacity="0.45"/><rect x="140" y="165" width="140" height="28" rx="14" fill="#94a3b8" opacity="0.68"/><rect x="150" y="216" width="200" height="32" rx="16" fill="#d4a017"/><rect x="222" y="268" width="140" height="28" rx="14" fill="#94a3b8" opacity="0.68"/><rect x="142" y="313" width="180" height="28" rx="14" fill="#94a3b8" opacity="0.45"/></svg>
+              About
+            </button>
+            <hr class="stk-nav-separator">
+            <button class="settings-nav-item" data-section="site">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="16" cy="20" r="2.5"/><circle cx="7" cy="20" r="2.5"/><circle cx="4" cy="13" r="2.5"/><circle cx="12" cy="13" r="3"/></svg>
               Appearance
             </button>
@@ -2230,8 +2081,104 @@
           <!-- Content Area -->
           <div class="settings-content-area">
 
+            <!-- ===== ABOUT PANEL ===== -->
+            <div class="settings-section-panel" id="settingsPanel_about" style="display: block">
+
+              <!-- Hero -->
+              <div class="about-hero layout-left">
+                <div class="about-logo-wrap">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="80" height="80">
+                    <defs>
+                      <linearGradient id="bgAbout" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
+                      <linearGradient id="silverAbout" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
+                      <linearGradient id="goldAbout" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
+                    </defs>
+                    <rect width="512" height="512" rx="96" fill="url(#bgAbout)"/>
+                    <!-- S-stack (scaled down with wordmark below) -->
+                    <rect x="188" y="90" width="180" height="26" rx="13" fill="url(#silverAbout)" opacity="0.45"/>
+                    <rect x="152" y="128" width="145" height="26" rx="13" fill="url(#silverAbout)" opacity="0.68"/>
+                    <rect x="156" y="172" width="200" height="30" rx="15" fill="url(#goldAbout)"/>
+                    <rect x="215" y="218" width="145" height="26" rx="13" fill="url(#silverAbout)" opacity="0.68"/>
+                    <rect x="144" y="256" width="192" height="26" rx="13" fill="url(#silverAbout)" opacity="0.45"/>
+                    <!-- Wordmark -->
+                    <text x="256" y="348" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="52" font-weight="700" letter-spacing="4">
+                      <tspan fill="#e2e8f0">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+                    </text>
+                    <!-- Tagline -->
+                    <text x="256" y="386" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="13" fill="#475569" letter-spacing="3">TRACK YOUR STACK</text>
+                  </svg>
+                </div>
+                <div class="about-hero-text">
+                  <div class="about-app-name" id="aboutAppName"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
+                  <div class="about-version" id="aboutVersion"></div>
+                  <div class="about-tagline">Track Your Stack</div>
+                  <p class="about-desc">
+                    A free, open-source precious metals portfolio tracker. Monitor live spot prices,
+                    track purchase cost vs melt value, and compute gain/loss across Silver, Gold,
+                    Platinum, and Palladium. All data stays in your browser — nothing is ever sent
+                    to a server.
+                  </p>
+                  <div class="about-badges">
+                    <a id="aboutSiteLink" href="https://www.staktrakr.com" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      <span id="aboutSiteDomain">staktrakr.com</span>
+                    </a>
+                    <a href="https://github.com/lbruton/StakTrakr" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                      Source
+                    </a>
+                    <a href="https://www.reddit.com/r/staktrakr/" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+                      Community
+                    </a>
+                    <a href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      MIT License
+                    </a>
+                    <a href="https://github.com/sponsors/lbruton" target="_blank" rel="noopener" class="about-badge-item">
+                      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" width="13" height="13"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                      Sponsor
+                    </a>
+                    <button class="about-badge-item" id="apiHealthBadgeAbout" onclick="if(window.showApiHealthModal)showApiHealthModal()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                      API Status
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- What's New -->
+              <div class="about-section">
+                <div class="about-section-title">WHAT'S NEW IN <span id="aboutCurrentVersion"></span></div>
+                <ul id="aboutChangelogLatest" class="about-whats-new-list"></ul>
+                <div class="about-section-footer" style="margin-top:8px;">
+                  <button class="about-card-link" id="aboutShowChangelogBtn" onclick="if(window.showFullChangelog)showFullChangelog()">View Full Changelog</button>
+                </div>
+              </div>
+
+              <!-- Roadmap -->
+              <div class="about-section">
+                <div class="about-section-title">ROADMAP</div>
+                <ul id="aboutRoadmapList" class="about-roadmap-list"></ul>
+              </div>
+
+              <!-- Disclaimer -->
+              <div class="about-disclaimer" id="aboutDisclaimer">
+                <strong>Disclaimer:</strong> Data is stored locally in your browser. Export regularly to keep a backup.
+                Spot prices are for reference only and may not reflect real-time market conditions.
+                Use at your own risk. <a href="#" onclick="var d=document.getElementById('aboutDisclaimerFull');if(d){d.style.display=d.style.display==='none'?'block':'none';this.textContent=d.style.display==='none'?'Show full disclaimer':'Hide disclaimer'}return false;" style="color:var(--primary,#3b82f6);">Show full disclaimer</a>
+                <div id="aboutDisclaimerFull" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+                  <p style="margin:0 0 8px"><strong>Your Privacy is Protected:</strong> All data is stored locally in your browser using localStorage and <em>never transmitted to any server</em>. Your precious metals inventory information remains completely private and under your control.</p>
+                  <p style="margin:0 0 8px"><strong>Data Backup Responsibility:</strong> Since data is stored locally, it will be lost if you clear browser history, reset browser data, or use private browsing mode. Remember to export your data regularly to keep a copy.</p>
+                  <p style="margin:0 0 8px"><strong>Use at Your Own Risk:</strong> This tool is provided for informational and organizational purposes only. The developer assumes no responsibility for any financial decisions, investment choices, or data loss. Always verify spot prices and calculations independently.</p>
+                  <p style="margin:0"><strong>Spot Price Accuracy:</strong> Prices displayed are for reference only and may not reflect real-time market conditions. Always confirm current pricing with your dealer or official market sources before making transactions.</p>
+                </div>
+              </div>
+
+            </div><!-- #settingsPanel_about -->
+
             <!-- ===== APPEARANCE SETTINGS ===== -->
-            <div class="settings-section-panel" id="settingsPanel_site" style="display: block">
+            <div class="settings-section-panel" id="settingsPanel_site" style="display: none">
               <h3>Appearance</h3>
 
               <!-- ── Card 1: Visual style pickers ── -->
@@ -2605,7 +2552,7 @@
                     <div class="settings-group-label">Metadata Sync</div>
                     <p class="settings-subtext">
                       Sync metadata for all inventory items with Numista catalog IDs.
-                      Images are loaded on-demand when viewing items. Uses your API key (counts toward monthly quota).
+                      Uses your API key (counts toward monthly quota).
                     </p>
 
                     <!-- Stats bar -->
@@ -3112,34 +3059,6 @@
             <div class="settings-section-panel" id="settingsPanel_images" style="display: none">
               <h3>Images</h3>
 
-              <!-- ── Cache Actions ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Image Cache</div>
-                <div class="image-actions-row">
-                  <button class="btn" id="importImagesBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Import
-                  </button>
-                  <button class="btn" id="exportAllImagesBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Export
-                  </button>
-                  <button class="btn secondary" id="syncImageUrlsBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.4-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.4 4.5"/></svg>
-                    Download URLs
-                  </button>
-                  <button class="btn warning" id="purgeNumistaUrlsBtn" type="button" title="Remove all Numista CDN image URLs from inventory items (keeps user uploads and pattern images)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    Purge Numista URLs
-                  </button>
-                  <button class="btn danger" id="clearAllImagesBtn" type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                    Clear Cache
-                  </button>
-                  <input type="file" id="importImagesFile" accept=".zip" style="display:none" />
-                </div>
-              </div>
-
               <!-- ── Image Display ── -->
               <div class="settings-fieldset">
                 <div class="settings-fieldset-title">Image Display</div>
@@ -3230,11 +3149,6 @@
                     <span class="storage-gauge-label">📷 Your Photos</span>
                     <div class="storage-gauge-bar-wrap"><div id="gaugeUserBar" class="storage-gauge-bar"></div></div>
                     <span id="gaugeUserSize" class="storage-gauge-size">—</span>
-                  </div>
-                  <div class="storage-gauge-row">
-                    <span class="storage-gauge-label">🪙 Numista Cache</span>
-                    <div class="storage-gauge-bar-wrap"><div id="gaugeNumistaBar" class="storage-gauge-bar"></div></div>
-                    <span id="gaugeNumistaSize" class="storage-gauge-size">—</span>
                   </div>
                   <div id="gaugePersistLine" class="storage-gauge-persist">—</div>
                 </div>
@@ -3715,7 +3629,7 @@
             <!-- ===== MARKET PRICES ===== -->
             <div id="settingsPanel_market" class="settings-section-panel" style="display: none">
 
-              <!-- Market List View header (hidden by default, shown by JS when MARKET_LIST_VIEW enabled) -->
+              <!-- Market List View header -->
               <div id="marketListHeader" style="display:none">
                 <div class="market-header">
                   <div class="market-header-row">
@@ -3759,7 +3673,7 @@
                 </div>
               </div>
 
-              <!-- Original grid header (shown when MARKET_LIST_VIEW is disabled) -->
+              <!-- Legacy grid header (hidden when list view active) -->
               <div id="marketGridHeader">
                 <h3 style="margin-bottom:0.75rem;">Market Prices</h3>
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.5rem;">
@@ -4256,6 +4170,39 @@
         <div class="settings-footer" id="settingsFooter"></div>
       </div><!-- .settings-modal-content -->
     </div><!-- #settingsModal -->
+
+    <!-- ===== WHAT'S NEW POPUP (thin version splash) ===== -->
+    <div class="whats-new-overlay" id="whatsNewPopup" style="display: none">
+      <div class="whats-new-popup">
+        <div class="whats-new-popup-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
+            <defs>
+              <linearGradient id="bgPopup" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
+              <linearGradient id="silverPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
+              <linearGradient id="goldPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
+            </defs>
+            <rect width="512" height="512" rx="96" fill="url(#bgPopup)"/>
+            <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
+            <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
+            <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldPopup)"/>
+            <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
+            <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
+          </svg>
+          <div class="popup-title-group">
+            <div class="popup-title"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
+            <div class="popup-version" id="whatsNewVersion"></div>
+          </div>
+        </div>
+        <div class="whats-new-popup-body">
+          <h4>What's New</h4>
+          <ul id="versionChanges"></ul>
+        </div>
+        <div class="whats-new-popup-footer">
+          <button class="btn secondary" id="whatsNewChangelogBtn">Full Changelog</button>
+          <button class="btn premium" id="whatsNewDismissBtn">Got it!</button>
+        </div>
+      </div>
+    </div><!-- #whatsNewPopup -->
 
     <div class="modal" id="cloudSyncModal" style="display: none">
       <div class="modal-content">
@@ -5322,6 +5269,9 @@
   <script defer src="./js/changeLog.js"></script>
   <script defer src="./js/diff-engine.js"></script>
   <script defer src="./js/diff-modal.js"></script>
+    <script defer src="./js/chart-utils.js"></script>
+    <script defer src="./js/market-charts.js"></script>
+    <script defer src="./js/market-data.js"></script>
     <script defer src="./js/charts.js"></script>
     <script defer src="./js/theme.js"></script>
     <script defer src="./js/search.js"></script>
@@ -5347,6 +5297,9 @@
     <script defer src="./js/pcgs-api.js"></script>
     <script defer src="./js/catalog-providers.js"></script>
     <script defer src="./js/catalog-manager.js"></script>
+    <script defer src="./js/inventory-backup.js"></script>
+    <script defer src="./js/inventory-import.js"></script>
+    <script defer src="./js/inventory-table.js"></script>
     <script defer src="./js/inventory.js"></script>
     <script defer src="./js/card-view.js"></script>
     <script defer src="./js/vault.js"></script>
@@ -5448,5 +5401,12 @@
       </div>
     </div>
   </div>
+    <!-- ── Market Detail Modal (STAK-504) ── -->
+    <div id="marketDetailModal" class="market-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="marketDetailTitle" hidden>
+      <div class="market-detail-modal">
+        <button class="market-detail-close" id="marketDetailCloseBtn" title="Close" aria-label="Close modal">&times;</button>
+        <div id="marketDetailContent"></div>
+      </div>
+    </div>
   </body>
 </html>

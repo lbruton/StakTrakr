@@ -81,6 +81,7 @@ devops/hub/
 
 # Git worktrees for isolated agent work — content dirs are transient, not project history
 .claude/worktrees/
+.worktrees/
 # Ignore spec-workflow transient data (specs, logs, approvals) but track user-templates, steering, and templates
 .spec-workflow/*
 !.spec-workflow/user-templates/

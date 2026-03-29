@@ -22,7 +22,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openTursoDb, writeSnapshot, windowFloor, startRunLog, finishRunLog, recordFailure } from "./db.js";
+import { openTursoDb, writeSnapshot, windowFloor, startRunLog, finishRunLog, recordFailure, readSpotCurrent } from "./db.js";
 import { loadProviders } from "./provider-db.js";
 import { getCFClearanceCookie } from "./cf-clearance.js";
 
@@ -90,6 +90,20 @@ function warn(msg) {
   console.warn(`[${new Date().toISOString().slice(11, 19)}] WARN: ${msg}`);
 }
 
+/** Wrapper around writeSnapshot that catches DB errors so a single failed
+ *  write doesn't crash the entire run. Returns true on success. */
+let _dbWriteFailures = 0;
+async function safeWriteSnapshot(db, row) {
+  try {
+    await writeSnapshot(db, row);
+    return true;
+  } catch (err) {
+    _dbWriteFailures++;
+    warn(`DB write failed for ${row.coinSlug}/${row.vendor} (non-fatal): ${err.message.slice(0, 100)}`);
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Price extraction from Firecrawl markdown
 // ---------------------------------------------------------------------------
@@ -123,6 +137,19 @@ const OUT_OF_STOCK_PATTERNS = [
   /pre-?order/i,
 ];
 
+// Soft 404 patterns — React SPAs return HTTP 200 but render "not found" content.
+// When detected, the scraper should record inStock=false and price=null (STAK-475).
+const SOFT_404_PATTERNS = [
+  /page\s*(not|can['\u2019]?t be|cannot be)\s*found/i,
+  /product\s*(not|no longer)\s*(found|available)/i,
+  /404\s*[-–—]\s*(page|not found)/i,
+  /this\s+page\s+(doesn['\u2019]?t|does not)\s+exist/i,
+  /we\s+couldn['\u2019]?t\s+find/i,
+  /the\s+page\s+you\s+(requested|are looking for)/i,
+  /no\s+longer\s+available/i,
+  /has\s+been\s+(removed|discontinued)/i,
+];
+
 // Providers whose "Pre-Order" / "Presale" items still show live purchasable prices.
 // For these, skip the pre-?order OOS pattern — treat presale as in-stock.
 const PREORDER_TOLERANT_PROVIDERS = new Set(["jmbullion", "monumentmetals"]);
@@ -153,6 +180,10 @@ const MARKDOWN_HEADER_SKIP_PATTERNS = {
   // followed by the nav mega-menu. The product area starts after the nav.
   // We skip past the spot ticker to avoid false gold-price matches.
   jmbullion: /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[A-Z]{2,4}/,
+  // Monument Metals (React SPA) — nav has spot tickers like "Gold $3,120.50 Silver $32.10".
+  // Skip past the header/nav area to avoid firstInRangeProse grabbing spot prices.
+  // The product title typically follows a breadcrumb containing "Home >" or the product name.
+  monumentmetals: /(?:Home\s*>|Bullion\s*>|Coins?\s*>)/,
 };
 
 function preprocessMarkdown(markdown, providerId) {
@@ -197,6 +228,18 @@ function preprocessMarkdown(markdown, providerId) {
 function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
   if (!markdown) {
     return { inStock: true, reason: "no_markdown", detectedText: null };
+  }
+
+  // Check for soft 404 pages (React SPAs returning HTTP 200 with "not found" content)
+  for (const pattern of SOFT_404_PATTERNS) {
+    const match = markdown.match(pattern);
+    if (match) {
+      return {
+        inStock: false,
+        reason: "soft_404",
+        detectedText: match[0]
+      };
+    }
   }
 
   // Check for out-of-stock text patterns
@@ -415,19 +458,19 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
   }
 
   if (providerId === "jmbullion") {
-    // JM Bullion: pipe table → prose table → "As Low As" fallback.
-    // Silver pages often render pipe tables; gold pages render as plain text.
-    // jmPriceFromProseTable() handles the plain-text layout:
-    //   "(e)Check/Wire" header → "1-9" qty tier → first dollar amount.
-    // NOTE: firstInRangePriceProse() is intentionally NOT used here — JMBullion's
-    // mega-menu (after nav stripping) can contain goldback category prices in the
-    // $5-$25 range that appear before the product price and produce false matches.
-    const tblFirst = firstTableRowFirstPrice();
-    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
+    // JM Bullion: prose table → pipe table ONLY. No "As Low As" fallback.
+    // Prose parser is tried FIRST because it anchors to the "(e)Check/Wire" column
+    // header — guaranteed to return the eCheck price. The pipe-table parser
+    // (firstTableRowFirstPrice) is column-blind and can grab Card/PayPal when
+    // Firecrawl renders columns in non-standard order (STAK-498 Task 6).
+    // "As Low As" is a volume discount (100+ units via ACH) — NOT the single-unit
+    // retail price. Using it causes 10-90% price spread vs. actual retail (STAK-475 P2).
+    // Better to return null (missed window) than record a volume discount.
     const proseTbl = jmPriceFromProseTable();
     if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
-    const ala = asLowAsPrices();
-    if (ala.length > 0) return { price: Math.min(...ala), matchedBy: "asLowAs" };
+    const tblFirst = firstTableRowFirstPrice();
+    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
+    // No asLowAs fallback — return null below.
   } else if (USES_AS_LOW_AS.has(providerId)) {
     // Reserved for vendors that have no pricing table, only "As Low As" display.
     // Currently empty — all vendors now use table-first extraction.
@@ -630,7 +673,7 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (html): ${providerId} price=${price.price}`);
-      return { price: price.price, inStock: inStock.inStock, source: "cf-clearance" };
+      return { price: price.price, inStock: inStock.inStock, source: `cf-clearance:${price.matchedBy}` };
     }
     warn(`[cf-clearance] no price from Byparr HTML for ${providerId} — falling through to Playwright`);
     // Don't return null — fall through to Playwright with the cookie.
@@ -695,12 +738,12 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     }
     if (jsonLdPrice !== null) {
       log(`[cf-clearance] success via jsonLd: ${providerId} price=${jsonLdPrice}`);
-      return { price: jsonLdPrice, inStock: inStock.inStock, source: "cf-clearance" };
+      return { price: jsonLdPrice, inStock: inStock.inStock, source: "cf-clearance:jsonLd" };
     }
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (playwright): ${providerId} price=${price.price}`);
-      return { price: price.price, inStock: inStock.inStock, source: "cf-clearance" };
+      return { price: price.price, inStock: inStock.inStock, source: `cf-clearance:${price.matchedBy}` };
     }
     warn(`[cf-clearance] no price extracted for ${providerId}`);
     return null;
@@ -879,7 +922,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     }
     if (jsonLdPrice !== null) {
       log(`  extractPrice ${providerId}: matched=jsonLd price=$${jsonLdPrice.toFixed(2)}`);
-      return { price: jsonLdPrice, inStock: stock.inStock, source: "playwright-direct" };
+      return { price: jsonLdPrice, inStock: stock.inStock, source: "playwright-direct:jsonLd" };
     }
 
     const extracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
@@ -887,7 +930,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     if (extracted) log(`  extractPrice ${providerId}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`);
 
     if (price !== null) {
-      return { price, inStock: stock.inStock, source: "playwright-direct" };
+      return { price, inStock: stock.inStock, source: `playwright-direct:${extracted.matchedBy}` };
     }
 
     // OOS with no price — still useful stock status info, but let Firecrawl try for a price
@@ -961,6 +1004,54 @@ async function main() {
   const scrapedAt = new Date().toISOString();
   const winStart = windowFloor();
 
+  // STAK-496: Load spot prices + goldback baseline for price bounds guard.
+  // Computed once at startup — used by safeWriteSnapshot for each target.
+  const _spotByMetal = {};  // { gold: 2650.00, silver: 31.50, ... }
+  let _goldbackG1 = null;   // goldback.com G1 rate in USD
+  if (db) {
+    try {
+      const spotRows = await readSpotCurrent(db);
+      for (const row of spotRows) {
+        if (row.metal && row.spot != null) _spotByMetal[row.metal] = Number(row.spot);
+      }
+      log(`[bounds-guard] Spot prices loaded: ${Object.entries(_spotByMetal).map(([m, p]) => `${m}=$${p}`).join(", ") || "none"}`);
+    } catch (err) {
+      warn(`[bounds-guard] Spot prices unavailable (non-fatal): ${err.message.slice(0, 80)}`);
+    }
+    try {
+      const gbPath = join(DATA_DIR, "api", "goldback-spot.json");
+      if (existsSync(gbPath)) {
+        const gb = JSON.parse(readFileSync(gbPath, "utf-8"));
+        if (gb.g1_usd > 0) _goldbackG1 = gb.g1_usd;
+      }
+      if (_goldbackG1 == null && typeof _spotByMetal.gold === "number" && isFinite(_spotByMetal.gold)) {
+        _goldbackG1 = _spotByMetal.gold * 0.003085;  // fallback: gold spot × G1 weight
+      }
+      if (_goldbackG1) log(`[bounds-guard] Goldback G1 baseline: $${_goldbackG1.toFixed(2)}`);
+    } catch (err) {
+      warn(`[bounds-guard] Goldback baseline unavailable (non-fatal): ${err.message.slice(0, 80)}`);
+    }
+  }
+
+  /**
+   * Compute the dynamic price baseline for a given coin.
+   * @param {string} coinSlug
+   * @param {object} coin  { metal, weight_oz }
+   * @returns {number|null}  baseline price in USD, or null if unavailable
+   */
+  function computeBaseline(coinSlug, coin) {
+    if (coin.metal === "goldback") {
+      // Goldback denominations: G1, G5, G10, G25, G50
+      if (!_goldbackG1) return null;
+      const denomMatch = coinSlug.match(/goldback-.*?-?g(\d+)$/i) || coinSlug.match(/goldback-g(\d+)/i);
+      const multiplier = denomMatch ? Number(denomMatch[1]) : 1;
+      return _goldbackG1 * multiplier;
+    }
+    const spot = _spotByMetal[coin.metal];
+    if (!spot || !coin.weight_oz) return null;
+    return spot * coin.weight_oz;
+  }
+
   // Start run log entry in Turso.
   // First, mark any orphaned "running" rows from previous crashed runs as "error".
   let runId = null;
@@ -984,6 +1075,10 @@ async function main() {
   for (let targetIdx = 0; targetIdx < targets.length; targetIdx++) {
     const { coinSlug, coin, provider, urls } = targets[targetIdx];
     log(`Scraping ${coinSlug}/${provider.id}${urls.length > 1 ? ` (${urls.length} URL(s))` : ""}`);
+
+    // STAK-496: Per-target bounds check params
+    const _baseline = computeBaseline(coinSlug, coin);
+    const _skipBounds = provider.skipPriceBounds === true;
 
     let price = null;
     let source = "firecrawl";
@@ -1011,10 +1106,11 @@ async function main() {
           price, source, inStock, ok: true, error: null,
         });
         if (db) {
-          await writeSnapshot(db, {
+          await safeWriteSnapshot(db, {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price, source,
             isFailed: false, inStock,
+            baseline: _baseline, skipPriceBounds: _skipBounds,
           });
         }
         if (targetIdx < targets.length - 1) { await jitter(); }
@@ -1029,10 +1125,11 @@ async function main() {
           price: null, source: cfResult.source, inStock: false, ok: true, error: null,
         });
         if (db) {
-          await writeSnapshot(db, {
+          await safeWriteSnapshot(db, {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price: null, source: cfResult.source,
             isFailed: false, inStock: false,
+            baseline: _baseline, skipPriceBounds: _skipBounds,
           });
         }
         if (targetIdx < targets.length - 1) { await jitter(); }
@@ -1069,10 +1166,11 @@ async function main() {
           price, source, inStock, ok: true, error: null,
         });
         if (db) {
-          await writeSnapshot(db, {
+          await safeWriteSnapshot(db, {
             scrapedAt, windowStart: winStart, coinSlug,
             vendor: provider.id, price, source,
             isFailed: false, inStock,
+            baseline: _baseline, skipPriceBounds: _skipBounds,
           });
         }
         if (targetIdx < targets.length - 1) { await jitter(); }
@@ -1106,7 +1204,7 @@ async function main() {
               if (proxyExtracted) {
                 log(`  extractPrice ${provider.id}: matched=${proxyExtracted.matchedBy} price=$${proxyExtracted.price.toFixed(2)} (fly-proxy)`);
                 price = proxyExtracted.price;
-                source = "fly-proxy";
+                source = `fly-proxy:${proxyExtracted.matchedBy}`;
                 inStock = proxyStock.inStock;
                 finalUrl = url;
                 log(`  \u2713 ${coinSlug}/${provider.id}: $${price.toFixed(2)} (fly-proxy)${!inStock ? " OOS" : ""}`);
@@ -1139,6 +1237,7 @@ async function main() {
             if (oosExtracted) log(`  extractPrice ${provider.id}: matched=${oosExtracted.matchedBy} price=$${oosExtracted.price.toFixed(2)} (OOS)`);
             if (oosPrice !== null) {
               price = oosPrice;
+              source = `firecrawl:${oosExtracted.matchedBy}`;
               finalUrl = url;
               log(`  ✓ ${coinSlug}/${provider.id}: $${oosPrice.toFixed(2)} (firecrawl, OOS)`);
             }
@@ -1154,6 +1253,7 @@ async function main() {
           if (extracted) log(`  extractPrice ${provider.id}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`);
           if (p !== null) {
             price = p;
+            source = `firecrawl:${extracted.matchedBy}`;
             finalUrl = url;
             log(`  ✓ ${coinSlug}/${provider.id}: $${p.toFixed(2)} (firecrawl)${urls.length > 1 ? ` [url${i}]` : ""}`);
             break;
@@ -1184,7 +1284,7 @@ async function main() {
               if (retryExtracted) log(`  extractPrice ${provider.id}: matched=${retryExtracted.matchedBy} price=$${retryExtracted.price.toFixed(2)} (retry)`);
               if (retryPrice !== null) {
                 price = retryPrice;
-                source = "firecrawl-retry";
+                source = `firecrawl-retry:${retryExtracted.matchedBy}`;
                 inStock = retryStock.inStock;
                 finalUrl = url;
                 log(`  ✓ ${coinSlug}/${provider.id}: $${retryPrice.toFixed(2)} (firecrawl-retry)${!inStock ? " OOS" : ""}`);
@@ -1257,7 +1357,7 @@ async function main() {
 
     // Record to Turso
     if (db) {
-      await writeSnapshot(db, {
+      await safeWriteSnapshot(db, {
         scrapedAt,
         windowStart: winStart,
         coinSlug,
@@ -1265,6 +1365,7 @@ async function main() {
         price,
         source,
         isFailed:  price === null && inStock,  // Only failed if in stock but no price
+        baseline: _baseline, skipPriceBounds: _skipBounds,
         inStock,
       });
 
@@ -1293,18 +1394,21 @@ async function main() {
   const ok = scrapeResults.filter(r => r.ok).length;
   const fail = scrapeResults.length - ok;
 
-  log(`Done: ${ok}/${scrapeResults.length} prices captured, ${fail} failures, cf-clearance: ${cfAttempts} attempts ${cfSuccess} ok ${cfFailures} failed`);
+  log(`Done: ${ok}/${scrapeResults.length} prices captured, ${fail} failures, ${_dbWriteFailures} DB write errors, cf-clearance: ${cfAttempts} attempts ${cfSuccess} ok ${cfFailures} failed`);
 
   // Finish run log entry in Turso
   if (db && runId) {
     try {
+      const errorMsg = ok === 0 ? "All scrapes failed"
+        : _dbWriteFailures > 0 ? `${_dbWriteFailures} DB write(s) failed`
+        : null;
       await finishRunLog(db, {
         runId,
         finishedAt: new Date().toISOString(),
         captured: ok,
         failures: fail,
         fbpFilled: 0,
-        error: ok === 0 ? "All scrapes failed" : null,
+        error: errorMsg,
       });
     } catch (err) {
       warn(`Run log finish failed (non-fatal): ${err.message.slice(0, 80)}`);

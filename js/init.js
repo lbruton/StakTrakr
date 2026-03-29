@@ -13,8 +13,11 @@ function createDummyElement() {
     value: "",
     checked: false,
     disabled: false,
+    dataset: {},
+    classList: { add: () => {}, remove: () => {}, toggle: () => false, contains: () => false, replace: () => false, forEach: () => {}, length: 0 },
     addEventListener: () => {},
     removeEventListener: () => {},
+    remove: () => {},
     focus: () => {},
     click: () => {},
     querySelector: () => null,
@@ -34,6 +37,16 @@ function safeGetElement(id, required = false) {
     console.warn(`Required element '${id}' not found in DOM`);
   }
   return element || createDummyElement();
+}
+
+// Auto-reload when a new service worker takes control (STAK-485)
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!document._swReloading) {
+      document._swReloading = true;
+      window.location.reload();
+    }
+  });
 }
 
 /**
@@ -57,7 +70,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Adjust SVG viewBox for longer brand names
       if (logoSplit[2]) {
         const logoSvg = document.querySelector('.stackr-logo');
-        if (logoSvg) logoSvg.setAttribute('viewBox', `0 0 ${logoSplit[2]} 200`);
+        if (logoSvg) logoSvg.setAttribute('viewBox', `0 0 ${logoSplit[2]} 80`);
       }
     }
     const appLogo = document.getElementById('appLogo');
@@ -202,7 +215,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.cloudSyncModal = safeGetElement("cloudSyncModal");
     elements.vaultModal = safeGetElement("vaultModal");
     elements.apiQuotaModal = safeGetElement("apiQuotaModal");
-    elements.aboutModal = safeGetElement("aboutModal");
     elements.ackModal = safeGetElement("ackModal");
     elements.ackAcceptBtn = safeGetElement("ackAcceptBtn");
     // Unified item modal elements (add/edit)
@@ -218,8 +230,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof setupAckModalEvents === "function") {
       setupAckModalEvents();
     }
-    if (typeof setupAboutModalEvents === "function") {
-      setupAboutModalEvents();
+    if (typeof setupWhatsNewPopupEvents === 'function') {
+      setupWhatsNewPopupEvents();
     }
     if (typeof setupFaqModalEvents === "function") {
       setupFaqModalEvents();
@@ -401,9 +413,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (footerDomainEl) {
       footerDomainEl.textContent = getFooterDomain();
     }
-    if (typeof loadAnnouncements === "function") {
-      loadAnnouncements();
-    }
+    // STAK-500: Removed redundant loadAnnouncements() call — it's called by
+    // showWhatsNewPopup() (which internally awaits loadAnnouncements()) and populateAboutTab() when those are needed
 
     // Phase 12: Data Initialization
     debugLog("Phase 12: Loading application data...");
@@ -601,6 +612,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       }).catch(() => {});
     }
 
+    // Market Data Module (STAK-504)
+    if (typeof initMarketData === 'function') {
+      initMarketData().catch(function(e) {
+        if (typeof debugLog === 'function') debugLog('[market-data] Init failed: ' + e.message, 'warn');
+      });
+    }
+
+    // Refresh market data on theme change (STAK-504)
+    const _themeObserver = new MutationObserver(function() {
+      if (typeof refreshMarketData === 'function') refreshMarketData();
+    });
+    _themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
     // Phase 14: Event Listeners Setup (Delayed)
     debugLog("Phase 14: Setting up event listeners...");
 
@@ -701,12 +725,32 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }, 250);
 
+    // Clear stale-cache recovery flag on successful init (STAK-485)
+    sessionStorage.removeItem('sw-recovery-attempted');
+
   } catch (error) {
     console.error("=== CRITICAL INITIALIZATION ERROR ===");
     console.error("Error:", error.message);
     console.error("Stack:", error.stack);
 
-    // Try to show a user-friendly error message
+    // Flag init failure for cloud sync guard (STAK-485)
+    window._initFailed = true;
+
+    // Detect stale SW cache: ReferenceError for a function that should exist
+    const isStaleCache = error instanceof ReferenceError
+      && 'serviceWorker' in navigator
+      && !sessionStorage.getItem('sw-recovery-attempted');
+
+    if (isStaleCache) {
+      document._swReloading = true;
+      sessionStorage.setItem('sw-recovery-attempted', '1');
+      console.warn('[Init] Stale cache detected — reloading for new version');
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Updating to new version\u2026</p></div>';
+      setTimeout(() => window.location.reload(), 800);
+      return;
+    }
+
+    // Standard error dialog for non-cache errors
     setTimeout(() => {
       appAlert(
         `Application initialization failed: ${error.message}\n\nPlease refresh the page and try again. If the problem persists, check the browser console for more details.`,

@@ -3,9 +3,9 @@
 
 /**
  * Opens the unified Settings modal, optionally navigating to a section.
- * @param {string} [section='site'] - Section to display: 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
+ * @param {string} [section='about'] - Section to display: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
  */
-const showSettingsModal = (section = 'site') => {
+const showSettingsModal = (section = 'about') => {
   const modal = document.getElementById('settingsModal');
   if (!modal) return;
 
@@ -35,10 +35,10 @@ const hideSettingsModal = () => {
 
 /**
  * Switches the visible section panel in the Settings modal.
- * @param {string} name - Section key: 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
+ * @param {string} name - Section key: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
  */
 const switchSettingsSection = (name) => {
-  const targetName = document.getElementById(`settingsPanel_${name}`) ? name : 'system';
+  const targetName = document.getElementById(`settingsPanel_${name}`) ? name : 'about';
 
   // Hide all panels
   document.querySelectorAll('.settings-section-panel').forEach(panel => {
@@ -87,6 +87,11 @@ const switchSettingsSection = (name) => {
     renderStorageSection();
   }
 
+  // Populate About tab content when switching to it
+  if (targetName === 'about') {
+    if (typeof populateAboutTab === 'function') populateAboutTab();
+  }
+
   // Populate Inventory Summary card and show/hide Cloud section when switching to Inventory
   if (targetName === 'system') {
     const countEl = safeGetElement('invSummaryCount');
@@ -96,7 +101,7 @@ const switchSettingsSection = (name) => {
     if (countEl || weightEl || meltEl || modEl) {
       try {
         const items = loadDataSync(LS_KEY, []);
-        if (countEl) countEl.textContent = items.length + ' items';
+        if (countEl) countEl.textContent = items.reduce((sum, it) => sum + (Number(it.qty) || 1), 0) + ' items';
         // Total weight — sum all items in troy oz (convert Goldback denominations)
         if (weightEl) {
           const totalOz = items.reduce((sum, it) => {
@@ -1471,10 +1476,12 @@ window.renderMetalOrderConfigTable = renderMetalOrderConfigTable;
 const applyLayoutOrder = () => {
   const config = getLayoutSectionConfig();
   const sectionMap = {
-    spotPrices: elements.spotPricesSection,
-    totals:     elements.totalsSectionEl,
-    search:     elements.searchSectionEl,
-    table:      elements.tableSectionEl,
+    spotPrices:      elements.spotPricesSection,
+    totals:          elements.totalsSectionEl,
+    search:          elements.searchSectionEl,
+    table:           elements.tableSectionEl,
+    bestPriceTicker: safeGetElement('bestPriceTickerEl'),
+    vendorPrices:    safeGetElement('vendorPricesSectionEl'),
   };
   const container = document.querySelector('.container');
   if (!container) return;
@@ -1792,8 +1799,6 @@ const renderImageStorageStats = async () => {
 
   const userBar = document.getElementById('gaugeUserBar');
   const userSize = document.getElementById('gaugeUserSize');
-  const numistaBar = document.getElementById('gaugeNumistaBar');
-  const numistaSize = document.getElementById('gaugeNumistaSize');
   const persistLine = document.getElementById('gaugePersistLine');
 
   if (userBar) {
@@ -1802,13 +1807,6 @@ const renderImageStorageStats = async () => {
   }
   if (userSize) {
     userSize.textContent = `${fmt(usage.userImageBytes || 0)} (${usage.userImageCount} items)`;
-  }
-  if (numistaBar) {
-    numistaBar.style.width = pct(usage.numistaBytes || 0) + '%';
-    numistaBar.style.background = barColor(usage.numistaBytes || 0);
-  }
-  if (numistaSize) {
-    numistaSize.textContent = `${fmt(usage.numistaBytes || 0)} (${usage.numistaCount} coins)`;
   }
   if (persistLine) {
     const granted = localStorage.getItem(STORAGE_PERSIST_GRANTED_KEY);

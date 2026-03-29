@@ -507,8 +507,13 @@ class NumistaProvider extends CatalogProvider {
    * @returns {Promise<Array>} Array of standardized item data
    */
   async searchItems(query, filters = {}) {
+    if (!query || typeof query !== 'string') return [];
+    // STAK-494: Strip characters the Numista API interprets as search operators
+    // - hyphens are negation, parentheses are grouping, plus is required-term
+    const sanitized = query.replace(/[-()+"]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (!sanitized) return [];
     const params = new URLSearchParams({
-      q: query,
+      q: sanitized,
       count: Math.min(filters.limit || 20, 50),
       lang: 'en'
     });
@@ -1643,13 +1648,15 @@ const fillFormFromNumistaResult = () => {
         break;
       }
       case 'obverseImage': {
+        // STAK-488: Always write the URL when checkbox is checked — the user controls
+        // whether to overwrite via the field picker checkbox, not this guard.
         const el = elements.itemObverseImageUrl || safeGetElement('itemObverseImageUrl');
-        if (el && !el.value.trim()) el.value = val;
+        if (el) el.value = val;
         break;
       }
       case 'reverseImage': {
         const el = elements.itemReverseImageUrl || safeGetElement('itemReverseImageUrl');
-        if (el && !el.value.trim()) el.value = val;
+        if (el) el.value = val;
         break;
       }
       case 'metal': {
@@ -1661,6 +1668,13 @@ const fillFormFromNumistaResult = () => {
         break;
       }
     }
+  });
+
+  // STAK-488: Show URL input wrappers if we just filled image URLs (they're hidden by default)
+  ['Obv', 'Rev'].forEach(suffix => {
+    const wrap = document.getElementById('itemImageUrlInput' + suffix);
+    const field = suffix === 'Obv' ? elements.itemObverseImageUrl : elements.itemReverseImageUrl;
+    if (wrap && field && field.value.trim()) wrap.style.display = '';
   });
 
   // Auto-populate Numista Data fields from the selected result (STAK-173)

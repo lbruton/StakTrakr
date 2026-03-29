@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgC" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="shieldFillC" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="60%" stop-color="#162d4a"/>
+      <stop offset="100%" stop-color="#0f1729"/>
+    </linearGradient>
+    <linearGradient id="metalC" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#94a3b8"/>
+      <stop offset="50%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="goldC" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b8860b"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bgC)"/>
+  <!-- Filled shield with gold top edge glow -->
+  <path d="M256 58 L408 122 L408 285 Q408 380 256 425 Q104 380 104 285 L104 122 Z"
+    fill="url(#shieldFillC)"/>
+  <!-- Gold top edge of shield only -->
+  <path d="M256 58 L408 122" fill="none" stroke="#d4a017" stroke-width="3" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M256 58 L104 122" fill="none" stroke="#d4a017" stroke-width="3" stroke-linecap="round" filter="url(#glow)"/>
+  <!-- Side edges subtle -->
+  <path d="M408 122 L408 285 Q408 380 256 425 Q104 380 104 285 L104 122"
+    fill="none" stroke="#d4a017" stroke-width="1.5" opacity="0.3"/>
+  <!-- S monogram — larger, centered in shield -->
+  <!-- Top curve -->
+  <rect x="220" y="105" width="135" height="20" rx="10" fill="url(#metalC)" opacity="0.45"/>
+  <rect x="192" y="133" width="118" height="20" rx="10" fill="url(#metalC)" opacity="0.6"/>
+  <rect x="172" y="161" width="88" height="20" rx="10" fill="url(#metalC)" opacity="0.78"/>
+  <!-- Center — gold highlight bar -->
+  <rect x="192" y="193" width="140" height="22" rx="11" fill="url(#goldC)"/>
+  <!-- Bottom curve -->
+  <rect x="248" y="227" width="88" height="20" rx="10" fill="url(#metalC)" opacity="0.78"/>
+  <rect x="202" y="255" width="118" height="20" rx="10" fill="url(#metalC)" opacity="0.6"/>
+  <rect x="182" y="283" width="148" height="20" rx="10" fill="url(#metalC)" opacity="0.45"/>
+  <!-- Bottom shield point accent -->
+  <circle cx="256" cy="400" r="6" fill="#d4a017" opacity="0.6"/>
+  <!-- Wordmark -->
+  <text x="256" y="475" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="38" font-weight="800" letter-spacing="4">
+    <tspan fill="#f8fafc">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+  </text>
+</svg>

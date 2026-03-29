@@ -236,7 +236,8 @@ const generateCategorySummary = (inventory) => {
   }
 
   // Apply minCount threshold to all categories
-  const filteredMetals = applyMinCountThreshold(metals, minCount);
+  // Metals always show (max 5 values, primary categorization) — threshold 1
+  const filteredMetals = applyMinCountThreshold(metals, 1);
   const filteredTypes = applyMinCountThreshold(types, minCount);
   const filteredPurchaseLocations = applyMinCountThreshold(purchaseLocations, minCount);
   const filteredStorageLocations = applyMinCountThreshold(storageLocations, minCount);
@@ -1005,7 +1006,7 @@ const filterInventoryAdvanced = () => {
 
     // Handle comma-separated terms (OR logic between comma terms)
     return parsedTerms.some(termData => {
-      const { words, exactPhrase, expandedPhrase, compiledWordRegexes, compiledFieldRegexes } = termData;
+      const { q, words, exactPhrase, expandedPhrase, compiledWordRegexes, compiledFieldRegexes } = termData;
 
       // Special handling for multi-word searches to prevent partial matches
       // If searching for "American Eagle", it should only match items that have both words

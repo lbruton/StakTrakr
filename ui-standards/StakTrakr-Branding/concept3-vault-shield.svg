@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f1729"/>
+    </linearGradient>
+    <linearGradient id="shieldStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d4a017"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+    <linearGradient id="barSilver3" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#94a3b8"/>
+      <stop offset="50%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="barGold3" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b8860b"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#b8860b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg3)"/>
+  <!-- Shield shape -->
+  <path d="M256 72 L400 130 L400 280 Q400 370 256 420 Q112 370 112 280 L112 130 Z"
+    fill="url(#shieldGrad)" stroke="url(#shieldStroke)" stroke-width="3"/>
+  <!-- Inner shield highlight -->
+  <path d="M256 95 L380 145 L380 275 Q380 350 256 395 Q132 350 132 275 L132 145 Z"
+    fill="none" stroke="#d4a017" stroke-width="0.5" opacity="0.3"/>
+  <!-- Stacked metal bars inside shield -->
+  <!-- Bar 1 — silver (widest, bottom) -->
+  <rect x="175" y="290" width="162" height="22" rx="4" fill="url(#barSilver3)"/>
+  <!-- Bar 2 — silver -->
+  <rect x="185" y="260" width="142" height="22" rx="4" fill="url(#barSilver3)" opacity="0.85"/>
+  <!-- Bar 3 — gold -->
+  <rect x="195" y="230" width="122" height="22" rx="4" fill="url(#barGold3)"/>
+  <!-- Bar 4 — silver -->
+  <rect x="205" y="200" width="102" height="22" rx="4" fill="url(#barSilver3)" opacity="0.9"/>
+  <!-- Bar 5 — silver (top, narrowest) -->
+  <rect x="215" y="170" width="82" height="22" rx="4" fill="url(#barSilver3)"/>
+  <!-- Small chart line across the bars -->
+  <polyline points="180,300 210,265 240,235 270,210 310,178"
+    fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <circle cx="310" cy="178" r="4" fill="#60a5fa" opacity="0.8"/>
+  <!-- Wordmark below shield -->
+  <text x="256" y="465" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="42" font-weight="800" letter-spacing="3">
+    <tspan fill="#f8fafc">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+  </text>
+</svg>

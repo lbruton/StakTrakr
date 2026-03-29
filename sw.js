@@ -8,7 +8,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 
 
 
-const CACHE_NAME = 'staktrakr-v3.33.70-b1773842533';
+const CACHE_NAME = 'staktrakr-v3.33.87-b1774808759';
 
 
 
@@ -48,6 +48,9 @@ const CORE_ASSETS = [
   './js/changeLog.js',
   './js/diff-engine.js',
   './js/diff-modal.js',
+  './js/chart-utils.js',
+  './js/market-charts.js',
+  './js/market-data.js',
   './js/charts.js',
   './js/theme.js',
   './js/search.js',
@@ -73,6 +76,9 @@ const CORE_ASSETS = [
   './js/pcgs-api.js',
   './js/catalog-providers.js',
   './js/catalog-manager.js',
+  './js/inventory-backup.js',
+  './js/inventory-import.js',
+  './js/inventory-table.js',
   './js/inventory.js',
   './js/vault.js',
   './js/cloud-storage.js',
@@ -93,6 +99,9 @@ const CORE_ASSETS = [
   './data/spot-history-2026.json',
   './images/safe-favicon.svg',
   './images/staktrakr-logo.svg',
+  './images/icon-logo.svg',
+  './images/banner-logo.svg',
+  './images/banner-logo-compact.svg',
   './images/icon-192.png',
   './images/icon-512.png',
   './manifest.json',
@@ -172,23 +181,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests (PWA launch, page reload) — serve cached app shell
+  // Navigation requests (PWA launch, page reload) — network-first for fresh HTML
   if (event.request.mode === 'navigate' && url.origin === self.location.origin) {
     event.respondWith(
-      caches.match('./')
-        .then((cached) => {
-          if (cached) return cached;
-          console.log('[SW] Cache miss for ./, fetching from network');
-          return fetchAndCache(event.request);
-        })
+      fetch(event.request)
         .then((response) => {
-          if (response) return response;
-          console.warn('[SW] No response from cache or network, serving offline page');
-          return offlineResponse();
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('./', clone))
+              .catch((err) => console.warn('[SW] Nav cache put failed:', err));
+            return response;
+          }
+          // Non-OK response (4xx/5xx) — fall back to cache instead of serving error
+          return caches.match('./').then((cached) => cached || response);
         })
-        .catch((err) => {
-          console.error('[SW] Navigation handler failed:', err);
-          return offlineResponse();
+        .catch(() => {
+          return caches.match('./')
+            .then((cached) => cached || offlineResponse())
+            .catch(() => offlineResponse());
         })
     );
     return;

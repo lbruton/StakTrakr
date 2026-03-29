@@ -113,7 +113,17 @@ async function computeInventoryHash(items) {
     var arr = Array.isArray(items) ? items : [];
     var keys = [];
     for (var i = 0; i < arr.length; i++) {
-      keys.push(typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(arr[i]) : String(i));
+      var item = arr[i];
+      var itemKey = typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(item) : String(i);
+      // Include a content fingerprint so field-level changes (image URLs,
+      // numistaId, grade, disposition) produce a different hash even when
+      // the item key (name+metal+weight+date) is unchanged.
+      var contentSample = (item.obverseImageUrl || '') + '|'
+        + (item.reverseImageUrl || '') + '|'
+        + (item.numistaId || '') + '|'
+        + (item.grade || '') + '|'
+        + (item.disposition ? JSON.stringify(item.disposition) : '');
+      keys.push(itemKey + '::' + contentSample);
     }
     keys.sort();
     var joined = keys.join('|');
@@ -169,8 +179,13 @@ async function computeSettingsHash() {
     var settings = {};
     for (var i = 0; i < keys.length; i++) {
       if (keys[i] === 'metalInventory') continue; // skip inventory — covered by inventoryHash
-      var val = loadDataSync(keys[i], null);
-      if (val !== null && val !== undefined) settings[keys[i]] = val;
+      // STAK-497: Use raw localStorage.getItem to match the manifest snapshot
+      // format. loadDataSync JSON-parses the value, which fails for scalar
+      // settings stored as raw strings (e.g. "dark" instead of '"dark"'),
+      // producing a different hash from the manifest and triggering infinite
+      // sync loops.
+      var val = localStorage.getItem(keys[i]);
+      if (val !== null) settings[keys[i]] = val;
     }
     var sorted = JSON.stringify(settings, Object.keys(settings).sort());
     var encoded = new TextEncoder().encode(sorted);
@@ -316,7 +331,7 @@ function syncSaveOverrideBackup() {
     }
     var backup = {
       timestamp: Date.now(),
-      itemCount: typeof inventory !== 'undefined' ? inventory.length : 0,
+      itemCount: typeof cloudSafeItemCount === 'function' ? cloudSafeItemCount() : 0,
       appVersion: typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown',
       data: data,
     };
@@ -1014,6 +1029,11 @@ async function buildAndUploadManifest(token, password, syncId) {
  * Skips silently if not connected or sync is disabled.
  */
 async function pushSyncVault() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping push — app initialization failed');
+    return;
+  }
   debugLog('[CloudSync] pushSyncVault called. enabled:', syncIsEnabled(), 'provider:', _syncProvider);
 
   if (!syncIsEnabled()) {
@@ -1054,6 +1074,7 @@ async function pushSyncVault() {
   _syncPushInFlight = true;
   updateSyncStatusIndicator('syncing');
   var pushStart = Date.now();
+  var _remoteImageVaultMeta = null; // Preserve remote image vault reference across pushes
 
   try {
     // -----------------------------------------------------------------------
@@ -1221,6 +1242,13 @@ async function pushSyncVault() {
       debugLog('[CloudSync] Pre-push remote check failed (non-blocking):', prePushErr.message);
     }
 
+    // Capture remote imageVault metadata so we can preserve it when this
+    // device has no local photos (prevents erasing another device's uploads).
+    if (typeof prePushMeta !== 'undefined' && prePushMeta && prePushMeta.imageVault) {
+      _remoteImageVaultMeta = prePushMeta.imageVault;
+      debugLog('[CloudSync] Pre-push: remote has image vault —', _remoteImageVaultMeta.imageCount, 'photos, hash:', _remoteImageVaultMeta.hash);
+    }
+
     // -----------------------------------------------------------------------
     // Layer 1 — Empty-vault push guard (REQ-1)
     // If local inventory is empty, check remote metadata before allowing push.
@@ -1345,7 +1373,7 @@ async function pushSyncVault() {
 
     var syncId = typeof generateUUID === 'function' ? generateUUID() : _syncFallbackUUID();
     var now = Date.now();
-    var itemCount = typeof inventory !== 'undefined' ? inventory.length : 0;
+    var itemCount = typeof cloudSafeItemCount === 'function' ? cloudSafeItemCount() : 0;
     var appVersion = typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown';
     var deviceId = getSyncDeviceId();
 
@@ -1385,14 +1413,18 @@ async function pushSyncVault() {
 
     // Upload image vault if user photos exist and have changed (STAK-181)
     var imageVaultMeta = null;
+    var _imageVaultPreserved = false; // True when carrying forward another device's metadata
     try {
       if (typeof collectAndHashImageVault === 'function') {
         var imgData = await collectAndHashImageVault();
         var lastPush = syncGetLastPush();
         var lastImageHash = lastPush ? lastPush.imageHash : null;
         if (imgData) {
-          if (imgData.hash !== lastImageHash) {
-            debugLog('[CloudSync] Image vault changed — uploading', imgData.imageCount, 'photos');
+          // Upload if hash changed OR remote metadata is missing imageVault
+          // (the file may have been deleted by another device's stale push).
+          var _remoteFileMissing = !_remoteImageVaultMeta;
+          if (imgData.hash !== lastImageHash || _remoteFileMissing) {
+            debugLog('[CloudSync] Image vault', _remoteFileMissing ? 'missing from remote — re-uploading' : 'changed — uploading', imgData.imageCount, 'photos');
             var imageBytes = await vaultEncryptImageVault(password, imgData.payload);
             var imgArg = JSON.stringify({ path: SYNC_IMAGES_PATH, mode: 'overwrite', autorename: false, mute: true });
             var imgResp = await fetch('https://content.dropboxapi.com/2/files/upload', {
@@ -1403,13 +1435,25 @@ async function pushSyncVault() {
             if (!imgResp.ok) throw new Error('Image vault upload failed: ' + imgResp.status);
             imageVaultMeta = { imageCount: imgData.imageCount, hash: imgData.hash };
             debugLog('[CloudSync] Image vault uploaded:', imgData.imageCount, 'photos');
+            logCloudSyncActivity('image_vault_push', 'success', imgData.imageCount + ' photos, ' + Math.round(imageBytes.byteLength / 1024) + ' KB' + (_remoteFileMissing ? ' (re-upload)' : ''));
           } else {
             // Hash unchanged — carry forward existing meta so other devices can still detect it
             imageVaultMeta = lastImageHash ? { imageCount: imgData.imageCount, hash: imgData.hash } : null;
             debugLog('[CloudSync] Image vault unchanged — skipping upload');
+            logCloudSyncActivity('image_vault_push', 'skipped', 'Hash unchanged — ' + imgData.imageCount + ' photos');
           }
+        } else if (_remoteImageVaultMeta) {
+          // STAK-497: No local images but remote has an image vault from
+          // another device. Preserve the reference so pulling devices can
+          // still find it. Do NOT delete, and do NOT store imageHash in
+          // local pushMeta (to avoid triggering the deletion path next push).
+          imageVaultMeta = _remoteImageVaultMeta;
+          _imageVaultPreserved = true;
+          debugLog('[CloudSync] No local photos — preserving remote image vault reference:', _remoteImageVaultMeta.imageCount, 'photos');
+          logCloudSyncActivity('image_vault_push', 'skipped', 'No local photos — preserved remote reference (' + _remoteImageVaultMeta.imageCount + ' photos)');
         } else if (lastImageHash) {
-          // STAK-426: All local photos deleted — propagate deletion to remote
+          // STAK-426: This device previously uploaded photos and they were
+          // all deleted locally. Propagate deletion to remote.
           try {
             var delArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
             var delResp = await fetch('https://api.dropboxapi.com/2/files/delete_v2', {
@@ -1422,6 +1466,7 @@ async function pushSyncVault() {
             });
             if (delResp.ok || delResp.status === 409) {
               debugLog('[CloudSync] Remote image vault deleted (all local photos removed)');
+              logCloudSyncActivity('image_vault_push', 'success', 'All local photos removed — remote vault deleted');
             } else {
               debugLog('[CloudSync] Image vault deletion returned status:', delResp.status);
             }
@@ -1429,6 +1474,8 @@ async function pushSyncVault() {
             debugLog('[CloudSync] Image vault deletion failed (non-blocking):', delErr.message);
           }
           // imageVaultMeta stays null → imageHash cleared in pushMeta
+        } else {
+          logCloudSyncActivity('image_vault_push', 'skipped', 'No user photos on this device');
         }
       }
     } catch (imgErr) {
@@ -1504,7 +1551,11 @@ async function pushSyncVault() {
 
     // Persist push state
     var pushMeta = { syncId: syncId, timestamp: now, rev: rev, itemCount: itemCount };
-    if (imageVaultMeta) pushMeta.imageHash = imageVaultMeta.hash;
+    // Only store imageHash when this device actually uploaded images (not when
+    // preserving another device's reference). Storing a preserved hash would
+    // cause the next push to enter the "all local photos deleted" path and
+    // erroneously delete the remote image vault file.
+    if (imageVaultMeta && !_imageVaultPreserved) pushMeta.imageHash = imageVaultMeta.hash;
     syncSetLastPush(pushMeta);
     syncSetCursor(rev);
 
@@ -1548,6 +1599,11 @@ async function pushSyncVault() {
  * Skips silently if not connected or sync is disabled.
  */
 async function pollForRemoteChanges() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping poll — app initialization failed');
+    return;
+  }
   if (!syncIsEnabled()) return;
   if (!_syncIsLeader) {
     debugLog('cloud-sync', 'Not leader tab — skipping poll');
@@ -1873,6 +1929,7 @@ async function pullSyncVault(remoteMeta) {
             var restoredCount = await vaultDecryptAndRestoreImages(imgBytes, password);
             pulledImageHash = remoteMeta.imageVault.hash;
             debugLog('[CloudSync] Image vault restored:', restoredCount, 'photos');
+            logCloudSyncActivity('image_vault_pull', 'success', restoredCount + ' photos restored');
           } else if (imgPullResp.status === 404) {
             // File not yet uploaded (fresh account or first push in progress) — not an error.
             // Set hash sentinel to stop retry loop until manifest changes.
@@ -2164,7 +2221,7 @@ function _buildDiffFromManifest(manifest) {
           remoteVal: fields[f].newValue,
         });
       }
-      modified.push({ item: { name: change.itemName || change.itemKey }, changes: modChanges });
+      modified.push({ item: { name: change.itemName || change.itemKey, itemKey: change.itemKey }, changes: modChanges });
     } else if (change.type === 'delete') {
       deleted.push({ name: change.itemName || change.itemKey, itemKey: change.itemKey });
     }
@@ -2224,17 +2281,33 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           debugLog('[CloudSync] Could not parse metalInventory from vault:', parseErr.message);
         }
 
-        // For 'add' changes that have an itemKey but no item object (manifest
-        // preview only provides keys), find the matching item in the decrypted
-        // vault and attach it so applySelectedChanges can insert it.
+        // STAK-493-B: For 'add' changes from the manifest-first path, the
+        // DiffModal receives stub items ({ name, itemKey }) — not full item
+        // objects. Resolve full items from the decrypted vault before
+        // applySelectedChanges inserts them.
+        //
+        // Detection: a stub item lacks core fields like 'uuid' or 'metal'.
+        // The original condition (change.itemKey && !change.item) never fired
+        // because DiffModal sets change.item to the stub and doesn't set
+        // change.itemKey at the top level of the change object.
         for (var i = 0; i < selectedChanges.length; i++) {
           var change = selectedChanges[i];
-          if (change.type === 'add' && change.itemKey && !change.item) {
+          if (change.type !== 'add') continue;
+
+          // Determine the lookup key: prefer top-level itemKey, fall back to
+          // item.itemKey (manifest stub), or compute from the item object.
+          var lookupKey = change.itemKey
+            || (change.item && change.item.itemKey)
+            || (change.item && change.item.uuid)
+            || null;
+
+          // Resolve if: no item at all, or item is a manifest stub (missing uuid/metal)
+          var needsResolve = !change.item
+            || (!change.item.uuid && !change.item.metal);
+
+          if (needsResolve && lookupKey && typeof DiffEngine !== 'undefined' && typeof DiffEngine.computeItemKey === 'function') {
             for (var j = 0; j < remoteItems.length; j++) {
-              var candidateKey = typeof DiffEngine.computeItemKey === 'function'
-                ? DiffEngine.computeItemKey(remoteItems[j])
-                : '';
-              if (candidateKey === change.itemKey) {
+              if (DiffEngine.computeItemKey(remoteItems[j]) === lookupKey) {
                 change.item = remoteItems[j];
                 break;
               }
@@ -2295,13 +2368,15 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
                 });
                 if (_dvImgResp.ok) {
                   var _dvImgBytes = new Uint8Array(await _dvImgResp.arrayBuffer());
-                  await vaultDecryptAndRestoreImages(_dvImgBytes, password);
+                  var _dvRestoredCount = await vaultDecryptAndRestoreImages(_dvImgBytes, password);
                   debugLog('[CloudSync] Manifest-path: image vault restored');
+                  logCloudSyncActivity('image_vault_pull', 'success', (_dvRestoredCount || '?') + ' photos restored (manifest path)');
                 }
               }
             }
           } catch (_dvImgErr) {
             debugLog('[CloudSync] Manifest-path image restore failed (non-blocking):', _dvImgErr.message);
+            logCloudSyncActivity('image_vault_pull', 'fail', 'Manifest path: ' + _dvImgErr.message);
           }
 
           return;
@@ -2412,11 +2487,37 @@ async function pullWithPreview(remoteMeta) {
           var _mNoSettingsChanges = !manifestSettingsDiff || !manifestSettingsDiff.changed || manifestSettingsDiff.changed.length === 0;
           if (_mNoChanges && _mNoSettingsChanges) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
-            syncSetLastPull({
+            var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
               timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
               rev: remoteMeta ? remoteMeta.rev : null,
-            });
+            };
+            // STAK-497: Even when items/settings are unchanged, the image vault
+            // may need syncing (e.g. new photos uploaded on another device).
+            try {
+              if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+                var _spLastPull = syncGetLastPull();
+                var _spLocalHash = _spLastPull ? _spLastPull.imageHash : null;
+                if (remoteMeta.imageVault.hash !== _spLocalHash) {
+                  debugLog('[CloudSync] Silent-pull path: image vault changed — pulling', remoteMeta.imageVault.imageCount, 'photos');
+                  var _spImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+                  var _spImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _spImgArg },
+                  });
+                  if (_spImgResp.ok) {
+                    var _spImgBytes = new Uint8Array(await _spImgResp.arrayBuffer());
+                    var _spRestored = await vaultDecryptAndRestoreImages(_spImgBytes, password);
+                    _silentPullMeta.imageHash = remoteMeta.imageVault.hash;
+                    debugLog('[CloudSync] Silent-pull path: image vault restored:', _spRestored, 'photos');
+                    logCloudSyncActivity('image_vault_pull', 'success', (_spRestored || '?') + ' photos restored (silent-pull path)');
+                  }
+                }
+              }
+            } catch (_spImgErr) {
+              debugLog('[CloudSync] Silent-pull path: image vault pull failed (non-blocking):', _spImgErr.message);
+            }
+            syncSetLastPull(_silentPullMeta);
             logCloudSyncActivity('auto_sync_pull', 'success', 'No changes — pull recorded silently (manifest)');
             updateSyncStatusIndicator('idle', 'just now');
             return;
@@ -2477,6 +2578,41 @@ async function pullWithPreview(remoteMeta) {
               console.warn('[CloudSync] STAK-470: Version-upgrade settings diff — auto-merged ' + _appliedCount + ' remote-only keys, ' + (manifestSettingsDiff.changed.length - _appliedCount) + ' local-only keys kept' + (_failedCount > 0 ? ', ' + _failedCount + ' failed' : ''));
               logCloudSyncActivity('auto_sync_pull', _failedCount > 0 ? 'partial' : 'success', 'Version-upgrade settings merged silently (' + _appliedCount + ' applied, ' + (manifestSettingsDiff.changed.length - _appliedCount) + ' local-only' + (_failedCount > 0 ? ', ' + _failedCount + ' failed' : '') + ')');
               updateSyncStatusIndicator('idle', 'just now');
+              // STAK-497: Pull image vault on the auto-merge path (previously skipped).
+              // Without this, a device that only has settings diffs (no item changes)
+              // never downloads uploaded photos from the remote image vault.
+              try {
+                if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+                  var _amLastPull = syncGetLastPull();
+                  var _amLocalHash = _amLastPull ? _amLastPull.imageHash : null;
+                  if (remoteMeta.imageVault.hash !== _amLocalHash) {
+                    debugLog('[CloudSync] STAK-470 path: image vault changed — pulling', remoteMeta.imageVault.imageCount, 'photos');
+                    var _amImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+                    var _amImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+                      method: 'POST',
+                      headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _amImgArg },
+                    });
+                    if (_amImgResp.ok) {
+                      var _amImgBytes = new Uint8Array(await _amImgResp.arrayBuffer());
+                      var _amRestored = await vaultDecryptAndRestoreImages(_amImgBytes, password);
+                      debugLog('[CloudSync] STAK-470 path: image vault restored:', _amRestored, 'photos');
+                      logCloudSyncActivity('image_vault_pull', 'success', (_amRestored || '?') + ' photos restored (auto-merge path)');
+                      // Update pull metadata with image hash
+                      if (_failedCount === 0) {
+                        syncSetLastPull({
+                          syncId: remoteMeta ? remoteMeta.syncId : null,
+                          timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
+                          rev: remoteMeta ? remoteMeta.rev : null,
+                          imageHash: remoteMeta.imageVault.hash,
+                        });
+                      }
+                    }
+                  }
+                }
+              } catch (_amImgErr) {
+                debugLog('[CloudSync] STAK-470 path: image vault pull failed (non-blocking):', _amImgErr.message);
+                logCloudSyncActivity('image_vault_pull', 'fail', 'Auto-merge path: ' + _amImgErr.message);
+              }
               // Push to update remote manifest with local-only keys
               if (_appliedCount < manifestSettingsDiff.changed.length && typeof scheduleSyncPush === 'function') {
                 scheduleSyncPush();
@@ -2630,8 +2766,11 @@ async function pullWithPreview(remoteMeta) {
       if (typeof SYNC_SCOPE_KEYS !== 'undefined') {
         for (var i = 0; i < SYNC_SCOPE_KEYS.length; i++) {
           if (SYNC_SCOPE_KEYS[i] === 'metalInventory' || SYNC_SCOPE_KEYS[i] === 'itemTags') continue;
-          var v = loadDataSync(SYNC_SCOPE_KEYS[i], null);
-          if (v !== null && v !== undefined) localSettings[SYNC_SCOPE_KEYS[i]] = v;
+          // STAK-497: Use raw localStorage.getItem to match vault payload format.
+          // loadDataSync JSON-parses values, which fails for scalar settings
+          // stored as raw strings, causing false diffs.
+          var v = localStorage.getItem(SYNC_SCOPE_KEYS[i]);
+          if (v !== null) localSettings[SYNC_SCOPE_KEYS[i]] = v;
         }
       }
       var settingsDiff = typeof DiffEngine !== 'undefined'
@@ -2707,6 +2846,29 @@ async function pullWithPreview(remoteMeta) {
       var _noSettingsChanges = !settingsDiff || !settingsDiff.changed || settingsDiff.changed.length === 0;
       if (_noItemChanges && _noSettingsChanges) {
         console.warn('[CloudSync] Pull preview: diff is EMPTY (no item or settings changes) — silently recording pull');
+        // STAK-497: Pull image vault even when items/settings are unchanged
+        try {
+          if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+            var _vfSpLastPull = syncGetLastPull();
+            var _vfSpLocalHash = _vfSpLastPull ? _vfSpLastPull.imageHash : null;
+            if (remoteMeta.imageVault.hash !== _vfSpLocalHash) {
+              debugLog('[CloudSync] Vault-first silent-pull: image vault changed — pulling');
+              var _vfSpImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+              var _vfSpImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _vfSpImgArg },
+              });
+              if (_vfSpImgResp.ok) {
+                var _vfSpImgBytes = new Uint8Array(await _vfSpImgResp.arrayBuffer());
+                var _vfSpRestored = await vaultDecryptAndRestoreImages(_vfSpImgBytes, password);
+                _previewPullMeta.imageHash = remoteMeta.imageVault.hash;
+                logCloudSyncActivity('image_vault_pull', 'success', (_vfSpRestored || '?') + ' photos restored (vault-first silent)');
+              }
+            }
+          }
+        } catch (_vfSpImgErr) {
+          debugLog('[CloudSync] Vault-first silent-pull: image vault failed (non-blocking):', _vfSpImgErr.message);
+        }
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity('auto_sync_pull', 'success', 'No changes — pull recorded silently');
@@ -2727,6 +2889,38 @@ async function pullWithPreview(remoteMeta) {
         _previewPullMeta = null;
       } else {
         await shownPromise;
+      }
+
+      // STAK-497: Pull image vault after vault-first DiffModal or fallback restore.
+      // showRestorePreviewModal's onApply only handles items + settings — not images.
+      try {
+        if (remoteMeta && remoteMeta.imageVault && typeof vaultDecryptAndRestoreImages === 'function') {
+          var _vfLastPull = syncGetLastPull();
+          var _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
+          if (remoteMeta.imageVault.hash !== _vfLocalHash) {
+            debugLog('[CloudSync] Vault-first path: pulling image vault');
+            var _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+            var _vfImgResp = await fetch('https://content.dropboxapi.com/2/files/download', {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Dropbox-API-Arg': _vfImgArg },
+            });
+            if (_vfImgResp.ok) {
+              var _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
+              var _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
+              debugLog('[CloudSync] Vault-first path: image vault restored:', _vfRestored, 'photos');
+              logCloudSyncActivity('image_vault_pull', 'success', (_vfRestored || '?') + ' photos restored (vault-first path)');
+              // Update pull meta with image hash
+              var _vfPullMeta = syncGetLastPull();
+              if (_vfPullMeta) {
+                _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
+                syncSetLastPull(_vfPullMeta);
+              }
+            }
+          }
+        }
+      } catch (_vfImgErr) {
+        debugLog('[CloudSync] Vault-first path: image vault failed (non-blocking):', _vfImgErr.message);
+        logCloudSyncActivity('image_vault_pull', 'fail', 'Vault-first path: ' + _vfImgErr.message);
       }
 
     } catch (decryptErr) {
@@ -2817,6 +3011,11 @@ function stopSyncPoller() {
  * @param {string} [provider='dropbox']
  */
 async function enableCloudSync(provider) {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping enable — app initialization failed');
+    return;
+  }
   _syncProvider = provider || 'dropbox';
   try { localStorage.setItem('cloud_sync_enabled', 'true'); } catch (_) { /* ignore */ }
 
@@ -2897,6 +3096,11 @@ function disableCloudSync() {
  * Creates the debounced push function and starts the poller if sync was enabled.
  */
 function initCloudSync() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping init — app initialization failed');
+    return;
+  }
   // Initialize multi-tab coordination (Layer 7)
   initSyncTabCoordination();
 
@@ -2992,6 +3196,11 @@ document.addEventListener('visibilitychange', function () {
  * Ensures a valid password exists before attempting any sync operations.
  */
 async function syncNow() {
+  // Guard: skip sync if app initialization failed (STAK-485)
+  if (window._initFailed) {
+    console.warn('[CloudSync] Skipping syncNow — app initialization failed');
+    return;
+  }
   // Ensure we have a password before attempting sync.  If no silent password
   // is available, prompt the user interactively.
   var pw = getSyncPasswordSilent();

@@ -14,6 +14,37 @@ const SEED_DATA_YEARS = (() => {
 })();
 
 /**
+ * Local spotHistory intentionally retains a small recent window.
+ * Full multi-decade reference history stays in historicalDataCache/year files.
+ * @constant {number}
+ */
+const SEED_RUNTIME_HISTORY_DAYS = window.SPOT_HISTORY_RUNTIME_WINDOW_DAYS || 180;
+
+/**
+ * Returns a storage-safe recent seed window for in-memory/persisted runtime history.
+ * Falls back to the latest entry per metal if the recent window is unexpectedly empty.
+ *
+ * @param {Array<{spot:number, metal:string, source:string, provider:string, timestamp:string}>} entries
+ * @returns {Array<{spot:number, metal:string, source:string, provider:string, timestamp:string}>}
+ */
+const getSeedRuntimeHistoryWindow = (entries) => {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - SEED_RUNTIME_HISTORY_DAYS);
+  const cutoffStamp = cutoff.toISOString().replace("T", " ").slice(0, 19);
+
+  const recent = entries.filter(
+    (entry) => entry && typeof entry.timestamp === "string" && entry.timestamp >= cutoffStamp,
+  );
+  if (recent.length > 0) return recent;
+
+  const latestByMetal = new Map();
+  entries.forEach((entry) => {
+    if (entry && entry.metal) latestByMetal.set(entry.metal, entry);
+  });
+  return [...latestByMetal.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+};
+
+/**
  * Embedded seed data fallback for file:// protocol where fetch() cannot
  * load local JSON files. Auto-generated — do not edit by hand.
  *
@@ -1153,12 +1184,12 @@ function getEmbeddedSeedData() {
 }
 
 /**
- * Loads and merges seed spot history into spotHistory (localStorage).
+ * Loads seed/reference spot history without bulk-persisting the full bundle.
  *
- * First-time users: bulk loads all available seed data.
- * Existing users: merges seed entries for dates not already present
- * (live/API data always wins over seed for overlapping dates).
- * Runs once per app version via migration_seedHistoryMerge flag.
+ * First-time users: hydrate a recent storage-safe runtime window into spotHistory.
+ * Existing users: keep their persisted runtime history intact and use the bundle
+ * cache/year files as the source of truth for long-range reference data.
+ * Runs once per app version for existing users via migration_seedHistoryMerge flag.
  *
  * Data sources (priority order):
  *   1. historicalDataCache — pre-populated by spot-history-bundle.js
@@ -1177,7 +1208,7 @@ async function loadSeedSpotHistory() {
     return;
   }
 
-  debugLog("Seed data: " + (isMerge ? "merge mode — backfilling gaps in " + existing.length + " entries" : "loading for first-time user..."));
+  debugLog("Seed data: " + (isMerge ? "existing runtime history detected (" + existing.length + " entries)" : "loading for first-time user..."));
 
   // --- Gather seed entries from the best available source ---
   // Priority 1: historicalDataCache (populated by spot-history-bundle.js <script>)
@@ -1221,58 +1252,50 @@ async function loadSeedSpotHistory() {
     return;
   }
 
+  seedEntries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
   if (isMerge) {
-    // Build a Set of existing day+metal keys so live/API data always wins
-    const existingKeys = new Set();
-    for (const e of existing) {
-      existingKeys.add(e.timestamp.slice(0, 10) + "|" + e.metal);
-    }
-
-    // Only add seed entries for dates the user doesn't already have
-    let added = 0;
-    for (const s of seedEntries) {
-      const key = s.timestamp.slice(0, 10) + "|" + s.metal;
-      if (!existingKeys.has(key)) {
-        existing.push(s);
-        added++;
-      }
-    }
-
-    if (added === 0) {
-      debugLog("Seed data: no gaps found — history is complete");
-      localStorage.setItem("migration_seedHistoryMerge", "1");
-      return;
-    }
-
-    // Sort merged array chronologically and persist
-    existing.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-    spotHistory = existing;
-    debugLog("Seed data: merged " + added + " historical entries into spotHistory");
+    debugLog(
+      "Seed data: bundle cache available for historical lookups — skipping persisted merge for existing spotHistory (" +
+      existing.length +
+      " entries)",
+    );
   } else {
-    // First-time user: bulk assign all seed data
-    seedEntries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-    spotHistory = seedEntries;
-    debugLog("Seed data: loaded " + seedEntries.length + " entries");
+    const runtimeSeedEntries = getSeedRuntimeHistoryWindow(seedEntries);
+    spotHistory = runtimeSeedEntries;
+    debugLog(
+      "Seed data: hydrated " +
+      runtimeSeedEntries.length +
+      " recent seed entries into spotHistory (" +
+      SEED_RUNTIME_HISTORY_DAYS +
+      "-day runtime window, " +
+      seedEntries.length +
+      " total reference entries remain in cache)",
+    );
+
+    if (typeof saveSpotHistory === "function") {
+      saveSpotHistory();
+    }
   }
 
   // Mark merge complete so we don't re-run on every load
   localStorage.setItem("migration_seedHistoryMerge", "1");
 
-  if (typeof saveSpotHistory === "function") {
-    saveSpotHistory();
-  }
-
   // Set latest seed price per metal in localStorage so fetchSpotPrice()
   // picks them up instead of hardcoded defaults
   const latestByMetal = {};
-  for (const entry of spotHistory) {
+  const latestSource = isMerge ? existing : spotHistory;
+  for (const entry of latestSource) {
     latestByMetal[entry.metal] = entry.spot;
+  }
+  for (const entry of seedEntries) {
+    if (!latestByMetal[entry.metal]) latestByMetal[entry.metal] = entry.spot;
   }
 
   if (typeof METALS !== "undefined") {
     Object.values(METALS).forEach((mc) => {
       const price = latestByMetal[mc.name];
-      if (price && price > 0) {
+      if (price && price > 0 && (!isMerge || !localStorage.getItem(mc.localStorageKey))) {
         localStorage.setItem(mc.localStorageKey, String(price));
       }
     });

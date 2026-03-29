@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgD" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="silverD" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="50%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="goldD" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#92700c"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bgD)"/>
+  <!-- Minimal shield — just the outline, thin and elegant -->
+  <path d="M256 72 L390 128 L390 272 Q390 358 256 400 Q122 358 122 272 L122 128 Z"
+    fill="none" stroke="#94a3b8" stroke-width="2" opacity="0.4"/>
+  <!-- S bars — fewer, thicker, more graphic -->
+  <!-- Top of S — 2 silver bars sweeping right -->
+  <rect x="200" y="118" width="145" height="24" rx="12" fill="url(#silverD)" opacity="0.5"/>
+  <rect x="170" y="154" width="108" height="24" rx="12" fill="url(#silverD)" opacity="0.75"/>
+  <!-- Center — bold gold bar -->
+  <rect x="185" y="196" width="145" height="28" rx="14" fill="url(#goldD)"/>
+  <!-- Bottom of S — 2 silver bars sweeping left -->
+  <rect x="232" y="240" width="108" height="24" rx="12" fill="url(#silverD)" opacity="0.75"/>
+  <rect x="165" y="276" width="155" height="24" rx="12" fill="url(#silverD)" opacity="0.5"/>
+  <!-- Wordmark — larger, more prominent -->
+  <text x="256" y="380" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="50" font-weight="700" letter-spacing="3">
+    <tspan fill="#e2e8f0">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+  </text>
+  <!-- Tagline -->
+  <text x="256" y="412" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="13" fill="#475569" letter-spacing="4">TRACK YOUR STACK</text>
+  <!-- Version pill -->
+  <rect x="204" y="428" width="104" height="20" rx="10" fill="none" stroke="#334155" stroke-width="1"/>
+  <text x="256" y="442" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#475569" letter-spacing="1">FREE + OPEN SOURCE</text>
+</svg>

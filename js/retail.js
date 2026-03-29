@@ -60,6 +60,8 @@ const RETAIL_VENDOR_NAMES = {
   bullionexchanges: "BullionX",
   summitmetals:     "Summit",
   goldback:         "Goldback",
+  providentmetals:  "Provident",
+  gainesvillecoins: "Gainesville",
 };
 
 /** Vendor homepage URLs for popup links */
@@ -72,6 +74,8 @@ const RETAIL_VENDOR_URLS = {
   bullionexchanges: "https://www.bullionexchanges.com",
   summitmetals:     "https://www.summitmetals.com",
   goldback:         "https://www.goldback.com",
+  providentmetals:  "https://www.providentmetals.com",
+  gainesvillecoins: "https://www.gainesvillecoins.com",
 };
 
 /** Per-vendor brand colors — shared with retail-view-modal.js for chart lines and card labels */
@@ -84,6 +88,8 @@ const RETAIL_VENDOR_COLORS = {
   bullionexchanges: "#f472b6",  // bright pink (was #ec4899)
   summitmetals:     "#22d3ee",  // bright cyan (was #06b6d4)
   goldback:         "#d4a017",  // deep gold — goldback branding
+  providentmetals:  "#a3e635",  // lime green — distinct from emerald (SDB)
+  gainesvillecoins: "#fb923c",  // orange — distinct from amber (JM)
 };
 
 // ---------------------------------------------------------------------------
@@ -93,11 +99,16 @@ let _manifestSlugs = null;
 let _manifestCoinMeta = null;
 let _manifestVendorMeta = null;
 
-/** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback */
+/** Slugs excluded from market card display — baseline references, not user-facing products. */
+const _HIDDEN_SLUGS = new Set(["goldback-g1"]);
+
+/** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback.
+ *  Excludes _HIDDEN_SLUGS on ALL return paths (STAK-498 Task 7). */
 const getActiveRetailSlugs = () => {
-  if (!_manifestSlugs) return RETAIL_SLUGS;
-  if (!retailPrices?.prices) return _manifestSlugs;
+  if (!_manifestSlugs) return RETAIL_SLUGS.filter((s) => !_HIDDEN_SLUGS.has(s));
+  if (!retailPrices?.prices) return _manifestSlugs.filter((s) => !_HIDDEN_SLUGS.has(s));
   return _manifestSlugs.filter((slug) => {
+    if (_HIDDEN_SLUGS.has(slug)) return false;
     const entry = retailPrices.prices[slug];
     if (!entry) return false;
     if (entry.median_price != null || entry.lowest_price != null) return true;
@@ -137,6 +148,11 @@ const _fmtRetailPrice = (v) => (v != null ? `$${Number(v).toLocaleString('en-US'
 // State
 // ---------------------------------------------------------------------------
 
+// STAK-503: v2 storage key constants (strings match ALLOWED_STORAGE_KEYS in constants.js)
+const _V2_RETAIL_PRICES_KEY = "v2RetailPrices";
+const _V2_RETAIL_INTRADAY_KEY = "v2RetailIntraday";
+const _V2_RETAIL_HISTORY_KEY = "v2RetailHistory";
+
 /** @type {{lastSync: string, window_start: string|null, prices: Object}|null} */
 let retailPrices = null;
 
@@ -167,9 +183,6 @@ let _retailSyncInProgress = false;
 
 /** True when the last sync attempt failed — drives error display in grid/list views */
 let _retailSyncError = false;
-
-/** Active sparkline Chart instances keyed by slug — destroyed before re-render to prevent Canvas reuse errors */
-const _retailSparklines = new Map();
 
 /** Current trend display mode: "7d" (default) or "intraday" */
 let _retailTrendMode = "7d";
@@ -248,7 +261,7 @@ const loadRetailIntradayData = () => {
 };
 
 const saveRetailIntradayData = () => {
-  // STAK-300: cap windows_24h to last 96 entries per slug (24h of 15-min data)
+  // STAK-300: cap windows_24h to last 96 entries per slug (24h of hourly data)
   // to prevent localStorage quota overflow on large collections
   const pruned = {};
   for (const [slug, entry] of Object.entries(retailIntradayData)) {
@@ -346,6 +359,46 @@ const saveRetailAvailability = () => {
 };
 
 // ---------------------------------------------------------------------------
+// v2 Persistence (STAK-503)
+// ---------------------------------------------------------------------------
+
+const _saveV2RetailPrices = () => {
+  try { saveDataSync(_V2_RETAIL_PRICES_KEY, retailPrices); }
+  catch (err) { _handleSaveError("v2 retail prices", err); }
+};
+
+const _loadV2RetailPrices = () => {
+  try { retailPrices = loadDataSync(_V2_RETAIL_PRICES_KEY) || null; }
+  catch (e) { retailPrices = null; debugLog("Failed to load v2 retail prices: " + e.message, "warn"); }
+};
+
+const _saveV2RetailIntraday = () => {
+  try { saveDataSync(_V2_RETAIL_INTRADAY_KEY, retailIntradayData); }
+  catch (err) { debugLog(`[retail-v2] Failed to save intraday: ${err.message}`, "warn"); }
+};
+
+const _loadV2RetailIntraday = () => {
+  try {
+    const loaded = loadDataSync(_V2_RETAIL_INTRADAY_KEY);
+    retailIntradayData = (loaded && typeof loaded === "object" && !Array.isArray(loaded)) ? loaded : {};
+  } catch (e) { retailIntradayData = {}; debugLog("Failed to load v2 retail intraday: " + e.message, "warn"); }
+  if (typeof window !== "undefined") window.retailIntradayData = retailIntradayData;
+};
+
+const _saveV2RetailHistory = () => {
+  try { saveDataSync(_V2_RETAIL_HISTORY_KEY, retailPriceHistory); }
+  catch (err) { _handleSaveError("v2 retail history", err); }
+};
+
+const _loadV2RetailHistory = () => {
+  try {
+    const loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    retailPriceHistory = (loaded && !Array.isArray(loaded) && typeof loaded === "object") ? loaded : {};
+  } catch (e) { retailPriceHistory = {}; debugLog("Failed to load v2 retail history: " + e.message, "warn"); }
+  if (typeof window !== "undefined") window.retailPriceHistory = retailPriceHistory;
+};
+
+// ---------------------------------------------------------------------------
 // Accessors
 // ---------------------------------------------------------------------------
 
@@ -409,8 +462,274 @@ const _processSlugResult = (slug, latest, hist30) => {
   result.lastKnownPriceBySite = latest.last_known_price_by_site || null;
   result.lastAvailableDateBySite = latest.last_available_date_by_site || null;
 
+  // STAK-483: Patch today's history entry with live prices so chart/trend
+  // match the current market card instead of lagging behind a daily average.
+  if (result.history30 && latest.window_start && latest.vendors) {
+    const today = latest.window_start.slice(0, 10);
+    const todayEntry = result.history30.find((e) => e.date === today);
+    if (todayEntry) {
+      const livePrices = [];
+      const patchedVendors = {};
+      for (const [vid, vdata] of Object.entries(latest.vendors)) {
+        const p = (vdata.price !== null && vdata.price !== undefined && vdata.price > 0 && isFinite(vdata.price)) ? Number(vdata.price) : null;
+        if (p !== null) livePrices.push(p);
+        patchedVendors[vid] = { avg: p, inStock: vdata.inStock !== false };
+      }
+      if (livePrices.length > 0) {
+        const sorted = [...livePrices].sort((a, b) => a - b);
+        todayEntry.avg_median = Math.round(sorted[Math.floor(sorted.length / 2)] * 100) / 100;
+        todayEntry.avg_low = Math.round(Math.min(...livePrices) * 100) / 100;
+        todayEntry.vendors = patchedVendors;
+      }
+    }
+  }
+
   return result;
 };
+
+// ---------------------------------------------------------------------------
+// v2 Sync Helpers (STAK-503)
+// ---------------------------------------------------------------------------
+
+async function _pickFreshestV2Endpoint() {
+  const endpoints = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS : [];
+  for (const base of endpoints) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const envelope = await resp.json();
+      const manifest = (envelope && envelope.v === 2 && envelope.data) ? envelope.data : envelope;
+      return { base, manifest, generatedAt: envelope.generated_at || "" };
+    } catch {
+      // try next endpoint
+    }
+  }
+  return null;
+}
+
+async function _fetchV2Json(base, path) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const resp = await fetch(`${base}/${path}`, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+    if (!resp.ok) return null;
+    const envelope = await resp.json();
+    return (envelope && envelope.v === 2 && envelope.data !== undefined) ? envelope.data : envelope;
+  } catch {
+    return null;
+  }
+}
+
+async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
+  const result = await _pickFreshestV2Endpoint();
+  if (!result) {
+    debugLog("[retail-v2] All v2 endpoints unreachable", "warn");
+    const errorMsg = "All v2 API endpoints unreachable — check your network connection.";
+    if (ui && syncStatus) syncStatus.textContent = errorMsg;
+    _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
+    _retailSyncError = true;
+    return;
+  }
+
+  const { base: apiBase, manifest, generatedAt } = result;
+  _lastSuccessfulApiBase = apiBase + "/retail";
+  window._lastSuccessfulApiBase = _lastSuccessfulApiBase;
+
+  if (generatedAt) {
+    try { localStorage.setItem(RETAIL_MANIFEST_TS_KEY, generatedAt); } catch { /* ignore */ }
+  }
+  debugLog(`[retail-v2] Using ${apiBase} (generated: ${generatedAt})`, "info");
+
+  // Extract slug list and metadata from v2 manifest
+  const coins = Array.isArray(manifest.coins) ? manifest.coins : [];
+  const vendors = Array.isArray(manifest.vendors) ? manifest.vendors : [];
+
+  // Populate manifest resolver state from v2 manifest
+  _manifestSlugs = coins.map((c) => c.slug);
+  _manifestCoinMeta = {};
+  for (const c of coins) {
+    _manifestCoinMeta[c.slug] = {
+      name: c.name,
+      weight: c.weight_oz || 0,
+      metal: c.metal === "xag" ? "silver" : c.metal === "xau" ? "gold" : c.metal === "xpt" ? "platinum" : c.metal === "xpd" ? "palladium" : c.metal || "unknown",
+    };
+  }
+  if (_manifestSlugs.length) {
+    try { localStorage.setItem(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs)); } catch { /* ignore */ }
+  }
+  if (_manifestCoinMeta) {
+    try { localStorage.setItem(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta)); } catch { /* ignore */ }
+  }
+
+  // Populate vendor metadata from manifest
+  if (vendors.length) {
+    _manifestVendorMeta = {};
+    for (const v of vendors) {
+      _manifestVendorMeta[v.id] = { name: v.name, color: v.color, url: v.url || null };
+    }
+    try { localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta)); } catch { /* ignore */ }
+  }
+
+  // Fetch providers.json for vendor product page URLs (same as v1)
+  try {
+    const providersUrl = `${apiBase}/providers.json`;
+    const providersResp = await fetch(providersUrl, { signal: AbortSignal.timeout(5000) });
+    if (providersResp.ok) {
+      retailProviders = await providersResp.json();
+      if (retailProviders && retailProviders._vendor_meta) {
+        _manifestVendorMeta = retailProviders._vendor_meta;
+      }
+      if (typeof window !== "undefined") window.retailProviders = retailProviders;
+      saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
+      debugLog(`[retail-v2] Loaded ${Object.keys(retailProviders || {}).length} coin provider mappings`, "info");
+    }
+  } catch { /* non-fatal — vendor links degrade to homepage */ }
+
+  const slugs = _manifestSlugs.length ? _manifestSlugs : RETAIL_SLUGS;
+
+  // Fetch per-slug data in parallel: latest, intraday, history-7d, history-30d, history-90d
+  const results = await Promise.allSettled(
+    slugs.map(async (slug) => {
+      const [latest, intraday, hist7, hist30, hist90] = await Promise.all([
+        _fetchV2Json(apiBase, `retail/${slug}/latest.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/intraday.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/history-7d.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/history-30d.json`),
+        _fetchV2Json(apiBase, `retail/${slug}/history-90d.json`),
+      ]);
+      return { slug, latest, intraday, hist7, hist30, hist90 };
+    })
+  );
+
+  let successCount = 0;
+  const newPrices = {};
+
+  results.forEach((r) => {
+    if (r.status !== "fulfilled") {
+      debugLog(`[retail-v2] Slug fetch failed: ${r.reason?.message || r.reason}`, "warn");
+      return;
+    }
+    const { slug, latest, intraday, hist7, hist30, hist90 } = r.value;
+
+    if (latest) {
+      // Build price entry preserving carried/carried_from flags
+      const vendorMap = {};
+      if (latest.vendors) {
+        for (const [vid, vdata] of Object.entries(latest.vendors)) {
+          vendorMap[vid] = {
+            price: vdata.price,
+            inStock: vdata.in_stock !== false,
+            confidence: vdata.confidence || null,
+            carried: vdata.carried || false,
+            carried_from: vdata.carried_from || null,
+          };
+        }
+      }
+
+      newPrices[slug] = {
+        median_price: latest.median ?? null,
+        lowest_price: latest.low ?? null,
+        highest_price: latest.high ?? null,
+        vendors: vendorMap,
+      };
+
+      // Update availability from v2 vendor data
+      if (latest.vendors) {
+        if (!retailAvailability[slug]) retailAvailability[slug] = {};
+        if (!retailLastKnownPrices[slug]) retailLastKnownPrices[slug] = {};
+        for (const [vid, vdata] of Object.entries(latest.vendors)) {
+          retailAvailability[slug][vid] = vdata.in_stock !== false;
+          if (vdata.price != null && vdata.price > 0) {
+            retailLastKnownPrices[slug][vid] = vdata.price;
+          }
+        }
+      }
+
+      successCount++;
+    }
+
+    // Store standalone intraday data
+    if (Array.isArray(intraday)) {
+      retailIntradayData[slug] = {
+        window_start: intraday.length ? intraday[0].t : null,
+        windows_24h: intraday.map((w) => ({
+          window: w.t,
+          t: w.t,
+          ts: w.ts,
+          median: w.median,
+          low: w.low,
+          vendors: w.vendors || {},
+        })),
+      };
+    }
+
+    // Merge history data (7d hourly, 30d daily, 90d daily)
+    const historyEntries = [];
+    const addHistory = (data) => {
+      if (!Array.isArray(data)) return;
+      for (const entry of data) {
+        historyEntries.push({
+          date: entry.t ? entry.t.slice(0, 10) : null,
+          t: entry.t,
+          ts: entry.ts,
+          open: entry.open,
+          high: entry.high,
+          low: entry.low,
+          close: entry.close,
+          avg_median: entry.avg ?? entry.close,
+          avg_low: entry.low,
+          n: entry.n,
+          vendors: entry.vendors || null,
+        });
+      }
+    };
+    addHistory(hist90);
+    addHistory(hist30);
+    addHistory(hist7);
+
+    // Deduplicate by date, preferring the latest (finest granularity) entry
+    if (historyEntries.length) {
+      const byDate = new Map();
+      for (const e of historyEntries) {
+        if (e.date) byDate.set(e.date, e);
+      }
+      retailPriceHistory[slug] = [...byDate.values()].sort((a, b) => (a.date > b.date ? 1 : -1));
+    }
+  });
+
+  if (successCount > 0) {
+    retailPrices = {
+      lastSync: new Date().toISOString(),
+      window_start: generatedAt || null,
+      prices: newPrices,
+    };
+    _retailSyncError = false;
+  }
+
+  if (successCount === 0 && slugs.length > 0) {
+    const errorMsg = "All v2 coin price fetches failed — check your network connection.";
+    debugLog(`[retail-v2] ${errorMsg}`, "error");
+    if (ui && syncStatus) syncStatus.textContent = errorMsg;
+    _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
+    _retailSyncError = true;
+    return;
+  }
+
+  if (successCount > 0) {
+    _saveV2RetailPrices();
+    _saveV2RetailHistory();
+    _saveV2RetailIntraday();
+    saveRetailAvailability();
+  }
+
+  const statusMsg = `Synced ${successCount} coin(s) [v2] · ${generatedAt || "unknown"}`;
+  if (ui && syncStatus) syncStatus.textContent = statusMsg;
+  debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
+  _appendSyncLogEntry({ success: true, coins: successCount, window: generatedAt || null, error: null });
+  if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+}
 
 // ---------------------------------------------------------------------------
 // Sync
@@ -443,6 +762,12 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   renderRetailCards();
 
   try {
+    // STAK-503: v2 API branch
+    if (USE_V2_API) {
+      await _syncRetailV2({ ui, syncBtn, syncStatus });
+      return;
+    }
+
     // Multi-endpoint: race all configured APIs, pick freshest manifest
     let apiBase, manifest;
     const ranked = await _pickFreshestEndpoint();
@@ -590,6 +915,8 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     if (mktLogActive && typeof renderRetailHistoryTable === "function") {
       renderRetailHistoryTable();
     }
+    // STAK-504: Refresh main-page market data (ticker + vendor table) after sync
+    if (typeof refreshMarketData === 'function') refreshMarketData();
     if (ui) {
       syncBtn.disabled = false;
       syncBtn.textContent = "Sync Now";
@@ -620,51 +947,6 @@ const _buildSkeletonCard = () => {
   return card;
 };
 
-/**
- * Renders a 15-min intraday sparkline on a card's canvas (last 48 windows = 12h).
- * Falls back to 7-day daily history if no intraday data is available.
- * Destroys any prior Chart instance first to prevent Canvas reuse errors.
- * @param {string} slug
- */
-const _renderRetailSparkline = (slug) => {
-  const canvas = safeGetElement(`retail-spark-${slug}`);
-  if (!(canvas instanceof HTMLCanvasElement) || typeof Chart === "undefined") return;
-  const intraday = retailIntradayData[slug];
-  let data;
-  if (intraday && Array.isArray(intraday.windows_24h) && intraday.windows_24h.length >= 2) {
-    data = intraday.windows_24h.slice(-48).map((w) => Number(w.median)).filter((v) => isFinite(v));
-  } else {
-    // Fallback: 7-day daily history
-    data = (retailPriceHistory[slug] || []).slice(0, 7).reverse()
-      .map((e) => Number(e.avg_median ?? e.average_price)).filter((v) => isFinite(v));
-  }
-  if (data.length < 2) return;
-  if (_retailSparklines.has(slug)) {
-    _retailSparklines.get(slug).destroy();
-  }
-  const chart = new Chart(canvas, {
-    type: "line",
-    data: {
-      labels: Array(data.length).fill(""),
-      datasets: [{
-        data,
-        borderColor: "#3b82f6",
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.3,
-        fill: false,
-      }],
-    },
-    options: {
-      responsive: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: { x: { display: false }, y: { display: false } },
-      animation: false,
-    },
-  });
-  _retailSparklines.set(slug, chart);
-};
-
 /** Updates the sync timestamp element based on current sync state. Shared by grid and list views. */
 const _updateLastSyncEl = (el) => {
   if (_retailSyncError) {
@@ -682,46 +964,7 @@ const _updateLastSyncEl = (el) => {
 
 /** Called on market section open and after each sync. */
 const renderRetailCards = () => {
-  // Market list view branch (feature flag)
-  if (typeof isFeatureEnabled === "function" && isFeatureEnabled("MARKET_LIST_VIEW")) {
-    _renderMarketListView();
-    return;
-  }
-
-  const grid = safeGetElement("retailCardsGrid");
-  const lastSyncEl = safeGetElement("retailLastSync");
-  const disclaimer = safeGetElement("retailDisclaimer");
-
-  // Ensure grid header is visible when using grid view
-  const listHeader = safeGetElement("marketListHeader");
-  const gridHeader = safeGetElement("marketGridHeader");
-  if (listHeader) listHeader.style.display = "none";
-  if (gridHeader) gridHeader.style.display = "";
-  grid.classList.remove("market-list-mode");
-
-  _updateLastSyncEl(lastSyncEl);
-
-  grid.innerHTML = "";
-  if (_retailSyncInProgress) {
-    disclaimer.style.display = "";
-    safeGetElement("retailEmptyState").style.display = "none";
-    getActiveRetailSlugs().forEach(() => grid.appendChild(_buildSkeletonCard()));
-    return;
-  }
-
-  const emptyState = safeGetElement("retailEmptyState");
-  const hasData = retailPrices && retailPrices.prices && Object.keys(retailPrices.prices).length > 0;
-  emptyState.style.display = hasData ? "none" : "";
-  disclaimer.style.display = hasData ? "" : "none";
-  if (!hasData) return;
-
-  const activeSlugs = getActiveRetailSlugs();
-  activeSlugs.forEach((slug) => {
-    const meta = getRetailCoinMeta(slug);
-    const priceData = retailPrices && retailPrices.prices ? retailPrices.prices[slug] || null : null;
-    grid.appendChild(_buildRetailCard(slug, meta, priceData));
-  });
-  activeSlugs.forEach((slug) => _renderRetailSparkline(slug));
+  _renderMarketListView();
 };
 
 /** Metal emoji icons keyed by metal name */
@@ -767,212 +1010,6 @@ const _getActiveTrend = (slug) => {
 };
 
 
-/**
- * Builds a single coin price card element.
- * @param {string} slug
- * @param {{name:string, weight:number, metal:string}} meta
- * @param {Object|null} priceData
- * @returns {HTMLElement}
- */
-const _buildRetailCard = (slug, meta, priceData) => {
-  const card = document.createElement("div");
-  card.className = "retail-price-card";
-  card.dataset.slug = slug;
-
-  const header = document.createElement("div");
-  header.className = "retail-card-header";
-
-  const nameSpan = document.createElement("span");
-  nameSpan.className = "retail-coin-name";
-  nameSpan.textContent = meta.name;
-
-  const badge = document.createElement("span");
-  badge.className = `retail-metal-badge retail-metal-badge--${meta.metal}`;
-  const emoji = RETAIL_METAL_EMOJI[meta.metal];
-  const metalLabel = meta.metal === "platinum" ? "PLAT" : meta.metal.toUpperCase();
-  badge.textContent = emoji ? `${emoji} ${metalLabel}` : metalLabel;
-
-  header.appendChild(nameSpan);
-  header.appendChild(badge);
-  card.appendChild(header);
-
-  const weightEl = document.createElement("div");
-  weightEl.className = "retail-coin-weight";
-  weightEl.textContent = `${meta.weight} troy oz`;
-  card.appendChild(weightEl);
-
-  if (!priceData) {
-    const noData = document.createElement("div");
-    noData.className = "retail-no-data";
-    noData.textContent = "No data — click Sync";
-    card.appendChild(noData);
-  } else {
-    const summary = document.createElement("div");
-    summary.className = "retail-summary-row";
-    [["Med", priceData.median_price], ["Low", priceData.lowest_price]].forEach(([label, val]) => {
-      const item = document.createElement("span");
-      item.className = "retail-summary-item";
-      const lbl = document.createElement("span");
-      lbl.className = "retail-label";
-      lbl.textContent = label;
-      const valSpan = document.createElement("span");
-      valSpan.className = "retail-summary-value";
-      valSpan.textContent = _fmtRetailPrice(val);
-      item.appendChild(lbl);
-      item.appendChild(valSpan);
-      summary.appendChild(item);
-    });
-
-    // Add trend chip to the right side of the summary row
-    const trend = _computeRetailTrend(slug);
-    if (trend) {
-      const trendEl = document.createElement("span");
-      const arrow = { up: "\u2191", down: "\u2193", flat: "\u2192" }[trend.dir];
-      const sign  = trend.dir === "up" ? "+" : trend.dir === "down" ? "-" : "";
-      trendEl.className = `retail-trend retail-trend--${trend.dir}`;
-      trendEl.textContent = `${arrow} ${sign}${trend.pct}%`;
-      summary.appendChild(trendEl);
-    }
-
-    card.appendChild(summary);
-
-    const vendorDetails = document.createElement("div");
-    vendorDetails.className = "retail-vendor-details";
-
-    const vendors = document.createElement("div");
-    vendors.className = "retail-vendors";
-
-    // Goldback vendor reference price (grid view)
-    if (typeof getGoldbackVendorPrice === "function") {
-      const gbPrice = getGoldbackVendorPrice(slug);
-      if (gbPrice) {
-        const gbRow = document.createElement("div");
-        gbRow.className = "retail-vendor-row";
-        if (gbPrice.isStale) gbRow.style.opacity = "0.6";
-        const gbName = document.createElement("span");
-        gbName.className = "retail-vendor-name";
-        gbName.style.color = "#d4a017";
-        gbName.textContent = "Goldback";
-        gbRow.appendChild(gbName);
-        const gbVal = document.createElement("span");
-        gbVal.className = "retail-vendor-price";
-        gbVal.textContent = _fmtRetailPrice(gbPrice.price) + (gbPrice.isStale ? " (stale)" : "");
-        gbRow.appendChild(gbVal);
-        vendors.appendChild(gbRow);
-      }
-    }
-
-    const vendorMap = priceData.vendors || {};
-    const availability = retailAvailability[slug] || {};
-    const lastKnownPrices = retailLastKnownPrices[slug] || {};
-    const lastKnownDates = retailLastAvailableDates[slug] || {};
-
-    // Build list of all vendors (in-stock and OOS)
-    const allVendorKeys = new Set([
-      ...Object.keys(vendorMap),
-      ...Object.keys(availability),
-    ]);
-
-    // Sort: high-confidence in-stock vendors (≥60) by price asc, then low-confidence, then OOS vendors
-    const sortedVendorEntries = Array.from(allVendorKeys)
-      .map((key) => {
-        const vendorData = vendorMap[key];
-        const isAvailable = availability[key] !== false; // default true if not specified
-        const price = vendorData ? vendorData.price : null;
-        const score = vendorData ? vendorData.confidence : null;
-        const label = getVendorDisplay(key).name;
-        return { key, label, price, score, isAvailable };
-      })
-      .filter(({ price }) => price != null) // show only vendors with a price
-      .sort((a, b) => a.price - b.price); // sort by price ascending
-
-    // Award medals to top 3 vendors by price
-    const top3 = sortedVendorEntries.slice(0, 3).map(({ key }) => key);
-
-    sortedVendorEntries.forEach(({ key, label, price }) => {
-      const row = document.createElement("div");
-      row.className = "retail-vendor-row";
-      const medalIndex = top3.indexOf(key);
-      if (medalIndex !== -1) {
-        row.classList.add(`retail-vendor-row--medal-${medalIndex + 1}`);
-      }
-
-      const nameEl = document.createElement("span");
-      nameEl.className = "retail-vendor-name";
-      const _vd = getVendorDisplay(key);
-      const vendorColor = _vd.color;
-      // Prefer specific product page from providers.json; fall back to vendor homepage
-      const vendorUrl = (retailProviders && retailProviders[slug] && retailProviders[slug][key])
-        || _vd.url;
-      if (vendorUrl) {
-        const link = document.createElement("a");
-        link.href = "#";
-        link.textContent = label;
-        link.className = "retail-vendor-link";
-        if (vendorColor) link.style.color = vendorColor;
-        link.addEventListener("click", (e) => {
-          e.preventDefault();
-          const popup = window.open(vendorUrl, `retail_vendor_${key}`, "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no");
-          if (popup) popup.opener = null;
-          else window.open(vendorUrl, "_blank", "noopener,noreferrer");
-        });
-        nameEl.appendChild(link);
-      } else {
-        nameEl.textContent = label;
-        if (vendorColor) nameEl.style.color = vendorColor;
-      }
-
-      const priceEl = document.createElement("span");
-      priceEl.className = "retail-vendor-price";
-      priceEl.textContent = _fmtRetailPrice(price);
-
-      row.appendChild(nameEl);
-      row.appendChild(priceEl);
-      vendors.appendChild(row);
-    });
-
-    vendorDetails.appendChild(vendors);
-    card.appendChild(vendorDetails);
-
-    const footer = document.createElement("div");
-    footer.className = "retail-card-footer";
-    const dateSpan = document.createElement("span");
-    dateSpan.className = "retail-data-date";
-    dateSpan.textContent = retailPrices && retailPrices.window_start ? "today" : "—";
-    footer.appendChild(dateSpan);
-    const sparkCanvas = document.createElement("canvas");
-    sparkCanvas.id = `retail-spark-${slug}`;
-    sparkCanvas.className = "retail-sparkline";
-    sparkCanvas.width = 80;
-    sparkCanvas.height = 28;
-    footer.appendChild(sparkCanvas);
-    card.appendChild(footer);
-  }
-
-  const btnRow = document.createElement("div");
-  btnRow.className = "retail-card-btn-row";
-
-  const viewBtn = document.createElement("button");
-  viewBtn.className = "retail-card-action retail-view-btn";
-  viewBtn.type = "button";
-  viewBtn.dataset.retailViewSlug = slug;
-  viewBtn.textContent = "View";
-  btnRow.appendChild(viewBtn);
-
-  const histBtn = document.createElement("button");
-  histBtn.className = "retail-card-action retail-history-btn";
-  histBtn.type = "button";
-  histBtn.dataset.retailHistorySlug = slug;
-  histBtn.textContent = "History";
-  btnRow.appendChild(histBtn);
-
-  card.appendChild(btnRow);
-
-  return card;
-};
-
-// ---------------------------------------------------------------------------
-// Market List View (MARKET_LIST_VIEW feature flag)
 // ---------------------------------------------------------------------------
 
 /** Medal text labels and CSS classes for top-3 vendors (matches playground) */
@@ -1456,8 +1493,16 @@ const _initMarketCardChart = (slug, detailsEl) => {
   if (!history || history.length < 2) return;
   // History is chronological (oldest first) — take last 7 entries for newest week
   const last7 = history.slice(-7);
-  const knownVendors = Object.keys(RETAIL_VENDOR_NAMES);
-  const activeVendors = knownVendors.filter((v) =>
+  // Discover all vendors present in the data (not limited to RETAIL_VENDOR_NAMES)
+  const vendorSet = new Set();
+  last7.forEach((e) => {
+    if (e.vendors) Object.keys(e.vendors).forEach((v) => vendorSet.add(v));
+  });
+  const knownOrder = Object.keys(RETAIL_VENDOR_NAMES);
+  const activeVendors = [
+    ...knownOrder.filter((v) => vendorSet.has(v)),
+    ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
+  ].filter((v) =>
     last7.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null)
   );
 
@@ -1466,33 +1511,25 @@ const _initMarketCardChart = (slug, detailsEl) => {
     ? _filterHistorySpikes(last7, activeVendors)
     : null;
 
-  const datasets = activeVendors.length > 0
-    ? activeVendors.map((vendorId) => {
-        const { filled, interp } = _interpolateGaps(spikeResult.prices[vendorId], spikeResult.estimated[vendorId]);
-        // Require 2+ real (non-estimated) data points — a single dot adds noise, not signal
-        const realCount = interp.filter((v, i) => !v && filled[i] != null).length;
-        if (realCount < 2) return null;
-        const _cvd = getVendorDisplay(vendorId);
-        const baseColor = _cvd.color;
-        return {
-          label: _cvd.name,
-          data: filled,
-          _interp: interp, // stashed for tooltip + segment callbacks
-          borderColor: baseColor,
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          pointRadius: (ctx) => interp[ctx.dataIndex] ? 2 : 3,
-          pointBorderColor: (ctx) => interp[ctx.dataIndex] ? baseColor + "60" : baseColor,
-          pointBackgroundColor: (ctx) => interp[ctx.dataIndex] ? "transparent" : baseColor,
-          tension: 0.3,
-          spanGaps: true,
-          // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
-          // segment: {
-          //   borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
-          //   borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "50" : baseColor,
-          // },
-        };
-      }).filter(Boolean)
+  // Pre-compute interpolated data per vendor for buildVendorDatasets
+  const interpMap = {};
+  const qualifiedVendors = activeVendors.filter((vendorId) => {
+    const { filled, interp } = _interpolateGaps(spikeResult.prices[vendorId], spikeResult.estimated[vendorId]);
+    // Require 2+ real (non-estimated) data points — a single dot adds noise, not signal
+    const realCount = interp.filter((v, i) => !v && filled[i] != null).length;
+    if (realCount < 2) return false;
+    interpMap[vendorId] = { filled, interp };
+    return true;
+  });
+
+  const datasets = qualifiedVendors.length > 0
+    ? buildVendorDatasets(qualifiedVendors, last7, (row, vendorId) => {
+        const rowIdx = last7.indexOf(row);
+        return interpMap[vendorId].filled[rowIdx];
+      }, {
+        colorMap: RETAIL_VENDOR_COLORS,
+        labelFn: (vendorId) => getVendorDisplay(vendorId).name,
+      })
     : [{
         label: "Avg Median",
         data: last7.map((e) => Number(e.avg_median)),
@@ -1502,6 +1539,23 @@ const _initMarketCardChart = (slug, detailsEl) => {
         pointRadius: 3,
         tension: 0.3,
       }];
+
+  // Augment vendor datasets with interpolation-specific properties
+  if (qualifiedVendors.length > 0) {
+    datasets.forEach((ds, idx) => {
+      const vendorId = qualifiedVendors[idx];
+      const { interp } = interpMap[vendorId];
+      const baseColor = ds.borderColor;
+      ds._interp = interp; // stashed for tooltip + segment callbacks
+      ds.pointRadius = (ctx) => interp[ctx.dataIndex] ? 2 : 3;
+      ds.pointBorderColor = (ctx) => interp[ctx.dataIndex] ? baseColor + "60" : baseColor;
+      ds.pointBackgroundColor = (ctx) => interp[ctx.dataIndex] ? "transparent" : baseColor;
+      ds.segment = {
+        borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
+        borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "80" : baseColor,
+      };
+    });
+  }
 
   // Goldback reference baseline (STAK-474) — flat line at goldback.com price
   if (typeof getGoldbackVendorPrice === "function") {
@@ -1521,35 +1575,16 @@ const _initMarketCardChart = (slug, detailsEl) => {
     }
   }
 
-  const chart = new Chart(canvas, {
-    type: "line",
-    data: { labels: last7.map((e) => e.date), datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: (items) => items[0]?.label || "",
-            label: (ctx) => {
-              if (ctx.raw === null) return `${ctx.dataset.label}: Out of stock`;
-              const isInterp = ctx.dataset._interp && ctx.dataset._interp[ctx.dataIndex];
-              const prefix = isInterp ? "~" : "";
-              return `${ctx.dataset.label}: ${prefix}$${Number(ctx.raw).toFixed(2)}${isInterp ? " (est.)" : ""}`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: { ticks: { maxTicksLimit: 7, font: { size: 11 } } },
-        y: { ticks: { callback: (v) => `$${Number(v).toFixed(0)}` } },
-      },
-      animation: false,
+  const labels = last7.map((e) => e.date);
+  const chart = createTimeSeriesChart(canvas, labels, datasets, {
+    tooltipCallbacks: {
+      title: (items) => items[0]?.label || "",
+      label: chartPriceTooltip({ interpSuffix: " (est.)" }),
     },
+    xTicks: { maxTicksLimit: 7, font: { size: 11 } },
+    yTicks: { callback: chartDollarTicks() },
   });
-  _marketChartInstances.set(slug, chart);
+  if (chart) _marketChartInstances.set(slug, chart);
 };
 
 const _initMarketCardIntradayChart = (slug, detailsEl) => {
@@ -1563,7 +1598,8 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
       typeof window.retailFlagAnomalies !== "function") return;
 
   const intraday = retailIntradayData[slug];
-  const windows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  const raw = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
+  const windows = typeof window.retailTrimTo24h === "function" ? window.retailTrimTo24h(raw) : raw;
   if (windows.length < 2) return;
 
   const filled = window.retailForwardFillVendors(window.retailBucketWindows(windows));
@@ -1581,36 +1617,49 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
     return typeof window.retailFmtIntradayTime === "function" ? window.retailFmtIntradayTime(d) : (d ? d.toISOString().slice(11, 16) : "");
   });
 
-  const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-  const activeVendors = knownVendors.filter((v) =>
-    bucketed.some((w) => (w.vendors && w.vendors[v] != null) || (w._anomalyOriginals && w._anomalyOriginals[v] != null))
+  // Discover all vendors present in the data (not limited to RETAIL_VENDOR_NAMES)
+  const vendorSet = new Set();
+  bucketed.forEach((w) => {
+    if (w.vendors) Object.keys(w.vendors).forEach((v) => vendorSet.add(v));
+    if (w._anomalyOriginals) Object.keys(w._anomalyOriginals).forEach((v) => vendorSet.add(v));
+  });
+  // Sort: known vendors first (in RETAIL_VENDOR_NAMES order), then unknown vendors alphabetically
+  const knownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const activeVendors = [
+    ...knownOrder.filter((v) => vendorSet.has(v)),
+    ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
+  ];
+
+  // Exclude OOS vendors with zero real (non-carried) prices
+  const qualifiedVendors = activeVendors.filter((vendorId) =>
+    bucketed.some((w) =>
+      w.vendors && w.vendors[vendorId] != null &&
+      !(w._carriedVendors && w._carriedVendors.has(vendorId))
+    )
   );
 
-  const datasets = activeVendors.length > 0
-    ? activeVendors.map((vendorId) => {
-        const _vd = getVendorDisplay(vendorId);
-        const color = RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8";
-        const carriedIndices = new Set();
-        bucketed.forEach((w, i) => {
-          if (w._carriedVendors && w._carriedVendors.has(vendorId)) carriedIndices.add(i);
-        });
-        return {
-          label: _vd.name,
-          data: bucketed.map((w) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null)),
-          borderColor: color,
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          pointRadius: (ctx) => carriedIndices.has(ctx.dataIndex) ? 0 : 0,
-          pointHoverRadius: (ctx) => carriedIndices.has(ctx.dataIndex) ? 2 : 3,
-          tension: 0.2,
-          spanGaps: true,
-          _carriedIndices: carriedIndices,
-          // TODO: re-enable dashed segments once API serves 30-min aggregates (STAK-474)
-          // segment: {
-          //   borderDash: (ctx) => (carriedIndices.has(ctx.p0DataIndex) || carriedIndices.has(ctx.p1DataIndex)) ? [4, 3] : [],
-          //   borderColor: (ctx) => (carriedIndices.has(ctx.p0DataIndex) || carriedIndices.has(ctx.p1DataIndex)) ? color + "50" : color,
-          // },
-        };
+  // Pre-compute carried indices per vendor for buildVendorDatasets
+  // Multi-hop only: mark carried when previous window also carried (2+ consecutive hours missing)
+  const carriedPerVendor = qualifiedVendors.map((vendorId) => {
+    const carried = new Set();
+    bucketed.forEach((w, i) => {
+      if (w._carriedVendors && w._carriedVendors.has(vendorId)) {
+        if (i === 0 || (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))) {
+          carried.add(i);
+        }
+      }
+    });
+    return carried;
+  });
+
+  const datasets = qualifiedVendors.length > 0
+    ? buildVendorDatasets(qualifiedVendors, bucketed, (w, vendorId) => {
+        return w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null;
+      }, {
+        colorMap: RETAIL_VENDOR_COLORS,
+        labelFn: (vendorId) => getVendorDisplay(vendorId).name,
+        tension: 0.2,
+        carriedIndices: carriedPerVendor,
       })
     : [{
         label: "Median",
@@ -1623,33 +1672,28 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
         tension: 0.3,
       }];
 
-  const chart = new Chart(canvas, {
-    type: "line",
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              if (ctx.raw === null) return `${ctx.dataset.label}: Out of stock`;
-              const carried = ctx.dataset._carriedIndices && ctx.dataset._carriedIndices.has(ctx.dataIndex);
-              return `${ctx.dataset.label}: ${carried ? "~" : ""}$${Number(ctx.raw).toFixed(2)}`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: { ticks: { maxTicksLimit: 12, autoSkip: true, maxRotation: 0, font: { size: 10 } } },
-        y: { ticks: { callback: (v) => `$${Number(v).toFixed(0)}` } },
-      },
-      animation: false,
+  // Augment vendor datasets with carried-aware dashed segments (STAK-474)
+  if (qualifiedVendors.length > 0) {
+    datasets.forEach((ds, idx) => {
+      const carried = carriedPerVendor[idx];
+      ds.pointRadius = 0;
+      ds.pointHoverRadius = (ctx) => carried.has(ctx.dataIndex) ? 2 : 3;
+      const color = ds.borderColor;
+      ds.segment = {
+        borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [4, 3] : [],
+        borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? color + "80" : color,
+      };
+    });
+  }
+
+  const chart = createTimeSeriesChart(canvas, labels, datasets, {
+    tooltipCallbacks: {
+      label: chartPriceTooltip({ interpSuffix: "" }),
     },
+    xTicks: { maxTicksLimit: 12, autoSkip: true, maxRotation: 0, font: { size: 10 } },
+    yTicks: { callback: chartDollarTicks() },
   });
-  _marketChartInstances.set(slug, chart);
+  if (chart) _marketChartInstances.set(slug, chart);
 };
 
 /**
@@ -1717,7 +1761,7 @@ const _getFilteredSortedSlugs = (query, sortKey) => {
 };
 
 /**
- * Renders the market list view when MARKET_LIST_VIEW is enabled.
+ * Renders the market list view.
  * Shows list header, iterates filtered+sorted slugs, builds cards.
  */
 const _renderMarketListView = () => {
@@ -2081,9 +2125,15 @@ const initRetailPrices = () => {
     _manifestVendorMeta = null;
     try { localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY); } catch { /* ignore */ }
   }
-  loadRetailPrices();
-  loadRetailPriceHistory();
-  loadRetailIntradayData();
+  if (USE_V2_API) {
+    _loadV2RetailPrices();
+    _loadV2RetailHistory();
+    _loadV2RetailIntraday();
+  } else {
+    loadRetailPrices();
+    loadRetailPriceHistory();
+    loadRetailIntradayData();
+  }
   _loadRetailTrendMode();
   loadRetailProviders();
   loadRetailAvailability();

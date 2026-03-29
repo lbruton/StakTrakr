@@ -1,5 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="10" ry="10" fill="#1a1a2e"/>
-  <rect x="2.5" y="2.5" width="59" height="59" rx="8" ry="8" fill="none" stroke="#c8952e" stroke-width="2.5"/>
-  <text x="32" y="46" font-family="Arial,Helvetica,sans-serif" font-weight="bold" font-size="32" fill="#e8b830" text-anchor="middle">ST</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#bg)"/>
+  <rect x="21" y="9" width="27" height="5" rx="2.5" fill="url(#s)" opacity="0.45"/>
+  <rect x="14" y="16" width="22" height="5" rx="2.5" fill="url(#s)" opacity="0.68"/>
+  <rect x="17" y="24" width="30" height="6" rx="3" fill="url(#g)"/>
+  <rect x="28" y="32" width="22" height="5" rx="2.5" fill="url(#s)" opacity="0.68"/>
+  <rect x="16" y="39" width="29" height="5" rx="2.5" fill="url(#s)" opacity="0.45"/>
 </svg>

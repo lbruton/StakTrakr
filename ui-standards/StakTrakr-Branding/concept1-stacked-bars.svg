@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="silver1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="gold1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+    <linearGradient id="plat1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#b8c4d4"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg1)"/>
+  <!-- Subtle grid lines -->
+  <line x1="100" y1="380" x2="412" y2="380" stroke="#1e3a5f" stroke-width="1" opacity="0.5"/>
+  <line x1="100" y1="310" x2="412" y2="310" stroke="#1e3a5f" stroke-width="1" opacity="0.3"/>
+  <line x1="100" y1="240" x2="412" y2="240" stroke="#1e3a5f" stroke-width="1" opacity="0.2"/>
+  <line x1="100" y1="170" x2="412" y2="170" stroke="#1e3a5f" stroke-width="1" opacity="0.15"/>
+  <!-- Ascending bars — silver dominant, gold accent -->
+  <!-- Bar 1: Silver short -->
+  <rect x="118" y="320" width="48" height="60" rx="6" fill="url(#silver1)" opacity="0.6"/>
+  <!-- Bar 2: Silver medium -->
+  <rect x="186" y="270" width="48" height="110" rx="6" fill="url(#silver1)" opacity="0.75"/>
+  <!-- Bar 3: Gold tall -->
+  <rect x="254" y="200" width="48" height="180" rx="6" fill="url(#gold1)"/>
+  <!-- Bar 4: Silver tallest -->
+  <rect x="322" y="155" width="48" height="225" rx="6" fill="url(#silver1)"/>
+  <!-- Bar 5: Platinum accent -->
+  <rect x="390" y="130" width="48" height="250" rx="6" fill="url(#plat1)" opacity="0.5"/>
+  <!-- Trend line connecting bar tops -->
+  <polyline points="142,318 210,268 278,198 346,153 414,128"
+    fill="none" stroke="#d4a017" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <!-- Trend dots -->
+  <circle cx="142" cy="318" r="5" fill="#d4a017"/>
+  <circle cx="210" cy="268" r="5" fill="#d4a017"/>
+  <circle cx="278" cy="198" r="5" fill="#d4a017"/>
+  <circle cx="346" cy="153" r="5" fill="#d4a017"/>
+  <circle cx="414" cy="128" r="5" fill="#d4a017"/>
+  <!-- Wordmark -->
+  <text x="256" y="440" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="700" letter-spacing="4">
+    <tspan fill="#f8fafc">STAK</tspan><tspan fill="#d4a017">TRAKR</tspan>
+  </text>
+</svg>

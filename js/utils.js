@@ -1000,8 +1000,9 @@ const parseNumistaMetal = (composition = "") => {
  * Save data to localStorage with optional compression
  * @param {string} key - Storage key
  * @param {any} data - Data to store
+ * @param {{quietQuotaToast?: boolean}} [options] - Optional save behavior flags
  */
-const saveData = async (key, data) => {
+const saveData = async (key, data, options = {}) => {
   try {
     const raw = JSON.stringify(data);
     const out = __compressIfNeeded(raw);
@@ -1014,8 +1015,13 @@ const saveData = async (key, data) => {
     }
   } catch(e) {
     console.error('saveData failed', e);
-    // STAK-421: Surface QuotaExceededError so users know storage is full
-    if (e && e.name === 'QuotaExceededError' && typeof showToast === 'function') {
+    // STAK-421: Surface QuotaExceededError unless the caller marked the write as optional.
+    if (
+      e &&
+      e.name === 'QuotaExceededError' &&
+      !options.quietQuotaToast &&
+      typeof showToast === 'function'
+    ) {
       showToast('Storage is full — some data could not be saved. Try clearing unused spot history or image cache.', 'error');
     }
   }
@@ -1040,14 +1046,19 @@ const loadData = async (key, defaultValue = []) => {
 };
 
 // Synchronous versions for backward compatibility where async isn't supported
-const saveDataSync = (key, data) => {
+const saveDataSync = (key, data, options = {}) => {
   try {
     const raw = JSON.stringify(data);
     const out = __compressIfNeeded(raw);
     localStorage.setItem(key, out);
   } catch (e) {
     console.error('saveDataSync failed', e);
-    if (e && e.name === 'QuotaExceededError' && typeof showToast === 'function') {
+    if (
+      e &&
+      e.name === 'QuotaExceededError' &&
+      !options.quietQuotaToast &&
+      typeof showToast === 'function'
+    ) {
       showToast('Storage is full — some data could not be saved. Try clearing unused spot history or image cache.', 'error');
     }
     throw e;
