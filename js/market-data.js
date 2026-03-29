@@ -159,9 +159,12 @@ const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0, previou
       : '0s';
   }
 
-  // STAK-513: Sweep ALL orphaned tracks, not just the one captured at call-time.
-  // Rapid re-renders with changing signatures can accumulate multiple tracks
-  // before any rAF fires — querySelector only finds the first, leaving the rest.
+  // STAK-513: Guard against stale rAF callbacks — only the latest track sweeps.
+  if (!container.contains(track) || track.dataset.signature !== container.dataset.tickerSignature) {
+    if (track.parentNode === container) track.remove();
+    return;
+  }
+  // Sweep ALL orphaned tracks so rapid re-renders can't accumulate rows.
   container.querySelectorAll('.ticker-track').forEach(t => {
     if (t !== track) t.remove();
   });

@@ -12882,7 +12882,7 @@ th {
   padding: 12px 0;
   position: relative;
   /* STAK-513: Clamp to single row height as visual safety net */
-  max-height: 52px;
+  max-height: 72px;
 }
 .market-ticker::before,
 .market-ticker::after {
