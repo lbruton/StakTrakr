@@ -84,80 +84,13 @@ const loadAnnouncements = async () => {
 
   if (!whatsNewTargets.length && !roadmapTargets.length) return;
 
-  try {
-    const res = await fetch("docs/announcements.md");
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    const text = await res.text();
-    // STAK-513: Cloudflare Pages SPA fallback returns index.html (200 OK)
-    // for missing files. Detect HTML and fall through to embedded content.
-    if (text.trimStart().startsWith('<!') || text.trimStart().startsWith('<html')) {
-      throw new Error('Response is HTML, not markdown — SPA fallback detected');
-    }
-
-    const section = (name) => {
-      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Match ## heading and capture everything until the next ## (same level) or EOF
-      // Use (?=\n## [^#]) to stop at next h2 but NOT at ### subsections
-      const regex = new RegExp(`##\\s+${escaped}\\n([\\s\\S]*?)(?=\\n## [^#]|$)`, "i");
-      const match = text.match(regex);
-      return match ? match[1] : "";
-    };
-
-    // STAK-490: announcements.md is developer-controlled content — do not sanitizeHtml
-    // (double-encodes HTML entities like &mdash; &rarr; &amp;)
-    const parseList = (content) =>
-      content
-        .split("\n")
-        .filter((l) => l.trim().startsWith("-"))
-        .map((l) => l.replace(/^[-*]\s*/, "")
-          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>"));
-
-    const whatsNewItems = parseList(section("What's New"));
-    if (whatsNewTargets.length) {
-      // Filter to current version branch (e.g., 3.31.x) before slicing
-      const versionBranch = typeof APP_VERSION !== 'undefined'
-        ? APP_VERSION.split('.').slice(0, 2).join('.')
-        : null;
-      const filteredWhatsNew = versionBranch
-        ? whatsNewItems.filter(i => i.includes(`v${versionBranch}.`) || i.includes(`(v${versionBranch}`))
-        : whatsNewItems;
-      const displayItems = filteredWhatsNew.length > 0 ? filteredWhatsNew : whatsNewItems;
-
-      const html =
-        displayItems.length > 0
-          ? displayItems
-              .slice(0, 3)
-              .map((i) => `<li>${i}</li>`)
-              .join("")
-          : "<li>No recent announcements</li>";
-      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-      whatsNewTargets.forEach((el) => (el.innerHTML = html));
-    }
-
-    const roadmapItems = parseList(section("Development Roadmap"));
-    if (roadmapTargets.length) {
-      const html =
-        roadmapItems.length > 0
-          ? roadmapItems
-              .slice(0, 3)
-              .map((i) => `<li>${i}</li>`)
-              .join("")
-          : "<li>Roadmap information unavailable</li>";
-      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-      roadmapTargets.forEach((el) => (el.innerHTML = html));
-    }
-  } catch (e) {
-    console.warn("Could not load announcements, using embedded data:", e);
-
-    // Fallback to embedded announcements data
-    const embeddedWhatsNew = getEmbeddedWhatsNew();
-    const embeddedRoadmap = getEmbeddedRoadmap();
-
-    // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-    whatsNewTargets.forEach((el) => (el.innerHTML = embeddedWhatsNew));
-    // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-    roadmapTargets.forEach((el) => (el.innerHTML = embeddedRoadmap));
-  }
+  // STAK-513: Use embedded content directly. The external docs/announcements.md
+  // was deleted but CDN ghost caches serve stale copies indefinitely.
+  // Embedded content is the single source of truth, maintained by /release.
+  // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
+  whatsNewTargets.forEach((el) => { el.innerHTML = getEmbeddedWhatsNew(); }); // developer-controlled HTML
+  // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
+  roadmapTargets.forEach((el) => { el.innerHTML = getEmbeddedRoadmap(); }); // developer-controlled HTML
 };
 
 const showFullChangelog = () => {
