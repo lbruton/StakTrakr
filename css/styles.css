@@ -13198,6 +13198,9 @@ th {
   z-index: 1;
 }
 
+.vendor-prices-table .vp-muted {
+  color: var(--text-muted, #6c757d);
+}
 .vendor-prices-table tr:hover td {
   background: var(--bg-secondary);
 }

@@ -846,7 +846,7 @@ const _renderVendorTable = async (metalCode) => {
       if (typeof _isMarketItemEnabled === 'function' && !_isMarketItemEnabled(slug, vid)) {
         const skipTd = document.createElement('td');
         skipTd.textContent = '\u2014';
-        skipTd.style.color = 'var(--text-muted)';
+        skipTd.className = 'vp-muted';
         tr.appendChild(skipTd);
         continue;
       }
