@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.89] - 2026-03-29
+
+### Added — Market Filter Matrix (STAK-515)
+
+- **Added**: Settings > Market tab redesigned with checkbox filter matrix — enable/disable specific item/vendor combinations for ticker and vendor prices table
+- **Added**: Metal pill tabs (All/Silver/Gold/Platinum/Palladium/Goldback) scope the filter matrix view
+- **Added**: Row and column ALL toggles for bulk enable/disable with indeterminate state support
+- **Added**: Filter consumption in ticker (`renderBestPriceTicker`) and vendor prices table (`_renderVendorTable`) — disabled items excluded from display and price calculations
+- **Removed**: Legacy market price cards grid, search/sort/filter controls, and Sync Now button from settings (now on main page only)
+
+---
+
 ## [3.33.88] - 2026-03-29
 
 ### Fixed — Ticker Duplication & Stale What's New (STAK-513)
