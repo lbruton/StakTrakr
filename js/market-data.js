@@ -200,6 +200,7 @@ const renderBestPriceTicker = () => {
     let bestPrice = Infinity;
     for (const vid in coin.vendors) {
       const v = coin.vendors[vid];
+      if (typeof _isMarketItemEnabled === 'function' && !_isMarketItemEnabled(slug, vid)) continue;
       if (!v || v.price <= 0) continue;
       // Cross-reference with fresh v2 detail for accurate stock status
       const fresh = _cachedSlugDetail[slug] && _cachedSlugDetail[slug].vendors && _cachedSlugDetail[slug].vendors[vid];
