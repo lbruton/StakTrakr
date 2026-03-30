@@ -36,12 +36,12 @@
     /* Disclaimer warning color */
     --disclaimer-color: var(--warning);
 
-  /* Background Tokens - Slate/Blue-Gray Mode (Dimmed) */
-  --bg: #cbd5e1;       /* Slate 300 */
-  --bg-elev-1: #e2e8f0; /* Slate 200 */
-  --bg-elev-2: #94a3b8; /* Slate 400 */
-  --surface: #f1f5f9;   /* Slate 100 - Cards */
-  --surface-alt: #f8fafc; /* Slate 50 */
+  /* Background Tokens - Slate/Blue-Gray Mode */
+  --bg: #e2e8f0;       /* Slate 200 — lightened from Slate 300 */
+  --bg-elev-1: #eef2f7; /* Slate 100/200 blend — elevated surfaces */
+  --bg-elev-2: #cbd5e1; /* Slate 300 — tertiary surfaces */
+  --surface: #f8fafc;   /* Slate 50 - Cards */
+  --surface-alt: #ffffff; /* White */
 
   /* Map existing background variables */
   --bg-primary: var(--bg);
@@ -61,8 +61,8 @@
   --chip-search-outline: rgba(34, 197, 94, 0.75);
 
   /* Border & Shadow - Light grays */
-  --border: #cbd5e1;
-  --border-hover: #94a3b8;
+  --border: #94a3b8;       /* Slate 400 — was identical to bg-primary */
+  --border-hover: #64748b; /* Slate 500 */
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg:
@@ -207,22 +207,22 @@
   --type-other-bg: #6a3fa8;
   --type-other-text: #ffffff;
 
-  /* Background Colors - Sepia Mode (Richer/Darker) */
-  --bg-primary: #dcbfa3;   /* Deep Tan/Buff */
-  --bg-secondary: #d2b48c; /* Tan */
-  --bg-tertiary: #c19a6b;  /* Camel/Light Brown */
-  --bg-card: #e8dcc5;      /* Lighter Beige for cards */
+  /* Background Colors - Sepia Mode (Parchment/Cream) */
+  --bg-primary: #ede5d0;   /* Warm parchment */
+  --bg-secondary: #e4dbc4; /* Aged linen */
+  --bg-tertiary: #d6ccb3;  /* Warm stone */
+  --bg-card: #f5f0e3;      /* Light cream for cards */
 
   /* Text Colors - Sepia Mode */
-  --text-primary: #3e2f1e;
-  --text-secondary: #4f3f2c;
-  --text-muted: #5c4e3a;
-  --chip-text: #3e2f1e;
-  --chip-active-outline: rgba(62, 47, 30, 0.8);
+  --text-primary: #3a3019;
+  --text-secondary: #524730;
+  --text-muted: #706652;
+  --chip-text: #3a3019;
+  --chip-active-outline: rgba(58, 48, 25, 0.8);
   --chip-search-outline: rgba(80, 120, 50, 0.75);
 
   /* Border & Shadow - Sepia Mode */
-  --border: #d1c2a5;
+  --border: #c4b89e;
   --border-hover: #a89878;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.12);
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
