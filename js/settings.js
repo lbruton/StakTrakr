@@ -77,9 +77,9 @@ const switchSettingsSection = (name) => {
     switchLogTab(activeKey);
   }
 
-  // Render coin price cards when switching to the market section
-  if (targetName === 'market' && typeof renderRetailCards === 'function') {
-    renderRetailCards();
+  // Render market filter matrix when switching to the market section
+  if (targetName === 'market' && typeof renderMarketFilterMatrix === 'function') {
+    renderMarketFilterMatrix();
   }
 
   // Populate Storage section when switching to it
@@ -2329,6 +2329,214 @@ const renderNumistaTagSettings = () => {
   renderBlacklist();
 };
 
+// ---------------------------------------------------------------------------
+// Market Filter Matrix (STAK-515)
+// ---------------------------------------------------------------------------
+
+const _getAvailableVendorsForSlug = (slug) => {
+  if (!retailPrices || !retailPrices.prices || !retailPrices.prices[slug] || !retailPrices.prices[slug].vendors) return [];
+  return Object.keys(retailPrices.prices[slug].vendors);
+};
+
+const renderMarketFilterMatrix = () => {
+  const thead = safeGetElement('marketFilterMatrixHead');
+  const tbody = safeGetElement('marketFilterMatrixBody');
+  const statusEl = safeGetElement('marketFilterStatus');
+  if (!thead || !tbody) return;
+
+  const slugs = typeof getActiveRetailSlugs === 'function' ? getActiveRetailSlugs() : [];
+  const filter = typeof _loadMarketFilter === 'function' ? _loadMarketFilter() : {};
+
+  // Build vendor list from manifest or fallback constants
+  const vendorSource = (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta)
+    ? _manifestVendorMeta
+    : (typeof RETAIL_VENDOR_NAMES !== 'undefined' ? RETAIL_VENDOR_NAMES : {});
+  const vendors = Object.keys(vendorSource).map((id) => {
+    if (typeof getVendorDisplay === 'function') {
+      const info = getVendorDisplay(id);
+      return { id, name: info.name || id, color: info.color || '#6c757d' };
+    }
+    const colors = typeof RETAIL_VENDOR_COLORS !== 'undefined' ? RETAIL_VENDOR_COLORS : {};
+    return { id, name: vendorSource[id]?.name || vendorSource[id] || id, color: colors[id] || '#6c757d' };
+  });
+
+  // --- thead ---
+  while (thead.firstChild) thead.removeChild(thead.firstChild);
+  const headerRow = document.createElement('tr');
+
+  const thProduct = document.createElement('th');
+  thProduct.textContent = 'PRODUCT';
+  headerRow.appendChild(thProduct);
+
+  const thAll = document.createElement('th');
+  thAll.textContent = 'ALL';
+  headerRow.appendChild(thAll);
+
+  vendors.forEach((v) => {
+    const th = document.createElement('th');
+    const dot = document.createElement('span');
+    dot.className = 'vendor-dot';
+    dot.style.background = v.color;
+    th.appendChild(dot);
+    th.appendChild(document.createTextNode(v.name));
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  // --- ALL row (column toggles) ---
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  const allRow = document.createElement('tr');
+  allRow.className = 'mfm-all-row';
+
+  const allLabelTd = document.createElement('td');
+  allLabelTd.textContent = 'ALL';
+  allRow.appendChild(allLabelTd);
+
+  const masterTd = document.createElement('td');
+  const masterCb = document.createElement('input');
+  masterCb.type = 'checkbox';
+  masterCb.title = 'Toggle everything';
+  masterCb.className = 'mfm-master-toggle';
+  masterTd.appendChild(masterCb);
+  allRow.appendChild(masterTd);
+
+  vendors.forEach((v) => {
+    const td = document.createElement('td');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.setAttribute('data-col-toggle', v.id);
+    cb.title = 'Toggle all ' + v.name;
+    td.appendChild(cb);
+    allRow.appendChild(td);
+  });
+  tbody.appendChild(allRow);
+
+  // --- Product rows ---
+  slugs.forEach((slug) => {
+    const meta = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(slug) : { name: slug, metal: 'unknown' };
+    const metal = (meta.metal || 'unknown').toLowerCase();
+    const available = _getAvailableVendorsForSlug(slug);
+
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-metal', metal);
+
+    const nameTd = document.createElement('td');
+    nameTd.className = 'mfm-product-name';
+    nameTd.textContent = meta.name;
+    tr.appendChild(nameTd);
+
+    const rowAllTd = document.createElement('td');
+    const rowCb = document.createElement('input');
+    rowCb.type = 'checkbox';
+    rowCb.setAttribute('data-row-toggle', slug);
+    rowCb.title = 'Toggle all for ' + meta.name;
+    rowAllTd.appendChild(rowCb);
+    tr.appendChild(rowAllTd);
+
+    let rowTotal = 0;
+    let rowChecked = 0;
+
+    vendors.forEach((v) => {
+      const td = document.createElement('td');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      const hasData = available.indexOf(v.id) !== -1;
+      if (!hasData) {
+        cb.disabled = true;
+        cb.checked = false;
+      } else {
+        cb.setAttribute('data-slug', slug);
+        cb.setAttribute('data-vendor', v.id);
+        const isEnabled = typeof _isMarketItemEnabled === 'function' ? _isMarketItemEnabled(slug, v.id) : true;
+        cb.checked = isEnabled;
+        rowTotal++;
+        if (isEnabled) rowChecked++;
+      }
+      td.appendChild(cb);
+      tr.appendChild(td);
+    });
+
+    // Set row toggle state
+    rowCb.checked = rowTotal > 0 && rowChecked === rowTotal;
+    rowCb.indeterminate = rowChecked > 0 && rowChecked < rowTotal;
+    if (rowTotal === 0) rowCb.disabled = true;
+
+    tbody.appendChild(tr);
+  });
+
+  // --- Sync column toggle states ---
+  vendors.forEach((v) => {
+    const colCb = tbody.querySelector(`input[data-col-toggle="${v.id}"]`);
+    if (!colCb) return;
+    let colTotal = 0;
+    let colChecked = 0;
+    slugs.forEach((slug) => {
+      const available = _getAvailableVendorsForSlug(slug);
+      if (available.indexOf(v.id) !== -1) {
+        colTotal++;
+        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, v.id)) colChecked++;
+      }
+    });
+    colCb.checked = colTotal > 0 && colChecked === colTotal;
+    colCb.indeterminate = colChecked > 0 && colChecked < colTotal;
+    if (colTotal === 0) { colCb.disabled = true; colCb.checked = false; }
+  });
+
+  // --- Sync master toggle ---
+  let grandTotal = 0;
+  let grandChecked = 0;
+  slugs.forEach((slug) => {
+    const available = _getAvailableVendorsForSlug(slug);
+    available.forEach((vid) => {
+      grandTotal++;
+      if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) grandChecked++;
+    });
+  });
+  masterCb.checked = grandTotal > 0 && grandChecked === grandTotal;
+  masterCb.indeterminate = grandChecked > 0 && grandChecked < grandTotal;
+
+  // --- Status line ---
+  if (statusEl) {
+    const activeVendors = {};
+    slugs.forEach((slug) => {
+      const available = _getAvailableVendorsForSlug(slug);
+      available.forEach((vid) => {
+        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) {
+          activeVendors[vid] = true;
+        }
+      });
+    });
+    const enabledCount = grandChecked;
+    const activeVendorCount = Object.keys(activeVendors).length;
+    const totalVendors = vendors.filter((v) => {
+      return slugs.some((slug) => _getAvailableVendorsForSlug(slug).indexOf(v.id) !== -1);
+    }).length;
+    statusEl.textContent = 'Showing ' + enabledCount + ' items \u00b7 ' + activeVendorCount + ' of ' + totalVendors + ' vendors active';
+  }
+
+  // --- Sync button & last sync ---
+  const syncBtn = safeGetElement('marketFilterSyncBtn');
+  if (syncBtn && !syncBtn._mfmBound) {
+    syncBtn._mfmBound = true;
+    syncBtn.addEventListener('click', () => {
+      if (typeof syncRetailPrices === 'function') syncRetailPrices();
+    });
+  }
+
+  const lastSyncEl = safeGetElement('marketFilterLastSync');
+  if (lastSyncEl && typeof retailPrices !== 'undefined' && retailPrices && retailPrices.lastSync) {
+    const d = new Date(retailPrices.lastSync);
+    const elapsed = Date.now() - d.getTime();
+    if (elapsed < 60000) {
+      lastSyncEl.textContent = 'Last sync: just now';
+    } else if (elapsed < 3600000) {
+      lastSyncEl.textContent = 'Last sync: ' + Math.round(elapsed / 60000) + 'm ago';
+    } else {
+      lastSyncEl.textContent = 'Last sync: ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
+  }
+};
+
 // Expose globally
 if (typeof window !== 'undefined') {
   window.showSettingsModal = showSettingsModal;
@@ -2347,4 +2555,5 @@ if (typeof window !== 'undefined') {
   window.populateImagesSection = populateImagesSection;
   window.renderStorageSection = renderStorageSection;
   window.renderNumistaTagSettings = renderNumistaTagSettings;
+  window.renderMarketFilterMatrix = renderMarketFilterMatrix;
 }

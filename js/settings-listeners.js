@@ -1081,6 +1081,142 @@ const bindApiCacheListeners = () => {
 };
 
 /**
+ * Wires up Market Filter Matrix listeners (STAK-515).
+ * Delegated change handler on the matrix table + metal pill filtering.
+ */
+const bindMarketFilterListeners = () => {
+  const table = safeGetElement('marketFilterMatrix');
+  if (table) {
+    table.addEventListener('change', (e) => {
+      const cb = e.target;
+      if (cb.type !== 'checkbox' || cb.disabled) return;
+
+      const slug = cb.getAttribute('data-slug');
+      const vendor = cb.getAttribute('data-vendor');
+      const rowToggle = cb.getAttribute('data-row-toggle');
+      const colToggle = cb.getAttribute('data-col-toggle');
+
+      const filter = typeof _loadMarketFilter === 'function' ? _loadMarketFilter() : {};
+      const slugs = typeof getActiveRetailSlugs === 'function' ? getActiveRetailSlugs() : [];
+      const vendorSource = (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta)
+        ? _manifestVendorMeta
+        : (typeof RETAIL_VENDOR_NAMES !== 'undefined' ? RETAIL_VENDOR_NAMES : {});
+      const vendorIds = Object.keys(vendorSource);
+
+      if (slug && vendor) {
+        // Individual cell toggle
+        if (!filter[slug]) filter[slug] = {};
+        filter[slug][vendor] = cb.checked ? undefined : false;
+        // Clean up: remove key if truthy (default enabled)
+        if (filter[slug][vendor] === undefined) delete filter[slug][vendor];
+        if (Object.keys(filter[slug]).length === 0) delete filter[slug];
+
+      } else if (rowToggle) {
+        // Row toggle — set all vendors for this slug
+        const available = typeof _getAvailableVendorsForSlug === 'function' ? _getAvailableVendorsForSlug(rowToggle) : [];
+        if (!cb.checked) {
+          if (!filter[rowToggle]) filter[rowToggle] = {};
+          available.forEach((vid) => { filter[rowToggle][vid] = false; });
+        } else {
+          delete filter[rowToggle];
+        }
+
+      } else if (colToggle) {
+        // Column toggle — set this vendor for all slugs
+        slugs.forEach((s) => {
+          const available = typeof _getAvailableVendorsForSlug === 'function' ? _getAvailableVendorsForSlug(s) : [];
+          if (available.indexOf(colToggle) === -1) return;
+          if (!cb.checked) {
+            if (!filter[s]) filter[s] = {};
+            filter[s][colToggle] = false;
+          } else {
+            if (filter[s]) {
+              delete filter[s][colToggle];
+              if (Object.keys(filter[s]).length === 0) delete filter[s];
+            }
+          }
+        });
+
+      } else if (cb.classList.contains('mfm-master-toggle')) {
+        // Master toggle — toggle everything
+        slugs.forEach((s) => {
+          const available = typeof _getAvailableVendorsForSlug === 'function' ? _getAvailableVendorsForSlug(s) : [];
+          if (!cb.checked) {
+            if (!filter[s]) filter[s] = {};
+            available.forEach((vid) => { filter[s][vid] = false; });
+          } else {
+            delete filter[s];
+          }
+        });
+      }
+
+      if (typeof _saveMarketFilter === 'function') _saveMarketFilter(filter);
+      if (typeof _invalidateMarketFilterCache === 'function') _invalidateMarketFilterCache();
+      if (typeof renderMarketFilterMatrix === 'function') renderMarketFilterMatrix();
+      if (typeof renderBestPriceTicker === 'function') renderBestPriceTicker();
+      if (typeof _renderMarketListView === 'function') _renderMarketListView();
+    });
+  }
+
+  // Metal pill filtering
+  const pillContainer = safeGetElement('marketFilterMetalPills');
+  if (pillContainer) {
+    pillContainer.addEventListener('click', (e) => {
+      const pill = e.target.closest('[data-metal]');
+      if (!pill) return;
+
+      const metal = pill.getAttribute('data-metal');
+
+      // Update active pill
+      pillContainer.querySelectorAll('[data-metal]').forEach((p) => {
+        const isActive = p === pill;
+        p.classList.toggle('active', isActive);
+        p.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+
+      // Filter matrix rows
+      const tbody = safeGetElement('marketFilterMatrixBody');
+      if (!tbody) return;
+
+      const rows = tbody.querySelectorAll('tr');
+      let visibleCount = 0;
+      rows.forEach((row) => {
+        if (row.classList.contains('mfm-all-row')) {
+          row.style.display = '';
+          return;
+        }
+        const rowMetal = row.getAttribute('data-metal');
+        if (metal === 'all' || rowMetal === metal) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      // Update status line with filtered count
+      const statusEl = safeGetElement('marketFilterStatus');
+      if (statusEl && metal !== 'all') {
+        const current = statusEl.textContent;
+        const match = current.match(/·(.+)$/);
+        const vendorPart = match ? ' \u00b7' + match[1] : '';
+        statusEl.textContent = 'Showing ' + visibleCount + ' products' + vendorPart;
+      } else if (statusEl && typeof renderMarketFilterMatrix === 'function') {
+        // Re-render to get accurate global count
+        renderMarketFilterMatrix();
+        // Re-apply pill active state after re-render
+        if (pillContainer) {
+          pillContainer.querySelectorAll('[data-metal]').forEach((p) => {
+            p.classList.toggle('active', p.getAttribute('data-metal') === metal);
+            p.setAttribute('aria-pressed', p.getAttribute('data-metal') === metal ? 'true' : 'false');
+          });
+        }
+      }
+    });
+  }
+};
+
+/**
  * Wires up all Settings modal event listeners.
  * Called once during initialization.
  */
@@ -1097,6 +1233,7 @@ const setupSettingsEventListeners = () => {
   bindStorageListeners();
   bindRetailMarketListeners();
   bindApiCacheListeners();
+  bindMarketFilterListeners();
 };
 
 if (typeof window !== 'undefined') {
