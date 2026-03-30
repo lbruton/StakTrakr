@@ -2378,7 +2378,10 @@ const renderMarketFilterMatrix = () => {
     dot.className = 'vendor-dot';
     dot.style.background = v.color;
     th.appendChild(dot);
-    th.appendChild(document.createTextNode(v.name));
+    // Ultra-short vendor names for compact matrix headers
+    const _vendorAbbrev = { 'APMEX': 'APX', 'Monument': 'MON', 'Gainesville': 'GVL', 'Provident': 'PRV', 'BullionX': 'BLX', 'Summit': 'SMT', 'Hero': 'HRO', 'Goldback': 'GB' };
+    th.appendChild(document.createTextNode(_vendorAbbrev[v.name] || v.name));
+    th.title = v.name; // Full name on hover
     headerRow.appendChild(th);
   });
   thead.appendChild(headerRow);
@@ -2412,7 +2415,12 @@ const renderMarketFilterMatrix = () => {
   tbody.appendChild(allRow);
 
   // --- Product rows ---
-  slugs.forEach((slug) => {
+  // Filter out slugs with no resolved display name (e.g. goldback-g10 denomination stubs)
+  const displaySlugs = slugs.filter((slug) => {
+    const m = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(slug) : { name: slug };
+    return m.name !== slug;
+  });
+  displaySlugs.forEach((slug) => {
     const meta = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(slug) : { name: slug, metal: 'unknown' };
     const metal = (meta.metal || 'unknown').toLowerCase();
     const available = _getAvailableVendorsForSlug(slug);
@@ -2422,7 +2430,14 @@ const renderMarketFilterMatrix = () => {
 
     const nameTd = document.createElement('td');
     nameTd.className = 'mfm-product-name';
-    nameTd.textContent = meta.name;
+    // Abbreviate product names: strip weight/purity suffixes for compact display
+    const shortName = (meta.name || slug)
+      .replace(/\s*\(1\/1000 oz gold\)/i, '')  // Goldback weight suffix
+      .replace(/\s*\(\.\d+\)/i, '')             // (.999) purity
+      .replace(/\s+1\s*oz$/i, '')               // trailing "1 oz"
+      .replace(/\s+10\s*oz$/i, ' 10oz');         // "10 oz" → compact
+    nameTd.textContent = shortName;
+    nameTd.title = meta.name; // Full name on hover
     tr.appendChild(nameTd);
 
     const rowAllTd = document.createElement('td');
@@ -2436,11 +2451,15 @@ const renderMarketFilterMatrix = () => {
     let rowTotal = 0;
     let rowChecked = 0;
 
+    // When no price data is available (e.g. file:// or before first sync),
+    // treat all vendor combos as available so checkboxes are enabled.
+    const hasAnyData = available.length > 0;
+
     vendors.forEach((v) => {
       const td = document.createElement('td');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      const hasData = available.indexOf(v.id) !== -1;
+      const hasData = !hasAnyData || available.indexOf(v.id) !== -1;
       if (!hasData) {
         cb.disabled = true;
         cb.checked = false;
@@ -2464,15 +2483,25 @@ const renderMarketFilterMatrix = () => {
     tbody.appendChild(tr);
   });
 
-  // --- Sync column toggle states ---
+  // --- Determine visible slugs for ALL row toggle scoping ---
+  const activePillEl = document.querySelector('#marketFilterMetalPills .market-filter-pill.active');
+  const activeMetalFilter = activePillEl ? activePillEl.getAttribute('data-metal') : 'all';
+  const visibleSlugs = activeMetalFilter === 'all' ? displaySlugs : displaySlugs.filter((s) => {
+    const m = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(s) : { metal: 'unknown' };
+    return (m.metal || '').toLowerCase() === activeMetalFilter;
+  });
+
+  // --- Sync column toggle states (scoped to visible slugs) ---
+  const anySlugHasData = visibleSlugs.some((s) => _getAvailableVendorsForSlug(s).length > 0);
   vendors.forEach((v) => {
     const colCb = tbody.querySelector(`input[data-col-toggle="${v.id}"]`);
     if (!colCb) return;
     let colTotal = 0;
     let colChecked = 0;
-    slugs.forEach((slug) => {
+    visibleSlugs.forEach((slug) => {
       const available = _getAvailableVendorsForSlug(slug);
-      if (available.indexOf(v.id) !== -1) {
+      const isAvailable = !anySlugHasData || available.indexOf(v.id) !== -1;
+      if (isAvailable) {
         colTotal++;
         if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, v.id)) colChecked++;
       }
@@ -2482,57 +2511,61 @@ const renderMarketFilterMatrix = () => {
     if (colTotal === 0) { colCb.disabled = true; colCb.checked = false; }
   });
 
-  // --- Sync master toggle ---
+  // --- Sync master toggle (scoped to visible slugs) ---
   let grandTotal = 0;
   let grandChecked = 0;
-  slugs.forEach((slug) => {
+  visibleSlugs.forEach((slug) => {
     const available = _getAvailableVendorsForSlug(slug);
-    available.forEach((vid) => {
-      grandTotal++;
-      if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) grandChecked++;
-    });
+    const hasAny = available.length > 0;
+    if (hasAny) {
+      available.forEach((vid) => {
+        grandTotal++;
+        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) grandChecked++;
+      });
+    } else {
+      // No price data — count all vendors as available
+      vendors.forEach((v) => {
+        grandTotal++;
+        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, v.id)) grandChecked++;
+      });
+    }
   });
   masterCb.checked = grandTotal > 0 && grandChecked === grandTotal;
   masterCb.indeterminate = grandChecked > 0 && grandChecked < grandTotal;
 
   // --- Status line ---
-  if (statusEl) {
-    const activeVendors = {};
-    slugs.forEach((slug) => {
-      const available = _getAvailableVendorsForSlug(slug);
-      available.forEach((vid) => {
-        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) {
-          activeVendors[vid] = true;
-        }
-      });
+  const activeVendors = {};
+  displaySlugs.forEach((slug) => {
+    const available = _getAvailableVendorsForSlug(slug);
+    const effective = available.length > 0 ? available : vendors.map((v) => v.id);
+    effective.forEach((vid) => {
+      if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) {
+        activeVendors[vid] = true;
+      }
     });
-    const enabledCount = grandChecked;
-    const activeVendorCount = Object.keys(activeVendors).length;
-    const totalVendors = vendors.filter((v) => {
-      return slugs.some((slug) => _getAvailableVendorsForSlug(slug).indexOf(v.id) !== -1);
-    }).length;
+  });
+  const enabledCount = grandChecked;
+  const activeVendorCount = Object.keys(activeVendors).length;
+  const totalVendors = vendors.length;
+  if (statusEl) {
     statusEl.textContent = 'Showing ' + enabledCount + ' items \u00b7 ' + activeVendorCount + ' of ' + totalVendors + ' vendors active';
   }
 
-  // --- Sync button & last sync ---
-  const syncBtn = safeGetElement('marketFilterSyncBtn');
-  if (syncBtn && !syncBtn._mfmBound) {
-    syncBtn._mfmBound = true;
-    syncBtn.addEventListener('click', () => {
-      if (typeof syncRetailPrices === 'function') syncRetailPrices();
+  // Re-apply active metal pill filter after re-render
+  if (activeMetalFilter !== 'all') {
+    const rows = tbody.querySelectorAll('tr');
+    let visibleProductCount = 0;
+    rows.forEach((row) => {
+      if (row.classList.contains('mfm-all-row')) return;
+      const rowMetal = row.getAttribute('data-metal');
+      if (rowMetal && rowMetal !== activeMetalFilter) {
+        row.style.display = 'none';
+      } else {
+        visibleProductCount++;
+      }
     });
-  }
-
-  const lastSyncEl = safeGetElement('marketFilterLastSync');
-  if (lastSyncEl && typeof retailPrices !== 'undefined' && retailPrices && retailPrices.lastSync) {
-    const d = new Date(retailPrices.lastSync);
-    const elapsed = Date.now() - d.getTime();
-    if (elapsed < 60000) {
-      lastSyncEl.textContent = 'Last sync: just now';
-    } else if (elapsed < 3600000) {
-      lastSyncEl.textContent = 'Last sync: ' + Math.round(elapsed / 60000) + 'm ago';
-    } else {
-      lastSyncEl.textContent = 'Last sync: ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    if (statusEl) {
+      statusEl.textContent = 'Showing ' + visibleProductCount + ' products \u00b7 ' + activeVendorCount + ' of ' + totalVendors + ' vendors active';
     }
   }
 };

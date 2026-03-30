@@ -12563,11 +12563,11 @@ th {
 .market-filter-matrix {
   border-collapse: collapse;
   width: 100%;
-  font-size: 12px;
+  font-size: 11px;
 }
 .market-filter-matrix th,
 .market-filter-matrix td {
-  padding: 6px 8px;
+  padding: 4px 5px;
   text-align: center;
   border-bottom: 1px solid var(--border, var(--bs-border-color));
   white-space: nowrap;
@@ -12579,9 +12579,11 @@ th {
   left: 0;
   background: var(--bg-primary, var(--bs-body-bg, #1a1d23));
   z-index: 1;
-  padding-left: 12px;
+  padding-left: 10px;
   font-weight: 500;
-  min-width: 160px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .market-filter-matrix thead th {
   font-weight: 600;

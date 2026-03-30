@@ -1097,26 +1097,42 @@ const bindMarketFilterListeners = () => {
       const colToggle = cb.getAttribute('data-col-toggle');
 
       const filter = typeof _loadMarketFilter === 'function' ? _loadMarketFilter() : {};
-      const slugs = typeof getActiveRetailSlugs === 'function' ? getActiveRetailSlugs() : [];
+      const allSlugs = typeof getActiveRetailSlugs === 'function' ? getActiveRetailSlugs() : [];
       const vendorSource = (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta)
         ? _manifestVendorMeta
         : (typeof RETAIL_VENDOR_NAMES !== 'undefined' ? RETAIL_VENDOR_NAMES : {});
       const vendorIds = Object.keys(vendorSource);
 
+      // Determine active metal pill — scope column/master toggles to visible rows only
+      const activePill = document.querySelector('#marketFilterMetalPills .market-filter-pill.active');
+      const activeMetal = activePill ? activePill.getAttribute('data-metal') : 'all';
+      const slugs = activeMetal === 'all' ? allSlugs : allSlugs.filter((s) => {
+        const m = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(s) : { metal: 'unknown' };
+        return (m.metal || '').toLowerCase() === activeMetal;
+      });
+
+      // Helper: get effective vendor list for a slug (all vendors if no price data yet)
+      const _effectiveVendors = (s) => {
+        const available = typeof _getAvailableVendorsForSlug === 'function' ? _getAvailableVendorsForSlug(s) : [];
+        return available.length > 0 ? available : vendorIds;
+      };
+
       if (slug && vendor) {
         // Individual cell toggle
         if (!filter[slug]) filter[slug] = {};
-        filter[slug][vendor] = cb.checked ? undefined : false;
-        // Clean up: remove key if truthy (default enabled)
-        if (filter[slug][vendor] === undefined) delete filter[slug][vendor];
-        if (Object.keys(filter[slug]).length === 0) delete filter[slug];
+        if (cb.checked) {
+          delete filter[slug][vendor];
+          if (Object.keys(filter[slug]).length === 0) delete filter[slug];
+        } else {
+          filter[slug][vendor] = false;
+        }
 
       } else if (rowToggle) {
         // Row toggle — set all vendors for this slug
-        const available = typeof _getAvailableVendorsForSlug === 'function' ? _getAvailableVendorsForSlug(rowToggle) : [];
+        const effective = _effectiveVendors(rowToggle);
         if (!cb.checked) {
           if (!filter[rowToggle]) filter[rowToggle] = {};
-          available.forEach((vid) => { filter[rowToggle][vid] = false; });
+          effective.forEach((vid) => { filter[rowToggle][vid] = false; });
         } else {
           delete filter[rowToggle];
         }
@@ -1124,8 +1140,8 @@ const bindMarketFilterListeners = () => {
       } else if (colToggle) {
         // Column toggle — set this vendor for all slugs
         slugs.forEach((s) => {
-          const available = typeof _getAvailableVendorsForSlug === 'function' ? _getAvailableVendorsForSlug(s) : [];
-          if (available.indexOf(colToggle) === -1) return;
+          const effective = _effectiveVendors(s);
+          if (effective.indexOf(colToggle) === -1) return;
           if (!cb.checked) {
             if (!filter[s]) filter[s] = {};
             filter[s][colToggle] = false;
@@ -1140,10 +1156,10 @@ const bindMarketFilterListeners = () => {
       } else if (cb.classList.contains('mfm-master-toggle')) {
         // Master toggle — toggle everything
         slugs.forEach((s) => {
-          const available = typeof _getAvailableVendorsForSlug === 'function' ? _getAvailableVendorsForSlug(s) : [];
+          const effective = _effectiveVendors(s);
           if (!cb.checked) {
             if (!filter[s]) filter[s] = {};
-            available.forEach((vid) => { filter[s][vid] = false; });
+            effective.forEach((vid) => { filter[s][vid] = false; });
           } else {
             delete filter[s];
           }
@@ -1154,7 +1170,7 @@ const bindMarketFilterListeners = () => {
       if (typeof _invalidateMarketFilterCache === 'function') _invalidateMarketFilterCache();
       if (typeof renderMarketFilterMatrix === 'function') renderMarketFilterMatrix();
       if (typeof renderBestPriceTicker === 'function') renderBestPriceTicker();
-      if (typeof _renderMarketListView === 'function') _renderMarketListView();
+      if (typeof renderVendorPrices === 'function') renderVendorPrices();
     });
   }
 
@@ -1174,7 +1190,13 @@ const bindMarketFilterListeners = () => {
         p.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       });
 
-      // Filter matrix rows
+      // Re-render matrix with pill-scoped toggle states
+      if (typeof renderMarketFilterMatrix === 'function') {
+        renderMarketFilterMatrix();
+        return;
+      }
+
+      // Fallback: manual row filtering if render not available
       const tbody = safeGetElement('marketFilterMatrixBody');
       if (!tbody) return;
 

@@ -786,9 +786,8 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   const syncStatus = safeGetElement("retailSyncStatus");
 
   if (ui) {
-    syncBtn.disabled = true;
-    syncBtn.textContent = "Syncing…";
-    syncStatus.textContent = "";
+    if (syncBtn) { syncBtn.disabled = true; syncBtn.textContent = "Syncing\u2026"; }
+    if (syncStatus) { syncStatus.textContent = ""; }
   }
   _retailSyncInProgress = true;
   _retailSyncError = false;
@@ -918,7 +917,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     if (successCount === 0 && slugs.length > 0) {
       const errorMsg = "All coin price fetches failed — check your network connection.";
       debugLog(`[retail] ${errorMsg}`, "error");
-      if (ui) syncStatus.textContent = errorMsg;
+      if (ui && syncStatus) syncStatus.textContent = errorMsg;
       _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
       _retailSyncError = true;
       return;
@@ -932,14 +931,14 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     }
 
     const statusMsg = `Synced ${successCount} coin(s) · ${manifest.latest_window || "unknown window"}`;
-    if (ui) syncStatus.textContent = statusMsg;
+    if (ui && syncStatus) syncStatus.textContent = statusMsg;
     debugLog(`[retail] Sync complete: ${statusMsg}`, "info");
     _appendSyncLogEntry({ success: true, coins: successCount, window: manifest.latest_window || null, error: null });
     if (typeof updateMarketHealthDot === 'function') updateMarketHealthDot();
   } catch (err) {
     _retailSyncError = true;
     debugLog(`[retail] Sync error: ${err.message}`, "warn");
-    if (ui) syncStatus.textContent = `Sync failed: ${err.message}`;
+    if (ui && syncStatus) syncStatus.textContent = `Sync failed: ${err.message}`;
     _appendSyncLogEntry({ success: false, coins: 0, window: null, error: err.message });
   } finally {
     _retailSyncInProgress = false;
@@ -950,7 +949,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     }
     // STAK-504: Refresh main-page market data (ticker + vendor table) after sync
     if (typeof refreshMarketData === 'function') refreshMarketData();
-    if (ui) {
+    if (ui && syncBtn) {
       syncBtn.disabled = false;
       syncBtn.textContent = "Sync Now";
     }
