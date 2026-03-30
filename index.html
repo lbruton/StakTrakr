@@ -3629,7 +3629,13 @@
             <!-- ===== MARKET PRICES ===== -->
             <div id="settingsPanel_market" class="settings-section-panel" style="display: none">
               <!-- Market Filter Matrix (STAK-515) -->
-              <h3 style="margin-bottom:0.25rem;">Market Settings</h3>
+              <div class="market-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+                <h3 style="margin:0;">Market Settings</h3>
+                <div class="market-header-sync-group" style="display:flex;align-items:center;gap:8px;">
+                  <button id="retailSyncBtn" class="retail-sync-btn market-sync-btn" type="button">Sync Now</button>
+                  <span id="retailSyncStatus" class="settings-subtext"></span>
+                </div>
+              </div>
               <p class="settings-subtext" style="margin:0.5rem 0 0.75rem;">Filter which items appear in the ticker and market price table on the main page.</p>
               <div class="market-filter-pills" id="marketFilterMetalPills">
                 <button class="market-filter-pill active" data-metal="all" type="button" aria-pressed="true">All</button>

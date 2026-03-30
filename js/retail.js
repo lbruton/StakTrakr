@@ -791,7 +791,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   }
   _retailSyncInProgress = true;
   _retailSyncError = false;
-  renderRetailCards();
+  try { renderRetailCards(); } catch { /* settings panel may not have retail grid */ }
 
   try {
     // STAK-503: v2 API branch
