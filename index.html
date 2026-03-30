@@ -3628,77 +3628,32 @@
 
             <!-- ===== MARKET PRICES ===== -->
             <div id="settingsPanel_market" class="settings-section-panel" style="display: none">
-
-              <!-- Market List View header -->
-              <div id="marketListHeader" style="display:none">
-                <div class="market-header">
-                  <div class="market-header-row">
-                    <h3>Market Prices</h3>
-                    <div class="market-header-sync-group">
-                      <button id="retailSyncBtnList" class="retail-sync-btn market-sync-btn" type="button">Sync Now</button>
-                      <span id="retailLastSyncList" class="settings-subtext">Last sync: —</span>
-                    </div>
-                  </div>
-                  <div class="market-header-divider"></div>
-                  <div class="market-header-controls-row">
-                    <input type="search" id="marketSearchInput" class="market-search"
-                           placeholder="Search items, metals, vendors..." autocomplete="off"
-                           aria-label="Search market items">
-                    <div class="market-sort-wrap">
-                      <span class="market-header-btn market-sort-label">Sort: Name <span class="btn-chevron">&#9662;</span></span>
-                      <select id="marketSortSelect" aria-label="Sort market items">
-                        <option value="name" selected>Name</option>
-                        <option value="metal">Metal</option>
-                        <option value="price-low">Price: Low</option>
-                        <option value="price-high">Price: High</option>
-                        <option value="trend">Trend</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="market-header-controls-row market-header-view-row">
-                    <div class="market-filter-pills" id="marketFilterPills">
-                      <button class="market-filter-pill active" data-metal="all" type="button" aria-pressed="true">All</button>
-                      <button class="market-filter-pill" data-metal="silver" type="button" aria-pressed="false">Silver</button>
-                      <button class="market-filter-pill" data-metal="gold" type="button" aria-pressed="false">Gold</button>
-                      <button class="market-filter-pill" data-metal="goldback" type="button" aria-pressed="false">Goldback</button>
-                      <button class="market-filter-pill" data-metal="platinum" type="button" aria-pressed="false">Platinum</button>
-                      <button class="market-filter-pill" data-metal="palladium" type="button" aria-pressed="false">Palladium</button>
-                    </div>
-                    <div class="market-header-controls-right">
-                      <button class="market-header-btn market-expand-btn" id="marketExpandAllBtn" type="button" title="Expand All" aria-label="Expand All">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                      </button>
-                    </div>
+              <!-- Market Filter Matrix (STAK-515) -->
+              <div class="market-settings-header">
+                <div class="market-header-row">
+                  <h3>Market Settings</h3>
+                  <div class="market-header-sync-group">
+                    <button id="marketFilterSyncBtn" class="retail-sync-btn market-sync-btn" type="button">Sync Now</button>
+                    <span id="marketFilterLastSync" class="settings-subtext">Last sync: —</span>
                   </div>
                 </div>
               </div>
-
-              <!-- Legacy grid header (hidden when list view active) -->
-              <div id="marketGridHeader">
-                <h3 style="margin-bottom:0.75rem;">Market Prices</h3>
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.5rem;">
-                  <div style="display:flex;flex-direction:column;gap:0.15rem;">
-                    <span id="retailLastSync" class="settings-subtext"></span>
-                    <span id="retailSyncStatus" class="settings-subtext"></span>
-                  </div>
-                  <button id="retailSyncBtn" class="retail-card-action" type="button">Sync Now</button>
-                </div>
+              <p class="settings-subtext" style="margin:0.5rem 0 0.75rem;">Filter which items appear in the ticker and market price table on the main page.</p>
+              <div class="market-filter-pills" id="marketFilterMetalPills">
+                <button class="market-filter-pill active" data-metal="all" type="button" aria-pressed="true">All</button>
+                <button class="market-filter-pill" data-metal="silver" type="button" aria-pressed="false">Silver</button>
+                <button class="market-filter-pill" data-metal="gold" type="button" aria-pressed="false">Gold</button>
+                <button class="market-filter-pill" data-metal="platinum" type="button" aria-pressed="false">Platinum</button>
+                <button class="market-filter-pill" data-metal="palladium" type="button" aria-pressed="false">Palladium</button>
+                <button class="market-filter-pill" data-metal="goldback" type="button" aria-pressed="false">Goldback</button>
               </div>
-
-              <div id="retailDisclaimer" class="retail-disclaimer-inline" style="display:none; margin-bottom:0.75rem;" role="status">
-                Best-effort pricing · Sourced from public data, may not reflect real-time or credit card pricing · Confidence: 80=aligned · 35=outlier · 15=significant outlier
+              <div id="marketFilterMatrixWrap" class="market-filter-matrix-wrap">
+                <table id="marketFilterMatrix" class="market-filter-matrix" aria-label="Market item filter matrix">
+                  <thead id="marketFilterMatrixHead"></thead>
+                  <tbody id="marketFilterMatrixBody"></tbody>
+                </table>
               </div>
-
-              <div id="retailCardsGrid" class="retail-cards-grid" aria-live="polite" aria-label="Retail coin price cards">
-                <!-- Cards rendered by renderRetailCards() -->
-              </div>
-
-              <div id="retailEmptyState" class="retail-empty-state" style="display: none">
-                <div class="retail-empty-icon">📊</div>
-                <p class="retail-empty-title">No market prices yet</p>
-                <p class="retail-empty-desc">Sync to load current bullion retail prices from APMEX, Monument, SDB, and JM Bullion.</p>
-                <button class="retail-sync-cta" type="button" onclick="syncRetailPrices()">Sync Now</button>
-              </div>
+              <div id="marketFilterStatus" class="settings-subtext" style="margin-top:0.5rem;"></div>
             </div>
 
             <!-- ===== ACTIVITY LOG ===== -->
