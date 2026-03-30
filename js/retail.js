@@ -1256,6 +1256,7 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
 
     const top3Keys = displayVendors.slice(0, 3).map(({ key }) => key);
     displayVendors.forEach(({ key, price }) => {
+      if (!_isMarketItemEnabled(slug, key)) return;
       const chip = document.createElement("span");
       chip.className = "vendor-chip";
 
@@ -1743,6 +1744,14 @@ const _getFilteredSortedSlugs = (query, sortKey) => {
       return meta.metal === _marketMetalFilter;
     });
   }
+  // STAK-515: Exclude slugs where ALL vendors are disabled by market filter
+  slugs = slugs.filter((slug) => {
+    const priceData = retailPrices && retailPrices.prices ? retailPrices.prices[slug] : null;
+    if (!priceData || !priceData.vendors) return true;
+    const vendorIds = Object.keys(priceData.vendors);
+    if (vendorIds.length === 0) return true;
+    return vendorIds.some((vid) => _isMarketItemEnabled(slug, vid));
+  });
   if (query && query.trim()) {
     const q = query.trim().toLowerCase();
     slugs = slugs.filter((slug) => {
