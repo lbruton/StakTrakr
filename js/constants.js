@@ -745,7 +745,7 @@ const RETAIL_MANIFEST_VENDOR_META_KEY = "retailManifestVendorMeta"; // nosemgrep
 /** @constant {string} RETAIL_TREND_MODE_KEY - LocalStorage key for retail trend display mode; stored values: "7d" or "intraday" */
 const RETAIL_TREND_MODE_KEY = "retailTrendMode"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
-const MARKET_FILTER_KEY = 'staktrakr.market_filter'; // nosemgrep: codacy.javascript.security.hard-coded-password
+const MARKET_FILTER_KEY = "staktrakr.market_filter"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 // =============================================================================
 // IMAGE PROCESSOR DEFAULTS (STACK-95)

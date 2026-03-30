@@ -2342,10 +2342,9 @@ const renderMarketFilterMatrix = () => {
   const thead = safeGetElement('marketFilterMatrixHead');
   const tbody = safeGetElement('marketFilterMatrixBody');
   const statusEl = safeGetElement('marketFilterStatus');
-  if (!thead || !tbody) return;
+  if (!thead || !thead.id || !tbody || !tbody.id) return;
 
   const slugs = typeof getActiveRetailSlugs === 'function' ? getActiveRetailSlugs() : [];
-  const filter = typeof _loadMarketFilter === 'function' ? _loadMarketFilter() : {};
 
   // Build vendor list from manifest or fallback constants
   const vendorSource = (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta)
