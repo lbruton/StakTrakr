@@ -99,6 +99,39 @@ let _manifestSlugs = null;
 let _manifestCoinMeta = null;
 let _manifestVendorMeta = null;
 
+// ---------------------------------------------------------------------------
+// Market Filter — user-configurable slug/vendor visibility (STAK-515)
+// ---------------------------------------------------------------------------
+let _marketFilterCache = null;
+
+const _loadMarketFilter = () => {
+  if (_marketFilterCache !== null) return _marketFilterCache;
+  try {
+    _marketFilterCache = loadDataSync(MARKET_FILTER_KEY, {});
+    if (typeof _marketFilterCache !== 'object' || _marketFilterCache === null || Array.isArray(_marketFilterCache)) {
+      _marketFilterCache = {};
+    }
+  } catch {
+    _marketFilterCache = {};
+  }
+  return _marketFilterCache;
+};
+
+const _saveMarketFilter = (filter) => {
+  _marketFilterCache = filter;
+  saveDataSync(MARKET_FILTER_KEY, filter);
+};
+
+const _isMarketItemEnabled = (slug, vendorId) => {
+  const f = _loadMarketFilter();
+  if (!f[slug]) return true;
+  return f[slug][vendorId] !== false;
+};
+
+const _invalidateMarketFilterCache = () => {
+  _marketFilterCache = null;
+};
+
 /** Slugs excluded from market card display — baseline references, not user-facing products. */
 const _HIDDEN_SLUGS = new Set(["goldback-g1"]);
 
@@ -2244,6 +2277,10 @@ if (typeof window !== "undefined") {
   window.getVendorDisplay = getVendorDisplay;
   window._parseGoldbackSlug = _parseGoldbackSlug;
   window.GOLDBACK_WEIGHTS = GOLDBACK_WEIGHTS;
+  window._isMarketItemEnabled = _isMarketItemEnabled;
+  window._invalidateMarketFilterCache = _invalidateMarketFilterCache;
+  window._loadMarketFilter = _loadMarketFilter;
+  window._saveMarketFilter = _saveMarketFilter;
 }
 
 // =============================================================================
