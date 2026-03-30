@@ -200,6 +200,7 @@ const renderBestPriceTicker = () => {
     let bestPrice = Infinity;
     for (const vid in coin.vendors) {
       const v = coin.vendors[vid];
+      if (typeof _isMarketItemEnabled === 'function' && !_isMarketItemEnabled(slug, vid)) continue;
       if (!v || v.price <= 0) continue;
       // Cross-reference with fresh v2 detail for accurate stock status
       const fresh = _cachedSlugDetail[slug] && _cachedSlugDetail[slug].vendors && _cachedSlugDetail[slug].vendors[vid];
@@ -712,6 +713,14 @@ const _renderVendorTable = async (metalCode) => {
     const metalLower = (meta.metal || '').toLowerCase();
     const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
     if (isoCode === metalCode) {
+      // STAK-515: Skip slugs where ALL vendors are disabled by market filter
+      if (typeof _isMarketItemEnabled === 'function') {
+        const coin = coins[slug];
+        if (coin && coin.vendors) {
+          const vids = Object.keys(coin.vendors);
+          if (vids.length > 0 && !vids.some(vid => _isMarketItemEnabled(slug, vid))) continue;
+        }
+      }
       metalSlugs.push({ slug, meta });
     }
   }
@@ -809,6 +818,8 @@ const _renderVendorTable = async (metalCode) => {
 
     const inStockPrices = [];
     for (const vid in vData) {
+      // STAK-515: Skip disabled vendors in price calculations
+      if (typeof _isMarketItemEnabled === 'function' && !_isMarketItemEnabled(slug, vid)) continue;
       const _vs = vData[vid];
       if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true)) {
         inStockPrices.push(vData[vid].price);
@@ -831,6 +842,14 @@ const _renderVendorTable = async (metalCode) => {
     tr.appendChild(tdName);
 
     for (const vid of vendorIds) {
+      // STAK-515: Skip disabled vendor cells
+      if (typeof _isMarketItemEnabled === 'function' && !_isMarketItemEnabled(slug, vid)) {
+        const skipTd = document.createElement('td');
+        skipTd.textContent = '\u2014';
+        skipTd.className = 'vp-muted';
+        tr.appendChild(skipTd);
+        continue;
+      }
       const td = document.createElement('td');
       const vInfo = vData[vid];
 
@@ -984,6 +1003,14 @@ const renderVendorPrices = () => {
     else meta = { metal: 'unknown' };
     const metalLower = (meta.metal || '').toLowerCase();
     const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
+    // STAK-515: Only count metal if at least one vendor is enabled for this slug
+    if (typeof _isMarketItemEnabled === 'function') {
+      const coin = coins[slug];
+      if (coin && coin.vendors) {
+        const vids = Object.keys(coin.vendors);
+        if (vids.length > 0 && !vids.some(vid => _isMarketItemEnabled(slug, vid))) continue;
+      }
+    }
     metalHasCoins[isoCode] = true;
   }
 

@@ -290,7 +290,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.33.88";
+const APP_VERSION = "3.33.89";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -745,6 +745,8 @@ const RETAIL_MANIFEST_VENDOR_META_KEY = "retailManifestVendorMeta"; // nosemgrep
 /** @constant {string} RETAIL_TREND_MODE_KEY - LocalStorage key for retail trend display mode; stored values: "7d" or "intraday" */
 const RETAIL_TREND_MODE_KEY = "retailTrendMode"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+const MARKET_FILTER_KEY = "staktrakr.market_filter"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 // =============================================================================
 // IMAGE PROCESSOR DEFAULTS (STACK-95)
 // =============================================================================
@@ -959,6 +961,7 @@ const ALLOWED_STORAGE_KEYS = [
   RETAIL_MANIFEST_COIN_META_KEY,   // JSON object: cached manifest coin metadata (canonical names)
   RETAIL_MANIFEST_VENDOR_META_KEY, // JSON object: cached manifest vendor display metadata
   RETAIL_TREND_MODE_KEY,           // string: retail trend display mode (7d | intraday)
+  MARKET_FILTER_KEY,               // string: market price filter preferences (STAK-515)
   "layoutVisibility",         // JSON object: { spotPrices, totals, search, table } (STACK-54) — legacy, migrated to layoutSectionConfig
   "layoutSectionConfig",      // JSON array: ordered section config [{ id, label, enabled }] (STACK-54)
   LAST_VERSION_CHECK_KEY,     // timestamp: last remote version check (STACK-67)
@@ -1934,6 +1937,7 @@ if (typeof window !== "undefined") {
   window.RETAIL_MANIFEST_COIN_META_KEY = RETAIL_MANIFEST_COIN_META_KEY;
   window.RETAIL_MANIFEST_VENDOR_META_KEY = RETAIL_MANIFEST_VENDOR_META_KEY;
   window.RETAIL_TREND_MODE_KEY = RETAIL_TREND_MODE_KEY;
+  window.MARKET_FILTER_KEY = MARKET_FILTER_KEY;
   window.RETAIL_ANOMALY_THRESHOLD = RETAIL_ANOMALY_THRESHOLD;
   window.RETAIL_SPIKE_NEIGHBOR_TOLERANCE = RETAIL_SPIKE_NEIGHBOR_TOLERANCE;
   // Disposition types for realized gains (STAK-72)

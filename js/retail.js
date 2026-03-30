@@ -99,6 +99,39 @@ let _manifestSlugs = null;
 let _manifestCoinMeta = null;
 let _manifestVendorMeta = null;
 
+// ---------------------------------------------------------------------------
+// Market Filter — user-configurable slug/vendor visibility (STAK-515)
+// ---------------------------------------------------------------------------
+let _marketFilterCache = null;
+
+const _loadMarketFilter = () => {
+  if (_marketFilterCache !== null) return _marketFilterCache;
+  try {
+    _marketFilterCache = loadDataSync(MARKET_FILTER_KEY, {});
+    if (typeof _marketFilterCache !== 'object' || _marketFilterCache === null || Array.isArray(_marketFilterCache)) {
+      _marketFilterCache = {};
+    }
+  } catch {
+    _marketFilterCache = {};
+  }
+  return _marketFilterCache;
+};
+
+const _saveMarketFilter = (filter) => {
+  _marketFilterCache = filter;
+  saveDataSync(MARKET_FILTER_KEY, filter);
+};
+
+const _isMarketItemEnabled = (slug, vendorId) => {
+  const f = _loadMarketFilter();
+  if (!f[slug]) return true;
+  return f[slug][vendorId] !== false;
+};
+
+const _invalidateMarketFilterCache = () => {
+  _marketFilterCache = null;
+};
+
 /** Slugs excluded from market card display — baseline references, not user-facing products. */
 const _HIDDEN_SLUGS = new Set(["goldback-g1"]);
 
@@ -753,13 +786,12 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   const syncStatus = safeGetElement("retailSyncStatus");
 
   if (ui) {
-    syncBtn.disabled = true;
-    syncBtn.textContent = "Syncing…";
-    syncStatus.textContent = "";
+    if (syncBtn) { syncBtn.disabled = true; syncBtn.textContent = "Syncing\u2026"; }
+    if (syncStatus) { syncStatus.textContent = ""; }
   }
   _retailSyncInProgress = true;
   _retailSyncError = false;
-  renderRetailCards();
+  try { renderRetailCards(); } catch { /* settings panel may not have retail grid */ }
 
   try {
     // STAK-503: v2 API branch
@@ -885,7 +917,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     if (successCount === 0 && slugs.length > 0) {
       const errorMsg = "All coin price fetches failed — check your network connection.";
       debugLog(`[retail] ${errorMsg}`, "error");
-      if (ui) syncStatus.textContent = errorMsg;
+      if (ui && syncStatus) syncStatus.textContent = errorMsg;
       _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
       _retailSyncError = true;
       return;
@@ -899,14 +931,14 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     }
 
     const statusMsg = `Synced ${successCount} coin(s) · ${manifest.latest_window || "unknown window"}`;
-    if (ui) syncStatus.textContent = statusMsg;
+    if (ui && syncStatus) syncStatus.textContent = statusMsg;
     debugLog(`[retail] Sync complete: ${statusMsg}`, "info");
     _appendSyncLogEntry({ success: true, coins: successCount, window: manifest.latest_window || null, error: null });
     if (typeof updateMarketHealthDot === 'function') updateMarketHealthDot();
   } catch (err) {
     _retailSyncError = true;
     debugLog(`[retail] Sync error: ${err.message}`, "warn");
-    if (ui) syncStatus.textContent = `Sync failed: ${err.message}`;
+    if (ui && syncStatus) syncStatus.textContent = `Sync failed: ${err.message}`;
     _appendSyncLogEntry({ success: false, coins: 0, window: null, error: err.message });
   } finally {
     _retailSyncInProgress = false;
@@ -917,7 +949,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     }
     // STAK-504: Refresh main-page market data (ticker + vendor table) after sync
     if (typeof refreshMarketData === 'function') refreshMarketData();
-    if (ui) {
+    if (ui && syncBtn) {
       syncBtn.disabled = false;
       syncBtn.textContent = "Sync Now";
     }
@@ -1223,6 +1255,7 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
 
     const top3Keys = displayVendors.slice(0, 3).map(({ key }) => key);
     displayVendors.forEach(({ key, price }) => {
+      if (!_isMarketItemEnabled(slug, key)) return;
       const chip = document.createElement("span");
       chip.className = "vendor-chip";
 
@@ -1710,6 +1743,14 @@ const _getFilteredSortedSlugs = (query, sortKey) => {
       return meta.metal === _marketMetalFilter;
     });
   }
+  // STAK-515: Exclude slugs where ALL vendors are disabled by market filter
+  slugs = slugs.filter((slug) => {
+    const priceData = retailPrices && retailPrices.prices ? retailPrices.prices[slug] : null;
+    if (!priceData || !priceData.vendors) return true;
+    const vendorIds = Object.keys(priceData.vendors);
+    if (vendorIds.length === 0) return true;
+    return vendorIds.some((vid) => _isMarketItemEnabled(slug, vid));
+  });
   if (query && query.trim()) {
     const q = query.trim().toLowerCase();
     slugs = slugs.filter((slug) => {
@@ -2244,6 +2285,10 @@ if (typeof window !== "undefined") {
   window.getVendorDisplay = getVendorDisplay;
   window._parseGoldbackSlug = _parseGoldbackSlug;
   window.GOLDBACK_WEIGHTS = GOLDBACK_WEIGHTS;
+  window._isMarketItemEnabled = _isMarketItemEnabled;
+  window._invalidateMarketFilterCache = _invalidateMarketFilterCache;
+  window._loadMarketFilter = _loadMarketFilter;
+  window._saveMarketFilter = _saveMarketFilter;
 }
 
 // =============================================================================
