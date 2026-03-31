@@ -765,7 +765,9 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     saveRetailAvailability();
   }
 
-  const syncTime = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+  const tzOpts = tz && tz !== 'auto' ? { timeZone: tz, hour: 'numeric', minute: '2-digit' } : { hour: 'numeric', minute: '2-digit' };
+  const syncTime = new Date().toLocaleTimeString(undefined, tzOpts);
   const statusMsg = `Synced ${successCount} coin(s) · ${syncTime}`;
   if (ui && syncStatus) syncStatus.textContent = statusMsg;
   debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
@@ -938,7 +940,9 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
       saveRetailAvailability();
     }
 
-    const v1SyncTime = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const v1Tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+    const v1TzOpts = v1Tz && v1Tz !== 'auto' ? { timeZone: v1Tz, hour: 'numeric', minute: '2-digit' } : { hour: 'numeric', minute: '2-digit' };
+    const v1SyncTime = new Date().toLocaleTimeString(undefined, v1TzOpts);
     const statusMsg = `Synced ${successCount} coin(s) · ${v1SyncTime}`;
     if (ui && syncStatus) syncStatus.textContent = statusMsg;
     debugLog(`[retail] Sync complete: ${statusMsg}`, "info");
