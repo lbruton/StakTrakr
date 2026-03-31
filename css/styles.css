@@ -347,7 +347,7 @@ label {
 .app-logo-group {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   align-self: stretch;
   min-width: 0;
 }
