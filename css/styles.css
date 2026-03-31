@@ -212,6 +212,7 @@
   --bg-secondary: #e4dbc4; /* Aged linen */
   --bg-tertiary: #d6ccb3;  /* Warm stone */
   --bg-card: #f5f0e3;      /* Light cream for cards */
+  --surface-alt: #faf6eb;  /* Warm white — brightest sepia surface */
 
   /* Text Colors - Sepia Mode */
   --text-primary: #3a3019;
