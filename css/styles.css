@@ -344,6 +344,13 @@ label {
   }
 }
 
+.app-logo-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .app-logo {
   display: flex;
   align-items: center;
