@@ -425,12 +425,12 @@ label {
   display: block; 
 }
 
-/* System preference detection (only when no manual theme is set) */
+/* System preference detection (only when <html> has no explicit theme) */
 @media (prefers-color-scheme: dark) {
-  body:not([data-theme]) .stackr-logo .light-mode { 
+  :root:not([data-theme]) .stackr-logo .light-mode {
     display: none; 
   }
-  body:not([data-theme]) .stackr-logo .dark-mode { 
+  :root:not([data-theme]) .stackr-logo .dark-mode {
     display: block; 
   }
 }

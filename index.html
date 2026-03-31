@@ -98,9 +98,11 @@
          avoid any dependency on constants.js (which loads deferred). -->
     <script>
       try {
-        var __t = localStorage.getItem('appTheme') || 'dark';
-        if (__t && __t !== 'light' && __t !== 'system') {
+        var __t = localStorage.getItem('appTheme');
+        if (__t === 'dark' || __t === 'light' || __t === 'sepia' || __t === 'hello-kitty') {
           document.documentElement.setAttribute('data-theme', __t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
         }
       } catch (e) {}
     </script>
