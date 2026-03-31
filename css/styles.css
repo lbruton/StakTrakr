@@ -533,6 +533,17 @@ section {
   cursor: pointer;
 }
 
+.version-badge--beta {
+  background: var(--info);
+  color: #000;
+  cursor: pointer;
+}
+
+.version-badge--beta:hover {
+  background: var(--info-hover);
+  text-decoration: none;
+}
+
 .api-health-badge {
   display: inline-flex;
   align-items: center;
