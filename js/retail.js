@@ -765,7 +765,10 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     saveRetailAvailability();
   }
 
-  const statusMsg = `Synced ${successCount} coin(s) [v2] · ${generatedAt || "unknown"}`;
+  const tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+  const tzOpts = tz && tz !== 'auto' ? { timeZone: tz, hour: 'numeric', minute: '2-digit' } : { hour: 'numeric', minute: '2-digit' };
+  const syncTime = new Date().toLocaleTimeString(undefined, tzOpts);
+  const statusMsg = `Synced ${successCount} coin(s) · ${syncTime}`;
   if (ui && syncStatus) syncStatus.textContent = statusMsg;
   debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
   _appendSyncLogEntry({ success: true, coins: successCount, window: generatedAt || null, error: null });
@@ -799,7 +802,6 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   }
   _retailSyncInProgress = true;
   _retailSyncError = false;
-  try { renderRetailCards(); } catch { /* settings panel may not have retail grid */ }
 
   try {
     // STAK-503: v2 API branch
@@ -938,7 +940,10 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
       saveRetailAvailability();
     }
 
-    const statusMsg = `Synced ${successCount} coin(s) · ${manifest.latest_window || "unknown window"}`;
+    const v1Tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+    const v1TzOpts = v1Tz && v1Tz !== 'auto' ? { timeZone: v1Tz, hour: 'numeric', minute: '2-digit' } : { hour: 'numeric', minute: '2-digit' };
+    const v1SyncTime = new Date().toLocaleTimeString(undefined, v1TzOpts);
+    const statusMsg = `Synced ${successCount} coin(s) · ${v1SyncTime}`;
     if (ui && syncStatus) syncStatus.textContent = statusMsg;
     debugLog(`[retail] Sync complete: ${statusMsg}`, "info");
     _appendSyncLogEntry({ success: true, coins: successCount, window: manifest.latest_window || null, error: null });
@@ -950,16 +955,19 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
     _appendSyncLogEntry({ success: false, coins: 0, window: null, error: err.message });
   } finally {
     _retailSyncInProgress = false;
-    renderRetailCards();
-    const mktLogActive = document.querySelector('[data-log-tab="market"].active');
-    if (mktLogActive && typeof renderRetailHistoryTable === "function") {
-      renderRetailHistoryTable();
-    }
-    // STAK-504: Refresh main-page market data (ticker + vendor table) after sync
-    if (typeof refreshMarketData === 'function') refreshMarketData();
     if (ui && syncBtn) {
       syncBtn.disabled = false;
       syncBtn.textContent = "Sync Now";
+    }
+    try {
+      const mktLogActive = document.querySelector('[data-log-tab="market"].active');
+      if (mktLogActive && typeof renderRetailHistoryTable === "function") {
+        renderRetailHistoryTable();
+      }
+    } catch (e) { debugLog(`[retail] Post-sync log render failed: ${e.message}`, "warn"); }
+    // STAK-504: Refresh main-page market data (ticker + vendor table) after sync
+    if (typeof refreshMarketData === 'function') {
+      try { refreshMarketData(); } catch (e) { debugLog(`[retail] Post-sync market refresh failed: ${e.message}`, "warn"); }
     }
   }
 };
