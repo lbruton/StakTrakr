@@ -534,19 +534,13 @@ section {
 
 .version-badge--beta {
   background: var(--info);
-  color: #fff;
+  color: #000;
   cursor: pointer;
 }
 
 .version-badge--beta:hover {
   background: var(--info-hover);
   text-decoration: none;
-}
-
-.footer-beta {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
 }
 
 .api-health-badge {
