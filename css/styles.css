@@ -347,7 +347,7 @@ label {
 .app-logo-group {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   align-self: stretch;
   min-width: 0;
 }
@@ -577,7 +577,7 @@ section {
 /* Environment badge (BETA / PREVIEW / LOCAL) — STAK-376 */
 .env-badge {
   position: absolute;
-  top: 2px;
+  bottom: 4px;
   left: 0;
   display: inline-flex;
   align-items: center;
