@@ -111,6 +111,14 @@ const _loadMarketFilter = () => {
     if (typeof _marketFilterCache !== 'object' || _marketFilterCache === null || Array.isArray(_marketFilterCache)) {
       _marketFilterCache = {};
     }
+    // STAK-520: Normalize per-slug entries — corrupted values (scalars, arrays)
+    // can survive cloud restore and crash checkbox interactions
+    for (const slug of Object.keys(_marketFilterCache)) {
+      const entry = _marketFilterCache[slug];
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+        _marketFilterCache[slug] = {};
+      }
+    }
   } catch {
     _marketFilterCache = {};
   }
