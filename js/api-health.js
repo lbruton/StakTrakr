@@ -45,75 +45,6 @@ const _timeAgo = (timestamp) => {
 };
 
 /**
- * Parses the raw Promise.allSettled results from a single endpoint into the
- * standard {market, spot, goldback} health shape.
- * @param {PromiseSettledResult} marketResult
- * @param {PromiseSettledResult} spotResult
- * @param {PromiseSettledResult} goldbackResult
- * @returns {{market: object, spot: object, goldback: object}}
- */
-const _parseEndpointHealth = (marketResult, spotResult, goldbackResult) => {
-  // --- Market prices (manifest.json) ---
-  let market = { ok: false, ageMin: null, ago: null, coins: [], error: null };
-  if (marketResult.status === "fulfilled") {
-    const data = marketResult.value;
-    const generatedAt = new Date(_normalizeTs(data.generated_at));
-    if (!isNaN(generatedAt.getTime())) {
-      market.ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
-      market.ago    = _timeAgo(data.generated_at);
-      market.ok     = market.ageMin <= API_HEALTH_MARKET_STALE_MIN;
-      market.coins  = data.coins || [];
-    } else {
-      market.error = `Invalid timestamp: ${data.generated_at}`;
-    }
-  } else {
-    market.error = marketResult.reason?.message || String(marketResult.reason);
-  }
-
-  // --- Spot prices (hourly file: data/hourly/YYYY/MM/DD/HH.json, last entry) ---
-  let spot = { ok: false, ageMin: null, ago: null, error: null };
-  if (spotResult.status === "fulfilled") {
-    const entries = spotResult.value;
-    const last    = Array.isArray(entries) && entries[entries.length - 1];
-    const ts      = last && last.timestamp;
-    if (ts) {
-      const spotDate = new Date(_normalizeTs(ts));
-      if (!isNaN(spotDate.getTime())) {
-        spot.ageMin = Math.max(0, Math.floor((Date.now() - spotDate.getTime()) / 60000));
-        spot.ago    = _timeAgo(ts);
-        spot.ok     = spot.ageMin <= API_HEALTH_SPOT_STALE_MIN;
-      } else {
-        spot.error = `Invalid timestamp: ${ts}`;
-      }
-    } else {
-      spot.error = "No entries found";
-    }
-  } else {
-    spot.error = spotResult.reason?.message || String(spotResult.reason);
-  }
-
-  // --- Goldback daily scrape (informational only — does not affect overall status) ---
-  let goldback = { ok: false, ago: null, error: null };
-  if (goldbackResult.status === "fulfilled") {
-    const data      = goldbackResult.value;
-    const scrapedAt = new Date(_normalizeTs(data.scraped_at));
-    if (data.scraped_at && !isNaN(scrapedAt.getTime())) {
-      const ageMin  = Math.max(0, Math.floor((Date.now() - scrapedAt.getTime()) / 60000));
-      goldback.ago  = _timeAgo(data.scraped_at);
-      goldback.ok   = ageMin <= API_HEALTH_GOLDBACK_STALE_MIN;
-    } else if (data.scraped_at) {
-      goldback.error = `Invalid timestamp: ${data.scraped_at}`;
-    } else {
-      goldback.error = "No scraped_at field";
-    }
-  } else {
-    goldback.error = goldbackResult.reason?.message || String(goldbackResult.reason);
-  }
-
-  return { market, spot, goldback };
-};
-
-/**
  * Parses v2 Promise.allSettled results into the standard health shape.
  * v2 endpoints return envelopes with `generated_at`, `stale_after`, and `data`.
  * Timestamps are already ISO 8601 Z-suffixed — no _normalizeTs needed.
@@ -199,53 +130,20 @@ const fetchApiHealth = async () => {
       .catch((e) => { clearTimeout(tid); throw e; });
   };
 
-  if (typeof USE_V2_API !== "undefined" && USE_V2_API) {
-    // --- v2 path: use V2_API_ENDPOINTS with envelope-based staleness ---
-    const v2Endpoints = (typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length)
-      ? V2_API_ENDPOINTS
-      : ["https://api.staktrakr.com/data/v2"];
+  const v2Endpoints = (typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length)
+    ? V2_API_ENDPOINTS
+    : ["https://api.staktrakr.com/data/v2"];
 
-    const _fetchV2FromEndpoint = async (ep) => {
-      return Promise.allSettled([
-        _fetchWithTimeout(`${ep}/manifest.json`),
-        _fetchWithTimeout(`${ep}/spot/latest.json`),
-        _fetchWithTimeout(`${ep}/goldback/latest.json`),
-      ]);
-    };
-
-    const endpointRaws = await Promise.all(v2Endpoints.map(_fetchV2FromEndpoint));
-    const parsed = endpointRaws.map(([m, s, g]) => _parseV2EndpointHealth(m, s, g));
-    return { primary: parsed[0], backup: parsed[1] ?? null };
-  }
-
-  // --- v1 path (unchanged) ---
-  const apiEndpoints = (typeof RETAIL_API_ENDPOINTS !== "undefined" && RETAIL_API_ENDPOINTS.length)
-    ? RETAIL_API_ENDPOINTS
-    : ["https://api.staktrakr.com/data/api"];
-
-  const _hourlyUrl = (dataBase, offsetHours = 0) => {
-    const d  = new Date(Date.now() - offsetHours * 3600000);
-    const y  = d.getUTCFullYear();
-    const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const dy = String(d.getUTCDate()).padStart(2, "0");
-    const hr = String(d.getUTCHours()).padStart(2, "0");
-    return `${dataBase}/hourly/${y}/${mo}/${dy}/${hr}.json`;
-  };
-
-  const _fetchFromEndpoint = async (ep) => {
-    const dataEp = ep.replace(/\/api$/, "");
-    const spotFetch = _fetchWithTimeout(_hourlyUrl(dataEp, 0))
-      .catch((e) => { console.debug(`[api-health] ${ep} hour-0 miss:`, e.message); return _fetchWithTimeout(_hourlyUrl(dataEp, 1)); });
+  const _fetchV2FromEndpoint = async (ep) => {
     return Promise.allSettled([
       _fetchWithTimeout(`${ep}/manifest.json`),
-      spotFetch,
-      _fetchWithTimeout(`${ep}/goldback-spot.json`),
+      _fetchWithTimeout(`${ep}/spot/latest.json`),
+      _fetchWithTimeout(`${ep}/goldback/latest.json`),
     ]);
   };
 
-  const endpointRaws = await Promise.all(apiEndpoints.map(_fetchFromEndpoint));
-  const parsed = endpointRaws.map(([m, s, g]) => _parseEndpointHealth(m, s, g));
-
+  const endpointRaws = await Promise.all(v2Endpoints.map(_fetchV2FromEndpoint));
+  const parsed = endpointRaws.map(([m, s, g]) => _parseV2EndpointHealth(m, s, g));
   return { primary: parsed[0], backup: parsed[1] ?? null };
 };
 

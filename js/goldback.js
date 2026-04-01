@@ -240,92 +240,44 @@ const onGoldSpotPriceChanged = () => {
  * @returns {Promise<{ok: boolean, g1_usd?: number, error?: string}>}
  */
 const fetchGoldbackApiPrices = async () => {
-  if (typeof USE_V2_API !== 'undefined' && USE_V2_API) {
-    // --- v2 path: fetch from v2/goldback/latest.json, unwrap envelope ---
-    const v2Endpoints = (typeof V2_API_ENDPOINTS !== 'undefined' && V2_API_ENDPOINTS.length)
-      ? V2_API_ENDPOINTS
-      : ['https://api.staktrakr.com/data/v2'];
+  const v2Endpoints = (typeof V2_API_ENDPOINTS !== 'undefined' && V2_API_ENDPOINTS.length)
+    ? V2_API_ENDPOINTS
+    : ['https://api.staktrakr.com/data/v2'];
 
-    let envelope;
-    let lastErr;
-    for (const ep of v2Endpoints) {
-      const url = `${ep}/goldback/latest.json`;
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 5000);
-      try {
-        const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
-        clearTimeout(tid);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        envelope = await res.json();
-        break;
-      } catch (err) {
-        clearTimeout(tid);
-        lastErr = err;
-      }
-    }
-    if (!envelope || !envelope.data) return { ok: false, error: lastErr ? String(lastErr) : 'No v2 goldback data' };
-
-    const gbData = envelope.data;
-    const g1 = typeof gbData.g1_usd === 'number' && gbData.g1_usd > 0 ? gbData.g1_usd : null;
-    if (!g1) return { ok: false, error: 'Invalid or missing g1_usd in v2 response' };
-
-    if (typeof GOLDBACK_DENOMINATIONS === 'undefined') {
-      return { ok: false, error: 'GOLDBACK_DENOMINATIONS not defined' };
-    }
-
-    const now = Date.now();
-    for (const d of GOLDBACK_DENOMINATIONS) {
-      const key = String(d.weight);
-      // Use pre-computed denomination price from v2 if available, else compute from g1_usd
-      const denomKey = `g${d.weight}`;
-      const price = (gbData.denominations && typeof gbData.denominations[denomKey] === 'number')
-        ? gbData.denominations[denomKey]
-        : Math.round(g1 * d.weight * 100) / 100;
-      goldbackPrices[key] = { price, updatedAt: now, source: 'api' };
-    }
-
-    if (typeof saveGoldbackPrices === 'function') saveGoldbackPrices();
-    if (typeof recordGoldbackPrices === 'function') recordGoldbackPrices();
-    if (typeof syncGoldbackSettingsUI === 'function') syncGoldbackSettingsUI();
-
-    return { ok: true, g1_usd: g1 };
-  }
-
-  // --- v1 path (unchanged) ---
-  const goldbackUrls = (typeof RETAIL_API_ENDPOINTS !== 'undefined' && RETAIL_API_ENDPOINTS.length)
-    ? RETAIL_API_ENDPOINTS.map(ep => `${ep}/goldback-spot.json`)
-    : (typeof GOLDBACK_API_URL !== 'undefined' ? [GOLDBACK_API_URL] : null);
-  if (!goldbackUrls) return { ok: false, error: 'GOLDBACK_API_URL not defined' };
-
-  let data;
+  let envelope;
   let lastErr;
-  for (const url of goldbackUrls) {
+  for (const ep of v2Endpoints) {
+    const url = `${ep}/goldback/latest.json`;
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 5000);
     try {
       const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
       clearTimeout(tid);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      data = await res.json();
+      envelope = await res.json();
       break;
     } catch (err) {
       clearTimeout(tid);
       lastErr = err;
     }
   }
-  if (!data) return { ok: false, error: String(lastErr) };
+  if (!envelope || !envelope.data) return { ok: false, error: lastErr ? String(lastErr) : 'No v2 goldback data' };
 
-  const g1 = typeof data.g1_usd === 'number' && data.g1_usd > 0 ? data.g1_usd : null;
-  if (!g1) return { ok: false, error: 'Invalid or missing g1_usd in API response' };
+  const gbData = envelope.data;
+  const g1 = typeof gbData.g1_usd === 'number' && gbData.g1_usd > 0 ? gbData.g1_usd : null;
+  if (!g1) return { ok: false, error: 'Invalid or missing g1_usd in v2 response' };
 
-  const now = Date.now();
   if (typeof GOLDBACK_DENOMINATIONS === 'undefined') {
     return { ok: false, error: 'GOLDBACK_DENOMINATIONS not defined' };
   }
 
+  const now = Date.now();
   for (const d of GOLDBACK_DENOMINATIONS) {
     const key = String(d.weight);
-    const price = Math.round(g1 * d.weight * 100) / 100;
+    const denomKey = `g${d.weight}`;
+    const price = (gbData.denominations && typeof gbData.denominations[denomKey] === 'number')
+      ? gbData.denominations[denomKey]
+      : Math.round(g1 * d.weight * 100) / 100;
     goldbackPrices[key] = { price, updatedAt: now, source: 'api' };
   }
 

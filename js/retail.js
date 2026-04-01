@@ -451,29 +451,8 @@ const _loadV2RetailHistory = () => {
 const getRetailHistoryForSlug = (slug) => retailPriceHistory[slug] || [];
 
 /** Last API base URL that returned a valid manifest — used by retail-view-modal.js */
-let _lastSuccessfulApiBase = typeof RETAIL_API_ENDPOINTS !== "undefined" ? RETAIL_API_ENDPOINTS[0] : "https://api.staktrakr.com/data/api";
+let _lastSuccessfulApiBase = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS[0] + "/retail" : "https://api.staktrakr.com/data/v2/retail";
 
-/**
- * Fetch manifest.json from configured endpoints in order (primary first).
- * Tries each endpoint with a 5-second timeout; returns on the first success.
- * @returns {Promise<Array<{base: string, manifest: Object, ts: string}> | null>}
- */
-async function _pickFreshestEndpoint() {
-  const endpoints = typeof RETAIL_API_ENDPOINTS !== "undefined" ? RETAIL_API_ENDPOINTS : [RETAIL_API_BASE_URL];
-  for (const base of endpoints) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    try {
-      const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const manifest = await resp.json();
-      return [{ base, manifest, ts: manifest.generated_at || "" }];
-    } catch {
-      // try next endpoint
-    }
-  }
-  return null;
-}
 
 const _processSlugResult = (slug, latest, hist30) => {
   const result = {
@@ -804,150 +783,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   _retailSyncError = false;
 
   try {
-    // STAK-503: v2 API branch
-    if (USE_V2_API) {
-      await _syncRetailV2({ ui, syncBtn, syncStatus });
-      return;
-    }
-
-    // Multi-endpoint: race all configured APIs, pick freshest manifest
-    let apiBase, manifest;
-    const ranked = await _pickFreshestEndpoint();
-    if (ranked) {
-      apiBase = ranked[0].base;
-      manifest = ranked[0].manifest;
-      _lastSuccessfulApiBase = apiBase;
-      window._lastSuccessfulApiBase = apiBase;
-      // Save manifest generated_at for market health dot (STAK-314)
-      if (manifest.generated_at) {
-        try { localStorage.setItem(RETAIL_MANIFEST_TS_KEY, manifest.generated_at); } catch (e) { /* ignore */ }
-      }
-      debugLog(`[retail] Using ${apiBase} (generated: ${ranked[0].ts}, ${ranked.length} endpoint(s) reachable)`, "info");
-      // Extract manifest metadata for resolver functions
-      _manifestSlugs = Array.isArray(manifest.enabled_coins) && manifest.enabled_coins.length
-        ? manifest.enabled_coins
-        : Array.isArray(manifest.coins) && manifest.coins.length
-          ? manifest.coins
-          : Array.isArray(manifest.slugs) && manifest.slugs.length
-            ? manifest.slugs
-            : null;
-      _manifestCoinMeta = manifest.coins_meta || null;
-      // Persist slug list and coin metadata so they survive page reload
-      if (_manifestSlugs) {
-        try { localStorage.setItem(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs)); } catch { /* ignore */ }
-      }
-      if (_manifestCoinMeta) {
-        try { localStorage.setItem(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta)); } catch { /* ignore */ }
-      }
-    } else {
-      debugLog("[retail] All endpoints unreachable, using fallback slug list", "warn");
-      apiBase = RETAIL_API_ENDPOINTS[0];
-      manifest = { slugs: RETAIL_SLUGS, latest_window: null };
-      _manifestSlugs = null;
-      _manifestCoinMeta = null;
-    }
-    const slugs = _manifestSlugs || (Array.isArray(manifest.slugs) && manifest.slugs.length ? manifest.slugs : RETAIL_SLUGS);
-
-    // Fetch providers.json (product page URLs for each coin+vendor)
-    try {
-      const providersResp = await fetch(`${apiBase}/providers.json`);
-      if (providersResp.ok) {
-        retailProviders = await providersResp.json();
-        saveRetailProviders();
-        // Extract vendor display metadata if present and persist for page reload
-        if (retailProviders && retailProviders._vendor_meta) {
-          _manifestVendorMeta = retailProviders._vendor_meta;
-          try { localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta)); } catch { /* ignore */ }
-        }
-        debugLog(`[retail] Loaded ${Object.keys(retailProviders || {}).length} coin provider mappings`, "info");
-      } else {
-        debugLog(`[retail] Providers fetch returned HTTP ${providersResp.status} — using fallback URLs`, "warn");
-      }
-    } catch (providersErr) {
-      debugLog(`[retail] Providers fetch failed (${providersErr.message}) — using homepage fallback URLs`, "warn");
-    }
-
-    const results = await Promise.allSettled(
-      slugs.map(async (slug) => {
-        const [latestResp, histResp] = await Promise.all([
-          fetch(`${apiBase}/${slug}/latest.json`),
-          fetch(`${apiBase}/${slug}/history-30d.json`),
-        ]);
-        const latest = latestResp.ok ? await latestResp.json() : null;
-        const hist30 = histResp.ok ? await histResp.json() : null;
-        return { slug, latest, hist30 };
-      })
-    );
-
-    let successCount = 0;
-    const newPrices = {};
-
-    results.forEach((r) => {
-      if (r.status !== "fulfilled") {
-        debugLog(`[retail] Slug fetch failed: ${r.reason?.message || r.reason}`, "warn");
-        return;
-      }
-      const { slug, latest, hist30 } = r.value;
-      const processed = _processSlugResult(slug, latest, hist30);
-
-      if (processed.hasLatest) {
-        newPrices[slug] = processed.price;
-        retailIntradayData[slug] = processed.intraday;
-        // Update availability data
-        if (processed.availabilityBySite) {
-          if (!retailAvailability[slug]) retailAvailability[slug] = {};
-          Object.assign(retailAvailability[slug], processed.availabilityBySite);
-        }
-        if (processed.lastKnownPriceBySite) {
-          if (!retailLastKnownPrices[slug]) retailLastKnownPrices[slug] = {};
-          Object.assign(retailLastKnownPrices[slug], processed.lastKnownPriceBySite);
-        }
-        if (processed.lastAvailableDateBySite) {
-          if (!retailLastAvailableDates[slug]) retailLastAvailableDates[slug] = {};
-          Object.assign(retailLastAvailableDates[slug], processed.lastAvailableDateBySite);
-        }
-        successCount++;
-      }
-
-      if (processed.history30) {
-        retailPriceHistory[slug] = processed.history30;
-      }
-    });
-
-    if (successCount > 0) {
-      retailPrices = {
-        lastSync: new Date().toISOString(),
-        window_start: manifest.latest_window || null,
-        prices: newPrices,
-      };
-      _retailSyncError = false;
-    }
-
-    // Check if all fetches failed
-    if (successCount === 0 && slugs.length > 0) {
-      const errorMsg = "All coin price fetches failed — check your network connection.";
-      debugLog(`[retail] ${errorMsg}`, "error");
-      if (ui && syncStatus) syncStatus.textContent = errorMsg;
-      _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
-      _retailSyncError = true;
-      return;
-    }
-
-    if (successCount > 0) {
-      saveRetailPrices();
-      saveRetailPriceHistory();
-      saveRetailIntradayData();
-      saveRetailAvailability();
-    }
-
-    const v1Tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-    const v1TzOpts = v1Tz && v1Tz !== 'auto' ? { timeZone: v1Tz, hour: 'numeric', minute: '2-digit' } : { hour: 'numeric', minute: '2-digit' };
-    const v1SyncTime = new Date().toLocaleTimeString(undefined, v1TzOpts);
-    const statusMsg = `Synced ${successCount} coin(s) · ${v1SyncTime}`;
-    if (ui && syncStatus) syncStatus.textContent = statusMsg;
-    debugLog(`[retail] Sync complete: ${statusMsg}`, "info");
-    _appendSyncLogEntry({ success: true, coins: successCount, window: manifest.latest_window || null, error: null });
-    if (typeof updateMarketHealthDot === 'function') updateMarketHealthDot();
+    await _syncRetailV2({ ui, syncBtn, syncStatus });
   } catch (err) {
     _retailSyncError = true;
     debugLog(`[retail] Sync error: ${err.message}`, "warn");
@@ -2077,6 +1913,41 @@ const renderRetailHistoryTable = () => {
   const prevSlug = select.value;
   select.innerHTML = "";
 
+  // Resolve vendor list from manifest metadata, or extract from history entries
+  let vendorIds = [];
+  if (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta && Object.keys(_manifestVendorMeta).length > 0) {
+    vendorIds = Object.keys(_manifestVendorMeta);
+  } else {
+    const vendorSet = new Set();
+    const allSlugsForVendors = getActiveRetailSlugs();
+    allSlugsForVendors.forEach(s => {
+      const h = getRetailHistoryForSlug(s);
+      h.forEach(entry => {
+        if (entry.vendors) Object.keys(entry.vendors).forEach(vid => vendorSet.add(vid));
+      });
+    });
+    vendorIds = [...vendorSet].sort();
+  }
+
+  // Build dynamic thead
+  const thead = safeGetElement("retailHistoryTableHead");
+  if (thead) {
+    while (thead.firstChild) thead.removeChild(thead.firstChild);
+    const headerRow = document.createElement("tr");
+    ["Date", "Avg Median", "Avg Low"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headerRow.appendChild(th);
+    });
+    vendorIds.forEach(vid => {
+      const th = document.createElement("th");
+      const meta = (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta) ? _manifestVendorMeta[vid] : null;
+      th.textContent = meta && meta.name ? meta.name : vid;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+  }
+
   if (!activeSlugs.length) {
     const placeholder = document.createElement("option");
     placeholder.value = "";
@@ -2084,7 +1955,14 @@ const renderRetailHistoryTable = () => {
     placeholder.selected = true;
     placeholder.textContent = "No coins with price history yet";
     select.appendChild(placeholder);
-    tbody.innerHTML = "<tr><td colspan=\"7\" class=\"settings-subtext\" style=\"text-align:center\">No history yet \u2014 sync from the Market Prices section.</td></tr>";
+    const emptyTr = document.createElement("tr");
+    const emptyTd = document.createElement("td");
+    emptyTd.colSpan = 3 + vendorIds.length;
+    emptyTd.className = "settings-subtext";
+    emptyTd.style.textAlign = "center";
+    emptyTd.textContent = "No history yet \u2014 sync from the Market Prices section.";
+    emptyTr.appendChild(emptyTd);
+    tbody.appendChild(emptyTr);
     return;
   }
 
@@ -2107,12 +1985,12 @@ const renderRetailHistoryTable = () => {
     const cutoffStr = cutoff.toISOString().slice(0, 10);
     return allHistory.filter((entry) => entry.date >= cutoffStr);
   })();
-  tbody.innerHTML = "";
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
   if (!history.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 7;
+    td.colSpan = 3 + vendorIds.length;
     td.className = "settings-subtext";
     td.style.textAlign = "center";
     td.textContent = "No history yet — sync from the Market Prices section.";
@@ -2123,18 +2001,14 @@ const renderRetailHistoryTable = () => {
 
   history.forEach((entry) => {
     const tr = document.createElement("tr");
-    const cells = [
-      entry.date,
-      _fmtRetailPrice(entry.avg_median),
-      _fmtRetailPrice(entry.avg_low),
-      _fmtRetailPrice(entry.vendors && entry.vendors.apmex && entry.vendors.apmex.avg),
-      _fmtRetailPrice(entry.vendors && entry.vendors.monumentmetals && entry.vendors.monumentmetals.avg),
-      _fmtRetailPrice(entry.vendors && entry.vendors.sdbullion && entry.vendors.sdbullion.avg),
-      _fmtRetailPrice(entry.vendors && entry.vendors.jmbullion && entry.vendors.jmbullion.avg),
-    ];
-    cells.forEach((text) => {
+    [entry.date, _fmtRetailPrice(entry.avg_median), _fmtRetailPrice(entry.avg_low)].forEach(text => {
       const td = document.createElement("td");
       td.textContent = text;
+      tr.appendChild(td);
+    });
+    vendorIds.forEach(vid => {
+      const td = document.createElement("td");
+      td.textContent = _fmtRetailPrice(entry.vendors && entry.vendors[vid] && entry.vendors[vid].avg);
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -2182,15 +2056,9 @@ const initRetailPrices = () => {
     _manifestVendorMeta = null;
     try { localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY); } catch { /* ignore */ }
   }
-  if (USE_V2_API) {
-    _loadV2RetailPrices();
-    _loadV2RetailHistory();
-    _loadV2RetailIntraday();
-  } else {
-    loadRetailPrices();
-    loadRetailPriceHistory();
-    loadRetailIntradayData();
-  }
+  _loadV2RetailPrices();
+  _loadV2RetailHistory();
+  _loadV2RetailIntraday();
   _loadRetailTrendMode();
   loadRetailProviders();
   loadRetailAvailability();
