@@ -534,6 +534,7 @@ const loadApiConfig = () => {
       const cacheTimeouts = config.cacheTimeouts || {};
       const globalCache = Number.isFinite(config.cacheHours) ? config.cacheHours : 24;
       Object.keys(API_PROVIDERS).forEach((p) => {
+        if (p === 'STAKTRAKR') { cacheTimeouts[p] = 0; return; }
         if (!Number.isFinite(cacheTimeouts[p]) || cacheTimeouts[p] < 0) {
           cacheTimeouts[p] = globalCache;
         }
@@ -789,6 +790,30 @@ const updateHistoryPullCost = (provider) => {
 const updateProviderSettings = (provider) => {
   const config = loadApiConfig();
 
+  // STAKTRAKR has no cache dropdown — persist toggle + auto-refresh only
+  if (provider === 'STAKTRAKR') {
+    const enabledEl = document.getElementById('enabled_STAKTRAKR');
+    if (enabledEl) {
+      if (!config.syncMode) config.syncMode = {};
+      const enabled = enabledEl.checked ? 1 : 0;
+      config.syncMode.STAKTRAKR = enabled;
+      // Also update providerPriority — syncProviderChain reads this key to gate fetches
+      if (typeof loadProviderPriorities === 'function' && typeof saveProviderPriorities === 'function') {
+        const priorities = loadProviderPriorities();
+        priorities.STAKTRAKR = enabled;
+        saveProviderPriorities(priorities);
+      }
+    }
+    const autoEl = document.getElementById('autoRefresh_STAKTRAKR');
+    if (autoEl) {
+      if (!config.autoRefresh) config.autoRefresh = {};
+      config.autoRefresh.STAKTRAKR = autoEl.checked;
+    }
+    saveApiConfig(config);
+    if (typeof startSpotBackgroundSync === 'function') startSpotBackgroundSync();
+    return;
+  }
+
   // Update cache timeout
   const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
   if (cacheSelect) {
@@ -806,6 +831,19 @@ const updateProviderSettings = (provider) => {
  * @param {string} provider - The unique key of the API provider
  */
 const setupProviderSettingsListeners = (provider) => {
+  // STAKTRAKR: wire enabled toggle + auto-refresh (no cache dropdown)
+  if (provider === 'STAKTRAKR') {
+    const enabledEl = document.getElementById('enabled_STAKTRAKR');
+    if (enabledEl) {
+      enabledEl.addEventListener('change', () => updateProviderSettings(provider));
+    }
+    const autoEl = document.getElementById('autoRefresh_STAKTRAKR');
+    if (autoEl) {
+      autoEl.addEventListener('change', () => updateProviderSettings(provider));
+    }
+    return;
+  }
+
   // Cache timeout change
   const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
   if (cacheSelect) {
@@ -852,7 +890,7 @@ const setupProviderSettingsListeners = (provider) => {
   });
 
   // Auto-refresh toggle (STAK-222)
-  const autoRefreshToggle = safeGetElement(`autoRefresh_${provider}`);
+  const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
   if (autoRefreshToggle) {
     autoRefreshToggle.addEventListener('change', () => {
       const config = loadApiConfig();
@@ -2027,7 +2065,7 @@ const syncSpotPricesFromApi = async (
     if (cache && cache.data && cache.timestamp) {
       const now = Date.now();
       const cacheAge = now - cache.timestamp;
-      const duration = getCacheDurationMs(apiConfig?.provider || config.provider);
+      const duration = getCacheDurationMs(cache.provider || config.provider);
 
       if (cacheAge < duration) {
         const hoursAgo = Math.floor(cacheAge / (1000 * 60 * 60));
@@ -2467,14 +2505,26 @@ const populateApiSection = () => {
       setupProviderSettingsListeners(provider);
     }
 
-    // Load saved cache timeout
-    const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
-    if (cacheSelect) {
-      cacheSelect.value = cfg.cacheTimeouts?.[provider] ?? 24;
+    // STAKTRAKR: load enabled toggle from providerPriority (the key syncProviderChain reads)
+    if (provider === 'STAKTRAKR') {
+      const enabledEl = document.getElementById('enabled_STAKTRAKR');
+      if (enabledEl) {
+        const priorities = typeof loadProviderPriorities === 'function'
+          ? loadProviderPriorities() : {};
+        enabledEl.checked = (priorities.STAKTRAKR ?? 1) > 0;
+      }
+    }
+
+    // Load saved cache timeout (skip for STAKTRAKR — no dropdown)
+    if (provider !== 'STAKTRAKR') {
+      const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
+      if (cacheSelect) {
+        cacheSelect.value = cfg.cacheTimeouts?.[provider] ?? 24;
+      }
     }
 
     // Load saved auto-refresh state (STAK-222)
-    const autoRefreshToggle = safeGetElement(`autoRefresh_${provider}`);
+    const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
     if (autoRefreshToggle) {
       autoRefreshToggle.checked = cfg.autoRefresh?.[provider] ?? (provider === 'STAKTRAKR');
     }
