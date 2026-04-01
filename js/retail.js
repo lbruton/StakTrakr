@@ -710,10 +710,22 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     addHistory(hist7);
 
     // Deduplicate by date, preferring the latest (finest granularity) entry
+    // but preserving vendor data from coarser sources when finer source lacks it
     if (historyEntries.length) {
       const byDate = new Map();
       for (const e of historyEntries) {
-        if (e.date) byDate.set(e.date, e);
+        if (!e.date) continue;
+        const existing = byDate.get(e.date);
+        if (!existing) {
+          byDate.set(e.date, e);
+        } else {
+          // Merge: take the newer entry's aggregates but keep vendors if the newer lacks them
+          const merged = { ...e };
+          if (!merged.vendors && existing.vendors) {
+            merged.vendors = existing.vendors;
+          }
+          byDate.set(e.date, merged);
+        }
       }
       retailPriceHistory[slug] = [...byDate.values()].sort((a, b) => (a.date > b.date ? 1 : -1));
     }
