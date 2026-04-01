@@ -325,7 +325,7 @@ label {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  min-height: 120px; /* match dark mode banner height */
+  /* min-height removed — let content determine header height (STAK-514) */
 }
 
 /* Header action buttons — 2-col grid at narrow widths, flex row at wider */
