@@ -325,7 +325,7 @@ label {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  min-height: 120px; /* match dark mode banner height */
+  /* min-height removed — let content determine header height (STAK-514) */
 }
 
 /* Header action buttons — 2-col grid at narrow widths, flex row at wider */
@@ -369,9 +369,8 @@ label {
 
 /* StakTrakr Logo Styles */
 .stackr-logo {
-  max-width: 800px;
-  width: 100%;
-  height: auto;
+  height: 56px;
+  width: auto;
 }
 
 /* Default state - show light mode */
@@ -578,8 +577,8 @@ section {
 /* Environment badge (BETA / PREVIEW / LOCAL) — STAK-376 */
 .env-badge {
   position: absolute;
-  bottom: 4px;
-  left: 0;
+  bottom: -2px;
+  left: 2px;
   display: inline-flex;
   align-items: center;
   font-size: 0.55rem;
