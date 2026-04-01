@@ -2064,7 +2064,7 @@ const syncSpotPricesFromApi = async (
     if (cache && cache.data && cache.timestamp) {
       const now = Date.now();
       const cacheAge = now - cache.timestamp;
-      const duration = getCacheDurationMs(apiConfig?.provider || config.provider);
+      const duration = getCacheDurationMs(cache.provider || config.provider);
 
       if (cacheAge < duration) {
         const hoursAgo = Math.floor(cacheAge / (1000 * 60 * 60));
