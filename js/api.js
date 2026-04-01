@@ -792,7 +792,7 @@ const updateProviderSettings = (provider) => {
 
   // STAKTRAKR has no cache dropdown — persist toggle + auto-refresh only
   if (provider === 'STAKTRAKR') {
-    const enabledEl = safeGetElement('enabled_STAKTRAKR');
+    const enabledEl = document.getElementById('enabled_STAKTRAKR');
     if (enabledEl) {
       if (!config.syncMode) config.syncMode = {};
       const enabled = enabledEl.checked ? 1 : 0;
@@ -804,17 +804,18 @@ const updateProviderSettings = (provider) => {
         saveProviderPriorities(priorities);
       }
     }
-    const autoEl = safeGetElement('autoRefresh_STAKTRAKR');
+    const autoEl = document.getElementById('autoRefresh_STAKTRAKR');
     if (autoEl) {
       if (!config.autoRefresh) config.autoRefresh = {};
       config.autoRefresh.STAKTRAKR = autoEl.checked;
     }
     saveApiConfig(config);
+    if (typeof startSpotBackgroundSync === 'function') startSpotBackgroundSync();
     return;
   }
 
   // Update cache timeout
-  const cacheSelect = safeGetElement(`cacheTimeout_${provider}`);
+  const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
   if (cacheSelect) {
     if (!config.cacheTimeouts) config.cacheTimeouts = {};
     config.cacheTimeouts[provider] = parseFloat(cacheSelect.value);
@@ -832,11 +833,11 @@ const updateProviderSettings = (provider) => {
 const setupProviderSettingsListeners = (provider) => {
   // STAKTRAKR: wire enabled toggle + auto-refresh (no cache dropdown)
   if (provider === 'STAKTRAKR') {
-    const enabledEl = safeGetElement('enabled_STAKTRAKR');
+    const enabledEl = document.getElementById('enabled_STAKTRAKR');
     if (enabledEl) {
       enabledEl.addEventListener('change', () => updateProviderSettings(provider));
     }
-    const autoEl = safeGetElement('autoRefresh_STAKTRAKR');
+    const autoEl = document.getElementById('autoRefresh_STAKTRAKR');
     if (autoEl) {
       autoEl.addEventListener('change', () => updateProviderSettings(provider));
     }
@@ -889,7 +890,7 @@ const setupProviderSettingsListeners = (provider) => {
   });
 
   // Auto-refresh toggle (STAK-222)
-  const autoRefreshToggle = safeGetElement(`autoRefresh_${provider}`);
+  const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
   if (autoRefreshToggle) {
     autoRefreshToggle.addEventListener('change', () => {
       const config = loadApiConfig();
@@ -2506,7 +2507,7 @@ const populateApiSection = () => {
 
     // STAKTRAKR: load enabled toggle from providerPriority (the key syncProviderChain reads)
     if (provider === 'STAKTRAKR') {
-      const enabledEl = safeGetElement('enabled_STAKTRAKR');
+      const enabledEl = document.getElementById('enabled_STAKTRAKR');
       if (enabledEl) {
         const priorities = typeof loadProviderPriorities === 'function'
           ? loadProviderPriorities() : {};
@@ -2523,7 +2524,7 @@ const populateApiSection = () => {
     }
 
     // Load saved auto-refresh state (STAK-222)
-    const autoRefreshToggle = safeGetElement(`autoRefresh_${provider}`);
+    const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
     if (autoRefreshToggle) {
       autoRefreshToggle.checked = cfg.autoRefresh?.[provider] ?? (provider === 'STAKTRAKR');
     }

@@ -591,8 +591,15 @@ const migrateProviderPriority = () => {
 
   // Normalize STAKTRAKR to enabled/disabled (not ranked)
   if (!('STAKTRAKR' in priorities)) {
+    // Shift existing providers to make room at rank 1
+    Object.keys(priorities).forEach(prov => {
+      if (priorities[prov] >= 1) priorities[prov]++;
+    });
     priorities.STAKTRAKR = 1;
-  } else if (priorities.STAKTRAKR > 0) {
+  } else if (priorities.STAKTRAKR > 1) {
+    // Swap with current rank-1 provider to avoid collision
+    const currentRank1 = Object.entries(priorities).find(([k, p]) => k !== 'STAKTRAKR' && p === 1);
+    if (currentRank1) priorities[currentRank1[0]] = priorities.STAKTRAKR;
     priorities.STAKTRAKR = 1;
   }
 
@@ -613,9 +620,16 @@ const loadProviderPriorities = () => {
       if (typeof priorities === 'object' && priorities !== null) {
         // Normalize STAKTRAKR to enabled/disabled for existing users
         if (!('STAKTRAKR' in priorities)) {
+          // Shift existing providers to make room at rank 1
+          Object.keys(priorities).forEach(prov => {
+            if (priorities[prov] >= 1) priorities[prov]++;
+          });
           priorities.STAKTRAKR = 1;
           saveProviderPriorities(priorities);
         } else if (priorities.STAKTRAKR > 1) {
+          // Swap with current rank-1 provider to avoid collision
+          const currentRank1 = Object.entries(priorities).find(([k, p]) => k !== 'STAKTRAKR' && p === 1);
+          if (currentRank1) priorities[currentRank1[0]] = priorities.STAKTRAKR;
           priorities.STAKTRAKR = 1;
           saveProviderPriorities(priorities);
         }
