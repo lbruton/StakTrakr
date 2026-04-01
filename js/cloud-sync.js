@@ -2031,7 +2031,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     for (var i = 0; i < settingsChanges.length; i++) {
       var sc = settingsChanges[i];
       if (sc && sc.key && sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
-        localStorage.setItem(sc.key, sc.remoteVal);
+        localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal));
       }
     }
   }
@@ -2562,7 +2562,7 @@ async function pullWithPreview(remoteMeta) {
                   // stored form from the remote device (may include JSON encoding or
                   // compression from saveDataSync). Re-encoding via saveDataSync
                   // would double-encode.
-                  try { localStorage.setItem(_sc.key, _sc.remoteVal); _appliedCount++; } catch (_e) { _failedCount++; }
+                  try { localStorage.setItem(_sc.key, typeof _sc.remoteVal === 'string' ? _sc.remoteVal : JSON.stringify(_sc.remoteVal)); _appliedCount++; } catch (_e) { _failedCount++; }
                 }
               }
               // Only record the pull if all writes succeeded — if any failed

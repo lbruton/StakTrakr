@@ -929,7 +929,7 @@
             : parseFloat(priceStr);
           if (price < 0) price = 0;
           const purchaseLocation = raw.purchaseLocation || '';
-          const storageLocation = raw.storageLocation || 'Unknown';
+          const storageLocation = raw.storageLocation || '';
           const notes = raw.notes || '';
           const year = (raw.year || raw.issuedYear || '').toString().trim();
           const grade = (raw.grade || '').toString().trim();

@@ -88,7 +88,7 @@ const DIFF_FIELDS = [
  * @returns {boolean}
  */
 function _valuesEqual(a, b) {
-  const norm = (v) => (v === undefined ? null : v);
+  const norm = (v) => (v === undefined || v === '' ? null : v);
   a = norm(a); b = norm(b);
   if (a === b) return true;
   if (a === null || b === null) return false;
