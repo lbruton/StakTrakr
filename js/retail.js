@@ -721,7 +721,9 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
         } else {
           // Merge: take the newer entry's aggregates but keep vendors if the newer lacks them
           const merged = { ...e };
-          if (!merged.vendors && existing.vendors) {
+          const mergedHasVendors = merged.vendors && Object.keys(merged.vendors).length > 0;
+          const existingHasVendors = existing.vendors && Object.keys(existing.vendors).length > 0;
+          if (!mergedHasVendors && existingHasVendors) {
             merged.vendors = existing.vendors;
           }
           byDate.set(e.date, merged);
