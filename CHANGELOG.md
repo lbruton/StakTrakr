@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.90] - 2026-04-01
+
+### Fixed — Simplify StakTrakr API Settings (STAK-518)
+
+- **Fixed**: StakTrakr API cache settings no longer revert to 24h on page load — config reconstruction now forces cache to 0
+- **Changed**: StakTrakr provider panel simplified to Enabled toggle + auto-refresh checkbox (removed dead cache, priority, metals, history controls)
+- **Changed**: StakTrakr tab moved to first position in Settings > Market as the primary free built-in provider
+- **Fixed**: Priority migration simplified — STAKTRAKR uses enabled/disabled model instead of ranked priority ordering
+
+---
+
 ## [3.33.89] - 2026-03-29
 
 ### Added — Market Filter Matrix (STAK-515)

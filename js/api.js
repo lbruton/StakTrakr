@@ -534,6 +534,7 @@ const loadApiConfig = () => {
       const cacheTimeouts = config.cacheTimeouts || {};
       const globalCache = Number.isFinite(config.cacheHours) ? config.cacheHours : 24;
       Object.keys(API_PROVIDERS).forEach((p) => {
+        if (p === 'STAKTRAKR') { cacheTimeouts[p] = 0; return; }
         if (!Number.isFinite(cacheTimeouts[p]) || cacheTimeouts[p] < 0) {
           cacheTimeouts[p] = globalCache;
         }
@@ -789,8 +790,31 @@ const updateHistoryPullCost = (provider) => {
 const updateProviderSettings = (provider) => {
   const config = loadApiConfig();
 
+  // STAKTRAKR has no cache dropdown — persist toggle + auto-refresh only
+  if (provider === 'STAKTRAKR') {
+    const enabledEl = safeGetElement('enabled_STAKTRAKR');
+    if (enabledEl) {
+      if (!config.syncMode) config.syncMode = {};
+      const enabled = enabledEl.checked ? 1 : 0;
+      config.syncMode.STAKTRAKR = enabled;
+      // Also update providerPriority — syncProviderChain reads this key to gate fetches
+      if (typeof loadProviderPriorities === 'function' && typeof saveProviderPriorities === 'function') {
+        const priorities = loadProviderPriorities();
+        priorities.STAKTRAKR = enabled;
+        saveProviderPriorities(priorities);
+      }
+    }
+    const autoEl = safeGetElement('autoRefresh_STAKTRAKR');
+    if (autoEl) {
+      if (!config.autoRefresh) config.autoRefresh = {};
+      config.autoRefresh.STAKTRAKR = autoEl.checked;
+    }
+    saveApiConfig(config);
+    return;
+  }
+
   // Update cache timeout
-  const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
+  const cacheSelect = safeGetElement(`cacheTimeout_${provider}`);
   if (cacheSelect) {
     if (!config.cacheTimeouts) config.cacheTimeouts = {};
     config.cacheTimeouts[provider] = parseFloat(cacheSelect.value);
@@ -806,6 +830,19 @@ const updateProviderSettings = (provider) => {
  * @param {string} provider - The unique key of the API provider
  */
 const setupProviderSettingsListeners = (provider) => {
+  // STAKTRAKR: wire enabled toggle + auto-refresh (no cache dropdown)
+  if (provider === 'STAKTRAKR') {
+    const enabledEl = safeGetElement('enabled_STAKTRAKR');
+    if (enabledEl) {
+      enabledEl.addEventListener('change', () => updateProviderSettings(provider));
+    }
+    const autoEl = safeGetElement('autoRefresh_STAKTRAKR');
+    if (autoEl) {
+      autoEl.addEventListener('change', () => updateProviderSettings(provider));
+    }
+    return;
+  }
+
   // Cache timeout change
   const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
   if (cacheSelect) {
@@ -2467,10 +2504,22 @@ const populateApiSection = () => {
       setupProviderSettingsListeners(provider);
     }
 
-    // Load saved cache timeout
-    const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
-    if (cacheSelect) {
-      cacheSelect.value = cfg.cacheTimeouts?.[provider] ?? 24;
+    // STAKTRAKR: load enabled toggle from providerPriority (the key syncProviderChain reads)
+    if (provider === 'STAKTRAKR') {
+      const enabledEl = safeGetElement('enabled_STAKTRAKR');
+      if (enabledEl) {
+        const priorities = typeof loadProviderPriorities === 'function'
+          ? loadProviderPriorities() : {};
+        enabledEl.checked = (priorities.STAKTRAKR ?? 1) > 0;
+      }
+    }
+
+    // Load saved cache timeout (skip for STAKTRAKR — no dropdown)
+    if (provider !== 'STAKTRAKR') {
+      const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
+      if (cacheSelect) {
+        cacheSelect.value = cfg.cacheTimeouts?.[provider] ?? 24;
+      }
     }
 
     // Load saved auto-refresh state (STAK-222)

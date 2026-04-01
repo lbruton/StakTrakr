@@ -2509,11 +2509,11 @@
 
               <div class="api-header-status-row" id="apiHeaderStatusRow"></div>
 
-              <!-- Provider Tabs — Numista pinned, metals draggable -->
+              <!-- Provider Tabs — StakTrakr & Numista pinned, metals draggable -->
               <div class="settings-provider-tabs">
-                <button class="settings-provider-tab pinned active" data-provider="NUMISTA">Numista</button>
+                <button class="settings-provider-tab pinned active" data-provider="STAKTRAKR">StakTrakr</button>
+                <button class="settings-provider-tab pinned" data-provider="NUMISTA">Numista</button>
                 <button class="settings-provider-tab pinned" data-provider="PCGS">PCGS</button>
-                <button class="settings-provider-tab" data-provider="STAKTRAKR">StakTrakr</button>
                 <button class="settings-provider-tab" data-provider="METALS_DEV">Metals.dev</button>
                 <button class="settings-provider-tab" data-provider="METALS_API">Metals-API</button>
                 <button class="settings-provider-tab" data-provider="METAL_PRICE_API">MetalPriceAPI</button>
@@ -2521,7 +2521,7 @@
               </div>
 
               <!-- Numista Provider Panel -->
-              <div class="settings-provider-panel" id="providerPanel_NUMISTA" style="display: block">
+              <div class="settings-provider-panel" id="providerPanel_NUMISTA" style="display: none">
                 <div class="api-provider" data-provider="NUMISTA">
                   <div class="provider-header">
                     <span class="provider-name">Numista Catalog API</span>
@@ -2659,7 +2659,7 @@
               </div>
 
               <!-- StakTrakr Provider Panel -->
-              <div class="settings-provider-panel" id="providerPanel_STAKTRAKR" style="display: none">
+              <div class="settings-provider-panel" id="providerPanel_STAKTRAKR" style="display: block">
                 <div class="api-provider" data-provider="STAKTRAKR">
                   <div class="provider-header">
                     <span class="provider-name">StakTrakr Spot API</span>
@@ -2671,53 +2671,14 @@
                   <div class="provider-settings">
                     <h4>Provider Settings</h4>
                     <div class="provider-setting-row">
-                      <label for="cacheTimeout_STAKTRAKR">Cache Timeout:</label>
-                      <select id="cacheTimeout_STAKTRAKR" class="provider-cache-select">
-                        <option value="0">No Cache</option>
-                        <option value="0.25">15 minutes</option>
-                        <option value="0.5">30 minutes</option>
-                        <option value="1" selected>1 hour</option>
-                        <option value="6">6 hours</option>
-                        <option value="12">12 hours</option>
-                        <option value="24">24 hours</option>
-                      </select>
+                      <label for="enabled_STAKTRAKR">Enabled</label>
+                      <input type="checkbox" id="enabled_STAKTRAKR" checked>
+                      <span class="settings-hint">Free spot prices — no API key needed.</span>
                     </div>
                     <div class="provider-setting-row api-autorefresh-row">
                       <label for="autoRefresh_STAKTRAKR">Background auto-refresh</label>
                       <input type="checkbox" id="autoRefresh_STAKTRAKR" class="api-autorefresh-toggle" data-provider="STAKTRAKR" checked>
                       <span class="settings-hint">Polls on cache TTL interval. Free, on by default.</span>
-                    </div>
-                    <div class="provider-setting-row">
-                      <label for="providerPriority_STAKTRAKR">Sync Priority:</label>
-                      <select class="provider-priority-select" id="providerPriority_STAKTRAKR" data-provider="STAKTRAKR">
-                        <option value="1">1st</option>
-                        <option value="2">2nd</option>
-                        <option value="3">3rd</option>
-                        <option value="4">4th</option>
-                        <option value="5">5th</option>
-                        <option value="0">Disabled</option>
-                      </select>
-                    </div>
-                    <div class="metal-selection">
-                      <label>Select Metals to Track:</label>
-                      <div class="metal-checkboxes">
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="silver" checked><span class="metal-name">Silver (AG)</span></label>
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="gold" checked><span class="metal-name">Gold (AU)</span></label>
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="platinum" checked><span class="metal-name">Platinum (PT)</span></label>
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="palladium" checked><span class="metal-name">Palladium (PD)</span></label>
-                      </div>
-                    </div>
-                    <div class="provider-history-pull">
-                      <label for="historyPullDays_STAKTRAKR">Pull Hourly History:</label>
-                      <select id="historyPullDays_STAKTRAKR" class="provider-history-select">
-                        <option value="1">1 day</option>
-                        <option value="3">3 days</option>
-                        <option value="7" selected>7 days</option>
-                        <option value="14">14 days</option>
-                        <option value="30">30 days</option>
-                      </select>
-                      <button type="button" class="btn api-history-btn" data-provider="STAKTRAKR">Pull History</button>
-                      <span class="history-pull-cost" id="historyPullCost_STAKTRAKR"></span>
                     </div>
                     <div class="provider-info">
                       <div class="provider-status"><span class="status-dot"></span><span class="status-text">Disconnected</span><span class="status-last-used"></span></div>
