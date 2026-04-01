@@ -369,9 +369,8 @@ label {
 
 /* StakTrakr Logo Styles */
 .stackr-logo {
-  max-width: 800px;
-  width: 100%;
-  height: auto;
+  height: 56px;
+  width: auto;
 }
 
 /* Default state - show light mode */
