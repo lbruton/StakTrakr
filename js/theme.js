@@ -11,14 +11,14 @@ const setTheme = (theme) => {
     document.documentElement.setAttribute("data-theme", "dark");
     localStorage.setItem(THEME_KEY, "dark");
   } else if (theme === "light") {
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.setAttribute("data-theme", "light");
     localStorage.setItem(THEME_KEY, "light");
   } else if (theme === "sepia") {
     document.documentElement.setAttribute("data-theme", "sepia");
     localStorage.setItem(THEME_KEY, "sepia");
   } else {
     // Default to light if invalid theme
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.setAttribute("data-theme", "light");
     localStorage.setItem(THEME_KEY, "light");
   }
   if (typeof renderTable === "function") {

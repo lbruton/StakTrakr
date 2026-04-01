@@ -98,9 +98,11 @@
          avoid any dependency on constants.js (which loads deferred). -->
     <script>
       try {
-        var __t = localStorage.getItem('appTheme') || 'dark';
-        if (__t && __t !== 'light' && __t !== 'system') {
+        var __t = localStorage.getItem('appTheme');
+        if (__t === 'dark' || __t === 'light' || __t === 'sepia' || __t === 'hello-kitty') {
           document.documentElement.setAttribute('data-theme', __t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
         }
       } catch (e) {}
     </script>
@@ -261,9 +263,9 @@
   <body>
     <!-- Application Header -->
     <div class="app-header">
-      <div>
+      <div class="app-logo-group">
         <h1 class="app-logo" id="appLogo" aria-label="StakTrakr">
-          <svg class="stackr-logo" viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 560px;">
+          <svg class="stackr-logo" viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" width="100%">
             <defs>
               <!-- S-stack bar gradients (shared across themes) -->
               <linearGradient id="silverBar" x1="0" y1="0" x2="1" y2="0">
@@ -274,7 +276,7 @@
               </linearGradient>
               <!-- Light mode bar gradient (darker for contrast on light bg) -->
               <linearGradient id="silverBarLight" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#475569"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/>
+                <stop offset="0%" stop-color="#334155"/><stop offset="50%" stop-color="#64748b"/><stop offset="100%" stop-color="#475569"/>
               </linearGradient>
               <!-- Sepia mode bar gradient -->
               <linearGradient id="silverBarSepia" x1="0" y1="0" x2="1" y2="0">
@@ -288,14 +290,14 @@
             <!-- Light Mode Group -->
             <g class="light-mode">
               <g transform="translate(8, 8) scale(0.125)">
-                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
-                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.9"/>
                 <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBar)"/>
-                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
-                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.9"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
               </g>
               <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
-                <tspan class="logo-silver" fill="#334155">STAK</tspan><tspan class="logo-gold" fill="#b8860b">TRAKR</tspan>
+                <tspan class="logo-silver" fill="#1e3a5f">STAK</tspan><tspan class="logo-gold" fill="#b8860b">TRAKR</tspan>
               </text>
             </g>
 

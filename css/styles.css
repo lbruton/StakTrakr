@@ -344,6 +344,16 @@ label {
   }
 }
 
+.app-logo-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  flex: 1;
+  min-width: 0;
+  max-width: 800px;
+}
+
 .app-logo {
   display: flex;
   align-items: center;
@@ -416,12 +426,12 @@ label {
   display: block; 
 }
 
-/* System preference detection (only when no manual theme is set) */
+/* System preference detection (only when <html> has no explicit theme) */
 @media (prefers-color-scheme: dark) {
-  body:not([data-theme]) .stackr-logo .light-mode { 
+  :root:not([data-theme]) .stackr-logo .light-mode {
     display: none; 
   }
-  body:not([data-theme]) .stackr-logo .dark-mode { 
+  :root:not([data-theme]) .stackr-logo .dark-mode {
     display: block; 
   }
 }
@@ -567,17 +577,20 @@ section {
 
 /* Environment badge (BETA / PREVIEW / LOCAL) — STAK-376 */
 .env-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
   display: inline-flex;
   align-items: center;
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  padding: 2px 7px;
-  border-radius: 10px;
-  vertical-align: middle;
-  margin-left: 0.4rem;
+  padding: 1px 6px;
+  border-radius: 8px;
   text-transform: uppercase;
   line-height: 1.4;
+  z-index: 1;
+  pointer-events: none;
 }
 .env-badge--beta {
   background: var(--warning, #f0ad4e);

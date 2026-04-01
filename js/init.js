@@ -513,10 +513,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Apply saved theme attribute early so CSS variables resolve correctly
     // before renderActiveFilters() computes contrast colors in Phase 13
     const earlyTheme = localStorage.getItem(THEME_KEY);
-    if (earlyTheme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else if (earlyTheme === 'sepia') {
-      document.documentElement.setAttribute('data-theme', 'sepia');
+    if (['dark', 'light', 'sepia', 'hello-kitty'].includes(earlyTheme)) {
+      document.documentElement.setAttribute('data-theme', earlyTheme);
     }
 
     // Initialize IndexedDB image cache (COIN_IMAGES feature)
