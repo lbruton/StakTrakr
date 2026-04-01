@@ -185,6 +185,7 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.91 &ndash; Cloud Sync Fixes</strong>: API keys no longer destroyed as [object Object] when synced. StorageLocation sync loop fixed &mdash; blank values persist correctly (STAK-519)</li>
     <li><strong>v3.33.90 &ndash; StakTrakr API Settings Fix</strong>: Cache settings no longer revert to 24h. StakTrakr panel simplified to enabled toggle + auto-refresh. Tab moved to first position as primary free provider (STAK-518)</li>
     <li><strong>v3.33.89 &ndash; Market Filter Matrix</strong>: Settings &gt; Market redesigned with checkbox filter matrix. Enable/disable items and vendors per metal category. Ticker and vendor prices table respect filter settings (STAK-515)</li>
     <li><strong>v3.33.88 &ndash; Ticker &amp; What&rsquo;s New Fix</strong>: Market ticker no longer duplicates into multiple rows. Stale What&rsquo;s New content on cached deployments now correctly falls back to embedded data (STAK-513)</li>

@@ -2153,7 +2153,7 @@
 
       // Fallback: whole-setting pick via _conflictResolutions (default remote)
       var resolution = _conflictResolutions['setting-' + setting.key];
-      var value = (resolution === 'local') ? _parseSetting(setting.localVal) : _parseSetting(setting.remoteVal);
+      var value = (resolution === 'local') ? setting.localVal : setting.remoteVal;
       result.push({ type: 'setting', key: setting.key, value: value });
     }
 

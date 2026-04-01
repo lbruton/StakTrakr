@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.91] - 2026-04-01
+
+### Fixed — Cloud Sync API Key + StorageLocation Loop (STAK-519)
+
+- **Fixed**: Accepting remote API keys in cloud sync merge no longer destroys them as `[object Object]` — whole-setting fallback now preserves raw strings
+- **Fixed**: `_applyAndFinalize()` stringify guard prevents any future object-to-string coercion in localStorage writes
+- **Fixed**: New items with blank storageLocation default to `""` instead of `"Unknown"`, breaking the infinite sync conflict loop
+- **Fixed**: `_valuesEqual()` now treats `""`, `null`, and `undefined` as equivalent, preventing spurious sync conflicts on blank fields
+
+---
+
 ## [3.33.90] - 2026-04-01
 
 ### Fixed — Simplify StakTrakr API Settings (STAK-518)
