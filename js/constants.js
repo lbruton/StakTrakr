@@ -18,15 +18,6 @@ const API_PROVIDERS = {
     baseUrl: "https://api.staktrakr.com/data",
     requiresKey: false,
     documentation: "https://www.staktrakr.com",
-    hourlyBaseUrl: "https://api.staktrakr.com/data/hourly",
-    hourlyBaseUrls: [
-      "https://api.staktrakr.com/data/hourly",
-      "https://api2.staktrakr.com/data/hourly",
-    ],
-    fifteenMinBaseUrls: [
-      "https://api.staktrakr.com/data/15min",
-      "https://api2.staktrakr.com/data/15min",
-    ],
     endpoints: { silver: "", gold: "", platinum: "", palladium: "" },
     getEndpoint: () => "",
     parseResponse: () => null,
@@ -290,7 +281,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.33.91";
+const APP_VERSION = "3.33.92";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -528,17 +519,6 @@ const RETAIL_PRICE_HISTORY_KEY = "retailPriceHistory"; // nosemgrep: codacy.java
 /** @constant {string} RETAIL_PROVIDERS_KEY - LocalStorage key for cached providers.json lookup map */
 const RETAIL_PROVIDERS_KEY = "retailProviders"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
-/** @constant {string[]} RETAIL_API_ENDPOINTS - Ordered list of retail API endpoints (primary first) */
-const RETAIL_API_ENDPOINTS = [
-  "https://api.staktrakr.com/data/api",
-  "https://api2.staktrakr.com/data/api",
-];
-/** @constant {string} RETAIL_API_BASE_URL - Primary endpoint (backward compat) */
-const RETAIL_API_BASE_URL = RETAIL_API_ENDPOINTS[0];
-
-/** @constant {boolean} USE_V2_API - Feature flag for v2 API migration (internal toggle) */
-const USE_V2_API = true;
-
 /** @constant {string[]} V2_API_ENDPOINTS - Ordered list of v2 API endpoints (primary first) */
 const V2_API_ENDPOINTS = [
   "https://api.staktrakr.com/data/v2",
@@ -547,9 +527,6 @@ const V2_API_ENDPOINTS = [
 
 /** @constant {string} V2_API_BASE_URL - Primary v2 endpoint (backward compat) */
 const V2_API_BASE_URL = V2_API_ENDPOINTS[0];
-
-/** @constant {string} GOLDBACK_API_URL - Goldback daily spot price endpoint (g1_usd + denominations) */
-const GOLDBACK_API_URL = "https://api.staktrakr.com/data/api/goldback-spot.json";
 
 /** @constant {string} RETAIL_INTRADAY_KEY - LocalStorage key for 15-min intraday window data */
 const RETAIL_INTRADAY_KEY = "retailIntradayData"; // nosemgrep: codacy.javascript.security.hard-coded-password
@@ -1885,16 +1862,11 @@ if (typeof window !== "undefined") {
   window.RETAIL_PRICES_KEY = RETAIL_PRICES_KEY;
   window.RETAIL_PRICE_HISTORY_KEY = RETAIL_PRICE_HISTORY_KEY;
   window.RETAIL_PROVIDERS_KEY = RETAIL_PROVIDERS_KEY;
-  window.RETAIL_API_ENDPOINTS = RETAIL_API_ENDPOINTS;
-  window.RETAIL_API_BASE_URL = RETAIL_API_BASE_URL;
-  // STAK-503: v2 API constants
-  window.USE_V2_API = USE_V2_API;
   window.V2_API_ENDPOINTS = V2_API_ENDPOINTS;
   window.V2_API_BASE_URL = V2_API_BASE_URL;
   window.RETAIL_INTRADAY_KEY = RETAIL_INTRADAY_KEY;
   window.RETAIL_SYNC_LOG_KEY = RETAIL_SYNC_LOG_KEY;
   window.RETAIL_AVAILABILITY_KEY = RETAIL_AVAILABILITY_KEY;
-  window.GOLDBACK_API_URL = GOLDBACK_API_URL;
   window.GOLDBACK_ENABLED_KEY = GOLDBACK_ENABLED_KEY;
   window.GB_TO_OZT = GB_TO_OZT;
   window.GOLDBACK_DENOMINATIONS = GOLDBACK_DENOMINATIONS;

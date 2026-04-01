@@ -46,58 +46,26 @@ const _staktrakrFetch = async (urls, path) => {
 const _V2_METAL_MAP = { xau: 'gold', xag: 'silver', xpt: 'platinum', xpd: 'palladium' };
 
 const fetchStaktrakrPrices = async (selectedMetals) => {
-  if (USE_V2_API) {
-    const data = await _staktrakrFetch(V2_API_ENDPOINTS, '/spot/latest.json');
-    const spotData = data.data || data;
-    const results = {};
-    Object.entries(spotData).forEach(([isoKey, entry]) => {
-      const metalName = _V2_METAL_MAP[isoKey];
-      if (!metalName) return;
-      const price = entry?.price ?? entry;
-      if (selectedMetals.includes(metalName) && price > 0) {
-        results[metalName] = price;
-      }
-    });
-    if (Object.keys(results).length > 0) {
-      const cfg = loadApiConfig();
-      if (cfg.usage?.STAKTRAKR) {
-        cfg.usage.STAKTRAKR.used++;
-        saveApiConfig(cfg);
-      }
-      return results;
+  const data = await _staktrakrFetch(V2_API_ENDPOINTS, '/spot/latest.json');
+  const spotData = data.data || data;
+  const results = {};
+  Object.entries(spotData).forEach(([isoKey, entry]) => {
+    const metalName = _V2_METAL_MAP[isoKey];
+    if (!metalName) return;
+    const price = entry?.price ?? entry;
+    if (selectedMetals.includes(metalName) && price > 0) {
+      results[metalName] = price;
     }
-    throw new Error('No spot data available from StakTrakr v2 API');
+  });
+  if (Object.keys(results).length > 0) {
+    const cfg = loadApiConfig();
+    if (cfg.usage?.STAKTRAKR) {
+      cfg.usage.STAKTRAKR.used++;
+      saveApiConfig(cfg);
+    }
+    return results;
   }
-
-  const baseUrls = API_PROVIDERS.STAKTRAKR.hourlyBaseUrls;
-  const now = new Date();
-
-  for (let offset = 0; offset <= 23; offset++) {
-    const target = new Date(now.getTime() - offset * 3600000);
-    const yyyy = target.getUTCFullYear();
-    const mm = String(target.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(target.getUTCDate()).padStart(2, '0');
-    const hh = String(target.getUTCHours()).padStart(2, '0');
-    const path = `/${yyyy}/${mm}/${dd}/${hh}.json`;
-
-    try {
-      const data = await _staktrakrFetch(baseUrls, path);
-      const { current } = API_PROVIDERS.STAKTRAKR.parseBatchResponse(data);
-      const results = {};
-      selectedMetals.forEach(metal => {
-        if (current[metal] > 0) results[metal] = current[metal];
-      });
-      if (Object.keys(results).length > 0) {
-        const cfg = loadApiConfig();
-        if (cfg.usage?.STAKTRAKR) {
-          cfg.usage.STAKTRAKR.used++;
-          saveApiConfig(cfg);
-        }
-        return results;
-      }
-    } catch { continue; }
-  }
-  throw new Error('No hourly data available from StakTrakr API');
+  throw new Error('No spot data available from StakTrakr v2 API');
 };
 
 /**
@@ -107,70 +75,7 @@ const fetchStaktrakrPrices = async (selectedMetals) => {
  * @returns {Promise<{newCount: number, fetchCount: number}>} Counts of new entries and successful fetches
  */
 const fetchStaktrakrHourlyRange = async (hoursBack) => {
-  if (USE_V2_API) {
-    return _fetchStaktrakrHourlyRangeV2(hoursBack);
-  }
-
-  const baseUrls = API_PROVIDERS.STAKTRAKR.hourlyBaseUrls;
-  const now = new Date();
-
-  const hours = [];
-  for (let i = 0; i < hoursBack; i++) {
-    hours.push(new Date(now.getTime() - i * 3600000));
-  }
-
-  purgeSpotHistory();
-  const existingKeys = new Set(
-    spotHistory.map(e => `${e.timestamp}|${e.metal}`)
-  );
-
-  let newCount = 0;
-  let fetchCount = 0;
-  const batchSize = 6;
-  const providerName = API_PROVIDERS.STAKTRAKR.name;
-
-  for (let i = 0; i < hours.length; i += batchSize) {
-    const batch = hours.slice(i, i + batchSize);
-    const results = await Promise.all(batch.map(async (h) => {
-      const yyyy = h.getUTCFullYear();
-      const mm = String(h.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(h.getUTCDate()).padStart(2, '0');
-      const hh = String(h.getUTCHours()).padStart(2, '0');
-      const path = `/${yyyy}/${mm}/${dd}/${hh}.json`;
-      try {
-        const data = await _staktrakrFetch(baseUrls, path);
-        const { current } = API_PROVIDERS.STAKTRAKR.parseBatchResponse(data);
-        return { current, timestamp: `${yyyy}-${mm}-${dd}T${hh}:00:00Z` };
-      } catch { return null; }
-    }));
-
-    results.forEach(result => {
-      if (!result) return;
-      fetchCount++;
-      Object.entries(result.current).forEach(([metalKey, spot]) => {
-        if (spot <= 0) return;
-        const metalConfig = Object.values(METALS).find(m => m.key === metalKey);
-        if (!metalConfig) return;
-        const entryTimestamp = result.timestamp.replace("T", " ").replace("Z", "");
-        const isDuplicate = existingKeys.has(`${entryTimestamp}|${metalConfig.name}`);
-        if (!isDuplicate) {
-          spotHistory.push({
-            spot, metal: metalConfig.name, source: "api-hourly",
-            provider: providerName, timestamp: entryTimestamp,
-          });
-          existingKeys.add(`${entryTimestamp}|${metalConfig.name}`);
-          newCount++;
-        }
-      });
-    });
-  }
-
-  if (newCount > 0) {
-    saveSpotHistory();
-    debugLog(`[StakTrakr] Added ${newCount} hourly entries (${fetchCount} files fetched)`);
-  }
-
-  return { newCount, fetchCount };
+  return _fetchStaktrakrHourlyRangeV2(hoursBack);
 };
 
 const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
@@ -250,80 +155,6 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
   if (newCount > 0) {
     saveSpotHistory();
     debugLog(`[StakTrakr v2] Added ${newCount} hourly entries (${fetchCount} daily files fetched)`);
-  }
-
-  return { newCount, fetchCount };
-};
-
-const fetchStaktrakr15minRange = async (slotsBack = 96) => {
-  const baseUrls = API_PROVIDERS.STAKTRAKR.fifteenMinBaseUrls;
-  const now = new Date();
-
-  // Build list of 15-min slots as Date objects, snapped down to nearest 15 min
-  const slots = [];
-  for (let i = 0; i < slotsBack; i++) {
-    const slotMs = now.getTime() - i * 15 * 60000;
-    const slotDate = new Date(slotMs);
-    // Snap minutes down to nearest 15
-    const snappedMin = Math.floor(slotDate.getUTCMinutes() / 15) * 15;
-    slotDate.setUTCMinutes(snappedMin, 0, 0);
-    slots.push(slotDate);
-  }
-
-  // Purge once, then build dedup set for batch append (avoids N×save)
-  purgeSpotHistory();
-  const existingKeys = new Set(
-    spotHistory.map(e => `${e.timestamp}|${e.metal}`)
-  );
-
-  // Fetch slots in batches of 6 (96 slots = 24 h of 15-min coverage)
-  let newCount = 0;
-  let fetchCount = 0;
-  const batchSize = 6;
-  const providerName = API_PROVIDERS.STAKTRAKR.name;
-
-  for (let i = 0; i < slots.length; i += batchSize) {
-    const batch = slots.slice(i, i + batchSize);
-    const results = await Promise.all(batch.map(async (s) => {
-      const yyyy = s.getUTCFullYear();
-      const mm = String(s.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(s.getUTCDate()).padStart(2, '0');
-      const hh = String(s.getUTCHours()).padStart(2, '0');
-      const min15 = String(s.getUTCMinutes()).padStart(2, '0');
-      const path = `/${yyyy}/${mm}/${dd}/${hh}${min15}.json`;
-      try {
-        // Try primary endpoint first; fall back to backup after 5-second timeout or error
-        const data = await _staktrakrFetch(baseUrls, path);
-        const { current } = API_PROVIDERS.STAKTRAKR.parseBatchResponse(data);
-        // Use ISO-format UTC timestamp so normalisation is consistent with hourly
-        return { current, timestamp: `${yyyy}-${mm}-${dd}T${hh}:${min15}:00Z` };
-      } catch { return null; }
-    }));
-
-    results.forEach(result => {
-      if (!result) return;
-      fetchCount++;
-      Object.entries(result.current).forEach(([metalKey, spot]) => {
-        if (spot <= 0) return;
-        const metalConfig = Object.values(METALS).find(m => m.key === metalKey);
-        if (!metalConfig) return;
-        const entryTimestamp = result.timestamp.replace("T", " ").replace("Z", "");
-        const isDuplicate = existingKeys.has(`${entryTimestamp}|${metalConfig.name}`);
-        if (!isDuplicate) {
-          spotHistory.push({
-            spot, metal: metalConfig.name, source: "api-15min",
-            provider: providerName, timestamp: entryTimestamp,
-          });
-          existingKeys.add(`${entryTimestamp}|${metalConfig.name}`);
-          newCount++;
-        }
-      });
-    });
-  }
-
-  if (newCount > 0) {
-    saveSpotHistory();
-    debugLog(`[StakTrakr] Added ${newCount} 15-min entries (${fetchCount} files fetched)`);
   }
 
   return { newCount, fetchCount };
@@ -1096,8 +927,6 @@ const renderApiHistoryTable = () => {
     let sourceLabel;
     if (e.source === "cached") {
       sourceLabel = '<span class="api-history-cached-badge">Cached</span>';
-    } else if (e.source === "api-15min") {
-      sourceLabel = `${escapeHtml(e.provider || "")} (15min)`;
     } else if (e.source === "api-hourly") {
       sourceLabel = `${escapeHtml(e.provider || "")} (hourly)`;
     } else {
@@ -1133,7 +962,7 @@ const showApiHistoryModal = () => {
   const modal = document.getElementById("apiHistoryModal");
   if (!modal) return;
   loadSpotHistory();
-  apiHistoryEntries = spotHistory.filter((e) => e.source === "api" || e.source === "api-hourly" || e.source === "api-15min" || e.source === "seed" || e.source === "cached");
+  apiHistoryEntries = spotHistory.filter((e) => e.source === "api" || e.source === "api-hourly" || e.source === "seed" || e.source === "cached");
   apiHistorySortColumn = "";
   apiHistorySortAsc = true;
   apiHistoryFilterText = "";
@@ -1436,7 +1265,7 @@ const getLastProviderSyncTime = (provider) => {
     // Find most recent API entry from this provider
     for (let i = spotHistory.length - 1; i >= 0; i--) {
       const entry = spotHistory[i];
-      if ((entry.source === "api" || entry.source === "api-hourly" || entry.source === "api-15min") && entry.provider === providerName) {
+      if ((entry.source === "api" || entry.source === "api-hourly") && entry.provider === providerName) {
         // Parse timestamp string "YYYY-MM-DD HH:MM:SS" to ms
         const ts = new Date(entry.timestamp).getTime();
         if (!isNaN(ts)) return ts;
@@ -3104,7 +2933,7 @@ const importSpotHistory = (file) => {
     if (typeof updateAllSparklines === "function") updateAllSparklines();
 
     // Refresh the visible history table after import
-    apiHistoryEntries = spotHistory.filter((e) => e.source === "api" || e.source === "api-hourly" || e.source === "api-15min" || e.source === "seed" || e.source === "cached");
+    apiHistoryEntries = spotHistory.filter((e) => e.source === "api" || e.source === "api-hourly" || e.source === "seed" || e.source === "cached");
     renderApiHistoryTable();
   };
   reader.readAsText(file);
@@ -3161,9 +2990,9 @@ const restoreHistoricalSpotData = async () => {
     }
 
     // --- Pass 2: API files — fills year gaps not yet covered by seed pass ---
-    // Derive data-root base URLs from RETAIL_API_ENDPOINTS (strip /api suffix)
-    const apiBaseUrls = (typeof RETAIL_API_ENDPOINTS !== "undefined" && RETAIL_API_ENDPOINTS.length)
-      ? RETAIL_API_ENDPOINTS.map(ep => ep.replace(/\/api$/, ""))
+    // Derive data-root base URLs from V2_API_ENDPOINTS (strip /v2 suffix)
+    const apiBaseUrls = (typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length)
+      ? V2_API_ENDPOINTS.map(ep => ep.replace(/\/v2$/, ""))
       : [`${API_PROVIDERS.STAKTRAKR.baseUrl}`];
 
     for (const year of years) {
