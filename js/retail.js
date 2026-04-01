@@ -1931,7 +1931,7 @@ const renderRetailHistoryTable = () => {
 
   // Build dynamic thead
   const thead = safeGetElement("retailHistoryTableHead");
-  if (thead) {
+  if (thead && typeof thead.appendChild === 'function') {
     while (thead.firstChild) thead.removeChild(thead.firstChild);
     const headerRow = document.createElement("tr");
     ["Date", "Avg Median", "Avg Low"].forEach(label => {
@@ -1962,6 +1962,7 @@ const renderRetailHistoryTable = () => {
     emptyTd.style.textAlign = "center";
     emptyTd.textContent = "No history yet \u2014 sync from the Market Prices section.";
     emptyTr.appendChild(emptyTd);
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
     tbody.appendChild(emptyTr);
     return;
   }
