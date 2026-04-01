@@ -577,8 +577,8 @@ section {
 /* Environment badge (BETA / PREVIEW / LOCAL) — STAK-376 */
 .env-badge {
   position: absolute;
-  bottom: 4px;
-  left: 0;
+  bottom: -2px;
+  left: 2px;
   display: inline-flex;
   align-items: center;
   font-size: 0.55rem;
