@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.92] - 2026-04-01
+
+### Changed — Remove V1 API Dead Code + Dynamic Market Log Vendors (STAK-509)
+
+- **Removed**: All v1 API code paths (USE_V2_API flag, v1 fetch blocks, v1 health checks, v1 URL constants) — v2 has been sole data source since v3.33.87
+- **Removed**: `fetchStaktrakr15minRange()` function (zero callers, confirmed dead)
+- **Fixed**: Market log tab (Settings > Activity Log > Market) now renders vendor columns dynamically from v2 manifest metadata instead of hardcoded APMEX/Monument/SDB/JM columns that went blank after v2 cutover
+- **Changed**: Net reduction of ~486 lines across 7 JS files
+
+---
+
 ## [3.33.91] - 2026-04-01
 
 ### Fixed — Cloud Sync API Key + StorageLocation Loop (STAK-519)
