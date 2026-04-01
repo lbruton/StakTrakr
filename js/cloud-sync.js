@@ -2023,15 +2023,16 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   }
 
   // 3. Apply settings changes.
-  // remoteVal is a raw localStorage string (from vault payload.data or manifest.settings
-  // snapshot). Use localStorage.setItem directly so scalar string preferences
-  // (appTheme, appTimeZone, etc.) are written without JSON-encoding, matching the
-  // format expected by readers like theme.js and settings-listeners.js.
+  // remoteVal is typically a raw localStorage string (from vault payload.data or
+  // manifest.settings snapshot), but DiffModal may pass non-string values for
+  // merged objects. The stringify guard below ensures non-strings are JSON-encoded
+  // before writing, while scalar string preferences (appTheme, appTimeZone, etc.)
+  // are written as-is to match the format expected by theme.js and settings-listeners.js.
   if (settingsChanges && Array.isArray(settingsChanges)) {
     for (var i = 0; i < settingsChanges.length; i++) {
       var sc = settingsChanges[i];
       if (sc && sc.key && sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
-        localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal));
+        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); } catch (_e) { /* QuotaExceededError — skip */ }
       }
     }
   }
@@ -2557,7 +2558,7 @@ async function pullWithPreview(remoteMeta) {
                 if (typeof ALLOWED_STORAGE_KEYS !== 'undefined' && ALLOWED_STORAGE_KEYS.indexOf(_sc.key) === -1) {
                   continue;
                 }
-                if (_sc.remoteVal !== null && _sc.localVal === null) {
+                if (_sc.remoteVal !== null && _sc.remoteVal !== undefined && _sc.localVal === null) {
                   // Write raw localStorage value directly — remoteVal is the exact
                   // stored form from the remote device (may include JSON encoding or
                   // compression from saveDataSync). Re-encoding via saveDataSync
