@@ -891,9 +891,21 @@ const editItem = (idx, logIdx = null) => {
   // Populate Numista Data fields: item data first, API cache as fallback (STAK-173)
   populateNumistaDataFields(item.numistaId || item.catalog || '', item.numistaData);
 
+  // STAK-528: Normalize shape select value from raw API strings
+  const shapeEl = safeGetElement('numistaShape');
+  if (shapeEl && window.classifyShape) {
+    const rawShape = shapeEl.value || '';
+    // If raw API string doesn't match a select option, normalize it
+    const validOptions = ['Round', 'Rectangular', 'Square', 'Oval', 'Other'];
+    if (rawShape && !validOptions.includes(rawShape)) {
+      const category = window.classifyShape(rawShape);
+      const normalized = category.charAt(0).toUpperCase() + category.slice(1);
+      shapeEl.value = validOptions.includes(normalized) ? normalized : 'Other';
+    }
+  }
+
   // STAK-528: Migrate legacy "LxW" diameter values into length/width fields
   const diamEl = safeGetElement('numistaDiameter');
-  const shapeEl = safeGetElement('numistaShape');
   const lenEl = safeGetElement('numistaLength');
   const widEl = safeGetElement('numistaWidth');
   if (diamEl && shapeEl) {
@@ -902,22 +914,14 @@ const editItem = (idx, logIdx = null) => {
       const parsed = window.parseDimensions(diamVal, shapeEl.value);
       if (parsed.length > 0 && lenEl) lenEl.value = parsed.length;
       if (parsed.width > 0 && widEl) widEl.value = parsed.width;
-      diamEl.value = '';
+      // Only clear diameter after confirmed valid parse
+      if (parsed.length > 0 || parsed.width > 0) diamEl.value = '';
     }
-    // Set correct field visibility based on shape
-    const category = window.classifyShape ? window.classifyShape(shapeEl.value) : 'round';
-    const diamWrap = safeGetElement('numistaDiameterWrap');
-    const lenWrap = safeGetElement('numistaLengthWrap');
-    const widWrap = safeGetElement('numistaWidthWrap');
-    if (category === 'rectangular' || category === 'square') {
-      if (diamWrap) diamWrap.style.display = 'none';
-      if (lenWrap) lenWrap.style.display = '';
-      if (widWrap) widWrap.style.display = '';
-    } else {
-      if (diamWrap) diamWrap.style.display = '';
-      if (lenWrap) lenWrap.style.display = 'none';
-      if (widWrap) widWrap.style.display = 'none';
-    }
+  }
+
+  // Set correct field visibility — use shared toggle if available
+  if (shapeEl && window.toggleDimensionFields) {
+    window.toggleDimensionFields(shapeEl.value);
   }
 
   // STAK-343: Populate tags in edit modal

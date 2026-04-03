@@ -463,9 +463,9 @@ function parseDimensions(sizeValue, shapeStr) {
   let width = 0;
 
   // Check for "LxW" pattern in sizeValue
-  const sizeStr = sizeValue != null ? String(sizeValue) : '';
-  const splitMatch = sizeStr.match(/^([\d.]+)\s*[xX×]\s*([\d.]+)/);
-  if (splitMatch) {
+  const sizeStr = sizeValue != null ? String(sizeValue).trim() : '';
+  const splitMatch = sizeStr.match(/^([\d.]+)\s*[xX\u00D7]\s*([\d.]+)/);
+  if (splitMatch && splitMatch.length >= 3) {
     length = parseFloat(splitMatch[1]) || 0;
     width = parseFloat(splitMatch[2]) || 0;
     return { diameter: 0, length, width };
@@ -479,7 +479,8 @@ function parseDimensions(sizeValue, shapeStr) {
   const category = classifyShape(shapeString);
   if (category === 'rectangular' || category === 'square') {
     length = parseFloat(sizeValue) || 0;
-    width = embeddedWidth;
+    // Square items: default width to length when no embedded width available
+    width = embeddedWidth || (category === 'square' ? length : 0);
   } else {
     diameter = parseFloat(sizeValue) || 0;
   }
