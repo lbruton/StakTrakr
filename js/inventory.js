@@ -613,6 +613,8 @@ const populateNumistaDataFields = (catalogId, itemData) => {
     { id: 'numistaShape',          itemKey: 'shape',         cacheKey: 'shape' },
     { id: 'numistaDiameter',       itemKey: 'diameter',      cacheKey: 'diameter' },
     { id: 'numistaThickness',      itemKey: 'thickness',     cacheKey: 'thickness' },
+    { id: 'numistaLength',         itemKey: 'length',        cacheKey: 'length' },
+    { id: 'numistaWidth',          itemKey: 'width',         cacheKey: 'width' },
     { id: 'numistaOrientation',    itemKey: 'orientation',   cacheKey: 'orientation' },
     { id: 'numistaTechnique',      itemKey: 'technique',     cacheKey: 'technique' },
     { id: 'numistaMintage',        itemKey: 'mintage',       cacheKey: null },
@@ -888,6 +890,35 @@ const editItem = (idx, logIdx = null) => {
 
   // Populate Numista Data fields: item data first, API cache as fallback (STAK-173)
   populateNumistaDataFields(item.numistaId || item.catalog || '', item.numistaData);
+
+  // STAK-528: Migrate legacy "LxW" diameter values into length/width fields
+  const diamEl = safeGetElement('numistaDiameter');
+  const shapeEl = safeGetElement('numistaShape');
+  const lenEl = safeGetElement('numistaLength');
+  const widEl = safeGetElement('numistaWidth');
+  if (diamEl && shapeEl) {
+    const diamVal = diamEl.value || '';
+    if (/[xX\u00d7]/.test(diamVal) && window.parseDimensions) {
+      const parsed = window.parseDimensions(diamVal, shapeEl.value);
+      if (parsed.length > 0 && lenEl) lenEl.value = parsed.length;
+      if (parsed.width > 0 && widEl) widEl.value = parsed.width;
+      diamEl.value = '';
+    }
+    // Set correct field visibility based on shape
+    const category = window.classifyShape ? window.classifyShape(shapeEl.value) : 'round';
+    const diamWrap = safeGetElement('numistaDiameterWrap');
+    const lenWrap = safeGetElement('numistaLengthWrap');
+    const widWrap = safeGetElement('numistaWidthWrap');
+    if (category === 'rectangular' || category === 'square') {
+      if (diamWrap) diamWrap.style.display = 'none';
+      if (lenWrap) lenWrap.style.display = '';
+      if (widWrap) widWrap.style.display = '';
+    } else {
+      if (diamWrap) diamWrap.style.display = '';
+      if (lenWrap) lenWrap.style.display = 'none';
+      if (widWrap) widWrap.style.display = 'none';
+    }
+  }
 
   // STAK-343: Populate tags in edit modal
   if (item.uuid && typeof getItemTags === 'function') {
