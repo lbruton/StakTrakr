@@ -1555,13 +1555,27 @@
                   </div>
                   <div>
                     <label for="numistaShape">Shape</label>
-                    <input id="numistaShape" type="text" placeholder="e.g. Round" />
+                    <select id="numistaShape">
+                      <option value="Round" selected>Round</option>
+                      <option value="Rectangular">Rectangular</option>
+                      <option value="Square">Square</option>
+                      <option value="Oval">Oval</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
                 <div class="grid grid-3-equal">
-                  <div>
+                  <div id="numistaDiameterWrap">
                     <label for="numistaDiameter">Diameter <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
                     <input id="numistaDiameter" type="text" placeholder="e.g. 40.6" />
+                  </div>
+                  <div id="numistaLengthWrap" style="display:none">
+                    <label for="numistaLength">Length <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
+                    <input id="numistaLength" type="text" placeholder="e.g. 105.0" />
+                  </div>
+                  <div id="numistaWidthWrap" style="display:none">
+                    <label for="numistaWidth">Width <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
+                    <input id="numistaWidth" type="text" placeholder="e.g. 74.0" />
                   </div>
                   <div>
                     <label for="numistaThickness">Thickness <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
