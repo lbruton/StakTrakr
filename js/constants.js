@@ -1281,6 +1281,8 @@ const NUMISTA_VIEW_FIELD_DEFAULTS = {
   denomination: true,
   shape: true,
   diameter: true,
+  length: true,
+  width: true,
   thickness: true,
   orientation: true,
   composition: true,
