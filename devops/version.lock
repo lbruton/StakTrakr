@@ -1,11 +1,3 @@
 {
-  "claims": [
-    {
-      "branch": "feature/STAK-509-v1-dead-code-cleanup",
-      "issue": "STAK-509",
-      "claimedBy": "claude",
-      "claimedAt": "2026-04-01T19:08:00Z",
-      "version": "3.33.92"
-    }
-  ]
+  "claims": []
 }
