@@ -1555,13 +1555,27 @@
                   </div>
                   <div>
                     <label for="numistaShape">Shape</label>
-                    <input id="numistaShape" type="text" placeholder="e.g. Round" />
+                    <select id="numistaShape">
+                      <option value="Round" selected>Round</option>
+                      <option value="Rectangular">Rectangular</option>
+                      <option value="Square">Square</option>
+                      <option value="Oval">Oval</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
                 <div class="grid grid-3-equal">
-                  <div>
+                  <div id="numistaDiameterWrap">
                     <label for="numistaDiameter">Diameter <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
                     <input id="numistaDiameter" type="text" placeholder="e.g. 40.6" />
+                  </div>
+                  <div id="numistaLengthWrap" style="display:none">
+                    <label for="numistaLength">Length <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
+                    <input id="numistaLength" type="text" placeholder="e.g. 105.0" />
+                  </div>
+                  <div id="numistaWidthWrap" style="display:none">
+                    <label for="numistaWidth">Width <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
+                    <input id="numistaWidth" type="text" placeholder="e.g. 74.0" />
                   </div>
                   <div>
                     <label for="numistaThickness">Thickness <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
@@ -4046,6 +4060,14 @@
                   <div class="faq-answer">
                     <p>The spot prices displayed are fetched from public metal pricing APIs and represent the theoretical melt value of metal at that moment. They are <strong>not</strong> buy/sell prices from a dealer.</p>
                     <p>Actual transaction prices will differ due to dealer premiums, bid/ask spreads, and market conditions. The "Melt Value" shown is a reference floor, not a guaranteed sale price.</p>
+                  </div>
+                </details>
+
+                <details class="faq-item">
+                  <summary class="faq-question">Numista only fills one dimension for bars and ingots</summary>
+                  <div class="faq-answer">
+                    <p>When you look up a rectangular item (bar, ingot) via Numista, the <strong>length</strong> auto-fills but the <strong>width</strong> is left blank. This is a limitation of the Numista API &mdash; their website shows both dimensions, but the API only returns one.</p>
+                    <p>Simply enter the width manually after the lookup. Your manual entry is preserved &mdash; future Numista syncs will not overwrite fields you have edited.</p>
                   </div>
                 </details>
               </div>

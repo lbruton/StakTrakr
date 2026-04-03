@@ -443,6 +443,51 @@ class CatalogProvider {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Shape classification & dimension parsing (STAK-528)
+// ---------------------------------------------------------------------------
+
+function classifyShape(shapeStr) {
+  if (!shapeStr) return 'round';
+  const s = shapeStr.toLowerCase();
+  if (s.startsWith('round') || s.startsWith('circular')) return 'round';
+  if (s.startsWith('rectangular') || s.startsWith('rectangle')) return 'rectangular';
+  if (s.startsWith('square')) return 'square';
+  if (s.startsWith('oval') || s.startsWith('elliptical')) return 'oval';
+  return 'other';
+}
+
+function parseDimensions(sizeValue, shapeStr) {
+  let diameter = 0;
+  let length = 0;
+  let width = 0;
+
+  // Check for "LxW" pattern in sizeValue
+  const sizeStr = sizeValue != null ? String(sizeValue).trim() : '';
+  const splitMatch = sizeStr.match(/^([\d.]+)\s*[xX\u00D7]\s*([\d.]+)/);
+  if (splitMatch && splitMatch.length >= 3) {
+    length = parseFloat(splitMatch[1]) || 0;
+    width = parseFloat(splitMatch[2]) || 0;
+    return { diameter: 0, length, width };
+  }
+
+  // Check for embedded width in shape string, e.g. "Rectangular (41.8mm wide)"
+  const shapeString = shapeStr || '';
+  const embeddedMatch = shapeString.match(/\((\d+\.?\d*)\s*mm\s*wide\)/i);
+  const embeddedWidth = embeddedMatch ? parseFloat(embeddedMatch[1]) || 0 : 0;
+
+  const category = classifyShape(shapeString);
+  if (category === 'rectangular' || category === 'square') {
+    length = parseFloat(sizeValue) || 0;
+    // Square items: default width to length when no embedded width available
+    width = embeddedWidth || (category === 'square' ? length : 0);
+  } else {
+    diameter = parseFloat(sizeValue) || 0;
+  }
+
+  return { diameter, length, width };
+}
+
 /**
  * Numista API Provider
  * Implements Numista-specific API calls
@@ -617,7 +662,7 @@ class NumistaProvider extends CatalogProvider {
       country: numistaData.issuer?.name || '',
       metal: this.normalizeMetal(composition),
       weight: numistaData.weight || 0,
-      diameter: numistaData.size || 0,
+      ...parseDimensions(numistaData.size, numistaData.shape || ''),
       thickness: numistaData.thickness || 0,
       type: this.normalizeType(numistaData.category || ''),
       mintage: 0, // Mintage is per-issue, not per-type in Numista API
@@ -1895,6 +1940,9 @@ if (typeof window !== 'undefined') {
   window.renderPcgsUsageBar = renderPcgsUsageBar;
   window.renderCatalogHistoryForSettings = renderCatalogHistoryForSettings;
   window.clearCatalogHistory = clearCatalogHistory;
+  // STAK-528: Shape-aware dimension helpers
+  window.classifyShape = classifyShape;
+  window.parseDimensions = parseDimensions;
   // STAK-222: Numista response cache
   window.loadNumistaCache = loadNumistaCache;
   window.saveNumistaCache = saveNumistaCache;

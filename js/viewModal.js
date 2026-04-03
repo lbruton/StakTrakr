@@ -879,8 +879,30 @@ async function loadViewNumistaData(item, container, apiResult) {
 
   if (cfg.denomination !== false && meta.denomination) _addDetail(grid, 'Denomination', meta.denomination);
   if (cfg.shape !== false && meta.shape) _addDetail(grid, 'Shape', meta.shape);
-  if (cfg.diameter !== false && meta.diameter) _addDetail(grid, 'Diameter', `${meta.diameter}mm`);
-  if (cfg.thickness !== false && meta.thickness) _addDetail(grid, 'Thickness', `${meta.thickness}mm`);
+  if (cfg.diameter !== false) {
+    if (meta.length && meta.width) {
+      // Both dimensions available — composite "L × W" or "L × W × T"
+      const dims = (cfg.thickness !== false && meta.thickness)
+        ? `${meta.length} \u00D7 ${meta.width} \u00D7 ${meta.thickness} mm`
+        : `${meta.length} \u00D7 ${meta.width} mm`;
+      _addDetail(grid, 'Dimensions', dims);
+    } else if (meta.length) {
+      // Only length (width=0) — show what we have
+      _addDetail(grid, 'Dimensions', `${meta.length} mm`);
+      if (cfg.thickness !== false && meta.thickness) {
+        _addDetail(grid, 'Thickness', `${meta.thickness} mm`);
+      }
+    } else if (meta.diameter) {
+      _addDetail(grid, 'Diameter', `${meta.diameter} mm`);
+      if (cfg.thickness !== false && meta.thickness) {
+        _addDetail(grid, 'Thickness', `${meta.thickness} mm`);
+      }
+    }
+  }
+  // Standalone thickness for items with only thickness (no other dimensions)
+  if (cfg.thickness !== false && meta.thickness && !meta.diameter && !meta.length) {
+    _addDetail(grid, 'Thickness', `${meta.thickness} mm`);
+  }
   if (cfg.orientation !== false && meta.orientation) _addDetail(grid, 'Orientation', meta.orientation);
   if (cfg.composition !== false && meta.composition) _addDetail(grid, 'Composition', meta.composition);
   if (cfg.country !== false && meta.country) _addDetail(grid, 'Country', meta.country);
@@ -1049,6 +1071,8 @@ function _extractMetadata(result) {
     denomination: result.denomination || '',
     diameter: result.diameter || result.size || 0,
     thickness: result.thickness || 0,
+    length: result.length || 0,
+    width: result.width || 0,
     weight: result.weight || 0,
     shape: result.shape || '',
     composition: result.composition || result.metal || '',

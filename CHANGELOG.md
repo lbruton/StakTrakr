@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.93] - 2026-04-03
+
+### Added — Shape-Aware Dimension Fields (STAK-528)
+
+- **Added**: Shape-aware dimension fields — rectangular items (bars, ingots) show Length/Width instead of Diameter. Shape selector drives conditional field display. Numista API size field mapped by shape. Existing "LxW" diameter strings auto-migrated on edit
+- **Changed**: View modal displays "105 x 74 mm" for rectangular items, "40.6 mm" for round items. Composite dimensions include thickness when available
+
+---
+
 ## [3.33.92] - 2026-04-01
 
 ### Changed — Remove V1 API Dead Code + Dynamic Market Log Vendors (STAK-509)
