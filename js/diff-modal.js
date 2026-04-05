@@ -501,7 +501,7 @@
   }
 
   function _formatSettingValue(key, value) {
-    if (key === 'metalApiConfig') return value ? '\u2022\u2022\u2022 configured' : 'not set';
+    if (key === 'metalApiConfig' || key === 'catalog_api_config') return value ? '\u2022\u2022\u2022 configured' : 'not set';
     value = _parseSetting(value);
     if (value === null || value === undefined) return '\u2014';
     if (typeof value === 'boolean') return value ? 'On' : 'Off';
