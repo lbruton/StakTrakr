@@ -281,7 +281,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.33.93";
+const APP_VERSION = "3.33.94";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -862,7 +862,8 @@ const SYNC_SCOPE_KEYS = [
   'providerPriority',          // provider priority config
 
   // ── API credentials ──
-  'metalApiConfig',            // API_KEY_STORAGE_KEY — Numista/PCGS/spot provider keys
+  'metalApiConfig',            // API_KEY_STORAGE_KEY — spot provider keys (MetalPriceAPI, Metals-API, Custom)
+  'catalog_api_config',          // Numista API key, PCGS bearer token (CatalogConfig)
 ];
 
 const SPOT_HISTORY_RUNTIME_WINDOW_DAYS = 180;

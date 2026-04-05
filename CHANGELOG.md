@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.94] - 2026-04-05
+
+### Fixed — Catalog API Key Cloud Sync (STAK-533)
+
+- **Fixed**: Numista API key and PCGS bearer token now sync across devices via cloud sync. `catalog_api_config` was missing from `SYNC_SCOPE_KEYS` — the root cause of recurring sync failures across STAK-519 and STAK-526
+- **Fixed**: Misleading comment on `metalApiConfig` that incorrectly claimed it stored Numista/PCGS keys — it only stores spot provider keys
+- **Added**: Catalog API key conflicts now appear in the merge diff modal under "API & Numista" group
+
+---
+
 ## [3.33.93] - 2026-04-03
 
 ### Added — Shape-Aware Dimension Fields (STAK-528)
