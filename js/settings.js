@@ -2578,7 +2578,7 @@ const renderMarketFilterMatrix = () => {
       }
     });
     if (statusEl) {
-      statusEl.textContent = 'Showing ' + visibleProductCount + ' products \u00b7 ' + activeVendorCount + ' of ' + totalVendors + ' vendors active';
+      statusEl.textContent = 'Showing ' + visibleProductCount + (visibleProductCount === 1 ? ' product' : ' products') + ' \u00b7 ' + activeVendorCount + ' of ' + totalVendors + (totalVendors === 1 ? ' vendor' : ' vendors') + ' active';
     }
   }
 };
