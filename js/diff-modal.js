@@ -51,7 +51,7 @@
     },
     'API & Numista': {
       icon: '\uD83D\uDCDA',
-      keys: ['metalApiConfig','numista_tags_auto','numistaLookupRules','numistaViewFields']
+      keys: ['metalApiConfig','catalog_api_config','numista_tags_auto','numistaLookupRules','numistaViewFields']
     }
   };
 
@@ -98,7 +98,8 @@
     'numista_tags_auto': 'Auto-Tag on Lookup',
     'numistaLookupRules': 'Lookup Rules',
     'numistaViewFields': 'View Fields',
-    'metalApiConfig': 'API Keys'
+    'metalApiConfig': 'API Keys',
+    'catalog_api_config': 'Catalog API Keys'
   };
 
   var SETTINGS_VALUE_TYPE = {
