@@ -2,7 +2,7 @@
 
 ## References
 
-- **Issue:** PROJ-XXX
+- **Issue:** STAK-XXX
 - **GitHub PR:** [#NNN](https://github.com/owner/repo/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{spec-name}/`
 

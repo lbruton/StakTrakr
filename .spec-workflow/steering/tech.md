@@ -64,9 +64,9 @@ Event-driven single-page application with imperative DOM manipulation:
 
 ### Testing Strategy
 - **Methodology**: TDD — write failing tests BEFORE implementation code. All new behavior gets a regression test first.
-- **Unit/Integration**: No unit test framework (vanilla JS SPA) — Playwright E2E is the primary test layer.
-- **Browser/E2E**: Playwright 1.50.0 (16 spec files). Local execution for TDD loops and pre-merge QA. Transitioning from Browserbase-only E2E to Playwright-first for development workflows.
-- **Cloud verification**: Browserbase reserved for testing live deployed sites only (bug reproduction on production/staging URLs, runbook execution against PR preview URLs).
+- **Unit/Integration**: No unit test framework (vanilla JS SPA) — natural language E2E runbook tests are the primary test layer.
+- **Browser/E2E**: `tests/runbook/*.md` — 84 NL E2E tests across 8 sections, executed via `/bb-test` through Browserbase/Stagehand against PR preview URLs. TDD enforced: write test blocks BEFORE code.
+- **Cloud verification**: Browserbase executes all E2E tests against Cloudflare preview deployments. Cloud sync/OAuth tested manually at `beta.staktrakr.com`.
 
 ### Version Control & Collaboration
 - **VCS**: Git (GitHub)
