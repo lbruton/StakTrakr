@@ -2,7 +2,7 @@
 
 ## References
 
-- **Linear Issue:** [STAK-XXX](https://linear.app/staktrakr/issue/STAK-XXX)
+- **Issue:** [STAK-XXX](DocVault/Projects/StakTrakr/Issues/STAK-XXX.md)
 - **GitHub PR:** [#NNN](https://github.com/lbruton/StakTrakr/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{{spec-name}}/`
 
@@ -15,12 +15,18 @@ Before implementing ANY task below, you MUST:
 5. If multiple tasks are parallelized across agents, each agent gets its own /release patch
 Skipping this gate is a workflow violation. See CLAUDE.md Version Checkout Gate section.
 
+IMPLEMENTATION LOGGING GATE — HARD GATE:
+Before marking ANY task [x], you MUST call the log-implementation MCP tool with full
+artifacts (functions added/modified, files changed, endpoints created). Do NOT mark [x]
+until the log-implementation tool call succeeds. This is non-negotiable.
+
 SPEC COMPLETION GATE — BLOCKING (Phase 5):
 After ALL tasks are [x] and implementation logs are recorded:
-1. Run /wiki-update to update all wiki pages whose frontmatter sourceFiles match this spec's changed files
-2. Close all linked Linear issues (move to Done)
-3. Verify /bb-test passes or file follow-up Linear issues for any new failures
-4. The spec is NOT complete until all three are verified.
+1. Run /vault-update to update DocVault pages affected by this spec's changed files
+2. Close all linked DocVault issues (move to Done, move file to Closed/)
+3. Run /verification-before-completion for a final smoke check
+4. Verify /bb-test passes or file follow-up DocVault issues for any new failures
+5. The spec is NOT complete until all four are verified.
 -->
 
 ---
@@ -74,16 +80,16 @@ After ALL tasks are [x] and implementation logs are recorded:
 
 - [ ] N. Smoke test — verify no regressions
   - File: (no file changes — testing only)
-  - Start local HTTP server, attempt Playwright via browserless first. If browserless hangs or fails, fall back to Browserbase (cloud). Verify all existing tests pass and no console errors were introduced by this spec.
+  - Run `/bb-test` against the PR preview URL to verify all existing tests pass and no console errors were introduced by this spec. Cloud sync/OAuth flows require manual testing at beta.staktrakr.com.
   - Purpose: Catch regressions before PR merge; validate the new feature doesn't break existing behavior.
-  - _Leverage: Playwright specs in `tests/*.spec.js`; browserless Docker at `devops/browserless/`; local server via `npx serve /Volumes/DATA/GitHub/StakTrakr -p 8765`; Browserbase fallback via `/bb-test` skill (STAK-394)_
+  - _Leverage: `/bb-test` skill; Browserbase/Stagehand E2E tests in `tests/runbook/*.md`; PR preview URL from Cloudflare Pages_
   - _Requirements: All_
-  - _Prompt: Implement the task for spec {{spec-name}}, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA engineer | Task: Run the StakTrakr smoke test suite using the following two-tier approach. **Tier 1 — Playwright/browserless (preferred, free):** (1) Start local server: `npx serve /Volumes/DATA/GitHub/StakTrakr -p 8765`. (2) Start browserless: `cd devops/browserless && docker compose up -d`. (3) Run tests: `BROWSER_BACKEND=browserless TEST_URL=http://host.docker.internal:8765 npm test` from the repo root. (4) If tests produce output within 60 seconds, report pass/fail counts and any failing test names. **Tier 2 — Browserbase fallback (if Tier 1 hangs or errors):** If Tier 1 produces no output after 60 seconds or throws a connection error, STOP it immediately and switch to Tier 2: invoke the `/bb-test` skill via the Skill tool. Browserbase runs 18 NL checks against the live preview URL and returns results. Note in the log that Tier 1 was skipped and why. **Both tiers:** (5) Manually verify the new feature from this spec works end-to-end (list the specific user actions based on spec requirements). (6) Check browser console for any new errors or warnings. (7) If any failures are found, document them clearly and file a Linear issue — do NOT attempt fixes here. | Restrictions: Do not modify any source files — this is a verification-only task. Browserbase is paid — only use it as a fallback, not as first choice. | Success: Tests complete (either tier) with results reported. No new console errors. New feature manually verified working. PREREQUISITE: This is a test-only task — no worktree changes needed. Mark task as [-] in tasks.md before starting. BLOCKING: After verification, you MUST call the log-implementation tool with the test results (tier used, pass/fail counts) before marking [x]. Do NOT mark [x] until the log-implementation tool call succeeds._
+  - _Prompt: Implement the task for spec {{spec-name}}, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA engineer | Task: Run the StakTrakr E2E test suite via `/bb-test` against the PR preview URL (check Cloudflare Pages deploy for the URL). (1) Invoke the `/bb-test` skill — it runs NL tests from `tests/runbook/*.md` via Browserbase/Stagehand. (2) Review results — all tests should pass. (3) Manually verify the new feature from this spec works end-to-end (list the specific user actions based on spec requirements). (4) Check browser console for any new errors or warnings. (5) If any failures are found, document them clearly and file a DocVault issue — do NOT attempt fixes here. Note: Cloud sync and OAuth flows cannot be tested via Browserbase (different origin breaks Dropbox OAuth) — flag these for manual testing at beta.staktrakr.com. | Restrictions: Do not modify any source files — this is a verification-only task. | Success: Tests complete with results reported. No new console errors. New feature manually verified working. PREREQUISITE: This is a test-only task — no worktree changes needed. Mark task as [-] in tasks.md before starting. BLOCKING: After verification, you MUST call the log-implementation tool with the test results (pass/fail counts) before marking [x]. Do NOT mark [x] until the log-implementation tool call succeeds._
 
-- [ ] N+1. Update wiki pages affected by this spec
-  - File: (wiki pages only — no production code changes)
-  - Run `/wiki-update` to detect and rewrite any wiki pages whose YAML frontmatter `sourceFiles` reference files changed by this spec. Verify each updated page is accurate against the new implementation.
-  - Purpose: Keep in-repo documentation current — stale wiki pages are a recurring source of confusion for agents and developers.
-  - _Leverage: `/wiki-update` skill (reads YAML frontmatter `sourceFiles` from `wiki/*.md`); wiki pages at `wiki/`_
+- [ ] N+1. Update DocVault pages affected by this spec
+  - File: (DocVault pages only — no production code changes)
+  - Run `/vault-update` to detect and update any DocVault pages whose YAML frontmatter `sourceFiles` reference files changed by this spec. Verify each updated page is accurate against the new implementation.
+  - Purpose: Keep DocVault documentation current — stale pages are a recurring source of confusion for agents and developers.
+  - _Leverage: `/vault-update` skill; DocVault at `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`_
   - _Requirements: All_
-  - _Prompt: Implement the task for spec {{spec-name}}, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Technical writer | Task: Update all wiki pages affected by this spec. (1) Run the /wiki-update skill — it detects which wiki pages have `sourceFiles` frontmatter entries matching the files changed in this spec, then rewrites those pages from the current source code. (2) Review each updated page for accuracy: do the descriptions match the actual implementation? Are function signatures, file paths, and behavior descriptions correct? (3) If any page needs manual correction, edit it directly. (4) List all updated pages and a one-line summary of what changed in each. | Restrictions: Only touch files in the `wiki/` directory. Do not modify any JS, CSS, or HTML production files. | Success: All wiki pages whose `sourceFiles` reference changed files have been updated and verified accurate. No stale descriptions of changed functions or constants remain. BLOCKING: After wiki updates are complete, you MUST call the log-implementation tool listing all updated wiki pages before marking [x]. Do NOT mark [x] until the log-implementation tool call succeeds._
+  - _Prompt: Implement the task for spec {{spec-name}}, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Technical writer | Task: Update DocVault pages affected by this spec. (1) Run the /vault-update skill — it detects which DocVault pages at `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/` have `sourceFiles` frontmatter entries matching the files changed in this spec, then updates those pages from the current source code. (2) Review each updated page for accuracy: do the descriptions match the actual implementation? Are function signatures, file paths, and behavior descriptions correct? (3) If any page needs manual correction, edit it directly. (4) Commit DocVault changes directly to main (DocVault commits go direct to main, no PR needed). (5) List all updated pages and a one-line summary of what changed in each. | Restrictions: Only touch files in DocVault (`/Volumes/DATA/GitHub/DocVault/`). Do not modify any JS, CSS, or HTML production files in the StakTrakr repo. | Success: All DocVault pages whose `sourceFiles` reference changed files have been updated and verified accurate. No stale descriptions of changed functions or constants remain. BLOCKING: After DocVault updates are complete, you MUST call the log-implementation tool listing all updated pages before marking [x]. Do NOT mark [x] until the log-implementation tool call succeeds._

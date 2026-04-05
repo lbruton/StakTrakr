@@ -60,13 +60,14 @@ Event-driven single-page application with imperative DOM manipulation:
 ### Code Quality Tools
 - **Static Analysis**: ESLint 9.21.0 with custom rules; Codacy automated PR quality gates
 - **Formatting**: ESLint-enforced style (no Prettier)
-- **Documentation**: JSDoc comments; in-repo wiki under `wiki/`
+- **Documentation**: JSDoc comments; DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`)
 
 ### Testing Strategy
 - **Methodology**: TDD — write failing tests BEFORE implementation code. All new behavior gets a regression test first.
-- **Unit/Integration**: No unit test framework (vanilla JS SPA) — natural language E2E runbook tests are the primary test layer.
-- **Browser/E2E**: `tests/runbook/*.md` — 84 NL E2E tests across 8 sections, executed via `/bb-test` through Browserbase/Stagehand against PR preview URLs. TDD enforced: write test blocks BEFORE code.
-- **Cloud verification**: Browserbase executes all E2E tests against Cloudflare preview deployments. Cloud sync/OAuth tested manually at `beta.staktrakr.com`.
+- **Unit/Integration**: No unit test framework (vanilla JS SPA) — Playwright E2E tests are the primary test layer.
+- **Browser/E2E (primary)**: Playwright (`@playwright/test`) for local TDD — multi-browser (chromium/firefox/webkit). Run locally with `npx playwright test`.
+- **Cloud verification (secondary)**: `/bb-test` via Browserbase/Stagehand against Cloudflare preview deployments — reserved for live site verification and cloud-only features. Cloud sync/OAuth tested manually at `beta.staktrakr.com`.
+- **Runbook tests**: `tests/runbook/*.md` — 84 NL E2E tests across 8 sections, used by bb-test for cloud verification.
 
 ### Version Control & Collaboration
 - **VCS**: Git (GitHub)
@@ -115,5 +116,5 @@ Event-driven single-page application with imperative DOM manipulation:
 - **File size**: Several core JS files exceed 100KB (`inventory.js` 164KB, `events.js` 110KB, `api.js` 108KB) — candidates for future modularization
 - **localStorage cap**: ~5-10MB browser limit constrains total data + image cache size
 - **No concurrent editing**: Single-browser assumption; cloud sync handles cross-device but not simultaneous edits
-- **Script load order**: 67 `<script>` tags with strict dependency ordering — adding new files requires updating both `index.html` and `sw.js` CORE_ASSETS
+- **Script load order**: 71 `<script>` tags (63 JS + 7 vendor + 1 data bundle) with strict dependency ordering — adding new files requires updating both `index.html` and `sw.js` CORE_ASSETS
 - **Version propagation**: Version number lives in 7 files — automated by `/release` skill but fragile if done manually

@@ -9,7 +9,7 @@ StakTrakr/
 ├── manifest.json           # PWA manifest (installable app)
 ├── version.json            # Current version metadata
 ├── package.json            # Dev dependencies only (ESLint, Playwright)
-├── js/                     # Application JavaScript (57 files)
+├── js/                     # Application JavaScript (66 files)
 │   ├── constants.js        # Global config: version, API providers, currencies, storage keys
 │   ├── state.js            # In-memory state container
 │   ├── utils.js            # Core utilities: saveData/loadData, safeGetElement, sanitizeHtml
@@ -64,7 +64,7 @@ StakTrakr/
 
 ## Script Load Order (Critical)
 
-All 57 JS files load via `<script defer>` in strict dependency order in `index.html`. This order **must** be maintained — reordering breaks the app.
+All 66 JS files load via `<script defer>` in strict dependency order in `index.html`. This order **must** be maintained — reordering breaks the app.
 
 ```
 Phase 1 — Synchronous (before DOM):
@@ -203,4 +203,4 @@ No ES modules — all scripts share the global scope via `window`. Dependencies 
 ## Documentation Standards
 - JSDoc comments on public functions (auto-generated HTML in `docs/api/`)
 - Inline comments only where logic is non-obvious
-- No README files per module — project-level CLAUDE.md and wiki serve as documentation
+- No README files per module — project-level CLAUDE.md and DocVault serve as documentation

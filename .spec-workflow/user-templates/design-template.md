@@ -131,10 +131,14 @@ _If **No**, skip this section entirely. If **Yes**, complete all fields below �
 
 ## Testing Strategy
 
-### Runbook E2E Tests (Primary)
-- Identify affected `tests/runbook/` section(s): [01-page-load, 02-crud, 03-backup-restore, 04-import-export, 05-market, 06-ui-ux, 07-activity-log, 08-spot-prices]
-- New test blocks to write (TDD — before implementation): [describe tests]
-- Run via `/bb-test sections=NN` against PR preview URL
+### Playwright E2E Tests (Primary — TDD)
+- Write failing Playwright tests BEFORE implementation code
+- Identify affected areas: [page load, CRUD, backup/restore, import/export, market, UI/UX, activity log, spot prices]
+- Run locally: `npx playwright test` (multi-browser: chromium/firefox/webkit)
+
+### Browserbase Verification (Cloud-Only Features)
+- Run via `/bb-test sections=NN` for features requiring live site verification
+- Cloud sync/OAuth cannot be tested via Browserbase — test manually at `beta.staktrakr.com`
 
 ### Manual Verification
 - [Any flows that require manual testing, e.g., OAuth/Dropbox cloud sync at beta.staktrakr.com]
