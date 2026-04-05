@@ -42,28 +42,31 @@ For each tag found, get its commit message title:
 git log --format="%s" "$tag"^.."$tag" | head -1
 ```
 
-## Step 3: Fetch Linear issue titles
+## Step 2.5: Seed Data Sync (MANDATORY)
+
+Before creating the ship PR, ensure seed data is fresh:
+
+```bash
+bash .claude/skills/seed-sync/fetch-live.sh
+```
+
+This pulls the latest spot-history entries from `api.staktrakr.com` and merges
+them into local `data/spot-history-*.json` files. If new entries are found,
+stage and commit them to dev before proceeding.
+
+## Step 3: Fetch DocVault issue titles
 
 For each `STAK-###` reference found across tag names and commit messages,
-fetch the current title and URL via the Linear GraphQL API. This ensures
-the PR description is accurate, not just copy-pasted from commits.
+read the issue file from DocVault to get the current title and status:
 
 ```bash
-# Fetch API key from Infisical first (see linear skill)
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ issue(id: \"STAK-###\") { identifier title url state { name } } }"}'
+ISSUE_DIR="/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues"
+# For each STAK-### found:
+cat "$ISSUE_DIR/STAK-###.md"
+# Extract: id, title, status from YAML frontmatter
 ```
 
-For multiple issues, batch them in a single aliased query:
-
-```bash
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ a: issue(id: \"STAK-462\") { identifier title url } b: issue(id: \"STAK-463\") { identifier title url } }"}'
-```
+This ensures the PR description uses accurate titles, not just commit messages.
 
 ## Step 3.5: Audit announcements & about.js (MANDATORY)
 
@@ -120,9 +123,9 @@ gh pr create --base main --head dev --label "codacy-review" \
 - vX.X.X — [title]
 [list all tags from Step 2]
 
-## Linear Issues
+## Issues (DocVault)
 
-- STAK-XX: [title] — [url]
+- STAK-XX: [title] ([status])
 [list all STAK references from Step 3]
 
 ## QA Notes
@@ -144,25 +147,22 @@ gh pr ready "$PR_NUMBER"
 Then run `/pr-resolve` to clear all open Codacy and Copilot review threads
 before the PR goes to final review.
 
-## Step 6: Update Linear issues
+## Step 6: Update DocVault issues
 
-Mark all referenced STAK-### issues as **Done** — they ship with this merge.
+Mark all referenced STAK-### issues as **done** — they ship with this merge.
 
-Use the Linear GraphQL API to update each issue's state to Done:
+For each issue file in DocVault:
 
 ```bash
-# First get the "Done" state ID for the team
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ team(id: \"f876864d-ff80-4231-ae6c-a8e5cb69aca4\") { states(filter: { type: { eq: \"completed\" } }) { nodes { id name } } } }"}'
-
-# Then batch-update all issues
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "mutation { a: issueUpdate(id: \"<UUID_1>\", input: { stateId: \"<DONE_STATE_ID>\" }) { issue { identifier } } b: issueUpdate(id: \"<UUID_2>\", input: { stateId: \"<DONE_STATE_ID>\" }) { issue { identifier } } }"}'
+ISSUE_DIR="/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues"
+# Update YAML frontmatter: status: done, completed: "YYYY-MM-DD"
 ```
+
+Update each issue's frontmatter:
+- `status: done`
+- `completed: "YYYY-MM-DD"` (today's date)
+
+Commit the DocVault changes separately (DocVault commits go direct to main).
 
 ## Step 7: After the PR merges to main — GitHub Release (MANDATORY)
 
@@ -197,5 +197,5 @@ Ship complete!
 Version:  vLATEST
 PR:       #XX merged
 Release:  https://github.com/lbruton/StakTrakr/releases/tag/vLATEST
-Linear:   STAK-XX → Done
+Issues:   STAK-XX → Done (DocVault)
 ```
