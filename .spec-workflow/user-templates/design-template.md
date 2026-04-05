@@ -2,7 +2,7 @@
 
 ## References
 
-- **Issue:** PROJ-XXX
+- **Issue:** STAK-XXX
 - **GitHub PR:** [#NNN](https://github.com/owner/repo/pull/NNN)
 - **Spec Path:** `.spec-workflow/specs/{spec-name}/`
 
@@ -131,13 +131,11 @@ _If **No**, skip this section entirely. If **Yes**, complete all fields below �
 
 ## Testing Strategy
 
-### Automated Tests
-- **Test Framework:** [Identify the project's test framework — check for vitest.config, jest.config, pytest.ini, or package.json test script]
-- **Test Command:** [The command to run the project's test suite — e.g., `npm test`, `npx vitest`, `pytest`]
-- **Test Directory:** [Where tests live in this project — e.g., `src/__tests__/`, `tests/`, `test/`]
-- **New tests to write (TDD — before implementation):** [describe tests using the project's framework]
-- **Run via:** [project's test command] after implementation
+### Runbook E2E Tests (Primary)
+- Identify affected `tests/runbook/` section(s): [01-page-load, 02-crud, 03-backup-restore, 04-import-export, 05-market, 06-ui-ux, 07-activity-log, 08-spot-prices]
+- New test blocks to write (TDD — before implementation): [describe tests]
+- Run via `/bb-test sections=NN` against PR preview URL
 
 ### Manual Verification
-- [Any flows that require manual testing beyond the automated test suite]
-- [Flows requiring API keys, external services, or user interaction]
+- [Any flows that require manual testing, e.g., OAuth/Dropbox cloud sync at beta.staktrakr.com]
+- [Flows requiring API keys from Infisical]

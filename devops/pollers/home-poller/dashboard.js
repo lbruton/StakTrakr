@@ -1102,13 +1102,13 @@ ${renderNav("providers", failureCount)}
       ${readOnly ? "" : '<button id="btn-export" style="background:#1e3a5f;color:var(--accent);">Export to API</button>'}
     </span>
   </div>
-</div>
 ${coinSections}
 </div><!-- /provider-tab-coins -->
 
 <div id="provider-tab-vendors" style="display:none;">
 ${vendorViewHtml}
 </div><!-- /provider-tab-vendors -->
+</div><!-- /padding wrapper -->
 
 <!-- Confirmation Modal -->
 <div class="modal-overlay" id="confirm-modal">

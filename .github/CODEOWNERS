@@ -1,0 +1,4 @@
+# Require owner review for workflow changes — prevents unauthorized CI/CD modifications
+# See: STAK-531 (malicious workflow incident)
+/.github/workflows/ @lbruton
+/.github/CODEOWNERS @lbruton

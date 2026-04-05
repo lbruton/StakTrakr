@@ -1068,6 +1068,8 @@ const parseNumistaDataFields = (isEditing, existingItem, catalog = '') => {
     shape: getOrPrev('numistaShape', prev.shape),
     diameter: getOrPrev('numistaDiameter', prev.diameter),
     thickness: getOrPrev('numistaThickness', prev.thickness),
+    length: getOrPrev('numistaLength', prev.length),
+    width: getOrPrev('numistaWidth', prev.width),
     orientation: getOrPrev('numistaOrientation', prev.orientation),
     technique: getOrPrev('numistaTechnique', prev.technique),
     mintage: getOrPrev('numistaMintage', prev.mintage),
@@ -1165,7 +1167,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
         'storageLocation', 'serialNumber', 'notes', 'year', 'grade',
         'gradingAuthority', 'certNumber', 'pcgsNumber', 'purity',
         'country', 'denomination', 'shape', 'diameter', 'thickness',
-        'orientation', 'description', 'technique'];
+        'length', 'width', 'orientation', 'description', 'technique'];
       for (const field of trackedFields) {
         if (oldItem[field] !== cur[field]) {
           window.markUserModified(cur, field);
@@ -1977,6 +1979,56 @@ const setupItemFormListeners = () => {
       "View item from edit button",
     );
   }
+
+  // SHAPE DROPDOWN — toggle dimension fields (STAK-528)
+  const toggleDimensionFields = (shapeValue) => {
+    const category = window.classifyShape ? window.classifyShape(shapeValue) : 'round';
+    const diamWrap = safeGetElement('numistaDiameterWrap');
+    const lenWrap = safeGetElement('numistaLengthWrap');
+    const widWrap = safeGetElement('numistaWidthWrap');
+    if (category === 'rectangular' || category === 'square') {
+      if (diamWrap) diamWrap.style.display = 'none';
+      if (lenWrap) lenWrap.style.display = '';
+      if (widWrap) widWrap.style.display = '';
+      // Copy diameter to length on transition — parse LxW strings first
+      const diamEl = safeGetElement('numistaDiameter');
+      const lenEl = safeGetElement('numistaLength');
+      const widEl = safeGetElement('numistaWidth');
+      if (diamEl && diamEl.value && lenEl && !lenEl.value) {
+        if (window.parseDimensions && /[xX\u00D7]/.test(diamEl.value)) {
+          const parsed = window.parseDimensions(diamEl.value, shapeValue);
+          if (parsed.length > 0) lenEl.value = parsed.length;
+          if (parsed.width > 0 && widEl) widEl.value = parsed.width;
+        } else {
+          lenEl.value = diamEl.value;
+        }
+      }
+      // Clear stale diameter since we're in rectangular mode
+      if (diamEl) diamEl.value = '';
+    } else {
+      if (diamWrap) diamWrap.style.display = '';
+      if (lenWrap) lenWrap.style.display = 'none';
+      if (widWrap) widWrap.style.display = 'none';
+      // Clear stale length/width since we're in round mode
+      const lenEl = safeGetElement('numistaLength');
+      const widEl = safeGetElement('numistaWidth');
+      if (lenEl) lenEl.value = '';
+      if (widEl) widEl.value = '';
+    }
+  };
+
+  const shapeSelect = safeGetElement('numistaShape');
+  if (shapeSelect) {
+    safeAttachListener(
+      shapeSelect,
+      "change",
+      () => { toggleDimensionFields(shapeSelect.value); },
+      "Shape dropdown dimension toggle",
+    );
+  }
+
+  // Expose for programmatic use (Numista fill, migration)
+  window.toggleDimensionFields = toggleDimensionFields;
 
   // COMMEMORATIVE CHECKBOX — toggle description field (STAK-173)
   const numistaCommemorative = document.getElementById('numistaCommemorative');

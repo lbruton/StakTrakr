@@ -98,9 +98,11 @@
          avoid any dependency on constants.js (which loads deferred). -->
     <script>
       try {
-        var __t = localStorage.getItem('appTheme') || 'dark';
-        if (__t && __t !== 'light' && __t !== 'system') {
+        var __t = localStorage.getItem('appTheme');
+        if (__t === 'dark' || __t === 'light' || __t === 'sepia' || __t === 'hello-kitty') {
           document.documentElement.setAttribute('data-theme', __t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
         }
       } catch (e) {}
     </script>
@@ -261,9 +263,9 @@
   <body>
     <!-- Application Header -->
     <div class="app-header">
-      <div>
+      <div class="app-logo-group">
         <h1 class="app-logo" id="appLogo" aria-label="StakTrakr">
-          <svg class="stackr-logo" viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 560px;">
+          <svg class="stackr-logo" viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" width="100%">
             <defs>
               <!-- S-stack bar gradients (shared across themes) -->
               <linearGradient id="silverBar" x1="0" y1="0" x2="1" y2="0">
@@ -274,7 +276,7 @@
               </linearGradient>
               <!-- Light mode bar gradient (darker for contrast on light bg) -->
               <linearGradient id="silverBarLight" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#475569"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/>
+                <stop offset="0%" stop-color="#334155"/><stop offset="50%" stop-color="#64748b"/><stop offset="100%" stop-color="#475569"/>
               </linearGradient>
               <!-- Sepia mode bar gradient -->
               <linearGradient id="silverBarSepia" x1="0" y1="0" x2="1" y2="0">
@@ -288,14 +290,14 @@
             <!-- Light Mode Group -->
             <g class="light-mode">
               <g transform="translate(8, 8) scale(0.125)">
-                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
-                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
+                <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.9"/>
                 <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldBar)"/>
-                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
-                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.6"/>
+                <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.9"/>
+                <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverBarLight)" opacity="0.8"/>
               </g>
               <text x="86" y="50" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="700" letter-spacing="2">
-                <tspan class="logo-silver" fill="#334155">STAK</tspan><tspan class="logo-gold" fill="#b8860b">TRAKR</tspan>
+                <tspan class="logo-silver" fill="#1e3a5f">STAK</tspan><tspan class="logo-gold" fill="#b8860b">TRAKR</tspan>
               </text>
             </g>
 
@@ -1553,13 +1555,27 @@
                   </div>
                   <div>
                     <label for="numistaShape">Shape</label>
-                    <input id="numistaShape" type="text" placeholder="e.g. Round" />
+                    <select id="numistaShape">
+                      <option value="Round" selected>Round</option>
+                      <option value="Rectangular">Rectangular</option>
+                      <option value="Square">Square</option>
+                      <option value="Oval">Oval</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
                 <div class="grid grid-3-equal">
-                  <div>
+                  <div id="numistaDiameterWrap">
                     <label for="numistaDiameter">Diameter <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
                     <input id="numistaDiameter" type="text" placeholder="e.g. 40.6" />
+                  </div>
+                  <div id="numistaLengthWrap" style="display:none">
+                    <label for="numistaLength">Length <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
+                    <input id="numistaLength" type="text" placeholder="e.g. 105.0" />
+                  </div>
+                  <div id="numistaWidthWrap" style="display:none">
+                    <label for="numistaWidth">Width <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
+                    <input id="numistaWidth" type="text" placeholder="e.g. 74.0" />
                   </div>
                   <div>
                     <label for="numistaThickness">Thickness <span style="font-weight:normal;opacity:0.6;">(mm)</span></label>
@@ -1866,10 +1882,7 @@
       </div>
       <div class="storage-line">Storage: <span id="storageUsage"></span> <div class="storage-bar" id="storageBar"><div class="storage-bar-ls" id="storageBarLs" title="localStorage"></div><div class="storage-bar-idb" id="storageBarIdb" title="IndexedDB Images"></div></div></div>
       <div class="footer-meta">
-        <span>Thank you for using <span id="footerBrand">StakTrakr</span> <a id="versionBadge" class="version-badge" style="display: none"></a>. &copy; 2025-2026 <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener">staktrakr.com</a>. &middot; <a href="#" onclick="if(window.showFaqModal){event.preventDefault();window.showFaqModal();}">FAQ</a> &middot; <button type="button" class="api-health-badge" id="apiHealthBadge" onclick="if(window.showApiHealthModal)window.showApiHealthModal()">Checking API…</button></span>
-      </div>
-      <div class="footer-thanks">
-        Special thanks to the <a href="https://www.reddit.com/r/Silverbugs/" target="_blank" rel="noopener">r/Silverbugs</a> community for the feedback, bug reports, and encouragement that shaped this app.
+        <span>Thank you for using <span id="footerBrand">StakTrakr</span> <a id="versionBadge" class="version-badge" style="display: none"></a> <a href="https://beta.staktrakr.com" target="_blank" rel="noopener" class="version-badge version-badge--beta">beta</a>. &copy; 2025-2026 <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener">staktrakr.com</a>. &middot; <a href="#" onclick="if(window.showFaqModal){event.preventDefault();window.showFaqModal();}">FAQ</a> &middot; <button type="button" class="api-health-badge" id="apiHealthBadge" onclick="if(window.showApiHealthModal)window.showApiHealthModal()">Checking API…</button></span>
       </div>
     </footer>
     <!-- =============================================================================
@@ -2510,11 +2523,11 @@
 
               <div class="api-header-status-row" id="apiHeaderStatusRow"></div>
 
-              <!-- Provider Tabs — Numista pinned, metals draggable -->
+              <!-- Provider Tabs — StakTrakr & Numista pinned, metals draggable -->
               <div class="settings-provider-tabs">
-                <button class="settings-provider-tab pinned active" data-provider="NUMISTA">Numista</button>
+                <button class="settings-provider-tab pinned active" data-provider="STAKTRAKR">StakTrakr</button>
+                <button class="settings-provider-tab pinned" data-provider="NUMISTA">Numista</button>
                 <button class="settings-provider-tab pinned" data-provider="PCGS">PCGS</button>
-                <button class="settings-provider-tab" data-provider="STAKTRAKR">StakTrakr</button>
                 <button class="settings-provider-tab" data-provider="METALS_DEV">Metals.dev</button>
                 <button class="settings-provider-tab" data-provider="METALS_API">Metals-API</button>
                 <button class="settings-provider-tab" data-provider="METAL_PRICE_API">MetalPriceAPI</button>
@@ -2522,7 +2535,7 @@
               </div>
 
               <!-- Numista Provider Panel -->
-              <div class="settings-provider-panel" id="providerPanel_NUMISTA" style="display: block">
+              <div class="settings-provider-panel" id="providerPanel_NUMISTA" style="display: none">
                 <div class="api-provider" data-provider="NUMISTA">
                   <div class="provider-header">
                     <span class="provider-name">Numista Catalog API</span>
@@ -2660,7 +2673,7 @@
               </div>
 
               <!-- StakTrakr Provider Panel -->
-              <div class="settings-provider-panel" id="providerPanel_STAKTRAKR" style="display: none">
+              <div class="settings-provider-panel" id="providerPanel_STAKTRAKR" style="display: block">
                 <div class="api-provider" data-provider="STAKTRAKR">
                   <div class="provider-header">
                     <span class="provider-name">StakTrakr Spot API</span>
@@ -2672,53 +2685,14 @@
                   <div class="provider-settings">
                     <h4>Provider Settings</h4>
                     <div class="provider-setting-row">
-                      <label for="cacheTimeout_STAKTRAKR">Cache Timeout:</label>
-                      <select id="cacheTimeout_STAKTRAKR" class="provider-cache-select">
-                        <option value="0">No Cache</option>
-                        <option value="0.25">15 minutes</option>
-                        <option value="0.5">30 minutes</option>
-                        <option value="1" selected>1 hour</option>
-                        <option value="6">6 hours</option>
-                        <option value="12">12 hours</option>
-                        <option value="24">24 hours</option>
-                      </select>
+                      <label for="enabled_STAKTRAKR">Enabled</label>
+                      <input type="checkbox" id="enabled_STAKTRAKR" checked>
+                      <span class="settings-hint">Free spot prices — no API key needed.</span>
                     </div>
                     <div class="provider-setting-row api-autorefresh-row">
                       <label for="autoRefresh_STAKTRAKR">Background auto-refresh</label>
                       <input type="checkbox" id="autoRefresh_STAKTRAKR" class="api-autorefresh-toggle" data-provider="STAKTRAKR" checked>
-                      <span class="settings-hint">Polls on cache TTL interval. Free, on by default.</span>
-                    </div>
-                    <div class="provider-setting-row">
-                      <label for="providerPriority_STAKTRAKR">Sync Priority:</label>
-                      <select class="provider-priority-select" id="providerPriority_STAKTRAKR" data-provider="STAKTRAKR">
-                        <option value="1">1st</option>
-                        <option value="2">2nd</option>
-                        <option value="3">3rd</option>
-                        <option value="4">4th</option>
-                        <option value="5">5th</option>
-                        <option value="0">Disabled</option>
-                      </select>
-                    </div>
-                    <div class="metal-selection">
-                      <label>Select Metals to Track:</label>
-                      <div class="metal-checkboxes">
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="silver" checked><span class="metal-name">Silver (AG)</span></label>
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="gold" checked><span class="metal-name">Gold (AU)</span></label>
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="platinum" checked><span class="metal-name">Platinum (PT)</span></label>
-                        <label class="metal-checkbox"><input type="checkbox" class="provider-metal" data-provider="STAKTRAKR" data-metal="palladium" checked><span class="metal-name">Palladium (PD)</span></label>
-                      </div>
-                    </div>
-                    <div class="provider-history-pull">
-                      <label for="historyPullDays_STAKTRAKR">Pull Hourly History:</label>
-                      <select id="historyPullDays_STAKTRAKR" class="provider-history-select">
-                        <option value="1">1 day</option>
-                        <option value="3">3 days</option>
-                        <option value="7" selected>7 days</option>
-                        <option value="14">14 days</option>
-                        <option value="30">30 days</option>
-                      </select>
-                      <button type="button" class="btn api-history-btn" data-provider="STAKTRAKR">Pull History</button>
-                      <span class="history-pull-cost" id="historyPullCost_STAKTRAKR"></span>
+                      <span class="settings-hint">Refreshes hourly. Free, on by default.</span>
                     </div>
                     <div class="provider-info">
                       <div class="provider-status"><span class="status-dot"></span><span class="status-text">Disconnected</span><span class="status-last-used"></span></div>
@@ -3628,77 +3602,30 @@
 
             <!-- ===== MARKET PRICES ===== -->
             <div id="settingsPanel_market" class="settings-section-panel" style="display: none">
-
-              <!-- Market List View header -->
-              <div id="marketListHeader" style="display:none">
-                <div class="market-header">
-                  <div class="market-header-row">
-                    <h3>Market Prices</h3>
-                    <div class="market-header-sync-group">
-                      <button id="retailSyncBtnList" class="retail-sync-btn market-sync-btn" type="button">Sync Now</button>
-                      <span id="retailLastSyncList" class="settings-subtext">Last sync: —</span>
-                    </div>
-                  </div>
-                  <div class="market-header-divider"></div>
-                  <div class="market-header-controls-row">
-                    <input type="search" id="marketSearchInput" class="market-search"
-                           placeholder="Search items, metals, vendors..." autocomplete="off"
-                           aria-label="Search market items">
-                    <div class="market-sort-wrap">
-                      <span class="market-header-btn market-sort-label">Sort: Name <span class="btn-chevron">&#9662;</span></span>
-                      <select id="marketSortSelect" aria-label="Sort market items">
-                        <option value="name" selected>Name</option>
-                        <option value="metal">Metal</option>
-                        <option value="price-low">Price: Low</option>
-                        <option value="price-high">Price: High</option>
-                        <option value="trend">Trend</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="market-header-controls-row market-header-view-row">
-                    <div class="market-filter-pills" id="marketFilterPills">
-                      <button class="market-filter-pill active" data-metal="all" type="button" aria-pressed="true">All</button>
-                      <button class="market-filter-pill" data-metal="silver" type="button" aria-pressed="false">Silver</button>
-                      <button class="market-filter-pill" data-metal="gold" type="button" aria-pressed="false">Gold</button>
-                      <button class="market-filter-pill" data-metal="goldback" type="button" aria-pressed="false">Goldback</button>
-                      <button class="market-filter-pill" data-metal="platinum" type="button" aria-pressed="false">Platinum</button>
-                      <button class="market-filter-pill" data-metal="palladium" type="button" aria-pressed="false">Palladium</button>
-                    </div>
-                    <div class="market-header-controls-right">
-                      <button class="market-header-btn market-expand-btn" id="marketExpandAllBtn" type="button" title="Expand All" aria-label="Expand All">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                      </button>
-                    </div>
-                  </div>
+              <!-- Market Filter Matrix (STAK-515) -->
+              <div class="market-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+                <h3 style="margin:0;">Market Settings</h3>
+                <div class="market-header-sync-group" style="display:flex;align-items:center;gap:8px;">
+                  <button id="retailSyncBtn" class="retail-sync-btn market-sync-btn" type="button">Sync Now</button>
+                  <span id="retailSyncStatus" class="settings-subtext"></span>
                 </div>
               </div>
-
-              <!-- Legacy grid header (hidden when list view active) -->
-              <div id="marketGridHeader">
-                <h3 style="margin-bottom:0.75rem;">Market Prices</h3>
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.5rem;">
-                  <div style="display:flex;flex-direction:column;gap:0.15rem;">
-                    <span id="retailLastSync" class="settings-subtext"></span>
-                    <span id="retailSyncStatus" class="settings-subtext"></span>
-                  </div>
-                  <button id="retailSyncBtn" class="retail-card-action" type="button">Sync Now</button>
-                </div>
+              <p class="settings-subtext" style="margin:0.5rem 0 0.75rem;">Filter which items appear in the ticker and market price table on the main page.</p>
+              <div class="market-filter-pills" id="marketFilterMetalPills">
+                <button class="market-filter-pill active" data-metal="all" type="button" aria-pressed="true">All</button>
+                <button class="market-filter-pill" data-metal="silver" type="button" aria-pressed="false">Silver</button>
+                <button class="market-filter-pill" data-metal="gold" type="button" aria-pressed="false">Gold</button>
+                <button class="market-filter-pill" data-metal="platinum" type="button" aria-pressed="false">Platinum</button>
+                <button class="market-filter-pill" data-metal="palladium" type="button" aria-pressed="false">Palladium</button>
+                <button class="market-filter-pill" data-metal="goldback" type="button" aria-pressed="false">Goldback</button>
               </div>
-
-              <div id="retailDisclaimer" class="retail-disclaimer-inline" style="display:none; margin-bottom:0.75rem;" role="status">
-                Best-effort pricing · Sourced from public data, may not reflect real-time or credit card pricing · Confidence: 80=aligned · 35=outlier · 15=significant outlier
+              <div id="marketFilterMatrixWrap" class="market-filter-matrix-wrap">
+                <table id="marketFilterMatrix" class="market-filter-matrix" aria-label="Market item filter matrix">
+                  <thead id="marketFilterMatrixHead"></thead>
+                  <tbody id="marketFilterMatrixBody"></tbody>
+                </table>
               </div>
-
-              <div id="retailCardsGrid" class="retail-cards-grid" aria-live="polite" aria-label="Retail coin price cards">
-                <!-- Cards rendered by renderRetailCards() -->
-              </div>
-
-              <div id="retailEmptyState" class="retail-empty-state" style="display: none">
-                <div class="retail-empty-icon">📊</div>
-                <p class="retail-empty-title">No market prices yet</p>
-                <p class="retail-empty-desc">Sync to load current bullion retail prices from APMEX, Monument, SDB, and JM Bullion.</p>
-                <button class="retail-sync-cta" type="button" onclick="syncRetailPrices()">Sync Now</button>
-              </div>
+              <div id="marketFilterStatus" class="settings-subtext" style="margin-top:0.5rem;"></div>
             </div>
 
             <!-- ===== ACTIVITY LOG ===== -->
@@ -3890,17 +3817,7 @@
                 <div id="retailSyncLogContainer"></div>
                 <div class="retail-history-table-wrap">
                   <table id="retailHistoryTable" class="retail-history-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Avg Median</th>
-                        <th>Avg Low</th>
-                        <th>APMEX</th>
-                        <th>Monument</th>
-                        <th>SDB</th>
-                        <th>JM</th>
-                      </tr>
-                    </thead>
+                    <thead id="retailHistoryTableHead"></thead>
                     <tbody id="retailHistoryTableBody"></tbody>
                   </table>
                 </div>
@@ -4143,6 +4060,14 @@
                   <div class="faq-answer">
                     <p>The spot prices displayed are fetched from public metal pricing APIs and represent the theoretical melt value of metal at that moment. They are <strong>not</strong> buy/sell prices from a dealer.</p>
                     <p>Actual transaction prices will differ due to dealer premiums, bid/ask spreads, and market conditions. The "Melt Value" shown is a reference floor, not a guaranteed sale price.</p>
+                  </div>
+                </details>
+
+                <details class="faq-item">
+                  <summary class="faq-question">Numista only fills one dimension for bars and ingots</summary>
+                  <div class="faq-answer">
+                    <p>When you look up a rectangular item (bar, ingot) via Numista, the <strong>length</strong> auto-fills but the <strong>width</strong> is left blank. This is a limitation of the Numista API &mdash; their website shows both dimensions, but the API only returns one.</p>
+                    <p>Simply enter the width manually after the lookup. Your manual entry is preserved &mdash; future Numista syncs will not overwrite fields you have edited.</p>
                   </div>
                 </details>
               </div>

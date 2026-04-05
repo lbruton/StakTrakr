@@ -80,7 +80,7 @@
   const getTypeColor = type => typeColors[type] || 'var(--type-other-bg)';
   const getPurchaseLocationColor = loc => getColor(purchaseLocationColors, loc);
   const getStorageLocationColor = loc =>
-    (loc === 'Unknown' || loc === '—') ? 'var(--text-muted)' : getColor(storageLocationColors, loc);
+    (loc === 'Unknown' || loc === '—' || !loc) ? 'var(--text-muted)' : getColor(storageLocationColors, loc);
 
   window._openPurchaseLink = (href, e) => {
     if (e) e.stopPropagation();

@@ -98,8 +98,6 @@ const _buildVendorLegend = (slug) => {
   );
   if (!hasAny) return;
 
-  const isV2 = typeof USE_V2_API !== "undefined" && USE_V2_API;
-
   knownVendors.forEach((vendorId) => {
     const vendorData = vendorMap[vendorId];
     const price = vendorData ? vendorData.price : null;
@@ -117,7 +115,7 @@ const _buildVendorLegend = (slug) => {
     // Skip vendors with no price
     if (price == null) return;
 
-    const isCarried = isV2 && vendorData && vendorData.carried === true;
+    const isCarried = vendorData && vendorData.carried === true;
     const carriedFrom = isCarried && vendorData.carried_from ? vendorData.carried_from : null;
 
     const item = document.createElement(vendorUrl ? "a" : "span");
@@ -337,7 +335,7 @@ const _buildIntradayTable = (slug, bucketed) => {
   if (!bucketed) {
     const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
     const rawWindows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-    const windows = (typeof USE_V2_API !== "undefined" && USE_V2_API) ? _normalizeV2IntradayWindows(rawWindows) : rawWindows;
+    const windows = _normalizeV2IntradayWindows(rawWindows);
     const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
     try {
       bucketed = _flagAnomalies(filled);
@@ -456,10 +454,9 @@ const _buildIntradayChart = (slug) => {
   const canvas = safeGetElement("retailViewIntradayChart");
   const noDataEl = safeGetElement("retailViewIntradayNoData");
 
-  const isV2 = typeof USE_V2_API !== "undefined" && USE_V2_API;
   const intraday = typeof retailIntradayData !== "undefined" ? retailIntradayData[slug] : null;
   const rawWindows = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
-  const windows = isV2 ? _normalizeV2IntradayWindows(rawWindows) : rawWindows;
+  const windows = _normalizeV2IntradayWindows(rawWindows);
   const filled = _forwardFillVendors(_bucketWindows(_trimTo24h(windows)));
   let bucketed;
   try {

@@ -614,7 +614,7 @@ function resolveProxy(providerId) {
 // TODO: Remove these after all callsites are refactored to use providerCfg().
 const SLOW_PROVIDERS = new Set(Object.entries(PROVIDER_CONFIG).filter(([,c]) => c.waitFor > 0).map(([id]) => id));
 const FIRECRAWL_PREFERRED_PROVIDERS = new Set(Object.entries(PROVIDER_CONFIG).filter(([,c]) => c.phase === "firecrawl").map(([id]) => id));
-const FIRECRAWL_TABLE_PARSE_PROVIDERS = new Set(["apmex", "monumentmetals"]);
+const FIRECRAWL_TABLE_PARSE_PROVIDERS = new Set(["monumentmetals"]);
 const PLAYWRIGHT_ONLY_PROVIDERS = new Set([]);  // kept empty — all routing is via PROVIDER_CONFIG.phase
 const FRACTIONAL_EXEMPT_PROVIDERS = new Set(Object.entries(PROVIDER_CONFIG).filter(([,c]) => c.fractionalExempt).map(([id]) => id));
 

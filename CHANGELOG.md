@@ -9,6 +9,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.93] - 2026-04-03
+
+### Added — Shape-Aware Dimension Fields (STAK-528)
+
+- **Added**: Shape-aware dimension fields — rectangular items (bars, ingots) show Length/Width instead of Diameter. Shape selector drives conditional field display. Numista API size field mapped by shape. Existing "LxW" diameter strings auto-migrated on edit
+- **Changed**: View modal displays "105 x 74 mm" for rectangular items, "40.6 mm" for round items. Composite dimensions include thickness when available
+
+---
+
+## [3.33.92] - 2026-04-01
+
+### Changed — Remove V1 API Dead Code + Dynamic Market Log Vendors (STAK-509)
+
+- **Removed**: All v1 API code paths (USE_V2_API flag, v1 fetch blocks, v1 health checks, v1 URL constants) — v2 has been sole data source since v3.33.87
+- **Removed**: `fetchStaktrakr15minRange()` function (zero callers, confirmed dead)
+- **Fixed**: Market log tab (Settings > Activity Log > Market) now renders vendor columns dynamically from v2 manifest metadata instead of hardcoded APMEX/Monument/SDB/JM columns that went blank after v2 cutover
+- **Changed**: Net reduction of ~486 lines across 7 JS files
+
+---
+
+## [3.33.91] - 2026-04-01
+
+### Fixed — Cloud Sync API Key + StorageLocation Loop (STAK-519)
+
+- **Fixed**: Accepting remote API keys in cloud sync merge no longer destroys them as `[object Object]` — whole-setting fallback now preserves raw strings
+- **Fixed**: `_applyAndFinalize()` stringify guard prevents any future object-to-string coercion in localStorage writes
+- **Fixed**: New items with blank storageLocation default to `""` instead of `"Unknown"`, breaking the infinite sync conflict loop
+- **Fixed**: `_valuesEqual()` now treats `""`, `null`, and `undefined` as equivalent, preventing spurious sync conflicts on blank fields
+
+---
+
+## [3.33.90] - 2026-04-01
+
+### Fixed — Simplify StakTrakr API Settings (STAK-518)
+
+- **Fixed**: StakTrakr API cache settings no longer revert to 24h on page load — config reconstruction now forces cache to 0
+- **Changed**: StakTrakr provider panel simplified to Enabled toggle + auto-refresh checkbox (removed dead cache, priority, metals, history controls)
+- **Changed**: StakTrakr tab moved to first position in Settings > Market as the primary free built-in provider
+- **Fixed**: Priority migration simplified — STAKTRAKR uses enabled/disabled model instead of ranked priority ordering
+
+---
+
+## [3.33.89] - 2026-03-29
+
+### Added — Market Filter Matrix (STAK-515)
+
+- **Added**: Settings > Market tab redesigned with checkbox filter matrix — enable/disable specific item/vendor combinations for ticker and vendor prices table
+- **Added**: Metal pill tabs (All/Silver/Gold/Platinum/Palladium/Goldback) scope the filter matrix view
+- **Added**: Row and column ALL toggles for bulk enable/disable with indeterminate state support
+- **Added**: Filter consumption in ticker (`renderBestPriceTicker`) and vendor prices table (`_renderVendorTable`) — disabled items excluded from display and price calculations
+- **Removed**: Legacy market price cards grid, search/sort/filter controls, and Sync Now button from settings (now on main page only)
+
+---
+
 ## [3.33.88] - 2026-03-29
 
 ### Fixed — Ticker Duplication & Stale What's New (STAK-513)

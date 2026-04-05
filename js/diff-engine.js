@@ -80,15 +80,16 @@ const DIFF_FIELDS = [
 
 /**
  * Returns true when two values are considered equal for diff purposes.
- * Uses strict equality after normalising undefined/null to null so that
- * a missing field and an explicit null are treated identically.
+ * Uses strict equality after normalising undefined, null, and empty strings
+ * to null so that a missing field, an explicit null, and an empty string
+ * are all treated identically.
  *
  * @param {*} a
  * @param {*} b
  * @returns {boolean}
  */
 function _valuesEqual(a, b) {
-  const norm = (v) => (v === undefined ? null : v);
+  const norm = (v) => (v === undefined || v === '' ? null : v);
   a = norm(a); b = norm(b);
   if (a === b) return true;
   if (a === null || b === null) return false;

@@ -77,9 +77,9 @@ const switchSettingsSection = (name) => {
     switchLogTab(activeKey);
   }
 
-  // Render coin price cards when switching to the market section
-  if (targetName === 'market' && typeof renderRetailCards === 'function') {
-    renderRetailCards();
+  // Render market filter matrix when switching to the market section
+  if (targetName === 'market' && typeof renderMarketFilterMatrix === 'function') {
+    renderMarketFilterMatrix();
   }
 
   // Populate Storage section when switching to it
@@ -589,9 +589,16 @@ const migrateProviderPriority = () => {
     }
   });
 
-  // Ensure STAKTRAKR is always rank 1 for fresh migrations
-  if (priorities.STAKTRAKR && priorities.STAKTRAKR !== 1) {
-    const currentRank1 = Object.entries(priorities).find(([, p]) => p === 1);
+  // Normalize STAKTRAKR to enabled/disabled (not ranked)
+  if (!('STAKTRAKR' in priorities)) {
+    // Shift existing providers to make room at rank 1
+    Object.keys(priorities).forEach(prov => {
+      if (priorities[prov] >= 1) priorities[prov]++;
+    });
+    priorities.STAKTRAKR = 1;
+  } else if (priorities.STAKTRAKR > 1) {
+    // Swap with current rank-1 provider to avoid collision
+    const currentRank1 = Object.entries(priorities).find(([k, p]) => k !== 'STAKTRAKR' && p === 1);
     if (currentRank1) priorities[currentRank1[0]] = priorities.STAKTRAKR;
     priorities.STAKTRAKR = 1;
   }
@@ -611,11 +618,18 @@ const loadProviderPriorities = () => {
     if (stored) {
       const priorities = JSON.parse(stored);
       if (typeof priorities === 'object' && priorities !== null) {
-        // Inject STAKTRAKR at rank 1 for existing users upgrading
+        // Normalize STAKTRAKR to enabled/disabled for existing users
         if (!('STAKTRAKR' in priorities)) {
+          // Shift existing providers to make room at rank 1
           Object.keys(priorities).forEach(prov => {
-            if (priorities[prov] > 0) priorities[prov]++;
+            if (priorities[prov] >= 1) priorities[prov]++;
           });
+          priorities.STAKTRAKR = 1;
+          saveProviderPriorities(priorities);
+        } else if (priorities.STAKTRAKR > 1) {
+          // Swap with current rank-1 provider to avoid collision
+          const currentRank1 = Object.entries(priorities).find(([k, p]) => k !== 'STAKTRAKR' && p === 1);
+          if (currentRank1) priorities[currentRank1[0]] = priorities.STAKTRAKR;
           priorities.STAKTRAKR = 1;
           saveProviderPriorities(priorities);
         }
@@ -2329,6 +2343,246 @@ const renderNumistaTagSettings = () => {
   renderBlacklist();
 };
 
+// ---------------------------------------------------------------------------
+// Market Filter Matrix (STAK-515)
+// ---------------------------------------------------------------------------
+
+const _getAvailableVendorsForSlug = (slug) => {
+  if (!retailPrices || !retailPrices.prices || !retailPrices.prices[slug] || !retailPrices.prices[slug].vendors) return [];
+  return Object.keys(retailPrices.prices[slug].vendors);
+};
+
+const renderMarketFilterMatrix = () => {
+  const thead = safeGetElement('marketFilterMatrixHead');
+  const tbody = safeGetElement('marketFilterMatrixBody');
+  const statusEl = safeGetElement('marketFilterStatus');
+  if (!thead || !thead.id || !tbody || !tbody.id) return;
+
+  const slugs = typeof getActiveRetailSlugs === 'function' ? getActiveRetailSlugs() : [];
+
+  // Build vendor list from manifest or fallback constants
+  const vendorSource = (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta)
+    ? _manifestVendorMeta
+    : (typeof RETAIL_VENDOR_NAMES !== 'undefined' ? RETAIL_VENDOR_NAMES : {});
+  const vendors = Object.keys(vendorSource).map((id) => {
+    if (typeof getVendorDisplay === 'function') {
+      const info = getVendorDisplay(id);
+      return { id, name: info.name || id, color: info.color || '#6c757d' };
+    }
+    const colors = typeof RETAIL_VENDOR_COLORS !== 'undefined' ? RETAIL_VENDOR_COLORS : {};
+    return { id, name: vendorSource[id]?.name || vendorSource[id] || id, color: colors[id] || '#6c757d' };
+  });
+
+  // --- thead ---
+  while (thead.firstChild) thead.removeChild(thead.firstChild);
+  const headerRow = document.createElement('tr');
+
+  const thProduct = document.createElement('th');
+  thProduct.textContent = 'PRODUCT';
+  headerRow.appendChild(thProduct);
+
+  const thAll = document.createElement('th');
+  thAll.textContent = 'ALL';
+  headerRow.appendChild(thAll);
+
+  vendors.forEach((v) => {
+    const th = document.createElement('th');
+    const dot = document.createElement('span');
+    dot.className = 'vendor-dot';
+    dot.style.background = v.color;
+    th.appendChild(dot);
+    // Ultra-short vendor names for compact matrix headers
+    const _vendorAbbrev = { 'APMEX': 'APX', 'Monument': 'MON', 'Gainesville': 'GVL', 'Provident': 'PRV', 'BullionX': 'BLX', 'Summit': 'SMT', 'Hero': 'HRO', 'Goldback': 'GB' };
+    th.appendChild(document.createTextNode(_vendorAbbrev[v.name] || v.name));
+    th.title = v.name; // Full name on hover
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  // --- ALL row (column toggles) ---
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  const allRow = document.createElement('tr');
+  allRow.className = 'mfm-all-row';
+
+  const allLabelTd = document.createElement('td');
+  allLabelTd.textContent = 'ALL';
+  allRow.appendChild(allLabelTd);
+
+  const masterTd = document.createElement('td');
+  const masterCb = document.createElement('input');
+  masterCb.type = 'checkbox';
+  masterCb.title = 'Toggle everything';
+  masterCb.className = 'mfm-master-toggle';
+  masterTd.appendChild(masterCb);
+  allRow.appendChild(masterTd);
+
+  vendors.forEach((v) => {
+    const td = document.createElement('td');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.setAttribute('data-col-toggle', v.id);
+    cb.title = 'Toggle all ' + v.name;
+    td.appendChild(cb);
+    allRow.appendChild(td);
+  });
+  tbody.appendChild(allRow);
+
+  // --- Product rows ---
+  // Filter out slugs with no resolved display name (e.g. goldback-g10 denomination stubs)
+  const displaySlugs = slugs.filter((slug) => {
+    const m = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(slug) : { name: slug };
+    return m.name !== slug;
+  });
+  displaySlugs.forEach((slug) => {
+    const meta = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(slug) : { name: slug, metal: 'unknown' };
+    const metal = (meta.metal || 'unknown').toLowerCase();
+    const available = _getAvailableVendorsForSlug(slug);
+
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-metal', metal);
+
+    const nameTd = document.createElement('td');
+    nameTd.className = 'mfm-product-name';
+    // Abbreviate product names: strip weight/purity suffixes for compact display
+    const shortName = (meta.name || slug)
+      .replace(/\s*\(1\/1000 oz gold\)/i, '')  // Goldback weight suffix
+      .replace(/\s*\(\.\d+\)/i, '')             // (.999) purity
+      .replace(/\s+1\s*oz$/i, '')               // trailing "1 oz"
+      .replace(/\s+10\s*oz$/i, ' 10oz');         // "10 oz" → compact
+    nameTd.textContent = shortName;
+    nameTd.title = meta.name; // Full name on hover
+    tr.appendChild(nameTd);
+
+    const rowAllTd = document.createElement('td');
+    const rowCb = document.createElement('input');
+    rowCb.type = 'checkbox';
+    rowCb.setAttribute('data-row-toggle', slug);
+    rowCb.title = 'Toggle all for ' + meta.name;
+    rowAllTd.appendChild(rowCb);
+    tr.appendChild(rowAllTd);
+
+    let rowTotal = 0;
+    let rowChecked = 0;
+
+    // When no price data is available (e.g. file:// or before first sync),
+    // treat all vendor combos as available so checkboxes are enabled.
+    const hasAnyData = available.length > 0;
+
+    vendors.forEach((v) => {
+      const td = document.createElement('td');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      const hasData = !hasAnyData || available.indexOf(v.id) !== -1;
+      if (!hasData) {
+        cb.disabled = true;
+        cb.checked = false;
+      } else {
+        cb.setAttribute('data-slug', slug);
+        cb.setAttribute('data-vendor', v.id);
+        const isEnabled = typeof _isMarketItemEnabled === 'function' ? _isMarketItemEnabled(slug, v.id) : true;
+        cb.checked = isEnabled;
+        rowTotal++;
+        if (isEnabled) rowChecked++;
+      }
+      td.appendChild(cb);
+      tr.appendChild(td);
+    });
+
+    // Set row toggle state
+    rowCb.checked = rowTotal > 0 && rowChecked === rowTotal;
+    rowCb.indeterminate = rowChecked > 0 && rowChecked < rowTotal;
+    if (rowTotal === 0) rowCb.disabled = true;
+
+    tbody.appendChild(tr);
+  });
+
+  // --- Determine visible slugs for ALL row toggle scoping ---
+  const activePillEl = document.querySelector('#marketFilterMetalPills .market-filter-pill.active');
+  const activeMetalFilter = activePillEl ? activePillEl.getAttribute('data-metal') : 'all';
+  const visibleSlugs = activeMetalFilter === 'all' ? displaySlugs : displaySlugs.filter((s) => {
+    const m = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(s) : { metal: 'unknown' };
+    return (m.metal || '').toLowerCase() === activeMetalFilter;
+  });
+
+  // --- Sync column toggle states (scoped to visible slugs) ---
+  const anySlugHasData = visibleSlugs.some((s) => _getAvailableVendorsForSlug(s).length > 0);
+  vendors.forEach((v) => {
+    const colCb = tbody.querySelector(`input[data-col-toggle="${v.id}"]`);
+    if (!colCb) return;
+    let colTotal = 0;
+    let colChecked = 0;
+    visibleSlugs.forEach((slug) => {
+      const available = _getAvailableVendorsForSlug(slug);
+      const isAvailable = !anySlugHasData || available.indexOf(v.id) !== -1;
+      if (isAvailable) {
+        colTotal++;
+        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, v.id)) colChecked++;
+      }
+    });
+    colCb.checked = colTotal > 0 && colChecked === colTotal;
+    colCb.indeterminate = colChecked > 0 && colChecked < colTotal;
+    if (colTotal === 0) { colCb.disabled = true; colCb.checked = false; }
+  });
+
+  // --- Sync master toggle (scoped to visible slugs) ---
+  let grandTotal = 0;
+  let grandChecked = 0;
+  visibleSlugs.forEach((slug) => {
+    const available = _getAvailableVendorsForSlug(slug);
+    const hasAny = available.length > 0;
+    if (hasAny) {
+      available.forEach((vid) => {
+        grandTotal++;
+        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) grandChecked++;
+      });
+    } else {
+      // No price data — count all vendors as available
+      vendors.forEach((v) => {
+        grandTotal++;
+        if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, v.id)) grandChecked++;
+      });
+    }
+  });
+  masterCb.checked = grandTotal > 0 && grandChecked === grandTotal;
+  masterCb.indeterminate = grandChecked > 0 && grandChecked < grandTotal;
+
+  // --- Status line ---
+  const activeVendors = {};
+  displaySlugs.forEach((slug) => {
+    const available = _getAvailableVendorsForSlug(slug);
+    const effective = available.length > 0 ? available : vendors.map((v) => v.id);
+    effective.forEach((vid) => {
+      if (typeof _isMarketItemEnabled === 'function' && _isMarketItemEnabled(slug, vid)) {
+        activeVendors[vid] = true;
+      }
+    });
+  });
+  const enabledCount = grandChecked;
+  const activeVendorCount = Object.keys(activeVendors).length;
+  const totalVendors = vendors.length;
+  if (statusEl) {
+    statusEl.textContent = 'Showing ' + enabledCount + ' items \u00b7 ' + activeVendorCount + ' of ' + totalVendors + ' vendors active';
+  }
+
+  // Re-apply active metal pill filter after re-render
+  if (activeMetalFilter !== 'all') {
+    const rows = tbody.querySelectorAll('tr');
+    let visibleProductCount = 0;
+    rows.forEach((row) => {
+      if (row.classList.contains('mfm-all-row')) return;
+      const rowMetal = row.getAttribute('data-metal');
+      if (rowMetal && rowMetal !== activeMetalFilter) {
+        row.style.display = 'none';
+      } else {
+        visibleProductCount++;
+      }
+    });
+    if (statusEl) {
+      statusEl.textContent = 'Showing ' + visibleProductCount + ' products \u00b7 ' + activeVendorCount + ' of ' + totalVendors + ' vendors active';
+    }
+  }
+};
+
 // Expose globally
 if (typeof window !== 'undefined') {
   window.showSettingsModal = showSettingsModal;
@@ -2347,4 +2601,5 @@ if (typeof window !== 'undefined') {
   window.populateImagesSection = populateImagesSection;
   window.renderStorageSection = renderStorageSection;
   window.renderNumistaTagSettings = renderNumistaTagSettings;
+  window.renderMarketFilterMatrix = renderMarketFilterMatrix;
 }
