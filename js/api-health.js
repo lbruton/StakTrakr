@@ -161,10 +161,15 @@ const updateHealthBadges = ({ primary }) => {
   const spotPart   = spot.error   ? "Spot ❌"   : `Spot ${spot.ago ?? "?"}`;
 
   const label = `${icon} ${marketPart} · ${spotPart}`;
-  ["apiHealthBadge", "apiHealthBadgeAbout"].forEach((id) => {
-    const el = safeGetElement(id);
-    if (el) el.textContent = label;
-  });
+  // Footer badge uses shield-badge structure (label + value spans)
+  const footerVal = document.getElementById("apiHealthValue");
+  if (footerVal) {
+    footerVal.textContent = `${marketPart} · ${spotPart}`;
+    footerVal.className = "shield-badge-value " + (allOk ? "shield-badge-value--green" : "shield-badge-value--orange");
+  }
+  // About tab badge uses legacy single-element structure
+  const aboutBadge = safeGetElement("apiHealthBadgeAbout");
+  if (aboutBadge) aboutBadge.textContent = label;
 };
 
 /**

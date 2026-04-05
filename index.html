@@ -1873,16 +1873,21 @@
       </div>
     </div>
     <footer class="app-footer">
+      <!-- Badges: repo (shields.io imgs) + status (CSS-rendered) on one row -->
       <div class="footer-badges">
         <a href="https://github.com/lbruton/StakTrakr" target="_blank" rel="noopener"><img src="https://img.shields.io/github/license/lbruton/StakTrakr?style=flat-square" alt="MIT License" height="20"></a>
         <a href="https://app.codacy.com/gh/lbruton/StakTrakr/dashboard?utm_source=gh&amp;utm_medium=referral&amp;utm_content=&amp;utm_campaign=Badge_grade" target="_blank" rel="noopener"><img src="https://app.codacy.com/project/badge/Grade/b8d30126676546cb958fa6a7e0174da8" alt="Codacy Badge" height="20"></a>
         <a href="https://github.com/lbruton/StakTrakr/issues" target="_blank" rel="noopener"><img src="https://img.shields.io/github/issues/lbruton/StakTrakr?style=flat-square" alt="GitHub Issues" height="20"></a>
         <a href="https://www.reddit.com/r/staktrakr/" target="_blank" rel="noopener"><img src="https://img.shields.io/reddit/subreddit-subscribers/staktrakr?style=flat-square&amp;label=community" alt="Community" height="20"></a>
         <a href="https://github.com/sponsors/lbruton" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/sponsor-%E2%99%A1-ea4aaa?style=flat-square" alt="Sponsor" height="20"></a>
+        <a id="versionBadge" class="shield-badge" style="display: none"><span class="shield-badge-label">version</span><span class="shield-badge-value shield-badge-value--green" id="versionBadgeValue"></span></a>
+        <a href="https://beta.staktrakr.com" target="_blank" rel="noopener" class="shield-badge"><span class="shield-badge-label">beta</span><span class="shield-badge-value shield-badge-value--yellow">available</span></a>
+        <a href="#" class="shield-badge" onclick="if(window.showFaqModal){event.preventDefault();window.showFaqModal();}"><span class="shield-badge-label">help</span><span class="shield-badge-value shield-badge-value--blue">FAQ</span></a>
+        <button type="button" class="shield-badge" id="apiHealthBadge" onclick="if(window.showApiHealthModal)window.showApiHealthModal()"><span class="shield-badge-label" id="apiHealthLabel">status</span><span class="shield-badge-value shield-badge-value--grey" id="apiHealthValue">checking&hellip;</span></button>
       </div>
-      <div class="storage-line">Storage: <span id="storageUsage"></span> <div class="storage-bar" id="storageBar"><div class="storage-bar-ls" id="storageBarLs" title="localStorage"></div><div class="storage-bar-idb" id="storageBarIdb" title="IndexedDB Images"></div></div></div>
+      <!-- Row 3: Attribution text -->
       <div class="footer-meta">
-        <span>Thank you for using <span id="footerBrand">StakTrakr</span> <a id="versionBadge" class="version-badge" style="display: none"></a> <a href="https://beta.staktrakr.com" target="_blank" rel="noopener" class="version-badge version-badge--beta">beta</a>. &copy; 2025-2026 <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener">staktrakr.com</a>. &middot; <a href="#" onclick="if(window.showFaqModal){event.preventDefault();window.showFaqModal();}">FAQ</a> &middot; <button type="button" class="api-health-badge" id="apiHealthBadge" onclick="if(window.showApiHealthModal)window.showApiHealthModal()">Checking API…</button></span>
+        Thank you for using <span id="footerBrand">StakTrakr</span> &middot; &copy; 2025-2026 <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener">staktrakr.com</a> &middot; Created by <a href="https://www.lbruton.cc" target="_blank" rel="noopener">lbruton.cc</a>
       </div>
     </footer>
     <!-- =============================================================================
