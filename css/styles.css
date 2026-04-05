@@ -532,8 +532,9 @@ section {
   padding: 0 6px;
   white-space: nowrap;
 }
-/* shields.io palette — WCAG AA compliant text colors
-   Dark text (#1a1a1a) on bright backgrounds, white on dark backgrounds */
+/* shields.io palette — WCAG AA compliant contrast
+   Dark text (#1a1a1a) on bright backgrounds (green/yellow/orange/grey)
+   White text (#fff) on dark backgrounds (red/blue/label grey) */
 .shield-badge-value--brightgreen { background: #4c1; color: #1a1a1a; }
 .shield-badge-value--green { background: #97ca00; color: #1a1a1a; }
 .shield-badge-value--yellow { background: #dfb317; color: #1a1a1a; }

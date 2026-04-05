@@ -162,7 +162,7 @@ const updateHealthBadges = ({ primary }) => {
 
   const label = `${icon} ${marketPart} · ${spotPart}`;
   // Footer badge uses shield-badge structure (label + value spans)
-  const footerVal = document.getElementById("apiHealthValue");
+  const footerVal = safeGetElement("apiHealthValue");
   if (footerVal) {
     footerVal.textContent = `${marketPart} · ${spotPart}`;
     footerVal.className = "shield-badge-value " + (allOk ? "shield-badge-value--green" : "shield-badge-value--orange");
@@ -293,10 +293,15 @@ const populateApiHealthModalError = (err) => {
     const el = safeGetElement(id);
     if (el) el.textContent = "—";
   });
-  ["apiHealthBadge", "apiHealthBadgeAbout"].forEach((id) => {
-    const el = safeGetElement(id);
-    if (el) el.textContent = "❌ API ?";
-  });
+  // Footer badge: update value span only (preserve label/value structure)
+  const errVal = safeGetElement("apiHealthValue");
+  if (errVal) {
+    errVal.textContent = "API ?";
+    errVal.className = "shield-badge-value shield-badge-value--red";
+  }
+  // About tab badge: legacy single-element structure
+  const aboutErr = safeGetElement("apiHealthBadgeAbout");
+  if (aboutErr) aboutErr.textContent = "\u274c API ?";
 };
 
 // Cached result so the modal reflects the same data as the badge

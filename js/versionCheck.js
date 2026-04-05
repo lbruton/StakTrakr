@@ -54,7 +54,7 @@ const compareVersions = (a, b) => {
  */
 const renderVersionBadge = (badge, remoteVersion, releaseUrl) => {
   if (!badge) return;
-  const val = document.getElementById("versionBadgeValue");
+  const val = safeGetElement("versionBadgeValue");
   if (compareVersions(remoteVersion, APP_VERSION) <= 0) {
     if (val) {
       val.textContent = `v${APP_VERSION} \u2714`;
@@ -84,7 +84,7 @@ const GITHUB_RELEASES_URL = "https://github.com/lbruton/StakTrakr/releases/lates
 const showStaticVersionBadge = () => {
   const badge = document.getElementById("versionBadge");
   if (!badge) return;
-  const val = document.getElementById("versionBadgeValue");
+  const val = safeGetElement("versionBadgeValue");
   if (val) {
     val.textContent = `v${APP_VERSION}`;
     val.className = "shield-badge-value shield-badge-value--grey";
