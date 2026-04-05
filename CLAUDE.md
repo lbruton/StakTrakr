@@ -59,6 +59,15 @@ These are the patterns Jules/Copilot commonly miss. Non-negotiable:
 
 **Cloud sync/OAuth cannot be tested via Browserbase** — different origin breaks Dropbox OAuth. Test manually at `beta.staktrakr.com` after merging to `dev`.
 
+## Branch Protection Gotchas
+
+- **Dev branch requires PRs** — direct push to `dev` is blocked by ruleset. Every commit needs a branch + PR cycle.
+- **Main branch: 0 approvals required** — solo dev can't self-approve. Quality gates are Codacy, CodeQL, CODEOWNERS, and thread resolution.
+- **Signed commits on main** — `required_signatures` ruleset is active. Pre-existing unsigned commits will block merges; temporarily disable the ruleset for ship PRs that include unsigned history.
+- **CODEOWNERS** — `.github/workflows/` and `.github/CODEOWNERS` require owner review.
+- **CodeQL languages** — only `javascript-typescript` and `python`. Do NOT re-add `actions` (no workflow files to scan).
+- **Zero GitHub repo secrets** — all secrets removed post-STAK-531. Fly.io has its own secrets via `fly secrets`. Infisical is the secrets store. Do NOT add secrets back to GitHub repo settings.
+
 ## Issue Tracking
 
 Issues tracked in DocVault. Prefix: `STAK` (see `/issue` skill).
