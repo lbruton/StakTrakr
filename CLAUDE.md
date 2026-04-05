@@ -24,7 +24,7 @@ Technical docs live in **DocVault** at `DocVault/Projects/StakTrakr/`. This is t
 - Source file → page mapping is encoded in each DocVault page's YAML frontmatter — `/vault-update` reads it automatically
 - Infrastructure pages (tagged `owner/staktrakr-api`) are maintained by StakTrakrApi agents — don't rewrite their content
 
-Key pages: Overview, Architecture, Frontend Overview, Data Model, Storage Patterns, DOM Patterns, Cloud Sync, Retail Modal, API Consumption, Image Pipeline, Health Checks, Remote Poller, Spot Pipeline, Release Workflow, Service Worker, Vendor Quirks.
+Key pages: Start at `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/_Index.md` and follow the index.
 
 ## API Infrastructure
 
