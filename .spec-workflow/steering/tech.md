@@ -60,8 +60,13 @@ Event-driven single-page application with imperative DOM manipulation:
 ### Code Quality Tools
 - **Static Analysis**: ESLint 9.21.0 with custom rules; Codacy automated PR quality gates
 - **Formatting**: ESLint-enforced style (no Prettier)
-- **Testing Framework**: Playwright 1.50.0 for E2E browser tests (16 spec files)
 - **Documentation**: JSDoc comments; in-repo wiki under `wiki/`
+
+### Testing Strategy
+- **Methodology**: TDD — write failing tests BEFORE implementation code. All new behavior gets a regression test first.
+- **Unit/Integration**: No unit test framework (vanilla JS SPA) — Playwright E2E is the primary test layer.
+- **Browser/E2E**: Playwright 1.50.0 (16 spec files). Local execution for TDD loops and pre-merge QA. Transitioning from Browserbase-only E2E to Playwright-first for development workflows.
+- **Cloud verification**: Browserbase reserved for testing live deployed sites only (bug reproduction on production/staging URLs, runbook execution against PR preview URLs).
 
 ### Version Control & Collaboration
 - **VCS**: Git (GitHub)

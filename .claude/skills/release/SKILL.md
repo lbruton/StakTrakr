@@ -150,7 +150,7 @@ Before gathering release context, run the `/seed-sync` workflow to check for uns
 
 1. `git log --oneline main..dev` — list all commits on dev that aren't on main yet
 2. `git diff --stat main..dev` — summary of files changed
-3. (Optional — requires Linear MCP) Check Linear for any **In Progress** or recently **Done** issues on the StakTrakr team (ID: `f876864d-ff80-4231-ae6c-a8e5cb69aca4`) that relate to commits on dev
+3. Check DocVault issues (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues/`) for any **in-progress** or recently **done** issues that relate to commits on dev
 
 ### Step 2: Read current state
 
@@ -172,7 +172,7 @@ New version:     3.XX.YY (based on [release/patch] bump)
 Commits since main:
 - [commit list]
 
-Proposed title: [inferred from commits/Linear issues]
+Proposed title: [inferred from commits/DocVault issues]
 
 Proposed changelog bullets:
 - **Label**: Description (STAK-XX)
@@ -256,7 +256,7 @@ Format rules:
 - **What's New**: Keep only the **3–5 most recent** entries (lines between `## What's New` and `## Development Roadmap`). Delete older entries beyond 5.
 - **Development Roadmap**: Keep only the **3–4 most relevant** items. Remove completed items (anything shipped in this release or earlier). If the roadmap has grown beyond 4 items, trim the lowest-priority entries and note which were removed in the release plan output.
 
-Read `ROADMAP.md` (and Linear backlog if MCP is available) to determine which roadmap items are still relevant vs. completed.
+Read `ROADMAP.md` and DocVault issues to determine which roadmap items are still relevant vs. completed.
 
 #### about.js — `getEmbeddedWhatsNew()`
 
@@ -405,16 +405,16 @@ If uncommitted wiki changes exist, commit them before pushing. **Do NOT create a
 
    - [bullet points for this commit/batch]
 
-   ## Linear Issues
+   ## Issues (DocVault)
 
-   - [STAK-XX: title — link] (if applicable)
+   - [STAK-XX: title (status)] (if applicable)
 
    🤖 Generated with [Claude Code](https://claude.com/claude-code)
    EOF
    )"
    ```
 
-3. (Optional — requires Linear MCP) If Linear issues are referenced, update status to **In Progress** (not Done — that happens at merge time).
+3. If DocVault issues are referenced, update frontmatter status to **in-progress** (not done — that happens at merge time).
 
 ### Step 2: PR Resolution & Scan Monitoring (MANDATORY)
 
@@ -450,9 +450,12 @@ git tag --merged origin/dev --sort=-version:refname | grep '^v3\.' | head -20
 
 The tag list gives you every patch breadcrumb on `dev` that hasn't shipped to main yet. These are your changelog source — more reliable than commit messages alone.
 
-### Step 2: Fetch Linear issue titles
+### Step 2: Fetch DocVault issue titles
 
-For each STAK-### found across commits and tag names, call `get_issue` (Linear MCP) to get the current title and status. This ensures the PR description is accurate, not just copy-pasted from commit messages.
+For each STAK-### found across commits and tag names, read the issue file from
+DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues/STAK-###.md`)
+to get the current title and status. This ensures the PR description is accurate,
+not just copy-pasted from commit messages.
 
 ### Step 3: Create the `dev → main` PR
 
@@ -477,10 +480,10 @@ gh pr create --base main --head dev --label "codacy-review" \
 - vX.X.X — [title]
 - ...
 
-## Linear Issues
+## Issues (DocVault)
 
-- STAK-XX: [title] — [url]
-- STAK-XX: [title] — [url]
+- STAK-XX: [title] ([status])
+- STAK-XX: [title] ([status])
 
 ## QA Notes
 
@@ -514,9 +517,11 @@ gh pr ready [number]
 
 Then run `/pr-resolve` to clear all open Codacy and Copilot review threads before the PR goes to final review.
 
-### Step 5: Update Linear issues
+### Step 5: Update DocVault issues
 
-Mark all referenced STAK-### issues as **Done** (they ship with this merge).
+Mark all referenced STAK-### issues as **done** in DocVault (they ship with this merge).
+Update each issue file's YAML frontmatter: `status: done`, `completed: "YYYY-MM-DD"`.
+Commit DocVault changes separately (direct to main).
 
 ### Step 6: After the PR merges to main — run Phase 5 immediately
 
@@ -544,7 +549,7 @@ EOF
 
 - Use the changelog section heading as the `## TITLE`
 - Copy changelog bullets verbatim (they're already formatted correctly)
-- Do NOT include file update lists or Linear references — those belong in the PR body, not the release
+- Do NOT include file update lists or issue references — those belong in the PR body, not the release
 
 ### Verify
 
@@ -562,7 +567,7 @@ Version:  vNEW_VERSION
 Commit:   [hash] [message]
 PR:       #XX merged — [url]
 Release:  https://github.com/lbruton/StakTrakr/releases/tag/vNEW_VERSION
-Linear:   STAK-XX → Done
+Issues:   STAK-XX → Done (DocVault)
 ```
 
 ## Dry Run Mode

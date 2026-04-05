@@ -153,30 +153,33 @@
   - _Requirements: 5.2, 5.3_
   - _Prompt: Role: React Developer with expertise in state management and API integration | Task: Implement feature-specific components following requirements 5.2 and 5.3, using API hooks from src/hooks/useApi.ts and extending BaseComponent patterns | Restrictions: Must use existing state management patterns, handle loading and error states properly, maintain component performance | Success: Components are fully functional with proper state management, API integration works smoothly, user experience is responsive and intuitive_
 
-- [ ] 6. Integration and testing
-  - Plan integration approach and identify affected runbook sections for TDD test authoring
-  - _Leverage: tests/runbook/*.md, /browserbase-test-maintenance skill_
-  - _Requirements: 6.0_
-  - _Prompt: Role: Integration Engineer with expertise in system integration and testing strategies | Task: Plan comprehensive integration approach following requirement 6.0. Identify which tests/runbook/ section files are affected by this spec and write new runbook test blocks BEFORE implementation tasks begin (TDD). Use the /browserbase-test-maintenance skill for format guidance and section mapping. | Restrictions: Must consider all system components, ensure proper test coverage, write tests in the standard 7-field runbook format | Success: Integration plan is comprehensive, runbook test blocks are written for all new user-facing behavior, tests are appended to the correct section files_
+## Standard Closing Tasks
 
-- [ ] 6.1 Write end-to-end runbook tests (TDD — write BEFORE implementation)
-  - Write runbook test blocks in tests/runbook/*.md for new user-facing behavior
-  - Use the /browserbase-test-maintenance skill for the standard 7-field format
-  - Map implementation changes to the correct runbook section file
-  - _Leverage: /browserbase-test-maintenance skill, tests/runbook/*.md section files_
+- [ ] 6. Run project test suite and verify baseline
+  - Run the project's test command to establish a passing baseline before changes
+  - If no test suite exists, flag this and discuss with the user
+  - _Leverage: Project test configuration (package.json scripts, vitest.config, jest.config, etc.)_
   - _Requirements: All_
-  - _Prompt: Role: QA Automation Engineer with expertise in Browserbase/Stagehand natural-language browser automation | Task: Write runbook test blocks in tests/runbook/*.md for all new user-facing behavior using the /browserbase-test-maintenance skill. Each test block must use the 7-field format (Test name, Added, Preconditions, Steps, Pass criteria, Tags, Section). Map changes to the correct section file. After implementation, verify by running /bb-test sections=NN against the PR preview URL. | Restrictions: Use the standard runbook format, append to section files (never modify existing tests), act steps must be atomic. No Playwright, no browserless. | Success: All new user-facing behavior has corresponding runbook test blocks, tests pass when run via /bb-test against the PR preview URL_
+  - _Prompt: Role: QA Engineer | Task: Run the project's established test suite to verify a passing baseline before implementation. Identify the test command from package.json, CLAUDE.md, or project conventions. If no test suite exists, flag this to the user. | Restrictions: Use the project's existing test framework, do not introduce a new one. | Success: Test suite runs and baseline results are recorded._
 
-- [ ] 6.2 Verify tests against PR preview
-  - Run /bb-test sections=NN against PR preview URL to verify all new tests pass
-  - _Leverage: /bb-test skill, PR preview URL from gh pr checks_
+- [ ] 6.1 Write tests for new behavior (TDD — write BEFORE implementation)
+  - Write failing tests using the project's test framework for all new behavior
+  - Tests should cover the acceptance criteria from requirements.md
+  - _Leverage: Project test framework, requirements.md acceptance criteria_
   - _Requirements: All_
-  - _Prompt: Role: QA Automation Engineer | Task: Run /bb-test sections=NN against the PR preview URL to verify all new runbook tests pass. Get the preview URL with: gh pr checks <PR_NUMBER> --json name,state,targetUrl. For 1-3 tests, consider manual verification via Chrome DevTools instead of a full Browserbase session. | Restrictions: Do NOT use Playwright or browserless. | Success: All new tests pass against the PR preview URL_
+  - _Prompt: Role: QA Engineer | Task: Write failing tests for all new behavior described in requirements.md using the project's test framework. Follow TDD - tests must fail before implementation, pass after. | Restrictions: Use the project's existing test framework. Tests must be runnable with the project's test command. | Success: Failing tests exist for all new acceptance criteria._
+
+- [ ] 6.2 Verify all tests pass after implementation
+  - Run the full test suite after all implementation tasks are complete
+  - All new tests must pass; no existing tests may regress
+  - _Leverage: Project test command_
+  - _Requirements: All_
+  - _Prompt: Role: QA Engineer | Task: Run the project's full test suite. Verify all new tests pass and no existing tests regressed. | Restrictions: Do not skip or disable failing tests. | Success: Full test suite passes with zero regressions._
 
 - [ ] 6.3 Final integration and cleanup
   - Integrate all components
-  - Fix any integration issues
-  - Clean up code and documentation
-  - _Leverage: src/utils/cleanup.ts, docs/templates/_
+  - Verify no lint or type errors
+  - Clean up temporary code and documentation
+  - _Leverage: Project lint/build commands_
   - _Requirements: All_
-  - _Prompt: Role: Senior Developer with expertise in code quality and system integration | Task: Complete final integration of all components and perform comprehensive cleanup covering all requirements, using cleanup utilities and documentation templates | Restrictions: Must not break existing functionality, ensure code quality standards are met, maintain documentation consistency | Success: All components are fully integrated and working together, code is clean and well-documented, system meets all requirements and quality standards_
+  - _Prompt: Role: Senior Developer | Task: Complete final integration of all components and perform comprehensive cleanup. Run lint and type checks. Remove any temporary code or debug statements. | Restrictions: Must not break existing functionality. Ensure code quality standards are met. | Success: All components integrated, no lint or type errors, code is clean._
