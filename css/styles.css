@@ -483,15 +483,10 @@ section {
   color: var(--primary);
 }
 
-.storage-line {
-  margin-bottom: var(--spacing-sm);
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
 .footer-meta {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 .footer-badges {
@@ -500,79 +495,55 @@ section {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .footer-badges img {
   vertical-align: middle;
 }
 
-.version-badge {
+/* ── Shield badge component ──
+   Two-part badges matching shields.io flat-square style.
+   Structure: <a class="shield-badge"><span class="shield-badge-label">label</span><span class="shield-badge-value shield-badge-value--COLOR">value</span></a>
+   Colors use the shields.io palette with white text on all backgrounds. */
+.shield-badge {
   display: inline-flex;
-  align-items: center;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 10px;
-  text-decoration: none;
   height: 20px;
-  box-sizing: border-box;
+  border-radius: 3px;
+  overflow: hidden;
+  font-family: 'Verdana', 'DejaVu Sans', sans-serif;
+  font-size: 11px;
   vertical-align: middle;
-}
-
-.version-badge--current {
-  background: var(--success);
-  color: #fff;
-}
-
-[data-theme="dark"] .version-badge--current,
-[data-theme="hello-kitty"] .version-badge--current {
-  color: #0f2318;
-}
-
-.version-badge--update {
-  background: var(--warning);
-  color: #fff;
-  cursor: pointer;
-}
-
-.version-badge--static {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.version-badge--beta {
-  background: var(--info);
-  color: #000;
-  cursor: pointer;
-}
-
-.version-badge--beta:hover {
-  background: var(--info-hover);
   text-decoration: none;
-}
-
-.api-health-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-muted);
+  line-height: 20px;
   cursor: pointer;
-  line-height: 1.4;
-  vertical-align: middle;
-  font-family: inherit;
+  border: none;
+  padding: 0;
+  background: none;
+}
+.shield-badge:hover { text-decoration: none; opacity: 0.85; }
+.shield-badge-label {
+  padding: 0 6px;
+  background: #555;
+  color: #fff;
   white-space: nowrap;
 }
-.api-health-badge:hover {
-  color: var(--text-primary);
-  border-color: var(--text-muted);
+.shield-badge-value {
+  padding: 0 6px;
+  white-space: nowrap;
 }
+/* shields.io palette — WCAG AA compliant contrast
+   Dark text (#1a1a1a) on bright backgrounds (green/yellow/orange/grey)
+   White text (#fff) on dark backgrounds (red/blue/label grey) */
+.shield-badge-value--brightgreen { background: #4c1; color: #1a1a1a; }
+.shield-badge-value--green { background: #97ca00; color: #1a1a1a; }
+.shield-badge-value--yellow { background: #dfb317; color: #1a1a1a; }
+.shield-badge-value--orange { background: #fe7d37; color: #1a1a1a; }
+.shield-badge-value--red { background: #e05d44; color: #fff; }
+.shield-badge-value--blue { background: #0969da; color: #fff; }
+.shield-badge-value--grey { background: #9f9f9f; color: #1a1a1a; }
+
+/* Legacy .version-badge — no longer used in footer, removed in STAK-536 */
 
 /* Environment badge (BETA / PREVIEW / LOCAL) — STAK-376 */
 .env-badge {

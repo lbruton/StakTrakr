@@ -54,14 +54,19 @@ const compareVersions = (a, b) => {
  */
 const renderVersionBadge = (badge, remoteVersion, releaseUrl) => {
   if (!badge) return;
+  const val = safeGetElement("versionBadgeValue");
   if (compareVersions(remoteVersion, APP_VERSION) <= 0) {
-    badge.textContent = `v${APP_VERSION} up to date`;
-    badge.className = "version-badge version-badge--current";
+    if (val) {
+      val.textContent = `v${APP_VERSION} \u2714`;
+      val.className = "shield-badge-value shield-badge-value--green";
+    }
     badge.removeAttribute("href");
     badge.removeAttribute("target");
   } else {
-    badge.textContent = `v${remoteVersion} available`;
-    badge.className = "version-badge version-badge--update";
+    if (val) {
+      val.textContent = `v${remoteVersion} available`;
+      val.className = "shield-badge-value shield-badge-value--orange";
+    }
     badge.href = releaseUrl;
     badge.target = "_blank";
     badge.rel = "noopener";
@@ -79,8 +84,11 @@ const GITHUB_RELEASES_URL = "https://github.com/lbruton/StakTrakr/releases/lates
 const showStaticVersionBadge = () => {
   const badge = document.getElementById("versionBadge");
   if (!badge) return;
-  badge.textContent = `v${APP_VERSION}`;
-  badge.className = "version-badge version-badge--static";
+  const val = safeGetElement("versionBadgeValue");
+  if (val) {
+    val.textContent = `v${APP_VERSION}`;
+    val.className = "shield-badge-value shield-badge-value--grey";
+  }
   badge.href = GITHUB_RELEASES_URL;
   badge.target = "_blank";
   badge.rel = "noopener";
