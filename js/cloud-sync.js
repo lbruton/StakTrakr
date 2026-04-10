@@ -2035,15 +2035,18 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   if (settingsChanges && Array.isArray(settingsChanges)) {
     let _failedCount = 0, _appliedCount = 0;
     const _failedKeys = [];
+    const _appliedKeys = [];
     for (var i = 0; i < settingsChanges.length; i++) {
       var sc = settingsChanges[i];
+      if (!sc || !sc.key) { continue; }
       if (typeof ALLOWED_STORAGE_KEYS !== 'undefined' && ALLOWED_STORAGE_KEYS.indexOf(sc.key) === -1) { continue; }
-      if (sc && sc.key && sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
-        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); _appliedCount++; } catch (_e) { _failedCount++; _failedKeys.push(sc.key); }
+      if (sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
+        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); _appliedCount++; _appliedKeys.push(sc.key); } catch (_e) { _failedCount++; _failedKeys.push(sc.key); }
       }
     }
     if (_failedCount > 0) {
       inventory = _prevInventory;
+      for (var r = 0; r < _appliedKeys.length; r++) { try { localStorage.removeItem(_appliedKeys[r]); } catch (_re) { /* ignore */ } }
       console.warn('[CloudSync] STAK-526: ' + _failedCount + ' settings write(s) failed (' + _failedKeys.join(', ') + ') — rolling back pull, will retry on next cycle');
       logCloudSyncActivity('cloud_sync_pull', 'partial', { failedCount: _failedCount, failedKeys: _failedKeys }, null);
       return;
