@@ -2018,6 +2018,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   }
 
   // 2. Assign new inventory
+  let _prevInventory = inventory;
   if (typeof newInventory !== 'undefined' && newInventory !== null) {
     inventory = newInventory;
   }
@@ -2029,11 +2030,20 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   // before writing, while scalar string preferences (appTheme, appTimeZone, etc.)
   // are written as-is to match the format expected by theme.js and settings-listeners.js.
   if (settingsChanges && Array.isArray(settingsChanges)) {
+    let _failedCount = 0, _appliedCount = 0;
+    const _failedKeys = [];
     for (var i = 0; i < settingsChanges.length; i++) {
       var sc = settingsChanges[i];
+      if (typeof ALLOWED_STORAGE_KEYS !== 'undefined' && ALLOWED_STORAGE_KEYS.indexOf(sc.key) === -1) { continue; }
       if (sc && sc.key && sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
-        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); } catch (_e) { /* QuotaExceededError — skip */ }
+        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); _appliedCount++; } catch (_e) { _failedCount++; _failedKeys.push(sc.key); }
       }
+    }
+    if (_failedCount > 0) {
+      inventory = _prevInventory;
+      console.warn('[CloudSync] STAK-526: ' + _failedCount + ' settings write(s) failed (' + _failedKeys.join(', ') + ') — rolling back pull, will retry on next cycle');
+      logCloudSyncActivity('cloud_sync_pull', 'partial', { failedCount: _failedCount, failedKeys: _failedKeys }, null);
+      return;
     }
   }
 
