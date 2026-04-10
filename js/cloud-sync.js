@@ -2021,7 +2021,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   // _prevInventory captures pre-pull state for rollback if settings writes fail (STAK-526).
   // Snapshot is taken unconditionally; if newInventory is null the inventory global is never
   // mutated so rollback is a safe no-op in that branch (REQ-5.3 — zero practical impact).
-  const _prevInventory = inventory;
+  var _prevInventory = inventory;
   if (typeof newInventory !== 'undefined' && newInventory !== null) {
     inventory = newInventory;
   }
@@ -2033,22 +2033,32 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   // before writing, while scalar string preferences (appTheme, appTimeZone, etc.)
   // are written as-is to match the format expected by theme.js and settings-listeners.js.
   if (settingsChanges && Array.isArray(settingsChanges)) {
-    let _failedCount = 0, _appliedCount = 0;
-    const _failedKeys = [];
-    const _appliedKeys = [];
+    var _failedCount = 0;
+    var _failedKeys = [];
+    var _appliedKeys = [];
+    var _priorValues = {};
     for (var i = 0; i < settingsChanges.length; i++) {
       var sc = settingsChanges[i];
       if (!sc || !sc.key) { continue; }
       if (typeof ALLOWED_STORAGE_KEYS !== 'undefined' && ALLOWED_STORAGE_KEYS.indexOf(sc.key) === -1) { continue; }
       if (sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
-        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); _appliedCount++; _appliedKeys.push(sc.key); } catch (_e) { _failedCount++; _failedKeys.push(sc.key); }
+        _priorValues[sc.key] = localStorage.getItem(sc.key);
+        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); _appliedKeys.push(sc.key); } catch (_e) { _failedCount++; _failedKeys.push(sc.key); }
       }
     }
     if (_failedCount > 0) {
       inventory = _prevInventory;
-      for (var r = 0; r < _appliedKeys.length; r++) { try { localStorage.removeItem(_appliedKeys[r]); } catch (_re) { /* ignore */ } }
+      for (var r = 0; r < _appliedKeys.length; r++) {
+        try {
+          var prior = _priorValues[_appliedKeys[r]];
+          if (prior === null) { localStorage.removeItem(_appliedKeys[r]); }
+          else { localStorage.setItem(_appliedKeys[r], prior); }
+        } catch (_re) { /* ignore — best-effort restore */ }
+      }
       console.warn('[CloudSync] STAK-526: ' + _failedCount + ' settings write(s) failed (' + _failedKeys.join(', ') + ') — rolling back pull, will retry on next cycle');
       logCloudSyncActivity('cloud_sync_pull', 'partial', { failedCount: _failedCount, failedKeys: _failedKeys }, null);
+      if (typeof updateSyncStatusIndicator === 'function') { updateSyncStatusIndicator('error', 'rollback'); }
+      if (typeof refreshSyncUI === 'function') { refreshSyncUI(); }
       return;
     }
   }
