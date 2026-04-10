@@ -2018,7 +2018,10 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   }
 
   // 2. Assign new inventory
-  let _prevInventory = inventory;
+  // _prevInventory captures pre-pull state for rollback if settings writes fail (STAK-526).
+  // Snapshot is taken unconditionally; if newInventory is null the inventory global is never
+  // mutated so rollback is a safe no-op in that branch (REQ-5.3 — zero practical impact).
+  const _prevInventory = inventory;
   if (typeof newInventory !== 'undefined' && newInventory !== null) {
     inventory = newInventory;
   }
