@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.95] - 2026-04-10
+
+### Fixed — Cloud Sync Atomic Rollback on Settings Write Failure (STAK-526)
+
+- **Fixed**: `_applyAndFinalize()` now atomically rolls back on settings write failure — inventory restored, `lastPull` not advanced, success toast suppressed. `ALLOWED_STORAGE_KEYS` guard added; earlier-written settings keys removed via compensating `localStorage.removeItem()` calls on failure (STAK-526)
+
+---
+
 ## [3.33.94] - 2026-04-05
 
 ### Fixed — Catalog API Key Cloud Sync (STAK-533)
