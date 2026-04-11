@@ -2,7 +2,8 @@
 # Fly.io app configuration for the complete scraping/API pipeline.
 
 app = 'staktrakr'
-primary_region = 'iad'
+# Region is dfw — archive config kept in sync with the live fly.toml.
+primary_region = 'dfw'
 
 [build]
   dockerfile = "Dockerfile"
