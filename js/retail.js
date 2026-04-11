@@ -140,16 +140,38 @@ const _invalidateMarketFilterCache = () => {
   _marketFilterCache = null;
 };
 
-/** Slugs excluded from market card display — baseline references, not user-facing products. */
-const _HIDDEN_SLUGS = new Set(["goldback-g1"]);
+/** _isSlugResolved — STAK-521 upstream quarantine predicate.
+ *
+ * Returns true only when a slug's coin metadata has fully resolved through
+ * the getRetailCoinMeta resolver chain (manifest -> hardcoded -> goldback
+ * parser -> default). The default fallback returns {name: slug, weight: 0,
+ * metal: "unknown"}, so a slug fails this predicate when name === slug
+ * AND/OR metal === "unknown".
+ *
+ * This is the upstream chokepoint fix for the three-plane asymmetry where
+ * the market filter matrix hid unresolved slugs but the control plane
+ * defaulted them to enabled, so they leaked into cards/ticker/tables with
+ * raw-string labels users could not toggle off.
+ *
+ * Historical note: this automatically quarantines bare `goldback-gN`
+ * denomination stubs that lack a state segment, because _parseGoldbackSlug
+ * returns null for them and the resolver falls through to the default.
+ * The old _HIDDEN_SLUGS hardcoded exclusion for "goldback-g1" has been
+ * removed because this predicate catches it for free. See STAK-498 /
+ * STAK-521 history for context.
+ */
+const _isSlugResolved = (slug) => {
+  const meta = getRetailCoinMeta(slug);
+  return meta.name !== slug && meta.metal !== "unknown";
+};
 
 /** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback.
- *  Excludes _HIDDEN_SLUGS on ALL return paths (STAK-498 Task 7). */
+ *  Excludes slugs that fail `_isSlugResolved` on ALL return paths (STAK-521 upstream quarantine). */
 const getActiveRetailSlugs = () => {
-  if (!_manifestSlugs) return RETAIL_SLUGS.filter((s) => !_HIDDEN_SLUGS.has(s));
-  if (!retailPrices?.prices) return _manifestSlugs.filter((s) => !_HIDDEN_SLUGS.has(s));
+  if (!_manifestSlugs) return RETAIL_SLUGS.filter(_isSlugResolved);
+  if (!retailPrices?.prices) return _manifestSlugs.filter(_isSlugResolved);
   return _manifestSlugs.filter((slug) => {
-    if (_HIDDEN_SLUGS.has(slug)) return false;
+    if (!_isSlugResolved(slug)) return false;
     const entry = retailPrices.prices[slug];
     if (!entry) return false;
     if (entry.median_price != null || entry.lowest_price != null) return true;
