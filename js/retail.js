@@ -608,7 +608,10 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
       // safer-object pattern that avoids the Map API rewrite that would otherwise
       // cascade across market-data.js, retail-view-modal.js, and retail.js.
       const flattened = Object.create(null);
-      const coinsObj = (raw && raw.coins) || {};
+      // v2 endpoints use a self-describing envelope { v, generated_at, stale_after, data }.
+      // Defensive fallback to bare { coins } shape handles the brief deploy window where
+      // the poller hasn't redeployed yet and the old non-envelope shape is still served.
+      const coinsObj = (raw && raw.data && raw.data.coins) || (raw && raw.coins) || {};
       for (const [slug, coin] of Object.entries(coinsObj)) {
         if (!coin || !Array.isArray(coin.providers)) continue;
         const vendorMap = Object.create(null);
