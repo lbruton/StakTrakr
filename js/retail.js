@@ -602,11 +602,16 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     const providersResp = await fetch(providersUrl, { signal: AbortSignal.timeout(5000) });
     if (providersResp.ok) {
       const raw = await providersResp.json();
-      const flattened = {};
+      // Use prototype-less objects to defend against prototype pollution via
+      // malicious __proto__ / constructor keys in parsed JSON. Bracket access at
+      // all 5 consumer call sites continues to work unchanged — this is a drop-in
+      // safer-object pattern that avoids the Map API rewrite that would otherwise
+      // cascade across market-data.js, retail-view-modal.js, and retail.js.
+      const flattened = Object.create(null);
       const coinsObj = (raw && raw.coins) || {};
       for (const [slug, coin] of Object.entries(coinsObj)) {
         if (!coin || !Array.isArray(coin.providers)) continue;
-        const vendorMap = {};
+        const vendorMap = Object.create(null);
         for (const p of coin.providers) {
           if (p && p.id && p.enabled !== false && p.url) {
             vendorMap[p.id] = p.url;
@@ -614,10 +619,20 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
         }
         if (Object.keys(vendorMap).length) flattened[slug] = vendorMap;
       }
-      retailProviders = flattened;
-      if (typeof window !== "undefined") window.retailProviders = retailProviders;
-      saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
-      debugLog(`[retail-v2] Loaded ${Object.keys(retailProviders).length} coin provider mappings`, "info");
+      // Resilience guard: on poller hiccups the endpoint may return HTTP 200 with
+      // an empty/malformed body (no coins, empty coins object, wrong schema). If
+      // the flatten produces no slugs, keep the existing cached map instead of
+      // wiping it — overwriting with an empty map regresses previously-working
+      // product links until the next successful fetch.
+      if (Object.keys(flattened).length === 0) {
+        const existingCount = Object.keys(retailProviders || {}).length;
+        debugLog(`[retail-v2] providers.json parsed but produced empty map — keeping ${existingCount} existing cached mappings`, "warn");
+      } else {
+        retailProviders = flattened;
+        if (typeof window !== "undefined") window.retailProviders = retailProviders;
+        saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
+        debugLog(`[retail-v2] Loaded ${Object.keys(retailProviders).length} coin provider mappings`, "info");
+      }
     } else {
       debugLog(`[retail-v2] providers.json fetch non-OK: ${providersResp.status}`, "warn");
     }
