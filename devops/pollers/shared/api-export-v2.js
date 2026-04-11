@@ -857,6 +857,23 @@ async function exportGoldback(client) {
 }
 
 // ---------------------------------------------------------------------------
+// Providers
+// ---------------------------------------------------------------------------
+
+async function writeProviders(client) {
+  log("Writing v2 providers...");
+  await initProviderSchema(client);
+  const providersData = await getProviders(client);
+  // 86400s (24h) stale_after — vendor product URLs are stable reference data,
+  // not price data. They change only when a dealer restructures their site.
+  // This fills the gap where v1 had data/api/providers.json but v2 never
+  // published an equivalent under data/v2/, causing the frontend to 404 on
+  // every providers.json lookup and fall back to vendor homepage URLs.
+  writeV2File("providers.json", providersData, 86400);
+  log("Providers written");
+}
+
+// ---------------------------------------------------------------------------
 // Manifest
 // ---------------------------------------------------------------------------
 
@@ -914,6 +931,7 @@ async function writeManifest(client) {
       goldback_latest:     "goldback/latest.json",
       goldback_monthly:    "goldback/{YYYY}/{MM}.json",
       goldback_history:    "goldback/history-30d.json",
+      providers:           "providers.json",
       manifest:            "manifest.json",
     },
   }, 1800);
@@ -961,6 +979,16 @@ async function main() {
     } catch (err) {
       hadError = true;
       warn(`Goldback export failed: ${err.message}`);
+    }
+
+    // Providers export (vendor product URLs — stable reference data, 24h stale)
+    const providersStart = Date.now();
+    try {
+      await writeProviders(client);
+      log(`Providers phase: ${Date.now() - providersStart}ms`);
+    } catch (err) {
+      hadError = true;
+      warn(`Providers export failed: ${err.message}`);
     }
 
     // Manifest (always written last, even if some exports failed)
