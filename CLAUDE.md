@@ -1,10 +1,5 @@
 # CLAUDE.md
 
-**For Claude Code (Desktop CLI)** — Local Mac development with MCP servers and skills.
-**For Claude.ai (Web)** — Use `AGENTS.md` instead. This file contains local-only tooling instructions.
-
-> See `~/.claude/CLAUDE.md` for global workflow rules, mandatory gates, skill trigger matrix, and MCP servers.
-
 ---
 
 ## Project at a Glance
@@ -12,69 +7,46 @@
 **StakTrakr** — precious metals inventory tracker. Single HTML page, vanilla JS, localStorage persistence.
 Works on `file://` and HTTP. Runtime artifact: zero build step, zero install. See `coding-standards` skill for patterns.
 
-**Portfolio model**: Purchase Price / Melt Value / Retail Price. `meltValue` = `weight * qty * spot`.
 **Version format**: `BRANCH.RELEASE.PATCH` in `js/constants.js`. Use `/release` skill to bump (touches 7 files).
-**Patch habit**: One meaningful change = one patch tag. Run `/release patch` after every committed fix/feature.
+
+
+## Cloud Sync Patterns
+
+- **Atomic rollback**: Settings write loops must snapshot `localStorage.getItem()` before each `setItem`, restore on failure (not `removeItem`). Dual arrays: `_appliedKeys` (compensate), `_failedKeys` (log).
+- **Codex peer review**: All `cloud-sync.js` patches require `/codex:rescue` review before merge.
+- **`ALLOWED_STORAGE_KEYS` guard**: `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` is defensive coding — the constant IS defined at `constants.js:871`. Automated reviewer flags on this are false positives.
+
+## Data Feed Gotchas
+
+> **Before diagnosing any feed/poller/API/data-path issue:** invoke `/api-infrastructure` first — it loads the mandatory DocVault update list (`API Reference.md`, `Remote Poller.md`), the Fly.io two-phase manual-deploy procedure, and `stale_after` conventions. Skipping this routing is the most common way sessions ship wrong-layer fixes.
+
+- **Goldback scrapes DAILY at 16:05 UTC** (cron `05 16 * * *` in `devops/pollers/home-poller/docker-entrypoint.sh`), NOT hourly. `goldback-scraper.js` has no in-script skip-guard — the daily cron is the dedup.
+- **Goldback UI "~2m ago" is publisher health, not scrape age** — `api-health.js` reads v2 envelope `generated_at` (rewritten each publish cycle by `api-export.js`), not `scraped_at`. For a daily feed, `scraped_at` can legitimately be ~24h old while the badge stays green.
+- **Poller cron source of truth: `devops/pollers/home-poller/docker-entrypoint.sh`** — grep this file before citing any cron schedule. DocVault `Home Poller.md` has drifted from code in the past; always verify against the entrypoint.
+- **v1→v2 API migration is incomplete** — STAK-503 moved spot/retail/goldback to `data/v2/` but left `providers.json` stranded at `data/retail/` and `data/api/` until 2026-04-11 (PR #951). Frontend fetches `${apiBase}/providers.json` which resolves to `data/v2/providers.json`. **For any "frontend data is wrong" bug, `curl` the exact URL the frontend constructs (or check DevTools Network) BEFORE analyzing parse/schema logic — a 404 beats any schema analysis, and stale `localStorage` on your dev browser can mask fresh-browser regressions for months.**
+
+## Known Automated Reviewer False Positives
+
+- `ALLOWED_STORAGE_KEYS` "fail-open" / "undefined guard" — constant exists at `constants.js:871`, guard is defensive pattern
+- DESIGN.md / preview.html markdown lint — chore files, defer unless explicitly requested
+- `.spec-workflow/` Playwright references — files migrated to DocVault, being deleted from repo
 
 ## Documentation
 
-Technical docs live in **DocVault** at `DocVault/Projects/StakTrakr/`. This is the single source of truth.
+Technical docs live in **DocVault** at `DocVault/Projects/StakTrakr/`. This is the single source of truth. Full index with one-line summaries: `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/_Index.md`.
 
-- **DocVault updates are mandatory before PR push** — run `/vault-update` to auto-detect affected pages via frontmatter `sourceFiles`
-- Source file → page mapping is encoded in each DocVault page's YAML frontmatter — `/vault-update` reads it automatically
-- Infrastructure pages (tagged `owner/staktrakr-api`) are maintained by StakTrakrApi agents — don't rewrite their content
+**Key pages by topic** — read the relevant page(s) when a session touches that area. All paths are relative to `DocVault/Projects/StakTrakr/`:
 
-Key pages: Start at `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/_Index.md` and follow the index.
+- **System + feeds:** `Architecture.md`, `Architecture.canvas`, `Health Checks.md`, `Poller Parity.md`
+- **Pollers:** `Home Poller.md` (Portainer stack, retail/spot/goldback scrape), `Remote Poller.md` (Fly.io thin publisher)
+- **Pipelines:** `Retail Pipeline.md`, `Retail Pipeline.canvas`, `Spot Pipeline.md`, `Spot Pipeline.canvas`, `Goldback Pipeline.md`
+- **API:** `API Reference.md` (endpoints + schemas), `API Consumption.md` (frontend consumer, health badge logic)
+- **Data + config:** `Turso Schema.md`, `Provider Database.md`, `Providers Config.md`, `Vendor Quirks.md`, `Secret Keys.md`
+- **Frontend:** `Frontend Overview.md`, `DOM Patterns.md`, `Image Pipeline.md`, `Service Worker.md`, `Retail Modal.md`, `Style Guide.md`
+- **Workflow:** `Release Workflow.md`
 
-## API Infrastructure
+**Before citing architecture facts from the vault, verify against code.** DocVault has drifted from code in the past (see "Data Feed Gotchas" above). For poller crons specifically, grep `devops/pollers/home-poller/docker-entrypoint.sh` — the entrypoint is authoritative over any vault page.
 
-Three feeds at `api.staktrakr.com` via GitHub Pages. See DocVault pages (Health Checks, Remote Poller, Spot Pipeline) for full details.
 
-| Feed | Stale threshold | Poller |
-|---|---|---|
-| Market prices (`manifest.json`) | 30 min | Fly.io retail cron |
-| Spot prices (`hourly/YYYY/MM/DD/HH.json`) | 75 min | Fly.io spot cron |
-| Goldback (`goldback-spot.json`) | 25h | Fly.io hourly :20 |
 
-**Critical:** `spot-history-YYYY.json` is a **seed file** (noon UTC daily), NOT live data.
-All poller code lives in `devops/pollers/` (shared + home-poller + remote-poller). See `/repo-boundaries` and `/api-infrastructure` skills.
 
-## Critical Patterns
-
-These are the patterns Jules/Copilot commonly miss. Non-negotiable:
-
-- **DOM**: `safeGetElement(id)` — never raw `document.getElementById()` (except startup in `about.js` / `init.js`)
-- **Storage**: `saveData()`/`loadData()` from `js/utils.js` — never direct `localStorage`
-- **Storage keys**: must be in `ALLOWED_STORAGE_KEYS` in `js/constants.js`
-- **New JS files**: add to `sw.js` CORE_ASSETS AND script load order in `index.html` (71 external scripts: 63 JS + 7 vendor + 1 data bundle)
-- **innerHTML**: always `sanitizeHtml()` on user content
-- **sw.js CACHE_NAME**: auto-stamped by pre-commit hook (`devops/hooks/stamp-sw-cache.sh`)
-- **Duplicate check**: when editing frontend code, check `events.js` AND `api.js` for duplicate function definitions — edits to the wrong file are a recurring source of lost time
-
-## Testing
-
-**Single test model:** `tests/runbook/*.md` — 84 NL E2E tests across 8 sections, run via `/bb-test` through Browserbase/Stagehand against PR preview URLs. TDD enforced: write test blocks BEFORE code, verify with `/bb-test sections=NN` after.
-
-**Test API keys** stored in Infisical — use `/secrets` skill. Inject via Stagehand after navigating to app.
-
-**Cloud sync/OAuth cannot be tested via Browserbase** — different origin breaks Dropbox OAuth. Test manually at `beta.staktrakr.com` after merging to `dev`.
-
-## Branch Protection Gotchas
-
-- **Dev branch requires PRs** — direct push to `dev` is blocked by ruleset. Every commit needs a branch + PR cycle.
-- **Main branch: 0 approvals required** — solo dev can't self-approve. Quality gates are Codacy, CodeQL, CODEOWNERS, and thread resolution.
-- **Signed commits on main** — `required_signatures` ruleset is active. Pre-existing unsigned commits will block merges; temporarily disable the ruleset for ship PRs that include unsigned history.
-- **CODEOWNERS** — `.github/workflows/` and `.github/CODEOWNERS` require owner review.
-- **CodeQL languages** — only `javascript-typescript` and `python`. Do NOT re-add `actions` (no workflow files to scan).
-- **Zero GitHub repo secrets** — all secrets removed post-STAK-531. Fly.io has its own secrets via `fly secrets`. Infisical is the secrets store. Do NOT add secrets back to GitHub repo settings.
-
-## Issue Tracking
-
-Issues tracked in DocVault. Prefix: `STAK` (see `/issue` skill).
-**Jules PRs**: always draft, always context-blind. Verify PR targets `dev` not `main`. Run `/pr-resolve` before approving.
-
-## Project Skills
-
-In `.claude/skills/`: `api-infrastructure`, `bb-test`, `brainstorming`, `browserbase-test-maintenance`, `bug-report`, `coding-standards`, `finishing-a-development-branch`, `firecrawl-infra`, `gsd`, `release`, `repo-boundaries`, `retail-poller`, `retail-provider-fix`, `seed-sync`, `ship`, `start-patch`, `sw-cache`, `sync-instructions`.
-
-User-level skills: `home-infrastructure`, `cloud-infrastructure`, `proxmox`, `secrets`, `prime`.
