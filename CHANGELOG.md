@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.96] - 2026-04-11
+
+### Added — STAK-521: Quarantine unresolved slugs
+
+- **Fixed**: Three-plane asymmetry in market filter — unresolved slugs (metadata not yet landed from manifest) were hidden from the filter matrix UI but defaulted to enabled in the control plane, leaking into cards/ticker/table with raw-string labels users could not toggle off. Closed at the upstream chokepoint via new `_isSlugResolved` predicate in `getActiveRetailSlugs()`. Also removes redundant `displaySlugs` filter in `settings.js` and deletes the obsolete `_HIDDEN_SLUGS` hardcoded exclusion set. Latent fail-safe — historical trigger already retired by v2 API publisher refactor. (STAK-521)
+
+---
+
 ## [3.33.95] - 2026-04-10
 
 ### Fixed — Cloud Sync Atomic Rollback on Settings Write Failure (STAK-526)
