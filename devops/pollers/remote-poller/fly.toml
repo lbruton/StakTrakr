@@ -3,7 +3,10 @@
 # Full all-in-one config backed up as fly.toml.full.
 
 app = 'staktrakr'
-primary_region = 'iad'
+# Region is dfw — machine + volume have been pinned here since 2026-03-10.
+# primary_region only matters for NEW machines; changing it does not migrate
+# an existing volume. Keep this aligned with reality to avoid confusion.
+primary_region = 'dfw'
 
 [build]
   dockerfile = "Dockerfile"
@@ -44,9 +47,11 @@ primary_region = 'iad'
 
 [[vm]]
   # Thin publisher mode: spot prices + publish + serve.js.
-  # No retail scraping — Firecrawl/Playwright/Chromium are idle.
-  # 1 shared CPU / 1GB RAM is sufficient for Node.js cron + git push.
-  # Can reduce further to 512MB once slim Dockerfile drops the unused services.
-  memory = '1024'
+  # No retail scraping — slim Dockerfile already drops Firecrawl/Playwright.
+  # Profiled 2026-04-11: idle ~250MB, publish cycle peak well under 400MB.
+  # 512MB is the Fly.io tier below 1024 (no 768 option) and leaves ~100MB
+  # headroom over observed peak. Watch for OOM during git gc — rollback
+  # with `fly releases rollback` if publisher misbehaves.
+  memory = '512'
   cpu_kind = 'shared'
   cpus = 1
