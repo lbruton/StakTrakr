@@ -12,7 +12,7 @@
 import Database from "better-sqlite3";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { createTursoClient, initTursoSchema } from "./turso-client.js";
+import { createSqldClient, initSqldSchema } from "./sqld-client.js";
 
 // ---------------------------------------------------------------------------
 // Window floor utility (shared by price-extract and api-export)
@@ -59,22 +59,24 @@ const CREATE_INDEXES = [
 // ---------------------------------------------------------------------------
 
 /**
- * Opens Turso cloud database connection.
+ * Opens sqld database connection.
  * Creates the table and indexes if they don't exist.
- * Replaces local SQLite openDb() function.
  *
  * @returns {Promise<import("@libsql/client").Client>}
  */
-export async function openTursoDb() {
-  const client = createTursoClient();
-  await initTursoSchema(client);
+export async function openSqldDb() {
+  const client = createSqldClient();
+  await initSqldSchema(client);
   return client;
 }
 
+/** @deprecated Alias for openSqldDb — will be removed in a future version. */
+export const openTursoDb = openSqldDb;
+
 /**
  * DEPRECATED: Opens local SQLite database.
- * Kept for generating read-only snapshots from Turso data.
- * Use openTursoDb() for live database operations.
+ * Kept for generating read-only snapshots from sqld data.
+ * Use openSqldDb() for live database operations.
  *
  * @param {string} dataDir  Path to the data/ folder
  * @returns {Database.Database}
@@ -582,7 +584,7 @@ export async function readSpot15min(client, floor) {
 }
 
 /**
- * Returns all price snapshots from the last N hours (for Turso async operations).
+ * Returns all price snapshots from the last N hours (for sqld async operations).
  *
  * @param {import("@libsql/client").Client} client
  * @param {number} [hoursBack=24]

@@ -5,7 +5,7 @@
  * Reads providers.json, scrapes each dealer URL via Playwright direct first
  * (no proxy, 15s timeout), falling back to Firecrawl (with proxy via
  * playwright-service) for targets that fail. Extracts the lowest in-stock
- * price and records each result to Turso.
+ * price and records each result to sqld.
  *
  * Usage:
  *   FIRECRAWL_API_KEY=fc-... node price-extract.js
@@ -964,9 +964,9 @@ async function main() {
     process.exit(1);
   }
 
-  // Load providers from Turso (falls back to local file if Turso is down)
+  // Load providers from sqld (falls back to local file if sqld is down)
   let tursoClient = null;
-  try { tursoClient = (await import("./turso-client.js")).createTursoClient(); } catch {}
+  try { tursoClient = (await import("./sqld-client.js")).createSqldClient(); } catch {}
   const providersJson = await loadProviders(tursoClient, DATA_DIR);
   const dateStr = new Date().toISOString().slice(0, 10);
 
@@ -1052,7 +1052,7 @@ async function main() {
     return spot * coin.weight_oz;
   }
 
-  // Start run log entry in Turso.
+  // Start run log entry in sqld.
   // First, mark any orphaned "running" rows from previous crashed runs as "error".
   let runId = null;
   if (db) {
@@ -1355,7 +1355,7 @@ async function main() {
       error: price === null && inStock ? "price_not_found" : null,
     });
 
-    // Record to Turso
+    // Record to sqld
     if (db) {
       await safeWriteSnapshot(db, {
         scrapedAt,
@@ -1396,7 +1396,7 @@ async function main() {
 
   log(`Done: ${ok}/${scrapeResults.length} prices captured, ${fail} failures, ${_dbWriteFailures} DB write errors, cf-clearance: ${cfAttempts} attempts ${cfSuccess} ok ${cfFailures} failed`);
 
-  // Finish run log entry in Turso
+  // Finish run log entry in sqld
   if (db && runId) {
     try {
       const errorMsg = ok === 0 ? "All scrapes failed"

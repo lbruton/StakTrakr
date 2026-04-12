@@ -21,7 +21,7 @@ echo "=== Copying poller files ==="
 # Run from the StakTrakrApi/devops/retail-poller directory on your workstation:
 #   rsync -av . root@<LXC_IP>:/opt/poller/
 # Or copy files manually. Required files:
-#   price-extract.js  db.js  turso-client.js  api-export.js  package.json
+#   price-extract.js  db.js  sqld-client.js  api-export.js  package.json
 #   run-home.sh  .env  data/retail/providers.json
 
 echo "=== Installing npm dependencies ==="

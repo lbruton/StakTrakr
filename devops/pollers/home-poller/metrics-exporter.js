@@ -8,8 +8,8 @@
  * Sources:
  *   - /proc (CPU, memory, network, uptime)
  *   - supervisorctl (service health inside container)
- *   - Turso poller_runs (last run stats per poller)
- *   - Turso provider_failures (failure queue stats)
+ *   - sqld poller_runs (last run stats per poller)
+ *   - sqld provider_failures (failure queue stats)
  */
 
 import { createServer } from "node:http";
@@ -100,7 +100,7 @@ function collectServices() {
   return metrics;
 }
 
-// ── Turso metrics ────────────────────────────────────────────────────────────
+// ── sqld metrics ─────────────────────────────────────────────────────────────
 
 async function collectTurso() {
   const metrics = [];

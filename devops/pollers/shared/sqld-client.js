@@ -1,39 +1,41 @@
 #!/usr/bin/env node
 /**
- * StakTrakr Retail Poller — Turso libSQL Client
- * ==============================================
- * Connects to Turso cloud database via @libsql/client.
- * Replaces better-sqlite3 for remote database operations.
+ * StakTrakr Retail Poller — sqld libSQL Client
+ * =============================================
+ * Connects to self-hosted sqld (libSQL server) via @libsql/client.
+ * Auth token is optional — local sqld runs without auth by default.
+ *
+ * Env vars (legacy names kept for Portainer compatibility):
+ *   TURSO_DATABASE_URL  — sqld connection URL (e.g. http://staktrakr-sqld:8080)
+ *   TURSO_AUTH_TOKEN    — optional auth token (empty when sqld has no auth)
  */
 
 import { createClient } from "@libsql/client";
 
 /**
- * Create and return a Turso client connection.
- * Requires TURSO_DATABASE_URL and TURSO_AUTH_TOKEN env vars.
+ * Create and return a sqld client connection.
+ * Requires TURSO_DATABASE_URL env var. Auth token is optional.
  *
  * @returns {import("@libsql/client").Client}
  */
-export function createTursoClient() {
+export function createSqldClient() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
 
-  if (!url || !authToken) {
-    throw new Error(
-      "TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be set"
-    );
+  if (!url) {
+    throw new Error("TURSO_DATABASE_URL must be set");
   }
 
-  return createClient({ url, authToken });
+  return createClient({ url, ...(authToken ? { authToken } : {}) });
 }
 
 /**
- * Initialize Turso database schema (table + indexes).
+ * Initialize sqld database schema (tables + indexes).
  * Idempotent — safe to run multiple times.
  *
  * @param {import("@libsql/client").Client} client
  */
-export async function initTursoSchema(client) {
+export async function initSqldSchema(client) {
   // Create table
   await client.execute(`
     CREATE TABLE IF NOT EXISTS price_snapshots (

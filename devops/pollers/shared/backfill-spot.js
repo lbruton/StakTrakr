@@ -1,5 +1,5 @@
 /**
- * backfill-spot.js — One-time import of historical JSON spot files into Turso.
+ * backfill-spot.js — One-time import of historical JSON spot files into sqld.
  *
  * Usage:
  *   DATA_DIR=/path/to/data node backfill-spot.js
@@ -9,7 +9,7 @@
  * Idempotent — safe to re-run (INSERT OR REPLACE semantics).
  */
 
-import { createTursoClient, initTursoSchema } from './turso-client.js';
+import { createSqldClient, initSqldSchema } from './sqld-client.js';
 import { insertSpotPrices } from './db.js';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -95,8 +95,8 @@ async function parseSpotFile(filePath) {
 }
 
 async function main() {
-  const client = createTursoClient();
-  await initTursoSchema(client);
+  const client = createSqldClient();
+  await initSqldSchema(client);
 
   const hourlyDir = join(DATA_DIR, 'hourly');
   const fifteenMinDir = join(DATA_DIR, '15min');
