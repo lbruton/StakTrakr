@@ -19,7 +19,7 @@
 |-------|-------|------|-----------|
 | STAK-521 | Unresolved slugs hidden from filter matrix but default to enabled | bug | 2026-04-11 |
 | STAK-526 | Cloud sync _applyAndFinalize records success after partial settings write failure | bug | 2026-04-10 |
-| STAK-536 | Add www.lbruton.cc portfolio link to footer/about page | chore | 2026-04-07 |
+| STAK-536 | Add <www.lbruton.cc> portfolio link to footer/about page | chore | 2026-04-07 |
 | STAK-533 | Numista API key stripped during cloud sync — recurring regression | bug | 2026-04-05 |
 | STAK-531 | SECURITY: Malicious GitHub Actions workflow exfiltrating secrets | bug | 2026-04-04 |
 | STAK-528 | Shape-aware dimension fields — bars show Length/Width instead of Diameter | feature | 2026-04-03 |
