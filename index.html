@@ -2257,19 +2257,25 @@
                   </div>
                   <div style="display:flex; flex-direction:column; gap:0.35rem;">
                     <div class="settings-group-label">Default Sort</div>
-                    <select id="settingsDefaultSortColumn">
-                      <option value="0">Date</option>
-                      <option value="1">Metal</option>
-                      <option value="2">Type</option>
-                      <option value="4" selected>Name</option>
-                      <option value="5">Qty</option>
-                      <option value="6">Weight</option>
-                      <option value="7">Purchase</option>
-                      <option value="8">Melt Value</option>
-                      <option value="9">Retail</option>
-                      <option value="10">Gain/Loss</option>
-                      <option value="11">Source</option>
-                    </select>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                      <select id="settingsDefaultSortColumn">
+                        <option value="0">Date</option>
+                        <option value="1">Metal</option>
+                        <option value="2">Type</option>
+                        <option value="4" selected>Name</option>
+                        <option value="5">Qty</option>
+                        <option value="6">Weight</option>
+                        <option value="7">Purchase</option>
+                        <option value="8">Melt Value</option>
+                        <option value="9">Retail</option>
+                        <option value="10">Gain/Loss</option>
+                        <option value="11">Source</option>
+                      </select>
+                      <div id="settingsDefaultSortDir" class="chip-sort-toggle">
+                        <button type="button" class="chip-sort-btn" data-val="asc">Asc</button>
+                        <button type="button" class="chip-sort-btn" data-val="desc">Desc</button>
+                      </div>
+                    </div>
                   </div>
                   <div style="display:flex; flex-direction:column; gap:0.35rem;">
                     <div class="settings-group-label">Visible Items</div>
