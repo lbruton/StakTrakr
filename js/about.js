@@ -185,6 +185,7 @@ const setupAckModalEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.33.98 &ndash; STAK-529: Sort Direction Toggle</strong>: Asc/Desc toggle added to Settings &gt; Appearance next to Default Sort Column dropdown. Uses existing chip-sort-toggle pattern. Persists to localStorage via DEFAULT_SORT_DIR_KEY.</li>
     <li><strong>v3.33.97 &ndash; STAK-532: Playwright-first testing</strong>: Playwright (@playwright/test) is now the primary local TDD layer. 33 tests across runbook sections 01-page-load and 02-crud. Run offline with <code>npm test</code>. Browserbase/Stagehand retained for live-site and cloud-only flows.</li>
     <li><strong>v3.33.96 &ndash; STAK-521: Quarantine unresolved slugs</strong>: Closed a latent three-plane asymmetry in the market filter &mdash; unresolved slugs are now quarantined symmetrically from matrix, cards, and ticker at the upstream chokepoint.</li>
     <li><strong>v3.33.95 &ndash; Cloud Sync Atomic Rollback</strong>: _applyAndFinalize() now rolls back atomically on settings write failure &mdash; inventory restored, lastPull not advanced, success toast suppressed (STAK-526)</li>

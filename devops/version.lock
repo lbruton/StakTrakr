@@ -1,4 +1,12 @@
 {
-  "version": "3.33.97",
-  "claims": []
+  "version": "3.33.98",
+  "claims": [
+    {
+      "version": "3.33.98",
+      "claimed_by": "claude / STAK-529 settings default sort direction toggle",
+      "issue": "STAK-529",
+      "claimed_at": "2026-04-12T21:16:18Z",
+      "expires_at": "2026-04-12T21:46:18Z"
+    }
+  ]
 }
