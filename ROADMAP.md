@@ -1,123 +1,129 @@
 # StakTrakr Roadmap
 
-Project direction and planned work. Each item links to its full Linear issue for details, discussion, and status tracking.
+> Auto-generated from DocVault issues. Last updated: 2026-04-11.
+> Version: v3.33.96 | Branch: dev
 
-**Linear board**: [StakTrakr](https://linear.app/hextrackr/team/STAK/backlog)
+## Summary
+
+| Category | Count |
+|----------|-------|
+| Completed (all time) | **67** |
+| Active (todo) | **7** |
+| Backlog | **20** |
+| Blocked | **1** |
+| Total open | **28** |
+
+## Recently Completed
+
+| Issue | Title | Type | Completed |
+|-------|-------|------|-----------|
+| STAK-521 | Unresolved slugs hidden from filter matrix but default to enabled | bug | 2026-04-11 |
+| STAK-526 | Cloud sync _applyAndFinalize records success after partial settings write failure | bug | 2026-04-10 |
+| STAK-536 | Add www.lbruton.cc portfolio link to footer/about page | chore | 2026-04-07 |
+| STAK-533 | Numista API key stripped during cloud sync — recurring regression | bug | 2026-04-05 |
+| STAK-531 | SECURITY: Malicious GitHub Actions workflow exfiltrating secrets | bug | 2026-04-04 |
+| STAK-528 | Shape-aware dimension fields — bars show Length/Width instead of Diameter | feature | 2026-04-03 |
+| STAK-508 | Epic: Full v2 API Migration — Frontend Cutover | epic | 2026-04-01 |
+| STAK-509 | V1 API dead code cleanup | chore | 2026-04-01 |
+| STAK-518 | StakTrakr API cache settings revert to 24h — simplify to enable v2 | bug | 2026-04-01 |
+| STAK-519 | Cloud sync fails to apply API keys and loops on blank storage | bug | 2026-04-01 |
+| STAK-520 | Market filter deep validation on load | bug | 2026-03-31 |
+| STAK-525 | Market sync button stuck in Syncing state — status text overflow | bug | 2026-03-31 |
+| STAK-515 | Replace Market Settings tab with Ticker & Market Filter content | feature | 2026-03-29 |
+| STAK-510 | APMEX Goldback prices pull CC/PayPal instead of Check/Wire | bug | 2026-03-29 |
+| STAK-516 | Vendor prices refresh button and timestamp stuck on file:// | bug | 2026-03-29 |
+
+## Active Work Streams
+
+### Market & Retail Pricing
+
+Live vendor price surfacing, per-item mapping, and the providers endpoint.
+
+| Issue | Title | Status | Priority |
+|-------|-------|--------|----------|
+| STAK-537 | Re-add Clear Lock button to home poller dashboard | todo | P2 |
+| STAK-501 | Per-item retail price mapping — link inventory items to live market prices | backlog | P2 |
+| STAK-507 | Add /v2/providers.json endpoint to StakTrakrApi | backlog | P2 |
+
+### Settings Redesign
+
+Full tab-by-tab overhaul of the Settings UI. STAK-443 (API tab) is the highest-priority sub-issue.
+
+| Issue | Title | Status | Priority |
+|-------|-------|--------|----------|
+| STAK-443 | Settings Redesign: API tab — full redesign with sectioned card layout | backlog | P2 |
+| STAK-436 | Settings Redesign: Appearance tab — Realized Row toggle + remove clutter | backlog | P3 |
+| STAK-437 | Settings Redesign: Remove Search page, move to Filters tab as card | backlog | P3 |
+| STAK-438 | Settings Redesign: Filters tab — combine settings into cards with toggles | backlog | P3 |
+| STAK-439 | Settings Redesign: Images tab — remove redundancy, move Numista assets | backlog | P3 |
+| STAK-440 | Settings Redesign: Move Currency and Pricing to Appearance tab | backlog | P3 |
+| STAK-441 | Settings Redesign: Goldback tab — condense to single toggle + rate display | backlog | P3 |
+| STAK-442 | Settings Redesign: Storage tab — move danger buttons to Inventory tab | backlog | P3 |
+| STAK-444 | Settings Redesign: Cloud tab — restore Cloud Settings menu, simplify | backlog | P3 |
+| STAK-446 | Settings Redesign: LOG/Changelog — audit CRUD logging, rename and clean | backlog | P3 |
+| STAK-447 | Settings Redesign: Market tab in LOG — 30-day rolling history with chart | backlog | P3 |
+| STAK-445 | Settings Redesign: Move FAQ below LOG, keep as-is | backlog | P4 |
+| STAK-535 | Move Metal Order and Inline Chips settings from Filter Chips tab to Appearance | todo | P4 |
+
+### Testing Infrastructure
+
+Migrate to Playwright as the primary E2E test runner.
+
+| Issue | Title | Status | Priority |
+|-------|-------|--------|----------|
+| STAK-532 | Migrate from Browserbase-only to Playwright-first testing | backlog | P3 |
+| STAK-539 | Playwright regression test for _isSlugResolved predicate (STAK-521) | blocked | P4 |
+
+### Bug Queue
+
+| Issue | Title | Status | Priority |
+|-------|-------|--------|----------|
+| STAK-529 | Settings — default sort direction (asc/desc) control missing | todo | P3 |
+| STAK-527 | STAKTRAKR toggle bypasses priority collision logic and leaves stale state | backlog | P3 |
+
+### Infrastructure & Reliability
+
+| Issue | Title | Status | Priority |
+|-------|-------|--------|----------|
+| STAK-479 | Health check API endpoints for Fly.io remote monitoring | todo | P3 |
+| STAK-482 | Verify flock guard on retail poller cron prevents overlapping runs | todo | P4 |
+
+### Cleanup & Polish
+
+| Issue | Title | Status | Priority |
+|-------|-------|--------|----------|
+| STAK-538 | Remove first-run acknowledgment modal (ackModal) — covered by InfoBar | todo | P3 |
+| STAK-540 | Drop orphaned staktrakr.market_filter entries for unresolved slugs | todo | P4 |
+| STAK-493-C | Surface image vault push/pull failures to user | backlog | P3 |
+| STAK-517 | Wire market filter settings into cloud sync, import/export, and backup | backlog | P3 |
+| STAK-530 | Rarity & mintage as table columns with compact visual indicator | backlog | P3 |
+| STAK-534 | Explore replacing firecrawl in /scan-mentions with web-to-markdown | backlog | P3 |
+
+## Blocked
+
+| Issue | Title | Blocked By | Notes |
+|-------|-------|------------|-------|
+| STAK-539 | Playwright regression test for _isSlugResolved predicate | STAK-532 | Requires Playwright config and tests/playwright/ directory to exist first |
+
+## Dependency Graph
+
+```
+STAK-532 (Playwright migration)
+  └── STAK-539 (slug resolution regression test) — blocked until STAK-532 lands
+```
 
 ---
 
-## Near-Term — Sprint 1: App Health & Dialog Refactor
-
-Replace all native `alert()`/`confirm()`/`prompt()` calls with in-app modal equivalents.
-Unblocks browser automation, E2E testing, and PWA polish. Sequenced: shared utility first,
-then each feature area.
-
-| Issue | Title | Priority | Notes |
-|-------|-------|----------|-------|
-| [STAK-166](https://linear.app/hextrackr/issue/STAK-166) | Replace alert/confirm/prompt with in-app modal utility | High | Shared prereq — do first |
-| [STAK-161](https://linear.app/hextrackr/issue/STAK-161) | Replace native dialogs: Vault / Encrypted Backup flows | High | After STAK-166 |
-| [STAK-162](https://linear.app/hextrackr/issue/STAK-162) | Replace native dialogs: Cloud Storage flows | High | After STAK-166 |
-| [STAK-163](https://linear.app/hextrackr/issue/STAK-163) | Replace native dialogs: Import / Export / Restore flows | High | After STAK-166 |
-| [STAK-164](https://linear.app/hextrackr/issue/STAK-164) | Replace native dialogs: Settings & Configuration flows | Medium | After STAK-166 |
-| [STAK-165](https://linear.app/hextrackr/issue/STAK-165) | Replace native dialogs: Inventory & Bulk Edit flows | Medium | After STAK-166 |
-
----
-
-## Near-Term — Sprint 2: Accessibility & UX Polish
-
-Accessibility improvements and quality-of-life UX refinements.
-
-| Issue | Title | Priority | Notes |
-|-------|-------|----------|-------|
-| [STAK-169](https://linear.app/hextrackr/issue/STAK-169) | Style D: Accessible Table Card View | High | WCAG-compliant card layout |
-| [STAK-123](https://linear.app/hextrackr/issue/STAK-123) | View Modal Inline Editing | Medium | Edit fields without opening edit modal |
-
----
-
-## Medium-Term — Sprint 3: Portfolio Depth
-
-Deeper portfolio intelligence — realized gains tracking and PCGS deep integration.
-
-| Issue | Title | Priority | Notes |
-|-------|-------|----------|-------|
-| [STAK-72](https://linear.app/hextrackr/issue/STAK-72) | Realized gains/losses: track sold, lost, and disposed items | Medium | Most-requested portfolio feature |
-| [STAK-99](https://linear.app/hextrackr/issue/STAK-99) | PCGS API Deep Integration — View Modal Verification & Price Guide Lookup | Medium | Extends existing PCGS infrastructure |
-
----
-
-## Medium-Term — Sprint 4: Custom Theme
-
-User-controlled theming via CSS variable sliders.
-
-| Issue | Title | Priority | Notes |
-|-------|-------|----------|-------|
-| [STAK-121](https://linear.app/hextrackr/issue/STAK-121) | CSS variable slider-based theme editor | Medium | Four-theme system foundation already in place |
-
----
-
-## Medium-Term — Feature Depth (Backlog)
-
-Deeper feature work — charts, API integrations, and documentation.
-
-| Issue | Title | Priority | Notes |
-|-------|-------|----------|-------|
-| [STAK-48](https://linear.app/hextrackr/issue/STAK-48) | Chart system overhaul: migrate to ApexCharts, add time-series trends | Low | Unblocked (STAK-43 done) |
-| [STAK-112](https://linear.app/hextrackr/issue/STAK-112) | Settings: Add field selection options for View Modal display | Low | After core modal improvements |
-| [STAK-105](https://linear.app/hextrackr/issue/STAK-105) | Full JSDoc coverage and documentation portal | Medium | Community/contributor enablement |
-| [STAK-101](https://linear.app/hextrackr/issue/STAK-101) | Numista OAuth 2.0 Integration — Cloud Sync for User Collections | Low | Requires server-side token exchange |
-
----
-
-## Long-Term — Platform Expansion
-
-New asset classes, cloud infrastructure, and native distribution.
-
-| Issue | Title | Priority | Depends On |
-|-------|-------|----------|------------|
-| [STAK-76](https://linear.app/hextrackr/issue/STAK-76) | Numismatics expansion: paper notes, non-melt collectibles, asset class field | Low | — |
-| [STAK-73](https://linear.app/hextrackr/issue/STAK-73) | Date Run Checklist: track collecting goals with auto-matched year sets | Low | — |
-| [STAK-30](https://linear.app/hextrackr/issue/STAK-30) | BYO-Backend: Supabase cloud sync | Low | — |
-| [STAK-36](https://linear.app/hextrackr/issue/STAK-36) | Encryption at rest for Supabase data | Low | STAK-30 |
-| [STAK-75](https://linear.app/hextrackr/issue/STAK-75) | Desktop wrapper research: Tauri vs Electron for native installers | Low | — |
-| [STAK-77](https://linear.app/hextrackr/issue/STAK-77) | Stocks & Crypto module: ticker-based pricing with portfolio tracking | Low | STAK-76 |
-| [STAK-78](https://linear.app/hextrackr/issue/STAK-78) | Mobile native app: Capacitor/Tauri wrapper with Supabase sync | Low | STAK-30, STAK-75 |
-
----
-
-## Long-Term — Cloud Sync (Supabase + GitHub Sponsors)
-
-Encrypted cloud sync for sponsors ($3/month). Zero-knowledge architecture — data encrypted client-side (AES-256-GCM) before upload, decrypted client-side after download. Server never sees plaintext. Self-hostable for users who want their own Supabase instance.
-
-| Issue | Title | Priority | Depends On |
-|-------|-------|----------|------------|
-| [STAK-30](https://linear.app/hextrackr/issue/STAK-30) | BYO-Backend: Supabase cloud sync (self-host) | Low | — |
-| DEVS-5 | Cloud Sync — Supabase-backed encrypted sync for sponsors (epic) | High | — |
-| DEVS-6 | M1: Supabase schema, RLS policies & self-host docs | Medium | — |
-| DEVS-7 | M2: Client-side sync UI & upload/download logic | Medium | DEVS-6 |
-| DEVS-8 | M3: GitHub Action — automated sponsor key lifecycle | Medium | DEVS-6 |
-
----
-
-## Canceled
-
-| Issue | Title | Reason |
-|-------|-------|--------|
-| STAK-26 | Batch rename/normalize tool | Covered by existing Bulk Edit + Numista search |
-| STAK-28 | Chart.js dashboard improvements | Superseded by STAK-48 (ApexCharts migration) |
-| STAK-29 | Custom tagging system | Superseded by STAK-98 (Numista + custom tags with filter chip integration) |
-| STAK-35 | Proxmox LXC setup guide | Canceled — Docker (STAK-34) sufficient for self-hosting |
-| STAK-39 | Full UI review walkthrough | Rolled into STAK-38 (responsive audit) |
-| STAK-41 | Per-item retail price history | Duplicate of STAK-43 |
-| STAK-46 | Configurable spot & portfolio card grid with drag-to-reorder | Canceled |
-| STAK-53 | Community spot price history CDN via GitHub | Canceled |
-
----
-
-## Completed
+## Completed (Full History)
 
 <details>
 <summary>Shipped features (click to expand)</summary>
 
+- **v3.33.96** — STAK-521: Quarantine unresolved slugs from market filter matrix
+- **v3.33.95** — STAK-526: Cloud sync atomic rollback on settings write failure
+- **v3.33.94** — STAK-533: Fix Numista API key stripped during cloud sync
+- **v3.33.x** — STAK-508/509/518/519: Full v2 API migration, v1 dead code cleanup, cache settings fix, cloud sync key fix
+- **v3.33.x** — STAK-515/520/525/528: Market Settings tab replacement, market filter validation, sync button fix, shape-aware dimensions
 - **v3.31.x** — STAK-98/104: Item tags system (Numista + custom tags, filter chip integration), Save Search as Custom Filter Chip
 - **v3.30.00** — STAK-118/106/124/125/126: Card View Engine, Mobile Overhaul & UI Polish — three card styles with sparkline headers, CDN image URLs, mobile viewport overhaul, rows-per-page with back-to-top, theme-aware sparklines
 - **v3.29.06** — STAK-115/116/117: Design System & Settings Polish — unified toggle styles, Appearance tab fieldset redesign, living style guide (style.html), CSS design system coding standards
