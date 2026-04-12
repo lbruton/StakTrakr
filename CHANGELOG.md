@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.98] - 2026-04-12
+
+### Added — STAK-529: Sort Direction Toggle in Settings
+
+- **Added**: Asc/Desc sort direction toggle in Settings > Appearance, positioned horizontally next to the Default Sort Column dropdown. Uses existing `.chip-sort-toggle` / `.chip-sort-btn` CSS pattern. JavaScript listener already existed at `settings-listeners.js:663-678`; this adds the HTML markup it expects. Persists to localStorage via `DEFAULT_SORT_DIR_KEY`. Includes 7 Playwright tests covering toggle behavior, persistence, and default state. (STAK-529)
+
+---
+
 ## [3.33.96] - 2026-04-11
 
 ### Added — STAK-521: Quarantine unresolved slugs
