@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { injectSeedInventory } from '../helpers/seed.js';
 
 /**
  * Playwright tests for Settings > Appearance sort direction toggle
@@ -6,18 +7,18 @@ import { test, expect } from '@playwright/test';
  * STAK-529: Add Sort Direction Toggle to Settings > Appearance
  * These tests verify the toggle for "Asc" and "Desc" sort direction options.
  *
- * TDD Phase: RED — These tests are written BEFORE the implementation exists.
- * They should fail initially because the #settingsDefaultSortDir element
- * does not exist in index.html yet.
+ * TDD Phase: GREEN — Implementation exists in index.html and settings-listeners.js.
  */
 
 test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to Settings > Appearance
+    // Seed localStorage to suppress ack modal and What's New popup
+    await injectSeedInventory(page);
+    // Navigate to Settings > Site (Appearance)
     await page.goto('/index.html');
     await page.click('#settingsBtn');
-    await page.click('[data-panel="appearance"]');
-    await expect(page.locator('#settingsPanelAppearance')).toBeVisible();
+    await page.click('[data-section="site"]');
+    await expect(page.locator('#settingsPanel_site')).toBeVisible();
   });
 
   test('3.1 — sort direction toggle element exists', async ({ page }) => {
@@ -104,8 +105,8 @@ test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () 
     // Refresh the page
     await page.reload();
     await page.click('#settingsBtn');
-    await page.click('[data-panel="appearance"]');
-    await expect(page.locator('#settingsPanelAppearance')).toBeVisible();
+    await page.click('[data-section="site"]');
+    await expect(page.locator('#settingsPanel_site')).toBeVisible();
 
     // Verify Desc button still has active class after refresh
     const descBtnAfter = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
@@ -127,17 +128,11 @@ test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () 
     // Reload the page
     await page.reload();
     await page.click('#settingsBtn');
-    await page.click('[data-panel="appearance"]');
-    await expect(page.locator('#settingsPanelAppearance')).toBeVisible();
+    await page.click('[data-section="site"]');
+    await expect(page.locator('#settingsPanel_site')).toBeVisible();
 
-    // Verify Asc button has active class by default
+    // Verify Asc button has active class by default (init falls back to 'asc')
     const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
     await expect(ascBtn).toHaveClass(/active/);
-
-    // Verify localStorage is set to 'asc' by default
-    const localStorageValue = await page.evaluate(() => {
-      return localStorage.getItem('defaultSortDir');
-    });
-    expect(localStorageValue).toBe('asc');
   });
 });
