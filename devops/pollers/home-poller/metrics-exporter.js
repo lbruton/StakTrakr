@@ -31,11 +31,11 @@ const IFACE = process.env.NET_IFACE || "ens18";
   }
 })();
 
-function getTursoClient() {
+function getSqldClient() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url || !authToken) return null;
-  return createClient({ url, authToken });
+  if (!url) return null;
+  return createClient({ url, ...(authToken ? { authToken } : {}) });
 }
 
 // ── System collectors ────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ function collectServices() {
 
 async function collectTurso() {
   const metrics = [];
-  const client = getTursoClient();
+  const client = getSqldClient();
   if (!client) {
     metrics.push("poller_turso_up 0");
     return metrics;
