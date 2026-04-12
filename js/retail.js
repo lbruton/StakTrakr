@@ -118,6 +118,10 @@ const _loadMarketFilter = () => {
       if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
         _marketFilterCache[slug] = {};
       }
+      // STAK-540: Drop orphaned entries for slugs that now fail the STAK-521 predicate
+      if (typeof _isSlugResolved === 'function' && !_isSlugResolved(slug)) {
+        delete _marketFilterCache[slug];
+      }
     }
   } catch {
     _marketFilterCache = {};
