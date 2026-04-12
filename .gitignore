@@ -69,6 +69,7 @@ devops/node_modules/
 
 # Playwright test artifacts
 test-results/
+playwright-report/
 
 # AI/MCP configuration files are tracked for project consistency
 # (removed: .github/instructions/codacy.instructions.md)
