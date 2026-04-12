@@ -17,6 +17,9 @@ test.describe('01-page-load', () => {
 
   test('1.1 — page loads at local URL', async ({ page }) => {
     // runbook: 01-page-load.md §1.1
+    // NOTE: Runbook pass criteria references tagline "Your Stack. Your Way." —
+    // this text does not exist in the live HTML (#appLogo is the SVG branding element).
+    // Assertion adapted to check #appLogo visibility as the equivalent branding check.
     await page.goto('/index.html');
     await expect(page).toHaveTitle(/StakTrakr/);
     await expect(page.locator('#appLogo')).toBeVisible();

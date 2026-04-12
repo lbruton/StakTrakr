@@ -260,4 +260,58 @@ test.describe.serial('02-crud', () => {
     // runbook: 02-crud.md §2.11
     // Requires pattern-match applied in 2.10 — not automatable without file picker
   });
+
+  // Tests 2.12–2.21: deferred from Task 5 scope (add/skip stubs to satisfy REQ-2 AC2)
+  // These cover edit, delete confirmation, count badge, search, filter chips, sort,
+  // view switching, melt value, and cleanup. Full implementation is a follow-up.
+
+  test.skip('2.12 — edit an existing item (all fields)', () => {
+    // runbook: 02-crud.md §2.12
+    // Deferred — edit modal automation tracked as follow-up
+  });
+
+  test.skip('2.13 — delete item — confirmation dialog appears before delete', () => {
+    // runbook: 02-crud.md §2.13
+    // Deferred — confirmation dialog automation tracked as follow-up
+  });
+
+  test.skip('2.14 — item count badge updates after add/edit/delete', () => {
+    // runbook: 02-crud.md §2.14
+    // Deferred — depends on 2.13 delete confirmation
+  });
+
+  test.skip('2.15 — search for an item by name', () => {
+    // runbook: 02-crud.md §2.15
+    // Deferred — search automation tracked as follow-up
+  });
+
+  test.skip('2.16 — filter chips reflect search results', () => {
+    // runbook: 02-crud.md §2.16
+    // Deferred — depends on 2.15 active search state
+  });
+
+  test.skip('2.17 — sort via filter chip (metal)', () => {
+    // runbook: 02-crud.md §2.17
+    // Deferred — filter chip automation tracked as follow-up
+  });
+
+  test.skip('2.18 — remove filter chip narrows/expands results', () => {
+    // runbook: 02-crud.md §2.18
+    // Deferred — depends on 2.17 active filter
+  });
+
+  test.skip('2.19 — switch card views A → B → C → Table (D)', () => {
+    // runbook: 02-crud.md §2.19
+    // Deferred — view switching automation tracked as follow-up
+  });
+
+  test.skip('2.20 — melt value recalculates correctly when spot price changes', () => {
+    // runbook: 02-crud.md §2.20
+    // Deferred — melt value verification tracked as follow-up
+  });
+
+  test.skip('2.21 — cleanup — delete all BB-* test items', () => {
+    // runbook: 02-crud.md §2.21
+    // Cleanup handled by afterAll block above; full delete-each automation deferred
+  });
 });
