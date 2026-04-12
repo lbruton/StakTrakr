@@ -51,10 +51,10 @@ if [ -f "$RETRY_FILE" ]; then
   FAIL_COUNT=$(node -e "try { console.log(require('$RETRY_FILE').length); } catch { console.log(0); }")
   echo "[$(date -u +%H:%M:%S)] T3 queue: $FAIL_COUNT failed SKU(s) queued for retry"
   TOTAL_TARGETS=$(node --input-type=module -e "
-    import { createTursoClient } from '$SCRIPT_DIR/turso-client.js';
+    import { createSqldClient } from '$SCRIPT_DIR/sqld-client.js';
     import { getProviders } from '$SCRIPT_DIR/provider-db.js';
     try {
-      const c = createTursoClient();
+      const c = createSqldClient();
       const p = await getProviders(c);
       let n = 0;
       for (const c2 of Object.values(p.coins)) n += (c2.providers||[]).filter(pr=>pr.enabled&&pr.url).length;

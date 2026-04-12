@@ -2,7 +2,7 @@
 /**
  * StakTrakr v2 API Publisher — Spot + Retail + Goldback + Manifest
  * ================================================================
- * Reads spot_prices and price_snapshots from Turso, writes v2 JSON endpoints.
+ * Reads spot_prices and price_snapshots from sqld, writes v2 JSON endpoints.
  * Called by run-publish.sh after api-export.js.
  *
  * Output structure:
@@ -100,7 +100,7 @@ function writeV2File(relPath, data, staleAfterSeconds) {
 }
 
 // ---------------------------------------------------------------------------
-// Turso spot queries
+// sqld spot queries
 // ---------------------------------------------------------------------------
 
 async function querySpotCurrent(client) {
@@ -285,7 +285,7 @@ async function exportSpot(client) {
 }
 
 // ---------------------------------------------------------------------------
-// Turso retail queries
+// sqld retail queries
 // ---------------------------------------------------------------------------
 
 async function queryRetailCoinSlugs(client) {

@@ -3,15 +3,15 @@
 /**
  * spot-extract.js — Node.js spot price poller (ESM)
  *
- * Fetches latest spot prices from MetalPriceAPI, writes to Turso DB
+ * Fetches latest spot prices from MetalPriceAPI, writes to sqld
  * and JSON files for backward compatibility.
  *
- * Env: METAL_PRICE_API_KEY, DATA_DIR, POLLER_ID, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+ * Env: METAL_PRICE_API_KEY, DATA_DIR, POLLER_ID, TURSO_DATABASE_URL
  */
 
 import { mkdir, writeFile, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { createTursoClient, initTursoSchema } from './turso-client.js';
+import { createSqldClient, initSqldSchema } from './sqld-client.js';
 import { insertSpotPrices, startRunLog, finishRunLog, windowFloor } from './db.js';
 
 const API_URL = 'https://api.metalpriceapi.com/v1/latest';
@@ -85,15 +85,15 @@ async function main() {
   const tsFormatted = formatTimestamp(now);
   const tsWindow = windowFloor(now);
 
-  // --- Turso connection (best-effort) ---
+  // --- sqld connection (best-effort) ---
   let client = null;
   let runId = null;
   try {
-    client = createTursoClient();
-    await initTursoSchema(client);
+    client = createSqldClient();
+    await initSqldSchema(client);
     runId = await startRunLog(client, { pollerId, startedAt, total: 4 });
   } catch (err) {
-    console.error('Turso init failed (degraded mode):', err.message);
+    console.error('sqld init failed (degraded mode):', err.message);
     client = null;
   }
 
@@ -147,7 +147,7 @@ async function main() {
 
   console.log(`Spot prices: Gold=$${prices.gold}, Silver=$${prices.silver}, Platinum=$${prices.platinum}, Palladium=$${prices.palladium}`);
 
-  // --- Write to Turso ---
+  // --- Write to sqld ---
   let dbOk = false;
   if (client) {
     try {
@@ -160,7 +160,7 @@ async function main() {
       }, pollerId);
       dbOk = true;
     } catch (err) {
-      console.error('Turso insert failed:', err.message);
+      console.error('sqld insert failed:', err.message);
     }
   }
 
@@ -212,7 +212,7 @@ async function main() {
   // --- Finish run log ---
   if (client && runId) {
     try {
-      const error = dbOk ? null : 'Turso insert failed';
+      const error = dbOk ? null : 'sqld insert failed';
       const captured = dbOk ? 4 : 0;
       const failures = dbOk ? 0 : 4;
       await finishRunLog(client, {

@@ -48,7 +48,7 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 // Turso client
 // ---------------------------------------------------------------------------
 
-function getTursoClient() {
+function getSqldClient() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   if (!url) return null;
@@ -75,7 +75,7 @@ async function checkTursoBackup() {
 }
 
 async function fetchRunsFromTurso() {
-  const client = getTursoClient();
+  const client = getSqldClient();
   if (!client) return null;
   try {
     const result = await client.execute({
@@ -2221,7 +2221,7 @@ async function handleRequest(req, res) {
     let readOnly = false;
     let providers, scrapeStatus, failureCount, vendorGroups;
     try {
-      client = getTursoClient();
+      client = getSqldClient();
       await initProviderSchema(client);
       [providers, scrapeStatus, failureCount, vendorGroups] = await Promise.all([
         getProviders(client),
@@ -2247,7 +2247,7 @@ async function handleRequest(req, res) {
   if (req.method === "GET" && url === "/providers/coin-data") {
     const slug = query.get("slug");
     try {
-      const client = getTursoClient();
+      const client = getSqldClient();
       const coins = await getAllCoins(client);
       const coin = coins.find(c => c.slug === slug);
       if (!coin) throw new Error("Coin not found");
@@ -2267,7 +2267,7 @@ async function handleRequest(req, res) {
       if (!data.slug || !/^[a-z0-9-]+$/.test(data.slug)) throw new Error("Invalid slug format");
       if (!data.name) throw new Error("Name is required");
       if (!["silver", "gold", "goldback", "platinum"].includes(data.metal)) throw new Error("Invalid metal");
-      const client = getTursoClient();
+      const client = getSqldClient();
       await upsertCoin(client, data);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: `Coin '${data.slug}' saved.` }));
@@ -2283,7 +2283,7 @@ async function handleRequest(req, res) {
     try {
       const { slug } = JSON.parse(await readBody(req));
       if (!slug) throw new Error("Slug required");
-      const client = getTursoClient();
+      const client = getSqldClient();
       await deleteCoin(client, slug);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: `Deleted coin '${slug}' and all its vendors.` }));
@@ -2301,7 +2301,7 @@ async function handleRequest(req, res) {
       if (!data.coinSlug || !data.vendorId) throw new Error("coinSlug and vendorId required");
       if (data.url && !data.url.startsWith("https://")) throw new Error("URL must start with https://");
       if (data.hints && data.hints.trim()) { try { JSON.parse(data.hints); } catch { throw new Error("Hints must be valid JSON"); } }
-      const client = getTursoClient();
+      const client = getSqldClient();
       await upsertVendor(client, {
         coin_slug: data.coinSlug,
         vendor_id: data.vendorId,
@@ -2325,7 +2325,7 @@ async function handleRequest(req, res) {
     try {
       const { coinSlug, vendorId } = JSON.parse(await readBody(req));
       if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
-      const client = getTursoClient();
+      const client = getSqldClient();
       await deleteVendor(client, coinSlug, vendorId);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: `Removed '${vendorId}' from '${coinSlug}'.` }));
@@ -2344,7 +2344,7 @@ async function handleRequest(req, res) {
       const vendorId = data.vendorId || data.providerId;
       const newUrl = data.url;
       if (newUrl && !newUrl.startsWith("https://")) throw new Error("URL must start with https://");
-      const client = getTursoClient();
+      const client = getSqldClient();
       await updateVendorUrl(client, coinSlug, vendorId, newUrl);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: `Updated ${vendorId}/${coinSlug} URL.` }));
@@ -2362,7 +2362,7 @@ async function handleRequest(req, res) {
       const coinSlug = data.coinSlug || data.coinId;
       const vendorId = data.vendorId || data.providerId;
       const enabled = data.enabled !== false;
-      const client = getTursoClient();
+      const client = getSqldClient();
       await toggleVendor(client, coinSlug, vendorId, enabled);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: `${enabled ? "Enabled" : "Disabled"} ${vendorId}/${coinSlug}.` }));
@@ -2379,7 +2379,7 @@ async function handleRequest(req, res) {
       const { coinSlug, vendorId, selector, hints } = JSON.parse(await readBody(req));
       if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
       if (hints && hints.trim()) { try { JSON.parse(hints); } catch { throw new Error("Hints must be valid JSON"); } }
-      const client = getTursoClient();
+      const client = getSqldClient();
       await updateVendorFields(client, coinSlug, vendorId, { selector: selector || null, hints: hints || null });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: `Updated selector/hints for ${vendorId}/${coinSlug}.` }));
@@ -2395,7 +2395,7 @@ async function handleRequest(req, res) {
     try {
       const { vendorId, metal, enabled } = JSON.parse(await readBody(req));
       if (!vendorId || !metal || enabled === undefined) throw new Error("vendorId, metal, and enabled required");
-      const client = getTursoClient();
+      const client = getSqldClient();
       const result = await batchToggleVendor(client, { vendorId, metal, enabled });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `${enabled ? "Enabled" : "Disabled"} ${vendorId} on ${result.rowsAffected} ${metal} items.` }));
@@ -2411,7 +2411,7 @@ async function handleRequest(req, res) {
     try {
       const { vendorId, metal } = JSON.parse(await readBody(req));
       if (!vendorId || !metal) throw new Error("vendorId and metal required");
-      const client = getTursoClient();
+      const client = getSqldClient();
       const result = await batchDeleteVendor(client, { vendorId, metal });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Removed ${vendorId} from ${result.rowsAffected} ${metal} items.` }));
@@ -2425,7 +2425,7 @@ async function handleRequest(req, res) {
   // ── GET /providers/vendor-summary ────────────────────────────────────────
   if (req.method === "GET" && url === "/providers/vendor-summary") {
     try {
-      const client = getTursoClient();
+      const client = getSqldClient();
       const summary = await getVendorSummary(client);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(summary));
@@ -2440,7 +2440,7 @@ async function handleRequest(req, res) {
   // Exports providers.json locally, then triggers Fly.io publish via Machines API
   if (req.method === "POST" && url === "/providers/export") {
     try {
-      const client = getTursoClient();
+      const client = getSqldClient();
       const json = await exportProvidersJson(client);
       writeFileSync(PROVIDERS_FILE, json, "utf8");
       const bytes = Buffer.byteLength(json, "utf8");
@@ -2492,7 +2492,7 @@ async function handleRequest(req, res) {
     let failureCount = 0;
     let vendorMetalAvgs = {};
     try {
-      const client = getTursoClient();
+      const client = getSqldClient();
       const [fc, avgResult] = await Promise.all([
         getFailureCount(client),
         client.execute(`
@@ -2529,7 +2529,7 @@ async function handleRequest(req, res) {
   if (req.method === "GET" && url === "/failures") {
     let lastScanFailures = [], chronicFailures = [], failureCount = 0, failureTrend = [];
     try {
-      const client = getTursoClient();
+      const client = getSqldClient();
       [lastScanFailures, chronicFailures, failureTrend] = await Promise.all([
         getLastScanFailures(client),
         getFailureStats(client),
@@ -2894,7 +2894,7 @@ async function handleRequest(req, res) {
     try {
       const { coinSlug, vendorId } = JSON.parse(await readBody(req));
       if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
-      const client = getTursoClient();
+      const client = getSqldClient();
       const result = await clearChronicFailure(client, coinSlug, vendorId);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records for ${vendorId}/${coinSlug}.` }));
@@ -2908,7 +2908,7 @@ async function handleRequest(req, res) {
   // ── POST /api/clear-chronic-all — Clear ALL chronic failures ───────────
   if (req.method === "POST" && url === "/api/clear-chronic-all") {
     try {
-      const client = getTursoClient();
+      const client = getSqldClient();
       const result = await clearAllChronicFailures(client);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records.` }));
@@ -2953,7 +2953,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  const client = getTursoClient();
+  const client = getSqldClient();
   const [tursoResult, runStats, failureCount, chronicFailures, net, cpu, uptime, supervisord, logLines, flyioHealth, coverageStats, spotCoverage, dockerContainers, lockStatus] = await Promise.all([
     fetchRunsFromTurso().then(rows => ({ rows, error: null })).catch(err => ({ rows: null, error: err.message })),
     client ? getRunStats(client, ["home", "home-retail"]).catch(() => null) : Promise.resolve(null),

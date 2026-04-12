@@ -2,7 +2,7 @@
 /**
  * StakTrakr Retail Poller — REST API JSON Exporter
  * ==================================================
- * Reads from Turso (source of truth), writes static JSON endpoints to
+ * Reads from sqld (source of truth), writes static JSON endpoints to
  * DATA_DIR/api/.
  * Called by run-local.sh after merge-prices.js.
  *
@@ -547,7 +547,7 @@ async function main() {
       watermark = row?.wm || null;
     }
 
-    // Query Turso: full backfill if new, incremental if existing
+    // Query sqld: full backfill if new, incremental if existing
     let tursoRows;
     if (watermark) {
       log(`Incremental sync from watermark: ${watermark}`);
@@ -557,9 +557,9 @@ async function main() {
         args: [watermark],
       });
       tursoRows = result.rows;
-      log(`Fetched ${tursoRows.length} new rows from Turso`);
+      log(`Fetched ${tursoRows.length} new rows from sqld`);
     } else {
-      log('Full backfill from Turso (new cache)...');
+      log('Full backfill from sqld (new cache)...');
       const cutoff = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
       const result = await tursoClient.execute({
         sql: `SELECT coin_slug, vendor, price, window_start, scraped_at, source, confidence, in_stock
@@ -567,17 +567,17 @@ async function main() {
         args: [cutoff],
       });
       tursoRows = result.rows;
-      log(`Backfill: loaded ${tursoRows.length} rows from Turso`);
+      log(`Backfill: loaded ${tursoRows.length} rows from sqld`);
     }
     tursoClient.close();
 
     if (!tursoRows.length && isNew) {
-      warn('No price data in Turso — skipping API export');
+      warn('No price data in sqld — skipping API export');
       return;
     }
 
-    // Insert all Turso rows into cache — no UNIQUE constraint, no deduplication.
-    // The cache is a dumb mirror of Turso. aggregateWindows() handles deduplication
+    // Insert all sqld rows into cache — no UNIQUE constraint, no deduplication.
+    // The cache is a dumb mirror of sqld. aggregateWindows() handles deduplication
     // by keeping the latest scraped_at per vendor per time bucket.
     if (tursoRows.length > 0) {
       const insertStmt = db.prepare(`
@@ -619,7 +619,7 @@ async function main() {
   let providersJson = null;
   try {
     let tursoClient = null;
-    try { tursoClient = (await import("./turso-client.js")).createTursoClient(); } catch {}
+    try { tursoClient = (await import("./sqld-client.js")).createSqldClient(); } catch {}
     providersJson = await loadProviders(tursoClient, DATA_DIR);
     const allSlugs = Object.keys(providersJson.coins);
     // Merge: include any slug in provider DB even if not yet in price DB

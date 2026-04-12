@@ -3,13 +3,13 @@
  * StakTrakr Provider Database Module
  * ===================================
  * Single source of truth for provider configuration (coins + vendors).
- * Reads/writes Turso cloud DB. Falls back to local providers.json if
- * Turso is unreachable.
+ * Reads/writes sqld (self-hosted libSQL). Falls back to local providers.json
+ * if sqld is unreachable.
  *
  * All consumers (price-extract, capture, api-export, dashboard) import
  * from this module instead of reading providers.json directly.
  *
- * @see STAK-348 — Migrate providers.json to Turso DB
+ * @see STAK-348 — Migrate providers.json to sqld
  */
 
 import { readFileSync } from "node:fs";
@@ -59,7 +59,7 @@ const CREATE_INDEXES = [
 /**
  * Initialize provider tables + indexes. Idempotent — safe to call on every
  * startup. Does NOT interfere with existing price_snapshots or poller_runs
- * tables managed by turso-client.js.
+ * tables managed by sqld-client.js.
  *
  * @param {import("@libsql/client").Client} client
  */
@@ -82,7 +82,7 @@ export async function initProviderSchema(client) {
 // ---------------------------------------------------------------------------
 
 /**
- * Load all provider data from Turso, shaped to match providers.json:
+ * Load all provider data from sqld, shaped to match providers.json:
  *
  *   { coins: { [slug]: { metal, name, weight_oz, fbp_url, notes, providers: [...] } } }
  *
@@ -789,7 +789,7 @@ export async function getMissingItems(client) {
 }
 
 // ---------------------------------------------------------------------------
-// Export — generates providers.json content from Turso
+// Export — generates providers.json content from sqld
 // ---------------------------------------------------------------------------
 
 /**
@@ -805,12 +805,12 @@ export async function exportProvidersJson(client) {
 }
 
 // ---------------------------------------------------------------------------
-// Fallback — read from local providers.json when Turso is unreachable
+// Fallback — read from local providers.json when sqld is unreachable
 // ---------------------------------------------------------------------------
 
 /**
  * Read providers.json from the local filesystem.
- * Used as fallback when Turso is down.
+ * Used as fallback when sqld is down.
  *
  * @param {string} dataDir  Path to the data/ folder
  * @returns {object}  Parsed providers.json
@@ -821,10 +821,10 @@ export function loadProvidersFromFile(dataDir) {
 }
 
 /**
- * Load providers with file-first, Turso-fallback strategy.
- * Set FORCE_TURSO_PROVIDERS=1 to bypass file and go straight to Turso.
+ * Load providers with file-first, sqld-fallback strategy.
+ * Set FORCE_TURSO_PROVIDERS=1 to bypass file and go straight to sqld.
  *
- * @param {import("@libsql/client").Client|null} client  Turso client (null to skip)
+ * @param {import("@libsql/client").Client|null} client  sqld client (null to skip)
  * @param {string} dataDir  Path to the data/ folder (for file read)
  * @returns {Promise<object>}  Provider data in providers.json shape
  */
@@ -834,13 +834,13 @@ export async function loadProviders(client, dataDir) {
       try {
         const data = await getProviders(client);
         const coinCount = Object.keys(data.coins).length;
-        console.log(`[provider-db] Loaded ${coinCount} coins from Turso (forced)`);
+        console.log(`[provider-db] Loaded ${coinCount} coins from sqld (forced)`);
         return data;
       } catch (err) {
-        console.warn(`[provider-db] Turso failed (forced mode): ${err.message}`);
+        console.warn(`[provider-db] sqld failed (forced mode): ${err.message}`);
       }
     }
-    throw new Error("[provider-db] FORCE_TURSO_PROVIDERS=1 but Turso unavailable");
+    throw new Error("[provider-db] FORCE_TURSO_PROVIDERS=1 but sqld unavailable");
   }
 
   try {
@@ -850,21 +850,21 @@ export async function loadProviders(client, dataDir) {
       console.log(`[provider-db] Loaded ${coinCount} coins from local file`);
       return data;
     }
-    console.warn("[provider-db] WARN: local providers.json is empty, falling back to Turso");
+    console.warn("[provider-db] WARN: local providers.json is empty, falling back to sqld");
   } catch (err) {
-    console.warn(`[provider-db] WARN: local providers.json unavailable, falling back to Turso: ${err.message}`);
+    console.warn(`[provider-db] WARN: local providers.json unavailable, falling back to sqld: ${err.message}`);
   }
 
   if (client) {
     try {
       const data = await getProviders(client);
       const coinCount = Object.keys(data.coins).length;
-      console.log(`[provider-db] Loaded ${coinCount} coins from Turso (fallback)`);
+      console.log(`[provider-db] Loaded ${coinCount} coins from sqld (fallback)`);
       return data;
     } catch (err) {
-      console.warn(`[provider-db] Turso fallback also failed: ${err.message}`);
+      console.warn(`[provider-db] sqld fallback also failed: ${err.message}`);
     }
   }
 
-  throw new Error("[provider-db] Both local file and Turso unavailable");
+  throw new Error("[provider-db] Both local file and sqld unavailable");
 }
