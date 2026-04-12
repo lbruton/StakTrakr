@@ -85,8 +85,9 @@ test.describe('01-page-load', () => {
     for (const metal of ['Gold', 'Silver', 'Platinum', 'Palladium']) {
       const el = page.locator(`#spotPriceDisplay${metal}`);
       await expect(el).toBeVisible();
+      // Wait for async spot data to replace placeholder "—"
+      await expect(el).not.toHaveText('—', { timeout: 10000 });
       const text = await el.textContent();
-      expect(text.trim()).not.toBe('—');
       expect(text.trim()).not.toBe('$0.00');
       expect(text.trim()).not.toBe('N/A');
     }
@@ -99,8 +100,9 @@ test.describe('01-page-load', () => {
     for (const metal of ['Gold', 'Silver', 'Platinum', 'Palladium']) {
       const el = page.locator(`#spotPriceDisplay${metal}`);
       await expect(el).toBeVisible();
+      // Wait for async spot data to replace placeholder "—"
+      await expect(el).not.toHaveText('—', { timeout: 10000 });
       const text = await el.textContent();
-      expect(text.trim()).not.toBe('—');
       expect(text.trim()).not.toBe('N/A');
       expect(text.trim().length).toBeGreaterThan(0);
     }

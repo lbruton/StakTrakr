@@ -49,7 +49,7 @@ test.describe.serial('02-crud', () => {
     }
     // Suppress ack modal (terms/disclaimer) and whats-new popup — stored as raw strings
     storagePayload['ackDismissed'] = '1';
-    storagePayload['ackVersion'] = '3.33.96';
+    storagePayload['ackVersion'] = '3.33.97';
     // Start in card view A so article elements are rendered for count assertions
     storagePayload['cardViewStyle'] = 'A';
 
