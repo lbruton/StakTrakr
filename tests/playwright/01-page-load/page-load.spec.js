@@ -59,7 +59,6 @@ test.describe('01-page-load', () => {
     await page.goto('/index.html');
     await dismissWhatsNew(page);
     const headerBtns = page.locator('#headerBtnContainer button.header-toggle-btn:visible');
-    await expect(headerBtns).toHaveCount(await headerBtns.count());
     const count = await headerBtns.count();
     expect(count).toBeGreaterThanOrEqual(3);
   });
@@ -130,6 +129,6 @@ test.describe('01-page-load', () => {
     const quotaToast = page.locator('.cloud-toast', { hasText: /storage is full|quota|spot history|could not be saved/i });
     await expect(quotaToast).toHaveCount(0);
     const ticker = page.locator('#bestPriceTickerEl');
-    await expect(ticker).toBeAttached();
+    await expect(ticker).toBeVisible();
   });
 });
