@@ -545,7 +545,9 @@ function renderInfraRow(data) {
     ${item("VM", `${uptime || "?"} | ${cpu ? cpu.memUsedPct + "%" : "?"}`, "var(--green)")}
     ${item("Load", cpu ? `${cpu.load1}/${cpu.load5}` : "?")}
     ${item("Net", `${netRx} rx`)}
-    ${item("Lock", anyLocked ? "BUSY" : "Free", anyLocked ? "var(--amber)" : "var(--green)")}
+    ${anyLocked
+      ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:11px;"><span style="color:var(--muted)">Lock</span><span style="display:flex;align-items:center;gap:6px;"><span style="color:var(--amber)">BUSY</span>${lockStatus.filter(l => l.locked).map(l => `<button class="btn-sm danger btn-clear-lock" data-path="${l.path}">Clear</button>`).join("")}</span></div>`
+      : item("Lock", "Free", "var(--green)")}
     ${item("Fly API", flyOk ? "OK" : flyOk === false ? "DOWN" : "?", flyOk ? "var(--green)" : "var(--red)")}
     ${item("Turso", tursoUp ? "OK" : "DOWN", tursoUp ? "var(--green)" : "var(--red)")}
     ${item("Containers", `${containerCount} up`, "var(--green)")}
@@ -882,6 +884,24 @@ document.querySelectorAll('.btn-retry').forEach(function(btn) {
       btn.textContent = j.ok ? 'Queued' : 'Err';
       btn.style.background = j.ok ? '#166534' : '#7f1d1d';
     }).catch(function() { btn.textContent = 'Err'; btn.disabled = false; });
+  });
+});
+
+// Clear lock button handler
+document.querySelectorAll('.btn-clear-lock').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var path = this.dataset.path;
+    if (!confirm('Clear stale lock file ' + path + '?')) return;
+    this.disabled = true;
+    this.textContent = '...';
+    fetch('/api/clear-lock', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ path: path })
+    }).then(function(r) { return r.json(); }).then(function(j) {
+      showToast(j.message || (j.ok ? 'Lock cleared' : 'Failed'), j.ok);
+      if (j.ok) setTimeout(function() { location.reload(); }, 1000);
+    }).catch(function() { showToast('Request failed', false); btn.disabled = false; });
   });
 });
 
