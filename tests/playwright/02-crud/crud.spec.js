@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import seedData from '../../fixtures/seed-inventory.js';
+import { injectSeedInventory } from '../helpers/seed.js';
 
 // Helper: count visible inventory cards (card style A/B/C)
 async function countCards(page) {
@@ -40,24 +40,12 @@ let sharedPage;
 test.describe.serial('02-crud', () => {
   test.beforeAll(async ({ browser }) => {
     sharedPage = await browser.newPage();
-    // Use addInitScript to inject seed data + dismiss version/ack popups before every page load.
-    // Safe here because this is a long-lived shared page — no per-test reloads.
-    // Serialize seed data (arrays/objects) as JSON; scalar strings stored raw
-    const storagePayload = {};
-    for (const [k, v] of Object.entries(seedData)) {
-      storagePayload[k] = JSON.stringify(v);
-    }
-    // Suppress ack modal (terms/disclaimer) and whats-new popup — stored as raw strings
-    storagePayload['ackDismissed'] = '1';
-    storagePayload['ackVersion'] = '3.33.97';
+    // Inject seed inventory data (includes ackVersion suppression for What's New popup)
+    await injectSeedInventory(sharedPage);
     // Start in card view A so article elements are rendered for count assertions
-    storagePayload['cardViewStyle'] = 'A';
-
-    await sharedPage.addInitScript((payload) => {
-      Object.entries(payload).forEach(([k, v]) => {
-        localStorage.setItem(k, v);
-      });
-    }, storagePayload);
+    await sharedPage.addInitScript(() => {
+      localStorage.setItem('cardViewStyle', 'A');
+    });
     await sharedPage.goto('/index.html', { waitUntil: 'domcontentloaded' });
     // Wait for app fully initialized: Add Item button visible + card grid rendered
     await sharedPage.waitForSelector('#newItemBtn', { state: 'visible' });
