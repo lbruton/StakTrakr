@@ -5,4 +5,15 @@ export async function injectSeedInventory(page) {
       localStorage.setItem(k, JSON.stringify(v));
     });
   }, seed);
+
+  // Suppress What's New popup: set ackVersion = APP_VERSION at runtime.
+  // This DOMContentLoaded listener is registered before versionCheck.js loads,
+  // so it fires before checkVersionChange() reads the key.
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof APP_VERSION !== 'undefined') {
+        localStorage.setItem('ackVersion', APP_VERSION);
+      }
+    }, { once: true });
+  });
 }
