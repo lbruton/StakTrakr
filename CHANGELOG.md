@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.33.99] - 2026-04-13
+
+### Changed — STAK-538: Remove first-run acknowledgment modal
+
+- **Removed**: First-run acknowledgment modal (`#ackModal`) — the Info tab and What's New popup already cover disclaimers and version announcements. Deleted 5 functions from `about.js` (`showAckModal`, `hideAckModal`, `acceptAck`, `populateAckModal`, `setupAckModalEvents`), removed `ACK_DISMISSED_KEY` constant, cleaned storage lookups, and deleted modal markup from `index.html`. First-time users now see the app immediately without friction. (STAK-538)
+
+---
+
 ## [3.33.98] - 2026-04-12
 
 ### Added — STAK-529: Sort Direction Toggle in Settings

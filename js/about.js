@@ -1,34 +1,6 @@
 // ABOUT TAB & ACKNOWLEDGMENT — Enhanced
 // =============================================================================
 
-const showAckModal = () => {
-  const ackModal = document.getElementById("ackModal");
-  if (ackModal && !localStorage.getItem(ACK_DISMISSED_KEY)) {
-    populateAckModal();
-    if (window.openModalById) openModalById('ackModal');
-    else {
-      ackModal.style.display = "flex";
-      document.body.style.overflow = "hidden";
-    }
-  }
-};
-
-const hideAckModal = () => {
-  const ackModal = document.getElementById("ackModal");
-  if (ackModal) {
-    if (window.closeModalById) closeModalById('ackModal');
-    else {
-      ackModal.style.display = "none";
-      document.body.style.overflow = "";
-    }
-  }
-};
-
-const acceptAck = () => {
-  localStorage.setItem(ACK_DISMISSED_KEY, "1");
-  hideAckModal();
-};
-
 const populateAboutTab = () => {
   const aboutVersion = safeGetElement("aboutVersion");
   const aboutCurrentVersion = safeGetElement("aboutCurrentVersion");
@@ -59,17 +31,6 @@ const populateAboutTab = () => {
 
   // Load announcements for latest changes and roadmap
   loadAnnouncements();
-};
-
-const populateAckModal = () => {
-  const ackVersion = document.getElementById("ackVersion");
-  const ackAppName = document.getElementById("ackAppName");
-  if (ackVersion && typeof APP_VERSION !== "undefined") {
-    ackVersion.textContent = `v${APP_VERSION}`;
-  }
-  if (ackAppName) {
-    ackAppName.textContent = getBrandingName();
-  }
 };
 
 const loadAnnouncements = async () => {
@@ -155,34 +116,6 @@ const setupWhatsNewPopupEvents = () => {
   });
 };
 
-const setupAckModalEvents = () => {
-  const ackCloseBtn = document.getElementById("ackCloseBtn");
-  const ackAcceptBtn = document.getElementById("ackAcceptBtn");
-  const ackModal = document.getElementById("ackModal");
-
-  if (ackCloseBtn) {
-    ackCloseBtn.addEventListener("click", hideAckModal);
-  }
-
-  if (ackAcceptBtn) {
-    ackAcceptBtn.addEventListener("click", acceptAck);
-  }
-
-  if (ackModal) {
-    ackModal.addEventListener("click", (e) => {
-      if (e.target === ackModal) {
-        hideAckModal();
-      }
-    });
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && ackModal && ackModal.style.display === "flex") {
-      hideAckModal();
-    }
-  });
-};
-
 const getEmbeddedWhatsNew = () => {
   return `
     <li><strong>v3.33.98 &ndash; STAK-529: Sort Direction Toggle</strong>: Asc/Desc toggle added to Settings &gt; Appearance next to Default Sort Column dropdown. Uses existing chip-sort-toggle pattern. Persists to localStorage via DEFAULT_SORT_DIR_KEY.</li>
@@ -205,13 +138,8 @@ const getEmbeddedRoadmap = () => {
 
 // Expose globally for access from other modules
 if (typeof window !== "undefined") {
-  window.showAckModal = showAckModal;
-  window.hideAckModal = hideAckModal;
-  window.acceptAck = acceptAck;
   window.loadAnnouncements = loadAnnouncements;
-  window.setupAckModalEvents = setupAckModalEvents;
   window.populateAboutTab = populateAboutTab;
-  window.populateAckModal = populateAckModal;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
   window.getEmbeddedRoadmap = getEmbeddedRoadmap;
   window.showFullChangelog = showFullChangelog;

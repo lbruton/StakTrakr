@@ -8,10 +8,7 @@
 const checkVersionChange = () => {
   const hasData = !!localStorage.getItem(LS_KEY);
   if (!hasData) {
-    if (typeof window !== 'undefined' && typeof window.debugLog === "function") window.debugLog("versionCheck: no inventory data, showing ack modal");
-    if (typeof showAckModal === "function") {
-      showAckModal();
-    }
+    if (typeof window !== 'undefined' && typeof window.debugLog === "function") window.debugLog("versionCheck: no inventory data, skipping");
     return;
   }
 

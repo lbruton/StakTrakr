@@ -1849,8 +1849,7 @@ const getStorageItemDisplayName = (key) => {
     'spotPriceGold': 'Gold Spot Price',
     'spotPricePlatinum': 'Platinum Spot Price',
     'spotPricePalladium': 'Palladium Spot Price',
-    'theme': 'Theme Setting',
-    'disclaimer-accepted': 'Disclaimer Acceptance'
+    'theme': 'Theme Setting'
   };
   
   return names[key] || key;
@@ -1869,8 +1868,7 @@ const getStorageItemDescription = (key) => {
     'spotPriceGold': 'Current spot price setting for gold', 
     'spotPricePlatinum': 'Current spot price setting for platinum',
     'spotPricePalladium': 'Current spot price setting for palladium',
-    'theme': 'User interface theme preference (dark/light/system)',
-    'disclaimer-accepted': 'Record of user accepting the application disclaimer'
+    'theme': 'User interface theme preference (dark/light/system)'
   };
   
   return descriptions[key] || 'Application data stored in browser localStorage';
@@ -2837,8 +2835,7 @@ const getStorageReportJS = () => {
             'spotPriceGold': 'Gold Spot Price',
             'spotPricePlatinum': 'Platinum Spot Price',
             'spotPricePalladium': 'Palladium Spot Price',
-            'theme': 'Theme Setting',
-            'disclaimer-accepted': 'Disclaimer Acceptance'
+            'theme': 'Theme Setting'
         };
         return names[key] || key;
     }
