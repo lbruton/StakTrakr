@@ -11,14 +11,26 @@ import { injectSeedInventory } from '../helpers/seed.js';
  */
 
 test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () => {
+  async function openAppearanceSettings(page) {
+    await page.evaluate(() => {
+      if (typeof window.showSettingsModal === 'function') {
+        window.showSettingsModal('site');
+        return;
+      }
+      const fallbackBtn = document.getElementById('settingsBtn');
+      if (fallbackBtn) fallbackBtn.click();
+    });
+    const settingsModal = page.locator('#settingsModal');
+    await expect(settingsModal).toBeVisible();
+    await expect(page.locator('#settingsPanel_site')).toBeVisible();
+  }
+
   test.beforeEach(async ({ page }) => {
     // Seed localStorage to suppress ack modal and What's New popup
     await injectSeedInventory(page);
     // Navigate to Settings > Site (Appearance)
     await page.goto('/index.html');
-    await page.click('#settingsBtn');
-    await page.click('[data-section="site"]');
-    await expect(page.locator('#settingsPanel_site')).toBeVisible();
+    await openAppearanceSettings(page);
   });
 
   test('3.1 — sort direction toggle element exists', async ({ page }) => {
@@ -104,9 +116,7 @@ test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () 
 
     // Refresh the page
     await page.reload();
-    await page.click('#settingsBtn');
-    await page.click('[data-section="site"]');
-    await expect(page.locator('#settingsPanel_site')).toBeVisible();
+    await openAppearanceSettings(page);
 
     // Verify Desc button still has active class after refresh
     const descBtnAfter = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
@@ -127,12 +137,30 @@ test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () 
 
     // Reload the page
     await page.reload();
-    await page.click('#settingsBtn');
-    await page.click('[data-section="site"]');
-    await expect(page.locator('#settingsPanel_site')).toBeVisible();
+    await openAppearanceSettings(page);
 
     // Verify Asc button has active class by default (init falls back to 'asc')
     const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
     await expect(ascBtn).toHaveClass(/active/);
+  });
+
+  test('3.8 — Metals & Inline Chips appears in Appearance, not Filter Chips', async ({ page }) => {
+    // In Appearance/Site tab, moved containers should exist and be visible.
+    await expect(page.locator('#settingsPanel_site #metalOrderConfigContainer')).toBeVisible();
+    await expect(page.locator('#settingsPanel_site #inlineChipConfigContainer')).toBeVisible();
+
+    // In Filter Chips tab, moved containers should no longer exist.
+    await page.click('[data-section="grouping"]');
+    await expect(page.locator('#settingsPanel_grouping')).toBeVisible();
+    await expect(page.locator('#settingsPanel_grouping #metalOrderConfigContainer')).toHaveCount(0);
+    await expect(page.locator('#settingsPanel_grouping #inlineChipConfigContainer')).toHaveCount(0);
+  });
+
+  test('3.9 — moved containers still render populated configuration rows', async ({ page }) => {
+    const metalRows = page.locator('#settingsPanel_site #metalOrderConfigContainer tbody tr');
+    const inlineRows = page.locator('#settingsPanel_site #inlineChipConfigContainer tbody tr');
+
+    await expect(metalRows.first()).toBeVisible();
+    await expect(inlineRows.first()).toBeVisible();
   });
 });
