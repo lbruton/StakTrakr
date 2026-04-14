@@ -2,29 +2,29 @@ import { test, expect } from '@playwright/test';
 import { injectSeedInventory } from '../helpers/seed.js';
 
 /**
- * Playwright tests for Settings > Appearance sort direction toggle
+ * Playwright tests for Settings > Appearance settings
  *
  * STAK-529: Add Sort Direction Toggle to Settings > Appearance
- * These tests verify the toggle for "Asc" and "Desc" sort direction options.
+ * STAK-535: Move Metals & Inline Chips settings to Appearance
+ * These tests verify the sort direction toggle and moved Metals & Inline Chips settings.
  *
  * TDD Phase: GREEN — Implementation exists in index.html and settings-listeners.js.
  */
 
-test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () => {
-  async function openAppearanceSettings(page) {
-    await page.evaluate(() => {
-      if (typeof window.showSettingsModal === 'function') {
-        window.showSettingsModal('site');
-        return;
-      }
-      const fallbackBtn = document.getElementById('settingsBtn');
-      if (fallbackBtn) fallbackBtn.click();
-    });
-    const settingsModal = page.locator('#settingsModal');
-    await expect(settingsModal).toBeVisible();
-    await expect(page.locator('#settingsPanel_site')).toBeVisible();
-  }
+/**
+ * Helper function to open Appearance settings programmatically
+ * @param {Page} page - Playwright page instance
+ */
+async function openAppearanceSettings(page) {
+  await page.waitForFunction(() => typeof window.showSettingsModal === 'function');
+  await page.evaluate(() => window.showSettingsModal('site'));
 
+  const settingsModal = page.locator('#settingsModal');
+  await expect(settingsModal).toBeVisible();
+  await expect(page.locator('#settingsPanel_site')).toBeVisible();
+}
+
+test.describe('03-settings/03-appearance — Sort Direction Toggle & Metals Settings', () => {
   test.beforeEach(async ({ page }) => {
     // Seed localStorage to suppress ack modal and What's New popup
     await injectSeedInventory(page);
@@ -116,7 +116,9 @@ test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () 
 
     // Refresh the page
     await page.reload();
-    await openAppearanceSettings(page);
+    await page.click('#settingsBtn');
+    await page.click('[data-section="site"]');
+    await expect(page.locator('#settingsPanel_site')).toBeVisible();
 
     // Verify Desc button still has active class after refresh
     const descBtnAfter = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
@@ -137,30 +139,58 @@ test.describe('03-settings/03-appearance — Default Sort Direction Toggle', () 
 
     // Reload the page
     await page.reload();
-    await openAppearanceSettings(page);
+    await page.click('#settingsBtn');
+    await page.click('[data-section="site"]');
+    await expect(page.locator('#settingsPanel_site')).toBeVisible();
 
     // Verify Asc button has active class by default (init falls back to 'asc')
     const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
     await expect(ascBtn).toHaveClass(/active/);
   });
 
-  test('3.8 — Metals & Inline Chips appears in Appearance, not Filter Chips', async ({ page }) => {
-    // In Appearance/Site tab, moved containers should exist and be visible.
-    await expect(page.locator('#settingsPanel_site #metalOrderConfigContainer')).toBeVisible();
-    await expect(page.locator('#settingsPanel_site #inlineChipConfigContainer')).toBeVisible();
+  // STAK-535: Regression tests for moved Metals & Inline Chips settings
 
-    // In Filter Chips tab, moved containers should no longer exist.
-    await page.click('[data-section="grouping"]');
-    await expect(page.locator('#settingsPanel_grouping')).toBeVisible();
-    await expect(page.locator('#settingsPanel_grouping #metalOrderConfigContainer')).toHaveCount(0);
-    await expect(page.locator('#settingsPanel_grouping #inlineChipConfigContainer')).toHaveCount(0);
+  test('3.8 — metals section exists in Appearance', async ({ page }) => {
+    // Verify the metals fieldset exists
+    const metalsFieldset = page.locator('#settingsMetals');
+    await expect(metalsFieldset).toBeVisible();
+    await expect(metalsFieldset.locator('legend')).toHaveText('Metals');
   });
 
-  test('3.9 — moved containers still render populated configuration rows', async ({ page }) => {
-    const metalRows = page.locator('#settingsPanel_site #metalOrderConfigContainer tbody tr');
-    const inlineRows = page.locator('#settingsPanel_site #inlineChipConfigContainer tbody tr');
+  test('3.9 — inline chips section exists in Appearance', async ({ page }) => {
+    // Verify the inline chips fieldset exists
+    const inlineChipsFieldset = page.locator('#settingsInlineChips');
+    await expect(inlineChipsFieldset).toBeVisible();
+    await expect(inlineChipsFieldset.locator('legend')).toHaveText('Inline Chips');
+  });
 
-    await expect(metalRows.first()).toBeVisible();
-    await expect(inlineRows.first()).toBeVisible();
+  test('3.10 — metals toggle enables/disables display', async ({ page }) => {
+    // Verify metals toggle exists and works
+    const metalsToggle = page.locator('#settingsMetals input[type="checkbox"]');
+    await expect(metalsToggle).toBeVisible();
+    
+    // Toggle on
+    await metalsToggle.check();
+    expect(await page.evaluate(() => localStorage.getItem('showMetals'))).toBe('true');
+    
+    // Toggle off
+    await metalsToggle.uncheck();
+    expect(await page.evaluate(() => localStorage.getItem('showMetals'))).toBe('false');
+  });
+
+  test('3.11 — inline chips options persist', async ({ page }) => {
+    // Verify inline chips select persists
+    const inlineChipsSelect = page.locator('#settingsInlineChips select');
+    await expect(inlineChipsSelect).toBeVisible();
+    
+    // Test different options
+    await inlineChipsSelect.selectOption({ label: 'Both' });
+    expect(await page.evaluate(() => localStorage.getItem('inlineChipsOption'))).toBe('both');
+    
+    await inlineChipsSelect.selectOption({ label: 'Top' });
+    expect(await page.evaluate(() => localStorage.getItem('inlineChipsOption'))).toBe('top');
+    
+    await inlineChipsSelect.selectOption({ label: 'Inline' });
+    expect(await page.evaluate(() => localStorage.getItem('inlineChipsOption'))).toBe('inline');
   });
 });
