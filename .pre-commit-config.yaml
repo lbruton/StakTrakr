@@ -1,0 +1,13 @@
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: stamp-sw-cache
+        name: Stamp service worker cache
+        entry: bash devops/hooks/stamp-sw-cache.sh
+        language: system
+        files: ^(css/|js/|data/|images/|vendor/|index\.html|manifest\.json|sw\.js|privacy\.html)
+        pass_filenames: false
