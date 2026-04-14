@@ -9,5 +9,5 @@ repos:
         name: Stamp service worker cache
         entry: bash devops/hooks/stamp-sw-cache.sh
         language: system
-        files: ^(css/|js/|data/|images/|vendor/|index\.html|manifest\.json|sw\.js|privacy\.html)
         pass_filenames: false
+        always_run: true
