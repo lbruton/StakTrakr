@@ -1,5 +1,6 @@
 ## What's New
 
+- **STAK-544: Header Cloud Button Sync or Open Settings (v3.34.03)**: The header cloud button now triggers a manual sync for configured users or opens Settings → Cloud for setup users. Replaced the previous dead-end "autosync disabled" toast behavior.
 - **STAK-545: Market Button Triggers Refresh (v3.34.02)**: The header Market button now triggers a market data refresh instead of opening Settings. A gear icon added to the Market dashboard block provides direct access to Market settings.
 - **STAK-445: Move FAQ below LOG (v3.34.01)**: Reordered the Settings modal sidebar so Log appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged.
 - **STAK-444: Cloud Tab Settings Panel (v3.34.00)**: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.
