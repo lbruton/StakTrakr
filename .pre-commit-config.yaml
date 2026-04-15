@@ -16,4 +16,4 @@ repos:
         entry: bash devops/hooks/check-release-sync.sh
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(js/constants\.js|js/about\.js|version\.json|package\.json|CHANGELOG\.md)$
