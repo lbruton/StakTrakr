@@ -45,7 +45,7 @@ async function configureHeaderCloudState(page, {
   }, { connected, hasPassword, hasAccountId, autoSyncEnabled });
 }
 
-test.describe('STAK-444 — Cloud tab settings panel', () => {
+test.describe('STAK-444/STAK-544 — Settings → Cloud tab and header cloud button', () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
     await page.goto('/index.html');
