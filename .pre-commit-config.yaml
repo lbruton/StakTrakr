@@ -11,3 +11,9 @@ repos:
         language: system
         files: ^(css/|js/|data/|images/|vendor/|index\.html|manifest\.json|sw\.js|privacy\.html)
         pass_filenames: false
+      - id: check-release-sync
+        name: Check release-artifact version sync
+        entry: bash devops/hooks/check-release-sync.sh
+        language: system
+        pass_filenames: false
+        files: ^(js/constants\.js|js/about\.js|version\.json|package\.json|CHANGELOG\.md)$
