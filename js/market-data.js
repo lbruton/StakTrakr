@@ -988,6 +988,17 @@ const renderVendorPrices = () => {
   });
   rightGroup.appendChild(refreshBtn);
 
+  const settingsBtn = document.createElement('button');
+  settingsBtn.id = 'marketSettingsBtn';
+  settingsBtn.title = 'Market settings';
+  settingsBtn.setAttribute('aria-label', 'Market settings');
+  settingsBtn.style.cssText = 'background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;';
+  settingsBtn.textContent = '\u2699';
+  settingsBtn.addEventListener('click', () => {
+    if (typeof showSettingsModal === 'function') showSettingsModal('market');
+  });
+  rightGroup.appendChild(settingsBtn);
+
   headerRow.appendChild(rightGroup);
   container.appendChild(headerRow);
 
