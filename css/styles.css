@@ -3682,22 +3682,16 @@ input[type="submit"] {
 /* F) Sidebar separator */
 .stk-nav-separator { border: 0; border-top: 1px solid var(--border); margin: 4px 8px; }
 
-/* G) Thin What's New popup */
-.whats-new-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1100; }
-.whats-new-popup { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; width: 380px; max-width: 90vw; box-shadow: 0 25px 50px rgba(0,0,0,0.5); overflow: hidden; }
-.whats-new-popup-header { padding: 16px 20px 12px; display: flex; align-items: center; gap: 12px; }
-.whats-new-popup-header svg { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; }
-.popup-title-group { display: flex; flex-direction: column; gap: 2px; }
-.popup-title { font-size: 15px; font-weight: 600; letter-spacing: 2px; }
-.popup-title .stak { color: var(--text-secondary, #e2e8f0); }
-.popup-title .trakr { color: #d4a017; }
-.popup-version { font-size: 11px; color: var(--text-muted); font-family: monospace; }
-.whats-new-popup-body { padding: 0 20px 16px; }
-.whats-new-popup-body h4 { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-.whats-new-popup-body ul { list-style: none; display: flex; flex-direction: column; gap: 5px; padding-left: 0; }
-.whats-new-popup-body li { font-size: 12px; color: var(--text-secondary); line-height: 1.5; padding: 6px 10px; background: var(--bg-primary); border-radius: 6px; }
-.whats-new-popup-body li strong { color: var(--text-primary); }
-.whats-new-popup-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+/* G) What's New toast card (STAK-547 — replaces modal) */
+.whats-new-toast-card { position: fixed; bottom: 1.5rem; right: 1.5rem; width: 340px; max-width: calc(100vw - 2rem); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.45); z-index: 10000; cursor: pointer; animation: cloudToastIn 0.3s ease; overflow: hidden; }
+.whats-new-toast-card.fade-out { animation: cloudToastOut 0.3s ease forwards; }
+.wntc-header { display: flex; align-items: center; gap: 6px; padding: 8px 10px 6px; border-bottom: 1px solid var(--border); }
+.wntc-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #d4a017; flex: 1; }
+.wntc-version { font-size: 10px; color: var(--text-muted); font-family: monospace; }
+.wntc-close { background: none; border: none; color: var(--text-muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 0 2px; margin-left: 4px; }
+.wntc-close:hover { color: var(--text-primary); }
+.wntc-body { padding: 8px 10px 10px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.wntc-body strong { color: var(--text-primary); }
 
 /* H) About tab responsive */
 @media (max-width: 768px) {
