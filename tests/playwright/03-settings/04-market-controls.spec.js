@@ -12,7 +12,8 @@ import { injectSeedInventory } from '../helpers/seed.js';
  *   4.3 — market block gear control does not exist yet (added in Task 3)
  *
  * Expected passes (existing behavior is already correct):
- *   4.4 — LOG / Vault header button opens Settings on the System tab (regression guard)
+ *   4.4 — Vault header button click opens Settings on the System tab (regression guard)
+ *   4.5 — other settings entry points still open their expected tabs (programmatic path)
  */
 
 test.describe('03-settings/04-market-controls — STAK-545 header Market button & gear control', () => {
@@ -48,7 +49,7 @@ test.describe('03-settings/04-market-controls — STAK-545 header Market button 
       window._stak545SyncCalled = false;
       if (typeof window.syncRetailPrices === 'function') {
         const orig = window.syncRetailPrices;
-        window.syncRetailPrices = () => {
+        window.syncRetailPrices = async () => {
           window._stak545SyncCalled = true;
           // Do not invoke the real fetch — test environment has no API
         };
@@ -80,13 +81,11 @@ test.describe('03-settings/04-market-controls — STAK-545 header Market button 
 
   // ─── EXISTING BEHAVIOR (expected PASS — regression guard) ────────────────
 
-  test('4.4 — Vault/System header button still opens Settings on the System tab', async ({ page }) => {
-    // Make the vault button visible (it is hidden by default; force click via JS)
-    await page.evaluate(() => {
-      if (typeof window.showSettingsModal === 'function') {
-        window.showSettingsModal('system');
-      }
-    });
+  test('4.4 — Vault header button click opens Settings on the System tab', async ({ page }) => {
+    // #headerVaultBtn is visible by default (null=show in constants.js)
+    const vaultBtn = page.locator('#headerVaultBtn');
+    await expect(vaultBtn).toBeVisible();
+    await vaultBtn.click();
 
     const settingsModal = page.locator('#settingsModal');
     await expect(settingsModal).toBeVisible();
