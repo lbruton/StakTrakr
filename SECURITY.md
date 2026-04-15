@@ -2,20 +2,31 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+StakTrakr is a rolling-release project. Only the **latest release** receives security fixes.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| Latest (3.34.x) | :white_check_mark: |
+| Older releases | :x: |
+
+If you are running an older version, please update to the latest release before reporting.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+**Please do not open a public GitHub issue for security vulnerabilities.**
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Report vulnerabilities privately using [GitHub Security Advisories](https://github.com/lbruton/StakTrakr/security/advisories/new).
+
+### What to include
+
+- Description of the vulnerability and its potential impact
+- Steps to reproduce (URL, browser, localStorage state if relevant)
+- Any proof-of-concept or suggested fix
+
+### Response expectations
+
+- **Acknowledgement:** within 7 days
+- **Status update:** within 14 days of acknowledgement
+- **Fix timeline:** based on severity — critical issues are prioritised immediately
+
+Accepted reports will be credited in the release notes unless you prefer to remain anonymous.
