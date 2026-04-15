@@ -1,8 +1,7 @@
 ## What's New
 
+- **STAK-445: Move FAQ below LOG (v3.34.01)**: Reordered the Settings modal sidebar so Log appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged.
 - **STAK-444: Cloud Tab Settings Panel (v3.34.00)**: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.
+- **STAK-538: Remove First-Run Modal (v3.33.99)**: First-run acknowledgment modal removed -- users now see the app immediately. The Info tab and What's New popup already cover disclaimers and version announcements.
+- **STAK-529: Sort Direction Toggle (v3.33.98)**: Asc/Desc toggle added to Settings > Appearance next to Default Sort Column dropdown. Uses existing chip-sort-toggle pattern. Persists to localStorage via DEFAULT_SORT_DIR_KEY.
 - **STAK-532: Playwright-first testing (v3.33.97)**: Playwright (`@playwright/test`) is now the primary local TDD layer. 18 active tests across runbook sections 01-page-load and 02-crud (plus 15 stubs for future coverage). Run offline with `npm run test:offline`. Browserbase/Stagehand retained for live-site and cloud-only flows.
-- **STAK-521: Quarantine unresolved slugs (v3.33.96)**: Closed a latent three-plane asymmetry in the market filter — unresolved slugs are now quarantined symmetrically from matrix, cards, and ticker at the upstream chokepoint.
-- **Cloud Sync Atomic Rollback (v3.33.95)**: `_applyAndFinalize()` now rolls back atomically on settings write failure — inventory restored, `lastPull` not advanced, success toast suppressed (STAK-526)
-- **Catalog API Key Sync Fix (v3.33.94)**: Numista API key and PCGS bearer token now sync across devices. Catalog key conflicts appear in merge diff modal (STAK-533)
-- **Shape-Aware Dimensions (v3.33.93)**: Bars and ingots now show Length/Width instead of Diameter. Shape dropdown drives conditional fields. Numista API maps size by shape. Existing "LxW" diameter strings auto-migrate on edit (STAK-528)

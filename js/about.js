@@ -118,11 +118,11 @@ const setupWhatsNewPopupEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.01 &ndash; STAK-445: Move FAQ below LOG</strong>: Reordered the Settings modal sidebar so Log appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged.</li>
     <li><strong>v3.34.00 &ndash; STAK-444: Cloud Tab Settings Panel</strong>: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.</li>
     <li><strong>v3.33.99 &ndash; STAK-538: Remove First-Run Modal</strong>: First-run acknowledgment modal removed &mdash; users now see the app immediately. The Info tab and What&rsquo;s New popup already cover disclaimers and version announcements.</li>
     <li><strong>v3.33.98 &ndash; STAK-529: Sort Direction Toggle</strong>: Asc/Desc toggle added to Settings &gt; Appearance next to Default Sort Column dropdown. Uses existing chip-sort-toggle pattern. Persists to localStorage via DEFAULT_SORT_DIR_KEY.</li>
     <li><strong>v3.33.97 &ndash; STAK-532: Playwright-first testing</strong>: Playwright (@playwright/test) is now the primary local TDD layer. 33 tests across runbook sections 01-page-load and 02-crud. Run offline with <code>npm test</code>. Browserbase/Stagehand retained for live-site and cloud-only flows.</li>
-    <li><strong>v3.33.96 &ndash; STAK-521: Quarantine unresolved slugs</strong>: Closed a latent three-plane asymmetry in the market filter &mdash; unresolved slugs are now quarantined symmetrically from matrix, cards, and ticker at the upstream chokepoint.</li>
   `;
 };
 
