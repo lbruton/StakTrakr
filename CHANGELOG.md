@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — STAK-444: Cloud tab settings panel
 
-- **Moved**: Dropbox and Cloud Sync Beta cards from System tab to dedicated Cloud tab in Settings modal. Created `settingsPanel_cloud` div — the Cloud nav button was already present but fell back to About due to the missing panel. All Dropbox connection, auto-sync, backup/restore, and advanced controls remain intact at their existing element IDs. Zero JS changes. (STAK-444)
+- **Moved**: Dropbox and Cloud Sync Beta cards from System tab to dedicated Cloud tab in Settings modal. Created `settingsPanel_cloud` div — the Cloud nav button was already present but fell back to About due to the missing panel. All Dropbox connection, auto-sync, backup/restore, and advanced controls remain intact at their existing element IDs. Added `syncCloudUI()` call in `switchSettingsSection()` for the Cloud tab so connection state refreshes on navigation. (STAK-444)
 
 ---
 
