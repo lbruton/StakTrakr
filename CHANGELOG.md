@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.03] - 2026-04-15
+
+### Changed — STAK-544: Header cloud button sync or open settings
+
+- **Changed**: Header cloud button now triggers a manual sync for configured users (green/ready states) or opens Settings → Cloud for setup users (orange/gray states). Replaced the previous dead-end "autosync disabled" toast behavior. Added `resolveHeaderCloudAction()` helper in `cloud-sync.js` to centralize state-to-action mapping. Added Playwright regression coverage for unconfigured, auto-sync-off, and auto-sync-on header cloud button states. (STAK-544)
+
+---
+
 ## [3.34.02] - 2026-04-15
 
 ### Changed — STAK-545: Market button triggers refresh instead of opening Settings modal
