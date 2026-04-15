@@ -118,13 +118,11 @@ const setupWhatsNewPopupEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.00 &ndash; STAK-444: Cloud Tab Settings Panel</strong>: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.</li>
+    <li><strong>v3.33.99 &ndash; STAK-538: Remove First-Run Modal</strong>: First-run acknowledgment modal removed &mdash; users now see the app immediately. The Info tab and What&rsquo;s New popup already cover disclaimers and version announcements.</li>
     <li><strong>v3.33.98 &ndash; STAK-529: Sort Direction Toggle</strong>: Asc/Desc toggle added to Settings &gt; Appearance next to Default Sort Column dropdown. Uses existing chip-sort-toggle pattern. Persists to localStorage via DEFAULT_SORT_DIR_KEY.</li>
     <li><strong>v3.33.97 &ndash; STAK-532: Playwright-first testing</strong>: Playwright (@playwright/test) is now the primary local TDD layer. 33 tests across runbook sections 01-page-load and 02-crud. Run offline with <code>npm test</code>. Browserbase/Stagehand retained for live-site and cloud-only flows.</li>
     <li><strong>v3.33.96 &ndash; STAK-521: Quarantine unresolved slugs</strong>: Closed a latent three-plane asymmetry in the market filter &mdash; unresolved slugs are now quarantined symmetrically from matrix, cards, and ticker at the upstream chokepoint.</li>
-    <li><strong>v3.33.95 &ndash; Cloud Sync Atomic Rollback</strong>: _applyAndFinalize() now rolls back atomically on settings write failure &mdash; inventory restored, lastPull not advanced, success toast suppressed (STAK-526)</li>
-    <li><strong>v3.33.94 &ndash; Catalog API Key Sync Fix</strong>: Numista API key and PCGS bearer token now sync across devices. Catalog key conflicts appear in merge diff modal (STAK-533)</li>
-    <li><strong>v3.33.93 &ndash; Shape-Aware Dimensions</strong>: Bars and ingots now show Length/Width instead of Diameter. Shape dropdown drives conditional fields. Numista API maps size by shape. Existing &ldquo;LxW&rdquo; diameter strings auto-migrate on edit (STAK-528)</li>
-    <li><strong>v3.33.92 &ndash; V1 API Cleanup + Market Log Fix</strong>: Removed all dead v1 API code (~486 lines). Market log tab now shows dynamic vendor columns from the v2 manifest instead of blank hardcoded columns (STAK-509)</li>
   `;
 };
 

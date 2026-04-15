@@ -1,5 +1,6 @@
 ## What's New
 
+- **STAK-444: Cloud Tab Settings Panel (v3.34.00)**: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.
 - **STAK-532: Playwright-first testing (v3.33.97)**: Playwright (`@playwright/test`) is now the primary local TDD layer. 18 active tests across runbook sections 01-page-load and 02-crud (plus 15 stubs for future coverage). Run offline with `npm run test:offline`. Browserbase/Stagehand retained for live-site and cloud-only flows.
 - **STAK-521: Quarantine unresolved slugs (v3.33.96)**: Closed a latent three-plane asymmetry in the market filter — unresolved slugs are now quarantined symmetrically from matrix, cards, and ticker at the upstream chokepoint.
 - **Cloud Sync Atomic Rollback (v3.33.95)**: `_applyAndFinalize()` now rolls back atomically on settings write failure — inventory restored, `lastPull` not advanced, success toast suppressed (STAK-526)
