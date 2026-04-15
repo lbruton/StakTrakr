@@ -142,13 +142,11 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // Market button - open Settings → Market tab.
+  // Market button - trigger market refresh (STAK-545).
   const headerMarketBtn = safeGetElement('headerMarketBtn');
   if (headerMarketBtn) {
     headerMarketBtn.addEventListener('click', () => {
-      if (typeof showSettingsModal === 'function') {
-        showSettingsModal('market');
-      }
+      if (typeof window.syncRetailPrices === 'function') window.syncRetailPrices();
     });
   }
 

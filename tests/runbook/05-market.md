@@ -6,15 +6,17 @@ Each test in this section is independently runnable given that the application h
 
 ---
 
-### Test 5.1 — Open market menu
+### Test 5.1 — Market panel is visible on page load
 _Added: v3.33.25 (STAK-396)_
+_Updated: v3.34.02 (STAK-545) — header Market button now triggers a data refresh, not panel navigation; market data is always visible on the main page_
 **Preconditions:** Application is loaded at the PR preview URL. The What's New modal has been dismissed (see 00-setup.md).
 **Steps:**
-- act: "click the Market button or icon in the header navigation"
-- extract: "is a market panel, market page, or market overlay visible on screen" → expect: true
+- extract: "is the market prices section or vendor prices panel visible on the main page" → expect: true
+- act: "click the Market button in the header navigation"
+- extract: "does a refresh or sync animation appear on the market prices section" → expect: true
 - screenshot: "05-market-open"
-**Pass criteria:** The market panel or page opens and is visible without a page reload error.
-**Tags:** market, navigation
+**Pass criteria:** The market prices section is visible on the main page after load. Clicking the header Market button triggers a data refresh (not navigation) — a loading state or updated timestamp confirms the sync ran.
+**Tags:** market, navigation, refresh
 **Section:** 05-market
 
 ---

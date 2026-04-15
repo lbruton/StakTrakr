@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.02] - 2026-04-15
+
+### Changed — STAK-545: Market button triggers refresh instead of opening Settings modal
+
+- **Changed**: Header Market button now calls `syncRetailPrices()` (market data refresh) instead of opening the Market Settings panel. A new gear icon (`#marketSettingsBtn`) in the Market block vendor prices section provides direct access to Market settings, matching the existing refresh button visual pattern. (STAK-545)
+
+---
+
 ## [3.34.01] - 2026-04-15
 
 ### Changed — STAK-445: Move FAQ below LOG in Settings

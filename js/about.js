@@ -118,6 +118,7 @@ const setupWhatsNewPopupEvents = () => {
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.02 &ndash; STAK-545: Market Button Triggers Refresh</strong>: The header Market button now triggers a market data refresh instead of opening Settings. A gear icon in the Market dashboard block provides direct access to Market settings.</li>
     <li><strong>v3.34.01 &ndash; STAK-445: Move FAQ below LOG</strong>: Reordered the Settings modal sidebar so Log appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged.</li>
     <li><strong>v3.34.00 &ndash; STAK-444: Cloud Tab Settings Panel</strong>: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.</li>
     <li><strong>v3.33.99 &ndash; STAK-538: Remove First-Run Modal</strong>: First-run acknowledgment modal removed &mdash; users now see the app immediately. The Info tab and What&rsquo;s New popup already cover disclaimers and version announcements.</li>
