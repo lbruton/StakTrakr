@@ -636,8 +636,11 @@ const updateProviderSettings = (provider) => {
       }
     }
     const autoEl = document.getElementById('autoRefresh_STAKTRAKR');
-    if (autoEl) {
-      if (!config.autoRefresh) config.autoRefresh = {};
+    if (!config.autoRefresh) config.autoRefresh = {};
+    if (enabledEl && !enabledEl.checked) {
+      // Provider disabled — clear autoRefresh so startSpotBackgroundSync skips the 60-min tick
+      config.autoRefresh.STAKTRAKR = false;
+    } else if (autoEl) {
       config.autoRefresh.STAKTRAKR = autoEl.checked;
     }
     saveApiConfig(config);

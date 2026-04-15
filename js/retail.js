@@ -2247,6 +2247,7 @@ if (typeof window !== "undefined") {
   window.getVendorDisplay = getVendorDisplay;
   window._parseGoldbackSlug = _parseGoldbackSlug;
   window.GOLDBACK_WEIGHTS = GOLDBACK_WEIGHTS;
+  window._isSlugResolved = _isSlugResolved;
   window._isMarketItemEnabled = _isMarketItemEnabled;
   window._invalidateMarketFilterCache = _invalidateMarketFilterCache;
   window._loadMarketFilter = _loadMarketFilter;
