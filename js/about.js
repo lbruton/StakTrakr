@@ -70,6 +70,9 @@ const acknowledgeVersion = () => {
 
 // STAK-547: Show latest changelog entry as a bottom-right toast card (replaces modal)
 const showWhatsNewPopup = () => {
+  // Prevent duplicate cards if called more than once
+  if (document.querySelector('.whats-new-toast-card')) return;
+
   // Parse first entry from embedded list (developer-controlled HTML)
   const doc = new DOMParser().parseFromString(
     `<ul>${getEmbeddedWhatsNew()}</ul>`, 'text/html',
@@ -91,6 +94,7 @@ const showWhatsNewPopup = () => {
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'wntc-close';
+  closeBtn.setAttribute('type', 'button');
   closeBtn.setAttribute('aria-label', 'Dismiss');
   closeBtn.textContent = '\u00D7';
 
@@ -107,6 +111,8 @@ const showWhatsNewPopup = () => {
 
   const card = document.createElement('div');
   card.className = 'whats-new-toast-card';
+  card.setAttribute('role', 'status');
+  card.setAttribute('aria-live', 'polite');
   card.appendChild(header);
   card.appendChild(body);
   document.body.appendChild(card);
@@ -125,8 +131,12 @@ const showWhatsNewPopup = () => {
   const timer = setTimeout(dismiss, 4000);
 };
 
-// Kept for backward compat — no modal to hide
-const hideWhatsNewPopup = acknowledgeVersion;
+// Kept for backward compat — removes toast card if present and acknowledges version
+const hideWhatsNewPopup = () => {
+  const card = document.querySelector('.whats-new-toast-card');
+  if (card) card.remove();
+  acknowledgeVersion();
+};
 
 // setupWhatsNewPopupEvents kept as no-op — modal removed (STAK-547)
 const setupWhatsNewPopupEvents = () => {};
