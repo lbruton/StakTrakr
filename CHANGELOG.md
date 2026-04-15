@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.00] - 2026-04-15
+
+### Changed — STAK-444: Cloud tab settings panel
+
+- **Moved**: Dropbox and Cloud Sync Beta cards from System tab to dedicated Cloud tab in Settings modal. Created `settingsPanel_cloud` div — the Cloud nav button was already present but fell back to About due to the missing panel. All Dropbox connection, auto-sync, backup/restore, and advanced controls remain intact at their existing element IDs. Zero JS changes. (STAK-444)
+
+---
+
 ## [3.33.99] - 2026-04-13
 
 ### Changed — STAK-538: Remove first-run acknowledgment modal
