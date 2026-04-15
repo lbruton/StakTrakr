@@ -48,7 +48,7 @@ test.describe('03-settings/04-market-controls — STAK-545 header Market button 
       window._stak545SyncCalled = false;
       if (typeof window.syncRetailPrices === 'function') {
         const orig = window.syncRetailPrices;
-        window.syncRetailPrices = (...args) => {
+        window.syncRetailPrices = () => {
           window._stak545SyncCalled = true;
           // Do not invoke the real fetch — test environment has no API
         };
