@@ -764,7 +764,7 @@ const setupHeaderButtonListeners = () => {
       const state = typeof resolveHeaderCloudAction === 'function'
         ? resolveHeaderCloudAction()
         : {
-          action: headerCloudSyncBtn.dataset.syncState === 'green' ? 'sync-now' : 'open-settings',
+          action: ['green', 'ready'].includes(headerCloudSyncBtn.dataset.syncState) ? 'sync-now' : 'open-settings',
           buttonState: headerCloudSyncBtn.dataset.syncState,
         };
       if (state.action === 'sync-now') {

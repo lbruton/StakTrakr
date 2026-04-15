@@ -50,6 +50,7 @@ test.describe('STAK-444 — Cloud tab settings panel', () => {
     await injectSeedInventory(page);
     await page.goto('/index.html');
     await page.waitForFunction(() => typeof window.showSettingsModal === 'function');
+    // Wait for init.js Phase 14's delayed listener setup (200 ms) to complete
     await page.waitForTimeout(300);
     await page.evaluate(() => window.showSettingsModal('system'));
     await expect(page.locator('#settingsModal')).toBeVisible();

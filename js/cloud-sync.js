@@ -442,8 +442,8 @@ function _cloudProviderNeedsAccountId(provider) {
   return provider === 'dropbox';
 }
 
-function resolveHeaderCloudAction() {
-  var provider = _syncProvider || 'dropbox';
+function resolveHeaderCloudAction(provider) {
+  provider = provider || _syncProvider || 'dropbox';
   var connected = typeof cloudIsConnected === 'function' ? cloudIsConnected(provider) : false;
   var hasVaultPassword = !!localStorage.getItem('cloud_vault_password');
   var hasAccountId = !_cloudProviderNeedsAccountId(provider) || !!localStorage.getItem('cloud_dropbox_account_id');
