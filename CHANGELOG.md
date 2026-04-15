@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.01] - 2026-04-15
+
+### Changed — STAK-445: Move FAQ below LOG in Settings
+
+- **Changed**: Reordered the Settings modal sidebar so Log now appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged. (STAK-445)
+
+---
+
 ## [3.34.00] - 2026-04-15
 
 ### Changed — STAK-444: Cloud tab settings panel
