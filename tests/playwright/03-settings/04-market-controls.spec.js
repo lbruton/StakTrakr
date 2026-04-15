@@ -4,16 +4,14 @@ import { injectSeedInventory } from '../helpers/seed.js';
 /**
  * Playwright regression spec for STAK-545 — Market button behavior split.
  *
- * TDD Phase: RED — tests express intended behavior BEFORE production code changes.
+ * All tests GREEN — production changes ship in the same PR as this spec.
  *
- * Expected failures (current implementation does NOT satisfy these):
- *   4.1 — header Market button opens Settings modal (should NOT after STAK-545)
- *   4.2 — header Market button does NOT call syncRetailPrices (should AFTER STAK-545)
- *   4.3 — market block gear control does not exist yet (added in Task 3)
- *
- * Expected passes (existing behavior is already correct):
+ * Covers:
+ *   4.1 — header Market button does NOT open the Settings modal
+ *   4.2 — header Market button calls syncRetailPrices (market data refresh)
+ *   4.3 — Market block gear control opens Settings on the Market tab
  *   4.4 — Vault header button click opens Settings on the System tab (regression guard)
- *   4.5 — other settings entry points still open their expected tabs (programmatic path)
+ *   4.5 — other settings entry points still open their expected tabs (regression guard)
  */
 
 test.describe('03-settings/04-market-controls — STAK-545 header Market button & gear control', () => {
