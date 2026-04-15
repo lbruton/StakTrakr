@@ -36,11 +36,9 @@ const populateAboutTab = () => {
 const loadAnnouncements = async () => {
   const whatsNewTargets = [
     document.getElementById("aboutChangelogLatest"),
-    document.getElementById("versionChanges"),
   ].filter(Boolean);
   const roadmapTargets = [
     document.getElementById("aboutRoadmapList"),
-    document.getElementById("versionRoadmapList"),
   ].filter(Boolean);
 
   if (!whatsNewTargets.length && !roadmapTargets.length) return;
@@ -63,58 +61,75 @@ const showFullChangelog = () => {
   );
 };
 
-const showWhatsNewPopup = async () => {
-  const overlay = safeGetElement('whatsNewPopup');
-  if (!overlay) return;
-  // Populate version
-  const versionEl = safeGetElement('whatsNewVersion');
-  if (versionEl && typeof APP_VERSION !== 'undefined') {
-    versionEl.textContent = `v${APP_VERSION} — Updated!`;
-  }
-  // STAK-500: Load announcements BEFORE showing popup to prevent content flash
-  if (typeof loadAnnouncements === 'function') await loadAnnouncements();
-  overlay.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-};
-
-const hideWhatsNewPopup = () => {
-  const overlay = safeGetElement('whatsNewPopup');
-  if (overlay) overlay.style.display = 'none';
-  document.body.style.overflow = '';
-  // Acknowledge version so popup doesn't show again
+// STAK-547: Acknowledge version so toast doesn't show again
+const acknowledgeVersion = () => {
   if (typeof APP_VERSION !== 'undefined') {
     localStorage.setItem(VERSION_ACK_KEY, APP_VERSION);
   }
 };
 
-const setupWhatsNewPopupEvents = () => {
-  const dismissBtn = safeGetElement('whatsNewDismissBtn');
-  if (dismissBtn) dismissBtn.addEventListener('click', hideWhatsNewPopup);
-
-  const changelogBtn = safeGetElement('whatsNewChangelogBtn');
-  if (changelogBtn) {
-    changelogBtn.addEventListener('click', () => {
-      hideWhatsNewPopup();
-      showFullChangelog();
-    });
+// STAK-547: Show latest changelog entry as a bottom-right toast card (replaces modal)
+const showWhatsNewPopup = () => {
+  // Parse first entry from embedded list (developer-controlled HTML)
+  const doc = new DOMParser().parseFromString(
+    `<ul>${getEmbeddedWhatsNew()}</ul>`, 'text/html',
+  );
+  const firstLi = doc.querySelector('li');
+  if (!firstLi) {
+    acknowledgeVersion();
+    return;
   }
 
-  // Click overlay background to dismiss
-  const overlay = safeGetElement('whatsNewPopup');
-  if (overlay) {
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) hideWhatsNewPopup();
-    });
-  }
+  // Build card with DOM methods — no innerHTML on appended elements
+  const label = document.createElement('span');
+  label.className = 'wntc-label';
+  label.textContent = 'What\u2019s New';
 
-  // Escape key to dismiss
-  document.addEventListener('keydown', (e) => {
-    const popup = safeGetElement('whatsNewPopup');
-    if (e.key === 'Escape' && popup && popup.style.display === 'flex') {
-      hideWhatsNewPopup();
-    }
-  });
+  const versionSpan = document.createElement('span');
+  versionSpan.className = 'wntc-version';
+  versionSpan.textContent = typeof APP_VERSION !== 'undefined' ? `v${APP_VERSION}` : '';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'wntc-close';
+  closeBtn.setAttribute('aria-label', 'Dismiss');
+  closeBtn.textContent = '\u00D7';
+
+  const header = document.createElement('div');
+  header.className = 'wntc-header';
+  header.appendChild(label);
+  header.appendChild(versionSpan);
+  header.appendChild(closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'wntc-body';
+  // Clone parsed li child nodes (developer-controlled, not user input)
+  Array.from(firstLi.childNodes).forEach((node) => body.appendChild(node.cloneNode(true)));
+
+  const card = document.createElement('div');
+  card.className = 'whats-new-toast-card';
+  card.appendChild(header);
+  card.appendChild(body);
+  document.body.appendChild(card);
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    clearTimeout(timer);
+    card.classList.add('fade-out');
+    card.addEventListener('animationend', () => card.remove(), { once: true });
+    acknowledgeVersion();
+  };
+
+  card.addEventListener('click', dismiss);
+  const timer = setTimeout(dismiss, 4000);
 };
+
+// Kept for backward compat — no modal to hide
+const hideWhatsNewPopup = acknowledgeVersion;
+
+// setupWhatsNewPopupEvents kept as no-op — modal removed (STAK-547)
+const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
@@ -123,8 +138,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.01 &ndash; STAK-445: Move FAQ below LOG</strong>: Reordered the Settings modal sidebar so Log appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged.</li>
     <li><strong>v3.34.00 &ndash; STAK-444: Cloud Tab Settings Panel</strong>: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.</li>
     <li><strong>v3.33.99 &ndash; STAK-538: Remove First-Run Modal</strong>: First-run acknowledgment modal removed &mdash; users now see the app immediately. The Info tab and What&rsquo;s New popup already cover disclaimers and version announcements.</li>
-    <li><strong>v3.33.98 &ndash; STAK-529: Sort Direction Toggle</strong>: Asc/Desc toggle added to Settings &gt; Appearance next to Default Sort Column dropdown. Uses existing chip-sort-toggle pattern. Persists to localStorage via DEFAULT_SORT_DIR_KEY.</li>
-    <li><strong>v3.33.97 &ndash; STAK-532: Playwright-first testing</strong>: Playwright (@playwright/test) is now the primary local TDD layer. 33 tests across runbook sections 01-page-load and 02-crud. Run offline with <code>npm test</code>. Browserbase/Stagehand retained for live-site and cloud-only flows.</li>
   `;
 };
 
@@ -145,5 +158,6 @@ if (typeof window !== "undefined") {
   window.showFullChangelog = showFullChangelog;
   window.showWhatsNewPopup = showWhatsNewPopup;
   window.hideWhatsNewPopup = hideWhatsNewPopup;
+  window.acknowledgeVersion = acknowledgeVersion;
   window.setupWhatsNewPopupEvents = setupWhatsNewPopupEvents;
 }

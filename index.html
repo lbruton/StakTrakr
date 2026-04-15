@@ -1941,7 +1941,7 @@
         </div>
       </div>
     </div>
-    <!-- aboutModal and versionModal removed — content moved to settingsPanel_about + whatsNewPopup -->
+    <!-- aboutModal and versionModal removed — content moved to settingsPanel_about; whatsNewPopup replaced by toast card (STAK-547) -->
     <!-- =============================================================================
        ============================================================================= -->
 
@@ -4033,39 +4033,6 @@
         <div class="settings-footer" id="settingsFooter"></div>
       </div><!-- .settings-modal-content -->
     </div><!-- #settingsModal -->
-
-    <!-- ===== WHAT'S NEW POPUP (thin version splash) ===== -->
-    <div class="whats-new-overlay" id="whatsNewPopup" style="display: none">
-      <div class="whats-new-popup">
-        <div class="whats-new-popup-header">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
-            <defs>
-              <linearGradient id="bgPopup" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
-              <linearGradient id="silverPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
-              <linearGradient id="goldPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
-            </defs>
-            <rect width="512" height="512" rx="96" fill="url(#bgPopup)"/>
-            <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
-            <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
-            <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldPopup)"/>
-            <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
-            <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
-          </svg>
-          <div class="popup-title-group">
-            <div class="popup-title"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
-            <div class="popup-version" id="whatsNewVersion"></div>
-          </div>
-        </div>
-        <div class="whats-new-popup-body">
-          <h4>What's New</h4>
-          <ul id="versionChanges"></ul>
-        </div>
-        <div class="whats-new-popup-footer">
-          <button class="btn secondary" id="whatsNewChangelogBtn">Full Changelog</button>
-          <button class="btn premium" id="whatsNewDismissBtn">Got it!</button>
-        </div>
-      </div>
-    </div><!-- #whatsNewPopup -->
 
     <div class="modal" id="cloudSyncModal" style="display: none">
       <div class="modal-content">
