@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { injectSeedInventory } from './helpers/seed.js';
+import { injectSeedInventory } from '../helpers/seed.js';
 
 test.describe('STAK-444 — Cloud tab settings panel', () => {
   test.beforeEach(async ({ page }) => {

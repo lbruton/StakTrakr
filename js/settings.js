@@ -137,6 +137,11 @@ const switchSettingsSection = (name) => {
     // Sync cloud UI state (connected/disconnected badges, button states)
     if (typeof syncCloudUI === 'function') syncCloudUI();
   }
+
+  // Sync cloud UI state when switching to the dedicated Cloud tab
+  if (targetName === 'cloud') {
+    if (typeof syncCloudUI === 'function') syncCloudUI();
+  }
 };
 
 /**
