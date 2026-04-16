@@ -9,14 +9,14 @@
  * Idempotent — safe to re-run (INSERT OR REPLACE semantics).
  */
 
-import { createSqldClient, initSqldSchema } from './sqld-client.js';
-import { insertSpotPrices } from './db.js';
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { createSqldClient, initSqldSchema } from "./sqld-client.js";
+import { insertSpotPrices } from "./db.js";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const DATA_DIR = process.env.DATA_DIR;
 if (!DATA_DIR) {
-  console.error('ERROR: DATA_DIR environment variable is required.');
+  console.error("ERROR: DATA_DIR environment variable is required.");
   process.exit(1);
 }
 
@@ -39,7 +39,7 @@ async function collectJsonFiles(dir) {
       const full = join(current, entry.name);
       if (entry.isDirectory()) {
         await walk(full);
-      } else if (entry.isFile() && entry.name.endsWith('.json')) {
+      } else if (entry.isFile() && entry.name.endsWith(".json")) {
         results.push(full);
       }
     }
@@ -56,7 +56,7 @@ async function collectJsonFiles(dir) {
  * @returns {string}
  */
 function toISO(ts) {
-  return ts.replace(' ', 'T') + 'Z';
+  return ts.replace(" ", "T") + "Z";
 }
 
 /**
@@ -66,7 +66,7 @@ function toISO(ts) {
  * @returns {Promise<{gold: number, silver: number, platinum: number, palladium: number, timestamp: string} | null>}
  */
 async function parseSpotFile(filePath) {
-  const raw = await readFile(filePath, 'utf-8');
+  const raw = await readFile(filePath, "utf-8");
   const entries = JSON.parse(raw);
 
   if (!Array.isArray(entries) || entries.length === 0) return null;
@@ -98,8 +98,8 @@ async function main() {
   const client = createSqldClient();
   await initSqldSchema(client);
 
-  const hourlyDir = join(DATA_DIR, 'hourly');
-  const fifteenMinDir = join(DATA_DIR, '15min');
+  const hourlyDir = join(DATA_DIR, "hourly");
+  const fifteenMinDir = join(DATA_DIR, "15min");
 
   console.log(`Scanning ${hourlyDir} and ${fifteenMinDir} ...`);
 
@@ -107,7 +107,9 @@ async function main() {
   const fifteenMinFiles = await collectJsonFiles(fifteenMinDir);
   const allFiles = [...hourlyFiles, ...fifteenMinFiles];
 
-  console.log(`Found ${hourlyFiles.length} hourly + ${fifteenMinFiles.length} 15min = ${allFiles.length} total files.`);
+  console.log(
+    `Found ${hourlyFiles.length} hourly + ${fifteenMinFiles.length} 15min = ${allFiles.length} total files.`
+  );
 
   let processed = 0;
   let skipped = 0;
@@ -121,7 +123,7 @@ async function main() {
         skipped++;
         continue;
       }
-      await insertSpotPrices(client, payload, 'backfill');
+      await insertSpotPrices(client, payload, "backfill");
       processed++;
       rows += 4;
     } catch (err) {
@@ -131,14 +133,18 @@ async function main() {
     }
 
     if ((processed + skipped) % 100 === 0) {
-      console.log(`Progress: ${processed + skipped}/${allFiles.length} files (${processed} ok, ${skipped} skipped)`);
+      console.log(
+        `Progress: ${processed + skipped}/${allFiles.length} files (${processed} ok, ${skipped} skipped)`
+      );
     }
   }
 
-  console.log(`Backfill complete: ${processed} files processed, ${skipped} skipped, ${rows} rows imported`);
+  console.log(
+    `Backfill complete: ${processed} files processed, ${skipped} skipped, ${rows} rows imported`
+  );
 }
 
 main().catch((err) => {
-  console.error('Fatal error:', err);
+  console.error("Fatal error:", err);
   process.exit(1);
 });

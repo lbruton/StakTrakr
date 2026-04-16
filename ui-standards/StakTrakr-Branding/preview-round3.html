@@ -1,187 +1,364 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StakTrakr — Round 3: Clean S-Stack</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #0F172A;
-    color: #E2E8F0;
-    min-height: 100vh;
-    padding: 40px 20px;
-  }
-  h1 { text-align: center; font-size: 1.8rem; font-weight: 300; letter-spacing: 2px; margin-bottom: 6px; color: #F8FAFC; }
-  h1 .gold { color: #d4a017; }
-  .subtitle { text-align: center; color: #94A3B8; font-size: 0.85rem; margin-bottom: 8px; }
-  .direction { text-align: center; color: #64748b; font-size: 0.8rem; max-width: 550px; margin: 0 auto 40px; line-height: 1.6; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr — Round 3: Clean S-Stack</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        min-height: 100vh;
+        padding: 40px 20px;
+      }
+      h1 {
+        text-align: center;
+        font-size: 1.8rem;
+        font-weight: 300;
+        letter-spacing: 2px;
+        margin-bottom: 6px;
+        color: #f8fafc;
+      }
+      h1 .gold {
+        color: #d4a017;
+      }
+      .subtitle {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+      }
+      .direction {
+        text-align: center;
+        color: #64748b;
+        font-size: 0.8rem;
+        max-width: 550px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+      }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-  .card {
-    background: #1E293B;
-    border-radius: 16px;
-    padding: 24px;
-    text-align: center;
-    transition: transform 0.2s, box-shadow 0.2s;
-    border: 1px solid #334155;
-  }
-  .card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); border-color: #d4a017; }
-  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; color: #F1F5F9; }
-  .card .tag { display: inline-block; background: #334155; color: #94A3B8; font-size: 0.65rem; padding: 3px 10px; border-radius: 100px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
-  .logo-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 14px; min-height: 170px; }
-  .logo-wrap img { width: 160px; height: auto; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); border-radius: 16px; }
-  .desc { color: #94A3B8; font-size: 0.8rem; line-height: 1.6; text-align: left; }
-  .desc strong { color: #d4a017; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .card {
+        background: #1e293b;
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        border: 1px solid #334155;
+      }
+      .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        border-color: #d4a017;
+      }
+      .card h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: #f1f5f9;
+      }
+      .card .tag {
+        display: inline-block;
+        background: #334155;
+        color: #94a3b8;
+        font-size: 0.65rem;
+        padding: 3px 10px;
+        border-radius: 100px;
+        margin-bottom: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .logo-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 14px;
+        min-height: 170px;
+      }
+      .logo-wrap img {
+        width: 160px;
+        height: auto;
+        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+        border-radius: 16px;
+      }
+      .desc {
+        color: #94a3b8;
+        font-size: 0.8rem;
+        line-height: 1.6;
+        text-align: left;
+      }
+      .desc strong {
+        color: #d4a017;
+      }
 
-  .section-title { max-width: 1200px; margin: 48px auto 20px; text-align: center; font-weight: 400; font-size: 1rem; color: #64748B; }
+      .section-title {
+        max-width: 1200px;
+        margin: 48px auto 20px;
+        text-align: center;
+        font-weight: 400;
+        font-size: 1rem;
+        color: #64748b;
+      }
 
-  .size-strip { max-width: 1200px; margin: 24px auto; display: flex; gap: 24px; justify-content: center; align-items: end; flex-wrap: wrap; }
-  .size-group { display: flex; gap: 12px; align-items: end; background: #1e293b; padding: 16px 20px; border-radius: 12px; border: 1px solid #334155; }
-  .size-group .label { font-size: 0.7rem; color: #64748b; writing-mode: vertical-lr; transform: rotate(180deg); margin-right: 4px; }
-  .si { text-align: center; }
-  .si img { border-radius: 4px; display: block; margin: 0 auto; }
-  .si span { display: block; font-size: 0.6rem; color: #475569; margin-top: 4px; }
+      .size-strip {
+        max-width: 1200px;
+        margin: 24px auto;
+        display: flex;
+        gap: 24px;
+        justify-content: center;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+      .size-group {
+        display: flex;
+        gap: 12px;
+        align-items: end;
+        background: #1e293b;
+        padding: 16px 20px;
+        border-radius: 12px;
+        border: 1px solid #334155;
+      }
+      .size-group .label {
+        font-size: 0.7rem;
+        color: #64748b;
+        writing-mode: vertical-lr;
+        transform: rotate(180deg);
+        margin-right: 4px;
+      }
+      .si {
+        text-align: center;
+      }
+      .si img {
+        border-radius: 4px;
+        display: block;
+        margin: 0 auto;
+      }
+      .si span {
+        display: block;
+        font-size: 0.6rem;
+        color: #475569;
+        margin-top: 4px;
+      }
 
-  .bg-strip { max-width: 1200px; margin: 32px auto; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-  .bg-box { padding: 20px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 12px; }
-  .bg-box.dark { background: #0f1729; border: 1px solid #334155; }
-  .bg-box.light { background: #f8fafc; }
-  .bg-box.navy { background: linear-gradient(135deg, #1e3a5f, #0f1729); }
-  .bg-box img { width: 64px; border-radius: 10px; }
-  .bg-label { font-size: 0.65rem; color: #475569; margin-top: 6px; text-align: center; width: 100%; }
+      .bg-strip {
+        max-width: 1200px;
+        margin: 32px auto;
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .bg-box {
+        padding: 20px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      .bg-box.dark {
+        background: #0f1729;
+        border: 1px solid #334155;
+      }
+      .bg-box.light {
+        background: #f8fafc;
+      }
+      .bg-box.navy {
+        background: linear-gradient(135deg, #1e3a5f, #0f1729);
+      }
+      .bg-box img {
+        width: 64px;
+        border-radius: 10px;
+      }
+      .bg-label {
+        font-size: 0.65rem;
+        color: #475569;
+        margin-top: 6px;
+        text-align: center;
+        width: 100%;
+      }
 
-  .use-cases { max-width: 1200px; margin: 48px auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
-  .use-case { background: #1e293b; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #334155; }
-  .use-case .uc-title { font-size: 0.75rem; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-  .use-case img { border-radius: 8px; }
-</style>
-</head>
-<body>
+      .use-cases {
+        max-width: 1200px;
+        margin: 48px auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+      }
+      .use-case {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid #334155;
+      }
+      .use-case .uc-title {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .use-case img {
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>STAK<span class="gold">TRAKR</span> — Round 3</h1>
+    <p class="subtitle">No Shield — Pure S-Stack + Wordmark</p>
+    <p class="direction">
+      Stripped back to essentials: the stacked-bar S and the wordmark. Four variations on spacing,
+      weight, and extras.
+    </p>
 
-  <h1>STAK<span class="gold">TRAKR</span> — Round 3</h1>
-  <p class="subtitle">No Shield — Pure S-Stack + Wordmark</p>
-  <p class="direction">Stripped back to essentials: the stacked-bar S and the wordmark. Four variations on spacing, weight, and extras.</p>
-
-  <div class="grid">
-    <div class="card">
-      <h2>E — Clean Stack</h2>
-      <span class="tag">Balanced</span>
-      <div class="logo-wrap">
-        <img src="variant-e-clean-stack.svg" alt="Clean Stack">
+    <div class="grid">
+      <div class="card">
+        <h2>E — Clean Stack</h2>
+        <span class="tag">Balanced</span>
+        <div class="logo-wrap">
+          <img src="variant-e-clean-stack.svg" alt="Clean Stack" />
+        </div>
+        <p class="desc">
+          Generous spacing between the S bars and wordmark. <strong>5 bars</strong>, gold center,
+          silver flanks at descending opacity. "Track Your Stack" tagline. Most balanced — reads
+          well at all sizes without feeling cramped.
+        </p>
       </div>
-      <p class="desc">Generous spacing between the S bars and wordmark. <strong>5 bars</strong>, gold center, silver flanks at descending opacity. "Track Your Stack" tagline. Most balanced — reads well at all sizes without feeling cramped.</p>
-    </div>
 
-    <div class="card">
-      <h2>F — Tight Stack</h2>
-      <span class="tag">Compact</span>
-      <div class="logo-wrap">
-        <img src="variant-f-tight-stack.svg" alt="Tight Stack">
+      <div class="card">
+        <h2>F — Tight Stack</h2>
+        <span class="tag">Compact</span>
+        <div class="logo-wrap">
+          <img src="variant-f-tight-stack.svg" alt="Tight Stack" />
+        </div>
+        <p class="desc">
+          S bars closer together, thin divider line separating icon from text.
+          <strong>Extra-bold 800-weight</strong> wordmark. "Precious Metals Tracker" subtitle +
+          "Free + Open Source" pill. More vertical info density — app store listing feel.
+        </p>
       </div>
-      <p class="desc">S bars closer together, thin divider line separating icon from text. <strong>Extra-bold 800-weight</strong> wordmark. "Precious Metals Tracker" subtitle + "Free + Open Source" pill. More vertical info density — app store listing feel.</p>
-    </div>
 
-    <div class="card">
-      <h2>G — Centered Stack</h2>
-      <span class="tag">Wide</span>
-      <div class="logo-wrap">
-        <img src="variant-g-centered-stack.svg" alt="Centered Stack">
+      <div class="card">
+        <h2>G — Centered Stack</h2>
+        <span class="tag">Wide</span>
+        <div class="logo-wrap">
+          <img src="variant-g-centered-stack.svg" alt="Centered Stack" />
+        </div>
+        <p class="desc">
+          <strong>Wider gold center bar</strong> stretches across more of the space. Bars are wider
+          overall — more horizontal presence. Wordmark with generous letter-spacing. Just the
+          tagline, nothing else. Cleanest, most confident.
+        </p>
       </div>
-      <p class="desc"><strong>Wider gold center bar</strong> stretches across more of the space. Bars are wider overall — more horizontal presence. Wordmark with generous letter-spacing. Just the tagline, nothing else. Cleanest, most confident.</p>
-    </div>
 
-    <div class="card">
-      <h2>H — Icon Only</h2>
-      <span class="tag">PWA / Favicon</span>
-      <div class="logo-wrap">
-        <img src="variant-h-icon-only.svg" alt="Icon Only">
+      <div class="card">
+        <h2>H — Icon Only</h2>
+        <span class="tag">PWA / Favicon</span>
+        <div class="logo-wrap">
+          <img src="variant-h-icon-only.svg" alt="Icon Only" />
+        </div>
+        <p class="desc">
+          <strong>No text at all</strong> — just the S-stack at maximum size. This is the
+          <strong>PWA icon and favicon</strong> variant. The bars fill the square. Pairs with a
+          separate wordmark for headers/splash screens. Essential for the home screen install.
+        </p>
       </div>
-      <p class="desc"><strong>No text at all</strong> — just the S-stack at maximum size. This is the <strong>PWA icon and favicon</strong> variant. The bars fill the square. Pairs with a separate wordmark for headers/splash screens. Essential for the home screen install.</p>
     </div>
-  </div>
 
-  <h3 class="section-title">Size Ladder</h3>
-  <div class="size-strip">
-    <div class="size-group">
-      <span class="label">E</span>
-      <div class="si"><img src="variant-e-clean-stack.svg" width="16"><span>16</span></div>
-      <div class="si"><img src="variant-e-clean-stack.svg" width="32"><span>32</span></div>
-      <div class="si"><img src="variant-e-clean-stack.svg" width="48"><span>48</span></div>
-      <div class="si"><img src="variant-e-clean-stack.svg" width="96"><span>96</span></div>
-    </div>
-    <div class="size-group">
-      <span class="label">G</span>
-      <div class="si"><img src="variant-g-centered-stack.svg" width="16"><span>16</span></div>
-      <div class="si"><img src="variant-g-centered-stack.svg" width="32"><span>32</span></div>
-      <div class="si"><img src="variant-g-centered-stack.svg" width="48"><span>48</span></div>
-      <div class="si"><img src="variant-g-centered-stack.svg" width="96"><span>96</span></div>
-    </div>
-    <div class="size-group">
-      <span class="label">H icon</span>
-      <div class="si"><img src="variant-h-icon-only.svg" width="16"><span>16</span></div>
-      <div class="si"><img src="variant-h-icon-only.svg" width="32"><span>32</span></div>
-      <div class="si"><img src="variant-h-icon-only.svg" width="48"><span>48</span></div>
-      <div class="si"><img src="variant-h-icon-only.svg" width="96"><span>96</span></div>
-    </div>
-  </div>
-
-  <h3 class="section-title">Background Test</h3>
-  <div class="bg-strip">
-    <div>
-      <div class="bg-box dark">
-        <img src="variant-e-clean-stack.svg">
-        <img src="variant-h-icon-only.svg">
+    <h3 class="section-title">Size Ladder</h3>
+    <div class="size-strip">
+      <div class="size-group">
+        <span class="label">E</span>
+        <div class="si"><img src="variant-e-clean-stack.svg" width="16" /><span>16</span></div>
+        <div class="si"><img src="variant-e-clean-stack.svg" width="32" /><span>32</span></div>
+        <div class="si"><img src="variant-e-clean-stack.svg" width="48" /><span>48</span></div>
+        <div class="si"><img src="variant-e-clean-stack.svg" width="96" /><span>96</span></div>
       </div>
-      <div class="bg-label">Dark (primary)</div>
-    </div>
-    <div>
-      <div class="bg-box light">
-        <img src="variant-e-clean-stack.svg">
-        <img src="variant-h-icon-only.svg">
+      <div class="size-group">
+        <span class="label">G</span>
+        <div class="si"><img src="variant-g-centered-stack.svg" width="16" /><span>16</span></div>
+        <div class="si"><img src="variant-g-centered-stack.svg" width="32" /><span>32</span></div>
+        <div class="si"><img src="variant-g-centered-stack.svg" width="48" /><span>48</span></div>
+        <div class="si"><img src="variant-g-centered-stack.svg" width="96" /><span>96</span></div>
       </div>
-      <div class="bg-label">Light</div>
-    </div>
-    <div>
-      <div class="bg-box navy">
-        <img src="variant-g-centered-stack.svg">
-        <img src="variant-h-icon-only.svg">
+      <div class="size-group">
+        <span class="label">H icon</span>
+        <div class="si"><img src="variant-h-icon-only.svg" width="16" /><span>16</span></div>
+        <div class="si"><img src="variant-h-icon-only.svg" width="32" /><span>32</span></div>
+        <div class="si"><img src="variant-h-icon-only.svg" width="48" /><span>48</span></div>
+        <div class="si"><img src="variant-h-icon-only.svg" width="96" /><span>96</span></div>
       </div>
-      <div class="bg-label">Navy gradient</div>
     </div>
-  </div>
 
-  <h3 class="section-title">Usage Scenarios</h3>
-  <div class="use-cases">
-    <div class="use-case">
-      <div class="uc-title">Home Screen</div>
-      <img src="variant-h-icon-only.svg" width="72">
+    <h3 class="section-title">Background Test</h3>
+    <div class="bg-strip">
+      <div>
+        <div class="bg-box dark">
+          <img src="variant-e-clean-stack.svg" />
+          <img src="variant-h-icon-only.svg" />
+        </div>
+        <div class="bg-label">Dark (primary)</div>
+      </div>
+      <div>
+        <div class="bg-box light">
+          <img src="variant-e-clean-stack.svg" />
+          <img src="variant-h-icon-only.svg" />
+        </div>
+        <div class="bg-label">Light</div>
+      </div>
+      <div>
+        <div class="bg-box navy">
+          <img src="variant-g-centered-stack.svg" />
+          <img src="variant-h-icon-only.svg" />
+        </div>
+        <div class="bg-label">Navy gradient</div>
+      </div>
     </div>
-    <div class="use-case">
-      <div class="uc-title">Tab / Favicon</div>
-      <img src="variant-h-icon-only.svg" width="20">
-    </div>
-    <div class="use-case">
-      <div class="uc-title">About Page</div>
-      <img src="variant-e-clean-stack.svg" width="140">
-    </div>
-    <div class="use-case">
-      <div class="uc-title">Header Bar</div>
-      <img src="variant-h-icon-only.svg" width="28" style="display:inline;vertical-align:middle;margin-right:6px;">
-      <span style="font-size:1rem;font-weight:700;vertical-align:middle;"><span style="color:#e2e8f0">Stak</span><span style="color:#d4a017">Trakr</span></span>
-    </div>
-    <div class="use-case">
-      <div class="uc-title">Reddit / GitHub</div>
-      <img src="variant-h-icon-only.svg" width="48" style="border-radius:50%;">
-    </div>
-  </div>
 
-</body>
+    <h3 class="section-title">Usage Scenarios</h3>
+    <div class="use-cases">
+      <div class="use-case">
+        <div class="uc-title">Home Screen</div>
+        <img src="variant-h-icon-only.svg" width="72" />
+      </div>
+      <div class="use-case">
+        <div class="uc-title">Tab / Favicon</div>
+        <img src="variant-h-icon-only.svg" width="20" />
+      </div>
+      <div class="use-case">
+        <div class="uc-title">About Page</div>
+        <img src="variant-e-clean-stack.svg" width="140" />
+      </div>
+      <div class="use-case">
+        <div class="uc-title">Header Bar</div>
+        <img
+          src="variant-h-icon-only.svg"
+          width="28"
+          style="display: inline; vertical-align: middle; margin-right: 6px"
+        />
+        <span style="font-size: 1rem; font-weight: 700; vertical-align: middle"
+          ><span style="color: #e2e8f0">Stak</span><span style="color: #d4a017">Trakr</span></span
+        >
+      </div>
+      <div class="use-case">
+        <div class="uc-title">Reddit / GitHub</div>
+        <img src="variant-h-icon-only.svg" width="48" style="border-radius: 50%" />
+      </div>
+    </div>
+  </body>
 </html>

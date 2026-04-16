@@ -112,15 +112,16 @@ function appendPriceLog(row) {
   try {
     const date = row.scrapedAt.slice(0, 10);
     mkdirSync(logDir, { recursive: true });
-    const line = JSON.stringify({
-      scraped_at:   row.scrapedAt,
-      window_start: row.windowStart,
-      coin_slug:    row.coinSlug,
-      vendor:       row.vendor,
-      price:        row.price,
-      source:       row.source,
-      in_stock:     row.inStock !== false ? 1 : 0,
-    }) + "\n";
+    const line =
+      JSON.stringify({
+        scraped_at: row.scrapedAt,
+        window_start: row.windowStart,
+        coin_slug: row.coinSlug,
+        vendor: row.vendor,
+        price: row.price,
+        source: row.source,
+        in_stock: row.inStock !== false ? 1 : 0,
+      }) + "\n";
     appendFileSync(join(logDir, `prices-${date}.jsonl`), line);
   } catch {
     // Non-fatal — a log write failure is never worth crashing the scrape
@@ -132,8 +133,8 @@ function appendPriceLog(row) {
 // If row.baseline is provided (spot-based melt value or goldback G1 rate),
 // prices outside the reject threshold are written as is_failed=1, price=null.
 // ---------------------------------------------------------------------------
-const BOUNDS_REJECT_HIGH = 1.50;  // > +50% above baseline
-const BOUNDS_REJECT_LOW  = 0.70;  // < -30% below baseline
+const BOUNDS_REJECT_HIGH = 1.5; // > +50% above baseline
+const BOUNDS_REJECT_LOW = 0.7; // < -30% below baseline
 
 /**
  * Check whether a price is within plausible bounds of its baseline.
@@ -142,14 +143,23 @@ const BOUNDS_REJECT_LOW  = 0.70;  // < -30% below baseline
  * @returns {{ ok: boolean, ratio: number, reason?: string }}
  */
 function checkPriceBounds(price, baseline) {
-  if (!isFinite(price) || price <= 0) return { ok: false, ratio: NaN, reason: `non-finite or non-positive price (${price})` };
+  if (!isFinite(price) || price <= 0)
+    return { ok: false, ratio: NaN, reason: `non-finite or non-positive price (${price})` };
   if (baseline <= 0 || !isFinite(baseline)) return { ok: true, ratio: 1 };
   const ratio = price / baseline;
   if (ratio > BOUNDS_REJECT_HIGH) {
-    return { ok: false, ratio, reason: `${((ratio - 1) * 100).toFixed(1)}% above baseline ($${price.toFixed(2)} vs $${baseline.toFixed(2)})` };
+    return {
+      ok: false,
+      ratio,
+      reason: `${((ratio - 1) * 100).toFixed(1)}% above baseline ($${price.toFixed(2)} vs $${baseline.toFixed(2)})`,
+    };
   }
   if (ratio < BOUNDS_REJECT_LOW) {
-    return { ok: false, ratio, reason: `${((1 - ratio) * 100).toFixed(1)}% below baseline ($${price.toFixed(2)} vs $${baseline.toFixed(2)})` };
+    return {
+      ok: false,
+      ratio,
+      reason: `${((1 - ratio) * 100).toFixed(1)}% below baseline ($${price.toFixed(2)} vs $${baseline.toFixed(2)})`,
+    };
   }
   return { ok: true, ratio };
 }
@@ -231,7 +241,6 @@ export function writeConfidenceScores(db, scores) {
   updateMany(scores);
 }
 
-
 // ---------------------------------------------------------------------------
 // Read operations
 // ---------------------------------------------------------------------------
@@ -260,18 +269,25 @@ export function readWindow(db, windowStart) {
  * @returns {Array<object>}
  */
 export function readRecentWindows(db, coinSlug, windowCount = 96, cutoffHours = 24) {
-  const latest = db.prepare(
-    "SELECT MAX(window_start) as latest FROM price_snapshots WHERE coin_slug = ? AND price IS NOT NULL"
-  ).get(coinSlug);
+  const latest = db
+    .prepare(
+      "SELECT MAX(window_start) as latest FROM price_snapshots WHERE coin_slug = ? AND price IS NOT NULL"
+    )
+    .get(coinSlug);
   if (!latest || !latest.latest) return [];
-  const cutoff = new Date(new Date(latest.latest).getTime() - cutoffHours * 60 * 60 * 1000).toISOString().replace(".000Z", "Z");
-  return db.prepare(`
+  const cutoff = new Date(new Date(latest.latest).getTime() - cutoffHours * 60 * 60 * 1000)
+    .toISOString()
+    .replace(".000Z", "Z");
+  return db
+    .prepare(
+      `
       SELECT *
       FROM price_snapshots
       WHERE coin_slug = ? AND price IS NOT NULL AND window_start >= ?
       ORDER BY window_start DESC
       LIMIT ?
-    `)
+    `
+    )
     .all(coinSlug, cutoff, windowCount * 20)
     .reverse();
 }
@@ -287,7 +303,8 @@ export function readRecentWindows(db, coinSlug, windowCount = 96, cutoffHours = 
  */
 export function readDailyAggregates(db, coinSlug, days = 30) {
   return db
-    .prepare(`
+    .prepare(
+      `
       SELECT
         substr(window_start, 1, 10) AS date,
         COUNT(*)                    AS sample_count,
@@ -300,7 +317,8 @@ export function readDailyAggregates(db, coinSlug, days = 30) {
         AND substr(window_start, 1, 10) >= date('now', ? || ' days')
       GROUP BY date, vendor
       ORDER BY date ASC, vendor ASC
-    `)
+    `
+    )
     .all(coinSlug, `-${days}`);
 }
 
@@ -312,7 +330,9 @@ export function readDailyAggregates(db, coinSlug, days = 30) {
  */
 export function readLatestWindow(db) {
   const row = db
-    .prepare("SELECT window_start FROM price_snapshots WHERE price IS NOT NULL ORDER BY window_start DESC LIMIT 1")
+    .prepare(
+      "SELECT window_start FROM price_snapshots WHERE price IS NOT NULL ORDER BY window_start DESC LIMIT 1"
+    )
     .get();
   return row ? row.window_start : null;
 }
@@ -360,7 +380,8 @@ export function readLatestPerVendor(db, coinSlug, lookbackHours = 2) {
     .toISOString()
     .replace(".000Z", "Z");
   return db
-    .prepare(`
+    .prepare(
+      `
       SELECT ps.*
       FROM price_snapshots ps
       INNER JOIN (
@@ -370,7 +391,8 @@ export function readLatestPerVendor(db, coinSlug, lookbackHours = 2) {
         GROUP BY vendor
       ) latest ON ps.vendor = latest.vendor AND ps.scraped_at = latest.max_scraped
       WHERE ps.coin_slug = ? AND ps.is_failed = 0 AND ps.price IS NOT NULL
-    `)
+    `
+    )
     .all(coinSlug, cutoff, coinSlug);
 }
 
@@ -420,22 +442,17 @@ export async function startRunLog(client, { pollerId, startedAt, total }) {
  * @param {import("@libsql/client").Client} client
  * @param {{ runId: string, finishedAt: string, captured: number, failures: number, fbpFilled: number, error?: string }} opts
  */
-export async function finishRunLog(client, { runId, finishedAt, captured, failures, fbpFilled, error }) {
+export async function finishRunLog(
+  client,
+  { runId, finishedAt, captured, failures, fbpFilled, error }
+) {
   await client.execute({
     sql: `
       UPDATE poller_runs
       SET finished_at = ?, status = ?, captured = ?, failures = ?, fbp_filled = ?, error = ?
       WHERE run_id = ?
     `,
-    args: [
-      finishedAt,
-      error ? "error" : "ok",
-      captured,
-      failures,
-      fbpFilled,
-      error || null,
-      runId,
-    ],
+    args: [finishedAt, error ? "error" : "ok", captured, failures, fbpFilled, error || null, runId],
   });
 }
 
@@ -492,7 +509,11 @@ const SPOT_METALS = ["gold", "silver", "platinum", "palladium"];
  * @param {{ gold: number, silver: number, platinum: number, palladium: number, timestamp: string }} prices
  * @param {string} pollerId  e.g. "fly-spot" or "home-spot"
  */
-export async function insertSpotPrices(client, { gold, silver, platinum, palladium, timestamp }, pollerId) {
+export async function insertSpotPrices(
+  client,
+  { gold, silver, platinum, palladium, timestamp },
+  pollerId
+) {
   const floor = windowFloor(timestamp);
   const values = { gold, silver, platinum, palladium };
 

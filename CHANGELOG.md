@@ -150,7 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed — Ticker Duplication & Stale What's New (STAK-513)
 
 - **Fixed**: Market ticker marquee duplicating into 4-5 stacked rows due to race condition in renderBestPriceTicker() — orphaned .ticker-track elements now swept on every finalize (STAK-513)
-- **Fixed**: Removed redundant renderBestPriceTicker() call inside async _renderVendorTable completion that was the primary trigger for the race (STAK-513)
+- **Fixed**: Removed redundant renderBestPriceTicker() call inside async \_renderVendorTable completion that was the primary trigger for the race (STAK-513)
 - **Fixed**: Stale What's New content on Cloudflare-proxied deployments — SPA fallback returning HTML instead of 404 for deleted announcements.md now detected and bypassed (STAK-513)
 - **Added**: CSS max-height safety clamp on .market-ticker to prevent visual overflow if ticker tracks accumulate (STAK-513)
 

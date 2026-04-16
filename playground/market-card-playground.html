@@ -1,1057 +1,1373 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StakTrakr Market Card Playground — STAK-369</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-<style>
-/* ── Reset & Base ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: #111827;
-  color: #f8fafc;
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr Market Card Playground — STAK-369</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+      /* ── Reset & Base ── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+          sans-serif;
+        background: #111827;
+        color: #f8fafc;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
 
-/* ── Controls Panel ── */
-.controls {
-  width: 280px;
-  min-width: 280px;
-  background: #1e293b;
-  border-right: 1px solid #334155;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.controls h1 {
-  font-size: 14px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
-}
-.controls h2 {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 6px;
-}
-.control-group { display: flex; flex-direction: column; gap: 8px; }
-.control-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.control-row label {
-  font-size: 12px;
-  color: #cbd5e1;
-  white-space: nowrap;
-}
-.control-row .value {
-  font-size: 11px;
-  color: #94a3b8;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  min-width: 48px;
-  text-align: right;
-}
-input[type="range"] {
-  flex: 1;
-  height: 4px;
-  -webkit-appearance: none;
-  background: #334155;
-  border-radius: 2px;
-  outline: none;
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #3b82f6;
-  cursor: pointer;
-}
-select, .btn-toggle {
-  background: #0f172a;
-  color: #f8fafc;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-}
-select:hover, .btn-toggle:hover { border-color: #475569; }
-.btn-toggle { text-align: center; min-width: 70px; }
-.btn-toggle.active { background: #3b82f6; border-color: #3b82f6; }
+      /* ── Controls Panel ── */
+      .controls {
+        width: 280px;
+        min-width: 280px;
+        background: #1e293b;
+        border-right: 1px solid #334155;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .controls h1 {
+        font-size: 14px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+      .controls h2 {
+        font-size: 11px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+      }
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .control-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .control-row label {
+        font-size: 12px;
+        color: #cbd5e1;
+        white-space: nowrap;
+      }
+      .control-row .value {
+        font-size: 11px;
+        color: #94a3b8;
+        font-family: "SF Mono", "Fira Code", monospace;
+        min-width: 48px;
+        text-align: right;
+      }
+      input[type="range"] {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        background: #334155;
+        border-radius: 2px;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+      }
+      select,
+      .btn-toggle {
+        background: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        outline: none;
+      }
+      select:hover,
+      .btn-toggle:hover {
+        border-color: #475569;
+      }
+      .btn-toggle {
+        text-align: center;
+        min-width: 70px;
+      }
+      .btn-toggle.active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+      }
 
-/* Presets row */
-.presets { display: flex; flex-wrap: wrap; gap: 4px; }
-.preset-btn {
-  background: #0f172a;
-  color: #94a3b8;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.preset-btn:hover { color: #f8fafc; border-color: #475569; }
-.preset-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+      /* Presets row */
+      .presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .preset-btn {
+        background: #0f172a;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 10px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .preset-btn:hover {
+        color: #f8fafc;
+        border-color: #475569;
+      }
+      .preset-btn.active {
+        background: #3b82f6;
+        color: #fff;
+        border-color: #3b82f6;
+      }
 
-/* ── Main area ── */
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+      /* ── Main area ── */
+      .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
 
-/* Preview area */
-.preview-wrap {
-  flex: 1;
-  overflow: auto;
-  display: flex;
-  justify-content: center;
-  padding: 24px;
-  background: #111827;
-}
-.preview-frame {
-  transition: width 0.2s ease;
-  max-width: 100%;
-}
+      /* Preview area */
+      .preview-wrap {
+        flex: 1;
+        overflow: auto;
+        display: flex;
+        justify-content: center;
+        padding: 24px;
+        background: #111827;
+      }
+      .preview-frame {
+        transition: width 0.2s ease;
+        max-width: 100%;
+      }
 
-/* ── Prompt output ── */
-.prompt-bar {
-  background: #1e293b;
-  border-top: 1px solid #334155;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-}
-.prompt-text {
-  flex: 1;
-  font-size: 12px;
-  color: #cbd5e1;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  line-height: 1.5;
-  max-height: 60px;
-  overflow-y: auto;
-}
-.copy-btn {
-  background: #3b82f6;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-.copy-btn:hover { background: #2563eb; }
-.copy-btn.copied { background: #059669; }
+      /* ── Prompt output ── */
+      .prompt-bar {
+        background: #1e293b;
+        border-top: 1px solid #334155;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 56px;
+      }
+      .prompt-text {
+        flex: 1;
+        font-size: 12px;
+        color: #cbd5e1;
+        font-family: "SF Mono", "Fira Code", monospace;
+        line-height: 1.5;
+        max-height: 60px;
+        overflow-y: auto;
+      }
+      .copy-btn {
+        background: #3b82f6;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s;
+      }
+      .copy-btn:hover {
+        background: #2563eb;
+      }
+      .copy-btn.copied {
+        background: #059669;
+      }
 
-/* ═══════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════
    StakTrakr Design System — Preview Styles
    ═══════════════════════════════════════════════ */
 
-.stak-preview {
-  /* Light theme (default) */
-  --primary: #3b82f6;
-  --bg-primary: #cbd5e1;
-  --bg-secondary: #e2e8f0;
-  --bg-tertiary: #94a3b8;
-  --bg-card: #f1f5f9;
-  --text-primary: #1b232c;
-  --text-muted: #344351;
-  --border: #cbd5e1;
-  --border-hover: #94a3b8;
-  --success: #059669;
-  --danger: #dc2626;
-  --warning: #d97706;
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      .stak-preview {
+        /* Light theme (default) */
+        --primary: #3b82f6;
+        --bg-primary: #cbd5e1;
+        --bg-secondary: #e2e8f0;
+        --bg-tertiary: #94a3b8;
+        --bg-card: #f1f5f9;
+        --text-primary: #1b232c;
+        --text-muted: #344351;
+        --border: #cbd5e1;
+        --border-hover: #94a3b8;
+        --success: #059669;
+        --danger: #dc2626;
+        --warning: #d97706;
+        --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.stak-preview[data-theme="dark"] {
-  --primary: #3b82f6;
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-card: #1e293b;
-  --text-primary: #f8fafc;
-  --text-muted: #94a3b8;
-  --border: #334155;
-  --border-hover: #475569;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-}
-.stak-inner { padding: 16px; }
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .stak-preview[data-theme="dark"] {
+        --primary: #3b82f6;
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --bg-card: #1e293b;
+        --text-primary: #f8fafc;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --border-hover: #475569;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+      }
+      .stak-inner {
+        padding: 16px;
+      }
 
-/* ── Market Header (two-row layout) ── */
-.market-header {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.market-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.market-header-title-group h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-  line-height: 1.2;
-}
-.market-header-sync-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-}
-.market-header-sync-group .settings-subtext {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-.market-header-divider {
-  height: 1px;
-  background: var(--border);
-}
-.market-header-controls-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.market-header-controls-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.market-search {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
-  color: var(--text-primary);
-  outline: none;
-  flex: 1;
-  min-width: 180px;
-}
-.market-search::placeholder { color: var(--text-muted); }
-.market-search:focus { border-color: var(--primary); }
-/* Sort + Expand: matched button pair */
-.market-header-btn {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.market-header-btn:hover {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-}
-.market-header-btn .btn-chevron {
-  font-size: 10px;
-  opacity: 0.6;
-}
-/* Sort button wraps a native select for the dropdown */
-.market-sort-wrap {
-  position: relative;
-  display: inline-flex;
-}
-.market-sort-wrap select {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  width: 100%;
-  height: 100%;
-  font-size: 13px;
-}
-/* Sync button — status-aware: green=current, amber=stale */
-.retail-sync-btn {
-  background: transparent;
-  border: 1.5px solid var(--success);
-  color: var(--success);
-  border-radius: 20px;
-  padding: 6px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.retail-sync-btn:hover {
-  background: rgba(5, 150, 105, 0.1);
-}
-.retail-sync-btn.stale {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.3);
-}
-.retail-sync-btn.stale:hover {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
-}
-/* ── Market Footer ── */
-.market-footer {
-  margin-top: 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.market-footer-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.market-footer-divider {
-  height: 1px;
-  background: var(--border);
-}
-.market-footer-text {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-.market-footer-text a {
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: 600;
-}
-.market-footer-text a:hover { text-decoration: underline; }
-.market-sponsor-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 5px 14px;
-  font-size: 11px;
-  color: var(--text-muted);
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.market-sponsor-badge:hover {
-  border-color: var(--danger);
-  color: var(--danger);
-}
+      /* ── Market Header (two-row layout) ── */
+      .market-header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .market-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .market-header-title-group h3 {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        line-height: 1.2;
+      }
+      .market-header-sync-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 3px;
+      }
+      .market-header-sync-group .settings-subtext {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .market-header-divider {
+        height: 1px;
+        background: var(--border);
+      }
+      .market-header-controls-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .market-header-controls-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .market-search {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 13px;
+        color: var(--text-primary);
+        outline: none;
+        flex: 1;
+        min-width: 180px;
+      }
+      .market-search::placeholder {
+        color: var(--text-muted);
+      }
+      .market-search:focus {
+        border-color: var(--primary);
+      }
+      /* Sort + Expand: matched button pair */
+      .market-header-btn {
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .market-header-btn:hover {
+        color: var(--text-primary);
+        border-color: var(--border-hover);
+      }
+      .market-header-btn .btn-chevron {
+        font-size: 10px;
+        opacity: 0.6;
+      }
+      /* Sort button wraps a native select for the dropdown */
+      .market-sort-wrap {
+        position: relative;
+        display: inline-flex;
+      }
+      .market-sort-wrap select {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+        font-size: 13px;
+      }
+      /* Sync button — status-aware: green=current, amber=stale */
+      .retail-sync-btn {
+        background: transparent;
+        border: 1.5px solid var(--success);
+        color: var(--success);
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .retail-sync-btn:hover {
+        background: rgba(5, 150, 105, 0.1);
+      }
+      .retail-sync-btn.stale {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 1px 3px rgba(217, 119, 6, 0.3);
+      }
+      .retail-sync-btn.stale:hover {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
+      }
+      /* ── Market Footer ── */
+      .market-footer {
+        margin-top: 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .market-footer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .market-footer-divider {
+        height: 1px;
+        background: var(--border);
+      }
+      .market-footer-text {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+      .market-footer-text a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .market-footer-text a:hover {
+        text-decoration: underline;
+      }
+      .market-sponsor-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 5px 14px;
+        font-size: 11px;
+        color: var(--text-muted);
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .market-sponsor-badge:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
 
-/* ── Cards Container ── */
-.market-cards { display: flex; flex-direction: column; gap: 12px; }
-.market-empty {
-  text-align: center;
-  padding: 32px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
+      /* ── Cards Container ── */
+      .market-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .market-empty {
+        text-align: center;
+        padding: 32px;
+        color: var(--text-muted);
+        font-size: 14px;
+      }
 
-/* ── Metal color variables (match inventory card-c) ── */
-.market-list-card.metal-silver   { --metal-color: #C0C0C0; }
-.market-list-card.metal-gold     { --metal-color: #FFD700; }
-.market-list-card.metal-platinum { --metal-color: #E5E4E2; }
-.market-list-card.metal-goldback { --metal-color: #FFD700; }
-[data-theme="dark"] .market-list-card.metal-silver   { --metal-color: #d1d5db; }
-[data-theme="dark"] .market-list-card.metal-gold     { --metal-color: #fbbf24; }
-[data-theme="dark"] .market-list-card.metal-platinum { --metal-color: #f3f4f6; }
-[data-theme="dark"] .market-list-card.metal-goldback { --metal-color: #fbbf24; }
+      /* ── Metal color variables (match inventory card-c) ── */
+      .market-list-card.metal-silver {
+        --metal-color: #c0c0c0;
+      }
+      .market-list-card.metal-gold {
+        --metal-color: #ffd700;
+      }
+      .market-list-card.metal-platinum {
+        --metal-color: #e5e4e2;
+      }
+      .market-list-card.metal-goldback {
+        --metal-color: #ffd700;
+      }
+      [data-theme="dark"] .market-list-card.metal-silver {
+        --metal-color: #d1d5db;
+      }
+      [data-theme="dark"] .market-list-card.metal-gold {
+        --metal-color: #fbbf24;
+      }
+      [data-theme="dark"] .market-list-card.metal-platinum {
+        --metal-color: #f3f4f6;
+      }
+      [data-theme="dark"] .market-list-card.metal-goldback {
+        --metal-color: #fbbf24;
+      }
 
-/* ── Single Card (matches card-c structure) ── */
-.market-list-card {
-  display: grid;
-  grid-template-columns: 100px minmax(160px, 1fr) auto auto;
-  align-items: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--metal-color, var(--border));
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  min-height: 120px;
-  transition: box-shadow 0.2s, transform 0.15s;
-}
-.market-list-card:hover {
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.15);
-  transform: translateY(-1px);
-}
-.market-list-card:active {
-  transform: scale(0.985);
-}
+      /* ── Single Card (matches card-c structure) ── */
+      .market-list-card {
+        display: grid;
+        grid-template-columns: 100px minmax(160px, 1fr) auto auto;
+        align-items: center;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--metal-color, var(--border));
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+        min-height: 120px;
+        transition:
+          box-shadow 0.2s,
+          transform 0.15s;
+      }
+      .market-list-card:hover {
+        box-shadow:
+          0 4px 6px -1px rgb(0 0 0 / 0.3),
+          0 2px 4px -2px rgb(0 0 0 / 0.15);
+        transform: translateY(-1px);
+      }
+      .market-list-card:active {
+        transform: scale(0.985);
+      }
 
-/* ── Image Column — exact View C cv-image-col match ── */
-.market-card-image-col {
-  grid-row: 1 / 3;  /* spans info row + vendor row */
-  align-self: stretch;
-  background: var(--bg-secondary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.5rem;
-  position: relative;
-  box-shadow: inset -1px 0 3px rgba(0,0,0,0.08);
-}
-.market-card-image-col::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 0% 50%, var(--metal-color, transparent) 0%, transparent 70%);
-  opacity: 0.18;
-  pointer-events: none;
-}
-/* Coin images — 56x56 circles matching card-c .coin-img */
-.market-card-image-col img {
-  width: 56px;
-  height: 56px;
-  object-fit: contain;
-  border-radius: 50%;
-  background: var(--bg-tertiary, #334155);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-/* Bars / goldbacks use rectangle shape */
-.market-card-image-col.bar-shape img {
-  border-radius: 8px;
-}
-/* No-image placeholder — glass orb matching cv-no-image */
-.market-card-no-image {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 35% 30%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, transparent 70%),
-              linear-gradient(145deg, var(--metal-color, var(--bg-tertiary, #334155)), var(--bg-tertiary, #334155));
-  box-shadow: inset 0 1px 2px rgba(255,255,255,0.18), inset 0 -2px 4px rgba(0,0,0,0.15);
-  opacity: 0.65;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-.market-card-image-col.bar-shape .market-card-no-image {
-  border-radius: 8px;
-  width: 80px;
-  height: 56px;
-}
+      /* ── Image Column — exact View C cv-image-col match ── */
+      .market-card-image-col {
+        grid-row: 1 / 3; /* spans info row + vendor row */
+        align-self: stretch;
+        background: var(--bg-secondary);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        padding: 0.5rem;
+        position: relative;
+        box-shadow: inset -1px 0 3px rgba(0, 0, 0, 0.08);
+      }
+      .market-card-image-col::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse at 0% 50%,
+          var(--metal-color, transparent) 0%,
+          transparent 70%
+        );
+        opacity: 0.18;
+        pointer-events: none;
+      }
+      /* Coin images — 56x56 circles matching card-c .coin-img */
+      .market-card-image-col img {
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+        border-radius: 50%;
+        background: var(--bg-tertiary, #334155);
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+      /* Bars / goldbacks use rectangle shape */
+      .market-card-image-col.bar-shape img {
+        border-radius: 8px;
+      }
+      /* No-image placeholder — glass orb matching cv-no-image */
+      .market-card-no-image {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background:
+          radial-gradient(
+            ellipse at 35% 30%,
+            rgba(255, 255, 255, 0.25) 0%,
+            rgba(255, 255, 255, 0.05) 40%,
+            transparent 70%
+          ),
+          linear-gradient(
+            145deg,
+            var(--metal-color, var(--bg-tertiary, #334155)),
+            var(--bg-tertiary, #334155)
+          );
+        box-shadow:
+          inset 0 1px 2px rgba(255, 255, 255, 0.18),
+          inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+        opacity: 0.65;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+      .market-card-image-col.bar-shape .market-card-no-image {
+        border-radius: 8px;
+        width: 80px;
+        height: 56px;
+      }
 
-/* Info section — matches card-c cv-data-col padding */
-.market-card-info {
-  min-width: 0;
-  padding: 0.6rem 0.5rem 0.6rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.15rem;
-}
-.market-card-name {
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.market-card-weight {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-right: 6px;
-}
-.retail-metal-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  vertical-align: middle;
-}
-.retail-metal-badge--gold      { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.retail-metal-badge--silver    { background: rgba(139,147,166,0.15); color: #6c757d; }
-.retail-metal-badge--platinum  { background: rgba(6,182,212,0.15);   color: #06b6d4; }
-.retail-metal-badge--goldback  { background: rgba(245,158,11,0.2);   color: #b45309; }
-.stak-preview[data-theme="dark"] .retail-metal-badge--silver { color: #94a3b8; }
-.stak-preview[data-theme="dark"] .retail-metal-badge--goldback { color: #f59e0b; }
+      /* Info section — matches card-c cv-data-col padding */
+      .market-card-info {
+        min-width: 0;
+        padding: 0.6rem 0.5rem 0.6rem 0.75rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.15rem;
+      }
+      .market-card-name {
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.3;
+        letter-spacing: -0.01em;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .market-card-weight {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-right: 6px;
+      }
+      .retail-metal-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        vertical-align: middle;
+      }
+      .retail-metal-badge--gold {
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+      }
+      .retail-metal-badge--silver {
+        background: rgba(139, 147, 166, 0.15);
+        color: #6c757d;
+      }
+      .retail-metal-badge--platinum {
+        background: rgba(6, 182, 212, 0.15);
+        color: #06b6d4;
+      }
+      .retail-metal-badge--goldback {
+        background: rgba(245, 158, 11, 0.2);
+        color: #b45309;
+      }
+      .stak-preview[data-theme="dark"] .retail-metal-badge--silver {
+        color: #94a3b8;
+      }
+      .stak-preview[data-theme="dark"] .retail-metal-badge--goldback {
+        color: #f59e0b;
+      }
 
-/* Stats column — top right area, right-aligned toward trend */
-.market-card-stats-col {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0.5rem 0;
-}
-.market-card-stats {
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
-}
-.market-card-stats span {
-  color: var(--text-muted);
-}
-.market-card-stats .stat-label {
-  font-weight: 600;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-right: 2px;
-}
-.market-card-stats .stat-value {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-.market-card-gb-daily {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--warning);
-  font-weight: 600;
-}
+      /* Stats column — top right area, right-aligned toward trend */
+      .market-card-stats-col {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0.5rem 0;
+      }
+      .market-card-stats {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+      }
+      .market-card-stats span {
+        color: var(--text-muted);
+      }
+      .market-card-stats .stat-label {
+        font-weight: 600;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-right: 2px;
+      }
+      .market-card-stats .stat-value {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+      .market-card-gb-daily {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 2px;
+        font-size: 11px;
+        color: var(--warning);
+        font-weight: 600;
+      }
 
-/* Vendor prices row — spans full width below info/stats, serves as chart legend */
-.market-card-vendors {
-  grid-column: 2 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  align-items: center;
-  min-width: 0;
-  padding: 0 0.75rem 0.5rem;
-  border-top: 1px solid var(--border);
-  margin-top: 0;
-  padding-top: 0.4rem;
-}
-.vendor-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.vendor-chip .vendor-name {
-  font-weight: 600;
-  cursor: pointer;
-}
-.vendor-chip .vendor-name:hover { text-decoration: underline; }
-.vendor-chip .vendor-price {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-.vendor-chip .vendor-medal {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 700;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  line-height: 1;
-}
-.vendor-medal--1 { background: rgba(245,158,11,0.2); color: #f59e0b; }
-.vendor-medal--2 { background: rgba(148,163,184,0.2); color: #94a3b8; }
-.vendor-medal--3 { background: rgba(217,119,6,0.15); color: #d97706; }
-.vendor-chip .vendor-confidence {
-  font-size: 9px;
-  color: var(--text-muted);
-  opacity: 0.7;
-}
-.vendor-chip.oos .vendor-name {
-  color: var(--text-muted) !important;
-  text-decoration: line-through;
-}
-.vendor-chip.oos .vendor-price {
-  color: var(--text-muted);
-  text-decoration: line-through;
-  font-size: 11px;
-}
-.vendor-chip.low-conf .vendor-price { opacity: 0.6; }
+      /* Vendor prices row — spans full width below info/stats, serves as chart legend */
+      .market-card-vendors {
+        grid-column: 2 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        align-items: center;
+        min-width: 0;
+        padding: 0 0.75rem 0.5rem;
+        border-top: 1px solid var(--border);
+        margin-top: 0;
+        padding-top: 0.4rem;
+      }
+      .vendor-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .vendor-chip .vendor-name {
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .vendor-chip .vendor-name:hover {
+        text-decoration: underline;
+      }
+      .vendor-chip .vendor-price {
+        color: var(--text-primary);
+        font-weight: 500;
+      }
+      .vendor-chip .vendor-medal {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        font-weight: 700;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        line-height: 1;
+      }
+      .vendor-medal--1 {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+      }
+      .vendor-medal--2 {
+        background: rgba(148, 163, 184, 0.2);
+        color: #94a3b8;
+      }
+      .vendor-medal--3 {
+        background: rgba(217, 119, 6, 0.15);
+        color: #d97706;
+      }
+      .vendor-chip .vendor-confidence {
+        font-size: 9px;
+        color: var(--text-muted);
+        opacity: 0.7;
+      }
+      .vendor-chip.oos .vendor-name {
+        color: var(--text-muted) !important;
+        text-decoration: line-through;
+      }
+      .vendor-chip.oos .vendor-price {
+        color: var(--text-muted);
+        text-decoration: line-through;
+        font-size: 11px;
+      }
+      .vendor-chip.low-conf .vendor-price {
+        opacity: 0.6;
+      }
 
-/* Trend badge */
-.market-card-trend {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  padding: 4px 12px 4px 8px;
-  border-radius: 6px;
-  margin-right: 0.5rem;
-}
-.market-card-trend.up   { color: var(--success); background: rgba(5,150,105,0.1); }
-.market-card-trend.down { color: var(--danger);  background: rgba(220,38,38,0.1); }
-.market-card-trend.flat { color: var(--text-muted); background: rgba(148,163,184,0.1); }
+      /* Trend badge */
+      .market-card-trend {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        padding: 4px 12px 4px 8px;
+        border-radius: 6px;
+        margin-right: 0.5rem;
+      }
+      .market-card-trend.up {
+        color: var(--success);
+        background: rgba(5, 150, 105, 0.1);
+      }
+      .market-card-trend.down {
+        color: var(--danger);
+        background: rgba(220, 38, 38, 0.1);
+      }
+      .market-card-trend.flat {
+        color: var(--text-muted);
+        background: rgba(148, 163, 184, 0.1);
+      }
 
-/* Chart details */
-.market-card-chart {
-  grid-column: 1 / -1;
-  border-top: 1px solid var(--border);
-  padding: 4px 0.75rem 0.5rem 0.75rem;
-  margin-left: 4px;
-}
-.market-card-chart summary {
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px 0;
-  user-select: none;
-}
-.market-card-chart summary:hover { color: var(--text-primary); }
-.market-chart-container {
-  height: 200px;
-  margin-top: 8px;
-  animation: slideDown 0.2s ease;
-}
-@keyframes slideDown {
-  from { opacity: 0; max-height: 0; }
-  to   { opacity: 1; max-height: 200px; }
-}
+      /* Chart details */
+      .market-card-chart {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--border);
+        padding: 4px 0.75rem 0.5rem 0.75rem;
+        margin-left: 4px;
+      }
+      .market-card-chart summary {
+        font-size: 12px;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px 0;
+        user-select: none;
+      }
+      .market-card-chart summary:hover {
+        color: var(--text-primary);
+      }
+      .market-chart-container {
+        height: 200px;
+        margin-top: 8px;
+        animation: slideDown 0.2s ease;
+      }
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          max-height: 0;
+        }
+        to {
+          opacity: 1;
+          max-height: 200px;
+        }
+      }
 
-/* ── Responsive ── */
-@container preview (max-width: 1024px) {
-  .market-list-card {
-    grid-template-columns: 80px 1fr auto;
-  }
-  .market-card-image-col img { width: 44px; height: 44px; }
-  .market-card-no-image { width: 44px; height: 44px; }
-  .market-card-trend-desktop { display: none; }
-}
-@container preview (max-width: 767px) {
-  .market-header { flex-direction: column; align-items: flex-start; }
-  .market-header-controls { width: 100%; }
-  .market-search { width: 100%; }
-  .market-list-card {
-    grid-template-columns: 70px 1fr;
-  }
-  .market-card-image-col img { width: 40px; height: 40px; }
-  .market-card-no-image { width: 40px; height: 40px; }
-  .market-card-vendors { grid-column: 1 / -1; }
-  .market-card-trend-desktop { display: none; }
-  .market-card-chart { grid-column: 1 / -1; }
-}
+      /* ── Responsive ── */
+      @container preview (max-width: 1024px) {
+        .market-list-card {
+          grid-template-columns: 80px 1fr auto;
+        }
+        .market-card-image-col img {
+          width: 44px;
+          height: 44px;
+        }
+        .market-card-no-image {
+          width: 44px;
+          height: 44px;
+        }
+        .market-card-trend-desktop {
+          display: none;
+        }
+      }
+      @container preview (max-width: 767px) {
+        .market-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .market-header-controls {
+          width: 100%;
+        }
+        .market-search {
+          width: 100%;
+        }
+        .market-list-card {
+          grid-template-columns: 70px 1fr;
+        }
+        .market-card-image-col img {
+          width: 40px;
+          height: 40px;
+        }
+        .market-card-no-image {
+          width: 40px;
+          height: 40px;
+        }
+        .market-card-vendors {
+          grid-column: 1 / -1;
+        }
+        .market-card-trend-desktop {
+          display: none;
+        }
+        .market-card-chart {
+          grid-column: 1 / -1;
+        }
+      }
 
-/* Container query fallback — also use media-like widths via JS */
-.preview-frame.tablet .market-list-card {
-  grid-template-columns: 80px 1fr auto;
-}
-.preview-frame.tablet .market-card-image-col img { width: 44px; height: 44px; }
-.preview-frame.tablet .market-card-no-image { width: 44px; height: 44px; }
-.preview-frame.tablet .market-card-trend-desktop { display: none; }
+      /* Container query fallback — also use media-like widths via JS */
+      .preview-frame.tablet .market-list-card {
+        grid-template-columns: 80px 1fr auto;
+      }
+      .preview-frame.tablet .market-card-image-col img {
+        width: 44px;
+        height: 44px;
+      }
+      .preview-frame.tablet .market-card-no-image {
+        width: 44px;
+        height: 44px;
+      }
+      .preview-frame.tablet .market-card-trend-desktop {
+        display: none;
+      }
 
-.preview-frame.mobile .market-header-row { flex-wrap: wrap; gap: 8px; }
-.preview-frame.mobile .market-search { width: 100%; flex: unset; min-width: 0; }
-.preview-frame.mobile .market-header-controls-right { width: 100%; justify-content: flex-end; }
-.preview-frame.mobile .market-footer-row { flex-direction: column; align-items: flex-start; gap: 8px; }
-.preview-frame.mobile .market-list-card {
-  grid-template-columns: 70px 1fr;
-}
-.preview-frame.mobile .market-card-image-col img { width: 40px; height: 40px; }
-.preview-frame.mobile .market-card-no-image { width: 40px; height: 40px; }
-.preview-frame.mobile .market-card-vendors { grid-column: 1 / -1; }
-.preview-frame.mobile .market-card-trend-desktop { display: none; }
-.preview-frame.mobile .market-card-chart { grid-column: 1 / -1; }
-</style>
-</head>
-<body>
+      .preview-frame.mobile .market-header-row {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .preview-frame.mobile .market-search {
+        width: 100%;
+        flex: unset;
+        min-width: 0;
+      }
+      .preview-frame.mobile .market-header-controls-right {
+        width: 100%;
+        justify-content: flex-end;
+      }
+      .preview-frame.mobile .market-footer-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .preview-frame.mobile .market-list-card {
+        grid-template-columns: 70px 1fr;
+      }
+      .preview-frame.mobile .market-card-image-col img {
+        width: 40px;
+        height: 40px;
+      }
+      .preview-frame.mobile .market-card-no-image {
+        width: 40px;
+        height: 40px;
+      }
+      .preview-frame.mobile .market-card-vendors {
+        grid-column: 1 / -1;
+      }
+      .preview-frame.mobile .market-card-trend-desktop {
+        display: none;
+      }
+      .preview-frame.mobile .market-card-chart {
+        grid-column: 1 / -1;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══ Controls Panel ═══ -->
+    <div class="controls">
+      <h1>Market Card Playground</h1>
+      <div style="font-size: 10px; color: #64748b; margin-top: -8px">
+        STAK-369 — Phase 0 Prototype
+      </div>
 
-<!-- ═══ Controls Panel ═══ -->
-<div class="controls">
-  <h1>Market Card Playground</h1>
-  <div style="font-size:10px;color:#64748b;margin-top:-8px;">STAK-369 — Phase 0 Prototype</div>
+      <!-- Presets -->
+      <div class="control-group">
+        <h2>Presets</h2>
+        <div class="presets">
+          <button
+            class="preset-btn active"
+            data-preset="desktop-dark"
+            onclick="applyPreset('desktop-dark')"
+          >
+            Desktop Dark
+          </button>
+          <button
+            class="preset-btn"
+            data-preset="desktop-light"
+            onclick="applyPreset('desktop-light')"
+          >
+            Desktop Light
+          </button>
+          <button class="preset-btn" data-preset="tablet" onclick="applyPreset('tablet')">
+            Tablet
+          </button>
+          <button class="preset-btn" data-preset="mobile" onclick="applyPreset('mobile')">
+            Mobile
+          </button>
+          <button class="preset-btn" data-preset="dense" onclick="applyPreset('dense')">
+            Dense (7 vendors)
+          </button>
+        </div>
+      </div>
 
-  <!-- Presets -->
-  <div class="control-group">
-    <h2>Presets</h2>
-    <div class="presets">
-      <button class="preset-btn active" data-preset="desktop-dark" onclick="applyPreset('desktop-dark')">Desktop Dark</button>
-      <button class="preset-btn" data-preset="desktop-light" onclick="applyPreset('desktop-light')">Desktop Light</button>
-      <button class="preset-btn" data-preset="tablet" onclick="applyPreset('tablet')">Tablet</button>
-      <button class="preset-btn" data-preset="mobile" onclick="applyPreset('mobile')">Mobile</button>
-      <button class="preset-btn" data-preset="dense" onclick="applyPreset('dense')">Dense (7 vendors)</button>
-    </div>
-  </div>
+      <!-- Theme -->
+      <div class="control-group">
+        <h2>Theme</h2>
+        <div class="control-row">
+          <label>Mode</label>
+          <select
+            id="ctrlTheme"
+            onchange="
+              state.theme = this.value;
+              updateAll();
+            "
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+      </div>
 
-  <!-- Theme -->
-  <div class="control-group">
-    <h2>Theme</h2>
-    <div class="control-row">
-      <label>Mode</label>
-      <select id="ctrlTheme" onchange="state.theme=this.value;updateAll()">
-        <option value="dark">Dark</option>
-        <option value="light">Light</option>
-      </select>
-    </div>
-  </div>
+      <!-- Viewport -->
+      <div class="control-group">
+        <h2>Viewport</h2>
+        <div class="control-row">
+          <label>Width</label>
+          <input
+            type="range"
+            id="ctrlWidth"
+            min="320"
+            max="1400"
+            value="1200"
+            oninput="
+              state.viewportWidth = +this.value;
+              updateAll();
+            "
+          />
+          <span class="value" id="valWidth">1200px</span>
+        </div>
+      </div>
 
-  <!-- Viewport -->
-  <div class="control-group">
-    <h2>Viewport</h2>
-    <div class="control-row">
-      <label>Width</label>
-      <input type="range" id="ctrlWidth" min="320" max="1400" value="1200" oninput="state.viewportWidth=+this.value;updateAll()">
-      <span class="value" id="valWidth">1200px</span>
-    </div>
-  </div>
+      <!-- Vendors -->
+      <div class="control-group">
+        <h2>Vendor Count</h2>
+        <div class="control-row">
+          <label>Visible</label>
+          <input
+            type="range"
+            id="ctrlVendors"
+            min="1"
+            max="7"
+            value="6"
+            oninput="
+              state.vendorCount = +this.value;
+              updateAll();
+            "
+          />
+          <span class="value" id="valVendors">6</span>
+        </div>
+      </div>
 
-  <!-- Vendors -->
-  <div class="control-group">
-    <h2>Vendor Count</h2>
-    <div class="control-row">
-      <label>Visible</label>
-      <input type="range" id="ctrlVendors" min="1" max="7" value="6" oninput="state.vendorCount=+this.value;updateAll()">
-      <span class="value" id="valVendors">6</span>
-    </div>
-  </div>
+      <!-- Charts -->
+      <div class="control-group">
+        <h2>Charts</h2>
+        <div class="control-row">
+          <label>State</label>
+          <select
+            id="ctrlChart"
+            onchange="
+              state.chartsExpanded = this.value === 'expanded';
+              updateAll();
+            "
+          >
+            <option value="collapsed">Collapsed</option>
+            <option value="expanded">Expanded</option>
+          </select>
+        </div>
+      </div>
 
-  <!-- Charts -->
-  <div class="control-group">
-    <h2>Charts</h2>
-    <div class="control-row">
-      <label>State</label>
-      <select id="ctrlChart" onchange="state.chartsExpanded=this.value==='expanded';updateAll()">
-        <option value="collapsed">Collapsed</option>
-        <option value="expanded">Expanded</option>
-      </select>
-    </div>
-  </div>
+      <!-- Sync Status -->
+      <div class="control-group">
+        <h2>Sync Status</h2>
+        <div class="control-row">
+          <label>State</label>
+          <select
+            id="ctrlSyncStatus"
+            onchange="
+              state.syncFresh = this.value === 'fresh';
+              updateAll();
+            "
+          >
+            <option value="fresh">Fresh (green)</option>
+            <option value="stale">Stale (amber)</option>
+          </select>
+        </div>
+      </div>
 
-  <!-- Sync Status -->
-  <div class="control-group">
-    <h2>Sync Status</h2>
-    <div class="control-row">
-      <label>State</label>
-      <select id="ctrlSyncStatus" onchange="state.syncFresh=this.value==='fresh';updateAll()">
-        <option value="fresh">Fresh (green)</option>
-        <option value="stale">Stale (amber)</option>
-      </select>
-    </div>
-  </div>
+      <!-- Metal Override -->
+      <div class="control-group">
+        <h2>Force Metal Type</h2>
+        <div class="control-row">
+          <label>Override</label>
+          <select
+            id="ctrlMetal"
+            onchange="
+              state.metalOverride = this.value;
+              updateAll();
+            "
+          >
+            <option value="">None (use data)</option>
+            <option value="gold">Gold</option>
+            <option value="silver">Silver</option>
+            <option value="platinum">Platinum</option>
+            <option value="goldback">Goldback</option>
+          </select>
+        </div>
+      </div>
 
-  <!-- Metal Override -->
-  <div class="control-group">
-    <h2>Force Metal Type</h2>
-    <div class="control-row">
-      <label>Override</label>
-      <select id="ctrlMetal" onchange="state.metalOverride=this.value;updateAll()">
-        <option value="">None (use data)</option>
-        <option value="gold">Gold</option>
-        <option value="silver">Silver</option>
-        <option value="platinum">Platinum</option>
-        <option value="goldback">Goldback</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- Card Options -->
-  <div class="control-group">
-    <h2>Card Options</h2>
-    <div class="control-row">
-      <label>Hover lift</label>
-      <select id="ctrlHover" onchange="state.hoverLift=this.value==='on';updateAll()">
-        <option value="on">On</option>
-        <option value="off">Off</option>
-      </select>
-    </div>
-    <div class="control-row">
-      <label>Card gap</label>
-      <input type="range" id="ctrlGap" min="4" max="24" value="12" oninput="state.cardGap=+this.value;updateAll()">
-      <span class="value" id="valGap">12px</span>
-    </div>
-    <div class="control-row">
-      <label>Border radius</label>
-      <input type="range" id="ctrlRadius" min="0" max="16" value="12" oninput="state.borderRadius=+this.value;updateAll()">
-      <span class="value" id="valRadius">8px</span>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ Main Area ═══ -->
-<div class="main">
-  <div class="preview-wrap">
-    <div class="preview-frame" id="previewFrame" style="width:1200px;">
-      <div class="stak-preview" id="stakPreview" data-theme="dark">
-        <div class="stak-inner" id="stakInner"></div>
+      <!-- Card Options -->
+      <div class="control-group">
+        <h2>Card Options</h2>
+        <div class="control-row">
+          <label>Hover lift</label>
+          <select
+            id="ctrlHover"
+            onchange="
+              state.hoverLift = this.value === 'on';
+              updateAll();
+            "
+          >
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label>Card gap</label>
+          <input
+            type="range"
+            id="ctrlGap"
+            min="4"
+            max="24"
+            value="12"
+            oninput="
+              state.cardGap = +this.value;
+              updateAll();
+            "
+          />
+          <span class="value" id="valGap">12px</span>
+        </div>
+        <div class="control-row">
+          <label>Border radius</label>
+          <input
+            type="range"
+            id="ctrlRadius"
+            min="0"
+            max="16"
+            value="12"
+            oninput="
+              state.borderRadius = +this.value;
+              updateAll();
+            "
+          />
+          <span class="value" id="valRadius">8px</span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Prompt output -->
-  <div class="prompt-bar">
-    <div class="prompt-text" id="promptText">Adjust controls to generate a design prompt...</div>
-    <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">Copy Prompt</button>
-  </div>
-</div>
+    <!-- ═══ Main Area ═══ -->
+    <div class="main">
+      <div class="preview-wrap">
+        <div class="preview-frame" id="previewFrame" style="width: 1200px">
+          <div class="stak-preview" id="stakPreview" data-theme="dark">
+            <div class="stak-inner" id="stakInner"></div>
+          </div>
+        </div>
+      </div>
 
-<script>
-// ═══════════════════════════════════════════════
-// State & Defaults
-// ═══════════════════════════════════════════════
+      <!-- Prompt output -->
+      <div class="prompt-bar">
+        <div class="prompt-text" id="promptText">
+          Adjust controls to generate a design prompt...
+        </div>
+        <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">Copy Prompt</button>
+      </div>
+    </div>
 
-const DEFAULTS = {
-  theme: 'dark',
-  viewportWidth: 1200,
-  vendorCount: 6,
-  chartsExpanded: false,
-  metalOverride: '',
-  hoverLift: true,
-  cardGap: 12,
-  borderRadius: 12,
-  syncFresh: true,
-};
+    <script>
+      // ═══════════════════════════════════════════════
+      // State & Defaults
+      // ═══════════════════════════════════════════════
 
-const state = { ...DEFAULTS };
+      const DEFAULTS = {
+        theme: "dark",
+        viewportWidth: 1200,
+        vendorCount: 6,
+        chartsExpanded: false,
+        metalOverride: "",
+        hoverLift: true,
+        cardGap: 12,
+        borderRadius: 12,
+        syncFresh: true,
+      };
 
-// ═══════════════════════════════════════════════
-// Mock Data
-// ═══════════════════════════════════════════════
+      const state = { ...DEFAULTS };
 
-const VENDORS = [
-  { id: 'bullionexchanges', name: 'BullionX',  color: '#ec4899' },
-  { id: 'sdbullion',        name: 'SDB',       color: '#10b981' },
-  { id: 'monumentmetals',   name: 'Monument',  color: '#a78bfa' },
-  { id: 'herobullion',      name: 'Hero',      color: '#f87171' },
-  { id: 'summitmetals',     name: 'Summit',    color: '#06b6d4' },
-  { id: 'apmex',            name: 'APMEX',     color: '#3b82f6' },
-  { id: 'jmbullion',        name: 'JM',        color: '#f59e0b' },
-];
+      // ═══════════════════════════════════════════════
+      // Mock Data
+      // ═══════════════════════════════════════════════
 
-const METAL_ICONS = {
-  gold: '🥇', silver: '🪙', platinum: '💎', goldback: '🏦'
-};
+      const VENDORS = [
+        { id: "bullionexchanges", name: "BullionX", color: "#ec4899" },
+        { id: "sdbullion", name: "SDB", color: "#10b981" },
+        { id: "monumentmetals", name: "Monument", color: "#a78bfa" },
+        { id: "herobullion", name: "Hero", color: "#f87171" },
+        { id: "summitmetals", name: "Summit", color: "#06b6d4" },
+        { id: "apmex", name: "APMEX", color: "#3b82f6" },
+        { id: "jmbullion", name: "JM", color: "#f59e0b" },
+      ];
 
-// Product images — real images for ASE + Gold Maple, null = metal placeholder
-// Production: served from api.staktrakr.com/data/images/{slug}_{side}.webp
-const PRODUCT_IMAGES = {
-  'ase':      { obverse: 'images/ase-obverse.png',      reverse: 'images/ase-reverse.png' },
-  'cml-gold': { obverse: 'images/cml-gold-obverse.png', reverse: 'images/cml-gold-reverse.png' },
-};
+      const METAL_ICONS = {
+        gold: "🥇",
+        silver: "🪙",
+        platinum: "💎",
+        goldback: "🏦",
+      };
 
-const CARDS = [
-  {
-    slug: 'ase', name: 'American Silver Eagle', weight: '1 troy oz', metal: 'silver',
-    vendors: [
-      { vid: 'bullionexchanges', price: 103.40, conf: 95 },
-      { vid: 'monumentmetals',   price: 104.64, conf: 88 },
-      { vid: 'sdbullion',        price: 104.96, conf: 70 },
-      { vid: 'summitmetals',     price: 107.11, conf: 92 },
-      { vid: 'herobullion',      price: 107.21, conf: 85 },
-      { vid: 'apmex',            price: 109.95, conf: 98 },
-      { vid: 'jmbullion',        price: null, conf: 0, oos: true },
-    ],
-    trend: +2.1,
-  },
-  {
-    slug: 'cml-gold', name: 'Canadian Maple Leaf Gold', weight: '1 troy oz', metal: 'gold',
-    vendors: [
-      { vid: 'sdbullion',        price: 2340.00, conf: 92 },
-      { vid: 'monumentmetals',   price: 2355.50, conf: 88 },
-      { vid: 'bullionexchanges', price: 2368.00, conf: 95 },
-      { vid: 'herobullion',      price: 2389.00, conf: 78 },
-      { vid: 'apmex',            price: 2410.00, conf: 99 },
-    ],
-    trend: -0.3,
-  },
-  {
-    slug: 'gb-oklahoma-1', name: '1 Goldback Oklahoma', weight: '1/1000 troy oz', metal: 'goldback', rectShape: true,
-    gbDaily: 4.28,
-    vendors: [
-      { vid: 'sdbullion',        price: 4.10, conf: 80 },
-      { vid: 'bullionexchanges', price: 4.22, conf: 75 },
-      { vid: 'monumentmetals',   price: 4.35, conf: 60 },
-      { vid: 'apmex',            price: 4.50, conf: 95 },
-    ],
-    trend: +0.5,
-  },
-  {
-    slug: 'ape', name: 'American Platinum Eagle', weight: '1 troy oz', metal: 'platinum',
-    vendors: [
-      { vid: 'apmex',            price: 1020.00, conf: 99 },
-      { vid: 'sdbullion',        price: 1045.00, conf: 85 },
-      { vid: 'monumentmetals',   price: 1065.00, conf: 90 },
-    ],
-    trend: +1.2,
-  },
-  {
-    slug: 'brit-silver', name: 'Silver Britannia', weight: '1 troy oz', metal: 'silver',
-    vendors: [
-      { vid: 'bullionexchanges', price: 32.10, conf: 94 },
-      { vid: 'sdbullion',        price: 32.50, conf: 88 },
-      { vid: 'monumentmetals',   price: 33.20, conf: 91 },
-      { vid: 'herobullion',      price: 34.10, conf: 72 },
-      { vid: 'summitmetals',     price: 35.40, conf: 80 },
-      { vid: 'apmex',            price: 36.95, conf: 99 },
-      { vid: 'jmbullion',        price: 38.00, conf: 45 },
-    ],
-    trend: -1.0,
-  },
-];
+      // Product images — real images for ASE + Gold Maple, null = metal placeholder
+      // Production: served from api.staktrakr.com/data/images/{slug}_{side}.webp
+      const PRODUCT_IMAGES = {
+        ase: { obverse: "images/ase-obverse.png", reverse: "images/ase-reverse.png" },
+        "cml-gold": {
+          obverse: "images/cml-gold-obverse.png",
+          reverse: "images/cml-gold-reverse.png",
+        },
+      };
 
-// Generate mock 7-day chart data
-function genChartData(card) {
-  const days = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    days.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-  }
-  const datasets = [];
-  const activeVendors = card.vendors.filter(v => !v.oos).slice(0, state.vendorCount);
-  for (const v of activeVendors) {
-    const vInfo = VENDORS.find(x => x.id === v.vid);
-    const points = [];
-    for (let i = 0; i < 7; i++) {
-      // Random walk around the vendor price
-      const jitter = (Math.random() - 0.5) * v.price * 0.03;
-      points.push(+(v.price + jitter * (i - 3) / 3).toFixed(2));
-    }
-    datasets.push({
-      label: vInfo ? vInfo.name : v.vid,
-      data: points,
-      borderColor: vInfo ? vInfo.color : '#888',
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      pointRadius: 3,
-      tension: 0.3,
-      spanGaps: false,
-    });
-  }
-  return { labels: days, datasets };
-}
+      const CARDS = [
+        {
+          slug: "ase",
+          name: "American Silver Eagle",
+          weight: "1 troy oz",
+          metal: "silver",
+          vendors: [
+            { vid: "bullionexchanges", price: 103.4, conf: 95 },
+            { vid: "monumentmetals", price: 104.64, conf: 88 },
+            { vid: "sdbullion", price: 104.96, conf: 70 },
+            { vid: "summitmetals", price: 107.11, conf: 92 },
+            { vid: "herobullion", price: 107.21, conf: 85 },
+            { vid: "apmex", price: 109.95, conf: 98 },
+            { vid: "jmbullion", price: null, conf: 0, oos: true },
+          ],
+          trend: +2.1,
+        },
+        {
+          slug: "cml-gold",
+          name: "Canadian Maple Leaf Gold",
+          weight: "1 troy oz",
+          metal: "gold",
+          vendors: [
+            { vid: "sdbullion", price: 2340.0, conf: 92 },
+            { vid: "monumentmetals", price: 2355.5, conf: 88 },
+            { vid: "bullionexchanges", price: 2368.0, conf: 95 },
+            { vid: "herobullion", price: 2389.0, conf: 78 },
+            { vid: "apmex", price: 2410.0, conf: 99 },
+          ],
+          trend: -0.3,
+        },
+        {
+          slug: "gb-oklahoma-1",
+          name: "1 Goldback Oklahoma",
+          weight: "1/1000 troy oz",
+          metal: "goldback",
+          rectShape: true,
+          gbDaily: 4.28,
+          vendors: [
+            { vid: "sdbullion", price: 4.1, conf: 80 },
+            { vid: "bullionexchanges", price: 4.22, conf: 75 },
+            { vid: "monumentmetals", price: 4.35, conf: 60 },
+            { vid: "apmex", price: 4.5, conf: 95 },
+          ],
+          trend: +0.5,
+        },
+        {
+          slug: "ape",
+          name: "American Platinum Eagle",
+          weight: "1 troy oz",
+          metal: "platinum",
+          vendors: [
+            { vid: "apmex", price: 1020.0, conf: 99 },
+            { vid: "sdbullion", price: 1045.0, conf: 85 },
+            { vid: "monumentmetals", price: 1065.0, conf: 90 },
+          ],
+          trend: +1.2,
+        },
+        {
+          slug: "brit-silver",
+          name: "Silver Britannia",
+          weight: "1 troy oz",
+          metal: "silver",
+          vendors: [
+            { vid: "bullionexchanges", price: 32.1, conf: 94 },
+            { vid: "sdbullion", price: 32.5, conf: 88 },
+            { vid: "monumentmetals", price: 33.2, conf: 91 },
+            { vid: "herobullion", price: 34.1, conf: 72 },
+            { vid: "summitmetals", price: 35.4, conf: 80 },
+            { vid: "apmex", price: 36.95, conf: 99 },
+            { vid: "jmbullion", price: 38.0, conf: 45 },
+          ],
+          trend: -1.0,
+        },
+      ];
 
-// ═══════════════════════════════════════════════
-// Rendering
-// ═══════════════════════════════════════════════
+      // Generate mock 7-day chart data
+      function genChartData(card) {
+        const days = [];
+        const now = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now);
+          d.setDate(d.getDate() - i);
+          days.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+        }
+        const datasets = [];
+        const activeVendors = card.vendors.filter((v) => !v.oos).slice(0, state.vendorCount);
+        for (const v of activeVendors) {
+          const vInfo = VENDORS.find((x) => x.id === v.vid);
+          const points = [];
+          for (let i = 0; i < 7; i++) {
+            // Random walk around the vendor price
+            const jitter = (Math.random() - 0.5) * v.price * 0.03;
+            points.push(+(v.price + (jitter * (i - 3)) / 3).toFixed(2));
+          }
+          datasets.push({
+            label: vInfo ? vInfo.name : v.vid,
+            data: points,
+            borderColor: vInfo ? vInfo.color : "#888",
+            backgroundColor: "transparent",
+            borderWidth: 1.5,
+            pointRadius: 3,
+            tension: 0.3,
+            spanGaps: false,
+          });
+        }
+        return { labels: days, datasets };
+      }
 
-let chartInstances = {};
+      // ═══════════════════════════════════════════════
+      // Rendering
+      // ═══════════════════════════════════════════════
 
-function fmtPrice(v) {
-  if (v == null) return 'OOS';
-  if (v >= 1000) return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return '$' + v.toFixed(2);
-}
+      let chartInstances = {};
 
-function computeStats(card) {
-  const prices = card.vendors.filter(v => !v.oos && v.price != null).map(v => v.price).sort((a, b) => a - b);
-  if (!prices.length) return { med: null, low: null, avg: null };
-  const low = prices[0];
-  const avg = prices.reduce((s, p) => s + p, 0) / prices.length;
-  const mid = Math.floor(prices.length / 2);
-  const med = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
-  return { med, low, avg };
-}
+      function fmtPrice(v) {
+        if (v == null) return "OOS";
+        if (v >= 1000)
+          return (
+            "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          );
+        return "$" + v.toFixed(2);
+      }
 
-function renderCard(card, idx) {
-  const metal = state.metalOverride || card.metal;
-  const stats = computeStats(card);
-  const visibleVendors = card.vendors.slice(0, state.vendorCount);
-  const inStockSorted = visibleVendors.filter(v => !v.oos).sort((a, b) => (a.price || 0) - (b.price || 0));
-  const medalLabels = ['1st', '2nd', '3rd'];
-  const medalClasses = ['vendor-medal--1', 'vendor-medal--2', 'vendor-medal--3'];
+      function computeStats(card) {
+        const prices = card.vendors
+          .filter((v) => !v.oos && v.price != null)
+          .map((v) => v.price)
+          .sort((a, b) => a - b);
+        if (!prices.length) return { med: null, low: null, avg: null };
+        const low = prices[0];
+        const avg = prices.reduce((s, p) => s + p, 0) / prices.length;
+        const mid = Math.floor(prices.length / 2);
+        const med = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
+        return { med, low, avg };
+      }
 
-  // Trend
-  const trend = card.trend;
-  const trendClass = trend > 0 ? 'up' : trend < 0 ? 'down' : 'flat';
-  const trendArrow = trend > 0 ? '↑' : trend < 0 ? '↓' : '→';
-  const trendText = `${trendArrow} ${Math.abs(trend).toFixed(1)}%`;
+      function renderCard(card, idx) {
+        const metal = state.metalOverride || card.metal;
+        const stats = computeStats(card);
+        const visibleVendors = card.vendors.slice(0, state.vendorCount);
+        const inStockSorted = visibleVendors
+          .filter((v) => !v.oos)
+          .sort((a, b) => (a.price || 0) - (b.price || 0));
+        const medalLabels = ["1st", "2nd", "3rd"];
+        const medalClasses = ["vendor-medal--1", "vendor-medal--2", "vendor-medal--3"];
 
-  // Build vendor chips
-  let vendorHTML = '';
-  visibleVendors.forEach(v => {
-    const vInfo = VENDORS.find(x => x.id === v.vid);
-    const name = vInfo ? vInfo.name : v.vid;
-    const color = vInfo ? vInfo.color : '#888';
-    const isOOS = v.oos;
-    const rank = isOOS ? -1 : inStockSorted.indexOf(v);
-    const hasMedal = rank >= 0 && rank < 3;
-    const confClass = (!isOOS && v.conf < 60) ? ' low-conf' : '';
-    const oosClass = isOOS ? ' oos' : '';
-    const confStr = (!isOOS && v.conf != null) ? `<span class="vendor-confidence">${v.conf}%</span>` : '';
+        // Trend
+        const trend = card.trend;
+        const trendClass = trend > 0 ? "up" : trend < 0 ? "down" : "flat";
+        const trendArrow = trend > 0 ? "↑" : trend < 0 ? "↓" : "→";
+        const trendText = `${trendArrow} ${Math.abs(trend).toFixed(1)}%`;
 
-    vendorHTML += `<span class="vendor-chip${oosClass}${confClass}">
-      ${hasMedal ? `<span class="vendor-medal ${medalClasses[rank]}">${medalLabels[rank]}</span>` : ''}
-      <span class="vendor-name" style="color:${isOOS ? '' : color}">${name}</span>
+        // Build vendor chips
+        let vendorHTML = "";
+        visibleVendors.forEach((v) => {
+          const vInfo = VENDORS.find((x) => x.id === v.vid);
+          const name = vInfo ? vInfo.name : v.vid;
+          const color = vInfo ? vInfo.color : "#888";
+          const isOOS = v.oos;
+          const rank = isOOS ? -1 : inStockSorted.indexOf(v);
+          const hasMedal = rank >= 0 && rank < 3;
+          const confClass = !isOOS && v.conf < 60 ? " low-conf" : "";
+          const oosClass = isOOS ? " oos" : "";
+          const confStr =
+            !isOOS && v.conf != null ? `<span class="vendor-confidence">${v.conf}%</span>` : "";
+
+          vendorHTML += `<span class="vendor-chip${oosClass}${confClass}">
+      ${hasMedal ? `<span class="vendor-medal ${medalClasses[rank]}">${medalLabels[rank]}</span>` : ""}
+      <span class="vendor-name" style="color:${isOOS ? "" : color}">${name}</span>
       <span class="vendor-price">${fmtPrice(v.price)}</span>
       ${confStr}
     </span>`;
-  });
+        });
 
-  // Stats row
-  let statsHTML = '';
-  if (stats.med != null) {
-    statsHTML = `<div class="market-card-stats">
+        // Stats row
+        let statsHTML = "";
+        if (stats.med != null) {
+          statsHTML = `<div class="market-card-stats">
       <span><span class="stat-label">MED</span> <span class="stat-value">${fmtPrice(stats.med)}</span></span>
       <span><span class="stat-label">LOW</span> <span class="stat-value">${fmtPrice(stats.low)}</span></span>
       <span><span class="stat-label">AVG</span> <span class="stat-value">${fmtPrice(stats.avg)}</span></span>
     </div>`;
-  }
+        }
 
-  // Goldback daily
-  let gbHTML = '';
-  if (card.gbDaily && (metal === 'goldback' || card.metal === 'goldback')) {
-    gbHTML = `<div class="market-card-gb-daily">GB Daily: ${fmtPrice(card.gbDaily)}</div>`;
-  }
+        // Goldback daily
+        let gbHTML = "";
+        if (card.gbDaily && (metal === "goldback" || card.metal === "goldback")) {
+          gbHTML = `<div class="market-card-gb-daily">GB Daily: ${fmtPrice(card.gbDaily)}</div>`;
+        }
 
-  const cardId = `chart-${card.slug}`;
-  const expanded = state.chartsExpanded ? ' open' : '';
+        const cardId = `chart-${card.slug}`;
+        const expanded = state.chartsExpanded ? " open" : "";
 
-  return `<div class="market-list-card metal-${metal}" style="border-radius:${state.borderRadius}px;${state.hoverLift ? '' : 'pointer-events:none;'}">
-    <div class="market-card-image-col${card.rectShape ? ' bar-shape' : ''}">
-      ${PRODUCT_IMAGES[card.slug]
-        ? `<img src="${PRODUCT_IMAGES[card.slug].obverse}" alt="${card.name} obverse">
+        return `<div class="market-list-card metal-${metal}" style="border-radius:${state.borderRadius}px;${state.hoverLift ? "" : "pointer-events:none;"}">
+    <div class="market-card-image-col${card.rectShape ? " bar-shape" : ""}">
+      ${
+        PRODUCT_IMAGES[card.slug]
+          ? `<img src="${PRODUCT_IMAGES[card.slug].obverse}" alt="${card.name} obverse">
            <img src="${PRODUCT_IMAGES[card.slug].reverse}" alt="${card.name} reverse">`
-        : `<div class="market-card-no-image"></div>`}
+          : `<div class="market-card-no-image"></div>`
+      }
     </div>
     <div class="market-card-info">
       <div class="market-card-name">${card.name}</div>
@@ -1069,78 +1385,95 @@ function renderCard(card, idx) {
       <div class="market-chart-container"><canvas id="${cardId}"></canvas></div>
     </details>
   </div>`;
-}
-
-function renderAll() {
-  // Destroy existing charts
-  Object.values(chartInstances).forEach(c => c.destroy());
-  chartInstances = {};
-
-  const frame = document.getElementById('previewFrame');
-  const preview = document.getElementById('stakPreview');
-  const inner = document.getElementById('stakInner');
-
-  // Viewport
-  frame.style.width = state.viewportWidth + 'px';
-  frame.className = 'preview-frame';
-  if (state.viewportWidth <= 767) frame.classList.add('mobile');
-  else if (state.viewportWidth <= 1024) frame.classList.add('tablet');
-
-  // Theme
-  preview.setAttribute('data-theme', state.theme);
-
-  // Search / sort from header
-  const searchVal = (document.getElementById('liveSearch') || {}).value || '';
-  const sortVal = (document.getElementById('liveSort') || {}).value || 'name';
-
-  // Filter
-  let cards = CARDS;
-  if (searchVal.trim()) {
-    const q = searchVal.trim().toLowerCase();
-    cards = cards.filter(c => {
-      const metal = state.metalOverride || c.metal;
-      if (c.name.toLowerCase().includes(q)) return true;
-      if (metal.toLowerCase().includes(q)) return true;
-      // Vendor name search
-      return c.vendors.some(v => {
-        const vInfo = VENDORS.find(x => x.id === v.vid);
-        return vInfo && vInfo.name.toLowerCase().includes(q);
-      });
-    });
-  }
-
-  // Sort
-  cards = [...cards].sort((a, b) => {
-    switch (sortVal) {
-      case 'name': return a.name.localeCompare(b.name);
-      case 'metal': {
-        const ma = state.metalOverride || a.metal;
-        const mb = state.metalOverride || b.metal;
-        return ma.localeCompare(mb) || a.name.localeCompare(b.name);
       }
-      case 'price-low': {
-        const pa = Math.min(...a.vendors.filter(v => !v.oos && v.price).map(v => v.price));
-        const pb = Math.min(...b.vendors.filter(v => !v.oos && v.price).map(v => v.price));
-        return (isFinite(pa) ? pa : 1e9) - (isFinite(pb) ? pb : 1e9);
-      }
-      case 'price-high': {
-        const pa = Math.min(...a.vendors.filter(v => !v.oos && v.price).map(v => v.price));
-        const pb = Math.min(...b.vendors.filter(v => !v.oos && v.price).map(v => v.price));
-        return (isFinite(pb) ? pb : -1) - (isFinite(pa) ? pa : -1);
-      }
-      case 'trend': return (b.trend || 0) - (a.trend || 0);
-      default: return 0;
-    }
-  });
 
-  // Header — two rows
-  const expandLabel = state.chartsExpanded ? 'Collapse All' : 'Expand All';
-  const syncClass = state.syncFresh ? '' : ' stale';
-  const syncTimeText = state.syncFresh ? 'Last sync: 2 min ago' : 'Last sync: 45 min ago';
-  const sortLabels = { 'name': 'Name', 'metal': 'Metal', 'price-low': 'Price (Low)', 'price-high': 'Price (High)', 'trend': 'Trend' };
-  const currentSortLabel = sortLabels[sortVal] || 'Sort';
+      function renderAll() {
+        // Destroy existing charts
+        Object.values(chartInstances).forEach((c) => c.destroy());
+        chartInstances = {};
 
-  let html = `<div class="market-header">
+        const frame = document.getElementById("previewFrame");
+        const preview = document.getElementById("stakPreview");
+        const inner = document.getElementById("stakInner");
+
+        // Viewport
+        frame.style.width = state.viewportWidth + "px";
+        frame.className = "preview-frame";
+        if (state.viewportWidth <= 767) frame.classList.add("mobile");
+        else if (state.viewportWidth <= 1024) frame.classList.add("tablet");
+
+        // Theme
+        preview.setAttribute("data-theme", state.theme);
+
+        // Search / sort from header
+        const searchVal = (document.getElementById("liveSearch") || {}).value || "";
+        const sortVal = (document.getElementById("liveSort") || {}).value || "name";
+
+        // Filter
+        let cards = CARDS;
+        if (searchVal.trim()) {
+          const q = searchVal.trim().toLowerCase();
+          cards = cards.filter((c) => {
+            const metal = state.metalOverride || c.metal;
+            if (c.name.toLowerCase().includes(q)) return true;
+            if (metal.toLowerCase().includes(q)) return true;
+            // Vendor name search
+            return c.vendors.some((v) => {
+              const vInfo = VENDORS.find((x) => x.id === v.vid);
+              return vInfo && vInfo.name.toLowerCase().includes(q);
+            });
+          });
+        }
+
+        // Sort
+        cards = [...cards].sort((a, b) => {
+          switch (sortVal) {
+            case "name":
+              return a.name.localeCompare(b.name);
+            case "metal": {
+              const ma = state.metalOverride || a.metal;
+              const mb = state.metalOverride || b.metal;
+              return ma.localeCompare(mb) || a.name.localeCompare(b.name);
+            }
+            case "price-low": {
+              const pa = Math.min(
+                ...a.vendors.filter((v) => !v.oos && v.price).map((v) => v.price)
+              );
+              const pb = Math.min(
+                ...b.vendors.filter((v) => !v.oos && v.price).map((v) => v.price)
+              );
+              return (isFinite(pa) ? pa : 1e9) - (isFinite(pb) ? pb : 1e9);
+            }
+            case "price-high": {
+              const pa = Math.min(
+                ...a.vendors.filter((v) => !v.oos && v.price).map((v) => v.price)
+              );
+              const pb = Math.min(
+                ...b.vendors.filter((v) => !v.oos && v.price).map((v) => v.price)
+              );
+              return (isFinite(pb) ? pb : -1) - (isFinite(pa) ? pa : -1);
+            }
+            case "trend":
+              return (b.trend || 0) - (a.trend || 0);
+            default:
+              return 0;
+          }
+        });
+
+        // Header — two rows
+        const expandLabel = state.chartsExpanded ? "Collapse All" : "Expand All";
+        const syncClass = state.syncFresh ? "" : " stale";
+        const syncTimeText = state.syncFresh ? "Last sync: 2 min ago" : "Last sync: 45 min ago";
+        const sortLabels = {
+          name: "Name",
+          metal: "Metal",
+          "price-low": "Price (Low)",
+          "price-high": "Price (High)",
+          trend: "Trend",
+        };
+        const currentSortLabel = sortLabels[sortVal] || "Sort";
+
+        let html = `<div class="market-header">
     <div class="market-header-row">
       <h3 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0;">Market Prices</h3>
       <div class="market-header-sync-group">
@@ -1155,11 +1488,11 @@ function renderAll() {
         <div class="market-sort-wrap">
           <span class="market-header-btn">Sort: ${currentSortLabel} <span class="btn-chevron">&#9662;</span></span>
           <select id="liveSort">
-            <option value="name"${sortVal==='name'?' selected':''}>Name</option>
-            <option value="metal"${sortVal==='metal'?' selected':''}>Metal</option>
-            <option value="price-low"${sortVal==='price-low'?' selected':''}>Price (Low)</option>
-            <option value="price-high"${sortVal==='price-high'?' selected':''}>Price (High)</option>
-            <option value="trend"${sortVal==='trend'?' selected':''}>Trend</option>
+            <option value="name"${sortVal === "name" ? " selected" : ""}>Name</option>
+            <option value="metal"${sortVal === "metal" ? " selected" : ""}>Metal</option>
+            <option value="price-low"${sortVal === "price-low" ? " selected" : ""}>Price (Low)</option>
+            <option value="price-high"${sortVal === "price-high" ? " selected" : ""}>Price (High)</option>
+            <option value="trend"${sortVal === "trend" ? " selected" : ""}>Trend</option>
           </select>
         </div>
         <button class="market-header-btn" id="expandAllBtn" type="button">${expandLabel}</button>
@@ -1167,17 +1500,19 @@ function renderAll() {
     </div>
   </div>`;
 
-  // Cards
-  if (cards.length === 0) {
-    html += `<div class="market-empty">No items match your search.</div>`;
-  } else {
-    html += `<div class="market-cards" style="gap:${state.cardGap}px;">`;
-    cards.forEach((card, idx) => { html += renderCard(card, idx); });
-    html += `</div>`;
-  }
+        // Cards
+        if (cards.length === 0) {
+          html += `<div class="market-empty">No items match your search.</div>`;
+        } else {
+          html += `<div class="market-cards" style="gap:${state.cardGap}px;">`;
+          cards.forEach((card, idx) => {
+            html += renderCard(card, idx);
+          });
+          html += `</div>`;
+        }
 
-  // Footer
-  html += `<div class="market-footer">
+        // Footer
+        html += `<div class="market-footer">
     <div class="market-footer-text">
       Confidence scores reflect scraper accuracy — prices with low confidence may be outdated or incorrectly parsed.
       Always verify at the vendor&rsquo;s website before purchasing.
@@ -1191,209 +1526,292 @@ function renderAll() {
     </div>
   </div>`;
 
-  inner.innerHTML = html; // lgtm[js/xss-through-dom] — playground-only, no user input
+        inner.innerHTML = html; // lgtm[js/xss-through-dom] — playground-only, no user input
 
-  // Wire live search/sort
-  const searchEl = document.getElementById('liveSearch');
-  const sortEl = document.getElementById('liveSort');
-  if (searchEl) {
-    searchEl.addEventListener('input', debounce(() => renderAll(), 150));
-    // Restore focus
-    searchEl.focus();
-    searchEl.setSelectionRange(searchVal.length, searchVal.length);
-  }
-  if (sortEl) sortEl.addEventListener('change', () => renderAll());
+        // Wire live search/sort
+        const searchEl = document.getElementById("liveSearch");
+        const sortEl = document.getElementById("liveSort");
+        if (searchEl) {
+          searchEl.addEventListener(
+            "input",
+            debounce(() => renderAll(), 150)
+          );
+          // Restore focus
+          searchEl.focus();
+          searchEl.setSelectionRange(searchVal.length, searchVal.length);
+        }
+        if (sortEl) sortEl.addEventListener("change", () => renderAll());
 
-  // Wire sync button — click simulates sync and flips to fresh
-  const syncBtn = document.getElementById('syncBtn');
-  if (syncBtn) {
-    syncBtn.addEventListener('click', () => {
-      syncBtn.textContent = 'Syncing...';
-      syncBtn.disabled = true;
-      setTimeout(() => {
-        state.syncFresh = true;
-        document.getElementById('ctrlSyncStatus').value = 'fresh';
-        updateAll();
-      }, 800);
-    });
-  }
+        // Wire sync button — click simulates sync and flips to fresh
+        const syncBtn = document.getElementById("syncBtn");
+        if (syncBtn) {
+          syncBtn.addEventListener("click", () => {
+            syncBtn.textContent = "Syncing...";
+            syncBtn.disabled = true;
+            setTimeout(() => {
+              state.syncFresh = true;
+              document.getElementById("ctrlSyncStatus").value = "fresh";
+              updateAll();
+            }, 800);
+          });
+        }
 
-  // Wire expand/collapse all button
-  const expandBtn = document.getElementById('expandAllBtn');
-  if (expandBtn) {
-    expandBtn.addEventListener('click', () => {
-      state.chartsExpanded = !state.chartsExpanded;
-      document.getElementById('ctrlChart').value = state.chartsExpanded ? 'expanded' : 'collapsed';
-      const allDetails = document.querySelectorAll('.market-card-chart');
-      allDetails.forEach(d => { d.open = state.chartsExpanded; });
-      expandBtn.textContent = state.chartsExpanded ? 'Collapse All' : 'Expand All';
-      if (state.chartsExpanded) {
-        cards.forEach((card) => initChart(card));
-      } else {
-        Object.keys(chartInstances).forEach(slug => destroyChart(slug));
-      }
-      updatePrompt();
-    });
-  }
-
-  // Init charts if expanded
-  if (state.chartsExpanded) {
-    cards.forEach((card) => initChart(card));
-  }
-
-  // Wire toggle listeners
-  document.querySelectorAll('.market-card-chart').forEach(details => {
-    details.addEventListener('toggle', function() {
-      const idx = +this.dataset.cardIdx;
-      const card = CARDS[idx];
-      if (!card) return;
-      if (this.open) {
-        initChart(card);
-      } else {
-        destroyChart(card.slug);
-      }
-    });
-  });
-}
-
-function initChart(card) {
-  const canvasId = `chart-${card.slug}`;
-  const canvas = document.getElementById(canvasId);
-  if (!canvas || chartInstances[card.slug]) return;
-
-  const data = genChartData(card);
-  chartInstances[card.slug] = new Chart(canvas, {
-    type: 'line',
-    data: data,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: (items) => items[0]?.label || '',
-            label: (ctx) => {
-              if (ctx.raw === null) return `${ctx.dataset.label}: Out of stock`;
-              return `${ctx.dataset.label}: $${Number(ctx.raw).toFixed(2)}`;
+        // Wire expand/collapse all button
+        const expandBtn = document.getElementById("expandAllBtn");
+        if (expandBtn) {
+          expandBtn.addEventListener("click", () => {
+            state.chartsExpanded = !state.chartsExpanded;
+            document.getElementById("ctrlChart").value = state.chartsExpanded
+              ? "expanded"
+              : "collapsed";
+            const allDetails = document.querySelectorAll(".market-card-chart");
+            allDetails.forEach((d) => {
+              d.open = state.chartsExpanded;
+            });
+            expandBtn.textContent = state.chartsExpanded ? "Collapse All" : "Expand All";
+            if (state.chartsExpanded) {
+              cards.forEach((card) => initChart(card));
+            } else {
+              Object.keys(chartInstances).forEach((slug) => destroyChart(slug));
             }
-          }
+            updatePrompt();
+          });
         }
-      },
-      scales: {
-        x: {
-          ticks: { font: { size: 11 }, color: state.theme === 'dark' ? '#94a3b8' : '#344351' },
-          grid: { color: state.theme === 'dark' ? 'rgba(51,65,85,0.5)' : 'rgba(203,213,225,0.5)' },
-        },
-        y: {
-          ticks: {
-            callback: v => '$' + v.toFixed(v >= 100 ? 0 : 2),
-            font: { size: 11 },
-            color: state.theme === 'dark' ? '#94a3b8' : '#344351',
+
+        // Init charts if expanded
+        if (state.chartsExpanded) {
+          cards.forEach((card) => initChart(card));
+        }
+
+        // Wire toggle listeners
+        document.querySelectorAll(".market-card-chart").forEach((details) => {
+          details.addEventListener("toggle", function () {
+            const idx = +this.dataset.cardIdx;
+            const card = CARDS[idx];
+            if (!card) return;
+            if (this.open) {
+              initChart(card);
+            } else {
+              destroyChart(card.slug);
+            }
+          });
+        });
+      }
+
+      function initChart(card) {
+        const canvasId = `chart-${card.slug}`;
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || chartInstances[card.slug]) return;
+
+        const data = genChartData(card);
+        chartInstances[card.slug] = new Chart(canvas, {
+          type: "line",
+          data: data,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: (items) => items[0]?.label || "",
+                  label: (ctx) => {
+                    if (ctx.raw === null) return `${ctx.dataset.label}: Out of stock`;
+                    return `${ctx.dataset.label}: $${Number(ctx.raw).toFixed(2)}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                ticks: {
+                  font: { size: 11 },
+                  color: state.theme === "dark" ? "#94a3b8" : "#344351",
+                },
+                grid: {
+                  color: state.theme === "dark" ? "rgba(51,65,85,0.5)" : "rgba(203,213,225,0.5)",
+                },
+              },
+              y: {
+                ticks: {
+                  callback: (v) => "$" + v.toFixed(v >= 100 ? 0 : 2),
+                  font: { size: 11 },
+                  color: state.theme === "dark" ? "#94a3b8" : "#344351",
+                },
+                grid: {
+                  color: state.theme === "dark" ? "rgba(51,65,85,0.5)" : "rgba(203,213,225,0.5)",
+                },
+              },
+            },
           },
-          grid: { color: state.theme === 'dark' ? 'rgba(51,65,85,0.5)' : 'rgba(203,213,225,0.5)' },
+        });
+      }
+
+      function destroyChart(slug) {
+        if (chartInstances[slug]) {
+          chartInstances[slug].destroy();
+          delete chartInstances[slug];
         }
       }
-    }
-  });
-}
 
-function destroyChart(slug) {
-  if (chartInstances[slug]) {
-    chartInstances[slug].destroy();
-    delete chartInstances[slug];
-  }
-}
+      function debounce(fn, ms) {
+        let t;
+        return function (...args) {
+          clearTimeout(t);
+          t = setTimeout(() => fn.apply(this, args), ms);
+        };
+      }
 
-function debounce(fn, ms) {
-  let t;
-  return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
-}
+      // ═══════════════════════════════════════════════
+      // Prompt Output
+      // ═══════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════
-// Prompt Output
-// ═══════════════════════════════════════════════
+      function updatePrompt() {
+        const parts = [];
 
-function updatePrompt() {
-  const parts = [];
+        if (state.theme !== DEFAULTS.theme) parts.push(`${state.theme} theme`);
+        if (state.viewportWidth !== DEFAULTS.viewportWidth) {
+          const label =
+            state.viewportWidth <= 767
+              ? "mobile"
+              : state.viewportWidth <= 1024
+                ? "tablet"
+                : "desktop";
+          parts.push(`${label} viewport (${state.viewportWidth}px)`);
+        }
+        if (state.vendorCount !== DEFAULTS.vendorCount)
+          parts.push(`${state.vendorCount} vendor${state.vendorCount === 1 ? "" : "s"} per card`);
+        if (state.chartsExpanded !== DEFAULTS.chartsExpanded)
+          parts.push("charts expanded by default");
+        if (state.metalOverride) parts.push(`all cards forced to ${state.metalOverride} styling`);
+        if (state.borderRadius !== DEFAULTS.borderRadius)
+          parts.push(`${state.borderRadius}px card border-radius`);
+        if (state.cardGap !== DEFAULTS.cardGap) parts.push(`${state.cardGap}px gap between cards`);
+        if (!state.hoverLift && DEFAULTS.hoverLift) parts.push("card hover lift disabled");
 
-  if (state.theme !== DEFAULTS.theme) parts.push(`${state.theme} theme`);
-  if (state.viewportWidth !== DEFAULTS.viewportWidth) {
-    const label = state.viewportWidth <= 767 ? 'mobile' : state.viewportWidth <= 1024 ? 'tablet' : 'desktop';
-    parts.push(`${label} viewport (${state.viewportWidth}px)`);
-  }
-  if (state.vendorCount !== DEFAULTS.vendorCount) parts.push(`${state.vendorCount} vendor${state.vendorCount === 1 ? '' : 's'} per card`);
-  if (state.chartsExpanded !== DEFAULTS.chartsExpanded) parts.push('charts expanded by default');
-  if (state.metalOverride) parts.push(`all cards forced to ${state.metalOverride} styling`);
-  if (state.borderRadius !== DEFAULTS.borderRadius) parts.push(`${state.borderRadius}px card border-radius`);
-  if (state.cardGap !== DEFAULTS.cardGap) parts.push(`${state.cardGap}px gap between cards`);
-  if (!state.hoverLift && DEFAULTS.hoverLift) parts.push('card hover lift disabled');
+        const el = document.getElementById("promptText");
+        if (parts.length === 0) {
+          el.textContent =
+            "Implement the market list card using default settings: dark theme, 1200px desktop layout, 6 vendors per card, 8px border radius, 12px card gap, charts collapsed by default, hover lift enabled. Use the StakTrakr CSS variables and vendor brand colors from RETAIL_VENDOR_COLORS.";
+        } else {
+          el.textContent = `Implement the market list card with: ${parts.join(", ")}. Use the StakTrakr CSS variables for theming and RETAIL_VENDOR_COLORS for vendor name colors. Cards show MED/LOW/AVG summary stats, collapsible Chart.js 7-day trend, and vendor medal system (gold/silver/bronze for top 3 prices).`;
+        }
+      }
 
-  const el = document.getElementById('promptText');
-  if (parts.length === 0) {
-    el.textContent = 'Implement the market list card using default settings: dark theme, 1200px desktop layout, 6 vendors per card, 8px border radius, 12px card gap, charts collapsed by default, hover lift enabled. Use the StakTrakr CSS variables and vendor brand colors from RETAIL_VENDOR_COLORS.';
-  } else {
-    el.textContent = `Implement the market list card with: ${parts.join(', ')}. Use the StakTrakr CSS variables for theming and RETAIL_VENDOR_COLORS for vendor name colors. Cards show MED/LOW/AVG summary stats, collapsible Chart.js 7-day trend, and vendor medal system (gold/silver/bronze for top 3 prices).`;
-  }
-}
+      function copyPrompt() {
+        const text = document.getElementById("promptText").textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.getElementById("copyBtn");
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
+          setTimeout(() => {
+            btn.textContent = "Copy Prompt";
+            btn.classList.remove("copied");
+          }, 1500);
+        });
+      }
 
-function copyPrompt() {
-  const text = document.getElementById('promptText').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copyBtn');
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied'); }, 1500);
-  });
-}
+      // ═══════════════════════════════════════════════
+      // Presets
+      // ═══════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════
-// Presets
-// ═══════════════════════════════════════════════
+      const PRESETS = {
+        "desktop-dark": {
+          theme: "dark",
+          viewportWidth: 1200,
+          vendorCount: 6,
+          chartsExpanded: false,
+          metalOverride: "",
+          hoverLift: true,
+          cardGap: 12,
+          borderRadius: 12,
+          syncFresh: true,
+        },
+        "desktop-light": {
+          theme: "light",
+          viewportWidth: 1200,
+          vendorCount: 6,
+          chartsExpanded: false,
+          metalOverride: "",
+          hoverLift: true,
+          cardGap: 12,
+          borderRadius: 12,
+          syncFresh: true,
+        },
+        tablet: {
+          theme: "dark",
+          viewportWidth: 900,
+          vendorCount: 5,
+          chartsExpanded: false,
+          metalOverride: "",
+          hoverLift: true,
+          cardGap: 10,
+          borderRadius: 12,
+          syncFresh: true,
+        },
+        mobile: {
+          theme: "dark",
+          viewportWidth: 375,
+          vendorCount: 3,
+          chartsExpanded: false,
+          metalOverride: "",
+          hoverLift: true,
+          cardGap: 8,
+          borderRadius: 12,
+          syncFresh: true,
+        },
+        dense: {
+          theme: "dark",
+          viewportWidth: 1400,
+          vendorCount: 7,
+          chartsExpanded: true,
+          metalOverride: "",
+          hoverLift: true,
+          cardGap: 8,
+          borderRadius: 6,
+          syncFresh: true,
+        },
+      };
 
-const PRESETS = {
-  'desktop-dark':  { theme: 'dark',  viewportWidth: 1200, vendorCount: 6, chartsExpanded: false, metalOverride: '', hoverLift: true, cardGap: 12, borderRadius: 12, syncFresh: true },
-  'desktop-light': { theme: 'light', viewportWidth: 1200, vendorCount: 6, chartsExpanded: false, metalOverride: '', hoverLift: true, cardGap: 12, borderRadius: 12, syncFresh: true },
-  'tablet':        { theme: 'dark',  viewportWidth: 900,  vendorCount: 5, chartsExpanded: false, metalOverride: '', hoverLift: true, cardGap: 10, borderRadius: 12, syncFresh: true },
-  'mobile':        { theme: 'dark',  viewportWidth: 375,  vendorCount: 3, chartsExpanded: false, metalOverride: '', hoverLift: true, cardGap: 8,  borderRadius: 12, syncFresh: true },
-  'dense':         { theme: 'dark',  viewportWidth: 1400, vendorCount: 7, chartsExpanded: true,  metalOverride: '', hoverLift: true, cardGap: 8,  borderRadius: 6, syncFresh: true },
-};
+      function applyPreset(name) {
+        Object.assign(state, PRESETS[name]);
+        syncControls();
+        updateAll();
+        document
+          .querySelectorAll(".preset-btn")
+          .forEach((b) => b.classList.toggle("active", b.dataset.preset === name));
+      }
 
-function applyPreset(name) {
-  Object.assign(state, PRESETS[name]);
-  syncControls();
-  updateAll();
-  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
-}
+      function syncControls() {
+        document.getElementById("ctrlTheme").value = state.theme;
+        document.getElementById("ctrlWidth").value = state.viewportWidth;
+        document.getElementById("ctrlVendors").value = state.vendorCount;
+        document.getElementById("ctrlChart").value = state.chartsExpanded
+          ? "expanded"
+          : "collapsed";
+        document.getElementById("ctrlMetal").value = state.metalOverride;
+        document.getElementById("ctrlHover").value = state.hoverLift ? "on" : "off";
+        document.getElementById("ctrlGap").value = state.cardGap;
+        document.getElementById("ctrlRadius").value = state.borderRadius;
+        document.getElementById("ctrlSyncStatus").value = state.syncFresh ? "fresh" : "stale";
+      }
 
-function syncControls() {
-  document.getElementById('ctrlTheme').value = state.theme;
-  document.getElementById('ctrlWidth').value = state.viewportWidth;
-  document.getElementById('ctrlVendors').value = state.vendorCount;
-  document.getElementById('ctrlChart').value = state.chartsExpanded ? 'expanded' : 'collapsed';
-  document.getElementById('ctrlMetal').value = state.metalOverride;
-  document.getElementById('ctrlHover').value = state.hoverLift ? 'on' : 'off';
-  document.getElementById('ctrlGap').value = state.cardGap;
-  document.getElementById('ctrlRadius').value = state.borderRadius;
-  document.getElementById('ctrlSyncStatus').value = state.syncFresh ? 'fresh' : 'stale';
-}
+      // ═══════════════════════════════════════════════
+      // Update loop
+      // ═══════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════
-// Update loop
-// ═══════════════════════════════════════════════
+      function updateAll() {
+        document.getElementById("valWidth").textContent = state.viewportWidth + "px";
+        document.getElementById("valVendors").textContent = state.vendorCount;
+        document.getElementById("valGap").textContent = state.cardGap + "px";
+        document.getElementById("valRadius").textContent = state.borderRadius + "px";
+        renderAll();
+        updatePrompt();
+      }
 
-function updateAll() {
-  document.getElementById('valWidth').textContent = state.viewportWidth + 'px';
-  document.getElementById('valVendors').textContent = state.vendorCount;
-  document.getElementById('valGap').textContent = state.cardGap + 'px';
-  document.getElementById('valRadius').textContent = state.borderRadius + 'px';
-  renderAll();
-  updatePrompt();
-}
-
-// Init
-updateAll();
-</script>
-</body>
+      // Init
+      updateAll();
+    </script>
+  </body>
 </html>

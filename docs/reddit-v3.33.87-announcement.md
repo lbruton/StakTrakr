@@ -2,7 +2,7 @@
 
 Hey r/Silverbugs, r/Gold, r/Coins, r/staktrakr —
 
-It's been a minute since the last big post (v3.30.02), and a *lot* has happened. This is the largest update cycle StakTrakr has ever shipped — over 200 patches across 4 minor releases — so grab a coffee and let me walk you through what's new.
+It's been a minute since the last big post (v3.30.02), and a _lot_ has happened. This is the largest update cycle StakTrakr has ever shipped — over 200 patches across 4 minor releases — so grab a coffee and let me walk you through what's new.
 
 **If you're new here:** [StakTrakr](https://www.staktrakr.com) is a free, open-source, privacy-first precious metals portfolio tracker. No account, no email, no data collection. Your entire inventory lives in your browser. It works offline, runs from a ZIP file, and every feature is free.
 

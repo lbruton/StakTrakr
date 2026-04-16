@@ -4,10 +4,10 @@ Browserless provides a self-hosted headless Chromium instance for running script
 
 ## Backend split
 
-| Backend | Used for | Config |
-|---|---|---|
-| `browserless` (this service) | Scripted Playwright specs | `BROWSER_BACKEND=browserless` |
-| Browserbase (cloud) | Natural-language Stagehand / MCP flows | `BROWSER_BACKEND=browserbase` |
+| Backend                      | Used for                               | Config                        |
+| ---------------------------- | -------------------------------------- | ----------------------------- |
+| `browserless` (this service) | Scripted Playwright specs              | `BROWSER_BACKEND=browserless` |
+| Browserbase (cloud)          | Natural-language Stagehand / MCP flows | `BROWSER_BACKEND=browserbase` |
 
 ## Start the service
 
@@ -54,9 +54,9 @@ docker compose down
 
 ## Configuration
 
-| Variable | Default | Description |
-|---|---|---|
+| Variable            | Default           | Description                                        |
+| ------------------- | ----------------- | -------------------------------------------------- |
 | `BROWSERLESS_TOKEN` | `local_dev_token` | Auth token required in Playwright `wsEndpoint` URL |
-| `CONCURRENT` | `5` | Max simultaneous browser sessions |
-| `QUEUED` | `10` | Max queued sessions before rejection |
-| `TIMEOUT` | `120000` | Session timeout in milliseconds |
+| `CONCURRENT`        | `5`               | Max simultaneous browser sessions                  |
+| `QUEUED`            | `10`              | Max queued sessions before rejection               |
+| `TIMEOUT`           | `120000`          | Session timeout in milliseconds                    |

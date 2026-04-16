@@ -1,712 +1,940 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StakTrakr — Track Your Precious Metals Stack</title>
-  <meta name="description" content="Free, open-source, privacy-first precious metals portfolio tracker. Live spot prices, market comparison, cloud sync. No account required.">
-  <style>
-    /* ========================================================================
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr — Track Your Precious Metals Stack</title>
+    <meta
+      name="description"
+      content="Free, open-source, privacy-first precious metals portfolio tracker. Live spot prices, market comparison, cloud sync. No account required."
+    />
+    <style>
+      /* ========================================================================
        StakTrakr About / Hype Page
        Matches the StakTrakr dark theme color system
        ======================================================================== */
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --gold: #fbbf24;
-      --silver: #d1d5db;
-      --platinum: #f3f4f6;
-      --palladium: #d8b4fe;
-
-      --bg-deep: #070c14;
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --bg-tertiary: #334155;
-      --bg-card: #1e293b;
-
-      --text-primary: #f8fafc;
-      --text-secondary: #cbd5e1;
-      --text-muted: #94a3b8;
-
-      --border: #334155;
-      --border-hover: #475569;
-      --radius: 12px;
-      --radius-lg: 16px;
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-      --shadow-lg: 0 10px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.3);
-    }
-
-    html { scroll-behavior: smooth; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: var(--bg-deep);
-      color: var(--text-primary);
-      line-height: 1.7;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    a { color: var(--primary); text-decoration: none; transition: color 0.2s; }
-    a:hover { color: var(--primary-hover); }
-
-    /* ---- Layout ---- */
-    .container { max-width: 960px; margin: 0 auto; padding: 0 1.5rem; }
-
-    section {
-      padding: 4rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-    section:last-of-type { border-bottom: none; }
-
-    h1, h2, h3 { font-weight: 700; line-height: 1.3; }
-    h2 { font-size: 1.75rem; margin-bottom: 1.5rem; color: var(--text-primary); }
-    h3 { font-size: 1.15rem; margin-bottom: 0.5rem; color: var(--text-primary); }
-
-    /* ---- Hero ---- */
-    .hero {
-      padding: 6rem 0 4rem;
-      text-align: center;
-      background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-deep) 100%);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .hero-logo {
-      font-size: 3rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      margin-bottom: 0.5rem;
-    }
-
-    .hero-logo .accent { color: var(--primary); }
-
-    .hero-tagline {
-      font-size: 1.35rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.75rem;
-      font-weight: 400;
-    }
-
-    .hero-sub {
-      color: var(--text-muted);
-      font-size: 1rem;
-      max-width: 600px;
-      margin: 0 auto 2.5rem;
-    }
-
-    .hero-buttons {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.75rem;
-      border-radius: var(--radius);
-      font-size: 1rem;
-      font-weight: 600;
-      transition: all 0.2s;
-      border: none;
-      cursor: pointer;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-    }
-    .btn-primary:hover { background: var(--primary-hover); color: #fff; }
-
-    .btn-outline {
-      background: transparent;
-      color: var(--text-primary);
-      border: 1px solid var(--border-hover);
-    }
-    .btn-outline:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-
-    /* ---- Pillars row ---- */
-    .pillars {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.25rem;
-      margin-top: 1.5rem;
-    }
-
-    .pillar {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      text-align: center;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .pillar:hover { border-color: var(--border-hover); box-shadow: var(--shadow); }
-
-    .pillar-icon {
-      font-size: 2rem;
-      margin-bottom: 0.75rem;
-      display: block;
-    }
-
-    .pillar h3 { font-size: 1rem; }
-
-    .pillar p {
-      color: var(--text-muted);
-      font-size: 0.875rem;
-      margin-top: 0.35rem;
-    }
-
-    /* ---- Feature sections ---- */
-    .feature-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-      margin-top: 1.5rem;
-    }
-
-    @media (max-width: 640px) {
-      .feature-grid { grid-template-columns: 1fr; }
-    }
-
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .feature-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow); }
-
-    .feature-card p {
-      color: var(--text-secondary);
-      font-size: 0.925rem;
-      margin-top: 0.25rem;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 0.15rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      vertical-align: middle;
-      margin-left: 0.4rem;
-    }
-    .badge-free { background: #064e3b; color: #6ee7b7; }
-    .badge-new { background: #1e3a5f; color: #93c5fd; }
-    .badge-optional { background: #3b2f0a; color: #fde68a; }
-
-    /* ---- API section ---- */
-    .api-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-      font-size: 0.925rem;
-    }
-
-    .api-table th, .api-table td {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .api-table th {
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .api-table td { color: var(--text-secondary); }
-
-    .api-table tr:last-child td { border-bottom: none; }
-
-    /* ---- Privacy callout ---- */
-    .privacy-box {
-      background: linear-gradient(135deg, #0f172a 0%, #162032 100%);
-      border: 1px solid #1e3a5f;
-      border-radius: var(--radius-lg);
-      padding: 2.5rem;
-      margin-top: 1.5rem;
-    }
-
-    .privacy-box h3 {
-      font-size: 1.25rem;
-      margin-bottom: 1rem;
-    }
-
-    .privacy-list {
-      list-style: none;
-      padding: 0;
-    }
-
-    .privacy-list li {
-      padding: 0.5rem 0;
-      color: var(--text-secondary);
-      font-size: 0.925rem;
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-    }
-
-    .privacy-list li::before {
-      content: "\2713";
-      color: var(--success);
-      font-weight: 700;
-      flex-shrink: 0;
-      margin-top: 0.1rem;
-    }
-
-    /* ---- Sponsor CTA ---- */
-    .sponsor-section {
-      text-align: center;
-      padding: 4rem 0;
-    }
-
-    .sponsor-section h2 { margin-bottom: 1rem; }
-
-    .sponsor-section p {
-      color: var(--text-secondary);
-      max-width: 600px;
-      margin: 0 auto 2rem;
-      font-size: 1rem;
-    }
-
-    .btn-sponsor {
-      background: linear-gradient(135deg, #db2777, #9333ea);
-      color: #fff;
-      font-size: 1.05rem;
-      padding: 0.85rem 2rem;
-    }
-    .btn-sponsor:hover { opacity: 0.9; color: #fff; }
-
-    /* ---- Shoutout ---- */
-    .shoutout {
-      background: var(--bg-secondary);
-      border-radius: var(--radius-lg);
-      padding: 2rem 2.5rem;
-      margin-top: 1.5rem;
-      border: 1px solid var(--border);
-    }
-
-    .shoutout p {
-      color: var(--text-secondary);
-      font-size: 0.95rem;
-    }
-
-    .shoutout p + p { margin-top: 0.75rem; }
-
-    /* ---- Footer ---- */
-    footer {
-      padding: 2rem 0;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      border-top: 1px solid var(--border);
-    }
-
-    footer a { color: var(--text-muted); }
-    footer a:hover { color: var(--text-primary); }
-
-    .footer-links {
-      display: flex;
-      gap: 1.5rem;
-      justify-content: center;
-      margin-top: 0.5rem;
-    }
-
-    /* ---- Metal accent bar ---- */
-    .metal-bar {
-      height: 3px;
-      background: linear-gradient(90deg, var(--silver) 0%, var(--gold) 33%, var(--platinum) 66%, var(--palladium) 100%);
-      border-radius: 2px;
-      margin-bottom: 2rem;
-    }
-
-    /* ---- Screenshot showcase ---- */
-    .screenshot {
-      display: block;
-      width: 100%;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-lg);
-      margin: 1.5rem 0;
-    }
-
-    .screenshot-caption {
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      margin-top: -0.75rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .screenshot-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.25rem;
-      margin: 1.5rem 0;
-    }
-
-    .screenshot-grid img {
-      width: 100%;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-    }
-
-    @media (max-width: 640px) {
-      .screenshot-grid { grid-template-columns: 1fr; }
-    }
-
-    /* ---- Responsive ---- */
-    @media (max-width: 640px) {
-      .hero { padding: 4rem 0 3rem; }
-      .hero-logo { font-size: 2.25rem; }
-      .hero-tagline { font-size: 1.1rem; }
-      h2 { font-size: 1.4rem; }
-      section { padding: 3rem 0; }
-      .privacy-box { padding: 1.5rem; }
-      .shoutout { padding: 1.5rem; }
-    }
-  </style>
-</head>
-<body>
-
-  <!-- ================================================================== -->
-  <!-- HERO                                                               -->
-  <!-- ================================================================== -->
-  <header class="hero">
-    <div class="container">
-      <div class="hero-logo">Stak<span class="accent">Trakr</span></div>
-      <p class="hero-tagline">Track your precious metals stack. Your way.</p>
-      <p class="hero-sub">
-        A free, open-source portfolio tracker for Silver, Gold, Platinum, Palladium, and Goldbacks.
-        Live spot prices, real-time market comparison, and encrypted cloud sync &mdash;
-        all running in your browser with zero data collection.
-      </p>
-      <div class="hero-buttons">
-        <a href="https://www.staktrakr.com" class="btn btn-primary">Open StakTrakr</a>
-        <a href="https://github.com/lbruton/StakTrakr" class="btn btn-outline">View Source</a>
-      </div>
-      <img src="./screenshots/01-hero-overview.png" alt="StakTrakr dashboard showing spot prices, market ticker, and portfolio summary" class="screenshot" style="margin-top: 2.5rem; max-width: 900px; margin-left: auto; margin-right: auto;">
-    </div>
-  </header>
-
-  <!-- ================================================================== -->
-  <!-- PILLARS                                                            -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <div class="metal-bar"></div>
-      <h2>What Makes StakTrakr Different</h2>
-      <div class="pillars">
-        <div class="pillar">
-          <span class="pillar-icon">&#x1f512;</span>
-          <h3>Your Data Stays Yours</h3>
-          <p>100% client-side. No account, no email, no server-side storage. Everything lives in your browser.</p>
-        </div>
-        <div class="pillar">
-          <span class="pillar-icon">&#x1f4b0;</span>
-          <h3>Free, Always</h3>
-          <p>Every feature is free. No paywalls, no premium tiers, no "upgrade to unlock." MIT licensed and open source.</p>
-        </div>
-        <div class="pillar">
-          <span class="pillar-icon">&#x1f4e1;</span>
-          <h3>Free Spot &amp; Market API</h3>
-          <p>Live spot prices and retail market data from major dealers &mdash; bundled and keyless. No signup required.</p>
-        </div>
-        <div class="pillar">
-          <span class="pillar-icon">&#x1f4e6;</span>
-          <h3>Truly Portable</h3>
-          <p>Download the ZIP, open index.html. Works on file://, localhost, or the hosted site. Runs anywhere, forever.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- FEATURES: MARKET DATA                                              -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <h2>Live Market Prices <span class="badge badge-new">New in v3.33</span></h2>
-      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-        StakTrakr doesn't just track spot &mdash; it scrapes real prices from major bullion dealers hourly
-        and shows you exactly where the deals are.
-      </p>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <h3>Best Price Ticker</h3>
-          <p>Scrolling ticker strip showing the cheapest vendor per coin with premium percentages and direct buy links.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Vendor Price Matrix</h3>
-          <p>Side-by-side comparison across Gold, Silver, Platinum, Palladium, and Goldback tabs. Every row links to the vendor's product page.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Market Detail Charts</h3>
-          <p>Click any coin for a TradingView-powered chart with 7-day spot history and per-vendor price lines overlaid.</p>
-        </div>
-        <div class="feature-card">
-          <h3>7-Day Trend Cards</h3>
-          <p>Full-width cards with inline trend charts, brand-colored vendor chips, medal rankings, and MED/LOW/AVG stats.</p>
-        </div>
-      </div>
-      <img src="./screenshots/03-market-ticker.png" alt="Best Price Ticker showing cheapest vendor per coin with premium percentages" class="screenshot" style="margin-top: 1.5rem;">
-      <p class="screenshot-caption">Best Price Ticker &mdash; scrolling strip with cheapest vendor per coin</p>
-      <img src="./screenshots/04-vendor-prices.png" alt="Vendor Prices comparison table with per-dealer pricing across Silver, Gold, Platinum" class="screenshot">
-      <p class="screenshot-caption">Vendor Price Matrix &mdash; side-by-side dealer comparison with buy links</p>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.25rem;">
-        Market price data is provided on a best-effort basis. Prices are scraped from public vendor pages hourly and may not reflect real-time changes, flash sales, or volume discounts. Always verify pricing directly with the dealer before purchasing.
-      </p>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- FEATURES: PORTFOLIO                                                -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <h2>Full Portfolio Tracking</h2>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <h3>Rich Data Model</h3>
-          <p>Purchase Price, Melt Value, Retail Price, Gain/Loss per item. Year, Grade, Cert #, Serial Number, Storage Location, Notes, and item photos.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Realized Gains &amp; Losses</h3>
-          <p>Mark items as Sold, Traded, Lost, Gifted, or Returned. Track realized G/L with full disposition history.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Price History Charts</h3>
-          <p>Per-item melt value history derived from spot data since purchase. Retail tracking with 1Y/5Y/10Y/custom range views.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Smart Filter Chips</h3>
-          <p>Auto-generated chips for Metal, Type, Name, Year, Grade, and more. Save searches as persistent chips. Custom grouping rules.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Four Card Styles + Table</h3>
-          <p>Sparkline header, full-bleed overlay, split card, or accessible table layout. Multi-column sorting. Toggle with one click.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Goldback Support</h3>
-          <p>Full denomination-aware pricing for G&frac12; through G50 across multiple state series with live estimation.</p>
-        </div>
-      </div>
-      <div class="screenshot-grid">
-        <img src="./screenshots/03-inventory-table.png" alt="Inventory table with coin images, chip badges, and vendor prices">
-        <img src="./screenshots/06-item-view-modal.png" alt="Item view modal showing Canadian Gold Maple with price history chart">
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- FEATURES: CLOUD SYNC                                               -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <h2>Encrypted Cloud Sync</h2>
-      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-        Sync your stack across devices without trusting anyone with your data. Everything is encrypted client-side
-        before it leaves your browser.
-      </p>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <h3>Zero-Knowledge Encryption</h3>
-          <p>AES-256-GCM with PBKDF2-SHA256 (100k iterations) via the Web Crypto API. Your cloud provider receives only ciphertext.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Visual Diff &amp; Merge</h3>
-          <p>When changes arrive, review item-level and settings-level diffs with click-to-pick field selection. Cherry-pick exactly what to keep.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Bi-Directional Sync</h3>
-          <p>Automatic polling, conflict detection, pre-push remote checks, and multi-tab leader election. Settings, photos, and inventory all sync.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Dropbox Today, More Coming</h3>
-          <p>Dropbox via OAuth PKCE with multi-account support. Google Drive, OneDrive, pCloud, and Box are on the roadmap.</p>
-        </div>
-      </div>
-      <div class="screenshot-grid">
-        <img src="./screenshots/07-settings-about.png" alt="Settings modal About tab showing version info and What's New">
-        <img src="./screenshots/08-settings-appearance.png" alt="Settings Appearance tab with theme selector and header button configuration">
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- OPTIONAL APIS                                                      -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <h2>Optional API Integrations</h2>
-      <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-        StakTrakr works fully out of the box with its bundled free API. Two optional integrations can enhance
-        the experience &mdash; both are free and completely optional.
-      </p>
-      <table class="api-table">
-        <thead>
-          <tr>
-            <th>Integration</th>
-            <th>What It Does</th>
-            <th>Key</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>StakTrakr API</strong></td>
-            <td>Live spot prices and retail market data from major dealers. Powers spot cards, sparklines, ticker, and vendor comparison.</td>
-            <td><span class="badge badge-free">Bundled</span></td>
-          </tr>
-          <tr>
-            <td><strong>Numista</strong></td>
-            <td>Coin catalog search, automatic image population, composition/weight/series metadata sync, and tag import. Dramatically enriches your inventory.</td>
-            <td><span class="badge badge-optional">Optional</span></td>
-          </tr>
-          <tr>
-            <td><strong>PCGS CoinFacts</strong></td>
-            <td>PCGS number lookup and cert verification for graded coins. One-click verification badges in the inventory table.</td>
-            <td><span class="badge badge-optional">Optional</span></td>
-          </tr>
-          <tr>
-            <td><strong>Metals.dev</strong></td>
-            <td>Higher-frequency spot price updates (15-min intervals). Add as a secondary provider in Settings for faster refresh.</td>
-            <td><span class="badge badge-optional">Optional</span></td>
-          </tr>
-          <tr>
-            <td><strong>MetalPriceAPI</strong></td>
-            <td>Alternative spot price provider with broad metal coverage. Configurable as primary or fallback in the provider priority chain.</td>
-            <td><span class="badge badge-optional">Optional</span></td>
-          </tr>
-          <tr>
-            <td><strong>Metals-API</strong></td>
-            <td>Another spot price source option. Supports gold, silver, platinum, and palladium with historical lookups.</td>
-            <td><span class="badge badge-optional">Optional</span></td>
-          </tr>
-          <tr>
-            <td><strong>Custom API</strong></td>
-            <td>Bring your own spot price endpoint. Point StakTrakr at any JSON API that returns metal prices in your preferred format.</td>
-            <td><span class="badge badge-optional">Optional</span></td>
-          </tr>
-        </tbody>
-      </table>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
-        Numista keys are free at <a href="https://en.numista.com/api/">numista.com/api</a>.
-        PCGS keys are free at <a href="https://www.pcgs.com/coinfacts">pcgs.com/coinfacts</a>.
-        Metals.dev keys are free at <a href="https://metals.dev">metals.dev</a>.
-        All configured in Settings &gt; API.
-      </p>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- PRIVACY                                                            -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <h2>Privacy Is Not a Feature &mdash; It's the Architecture</h2>
-      <div class="privacy-box">
-        <h3>How StakTrakr Protects Your Data</h3>
-        <ul class="privacy-list">
-          <li>No server-side component &mdash; the developer has no technical means to access your data</li>
-          <li>No account creation, no email collection, no user profiles</li>
-          <li>No cookies, no tracking SDKs, no advertising, no analytics fingerprinting</li>
-          <li>All data stored locally in your browser (localStorage + IndexedDB)</li>
-          <li>Cloud backup is zero-knowledge &mdash; encrypted before leaving your device</li>
-          <li>Full source code is open and auditable &mdash; MIT licensed</li>
-          <li>Works offline and runs from a local file &mdash; no server required</li>
-          <li>Cloudflare Web Analytics on the hosted site is aggregated page views only &mdash; no cookies, no fingerprinting, not present locally</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- GETTING STARTED                                                    -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <h2>Get Started in 30 Seconds</h2>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <h3>Option A: Just Open It</h3>
-          <p>Visit <a href="https://www.staktrakr.com">staktrakr.com</a> and start adding items. Sample inventory and years of spot history are pre-loaded so you can explore every feature immediately.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Option B: Run It Locally</h3>
-          <p>Download the <a href="https://github.com/lbruton/StakTrakr/releases">release ZIP</a>, extract, and open <code>index.html</code>. No install, no server, no dependencies. Works forever.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- SPONSOR CTA                                                        -->
-  <!-- ================================================================== -->
-  <section class="sponsor-section">
-    <div class="container">
-      <h2>Keep the Lights On</h2>
-      <p>
-        StakTrakr is and will always be free. The spot price API, market data scraping infrastructure,
-        and Cloudflare hosting all have real costs. If StakTrakr saves you time or helps you
-        make better stacking decisions, consider sponsoring the project to keep the servers running.
-      </p>
-      <a href="https://github.com/sponsors/lbruton" class="btn btn-sponsor">Sponsor on GitHub</a>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
-        Even a few bucks a month makes a difference. No pressure &mdash; the app stays free either way.
-      </p>
-    </div>
-  </section>
-
-  <!-- ================================================================== -->
-  <!-- THANK YOU                                                          -->
-  <!-- ================================================================== -->
-  <section>
-    <div class="container">
-      <h2>Thank You</h2>
-      <div class="shoutout">
-        <p>
-          To the beta testers who stuck with the project through the cloud sync saga, the market page
-          rewrites, and the occasional "why is my inventory empty" moment &mdash; your patience
-          and detailed bug reports are the reason v3.33 is as solid as it is. This one's for you.
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --gold: #fbbf24;
+        --silver: #d1d5db;
+        --platinum: #f3f4f6;
+        --palladium: #d8b4fe;
+
+        --bg-deep: #070c14;
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --bg-card: #1e293b;
+
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+
+        --border: #334155;
+        --border-hover: #475569;
+        --radius: 12px;
+        --radius-lg: 16px;
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+        --shadow-lg: 0 10px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: var(--bg-deep);
+        color: var(--text-primary);
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: var(--primary);
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      a:hover {
+        color: var(--primary-hover);
+      }
+
+      /* ---- Layout ---- */
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+      }
+
+      section {
+        padding: 4rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      section:last-of-type {
+        border-bottom: none;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-weight: 700;
+        line-height: 1.3;
+      }
+      h2 {
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+      }
+      h3 {
+        font-size: 1.15rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+      }
+
+      /* ---- Hero ---- */
+      .hero {
+        padding: 6rem 0 4rem;
+        text-align: center;
+        background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-deep) 100%);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .hero-logo {
+        font-size: 3rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 0.5rem;
+      }
+
+      .hero-logo .accent {
+        color: var(--primary);
+      }
+
+      .hero-tagline {
+        font-size: 1.35rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.75rem;
+        font-weight: 400;
+      }
+
+      .hero-sub {
+        color: var(--text-muted);
+        font-size: 1rem;
+        max-width: 600px;
+        margin: 0 auto 2.5rem;
+      }
+
+      .hero-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.75rem;
+        border-radius: var(--radius);
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: var(--primary-hover);
+        color: #fff;
+      }
+
+      .btn-outline {
+        background: transparent;
+        color: var(--text-primary);
+        border: 1px solid var(--border-hover);
+      }
+      .btn-outline:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      /* ---- Pillars row ---- */
+      .pillars {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.25rem;
+        margin-top: 1.5rem;
+      }
+
+      .pillar {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-align: center;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .pillar:hover {
+        border-color: var(--border-hover);
+        box-shadow: var(--shadow);
+      }
+
+      .pillar-icon {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+        display: block;
+      }
+
+      .pillar h3 {
+        font-size: 1rem;
+      }
+
+      .pillar p {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        margin-top: 0.35rem;
+      }
+
+      /* ---- Feature sections ---- */
+      .feature-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+      }
+
+      @media (max-width: 640px) {
+        .feature-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .feature-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .feature-card:hover {
+        border-color: var(--border-hover);
+        box-shadow: var(--shadow);
+      }
+
+      .feature-card p {
+        color: var(--text-secondary);
+        font-size: 0.925rem;
+        margin-top: 0.25rem;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        vertical-align: middle;
+        margin-left: 0.4rem;
+      }
+      .badge-free {
+        background: #064e3b;
+        color: #6ee7b7;
+      }
+      .badge-new {
+        background: #1e3a5f;
+        color: #93c5fd;
+      }
+      .badge-optional {
+        background: #3b2f0a;
+        color: #fde68a;
+      }
+
+      /* ---- API section ---- */
+      .api-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        font-size: 0.925rem;
+      }
+
+      .api-table th,
+      .api-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .api-table th {
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .api-table td {
+        color: var(--text-secondary);
+      }
+
+      .api-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      /* ---- Privacy callout ---- */
+      .privacy-box {
+        background: linear-gradient(135deg, #0f172a 0%, #162032 100%);
+        border: 1px solid #1e3a5f;
+        border-radius: var(--radius-lg);
+        padding: 2.5rem;
+        margin-top: 1.5rem;
+      }
+
+      .privacy-box h3 {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+      }
+
+      .privacy-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .privacy-list li {
+        padding: 0.5rem 0;
+        color: var(--text-secondary);
+        font-size: 0.925rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .privacy-list li::before {
+        content: "\2713";
+        color: var(--success);
+        font-weight: 700;
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+      }
+
+      /* ---- Sponsor CTA ---- */
+      .sponsor-section {
+        text-align: center;
+        padding: 4rem 0;
+      }
+
+      .sponsor-section h2 {
+        margin-bottom: 1rem;
+      }
+
+      .sponsor-section p {
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 2rem;
+        font-size: 1rem;
+      }
+
+      .btn-sponsor {
+        background: linear-gradient(135deg, #db2777, #9333ea);
+        color: #fff;
+        font-size: 1.05rem;
+        padding: 0.85rem 2rem;
+      }
+      .btn-sponsor:hover {
+        opacity: 0.9;
+        color: #fff;
+      }
+
+      /* ---- Shoutout ---- */
+      .shoutout {
+        background: var(--bg-secondary);
+        border-radius: var(--radius-lg);
+        padding: 2rem 2.5rem;
+        margin-top: 1.5rem;
+        border: 1px solid var(--border);
+      }
+
+      .shoutout p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+      }
+
+      .shoutout p + p {
+        margin-top: 0.75rem;
+      }
+
+      /* ---- Footer ---- */
+      footer {
+        padding: 2rem 0;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        border-top: 1px solid var(--border);
+      }
+
+      footer a {
+        color: var(--text-muted);
+      }
+      footer a:hover {
+        color: var(--text-primary);
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 1.5rem;
+        justify-content: center;
+        margin-top: 0.5rem;
+      }
+
+      /* ---- Metal accent bar ---- */
+      .metal-bar {
+        height: 3px;
+        background: linear-gradient(
+          90deg,
+          var(--silver) 0%,
+          var(--gold) 33%,
+          var(--platinum) 66%,
+          var(--palladium) 100%
+        );
+        border-radius: 2px;
+        margin-bottom: 2rem;
+      }
+
+      /* ---- Screenshot showcase ---- */
+      .screenshot {
+        display: block;
+        width: 100%;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        margin: 1.5rem 0;
+      }
+
+      .screenshot-caption {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        margin-top: -0.75rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .screenshot-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        margin: 1.5rem 0;
+      }
+
+      .screenshot-grid img {
+        width: 100%;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+      }
+
+      @media (max-width: 640px) {
+        .screenshot-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ---- Responsive ---- */
+      @media (max-width: 640px) {
+        .hero {
+          padding: 4rem 0 3rem;
+        }
+        .hero-logo {
+          font-size: 2.25rem;
+        }
+        .hero-tagline {
+          font-size: 1.1rem;
+        }
+        h2 {
+          font-size: 1.4rem;
+        }
+        section {
+          padding: 3rem 0;
+        }
+        .privacy-box {
+          padding: 1.5rem;
+        }
+        .shoutout {
+          padding: 1.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ================================================================== -->
+    <!-- HERO                                                               -->
+    <!-- ================================================================== -->
+    <header class="hero">
+      <div class="container">
+        <div class="hero-logo">Stak<span class="accent">Trakr</span></div>
+        <p class="hero-tagline">Track your precious metals stack. Your way.</p>
+        <p class="hero-sub">
+          A free, open-source portfolio tracker for Silver, Gold, Platinum, Palladium, and
+          Goldbacks. Live spot prices, real-time market comparison, and encrypted cloud sync &mdash;
+          all running in your browser with zero data collection.
         </p>
-        <p>
-          Join us on <a href="https://www.reddit.com/r/staktrakr/">r/staktrakr</a> for updates,
-          feature requests, and bug reports.
+        <div class="hero-buttons">
+          <a href="https://www.staktrakr.com" class="btn btn-primary">Open StakTrakr</a>
+          <a href="https://github.com/lbruton/StakTrakr" class="btn btn-outline">View Source</a>
+        </div>
+        <img
+          src="./screenshots/01-hero-overview.png"
+          alt="StakTrakr dashboard showing spot prices, market ticker, and portfolio summary"
+          class="screenshot"
+          style="margin-top: 2.5rem; max-width: 900px; margin-left: auto; margin-right: auto"
+        />
+      </div>
+    </header>
+
+    <!-- ================================================================== -->
+    <!-- PILLARS                                                            -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <div class="metal-bar"></div>
+        <h2>What Makes StakTrakr Different</h2>
+        <div class="pillars">
+          <div class="pillar">
+            <span class="pillar-icon">&#x1f512;</span>
+            <h3>Your Data Stays Yours</h3>
+            <p>
+              100% client-side. No account, no email, no server-side storage. Everything lives in
+              your browser.
+            </p>
+          </div>
+          <div class="pillar">
+            <span class="pillar-icon">&#x1f4b0;</span>
+            <h3>Free, Always</h3>
+            <p>
+              Every feature is free. No paywalls, no premium tiers, no "upgrade to unlock." MIT
+              licensed and open source.
+            </p>
+          </div>
+          <div class="pillar">
+            <span class="pillar-icon">&#x1f4e1;</span>
+            <h3>Free Spot &amp; Market API</h3>
+            <p>
+              Live spot prices and retail market data from major dealers &mdash; bundled and
+              keyless. No signup required.
+            </p>
+          </div>
+          <div class="pillar">
+            <span class="pillar-icon">&#x1f4e6;</span>
+            <h3>Truly Portable</h3>
+            <p>
+              Download the ZIP, open index.html. Works on file://, localhost, or the hosted site.
+              Runs anywhere, forever.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- FEATURES: MARKET DATA                                              -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <h2>Live Market Prices <span class="badge badge-new">New in v3.33</span></h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+          StakTrakr doesn't just track spot &mdash; it scrapes real prices from major bullion
+          dealers hourly and shows you exactly where the deals are.
+        </p>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Best Price Ticker</h3>
+            <p>
+              Scrolling ticker strip showing the cheapest vendor per coin with premium percentages
+              and direct buy links.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Vendor Price Matrix</h3>
+            <p>
+              Side-by-side comparison across Gold, Silver, Platinum, Palladium, and Goldback tabs.
+              Every row links to the vendor's product page.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Market Detail Charts</h3>
+            <p>
+              Click any coin for a TradingView-powered chart with 7-day spot history and per-vendor
+              price lines overlaid.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>7-Day Trend Cards</h3>
+            <p>
+              Full-width cards with inline trend charts, brand-colored vendor chips, medal rankings,
+              and MED/LOW/AVG stats.
+            </p>
+          </div>
+        </div>
+        <img
+          src="./screenshots/03-market-ticker.png"
+          alt="Best Price Ticker showing cheapest vendor per coin with premium percentages"
+          class="screenshot"
+          style="margin-top: 1.5rem"
+        />
+        <p class="screenshot-caption">
+          Best Price Ticker &mdash; scrolling strip with cheapest vendor per coin
+        </p>
+        <img
+          src="./screenshots/04-vendor-prices.png"
+          alt="Vendor Prices comparison table with per-dealer pricing across Silver, Gold, Platinum"
+          class="screenshot"
+        />
+        <p class="screenshot-caption">
+          Vendor Price Matrix &mdash; side-by-side dealer comparison with buy links
+        </p>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.25rem">
+          Market price data is provided on a best-effort basis. Prices are scraped from public
+          vendor pages hourly and may not reflect real-time changes, flash sales, or volume
+          discounts. Always verify pricing directly with the dealer before purchasing.
         </p>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ================================================================== -->
-  <!-- FOOTER                                                             -->
-  <!-- ================================================================== -->
-  <footer>
-    <div class="container">
-      <p>StakTrakr &mdash; MIT License &mdash; Made with stubborn independence</p>
-      <div class="footer-links">
-        <a href="https://www.staktrakr.com">App</a>
-        <a href="https://github.com/lbruton/StakTrakr">GitHub</a>
-        <a href="https://www.reddit.com/r/staktrakr/">Reddit</a>
-        <a href="https://www.staktrakr.com/privacy.html">Privacy</a>
-        <a href="https://github.com/sponsors/lbruton">Sponsor</a>
+    <!-- ================================================================== -->
+    <!-- FEATURES: PORTFOLIO                                                -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <h2>Full Portfolio Tracking</h2>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Rich Data Model</h3>
+            <p>
+              Purchase Price, Melt Value, Retail Price, Gain/Loss per item. Year, Grade, Cert #,
+              Serial Number, Storage Location, Notes, and item photos.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Realized Gains &amp; Losses</h3>
+            <p>
+              Mark items as Sold, Traded, Lost, Gifted, or Returned. Track realized G/L with full
+              disposition history.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Price History Charts</h3>
+            <p>
+              Per-item melt value history derived from spot data since purchase. Retail tracking
+              with 1Y/5Y/10Y/custom range views.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Smart Filter Chips</h3>
+            <p>
+              Auto-generated chips for Metal, Type, Name, Year, Grade, and more. Save searches as
+              persistent chips. Custom grouping rules.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Four Card Styles + Table</h3>
+            <p>
+              Sparkline header, full-bleed overlay, split card, or accessible table layout.
+              Multi-column sorting. Toggle with one click.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Goldback Support</h3>
+            <p>
+              Full denomination-aware pricing for G&frac12; through G50 across multiple state series
+              with live estimation.
+            </p>
+          </div>
+        </div>
+        <div class="screenshot-grid">
+          <img
+            src="./screenshots/03-inventory-table.png"
+            alt="Inventory table with coin images, chip badges, and vendor prices"
+          />
+          <img
+            src="./screenshots/06-item-view-modal.png"
+            alt="Item view modal showing Canadian Gold Maple with price history chart"
+          />
+        </div>
       </div>
-    </div>
-  </footer>
+    </section>
 
-</body>
+    <!-- ================================================================== -->
+    <!-- FEATURES: CLOUD SYNC                                               -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <h2>Encrypted Cloud Sync</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+          Sync your stack across devices without trusting anyone with your data. Everything is
+          encrypted client-side before it leaves your browser.
+        </p>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Zero-Knowledge Encryption</h3>
+            <p>
+              AES-256-GCM with PBKDF2-SHA256 (100k iterations) via the Web Crypto API. Your cloud
+              provider receives only ciphertext.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Visual Diff &amp; Merge</h3>
+            <p>
+              When changes arrive, review item-level and settings-level diffs with click-to-pick
+              field selection. Cherry-pick exactly what to keep.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Bi-Directional Sync</h3>
+            <p>
+              Automatic polling, conflict detection, pre-push remote checks, and multi-tab leader
+              election. Settings, photos, and inventory all sync.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Dropbox Today, More Coming</h3>
+            <p>
+              Dropbox via OAuth PKCE with multi-account support. Google Drive, OneDrive, pCloud, and
+              Box are on the roadmap.
+            </p>
+          </div>
+        </div>
+        <div class="screenshot-grid">
+          <img
+            src="./screenshots/07-settings-about.png"
+            alt="Settings modal About tab showing version info and What's New"
+          />
+          <img
+            src="./screenshots/08-settings-appearance.png"
+            alt="Settings Appearance tab with theme selector and header button configuration"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- OPTIONAL APIS                                                      -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <h2>Optional API Integrations</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem">
+          StakTrakr works fully out of the box with its bundled free API. Two optional integrations
+          can enhance the experience &mdash; both are free and completely optional.
+        </p>
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>Integration</th>
+              <th>What It Does</th>
+              <th>Key</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>StakTrakr API</strong></td>
+              <td>
+                Live spot prices and retail market data from major dealers. Powers spot cards,
+                sparklines, ticker, and vendor comparison.
+              </td>
+              <td><span class="badge badge-free">Bundled</span></td>
+            </tr>
+            <tr>
+              <td><strong>Numista</strong></td>
+              <td>
+                Coin catalog search, automatic image population, composition/weight/series metadata
+                sync, and tag import. Dramatically enriches your inventory.
+              </td>
+              <td><span class="badge badge-optional">Optional</span></td>
+            </tr>
+            <tr>
+              <td><strong>PCGS CoinFacts</strong></td>
+              <td>
+                PCGS number lookup and cert verification for graded coins. One-click verification
+                badges in the inventory table.
+              </td>
+              <td><span class="badge badge-optional">Optional</span></td>
+            </tr>
+            <tr>
+              <td><strong>Metals.dev</strong></td>
+              <td>
+                Higher-frequency spot price updates (15-min intervals). Add as a secondary provider
+                in Settings for faster refresh.
+              </td>
+              <td><span class="badge badge-optional">Optional</span></td>
+            </tr>
+            <tr>
+              <td><strong>MetalPriceAPI</strong></td>
+              <td>
+                Alternative spot price provider with broad metal coverage. Configurable as primary
+                or fallback in the provider priority chain.
+              </td>
+              <td><span class="badge badge-optional">Optional</span></td>
+            </tr>
+            <tr>
+              <td><strong>Metals-API</strong></td>
+              <td>
+                Another spot price source option. Supports gold, silver, platinum, and palladium
+                with historical lookups.
+              </td>
+              <td><span class="badge badge-optional">Optional</span></td>
+            </tr>
+            <tr>
+              <td><strong>Custom API</strong></td>
+              <td>
+                Bring your own spot price endpoint. Point StakTrakr at any JSON API that returns
+                metal prices in your preferred format.
+              </td>
+              <td><span class="badge badge-optional">Optional</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem">
+          Numista keys are free at <a href="https://en.numista.com/api/">numista.com/api</a>. PCGS
+          keys are free at <a href="https://www.pcgs.com/coinfacts">pcgs.com/coinfacts</a>.
+          Metals.dev keys are free at <a href="https://metals.dev">metals.dev</a>. All configured in
+          Settings &gt; API.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- PRIVACY                                                            -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <h2>Privacy Is Not a Feature &mdash; It's the Architecture</h2>
+        <div class="privacy-box">
+          <h3>How StakTrakr Protects Your Data</h3>
+          <ul class="privacy-list">
+            <li>
+              No server-side component &mdash; the developer has no technical means to access your
+              data
+            </li>
+            <li>No account creation, no email collection, no user profiles</li>
+            <li>No cookies, no tracking SDKs, no advertising, no analytics fingerprinting</li>
+            <li>All data stored locally in your browser (localStorage + IndexedDB)</li>
+            <li>Cloud backup is zero-knowledge &mdash; encrypted before leaving your device</li>
+            <li>Full source code is open and auditable &mdash; MIT licensed</li>
+            <li>Works offline and runs from a local file &mdash; no server required</li>
+            <li>
+              Cloudflare Web Analytics on the hosted site is aggregated page views only &mdash; no
+              cookies, no fingerprinting, not present locally
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- GETTING STARTED                                                    -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <h2>Get Started in 30 Seconds</h2>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Option A: Just Open It</h3>
+            <p>
+              Visit <a href="https://www.staktrakr.com">staktrakr.com</a> and start adding items.
+              Sample inventory and years of spot history are pre-loaded so you can explore every
+              feature immediately.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Option B: Run It Locally</h3>
+            <p>
+              Download the <a href="https://github.com/lbruton/StakTrakr/releases">release ZIP</a>,
+              extract, and open <code>index.html</code>. No install, no server, no dependencies.
+              Works forever.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SPONSOR CTA                                                        -->
+    <!-- ================================================================== -->
+    <section class="sponsor-section">
+      <div class="container">
+        <h2>Keep the Lights On</h2>
+        <p>
+          StakTrakr is and will always be free. The spot price API, market data scraping
+          infrastructure, and Cloudflare hosting all have real costs. If StakTrakr saves you time or
+          helps you make better stacking decisions, consider sponsoring the project to keep the
+          servers running.
+        </p>
+        <a href="https://github.com/sponsors/lbruton" class="btn btn-sponsor">Sponsor on GitHub</a>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem">
+          Even a few bucks a month makes a difference. No pressure &mdash; the app stays free either
+          way.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- THANK YOU                                                          -->
+    <!-- ================================================================== -->
+    <section>
+      <div class="container">
+        <h2>Thank You</h2>
+        <div class="shoutout">
+          <p>
+            To the beta testers who stuck with the project through the cloud sync saga, the market
+            page rewrites, and the occasional "why is my inventory empty" moment &mdash; your
+            patience and detailed bug reports are the reason v3.33 is as solid as it is. This one's
+            for you.
+          </p>
+          <p>
+            Join us on <a href="https://www.reddit.com/r/staktrakr/">r/staktrakr</a> for updates,
+            feature requests, and bug reports.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- FOOTER                                                             -->
+    <!-- ================================================================== -->
+    <footer>
+      <div class="container">
+        <p>StakTrakr &mdash; MIT License &mdash; Made with stubborn independence</p>
+        <div class="footer-links">
+          <a href="https://www.staktrakr.com">App</a>
+          <a href="https://github.com/lbruton/StakTrakr">GitHub</a>
+          <a href="https://www.reddit.com/r/staktrakr/">Reddit</a>
+          <a href="https://www.staktrakr.com/privacy.html">Privacy</a>
+          <a href="https://github.com/sponsors/lbruton">Sponsor</a>
+        </div>
+      </div>
+    </footer>
+  </body>
 </html>

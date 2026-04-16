@@ -24,7 +24,7 @@ const API_PROVIDERS = {
     parseBatchResponse: (data) => {
       const current = {};
       if (Array.isArray(data)) {
-        data.forEach(e => {
+        data.forEach((e) => {
           if (e.metal && e.spot > 0) current[e.metal.toLowerCase()] = e.spot;
         });
       }
@@ -117,7 +117,8 @@ const API_PROVIDERS = {
     symbolsPerRequest: 1,
     docUrl: "https://metals-api.com/documentation",
     batchSupported: true,
-    batchEndpoint: "/timeseries?access_key={API_KEY}&start_date={START_DATE}&end_date={END_DATE}&base=USD&symbols={SYMBOLS}",
+    batchEndpoint:
+      "/timeseries?access_key={API_KEY}&start_date={START_DATE}&end_date={END_DATE}&base=USD&symbols={SYMBOLS}",
     parseBatchResponse: (data) => {
       const current = {};
       const history = {};
@@ -188,8 +189,10 @@ const API_PROVIDERS = {
     symbolsPerRequest: "all",
     docUrl: "https://metalpriceapi.com/documentation",
     batchSupported: true,
-    batchEndpoint: "/timeframe?api_key={API_KEY}&start_date={START_DATE}&end_date={END_DATE}&base=USD&currencies={CURRENCIES}",
-    hourlyEndpoint: "/hourly?api_key={API_KEY}&base=USD&currency={CURRENCY}&start_date={START_DATE}&end_date={END_DATE}",
+    batchEndpoint:
+      "/timeframe?api_key={API_KEY}&start_date={START_DATE}&end_date={END_DATE}&base=USD&currencies={CURRENCIES}",
+    hourlyEndpoint:
+      "/hourly?api_key={API_KEY}&base=USD&currency={CURRENCY}&start_date={START_DATE}&end_date={END_DATE}",
     parseBatchResponse: (data) => {
       const current = {};
       const history = {};
@@ -267,10 +270,10 @@ const API_PROVIDERS = {
  * @constant {Object.<string, string>}
  */
 const CERT_LOOKUP_URLS = {
-  PCGS: 'https://www.pcgs.com/cert/{certNumber}',
-  NGC: 'https://www.ngccoin.com/certlookup/{certNumber}/?CertNum={certNumber}&Grade={grade}&lookup=',
-  ANACS: 'https://anacs.com/verify/',
-  ICG: 'https://www.icgcoin.com/verification/',
+  PCGS: "https://www.pcgs.com/cert/{certNumber}",
+  NGC: "https://www.ngccoin.com/certlookup/{certNumber}/?CertNum={certNumber}&Grade={grade}&lookup=",
+  ANACS: "https://anacs.com/verify/",
+  ICG: "https://www.icgcoin.com/verification/",
 };
 
 /**
@@ -369,8 +372,8 @@ const getTemplateVariables = () => ({
   VERSION: APP_VERSION,
   VERSION_WITH_V: `v${APP_VERSION}`,
   VERSION_TITLE: `StakTrakr v${APP_VERSION}`,
-  VERSION_BRANCH: APP_VERSION.split('.').slice(0, 2).join('.') + '.x',
-  BRANDING_NAME: BRANDING_TITLE
+  VERSION_BRANCH: APP_VERSION.split(".").slice(0, 2).join(".") + ".x",
+  BRANDING_NAME: BRANDING_TITLE,
 });
 
 /**
@@ -420,8 +423,8 @@ const BRANDING_DOMAIN_OPTIONS = {
   },
   /** Logo split: [silverPart, goldPart, viewBoxWidth] for the inline SVG tspan elements */
   logoSplit: {
-    "StakTrakr": ["Stak", "Trakr", 480],
-    "StackrTrackr": ["Stackr", "Trackr", 560],
+    StakTrakr: ["Stak", "Trakr", 480],
+    StackrTrackr: ["Stackr", "Trackr", 560],
     "Stacker Tracker": ["Stacker ", "Tracker", 680],
   },
   removeExtension: true,
@@ -445,7 +448,7 @@ const BRANDING_DOMAIN_OVERRIDE =
           // "www.stackrtrackr.com" → ["www","stackrtrackr","com"] → "stackrtrackr"
           // "stackrtrackr.com" → ["stackrtrackr","com"] → "stackrtrackr"
           // "staktrakr.pages.dev" → ["staktrakr","pages","dev"] → "staktrakr"
-          const filtered = parts.filter(p => p !== "www");
+          const filtered = parts.filter((p) => p !== "www");
           host = filtered.length > 1 ? filtered[0] : parts[0];
         }
         return BRANDING_DOMAIN_OPTIONS.domainMap[host] || null;
@@ -454,20 +457,20 @@ const BRANDING_DOMAIN_OVERRIDE =
 
 /** @constant {Object} ENV_LABELS - Environment badge configuration for non-production domains (STAK-376) */
 const ENV_LABELS = {
-  beta: { label: 'BETA', className: 'env-badge--beta' },
-  preview: { label: 'PREVIEW', className: 'env-badge--preview' },
-  local: { label: 'LOCAL', className: 'env-badge--local' },
+  beta: { label: "BETA", className: "env-badge--beta" },
+  preview: { label: "PREVIEW", className: "env-badge--preview" },
+  local: { label: "LOCAL", className: "env-badge--local" },
 };
 
 /** Detect non-production environment from hostname/protocol (STAK-376) */
 function getEnvironmentLabel() {
-  if (typeof window === 'undefined' || !window.location) return null;
+  if (typeof window === "undefined" || !window.location) return null;
   const host = window.location.hostname.toLowerCase();
   const proto = window.location.protocol;
-  if (host === 'beta.staktrakr.com') return ENV_LABELS.beta;
-  if (host.endsWith('.pages.dev')) return ENV_LABELS.preview;
-  if (host === 'localhost' || host === '127.0.0.1') return ENV_LABELS.local;
-  if (proto === 'file:') return ENV_LABELS.local;
+  if (host === "beta.staktrakr.com") return ENV_LABELS.beta;
+  if (host.endsWith(".pages.dev")) return ENV_LABELS.preview;
+  if (host === "localhost" || host === "127.0.0.1") return ENV_LABELS.local;
+  if (proto === "file:") return ENV_LABELS.local;
   return null;
 }
 
@@ -538,7 +541,7 @@ const RETAIL_SYNC_LOG_KEY = "retailSyncLog"; // nosemgrep: codacy.javascript.sec
 const RETAIL_AVAILABILITY_KEY = "retailAvailability"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} RETAIL_ANOMALY_THRESHOLD - Max fractional deviation from window median before a vendor price is flagged anomalous (cross-vendor pass) */
-const RETAIL_ANOMALY_THRESHOLD = 0.40;
+const RETAIL_ANOMALY_THRESHOLD = 0.4;
 
 /** @constant {number} RETAIL_SPIKE_NEIGHBOR_TOLERANCE - Max fractional deviation between before/after prices to consider them a stable neighborhood (temporal pass) */
 const RETAIL_SPIKE_NEIGHBOR_TOLERANCE = 0.05;
@@ -571,14 +574,14 @@ const LB_TO_OZT = 14.58333;
  * @constant {Array<{weight: number, label: string, goldOz: number}>}
  */
 const GOLDBACK_DENOMINATIONS = [
-  { weight: 0.5,  label: '½ Goldback',   goldOz: 0.0005 },
-  { weight: 1,    label: '1 Goldback',   goldOz: 0.001 },
-  { weight: 2,    label: '2 Goldback',   goldOz: 0.002 },
-  { weight: 5,    label: '5 Goldback',   goldOz: 0.005 },
-  { weight: 10,   label: '10 Goldback',  goldOz: 0.01 },
-  { weight: 25,   label: '25 Goldback',  goldOz: 0.025 },
-  { weight: 50,   label: '50 Goldback',  goldOz: 0.05 },
-  { weight: 100,  label: '100 Goldback', goldOz: 0.1 },
+  { weight: 0.5, label: "½ Goldback", goldOz: 0.0005 },
+  { weight: 1, label: "1 Goldback", goldOz: 0.001 },
+  { weight: 2, label: "2 Goldback", goldOz: 0.002 },
+  { weight: 5, label: "5 Goldback", goldOz: 0.005 },
+  { weight: 10, label: "10 Goldback", goldOz: 0.01 },
+  { weight: 25, label: "25 Goldback", goldOz: 0.025 },
+  { weight: 50, label: "50 Goldback", goldOz: 0.05 },
+  { weight: 100, label: "100 Goldback", goldOz: 0.1 },
 ];
 
 /** @constant {string} ITEM_TAGS_KEY - LocalStorage key for item tags mapping (STAK-126) */
@@ -597,16 +600,16 @@ const CATALOG_HISTORY_KEY = "staktrakr.catalog.history"; // nosemgrep: codacy.ja
 const THEME_KEY = "appTheme"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} STORAGE_PERSIST_GRANTED_KEY - LocalStorage key for storage persistence permission grant */
-const STORAGE_PERSIST_GRANTED_KEY = 'storagePersistGranted'; // nosemgrep: codacy.javascript.security.hard-coded-password
+const STORAGE_PERSIST_GRANTED_KEY = "storagePersistGranted"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {string} IMAGE_ZIP_MANIFEST_VERSION - Version string for the image ZIP export manifest format */
-const IMAGE_ZIP_MANIFEST_VERSION = '1.0';
+const IMAGE_ZIP_MANIFEST_VERSION = "1.0";
 
 /** @constant {string} CLOUD_VAULT_IDLE_TIMEOUT_KEY - LocalStorage key for vault password idle lock timeout in minutes (15|30|60|120|0=never) */
 const CLOUD_VAULT_IDLE_TIMEOUT_KEY = "cloud_vault_idle_timeout"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** App-namespace salt for Simple mode key derivation. Never change — changing invalidates all Simple-mode syncs. */
-const STAKTRAKR_SIMPLE_SALT = '53544b52:53494d504c45:76310000';
+const STAKTRAKR_SIMPLE_SALT = "53544b52:53494d504c45:76310000";
 
 /** @constant {string} API_KEY_STORAGE_KEY - LocalStorage key for API provider information */
 const API_KEY_STORAGE_KEY = "metalApiConfig"; // nosemgrep: codacy.javascript.security.hard-coded-password
@@ -738,10 +741,10 @@ const IMAGE_MAX_BYTES = 512000;
  * List of recognized localStorage keys for cleanup validation
  * @constant {string[]}
  */
-const VAULT_FILE_EXTENSION = '.stvault';
+const VAULT_FILE_EXTENSION = ".stvault";
 
 /** Filename suffix for the companion image vault file exported alongside a backup */
-const VAULT_IMAGE_FILE_SUFFIX = '-images';
+const VAULT_IMAGE_FILE_SUFFIX = "-images";
 
 // =============================================================================
 // CLOUD AUTO-SYNC CONSTANTS (STAK-149)
@@ -754,41 +757,41 @@ const SYNC_POLL_INTERVAL = 600000;
 const SYNC_PUSH_DEBOUNCE = 2000;
 
 /** Legacy Dropbox paths (pre-v2 flat layout — used for migration detection only) */
-const SYNC_FILE_PATH_LEGACY = '/StakTrakr/staktrakr-sync.stvault';
-const SYNC_META_PATH_LEGACY = '/StakTrakr/staktrakr-sync.json';
-const SYNC_IMAGES_PATH_LEGACY = '/StakTrakr/staktrakr-images.stvault';
+const SYNC_FILE_PATH_LEGACY = "/StakTrakr/staktrakr-sync.stvault";
+const SYNC_META_PATH_LEGACY = "/StakTrakr/staktrakr-sync.json";
+const SYNC_IMAGES_PATH_LEGACY = "/StakTrakr/staktrakr-images.stvault";
 
 /** Dropbox path for the rolling sync vault file (v2 — /sync/ subfolder) */
-const SYNC_FILE_PATH = '/StakTrakr/sync/staktrakr-sync.stvault';
+const SYNC_FILE_PATH = "/StakTrakr/sync/staktrakr-sync.stvault";
 
 /** Dropbox path for the lightweight sync metadata pointer (v2 — /sync/ subfolder) */
-const SYNC_META_PATH = '/StakTrakr/sync/staktrakr-sync.json';
+const SYNC_META_PATH = "/StakTrakr/sync/staktrakr-sync.json";
 
 /** Dropbox path for the encrypted user-image vault (v2 — /sync/ subfolder) */
-const SYNC_IMAGES_PATH = '/StakTrakr/sync/staktrakr-images.stvault';
+const SYNC_IMAGES_PATH = "/StakTrakr/sync/staktrakr-images.stvault";
 
 /** Dropbox path for the encrypted change manifest (v2 — /sync/ subfolder) */
-const SYNC_MANIFEST_PATH = '/StakTrakr/sync/staktrakr-sync.stmanifest';
+const SYNC_MANIFEST_PATH = "/StakTrakr/sync/staktrakr-sync.stmanifest";
 
 /** Legacy Dropbox path for the encrypted change manifest (flat root) */
-const SYNC_MANIFEST_PATH_LEGACY = '/StakTrakr/staktrakr-sync.stmanifest';
+const SYNC_MANIFEST_PATH_LEGACY = "/StakTrakr/staktrakr-sync.stmanifest";
 
 /** Dropbox folder for cloud-side backups */
-const SYNC_BACKUP_FOLDER = '/StakTrakr/backups';
+const SYNC_BACKUP_FOLDER = "/StakTrakr/backups";
 
 /** Filename used for the "latest" cloud backup snapshot */
-const CLOUD_LATEST_FILENAME = 'staktrakr-latest.json';
+const CLOUD_LATEST_FILENAME = "staktrakr-latest.json";
 
 /** Cloud backup history depth — how many backups to retain */
-const CLOUD_BACKUP_HISTORY_KEY = 'cloud_backup_history_depth'; // nosemgrep: codacy.javascript.security.hard-coded-password
+const CLOUD_BACKUP_HISTORY_KEY = "cloud_backup_history_depth"; // nosemgrep: codacy.javascript.security.hard-coded-password
 const CLOUD_BACKUP_HISTORY_DEFAULT = 5;
 const CLOUD_BACKUP_HISTORY_OPTIONS = [3, 5, 10, 20];
 
 /** Filename prefix for user-initiated manual backups */
-const MANUAL_BACKUP_PREFIX = 'staktrakr-backup-';
+const MANUAL_BACKUP_PREFIX = "staktrakr-backup-";
 
 /** Filename prefix for auto-sync pre-push snapshot backups */
-const SYNC_BACKUP_PREFIX = 'pre-sync-';
+const SYNC_BACKUP_PREFIX = "pre-sync-";
 
 /**
  * Keys included in a sync vault — inventory data + all user preferences that are
@@ -797,70 +800,70 @@ const SYNC_BACKUP_PREFIX = 'pre-sync-';
  */
 const SYNC_SCOPE_KEYS = [
   // ── Core data ──
-  'metalInventory',            // LS_KEY — inventory items
-  'itemTags',                  // ITEM_TAGS_KEY — per-item tags
+  "metalInventory", // LS_KEY — inventory items
+  "itemTags", // ITEM_TAGS_KEY — per-item tags
 
   // ── Display preferences ──
-  'displayCurrency',           // DISPLAY_CURRENCY_KEY — active display currency
-  'appTheme',                  // THEME_KEY — light/dark/sepia/system theme
-  'cardViewStyle',             // CARD_STYLE_KEY
-  'desktopCardView',           // DESKTOP_CARD_VIEW_KEY
-  'defaultSortColumn',         // DEFAULT_SORT_COL_KEY
-  'defaultSortDir',            // DEFAULT_SORT_DIR_KEY
-  'showRealizedGainLoss',      // SHOW_REALIZED_KEY
-  'metalOrderConfig',          // METAL_ORDER_KEY
-  'settingsItemsPerPage',      // ITEMS_PER_PAGE_KEY
-  'appTimeZone',               // TIMEZONE_KEY
+  "displayCurrency", // DISPLAY_CURRENCY_KEY — active display currency
+  "appTheme", // THEME_KEY — light/dark/sepia/system theme
+  "cardViewStyle", // CARD_STYLE_KEY
+  "desktopCardView", // DESKTOP_CARD_VIEW_KEY
+  "defaultSortColumn", // DEFAULT_SORT_COL_KEY
+  "defaultSortDir", // DEFAULT_SORT_DIR_KEY
+  "showRealizedGainLoss", // SHOW_REALIZED_KEY
+  "metalOrderConfig", // METAL_ORDER_KEY
+  "settingsItemsPerPage", // ITEMS_PER_PAGE_KEY
+  "appTimeZone", // TIMEZONE_KEY
 
   // ── Chip & filter config ──
-  'inlineChipConfig',          // inline chip config (grade, year, etc.)
-  'filterChipCategoryConfig',  // filter chip category config
-  'viewModalSectionConfig',    // view modal section visibility
-  'chipMinCount',              // minimum count for filter chips
-  'chipMaxCount',              // maximum count for filter chips
-  'chipCustomGroups',          // custom chip groupings
-  'chipBlacklist',             // hidden chips
-  'chipSortOrder',             // chip sort preference
+  "inlineChipConfig", // inline chip config (grade, year, etc.)
+  "filterChipCategoryConfig", // filter chip category config
+  "viewModalSectionConfig", // view modal section visibility
+  "chipMinCount", // minimum count for filter chips
+  "chipMaxCount", // maximum count for filter chips
+  "chipCustomGroups", // custom chip groupings
+  "chipBlacklist", // hidden chips
+  "chipSortOrder", // chip sort preference
 
   // ── Layout & table ──
-  'layoutSectionConfig',       // section layout config
-  'tableImagesEnabled',        // show images in table
-  'tableImageSides',           // which image sides to show
+  "layoutSectionConfig", // section layout config
+  "tableImagesEnabled", // show images in table
+  "tableImageSides", // which image sides to show
 
   // ── Tag config ──
-  'tagBlacklist',              // hidden tags
+  "tagBlacklist", // hidden tags
 
   // ── Header button preferences ──
-  'headerThemeBtnVisible',     // theme toggle button
-  'headerCurrencyBtnVisible',  // currency toggle button
-  'headerTrendBtnVisible',     // HEADER_TREND_BTN_KEY
-  'headerSyncBtnVisible',      // HEADER_SYNC_BTN_KEY
-  'headerMarketBtnVisible',    // HEADER_MARKET_BTN_KEY
-  'headerVaultBtnVisible',     // HEADER_VAULT_BTN_KEY
-  'headerRestoreBtnVisible',   // HEADER_RESTORE_BTN_KEY
-  'headerCloudSyncBtnVisible', // HEADER_CLOUD_SYNC_BTN_KEY
-  'headerBtnShowText',         // HEADER_BTN_SHOW_TEXT_KEY
-  'headerBtnOrder',            // button ordering
-  'headerAboutBtnVisible',     // about button
+  "headerThemeBtnVisible", // theme toggle button
+  "headerCurrencyBtnVisible", // currency toggle button
+  "headerTrendBtnVisible", // HEADER_TREND_BTN_KEY
+  "headerSyncBtnVisible", // HEADER_SYNC_BTN_KEY
+  "headerMarketBtnVisible", // HEADER_MARKET_BTN_KEY
+  "headerVaultBtnVisible", // HEADER_VAULT_BTN_KEY
+  "headerRestoreBtnVisible", // HEADER_RESTORE_BTN_KEY
+  "headerCloudSyncBtnVisible", // HEADER_CLOUD_SYNC_BTN_KEY
+  "headerBtnShowText", // HEADER_BTN_SHOW_TEXT_KEY
+  "headerBtnOrder", // button ordering
+  "headerAboutBtnVisible", // about button
 
   // ── Feature toggles ──
-  'goldback-enabled',          // GOLDBACK_ENABLED_KEY
-  'goldback-estimate-enabled', // GOLDBACK_ESTIMATE_ENABLED_KEY
-  'goldback-estimate-modifier', // GB_ESTIMATE_MODIFIER_KEY
+  "goldback-enabled", // GOLDBACK_ENABLED_KEY
+  "goldback-estimate-enabled", // GOLDBACK_ESTIMATE_ENABLED_KEY
+  "goldback-estimate-modifier", // GB_ESTIMATE_MODIFIER_KEY
 
   // ── Numista config ──
-  'numista_tags_auto',         // auto-tag on Numista lookup
-  'numistaLookupRules',        // lookup rule config
-  'numistaViewFields',         // view modal field config
+  "numista_tags_auto", // auto-tag on Numista lookup
+  "numistaLookupRules", // lookup rule config
+  "numistaViewFields", // view modal field config
 
   // ── Seed & provider config ──
-  'enabledSeedRules',          // seed data rules
-  'apiProviderOrder',          // spot provider order
-  'providerPriority',          // provider priority config
+  "enabledSeedRules", // seed data rules
+  "apiProviderOrder", // spot provider order
+  "providerPriority", // provider priority config
 
   // ── API credentials ──
-  'metalApiConfig',            // API_KEY_STORAGE_KEY — spot provider keys (MetalPriceAPI, Metals-API, Custom)
-  'catalog_api_config',          // Numista API key, PCGS bearer token (CatalogConfig)
+  "metalApiConfig", // API_KEY_STORAGE_KEY — spot provider keys (MetalPriceAPI, Metals-API, Custom)
+  "catalog_api_config", // Numista API key, PCGS bearer token (CatalogConfig)
 ];
 
 const SPOT_HISTORY_RUNTIME_WINDOW_DAYS = 180;
@@ -904,7 +907,7 @@ const ALLOWED_STORAGE_KEYS = [
   "providerPriority",
   "filterChipCategoryConfig",
   "chipSortOrder",
-  "disposedFilterMode",                    // string: "hide"|"show"|"only" — disposed items filter preference (STAK-388)
+  "disposedFilterMode", // string: "hide"|"show"|"only" — disposed items filter preference (STAK-388)
   GOLDBACK_PRICES_KEY,
   GOLDBACK_PRICE_HISTORY_KEY,
   RETAIL_PRICES_KEY,
@@ -920,83 +923,83 @@ const ALLOWED_STORAGE_KEYS = [
   GB_ESTIMATE_MODIFIER_KEY,
   DISPLAY_CURRENCY_KEY,
   EXCHANGE_RATES_KEY,
-  "headerThemeBtnVisible",    // boolean string: "true"/"false" (STACK-54)
+  "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
   "headerCurrencyBtnVisible", // boolean string: "true"/"false" (STACK-54)
-  SPOT_TREND_KEY,             // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
-  HEADER_TREND_BTN_KEY,       // boolean string: "true"/"false" — header trend button visibility
-  HEADER_SYNC_BTN_KEY,        // boolean string: "true"/"false" — header sync button visibility
-  HEADER_MARKET_BTN_KEY,      // boolean string: "true"/"false" — header market button visibility
-  HEADER_VAULT_BTN_KEY,       // boolean string: null=show, "false"=hide, "true"=show — vault button visibility
-  HEADER_RESTORE_BTN_KEY,     // boolean string: "true"/"false" — restore button visibility
-  HEADER_CLOUD_SYNC_BTN_KEY,  // boolean string: "true"/"false" — cloud sync button visibility
-  HEADER_BTN_SHOW_TEXT_KEY,   // boolean string: "true"/"false" — show text labels under header icons
-  RETAIL_MANIFEST_TS_KEY,          // string ISO timestamp — market manifest generated_at cache
-  RETAIL_MANIFEST_SLUGS_KEY,       // JSON array: cached manifest coin slug list
-  RETAIL_MANIFEST_COIN_META_KEY,   // JSON object: cached manifest coin metadata (canonical names)
+  SPOT_TREND_KEY, // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
+  HEADER_TREND_BTN_KEY, // boolean string: "true"/"false" — header trend button visibility
+  HEADER_SYNC_BTN_KEY, // boolean string: "true"/"false" — header sync button visibility
+  HEADER_MARKET_BTN_KEY, // boolean string: "true"/"false" — header market button visibility
+  HEADER_VAULT_BTN_KEY, // boolean string: null=show, "false"=hide, "true"=show — vault button visibility
+  HEADER_RESTORE_BTN_KEY, // boolean string: "true"/"false" — restore button visibility
+  HEADER_CLOUD_SYNC_BTN_KEY, // boolean string: "true"/"false" — cloud sync button visibility
+  HEADER_BTN_SHOW_TEXT_KEY, // boolean string: "true"/"false" — show text labels under header icons
+  RETAIL_MANIFEST_TS_KEY, // string ISO timestamp — market manifest generated_at cache
+  RETAIL_MANIFEST_SLUGS_KEY, // JSON array: cached manifest coin slug list
+  RETAIL_MANIFEST_COIN_META_KEY, // JSON object: cached manifest coin metadata (canonical names)
   RETAIL_MANIFEST_VENDOR_META_KEY, // JSON object: cached manifest vendor display metadata
-  RETAIL_TREND_MODE_KEY,           // string: retail trend display mode (7d | intraday)
-  MARKET_FILTER_KEY,               // string: market price filter preferences (STAK-515)
-  "layoutVisibility",         // JSON object: { spotPrices, totals, search, table } (STACK-54) — legacy, migrated to layoutSectionConfig
-  "layoutSectionConfig",      // JSON array: ordered section config [{ id, label, enabled }] (STACK-54)
-  LAST_VERSION_CHECK_KEY,     // timestamp: last remote version check (STACK-67)
-  LATEST_REMOTE_VERSION_KEY,  // string: cached latest remote version (STACK-67)
-  LATEST_REMOTE_URL_KEY,      // string: cached latest remote release URL (STACK-67)
+  RETAIL_TREND_MODE_KEY, // string: retail trend display mode (7d | intraday)
+  MARKET_FILTER_KEY, // string: market price filter preferences (STAK-515)
+  "layoutVisibility", // JSON object: { spotPrices, totals, search, table } (STACK-54) — legacy, migrated to layoutSectionConfig
+  "layoutSectionConfig", // JSON array: ordered section config [{ id, label, enabled }] (STACK-54)
+  LAST_VERSION_CHECK_KEY, // timestamp: last remote version check (STACK-67)
+  LATEST_REMOTE_VERSION_KEY, // string: cached latest remote version (STACK-67)
+  LATEST_REMOTE_URL_KEY, // string: cached latest remote release URL (STACK-67)
   "ff_migration_fuzzy_autocomplete", // one-time migration flag (v3.26.01)
-  "migration_hourlySource",          // one-time migration flag: re-tag StakTrakr hourly entries
-  "migration_seedHistoryMerge",      // one-time migration flag: skip redundant seed-history merge writes
-  "numistaLookupRules",              // custom Numista search lookup rules (JSON array)
-  "numistaViewFields",               // view modal Numista field visibility config (JSON object)
-  TIMEZONE_KEY,                        // string: "auto" | "UTC" | IANA zone (STACK-63)
-  "viewModalSectionConfig",            // JSON array: ordered view modal section config [{ id, label, enabled }]
-  "tableImagesEnabled",                // boolean string: "true"/"false" — show thumbnail images in table rows
-  "tableImageSides",                   // string: "both"|"obverse"|"reverse" — which sides to show in table (STAK-118)
-  CARD_STYLE_KEY,                        // string: "A"|"B"|"C" — card view style (STAK-118)
-  DESKTOP_CARD_VIEW_KEY,                 // boolean string: "true"/"false" — desktop card view (STAK-118)
-  DEFAULT_SORT_COL_KEY,                  // number string: default sort column index
-  DEFAULT_SORT_DIR_KEY,                  // string: "asc"|"desc" — default sort direction
-  SHOW_REALIZED_KEY,                     // boolean string: "true"/"false" — show realized G/L in summary cards (STAK-72)
-  METAL_ORDER_KEY,                       // JSON array: metal order/visibility config
-  ITEM_TAGS_KEY,                           // JSON object: per-item tags keyed by UUID (STAK-126)
-  "enabledSeedRules",                        // JSON array: enabled built-in Numista lookup rule IDs
-  "seedImagesVer",                             // string: current seed images version for cache invalidation
-  "cloud_token_dropbox",                       // JSON: Dropbox OAuth token data
-  "cloud_token_pcloud",                        // JSON: pCloud OAuth token data
-  "cloud_token_box",                           // JSON: Box OAuth token data
-  "cloud_last_backup",                         // JSON: { provider, timestamp } last cloud backup info
-  "cloud_kraken_seen",                         // boolean string: easter egg flag
-  "staktrakr_oauth_result",                    // JSON: transient OAuth callback relay (cleared after read)
-  "cloud_activity_log",                        // JSON: cloud sync activity log entries
+  "migration_hourlySource", // one-time migration flag: re-tag StakTrakr hourly entries
+  "migration_seedHistoryMerge", // one-time migration flag: skip redundant seed-history merge writes
+  "numistaLookupRules", // custom Numista search lookup rules (JSON array)
+  "numistaViewFields", // view modal Numista field visibility config (JSON object)
+  TIMEZONE_KEY, // string: "auto" | "UTC" | IANA zone (STACK-63)
+  "viewModalSectionConfig", // JSON array: ordered view modal section config [{ id, label, enabled }]
+  "tableImagesEnabled", // boolean string: "true"/"false" — show thumbnail images in table rows
+  "tableImageSides", // string: "both"|"obverse"|"reverse" — which sides to show in table (STAK-118)
+  CARD_STYLE_KEY, // string: "A"|"B"|"C" — card view style (STAK-118)
+  DESKTOP_CARD_VIEW_KEY, // boolean string: "true"/"false" — desktop card view (STAK-118)
+  DEFAULT_SORT_COL_KEY, // number string: default sort column index
+  DEFAULT_SORT_DIR_KEY, // string: "asc"|"desc" — default sort direction
+  SHOW_REALIZED_KEY, // boolean string: "true"/"false" — show realized G/L in summary cards (STAK-72)
+  METAL_ORDER_KEY, // JSON array: metal order/visibility config
+  ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
+  "enabledSeedRules", // JSON array: enabled built-in Numista lookup rule IDs
+  "seedImagesVer", // string: current seed images version for cache invalidation
+  "cloud_token_dropbox", // JSON: Dropbox OAuth token data
+  "cloud_token_pcloud", // JSON: pCloud OAuth token data
+  "cloud_token_box", // JSON: Box OAuth token data
+  "cloud_last_backup", // JSON: { provider, timestamp } last cloud backup info
+  "cloud_kraken_seen", // boolean string: easter egg flag
+  "staktrakr_oauth_result", // JSON: transient OAuth callback relay (cleared after read)
+  "cloud_activity_log", // JSON: cloud sync activity log entries
   // STAK-149: Auto-sync keys
-  "cloud_sync_enabled",                        // boolean string: "true"/"false" — master auto-sync toggle
-  "cloud_sync_last_push",                      // JSON: { syncId, timestamp, rev, itemCount } — last push from this device
-  "cloud_sync_last_pull",                      // JSON: { syncId, timestamp, rev } — last pull on this device
-  "cloud_sync_device_id",                      // UUID string: stable per-device identifier
-  "cloud_sync_cursor",                         // Dropbox rev string: for efficient change detection
-  "cloud_sync_override_backup",                // JSON: { timestamp, itemCount, appVersion, data: {...} } — pre-pull local snapshot
-  CLOUD_VAULT_IDLE_TIMEOUT_KEY,                // number string: vault password idle lock timeout in minutes (15|30|60|120|0=never)
-  "cloud_sync_mode",                           // DEPRECATED: kept for migration only — will be removed after v3.33
-  "cloud_dropbox_account_id",                  // string: Dropbox account_id for Simple mode key derivation
-  "cloud_dropbox_email",                       // string: Dropbox account email for multi-account UX (STAK-449)
-  "cloud_dropbox_display_name",                // string: Dropbox display name for multi-account UX (STAK-449)
-  "cloud_vault_password",                      // string: user vault password stored for persistent unlock
-  STORAGE_PERSIST_GRANTED_KEY,                         // boolean string: "true"/"false" — storage persistence grant flag
-  "headerBtnOrder",                                    // JSON array: header button card order (STAK-320)
-  "headerAboutBtnVisible",                             // boolean string: "true"/"false" — about button visibility (STAK-320)
-  "tagBlacklist",                                      // JSON array: tags excluded from auto-tagging
-  "numista_tags_auto",                                 // boolean string: "true"/"false" — auto-tag from Numista data
-  "cloud_sync_local_modified",                           // ISO string: timestamp of last local metalInventory save (STAK-414)
-  "cloud_sync_migrated",                               // string: "v2" — cloud folder migration flag (flat → /sync/ + /backups/)
-  "cloud_backup_history_depth",                        // string: "3"|"5"|"10"|"20" — max cloud backups to retain
-  "manifestPruningThreshold",                          // number string: max sync cycles to retain in manifest before pruning older entries (STAK-184)
+  "cloud_sync_enabled", // boolean string: "true"/"false" — master auto-sync toggle
+  "cloud_sync_last_push", // JSON: { syncId, timestamp, rev, itemCount } — last push from this device
+  "cloud_sync_last_pull", // JSON: { syncId, timestamp, rev } — last pull on this device
+  "cloud_sync_device_id", // UUID string: stable per-device identifier
+  "cloud_sync_cursor", // Dropbox rev string: for efficient change detection
+  "cloud_sync_override_backup", // JSON: { timestamp, itemCount, appVersion, data: {...} } — pre-pull local snapshot
+  CLOUD_VAULT_IDLE_TIMEOUT_KEY, // number string: vault password idle lock timeout in minutes (15|30|60|120|0=never)
+  "cloud_sync_mode", // DEPRECATED: kept for migration only — will be removed after v3.33
+  "cloud_dropbox_account_id", // string: Dropbox account_id for Simple mode key derivation
+  "cloud_dropbox_email", // string: Dropbox account email for multi-account UX (STAK-449)
+  "cloud_dropbox_display_name", // string: Dropbox display name for multi-account UX (STAK-449)
+  "cloud_vault_password", // string: user vault password stored for persistent unlock
+  STORAGE_PERSIST_GRANTED_KEY, // boolean string: "true"/"false" — storage persistence grant flag
+  "headerBtnOrder", // JSON array: header button card order (STAK-320)
+  "headerAboutBtnVisible", // boolean string: "true"/"false" — about button visibility (STAK-320)
+  "tagBlacklist", // JSON array: tags excluded from auto-tagging
+  "numista_tags_auto", // boolean string: "true"/"false" — auto-tag from Numista data
+  "cloud_sync_local_modified", // ISO string: timestamp of last local metalInventory save (STAK-414)
+  "cloud_sync_migrated", // string: "v2" — cloud folder migration flag (flat → /sync/ + /backups/)
+  "cloud_backup_history_depth", // string: "3"|"5"|"10"|"20" — max cloud backups to retain
+  "manifestPruningThreshold", // number string: max sync cycles to retain in manifest before pruning older entries (STAK-184)
   // STAK-503: v2 API cache keys
-  "v2RetailPrices",                                    // JSON: v2 cached retail prices
-  "v2RetailIntraday",                                  // JSON: v2 standalone intraday data
-  "v2RetailHistory",                                   // JSON: v2 retail history cache
-  "v2SpotHistory",                                     // JSON: v2 spot price history
-  "v2ManifestCache",                                   // JSON: v2 manifest metadata cache
+  "v2RetailPrices", // JSON: v2 cached retail prices
+  "v2RetailIntraday", // JSON: v2 standalone intraday data
+  "v2RetailHistory", // JSON: v2 retail history cache
+  "v2SpotHistory", // JSON: v2 spot price history
+  "v2ManifestCache", // JSON: v2 manifest metadata cache
   // STAK-504: Market data module keys
-  "vendorPricesActiveTab",                             // string: active metal tab in vendor prices section
-  "v2SpotHistoryTs",                                   // string: ISO timestamp of cached v2 spot history
+  "vendorPricesActiveTab", // string: active metal tab in vendor prices section
+  "v2SpotHistoryTs", // string: ISO timestamp of cached v2 spot history
 ];
 
 /**
@@ -1007,22 +1010,22 @@ const ALLOWED_STORAGE_KEYS = [
  * @constant {string[]}
  */
 const VAULT_EXCLUDE_KEYS = [
-  'cloud_token_dropbox',
-  'cloud_token_pcloud',
-  'cloud_token_box',
-  'cloud_dropbox_account_id',
-  'cloud_dropbox_email',
-  'cloud_dropbox_display_name',
-  'cloud_vault_password',
-  'cloud_sync_device_id',
-  'cloud_sync_cursor',
-  'cloud_sync_last_push',
-  'cloud_sync_last_pull',
-  'cloud_sync_override_backup',
-  'cloud_sync_mode',
-  'cloud_sync_local_modified',
-  'cloud_sync_migrated',
-  'staktrakr_oauth_result',
+  "cloud_token_dropbox",
+  "cloud_token_pcloud",
+  "cloud_token_box",
+  "cloud_dropbox_account_id",
+  "cloud_dropbox_email",
+  "cloud_dropbox_display_name",
+  "cloud_vault_password",
+  "cloud_sync_device_id",
+  "cloud_sync_cursor",
+  "cloud_sync_last_push",
+  "cloud_sync_last_pull",
+  "cloud_sync_override_backup",
+  "cloud_sync_mode",
+  "cloud_sync_local_modified",
+  "cloud_sync_migrated",
+  "staktrakr_oauth_result",
 ];
 
 // =============================================================================
@@ -1034,15 +1037,15 @@ const VAULT_EXCLUDE_KEYS = [
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const INLINE_CHIP_DEFAULTS = [
-  { id: 'grade',   label: 'Grade',           enabled: true },
-  { id: 'numista', label: 'Numista (N#)',     enabled: true },
-  { id: 'pcgs',    label: 'PCGS #',          enabled: false },
-  { id: 'year',    label: 'Year',            enabled: true },
-  { id: 'serial',  label: 'Serial #',         enabled: false },
-  { id: 'storage', label: 'Storage Location', enabled: false },
-  { id: 'notes',   label: 'Notes Indicator',  enabled: false },
-  { id: 'purity',  label: 'Purity',           enabled: false },
-  { id: 'tags',    label: 'Tags',             enabled: false },
+  { id: "grade", label: "Grade", enabled: true },
+  { id: "numista", label: "Numista (N#)", enabled: true },
+  { id: "pcgs", label: "PCGS #", enabled: false },
+  { id: "year", label: "Year", enabled: true },
+  { id: "serial", label: "Serial #", enabled: false },
+  { id: "storage", label: "Storage Location", enabled: false },
+  { id: "notes", label: "Notes Indicator", enabled: false },
+  { id: "purity", label: "Purity", enabled: false },
+  { id: "tags", label: "Tags", enabled: false },
 ];
 
 /**
@@ -1052,13 +1055,13 @@ const INLINE_CHIP_DEFAULTS = [
  */
 const getInlineChipConfig = () => {
   try {
-    const raw = localStorage.getItem('inlineChipConfig');
+    const raw = localStorage.getItem("inlineChipConfig");
     if (raw) {
       const saved = JSON.parse(raw);
       // Build a map of saved chips for quick lookup
-      const savedMap = new Map(saved.map(c => [c.id, c]));
+      const savedMap = new Map(saved.map((c) => [c.id, c]));
       // Start with saved order, preserving user's arrangement
-      const merged = saved.filter(c => INLINE_CHIP_DEFAULTS.some(d => d.id === c.id));
+      const merged = saved.filter((c) => INLINE_CHIP_DEFAULTS.some((d) => d.id === c.id));
       // Append any new defaults not in saved config
       for (const def of INLINE_CHIP_DEFAULTS) {
         if (!savedMap.has(def.id)) {
@@ -1068,9 +1071,9 @@ const getInlineChipConfig = () => {
       return merged;
     }
   } catch (e) {
-    console.warn('Failed to load inline chip config:', e);
+    console.warn("Failed to load inline chip config:", e);
   }
-  return INLINE_CHIP_DEFAULTS.map(d => ({ ...d }));
+  return INLINE_CHIP_DEFAULTS.map((d) => ({ ...d }));
 };
 
 /**
@@ -1079,10 +1082,10 @@ const getInlineChipConfig = () => {
  */
 const saveInlineChipConfig = (config) => {
   try {
-    localStorage.setItem('inlineChipConfig', JSON.stringify(config));
-    if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+    localStorage.setItem("inlineChipConfig", JSON.stringify(config));
+    if (typeof scheduleSyncPush === "function") scheduleSyncPush();
   } catch (e) {
-    console.warn('Failed to save inline chip config:', e);
+    console.warn("Failed to save inline chip config:", e);
   }
 };
 
@@ -1095,18 +1098,18 @@ const saveInlineChipConfig = (config) => {
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const FILTER_CHIP_CATEGORY_DEFAULTS = [
-  { id: 'metal',            label: 'Metals',            enabled: true, group: null },
-  { id: 'type',             label: 'Types',             enabled: true, group: null },
-  { id: 'name',             label: 'Names',             enabled: true, group: null },
-  { id: 'customGroup',      label: 'Custom Groups',     enabled: true, group: null },
-  { id: 'dynamicName',      label: 'Dynamic Names',     enabled: true, group: null },
-  { id: 'purchaseLocation', label: 'Purchase Location', enabled: true, group: null },
-  { id: 'storageLocation',  label: 'Storage Location',  enabled: true, group: null },
-  { id: 'year',             label: 'Years',             enabled: true, group: null },
-  { id: 'grade',            label: 'Grades',            enabled: true, group: null },
-  { id: 'numistaId',        label: 'Numista IDs',       enabled: true, group: null },
-  { id: 'purity',           label: 'Purity',            enabled: true, group: null },
-  { id: 'tags',             label: 'Tags',              enabled: true, group: null },
+  { id: "metal", label: "Metals", enabled: true, group: null },
+  { id: "type", label: "Types", enabled: true, group: null },
+  { id: "name", label: "Names", enabled: true, group: null },
+  { id: "customGroup", label: "Custom Groups", enabled: true, group: null },
+  { id: "dynamicName", label: "Dynamic Names", enabled: true, group: null },
+  { id: "purchaseLocation", label: "Purchase Location", enabled: true, group: null },
+  { id: "storageLocation", label: "Storage Location", enabled: true, group: null },
+  { id: "year", label: "Years", enabled: true, group: null },
+  { id: "grade", label: "Grades", enabled: true, group: null },
+  { id: "numistaId", label: "Numista IDs", enabled: true, group: null },
+  { id: "purity", label: "Purity", enabled: true, group: null },
+  { id: "tags", label: "Tags", enabled: true, group: null },
 ];
 
 /**
@@ -1116,12 +1119,12 @@ const FILTER_CHIP_CATEGORY_DEFAULTS = [
  */
 const getFilterChipCategoryConfig = () => {
   try {
-    const raw = localStorage.getItem('filterChipCategoryConfig');
+    const raw = localStorage.getItem("filterChipCategoryConfig");
     if (raw) {
       const saved = JSON.parse(raw);
-      const savedMap = new Map(saved.map(c => [c.id, c]));
+      const savedMap = new Map(saved.map((c) => [c.id, c]));
       // Start with saved order, preserving user's arrangement
-      const merged = saved.filter(c => FILTER_CHIP_CATEGORY_DEFAULTS.some(d => d.id === c.id));
+      const merged = saved.filter((c) => FILTER_CHIP_CATEGORY_DEFAULTS.some((d) => d.id === c.id));
       // Append any new defaults not in saved config
       for (const def of FILTER_CHIP_CATEGORY_DEFAULTS) {
         if (!savedMap.has(def.id)) {
@@ -1131,9 +1134,9 @@ const getFilterChipCategoryConfig = () => {
       return merged;
     }
   } catch (e) {
-    console.warn('Failed to load filter chip category config:', e);
+    console.warn("Failed to load filter chip category config:", e);
   }
-  return FILTER_CHIP_CATEGORY_DEFAULTS.map(d => ({ ...d }));
+  return FILTER_CHIP_CATEGORY_DEFAULTS.map((d) => ({ ...d }));
 };
 
 /**
@@ -1142,10 +1145,10 @@ const getFilterChipCategoryConfig = () => {
  */
 const saveFilterChipCategoryConfig = (config) => {
   try {
-    localStorage.setItem('filterChipCategoryConfig', JSON.stringify(config));
-    if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+    localStorage.setItem("filterChipCategoryConfig", JSON.stringify(config));
+    if (typeof scheduleSyncPush === "function") scheduleSyncPush();
   } catch (e) {
-    console.warn('Failed to save filter chip category config:', e);
+    console.warn("Failed to save filter chip category config:", e);
   }
 };
 
@@ -1158,12 +1161,12 @@ const saveFilterChipCategoryConfig = (config) => {
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const LAYOUT_SECTION_DEFAULTS = [
-  { id: 'spotPrices', label: 'Spot price cards',    enabled: true },
-  { id: 'bestPriceTicker', label: 'Best Price Ticker', enabled: true },
-  { id: 'totals',     label: 'Summary totals',      enabled: true },
-  { id: 'search',     label: 'Search & filter bar', enabled: true },
-  { id: 'table',      label: 'Inventory table',     enabled: true },
-  { id: 'vendorPrices',    label: 'Vendor Prices',     enabled: true },
+  { id: "spotPrices", label: "Spot price cards", enabled: true },
+  { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
+  { id: "totals", label: "Summary totals", enabled: true },
+  { id: "search", label: "Search & filter bar", enabled: true },
+  { id: "table", label: "Inventory table", enabled: true },
+  { id: "vendorPrices", label: "Vendor Prices", enabled: true },
 ];
 
 /**
@@ -1172,15 +1175,15 @@ const LAYOUT_SECTION_DEFAULTS = [
  * @returns {Array<{id: string, label: string, enabled: boolean}>}
  */
 const migrateLayoutVisibility = (obj) => {
-  const config = LAYOUT_SECTION_DEFAULTS.map(d => ({
+  const config = LAYOUT_SECTION_DEFAULTS.map((d) => ({
     ...d,
     enabled: obj[d.id] !== undefined ? !!obj[d.id] : d.enabled,
   }));
   try {
-    localStorage.setItem('layoutSectionConfig', JSON.stringify(config));
-    localStorage.removeItem('layoutVisibility');
+    localStorage.setItem("layoutSectionConfig", JSON.stringify(config));
+    localStorage.removeItem("layoutVisibility");
   } catch (e) {
-    console.warn('Failed to migrate layout visibility:', e);
+    console.warn("Failed to migrate layout visibility:", e);
   }
   return config;
 };
@@ -1199,8 +1202,8 @@ const _loadSectionConfig = (key, defaults, legacyKey, migrateFn) => {
     const raw = localStorage.getItem(key);
     if (raw) {
       const saved = JSON.parse(raw);
-      const savedMap = new Map(saved.map(c => [c.id, c]));
-      const merged = saved.filter(c => defaults.some(d => d.id === c.id));
+      const savedMap = new Map(saved.map((c) => [c.id, c]));
+      const merged = saved.filter((c) => defaults.some((d) => d.id === c.id));
       for (const def of defaults) {
         if (!savedMap.has(def.id)) merged.push({ ...def });
       }
@@ -1213,7 +1216,7 @@ const _loadSectionConfig = (key, defaults, legacyKey, migrateFn) => {
   } catch (e) {
     console.warn(`Failed to load ${key}:`, e);
   }
-  return defaults.map(d => ({ ...d }));
+  return defaults.map((d) => ({ ...d }));
 };
 
 /**
@@ -1231,11 +1234,15 @@ const _saveSectionConfig = (key, config) => {
 
 /** Loads the layout section config, with migration from old layoutVisibility format. */
 const getLayoutSectionConfig = () =>
-  _loadSectionConfig('layoutSectionConfig', LAYOUT_SECTION_DEFAULTS, 'layoutVisibility', migrateLayoutVisibility);
+  _loadSectionConfig(
+    "layoutSectionConfig",
+    LAYOUT_SECTION_DEFAULTS,
+    "layoutVisibility",
+    migrateLayoutVisibility
+  );
 
 /** Saves the layout section config to localStorage. */
-const saveLayoutSectionConfig = (config) =>
-  _saveSectionConfig('layoutSectionConfig', config);
+const saveLayoutSectionConfig = (config) => _saveSectionConfig("layoutSectionConfig", config);
 
 // =============================================================================
 // VIEW MODAL SECTION CONFIG — controls order/visibility of view modal sections
@@ -1246,24 +1253,24 @@ const saveLayoutSectionConfig = (config) =>
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const VIEW_MODAL_SECTION_DEFAULTS = [
-  { id: 'images',       label: 'Coin images',       enabled: true },
-  { id: 'valuation',    label: 'Valuation',          enabled: true },
-  { id: 'priceHistory', label: 'Price history',      enabled: true },
-  { id: 'inventory',    label: 'Inventory details',  enabled: true },
-  { id: 'grading',      label: 'Grading',            enabled: true },
-  { id: 'numista',      label: 'Numista data',       enabled: true },
-  { id: 'notes',        label: 'Notes',              enabled: true },
-  { id: 'tags',         label: 'Tags',               enabled: true },
+  { id: "images", label: "Coin images", enabled: true },
+  { id: "valuation", label: "Valuation", enabled: true },
+  { id: "priceHistory", label: "Price history", enabled: true },
+  { id: "inventory", label: "Inventory details", enabled: true },
+  { id: "grading", label: "Grading", enabled: true },
+  { id: "numista", label: "Numista data", enabled: true },
+  { id: "notes", label: "Notes", enabled: true },
+  { id: "tags", label: "Tags", enabled: true },
 ];
 
 /** Loads the view modal section config from localStorage, merged with defaults. */
 const getViewModalSectionConfig = () =>
-  _loadSectionConfig('viewModalSectionConfig', VIEW_MODAL_SECTION_DEFAULTS);
+  _loadSectionConfig("viewModalSectionConfig", VIEW_MODAL_SECTION_DEFAULTS);
 
 /** Saves the view modal section config to localStorage. */
 const saveViewModalSectionConfig = (config) => {
-  _saveSectionConfig('viewModalSectionConfig', config);
-  if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+  _saveSectionConfig("viewModalSectionConfig", config);
+  if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 };
 
 // =============================================================================
@@ -1300,13 +1307,13 @@ const NUMISTA_VIEW_FIELD_DEFAULTS = {
  */
 const getNumistaViewFieldConfig = () => {
   try {
-    const raw = localStorage.getItem('numistaViewFields');
+    const raw = localStorage.getItem("numistaViewFields");
     if (raw) {
       const saved = JSON.parse(raw);
       return { ...NUMISTA_VIEW_FIELD_DEFAULTS, ...saved };
     }
   } catch (e) {
-    console.warn('Failed to load Numista view field config:', e);
+    console.warn("Failed to load Numista view field config:", e);
   }
   return { ...NUMISTA_VIEW_FIELD_DEFAULTS };
 };
@@ -1317,9 +1324,9 @@ const getNumistaViewFieldConfig = () => {
  */
 const saveNumistaViewFieldConfig = (config) => {
   try {
-    localStorage.setItem('numistaViewFields', JSON.stringify(config));
+    localStorage.setItem("numistaViewFields", JSON.stringify(config));
   } catch (e) {
-    console.warn('Failed to save Numista view field config:', e);
+    console.warn("Failed to save Numista view field config:", e);
   }
 };
 
@@ -1362,7 +1369,7 @@ if (typeof window !== "undefined") {
 /**
  * Feature flags configuration
  * Controls experimental features and gradual rollouts
- * 
+ *
  * Each feature flag contains:
  * @property {boolean} enabled - Default enabled state
  * @property {boolean} urlOverride - Allow URL parameter override
@@ -1376,64 +1383,66 @@ const FEATURE_FLAGS = {
     urlOverride: true,
     userToggle: true,
     description: "Fuzzy search autocomplete for item names and locations",
-    phase: "stable"
+    phase: "stable",
   },
   DEBUG_UI: {
     enabled: false,
     urlOverride: true,
     userToggle: false,
     description: "Debug UI indicators and development tools",
-    phase: "dev"
+    phase: "dev",
   },
   GROUPED_NAME_CHIPS: {
     enabled: true,
     urlOverride: true,
     userToggle: true,
-    description: "Group item names by base name (e.g., 'American Silver Eagle (3)' instead of separate year chips)",
-    phase: "beta"
+    description:
+      "Group item names by base name (e.g., 'American Silver Eagle (3)' instead of separate year chips)",
+    phase: "beta",
   },
   DYNAMIC_NAME_CHIPS: {
     enabled: false,
     urlOverride: true,
     userToggle: true,
-    description: "Auto-extract text from parentheses and quotes in item names as additional filter chips",
-    phase: "beta"
+    description:
+      "Auto-extract text from parentheses and quotes in item names as additional filter chips",
+    phase: "beta",
   },
   CHIP_QTY_BADGE: {
     enabled: true,
     urlOverride: true,
     userToggle: true,
     description: "Show item count badge on filter chips",
-    phase: "stable"
+    phase: "stable",
   },
   NUMISTA_SEARCH_LOOKUP: {
     enabled: false,
     urlOverride: true,
     userToggle: true,
     description: "Pattern-based Numista search improvement",
-    phase: "beta"
+    phase: "beta",
   },
   COIN_IMAGES: {
     enabled: true,
     urlOverride: true,
     userToggle: true,
     description: "Coin image caching and item view modal",
-    phase: "beta"
+    phase: "beta",
   },
   MARKET_DASHBOARD_ITEMS: {
     enabled: false,
     urlOverride: true,
     userToggle: true,
     description: "Show goldback and dashboard items in the market list",
-    phase: "beta"
+    phase: "beta",
   },
   MARKET_AUTO_RETAIL: {
     enabled: false,
     urlOverride: true,
     userToggle: true,
     description: "Auto-update inventory retail prices from linked market data",
-    phase: "beta"
-  }
+    phase: "beta",
+  },
 };
 
 /**
@@ -1464,16 +1473,16 @@ class FeatureFlags {
 
       // One-time migration (v3.26.01): re-enable FUZZY_AUTOCOMPLETE for users
       // who had it silently disabled before the settings toggle existed
-      const migrationKey = 'ff_migration_fuzzy_autocomplete'; // nosemgrep: codacy.javascript.security.hard-coded-password
+      const migrationKey = "ff_migration_fuzzy_autocomplete"; // nosemgrep: codacy.javascript.security.hard-coded-password
       if (!localStorage.getItem(migrationKey) && parsed.FUZZY_AUTOCOMPLETE === false) {
         state.FUZZY_AUTOCOMPLETE = true;
-        localStorage.setItem(migrationKey, '1');
+        localStorage.setItem(migrationKey, "1");
         localStorage.setItem(FEATURE_FLAGS_KEY, JSON.stringify(state));
       }
 
       return state;
     } catch (e) {
-      console.warn('Failed to load feature flags from localStorage:', e);
+      console.warn("Failed to load feature flags from localStorage:", e);
       return this.getDefaultState();
     }
   }
@@ -1495,29 +1504,29 @@ class FeatureFlags {
    */
   initializeFromUrl() {
     if (typeof window === "undefined") return;
-    
+
     const params = new URLSearchParams(window.location.search);
     let changed = false;
-    
+
     for (const [key, config] of Object.entries(FEATURE_FLAGS)) {
       if (!config.urlOverride) continue;
-      
+
       const paramName = key.toLowerCase();
       if (params.has(paramName)) {
         const value = params.get(paramName);
         const enabled = value === null || value === "" || value === "1" || value === "true";
-        
+
         if (this.state[key] !== enabled) {
           this.state[key] = enabled;
           changed = true;
-          
+
           if (DEBUG) {
             console.log(`Feature flag ${key} set to ${enabled} via URL parameter`);
           }
         }
       }
     }
-    
+
     if (changed) {
       this.saveFeatureState();
       this.notifyListeners();
@@ -1531,7 +1540,7 @@ class FeatureFlags {
     try {
       localStorage.setItem(FEATURE_FLAGS_KEY, JSON.stringify(this.state));
     } catch (e) {
-      console.warn('Failed to save feature flags to localStorage:', e);
+      console.warn("Failed to save feature flags to localStorage:", e);
     }
   }
 
@@ -1554,7 +1563,7 @@ class FeatureFlags {
       this.state[feature] = true;
       if (persist) this.saveFeatureState();
       this.notifyListeners(feature);
-      
+
       if (DEBUG) {
         console.log(`Feature ${feature} enabled`);
       }
@@ -1571,7 +1580,7 @@ class FeatureFlags {
       this.state[feature] = false;
       if (persist) this.saveFeatureState();
       this.notifyListeners(feature);
-      
+
       if (DEBUG) {
         console.log(`Feature ${feature} disabled`);
       }
@@ -1590,13 +1599,13 @@ class FeatureFlags {
       console.warn(`Feature ${feature} cannot be toggled by user`);
       return this.state[feature];
     }
-    
+
     if (this.state[feature]) {
       this.disable(feature, persist);
     } else {
       this.enable(feature, persist);
     }
-    
+
     return this.state[feature];
   }
 
@@ -1607,9 +1616,9 @@ class FeatureFlags {
     this.state = this.getDefaultState();
     this.saveFeatureState();
     this.notifyListeners();
-    
+
     if (DEBUG) {
-      console.log('All feature flags reset to defaults');
+      console.log("All feature flags reset to defaults");
     }
   }
 
@@ -1671,27 +1680,27 @@ class FeatureFlags {
    */
   notifyListeners(changedFeature = null) {
     // Notify 'all' listeners
-    const allListeners = this.listeners.get('all');
+    const allListeners = this.listeners.get("all");
     if (allListeners) {
-      allListeners.forEach(callback => {
+      allListeners.forEach((callback) => {
         try {
           callback(changedFeature, this.state);
         } catch (e) {
-          console.error('Error in feature flag listener:', e);
+          console.error("Error in feature flag listener:", e);
         }
       });
     }
-    
+
     // Notify specific feature listeners
     if (changedFeature) {
       const featureListeners = this.listeners.get(changedFeature);
       if (featureListeners) {
         const enabled = this.state[changedFeature];
-        featureListeners.forEach(callback => {
+        featureListeners.forEach((callback) => {
           try {
             callback(changedFeature, enabled);
           } catch (e) {
-            console.error('Error in feature flag listener:', e);
+            console.error("Error in feature flag listener:", e);
           }
         });
       }
@@ -1706,15 +1715,17 @@ class FeatureFlags {
     return {
       state: this.getState(),
       configs: this.getAllConfigs(),
-      urlParams: typeof window !== "undefined" ? 
-        Object.fromEntries(new URLSearchParams(window.location.search)) : {},
+      urlParams:
+        typeof window !== "undefined"
+          ? Object.fromEntries(new URLSearchParams(window.location.search))
+          : {},
       localStorage: (() => {
         try {
-          return JSON.parse(localStorage.getItem(FEATURE_FLAGS_KEY) || '{}');
+          return JSON.parse(localStorage.getItem(FEATURE_FLAGS_KEY) || "{}");
         } catch (e) {
           return null;
         }
-      })()
+      })(),
     };
   }
 }
@@ -1737,7 +1748,7 @@ const toggleFeature = (feature, persist = true) => featureFlags.toggle(feature, 
  * Log feature flag state on initialization (debug mode only)
  */
 if (DEBUG && typeof window !== "undefined") {
-  console.log('Feature Flags initialized:', featureFlags.getDebugInfo());
+  console.log("Feature Flags initialized:", featureFlags.getDebugInfo());
 }
 
 /**
@@ -1811,7 +1822,7 @@ if (typeof window !== "undefined") {
   window.BRANDING_DOMAIN_OVERRIDE = BRANDING_DOMAIN_OVERRIDE;
   window.getTemplateVariables = getTemplateVariables;
   window.replaceTemplateVariables = replaceTemplateVariables;
-  
+
   // Feature flags system
   window.FEATURE_FLAGS = FEATURE_FLAGS;
   window.featureFlags = featureFlags;
@@ -1917,8 +1928,8 @@ if (typeof window !== "undefined") {
 }
 
 // Expose APP_VERSION globally for non-module usage
-(function() {
-  if (typeof window !== 'undefined') {
-    window.APP_VERSION = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : "0.0.0";
+(function () {
+  if (typeof window !== "undefined") {
+    window.APP_VERSION = typeof APP_VERSION !== "undefined" ? APP_VERSION : "0.0.0";
   }
 })();

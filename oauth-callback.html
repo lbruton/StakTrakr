@@ -1,42 +1,53 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>StakTrakr — OAuth</title></head>
-<body>
-<p>Authenticating&hellip;</p>
-<script>
-  var params = new URLSearchParams(location.search);
-  var code = params.get('code');
-  var state = params.get('state');
-  var isPopup = window.name === 'staktrakr_oauth';
+  <head>
+    <meta charset="UTF-8" />
+    <title>StakTrakr — OAuth</title>
+  </head>
+  <body>
+    <p>Authenticating&hellip;</p>
+    <script>
+      var params = new URLSearchParams(location.search);
+      var code = params.get("code");
+      var state = params.get("state");
+      var isPopup = window.name === "staktrakr_oauth";
 
-  if (code) {
-    // Try postMessage to opener (works when opener reference survives the redirect chain)
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({ type: 'staktrakr-oauth', code: code, state: state }, location.origin);
-    }
+      if (code) {
+        // Try postMessage to opener (works when opener reference survives the redirect chain)
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(
+            { type: "staktrakr-oauth", code: code, state: state },
+            location.origin
+          );
+        }
 
-    // Always set the localStorage relay — the main window's storage listener picks it up
-    // even if postMessage also worked (the app deduplicates via state check)
-    try {
-      localStorage.setItem('staktrakr_oauth_result', JSON.stringify({ code: code, state: state }));
-    } catch (e) { /* ignore */ }
+        // Always set the localStorage relay — the main window's storage listener picks it up
+        // even if postMessage also worked (the app deduplicates via state check)
+        try {
+          localStorage.setItem(
+            "staktrakr_oauth_result",
+            JSON.stringify({ code: code, state: state })
+          );
+        } catch (e) {
+          /* ignore */
+        }
 
-    // If we're a popup, close ourselves; otherwise redirect to the app
-    if (isPopup) {
-      window.close();
-      // Some browsers ignore window.close() — show a manual close message as fallback
-      document.body.innerHTML = '<p>Connected! You can close this window.</p>';
-    } else {
-      window.location.replace(location.origin + '/');
-    }
-  } else {
-    if (isPopup) {
-      window.close();
-      document.body.innerHTML = '<p>You can close this window.</p>';
-    } else {
-      window.location.replace(location.origin + '/');
-    }
-  }
-</script>
-</body>
+        // If we're a popup, close ourselves; otherwise redirect to the app
+        if (isPopup) {
+          window.close();
+          // Some browsers ignore window.close() — show a manual close message as fallback
+          document.body.innerHTML = "<p>Connected! You can close this window.</p>";
+        } else {
+          window.location.replace(location.origin + "/");
+        }
+      } else {
+        if (isPopup) {
+          window.close();
+          document.body.innerHTML = "<p>You can close this window.</p>";
+        } else {
+          window.location.replace(location.origin + "/");
+        }
+      }
+    </script>
+  </body>
 </html>

@@ -32,28 +32,34 @@ const _normalizeV2IntradayWindows = (windows) => {
  * @returns {string}
  */
 const _fmtIntradayTime = (d) => {
-  if (!d || isNaN(d.getTime())) return '--:--';
-  const tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-  const tzOpts = tz && tz !== 'auto' ? { timeZone: tz } : {};
+  if (!d || isNaN(d.getTime())) return "--:--";
+  const tz =
+    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+  const tzOpts = tz && tz !== "auto" ? { timeZone: tz } : {};
   try {
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false, ...tzOpts });
+    return d.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      ...tzOpts,
+    });
   } catch (e) {
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
   }
 };
 
 const _trendGlyph = (current, previous) => {
-  if (previous == null || current == null) return '—'; // —
-  if (current > previous) return '▲'; // ▲
-  if (current < previous) return '▼'; // ▼
-  return '—'; // —
+  if (previous == null || current == null) return "—"; // —
+  if (current > previous) return "▲"; // ▲
+  if (current < previous) return "▼"; // ▼
+  return "—"; // —
 };
 
 const _trendClass = (current, previous) => {
-  if (previous == null || current == null) return '';
-  if (current > previous) return 'text-success';
-  if (current < previous) return 'text-danger';
-  return '';
+  if (previous == null || current == null) return "";
+  if (current > previous) return "text-success";
+  if (current < previous) return "text-danger";
+  return "";
 };
 
 const _retailYTicks = () => ({
@@ -86,15 +92,18 @@ const _buildVendorLegend = (slug) => {
   const container = safeGetElement("retailViewVendorLegend");
   while (container.firstChild) container.removeChild(container.firstChild);
 
-  const priceData = typeof retailPrices !== "undefined" && retailPrices && retailPrices.prices
-    ? retailPrices.prices[slug]
-    : null;
+  const priceData =
+    typeof retailPrices !== "undefined" && retailPrices && retailPrices.prices
+      ? retailPrices.prices[slug]
+      : null;
   const vendorMap = priceData ? priceData.vendors || {} : {};
-  const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-  const avail = typeof retailAvailability !== 'undefined' && retailAvailability;
-  const hasAny = knownVendors.some((v) =>
-    (vendorMap[v] && vendorMap[v].price != null) ||
-    (avail && avail[slug] && avail[slug][v] === false)
+  const knownVendors =
+    typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const avail = typeof retailAvailability !== "undefined" && retailAvailability;
+  const hasAny = knownVendors.some(
+    (v) =>
+      (vendorMap[v] && vendorMap[v].price != null) ||
+      (avail && avail[slug] && avail[slug][v] === false)
   );
   if (!hasAny) return;
 
@@ -107,10 +116,15 @@ const _buildVendorLegend = (slug) => {
     if (price == null && !isOOS) return;
 
     const color = RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8";
-    const label = (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId;
-    const vendorUrl = (typeof retailProviders !== "undefined" && retailProviders && retailProviders[slug] && retailProviders[slug][vendorId])
-      || (typeof RETAIL_VENDOR_URLS !== "undefined" && RETAIL_VENDOR_URLS[vendorId])
-      || null;
+    const label =
+      (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId;
+    const vendorUrl =
+      (typeof retailProviders !== "undefined" &&
+        retailProviders &&
+        retailProviders[slug] &&
+        retailProviders[slug][vendorId]) ||
+      (typeof RETAIL_VENDOR_URLS !== "undefined" && RETAIL_VENDOR_URLS[vendorId]) ||
+      null;
 
     // Skip vendors with no price
     if (price == null) return;
@@ -127,7 +141,11 @@ const _buildVendorLegend = (slug) => {
       item.href = "#";
       item.addEventListener("click", (e) => {
         e.preventDefault();
-        const popup = window.open(vendorUrl, `retail_vendor_${vendorId}`, "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no");
+        const popup = window.open(
+          vendorUrl,
+          `retail_vendor_${vendorId}`,
+          "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
+        );
         if (popup) popup.opener = null;
         else window.open(vendorUrl, "_blank", "noopener,noreferrer");
       });
@@ -157,13 +175,16 @@ const _buildVendorLegend = (slug) => {
 
 const _trimTo24h = (windows) => {
   if (!windows || windows.length === 0) return [];
-  const validWindows = windows.filter(w => w && w.window);
+  const validWindows = windows.filter((w) => w && w.window);
   if (validWindows.length === 0) return [];
-  const timestamps = validWindows.map(w => new Date(w.window).getTime()).filter(t => !isNaN(t));
+  const timestamps = validWindows.map((w) => new Date(w.window).getTime()).filter((t) => !isNaN(t));
   if (timestamps.length === 0) return [];
   const maxTs = Math.max(...timestamps);
   const cutoff = maxTs - 24 * 60 * 60 * 1000;
-  return validWindows.filter(w => { const t = new Date(w.window).getTime(); return !isNaN(t) && t >= cutoff; });
+  return validWindows.filter((w) => {
+    const t = new Date(w.window).getTime();
+    return !isNaN(t) && t >= cutoff;
+  });
 };
 
 const _bucketWindows = (windows) => {
@@ -176,10 +197,9 @@ const _bucketWindows = (windows) => {
     if (isNaN(d.getTime())) continue;
     // Round down to nearest 60-min (hourly) boundary
     const mins = 0;
-    const slotDate = new Date(Date.UTC(
-      d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
-      d.getUTCHours(), mins, 0, 0
-    ));
+    const slotDate = new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), mins, 0, 0)
+    );
     const key = slotDate.toISOString();
     // Keep the most recent window for each slot
     const existing = slotMap.get(key);
@@ -189,7 +209,7 @@ const _bucketWindows = (windows) => {
     }
   }
   // Sort chronologically
-  return Array.from(slotMap.values()).sort((a, b) => a.window < b.window ? -1 : 1);
+  return Array.from(slotMap.values()).sort((a, b) => (a.window < b.window ? -1 : 1));
 };
 
 /**
@@ -202,7 +222,8 @@ const _bucketWindows = (windows) => {
  */
 const _forwardFillVendors = (bucketed) => {
   if (!bucketed || bucketed.length === 0) return [];
-  const knownVendors = typeof RETAIL_VENDOR_NAMES !== 'undefined' ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const knownVendors =
+    typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
   const lastSeen = {};
   return bucketed.map((w) => {
     const vendors = w.vendors ? { ...w.vendors } : {};
@@ -241,16 +262,19 @@ const _forwardFillVendors = (bucketed) => {
  */
 const _flagAnomalies = (bucketed) => {
   if (!bucketed || bucketed.length === 0) return [];
-  const neighborTol = typeof RETAIL_SPIKE_NEIGHBOR_TOLERANCE !== 'undefined' ? RETAIL_SPIKE_NEIGHBOR_TOLERANCE : 0.05;
-  const medianThreshold = typeof RETAIL_ANOMALY_THRESHOLD !== 'undefined' ? RETAIL_ANOMALY_THRESHOLD : 0.40;
-  const knownSet = typeof RETAIL_VENDOR_NAMES !== 'undefined' ? Object.keys(RETAIL_VENDOR_NAMES) : null;
+  const neighborTol =
+    typeof RETAIL_SPIKE_NEIGHBOR_TOLERANCE !== "undefined" ? RETAIL_SPIKE_NEIGHBOR_TOLERANCE : 0.05;
+  const medianThreshold =
+    typeof RETAIL_ANOMALY_THRESHOLD !== "undefined" ? RETAIL_ANOMALY_THRESHOLD : 0.4;
+  const knownSet =
+    typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : null;
 
   // Deep-copy vendors so we don't mutate input
   const result = bucketed.map((w) => ({
     ...w,
     vendors: w.vendors ? { ...w.vendors } : {},
     _anomalousVendors: new Set(),
-    _anomalyOriginals: {}
+    _anomalyOriginals: {},
   }));
 
   // --- Pass 1: Temporal spike detection (per-vendor, per-window) ---
@@ -270,9 +294,9 @@ const _flagAnomalies = (bucketed) => {
       const prev = result[t - 1].vendors[vendorId];
       const next = result[t + 1].vendors[vendorId];
       // Need numeric values for all three windows
-      if (typeof curr !== 'number' || isNaN(curr)) continue;
-      if (typeof prev !== 'number' || isNaN(prev)) continue;
-      if (typeof next !== 'number' || isNaN(next)) continue;
+      if (typeof curr !== "number" || isNaN(curr)) continue;
+      if (typeof prev !== "number" || isNaN(prev)) continue;
+      if (typeof next !== "number" || isNaN(next)) continue;
       if (prev === 0 && next === 0) continue;
       // Check if before/after form a stable neighborhood (within ±tolerance of each other)
       const neighborAvg = (prev + next) / 2;
@@ -292,7 +316,9 @@ const _flagAnomalies = (bucketed) => {
 
   // --- Pass 2: Cross-vendor median consensus (safety net for extreme outliers) ---
   for (const w of result) {
-    const entries = Object.entries(w.vendors).filter(([k, p]) => typeof p === 'number' && !isNaN(p) && (!knownSet || knownSet.includes(k)));
+    const entries = Object.entries(w.vendors).filter(
+      ([k, p]) => typeof p === "number" && !isNaN(p) && (!knownSet || knownSet.includes(k))
+    );
     if (entries.length < 3) continue;
     const prices = entries.map(([, p]) => p).sort((a, b) => a - b);
     const mid = Math.floor(prices.length / 2);
@@ -340,25 +366,38 @@ const _buildIntradayTable = (slug, bucketed) => {
     try {
       bucketed = _flagAnomalies(filled);
     } catch (e) {
-      debugLog('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: ' + e.message, 'warn');
+      debugLog(
+        "[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: " + e.message,
+        "warn"
+      );
       bucketed = filled;
     }
   }
 
   // Collect the vendor set across all bucketed entries
-  const knownVendors = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
-  const activeVendors = knownVendors.filter((v) => bucketed.some((w) => (w.vendors && w.vendors[v] != null) || (w._anomalyOriginals && w._anomalyOriginals[v] != null)));
+  const knownVendors =
+    typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const activeVendors = knownVendors.filter((v) =>
+    bucketed.some(
+      (w) =>
+        (w.vendors && w.vendors[v] != null) ||
+        (w._anomalyOriginals && w._anomalyOriginals[v] != null)
+    )
+  );
   const useVendorLines = activeVendors.length > 0;
 
   // Update table header — per-vendor when data available, median+low fallback otherwise
   const tableColumns = useVendorLines
-    ? activeVendors.map((v) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[v]) || v)
+    ? activeVendors.map(
+        (v) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[v]) || v
+      )
     : ["Median", "Low"];
   if (tableHead) {
     tableHead.innerHTML = "";
     const headerRow = document.createElement("tr");
-    const tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-    const timeColLabel = tz && tz !== 'auto' ? `Time (${tz})` : 'Time (local)';
+    const tz =
+      (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+    const timeColLabel = tz && tz !== "auto" ? `Time (${tz})` : "Time (local)";
     [timeColLabel, ...tableColumns].forEach((label) => {
       const th = document.createElement("th");
       th.textContent = label;
@@ -391,25 +430,30 @@ const _buildIntradayTable = (slug, bucketed) => {
           const currVal = w.vendors && w.vendors[v] != null ? w.vendors[v] : null;
           const td = document.createElement("td");
           if (isAnomalous && anomalyVal != null) {
-            const prevAnom = idx + 1 < recent.length && recent[idx + 1]._anomalyOriginals
-              ? recent[idx + 1]._anomalyOriginals[v] : null;
+            const prevAnom =
+              idx + 1 < recent.length && recent[idx + 1]._anomalyOriginals
+                ? recent[idx + 1]._anomalyOriginals[v]
+                : null;
             const cls = _trendClass(anomalyVal, prevAnom);
-            td.className = cls || '';
-            td.style.textDecoration = 'line-through';
-            td.style.opacity = '0.45';
+            td.className = cls || "";
+            td.style.textDecoration = "line-through";
+            td.style.opacity = "0.45";
             td.textContent = fmt(anomalyVal);
           } else if (currVal == null) {
-            td.textContent = '\u2014';
+            td.textContent = "\u2014";
           } else if (isCarried) {
-            td.className = 'text-muted fst-italic';
+            td.className = "text-muted fst-italic";
             td.textContent = `~${fmt(currVal)}`;
           } else {
-            const prevVal = idx + 1 < recent.length
-              ? (recent[idx + 1].vendors && recent[idx + 1].vendors[v] != null ? recent[idx + 1].vendors[v] : null)
-              : null;
+            const prevVal =
+              idx + 1 < recent.length
+                ? recent[idx + 1].vendors && recent[idx + 1].vendors[v] != null
+                  ? recent[idx + 1].vendors[v]
+                  : null
+                : null;
             const glyph = _trendGlyph(currVal, prevVal);
             const cls = _trendClass(currVal, prevVal);
-            td.className = cls || '';
+            td.className = cls || "";
             td.textContent = `${fmt(currVal)} ${glyph}`;
           }
           tr.appendChild(td);
@@ -417,12 +461,17 @@ const _buildIntradayTable = (slug, bucketed) => {
       } else {
         // Median cell with trend
         const currMedian = w.median != null ? w.median : null;
-        const prevMedian = idx + 1 < recent.length ? (recent[idx + 1].median != null ? recent[idx + 1].median : null) : null;
+        const prevMedian =
+          idx + 1 < recent.length
+            ? recent[idx + 1].median != null
+              ? recent[idx + 1].median
+              : null
+            : null;
         const medGlyph = _trendGlyph(currMedian, prevMedian);
         const medCls = _trendClass(currMedian, prevMedian);
         const medTd = document.createElement("td");
-        medTd.className = medCls || '';
-        medTd.textContent = currMedian != null ? `${fmt(currMedian)} ${medGlyph}` : '\u2014';
+        medTd.className = medCls || "";
+        medTd.textContent = currMedian != null ? `${fmt(currMedian)} ${medGlyph}` : "\u2014";
         tr.appendChild(medTd);
         // Low cell (no trend — less meaningful for low)
         const lowTd = document.createElement("td");
@@ -462,7 +511,10 @@ const _buildIntradayChart = (slug) => {
   try {
     bucketed = _flagAnomalies(filled);
   } catch (e) {
-    debugLog('[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: ' + e.message, 'warn');
+    debugLog(
+      "[retail] _flagAnomalies threw unexpectedly — anomaly detection skipped: " + e.message,
+      "warn"
+    );
     bucketed = filled;
   }
 
@@ -480,16 +532,19 @@ const _buildIntradayChart = (slug) => {
     if (w.vendors) Object.keys(w.vendors).forEach((v) => vendorSet.add(v));
     if (w._anomalyOriginals) Object.keys(w._anomalyOriginals).forEach((v) => vendorSet.add(v));
   });
-  const knownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const knownOrder =
+    typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
   const activeVendors = [
     ...knownOrder.filter((v) => vendorSet.has(v)),
     ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
   ];
   // Exclude OOS vendors with zero real (non-carried) prices
   const qualifiedVendors = activeVendors.filter((vendorId) =>
-    bucketed.some((w) =>
-      w.vendors && w.vendors[vendorId] != null &&
-      !(w._carriedVendors && w._carriedVendors.has(vendorId))
+    bucketed.some(
+      (w) =>
+        w.vendors &&
+        w.vendors[vendorId] != null &&
+        !(w._carriedVendors && w._carriedVendors.has(vendorId))
     )
   );
   // Fall back to median+low when windows predate the per-vendor format
@@ -507,7 +562,10 @@ const _buildIntradayChart = (slug) => {
       const s = new Set();
       bucketed.forEach((w, i) => {
         if (w._carriedVendors && w._carriedVendors.has(vendorId)) {
-          if (i === 0 || (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))) {
+          if (
+            i === 0 ||
+            (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))
+          ) {
             s.add(i);
           }
         }
@@ -516,13 +574,18 @@ const _buildIntradayChart = (slug) => {
     });
 
     const datasets = useVendorLines
-      ? buildVendorDatasets(qualifiedVendors, bucketed,
+      ? buildVendorDatasets(
+          qualifiedVendors,
+          bucketed,
           (w, vendorId) => (w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null),
           {
-            labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
+            labelFn: (vendorId) =>
+              (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) ||
+              vendorId,
             tension: 0.2,
             carriedIndices: carriedSets,
-          })
+          }
+        )
       : [
           {
             label: "Median",
@@ -553,11 +616,15 @@ const _buildIntradayChart = (slug) => {
         const carried = carriedSets[idx];
         if (!carried || carried.size === 0) return;
         ds.pointRadius = 0;
-        ds.pointHoverRadius = (ctx) => carried.has(ctx.dataIndex) ? 2 : 3;
+        ds.pointHoverRadius = (ctx) => (carried.has(ctx.dataIndex) ? 2 : 3);
         const baseColor = ds.borderColor;
         ds.segment = {
-          borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [5, 3] : [],
-          borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? baseColor + "80" : baseColor,
+          borderDash: (ctx) =>
+            carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex) ? [5, 3] : [],
+          borderColor: (ctx) =>
+            carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)
+              ? baseColor + "80"
+              : baseColor,
         };
       });
     }
@@ -571,17 +638,17 @@ const _buildIntradayChart = (slug) => {
         maxTicksLimit: 12,
         autoSkip: true,
         maxRotation: 0,
-        color: function(context) {
-          const label = context.chart.data.labels[context.index] || '';
-          const mins = label.split(':')[1];
-          const base = typeof getChartTextColor === "function" ? getChartTextColor() : '#94a3b8';
-          if (mins === '00') return base;
-          return base.startsWith('#') && base.length === 7 ? base + '80' : base;
+        color: function (context) {
+          const label = context.chart.data.labels[context.index] || "";
+          const mins = label.split(":")[1];
+          const base = typeof getChartTextColor === "function" ? getChartTextColor() : "#94a3b8";
+          if (mins === "00") return base;
+          return base.startsWith("#") && base.length === 7 ? base + "80" : base;
         },
-        font: function(context) {
-          const label = context.chart.data.labels[context.index] || '';
-          const mins = label.split(':')[1];
-          return { size: mins === '00' ? 11 : 9 };
+        font: function (context) {
+          const label = context.chart.data.labels[context.index] || "";
+          const mins = label.split(":")[1];
+          return { size: mins === "00" ? 11 : 9 };
         },
       },
       yTicks: _retailYTicks(),
@@ -608,7 +675,7 @@ const openRetailViewModal = (slug) => {
   subtitleEl.textContent = `${meta.weight} troy oz \u00b7 ${meta.metal}`;
 
   // Clear any stale staleness banner from a previous modal open
-  const existingBanner = document.querySelector('#retailViewModal .retail-stale-data-warning');
+  const existingBanner = document.querySelector("#retailViewModal .retail-stale-data-warning");
   if (existingBanner) existingBanner.remove();
 
   // Vendor legend — colored swatch + clickable name + current price
@@ -637,27 +704,33 @@ const openRetailViewModal = (slug) => {
   });
 
   // Daily price history chart — per-vendor lines matching the 24h chart colors
-  const chartWrap = chartCanvas instanceof HTMLCanvasElement
-    ? chartCanvas.closest(".retail-view-chart-wrap")
-    : null;
+  const chartWrap =
+    chartCanvas instanceof HTMLCanvasElement
+      ? chartCanvas.closest(".retail-view-chart-wrap")
+      : null;
   if (_retailViewModalChart) {
     _retailViewModalChart.destroy();
     _retailViewModalChart = null;
   }
   const hasEnoughHistory = history.length > 1;
   if (chartWrap) chartWrap.style.display = hasEnoughHistory ? "" : "none";
-  if (hasEnoughHistory && chartCanvas instanceof HTMLCanvasElement && typeof Chart !== "undefined") {
+  if (
+    hasEnoughHistory &&
+    chartCanvas instanceof HTMLCanvasElement &&
+    typeof Chart !== "undefined"
+  ) {
     const sorted = [...history].reverse();
     // Discover all vendors present in history data
     const histVendorSet = new Set();
-    sorted.forEach((e) => { if (e.vendors) Object.keys(e.vendors).forEach((v) => histVendorSet.add(v)); });
-    const histKnownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+    sorted.forEach((e) => {
+      if (e.vendors) Object.keys(e.vendors).forEach((v) => histVendorSet.add(v));
+    });
+    const histKnownOrder =
+      typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
     const activeHistVendors = [
       ...histKnownOrder.filter((v) => histVendorSet.has(v)),
       ...[...histVendorSet].filter((v) => !histKnownOrder.includes(v)).sort(),
-    ].filter((v) =>
-      sorted.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null)
-    );
+    ].filter((v) => sorted.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null));
     const useVendorHistLines = activeHistVendors.length > 0;
 
     const histValueExtractor = (entry, vendorId) => {
@@ -668,32 +741,41 @@ const openRetailViewModal = (slug) => {
 
     const histDatasets = useVendorHistLines
       ? buildVendorDatasets(activeHistVendors, sorted, histValueExtractor, {
-          labelFn: (vendorId) => (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId,
+          labelFn: (vendorId) =>
+            (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) ||
+            vendorId,
           spanGaps: false,
         }).map((ds) => ({ ...ds, pointRadius: 2 }))
-      : [{
-          label: "Avg Median",
-          data: sorted.map((e) => e.avg_median),
-          borderColor: "var(--accent-primary, #4a9eff)",
-          backgroundColor: "transparent",
-          pointRadius: 2,
-          tension: 0.3,
-        }];
+      : [
+          {
+            label: "Avg Median",
+            data: sorted.map((e) => e.avg_median),
+            borderColor: "var(--accent-primary, #4a9eff)",
+            backgroundColor: "transparent",
+            pointRadius: 2,
+            tension: 0.3,
+          },
+        ];
 
-    _retailViewModalChart = createTimeSeriesChart(chartCanvas, sorted.map((e) => e.date), histDatasets, {
-      showLegend: !useVendorHistLines,
-      tooltipCallbacks: {
-        label: chartPriceTooltip(),
-      },
-      yTicks: _retailYTicks(),
-    });
+    _retailViewModalChart = createTimeSeriesChart(
+      chartCanvas,
+      sorted.map((e) => e.date),
+      histDatasets,
+      {
+        showLegend: !useVendorHistLines,
+        tooltipCallbacks: {
+          label: chartPriceTooltip(),
+        },
+        yTicks: _retailYTicks(),
+      }
+    );
   }
 
   // Build intraday chart for 24h tab using cached data
   _buildIntradayChart(slug);
 
   // Wire row-count dropdown
-  const rowCountSel = safeGetElement('retailViewIntradayRowCount');
+  const rowCountSel = safeGetElement("retailViewIntradayRowCount");
   if (rowCountSel) {
     rowCountSel.value = String(_intradayRowCount);
     rowCountSel.onchange = () => {
@@ -709,62 +791,88 @@ const openRetailViewModal = (slug) => {
 
   // Async refresh: fetch fresh data for this coin so the modal always shows
   // current vendor-level intraday data regardless of localStorage staleness.
-  const _apiBase = typeof _lastSuccessfulApiBase !== "undefined" ? _lastSuccessfulApiBase : (typeof RETAIL_API_BASE_URL !== "undefined" ? RETAIL_API_BASE_URL : null);
+  const _apiBase =
+    typeof _lastSuccessfulApiBase !== "undefined"
+      ? _lastSuccessfulApiBase
+      : typeof RETAIL_API_BASE_URL !== "undefined"
+        ? RETAIL_API_BASE_URL
+        : null;
   if (_apiBase) {
     Promise.all([
-      fetch(`${_apiBase}/${slug}/latest.json`).catch((err) => { debugLog(`[retail-view-modal] latest fetch failed: ${err.message}`, "warn"); return null; }),
-      fetch(`${_apiBase}/${slug}/history-30d.json`).catch((err) => { debugLog(`[retail-view-modal] history fetch failed: ${err.message}`, "warn"); return null; }),
-    ]).then(async ([latestResp, histResp]) => {
-      let intradayUpdated = false;
-      let anySuccess = false;
-      if (latestResp && latestResp.ok) {
-        let latest = await latestResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn"); return null; });
-        // Unwrap v2 envelope if present
-        if (latest && latest.v === 2 && latest.data !== undefined) latest = latest.data;
-        if (latest) {
-          anySuccess = true;
-          if (typeof retailIntradayData !== "undefined") {
-            retailIntradayData[slug] = {
-              window_start: latest.window_start,
-              windows_24h: _normalizeV2IntradayWindows(Array.isArray(latest.windows_24h) ? latest.windows_24h : []),
-            };
-            if (typeof saveRetailIntradayData === "function") saveRetailIntradayData();
-            intradayUpdated = true;
+      fetch(`${_apiBase}/${slug}/latest.json`).catch((err) => {
+        debugLog(`[retail-view-modal] latest fetch failed: ${err.message}`, "warn");
+        return null;
+      }),
+      fetch(`${_apiBase}/${slug}/history-30d.json`).catch((err) => {
+        debugLog(`[retail-view-modal] history fetch failed: ${err.message}`, "warn");
+        return null;
+      }),
+    ])
+      .then(async ([latestResp, histResp]) => {
+        let intradayUpdated = false;
+        let anySuccess = false;
+        if (latestResp && latestResp.ok) {
+          let latest = await latestResp.json().catch((err) => {
+            debugLog(`[retail-view-modal] JSON parse failed for latest: ${err.message}`, "warn");
+            return null;
+          });
+          // Unwrap v2 envelope if present
+          if (latest && latest.v === 2 && latest.data !== undefined) latest = latest.data;
+          if (latest) {
+            anySuccess = true;
+            if (typeof retailIntradayData !== "undefined") {
+              retailIntradayData[slug] = {
+                window_start: latest.window_start,
+                windows_24h: _normalizeV2IntradayWindows(
+                  Array.isArray(latest.windows_24h) ? latest.windows_24h : []
+                ),
+              };
+              if (typeof saveRetailIntradayData === "function") saveRetailIntradayData();
+              intradayUpdated = true;
+            }
+            if (
+              latest.vendors &&
+              typeof retailPrices !== "undefined" &&
+              retailPrices &&
+              retailPrices.prices
+            ) {
+              retailPrices.prices[slug] = {
+                median_price: latest.median_price ?? latest.median ?? null,
+                lowest_price: latest.lowest_price ?? latest.low ?? null,
+                vendors: latest.vendors,
+              };
+              if (typeof saveRetailPrices === "function") saveRetailPrices();
+            }
           }
-          if (latest.vendors && typeof retailPrices !== "undefined" && retailPrices && retailPrices.prices) {
-            retailPrices.prices[slug] = {
-              median_price: latest.median_price ?? latest.median ?? null,
-              lowest_price: latest.lowest_price ?? latest.low ?? null,
-              vendors: latest.vendors,
-            };
-            if (typeof saveRetailPrices === "function") saveRetailPrices();
+        }
+        if (histResp && histResp.ok) {
+          const hist = await histResp.json().catch((err) => {
+            debugLog(`[retail-view-modal] JSON parse failed for history: ${err.message}`, "warn");
+            return null;
+          });
+          if (Array.isArray(hist) && typeof retailPriceHistory !== "undefined") {
+            anySuccess = true;
+            retailPriceHistory[slug] = hist;
+            if (typeof saveRetailPriceHistory === "function") saveRetailPriceHistory();
           }
         }
-      }
-      if (histResp && histResp.ok) {
-        const hist = await histResp.json().catch((err) => { debugLog(`[retail-view-modal] JSON parse failed for history: ${err.message}`, "warn"); return null; });
-        if (Array.isArray(hist) && typeof retailPriceHistory !== "undefined") {
-          anySuccess = true;
-          retailPriceHistory[slug] = hist;
-          if (typeof saveRetailPriceHistory === "function") saveRetailPriceHistory();
+        // Show staleness warning if both fetches failed
+        if (!anySuccess) {
+          const modalBody = document.querySelector("#retailViewModal .modal-body");
+          if (modalBody && !modalBody.querySelector(".retail-stale-data-warning")) {
+            const banner = document.createElement("div");
+            banner.className = "retail-stale-data-warning";
+            banner.textContent = "\u26a0 Could not refresh live data \u2014 showing cached prices";
+            modalBody.insertBefore(banner, modalBody.firstChild);
+          }
         }
-      }
-      // Show staleness warning if both fetches failed
-      if (!anySuccess) {
-        const modalBody = document.querySelector('#retailViewModal .modal-body');
-        if (modalBody && !modalBody.querySelector('.retail-stale-data-warning')) {
-          const banner = document.createElement('div');
-          banner.className = 'retail-stale-data-warning';
-          banner.textContent = '\u26a0 Could not refresh live data \u2014 showing cached prices';
-          modalBody.insertBefore(banner, modalBody.firstChild);
-        }
-      }
-      // Rebuild intraday chart and vendor legend with fresh data
-      if (intradayUpdated) _buildIntradayChart(slug);
-      _buildVendorLegend(slug);
-    }).catch((err) => {
-      debugLog(`[retail-view-modal] Background refresh failed: ${err.message}`, "warn");
-    });
+        // Rebuild intraday chart and vendor legend with fresh data
+        if (intradayUpdated) _buildIntradayChart(slug);
+        _buildVendorLegend(slug);
+      })
+      .catch((err) => {
+        debugLog(`[retail-view-modal] Background refresh failed: ${err.message}`, "warn");
+      });
   }
 };
 

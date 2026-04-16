@@ -54,13 +54,13 @@ Reads all section files, runs only tests whose `**Tags:**` field includes `crud`
 
 ### Additional arguments
 
-| Argument | Effect |
-|----------|--------|
-| `pr=NNN` | Use PR number NNN to discover the Cloudflare Pages preview URL |
-| `dry-run` | Run all checks but do not file Linear issues |
-| `sections=02,05` | Comma-separated section numbers to run |
-| `section=03-backup-restore` | Single section by filename prefix |
-| `tags=crud` | Run only tests with this tag (across all sections) |
+| Argument                    | Effect                                                         |
+| --------------------------- | -------------------------------------------------------------- |
+| `pr=NNN`                    | Use PR number NNN to discover the Cloudflare Pages preview URL |
+| `dry-run`                   | Run all checks but do not file Linear issues                   |
+| `sections=02,05`            | Comma-separated section numbers to run                         |
+| `section=03-backup-restore` | Single section by filename prefix                              |
+| `tags=crud`                 | Run only tests with this tag (across all sections)             |
 
 ### Getting the PR preview URL
 
@@ -83,6 +83,7 @@ For quick targeted verification — especially when only 1-3 tests are affected 
 - **Claude in Chrome extension**: Use the Claude browser plugin to execute Stagehand-style natural language instructions against any open tab (the preview URL).
 
 This costs $0 (no Browserbase credits) and is appropriate when:
+
 - Only 1-3 tests are affected by a change
 - A quick visual check is sufficient
 - You want to verify a single step without a full session
@@ -93,17 +94,17 @@ Reserve `/bb-test` (Browserbase) for full pre-release runs, comprehensive patch 
 
 ## Section Files
 
-| File | Area | Tests |
-|------|------|-------|
-| [00-setup.md](./00-setup.md) | Pre-run setup (not a test section) | — |
-| [01-page-load.md](./01-page-load.md) | Page load, What's New, spot/market backfill | 11 |
-| [02-crud.md](./02-crud.md) | Add, Edit, Delete, Search, Filter, Views | 20 |
-| [03-backup-restore.md](./03-backup-restore.md) | Backup, Restore, Export ZIP/CSV/JSON, Vault | 12 |
-| [04-import-export.md](./04-import-export.md) | CSV/eBay import, Diff merge, PDF export | 9 |
-| [05-market.md](./05-market.md) | Market panel, price history, metal tabs | 10 |
-| [06-ui-ux.md](./06-ui-ux.md) | Responsive layout, themes, currency, settings | 11 |
-| [07-activity-log.md](./07-activity-log.md) | Activity log panel, persistence | 5 |
-| [08-spot-prices.md](./08-spot-prices.md) | Spot cards, stale indicators, melt values | 6 |
+| File                                           | Area                                          | Tests |
+| ---------------------------------------------- | --------------------------------------------- | ----- |
+| [00-setup.md](./00-setup.md)                   | Pre-run setup (not a test section)            | —     |
+| [01-page-load.md](./01-page-load.md)           | Page load, What's New, spot/market backfill   | 11    |
+| [02-crud.md](./02-crud.md)                     | Add, Edit, Delete, Search, Filter, Views      | 20    |
+| [03-backup-restore.md](./03-backup-restore.md) | Backup, Restore, Export ZIP/CSV/JSON, Vault   | 12    |
+| [04-import-export.md](./04-import-export.md)   | CSV/eBay import, Diff merge, PDF export       | 9     |
+| [05-market.md](./05-market.md)                 | Market panel, price history, metal tabs       | 10    |
+| [06-ui-ux.md](./06-ui-ux.md)                   | Responsive layout, themes, currency, settings | 11    |
+| [07-activity-log.md](./07-activity-log.md)     | Activity log panel, persistence               | 5     |
+| [08-spot-prices.md](./08-spot-prices.md)       | Spot cards, stale indicators, melt values     | 6     |
 
 **Total baseline tests: 84**
 
@@ -115,28 +116,30 @@ Every test block in every section file uses this exact format. All 7 fields are 
 
 ```md
 ### Test N.M — {Test Name}
+
 _Added: v{VERSION} ({STAK-XXX})_
 **Preconditions:** {what must be true before this test runs}
 **Steps:**
+
 - act: "{natural language Stagehand instruction}"
 - extract: "{what to assert}" → expect: {expected value or condition}
 - screenshot: "{NN}-{section-short}-{description}"
-**Pass criteria:** {plain English statement of what constitutes a pass}
-**Tags:** {comma-separated tags, e.g. crud, add, silver}
-**Section:** {section number and name, e.g. 02-crud}
+  **Pass criteria:** {plain English statement of what constitutes a pass}
+  **Tags:** {comma-separated tags, e.g. crud, add, silver}
+  **Section:** {section number and name, e.g. 02-crud}
 ```
 
 ### Field definitions
 
-| Field | Description |
-|-------|-------------|
-| `Test N.M` | Section number (N) and test number within section (M). Example: `2.7` = section 2, test 7. |
-| `_Added:_` | Traceability: patch version and Linear issue that introduced this test. Example: `_Added: v3.33.01 (STAK-396)_` |
+| Field                | Description                                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Test N.M`           | Section number (N) and test number within section (M). Example: `2.7` = section 2, test 7.                                                                          |
+| `_Added:_`           | Traceability: patch version and Linear issue that introduced this test. Example: `_Added: v3.33.01 (STAK-396)_`                                                     |
 | `**Preconditions:**` | State that must be true before this test runs. Reference prior tests by ID if this test depends on their state (e.g., "Test 2.1 has run and added BB-SILVER-COIN"). |
-| `**Steps:**` | Ordered list of step directives. See step types below. |
-| `**Pass criteria:**` | Plain English statement of what constitutes a pass for this test as a whole. |
-| `**Tags:**` | Comma-separated tags used for filtering. Use feature area and action type (e.g., `crud, add, silver`). |
-| `**Section:**` | The section this test belongs to (e.g., `02-crud`). Must match the file it lives in. |
+| `**Steps:**`         | Ordered list of step directives. See step types below.                                                                                                              |
+| `**Pass criteria:**` | Plain English statement of what constitutes a pass for this test as a whole.                                                                                        |
+| `**Tags:**`          | Comma-separated tags used for filtering. Use feature area and action type (e.g., `crud, add, silver`).                                                              |
+| `**Section:**`       | The section this test belongs to (e.g., `02-crud`). Must match the file it lives in.                                                                                |
 
 ---
 
@@ -155,6 +158,7 @@ One atomic interaction with the page. Stagehand executes this as a natural langu
 ```
 
 Rules:
+
 - One interaction per `act:` step (click, type, select, scroll — not "add an item and verify it saved")
 - Use specific selectors in natural language: "the Add Item button", "in the header", "in the modal"
 - Do not combine actions in a single `act:` step
@@ -170,6 +174,7 @@ An assertion step. Stagehand extracts information from the page and the result i
 ```
 
 Rules:
+
 - Every `extract:` step **must** include `→ expect:` with an expected value or condition
 - Expected values can be exact (`9`, `true`) or qualitative (`non-zero`, `contains "v3.33"`, `visible`)
 - On failure, `/bb-test` takes an automatic failure screenshot and continues (non-blocking)
@@ -185,6 +190,7 @@ Captures a screenshot labeled for the session recording. Labels follow the forma
 ```
 
 Label format rules:
+
 - `{NN}` — two-digit section number (e.g., `02`)
 - `{section-short}` — abbreviated section name (e.g., `crud`, `market`, `ui-ux`, `spot-prices`)
 - `{description}` — kebab-case descriptor of what is being captured (e.g., `add-silver`, `delete-confirm`)
@@ -218,9 +224,11 @@ When implementing a spec (Phase 5), add new test blocks to the relevant section 
 
 ```md
 ### Test 2.21 — Add item — Copper Round
+
 _Added: v3.34.02 (STAK-420)_
 **Preconditions:** 00-setup has run. Inventory shows 8 seed items.
 **Steps:**
+
 - act: "click the Add Item button"
 - act: "select 'Copper' from the Metal dropdown"
 - act: "select 'Round' from the Type dropdown"
@@ -230,9 +238,9 @@ _Added: v3.34.02 (STAK-420)_
 - act: "click the Save or Submit button"
 - extract: "count the number of inventory item cards" → expect: 9
 - screenshot: "02-crud-add-copper"
-**Pass criteria:** Item count increases to 9. BB-COPPER-ROUND is visible in the inventory.
-**Tags:** crud, add, copper
-**Section:** 02-crud
+  **Pass criteria:** Item count increases to 9. BB-COPPER-ROUND is visible in the inventory.
+  **Tags:** crud, add, copper
+  **Section:** 02-crud
 ```
 
 ---
@@ -241,16 +249,16 @@ _Added: v3.34.02 (STAK-420)_
 
 Section numbers are fixed. Test numbers within a section are sequential and never reused (even if a test is retired, its number is retired with it).
 
-| Section | Number prefix | File |
-|---------|--------------|------|
-| Page Load | 1.x | 01-page-load.md |
-| CRUD | 2.x | 02-crud.md |
-| Backup & Restore | 3.x | 03-backup-restore.md |
-| Import & Export | 4.x | 04-import-export.md |
-| Market | 5.x | 05-market.md |
-| UI/UX | 6.x | 06-ui-ux.md |
-| Activity Log | 7.x | 07-activity-log.md |
-| Spot Prices | 8.x | 08-spot-prices.md |
+| Section          | Number prefix | File                 |
+| ---------------- | ------------- | -------------------- |
+| Page Load        | 1.x           | 01-page-load.md      |
+| CRUD             | 2.x           | 02-crud.md           |
+| Backup & Restore | 3.x           | 03-backup-restore.md |
+| Import & Export  | 4.x           | 04-import-export.md  |
+| Market           | 5.x           | 05-market.md         |
+| UI/UX            | 6.x           | 06-ui-ux.md          |
+| Activity Log     | 7.x           | 07-activity-log.md   |
+| Spot Prices      | 8.x           | 08-spot-prices.md    |
 
 ---
 
@@ -258,26 +266,26 @@ Section numbers are fixed. Test numbers within a section are sequential and neve
 
 Use these tags consistently so tag-filtered runs work predictably:
 
-| Tag | Used for |
-|-----|----------|
-| `crud` | Any add/edit/delete/view operation on inventory items |
-| `add` | Adding a new item |
-| `edit` | Editing an existing item |
-| `delete` | Deleting an item |
-| `search` | Search input behavior |
-| `filter` | Filter chip behavior |
-| `images` | Image upload, remove, pattern match |
-| `backup` | Backup and restore operations |
-| `export` | CSV/JSON/ZIP/PDF export |
-| `import` | CSV/eBay import, diff merge |
-| `vault` | Encrypted vault export/import |
-| `market` | Market panel and price data |
-| `spot-prices` | Spot price cards and stale indicators |
-| `activity-log` | Activity log panel |
-| `ui` | Layout, responsive, theming |
-| `theme` | Theme switching |
-| `settings` | Settings modal |
-| `currency` | Currency switcher |
-| `stale` | Stale data indicators |
-| `responsive` | Viewport-specific layout tests |
-| `gold`, `silver`, `platinum`, `palladium`, `goldback` | Metal-specific tests |
+| Tag                                                   | Used for                                              |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| `crud`                                                | Any add/edit/delete/view operation on inventory items |
+| `add`                                                 | Adding a new item                                     |
+| `edit`                                                | Editing an existing item                              |
+| `delete`                                              | Deleting an item                                      |
+| `search`                                              | Search input behavior                                 |
+| `filter`                                              | Filter chip behavior                                  |
+| `images`                                              | Image upload, remove, pattern match                   |
+| `backup`                                              | Backup and restore operations                         |
+| `export`                                              | CSV/JSON/ZIP/PDF export                               |
+| `import`                                              | CSV/eBay import, diff merge                           |
+| `vault`                                               | Encrypted vault export/import                         |
+| `market`                                              | Market panel and price data                           |
+| `spot-prices`                                         | Spot price cards and stale indicators                 |
+| `activity-log`                                        | Activity log panel                                    |
+| `ui`                                                  | Layout, responsive, theming                           |
+| `theme`                                               | Theme switching                                       |
+| `settings`                                            | Settings modal                                        |
+| `currency`                                            | Currency switcher                                     |
+| `stale`                                               | Stale data indicators                                 |
+| `responsive`                                          | Viewport-specific layout tests                        |
+| `gold`, `silver`, `platinum`, `palladium`, `goldback` | Metal-specific tests                                  |

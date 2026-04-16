@@ -36,9 +36,9 @@ services:
       - CF_CLEARANCE_ENABLED=${CF_CLEARANCE_ENABLED:-1}
       - CF_CLEARANCE_TIMEOUT_MS=${CF_CLEARANCE_TIMEOUT_MS:-30000}
     ports:
-      - "3010:3010"   # Dashboard (HTTP)
-      - "3011:3011"   # Dashboard (HTTPS for iframe embed)
-      - "9100:9100"   # Prometheus metrics
+      - "3010:3010" # Dashboard (HTTP)
+      - "3011:3011" # Dashboard (HTTPS for iframe embed)
+      - "9100:9100" # Prometheus metrics
     volumes:
       - poller-data:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -56,7 +56,7 @@ services:
     environment:
       LOG_LEVEL: info
     ports:
-      - "8191:8191"   # Exposed for Fly.io → Tailscale → Byparr CF bypass
+      - "8191:8191" # Exposed for Fly.io → Tailscale → Byparr CF bypass
     logging:
       driver: json-file
       options:

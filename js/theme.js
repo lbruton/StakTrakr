@@ -27,7 +27,7 @@ const setTheme = (theme) => {
   if (typeof updateAllSparklines === "function") {
     updateAllSparklines();
   }
-  if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+  if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 };
 
 /**
@@ -36,8 +36,7 @@ const setTheme = (theme) => {
 const initTheme = () => {
   const savedTheme = localStorage.getItem(THEME_KEY);
   const systemPrefersDark =
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
+    window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   if (savedTheme === "hello-kitty") {
     document.documentElement.setAttribute("data-theme", "hello-kitty");
@@ -71,14 +70,12 @@ const toggleTheme = () => {
  */
 const setupSystemThemeListener = () => {
   if (window.matchMedia) {
-    window
-      .matchMedia("(prefers-color-scheme: dark)")
-      .addEventListener("change", (e) => {
-        // Only auto-switch if no user preference is set
-        if (!localStorage.getItem(THEME_KEY)) {
-          setTheme(e.matches ? "dark" : "light");
-        }
-      });
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+      // Only auto-switch if no user preference is set
+      if (!localStorage.getItem(THEME_KEY)) {
+        setTheme(e.matches ? "dark" : "light");
+      }
+    });
   }
 };
 

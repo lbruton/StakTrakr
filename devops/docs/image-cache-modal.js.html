@@ -1,32 +1,25 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
+  <head>
+    <meta charset="utf-8" />
     <title>JSDoc: Source: image-cache-modal.js</title>
 
-    <script src="scripts/prettify/prettify.js"> </script>
-    <script src="scripts/prettify/lang-css.js"> </script>
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
     <!--[if lt IE 9]>
       <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
-    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
-</head>
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css" />
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css" />
+  </head>
 
-<body>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: image-cache-modal.js</h1>
 
-<div id="main">
-
-    <h1 class="page-title">Source: image-cache-modal.js</h1>
-
-    
-
-
-
-    
-    <section>
+      <section>
         <article>
-            <pre class="prettyprint source linenums"><code>// NUMISTA BULK SYNC UI (STACK-87/88)
+          <pre class="prettyprint source linenums"><code>// NUMISTA BULK SYNC UI (STACK-87/88)
 // =============================================================================
 // Inline UI within Settings > API > Numista card for bulk syncing metadata.
 // Shows stats, eligible item table with per-row status, real-time activity log,
@@ -401,24 +394,894 @@ if (typeof window !== 'undefined') {
 }
 </code></pre>
         </article>
-    </section>
+      </section>
+    </div>
 
+    <nav>
+      <h2><a href="index.html">Home</a></h2>
+      <h3>Classes</h3>
+      <ul>
+        <li><a href="CatalogAPI.html">CatalogAPI</a></li>
+        <li><a href="CatalogConfig.html">CatalogConfig</a></li>
+        <li><a href="CatalogManager.html">CatalogManager</a></li>
+        <li><a href="CatalogProvider.html">CatalogProvider</a></li>
+        <li><a href="FeatureFlags.html">FeatureFlags</a></li>
+        <li><a href="ImageCache.html">ImageCache</a></li>
+        <li><a href="ImageProcessor.html">ImageProcessor</a></li>
+        <li><a href="LocalProvider.html">LocalProvider</a></li>
+        <li><a href="NumistaCatalogProvider.html">NumistaCatalogProvider</a></li>
+        <li><a href="NumistaProvider.html">NumistaProvider</a></li>
+      </ul>
+      <h3>Global</h3>
+      <ul>
+        <li><a href="global.html#ACK_DISMISSED_KEY">ACK_DISMISSED_KEY</a></li>
+        <li><a href="global.html#API_CACHE_KEY">API_CACHE_KEY</a></li>
+        <li><a href="global.html#API_KEY_STORAGE_KEY">API_KEY_STORAGE_KEY</a></li>
+        <li><a href="global.html#API_PROVIDERS">API_PROVIDERS</a></li>
+        <li><a href="global.html#APP_VERSION">APP_VERSION</a></li>
+        <li><a href="global.html#APP_VERSION_KEY">APP_VERSION_KEY</a></li>
+        <li><a href="global.html#AUTOCOMPLETE_CONFIG">AUTOCOMPLETE_CONFIG</a></li>
+        <li><a href="global.html#BRANDING_DOMAIN_OPTIONS">BRANDING_DOMAIN_OPTIONS</a></li>
+        <li><a href="global.html#BRANDING_DOMAIN_OVERRIDE">BRANDING_DOMAIN_OVERRIDE</a></li>
+        <li><a href="global.html#BRANDING_TITLE">BRANDING_TITLE</a></li>
+        <li><a href="global.html#CARD_STYLE_KEY">CARD_STYLE_KEY</a></li>
+        <li><a href="global.html#CATALOG_HISTORY_KEY">CATALOG_HISTORY_KEY</a></li>
+        <li><a href="global.html#CATALOG_MAP_KEY">CATALOG_MAP_KEY</a></li>
+        <li><a href="global.html#CERT_LOOKUP_URLS">CERT_LOOKUP_URLS</a></li>
+        <li><a href="global.html#CLOUD_PROVIDERS">CLOUD_PROVIDERS</a></li>
+        <li><a href="global.html#DEBUG">DEBUG</a></li>
+        <li><a href="global.html#DEFAULT_API_CACHE_DURATION">DEFAULT_API_CACHE_DURATION</a></li>
+        <li><a href="global.html#DEFAULT_API_QUOTA">DEFAULT_API_QUOTA</a></li>
+        <li><a href="global.html#DEFAULT_CURRENCY">DEFAULT_CURRENCY</a></li>
+        <li><a href="global.html#DEFAULT_SORT_COL_KEY">DEFAULT_SORT_COL_KEY</a></li>
+        <li><a href="global.html#DEFAULT_SORT_DIR_KEY">DEFAULT_SORT_DIR_KEY</a></li>
+        <li><a href="global.html#DESKTOP_CARD_VIEW_KEY">DESKTOP_CARD_VIEW_KEY</a></li>
+        <li><a href="global.html#DEV_MODE">DEV_MODE</a></li>
+        <li><a href="global.html#DISPLAY_CURRENCY_KEY">DISPLAY_CURRENCY_KEY</a></li>
+        <li><a href="global.html#EXCHANGE_RATES_KEY">EXCHANGE_RATES_KEY</a></li>
+        <li><a href="global.html#EXCHANGE_RATE_API_URL">EXCHANGE_RATE_API_URL</a></li>
+        <li><a href="global.html#FALLBACK_EXCHANGE_RATES">FALLBACK_EXCHANGE_RATES</a></li>
+        <li><a href="global.html#FEATURE_FLAGS">FEATURE_FLAGS</a></li>
+        <li><a href="global.html#FEATURE_FLAGS_KEY">FEATURE_FLAGS_KEY</a></li>
+        <li><a href="global.html#FIELD_COERCIONS">FIELD_COERCIONS</a></li>
+        <li>
+          <a href="global.html#FILTER_CHIP_CATEGORY_DEFAULTS">FILTER_CHIP_CATEGORY_DEFAULTS</a>
+        </li>
+        <li><a href="global.html#GB_ESTIMATE_MODIFIER_KEY">GB_ESTIMATE_MODIFIER_KEY</a></li>
+        <li><a href="global.html#GB_ESTIMATE_PREMIUM">GB_ESTIMATE_PREMIUM</a></li>
+        <li><a href="global.html#GB_TO_OZT">GB_TO_OZT</a></li>
+        <li><a href="global.html#GITHUB_RELEASES_URL">GITHUB_RELEASES_URL</a></li>
+        <li><a href="global.html#GOLDBACK_DENOMINATIONS">GOLDBACK_DENOMINATIONS</a></li>
+        <li><a href="global.html#GOLDBACK_ENABLED_KEY">GOLDBACK_ENABLED_KEY</a></li>
+        <li>
+          <a href="global.html#GOLDBACK_ESTIMATE_ENABLED_KEY">GOLDBACK_ESTIMATE_ENABLED_KEY</a>
+        </li>
+        <li><a href="global.html#GOLDBACK_PRICES_KEY">GOLDBACK_PRICES_KEY</a></li>
+        <li><a href="global.html#GOLDBACK_PRICE_HISTORY_KEY">GOLDBACK_PRICE_HISTORY_KEY</a></li>
+        <li><a href="global.html#HEADER_SYNC_BTN_KEY">HEADER_SYNC_BTN_KEY</a></li>
+        <li><a href="global.html#HEADER_TREND_BTN_KEY">HEADER_TREND_BTN_KEY</a></li>
+        <li><a href="global.html#IMAGE_MAX_BYTES">IMAGE_MAX_BYTES</a></li>
+        <li><a href="global.html#IMAGE_MAX_DIM">IMAGE_MAX_DIM</a></li>
+        <li><a href="global.html#IMAGE_QUALITY">IMAGE_QUALITY</a></li>
+        <li><a href="global.html#INLINE_CHIP_DEFAULTS">INLINE_CHIP_DEFAULTS</a></li>
+        <li><a href="global.html#ITEMS_PER_PAGE_KEY">ITEMS_PER_PAGE_KEY</a></li>
+        <li><a href="global.html#ITEM_PRICE_HISTORY_KEY">ITEM_PRICE_HISTORY_KEY</a></li>
+        <li><a href="global.html#ITEM_TAGS_KEY">ITEM_TAGS_KEY</a></li>
+        <li><a href="global.html#LAST_API_SYNC_KEY">LAST_API_SYNC_KEY</a></li>
+        <li><a href="global.html#LAST_CACHE_REFRESH_KEY">LAST_CACHE_REFRESH_KEY</a></li>
+        <li><a href="global.html#LAST_VERSION_CHECK_KEY">LAST_VERSION_CHECK_KEY</a></li>
+        <li><a href="global.html#LATEST_REMOTE_URL_KEY">LATEST_REMOTE_URL_KEY</a></li>
+        <li><a href="global.html#LATEST_REMOTE_VERSION_KEY">LATEST_REMOTE_VERSION_KEY</a></li>
+        <li><a href="global.html#LAYOUT_SECTION_DEFAULTS">LAYOUT_SECTION_DEFAULTS</a></li>
+        <li><a href="global.html#LOG_TAB_RENDERERS">LOG_TAB_RENDERERS</a></li>
+        <li><a href="global.html#LS_KEY">LS_KEY</a></li>
+        <li><a href="global.html#MAX_LOCAL_FILE_SIZE">MAX_LOCAL_FILE_SIZE</a></li>
+        <li><a href="global.html#MAX_TAGS_PER_ITEM">MAX_TAGS_PER_ITEM</a></li>
+        <li><a href="global.html#MAX_TAG_LENGTH">MAX_TAG_LENGTH</a></li>
+        <li><a href="global.html#METALS">METALS</a></li>
+        <li><a href="global.html#METAL_COLORS">METAL_COLORS</a></li>
+        <li><a href="global.html#METAL_ORDER_KEY">METAL_ORDER_KEY</a></li>
+        <li><a href="global.html#METAL_SYMBOLS">METAL_SYMBOLS</a></li>
+        <li><a href="global.html#NUMISTA_VIEW_FIELD_DEFAULTS">NUMISTA_VIEW_FIELD_DEFAULTS</a></li>
+        <li><a href="global.html#NumistaLookup">NumistaLookup</a></li>
+        <li><a href="global.html#PREBUILT_LOOKUP_DATA">PREBUILT_LOOKUP_DATA</a></li>
+        <li><a href="global.html#PRICE_HISTORY_COLS">PRICE_HISTORY_COLS</a></li>
+        <li><a href="global.html#Remote">Remote</a></li>
+        <li><a href="global.html#SEED_CUSTOM_RULES">SEED_CUSTOM_RULES</a></li>
+        <li><a href="global.html#SEED_DATA_YEARS">SEED_DATA_YEARS</a></li>
+        <li><a href="global.html#SEED_IMAGES_VERSION">SEED_IMAGES_VERSION</a></li>
+        <li><a href="global.html#SEED_INVENTORY_ITEMS">SEED_INVENTORY_ITEMS</a></li>
+        <li><a href="global.html#SERIAL_KEY">SERIAL_KEY</a></li>
+        <li><a href="global.html#SPOT_COMPARE_MODE_KEY">SPOT_COMPARE_MODE_KEY</a></li>
+        <li><a href="global.html#SPOT_HISTORY_KEY">SPOT_HISTORY_KEY</a></li>
+        <li><a href="global.html#SPOT_TREND_KEY">SPOT_TREND_KEY</a></li>
+        <li><a href="global.html#SPOT_TREND_RANGE_KEY">SPOT_TREND_RANGE_KEY</a></li>
+        <li><a href="global.html#STORAGE_KEY_LABELS">STORAGE_KEY_LABELS</a></li>
+        <li><a href="global.html#STORAGE_TINY_THRESHOLD_KB">STORAGE_TINY_THRESHOLD_KB</a></li>
+        <li><a href="global.html#SUPPORTED_CURRENCIES">SUPPORTED_CURRENCIES</a></li>
+        <li><a href="global.html#SYNC_FILE_PATH">SYNC_FILE_PATH</a></li>
+        <li><a href="global.html#SYNC_META_PATH">SYNC_META_PATH</a></li>
+        <li><a href="global.html#SYNC_POLL_INTERVAL">SYNC_POLL_INTERVAL</a></li>
+        <li><a href="global.html#SYNC_PUSH_DEBOUNCE">SYNC_PUSH_DEBOUNCE</a></li>
+        <li><a href="global.html#SYNC_SCOPE_KEYS">SYNC_SCOPE_KEYS</a></li>
+        <li><a href="global.html#THEME_KEY">THEME_KEY</a></li>
+        <li><a href="global.html#TIMEZONE_KEY">TIMEZONE_KEY</a></li>
+        <li><a href="global.html#TREND_PRESETS">TREND_PRESETS</a></li>
+        <li><a href="global.html#VALID_TYPES">VALID_TYPES</a></li>
+        <li><a href="global.html#VAULT_FILE_EXTENSION">VAULT_FILE_EXTENSION</a></li>
+        <li><a href="global.html#VERSION_ACK_KEY">VERSION_ACK_KEY</a></li>
+        <li><a href="global.html#VERSION_CHECK_TTL">VERSION_CHECK_TTL</a></li>
+        <li><a href="global.html#VERSION_CHECK_URL">VERSION_CHECK_URL</a></li>
+        <li><a href="global.html#VIEW_METADATA_TTL">VIEW_METADATA_TTL</a></li>
+        <li><a href="global.html#VIEW_MODAL_SECTION_DEFAULTS">VIEW_MODAL_SECTION_DEFAULTS</a></li>
+        <li><a href="global.html#_VIEW_CHART_DEFAULT_RANGE">_VIEW_CHART_DEFAULT_RANGE</a></li>
+        <li><a href="global.html#_VIEW_CHART_RANGES">_VIEW_CHART_RANGES</a></li>
+        <li><a href="global.html#_VIEW_CHART_RANGE_LABELS">_VIEW_CHART_RANGE_LABELS</a></li>
+        <li><a href="global.html#__ST_COMP_PREFIX">__ST_COMP_PREFIX</a></li>
+        <li><a href="global.html#_addDetail">_addDetail</a></li>
+        <li><a href="global.html#_applyTrend">_applyTrend</a></li>
+        <li><a href="global.html#_cardChipsHTML">_cardChipsHTML</a></li>
+        <li><a href="global.html#_cardClickBound">_cardClickBound</a></li>
+        <li><a href="global.html#_cardFmt">_cardFmt</a></li>
+        <li><a href="global.html#_cardImageHTML">_cardImageHTML</a></li>
+        <li><a href="global.html#_cardMetalClass">_cardMetalClass</a></li>
+        <li><a href="global.html#_cardSortBarBound">_cardSortBarBound</a></li>
+        <li><a href="global.html#_cloudBackupWithCachedPw">_cloudBackupWithCachedPw</a></li>
+        <li><a href="global.html#_cloudBtnAction">_cloudBtnAction</a></li>
+        <li><a href="global.html#_cloudContext">_cloudContext</a></li>
+        <li><a href="global.html#_cloudRestoreWithCachedPw">_cloudRestoreWithCachedPw</a></li>
+        <li><a href="global.html#_computePortfolioSummary">_computePortfolioSummary</a></li>
+        <li><a href="global.html#_createPriceHistoryChart">_createPriceHistoryChart</a></li>
+        <li><a href="global.html#_cvBlobUrls">_cvBlobUrls</a></li>
+        <li><a href="global.html#_cvChartInstances">_cvChartInstances</a></li>
+        <li><a href="global.html#_cvEscapeAttr">_cvEscapeAttr</a></li>
+        <li><a href="global.html#_cvImageObserver">_cvImageObserver</a></li>
+        <li><a href="global.html#_darkenColor">_darkenColor</a></li>
+        <li><a href="global.html#_dataToPolylineScaled">_dataToPolylineScaled</a></li>
+        <li><a href="global.html#_deleteObverseOnSave">_deleteObverseOnSave</a></li>
+        <li><a href="global.html#_deleteReverseOnSave">_deleteReverseOnSave</a></li>
+        <li><a href="global.html#_detailItem">_detailItem</a></li>
+        <li><a href="global.html#_el">_el</a></li>
+        <li><a href="global.html#_enhanceCardImages">_enhanceCardImages</a></li>
+        <li><a href="global.html#_enhanceTableThumbnails">_enhanceTableThumbnails</a></li>
+        <li><a href="global.html#_extractMetadata">_extractMetadata</a></li>
+        <li><a href="global.html#_fetchHistoricalSpotData">_fetchHistoricalSpotData</a></li>
+        <li><a href="global.html#_fetchNumistaResult">_fetchNumistaResult</a></li>
+        <li><a href="global.html#_fetchYearFile">_fetchYearFile</a></li>
+        <li><a href="global.html#_getBulkImageSides">_getBulkImageSides</a></li>
+        <li><a href="global.html#_getOrCreateHScrollBar">_getOrCreateHScrollBar</a></li>
+        <li><a href="global.html#_getThumbPlaceholder">_getThumbPlaceholder</a></li>
+        <li><a href="global.html#_getViewMetrics">_getViewMetrics</a></li>
+        <li><a href="global.html#_hScrollWired">_hScrollWired</a></li>
+        <li><a href="global.html#_imageSlot">_imageSlot</a></li>
+        <li><a href="global.html#_initCardCharts">_initCardCharts</a></li>
+        <li><a href="global.html#_initSpotControls">_initSpotControls</a></li>
+        <li><a href="global.html#_interpolateNulls">_interpolateNulls</a></li>
+        <li><a href="global.html#_isLightColor">_isLightColor</a></li>
+        <li><a href="global.html#_itemPriceModalFilterText">_itemPriceModalFilterText</a></li>
+        <li><a href="global.html#_itemPriceModalUuid">_itemPriceModalUuid</a></li>
+        <li><a href="global.html#_loadBulkRowImages">_loadBulkRowImages</a></li>
+        <li><a href="global.html#_loadCardImage">_loadCardImage</a></li>
+        <li><a href="global.html#_loadSectionConfig">_loadSectionConfig</a></li>
+        <li><a href="global.html#_loadThumbImage">_loadThumbImage</a></li>
+        <li><a href="global.html#_normalizePatterns">_normalizePatterns</a></li>
+        <li><a href="global.html#_openBulkImagePopover">_openBulkImagePopover</a></li>
+        <li><a href="global.html#_openExternalPopup">_openExternalPopup</a></li>
+        <li><a href="global.html#_openThumbPopover">_openThumbPopover</a></li>
+        <li><a href="global.html#_parseColor">_parseColor</a></li>
+        <li><a href="global.html#_patternMode">_patternMode</a></li>
+        <li><a href="global.html#_pendingObverseBlob">_pendingObverseBlob</a></li>
+        <li><a href="global.html#_pendingObversePreviewUrl">_pendingObversePreviewUrl</a></li>
+        <li><a href="global.html#_pendingReverseBlob">_pendingReverseBlob</a></li>
+        <li><a href="global.html#_pendingReversePreviewUrl">_pendingReversePreviewUrl</a></li>
+        <li><a href="global.html#_renderSectionConfigTable">_renderSectionConfigTable</a></li>
+        <li><a href="global.html#_renderSortBarSummary">_renderSortBarSummary</a></li>
+        <li><a href="global.html#_restoreCdnFolderFromZip">_restoreCdnFolderFromZip</a></li>
+        <li><a href="global.html#_saveSectionConfig">_saveSectionConfig</a></li>
+        <li><a href="global.html#_schedulePoll">_schedulePoll</a></li>
+        <li><a href="global.html#_section">_section</a></li>
+        <li><a href="global.html#_setSlotImage">_setSlotImage</a></li>
+        <li><a href="global.html#_showCardImage">_showCardImage</a></li>
+        <li><a href="global.html#_statusCells">_statusCells</a></li>
+        <li><a href="global.html#_storageTinyVisible">_storageTinyVisible</a></li>
+        <li><a href="global.html#_storedSortCol">_storedSortCol</a></li>
+        <li><a href="global.html#_syncFallbackUUID">_syncFallbackUUID</a></li>
+        <li><a href="global.html#_syncHScrollBar">_syncHScrollBar</a></li>
+        <li><a href="global.html#_syncPollerTimer">_syncPollerTimer</a></li>
+        <li><a href="global.html#_syncProvider">_syncProvider</a></li>
+        <li><a href="global.html#_syncPushInFlight">_syncPushInFlight</a></li>
+        <li><a href="global.html#_syncRelativeTime">_syncRelativeTime</a></li>
+        <li><a href="global.html#_syncRetryDelay">_syncRetryDelay</a></li>
+        <li><a href="global.html#_syncSortBar">_syncSortBar</a></li>
+        <li><a href="global.html#_thumbBlobUrls">_thumbBlobUrls</a></li>
+        <li><a href="global.html#_thumbObserver">_thumbObserver</a></li>
+        <li><a href="global.html#_updateHScrollThumb">_updateHScrollThumb</a></li>
+        <li><a href="global.html#_vaultPendingFile">_vaultPendingFile</a></li>
+        <li><a href="global.html#_viewModalChartInstance">_viewModalChartInstance</a></li>
+        <li><a href="global.html#_viewModalObjectUrls">_viewModalObjectUrls</a></li>
+        <li><a href="global.html#_viewYearCache">_viewYearCache</a></li>
+        <li><a href="global.html#_viewYearFetchPromises">_viewYearFetchPromises</a></li>
+        <li><a href="global.html#acceptAck">acceptAck</a></li>
+        <li><a href="global.html#activeFilters">activeFilters</a></li>
+        <li><a href="global.html#addCompositionOption">addCompositionOption</a></li>
+        <li><a href="global.html#addItemTag">addItemTag</a></li>
+        <li><a href="global.html#analyzeStorageData">analyzeStorageData</a></li>
+        <li><a href="global.html#analyzeStorageItem">analyzeStorageItem</a></li>
+        <li><a href="global.html#apiCache">apiCache</a></li>
+        <li><a href="global.html#apiConfig">apiConfig</a></li>
+        <li><a href="global.html#apiHistoryEntries">apiHistoryEntries</a></li>
+        <li><a href="global.html#apiHistoryFilterText">apiHistoryFilterText</a></li>
+        <li><a href="global.html#apiHistorySortAsc">apiHistorySortAsc</a></li>
+        <li><a href="global.html#apiHistorySortColumn">apiHistorySortColumn</a></li>
+        <li><a href="global.html#applyColumnFilter">applyColumnFilter</a></li>
+        <li><a href="global.html#applyHeaderToggleVisibility">applyHeaderToggleVisibility</a></li>
+        <li><a href="global.html#applyLayoutOrder">applyLayoutOrder</a></li>
+        <li><a href="global.html#applyMetalOrder">applyMetalOrder</a></li>
+        <li><a href="global.html#applyMinCountThreshold">applyMinCountThreshold</a></li>
+        <li><a href="global.html#applyNumistaTags">applyNumistaTags</a></li>
+        <li><a href="global.html#applyQuickFilter">applyQuickFilter</a></li>
+        <li><a href="global.html#attachAutocomplete">attachAutocomplete</a></li>
+        <li>
+          <a href="global.html#attachPriceHistorySortHeaders">attachPriceHistorySortHeaders</a>
+        </li>
+        <li><a href="global.html#autoSelectDefaultProvider">autoSelectDefaultProvider</a></li>
+        <li><a href="global.html#autoSyncSpotPrices">autoSyncSpotPrices</a></li>
+        <li><a href="global.html#backfillStaktrakrHourly">backfillStaktrakrHourly</a></li>
+        <li>
+          <a href="global.html#bindAppearanceAndHeaderListeners"
+            >bindAppearanceAndHeaderListeners</a
+          >
+        </li>
+        <li>
+          <a href="global.html#bindCardAndTableImageListeners">bindCardAndTableImageListeners</a>
+        </li>
+        <li><a href="global.html#bindCardClickHandler">bindCardClickHandler</a></li>
+        <li><a href="global.html#bindCloudCacheListeners">bindCloudCacheListeners</a></li>
+        <li><a href="global.html#bindCloudStorageListeners">bindCloudStorageListeners</a></li>
+        <li>
+          <a href="global.html#bindFilterAndNumistaListeners">bindFilterAndNumistaListeners</a>
+        </li>
+        <li><a href="global.html#bindGoldbackActionListeners">bindGoldbackActionListeners</a></li>
+        <li><a href="global.html#bindGoldbackToggleListeners">bindGoldbackToggleListeners</a></li>
+        <li>
+          <a href="global.html#bindImageImportExportListeners">bindImageImportExportListeners</a>
+        </li>
+        <li><a href="global.html#bindImageSettingsListeners">bindImageSettingsListeners</a></li>
+        <li><a href="global.html#bindImageSyncListeners">bindImageSyncListeners</a></li>
+        <li><a href="global.html#bindNumistaBulkSyncListeners">bindNumistaBulkSyncListeners</a></li>
+        <li><a href="global.html#bindPatternRuleModeListeners">bindPatternRuleModeListeners</a></li>
+        <li>
+          <a href="global.html#bindSettingsModalShellListeners">bindSettingsModalShellListeners</a>
+        </li>
+        <li>
+          <a href="global.html#bindSettingsNavigationListeners">bindSettingsNavigationListeners</a>
+        </li>
+        <li><a href="global.html#bindStorageListeners">bindStorageListeners</a></li>
+        <li><a href="global.html#blobToWebP">blobToWebP</a></li>
+        <li><a href="global.html#brandingWarned">brandingWarned</a></li>
+        <li><a href="global.html#buildBulkItemRow">buildBulkItemRow</a></li>
+        <li><a href="global.html#buildImageExportZip">buildImageExportZip</a></li>
+        <li><a href="global.html#buildItemFields">buildItemFields</a></li>
+        <li><a href="global.html#buildNumistaSearchQuery">buildNumistaSearchQuery</a></li>
+        <li><a href="global.html#buildSearchIndices">buildSearchIndices</a></li>
+        <li><a href="global.html#buildTagSection">buildTagSection</a></li>
+        <li><a href="global.html#buildViewContent">buildViewContent</a></li>
+        <li><a href="global.html#cacheLookupTable">cacheLookupTable</a></li>
+        <li><a href="global.html#calculateApiUsage">calculateApiUsage</a></li>
+        <li><a href="global.html#calculateLevenshteinDistance">calculateLevenshteinDistance</a></li>
+        <li><a href="global.html#catalogHistory">catalogHistory</a></li>
+        <li><a href="global.html#catalogMap">catalogMap</a></li>
+        <li><a href="global.html#changeLog">changeLog</a></li>
+        <li><a href="global.html#chartInstances">chartInstances</a></li>
+        <li><a href="global.html#checkFileSize">checkFileSize</a></li>
+        <li><a href="global.html#checkRemoteVersion">checkRemoteVersion</a></li>
+        <li><a href="global.html#checkVersionChange">checkVersionChange</a></li>
+        <li>
+          <a href="global.html#cleanOrphanedItemPriceHistory">cleanOrphanedItemPriceHistory</a>
+        </li>
+        <li><a href="global.html#cleanSearchTerm">cleanSearchTerm</a></li>
+        <li><a href="global.html#cleanString">cleanString</a></li>
+        <li><a href="global.html#cleanupStorage">cleanupStorage</a></li>
+        <li><a href="global.html#clearAllCachedData">clearAllCachedData</a></li>
+        <li><a href="global.html#clearAllFilters">clearAllFilters</a></li>
+        <li><a href="global.html#clearApiCache">clearApiCache</a></li>
+        <li><a href="global.html#clearApiConfig">clearApiConfig</a></li>
+        <li><a href="global.html#clearApiHistory">clearApiHistory</a></li>
+        <li><a href="global.html#clearApiKey">clearApiKey</a></li>
+        <li><a href="global.html#clearCatalogHistory">clearCatalogHistory</a></li>
+        <li><a href="global.html#clearChangeLog">clearChangeLog</a></li>
+        <li><a href="global.html#clearItemPriceHistory">clearItemPriceHistory</a></li>
+        <li><a href="global.html#clearLookupCache">clearLookupCache</a></li>
+        <li><a href="global.html#clearSpotHistory">clearSpotHistory</a></li>
+        <li><a href="global.html#clearUploadState">clearUploadState</a></li>
+        <li><a href="global.html#closeCurrencyDropdown">closeCurrencyDropdown</a></li>
+        <li>
+          <a href="global.html#closeCurrencyDropdownOnOutside">closeCurrencyDropdownOnOutside</a>
+        </li>
+        <li><a href="global.html#closeDetailsModal">closeDetailsModal</a></li>
+        <li><a href="global.html#closeModalById">closeModalById</a></li>
+        <li><a href="global.html#closeNumistaResultsModal">closeNumistaResultsModal</a></li>
+        <li><a href="global.html#closePcgsFieldPicker">closePcgsFieldPicker</a></li>
+        <li><a href="global.html#closeSpotLookupModal">closeSpotLookupModal</a></li>
+        <li><a href="global.html#closeVaultModal">closeVaultModal</a></li>
+        <li><a href="global.html#closeViewModal">closeViewModal</a></li>
+        <li><a href="global.html#cloudBackupEnabled">cloudBackupEnabled</a></li>
+        <li><a href="global.html#coerceFieldValue">coerceFieldValue</a></li>
+        <li><a href="global.html#collectVaultData">collectVaultData</a></li>
+        <li><a href="global.html#commitItemToInventory">commitItemToInventory</a></li>
+        <li><a href="global.html#compareVersions">compareVersions</a></li>
+        <li><a href="global.html#compositionOptions">compositionOptions</a></li>
+        <li><a href="global.html#computeGoldbackEstimatedRate">computeGoldbackEstimatedRate</a></li>
+        <li><a href="global.html#computeMeltValue">computeMeltValue</a></li>
+        <li><a href="global.html#convertToUsd">convertToUsd</a></li>
+        <li><a href="global.html#createBackupData">createBackupData</a></li>
+        <li><a href="global.html#createBackupZip">createBackupZip</a></li>
+        <li><a href="global.html#createBreakdownElements">createBreakdownElements</a></li>
+        <li><a href="global.html#createDummyElement">createDummyElement</a></li>
+        <li><a href="global.html#createEmptyLookupTable">createEmptyLookupTable</a></li>
+        <li><a href="global.html#createFieldInput">createFieldInput</a></li>
+        <li><a href="global.html#createPieChart">createPieChart</a></li>
+        <li><a href="global.html#createStorageItemModal">createStorageItemModal</a></li>
+        <li><a href="global.html#createThumbEl">createThumbEl</a></li>
+        <li><a href="global.html#currentLookupTable">currentLookupTable</a></li>
+        <li><a href="global.html#currentMonthKey">currentMonthKey</a></li>
+        <li><a href="global.html#cycleSpotTrend">cycleSpotTrend</a></li>
+        <li><a href="global.html#dataToPolyline">dataToPolyline</a></li>
+        <li><a href="global.html#dataUriToBlob">dataUriToBlob</a></li>
+        <li><a href="global.html#debounce">debounce</a></li>
+        <li><a href="global.html#debugLog">debugLog</a></li>
+        <li><a href="global.html#deleteItem">deleteItem</a></li>
+        <li><a href="global.html#deleteItemPriceEntry">deleteItemPriceEntry</a></li>
+        <li><a href="global.html#deleteItemTags">deleteItemTags</a></li>
+        <li><a href="global.html#deleteTagGlobal">deleteTagGlobal</a></li>
+        <li><a href="global.html#deriveSearchLabel">deriveSearchLabel</a></li>
+        <li><a href="global.html#destroyCharts">destroyCharts</a></li>
+        <li><a href="global.html#destroySparklines">destroySparklines</a></li>
+        <li><a href="global.html#detailsChartMetric">detailsChartMetric</a></li>
+        <li><a href="global.html#detailsResizeObserver">detailsResizeObserver</a></li>
+        <li><a href="global.html#detectCurrency">detectCurrency</a></li>
+        <li><a href="global.html#disableCloudSync">disableCloudSync</a></li>
+        <li><a href="global.html#dismissAllAutocompletes">dismissAllAutocompletes</a></li>
+        <li><a href="global.html#dismissNotesModal">dismissNotesModal</a></li>
+        <li><a href="global.html#displayCurrency">displayCurrency</a></li>
+        <li><a href="global.html#downloadCompleteBackup">downloadCompleteBackup</a></li>
+        <li><a href="global.html#downloadFile">downloadFile</a></li>
+        <li><a href="global.html#downloadStorageReport">downloadStorageReport</a></li>
+        <li><a href="global.html#duplicateItem">duplicateItem</a></li>
+        <li><a href="global.html#editItem">editItem</a></li>
+        <li><a href="global.html#editingChangeLogIndex">editingChangeLogIndex</a></li>
+        <li><a href="global.html#editingIndex">editingIndex</a></li>
+        <li><a href="global.html#elements">elements</a></li>
+        <li><a href="global.html#enableCloudSync">enableCloudSync</a></li>
+        <li><a href="global.html#escapeAttribute">escapeAttribute</a></li>
+        <li><a href="global.html#escapeHtml">escapeHtml</a></li>
+        <li><a href="global.html#escapeHtmlCatalog">escapeHtmlCatalog</a></li>
+        <li><a href="global.html#escapeHtmlPcgs">escapeHtmlPcgs</a></li>
+        <li><a href="global.html#exchangeRates">exchangeRates</a></li>
+        <li><a href="global.html#exportCsv">exportCsv</a></li>
+        <li><a href="global.html#exportEncryptedBackup">exportEncryptedBackup</a></li>
+        <li><a href="global.html#exportGoldbackHistory">exportGoldbackHistory</a></li>
+        <li><a href="global.html#exportJson">exportJson</a></li>
+        <li><a href="global.html#exportNumistaCsv">exportNumistaCsv</a></li>
+        <li><a href="global.html#exportPdf">exportPdf</a></li>
+        <li><a href="global.html#exportSpotHistory">exportSpotHistory</a></li>
+        <li><a href="global.html#extractUniqueValues">extractUniqueValues</a></li>
+        <li><a href="global.html#featureFlags">featureFlags</a></li>
+        <li><a href="global.html#fetchBatchSpotPrices">fetchBatchSpotPrices</a></li>
+        <li><a href="global.html#fetchExchangeRates">fetchExchangeRates</a></li>
+        <li><a href="global.html#fetchHistoryBatched">fetchHistoryBatched</a></li>
+        <li><a href="global.html#fetchLatestPrices">fetchLatestPrices</a></li>
+        <li><a href="global.html#fetchMetalPriceApiHourly">fetchMetalPriceApiHourly</a></li>
+        <li><a href="global.html#fetchSpotForDate">fetchSpotForDate</a></li>
+        <li><a href="global.html#fetchSpotPrice">fetchSpotPrice</a></li>
+        <li><a href="global.html#fetchSpotPricesFromApi">fetchSpotPricesFromApi</a></li>
+        <li><a href="global.html#fetchStaktrakrHourlyRange">fetchStaktrakrHourlyRange</a></li>
+        <li><a href="global.html#fetchStaktrakrPrices">fetchStaktrakrPrices</a></li>
+        <li><a href="global.html#fetchYearFile">fetchYearFile</a></li>
+        <li><a href="global.html#fillFormFromNumistaResult">fillFormFromNumistaResult</a></li>
+        <li><a href="global.html#fillFormFromPcgsResult">fillFormFromPcgsResult</a></li>
+        <li><a href="global.html#filterInventory">filterInventory</a></li>
+        <li><a href="global.html#filterInventoryAdvanced">filterInventoryAdvanced</a></li>
+        <li><a href="global.html#filterItemPriceHistoryTable">filterItemPriceHistoryTable</a></li>
+        <li><a href="global.html#flattenGoldbackHistory">flattenGoldbackHistory</a></li>
+        <li><a href="global.html#formatCurrency">formatCurrency</a></li>
+        <li><a href="global.html#formatDateOnly">formatDateOnly</a></li>
+        <li><a href="global.html#formatDisplayDate">formatDisplayDate</a></li>
+        <li><a href="global.html#formatFileSize">formatFileSize</a></li>
+        <li><a href="global.html#formatLossProfit">formatLossProfit</a></li>
+        <li><a href="global.html#formatOffsetLabel">formatOffsetLabel</a></li>
+        <li><a href="global.html#formatPurchaseLocation">formatPurchaseLocation</a></li>
+        <li><a href="global.html#formatStorageLocation">formatStorageLocation</a></li>
+        <li><a href="global.html#formatTimeOnly">formatTimeOnly</a></li>
+        <li><a href="global.html#formatTimestamp">formatTimestamp</a></li>
+        <li><a href="global.html#formatWeight">formatWeight</a></li>
+        <li><a href="global.html#fuzzyMatch">fuzzyMatch</a></li>
+        <li><a href="global.html#fuzzySearch">fuzzySearch</a></li>
+        <li><a href="global.html#gbHistoryFilterText">gbHistoryFilterText</a></li>
+        <li><a href="global.html#gbHistorySortAsc">gbHistorySortAsc</a></li>
+        <li><a href="global.html#gbHistorySortColumn">gbHistorySortColumn</a></li>
+        <li><a href="global.html#generateBackupHtml">generateBackupHtml</a></li>
+        <li><a href="global.html#generateCategorySummary">generateCategorySummary</a></li>
+        <li><a href="global.html#generateColors">generateColors</a></li>
+        <li><a href="global.html#generateItemDataTable">generateItemDataTable</a></li>
+        <li><a href="global.html#generateLookupTable">generateLookupTable</a></li>
+        <li><a href="global.html#generateNGrams">generateNGrams</a></li>
+        <li><a href="global.html#generateReadmeContent">generateReadmeContent</a></li>
+        <li><a href="global.html#generateSparklineSVG">generateSparklineSVG</a></li>
+        <li><a href="global.html#generateStorageReport">generateStorageReport</a></li>
+        <li><a href="global.html#generateStorageReportHTML">generateStorageReportHTML</a></li>
+        <li><a href="global.html#generateStorageReportTar">generateStorageReportTar</a></li>
+        <li><a href="global.html#generateUUID">generateUUID</a></li>
+        <li><a href="global.html#generateVariations">generateVariations</a></li>
+        <li><a href="global.html#get24hChange">get24hChange</a></li>
+        <li><a href="global.html#getAllMetalsBreakdownData">getAllMetalsBreakdownData</a></li>
+        <li><a href="global.html#getAllUniqueTags">getAllUniqueTags</a></li>
+        <li><a href="global.html#getApiAvailability">getApiAvailability</a></li>
+        <li><a href="global.html#getAppTitle">getAppTitle</a></li>
+        <li><a href="global.html#getBreakdownData">getBreakdownData</a></li>
+        <li><a href="global.html#getCacheDurationMs">getCacheDurationMs</a></li>
+        <li><a href="global.html#getCachedLookupTable">getCachedLookupTable</a></li>
+        <li><a href="global.html#getCardStyle">getCardStyle</a></li>
+        <li><a href="global.html#getChartBackgroundColor">getChartBackgroundColor</a></li>
+        <li><a href="global.html#getChartColor">getChartColor</a></li>
+        <li><a href="global.html#getChartTextColor">getChartTextColor</a></li>
+        <li><a href="global.html#getChipColors">getChipColors</a></li>
+        <li><a href="global.html#getCompositionFirstWords">getCompositionFirstWords</a></li>
+        <li><a href="global.html#getContrastColor">getContrastColor</a></li>
+        <li><a href="global.html#getCryptoBackend">getCryptoBackend</a></li>
+        <li><a href="global.html#getCurrencySymbol">getCurrencySymbol</a></li>
+        <li><a href="global.html#getDateChunks">getDateChunks</a></li>
+        <li><a href="global.html#getDefaultSyncMode">getDefaultSyncMode</a></li>
+        <li><a href="global.html#getDisplayComposition">getDisplayComposition</a></li>
+        <li><a href="global.html#getEmbeddedRoadmap">getEmbeddedRoadmap</a></li>
+        <li><a href="global.html#getEmbeddedSeedData">getEmbeddedSeedData</a></li>
+        <li><a href="global.html#getEmbeddedWhatsNew">getEmbeddedWhatsNew</a></li>
+        <li><a href="global.html#getExchangeRate">getExchangeRate</a></li>
+        <li><a href="global.html#getExistingElement">getExistingElement</a></li>
+        <li><a href="global.html#getFilterChipCategoryConfig">getFilterChipCategoryConfig</a></li>
+        <li><a href="global.html#getFooterDomain">getFooterDomain</a></li>
+        <li><a href="global.html#getGoldbackDenominationPrice">getGoldbackDenominationPrice</a></li>
+        <li><a href="global.html#getGoldbackRetailPrice">getGoldbackRetailPrice</a></li>
+        <li><a href="global.html#getHistoricalSparklineData">getHistoricalSparklineData</a></li>
+        <li><a href="global.html#getInlineChipConfig">getInlineChipConfig</a></li>
+        <li><a href="global.html#getItemTags">getItemTags</a></li>
+        <li><a href="global.html#getLastProviderSyncTime">getLastProviderSyncTime</a></li>
+        <li><a href="global.html#getLastUpdateTime">getLastUpdateTime</a></li>
+        <li><a href="global.html#getLayoutSectionConfig">getLayoutSectionConfig</a></li>
+        <li><a href="global.html#getLookupStats">getLookupStats</a></li>
+        <li><a href="global.html#getMetalColor">getMetalColor</a></li>
+        <li><a href="global.html#getMetalOrderConfig">getMetalOrderConfig</a></li>
+        <li><a href="global.html#getNumistaViewFieldConfig">getNumistaViewFieldConfig</a></li>
+        <li><a href="global.html#getPasswordStrength">getPasswordStrength</a></li>
+        <li><a href="global.html#getPopularNumistaItems">getPopularNumistaItems</a></li>
+        <li><a href="global.html#getProviderOrder">getProviderOrder</a></li>
+        <li><a href="global.html#getRequiredYears">getRequiredYears</a></li>
+        <li><a href="global.html#getSparklineData">getSparklineData</a></li>
+        <li><a href="global.html#getSpotHistoryForMetal">getSpotHistoryForMetal</a></li>
+        <li><a href="global.html#getStorageItemDescription">getStorageItemDescription</a></li>
+        <li><a href="global.html#getStorageItemDisplayName">getStorageItemDisplayName</a></li>
+        <li><a href="global.html#getStorageReportCSS">getStorageReportCSS</a></li>
+        <li><a href="global.html#getStorageReportJS">getStorageReportJS</a></li>
+        <li><a href="global.html#getSyncDeviceId">getSyncDeviceId</a></li>
+        <li><a href="global.html#getSyncPassword">getSyncPassword</a></li>
+        <li><a href="global.html#getTemplateVariables">getTemplateVariables</a></li>
+        <li><a href="global.html#getUserFriendlyMessage">getUserFriendlyMessage</a></li>
+        <li><a href="global.html#getVersionString">getVersionString</a></li>
+        <li><a href="global.html#getViewModalSectionConfig">getViewModalSectionConfig</a></li>
+        <li><a href="global.html#goldbackEnabled">goldbackEnabled</a></li>
+        <li><a href="global.html#goldbackEstimateEnabled">goldbackEstimateEnabled</a></li>
+        <li><a href="global.html#goldbackEstimateModifier">goldbackEstimateModifier</a></li>
+        <li><a href="global.html#goldbackPriceHistory">goldbackPriceHistory</a></li>
+        <li><a href="global.html#goldbackPrices">goldbackPrices</a></li>
+        <li><a href="global.html#gramsToOzt">gramsToOzt</a></li>
+        <li><a href="global.html#handleError">handleError</a></li>
+        <li><a href="global.html#handleHistoryPull">handleHistoryPull</a></li>
+        <li><a href="global.html#handleImageDeletion">handleImageDeletion</a></li>
+        <li><a href="global.html#handleProviderSave">handleProviderSave</a></li>
+        <li><a href="global.html#handleProviderSync">handleProviderSync</a></li>
+        <li><a href="global.html#handleRemoteChange">handleRemoteChange</a></li>
+        <li><a href="global.html#handleSaveSearchPattern">handleSaveSearchPattern</a></li>
+        <li><a href="global.html#handleStaktrakrHistoryPull">handleStaktrakrHistoryPull</a></li>
+        <li><a href="global.html#handleVaultAction">handleVaultAction</a></li>
+        <li><a href="global.html#hideAboutModal">hideAboutModal</a></li>
+        <li><a href="global.html#hideAckModal">hideAckModal</a></li>
+        <li><a href="global.html#hideApiHistoryModal">hideApiHistoryModal</a></li>
+        <li><a href="global.html#hideApiModal">hideApiModal</a></li>
+        <li><a href="global.html#hideApiProvidersModal">hideApiProvidersModal</a></li>
+        <li><a href="global.html#hideCatalogHistoryModal">hideCatalogHistoryModal</a></li>
+        <li><a href="global.html#hideEmptyColumns">hideEmptyColumns</a></li>
+        <li><a href="global.html#hideFilesModal">hideFilesModal</a></li>
+        <li><a href="global.html#hideGoldbackHistoryModal">hideGoldbackHistoryModal</a></li>
+        <li><a href="global.html#hideManualInput">hideManualInput</a></li>
+        <li><a href="global.html#hideProviderInfo">hideProviderInfo</a></li>
+        <li><a href="global.html#hideSettingsModal">hideSettingsModal</a></li>
+        <li><a href="global.html#historicalDataCache">historicalDataCache</a></li>
+        <li><a href="global.html#historicalFetchPromises">historicalFetchPromises</a></li>
+        <li><a href="global.html#importCsv">importCsv</a></li>
+        <li><a href="global.html#importEncryptedBackup">importEncryptedBackup</a></li>
+        <li><a href="global.html#importJson">importJson</a></li>
+        <li><a href="global.html#importNumistaCsv">importNumistaCsv</a></li>
+        <li><a href="global.html#importSpotHistory">importSpotHistory</a></li>
+        <li><a href="global.html#initCardSortBar">initCardSortBar</a></li>
+        <li><a href="global.html#initCloudSync">initCloudSync</a></li>
+        <li><a href="global.html#initSpotHistoryButtons">initSpotHistoryButtons</a></li>
+        <li><a href="global.html#initTheme">initTheme</a></li>
+        <li><a href="global.html#initializeAutocomplete">initializeAutocomplete</a></li>
+        <li><a href="global.html#injectVersionString">injectVersionString</a></li>
+        <li><a href="global.html#inventory">inventory</a></li>
+        <li><a href="global.html#isCardViewActive">isCardViewActive</a></li>
+        <li><a href="global.html#isFeatureEnabled">isFeatureEnabled</a></li>
+        <li><a href="global.html#isGoldbackPricingActive">isGoldbackPricingActive</a></li>
+        <li><a href="global.html#isValidSelectOption">isValidSelectOption</a></li>
+        <li><a href="global.html#itemPriceHistory">itemPriceHistory</a></li>
+        <li><a href="global.html#itemTags">itemTags</a></li>
+        <li><a href="global.html#itemsPerPage">itemsPerPage</a></li>
+        <li><a href="global.html#loadAnnouncements">loadAnnouncements</a></li>
+        <li><a href="global.html#loadApiCache">loadApiCache</a></li>
+        <li><a href="global.html#loadApiConfig">loadApiConfig</a></li>
+        <li><a href="global.html#loadCatalogHistory">loadCatalogHistory</a></li>
+        <li><a href="global.html#loadData">loadData</a></li>
+        <li><a href="global.html#loadDisplayCurrency">loadDisplayCurrency</a></li>
+        <li><a href="global.html#loadExchangeRates">loadExchangeRates</a></li>
+        <li><a href="global.html#loadGoldbackEnabled">loadGoldbackEnabled</a></li>
+        <li><a href="global.html#loadGoldbackEstimateEnabled">loadGoldbackEstimateEnabled</a></li>
+        <li><a href="global.html#loadGoldbackEstimateModifier">loadGoldbackEstimateModifier</a></li>
+        <li><a href="global.html#loadGoldbackPriceHistory">loadGoldbackPriceHistory</a></li>
+        <li><a href="global.html#loadGoldbackPrices">loadGoldbackPrices</a></li>
+        <li><a href="global.html#loadInventory">loadInventory</a></li>
+        <li><a href="global.html#loadItemPriceHistory">loadItemPriceHistory</a></li>
+        <li><a href="global.html#loadItemTags">loadItemTags</a></li>
+        <li><a href="global.html#loadLookupTable">loadLookupTable</a></li>
+        <li><a href="global.html#loadProviderPriorities">loadProviderPriorities</a></li>
+        <li><a href="global.html#loadSeedImages">loadSeedImages</a></li>
+        <li><a href="global.html#loadSeedInventory">loadSeedInventory</a></li>
+        <li><a href="global.html#loadSeedSpotHistory">loadSeedSpotHistory</a></li>
+        <li><a href="global.html#loadSpotHistory">loadSpotHistory</a></li>
+        <li><a href="global.html#loadTrendRanges">loadTrendRanges</a></li>
+        <li><a href="global.html#loadViewImages">loadViewImages</a></li>
+        <li><a href="global.html#loadViewNumistaData">loadViewNumistaData</a></li>
+        <li><a href="global.html#logChange">logChange</a></li>
+        <li><a href="global.html#logItemChanges">logItemChanges</a></li>
+        <li><a href="global.html#logSyncActivity">logSyncActivity</a></li>
+        <li><a href="global.html#lookupPcgsByNumber">lookupPcgsByNumber</a></li>
+        <li><a href="global.html#lookupPcgsFromForm">lookupPcgsFromForm</a></li>
+        <li><a href="global.html#mapNumistaType">mapNumistaType</a></li>
+        <li><a href="global.html#marketValueViewItems">marketValueViewItems</a></li>
+        <li><a href="global.html#matchCoinSeries">matchCoinSeries</a></li>
+        <li><a href="global.html#mergeItemPriceHistory">mergeItemPriceHistory</a></li>
+        <li><a href="global.html#migrateHourlySource">migrateHourlySource</a></li>
+        <li><a href="global.html#migrateLayoutVisibility">migrateLayoutVisibility</a></li>
+        <li><a href="global.html#migrateProviderPriority">migrateProviderPriority</a></li>
+        <li><a href="global.html#monitorPerformance">monitorPerformance</a></li>
+        <li><a href="global.html#normalizeItemName">normalizeItemName</a></li>
+        <li><a href="global.html#normalizeString">normalizeString</a></li>
+        <li><a href="global.html#normalizeType">normalizeType</a></li>
+        <li><a href="global.html#notesIndex">notesIndex</a></li>
+        <li><a href="global.html#onGoldSpotPriceChanged">onGoldSpotPriceChanged</a></li>
+        <li><a href="global.html#openEbaySearch">openEbaySearch</a></li>
+        <li><a href="global.html#openItemPriceHistoryModal">openItemPriceHistoryModal</a></li>
+        <li><a href="global.html#openModalById">openModalById</a></li>
+        <li><a href="global.html#openNumistaModal">openNumistaModal</a></li>
+        <li><a href="global.html#openSpotLookupModal">openSpotLookupModal</a></li>
+        <li><a href="global.html#openStorageReportPopup">openStorageReportPopup</a></li>
+        <li><a href="global.html#openVaultModal">openVaultModal</a></li>
+        <li><a href="global.html#optimizeStoragePhase1C">optimizeStoragePhase1C</a></li>
+        <li><a href="global.html#optionalListener">optionalListener</a></li>
+        <li><a href="global.html#oztToGrams">oztToGrams</a></li>
+        <li><a href="global.html#pad2">pad2</a></li>
+        <li><a href="global.html#parseDate">parseDate</a></li>
+        <li><a href="global.html#parseFraction">parseFraction</a></li>
+        <li><a href="global.html#parseItemFormFields">parseItemFormFields</a></li>
+        <li><a href="global.html#parseNumistaMetal">parseNumistaMetal</a></li>
+        <li><a href="global.html#parsePcgsResponse">parsePcgsResponse</a></li>
+        <li><a href="global.html#parsePriceToUSD">parsePriceToUSD</a></li>
+        <li><a href="global.html#parsePurity">parsePurity</a></li>
+        <li><a href="global.html#parseSearchPatterns">parseSearchPatterns</a></li>
+        <li><a href="global.html#parseVaultFile">parseVaultFile</a></li>
+        <li><a href="global.html#parseWeight">parseWeight</a></li>
+        <li><a href="global.html#pcgsFetch">pcgsFetch</a></li>
+        <li><a href="global.html#pcgsPreflightCheck">pcgsPreflightCheck</a></li>
+        <li><a href="global.html#persistInventoryAndRefresh">persistInventoryAndRefresh</a></li>
+        <li><a href="global.html#pollForRemoteChanges">pollForRemoteChanges</a></li>
+        <li><a href="global.html#populateAboutModal">populateAboutModal</a></li>
+        <li><a href="global.html#populateAckModal">populateAckModal</a></li>
+        <li><a href="global.html#populateApiSection">populateApiSection</a></li>
+        <li><a href="global.html#populateImagesSection">populateImagesSection</a></li>
+        <li><a href="global.html#populateVersionModal">populateVersionModal</a></li>
+        <li><a href="global.html#preparePriceHistoryRows">preparePriceHistoryRows</a></li>
+        <li><a href="global.html#priceHistoryFilterText">priceHistoryFilterText</a></li>
+        <li><a href="global.html#processUploadedImage">processUploadedImage</a></li>
+        <li><a href="global.html#providerRequiresKey">providerRequiresKey</a></li>
+        <li><a href="global.html#pullSyncVault">pullSyncVault</a></li>
+        <li><a href="global.html#purgeCatalogHistory">purgeCatalogHistory</a></li>
+        <li><a href="global.html#purgeItemPriceHistory">purgeItemPriceHistory</a></li>
+        <li><a href="global.html#purgeSpotHistory">purgeSpotHistory</a></li>
+        <li><a href="global.html#pushSyncVault">pushSyncVault</a></li>
+        <li><a href="global.html#recalcItem">recalcItem</a></li>
+        <li><a href="global.html#recordAllItemPriceSnapshots">recordAllItemPriceSnapshots</a></li>
+        <li><a href="global.html#recordCatalogHistory">recordCatalogHistory</a></li>
+        <li><a href="global.html#recordGoldbackPrices">recordGoldbackPrices</a></li>
+        <li><a href="global.html#recordItemPrice">recordItemPrice</a></li>
+        <li><a href="global.html#recordSingleItemPrice">recordSingleItemPrice</a></li>
+        <li><a href="global.html#recordSpot">recordSpot</a></li>
+        <li><a href="global.html#refreshCompositionOptions">refreshCompositionOptions</a></li>
+        <li><a href="global.html#refreshFromCache">refreshFromCache</a></li>
+        <li><a href="global.html#refreshLookupTable">refreshLookupTable</a></li>
+        <li><a href="global.html#refreshProviderStatuses">refreshProviderStatuses</a></li>
+        <li><a href="global.html#refreshSyncUI">refreshSyncUI</a></li>
+        <li><a href="global.html#refreshTotalsDots">refreshTotalsDots</a></li>
+        <li><a href="global.html#registerName">registerName</a></li>
+        <li><a href="global.html#removeFilter">removeFilter</a></li>
+        <li><a href="global.html#removeItemTag">removeItemTag</a></li>
+        <li><a href="global.html#renameTag">renameTag</a></li>
+        <li><a href="global.html#renderActiveFilters">renderActiveFilters</a></li>
+        <li><a href="global.html#renderApiHistoryTable">renderApiHistoryTable</a></li>
+        <li><a href="global.html#renderApiStatusSummary">renderApiStatusSummary</a></li>
+        <li><a href="global.html#renderBulkTable">renderBulkTable</a></li>
+        <li><a href="global.html#renderBulkTableBody">renderBulkTableBody</a></li>
+        <li><a href="global.html#renderBulkToolbar">renderBulkToolbar</a></li>
+        <li><a href="global.html#renderCardA">renderCardA</a></li>
+        <li><a href="global.html#renderCardB">renderCardB</a></li>
+        <li><a href="global.html#renderCardC">renderCardC</a></li>
+        <li><a href="global.html#renderCardView">renderCardView</a></li>
+        <li>
+          <a href="global.html#renderCatalogHistoryForSettings">renderCatalogHistoryForSettings</a>
+        </li>
+        <li><a href="global.html#renderCatalogHistoryTable">renderCatalogHistoryTable</a></li>
+        <li><a href="global.html#renderChangeLog">renderChangeLog</a></li>
+        <li><a href="global.html#renderCloudBackupList">renderCloudBackupList</a></li>
+        <li><a href="global.html#renderCustomPatternRules">renderCustomPatternRules</a></li>
+        <li><a href="global.html#renderCustomRuleTable">renderCustomRuleTable</a></li>
+        <li><a href="global.html#renderEligibleItemsTable">renderEligibleItemsTable</a></li>
+        <li>
+          <a href="global.html#renderFilterChipCategoryTable">renderFilterChipCategoryTable</a>
+        </li>
+        <li><a href="global.html#renderGoldbackHistoryTable">renderGoldbackHistoryTable</a></li>
+        <li><a href="global.html#renderImageStorageStats">renderImageStorageStats</a></li>
+        <li><a href="global.html#renderInlineChipConfigTable">renderInlineChipConfigTable</a></li>
+        <li>
+          <a href="global.html#renderItemPriceHistoryModalTable"
+            >renderItemPriceHistoryModalTable</a
+          >
+        </li>
+        <li><a href="global.html#renderItemPriceHistoryTable">renderItemPriceHistoryTable</a></li>
+        <li>
+          <a href="global.html#renderLayoutSectionConfigTable">renderLayoutSectionConfigTable</a>
+        </li>
+        <li><a href="global.html#renderLogTab">renderLogTab</a></li>
+        <li><a href="global.html#renderMetalOrderConfigTable">renderMetalOrderConfigTable</a></li>
+        <li><a href="global.html#renderNumistaFieldCheckboxes">renderNumistaFieldCheckboxes</a></li>
+        <li><a href="global.html#renderNumistaResultCard">renderNumistaResultCard</a></li>
+        <li><a href="global.html#renderNumistaSelectedItem">renderNumistaSelectedItem</a></li>
+        <li><a href="global.html#renderNumistaSyncUI">renderNumistaSyncUI</a></li>
+        <li><a href="global.html#renderNumistaUsageBar">renderNumistaUsageBar</a></li>
+        <li><a href="global.html#renderPcgsFieldCheckboxes">renderPcgsFieldCheckboxes</a></li>
+        <li><a href="global.html#renderPcgsSelectedItem">renderPcgsSelectedItem</a></li>
+        <li><a href="global.html#renderPcgsUsageBar">renderPcgsUsageBar</a></li>
+        <li><a href="global.html#renderSeedRuleTable">renderSeedRuleTable</a></li>
+        <li><a href="global.html#renderSpotHistoryTable">renderSpotHistoryTable</a></li>
+        <li><a href="global.html#renderSpotLookupEmpty">renderSpotLookupEmpty</a></li>
+        <li><a href="global.html#renderSpotLookupResults">renderSpotLookupResults</a></li>
+        <li><a href="global.html#renderStorageSection">renderStorageSection</a></li>
+        <li><a href="global.html#renderSyncHistorySection">renderSyncHistorySection</a></li>
+        <li><a href="global.html#renderSyncStats">renderSyncStats</a></li>
+        <li><a href="global.html#renderUserImageGrid">renderUserImageGrid</a></li>
+        <li><a href="global.html#renderVersionBadge">renderVersionBadge</a></li>
+        <li>
+          <a href="global.html#renderViewModalSectionConfigTable"
+            >renderViewModalSectionConfigTable</a
+          >
+        </li>
+        <li><a href="global.html#replaceTemplateVariables">replaceTemplateVariables</a></li>
+        <li><a href="global.html#resetSpot">resetSpot</a></li>
+        <li><a href="global.html#resetSpotByName">resetSpotByName</a></li>
+        <li><a href="global.html#resetSpotPrice">resetSpotPrice</a></li>
+        <li><a href="global.html#resolveElement">resolveElement</a></li>
+        <li><a href="global.html#restoreBackupZip">restoreBackupZip</a></li>
+        <li><a href="global.html#restoreVaultData">restoreVaultData</a></li>
+        <li><a href="global.html#resyncCachedEntry">resyncCachedEntry</a></li>
+        <li><a href="global.html#safeAttachListener">safeAttachListener</a></li>
+        <li><a href="global.html#safeGetElement">safeGetElement</a></li>
+        <li><a href="global.html#sanitizeHtml">sanitizeHtml</a></li>
+        <li><a href="global.html#sanitizeImportedItem">sanitizeImportedItem</a></li>
+        <li><a href="global.html#sanitizeObjectFields">sanitizeObjectFields</a></li>
+        <li><a href="global.html#sanitizeTablesOnLoad">sanitizeTablesOnLoad</a></li>
+        <li><a href="global.html#saveApiCache">saveApiCache</a></li>
+        <li><a href="global.html#saveApiConfig">saveApiConfig</a></li>
+        <li><a href="global.html#saveCatalogHistory">saveCatalogHistory</a></li>
+        <li><a href="global.html#saveData">saveData</a></li>
+        <li><a href="global.html#saveDisplayCurrency">saveDisplayCurrency</a></li>
+        <li><a href="global.html#saveExchangeRates">saveExchangeRates</a></li>
+        <li><a href="global.html#saveFilterChipCategoryConfig">saveFilterChipCategoryConfig</a></li>
+        <li><a href="global.html#saveGoldbackEnabled">saveGoldbackEnabled</a></li>
+        <li><a href="global.html#saveGoldbackEstimateEnabled">saveGoldbackEstimateEnabled</a></li>
+        <li><a href="global.html#saveGoldbackEstimateModifier">saveGoldbackEstimateModifier</a></li>
+        <li><a href="global.html#saveGoldbackPriceHistory">saveGoldbackPriceHistory</a></li>
+        <li><a href="global.html#saveGoldbackPrices">saveGoldbackPrices</a></li>
+        <li><a href="global.html#saveInlineChipConfig">saveInlineChipConfig</a></li>
+        <li><a href="global.html#saveInventory">saveInventory</a></li>
+        <li><a href="global.html#saveItemPriceHistory">saveItemPriceHistory</a></li>
+        <li><a href="global.html#saveItemTags">saveItemTags</a></li>
+        <li><a href="global.html#saveLayoutSectionConfig">saveLayoutSectionConfig</a></li>
+        <li><a href="global.html#saveNumistaViewFieldConfig">saveNumistaViewFieldConfig</a></li>
+        <li><a href="global.html#saveProviderPriorities">saveProviderPriorities</a></li>
+        <li><a href="global.html#saveSpotHistory">saveSpotHistory</a></li>
+        <li><a href="global.html#saveTrendRange">saveTrendRange</a></li>
+        <li><a href="global.html#saveUserImageForItem">saveUserImageForItem</a></li>
+        <li><a href="global.html#saveViewModalSectionConfig">saveViewModalSectionConfig</a></li>
+        <li><a href="global.html#scheduleSyncPush">scheduleSyncPush</a></li>
+        <li><a href="global.html#searchHistoricalByDate">searchHistoricalByDate</a></li>
+        <li>
+          <a href="global.html#searchPatternExistsInCustomGroups"
+            >searchPatternExistsInCustomGroups</a
+          >
+        </li>
+        <li><a href="global.html#searchPatternMatchesAutoChip">searchPatternMatchesAutoChip</a></li>
+        <li><a href="global.html#searchQuery">searchQuery</a></li>
+        <li><a href="global.html#searchSpotByDate">searchSpotByDate</a></li>
+        <li><a href="global.html#serializeVaultFile">serializeVaultFile</a></li>
+        <li><a href="global.html#setDefaultProvider">setDefaultProvider</a></li>
+        <li><a href="global.html#setEditPreviewUrl">setEditPreviewUrl</a></li>
+        <li><a href="global.html#setProviderStatus">setProviderStatus</a></li>
+        <li><a href="global.html#setTheme">setTheme</a></li>
+        <li><a href="global.html#settingsCatalogSortAsc">settingsCatalogSortAsc</a></li>
+        <li><a href="global.html#settingsCatalogSortColumn">settingsCatalogSortColumn</a></li>
+        <li><a href="global.html#settingsCloudSortAsc">settingsCloudSortAsc</a></li>
+        <li><a href="global.html#settingsCloudSortColumn">settingsCloudSortColumn</a></li>
+        <li><a href="global.html#settingsPriceSortAsc">settingsPriceSortAsc</a></li>
+        <li><a href="global.html#settingsPriceSortColumn">settingsPriceSortColumn</a></li>
+        <li><a href="global.html#settingsSpotSortAsc">settingsSpotSortAsc</a></li>
+        <li><a href="global.html#settingsSpotSortColumn">settingsSpotSortColumn</a></li>
+        <li><a href="global.html#setupAboutModalEvents">setupAboutModalEvents</a></li>
+        <li><a href="global.html#setupAckModalEvents">setupAckModalEvents</a></li>
+        <li><a href="global.html#setupApiEvents">setupApiEvents</a></li>
+        <li><a href="global.html#setupBasicEventListeners">setupBasicEventListeners</a></li>
+        <li><a href="global.html#setupBulkEditControls">setupBulkEditControls</a></li>
+        <li><a href="global.html#setupColumnResizing">setupColumnResizing</a></li>
+        <li><a href="global.html#setupDataManagementListeners">setupDataManagementListeners</a></li>
+        <li><a href="global.html#setupEventListeners">setupEventListeners</a></li>
+        <li><a href="global.html#setupFormatImport">setupFormatImport</a></li>
+        <li><a href="global.html#setupHeaderButtonListeners">setupHeaderButtonListeners</a></li>
+        <li><a href="global.html#setupImportExportListeners">setupImportExportListeners</a></li>
+        <li><a href="global.html#setupItemFormListeners">setupItemFormListeners</a></li>
+        <li><a href="global.html#setupNoteAndModalListeners">setupNoteAndModalListeners</a></li>
+        <li><a href="global.html#setupPagination">setupPagination</a></li>
+        <li><a href="global.html#setupProviderPriority">setupProviderPriority</a></li>
+        <li>
+          <a href="global.html#setupProviderSettingsListeners">setupProviderSettingsListeners</a>
+        </li>
+        <li><a href="global.html#setupResponsiveColumns">setupResponsiveColumns</a></li>
+        <li><a href="global.html#setupSearch">setupSearch</a></li>
+        <li><a href="global.html#setupSearchAndChipListeners">setupSearchAndChipListeners</a></li>
+        <li><a href="global.html#setupSettingsEventListeners">setupSettingsEventListeners</a></li>
+        <li><a href="global.html#setupSpotPriceListeners">setupSpotPriceListeners</a></li>
+        <li><a href="global.html#setupSystemThemeListener">setupSystemThemeListener</a></li>
+        <li><a href="global.html#setupTableSortListeners">setupTableSortListeners</a></li>
+        <li><a href="global.html#setupThemeToggle">setupThemeToggle</a></li>
+        <li><a href="global.html#setupVaultListeners">setupVaultListeners</a></li>
+        <li><a href="global.html#setupVersionModalEvents">setupVersionModalEvents</a></li>
+        <li><a href="global.html#shouldShowSearchSaveButton">shouldShowSearchSaveButton</a></li>
+        <li><a href="global.html#showAboutModal">showAboutModal</a></li>
+        <li><a href="global.html#showAckModal">showAckModal</a></li>
+        <li><a href="global.html#showApiHistoryModal">showApiHistoryModal</a></li>
+        <li><a href="global.html#showApiModal">showApiModal</a></li>
+        <li><a href="global.html#showApiProvidersModal">showApiProvidersModal</a></li>
+        <li><a href="global.html#showBulkConfirm">showBulkConfirm</a></li>
+        <li><a href="global.html#showCatalogHistoryModal">showCatalogHistoryModal</a></li>
+        <li><a href="global.html#showDetailsModal">showDetailsModal</a></li>
+        <li><a href="global.html#showFilesModal">showFilesModal</a></li>
+        <li><a href="global.html#showFullChangelog">showFullChangelog</a></li>
+        <li><a href="global.html#showGoldbackHistoryModal">showGoldbackHistoryModal</a></li>
+        <li><a href="global.html#showManualInput">showManualInput</a></li>
+        <li><a href="global.html#showNotes">showNotes</a></li>
+        <li><a href="global.html#showNotesView">showNotesView</a></li>
+        <li><a href="global.html#showNumistaResults">showNumistaResults</a></li>
+        <li><a href="global.html#showPcgsFieldPicker">showPcgsFieldPicker</a></li>
+        <li><a href="global.html#showProviderInfo">showProviderInfo</a></li>
+        <li><a href="global.html#showSettingsModal">showSettingsModal</a></li>
+        <li><a href="global.html#showStaticVersionBadge">showStaticVersionBadge</a></li>
+        <li><a href="global.html#showSyncConflictModal">showSyncConflictModal</a></li>
+        <li><a href="global.html#showSyncUpdateModal">showSyncUpdateModal</a></li>
+        <li><a href="global.html#showTagInput">showTagInput</a></li>
+        <li><a href="global.html#showVaultStatus">showVaultStatus</a></li>
+        <li><a href="global.html#showViewModal">showViewModal</a></li>
+        <li><a href="global.html#simpleHash">simpleHash</a></li>
+        <li><a href="global.html#simplifyChipValue">simplifyChipValue</a></li>
+        <li><a href="global.html#sortInventory">sortInventory</a></li>
+        <li>
+          <a href="global.html#sortInventoryByDateNewestFirst">sortInventoryByDateNewestFirst</a>
+        </li>
+        <li><a href="global.html#sparklineInstances">sparklineInstances</a></li>
+        <li><a href="global.html#spotHistory">spotHistory</a></li>
+        <li><a href="global.html#spotPrices">spotPrices</a></li>
+        <li><a href="global.html#startBulkSync">startBulkSync</a></li>
+        <li><a href="global.html#startCellEdit">startCellEdit</a></li>
+        <li><a href="global.html#startSpotInlineEdit">startSpotInlineEdit</a></li>
+        <li><a href="global.html#startSyncPoller">startSyncPoller</a></li>
+        <li><a href="global.html#stopSyncPoller">stopSyncPoller</a></li>
+        <li><a href="global.html#stripNonAlphanumeric">stripNonAlphanumeric</a></li>
+        <li><a href="global.html#switchLogTab">switchLogTab</a></li>
+        <li><a href="global.html#switchProviderTab">switchProviderTab</a></li>
+        <li><a href="global.html#switchSettingsSection">switchSettingsSection</a></li>
+        <li><a href="global.html#syncAllProviders">syncAllProviders</a></li>
+        <li><a href="global.html#syncChipToggle">syncChipToggle</a></li>
+        <li><a href="global.html#syncCurrencySettingsUI">syncCurrencySettingsUI</a></li>
+        <li><a href="global.html#syncGoldbackSettingsUI">syncGoldbackSettingsUI</a></li>
+        <li><a href="global.html#syncHasLocalChanges">syncHasLocalChanges</a></li>
+        <li><a href="global.html#syncHeaderToggleUI">syncHeaderToggleUI</a></li>
+        <li><a href="global.html#syncLayoutVisibilityUI">syncLayoutVisibilityUI</a></li>
+        <li><a href="global.html#syncProviderChain">syncProviderChain</a></li>
+        <li><a href="global.html#syncProviderPriorityUI">syncProviderPriorityUI</a></li>
+        <li><a href="global.html#syncRestoreOverrideBackup">syncRestoreOverrideBackup</a></li>
+        <li><a href="global.html#syncSaveOverrideBackup">syncSaveOverrideBackup</a></li>
+        <li><a href="global.html#syncSettingsUI">syncSettingsUI</a></li>
+        <li><a href="global.html#syncSpotPricesFromApi">syncSpotPricesFromApi</a></li>
+        <li><a href="global.html#testApiConnection">testApiConnection</a></li>
+        <li><a href="global.html#todayStr">todayStr</a></li>
+        <li><a href="global.html#toggleChange">toggleChange</a></li>
+        <li><a href="global.html#toggleCurrencyDropdown">toggleCurrencyDropdown</a></li>
+        <li><a href="global.html#toggleGlobalPriceView">toggleGlobalPriceView</a></li>
+        <li><a href="global.html#togglePriceView">togglePriceView</a></li>
+        <li><a href="global.html#toggleTheme">toggleTheme</a></li>
+        <li>
+          <a href="global.html#toggleVaultPasswordVisibility">toggleVaultPasswordVisibility</a>
+        </li>
+        <li><a href="global.html#tokenizeWords">tokenizeWords</a></li>
+        <li><a href="global.html#updateAllSparklines">updateAllSparklines</a></li>
+        <li><a href="global.html#updateCardSortBar">updateCardSortBar</a></li>
+        <li><a href="global.html#updateColumnVisibility">updateColumnVisibility</a></li>
+        <li><a href="global.html#updateFuzzyIndicator">updateFuzzyIndicator</a></li>
+        <li><a href="global.html#updateHistoryPullCost">updateHistoryPullCost</a></li>
+        <li><a href="global.html#updateItemCount">updateItemCount</a></li>
+        <li><a href="global.html#updateLastTimestamps">updateLastTimestamps</a></li>
+        <li><a href="global.html#updateManualSpot">updateManualSpot</a></li>
+        <li><a href="global.html#updateMatchIndicator">updateMatchIndicator</a></li>
+        <li><a href="global.html#updateModalCurrencyUI">updateModalCurrencyUI</a></li>
+        <li><a href="global.html#updatePortalHeight">updatePortalHeight</a></li>
+        <li><a href="global.html#updateProviderHistoryTables">updateProviderHistoryTables</a></li>
+        <li><a href="global.html#updateProviderSettings">updateProviderSettings</a></li>
+        <li><a href="global.html#updateSaveSearchButton">updateSaveSearchButton</a></li>
+        <li><a href="global.html#updateSettingsFooter">updateSettingsFooter</a></li>
+        <li><a href="global.html#updateSparkline">updateSparkline</a></li>
+        <li><a href="global.html#updateSpotCardColor">updateSpotCardColor</a></li>
+        <li><a href="global.html#updateSpotChangePercent">updateSpotChangePercent</a></li>
+        <li><a href="global.html#updateSpotTimestamp">updateSpotTimestamp</a></li>
+        <li><a href="global.html#updateStatusCell">updateStatusCell</a></li>
+        <li><a href="global.html#updateStorageStats">updateStorageStats</a></li>
+        <li><a href="global.html#updateStrengthBar">updateStrengthBar</a></li>
+        <li><a href="global.html#updateSummary">updateSummary</a></li>
+        <li><a href="global.html#updateSyncButtonStates">updateSyncButtonStates</a></li>
+        <li><a href="global.html#updateSyncStatusIndicator">updateSyncStatusIndicator</a></li>
+        <li><a href="global.html#updateThemeButton">updateThemeButton</a></li>
+        <li><a href="global.html#useSpotPrice">useSpotPrice</a></li>
+        <li><a href="global.html#validateFieldValue">validateFieldValue</a></li>
+        <li><a href="global.html#validateInventoryItem">validateInventoryItem</a></li>
+        <li><a href="global.html#validateItemFields">validateItemFields</a></li>
+        <li><a href="global.html#vaultDecrypt">vaultDecrypt</a></li>
+        <li><a href="global.html#vaultDecryptAndRestore">vaultDecryptAndRestore</a></li>
+        <li><a href="global.html#vaultDeriveKey">vaultDeriveKey</a></li>
+        <li><a href="global.html#vaultEncrypt">vaultEncrypt</a></li>
+        <li><a href="global.html#vaultEncryptToBytes">vaultEncryptToBytes</a></li>
+        <li><a href="global.html#vaultEncryptToBytesScoped">vaultEncryptToBytesScoped</a></li>
+        <li><a href="global.html#vaultRandomBytes">vaultRandomBytes</a></li>
+        <li><a href="global.html#verifyPcgsCert">verifyPcgsCert</a></li>
+        <li><a href="global.html#wireChipSortToggle">wireChipSortToggle</a></li>
+        <li><a href="global.html#wireFeatureFlagToggle">wireFeatureFlagToggle</a></li>
+        <li><a href="global.html#wireStorageToggle">wireStorageToggle</a></li>
+        <li><a href="global.html#xhrLoadJSON">xhrLoadJSON</a></li>
+      </ul>
+    </nav>
 
+    <br class="clear" />
 
+    <footer>
+      Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Thu Feb
+      19 2026 02:57:08 GMT-0600 (Central Standard Time)
+    </footer>
 
-</div>
-
-<nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="CatalogAPI.html">CatalogAPI</a></li><li><a href="CatalogConfig.html">CatalogConfig</a></li><li><a href="CatalogManager.html">CatalogManager</a></li><li><a href="CatalogProvider.html">CatalogProvider</a></li><li><a href="FeatureFlags.html">FeatureFlags</a></li><li><a href="ImageCache.html">ImageCache</a></li><li><a href="ImageProcessor.html">ImageProcessor</a></li><li><a href="LocalProvider.html">LocalProvider</a></li><li><a href="NumistaCatalogProvider.html">NumistaCatalogProvider</a></li><li><a href="NumistaProvider.html">NumistaProvider</a></li></ul><h3>Global</h3><ul><li><a href="global.html#ACK_DISMISSED_KEY">ACK_DISMISSED_KEY</a></li><li><a href="global.html#API_CACHE_KEY">API_CACHE_KEY</a></li><li><a href="global.html#API_KEY_STORAGE_KEY">API_KEY_STORAGE_KEY</a></li><li><a href="global.html#API_PROVIDERS">API_PROVIDERS</a></li><li><a href="global.html#APP_VERSION">APP_VERSION</a></li><li><a href="global.html#APP_VERSION_KEY">APP_VERSION_KEY</a></li><li><a href="global.html#AUTOCOMPLETE_CONFIG">AUTOCOMPLETE_CONFIG</a></li><li><a href="global.html#BRANDING_DOMAIN_OPTIONS">BRANDING_DOMAIN_OPTIONS</a></li><li><a href="global.html#BRANDING_DOMAIN_OVERRIDE">BRANDING_DOMAIN_OVERRIDE</a></li><li><a href="global.html#BRANDING_TITLE">BRANDING_TITLE</a></li><li><a href="global.html#CARD_STYLE_KEY">CARD_STYLE_KEY</a></li><li><a href="global.html#CATALOG_HISTORY_KEY">CATALOG_HISTORY_KEY</a></li><li><a href="global.html#CATALOG_MAP_KEY">CATALOG_MAP_KEY</a></li><li><a href="global.html#CERT_LOOKUP_URLS">CERT_LOOKUP_URLS</a></li><li><a href="global.html#CLOUD_PROVIDERS">CLOUD_PROVIDERS</a></li><li><a href="global.html#DEBUG">DEBUG</a></li><li><a href="global.html#DEFAULT_API_CACHE_DURATION">DEFAULT_API_CACHE_DURATION</a></li><li><a href="global.html#DEFAULT_API_QUOTA">DEFAULT_API_QUOTA</a></li><li><a href="global.html#DEFAULT_CURRENCY">DEFAULT_CURRENCY</a></li><li><a href="global.html#DEFAULT_SORT_COL_KEY">DEFAULT_SORT_COL_KEY</a></li><li><a href="global.html#DEFAULT_SORT_DIR_KEY">DEFAULT_SORT_DIR_KEY</a></li><li><a href="global.html#DESKTOP_CARD_VIEW_KEY">DESKTOP_CARD_VIEW_KEY</a></li><li><a href="global.html#DEV_MODE">DEV_MODE</a></li><li><a href="global.html#DISPLAY_CURRENCY_KEY">DISPLAY_CURRENCY_KEY</a></li><li><a href="global.html#EXCHANGE_RATES_KEY">EXCHANGE_RATES_KEY</a></li><li><a href="global.html#EXCHANGE_RATE_API_URL">EXCHANGE_RATE_API_URL</a></li><li><a href="global.html#FALLBACK_EXCHANGE_RATES">FALLBACK_EXCHANGE_RATES</a></li><li><a href="global.html#FEATURE_FLAGS">FEATURE_FLAGS</a></li><li><a href="global.html#FEATURE_FLAGS_KEY">FEATURE_FLAGS_KEY</a></li><li><a href="global.html#FIELD_COERCIONS">FIELD_COERCIONS</a></li><li><a href="global.html#FILTER_CHIP_CATEGORY_DEFAULTS">FILTER_CHIP_CATEGORY_DEFAULTS</a></li><li><a href="global.html#GB_ESTIMATE_MODIFIER_KEY">GB_ESTIMATE_MODIFIER_KEY</a></li><li><a href="global.html#GB_ESTIMATE_PREMIUM">GB_ESTIMATE_PREMIUM</a></li><li><a href="global.html#GB_TO_OZT">GB_TO_OZT</a></li><li><a href="global.html#GITHUB_RELEASES_URL">GITHUB_RELEASES_URL</a></li><li><a href="global.html#GOLDBACK_DENOMINATIONS">GOLDBACK_DENOMINATIONS</a></li><li><a href="global.html#GOLDBACK_ENABLED_KEY">GOLDBACK_ENABLED_KEY</a></li><li><a href="global.html#GOLDBACK_ESTIMATE_ENABLED_KEY">GOLDBACK_ESTIMATE_ENABLED_KEY</a></li><li><a href="global.html#GOLDBACK_PRICES_KEY">GOLDBACK_PRICES_KEY</a></li><li><a href="global.html#GOLDBACK_PRICE_HISTORY_KEY">GOLDBACK_PRICE_HISTORY_KEY</a></li><li><a href="global.html#HEADER_SYNC_BTN_KEY">HEADER_SYNC_BTN_KEY</a></li><li><a href="global.html#HEADER_TREND_BTN_KEY">HEADER_TREND_BTN_KEY</a></li><li><a href="global.html#IMAGE_MAX_BYTES">IMAGE_MAX_BYTES</a></li><li><a href="global.html#IMAGE_MAX_DIM">IMAGE_MAX_DIM</a></li><li><a href="global.html#IMAGE_QUALITY">IMAGE_QUALITY</a></li><li><a href="global.html#INLINE_CHIP_DEFAULTS">INLINE_CHIP_DEFAULTS</a></li><li><a href="global.html#ITEMS_PER_PAGE_KEY">ITEMS_PER_PAGE_KEY</a></li><li><a href="global.html#ITEM_PRICE_HISTORY_KEY">ITEM_PRICE_HISTORY_KEY</a></li><li><a href="global.html#ITEM_TAGS_KEY">ITEM_TAGS_KEY</a></li><li><a href="global.html#LAST_API_SYNC_KEY">LAST_API_SYNC_KEY</a></li><li><a href="global.html#LAST_CACHE_REFRESH_KEY">LAST_CACHE_REFRESH_KEY</a></li><li><a href="global.html#LAST_VERSION_CHECK_KEY">LAST_VERSION_CHECK_KEY</a></li><li><a href="global.html#LATEST_REMOTE_URL_KEY">LATEST_REMOTE_URL_KEY</a></li><li><a href="global.html#LATEST_REMOTE_VERSION_KEY">LATEST_REMOTE_VERSION_KEY</a></li><li><a href="global.html#LAYOUT_SECTION_DEFAULTS">LAYOUT_SECTION_DEFAULTS</a></li><li><a href="global.html#LOG_TAB_RENDERERS">LOG_TAB_RENDERERS</a></li><li><a href="global.html#LS_KEY">LS_KEY</a></li><li><a href="global.html#MAX_LOCAL_FILE_SIZE">MAX_LOCAL_FILE_SIZE</a></li><li><a href="global.html#MAX_TAGS_PER_ITEM">MAX_TAGS_PER_ITEM</a></li><li><a href="global.html#MAX_TAG_LENGTH">MAX_TAG_LENGTH</a></li><li><a href="global.html#METALS">METALS</a></li><li><a href="global.html#METAL_COLORS">METAL_COLORS</a></li><li><a href="global.html#METAL_ORDER_KEY">METAL_ORDER_KEY</a></li><li><a href="global.html#METAL_SYMBOLS">METAL_SYMBOLS</a></li><li><a href="global.html#NUMISTA_VIEW_FIELD_DEFAULTS">NUMISTA_VIEW_FIELD_DEFAULTS</a></li><li><a href="global.html#NumistaLookup">NumistaLookup</a></li><li><a href="global.html#PREBUILT_LOOKUP_DATA">PREBUILT_LOOKUP_DATA</a></li><li><a href="global.html#PRICE_HISTORY_COLS">PRICE_HISTORY_COLS</a></li><li><a href="global.html#Remote">Remote</a></li><li><a href="global.html#SEED_CUSTOM_RULES">SEED_CUSTOM_RULES</a></li><li><a href="global.html#SEED_DATA_YEARS">SEED_DATA_YEARS</a></li><li><a href="global.html#SEED_IMAGES_VERSION">SEED_IMAGES_VERSION</a></li><li><a href="global.html#SEED_INVENTORY_ITEMS">SEED_INVENTORY_ITEMS</a></li><li><a href="global.html#SERIAL_KEY">SERIAL_KEY</a></li><li><a href="global.html#SPOT_COMPARE_MODE_KEY">SPOT_COMPARE_MODE_KEY</a></li><li><a href="global.html#SPOT_HISTORY_KEY">SPOT_HISTORY_KEY</a></li><li><a href="global.html#SPOT_TREND_KEY">SPOT_TREND_KEY</a></li><li><a href="global.html#SPOT_TREND_RANGE_KEY">SPOT_TREND_RANGE_KEY</a></li><li><a href="global.html#STORAGE_KEY_LABELS">STORAGE_KEY_LABELS</a></li><li><a href="global.html#STORAGE_TINY_THRESHOLD_KB">STORAGE_TINY_THRESHOLD_KB</a></li><li><a href="global.html#SUPPORTED_CURRENCIES">SUPPORTED_CURRENCIES</a></li><li><a href="global.html#SYNC_FILE_PATH">SYNC_FILE_PATH</a></li><li><a href="global.html#SYNC_META_PATH">SYNC_META_PATH</a></li><li><a href="global.html#SYNC_POLL_INTERVAL">SYNC_POLL_INTERVAL</a></li><li><a href="global.html#SYNC_PUSH_DEBOUNCE">SYNC_PUSH_DEBOUNCE</a></li><li><a href="global.html#SYNC_SCOPE_KEYS">SYNC_SCOPE_KEYS</a></li><li><a href="global.html#THEME_KEY">THEME_KEY</a></li><li><a href="global.html#TIMEZONE_KEY">TIMEZONE_KEY</a></li><li><a href="global.html#TREND_PRESETS">TREND_PRESETS</a></li><li><a href="global.html#VALID_TYPES">VALID_TYPES</a></li><li><a href="global.html#VAULT_FILE_EXTENSION">VAULT_FILE_EXTENSION</a></li><li><a href="global.html#VERSION_ACK_KEY">VERSION_ACK_KEY</a></li><li><a href="global.html#VERSION_CHECK_TTL">VERSION_CHECK_TTL</a></li><li><a href="global.html#VERSION_CHECK_URL">VERSION_CHECK_URL</a></li><li><a href="global.html#VIEW_METADATA_TTL">VIEW_METADATA_TTL</a></li><li><a href="global.html#VIEW_MODAL_SECTION_DEFAULTS">VIEW_MODAL_SECTION_DEFAULTS</a></li><li><a href="global.html#_VIEW_CHART_DEFAULT_RANGE">_VIEW_CHART_DEFAULT_RANGE</a></li><li><a href="global.html#_VIEW_CHART_RANGES">_VIEW_CHART_RANGES</a></li><li><a href="global.html#_VIEW_CHART_RANGE_LABELS">_VIEW_CHART_RANGE_LABELS</a></li><li><a href="global.html#__ST_COMP_PREFIX">__ST_COMP_PREFIX</a></li><li><a href="global.html#_addDetail">_addDetail</a></li><li><a href="global.html#_applyTrend">_applyTrend</a></li><li><a href="global.html#_cardChipsHTML">_cardChipsHTML</a></li><li><a href="global.html#_cardClickBound">_cardClickBound</a></li><li><a href="global.html#_cardFmt">_cardFmt</a></li><li><a href="global.html#_cardImageHTML">_cardImageHTML</a></li><li><a href="global.html#_cardMetalClass">_cardMetalClass</a></li><li><a href="global.html#_cardSortBarBound">_cardSortBarBound</a></li><li><a href="global.html#_cloudBackupWithCachedPw">_cloudBackupWithCachedPw</a></li><li><a href="global.html#_cloudBtnAction">_cloudBtnAction</a></li><li><a href="global.html#_cloudContext">_cloudContext</a></li><li><a href="global.html#_cloudRestoreWithCachedPw">_cloudRestoreWithCachedPw</a></li><li><a href="global.html#_computePortfolioSummary">_computePortfolioSummary</a></li><li><a href="global.html#_createPriceHistoryChart">_createPriceHistoryChart</a></li><li><a href="global.html#_cvBlobUrls">_cvBlobUrls</a></li><li><a href="global.html#_cvChartInstances">_cvChartInstances</a></li><li><a href="global.html#_cvEscapeAttr">_cvEscapeAttr</a></li><li><a href="global.html#_cvImageObserver">_cvImageObserver</a></li><li><a href="global.html#_darkenColor">_darkenColor</a></li><li><a href="global.html#_dataToPolylineScaled">_dataToPolylineScaled</a></li><li><a href="global.html#_deleteObverseOnSave">_deleteObverseOnSave</a></li><li><a href="global.html#_deleteReverseOnSave">_deleteReverseOnSave</a></li><li><a href="global.html#_detailItem">_detailItem</a></li><li><a href="global.html#_el">_el</a></li><li><a href="global.html#_enhanceCardImages">_enhanceCardImages</a></li><li><a href="global.html#_enhanceTableThumbnails">_enhanceTableThumbnails</a></li><li><a href="global.html#_extractMetadata">_extractMetadata</a></li><li><a href="global.html#_fetchHistoricalSpotData">_fetchHistoricalSpotData</a></li><li><a href="global.html#_fetchNumistaResult">_fetchNumistaResult</a></li><li><a href="global.html#_fetchYearFile">_fetchYearFile</a></li><li><a href="global.html#_getBulkImageSides">_getBulkImageSides</a></li><li><a href="global.html#_getOrCreateHScrollBar">_getOrCreateHScrollBar</a></li><li><a href="global.html#_getThumbPlaceholder">_getThumbPlaceholder</a></li><li><a href="global.html#_getViewMetrics">_getViewMetrics</a></li><li><a href="global.html#_hScrollWired">_hScrollWired</a></li><li><a href="global.html#_imageSlot">_imageSlot</a></li><li><a href="global.html#_initCardCharts">_initCardCharts</a></li><li><a href="global.html#_initSpotControls">_initSpotControls</a></li><li><a href="global.html#_interpolateNulls">_interpolateNulls</a></li><li><a href="global.html#_isLightColor">_isLightColor</a></li><li><a href="global.html#_itemPriceModalFilterText">_itemPriceModalFilterText</a></li><li><a href="global.html#_itemPriceModalUuid">_itemPriceModalUuid</a></li><li><a href="global.html#_loadBulkRowImages">_loadBulkRowImages</a></li><li><a href="global.html#_loadCardImage">_loadCardImage</a></li><li><a href="global.html#_loadSectionConfig">_loadSectionConfig</a></li><li><a href="global.html#_loadThumbImage">_loadThumbImage</a></li><li><a href="global.html#_normalizePatterns">_normalizePatterns</a></li><li><a href="global.html#_openBulkImagePopover">_openBulkImagePopover</a></li><li><a href="global.html#_openExternalPopup">_openExternalPopup</a></li><li><a href="global.html#_openThumbPopover">_openThumbPopover</a></li><li><a href="global.html#_parseColor">_parseColor</a></li><li><a href="global.html#_patternMode">_patternMode</a></li><li><a href="global.html#_pendingObverseBlob">_pendingObverseBlob</a></li><li><a href="global.html#_pendingObversePreviewUrl">_pendingObversePreviewUrl</a></li><li><a href="global.html#_pendingReverseBlob">_pendingReverseBlob</a></li><li><a href="global.html#_pendingReversePreviewUrl">_pendingReversePreviewUrl</a></li><li><a href="global.html#_renderSectionConfigTable">_renderSectionConfigTable</a></li><li><a href="global.html#_renderSortBarSummary">_renderSortBarSummary</a></li><li><a href="global.html#_restoreCdnFolderFromZip">_restoreCdnFolderFromZip</a></li><li><a href="global.html#_saveSectionConfig">_saveSectionConfig</a></li><li><a href="global.html#_schedulePoll">_schedulePoll</a></li><li><a href="global.html#_section">_section</a></li><li><a href="global.html#_setSlotImage">_setSlotImage</a></li><li><a href="global.html#_showCardImage">_showCardImage</a></li><li><a href="global.html#_statusCells">_statusCells</a></li><li><a href="global.html#_storageTinyVisible">_storageTinyVisible</a></li><li><a href="global.html#_storedSortCol">_storedSortCol</a></li><li><a href="global.html#_syncFallbackUUID">_syncFallbackUUID</a></li><li><a href="global.html#_syncHScrollBar">_syncHScrollBar</a></li><li><a href="global.html#_syncPollerTimer">_syncPollerTimer</a></li><li><a href="global.html#_syncProvider">_syncProvider</a></li><li><a href="global.html#_syncPushInFlight">_syncPushInFlight</a></li><li><a href="global.html#_syncRelativeTime">_syncRelativeTime</a></li><li><a href="global.html#_syncRetryDelay">_syncRetryDelay</a></li><li><a href="global.html#_syncSortBar">_syncSortBar</a></li><li><a href="global.html#_thumbBlobUrls">_thumbBlobUrls</a></li><li><a href="global.html#_thumbObserver">_thumbObserver</a></li><li><a href="global.html#_updateHScrollThumb">_updateHScrollThumb</a></li><li><a href="global.html#_vaultPendingFile">_vaultPendingFile</a></li><li><a href="global.html#_viewModalChartInstance">_viewModalChartInstance</a></li><li><a href="global.html#_viewModalObjectUrls">_viewModalObjectUrls</a></li><li><a href="global.html#_viewYearCache">_viewYearCache</a></li><li><a href="global.html#_viewYearFetchPromises">_viewYearFetchPromises</a></li><li><a href="global.html#acceptAck">acceptAck</a></li><li><a href="global.html#activeFilters">activeFilters</a></li><li><a href="global.html#addCompositionOption">addCompositionOption</a></li><li><a href="global.html#addItemTag">addItemTag</a></li><li><a href="global.html#analyzeStorageData">analyzeStorageData</a></li><li><a href="global.html#analyzeStorageItem">analyzeStorageItem</a></li><li><a href="global.html#apiCache">apiCache</a></li><li><a href="global.html#apiConfig">apiConfig</a></li><li><a href="global.html#apiHistoryEntries">apiHistoryEntries</a></li><li><a href="global.html#apiHistoryFilterText">apiHistoryFilterText</a></li><li><a href="global.html#apiHistorySortAsc">apiHistorySortAsc</a></li><li><a href="global.html#apiHistorySortColumn">apiHistorySortColumn</a></li><li><a href="global.html#applyColumnFilter">applyColumnFilter</a></li><li><a href="global.html#applyHeaderToggleVisibility">applyHeaderToggleVisibility</a></li><li><a href="global.html#applyLayoutOrder">applyLayoutOrder</a></li><li><a href="global.html#applyMetalOrder">applyMetalOrder</a></li><li><a href="global.html#applyMinCountThreshold">applyMinCountThreshold</a></li><li><a href="global.html#applyNumistaTags">applyNumistaTags</a></li><li><a href="global.html#applyQuickFilter">applyQuickFilter</a></li><li><a href="global.html#attachAutocomplete">attachAutocomplete</a></li><li><a href="global.html#attachPriceHistorySortHeaders">attachPriceHistorySortHeaders</a></li><li><a href="global.html#autoSelectDefaultProvider">autoSelectDefaultProvider</a></li><li><a href="global.html#autoSyncSpotPrices">autoSyncSpotPrices</a></li><li><a href="global.html#backfillStaktrakrHourly">backfillStaktrakrHourly</a></li><li><a href="global.html#bindAppearanceAndHeaderListeners">bindAppearanceAndHeaderListeners</a></li><li><a href="global.html#bindCardAndTableImageListeners">bindCardAndTableImageListeners</a></li><li><a href="global.html#bindCardClickHandler">bindCardClickHandler</a></li><li><a href="global.html#bindCloudCacheListeners">bindCloudCacheListeners</a></li><li><a href="global.html#bindCloudStorageListeners">bindCloudStorageListeners</a></li><li><a href="global.html#bindFilterAndNumistaListeners">bindFilterAndNumistaListeners</a></li><li><a href="global.html#bindGoldbackActionListeners">bindGoldbackActionListeners</a></li><li><a href="global.html#bindGoldbackToggleListeners">bindGoldbackToggleListeners</a></li><li><a href="global.html#bindImageImportExportListeners">bindImageImportExportListeners</a></li><li><a href="global.html#bindImageSettingsListeners">bindImageSettingsListeners</a></li><li><a href="global.html#bindImageSyncListeners">bindImageSyncListeners</a></li><li><a href="global.html#bindNumistaBulkSyncListeners">bindNumistaBulkSyncListeners</a></li><li><a href="global.html#bindPatternRuleModeListeners">bindPatternRuleModeListeners</a></li><li><a href="global.html#bindSettingsModalShellListeners">bindSettingsModalShellListeners</a></li><li><a href="global.html#bindSettingsNavigationListeners">bindSettingsNavigationListeners</a></li><li><a href="global.html#bindStorageListeners">bindStorageListeners</a></li><li><a href="global.html#blobToWebP">blobToWebP</a></li><li><a href="global.html#brandingWarned">brandingWarned</a></li><li><a href="global.html#buildBulkItemRow">buildBulkItemRow</a></li><li><a href="global.html#buildImageExportZip">buildImageExportZip</a></li><li><a href="global.html#buildItemFields">buildItemFields</a></li><li><a href="global.html#buildNumistaSearchQuery">buildNumistaSearchQuery</a></li><li><a href="global.html#buildSearchIndices">buildSearchIndices</a></li><li><a href="global.html#buildTagSection">buildTagSection</a></li><li><a href="global.html#buildViewContent">buildViewContent</a></li><li><a href="global.html#cacheLookupTable">cacheLookupTable</a></li><li><a href="global.html#calculateApiUsage">calculateApiUsage</a></li><li><a href="global.html#calculateLevenshteinDistance">calculateLevenshteinDistance</a></li><li><a href="global.html#catalogHistory">catalogHistory</a></li><li><a href="global.html#catalogMap">catalogMap</a></li><li><a href="global.html#changeLog">changeLog</a></li><li><a href="global.html#chartInstances">chartInstances</a></li><li><a href="global.html#checkFileSize">checkFileSize</a></li><li><a href="global.html#checkRemoteVersion">checkRemoteVersion</a></li><li><a href="global.html#checkVersionChange">checkVersionChange</a></li><li><a href="global.html#cleanOrphanedItemPriceHistory">cleanOrphanedItemPriceHistory</a></li><li><a href="global.html#cleanSearchTerm">cleanSearchTerm</a></li><li><a href="global.html#cleanString">cleanString</a></li><li><a href="global.html#cleanupStorage">cleanupStorage</a></li><li><a href="global.html#clearAllCachedData">clearAllCachedData</a></li><li><a href="global.html#clearAllFilters">clearAllFilters</a></li><li><a href="global.html#clearApiCache">clearApiCache</a></li><li><a href="global.html#clearApiConfig">clearApiConfig</a></li><li><a href="global.html#clearApiHistory">clearApiHistory</a></li><li><a href="global.html#clearApiKey">clearApiKey</a></li><li><a href="global.html#clearCatalogHistory">clearCatalogHistory</a></li><li><a href="global.html#clearChangeLog">clearChangeLog</a></li><li><a href="global.html#clearItemPriceHistory">clearItemPriceHistory</a></li><li><a href="global.html#clearLookupCache">clearLookupCache</a></li><li><a href="global.html#clearSpotHistory">clearSpotHistory</a></li><li><a href="global.html#clearUploadState">clearUploadState</a></li><li><a href="global.html#closeCurrencyDropdown">closeCurrencyDropdown</a></li><li><a href="global.html#closeCurrencyDropdownOnOutside">closeCurrencyDropdownOnOutside</a></li><li><a href="global.html#closeDetailsModal">closeDetailsModal</a></li><li><a href="global.html#closeModalById">closeModalById</a></li><li><a href="global.html#closeNumistaResultsModal">closeNumistaResultsModal</a></li><li><a href="global.html#closePcgsFieldPicker">closePcgsFieldPicker</a></li><li><a href="global.html#closeSpotLookupModal">closeSpotLookupModal</a></li><li><a href="global.html#closeVaultModal">closeVaultModal</a></li><li><a href="global.html#closeViewModal">closeViewModal</a></li><li><a href="global.html#cloudBackupEnabled">cloudBackupEnabled</a></li><li><a href="global.html#coerceFieldValue">coerceFieldValue</a></li><li><a href="global.html#collectVaultData">collectVaultData</a></li><li><a href="global.html#commitItemToInventory">commitItemToInventory</a></li><li><a href="global.html#compareVersions">compareVersions</a></li><li><a href="global.html#compositionOptions">compositionOptions</a></li><li><a href="global.html#computeGoldbackEstimatedRate">computeGoldbackEstimatedRate</a></li><li><a href="global.html#computeMeltValue">computeMeltValue</a></li><li><a href="global.html#convertToUsd">convertToUsd</a></li><li><a href="global.html#createBackupData">createBackupData</a></li><li><a href="global.html#createBackupZip">createBackupZip</a></li><li><a href="global.html#createBreakdownElements">createBreakdownElements</a></li><li><a href="global.html#createDummyElement">createDummyElement</a></li><li><a href="global.html#createEmptyLookupTable">createEmptyLookupTable</a></li><li><a href="global.html#createFieldInput">createFieldInput</a></li><li><a href="global.html#createPieChart">createPieChart</a></li><li><a href="global.html#createStorageItemModal">createStorageItemModal</a></li><li><a href="global.html#createThumbEl">createThumbEl</a></li><li><a href="global.html#currentLookupTable">currentLookupTable</a></li><li><a href="global.html#currentMonthKey">currentMonthKey</a></li><li><a href="global.html#cycleSpotTrend">cycleSpotTrend</a></li><li><a href="global.html#dataToPolyline">dataToPolyline</a></li><li><a href="global.html#dataUriToBlob">dataUriToBlob</a></li><li><a href="global.html#debounce">debounce</a></li><li><a href="global.html#debugLog">debugLog</a></li><li><a href="global.html#deleteItem">deleteItem</a></li><li><a href="global.html#deleteItemPriceEntry">deleteItemPriceEntry</a></li><li><a href="global.html#deleteItemTags">deleteItemTags</a></li><li><a href="global.html#deleteTagGlobal">deleteTagGlobal</a></li><li><a href="global.html#deriveSearchLabel">deriveSearchLabel</a></li><li><a href="global.html#destroyCharts">destroyCharts</a></li><li><a href="global.html#destroySparklines">destroySparklines</a></li><li><a href="global.html#detailsChartMetric">detailsChartMetric</a></li><li><a href="global.html#detailsResizeObserver">detailsResizeObserver</a></li><li><a href="global.html#detectCurrency">detectCurrency</a></li><li><a href="global.html#disableCloudSync">disableCloudSync</a></li><li><a href="global.html#dismissAllAutocompletes">dismissAllAutocompletes</a></li><li><a href="global.html#dismissNotesModal">dismissNotesModal</a></li><li><a href="global.html#displayCurrency">displayCurrency</a></li><li><a href="global.html#downloadCompleteBackup">downloadCompleteBackup</a></li><li><a href="global.html#downloadFile">downloadFile</a></li><li><a href="global.html#downloadStorageReport">downloadStorageReport</a></li><li><a href="global.html#duplicateItem">duplicateItem</a></li><li><a href="global.html#editItem">editItem</a></li><li><a href="global.html#editingChangeLogIndex">editingChangeLogIndex</a></li><li><a href="global.html#editingIndex">editingIndex</a></li><li><a href="global.html#elements">elements</a></li><li><a href="global.html#enableCloudSync">enableCloudSync</a></li><li><a href="global.html#escapeAttribute">escapeAttribute</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#escapeHtmlCatalog">escapeHtmlCatalog</a></li><li><a href="global.html#escapeHtmlPcgs">escapeHtmlPcgs</a></li><li><a href="global.html#exchangeRates">exchangeRates</a></li><li><a href="global.html#exportCsv">exportCsv</a></li><li><a href="global.html#exportEncryptedBackup">exportEncryptedBackup</a></li><li><a href="global.html#exportGoldbackHistory">exportGoldbackHistory</a></li><li><a href="global.html#exportJson">exportJson</a></li><li><a href="global.html#exportNumistaCsv">exportNumistaCsv</a></li><li><a href="global.html#exportPdf">exportPdf</a></li><li><a href="global.html#exportSpotHistory">exportSpotHistory</a></li><li><a href="global.html#extractUniqueValues">extractUniqueValues</a></li><li><a href="global.html#featureFlags">featureFlags</a></li><li><a href="global.html#fetchBatchSpotPrices">fetchBatchSpotPrices</a></li><li><a href="global.html#fetchExchangeRates">fetchExchangeRates</a></li><li><a href="global.html#fetchHistoryBatched">fetchHistoryBatched</a></li><li><a href="global.html#fetchLatestPrices">fetchLatestPrices</a></li><li><a href="global.html#fetchMetalPriceApiHourly">fetchMetalPriceApiHourly</a></li><li><a href="global.html#fetchSpotForDate">fetchSpotForDate</a></li><li><a href="global.html#fetchSpotPrice">fetchSpotPrice</a></li><li><a href="global.html#fetchSpotPricesFromApi">fetchSpotPricesFromApi</a></li><li><a href="global.html#fetchStaktrakrHourlyRange">fetchStaktrakrHourlyRange</a></li><li><a href="global.html#fetchStaktrakrPrices">fetchStaktrakrPrices</a></li><li><a href="global.html#fetchYearFile">fetchYearFile</a></li><li><a href="global.html#fillFormFromNumistaResult">fillFormFromNumistaResult</a></li><li><a href="global.html#fillFormFromPcgsResult">fillFormFromPcgsResult</a></li><li><a href="global.html#filterInventory">filterInventory</a></li><li><a href="global.html#filterInventoryAdvanced">filterInventoryAdvanced</a></li><li><a href="global.html#filterItemPriceHistoryTable">filterItemPriceHistoryTable</a></li><li><a href="global.html#flattenGoldbackHistory">flattenGoldbackHistory</a></li><li><a href="global.html#formatCurrency">formatCurrency</a></li><li><a href="global.html#formatDateOnly">formatDateOnly</a></li><li><a href="global.html#formatDisplayDate">formatDisplayDate</a></li><li><a href="global.html#formatFileSize">formatFileSize</a></li><li><a href="global.html#formatLossProfit">formatLossProfit</a></li><li><a href="global.html#formatOffsetLabel">formatOffsetLabel</a></li><li><a href="global.html#formatPurchaseLocation">formatPurchaseLocation</a></li><li><a href="global.html#formatStorageLocation">formatStorageLocation</a></li><li><a href="global.html#formatTimeOnly">formatTimeOnly</a></li><li><a href="global.html#formatTimestamp">formatTimestamp</a></li><li><a href="global.html#formatWeight">formatWeight</a></li><li><a href="global.html#fuzzyMatch">fuzzyMatch</a></li><li><a href="global.html#fuzzySearch">fuzzySearch</a></li><li><a href="global.html#gbHistoryFilterText">gbHistoryFilterText</a></li><li><a href="global.html#gbHistorySortAsc">gbHistorySortAsc</a></li><li><a href="global.html#gbHistorySortColumn">gbHistorySortColumn</a></li><li><a href="global.html#generateBackupHtml">generateBackupHtml</a></li><li><a href="global.html#generateCategorySummary">generateCategorySummary</a></li><li><a href="global.html#generateColors">generateColors</a></li><li><a href="global.html#generateItemDataTable">generateItemDataTable</a></li><li><a href="global.html#generateLookupTable">generateLookupTable</a></li><li><a href="global.html#generateNGrams">generateNGrams</a></li><li><a href="global.html#generateReadmeContent">generateReadmeContent</a></li><li><a href="global.html#generateSparklineSVG">generateSparklineSVG</a></li><li><a href="global.html#generateStorageReport">generateStorageReport</a></li><li><a href="global.html#generateStorageReportHTML">generateStorageReportHTML</a></li><li><a href="global.html#generateStorageReportTar">generateStorageReportTar</a></li><li><a href="global.html#generateUUID">generateUUID</a></li><li><a href="global.html#generateVariations">generateVariations</a></li><li><a href="global.html#get24hChange">get24hChange</a></li><li><a href="global.html#getAllMetalsBreakdownData">getAllMetalsBreakdownData</a></li><li><a href="global.html#getAllUniqueTags">getAllUniqueTags</a></li><li><a href="global.html#getApiAvailability">getApiAvailability</a></li><li><a href="global.html#getAppTitle">getAppTitle</a></li><li><a href="global.html#getBreakdownData">getBreakdownData</a></li><li><a href="global.html#getCacheDurationMs">getCacheDurationMs</a></li><li><a href="global.html#getCachedLookupTable">getCachedLookupTable</a></li><li><a href="global.html#getCardStyle">getCardStyle</a></li><li><a href="global.html#getChartBackgroundColor">getChartBackgroundColor</a></li><li><a href="global.html#getChartColor">getChartColor</a></li><li><a href="global.html#getChartTextColor">getChartTextColor</a></li><li><a href="global.html#getChipColors">getChipColors</a></li><li><a href="global.html#getCompositionFirstWords">getCompositionFirstWords</a></li><li><a href="global.html#getContrastColor">getContrastColor</a></li><li><a href="global.html#getCryptoBackend">getCryptoBackend</a></li><li><a href="global.html#getCurrencySymbol">getCurrencySymbol</a></li><li><a href="global.html#getDateChunks">getDateChunks</a></li><li><a href="global.html#getDefaultSyncMode">getDefaultSyncMode</a></li><li><a href="global.html#getDisplayComposition">getDisplayComposition</a></li><li><a href="global.html#getEmbeddedRoadmap">getEmbeddedRoadmap</a></li><li><a href="global.html#getEmbeddedSeedData">getEmbeddedSeedData</a></li><li><a href="global.html#getEmbeddedWhatsNew">getEmbeddedWhatsNew</a></li><li><a href="global.html#getExchangeRate">getExchangeRate</a></li><li><a href="global.html#getExistingElement">getExistingElement</a></li><li><a href="global.html#getFilterChipCategoryConfig">getFilterChipCategoryConfig</a></li><li><a href="global.html#getFooterDomain">getFooterDomain</a></li><li><a href="global.html#getGoldbackDenominationPrice">getGoldbackDenominationPrice</a></li><li><a href="global.html#getGoldbackRetailPrice">getGoldbackRetailPrice</a></li><li><a href="global.html#getHistoricalSparklineData">getHistoricalSparklineData</a></li><li><a href="global.html#getInlineChipConfig">getInlineChipConfig</a></li><li><a href="global.html#getItemTags">getItemTags</a></li><li><a href="global.html#getLastProviderSyncTime">getLastProviderSyncTime</a></li><li><a href="global.html#getLastUpdateTime">getLastUpdateTime</a></li><li><a href="global.html#getLayoutSectionConfig">getLayoutSectionConfig</a></li><li><a href="global.html#getLookupStats">getLookupStats</a></li><li><a href="global.html#getMetalColor">getMetalColor</a></li><li><a href="global.html#getMetalOrderConfig">getMetalOrderConfig</a></li><li><a href="global.html#getNumistaViewFieldConfig">getNumistaViewFieldConfig</a></li><li><a href="global.html#getPasswordStrength">getPasswordStrength</a></li><li><a href="global.html#getPopularNumistaItems">getPopularNumistaItems</a></li><li><a href="global.html#getProviderOrder">getProviderOrder</a></li><li><a href="global.html#getRequiredYears">getRequiredYears</a></li><li><a href="global.html#getSparklineData">getSparklineData</a></li><li><a href="global.html#getSpotHistoryForMetal">getSpotHistoryForMetal</a></li><li><a href="global.html#getStorageItemDescription">getStorageItemDescription</a></li><li><a href="global.html#getStorageItemDisplayName">getStorageItemDisplayName</a></li><li><a href="global.html#getStorageReportCSS">getStorageReportCSS</a></li><li><a href="global.html#getStorageReportJS">getStorageReportJS</a></li><li><a href="global.html#getSyncDeviceId">getSyncDeviceId</a></li><li><a href="global.html#getSyncPassword">getSyncPassword</a></li><li><a href="global.html#getTemplateVariables">getTemplateVariables</a></li><li><a href="global.html#getUserFriendlyMessage">getUserFriendlyMessage</a></li><li><a href="global.html#getVersionString">getVersionString</a></li><li><a href="global.html#getViewModalSectionConfig">getViewModalSectionConfig</a></li><li><a href="global.html#goldbackEnabled">goldbackEnabled</a></li><li><a href="global.html#goldbackEstimateEnabled">goldbackEstimateEnabled</a></li><li><a href="global.html#goldbackEstimateModifier">goldbackEstimateModifier</a></li><li><a href="global.html#goldbackPriceHistory">goldbackPriceHistory</a></li><li><a href="global.html#goldbackPrices">goldbackPrices</a></li><li><a href="global.html#gramsToOzt">gramsToOzt</a></li><li><a href="global.html#handleError">handleError</a></li><li><a href="global.html#handleHistoryPull">handleHistoryPull</a></li><li><a href="global.html#handleImageDeletion">handleImageDeletion</a></li><li><a href="global.html#handleProviderSave">handleProviderSave</a></li><li><a href="global.html#handleProviderSync">handleProviderSync</a></li><li><a href="global.html#handleRemoteChange">handleRemoteChange</a></li><li><a href="global.html#handleSaveSearchPattern">handleSaveSearchPattern</a></li><li><a href="global.html#handleStaktrakrHistoryPull">handleStaktrakrHistoryPull</a></li><li><a href="global.html#handleVaultAction">handleVaultAction</a></li><li><a href="global.html#hideAboutModal">hideAboutModal</a></li><li><a href="global.html#hideAckModal">hideAckModal</a></li><li><a href="global.html#hideApiHistoryModal">hideApiHistoryModal</a></li><li><a href="global.html#hideApiModal">hideApiModal</a></li><li><a href="global.html#hideApiProvidersModal">hideApiProvidersModal</a></li><li><a href="global.html#hideCatalogHistoryModal">hideCatalogHistoryModal</a></li><li><a href="global.html#hideEmptyColumns">hideEmptyColumns</a></li><li><a href="global.html#hideFilesModal">hideFilesModal</a></li><li><a href="global.html#hideGoldbackHistoryModal">hideGoldbackHistoryModal</a></li><li><a href="global.html#hideManualInput">hideManualInput</a></li><li><a href="global.html#hideProviderInfo">hideProviderInfo</a></li><li><a href="global.html#hideSettingsModal">hideSettingsModal</a></li><li><a href="global.html#historicalDataCache">historicalDataCache</a></li><li><a href="global.html#historicalFetchPromises">historicalFetchPromises</a></li><li><a href="global.html#importCsv">importCsv</a></li><li><a href="global.html#importEncryptedBackup">importEncryptedBackup</a></li><li><a href="global.html#importJson">importJson</a></li><li><a href="global.html#importNumistaCsv">importNumistaCsv</a></li><li><a href="global.html#importSpotHistory">importSpotHistory</a></li><li><a href="global.html#initCardSortBar">initCardSortBar</a></li><li><a href="global.html#initCloudSync">initCloudSync</a></li><li><a href="global.html#initSpotHistoryButtons">initSpotHistoryButtons</a></li><li><a href="global.html#initTheme">initTheme</a></li><li><a href="global.html#initializeAutocomplete">initializeAutocomplete</a></li><li><a href="global.html#injectVersionString">injectVersionString</a></li><li><a href="global.html#inventory">inventory</a></li><li><a href="global.html#isCardViewActive">isCardViewActive</a></li><li><a href="global.html#isFeatureEnabled">isFeatureEnabled</a></li><li><a href="global.html#isGoldbackPricingActive">isGoldbackPricingActive</a></li><li><a href="global.html#isValidSelectOption">isValidSelectOption</a></li><li><a href="global.html#itemPriceHistory">itemPriceHistory</a></li><li><a href="global.html#itemTags">itemTags</a></li><li><a href="global.html#itemsPerPage">itemsPerPage</a></li><li><a href="global.html#loadAnnouncements">loadAnnouncements</a></li><li><a href="global.html#loadApiCache">loadApiCache</a></li><li><a href="global.html#loadApiConfig">loadApiConfig</a></li><li><a href="global.html#loadCatalogHistory">loadCatalogHistory</a></li><li><a href="global.html#loadData">loadData</a></li><li><a href="global.html#loadDisplayCurrency">loadDisplayCurrency</a></li><li><a href="global.html#loadExchangeRates">loadExchangeRates</a></li><li><a href="global.html#loadGoldbackEnabled">loadGoldbackEnabled</a></li><li><a href="global.html#loadGoldbackEstimateEnabled">loadGoldbackEstimateEnabled</a></li><li><a href="global.html#loadGoldbackEstimateModifier">loadGoldbackEstimateModifier</a></li><li><a href="global.html#loadGoldbackPriceHistory">loadGoldbackPriceHistory</a></li><li><a href="global.html#loadGoldbackPrices">loadGoldbackPrices</a></li><li><a href="global.html#loadInventory">loadInventory</a></li><li><a href="global.html#loadItemPriceHistory">loadItemPriceHistory</a></li><li><a href="global.html#loadItemTags">loadItemTags</a></li><li><a href="global.html#loadLookupTable">loadLookupTable</a></li><li><a href="global.html#loadProviderPriorities">loadProviderPriorities</a></li><li><a href="global.html#loadSeedImages">loadSeedImages</a></li><li><a href="global.html#loadSeedInventory">loadSeedInventory</a></li><li><a href="global.html#loadSeedSpotHistory">loadSeedSpotHistory</a></li><li><a href="global.html#loadSpotHistory">loadSpotHistory</a></li><li><a href="global.html#loadTrendRanges">loadTrendRanges</a></li><li><a href="global.html#loadViewImages">loadViewImages</a></li><li><a href="global.html#loadViewNumistaData">loadViewNumistaData</a></li><li><a href="global.html#logChange">logChange</a></li><li><a href="global.html#logItemChanges">logItemChanges</a></li><li><a href="global.html#logSyncActivity">logSyncActivity</a></li><li><a href="global.html#lookupPcgsByNumber">lookupPcgsByNumber</a></li><li><a href="global.html#lookupPcgsFromForm">lookupPcgsFromForm</a></li><li><a href="global.html#mapNumistaType">mapNumistaType</a></li><li><a href="global.html#marketValueViewItems">marketValueViewItems</a></li><li><a href="global.html#matchCoinSeries">matchCoinSeries</a></li><li><a href="global.html#mergeItemPriceHistory">mergeItemPriceHistory</a></li><li><a href="global.html#migrateHourlySource">migrateHourlySource</a></li><li><a href="global.html#migrateLayoutVisibility">migrateLayoutVisibility</a></li><li><a href="global.html#migrateProviderPriority">migrateProviderPriority</a></li><li><a href="global.html#monitorPerformance">monitorPerformance</a></li><li><a href="global.html#normalizeItemName">normalizeItemName</a></li><li><a href="global.html#normalizeString">normalizeString</a></li><li><a href="global.html#normalizeType">normalizeType</a></li><li><a href="global.html#notesIndex">notesIndex</a></li><li><a href="global.html#onGoldSpotPriceChanged">onGoldSpotPriceChanged</a></li><li><a href="global.html#openEbaySearch">openEbaySearch</a></li><li><a href="global.html#openItemPriceHistoryModal">openItemPriceHistoryModal</a></li><li><a href="global.html#openModalById">openModalById</a></li><li><a href="global.html#openNumistaModal">openNumistaModal</a></li><li><a href="global.html#openSpotLookupModal">openSpotLookupModal</a></li><li><a href="global.html#openStorageReportPopup">openStorageReportPopup</a></li><li><a href="global.html#openVaultModal">openVaultModal</a></li><li><a href="global.html#optimizeStoragePhase1C">optimizeStoragePhase1C</a></li><li><a href="global.html#optionalListener">optionalListener</a></li><li><a href="global.html#oztToGrams">oztToGrams</a></li><li><a href="global.html#pad2">pad2</a></li><li><a href="global.html#parseDate">parseDate</a></li><li><a href="global.html#parseFraction">parseFraction</a></li><li><a href="global.html#parseItemFormFields">parseItemFormFields</a></li><li><a href="global.html#parseNumistaMetal">parseNumistaMetal</a></li><li><a href="global.html#parsePcgsResponse">parsePcgsResponse</a></li><li><a href="global.html#parsePriceToUSD">parsePriceToUSD</a></li><li><a href="global.html#parsePurity">parsePurity</a></li><li><a href="global.html#parseSearchPatterns">parseSearchPatterns</a></li><li><a href="global.html#parseVaultFile">parseVaultFile</a></li><li><a href="global.html#parseWeight">parseWeight</a></li><li><a href="global.html#pcgsFetch">pcgsFetch</a></li><li><a href="global.html#pcgsPreflightCheck">pcgsPreflightCheck</a></li><li><a href="global.html#persistInventoryAndRefresh">persistInventoryAndRefresh</a></li><li><a href="global.html#pollForRemoteChanges">pollForRemoteChanges</a></li><li><a href="global.html#populateAboutModal">populateAboutModal</a></li><li><a href="global.html#populateAckModal">populateAckModal</a></li><li><a href="global.html#populateApiSection">populateApiSection</a></li><li><a href="global.html#populateImagesSection">populateImagesSection</a></li><li><a href="global.html#populateVersionModal">populateVersionModal</a></li><li><a href="global.html#preparePriceHistoryRows">preparePriceHistoryRows</a></li><li><a href="global.html#priceHistoryFilterText">priceHistoryFilterText</a></li><li><a href="global.html#processUploadedImage">processUploadedImage</a></li><li><a href="global.html#providerRequiresKey">providerRequiresKey</a></li><li><a href="global.html#pullSyncVault">pullSyncVault</a></li><li><a href="global.html#purgeCatalogHistory">purgeCatalogHistory</a></li><li><a href="global.html#purgeItemPriceHistory">purgeItemPriceHistory</a></li><li><a href="global.html#purgeSpotHistory">purgeSpotHistory</a></li><li><a href="global.html#pushSyncVault">pushSyncVault</a></li><li><a href="global.html#recalcItem">recalcItem</a></li><li><a href="global.html#recordAllItemPriceSnapshots">recordAllItemPriceSnapshots</a></li><li><a href="global.html#recordCatalogHistory">recordCatalogHistory</a></li><li><a href="global.html#recordGoldbackPrices">recordGoldbackPrices</a></li><li><a href="global.html#recordItemPrice">recordItemPrice</a></li><li><a href="global.html#recordSingleItemPrice">recordSingleItemPrice</a></li><li><a href="global.html#recordSpot">recordSpot</a></li><li><a href="global.html#refreshCompositionOptions">refreshCompositionOptions</a></li><li><a href="global.html#refreshFromCache">refreshFromCache</a></li><li><a href="global.html#refreshLookupTable">refreshLookupTable</a></li><li><a href="global.html#refreshProviderStatuses">refreshProviderStatuses</a></li><li><a href="global.html#refreshSyncUI">refreshSyncUI</a></li><li><a href="global.html#refreshTotalsDots">refreshTotalsDots</a></li><li><a href="global.html#registerName">registerName</a></li><li><a href="global.html#removeFilter">removeFilter</a></li><li><a href="global.html#removeItemTag">removeItemTag</a></li><li><a href="global.html#renameTag">renameTag</a></li><li><a href="global.html#renderActiveFilters">renderActiveFilters</a></li><li><a href="global.html#renderApiHistoryTable">renderApiHistoryTable</a></li><li><a href="global.html#renderApiStatusSummary">renderApiStatusSummary</a></li><li><a href="global.html#renderBulkTable">renderBulkTable</a></li><li><a href="global.html#renderBulkTableBody">renderBulkTableBody</a></li><li><a href="global.html#renderBulkToolbar">renderBulkToolbar</a></li><li><a href="global.html#renderCardA">renderCardA</a></li><li><a href="global.html#renderCardB">renderCardB</a></li><li><a href="global.html#renderCardC">renderCardC</a></li><li><a href="global.html#renderCardView">renderCardView</a></li><li><a href="global.html#renderCatalogHistoryForSettings">renderCatalogHistoryForSettings</a></li><li><a href="global.html#renderCatalogHistoryTable">renderCatalogHistoryTable</a></li><li><a href="global.html#renderChangeLog">renderChangeLog</a></li><li><a href="global.html#renderCloudBackupList">renderCloudBackupList</a></li><li><a href="global.html#renderCustomPatternRules">renderCustomPatternRules</a></li><li><a href="global.html#renderCustomRuleTable">renderCustomRuleTable</a></li><li><a href="global.html#renderEligibleItemsTable">renderEligibleItemsTable</a></li><li><a href="global.html#renderFilterChipCategoryTable">renderFilterChipCategoryTable</a></li><li><a href="global.html#renderGoldbackHistoryTable">renderGoldbackHistoryTable</a></li><li><a href="global.html#renderImageStorageStats">renderImageStorageStats</a></li><li><a href="global.html#renderInlineChipConfigTable">renderInlineChipConfigTable</a></li><li><a href="global.html#renderItemPriceHistoryModalTable">renderItemPriceHistoryModalTable</a></li><li><a href="global.html#renderItemPriceHistoryTable">renderItemPriceHistoryTable</a></li><li><a href="global.html#renderLayoutSectionConfigTable">renderLayoutSectionConfigTable</a></li><li><a href="global.html#renderLogTab">renderLogTab</a></li><li><a href="global.html#renderMetalOrderConfigTable">renderMetalOrderConfigTable</a></li><li><a href="global.html#renderNumistaFieldCheckboxes">renderNumistaFieldCheckboxes</a></li><li><a href="global.html#renderNumistaResultCard">renderNumistaResultCard</a></li><li><a href="global.html#renderNumistaSelectedItem">renderNumistaSelectedItem</a></li><li><a href="global.html#renderNumistaSyncUI">renderNumistaSyncUI</a></li><li><a href="global.html#renderNumistaUsageBar">renderNumistaUsageBar</a></li><li><a href="global.html#renderPcgsFieldCheckboxes">renderPcgsFieldCheckboxes</a></li><li><a href="global.html#renderPcgsSelectedItem">renderPcgsSelectedItem</a></li><li><a href="global.html#renderPcgsUsageBar">renderPcgsUsageBar</a></li><li><a href="global.html#renderSeedRuleTable">renderSeedRuleTable</a></li><li><a href="global.html#renderSpotHistoryTable">renderSpotHistoryTable</a></li><li><a href="global.html#renderSpotLookupEmpty">renderSpotLookupEmpty</a></li><li><a href="global.html#renderSpotLookupResults">renderSpotLookupResults</a></li><li><a href="global.html#renderStorageSection">renderStorageSection</a></li><li><a href="global.html#renderSyncHistorySection">renderSyncHistorySection</a></li><li><a href="global.html#renderSyncStats">renderSyncStats</a></li><li><a href="global.html#renderUserImageGrid">renderUserImageGrid</a></li><li><a href="global.html#renderVersionBadge">renderVersionBadge</a></li><li><a href="global.html#renderViewModalSectionConfigTable">renderViewModalSectionConfigTable</a></li><li><a href="global.html#replaceTemplateVariables">replaceTemplateVariables</a></li><li><a href="global.html#resetSpot">resetSpot</a></li><li><a href="global.html#resetSpotByName">resetSpotByName</a></li><li><a href="global.html#resetSpotPrice">resetSpotPrice</a></li><li><a href="global.html#resolveElement">resolveElement</a></li><li><a href="global.html#restoreBackupZip">restoreBackupZip</a></li><li><a href="global.html#restoreVaultData">restoreVaultData</a></li><li><a href="global.html#resyncCachedEntry">resyncCachedEntry</a></li><li><a href="global.html#safeAttachListener">safeAttachListener</a></li><li><a href="global.html#safeGetElement">safeGetElement</a></li><li><a href="global.html#sanitizeHtml">sanitizeHtml</a></li><li><a href="global.html#sanitizeImportedItem">sanitizeImportedItem</a></li><li><a href="global.html#sanitizeObjectFields">sanitizeObjectFields</a></li><li><a href="global.html#sanitizeTablesOnLoad">sanitizeTablesOnLoad</a></li><li><a href="global.html#saveApiCache">saveApiCache</a></li><li><a href="global.html#saveApiConfig">saveApiConfig</a></li><li><a href="global.html#saveCatalogHistory">saveCatalogHistory</a></li><li><a href="global.html#saveData">saveData</a></li><li><a href="global.html#saveDisplayCurrency">saveDisplayCurrency</a></li><li><a href="global.html#saveExchangeRates">saveExchangeRates</a></li><li><a href="global.html#saveFilterChipCategoryConfig">saveFilterChipCategoryConfig</a></li><li><a href="global.html#saveGoldbackEnabled">saveGoldbackEnabled</a></li><li><a href="global.html#saveGoldbackEstimateEnabled">saveGoldbackEstimateEnabled</a></li><li><a href="global.html#saveGoldbackEstimateModifier">saveGoldbackEstimateModifier</a></li><li><a href="global.html#saveGoldbackPriceHistory">saveGoldbackPriceHistory</a></li><li><a href="global.html#saveGoldbackPrices">saveGoldbackPrices</a></li><li><a href="global.html#saveInlineChipConfig">saveInlineChipConfig</a></li><li><a href="global.html#saveInventory">saveInventory</a></li><li><a href="global.html#saveItemPriceHistory">saveItemPriceHistory</a></li><li><a href="global.html#saveItemTags">saveItemTags</a></li><li><a href="global.html#saveLayoutSectionConfig">saveLayoutSectionConfig</a></li><li><a href="global.html#saveNumistaViewFieldConfig">saveNumistaViewFieldConfig</a></li><li><a href="global.html#saveProviderPriorities">saveProviderPriorities</a></li><li><a href="global.html#saveSpotHistory">saveSpotHistory</a></li><li><a href="global.html#saveTrendRange">saveTrendRange</a></li><li><a href="global.html#saveUserImageForItem">saveUserImageForItem</a></li><li><a href="global.html#saveViewModalSectionConfig">saveViewModalSectionConfig</a></li><li><a href="global.html#scheduleSyncPush">scheduleSyncPush</a></li><li><a href="global.html#searchHistoricalByDate">searchHistoricalByDate</a></li><li><a href="global.html#searchPatternExistsInCustomGroups">searchPatternExistsInCustomGroups</a></li><li><a href="global.html#searchPatternMatchesAutoChip">searchPatternMatchesAutoChip</a></li><li><a href="global.html#searchQuery">searchQuery</a></li><li><a href="global.html#searchSpotByDate">searchSpotByDate</a></li><li><a href="global.html#serializeVaultFile">serializeVaultFile</a></li><li><a href="global.html#setDefaultProvider">setDefaultProvider</a></li><li><a href="global.html#setEditPreviewUrl">setEditPreviewUrl</a></li><li><a href="global.html#setProviderStatus">setProviderStatus</a></li><li><a href="global.html#setTheme">setTheme</a></li><li><a href="global.html#settingsCatalogSortAsc">settingsCatalogSortAsc</a></li><li><a href="global.html#settingsCatalogSortColumn">settingsCatalogSortColumn</a></li><li><a href="global.html#settingsCloudSortAsc">settingsCloudSortAsc</a></li><li><a href="global.html#settingsCloudSortColumn">settingsCloudSortColumn</a></li><li><a href="global.html#settingsPriceSortAsc">settingsPriceSortAsc</a></li><li><a href="global.html#settingsPriceSortColumn">settingsPriceSortColumn</a></li><li><a href="global.html#settingsSpotSortAsc">settingsSpotSortAsc</a></li><li><a href="global.html#settingsSpotSortColumn">settingsSpotSortColumn</a></li><li><a href="global.html#setupAboutModalEvents">setupAboutModalEvents</a></li><li><a href="global.html#setupAckModalEvents">setupAckModalEvents</a></li><li><a href="global.html#setupApiEvents">setupApiEvents</a></li><li><a href="global.html#setupBasicEventListeners">setupBasicEventListeners</a></li><li><a href="global.html#setupBulkEditControls">setupBulkEditControls</a></li><li><a href="global.html#setupColumnResizing">setupColumnResizing</a></li><li><a href="global.html#setupDataManagementListeners">setupDataManagementListeners</a></li><li><a href="global.html#setupEventListeners">setupEventListeners</a></li><li><a href="global.html#setupFormatImport">setupFormatImport</a></li><li><a href="global.html#setupHeaderButtonListeners">setupHeaderButtonListeners</a></li><li><a href="global.html#setupImportExportListeners">setupImportExportListeners</a></li><li><a href="global.html#setupItemFormListeners">setupItemFormListeners</a></li><li><a href="global.html#setupNoteAndModalListeners">setupNoteAndModalListeners</a></li><li><a href="global.html#setupPagination">setupPagination</a></li><li><a href="global.html#setupProviderPriority">setupProviderPriority</a></li><li><a href="global.html#setupProviderSettingsListeners">setupProviderSettingsListeners</a></li><li><a href="global.html#setupResponsiveColumns">setupResponsiveColumns</a></li><li><a href="global.html#setupSearch">setupSearch</a></li><li><a href="global.html#setupSearchAndChipListeners">setupSearchAndChipListeners</a></li><li><a href="global.html#setupSettingsEventListeners">setupSettingsEventListeners</a></li><li><a href="global.html#setupSpotPriceListeners">setupSpotPriceListeners</a></li><li><a href="global.html#setupSystemThemeListener">setupSystemThemeListener</a></li><li><a href="global.html#setupTableSortListeners">setupTableSortListeners</a></li><li><a href="global.html#setupThemeToggle">setupThemeToggle</a></li><li><a href="global.html#setupVaultListeners">setupVaultListeners</a></li><li><a href="global.html#setupVersionModalEvents">setupVersionModalEvents</a></li><li><a href="global.html#shouldShowSearchSaveButton">shouldShowSearchSaveButton</a></li><li><a href="global.html#showAboutModal">showAboutModal</a></li><li><a href="global.html#showAckModal">showAckModal</a></li><li><a href="global.html#showApiHistoryModal">showApiHistoryModal</a></li><li><a href="global.html#showApiModal">showApiModal</a></li><li><a href="global.html#showApiProvidersModal">showApiProvidersModal</a></li><li><a href="global.html#showBulkConfirm">showBulkConfirm</a></li><li><a href="global.html#showCatalogHistoryModal">showCatalogHistoryModal</a></li><li><a href="global.html#showDetailsModal">showDetailsModal</a></li><li><a href="global.html#showFilesModal">showFilesModal</a></li><li><a href="global.html#showFullChangelog">showFullChangelog</a></li><li><a href="global.html#showGoldbackHistoryModal">showGoldbackHistoryModal</a></li><li><a href="global.html#showManualInput">showManualInput</a></li><li><a href="global.html#showNotes">showNotes</a></li><li><a href="global.html#showNotesView">showNotesView</a></li><li><a href="global.html#showNumistaResults">showNumistaResults</a></li><li><a href="global.html#showPcgsFieldPicker">showPcgsFieldPicker</a></li><li><a href="global.html#showProviderInfo">showProviderInfo</a></li><li><a href="global.html#showSettingsModal">showSettingsModal</a></li><li><a href="global.html#showStaticVersionBadge">showStaticVersionBadge</a></li><li><a href="global.html#showSyncConflictModal">showSyncConflictModal</a></li><li><a href="global.html#showSyncUpdateModal">showSyncUpdateModal</a></li><li><a href="global.html#showTagInput">showTagInput</a></li><li><a href="global.html#showVaultStatus">showVaultStatus</a></li><li><a href="global.html#showViewModal">showViewModal</a></li><li><a href="global.html#simpleHash">simpleHash</a></li><li><a href="global.html#simplifyChipValue">simplifyChipValue</a></li><li><a href="global.html#sortInventory">sortInventory</a></li><li><a href="global.html#sortInventoryByDateNewestFirst">sortInventoryByDateNewestFirst</a></li><li><a href="global.html#sparklineInstances">sparklineInstances</a></li><li><a href="global.html#spotHistory">spotHistory</a></li><li><a href="global.html#spotPrices">spotPrices</a></li><li><a href="global.html#startBulkSync">startBulkSync</a></li><li><a href="global.html#startCellEdit">startCellEdit</a></li><li><a href="global.html#startSpotInlineEdit">startSpotInlineEdit</a></li><li><a href="global.html#startSyncPoller">startSyncPoller</a></li><li><a href="global.html#stopSyncPoller">stopSyncPoller</a></li><li><a href="global.html#stripNonAlphanumeric">stripNonAlphanumeric</a></li><li><a href="global.html#switchLogTab">switchLogTab</a></li><li><a href="global.html#switchProviderTab">switchProviderTab</a></li><li><a href="global.html#switchSettingsSection">switchSettingsSection</a></li><li><a href="global.html#syncAllProviders">syncAllProviders</a></li><li><a href="global.html#syncChipToggle">syncChipToggle</a></li><li><a href="global.html#syncCurrencySettingsUI">syncCurrencySettingsUI</a></li><li><a href="global.html#syncGoldbackSettingsUI">syncGoldbackSettingsUI</a></li><li><a href="global.html#syncHasLocalChanges">syncHasLocalChanges</a></li><li><a href="global.html#syncHeaderToggleUI">syncHeaderToggleUI</a></li><li><a href="global.html#syncLayoutVisibilityUI">syncLayoutVisibilityUI</a></li><li><a href="global.html#syncProviderChain">syncProviderChain</a></li><li><a href="global.html#syncProviderPriorityUI">syncProviderPriorityUI</a></li><li><a href="global.html#syncRestoreOverrideBackup">syncRestoreOverrideBackup</a></li><li><a href="global.html#syncSaveOverrideBackup">syncSaveOverrideBackup</a></li><li><a href="global.html#syncSettingsUI">syncSettingsUI</a></li><li><a href="global.html#syncSpotPricesFromApi">syncSpotPricesFromApi</a></li><li><a href="global.html#testApiConnection">testApiConnection</a></li><li><a href="global.html#todayStr">todayStr</a></li><li><a href="global.html#toggleChange">toggleChange</a></li><li><a href="global.html#toggleCurrencyDropdown">toggleCurrencyDropdown</a></li><li><a href="global.html#toggleGlobalPriceView">toggleGlobalPriceView</a></li><li><a href="global.html#togglePriceView">togglePriceView</a></li><li><a href="global.html#toggleTheme">toggleTheme</a></li><li><a href="global.html#toggleVaultPasswordVisibility">toggleVaultPasswordVisibility</a></li><li><a href="global.html#tokenizeWords">tokenizeWords</a></li><li><a href="global.html#updateAllSparklines">updateAllSparklines</a></li><li><a href="global.html#updateCardSortBar">updateCardSortBar</a></li><li><a href="global.html#updateColumnVisibility">updateColumnVisibility</a></li><li><a href="global.html#updateFuzzyIndicator">updateFuzzyIndicator</a></li><li><a href="global.html#updateHistoryPullCost">updateHistoryPullCost</a></li><li><a href="global.html#updateItemCount">updateItemCount</a></li><li><a href="global.html#updateLastTimestamps">updateLastTimestamps</a></li><li><a href="global.html#updateManualSpot">updateManualSpot</a></li><li><a href="global.html#updateMatchIndicator">updateMatchIndicator</a></li><li><a href="global.html#updateModalCurrencyUI">updateModalCurrencyUI</a></li><li><a href="global.html#updatePortalHeight">updatePortalHeight</a></li><li><a href="global.html#updateProviderHistoryTables">updateProviderHistoryTables</a></li><li><a href="global.html#updateProviderSettings">updateProviderSettings</a></li><li><a href="global.html#updateSaveSearchButton">updateSaveSearchButton</a></li><li><a href="global.html#updateSettingsFooter">updateSettingsFooter</a></li><li><a href="global.html#updateSparkline">updateSparkline</a></li><li><a href="global.html#updateSpotCardColor">updateSpotCardColor</a></li><li><a href="global.html#updateSpotChangePercent">updateSpotChangePercent</a></li><li><a href="global.html#updateSpotTimestamp">updateSpotTimestamp</a></li><li><a href="global.html#updateStatusCell">updateStatusCell</a></li><li><a href="global.html#updateStorageStats">updateStorageStats</a></li><li><a href="global.html#updateStrengthBar">updateStrengthBar</a></li><li><a href="global.html#updateSummary">updateSummary</a></li><li><a href="global.html#updateSyncButtonStates">updateSyncButtonStates</a></li><li><a href="global.html#updateSyncStatusIndicator">updateSyncStatusIndicator</a></li><li><a href="global.html#updateThemeButton">updateThemeButton</a></li><li><a href="global.html#useSpotPrice">useSpotPrice</a></li><li><a href="global.html#validateFieldValue">validateFieldValue</a></li><li><a href="global.html#validateInventoryItem">validateInventoryItem</a></li><li><a href="global.html#validateItemFields">validateItemFields</a></li><li><a href="global.html#vaultDecrypt">vaultDecrypt</a></li><li><a href="global.html#vaultDecryptAndRestore">vaultDecryptAndRestore</a></li><li><a href="global.html#vaultDeriveKey">vaultDeriveKey</a></li><li><a href="global.html#vaultEncrypt">vaultEncrypt</a></li><li><a href="global.html#vaultEncryptToBytes">vaultEncryptToBytes</a></li><li><a href="global.html#vaultEncryptToBytesScoped">vaultEncryptToBytesScoped</a></li><li><a href="global.html#vaultRandomBytes">vaultRandomBytes</a></li><li><a href="global.html#verifyPcgsCert">verifyPcgsCert</a></li><li><a href="global.html#wireChipSortToggle">wireChipSortToggle</a></li><li><a href="global.html#wireFeatureFlagToggle">wireFeatureFlagToggle</a></li><li><a href="global.html#wireStorageToggle">wireStorageToggle</a></li><li><a href="global.html#xhrLoadJSON">xhrLoadJSON</a></li></ul>
-</nav>
-
-<br class="clear">
-
-<footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Thu Feb 19 2026 02:57:08 GMT-0600 (Central Standard Time)
-</footer>
-
-<script> prettyPrint(); </script>
-<script src="scripts/linenumber.js"> </script>
-</body>
+    <script>
+      prettyPrint();
+    </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
 </html>

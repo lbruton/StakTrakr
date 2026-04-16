@@ -36,7 +36,8 @@ const PROVIDERS_PATH = join(DATA_DIR, "retail", "providers.json");
 
 function checkProductionSafety() {
   const url = process.env.TURSO_DATABASE_URL || "";
-  const isLocal = url.includes("localhost") || url.includes("127.0.0.1") || url.includes(":memory:");
+  const isLocal =
+    url.includes("localhost") || url.includes("127.0.0.1") || url.includes(":memory:");
 
   if (!isLocal && !PRODUCTION) {
     console.error("ERROR: TURSO_DATABASE_URL points to a remote database.");

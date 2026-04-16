@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { injectSeedInventory } from '../helpers/seed.js';
+import { test, expect } from "@playwright/test";
+import { injectSeedInventory } from "../helpers/seed.js";
 
 /**
  * Playwright regression spec for STAK-539 — _isSlugResolved predicate (STAK-521 follow-up).
@@ -12,38 +12,51 @@ import { injectSeedInventory } from '../helpers/seed.js';
  *   R.4 — e2e: synthetic unresolved slug excluded from filter matrix, price cards, and _isMarketItemEnabled
  */
 
-const SYNTHETIC_UNRESOLVED    = 'synthetic-unresolved-slug-stak539';
-const SYNTHETIC_METAL_UNKNOWN = 'synthetic-metal-unknown-stak539';
-const SYNTHETIC_RESOLVED      = 'synthetic-resolved-slug-stak539';
+const SYNTHETIC_UNRESOLVED = "synthetic-unresolved-slug-stak539";
+const SYNTHETIC_METAL_UNKNOWN = "synthetic-metal-unknown-stak539";
+const SYNTHETIC_RESOLVED = "synthetic-resolved-slug-stak539";
 
-test.describe('retail/slug-resolution — STAK-539 _isSlugResolved predicate', () => {
+test.describe("retail/slug-resolution — STAK-539 _isSlugResolved predicate", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
 
     // Inject a controlled manifest so tests run against predictable state.
     // SYNTHETIC_UNRESOLVED has no coin meta entry → falls through to default (name=slug, metal="unknown").
     // SYNTHETIC_RESOLVED has a proper entry (name ≠ slug, metal known).
-    await page.addInitScript(({ unresolved, metalUnknown, resolved }) => {
-      const existingSlugs = JSON.parse(localStorage.getItem('retailManifestSlugs') || '[]');
-      const slugs = [...new Set([...existingSlugs, unresolved, metalUnknown, resolved])];
-      localStorage.setItem('retailManifestSlugs', JSON.stringify(slugs));
+    await page.addInitScript(
+      ({ unresolved, metalUnknown, resolved }) => {
+        const existingSlugs = JSON.parse(localStorage.getItem("retailManifestSlugs") || "[]");
+        const slugs = [...new Set([...existingSlugs, unresolved, metalUnknown, resolved])];
+        localStorage.setItem("retailManifestSlugs", JSON.stringify(slugs));
 
-      const existingMeta = JSON.parse(localStorage.getItem('retailManifestCoinMeta') || '{}');
-      // unresolved: intentionally omitted → default fallback (name=slug, metal="unknown")
-      // metalUnknown: name resolves correctly but metal is explicitly "unknown" → predicate false
-      // resolved: fully resolved name + known metal → predicate true
-      existingMeta[metalUnknown] = { name: 'Metal Unknown Test Bar', weight: 1, metal: 'unknown' };
-      existingMeta[resolved]     = { name: '1 oz Silver Test Bar',   weight: 1, metal: 'silver' };
-      localStorage.setItem('retailManifestCoinMeta', JSON.stringify(existingMeta));
-    }, { unresolved: SYNTHETIC_UNRESOLVED, metalUnknown: SYNTHETIC_METAL_UNKNOWN, resolved: SYNTHETIC_RESOLVED });
+        const existingMeta = JSON.parse(localStorage.getItem("retailManifestCoinMeta") || "{}");
+        // unresolved: intentionally omitted → default fallback (name=slug, metal="unknown")
+        // metalUnknown: name resolves correctly but metal is explicitly "unknown" → predicate false
+        // resolved: fully resolved name + known metal → predicate true
+        existingMeta[metalUnknown] = {
+          name: "Metal Unknown Test Bar",
+          weight: 1,
+          metal: "unknown",
+        };
+        existingMeta[resolved] = { name: "1 oz Silver Test Bar", weight: 1, metal: "silver" };
+        localStorage.setItem("retailManifestCoinMeta", JSON.stringify(existingMeta));
+      },
+      {
+        unresolved: SYNTHETIC_UNRESOLVED,
+        metalUnknown: SYNTHETIC_METAL_UNKNOWN,
+        resolved: SYNTHETIC_RESOLVED,
+      }
+    );
 
-    await page.goto('/index.html');
-    await page.waitForFunction(() => typeof window._isSlugResolved === 'function');
+    await page.goto("/index.html");
+    await page.waitForFunction(() => typeof window._isSlugResolved === "function");
   });
 
   // ── Unit-style predicate tests ───────────────────────────────────────────
 
-  test('R.1 — returns false when name === slug (meta lookup fell through to default)', async ({ page }) => {
+  test("R.1 — returns false when name === slug (meta lookup fell through to default)", async ({
+    page,
+  }) => {
     const result = await page.evaluate((slug) => {
       // No coin meta registered for this slug — getRetailCoinMeta returns default {name: slug, metal: "unknown"}
       return window._isSlugResolved(slug);
@@ -52,7 +65,9 @@ test.describe('retail/slug-resolution — STAK-539 _isSlugResolved predicate', (
     expect(result).toBe(false);
   });
 
-  test('R.2 — returns false when meta.metal === "unknown" (name resolved, metal unknown)', async ({ page }) => {
+  test('R.2 — returns false when meta.metal === "unknown" (name resolved, metal unknown)', async ({
+    page,
+  }) => {
     // SYNTHETIC_METAL_UNKNOWN is injected via beforeEach with name≠slug but metal="unknown".
     // This isolates the metal branch: name passes but metal fails.
     const result = await page.evaluate((slug) => {
@@ -62,7 +77,9 @@ test.describe('retail/slug-resolution — STAK-539 _isSlugResolved predicate', (
     expect(result).toBe(false);
   });
 
-  test('R.3 — returns true for a manifest slug with real name and known metal', async ({ page }) => {
+  test("R.3 — returns true for a manifest slug with real name and known metal", async ({
+    page,
+  }) => {
     const result = await page.evaluate((slug) => {
       return window._isSlugResolved(slug);
     }, SYNTHETIC_RESOLVED);
@@ -72,9 +89,11 @@ test.describe('retail/slug-resolution — STAK-539 _isSlugResolved predicate', (
 
   // ── End-to-end quarantine test ───────────────────────────────────────────
 
-  test('R.4 — unresolved slug excluded from filter matrix, no price card rendered', async ({ page }) => {
+  test("R.4 — unresolved slug excluded from filter matrix, no price card rendered", async ({
+    page,
+  }) => {
     // Wait for market list to render (getActiveRetailSlugs is called during render)
-    await page.waitForFunction(() => typeof window.getActiveRetailSlugs === 'function');
+    await page.waitForFunction(() => typeof window.getActiveRetailSlugs === "function");
 
     // 1. Unresolved slug must NOT appear in getActiveRetailSlugs()
     const activeSlugs = await page.evaluate(() => window.getActiveRetailSlugs());
@@ -98,7 +117,7 @@ test.describe('retail/slug-resolution — STAK-539 _isSlugResolved predicate', (
     //    but the quarantine upstream in getActiveRetailSlugs means the slug never reaches
     //    the render path. Verify the predicate itself is the gate (not the filter).
     const marketEnabled = await page.evaluate(
-      (slug) => window._isMarketItemEnabled(slug, 'any-vendor'),
+      (slug) => window._isMarketItemEnabled(slug, "any-vendor"),
       SYNTHETIC_UNRESOLVED
     );
     // _isMarketItemEnabled returns true for slugs with no filter record — the quarantine

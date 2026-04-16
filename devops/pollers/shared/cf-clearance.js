@@ -16,7 +16,9 @@
 
 // Accept both SIDECAR_URL (canonical) and SCRAPER_URL (legacy Fly.io secret)
 const CF_CLEARANCE_SIDECAR_URL =
-  process.env.CF_CLEARANCE_SIDECAR_URL ?? process.env.CF_CLEARANCE_SCRAPER_URL ?? "http://staktrakr-byparr:8191";
+  process.env.CF_CLEARANCE_SIDECAR_URL ??
+  process.env.CF_CLEARANCE_SCRAPER_URL ??
+  "http://staktrakr-byparr:8191";
 const CF_CLEARANCE_ENABLED = process.env.CF_CLEARANCE_ENABLED ?? "1";
 const CF_CLEARANCE_TIMEOUT_MS = process.env.CF_CLEARANCE_TIMEOUT_MS ?? "30000";
 
@@ -63,7 +65,9 @@ export async function getCFClearanceCookie(url) {
       // Byparr still fetched the page — return the HTML so the caller can
       // extract prices directly without needing a cookie+Playwright round-trip.
       if (data.solution.response) {
-        console.log("[cf-clearance] no cookie, but have response HTML — returning for direct extraction");
+        console.log(
+          "[cf-clearance] no cookie, but have response HTML — returning for direct extraction"
+        );
       } else {
         console.warn("[cf-clearance] no cf_clearance cookie and no response HTML");
         return null;

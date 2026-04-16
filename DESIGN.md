@@ -4,13 +4,14 @@
 
 StakTrakr is a precious metals inventory tracker built as a single-page vanilla JavaScript application with zero build step. The design system is a Slate-gray light mode paired with an inky Navy dark mode — both rooted in Tailwind's Slate palette but mapped through a comprehensive CSS custom property layer that enables four distinct themes: Light, Dark, Sepia, and Hello Kitty.
 
-The visual identity is "financial dashboard meets coin collector's cabinet." Cards and sections float on an elevated surface system (`--bg-primary` → `--bg-elev-1` → `--bg-card`), each layer one step lighter/brighter than its parent, creating a subtle depth stack without relying on heavy shadows. The shadows that *do* exist are small and functional (`--shadow-sm` through `--shadow-lg`), never decorative — this is an app for people who care about 0.01oz weight precision, not ambient gradients.
+The visual identity is "financial dashboard meets coin collector's cabinet." Cards and sections float on an elevated surface system (`--bg-primary` → `--bg-elev-1` → `--bg-card`), each layer one step lighter/brighter than its parent, creating a subtle depth stack without relying on heavy shadows. The shadows that _do_ exist are small and functional (`--shadow-sm` through `--shadow-lg`), never decorative — this is an app for people who care about 0.01oz weight precision, not ambient gradients.
 
 The standout visual treatment is the glass-morphism modal system. Modals render with `backdrop-filter: blur(12px)` overlays and translucent card backgrounds (`rgba(248, 250, 252, 0.95)` in light mode, `rgba(30, 41, 59, 0.95)` in dark), topped with a single-pixel primary-colored gradient line across the header. This blur-glass technique recurs across settings, item details, and changelog modals, giving the app a premium feel despite being entirely client-side.
 
 Metal-specific accent colors (Gold `#a04808`, Silver `#5f6673`, Platinum `#4b5563`, Palladium `#6d35d0`) appear throughout — in spot price cards, filter chips, and card borders. These are carefully tuned per-theme for WCAG AA contrast compliance. In dark mode, Gold becomes the warm `#fbbf24` and Silver brightens to `#d1d5db`, ensuring legibility against the navy backgrounds.
 
 **Key Characteristics:**
+
 - Four themes via `data-theme` attribute: `light`, `dark`, `sepia`, `hello-kitty`
 - Slate palette foundation (Tailwind Slate 50–900) with semantic token aliases
 - No CSS framework — single `css/styles.css` file (~300KB, 13K+ lines)
@@ -25,68 +26,69 @@ Metal-specific accent colors (Gold `#a04808`, Silver `#5f6673`, Platinum `#4b556
 
 ### Primary & Semantic Colors
 
-| Name | Light | Dark | Use |
-|------|-------|------|-----|
-| **Primary** | `#3b82f6` | `#3b82f6` | Buttons, links, focus rings, spot price values |
-| **Primary Hover** | `#2563eb` | `#2563eb` | Button hover, link hover |
-| **Secondary** | `#8b93a6` | `#6b7280` | Secondary buttons, muted actions |
-| **Success** | `#059669` | `#10b981` | Positive gain, add confirmations |
-| **Info** | `#0ea5e9` | `#38bdf8` | Informational badges, tag chips |
-| **Warning** | `#d97706` | `#f59e0b` | Caution states, premium badges |
-| **Danger** | `#dc2626` | `#ef4444` | Delete actions, loss indicators, alerts |
+| Name              | Light     | Dark      | Use                                            |
+| ----------------- | --------- | --------- | ---------------------------------------------- |
+| **Primary**       | `#3b82f6` | `#3b82f6` | Buttons, links, focus rings, spot price values |
+| **Primary Hover** | `#2563eb` | `#2563eb` | Button hover, link hover                       |
+| **Secondary**     | `#8b93a6` | `#6b7280` | Secondary buttons, muted actions               |
+| **Success**       | `#059669` | `#10b981` | Positive gain, add confirmations               |
+| **Info**          | `#0ea5e9` | `#38bdf8` | Informational badges, tag chips                |
+| **Warning**       | `#d97706` | `#f59e0b` | Caution states, premium badges                 |
+| **Danger**        | `#dc2626` | `#ef4444` | Delete actions, loss indicators, alerts        |
 
 ### Background Surfaces
 
-| Token | Light | Dark | Role |
-|-------|-------|------|------|
-| `--bg-primary` / `--bg` | `#e2e8f0` (Slate 200) | `#0f172a` | Page background |
-| `--bg-secondary` / `--bg-elev-1` | `#eef2f7` (Slate 100/200) | `#1e293b` | Elevated surfaces, card groups |
-| `--bg-tertiary` / `--bg-elev-2` | `#cbd5e1` (Slate 300) | `#334155` | Tertiary surfaces, chip backgrounds |
-| `--bg-card` / `--surface` | `#f8fafc` (Slate 50) | `#1e293b` | Card backgrounds |
-| `--surface-alt` | `#ffffff` | — | Brightest surface (white) |
+| Token                            | Light                     | Dark      | Role                                |
+| -------------------------------- | ------------------------- | --------- | ----------------------------------- |
+| `--bg-primary` / `--bg`          | `#e2e8f0` (Slate 200)     | `#0f172a` | Page background                     |
+| `--bg-secondary` / `--bg-elev-1` | `#eef2f7` (Slate 100/200) | `#1e293b` | Elevated surfaces, card groups      |
+| `--bg-tertiary` / `--bg-elev-2`  | `#cbd5e1` (Slate 300)     | `#334155` | Tertiary surfaces, chip backgrounds |
+| `--bg-card` / `--surface`        | `#f8fafc` (Slate 50)      | `#1e293b` | Card backgrounds                    |
+| `--surface-alt`                  | `#ffffff`                 | —         | Brightest surface (white)           |
 
 ### Text
 
-| Token | Light | Dark | Role |
-|-------|-------|------|------|
-| `--text-primary` / `--text` | `#1b232c` | `#f8fafc` | Primary body text |
+| Token                               | Light     | Dark      | Role                   |
+| ----------------------------------- | --------- | --------- | ---------------------- |
+| `--text-primary` / `--text`         | `#1b232c` | `#f8fafc` | Primary body text      |
 | `--text-secondary` / `--text-muted` | `#344351` | `#cbd5e1` | Secondary text, labels |
-| `--text-muted` (dark only) | — | `#94a3b8` | Timestamps, captions |
-| `--chip-text` | `#1b232c` | `#f8fafc` | Filter chip text |
+| `--text-muted` (dark only)          | —         | `#94a3b8` | Timestamps, captions   |
+| `--chip-text`                       | `#1b232c` | `#f8fafc` | Filter chip text       |
 
 ### Borders & Shadows
 
-| Token | Light | Dark |
-|-------|-------|------|
-| `--border` | `#94a3b8` (Slate 400) | `#334155` |
-| `--border-hover` | `#64748b` (Slate 500) | `#475569` |
-| `--shadow-sm` | `0 1px 3px 0 rgb(0 0 0 / 0.1)` | `0 1px 2px 0 rgb(0 0 0 / 0.3)` |
-| `--shadow` | `0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1)` | same with `/0.3` |
-| `--shadow-lg` | `0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1)` | same with `/0.3` |
+| Token            | Light                                                                 | Dark                           |
+| ---------------- | --------------------------------------------------------------------- | ------------------------------ |
+| `--border`       | `#94a3b8` (Slate 400)                                                 | `#334155`                      |
+| `--border-hover` | `#64748b` (Slate 500)                                                 | `#475569`                      |
+| `--shadow-sm`    | `0 1px 3px 0 rgb(0 0 0 / 0.1)`                                        | `0 1px 2px 0 rgb(0 0 0 / 0.3)` |
+| `--shadow`       | `0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1)`   | same with `/0.3`               |
+| `--shadow-lg`    | `0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1)` | same with `/0.3`               |
 
 ### Metal-Specific Colors
 
-| Metal | Light | Dark | Use |
-|-------|-------|------|-----|
-| **Gold** | `#a04808` | `#fbbf24` | Gold-type items, spot card accents |
-| **Silver** | `#5f6673` | `#d1d5db` | Silver-type items |
-| **Platinum** | `#4b5563` | `#f3f4f6` | Platinum-type items |
-| **Palladium** | `#6d35d0` | `#d8b4fe` | Palladium-type items |
+| Metal         | Light     | Dark      | Use                                |
+| ------------- | --------- | --------- | ---------------------------------- |
+| **Gold**      | `#a04808` | `#fbbf24` | Gold-type items, spot card accents |
+| **Silver**    | `#5f6673` | `#d1d5db` | Silver-type items                  |
+| **Platinum**  | `#4b5563` | `#f3f4f6` | Platinum-type items                |
+| **Palladium** | `#6d35d0` | `#d8b4fe` | Palladium-type items               |
 
 ### Inventory Type Badge Colors
 
-| Type | Background | Text |
-|------|-----------|------|
-| Coin | `#b85f00` (light) / `#b45309` (dark) | `#ffffff` |
-| Round | `#5a6170` / `#9ca3af` | `#f8fafc` / `#1e293b` |
-| Bar | `#946d00` / `#fde047` | `#ffffff` / `#1e293b` |
-| Note | `#047857` | `#f8fafc` / `#ffffff` |
-| Set | `#8B5CF6` / `#a78bfa` | `#ffffff` / `#1e293b` |
-| Other | `#6d35d0` / `#8b5cf6` | `#f8fafc` / `#ffffff` |
+| Type  | Background                           | Text                  |
+| ----- | ------------------------------------ | --------------------- |
+| Coin  | `#b85f00` (light) / `#b45309` (dark) | `#ffffff`             |
+| Round | `#5a6170` / `#9ca3af`                | `#f8fafc` / `#1e293b` |
+| Bar   | `#946d00` / `#fde047`                | `#ffffff` / `#1e293b` |
+| Note  | `#047857`                            | `#f8fafc` / `#ffffff` |
+| Set   | `#8B5CF6` / `#a78bfa`                | `#ffffff` / `#1e293b` |
+| Other | `#6d35d0` / `#8b5cf6`                | `#f8fafc` / `#ffffff` |
 
 ### Sepia Theme
 
 Warm parchment palette for antique coin aesthetic:
+
 - **Background**: `#ede5d0` (parchment), `#e4dbc4` (aged linen), `#d6ccb3` (warm stone)
 - **Card**: `#f5f0e3` (light cream)
 - **Text**: `#3a3019` (dark sepia), `#524730`, `#706652`
@@ -96,6 +98,7 @@ Warm parchment palette for antique coin aesthetic:
 ### Hello Kitty Theme
 
 Vivid pink/purple on dark purple base:
+
 - **Primary**: `#f472b6` (hot pink), hover `#ec4899`
 - **Background**: `#1a0428` (very dark purple), `#2d0a4e`, `#3d1166`
 - **Text**: `#fce7f3` (light pink), `#f9a8d4`, `#f472b6`
@@ -104,13 +107,13 @@ Vivid pink/purple on dark purple base:
 
 ### Spot Price Change Indicators
 
-| Class | Color | Use |
-|-------|-------|-----|
-| `.spot-up` / `.spot-change-up` | `var(--success)` | Price increased |
-| `.spot-down` / `.spot-change-down` | `var(--danger)` | Price decreased |
-| `.spot-unchanged` | `var(--warning)` | No change |
-| `.cv-gain` | `var(--success)` | Portfolio gain |
-| `.cv-loss` | `var(--danger)` | Portfolio loss |
+| Class                              | Color            | Use             |
+| ---------------------------------- | ---------------- | --------------- |
+| `.spot-up` / `.spot-change-up`     | `var(--success)` | Price increased |
+| `.spot-down` / `.spot-change-down` | `var(--danger)`  | Price decreased |
+| `.spot-unchanged`                  | `var(--warning)` | No change       |
+| `.cv-gain`                         | `var(--success)` | Portfolio gain  |
+| `.cv-loss`                         | `var(--danger)`  | Portfolio loss  |
 
 ## 3. Typography Rules
 
@@ -124,25 +127,25 @@ No Google Fonts CDN — Inter is expected as a system font, with full sans-serif
 
 ### Hierarchy
 
-| Role | Size | Weight | Line Height | Letter Spacing | Notes |
-|------|------|--------|-------------|----------------|-------|
-| Page Title (h1) | `1.875rem` (30px) | 700 | — | `-0.025em` | Primary color, single use |
-| Section Title (h2) | `1.25rem` (20px) | 600 | — | — | Text-primary color |
-| About Description | `1.125rem` (18px) | — | 1.7 | — | Text-secondary, centered |
-| Card Item Name | `0.88rem` (14px) | 600 | 1.3 | `-0.01em` | Tight leading for card density |
-| Body / Input | `1rem` (16px) | — | 1.6 (html) | — | Base font size |
-| Label | `0.875rem` (14px) | 500 | — | — | Form labels, button text |
-| Button | `0.875rem` (14px) | 500 | — | — | Inline-flex centered |
-| Spot Card Label | `0.75rem` (12px) | 500 | — | `0.05em` | Uppercase, text-muted |
-| Spot Card Value | `1.5rem` (24px) | 700 | — | — | Primary color, monospace feel |
-| Filter Chip | `0.75rem` (12px) | 500 | 1.0 | — | Compact, pill-style |
-| Card Chip (cv-chip) | `0.65rem` (10.4px) | 600 | — | `0.01em` | Smallest text, type badges |
-| Timestamp | `0.7rem` (11.2px) | 400 | 1.2 | — | Muted, tertiary info |
-| Footer Meta | `0.78rem` (12.5px) | — | 1.6 | — | Secondary text |
-| Shield Badge | `11px` | — | `20px` | — | Verdana, fixed height 20px |
-| Env Badge | `0.55rem` (8.8px) | 700 | 1.4 | `0.08em` | Uppercase, tiny |
-| Version String | `12px` | — | — | — | SF Mono/monospace |
-| Btn Small | `0.8rem` (12.8px) | — | — | — | Compact buttons |
+| Role                | Size               | Weight | Line Height | Letter Spacing | Notes                          |
+| ------------------- | ------------------ | ------ | ----------- | -------------- | ------------------------------ |
+| Page Title (h1)     | `1.875rem` (30px)  | 700    | —           | `-0.025em`     | Primary color, single use      |
+| Section Title (h2)  | `1.25rem` (20px)   | 600    | —           | —              | Text-primary color             |
+| About Description   | `1.125rem` (18px)  | —      | 1.7         | —              | Text-secondary, centered       |
+| Card Item Name      | `0.88rem` (14px)   | 600    | 1.3         | `-0.01em`      | Tight leading for card density |
+| Body / Input        | `1rem` (16px)      | —      | 1.6 (html)  | —              | Base font size                 |
+| Label               | `0.875rem` (14px)  | 500    | —           | —              | Form labels, button text       |
+| Button              | `0.875rem` (14px)  | 500    | —           | —              | Inline-flex centered           |
+| Spot Card Label     | `0.75rem` (12px)   | 500    | —           | `0.05em`       | Uppercase, text-muted          |
+| Spot Card Value     | `1.5rem` (24px)    | 700    | —           | —              | Primary color, monospace feel  |
+| Filter Chip         | `0.75rem` (12px)   | 500    | 1.0         | —              | Compact, pill-style            |
+| Card Chip (cv-chip) | `0.65rem` (10.4px) | 600    | —           | `0.01em`       | Smallest text, type badges     |
+| Timestamp           | `0.7rem` (11.2px)  | 400    | 1.2         | —              | Muted, tertiary info           |
+| Footer Meta         | `0.78rem` (12.5px) | —      | 1.6         | —              | Secondary text                 |
+| Shield Badge        | `11px`             | —      | `20px`      | —              | Verdana, fixed height 20px     |
+| Env Badge           | `0.55rem` (8.8px)  | 700    | 1.4         | `0.08em`       | Uppercase, tiny                |
+| Version String      | `12px`             | —      | —           | —              | SF Mono/monospace              |
+| Btn Small           | `0.8rem` (12.8px)  | —      | —           | —              | Compact buttons                |
 
 ### Principles
 
@@ -156,6 +159,7 @@ No Google Fonts CDN — Inter is expected as a system font, with full sans-serif
 ### Buttons (`.btn`)
 
 **Primary (default)**
+
 - Background: `var(--primary)` (`#3b82f6`)
 - Text: `#f8fafc`
 - Padding: `0.75rem 1.5rem`
@@ -204,12 +208,14 @@ No Google Fonts CDN — Inter is expected as a system font, with full sans-serif
 ### Modals (`.modal`)
 
 **Overlay**
+
 - Background: `rgba(0, 0, 0, 0.7)`
 - Backdrop filter: `blur(12px)`
 - Animation: `modalFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)`
 - Z-index: `9999`
 
 **Content (`.modal-content`)**
+
 - Light: `background: rgba(248, 250, 252, 0.95)`, `backdrop-filter: blur(16px)`
 - Dark: `background: rgba(30, 41, 59, 0.95)`, border `rgba(148, 163, 184, 0.2)`
 - Sepia: `background: rgba(232, 220, 197, 0.95)`
@@ -271,6 +277,7 @@ No Google Fonts CDN — Inter is expected as a system font, with full sans-serif
 ### Shield Badges (`.shield-badge`)
 
 Shields.io flat-square style, two-part badges:
+
 - Height: `20px`, radius `3px`
 - Font: Verdana `11px`
 - Label: `background: #555`, `color: #fff`, `padding: 0 6px`
@@ -286,6 +293,7 @@ Shields.io flat-square style, two-part badges:
 ### Disposition Badges (`.disposition-badge`)
 
 Inline pills with translucent tinted backgrounds:
+
 - Font: `0.7rem`, weight 600, uppercase
 - Padding: `2px 8px`, radius `10px`
 - Sold: `hsla(142, 60%, 45%, 0.18)` bg, green text
@@ -316,13 +324,13 @@ Inline pills with translucent tinted backgrounds:
 
 ### Spacing Scale
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `--spacing-xs` | `0.2rem` (3.2px) | Chip gaps, tight padding |
-| `--spacing-sm` | `0.4rem` (6.4px) | Inner component spacing |
-| `--spacing` | `0.75rem` (12px) | Standard spacing, body padding |
+| Token          | Value            | Use                                  |
+| -------------- | ---------------- | ------------------------------------ |
+| `--spacing-xs` | `0.2rem` (3.2px) | Chip gaps, tight padding             |
+| `--spacing-sm` | `0.4rem` (6.4px) | Inner component spacing              |
+| `--spacing`    | `0.75rem` (12px) | Standard spacing, body padding       |
 | `--spacing-lg` | `1.25rem` (20px) | Section internal padding, large gaps |
-| `--spacing-xl` | `1.5rem` (24px) | Section padding, container gaps |
+| `--spacing-xl` | `1.5rem` (24px)  | Section padding, container gaps      |
 
 ### Grid Structure
 
@@ -335,15 +343,15 @@ Inline pills with translucent tinted backgrounds:
 
 ### Border Radius Scale
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `--radius-sm` | `4px` | Range selects, sync icons, inline inputs |
-| `--radius` | `8px` | Buttons, inputs, filter chips, tables |
-| `--radius-lg` | `12px` | Sections, cards, modals, header |
-| `999px` | Full pill | Card view chips (`.cv-chip`) |
-| `9999px` | Full pill | (Reserved, not currently used) |
-| `50%` | Circle | Coin images, storage dots |
-| `3px` | Micro | Shield badges |
+| Token         | Value     | Use                                      |
+| ------------- | --------- | ---------------------------------------- |
+| `--radius-sm` | `4px`     | Range selects, sync icons, inline inputs |
+| `--radius`    | `8px`     | Buttons, inputs, filter chips, tables    |
+| `--radius-lg` | `12px`    | Sections, cards, modals, header          |
+| `999px`       | Full pill | Card view chips (`.cv-chip`)             |
+| `9999px`      | Full pill | (Reserved, not currently used)           |
+| `50%`         | Circle    | Coin images, storage dots                |
+| `3px`         | Micro     | Shield badges                            |
 
 ### Whitespace Philosophy
 
@@ -351,17 +359,17 @@ StakTrakr uses compact spacing — this is a data-dense financial tracker, not a
 
 ## 6. Depth & Elevation
 
-| Level | Treatment | Use |
-|-------|-----------|-----|
-| **0 — Page** | `var(--bg-primary)`, no shadow | Page background |
-| **1 — Surface** | `var(--bg-secondary)` / `var(--bg-elev-1)`, `var(--shadow-sm)` | Spot card containers, header |
-| **2 — Card** | `var(--bg-card)`, `1px solid var(--border)`, `var(--shadow)` | Sections, cards |
-| **2+ — Card Hover** | Same bg, `var(--shadow-lg)` | Section:hover state |
-| **3 — Table Chrome** | `var(--bg-primary)`, `2px solid var(--border)` | Table section wrapper |
-| **4 — Overlay** | `rgba(0, 0, 0, 0.7)`, `backdrop-filter: blur(12px)` | Modal backdrop |
-| **5 — Modal** | Translucent bg, `blur(16px)`, `25px 50px` shadow, `::before` gradient line | Modal content |
-| **6 — Sticky** | `var(--bg-card)`, `z-index: 100` | Sticky table headers, header buttons |
-| **∞ — System** | `z-index: 9999` | Modal overlay, back-to-top button |
+| Level                | Treatment                                                                  | Use                                  |
+| -------------------- | -------------------------------------------------------------------------- | ------------------------------------ |
+| **0 — Page**         | `var(--bg-primary)`, no shadow                                             | Page background                      |
+| **1 — Surface**      | `var(--bg-secondary)` / `var(--bg-elev-1)`, `var(--shadow-sm)`             | Spot card containers, header         |
+| **2 — Card**         | `var(--bg-card)`, `1px solid var(--border)`, `var(--shadow)`               | Sections, cards                      |
+| **2+ — Card Hover**  | Same bg, `var(--shadow-lg)`                                                | Section:hover state                  |
+| **3 — Table Chrome** | `var(--bg-primary)`, `2px solid var(--border)`                             | Table section wrapper                |
+| **4 — Overlay**      | `rgba(0, 0, 0, 0.7)`, `backdrop-filter: blur(12px)`                        | Modal backdrop                       |
+| **5 — Modal**        | Translucent bg, `blur(16px)`, `25px 50px` shadow, `::before` gradient line | Modal content                        |
+| **6 — Sticky**       | `var(--bg-card)`, `z-index: 100`                                           | Sticky table headers, header buttons |
+| **∞ — System**       | `z-index: 9999`                                                            | Modal overlay, back-to-top button    |
 
 ### Depth Philosophy
 
@@ -399,17 +407,17 @@ Depth is communicated through three mechanisms: **border weight** (1px default, 
 
 ### Breakpoints
 
-| Name | Width | Key Changes |
-|------|-------|-------------|
-| **Mobile** | < 480px | Sort bar stacks, single-column cards, compact spacing |
-| **Small Tablet** | 580px | Header actions switch from 2-col grid to flex row |
-| **Tablet** | 600px | About alert content goes 2-column |
-| **Medium** | 640px | Card view goes 2-column |
-| **Tablet Landscape** | 768px | Various modal/component breakpoints |
-| **Desktop** | 960px | Spot cards go 4-column |
-| **Wide** | 1100px | Card view goes 3-column |
-| **Large** | 1200px–1350px | Table and market list width adjustments |
-| **Body Max** | 1600px | Body max-width cap |
+| Name                 | Width         | Key Changes                                           |
+| -------------------- | ------------- | ----------------------------------------------------- |
+| **Mobile**           | < 480px       | Sort bar stacks, single-column cards, compact spacing |
+| **Small Tablet**     | 580px         | Header actions switch from 2-col grid to flex row     |
+| **Tablet**           | 600px         | About alert content goes 2-column                     |
+| **Medium**           | 640px         | Card view goes 2-column                               |
+| **Tablet Landscape** | 768px         | Various modal/component breakpoints                   |
+| **Desktop**          | 960px         | Spot cards go 4-column                                |
+| **Wide**             | 1100px        | Card view goes 3-column                               |
+| **Large**            | 1200px–1350px | Table and market list width adjustments               |
+| **Body Max**         | 1600px        | Body max-width cap                                    |
 
 ### Touch Targets
 
@@ -447,6 +455,7 @@ Depth is communicated through three mechanisms: **border weight** (1px default, 
 ### Example Component Prompts
 
 **"Build a new card component"**
+
 ```css
 background: var(--bg-card);
 padding: var(--spacing-xl); /* 1.5rem */
@@ -458,41 +467,60 @@ transition: var(--transition);
 ```
 
 **"Add a button"**
+
 ```css
-display: inline-flex; align-items: center; justify-content: center;
-gap: 0.5rem; padding: 0.75rem 1.5rem;
-background: var(--primary); color: #f8fafc;
-border: none; border-radius: var(--radius); /* 8px */
-font-size: 0.875rem; font-weight: 500;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: 0.5rem;
+padding: 0.75rem 1.5rem;
+background: var(--primary);
+color: #f8fafc;
+border: none;
+border-radius: var(--radius); /* 8px */
+font-size: 0.875rem;
+font-weight: 500;
 min-height: 2.75rem;
 transition: var(--transition);
 /* hover: background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow) */
 ```
 
 **"Create a status badge"**
+
 ```css
-display: inline-flex; align-items: center;
-padding: 0.1rem 0.45rem; border-radius: 999px;
-font-size: 0.65rem; font-weight: 600;
-letter-spacing: 0.01em; white-space: nowrap;
+display: inline-flex;
+align-items: center;
+padding: 0.1rem 0.45rem;
+border-radius: 999px;
+font-size: 0.65rem;
+font-weight: 600;
+letter-spacing: 0.01em;
+white-space: nowrap;
 /* use --type-*-bg and --type-*-text for inventory types */
 /* use disposition-badge pattern with hsla() for status indicators */
 ```
 
 **"Add a form input"**
+
 ```css
-width: 100%; padding: 0.75rem;
-border: 2px solid var(--border); border-radius: var(--radius);
-background: var(--bg-primary); color: var(--text-primary);
-font-family: inherit; font-size: 1rem;
+width: 100%;
+padding: 0.75rem;
+border: 2px solid var(--border);
+border-radius: var(--radius);
+background: var(--bg-primary);
+color: var(--text-primary);
+font-family: inherit;
+font-size: 1rem;
 transition: var(--transition);
 /* focus: border-color: var(--primary); box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1) */
 ```
 
 **"Build a modal"**
+
 ```css
 /* Overlay */
-position: fixed; inset: 0;
+position: fixed;
+inset: 0;
 background: rgba(0, 0, 0, 0.7);
 backdrop-filter: blur(12px);
 z-index: 9999;
@@ -501,7 +529,8 @@ background: rgba(248, 250, 252, 0.95); /* dark: rgba(30, 41, 59, 0.95) */
 backdrop-filter: blur(16px);
 border-radius: var(--radius-lg);
 padding: var(--spacing-xl);
-max-width: 1200px; max-height: 90vh;
+max-width: 1200px;
+max-height: 90vh;
 box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 /* ::before gradient line at top */
 ```

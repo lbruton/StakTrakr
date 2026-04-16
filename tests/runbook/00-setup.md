@@ -40,6 +40,7 @@ gh pr checks <PR_NUMBER> --json name,state,targetUrl \
 ```
 
 If no PR number is available:
+
 - Attempt to detect the current branch's open PR: `gh pr view --json number`
 - If a PR is found, use that number with the command above
 - Poll up to 3 times at 30-second intervals if the Cloudflare Pages check is not yet green
@@ -54,11 +55,13 @@ Record the resolved URL as `BASE_URL` for use in all subsequent navigation steps
 Call `browserbase_session_create` to open a new Browserbase session.
 
 Record:
+
 - `SESSION_ID` — the session identifier returned by the tool
 - Browserbase dashboard URL for the session recording
 - Start time (wall clock, UTC)
 
 If session creation fails, abort the run immediately with:
+
 > "Browserbase session failed to create — check API key in Infisical."
 
 Do not attempt to proceed without a valid session.
@@ -101,11 +104,11 @@ This screenshot serves as the visual starting point for the session recording. I
 
 Record the following for use throughout the run:
 
-| Variable | Value |
-|----------|-------|
-| `SESSION_ID` | Returned from `browserbase_session_create` |
-| `BASE_URL` | PR preview URL resolved in Step 1 |
-| `START_TIME` | Wall clock time at session creation (UTC) |
+| Variable     | Value                                       |
+| ------------ | ------------------------------------------- |
+| `SESSION_ID` | Returned from `browserbase_session_create`  |
+| `BASE_URL`   | PR preview URL resolved in Step 1           |
+| `START_TIME` | Wall clock time at session creation (UTC)   |
 | `SEED_COUNT` | Expected inventory count at baseline: **8** |
 
 ---
@@ -127,10 +130,10 @@ The test runner proceeds to execute the first requested section.
 
 ## Setup Failure Handling
 
-| Failure | Action |
-|---------|--------|
-| No PR preview URL after 3 polls | Stop. Prompt user for URL. |
-| Browserbase session creation fails | Abort run. Print error. Do not continue. |
-| Navigation to `{BASE_URL}/index.html` fails | Abort run. Verify preview URL is correct. |
+| Failure                                        | Action                                           |
+| ---------------------------------------------- | ------------------------------------------------ |
+| No PR preview URL after 3 polls                | Stop. Prompt user for URL.                       |
+| Browserbase session creation fails             | Abort run. Print error. Do not continue.         |
+| Navigation to `{BASE_URL}/index.html` fails    | Abort run. Verify preview URL is correct.        |
 | Modal dismissal has no effect after 2 attempts | Log warning, continue — modal may not be present |
-| Baseline screenshot fails | Log warning, continue — non-blocking |
+| Baseline screenshot fails                      | Log warning, continue — non-blocking             |

@@ -32,10 +32,11 @@ config(); // load .env
 const BROWSER_MODE = process.env.BROWSER_MODE || "browserbase";
 const BROWSERBASE_API_KEY = process.env.BROWSERBASE_API_KEY;
 const BROWSERBASE_PROJECT_ID = process.env.BROWSERBASE_PROJECT_ID;
-const BROWSERLESS_WS = process.env.BROWSERLESS_URL ||
-  "ws://localhost:3000/chromium/playwright?token=local_dev_token";
+const BROWSERLESS_WS =
+  process.env.BROWSERLESS_URL || "ws://localhost:3000/chromium/playwright?token=local_dev_token";
 const DATA_DIR = resolve(process.env.DATA_DIR || "../../data");
-const ARTIFACT_DIR = process.env.ARTIFACT_DIR ||
+const ARTIFACT_DIR =
+  process.env.ARTIFACT_DIR ||
   join(tmpdir(), "retail-poller-screenshots", new Date().toISOString().slice(0, 10));
 
 // Home tinyproxy (residential IP via Tailscale) — REQUIRED for Chromium.
@@ -45,22 +46,32 @@ const ARTIFACT_DIR = process.env.ARTIFACT_DIR ||
 // (Firecrawl playwright-service) and HOME_PROXY_URL in price-extract.js.
 const HOME_PROXY_URL = process.env.HOME_PROXY_URL || null;
 
-const COINS = (process.env.COINS || "ase,age,ape,buffalo,maple-silver,maple-gold,britannia-silver,krugerrand-silver,krugerrand-gold,generic-silver-round,generic-silver-bar-10oz").split(",").map(s => s.trim());
-const PROVIDERS = (process.env.PROVIDERS || "apmex,sdbullion,jmbullion,monumentmetals,herobullion,bullionexchanges,summitmetals").split(",").map(s => s.trim());
+const COINS = (
+  process.env.COINS ||
+  "ase,age,ape,buffalo,maple-silver,maple-gold,britannia-silver,krugerrand-silver,krugerrand-gold,generic-silver-round,generic-silver-bar-10oz"
+)
+  .split(",")
+  .map((s) => s.trim());
+const PROVIDERS = (
+  process.env.PROVIDERS ||
+  "apmex,sdbullion,jmbullion,monumentmetals,herobullion,bullionexchanges,summitmetals"
+)
+  .split(",")
+  .map((s) => s.trim());
 
 // Per-page delays (ms) — polite pacing within each session.
 // Reduced from 4s/1s (2026-03 perf tuning): screenshots don't need full price
 // table rendering — just enough for the visible viewport to stabilize.
-const PAGE_LOAD_WAIT = 3000;    // wait after domcontentloaded for JS rendering
-const INTER_PAGE_DELAY = 500;   // pause between pages within a session
+const PAGE_LOAD_WAIT = 3000; // wait after domcontentloaded for JS rendering
+const INTER_PAGE_DELAY = 500; // pause between pages within a session
 
 // Per-provider wait overrides (ms) — for JS-heavy SPAs that need more render time.
 // Reduced proportionally from original values (2026-03 perf tuning).
 const PROVIDER_PAGE_LOAD_WAIT = {
-  jmbullion:        7000,  // Next.js, pricing table populates ~5-7s
-  monumentmetals:   5000,  // React Native Web SPA, router mounts ~4-5s
-  bullionexchanges: 6000,  // React/Magento SPA, pricing grid ~5-6s
-  herobullion:      4000,  // React, renders ~3-4s
+  jmbullion: 7000, // Next.js, pricing table populates ~5-7s
+  monumentmetals: 5000, // React Native Web SPA, router mounts ~4-5s
+  bullionexchanges: 6000, // React/Magento SPA, pricing grid ~5-6s
+  herobullion: 4000, // React, renders ~3-4s
 };
 
 // Per-dealer popup dismissal config.
@@ -75,7 +86,8 @@ const PROVIDER_PAGE_LOAD_WAIT = {
 const POPUP_CONFIG = {
   summitmetals: [
     {
-      selector: 'div[class*="popup"] button[class*="close"], div[class*="modal"] button[class*="close"]',
+      selector:
+        'div[class*="popup"] button[class*="close"], div[class*="modal"] button[class*="close"]',
       desc: "loyalty benefit popup close button",
       wait: 800,
     },
@@ -132,7 +144,9 @@ function log(msg) {
 
 async function loadProvidersData() {
   let tursoClient = null;
-  try { tursoClient = (await import("./sqld-client.js")).createSqldClient(); } catch {}
+  try {
+    tursoClient = (await import("./sqld-client.js")).createSqldClient();
+  } catch {}
   return loadProviders(tursoClient, DATA_DIR);
 }
 
@@ -183,7 +197,9 @@ async function createBrowserbaseSession() {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Browserbase session creation failed (${response.status}): ${text.slice(0, 200)}`);
+    throw new Error(
+      `Browserbase session creation failed (${response.status}): ${text.slice(0, 200)}`
+    );
   }
 
   const session = await response.json();
@@ -193,10 +209,13 @@ async function createBrowserbaseSession() {
 async function connectBrowserbaseSession(sessionId) {
   const wsUrl = `wss://connect.browserbase.com?apiKey=${BROWSERBASE_API_KEY}&sessionId=${sessionId}`;
   const browser = await chromium.connectOverCDP(wsUrl);
-  const context = browser.contexts()[0] || await browser.newContext({
-    viewport: { width: 1280, height: 900 },
-    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  });
+  const context =
+    browser.contexts()[0] ||
+    (await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    }));
   const page = await context.newPage();
   return { browser, page };
 }
@@ -211,7 +230,8 @@ async function connectBrowserlessSession() {
     // Browserless allows full context control via Playwright wire protocol
     const context = await browser.newContext({
       viewport: { width: 1280, height: 900 },
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     });
     return { browser, context };
   } catch (err) {
@@ -236,9 +256,13 @@ async function dismissPopups(page, providerId) {
   const GENERIC_SELECTORS = [
     'button[aria-label="Close"]',
     'button[aria-label="close"]',
-    '.modal-close', '.popup-close', '.close-button',
-    '[data-dismiss="modal"]', '[data-testid="close"]',
-    'button.close', '.klaviyo-close-form',
+    ".modal-close",
+    ".popup-close",
+    ".close-button",
+    '[data-dismiss="modal"]',
+    '[data-testid="close"]',
+    "button.close",
+    ".klaviyo-close-form",
   ];
 
   try {
@@ -282,7 +306,9 @@ async function dismissPopups(page, providerId) {
           await page.waitForTimeout(300);
           break;
         }
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     }
   } catch (e) {
     log(`[${providerId}] popup: dismissal error — ${e.message.slice(0, 80)}`);
@@ -398,7 +424,9 @@ async function captureCoinDirectFirst(coinSlug, targets, outDir, directPage, pro
         ok: status === 200 && !title.toLowerCase().includes("not found"),
       });
 
-      log(`[${coinSlug}/${target.provider}]   ok ${status} (${via}) "${title.slice(0, 50)}" -> ${filename}`);
+      log(
+        `[${coinSlug}/${target.provider}]   ok ${status} (${via}) "${title.slice(0, 50)}" -> ${filename}`
+      );
     } catch (err) {
       results.push({
         coin: target.coin,
@@ -437,7 +465,8 @@ async function captureCoin(coinSlug, targets, outDir) {
     browser = await localChromium.launch(launchOpts);
     const ctx = await browser.newContext({
       viewport: { width: 1280, height: 900 },
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     });
     page = await ctx.newPage();
   } else if (BROWSER_MODE === "browserless") {
@@ -515,8 +544,11 @@ async function captureCoin(coinSlug, targets, outDir) {
 // ---------------------------------------------------------------------------
 
 async function captureAll() {
-  if (BROWSER_MODE !== "local" && BROWSER_MODE !== "browserless" &&
-      (!BROWSERBASE_API_KEY || !BROWSERBASE_PROJECT_ID)) {
+  if (
+    BROWSER_MODE !== "local" &&
+    BROWSER_MODE !== "browserless" &&
+    (!BROWSERBASE_API_KEY || !BROWSERBASE_PROJECT_ID)
+  ) {
     console.error("BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID required for cloud mode.");
     process.exit(1);
   }
@@ -552,9 +584,12 @@ async function captureAll() {
     // Launch two browsers: one direct (datacenter IP), one proxied (residential IP).
     // Most dealer sites respond fine to direct; only 403/timeout pages fall back to proxy.
     // Two Chromium instances ~ 400MB — acceptable on 1GB+ containers.
-    log(`Capturing ${totalTargets} pages — sequential (local Chromium, direct-first${HOME_PROXY_URL ? " + proxy fallback" : ""})`);
+    log(
+      `Capturing ${totalTargets} pages — sequential (local Chromium, direct-first${HOME_PROXY_URL ? " + proxy fallback" : ""})`
+    );
     const { chromium: localChromium } = await import("playwright");
-    const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    const UA =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
     // Direct browser (no proxy)
     const directBrowser = await localChromium.launch({ headless: true });
@@ -581,7 +616,13 @@ async function captureAll() {
 
     allResults = [];
     for (const [coinSlug, targets] of byCoin.entries()) {
-      const results = await captureCoinDirectFirst(coinSlug, targets, ARTIFACT_DIR, directPage, proxyPage);
+      const results = await captureCoinDirectFirst(
+        coinSlug,
+        targets,
+        ARTIFACT_DIR,
+        directPage,
+        proxyPage
+      );
       allResults.push(...results);
     }
 
@@ -609,14 +650,14 @@ async function captureAll() {
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   log(`Manifest written: ${manifestPath}`);
 
-  const ok = allResults.filter(r => r.ok).length;
-  const fail = allResults.filter(r => !r.ok).length;
+  const ok = allResults.filter((r) => r.ok).length;
+  const fail = allResults.filter((r) => !r.ok).length;
   log(`Done: ${ok}/${totalTargets} captured, ${fail} failed`);
 
   return manifest;
 }
 
-captureAll().catch(err => {
+captureAll().catch((err) => {
   console.error("Fatal:", err);
   process.exit(1);
 });

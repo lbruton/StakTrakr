@@ -1,280 +1,385 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StakTrakr — Round 2: Shield + S Monogram Variants</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #0F172A;
-    color: #E2E8F0;
-    min-height: 100vh;
-    padding: 40px 20px;
-  }
-  h1 { text-align: center; font-size: 1.8rem; font-weight: 300; letter-spacing: 2px; margin-bottom: 6px; color: #F8FAFC; }
-  h1 .gold { color: #d4a017; }
-  .subtitle { text-align: center; color: #94A3B8; font-size: 0.85rem; margin-bottom: 12px; }
-  .direction { text-align: center; color: #64748b; font-size: 0.8rem; max-width: 600px; margin: 0 auto 40px; line-height: 1.6; }
-  .direction strong { color: #d4a017; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr — Round 2: Shield + S Monogram Variants</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        min-height: 100vh;
+        padding: 40px 20px;
+      }
+      h1 {
+        text-align: center;
+        font-size: 1.8rem;
+        font-weight: 300;
+        letter-spacing: 2px;
+        margin-bottom: 6px;
+        color: #f8fafc;
+      }
+      h1 .gold {
+        color: #d4a017;
+      }
+      .subtitle {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.85rem;
+        margin-bottom: 12px;
+      }
+      .direction {
+        text-align: center;
+        color: #64748b;
+        font-size: 0.8rem;
+        max-width: 600px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+      }
+      .direction strong {
+        color: #d4a017;
+      }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 28px;
-    max-width: 1100px;
-    margin: 0 auto;
-  }
-  .card {
-    background: #1E293B;
-    border-radius: 16px;
-    padding: 28px;
-    text-align: center;
-    transition: transform 0.2s, box-shadow 0.2s;
-    border: 1px solid #334155;
-  }
-  .card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-    border-color: #d4a017;
-  }
-  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; color: #F1F5F9; }
-  .card .tag {
-    display: inline-block;
-    background: #334155;
-    color: #94A3B8;
-    font-size: 0.65rem;
-    padding: 3px 10px;
-    border-radius: 100px;
-    margin-bottom: 16px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  .logo-wrap {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 16px;
-    min-height: 180px;
-  }
-  .logo-wrap img {
-    width: 170px;
-    height: auto;
-    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
-    border-radius: 16px;
-  }
-  .desc {
-    color: #94A3B8;
-    font-size: 0.82rem;
-    line-height: 1.6;
-    text-align: left;
-  }
-  .desc strong { color: #d4a017; }
-  .desc em { color: #60a5fa; font-style: normal; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 28px;
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .card {
+        background: #1e293b;
+        border-radius: 16px;
+        padding: 28px;
+        text-align: center;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        border: 1px solid #334155;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        border-color: #d4a017;
+      }
+      .card h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: #f1f5f9;
+      }
+      .card .tag {
+        display: inline-block;
+        background: #334155;
+        color: #94a3b8;
+        font-size: 0.65rem;
+        padding: 3px 10px;
+        border-radius: 100px;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .logo-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 16px;
+        min-height: 180px;
+      }
+      .logo-wrap img {
+        width: 170px;
+        height: auto;
+        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+        border-radius: 16px;
+      }
+      .desc {
+        color: #94a3b8;
+        font-size: 0.82rem;
+        line-height: 1.6;
+        text-align: left;
+      }
+      .desc strong {
+        color: #d4a017;
+      }
+      .desc em {
+        color: #60a5fa;
+        font-style: normal;
+      }
 
-  .section-title {
-    max-width: 1100px;
-    margin: 48px auto 20px;
-    text-align: center;
-    font-weight: 400;
-    font-size: 1rem;
-    color: #64748B;
-  }
+      .section-title {
+        max-width: 1100px;
+        margin: 48px auto 20px;
+        text-align: center;
+        font-weight: 400;
+        font-size: 1rem;
+        color: #64748b;
+      }
 
-  /* Side by side comparison */
-  .compare {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex;
-    gap: 24px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .compare-item {
-    text-align: center;
-  }
-  .compare-item img { border-radius: 12px; }
-  .compare-item span {
-    display: block;
-    font-size: 0.7rem;
-    color: #475569;
-    margin-top: 6px;
-  }
+      /* Side by side comparison */
+      .compare {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: flex;
+        gap: 24px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .compare-item {
+        text-align: center;
+      }
+      .compare-item img {
+        border-radius: 12px;
+      }
+      .compare-item span {
+        display: block;
+        font-size: 0.7rem;
+        color: #475569;
+        margin-top: 6px;
+      }
 
-  /* Size strip */
-  .size-strip {
-    max-width: 1100px;
-    margin: 32px auto;
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-    align-items: end;
-    flex-wrap: wrap;
-  }
-  .size-strip .item { text-align: center; }
-  .size-strip .item img { border-radius: 4px; }
-  .size-strip .item span { display: block; font-size: 0.6rem; color: #475569; margin-top: 4px; }
+      /* Size strip */
+      .size-strip {
+        max-width: 1100px;
+        margin: 32px auto;
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+      .size-strip .item {
+        text-align: center;
+      }
+      .size-strip .item img {
+        border-radius: 4px;
+      }
+      .size-strip .item span {
+        display: block;
+        font-size: 0.6rem;
+        color: #475569;
+        margin-top: 4px;
+      }
 
-  /* Icon-only variants */
-  .icon-row {
-    max-width: 1100px;
-    margin: 32px auto;
-    display: flex;
-    gap: 32px;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .icon-item {
-    text-align: center;
-    background: #1e293b;
-    border-radius: 12px;
-    padding: 20px;
-    border: 1px solid #334155;
-    min-width: 140px;
-  }
-  .icon-item img { border-radius: 12px; margin-bottom: 8px; }
-  .icon-item span { display: block; font-size: 0.7rem; color: #64748b; }
+      /* Icon-only variants */
+      .icon-row {
+        max-width: 1100px;
+        margin: 32px auto;
+        display: flex;
+        gap: 32px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .icon-item {
+        text-align: center;
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #334155;
+        min-width: 140px;
+      }
+      .icon-item img {
+        border-radius: 12px;
+        margin-bottom: 8px;
+      }
+      .icon-item span {
+        display: block;
+        font-size: 0.7rem;
+        color: #64748b;
+      }
 
-  /* Background test strip */
-  .bg-strip {
-    max-width: 1100px;
-    margin: 32px auto;
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .bg-box {
-    width: 200px;
-    height: 100px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .bg-box.dark { background: #0f1729; border: 1px solid #334155; }
-  .bg-box.light { background: #f8fafc; }
-  .bg-box.navy { background: linear-gradient(135deg, #1e3a5f, #0f1729); }
-  .bg-box.white { background: #ffffff; border: 1px solid #e2e8f0; }
-  .bg-box img { width: 60px; border-radius: 10px; }
-</style>
-</head>
-<body>
+      /* Background test strip */
+      .bg-strip {
+        max-width: 1100px;
+        margin: 32px auto;
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .bg-box {
+        width: 200px;
+        height: 100px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .bg-box.dark {
+        background: #0f1729;
+        border: 1px solid #334155;
+      }
+      .bg-box.light {
+        background: #f8fafc;
+      }
+      .bg-box.navy {
+        background: linear-gradient(135deg, #1e3a5f, #0f1729);
+      }
+      .bg-box.white {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+      }
+      .bg-box img {
+        width: 60px;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>STAK<span class="gold">TRAKR</span> — Round 2</h1>
+    <p class="subtitle">Shield + S-Stack Monogram Variants</p>
+    <p class="direction">
+      Direction: <strong>Shield shape</strong> containing the
+      <strong>stacked-bar S monogram</strong>. Silver-dominant bars with a gold center accent.
+      Exploring shield weight, bar spacing, detail level, and wordmark placement.
+    </p>
 
-  <h1>STAK<span class="gold">TRAKR</span> — Round 2</h1>
-  <p class="subtitle">Shield + S-Stack Monogram Variants</p>
-  <p class="direction">Direction: <strong>Shield shape</strong> containing the <strong>stacked-bar S monogram</strong>. Silver-dominant bars with a gold center accent. Exploring shield weight, bar spacing, detail level, and wordmark placement.</p>
-
-  <div class="grid">
-    <div class="card">
-      <h2>A — Shield Monogram</h2>
-      <span class="tag">Detailed</span>
-      <div class="logo-wrap">
-        <img src="variant-a-shield-monogram.svg" alt="Shield Monogram">
+    <div class="grid">
+      <div class="card">
+        <h2>A — Shield Monogram</h2>
+        <span class="tag">Detailed</span>
+        <div class="logo-wrap">
+          <img src="variant-a-shield-monogram.svg" alt="Shield Monogram" />
+        </div>
+        <p class="desc">
+          Full shield with <strong>silver-to-gold gradient</strong> across all S bars. Subtle
+          <em>blue chart line</em> weaves through the S shape. Inner shield outline adds depth. 7
+          bars for a detailed S. Most ornate — conveys complexity and sophistication.
+        </p>
       </div>
-      <p class="desc">Full shield with <strong>silver-to-gold gradient</strong> across all S bars. Subtle <em>blue chart line</em> weaves through the S shape. Inner shield outline adds depth. 7 bars for a detailed S. Most ornate — conveys complexity and sophistication.</p>
-    </div>
 
-    <div class="card">
-      <h2>B — Shield Compact</h2>
-      <span class="tag">Badge</span>
-      <div class="logo-wrap">
-        <img src="variant-b-shield-compact.svg" alt="Shield Compact">
+      <div class="card">
+        <h2>B — Shield Compact</h2>
+        <span class="tag">Badge</span>
+        <div class="logo-wrap">
+          <img src="variant-b-shield-compact.svg" alt="Shield Compact" />
+        </div>
+        <p class="desc">
+          Outlined shield (no fill) with <strong>silver bars + one gold center bar</strong>. The
+          gold bar pops as the focal point. Tiny <em>blue trend dots</em> in the top-right corner
+          hint at data tracking. Badge-like feel — like a quality mark or certification stamp.
+        </p>
       </div>
-      <p class="desc">Outlined shield (no fill) with <strong>silver bars + one gold center bar</strong>. The gold bar pops as the focal point. Tiny <em>blue trend dots</em> in the top-right corner hint at data tracking. Badge-like feel — like a quality mark or certification stamp.</p>
-    </div>
 
-    <div class="card">
-      <h2>C — Shield Filled</h2>
-      <span class="tag">Premium</span>
-      <div class="logo-wrap">
-        <img src="variant-c-shield-filled.svg" alt="Shield Filled">
+      <div class="card">
+        <h2>C — Shield Filled</h2>
+        <span class="tag">Premium</span>
+        <div class="logo-wrap">
+          <img src="variant-c-shield-filled.svg" alt="Shield Filled" />
+        </div>
+        <p class="desc">
+          Dark filled shield with <strong>gold glow on the top edge</strong> — the gold light source
+          draws the eye upward. S bars are large and prominent. Gold dot at the shield's bottom
+          point. Extra-bold wordmark. The most premium/luxury feel of the four.
+        </p>
       </div>
-      <p class="desc">Dark filled shield with <strong>gold glow on the top edge</strong> — the gold light source draws the eye upward. S bars are large and prominent. Gold dot at the shield's bottom point. Extra-bold wordmark. The most premium/luxury feel of the four.</p>
-    </div>
 
-    <div class="card">
-      <h2>D — Shield Minimal</h2>
-      <span class="tag">Clean</span>
-      <div class="logo-wrap">
-        <img src="variant-d-shield-minimal.svg" alt="Shield Minimal">
+      <div class="card">
+        <h2>D — Shield Minimal</h2>
+        <span class="tag">Clean</span>
+        <div class="logo-wrap">
+          <img src="variant-d-shield-minimal.svg" alt="Shield Minimal" />
+        </div>
+        <p class="desc">
+          Ultra-thin shield outline (barely there) with just <strong>5 thick bars</strong> — fewer
+          elements, more graphic impact. Larger wordmark sits inside the lower shield area. "Track
+          Your Stack" tagline + "Free + Open Source" pill. Community-friendly tone. Best at small
+          sizes.
+        </p>
       </div>
-      <p class="desc">Ultra-thin shield outline (barely there) with just <strong>5 thick bars</strong> — fewer elements, more graphic impact. Larger wordmark sits inside the lower shield area. "Track Your Stack" tagline + "Free + Open Source" pill. Community-friendly tone. Best at small sizes.</p>
     </div>
-  </div>
 
-  <h3 class="section-title">PWA Icon Size Check</h3>
-  <div class="size-strip">
-    <div class="item"><img src="variant-a-shield-monogram.svg" width="16"><span>16</span></div>
-    <div class="item"><img src="variant-a-shield-monogram.svg" width="32"><span>32</span></div>
-    <div class="item"><img src="variant-a-shield-monogram.svg" width="48"><span>48</span></div>
-    <div class="item"><img src="variant-b-shield-compact.svg" width="16"><span>16</span></div>
-    <div class="item"><img src="variant-b-shield-compact.svg" width="32"><span>32</span></div>
-    <div class="item"><img src="variant-b-shield-compact.svg" width="48"><span>48</span></div>
-    <div class="item"><img src="variant-c-shield-filled.svg" width="16"><span>16</span></div>
-    <div class="item"><img src="variant-c-shield-filled.svg" width="32"><span>32</span></div>
-    <div class="item"><img src="variant-c-shield-filled.svg" width="48"><span>48</span></div>
-    <div class="item"><img src="variant-d-shield-minimal.svg" width="16"><span>16</span></div>
-    <div class="item"><img src="variant-d-shield-minimal.svg" width="32"><span>32</span></div>
-    <div class="item"><img src="variant-d-shield-minimal.svg" width="48"><span>48</span></div>
-  </div>
-  <div class="size-strip">
-    <div class="item"><img src="variant-a-shield-monogram.svg" width="64"><span>A 64px</span></div>
-    <div class="item"><img src="variant-b-shield-compact.svg" width="64"><span>B 64px</span></div>
-    <div class="item"><img src="variant-c-shield-filled.svg" width="64"><span>C 64px</span></div>
-    <div class="item"><img src="variant-d-shield-minimal.svg" width="64"><span>D 64px</span></div>
-    <div class="item"><img src="variant-a-shield-monogram.svg" width="128"><span>A 128px</span></div>
-    <div class="item"><img src="variant-b-shield-compact.svg" width="128"><span>B 128px</span></div>
-    <div class="item"><img src="variant-c-shield-filled.svg" width="128"><span>C 128px</span></div>
-    <div class="item"><img src="variant-d-shield-minimal.svg" width="128"><span>D 128px</span></div>
-  </div>
+    <h3 class="section-title">PWA Icon Size Check</h3>
+    <div class="size-strip">
+      <div class="item"><img src="variant-a-shield-monogram.svg" width="16" /><span>16</span></div>
+      <div class="item"><img src="variant-a-shield-monogram.svg" width="32" /><span>32</span></div>
+      <div class="item"><img src="variant-a-shield-monogram.svg" width="48" /><span>48</span></div>
+      <div class="item"><img src="variant-b-shield-compact.svg" width="16" /><span>16</span></div>
+      <div class="item"><img src="variant-b-shield-compact.svg" width="32" /><span>32</span></div>
+      <div class="item"><img src="variant-b-shield-compact.svg" width="48" /><span>48</span></div>
+      <div class="item"><img src="variant-c-shield-filled.svg" width="16" /><span>16</span></div>
+      <div class="item"><img src="variant-c-shield-filled.svg" width="32" /><span>32</span></div>
+      <div class="item"><img src="variant-c-shield-filled.svg" width="48" /><span>48</span></div>
+      <div class="item"><img src="variant-d-shield-minimal.svg" width="16" /><span>16</span></div>
+      <div class="item"><img src="variant-d-shield-minimal.svg" width="32" /><span>32</span></div>
+      <div class="item"><img src="variant-d-shield-minimal.svg" width="48" /><span>48</span></div>
+    </div>
+    <div class="size-strip">
+      <div class="item">
+        <img src="variant-a-shield-monogram.svg" width="64" /><span>A 64px</span>
+      </div>
+      <div class="item">
+        <img src="variant-b-shield-compact.svg" width="64" /><span>B 64px</span>
+      </div>
+      <div class="item">
+        <img src="variant-c-shield-filled.svg" width="64" /><span>C 64px</span>
+      </div>
+      <div class="item">
+        <img src="variant-d-shield-minimal.svg" width="64" /><span>D 64px</span>
+      </div>
+      <div class="item">
+        <img src="variant-a-shield-monogram.svg" width="128" /><span>A 128px</span>
+      </div>
+      <div class="item">
+        <img src="variant-b-shield-compact.svg" width="128" /><span>B 128px</span>
+      </div>
+      <div class="item">
+        <img src="variant-c-shield-filled.svg" width="128" /><span>C 128px</span>
+      </div>
+      <div class="item">
+        <img src="variant-d-shield-minimal.svg" width="128" /><span>D 128px</span>
+      </div>
+    </div>
 
-  <h3 class="section-title">Background Contrast Test</h3>
-  <div class="bg-strip">
-    <div class="bg-box dark">
-      <img src="variant-a-shield-monogram.svg">
-      <img src="variant-c-shield-filled.svg">
+    <h3 class="section-title">Background Contrast Test</h3>
+    <div class="bg-strip">
+      <div class="bg-box dark">
+        <img src="variant-a-shield-monogram.svg" />
+        <img src="variant-c-shield-filled.svg" />
+      </div>
+      <div class="bg-box light">
+        <img src="variant-a-shield-monogram.svg" />
+        <img src="variant-c-shield-filled.svg" />
+      </div>
+      <div class="bg-box navy">
+        <img src="variant-b-shield-compact.svg" />
+        <img src="variant-d-shield-minimal.svg" />
+      </div>
+      <div class="bg-box white">
+        <img src="variant-b-shield-compact.svg" />
+        <img src="variant-d-shield-minimal.svg" />
+      </div>
     </div>
-    <div class="bg-box light">
-      <img src="variant-a-shield-monogram.svg">
-      <img src="variant-c-shield-filled.svg">
-    </div>
-    <div class="bg-box navy">
-      <img src="variant-b-shield-compact.svg">
-      <img src="variant-d-shield-minimal.svg">
-    </div>
-    <div class="bg-box white">
-      <img src="variant-b-shield-compact.svg">
-      <img src="variant-d-shield-minimal.svg">
-    </div>
-  </div>
 
-  <h3 class="section-title">Side-by-Side: Round 1 vs Round 2 Favorites</h3>
-  <div class="compare">
-    <div class="compare-item">
-      <img src="concept3-vault-shield.svg" width="140">
-      <span>R1: Vault Shield (original)</span>
+    <h3 class="section-title">Side-by-Side: Round 1 vs Round 2 Favorites</h3>
+    <div class="compare">
+      <div class="compare-item">
+        <img src="concept3-vault-shield.svg" width="140" />
+        <span>R1: Vault Shield (original)</span>
+      </div>
+      <div class="compare-item">
+        <img src="concept4-monogram.svg" width="140" />
+        <span>R1: ST Monogram (original)</span>
+      </div>
+      <div class="compare-item">
+        <img src="variant-a-shield-monogram.svg" width="140" />
+        <span>R2-A: Shield + S (detailed)</span>
+      </div>
+      <div class="compare-item">
+        <img src="variant-c-shield-filled.svg" width="140" />
+        <span>R2-C: Shield + S (premium)</span>
+      </div>
+      <div class="compare-item">
+        <img src="variant-d-shield-minimal.svg" width="140" />
+        <span>R2-D: Shield + S (minimal)</span>
+      </div>
     </div>
-    <div class="compare-item">
-      <img src="concept4-monogram.svg" width="140">
-      <span>R1: ST Monogram (original)</span>
-    </div>
-    <div class="compare-item">
-      <img src="variant-a-shield-monogram.svg" width="140">
-      <span>R2-A: Shield + S (detailed)</span>
-    </div>
-    <div class="compare-item">
-      <img src="variant-c-shield-filled.svg" width="140">
-      <span>R2-C: Shield + S (premium)</span>
-    </div>
-    <div class="compare-item">
-      <img src="variant-d-shield-minimal.svg" width="140">
-      <span>R2-D: Shield + S (minimal)</span>
-    </div>
-  </div>
-
-</body>
+  </body>
 </html>

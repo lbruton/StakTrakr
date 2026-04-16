@@ -4,10 +4,10 @@
 
 StakTrakr is a rolling-release project. Only the **latest release** receives security fixes.
 
-| Version | Supported |
-| ------- | --------- |
+| Version         | Supported          |
+| --------------- | ------------------ |
 | Latest (3.34.x) | :white_check_mark: |
-| Older releases | :x: |
+| Older releases  | :x:                |
 
 If you are running an older version, please update to the latest release before reporting.
 
