@@ -916,12 +916,16 @@ const filterInventoryAdvanced = () => {
     if (criteria && typeof criteria === "object" && Array.isArray(criteria.values)) {
       const { values, exclude } = criteria;
       switch (field) {
+        // STAK-546: Include mode uses `every` (AND — item must match all selected values);
+        // exclude mode uses `!some` (hide if item matches ANY selected value, preserving the
+        // pre-STAK-546 exclude semantics). Computing both allows one return site per case.
         case "name": {
           const simplifiedValues = values.map((v) => simplifyChipValue(v, field));
           result = result.filter((item) => {
             const itemName = simplifyChipValue(item.name || "", field);
-            const match = simplifiedValues.every((v) => v === itemName);
-            return exclude ? !match : match;
+            const matchAll = simplifiedValues.every((v) => v === itemName);
+            const matchAny = simplifiedValues.some((v) => v === itemName);
+            return exclude ? !matchAny : matchAll;
           });
           break;
         }
@@ -931,43 +935,49 @@ const filterInventoryAdvanced = () => {
             const itemMetal = getCompositionFirstWords(
               item.composition || item.metal || ""
             ).toLowerCase();
-            const match = lowerVals.every((v) => v === itemMetal);
-            return exclude ? !match : match;
+            const matchAll = lowerVals.every((v) => v === itemMetal);
+            const matchAny = lowerVals.some((v) => v === itemMetal);
+            return exclude ? !matchAny : matchAll;
           });
           break;
         }
         case "type":
           result = result.filter((item) => {
-            const match = values.every((v) => v === item.type);
-            return exclude ? !match : match;
+            const matchAll = values.every((v) => v === item.type);
+            const matchAny = values.some((v) => v === item.type);
+            return exclude ? !matchAny : matchAll;
           });
           break;
         case "purchaseLocation":
           result = result.filter((item) => {
             const loc = item.purchaseLocation;
             const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
-            const match = values.every((v) => v === normalized);
-            return exclude ? !match : match;
+            const matchAll = values.every((v) => v === normalized);
+            const matchAny = values.some((v) => v === normalized);
+            return exclude ? !matchAny : matchAll;
           });
           break;
         case "storageLocation":
           result = result.filter((item) => {
             const loc = item.storageLocation;
             const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
-            const match = values.every((v) => v === normalized);
-            return exclude ? !match : match;
+            const matchAll = values.every((v) => v === normalized);
+            const matchAny = values.some((v) => v === normalized);
+            return exclude ? !matchAny : matchAll;
           });
           break;
         case "tags": {
           // STAK-126: Filter by item tags
-          // STAK-546: AND semantics — item must carry EVERY selected tag value.
+          // STAK-546: include AND across selected tags; exclude removes items carrying ANY
+          // selected tag (pre-STAK-546 exclude semantics preserved).
           if (typeof getItemTags === "function") {
             const lowerVals = values.map((v) => v.toLowerCase());
             result = result.filter((item) => {
               const rawTags = getItemTags(item.uuid);
               const itemTags = Array.isArray(rawTags) ? rawTags.map((t) => t.toLowerCase()) : [];
-              const match = lowerVals.every((v) => itemTags.includes(v));
-              return exclude ? !match : match;
+              const matchAll = lowerVals.every((v) => itemTags.includes(v));
+              const matchAny = lowerVals.some((v) => itemTags.includes(v));
+              return exclude ? !matchAny : matchAll;
             });
           }
           break;
@@ -976,8 +986,9 @@ const filterInventoryAdvanced = () => {
           const lowerVals = values.map((v) => String(v).toLowerCase());
           result = result.filter((item) => {
             const fieldVal = String(item[field] ?? "").toLowerCase();
-            const match = lowerVals.every((v) => v === fieldVal);
-            return exclude ? !match : match;
+            const matchAll = lowerVals.every((v) => v === fieldVal);
+            const matchAny = lowerVals.some((v) => v === fieldVal);
+            return exclude ? !matchAny : matchAll;
           });
           break;
         }

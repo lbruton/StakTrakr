@@ -350,4 +350,27 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
 
     expect(await dataRowCount(page)).toBe(4);
   });
+
+  // Case 7 — Multi-value exclude must hide items matching ANY selected value (not ALL).
+  // tags:Damaged + tags:Rare in exclude mode → hide items carrying EITHER tag.
+  // Fixture: only item E has a Damaged tag; no item has Rare. Expected survivors: {A,B,C,D}.
+  // Previously under `every`-based exclude, an item would only be hidden if it carried BOTH
+  // selected tags — dropping the exclude filter to a no-op for multi-chip exclude selections.
+  test("Case 7 — exclude-mode multi-tag removes items matching ANY excluded value", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      // applyQuickFilter(field, value, isGrouped, exclude)
+      window.applyQuickFilter("tags", "Damaged", false, true);
+      window.applyQuickFilter("tags", "Rare", false, true);
+    });
+
+    const uuids = await filteredUuids(page);
+    expect(new Set(uuids)).toEqual(
+      new Set([FIXTURE_UUIDS.A, FIXTURE_UUIDS.B, FIXTURE_UUIDS.C, FIXTURE_UUIDS.D])
+    );
+    expect(uuids).toHaveLength(4);
+
+    expect(await dataRowCount(page)).toBe(4);
+  });
 });
