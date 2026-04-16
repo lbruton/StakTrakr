@@ -27,10 +27,10 @@ const renderNumistaSyncUI = async () => {
  * Renders the cache statistics bar: count, total size, quota percentage.
  */
 const renderSyncStats = () => {
-  const container = safeGetElement('numistaSyncStats');
+  const container = safeGetElement("numistaSyncStats");
   if (!container) return;
 
-  const apiCount = typeof getNumistaCacheCount === 'function' ? getNumistaCacheCount() : 0;
+  const apiCount = typeof getNumistaCacheCount === "function" ? getNumistaCacheCount() : 0;
   const eligible = window.BulkImageCache ? BulkImageCache.buildEligibleList() : [];
 
   container.textContent = `${apiCount} API cache \u00b7 ${eligible.length} eligible`;
@@ -46,16 +46,16 @@ const renderSyncStats = () => {
  * Status cells are tracked in _statusCells for live updates during bulk sync.
  */
 const renderEligibleItemsTable = async () => {
-  const container = document.getElementById('numistaSyncTableContainer');
+  const container = document.getElementById("numistaSyncTableContainer");
   if (!container) return;
 
-  container.textContent = '';
+  container.textContent = "";
   _statusCells.clear();
 
   if (!window.imageCache?.isAvailable()) {
-    const empty = document.createElement('div');
-    empty.className = 'chip-grouping-empty';
-    empty.textContent = 'Image cache not available';
+    const empty = document.createElement("div");
+    empty.className = "chip-grouping-empty";
+    empty.textContent = "Image cache not available";
     container.appendChild(empty);
     return;
   }
@@ -64,68 +64,69 @@ const renderEligibleItemsTable = async () => {
   const entries = window.BulkImageCache ? BulkImageCache.buildEligibleList() : [];
 
   if (!entries.length) {
-    const empty = document.createElement('div');
-    empty.className = 'chip-grouping-empty';
-    empty.textContent = 'No items with Numista catalog IDs found';
+    const empty = document.createElement("div");
+    empty.className = "chip-grouping-empty";
+    empty.textContent = "No items with Numista catalog IDs found";
     container.appendChild(empty);
     return;
   }
 
-  const table = document.createElement('table');
-  table.className = 'chip-grouping-table';
+  const table = document.createElement("table");
+  table.className = "chip-grouping-table";
 
-  const thead = document.createElement('thead');
-  const headRow = document.createElement('tr');
-  ['N#', 'Item Name', 'Status', ''].forEach(text => {
-    const th = document.createElement('th');
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  ["N#", "Item Name", "Status", ""].forEach((text) => {
+    const th = document.createElement("th");
     th.textContent = text;
-    th.style.cssText = 'font-size:0.75rem;font-weight:normal;opacity:0.6;padding:0.2rem 0.4rem';
+    th.style.cssText = "font-size:0.75rem;font-weight:normal;opacity:0.6;padding:0.2rem 0.4rem";
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
   table.appendChild(thead);
 
-  const tbody = document.createElement('tbody');
+  const tbody = document.createElement("tbody");
 
   for (const { item, catalogId } of entries) {
     const hasMeta = !!(await imageCache.getMetadata(catalogId));
 
-    const tr = document.createElement('tr');
+    const tr = document.createElement("tr");
 
     // Catalog ID cell
-    const tdId = document.createElement('td');
-    tdId.style.cssText = 'font-family:monospace;font-size:0.85rem;white-space:nowrap';
+    const tdId = document.createElement("td");
+    tdId.style.cssText = "font-family:monospace;font-size:0.85rem;white-space:nowrap";
     tdId.textContent = catalogId;
 
     // Item name cell
-    const tdName = document.createElement('td');
-    tdName.textContent = item.name || '\u2014';
-    tdName.style.cssText = 'max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    const tdName = document.createElement("td");
+    tdName.textContent = item.name || "\u2014";
+    tdName.style.cssText =
+      "max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
 
     // Status cell (updated live during bulk sync)
-    const tdStatus = document.createElement('td');
-    tdStatus.style.cssText = 'font-size:0.8rem;white-space:nowrap';
+    const tdStatus = document.createElement("td");
+    tdStatus.style.cssText = "font-size:0.8rem;white-space:nowrap";
     if (hasMeta) {
-      tdStatus.textContent = '\u2713 Synced';
-      tdStatus.style.color = 'var(--success-color, green)';
+      tdStatus.textContent = "\u2713 Synced";
+      tdStatus.style.color = "var(--success-color, green)";
     } else {
-      tdStatus.textContent = 'Needs sync';
-      tdStatus.style.color = 'var(--warning-color, orange)';
+      tdStatus.textContent = "Needs sync";
+      tdStatus.style.color = "var(--warning-color, orange)";
     }
     _statusCells.set(catalogId, tdStatus);
 
     // Actions cell
-    const tdActions = document.createElement('td');
-    tdActions.style.cssText = 'white-space:nowrap;text-align:right';
+    const tdActions = document.createElement("td");
+    tdActions.style.cssText = "white-space:nowrap;text-align:right";
 
     if (hasMeta) {
       // Re-sync button
-      const syncBtn = document.createElement('button');
-      syncBtn.type = 'button';
-      syncBtn.className = 'inline-chip-move';
-      syncBtn.textContent = '\u21BB';
-      syncBtn.title = 'Re-sync';
-      syncBtn.addEventListener('click', async () => {
+      const syncBtn = document.createElement("button");
+      syncBtn.type = "button";
+      syncBtn.className = "inline-chip-move";
+      syncBtn.textContent = "\u21BB";
+      syncBtn.title = "Re-sync";
+      syncBtn.addEventListener("click", async () => {
         syncBtn.disabled = true;
         await resyncCachedEntry(catalogId);
         syncBtn.disabled = false;
@@ -134,14 +135,14 @@ const renderEligibleItemsTable = async () => {
       });
 
       // Delete button
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'inline-chip-move';
-      delBtn.textContent = '\u2715';
-      delBtn.title = 'Delete cached data';
-      delBtn.addEventListener('click', async () => {
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "inline-chip-move";
+      delBtn.textContent = "\u2715";
+      delBtn.title = "Delete cached data";
+      delBtn.addEventListener("click", async () => {
         await imageCache.deleteMetadata(catalogId);
-        logSyncActivity(`Deleted cache for ${catalogId}`, 'warn');
+        logSyncActivity(`Deleted cache for ${catalogId}`, "warn");
         await renderEligibleItemsTable();
         await renderSyncStats();
       });
@@ -163,8 +164,8 @@ const renderEligibleItemsTable = async () => {
  * @param {string} catalogId
  */
 const resyncCachedEntry = async (catalogId) => {
-  const item = (typeof inventory !== 'undefined' ? inventory : []).find(i => {
-    const resolved = window.BulkImageCache ? BulkImageCache.resolveCatalogId(i) : '';
+  const item = (typeof inventory !== "undefined" ? inventory : []).find((i) => {
+    const resolved = window.BulkImageCache ? BulkImageCache.resolveCatalogId(i) : "";
     return resolved === catalogId;
   });
 
@@ -173,28 +174,28 @@ const resyncCachedEntry = async (catalogId) => {
 
   // Fetch metadata + image URLs from Numista API
   if (window.catalogAPI) {
-    logSyncActivity(`${catalogId}: Re-syncing metadata from Numista...`, 'info');
+    logSyncActivity(`${catalogId}: Re-syncing metadata from Numista...`, "info");
     try {
       const result = await catalogAPI.lookupItem(catalogId);
       if (item) {
-        if (result?.tags && result.tags.length > 0 && typeof applyNumistaTags === 'function') {
-          const allItems = typeof inventory !== 'undefined' ? inventory : [];
-          allItems.forEach(invItem => {
-            const resolved = window.BulkImageCache ? BulkImageCache.resolveCatalogId(invItem) : '';
+        if (result?.tags && result.tags.length > 0 && typeof applyNumistaTags === "function") {
+          const allItems = typeof inventory !== "undefined" ? inventory : [];
+          allItems.forEach((invItem) => {
+            const resolved = window.BulkImageCache ? BulkImageCache.resolveCatalogId(invItem) : "";
             if (resolved === catalogId && invItem.uuid) {
               applyNumistaTags(invItem.uuid, result.tags);
             }
           });
         }
-        if (typeof saveInventory === 'function') saveInventory();
+        if (typeof saveInventory === "function") saveInventory();
       }
       await imageCache.cacheMetadata(catalogId, result);
-      logSyncActivity(`${catalogId}: Metadata re-synced`, 'success');
+      logSyncActivity(`${catalogId}: Metadata re-synced`, "success");
     } catch (err) {
-      logSyncActivity(`${catalogId}: API lookup failed: ${err.message}`, 'error');
+      logSyncActivity(`${catalogId}: API lookup failed: ${err.message}`, "error");
     }
   } else {
-    logSyncActivity(`${catalogId}: Catalog API not available`, 'error');
+    logSyncActivity(`${catalogId}: Catalog API not available`, "error");
   }
 };
 
@@ -207,18 +208,26 @@ const resyncCachedEntry = async (catalogId) => {
  * @param {string} message
  * @param {'info'|'success'|'warn'|'error'} [type='info']
  */
-const logSyncActivity = (message, type = 'info') => {
-  const logEl = document.getElementById('numistaSyncLog');
+const logSyncActivity = (message, type = "info") => {
+  const logEl = document.getElementById("numistaSyncLog");
   if (!logEl) return;
 
-  const line = document.createElement('div');
-  line.style.cssText = 'font-size:0.8rem;font-family:monospace;padding:0.1rem 0;';
+  const line = document.createElement("div");
+  line.style.cssText = "font-size:0.8rem;font-family:monospace;padding:0.1rem 0;";
 
-  const colorMap = { info: 'inherit', success: 'var(--success-color, green)', warn: 'var(--warning-color, orange)', error: 'var(--danger-color, red)' };
-  line.style.color = colorMap[type] || 'inherit';
+  const colorMap = {
+    info: "inherit",
+    success: "var(--success-color, green)",
+    warn: "var(--warning-color, orange)",
+    error: "var(--danger-color, red)",
+  };
+  line.style.color = colorMap[type] || "inherit";
 
   const now = new Date();
-  const ts = typeof formatTimeOnly === 'function' ? formatTimeOnly(now) : now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const ts =
+    typeof formatTimeOnly === "function"
+      ? formatTimeOnly(now)
+      : now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   line.textContent = `[${ts}] ${message}`;
   logEl.appendChild(line);
   logEl.scrollTop = logEl.scrollHeight;
@@ -248,25 +257,25 @@ const updateStatusCell = (catalogId, text, color) => {
 const startBulkSync = () => {
   if (!window.BulkImageCache || BulkImageCache.isRunning()) return;
 
-  const startBtn = document.getElementById('numistaSyncStartBtn');
-  const cancelBtn = document.getElementById('numistaSyncCancelBtn');
-  const progressBar = document.getElementById('numistaSyncProgress');
+  const startBtn = document.getElementById("numistaSyncStartBtn");
+  const cancelBtn = document.getElementById("numistaSyncCancelBtn");
+  const progressBar = document.getElementById("numistaSyncProgress");
 
   if (startBtn) startBtn.disabled = true;
-  if (cancelBtn) cancelBtn.style.display = '';
+  if (cancelBtn) cancelBtn.style.display = "";
   if (progressBar) {
-    progressBar.style.display = '';
+    progressBar.style.display = "";
     progressBar.value = 0;
     progressBar.max = 0;
   }
 
-  logSyncActivity('Starting metadata sync...', 'info');
+  logSyncActivity("Starting metadata sync...", "info");
 
   const statusColorMap = {
-    'skip-cached': ['var(--success-color, green)', '\u2713 Synced'],
-    'api-lookup': ['var(--text-secondary, #888)', 'Syncing...'],
-    'metadata': ['var(--success-color, green)', '\u2713 Synced'],
-    'meta-failed': ['var(--warning-color, orange)', '\u26a0 Failed'],
+    "skip-cached": ["var(--success-color, green)", "\u2713 Synced"],
+    "api-lookup": ["var(--text-secondary, #888)", "Syncing..."],
+    metadata: ["var(--success-color, green)", "\u2713 Synced"],
+    "meta-failed": ["var(--warning-color, orange)", "\u26a0 Failed"],
   };
 
   BulkImageCache.cacheAll({
@@ -278,38 +287,40 @@ const startBulkSync = () => {
     },
     onLog: ({ catalogId, status, message }) => {
       // Update the table row status cell
-      const [color, label] = statusColorMap[status] || ['inherit', status];
+      const [color, label] = statusColorMap[status] || ["inherit", status];
       updateStatusCell(catalogId, label, color);
 
       // Log to activity log
       const logTypeMap = {
-        'skip-cached': 'info', 'api-lookup': 'info',
-        'metadata': 'success', 'meta-failed': 'warn',
+        "skip-cached": "info",
+        "api-lookup": "info",
+        metadata: "success",
+        "meta-failed": "warn",
       };
-      logSyncActivity(`${catalogId}: ${message}`, logTypeMap[status] || 'info');
+      logSyncActivity(`${catalogId}: ${message}`, logTypeMap[status] || "info");
     },
     onComplete: async ({ synced, skipped, failed, apiLookups, elapsed }) => {
       if (startBtn) startBtn.disabled = false;
-      if (cancelBtn) cancelBtn.style.display = 'none';
-      if (progressBar) progressBar.style.display = 'none';
+      if (cancelBtn) cancelBtn.style.display = "none";
+      if (progressBar) progressBar.style.display = "none";
 
       const secs = (elapsed / 1000).toFixed(1);
       let msg = `Complete in ${secs}s: ${synced} synced, ${skipped} skipped, ${failed} failed`;
       if (apiLookups > 0) msg += `, ${apiLookups} API calls`;
-      msg += '.';
-      logSyncActivity(msg, failed > 0 ? 'warn' : 'success');
+      msg += ".";
+      logSyncActivity(msg, failed > 0 ? "warn" : "success");
 
       // Refresh table and stats
       await renderEligibleItemsTable();
       await renderSyncStats();
 
       // Refresh Numista usage bar + settings footer storage display
-      if (typeof renderNumistaUsageBar === 'function') renderNumistaUsageBar();
-      if (typeof updateSettingsFooter === 'function') updateSettingsFooter();
+      if (typeof renderNumistaUsageBar === "function") renderNumistaUsageBar();
+      if (typeof updateSettingsFooter === "function") updateSettingsFooter();
 
       // Refresh filter chips so newly-applied tags appear immediately
-      if (typeof renderActiveFilters === 'function') renderActiveFilters();
-    }
+      if (typeof renderActiveFilters === "function") renderActiveFilters();
+    },
   });
 };
 
@@ -321,32 +332,32 @@ const clearAllCachedData = async () => {
 
   const usage = await imageCache.getStorageUsage();
   if (usage.count === 0) {
-    logSyncActivity('No cached data to clear', 'info');
+    logSyncActivity("No cached data to clear", "info");
     return;
   }
 
   const confirmed = await appConfirm(
     `Delete all ${usage.count} cached entries (images + metadata)? This cannot be undone.`,
-    'Image Cache',
+    "Image Cache"
   );
   if (!confirmed) return;
 
   const ok = await imageCache.clearAll();
   if (ok) {
-    logSyncActivity(`Cleared all ${usage.count} cached entries`, 'warn');
+    logSyncActivity(`Cleared all ${usage.count} cached entries`, "warn");
   } else {
-    logSyncActivity('Failed to clear cache', 'error');
+    logSyncActivity("Failed to clear cache", "error");
   }
 
   await renderEligibleItemsTable();
   await renderSyncStats();
-  if (typeof updateSettingsFooter === 'function') updateSettingsFooter();
+  if (typeof updateSettingsFooter === "function") updateSettingsFooter();
 };
 
 // ---------------------------------------------------------------------------
 // Global exports
 // ---------------------------------------------------------------------------
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.renderNumistaSyncUI = renderNumistaSyncUI;
   window.startBulkSync = startBulkSync;
   window.clearAllCachedData = clearAllCachedData;

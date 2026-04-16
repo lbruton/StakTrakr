@@ -25,7 +25,11 @@ try {
   const coinCount = parsed.coins ? Object.keys(parsed.coins).length : 0;
   writeFileSync(tmpPath, json);
   renameSync(tmpPath, outPath);
-  console.log(`[export-providers] Exported ${coinCount} coins to providers.json at ${new Date().toISOString()}`);
+  console.log(
+    `[export-providers] Exported ${coinCount} coins to providers.json at ${new Date().toISOString()}`
+  );
 } catch (err) {
-  console.warn(`[export-providers] sqld unavailable — keeping existing providers.json: ${err.message}`);
+  console.warn(
+    `[export-providers] sqld unavailable — keeping existing providers.json: ${err.message}`
+  );
 }

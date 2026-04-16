@@ -31,7 +31,7 @@ const BulkImageCache = (() => {
       const mapped = catalogManager.getCatalogId(String(item.serial));
       if (mapped && String(mapped).trim()) return String(mapped).trim();
     }
-    return '';
+    return "";
   }
 
   /**
@@ -41,7 +41,7 @@ const BulkImageCache = (() => {
   function buildEligibleList() {
     const seen = new Set();
     const list = [];
-    for (const item of (typeof inventory !== 'undefined' ? inventory : [])) {
+    for (const item of typeof inventory !== "undefined" ? inventory : []) {
       const catId = resolveCatalogId(item);
       if (!catId) continue;
       if (seen.has(catId)) continue;
@@ -88,7 +88,7 @@ const BulkImageCache = (() => {
     // Uses resolveCatalogId() (same as buildEligibleList) to cover catalogManager items
     // that may not have numistaId directly set on the inventory item.
     const catalogIdToUuids = new Map();
-    for (const invItem of (typeof inventory !== 'undefined' ? inventory : [])) {
+    for (const invItem of typeof inventory !== "undefined" ? inventory : []) {
       if (!invItem.uuid) continue;
       const cid = BulkImageCache.resolveCatalogId(invItem);
       if (!cid) continue;
@@ -109,11 +109,22 @@ const BulkImageCache = (() => {
       const _valid = (u) => u && /^https?:\/\/.+\..+/i.test(u);
       // Repair malformed URLs (sanitization bug stripped ://./ characters)
       let urlRepaired = false;
-      if (item.obverseImageUrl && !_valid(item.obverseImageUrl)) { item.obverseImageUrl = ''; urlRepaired = true; }
-      if (item.reverseImageUrl && !_valid(item.reverseImageUrl)) { item.reverseImageUrl = ''; urlRepaired = true; }
-      if (urlRepaired && onLog) onLog({ catalogId, status: 'url-repair', message: 'Cleared malformed image URL(s) — will re-fetch' });
-      let obverseUrl = _valid(item.obverseImageUrl) ? item.obverseImageUrl : '';
-      let reverseUrl = _valid(item.reverseImageUrl) ? item.reverseImageUrl : '';
+      if (item.obverseImageUrl && !_valid(item.obverseImageUrl)) {
+        item.obverseImageUrl = "";
+        urlRepaired = true;
+      }
+      if (item.reverseImageUrl && !_valid(item.reverseImageUrl)) {
+        item.reverseImageUrl = "";
+        urlRepaired = true;
+      }
+      if (urlRepaired && onLog)
+        onLog({
+          catalogId,
+          status: "url-repair",
+          message: "Cleared malformed image URL(s) — will re-fetch",
+        });
+      let obverseUrl = _valid(item.obverseImageUrl) ? item.obverseImageUrl : "";
+      let reverseUrl = _valid(item.reverseImageUrl) ? item.reverseImageUrl : "";
 
       // Check if metadata is already cached
       const hasMetaCached = !!(await imageCache.getMetadata(catalogId));
@@ -122,15 +133,22 @@ const BulkImageCache = (() => {
         // Metadata synced and URLs already on item — apply cached tags then skip
         try {
           const cached = await imageCache.getMetadata(catalogId);
-          if (cached && cached.tags && cached.tags.length > 0 && typeof applyNumistaTags === 'function') {
+          if (
+            cached &&
+            cached.tags &&
+            cached.tags.length > 0 &&
+            typeof applyNumistaTags === "function"
+          ) {
             const uuids = catalogIdToUuids.get(catalogId) || [];
             for (const uuid of uuids) {
               applyNumistaTags(uuid, cached.tags, false);
             }
           }
-        } catch { /* non-fatal — tag hydration is best-effort */ }
+        } catch {
+          /* non-fatal — tag hydration is best-effort */
+        }
         skipped++;
-        if (onLog) onLog({ catalogId, status: 'skip-cached', message: 'Already synced' });
+        if (onLog) onLog({ catalogId, status: "skip-cached", message: "Already synced" });
         continue;
       }
 
@@ -144,20 +162,25 @@ const BulkImageCache = (() => {
           const localData = catalogAPI.localProvider.localData[catalogId];
           if (localData && (localData.imageUrl || localData.reverseImageUrl)) {
             apiResult = localData;
-            if (onLog) onLog({ catalogId, status: 'local-cache', message: 'URLs from local cache' });
+            if (onLog)
+              onLog({ catalogId, status: "local-cache", message: "URLs from local cache" });
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       // Fall back to API if local cache didn't have URLs or metadata needs syncing
       if (!apiResult && window.catalogAPI && (!hasMetaCached || !obverseUrl)) {
-        if (onLog) onLog({ catalogId, status: 'api-lookup', message: 'Syncing metadata from Numista...' });
+        if (onLog)
+          onLog({ catalogId, status: "api-lookup", message: "Syncing metadata from Numista..." });
         try {
           apiResult = await catalogAPI.lookupItem(catalogId);
           apiLookups++;
         } catch (err) {
           failed++;
-          if (onLog) onLog({ catalogId, status: 'meta-failed', message: `Metadata: ${err.message}` });
+          if (onLog)
+            onLog({ catalogId, status: "meta-failed", message: `Metadata: ${err.message}` });
         }
       }
 
@@ -169,12 +192,14 @@ const BulkImageCache = (() => {
         if (!hasMetaCached) {
           try {
             await imageCache.cacheMetadata(catalogId, apiResult);
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
 
         // Apply Numista tags to all inventory items sharing this catalog ID
         // Uses pre-built Map for O(1) lookup; persist=false defers saveItemTags() to post-loop
-        if (apiResult.tags && apiResult.tags.length > 0 && typeof applyNumistaTags === 'function') {
+        if (apiResult.tags && apiResult.tags.length > 0 && typeof applyNumistaTags === "function") {
           const uuids = catalogIdToUuids.get(catalogId) || [];
           for (const uuid of uuids) {
             applyNumistaTags(uuid, apiResult.tags, false);
@@ -182,27 +207,28 @@ const BulkImageCache = (() => {
         }
 
         synced++;
-        if (onLog) onLog({ catalogId, status: 'metadata', message: 'Synced' });
+        if (onLog) onLog({ catalogId, status: "metadata", message: "Synced" });
       } else if (!hasMetaCached) {
         failed++;
-        if (onLog) onLog({ catalogId, status: 'meta-failed', message: 'Catalog API not available' });
+        if (onLog)
+          onLog({ catalogId, status: "meta-failed", message: "Catalog API not available" });
       }
 
       // Delay between requests to avoid rate-limiting
       if (i < entries.length - 1 && !_aborted) {
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise((r) => setTimeout(r, delay));
       }
     }
 
     _running = false;
 
     // Persist any tag updates written during the sync loop (synced items + skip-cached tag hydration)
-    if ((synced > 0 || skipped > 0) && typeof saveItemTags === 'function') {
+    if ((synced > 0 || skipped > 0) && typeof saveItemTags === "function") {
       saveItemTags();
     }
 
     // Persist any URL updates back to localStorage
-    if (synced > 0 && typeof saveInventory === 'function') {
+    if (synced > 0 && typeof saveInventory === "function") {
       saveInventory();
     }
 
@@ -230,6 +256,6 @@ const BulkImageCache = (() => {
   return { cacheAll, abort, isRunning, buildEligibleList, resolveCatalogId };
 })();
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.BulkImageCache = BulkImageCache;
 }

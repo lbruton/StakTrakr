@@ -7,107 +7,125 @@ Each test in this section is independently runnable given that the application h
 ---
 
 ### Test 5.1 — Market panel is visible on page load
+
 _Added: v3.33.25 (STAK-396)_
 _Updated: v3.34.02 (STAK-545) — header Market button now triggers a data refresh, not panel navigation; market data is always visible on the main page_
 **Preconditions:** Application is loaded at the PR preview URL. The What's New modal has been dismissed (see 00-setup.md).
 **Steps:**
+
 - extract: "is the market prices section or vendor prices panel visible on the main page" → expect: true
 - act: "click the Market button in the header navigation"
 - extract: "does a refresh or sync animation appear on the market prices section" → expect: true
 - screenshot: "05-market-open"
-**Pass criteria:** The market prices section is visible on the main page after load. Clicking the header Market button triggers a data refresh (not navigation) — a loading state or updated timestamp confirms the sync ran.
-**Tags:** market, navigation, refresh
-**Section:** 05-market
+  **Pass criteria:** The market prices section is visible on the main page after load. Clicking the header Market button triggers a data refresh (not navigation) — a loading state or updated timestamp confirms the sync ran.
+  **Tags:** market, navigation, refresh
+  **Section:** 05-market
 
 ---
 
 ### Test 5.2 — Market loads all inventory from API
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Market panel open (5.1 complete).
 **Steps:**
+
 - extract: "how many market item listings or inventory rows are visible with price data in the market view" → expect: at least 1 item with a price value
-**Pass criteria:** At least one market item listing is visible with an associated price, confirming that API data has loaded into the market panel.
-**Tags:** market, api, load
-**Section:** 05-market
+  **Pass criteria:** At least one market item listing is visible with an associated price, confirming that API data has loaded into the market panel.
+  **Tags:** market, api, load
+  **Section:** 05-market
 
 ---
 
 ### Test 5.3 — Search for item in market
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Market panel is open.
 **Steps:**
+
 - act: "type 'Silver' into the market search or filter input field"
 - extract: "are only Silver-related market items visible after filtering" → expect: at least 1 Silver item visible
 - screenshot: "05-market-search"
-**Pass criteria:** Filtering by "Silver" returns at least one Silver-related market item and hides non-Silver items (or all visible items are Silver-related).
-**Tags:** market, search
-**Section:** 05-market
+  **Pass criteria:** Filtering by "Silver" returns at least one Silver-related market item and hides non-Silver items (or all visible items are Silver-related).
+  **Tags:** market, search
+  **Section:** 05-market
 
 ---
 
 ### Test 5.4 — Expand and view price history for an item
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Market panel is open. At least one market item is visible.
 **Steps:**
+
 - act: "click on a market item or expand button to view its price history or detail"
 - extract: "is a price history section, price history chart, or historical price list visible" → expect: true
 - screenshot: "05-market-price-history"
-**Pass criteria:** Clicking a market item or its expand control reveals a price history section containing historical price data.
-**Tags:** market, price-history
-**Section:** 05-market
+  **Pass criteria:** Clicking a market item or its expand control reveals a price history section containing historical price data.
+  **Tags:** market, price-history
+  **Section:** 05-market
 
 ---
 
 ### Test 5.5 — Price history is accurate with current API trends
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Price history is expanded from 5.4 — a price history section is visible for a market item.
 **Steps:**
+
 - extract: "does the price history section show dates and non-zero dollar values (not all zeros and not empty)" → expect: non-empty price history with at least one non-zero price value
-**Pass criteria:** The price history section displays at least one date-value pair where the dollar value is greater than zero, indicating live API data is being rendered.
-**Tags:** market, price-history, accuracy
-**Section:** 05-market
+  **Pass criteria:** The price history section displays at least one date-value pair where the dollar value is greater than zero, indicating live API data is being rendered.
+  **Tags:** market, price-history, accuracy
+  **Section:** 05-market
 
 ---
 
 ### Test 5.6 — Click item opens detail / price history view
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Market panel is open. At least one market item listing is visible.
 **Steps:**
+
 - act: "click on a specific market item in the market listing"
 - extract: "is a detail view or expanded section with price information or price history now shown" → expect: true
-**Pass criteria:** Clicking a market item opens or reveals a detail view or expanded panel that includes price information or price history for that item.
-**Tags:** market, detail
-**Section:** 05-market
+  **Pass criteria:** Clicking a market item opens or reveals a detail view or expanded panel that includes price information or price history for that item.
+  **Tags:** market, detail
+  **Section:** 05-market
 
 ---
 
 ### Test 5.7 — Stale indicator appears when data exceeds 30-min threshold
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** MANUAL/CONTROLLED TEST — This test cannot be automated within a standard Browserbase session. Triggering the 30-minute stale state requires either: (a) waiting 30+ minutes without a market data refresh, or (b) manipulating the `generated_at` timestamp in localStorage to simulate stale data. Neither is reliably achievable via Stagehand during a normal test run. To verify manually: load the app, open the market panel, allow market data to age past 30 minutes without refresh, then observe whether a stale badge or indicator appears on market items or in the market header.
 **Steps:**
+
 - screenshot: "05-market-stale-note"
-**Pass criteria:** Test is documented. Manual verification procedure is recorded above. When executed under controlled stale conditions, a stale badge, warning icon, or "data may be outdated" indicator should be visible on market items or the market panel header.
-**Tags:** market, stale, manual
-**Section:** 05-market
+  **Pass criteria:** Test is documented. Manual verification procedure is recorded above. When executed under controlled stale conditions, a stale badge, warning icon, or "data may be outdated" indicator should be visible on market items or the market panel header.
+  **Tags:** market, stale, manual
+  **Section:** 05-market
 
 ---
 
 ### Test 5.8 — Goldback price card shows valid value
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Market panel is open.
 **Steps:**
+
 - extract: "is a Goldback price card or Goldback listing visible in the market view with a non-zero dollar price" → expect: Goldback price greater than 0
 - screenshot: "05-market-goldback"
-**Pass criteria:** The Goldback price is displayed in the market view with a dollar value greater than zero, confirming the Goldback feed is returning data.
-**Tags:** market, goldback
-**Section:** 05-market
+  **Pass criteria:** The Goldback price is displayed in the market view with a dollar value greater than zero, confirming the Goldback feed is returning data.
+  **Tags:** market, goldback
+  **Section:** 05-market
 
 ---
 
 ### Test 5.9 — Toggle between metal tabs (Gold/Silver/Platinum/Palladium)
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Market panel is open. Metal filter tabs are visible.
 **Steps:**
+
 - act: "click the Gold tab or Gold filter button in the market panel"
 - extract: "are Gold market items or Gold-related listings visible" → expect: at least 1 Gold item
 - act: "click the Silver tab or Silver filter button in the market panel"
@@ -117,45 +135,51 @@ _Added: v3.33.25 (STAK-396)_
 - act: "click the Palladium tab or Palladium filter button in the market panel"
 - extract: "are Palladium market items or Palladium-related listings visible" → expect: true
 - screenshot: "05-market-tabs"
-**Pass criteria:** Each metal tab filter (Gold, Silver, Platinum, Palladium) responds to click and shows at least one relevant item listing, confirming per-metal filtering is functional for all four metals.
-**Tags:** market, tabs, filter, metals
-**Section:** 05-market
+  **Pass criteria:** Each metal tab filter (Gold, Silver, Platinum, Palladium) responds to click and shows at least one relevant item listing, confirming per-metal filtering is functional for all four metals.
+  **Tags:** market, tabs, filter, metals
+  **Section:** 05-market
 
 ---
 
 ### Test 5.10 — Correct source badge visible on market items
+
 _Added: v3.33.25 (STAK-396)_
 **Preconditions:** Market panel is open. At least one market item listing is visible.
 **Steps:**
+
 - extract: "does at least one market item display a source or provider badge such as 'eBay', 'APMEX', or another vendor name" → expect: true
 - screenshot: "05-market-source-badge"
-**Pass criteria:** At least one market item shows a source or provider badge identifying the data origin (e.g., "eBay", "APMEX", or the API source name), confirming source attribution is rendered correctly.
-**Tags:** market, source-badge, provider
-**Section:** 05-market
+  **Pass criteria:** At least one market item shows a source or provider badge identifying the data origin (e.g., "eBay", "APMEX", or the API source name), confirming source attribution is rendered correctly.
+  **Tags:** market, source-badge, provider
+  **Section:** 05-market
 
 ---
 
 ### Test 5.11 — Best price ticker completes one full seamless cycle
+
 _Added: v3.33.88 (STAK-481)_
 **Preconditions:** MANUAL/VISUAL TEST — the best price ticker strip is visible after page load or with the Market panel open. Allow roughly 45-50 seconds to observe one full cycle.
 **Steps:**
+
 - screenshot: "05-market-ticker-cycle-start"
 - act: "observe the ticker continuously through one full pass until the starting items reappear"
 - screenshot: "05-market-ticker-cycle-end"
-**Pass criteria:** The ticker scrolls through the entire list and returns to an identical seam without a visible flash, jump, blank gap, or early reset near the mid-list silver products (for example around the Koala/Kookaburra area).
-**Tags:** market, ticker, manual, visual
-**Section:** 05-market
+  **Pass criteria:** The ticker scrolls through the entire list and returns to an identical seam without a visible flash, jump, blank gap, or early reset near the mid-list silver products (for example around the Koala/Kookaburra area).
+  **Tags:** market, ticker, manual, visual
+  **Section:** 05-market
 
 ---
 
 ### Test 5.12 — Best price ticker remains continuous after market refresh
+
 _Added: v3.33.88 (STAK-481)_
 **Preconditions:** Market panel is open and the best price ticker is already moving (5.11 is recommended first).
 **Steps:**
+
 - act: "click the market Refresh button"
 - extract: "the market updated timestamp changes or refresh feedback appears" → expect: true
 - act: "observe the ticker for 10 seconds immediately after refresh"
 - screenshot: "05-market-ticker-post-refresh"
-**Pass criteria:** After a manual market refresh, the ticker continues moving with duplicated content intact and no visible snap back to the start, flash, or partial-cycle restart.
-**Tags:** market, ticker, refresh, manual
-**Section:** 05-market
+  **Pass criteria:** After a manual market refresh, the ticker continues moving with duplicated content intact and no visible snap back to the start, flash, or partial-cycle restart.
+  **Tags:** market, ticker, refresh, manual
+  **Section:** 05-market

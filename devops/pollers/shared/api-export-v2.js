@@ -39,11 +39,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openTursoDb } from "./db.js";
 import { initProviderSchema, getProviders } from "./provider-db.js";
-import {
-  toTimestampPair,
-  computeOhlca,
-  wrapEnvelope,
-} from "./v2-utils.js";
+import { toTimestampPair, computeOhlca, wrapEnvelope } from "./v2-utils.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
@@ -55,16 +51,20 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_HOUR = 60 * 60 * 1000;
 
 const VENDOR_META = {
-  apmex:            { name: "APMEX",      color: "#60a5fa", url: "https://www.apmex.com" },
-  jmbullion:        { name: "JM Bullion", color: "#fbbf24", url: "https://www.jmbullion.com" },
-  sdbullion:        { name: "SDB",        color: "#34d399", url: "https://www.sdbullion.com" },
-  monumentmetals:   { name: "Monument",   color: "#c4b5fd", url: "https://www.monumentmetals.com" },
-  herobullion:      { name: "Hero",       color: "#f87171", url: "https://www.herobullion.com" },
-  bullionexchanges: { name: "BullionX",   color: "#f472b6", url: "https://www.bullionexchanges.com" },
-  summitmetals:     { name: "Summit",     color: "#22d3ee", url: "https://www.summitmetals.com" },
-  goldback:         { name: "Goldback",   color: "#d4a017", url: "https://www.goldback.com" },
-  providentmetals:  { name: "Provident",  color: "#a3e635", url: "https://www.providentmetals.com" },
-  gainesvillecoins: { name: "Gainesville",color: "#fb923c", url: "https://www.gainesvillecoins.com" },
+  apmex: { name: "APMEX", color: "#60a5fa", url: "https://www.apmex.com" },
+  jmbullion: { name: "JM Bullion", color: "#fbbf24", url: "https://www.jmbullion.com" },
+  sdbullion: { name: "SDB", color: "#34d399", url: "https://www.sdbullion.com" },
+  monumentmetals: { name: "Monument", color: "#c4b5fd", url: "https://www.monumentmetals.com" },
+  herobullion: { name: "Hero", color: "#f87171", url: "https://www.herobullion.com" },
+  bullionexchanges: { name: "BullionX", color: "#f472b6", url: "https://www.bullionexchanges.com" },
+  summitmetals: { name: "Summit", color: "#22d3ee", url: "https://www.summitmetals.com" },
+  goldback: { name: "Goldback", color: "#d4a017", url: "https://www.goldback.com" },
+  providentmetals: { name: "Provident", color: "#a3e635", url: "https://www.providentmetals.com" },
+  gainesvillecoins: {
+    name: "Gainesville",
+    color: "#fb923c",
+    url: "https://www.gainesvillecoins.com",
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -224,15 +224,20 @@ async function exportSpot(client) {
       const perMetalLatest = { metal: iso, price, t, ts };
       if (price24hAgo !== null && price24hAgo !== 0) {
         perMetalLatest.change_24h = parseFloat((price - price24hAgo).toFixed(2));
-        perMetalLatest.change_24h_pct = parseFloat((((price - price24hAgo) / price24hAgo) * 100).toFixed(2));
+        perMetalLatest.change_24h_pct = parseFloat(
+          (((price - price24hAgo) / price24hAgo) * 100).toFixed(2)
+        );
       }
       writeV2File(`spot/${iso}/latest.json`, perMetalLatest, 1200);
 
       // spot/{metal}/intraday.json — rolling 24h of 15-min OHLCA
-      const intradayStart = new Date(now.getTime() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const intradayStart = new Date(now.getTime() - MS_PER_DAY)
+        .toISOString()
+        .replace(".000Z", "Z");
       const intradayEnd = now.toISOString().replace(".000Z", "Z");
-      const intradayRows = (await querySpotRange(client, intradayStart, intradayEnd))
-        .filter((r) => String(r.metal) === metal);
+      const intradayRows = (await querySpotRange(client, intradayStart, intradayEnd)).filter(
+        (r) => String(r.metal) === metal
+      );
       const intradayEntries = buildOhlcaBuckets(intradayRows, "15min");
       writeV2File(`spot/${iso}/intraday.json`, intradayEntries, 1200);
 
@@ -241,10 +246,13 @@ async function exportSpot(client) {
       const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
       const dd = String(now.getUTCDate()).padStart(2, "0");
       const dayStart = `${yyyy}-${mm}-${dd}T00:00:00Z`;
-      const nextDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+      const nextDay = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+      );
       const dayEnd = nextDay.toISOString().replace(".000Z", "Z");
-      const dayRows = (await querySpotRange(client, dayStart, dayEnd))
-        .filter((r) => String(r.metal) === metal);
+      const dayRows = (await querySpotRange(client, dayStart, dayEnd)).filter(
+        (r) => String(r.metal) === metal
+      );
       const hourlyEntries = buildOhlcaBuckets(dayRows, "hourly");
       if (hourlyEntries.length) {
         writeV2File(`spot/${iso}/${yyyy}/${mm}/${dd}.json`, hourlyEntries, 3600);
@@ -253,8 +261,9 @@ async function exportSpot(client) {
       // spot/{metal}/{YYYY}/{MM}.json — current month daily OHLCA (noon UTC)
       const monthStart = `${yyyy}-${mm}-01T00:00:00Z`;
       const monthEnd = nextDay.toISOString().replace(".000Z", "Z");
-      const monthRows = (await querySpotRange(client, monthStart, monthEnd))
-        .filter((r) => String(r.metal) === metal);
+      const monthRows = (await querySpotRange(client, monthStart, monthEnd)).filter(
+        (r) => String(r.metal) === metal
+      );
       const dailyEntries = buildOhlcaBuckets(monthRows, "daily");
       if (dailyEntries.length) {
         writeV2File(`spot/${iso}/${yyyy}/${mm}.json`, dailyEntries, 86400);
@@ -267,7 +276,9 @@ async function exportSpot(client) {
 
   // --- spot/history/{7,30,90}d.json ---
   for (const days of [7, 30, 90]) {
-    const histStart = new Date(now.getTime() - days * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+    const histStart = new Date(now.getTime() - days * MS_PER_DAY)
+      .toISOString()
+      .replace(".000Z", "Z");
     const histEnd = now.toISOString().replace(".000Z", "Z");
     const histRows = await querySpotRange(client, histStart, histEnd);
     const byMetal = groupByMetal(histRows);
@@ -317,9 +328,7 @@ async function queryLatestPerVendor(client, coinSlug, lookbackHours = 2) {
 }
 
 async function queryCarryForwardPrice(client, coinSlug, vendorId) {
-  const cutoff = new Date(Date.now() - MS_PER_DAY)
-    .toISOString()
-    .replace(".000Z", "Z");
+  const cutoff = new Date(Date.now() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
   const result = await client.execute({
     sql: `
       SELECT price, scraped_at, in_stock, confidence
@@ -371,9 +380,7 @@ async function queryRetailDailyAggregates(client, coinSlug, startIso, endIso) {
 }
 
 async function queryVendor7dAvg(client, vendorId) {
-  const cutoff = new Date(Date.now() - 7 * MS_PER_DAY)
-    .toISOString()
-    .replace(".000Z", "Z");
+  const cutoff = new Date(Date.now() - 7 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
   const result = await client.execute({
     sql: `
       SELECT coin_slug, AVG(price) AS avg_price
@@ -557,40 +564,52 @@ async function exportRetail(client) {
       };
 
       // --- retail/{slug}/latest.json ---
-      writeV2File(`retail/${slug}/latest.json`, {
-        slug,
-        name: coinName,
-        metal: metalIso,
-        weight_oz: weightOz,
-        t: latestT,
-        ts: latestTs,
-        median,
-        low,
-        high,
-        vendors,
-      }, 1800);
+      writeV2File(
+        `retail/${slug}/latest.json`,
+        {
+          slug,
+          name: coinName,
+          metal: metalIso,
+          weight_oz: weightOz,
+          t: latestT,
+          ts: latestTs,
+          median,
+          low,
+          high,
+          vendors,
+        },
+        1800
+      );
 
       // --- retail/{slug}/intraday.json ---
-      const intradayStart = new Date(now.getTime() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const intradayStart = new Date(now.getTime() - MS_PER_DAY)
+        .toISOString()
+        .replace(".000Z", "Z");
       const intradayRows = await queryRetailRange(client, slug, intradayStart, nowIso);
       const intradayEntries = buildRetailIntradayEntries(intradayRows);
       writeV2File(`retail/${slug}/intraday.json`, intradayEntries, 1200);
 
       // --- retail/{slug}/history-7d.json (hourly OHLCA, up to 168 entries) ---
-      const hist7dStart = new Date(now.getTime() - 7 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const hist7dStart = new Date(now.getTime() - 7 * MS_PER_DAY)
+        .toISOString()
+        .replace(".000Z", "Z");
       const hist7dRows = await queryRetailRange(client, slug, hist7dStart, nowIso);
       const hist7dEntries = buildRetailOhlcaBuckets(hist7dRows, "hourly");
       const hist7dClean = hist7dEntries.map(({ _vendorPrices, ...rest }) => rest);
       writeV2File(`retail/${slug}/history-7d.json`, hist7dClean.slice(-168), 3600);
 
       // --- retail/{slug}/history-30d.json (daily OHLCA with per-vendor breakdown) ---
-      const hist30dStart = new Date(now.getTime() - 30 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const hist30dStart = new Date(now.getTime() - 30 * MS_PER_DAY)
+        .toISOString()
+        .replace(".000Z", "Z");
       const dailyAgg30d = await queryRetailDailyAggregates(client, slug, hist30dStart, nowIso);
       const daily30dEntries = buildDailyWithVendors(dailyAgg30d);
       writeV2File(`retail/${slug}/history-30d.json`, daily30dEntries, 86400);
 
       // --- retail/{slug}/history-90d.json (daily OHLCA, no per-vendor) ---
-      const hist90dStart = new Date(now.getTime() - 90 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+      const hist90dStart = new Date(now.getTime() - 90 * MS_PER_DAY)
+        .toISOString()
+        .replace(".000Z", "Z");
       const hist90dRows = await queryRetailRange(client, slug, hist90dStart, nowIso);
       const hist90dEntries = buildRetailOhlcaBuckets(hist90dRows, "daily");
       const hist90dClean = hist90dEntries.map(({ _vendorPrices, ...rest }) => rest);
@@ -626,11 +645,15 @@ async function exportRetail(client) {
   }
 
   // --- retail/latest.json ---
-  writeV2File("retail/latest.json", {
-    t: latestT,
-    ts: latestTs,
-    coins: allCoinsData,
-  }, 1800);
+  writeV2File(
+    "retail/latest.json",
+    {
+      t: latestT,
+      ts: latestTs,
+      coins: allCoinsData,
+    },
+    1800
+  );
 
   // --- retail/vendors/index.json ---
   const allVendorIds = new Set();
@@ -667,12 +690,16 @@ async function exportRetail(client) {
         };
       }
 
-      writeV2File(`retail/vendors/${vid}.json`, {
-        vendor: { id: vid, name: meta.name, color: meta.color, url: meta.url },
-        t: latestT,
-        ts: latestTs,
-        coins: coinsOut,
-      }, 1800);
+      writeV2File(
+        `retail/vendors/${vid}.json`,
+        {
+          vendor: { id: vid, name: meta.name, color: meta.color, url: meta.url },
+          t: latestT,
+          ts: latestTs,
+          coins: coinsOut,
+        },
+        1800
+      );
     } catch (err) {
       warn(`vendor ${vid}: ${err.message}`);
       continue;
@@ -704,7 +731,9 @@ function buildDailyWithVendors(dailyAggRows) {
     const { allPrices, vendors } = byDate[date];
     if (!allPrices.length) continue;
     const { t, ts } = toTimestampPair(new Date(date + "T12:00:00Z"), "daily");
-    const ohlca = computeOhlca(allPrices.map((p) => ({ price: p, timestamp: `${date}T12:00:00Z` })));
+    const ohlca = computeOhlca(
+      allPrices.map((p) => ({ price: p, timestamp: `${date}T12:00:00Z` }))
+    );
     if (ohlca) {
       entries.push({ t, ts, ...ohlca, vendors });
     }
@@ -717,9 +746,7 @@ function buildDailyWithVendors(dailyAggRows) {
 // ---------------------------------------------------------------------------
 
 async function queryGoldbackLatest(client) {
-  const cutoff = new Date(Date.now() - 2 * MS_PER_HOUR)
-    .toISOString()
-    .replace(".000Z", "Z");
+  const cutoff = new Date(Date.now() - 2 * MS_PER_HOUR).toISOString().replace(".000Z", "Z");
   const result = await client.execute({
     sql: `
       SELECT price, scraped_at
@@ -735,9 +762,7 @@ async function queryGoldbackLatest(client) {
   if (result.rows.length) return result.rows[0];
 
   // Fall back to 24h lookback
-  const cutoff24 = new Date(Date.now() - MS_PER_DAY)
-    .toISOString()
-    .replace(".000Z", "Z");
+  const cutoff24 = new Date(Date.now() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
   const fallback = await client.execute({
     sql: `
       SELECT price, scraped_at
@@ -821,17 +846,23 @@ async function exportGoldback(client) {
   const g1 = Math.round(Number(latestRow.price) * 100) / 100;
   const { t, ts } = toTimestampPair(new Date(String(latestRow.scraped_at)), "daily");
 
-  writeV2File("goldback/latest.json", {
-    t,
-    ts,
-    g1_usd: g1,
-    denominations: buildGoldbackDenominations(g1),
-    source: "goldback.com",
-  }, 90000);
+  writeV2File(
+    "goldback/latest.json",
+    {
+      t,
+      ts,
+      g1_usd: g1,
+      denominations: buildGoldbackDenominations(g1),
+      source: "goldback.com",
+    },
+    90000
+  );
 
   // --- goldback/history-30d.json ---
   try {
-    const hist30dStart = new Date(now.getTime() - 30 * MS_PER_DAY).toISOString().replace(".000Z", "Z");
+    const hist30dStart = new Date(now.getTime() - 30 * MS_PER_DAY)
+      .toISOString()
+      .replace(".000Z", "Z");
     const hist30dRows = await queryGoldbackRange(client, hist30dStart, nowIso);
     const hist30dEntries = buildGoldbackOhlcaBuckets(hist30dRows, "daily");
     writeV2File("goldback/history-30d.json", hist30dEntries, 86400);
@@ -910,31 +941,35 @@ async function writeManifest(client) {
     vendorList.push({ id: vid, name: meta.name, color: meta.color, url: meta.url });
   }
 
-  writeV2File("manifest.json", {
-    metals: ["xau", "xag", "xpt", "xpd"],
-    coins: coinList,
-    vendors: vendorList,
-    endpoints: {
-      spot_latest:         "spot/latest.json",
-      spot_metal_latest:   "spot/{metal}/latest.json",
-      spot_metal_intraday: "spot/{metal}/intraday.json",
-      spot_metal_daily:    "spot/{metal}/{YYYY}/{MM}/{DD}.json",
-      spot_metal_monthly:  "spot/{metal}/{YYYY}/{MM}.json",
-      spot_history:        "spot/history/{N}d.json",
-      retail_latest:       "retail/latest.json",
-      retail_slug_latest:  "retail/{slug}/latest.json",
-      retail_slug_intraday:"retail/{slug}/intraday.json",
-      retail_slug_monthly: "retail/{slug}/{YYYY}/{MM}.json",
-      retail_slug_history: "retail/{slug}/history-{N}d.json",
-      retail_vendors:      "retail/vendors/index.json",
-      retail_vendor:       "retail/vendors/{vendor}.json",
-      goldback_latest:     "goldback/latest.json",
-      goldback_monthly:    "goldback/{YYYY}/{MM}.json",
-      goldback_history:    "goldback/history-30d.json",
-      providers:           "providers.json",
-      manifest:            "manifest.json",
+  writeV2File(
+    "manifest.json",
+    {
+      metals: ["xau", "xag", "xpt", "xpd"],
+      coins: coinList,
+      vendors: vendorList,
+      endpoints: {
+        spot_latest: "spot/latest.json",
+        spot_metal_latest: "spot/{metal}/latest.json",
+        spot_metal_intraday: "spot/{metal}/intraday.json",
+        spot_metal_daily: "spot/{metal}/{YYYY}/{MM}/{DD}.json",
+        spot_metal_monthly: "spot/{metal}/{YYYY}/{MM}.json",
+        spot_history: "spot/history/{N}d.json",
+        retail_latest: "retail/latest.json",
+        retail_slug_latest: "retail/{slug}/latest.json",
+        retail_slug_intraday: "retail/{slug}/intraday.json",
+        retail_slug_monthly: "retail/{slug}/{YYYY}/{MM}.json",
+        retail_slug_history: "retail/{slug}/history-{N}d.json",
+        retail_vendors: "retail/vendors/index.json",
+        retail_vendor: "retail/vendors/{vendor}.json",
+        goldback_latest: "goldback/latest.json",
+        goldback_monthly: "goldback/{YYYY}/{MM}.json",
+        goldback_history: "goldback/history-30d.json",
+        providers: "providers.json",
+        manifest: "manifest.json",
+      },
     },
-  }, 1800);
+    1800
+  );
 
   log("Manifest written");
 }

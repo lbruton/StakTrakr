@@ -14,7 +14,15 @@ function createDummyElement() {
     checked: false,
     disabled: false,
     dataset: {},
-    classList: { add: () => {}, remove: () => {}, toggle: () => false, contains: () => false, replace: () => false, forEach: () => {}, length: 0 },
+    classList: {
+      add: () => {},
+      remove: () => {},
+      toggle: () => false,
+      contains: () => false,
+      replace: () => false,
+      forEach: () => {},
+      length: 0,
+    },
     addEventListener: () => {},
     removeEventListener: () => {},
     remove: () => {},
@@ -40,8 +48,8 @@ function safeGetElement(id, required = false) {
 }
 
 // Auto-reload when a new service worker takes control (STAK-485)
-if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
+if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!document._swReloading) {
       document._swReloading = true;
       window.location.reload();
@@ -62,47 +70,54 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     // Phase 0: Apply domain-based logo branding
-    const brandName = typeof getBrandingName === 'function' ? getBrandingName() : BRANDING_TITLE;
+    const brandName = typeof getBrandingName === "function" ? getBrandingName() : BRANDING_TITLE;
     const logoSplit = BRANDING_DOMAIN_OPTIONS.logoSplit[brandName];
     if (logoSplit) {
-      document.querySelectorAll('.logo-silver').forEach(el => { el.textContent = logoSplit[0]; });
-      document.querySelectorAll('.logo-gold').forEach(el => { el.textContent = logoSplit[1]; });
+      document.querySelectorAll(".logo-silver").forEach((el) => {
+        el.textContent = logoSplit[0];
+      });
+      document.querySelectorAll(".logo-gold").forEach((el) => {
+        el.textContent = logoSplit[1];
+      });
       // Adjust SVG viewBox for longer brand names
       if (logoSplit[2]) {
-        const logoSvg = document.querySelector('.stackr-logo');
-        if (logoSvg) logoSvg.setAttribute('viewBox', `0 0 ${logoSplit[2]} 80`);
+        const logoSvg = document.querySelector(".stackr-logo");
+        if (logoSvg) logoSvg.setAttribute("viewBox", `0 0 ${logoSplit[2]} 80`);
       }
     }
-    const appLogo = document.getElementById('appLogo');
-    if (appLogo) appLogo.setAttribute('aria-label', brandName);
-    const footerBrand = document.getElementById('footerBrand');
+    const appLogo = document.getElementById("appLogo");
+    if (appLogo) appLogo.setAttribute("aria-label", brandName);
+    const footerBrand = document.getElementById("footerBrand");
     if (footerBrand) footerBrand.textContent = brandName;
     // Update About modal site link to match current domain
-    const siteDomain = typeof getFooterDomain === 'function' ? getFooterDomain() : 'staktrakr.com';
-    const aboutSiteLink = document.getElementById('aboutSiteLink');
-    const aboutSiteDomain = document.getElementById('aboutSiteDomain');
+    const siteDomain = typeof getFooterDomain === "function" ? getFooterDomain() : "staktrakr.com";
+    const aboutSiteLink = document.getElementById("aboutSiteLink");
+    const aboutSiteDomain = document.getElementById("aboutSiteDomain");
     if (aboutSiteLink) aboutSiteLink.href = `https://www.${siteDomain}`;
     if (aboutSiteDomain) aboutSiteDomain.textContent = siteDomain;
 
     // Phase 0b: Environment badge + toast for non-production origins (STAK-376)
-    const envLabel = typeof getEnvironmentLabel === 'function' ? getEnvironmentLabel() : null;
+    const envLabel = typeof getEnvironmentLabel === "function" ? getEnvironmentLabel() : null;
     if (envLabel) {
-      const envBadge = document.getElementById('envBadge');
+      const envBadge = document.getElementById("envBadge");
       if (envBadge) {
         envBadge.textContent = envLabel.label;
-        envBadge.className = 'env-badge ' + envLabel.className;
-        envBadge.style.display = '';
+        envBadge.className = "env-badge " + envLabel.className;
+        envBadge.style.display = "";
       }
       // One-time toast per session explaining data isolation
-      const toastKey = 'envToastShown'; // nosemgrep: codacy.javascript.security.hard-coded-password
+      const toastKey = "envToastShown"; // nosemgrep: codacy.javascript.security.hard-coded-password
       if (!sessionStorage.getItem(toastKey)) {
-        sessionStorage.setItem(toastKey, '1');
-        const msg = envLabel.label === 'BETA'
-          ? 'You are on the BETA site. Your data here is separate from the main site.'
-          : envLabel.label === 'PREVIEW'
-            ? 'Preview deployment — data is separate from the main site.'
-            : 'Running locally — data is stored on this device only.';
-        setTimeout(() => { if (typeof showToast === 'function') showToast(msg, 5000); }, 1500);
+        sessionStorage.setItem(toastKey, "1");
+        const msg =
+          envLabel.label === "BETA"
+            ? "You are on the BETA site. Your data here is separate from the main site."
+            : envLabel.label === "PREVIEW"
+              ? "Preview deployment — data is separate from the main site."
+              : "Running locally — data is stored on this device only.";
+        setTimeout(() => {
+          if (typeof showToast === "function") showToast(msg, 5000);
+        }, 1500);
       }
     }
 
@@ -113,7 +128,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.inventoryForm = safeGetElement("inventoryForm", true);
 
     const inventoryTableEl = safeGetElement("inventoryTable", true);
-    const tbody = inventoryTableEl && inventoryTableEl.querySelector ? inventoryTableEl.querySelector("tbody") : null;
+    const tbody =
+      inventoryTableEl && inventoryTableEl.querySelector
+        ? inventoryTableEl.querySelector("tbody")
+        : null;
     elements.inventoryTable = tbody;
 
     elements.itemMetal = safeGetElement("itemMetal", true);
@@ -177,10 +195,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.tableSectionEl = safeGetElement("tableSectionEl");
 
     // Check if critical buttons exist
-    debugLog(
-      "Settings Button found:",
-      !!document.getElementById("settingsBtn"),
-    );
+    debugLog("Settings Button found:", !!document.getElementById("settingsBtn"));
 
     // Import/Export elements
     debugLog("Phase 3: Initializing import/export elements...");
@@ -192,8 +207,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.importProgressText = safeGetElement("importProgressText");
     elements.numistaImportBtn = safeGetElement("numistaImportBtn");
     elements.numistaImportFile = safeGetElement("numistaImportFile");
-      elements.numistaImportOptions = safeGetElement("numistaImportOptions");
-      elements.exportCsvBtn = safeGetElement("exportCsvBtn");
+    elements.numistaImportOptions = safeGetElement("numistaImportOptions");
+    elements.exportCsvBtn = safeGetElement("exportCsvBtn");
     elements.exportJsonBtn = safeGetElement("exportJsonBtn");
     elements.exportPdfBtn = safeGetElement("exportPdfBtn");
     elements.cloudSyncBtn = safeGetElement("cloudSyncBtn");
@@ -224,7 +239,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.itemSerial = safeGetElement("itemSerial");
     elements.undoChangeBtn = safeGetElement("undoChangeBtn");
 
-    if (typeof setupWhatsNewPopupEvents === 'function') {
+    if (typeof setupWhatsNewPopupEvents === "function") {
       setupWhatsNewPopupEvents();
     }
     if (typeof setupFaqModalEvents === "function") {
@@ -251,7 +266,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.bulkEditBtn = safeGetElement("bulkEditBtn");
     elements.bulkEditCloseBtn = safeGetElement("bulkEditCloseBtn");
 
-
     // Settings change log panel
     elements.settingsChangeLogClearBtn = safeGetElement("settingsChangeLogClearBtn");
 
@@ -266,14 +280,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     debugLog("Phase 5: Initializing pagination elements...");
     elements.itemsPerPage = safeGetElement("itemsPerPage");
 
-      elements.changeLogBtn = safeGetElement("changeLogBtn");
-      elements.backupReminder = safeGetElement("backupReminder");
-      elements.changeLogModal = safeGetElement("changeLogModal");
-      elements.changeLogCloseBtn = safeGetElement("changeLogCloseBtn");
-      elements.changeLogClearBtn = safeGetElement("changeLogClearBtn");
-      elements.changeLogTable = safeGetElement("changeLogTable");
-      elements.storageUsage = safeGetElement("storageUsage");
-      elements.storageReportLink = safeGetElement("storageReportLink");
+    elements.changeLogBtn = safeGetElement("changeLogBtn");
+    elements.backupReminder = safeGetElement("backupReminder");
+    elements.changeLogModal = safeGetElement("changeLogModal");
+    elements.changeLogCloseBtn = safeGetElement("changeLogCloseBtn");
+    elements.changeLogClearBtn = safeGetElement("changeLogClearBtn");
+    elements.changeLogTable = safeGetElement("changeLogTable");
+    elements.storageUsage = safeGetElement("storageUsage");
+    elements.storageReportLink = safeGetElement("storageReportLink");
 
     // Search elements
     debugLog("Phase 6: Initializing search elements...");
@@ -285,13 +299,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Ensure chipMinCount has a sensible default for new installs
     try {
-      const chipMinEl = document.getElementById('chipMinCount');
-      const saved = localStorage.getItem('chipMinCount');
+      const chipMinEl = document.getElementById("chipMinCount");
+      const saved = localStorage.getItem("chipMinCount");
       if (!saved) {
-        localStorage.setItem('chipMinCount', '3');
+        localStorage.setItem("chipMinCount", "3");
       }
       if (chipMinEl) {
-        chipMinEl.value = localStorage.getItem('chipMinCount') || '3';
+        chipMinEl.value = localStorage.getItem("chipMinCount") || "3";
       }
     } catch (e) {
       // ignore storage errors
@@ -299,13 +313,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Ensure chipMaxCount has a sensible default for new installs
     try {
-      const chipMaxEl = document.getElementById('chipMaxCount');
-      const savedMax = localStorage.getItem('chipMaxCount');
+      const chipMaxEl = document.getElementById("chipMaxCount");
+      const savedMax = localStorage.getItem("chipMaxCount");
       if (!savedMax) {
-        localStorage.setItem('chipMaxCount', '0');
+        localStorage.setItem("chipMaxCount", "0");
       }
       if (chipMaxEl) {
-        chipMaxEl.value = localStorage.getItem('chipMaxCount') || '0';
+        chipMaxEl.value = localStorage.getItem("chipMaxCount") || "0";
       }
     } catch (e) {
       // ignore storage errors
@@ -340,21 +354,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       debugLog(`  Setting up ${metalName} elements...`);
 
-      elements.spotPriceDisplay[metalKey] = safeGetElement(
-        `spotPriceDisplay${metalName}`,
-      );
-      elements.spotSyncIcon[metalKey] = safeGetElement(
-        `syncIcon${metalName}`,
-      );
-      elements.spotRangeSelect[metalKey] = safeGetElement(
-        `spotRange${metalName}`,
-      );
-      elements.spotSparkline[metalKey] = safeGetElement(
-        `sparkline${metalName}`,
-      );
+      elements.spotPriceDisplay[metalKey] = safeGetElement(`spotPriceDisplay${metalName}`);
+      elements.spotSyncIcon[metalKey] = safeGetElement(`syncIcon${metalName}`);
+      elements.spotRangeSelect[metalKey] = safeGetElement(`spotRange${metalName}`);
+      elements.spotSparkline[metalKey] = safeGetElement(`sparkline${metalName}`);
 
-      debugLog(`    - ${metalName} display element:`, !!document.getElementById(`spotPriceDisplay${metalName}`));
-      debugLog(`    - ${metalName} sparkline canvas:`, !!document.getElementById(`sparkline${metalName}`));
+      debugLog(
+        `    - ${metalName} display element:`,
+        !!document.getElementById(`spotPriceDisplay${metalName}`)
+      );
+      debugLog(
+        `    - ${metalName} sparkline canvas:`,
+        !!document.getElementById(`sparkline${metalName}`)
+      );
     });
 
     // Phase 10: Initialize Totals Elements
@@ -422,17 +434,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadInventory();
 
     // Migrate: existing users keep header theme button visible
-    if (inventory.length > 0 && localStorage.getItem('headerThemeBtnVisible') === null) {
-      localStorage.setItem('headerThemeBtnVisible', 'true');
+    if (inventory.length > 0 && localStorage.getItem("headerThemeBtnVisible") === null) {
+      localStorage.setItem("headerThemeBtnVisible", "true");
     }
 
     // Load seed rule toggles before seed inventory (so migration sees real user data)
-    if (typeof NumistaLookup !== 'undefined' && typeof NumistaLookup.loadEnabledSeedRules === 'function') {
+    if (
+      typeof NumistaLookup !== "undefined" &&
+      typeof NumistaLookup.loadEnabledSeedRules === "function"
+    ) {
       NumistaLookup.loadEnabledSeedRules();
     }
 
     // Seed sample inventory for first-time users
-    if (typeof loadSeedInventory === 'function') {
+    if (typeof loadSeedInventory === "function") {
       loadSeedInventory();
     }
     if (typeof sanitizeTablesOnLoad === "function") {
@@ -443,33 +458,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadSpotHistory();
 
     // Load per-item price history (STACK-43)
-    if (typeof loadItemPriceHistory === 'function') {
+    if (typeof loadItemPriceHistory === "function") {
       loadItemPriceHistory();
     }
 
     // Load item tags (STAK-126)
-    if (typeof loadItemTags === 'function') {
+    if (typeof loadItemTags === "function") {
       loadItemTags();
       debugLog(`Loaded tags for ${Object.keys(itemTags).length} items`);
     }
 
     // Load Goldback denomination pricing (STACK-45)
-    if (typeof loadGoldbackPrices === 'function') loadGoldbackPrices();
-    if (typeof loadGoldbackPriceHistory === 'function') loadGoldbackPriceHistory();
-    if (typeof loadGoldbackEnabled === 'function') loadGoldbackEnabled();
-    if (typeof loadGoldbackEstimateEnabled === 'function') loadGoldbackEstimateEnabled();
-    if (typeof loadGoldbackEstimateModifier === 'function') loadGoldbackEstimateModifier();
+    if (typeof loadGoldbackPrices === "function") loadGoldbackPrices();
+    if (typeof loadGoldbackPriceHistory === "function") loadGoldbackPriceHistory();
+    if (typeof loadGoldbackEnabled === "function") loadGoldbackEnabled();
+    if (typeof loadGoldbackEstimateEnabled === "function") loadGoldbackEstimateEnabled();
+    if (typeof loadGoldbackEstimateModifier === "function") loadGoldbackEstimateModifier();
 
     // Load retail market prices and start background auto-sync
-    if (typeof initRetailPrices === 'function') initRetailPrices();
-    if (typeof startRetailBackgroundSync === 'function') startRetailBackgroundSync();
+    if (typeof initRetailPrices === "function") initRetailPrices();
+    if (typeof startRetailBackgroundSync === "function") startRetailBackgroundSync();
 
     // Load display currency preference and cached exchange rates (STACK-50)
-    if (typeof loadDisplayCurrency === 'function') loadDisplayCurrency();
-    if (typeof loadExchangeRates === 'function') loadExchangeRates();
+    if (typeof loadDisplayCurrency === "function") loadDisplayCurrency();
+    if (typeof loadExchangeRates === "function") loadExchangeRates();
 
     // Seed spot history for first-time users
-    if (typeof loadSeedSpotHistory === 'function') {
+    if (typeof loadSeedSpotHistory === "function") {
       await loadSeedSpotHistory();
     }
 
@@ -478,18 +493,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     apiCache = loadApiCache();
 
     // Apply saved desktop card view setting (STAK-118)
-    const _isCardOnInit = localStorage.getItem(DESKTOP_CARD_VIEW_KEY) === 'true';
+    const _isCardOnInit = localStorage.getItem(DESKTOP_CARD_VIEW_KEY) === "true";
     if (_isCardOnInit) {
-      document.body.classList.add('force-card-view');
+      document.body.classList.add("force-card-view");
     }
 
     // Load persisted items-per-page setting (view-aware defaults: card=3, table=24)
     try {
       const savedIpp = localStorage.getItem(ITEMS_PER_PAGE_KEY);
       if (savedIpp) {
-        if (savedIpp === 'all') {
+        if (savedIpp === "all") {
           itemsPerPage = Infinity;
-          if (elements.itemsPerPage) elements.itemsPerPage.value = 'all';
+          if (elements.itemsPerPage) elements.itemsPerPage.value = "all";
         } else {
           const parsed = parseInt(savedIpp, 10);
           if ([3, 6, 12, 24, 48, 96, 128, 512].includes(parsed)) {
@@ -500,86 +515,96 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         // No saved preference — default to all
         itemsPerPage = Infinity;
-        if (elements.itemsPerPage) elements.itemsPerPage.value = 'all';
+        if (elements.itemsPerPage) elements.itemsPerPage.value = "all";
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
     // Apply saved theme attribute early so CSS variables resolve correctly
     // before renderActiveFilters() computes contrast colors in Phase 13
     const earlyTheme = localStorage.getItem(THEME_KEY);
-    if (['dark', 'light', 'sepia', 'hello-kitty'].includes(earlyTheme)) {
-      document.documentElement.setAttribute('data-theme', earlyTheme);
+    if (["dark", "light", "sepia", "hello-kitty"].includes(earlyTheme)) {
+      document.documentElement.setAttribute("data-theme", earlyTheme);
     }
 
     // Initialize IndexedDB image cache (COIN_IMAGES feature)
-    if (typeof imageCache !== 'undefined' && featureFlags.isEnabled('COIN_IMAGES')) {
+    if (typeof imageCache !== "undefined" && featureFlags.isEnabled("COIN_IMAGES")) {
       try {
         await imageCache.init();
-        debugLog('ImageCache available:', imageCache.isAvailable());
+        debugLog("ImageCache available:", imageCache.isAvailable());
       } catch (e) {
-        console.warn('ImageCache init failed:', e);
+        console.warn("ImageCache init failed:", e);
       }
     }
 
     // CDN Backfill removed — URLs are written at save/bulk-sync time (STAK-309)
-    debugLog('[Init] Skipping CDN backfill (removed in STAK-309 fix)');
+    debugLog("[Init] Skipping CDN backfill (removed in STAK-309 fix)");
 
     // Clean up stale localStorage keys from removed systems
-    try { localStorage.removeItem('seedImagesVersion'); } catch (_) { /* ignore */ }
+    try {
+      localStorage.removeItem("seedImagesVersion");
+    } catch (_) {
+      /* ignore */
+    }
 
     // Wire view modal close button
     if (elements.viewModalCloseBtn) {
-      elements.viewModalCloseBtn.addEventListener('click', () => {
-        if (typeof closeViewModal === 'function') closeViewModal();
+      elements.viewModalCloseBtn.addEventListener("click", () => {
+        if (typeof closeViewModal === "function") closeViewModal();
       });
     }
     // Background click dismiss for view modal
     if (elements.viewItemModal) {
-      elements.viewItemModal.addEventListener('click', (e) => {
-        if (e.target === elements.viewItemModal && typeof closeViewModal === 'function') closeViewModal();
+      elements.viewItemModal.addEventListener("click", (e) => {
+        if (e.target === elements.viewItemModal && typeof closeViewModal === "function")
+          closeViewModal();
       });
     }
 
     // Apply header toggle & layout visibility from saved prefs (STACK-54)
-    if (typeof applyHeaderToggleVisibility === 'function') applyHeaderToggleVisibility();
-    if (typeof updateSpotSyncHealthDot === 'function') updateSpotSyncHealthDot();
-    if (typeof updateMarketHealthDot === 'function') updateMarketHealthDot();
-    if (typeof applyLayoutOrder === 'function') applyLayoutOrder();
-    if (typeof applyMetalOrder === 'function') applyMetalOrder();
+    if (typeof applyHeaderToggleVisibility === "function") applyHeaderToggleVisibility();
+    if (typeof updateSpotSyncHealthDot === "function") updateSpotSyncHealthDot();
+    if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+    if (typeof applyLayoutOrder === "function") applyLayoutOrder();
+    if (typeof applyMetalOrder === "function") applyMetalOrder();
 
     // Phase 13: Initial Rendering
     debugLog("Phase 13: Rendering initial display...");
-      renderTable();
-      if (typeof renderActiveFilters === 'function') {
-        renderActiveFilters();
-      }
-      fetchSpotPrice();
-      if (typeof updateAllSparklines === "function") {
-        updateAllSparklines();
-      }
-      updateSyncButtonStates();
-      if (typeof updateStorageStats === "function") {
-        updateStorageStats();
-      }
+    renderTable();
+    if (typeof renderActiveFilters === "function") {
+      renderActiveFilters();
+    }
+    fetchSpotPrice();
+    if (typeof updateAllSparklines === "function") {
+      updateAllSparklines();
+    }
+    updateSyncButtonStates();
+    if (typeof updateStorageStats === "function") {
+      updateStorageStats();
+    }
 
     // STAK-149: Initialize cloud auto-sync (starts poller if previously enabled)
-    if (typeof initCloudSync === 'function') {
+    if (typeof initCloudSync === "function") {
       initCloudSync();
     }
 
     // Load Numista search lookup custom rules
-    if (typeof NumistaLookup !== 'undefined' && typeof NumistaLookup.loadCustomRules === 'function') {
+    if (
+      typeof NumistaLookup !== "undefined" &&
+      typeof NumistaLookup.loadCustomRules === "function"
+    ) {
       NumistaLookup.loadCustomRules();
     }
 
     // Load seed custom pattern rules + images for first-time users
     // Must run after loadCustomRules() so addRule() doesn't clobber existing rules
-    if (typeof loadSeedImages === 'function') {
+    if (typeof loadSeedImages === "function") {
       await loadSeedImages();
     }
 
     // STACK-62: Initialize autocomplete/fuzzy search system
-    if (typeof initializeAutocomplete === 'function') {
+    if (typeof initializeAutocomplete === "function") {
       initializeAutocomplete(inventory);
     }
 
@@ -589,33 +614,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // STAK-222: Start background spot price polling
-    if (typeof startSpotBackgroundSync === 'function') {
+    if (typeof startSpotBackgroundSync === "function") {
       startSpotBackgroundSync();
     }
 
     // Fetch fresh exchange rates in the background (STACK-50)
-    if (typeof fetchExchangeRates === 'function') {
-      fetchExchangeRates().then(updated => {
-        if (updated && displayCurrency !== 'USD') {
-          // Re-render with fresh rates
-          if (typeof renderTable === 'function') renderTable();
-          if (typeof updateSummary === 'function') updateSummary();
-        }
-      }).catch(() => {});
+    if (typeof fetchExchangeRates === "function") {
+      fetchExchangeRates()
+        .then((updated) => {
+          if (updated && displayCurrency !== "USD") {
+            // Re-render with fresh rates
+            if (typeof renderTable === "function") renderTable();
+            if (typeof updateSummary === "function") updateSummary();
+          }
+        })
+        .catch(() => {});
     }
 
     // Market Data Module (STAK-504)
-    if (typeof initMarketData === 'function') {
-      initMarketData().catch(function(e) {
-        if (typeof debugLog === 'function') debugLog('[market-data] Init failed: ' + e.message, 'warn');
+    if (typeof initMarketData === "function") {
+      initMarketData().catch(function (e) {
+        if (typeof debugLog === "function")
+          debugLog("[market-data] Init failed: " + e.message, "warn");
       });
     }
 
     // Refresh market data on theme change (STAK-504)
-    const _themeObserver = new MutationObserver(function() {
-      if (typeof refreshMarketData === 'function') refreshMarketData();
+    const _themeObserver = new MutationObserver(function () {
+      if (typeof refreshMarketData === "function") refreshMarketData();
     });
-    _themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    _themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
 
     // Phase 14: Event Listeners Setup (Delayed)
     debugLog("Phase 14: Setting up event listeners...");
@@ -627,30 +658,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         setupPagination();
         setupBulkEditControls();
         setupThemeToggle();
-        if (typeof setupSettingsEventListeners === 'function') {
+        if (typeof setupSettingsEventListeners === "function") {
           setupSettingsEventListeners();
         }
         setupColumnResizing();
 
         // Purity select ↔ custom input toggle
         if (elements.itemPuritySelect) {
-          elements.itemPuritySelect.addEventListener('change', () => {
-            const wrapper = elements.purityCustomWrapper || document.getElementById('purityCustomWrapper');
-            const input = elements.itemPurity || document.getElementById('itemPurity');
-            const isCustom = elements.itemPuritySelect.value === 'custom';
-            if (wrapper) wrapper.style.display = isCustom ? '' : 'none';
-            if (input && !isCustom) input.value = '';
+          elements.itemPuritySelect.addEventListener("change", () => {
+            const wrapper =
+              elements.purityCustomWrapper || document.getElementById("purityCustomWrapper");
+            const input = elements.itemPurity || document.getElementById("itemPurity");
+            const isCustom = elements.itemPuritySelect.value === "custom";
+            if (wrapper) wrapper.style.display = isCustom ? "" : "none";
+            if (input && !isCustom) input.value = "";
           });
         }
 
         // Weight unit ↔ denomination picker toggle (STACK-45)
         if (elements.itemWeightUnit) {
-          elements.itemWeightUnit.addEventListener('change', () => {
-            if (typeof toggleGbDenomPicker === 'function') toggleGbDenomPicker();
+          elements.itemWeightUnit.addEventListener("change", () => {
+            if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
           });
         }
         if (elements.itemGbDenom) {
-          elements.itemGbDenom.addEventListener('change', () => {
+          elements.itemGbDenom.addEventListener("change", () => {
             if (elements.itemWeight) {
               elements.itemWeight.value = elements.itemGbDenom.value;
             }
@@ -660,23 +692,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Setup Edit header toggle functionality
         const editHeader = document.querySelector('th[data-column="actions"]');
         if (editHeader) {
-          editHeader.addEventListener('click', (event) => {
+          editHeader.addEventListener("click", (event) => {
             if (event.shiftKey) {
               // Shift + Click = Toggle all items edit mode
-              if (typeof toggleAllItemsEdit === 'function') {
+              if (typeof toggleAllItemsEdit === "function") {
                 toggleAllItemsEdit();
               }
             } else {
               // Regular Click = Toggle edit mode (quick/modal)
-              if (typeof toggleEditMode === 'function') {
+              if (typeof toggleEditMode === "function") {
                 toggleEditMode();
               }
             }
           });
-          editHeader.title = 'Click to toggle edit mode • Shift+Click to toggle all items edit';
+          editHeader.title = "Click to toggle edit mode • Shift+Click to toggle all items edit";
           debugLog("✓ Edit header toggle initialized");
         }
-        
+
         debugLog("✓ All event listeners setup complete");
       } catch (eventError) {
         console.error("❌ Error setting up event listeners:", eventError);
@@ -699,27 +731,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     debugLog("  - Inventory form:", !!elements.inventoryForm);
     debugLog("  - Inventory table:", !!elements.inventoryTable);
     // API health badge — runs after safeGetElement and all DOM setup are ready
-    if (typeof initApiHealth === 'function') initApiHealth();
+    if (typeof initApiHealth === "function") initApiHealth();
 
     // Phase 16: Storage optimization pass
-    if (typeof optimizeStoragePhase1C === 'function') { optimizeStoragePhase1C(); }
+    if (typeof optimizeStoragePhase1C === "function") {
+      optimizeStoragePhase1C();
+    }
 
     // Phase 17: Hash deep-link handling (runs after event listeners are wired)
     // Supports privacy.html redirect shim and any direct #privacy / #faq links.
-    setTimeout(() => { // nosemgrep: javascript.lang.security.detect-eval-with-expression.detect-eval-with-expression
+    setTimeout(() => {
+      // nosemgrep: javascript.lang.security.detect-eval-with-expression.detect-eval-with-expression
       const hash = window.location.hash;
-      if (hash === '#privacy') {
-        window.location.hash = '';
-        if (window.openModalById) openModalById('privacyModal');
-      } else if (hash === '#faq') {
-        window.location.hash = '';
-        if (typeof showSettingsModal === 'function') showSettingsModal('faq');
+      if (hash === "#privacy") {
+        window.location.hash = "";
+        if (window.openModalById) openModalById("privacyModal");
+      } else if (hash === "#faq") {
+        window.location.hash = "";
+        if (typeof showSettingsModal === "function") showSettingsModal("faq");
       }
     }, 250);
 
     // Clear stale-cache recovery flag on successful init (STAK-485)
-    sessionStorage.removeItem('sw-recovery-attempted');
-
+    sessionStorage.removeItem("sw-recovery-attempted");
   } catch (error) {
     console.error("=== CRITICAL INITIALIZATION ERROR ===");
     console.error("Error:", error.message);
@@ -729,15 +763,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     window._initFailed = true;
 
     // Detect stale SW cache: ReferenceError for a function that should exist
-    const isStaleCache = error instanceof ReferenceError
-      && 'serviceWorker' in navigator
-      && !sessionStorage.getItem('sw-recovery-attempted');
+    const isStaleCache =
+      error instanceof ReferenceError &&
+      "serviceWorker" in navigator &&
+      !sessionStorage.getItem("sw-recovery-attempted");
 
     if (isStaleCache) {
       document._swReloading = true;
-      sessionStorage.setItem('sw-recovery-attempted', '1');
-      console.warn('[Init] Stale cache detected — reloading for new version');
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Updating to new version\u2026</p></div>';
+      sessionStorage.setItem("sw-recovery-attempted", "1");
+      console.warn("[Init] Stale cache detected — reloading for new version");
+      document.body.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Updating to new version\u2026</p></div>';
       setTimeout(() => window.location.reload(), 800);
       return;
     }
@@ -745,12 +781,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Standard error dialog for non-cache errors
     setTimeout(() => {
       appAlert(
-        `Application initialization failed: ${error.message}\n\nPlease refresh the page and try again. If the problem persists, check the browser console for more details.`,
+        `Application initialization failed: ${error.message}\n\nPlease refresh the page and try again. If the problem persists, check the browser console for more details.`
       );
     }, 100);
   }
 });
-
 
 /**
  * Basic event listener setup as fallback
@@ -774,14 +809,14 @@ function setupBasicEventListeners() {
 // Make functions available globally for inline event handlers
 window.showDetailsModal = showDetailsModal;
 window.closeDetailsModal = closeDetailsModal;
-window.showViewModal = typeof showViewModal !== 'undefined' ? showViewModal : () => {};
-window.closeViewModal = typeof closeViewModal !== 'undefined' ? closeViewModal : () => {};
+window.showViewModal = typeof showViewModal !== "undefined" ? showViewModal : () => {};
+window.closeViewModal = typeof closeViewModal !== "undefined" ? closeViewModal : () => {};
 window.editItem = editItem;
 window.deleteItem = deleteItem;
 window.showNotes = showNotes;
 window.applyColumnFilter = applyColumnFilter;
 
 // Register service worker for PWA support (HTTP/HTTPS only, skip file://)
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
 }

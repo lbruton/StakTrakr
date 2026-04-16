@@ -14,7 +14,7 @@ const saveGoldbackPrices = () => {
   try {
     saveDataSync(GOLDBACK_PRICES_KEY, goldbackPrices);
   } catch (error) {
-    console.error('Error saving Goldback prices:', error);
+    console.error("Error saving Goldback prices:", error);
   }
 };
 
@@ -24,9 +24,9 @@ const saveGoldbackPrices = () => {
 const loadGoldbackPrices = () => {
   try {
     const data = loadDataSync(GOLDBACK_PRICES_KEY, {});
-    goldbackPrices = (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+    goldbackPrices = data && typeof data === "object" && !Array.isArray(data) ? data : {};
   } catch (error) {
-    console.error('Error loading Goldback prices:', error);
+    console.error("Error loading Goldback prices:", error);
     goldbackPrices = {};
   }
 };
@@ -38,7 +38,7 @@ const saveGoldbackPriceHistory = () => {
   try {
     saveDataSync(GOLDBACK_PRICE_HISTORY_KEY, goldbackPriceHistory);
   } catch (error) {
-    console.error('Error saving Goldback price history:', error);
+    console.error("Error saving Goldback price history:", error);
   }
 };
 
@@ -48,9 +48,9 @@ const saveGoldbackPriceHistory = () => {
 const loadGoldbackPriceHistory = () => {
   try {
     const data = loadDataSync(GOLDBACK_PRICE_HISTORY_KEY, {});
-    goldbackPriceHistory = (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+    goldbackPriceHistory = data && typeof data === "object" && !Array.isArray(data) ? data : {};
   } catch (error) {
-    console.error('Error loading Goldback price history:', error);
+    console.error("Error loading Goldback price history:", error);
     goldbackPriceHistory = {};
   }
 };
@@ -63,7 +63,7 @@ const loadGoldbackEnabled = () => {
     const val = loadDataSync(GOLDBACK_ENABLED_KEY, true);
     goldbackEnabled = val === true;
   } catch (error) {
-    console.error('Error loading Goldback enabled state:', error);
+    console.error("Error loading Goldback enabled state:", error);
     goldbackEnabled = true;
   }
 };
@@ -77,7 +77,7 @@ const saveGoldbackEnabled = (val) => {
   try {
     saveDataSync(GOLDBACK_ENABLED_KEY, goldbackEnabled);
   } catch (error) {
-    console.error('Error saving Goldback enabled state:', error);
+    console.error("Error saving Goldback enabled state:", error);
   }
 };
 
@@ -90,7 +90,7 @@ const recordGoldbackPrices = () => {
 
   for (const key of Object.keys(goldbackPrices)) {
     const entry = goldbackPrices[key];
-    if (!entry || typeof entry.price !== 'number' || entry.price <= 0) continue;
+    if (!entry || typeof entry.price !== "number" || entry.price <= 0) continue;
 
     if (!goldbackPriceHistory[key]) {
       goldbackPriceHistory[key] = [];
@@ -115,7 +115,7 @@ const recordGoldbackPrices = () => {
 const getGoldbackDenominationPrice = (weightGb) => {
   const key = String(weightGb);
   const entry = goldbackPrices[key];
-  if (entry && typeof entry.price === 'number' && entry.price > 0) {
+  if (entry && typeof entry.price === "number" && entry.price > 0) {
     return entry.price;
   }
   return null;
@@ -145,7 +145,7 @@ const loadGoldbackEstimateEnabled = () => {
     const val = loadDataSync(GOLDBACK_ESTIMATE_ENABLED_KEY, true);
     goldbackEstimateEnabled = val === true;
   } catch (error) {
-    console.error('Error loading Goldback estimate enabled state:', error);
+    console.error("Error loading Goldback estimate enabled state:", error);
     goldbackEstimateEnabled = true;
   }
 };
@@ -159,7 +159,7 @@ const saveGoldbackEstimateEnabled = (val) => {
   try {
     saveDataSync(GOLDBACK_ESTIMATE_ENABLED_KEY, goldbackEstimateEnabled);
   } catch (error) {
-    console.error('Error saving Goldback estimate enabled state:', error);
+    console.error("Error saving Goldback estimate enabled state:", error);
   }
 };
 
@@ -170,9 +170,9 @@ const loadGoldbackEstimateModifier = () => {
   try {
     const val = loadDataSync(GB_ESTIMATE_MODIFIER_KEY, GB_ESTIMATE_PREMIUM);
     const num = parseFloat(val);
-    goldbackEstimateModifier = (!isNaN(num) && num > 0) ? num : GB_ESTIMATE_PREMIUM;
+    goldbackEstimateModifier = !isNaN(num) && num > 0 ? num : GB_ESTIMATE_PREMIUM;
   } catch (error) {
-    console.error('Error loading Goldback estimate modifier:', error);
+    console.error("Error loading Goldback estimate modifier:", error);
     goldbackEstimateModifier = GB_ESTIMATE_PREMIUM;
   }
 };
@@ -183,11 +183,11 @@ const loadGoldbackEstimateModifier = () => {
  */
 const saveGoldbackEstimateModifier = (val) => {
   const num = parseFloat(val);
-  goldbackEstimateModifier = (!isNaN(num) && num > 0) ? num : GB_ESTIMATE_PREMIUM;
+  goldbackEstimateModifier = !isNaN(num) && num > 0 ? num : GB_ESTIMATE_PREMIUM;
   try {
     saveDataSync(GB_ESTIMATE_MODIFIER_KEY, goldbackEstimateModifier);
   } catch (error) {
-    console.error('Error saving Goldback estimate modifier:', error);
+    console.error("Error saving Goldback estimate modifier:", error);
   }
 };
 
@@ -215,7 +215,7 @@ const onGoldSpotPriceChanged = () => {
   const gbRate = computeGoldbackEstimatedRate(goldSpot);
   const now = Date.now();
 
-  if (typeof GOLDBACK_DENOMINATIONS === 'undefined') return;
+  if (typeof GOLDBACK_DENOMINATIONS === "undefined") return;
 
   for (const d of GOLDBACK_DENOMINATIONS) {
     const key = String(d.weight);
@@ -223,11 +223,11 @@ const onGoldSpotPriceChanged = () => {
     goldbackPrices[key] = { price: denomPrice, updatedAt: now };
   }
 
-  if (typeof saveGoldbackPrices === 'function') saveGoldbackPrices();
-  if (typeof recordGoldbackPrices === 'function') recordGoldbackPrices();
+  if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
+  if (typeof recordGoldbackPrices === "function") recordGoldbackPrices();
 
   // Refresh settings UI if the Goldback panel is visible
-  if (typeof syncGoldbackSettingsUI === 'function') syncGoldbackSettingsUI();
+  if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
 };
 
 // =============================================================================
@@ -240,9 +240,10 @@ const onGoldSpotPriceChanged = () => {
  * @returns {Promise<{ok: boolean, g1_usd?: number, error?: string}>}
  */
 const fetchGoldbackApiPrices = async () => {
-  const v2Endpoints = (typeof V2_API_ENDPOINTS !== 'undefined' && V2_API_ENDPOINTS.length)
-    ? V2_API_ENDPOINTS
-    : ['https://api.staktrakr.com/data/v2'];
+  const v2Endpoints =
+    typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length
+      ? V2_API_ENDPOINTS
+      : ["https://api.staktrakr.com/data/v2"];
 
   let envelope;
   let lastErr;
@@ -251,7 +252,7 @@ const fetchGoldbackApiPrices = async () => {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 5000);
     try {
-      const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+      const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
       clearTimeout(tid);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       envelope = await res.json();
@@ -261,29 +262,31 @@ const fetchGoldbackApiPrices = async () => {
       lastErr = err;
     }
   }
-  if (!envelope || !envelope.data) return { ok: false, error: lastErr ? String(lastErr) : 'No v2 goldback data' };
+  if (!envelope || !envelope.data)
+    return { ok: false, error: lastErr ? String(lastErr) : "No v2 goldback data" };
 
   const gbData = envelope.data;
-  const g1 = typeof gbData.g1_usd === 'number' && gbData.g1_usd > 0 ? gbData.g1_usd : null;
-  if (!g1) return { ok: false, error: 'Invalid or missing g1_usd in v2 response' };
+  const g1 = typeof gbData.g1_usd === "number" && gbData.g1_usd > 0 ? gbData.g1_usd : null;
+  if (!g1) return { ok: false, error: "Invalid or missing g1_usd in v2 response" };
 
-  if (typeof GOLDBACK_DENOMINATIONS === 'undefined') {
-    return { ok: false, error: 'GOLDBACK_DENOMINATIONS not defined' };
+  if (typeof GOLDBACK_DENOMINATIONS === "undefined") {
+    return { ok: false, error: "GOLDBACK_DENOMINATIONS not defined" };
   }
 
   const now = Date.now();
   for (const d of GOLDBACK_DENOMINATIONS) {
     const key = String(d.weight);
     const denomKey = `g${d.weight}`;
-    const price = (gbData.denominations && typeof gbData.denominations[denomKey] === 'number')
-      ? gbData.denominations[denomKey]
-      : Math.round(g1 * d.weight * 100) / 100;
-    goldbackPrices[key] = { price, updatedAt: now, source: 'api' };
+    const price =
+      gbData.denominations && typeof gbData.denominations[denomKey] === "number"
+        ? gbData.denominations[denomKey]
+        : Math.round(g1 * d.weight * 100) / 100;
+    goldbackPrices[key] = { price, updatedAt: now, source: "api" };
   }
 
-  if (typeof saveGoldbackPrices === 'function') saveGoldbackPrices();
-  if (typeof recordGoldbackPrices === 'function') recordGoldbackPrices();
-  if (typeof syncGoldbackSettingsUI === 'function') syncGoldbackSettingsUI();
+  if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
+  if (typeof recordGoldbackPrices === "function") recordGoldbackPrices();
+  if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
 
   return { ok: true, g1_usd: g1 };
 };
@@ -302,7 +305,7 @@ const getGoldbackVendorPrice = (slug) => {
   const entry = goldbackPrices[denomKey];
   if (entry.price == null) return null;
   const STALE_MS = 25 * 60 * 60 * 1000; // 25 hours
-  const isStale = !entry.updatedAt || (Date.now() - entry.updatedAt) > STALE_MS;
+  const isStale = !entry.updatedAt || Date.now() - entry.updatedAt > STALE_MS;
   return { price: entry.price, updatedAt: entry.updatedAt, isStale, source: "goldback.com" };
 };
 
@@ -311,9 +314,9 @@ const getGoldbackVendorPrice = (slug) => {
 // =============================================================================
 
 /** @type {string} Current filter text for the history table */
-let gbHistoryFilterText = '';
+let gbHistoryFilterText = "";
 /** @type {string} Current sort column */
-let gbHistorySortColumn = '';
+let gbHistorySortColumn = "";
 /** @type {boolean} Sort direction (true = ascending) */
 let gbHistorySortAsc = true;
 
@@ -324,7 +327,7 @@ let gbHistorySortAsc = true;
 const flattenGoldbackHistory = () => {
   const rows = [];
   const denomLabels = {};
-  if (typeof GOLDBACK_DENOMINATIONS !== 'undefined') {
+  if (typeof GOLDBACK_DENOMINATIONS !== "undefined") {
     for (const d of GOLDBACK_DENOMINATIONS) {
       denomLabels[String(d.weight)] = d.label;
     }
@@ -339,7 +342,10 @@ const flattenGoldbackHistory = () => {
         label,
         price: e.price,
         timestamp: e.ts,
-        timeStr: typeof formatTimestamp === 'function' ? formatTimestamp(e.ts) : new Date(e.ts).toLocaleString(),
+        timeStr:
+          typeof formatTimestamp === "function"
+            ? formatTimestamp(e.ts)
+            : new Date(e.ts).toLocaleString(),
       });
     }
   }
@@ -350,7 +356,7 @@ const flattenGoldbackHistory = () => {
  * Renders the Goldback history table with filtering and sorting.
  */
 const renderGoldbackHistoryTable = () => {
-  const table = document.getElementById('goldbackHistoryTable');
+  const table = document.getElementById("goldbackHistoryTable");
   if (!table) return;
 
   let data = flattenGoldbackHistory();
@@ -358,9 +364,7 @@ const renderGoldbackHistoryTable = () => {
   // Filter
   if (gbHistoryFilterText) {
     const f = gbHistoryFilterText.toLowerCase();
-    data = data.filter(e =>
-      Object.values(e).some(v => String(v).toLowerCase().includes(f))
-    );
+    data = data.filter((e) => Object.values(e).some((v) => String(v).toLowerCase().includes(f)));
   }
 
   // Sort
@@ -377,17 +381,18 @@ const renderGoldbackHistoryTable = () => {
     data.sort((a, b) => b.timestamp - a.timestamp);
   }
 
-  let html = '<tr><th data-column="timestamp">Time</th><th data-column="label">Denomination</th><th data-column="price">Price</th></tr>';
+  let html =
+    '<tr><th data-column="timestamp">Time</th><th data-column="label">Denomination</th><th data-column="price">Price</th></tr>';
   for (const e of data) {
-    html += `<tr><td>${e.timeStr}</td><td>${e.label}</td><td>${typeof formatCurrency === 'function' ? formatCurrency(e.price) : '$' + e.price.toFixed(2)}</td></tr>`;
+    html += `<tr><td>${e.timeStr}</td><td>${e.label}</td><td>${typeof formatCurrency === "function" ? formatCurrency(e.price) : "$" + e.price.toFixed(2)}</td></tr>`;
   }
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
   table.innerHTML = html;
 
   // Click-to-sort headers
-  table.querySelectorAll('th').forEach(th => {
-    th.style.cursor = 'pointer';
-    th.addEventListener('click', () => {
+  table.querySelectorAll("th").forEach((th) => {
+    th.style.cursor = "pointer";
+    th.addEventListener("click", () => {
       const col = th.dataset.column;
       if (gbHistorySortColumn === col) {
         gbHistorySortAsc = !gbHistorySortAsc;
@@ -404,18 +409,18 @@ const renderGoldbackHistoryTable = () => {
  * Shows the Goldback price history modal.
  */
 const showGoldbackHistoryModal = () => {
-  const modal = document.getElementById('goldbackHistoryModal');
+  const modal = document.getElementById("goldbackHistoryModal");
   if (!modal) return;
 
-  gbHistorySortColumn = '';
+  gbHistorySortColumn = "";
   gbHistorySortAsc = true;
-  gbHistoryFilterText = '';
+  gbHistoryFilterText = "";
 
-  const filterInput = document.getElementById('goldbackHistoryFilter');
-  const clearFilterBtn = document.getElementById('goldbackHistoryClearFilterBtn');
+  const filterInput = document.getElementById("goldbackHistoryFilter");
+  const clearFilterBtn = document.getElementById("goldbackHistoryClearFilterBtn");
 
   if (filterInput) {
-    filterInput.value = '';
+    filterInput.value = "";
     filterInput.oninput = (e) => {
       gbHistoryFilterText = e.target.value;
       renderGoldbackHistoryTable();
@@ -423,18 +428,18 @@ const showGoldbackHistoryModal = () => {
   }
   if (clearFilterBtn) {
     clearFilterBtn.onclick = () => {
-      gbHistoryFilterText = '';
-      if (filterInput) filterInput.value = '';
+      gbHistoryFilterText = "";
+      if (filterInput) filterInput.value = "";
       renderGoldbackHistoryTable();
     };
   }
 
   renderGoldbackHistoryTable();
 
-  if (typeof openModalById === 'function') {
-    openModalById('goldbackHistoryModal');
+  if (typeof openModalById === "function") {
+    openModalById("goldbackHistoryModal");
   } else {
-    modal.style.display = 'flex';
+    modal.style.display = "flex";
   }
 };
 
@@ -442,11 +447,11 @@ const showGoldbackHistoryModal = () => {
  * Hides the Goldback price history modal.
  */
 const hideGoldbackHistoryModal = () => {
-  if (typeof closeModalById === 'function') {
-    closeModalById('goldbackHistoryModal');
+  if (typeof closeModalById === "function") {
+    closeModalById("goldbackHistoryModal");
   } else {
-    const modal = document.getElementById('goldbackHistoryModal');
-    if (modal) modal.style.display = 'none';
+    const modal = document.getElementById("goldbackHistoryModal");
+    if (modal) modal.style.display = "none";
   }
 };
 
@@ -456,21 +461,21 @@ const hideGoldbackHistoryModal = () => {
 const exportGoldbackHistory = () => {
   const data = flattenGoldbackHistory();
   if (data.length === 0) {
-    appAlert('No Goldback price history to export.');
+    appAlert("No Goldback price history to export.");
     return;
   }
 
   // Sort newest first
   data.sort((a, b) => b.timestamp - a.timestamp);
 
-  const csvLines = ['Time,Denomination,Price'];
+  const csvLines = ["Time,Denomination,Price"];
   for (const e of data) {
     csvLines.push(`"${e.timeStr}","${e.label}","${e.price.toFixed(2)}"`);
   }
 
-  const blob = new Blob([csvLines.join('\n')], { type: 'text/csv' });
+  const blob = new Blob([csvLines.join("\n")], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = `goldback-history-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
@@ -482,7 +487,7 @@ const exportGoldbackHistory = () => {
 // =============================================================================
 // GLOBAL EXPOSURE
 // =============================================================================
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.loadGoldbackEstimateEnabled = loadGoldbackEstimateEnabled;
   window.saveGoldbackEstimateEnabled = saveGoldbackEstimateEnabled;
   window.loadGoldbackEstimateModifier = loadGoldbackEstimateModifier;

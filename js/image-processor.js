@@ -24,7 +24,7 @@ class ImageProcessor {
     this.quality = options.quality ?? IMAGE_QUALITY ?? 0.75;
     this.maxBytes = options.maxBytes ?? IMAGE_MAX_BYTES ?? 512000;
     this.qualityStep = options.qualityStep ?? 0.05;
-    this.minQuality = options.minQuality ?? 0.30;
+    this.minQuality = options.minQuality ?? 0.3;
 
     /** @type {boolean|null} Cached WebP support detection result */
     this._webpSupported = null;
@@ -54,7 +54,7 @@ class ImageProcessor {
       bitmap.close();
       return result;
     } catch (err) {
-      console.warn('ImageProcessor: processFile failed', err);
+      console.warn("ImageProcessor: processFile failed", err);
       return null;
     }
   }
@@ -66,15 +66,15 @@ class ImageProcessor {
    * @returns {Promise<{blob: Blob, width: number, height: number, originalSize: number, compressedSize: number, format: string}|null>}
    */
   async processFromUrl(url, opts = {}) {
-    if (!url || typeof url !== 'string') return null;
+    if (!url || typeof url !== "string") return null;
 
     try {
-      const resp = await fetch(url, { mode: 'cors' });
+      const resp = await fetch(url, { mode: "cors" });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const blob = await resp.blob();
       return this.processFile(blob, opts);
     } catch (err) {
-      console.warn('ImageProcessor: processFromUrl failed', err);
+      console.warn("ImageProcessor: processFromUrl failed", err);
       return null;
     }
   }
@@ -107,13 +107,13 @@ class ImageProcessor {
     if (this._webpSupported !== null) return this._webpSupported;
 
     try {
-      const c = document.createElement('canvas');
+      const c = document.createElement("canvas");
       c.width = 1;
       c.height = 1;
       const blob = await new Promise((resolve) => {
-        c.toBlob((b) => resolve(b), 'image/webp', 0.5);
+        c.toBlob((b) => resolve(b), "image/webp", 0.5);
       });
-      this._webpSupported = !!(blob && blob.type === 'image/webp');
+      this._webpSupported = !!(blob && blob.type === "image/webp");
     } catch {
       this._webpSupported = false;
     }
@@ -143,15 +143,15 @@ class ImageProcessor {
     height = Math.round(height * scale);
 
     // Draw to canvas
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     ctx.drawImage(source, 0, 0, width, height);
 
     // Determine output format
     const useWebP = await this.supportsWebP();
-    const format = useWebP ? 'image/webp' : 'image/jpeg';
+    const format = useWebP ? "image/webp" : "image/jpeg";
 
     // Compress with iterative quality reduction to meet byte budget
     let blob = await this._canvasToBlob(canvas, format, quality);
@@ -183,11 +183,7 @@ class ImageProcessor {
   _canvasToBlob(canvas, format, quality) {
     return new Promise((resolve) => {
       try {
-        canvas.toBlob(
-          (blob) => resolve(blob || null),
-          format,
-          quality
-        );
+        canvas.toBlob((blob) => resolve(blob || null), format, quality);
       } catch {
         resolve(null);
       }
@@ -197,7 +193,7 @@ class ImageProcessor {
 
 // Singleton instance exposed globally
 const imageProcessor = new ImageProcessor();
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.imageProcessor = imageProcessor;
   window.ImageProcessor = ImageProcessor;
 }

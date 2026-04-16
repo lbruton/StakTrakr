@@ -106,12 +106,12 @@ for (const file of files) {
 
       if (!DRY_RUN) {
         insertStmt.run({
-          scraped_at:   r.scraped_at,
+          scraped_at: r.scraped_at,
           window_start: windowStart,
-          coin_slug:    r.coin_slug,
-          vendor:       r.vendor,
-          price:        r.price,
-          source:       r.source ?? "firecrawl",
+          coin_slug: r.coin_slug,
+          vendor: r.vendor,
+          price: r.price,
+          source: r.source ?? "firecrawl",
         });
       }
       inserted++;
@@ -121,8 +121,8 @@ for (const file of files) {
   }
 
   console.log(
-    `${file}: ${lines.length} lines → ${inserted} inserted, ${skipped} already exist, ${errors} errors`
-    + (DRY_RUN ? " [DRY RUN]" : "")
+    `${file}: ${lines.length} lines → ${inserted} inserted, ${skipped} already exist, ${errors} errors` +
+      (DRY_RUN ? " [DRY RUN]" : "")
   );
   totalInserted += inserted;
   totalSkipped += skipped;
@@ -131,8 +131,10 @@ for (const file of files) {
 
 db.close();
 
-console.log(`\nTotal: ${totalInserted} inserted, ${totalSkipped} skipped, ${totalErrors} errors`
-  + (DRY_RUN ? " [DRY RUN — nothing written]" : ""));
+console.log(
+  `\nTotal: ${totalInserted} inserted, ${totalSkipped} skipped, ${totalErrors} errors` +
+    (DRY_RUN ? " [DRY RUN — nothing written]" : "")
+);
 
 if (totalInserted > 0 && !DRY_RUN) {
   console.log("\nNext step: regenerate API JSON from restored data:");

@@ -35,12 +35,48 @@ let _cloneSaveAndClose = true;
 let _cloneSourceIndex = null;
 
 // Expose state on window for cross-file access
-Object.defineProperty(window, '_cloneMode', { get: () => _cloneMode, set: (v) => { _cloneMode = v; }, configurable: true });
-Object.defineProperty(window, '_cloneSourceItem', { get: () => _cloneSourceItem, set: (v) => { _cloneSourceItem = v; }, configurable: true });
-Object.defineProperty(window, '_cloneSessionCount', { get: () => _cloneSessionCount, set: (v) => { _cloneSessionCount = v; }, configurable: true });
-Object.defineProperty(window, '_cloneDirty', { get: () => _cloneDirty, set: (v) => { _cloneDirty = v; }, configurable: true });
-Object.defineProperty(window, '_cloneSaveAndClose', { get: () => _cloneSaveAndClose, set: (v) => { _cloneSaveAndClose = v; }, configurable: true });
-Object.defineProperty(window, '_cloneSourceIndex', { get: () => _cloneSourceIndex, set: (v) => { _cloneSourceIndex = v; }, configurable: true });
+Object.defineProperty(window, "_cloneMode", {
+  get: () => _cloneMode,
+  set: (v) => {
+    _cloneMode = v;
+  },
+  configurable: true,
+});
+Object.defineProperty(window, "_cloneSourceItem", {
+  get: () => _cloneSourceItem,
+  set: (v) => {
+    _cloneSourceItem = v;
+  },
+  configurable: true,
+});
+Object.defineProperty(window, "_cloneSessionCount", {
+  get: () => _cloneSessionCount,
+  set: (v) => {
+    _cloneSessionCount = v;
+  },
+  configurable: true,
+});
+Object.defineProperty(window, "_cloneDirty", {
+  get: () => _cloneDirty,
+  set: (v) => {
+    _cloneDirty = v;
+  },
+  configurable: true,
+});
+Object.defineProperty(window, "_cloneSaveAndClose", {
+  get: () => _cloneSaveAndClose,
+  set: (v) => {
+    _cloneSaveAndClose = v;
+  },
+  configurable: true,
+});
+Object.defineProperty(window, "_cloneSourceIndex", {
+  get: () => _cloneSourceIndex,
+  set: (v) => {
+    _cloneSourceIndex = v;
+  },
+  configurable: true,
+});
 
 /**
  * Deep-clone a source inventory item with a compatibility fallback.
@@ -48,8 +84,12 @@ Object.defineProperty(window, '_cloneSourceIndex', { get: () => _cloneSourceInde
  * @returns {Object}
  */
 function cloneItemDeep(item) {
-  if (typeof structuredClone === 'function') {
-    try { return structuredClone(item); } catch (_) { /* fall through */ }
+  if (typeof structuredClone === "function") {
+    try {
+      return structuredClone(item);
+    } catch (_) {
+      /* fall through */
+    }
   }
   return JSON.parse(JSON.stringify(item));
 }
@@ -61,27 +101,27 @@ function cloneItemDeep(item) {
 // Only optional fields get checkboxes. Mandatory fields (metal, type, purity,
 // qty, weight, weightUnit, name) are always carried over — they cannot be blank.
 const CLONE_FIELDS = [
-  { labelFor: 'itemYear',             key: 'year',             defaultOn: true },
-  { labelFor: 'itemDate',             key: 'date',             defaultOn: true },
-  { labelFor: 'itemPrice',            key: 'price',            defaultOn: true },
-  { labelFor: 'purchaseLocation',     key: 'purchaseLocation', defaultOn: true },
-  { labelFor: 'storageLocation',      key: 'storageLocation',  defaultOn: true },
-  { labelFor: 'itemGrade',            key: 'grade',            defaultOn: true },
-  { labelFor: 'itemGradingAuthority', key: 'gradingAuthority', defaultOn: true },
-  { labelFor: 'itemCertNumber',       key: 'certNumber',       defaultOn: false },
-  { labelFor: 'itemCatalog',          key: 'numistaId',        defaultOn: true },
-  { labelFor: 'itemPcgsNumber',       key: 'pcgsNumber',       defaultOn: false },
-  { labelFor: 'itemMarketValue',      key: 'marketValue',      defaultOn: true },
-  { labelFor: 'itemSerialNumber',     key: 'serialNumber',     defaultOn: false },
-  { labelFor: 'itemNotes',            key: 'notes',            defaultOn: true },
+  { labelFor: "itemYear", key: "year", defaultOn: true },
+  { labelFor: "itemDate", key: "date", defaultOn: true },
+  { labelFor: "itemPrice", key: "price", defaultOn: true },
+  { labelFor: "purchaseLocation", key: "purchaseLocation", defaultOn: true },
+  { labelFor: "storageLocation", key: "storageLocation", defaultOn: true },
+  { labelFor: "itemGrade", key: "grade", defaultOn: true },
+  { labelFor: "itemGradingAuthority", key: "gradingAuthority", defaultOn: true },
+  { labelFor: "itemCertNumber", key: "certNumber", defaultOn: false },
+  { labelFor: "itemCatalog", key: "numistaId", defaultOn: true },
+  { labelFor: "itemPcgsNumber", key: "pcgsNumber", defaultOn: false },
+  { labelFor: "itemMarketValue", key: "marketValue", defaultOn: true },
+  { labelFor: "itemSerialNumber", key: "serialNumber", defaultOn: false },
+  { labelFor: "itemNotes", key: "notes", defaultOn: true },
 ];
 
 /**
  * Section-level checkboxes for non-collapsible sections.
  */
 const CLONE_SECTIONS = [
-  { sectionId: 'numistaDataSection', key: 'numistaData', defaultOn: true },
-  { sectionId: 'tagsSection',        key: 'tags',         defaultOn: true },
+  { sectionId: "numistaDataSection", key: "numistaData", defaultOn: true },
+  { sectionId: "tagsSection", key: "tags", defaultOn: true },
 ];
 
 /**
@@ -99,20 +139,20 @@ function enterCloneMode(inventoryIndex) {
   _cloneDirty = false;
   _cloneSaveAndClose = true;
 
-  const modal = safeGetElement('itemModal');
-  if (modal) modal.classList.add('clone-mode');
+  const modal = safeGetElement("itemModal");
+  if (modal) modal.classList.add("clone-mode");
 
   // Inject field checkboxes
   CLONE_FIELDS.forEach(({ labelFor, key, defaultOn }) => {
     const label = document.querySelector(`label[for="${labelFor}"]`);
     if (!label) return;
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'clone-field-cb';
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "clone-field-cb";
     cb.dataset.cloneField = key;
     cb.checked = defaultOn;
-    cb.setAttribute('aria-label', `Clone ${key}`);
-    cb.addEventListener('change', () => toggleCloneField(key, cb.checked));
+    cb.setAttribute("aria-label", `Clone ${key}`);
+    cb.addEventListener("change", () => toggleCloneField(key, cb.checked));
     label.prepend(cb);
     // Apply initial dim state for defaultOff fields
     if (!defaultOn) toggleCloneField(key, false);
@@ -122,29 +162,29 @@ function enterCloneMode(inventoryIndex) {
   CLONE_SECTIONS.forEach(({ sectionId, key, defaultOn }) => {
     const section = safeGetElement(sectionId);
     if (!section) return;
-    const header = section.querySelector('.form-section-header');
+    const header = section.querySelector(".form-section-header");
     if (!header) return;
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'clone-section-cb';
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "clone-section-cb";
     cb.dataset.cloneSection = key;
     cb.checked = defaultOn;
-    cb.setAttribute('aria-label', 'Clone section');
-    cb.addEventListener('change', () => toggleCloneSection(sectionId, key, cb.checked));
+    cb.setAttribute("aria-label", "Clone section");
+    cb.addEventListener("change", () => toggleCloneSection(sectionId, key, cb.checked));
     header.prepend(cb);
     if (!defaultOn) toggleCloneSection(sectionId, key, false);
   });
 
   // Update modal UI
-  if (elements.itemModalTitle) elements.itemModalTitle.textContent = 'Clone Item';
-  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = 'Save & Close';
-  if (elements.cloneItemSaveAnotherBtn) elements.cloneItemSaveAnotherBtn.style.display = '';
-  if (elements.cloneItemBtn) elements.cloneItemBtn.style.display = 'none';
-  if (elements.undoChangeBtn) elements.undoChangeBtn.style.display = 'none';
-  if (elements.viewItemFromEditBtn) elements.viewItemFromEditBtn.style.display = 'none';
-  const deleteFromEditBtn = document.getElementById('deleteFromEditBtn');
-  if (deleteFromEditBtn) deleteFromEditBtn.style.display = 'none';
-  if (elements.cancelItemBtn) elements.cancelItemBtn.textContent = 'Back';
+  if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Clone Item";
+  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Save & Close";
+  if (elements.cloneItemSaveAnotherBtn) elements.cloneItemSaveAnotherBtn.style.display = "";
+  if (elements.cloneItemBtn) elements.cloneItemBtn.style.display = "none";
+  if (elements.undoChangeBtn) elements.undoChangeBtn.style.display = "none";
+  if (elements.viewItemFromEditBtn) elements.viewItemFromEditBtn.style.display = "none";
+  const deleteFromEditBtn = document.getElementById("deleteFromEditBtn");
+  if (deleteFromEditBtn) deleteFromEditBtn.style.display = "none";
+  if (elements.cancelItemBtn) elements.cancelItemBtn.textContent = "Back";
 
   // Clone counter (hidden until first save)
   updateCloneCounter();
@@ -158,24 +198,26 @@ function exitCloneMode(silent) {
   if (!_cloneMode) return;
   _cloneMode = false;
 
-  const modal = safeGetElement('itemModal');
-  if (modal) modal.classList.remove('clone-mode');
+  const modal = safeGetElement("itemModal");
+  if (modal) modal.classList.remove("clone-mode");
 
   // Remove injected checkboxes
-  document.querySelectorAll('.clone-field-cb').forEach(cb => cb.remove());
-  document.querySelectorAll('.clone-section-cb').forEach(cb => cb.remove());
+  document.querySelectorAll(".clone-field-cb").forEach((cb) => cb.remove());
+  document.querySelectorAll(".clone-section-cb").forEach((cb) => cb.remove());
 
   // Remove dim classes
-  document.querySelectorAll('.clone-field-dimmed').forEach(el => el.classList.remove('clone-field-dimmed'));
+  document
+    .querySelectorAll(".clone-field-dimmed")
+    .forEach((el) => el.classList.remove("clone-field-dimmed"));
 
   // Restore modal UI
-  if (elements.itemModalTitle) elements.itemModalTitle.textContent = 'Edit Item';
-  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = 'Update Item';
-  if (elements.cloneItemSaveAnotherBtn) elements.cloneItemSaveAnotherBtn.style.display = 'none';
-  if (elements.clonePickerCount) elements.clonePickerCount.style.display = 'none';
-  if (elements.cancelItemBtn) elements.cancelItemBtn.textContent = 'Cancel';
+  if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Edit Item";
+  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Update Item";
+  if (elements.cloneItemSaveAnotherBtn) elements.cloneItemSaveAnotherBtn.style.display = "none";
+  if (elements.clonePickerCount) elements.clonePickerCount.style.display = "none";
+  if (elements.cancelItemBtn) elements.cancelItemBtn.textContent = "Cancel";
 
-  if (_cloneDirty && typeof renderTable === 'function') {
+  if (_cloneDirty && typeof renderTable === "function") {
     renderTable();
   }
 
@@ -183,7 +225,7 @@ function exitCloneMode(silent) {
   const srcIdx = _cloneSourceIndex;
   _cloneSourceItem = null;
   _cloneSourceIndex = null;
-  if (!silent && srcIdx !== null && typeof editItem === 'function') {
+  if (!silent && srcIdx !== null && typeof editItem === "function") {
     editItem(srcIdx);
   }
 }
@@ -194,14 +236,14 @@ function exitCloneMode(silent) {
  * @param {boolean} checked - Whether the checkbox is now checked
  */
 function toggleCloneField(key, checked) {
-  const field = CLONE_FIELDS.find(f => f.key === key);
+  const field = CLONE_FIELDS.find((f) => f.key === key);
   if (!field) return;
   const label = document.querySelector(`label[for="${field.labelFor}"]`);
   if (!label) return;
   // Dim the parent container (the div wrapping label + input)
-  const container = label.closest('div');
+  const container = label.closest("div");
   if (container) {
-    container.classList.toggle('clone-field-dimmed', !checked);
+    container.classList.toggle("clone-field-dimmed", !checked);
   }
 }
 
@@ -214,9 +256,9 @@ function toggleCloneField(key, checked) {
 function toggleCloneSection(sectionId, key, checked) {
   const section = safeGetElement(sectionId);
   if (!section) return;
-  const body = section.querySelector('.form-section-body');
+  const body = section.querySelector(".form-section-body");
   if (body) {
-    body.classList.toggle('clone-field-dimmed', !checked);
+    body.classList.toggle("clone-field-dimmed", !checked);
   }
 }
 
@@ -244,23 +286,23 @@ function clearUncheckedCloneFields() {
     if (isCloneFieldChecked(key)) return;
     const el = safeGetElement(labelFor);
     if (!el) return;
-    if (el.tagName === 'SELECT') {
+    if (el.tagName === "SELECT") {
       el.selectedIndex = 0;
     } else {
-      el.value = '';
+      el.value = "";
     }
   });
 
   // Clear unchecked sections
   CLONE_SECTIONS.forEach(({ sectionId, key }) => {
-    if (key === 'tags') return; // Tags handled separately via tag API
+    if (key === "tags") return; // Tags handled separately via tag API
     if (isCloneFieldChecked(key)) return;
     const section = safeGetElement(sectionId);
     if (!section) return;
-    section.querySelectorAll('input:not(.clone-section-cb), select').forEach(input => {
-      if (input.type === 'checkbox') input.checked = false;
-      else if (input.tagName === 'SELECT') input.selectedIndex = 0;
-      else input.value = '';
+    section.querySelectorAll("input:not(.clone-section-cb), select").forEach((input) => {
+      if (input.type === "checkbox") input.checked = false;
+      else if (input.tagName === "SELECT") input.selectedIndex = 0;
+      else input.value = "";
     });
   });
 }
@@ -275,10 +317,10 @@ function resetUncheckedCloneFields() {
     if (isCloneFieldChecked(key)) return;
     const el = safeGetElement(labelFor);
     if (!el) return;
-    if (el.tagName === 'SELECT') {
+    if (el.tagName === "SELECT") {
       el.selectedIndex = 0;
     } else {
-      el.value = '';
+      el.value = "";
     }
   });
 
@@ -287,11 +329,13 @@ function resetUncheckedCloneFields() {
     if (isCloneFieldChecked(key)) return;
     const section = safeGetElement(sectionId);
     if (!section) return;
-    section.querySelectorAll('input:not(.clone-field-cb):not(.clone-section-cb), select').forEach(input => {
-      if (input.type === 'checkbox') input.checked = false;
-      else if (input.tagName === 'SELECT') input.selectedIndex = 0;
-      else input.value = '';
-    });
+    section
+      .querySelectorAll("input:not(.clone-field-cb):not(.clone-section-cb), select")
+      .forEach((input) => {
+        if (input.type === "checkbox") input.checked = false;
+        else if (input.tagName === "SELECT") input.selectedIndex = 0;
+        else input.value = "";
+      });
   });
 }
 
@@ -302,9 +346,9 @@ function updateCloneCounter() {
   if (!elements.clonePickerCount) return;
   if (_cloneSessionCount > 0) {
     elements.clonePickerCount.textContent = `${_cloneSessionCount} cloned`;
-    elements.clonePickerCount.style.display = '';
+    elements.clonePickerCount.style.display = "";
   } else {
-    elements.clonePickerCount.style.display = 'none';
+    elements.clonePickerCount.style.display = "none";
   }
 }
 

@@ -23,3 +23,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: lint-staged
+        name: Format staged files with prettier
+        entry: npx lint-staged
+        language: system
+        pass_filenames: false
+        always_run: true

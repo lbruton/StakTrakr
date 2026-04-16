@@ -33,7 +33,7 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
 const DRY_RUN = process.env.DRY_RUN === "1";
-const COIN_FILTER = process.env.COINS ? process.env.COINS.split(",").map(s => s.trim()) : null;
+const COIN_FILTER = process.env.COINS ? process.env.COINS.split(",").map((s) => s.trim()) : null;
 const dateStr = process.argv[2] || new Date().toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ function scorePrice({ firecrawlPrice, visionPrice, visionConfidence, prevPrice, 
   // Day-over-day check
   if (prevPrice && bestPrice) {
     const dayDiff = Math.abs(bestPrice - prevPrice) / prevPrice;
-    if (dayDiff > 0.10) {
+    if (dayDiff > 0.1) {
       score -= 20;
       flags.push(`day_over_day_${(dayDiff * 100).toFixed(1)}pct`);
     }
@@ -244,20 +244,17 @@ async function main() {
     const visionConf = visionData?.confidence_by_site || {};
 
     // Get all provider IDs across both sources
-    const allProviders = [...new Set([
-      ...Object.keys(fcPrices),
-      ...Object.keys(visionPrices),
-    ])];
+    const allProviders = [...new Set([...Object.keys(fcPrices), ...Object.keys(visionPrices)])];
 
     // First pass: get raw best prices for median calculation
     const rawBests = allProviders
-      .map(pid => {
+      .map((pid) => {
         const fc = fcPrices[pid] ?? null;
         const v = visionPrices[pid] ?? null;
         if (fc !== null && v !== null) return Math.min(fc, v);
         return fc ?? v;
       })
-      .filter(p => p !== null);
+      .filter((p) => p !== null);
 
     const todayMedian = median(rawBests);
 
@@ -286,7 +283,12 @@ async function main() {
         // Use window_start from the daily JSON (written by price-extract) so the UPDATE
         // matches the actual rows, not a recomputed floor from merge-prices's own start time.
         if (fcData?.window_start) {
-          confidenceUpdates.push({ coinSlug, vendor: providerId, windowStart: fcData.window_start, confidence: result.score });
+          confidenceUpdates.push({
+            coinSlug,
+            vendor: providerId,
+            windowStart: fcData.window_start,
+            confidence: result.score,
+          });
         }
       }
       totalProviders++;
@@ -305,13 +307,13 @@ async function main() {
       ...(Object.keys(flagsBySite).length ? { flags_by_site: flagsBySite } : {}),
       source_count: prices.length,
       average_price: prices.length
-        ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length * 100) / 100
+        ? Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100
         : null,
       median_price: sortedPrices.length ? sortedPrices[Math.floor(sortedPrices.length / 2)] : null,
       lowest_price: sortedPrices[0] ?? null,
       sources: {
-        firecrawl: fcData   ? "ok" : "missing",
-        vision:    visionData ? "ok" : "missing",
+        firecrawl: fcData ? "ok" : "missing",
+        vision: visionData ? "ok" : "missing",
       },
     };
 
@@ -339,7 +341,9 @@ async function main() {
     log(`  ${coinSlug}: ${prices.length} prices, median $${outData.median_price ?? "n/a"}`);
   }
 
-  log(`Done: ${totalCoins} coins, ${totalProviders} provider slots, ${highConfidence} high-confidence prices`);
+  log(
+    `Done: ${totalCoins} coins, ${totalProviders} provider slots, ${highConfidence} high-confidence prices`
+  );
 
   // Write confidence scores back to SQLite
   if (db && confidenceUpdates.length > 0) {
@@ -387,7 +391,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error("Fatal:", err);
   process.exit(1);
 });

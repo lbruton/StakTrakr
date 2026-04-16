@@ -13,18 +13,18 @@
  * @param {string} coinName - The name of the coin (used for window title)
  */
 function openNumistaModal(numistaId, coinName) {
-  const rawId = String(numistaId || '').trim();
+  const rawId = String(numistaId || "").trim();
   if (!rawId) {
-    appAlert('Preview unavailable: missing Numista catalog id.');
+    appAlert("Preview unavailable: missing Numista catalog id.");
     return;
   }
 
   // Strip N# prefix first, THEN detect S for sets
-  const stripped = rawId.replace(/^N#\s*/i, '').trim();
+  const stripped = rawId.replace(/^N#\s*/i, "").trim();
   const isSet = /^S/i.test(stripped);
-  const cleanId = isSet ? stripped.replace(/^S/i, '').trim() : stripped;
+  const cleanId = isSet ? stripped.replace(/^S/i, "").trim() : stripped;
   if (!/^\d+$/.test(cleanId)) {
-    appAlert('Preview unavailable: invalid Numista catalog id.');
+    appAlert("Preview unavailable: invalid Numista catalog id.");
     return;
   }
 
@@ -34,8 +34,8 @@ function openNumistaModal(numistaId, coinName) {
 
   const popup = window.open(
     url,
-    `numista_${isSet ? 'set_' : ''}${cleanId}`,
-    'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no'
+    `numista_${isSet ? "set_" : ""}${cleanId}`,
+    "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
   );
 
   if (!popup) {

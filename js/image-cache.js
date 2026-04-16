@@ -23,11 +23,10 @@ class ImageCache {
     /** @type {number} Default storage quota in bytes (500 MB); updated async by _initQuota() */
     this._quotaBytes = 500 * 1024 * 1024; // 500 MB default; updated async by _initQuota()
     /** @type {number} Max image dimension (px) for resize */
-    this._maxDim = typeof IMAGE_MAX_DIM !== 'undefined' ? IMAGE_MAX_DIM : 600;
+    this._maxDim = typeof IMAGE_MAX_DIM !== "undefined" ? IMAGE_MAX_DIM : 600;
     /** @type {number} Compression quality (0-1) */
-    this._quality = typeof IMAGE_QUALITY !== 'undefined' ? IMAGE_QUALITY : 0.75;
+    this._quality = typeof IMAGE_QUALITY !== "undefined" ? IMAGE_QUALITY : 0.75;
   }
-
 
   async _initQuota() {
     try {
@@ -55,31 +54,31 @@ class ImageCache {
   async init() {
     if (this._db) return true;
 
-    if (typeof indexedDB === 'undefined') {
-      console.warn('ImageCache: IndexedDB not available');
+    if (typeof indexedDB === "undefined") {
+      console.warn("ImageCache: IndexedDB not available");
       return false;
     }
 
     try {
       this._db = await new Promise((resolve, reject) => {
-        const req = indexedDB.open('StakTrakrImages', 3);
+        const req = indexedDB.open("StakTrakrImages", 3);
 
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
-          if (!db.objectStoreNames.contains('coinImages')) {
-            db.createObjectStore('coinImages', { keyPath: 'catalogId' });
+          if (!db.objectStoreNames.contains("coinImages")) {
+            db.createObjectStore("coinImages", { keyPath: "catalogId" });
           }
-          if (!db.objectStoreNames.contains('coinMetadata')) {
-            db.createObjectStore('coinMetadata', { keyPath: 'catalogId' });
+          if (!db.objectStoreNames.contains("coinMetadata")) {
+            db.createObjectStore("coinMetadata", { keyPath: "catalogId" });
           }
           // v2: User-uploaded images keyed by item UUID (STACK-32)
-          if (!db.objectStoreNames.contains('userImages')) {
-            db.createObjectStore('userImages', { keyPath: 'uuid' });
+          if (!db.objectStoreNames.contains("userImages")) {
+            db.createObjectStore("userImages", { keyPath: "uuid" });
           }
           // v3: Pattern images keyed by rule ID (user pattern image rules)
           if (e.oldVersion < 3) {
-            if (!db.objectStoreNames.contains('patternImages')) {
-              db.createObjectStore('patternImages', { keyPath: 'ruleId' });
+            if (!db.objectStoreNames.contains("patternImages")) {
+              db.createObjectStore("patternImages", { keyPath: "ruleId" });
             }
           }
         };
@@ -90,17 +89,17 @@ class ImageCache {
 
       // Detect browser-initiated connection closure
       this._db.onclose = () => {
-        console.warn('ImageCache: DB connection closed by browser');
+        console.warn("ImageCache: DB connection closed by browser");
         this._db = null;
         this._available = false;
       };
 
       this._available = true;
-      debugLog('ImageCache: initialized');
+      debugLog("ImageCache: initialized");
       this._initQuota(); // non-blocking, updates _quotaBytes async
       return true;
     } catch (err) {
-      console.warn('ImageCache: failed to open DB', err);
+      console.warn("ImageCache: failed to open DB", err);
       this._available = false;
       return false;
     }
@@ -125,10 +124,10 @@ class ImageCache {
     if (this._db) {
       try {
         // Lightweight probe — creating a transaction will throw if connection is dead
-        this._db.transaction('coinMetadata', 'readonly');
+        this._db.transaction("coinMetadata", "readonly");
         return true;
       } catch {
-        console.warn('ImageCache: DB connection stale, reconnecting...');
+        console.warn("ImageCache: DB connection stale, reconnecting...");
         this._db = null;
         this._available = false;
       }
@@ -151,29 +150,29 @@ class ImageCache {
 
     const record = {
       catalogId,
-      title: numistaResult.name || '',
-      country: numistaResult.country || '',
-      denomination: numistaResult.denomination || '',
+      title: numistaResult.name || "",
+      country: numistaResult.country || "",
+      denomination: numistaResult.denomination || "",
       diameter: numistaResult.diameter || numistaResult.size || 0,
       thickness: numistaResult.thickness || 0,
       weight: numistaResult.weight || 0,
-      shape: numistaResult.shape || '',
-      composition: numistaResult.composition || numistaResult.metal || '',
-      orientation: numistaResult.orientation || '',
+      shape: numistaResult.shape || "",
+      composition: numistaResult.composition || numistaResult.metal || "",
+      orientation: numistaResult.orientation || "",
       commemorative: !!numistaResult.commemorative,
-      commemorativeDesc: numistaResult.commemorativeDesc || '',
+      commemorativeDesc: numistaResult.commemorativeDesc || "",
       rarityIndex: numistaResult.rarityIndex || 0,
       kmReferences: numistaResult.kmReferences || [],
       mintageByYear: numistaResult.mintageByYear || [],
-      technique: numistaResult.technique || '',
+      technique: numistaResult.technique || "",
       tags: numistaResult.tags || [],
-      obverseDesc: numistaResult.obverseDesc || '',
-      reverseDesc: numistaResult.reverseDesc || '',
-      edgeDesc: numistaResult.edgeDesc || '',
-      cachedAt: Date.now()
+      obverseDesc: numistaResult.obverseDesc || "",
+      reverseDesc: numistaResult.reverseDesc || "",
+      edgeDesc: numistaResult.edgeDesc || "",
+      cachedAt: Date.now(),
     };
 
-    return this._put('coinMetadata', record);
+    return this._put("coinMetadata", record);
   }
 
   /**
@@ -183,7 +182,7 @@ class ImageCache {
    */
   async getMetadata(catalogId) {
     if (!catalogId || !(await this._ensureDb())) return null;
-    return this._get('coinMetadata', catalogId);
+    return this._get("coinMetadata", catalogId);
   }
 
   /**
@@ -193,7 +192,7 @@ class ImageCache {
    */
   async deleteImages(catalogId) {
     if (!catalogId || !(await this._ensureDb())) return false;
-    return this._delete('coinImages', catalogId);
+    return this._delete("coinImages", catalogId);
   }
 
   /**
@@ -203,7 +202,7 @@ class ImageCache {
    */
   async deleteMetadata(catalogId) {
     if (!catalogId || !(await this._ensureDb())) return false;
-    return this._delete('coinMetadata', catalogId);
+    return this._delete("coinMetadata", catalogId);
   }
 
   // ---------------------------------------------------------------------------
@@ -216,7 +215,7 @@ class ImageCache {
    */
   async exportAllMetadata() {
     if (!(await this._ensureDb())) return [];
-    return this._getAll('coinMetadata');
+    return this._getAll("coinMetadata");
   }
 
   /**
@@ -226,7 +225,7 @@ class ImageCache {
    */
   async importMetadataRecord(record) {
     if (!record?.catalogId || !(await this._ensureDb())) return false;
-    return this._put('coinMetadata', record);
+    return this._put("coinMetadata", record);
   }
 
   /**
@@ -237,16 +236,16 @@ class ImageCache {
     if (!(await this._ensureDb())) return false;
 
     try {
-      const stores = ['coinImages', 'coinMetadata'];
-      if (this._db.objectStoreNames.contains('userImages')) stores.push('userImages');
-      if (this._db.objectStoreNames.contains('patternImages')) stores.push('patternImages');
-      const tx = this._db.transaction(stores, 'readwrite');
+      const stores = ["coinImages", "coinMetadata"];
+      if (this._db.objectStoreNames.contains("userImages")) stores.push("userImages");
+      if (this._db.objectStoreNames.contains("patternImages")) stores.push("patternImages");
+      const tx = this._db.transaction(stores, "readwrite");
       for (const s of stores) tx.objectStore(s).clear();
       await this._txComplete(tx);
-      debugLog('ImageCache: cleared all stores');
+      debugLog("ImageCache: cleared all stores");
       return true;
     } catch (err) {
-      console.warn('ImageCache: clearAll failed', err);
+      console.warn("ImageCache: clearAll failed", err);
       return false;
     }
   }
@@ -272,8 +271,8 @@ class ImageCache {
     if (!(await this._ensureDb())) return result;
 
     try {
-      if (this._db.objectStoreNames.contains('coinImages')) {
-        await this._iterate('coinImages', (rec) => {
+      if (this._db.objectStoreNames.contains("coinImages")) {
+        await this._iterate("coinImages", (rec) => {
           result.count++;
           result.numistaCount++;
           result.numistaBytes += rec.size || 0;
@@ -281,12 +280,12 @@ class ImageCache {
         });
       }
     } catch (err) {
-      debugLog('[ImageCache] Failed to iterate store: ' + err.message, 'warn');
+      debugLog("[ImageCache] Failed to iterate store: " + err.message, "warn");
     }
 
     try {
-      if (this._db.objectStoreNames.contains('coinMetadata')) {
-        await this._iterate('coinMetadata', (rec) => {
+      if (this._db.objectStoreNames.contains("coinMetadata")) {
+        await this._iterate("coinMetadata", (rec) => {
           const metaSize = JSON.stringify(rec).length;
           result.metadataCount++;
           result.metadataBytes += metaSize;
@@ -294,31 +293,31 @@ class ImageCache {
         });
       }
     } catch (err) {
-      debugLog('[ImageCache] Failed to iterate store: ' + err.message, 'warn');
+      debugLog("[ImageCache] Failed to iterate store: " + err.message, "warn");
     }
 
     try {
-      if (this._db.objectStoreNames.contains('userImages')) {
-        await this._iterate('userImages', (rec) => {
+      if (this._db.objectStoreNames.contains("userImages")) {
+        await this._iterate("userImages", (rec) => {
           result.userImageCount++;
           result.userImageBytes += rec.size || 0;
           result.totalBytes += rec.size || 0;
         });
       }
     } catch (err) {
-      debugLog('[ImageCache] Failed to iterate store: ' + err.message, 'warn');
+      debugLog("[ImageCache] Failed to iterate store: " + err.message, "warn");
     }
 
     try {
-      if (this._db.objectStoreNames.contains('patternImages')) {
-        await this._iterate('patternImages', (rec) => {
+      if (this._db.objectStoreNames.contains("patternImages")) {
+        await this._iterate("patternImages", (rec) => {
           result.patternImageCount++;
           result.patternImageBytes += rec.size || 0;
           result.totalBytes += rec.size || 0;
         });
       }
     } catch (err) {
-      debugLog('[ImageCache] Failed to iterate store: ' + err.message, 'warn');
+      debugLog("[ImageCache] Failed to iterate store: " + err.message, "warn");
     }
 
     return result;
@@ -340,10 +339,10 @@ class ImageCache {
 
     // Helper: check user-uploaded image (by UUID in userImages store)
     const _checkUserImage = async () => {
-      if (!item.uuid || !this._db.objectStoreNames.contains('userImages')) return null;
-      const userRec = await this._get('userImages', item.uuid);
+      if (!item.uuid || !this._db.objectStoreNames.contains("userImages")) return null;
+      const userRec = await this._get("userImages", item.uuid);
       if (userRec?.obverse?.size > 0) {
-        return { catalogId: item.uuid, source: 'user' };
+        return { catalogId: item.uuid, source: "user" };
       }
       return null;
     };
@@ -351,14 +350,14 @@ class ImageCache {
     // Helper: check pattern images store for a matching rule
     const _checkPatternImage = async () => {
       if (item.ignorePatternImages) return null;
-      if (typeof NumistaLookup === 'undefined') return null;
-      const match = NumistaLookup.matchQuery(item.name || '');
+      if (typeof NumistaLookup === "undefined") return null;
+      const match = NumistaLookup.matchQuery(item.name || "");
       if (!match?.rule?.seedImageId) return null;
       const ruleImageId = match.rule.seedImageId;
-      if (this._db.objectStoreNames.contains('patternImages')) {
-        const rec = await this._get('patternImages', ruleImageId);
+      if (this._db.objectStoreNames.contains("patternImages")) {
+        const rec = await this._get("patternImages", ruleImageId);
         if (rec?.obverse?.size > 0) {
-          return { catalogId: ruleImageId, source: 'pattern' };
+          return { catalogId: ruleImageId, source: "pattern" };
         }
       }
       return null;
@@ -380,9 +379,9 @@ class ImageCache {
    * @param {'obverse'|'reverse'} [side='obverse']
    * @returns {Promise<string|null>} Object URL (caller must revoke) or null
    */
-  async resolveImageUrlForItem(item, side = 'obverse') {
+  async resolveImageUrlForItem(item, side = "obverse") {
     if (!item || !(await this._ensureDb())) return null;
-    const normalizedSide = side === 'reverse' ? 'reverse' : 'obverse';
+    const normalizedSide = side === "reverse" ? "reverse" : "obverse";
 
     // 1. Try user-uploaded image for this specific side
     if (item.uuid) {
@@ -392,8 +391,8 @@ class ImageCache {
 
     // 2. Try pattern image for this specific side (unless ignored)
     if (!item.ignorePatternImages) {
-      if (typeof NumistaLookup !== 'undefined') {
-        const match = NumistaLookup.matchQuery(item.name || '');
+      if (typeof NumistaLookup !== "undefined") {
+        const match = NumistaLookup.matchQuery(item.name || "");
         if (match?.rule?.seedImageId) {
           const patternUrl = await this.getPatternImageUrl(match.rule.seedImageId, normalizedSide);
           if (patternUrl) return patternUrl;
@@ -411,10 +410,10 @@ class ImageCache {
    * @param {'obverse'|'reverse'} [side='obverse']
    * @returns {Promise<string|null>}
    */
-  async getUserImageUrl(uuid, side = 'obverse') {
+  async getUserImageUrl(uuid, side = "obverse") {
     if (!uuid || !(await this._ensureDb())) return null;
-    if (!this._db.objectStoreNames.contains('userImages')) return null;
-    const rec = await this._get('userImages', uuid);
+    if (!this._db.objectStoreNames.contains("userImages")) return null;
+    const rec = await this._get("userImages", uuid);
     const blob = rec?.[side];
     if (!blob || blob.size === 0) return null;
     return URL.createObjectURL(blob);
@@ -434,21 +433,21 @@ class ImageCache {
    */
   async cacheUserImage(uuid, obverse, reverse = null, sharedImageId = null) {
     if (!uuid || (!obverse && !reverse)) {
-      debugLog('ImageCache.cacheUserImage: missing uuid or at least one image blob');
+      debugLog("ImageCache.cacheUserImage: missing uuid or at least one image blob");
       return false;
     }
     if (!(await this._ensureDb())) {
-      debugLog('ImageCache.cacheUserImage: DB not available, attempting re-init');
+      debugLog("ImageCache.cacheUserImage: DB not available, attempting re-init");
       // Defensive retry: re-open DB in case v2 upgrade didn't complete
       this._db = null;
       this._available = false;
       if (!(await this.init())) {
-        debugLog('ImageCache.cacheUserImage: re-init failed');
+        debugLog("ImageCache.cacheUserImage: re-init failed");
         return false;
       }
     }
-    if (!this._db.objectStoreNames.contains('userImages')) {
-      debugLog('ImageCache.cacheUserImage: userImages store missing — DB may need upgrade');
+    if (!this._db.objectStoreNames.contains("userImages")) {
+      debugLog("ImageCache.cacheUserImage: userImages store missing — DB may need upgrade");
       return false;
     }
 
@@ -462,7 +461,7 @@ class ImageCache {
       size,
     };
 
-    const result = await this._put('userImages', record);
+    const result = await this._put("userImages", record);
     debugLog(`ImageCache.cacheUserImage: uuid=${uuid} size=${size} saved=${result}`);
     return result;
   }
@@ -474,8 +473,8 @@ class ImageCache {
    */
   async getUserImage(uuid) {
     if (!uuid || !(await this._ensureDb())) return null;
-    if (!this._db.objectStoreNames.contains('userImages')) return null;
-    return this._get('userImages', uuid);
+    if (!this._db.objectStoreNames.contains("userImages")) return null;
+    return this._get("userImages", uuid);
   }
 
   /**
@@ -485,8 +484,8 @@ class ImageCache {
    */
   async deleteUserImage(uuid) {
     if (!uuid || !(await this._ensureDb())) return false;
-    if (!this._db.objectStoreNames.contains('userImages')) return false;
-    return this._delete('userImages', uuid);
+    if (!this._db.objectStoreNames.contains("userImages")) return false;
+    return this._delete("userImages", uuid);
   }
 
   /**
@@ -495,8 +494,8 @@ class ImageCache {
    */
   async exportAllUserImages() {
     if (!(await this._ensureDb())) return [];
-    if (!this._db.objectStoreNames.contains('userImages')) return [];
-    return this._getAll('userImages');
+    if (!this._db.objectStoreNames.contains("userImages")) return [];
+    return this._getAll("userImages");
   }
 
   /**
@@ -506,8 +505,8 @@ class ImageCache {
    */
   async importUserImageRecord(record) {
     if (!record?.uuid || !(await this._ensureDb())) return false;
-    if (!this._db.objectStoreNames.contains('userImages')) return false;
-    return this._put('userImages', record);
+    if (!this._db.objectStoreNames.contains("userImages")) return false;
+    return this._put("userImages", record);
   }
 
   // ---------------------------------------------------------------------------
@@ -523,7 +522,7 @@ class ImageCache {
    */
   async cachePatternImage(ruleId, obverseBlob, reverseBlob) {
     if (!ruleId || !(await this._ensureDb())) return false;
-    if (!this._db.objectStoreNames.contains('patternImages')) return false;
+    if (!this._db.objectStoreNames.contains("patternImages")) return false;
 
     const size = (obverseBlob?.size || 0) + (reverseBlob?.size || 0);
     const record = {
@@ -533,7 +532,7 @@ class ImageCache {
       cachedAt: Date.now(),
       size,
     };
-    return this._put('patternImages', record);
+    return this._put("patternImages", record);
   }
 
   /**
@@ -543,8 +542,8 @@ class ImageCache {
    */
   async getPatternImage(ruleId) {
     if (!ruleId || !(await this._ensureDb())) return null;
-    if (!this._db.objectStoreNames.contains('patternImages')) return null;
-    return this._get('patternImages', ruleId);
+    if (!this._db.objectStoreNames.contains("patternImages")) return null;
+    return this._get("patternImages", ruleId);
   }
 
   /**
@@ -554,7 +553,7 @@ class ImageCache {
    * @param {'obverse'|'reverse'} [side='obverse']
    * @returns {Promise<string|null>}
    */
-  async getPatternImageUrl(ruleId, side = 'obverse') {
+  async getPatternImageUrl(ruleId, side = "obverse") {
     const rec = await this.getPatternImage(ruleId);
     const blob = rec?.[side];
     if (!blob || blob.size === 0) return null;
@@ -568,8 +567,8 @@ class ImageCache {
    */
   async deletePatternImage(ruleId) {
     if (!ruleId || !(await this._ensureDb())) return false;
-    if (!this._db.objectStoreNames.contains('patternImages')) return false;
-    return this._delete('patternImages', ruleId);
+    if (!this._db.objectStoreNames.contains("patternImages")) return false;
+    return this._delete("patternImages", ruleId);
   }
 
   /**
@@ -578,8 +577,8 @@ class ImageCache {
    */
   async exportAllPatternImages() {
     if (!(await this._ensureDb())) return [];
-    if (!this._db.objectStoreNames.contains('patternImages')) return [];
-    return this._getAll('patternImages');
+    if (!this._db.objectStoreNames.contains("patternImages")) return [];
+    return this._getAll("patternImages");
   }
 
   /**
@@ -589,8 +588,8 @@ class ImageCache {
    */
   async importPatternImageRecord(record) {
     if (!record?.ruleId || !(await this._ensureDb())) return false;
-    if (!this._db.objectStoreNames.contains('patternImages')) return false;
-    return this._put('patternImages', record);
+    if (!this._db.objectStoreNames.contains("patternImages")) return false;
+    return this._put("patternImages", record);
   }
 
   // ---------------------------------------------------------------------------
@@ -604,7 +603,7 @@ class ImageCache {
    * @returns {boolean}
    */
   static isValidImageUrl(url) {
-    if (!url || typeof url !== 'string') return false;
+    if (!url || typeof url !== "string") return false;
     return /^https?:\/\/.+\..+/i.test(url);
   }
 
@@ -620,15 +619,15 @@ class ImageCache {
    */
   async _resizeAndCompress(source) {
     // Delegate to ImageProcessor when available
-    if (typeof imageProcessor !== 'undefined') {
+    if (typeof imageProcessor !== "undefined") {
       try {
         // Convert source to blob first so ImageProcessor can handle it
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = source.width;
         canvas.height = source.height;
-        canvas.getContext('2d').drawImage(source, 0, 0);
+        canvas.getContext("2d").drawImage(source, 0, 0);
         const srcBlob = await new Promise((resolve) => {
-          canvas.toBlob((b) => resolve(b), 'image/png');
+          canvas.toBlob((b) => resolve(b), "image/png");
         });
         if (!srcBlob) return null;
         const result = await imageProcessor.processFile(srcBlob, {
@@ -637,7 +636,7 @@ class ImageCache {
         });
         return result?.blob || null;
       } catch (err) {
-        debugLog('[ImageCache] WebP encode failed, using JPEG fallback: ' + err.message, 'info');
+        debugLog("[ImageCache] WebP encode failed, using JPEG fallback: " + err.message, "info");
         // Fall through to legacy path
       }
     }
@@ -649,21 +648,21 @@ class ImageCache {
     width = Math.round(width * scale);
     height = Math.round(height * scale);
 
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    canvas.getContext('2d').drawImage(source, 0, 0, width, height);
+    canvas.getContext("2d").drawImage(source, 0, 0, width, height);
 
     try {
       return await new Promise((resolve, reject) => {
         canvas.toBlob(
-          (blob) => blob ? resolve(blob) : reject(new Error('toBlob returned null')),
-          'image/jpeg',
+          (blob) => (blob ? resolve(blob) : reject(new Error("toBlob returned null"))),
+          "image/jpeg",
           this._quality
         );
       });
     } catch (err) {
-      debugLog('[ImageCache] Canvas resize failed: ' + err.message, 'warn');
+      debugLog("[ImageCache] Canvas resize failed: " + err.message, "warn");
       return null;
     }
   }
@@ -680,17 +679,17 @@ class ImageCache {
       const resp = await fetch(url);
       if (resp.ok) return await resp.blob();
     } catch (err) {
-      debugLog('[ImageCache] CORS fetch attempt failed for ' + url + ': ' + err.message, 'info');
+      debugLog("[ImageCache] CORS fetch attempt failed for " + url + ": " + err.message, "info");
     }
 
     // Try no-cors fetch — only accept non-opaque blobs (opaque blobs report
     // size === 0 and lose their data during IDB structured clone round-trips)
     try {
-      const resp = await fetch(url, { mode: 'no-cors' });
+      const resp = await fetch(url, { mode: "no-cors" });
       const blob = await resp.blob();
       if (blob && blob.size > 0) return blob;
     } catch (err) {
-      debugLog('[ImageCache] no-cors fetch attempt failed for ' + url + ': ' + err.message, 'info');
+      debugLog("[ImageCache] no-cors fetch attempt failed for " + url + ": " + err.message, "info");
     }
 
     return null;
@@ -705,11 +704,11 @@ class ImageCache {
   _loadImageElement(url, useCors = false) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      if (useCors) img.crossOrigin = 'anonymous';
+      if (useCors) img.crossOrigin = "anonymous";
       img.onload = () => {
         createImageBitmap(img).then(resolve).catch(reject);
       };
-      img.onerror = () => reject(new Error('Image load failed'));
+      img.onerror = () => reject(new Error("Image load failed"));
       img.src = url;
     });
   }
@@ -721,7 +720,7 @@ class ImageCache {
   /** @returns {Promise<boolean>} */
   async _put(storeName, record) {
     try {
-      const tx = this._db.transaction(storeName, 'readwrite');
+      const tx = this._db.transaction(storeName, "readwrite");
       tx.objectStore(storeName).put(record);
       await this._txComplete(tx);
       return true;
@@ -735,7 +734,7 @@ class ImageCache {
   _get(storeName, key) {
     return new Promise((resolve) => {
       try {
-        const tx = this._db.transaction(storeName, 'readonly');
+        const tx = this._db.transaction(storeName, "readonly");
         const req = tx.objectStore(storeName).get(key);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => resolve(null);
@@ -755,7 +754,7 @@ class ImageCache {
   _iterate(storeName, callback) {
     return new Promise((resolve, reject) => {
       try {
-        const tx = this._db.transaction(storeName, 'readonly');
+        const tx = this._db.transaction(storeName, "readonly");
         const req = tx.objectStore(storeName).openCursor();
         req.onsuccess = (e) => {
           const cursor = e.target.result;
@@ -777,7 +776,7 @@ class ImageCache {
   _getAll(storeName) {
     return new Promise((resolve) => {
       try {
-        const tx = this._db.transaction(storeName, 'readonly');
+        const tx = this._db.transaction(storeName, "readonly");
         const req = tx.objectStore(storeName).getAll();
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => resolve([]);
@@ -790,7 +789,7 @@ class ImageCache {
   /** @returns {Promise<boolean>} */
   async _delete(storeName, key) {
     try {
-      const tx = this._db.transaction(storeName, 'readwrite');
+      const tx = this._db.transaction(storeName, "readwrite");
       tx.objectStore(storeName).delete(key);
       await this._txComplete(tx);
       return true;
@@ -811,6 +810,6 @@ class ImageCache {
 
 // Singleton instance exposed globally
 const imageCache = new ImageCache();
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.imageCache = imageCache;
 }

@@ -16,14 +16,14 @@ A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladiu
 
 ## Market Prices & Item View
 
-| Vendor Price Matrix | Item View Modal |
-|---|---|
+| Vendor Price Matrix                                | Item View Modal                                  |
+| -------------------------------------------------- | ------------------------------------------------ |
 | ![Vendor Prices](screenshots/04-vendor-prices.png) | ![Item View](screenshots/06-item-view-modal.png) |
 
 ## Settings
 
-| About | Appearance | Inventory |
-|---|---|---|
+| About                                                | Appearance                                                     | Inventory                                                    |
+| ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | ![Settings About](screenshots/07-settings-about.png) | ![Settings Appearance](screenshots/08-settings-appearance.png) | ![Settings Inventory](screenshots/09-settings-inventory.png) |
 
 ---
@@ -185,17 +185,17 @@ Full-screen bulk operations in Settings > Inventory:
 
 Everything in one place with sidebar navigation:
 
-| Tab | What's Here |
-|-----|-------------|
-| **About** | Version info, API status badge, What's New, roadmap, badges, changelog link |
+| Tab            | What's Here                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------- |
+| **About**      | Version info, API status badge, What's New, roadmap, badges, changelog link                         |
 | **Appearance** | Theme (Light / Dark / Sepia / System), header button visibility and reorder, layout section toggles |
-| **Inventory** | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit |
-| **Chips** | Category toggles, sort order, grouping rules, blacklist, max count |
-| **API** | Multi-provider configuration with priority order, Numista and PCGS tabs, usage tracking |
-| **Cloud** | Dropbox connection, cloud backup/restore, activity log, sync history, multi-account management |
-| **System** | Timezone, storage dashboard, reset |
-| **Log** | Full change log with undo/redo |
-| **FAQ** | Privacy, backup, security, and limitations — built into the app |
+| **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit         |
+| **Chips**      | Category toggles, sort order, grouping rules, blacklist, max count                                  |
+| **API**        | Multi-provider configuration with priority order, Numista and PCGS tabs, usage tracking             |
+| **Cloud**      | Dropbox connection, cloud backup/restore, activity log, sync history, multi-account management      |
+| **System**     | Timezone, storage dashboard, reset                                                                  |
+| **Log**        | Full change log with undo/redo                                                                      |
+| **FAQ**        | Privacy, backup, security, and limitations — built into the app                                     |
 
 ### More
 
@@ -259,22 +259,22 @@ Full details in the [Privacy Policy](https://www.staktrakr.com/privacy.html) and
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Runtime | Pure client-side JavaScript (no framework, no build step) |
-| Storage | Browser localStorage + IndexedDB |
-| Encryption | Web Crypto API — AES-256-GCM via PBKDF2 |
-| Styling | Vanilla CSS with CSS custom properties, responsive breakpoints |
-| Charts | Chart.js 3.9.1 + TradingView Lightweight Charts |
-| CSV | PapaParse 5.4.1 |
-| PDF | jsPDF 2.5.1 + AutoTable 3.5.25 |
-| Backup | JSZip 3.10.1 |
-| Hosting | Cloudflare Pages |
-| Spot API | api.staktrakr.com (free, keyless) + Metals.dev, MetalPriceAPI, GoldAPI, others |
-| Market API | api.staktrakr.com v2 (free, keyless) — retail prices from major bullion dealers |
-| Catalog | Numista API, PCGS CoinFacts |
-| Exchange Rates | Open Exchange Rates |
-| Security tooling | Codacy (A+), CodeQL, Semgrep, PMD, ESLint |
+| Layer            | Technology                                                                      |
+| ---------------- | ------------------------------------------------------------------------------- |
+| Runtime          | Pure client-side JavaScript (no framework, no build step)                       |
+| Storage          | Browser localStorage + IndexedDB                                                |
+| Encryption       | Web Crypto API — AES-256-GCM via PBKDF2                                         |
+| Styling          | Vanilla CSS with CSS custom properties, responsive breakpoints                  |
+| Charts           | Chart.js 3.9.1 + TradingView Lightweight Charts                                 |
+| CSV              | PapaParse 5.4.1                                                                 |
+| PDF              | jsPDF 2.5.1 + AutoTable 3.5.25                                                  |
+| Backup           | JSZip 3.10.1                                                                    |
+| Hosting          | Cloudflare Pages                                                                |
+| Spot API         | api.staktrakr.com (free, keyless) + Metals.dev, MetalPriceAPI, GoldAPI, others  |
+| Market API       | api.staktrakr.com v2 (free, keyless) — retail prices from major bullion dealers |
+| Catalog          | Numista API, PCGS CoinFacts                                                     |
+| Exchange Rates   | Open Exchange Rates                                                             |
+| Security tooling | Codacy (A+), CodeQL, Semgrep, PMD, ESLint                                       |
 
 ---
 

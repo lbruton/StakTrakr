@@ -22,7 +22,15 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openTursoDb, writeSnapshot, windowFloor, startRunLog, finishRunLog, recordFailure, readSpotCurrent } from "./db.js";
+import {
+  openTursoDb,
+  writeSnapshot,
+  windowFloor,
+  startRunLog,
+  finishRunLog,
+  recordFailure,
+  readSpotCurrent,
+} from "./db.js";
 import { loadProviders } from "./provider-db.js";
 import { getCFClearanceCookie } from "./cf-clearance.js";
 
@@ -35,14 +43,17 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
 // Self-hosted Firecrawl: set FIRECRAWL_BASE_URL=http://localhost:3002
 // Cloud Firecrawl (default): leave unset or set to https://api.firecrawl.dev
-const FIRECRAWL_BASE_URL = (process.env.FIRECRAWL_BASE_URL || "https://api.firecrawl.dev").replace(/\/$/, "");
+const FIRECRAWL_BASE_URL = (process.env.FIRECRAWL_BASE_URL || "https://api.firecrawl.dev").replace(
+  /\/$/,
+  ""
+);
 // PLAYWRIGHT_LAUNCH: set to "1" to launch Chromium locally instead of connecting
 // to a remote browserless. Useful on Fly.io where browsers are installed but no
 // external browserless service is running.
 const PLAYWRIGHT_LAUNCH = process.env.PLAYWRIGHT_LAUNCH === "1";
 const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
 const DRY_RUN = process.env.DRY_RUN === "1";
-const COIN_FILTER = process.env.COINS ? process.env.COINS.split(",").map(s => s.trim()) : null;
+const COIN_FILTER = process.env.COINS ? process.env.COINS.split(",").map((s) => s.trim()) : null;
 const CF_CLEARANCE_ENABLED_FLAG = process.env.CF_CLEARANCE_ENABLED !== "0";
 let cfAttempts = 0;
 let cfSuccess = 0;
@@ -66,7 +77,7 @@ const POLLER_ID = process.env.POLLER_ID || "unknown";
 function jitter() {
   const base = POLLER_ID === "home" ? 500 : 2_000;
   const range = POLLER_ID === "home" ? 1_500 : 6_000;
-  return new Promise(r => setTimeout(r, base + Math.random() * range));
+  return new Promise((r) => setTimeout(r, base + Math.random() * range));
 }
 
 // Fisher-Yates shuffle (in-place)
@@ -99,7 +110,9 @@ async function safeWriteSnapshot(db, row) {
     return true;
   } catch (err) {
     _dbWriteFailures++;
-    warn(`DB write failed for ${row.coinSlug}/${row.vendor} (non-fatal): ${err.message.slice(0, 100)}`);
+    warn(
+      `DB write failed for ${row.coinSlug}/${row.vendor} (non-fatal): ${err.message.slice(0, 100)}`
+    );
     return false;
   }
 }
@@ -112,11 +125,11 @@ async function safeWriteSnapshot(db, row) {
 // Multiplied by weight_oz to get the expected price range for each coin.
 // Filters out accessories, spot ticker values, and unrelated products.
 const METAL_PRICE_RANGE_PER_OZ = {
-  silver:    { min: 40,   max: 200   },  // 1oz: $40-200, 10oz bar: $400-2000
-  gold:      { min: 1500, max: 15000 },  // 1oz: $1500-15000
-  platinum:  { min: 500,  max: 6000  },
-  palladium: { min: 300,  max: 6000  },
-  goldback:  { min: 5,    max: 25    },  // G1 ($10 spot equivalent); G50 would be $500 but tracked separately
+  silver: { min: 40, max: 200 }, // 1oz: $40-200, 10oz bar: $400-2000
+  gold: { min: 1500, max: 15000 }, // 1oz: $1500-15000
+  platinum: { min: 500, max: 6000 },
+  palladium: { min: 300, max: 6000 },
+  goldback: { min: 5, max: 25 }, // G1 ($10 spot equivalent); G50 would be $500 but tracked separately
 };
 
 // Provider IDs that use "As Low As" as their primary price indicator.
@@ -156,18 +169,18 @@ const PREORDER_TOLERANT_PROVIDERS = new Set(["jmbullion", "monumentmetals"]);
 
 const MARKDOWN_CUTOFF_PATTERNS = {
   sdbullion: [
-    /^\*\*Add on Items\*\*/im,              // Firecrawl markdown bold header
-    /^Add on Items\s*$/im,                  // Firecrawl plain-text header
-    /^\*\*Customers Also Purchased\*\*/im,  // Firecrawl markdown bold header
-    /^Customers Also Purchased\s*$/im,      // Firecrawl plain-text header
-    /<[^>]*>\s*Add on Items/i,              // Playwright HTML header
-    /<[^>]*>\s*Customers Also Purchased/i,  // Playwright HTML header
+    /^\*\*Add on Items\*\*/im, // Firecrawl markdown bold header
+    /^Add on Items\s*$/im, // Firecrawl plain-text header
+    /^\*\*Customers Also Purchased\*\*/im, // Firecrawl markdown bold header
+    /^Customers Also Purchased\s*$/im, // Firecrawl plain-text header
+    /<[^>]*>\s*Add on Items/i, // Playwright HTML header
+    /<[^>]*>\s*Customers Also Purchased/i, // Playwright HTML header
   ],
   // JM pages show "Similar Products You May Like" carousel with fractional coin
   // "As Low As" prices (1/2 oz, 1/4 oz, 1/10 oz) that fall within the metal
   // price range and cause Math.min() to pick a fractional price instead of 1oz.
   jmbullion: [
-    /^Similar Products You May Like/im,    // Firecrawl markdown section heading
+    /^Similar Products You May Like/im, // Firecrawl markdown section heading
     /<[^>]*>\s*Similar Products You May Like/i, // Playwright HTML heading
   ],
 };
@@ -179,7 +192,8 @@ const MARKDOWN_HEADER_SKIP_PATTERNS = {
   // JM Bullion header ends with a timestamp like "Feb 21, 2026 at 13:30 EST"
   // followed by the nav mega-menu. The product area starts after the nav.
   // We skip past the spot ticker to avoid false gold-price matches.
-  jmbullion: /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[A-Z]{2,4}/,
+  jmbullion:
+    /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[A-Z]{2,4}/,
   // Monument Metals (React SPA) — nav has spot tickers like "Gold $3,120.50 Silver $32.10".
   // Skip past the header/nav area to avoid firstInRangeProse grabbing spot prices.
   // The product title typically follows a breadcrumb containing "Home >" or the product name.
@@ -215,8 +229,6 @@ function preprocessMarkdown(markdown, providerId) {
   return result;
 }
 
-
-
 /**
  * Detect stock status from Firecrawl markdown.
  *
@@ -237,7 +249,7 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
       return {
         inStock: false,
         reason: "soft_404",
-        detectedText: match[0]
+        detectedText: match[0],
       };
     }
   }
@@ -251,7 +263,7 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
       return {
         inStock: false,
         reason: "out_of_stock",
-        detectedText: match[0]
+        detectedText: match[0],
       };
     }
   }
@@ -281,7 +293,7 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
         return {
           inStock: false,
           reason: "fractional_weight",
-          detectedText: match[0]
+          detectedText: match[0],
         };
       }
     }
@@ -336,7 +348,9 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
           if (!isNaN(price) && price >= min && price <= max) return price;
         }
       }
-    } catch { /* invalid JSON — skip */ }
+    } catch {
+      /* invalid JSON — skip */
+    }
   }
   return null;
 }
@@ -496,13 +510,12 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
   return null;
 }
 
-
 // ---------------------------------------------------------------------------
 // Firecrawl API
 // ---------------------------------------------------------------------------
 
 function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 // ---------------------------------------------------------------------------
@@ -521,63 +534,63 @@ function sleep(ms) {
 //   "firecrawl"          → Skip Phase 0, Firecrawl first, then CF-clearance fallback
 //   "cf-clearance-first" → Byparr/CF-clearance first, then Firecrawl fallback (for CF-protected vendors)
 const PROVIDER_DEFAULTS = {
-  phase: "phase0",             // try Phase 0 (Playwright-direct) first
-  waitFor: 0,                  // Firecrawl waitFor (ms) — 0 = no extra wait
-  waitUntil: "networkidle",    // Phase 0 page.goto waitUntil
-  waitAfter: 0,                // Phase 0 extra wait after page load (ms)
-  timeout: SCRAPE_TIMEOUT_MS,  // Firecrawl abort timeout
-  onlyMainContent: true,       // Firecrawl onlyMainContent flag
-  retryOn408: true,            // allow retry on Firecrawl 408 timeout
-  fractionalExempt: false,     // skip fractional_weight nav false-positive check
+  phase: "phase0", // try Phase 0 (Playwright-direct) first
+  waitFor: 0, // Firecrawl waitFor (ms) — 0 = no extra wait
+  waitUntil: "networkidle", // Phase 0 page.goto waitUntil
+  waitAfter: 0, // Phase 0 extra wait after page load (ms)
+  timeout: SCRAPE_TIMEOUT_MS, // Firecrawl abort timeout
+  onlyMainContent: true, // Firecrawl onlyMainContent flag
+  retryOn408: true, // allow retry on Firecrawl 408 timeout
+  fractionalExempt: false, // skip fractional_weight nav false-positive check
   cf_clearance_fallback: false, // attempt Phase 2 CF-clearance sidecar on 403
-  proxy: {},                   // per-poller proxy routing
+  proxy: {}, // per-poller proxy routing
 };
 
 const PROVIDER_CONFIG = {
   apmex: {
-    phase: "firecrawl",         // HTML table → innerText loses pipes → wrong price
+    phase: "firecrawl", // HTML table → innerText loses pipes → wrong price
     waitFor: 8000,
     timeout: FIRECRAWL_TIMEOUT_MS,
   },
   monumentmetals: {
-    phase: "firecrawl",         // Same table extraction issue as apmex
+    phase: "firecrawl", // Same table extraction issue as apmex
     waitFor: 5000,
     timeout: 35_000,
-    retryOn408: false,          // page either renders in time or doesn't
+    retryOn408: false, // page either renders in time or doesn't
   },
   jmbullion: {
     phase: "cf-clearance-first", // Byparr first (100% success), Firecrawl fallback
     waitFor: 10_000,
     timeout: 40_000,
-    onlyMainContent: false,     // React pages return empty with onlyMainContent
-    retryOn408: false,          // retrying won't help — skip to save ~40s
+    onlyMainContent: false, // React pages return empty with onlyMainContent
+    retryOn408: false, // retrying won't help — skip to save ~40s
     cf_clearance_fallback: true,
-    fractionalExempt: true,     // mega-menu lists fractional coins on every page
+    fractionalExempt: true, // mega-menu lists fractional coins on every page
   },
   bullionexchanges: {
     phase: "cf-clearance-first", // Byparr first (100% success), Firecrawl fallback
-    waitFor: 15_000,            // React pricing grid needs 12-15s to fully hydrate
-    timeout: 70_000,            // extended timeout for 15s waitFor + round-trip
-    fractionalExempt: true,     // Related Products section lists fractional variants
+    waitFor: 15_000, // React pricing grid needs 12-15s to fully hydrate
+    timeout: 70_000, // extended timeout for 15s waitFor + round-trip
+    fractionalExempt: true, // Related Products section lists fractional variants
     cf_clearance_fallback: true,
     proxy: {
-      home: null,               // home poller is on residential IP — no proxy needed
-      fly: null,                // Fly.io uses its own IP (93%+ success rate)
+      home: null, // home poller is on residential IP — no proxy needed
+      fly: null, // Fly.io uses its own IP (93%+ success rate)
     },
   },
   sdbullion: {
-    waitUntil: "domcontentloaded",  // fast — no need for networkidle
+    waitUntil: "domcontentloaded", // fast — no need for networkidle
   },
   herobullion: {
-    phase: "firecrawl",            // Phase 0 innerText loses pipe-table structure →
-                                   // firstTableRowFirstPrice() returns null → firstInRangePriceProse()
-                                   // grabs "As Low As" bulk price before the 1-unit table price.
-                                   // Firecrawl markdown has | pipe | tables — extraction works correctly.
+    phase: "firecrawl", // Phase 0 innerText loses pipe-table structure →
+    // firstTableRowFirstPrice() returns null → firstInRangePriceProse()
+    // grabs "As Low As" bulk price before the 1-unit table price.
+    // Firecrawl markdown has | pipe | tables — extraction works correctly.
     waitFor: 3_000,
   },
   gainesvillecoins: {
-    phase: "firecrawl",            // Phase 0 Playwright direct always times out (15s wasted per coin).
-                                   // Firecrawl succeeds reliably — skip Phase 0 entirely.
+    phase: "firecrawl", // Phase 0 Playwright direct always times out (15s wasted per coin).
+    // Firecrawl succeeds reliably — skip Phase 0 entirely.
     waitFor: 3_000,
   },
   summitmetals: {
@@ -590,7 +603,11 @@ const PROVIDER_CONFIG = {
 
 // Merge defaults into each provider config
 for (const [id, cfg] of Object.entries(PROVIDER_CONFIG)) {
-  PROVIDER_CONFIG[id] = { ...PROVIDER_DEFAULTS, ...cfg, proxy: { ...PROVIDER_DEFAULTS.proxy, ...cfg.proxy } };
+  PROVIDER_CONFIG[id] = {
+    ...PROVIDER_DEFAULTS,
+    ...cfg,
+    proxy: { ...PROVIDER_DEFAULTS.proxy, ...cfg.proxy },
+  };
 }
 
 // Helper: get config for a provider (falls back to defaults for unknown vendors)
@@ -612,13 +629,23 @@ function resolveProxy(providerId) {
 
 // Compatibility shims — used in code that still references the old Sets.
 // TODO: Remove these after all callsites are refactored to use providerCfg().
-const SLOW_PROVIDERS = new Set(Object.entries(PROVIDER_CONFIG).filter(([,c]) => c.waitFor > 0).map(([id]) => id));
-const FIRECRAWL_PREFERRED_PROVIDERS = new Set(Object.entries(PROVIDER_CONFIG).filter(([,c]) => c.phase === "firecrawl").map(([id]) => id));
+const SLOW_PROVIDERS = new Set(
+  Object.entries(PROVIDER_CONFIG)
+    .filter(([, c]) => c.waitFor > 0)
+    .map(([id]) => id)
+);
+const FIRECRAWL_PREFERRED_PROVIDERS = new Set(
+  Object.entries(PROVIDER_CONFIG)
+    .filter(([, c]) => c.phase === "firecrawl")
+    .map(([id]) => id)
+);
 const FIRECRAWL_TABLE_PARSE_PROVIDERS = new Set(["monumentmetals"]);
-const PLAYWRIGHT_ONLY_PROVIDERS = new Set([]);  // kept empty — all routing is via PROVIDER_CONFIG.phase
-const FRACTIONAL_EXEMPT_PROVIDERS = new Set(Object.entries(PROVIDER_CONFIG).filter(([,c]) => c.fractionalExempt).map(([id]) => id));
-
-
+const PLAYWRIGHT_ONLY_PROVIDERS = new Set([]); // kept empty — all routing is via PROVIDER_CONFIG.phase
+const FRACTIONAL_EXEMPT_PROVIDERS = new Set(
+  Object.entries(PROVIDER_CONFIG)
+    .filter(([, c]) => c.fractionalExempt)
+    .map(([id]) => id)
+);
 
 // Scrape via proxied playwright-service (port 3004) — bypasses Firecrawl entirely.
 // Returns plain text (like Phase 0 innerText), not markdown.
@@ -640,11 +667,12 @@ async function scrapeViaProxy(url, waitFor = 15000, timeout = 40000) {
     }
     // Convert HTML to plain text (strip tags) for extractPrice()
     const html = json.content || "";
-    const text = html.replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, "")
-                     .replace(/<style[^>]*>[\s\S]*?<\/style\s*>/gi, "")
-                     .replace(/<[^>]+>/g, " ")
-                     .replace(/\s+/g, " ")
-                     .trim();
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style\s*>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
     return text;
   } finally {
     clearTimeout(timer);
@@ -673,9 +701,15 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (html): ${providerId} price=${price.price}`);
-      return { price: price.price, inStock: inStock.inStock, source: `cf-clearance:${price.matchedBy}` };
+      return {
+        price: price.price,
+        inStock: inStock.inStock,
+        source: `cf-clearance:${price.matchedBy}`,
+      };
     }
-    warn(`[cf-clearance] no price from Byparr HTML for ${providerId} — falling through to Playwright`);
+    warn(
+      `[cf-clearance] no price from Byparr HTML for ${providerId} — falling through to Playwright`
+    );
     // Don't return null — fall through to Playwright with the cookie.
     // SPA pages need a real browser to hydrate their pricing grids.
   }
@@ -691,20 +725,24 @@ async function scrapeViaCFClearance(url, providerId, coin) {
   try {
     const cfg = providerCfg(providerId);
     const { chromium } = await import("playwright-core");
-    browser = await chromium.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"] });
+    browser = await chromium.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    });
     const context = await browser.newContext({
       userAgent: cfData.userAgent,
       extraHTTPHeaders: { "Accept-Language": "en-US,en;q=0.9" },
     });
     const urlObj = new URL(url);
-    await context.addCookies([{
-      name: "cf_clearance",
-      value: cfData.cfClearance,
-      domain: urlObj.hostname,
-      path: "/",
-      httpOnly: false,
-      secure: true,
-    }]);
+    await context.addCookies([
+      {
+        name: "cf_clearance",
+        value: cfData.cfClearance,
+        domain: urlObj.hostname,
+        path: "/",
+        httpOnly: false,
+        secure: true,
+      },
+    ]);
     const page = await context.newPage();
     await page.route("**/*", (route) => {
       const type = route.request().resourceType();
@@ -720,10 +758,11 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const [text, jsonLdScripts] = await page.evaluate(() => {
       const scripts = Array.from(
         document.querySelectorAll('script[type="application/ld+json"]'),
-        s => s.textContent
+        (s) => s.textContent
       );
-      document.querySelectorAll("nav, header, footer, [role='navigation'], [role='banner']")
-        .forEach(el => el.remove());
+      document
+        .querySelectorAll("nav, header, footer, [role='navigation'], [role='banner']")
+        .forEach((el) => el.remove());
       return [document.body.innerText, scripts];
     });
     await browser.close();
@@ -743,7 +782,11 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (playwright): ${providerId} price=${price.price}`);
-      return { price: price.price, inStock: inStock.inStock, source: `cf-clearance:${price.matchedBy}` };
+      return {
+        price: price.price,
+        inStock: inStock.inStock,
+        source: `cf-clearance:${price.matchedBy}`,
+      };
     }
     warn(`[cf-clearance] no price extracted for ${providerId}`);
     return null;
@@ -778,7 +821,7 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(FIRECRAWL_API_KEY ? { "Authorization": `Bearer ${FIRECRAWL_API_KEY}` } : {}),
+        ...(FIRECRAWL_API_KEY ? { Authorization: `Bearer ${FIRECRAWL_API_KEY}` } : {}),
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -799,16 +842,17 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
           }
           cfFailures++;
         }
-        throw Object.assign(
-          new Error(`HTTP 403 (blocked): ${text.slice(0, 200)}`),
-          { skipRetry: true }
-        );
+        throw Object.assign(new Error(`HTTP 403 (blocked): ${text.slice(0, 200)}`), {
+          skipRetry: true,
+        });
       }
       // 408 = Firecrawl scrape timeout. For jmbullion, retrying won't help —
       // the page either renders in time or it doesn't. Skip retries to save ~40s.
       if (response.status === 408 && !providerCfg(providerId).retryOn408) {
         throw Object.assign(
-          new Error(`HTTP 408 (scrape timeout, jmb/monument retry disabled): ${text.slice(0, 200)}`),
+          new Error(
+            `HTTP 408 (scrape timeout, jmb/monument retry disabled): ${text.slice(0, 200)}`
+          ),
           { skipRetry: true }
         );
       }
@@ -817,7 +861,6 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
 
     const json = await response.json();
     return json?.data?.markdown ?? null;
-
   } catch (err) {
     // Abort/timeout = the request was killed by our AbortController.
     // Retrying the same Firecrawl call won't help; skip retries.
@@ -864,7 +907,8 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     });
 
     const context = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       viewport: { width: 1920, height: 1080 },
     });
     const page = await context.newPage();
@@ -881,7 +925,10 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
 
     await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
     const phase0WaitUntil = providerCfg(providerId).waitUntil;
-    const response = await page.goto(url, { waitUntil: phase0WaitUntil, timeout: DIRECT_TIMEOUT_MS });
+    const response = await page.goto(url, {
+      waitUntil: phase0WaitUntil,
+      timeout: DIRECT_TIMEOUT_MS,
+    });
 
     // 403 = bot detection — bail immediately, let Firecrawl handle it
     if (response && response.status() === 403) {
@@ -904,10 +951,11 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     const [text, jsonLdScripts] = await page.evaluate(() => {
       const scripts = Array.from(
         document.querySelectorAll('script[type="application/ld+json"]'),
-        s => s.textContent
+        (s) => s.textContent
       );
-      document.querySelectorAll("nav, header, footer, [role='navigation'], [role='banner']")
-        .forEach(el => el.remove());
+      document
+        .querySelectorAll("nav, header, footer, [role='navigation'], [role='banner']")
+        .forEach((el) => el.remove());
       return [document.body.innerText, scripts];
     });
     const cleaned = preprocessMarkdown(text, providerId);
@@ -927,7 +975,10 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
 
     const extracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     const price = extracted ? extracted.price : null;
-    if (extracted) log(`  extractPrice ${providerId}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`);
+    if (extracted)
+      log(
+        `  extractPrice ${providerId}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`
+      );
 
     if (price !== null) {
       return { price, inStock: stock.inStock, source: `playwright-direct:${extracted.matchedBy}` };
@@ -941,12 +992,17 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
 
     // Page loaded but no price extracted — Firecrawl may parse differently
     return null;
-
   } catch (err) {
     log(`  (playwright-direct) ${providerId} failed: ${err.message.slice(0, 100)} — falling back`);
     return null;
   } finally {
-    if (browser) { try { await browser.close(); } catch { /* ignore */ } }
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
 
@@ -966,7 +1022,9 @@ async function main() {
 
   // Load providers from sqld (falls back to local file if sqld is down)
   let tursoClient = null;
-  try { tursoClient = (await import("./sqld-client.js")).createSqldClient(); } catch {}
+  try {
+    tursoClient = (await import("./sqld-client.js")).createSqldClient();
+  } catch {}
   const providersJson = await loadProviders(tursoClient, DATA_DIR);
   const dateStr = new Date().toISOString().slice(0, 10);
 
@@ -982,7 +1040,9 @@ async function main() {
   }
   shuffleArray(targets);
 
-  log(`Proxy config: HOME_PROXY_URL=${HOME_PROXY_URL ? "SET" : "NOT SET"}, PLAYWRIGHT_LAUNCH=${PLAYWRIGHT_LAUNCH}`);
+  log(
+    `Proxy config: HOME_PROXY_URL=${HOME_PROXY_URL ? "SET" : "NOT SET"}, PLAYWRIGHT_LAUNCH=${PLAYWRIGHT_LAUNCH}`
+  );
 
   // Probe proxy health (non-blocking, non-fatal; informational only)
   if (HOME_PROXY_URL) {
@@ -1006,15 +1066,21 @@ async function main() {
 
   // STAK-496: Load spot prices + goldback baseline for price bounds guard.
   // Computed once at startup — used by safeWriteSnapshot for each target.
-  const _spotByMetal = {};  // { gold: 2650.00, silver: 31.50, ... }
-  let _goldbackG1 = null;   // goldback.com G1 rate in USD
+  const _spotByMetal = {}; // { gold: 2650.00, silver: 31.50, ... }
+  let _goldbackG1 = null; // goldback.com G1 rate in USD
   if (db) {
     try {
       const spotRows = await readSpotCurrent(db);
       for (const row of spotRows) {
         if (row.metal && row.spot != null) _spotByMetal[row.metal] = Number(row.spot);
       }
-      log(`[bounds-guard] Spot prices loaded: ${Object.entries(_spotByMetal).map(([m, p]) => `${m}=$${p}`).join(", ") || "none"}`);
+      log(
+        `[bounds-guard] Spot prices loaded: ${
+          Object.entries(_spotByMetal)
+            .map(([m, p]) => `${m}=$${p}`)
+            .join(", ") || "none"
+        }`
+      );
     } catch (err) {
       warn(`[bounds-guard] Spot prices unavailable (non-fatal): ${err.message.slice(0, 80)}`);
     }
@@ -1024,8 +1090,12 @@ async function main() {
         const gb = JSON.parse(readFileSync(gbPath, "utf-8"));
         if (gb.g1_usd > 0) _goldbackG1 = gb.g1_usd;
       }
-      if (_goldbackG1 == null && typeof _spotByMetal.gold === "number" && isFinite(_spotByMetal.gold)) {
-        _goldbackG1 = _spotByMetal.gold * 0.003085;  // fallback: gold spot × G1 weight
+      if (
+        _goldbackG1 == null &&
+        typeof _spotByMetal.gold === "number" &&
+        isFinite(_spotByMetal.gold)
+      ) {
+        _goldbackG1 = _spotByMetal.gold * 0.003085; // fallback: gold spot × G1 weight
       }
       if (_goldbackG1) log(`[bounds-guard] Goldback G1 baseline: $${_goldbackG1.toFixed(2)}`);
     } catch (err) {
@@ -1043,7 +1113,8 @@ async function main() {
     if (coin.metal === "goldback") {
       // Goldback denominations: G1, G5, G10, G25, G50
       if (!_goldbackG1) return null;
-      const denomMatch = coinSlug.match(/goldback-.*?-?g(\d+)$/i) || coinSlug.match(/goldback-g(\d+)/i);
+      const denomMatch =
+        coinSlug.match(/goldback-.*?-?g(\d+)$/i) || coinSlug.match(/goldback-g(\d+)/i);
       const multiplier = denomMatch ? Number(denomMatch[1]) : 1;
       return _goldbackG1 * multiplier;
     }
@@ -1062,370 +1133,496 @@ async function main() {
               WHERE poller_id = ? AND status = 'running'`,
         args: [POLLER_ID],
       });
-      runId = await startRunLog(db, { pollerId: POLLER_ID, startedAt: scrapedAt, total: targets.length });
+      runId = await startRunLog(db, {
+        pollerId: POLLER_ID,
+        startedAt: scrapedAt,
+        total: targets.length,
+      });
     } catch (err) {
       warn(`Run log start failed (non-fatal): ${err.message.slice(0, 80)}`);
     }
   }
 
   try {
+    // Scrape all targets sequentially with per-request jitter
+    const scrapeResults = [];
+    for (let targetIdx = 0; targetIdx < targets.length; targetIdx++) {
+      const { coinSlug, coin, provider, urls } = targets[targetIdx];
+      log(
+        `Scraping ${coinSlug}/${provider.id}${urls.length > 1 ? ` (${urls.length} URL(s))` : ""}`
+      );
 
-  // Scrape all targets sequentially with per-request jitter
-  const scrapeResults = [];
-  for (let targetIdx = 0; targetIdx < targets.length; targetIdx++) {
-    const { coinSlug, coin, provider, urls } = targets[targetIdx];
-    log(`Scraping ${coinSlug}/${provider.id}${urls.length > 1 ? ` (${urls.length} URL(s))` : ""}`);
+      // STAK-496: Per-target bounds check params
+      const _baseline = computeBaseline(coinSlug, coin);
+      const _skipBounds = provider.skipPriceBounds === true;
 
-    // STAK-496: Per-target bounds check params
-    const _baseline = computeBaseline(coinSlug, coin);
-    const _skipBounds = provider.skipPriceBounds === true;
+      let price = null;
+      let source = "firecrawl";
+      let inStock = true;
+      let finalUrl = urls[0];
+      const _retriedUrls = new Set();
 
-    let price = null;
-    let source = "firecrawl";
-    let inStock = true;
-    let finalUrl = urls[0];
-    const _retriedUrls = new Set();
-
-    // ── Phase CF-First: Byparr/CF-clearance first (for cf-clearance-first vendors) ─
-    // For vendors where Byparr has 100% success rate (BE, JM), skip the 70s Firecrawl
-    // timeout entirely. If Byparr fails, fall through to Phase 0/1 as safety net.
-    const cfg = providerCfg(provider.id);
-    if (cfg.phase === "cf-clearance-first" && CF_CLEARANCE_ENABLED_FLAG) {
-      log(`  [cf-first] ${provider.id}: trying Byparr first`);
-      cfAttempts++;
-      const cfResult = await scrapeViaCFClearance(urls[0], provider.id, coin);
-      if (cfResult !== null && cfResult.price !== null) {
-        cfSuccess++;
-        price = cfResult.price;
-        source = cfResult.source;
-        inStock = cfResult.inStock;
-        finalUrl = urls[0];
-        log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (cf-first${!inStock ? ", OOS" : ""})`);
-        scrapeResults.push({
-          coinSlug, coin, providerId: provider.id, url: finalUrl,
-          price, source, inStock, ok: true, error: null,
-        });
-        if (db) {
-          await safeWriteSnapshot(db, {
-            scrapedAt, windowStart: winStart, coinSlug,
-            vendor: provider.id, price, source,
-            isFailed: false, inStock,
-            baseline: _baseline, skipPriceBounds: _skipBounds,
-          });
-        }
-        if (targetIdx < targets.length - 1) { await jitter(); }
-        continue;
-      }
-      // Byparr returned null or no price — OOS with no price is still useful
-      if (cfResult !== null && cfResult.price === null && !cfResult.inStock) {
-        cfSuccess++;
-        log(`  ✓ ${coinSlug}/${provider.id}: OOS detected (cf-first, no price)`);
-        scrapeResults.push({
-          coinSlug, coin, providerId: provider.id, url: finalUrl,
-          price: null, source: cfResult.source, inStock: false, ok: true, error: null,
-        });
-        if (db) {
-          await safeWriteSnapshot(db, {
-            scrapedAt, windowStart: winStart, coinSlug,
-            vendor: provider.id, price: null, source: cfResult.source,
-            isFailed: false, inStock: false,
-            baseline: _baseline, skipPriceBounds: _skipBounds,
-          });
-        }
-        if (targetIdx < targets.length - 1) { await jitter(); }
-        continue;
-      }
-      cfFailures++;
-      log(`  ↻ ${coinSlug}/${provider.id}: cf-first failed — falling through to Phase 0/1`);
-    }
-
-    // ── Phase 0: Try Playwright direct (no proxy, 15s timeout) ──────────────
-    // Fast first-pass — succeeds for ~65/88 targets in <5s. If it gets a price,
-    // skip Firecrawl entirely. Skip for PLAYWRIGHT_ONLY_PROVIDERS (they need
-    // Firecrawl's stealth patches) and FIRECRAWL_PREFERRED_PROVIDERS (they need
-    // Firecrawl's markdown pipe-table conversion for correct extraction).
-    // Exception: goldback slugs are individual product detail pages with a single
-    // prominently-displayed price — not HTML pricing tables — so Phase 0 Playwright
-    // extracts prices correctly for table-parse vendors (apmex, monumentmetals).
-    // Bot-detection vendors (jmbullion, bullionexchanges) are NOT bypassed: they
-    // still need Firecrawl stealth even on goldback detail pages (API-14).
-    const isGoldback = coinSlug.startsWith("goldback");
-    const fcPreferredForTarget = FIRECRAWL_PREFERRED_PROVIDERS.has(provider.id) &&
-      !(isGoldback && FIRECRAWL_TABLE_PARSE_PROVIDERS.has(provider.id));
-    if (!PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id) && !fcPreferredForTarget && PLAYWRIGHT_LAUNCH) {
-      const directResult = await scrapeWithPlaywrightDirect(urls[0], provider.id, coin);
-      if (directResult !== null) {
-        price = directResult.price;
-        source = directResult.source;
-        inStock = directResult.inStock;
-        finalUrl = urls[0];
-        log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (playwright-direct${!inStock ? ", OOS" : ""})`);
-        // Skip Firecrawl — go straight to store result
-        scrapeResults.push({
-          coinSlug, coin, providerId: provider.id, url: finalUrl,
-          price, source, inStock, ok: true, error: null,
-        });
-        if (db) {
-          await safeWriteSnapshot(db, {
-            scrapedAt, windowStart: winStart, coinSlug,
-            vendor: provider.id, price, source,
-            isFailed: false, inStock,
-            baseline: _baseline, skipPriceBounds: _skipBounds,
-          });
-        }
-        if (targetIdx < targets.length - 1) { await jitter(); }
-        continue;
-      }
-    }
-
-    // ── Phase 1: Try all URLs via Firecrawl ──────────────────────────────────
-    // Skip Phase 1 for providers where Firecrawl is structurally unreliable
-    // (bot detection or waitFor-not-supported JS rendering). price/inStock stay
-    // at their defaults (null / true) so the failure path fires below.
-    if (!PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id)) {
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
-        if (i > 0) log(`  → ${coinSlug}/${provider.id}: fallback URL [${i}]: ${url}`);
-
-        try {
-          // Proxy-first path: if this provider routes through an alternate IP,
-          // try the proxied playwright-service first (e.g., Fly.io IP for BEx).
-          let markdown;
-          const proxyTarget = resolveProxy(provider.id);
-          if (proxyTarget) {
-            try {
-              const cfg = providerCfg(provider.id);
-              const proxyText = await scrapeViaProxy(url, cfg.waitFor, cfg.timeout);
-              // scrapeViaProxy returns plain text (like Phase 0), not markdown.
-              // Use it directly for extraction — preprocessMarkdown handles both.
-              const proxyCleaned = preprocessMarkdown(proxyText, provider.id);
-              const proxyStock = detectStockStatus(proxyCleaned, coin.weight_oz || 1, provider.id);
-              const proxyExtracted = extractPrice(proxyCleaned, coin.metal, coin.weight_oz || 1, provider.id);
-              if (proxyExtracted) {
-                log(`  extractPrice ${provider.id}: matched=${proxyExtracted.matchedBy} price=$${proxyExtracted.price.toFixed(2)} (fly-proxy)`);
-                price = proxyExtracted.price;
-                source = `fly-proxy:${proxyExtracted.matchedBy}`;
-                inStock = proxyStock.inStock;
-                finalUrl = url;
-                log(`  \u2713 ${coinSlug}/${provider.id}: $${price.toFixed(2)} (fly-proxy)${!inStock ? " OOS" : ""}`);
-                break;
-              }
-              log(`  \u21bb ${coinSlug}/${provider.id}: fly-proxy returned no price, falling back to firecrawl`);
-            } catch (proxyErr) {
-              warn(`  \u2717 ${provider.id} fly-proxy error: ${proxyErr.message.slice(0, 80)}, falling back`);
-            }
-          }
-          const scrapeResult = await scrapeUrl(url, provider.id, 1, coin);
-          // Phase 2 (CF-clearance) returns an object directly — short-circuit markdown path
-          if (scrapeResult !== null && typeof scrapeResult === "object") {
-            price = scrapeResult.price;
-            source = scrapeResult.source;
-            inStock = scrapeResult.inStock;
-            finalUrl = url;
-            log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
-            break;
-          }
-          markdown = scrapeResult;
-          const cleaned = preprocessMarkdown(markdown, provider.id);
-          const stock = detectStockStatus(cleaned, coin.weight_oz || 1, provider.id);
-
-          if (!stock.inStock) {
-            log(`  ⚠ ${provider.id} [url${i}]: ${stock.reason} — ${stock.detectedText || "detected"}`);
-            // Still attempt price extraction — OOS pages often show advertised price
-            const oosExtracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, provider.id);
-            const oosPrice = oosExtracted ? oosExtracted.price : null;
-            if (oosExtracted) log(`  extractPrice ${provider.id}: matched=${oosExtracted.matchedBy} price=$${oosExtracted.price.toFixed(2)} (OOS)`);
-            if (oosPrice !== null) {
-              price = oosPrice;
-              source = `firecrawl:${oosExtracted.matchedBy}`;
-              finalUrl = url;
-              log(`  ✓ ${coinSlug}/${provider.id}: $${oosPrice.toFixed(2)} (firecrawl, OOS)`);
-            }
-            if (i < urls.length - 1 && oosPrice === null) { await jitter(); continue; }
-            // Last URL or got a price — exit loop with inStock=false
-            inStock = false;
-            if (!finalUrl || finalUrl !== url) finalUrl = url;
-            break;
-          }
-
-          const extracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, provider.id);
-          const p = extracted ? extracted.price : null;
-          if (extracted) log(`  extractPrice ${provider.id}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`);
-          if (p !== null) {
-            price = p;
-            source = `firecrawl:${extracted.matchedBy}`;
-            finalUrl = url;
-            log(`  ✓ ${coinSlug}/${provider.id}: $${p.toFixed(2)} (firecrawl)${urls.length > 1 ? ` [url${i}]` : ""}`);
-            break;
-          }
-
-          // Parse failure on this URL — retry once with longer wait for FIRECRAWL_PREFERRED
-          // providers (jmbullion, bullionexchanges) where proxy latency can cause under-render.
-          if (FIRECRAWL_PREFERRED_PROVIDERS.has(provider.id) && !_retriedUrls.has(url)) {
-            _retriedUrls.add(url);
-            log(`  ↻ ${coinSlug}/${provider.id} [url${i}]: retrying with extended waitFor...`);
-            await jitter();
-            try {
-              const retryRaw = await scrapeUrl(url, provider.id, 1, coin);
-              // Phase 2 result object — short-circuit retry markdown path
-              if (retryRaw !== null && typeof retryRaw === "object") {
-                price = retryRaw.price;
-                source = retryRaw.source;
-                inStock = retryRaw.inStock;
-                finalUrl = url;
-                log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
-                break;
-              }
-              const retryMd = retryRaw;
-              const retryCleaned = preprocessMarkdown(retryMd, provider.id);
-              const retryStock = detectStockStatus(retryCleaned, coin.weight_oz || 1, provider.id);
-              const retryExtracted = extractPrice(retryCleaned, coin.metal, coin.weight_oz || 1, provider.id);
-              const retryPrice = retryExtracted ? retryExtracted.price : null;
-              if (retryExtracted) log(`  extractPrice ${provider.id}: matched=${retryExtracted.matchedBy} price=$${retryExtracted.price.toFixed(2)} (retry)`);
-              if (retryPrice !== null) {
-                price = retryPrice;
-                source = `firecrawl-retry:${retryExtracted.matchedBy}`;
-                inStock = retryStock.inStock;
-                finalUrl = url;
-                log(`  ✓ ${coinSlug}/${provider.id}: $${retryPrice.toFixed(2)} (firecrawl-retry)${!inStock ? " OOS" : ""}`);
-                break;
-              }
-            } catch (retryErr) {
-              warn(`  ✗ ${provider.id} [url${i}] retry error: ${retryErr.message.slice(0, 100)}`);
-            }
-          }
-
-          warn(`  ? ${coinSlug}/${provider.id} [url${i}]: page loaded, no price — trying next URL`);
-          if (i < urls.length - 1) { await jitter(); continue; }
-
-          // Last URL, Firecrawl parse failure — no more fallbacks
-          finalUrl = url;
-
-        } catch (err) {
-          warn(`  ✗ ${provider.id} [url${i}] firecrawl error: ${err.message.slice(0, 100)}`);
-          if (i < urls.length - 1) { await jitter(); continue; }
-          // Last URL threw — no more fallbacks
-          finalUrl = url;
-        }
-      }
-    }
-
-    // ── Phase 2 fallback: CF-clearance for invisible Cloudflare challenges ──────
-    // Cloudflare's JS challenge returns 200 (not 403), so the in-scrapeUrl 403
-    // trigger never fires. If Phase 0+1 both returned no price for a
-    // cf_clearance_fallback vendor, attempt Byparr now as a last resort.
-    // Skip for cf-clearance-first vendors — they already tried Byparr at the top.
-    if (price === null && inStock && cfg.phase !== "cf-clearance-first") {
-      if (cfg.cf_clearance_fallback && CF_CLEARANCE_ENABLED_FLAG) {
-        log(`  [cf-clearance] ${provider.id}: no price from Phase 0/1 — trying Byparr bypass`);
+      // ── Phase CF-First: Byparr/CF-clearance first (for cf-clearance-first vendors) ─
+      // For vendors where Byparr has 100% success rate (BE, JM), skip the 70s Firecrawl
+      // timeout entirely. If Byparr fails, fall through to Phase 0/1 as safety net.
+      const cfg = providerCfg(provider.id);
+      if (cfg.phase === "cf-clearance-first" && CF_CLEARANCE_ENABLED_FLAG) {
+        log(`  [cf-first] ${provider.id}: trying Byparr first`);
         cfAttempts++;
-        try {
-          const phase2 = await scrapeViaCFClearance(urls[0], provider.id, coin);
-          if (phase2 !== null) {
-            price = phase2.price;
-            source = phase2.source;
-            inStock = phase2.inStock;
-            finalUrl = urls[0];
-            cfSuccess++;
-            log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
-          } else {
-            cfFailures++;
+        const cfResult = await scrapeViaCFClearance(urls[0], provider.id, coin);
+        if (cfResult !== null && cfResult.price !== null) {
+          cfSuccess++;
+          price = cfResult.price;
+          source = cfResult.source;
+          inStock = cfResult.inStock;
+          finalUrl = urls[0];
+          log(
+            `  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (cf-first${!inStock ? ", OOS" : ""})`
+          );
+          scrapeResults.push({
+            coinSlug,
+            coin,
+            providerId: provider.id,
+            url: finalUrl,
+            price,
+            source,
+            inStock,
+            ok: true,
+            error: null,
+          });
+          if (db) {
+            await safeWriteSnapshot(db, {
+              scrapedAt,
+              windowStart: winStart,
+              coinSlug,
+              vendor: provider.id,
+              price,
+              source,
+              isFailed: false,
+              inStock,
+              baseline: _baseline,
+              skipPriceBounds: _skipBounds,
+            });
           }
-        } catch (cfErr) {
-          cfFailures++;
-          warn(`  ✗ ${provider.id} cf-clearance error: ${cfErr.message.slice(0, 100)}`);
+          if (targetIdx < targets.length - 1) {
+            await jitter();
+          }
+          continue;
+        }
+        // Byparr returned null or no price — OOS with no price is still useful
+        if (cfResult !== null && cfResult.price === null && !cfResult.inStock) {
+          cfSuccess++;
+          log(`  ✓ ${coinSlug}/${provider.id}: OOS detected (cf-first, no price)`);
+          scrapeResults.push({
+            coinSlug,
+            coin,
+            providerId: provider.id,
+            url: finalUrl,
+            price: null,
+            source: cfResult.source,
+            inStock: false,
+            ok: true,
+            error: null,
+          });
+          if (db) {
+            await safeWriteSnapshot(db, {
+              scrapedAt,
+              windowStart: winStart,
+              coinSlug,
+              vendor: provider.id,
+              price: null,
+              source: cfResult.source,
+              isFailed: false,
+              inStock: false,
+              baseline: _baseline,
+              skipPriceBounds: _skipBounds,
+            });
+          }
+          if (targetIdx < targets.length - 1) {
+            await jitter();
+          }
+          continue;
+        }
+        cfFailures++;
+        log(`  ↻ ${coinSlug}/${provider.id}: cf-first failed — falling through to Phase 0/1`);
+      }
+
+      // ── Phase 0: Try Playwright direct (no proxy, 15s timeout) ──────────────
+      // Fast first-pass — succeeds for ~65/88 targets in <5s. If it gets a price,
+      // skip Firecrawl entirely. Skip for PLAYWRIGHT_ONLY_PROVIDERS (they need
+      // Firecrawl's stealth patches) and FIRECRAWL_PREFERRED_PROVIDERS (they need
+      // Firecrawl's markdown pipe-table conversion for correct extraction).
+      // Exception: goldback slugs are individual product detail pages with a single
+      // prominently-displayed price — not HTML pricing tables — so Phase 0 Playwright
+      // extracts prices correctly for table-parse vendors (apmex, monumentmetals).
+      // Bot-detection vendors (jmbullion, bullionexchanges) are NOT bypassed: they
+      // still need Firecrawl stealth even on goldback detail pages (API-14).
+      const isGoldback = coinSlug.startsWith("goldback");
+      const fcPreferredForTarget =
+        FIRECRAWL_PREFERRED_PROVIDERS.has(provider.id) &&
+        !(isGoldback && FIRECRAWL_TABLE_PARSE_PROVIDERS.has(provider.id));
+      if (
+        !PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id) &&
+        !fcPreferredForTarget &&
+        PLAYWRIGHT_LAUNCH
+      ) {
+        const directResult = await scrapeWithPlaywrightDirect(urls[0], provider.id, coin);
+        if (directResult !== null) {
+          price = directResult.price;
+          source = directResult.source;
+          inStock = directResult.inStock;
+          finalUrl = urls[0];
+          log(
+            `  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (playwright-direct${!inStock ? ", OOS" : ""})`
+          );
+          // Skip Firecrawl — go straight to store result
+          scrapeResults.push({
+            coinSlug,
+            coin,
+            providerId: provider.id,
+            url: finalUrl,
+            price,
+            source,
+            inStock,
+            ok: true,
+            error: null,
+          });
+          if (db) {
+            await safeWriteSnapshot(db, {
+              scrapedAt,
+              windowStart: winStart,
+              coinSlug,
+              vendor: provider.id,
+              price,
+              source,
+              isFailed: false,
+              inStock,
+              baseline: _baseline,
+              skipPriceBounds: _skipBounds,
+            });
+          }
+          if (targetIdx < targets.length - 1) {
+            await jitter();
+          }
+          continue;
         }
       }
-    }
 
-    // Log terminal state if not already logged
-    if (price === null && inStock) {
-      warn(`  ? ${coinSlug}/${provider.id}: all URLs exhausted, no price found`);
-    } else if (price === null && !inStock) {
-      // OOS already logged per-URL above
-    }
+      // ── Phase 1: Try all URLs via Firecrawl ──────────────────────────────────
+      // Skip Phase 1 for providers where Firecrawl is structurally unreliable
+      // (bot detection or waitFor-not-supported JS rendering). price/inStock stay
+      // at their defaults (null / true) so the failure path fires below.
+      if (!PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id)) {
+        for (let i = 0; i < urls.length; i++) {
+          const url = urls[i];
+          if (i > 0) log(`  → ${coinSlug}/${provider.id}: fallback URL [${i}]: ${url}`);
 
-    // ── Store result ──────────────────────────────────────────────────────────
-    // OOS with a price is a successful scrape — the advertised price is valid data.
-    // Only count as failure if in-stock but no price found (actual scrape failure).
-    const scrapeOk = price !== null || !inStock;
-    scrapeResults.push({
-      coinSlug, coin, providerId: provider.id, url: finalUrl,
-      price, source, inStock, ok: scrapeOk,
-      error: price === null && inStock ? "price_not_found" : null,
-    });
+          try {
+            // Proxy-first path: if this provider routes through an alternate IP,
+            // try the proxied playwright-service first (e.g., Fly.io IP for BEx).
+            let markdown;
+            const proxyTarget = resolveProxy(provider.id);
+            if (proxyTarget) {
+              try {
+                const cfg = providerCfg(provider.id);
+                const proxyText = await scrapeViaProxy(url, cfg.waitFor, cfg.timeout);
+                // scrapeViaProxy returns plain text (like Phase 0), not markdown.
+                // Use it directly for extraction — preprocessMarkdown handles both.
+                const proxyCleaned = preprocessMarkdown(proxyText, provider.id);
+                const proxyStock = detectStockStatus(
+                  proxyCleaned,
+                  coin.weight_oz || 1,
+                  provider.id
+                );
+                const proxyExtracted = extractPrice(
+                  proxyCleaned,
+                  coin.metal,
+                  coin.weight_oz || 1,
+                  provider.id
+                );
+                if (proxyExtracted) {
+                  log(
+                    `  extractPrice ${provider.id}: matched=${proxyExtracted.matchedBy} price=$${proxyExtracted.price.toFixed(2)} (fly-proxy)`
+                  );
+                  price = proxyExtracted.price;
+                  source = `fly-proxy:${proxyExtracted.matchedBy}`;
+                  inStock = proxyStock.inStock;
+                  finalUrl = url;
+                  log(
+                    `  \u2713 ${coinSlug}/${provider.id}: $${price.toFixed(2)} (fly-proxy)${!inStock ? " OOS" : ""}`
+                  );
+                  break;
+                }
+                log(
+                  `  \u21bb ${coinSlug}/${provider.id}: fly-proxy returned no price, falling back to firecrawl`
+                );
+              } catch (proxyErr) {
+                warn(
+                  `  \u2717 ${provider.id} fly-proxy error: ${proxyErr.message.slice(0, 80)}, falling back`
+                );
+              }
+            }
+            const scrapeResult = await scrapeUrl(url, provider.id, 1, coin);
+            // Phase 2 (CF-clearance) returns an object directly — short-circuit markdown path
+            if (scrapeResult !== null && typeof scrapeResult === "object") {
+              price = scrapeResult.price;
+              source = scrapeResult.source;
+              inStock = scrapeResult.inStock;
+              finalUrl = url;
+              log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+              break;
+            }
+            markdown = scrapeResult;
+            const cleaned = preprocessMarkdown(markdown, provider.id);
+            const stock = detectStockStatus(cleaned, coin.weight_oz || 1, provider.id);
 
-    // Record to sqld
-    if (db) {
-      await safeWriteSnapshot(db, {
-        scrapedAt,
-        windowStart: winStart,
+            if (!stock.inStock) {
+              log(
+                `  ⚠ ${provider.id} [url${i}]: ${stock.reason} — ${stock.detectedText || "detected"}`
+              );
+              // Still attempt price extraction — OOS pages often show advertised price
+              const oosExtracted = extractPrice(
+                cleaned,
+                coin.metal,
+                coin.weight_oz || 1,
+                provider.id
+              );
+              const oosPrice = oosExtracted ? oosExtracted.price : null;
+              if (oosExtracted)
+                log(
+                  `  extractPrice ${provider.id}: matched=${oosExtracted.matchedBy} price=$${oosExtracted.price.toFixed(2)} (OOS)`
+                );
+              if (oosPrice !== null) {
+                price = oosPrice;
+                source = `firecrawl:${oosExtracted.matchedBy}`;
+                finalUrl = url;
+                log(`  ✓ ${coinSlug}/${provider.id}: $${oosPrice.toFixed(2)} (firecrawl, OOS)`);
+              }
+              if (i < urls.length - 1 && oosPrice === null) {
+                await jitter();
+                continue;
+              }
+              // Last URL or got a price — exit loop with inStock=false
+              inStock = false;
+              if (!finalUrl || finalUrl !== url) finalUrl = url;
+              break;
+            }
+
+            const extracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, provider.id);
+            const p = extracted ? extracted.price : null;
+            if (extracted)
+              log(
+                `  extractPrice ${provider.id}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`
+              );
+            if (p !== null) {
+              price = p;
+              source = `firecrawl:${extracted.matchedBy}`;
+              finalUrl = url;
+              log(
+                `  ✓ ${coinSlug}/${provider.id}: $${p.toFixed(2)} (firecrawl)${urls.length > 1 ? ` [url${i}]` : ""}`
+              );
+              break;
+            }
+
+            // Parse failure on this URL — retry once with longer wait for FIRECRAWL_PREFERRED
+            // providers (jmbullion, bullionexchanges) where proxy latency can cause under-render.
+            if (FIRECRAWL_PREFERRED_PROVIDERS.has(provider.id) && !_retriedUrls.has(url)) {
+              _retriedUrls.add(url);
+              log(`  ↻ ${coinSlug}/${provider.id} [url${i}]: retrying with extended waitFor...`);
+              await jitter();
+              try {
+                const retryRaw = await scrapeUrl(url, provider.id, 1, coin);
+                // Phase 2 result object — short-circuit retry markdown path
+                if (retryRaw !== null && typeof retryRaw === "object") {
+                  price = retryRaw.price;
+                  source = retryRaw.source;
+                  inStock = retryRaw.inStock;
+                  finalUrl = url;
+                  log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+                  break;
+                }
+                const retryMd = retryRaw;
+                const retryCleaned = preprocessMarkdown(retryMd, provider.id);
+                const retryStock = detectStockStatus(
+                  retryCleaned,
+                  coin.weight_oz || 1,
+                  provider.id
+                );
+                const retryExtracted = extractPrice(
+                  retryCleaned,
+                  coin.metal,
+                  coin.weight_oz || 1,
+                  provider.id
+                );
+                const retryPrice = retryExtracted ? retryExtracted.price : null;
+                if (retryExtracted)
+                  log(
+                    `  extractPrice ${provider.id}: matched=${retryExtracted.matchedBy} price=$${retryExtracted.price.toFixed(2)} (retry)`
+                  );
+                if (retryPrice !== null) {
+                  price = retryPrice;
+                  source = `firecrawl-retry:${retryExtracted.matchedBy}`;
+                  inStock = retryStock.inStock;
+                  finalUrl = url;
+                  log(
+                    `  ✓ ${coinSlug}/${provider.id}: $${retryPrice.toFixed(2)} (firecrawl-retry)${!inStock ? " OOS" : ""}`
+                  );
+                  break;
+                }
+              } catch (retryErr) {
+                warn(`  ✗ ${provider.id} [url${i}] retry error: ${retryErr.message.slice(0, 100)}`);
+              }
+            }
+
+            warn(
+              `  ? ${coinSlug}/${provider.id} [url${i}]: page loaded, no price — trying next URL`
+            );
+            if (i < urls.length - 1) {
+              await jitter();
+              continue;
+            }
+
+            // Last URL, Firecrawl parse failure — no more fallbacks
+            finalUrl = url;
+          } catch (err) {
+            warn(`  ✗ ${provider.id} [url${i}] firecrawl error: ${err.message.slice(0, 100)}`);
+            if (i < urls.length - 1) {
+              await jitter();
+              continue;
+            }
+            // Last URL threw — no more fallbacks
+            finalUrl = url;
+          }
+        }
+      }
+
+      // ── Phase 2 fallback: CF-clearance for invisible Cloudflare challenges ──────
+      // Cloudflare's JS challenge returns 200 (not 403), so the in-scrapeUrl 403
+      // trigger never fires. If Phase 0+1 both returned no price for a
+      // cf_clearance_fallback vendor, attempt Byparr now as a last resort.
+      // Skip for cf-clearance-first vendors — they already tried Byparr at the top.
+      if (price === null && inStock && cfg.phase !== "cf-clearance-first") {
+        if (cfg.cf_clearance_fallback && CF_CLEARANCE_ENABLED_FLAG) {
+          log(`  [cf-clearance] ${provider.id}: no price from Phase 0/1 — trying Byparr bypass`);
+          cfAttempts++;
+          try {
+            const phase2 = await scrapeViaCFClearance(urls[0], provider.id, coin);
+            if (phase2 !== null) {
+              price = phase2.price;
+              source = phase2.source;
+              inStock = phase2.inStock;
+              finalUrl = urls[0];
+              cfSuccess++;
+              log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+            } else {
+              cfFailures++;
+            }
+          } catch (cfErr) {
+            cfFailures++;
+            warn(`  ✗ ${provider.id} cf-clearance error: ${cfErr.message.slice(0, 100)}`);
+          }
+        }
+      }
+
+      // Log terminal state if not already logged
+      if (price === null && inStock) {
+        warn(`  ? ${coinSlug}/${provider.id}: all URLs exhausted, no price found`);
+      } else if (price === null && !inStock) {
+        // OOS already logged per-URL above
+      }
+
+      // ── Store result ──────────────────────────────────────────────────────────
+      // OOS with a price is a successful scrape — the advertised price is valid data.
+      // Only count as failure if in-stock but no price found (actual scrape failure).
+      const scrapeOk = price !== null || !inStock;
+      scrapeResults.push({
         coinSlug,
-        vendor:    provider.id,
+        coin,
+        providerId: provider.id,
+        url: finalUrl,
         price,
         source,
-        isFailed:  price === null && inStock,  // Only failed if in stock but no price
-        baseline: _baseline, skipPriceBounds: _skipBounds,
         inStock,
+        ok: scrapeOk,
+        error: price === null && inStock ? "price_not_found" : null,
       });
 
-      // Record individual failure for failure queue (R10)
-      if (price === null && inStock) {
-        try {
-          await recordFailure(db, {
-            coinSlug,
-            vendorId: provider.id,
-            url: finalUrl || urls[0],
-            error: "price_not_found",
-            failedAt: scrapedAt,
-          });
-        } catch (err) {
-          warn(`Failure log failed (non-fatal): ${err.message.slice(0, 80)}`);
+      // Record to sqld
+      if (db) {
+        await safeWriteSnapshot(db, {
+          scrapedAt,
+          windowStart: winStart,
+          coinSlug,
+          vendor: provider.id,
+          price,
+          source,
+          isFailed: price === null && inStock, // Only failed if in stock but no price
+          baseline: _baseline,
+          skipPriceBounds: _skipBounds,
+          inStock,
+        });
+
+        // Record individual failure for failure queue (R10)
+        if (price === null && inStock) {
+          try {
+            await recordFailure(db, {
+              coinSlug,
+              vendorId: provider.id,
+              url: finalUrl || urls[0],
+              error: "price_not_found",
+              failedAt: scrapedAt,
+            });
+          } catch (err) {
+            warn(`Failure log failed (non-fatal): ${err.message.slice(0, 80)}`);
+          }
         }
+      }
+
+      // Jitter before next request (skip after last target)
+      if (targetIdx < targets.length - 1) {
+        await jitter();
       }
     }
 
-    // Jitter before next request (skip after last target)
-    if (targetIdx < targets.length - 1) {
-      await jitter();
+    const ok = scrapeResults.filter((r) => r.ok).length;
+    const fail = scrapeResults.length - ok;
+
+    log(
+      `Done: ${ok}/${scrapeResults.length} prices captured, ${fail} failures, ${_dbWriteFailures} DB write errors, cf-clearance: ${cfAttempts} attempts ${cfSuccess} ok ${cfFailures} failed`
+    );
+
+    // Finish run log entry in sqld
+    if (db && runId) {
+      try {
+        const errorMsg =
+          ok === 0
+            ? "All scrapes failed"
+            : _dbWriteFailures > 0
+              ? `${_dbWriteFailures} DB write(s) failed`
+              : null;
+        await finishRunLog(db, {
+          runId,
+          finishedAt: new Date().toISOString(),
+          captured: ok,
+          failures: fail,
+          fbpFilled: 0,
+          error: errorMsg,
+        });
+      } catch (err) {
+        warn(`Run log finish failed (non-fatal): ${err.message.slice(0, 80)}`);
+      }
     }
-  }
 
-  const ok = scrapeResults.filter(r => r.ok).length;
-  const fail = scrapeResults.length - ok;
-
-  log(`Done: ${ok}/${scrapeResults.length} prices captured, ${fail} failures, ${_dbWriteFailures} DB write errors, cf-clearance: ${cfAttempts} attempts ${cfSuccess} ok ${cfFailures} failed`);
-
-  // Finish run log entry in sqld
-  if (db && runId) {
-    try {
-      const errorMsg = ok === 0 ? "All scrapes failed"
-        : _dbWriteFailures > 0 ? `${_dbWriteFailures} DB write(s) failed`
-        : null;
-      await finishRunLog(db, {
-        runId,
-        finishedAt: new Date().toISOString(),
-        captured: ok,
-        failures: fail,
-        fbpFilled: 0,
-        error: errorMsg,
-      });
-    } catch (err) {
-      warn(`Run log finish failed (non-fatal): ${err.message.slice(0, 80)}`);
+    if (ok === 0) {
+      console.error("All scrapes failed.");
+      process.exit(1);
     }
-  }
-
-  if (ok === 0) {
-    console.error("All scrapes failed.");
-    process.exit(1);
-  }
-
   } finally {
     if (db) db.close();
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error("Fatal:", err);
   process.exit(1);
 });

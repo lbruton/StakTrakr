@@ -1,783 +1,1661 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Design System Preview: StakTrakr</title>
-  <style>
-    /* ─── Theme tokens (extracted from css/styles.css) ─── */
-    :root {
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --secondary: #8b93a6;
-      --secondary-hover: #6b7280;
-      --success: #059669;
-      --success-hover: #047857;
-      --info: #0ea5e9;
-      --info-hover: #0284c7;
-      --warning: #d97706;
-      --warning-hover: #b45309;
-      --danger: #dc2626;
-      --danger-hover: #b91c1c;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Design System Preview: StakTrakr</title>
+    <style>
+      /* ─── Theme tokens (extracted from css/styles.css) ─── */
+      :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --secondary: #8b93a6;
+        --secondary-hover: #6b7280;
+        --success: #059669;
+        --success-hover: #047857;
+        --info: #0ea5e9;
+        --info-hover: #0284c7;
+        --warning: #d97706;
+        --warning-hover: #b45309;
+        --danger: #dc2626;
+        --danger-hover: #b91c1c;
 
-      --bg: #e2e8f0;
-      --bg-elev-1: #eef2f7;
-      --bg-elev-2: #cbd5e1;
-      --surface: #f8fafc;
-      --surface-alt: #ffffff;
-      --bg-primary: var(--bg);
-      --bg-secondary: var(--bg-elev-1);
-      --bg-tertiary: var(--bg-elev-2);
-      --bg-card: var(--surface);
+        --bg: #e2e8f0;
+        --bg-elev-1: #eef2f7;
+        --bg-elev-2: #cbd5e1;
+        --surface: #f8fafc;
+        --surface-alt: #ffffff;
+        --bg-primary: var(--bg);
+        --bg-secondary: var(--bg-elev-1);
+        --bg-tertiary: var(--bg-elev-2);
+        --bg-card: var(--surface);
 
-      --text: #1b232c;
-      --text-muted: #344351;
-      --text-primary: var(--text);
-      --text-secondary: var(--text-muted);
+        --text: #1b232c;
+        --text-muted: #344351;
+        --text-primary: var(--text);
+        --text-secondary: var(--text-muted);
 
-      --border: #94a3b8;
-      --border-hover: #64748b;
-      --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --border: #94a3b8;
+        --border-hover: #64748b;
+        --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
-      --silver: #5f6673;
-      --gold: #a04808;
-      --platinum: #4b5563;
-      --palladium: #6d35d0;
+        --silver: #5f6673;
+        --gold: #a04808;
+        --platinum: #4b5563;
+        --palladium: #6d35d0;
 
-      --radius: 8px;
-      --radius-lg: 12px;
-      --spacing-xs: 0.2rem;
-      --spacing-sm: 0.4rem;
-      --spacing: 0.75rem;
-      --spacing-lg: 1.25rem;
-      --spacing-xl: 1.5rem;
-      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
+        --radius: 8px;
+        --radius-lg: 12px;
+        --spacing-xs: 0.2rem;
+        --spacing-sm: 0.4rem;
+        --spacing: 0.75rem;
+        --spacing-lg: 1.25rem;
+        --spacing-xl: 1.5rem;
+        --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
 
-    [data-theme="dark"] {
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --secondary: #6b7280;
-      --secondary-hover: #9ca3af;
-      --success: #10b981;
-      --success-hover: #059669;
-      --info: #38bdf8;
-      --info-hover: #0ea5e9;
-      --warning: #f59e0b;
-      --warning-hover: #d97706;
-      --danger: #ef4444;
-      --danger-hover: #dc2626;
+      [data-theme="dark"] {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --secondary: #6b7280;
+        --secondary-hover: #9ca3af;
+        --success: #10b981;
+        --success-hover: #059669;
+        --info: #38bdf8;
+        --info-hover: #0ea5e9;
+        --warning: #f59e0b;
+        --warning-hover: #d97706;
+        --danger: #ef4444;
+        --danger-hover: #dc2626;
 
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --bg-tertiary: #334155;
-      --bg-card: #1e293b;
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --bg-card: #1e293b;
 
-      --text-primary: #f8fafc;
-      --text-secondary: #cbd5e1;
-      --text-muted: #94a3b8;
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
 
-      --border: #334155;
-      --border-hover: #475569;
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+        --border: #334155;
+        --border-hover: #475569;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 
-      --silver: #d1d5db;
-      --gold: #fbbf24;
-      --platinum: #f3f4f6;
-      --palladium: #d8b4fe;
-    }
+        --silver: #d1d5db;
+        --gold: #fbbf24;
+        --platinum: #f3f4f6;
+        --palladium: #d8b4fe;
+      }
 
-    /* ─── Base reset ─── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html {
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      -webkit-font-smoothing: antialiased;
-      line-height: 1.6;
-    }
-    body { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+      /* ─── Base reset ─── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.6;
+      }
+      body {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
 
-    /* ─── Preview chrome ─── */
-    .preview-nav {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: var(--spacing); background: var(--bg-card);
-      border-radius: var(--radius-lg); border: 1px solid var(--border);
-      box-shadow: var(--shadow-sm); margin-bottom: var(--spacing-xl);
-    }
-    .preview-nav-logo { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
-    .preview-nav-links { display: flex; gap: 1rem; }
-    .preview-nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 0.875rem; font-weight: 500; }
-    .preview-nav-links a:hover { color: var(--primary); }
+      /* ─── Preview chrome ─── */
+      .preview-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--spacing);
+        background: var(--bg-card);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: var(--spacing-xl);
+      }
+      .preview-nav-logo {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .preview-nav-links {
+        display: flex;
+        gap: 1rem;
+      }
+      .preview-nav-links a {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+      .preview-nav-links a:hover {
+        color: var(--primary);
+      }
 
-    .preview-hero {
-      text-align: center; padding: 3rem var(--spacing-xl);
-      background: var(--bg-card); border-radius: var(--radius-lg);
-      border: 1px solid var(--border); box-shadow: var(--shadow);
-      margin-bottom: var(--spacing-xl);
-    }
-    .preview-hero h1 { font-size: 1.875rem; font-weight: 700; color: var(--primary); letter-spacing: -0.025em; margin-bottom: var(--spacing); }
-    .preview-hero p { color: var(--text-secondary); font-size: 1.125rem; max-width: 600px; margin: 0 auto; }
+      .preview-hero {
+        text-align: center;
+        padding: 3rem var(--spacing-xl);
+        background: var(--bg-card);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        margin-bottom: var(--spacing-xl);
+      }
+      .preview-hero h1 {
+        font-size: 1.875rem;
+        font-weight: 700;
+        color: var(--primary);
+        letter-spacing: -0.025em;
+        margin-bottom: var(--spacing);
+      }
+      .preview-hero p {
+        color: var(--text-secondary);
+        font-size: 1.125rem;
+        max-width: 600px;
+        margin: 0 auto;
+      }
 
-    .section {
-      background: var(--bg-card); padding: var(--spacing-xl); border-radius: var(--radius-lg);
-      border: 1px solid var(--border); box-shadow: var(--shadow);
-      margin-bottom: var(--spacing-xl); transition: var(--transition);
-    }
-    .section:hover { box-shadow: var(--shadow-lg); }
-    .section h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: var(--spacing-lg); }
-    .section h3 { font-size: 1rem; font-weight: 600; margin: var(--spacing-lg) 0 var(--spacing-sm); color: var(--text-secondary); }
+      .section {
+        background: var(--bg-card);
+        padding: var(--spacing-xl);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        margin-bottom: var(--spacing-xl);
+        transition: var(--transition);
+      }
+      .section:hover {
+        box-shadow: var(--shadow-lg);
+      }
+      .section h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: var(--spacing-lg);
+      }
+      .section h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: var(--spacing-lg) 0 var(--spacing-sm);
+        color: var(--text-secondary);
+      }
 
-    .theme-toggle {
-      display: inline-flex; gap: 0.5rem;
-    }
-    .theme-toggle button {
-      padding: 0.4rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius);
-      background: var(--bg-primary); color: var(--text-primary); font-size: 0.8rem;
-      cursor: pointer; transition: var(--transition);
-    }
-    .theme-toggle button:hover { border-color: var(--primary); color: var(--primary); }
-    .theme-toggle button.active { background: var(--primary); color: #f8fafc; border-color: var(--primary); }
+      .theme-toggle {
+        display: inline-flex;
+        gap: 0.5rem;
+      }
+      .theme-toggle button {
+        padding: 0.4rem 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+      .theme-toggle button:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .theme-toggle button.active {
+        background: var(--primary);
+        color: #f8fafc;
+        border-color: var(--primary);
+      }
 
-    /* ─── Color swatches ─── */
-    .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--spacing); }
-    .color-swatch {
-      border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border);
-      box-shadow: var(--shadow-sm); transition: var(--transition);
-    }
-    .color-swatch:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-    .color-swatch-block { height: 60px; }
-    .color-swatch-info { padding: 0.5rem 0.6rem; background: var(--bg-secondary); }
-    .color-swatch-name { font-size: 0.75rem; font-weight: 600; }
-    .color-swatch-hex { font-size: 0.7rem; color: var(--text-secondary); font-family: monospace; }
-    .color-swatch-var { font-size: 0.65rem; color: var(--text-muted, var(--text-secondary)); font-family: monospace; }
+      /* ─── Color swatches ─── */
+      .color-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: var(--spacing);
+      }
+      .color-swatch {
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition);
+      }
+      .color-swatch:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+      }
+      .color-swatch-block {
+        height: 60px;
+      }
+      .color-swatch-info {
+        padding: 0.5rem 0.6rem;
+        background: var(--bg-secondary);
+      }
+      .color-swatch-name {
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .color-swatch-hex {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        font-family: monospace;
+      }
+      .color-swatch-var {
+        font-size: 0.65rem;
+        color: var(--text-muted, var(--text-secondary));
+        font-family: monospace;
+      }
 
-    /* ─── Typography samples ─── */
-    .type-table { width: 100%; border-collapse: collapse; }
-    .type-table th, .type-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
-    .type-table th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 500; }
+      /* ─── Typography samples ─── */
+      .type-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .type-table th,
+      .type-table td {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+      .type-table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
 
-    /* ─── Buttons ─── */
-    .btn-row { display: flex; flex-wrap: wrap; gap: var(--spacing); align-items: center; }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      gap: 0.5rem; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius);
-      font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: var(--transition);
-      position: relative; overflow: hidden; min-height: 2.75rem;
-      background: var(--primary); color: #f8fafc; text-decoration: none;
-      font-family: inherit;
-    }
-    .btn::before {
-      content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(248, 250, 252, 0.2), transparent);
-      transition: left 0.5s;
-    }
-    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow); }
-    .btn:hover::before { left: 100%; }
-    .btn:active { transform: translateY(0); }
-    .btn.danger { background: var(--danger); }
-    .btn.danger:hover { background: var(--danger-hover); }
-    .btn.success { background: var(--success); }
-    .btn.success:hover { background: var(--success-hover); }
-    .btn.info { background: var(--info); }
-    .btn.info:hover { background: var(--info-hover); }
-    .btn.secondary { background: var(--secondary); }
-    .btn.secondary:hover { background: var(--secondary-hover); }
-    .btn.warning { background: var(--warning); color: var(--text-primary); }
-    .btn.warning:hover { background: var(--warning-hover); }
-    .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; min-height: auto; }
-    .btn[disabled] { opacity: 0.5; cursor: not-allowed; transform: none !important; }
-    .btn[disabled]:hover { box-shadow: none; }
-    .btn[disabled]::before { display: none; }
+      /* ─── Buttons ─── */
+      .btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing);
+        align-items: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        min-height: 2.75rem;
+        background: var(--primary);
+        color: #f8fafc;
+        text-decoration: none;
+        font-family: inherit;
+      }
+      .btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(248, 250, 252, 0.2), transparent);
+        transition: left 0.5s;
+      }
+      .btn:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+      }
+      .btn:hover::before {
+        left: 100%;
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .btn.danger {
+        background: var(--danger);
+      }
+      .btn.danger:hover {
+        background: var(--danger-hover);
+      }
+      .btn.success {
+        background: var(--success);
+      }
+      .btn.success:hover {
+        background: var(--success-hover);
+      }
+      .btn.info {
+        background: var(--info);
+      }
+      .btn.info:hover {
+        background: var(--info-hover);
+      }
+      .btn.secondary {
+        background: var(--secondary);
+      }
+      .btn.secondary:hover {
+        background: var(--secondary-hover);
+      }
+      .btn.warning {
+        background: var(--warning);
+        color: var(--text-primary);
+      }
+      .btn.warning:hover {
+        background: var(--warning-hover);
+      }
+      .btn-sm {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.8rem;
+        min-height: auto;
+      }
+      .btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+      .btn[disabled]:hover {
+        box-shadow: none;
+      }
+      .btn[disabled]::before {
+        display: none;
+      }
 
-    /* ─── Cards ─── */
-    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--spacing); }
-    .card {
-      background: var(--bg-card); padding: var(--spacing-xl); border-radius: var(--radius-lg);
-      border: 1px solid var(--border); box-shadow: var(--shadow); transition: var(--transition);
-    }
-    .card:hover { box-shadow: var(--shadow-lg); }
-    .card-title { font-size: 0.88rem; font-weight: 600; line-height: 1.3; margin-bottom: var(--spacing-sm); letter-spacing: -0.01em; }
-    .card-meta { font-size: 0.75rem; color: var(--text-secondary); }
-    .card-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); margin: var(--spacing-sm) 0; }
+      /* ─── Cards ─── */
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: var(--spacing);
+      }
+      .card {
+        background: var(--bg-card);
+        padding: var(--spacing-xl);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        transition: var(--transition);
+      }
+      .card:hover {
+        box-shadow: var(--shadow-lg);
+      }
+      .card-title {
+        font-size: 0.88rem;
+        font-weight: 600;
+        line-height: 1.3;
+        margin-bottom: var(--spacing-sm);
+        letter-spacing: -0.01em;
+      }
+      .card-meta {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+      .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin: var(--spacing-sm) 0;
+      }
 
-    /* ─── Spot Price Card ─── */
-    .spot-card {
-      position: relative; background: var(--bg-primary); border-radius: var(--radius-lg);
-      border: 1px solid var(--border); box-shadow: var(--shadow-sm);
-      text-align: center; overflow: hidden; padding: 0;
-    }
-    .spot-card-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: var(--spacing) var(--spacing) 0;
-    }
-    .spot-card-label { font-size: 0.75rem; color: var(--text-muted, var(--text-secondary)); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
-    .spot-card-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); padding: 0 var(--spacing); }
-    .spot-card-change { font-size: 0.8rem; font-weight: 600; padding: 2px 0; }
-    .spot-card-timestamp { font-size: 0.7rem; color: var(--text-muted, var(--text-secondary)); padding: 0 var(--spacing) var(--spacing); }
-    .spot-up { color: var(--success); }
-    .spot-down { color: var(--danger); }
+      /* ─── Spot Price Card ─── */
+      .spot-card {
+        position: relative;
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        text-align: center;
+        overflow: hidden;
+        padding: 0;
+      }
+      .spot-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--spacing) var(--spacing) 0;
+      }
+      .spot-card-label {
+        font-size: 0.75rem;
+        color: var(--text-muted, var(--text-secondary));
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+      }
+      .spot-card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+        padding: 0 var(--spacing);
+      }
+      .spot-card-change {
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 2px 0;
+      }
+      .spot-card-timestamp {
+        font-size: 0.7rem;
+        color: var(--text-muted, var(--text-secondary));
+        padding: 0 var(--spacing) var(--spacing);
+      }
+      .spot-up {
+        color: var(--success);
+      }
+      .spot-down {
+        color: var(--danger);
+      }
 
-    /* ─── Chips ─── */
-    .chip-row { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); align-items: center; }
-    .filter-chip {
-      display: inline-flex; align-items: center; gap: var(--spacing-xs);
-      padding: 0.25rem 0.5rem; border-radius: var(--radius); font-size: 0.75rem;
-      font-weight: 500; height: 1.5rem; line-height: 1; cursor: pointer;
-      transition: var(--transition); box-shadow: var(--shadow-sm); white-space: nowrap;
-      border: none;
-    }
-    .filter-chip:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: var(--shadow); }
-    .filter-chip-active { outline: 2px solid rgba(0, 0, 0, 0.75); outline-offset: 1px; }
-    [data-theme="dark"] .filter-chip-active { outline-color: rgba(255, 255, 255, 0.9); }
-    .cv-chip {
-      display: inline-flex; align-items: center; padding: 0.1rem 0.45rem;
-      border-radius: 999px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap;
-    }
+      /* ─── Chips ─── */
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+        align-items: center;
+      }
+      .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--radius);
+        font-size: 0.75rem;
+        font-weight: 500;
+        height: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+        white-space: nowrap;
+        border: none;
+      }
+      .filter-chip:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+      }
+      .filter-chip-active {
+        outline: 2px solid rgba(0, 0, 0, 0.75);
+        outline-offset: 1px;
+      }
+      [data-theme="dark"] .filter-chip-active {
+        outline-color: rgba(255, 255, 255, 0.9);
+      }
+      .cv-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.1rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
 
-    /* ─── Form inputs ─── */
-    .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing); }
-    .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
-    .form-group label { font-weight: 500; font-size: 0.875rem; color: var(--text-primary); }
-    input[type="text"], input[type="number"], select {
-      width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: var(--radius);
-      background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 1rem;
-      transition: var(--transition);
-    }
-    input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1); }
+      /* ─── Form inputs ─── */
+      .input-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing);
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .form-group label {
+        font-weight: 500;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+      }
+      input[type="text"],
+      input[type="number"],
+      select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 1rem;
+        transition: var(--transition);
+      }
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+      }
 
-    /* ─── Badges ─── */
-    .badge-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-    .shield-badge {
-      display: inline-flex; height: 20px; border-radius: 3px; overflow: hidden;
-      font-family: 'Verdana', 'DejaVu Sans', sans-serif; font-size: 11px;
-      vertical-align: middle; text-decoration: none; line-height: 20px;
-    }
-    .shield-badge-label { padding: 0 6px; background: #555; color: #fff; white-space: nowrap; }
-    .shield-badge-value { padding: 0 6px; white-space: nowrap; }
-    .shield-badge-value--brightgreen { background: #4c1; color: #1a1a1a; }
-    .shield-badge-value--green { background: #97ca00; color: #1a1a1a; }
-    .shield-badge-value--yellow { background: #dfb317; color: #1a1a1a; }
-    .shield-badge-value--orange { background: #fe7d37; color: #1a1a1a; }
-    .shield-badge-value--red { background: #e05d44; color: #fff; }
-    .shield-badge-value--blue { background: #0969da; color: #fff; }
-    .shield-badge-value--grey { background: #9f9f9f; color: #1a1a1a; }
+      /* ─── Badges ─── */
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .shield-badge {
+        display: inline-flex;
+        height: 20px;
+        border-radius: 3px;
+        overflow: hidden;
+        font-family: "Verdana", "DejaVu Sans", sans-serif;
+        font-size: 11px;
+        vertical-align: middle;
+        text-decoration: none;
+        line-height: 20px;
+      }
+      .shield-badge-label {
+        padding: 0 6px;
+        background: #555;
+        color: #fff;
+        white-space: nowrap;
+      }
+      .shield-badge-value {
+        padding: 0 6px;
+        white-space: nowrap;
+      }
+      .shield-badge-value--brightgreen {
+        background: #4c1;
+        color: #1a1a1a;
+      }
+      .shield-badge-value--green {
+        background: #97ca00;
+        color: #1a1a1a;
+      }
+      .shield-badge-value--yellow {
+        background: #dfb317;
+        color: #1a1a1a;
+      }
+      .shield-badge-value--orange {
+        background: #fe7d37;
+        color: #1a1a1a;
+      }
+      .shield-badge-value--red {
+        background: #e05d44;
+        color: #fff;
+      }
+      .shield-badge-value--blue {
+        background: #0969da;
+        color: #fff;
+      }
+      .shield-badge-value--grey {
+        background: #9f9f9f;
+        color: #1a1a1a;
+      }
 
-    .disposition-badge {
-      display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 2px 8px;
-      border-radius: 10px; text-transform: uppercase; letter-spacing: 0.04em;
-    }
-    .disposition-badge--sold { background: hsla(142, 60%, 45%, 0.18); color: hsla(142, 60%, 35%, 1); }
-    .disposition-badge--traded { background: hsla(210, 70%, 50%, 0.18); color: hsla(210, 70%, 40%, 1); }
-    .disposition-badge--lost { background: hsla(0, 70%, 50%, 0.18); color: hsla(0, 70%, 40%, 1); }
-    .disposition-badge--gifted { background: hsla(270, 60%, 55%, 0.18); color: hsla(270, 60%, 42%, 1); }
-    .disposition-badge--returned { background: hsla(30, 80%, 50%, 0.18); color: hsla(30, 80%, 38%, 1); }
-    [data-theme="dark"] .disposition-badge--sold { color: hsla(142, 60%, 65%, 1); }
-    [data-theme="dark"] .disposition-badge--traded { color: hsla(210, 70%, 70%, 1); }
-    [data-theme="dark"] .disposition-badge--lost { color: hsla(0, 70%, 70%, 1); }
-    [data-theme="dark"] .disposition-badge--gifted { color: hsla(270, 60%, 75%, 1); }
-    [data-theme="dark"] .disposition-badge--returned { color: hsla(30, 80%, 70%, 1); }
+      .disposition-badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .disposition-badge--sold {
+        background: hsla(142, 60%, 45%, 0.18);
+        color: hsla(142, 60%, 35%, 1);
+      }
+      .disposition-badge--traded {
+        background: hsla(210, 70%, 50%, 0.18);
+        color: hsla(210, 70%, 40%, 1);
+      }
+      .disposition-badge--lost {
+        background: hsla(0, 70%, 50%, 0.18);
+        color: hsla(0, 70%, 40%, 1);
+      }
+      .disposition-badge--gifted {
+        background: hsla(270, 60%, 55%, 0.18);
+        color: hsla(270, 60%, 42%, 1);
+      }
+      .disposition-badge--returned {
+        background: hsla(30, 80%, 50%, 0.18);
+        color: hsla(30, 80%, 38%, 1);
+      }
+      [data-theme="dark"] .disposition-badge--sold {
+        color: hsla(142, 60%, 65%, 1);
+      }
+      [data-theme="dark"] .disposition-badge--traded {
+        color: hsla(210, 70%, 70%, 1);
+      }
+      [data-theme="dark"] .disposition-badge--lost {
+        color: hsla(0, 70%, 70%, 1);
+      }
+      [data-theme="dark"] .disposition-badge--gifted {
+        color: hsla(270, 60%, 75%, 1);
+      }
+      [data-theme="dark"] .disposition-badge--returned {
+        color: hsla(30, 80%, 70%, 1);
+      }
 
-    .env-badge {
-      display: inline-flex; align-items: center; font-size: 0.55rem; font-weight: 700;
-      letter-spacing: 0.08em; padding: 1px 6px; border-radius: 8px; text-transform: uppercase; line-height: 1.4;
-    }
-    .env-badge--beta { background: var(--warning); color: #1a1a1a; }
-    .env-badge--preview { background: var(--info); color: #1a1a1a; }
-    .env-badge--local { background: var(--text-muted, #999); color: #fff; }
+      .env-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 1px 6px;
+        border-radius: 8px;
+        text-transform: uppercase;
+        line-height: 1.4;
+      }
+      .env-badge--beta {
+        background: var(--warning);
+        color: #1a1a1a;
+      }
+      .env-badge--preview {
+        background: var(--info);
+        color: #1a1a1a;
+      }
+      .env-badge--local {
+        background: var(--text-muted, #999);
+        color: #fff;
+      }
 
-    /* ─── Elevation demo ─── */
-    .elevation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--spacing); }
-    .elevation-sample {
-      padding: var(--spacing-lg); border-radius: var(--radius-lg); text-align: center;
-      font-size: 0.8rem; font-weight: 500;
-    }
+      /* ─── Elevation demo ─── */
+      .elevation-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: var(--spacing);
+      }
+      .elevation-sample {
+        padding: var(--spacing-lg);
+        border-radius: var(--radius-lg);
+        text-align: center;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
 
-    /* ─── Modal demo ─── */
-    .modal-demo {
-      position: relative; border-radius: var(--radius-lg); overflow: hidden;
-      background: rgba(0, 0, 0, 0.7); padding: 2rem; min-height: 200px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .modal-demo-content {
-      background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(248, 250, 252, 0.2);
-      border-radius: var(--radius-lg); padding: var(--spacing-xl); max-width: 500px; width: 100%;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); position: relative;
-    }
-    [data-theme="dark"] .modal-demo-content {
-      background: rgba(30, 41, 59, 0.95); border-color: rgba(148, 163, 184, 0.2);
-    }
-    .modal-demo-content::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-      background: linear-gradient(90deg, transparent, var(--primary), transparent); opacity: 0.6;
-    }
+      /* ─── Modal demo ─── */
+      .modal-demo {
+        position: relative;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 2rem;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-demo-content {
+        background: rgba(248, 250, 252, 0.95);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(248, 250, 252, 0.2);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        position: relative;
+      }
+      [data-theme="dark"] .modal-demo-content {
+        background: rgba(30, 41, 59, 0.95);
+        border-color: rgba(148, 163, 184, 0.2);
+      }
+      .modal-demo-content::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        opacity: 0.6;
+      }
 
-    /* ─── Alert demo ─── */
-    .alert-demo {
-      background: linear-gradient(135deg, #fef2f2, #fff1f2); border: 1px solid #fecaca;
-      border-left: 4px solid var(--danger); border-radius: var(--radius);
-      padding: var(--spacing-lg); position: relative;
-    }
-    [data-theme="dark"] .alert-demo { background: linear-gradient(135deg, #2d1b1b, #1f1717); border-color: #991b1b; border-left-color: var(--danger); }
-    .alert-demo-header { display: flex; align-items: center; gap: var(--spacing-sm); font-weight: 600; color: var(--danger); margin-bottom: var(--spacing-sm); }
-    .alert-demo p { font-size: 0.875rem; color: var(--text-primary); line-height: 1.6; }
+      /* ─── Alert demo ─── */
+      .alert-demo {
+        background: linear-gradient(135deg, #fef2f2, #fff1f2);
+        border: 1px solid #fecaca;
+        border-left: 4px solid var(--danger);
+        border-radius: var(--radius);
+        padding: var(--spacing-lg);
+        position: relative;
+      }
+      [data-theme="dark"] .alert-demo {
+        background: linear-gradient(135deg, #2d1b1b, #1f1717);
+        border-color: #991b1b;
+        border-left-color: var(--danger);
+      }
+      .alert-demo-header {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        font-weight: 600;
+        color: var(--danger);
+        margin-bottom: var(--spacing-sm);
+      }
+      .alert-demo p {
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        line-height: 1.6;
+      }
 
-    /* ─── Responsive ─── */
-    @media (max-width: 640px) {
-      .color-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-      .card-grid { grid-template-columns: 1fr; }
-      .input-row { grid-template-columns: 1fr; }
-    }
-  </style>
-</head>
-<body>
+      /* ─── Responsive ─── */
+      @media (max-width: 640px) {
+        .color-grid {
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        }
+        .card-grid {
+          grid-template-columns: 1fr;
+        }
+        .input-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="preview-nav">
+      <div class="preview-nav-logo">StakTrakr</div>
+      <div class="preview-nav-links">
+        <a href="#colors">Colors</a>
+        <a href="#typography">Typography</a>
+        <a href="#buttons">Buttons</a>
+        <a href="#cards">Cards</a>
+        <a href="#components">Components</a>
+      </div>
+      <div class="theme-toggle">
+        <button onclick="setTheme('light')" class="active" id="btn-light">Light</button>
+        <button onclick="setTheme('dark')" id="btn-dark">Dark</button>
+      </div>
+    </nav>
 
-  <!-- Navigation -->
-  <nav class="preview-nav">
-    <div class="preview-nav-logo">StakTrakr</div>
-    <div class="preview-nav-links">
-      <a href="#colors">Colors</a>
-      <a href="#typography">Typography</a>
-      <a href="#buttons">Buttons</a>
-      <a href="#cards">Cards</a>
-      <a href="#components">Components</a>
+    <!-- Hero -->
+    <div class="preview-hero">
+      <h1>Design System Preview: StakTrakr</h1>
+      <p>
+        Precious metals inventory tracker. Slate-gray light mode, inky navy dark mode.
+        Glass-morphism modals, sparkline overlays, shields.io badges.
+      </p>
     </div>
-    <div class="theme-toggle">
-      <button onclick="setTheme('light')" class="active" id="btn-light">Light</button>
-      <button onclick="setTheme('dark')" id="btn-dark">Dark</button>
-    </div>
-  </nav>
 
-  <!-- Hero -->
-  <div class="preview-hero">
-    <h1>Design System Preview: StakTrakr</h1>
-    <p>Precious metals inventory tracker. Slate-gray light mode, inky navy dark mode. Glass-morphism modals, sparkline overlays, shields.io badges.</p>
-  </div>
+    <!-- Color Palette -->
+    <div class="section" id="colors">
+      <h2>Color Palette</h2>
 
-  <!-- Color Palette -->
-  <div class="section" id="colors">
-    <h2>Color Palette</h2>
-
-    <h3>Primary & Semantic</h3>
-    <div class="color-grid">
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--primary)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Primary</div><div class="color-swatch-hex">#3b82f6</div><div class="color-swatch-var">--primary</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--primary-hover)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Primary Hover</div><div class="color-swatch-hex">#2563eb</div><div class="color-swatch-var">--primary-hover</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--secondary)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Secondary</div><div class="color-swatch-hex">#8b93a6</div><div class="color-swatch-var">--secondary</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--success)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Success</div><div class="color-swatch-hex">#059669</div><div class="color-swatch-var">--success</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--info)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Info</div><div class="color-swatch-hex">#0ea5e9</div><div class="color-swatch-var">--info</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--warning)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Warning</div><div class="color-swatch-hex">#d97706</div><div class="color-swatch-var">--warning</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--danger)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Danger</div><div class="color-swatch-hex">#dc2626</div><div class="color-swatch-var">--danger</div></div>
-      </div>
-    </div>
-
-    <h3>Backgrounds & Surfaces</h3>
-    <div class="color-grid">
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--bg-primary)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Page Background</div><div class="color-swatch-hex">#e2e8f0 / #0f172a</div><div class="color-swatch-var">--bg-primary</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--bg-secondary)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Elevated Surface</div><div class="color-swatch-hex">#eef2f7 / #1e293b</div><div class="color-swatch-var">--bg-secondary</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--bg-tertiary)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Tertiary Surface</div><div class="color-swatch-hex">#cbd5e1 / #334155</div><div class="color-swatch-var">--bg-tertiary</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--bg-card)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Card</div><div class="color-swatch-hex">#f8fafc / #1e293b</div><div class="color-swatch-var">--bg-card</div></div>
-      </div>
-    </div>
-
-    <h3>Metal Accent Colors</h3>
-    <div class="color-grid">
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--gold)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Gold</div><div class="color-swatch-hex">#a04808 / #fbbf24</div><div class="color-swatch-var">--gold</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--silver)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Silver</div><div class="color-swatch-hex">#5f6673 / #d1d5db</div><div class="color-swatch-var">--silver</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--platinum)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Platinum</div><div class="color-swatch-hex">#4b5563 / #f3f4f6</div><div class="color-swatch-var">--platinum</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--palladium)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Palladium</div><div class="color-swatch-hex">#6d35d0 / #d8b4fe</div><div class="color-swatch-var">--palladium</div></div>
-      </div>
-    </div>
-
-    <h3>Borders & Text</h3>
-    <div class="color-grid">
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--border)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Border</div><div class="color-swatch-hex">#94a3b8 / #334155</div><div class="color-swatch-var">--border</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--border-hover)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Border Hover</div><div class="color-swatch-hex">#64748b / #475569</div><div class="color-swatch-var">--border-hover</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--text-primary)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Text Primary</div><div class="color-swatch-hex">#1b232c / #f8fafc</div><div class="color-swatch-var">--text-primary</div></div>
-      </div>
-      <div class="color-swatch">
-        <div class="color-swatch-block" style="background: var(--text-secondary)"></div>
-        <div class="color-swatch-info"><div class="color-swatch-name">Text Secondary</div><div class="color-swatch-hex">#344351 / #cbd5e1</div><div class="color-swatch-var">--text-secondary</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Typography -->
-  <div class="section" id="typography">
-    <h2>Typography Scale</h2>
-    <table class="type-table">
-      <thead>
-        <tr><th>Role</th><th>Sample</th><th>Size</th><th>Weight</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Page Title (h1)</td><td style="font-size:1.875rem;font-weight:700;color:var(--primary);letter-spacing:-0.025em">StakTrakr</td><td>1.875rem</td><td>700</td></tr>
-        <tr><td>Section Heading (h2)</td><td style="font-size:1.25rem;font-weight:600">Inventory Overview</td><td>1.25rem</td><td>600</td></tr>
-        <tr><td>Description</td><td style="font-size:1.125rem;color:var(--text-secondary)">Track your precious metals portfolio</td><td>1.125rem</td><td>400</td></tr>
-        <tr><td>Body</td><td>Standard body text at base size</td><td>1rem</td><td>400</td></tr>
-        <tr><td>Card Item Name</td><td style="font-size:0.88rem;font-weight:600;letter-spacing:-0.01em">2024 American Silver Eagle BU</td><td>0.88rem</td><td>600</td></tr>
-        <tr><td>Label / Button</td><td style="font-size:0.875rem;font-weight:500">Add New Item</td><td>0.875rem</td><td>500</td></tr>
-        <tr><td>Spot Card Label</td><td style="font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-secondary)">GOLD SPOT</td><td>0.75rem</td><td>500</td></tr>
-        <tr><td>Filter Chip</td><td style="font-size:0.75rem;font-weight:500">Silver</td><td>0.75rem</td><td>500</td></tr>
-        <tr><td>Timestamp</td><td style="font-size:0.7rem;color:var(--text-secondary)">Updated 2 min ago</td><td>0.7rem</td><td>400</td></tr>
-        <tr><td>Card Chip</td><td style="font-size:0.65rem;font-weight:600">2024</td><td>0.65rem</td><td>600</td></tr>
-        <tr><td>Env Badge</td><td style="font-size:0.55rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em">BETA</td><td>0.55rem</td><td>700</td></tr>
-        <tr><td>Version (mono)</td><td style="font-size:12px;font-family:'SF Mono','Fira Code',monospace;color:var(--text-secondary)">v3.33.94</td><td>12px</td><td>400</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Buttons -->
-  <div class="section" id="buttons">
-    <h2>Buttons</h2>
-
-    <h3>Variants</h3>
-    <div class="btn-row">
-      <button class="btn">Primary</button>
-      <button class="btn success">Success</button>
-      <button class="btn danger">Danger</button>
-      <button class="btn info">Info</button>
-      <button class="btn warning">Warning</button>
-      <button class="btn secondary">Secondary</button>
-    </div>
-
-    <h3>Small Buttons</h3>
-    <div class="btn-row">
-      <button class="btn btn-sm">Small Primary</button>
-      <button class="btn btn-sm success">Small Success</button>
-      <button class="btn btn-sm danger">Small Danger</button>
-    </div>
-
-    <h3>Disabled State</h3>
-    <div class="btn-row">
-      <button class="btn" disabled>Disabled Primary</button>
-      <button class="btn danger" disabled>Disabled Danger</button>
-    </div>
-  </div>
-
-  <!-- Cards -->
-  <div class="section" id="cards">
-    <h2>Cards & Spot Prices</h2>
-
-    <h3>Standard Cards</h3>
-    <div class="card-grid">
-      <div class="card">
-        <div class="card-title">2024 American Silver Eagle BU</div>
-        <div class="card-meta" style="margin-bottom:0.5rem">Silver &middot; Coin &middot; 1.000 oz</div>
-        <div style="display:flex;gap:0.25rem;margin-bottom:0.5rem">
-          <span class="cv-chip" style="background:var(--bg-tertiary);color:var(--text-secondary)">2024</span>
-          <span class="cv-chip" style="background:var(--primary);color:#fff">MS-70</span>
-          <span class="cv-chip" style="background:#b85f00;color:#fff;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">COIN</span>
+      <h3>Primary & Semantic</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--primary)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Primary</div>
+            <div class="color-swatch-hex">#3b82f6</div>
+            <div class="color-swatch-var">--primary</div>
+          </div>
         </div>
-        <div class="card-value">$34.52</div>
-        <div style="font-size:0.8rem"><span style="color:var(--success)">+$3.12 (+9.9%)</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title">10 oz Sunshine Mint Silver Bar</div>
-        <div class="card-meta" style="margin-bottom:0.5rem">Silver &middot; Bar &middot; 10.000 oz</div>
-        <div style="display:flex;gap:0.25rem;margin-bottom:0.5rem">
-          <span class="cv-chip" style="background:var(--bg-tertiary);color:var(--text-secondary)">2023</span>
-          <span class="cv-chip" style="background:#946d00;color:#fff;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">BAR</span>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--primary-hover)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Primary Hover</div>
+            <div class="color-swatch-hex">#2563eb</div>
+            <div class="color-swatch-var">--primary-hover</div>
+          </div>
         </div>
-        <div class="card-value">$345.20</div>
-        <div style="font-size:0.8rem"><span style="color:var(--danger)">-$12.80 (-3.6%)</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title">1 oz Gold Maple Leaf</div>
-        <div class="card-meta" style="margin-bottom:0.5rem">Gold &middot; Coin &middot; 1.000 oz</div>
-        <div style="display:flex;gap:0.25rem;margin-bottom:0.5rem">
-          <span class="cv-chip" style="background:var(--bg-tertiary);color:var(--text-secondary)">2024</span>
-          <span class="cv-chip" style="background:#b85f00;color:#fff;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">COIN</span>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--secondary)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Secondary</div>
+            <div class="color-swatch-hex">#8b93a6</div>
+            <div class="color-swatch-var">--secondary</div>
+          </div>
         </div>
-        <div class="card-value">$2,341.00</div>
-        <div style="font-size:0.8rem"><span style="color:var(--success)">+$186.00 (+8.6%)</span></div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--success)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Success</div>
+            <div class="color-swatch-hex">#059669</div>
+            <div class="color-swatch-var">--success</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--info)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Info</div>
+            <div class="color-swatch-hex">#0ea5e9</div>
+            <div class="color-swatch-var">--info</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--warning)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Warning</div>
+            <div class="color-swatch-hex">#d97706</div>
+            <div class="color-swatch-var">--warning</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--danger)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Danger</div>
+            <div class="color-swatch-hex">#dc2626</div>
+            <div class="color-swatch-var">--danger</div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <h3>Spot Price Cards</h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem">
-      <div class="spot-card">
-        <div class="spot-card-header"><span class="spot-card-label">GOLD</span><span style="font-size:0.65rem;font-weight:600;color:var(--text-secondary)">24h</span></div>
-        <div class="spot-card-value">$2,341.50</div>
-        <div class="spot-card-change spot-up">+$18.30 (+0.79%)</div>
-        <div class="spot-card-timestamp">2 min ago</div>
+      <h3>Backgrounds & Surfaces</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--bg-primary)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Page Background</div>
+            <div class="color-swatch-hex">#e2e8f0 / #0f172a</div>
+            <div class="color-swatch-var">--bg-primary</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--bg-secondary)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Elevated Surface</div>
+            <div class="color-swatch-hex">#eef2f7 / #1e293b</div>
+            <div class="color-swatch-var">--bg-secondary</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--bg-tertiary)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Tertiary Surface</div>
+            <div class="color-swatch-hex">#cbd5e1 / #334155</div>
+            <div class="color-swatch-var">--bg-tertiary</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--bg-card)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Card</div>
+            <div class="color-swatch-hex">#f8fafc / #1e293b</div>
+            <div class="color-swatch-var">--bg-card</div>
+          </div>
+        </div>
       </div>
-      <div class="spot-card">
-        <div class="spot-card-header"><span class="spot-card-label">SILVER</span><span style="font-size:0.65rem;font-weight:600;color:var(--text-secondary)">24h</span></div>
-        <div class="spot-card-value">$31.42</div>
-        <div class="spot-card-change spot-down">-$0.28 (-0.88%)</div>
-        <div class="spot-card-timestamp">2 min ago</div>
-      </div>
-      <div class="spot-card">
-        <div class="spot-card-header"><span class="spot-card-label">PLATINUM</span><span style="font-size:0.65rem;font-weight:600;color:var(--text-secondary)">24h</span></div>
-        <div class="spot-card-value">$987.00</div>
-        <div class="spot-card-change spot-up">+$5.20 (+0.53%)</div>
-        <div class="spot-card-timestamp">2 min ago</div>
-      </div>
-      <div class="spot-card">
-        <div class="spot-card-header"><span class="spot-card-label">PALLADIUM</span><span style="font-size:0.65rem;font-weight:600;color:var(--text-secondary)">24h</span></div>
-        <div class="spot-card-value">$1,024.50</div>
-        <div class="spot-card-change spot-up">+$12.00 (+1.18%)</div>
-        <div class="spot-card-timestamp">2 min ago</div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Chips & Badges -->
-  <div class="section" id="components">
-    <h2>Chips, Badges & Components</h2>
-
-    <h3>Filter Chips</h3>
-    <div class="chip-row">
-      <button class="filter-chip" style="background:var(--gold);color:#fff">Gold</button>
-      <button class="filter-chip" style="background:var(--silver);color:#fff">Silver</button>
-      <button class="filter-chip" style="background:var(--platinum);color:#fff">Platinum</button>
-      <button class="filter-chip" style="background:var(--palladium);color:#fff">Palladium</button>
-      <button class="filter-chip filter-chip-active" style="background:#b85f00;color:#fff">Coin</button>
-      <button class="filter-chip" style="background:#946d00;color:#fff">Bar</button>
-      <button class="filter-chip" style="background:#047857;color:#f8fafc">Note</button>
-      <button class="filter-chip" style="background:#8B5CF6;color:#fff">Set</button>
-    </div>
-
-    <h3>Card View Chips</h3>
-    <div class="chip-row" style="gap:0.35rem">
-      <span class="cv-chip" style="background:var(--bg-tertiary);color:var(--text-secondary)">2024</span>
-      <span class="cv-chip" style="background:var(--primary);color:#fff">MS-70</span>
-      <span class="cv-chip" style="background:var(--bg-tertiary);color:var(--text-secondary)">Qty: 5</span>
-      <span class="cv-chip" style="background:var(--bg-tertiary);color:var(--text-secondary)">1.000 oz</span>
-      <span class="cv-chip" style="background:var(--info);color:#fff;opacity:0.85">Numismatic</span>
-      <span class="cv-chip" style="background:#b85f00;color:#fff;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">COIN</span>
-      <span class="cv-chip" style="background:#946d00;color:#fff;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">BAR</span>
-    </div>
-
-    <h3>Shield Badges (shields.io style)</h3>
-    <div class="badge-row">
-      <span class="shield-badge"><span class="shield-badge-label">version</span><span class="shield-badge-value shield-badge-value--blue">v3.33.94</span></span>
-      <span class="shield-badge"><span class="shield-badge-label">build</span><span class="shield-badge-value shield-badge-value--brightgreen">passing</span></span>
-      <span class="shield-badge"><span class="shield-badge-label">coverage</span><span class="shield-badge-value shield-badge-value--green">87%</span></span>
-      <span class="shield-badge"><span class="shield-badge-label">license</span><span class="shield-badge-value shield-badge-value--blue">MIT</span></span>
-      <span class="shield-badge"><span class="shield-badge-label">items</span><span class="shield-badge-value shield-badge-value--yellow">142</span></span>
-      <span class="shield-badge"><span class="shield-badge-label">status</span><span class="shield-badge-value shield-badge-value--red">stale</span></span>
-      <span class="shield-badge"><span class="shield-badge-label">api</span><span class="shield-badge-value shield-badge-value--orange">degraded</span></span>
-      <span class="shield-badge"><span class="shield-badge-label">sync</span><span class="shield-badge-value shield-badge-value--grey">idle</span></span>
-    </div>
-
-    <h3>Disposition Badges</h3>
-    <div class="badge-row">
-      <span class="disposition-badge disposition-badge--sold">Sold</span>
-      <span class="disposition-badge disposition-badge--traded">Traded</span>
-      <span class="disposition-badge disposition-badge--lost">Lost</span>
-      <span class="disposition-badge disposition-badge--gifted">Gifted</span>
-      <span class="disposition-badge disposition-badge--returned">Returned</span>
-    </div>
-
-    <h3>Environment Badges</h3>
-    <div class="badge-row">
-      <span class="env-badge env-badge--beta">BETA</span>
-      <span class="env-badge env-badge--preview">PREVIEW</span>
-      <span class="env-badge env-badge--local">LOCAL</span>
-    </div>
-  </div>
-
-  <!-- Form Inputs -->
-  <div class="section">
-    <h2>Form Inputs</h2>
-    <div class="input-row">
-      <div class="form-group">
-        <label>Item Name</label>
-        <input type="text" placeholder="e.g. 2024 American Silver Eagle">
+      <h3>Metal Accent Colors</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--gold)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Gold</div>
+            <div class="color-swatch-hex">#a04808 / #fbbf24</div>
+            <div class="color-swatch-var">--gold</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--silver)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Silver</div>
+            <div class="color-swatch-hex">#5f6673 / #d1d5db</div>
+            <div class="color-swatch-var">--silver</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--platinum)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Platinum</div>
+            <div class="color-swatch-hex">#4b5563 / #f3f4f6</div>
+            <div class="color-swatch-var">--platinum</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--palladium)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Palladium</div>
+            <div class="color-swatch-hex">#6d35d0 / #d8b4fe</div>
+            <div class="color-swatch-var">--palladium</div>
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Weight (oz)</label>
-        <input type="number" placeholder="1.000" step="0.001">
-      </div>
-      <div class="form-group">
-        <label>Metal Type</label>
-        <select>
-          <option>Silver</option>
-          <option>Gold</option>
-          <option>Platinum</option>
-          <option>Palladium</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Purchase Price</label>
-        <input type="number" placeholder="$0.00" step="0.01">
-      </div>
-    </div>
-  </div>
 
-  <!-- Depth & Elevation -->
-  <div class="section">
-    <h2>Depth & Elevation</h2>
-    <div class="elevation-grid">
-      <div class="elevation-sample" style="background:var(--bg-primary)">
-        <div style="font-weight:600">Level 0</div>
-        <div style="font-size:0.7rem;color:var(--text-secondary)">Page Background</div>
-      </div>
-      <div class="elevation-sample" style="background:var(--bg-secondary);box-shadow:var(--shadow-sm)">
-        <div style="font-weight:600">Level 1</div>
-        <div style="font-size:0.7rem;color:var(--text-secondary)">Elevated Surface</div>
-      </div>
-      <div class="elevation-sample" style="background:var(--bg-card);border:1px solid var(--border);box-shadow:var(--shadow)">
-        <div style="font-weight:600">Level 2</div>
-        <div style="font-size:0.7rem;color:var(--text-secondary)">Card</div>
-      </div>
-      <div class="elevation-sample" style="background:var(--bg-card);border:2px solid var(--border);box-shadow:var(--shadow-lg)">
-        <div style="font-weight:600">Level 3</div>
-        <div style="font-size:0.7rem;color:var(--text-secondary)">Prominent Container</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal -->
-  <div class="section">
-    <h2>Modal (Glass-morphism)</h2>
-    <div class="modal-demo">
-      <div class="modal-demo-content">
-        <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:var(--spacing)">Item Details</h2>
-        <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:var(--spacing)">2024 American Silver Eagle, MS-70 certified. Purchase price: $31.40. Current melt value: $34.52.</p>
-        <div style="display:flex;gap:0.5rem">
-          <button class="btn btn-sm">Edit</button>
-          <button class="btn btn-sm secondary">Close</button>
+      <h3>Borders & Text</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--border)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Border</div>
+            <div class="color-swatch-hex">#94a3b8 / #334155</div>
+            <div class="color-swatch-var">--border</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--border-hover)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Border Hover</div>
+            <div class="color-swatch-hex">#64748b / #475569</div>
+            <div class="color-swatch-var">--border-hover</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--text-primary)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Text Primary</div>
+            <div class="color-swatch-hex">#1b232c / #f8fafc</div>
+            <div class="color-swatch-var">--text-primary</div>
+          </div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-block" style="background: var(--text-secondary)"></div>
+          <div class="color-swatch-info">
+            <div class="color-swatch-name">Text Secondary</div>
+            <div class="color-swatch-hex">#344351 / #cbd5e1</div>
+            <div class="color-swatch-var">--text-secondary</div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Alert -->
-  <div class="section">
-    <h2>Alerts</h2>
-    <div class="alert-demo">
-      <div class="alert-demo-header">&#9888; Data Storage Warning</div>
-      <p>Your browser's localStorage is running low. Consider exporting your data or enabling cloud sync to prevent data loss. StakTrakr stores all inventory data locally.</p>
+    <!-- Typography -->
+    <div class="section" id="typography">
+      <h2>Typography Scale</h2>
+      <table class="type-table">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Sample</th>
+            <th>Size</th>
+            <th>Weight</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Page Title (h1)</td>
+            <td
+              style="
+                font-size: 1.875rem;
+                font-weight: 700;
+                color: var(--primary);
+                letter-spacing: -0.025em;
+              "
+            >
+              StakTrakr
+            </td>
+            <td>1.875rem</td>
+            <td>700</td>
+          </tr>
+          <tr>
+            <td>Section Heading (h2)</td>
+            <td style="font-size: 1.25rem; font-weight: 600">Inventory Overview</td>
+            <td>1.25rem</td>
+            <td>600</td>
+          </tr>
+          <tr>
+            <td>Description</td>
+            <td style="font-size: 1.125rem; color: var(--text-secondary)">
+              Track your precious metals portfolio
+            </td>
+            <td>1.125rem</td>
+            <td>400</td>
+          </tr>
+          <tr>
+            <td>Body</td>
+            <td>Standard body text at base size</td>
+            <td>1rem</td>
+            <td>400</td>
+          </tr>
+          <tr>
+            <td>Card Item Name</td>
+            <td style="font-size: 0.88rem; font-weight: 600; letter-spacing: -0.01em">
+              2024 American Silver Eagle BU
+            </td>
+            <td>0.88rem</td>
+            <td>600</td>
+          </tr>
+          <tr>
+            <td>Label / Button</td>
+            <td style="font-size: 0.875rem; font-weight: 500">Add New Item</td>
+            <td>0.875rem</td>
+            <td>500</td>
+          </tr>
+          <tr>
+            <td>Spot Card Label</td>
+            <td
+              style="
+                font-size: 0.75rem;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--text-secondary);
+              "
+            >
+              GOLD SPOT
+            </td>
+            <td>0.75rem</td>
+            <td>500</td>
+          </tr>
+          <tr>
+            <td>Filter Chip</td>
+            <td style="font-size: 0.75rem; font-weight: 500">Silver</td>
+            <td>0.75rem</td>
+            <td>500</td>
+          </tr>
+          <tr>
+            <td>Timestamp</td>
+            <td style="font-size: 0.7rem; color: var(--text-secondary)">Updated 2 min ago</td>
+            <td>0.7rem</td>
+            <td>400</td>
+          </tr>
+          <tr>
+            <td>Card Chip</td>
+            <td style="font-size: 0.65rem; font-weight: 600">2024</td>
+            <td>0.65rem</td>
+            <td>600</td>
+          </tr>
+          <tr>
+            <td>Env Badge</td>
+            <td
+              style="
+                font-size: 0.55rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+              "
+            >
+              BETA
+            </td>
+            <td>0.55rem</td>
+            <td>700</td>
+          </tr>
+          <tr>
+            <td>Version (mono)</td>
+            <td
+              style="
+                font-size: 12px;
+                font-family: &quot;SF Mono&quot;, &quot;Fira Code&quot;, monospace;
+                color: var(--text-secondary);
+              "
+            >
+              v3.33.94
+            </td>
+            <td>12px</td>
+            <td>400</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  </div>
 
-  <!-- Spacing -->
-  <div class="section">
-    <h2>Spacing Scale</h2>
-    <div style="display:flex;flex-direction:column;gap:0.5rem">
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div style="width:80px;font-size:0.75rem;font-weight:500;color:var(--text-secondary)">--spacing-xs</div>
-        <div style="height:12px;background:var(--primary);border-radius:2px;width:calc(0.2rem * 50)"></div>
-        <div style="font-size:0.7rem;font-family:monospace;color:var(--text-secondary)">0.2rem (3.2px)</div>
+    <!-- Buttons -->
+    <div class="section" id="buttons">
+      <h2>Buttons</h2>
+
+      <h3>Variants</h3>
+      <div class="btn-row">
+        <button class="btn">Primary</button>
+        <button class="btn success">Success</button>
+        <button class="btn danger">Danger</button>
+        <button class="btn info">Info</button>
+        <button class="btn warning">Warning</button>
+        <button class="btn secondary">Secondary</button>
       </div>
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div style="width:80px;font-size:0.75rem;font-weight:500;color:var(--text-secondary)">--spacing-sm</div>
-        <div style="height:12px;background:var(--primary);border-radius:2px;width:calc(0.4rem * 50)"></div>
-        <div style="font-size:0.7rem;font-family:monospace;color:var(--text-secondary)">0.4rem (6.4px)</div>
+
+      <h3>Small Buttons</h3>
+      <div class="btn-row">
+        <button class="btn btn-sm">Small Primary</button>
+        <button class="btn btn-sm success">Small Success</button>
+        <button class="btn btn-sm danger">Small Danger</button>
       </div>
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div style="width:80px;font-size:0.75rem;font-weight:500;color:var(--text-secondary)">--spacing</div>
-        <div style="height:12px;background:var(--primary);border-radius:2px;width:calc(0.75rem * 50)"></div>
-        <div style="font-size:0.7rem;font-family:monospace;color:var(--text-secondary)">0.75rem (12px)</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div style="width:80px;font-size:0.75rem;font-weight:500;color:var(--text-secondary)">--spacing-lg</div>
-        <div style="height:12px;background:var(--primary);border-radius:2px;width:calc(1.25rem * 50)"></div>
-        <div style="font-size:0.7rem;font-family:monospace;color:var(--text-secondary)">1.25rem (20px)</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:1rem">
-        <div style="width:80px;font-size:0.75rem;font-weight:500;color:var(--text-secondary)">--spacing-xl</div>
-        <div style="height:12px;background:var(--primary);border-radius:2px;width:calc(1.5rem * 50)"></div>
-        <div style="font-size:0.7rem;font-family:monospace;color:var(--text-secondary)">1.5rem (24px)</div>
+
+      <h3>Disabled State</h3>
+      <div class="btn-row">
+        <button class="btn" disabled>Disabled Primary</button>
+        <button class="btn danger" disabled>Disabled Danger</button>
       </div>
     </div>
-  </div>
 
-  <!-- Border Radius -->
-  <div class="section">
-    <h2>Border Radius Scale</h2>
-    <div style="display:flex;flex-wrap:wrap;gap:1.5rem;align-items:end">
-      <div style="text-align:center">
-        <div style="width:60px;height:60px;background:var(--primary);border-radius:3px"></div>
-        <div style="font-size:0.7rem;margin-top:0.35rem;color:var(--text-secondary)">3px<br>Badge</div>
+    <!-- Cards -->
+    <div class="section" id="cards">
+      <h2>Cards & Spot Prices</h2>
+
+      <h3>Standard Cards</h3>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-title">2024 American Silver Eagle BU</div>
+          <div class="card-meta" style="margin-bottom: 0.5rem">
+            Silver &middot; Coin &middot; 1.000 oz
+          </div>
+          <div style="display: flex; gap: 0.25rem; margin-bottom: 0.5rem">
+            <span
+              class="cv-chip"
+              style="background: var(--bg-tertiary); color: var(--text-secondary)"
+              >2024</span
+            >
+            <span class="cv-chip" style="background: var(--primary); color: #fff">MS-70</span>
+            <span
+              class="cv-chip"
+              style="
+                background: #b85f00;
+                color: #fff;
+                font-size: 0.6rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+              "
+              >COIN</span
+            >
+          </div>
+          <div class="card-value">$34.52</div>
+          <div style="font-size: 0.8rem">
+            <span style="color: var(--success)">+$3.12 (+9.9%)</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">10 oz Sunshine Mint Silver Bar</div>
+          <div class="card-meta" style="margin-bottom: 0.5rem">
+            Silver &middot; Bar &middot; 10.000 oz
+          </div>
+          <div style="display: flex; gap: 0.25rem; margin-bottom: 0.5rem">
+            <span
+              class="cv-chip"
+              style="background: var(--bg-tertiary); color: var(--text-secondary)"
+              >2023</span
+            >
+            <span
+              class="cv-chip"
+              style="
+                background: #946d00;
+                color: #fff;
+                font-size: 0.6rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+              "
+              >BAR</span
+            >
+          </div>
+          <div class="card-value">$345.20</div>
+          <div style="font-size: 0.8rem">
+            <span style="color: var(--danger)">-$12.80 (-3.6%)</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">1 oz Gold Maple Leaf</div>
+          <div class="card-meta" style="margin-bottom: 0.5rem">
+            Gold &middot; Coin &middot; 1.000 oz
+          </div>
+          <div style="display: flex; gap: 0.25rem; margin-bottom: 0.5rem">
+            <span
+              class="cv-chip"
+              style="background: var(--bg-tertiary); color: var(--text-secondary)"
+              >2024</span
+            >
+            <span
+              class="cv-chip"
+              style="
+                background: #b85f00;
+                color: #fff;
+                font-size: 0.6rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+              "
+              >COIN</span
+            >
+          </div>
+          <div class="card-value">$2,341.00</div>
+          <div style="font-size: 0.8rem">
+            <span style="color: var(--success)">+$186.00 (+8.6%)</span>
+          </div>
+        </div>
       </div>
-      <div style="text-align:center">
-        <div style="width:60px;height:60px;background:var(--primary);border-radius:4px"></div>
-        <div style="font-size:0.7rem;margin-top:0.35rem;color:var(--text-secondary)">4px<br>Micro</div>
-      </div>
-      <div style="text-align:center">
-        <div style="width:60px;height:60px;background:var(--primary);border-radius:var(--radius)"></div>
-        <div style="font-size:0.7rem;margin-top:0.35rem;color:var(--text-secondary)">8px<br>Default</div>
-      </div>
-      <div style="text-align:center">
-        <div style="width:60px;height:60px;background:var(--primary);border-radius:var(--radius-lg)"></div>
-        <div style="font-size:0.7rem;margin-top:0.35rem;color:var(--text-secondary)">12px<br>Container</div>
-      </div>
-      <div style="text-align:center">
-        <div style="width:60px;height:30px;background:var(--primary);border-radius:999px"></div>
-        <div style="font-size:0.7rem;margin-top:0.35rem;color:var(--text-secondary)">999px<br>Pill</div>
-      </div>
-      <div style="text-align:center">
-        <div style="width:60px;height:60px;background:var(--primary);border-radius:50%"></div>
-        <div style="font-size:0.7rem;margin-top:0.35rem;color:var(--text-secondary)">50%<br>Circle</div>
+
+      <h3>Spot Price Cards</h3>
+      <div
+        style="
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 1rem;
+        "
+      >
+        <div class="spot-card">
+          <div class="spot-card-header">
+            <span class="spot-card-label">GOLD</span
+            ><span style="font-size: 0.65rem; font-weight: 600; color: var(--text-secondary)"
+              >24h</span
+            >
+          </div>
+          <div class="spot-card-value">$2,341.50</div>
+          <div class="spot-card-change spot-up">+$18.30 (+0.79%)</div>
+          <div class="spot-card-timestamp">2 min ago</div>
+        </div>
+        <div class="spot-card">
+          <div class="spot-card-header">
+            <span class="spot-card-label">SILVER</span
+            ><span style="font-size: 0.65rem; font-weight: 600; color: var(--text-secondary)"
+              >24h</span
+            >
+          </div>
+          <div class="spot-card-value">$31.42</div>
+          <div class="spot-card-change spot-down">-$0.28 (-0.88%)</div>
+          <div class="spot-card-timestamp">2 min ago</div>
+        </div>
+        <div class="spot-card">
+          <div class="spot-card-header">
+            <span class="spot-card-label">PLATINUM</span
+            ><span style="font-size: 0.65rem; font-weight: 600; color: var(--text-secondary)"
+              >24h</span
+            >
+          </div>
+          <div class="spot-card-value">$987.00</div>
+          <div class="spot-card-change spot-up">+$5.20 (+0.53%)</div>
+          <div class="spot-card-timestamp">2 min ago</div>
+        </div>
+        <div class="spot-card">
+          <div class="spot-card-header">
+            <span class="spot-card-label">PALLADIUM</span
+            ><span style="font-size: 0.65rem; font-weight: 600; color: var(--text-secondary)"
+              >24h</span
+            >
+          </div>
+          <div class="spot-card-value">$1,024.50</div>
+          <div class="spot-card-change spot-up">+$12.00 (+1.18%)</div>
+          <div class="spot-card-timestamp">2 min ago</div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script>
-    function setTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme === 'light' ? '' : theme);
-      if (theme === 'light') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', theme);
-      document.querySelectorAll('.theme-toggle button').forEach(b => b.classList.remove('active'));
-      document.getElementById('btn-' + theme).classList.add('active');
-    }
-  </script>
-</body>
+    <!-- Chips & Badges -->
+    <div class="section" id="components">
+      <h2>Chips, Badges & Components</h2>
+
+      <h3>Filter Chips</h3>
+      <div class="chip-row">
+        <button class="filter-chip" style="background: var(--gold); color: #fff">Gold</button>
+        <button class="filter-chip" style="background: var(--silver); color: #fff">Silver</button>
+        <button class="filter-chip" style="background: var(--platinum); color: #fff">
+          Platinum
+        </button>
+        <button class="filter-chip" style="background: var(--palladium); color: #fff">
+          Palladium
+        </button>
+        <button class="filter-chip filter-chip-active" style="background: #b85f00; color: #fff">
+          Coin
+        </button>
+        <button class="filter-chip" style="background: #946d00; color: #fff">Bar</button>
+        <button class="filter-chip" style="background: #047857; color: #f8fafc">Note</button>
+        <button class="filter-chip" style="background: #8b5cf6; color: #fff">Set</button>
+      </div>
+
+      <h3>Card View Chips</h3>
+      <div class="chip-row" style="gap: 0.35rem">
+        <span class="cv-chip" style="background: var(--bg-tertiary); color: var(--text-secondary)"
+          >2024</span
+        >
+        <span class="cv-chip" style="background: var(--primary); color: #fff">MS-70</span>
+        <span class="cv-chip" style="background: var(--bg-tertiary); color: var(--text-secondary)"
+          >Qty: 5</span
+        >
+        <span class="cv-chip" style="background: var(--bg-tertiary); color: var(--text-secondary)"
+          >1.000 oz</span
+        >
+        <span class="cv-chip" style="background: var(--info); color: #fff; opacity: 0.85"
+          >Numismatic</span
+        >
+        <span
+          class="cv-chip"
+          style="
+            background: #b85f00;
+            color: #fff;
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          "
+          >COIN</span
+        >
+        <span
+          class="cv-chip"
+          style="
+            background: #946d00;
+            color: #fff;
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          "
+          >BAR</span
+        >
+      </div>
+
+      <h3>Shield Badges (shields.io style)</h3>
+      <div class="badge-row">
+        <span class="shield-badge"
+          ><span class="shield-badge-label">version</span
+          ><span class="shield-badge-value shield-badge-value--blue">v3.33.94</span></span
+        >
+        <span class="shield-badge"
+          ><span class="shield-badge-label">build</span
+          ><span class="shield-badge-value shield-badge-value--brightgreen">passing</span></span
+        >
+        <span class="shield-badge"
+          ><span class="shield-badge-label">coverage</span
+          ><span class="shield-badge-value shield-badge-value--green">87%</span></span
+        >
+        <span class="shield-badge"
+          ><span class="shield-badge-label">license</span
+          ><span class="shield-badge-value shield-badge-value--blue">MIT</span></span
+        >
+        <span class="shield-badge"
+          ><span class="shield-badge-label">items</span
+          ><span class="shield-badge-value shield-badge-value--yellow">142</span></span
+        >
+        <span class="shield-badge"
+          ><span class="shield-badge-label">status</span
+          ><span class="shield-badge-value shield-badge-value--red">stale</span></span
+        >
+        <span class="shield-badge"
+          ><span class="shield-badge-label">api</span
+          ><span class="shield-badge-value shield-badge-value--orange">degraded</span></span
+        >
+        <span class="shield-badge"
+          ><span class="shield-badge-label">sync</span
+          ><span class="shield-badge-value shield-badge-value--grey">idle</span></span
+        >
+      </div>
+
+      <h3>Disposition Badges</h3>
+      <div class="badge-row">
+        <span class="disposition-badge disposition-badge--sold">Sold</span>
+        <span class="disposition-badge disposition-badge--traded">Traded</span>
+        <span class="disposition-badge disposition-badge--lost">Lost</span>
+        <span class="disposition-badge disposition-badge--gifted">Gifted</span>
+        <span class="disposition-badge disposition-badge--returned">Returned</span>
+      </div>
+
+      <h3>Environment Badges</h3>
+      <div class="badge-row">
+        <span class="env-badge env-badge--beta">BETA</span>
+        <span class="env-badge env-badge--preview">PREVIEW</span>
+        <span class="env-badge env-badge--local">LOCAL</span>
+      </div>
+    </div>
+
+    <!-- Form Inputs -->
+    <div class="section">
+      <h2>Form Inputs</h2>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Item Name</label>
+          <input type="text" placeholder="e.g. 2024 American Silver Eagle" />
+        </div>
+        <div class="form-group">
+          <label>Weight (oz)</label>
+          <input type="number" placeholder="1.000" step="0.001" />
+        </div>
+        <div class="form-group">
+          <label>Metal Type</label>
+          <select>
+            <option>Silver</option>
+            <option>Gold</option>
+            <option>Platinum</option>
+            <option>Palladium</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Purchase Price</label>
+          <input type="number" placeholder="$0.00" step="0.01" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Depth & Elevation -->
+    <div class="section">
+      <h2>Depth & Elevation</h2>
+      <div class="elevation-grid">
+        <div class="elevation-sample" style="background: var(--bg-primary)">
+          <div style="font-weight: 600">Level 0</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary)">Page Background</div>
+        </div>
+        <div
+          class="elevation-sample"
+          style="background: var(--bg-secondary); box-shadow: var(--shadow-sm)"
+        >
+          <div style="font-weight: 600">Level 1</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary)">Elevated Surface</div>
+        </div>
+        <div
+          class="elevation-sample"
+          style="
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+          "
+        >
+          <div style="font-weight: 600">Level 2</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary)">Card</div>
+        </div>
+        <div
+          class="elevation-sample"
+          style="
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow-lg);
+          "
+        >
+          <div style="font-weight: 600">Level 3</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary)">Prominent Container</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="section">
+      <h2>Modal (Glass-morphism)</h2>
+      <div class="modal-demo">
+        <div class="modal-demo-content">
+          <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: var(--spacing)">
+            Item Details
+          </h2>
+          <p
+            style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: var(--spacing)"
+          >
+            2024 American Silver Eagle, MS-70 certified. Purchase price: $31.40. Current melt value:
+            $34.52.
+          </p>
+          <div style="display: flex; gap: 0.5rem">
+            <button class="btn btn-sm">Edit</button>
+            <button class="btn btn-sm secondary">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert -->
+    <div class="section">
+      <h2>Alerts</h2>
+      <div class="alert-demo">
+        <div class="alert-demo-header">&#9888; Data Storage Warning</div>
+        <p>
+          Your browser's localStorage is running low. Consider exporting your data or enabling cloud
+          sync to prevent data loss. StakTrakr stores all inventory data locally.
+        </p>
+      </div>
+    </div>
+
+    <!-- Spacing -->
+    <div class="section">
+      <h2>Spacing Scale</h2>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem">
+        <div style="display: flex; align-items: center; gap: 1rem">
+          <div
+            style="width: 80px; font-size: 0.75rem; font-weight: 500; color: var(--text-secondary)"
+          >
+            --spacing-xs
+          </div>
+          <div
+            style="
+              height: 12px;
+              background: var(--primary);
+              border-radius: 2px;
+              width: calc(0.2rem * 50);
+            "
+          ></div>
+          <div style="font-size: 0.7rem; font-family: monospace; color: var(--text-secondary)">
+            0.2rem (3.2px)
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem">
+          <div
+            style="width: 80px; font-size: 0.75rem; font-weight: 500; color: var(--text-secondary)"
+          >
+            --spacing-sm
+          </div>
+          <div
+            style="
+              height: 12px;
+              background: var(--primary);
+              border-radius: 2px;
+              width: calc(0.4rem * 50);
+            "
+          ></div>
+          <div style="font-size: 0.7rem; font-family: monospace; color: var(--text-secondary)">
+            0.4rem (6.4px)
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem">
+          <div
+            style="width: 80px; font-size: 0.75rem; font-weight: 500; color: var(--text-secondary)"
+          >
+            --spacing
+          </div>
+          <div
+            style="
+              height: 12px;
+              background: var(--primary);
+              border-radius: 2px;
+              width: calc(0.75rem * 50);
+            "
+          ></div>
+          <div style="font-size: 0.7rem; font-family: monospace; color: var(--text-secondary)">
+            0.75rem (12px)
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem">
+          <div
+            style="width: 80px; font-size: 0.75rem; font-weight: 500; color: var(--text-secondary)"
+          >
+            --spacing-lg
+          </div>
+          <div
+            style="
+              height: 12px;
+              background: var(--primary);
+              border-radius: 2px;
+              width: calc(1.25rem * 50);
+            "
+          ></div>
+          <div style="font-size: 0.7rem; font-family: monospace; color: var(--text-secondary)">
+            1.25rem (20px)
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem">
+          <div
+            style="width: 80px; font-size: 0.75rem; font-weight: 500; color: var(--text-secondary)"
+          >
+            --spacing-xl
+          </div>
+          <div
+            style="
+              height: 12px;
+              background: var(--primary);
+              border-radius: 2px;
+              width: calc(1.5rem * 50);
+            "
+          ></div>
+          <div style="font-size: 0.7rem; font-family: monospace; color: var(--text-secondary)">
+            1.5rem (24px)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Border Radius -->
+    <div class="section">
+      <h2>Border Radius Scale</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: end">
+        <div style="text-align: center">
+          <div
+            style="width: 60px; height: 60px; background: var(--primary); border-radius: 3px"
+          ></div>
+          <div style="font-size: 0.7rem; margin-top: 0.35rem; color: var(--text-secondary)">
+            3px<br />Badge
+          </div>
+        </div>
+        <div style="text-align: center">
+          <div
+            style="width: 60px; height: 60px; background: var(--primary); border-radius: 4px"
+          ></div>
+          <div style="font-size: 0.7rem; margin-top: 0.35rem; color: var(--text-secondary)">
+            4px<br />Micro
+          </div>
+        </div>
+        <div style="text-align: center">
+          <div
+            style="
+              width: 60px;
+              height: 60px;
+              background: var(--primary);
+              border-radius: var(--radius);
+            "
+          ></div>
+          <div style="font-size: 0.7rem; margin-top: 0.35rem; color: var(--text-secondary)">
+            8px<br />Default
+          </div>
+        </div>
+        <div style="text-align: center">
+          <div
+            style="
+              width: 60px;
+              height: 60px;
+              background: var(--primary);
+              border-radius: var(--radius-lg);
+            "
+          ></div>
+          <div style="font-size: 0.7rem; margin-top: 0.35rem; color: var(--text-secondary)">
+            12px<br />Container
+          </div>
+        </div>
+        <div style="text-align: center">
+          <div
+            style="width: 60px; height: 30px; background: var(--primary); border-radius: 999px"
+          ></div>
+          <div style="font-size: 0.7rem; margin-top: 0.35rem; color: var(--text-secondary)">
+            999px<br />Pill
+          </div>
+        </div>
+        <div style="text-align: center">
+          <div
+            style="width: 60px; height: 60px; background: var(--primary); border-radius: 50%"
+          ></div>
+          <div style="font-size: 0.7rem; margin-top: 0.35rem; color: var(--text-secondary)">
+            50%<br />Circle
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function setTheme(theme) {
+        document.documentElement.setAttribute("data-theme", theme === "light" ? "" : theme);
+        if (theme === "light") document.documentElement.removeAttribute("data-theme");
+        else document.documentElement.setAttribute("data-theme", theme);
+        document
+          .querySelectorAll(".theme-toggle button")
+          .forEach((b) => b.classList.remove("active"));
+        document.getElementById("btn-" + theme).classList.add("active");
+      }
+    </script>
+  </body>
 </html>

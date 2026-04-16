@@ -48,7 +48,7 @@ const server = createServer(async (req, res) => {
 
   // Security: prevent directory traversal and absolute path escape
   const filePath = resolve(DATA_DIR, url.replace(/^\/+/, ""));
-  if (!filePath.startsWith(DATA_DIR + '/') && filePath !== DATA_DIR) {
+  if (!filePath.startsWith(DATA_DIR + "/") && filePath !== DATA_DIR) {
     res.writeHead(400);
     res.end("Bad Request");
     return;
@@ -73,7 +73,6 @@ const server = createServer(async (req, res) => {
       "Cache-Control": "public, max-age=300", // 5 min cache
     });
     res.end(content);
-
   } catch (err) {
     if (err.code === "ENOENT") {
       res.writeHead(404);
@@ -86,7 +85,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`StakTrakrApi HTTP server listening on 0.0.0.0:${PORT}`);
   console.log(`Serving files from ${DATA_DIR}`);
 });

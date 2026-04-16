@@ -8,15 +8,15 @@
  * @returns {void}
  */
 const showDebugModal = () => {
-  const modal = document.getElementById('debugModal');
-  const content = document.getElementById('debugModalContent');
-  if (content && typeof window.getDebugHistory === 'function') {
-    content.textContent = window.getDebugHistory().join('\n');
+  const modal = document.getElementById("debugModal");
+  const content = document.getElementById("debugModalContent");
+  if (content && typeof window.getDebugHistory === "function") {
+    content.textContent = window.getDebugHistory().join("\n");
   }
-  if (window.openModalById) openModalById('debugModal');
+  if (window.openModalById) openModalById("debugModal");
   else if (modal) {
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
   }
 };
 
@@ -25,11 +25,13 @@ const showDebugModal = () => {
  * @returns {void}
  */
 const hideDebugModal = () => {
-  if (window.closeModalById) closeModalById('debugModal');
+  if (window.closeModalById) closeModalById("debugModal");
   else {
-    const modal = document.getElementById('debugModal');
-    if (modal) modal.style.display = 'none';
-    try { document.body.style.overflow = ''; } catch (e) {}
+    const modal = document.getElementById("debugModal");
+    if (modal) modal.style.display = "none";
+    try {
+      document.body.style.overflow = "";
+    } catch (e) {}
   }
 };
 

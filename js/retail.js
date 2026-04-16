@@ -3,36 +3,52 @@
 
 /** All tracked coin slugs, display order */
 const RETAIL_SLUGS = [
-  "ase", "maple-silver", "britannia-silver", "krugerrand-silver",
-  "kangaroo-silver", "koala-silver", "kookaburra-silver",
-  "generic-silver-round", "generic-silver-bar-10oz",
-  "age", "buffalo", "maple-gold", "krugerrand-gold", "ape",
+  "ase",
+  "maple-silver",
+  "britannia-silver",
+  "krugerrand-silver",
+  "kangaroo-silver",
+  "koala-silver",
+  "kookaburra-silver",
+  "generic-silver-round",
+  "generic-silver-bar-10oz",
+  "age",
+  "buffalo",
+  "maple-gold",
+  "krugerrand-gold",
+  "ape",
   "goldback-oklahoma-g1",
 ];
 
 /** Coin metadata keyed by slug */
 const RETAIL_COIN_META = {
-  "ase":                     { name: "American Silver Eagle",    weight: 1.0,  metal: "silver"   },
-  "maple-silver":            { name: "Silver Maple Leaf",        weight: 1.0,  metal: "silver"   },
-  "britannia-silver":        { name: "Silver Britannia",         weight: 1.0,  metal: "silver"   },
-  "krugerrand-silver":       { name: "Silver Krugerrand",        weight: 1.0,  metal: "silver"   },
-  "kangaroo-silver":         { name: "Silver Kangaroo",          weight: 1.0,  metal: "silver"   },
-  "koala-silver":            { name: "Silver Koala",             weight: 1.0,  metal: "silver"   },
-  "kookaburra-silver":       { name: "Silver Kookaburra",        weight: 1.0,  metal: "silver"   },
-  "generic-silver-round":    { name: "Generic Silver Round",     weight: 1.0,  metal: "silver"   },
-  "generic-silver-bar-10oz": { name: "Generic 10oz Silver Bar",  weight: 10.0, metal: "silver"   },
-  "age":                     { name: "American Gold Eagle",      weight: 1.0,  metal: "gold"     },
-  "buffalo":                 { name: "American Gold Buffalo",    weight: 1.0,  metal: "gold"     },
-  "maple-gold":              { name: "Gold Maple Leaf",          weight: 1.0,  metal: "gold"     },
-  "krugerrand-gold":         { name: "Gold Krugerrand",          weight: 1.0,  metal: "gold"     },
-  "ape":                     { name: "American Platinum Eagle",   weight: 1.0, metal: "platinum" },
-  "goldback-oklahoma-g1":    { name: "G1 Oklahoma Goldback",     weight: 0.001, metal: "goldback" },
+  ase: { name: "American Silver Eagle", weight: 1.0, metal: "silver" },
+  "maple-silver": { name: "Silver Maple Leaf", weight: 1.0, metal: "silver" },
+  "britannia-silver": { name: "Silver Britannia", weight: 1.0, metal: "silver" },
+  "krugerrand-silver": { name: "Silver Krugerrand", weight: 1.0, metal: "silver" },
+  "kangaroo-silver": { name: "Silver Kangaroo", weight: 1.0, metal: "silver" },
+  "koala-silver": { name: "Silver Koala", weight: 1.0, metal: "silver" },
+  "kookaburra-silver": { name: "Silver Kookaburra", weight: 1.0, metal: "silver" },
+  "generic-silver-round": { name: "Generic Silver Round", weight: 1.0, metal: "silver" },
+  "generic-silver-bar-10oz": { name: "Generic 10oz Silver Bar", weight: 10.0, metal: "silver" },
+  age: { name: "American Gold Eagle", weight: 1.0, metal: "gold" },
+  buffalo: { name: "American Gold Buffalo", weight: 1.0, metal: "gold" },
+  "maple-gold": { name: "Gold Maple Leaf", weight: 1.0, metal: "gold" },
+  "krugerrand-gold": { name: "Gold Krugerrand", weight: 1.0, metal: "gold" },
+  ape: { name: "American Platinum Eagle", weight: 1.0, metal: "platinum" },
+  "goldback-oklahoma-g1": { name: "G1 Oklahoma Goldback", weight: 0.001, metal: "goldback" },
 };
 
 /** Goldback denomination weights (troy oz) */
 const GOLDBACK_WEIGHTS = {
-  "g0.5": 0.0005, ghalf: 0.0005, g1: 0.001, g2: 0.002, g5: 0.005,
-  g10: 0.01, g25: 0.025, g50: 0.05,
+  "g0.5": 0.0005,
+  ghalf: 0.0005,
+  g1: 0.001,
+  g2: 0.002,
+  g5: 0.005,
+  g10: 0.01,
+  g25: 0.025,
+  g50: 0.05,
 };
 
 /**
@@ -52,44 +68,44 @@ const _parseGoldbackSlug = (slug) => {
 
 /** Vendor display names */
 const RETAIL_VENDOR_NAMES = {
-  apmex:            "APMEX",
-  monumentmetals:   "Monument",
-  sdbullion:        "SDB",
-  jmbullion:        "JM",
-  herobullion:      "Hero",
+  apmex: "APMEX",
+  monumentmetals: "Monument",
+  sdbullion: "SDB",
+  jmbullion: "JM",
+  herobullion: "Hero",
   bullionexchanges: "BullionX",
-  summitmetals:     "Summit",
-  goldback:         "Goldback",
-  providentmetals:  "Provident",
+  summitmetals: "Summit",
+  goldback: "Goldback",
+  providentmetals: "Provident",
   gainesvillecoins: "Gainesville",
 };
 
 /** Vendor homepage URLs for popup links */
 const RETAIL_VENDOR_URLS = {
-  apmex:            "https://www.apmex.com",
-  monumentmetals:   "https://www.monumentmetals.com",
-  sdbullion:        "https://www.sdbullion.com",
-  jmbullion:        "https://www.jmbullion.com",
-  herobullion:      "https://www.herobullion.com",
+  apmex: "https://www.apmex.com",
+  monumentmetals: "https://www.monumentmetals.com",
+  sdbullion: "https://www.sdbullion.com",
+  jmbullion: "https://www.jmbullion.com",
+  herobullion: "https://www.herobullion.com",
   bullionexchanges: "https://www.bullionexchanges.com",
-  summitmetals:     "https://www.summitmetals.com",
-  goldback:         "https://www.goldback.com",
-  providentmetals:  "https://www.providentmetals.com",
+  summitmetals: "https://www.summitmetals.com",
+  goldback: "https://www.goldback.com",
+  providentmetals: "https://www.providentmetals.com",
   gainesvillecoins: "https://www.gainesvillecoins.com",
 };
 
 /** Per-vendor brand colors — shared with retail-view-modal.js for chart lines and card labels */
 const RETAIL_VENDOR_COLORS = {
-  apmex:            "#60a5fa",  // bright blue (was #3b82f6 — boosted for dark bg contrast)
-  jmbullion:        "#fbbf24",  // bright amber (was #f59e0b)
-  sdbullion:        "#34d399",  // bright emerald (was #10b981)
-  monumentmetals:   "#c4b5fd",  // bright violet (was #a78bfa)
-  herobullion:      "#f87171",  // red — already distinct
-  bullionexchanges: "#f472b6",  // bright pink (was #ec4899)
-  summitmetals:     "#22d3ee",  // bright cyan (was #06b6d4)
-  goldback:         "#d4a017",  // deep gold — goldback branding
-  providentmetals:  "#a3e635",  // lime green — distinct from emerald (SDB)
-  gainesvillecoins: "#fb923c",  // orange — distinct from amber (JM)
+  apmex: "#60a5fa", // bright blue (was #3b82f6 — boosted for dark bg contrast)
+  jmbullion: "#fbbf24", // bright amber (was #f59e0b)
+  sdbullion: "#34d399", // bright emerald (was #10b981)
+  monumentmetals: "#c4b5fd", // bright violet (was #a78bfa)
+  herobullion: "#f87171", // red — already distinct
+  bullionexchanges: "#f472b6", // bright pink (was #ec4899)
+  summitmetals: "#22d3ee", // bright cyan (was #06b6d4)
+  goldback: "#d4a017", // deep gold — goldback branding
+  providentmetals: "#a3e635", // lime green — distinct from emerald (SDB)
+  gainesvillecoins: "#fb923c", // orange — distinct from amber (JM)
 };
 
 // ---------------------------------------------------------------------------
@@ -108,18 +124,22 @@ const _loadMarketFilter = () => {
   if (_marketFilterCache !== null) return _marketFilterCache;
   try {
     _marketFilterCache = loadDataSync(MARKET_FILTER_KEY, {});
-    if (typeof _marketFilterCache !== 'object' || _marketFilterCache === null || Array.isArray(_marketFilterCache)) {
+    if (
+      typeof _marketFilterCache !== "object" ||
+      _marketFilterCache === null ||
+      Array.isArray(_marketFilterCache)
+    ) {
       _marketFilterCache = {};
     }
     // STAK-520: Normalize per-slug entries — corrupted values (scalars, arrays)
     // can survive cloud restore and crash checkbox interactions
     for (const slug of Object.keys(_marketFilterCache)) {
       const entry = _marketFilterCache[slug];
-      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
         _marketFilterCache[slug] = {};
       }
       // STAK-540: Drop orphaned entries for slugs that now fail the STAK-521 predicate
-      if (typeof _isSlugResolved === 'function' && !_isSlugResolved(slug)) {
+      if (typeof _isSlugResolved === "function" && !_isSlugResolved(slug)) {
         delete _marketFilterCache[slug];
       }
     }
@@ -209,7 +229,10 @@ const getVendorDisplay = (vendorId) => {
  * @param {number|null|undefined} v
  * @returns {string}
  */
-const _fmtRetailPrice = (v) => (v != null ? `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "\u2014");
+const _fmtRetailPrice = (v) =>
+  v != null
+    ? `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : "\u2014";
 
 // ---------------------------------------------------------------------------
 // State
@@ -299,7 +322,8 @@ const loadRetailPriceHistory = () => {
   try {
     const loaded = loadDataSync(RETAIL_PRICE_HISTORY_KEY);
     // Guard: stored value must be a plain object; arrays (corrupt/legacy data) are discarded.
-    retailPriceHistory = (loaded && !Array.isArray(loaded) && typeof loaded === "object") ? loaded : {};
+    retailPriceHistory =
+      loaded && !Array.isArray(loaded) && typeof loaded === "object" ? loaded : {};
   } catch (err) {
     console.error("[retail] Failed to load retail price history:", err);
     retailPriceHistory = {};
@@ -319,7 +343,8 @@ const saveRetailPriceHistory = () => {
 const loadRetailIntradayData = () => {
   try {
     const loaded = loadDataSync(RETAIL_INTRADAY_KEY);
-    retailIntradayData = (loaded && typeof loaded === "object" && !Array.isArray(loaded)) ? loaded : {};
+    retailIntradayData =
+      loaded && typeof loaded === "object" && !Array.isArray(loaded) ? loaded : {};
   } catch (err) {
     console.error("[retail] Failed to load intraday data:", err);
     retailIntradayData = {};
@@ -339,7 +364,7 @@ const saveRetailIntradayData = () => {
     }
   }
   retailIntradayData = pruned;
-  if (typeof window !== 'undefined') window.retailIntradayData = retailIntradayData;
+  if (typeof window !== "undefined") window.retailIntradayData = retailIntradayData;
   try {
     saveDataSync(RETAIL_INTRADAY_KEY, retailIntradayData);
   } catch (err) {
@@ -369,7 +394,8 @@ const _appendSyncLogEntry = (entry) => {
 const loadRetailProviders = () => {
   try {
     const loaded = loadDataSync(RETAIL_PROVIDERS_KEY, null);
-    retailProviders = (loaded && typeof loaded === "object" && !Array.isArray(loaded)) ? loaded : null;
+    retailProviders =
+      loaded && typeof loaded === "object" && !Array.isArray(loaded) ? loaded : null;
   } catch (err) {
     console.error("[retail] Failed to load retail providers:", err);
     retailProviders = null;
@@ -430,38 +456,59 @@ const saveRetailAvailability = () => {
 // ---------------------------------------------------------------------------
 
 const _saveV2RetailPrices = () => {
-  try { saveDataSync(_V2_RETAIL_PRICES_KEY, retailPrices); }
-  catch (err) { _handleSaveError("v2 retail prices", err); }
+  try {
+    saveDataSync(_V2_RETAIL_PRICES_KEY, retailPrices);
+  } catch (err) {
+    _handleSaveError("v2 retail prices", err);
+  }
 };
 
 const _loadV2RetailPrices = () => {
-  try { retailPrices = loadDataSync(_V2_RETAIL_PRICES_KEY) || null; }
-  catch (e) { retailPrices = null; debugLog("Failed to load v2 retail prices: " + e.message, "warn"); }
+  try {
+    retailPrices = loadDataSync(_V2_RETAIL_PRICES_KEY) || null;
+  } catch (e) {
+    retailPrices = null;
+    debugLog("Failed to load v2 retail prices: " + e.message, "warn");
+  }
 };
 
 const _saveV2RetailIntraday = () => {
-  try { saveDataSync(_V2_RETAIL_INTRADAY_KEY, retailIntradayData); }
-  catch (err) { debugLog(`[retail-v2] Failed to save intraday: ${err.message}`, "warn"); }
+  try {
+    saveDataSync(_V2_RETAIL_INTRADAY_KEY, retailIntradayData);
+  } catch (err) {
+    debugLog(`[retail-v2] Failed to save intraday: ${err.message}`, "warn");
+  }
 };
 
 const _loadV2RetailIntraday = () => {
   try {
     const loaded = loadDataSync(_V2_RETAIL_INTRADAY_KEY);
-    retailIntradayData = (loaded && typeof loaded === "object" && !Array.isArray(loaded)) ? loaded : {};
-  } catch (e) { retailIntradayData = {}; debugLog("Failed to load v2 retail intraday: " + e.message, "warn"); }
+    retailIntradayData =
+      loaded && typeof loaded === "object" && !Array.isArray(loaded) ? loaded : {};
+  } catch (e) {
+    retailIntradayData = {};
+    debugLog("Failed to load v2 retail intraday: " + e.message, "warn");
+  }
   if (typeof window !== "undefined") window.retailIntradayData = retailIntradayData;
 };
 
 const _saveV2RetailHistory = () => {
-  try { saveDataSync(_V2_RETAIL_HISTORY_KEY, retailPriceHistory); }
-  catch (err) { _handleSaveError("v2 retail history", err); }
+  try {
+    saveDataSync(_V2_RETAIL_HISTORY_KEY, retailPriceHistory);
+  } catch (err) {
+    _handleSaveError("v2 retail history", err);
+  }
 };
 
 const _loadV2RetailHistory = () => {
   try {
     const loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
-    retailPriceHistory = (loaded && !Array.isArray(loaded) && typeof loaded === "object") ? loaded : {};
-  } catch (e) { retailPriceHistory = {}; debugLog("Failed to load v2 retail history: " + e.message, "warn"); }
+    retailPriceHistory =
+      loaded && !Array.isArray(loaded) && typeof loaded === "object" ? loaded : {};
+  } catch (e) {
+    retailPriceHistory = {};
+    debugLog("Failed to load v2 retail history: " + e.message, "warn");
+  }
   if (typeof window !== "undefined") window.retailPriceHistory = retailPriceHistory;
 };
 
@@ -477,8 +524,10 @@ const _loadV2RetailHistory = () => {
 const getRetailHistoryForSlug = (slug) => retailPriceHistory[slug] || [];
 
 /** Last API base URL that returned a valid manifest — used by retail-view-modal.js */
-let _lastSuccessfulApiBase = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS[0] + "/retail" : "https://api.staktrakr.com/data/v2/retail";
-
+let _lastSuccessfulApiBase =
+  typeof V2_API_ENDPOINTS !== "undefined"
+    ? V2_API_ENDPOINTS[0] + "/retail"
+    : "https://api.staktrakr.com/data/v2/retail";
 
 const _processSlugResult = (slug, latest, hist30) => {
   const result = {
@@ -517,7 +566,13 @@ const _processSlugResult = (slug, latest, hist30) => {
       const livePrices = [];
       const patchedVendors = {};
       for (const [vid, vdata] of Object.entries(latest.vendors)) {
-        const p = (vdata.price !== null && vdata.price !== undefined && vdata.price > 0 && isFinite(vdata.price)) ? Number(vdata.price) : null;
+        const p =
+          vdata.price !== null &&
+          vdata.price !== undefined &&
+          vdata.price > 0 &&
+          isFinite(vdata.price)
+            ? Number(vdata.price)
+            : null;
         if (p !== null) livePrices.push(p);
         patchedVendors[vid] = { avg: p, inStock: vdata.inStock !== false };
       }
@@ -543,10 +598,12 @@ async function _pickFreshestV2Endpoint() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
-      const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+      const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() =>
+        clearTimeout(timeoutId)
+      );
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const envelope = await resp.json();
-      const manifest = (envelope && envelope.v === 2 && envelope.data) ? envelope.data : envelope;
+      const manifest = envelope && envelope.v === 2 && envelope.data ? envelope.data : envelope;
       return { base, manifest, generatedAt: envelope.generated_at || "" };
     } catch {
       // try next endpoint
@@ -559,10 +616,12 @@ async function _fetchV2Json(base, path) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const resp = await fetch(`${base}/${path}`, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+    const resp = await fetch(`${base}/${path}`, { signal: controller.signal }).finally(() =>
+      clearTimeout(timeoutId)
+    );
     if (!resp.ok) return null;
     const envelope = await resp.json();
-    return (envelope && envelope.v === 2 && envelope.data !== undefined) ? envelope.data : envelope;
+    return envelope && envelope.v === 2 && envelope.data !== undefined ? envelope.data : envelope;
   } catch {
     return null;
   }
@@ -584,7 +643,11 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
   window._lastSuccessfulApiBase = _lastSuccessfulApiBase;
 
   if (generatedAt) {
-    try { localStorage.setItem(RETAIL_MANIFEST_TS_KEY, generatedAt); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(RETAIL_MANIFEST_TS_KEY, generatedAt);
+    } catch {
+      /* ignore */
+    }
   }
   debugLog(`[retail-v2] Using ${apiBase} (generated: ${generatedAt})`, "info");
 
@@ -599,14 +662,31 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     _manifestCoinMeta[c.slug] = {
       name: c.name,
       weight: c.weight_oz || 0,
-      metal: c.metal === "xag" ? "silver" : c.metal === "xau" ? "gold" : c.metal === "xpt" ? "platinum" : c.metal === "xpd" ? "palladium" : c.metal || "unknown",
+      metal:
+        c.metal === "xag"
+          ? "silver"
+          : c.metal === "xau"
+            ? "gold"
+            : c.metal === "xpt"
+              ? "platinum"
+              : c.metal === "xpd"
+                ? "palladium"
+                : c.metal || "unknown",
     };
   }
   if (_manifestSlugs.length) {
-    try { localStorage.setItem(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs));
+    } catch {
+      /* ignore */
+    }
   }
   if (_manifestCoinMeta) {
-    try { localStorage.setItem(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta));
+    } catch {
+      /* ignore */
+    }
   }
 
   // Populate vendor metadata from manifest
@@ -615,7 +695,11 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     for (const v of vendors) {
       _manifestVendorMeta[v.id] = { name: v.name, color: v.color, url: v.url || null };
     }
-    try { localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta));
+    } catch {
+      /* ignore */
+    }
   }
 
   // Fetch providers.json for vendor product page URLs.
@@ -655,12 +739,18 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
       // product links until the next successful fetch.
       if (Object.keys(flattened).length === 0) {
         const existingCount = Object.keys(retailProviders || {}).length;
-        debugLog(`[retail-v2] providers.json parsed but produced empty map — keeping ${existingCount} existing cached mappings`, "warn");
+        debugLog(
+          `[retail-v2] providers.json parsed but produced empty map — keeping ${existingCount} existing cached mappings`,
+          "warn"
+        );
       } else {
         retailProviders = flattened;
         if (typeof window !== "undefined") window.retailProviders = retailProviders;
         saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
-        debugLog(`[retail-v2] Loaded ${Object.keys(retailProviders).length} coin provider mappings`, "info");
+        debugLog(
+          `[retail-v2] Loaded ${Object.keys(retailProviders).length} coin provider mappings`,
+          "info"
+        );
       }
     } else {
       debugLog(`[retail-v2] providers.json fetch non-OK: ${providersResp.status}`, "warn");
@@ -821,13 +911,22 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     saveRetailAvailability();
   }
 
-  const tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-  const tzOpts = tz && tz !== 'auto' ? { timeZone: tz, hour: 'numeric', minute: '2-digit' } : { hour: 'numeric', minute: '2-digit' };
+  const tz =
+    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+  const tzOpts =
+    tz && tz !== "auto"
+      ? { timeZone: tz, hour: "numeric", minute: "2-digit" }
+      : { hour: "numeric", minute: "2-digit" };
   const syncTime = new Date().toLocaleTimeString(undefined, tzOpts);
   const statusMsg = `Synced ${successCount} coin(s) · ${syncTime}`;
   if (ui && syncStatus) syncStatus.textContent = statusMsg;
   debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
-  _appendSyncLogEntry({ success: true, coins: successCount, window: generatedAt || null, error: null });
+  _appendSyncLogEntry({
+    success: true,
+    coins: successCount,
+    window: generatedAt || null,
+    error: null,
+  });
   if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
 }
 
@@ -853,8 +952,13 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   const syncStatus = safeGetElement("retailSyncStatus");
 
   if (ui) {
-    if (syncBtn) { syncBtn.disabled = true; syncBtn.textContent = "Syncing\u2026"; }
-    if (syncStatus) { syncStatus.textContent = ""; }
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.textContent = "Syncing\u2026";
+    }
+    if (syncStatus) {
+      syncStatus.textContent = "";
+    }
   }
   _retailSyncInProgress = true;
   _retailSyncError = false;
@@ -877,10 +981,16 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
       if (mktLogActive && typeof renderRetailHistoryTable === "function") {
         renderRetailHistoryTable();
       }
-    } catch (e) { debugLog(`[retail] Post-sync log render failed: ${e.message}`, "warn"); }
+    } catch (e) {
+      debugLog(`[retail] Post-sync log render failed: ${e.message}`, "warn");
+    }
     // STAK-504: Refresh main-page market data (ticker + vendor table) after sync
-    if (typeof refreshMarketData === 'function') {
-      try { refreshMarketData(); } catch (e) { debugLog(`[retail] Post-sync market refresh failed: ${e.message}`, "warn"); }
+    if (typeof refreshMarketData === "function") {
+      try {
+        refreshMarketData();
+      } catch (e) {
+        debugLog(`[retail] Post-sync market refresh failed: ${e.message}`, "warn");
+      }
     }
   }
 };
@@ -917,7 +1027,8 @@ const _updateLastSyncEl = (el) => {
     const diffMin = Math.floor((Date.now() - d) / 60000);
     if (diffMin < 1) el.textContent = "Last synced: just now";
     else if (diffMin < 60) el.textContent = `Last synced: ${diffMin} min ago`;
-    else el.textContent = `Last synced: ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    else
+      el.textContent = `Last synced: ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   } else {
     el.textContent = "Never synced";
   }
@@ -929,7 +1040,13 @@ const renderRetailCards = () => {
 };
 
 /** Metal emoji icons keyed by metal name */
-const RETAIL_METAL_EMOJI = { gold: "🟡", silver: "⚪", platinum: "🔷", palladium: "⬜", goldback: "🟡" };
+const RETAIL_METAL_EMOJI = {
+  gold: "🟡",
+  silver: "⚪",
+  platinum: "🔷",
+  palladium: "⬜",
+  goldback: "🟡",
+};
 /**
  * Computes price trend vs. the previous history entry.
  * @param {string} slug
@@ -940,7 +1057,7 @@ const _computeRetailTrend = (slug) => {
   if (!history || history.length < 2) return null;
   const sorted = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
   const latest = Number(sorted[0].avg_median);
-  const prev   = Number(sorted[1].avg_median);
+  const prev = Number(sorted[1].avg_median);
   if (!isFinite(latest) || !isFinite(prev) || prev === 0) return null;
   const change = ((latest - prev) / prev) * 100;
   const pct = Math.abs(change).toFixed(1);
@@ -951,7 +1068,8 @@ const _computeRetailTrend = (slug) => {
 
 const _computeIntradayTrend = (slug) => {
   const intraday = retailIntradayData[slug];
-  if (!intraday || !Array.isArray(intraday.windows_24h) || intraday.windows_24h.length < 2) return null;
+  if (!intraday || !Array.isArray(intraday.windows_24h) || intraday.windows_24h.length < 2)
+    return null;
   // Use the same pipeline as the chart for consistency
   if (typeof window.retailBucketWindows !== "function") return null;
   const bucketed = window.retailBucketWindows(intraday.windows_24h);
@@ -969,7 +1087,6 @@ const _computeIntradayTrend = (slug) => {
 const _getActiveTrend = (slug) => {
   return _retailTrendMode === "intraday" ? _computeIntradayTrend(slug) : _computeRetailTrend(slug);
 };
-
 
 // ---------------------------------------------------------------------------
 
@@ -994,8 +1111,8 @@ const _buildMarketVendorLink = (vendorId, slug) => {
   const vd = getVendorDisplay(vendorId);
   const label = vd.name;
   const vendorColor = vd.color;
-  const vendorUrl = (retailProviders && retailProviders[slug] && retailProviders[slug][vendorId])
-    || vd.url;
+  const vendorUrl =
+    (retailProviders && retailProviders[slug] && retailProviders[slug][vendorId]) || vd.url;
   const el = document.createElement("span");
   el.className = "vendor-name";
   if (vendorColor) el.style.color = vendorColor;
@@ -1003,7 +1120,11 @@ const _buildMarketVendorLink = (vendorId, slug) => {
     el.style.cursor = "pointer";
     el.addEventListener("click", (e) => {
       e.preventDefault();
-      const popup = window.open(vendorUrl, `retail_vendor_${vendorId}`, "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no");
+      const popup = window.open(
+        vendorUrl,
+        `retail_vendor_${vendorId}`,
+        "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
+      );
       if (popup) popup.opener = null;
       else window.open(vendorUrl, "_blank", "noopener,noreferrer");
     });
@@ -1060,7 +1181,9 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   statsCol.className = "market-card-stats-col";
 
   // Compute stats from priceData if available, otherwise fall back to latest history entry
-  let medVal = null, lowVal = null, avgVal = null;
+  let medVal = null,
+    lowVal = null,
+    avgVal = null;
   // Helper: extract numeric price from vendor object (live uses .price, history uses .avg)
   const _vendorPrice = (v) => {
     if (!v) return null;
@@ -1073,7 +1196,9 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
       .filter((v) => v && v.inStock !== false)
       .map(_vendorPrice)
       .filter((p) => p != null);
-    return vendorPrices.length > 0 ? vendorPrices.reduce((a, b) => a + b, 0) / vendorPrices.length : null;
+    return vendorPrices.length > 0
+      ? vendorPrices.reduce((a, b) => a + b, 0) / vendorPrices.length
+      : null;
   };
   if (priceData) {
     medVal = priceData.median_price;
@@ -1099,7 +1224,11 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   if (medVal != null || lowVal != null || avgVal != null) {
     const statsInner = document.createElement("div");
     statsInner.className = "market-card-stats";
-    [["MED", medVal], ["LOW", lowVal], ["AVG", avgVal]].forEach(([label, val]) => {
+    [
+      ["MED", medVal],
+      ["LOW", lowVal],
+      ["AVG", avgVal],
+    ].forEach(([label, val]) => {
       const span = document.createElement("span");
       const lbl = document.createElement("span");
       lbl.className = "stat-label";
@@ -1176,8 +1305,11 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
       const prices = sortedVendors.map(({ price }) => price);
       const mid = Math.floor(prices.length / 2);
       const median = prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
-      const threshold = typeof RETAIL_ANOMALY_THRESHOLD !== "undefined" ? RETAIL_ANOMALY_THRESHOLD : 0.40;
-      const filtered = sortedVendors.filter(({ price }) => Math.abs(price - median) / median <= threshold);
+      const threshold =
+        typeof RETAIL_ANOMALY_THRESHOLD !== "undefined" ? RETAIL_ANOMALY_THRESHOLD : 0.4;
+      const filtered = sortedVendors.filter(
+        ({ price }) => Math.abs(price - median) / median <= threshold
+      );
       // Guard: if all would be filtered, show all
       if (filtered.length > 0) displayVendors = filtered;
     }
@@ -1211,7 +1343,7 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   const details = document.createElement("details");
   details.className = "market-card-chart";
   const summary = document.createElement("summary");
-  const tArrow = trend ? ({ up: "\u2191", down: "\u2193", flat: "\u2192" }[trend.dir]) : "\u2192";
+  const tArrow = trend ? { up: "\u2191", down: "\u2193", flat: "\u2192" }[trend.dir] : "\u2192";
   const tSign = trend ? (trend.dir === "up" ? "+" : trend.dir === "down" ? "\u2212" : "") : "";
   const tPct = trend ? trend.pct : "0.0";
   const trendLabel = _retailTrendMode === "intraday" ? "Intraday Trend" : "7-Day Trend";
@@ -1220,7 +1352,10 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   const chartContainer = document.createElement("div");
   chartContainer.className = "market-chart-container";
   const history = retailPriceHistory[slug];
-  const intradayWindows = retailIntradayData[slug] && Array.isArray(retailIntradayData[slug].windows_24h) ? retailIntradayData[slug].windows_24h : [];
+  const intradayWindows =
+    retailIntradayData[slug] && Array.isArray(retailIntradayData[slug].windows_24h)
+      ? retailIntradayData[slug].windows_24h
+      : [];
   const hasChartData = (history && history.length >= 2) || intradayWindows.length >= 2;
   if (!hasChartData) {
     const msg = document.createElement("p");
@@ -1250,7 +1385,8 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
   // Click anywhere on card body toggles the chart (except vendor chips + summary)
   card.addEventListener("click", (e) => {
     // Let vendor chips, links, and the native summary toggle handle themselves
-    if (e.target.closest(".vendor-chip") || e.target.closest("summary") || e.target.closest("a")) return;
+    if (e.target.closest(".vendor-chip") || e.target.closest("summary") || e.target.closest("a"))
+      return;
     details.open = !details.open;
   });
 
@@ -1272,8 +1408,10 @@ const _buildMarketListCard = (slug, meta, priceData, historyData) => {
  * @returns {Object<string, Array<number|null>>} Cleaned price arrays keyed by vendorId
  */
 const _filterHistorySpikes = (entries, vendorIds) => {
-  const neighborTol = typeof RETAIL_SPIKE_NEIGHBOR_TOLERANCE !== "undefined" ? RETAIL_SPIKE_NEIGHBOR_TOLERANCE : 0.05;
-  const medianThreshold = typeof RETAIL_ANOMALY_THRESHOLD !== "undefined" ? RETAIL_ANOMALY_THRESHOLD : 0.40;
+  const neighborTol =
+    typeof RETAIL_SPIKE_NEIGHBOR_TOLERANCE !== "undefined" ? RETAIL_SPIKE_NEIGHBOR_TOLERANCE : 0.05;
+  const medianThreshold =
+    typeof RETAIL_ANOMALY_THRESHOLD !== "undefined" ? RETAIL_ANOMALY_THRESHOLD : 0.4;
 
   // Extract raw price matrix and track which points are estimated (OOS / carry-forward)
   const prices = {};
@@ -1375,7 +1513,7 @@ const _filterHistorySpikes = (entries, vendorIds) => {
 
   // Pass 2: Cross-vendor median consensus (only on non-estimated points)
   for (let t = 0; t < entries.length; t++) {
-    const isEndpoint = (t === 0 || t === entries.length - 1);
+    const isEndpoint = t === 0 || t === entries.length - 1;
     const valid = vendorIds
       .map((vid) => ({ vid, price: prices[vid][t], est: estimated[vid][t] }))
       .filter((x) => x.price != null && !x.est);
@@ -1421,12 +1559,18 @@ const _interpolateGaps = (data, preEstimated) => {
     // Find previous non-null value
     let prevIdx = -1;
     for (let j = i - 1; j >= 0; j--) {
-      if (filled[j] != null) { prevIdx = j; break; }
+      if (filled[j] != null) {
+        prevIdx = j;
+        break;
+      }
     }
     // Find next non-null value
     let nextIdx = -1;
     for (let j = i + 1; j < filled.length; j++) {
-      if (filled[j] != null) { nextIdx = j; break; }
+      if (filled[j] != null) {
+        nextIdx = j;
+        break;
+      }
     }
     if (prevIdx === -1 || nextIdx === -1) continue; // edge — no extrapolation
     // Linear interpolation
@@ -1464,19 +1608,18 @@ const _initMarketCardChart = (slug, detailsEl) => {
   const activeVendors = [
     ...knownOrder.filter((v) => vendorSet.has(v)),
     ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
-  ].filter((v) =>
-    last7.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null)
-  );
+  ].filter((v) => last7.some((e) => e.vendors && e.vendors[v] && e.vendors[v].avg != null));
 
   // Filter spikes, then interpolate gaps for smooth lines
-  const spikeResult = activeVendors.length > 0
-    ? _filterHistorySpikes(last7, activeVendors)
-    : null;
+  const spikeResult = activeVendors.length > 0 ? _filterHistorySpikes(last7, activeVendors) : null;
 
   // Pre-compute interpolated data per vendor for buildVendorDatasets
   const interpMap = {};
   const qualifiedVendors = activeVendors.filter((vendorId) => {
-    const { filled, interp } = _interpolateGaps(spikeResult.prices[vendorId], spikeResult.estimated[vendorId]);
+    const { filled, interp } = _interpolateGaps(
+      spikeResult.prices[vendorId],
+      spikeResult.estimated[vendorId]
+    );
     // Require 2+ real (non-estimated) data points — a single dot adds noise, not signal
     const realCount = interp.filter((v, i) => !v && filled[i] != null).length;
     if (realCount < 2) return false;
@@ -1484,23 +1627,31 @@ const _initMarketCardChart = (slug, detailsEl) => {
     return true;
   });
 
-  const datasets = qualifiedVendors.length > 0
-    ? buildVendorDatasets(qualifiedVendors, last7, (row, vendorId) => {
-        const rowIdx = last7.indexOf(row);
-        return interpMap[vendorId].filled[rowIdx];
-      }, {
-        colorMap: RETAIL_VENDOR_COLORS,
-        labelFn: (vendorId) => getVendorDisplay(vendorId).name,
-      })
-    : [{
-        label: "Avg Median",
-        data: last7.map((e) => Number(e.avg_median)),
-        borderColor: "#4a9eff",
-        backgroundColor: "transparent",
-        borderWidth: 1.5,
-        pointRadius: 3,
-        tension: 0.3,
-      }];
+  const datasets =
+    qualifiedVendors.length > 0
+      ? buildVendorDatasets(
+          qualifiedVendors,
+          last7,
+          (row, vendorId) => {
+            const rowIdx = last7.indexOf(row);
+            return interpMap[vendorId].filled[rowIdx];
+          },
+          {
+            colorMap: RETAIL_VENDOR_COLORS,
+            labelFn: (vendorId) => getVendorDisplay(vendorId).name,
+          }
+        )
+      : [
+          {
+            label: "Avg Median",
+            data: last7.map((e) => Number(e.avg_median)),
+            borderColor: "#4a9eff",
+            backgroundColor: "transparent",
+            borderWidth: 1.5,
+            pointRadius: 3,
+            tension: 0.3,
+          },
+        ];
 
   // Augment vendor datasets with interpolation-specific properties
   if (qualifiedVendors.length > 0) {
@@ -1509,12 +1660,13 @@ const _initMarketCardChart = (slug, detailsEl) => {
       const { interp } = interpMap[vendorId];
       const baseColor = ds.borderColor;
       ds._interp = interp; // stashed for tooltip + segment callbacks
-      ds.pointRadius = (ctx) => interp[ctx.dataIndex] ? 2 : 3;
-      ds.pointBorderColor = (ctx) => interp[ctx.dataIndex] ? baseColor + "60" : baseColor;
-      ds.pointBackgroundColor = (ctx) => interp[ctx.dataIndex] ? "transparent" : baseColor;
+      ds.pointRadius = (ctx) => (interp[ctx.dataIndex] ? 2 : 3);
+      ds.pointBorderColor = (ctx) => (interp[ctx.dataIndex] ? baseColor + "60" : baseColor);
+      ds.pointBackgroundColor = (ctx) => (interp[ctx.dataIndex] ? "transparent" : baseColor);
       ds.segment = {
-        borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? [4, 3] : [],
-        borderColor: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex]) ? baseColor + "80" : baseColor,
+        borderDash: (ctx) => (interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex] ? [4, 3] : []),
+        borderColor: (ctx) =>
+          interp[ctx.p0DataIndex] || interp[ctx.p1DataIndex] ? baseColor + "80" : baseColor,
       };
     });
   }
@@ -1555,9 +1707,12 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
   const canvas = detailsEl.querySelector(`#market-chart-${slug}`);
   if (!(canvas instanceof HTMLCanvasElement)) return;
 
-  if (typeof window.retailBucketWindows !== "function" ||
-      typeof window.retailForwardFillVendors !== "function" ||
-      typeof window.retailFlagAnomalies !== "function") return;
+  if (
+    typeof window.retailBucketWindows !== "function" ||
+    typeof window.retailForwardFillVendors !== "function" ||
+    typeof window.retailFlagAnomalies !== "function"
+  )
+    return;
 
   const intraday = retailIntradayData[slug];
   const raw = intraday && Array.isArray(intraday.windows_24h) ? intraday.windows_24h : [];
@@ -1576,7 +1731,11 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
 
   const labels = bucketed.map((w) => {
     const d = w.window ? new Date(w.window) : null;
-    return typeof window.retailFmtIntradayTime === "function" ? window.retailFmtIntradayTime(d) : (d ? d.toISOString().slice(11, 16) : "");
+    return typeof window.retailFmtIntradayTime === "function"
+      ? window.retailFmtIntradayTime(d)
+      : d
+        ? d.toISOString().slice(11, 16)
+        : "";
   });
 
   // Discover all vendors present in the data (not limited to RETAIL_VENDOR_NAMES)
@@ -1586,7 +1745,8 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
     if (w._anomalyOriginals) Object.keys(w._anomalyOriginals).forEach((v) => vendorSet.add(v));
   });
   // Sort: known vendors first (in RETAIL_VENDOR_NAMES order), then unknown vendors alphabetically
-  const knownOrder = typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
+  const knownOrder =
+    typeof RETAIL_VENDOR_NAMES !== "undefined" ? Object.keys(RETAIL_VENDOR_NAMES) : [];
   const activeVendors = [
     ...knownOrder.filter((v) => vendorSet.has(v)),
     ...[...vendorSet].filter((v) => !knownOrder.includes(v)).sort(),
@@ -1594,9 +1754,11 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
 
   // Exclude OOS vendors with zero real (non-carried) prices
   const qualifiedVendors = activeVendors.filter((vendorId) =>
-    bucketed.some((w) =>
-      w.vendors && w.vendors[vendorId] != null &&
-      !(w._carriedVendors && w._carriedVendors.has(vendorId))
+    bucketed.some(
+      (w) =>
+        w.vendors &&
+        w.vendors[vendorId] != null &&
+        !(w._carriedVendors && w._carriedVendors.has(vendorId))
     )
   );
 
@@ -1606,7 +1768,10 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
     const carried = new Set();
     bucketed.forEach((w, i) => {
       if (w._carriedVendors && w._carriedVendors.has(vendorId)) {
-        if (i === 0 || (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))) {
+        if (
+          i === 0 ||
+          (bucketed[i - 1]._carriedVendors && bucketed[i - 1]._carriedVendors.has(vendorId))
+        ) {
           carried.add(i);
         }
       }
@@ -1614,36 +1779,46 @@ const _initMarketCardIntradayChart = (slug, detailsEl) => {
     return carried;
   });
 
-  const datasets = qualifiedVendors.length > 0
-    ? buildVendorDatasets(qualifiedVendors, bucketed, (w, vendorId) => {
-        return w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null;
-      }, {
-        colorMap: RETAIL_VENDOR_COLORS,
-        labelFn: (vendorId) => getVendorDisplay(vendorId).name,
-        tension: 0.2,
-        carriedIndices: carriedPerVendor,
-      })
-    : [{
-        label: "Median",
-        data: bucketed.map((w) => w.median),
-        borderColor: "#3b82f6",
-        backgroundColor: "transparent",
-        borderWidth: 1.5,
-        pointRadius: 0,
-        pointHoverRadius: 3,
-        tension: 0.3,
-      }];
+  const datasets =
+    qualifiedVendors.length > 0
+      ? buildVendorDatasets(
+          qualifiedVendors,
+          bucketed,
+          (w, vendorId) => {
+            return w.vendors && w.vendors[vendorId] != null ? w.vendors[vendorId] : null;
+          },
+          {
+            colorMap: RETAIL_VENDOR_COLORS,
+            labelFn: (vendorId) => getVendorDisplay(vendorId).name,
+            tension: 0.2,
+            carriedIndices: carriedPerVendor,
+          }
+        )
+      : [
+          {
+            label: "Median",
+            data: bucketed.map((w) => w.median),
+            borderColor: "#3b82f6",
+            backgroundColor: "transparent",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            tension: 0.3,
+          },
+        ];
 
   // Augment vendor datasets with carried-aware dashed segments (STAK-474)
   if (qualifiedVendors.length > 0) {
     datasets.forEach((ds, idx) => {
       const carried = carriedPerVendor[idx];
       ds.pointRadius = 0;
-      ds.pointHoverRadius = (ctx) => carried.has(ctx.dataIndex) ? 2 : 3;
+      ds.pointHoverRadius = (ctx) => (carried.has(ctx.dataIndex) ? 2 : 3);
       const color = ds.borderColor;
       ds.segment = {
-        borderDash: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? [4, 3] : [],
-        borderColor: (ctx) => (carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)) ? color + "80" : color,
+        borderDash: (ctx) =>
+          carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex) ? [4, 3] : [],
+        borderColor: (ctx) =>
+          carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex) ? color + "80" : color,
       };
     });
   }
@@ -1777,7 +1952,9 @@ const _renderMarketListView = () => {
     ["7d", "intraday"].forEach((mode) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "market-trend-toggle-btn" + (_retailTrendMode === mode ? " market-trend-toggle-btn--active" : "");
+      btn.className =
+        "market-trend-toggle-btn" +
+        (_retailTrendMode === mode ? " market-trend-toggle-btn--active" : "");
       btn.setAttribute("aria-pressed", _retailTrendMode === mode ? "true" : "false");
       btn.textContent = mode === "7d" ? "7-Day" : "Intraday";
       btn.addEventListener("click", () => _setRetailTrendMode(mode));
@@ -1792,7 +1969,8 @@ const _renderMarketListView = () => {
     return;
   }
 
-  const hasData = retailPrices && retailPrices.prices && Object.keys(retailPrices.prices).length > 0;
+  const hasData =
+    retailPrices && retailPrices.prices && Object.keys(retailPrices.prices).length > 0;
   emptyState.style.display = hasData ? "none" : "";
   if (!hasData) return;
 
@@ -1820,7 +1998,8 @@ const _renderMarketListView = () => {
   footer.className = "market-footer";
   const footerText1 = document.createElement("div");
   footerText1.className = "market-footer-text";
-  footerText1.textContent = "Confidence scores reflect scraper accuracy \u2014 prices with low confidence may be outdated or incorrectly parsed. Always verify at the vendor\u2019s website before purchasing.";
+  footerText1.textContent =
+    "Confidence scores reflect scraper accuracy \u2014 prices with low confidence may be outdated or incorrectly parsed. Always verify at the vendor\u2019s website before purchasing.";
   footer.appendChild(footerText1);
   const footerDiv = document.createElement("div");
   footerDiv.className = "market-footer-divider";
@@ -1829,7 +2008,8 @@ const _renderMarketListView = () => {
   footerRow.className = "market-footer-row";
   const footerText2 = document.createElement("div");
   footerText2.className = "market-footer-text";
-  footerText2.innerHTML = 'Item not found? Request it on <a href="https://reddit.com/r/staktrakr" target="_blank" rel="noopener noreferrer">r/staktrakr</a> &mdash; supporters and early adopters get priority placement in the queue.';
+  footerText2.innerHTML =
+    'Item not found? Request it on <a href="https://reddit.com/r/staktrakr" target="_blank" rel="noopener noreferrer">r/staktrakr</a> &mdash; supporters and early adopters get priority placement in the queue.';
   footerRow.appendChild(footerText2);
   const sponsorBadge = document.createElement("a");
   sponsorBadge.className = "market-sponsor-badge";
@@ -1868,22 +2048,24 @@ const _initMarketListViewListeners = () => {
   if (sortSelect) sortSelect.addEventListener("change", _onMarketSort);
 
   const syncBtn = safeGetElement("retailSyncBtnList");
-  if (syncBtn) syncBtn.addEventListener("click", () => {
-    if (typeof syncRetailPrices === "function") syncRetailPrices();
-  });
+  if (syncBtn)
+    syncBtn.addEventListener("click", () => {
+      if (typeof syncRetailPrices === "function") syncRetailPrices();
+    });
 
   const expandBtn = safeGetElement("marketExpandAllBtn");
-  if (expandBtn) expandBtn.addEventListener("click", () => {
-    const grid = safeGetElement("retailCardsGrid");
-    const allDetails = grid.querySelectorAll("details.market-card-chart");
-    const allOpen = Array.from(allDetails).every((d) => d.open);
-    allDetails.forEach((d) => {
-      if (allOpen) d.removeAttribute("open");
-      else d.setAttribute("open", "");
-      d.dispatchEvent(new Event("toggle"));
+  if (expandBtn)
+    expandBtn.addEventListener("click", () => {
+      const grid = safeGetElement("retailCardsGrid");
+      const allDetails = grid.querySelectorAll("details.market-card-chart");
+      const allOpen = Array.from(allDetails).every((d) => d.open);
+      allDetails.forEach((d) => {
+        if (allOpen) d.removeAttribute("open");
+        else d.setAttribute("open", "");
+        d.dispatchEvent(new Event("toggle"));
+      });
+      expandBtn.title = allOpen ? "Expand All" : "Collapse All";
     });
-    expandBtn.title = allOpen ? "Expand All" : "Collapse All";
-  });
 
   const pillContainer = safeGetElement("marketFilterPills");
   if (pillContainer) {
@@ -1952,13 +2134,20 @@ const renderRetailHistoryTable = () => {
         const ts = entry.ts ? new Date(entry.ts) : null;
         const timeStr = (() => {
           if (!ts || isNaN(ts)) return "--";
-          const tz = (typeof TIMEZONE_KEY !== 'undefined' && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-          const tzOpts = tz && tz !== 'auto' ? { timeZone: tz } : {};
+          const tz =
+            (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) ||
+            undefined;
+          const tzOpts = tz && tz !== "auto" ? { timeZone: tz } : {};
           try {
-            const timePart = ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false, ...tzOpts });
+            const timePart = ts.toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+              ...tzOpts,
+            });
             return `${ts.toLocaleDateString(undefined, tzOpts)} ${timePart}`;
           } catch (e) {
-            return `${ts.toLocaleDateString()} ${ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+            return `${ts.toLocaleDateString()} ${ts.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })}`;
           }
         })();
         const windowStr = (() => {
@@ -1967,7 +2156,12 @@ const renderRetailHistoryTable = () => {
           if (isNaN(wd)) return "\u2014";
           return `${wd.getUTCHours().toString().padStart(2, "0")}:${wd.getUTCMinutes().toString().padStart(2, "0")}`;
         })();
-        [timeStr, entry.success ? "\u2705 OK" : "\u274C Failed", entry.success ? String(entry.coins) : "\u2014", windowStr].forEach((text) => {
+        [
+          timeStr,
+          entry.success ? "\u2705 OK" : "\u274C Failed",
+          entry.success ? String(entry.coins) : "\u2014",
+          windowStr,
+        ].forEach((text) => {
           const td = document.createElement("td");
           td.textContent = text;
           tr.appendChild(td);
@@ -1992,15 +2186,19 @@ const renderRetailHistoryTable = () => {
 
   // Resolve vendor list from manifest metadata, or extract from history entries
   let vendorIds = [];
-  if (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta && Object.keys(_manifestVendorMeta).length > 0) {
+  if (
+    typeof _manifestVendorMeta !== "undefined" &&
+    _manifestVendorMeta &&
+    Object.keys(_manifestVendorMeta).length > 0
+  ) {
     vendorIds = Object.keys(_manifestVendorMeta);
   } else {
     const vendorSet = new Set();
     const allSlugsForVendors = getActiveRetailSlugs();
-    allSlugsForVendors.forEach(s => {
+    allSlugsForVendors.forEach((s) => {
       const h = getRetailHistoryForSlug(s);
-      h.forEach(entry => {
-        if (entry.vendors) Object.keys(entry.vendors).forEach(vid => vendorSet.add(vid));
+      h.forEach((entry) => {
+        if (entry.vendors) Object.keys(entry.vendors).forEach((vid) => vendorSet.add(vid));
       });
     });
     vendorIds = [...vendorSet].sort();
@@ -2008,17 +2206,20 @@ const renderRetailHistoryTable = () => {
 
   // Build dynamic thead
   const thead = safeGetElement("retailHistoryTableHead");
-  if (thead && typeof thead.appendChild === 'function') {
+  if (thead && typeof thead.appendChild === "function") {
     while (thead.firstChild) thead.removeChild(thead.firstChild);
     const headerRow = document.createElement("tr");
-    ["Date", "Avg Median", "Avg Low"].forEach(label => {
+    ["Date", "Avg Median", "Avg Low"].forEach((label) => {
       const th = document.createElement("th");
       th.textContent = label;
       headerRow.appendChild(th);
     });
-    vendorIds.forEach(vid => {
+    vendorIds.forEach((vid) => {
       const th = document.createElement("th");
-      const meta = (typeof _manifestVendorMeta !== 'undefined' && _manifestVendorMeta) ? _manifestVendorMeta[vid] : null;
+      const meta =
+        typeof _manifestVendorMeta !== "undefined" && _manifestVendorMeta
+          ? _manifestVendorMeta[vid]
+          : null;
       th.textContent = meta && meta.name ? meta.name : vid;
       headerRow.appendChild(th);
     });
@@ -2057,12 +2258,15 @@ const renderRetailHistoryTable = () => {
 
   const tfBtn = document.querySelector("#logPanel_market [data-retail-timeframe].active");
   const days = tfBtn ? tfBtn.dataset.retailTimeframe : "7";
-  const history = days === "all" ? allHistory : (() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - parseInt(days, 10));
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-    return allHistory.filter((entry) => entry.date >= cutoffStr);
-  })();
+  const history =
+    days === "all"
+      ? allHistory
+      : (() => {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - parseInt(days, 10));
+          const cutoffStr = cutoff.toISOString().slice(0, 10);
+          return allHistory.filter((entry) => entry.date >= cutoffStr);
+        })();
   while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
   if (!history.length) {
@@ -2079,14 +2283,18 @@ const renderRetailHistoryTable = () => {
 
   history.forEach((entry) => {
     const tr = document.createElement("tr");
-    [entry.date, _fmtRetailPrice(entry.avg_median), _fmtRetailPrice(entry.avg_low)].forEach(text => {
+    [entry.date, _fmtRetailPrice(entry.avg_median), _fmtRetailPrice(entry.avg_low)].forEach(
+      (text) => {
+        const td = document.createElement("td");
+        td.textContent = text;
+        tr.appendChild(td);
+      }
+    );
+    vendorIds.forEach((vid) => {
       const td = document.createElement("td");
-      td.textContent = text;
-      tr.appendChild(td);
-    });
-    vendorIds.forEach(vid => {
-      const td = document.createElement("td");
-      td.textContent = _fmtRetailPrice(entry.vendors && entry.vendors[vid] && entry.vendors[vid].avg);
+      td.textContent = _fmtRetailPrice(
+        entry.vendors && entry.vendors[vid] && entry.vendors[vid].avg
+      );
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -2108,31 +2316,45 @@ const initRetailPrices = () => {
     }
   } catch {
     _manifestSlugs = null;
-    try { localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY);
+    } catch {
+      /* ignore */
+    }
   }
   // Restore manifest coin metadata (canonical names, weights, metals)
   try {
     const cachedMeta = localStorage.getItem(RETAIL_MANIFEST_COIN_META_KEY);
     if (cachedMeta) {
       const parsed = JSON.parse(cachedMeta);
-      _manifestCoinMeta = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : null;
+      _manifestCoinMeta =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
       if (!_manifestCoinMeta) localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
     }
   } catch {
     _manifestCoinMeta = null;
-    try { localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
+    } catch {
+      /* ignore */
+    }
   }
   // Restore vendor display metadata
   try {
     const cachedVendor = localStorage.getItem(RETAIL_MANIFEST_VENDOR_META_KEY);
     if (cachedVendor) {
       const parsed = JSON.parse(cachedVendor);
-      _manifestVendorMeta = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : null;
+      _manifestVendorMeta =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
       if (!_manifestVendorMeta) localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
     }
   } catch {
     _manifestVendorMeta = null;
-    try { localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
+    } catch {
+      /* ignore */
+    }
   }
   _loadV2RetailPrices();
   _loadV2RetailHistory();
@@ -2175,12 +2397,16 @@ const startRetailBackgroundSync = () => {
   };
 
   // Sync immediately if no data, data is stale, or providers.json hasn't been fetched yet
-  const lastSync = retailPrices && retailPrices.lastSync ? new Date(retailPrices.lastSync).getTime() : 0;
+  const lastSync =
+    retailPrices && retailPrices.lastSync ? new Date(retailPrices.lastSync).getTime() : 0;
   const isStale = Date.now() - lastSync > RETAIL_STALE_MS;
   const missingProviders = !retailProviders || Object.keys(retailProviders).length === 0;
   const missingSlugs = !Array.isArray(_manifestSlugs) || _manifestSlugs.length === 0;
   if (isStale || missingProviders || missingSlugs) {
-    debugLog(`[retail] Background sync triggered (stale=${isStale}, missingProviders=${missingProviders}, missingSlugs=${missingSlugs})`, "info");
+    debugLog(
+      `[retail] Background sync triggered (stale=${isStale}, missingProviders=${missingProviders}, missingSlugs=${missingSlugs})`,
+      "info"
+    );
     _runSilentSync();
   }
 
@@ -2193,13 +2419,17 @@ const startRetailBackgroundSync = () => {
  * Green: < 60 min, Orange: 60 min – 24 hr, Red: > 24 hr or no data.
  */
 const updateMarketHealthDot = () => {
-  const dot = safeGetElement('headerMarketDot');
+  const dot = safeGetElement("headerMarketDot");
   if (!dot.classList) return;
-  dot.className = 'cloud-sync-dot header-cloud-dot';
+  dot.className = "cloud-sync-dot header-cloud-dot";
   let ts = null;
-  try { ts = localStorage.getItem(RETAIL_MANIFEST_TS_KEY); } catch (e) { /* ignore */ }
+  try {
+    ts = localStorage.getItem(RETAIL_MANIFEST_TS_KEY);
+  } catch (e) {
+    /* ignore */
+  }
   if (!ts) {
-    dot.classList.add('header-cloud-dot--red');
+    dot.classList.add("header-cloud-dot--red");
     return;
   }
   dot.classList.add(`header-cloud-dot${getHealthStatusClass(ts)}`);

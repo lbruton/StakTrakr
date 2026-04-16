@@ -1,24 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StakTrakr — Privacy Policy</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <meta http-equiv="refresh" content="0; url=./index.html#privacy">
-  <script>
-    // Mirror the app's stored theme before first paint to avoid flash
-    (function () {
-      try {
-        var t = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
-    })();
-    // JS fallback if meta-refresh is blocked
-    window.location.replace('./index.html#privacy');
-  </script>
-</head>
-<body>
-  <p>Redirecting to <a href="./index.html#privacy">StakTrakr Privacy Policy&hellip;</a></p>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr — Privacy Policy</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta http-equiv="refresh" content="0; url=./index.html#privacy" />
+    <script>
+      // Mirror the app's stored theme before first paint to avoid flash
+      (function () {
+        try {
+          var t = localStorage.getItem("theme") || "dark";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+      // JS fallback if meta-refresh is blocked
+      window.location.replace("./index.html#privacy");
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to <a href="./index.html#privacy">StakTrakr Privacy Policy&hellip;</a></p>
+  </body>
 </html>

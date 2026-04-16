@@ -165,8 +165,16 @@ async function main() {
     });
     const rows = result.rows;
     const cols = [
-      "id", "scraped_at", "window_start", "coin_slug", "vendor",
-      "price", "source", "confidence", "is_failed", "in_stock",
+      "id",
+      "scraped_at",
+      "window_start",
+      "coin_slug",
+      "vendor",
+      "price",
+      "source",
+      "confidence",
+      "is_failed",
+      "in_stock",
     ];
     const count = await batchInsert(target, "price_snapshots", cols, rows);
     summary.price_snapshots = count;
@@ -191,8 +199,14 @@ async function main() {
     });
     const rows = result.rows;
     const cols = [
-      "id", "metal", "spot", "source", "poller_id",
-      "timestamp", "timestamp_floor", "scraped_at",
+      "id",
+      "metal",
+      "spot",
+      "source",
+      "poller_id",
+      "timestamp",
+      "timestamp_floor",
+      "scraped_at",
     ];
     const count = await batchInsert(target, "spot_prices", cols, rows);
     summary.spot_prices = count;
@@ -217,8 +231,17 @@ async function main() {
     });
     const rows = result.rows;
     const cols = [
-      "id", "run_id", "poller_id", "started_at", "finished_at",
-      "status", "total", "captured", "failures", "fbp_filled", "error",
+      "id",
+      "run_id",
+      "poller_id",
+      "started_at",
+      "finished_at",
+      "status",
+      "total",
+      "captured",
+      "failures",
+      "fbp_filled",
+      "error",
     ];
     const count = await batchInsert(target, "poller_runs", cols, rows);
     summary.poller_runs = count;
@@ -263,8 +286,15 @@ async function main() {
 
     // Re-insert coins first (parent), then vendors (child)
     const coinCols = [
-      "slug", "metal", "name", "weight_oz", "fbp_url",
-      "notes", "enabled", "created_at", "updated_at",
+      "slug",
+      "metal",
+      "name",
+      "weight_oz",
+      "fbp_url",
+      "notes",
+      "enabled",
+      "created_at",
+      "updated_at",
     ];
     const coinRows = (await source.execute("SELECT * FROM provider_coins")).rows;
     if (coinRows.length > 0) {
@@ -278,8 +308,16 @@ async function main() {
     log(`provider_coins: ${coinRows.length} rows (full sync)`);
 
     const vendorCols = [
-      "id", "coin_slug", "vendor_id", "vendor_name", "url",
-      "enabled", "selector", "hints", "created_at", "updated_at",
+      "id",
+      "coin_slug",
+      "vendor_id",
+      "vendor_name",
+      "url",
+      "enabled",
+      "selector",
+      "hints",
+      "created_at",
+      "updated_at",
     ];
     const vendorRows = (await source.execute("SELECT * FROM provider_vendors")).rows;
     if (vendorRows.length > 0) {

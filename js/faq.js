@@ -15,11 +15,11 @@
  * @returns {void}
  */
 const showFaqModal = () => {
-  if (typeof showSettingsModal === 'function') {
-    showSettingsModal('faq');
+  if (typeof showSettingsModal === "function") {
+    showSettingsModal("faq");
   }
 };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.showFaqModal = showFaqModal;
 }

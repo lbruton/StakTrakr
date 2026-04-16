@@ -20,7 +20,7 @@ let searchCache = new WeakMap();
  * @param {Object} item - The inventory item to invalidate
  */
 window.invalidateSearchCache = (item) => {
-  if (item && typeof item === 'object') {
+  if (item && typeof item === "object") {
     searchCache.delete(item);
   }
 };
@@ -38,19 +38,19 @@ window.resetSearchCache = () => {
  */
 const clearAllFilters = () => {
   activeFilters = {};
-  searchQuery = '';
+  searchQuery = "";
 
-  const searchInput = document.getElementById('searchInput');
-  if (searchInput) searchInput.value = '';
-  if (typeof window.updateSaveSearchButton === 'function') {
-    window.updateSaveSearchButton('', false);
+  const searchInput = document.getElementById("searchInput");
+  if (searchInput) searchInput.value = "";
+  if (typeof window.updateSaveSearchButton === "function") {
+    window.updateSaveSearchButton("", false);
   }
 
-  const typeFilter = document.getElementById('typeFilter');
-  if (typeFilter) typeFilter.value = '';
+  const typeFilter = document.getElementById("typeFilter");
+  if (typeFilter) typeFilter.value = "";
 
-  const metalFilter = document.getElementById('metalFilter');
-  if (metalFilter) metalFilter.value = '';
+  const metalFilter = document.getElementById("metalFilter");
+  if (metalFilter) metalFilter.value = "";
 
   // Update chip UI before rerendering the table
   renderActiveFilters();
@@ -64,18 +64,18 @@ const clearAllFilters = () => {
  * @param {string} value - The value to remove from filter
  */
 const removeFilter = (field, value) => {
-  if (field === 'search') {
+  if (field === "search") {
     // Clear search query
-    searchQuery = '';
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) searchInput.value = '';
-    if (typeof window.updateSaveSearchButton === 'function') {
-      window.updateSaveSearchButton('', false);
+    searchQuery = "";
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput) searchInput.value = "";
+    if (typeof window.updateSaveSearchButton === "function") {
+      window.updateSaveSearchButton("", false);
     }
   } else if (activeFilters[field]) {
     if (activeFilters[field].values && Array.isArray(activeFilters[field].values)) {
       // Remove specific value from array
-      activeFilters[field].values = activeFilters[field].values.filter(v => v !== value);
+      activeFilters[field].values = activeFilters[field].values.filter((v) => v !== value);
       // If no values left, remove the entire filter
       if (activeFilters[field].values.length === 0) {
         delete activeFilters[field];
@@ -99,15 +99,16 @@ const removeFilter = (field, value) => {
  * @returns {string} Display value
  */
 const simplifyChipValue = (value, field) => {
-  if (!value || typeof value !== 'string') {
+  if (!value || typeof value !== "string") {
     return value;
   }
 
   // Handle comma-separated values
-  if (value.includes(', ')) {
-    return value.split(', ')
-      .map(v => simplifyChipValue(v.trim(), field))
-      .join(', ');
+  if (value.includes(", ")) {
+    return value
+      .split(", ")
+      .map((v) => simplifyChipValue(v.trim(), field))
+      .join(", ");
   }
 
   return value;
@@ -122,12 +123,12 @@ const simplifyChipValue = (value, field) => {
  */
 const generateCategorySummary = (inventory) => {
   // Get minimum count setting from dropdown control or localStorage
-  const chipMinCountEl = document.getElementById('chipMinCount');
+  const chipMinCountEl = document.getElementById("chipMinCount");
   let minCount = 3;
   if (chipMinCountEl && chipMinCountEl.value) {
     minCount = parseInt(chipMinCountEl.value, 10);
   } else {
-    minCount = parseInt(localStorage.getItem('chipMinCount') || '3', 10);
+    minCount = parseInt(localStorage.getItem("chipMinCount") || "3", 10);
   }
 
   // When the user has active filters or a search query, drop minCount to 1
@@ -136,7 +137,7 @@ const generateCategorySummary = (inventory) => {
   // Name chips keep the user's threshold (min 2) to avoid flooding the chip
   // bar with every unique item name in the filtered set.
   const hasActiveFilters = Object.keys(activeFilters).length > 0;
-  const hasSearchQuery = typeof searchQuery === 'string' && searchQuery.trim().length > 0;
+  const hasSearchQuery = typeof searchQuery === "string" && searchQuery.trim().length > 0;
   const nameMinCount = Math.max(2, minCount);
   if (hasActiveFilters || hasSearchQuery) {
     minCount = 1;
@@ -153,9 +154,9 @@ const generateCategorySummary = (inventory) => {
   const purities = {};
   const tags = {};
 
-  inventory.forEach(item => {
+  inventory.forEach((item) => {
     // Count metals
-    const metal = getCompositionFirstWords(item.composition || item.metal || '');
+    const metal = getCompositionFirstWords(item.composition || item.metal || "");
     if (metal) {
       metals[metal] = (metals[metal] || 0) + 1;
     }
@@ -166,23 +167,24 @@ const generateCategorySummary = (inventory) => {
     }
 
     // Count purchase locations (skip empty / "Unknown")
-    const pLoc = (item.purchaseLocation || '').trim();
-    if (pLoc && pLoc.toLowerCase() !== 'unknown') {
-      purchaseLocations[item.purchaseLocation] = (purchaseLocations[item.purchaseLocation] || 0) + 1;
+    const pLoc = (item.purchaseLocation || "").trim();
+    if (pLoc && pLoc.toLowerCase() !== "unknown") {
+      purchaseLocations[item.purchaseLocation] =
+        (purchaseLocations[item.purchaseLocation] || 0) + 1;
     }
 
     // Count storage locations (skip empty / "Unknown")
-    const sLoc = (item.storageLocation || '').trim();
-    if (sLoc && sLoc.toLowerCase() !== 'unknown') {
+    const sLoc = (item.storageLocation || "").trim();
+    if (sLoc && sLoc.toLowerCase() !== "unknown") {
       storageLocations[item.storageLocation] = (storageLocations[item.storageLocation] || 0) + 1;
     }
 
     // Count normalized names (grouped name chips)
-    if (window.featureFlags && window.featureFlags.isEnabled('GROUPED_NAME_CHIPS')) {
-      const itemName = (item.name || '').trim();
+    if (window.featureFlags && window.featureFlags.isEnabled("GROUPED_NAME_CHIPS")) {
+      const itemName = (item.name || "").trim();
       if (itemName) {
         let baseName = itemName;
-        if (window.autocomplete && typeof window.autocomplete.normalizeItemName === 'function') {
+        if (window.autocomplete && typeof window.autocomplete.normalizeItemName === "function") {
           baseName = window.autocomplete.normalizeItemName(itemName);
         }
         names[baseName] = (names[baseName] || 0) + 1;
@@ -190,19 +192,19 @@ const generateCategorySummary = (inventory) => {
     }
 
     // Count years (skip empty)
-    const yr = (item.year || '').trim();
+    const yr = (item.year || "").trim();
     if (yr) {
       years[yr] = (years[yr] || 0) + 1;
     }
 
     // Count grades (skip empty)
-    const gr = (item.grade || '').trim();
+    const gr = (item.grade || "").trim();
     if (gr) {
       grades[gr] = (grades[gr] || 0) + 1;
     }
 
     // Count Numista IDs (skip empty)
-    const nId = (item.numistaId || '').trim();
+    const nId = (item.numistaId || "").trim();
     if (nId) {
       numistaIds[nId] = (numistaIds[nId] || 0) + 1;
     }
@@ -215,9 +217,9 @@ const generateCategorySummary = (inventory) => {
     }
 
     // Count tags (STAK-126)
-    if (typeof getItemTags === 'function' && item.uuid) {
+    if (typeof getItemTags === "function" && item.uuid) {
       const itemTags = getItemTags(item.uuid);
-      itemTags.forEach(tag => {
+      itemTags.forEach((tag) => {
         tags[tag] = (tags[tag] || 0) + 1;
       });
     }
@@ -225,13 +227,17 @@ const generateCategorySummary = (inventory) => {
 
   // Count custom groups
   let customGroups = {};
-  if (typeof window.countCustomGroups === 'function') {
+  if (typeof window.countCustomGroups === "function") {
     customGroups = window.countCustomGroups(inventory);
   }
 
   // Extract dynamic chips (text from parentheses/quotes)
   let dynamicNames = {};
-  if (window.featureFlags && window.featureFlags.isEnabled('DYNAMIC_NAME_CHIPS') && typeof window.extractDynamicChips === 'function') {
+  if (
+    window.featureFlags &&
+    window.featureFlags.isEnabled("DYNAMIC_NAME_CHIPS") &&
+    typeof window.extractDynamicChips === "function"
+  ) {
     dynamicNames = window.extractDynamicChips(inventory);
   }
 
@@ -251,7 +257,7 @@ const generateCategorySummary = (inventory) => {
 
   // Apply blacklist filter to auto-generated name chips, dynamic chips, tag chips,
   // and custom-group labels so shift-click suppression is consistent across chip types.
-  if (typeof window.isBlacklisted === 'function') {
+  if (typeof window.isBlacklisted === "function") {
     filteredNames = Object.fromEntries(
       Object.entries(filteredNames).filter(([key]) => !window.isBlacklisted(key))
     );
@@ -275,7 +281,7 @@ const generateCategorySummary = (inventory) => {
   }
 
   // Suppress auto-generated names that duplicate a custom group label
-  const customLabelsLower = new Set(Object.values(customGroups).map(g => g.label.toLowerCase()));
+  const customLabelsLower = new Set(Object.values(customGroups).map((g) => g.label.toLowerCase()));
   filteredNames = Object.fromEntries(
     Object.entries(filteredNames).filter(([key]) => !customLabelsLower.has(key.toLowerCase()))
   );
@@ -298,7 +304,7 @@ const generateCategorySummary = (inventory) => {
     dynamicNames: filteredDynamicNames,
     purities: filteredPurities,
     tags: filteredTags,
-    totalItems: inventory.length
+    totalItems: inventory.length,
   };
 };
 
@@ -307,98 +313,128 @@ const generateCategorySummary = (inventory) => {
  * Updates the filter chip container based on current filters and inventory.
  */
 const renderActiveFilters = () => {
-  const container = document.getElementById('activeFilters');
+  const container = document.getElementById("activeFilters");
   if (!container) return;
 
-  container.innerHTML = '';
+  container.innerHTML = "";
 
   // Get the current filtered inventory first
   const filteredInventory = filterInventoryAdvanced();
-  
+
   if (filteredInventory.length === 0) {
     // Show a hint when search narrows to 0 results instead of hiding chips entirely (UX-004)
     if (searchQuery && searchQuery.trim()) {
-      container.style.display = '';
-      const hint = document.createElement('span');
-      hint.className = 'filter-chip search-hint-chip';
-      hint.style.opacity = '0.55';
-      hint.style.cursor = 'default';
-      hint.textContent = 'Clear search to use filter chips';
+      container.style.display = "";
+      const hint = document.createElement("span");
+      hint.className = "filter-chip search-hint-chip";
+      hint.style.opacity = "0.55";
+      hint.style.cursor = "default";
+      hint.textContent = "Clear search to use filter chips";
       container.appendChild(hint);
       return;
     }
-    container.style.display = 'none';
+    container.style.display = "none";
     return;
   }
 
   // Build chips based on what's actually in the filtered inventory
   const chips = [];
-  
+
   // Add search term chip if there's a search query
   if (searchQuery && searchQuery.trim()) {
-    chips.push({ field: 'search', value: searchQuery });
+    chips.push({ field: "search", value: searchQuery });
   }
 
   // Add disposed-only mode chip (STAK-388)
-  var activeDisposedBtnChip = document.querySelector('#disposedFilterGroup .chip-sort-btn.active');
-  var disposedModeChip = (activeDisposedBtnChip && activeDisposedBtnChip.dataset && activeDisposedBtnChip.dataset.disposedMode) || 'hide';
-  if (disposedModeChip === 'show-only') {
-    chips.push({ field: 'disposed-mode', value: 'show-only' });
+  var activeDisposedBtnChip = document.querySelector("#disposedFilterGroup .chip-sort-btn.active");
+  var disposedModeChip =
+    (activeDisposedBtnChip &&
+      activeDisposedBtnChip.dataset &&
+      activeDisposedBtnChip.dataset.disposedMode) ||
+    "hide";
+  if (disposedModeChip === "show-only") {
+    chips.push({ field: "disposed-mode", value: "show-only" });
   }
 
   // Generate category summary chips from filtered inventory
   const categorySummary = generateCategorySummary(filteredInventory);
-  
+
   // Category descriptor map — maps category ID to summary key, chip field, and extra props
   const categoryDescriptors = {
-    metal:            { summaryKey: 'metals',            field: 'metal' },
-    type:             { summaryKey: 'types',             field: 'type' },
-    name:             { summaryKey: 'names',             field: 'name',             extraProps: { isGrouped: true } },
-    customGroup:      { summaryKey: 'customGroups',      field: 'customGroup' },
-    dynamicName:      { summaryKey: 'dynamicNames',      field: 'dynamicName',      extraProps: { isDynamic: true } },
-    purchaseLocation: { summaryKey: 'purchaseLocations', field: 'purchaseLocation' },
-    storageLocation:  { summaryKey: 'storageLocations',  field: 'storageLocation' },
-    year:             { summaryKey: 'years',             field: 'year' },
-    grade:            { summaryKey: 'grades',            field: 'grade' },
-    numistaId:        { summaryKey: 'numistaIds',        field: 'numistaId' },
-    purity:           { summaryKey: 'purities',          field: 'purity' },
-    tags:             { summaryKey: 'tags',              field: 'tags' },
+    metal: { summaryKey: "metals", field: "metal" },
+    type: { summaryKey: "types", field: "type" },
+    name: { summaryKey: "names", field: "name", extraProps: { isGrouped: true } },
+    customGroup: { summaryKey: "customGroups", field: "customGroup" },
+    dynamicName: {
+      summaryKey: "dynamicNames",
+      field: "dynamicName",
+      extraProps: { isDynamic: true },
+    },
+    purchaseLocation: { summaryKey: "purchaseLocations", field: "purchaseLocation" },
+    storageLocation: { summaryKey: "storageLocations", field: "storageLocation" },
+    year: { summaryKey: "years", field: "year" },
+    grade: { summaryKey: "grades", field: "grade" },
+    numistaId: { summaryKey: "numistaIds", field: "numistaId" },
+    purity: { summaryKey: "purities", field: "purity" },
+    tags: { summaryKey: "tags", field: "tags" },
   };
 
   // Read category config (order + enabled state) and sort preference
-  const categoryConfig = typeof getFilterChipCategoryConfig === 'function'
-    ? getFilterChipCategoryConfig()
-    : [
-        { id: 'metal', enabled: true }, { id: 'type', enabled: true },
-        { id: 'name', enabled: true }, { id: 'customGroup', enabled: true },
-        { id: 'dynamicName', enabled: true }, { id: 'purchaseLocation', enabled: true },
-        { id: 'storageLocation', enabled: true }, { id: 'year', enabled: true },
-        { id: 'grade', enabled: true }, { id: 'numistaId', enabled: true },
-        { id: 'purity', enabled: true },
-        { id: 'tags', enabled: true },
-      ];
+  const categoryConfig =
+    typeof getFilterChipCategoryConfig === "function"
+      ? getFilterChipCategoryConfig()
+      : [
+          { id: "metal", enabled: true },
+          { id: "type", enabled: true },
+          { id: "name", enabled: true },
+          { id: "customGroup", enabled: true },
+          { id: "dynamicName", enabled: true },
+          { id: "purchaseLocation", enabled: true },
+          { id: "storageLocation", enabled: true },
+          { id: "year", enabled: true },
+          { id: "grade", enabled: true },
+          { id: "numistaId", enabled: true },
+          { id: "purity", enabled: true },
+          { id: "tags", enabled: true },
+        ];
 
   // Read sort preference from toggle active button or localStorage (default: alpha)
-  const sortEl = document.getElementById('chipSortOrder');
-  const activeBtn = sortEl && sortEl.querySelector('.chip-sort-btn.active');
-  const rawPref = (activeBtn && activeBtn.dataset.sort) || localStorage.getItem('chipSortOrder') || 'alpha';
-  const chipSortPref = (rawPref === 'count') ? 'count' : 'alpha';
+  const sortEl = document.getElementById("chipSortOrder");
+  const activeBtn = sortEl && sortEl.querySelector(".chip-sort-btn.active");
+  const rawPref =
+    (activeBtn && activeBtn.dataset.sort) || localStorage.getItem("chipSortOrder") || "alpha";
+  const chipSortPref = rawPref === "count" ? "count" : "alpha";
 
   // Helper: collect chips for a single category from the summary data
   const collectCategoryChips = (cat) => {
-    const desc = categoryDescriptors[cat.id];    if (!desc) return [];
-    const data = categorySummary[desc.summaryKey];    if (!data) return [];
+    const desc = categoryDescriptors[cat.id];
+    if (!desc) return [];
+    const data = categorySummary[desc.summaryKey];
+    if (!data) return [];
     const result = [];
-    if (cat.id === 'customGroup') {
+    if (cat.id === "customGroup") {
       Object.entries(data).forEach(([groupId, info]) => {
         if (info.count > 0) {
-          result.push({ field: desc.field, value: groupId, displayLabel: info.label, count: info.count, total: categorySummary.totalItems, isCustomGroup: true });
+          result.push({
+            field: desc.field,
+            value: groupId,
+            displayLabel: info.label,
+            count: info.count,
+            total: categorySummary.totalItems,
+            isCustomGroup: true,
+          });
         }
       });
     } else {
       Object.entries(data).forEach(([value, count]) => {
         if (count > 0) {
-          result.push({ field: desc.field, value, count, total: categorySummary.totalItems, ...(desc.extraProps || {}) });
+          result.push({
+            field: desc.field,
+            value,
+            count,
+            total: categorySummary.totalItems,
+            ...(desc.extraProps || {}),
+          });
         }
       });
     }
@@ -407,13 +443,13 @@ const renderActiveFilters = () => {
 
   // Helper: sort a chip array in place based on preference
   const sortChips = (arr) => {
-    if (chipSortPref === 'alpha') {
+    if (chipSortPref === "alpha") {
       arr.sort((a, b) => {
-        const aLabel = (a.displayLabel || a.value || '').toString();
-        const bLabel = (b.displayLabel || b.value || '').toString();
-        return aLabel.localeCompare(bLabel, undefined, { numeric: true, sensitivity: 'base' });
+        const aLabel = (a.displayLabel || a.value || "").toString();
+        const bLabel = (b.displayLabel || b.value || "").toString();
+        return aLabel.localeCompare(bLabel, undefined, { numeric: true, sensitivity: "base" });
       });
-    } else if (chipSortPref === 'count') {
+    } else if (chipSortPref === "count") {
       arr.sort((a, b) => (b.count || 0) - (a.count || 0));
     }
   };
@@ -424,7 +460,8 @@ const renderActiveFilters = () => {
 
   for (const cat of categoryConfig) {
     if (!cat.enabled) continue;
-    const desc = categoryDescriptors[cat.id];    if (!desc) continue;
+    const desc = categoryDescriptors[cat.id];
+    if (!desc) continue;
     categoryFields.add(desc.field);
 
     if (cat.group) {
@@ -435,7 +472,8 @@ const renderActiveFilters = () => {
       const pooled = [];
       for (const gc of categoryConfig) {
         if (!gc.enabled || gc.group !== cat.group) continue;
-        const gcDesc = categoryDescriptors[gc.id];        if (gcDesc) categoryFields.add(gcDesc.field);
+        const gcDesc = categoryDescriptors[gc.id];
+        if (gcDesc) categoryFields.add(gcDesc.field);
         pooled.push(...collectCategoryChips(gc));
       }
       sortChips(pooled);
@@ -449,13 +487,13 @@ const renderActiveFilters = () => {
   }
 
   // Apply chipMaxCount cap to category chips only — search chips and active/excluded chips are always appended after this
-  const chipMaxCountEl = safeGetElement('chipMaxCount');
+  const chipMaxCountEl = safeGetElement("chipMaxCount");
   const maxCount = chipMaxCountEl
     ? parseInt(chipMaxCountEl.value, 10)
-    : parseInt(localStorage.getItem('chipMaxCount') || '0', 10);
+    : parseInt(localStorage.getItem("chipMaxCount") || "0", 10);
   if (maxCount > 0) {
-    const uncappedChips = chips.filter(c => c && c.field === 'search');
-    const cappedCandidates = chips.filter(c => !c || c.field !== 'search');
+    const uncappedChips = chips.filter((c) => c && c.field === "search");
+    const cappedCandidates = chips.filter((c) => !c || c.field !== "search");
     if (cappedCandidates.length > maxCount) {
       cappedCandidates.splice(maxCount);
     }
@@ -469,19 +507,21 @@ const renderActiveFilters = () => {
     // BUT: if no summary chip was rendered for this field (all below minCount),
     // fall through so the user can still see and remove their active filter
     if (categoryFields.has(field)) {
-      let hasSummaryChip = chips.some(c => c.field === field && c.count !== undefined);
+      let hasSummaryChip = chips.some((c) => c.field === field && c.count !== undefined);
       // For 'name' filters, customGroup/dynamicName chips provide visual coverage
       // so suppress the individual name fallback when those chips are present
-      if (field === 'name' && !hasSummaryChip) {
-        hasSummaryChip = chips.some(c => (c.field === 'customGroup' || c.field === 'dynamicName') && c.count !== undefined);
+      if (field === "name" && !hasSummaryChip) {
+        hasSummaryChip = chips.some(
+          (c) => (c.field === "customGroup" || c.field === "dynamicName") && c.count !== undefined
+        );
       }
       // Keep excluded filters visible even when category summary chips exist.
-      const isExcludeFilter = !!(criteria && typeof criteria === 'object' && criteria.exclude);
+      const isExcludeFilter = !!(criteria && typeof criteria === "object" && criteria.exclude);
       if (hasSummaryChip && !isExcludeFilter) return;
     }
-    
-    if (criteria && typeof criteria === 'object' && Array.isArray(criteria.values)) {
-      criteria.values.forEach(value => {
+
+    if (criteria && typeof criteria === "object" && Array.isArray(criteria.values)) {
+      criteria.values.forEach((value) => {
         if (value && value.toString().trim()) {
           chips.push({ field, value, exclude: criteria.exclude });
         }
@@ -492,21 +532,21 @@ const renderActiveFilters = () => {
       }
     }
   });
-  
+
   if (chips.length === 0) {
-    container.style.display = 'none';
+    container.style.display = "none";
     return;
   }
-  
-  container.style.display = '';
+
+  container.style.display = "";
 
   chips.forEach((f, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'filter-chip';
-    if (f.exclude) chip.classList.add('filter-chip-excluded');
+    const chip = document.createElement("span");
+    chip.className = "filter-chip";
+    if (f.exclude) chip.classList.add("filter-chip-excluded");
     // All chip categories render visually identical — no italic/bold distinction
-    const firstValue = String(f.value).split(', ')[0];
-    const colorKey = f.field === 'customGroup' ? (f.displayLabel || firstValue) : firstValue;
+    const firstValue = String(f.value).split(", ")[0];
+    const colorKey = f.field === "customGroup" ? f.displayLabel || firstValue : firstValue;
     const { bg, text: textColor } = getChipColors(f.field, colorKey, i);
     chip.style.backgroundColor = bg;
     chip.style.color = textColor || getContrastColor(bg);
@@ -517,13 +557,13 @@ const renderActiveFilters = () => {
       // Summary chip — active only if its value is in activeFilters
       const criteria = activeFilters[f.field];
       if (criteria && Array.isArray(criteria.values) && !criteria.exclude) {
-        if (f.field === 'customGroup') {
+        if (f.field === "customGroup") {
           // customGroup expands to name values — active if any non-excluded name filter exists
-          const nc = activeFilters['name'];
+          const nc = activeFilters["name"];
           isActiveFilter = !!(nc && !nc.exclude && nc.values && nc.values.length > 0);
-        } else if (f.field === 'dynamicName') {
+        } else if (f.field === "dynamicName") {
           // dynamicName expands to name values — same check
-          const nc = activeFilters['name'];
+          const nc = activeFilters["name"];
           isActiveFilter = !!(nc && !nc.exclude && nc.values && nc.values.length > 0);
         } else {
           isActiveFilter = criteria.values.includes(f.value);
@@ -534,49 +574,53 @@ const renderActiveFilters = () => {
       isActiveFilter = true;
     }
 
-    if (isActiveFilter) chip.classList.add('filter-chip-active');
-    if (f.field === 'search') chip.classList.add('filter-chip-search');
+    if (isActiveFilter) chip.classList.add("filter-chip-active");
+    if (f.field === "search") chip.classList.add("filter-chip-search");
 
     // Display simplified value for most chips, but keep full base name for name chips
     // Custom groups use their display label; dynamic chips are italic (via CSS class)
-    const displayValue = f.isCustomGroup ? f.displayLabel
-      : f.isDynamic ? f.value
-      : f.field === 'name' ? f.value
-      : f.field === 'numistaId' ? `N#${f.value}`
-      : simplifyChipValue(f.value, f.field);
+    const displayValue = f.isCustomGroup
+      ? f.displayLabel
+      : f.isDynamic
+        ? f.value
+        : f.field === "name"
+          ? f.value
+          : f.field === "numistaId"
+            ? `N#${f.value}`
+            : simplifyChipValue(f.value, f.field);
     let label;
 
-    if (f.field === 'disposed-mode') {
-      label = 'Showing: Disposed Items';
-    } else if (f.field === 'search') {
+    if (f.field === "disposed-mode") {
+      label = "Showing: Disposed Items";
+    } else if (f.field === "search") {
       label = displayValue;
     } else if (f.count !== undefined && f.total !== undefined) {
       // For category summary chips, show count badge if enabled
-      const showQty = window.featureFlags && window.featureFlags.isEnabled('CHIP_QTY_BADGE');
+      const showQty = window.featureFlags && window.featureFlags.isEnabled("CHIP_QTY_BADGE");
       label = showQty ? `${displayValue} (${f.count})` : displayValue;
     } else {
-      label = `${displayValue}${f.exclude ? ' (exclude)' : ''}`;
+      label = `${displayValue}${f.exclude ? " (exclude)" : ""}`;
     }
-    
+
     // Use safe textContent and a separate close marker span to avoid HTML injection
-    chip.textContent = label + ' ';
-    const close = document.createElement('span');
-    close.className = 'chip-close';
-    close.textContent = '×';
-    close.setAttribute('aria-hidden', 'true');
+    chip.textContent = label + " ";
+    const close = document.createElement("span");
+    close.className = "chip-close";
+    close.textContent = "×";
+    close.setAttribute("aria-hidden", "true");
     chip.appendChild(close);
 
     // Debug logging (opt-in)
     if (window.DEBUG_FILTERS) {
-      console.debug('renderActiveFilters: adding chip', { field: f.field, value: f.value, label });
+      console.debug("renderActiveFilters: adding chip", { field: f.field, value: f.value, label });
     }
-    
+
     // Right-click context menu for name and dynamic chips (blacklist)
-    if (f.field === 'name' || f.field === 'dynamicName') {
-      chip.addEventListener('contextmenu', (e) => {
+    if (f.field === "name" || f.field === "dynamicName") {
+      chip.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        const chipName = f.field === 'dynamicName' ? f.value : f.value;
-        if (typeof window.showChipContextMenu === 'function') {
+        const chipName = f.field === "dynamicName" ? f.value : f.value;
+        if (typeof window.showChipContextMenu === "function") {
           window.showChipContextMenu(e.clientX, e.clientY, chipName);
         }
       });
@@ -585,81 +629,97 @@ const renderActiveFilters = () => {
     // Different tooltip and click behavior for different chip types
     if (f.count !== undefined && f.total !== undefined) {
       // Category summary chips - clicking adds filter; shift+click blacklists supported chip names.
-      const canBlacklist = f.field === 'name' || f.field === 'dynamicName' || f.field === 'customGroup' || f.field === 'tags';
-      const chipNameForBlacklist = f.field === 'customGroup' ? (f.displayLabel || f.value) : f.value;
-      chip.title = `Click to filter by ${f.field}: ${displayValue} (${f.count} items)` +
-        (canBlacklist ? ' · Shift+click to ignore' : '');
-      chip.addEventListener('click', (e) => {
-        if (canBlacklist && e.shiftKey && typeof window.showBlacklistConfirm === 'function') {
+      const canBlacklist =
+        f.field === "name" ||
+        f.field === "dynamicName" ||
+        f.field === "customGroup" ||
+        f.field === "tags";
+      const chipNameForBlacklist = f.field === "customGroup" ? f.displayLabel || f.value : f.value;
+      chip.title =
+        `Click to filter by ${f.field}: ${displayValue} (${f.count} items)` +
+        (canBlacklist ? " · Shift+click to ignore" : "");
+      chip.addEventListener("click", (e) => {
+        if (canBlacklist && e.shiftKey && typeof window.showBlacklistConfirm === "function") {
           e.preventDefault();
           window.showBlacklistConfirm(e.clientX, e.clientY, chipNameForBlacklist);
           return;
         }
         applyQuickFilter(f.field, f.value, f.isGrouped || f.isCustomGroup || f.isDynamic || false);
       });
-    } else if (f.field === 'disposed-mode') {
+    } else if (f.field === "disposed-mode") {
       // Disposed-mode chip — clicking resets disposed filter back to 'hide'
-      chip.title = 'Showing disposed items only (click to hide disposed)';
-      chip.addEventListener('click', function() {
-        const dfg = safeGetElement('disposedFilterGroup');
-        dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
-          b.classList.toggle('active', b.dataset.disposedMode === 'hide');
+      chip.title = "Showing disposed items only (click to hide disposed)";
+      chip.addEventListener("click", function () {
+        const dfg = safeGetElement("disposedFilterGroup");
+        dfg.querySelectorAll(".chip-sort-btn").forEach(function (b) {
+          b.classList.toggle("active", b.dataset.disposedMode === "hide");
         });
-        if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
-        if (typeof renderTable === 'function') renderTable();
+        if (typeof saveData === "function") saveData("disposedFilterMode", "hide");
+        if (typeof renderTable === "function") renderTable();
         renderActiveFilters();
       });
     } else {
       // Active filter chips - clicking removes filter
-      chip.title = f.field === 'search'
-        ? `Search term: ${displayValue} (click to remove)`
-        : `Active ${f.exclude ? 'excluded' : 'included'} filter: ${f.field} = ${displayValue} (click to remove)`;
-      chip.addEventListener('click', () => {
+      chip.title =
+        f.field === "search"
+          ? `Search term: ${displayValue} (click to remove)`
+          : `Active ${f.exclude ? "excluded" : "included"} filter: ${f.field} = ${displayValue} (click to remove)`;
+      chip.addEventListener("click", () => {
         removeFilter(f.field, f.value);
         renderActiveFilters();
       });
     }
     // Make the close glyph interactive and keyboard accessible (removes the filter)
-    close.setAttribute('role', 'button');
-    close.setAttribute('tabindex', '0');
-    close.setAttribute('aria-label', `Remove filter ${displayValue}`);
+    close.setAttribute("role", "button");
+    close.setAttribute("tabindex", "0");
+    close.setAttribute("aria-label", `Remove filter ${displayValue}`);
     // Helper to reset disposed filter to 'hide' (for chip × button)
-    const _resetDisposedFilter = function() {
-      const dfg = safeGetElement('disposedFilterGroup');
-      dfg.querySelectorAll('.chip-sort-btn').forEach(function(b) {
-        b.classList.toggle('active', b.dataset.disposedMode === 'hide');
+    const _resetDisposedFilter = function () {
+      const dfg = safeGetElement("disposedFilterGroup");
+      dfg.querySelectorAll(".chip-sort-btn").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.disposedMode === "hide");
       });
-      if (typeof saveData === 'function') saveData('disposedFilterMode', 'hide');
-      if (typeof renderTable === 'function') renderTable();
+      if (typeof saveData === "function") saveData("disposedFilterMode", "hide");
+      if (typeof renderTable === "function") renderTable();
       renderActiveFilters();
     };
     close.onclick = (e) => {
       e.stopPropagation();
-      if (f.field === 'disposed-mode') {
+      if (f.field === "disposed-mode") {
         _resetDisposedFilter();
       } else if (isActiveFilter) {
         // Active filter chip × — always removes the filter (de-activate, not exclude)
         removeFilter(f.field, f.value);
         renderActiveFilters();
-      } else if (f.count !== undefined && f.total !== undefined && f.field !== 'search') {
+      } else if (f.count !== undefined && f.total !== undefined && f.field !== "search") {
         // Idle summary chip × — exclude this value while keeping other filters intact
-        applyQuickFilter(f.field, f.value, f.isGrouped || f.isCustomGroup || f.isDynamic || false, true);
+        applyQuickFilter(
+          f.field,
+          f.value,
+          f.isGrouped || f.isCustomGroup || f.isDynamic || false,
+          true
+        );
       } else {
         removeFilter(f.field, f.value);
         renderActiveFilters();
       }
     };
     close.onkeydown = (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         e.stopPropagation();
-        if (f.field === 'disposed-mode') {
+        if (f.field === "disposed-mode") {
           _resetDisposedFilter();
         } else if (isActiveFilter) {
           removeFilter(f.field, f.value);
           renderActiveFilters();
-        } else if (f.count !== undefined && f.total !== undefined && f.field !== 'search') {
-          applyQuickFilter(f.field, f.value, f.isGrouped || f.isCustomGroup || f.isDynamic || false, true);
+        } else if (f.count !== undefined && f.total !== undefined && f.field !== "search") {
+          applyQuickFilter(
+            f.field,
+            f.value,
+            f.isGrouped || f.isCustomGroup || f.isDynamic || false,
+            true
+          );
         } else {
           removeFilter(f.field, f.value);
           renderActiveFilters();
@@ -672,10 +732,10 @@ const renderActiveFilters = () => {
 
   // Add clear button if there are any chips (check for both active and summary chips)
   if (chips.length > 0) {
-    const clearButton = document.createElement('button');
-    clearButton.className = 'filter-clear-btn';
-    clearButton.innerHTML = 'Clear All';
-    clearButton.title = 'Clear all active filters';
+    const clearButton = document.createElement("button");
+    clearButton.className = "filter-clear-btn";
+    clearButton.innerHTML = "Clear All";
+    clearButton.title = "Clear all active filters";
     clearButton.onclick = () => {
       clearAllFilters();
     };
@@ -694,64 +754,66 @@ const renderActiveFilters = () => {
  * @returns {boolean|null} true/false for definitive match result, null to fall through to default logic
  */
 const matchCoinSeries = (searchMetal, coinType, itemText, exactPhrase) => {
-  const metalWords = ['gold', 'silver', 'platinum', 'palladium'];
+  const metalWords = ["gold", "silver", "platinum", "palladium"];
 
   const checkNationalPrefix = (prefix) => {
-    const hasMetalBetween = metalWords.some(metal =>
-      itemText.includes(`${prefix} ${metal} ${coinType}`) && !exactPhrase.includes(metal)
+    const hasMetalBetween = metalWords.some(
+      (metal) => itemText.includes(`${prefix} ${metal} ${coinType}`) && !exactPhrase.includes(metal)
     );
     return !hasMetalBetween;
   };
 
   // Eagle series
-  if (coinType === 'eagle') {
-    if (searchMetal === 'american') return checkNationalPrefix('american');
+  if (coinType === "eagle") {
+    if (searchMetal === "american") return checkNationalPrefix("american");
     if (metalWords.includes(searchMetal)) return itemText.includes(exactPhrase);
   }
   // Maple series
-  if (coinType === 'maple') {
+  if (coinType === "maple") {
     if (metalWords.includes(searchMetal)) {
       return itemText.includes(exactPhrase) || itemText.includes(`${searchMetal} maple leaf`);
     }
-    if (searchMetal === 'canadian') return checkNationalPrefix('canadian');
+    if (searchMetal === "canadian") return checkNationalPrefix("canadian");
   }
   // Britannia series
-  if (coinType === 'britannia') {
+  if (coinType === "britannia") {
     if (metalWords.includes(searchMetal)) return itemText.includes(exactPhrase);
-    if (searchMetal === 'british') {
-      const hasMetalBetween = metalWords.some(metal =>
-        itemText.includes(`british ${metal} britannia`) && !exactPhrase.includes(metal)
+    if (searchMetal === "british") {
+      const hasMetalBetween = metalWords.some(
+        (metal) => itemText.includes(`british ${metal} britannia`) && !exactPhrase.includes(metal)
       );
       return !hasMetalBetween;
     }
   }
   // Krugerrand series
-  if (coinType === 'krugerrand') {
+  if (coinType === "krugerrand") {
     if (metalWords.includes(searchMetal)) return itemText.includes(exactPhrase);
-    if (searchMetal === 'south' || searchMetal === 'african') {
-      const hasMetalBetween = metalWords.some(metal =>
-        (itemText.includes(`south african ${metal} krugerrand`) ||
-         itemText.includes(`${metal} krugerrand`)) && !exactPhrase.includes(metal)
+    if (searchMetal === "south" || searchMetal === "african") {
+      const hasMetalBetween = metalWords.some(
+        (metal) =>
+          (itemText.includes(`south african ${metal} krugerrand`) ||
+            itemText.includes(`${metal} krugerrand`)) &&
+          !exactPhrase.includes(metal)
       );
       return !hasMetalBetween;
     }
   }
   // Buffalo series
-  if (coinType === 'buffalo') {
+  if (coinType === "buffalo") {
     if (metalWords.includes(searchMetal)) return itemText.includes(exactPhrase);
-    if (searchMetal === 'american') return checkNationalPrefix('american');
+    if (searchMetal === "american") return checkNationalPrefix("american");
   }
   // Panda series
-  if (coinType === 'panda') {
+  if (coinType === "panda") {
     if (metalWords.includes(searchMetal)) return itemText.includes(exactPhrase);
-    if (searchMetal === 'chinese') return checkNationalPrefix('chinese');
+    if (searchMetal === "chinese") return checkNationalPrefix("chinese");
   }
   // Kangaroo series
-  if (coinType === 'kangaroo') {
+  if (coinType === "kangaroo") {
     if (metalWords.includes(searchMetal)) return itemText.includes(exactPhrase);
-    if (searchMetal === 'australian') {
-      const hasMetalBetween = metalWords.some(metal =>
-        itemText.includes(`australian ${metal} kangaroo`) && !exactPhrase.includes(metal)
+    if (searchMetal === "australian") {
+      const hasMetalBetween = metalWords.some(
+        (metal) => itemText.includes(`australian ${metal} kangaroo`) && !exactPhrase.includes(metal)
       );
       return !hasMetalBetween;
     }
@@ -767,9 +829,7 @@ const matchCoinSeries = (searchMetal, coinType, itemText, exactPhrase) => {
  * @returns {Object} Filtered map
  */
 const applyMinCountThreshold = (data, minCount) => {
-  return Object.fromEntries(
-    Object.entries(data).filter(([, count]) => count >= minCount)
-  );
+  return Object.fromEntries(Object.entries(data).filter(([, count]) => count >= minCount));
 };
 
 /**
@@ -780,15 +840,22 @@ const applyMinCountThreshold = (data, minCount) => {
  * @returns {{ bg: string, text: string|undefined }} Background and optional text color
  */
 const getChipColors = (field, value, index) => {
-  const fallbackColors = ['var(--primary)', 'var(--secondary)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--info)'];
+  const fallbackColors = [
+    "var(--primary)",
+    "var(--secondary)",
+    "var(--success)",
+    "var(--warning)",
+    "var(--danger)",
+    "var(--info)",
+  ];
   let color;
   let textColor;
 
   switch (field) {
-    case 'type':
+    case "type":
       color = getTypeColor(value);
       break;
-    case 'metal':
+    case "metal":
       if (!METAL_COLORS[value]) {
         color = getColor(nameColors, value);
       } else {
@@ -796,20 +863,20 @@ const getChipColors = (field, value, index) => {
         textColor = METAL_TEXT_COLORS[value] ? METAL_TEXT_COLORS[value]() : undefined;
       }
       break;
-    case 'name':
-    case 'dynamicName':
+    case "name":
+    case "dynamicName":
       color = getColor(nameColors, value);
       break;
-    case 'customGroup':
+    case "customGroup":
       color = getColor(nameColors, value);
       break;
-    case 'tags':
+    case "tags":
       color = getColor(nameColors, value);
       break;
-    case 'purchaseLocation':
+    case "purchaseLocation":
       color = getPurchaseLocationColor(value);
       break;
-    case 'storageLocation':
+    case "storageLocation":
       color = getStorageLocationColor(value);
       break;
     default:
@@ -829,76 +896,84 @@ const filterInventoryAdvanced = () => {
   let result = inventory;
 
   // Three-state disposed filter (STAK-388)
-  var activeDisposedBtn = document.querySelector('#disposedFilterGroup .chip-sort-btn.active');
-  var disposedMode = (activeDisposedBtn && activeDisposedBtn.dataset && activeDisposedBtn.dataset.disposedMode) || 'hide';
-  if (disposedMode === 'hide') {
-    result = result.filter(function(item) { return !item.disposition; });
-  } else if (disposedMode === 'show-only') {
-    result = result.filter(function(item) { return isDisposed(item); });
+  var activeDisposedBtn = document.querySelector("#disposedFilterGroup .chip-sort-btn.active");
+  var disposedMode =
+    (activeDisposedBtn && activeDisposedBtn.dataset && activeDisposedBtn.dataset.disposedMode) ||
+    "hide";
+  if (disposedMode === "hide") {
+    result = result.filter(function (item) {
+      return !item.disposition;
+    });
+  } else if (disposedMode === "show-only") {
+    result = result.filter(function (item) {
+      return isDisposed(item);
+    });
   }
   // 'show-all' → no filter applied
 
   // Apply advanced filters
   Object.entries(activeFilters).forEach(([field, criteria]) => {
-    if (criteria && typeof criteria === 'object' && Array.isArray(criteria.values)) {
+    if (criteria && typeof criteria === "object" && Array.isArray(criteria.values)) {
       const { values, exclude } = criteria;
       switch (field) {
-        case 'name': {
-          const simplifiedValues = values.map(v => simplifyChipValue(v, field));
-          result = result.filter(item => {
-            const itemName = simplifyChipValue(item.name || '', field);
+        case "name": {
+          const simplifiedValues = values.map((v) => simplifyChipValue(v, field));
+          result = result.filter((item) => {
+            const itemName = simplifyChipValue(item.name || "", field);
             const match = simplifiedValues.includes(itemName);
             return exclude ? !match : match;
           });
           break;
         }
-        case 'metal': {
-          const lowerVals = values.map(v => v.toLowerCase());
-          result = result.filter(item => {
-            const itemMetal = getCompositionFirstWords(item.composition || item.metal || '').toLowerCase();
+        case "metal": {
+          const lowerVals = values.map((v) => v.toLowerCase());
+          result = result.filter((item) => {
+            const itemMetal = getCompositionFirstWords(
+              item.composition || item.metal || ""
+            ).toLowerCase();
             const match = lowerVals.includes(itemMetal);
             return exclude ? !match : match;
           });
           break;
         }
-        case 'type':
-          result = result.filter(item => {
+        case "type":
+          result = result.filter((item) => {
             const match = values.includes(item.type);
             return exclude ? !match : match;
           });
           break;
-        case 'purchaseLocation':
-          result = result.filter(item => {
+        case "purchaseLocation":
+          result = result.filter((item) => {
             const loc = item.purchaseLocation;
-            const normalized = (!loc || loc === 'Unknown' || loc === 'Numista Import') ? '—' : loc;
+            const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
             const match = values.includes(normalized);
             return exclude ? !match : match;
           });
           break;
-        case 'storageLocation':
-          result = result.filter(item => {
+        case "storageLocation":
+          result = result.filter((item) => {
             const loc = item.storageLocation;
-            const normalized = (!loc || loc === 'Unknown' || loc === 'Numista Import') ? '—' : loc;
+            const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
             const match = values.includes(normalized);
             return exclude ? !match : match;
           });
           break;
-        case 'tags': {
+        case "tags": {
           // STAK-126: Filter by item tags
-          if (typeof getItemTags === 'function') {
-            const lowerVals = values.map(v => v.toLowerCase());
-            result = result.filter(item => {
+          if (typeof getItemTags === "function") {
+            const lowerVals = values.map((v) => v.toLowerCase());
+            result = result.filter((item) => {
               const tags = getItemTags(item.uuid);
-              const match = tags.some(t => lowerVals.includes(t.toLowerCase()));
+              const match = tags.some((t) => lowerVals.includes(t.toLowerCase()));
               return exclude ? !match : match;
             });
           }
           break;
         }
         default: {
-          const lowerVals = values.map(v => String(v).toLowerCase());
-          result = result.filter(item => {
-            const fieldVal = String(item[field] ?? '').toLowerCase();
+          const lowerVals = values.map((v) => String(v).toLowerCase());
+          result = result.filter((item) => {
+            const fieldVal = String(item[field] ?? "").toLowerCase();
             const match = lowerVals.includes(fieldVal);
             return exclude ? !match : match;
           });
@@ -908,11 +983,11 @@ const filterInventoryAdvanced = () => {
     } else {
       const value = criteria;
       switch (field) {
-        case 'dateFrom':
-          result = result.filter(item => item.date >= value);
+        case "dateFrom":
+          result = result.filter((item) => item.date >= value);
           break;
-        case 'dateTo':
-          result = result.filter(item => item.date <= value);
+        case "dateTo":
+          result = result.filter((item) => item.date <= value);
           break;
       }
     }
@@ -923,42 +998,45 @@ const filterInventoryAdvanced = () => {
 
   let query = searchQuery.toLowerCase().trim();
 
-  const terms = query.split(',').map(t => t.trim()).filter(t => t);
+  const terms = query
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t);
   if (!terms.length) return result;
 
   // Pre-calculate search terms and hoist Regex compilation out of the filter loop.
   // This prevents O(N*M) recompilation overhead during large inventory renders.
-  const parsedTerms = terms.map(q => {
-    const words = q.split(/\s+/).filter(w => w.length > 0);
+  const parsedTerms = terms.map((q) => {
+    const words = q.split(/\s+/).filter((w) => w.length > 0);
     const exactPhrase = q;
     let expandedPhrase = exactPhrase;
     let compiledWordRegexes = [];
     let compiledFieldRegexes = [];
 
     if (words.length >= 2) {
-      const abbrevs = typeof METAL_ABBREVIATIONS !== 'undefined' ? METAL_ABBREVIATIONS : {};
-      const expandedWords = words.map(w => abbrevs[w.toLowerCase()] || w);
-      expandedPhrase = expandedWords.join(' ').toLowerCase();
+      const abbrevs = typeof METAL_ABBREVIATIONS !== "undefined" ? METAL_ABBREVIATIONS : {};
+      const expandedWords = words.map((w) => abbrevs[w.toLowerCase()] || w);
+      expandedPhrase = expandedWords.join(" ").toLowerCase();
 
       // Compile regexes for strict word boundary checking
-      compiledWordRegexes = words.map(word => {
+      compiledWordRegexes = words.map((word) => {
         // nosemgrep: javascript.dos.rule-non-literal-regexp
-        return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
       });
     }
 
     // Always compile field matching regexes with abbreviation expansion
-    const abbrevs = typeof METAL_ABBREVIATIONS !== 'undefined' ? METAL_ABBREVIATIONS : {};
-    compiledFieldRegexes = words.map(word => {
-      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const abbrevs = typeof METAL_ABBREVIATIONS !== "undefined" ? METAL_ABBREVIATIONS : {};
+    compiledFieldRegexes = words.map((word) => {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const patterns = [escaped];
       const expansion = abbrevs[word.toLowerCase()];
       if (expansion) {
-        patterns.push(expansion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        patterns.push(expansion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
       }
-      const combined = patterns.join('|');
+      const combined = patterns.join("|");
       // nosemgrep: javascript.dos.rule-non-literal-regexp
-      return new RegExp(`\\b(?:${combined})`, 'i');
+      return new RegExp(`\\b(?:${combined})`, "i");
     });
 
     return {
@@ -967,36 +1045,38 @@ const filterInventoryAdvanced = () => {
       exactPhrase,
       expandedPhrase,
       compiledWordRegexes,
-      compiledFieldRegexes
+      compiledFieldRegexes,
     };
   });
 
-  return result.filter(item => {
+  return result.filter((item) => {
     // Retrieve or compute cached search data
     let cached = searchCache.get(item);
 
     // Upgrade legacy cache (string) to object or handle cache miss
-    if (!cached || typeof cached === 'string') {
-      const _searchTags = typeof getItemTags === 'function' ? getItemTags(item.uuid).join(' ') : '';
+    if (!cached || typeof cached === "string") {
+      const _searchTags = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
       const _formattedDate = formatDisplayDate(item.date).toLowerCase();
 
       const itemText = [
         item.metal,
-        item.composition || '',
+        item.composition || "",
         item.name,
         item.type,
         item.purchaseLocation,
-        item.storageLocation || '',
-        item.notes || '',
-        String(item.year || ''),
-        item.grade || '',
-        item.gradingAuthority || '',
-        String(item.certNumber || ''),
-        String(item.numistaId || ''),
-        item.serialNumber || '',
+        item.storageLocation || "",
+        item.notes || "",
+        String(item.year || ""),
+        item.grade || "",
+        item.gradingAuthority || "",
+        String(item.certNumber || ""),
+        String(item.numistaId || ""),
+        item.serialNumber || "",
         _searchTags,
-        _formattedDate
-      ].join(' ').toLowerCase();
+        _formattedDate,
+      ]
+        .join(" ")
+        .toLowerCase();
 
       cached = { text: itemText, formattedDate: _formattedDate };
       searchCache.set(item, cached);
@@ -1005,8 +1085,9 @@ const filterInventoryAdvanced = () => {
     const { text: itemText, formattedDate } = cached;
 
     // Handle comma-separated terms (OR logic between comma terms)
-    return parsedTerms.some(termData => {
-      const { q, words, exactPhrase, expandedPhrase, compiledWordRegexes, compiledFieldRegexes } = termData;
+    return parsedTerms.some((termData) => {
+      const { q, words, exactPhrase, expandedPhrase, compiledWordRegexes, compiledFieldRegexes } =
+        termData;
 
       // Special handling for multi-word searches to prevent partial matches
       // If searching for "American Eagle", it should only match items that have both words
@@ -1023,64 +1104,82 @@ const filterInventoryAdvanced = () => {
         }
 
         // STACK-23: Check custom chip group label matching for multi-word searches
-        if (typeof window.itemMatchesCustomGroupLabel === 'function' &&
-            window.itemMatchesCustomGroupLabel(item, q)) {
+        if (
+          typeof window.itemMatchesCustomGroupLabel === "function" &&
+          window.itemMatchesCustomGroupLabel(item, q)
+        ) {
           return true;
         }
 
         // For phrase searches like "American Eagle", be more restrictive
         // Check that all words are present as word boundaries using pre-compiled regexes
-        const allWordsPresent = compiledWordRegexes.every(regex => regex.test(itemText));
+        const allWordsPresent = compiledWordRegexes.every((regex) => regex.test(itemText));
 
         if (!allWordsPresent) {
           return false;
         }
-        
+
         // Prevent cross-metal matching for common coin series
         if (words.length === 2) {
           const seriesResult = matchCoinSeries(words[0], words[1], itemText, exactPhrase);
           if (seriesResult !== null) return seriesResult;
         }
-        
+
         // Handle three-word searches with special patterns
         if (words.length === 3) {
           // Handle "American Gold Eagle" type searches - these should be exact
           const firstWord = words[0];
           const middleWord = words[1];
           const lastWord = words[2];
-          
-          if (['american', 'canadian', 'british', 'chinese', 'australian', 'south'].includes(firstWord) &&
-              ['gold', 'silver', 'platinum', 'palladium'].includes(middleWord) &&
-              ['eagle', 'maple', 'britannia', 'krugerrand', 'buffalo', 'panda', 'kangaroo'].includes(lastWord)) {
+
+          if (
+            ["american", "canadian", "british", "chinese", "australian", "south"].includes(
+              firstWord
+            ) &&
+            ["gold", "silver", "platinum", "palladium"].includes(middleWord) &&
+            ["eagle", "maple", "britannia", "krugerrand", "buffalo", "panda", "kangaroo"].includes(
+              lastWord
+            )
+          ) {
             // For "American Gold Eagle" type searches, require exact phrase or very close match
-            return itemText.includes(exactPhrase) || 
-                   (lastWord === 'maple' && itemText.includes(`${firstWord} ${middleWord} maple leaf`));
+            return (
+              itemText.includes(exactPhrase) ||
+              (lastWord === "maple" && itemText.includes(`${firstWord} ${middleWord} maple leaf`))
+            );
           }
         }
-        
+
         // Handle fractional weight searches to be more specific
         // "1/4 oz" should be distinct from "1/2 oz" and "1 oz"
         if (words.length >= 2) {
-          const hasFraction = words.some(word => word.includes('/'));
-          const hasOz = words.some(word => word === 'oz' || word === 'ounce');
-          
+          const hasFraction = words.some((word) => word.includes("/"));
+          const hasOz = words.some((word) => word === "oz" || word === "ounce");
+
           if (hasFraction && hasOz) {
             // For fractional searches, require exact phrase match
             return itemText.includes(exactPhrase);
           }
         }
-        
+
         // Prevent overly broad country/origin searches
-        const broadTerms = ['american', 'canadian', 'australian', 'british', 'chinese', 'south', 'mexican'];
+        const broadTerms = [
+          "american",
+          "canadian",
+          "australian",
+          "british",
+          "chinese",
+          "south",
+          "mexican",
+        ];
         if (words.length === 1 && broadTerms.includes(words[0])) {
           // Single broad geographic terms should require additional context
           // Return false to prevent matching everything from that country
           return false;
         }
-        
+
         return true;
       }
-      
+
       // For single words, use word boundary matching with pre-compiled regexes
       const fieldMatch = compiledFieldRegexes.every((wordRegex, index) => {
         const word = words[index];
@@ -1095,32 +1194,40 @@ const filterInventoryAdvanced = () => {
           (item.notes && wordRegex.test(item.notes)) ||
           item.date.includes(word) ||
           formattedDate.includes(word) ||
-          String(Number.isFinite(Number(item.qty)) ? Number(item.qty) : '').includes(word) ||
-          String(Number.isFinite(Number(item.weight)) ? Number(item.weight) : '').includes(word) ||
-          String(Number.isFinite(Number(item.price)) ? Number(item.price) : '').includes(word) ||
+          String(Number.isFinite(Number(item.qty)) ? Number(item.qty) : "").includes(word) ||
+          String(Number.isFinite(Number(item.weight)) ? Number(item.weight) : "").includes(word) ||
+          String(Number.isFinite(Number(item.price)) ? Number(item.price) : "").includes(word) ||
           (item.year && wordRegex.test(String(item.year))) ||
           (item.grade && wordRegex.test(item.grade)) ||
           (item.gradingAuthority && wordRegex.test(item.gradingAuthority)) ||
           (item.certNumber && wordRegex.test(String(item.certNumber))) ||
           (item.numistaId && wordRegex.test(String(item.numistaId))) ||
           (item.serialNumber && wordRegex.test(item.serialNumber)) ||
-          (typeof getItemTags === 'function' && getItemTags(item.uuid).some(t => wordRegex.test(t)))
+          (typeof getItemTags === "function" &&
+            getItemTags(item.uuid).some((t) => wordRegex.test(t)))
         );
       });
       if (fieldMatch) return true;
 
       // STACK-23: Fall back to custom chip group label matching
-      if (typeof window.itemMatchesCustomGroupLabel === 'function') {
+      if (typeof window.itemMatchesCustomGroupLabel === "function") {
         return window.itemMatchesCustomGroupLabel(item, q);
       }
 
       // STACK-62: Fuzzy fallback — score item fields when exact matching fails
-      if (typeof window.featureFlags !== 'undefined' &&
-          window.featureFlags.isEnabled('FUZZY_AUTOCOMPLETE') &&
-          typeof fuzzyMatch === 'function') {
-        const fuzzyThreshold = typeof AUTOCOMPLETE_CONFIG !== 'undefined'
-          ? AUTOCOMPLETE_CONFIG.threshold : 0.3;
-        const fieldsToCheck = [item.name, item.purchaseLocation, item.storageLocation || '', item.notes || ''];
+      if (
+        typeof window.featureFlags !== "undefined" &&
+        window.featureFlags.isEnabled("FUZZY_AUTOCOMPLETE") &&
+        typeof fuzzyMatch === "function"
+      ) {
+        const fuzzyThreshold =
+          typeof AUTOCOMPLETE_CONFIG !== "undefined" ? AUTOCOMPLETE_CONFIG.threshold : 0.3;
+        const fieldsToCheck = [
+          item.name,
+          item.purchaseLocation,
+          item.storageLocation || "",
+          item.notes || "",
+        ];
         for (const field of fieldsToCheck) {
           if (field && fuzzyMatch(q, field, { threshold: fuzzyThreshold }) > 0) {
             if (!window._fuzzyMatchUsed) window._fuzzyMatchUsed = true;
@@ -1144,39 +1251,46 @@ const filterInventoryAdvanced = () => {
  */
 const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
   // Fields that support OR-logic multi-select (filter engine already handles these natively)
-  const isMultiSelect = field === 'tags' || field === 'metal' || field === 'type';
+  const isMultiSelect = field === "tags" || field === "metal" || field === "type";
 
   // Handle custom group chip click
-  if (field === 'customGroup') {
-    const groups = typeof window.loadCustomGroups === 'function' ? window.loadCustomGroups() : [];
-    const group = groups.find(g => g.id === value);
+  if (field === "customGroup") {
+    const groups = typeof window.loadCustomGroups === "function" ? window.loadCustomGroups() : [];
+    const group = groups.find((g) => g.id === value);
     if (group) {
       const matchingNames = [];
-      inventory.forEach(item => {
-        const itemName = (item.name || '').toLowerCase();
-        if (group.patterns.some(p => {
-          try {
-            // nosemgrep: javascript.dos.rule-non-literal-regexp
-            return new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(itemName);
-          } catch (e) { return itemName.includes(p.toLowerCase()); }
-        })) {
+      inventory.forEach((item) => {
+        const itemName = (item.name || "").toLowerCase();
+        if (
+          group.patterns.some((p) => {
+            try {
+              // nosemgrep: javascript.dos.rule-non-literal-regexp
+              return new RegExp("\\b" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(
+                itemName
+              );
+            } catch (e) {
+              return itemName.includes(p.toLowerCase());
+            }
+          })
+        ) {
           matchingNames.push(item.name);
         }
       });
       const uniqueNames = [...new Set(matchingNames)];
 
       // Toggle behavior: if same custom group filter is active, remove it
-      const currentValues = activeFilters['name']?.values || [];
-      const currentExclude = !!activeFilters['name']?.exclude;
-      const isCurrentlyActive = uniqueNames.length > 0 &&
-        uniqueNames.every(n => currentValues.includes(n)) &&
+      const currentValues = activeFilters["name"]?.values || [];
+      const currentExclude = !!activeFilters["name"]?.exclude;
+      const isCurrentlyActive =
+        uniqueNames.length > 0 &&
+        uniqueNames.every((n) => currentValues.includes(n)) &&
         currentValues.length === uniqueNames.length &&
         currentExclude === exclude;
 
       if (isCurrentlyActive) {
-        delete activeFilters['name'];
+        delete activeFilters["name"];
       } else if (uniqueNames.length > 0) {
-        activeFilters['name'] = { values: uniqueNames, exclude };
+        activeFilters["name"] = { values: uniqueNames, exclude };
       }
     }
     renderTable();
@@ -1185,28 +1299,29 @@ const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
   }
 
   // Handle dynamic name chip click
-  if (field === 'dynamicName') {
+  if (field === "dynamicName") {
     const matchingNames = [];
-    inventory.forEach(item => {
-      const name = item.name || '';
-      if (name.includes('(' + value + ')') || name.includes('"' + value + '"')) {
+    inventory.forEach((item) => {
+      const name = item.name || "";
+      if (name.includes("(" + value + ")") || name.includes('"' + value + '"')) {
         matchingNames.push(name);
       }
     });
     const uniqueNames = [...new Set(matchingNames)];
 
     // Toggle behavior
-    const currentValues = activeFilters['name']?.values || [];
-    const currentExclude = !!activeFilters['name']?.exclude;
-    const isCurrentlyActive = uniqueNames.length > 0 &&
-      uniqueNames.every(n => currentValues.includes(n)) &&
+    const currentValues = activeFilters["name"]?.values || [];
+    const currentExclude = !!activeFilters["name"]?.exclude;
+    const isCurrentlyActive =
+      uniqueNames.length > 0 &&
+      uniqueNames.every((n) => currentValues.includes(n)) &&
       currentValues.length === uniqueNames.length &&
       currentExclude === exclude;
 
     if (isCurrentlyActive) {
-      delete activeFilters['name'];
+      delete activeFilters["name"];
     } else if (uniqueNames.length > 0) {
-      activeFilters['name'] = { values: uniqueNames, exclude };
+      activeFilters["name"] = { values: uniqueNames, exclude };
     }
     renderTable();
     renderActiveFilters();
@@ -1214,14 +1329,24 @@ const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
   }
 
   // If this exact filter is already active, remove it (toggle behavior — single-select fields only)
-  if (!isMultiSelect && activeFilters[field]?.values?.[0] === value && activeFilters[field]?.exclude === exclude && !isGrouped) {
+  if (
+    !isMultiSelect &&
+    activeFilters[field]?.values?.[0] === value &&
+    activeFilters[field]?.exclude === exclude &&
+    !isGrouped
+  ) {
     delete activeFilters[field];
-  } else if (field === 'name' && isGrouped && window.featureFlags && window.featureFlags.isEnabled('GROUPED_NAME_CHIPS')) {
+  } else if (
+    field === "name" &&
+    isGrouped &&
+    window.featureFlags &&
+    window.featureFlags.isEnabled("GROUPED_NAME_CHIPS")
+  ) {
     // Handle grouped name filtering
     if (window.autocomplete && window.autocomplete.normalizeItemName) {
       // Find all item names that normalize to this base name
       const matchingNames = [];
-      inventory.forEach(item => {
+      inventory.forEach((item) => {
         if (item.name) {
           const baseName = window.autocomplete.normalizeItemName(item.name);
           if (baseName === value) {
@@ -1229,18 +1354,19 @@ const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
           }
         }
       });
-      
+
       // Remove duplicates
       const uniqueNames = [...new Set(matchingNames)];
-      
+
       if (uniqueNames.length > 0) {
         // Check if this grouped filter is already active
         const currentValues = activeFilters[field]?.values || [];
         const currentExclude = !!activeFilters[field]?.exclude;
-        const isCurrentlyActive = uniqueNames.every(name => currentValues.includes(name)) &&
-                                 currentValues.length === uniqueNames.length &&
-                                 currentExclude === exclude;
-        
+        const isCurrentlyActive =
+          uniqueNames.every((name) => currentValues.includes(name)) &&
+          currentValues.length === uniqueNames.length &&
+          currentExclude === exclude;
+
         if (isCurrentlyActive) {
           // Toggle off - remove the filter
           delete activeFilters[field];
@@ -1258,7 +1384,7 @@ const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
     const existing = activeFilters[field].values;
     const idx = existing.indexOf(value);
     if (idx !== -1) {
-      const updated = existing.filter(v => v !== value);
+      const updated = existing.filter((v) => v !== value);
       if (updated.length === 0) {
         delete activeFilters[field];
       } else {

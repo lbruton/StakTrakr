@@ -18,17 +18,23 @@ const loadItemTags = () => {
     // value was stringified multiple times, loadDataSync returns a string
     // instead of an object. Unwind parse layers until we get an object.
     var repairs = 0;
-    while (typeof loaded === 'string' && repairs < 20) {
-      try { loaded = JSON.parse(loaded); repairs++; } catch (_) { break; }
+    while (typeof loaded === "string" && repairs < 20) {
+      try {
+        loaded = JSON.parse(loaded);
+        repairs++;
+      } catch (_) {
+        break;
+      }
     }
     if (repairs > 0) {
-      console.warn('[Tags] Repaired', repairs, 'layers of stringify corruption');
+      console.warn("[Tags] Repaired", repairs, "layers of stringify corruption");
     }
-    itemTags = (typeof loaded === 'object' && loaded !== null && !Array.isArray(loaded)) ? loaded : {};
+    itemTags =
+      typeof loaded === "object" && loaded !== null && !Array.isArray(loaded) ? loaded : {};
     // Persist the repaired value so the corruption doesn't recur on next sync
     if (repairs > 0) saveItemTags();
   } catch (e) {
-    console.error('Failed to load item tags:', e);
+    console.error("Failed to load item tags:", e);
     itemTags = {};
   }
 };
@@ -40,14 +46,14 @@ const saveItemTags = () => {
   try {
     // STAK-421: Guard against saving corrupted non-object value — this is the
     // entry point for the cascading stringify corruption (string gets re-stringified).
-    if (typeof itemTags !== 'object' || itemTags === null || Array.isArray(itemTags)) {
-      console.warn('[Tags] saveItemTags blocked — itemTags is not an object:', typeof itemTags);
+    if (typeof itemTags !== "object" || itemTags === null || Array.isArray(itemTags)) {
+      console.warn("[Tags] saveItemTags blocked — itemTags is not an object:", typeof itemTags);
       itemTags = {};
     }
     saveDataSync(ITEM_TAGS_KEY, itemTags);
-    if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+    if (typeof scheduleSyncPush === "function") scheduleSyncPush();
   } catch (e) {
-    console.error('Failed to save item tags:', e);
+    console.error("Failed to save item tags:", e);
   }
 };
 
@@ -57,8 +63,8 @@ const saveItemTags = () => {
  * @returns {Object|null} The inventory item or null
  */
 const findItemByUuid = (uuid) => {
-  if (typeof inventory !== 'undefined' && Array.isArray(inventory)) {
-    return inventory.find(i => i.uuid === uuid) || null;
+  if (typeof inventory !== "undefined" && Array.isArray(inventory)) {
+    return inventory.find((i) => i.uuid === uuid) || null;
   }
   return null;
 };
@@ -90,7 +96,7 @@ const addItemTag = (uuid, tag, persist = true) => {
 
   // Prevent duplicates (case-insensitive check)
   const lowerTrimmed = trimmed.toLowerCase();
-  if (itemTags[uuid].some(t => t.toLowerCase() === lowerTrimmed)) return false;
+  if (itemTags[uuid].some((t) => t.toLowerCase() === lowerTrimmed)) return false;
 
   // Enforce max tags per item
   if (itemTags[uuid].length >= MAX_TAGS_PER_ITEM) return false;
@@ -99,7 +105,7 @@ const addItemTag = (uuid, tag, persist = true) => {
 
   if (persist) saveItemTags();
 
-  if (typeof window.invalidateSearchCache === 'function') {
+  if (typeof window.invalidateSearchCache === "function") {
     const item = findItemByUuid(uuid);
     if (item) window.invalidateSearchCache(item);
   }
@@ -116,7 +122,7 @@ const addItemTag = (uuid, tag, persist = true) => {
 const removeItemTag = (uuid, tag) => {
   if (!uuid || !itemTags[uuid]) return false;
 
-  const idx = itemTags[uuid].findIndex(t => t === tag);
+  const idx = itemTags[uuid].findIndex((t) => t === tag);
   if (idx === -1) return false;
 
   itemTags[uuid].splice(idx, 1);
@@ -128,7 +134,7 @@ const removeItemTag = (uuid, tag) => {
 
   saveItemTags();
 
-  if (typeof window.invalidateSearchCache === 'function') {
+  if (typeof window.invalidateSearchCache === "function") {
     const item = findItemByUuid(uuid);
     if (item) window.invalidateSearchCache(item);
   }
@@ -145,7 +151,7 @@ const deleteItemTags = (uuid) => {
   delete itemTags[uuid];
   saveItemTags();
 
-  if (typeof window.invalidateSearchCache === 'function') {
+  if (typeof window.invalidateSearchCache === "function") {
     const item = findItemByUuid(uuid);
     if (item) window.invalidateSearchCache(item);
   }
@@ -158,11 +164,9 @@ const deleteItemTags = (uuid) => {
 const getAllUniqueTags = () => {
   const tagSet = new Set();
   for (const tags of Object.values(itemTags)) {
-    tags.forEach(t => tagSet.add(t));
+    tags.forEach((t) => tagSet.add(t));
   }
-  return Array.from(tagSet).sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: 'base' })
-  );
+  return Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 };
 
 /**
@@ -194,7 +198,7 @@ const renameTag = (oldName, newName) => {
   }
   if (affected > 0) {
     saveItemTags();
-    if (typeof window.resetSearchCache === 'function') {
+    if (typeof window.resetSearchCache === "function") {
       window.resetSearchCache();
     }
   }
@@ -219,7 +223,7 @@ const deleteTagGlobal = (tag) => {
   }
   if (affected > 0) {
     saveItemTags();
-    if (typeof window.resetSearchCache === 'function') {
+    if (typeof window.resetSearchCache === "function") {
       window.resetSearchCache();
     }
   }
@@ -245,10 +249,10 @@ const deleteTagGlobal = (tag) => {
  */
 const loadTagBlacklist = () => {
   try {
-    const list = loadDataSync('tagBlacklist', []);
+    const list = loadDataSync("tagBlacklist", []);
     return Array.isArray(list) ? list : [];
   } catch (e) {
-    console.error('Failed to load tag blacklist:', e);
+    console.error("Failed to load tag blacklist:", e);
     return [];
   }
 };
@@ -258,7 +262,7 @@ const loadTagBlacklist = () => {
  * @param {string[]} list - Array of blacklisted tag names
  */
 const saveTagBlacklist = (list) => {
-  saveDataSync('tagBlacklist', list);
+  saveDataSync("tagBlacklist", list);
 };
 
 /**
@@ -269,7 +273,7 @@ const saveTagBlacklist = (list) => {
 const isTagBlacklisted = (tag) => {
   if (!tag) return false;
   const lower = tag.toLowerCase();
-  return loadTagBlacklist().some(t => t.toLowerCase() === lower);
+  return loadTagBlacklist().some((t) => t.toLowerCase() === lower);
 };
 
 /**
@@ -282,7 +286,7 @@ const addToTagBlacklist = (tag) => {
   const trimmed = tag.trim();
   if (!trimmed) return false;
   const list = loadTagBlacklist();
-  if (list.some(t => t.toLowerCase() === trimmed.toLowerCase())) return false;
+  if (list.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return false;
   list.push(trimmed);
   saveTagBlacklist(list);
   return true;
@@ -297,7 +301,7 @@ const removeFromTagBlacklist = (tag) => {
   if (!tag) return false;
   const lower = tag.toLowerCase();
   const list = loadTagBlacklist();
-  const idx = list.findIndex(t => t.toLowerCase() === lower);
+  const idx = list.findIndex((t) => t.toLowerCase() === lower);
   if (idx === -1) return false;
   list.splice(idx, 1);
   saveTagBlacklist(list);
@@ -311,7 +315,7 @@ const applyNumistaTags = (uuid, numistaTags, persist = true, force = false) => {
 
   // Check global auto-apply setting (skip when force=true, e.g. from re-sync picker)
   if (!force) {
-    const autoApply = loadDataSync('numista_tags_auto', true);
+    const autoApply = loadDataSync("numista_tags_auto", true);
     if (!autoApply) return 0;
   }
 
@@ -347,49 +351,51 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
   const hasNumista = Array.isArray(numistaTags) && numistaTags.length > 0;
 
   // Always show section so user can add custom tags
-  const section = document.createElement('div');
-  section.className = 'view-detail-section';
-  section.id = 'viewTagsSection';
+  const section = document.createElement("div");
+  section.className = "view-detail-section";
+  section.id = "viewTagsSection";
 
-  const heading = document.createElement('div');
-  heading.className = 'view-section-title';
-  heading.textContent = 'Tags';
+  const heading = document.createElement("div");
+  heading.className = "view-section-title";
+  heading.textContent = "Tags";
   section.appendChild(heading);
 
-  const container = document.createElement('div');
-  container.className = 'view-tags-container';
+  const container = document.createElement("div");
+  container.className = "view-tags-container";
 
   // Render existing tags
   const renderTags = () => {
-    container.textContent = '';
+    container.textContent = "";
     const currentTags = getItemTags(uuid);
 
     // Build a set of Numista tag names (lowercased) for visual distinction
-    const numistaSet = new Set((numistaTags || []).map(t => String(t).trim().toLowerCase()));
+    const numistaSet = new Set((numistaTags || []).map((t) => String(t).trim().toLowerCase()));
 
-    currentTags.forEach(tag => {
-      const chip = document.createElement('span');
+    currentTags.forEach((tag) => {
+      const chip = document.createElement("span");
       const isNumista = numistaSet.has(tag.toLowerCase());
-      chip.className = isNumista ? 'tag-chip tag-chip-numista' : 'tag-chip tag-chip-custom';
+      chip.className = isNumista ? "tag-chip tag-chip-numista" : "tag-chip tag-chip-custom";
       chip.textContent = tag;
-      chip.title = isNumista ? `Numista tag: ${tag} (click × to remove)` : `Custom tag: ${tag} (click × to remove)`;
+      chip.title = isNumista
+        ? `Numista tag: ${tag} (click × to remove)`
+        : `Custom tag: ${tag} (click × to remove)`;
 
       // STAK-344: All tags are removable — User First, Numista Second.
       // Once Numista writes a tag it becomes the user's property.
-      const removeBtn = document.createElement('span');
-      removeBtn.className = 'tag-chip-remove';
-      removeBtn.textContent = '\u00d7';
-      removeBtn.setAttribute('role', 'button');
-      removeBtn.setAttribute('tabindex', '0');
-      removeBtn.setAttribute('aria-label', `Remove tag ${tag}`);
+      const removeBtn = document.createElement("span");
+      removeBtn.className = "tag-chip-remove";
+      removeBtn.textContent = "\u00d7";
+      removeBtn.setAttribute("role", "button");
+      removeBtn.setAttribute("tabindex", "0");
+      removeBtn.setAttribute("aria-label", `Remove tag ${tag}`);
       removeBtn.onclick = (e) => {
         e.stopPropagation();
         removeItemTag(uuid, tag);
         renderTags();
-        if (typeof onChanged === 'function') onChanged();
+        if (typeof onChanged === "function") onChanged();
       };
       removeBtn.onkeydown = (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           removeBtn.onclick(e);
         }
@@ -400,11 +406,11 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
     });
 
     // Add tag button
-    const addBtn = document.createElement('button');
-    addBtn.className = 'tag-add-btn';
-    addBtn.type = 'button';
-    addBtn.textContent = '+ Tag';
-    addBtn.title = 'Add a custom tag';
+    const addBtn = document.createElement("button");
+    addBtn.className = "tag-add-btn";
+    addBtn.type = "button";
+    addBtn.textContent = "+ Tag";
+    addBtn.title = "Add a custom tag";
     addBtn.onclick = () => {
       showTagInput(container, uuid, numistaTags, renderTags, onChanged);
     };
@@ -426,61 +432,61 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
  */
 const showTagInput = (container, uuid, numistaTags, renderTags, onChanged) => {
   // Remove existing input if any
-  const existing = container.querySelector('.tag-input-wrapper');
+  const existing = container.querySelector(".tag-input-wrapper");
   if (existing) existing.remove();
 
-  const wrapper = document.createElement('span');
-  wrapper.className = 'tag-input-wrapper';
+  const wrapper = document.createElement("span");
+  wrapper.className = "tag-input-wrapper";
 
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'tag-input';
-  input.placeholder = 'New tag...';
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "tag-input";
+  input.placeholder = "New tag...";
   input.maxLength = MAX_TAG_LENGTH;
-  input.setAttribute('aria-label', 'Enter tag name');
+  input.setAttribute("aria-label", "Enter tag name");
 
   // Autocomplete dropdown
-  const dropdown = document.createElement('div');
-  dropdown.className = 'tag-autocomplete-dropdown';
-  dropdown.style.display = 'none';
+  const dropdown = document.createElement("div");
+  dropdown.className = "tag-autocomplete-dropdown";
+  dropdown.style.display = "none";
 
-  const allTags = getAllUniqueTags().filter(t =>
-    typeof window.isBlacklisted === 'function' ? !window.isBlacklisted(t) : true
+  const allTags = getAllUniqueTags().filter((t) =>
+    typeof window.isBlacklisted === "function" ? !window.isBlacklisted(t) : true
   );
 
   const updateDropdown = () => {
     const val = input.value.trim().toLowerCase();
-    dropdown.textContent = '';
+    dropdown.textContent = "";
     if (val.length === 0) {
-      dropdown.style.display = 'none';
+      dropdown.style.display = "none";
       return;
     }
-    const currentItemTags = getItemTags(uuid).map(t => t.toLowerCase());
-    const matches = allTags.filter(t =>
-      t.toLowerCase().includes(val) && !currentItemTags.includes(t.toLowerCase())
-    ).slice(0, 8);
+    const currentItemTags = getItemTags(uuid).map((t) => t.toLowerCase());
+    const matches = allTags
+      .filter((t) => t.toLowerCase().includes(val) && !currentItemTags.includes(t.toLowerCase()))
+      .slice(0, 8);
 
     if (matches.length === 0) {
-      dropdown.style.display = 'none';
+      dropdown.style.display = "none";
       return;
     }
 
-    matches.forEach(tag => {
-      const opt = document.createElement('div');
-      opt.className = 'tag-autocomplete-option';
+    matches.forEach((tag) => {
+      const opt = document.createElement("div");
+      opt.className = "tag-autocomplete-option";
       opt.textContent = tag;
       opt.onmousedown = (e) => {
         e.preventDefault();
         addItemTag(uuid, tag);
         renderTags();
-        if (typeof onChanged === 'function') onChanged();
+        if (typeof onChanged === "function") onChanged();
       };
       dropdown.appendChild(opt);
     });
-    dropdown.style.display = '';
+    dropdown.style.display = "";
   };
 
-  input.addEventListener('input', updateDropdown);
+  input.addEventListener("input", updateDropdown);
 
   const commitTag = () => {
     const val = input.value.trim();
@@ -488,19 +494,19 @@ const showTagInput = (container, uuid, numistaTags, renderTags, onChanged) => {
       addItemTag(uuid, val);
     }
     renderTags();
-    if (typeof onChanged === 'function') onChanged();
+    if (typeof onChanged === "function") onChanged();
   };
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
       e.preventDefault();
       commitTag();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       renderTags();
     }
   });
 
-  input.addEventListener('blur', () => {
+  input.addEventListener("blur", () => {
     // Short delay to allow dropdown click to fire
     setTimeout(() => {
       commitTag();
@@ -511,10 +517,10 @@ const showTagInput = (container, uuid, numistaTags, renderTags, onChanged) => {
   wrapper.appendChild(dropdown);
 
   // Insert before the add button
-  const addBtn = container.querySelector('.tag-add-btn');
+  const addBtn = container.querySelector(".tag-add-btn");
   if (addBtn) {
     container.insertBefore(wrapper, addBtn);
-    addBtn.style.display = 'none';
+    addBtn.style.display = "none";
   } else {
     container.appendChild(wrapper);
   }

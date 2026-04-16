@@ -8,21 +8,24 @@
 const checkVersionChange = () => {
   const hasData = !!localStorage.getItem(LS_KEY);
   if (!hasData) {
-    if (typeof window !== 'undefined' && typeof window.debugLog === "function") window.debugLog("versionCheck: no inventory data, skipping");
+    if (typeof window !== "undefined" && typeof window.debugLog === "function")
+      window.debugLog("versionCheck: no inventory data, skipping");
     return;
   }
 
   const acknowledged = localStorage.getItem(VERSION_ACK_KEY);
   const current = APP_VERSION;
-  if (typeof window !== 'undefined' && typeof window.debugLog === "function") {
-    window.debugLog(`versionCheck: ack=${acknowledged}, current=${current}, APP_VERSION=${APP_VERSION}`);
+  if (typeof window !== "undefined" && typeof window.debugLog === "function") {
+    window.debugLog(
+      `versionCheck: ack=${acknowledged}, current=${current}, APP_VERSION=${APP_VERSION}`
+    );
   }
   if (acknowledged === current) return;
 
-  if (typeof window !== 'undefined' && typeof window.debugLog === "function") {
+  if (typeof window !== "undefined" && typeof window.debugLog === "function") {
     window.debugLog(`versionCheck: mismatch — showing What's New popup`);
   }
-  if (typeof showWhatsNewPopup === 'function') {
+  if (typeof showWhatsNewPopup === "function") {
     showWhatsNewPopup();
   }
 };
@@ -141,4 +144,3 @@ const checkRemoteVersion = async () => {
 
 document.addEventListener("DOMContentLoaded", checkVersionChange);
 document.addEventListener("DOMContentLoaded", checkRemoteVersion);
-

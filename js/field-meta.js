@@ -11,7 +11,7 @@
  *          diff-engine.js (pure-data module pattern reference).
  */
 
-'use strict';
+"use strict";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -22,11 +22,21 @@
  * Tier 1: always visible. Tier 2: behind "Show more fields" toggle.
  */
 const FIELD_TIERS = {
-  tier1: ['name', 'numistaId', 'year', 'type', 'weight', 'tags'],
+  tier1: ["name", "numistaId", "year", "type", "weight", "tags"],
   tier2: [
-    'country', 'denomination', 'composition', 'shape', 'diameter',
-    'thickness', 'metal', 'orientation', 'description', 'grade',
-    'mintage', 'technique', 'commemorative',
+    "country",
+    "denomination",
+    "composition",
+    "shape",
+    "diameter",
+    "thickness",
+    "metal",
+    "orientation",
+    "description",
+    "grade",
+    "mintage",
+    "technique",
+    "commemorative",
   ],
 };
 
@@ -44,20 +54,20 @@ const FIELD_TIERS = {
  * @returns {object} fieldMeta map: { fieldName: { source, userModified } }
  */
 function initFieldMeta(normalizedData, source) {
-  if (normalizedData == null || typeof normalizedData !== 'object') return {};
+  if (normalizedData == null || typeof normalizedData !== "object") return {};
 
-  const src = source || 'manual';
+  const src = source || "manual";
   const meta = {};
 
   for (const key of Object.keys(normalizedData)) {
     // Skip internal/metadata fields that are not user-facing inventory fields
-    if (key === 'fieldMeta' || key === 'provider' || key === 'lastUpdated') continue;
+    if (key === "fieldMeta" || key === "provider" || key === "lastUpdated") continue;
 
     const val = normalizedData[key];
 
     // Non-empty check: skip null, undefined, empty string, 0, false, empty arrays
-    if (val === null || val === undefined || val === '' || val === false) continue;
-    if (typeof val === 'number' && val === 0) continue;
+    if (val === null || val === undefined || val === "" || val === false) continue;
+    if (typeof val === "number" && val === 0) continue;
     if (Array.isArray(val) && val.length === 0) continue;
 
     meta[key] = { source: src, userModified: false };
@@ -79,14 +89,14 @@ function getFieldMeta(item, fieldName) {
   if (
     item != null &&
     item.fieldMeta != null &&
-    typeof item.fieldMeta === 'object' &&
+    typeof item.fieldMeta === "object" &&
     item.fieldMeta[fieldName] != null
   ) {
     return item.fieldMeta[fieldName];
   }
 
   // Legacy fallback — treat as manually entered and user-modified
-  return { source: 'manual', userModified: true };
+  return { source: "manual", userModified: true };
 }
 
 /**
@@ -99,14 +109,14 @@ function getFieldMeta(item, fieldName) {
 function markUserModified(item, fieldName) {
   if (item == null || !fieldName) return;
 
-  if (item.fieldMeta == null || typeof item.fieldMeta !== 'object') {
+  if (item.fieldMeta == null || typeof item.fieldMeta !== "object") {
     item.fieldMeta = {};
   }
 
   if (item.fieldMeta[fieldName] != null) {
     item.fieldMeta[fieldName].userModified = true;
   } else {
-    item.fieldMeta[fieldName] = { source: 'manual', userModified: true };
+    item.fieldMeta[fieldName] = { source: "manual", userModified: true };
   }
 }
 
@@ -124,9 +134,9 @@ function markUserModified(item, fieldName) {
 function applyPickerSelections(item, selections, normalizedData, source) {
   if (item == null || selections == null || normalizedData == null) return;
 
-  const src = source || 'numista';
+  const src = source || "numista";
 
-  if (item.fieldMeta == null || typeof item.fieldMeta !== 'object') {
+  if (item.fieldMeta == null || typeof item.fieldMeta !== "object") {
     item.fieldMeta = {};
   }
 

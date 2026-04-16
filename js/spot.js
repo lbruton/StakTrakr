@@ -88,23 +88,25 @@ const saveSpotHistory = () => {
     if (
       snapshot.changed &&
       typeof debugLog === "function" &&
-      (snapshot.trimmedSeedEntries > 0 || snapshot.removedInvalidEntries > 0 || snapshot.dedupedEntries > 0)
+      (snapshot.trimmedSeedEntries > 0 ||
+        snapshot.removedInvalidEntries > 0 ||
+        snapshot.dedupedEntries > 0)
     ) {
       debugLog(
         "Spot history: persisting sanitized snapshot (" +
-        snapshot.entries.length +
-        " entries, trimmed " +
-        snapshot.trimmedSeedEntries +
-        " old seed, removed " +
-        snapshot.removedInvalidEntries +
-        " invalid, deduped " +
-        snapshot.dedupedEntries +
-        ")",
+          snapshot.entries.length +
+          " entries, trimmed " +
+          snapshot.trimmedSeedEntries +
+          " old seed, removed " +
+          snapshot.removedInvalidEntries +
+          " invalid, deduped " +
+          snapshot.dedupedEntries +
+          ")"
       );
     }
     saveDataSync(SPOT_HISTORY_KEY, snapshot.entries, { quietQuotaToast: true });
   } catch (error) {
-    console.warn('Spot history save skipped:', error);
+    console.warn("Spot history save skipped:", error);
   }
 };
 
@@ -123,10 +125,10 @@ const loadSpotHistory = () => {
         if (typeof debugLog === "function" && snapshot.trimmedSeedEntries > 0) {
           debugLog(
             "Spot history: migrated persisted storage to trimmed runtime snapshot (" +
-            snapshot.entries.length +
-            " entries, removed " +
-            snapshot.trimmedSeedEntries +
-            " old seed entries)",
+              snapshot.entries.length +
+              " entries, removed " +
+              snapshot.trimmedSeedEntries +
+              " old seed entries)"
           );
         }
       } catch (saveError) {
@@ -134,7 +136,7 @@ const loadSpotHistory = () => {
       }
     }
   } catch (error) {
-    console.error('Error loading spot history:', error);
+    console.error("Error loading spot history:", error);
     spotHistory = [];
   }
 };
@@ -152,7 +154,7 @@ const migrateHourlySource = () => {
     if (localStorage.getItem(FLAG)) return;
     loadSpotHistory();
     let changed = 0;
-    spotHistory.forEach(e => {
+    spotHistory.forEach((e) => {
       if (
         e.provider === "StakTrakr" &&
         e.source === "api" &&
@@ -184,9 +186,7 @@ migrateHourlySource();
 const purgeSpotHistory = (days = 180) => {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
-  spotHistory = spotHistory.filter(
-    (entry) => new Date(entry.timestamp) >= cutoff,
-  );
+  spotHistory = spotHistory.filter((entry) => new Date(entry.timestamp) >= cutoff);
 };
 
 /**
@@ -205,7 +205,7 @@ const updateLastTimestamps = (source, provider, timestamp) => {
   if (source === "api") {
     saveDataSync(LAST_API_SYNC_KEY, apiEntry);
     saveDataSync(LAST_CACHE_REFRESH_KEY, apiEntry);
-    if (typeof window.updateSpotSyncHealthDot === 'function') window.updateSpotSyncHealthDot();
+    if (typeof window.updateSpotSyncHealthDot === "function") window.updateSpotSyncHealthDot();
   } else if (source === "cached") {
     const cacheEntry = {
       provider: provider ? `${provider} (cached)` : "Cached",
@@ -221,30 +221,41 @@ const updateLastTimestamps = (source, provider, timestamp) => {
  * Falls back to cache refresh timestamp before treating the state as no data (orange).
  */
 const updateSpotSyncHealthDot = () => {
-  const dot = safeGetElement('headerSyncDot');
+  const dot = safeGetElement("headerSyncDot");
   if (!dot.classList) return;
-  dot.className = 'cloud-sync-dot header-cloud-dot';
+  dot.className = "cloud-sync-dot header-cloud-dot";
   let entry = null;
-  try { entry = loadDataSync(LAST_API_SYNC_KEY); } catch (e) { /* ignore */ }
+  try {
+    entry = loadDataSync(LAST_API_SYNC_KEY);
+  } catch (e) {
+    /* ignore */
+  }
   if (entry && entry.timestamp) {
     dot.classList.add(`header-cloud-dot${getHealthStatusClass(entry.timestamp)}`);
     return;
   }
   let cache = null;
-  try { cache = loadDataSync(LAST_CACHE_REFRESH_KEY); } catch (e) { /* ignore */ }
+  try {
+    cache = loadDataSync(LAST_CACHE_REFRESH_KEY);
+  } catch (e) {
+    /* ignore */
+  }
   if (cache && cache.timestamp) {
-    if (typeof getCacheDurationMs === 'function') {
+    if (typeof getCacheDurationMs === "function") {
       const cacheMs = new Date(cache.timestamp).getTime();
       if (!isNaN(cacheMs)) {
-        const rawProvider = (cache.provider || '').replace(/ \(cached\)$/, '');
+        const rawProvider = (cache.provider || "").replace(/ \(cached\)$/, "");
         const age = Date.now() - cacheMs;
-        if (age <= getCacheDurationMs(rawProvider || 'STAKTRAKR')) { dot.classList.add('header-cloud-dot--green'); return; }
+        if (age <= getCacheDurationMs(rawProvider || "STAKTRAKR")) {
+          dot.classList.add("header-cloud-dot--green");
+          return;
+        }
       }
     }
     dot.classList.add(`header-cloud-dot${getHealthStatusClass(cache.timestamp)}`);
     return;
   }
-  dot.classList.add('header-cloud-dot--orange');
+  dot.classList.add("header-cloud-dot--orange");
 };
 window.updateSpotSyncHealthDot = updateSpotSyncHealthDot;
 
@@ -257,13 +268,7 @@ window.updateSpotSyncHealthDot = updateSpotSyncHealthDot;
  * @param {string|null} provider - Provider name if source is API-based
  * @param {string|null} timestamp - Optional ISO timestamp for historical entries
  */
-const recordSpot = (
-  newSpot,
-  source,
-  metal,
-  provider = null,
-  timestamp = null,
-) => {
+const recordSpot = (newSpot, source, metal, provider = null, timestamp = null) => {
   purgeSpotHistory();
   const entryTimestamp = timestamp
     ? new Date(timestamp).toISOString().replace("T", " ").slice(0, 19)
@@ -272,9 +277,7 @@ const recordSpot = (
   // Historical backfill (explicit timestamp): full-array dedup by timestamp+metal.
   // Real-time entries (no explicit timestamp): fast O(1) tail check.
   const isDuplicate = timestamp
-    ? spotHistory.some(
-        (e) => e.timestamp === entryTimestamp && e.metal === metal,
-      )
+    ? spotHistory.some((e) => e.timestamp === entryTimestamp && e.metal === metal)
     : spotHistory.length > 0 &&
       spotHistory[spotHistory.length - 1].spot === newSpot &&
       spotHistory[spotHistory.length - 1].metal === metal;
@@ -303,12 +306,13 @@ const recordSpot = (
  * @returns {Array.<number>|Array.<{ts:number,spot:number}>|null} Array of spot prices, or null if insufficient data
  */
 const getSpotHistoryForMetal = (metal, points = 30, withTimestamps = false) => {
-  const metalName = Object.values(METALS).find(m => m.key === metal)?.name || metal;
-  const entries = spotHistory.filter(e => e.metal === metalName);
+  const metalName = Object.values(METALS).find((m) => m.key === metal)?.name || metal;
+  const entries = spotHistory.filter((e) => e.metal === metalName);
   if (entries.length < 2) return null;
   const recent = entries.slice(-points);
-  if (withTimestamps) return recent.map(e => ({ ts: new Date(e.timestamp).getTime(), spot: e.spot }));
-  return recent.map(e => e.spot);
+  if (withTimestamps)
+    return recent.map((e) => ({ ts: new Date(e.timestamp).getTime(), spot: e.spot }));
+  return recent.map((e) => e.spot);
 };
 
 /**
@@ -333,9 +337,8 @@ const updateSpotCardColor = (metalKey, newPrice) => {
     .find((e) => e.metal === metalConfig.name && e.source !== "cached" && e.spot !== newPrice);
 
   let arrow = "";
-  const formatted = typeof formatCurrency === "function"
-    ? formatCurrency(newPrice)
-    : newPrice.toFixed(2);
+  const formatted =
+    typeof formatCurrency === "function" ? formatCurrency(newPrice) : newPrice.toFixed(2);
 
   if (!lastEntry) {
     el.classList.remove("spot-up", "spot-down", "spot-unchanged");
@@ -374,7 +377,7 @@ const fetchSpotPrice = () => {
         elements.spotPriceDisplay[metalConfig.key].textContent !== undefined
       ) {
         elements.spotPriceDisplay[metalConfig.key].textContent = formatCurrency(
-          spotPrices[metalConfig.key],
+          spotPrices[metalConfig.key]
         );
       }
     } else {
@@ -386,16 +389,14 @@ const fetchSpotPrice = () => {
         elements.spotPriceDisplay[metalConfig.key].textContent !== undefined
       ) {
         elements.spotPriceDisplay[metalConfig.key].textContent = formatCurrency(
-          spotPrices[metalConfig.key],
+          spotPrices[metalConfig.key]
         );
       }
       // Don't record default prices in history automatically
     }
 
     // Update timestamp display
-    const timestampElement = document.getElementById(
-      `spotTimestamp${metalConfig.name}`,
-    );
+    const timestampElement = document.getElementById(`spotTimestamp${metalConfig.name}`);
     if (timestampElement) {
       updateSpotTimestamp(metalConfig.name);
     }
@@ -407,7 +408,7 @@ const fetchSpotPrice = () => {
   updateSummary();
 
   // Goldback estimation hook — fire after all spots loaded (STACK-52)
-  if (typeof onGoldSpotPriceChanged === 'function') onGoldSpotPriceChanged();
+  if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
 };
 
 /**
@@ -435,18 +436,14 @@ const updateManualSpot = (metalKey) => {
     elements.spotPriceDisplay[metalKey] &&
     elements.spotPriceDisplay[metalKey].textContent !== undefined
   ) {
-    elements.spotPriceDisplay[metalKey].textContent = formatCurrency(
-      spotPrices[metalKey],
-    );
+    elements.spotPriceDisplay[metalKey].textContent = formatCurrency(spotPrices[metalKey]);
   }
 
   updateSpotCardColor(metalKey, num);
   recordSpot(num, "manual", metalConfig.name);
 
   // Update timestamp display
-  const timestampElement = document.getElementById(
-    `spotTimestamp${metalConfig.name}`,
-  );
+  const timestampElement = document.getElementById(`spotTimestamp${metalConfig.name}`);
   if (timestampElement) {
     updateSpotTimestamp(metalConfig.name);
   }
@@ -454,10 +451,10 @@ const updateManualSpot = (metalKey) => {
   updateSummary();
 
   // Snapshot item prices after manual spot change (STACK-43)
-  if (typeof recordAllItemPriceSnapshots === 'function') recordAllItemPriceSnapshots();
+  if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
 
   // Goldback estimation hook (STACK-52)
-  if (metalKey === 'gold' && typeof onGoldSpotPriceChanged === 'function') onGoldSpotPriceChanged();
+  if (metalKey === "gold" && typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
 
   // Clear the input and hide the manual input section if available
   input.value = "";
@@ -480,12 +477,7 @@ const resetSpot = (metalKey) => {
   let providerName = null;
 
   // If we have cached API data, use that instead
-  if (
-    typeof apiCache !== "undefined" &&
-    apiCache &&
-    apiCache.data &&
-    apiCache.data[metalKey]
-  ) {
+  if (typeof apiCache !== "undefined" && apiCache && apiCache.data && apiCache.data[metalKey]) {
     resetPrice = apiCache.data[metalKey];
     source = "api";
     providerName = API_PROVIDERS[apiCache.provider]?.name || null;
@@ -500,9 +492,7 @@ const resetSpot = (metalKey) => {
     elements.spotPriceDisplay[metalKey] &&
     elements.spotPriceDisplay[metalKey].textContent !== undefined
   ) {
-    elements.spotPriceDisplay[metalKey].textContent = formatCurrency(
-      spotPrices[metalKey],
-    );
+    elements.spotPriceDisplay[metalKey].textContent = formatCurrency(spotPrices[metalKey]);
   }
 
   updateSpotCardColor(metalKey, resetPrice);
@@ -511,9 +501,7 @@ const resetSpot = (metalKey) => {
   recordSpot(resetPrice, source, metalConfig.name, providerName);
 
   // Update timestamp display
-  const timestampElement = document.getElementById(
-    `spotTimestamp${metalConfig.name}`,
-  );
+  const timestampElement = document.getElementById(`spotTimestamp${metalConfig.name}`);
   if (timestampElement) {
     updateSpotTimestamp(metalConfig.name);
   }
@@ -522,10 +510,10 @@ const resetSpot = (metalKey) => {
   updateSummary();
 
   // Snapshot item prices after spot reset (STACK-43)
-  if (typeof recordAllItemPriceSnapshots === 'function') recordAllItemPriceSnapshots();
+  if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
 
   // Goldback estimation hook (STACK-52)
-  if (metalKey === 'gold' && typeof onGoldSpotPriceChanged === 'function') onGoldSpotPriceChanged();
+  if (metalKey === "gold" && typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
 
   // Hide manual input if shown and function is available
   if (typeof hideManualInput === "function") {
@@ -560,7 +548,12 @@ const resetSpotByName = (metalName) => {
 const getMetalColor = (metalKey) => {
   const prop = getComputedStyle(document.documentElement).getPropertyValue(`--${metalKey}`).trim();
   if (prop) return prop;
-  const fallback = { silver: "#d1d5db", gold: "#fbbf24", platinum: "#f3f4f6", palladium: "#d8b4fe" };
+  const fallback = {
+    silver: "#d1d5db",
+    gold: "#fbbf24",
+    platinum: "#f3f4f6",
+    palladium: "#d8b4fe",
+  };
   return fallback[metalKey] || "#6366f1";
 };
 
@@ -617,7 +610,7 @@ const getRequiredYears = (days) => {
 };
 
 /** @constant {string} Remote base URL for historical data (file:// fallback) */
-const HISTORICAL_DATA_REMOTE = 'https://staktrakr.com/data/';
+const HISTORICAL_DATA_REMOTE = "https://staktrakr.com/data/";
 
 /**
  * Loads a local JSON file via XMLHttpRequest (sync-free).
@@ -629,8 +622,8 @@ const HISTORICAL_DATA_REMOTE = 'https://staktrakr.com/data/';
 const xhrLoadJSON = (url) =>
   new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'json';
+    xhr.open("GET", url, true);
+    xhr.responseType = "json";
     xhr.onload = () => {
       if (xhr.status === 200 || (xhr.status === 0 && xhr.response)) {
         resolve(xhr.response);
@@ -638,7 +631,7 @@ const xhrLoadJSON = (url) =>
         reject(new Error(`XHR ${xhr.status}`));
       }
     };
-    xhr.onerror = () => reject(new Error('XHR network error'));
+    xhr.onerror = () => reject(new Error("XHR network error"));
     xhr.send();
   });
 
@@ -670,12 +663,13 @@ const fetchYearFile = (year) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     })
-    .catch(() => xhrLoadJSON(localUrl))       // Fallback 1: XHR for file://
-    .catch(() => fetch(remoteUrl)             // Fallback 2: remote staktrakr.com
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
+    .catch(() => xhrLoadJSON(localUrl)) // Fallback 1: XHR for file://
+    .catch(() =>
+      fetch(remoteUrl) // Fallback 2: remote staktrakr.com
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
     )
     .then((entries) => {
       // Validate: must be an array of objects with spot/metal/timestamp
@@ -684,7 +678,7 @@ const fetchYearFile = (year) => {
         return [];
       }
       const valid = entries.filter(
-        (e) => e && typeof e.spot === "number" && e.metal && e.timestamp,
+        (e) => e && typeof e.spot === "number" && e.metal && e.timestamp
       );
       historicalDataCache.set(year, valid);
       return valid;
@@ -721,10 +715,7 @@ const getHistoricalSparklineData = async (metalName, days) => {
   cutoff.setDate(cutoff.getDate() - days);
 
   // Combine: historical + live spotHistory (STAK-222: exclude cached entries from charts)
-  const combined = [
-    ...allHistorical,
-    ...spotHistory.filter(e => e.source !== 'cached'),
-  ]
+  const combined = [...allHistorical, ...spotHistory.filter((e) => e.source !== "cached")]
     .filter((e) => e.metal === metalName && new Date(e.timestamp) >= cutoff)
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
@@ -738,9 +729,7 @@ const getHistoricalSparklineData = async (metalName, days) => {
     }
   });
 
-  const sorted = [...byDay.values()].sort(
-    (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
-  );
+  const sorted = [...byDay.values()].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   return {
     labels: sorted.map((e) => e.timestamp.slice(0, 10)),
@@ -769,7 +758,9 @@ const getSparklineData = (metalName, days, intraday = false) => {
   }
 
   const entries = spotHistory
-    .filter((e) => e.metal === metalName && e.source !== 'cached' && new Date(e.timestamp) >= cutoff)
+    .filter(
+      (e) => e.metal === metalName && e.source !== "cached" && new Date(e.timestamp) >= cutoff
+    )
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   if (intraday) {
@@ -781,7 +772,7 @@ const getSparklineData = (metalName, days, intraday = false) => {
       return true;
     });
     return {
-      labels: deduped.map((e) => e.timestamp.slice(11, 16)),  // "HH:MM"
+      labels: deduped.map((e) => e.timestamp.slice(11, 16)), // "HH:MM"
       data: deduped.map((e) => e.spot),
     };
   }
@@ -798,13 +789,13 @@ const getSparklineData = (metalName, days, intraday = false) => {
   });
 
   const sorted = [...byDay.values()].sort(
-    (a, b) => new Date(a.last.timestamp) - new Date(b.last.timestamp),
+    (a, b) => new Date(a.last.timestamp) - new Date(b.last.timestamp)
   );
 
   return {
     labels: sorted.map((pair) => pair.last.timestamp.slice(0, 10)),
-    data: sorted.map((pair) => pair.last.spot),       // close prices (backward-compatible)
-    openData: sorted.map((pair) => pair.first.spot),   // open prices (STACK-92)
+    data: sorted.map((pair) => pair.last.spot), // close prices (backward-compatible)
+    openData: sorted.map((pair) => pair.first.spot), // open prices (STACK-92)
   };
 };
 
@@ -822,7 +813,7 @@ const updateSparkline = async (metalKey) => {
   if (!canvas || !canvas.getContext) return;
 
   // Destroy existing chart instance early to avoid stale visuals during async fetch
-  if (sparklineInstances[metalKey] && typeof sparklineInstances[metalKey].destroy === 'function') {
+  if (sparklineInstances[metalKey] && typeof sparklineInstances[metalKey].destroy === "function") {
     sparklineInstances[metalKey].destroy();
     sparklineInstances[metalKey] = null;
   }
@@ -832,7 +823,7 @@ const updateSparkline = async (metalKey) => {
   const days = rangeSelect ? parseInt(rangeSelect.value, 10) : 90;
 
   // 1-day view: try 1-day intraday window first, widen to 3 if too few points
-  const isIntraday = (days === 1);
+  const isIntraday = days === 1;
   let effectiveDays = isIntraday ? 1 : days;
 
   let labels, data;
@@ -923,7 +914,7 @@ const updateSparkline = async (metalKey) => {
  * @returns {{ pct: number, valid: boolean }}
  */
 const get24hChange = (metalName) => {
-  const mode = localStorage.getItem(SPOT_COMPARE_MODE_KEY) || 'close-close';
+  const mode = localStorage.getItem(SPOT_COMPARE_MODE_KEY) || "close-close";
   const { data: closeData, openData } = getSparklineData(metalName, 3, false);
 
   if (closeData.length < 2) return { pct: 0, valid: false };
@@ -933,11 +924,11 @@ const get24hChange = (metalName) => {
   let oldPrice, newPrice;
 
   switch (mode) {
-    case 'open-open':
+    case "open-open":
       oldPrice = openData[yesterday];
       newPrice = openData[today];
       break;
-    case 'open-close':
+    case "open-close":
       oldPrice = openData[yesterday];
       newPrice = closeData[today];
       break;
@@ -1044,9 +1035,7 @@ const updateSpotChangePercent = (metalKey, precomputedData = null) => {
   if (priceEl) {
     const currentPrice = spotPrices[metalKey];
     const formatted =
-      typeof formatCurrency === "function"
-        ? formatCurrency(currentPrice)
-        : currentPrice.toFixed(2);
+      typeof formatCurrency === "function" ? formatCurrency(currentPrice) : currentPrice.toFixed(2);
 
     if (pctChange > 0) {
       priceEl.classList.add("spot-up");
@@ -1131,10 +1120,11 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
     updateSparkline(metalKey);
 
     // Snapshot item prices after inline spot edit (STACK-43)
-    if (typeof recordAllItemPriceSnapshots === 'function') recordAllItemPriceSnapshots();
+    if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
 
     // Goldback estimation hook (STACK-52)
-    if (metalKey === 'gold' && typeof onGoldSpotPriceChanged === 'function') onGoldSpotPriceChanged();
+    if (metalKey === "gold" && typeof onGoldSpotPriceChanged === "function")
+      onGoldSpotPriceChanged();
   };
 
   input.addEventListener("keydown", (e) => {
@@ -1155,7 +1145,7 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
 // =============================================================================
 
 /** @type {string} Current sort column for settings spot history table */
-let settingsSpotSortColumn = '';
+let settingsSpotSortColumn = "";
 /** @type {boolean} Sort ascending for settings spot history table */
 let settingsSpotSortAsc = true;
 
@@ -1164,7 +1154,7 @@ let settingsSpotSortAsc = true;
  * Reads from the global spotHistory array and sorts by timestamp descending by default.
  */
 const renderSpotHistoryTable = () => {
-  const table = document.getElementById('settingsSpotHistoryTable');
+  const table = document.getElementById("settingsSpotHistoryTable");
   if (!table) return;
 
   loadSpotHistory();
@@ -1183,32 +1173,40 @@ const renderSpotHistoryTable = () => {
     data.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
   }
 
-  const tbody = table.querySelector('tbody');
+  const tbody = table.querySelector("tbody");
   if (!tbody) return;
 
   if (data.length === 0) {
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-    tbody.innerHTML = '<tr class="settings-log-empty"><td colspan="5">No spot price history recorded yet.</td></tr>';
+    tbody.innerHTML =
+      '<tr class="settings-log-empty"><td colspan="5">No spot price history recorded yet.</td></tr>';
     return;
   }
 
-  const rows = data.map(e => {
-    const ts = e.timestamp ? (typeof formatTimestamp === 'function' ? formatTimestamp(e.timestamp) : new Date(e.timestamp).toLocaleString()) : '';
-    const metal = e.metal || '';
-    const price = typeof formatCurrency === 'function' ? formatCurrency(e.spot) : `$${Number(e.spot).toFixed(2)}`;
-    const source = e.source || '';
-    const provider = e.source === 'seed' ? 'Seed' : (e.provider || '');
+  const rows = data.map((e) => {
+    const ts = e.timestamp
+      ? typeof formatTimestamp === "function"
+        ? formatTimestamp(e.timestamp)
+        : new Date(e.timestamp).toLocaleString()
+      : "";
+    const metal = e.metal || "";
+    const price =
+      typeof formatCurrency === "function"
+        ? formatCurrency(e.spot)
+        : `$${Number(e.spot).toFixed(2)}`;
+    const source = e.source || "";
+    const provider = e.source === "seed" ? "Seed" : e.provider || "";
     return `<tr><td>${ts}</td><td>${escapeHtml(metal)}</td><td>${price}</td><td>${escapeHtml(source)}</td><td>${escapeHtml(provider)}</td></tr>`;
   });
 
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  tbody.innerHTML = rows.join('');
+  tbody.innerHTML = rows.join("");
 
   // Sortable headers
-  table.querySelectorAll('th').forEach(th => {
-    th.style.cursor = 'pointer';
+  table.querySelectorAll("th").forEach((th) => {
+    th.style.cursor = "pointer";
     th.onclick = () => {
-      const cols = ['timestamp', 'metal', 'spot', 'source', 'provider'];
+      const cols = ["timestamp", "metal", "spot", "source", "provider"];
       const idx = Array.from(th.parentNode.children).indexOf(th);
       const col = cols[idx];
       if (settingsSpotSortColumn === col) {
@@ -1223,7 +1221,7 @@ const renderSpotHistoryTable = () => {
 };
 
 /** @type {string} Current sort column for settings LBMA reference table */
-let settingsLbmaSortColumn = '';
+let settingsLbmaSortColumn = "";
 /** @type {boolean} Sort ascending for settings LBMA reference table */
 let settingsLbmaSortAsc = true;
 /** @type {Array<Object>|null} Cached LBMA reference entries */
@@ -1240,12 +1238,14 @@ let settingsLbmaControlsBound = false;
  * @returns {number[]} Sorted list of years
  */
 const getLbmaReferenceYears = () => {
-  if (typeof SEED_DATA_YEARS !== 'undefined' && Array.isArray(SEED_DATA_YEARS) && SEED_DATA_YEARS.length > 0) {
-    return [...new Set(
-      SEED_DATA_YEARS
-        .map((y) => parseInt(y, 10))
-        .filter((y) => Number.isFinite(y))
-    )].sort((a, b) => a - b);
+  if (
+    typeof SEED_DATA_YEARS !== "undefined" &&
+    Array.isArray(SEED_DATA_YEARS) &&
+    SEED_DATA_YEARS.length > 0
+  ) {
+    return [
+      ...new Set(SEED_DATA_YEARS.map((y) => parseInt(y, 10)).filter((y) => Number.isFinite(y))),
+    ].sort((a, b) => a - b);
   }
   return [new Date().getFullYear()];
 };
@@ -1264,19 +1264,19 @@ const loadLbmaReferenceEntries = async () => {
     .then((yearArrays) => {
       let entries = yearArrays
         .flat()
-        .filter((e) => e && typeof e.spot === 'number' && e.metal && e.timestamp)
-        .filter((e) => e.source === 'seed' || String(e.provider || '').toUpperCase() === 'LBMA');
+        .filter((e) => e && typeof e.spot === "number" && e.metal && e.timestamp)
+        .filter((e) => e.source === "seed" || String(e.provider || "").toUpperCase() === "LBMA");
 
       // Final fallback for unusual file:// cases where year files fail entirely.
-      if (entries.length === 0 && typeof getEmbeddedSeedData === 'function') {
+      if (entries.length === 0 && typeof getEmbeddedSeedData === "function") {
         entries = getEmbeddedSeedData().filter(
-          (e) => e && typeof e.spot === 'number' && e.metal && e.timestamp
+          (e) => e && typeof e.spot === "number" && e.metal && e.timestamp
         );
       }
 
       settingsLbmaReferenceCache = entries.map((e) => ({
         ...e,
-        provider: e.provider || 'LBMA',
+        provider: e.provider || "LBMA",
       }));
       return settingsLbmaReferenceCache;
     })
@@ -1297,23 +1297,23 @@ const loadLbmaReferenceEntries = async () => {
 const bindLbmaHistoryControls = () => {
   if (settingsLbmaControlsBound) return;
 
-  const metalFilter = document.getElementById('settingsLbmaMetalFilter');
-  const startDate = document.getElementById('settingsLbmaStartDate');
-  const endDate = document.getElementById('settingsLbmaEndDate');
-  const resetBtn = document.getElementById('settingsLbmaResetBtn');
+  const metalFilter = document.getElementById("settingsLbmaMetalFilter");
+  const startDate = document.getElementById("settingsLbmaStartDate");
+  const endDate = document.getElementById("settingsLbmaEndDate");
+  const resetBtn = document.getElementById("settingsLbmaResetBtn");
   if (!metalFilter || !startDate || !endDate || !resetBtn) return;
 
   const rerender = () => {
     renderLbmaHistoryTable();
   };
 
-  metalFilter.addEventListener('change', rerender);
-  startDate.addEventListener('change', rerender);
-  endDate.addEventListener('change', rerender);
-  resetBtn.addEventListener('click', () => {
-    metalFilter.value = 'all';
-    startDate.value = '';
-    endDate.value = '';
+  metalFilter.addEventListener("change", rerender);
+  startDate.addEventListener("change", rerender);
+  endDate.addEventListener("change", rerender);
+  resetBtn.addEventListener("click", () => {
+    metalFilter.value = "all";
+    startDate.value = "";
+    endDate.value = "";
     renderLbmaHistoryTable();
   });
 
@@ -1325,41 +1325,45 @@ const bindLbmaHistoryControls = () => {
  * Data source is bundled year files (seed reference data), not user spotHistory.
  */
 const renderLbmaHistoryTable = async () => {
-  const table = document.getElementById('settingsLbmaHistoryTable');
+  const table = document.getElementById("settingsLbmaHistoryTable");
   if (!table) return;
   bindLbmaHistoryControls();
 
-  const tbody = table.querySelector('tbody');
+  const tbody = table.querySelector("tbody");
   if (!tbody) return;
 
-  const resultCountEl = document.getElementById('settingsLbmaResultCount');
+  const resultCountEl = document.getElementById("settingsLbmaResultCount");
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  tbody.innerHTML = '<tr class="settings-log-empty"><td colspan="4">Loading LBMA reference history…</td></tr>';
+  tbody.innerHTML =
+    '<tr class="settings-log-empty"><td colspan="4">Loading LBMA reference history…</td></tr>';
 
   const allEntries = await loadLbmaReferenceEntries();
-  const metalFilter = (document.getElementById('settingsLbmaMetalFilter')?.value || 'all').toLowerCase();
-  const startDate = document.getElementById('settingsLbmaStartDate')?.value || '';
-  const endDate = document.getElementById('settingsLbmaEndDate')?.value || '';
+  const metalFilter = (
+    document.getElementById("settingsLbmaMetalFilter")?.value || "all"
+  ).toLowerCase();
+  const startDate = document.getElementById("settingsLbmaStartDate")?.value || "";
+  const endDate = document.getElementById("settingsLbmaEndDate")?.value || "";
 
   let data = [...allEntries];
 
-  if (metalFilter !== 'all') {
-    data = data.filter((e) => String(e.metal || '').toLowerCase() === metalFilter);
+  if (metalFilter !== "all") {
+    data = data.filter((e) => String(e.metal || "").toLowerCase() === metalFilter);
   }
   if (startDate) {
-    data = data.filter((e) => String(e.timestamp || '').slice(0, 10) >= startDate);
+    data = data.filter((e) => String(e.timestamp || "").slice(0, 10) >= startDate);
   }
   if (endDate) {
-    data = data.filter((e) => String(e.timestamp || '').slice(0, 10) <= endDate);
+    data = data.filter((e) => String(e.timestamp || "").slice(0, 10) <= endDate);
   }
 
   if (settingsLbmaSortColumn) {
     data.sort((a, b) => {
       const getSortVal = (entry) => {
-        if (settingsLbmaSortColumn === 'spot') return Number(entry.spot) || 0;
-        if (settingsLbmaSortColumn === 'metal') return String(entry.metal || '').toLowerCase();
-        if (settingsLbmaSortColumn === 'provider') return String(entry.provider || '').toLowerCase();
-        return String(entry.timestamp || '');
+        if (settingsLbmaSortColumn === "spot") return Number(entry.spot) || 0;
+        if (settingsLbmaSortColumn === "metal") return String(entry.metal || "").toLowerCase();
+        if (settingsLbmaSortColumn === "provider")
+          return String(entry.provider || "").toLowerCase();
+        return String(entry.timestamp || "");
       };
       const valA = getSortVal(a);
       const valB = getSortVal(b);
@@ -1377,28 +1381,32 @@ const renderLbmaHistoryTable = async () => {
 
   if (data.length === 0) {
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-    tbody.innerHTML = '<tr class="settings-log-empty"><td colspan="4">No LBMA reference rows match the current filters.</td></tr>';
+    tbody.innerHTML =
+      '<tr class="settings-log-empty"><td colspan="4">No LBMA reference rows match the current filters.</td></tr>';
   } else {
     const rows = data.map((entry) => {
-      const rawDate = String(entry.timestamp || '').slice(0, 10);
+      const rawDate = String(entry.timestamp || "").slice(0, 10);
       const dateLabel = rawDate
-        ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(rawDate) : rawDate)
-        : '';
-      const metal = escapeHtml(entry.metal || '');
-      const spot = typeof formatCurrency === 'function'
-        ? formatCurrency(entry.spot)
-        : `$${Number(entry.spot).toFixed(2)}`;
-      const provider = escapeHtml(entry.provider || 'LBMA');
+        ? typeof formatDisplayDate === "function"
+          ? formatDisplayDate(rawDate)
+          : rawDate
+        : "";
+      const metal = escapeHtml(entry.metal || "");
+      const spot =
+        typeof formatCurrency === "function"
+          ? formatCurrency(entry.spot)
+          : `$${Number(entry.spot).toFixed(2)}`;
+      const provider = escapeHtml(entry.provider || "LBMA");
       return `<tr><td>${dateLabel}</td><td>${metal}</td><td>${spot}</td><td>${provider}</td></tr>`;
     });
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-    tbody.innerHTML = rows.join('');
+    tbody.innerHTML = rows.join("");
   }
 
-  table.querySelectorAll('th').forEach((th, idx) => {
-    th.style.cursor = 'pointer';
+  table.querySelectorAll("th").forEach((th, idx) => {
+    th.style.cursor = "pointer";
     th.onclick = () => {
-      const cols = ['date', 'metal', 'spot', 'provider'];
+      const cols = ["date", "metal", "spot", "provider"];
       const nextCol = cols[idx];
       if (settingsLbmaSortColumn === nextCol) {
         settingsLbmaSortAsc = !settingsLbmaSortAsc;
@@ -1415,12 +1423,15 @@ const renderLbmaHistoryTable = async () => {
  * Clears all spot price history after user confirmation.
  */
 const clearSpotHistory = async () => {
-  const confirmed = await appConfirm('Clear all spot price history? This cannot be undone.', 'Spot History');
+  const confirmed = await appConfirm(
+    "Clear all spot price history? This cannot be undone.",
+    "Spot History"
+  );
   if (!confirmed) return;
   spotHistory = [];
   saveSpotHistory();
   // Reset rendered flag so it re-renders fresh
-  const panel = document.getElementById('logPanel_metals');
+  const panel = document.getElementById("logPanel_metals");
   if (panel) delete panel.dataset.rendered;
   renderSpotHistoryTable();
 };
@@ -1438,7 +1449,7 @@ const clearSpotHistory = async () => {
  * Loads the spot history seed bundle into the cache.
  * @param {Object} bundle - The spot history seed bundle.
  */
-window._loadSpotSeedBundle = function(bundle) {
+window._loadSpotSeedBundle = function (bundle) {
   let loaded = 0;
   for (const yearStr of Object.keys(bundle)) {
     const year = parseInt(yearStr, 10);
@@ -1450,9 +1461,9 @@ window._loadSpotSeedBundle = function(bundle) {
         entries.push({
           spot: pair[1],
           metal: metal,
-          source: 'seed',
-          provider: 'LBMA',
-          timestamp: yearStr + '-' + pair[0] + ' 12:00:00'
+          source: "seed",
+          provider: "LBMA",
+          timestamp: yearStr + "-" + pair[0] + " 12:00:00",
         });
       }
     }
@@ -1460,7 +1471,13 @@ window._loadSpotSeedBundle = function(bundle) {
     loaded += entries.length;
   }
   if (loaded > 0) {
-    console.log('[SpotSeed] Loaded ' + loaded + ' entries from bundle (' + Object.keys(bundle).length + ' years)');
+    console.log(
+      "[SpotSeed] Loaded " +
+        loaded +
+        " entries from bundle (" +
+        Object.keys(bundle).length +
+        " years)"
+    );
   }
 };
 
@@ -1484,4 +1501,4 @@ window.getRequiredYears = getRequiredYears;
 window.fetchYearFile = fetchYearFile;
 window.historicalDataCache = historicalDataCache;
 // STAK-222: Expose spotHistory via getter so window.spotHistory always reflects current array
-Object.defineProperty(window, 'spotHistory', { get: () => spotHistory, configurable: true });
+Object.defineProperty(window, "spotHistory", { get: () => spotHistory, configurable: true });

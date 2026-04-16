@@ -39,13 +39,13 @@ const MANIFEST_PATH = (() => {
 })();
 
 const GEMINI_MODEL = "gemini-2.5-flash";
-const CONCURRENCY = 4;  // Gemini free tier allows higher concurrency
+const CONCURRENCY = 4; // Gemini free tier allows higher concurrency
 
 const PRICE_RANGE_HINTS = {
-  silver:   { min: 65,   max: 200 },
-  gold:     { min: 3000, max: 15000 },
-  platinum: { min: 800,  max: 6000 },
-  palladium:{ min: 800,  max: 6000 },
+  silver: { min: 65, max: 200 },
+  gold: { min: 3000, max: 15000 },
+  platinum: { min: 800, max: 6000 },
+  palladium: { min: 800, max: 6000 },
 };
 
 /**
@@ -141,7 +141,14 @@ function warn(msg) {
 // Gemini Vision API
 // ---------------------------------------------------------------------------
 
-async function extractPriceFromImage(imagePath, coinName, metal, weightOz, firecrawlPrice = null, vendorId = null) {
+async function extractPriceFromImage(
+  imagePath,
+  coinName,
+  metal,
+  weightOz,
+  firecrawlPrice = null,
+  vendorId = null
+) {
   if (!existsSync(imagePath)) {
     throw new Error(`Screenshot not found: ${imagePath}`);
   }
@@ -153,14 +160,13 @@ async function extractPriceFromImage(imagePath, coinName, metal, weightOz, firec
   const range = PRICE_RANGE_HINTS[metal] || { min: 0, max: 99999 };
   const minPrice = Math.round(range.min * weightOz);
   const maxPrice = Math.round(range.max * weightOz);
-  const firecrawlHint = firecrawlPrice !== null
-    ? `Firecrawl text-parser extracted: $${firecrawlPrice.toFixed(2)} — does the screenshot confirm this?`
-    : "Firecrawl text-parser found no price for this vendor.";
+  const firecrawlHint =
+    firecrawlPrice !== null
+      ? `Firecrawl text-parser extracted: $${firecrawlPrice.toFixed(2)} — does the screenshot confirm this?`
+      : "Firecrawl text-parser found no price for this vendor.";
 
   const vendorHint = vendorId ? getVendorHint(vendorId) : "";
-  const vendorGuidance = vendorHint
-    ? `\n\n**VENDOR-SPECIFIC GUIDANCE:**\n${vendorHint}\n`
-    : "";
+  const vendorGuidance = vendorHint ? `\n\n**VENDOR-SPECIFIC GUIDANCE:**\n${vendorHint}\n` : "";
 
   const prompt = `You are a price extraction bot for a precious metals price tracker.
 
@@ -197,17 +203,19 @@ Where:
 - stock_label: description of stock status indicator you observed`;
 
   const body = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        {
-          inline_data: {
-            mime_type: mimeType,
-            data: base64Image,
+    contents: [
+      {
+        parts: [
+          { text: prompt },
+          {
+            inline_data: {
+              mime_type: mimeType,
+              data: base64Image,
+            },
           },
-        },
-      ],
-    }],
+        ],
+      },
+    ],
     generationConfig: {
       temperature: 0,
       maxOutputTokens: 1024,
@@ -232,7 +240,11 @@ Where:
   const json = await response.json();
   // With thinking models, parts[0] may be thinking content — get the last text part
   const parts = json?.candidates?.[0]?.content?.parts ?? [];
-  const rawText = (parts.filter(p => p.text && !p.thought).pop()?.text ?? parts[0]?.text ?? "").trim();
+  const rawText = (
+    parts.filter((p) => p.text && !p.thought).pop()?.text ??
+    parts[0]?.text ??
+    ""
+  ).trim();
 
   if (!rawText) {
     throw new Error("Empty response from Gemini");
@@ -244,7 +256,10 @@ Where:
     return JSON.parse(rawText);
   } catch {
     // Strip markdown fences and extract the first {...} object
-    const stripped = rawText.replace(/^```json?\s*/i, "").replace(/```[\s\S]*$/m, "").trim();
+    const stripped = rawText
+      .replace(/^```json?\s*/i, "")
+      .replace(/```[\s\S]*$/m, "")
+      .trim();
     const match = stripped.match(/\{[\s\S]*\}/);
     if (match) {
       try {
@@ -328,37 +343,111 @@ async function main() {
   const winStart = windowFloor();
 
   try {
+    // Only process successful captures
+    const targets = manifest.results.filter((r) => r.ok && r.screenshot);
 
-  // Only process successful captures
-  const targets = manifest.results.filter(r => r.ok && r.screenshot);
+    const extractionResults = [];
+    const tasks = targets.map((result) => async () => {
+      const imagePath = join(artifactDir, result.screenshot);
+      const coin = providersJson.coins[result.coin];
+      if (!coin) {
+        warn(`Unknown coin slug: ${result.coin}`);
+        return;
+      }
 
-  const extractionResults = [];
-  const tasks = targets.map(result => async () => {
-    const imagePath = join(artifactDir, result.screenshot);
-    const coin = providersJson.coins[result.coin];
-    if (!coin) {
-      warn(`Unknown coin slug: ${result.coin}`);
-      return;
-    }
+      log(`Vision: ${result.coin}/${result.provider}`);
+      try {
+        const firecrawlPrice = firecrawlPrices[result.coin]?.[result.provider] ?? null;
+        const extracted = await extractPriceFromImage(
+          imagePath,
+          coin.name,
+          coin.metal,
+          coin.weight_oz || 1,
+          firecrawlPrice,
+          result.provider // Pass vendor ID for vendor-specific hints
+        );
 
-    log(`Vision: ${result.coin}/${result.provider}`);
-    try {
-      const firecrawlPrice = firecrawlPrices[result.coin]?.[result.provider] ?? null;
-      const extracted = await extractPriceFromImage(
-        imagePath,
-        coin.name,
-        coin.metal,
-        coin.weight_oz || 1,
-        firecrawlPrice,
-        result.provider  // Pass vendor ID for vendor-specific hints
-      );
+        // Vision detected out of stock
+        if (extracted.in_stock === false) {
+          log(
+            `  ⚠ ${result.coin}/${result.provider}: OUT OF STOCK — ${extracted.stock_label || "vision detected"}`
+          );
+          if (extracted.price !== null) {
+            warn(`  ⚠ Vision returned price despite in_stock=false: $${extracted.price}`);
+          }
+          extractionResults.push({
+            coinSlug: result.coin,
+            providerId: result.provider,
+            price: null,
+            confidence: "none",
+            agreesWithFirecrawl: null,
+            firecrawlPrice: firecrawlPrice,
+            label: extracted.stock_label || "out of stock",
+            inStock: false,
+            stockLabel: extracted.stock_label ? extracted.stock_label.slice(0, 200) : null,
+            ok: false, // OOS counts as failed extraction
+            error: `out_of_stock: ${extracted.stock_label || "detected"}`,
+          });
 
-      // Vision detected out of stock
-      if (extracted.in_stock === false) {
-        log(`  ⚠ ${result.coin}/${result.provider}: OUT OF STOCK — ${extracted.stock_label || "vision detected"}`);
-        if (extracted.price !== null) {
-          warn(`  ⚠ Vision returned price despite in_stock=false: $${extracted.price}`);
+          // Record out-of-stock result to sqld
+          if (db) {
+            await writeSnapshot(db, {
+              scrapedAt,
+              windowStart: winStart,
+              coinSlug: result.coin,
+              vendor: result.provider,
+              price: null,
+              source: "gemini-vision",
+              isFailed: true,
+              inStock: false,
+            });
+          }
+          return;
         }
+
+        // Continue with normal price handling
+        if (extracted.price !== null) {
+          log(
+            `  ✓ ${result.coin}/${result.provider}: $${extracted.price} [${extracted.confidence}] — ${extracted.label}`
+          );
+        } else {
+          warn(`  ? ${result.coin}/${result.provider}: no price found — ${extracted.label}`);
+        }
+
+        extractionResults.push({
+          coinSlug: result.coin,
+          providerId: result.provider,
+          price: extracted.price,
+          confidence: extracted.confidence,
+          agreesWithFirecrawl: extracted.agrees_with_firecrawl ?? null,
+          firecrawlPrice: firecrawlPrice,
+          label: extracted.label,
+          inStock: extracted.in_stock === true, // explicit check: missing field defaults to false
+          stockLabel: extracted.stock_label ? extracted.stock_label.slice(0, 200) : null,
+          ok: extracted.price !== null,
+          error:
+            extracted.price === null
+              ? extracted.label
+                ? `no price: ${extracted.label}`
+                : "no price returned"
+              : undefined,
+        });
+
+        // Record vision extraction result to sqld
+        if (db) {
+          await writeSnapshot(db, {
+            scrapedAt,
+            windowStart: winStart,
+            coinSlug: result.coin,
+            vendor: result.provider,
+            price: extracted.price,
+            source: "gemini-vision",
+            isFailed: extracted.price === null,
+            inStock: extracted.in_stock === true,
+          });
+        }
+      } catch (err) {
+        warn(`  ✗ ${result.coin}/${result.provider}: ${err.message.slice(0, 120)}`);
         extractionResults.push({
           coinSlug: result.coin,
           providerId: result.provider,
@@ -366,14 +455,12 @@ async function main() {
           confidence: "none",
           agreesWithFirecrawl: null,
           firecrawlPrice: firecrawlPrice,
-          label: extracted.stock_label || "out of stock",
-          inStock: false,
-          stockLabel: extracted.stock_label ? extracted.stock_label.slice(0, 200) : null,
-          ok: false,  // OOS counts as failed extraction
-          error: `out_of_stock: ${extracted.stock_label || "detected"}`,
+          label: null,
+          ok: false,
+          error: err.message.slice(0, 200),
         });
 
-        // Record out-of-stock result to sqld
+        // Record error result to sqld
         if (db) {
           await writeSnapshot(db, {
             scrapedAt,
@@ -383,150 +470,85 @@ async function main() {
             price: null,
             source: "gemini-vision",
             isFailed: true,
-            inStock: false,
+            inStock: true, // assume in stock unless we know otherwise
           });
         }
-        return;
       }
-
-      // Continue with normal price handling
-      if (extracted.price !== null) {
-        log(`  ✓ ${result.coin}/${result.provider}: $${extracted.price} [${extracted.confidence}] — ${extracted.label}`);
-      } else {
-        warn(`  ? ${result.coin}/${result.provider}: no price found — ${extracted.label}`);
-      }
-
-      extractionResults.push({
-        coinSlug: result.coin,
-        providerId: result.provider,
-        price: extracted.price,
-        confidence: extracted.confidence,
-        agreesWithFirecrawl: extracted.agrees_with_firecrawl ?? null,
-        firecrawlPrice: firecrawlPrice,
-        label: extracted.label,
-        inStock: extracted.in_stock === true,  // explicit check: missing field defaults to false
-        stockLabel: extracted.stock_label ? extracted.stock_label.slice(0, 200) : null,
-        ok: extracted.price !== null,
-        error: extracted.price === null
-          ? (extracted.label ? `no price: ${extracted.label}` : "no price returned")
-          : undefined,
-      });
-
-      // Record vision extraction result to sqld
-      if (db) {
-        await writeSnapshot(db, {
-          scrapedAt,
-          windowStart: winStart,
-          coinSlug: result.coin,
-          vendor: result.provider,
-          price: extracted.price,
-          source: "gemini-vision",
-          isFailed: extracted.price === null,
-          inStock: extracted.in_stock === true,
-        });
-      }
-    } catch (err) {
-      warn(`  ✗ ${result.coin}/${result.provider}: ${err.message.slice(0, 120)}`);
-      extractionResults.push({
-        coinSlug: result.coin,
-        providerId: result.provider,
-        price: null,
-        confidence: "none",
-        agreesWithFirecrawl: null,
-        firecrawlPrice: firecrawlPrice,
-        label: null,
-        ok: false,
-        error: err.message.slice(0, 200),
-      });
-
-      // Record error result to sqld
-      if (db) {
-        await writeSnapshot(db, {
-          scrapedAt,
-          windowStart: winStart,
-          coinSlug: result.coin,
-          vendor: result.provider,
-          price: null,
-          source: "gemini-vision",
-          isFailed: true,
-          inStock: true,  // assume in stock unless we know otherwise
-        });
-      }
-    }
-  });
-
-  await runConcurrent(tasks, CONCURRENCY);
-
-  // Aggregate per coin and write output
-  const coinSlugs = [...new Set(extractionResults.map(r => r.coinSlug))];
-
-  for (const coinSlug of coinSlugs) {
-    const coinResults = extractionResults.filter(r => r.coinSlug === coinSlug);
-    const successful = coinResults.filter(r => r.ok);
-    const failed = coinResults.filter(r => !r.ok);
-
-    const pricesBySite = {};
-    const confidenceBySite = {};
-    const firecrawlBySite = {};
-    const agreementBySite = {};
-    const availabilityBySite = {};
-    for (const r of successful) {
-      pricesBySite[r.providerId] = r.price;
-      confidenceBySite[r.providerId] = r.confidence;
-      availabilityBySite[r.providerId] = r.inStock;
-      if (r.firecrawlPrice !== null) firecrawlBySite[r.providerId] = r.firecrawlPrice;
-      if (r.agreesWithFirecrawl !== null) agreementBySite[r.providerId] = r.agreesWithFirecrawl;
-    }
-
-    // Also mark failed sites as out of stock if stockLabel indicates OOS
-    for (const r of failed) {
-      if (r.inStock === false) {
-        availabilityBySite[r.providerId] = false;
-      }
-    }
-
-    const prices = Object.values(pricesBySite);
-    const sorted = [...prices].sort((a, b) => a - b);
-
-    if (failed.length > 0) {
-      warn(
-        `[vision] ${coinSlug}: ${failed.length} vendor(s) failed — ` +
-        failed.map((f) => `${f.providerId}(${f.error || "unknown error"})`).join(", ")
-      );
-    }
-    writeVisionJson(coinSlug, dateStr, {
-      date: dateStr,
-      generated_at_utc: generatedAt,
-      method: "gemini-vision",
-      model: GEMINI_MODEL,
-      currency: "USD",
-      prices_by_site: pricesBySite,
-      confidence_by_site: confidenceBySite,
-      firecrawl_by_site: firecrawlBySite,
-      agreement_by_site: agreementBySite,
-      availability_by_site: availabilityBySite,
-      source_count: prices.length,
-      average_price: prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length * 100) / 100 : null,
-      median_price: sorted.length ? sorted[Math.floor(sorted.length / 2)] : null,
-      failed_sites: failed.map(r => r.providerId),
     });
-  }
 
-  const ok = extractionResults.filter(r => r.ok).length;
-  const fail = extractionResults.length - ok;
-  log(`Done: ${ok}/${extractionResults.length} prices extracted, ${fail} failures`);
+    await runConcurrent(tasks, CONCURRENCY);
 
-  if (ok === 0 && extractionResults.length > 0) {
-    console.error("All vision extractions failed.");
-    process.exit(1);
-  }
+    // Aggregate per coin and write output
+    const coinSlugs = [...new Set(extractionResults.map((r) => r.coinSlug))];
 
+    for (const coinSlug of coinSlugs) {
+      const coinResults = extractionResults.filter((r) => r.coinSlug === coinSlug);
+      const successful = coinResults.filter((r) => r.ok);
+      const failed = coinResults.filter((r) => !r.ok);
+
+      const pricesBySite = {};
+      const confidenceBySite = {};
+      const firecrawlBySite = {};
+      const agreementBySite = {};
+      const availabilityBySite = {};
+      for (const r of successful) {
+        pricesBySite[r.providerId] = r.price;
+        confidenceBySite[r.providerId] = r.confidence;
+        availabilityBySite[r.providerId] = r.inStock;
+        if (r.firecrawlPrice !== null) firecrawlBySite[r.providerId] = r.firecrawlPrice;
+        if (r.agreesWithFirecrawl !== null) agreementBySite[r.providerId] = r.agreesWithFirecrawl;
+      }
+
+      // Also mark failed sites as out of stock if stockLabel indicates OOS
+      for (const r of failed) {
+        if (r.inStock === false) {
+          availabilityBySite[r.providerId] = false;
+        }
+      }
+
+      const prices = Object.values(pricesBySite);
+      const sorted = [...prices].sort((a, b) => a - b);
+
+      if (failed.length > 0) {
+        warn(
+          `[vision] ${coinSlug}: ${failed.length} vendor(s) failed — ` +
+            failed.map((f) => `${f.providerId}(${f.error || "unknown error"})`).join(", ")
+        );
+      }
+      writeVisionJson(coinSlug, dateStr, {
+        date: dateStr,
+        generated_at_utc: generatedAt,
+        method: "gemini-vision",
+        model: GEMINI_MODEL,
+        currency: "USD",
+        prices_by_site: pricesBySite,
+        confidence_by_site: confidenceBySite,
+        firecrawl_by_site: firecrawlBySite,
+        agreement_by_site: agreementBySite,
+        availability_by_site: availabilityBySite,
+        source_count: prices.length,
+        average_price: prices.length
+          ? Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100
+          : null,
+        median_price: sorted.length ? sorted[Math.floor(sorted.length / 2)] : null,
+        failed_sites: failed.map((r) => r.providerId),
+      });
+    }
+
+    const ok = extractionResults.filter((r) => r.ok).length;
+    const fail = extractionResults.length - ok;
+    log(`Done: ${ok}/${extractionResults.length} prices extracted, ${fail} failures`);
+
+    if (ok === 0 && extractionResults.length > 0) {
+      console.error("All vision extractions failed.");
+      process.exit(1);
+    }
   } finally {
     if (db) db.close();
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error("Fatal:", err);
   process.exit(1);
 });
