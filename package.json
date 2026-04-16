@@ -11,10 +11,17 @@
     "lint:md:changed": "bash devops/hooks/lint-markdown-changed.sh --changed",
     "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json \"**/*.md\" --ignore node_modules --ignore .git --ignore test-results",
     "test": "npx playwright test",
-    "test:offline": "npx playwright test --grep-invert @network"
+    "test:offline": "npx playwright test --grep-invert @network",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "lint-staged": {
+    "*.{js,css,html,json,md}": "prettier --write"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.0",
-    "eslint": "^9.21.0"
+    "eslint": "^9.21.0",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3"
   }
 }

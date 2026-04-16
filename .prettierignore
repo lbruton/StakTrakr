@@ -1,0 +1,17 @@
+# Third-party vendored libraries (minified)
+vendor/
+
+# Generated data bundle
+data/spot-history-bundle.js
+
+# Vendored JSDoc prettify scripts
+devops/docs/scripts/
+
+# Build artifacts and dependencies
+node_modules/
+test-results/
+.worktrees/
+
+# Minified/generated assets
+*.min.js
+*.min.css
