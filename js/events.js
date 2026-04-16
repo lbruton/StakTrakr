@@ -761,11 +761,13 @@ const setupHeaderButtonListeners = () => {
     safeAttachListener(headerCloudSyncBtn, 'click', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      const state = headerCloudSyncBtn.dataset.syncState;
-      if (state === 'orange') {
-        // Needs password setup — open inline popover
-        if (typeof _openCloudSyncPopover === 'function') _openCloudSyncPopover();
-      } else if (state === 'green') {
+      const state = typeof resolveHeaderCloudAction === 'function'
+        ? resolveHeaderCloudAction()
+        : {
+          action: ['green', 'ready'].includes(headerCloudSyncBtn.dataset.syncState) ? 'sync-now' : 'open-settings',
+          buttonState: headerCloudSyncBtn.dataset.syncState,
+        };
+      if (state.action === 'sync-now') {
         // Trigger a sync on tap (STAK-398: header button should do something useful)
         if (typeof syncNow === 'function') {
           if (typeof showCloudToast === 'function') showCloudToast('Syncing…', 1500);
@@ -784,13 +786,8 @@ const setupHeaderButtonListeners = () => {
             if (typeof showCloudToast === 'function') showCloudToast('Sync failed', 2500);
           });
         }
-      } else if (state === 'ready') {
-        // Connected + credentials complete but auto-sync is off
-        if (typeof showCloudToast === 'function') {
-          showCloudToast('Cloud sync ready — enable auto-sync in Settings to start', 3000);
-        }
       } else {
-        if (typeof showSettingsModal === 'function') showSettingsModal('system');
+        if (typeof showSettingsModal === 'function') showSettingsModal('cloud');
       }
     }, 'Cloud Sync Header Button');
   }

@@ -8,8 +8,8 @@
  * Sources:
  *   - /proc (CPU, memory, network, uptime)
  *   - supervisorctl (service health inside container)
- *   - Turso poller_runs (last run stats per poller)
- *   - Turso provider_failures (failure queue stats)
+ *   - sqld poller_runs (last run stats per poller)
+ *   - sqld provider_failures (failure queue stats)
  */
 
 import { createServer } from "node:http";
@@ -31,11 +31,11 @@ const IFACE = process.env.NET_IFACE || "ens18";
   }
 })();
 
-function getTursoClient() {
+function getSqldClient() {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url || !authToken) return null;
-  return createClient({ url, authToken });
+  if (!url) return null;
+  return createClient({ url, ...(authToken ? { authToken } : {}) });
 }
 
 // ── System collectors ────────────────────────────────────────────────────────
@@ -100,11 +100,11 @@ function collectServices() {
   return metrics;
 }
 
-// ── Turso metrics ────────────────────────────────────────────────────────────
+// ── sqld metrics ─────────────────────────────────────────────────────────────
 
 async function collectTurso() {
   const metrics = [];
-  const client = getTursoClient();
+  const client = getSqldClient();
   if (!client) {
     metrics.push("poller_turso_up 0");
     return metrics;

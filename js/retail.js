@@ -118,6 +118,10 @@ const _loadMarketFilter = () => {
       if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
         _marketFilterCache[slug] = {};
       }
+      // STAK-540: Drop orphaned entries for slugs that now fail the STAK-521 predicate
+      if (typeof _isSlugResolved === 'function' && !_isSlugResolved(slug)) {
+        delete _marketFilterCache[slug];
+      }
     }
   } catch {
     _marketFilterCache = {};
@@ -140,16 +144,38 @@ const _invalidateMarketFilterCache = () => {
   _marketFilterCache = null;
 };
 
-/** Slugs excluded from market card display — baseline references, not user-facing products. */
-const _HIDDEN_SLUGS = new Set(["goldback-g1"]);
+/** _isSlugResolved — STAK-521 upstream quarantine predicate.
+ *
+ * Returns true only when a slug's coin metadata has fully resolved through
+ * the getRetailCoinMeta resolver chain (manifest -> hardcoded -> goldback
+ * parser -> default). The default fallback returns {name: slug, weight: 0,
+ * metal: "unknown"}, so a slug fails this predicate when name === slug
+ * AND/OR metal === "unknown".
+ *
+ * This is the upstream chokepoint fix for the three-plane asymmetry where
+ * the market filter matrix hid unresolved slugs but the control plane
+ * defaulted them to enabled, so they leaked into cards/ticker/tables with
+ * raw-string labels users could not toggle off.
+ *
+ * Historical note: this automatically quarantines bare `goldback-gN`
+ * denomination stubs that lack a state segment, because _parseGoldbackSlug
+ * returns null for them and the resolver falls through to the default.
+ * The old _HIDDEN_SLUGS hardcoded exclusion for "goldback-g1" has been
+ * removed because this predicate catches it for free. See STAK-498 /
+ * STAK-521 history for context.
+ */
+const _isSlugResolved = (slug) => {
+  const meta = getRetailCoinMeta(slug);
+  return meta.name !== slug && meta.metal !== "unknown";
+};
 
 /** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback.
- *  Excludes _HIDDEN_SLUGS on ALL return paths (STAK-498 Task 7). */
+ *  Excludes slugs that fail `_isSlugResolved` on ALL return paths (STAK-521 upstream quarantine). */
 const getActiveRetailSlugs = () => {
-  if (!_manifestSlugs) return RETAIL_SLUGS.filter((s) => !_HIDDEN_SLUGS.has(s));
-  if (!retailPrices?.prices) return _manifestSlugs.filter((s) => !_HIDDEN_SLUGS.has(s));
+  if (!_manifestSlugs) return RETAIL_SLUGS.filter(_isSlugResolved);
+  if (!retailPrices?.prices) return _manifestSlugs.filter(_isSlugResolved);
   return _manifestSlugs.filter((slug) => {
-    if (_HIDDEN_SLUGS.has(slug)) return false;
+    if (!_isSlugResolved(slug)) return false;
     const entry = retailPrices.prices[slug];
     if (!entry) return false;
     if (entry.median_price != null || entry.lowest_price != null) return true;
@@ -592,20 +618,57 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     try { localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta)); } catch { /* ignore */ }
   }
 
-  // Fetch providers.json for vendor product page URLs (same as v1)
+  // Fetch providers.json for vendor product page URLs.
+  // STAK-348 migrated the shape to { coins: { slug: { name, providers: [{ id, url, enabled }] } } }.
+  // Flatten back to the legacy { slug: { vid: url } } map that all render call sites expect
+  // (js/market-data.js:229/649/879, js/retail-view-modal.js:111, js/retail.js:934).
+  // Without this transform every lookup returns undefined and clicks silently fall back to vendor homepages.
   try {
     const providersUrl = `${apiBase}/providers.json`;
     const providersResp = await fetch(providersUrl, { signal: AbortSignal.timeout(5000) });
     if (providersResp.ok) {
-      retailProviders = await providersResp.json();
-      if (retailProviders && retailProviders._vendor_meta) {
-        _manifestVendorMeta = retailProviders._vendor_meta;
+      const raw = await providersResp.json();
+      // Use prototype-less objects to defend against prototype pollution via
+      // malicious __proto__ / constructor keys in parsed JSON. Bracket access at
+      // all 5 consumer call sites continues to work unchanged — this is a drop-in
+      // safer-object pattern that avoids the Map API rewrite that would otherwise
+      // cascade across market-data.js, retail-view-modal.js, and retail.js.
+      const flattened = Object.create(null);
+      // v2 endpoints use a self-describing envelope { v, generated_at, stale_after, data }.
+      // Defensive fallback to bare { coins } shape handles the brief deploy window where
+      // the poller hasn't redeployed yet and the old non-envelope shape is still served.
+      const coinsObj = (raw && raw.data && raw.data.coins) || (raw && raw.coins) || {};
+      for (const [slug, coin] of Object.entries(coinsObj)) {
+        if (!coin || !Array.isArray(coin.providers)) continue;
+        const vendorMap = Object.create(null);
+        for (const p of coin.providers) {
+          if (p && p.id && p.enabled !== false && p.url) {
+            vendorMap[p.id] = p.url;
+          }
+        }
+        if (Object.keys(vendorMap).length) flattened[slug] = vendorMap;
       }
-      if (typeof window !== "undefined") window.retailProviders = retailProviders;
-      saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
-      debugLog(`[retail-v2] Loaded ${Object.keys(retailProviders || {}).length} coin provider mappings`, "info");
+      // Resilience guard: on poller hiccups the endpoint may return HTTP 200 with
+      // an empty/malformed body (no coins, empty coins object, wrong schema). If
+      // the flatten produces no slugs, keep the existing cached map instead of
+      // wiping it — overwriting with an empty map regresses previously-working
+      // product links until the next successful fetch.
+      if (Object.keys(flattened).length === 0) {
+        const existingCount = Object.keys(retailProviders || {}).length;
+        debugLog(`[retail-v2] providers.json parsed but produced empty map — keeping ${existingCount} existing cached mappings`, "warn");
+      } else {
+        retailProviders = flattened;
+        if (typeof window !== "undefined") window.retailProviders = retailProviders;
+        saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
+        debugLog(`[retail-v2] Loaded ${Object.keys(retailProviders).length} coin provider mappings`, "info");
+      }
+    } else {
+      debugLog(`[retail-v2] providers.json fetch non-OK: ${providersResp.status}`, "warn");
     }
-  } catch { /* non-fatal — vendor links degrade to homepage */ }
+  } catch (err) {
+    // Surface fetch failures — the historical silent catch here masked the STAK-348 schema drift for months.
+    debugLog(`[retail-v2] providers.json fetch failed: ${err.message}`, "warn");
+  }
 
   const slugs = _manifestSlugs.length ? _manifestSlugs : RETAIL_SLUGS;
 
@@ -2184,6 +2247,7 @@ if (typeof window !== "undefined") {
   window.getVendorDisplay = getVendorDisplay;
   window._parseGoldbackSlug = _parseGoldbackSlug;
   window.GOLDBACK_WEIGHTS = GOLDBACK_WEIGHTS;
+  window._isSlugResolved = _isSlugResolved;
   window._isMarketItemEnabled = _isMarketItemEnabled;
   window._invalidateMarketFilterCache = _invalidateMarketFilterCache;
   window._loadMarketFilter = _loadMarketFilter;

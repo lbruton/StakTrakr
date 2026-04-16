@@ -438,12 +438,36 @@ function updateSyncStatusIndicator(state, detail) {
  * connection status, vault password, and Dropbox account ID presence.
  * Called on init, password change, and sync enable/disable.
  */
+function _cloudProviderNeedsAccountId(provider) {
+  return provider === 'dropbox';
+}
+
+function resolveHeaderCloudAction(provider) {
+  provider = provider || _syncProvider || 'dropbox';
+  var connected = typeof cloudIsConnected === 'function' ? cloudIsConnected(provider) : false;
+  var hasVaultPassword = !!localStorage.getItem('cloud_vault_password');
+  var hasAccountId = !_cloudProviderNeedsAccountId(provider) || !!localStorage.getItem('cloud_dropbox_account_id');
+  var autoSyncOn = syncIsEnabled();
+  var syncCapable = connected && hasVaultPassword && hasAccountId;
+
+  return {
+    provider: provider,
+    connected: connected,
+    hasVaultPassword: hasVaultPassword,
+    hasAccountId: hasAccountId,
+    autoSyncOn: autoSyncOn,
+    syncCapable: syncCapable,
+    buttonState: syncCapable ? (autoSyncOn ? 'green' : 'ready') : (connected ? 'orange' : 'gray'),
+    action: syncCapable ? 'sync-now' : 'open-settings',
+  };
+}
+
 function updateCloudSyncHeaderBtn() {
   var btn = safeGetElement('headerCloudSyncBtn');
   var dot = safeGetElement('headerCloudDot');
   if (!btn) return;
 
-  var connected = typeof cloudIsConnected === 'function' ? cloudIsConnected(_syncProvider) : false;
+  var headerState = resolveHeaderCloudAction();
 
   // Always show the Cloud button — it is the entry point for cloud setup and status.
   // The gray dot state handles the "not connected" case visually.
@@ -451,27 +475,23 @@ function updateCloudSyncHeaderBtn() {
   if (!dot) return;
   dot.className = 'cloud-sync-dot header-cloud-dot';
 
-  var hasPw = !!localStorage.getItem('cloud_vault_password');
-  var hasAccountId = !!localStorage.getItem('cloud_dropbox_account_id');
-  var autoSyncOn = syncIsEnabled();
-
-  if (connected && hasPw && hasAccountId && autoSyncOn) {
+  if (headerState.buttonState === 'green') {
     // Green: fully operational — connected, credentials set, auto-sync enabled
     dot.classList.add('header-cloud-dot--green');
     btn.title = 'Cloud sync active';
     btn.setAttribute('aria-label', 'Cloud sync active');
     btn.dataset.syncState = 'green';
-  } else if (connected && (!hasPw || !hasAccountId)) {
+  } else if (headerState.buttonState === 'orange') {
     // Orange: connected but missing password or account ID
     dot.classList.add('header-cloud-dot--orange');
     btn.title = 'Cloud sync needs setup — tap to configure';
     btn.setAttribute('aria-label', 'Cloud sync needs setup');
     btn.dataset.syncState = 'orange';
-  } else if (connected && hasPw && hasAccountId && !autoSyncOn) {
+  } else if (headerState.buttonState === 'ready') {
     // Orange: connected and ready but auto-sync is off (distinct from 'orange' setup-needed)
     dot.classList.add('header-cloud-dot--orange');
-    btn.title = 'Cloud sync ready — enable auto-sync in Settings';
-    btn.setAttribute('aria-label', 'Cloud sync ready but not enabled');
+    btn.title = 'Cloud sync ready — tap to sync now';
+    btn.setAttribute('aria-label', 'Cloud sync ready to sync now');
     btn.dataset.syncState = 'ready';
   } else {
     dot.classList.add('header-cloud-dot--gray');
@@ -2018,6 +2038,10 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   }
 
   // 2. Assign new inventory
+  // _prevInventory captures pre-pull state for rollback if settings writes fail (STAK-526).
+  // Snapshot is taken unconditionally; if newInventory is null the inventory global is never
+  // mutated so rollback is a safe no-op in that branch (REQ-5.3 — zero practical impact).
+  var _prevInventory = inventory;
   if (typeof newInventory !== 'undefined' && newInventory !== null) {
     inventory = newInventory;
   }
@@ -2029,11 +2053,33 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   // before writing, while scalar string preferences (appTheme, appTimeZone, etc.)
   // are written as-is to match the format expected by theme.js and settings-listeners.js.
   if (settingsChanges && Array.isArray(settingsChanges)) {
+    var _failedCount = 0;
+    var _failedKeys = [];
+    var _appliedKeys = [];
+    var _priorValues = {};
     for (var i = 0; i < settingsChanges.length; i++) {
       var sc = settingsChanges[i];
-      if (sc && sc.key && sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
-        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); } catch (_e) { /* QuotaExceededError — skip */ }
+      if (!sc || !sc.key) { continue; }
+      if (typeof ALLOWED_STORAGE_KEYS !== 'undefined' && ALLOWED_STORAGE_KEYS.indexOf(sc.key) === -1) { continue; }
+      if (sc.remoteVal !== null && sc.remoteVal !== undefined && typeof localStorage !== 'undefined') {
+        _priorValues[sc.key] = localStorage.getItem(sc.key);
+        try { localStorage.setItem(sc.key, typeof sc.remoteVal === 'string' ? sc.remoteVal : JSON.stringify(sc.remoteVal)); _appliedKeys.push(sc.key); } catch (_e) { _failedCount++; _failedKeys.push(sc.key); }
       }
+    }
+    if (_failedCount > 0) {
+      inventory = _prevInventory;
+      for (var r = 0; r < _appliedKeys.length; r++) {
+        try {
+          var prior = _priorValues[_appliedKeys[r]];
+          if (prior === null) { localStorage.removeItem(_appliedKeys[r]); }
+          else { localStorage.setItem(_appliedKeys[r], prior); }
+        } catch (_re) { /* ignore — best-effort restore */ }
+      }
+      console.warn('[CloudSync] STAK-526: ' + _failedCount + ' settings write(s) failed (' + _failedKeys.join(', ') + ') — rolling back pull, will retry on next cycle');
+      logCloudSyncActivity('cloud_sync_pull', 'partial', { failedCount: _failedCount, failedKeys: _failedKeys }, null);
+      if (typeof updateSyncStatusIndicator === 'function') { updateSyncStatusIndicator('error', 'rollback'); }
+      if (typeof refreshSyncUI === 'function') { refreshSyncUI(); }
+      return;
     }
   }
 
@@ -3248,6 +3294,7 @@ window.computeSettingsHash = computeSettingsHash;
 window.refreshSyncUI = refreshSyncUI;
 window.updateSyncStatusIndicator = updateSyncStatusIndicator;
 window.updateCloudSyncHeaderBtn = updateCloudSyncHeaderBtn;
+window.resolveHeaderCloudAction = resolveHeaderCloudAction;
 window.getSyncDeviceId = getSyncDeviceId;
 window.getSyncPasswordSilent = getSyncPasswordSilent;
 window.syncIsEnabled = syncIsEnabled;

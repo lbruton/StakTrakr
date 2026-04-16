@@ -1,34 +1,6 @@
 // ABOUT TAB & ACKNOWLEDGMENT — Enhanced
 // =============================================================================
 
-const showAckModal = () => {
-  const ackModal = document.getElementById("ackModal");
-  if (ackModal && !localStorage.getItem(ACK_DISMISSED_KEY)) {
-    populateAckModal();
-    if (window.openModalById) openModalById('ackModal');
-    else {
-      ackModal.style.display = "flex";
-      document.body.style.overflow = "hidden";
-    }
-  }
-};
-
-const hideAckModal = () => {
-  const ackModal = document.getElementById("ackModal");
-  if (ackModal) {
-    if (window.closeModalById) closeModalById('ackModal');
-    else {
-      ackModal.style.display = "none";
-      document.body.style.overflow = "";
-    }
-  }
-};
-
-const acceptAck = () => {
-  localStorage.setItem(ACK_DISMISSED_KEY, "1");
-  hideAckModal();
-};
-
 const populateAboutTab = () => {
   const aboutVersion = safeGetElement("aboutVersion");
   const aboutCurrentVersion = safeGetElement("aboutCurrentVersion");
@@ -61,25 +33,12 @@ const populateAboutTab = () => {
   loadAnnouncements();
 };
 
-const populateAckModal = () => {
-  const ackVersion = document.getElementById("ackVersion");
-  const ackAppName = document.getElementById("ackAppName");
-  if (ackVersion && typeof APP_VERSION !== "undefined") {
-    ackVersion.textContent = `v${APP_VERSION}`;
-  }
-  if (ackAppName) {
-    ackAppName.textContent = getBrandingName();
-  }
-};
-
 const loadAnnouncements = async () => {
   const whatsNewTargets = [
     document.getElementById("aboutChangelogLatest"),
-    document.getElementById("versionChanges"),
   ].filter(Boolean);
   const roadmapTargets = [
     document.getElementById("aboutRoadmapList"),
-    document.getElementById("versionRoadmapList"),
   ].filter(Boolean);
 
   if (!whatsNewTargets.length && !roadmapTargets.length) return;
@@ -102,94 +61,93 @@ const showFullChangelog = () => {
   );
 };
 
-const showWhatsNewPopup = async () => {
-  const overlay = safeGetElement('whatsNewPopup');
-  if (!overlay) return;
-  // Populate version
-  const versionEl = safeGetElement('whatsNewVersion');
-  if (versionEl && typeof APP_VERSION !== 'undefined') {
-    versionEl.textContent = `v${APP_VERSION} — Updated!`;
-  }
-  // STAK-500: Load announcements BEFORE showing popup to prevent content flash
-  if (typeof loadAnnouncements === 'function') await loadAnnouncements();
-  overlay.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-};
-
-const hideWhatsNewPopup = () => {
-  const overlay = safeGetElement('whatsNewPopup');
-  if (overlay) overlay.style.display = 'none';
-  document.body.style.overflow = '';
-  // Acknowledge version so popup doesn't show again
+// STAK-547: Acknowledge version so toast doesn't show again
+const acknowledgeVersion = () => {
   if (typeof APP_VERSION !== 'undefined') {
     localStorage.setItem(VERSION_ACK_KEY, APP_VERSION);
   }
 };
 
-const setupWhatsNewPopupEvents = () => {
-  const dismissBtn = safeGetElement('whatsNewDismissBtn');
-  if (dismissBtn) dismissBtn.addEventListener('click', hideWhatsNewPopup);
+// STAK-547: Show latest changelog entry as a bottom-right toast card (replaces modal)
+const showWhatsNewPopup = () => {
+  // Prevent duplicate cards if called more than once
+  if (document.querySelector('.whats-new-toast-card')) return;
 
-  const changelogBtn = safeGetElement('whatsNewChangelogBtn');
-  if (changelogBtn) {
-    changelogBtn.addEventListener('click', () => {
-      hideWhatsNewPopup();
-      showFullChangelog();
-    });
+  // Parse first entry from embedded list (developer-controlled HTML)
+  const doc = new DOMParser().parseFromString(
+    `<ul>${getEmbeddedWhatsNew()}</ul>`, 'text/html',
+  );
+  const firstLi = doc.querySelector('li');
+  if (!firstLi) {
+    acknowledgeVersion();
+    return;
   }
 
-  // Click overlay background to dismiss
-  const overlay = safeGetElement('whatsNewPopup');
-  if (overlay) {
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) hideWhatsNewPopup();
-    });
-  }
+  // Build card with DOM methods — no innerHTML on appended elements
+  const label = document.createElement('span');
+  label.className = 'wntc-label';
+  label.textContent = 'What\u2019s New';
 
-  // Escape key to dismiss
-  document.addEventListener('keydown', (e) => {
-    const popup = safeGetElement('whatsNewPopup');
-    if (e.key === 'Escape' && popup && popup.style.display === 'flex') {
-      hideWhatsNewPopup();
-    }
-  });
+  const versionSpan = document.createElement('span');
+  versionSpan.className = 'wntc-version';
+  versionSpan.textContent = typeof APP_VERSION !== 'undefined' ? `v${APP_VERSION}` : '';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'wntc-close';
+  closeBtn.setAttribute('type', 'button');
+  closeBtn.setAttribute('aria-label', 'Dismiss');
+  closeBtn.textContent = '\u00D7';
+
+  const header = document.createElement('div');
+  header.className = 'wntc-header';
+  header.appendChild(label);
+  header.appendChild(versionSpan);
+  header.appendChild(closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'wntc-body';
+  // Clone parsed li child nodes (developer-controlled, not user input)
+  Array.from(firstLi.childNodes).forEach((node) => body.appendChild(node.cloneNode(true)));
+
+  const card = document.createElement('div');
+  card.className = 'whats-new-toast-card';
+  card.setAttribute('role', 'status');
+  card.setAttribute('aria-live', 'polite');
+  card.appendChild(header);
+  card.appendChild(body);
+  document.body.appendChild(card);
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    clearTimeout(timer);
+    card.classList.add('fade-out');
+    card.addEventListener('animationend', () => card.remove(), { once: true });
+    acknowledgeVersion();
+  };
+
+  card.addEventListener('click', dismiss);
+  const timer = setTimeout(dismiss, 4000);
 };
 
-const setupAckModalEvents = () => {
-  const ackCloseBtn = document.getElementById("ackCloseBtn");
-  const ackAcceptBtn = document.getElementById("ackAcceptBtn");
-  const ackModal = document.getElementById("ackModal");
-
-  if (ackCloseBtn) {
-    ackCloseBtn.addEventListener("click", hideAckModal);
-  }
-
-  if (ackAcceptBtn) {
-    ackAcceptBtn.addEventListener("click", acceptAck);
-  }
-
-  if (ackModal) {
-    ackModal.addEventListener("click", (e) => {
-      if (e.target === ackModal) {
-        hideAckModal();
-      }
-    });
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && ackModal && ackModal.style.display === "flex") {
-      hideAckModal();
-    }
-  });
+// Kept for backward compat — removes toast card if present and acknowledges version
+const hideWhatsNewPopup = () => {
+  const card = document.querySelector('.whats-new-toast-card');
+  if (card) card.remove();
+  acknowledgeVersion();
 };
+
+// setupWhatsNewPopupEvents kept as no-op — modal removed (STAK-547)
+const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
-    <li><strong>v3.33.93 &ndash; Shape-Aware Dimensions</strong>: Bars and ingots now show Length/Width instead of Diameter. Shape dropdown drives conditional fields. Numista API maps size by shape. Existing &ldquo;LxW&rdquo; diameter strings auto-migrate on edit (STAK-528)</li>
-    <li><strong>v3.33.92 &ndash; V1 API Cleanup + Market Log Fix</strong>: Removed all dead v1 API code (~486 lines). Market log tab now shows dynamic vendor columns from the v2 manifest instead of blank hardcoded columns (STAK-509)</li>
-    <li><strong>v3.33.91 &ndash; Cloud Sync Fixes</strong>: API keys no longer destroyed as [object Object] when synced. StorageLocation sync loop fixed &mdash; blank values persist correctly (STAK-519)</li>
-    <li><strong>v3.33.90 &ndash; StakTrakr API Settings Fix</strong>: Cache settings no longer revert to 24h. StakTrakr panel simplified to enabled toggle + auto-refresh. Tab moved to first position as primary free provider (STAK-518)</li>
-    <li><strong>v3.33.89 &ndash; Market Filter Matrix</strong>: Settings &gt; Market redesigned with checkbox filter matrix. Enable/disable items and vendors per metal category. Ticker and vendor prices table respect filter settings (STAK-515)</li>
+    <li><strong>v3.34.03 &ndash; STAK-544: Header Cloud Button Sync or Open Settings</strong>: The header cloud button now triggers a manual sync for configured users or opens Settings &rarr; Cloud for setup users. Replaced the previous dead-end &quot;autosync disabled&quot; toast behavior.</li>
+    <li><strong>v3.34.02 &ndash; STAK-545: Market Button Triggers Refresh</strong>: The header Market button now triggers a market data refresh instead of opening Settings. A gear icon in the Market dashboard block provides direct access to Market settings.</li>
+    <li><strong>v3.34.01 &ndash; STAK-445: Move FAQ below LOG</strong>: Reordered the Settings modal sidebar so Log appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged.</li>
+    <li><strong>v3.34.00 &ndash; STAK-444: Cloud Tab Settings Panel</strong>: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.</li>
+    <li><strong>v3.33.99 &ndash; STAK-538: Remove First-Run Modal</strong>: First-run acknowledgment modal removed &mdash; users now see the app immediately. The Info tab and What&rsquo;s New popup already cover disclaimers and version announcements.</li>
   `;
 };
 
@@ -203,17 +161,13 @@ const getEmbeddedRoadmap = () => {
 
 // Expose globally for access from other modules
 if (typeof window !== "undefined") {
-  window.showAckModal = showAckModal;
-  window.hideAckModal = hideAckModal;
-  window.acceptAck = acceptAck;
   window.loadAnnouncements = loadAnnouncements;
-  window.setupAckModalEvents = setupAckModalEvents;
   window.populateAboutTab = populateAboutTab;
-  window.populateAckModal = populateAckModal;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
   window.getEmbeddedRoadmap = getEmbeddedRoadmap;
   window.showFullChangelog = showFullChangelog;
   window.showWhatsNewPopup = showWhatsNewPopup;
   window.hideWhatsNewPopup = hideWhatsNewPopup;
+  window.acknowledgeVersion = acknowledgeVersion;
   window.setupWhatsNewPopupEvents = setupWhatsNewPopupEvents;
 }

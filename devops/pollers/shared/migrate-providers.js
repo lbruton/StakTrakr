@@ -2,21 +2,21 @@
 /**
  * StakTrakr Provider Migration Script
  * ====================================
- * One-time import of providers.json into Turso provider tables.
+ * One-time import of providers.json into sqld provider tables.
  * Idempotent — safe to re-run (uses INSERT OR REPLACE via upsertCoin/upsertVendor).
  *
  * Usage:
  *   node migrate-providers.js                     # dry-run by default against local
  *   node migrate-providers.js --dry-run            # explicit dry-run
- *   node migrate-providers.js --production         # required for non-localhost Turso URLs
+ *   node migrate-providers.js --production         # required for non-localhost sqld URLs
  *   DATA_DIR=/path/to/data node migrate-providers.js --production
  *
- * @see STAK-348 — Migrate providers.json to Turso DB
+ * @see STAK-348 — Migrate providers.json to sqld
  */
 
 import { resolve, join } from "node:path";
 import { readFileSync } from "node:fs";
-import { createTursoClient } from "./turso-client.js";
+import { createSqldClient } from "./sqld-client.js";
 import { initProviderSchema, upsertCoin, upsertVendor } from "./provider-db.js";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ async function migrate() {
   if (DRY_RUN) {
     console.log("  Mode:  DRY RUN (no writes — pass --production to execute)");
   } else {
-    console.log("  Mode:  PRODUCTION (writing to Turso)");
+    console.log("  Mode:  PRODUCTION (writing to sqld)");
   }
   console.log(`  Source: ${PROVIDERS_PATH}`);
   console.log();
@@ -152,7 +152,7 @@ async function migrate() {
   // Production write
   checkProductionSafety();
 
-  const client = createTursoClient();
+  const client = createSqldClient();
   console.log("  Initializing schema...");
   await initProviderSchema(client);
 
@@ -168,7 +168,7 @@ async function migrate() {
 
   console.log();
   console.log("  ✓ Migration complete.");
-  console.log(`    ${totalCoins} coins, ${totalVendors} vendors written to Turso.`);
+  console.log(`    ${totalCoins} coins, ${totalVendors} vendors written to sqld.`);
 
   // Verify counts
   const coinCount = await client.execute("SELECT COUNT(*) as n FROM provider_coins");

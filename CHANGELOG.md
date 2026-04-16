@@ -9,6 +9,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.03] - 2026-04-15
+
+### Changed — STAK-544: Header cloud button sync or open settings
+
+- **Changed**: Header cloud button now triggers a manual sync for configured users (green/ready states) or opens Settings → Cloud for setup users (orange/gray states). Replaced the previous dead-end "autosync disabled" toast behavior. Added `resolveHeaderCloudAction()` helper in `cloud-sync.js` to centralize state-to-action mapping. Added Playwright regression coverage for unconfigured, auto-sync-off, and auto-sync-on header cloud button states. (STAK-544)
+
+---
+
+## [3.34.02] - 2026-04-15
+
+### Changed — STAK-545: Market button triggers refresh instead of opening Settings modal
+
+- **Changed**: Header Market button now calls `syncRetailPrices()` (market data refresh) instead of opening the Market Settings panel. A new gear icon (`#marketSettingsBtn`) in the Market block vendor prices section provides direct access to Market settings, matching the existing refresh button visual pattern. (STAK-545)
+
+---
+
+## [3.34.01] - 2026-04-15
+
+### Changed — STAK-445: Move FAQ below LOG in Settings
+
+- **Changed**: Reordered the Settings modal sidebar so Log now appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged. (STAK-445)
+
+---
+
+## [3.34.00] - 2026-04-15
+
+### Changed — STAK-444: Cloud tab settings panel
+
+- **Moved**: Dropbox and Cloud Sync Beta cards from System tab to dedicated Cloud tab in Settings modal. Created `settingsPanel_cloud` div — the Cloud nav button was already present but fell back to About due to the missing panel. All Dropbox connection, auto-sync, backup/restore, and advanced controls remain intact at their existing element IDs. Added `syncCloudUI()` call in `switchSettingsSection()` for the Cloud tab so connection state refreshes on navigation. (STAK-444)
+
+---
+
+## [3.33.99] - 2026-04-13
+
+### Changed — STAK-538: Remove first-run acknowledgment modal
+
+- **Removed**: First-run acknowledgment modal (`#ackModal`) — the Info tab and What's New popup already cover disclaimers and version announcements. Deleted 5 functions from `about.js` (`showAckModal`, `hideAckModal`, `acceptAck`, `populateAckModal`, `setupAckModalEvents`), removed `ACK_DISMISSED_KEY` constant, cleaned storage lookups, and deleted modal markup from `index.html`. First-time users now see the app immediately without friction. (STAK-538)
+
+---
+
+## [3.33.98] - 2026-04-12
+
+### Added — STAK-529: Sort Direction Toggle in Settings
+
+- **Added**: Asc/Desc sort direction toggle in Settings > Appearance, positioned horizontally next to the Default Sort Column dropdown. Uses existing `.chip-sort-toggle` / `.chip-sort-btn` CSS pattern. JavaScript listener already existed at `settings-listeners.js:663-678`; this adds the HTML markup it expects. Persists to localStorage via `DEFAULT_SORT_DIR_KEY`. Includes 7 Playwright tests covering toggle behavior, persistence, and default state. (STAK-529)
+
+---
+
+## [3.33.96] - 2026-04-11
+
+### Added — STAK-521: Quarantine unresolved slugs
+
+- **Fixed**: Three-plane asymmetry in market filter — unresolved slugs (metadata not yet landed from manifest) were hidden from the filter matrix UI but defaulted to enabled in the control plane, leaking into cards/ticker/table with raw-string labels users could not toggle off. Closed at the upstream chokepoint via new `_isSlugResolved` predicate in `getActiveRetailSlugs()`. Also removes redundant `displaySlugs` filter in `settings.js` and deletes the obsolete `_HIDDEN_SLUGS` hardcoded exclusion set. Latent fail-safe — historical trigger already retired by v2 API publisher refactor. (STAK-521)
+
+---
+
+## [3.33.95] - 2026-04-10
+
+### Fixed — Cloud Sync Atomic Rollback on Settings Write Failure (STAK-526)
+
+- **Fixed**: `_applyAndFinalize()` now atomically rolls back on settings write failure — inventory restored, `lastPull` not advanced, success toast suppressed. `ALLOWED_STORAGE_KEYS` guard added; earlier-written settings keys removed via compensating `localStorage.removeItem()` calls on failure (STAK-526)
+
+---
+
+## [3.33.94] - 2026-04-05
+
+### Fixed — Catalog API Key Cloud Sync (STAK-533)
+
+- **Fixed**: Numista API key and PCGS bearer token now sync across devices via cloud sync. `catalog_api_config` was missing from `SYNC_SCOPE_KEYS` — the root cause of recurring sync failures across STAK-519 and STAK-526
+- **Fixed**: Misleading comment on `metalApiConfig` that incorrectly claimed it stored Numista/PCGS keys — it only stores spot provider keys
+- **Added**: Catalog API key conflicts now appear in the merge diff modal under "API & Numista" group
+
+---
+
 ## [3.33.93] - 2026-04-03
 
 ### Added — Shape-Aware Dimension Fields (STAK-528)

@@ -51,7 +51,7 @@
     },
     'API & Numista': {
       icon: '\uD83D\uDCDA',
-      keys: ['metalApiConfig','numista_tags_auto','numistaLookupRules','numistaViewFields']
+      keys: ['metalApiConfig','catalog_api_config','numista_tags_auto','numistaLookupRules','numistaViewFields']
     }
   };
 
@@ -98,7 +98,8 @@
     'numista_tags_auto': 'Auto-Tag on Lookup',
     'numistaLookupRules': 'Lookup Rules',
     'numistaViewFields': 'View Fields',
-    'metalApiConfig': 'API Keys'
+    'metalApiConfig': 'API Keys',
+    'catalog_api_config': 'Catalog API Keys'
   };
 
   var SETTINGS_VALUE_TYPE = {
@@ -500,7 +501,7 @@
   }
 
   function _formatSettingValue(key, value) {
-    if (key === 'metalApiConfig') return value ? '\u2022\u2022\u2022 configured' : 'not set';
+    if (key === 'metalApiConfig' || key === 'catalog_api_config') return value ? '\u2022\u2022\u2022 configured' : 'not set';
     value = _parseSetting(value);
     if (value === null || value === undefined) return '\u2014';
     if (typeof value === 'boolean') return value ? 'On' : 'Off';

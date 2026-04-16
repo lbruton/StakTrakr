@@ -1873,16 +1873,21 @@
       </div>
     </div>
     <footer class="app-footer">
+      <!-- Badges: repo (shields.io imgs) + status (CSS-rendered) on one row -->
       <div class="footer-badges">
         <a href="https://github.com/lbruton/StakTrakr" target="_blank" rel="noopener"><img src="https://img.shields.io/github/license/lbruton/StakTrakr?style=flat-square" alt="MIT License" height="20"></a>
         <a href="https://app.codacy.com/gh/lbruton/StakTrakr/dashboard?utm_source=gh&amp;utm_medium=referral&amp;utm_content=&amp;utm_campaign=Badge_grade" target="_blank" rel="noopener"><img src="https://app.codacy.com/project/badge/Grade/b8d30126676546cb958fa6a7e0174da8" alt="Codacy Badge" height="20"></a>
         <a href="https://github.com/lbruton/StakTrakr/issues" target="_blank" rel="noopener"><img src="https://img.shields.io/github/issues/lbruton/StakTrakr?style=flat-square" alt="GitHub Issues" height="20"></a>
         <a href="https://www.reddit.com/r/staktrakr/" target="_blank" rel="noopener"><img src="https://img.shields.io/reddit/subreddit-subscribers/staktrakr?style=flat-square&amp;label=community" alt="Community" height="20"></a>
         <a href="https://github.com/sponsors/lbruton" target="_blank" rel="noopener"><img src="https://img.shields.io/badge/sponsor-%E2%99%A1-ea4aaa?style=flat-square" alt="Sponsor" height="20"></a>
+        <a id="versionBadge" class="shield-badge" style="display: none"><span class="shield-badge-label">version</span><span class="shield-badge-value shield-badge-value--green" id="versionBadgeValue"></span></a>
+        <a href="https://beta.staktrakr.com" target="_blank" rel="noopener" class="shield-badge"><span class="shield-badge-label">beta</span><span class="shield-badge-value shield-badge-value--yellow">available</span></a>
+        <a href="#" class="shield-badge" onclick="if(window.showFaqModal){event.preventDefault();window.showFaqModal();}"><span class="shield-badge-label">help</span><span class="shield-badge-value shield-badge-value--blue">FAQ</span></a>
+        <button type="button" class="shield-badge" id="apiHealthBadge" onclick="if(window.showApiHealthModal)window.showApiHealthModal()"><span class="shield-badge-label" id="apiHealthLabel">status</span><span class="shield-badge-value shield-badge-value--grey" id="apiHealthValue">checking&hellip;</span></button>
       </div>
-      <div class="storage-line">Storage: <span id="storageUsage"></span> <div class="storage-bar" id="storageBar"><div class="storage-bar-ls" id="storageBarLs" title="localStorage"></div><div class="storage-bar-idb" id="storageBarIdb" title="IndexedDB Images"></div></div></div>
+      <!-- Row 3: Attribution text -->
       <div class="footer-meta">
-        <span>Thank you for using <span id="footerBrand">StakTrakr</span> <a id="versionBadge" class="version-badge" style="display: none"></a> <a href="https://beta.staktrakr.com" target="_blank" rel="noopener" class="version-badge version-badge--beta">beta</a>. &copy; 2025-2026 <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener">staktrakr.com</a>. &middot; <a href="#" onclick="if(window.showFaqModal){event.preventDefault();window.showFaqModal();}">FAQ</a> &middot; <button type="button" class="api-health-badge" id="apiHealthBadge" onclick="if(window.showApiHealthModal)window.showApiHealthModal()">Checking API…</button></span>
+        Thank you for using <span id="footerBrand">StakTrakr</span> &middot; &copy; 2025-2026 <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener">staktrakr.com</a> &middot; Created by <a href="https://www.lbruton.cc" target="_blank" rel="noopener">lbruton.cc</a>
       </div>
     </footer>
     <!-- =============================================================================
@@ -1936,82 +1941,7 @@
         </div>
       </div>
     </div>
-    <!-- =============================================================================
-       ABOUT & DISCLAIMER MODAL
-       Comprehensive application information and disclaimer modal similar to the
-       original splash page design with enhanced features and detailed information.
-       ============================================================================= -->
-    <div class="modal" id="ackModal" style="display: none">
-      <div class="modal-content about-modal-content">
-        <div class="modal-header about-modal-header">
-          <h1 class="about-title">
-            <span id="ackAppName">StakTrakr</span> <span id="ackVersion"></span>
-          </h1>
-          <button aria-label="Close modal" class="modal-close" id="ackCloseBtn">
-            ×
-          </button>
-        </div>
-        <div class="modal-body about-modal-body">
-          <!-- Application Description -->
-          <div class="about-description">
-            A free, open-source precious metals portfolio tracker. Monitor live
-            spot prices, track purchase cost vs melt value, and compute gain/loss
-            across Silver, Gold, Platinum, and Palladium. All data stays in your
-            browser — nothing is ever sent to a server.
-          </div>
-
-          <!-- Important Notice -->
-          <div class="about-alert">
-            <div class="alert-header">
-              <span class="alert-icon">⚠️</span>
-              <strong>Important Privacy & Data Notice</strong>
-            </div>
-            <div class="alert-content">
-              <p>
-                <strong>Your Privacy is Protected:</strong> All data is stored
-                locally in your browser using localStorage and
-                <em>never transmitted to any server</em>. Your precious metals
-                inventory information remains completely private and under your
-                control.
-              </p>
-
-              <p>
-                <strong>Data Backup Responsibility:</strong> Since data is
-                stored locally, it will be lost if you clear browser history,
-                reset browser data, or use private browsing mode. Remember to
-                export your data regularly to keep a copy.
-              </p>
-
-              <p>
-                <strong>Use at Your Own Risk:</strong> This tool is provided for
-                informational and organizational purposes only. The developer
-                assumes no responsibility for any financial decisions,
-                investment choices, or data loss. Always verify spot prices and
-                calculations independently.
-              </p>
-
-              <p>
-                <strong>Spot Price Accuracy:</strong> Prices displayed are for
-                reference only and may not reflect real-time market conditions.
-                Always confirm current pricing with your dealer or official
-                market sources before making transactions.
-              </p>
-            </div>
-          </div>
-          <div class="alert-actions">
-            <button class="btn premium about-accept-btn" id="ackAcceptBtn">
-              ✅ I Understand - Continue to Application
-            </button>
-          </div>
-          <div class="acceptance-text">
-            By continuing, you acknowledge that you understand this tool stores
-            data locally, you are responsible for backing up your data, and you
-            use this application at your own risk.
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- aboutModal and versionModal removed — content moved to settingsPanel_about + whatsNewPopup -->
+    <!-- aboutModal and versionModal removed — content moved to settingsPanel_about; whatsNewPopup replaced by toast card (STAK-547) -->
     <!-- =============================================================================
        ============================================================================= -->
 
@@ -2081,13 +2011,13 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
               Cloud
             </button>
-            <button class="settings-nav-item" data-section="faq">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              FAQ
-            </button>
             <button class="settings-nav-item" data-section="changelog">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
               Log
+            </button>
+            <button class="settings-nav-item" data-section="faq">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              FAQ
             </button>
           </nav>
 
@@ -2252,19 +2182,25 @@
                   </div>
                   <div style="display:flex; flex-direction:column; gap:0.35rem;">
                     <div class="settings-group-label">Default Sort</div>
-                    <select id="settingsDefaultSortColumn">
-                      <option value="0">Date</option>
-                      <option value="1">Metal</option>
-                      <option value="2">Type</option>
-                      <option value="4" selected>Name</option>
-                      <option value="5">Qty</option>
-                      <option value="6">Weight</option>
-                      <option value="7">Purchase</option>
-                      <option value="8">Melt Value</option>
-                      <option value="9">Retail</option>
-                      <option value="10">Gain/Loss</option>
-                      <option value="11">Source</option>
-                    </select>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                      <select id="settingsDefaultSortColumn" style="flex:1;">
+                        <option value="0">Date</option>
+                        <option value="1">Metal</option>
+                        <option value="2">Type</option>
+                        <option value="4" selected>Name</option>
+                        <option value="5">Qty</option>
+                        <option value="6">Weight</option>
+                        <option value="7">Purchase</option>
+                        <option value="8">Melt Value</option>
+                        <option value="9">Retail</option>
+                        <option value="10">Gain/Loss</option>
+                        <option value="11">Source</option>
+                      </select>
+                      <div id="settingsDefaultSortDir" class="chip-sort-toggle">
+                        <button type="button" class="chip-sort-btn active" data-val="asc">Asc</button>
+                        <button type="button" class="chip-sort-btn" data-val="desc">Desc</button>
+                      </div>
+                    </div>
                   </div>
                   <div style="display:flex; flex-direction:column; gap:0.35rem;">
                     <div class="settings-group-label">Visible Items</div>
@@ -2299,6 +2235,27 @@
                 </div>
                 <p class="settings-subtext">Optional buttons shown in the top-right of the app header.</p>
                 <div id="headerBtnConfigTable"></div>
+              </div>
+
+              <!-- ── Metals & Inline Chips ── -->
+              <div class="settings-fieldset">
+                <div class="settings-fieldset-title">Metals &amp; Inline Chips</div>
+                <div class="settings-card-grid">
+                  <div class="settings-card">
+                    <div class="settings-group-label">Metal Order</div>
+                    <p class="settings-subtext">Reorder and show/hide spot price and summary cards. Drag rows to reorder.</p>
+                    <div class="chip-grouping-table-container" id="metalOrderConfigContainer">
+                      <div class="chip-grouping-empty">Loading...</div>
+                    </div>
+                  </div>
+                  <div class="settings-card">
+                    <div class="settings-group-label">Inline Name Chips</div>
+                    <p class="settings-subtext">Choose which badges appear next to item names in the table.</p>
+                    <div class="chip-grouping-table-container" id="inlineChipConfigContainer">
+                      <div class="chip-grouping-empty">Loading...</div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- ── Layout ── -->
@@ -2347,27 +2304,6 @@
             <!-- ===== CHIPS ===== -->
             <div class="settings-section-panel" id="settingsPanel_grouping" style="display: none">
               <h3>Filter Chips</h3>
-
-              <!-- ── Metals & Inline Chips ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Metals &amp; Inline Chips</div>
-                <div class="settings-card-grid">
-                  <div class="settings-card">
-                    <div class="settings-group-label">Metal Order</div>
-                    <p class="settings-subtext">Reorder and show/hide spot price and summary cards. Drag rows to reorder.</p>
-                    <div class="chip-grouping-table-container" id="metalOrderConfigContainer">
-                      <div class="chip-grouping-empty">Loading...</div>
-                    </div>
-                  </div>
-                  <div class="settings-card">
-                    <div class="settings-group-label">Inline Name Chips</div>
-                    <p class="settings-subtext">Choose which badges appear next to item names in the table.</p>
-                    <div class="chip-grouping-table-container" id="inlineChipConfigContainer">
-                      <div class="chip-grouping-empty">Loading...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               <div class="settings-group">
                 <div class="settings-group-label">Filter chip threshold</div>
@@ -3270,8 +3206,19 @@
                 </div>
               </div>
 
-              <!-- ── Cloud Backup ── -->
-              <div id="inventoryCloudSection">
+
+              <!-- ── App Updates ── -->
+              <div class="settings-fieldset">
+                <div class="settings-fieldset-title">App Updates</div>
+                <p class="settings-subtext">If the app appears stuck on an old version after an update, use this to clear the cached files and reload fresh. Your inventory data is not affected.</p>
+                <button class="btn theme-btn" id="forceRefreshBtn">Force Refresh</button>
+              </div>
+
+            </div>
+
+            <!-- ===== CLOUD ===== -->
+            <div class="settings-section-panel" id="settingsPanel_cloud" style="display: none">
+              <h3>Cloud Backup</h3>
                 <div class="settings-card-grid" style="margin-bottom:1rem">
 
                   <!-- Dropbox card -->
@@ -3408,15 +3355,6 @@
                   </div>
 
                 </div>
-              </div>
-
-              <!-- ── App Updates ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">App Updates</div>
-                <p class="settings-subtext">If the app appears stuck on an old version after an update, use this to clear the cached files and reload fresh. Your inventory data is not affected.</p>
-                <button class="btn theme-btn" id="forceRefreshBtn">Force Refresh</button>
-              </div>
-
             </div>
 
             <!-- ===== STORAGE ===== -->
@@ -4095,39 +4033,6 @@
         <div class="settings-footer" id="settingsFooter"></div>
       </div><!-- .settings-modal-content -->
     </div><!-- #settingsModal -->
-
-    <!-- ===== WHAT'S NEW POPUP (thin version splash) ===== -->
-    <div class="whats-new-overlay" id="whatsNewPopup" style="display: none">
-      <div class="whats-new-popup">
-        <div class="whats-new-popup-header">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
-            <defs>
-              <linearGradient id="bgPopup" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f1729"/><stop offset="100%" stop-color="#1a2744"/></linearGradient>
-              <linearGradient id="silverPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/></linearGradient>
-              <linearGradient id="goldPopup" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#92700c"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d4a017"/></linearGradient>
-            </defs>
-            <rect width="512" height="512" rx="96" fill="url(#bgPopup)"/>
-            <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
-            <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
-            <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldPopup)"/>
-            <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverPopup)" opacity="0.68"/>
-            <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverPopup)" opacity="0.45"/>
-          </svg>
-          <div class="popup-title-group">
-            <div class="popup-title"><span class="stak">STAK</span><span class="trakr">TRAKR</span></div>
-            <div class="popup-version" id="whatsNewVersion"></div>
-          </div>
-        </div>
-        <div class="whats-new-popup-body">
-          <h4>What's New</h4>
-          <ul id="versionChanges"></ul>
-        </div>
-        <div class="whats-new-popup-footer">
-          <button class="btn secondary" id="whatsNewChangelogBtn">Full Changelog</button>
-          <button class="btn premium" id="whatsNewDismissBtn">Got it!</button>
-        </div>
-      </div>
-    </div><!-- #whatsNewPopup -->
 
     <div class="modal" id="cloudSyncModal" style="display: none">
       <div class="modal-content">

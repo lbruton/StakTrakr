@@ -132,7 +132,7 @@ function log(msg) {
 
 async function loadProvidersData() {
   let tursoClient = null;
-  try { tursoClient = (await import("./turso-client.js")).createTursoClient(); } catch {}
+  try { tursoClient = (await import("./sqld-client.js")).createSqldClient(); } catch {}
   return loadProviders(tursoClient, DATA_DIR);
 }
 

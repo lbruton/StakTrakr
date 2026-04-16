@@ -3,12 +3,17 @@
 .AppleDouble
 .LSOverride
 
-# Claude Code — skills and commands tracked, everything else ignored
+# AI tooling & personal config — all backed up via /backup-claude nightly to Nextcloud
+# Matches the established TRMCompare/PAPiTA pattern: repo holds source + docs, not tooling state.
 .claude/*
-!.claude/skills/
-!.claude/skills/**
-!.claude/commands/
-!.claude/commands/**
+!.claude/project.json
+.opencode/
+.specflow/
+.spec-workflow/
+.agents/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
 .mcp.json
 SPRINT.md
 
@@ -66,6 +71,7 @@ devops/node_modules/
 
 # Playwright test artifacts
 test-results/
+playwright-report/
 
 # AI/MCP configuration files are tracked for project consistency
 # (removed: .github/instructions/codacy.instructions.md)
@@ -80,16 +86,7 @@ devops/version.lock
 devops/hub/
 
 # Git worktrees for isolated agent work — content dirs are transient, not project history
-.claude/worktrees/
 .worktrees/
-# Ignore spec-workflow transient data (specs, logs, approvals) but track user-templates, steering, and templates
-.spec-workflow/*
-!.spec-workflow/user-templates/
-!.spec-workflow/user-templates/**
-!.spec-workflow/steering/
-!.spec-workflow/steering/**
-!.spec-workflow/templates/
-!.spec-workflow/templates/**
 
 # Wiki nightwatch — local rotation state, not project history
 wiki/.nightwatch-log.json

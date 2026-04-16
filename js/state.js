@@ -176,11 +176,9 @@ const elements = {
   // Date N/A toggle button (STAK-375)
   itemDateNABtn: null,
 
-  // About & acknowledgment modal elements
+  // About modal elements
   aboutBtn: null,
   aboutModal: null,
-  ackModal: null,
-  ackAcceptBtn: null,
 
   // Header toggle buttons (STACK-54)
   headerThemeBtn: null,

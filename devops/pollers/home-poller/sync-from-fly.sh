@@ -24,7 +24,7 @@ SHARED_FILES=(
   extract-vision.js
   vision-patch.js
   db.js
-  turso-client.js
+  sqld-client.js
   provider-db.js
   export-providers-json.js
   goldback-scraper.js

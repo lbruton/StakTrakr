@@ -13,7 +13,7 @@
  */
 
 import { createClient } from "@libsql/client";
-import { initTursoSchema } from "./turso-client.js";
+import { initSqldSchema } from "./sqld-client.js";
 import { initProviderSchema } from "./provider-db.js";
 
 const TAG = "[migrate]";
@@ -283,7 +283,7 @@ Environment variables:
 
   // Initialize schema on target
   log("Initializing schema on target...");
-  await initTursoSchema(target);
+  await initSqldSchema(target);
   await initProviderSchema(target);
   log("Schema ready");
 

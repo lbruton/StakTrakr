@@ -137,6 +137,11 @@ const switchSettingsSection = (name) => {
     // Sync cloud UI state (connected/disconnected badges, button states)
     if (typeof syncCloudUI === 'function') syncCloudUI();
   }
+
+  // Sync cloud UI state when switching to the dedicated Cloud tab
+  if (targetName === 'cloud') {
+    if (typeof syncCloudUI === 'function') syncCloudUI();
+  }
 };
 
 /**
@@ -2428,11 +2433,11 @@ const renderMarketFilterMatrix = () => {
   tbody.appendChild(allRow);
 
   // --- Product rows ---
-  // Filter out slugs with no resolved display name (e.g. goldback-g10 denomination stubs)
-  const displaySlugs = slugs.filter((slug) => {
-    const m = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(slug) : { name: slug };
-    return m.name !== slug;
-  });
+  // STAK-521: `slugs` is already filtered by _isSlugResolved upstream in getActiveRetailSlugs.
+  // Retain `displaySlugs` as a read-only alias so the downstream forEach, metal-pill
+  // visibleSlugs filter, and master-toggle scoping below do not need to change. The alias
+  // is intentionally preserved to keep the STAK-521 diff minimally invasive — do not inline.
+  const displaySlugs = slugs;
   displaySlugs.forEach((slug) => {
     const meta = typeof getRetailCoinMeta === 'function' ? getRetailCoinMeta(slug) : { name: slug, metal: 'unknown' };
     const metal = (meta.metal || 'unknown').toLowerCase();
@@ -2578,7 +2583,7 @@ const renderMarketFilterMatrix = () => {
       }
     });
     if (statusEl) {
-      statusEl.textContent = 'Showing ' + visibleProductCount + ' products \u00b7 ' + activeVendorCount + ' of ' + totalVendors + ' vendors active';
+      statusEl.textContent = 'Showing ' + visibleProductCount + (visibleProductCount === 1 ? ' product' : ' products') + ' \u00b7 ' + activeVendorCount + ' of ' + totalVendors + (totalVendors === 1 ? ' vendor' : ' vendors') + ' active';
     }
   }
 };

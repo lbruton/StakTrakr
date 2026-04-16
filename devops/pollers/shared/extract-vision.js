@@ -97,7 +97,7 @@ function getVendorHint(vendorId) {
 }
 
 /**
- * Load today's Firecrawl prices from Turso.
+ * Load today's Firecrawl prices from sqld.
  * Returns { slugSlug: { vendorId: price, ... }, ... } or {} if DB unavailable.
  */
 async function loadFirecrawlPrices() {
@@ -120,7 +120,7 @@ async function loadFirecrawlPrices() {
     }
     return out;
   } catch (err) {
-    warn(`Could not load Firecrawl prices from Turso: ${err.message}`);
+    warn(`Could not load Firecrawl prices from sqld: ${err.message}`);
     return {};
   }
 }
@@ -320,9 +320,9 @@ async function main() {
   if (DRY_RUN) log("DRY RUN — no files written");
 
   const firecrawlPrices = await loadFirecrawlPrices();
-  log(`Loaded Firecrawl prices for ${Object.keys(firecrawlPrices).length} coin(s) from Turso`);
+  log(`Loaded Firecrawl prices for ${Object.keys(firecrawlPrices).length} coin(s) from sqld`);
 
-  // Open Turso database for writing vision results
+  // Open sqld database for writing vision results
   const db = DRY_RUN ? null : await openTursoDb();
   const scrapedAt = new Date().toISOString();
   const winStart = windowFloor();
@@ -373,7 +373,7 @@ async function main() {
           error: `out_of_stock: ${extracted.stock_label || "detected"}`,
         });
 
-        // Record out-of-stock result to Turso
+        // Record out-of-stock result to sqld
         if (db) {
           await writeSnapshot(db, {
             scrapedAt,
@@ -412,7 +412,7 @@ async function main() {
           : undefined,
       });
 
-      // Record vision extraction result to Turso
+      // Record vision extraction result to sqld
       if (db) {
         await writeSnapshot(db, {
           scrapedAt,
@@ -439,7 +439,7 @@ async function main() {
         error: err.message.slice(0, 200),
       });
 
-      // Record error result to Turso
+      // Record error result to sqld
       if (db) {
         await writeSnapshot(db, {
           scrapedAt,
