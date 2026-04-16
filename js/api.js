@@ -623,7 +623,7 @@ const updateProviderSettings = (provider) => {
 
   // STAKTRAKR has no cache dropdown — persist toggle + auto-refresh only
   if (provider === 'STAKTRAKR') {
-    const enabledEl = document.getElementById('enabled_STAKTRAKR');
+    const enabledEl = safeGetElement('enabled_STAKTRAKR');
     if (enabledEl) {
       if (!config.syncMode) config.syncMode = {};
       const enabled = enabledEl.checked ? 1 : 0;

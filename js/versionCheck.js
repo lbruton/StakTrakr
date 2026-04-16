@@ -79,7 +79,7 @@ const GITHUB_RELEASES_URL = "https://github.com/lbruton/StakTrakr/releases/lates
  * Used as the default state; upgraded by checkRemoteVersion() when possible.
  */
 const showStaticVersionBadge = () => {
-  const badge = document.getElementById("versionBadge");
+  const badge = safeGetElement("versionBadge");
   if (!badge) return;
   const val = safeGetElement("versionBadgeValue");
   if (val) {

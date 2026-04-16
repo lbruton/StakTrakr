@@ -64,8 +64,7 @@ test.describe('03-settings/04-market-controls — STAK-545 header Market button 
   });
 
   test('4.3 — clicking Market block gear control opens Settings on the Market tab', async ({ page }) => {
-    // This element is added in Task 3 — does not exist yet.
-    // The test fails because #marketSettingsBtn is absent.
+    // #marketSettingsBtn ships in this PR (Task 3).
     const gearBtn = page.locator('#marketSettingsBtn');
     await expect(gearBtn).toBeVisible();
     await gearBtn.click();

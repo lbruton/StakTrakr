@@ -2056,7 +2056,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     var _failedCount = 0;
     var _failedKeys = [];
     var _appliedKeys = [];
-    var _priorValues = {};
+    var _priorValues = Object.create(null);
     for (var i = 0; i < settingsChanges.length; i++) {
       var sc = settingsChanges[i];
       if (!sc || !sc.key) { continue; }
