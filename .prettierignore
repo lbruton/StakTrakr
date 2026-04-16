@@ -2,11 +2,7 @@
 vendor/
 
 # Generated/machine-written data files
-data/spot-history-bundle.js
-data/hourly/
-data/v2/
-data/retail/
-data/api/
+data/
 
 # Vendored JSDoc prettify scripts
 devops/docs/scripts/
