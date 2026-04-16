@@ -771,7 +771,8 @@ const setupHeaderButtonListeners = () => {
         // Trigger a sync on tap (STAK-398: header button should do something useful)
         if (typeof syncNow === 'function') {
           if (typeof showCloudToast === 'function') showCloudToast('Syncing…', 1500);
-          syncNow().then(function () {
+          syncNow().then(function (result) {
+            if (!result || !result.synced) return;
             const lp = typeof syncGetLastPush === 'function' ? syncGetLastPush() : null;
             const msg = lp && lp.timestamp
               ? 'Synced ' + (typeof _syncRelativeTime === 'function' ? _syncRelativeTime(lp.timestamp) : '')

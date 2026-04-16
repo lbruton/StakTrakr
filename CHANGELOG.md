@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.04] - 2026-04-15
+
+### Fixed — STAK-549: Cloud sync header button silent failure
+
+- **Fixed**: Header cloud sync button no longer shows a false "Synced" toast when the vault password is not cached. `syncNow()` now returns `{ synced: boolean }` so the caller can distinguish success from abort. Password prompt modal appears correctly when needed; cancel shows "Cloud sync requires a vault password" instead of false success. (STAK-549)
+
+---
+
 ## [3.34.03] - 2026-04-15
 
 ### Changed — STAK-544: Header cloud button sync or open settings

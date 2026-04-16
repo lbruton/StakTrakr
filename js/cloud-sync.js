@@ -3246,7 +3246,7 @@ async function syncNow() {
   // Guard: skip sync if app initialization failed (STAK-485)
   if (window._initFailed) {
     console.warn('[CloudSync] Skipping syncNow — app initialization failed');
-    return;
+    return { synced: false };
   }
   // Ensure we have a password before attempting sync.  If no silent password
   // is available, prompt the user interactively.
@@ -3258,7 +3258,7 @@ async function syncNow() {
       if (typeof showCloudToast === 'function') {
         showCloudToast('Cloud sync requires a vault password.');
       }
-      return;
+      return { synced: false };
     }
   }
 
@@ -3267,6 +3267,7 @@ async function syncNow() {
   // pushSyncVault has its own pre-push remote check, so even if poll missed
   // something (race), the push will catch it and route to handleRemoteChange.
   await pushSyncVault();
+  return { synced: true };
 }
 
 // ---------------------------------------------------------------------------
