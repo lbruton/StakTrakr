@@ -47,7 +47,7 @@ async function simulateStaleButtonState(page) {
 /**
  * Collect all cloud-toast text that appears within a timeout window.
  */
-async function collectToasts(page, durationMs) {
+async function collectToasts(page, durationMs = 4000) {
   return page.evaluate((ms) => {
     return new Promise((resolve) => {
       const texts = [];
@@ -74,14 +74,14 @@ test.describe('STAK-549 — Header cloud sync button silent failure', () => {
   test('shows password modal when no cached password and no false success toast', async ({ page }) => {
     await setupFullyConnected(page);
     await page.goto('/index.html');
-    // Wait for init.js Phase 14 listener setup (200ms) to complete
-    await page.waitForTimeout(400);
+    // Wait for init.js Phase 14 listener setup to complete
+    await page.waitForSelector('#headerCloudSyncBtn', { state: 'visible' });
 
     // Simulate stale button state (password cleared after init)
     await simulateStaleButtonState(page);
 
     // Start collecting toasts before clicking
-    const toastPromise = collectToasts(page, 7000);
+    const toastPromise = collectToasts(page);
 
     // Click the header cloud button — enters sync-now branch, calls syncNow()
     await page.locator('#headerCloudSyncBtn').click();
@@ -107,13 +107,14 @@ test.describe('STAK-549 — Header cloud sync button silent failure', () => {
   test('shows error toast when password modal cancelled', async ({ page }) => {
     await setupFullyConnected(page);
     await page.goto('/index.html');
-    await page.waitForTimeout(400);
+    // Wait for init.js Phase 14 listener setup to complete
+    await page.waitForSelector('#headerCloudSyncBtn', { state: 'visible' });
 
     // Simulate stale button state
     await simulateStaleButtonState(page);
 
     // Start collecting toasts before clicking
-    const toastPromise = collectToasts(page, 7000);
+    const toastPromise = collectToasts(page);
 
     // Click header cloud button -> syncNow() -> password modal
     await page.locator('#headerCloudSyncBtn').click();
@@ -146,10 +147,11 @@ test.describe('STAK-549 — Header cloud sync button silent failure', () => {
     // Full connected state with password cached — no stale state
     await setupFullyConnected(page);
     await page.goto('/index.html');
-    await page.waitForTimeout(400);
+    // Wait for init.js Phase 14 listener setup to complete
+    await page.waitForSelector('#headerCloudSyncBtn', { state: 'visible' });
 
     // Start collecting toasts
-    const toastPromise = collectToasts(page, 8000);
+    const toastPromise = collectToasts(page);
 
     // Click header cloud button — should trigger syncNow with password present
     await page.locator('#headerCloudSyncBtn').click();
@@ -159,12 +161,12 @@ test.describe('STAK-549 — Header cloud sync button silent failure', () => {
     // With password cached, the sync pathway should fire.
     // The actual Dropbox sync will fail (no real token), so we may see
     // "Sync failed" or "Synced" depending on error handling.
-    // The key regression guard: the toast pathway DOES fire (not silent).
-    // We accept "Syncing", "Synced", "Sync complete", or "Sync failed" —
-    // any of these proves the toast pathway is active.
-    const syncToasts = toasts.filter(t =>
-      /sync/i.test(t)
+    // The key regression guard: a terminal toast fires (not just "Syncing…").
+    // Match "Synced", "Sync complete", or "Sync failed" — but NOT "Syncing…"
+    // which is the in-progress toast that fires before syncNow resolves.
+    const terminalSyncToasts = toasts.filter(t =>
+      /synced|sync complete|sync failed/i.test(t)
     );
-    expect(syncToasts.length).toBeGreaterThanOrEqual(1);
+    expect(terminalSyncToasts.length).toBeGreaterThanOrEqual(1);
   });
 });
