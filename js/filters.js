@@ -920,7 +920,7 @@ const filterInventoryAdvanced = () => {
           const simplifiedValues = values.map((v) => simplifyChipValue(v, field));
           result = result.filter((item) => {
             const itemName = simplifyChipValue(item.name || "", field);
-            const match = simplifiedValues.includes(itemName);
+            const match = simplifiedValues.every((v) => v === itemName);
             return exclude ? !match : match;
           });
           break;
@@ -931,14 +931,14 @@ const filterInventoryAdvanced = () => {
             const itemMetal = getCompositionFirstWords(
               item.composition || item.metal || ""
             ).toLowerCase();
-            const match = lowerVals.includes(itemMetal);
+            const match = lowerVals.every((v) => v === itemMetal);
             return exclude ? !match : match;
           });
           break;
         }
         case "type":
           result = result.filter((item) => {
-            const match = values.includes(item.type);
+            const match = values.every((v) => v === item.type);
             return exclude ? !match : match;
           });
           break;
@@ -946,7 +946,7 @@ const filterInventoryAdvanced = () => {
           result = result.filter((item) => {
             const loc = item.purchaseLocation;
             const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
-            const match = values.includes(normalized);
+            const match = values.every((v) => v === normalized);
             return exclude ? !match : match;
           });
           break;
@@ -954,17 +954,19 @@ const filterInventoryAdvanced = () => {
           result = result.filter((item) => {
             const loc = item.storageLocation;
             const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
-            const match = values.includes(normalized);
+            const match = values.every((v) => v === normalized);
             return exclude ? !match : match;
           });
           break;
         case "tags": {
           // STAK-126: Filter by item tags
+          // STAK-546: AND semantics — item must carry EVERY selected tag value.
           if (typeof getItemTags === "function") {
             const lowerVals = values.map((v) => v.toLowerCase());
             result = result.filter((item) => {
-              const tags = getItemTags(item.uuid);
-              const match = tags.some((t) => lowerVals.includes(t.toLowerCase()));
+              const rawTags = getItemTags(item.uuid);
+              const itemTags = Array.isArray(rawTags) ? rawTags.map((t) => t.toLowerCase()) : [];
+              const match = lowerVals.every((v) => itemTags.includes(v));
               return exclude ? !match : match;
             });
           }
@@ -974,7 +976,7 @@ const filterInventoryAdvanced = () => {
           const lowerVals = values.map((v) => String(v).toLowerCase());
           result = result.filter((item) => {
             const fieldVal = String(item[field] ?? "").toLowerCase();
-            const match = lowerVals.includes(fieldVal);
+            const match = lowerVals.every((v) => v === fieldVal);
             return exclude ? !match : match;
           });
           break;

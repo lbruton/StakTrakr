@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.05] - 2026-04-16
+
+### Fixed — STAK-546: Restore AND semantics to filter chip predicate
+
+- **Fixed**: Restore AND semantics to filter chip predicate — selecting multiple chips intersects instead of unions (STAK-546)
+
+---
+
 ## [3.34.04] - 2026-04-15
 
 ### Fixed — STAK-549: Cloud sync header button silent failure
