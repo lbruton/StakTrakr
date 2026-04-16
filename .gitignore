@@ -5,7 +5,8 @@
 
 # AI tooling & personal config — all backed up via /backup-claude nightly to Nextcloud
 # Matches the established TRMCompare/PAPiTA pattern: repo holds source + docs, not tooling state.
-.claude/
+.claude/*
+!.claude/project.json
 .opencode/
 .specflow/
 .spec-workflow/
