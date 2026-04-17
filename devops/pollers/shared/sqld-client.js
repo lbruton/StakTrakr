@@ -5,25 +5,30 @@
  * Connects to self-hosted sqld (libSQL server) via @libsql/client.
  * Auth token is optional — local sqld runs without auth by default.
  *
- * Env vars (legacy names kept for Portainer compatibility):
- *   TURSO_DATABASE_URL  — sqld connection URL (e.g. http://staktrakr-sqld:8080)
- *   TURSO_AUTH_TOKEN    — optional auth token (empty when sqld has no auth)
+ * Env vars:
+ *   SQLD_URL            — sqld connection URL (e.g. http://staktrakr-sqld:8080)
+ *   SQLD_AUTH_TOKEN     — optional auth token (empty when sqld has no auth)
+ *
+ * Legacy TURSO_DATABASE_URL / TURSO_AUTH_TOKEN are accepted as fallbacks so
+ * already-deployed Portainer stacks keep working through STAK-548 rollout.
+ * TURSO_BACKUP_URL / TURSO_BACKUP_TOKEN remain distinct — those target the
+ * Turso Cloud DR backup, not local sqld.
  */
 
 import { createClient } from "@libsql/client";
 
 /**
  * Create and return a sqld client connection.
- * Requires TURSO_DATABASE_URL env var. Auth token is optional.
+ * Requires SQLD_URL (legacy: TURSO_DATABASE_URL) env var. Auth token is optional.
  *
  * @returns {import("@libsql/client").Client}
  */
 export function createSqldClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
+  const url = process.env.SQLD_URL || process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
 
   if (!url) {
-    throw new Error("TURSO_DATABASE_URL must be set");
+    throw new Error("SQLD_URL must be set");
   }
 
   return createClient({ url, ...(authToken ? { authToken } : {}) });

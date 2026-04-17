@@ -65,12 +65,12 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 })();
 
 // ---------------------------------------------------------------------------
-// Turso client
+// sqld client
 // ---------------------------------------------------------------------------
 
 function getSqldClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
+  const url = process.env.SQLD_URL || process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
   if (!url) return null;
   return createClient({ url, ...(authToken ? { authToken } : {}) });
 }
@@ -3376,7 +3376,7 @@ async function handleRequest(req, res) {
         const script = `
           import('./shared/price-extract.js').then(async m => {
             const { createClient } = await import('@libsql/client');
-            const client = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN });
+            const client = createClient({ url: process.env.SQLD_URL || process.env.TURSO_DATABASE_URL, authToken: process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN });
             const { getProvidersByCoin } = await import('./shared/provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
             const vid = process.env.RETRY_VENDOR_ID;

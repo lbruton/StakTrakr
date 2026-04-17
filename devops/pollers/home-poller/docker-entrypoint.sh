@@ -27,7 +27,7 @@ echo "[entrypoint] Writing cron schedule..."
 cat > /etc/cron.d/home-poller << 'CRON'
 # StakTrakr home poller cron jobs
 30 * * * * root . /etc/environment; /app/run-home.sh >> /data/logs/retail-poller.log 2>&1
-15,45 * * * * root . /etc/environment; POLLER_ID=home-spot METAL_PRICE_API_KEY=$METAL_PRICE_API_KEY DATA_DIR=/data TURSO_DATABASE_URL=$TURSO_DATABASE_URL TURSO_AUTH_TOKEN=$TURSO_AUTH_TOKEN node /app/spot-extract.js >> /data/logs/spot-poller.log 2>&1
+15,45 * * * * root . /etc/environment; POLLER_ID=home-spot METAL_PRICE_API_KEY=$METAL_PRICE_API_KEY DATA_DIR=/data SQLD_URL=$SQLD_URL SQLD_AUTH_TOKEN=$SQLD_AUTH_TOKEN TURSO_DATABASE_URL=$TURSO_DATABASE_URL TURSO_AUTH_TOKEN=$TURSO_AUTH_TOKEN node /app/spot-extract.js >> /data/logs/spot-poller.log 2>&1
 5 16 * * * root . /etc/environment; cd /app && node goldback-scraper.js >> /data/logs/goldback-poller.log 2>&1
 */5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /data/logs/provider-export.log 2>&1
 */5 * * * * root . /etc/environment; /app/check-flyio.sh >> /data/logs/flyio-check.log 2>&1
