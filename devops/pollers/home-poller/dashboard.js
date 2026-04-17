@@ -17,6 +17,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync, spawn } from "node:child_process";
 import { createClient } from "@libsql/client";
+import { createSqldClient as createSharedSqldClient } from "../shared/sqld-client.js";
 import {
   initProviderSchema,
   getProviders,
@@ -72,11 +73,11 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
  */
 
 function getSqldClient() {
-  const useSqld = Boolean(process.env.SQLD_URL);
-  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
-  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
-  if (!url) return null;
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  try {
+    return createSharedSqldClient();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -3403,11 +3404,8 @@ async function handleRequest(req, res) {
         // Pass user input via env vars — never interpolate into shell strings
         const script = `
           import('./shared/price-extract.js').then(async m => {
-            const { createClient } = await import('@libsql/client');
-            const useSqld = Boolean(process.env.SQLD_URL);
-            const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
-            const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
-            const client = createClient({ url, ...(authToken ? { authToken } : {}) });
+            const { createSqldClient } = await import('./shared/sqld-client.js');
+            const client = createSqldClient();
             const { getProvidersByCoin } = await import('./shared/provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
             const vid = process.env.RETRY_VENDOR_ID;
