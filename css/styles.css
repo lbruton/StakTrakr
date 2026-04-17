@@ -14011,10 +14011,11 @@ th {
     scroll-behavior: auto !important;
   }
 
-  /* Preserve repeating animations for active-operation indicators */
+  /* Preserve repeating animations for active-operation indicators at reduced speed */
   .spot-sync-icon.syncing svg,
   .cloud-sync-dot--syncing,
   .pcgs-verify-btn.pcgs-verifying {
+    animation-duration: 1.5s !important;
     animation-iteration-count: infinite !important;
   }
 }
