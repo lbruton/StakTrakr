@@ -22,12 +22,13 @@ services:
       - METRICS_PORT=9100
       - NET_IFACE=eth0
       - POLLER_LOG=/data/logs/retail-poller.log
-      # Local sqld (primary DB) — SQLD_URL canonical, TURSO_DATABASE_URL legacy fallback
-      - SQLD_URL=${SQLD_URL:-${TURSO_DATABASE_URL:-}}
-      - SQLD_AUTH_TOKEN=${SQLD_AUTH_TOKEN:-${TURSO_AUTH_TOKEN:-}}
+      # Primary DB — SQLD_URL (local sqld) takes precedence. TURSO_DATABASE_URL
+      # is used only if a self-hoster runs against Turso Cloud instead of sqld.
+      - SQLD_URL=${SQLD_URL:-}
+      - SQLD_AUTH_TOKEN=${SQLD_AUTH_TOKEN:-}
       - TURSO_DATABASE_URL=${TURSO_DATABASE_URL:-}
       - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN:-}
-      # Turso Cloud DR backup (nightly turso-backup-sync.js)
+      # Turso Cloud DR backup (nightly turso-backup-sync.js) — independent of primary DB
       - TURSO_BACKUP_URL=${TURSO_BACKUP_URL:-}
       - TURSO_BACKUP_TOKEN=${TURSO_BACKUP_TOKEN:-}
       - METAL_PRICE_API_KEY=${METAL_PRICE_API_KEY}

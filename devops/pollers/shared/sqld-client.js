@@ -5,14 +5,17 @@
  * Connects to self-hosted sqld (libSQL server) via @libsql/client.
  * Auth token is optional — local sqld runs without auth by default.
  *
- * Env vars:
- *   SQLD_URL            — sqld connection URL (e.g. http://staktrakr-sqld:8080)
+ * Env vars (primary DB — choose one):
+ *   SQLD_URL            — local self-hosted sqld (Option A, default)
  *   SQLD_AUTH_TOKEN     — optional auth token (empty when sqld has no auth)
  *
- * Legacy TURSO_DATABASE_URL / TURSO_AUTH_TOKEN are accepted as fallbacks so
- * already-deployed Portainer stacks keep working through STAK-548 rollout.
- * TURSO_BACKUP_URL / TURSO_BACKUP_TOKEN remain distinct — those target the
- * Turso Cloud DR backup, not local sqld.
+ *   TURSO_DATABASE_URL  — Turso Cloud as primary (Option B, self-hosters
+ *                         without a sqld container). Read only when SQLD_URL
+ *                         is unset.
+ *   TURSO_AUTH_TOKEN    — Turso Cloud auth token
+ *
+ * TURSO_BACKUP_URL / TURSO_BACKUP_TOKEN are a separate concern — they always
+ * point at the Turso Cloud DR target used by nightly turso-backup-sync.js.
  */
 
 import { createClient } from "@libsql/client";
