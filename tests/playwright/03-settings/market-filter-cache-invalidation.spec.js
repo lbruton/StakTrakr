@@ -8,9 +8,9 @@
  *
  * This test verifies observable behavior (cache reflects restored value) rather
  * than implementation detail (spy on _invalidateMarketFilterCache), because
- * _invalidateMarketFilterCache is a lexical const binding in retail.js — not a
- * window property — so vault.js calls the original function directly regardless
- * of any window.* patching.
+ * vault.js references _invalidateMarketFilterCache as a lexical binding — it
+ * calls the original function directly, not via window, so patching
+ * window._invalidateMarketFilterCache in tests would not intercept the call.
  *
  * BEFORE Task 2: restoreVaultData does NOT call _invalidateMarketFilterCache,
  * so _marketFilterCache stays stale and _loadMarketFilter() returns the old
@@ -65,7 +65,7 @@ test.describe("STAK-517 — Market filter cache invalidation after vault restore
     // After this call, _marketFilterCache holds INITIAL_FILTER (vendorA: false).
     const cachedBefore = await page.evaluate((slug) => {
       const filter = window._loadMarketFilter();
-      if (filter == null) return null;
+      if (filter === null || filter === undefined) return null;
       return Object.prototype.hasOwnProperty.call(filter, slug) ? filter[slug] : undefined;
     }, TEST_SLUG);
     expect(cachedBefore).not.toBeNull();
@@ -85,7 +85,7 @@ test.describe("STAK-517 — Market filter cache invalidation after vault restore
     // PASSES after Task 2: cache cleared, fresh read from localStorage.
     const cachedAfter = await page.evaluate((slug) => {
       const filter = window._loadMarketFilter();
-      if (filter == null) return null;
+      if (filter === null || filter === undefined) return null;
       return Object.prototype.hasOwnProperty.call(filter, slug) ? filter[slug] : undefined;
     }, TEST_SLUG);
     expect(cachedAfter).not.toBeNull();
