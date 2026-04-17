@@ -15,7 +15,7 @@
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { createClient } from "@libsql/client";
+import { createSqldClient as createSharedSqldClient } from "../shared/sqld-client.js";
 
 const PORT = parseInt(process.env.METRICS_PORT || "9100", 10);
 const IFACE = process.env.NET_IFACE || "ens18";
@@ -32,18 +32,15 @@ const IFACE = process.env.NET_IFACE || "ens18";
 })();
 
 /**
- * Create a @libsql/client configured from environment variables.
- *
- * When `process.env.SQLD_URL` is present it is used (with `SQLD_AUTH_TOKEN` if set); otherwise
- * `TURSO_DATABASE_URL` is used (with `TURSO_AUTH_TOKEN` if set).
- * @returns {import('@libsql/client').Client|null} A configured libsql client, or `null` if no database URL is available.
+ * Returns a configured sqld client, or null if no DB URL env is set.
+ * @returns {import('@libsql/client').Client|null}
  */
 function getSqldClient() {
-  const useSqld = Boolean(process.env.SQLD_URL);
-  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
-  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
-  if (!url) return null;
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  try {
+    return createSharedSqldClient();
+  } catch {
+    return null;
+  }
 }
 
 // ── System collectors ────────────────────────────────────────────────────────
