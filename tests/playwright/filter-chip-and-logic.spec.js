@@ -1,15 +1,15 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Playwright regression spec for STAK-546 — filter chip AND/OR predicate.
+ * Playwright regression spec for filter chip predicate logic (STAK-546, STAK-551).
  *
- * Locks the AND-within-field contract for `filterInventoryAdvanced()` so the
- * bug (OR within a field) cannot silently regress.
+ * Locks the field-aware filter contract: scalar fields (metal, type) use OR
+ * within-field, tags use AND, expansion chips expand at predicate time.
  *
  *   Case 1 — Single `tags:Allegory` chip           → 4 Allegory items (A,B,D,E)
  *   Case 2 — `tags:Allegory` + `tags:Cat`          → 1 item with BOTH (A)          MUST FAIL today (OR)
  *   Case 3 — `metal:Silver` + `tags:Cat`           → 2 silver cats (A,C)           already correct (cross-field)
- *   Case 4 — `metal:Gold` + `metal:Silver`         → 0 rows                        MUST FAIL today (OR)
+ *   Case 4 — `metal:Gold` + `metal:Silver`         → 4 rows (OR)                   STAK-551: scalar multi-select is OR
  *   Case 5 — Remove `tags:Cat` from case 2         → 4 Allegory items (A,B,D,E)    single-chip identity; passes today
  *   Case 6 — Exclude-mode `tags:Damaged`           → 4 non-damaged items (A,B,C,D) existing behavior preserved
  *
@@ -296,9 +296,9 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
     expect(await dataRowCount(page)).toBe(2);
   });
 
-  // Case 4 — Two incompatible scalar chips must return zero (regression exposed).
-  // Under current OR code: returns Gold ∪ Silver = 4 items. Expected after fix: 0.
-  test("Case 4 — metal:Gold + metal:Silver returns zero items (AND of disjoint scalars)", async ({
+  // Case 4 — STAK-551: Scalar multi-select fields use OR, not AND.
+  // Metal is scalar — an item has one metal. Silver + Gold = show items of either metal.
+  test("Case 4 — metal:Gold + metal:Silver returns all items (OR of scalar multi-select)", async ({
     page,
   }) => {
     await page.evaluate(() => {
@@ -306,11 +306,8 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       window.applyQuickFilter("metal", "Silver");
     });
 
-    const uuids = await filteredUuids(page);
-    expect(uuids).toEqual([]);
-
-    // Empty result renders the empty-state row; no data rows.
-    expect(await dataRowCount(page)).toBe(0);
+    // All 5 seed items are either Gold or Silver — OR returns all of them.
+    expect(await dataRowCount(page)).toBe(5);
   });
 
   // Case 5 — Removing a chip broadens back.
@@ -372,5 +369,463 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
     expect(uuids).toHaveLength(4);
 
     expect(await dataRowCount(page)).toBe(4);
+  });
+
+  // =========================================================================
+  // STAK-551 — filter chip predicate refactor
+  // Cases 8-14 target OR-within-field for scalars, customGroup / groupedName
+  // predicate-time expansion, and chipMinCount threshold enforcement.
+  // =========================================================================
+
+  // Case 8 — Metal multi-select OR: Silver + Gold should return items of BOTH metals.
+  // Under current AND logic this returns 0 (no item is both Silver AND Gold).
+  // After refactor, metal becomes OR-within-field → Silver ∪ Gold = all 5 items.
+  test("Case 8 — metal:Silver + metal:Gold returns items of both metals (OR within field)", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      window.applyQuickFilter("metal", "Silver");
+      window.applyQuickFilter("metal", "Gold");
+    });
+
+    const uuids = await filteredUuids(page);
+    // Should include Silver items (A,B,C,E) and Gold item (D)
+    expect(uuids.length).toBeGreaterThan(0);
+    const metals = await page.evaluate(() => {
+      return window.filterInventoryAdvanced().map((item) => item.metal);
+    });
+    expect(metals).toContain("Silver");
+    expect(metals).toContain("Gold");
+  });
+
+  // Case 9 — Tags AND preserved: items must carry ALL selected tags.
+  // Item F has ["Red","Green"], Item G has ["Red"] only.
+  // tags:Red + tags:Green → only F survives (AND within tags is preserved).
+  test("Case 9 — tags AND is preserved: two tag chips intersect correctly", async ({ page }) => {
+    const extraItems = [
+      {
+        uuid: "stak551-item-f-red-green",
+        metal: "Silver",
+        composition: "Silver",
+        name: "STAK551 Red Green Item",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        price: 30,
+        marketValue: 0,
+        date: "2025-02-01",
+        purchaseLocation: "staktrakr.com",
+        storageLocation: "",
+        serialNumber: "",
+        notes: "",
+        year: "2025",
+        grade: "",
+        gradingAuthority: "",
+        certNumber: "",
+        pcgsNumber: "",
+        pcgsVerified: false,
+        spotPriceAtPurchase: 28,
+        premiumPerOz: 0,
+        totalPremium: 0,
+        purity: 0.999,
+        numistaId: "",
+        serial: 201,
+      },
+      {
+        uuid: "stak551-item-g-red-only",
+        metal: "Silver",
+        composition: "Silver",
+        name: "STAK551 Red Only Item",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        price: 30,
+        marketValue: 0,
+        date: "2025-02-02",
+        purchaseLocation: "staktrakr.com",
+        storageLocation: "",
+        serialNumber: "",
+        notes: "",
+        year: "2025",
+        grade: "",
+        gradingAuthority: "",
+        certNumber: "",
+        pcgsNumber: "",
+        pcgsVerified: false,
+        spotPriceAtPurchase: 28,
+        premiumPerOz: 0,
+        totalPremium: 0,
+        purity: 0.999,
+        numistaId: "",
+        serial: 202,
+      },
+    ];
+    const extraTags = {
+      "stak551-item-f-red-green": ["Red", "Green"],
+      "stak551-item-g-red-only": ["Red"],
+    };
+
+    // addInitScript runs in registration order — this appends after the beforeEach seed
+    await page.addInitScript(
+      ({ extras, eTags }) => {
+        const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+        inv.push(...extras);
+        localStorage.setItem("metalInventory", JSON.stringify(inv));
+        const tags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+        Object.assign(tags, eTags);
+        localStorage.setItem("itemTags", JSON.stringify(tags));
+      },
+      { extras: extraItems, eTags: extraTags }
+    );
+    await page.reload();
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventoryAdvanced === "function" &&
+        typeof window.applyQuickFilter === "function" &&
+        typeof window.clearAllFilters === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length >= 7;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      window.applyQuickFilter("tags", "Red");
+      window.applyQuickFilter("tags", "Green");
+    });
+
+    const uuids = await filteredUuids(page);
+    expect(new Set(uuids)).toEqual(new Set(["stak551-item-f-red-green"]));
+    expect(uuids).toHaveLength(1);
+  });
+
+  // Case 10 — customGroup + metal intersection.
+  // Set up a custom group "Allegories" matching pattern "Allegory".
+  // Apply metal:Gold + customGroup:Allegories → Item D (Gold Allegory) should survive.
+  // Currently broken: customGroup expands into activeFilters["name"] with multiple values,
+  // and AND on names means an item must match ALL names — always 0.
+  test("Case 10 — customGroup + metal intersection returns matching items", async ({ page }) => {
+    // Inject a custom group into localStorage
+    await page.evaluate(() => {
+      const groups = [
+        {
+          id: "cg_test_allegory",
+          label: "Allegories",
+          patterns: ["Allegory"],
+          enabled: true,
+        },
+      ];
+      localStorage.setItem("chipCustomGroups", JSON.stringify(groups));
+    });
+    await page.reload();
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventoryAdvanced === "function" &&
+        typeof window.applyQuickFilter === "function" &&
+        typeof window.clearAllFilters === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length >= 5;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      window.applyQuickFilter("metal", "Gold");
+      window.applyQuickFilter("customGroup", "cg_test_allegory");
+    });
+
+    const uuids = await filteredUuids(page);
+    // Gold + Allegory pattern → only item D (Gold Allegory)
+    expect(uuids.length).toBeGreaterThan(0);
+    expect(uuids).toContain(FIXTURE_UUIDS.D);
+  });
+
+  // Case 11 — groupedName + metal.
+  // Seed items: two "American Silver Eagle" variants (different years).
+  // Apply metal:Silver + grouped name chip "American Silver Eagle".
+  // Currently broken: grouped name expands into activeFilters["name"] with multiple
+  // specific names, and AND within the name field returns 0.
+  test("Case 11 — groupedName + metal returns items matching grouped base name", async ({
+    page,
+  }) => {
+    // Inject ASE items with different years via addInitScript (runs after beforeEach seed)
+    const aseItems = [
+      {
+        uuid: "stak551-ase-1999",
+        metal: "Silver",
+        composition: "Silver",
+        name: "1999 American Silver Eagle",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        price: 25,
+        marketValue: 0,
+        date: "2025-03-01",
+        purchaseLocation: "tulsacoins.com",
+        storageLocation: "",
+        serialNumber: "",
+        notes: "",
+        year: "1999",
+        grade: "",
+        gradingAuthority: "",
+        certNumber: "",
+        pcgsNumber: "",
+        pcgsVerified: false,
+        spotPriceAtPurchase: 20,
+        premiumPerOz: 0,
+        totalPremium: 0,
+        purity: 0.999,
+        numistaId: "",
+        serial: 301,
+      },
+      {
+        uuid: "stak551-ase-2024",
+        metal: "Silver",
+        composition: "Silver",
+        name: "2024 American Silver Eagle",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        price: 35,
+        marketValue: 0,
+        date: "2025-03-02",
+        purchaseLocation: "apmex.com",
+        storageLocation: "",
+        serialNumber: "",
+        notes: "",
+        year: "2024",
+        grade: "",
+        gradingAuthority: "",
+        certNumber: "",
+        pcgsNumber: "",
+        pcgsVerified: false,
+        spotPriceAtPurchase: 28,
+        premiumPerOz: 0,
+        totalPremium: 0,
+        purity: 0.999,
+        numistaId: "",
+        serial: 302,
+      },
+    ];
+    await page.addInitScript(
+      ({ extras }) => {
+        const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+        inv.push(...extras);
+        localStorage.setItem("metalInventory", JSON.stringify(inv));
+      },
+      { extras: aseItems }
+    );
+    await page.reload();
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventoryAdvanced === "function" &&
+        typeof window.applyQuickFilter === "function" &&
+        typeof window.clearAllFilters === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length >= 7;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      window.applyQuickFilter("metal", "Silver");
+      // isGrouped=true triggers the GROUPED_NAME_CHIPS code path
+      window.applyQuickFilter("name", "American Silver Eagle", true);
+    });
+
+    const uuids = await filteredUuids(page);
+    // Should include both ASE variants (and only them, intersected with Silver)
+    expect(uuids.length).toBeGreaterThan(0);
+    expect(uuids).toContain("stak551-ase-1999");
+    expect(uuids).toContain("stak551-ase-2024");
+  });
+
+  // Case 12 — Exclude customGroup: items matching the group pattern should be hidden.
+  test("Case 12 — exclude customGroup hides items matching group patterns", async ({ page }) => {
+    // Inject a custom group matching "Allegory"
+    await page.evaluate(() => {
+      const groups = [
+        {
+          id: "cg_test_allegory",
+          label: "Allegories",
+          patterns: ["Allegory"],
+          enabled: true,
+        },
+      ];
+      localStorage.setItem("chipCustomGroups", JSON.stringify(groups));
+    });
+    await page.reload();
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventoryAdvanced === "function" &&
+        typeof window.applyQuickFilter === "function" &&
+        typeof window.clearAllFilters === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length >= 5;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      // Exclude the custom group — 4th arg = true for exclude
+      window.applyQuickFilter("customGroup", "cg_test_allegory", false, true);
+    });
+
+    const uuids = await filteredUuids(page);
+    // Allegory items: A, B, D, E → excluded. Only C (Silver Cat) remains.
+    expect(uuids).not.toContain(FIXTURE_UUIDS.A);
+    expect(uuids).not.toContain(FIXTURE_UUIDS.B);
+    expect(uuids).not.toContain(FIXTURE_UUIDS.D);
+    expect(uuids).not.toContain(FIXTURE_UUIDS.E);
+    expect(uuids).toContain(FIXTURE_UUIDS.C);
+    expect(uuids).toHaveLength(1);
+  });
+
+  // Case 13 — Chip threshold honored: chipMinCount=2 means no chip should show count < 2.
+  // Verifies the fix: minCount no longer drops to 1 when active filters are present.
+  test("Case 13 — chipMinCount threshold is honored in rendered chip badges", async ({ page }) => {
+    // Set chipMinCount to 2 (fits the small seed fixture) and reload.
+    await page.evaluate(() => {
+      localStorage.setItem("chipMinCount", "2");
+    });
+    await page.reload();
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventoryAdvanced === "function" &&
+        typeof window.applyQuickFilter === "function" &&
+        typeof window.clearAllFilters === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length >= 5;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    // Apply Silver chip to trigger filter + chip re-render
+    await page.evaluate(() => window.applyQuickFilter("metal", "Silver"));
+
+    // Enable CHIP_QTY_BADGE so counts render in chip text
+    await page.evaluate(() => {
+      const flags = JSON.parse(localStorage.getItem("featureFlags") || "{}");
+      flags.CHIP_QTY_BADGE = true;
+      localStorage.setItem("featureFlags", JSON.stringify(flags));
+      if (window.featureFlags && typeof window.featureFlags.enable === "function") {
+        window.featureFlags.enable("CHIP_QTY_BADGE");
+      }
+    });
+    // Re-render chips
+    await page.evaluate(() => {
+      if (typeof window.renderActiveFilters === "function") window.renderActiveFilters();
+      if (typeof window.renderTable === "function") window.renderTable();
+    });
+
+    // Get all chip elements from the filter bar (category summary chips with counts)
+    const chipCounts = await page.evaluate(() => {
+      const chips = document.querySelectorAll(".filter-chip, .chip");
+      const counts = [];
+      chips.forEach((chip) => {
+        const text = chip.textContent || "";
+        const match = text.match(/\((\d+)\)/);
+        if (match) {
+          counts.push(parseInt(match[1], 10));
+        }
+      });
+      return counts;
+    });
+
+    // Guard: at least one chip with a count badge must be visible for this test to be meaningful
+    expect(chipCounts.length).toBeGreaterThan(0);
+
+    // All visible chips with count badges should respect the minCount=2 threshold
+    // (no chip with count < 2 should appear — the old bug showed count=1 chips)
+    for (const count of chipCounts) {
+      expect(count).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  // Case 14 — Reference Fixture A: precise multi-field intersection.
+  // Silver + Coin + vendor "tulsacoins.com" + year "1999" + name "1 Dollar American Silver Eagle (Bullion Coin)"
+  // → exactly 1 item.
+  test("Case 14 — Reference Fixture A: precise multi-field filter narrows to exactly 1 item", async ({
+    page,
+  }) => {
+    // Inject a specific item via addInitScript (runs after beforeEach seed)
+    const fixtureAItem = {
+      uuid: "stak551-fixture-a",
+      metal: "Silver",
+      composition: "Silver",
+      name: "1 Dollar American Silver Eagle (Bullion Coin)",
+      qty: 1,
+      type: "Coin",
+      weight: 1,
+      price: 22,
+      marketValue: 0,
+      date: "1999-06-15",
+      purchaseLocation: "tulsacoins.com",
+      storageLocation: "",
+      serialNumber: "",
+      notes: "",
+      year: "1999",
+      grade: "",
+      gradingAuthority: "",
+      certNumber: "",
+      pcgsNumber: "",
+      pcgsVerified: false,
+      spotPriceAtPurchase: 5.2,
+      premiumPerOz: 0,
+      totalPremium: 0,
+      purity: 0.999,
+      numistaId: "",
+      serial: 401,
+    };
+    await page.addInitScript(
+      ({ extra }) => {
+        const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+        inv.push(extra);
+        localStorage.setItem("metalInventory", JSON.stringify(inv));
+      },
+      { extra: fixtureAItem }
+    );
+    await page.reload();
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventoryAdvanced === "function" &&
+        typeof window.applyQuickFilter === "function" &&
+        typeof window.clearAllFilters === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length >= 6;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      window.applyQuickFilter("metal", "Silver");
+      window.applyQuickFilter("type", "Coin");
+      window.applyQuickFilter("purchaseLocation", "tulsacoins.com");
+      window.applyQuickFilter("year", "1999");
+      window.applyQuickFilter("name", "1 Dollar American Silver Eagle (Bullion Coin)");
+    });
+
+    const uuids = await filteredUuids(page);
+    expect(uuids).toEqual(["stak551-fixture-a"]);
+    expect(uuids).toHaveLength(1);
+    expect(await dataRowCount(page)).toBe(1);
   });
 });

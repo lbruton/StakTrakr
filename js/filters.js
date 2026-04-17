@@ -131,17 +131,7 @@ const generateCategorySummary = (inventory) => {
     minCount = parseInt(localStorage.getItem("chipMinCount") || "3", 10);
   }
 
-  // When the user has active filters or a search query, drop minCount to 1
-  // for descriptive categories (metal, type, year, grade, location, groups)
-  // so the filtered subset's attributes are always visible.
-  // Name chips keep the user's threshold (min 2) to avoid flooding the chip
-  // bar with every unique item name in the filtered set.
-  const hasActiveFilters = Object.keys(activeFilters).length > 0;
-  const hasSearchQuery = typeof searchQuery === "string" && searchQuery.trim().length > 0;
   const nameMinCount = Math.max(2, minCount);
-  if (hasActiveFilters || hasSearchQuery) {
-    minCount = 1;
-  }
 
   const metals = {};
   const types = {};
@@ -242,8 +232,7 @@ const generateCategorySummary = (inventory) => {
   }
 
   // Apply minCount threshold to all categories
-  // Metals always show (max 5 values, primary categorization) — threshold 1
-  const filteredMetals = applyMinCountThreshold(metals, 1);
+  const filteredMetals = applyMinCountThreshold(metals, minCount);
   const filteredTypes = applyMinCountThreshold(types, minCount);
   const filteredPurchaseLocations = applyMinCountThreshold(purchaseLocations, minCount);
   const filteredStorageLocations = applyMinCountThreshold(storageLocations, minCount);
@@ -555,17 +544,20 @@ const renderActiveFilters = () => {
     let isActiveFilter = false;
     if (f.count !== undefined && f.total !== undefined) {
       // Summary chip — active only if its value is in activeFilters
-      const criteria = activeFilters[f.field];
-      if (criteria && Array.isArray(criteria.values) && !criteria.exclude) {
-        if (f.field === "customGroup") {
-          // customGroup expands to name values — active if any non-excluded name filter exists
-          const nc = activeFilters["name"];
-          isActiveFilter = !!(nc && !nc.exclude && nc.values && nc.values.length > 0);
-        } else if (f.field === "dynamicName") {
-          // dynamicName expands to name values — same check
-          const nc = activeFilters["name"];
-          isActiveFilter = !!(nc && !nc.exclude && nc.values && nc.values.length > 0);
-        } else {
+      // STAK-551: expansion chips store their own activeFilters entries,
+      // so check those directly before falling through to the generic check.
+      if (f.field === "customGroup") {
+        const cg = activeFilters["customGroup"];
+        isActiveFilter = !!(cg && !cg.exclude && cg.values && cg.values.includes(f.value));
+      } else if (f.field === "dynamicName") {
+        const dn = activeFilters["dynamicName"];
+        isActiveFilter = !!(dn && !dn.exclude && dn.values && dn.values.includes(f.value));
+      } else if (f.field === "name" && f.isGrouped) {
+        const gn = activeFilters["groupedName"];
+        isActiveFilter = !!(gn && !gn.exclude && gn.values && gn.values.includes(f.value));
+      } else {
+        const criteria = activeFilters[f.field];
+        if (criteria && Array.isArray(criteria.values) && !criteria.exclude) {
           isActiveFilter = criteria.values.includes(f.value);
         }
       }
@@ -916,16 +908,16 @@ const filterInventoryAdvanced = () => {
     if (criteria && typeof criteria === "object" && Array.isArray(criteria.values)) {
       const { values, exclude } = criteria;
       switch (field) {
-        // STAK-546: Include mode uses `every` (AND — item must match all selected values);
-        // exclude mode uses `!some` (hide if item matches ANY selected value, preserving the
-        // pre-STAK-546 exclude semantics). Computing both allows one return site per case.
+        // STAK-551: Scalar fields use OR (item matches if it equals ANY selected value).
+        // Tags use AND (item must carry ALL selected tags). Expansion chips
+        // (customGroup, dynamicName, groupedName) resolve at predicate time with OR.
+        // Exclude mode always uses !some (hide if item matches ANY value).
         case "name": {
           const simplifiedValues = values.map((v) => simplifyChipValue(v, field));
           result = result.filter((item) => {
             const itemName = simplifyChipValue(item.name || "", field);
-            const matchAll = simplifiedValues.every((v) => v === itemName);
-            const matchAny = simplifiedValues.some((v) => v === itemName);
-            return exclude ? !matchAny : matchAll;
+            const match = simplifiedValues.includes(itemName);
+            return exclude ? !match : match;
           });
           break;
         }
@@ -935,35 +927,31 @@ const filterInventoryAdvanced = () => {
             const itemMetal = getCompositionFirstWords(
               item.composition || item.metal || ""
             ).toLowerCase();
-            const matchAll = lowerVals.every((v) => v === itemMetal);
-            const matchAny = lowerVals.some((v) => v === itemMetal);
-            return exclude ? !matchAny : matchAll;
+            const match = lowerVals.includes(itemMetal);
+            return exclude ? !match : match;
           });
           break;
         }
         case "type":
           result = result.filter((item) => {
-            const matchAll = values.every((v) => v === item.type);
-            const matchAny = values.some((v) => v === item.type);
-            return exclude ? !matchAny : matchAll;
+            const match = values.includes(item.type);
+            return exclude ? !match : match;
           });
           break;
         case "purchaseLocation":
           result = result.filter((item) => {
             const loc = item.purchaseLocation;
             const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
-            const matchAll = values.every((v) => v === normalized);
-            const matchAny = values.some((v) => v === normalized);
-            return exclude ? !matchAny : matchAll;
+            const match = values.includes(normalized);
+            return exclude ? !match : match;
           });
           break;
         case "storageLocation":
           result = result.filter((item) => {
             const loc = item.storageLocation;
             const normalized = !loc || loc === "Unknown" || loc === "Numista Import" ? "—" : loc;
-            const matchAll = values.every((v) => v === normalized);
-            const matchAny = values.some((v) => v === normalized);
-            return exclude ? !matchAny : matchAll;
+            const match = values.includes(normalized);
+            return exclude ? !match : match;
           });
           break;
         case "tags": {
@@ -982,13 +970,67 @@ const filterInventoryAdvanced = () => {
           }
           break;
         }
+        case "customGroup": {
+          const groups =
+            typeof window.loadCustomGroups === "function" ? window.loadCustomGroups() : [];
+          // Skip filter if none of the selected groupIds resolve to valid groups
+          const resolvedGroups = values
+            .map((id) => groups.find((g) => g.id === id))
+            .filter(Boolean);
+          if (resolvedGroups.length === 0) break;
+          // Precompile regex matchers once per filter pass (not per item)
+          const groupMatchers = resolvedGroups.map((group) => {
+            const patterns = Array.isArray(group.patterns) ? group.patterns : [];
+            return patterns.map((p) => {
+              try {
+                // nosemgrep: javascript.dos.rule-non-literal-regexp
+                const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                return new RegExp("\\b" + escaped + "\\b", "i");
+              } catch (e) {
+                return String(p).toLowerCase();
+              }
+            });
+          });
+          result = result.filter((item) => {
+            const itemName = (item.name || "").toLowerCase();
+            const matchAny = groupMatchers.some((matchers) =>
+              matchers.some((m) => (m instanceof RegExp ? m.test(itemName) : itemName.includes(m)))
+            );
+            return exclude ? !matchAny : matchAny;
+          });
+          break;
+        }
+        case "dynamicName": {
+          result = result.filter((item) => {
+            const name = item.name || "";
+            const matchAny = values.some(
+              (key) => name.includes("(" + key + ")") || name.includes('"' + key + '"')
+            );
+            return exclude ? !matchAny : matchAny;
+          });
+          break;
+        }
+        case "groupedName": {
+          result = result.filter((item) => {
+            const matchAny = values.some((base) => {
+              if (
+                window.autocomplete &&
+                typeof window.autocomplete.normalizeItemName === "function"
+              ) {
+                return window.autocomplete.normalizeItemName(item.name || "") === base;
+              }
+              return (item.name || "") === base;
+            });
+            return exclude ? !matchAny : matchAny;
+          });
+          break;
+        }
         default: {
           const lowerVals = values.map((v) => String(v).toLowerCase());
           result = result.filter((item) => {
             const fieldVal = String(item[field] ?? "").toLowerCase();
-            const matchAll = lowerVals.every((v) => v === fieldVal);
-            const matchAny = lowerVals.some((v) => v === fieldVal);
-            return exclude ? !matchAny : matchAll;
+            const match = lowerVals.includes(fieldVal);
+            return exclude ? !match : match;
           });
           break;
         }
@@ -1263,78 +1305,47 @@ const filterInventoryAdvanced = () => {
  * @param {boolean} [exclude=false] - Whether to apply the filter in exclusion mode
  */
 const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
-  // Fields that support OR-logic multi-select (filter engine already handles these natively)
-  const isMultiSelect = field === "tags" || field === "metal" || field === "type";
+  // Fields that accumulate values on repeated clicks (multi-select).
+  // metal/type: OR in predicate (scalar — item has one value, show any match).
+  // tags: AND in predicate (array — item has many, must match all selected).
+  const isAccumulate = field === "tags" || field === "metal" || field === "type";
 
-  // Handle custom group chip click
+  // Handle custom group chip click — store the group ID; predicate expands at filter time
   if (field === "customGroup") {
-    const groups = typeof window.loadCustomGroups === "function" ? window.loadCustomGroups() : [];
-    const group = groups.find((g) => g.id === value);
-    if (group) {
-      const matchingNames = [];
-      inventory.forEach((item) => {
-        const itemName = (item.name || "").toLowerCase();
-        if (
-          group.patterns.some((p) => {
-            try {
-              // nosemgrep: javascript.dos.rule-non-literal-regexp
-              return new RegExp("\\b" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(
-                itemName
-              );
-            } catch (e) {
-              return itemName.includes(p.toLowerCase());
-            }
-          })
-        ) {
-          matchingNames.push(item.name);
-        }
-      });
-      const uniqueNames = [...new Set(matchingNames)];
+    // Toggle behavior: if same custom group filter is active, remove it
+    const cg = activeFilters["customGroup"];
+    const isCurrentlyActive = !!(
+      cg &&
+      cg.values &&
+      cg.values.includes(value) &&
+      cg.exclude === exclude
+    );
 
-      // Toggle behavior: if same custom group filter is active, remove it
-      const currentValues = activeFilters["name"]?.values || [];
-      const currentExclude = !!activeFilters["name"]?.exclude;
-      const isCurrentlyActive =
-        uniqueNames.length > 0 &&
-        uniqueNames.every((n) => currentValues.includes(n)) &&
-        currentValues.length === uniqueNames.length &&
-        currentExclude === exclude;
-
-      if (isCurrentlyActive) {
-        delete activeFilters["name"];
-      } else if (uniqueNames.length > 0) {
-        activeFilters["name"] = { values: uniqueNames, exclude };
-      }
+    if (isCurrentlyActive) {
+      delete activeFilters["customGroup"];
+    } else {
+      activeFilters["customGroup"] = { values: [value], exclude };
     }
     renderTable();
     renderActiveFilters();
     return;
   }
 
-  // Handle dynamic name chip click
+  // Handle dynamic name chip click — store the key; predicate expands at filter time
   if (field === "dynamicName") {
-    const matchingNames = [];
-    inventory.forEach((item) => {
-      const name = item.name || "";
-      if (name.includes("(" + value + ")") || name.includes('"' + value + '"')) {
-        matchingNames.push(name);
-      }
-    });
-    const uniqueNames = [...new Set(matchingNames)];
-
     // Toggle behavior
-    const currentValues = activeFilters["name"]?.values || [];
-    const currentExclude = !!activeFilters["name"]?.exclude;
-    const isCurrentlyActive =
-      uniqueNames.length > 0 &&
-      uniqueNames.every((n) => currentValues.includes(n)) &&
-      currentValues.length === uniqueNames.length &&
-      currentExclude === exclude;
+    const dn = activeFilters["dynamicName"];
+    const isCurrentlyActive = !!(
+      dn &&
+      dn.values &&
+      dn.values.includes(value) &&
+      dn.exclude === exclude
+    );
 
     if (isCurrentlyActive) {
-      delete activeFilters["name"];
-    } else if (uniqueNames.length > 0) {
-      activeFilters["name"] = { values: uniqueNames, exclude };
+      delete activeFilters["dynamicName"];
+    } else {
+      activeFilters["dynamicName"] = { values: [value], exclude };
     }
     renderTable();
     renderActiveFilters();
@@ -1343,7 +1354,7 @@ const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
 
   // If this exact filter is already active, remove it (toggle behavior — single-select fields only)
   if (
-    !isMultiSelect &&
+    !isAccumulate &&
     activeFilters[field]?.values?.[0] === value &&
     activeFilters[field]?.exclude === exclude &&
     !isGrouped
@@ -1355,44 +1366,21 @@ const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
     window.featureFlags &&
     window.featureFlags.isEnabled("GROUPED_NAME_CHIPS")
   ) {
-    // Handle grouped name filtering
-    if (window.autocomplete && window.autocomplete.normalizeItemName) {
-      // Find all item names that normalize to this base name
-      const matchingNames = [];
-      inventory.forEach((item) => {
-        if (item.name) {
-          const baseName = window.autocomplete.normalizeItemName(item.name);
-          if (baseName === value) {
-            matchingNames.push(item.name);
-          }
-        }
-      });
+    // Handle grouped name filtering — store the base name; predicate expands at filter time
+    const gn = activeFilters["groupedName"];
+    const isCurrentlyActive = !!(
+      gn &&
+      gn.values &&
+      gn.values.includes(value) &&
+      gn.exclude === exclude
+    );
 
-      // Remove duplicates
-      const uniqueNames = [...new Set(matchingNames)];
-
-      if (uniqueNames.length > 0) {
-        // Check if this grouped filter is already active
-        const currentValues = activeFilters[field]?.values || [];
-        const currentExclude = !!activeFilters[field]?.exclude;
-        const isCurrentlyActive =
-          uniqueNames.every((name) => currentValues.includes(name)) &&
-          currentValues.length === uniqueNames.length &&
-          currentExclude === exclude;
-
-        if (isCurrentlyActive) {
-          // Toggle off - remove the filter
-          delete activeFilters[field];
-        } else {
-          // Apply the grouped filter
-          activeFilters[field] = { values: uniqueNames, exclude };
-        }
-      }
+    if (isCurrentlyActive) {
+      delete activeFilters["groupedName"];
     } else {
-      // Fallback to regular filtering if normalization is not available
-      activeFilters[field] = { values: [value], exclude };
+      activeFilters["groupedName"] = { values: [value], exclude };
     }
-  } else if (isMultiSelect && activeFilters[field] && activeFilters[field].exclude === exclude) {
+  } else if (isAccumulate && activeFilters[field] && activeFilters[field].exclude === exclude) {
     // Accumulate: toggle individual values in/out of the active set
     const existing = activeFilters[field].values;
     const idx = existing.indexOf(value);
