@@ -978,17 +978,23 @@ const filterInventoryAdvanced = () => {
             .map((id) => groups.find((g) => g.id === id))
             .filter(Boolean);
           if (resolvedGroups.length === 0) break;
+          // Precompile regex matchers once per filter pass (not per item)
+          const groupMatchers = resolvedGroups.map((group) => {
+            const patterns = Array.isArray(group.patterns) ? group.patterns : [];
+            return patterns.map((p) => {
+              try {
+                // nosemgrep: javascript.dos.rule-non-literal-regexp
+                const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                return new RegExp("\\b" + escaped + "\\b", "i");
+              } catch (e) {
+                return String(p).toLowerCase();
+              }
+            });
+          });
           result = result.filter((item) => {
             const itemName = (item.name || "").toLowerCase();
-            const matchAny = resolvedGroups.some((group) =>
-              group.patterns.some((p) => {
-                try {
-                  const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                  return new RegExp("\\b" + escaped + "\\b", "i").test(itemName);
-                } catch (e) {
-                  return itemName.includes(String(p).toLowerCase());
-                }
-              })
+            const matchAny = groupMatchers.some((matchers) =>
+              matchers.some((m) => (m instanceof RegExp ? m.test(itemName) : itemName.includes(m)))
             );
             return exclude ? !matchAny : matchAny;
           });
@@ -1299,7 +1305,9 @@ const filterInventoryAdvanced = () => {
  * @param {boolean} [exclude=false] - Whether to apply the filter in exclusion mode
  */
 const applyQuickFilter = (field, value, isGrouped = false, exclude = false) => {
-  // Fields that support OR-logic accumulation (filter engine already handles these natively)
+  // Fields that accumulate values on repeated clicks (multi-select).
+  // metal/type: OR in predicate (scalar — item has one value, show any match).
+  // tags: AND in predicate (array — item has many, must match all selected).
   const isAccumulate = field === "tags" || field === "metal" || field === "type";
 
   // Handle custom group chip click — store the group ID; predicate expands at filter time

@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — STAK-551: Fix filter chip predicate logic
 
-- **Fixed**: Scalar fields (metal, type) use OR within-field — Silver+Gold shows both metals (STAK-551)
+- **Fixed**: Scalar fields (metal, type, name, purchaseLocation, storageLocation) use OR within-field — Silver+Gold shows both metals (STAK-551)
 - **Fixed**: Expansion chips (customGroup, dynamicName, groupedName) store single constraints and expand at predicate time — Florida chip no longer returns zero results (STAK-551)
 - **Fixed**: Chip threshold honored when filters active — no more minCount=1 override flooding chip bar (STAK-551)
 - **Changed**: `isMultiSelect` renamed to `isAccumulate` for clarity (STAK-551)

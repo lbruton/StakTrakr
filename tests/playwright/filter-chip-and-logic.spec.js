@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Playwright regression spec for STAK-546 — filter chip AND/OR predicate.
+ * Playwright regression spec for filter chip predicate logic (STAK-546, STAK-551).
  *
- * Locks the AND-within-field contract for `filterInventoryAdvanced()` so the
- * bug (OR within a field) cannot silently regress.
+ * Locks the field-aware filter contract: scalar fields (metal, type) use OR
+ * within-field, tags use AND, expansion chips expand at predicate time.
  *
  *   Case 1 — Single `tags:Allegory` chip           → 4 Allegory items (A,B,D,E)
  *   Case 2 — `tags:Allegory` + `tags:Cat`          → 1 item with BOTH (A)          MUST FAIL today (OR)
@@ -306,8 +306,8 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       window.applyQuickFilter("metal", "Silver");
     });
 
-    // All 5 items are either Gold or Silver — OR returns all of them.
-    expect(await dataRowCount(page)).toBeGreaterThan(0);
+    // All 5 seed items are either Gold or Silver — OR returns all of them.
+    expect(await dataRowCount(page)).toBe(5);
   });
 
   // Case 5 — Removing a chip broadens back.
@@ -372,9 +372,9 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
   });
 
   // =========================================================================
-  // STAK-551 — filter chip predicate refactor (TDD red phase)
-  // Cases 8-14 target the new OR-within-field / customGroup / groupedName /
-  // chipMinCount behaviors. Expected to FAIL until Task 7 lands the impl.
+  // STAK-551 — filter chip predicate refactor
+  // Cases 8-14 target OR-within-field for scalars, customGroup / groupedName
+  // predicate-time expansion, and chipMinCount threshold enforcement.
   // =========================================================================
 
   // Case 8 — Metal multi-select OR: Silver + Gold should return items of BOTH metals.
@@ -699,7 +699,7 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
     // Set chipMinCount to 5 before page load via addInitScript won't work after beforeEach,
     // so we set it and reload.
     await page.evaluate(() => {
-      localStorage.setItem("chipMinCount", "5");
+      localStorage.setItem("chipMinCount", "2");
     });
     await page.reload();
     await page.waitForFunction(
@@ -748,10 +748,13 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       return counts;
     });
 
-    // All visible chips with count badges should respect the minCount=5 threshold
-    // (no chip should show a count below 5 in its badge)
+    // Guard: at least one chip with a count badge must be visible for this test to be meaningful
+    expect(chipCounts.length).toBeGreaterThan(0);
+
+    // All visible chips with count badges should respect the minCount=2 threshold
+    // (no chip with count < 2 should appear — the old bug showed count=1 chips)
     for (const count of chipCounts) {
-      expect(count).toBeGreaterThanOrEqual(5);
+      expect(count).toBeGreaterThanOrEqual(2);
     }
   });
 
