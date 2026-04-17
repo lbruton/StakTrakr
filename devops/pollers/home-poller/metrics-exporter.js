@@ -40,7 +40,12 @@ function getSqldClient() {
   const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
   const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
   if (!url) return null;
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  try {
+    return createClient({ url, ...(authToken ? { authToken } : {}) });
+  } catch (err) {
+    console.error("[metrics] getSqldClient failed:", err?.message || err);
+    return null;
+  }
 }
 
 // ── System collectors ────────────────────────────────────────────────────────
