@@ -33,6 +33,9 @@
     root = document.createElement("div");
     root.id = "appDialogModal";
     root.className = "modal";
+    root.setAttribute("role", "dialog");
+    root.setAttribute("aria-modal", "true");
+    root.setAttribute("aria-labelledby", "appDialogTitle");
     root.style.display = "none";
     root.style.zIndex = "10060";
     root.innerHTML = `
@@ -90,6 +93,7 @@
     }
 
     const cleanup = () => {
+      if (typeof window.releaseFocus === "function") window.releaseFocus(modal);
       modal.style.display = "none";
       closeBtn.onclick = null;
       cancelBtn.onclick = null;
@@ -126,6 +130,7 @@
     document.addEventListener("keydown", onKeyDown);
 
     modal.style.display = "flex";
+    if (typeof window.trapFocus === "function") window.trapFocus(modal);
     if (mode === "prompt") inputEl.focus();
     else okBtn.focus();
   };

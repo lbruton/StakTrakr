@@ -1367,6 +1367,10 @@ input[type="submit"] {
   padding: 0.1rem 0.25rem;
   outline: none;
 }
+.spot-inline-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 
 /* Hide number spinners on inline input */
 .spot-inline-input::-webkit-outer-spin-button,
@@ -5053,6 +5057,10 @@ td.editing .inline-input:focus {
   outline: none;
   background: var(--bg-primary);
   border-radius: var(--radius);
+}
+td.editing .inline-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 
 td.editing .save-inline,
@@ -13992,9 +14000,23 @@ th {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker-track {
-    animation: none;
-    transform: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Preserve repeating animations for active-operation indicators at reduced speed */
+  .spot-sync-icon.syncing svg,
+  .cloud-sync-dot--syncing,
+  .pcgs-verify-btn.pcgs-verifying {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
   }
 }
 
