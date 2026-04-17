@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# StakTrakr CodeRabbit config.
+# Derived from Devops/.coderabbit.base.yaml with StakTrakr-specific overrides.
+# (CodeRabbit has no "extends" directive — this file is self-contained.)
+# - vanilla JS (no bundler) conventions in js/
+# - data/, vendor/, sw.js excluded from review (auto-generated or snapshot data)
+# - chore files (DESIGN.md, preview.html) excluded (known false-positive source)
+#
+# Profile: assertive (solo-dev; nitpicks welcome)
+# Docs: https://docs.coderabbit.ai/reference/configuration
+
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "assertive"
+
+  # PR summary features
+  high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: false
+
+  # Workflow
+  request_changes_workflow: false
+  abort_on_close: true
+
+  # Auto-review settings
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+    base_branches: []
+
+  # Path filters — exclude noise (global + StakTrakr-specific)
+  path_filters:
+    # Global
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/.claude/**"
+    - "!**/.gemini/**"
+    - "!**/.agents/**"
+    - "!**/.spec-workflow/**"
+    - "!**/.codacy/**"
+    - "!**/.github/**"
+    - "!**/vendor/**"
+    - "!**/deprecated/**"
+    - "!**/*.min.js"
+    - "!**/*.min.css"
+    - "!**/package-lock.json"
+    - "!**/pnpm-lock.yaml"
+    - "!**/yarn.lock"
+    - "!**/screenshots/**"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.svg"
+    # StakTrakr-specific
+    - "!data/**"           # API snapshot bundles, excluded from prettier
+    - "!sw.js"             # auto-stamped by pre-commit hook
+    - "!preview.html"      # chore preview page
+    - "!DESIGN.md"         # chore/design notes
+    - "!devops/version.lock"  # gitignored coordination file
+
+  # Path-specific review instructions
+  path_instructions:
+    - path: "js/**/*.js"
+      instructions: |
+        - This is vanilla JS with NO bundler. Module-scope functions are not
+          accessible from tests unless explicitly assigned to `window.X = X` in
+          the exports block at the bottom of the file.
+        - Prefer existing helpers: `safeGetElement` (DOM), `saveData` /
+          `loadData` (localStorage), `sanitizeHtml` (output).
+        - Only storage keys in `ALLOWED_STORAGE_KEYS` in constants.js are
+          permitted. A `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard is
+          defensive coding, NOT a bug — do not flag it as fail-open.
+        - New JS files must be registered in both `sw.js` cache list and
+          `index.html` script load order.
+    - path: "css/**/*.css"
+      instructions: |
+        - Respect component scoping; global selectors can leak into
+          component-scoped DOM and are a common root cause of UI bugs.
+    - path: "devops/pollers/**/Dockerfile*"
+      instructions: |
+        - Check for pinned base image versions (no `:latest` tags).
+        - Verify multi-stage builds where appropriate.
+        - Flag any secrets or credentials in build args.
+    - path: "devops/pollers/home-poller/docker-entrypoint.sh"
+      instructions: |
+        - This file is the AUTHORITATIVE source of truth for poller cron
+          schedules. If DocVault docs disagree, the entrypoint wins.
+    - path: "tests/**"
+      instructions: |
+        - Verify meaningful assertions (not just "it runs without error").
+        - For Playwright tests on vanilla JS: internal state must be injected
+          via `localStorage` (`page.addInitScript`), not by patching
+          `window.X` post-load.
+    - path: "**/*.py"
+      instructions: |
+        - Check for proper exception handling (no bare `except`).
+        - Verify type hints on public function signatures.
+    - path: "**/*.sql"
+      instructions: |
+        - Check for SQL injection risks in dynamic queries.
+        - Verify migrations are reversible where possible.
+
+  # Finishing touches
+  finishing_touches:
+    docstrings:
+      enabled: false
+    autofix:
+      enabled: true
+
+  # Static analysis tools
+  tools:
+    eslint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    ast-grep:
+      enabled: true
+
+# Knowledge base — learn from feedback over time
+knowledge_base:
+  learnings:
+    enabled: true
+
+# Chat — allow @coderabbitai interactions in PR comments
+chat:
+  auto_reply: true
