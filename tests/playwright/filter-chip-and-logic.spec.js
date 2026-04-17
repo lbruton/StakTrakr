@@ -693,11 +693,10 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
     expect(uuids).toHaveLength(1);
   });
 
-  // Case 13 — Chip threshold honored: chipMinCount=5 means no chip should show count < 5.
-  // Currently broken — minCount drops to 1 when active filters are present.
+  // Case 13 — Chip threshold honored: chipMinCount=2 means no chip should show count < 2.
+  // Verifies the fix: minCount no longer drops to 1 when active filters are present.
   test("Case 13 — chipMinCount threshold is honored in rendered chip badges", async ({ page }) => {
-    // Set chipMinCount to 5 before page load via addInitScript won't work after beforeEach,
-    // so we set it and reload.
+    // Set chipMinCount to 2 (fits the small seed fixture) and reload.
     await page.evaluate(() => {
       localStorage.setItem("chipMinCount", "2");
     });
