@@ -66,7 +66,10 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 
 // ---------------------------------------------------------------------------
 // sqld client
-// ---------------------------------------------------------------------------
+/**
+ * Create a libsql client using SQLD_URL/SQLD_AUTH_TOKEN when present, otherwise TURSO_DATABASE_URL/TURSO_AUTH_TOKEN.
+ * @returns {object|null} A libsql client connected to the configured SQL endpoint, or `null` if no connection URL is set.
+ */
 
 function getSqldClient() {
   const useSqld = Boolean(process.env.SQLD_URL);
@@ -2609,6 +2612,30 @@ async function getFailureCount(client) {
   }
 }
 
+/**
+ * Route incoming HTTP requests for the dashboard and send the corresponding HTTP responses.
+ *
+ * Handles provider management, diagnostics, retries, exports, health and failures endpoints,
+ * and renders the main dashboard HTML. It sets permissive iframe/CORS headers and ends the
+ * response for each supported route.
+ *
+ * Supported routes include:
+ * - GET /providers, GET /providers/coin-data
+ * - POST /providers/coin, DELETE /providers/coin
+ * - POST /providers/vendor, DELETE /providers/vendor
+ * - POST /providers/update-url, POST /providers/toggle
+ * - POST /providers/vendor-fields, POST /providers/bulk-toggle
+ * - POST /providers/bulk-delete, GET /providers/vendor-summary
+ * - POST /providers/export
+ * - GET /api-health, GET /failures
+ * - POST /api/diagnose, POST /api/browserbase
+ * - POST /api/retry
+ * - POST /api/clear-chronic, POST /api/clear-chronic-all
+ * - POST /api/clear-lock
+ *
+ * All request handling uses the provided Node.js `req` and `res` objects and writes JSON
+ * or HTML responses as appropriate.
+ */
 async function handleRequest(req, res) {
   // Allow iframe embedding from spec-workflow dashboard
   res.setHeader("Access-Control-Allow-Origin", "*");

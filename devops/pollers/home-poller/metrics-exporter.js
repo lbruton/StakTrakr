@@ -31,6 +31,13 @@ const IFACE = process.env.NET_IFACE || "ens18";
   }
 })();
 
+/**
+ * Create a @libsql/client configured from environment variables.
+ *
+ * When `process.env.SQLD_URL` is present it is used (with `SQLD_AUTH_TOKEN` if set); otherwise
+ * `TURSO_DATABASE_URL` is used (with `TURSO_AUTH_TOKEN` if set).
+ * @returns {import('@libsql/client').Client|null} A configured libsql client, or `null` if no database URL is available.
+ */
 function getSqldClient() {
   const useSqld = Boolean(process.env.SQLD_URL);
   const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;

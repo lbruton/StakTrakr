@@ -28,10 +28,14 @@
 import { createClient } from "@libsql/client";
 
 /**
- * Create and return a sqld client connection.
- * Requires SQLD_URL (or legacy TURSO_DATABASE_URL). Auth token is optional.
+ * Create a libSQL client configured from environment variables.
  *
- * @returns {import("@libsql/client").Client}
+ * Chooses the URL/token family based on whether `process.env.SQLD_URL` is set:
+ * uses `SQLD_URL` with optional `SQLD_AUTH_TOKEN` when present, otherwise falls back to
+ * legacy `TURSO_DATABASE_URL` with optional `TURSO_AUTH_TOKEN`.
+ *
+ * @returns {import("@libsql/client").Client} A configured libSQL client instance.
+ * @throws {Error} If neither `SQLD_URL` nor `TURSO_DATABASE_URL` is set.
  */
 export function createSqldClient() {
   const useSqld = Boolean(process.env.SQLD_URL);
