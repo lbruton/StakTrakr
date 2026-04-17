@@ -112,6 +112,7 @@ async function showViewModal(index) {
 
   modal.style.display = "flex";
   document.body.style.overflow = "hidden";
+  if (typeof window.trapFocus === "function") window.trapFocus(modal);
 
   // Load images from stored URLs / user uploads only — no API fallback.
   // STAK-489: Stored URLs are the single source of truth for images everywhere.
@@ -146,7 +147,10 @@ async function showViewModal(index) {
  */
 function closeViewModal() {
   const modal = document.getElementById("viewItemModal");
-  if (modal) modal.style.display = "none";
+  if (modal) {
+    if (typeof window.releaseFocus === "function") window.releaseFocus(modal);
+    modal.style.display = "none";
+  }
   document.body.style.overflow = "";
 
   // Destroy price history chart to free canvas resources

@@ -1607,7 +1607,10 @@ const openStorageReportPopup = async () => {
 const closeModalById = (id) => {
   try {
     const modal = document.getElementById(id);
-    if (modal) modal.style.display = "none";
+    if (modal) {
+      releaseFocus(modal);
+      modal.style.display = "none";
+    }
   } catch (e) {
     /* ignore */
   }
@@ -1615,6 +1618,68 @@ const closeModalById = (id) => {
     if (document && document.body) document.body.style.overflow = "";
   } catch (e) {}
 };
+// ---------------------------------------------------------------------------
+// Focus trap — confines Tab/Shift+Tab within the topmost open modal
+// ---------------------------------------------------------------------------
+const _FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Stack of { modal, previousFocus, handler } for nested modals */
+const _focusTrapStack = [];
+
+/**
+ * Activate a focus trap on a modal element.
+ * @param {HTMLElement} modal
+ */
+const trapFocus = (modal) => {
+  const previousFocus = document.activeElement;
+
+  const handler = (e) => {
+    if (e.key !== "Tab") return;
+    const focusable = Array.from(modal.querySelectorAll(_FOCUSABLE_SELECTOR)).filter(
+      (el) => el.offsetParent !== null
+    );
+    if (focusable.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+
+  modal.addEventListener("keydown", handler);
+  _focusTrapStack.push({ modal, previousFocus, handler });
+};
+
+/**
+ * Release the focus trap on a modal and restore previous focus.
+ * @param {HTMLElement} modal
+ */
+const releaseFocus = (modal) => {
+  const idx = _focusTrapStack.findIndex((entry) => entry.modal === modal);
+  if (idx === -1) return;
+  const entry = _focusTrapStack.splice(idx, 1)[0];
+  modal.removeEventListener("keydown", entry.handler);
+  if (entry.previousFocus && entry.previousFocus.focus) {
+    try {
+      entry.previousFocus.focus();
+    } catch (e) {
+      /* element may have been removed */
+    }
+  }
+};
+
 /**
  * Opens a modal by id and sets body overflow to hidden.
  * Also initializes a click-outside-to-close handler once.
@@ -1637,11 +1702,11 @@ const openModalById = (id) => {
     try {
       if (document && document.body) document.body.style.overflow = "hidden";
     } catch (e) {}
+    // activate focus trap
+    trapFocus(modal);
     // focus first focusable element for a11y
     try {
-      const focusable = modal.querySelector(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
+      const focusable = modal.querySelector(_FOCUSABLE_SELECTOR);
       if (focusable && focusable.focus) focusable.focus();
     } catch (e) {}
   } catch (e) {
@@ -3203,6 +3268,8 @@ if (typeof window !== "undefined") {
     }, duration);
   };
 
+  window.trapFocus = trapFocus;
+  window.releaseFocus = releaseFocus;
   window.cleanupStorage = cleanupStorage;
   window.closeModalById = closeModalById;
   window.openModalById = openModalById;

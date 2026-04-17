@@ -1367,6 +1367,10 @@ input[type="submit"] {
   padding: 0.1rem 0.25rem;
   outline: none;
 }
+.spot-inline-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 
 /* Hide number spinners on inline input */
 .spot-inline-input::-webkit-outer-spin-button,
@@ -5053,6 +5057,10 @@ td.editing .inline-input:focus {
   outline: none;
   background: var(--bg-primary);
   border-radius: var(--radius);
+}
+td.editing .inline-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 
 td.editing .save-inline,
@@ -13992,9 +14000,13 @@ th {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker-track {
-    animation: none;
-    transform: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
