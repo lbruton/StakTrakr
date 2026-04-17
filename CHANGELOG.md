@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.07] - 2026-04-17
+
+### Fixed — STAK-517: Invalidate market filter cache after vault restore
+
+- **Fixed**: Market filter matrix now reflects restored settings immediately after vault restore or cloud sync pull — no page reload required (STAK-517)
+- **Fixed**: `restoreVaultData()` now calls `_invalidateMarketFilterCache()` to clear stale in-memory cache after writing `staktrakr.market_filter` to localStorage (STAK-517)
+
+---
+
 ## [3.34.06] - 2026-04-17
 
 ### Fixed — STAK-551: Fix filter chip predicate logic
