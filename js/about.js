@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.07 &ndash; STAK-517: Invalidate Market Filter Cache After Restore</strong>: Market filter matrix now reflects restored settings immediately after vault restore or cloud sync pull &mdash; no page reload required.</li>
     <li><strong>v3.34.06 &ndash; STAK-551: Fix Filter Chip Predicate Logic</strong>: Scalar fields (metal, type) now use OR within-field (Silver+Gold shows both). Tags keep AND (Red+Green = items with both). Expansion chips (customGroup, dynamicName, groupedName) store single constraints and expand at predicate time. Chip threshold honored when filters active.</li>
     <li><strong>v3.34.05 &ndash; STAK-546: Restore AND Semantics to Filter Chips</strong>: Selecting multiple filter chips now narrows results (AND) instead of expanding them (OR). Within a field and across fields, every selected chip adds a constraint &mdash; matching the expected drill-down behavior.</li>
     <li><strong>v3.34.04 &ndash; STAK-549: Fix Cloud Sync Header Button Silent Failure</strong>: Header cloud sync button no longer shows a false &quot;Synced&quot; toast when vault password is not cached. Password prompt appears correctly; cancel shows error toast instead of false success.</li>
