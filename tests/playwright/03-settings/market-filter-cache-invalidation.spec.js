@@ -1,18 +1,24 @@
 /**
  * STAK-517 — Market filter cache invalidation after vault restore
  *
- * TDD test: verifies that after restoreVaultData writes a new value for
+ * Verifies that after restoreVaultData writes a new value for
  * `staktrakr.market_filter` to localStorage, the in-memory cache
  * `_marketFilterCache` in retail.js is invalidated so that subsequent calls to
  * `_loadMarketFilter()` return the new value rather than stale cached state.
  *
- * NOTE: `restoreVaultData` is an internal function in vault.js and is NOT
- * exposed on `window`. The test therefore simulates its localStorage write
- * directly (the same operation restoreVaultData performs), then asserts that
- * `_invalidateMarketFilterCache` was called — a contract that Task 2 will
- * satisfy by calling the invalidator inside `restoreVaultData`.
+ * This test verifies observable behavior (cache reflects restored value) rather
+ * than implementation detail (spy on _invalidateMarketFilterCache), because
+ * _invalidateMarketFilterCache is a lexical const binding in retail.js — not a
+ * window property — so vault.js calls the original function directly regardless
+ * of any window.* patching.
  *
- * This test MUST FAIL before Task 2 is implemented.
+ * BEFORE Task 2: restoreVaultData does NOT call _invalidateMarketFilterCache,
+ * so _marketFilterCache stays stale and _loadMarketFilter() returns the old
+ * cached value → test FAILS.
+ *
+ * AFTER Task 2: restoreVaultData calls _invalidateMarketFilterCache() which
+ * sets _marketFilterCache = null, so _loadMarketFilter() reads fresh from
+ * localStorage and returns the restored value → test PASSES.
  *
  * Slug choice: "ase" (American Silver Eagle 1 oz) is a hardcoded manifest slug
  * with known resolved metadata (name≠slug, metal="silver"), so it survives the
@@ -30,15 +36,6 @@ const INITIAL_FILTER = { [TEST_SLUG]: { vendorA: false } };
 const UPDATED_FILTER = { [TEST_SLUG]: { vendorA: true } };
 
 test.describe("STAK-517 — Market filter cache invalidation after vault restore", () => {
-  test.afterEach(async ({ page }) => {
-    await page.evaluate(() => {
-      if (typeof window.__orig_invalidateMarketFilterCache === "function") {
-        window._invalidateMarketFilterCache = window.__orig_invalidateMarketFilterCache;
-        delete window.__orig_invalidateMarketFilterCache;
-      }
-    });
-  });
-
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
 
@@ -52,15 +49,16 @@ test.describe("STAK-517 — Market filter cache invalidation after vault restore
     );
 
     await page.goto("/index.html");
-    // Wait for retail.js to finish loading and expose its window functions.
+    // Wait for retail.js and vault.js to expose their window functions.
     await page.waitForFunction(
       () =>
         typeof window._loadMarketFilter === "function" &&
-        typeof window._invalidateMarketFilterCache === "function"
+        typeof window._invalidateMarketFilterCache === "function" &&
+        typeof window.restoreVaultData === "function"
     );
   });
 
-  test("_invalidateMarketFilterCache is called and cache reflects new value after vault restore writes new market filter", async ({
+  test("cache reflects restored market filter value after restoreVaultData without page reload", async ({
     page,
   }) => {
     // Step 1: Prime the in-memory cache by calling _loadMarketFilter().
@@ -70,51 +68,28 @@ test.describe("STAK-517 — Market filter cache invalidation after vault restore
       if (filter == null) return null;
       return Object.prototype.hasOwnProperty.call(filter, slug) ? filter[slug] : undefined;
     }, TEST_SLUG);
-    // The "ase" entry must exist with vendorA: false
     expect(cachedBefore).not.toBeNull();
     expect(cachedBefore).not.toBeUndefined();
     expect(cachedBefore).toEqual({ vendorA: false });
 
-    // Step 2: Install a spy on _invalidateMarketFilterCache BEFORE the restore.
-    // Store the original on window so afterEach can restore it and prevent
-    // test pollution.
-    await page.evaluate(() => {
-      window.__spy_invalidate_called = false;
-      window.__orig_invalidateMarketFilterCache = window._invalidateMarketFilterCache;
-      window._invalidateMarketFilterCache = function () {
-        window.__spy_invalidate_called = true;
-        if (typeof window.__orig_invalidateMarketFilterCache === "function") {
-          window.__orig_invalidateMarketFilterCache();
-        }
-      };
-    });
-
-    // Step 3: Simulate what restoreVaultData does — write the new market filter
-    // value directly to localStorage (restoreVaultData is not exposed on window).
-    // Task 2 will make restoreVaultData call _invalidateMarketFilterCache after
-    // this write; until then the spy will NOT be triggered.
+    // Step 2: Call restoreVaultData with a minimal payload containing the
+    // updated market filter value. This writes the new value to localStorage
+    // and — after Task 2 — calls _invalidateMarketFilterCache() to clear the cache.
     await page.evaluate(
-      ({ key, value }) => {
-        localStorage.setItem(key, JSON.stringify(value));
-      },
+      ({ key, value }) => window.restoreVaultData({ data: { [key]: JSON.stringify(value) } }),
       { key: MARKET_FILTER_KEY, value: UPDATED_FILTER }
     );
 
-    // Step 4: Assert the spy was called at least once.
-    // FAILS before Task 2 — nothing invokes _invalidateMarketFilterCache after
-    // a raw localStorage write.
-    const spyCalled = await page.evaluate(() => window.__spy_invalidate_called);
-    expect(spyCalled).toBe(true);
-
-    // Step 5: Assert that _loadMarketFilter() now returns the UPDATED value.
-    // FAILS before Task 2 — the stale cache still holds INITIAL_FILTER.
-    const cachedAfterEntry = await page.evaluate((slug) => {
+    // Step 3: Assert that _loadMarketFilter() now returns the UPDATED value.
+    // FAILS before Task 2: stale cache still holds INITIAL_FILTER.
+    // PASSES after Task 2: cache cleared, fresh read from localStorage.
+    const cachedAfter = await page.evaluate((slug) => {
       const filter = window._loadMarketFilter();
       if (filter == null) return null;
       return Object.prototype.hasOwnProperty.call(filter, slug) ? filter[slug] : undefined;
     }, TEST_SLUG);
-    expect(cachedAfterEntry).not.toBeNull();
-    expect(cachedAfterEntry).not.toBeUndefined();
-    expect(cachedAfterEntry).toEqual({ vendorA: true });
+    expect(cachedAfter).not.toBeNull();
+    expect(cachedAfter).not.toBeUndefined();
+    expect(cachedAfter).toEqual({ vendorA: true });
   });
 });

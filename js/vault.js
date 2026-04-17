@@ -1684,6 +1684,7 @@ window.vaultDecryptAndRestore = vaultDecryptAndRestore;
 window.vaultRestoreWithPreview = vaultRestoreWithPreview;
 window.vaultDecryptToData = vaultDecryptToData;
 window.collectVaultData = collectVaultData;
+window.restoreVaultData = restoreVaultData;
 window.collectAndHashImageVault = collectAndHashImageVault;
 window.vaultEncryptImageVault = vaultEncryptImageVault;
 window.vaultDecryptAndRestoreImages = vaultDecryptAndRestoreImages;
