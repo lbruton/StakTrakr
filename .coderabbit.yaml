@@ -1,7 +1,8 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 #
 # StakTrakr CodeRabbit config.
-# Extends the base at Devops/.coderabbit.base.yaml with repo-specific overrides:
+# Derived from Devops/.coderabbit.base.yaml with StakTrakr-specific overrides.
+# (CodeRabbit has no "extends" directive — this file is self-contained.)
 # - vanilla JS (no bundler) conventions in js/
 # - data/, vendor/, sw.js excluded from review (auto-generated or snapshot data)
 # - chore files (DESIGN.md, preview.html) excluded (known false-positive source)
@@ -74,7 +75,7 @@ reviews:
           the exports block at the bottom of the file.
         - Prefer existing helpers: `safeGetElement` (DOM), `saveData` /
           `loadData` (localStorage), `sanitizeHtml` (output).
-        - Only storage keys in `ALLOWED_STORAGE_KEYS` (constants.js:871) are
+        - Only storage keys in `ALLOWED_STORAGE_KEYS` in constants.js are
           permitted. A `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard is
           defensive coding, NOT a bug — do not flag it as fail-open.
         - New JS files must be registered in both `sw.js` cache list and
@@ -126,7 +127,7 @@ reviews:
       enabled: true
     yamllint:
       enabled: true
-    opengrep:
+    ast-grep:
       enabled: true
 
 # Knowledge base — learn from feedback over time
