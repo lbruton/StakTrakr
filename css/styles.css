@@ -14005,8 +14005,17 @@ th {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Preserve repeating animations for active-operation indicators */
+  .spot-sync-icon.syncing svg,
+  .cloud-sync-dot--syncing,
+  .pcgs-verify-btn.pcgs-verifying {
+    animation-iteration-count: infinite !important;
   }
 }
 

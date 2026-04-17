@@ -1622,7 +1622,7 @@ const closeModalById = (id) => {
 // Focus trap — confines Tab/Shift+Tab within the topmost open modal
 // ---------------------------------------------------------------------------
 const _FOCUSABLE_SELECTOR =
-  'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
 
 /** Stack of { modal, previousFocus, handler } for nested modals */
 const _focusTrapStack = [];
@@ -1632,12 +1632,19 @@ const _focusTrapStack = [];
  * @param {HTMLElement} modal
  */
 const trapFocus = (modal) => {
+  // Idempotency: remove stale entry for this modal before re-registering
+  const existingIdx = _focusTrapStack.findIndex((entry) => entry.modal === modal);
+  if (existingIdx !== -1) {
+    const stale = _focusTrapStack.splice(existingIdx, 1)[0];
+    modal.removeEventListener("keydown", stale.handler);
+  }
+
   const previousFocus = document.activeElement;
 
   const handler = (e) => {
     if (e.key !== "Tab") return;
     const focusable = Array.from(modal.querySelectorAll(_FOCUSABLE_SELECTOR)).filter(
-      (el) => el.offsetParent !== null
+      (el) => el.offsetWidth > 0 || el.offsetHeight > 0
     );
     if (focusable.length === 0) {
       e.preventDefault();

@@ -113,6 +113,10 @@ async function showViewModal(index) {
   modal.style.display = "flex";
   document.body.style.overflow = "hidden";
   if (typeof window.trapFocus === "function") window.trapFocus(modal);
+  const firstFocusable = modal.querySelector(
+    'button:not([disabled]), [tabindex]:not([tabindex="-1"]), input:not([disabled])'
+  );
+  if (firstFocusable) firstFocusable.focus();
 
   // Load images from stored URLs / user uploads only — no API fallback.
   // STAK-489: Stored URLs are the single source of truth for images everywhere.
