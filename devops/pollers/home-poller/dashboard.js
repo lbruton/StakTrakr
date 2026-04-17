@@ -3413,7 +3413,13 @@ async function handleRequest(req, res) {
             const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
             const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
             if (!url) { console.error('SQLD_URL (or legacy TURSO_DATABASE_URL) must be set'); process.exit(1); }
-            const client = createClient({ url, ...(authToken ? { authToken } : {}) });
+            let client;
+            try {
+              client = createClient({ url, ...(authToken ? { authToken } : {}) });
+            } catch (err) {
+              console.error('retry-script createClient failed:', err?.message || err);
+              process.exit(1);
+            }
             const { getProvidersByCoin } = await import('./provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
             const vid = process.env.RETRY_VENDOR_ID;
