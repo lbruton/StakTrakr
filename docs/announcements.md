@@ -1,5 +1,6 @@
 ## What's New
 
+- **STAK-548 Hotfix: Home Poller Container Crash (v3.34.09)**: Reverted a late shared-helper refactor that broke the home poller's dashboard + metrics containers (ERR_MODULE_NOT_FOUND due to Dockerfile flattening `shared/*.js` into `/app/`). Internal infrastructure fix, no user-facing behavior change.
 - **STAK-548: Rename `TURSO_DATABASE_URL` → `SQLD_URL` in poller code (v3.34.08)**: Local sqld connections now read `SQLD_URL` / `SQLD_AUTH_TOKEN`. `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` remain supported as a legacy alias so existing deployments keep working through rollout, and can also point at Turso Cloud for self-hosters who prefer that setup. No user-facing behavior change.
 - **STAK-517: Invalidate market filter cache after vault restore (v3.34.07)**: Market filter matrix now reflects restored settings immediately after vault restore or cloud sync pull — no page reload required.
 - **STAK-551: Fix filter chip predicate logic (v3.34.06)**: Scalar fields (metal, type, name, location) now use OR within-field — Silver+Gold shows both. Tags keep AND. Expansion chips (customGroup, dynamicName, groupedName) expand at predicate time. Chip threshold honored when filters active.

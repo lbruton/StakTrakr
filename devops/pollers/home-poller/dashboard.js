@@ -17,7 +17,6 @@ import { createServer as createHttpsServer } from "node:https";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync, spawn } from "node:child_process";
 import { createClient } from "@libsql/client";
-import { createSqldClient as createSharedSqldClient } from "../shared/sqld-client.js";
 import {
   initProviderSchema,
   getProviders,
@@ -73,9 +72,14 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
  */
 
 function getSqldClient() {
+  const useSqld = Boolean(process.env.SQLD_URL);
+  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
+  if (!url) return null;
   try {
-    return createSharedSqldClient();
-  } catch {
+    return createClient({ url, ...(authToken ? { authToken } : {}) });
+  } catch (err) {
+    console.error("[dashboard] getSqldClient failed:", err?.message || err);
     return null;
   }
 }
@@ -3403,10 +3407,20 @@ async function handleRequest(req, res) {
         // Trigger immediate single-item scrape via child process
         // Pass user input via env vars — never interpolate into shell strings
         const script = `
-          import('./shared/price-extract.js').then(async m => {
-            const { createSqldClient } = await import('./shared/sqld-client.js');
-            const client = createSqldClient();
-            const { getProvidersByCoin } = await import('./shared/provider-db.js');
+          import('./price-extract.js').then(async m => {
+            const { createClient } = await import('@libsql/client');
+            const useSqld = Boolean(process.env.SQLD_URL);
+            const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+            const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
+            if (!url) { console.error('SQLD_URL (or legacy TURSO_DATABASE_URL) must be set'); process.exit(1); }
+            let client;
+            try {
+              client = createClient({ url, ...(authToken ? { authToken } : {}) });
+            } catch (err) {
+              console.error('retry-script createClient failed:', err?.message || err);
+              process.exit(1);
+            }
+            const { getProvidersByCoin } = await import('./provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
             const vid = process.env.RETRY_VENDOR_ID;
             const vendors = await getProvidersByCoin(client, slug);

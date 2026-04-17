@@ -15,7 +15,7 @@
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { createSqldClient as createSharedSqldClient } from "../shared/sqld-client.js";
+import { createClient } from "@libsql/client";
 
 const PORT = parseInt(process.env.METRICS_PORT || "9100", 10);
 const IFACE = process.env.NET_IFACE || "ens18";
@@ -36,9 +36,14 @@ const IFACE = process.env.NET_IFACE || "ens18";
  * @returns {import('@libsql/client').Client|null}
  */
 function getSqldClient() {
+  const useSqld = Boolean(process.env.SQLD_URL);
+  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
+  if (!url) return null;
   try {
-    return createSharedSqldClient();
-  } catch {
+    return createClient({ url, ...(authToken ? { authToken } : {}) });
+  } catch (err) {
+    console.error("[metrics] getSqldClient failed:", err?.message || err);
     return null;
   }
 }

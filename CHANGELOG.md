@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.09] - 2026-04-17
+
+### Fixed — STAK-548 hotfix: revert shared-sqld-client refactor in home-poller
+
+- **Fixed**: `dashboard.js` and `metrics-exporter.js` reverted to inline env-selection for sqld client creation. The `../shared/sqld-client.js` import failed at runtime because the home-poller Dockerfile flattens `shared/*.js` into `/app/` alongside the home-poller JS, so the relative `../shared/` path resolved outside `/app/` and hit `ERR_MODULE_NOT_FOUND` on container start. Containers were entering FATAL state after the v3.34.08 deploy.
+- **Kept**: `shared/sqld-client.js` continues to serve `spot-extract.js` and `migrate-providers.js`, which live in `shared/` and import it as `./sqld-client.js` — that path works in both source tree and the flattened container layout.
+
+---
+
 ## [3.34.08] - 2026-04-17
 
 ### Changed — STAK-548: Rename `TURSO_DATABASE_URL` → `SQLD_URL` in poller code
