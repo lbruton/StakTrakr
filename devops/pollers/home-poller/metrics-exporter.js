@@ -32,8 +32,9 @@ const IFACE = process.env.NET_IFACE || "ens18";
 })();
 
 function getSqldClient() {
-  const url = process.env.SQLD_URL || process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
+  const useSqld = Boolean(process.env.SQLD_URL);
+  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
   if (!url) return null;
   return createClient({ url, ...(authToken ? { authToken } : {}) });
 }

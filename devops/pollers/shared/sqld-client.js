@@ -5,30 +5,38 @@
  * Connects to self-hosted sqld (libSQL server) via @libsql/client.
  * Auth token is optional — local sqld runs without auth by default.
  *
- * Env vars (primary DB — choose one):
- *   SQLD_URL            — local self-hosted sqld (Option A, default)
- *   SQLD_AUTH_TOKEN     — optional auth token (empty when sqld has no auth)
+ * Primary DB env vars — set ONE family. Source-coupled: the selected URL
+ * determines which token family is read, so SQLD_URL is never paired with
+ * TURSO_AUTH_TOKEN or vice versa.
  *
- *   TURSO_DATABASE_URL  — Turso Cloud as primary (Option B, self-hosters
- *                         without a sqld container). Read only when SQLD_URL
- *                         is unset.
- *   TURSO_AUTH_TOKEN    — Turso Cloud auth token
+ *   SQLD_URL / SQLD_AUTH_TOKEN
+ *     Preferred. Points at local self-hosted sqld, or (for self-hosters
+ *     who want it) directly at a Turso Cloud database. Also doubles as a
+ *     drop-in replacement for the legacy TURSO_DATABASE_URL value — if
+ *     you set SQLD_URL to what used to live in TURSO_DATABASE_URL, the
+ *     code works identically.
  *
- * TURSO_BACKUP_URL / TURSO_BACKUP_TOKEN are a separate concern — they always
- * point at the Turso Cloud DR target used by nightly turso-backup-sync.js.
+ *   TURSO_DATABASE_URL / TURSO_AUTH_TOKEN
+ *     Legacy alias, read only when SQLD_URL is unset. Kept so existing
+ *     Portainer/Fly stacks keep working through STAK-548 rollout without
+ *     requiring an Infisical change. New deploys should use SQLD_URL.
+ *
+ * TURSO_BACKUP_URL / TURSO_BACKUP_TOKEN are unrelated — they always point
+ * at the Turso Cloud DR target used by nightly turso-backup-sync.js.
  */
 
 import { createClient } from "@libsql/client";
 
 /**
  * Create and return a sqld client connection.
- * Requires SQLD_URL (legacy: TURSO_DATABASE_URL) env var. Auth token is optional.
+ * Requires SQLD_URL (or legacy TURSO_DATABASE_URL). Auth token is optional.
  *
  * @returns {import("@libsql/client").Client}
  */
 export function createSqldClient() {
-  const url = process.env.SQLD_URL || process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
+  const useSqld = Boolean(process.env.SQLD_URL);
+  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
 
   if (!url) {
     throw new Error("SQLD_URL (or legacy TURSO_DATABASE_URL) must be set");

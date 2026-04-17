@@ -69,8 +69,9 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 // ---------------------------------------------------------------------------
 
 function getSqldClient() {
-  const url = process.env.SQLD_URL || process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
+  const useSqld = Boolean(process.env.SQLD_URL);
+  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
   if (!url) return null;
   return createClient({ url, ...(authToken ? { authToken } : {}) });
 }
@@ -3376,8 +3377,9 @@ async function handleRequest(req, res) {
         const script = `
           import('./shared/price-extract.js').then(async m => {
             const { createClient } = await import('@libsql/client');
-            const url = process.env.SQLD_URL || process.env.TURSO_DATABASE_URL;
-            const authToken = process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
+            const useSqld = Boolean(process.env.SQLD_URL);
+            const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+            const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
             const client = createClient({ url, ...(authToken ? { authToken } : {}) });
             const { getProvidersByCoin } = await import('./shared/provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
