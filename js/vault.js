@@ -395,6 +395,8 @@ async function restoreVaultData(payload) {
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof loadSpotHistory === "function") loadSpotHistory();
     if (typeof fetchSpotPrice === "function") fetchSpotPrice();
+    if (typeof _invalidateMarketFilterCache === "function") _invalidateMarketFilterCache();
+    if (typeof renderMarketFilterMatrix === "function") renderMarketFilterMatrix();
   } catch (e) {
     debugLog("Vault: UI refresh error", e);
   }
