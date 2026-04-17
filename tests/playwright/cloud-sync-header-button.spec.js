@@ -72,6 +72,18 @@ async function collectToasts(page, durationMs = 4000) {
   }, durationMs);
 }
 
+/**
+ * Assert that no false "Synced" / "Sync complete" toast appeared in the collected list.
+ * A false success is any terminal toast that fires when sync should have been aborted.
+ * @param {string[]} toasts
+ */
+function assertNoFalseSuccessToast(toasts) {
+  const falseSuccess = toasts.filter(
+    (t) => /synced|sync complete/i.test(t) && !/syncing/i.test(t)
+  );
+  expect(falseSuccess).toHaveLength(0);
+}
+
 test.describe("STAK-549 — Header cloud sync button silent failure", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
@@ -106,10 +118,7 @@ test.describe("STAK-549 — Header cloud sync button silent failure", () => {
     // BUG ASSERTION: No false "Synced" / "Sync complete" toast should appear
     // after the password modal was dismissed without entering a password.
     // Before the fix, the .then() fires unconditionally showing a success toast.
-    const falseSuccess = toasts.filter(
-      (t) => /synced|sync complete/i.test(t) && !/syncing/i.test(t)
-    );
-    expect(falseSuccess).toHaveLength(0);
+    assertNoFalseSuccessToast(toasts);
   });
 
   test("shows error toast when password modal cancelled", async ({ page }) => {
@@ -143,10 +152,7 @@ test.describe("STAK-549 — Header cloud sync button silent failure", () => {
 
     // BUG ASSERTION 2: Should NOT see any false success toast after cancel.
     // Before the fix, events.js .then() fires and shows "Synced" / "Sync complete".
-    const falseSuccess = toasts.filter(
-      (t) => /synced|sync complete/i.test(t) && !/syncing/i.test(t)
-    );
-    expect(falseSuccess).toHaveLength(0);
+    assertNoFalseSuccessToast(toasts);
   });
 
   test("shows synced toast when password is cached (regression guard)", async ({ page }) => {

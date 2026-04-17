@@ -611,7 +611,7 @@ const renderActiveFilters = () => {
     if (f.field === "name" || f.field === "dynamicName") {
       chip.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        const chipName = f.field === "dynamicName" ? f.value : f.value;
+        const chipName = f.value;
         if (typeof window.showChipContextMenu === "function") {
           window.showChipContextMenu(e.clientX, e.clientY, chipName);
         }
@@ -675,8 +675,8 @@ const renderActiveFilters = () => {
       if (typeof renderTable === "function") renderTable();
       renderActiveFilters();
     };
-    close.onclick = (e) => {
-      e.stopPropagation();
+    // Shared action for both click and keyboard activation of the close glyph
+    const _handleChipClose = () => {
       if (f.field === "disposed-mode") {
         _resetDisposedFilter();
       } else if (isActiveFilter) {
@@ -696,26 +696,15 @@ const renderActiveFilters = () => {
         renderActiveFilters();
       }
     };
+    close.onclick = (e) => {
+      e.stopPropagation();
+      _handleChipClose();
+    };
     close.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         e.stopPropagation();
-        if (f.field === "disposed-mode") {
-          _resetDisposedFilter();
-        } else if (isActiveFilter) {
-          removeFilter(f.field, f.value);
-          renderActiveFilters();
-        } else if (f.count !== undefined && f.total !== undefined && f.field !== "search") {
-          applyQuickFilter(
-            f.field,
-            f.value,
-            f.isGrouped || f.isCustomGroup || f.isDynamic || false,
-            true
-          );
-        } else {
-          removeFilter(f.field, f.value);
-          renderActiveFilters();
-        }
+        _handleChipClose();
       }
     };
 

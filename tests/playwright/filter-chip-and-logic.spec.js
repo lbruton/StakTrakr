@@ -203,6 +203,30 @@ async function clearChips(page) {
   });
 }
 
+/**
+ * Wait for the filter functions to be available and the inventory to have at
+ * least `minCount` items loaded.  Use after `page.reload()` in tests that
+ * inject extra data before reloading.
+ */
+async function waitForInventoryReady(page, minCount = 5) {
+  await page.waitForFunction(
+    () =>
+      typeof window.filterInventoryAdvanced === "function" &&
+      typeof window.applyQuickFilter === "function" &&
+      typeof window.clearAllFilters === "function"
+  );
+  await page.waitForFunction(
+    (n) => {
+      try {
+        return window.filterInventoryAdvanced().length >= n;
+      } catch (e) {
+        return false;
+      }
+    },
+    minCount
+  );
+}
+
 test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(
@@ -478,19 +502,7 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       { extras: extraItems, eTags: extraTags }
     );
     await page.reload();
-    await page.waitForFunction(
-      () =>
-        typeof window.filterInventoryAdvanced === "function" &&
-        typeof window.applyQuickFilter === "function" &&
-        typeof window.clearAllFilters === "function"
-    );
-    await page.waitForFunction(() => {
-      try {
-        return window.filterInventoryAdvanced().length >= 7;
-      } catch (e) {
-        return false;
-      }
-    });
+    await waitForInventoryReady(page, 7);
 
     await page.evaluate(() => {
       window.applyQuickFilter("tags", "Red");
@@ -521,19 +533,7 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       localStorage.setItem("chipCustomGroups", JSON.stringify(groups));
     });
     await page.reload();
-    await page.waitForFunction(
-      () =>
-        typeof window.filterInventoryAdvanced === "function" &&
-        typeof window.applyQuickFilter === "function" &&
-        typeof window.clearAllFilters === "function"
-    );
-    await page.waitForFunction(() => {
-      try {
-        return window.filterInventoryAdvanced().length >= 5;
-      } catch (e) {
-        return false;
-      }
-    });
+    await waitForInventoryReady(page);
 
     await page.evaluate(() => {
       window.applyQuickFilter("metal", "Gold");
@@ -622,19 +622,7 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       { extras: aseItems }
     );
     await page.reload();
-    await page.waitForFunction(
-      () =>
-        typeof window.filterInventoryAdvanced === "function" &&
-        typeof window.applyQuickFilter === "function" &&
-        typeof window.clearAllFilters === "function"
-    );
-    await page.waitForFunction(() => {
-      try {
-        return window.filterInventoryAdvanced().length >= 7;
-      } catch (e) {
-        return false;
-      }
-    });
+    await waitForInventoryReady(page, 7);
 
     await page.evaluate(() => {
       window.applyQuickFilter("metal", "Silver");
@@ -664,19 +652,7 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       localStorage.setItem("chipCustomGroups", JSON.stringify(groups));
     });
     await page.reload();
-    await page.waitForFunction(
-      () =>
-        typeof window.filterInventoryAdvanced === "function" &&
-        typeof window.applyQuickFilter === "function" &&
-        typeof window.clearAllFilters === "function"
-    );
-    await page.waitForFunction(() => {
-      try {
-        return window.filterInventoryAdvanced().length >= 5;
-      } catch (e) {
-        return false;
-      }
-    });
+    await waitForInventoryReady(page);
 
     await page.evaluate(() => {
       // Exclude the custom group — 4th arg = true for exclude
@@ -701,19 +677,7 @@ test.describe("filter-chip-and-logic — STAK-546 AND semantics", () => {
       localStorage.setItem("chipMinCount", "2");
     });
     await page.reload();
-    await page.waitForFunction(
-      () =>
-        typeof window.filterInventoryAdvanced === "function" &&
-        typeof window.applyQuickFilter === "function" &&
-        typeof window.clearAllFilters === "function"
-    );
-    await page.waitForFunction(() => {
-      try {
-        return window.filterInventoryAdvanced().length >= 5;
-      } catch (e) {
-        return false;
-      }
-    });
+    await waitForInventoryReady(page);
 
     // Apply Silver chip to trigger filter + chip re-render
     await page.evaluate(() => window.applyQuickFilter("metal", "Silver"));

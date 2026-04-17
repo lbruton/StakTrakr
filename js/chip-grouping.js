@@ -205,6 +205,25 @@
   // ---------------------------------------------------------------------------
 
   /**
+   * Test whether a single group pattern matches an item name.
+   * Uses whole-word regex with a fallback to substring match on invalid patterns.
+   * @param {string} pattern   - Pattern string from a custom group rule
+   * @param {string} itemName  - Lowercased item name
+   * @returns {boolean}
+   */
+  const _patternMatchesName = (pattern, itemName) => {
+    try {
+      // nosemgrep: javascript.dos.rule-non-literal-regexp
+      return new RegExp(
+        "\\b" + pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b",
+        "i"
+      ).test(itemName);
+    } catch (e) {
+      return itemName.includes(pattern.toLowerCase());
+    }
+  };
+
+  /**
    * Count items matching each enabled custom group.
    * @param {Array<Object>} inventory
    * @returns {Object} { groupId: { label, count } }
@@ -216,18 +235,7 @@
       let count = 0;
       inventory.forEach((item) => {
         const itemName = (item.name || "").toLowerCase();
-        if (
-          group.patterns.some((p) => {
-            try {
-              // nosemgrep: javascript.dos.rule-non-literal-regexp
-              return new RegExp("\\b" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(
-                itemName
-              );
-            } catch (e) {
-              return itemName.includes(p.toLowerCase());
-            }
-          })
-        ) {
+        if (group.patterns.some((p) => _patternMatchesName(p, itemName))) {
           count++;
         }
       });
@@ -257,15 +265,7 @@
       // Check if the search term matches the group label
       if (!group.label.toLowerCase().includes(searchTerm)) return false;
       // Check if the item matches any pattern in that group
-      return group.patterns.some((p) => {
-        try {
-          return new RegExp("\\b" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(
-            itemName
-          );
-        } catch (e) {
-          return itemName.includes(p.toLowerCase());
-        }
-      });
+      return group.patterns.some((p) => _patternMatchesName(p, itemName));
     });
   };
 
@@ -584,13 +584,7 @@
     _contextMenuEl = menu;
 
     // Adjust position if off-screen
-    const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
-      menu.style.left = window.innerWidth - rect.width - 8 + "px";
-    }
-    if (rect.bottom > window.innerHeight) {
-      menu.style.top = window.innerHeight - rect.height - 8 + "px";
-    }
+    _clampToViewport(menu);
 
     // Close on click-away or Escape
     setTimeout(() => {
@@ -617,6 +611,21 @@
   // ---------------------------------------------------------------------------
   // Shift+Click Blacklist Confirmation
   // ---------------------------------------------------------------------------
+
+  /**
+   * Clamp a positioned element so it stays within the viewport.
+   * Call immediately after appending the element to the DOM.
+   * @param {HTMLElement} el
+   */
+  const _clampToViewport = (el) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      el.style.left = window.innerWidth - rect.width - 8 + "px";
+    }
+    if (rect.bottom > window.innerHeight) {
+      el.style.top = window.innerHeight - rect.height - 8 + "px";
+    }
+  };
 
   let _confirmEl = null;
 
@@ -668,13 +677,7 @@
     _confirmEl = popup;
 
     // Adjust position if off-screen
-    const rect = popup.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
-      popup.style.left = window.innerWidth - rect.width - 8 + "px";
-    }
-    if (rect.bottom > window.innerHeight) {
-      popup.style.top = window.innerHeight - rect.height - 8 + "px";
-    }
+    _clampToViewport(popup);
 
     // Close on click-away or Escape
     setTimeout(() => {
