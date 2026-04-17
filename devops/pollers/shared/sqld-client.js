@@ -31,7 +31,7 @@ export function createSqldClient() {
   const authToken = process.env.SQLD_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
 
   if (!url) {
-    throw new Error("SQLD_URL must be set");
+    throw new Error("SQLD_URL (or legacy TURSO_DATABASE_URL) must be set");
   }
 
   return createClient({ url, ...(authToken ? { authToken } : {}) });

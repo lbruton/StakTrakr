@@ -40,7 +40,9 @@ function checkProductionSafety() {
     url.includes("localhost") || url.includes("127.0.0.1") || url.includes(":memory:");
 
   if (!isLocal && !PRODUCTION) {
-    console.error("ERROR: SQLD_URL points to a remote database.");
+    console.error(
+      "ERROR: configured database URL (SQLD_URL or TURSO_DATABASE_URL) points to a remote database."
+    );
     console.error("       Pass --production to confirm you want to write to production.");
     process.exit(1);
   }
