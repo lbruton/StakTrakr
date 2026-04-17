@@ -23,8 +23,8 @@
  *
  * Environment:
  *   DATA_DIR            Path to repo data/ folder (default: ../../data)
- *   TURSO_DATABASE_URL  sqld connection string (legacy env name)
- *   TURSO_AUTH_TOKEN    sqld auth token (optional — sqld has no auth by default)
+ *   SQLD_URL            sqld connection string (legacy: TURSO_DATABASE_URL)
+ *   SQLD_AUTH_TOKEN     sqld auth token (optional — sqld has no auth by default)
  *   DRY_RUN             Set to "1" to skip writes
  */
 

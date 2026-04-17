@@ -6,7 +6,7 @@
  * Fetches latest spot prices from MetalPriceAPI, writes to sqld
  * and JSON files for backward compatibility.
  *
- * Env: METAL_PRICE_API_KEY, DATA_DIR, POLLER_ID, TURSO_DATABASE_URL
+ * Env: METAL_PRICE_API_KEY, DATA_DIR, POLLER_ID, SQLD_URL (legacy: TURSO_DATABASE_URL)
  */
 
 import { mkdir, writeFile, access } from "node:fs/promises";

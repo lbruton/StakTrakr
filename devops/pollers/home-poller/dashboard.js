@@ -17,6 +17,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync, spawn } from "node:child_process";
 import { createClient } from "@libsql/client";
+import { createSqldClient as createSharedSqldClient } from "../shared/sqld-client.js";
 import {
   initProviderSchema,
   getProviders,
@@ -65,14 +66,18 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 })();
 
 // ---------------------------------------------------------------------------
-// Turso client
-// ---------------------------------------------------------------------------
+// sqld client
+/**
+ * Create a libsql client using SQLD_URL/SQLD_AUTH_TOKEN when present, otherwise TURSO_DATABASE_URL/TURSO_AUTH_TOKEN.
+ * @returns {object|null} A libsql client connected to the configured SQL endpoint, or `null` if no connection URL is set.
+ */
 
 function getSqldClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-  if (!url) return null;
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  try {
+    return createSharedSqldClient();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -2608,6 +2613,30 @@ async function getFailureCount(client) {
   }
 }
 
+/**
+ * Route incoming HTTP requests for the dashboard and send the corresponding HTTP responses.
+ *
+ * Handles provider management, diagnostics, retries, exports, health and failures endpoints,
+ * and renders the main dashboard HTML. It sets permissive iframe/CORS headers and ends the
+ * response for each supported route.
+ *
+ * Supported routes include:
+ * - GET /providers, GET /providers/coin-data
+ * - POST /providers/coin, DELETE /providers/coin
+ * - POST /providers/vendor, DELETE /providers/vendor
+ * - POST /providers/update-url, POST /providers/toggle
+ * - POST /providers/vendor-fields, POST /providers/bulk-toggle
+ * - POST /providers/bulk-delete, GET /providers/vendor-summary
+ * - POST /providers/export
+ * - GET /api-health, GET /failures
+ * - POST /api/diagnose, POST /api/browserbase
+ * - POST /api/retry
+ * - POST /api/clear-chronic, POST /api/clear-chronic-all
+ * - POST /api/clear-lock
+ *
+ * All request handling uses the provided Node.js `req` and `res` objects and writes JSON
+ * or HTML responses as appropriate.
+ */
 async function handleRequest(req, res) {
   // Allow iframe embedding from spec-workflow dashboard
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -3375,8 +3404,8 @@ async function handleRequest(req, res) {
         // Pass user input via env vars — never interpolate into shell strings
         const script = `
           import('./shared/price-extract.js').then(async m => {
-            const { createClient } = await import('@libsql/client');
-            const client = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN });
+            const { createSqldClient } = await import('./shared/sqld-client.js');
+            const client = createSqldClient();
             const { getProvidersByCoin } = await import('./shared/provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
             const vid = process.env.RETRY_VENDOR_ID;

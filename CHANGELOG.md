@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.08] - 2026-04-17
+
+### Changed — STAK-548: Rename `TURSO_DATABASE_URL` → `SQLD_URL` in poller code
+
+- **Changed**: Poller code now reads `SQLD_URL`/`SQLD_AUTH_TOKEN` for the local sqld database (home poller + remote poller via Tailscale). Legacy `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` remain as fallbacks so existing Portainer stacks keep working through rollout (STAK-548)
+- **Changed**: `TURSO_BACKUP_URL`/`TURSO_BACKUP_TOKEN` remain distinct — those target the Turso Cloud DR backup used by `turso-backup-sync.js`, not local sqld (STAK-548)
+- **Changed**: `.env` examples, `docker-compose.home.yml`, `docker-entrypoint.sh` cron, and remote poller run scripts updated to pass the new names alongside legacy fallbacks (STAK-548)
+
+---
+
 ## [3.34.07] - 2026-04-17
 
 ### Fixed — STAK-517: Invalidate market filter cache after vault restore
