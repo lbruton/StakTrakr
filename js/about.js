@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.10 &ndash; STAK-553: Last Modified Sort + Sort Bar in Table View</strong>: Adds a <code>Last Modified</code> sort option to the live sort dropdown and default sort settings. Items now track a <code>lastModified</code> timestamp at create/edit time. The sort bar is now visible in table view (D mode). Selecting Last Modified auto-switches to descending order (newest first).</li>
     <li><strong>v3.34.09 &ndash; STAK-548 Hotfix: Home Poller Container Crash</strong>: Reverted a late shared-helper refactor that broke the home poller's dashboard and metrics containers (ERR_MODULE_NOT_FOUND on startup due to Dockerfile flattening <code>shared/*.js</code> into <code>/app/</code>). Internal infrastructure fix, no user-facing behavior change.</li>
     <li><strong>v3.34.08 &ndash; STAK-548: Rename TURSO_DATABASE_URL to SQLD_URL in Poller Code</strong>: Local sqld connections now read <code>SQLD_URL</code> / <code>SQLD_AUTH_TOKEN</code>. <code>TURSO_DATABASE_URL</code> / <code>TURSO_AUTH_TOKEN</code> remain supported as a legacy alias so existing deployments keep working through rollout, and can also point at Turso Cloud for self-hosters who prefer that setup. No user-facing behavior change.</li>
     <li><strong>v3.34.07 &ndash; STAK-517: Invalidate Market Filter Cache After Restore</strong>: Market filter matrix now reflects restored settings immediately after vault restore or cloud sync pull &mdash; no page reload required.</li>

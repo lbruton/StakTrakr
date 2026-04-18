@@ -1,6 +1,8 @@
 // SORTING FUNCTIONALITY
 // =============================================================================
 
+const SORT_COL_LAST_MODIFIED = 99;
+
 /**
  * Sorts inventory based on the current sort column and direction.
  * Handles special cases for date, numeric, boolean, and string columns.
@@ -17,6 +19,7 @@ const sortInventory = (data = inventory) => {
   // Pre-calculate sort values (Schwartzian transform) to avoid repeated computation
   // Map column index to data property — must match <th> order in index.html
   // 0:Date 1:Metal 2:Type 3:Image 4:Name 5:Qty 6:Weight 7:Purchase 8:Melt 9:Retail 10:Gain/Loss 11:Source 12:Actions
+  // Virtual (no <th>): 99:Last Modified
   const mapped = data.map((item) => {
     let val;
     let secondaryVal = 0; // secondary sort key; only populated for column 4 (Name)
@@ -87,6 +90,13 @@ const sortInventory = (data = inventory) => {
       case 11:
         val = item.purchaseLocation;
         break; // Source
+      case SORT_COL_LAST_MODIFIED: {
+        // Last Modified
+        const lmStr = item.lastModified || "";
+        val = lmStr ? new Date(lmStr).getTime() : 0;
+        if (Number.isNaN(val)) val = 0;
+        break;
+      }
       default:
         val = 0;
     }
@@ -98,12 +108,14 @@ const sortInventory = (data = inventory) => {
     const valB = bWrapper.val;
 
     // Special handling for date: empty/unknown dates sort as "infinitely old"
-    if (sortColumn === 0) {
-      // Simple numeric comparison for pre-calculated timestamps
-      // Dateless items = oldest: top when asc, bottom when desc
-      if (valA === Infinity && valB === Infinity) return 0;
-      if (valA === Infinity) return sortDirection === "asc" ? -1 : 1;
-      if (valB === Infinity) return sortDirection === "asc" ? 1 : -1;
+    if (sortColumn === 0 || sortColumn === SORT_COL_LAST_MODIFIED) {
+      // Numeric timestamps: 0 (no date) treated as oldest
+      if (valA === valB) return 0;
+      const aIsEmpty = sortColumn === 0 ? valA === Infinity : valA === 0;
+      const bIsEmpty = sortColumn === 0 ? valB === Infinity : valB === 0;
+      if (aIsEmpty && bIsEmpty) return 0;
+      if (aIsEmpty) return sortDirection === "asc" ? -1 : 1;
+      if (bIsEmpty) return sortDirection === "asc" ? 1 : -1;
 
       return sortDirection === "asc" ? valA - valB : valB - valA;
     }
@@ -131,5 +143,7 @@ const sortInventory = (data = inventory) => {
 
   return mapped.map((wrapper) => wrapper.item);
 };
+
+window.SORT_COL_LAST_MODIFIED = SORT_COL_LAST_MODIFIED;
 
 // =============================================================================

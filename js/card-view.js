@@ -86,10 +86,8 @@ function _syncSortBar() {
   // Always show the bar
   bar.style.display = "flex";
 
-  // Sort controls: invisible when in table view (D) — visibility:hidden preserves
-  // layout so the summary stays centered; display:none would shift it right.
   const sortLeft = bar.querySelector(".card-sort-left");
-  if (sortLeft) sortLeft.style.visibility = style === "D" ? "hidden" : "";
+  if (sortLeft) sortLeft.style.visibility = "";
 
   // Sync style toggle active state
   const styleToggle = document.getElementById("cardStyleToggle");
@@ -1184,6 +1182,10 @@ const initCardSortBar = () => {
   if (colSelect) {
     colSelect.addEventListener("change", () => {
       sortColumn = parseInt(colSelect.value, 10);
+      if (sortColumn === SORT_COL_LAST_MODIFIED && sortDirection === "asc") {
+        sortDirection = "desc";
+        localStorage.setItem(DEFAULT_SORT_DIR_KEY, "desc");
+      }
       if (typeof renderTable === "function") renderTable();
     });
   }

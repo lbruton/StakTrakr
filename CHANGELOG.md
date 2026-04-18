@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.10] - 2026-04-18
+
+### Changed — STAK-553: Last Modified sort + sort bar in table view
+
+- **Added**: `Last Modified` sort option in the live sort dropdown and Settings > Default Sort
+- **Added**: `lastModified` ISO timestamp stamped on inventory items at create and edit time
+- **Added**: Sort bar (`cardSortBar`) now visible in table view (D mode), not just card views
+- **Changed**: `sortInventory()` handles new column 12; items without `lastModified` sort as oldest
+- **Changed**: Selecting `Last Modified` auto-switches sort direction to descending (newest-first default)
+
+---
+
 ## [3.34.09] - 2026-04-17
 
 ### Fixed — STAK-548 hotfix: revert shared-sqld-client refactor in home-poller
