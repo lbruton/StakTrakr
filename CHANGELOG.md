@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.11] - 2026-04-18
+
+### Fixed — STAK-554: Remove redundant view-modal Numista re-sync picker + fix title entity double-escape
+
+- **Fixed**: Opening an inventory item with a Numista catalog ID no longer auto-triggers a "Re-sync from Numista" field picker modal. The auto-invoke was introduced with STAK-126 (2026-02-26) and fired whenever the 30-day metadata TTL expired and the Numista API returned fresh data. Users could not dismiss the modal without clicking Apply or Cancel.
+- **Fixed**: Item names containing quote characters (e.g., `1 Dollar "American Silver Eagle" New Reverse`) now render cleanly in the view modal. Previously rendered as literal `&quot;` due to `sanitizeHtml()` output being assigned to `.textContent`, which double-encoded the entities. `.textContent` is XSS-safe natively — the wrap has been removed.
+- **Removed**: ~450 lines of dead picker code across `js/viewModal.js` and `js/field-meta.js`. Deleted symbols: `showResyncPicker`, `_resyncPickerShowMore`, `_FIELD_LABELS`, `_valuesMatch`, `_formatPickerValue`, `_buildFieldRow` (viewModal.js); `FIELD_TIERS`, `getFieldMeta`, `applyPickerSelections` (field-meta.js). Retained: `initFieldMeta`, `markUserModified` — still used by `catalog-api.js` and `events.js` respectively. Stored `numistaData` / `fieldMeta` fields on inventory items are untouched.
+- **Unchanged**: Settings → API → "Sync Metadata" (batch sync) and Edit/Add → Numista search → "Fill Fields" (per-item) continue to work as the canonical sync paths.
+
+---
+
 ## [3.34.10] - 2026-04-18
 
 ### Changed — STAK-553: Last Modified sort + sort bar in table view
