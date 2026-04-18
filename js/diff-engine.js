@@ -72,6 +72,8 @@ const DIFF_FIELDS = [
   "reverseSharedImageId",
   // Disposition
   "disposition",
+  // Metadata
+  "lastModified",
 ];
 
 // ---------------------------------------------------------------------------

@@ -1182,8 +1182,9 @@ const initCardSortBar = () => {
   if (colSelect) {
     colSelect.addEventListener("change", () => {
       sortColumn = parseInt(colSelect.value, 10);
-      if (sortColumn === 12 && sortDirection === "asc") {
+      if (sortColumn === SORT_COL_LAST_MODIFIED && sortDirection === "asc") {
         sortDirection = "desc";
+        localStorage.setItem(DEFAULT_SORT_DIR_KEY, "desc");
       }
       if (typeof renderTable === "function") renderTable();
     });

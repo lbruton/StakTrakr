@@ -85,6 +85,7 @@ const logItemChanges = (oldItem, newItem) => {
     "obverseSharedImageId",
     "reverseSharedImageId",
     "disposition",
+    "lastModified",
   ];
 
   const refItem = newItem || oldItem;
