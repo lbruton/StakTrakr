@@ -387,8 +387,10 @@
         cardGridEl.style.overflowY = "";
       }
       if (portalScrollEl) portalScrollEl.style.display = "";
-      if (cardSortBar) cardSortBar.style.display = "none";
+      if (cardSortBar) cardSortBar.style.display = "flex";
       if (footerSelect) footerSelect.style.display = "";
+      if (typeof initCardSortBar === "function") initCardSortBar();
+      if (typeof updateCardSortBar === "function") updateCardSortBar();
 
       const rows = [];
       const chipConfig = typeof getInlineChipConfig === "function" ? getInlineChipConfig() : [];

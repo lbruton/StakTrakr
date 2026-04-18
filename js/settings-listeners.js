@@ -685,6 +685,15 @@ const bindCardAndTableImageListeners = () => {
       const val = parseInt(defaultSortColEl.value, 10);
       localStorage.setItem(DEFAULT_SORT_COL_KEY, String(val));
       sortColumn = val;
+      if (val === 12 && sortDirection === "asc") {
+        sortDirection = "desc";
+        localStorage.setItem(DEFAULT_SORT_DIR_KEY, "desc");
+        const dirEl = getExistingElement("settingsDefaultSortDir");
+        if (dirEl)
+          dirEl.querySelectorAll(".chip-sort-btn").forEach((b) => {
+            b.classList.toggle("active", b.dataset.val === "desc");
+          });
+      }
       if (typeof updateCardSortBar === "function") updateCardSortBar();
       if (typeof renderTable === "function") renderTable();
     });

@@ -1223,6 +1223,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       numistaData: f.numistaData,
       fieldMeta: oldItem.fieldMeta || f.numistaData?.fieldMeta || undefined,
       currency: f.currency,
+      lastModified: new Date().toISOString(),
       // STAK-308: Use nullish coalescing — empty string is intentional (user cleared URL)
       obverseImageUrl:
         f.obverseImageUrl !== ""
@@ -1338,6 +1339,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       numistaData: f.numistaData,
       fieldMeta: window.selectedNumistaResult?.fieldMeta || f.numistaData?.fieldMeta || undefined,
       currency: f.currency,
+      lastModified: new Date().toISOString(),
       obverseImageUrl:
         f.obverseImageUrl !== ""
           ? f.obverseImageUrl || window.selectedNumistaResult?.imageUrl || ""

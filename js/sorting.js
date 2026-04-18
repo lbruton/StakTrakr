@@ -87,6 +87,13 @@ const sortInventory = (data = inventory) => {
       case 11:
         val = item.purchaseLocation;
         break; // Source
+      case 12: {
+        // Last Modified
+        const lmStr = item.lastModified || "";
+        val = lmStr ? new Date(lmStr).getTime() : 0;
+        if (isNaN(val)) val = 0;
+        break;
+      }
       default:
         val = 0;
     }
@@ -98,12 +105,14 @@ const sortInventory = (data = inventory) => {
     const valB = bWrapper.val;
 
     // Special handling for date: empty/unknown dates sort as "infinitely old"
-    if (sortColumn === 0) {
-      // Simple numeric comparison for pre-calculated timestamps
-      // Dateless items = oldest: top when asc, bottom when desc
-      if (valA === Infinity && valB === Infinity) return 0;
-      if (valA === Infinity) return sortDirection === "asc" ? -1 : 1;
-      if (valB === Infinity) return sortDirection === "asc" ? 1 : -1;
+    if (sortColumn === 0 || sortColumn === 12) {
+      // Numeric timestamps: 0 (no date) treated as oldest
+      if (valA === valB) return 0;
+      const aIsEmpty = sortColumn === 0 ? valA === Infinity : valA === 0;
+      const bIsEmpty = sortColumn === 0 ? valB === Infinity : valB === 0;
+      if (aIsEmpty && bIsEmpty) return 0;
+      if (aIsEmpty) return sortDirection === "asc" ? -1 : 1;
+      if (bIsEmpty) return sortDirection === "asc" ? 1 : -1;
 
       return sortDirection === "asc" ? valA - valB : valB - valA;
     }
