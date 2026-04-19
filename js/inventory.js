@@ -1014,7 +1014,11 @@ const editItem = (idx, logIdx = null) => {
       const addHandler = () => {
         const val = elements.newTagInput.value.trim();
         if (val && typeof addItemTag === "function") {
-          addItemTag(item.uuid, val);
+          val
+            .split(/[,;]+/)
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .forEach((t) => addItemTag(item.uuid, t));
           elements.newTagInput.value = "";
           renderEditTags();
         }
