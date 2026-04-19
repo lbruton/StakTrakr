@@ -943,7 +943,7 @@ const setupTableSortListeners = () => {
     showEl(denomSelect, isGb);
     showEl(weightInput, !isGb);
     if (isGb && weightInput && denomSelect) weightInput.value = denomSelect.value;
-    if (weightLabel) weightLabel.textContent = isGb ? "Denomination" : "Weight";
+    if (weightLabel) weightLabel.textContent = isGb ? "DENOMINATION" : "Weight";
   };
 };
 
