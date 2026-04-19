@@ -193,9 +193,7 @@ test.describe(".prettierignore", () => {
 
   test("PI-11 — ignore file has comment lines explaining each section", () => {
     // The file should have at least one comment (lines starting with #)
-    const commentLines = content
-      .split("\n")
-      .filter((line) => line.trim().startsWith("#"));
+    const commentLines = content.split("\n").filter((line) => line.trim().startsWith("#"));
     expect(commentLines.length).toBeGreaterThan(0);
   });
 
@@ -486,11 +484,11 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("STAK-549");
   });
 
-  test("CL-19 — entries are in descending version order (3.34.11 before 3.34.10)", () => {
-    const idx11 = content.indexOf("## [3.34.11]");
-    const idx10 = content.indexOf("## [3.34.10]");
-    expect(idx11).toBeGreaterThanOrEqual(0);
-    expect(idx10).toBeGreaterThan(idx11);
+  test("CL-19 — entries are in descending version order (3.34.13 before 3.34.12)", () => {
+    const idx13 = content.indexOf("## [3.34.13]");
+    const idx12 = content.indexOf("## [3.34.12]");
+    expect(idx13).toBeGreaterThanOrEqual(0);
+    expect(idx12).toBeGreaterThan(idx13);
   });
 
   test("CL-20 — entries are in descending version order (3.34.10 before 3.34.09)", () => {
@@ -514,8 +512,10 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(idx07).toBeGreaterThan(idx08);
   });
 
-  test("CL-21 — all 8 new versions present (3.34.04 through 3.34.11)", () => {
+  test("CL-21 — all versions 3.34.04 through 3.34.13 are present", () => {
     for (const version of [
+      "3.34.13",
+      "3.34.12",
       "3.34.04",
       "3.34.05",
       "3.34.06",
@@ -532,16 +532,16 @@ test.describe("CHANGELOG.md — new entries", () => {
   test("CL-22 — [Unreleased] section still present at top", () => {
     expect(content).toContain("## [Unreleased]");
     const unreleasedIdx = content.indexOf("## [Unreleased]");
-    const v311Idx = content.indexOf("## [3.34.11]");
-    expect(unreleasedIdx).toBeLessThan(v311Idx);
+    const v313Idx = content.indexOf("## [3.34.13]");
+    expect(unreleasedIdx).toBeLessThan(v313Idx);
   });
 
   test("CL-23 — [3.34.03] pre-existing entry is still intact", () => {
     expect(content).toContain("## [3.34.03]");
   });
 
-  test("CL-24 — boundary: [3.34.12] does NOT exist (no phantom future entries)", () => {
-    expect(content).not.toContain("## [3.34.12]");
+  test("CL-24 — boundary: [3.34.14] does NOT exist (no phantom future entries)", () => {
+    expect(content).not.toContain("## [3.34.14]");
   });
 
   // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
@@ -575,50 +575,48 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("sortInventory");
   });
 
-  // ── 3.34.11 entry (STAK-554: Remove redundant view-modal Numista re-sync picker) ──
+  // ── 3.34.13 entry (STAK-556: Numista tags cherry-pick) ───────────────────
 
-  test("CL-30 — [3.34.11] entry is present (STAK-554 Numista picker removal)", () => {
-    expect(content).toContain("## [3.34.11]");
+  test("CL-30 — [3.34.13] entry is present (STAK-556 Numista tag cherry-pick)", () => {
+    expect(content).toContain("## [3.34.13]");
   });
 
-  test("CL-31 — [3.34.11] has correct date 2026-04-18", () => {
-    expect(content).toContain("## [3.34.11] - 2026-04-18");
+  test("CL-31 — [3.34.13] has correct date 2026-04-19", () => {
+    expect(content).toContain("## [3.34.13] - 2026-04-19");
   });
 
-  test("CL-32 — [3.34.11] mentions STAK-554", () => {
-    const entryStart = content.indexOf("## [3.34.11]");
-    const entryEnd = content.indexOf("## [3.34.10]");
+  test("CL-32 — [3.34.13] mentions STAK-556", () => {
+    const entryStart = content.indexOf("## [3.34.13]");
+    const entryEnd = content.indexOf("## [3.34.12]");
     const entry = content.substring(entryStart, entryEnd);
-    expect(entry).toContain("STAK-554");
+    expect(entry).toContain("STAK-556");
   });
 
-  test("CL-33 — [3.34.11] describes showResyncPicker removal", () => {
-    const entryStart = content.indexOf("## [3.34.11]");
-    const entryEnd = content.indexOf("## [3.34.10]");
+  test("CL-33 — [3.34.13] describes per-tag checkbox import", () => {
+    const entryStart = content.indexOf("## [3.34.13]");
+    const entryEnd = content.indexOf("## [3.34.12]");
     const entry = content.substring(entryStart, entryEnd);
-    expect(entry).toContain("showResyncPicker");
+    expect(entry).toContain("per-tag checkboxes");
   });
 
-  test("CL-34 — [3.34.11] mentions sanitizeHtml double-encode fix", () => {
-    const entryStart = content.indexOf("## [3.34.11]");
-    const entryEnd = content.indexOf("## [3.34.10]");
+  test("CL-34 — [3.34.13] mentions user-edited field behavior", () => {
+    const entryStart = content.indexOf("## [3.34.13]");
+    const entryEnd = content.indexOf("## [3.34.12]");
     const entry = content.substring(entryStart, entryEnd);
-    expect(entry).toContain("sanitizeHtml");
+    expect(entry).toContain("user-edited");
   });
 
-  test("CL-35 — [3.34.11] notes retained symbols (initFieldMeta, markUserModified)", () => {
-    const entryStart = content.indexOf("## [3.34.11]");
-    const entryEnd = content.indexOf("## [3.34.10]");
+  test("CL-35 — [3.34.13] includes removed-tags behavior", () => {
+    const entryStart = content.indexOf("## [3.34.13]");
+    const entryEnd = content.indexOf("## [3.34.12]");
     const entry = content.substring(entryStart, entryEnd);
-    expect(entry).toContain("initFieldMeta");
-    expect(entry).toContain("markUserModified");
+    expect(entry).toContain("removed tags");
   });
 
-  test("CL-36 — [3.34.11] is the newest release in the file", () => {
-    // 3.34.11 should appear before 3.34.10 (newer = earlier in file)
-    const idx11 = content.indexOf("## [3.34.11]");
-    const idx10 = content.indexOf("## [3.34.10]");
-    expect(idx11).toBeGreaterThanOrEqual(0);
-    expect(idx11).toBeLessThan(idx10);
+  test("CL-36 — [3.34.13] is the newest release in the file", () => {
+    const idx13 = content.indexOf("## [3.34.13]");
+    const idx12 = content.indexOf("## [3.34.12]");
+    expect(idx13).toBeGreaterThanOrEqual(0);
+    expect(idx13).toBeLessThan(idx12);
   });
 });

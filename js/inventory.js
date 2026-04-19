@@ -973,11 +973,11 @@ const editItem = (idx, logIdx = null) => {
 
   // STAK-343: Populate tags in edit modal
   if (item.uuid && typeof getItemTags === "function") {
-    const itemTagsChips = safeGetElement("itemModalTagsChips");
+    const itemTagsChips = safeGetElement("itemModalTagsChips", true);
 
     const renderEditTags = () => {
       const tags = getItemTags(item.uuid);
-      if (!itemTagsChips) return;
+      if (typeof itemTagsChips.appendChild !== "function") return;
       itemTagsChips.textContent = "";
 
       if (tags.length === 0) {
@@ -989,11 +989,10 @@ const editItem = (idx, logIdx = null) => {
           chip.textContent = tag;
           chip.title = `Tag: ${tag} (click × to remove)`;
 
-          const rm = document.createElement("span");
+          const rm = document.createElement("button");
+          rm.type = "button";
           rm.className = "tag-chip-remove";
           rm.textContent = "\u00d7";
-          rm.setAttribute("role", "button");
-          rm.setAttribute("tabindex", "0");
           rm.setAttribute("aria-label", `Remove tag ${tag}`);
           rm.onclick = (e) => {
             e.stopPropagation();

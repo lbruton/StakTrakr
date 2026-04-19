@@ -423,7 +423,7 @@ const applyNumistaTags = (
  * @param {string} uuid - Item UUID
  * @param {string[]} numistaTags - Numista API tags (may be empty)
  * @param {Function} [onChanged] - Callback when tags change (for re-render)
- * @returns {HTMLElement|null} Tag section element, or null if no tags and no add capability
+ * @returns {HTMLElement} Tag section element
  */
 const buildTagSection = (uuid, numistaTags, onChanged) => {
   // Always show section so user can add tags
@@ -482,7 +482,7 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
     addBtn.textContent = "+ Tag";
     addBtn.title = "Add a tag";
     addBtn.onclick = () => {
-      showTagInput(container, uuid, numistaTags, renderTags, onChanged);
+      showTagInput(container, uuid, renderTags, onChanged);
     };
     container.appendChild(addBtn);
   };
@@ -496,11 +496,10 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
  * Show an inline input for adding a new tag.
  * @param {HTMLElement} container - Parent container
  * @param {string} uuid - Item UUID
- * @param {string[]} numistaTags - Numista tags for autocomplete
  * @param {Function} renderTags - Re-render callback
  * @param {Function} [onChanged] - External change callback
  */
-const showTagInput = (container, uuid, numistaTags, renderTags, onChanged) => {
+const showTagInput = (container, uuid, renderTags, onChanged) => {
   // Remove existing input if any
   const existing = container.querySelector(".tag-input-wrapper");
   if (existing) existing.remove();
