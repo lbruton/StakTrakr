@@ -14,33 +14,6 @@
 "use strict";
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/**
- * Field tier definitions for the re-sync picker modal.
- * Tier 1: always visible. Tier 2: behind "Show more fields" toggle.
- */
-const FIELD_TIERS = {
-  tier1: ["name", "numistaId", "year", "type", "weight", "tags"],
-  tier2: [
-    "country",
-    "denomination",
-    "composition",
-    "shape",
-    "diameter",
-    "thickness",
-    "metal",
-    "orientation",
-    "description",
-    "grade",
-    "mintage",
-    "technique",
-    "commemorative",
-  ],
-};
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -77,29 +50,6 @@ function initFieldMeta(normalizedData, source) {
 }
 
 /**
- * Returns the fieldMeta entry for a specific field on an item.
- * If the item has no fieldMeta or the field has no entry, returns
- * a legacy fallback indicating manual/user-modified data.
- *
- * @param {object} item - Inventory item
- * @param {string} fieldName - Field to look up
- * @returns {{ source: string, userModified: boolean }}
- */
-function getFieldMeta(item, fieldName) {
-  if (
-    item != null &&
-    item.fieldMeta != null &&
-    typeof item.fieldMeta === "object" &&
-    item.fieldMeta[fieldName] != null
-  ) {
-    return item.fieldMeta[fieldName];
-  }
-
-  // Legacy fallback — treat as manually entered and user-modified
-  return { source: "manual", userModified: true };
-}
-
-/**
  * Marks a field as user-modified on an item. Creates the fieldMeta
  * object and/or field entry if absent.
  *
@@ -120,44 +70,9 @@ function markUserModified(item, fieldName) {
   }
 }
 
-/**
- * Applies checked fields from the re-sync picker to an item.
- * For each field where selections[fieldName] is true, copies the value
- * from normalizedData to item and resets that field's meta to
- * { source, userModified: false }.
- *
- * @param {object} item - Inventory item (mutated in place)
- * @param {object} selections - Map of { fieldName: boolean } from picker
- * @param {object} normalizedData - Normalized API data to apply from
- * @param {string} [source='numista'] - Source identifier for fieldMeta
- */
-function applyPickerSelections(item, selections, normalizedData, source) {
-  if (item == null || selections == null || normalizedData == null) return;
-
-  const src = source || "numista";
-
-  if (item.fieldMeta == null || typeof item.fieldMeta !== "object") {
-    item.fieldMeta = {};
-  }
-
-  for (const fieldName of Object.keys(selections)) {
-    if (!selections[fieldName]) continue; // unchecked — skip
-
-    // Apply the value from normalized data
-    if (fieldName in normalizedData) {
-      const val = normalizedData[fieldName];
-      item[fieldName] = Array.isArray(val) ? [...val] : val;
-      item.fieldMeta[fieldName] = { source: src, userModified: false };
-    }
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
-window.FIELD_TIERS = FIELD_TIERS;
 window.initFieldMeta = initFieldMeta;
-window.getFieldMeta = getFieldMeta;
 window.markUserModified = markUserModified;
-window.applyPickerSelections = applyPickerSelections;

@@ -22,6 +22,67 @@ function readRoot(relativePath) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// .codacy/codacy.yaml — eslint version bumped from 8.57.0 to 9.21.0 in this PR
+// ────────────────────────────────────────────────────────────────────────────
+
+test.describe(".codacy/codacy.yaml", () => {
+  let content;
+
+  test.beforeAll(() => {
+    content = readRoot(".codacy/codacy.yaml");
+  });
+
+  test("CY-1 — .codacy/codacy.yaml file exists", () => {
+    expect(existsSync(resolve(ROOT, ".codacy/codacy.yaml"))).toBe(true);
+  });
+
+  test("CY-2 — eslint version is 9.21.0 (bumped from 8.57.0)", () => {
+    expect(content).toContain("eslint@9.21.0");
+  });
+
+  test("CY-3 — old eslint version 8.57.0 is NOT present", () => {
+    expect(content).not.toContain("eslint@8.57.0");
+  });
+
+  test("CY-4 — node runtime is declared", () => {
+    expect(content).toContain("node@");
+  });
+
+  test("CY-5 — python runtime is declared", () => {
+    expect(content).toContain("python@");
+  });
+
+  test("CY-6 — pmd tool is still declared", () => {
+    expect(content).toContain("pmd@");
+  });
+
+  test("CY-7 — pylint tool is still declared", () => {
+    expect(content).toContain("pylint@");
+  });
+
+  test("CY-8 — semgrep tool is still declared", () => {
+    expect(content).toContain("semgrep@");
+  });
+
+  test("CY-9 — runtimes section is present", () => {
+    expect(content).toContain("runtimes:");
+  });
+
+  test("CY-10 — tools section is present", () => {
+    expect(content).toContain("tools:");
+  });
+
+  test("CY-11 — eslint version matches package.json devDependency (9.21.0)", () => {
+    // The codacy eslint version should align with the project's devDependency
+    const pkgContent = readRoot("package.json");
+    const pkg = JSON.parse(pkgContent);
+    // package.json uses "^9.21.0" — codacy should pin to the same minor
+    expect(pkg.devDependencies.eslint).toMatch(/\^?9\.21\./);
+    expect(content).toContain("eslint@9.21.0");
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 // .prettierrc — new file added in this PR
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -425,22 +486,45 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("STAK-549");
   });
 
-  test("CL-19 — entries are in descending version order (3.34.09 before 3.34.08)", () => {
+  test("CL-19 — entries are in descending version order (3.34.11 before 3.34.10)", () => {
+    const idx11 = content.indexOf("## [3.34.11]");
+    const idx10 = content.indexOf("## [3.34.10]");
+    expect(idx11).toBeGreaterThanOrEqual(0);
+    expect(idx10).toBeGreaterThan(idx11);
+  });
+
+  test("CL-20 — entries are in descending version order (3.34.10 before 3.34.09)", () => {
+    const idx10 = content.indexOf("## [3.34.10]");
+    const idx09 = content.indexOf("## [3.34.09]");
+    expect(idx10).toBeGreaterThanOrEqual(0);
+    expect(idx09).toBeGreaterThan(idx10);
+  });
+
+  test("CL-20b — entries are in descending version order (3.34.09 before 3.34.08)", () => {
     const idx09 = content.indexOf("## [3.34.09]");
     const idx08 = content.indexOf("## [3.34.08]");
     expect(idx09).toBeGreaterThanOrEqual(0);
     expect(idx08).toBeGreaterThan(idx09);
   });
 
-  test("CL-20 — entries are in descending version order (3.34.08 before 3.34.07)", () => {
+  test("CL-20c — entries are in descending version order (3.34.08 before 3.34.07)", () => {
     const idx08 = content.indexOf("## [3.34.08]");
     const idx07 = content.indexOf("## [3.34.07]");
     expect(idx08).toBeGreaterThanOrEqual(0);
     expect(idx07).toBeGreaterThan(idx08);
   });
 
-  test("CL-21 — all 6 new versions present (3.34.04 through 3.34.09)", () => {
-    for (const version of ["3.34.04", "3.34.05", "3.34.06", "3.34.07", "3.34.08", "3.34.09"]) {
+  test("CL-21 — all 8 new versions present (3.34.04 through 3.34.11)", () => {
+    for (const version of [
+      "3.34.04",
+      "3.34.05",
+      "3.34.06",
+      "3.34.07",
+      "3.34.08",
+      "3.34.09",
+      "3.34.10",
+      "3.34.11",
+    ]) {
       expect(content).toContain(`## [${version}]`);
     }
   });
@@ -448,15 +532,93 @@ test.describe("CHANGELOG.md — new entries", () => {
   test("CL-22 — [Unreleased] section still present at top", () => {
     expect(content).toContain("## [Unreleased]");
     const unreleasedIdx = content.indexOf("## [Unreleased]");
-    const v309Idx = content.indexOf("## [3.34.09]");
-    expect(unreleasedIdx).toBeLessThan(v309Idx);
+    const v311Idx = content.indexOf("## [3.34.11]");
+    expect(unreleasedIdx).toBeLessThan(v311Idx);
   });
 
   test("CL-23 — [3.34.03] pre-existing entry is still intact", () => {
     expect(content).toContain("## [3.34.03]");
   });
 
-  test("CL-24 — boundary: [3.34.10] does NOT exist (no phantom entries)", () => {
-    expect(content).not.toContain("## [3.34.10]");
+  test("CL-24 — boundary: [3.34.12] does NOT exist (no phantom future entries)", () => {
+    expect(content).not.toContain("## [3.34.12]");
+  });
+
+  // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
+
+  test("CL-25 — [3.34.10] entry is present (STAK-553 Last Modified sort)", () => {
+    expect(content).toContain("## [3.34.10]");
+  });
+
+  test("CL-26 — [3.34.10] has correct date 2026-04-18", () => {
+    expect(content).toContain("## [3.34.10] - 2026-04-18");
+  });
+
+  test("CL-27 — [3.34.10] mentions STAK-553", () => {
+    const entryStart = content.indexOf("## [3.34.10]");
+    const entryEnd = content.indexOf("## [3.34.09]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("STAK-553");
+  });
+
+  test("CL-28 — [3.34.10] describes lastModified timestamp", () => {
+    const entryStart = content.indexOf("## [3.34.10]");
+    const entryEnd = content.indexOf("## [3.34.09]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("lastModified");
+  });
+
+  test("CL-29 — [3.34.10] describes sortInventory handling new column", () => {
+    const entryStart = content.indexOf("## [3.34.10]");
+    const entryEnd = content.indexOf("## [3.34.09]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("sortInventory");
+  });
+
+  // ── 3.34.11 entry (STAK-554: Remove redundant view-modal Numista re-sync picker) ──
+
+  test("CL-30 — [3.34.11] entry is present (STAK-554 Numista picker removal)", () => {
+    expect(content).toContain("## [3.34.11]");
+  });
+
+  test("CL-31 — [3.34.11] has correct date 2026-04-18", () => {
+    expect(content).toContain("## [3.34.11] - 2026-04-18");
+  });
+
+  test("CL-32 — [3.34.11] mentions STAK-554", () => {
+    const entryStart = content.indexOf("## [3.34.11]");
+    const entryEnd = content.indexOf("## [3.34.10]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("STAK-554");
+  });
+
+  test("CL-33 — [3.34.11] describes showResyncPicker removal", () => {
+    const entryStart = content.indexOf("## [3.34.11]");
+    const entryEnd = content.indexOf("## [3.34.10]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("showResyncPicker");
+  });
+
+  test("CL-34 — [3.34.11] mentions sanitizeHtml double-encode fix", () => {
+    const entryStart = content.indexOf("## [3.34.11]");
+    const entryEnd = content.indexOf("## [3.34.10]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("sanitizeHtml");
+  });
+
+  test("CL-35 — [3.34.11] notes retained symbols (initFieldMeta, markUserModified)", () => {
+    const entryStart = content.indexOf("## [3.34.11]");
+    const entryEnd = content.indexOf("## [3.34.10]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("initFieldMeta");
+    expect(entry).toContain("markUserModified");
+  });
+
+  test("CL-36 — [3.34.11] is the newest release in the file", () => {
+    // 3.34.11 should appear before 3.34.10 (newer = earlier in file)
+    const idx11 = content.indexOf("## [3.34.11]");
+    const idx10 = content.indexOf("## [3.34.10]");
+    expect(idx11).toBeGreaterThanOrEqual(0);
+    expect(idx11).toBeLessThan(idx10);
   });
 });
