@@ -369,19 +369,19 @@ const applyNumistaTags = (
   }
 
   let added = 0;
+  const skippedEdits = [];
   for (const raw of numistaTags) {
     const tag = String(raw).trim();
     if (!tag) continue;
-    // Capitalize first letter
     const capitalized = tag.charAt(0).toUpperCase() + tag.slice(1);
 
-    // Skip blacklisted tags
     if (isTagBlacklisted(capitalized)) continue;
 
-    // Skip tags the user previously removed (STAK-556)
     if (respectEdits && typeof loadRemovedTags === "function") {
-      if (loadRemovedTags(uuid).some((r) => r.toLowerCase() === capitalized.toLowerCase()))
+      if (loadRemovedTags(uuid).some((r) => r.toLowerCase() === capitalized.toLowerCase())) {
+        skippedEdits.push(capitalized);
         continue;
+      }
     }
 
     if (addItemTag(uuid, capitalized, false)) {
@@ -390,7 +390,7 @@ const applyNumistaTags = (
   }
   if (persist && added > 0) saveItemTags();
 
-  return added;
+  return { added, skippedEdits };
 };
 
 /**
