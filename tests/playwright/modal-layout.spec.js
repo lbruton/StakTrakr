@@ -96,9 +96,9 @@ async function getChildIndex(page, selector) {
   return page.evaluate((sel) => {
     const el = document.querySelector(sel);
     if (!el) return -1;
-    const parent = el.parentElement;
-    if (!parent) return -1;
-    return Array.from(parent.children).indexOf(el);
+    const form = document.getElementById("inventoryForm");
+    if (!form) return -1;
+    return Array.from(form.children).indexOf(el);
   }, selector);
 }
 
