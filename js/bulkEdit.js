@@ -588,7 +588,7 @@ const renderBulkFieldPanel = () => {
       const isGb = bwUnitSelect.value === "gb";
       bwInput.style.display = isGb ? "none" : "";
       denomSelect.style.display = isGb ? "" : "none";
-      if (bwLabel) bwLabel.textContent = isGb ? "Denomination" : "Weight";
+      if (bwLabel) bwLabel.textContent = isGb ? "DENOMINATION" : "Weight";
       if (isGb) {
         denomSelect.disabled = bwInput.disabled;
         bulkFieldValues["weight"] = denomSelect.value;

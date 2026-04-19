@@ -9153,7 +9153,8 @@ th {
 }
 
 /* --- Uppercase micro-labels --------------------------------------------- */
-#inventoryForm label {
+#inventoryForm label,
+#inventoryForm .form-section-label {
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;

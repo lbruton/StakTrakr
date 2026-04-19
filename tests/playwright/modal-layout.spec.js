@@ -193,8 +193,10 @@ test.describe("modal-layout — STAK-559 reorder and denomination label", () => 
 
     // init.js attaches the change listener inside setTimeout (line 655).
     // Ensure Phase 14 listeners are wired before triggering the change event.
-    await page.waitForFunction(() => typeof toggleGbDenomPicker === "function");
-    await page.waitForTimeout(100);
+    await page.waitForFunction(
+      () =>
+        typeof toggleGbDenomPicker === "function" && document.getElementById("itemGbDenom") !== null
+    );
 
     // Switch weight unit to goldback — this fires the real change event
     await page.selectOption("#itemWeightUnit", "gb");
