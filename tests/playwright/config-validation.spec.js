@@ -484,11 +484,11 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("STAK-549");
   });
 
-  test("CL-19 — entries are in descending version order (3.34.13 before 3.34.12)", () => {
+  test("CL-19 — entries are in descending version order (3.34.14 before 3.34.13)", () => {
+    const idx14 = content.indexOf("## [3.34.14]");
     const idx13 = content.indexOf("## [3.34.13]");
-    const idx12 = content.indexOf("## [3.34.12]");
-    expect(idx13).toBeGreaterThanOrEqual(0);
-    expect(idx12).toBeGreaterThan(idx13);
+    expect(idx14).toBeGreaterThanOrEqual(0);
+    expect(idx13).toBeGreaterThan(idx14);
   });
 
   test("CL-20 — entries are in descending version order (3.34.10 before 3.34.09)", () => {
@@ -512,8 +512,9 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(idx07).toBeGreaterThan(idx08);
   });
 
-  test("CL-21 — all versions 3.34.04 through 3.34.13 are present", () => {
+  test("CL-21 — all versions 3.34.04 through 3.34.14 are present", () => {
     for (const version of [
+      "3.34.14",
       "3.34.13",
       "3.34.12",
       "3.34.04",
@@ -532,16 +533,16 @@ test.describe("CHANGELOG.md — new entries", () => {
   test("CL-22 — [Unreleased] section still present at top", () => {
     expect(content).toContain("## [Unreleased]");
     const unreleasedIdx = content.indexOf("## [Unreleased]");
-    const v313Idx = content.indexOf("## [3.34.13]");
-    expect(unreleasedIdx).toBeLessThan(v313Idx);
+    const v314Idx = content.indexOf("## [3.34.14]");
+    expect(unreleasedIdx).toBeLessThan(v314Idx);
   });
 
   test("CL-23 — [3.34.03] pre-existing entry is still intact", () => {
     expect(content).toContain("## [3.34.03]");
   });
 
-  test("CL-24 — boundary: [3.34.14] does NOT exist (no phantom future entries)", () => {
-    expect(content).not.toContain("## [3.34.14]");
+  test("CL-24 — boundary: [3.34.15] does NOT exist (no phantom future entries)", () => {
+    expect(content).not.toContain("## [3.34.15]");
   });
 
   // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
@@ -613,10 +614,35 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("removed tags");
   });
 
-  test("CL-36 — [3.34.13] is the newest release in the file", () => {
+  // ── 3.34.14 entry (STAK-558: Tag delimiter splitting) ────────────────────
+
+  test("CL-37 — [3.34.14] entry is present (STAK-558 tag delimiter splitting)", () => {
+    expect(content).toContain("## [3.34.14]");
+  });
+
+  test("CL-38 — [3.34.14] has correct date 2026-04-19", () => {
+    expect(content).toContain("## [3.34.14] - 2026-04-19");
+  });
+
+  test("CL-39 — [3.34.14] mentions STAK-558", () => {
+    const entryStart = content.indexOf("## [3.34.14]");
+    const entryEnd = content.indexOf("## [3.34.13]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("STAK-558");
+  });
+
+  test("CL-40 — [3.34.14] describes comma/semicolon delimiter support", () => {
+    const entryStart = content.indexOf("## [3.34.14]");
+    const entryEnd = content.indexOf("## [3.34.13]");
+    const entry = content.substring(entryStart, entryEnd);
+    expect(entry).toContain("comma");
+    expect(entry).toContain("semicolon");
+  });
+
+  test("CL-41 — [3.34.14] is the newest release in the file", () => {
+    const idx14 = content.indexOf("## [3.34.14]");
     const idx13 = content.indexOf("## [3.34.13]");
-    const idx12 = content.indexOf("## [3.34.12]");
-    expect(idx13).toBeGreaterThanOrEqual(0);
-    expect(idx13).toBeLessThan(idx12);
+    expect(idx14).toBeGreaterThanOrEqual(0);
+    expect(idx14).toBeLessThan(idx13);
   });
 });

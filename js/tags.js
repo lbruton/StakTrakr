@@ -560,7 +560,8 @@ const showTagInput = (container, uuid, renderTags, onChanged) => {
   const commitTag = () => {
     const val = input.value.trim();
     if (val) {
-      addItemTag(uuid, val);
+      parseTagInput(val).forEach((t) => addItemTag(uuid, t, false));
+      if (typeof saveItemTags === "function") saveItemTags();
     }
     renderTags();
     if (typeof onChanged === "function") onChanged();

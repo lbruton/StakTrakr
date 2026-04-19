@@ -39,6 +39,19 @@ const debugLog = (...args) => {
  *
  * @returns {string} A UUID v4 string (e.g. "550e8400-e29b-41d4-a716-446655440000")
  */
+/**
+ * Splits a raw tag input string on commas and semicolons, trims whitespace,
+ * and filters out empty tokens.
+ *
+ * @param {string} raw - Raw input string (e.g. "foo, bar; baz")
+ * @returns {string[]} Non-empty trimmed tokens
+ */
+const parseTagInput = (raw) =>
+  String(raw ?? "")
+    .split(/[,;]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
 const generateUUID = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -3256,6 +3269,7 @@ window.getHealthStatusClass = getHealthStatusClass;
 if (typeof window !== "undefined") {
   window.getContrastColor = getContrastColor;
   window.generateUUID = generateUUID;
+  window.parseTagInput = parseTagInput;
   window.generateStorageReport = generateStorageReport;
   window.updateSpotTimestamp = updateSpotTimestamp;
   /**
