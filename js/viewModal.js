@@ -193,7 +193,7 @@ function _getViewMetrics(item) {
 }
 
 function _renderHeaderMeta(item, metrics) {
-  const header = document.getElementById("viewModalTitle");
+  const header = safeGetElement("viewModalTitle");
   if (header) header.textContent = item.name || "Untitled Item";
   _renderCatalogBadge(item);
   _applyHeaderGradient(header, metrics.metalColor);
