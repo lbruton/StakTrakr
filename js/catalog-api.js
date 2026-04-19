@@ -1374,6 +1374,19 @@ const renderNumistaFieldCheckboxes = (result) => {
   const container = document.getElementById("numistaFieldCheckboxes");
   if (!container) return;
 
+  // Resolve editing item for userModified awareness (skip in bulk-edit context)
+  const isBulkEdit = typeof window._bulkEditNumistaCallback === "function";
+  let editingItem = null;
+  if (!isBulkEdit) {
+    const idx = typeof editingIndex !== "undefined" && editingIndex !== null ? editingIndex : null;
+    editingItem = idx !== null && Array.isArray(inventory) ? inventory[idx] : null;
+  }
+  const fieldMetaMap = editingItem?.fieldMeta || {};
+  const editingUuid = editingItem?.uuid || null;
+
+  // Fields with userModified tracking (name, type, weight, year, metal)
+  const userModifiedTracked = new Set(["name", "type", "weight", "year", "metal"]);
+
   const typeValid = result.type && isValidSelectOption("itemType", result.type);
   const metalValid =
     result.metal &&
@@ -1463,12 +1476,22 @@ const renderNumistaFieldCheckboxes = (result) => {
   };
 
   fields.forEach((f) => {
+    // Check userModified for tracked fields
+    const isUserModified =
+      !isBulkEdit && userModifiedTracked.has(f.key) && fieldMetaMap[f.key]?.userModified === true;
+
+    // Row wrapper — display:contents preserves the parent 3-column grid layout
+    const row = document.createElement("div");
+    row.className = "numista-field-row";
+
     // Checkbox — grid column 1
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.name = "numistaField";
     cb.value = f.key;
-    cb.checked = f.available && !!f.value && f.defaultOn;
+    // userModified fields default unchecked; others use existing defaultOn logic
+    const effectiveDefaultOn = isUserModified ? false : f.defaultOn;
+    cb.checked = f.available && !!f.value && effectiveDefaultOn;
     if (!f.value) cb.disabled = true;
 
     // Label — grid column 2
@@ -1491,9 +1514,9 @@ const renderNumistaFieldCheckboxes = (result) => {
     });
     if (!cb.checked) input.disabled = true;
 
-    container.appendChild(cb);
-    container.appendChild(label);
-    container.appendChild(input);
+    row.appendChild(cb);
+    row.appendChild(label);
+    row.appendChild(input);
 
     // "Current:" hint showing existing form value (helps user compare before filling)
     const currentVal = currentFormValues[f.key];
@@ -1502,7 +1525,15 @@ const renderNumistaFieldCheckboxes = (result) => {
       hint.className = "numista-field-current";
       hint.textContent = `Current: ${currentVal}`;
       hint.title = currentVal;
-      container.appendChild(hint);
+      row.appendChild(hint);
+    }
+
+    // userModified indicator: shown regardless of whether there is a current value
+    if (isUserModified) {
+      const editedHint = document.createElement("span");
+      editedHint.className = "numista-field-edited";
+      editedHint.textContent = "\u270e edited";
+      row.appendChild(editedHint);
     }
 
     // Warning text spanning all columns (e.g. "Alloy/Other — not in form options")
@@ -1510,9 +1541,136 @@ const renderNumistaFieldCheckboxes = (result) => {
       const warn = document.createElement("div");
       warn.className = "numista-field-warn";
       warn.textContent = f.warn;
-      container.appendChild(warn);
+      row.appendChild(warn);
     }
+
+    container.appendChild(row);
   });
+
+  // ---------------------------------------------------------------------------
+  // Tag checkbox section (STAK-556)
+  // ---------------------------------------------------------------------------
+  const numistaTagsAuto =
+    typeof loadDataSync === "function" ? loadDataSync("numista_tags_auto", true) : true;
+  const itemCurrentTags = editingUuid
+    ? typeof getItemTags === "function"
+      ? getItemTags(editingUuid)
+      : []
+    : [];
+  const removedTags =
+    !isBulkEdit && editingUuid
+      ? typeof loadRemovedTags === "function"
+        ? loadRemovedTags(editingUuid)
+        : []
+      : [];
+
+  const tagList = result.tags || (selectedNumistaResult && selectedNumistaResult.tags) || [];
+
+  if (tagList.length > 0) {
+    // Separator
+    const sep = document.createElement("div");
+    sep.className = "numista-tag-separator";
+    container.appendChild(sep);
+
+    // Heading row with "Tags:" label and check/uncheck all buttons
+    const headingRow = document.createElement("div");
+    headingRow.className = "numista-tag-heading-row";
+
+    const tagsHeading = document.createElement("span");
+    tagsHeading.className = "numista-fields-subheading";
+    tagsHeading.textContent = "Tags:";
+    headingRow.appendChild(tagsHeading);
+
+    const checkAllBtn = document.createElement("span");
+    checkAllBtn.id = "numistaTagCheckAll";
+    checkAllBtn.className = "numista-tag-actions";
+    checkAllBtn.textContent = "Check all";
+    headingRow.appendChild(checkAllBtn);
+
+    const uncheckAllBtn = document.createElement("span");
+    uncheckAllBtn.id = "numistaTagUncheckAll";
+    uncheckAllBtn.className = "numista-tag-actions";
+    uncheckAllBtn.textContent = "Uncheck all";
+    headingRow.appendChild(uncheckAllBtn);
+
+    container.appendChild(headingRow);
+
+    // Tags container
+    const tagsSection = document.createElement("div");
+    tagsSection.className = "numista-tags-section";
+
+    tagList.forEach((rawTag) => {
+      const capitalized = String(rawTag).charAt(0).toUpperCase() + String(rawTag).slice(1);
+
+      const isBlacklisted =
+        typeof isTagBlacklisted === "function" ? isTagBlacklisted(capitalized) : false;
+      const isOnItem = itemCurrentTags.some((t) => t.toLowerCase() === capitalized.toLowerCase());
+      const isRemoved =
+        !isBulkEdit && removedTags.some((t) => t.toLowerCase() === capitalized.toLowerCase());
+
+      // Wrapper is a <label> so tests can use label:has(input[data-tag="..."])
+      const wrapper = document.createElement("label");
+      wrapper.className = "numista-tag-cb-wrap";
+      if (isBlacklisted) wrapper.classList.add("numista-tag-dimmed");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.name = "numistaTag";
+      cb.dataset.tag = capitalized;
+
+      const tagLabel = document.createElement("span");
+      tagLabel.textContent = capitalized;
+
+      if (isBlacklisted) {
+        cb.checked = false;
+        cb.disabled = true;
+        const hint = document.createElement("span");
+        hint.className = "numista-tag-hint";
+        hint.textContent = "(blacklisted)";
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+        wrapper.appendChild(hint);
+      } else if (isOnItem) {
+        cb.checked = true;
+        cb.disabled = true;
+        const hint = document.createElement("span");
+        hint.className = "numista-tag-hint";
+        hint.textContent = "(on item)";
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+        wrapper.appendChild(hint);
+      } else if (isRemoved) {
+        cb.checked = false;
+        const hint = document.createElement("span");
+        hint.className = "numista-tag-hint";
+        hint.textContent = "(removed \u21a9)";
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+        wrapper.appendChild(hint);
+      } else {
+        cb.checked = !!numistaTagsAuto;
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+      }
+
+      tagsSection.appendChild(wrapper);
+    });
+
+    container.appendChild(tagsSection);
+
+    // Check all / Uncheck all event handlers
+    checkAllBtn.addEventListener("click", () => {
+      tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
+        if (!cb.disabled) cb.checked = true;
+      });
+    });
+
+    uncheckAllBtn.addEventListener("click", () => {
+      tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
+        if (!cb.disabled) cb.checked = false;
+      });
+    });
+  }
 };
 
 /**
