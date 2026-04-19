@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.34.11";
+const APP_VERSION = "3.34.12";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1000,6 +1000,7 @@ const ALLOWED_STORAGE_KEYS = [
   // STAK-504: Market data module keys
   "vendorPricesActiveTab", // string: active metal tab in vendor prices section
   "v2SpotHistoryTs", // string: ISO timestamp of cached v2 spot history
+  "itemRemovedTags", // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
 ];
 
 /**

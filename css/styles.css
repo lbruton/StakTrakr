@@ -9773,6 +9773,75 @@ th {
   padding-left: 1.5rem;
 }
 
+/* .numista-field-row uses display:contents so children participate directly in the parent grid */
+.numista-field-row {
+  display: contents;
+}
+
+/* Numista tag picker (STAK-556) */
+.numista-tag-separator {
+  border-top: 1px solid var(--border-color, #ddd);
+  margin: 0.5rem 0;
+  grid-column: 1 / -1;
+}
+
+.numista-tag-heading-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.15rem;
+}
+
+.numista-fields-subheading {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.numista-tags-section {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.3rem;
+  padding: 0.25rem 0;
+}
+
+.numista-tag-cb-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.15rem 0.3rem;
+  cursor: pointer;
+}
+
+.numista-tag-hint {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.numista-tag-actions {
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: var(--accent-color, #4a90d9);
+  margin-left: 0.5rem;
+}
+
+.numista-tag-actions:hover {
+  text-decoration: underline;
+}
+
+.numista-tag-dimmed {
+  opacity: 0.5;
+}
+
+.numista-field-edited {
+  font-size: 0.75rem;
+  color: var(--warning-color, orange);
+  font-style: italic;
+  grid-column: 3;
+}
+
 .numista-fill-actions {
   display: flex;
   gap: 0.5rem;

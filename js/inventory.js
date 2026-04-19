@@ -1046,6 +1046,7 @@ const editItem = (idx, logIdx = null) => {
     };
 
     renderEditTags();
+    window._renderEditTags = renderEditTags;
 
     // Wire up the add-tag button
     if (elements.addTagBtn && elements.newTagInput) {
@@ -1264,6 +1265,7 @@ const exportJson = () => {
       version: typeof APP_VERSION !== "undefined" ? APP_VERSION : "",
       itemCount: exportData.length,
     },
+    itemRemovedTags: loadDataSync("itemRemovedTags", {}),
   };
 
   const json = JSON.stringify(exportPayload, null, 2);

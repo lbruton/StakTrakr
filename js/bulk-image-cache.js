@@ -63,7 +63,13 @@ const BulkImageCache = (() => {
    * @param {number} [opts.delay=200] - Delay (ms) between network requests
    * @returns {Promise<void>}
    */
-  async function cacheAll({ onProgress, onComplete, onLog, delay = 200 } = {}) {
+  async function cacheAll({
+    onProgress,
+    onComplete,
+    onLog,
+    delay = 200,
+    respectEdits = false,
+  } = {}) {
     if (_running) return;
     if (!window.imageCache) return;
     // Re-open IDB if the browser closed the connection (storage pressure, backgrounding)
@@ -141,7 +147,14 @@ const BulkImageCache = (() => {
           ) {
             const uuids = catalogIdToUuids.get(catalogId) || [];
             for (const uuid of uuids) {
-              applyNumistaTags(uuid, cached.tags, false);
+              const result = applyNumistaTags(uuid, cached.tags, false, false, respectEdits);
+              if (result.skippedEdits && result.skippedEdits.length > 0 && onLog) {
+                onLog({
+                  catalogId,
+                  status: "skip-cached",
+                  message: `Preserved ${result.skippedEdits.length} user-removed tag(s): ${result.skippedEdits.join(", ")}`,
+                });
+              }
             }
           }
         } catch {
@@ -202,7 +215,14 @@ const BulkImageCache = (() => {
         if (apiResult.tags && apiResult.tags.length > 0 && typeof applyNumistaTags === "function") {
           const uuids = catalogIdToUuids.get(catalogId) || [];
           for (const uuid of uuids) {
-            applyNumistaTags(uuid, apiResult.tags, false);
+            const result = applyNumistaTags(uuid, apiResult.tags, false, false, respectEdits);
+            if (result.skippedEdits && result.skippedEdits.length > 0 && onLog) {
+              onLog({
+                catalogId,
+                status: "info",
+                message: `Preserved ${result.skippedEdits.length} user-removed tag(s): ${result.skippedEdits.join(", ")}`,
+              });
+            }
           }
         }
 

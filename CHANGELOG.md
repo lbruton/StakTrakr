@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.12] - 2026-04-19
+
+### Added — STAK-556 + STAK-555: Numista picker tag checkboxes + userModified flag
+
+- **Added**: Per-tag checkboxes in the edit-modal Numista search picker. When importing a Numista result, each tag now has its own checkbox — no more all-or-nothing tag import. Blacklisted tags default unchecked and dimmed, already-present tags show checked and disabled, and tags you've previously removed default unchecked with a "(removed)" hint. "Check all" / "Uncheck all" buttons respect locked states.
+- **Added**: Scalar fields you've manually edited (name, year, type, weight, metal) now default to unchecked in the Numista picker with a "✎ edited" indicator. You can still force-override by re-checking — doing so clears the edit flag so Numista's value becomes canonical.
+- **Added**: Tag removal tracking — when you remove a Numista tag from an item, the system remembers. Next time you search Numista for that item, the removed tag defaults to unchecked. Re-importing clears the tracking.
+- **Added**: Bulk sync (Settings → API → Sync Metadata) now shows a confirmation dialog with an option to skip tags you've previously removed. The activity log reports which tags were preserved per item.
+- **Added**: `itemRemovedTags` included in JSON/CSV export and cloud sync backup/restore.
+
+---
+
 ## [3.34.11] - 2026-04-18
 
 ### Fixed — STAK-554: Remove redundant view-modal Numista re-sync picker + fix title entity double-escape

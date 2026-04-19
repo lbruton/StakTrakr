@@ -254,8 +254,26 @@ const updateStatusCell = (catalogId, text, color) => {
  * Starts the bulk sync operation from the inline Numista card.
  * Updates per-row status cells in real time as items are processed.
  */
-const startBulkSync = () => {
+const startBulkSync = async () => {
   if (!window.BulkImageCache || BulkImageCache.isRunning()) return;
+
+  // Confirmation dialog (STAK-556)
+  if (typeof appConfirm === "function") {
+    const proceed = await appConfirm(
+      "Start metadata sync? This will apply Numista tags to all eligible items.",
+      "Numista Sync"
+    );
+    if (!proceed) return;
+  }
+
+  // Ask about user-edited tags
+  let respectEdits = false;
+  if (typeof appConfirm === "function") {
+    respectEdits = await appConfirm(
+      "Skip tags you've previously removed from items?\n\n• Yes = preserve your tag removals\n• No = sync all tags",
+      "Sync Mode"
+    );
+  }
 
   const startBtn = document.getElementById("numistaSyncStartBtn");
   const cancelBtn = document.getElementById("numistaSyncCancelBtn");
@@ -276,9 +294,11 @@ const startBulkSync = () => {
     "api-lookup": ["var(--text-secondary, #888)", "Syncing..."],
     metadata: ["var(--success-color, green)", "\u2713 Synced"],
     "meta-failed": ["var(--warning-color, orange)", "\u26a0 Failed"],
+    info: ["var(--text-secondary, #888)", "\u24d8 Info"],
   };
 
   BulkImageCache.cacheAll({
+    respectEdits,
     onProgress: ({ current, total }) => {
       if (progressBar) {
         progressBar.max = total;
