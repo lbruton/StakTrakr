@@ -1827,204 +1827,9 @@
             <input type="hidden" id="itemSerial" value="" />
             <input type="hidden" id="itemSpotPrice" value="" />
 
-            <!-- ═══════════════════════════════════════════════════════
-                 CORE FIELDS — Always visible
-                 ═══════════════════════════════════════════════════════ -->
-
-            <!-- Row: Metal & Type -->
-            <div class="grid grid-2">
-              <div>
-                <label for="itemMetal">Metal</label>
-                <select id="itemMetal">
-                  <option value="Silver">Silver</option>
-                  <option value="Gold">Gold</option>
-                  <option value="Platinum">Platinum</option>
-                  <option value="Palladium">Palladium</option>
-                </select>
-              </div>
-              <div>
-                <label for="itemType">Type</label>
-                <select id="itemType">
-                  <option value="Coin">Coin</option>
-                  <option value="Bar">Bar</option>
-                  <option value="Round">Round</option>
-                  <option value="Note">Note</option>
-                  <option value="Aurum">Aurum</option>
-                  <option value="Set">Set</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-            <!-- Row: Purity, Quantity, Weight, Unit -->
-            <div class="grid grid-purity-row">
-              <div>
-                <label for="itemPuritySelect"
-                  >Purity <span style="font-weight: normal; opacity: 0.6">(fineness)</span></label
-                >
-                <select id="itemPuritySelect">
-                  <option value="1.0">100% — Pure</option>
-                  <option value="0.9999">.9999 — Four Nines</option>
-                  <option value="0.9995">.9995 — Pure Platinum</option>
-                  <option value="0.999">.999 — Fine</option>
-                  <option value="0.925">.925 — Sterling</option>
-                  <option value="0.9167">.9167 — 22K (Krugerrand)</option>
-                  <option value="0.900">.900 — 90% Silver</option>
-                  <option value="0.800">.800 — 80% (European)</option>
-                  <option value="0.600">.600 — 60%</option>
-                  <option value="0.400">.400 — 40% Silver</option>
-                  <option value="0.350">.350 — War Nickels</option>
-                  <option value="custom">Custom…</option>
-                </select>
-              </div>
-              <div>
-                <label for="itemQty">Quantity</label>
-                <input id="itemQty" min="1" required step="1" type="number" value="1" />
-              </div>
-              <div>
-                <label for="itemWeight" id="itemWeightLabel">Weight</label>
-                <input
-                  id="itemWeight"
-                  inputmode="decimal"
-                  placeholder="1, 0.5, 1/10"
-                  required
-                  type="text"
-                  value="1"
-                />
-                <select id="itemGbDenom" style="display: none" aria-label="Goldback denomination">
-                  <option value="0.5">½ Goldback</option>
-                  <option value="1" selected>1 Goldback</option>
-                  <option value="2">2 Goldback</option>
-                  <option value="5">5 Goldback</option>
-                  <option value="10">10 Goldback</option>
-                  <option value="25">25 Goldback</option>
-                  <option value="50">50 Goldback</option>
-                  <option value="100">100 Goldback</option>
-                </select>
-              </div>
-              <div>
-                <label for="itemWeightUnit" class="sr-only">Weight unit</label>
-                <select id="itemWeightUnit">
-                  <option value="oz">ounce</option>
-                  <option value="g">gram</option>
-                  <option value="kg">kilogram</option>
-                  <option value="lb">pound</option>
-                  <option value="gb">goldback</option>
-                </select>
-              </div>
-            </div>
-            <div id="purityCustomWrapper" class="grid grid-2" style="display: none">
-              <div>
-                <label for="itemPurity">Custom Purity</label>
-                <input
-                  id="itemPurity"
-                  type="number"
-                  min="0.001"
-                  max="1"
-                  step="0.0001"
-                  placeholder="e.g. 0.9995"
-                />
-              </div>
-            </div>
-            <!-- Row: Name & Year -->
-            <div class="grid grid-name-year">
-              <div>
-                <label for="itemName">Name</label>
-                <div class="input-with-action">
-                  <input id="itemName" required type="text" />
-                  <button
-                    class="inline-search-btn"
-                    id="searchNumistaNameBtn"
-                    type="button"
-                    title="Search Numista catalog by name"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <circle cx="11" cy="11" r="7" />
-                      <line x1="16.5" y1="16.5" x2="21" y2="21" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label for="itemYear"
-                  >Year <span style="font-weight: normal; opacity: 0.6">(optional)</span></label
-                >
-                <input id="itemYear" type="text" placeholder="e.g. 2024" />
-              </div>
-            </div>
-            <!-- Row: Purchase Date & Purchase Price -->
-            <div class="grid grid-2">
-              <div id="dateField">
-                <label for="itemDate"
-                  >Purchase Date
-                  <span style="font-weight: normal; opacity: 0.6">(optional)</span></label
-                >
-                <div class="input-with-action">
-                  <input id="itemDate" type="date" />
-                  <button
-                    type="button"
-                    id="itemDateNABtn"
-                    class="inline-search-btn date-na-btn"
-                    title="Clear date (N/A)"
-                    aria-pressed="false"
-                    aria-controls="itemDate"
-                  >
-                    N/A
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label for="itemPrice">Purchase Price</label>
-                <div class="currency-input input-with-action">
-                  <input id="itemPrice" min="0" step="0.01" type="number" />
-                  <button
-                    class="inline-search-btn"
-                    id="spotLookupBtn"
-                    type="button"
-                    disabled
-                    title="Search for spot price on purchase date"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <line x1="12" y1="1" x2="12" y2="23" />
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <!-- Row: Purchase Location & Storage Location -->
-            <div class="grid grid-2">
-              <div>
-                <label for="purchaseLocation">Purchase Location</label>
-                <input id="purchaseLocation" type="text" />
-              </div>
-              <div>
-                <label for="storageLocation">Storage Location</label>
-                <input id="storageLocation" type="text" placeholder="Vault A, Safe B, etc..." />
-              </div>
-            </div>
             <!-- Images — Unified upload / camera / URL per slot -->
             <div id="imageUploadGroup" class="image-upload-group" style="display: none">
-              <label>Images</label>
+              <div class="form-section-label">Images</div>
               <div class="image-upload-sides">
                 <!-- Obverse -->
                 <div class="image-upload-side">
@@ -2164,6 +1969,201 @@
               <!-- Hidden wrappers preserved for JS compatibility -->
               <div id="imageUrlGroup" style="display: none">
                 <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
+              </div>
+            </div>
+            <!-- Row: Name & Year -->
+            <div class="grid grid-name-year">
+              <div>
+                <label for="itemName">Name</label>
+                <div class="input-with-action">
+                  <input id="itemName" required type="text" />
+                  <button
+                    class="inline-search-btn"
+                    id="searchNumistaNameBtn"
+                    type="button"
+                    title="Search Numista catalog by name"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="7" />
+                      <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label for="itemYear"
+                  >Year <span style="font-weight: normal; opacity: 0.6">(optional)</span></label
+                >
+                <input id="itemYear" type="text" placeholder="e.g. 2024" />
+              </div>
+            </div>
+            <!-- ═══════════════════════════════════════════════════════
+                 CORE FIELDS — Always visible
+                 ═══════════════════════════════════════════════════════ -->
+
+            <!-- Row: Metal & Type -->
+            <div class="grid grid-2">
+              <div>
+                <label for="itemMetal">Metal</label>
+                <select id="itemMetal">
+                  <option value="Silver">Silver</option>
+                  <option value="Gold">Gold</option>
+                  <option value="Platinum">Platinum</option>
+                  <option value="Palladium">Palladium</option>
+                </select>
+              </div>
+              <div>
+                <label for="itemType">Type</label>
+                <select id="itemType">
+                  <option value="Coin">Coin</option>
+                  <option value="Bar">Bar</option>
+                  <option value="Round">Round</option>
+                  <option value="Note">Note</option>
+                  <option value="Aurum">Aurum</option>
+                  <option value="Set">Set</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+            <!-- Row: Purity, Quantity, Weight, Unit -->
+            <div class="grid grid-purity-row">
+              <div>
+                <label for="itemPuritySelect"
+                  >Purity <span style="font-weight: normal; opacity: 0.6">(fineness)</span></label
+                >
+                <select id="itemPuritySelect">
+                  <option value="1.0">100% — Pure</option>
+                  <option value="0.9999">.9999 — Four Nines</option>
+                  <option value="0.9995">.9995 — Pure Platinum</option>
+                  <option value="0.999">.999 — Fine</option>
+                  <option value="0.925">.925 — Sterling</option>
+                  <option value="0.9167">.9167 — 22K (Krugerrand)</option>
+                  <option value="0.900">.900 — 90% Silver</option>
+                  <option value="0.800">.800 — 80% (European)</option>
+                  <option value="0.600">.600 — 60%</option>
+                  <option value="0.400">.400 — 40% Silver</option>
+                  <option value="0.350">.350 — War Nickels</option>
+                  <option value="custom">Custom…</option>
+                </select>
+              </div>
+              <div>
+                <label for="itemQty">Quantity</label>
+                <input id="itemQty" min="1" required step="1" type="number" value="1" />
+              </div>
+              <div>
+                <label for="itemWeight" id="itemWeightLabel">Weight</label>
+                <input
+                  id="itemWeight"
+                  inputmode="decimal"
+                  placeholder="1, 0.5, 1/10"
+                  required
+                  type="text"
+                  value="1"
+                />
+                <select id="itemGbDenom" style="display: none" aria-label="Goldback denomination">
+                  <option value="0.5">½ Goldback</option>
+                  <option value="1" selected>1 Goldback</option>
+                  <option value="2">2 Goldback</option>
+                  <option value="5">5 Goldback</option>
+                  <option value="10">10 Goldback</option>
+                  <option value="25">25 Goldback</option>
+                  <option value="50">50 Goldback</option>
+                  <option value="100">100 Goldback</option>
+                </select>
+              </div>
+              <div>
+                <label for="itemWeightUnit">Unit</label>
+                <select id="itemWeightUnit">
+                  <option value="oz">ounce</option>
+                  <option value="g">gram</option>
+                  <option value="kg">kilogram</option>
+                  <option value="lb">pound</option>
+                  <option value="gb">goldback</option>
+                </select>
+              </div>
+            </div>
+            <div id="purityCustomWrapper" class="grid grid-2" style="display: none">
+              <div>
+                <label for="itemPurity">Custom Purity</label>
+                <input
+                  id="itemPurity"
+                  type="number"
+                  min="0.001"
+                  max="1"
+                  step="0.0001"
+                  placeholder="e.g. 0.9995"
+                />
+              </div>
+            </div>
+            <!-- Row: Purchase Date & Purchase Price -->
+            <div class="grid grid-2">
+              <div id="dateField">
+                <label for="itemDate"
+                  >Purchase Date
+                  <span style="font-weight: normal; opacity: 0.6">(optional)</span></label
+                >
+                <div class="input-with-action">
+                  <input id="itemDate" type="date" />
+                  <button
+                    type="button"
+                    id="itemDateNABtn"
+                    class="inline-search-btn date-na-btn"
+                    title="Clear date (N/A)"
+                    aria-pressed="false"
+                    aria-controls="itemDate"
+                  >
+                    N/A
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label for="itemPrice">Purchase Price</label>
+                <div class="currency-input input-with-action">
+                  <input id="itemPrice" min="0" step="0.01" type="number" />
+                  <button
+                    class="inline-search-btn"
+                    id="spotLookupBtn"
+                    type="button"
+                    disabled
+                    title="Search for spot price on purchase date"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="12" y1="1" x2="12" y2="23" />
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- Row: Purchase Location & Storage Location -->
+            <div class="grid grid-2">
+              <div>
+                <label for="purchaseLocation">Purchase Location</label>
+                <input id="purchaseLocation" type="text" />
+              </div>
+              <div>
+                <label for="storageLocation">Storage Location</label>
+                <input id="storageLocation" type="text" placeholder="Vault A, Safe B, etc..." />
               </div>
             </div>
 
