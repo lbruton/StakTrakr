@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.14] - 2026-04-19
+
+### Added — STAK-558: Comma and semicolon delimiters in tag input
+
+- **Added**: Tag input fields in edit modal and view modal now support comma (`,`) and semicolon (`;`) as delimiters. Type `Silver, Bullion, 2024` or `Silver; Bullion; 2024` and all three tags are added at once.
+- **Added**: Empty tokens between delimiters are automatically skipped, and each token is trimmed of whitespace before adding.
+- **Added**: Single-tag entry without delimiters behaves identically to before — no breaking changes.
+- **Added**: Existing deduplication and max-tag limits apply per token, so bulk entry cannot bypass safety rules.
+
+---
+
 ## [3.34.13] - 2026-04-19
 
 ### Changed — STAK-556: Cherry-pick Numista tags + respect your edits
