@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.13] - 2026-04-19
+
+### Changed — STAK-556: Cherry-pick Numista tags + respect your edits
+
+- **Changed**: Numista picker now uses per-tag checkboxes, so each tag can be individually imported; blacklisted and removed tags stay unchecked by default.
+- **Changed**: Manually edited scalar fields (name/year/type/weight/metal) now track as user-edited and default unchecked in Numista re-import, with an “✎ edited” indicator and override option.
+- **Changed**: Tag-removal history is persisted and shown in export/cloud backup; re-sync can skip removed or manually edited items.
+
+---
+
 ## [3.34.12] - 2026-04-19
 
 ### Added — STAK-556 + STAK-555: Numista picker tag checkboxes + userModified flag

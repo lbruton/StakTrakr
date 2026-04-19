@@ -967,81 +967,37 @@ const editItem = (idx, logIdx = null) => {
 
   // STAK-343: Populate tags in edit modal
   if (item.uuid && typeof getItemTags === "function") {
-    const itemTagsList = getItemTags(item.uuid);
-    const numistaChips = safeGetElement("numistaTagsChips");
-    const customChips = safeGetElement("customTagsChips");
-
-    // Determine which tags came from Numista (check cached metadata)
-    let numistaTagSet = new Set();
-    const catalogId = item.numistaId || item.catalog || "";
-    if (catalogId && typeof catalogAPI !== "undefined" && catalogAPI._metaCache) {
-      const cached = catalogAPI._metaCache[catalogId];
-      if (cached && cached.tags) {
-        numistaTagSet = new Set(cached.tags.map((t) => String(t).trim().toLowerCase()));
-      }
-    }
+    const itemTagsChips = safeGetElement("itemModalTagsChips");
 
     const renderEditTags = () => {
       const tags = getItemTags(item.uuid);
-      const numistaTags = [];
-      const customTags = [];
-      tags.forEach((t) => {
-        if (numistaTagSet.has(t.toLowerCase())) numistaTags.push(t);
-        else customTags.push(t);
-      });
+      if (!itemTagsChips) return;
+      itemTagsChips.textContent = "";
 
-      if (numistaChips) {
-        numistaChips.textContent = "";
-        if (numistaTags.length === 0) {
-          numistaChips.innerHTML = '<span class="tag-empty-hint">No Numista tags</span>';
-        } else {
-          numistaTags.forEach((tag) => {
-            const chip = document.createElement("span");
-            chip.className = "tag-chip tag-chip-numista";
-            chip.textContent = tag;
-            chip.title = `Numista tag: ${tag} (click × to remove)`;
-            const rm = document.createElement("span");
-            rm.className = "tag-chip-remove";
-            rm.textContent = "\u00d7";
-            rm.setAttribute("role", "button");
-            rm.setAttribute("tabindex", "0");
-            rm.setAttribute("aria-label", `Remove tag ${tag}`);
-            rm.onclick = (e) => {
-              e.stopPropagation();
-              removeItemTag(item.uuid, tag);
-              renderEditTags();
-            };
-            chip.appendChild(rm);
-            numistaChips.appendChild(chip);
-          });
-        }
-      }
+      if (tags.length === 0) {
+        itemTagsChips.innerHTML = '<span class="tag-empty-hint">No tags</span>';
+      } else {
+        tags.forEach((tag) => {
+          const chip = document.createElement("span");
+          chip.className = "tag-chip";
+          chip.textContent = tag;
+          chip.title = `Tag: ${tag} (click × to remove)`;
 
-      if (customChips) {
-        customChips.textContent = "";
-        if (customTags.length === 0) {
-          customChips.innerHTML = '<span class="tag-empty-hint">No custom tags</span>';
-        } else {
-          customTags.forEach((tag) => {
-            const chip = document.createElement("span");
-            chip.className = "tag-chip tag-chip-custom";
-            chip.textContent = tag;
-            chip.title = `Custom tag: ${tag} (click × to remove)`;
-            const rm = document.createElement("span");
-            rm.className = "tag-chip-remove";
-            rm.textContent = "\u00d7";
-            rm.setAttribute("role", "button");
-            rm.setAttribute("tabindex", "0");
-            rm.setAttribute("aria-label", `Remove tag ${tag}`);
-            rm.onclick = (e) => {
-              e.stopPropagation();
-              removeItemTag(item.uuid, tag);
-              renderEditTags();
-            };
-            chip.appendChild(rm);
-            customChips.appendChild(chip);
-          });
-        }
+          const rm = document.createElement("span");
+          rm.className = "tag-chip-remove";
+          rm.textContent = "\u00d7";
+          rm.setAttribute("role", "button");
+          rm.setAttribute("tabindex", "0");
+          rm.setAttribute("aria-label", `Remove tag ${tag}`);
+          rm.onclick = (e) => {
+            e.stopPropagation();
+            removeItemTag(item.uuid, tag);
+            renderEditTags();
+          };
+
+          chip.appendChild(rm);
+          itemTagsChips.appendChild(chip);
+        });
       }
     };
 
