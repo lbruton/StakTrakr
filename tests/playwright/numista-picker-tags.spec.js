@@ -197,6 +197,33 @@ async function openNumistaPicker(page, result = NUMISTA_RESULT) {
 // ---------------------------------------------------------------------------
 
 test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", () => {
+  test("0. manual tag add works in edit modal even when item starts without uuid", async ({
+    page,
+  }) => {
+    const legacyItem = { ...BASE_ITEM };
+    delete legacyItem.uuid;
+
+    await seedData(page, {
+      inventory: [legacyItem],
+    });
+    await gotoApp(page);
+    await openEditForm(page);
+
+    await page.fill("#newTagInput", "ManualTag");
+    await page.click("#addTagBtn");
+
+    await expect(page.locator("#itemModalTagsChips")).toContainText("ManualTag");
+
+    const state = await page.evaluate(() => {
+      const uuid = window.inventory?.[0]?.uuid || "";
+      const tags = uuid && typeof window.getItemTags === "function" ? window.getItemTags(uuid) : [];
+      return { uuid, tags };
+    });
+
+    expect(state.uuid).toBeTruthy();
+    expect(state.tags).toContain("ManualTag");
+  });
+
   // =========================================================================
   // Test 1 — Tag section appears when Numista result has tags
   // =========================================================================

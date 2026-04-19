@@ -419,17 +419,14 @@ const applyNumistaTags = (
 
 /**
  * Build the tag display section for the view modal.
- * Returns a DOM fragment with Numista tags (read-only) and custom tags (editable).
+ * Returns a DOM fragment with item tags.
  * @param {string} uuid - Item UUID
  * @param {string[]} numistaTags - Numista API tags (may be empty)
  * @param {Function} [onChanged] - Callback when tags change (for re-render)
- * @returns {HTMLElement|null} Tag section element, or null if no tags and no add capability
+ * @returns {HTMLElement} Tag section element
  */
 const buildTagSection = (uuid, numistaTags, onChanged) => {
-  const existingTags = getItemTags(uuid);
-  const hasNumista = Array.isArray(numistaTags) && numistaTags.length > 0;
-
-  // Always show section so user can add custom tags
+  // Always show section so user can add tags
   const section = document.createElement("div");
   section.className = "view-detail-section";
   section.id = "viewTagsSection";
@@ -447,17 +444,11 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
     container.textContent = "";
     const currentTags = getItemTags(uuid);
 
-    // Build a set of Numista tag names (lowercased) for visual distinction
-    const numistaSet = new Set((numistaTags || []).map((t) => String(t).trim().toLowerCase()));
-
     currentTags.forEach((tag) => {
       const chip = document.createElement("span");
-      const isNumista = numistaSet.has(tag.toLowerCase());
-      chip.className = isNumista ? "tag-chip tag-chip-numista" : "tag-chip tag-chip-custom";
+      chip.className = "tag-chip";
       chip.textContent = tag;
-      chip.title = isNumista
-        ? `Numista tag: ${tag} (click × to remove)`
-        : `Custom tag: ${tag} (click × to remove)`;
+      chip.title = `Tag: ${tag} (click × to remove)`;
 
       // STAK-344: All tags are removable — User First, Numista Second.
       // Once Numista writes a tag it becomes the user's property.
@@ -489,9 +480,9 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
     addBtn.className = "tag-add-btn";
     addBtn.type = "button";
     addBtn.textContent = "+ Tag";
-    addBtn.title = "Add a custom tag";
+    addBtn.title = "Add a tag";
     addBtn.onclick = () => {
-      showTagInput(container, uuid, numistaTags, renderTags, onChanged);
+      showTagInput(container, uuid, renderTags, onChanged);
     };
     container.appendChild(addBtn);
   };
@@ -505,11 +496,10 @@ const buildTagSection = (uuid, numistaTags, onChanged) => {
  * Show an inline input for adding a new tag.
  * @param {HTMLElement} container - Parent container
  * @param {string} uuid - Item UUID
- * @param {string[]} numistaTags - Numista tags for autocomplete
  * @param {Function} renderTags - Re-render callback
  * @param {Function} [onChanged] - External change callback
  */
-const showTagInput = (container, uuid, numistaTags, renderTags, onChanged) => {
+const showTagInput = (container, uuid, renderTags, onChanged) => {
   // Remove existing input if any
   const existing = container.querySelector(".tag-input-wrapper");
   if (existing) existing.remove();

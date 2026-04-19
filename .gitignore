@@ -3,17 +3,31 @@
 .AppleDouble
 .LSOverride
 
-# AI tooling & personal config — all backed up via /backup-claude nightly to Nextcloud
-# Matches the established TRMCompare/PAPiTA pattern: repo holds source + docs, not tooling state.
+# AI tooling & personal config
+# Keep local runtime state ignored while tracking project instruction/config sources
+# needed by Agentlinter and cross-agent workflows.
 .claude/*
 !.claude/project.json
-.opencode/
-.specflow/
+!.claude/agents/
+!.claude/hooks/
+!.claude/skills/
+.claude/agents/*
+!.claude/agents/*.md
+.claude/hooks/*
+!.claude/hooks/*.py
+!.claude/hooks/*.json
+.claude/skills/*
+!.claude/skills/*/
+.claude/skills/*/*
+!.claude/skills/*/SKILL.md
+!.claude/skills/*/*.py
+.opencode/**
+!.opencode/commands/
+!.opencode/commands/*.md
+.specflow/**
+!.specflow/config.json
 .spec-workflow/
 .agents/
-CLAUDE.md
-AGENTS.md
-GEMINI.md
 .mcp.json
 SPRINT.md
 

@@ -12281,36 +12281,19 @@ th {
   border-radius: 9999px;
   line-height: 1.3;
   white-space: nowrap;
-}
-.tag-chip-numista {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-.tag-chip-custom {
   background: rgba(99, 102, 241, 0.1);
   color: #6366f1;
   border: 1px solid rgba(99, 102, 241, 0.2);
 }
-[data-theme="dark"] .tag-chip-numista {
-  background: rgba(96, 165, 250, 0.12);
-  color: #93c5fd;
-  border-color: rgba(96, 165, 250, 0.2);
+[data-theme="dark"] .tag-chip {
+  background: color-mix(in srgb, var(--info) 12%, transparent);
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 22%, transparent);
 }
-[data-theme="dark"] .tag-chip-custom {
-  background: rgba(129, 140, 248, 0.12);
-  color: #a5b4fc;
-  border-color: rgba(129, 140, 248, 0.2);
-}
-[data-theme="sepia"] .tag-chip-numista {
-  background: rgba(59, 130, 246, 0.06);
-  color: #57534e;
-  border-color: rgba(59, 130, 246, 0.12);
-}
-[data-theme="sepia"] .tag-chip-custom {
-  background: rgba(99, 102, 241, 0.06);
-  color: #57534e;
-  border-color: rgba(99, 102, 241, 0.12);
+[data-theme="sepia"] .tag-chip {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  color: var(--text-secondary);
+  border-color: color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 /* --- Tag remove button --------------------------------------------------- */
