@@ -1990,6 +1990,7 @@ const fillFormFromNumistaResult = () => {
     if (typeof applyNumistaTags === "function") {
       // force=true: user explicitly chose these tags via checkboxes
       applyNumistaTags(_fillUuid, checkedTags, true, true);
+      if (typeof window._renderEditTags === "function") window._renderEditTags();
     }
     // Clear removal tracking for re-imported tags (batched: one load + one save)
     if (typeof loadDataSync === "function" && typeof saveDataSync === "function") {

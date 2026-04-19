@@ -1046,6 +1046,7 @@ const editItem = (idx, logIdx = null) => {
     };
 
     renderEditTags();
+    window._renderEditTags = renderEditTags;
 
     // Wire up the add-tag button
     if (elements.addTagBtn && elements.newTagInput) {
