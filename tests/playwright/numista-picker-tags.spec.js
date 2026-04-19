@@ -180,7 +180,7 @@ async function gotoApp(page) {
  */
 async function openEditForm(page, index = 0) {
   await page.evaluate((idx) => window.editItem(idx), index);
-  await expect(page.locator("#itemForm")).toBeVisible();
+  await expect(page.locator("#itemModal")).toBeVisible();
 }
 
 /**
