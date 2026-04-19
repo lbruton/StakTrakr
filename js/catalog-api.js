@@ -1972,6 +1972,48 @@ const fillFormFromNumistaResult = () => {
         .catch(() => {});
     }
   }
+
+  // STAK-556: Tag checkbox application and userModified clearing
+  // Resolve editing item once — mirrors the pattern in renderNumistaFieldCheckboxes
+  const _fillIdx =
+    typeof editingIndex !== "undefined" && editingIndex !== null ? editingIndex : null;
+  const _fillItem = _fillIdx !== null && Array.isArray(inventory) ? inventory[_fillIdx] : null;
+  const _fillUuid = _fillItem?.uuid || null;
+
+  // Apply checked tag checkboxes
+  const tagCheckboxes = container.querySelectorAll('input[name="numistaTag"]:checked');
+  if (tagCheckboxes.length > 0 && _fillUuid) {
+    const checkedTags = Array.from(tagCheckboxes).map((cb) => cb.dataset.tag || cb.value);
+    if (typeof applyNumistaTags === "function") {
+      // force=true: user explicitly chose these tags via checkboxes
+      applyNumistaTags(_fillUuid, checkedTags, true, true);
+    }
+    // Clear removal tracking for re-imported tags
+    if (typeof loadRemovedTags === "function" && typeof clearRemovedTag === "function") {
+      const removed = loadRemovedTags(_fillUuid);
+      for (const tag of checkedTags) {
+        if (removed.some((r) => r.toLowerCase() === tag.toLowerCase())) {
+          clearRemovedTag(_fillUuid, tag);
+        }
+      }
+    }
+  }
+
+  // Clear userModified for scalar fields the user chose to override
+  if (_fillItem && _fillItem.fieldMeta) {
+    const userModifiedFields = ["name", "type", "weight", "year", "metal"];
+    let changed = false;
+    checkboxes.forEach((cb) => {
+      if (!cb.checked) return;
+      if (userModifiedFields.includes(cb.value) && _fillItem.fieldMeta[cb.value]?.userModified) {
+        _fillItem.fieldMeta[cb.value].userModified = false;
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveDataSync(LS_KEY, inventory);
+    }
+  }
 };
 
 /**
