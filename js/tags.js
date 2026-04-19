@@ -110,6 +110,7 @@ const addItemTag = (uuid, tag, persist = true) => {
     if (item) window.invalidateSearchCache(item);
   }
 
+  clearRemovedTag(uuid, trimmed);
   return true;
 };
 
@@ -126,6 +127,7 @@ const removeItemTag = (uuid, tag) => {
   if (idx === -1) return false;
 
   itemTags[uuid].splice(idx, 1);
+  addRemovedTag(uuid, tag);
 
   // Clean up empty arrays
   if (itemTags[uuid].length === 0) {
@@ -149,6 +151,7 @@ const removeItemTag = (uuid, tag) => {
 const deleteItemTags = (uuid) => {
   if (!uuid || !itemTags[uuid]) return;
   delete itemTags[uuid];
+  clearAllRemovedTags(uuid);
   saveItemTags();
 
   if (typeof window.invalidateSearchCache === "function") {
