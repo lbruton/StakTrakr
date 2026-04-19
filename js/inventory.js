@@ -710,6 +710,12 @@ const editItem = (idx, logIdx = null) => {
   editingChangeLogIndex = logIdx;
   const item = inventory[idx];
 
+  // Ensure legacy/seeded records have a stable UUID before tag/image actions.
+  if (!item.uuid && typeof generateUUID === "function") {
+    item.uuid = generateUUID();
+    if (typeof saveInventory === "function") saveInventory();
+  }
+
   // Set modal to edit mode
   if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Edit Inventory Item";
   if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Save Changes";
