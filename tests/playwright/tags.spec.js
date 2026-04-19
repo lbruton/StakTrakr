@@ -283,4 +283,61 @@ test.describe("tags-delimiters — STAK-558 comma/semicolon splitting", () => {
     const chips = page.locator("#viewTagsSection .tag-chip");
     await expect(chips).toHaveCount(3);
   });
+
+  // ========================================================================
+  // Test 7 — View modal showTagInput splits semicolon-separated tags
+  // ========================================================================
+  test("7. view modal showTagInput splits semicolon-separated tags", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openViewModal(page);
+
+    const addTagBtn = page.locator("#viewTagsSection .tag-add-btn");
+    await addTagBtn.click();
+
+    const tagInput = page.locator("#viewTagsSection .tag-input");
+    await expect(tagInput).toBeVisible();
+    await tagInput.fill("Gold; Silver; Platinum");
+    await tagInput.press("Enter");
+
+    await expect(tagInput).toBeHidden();
+
+    const tags = await getItemTags(page);
+    expect(tags).toHaveLength(3);
+    expect(tags).toContain("Gold");
+    expect(tags).toContain("Silver");
+    expect(tags).toContain("Platinum");
+
+    const chips = page.locator("#viewTagsSection .tag-chip");
+    await expect(chips).toHaveCount(3);
+  });
+
+  // ========================================================================
+  // Test 8 — View modal showTagInput splits mixed comma/semicolon tags
+  // ========================================================================
+  test("8. view modal showTagInput splits mixed comma/semicolon tags", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openViewModal(page);
+
+    const addTagBtn = page.locator("#viewTagsSection .tag-add-btn");
+    await addTagBtn.click();
+
+    const tagInput = page.locator("#viewTagsSection .tag-input");
+    await expect(tagInput).toBeVisible();
+    await tagInput.fill("A, B; C, D");
+    await tagInput.press("Enter");
+
+    await expect(tagInput).toBeHidden();
+
+    const tags = await getItemTags(page);
+    expect(tags).toHaveLength(4);
+    expect(tags).toContain("A");
+    expect(tags).toContain("B");
+    expect(tags).toContain("C");
+    expect(tags).toContain("D");
+
+    const chips = page.locator("#viewTagsSection .tag-chip");
+    await expect(chips).toHaveCount(4);
+  });
 });
