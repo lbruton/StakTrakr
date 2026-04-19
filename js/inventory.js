@@ -1264,6 +1264,7 @@ const exportJson = () => {
       version: typeof APP_VERSION !== "undefined" ? APP_VERSION : "",
       itemCount: exportData.length,
     },
+    itemRemovedTags: loadDataSync("itemRemovedTags", {}),
   };
 
   const json = JSON.stringify(exportPayload, null, 2);

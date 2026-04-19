@@ -317,38 +317,38 @@ const removeFromTagBlacklist = (tag) => {
 
 const loadRemovedTags = (uuid) => {
   if (!uuid) return [];
-  const map = loadData("itemRemovedTags") || {};
+  const map = loadDataSync("itemRemovedTags", {});
   return Array.isArray(map[uuid]) ? map[uuid] : [];
 };
 
 const addRemovedTag = (uuid, tag) => {
   if (!uuid || !tag) return;
-  const map = loadData("itemRemovedTags") || {};
+  const map = loadDataSync("itemRemovedTags", {});
   if (!Array.isArray(map[uuid])) map[uuid] = [];
   const capitalized = String(tag).charAt(0).toUpperCase() + String(tag).slice(1);
   // Case-insensitive dedup
   if (map[uuid].some((t) => t.toLowerCase() === capitalized.toLowerCase())) return;
   map[uuid].push(capitalized);
-  saveData("itemRemovedTags", map);
+  saveDataSync("itemRemovedTags", map);
 };
 
 const clearRemovedTag = (uuid, tag) => {
   if (!uuid || !tag) return;
-  const map = loadData("itemRemovedTags") || {};
+  const map = loadDataSync("itemRemovedTags", {});
   if (!Array.isArray(map[uuid])) return;
   const idx = map[uuid].findIndex((t) => t.toLowerCase() === String(tag).toLowerCase());
   if (idx === -1) return;
   map[uuid].splice(idx, 1);
   if (map[uuid].length === 0) delete map[uuid];
-  saveData("itemRemovedTags", map);
+  saveDataSync("itemRemovedTags", map);
 };
 
 const clearAllRemovedTags = (uuid) => {
   if (!uuid) return;
-  const map = loadData("itemRemovedTags") || {};
+  const map = loadDataSync("itemRemovedTags", {});
   if (!(uuid in map)) return;
   delete map[uuid];
-  saveData("itemRemovedTags", map);
+  saveDataSync("itemRemovedTags", map);
 };
 
 // =============================================================================

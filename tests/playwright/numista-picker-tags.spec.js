@@ -330,7 +330,7 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     await expect(eagleCb).not.toBeChecked();
 
     // Click Fill Fields
-    const fillBtn = page.locator("#numistaFillFieldsBtn, #fillNumistaFieldsBtn");
+    const fillBtn = page.locator("#numistaFillBtn");
     await fillBtn.click();
 
     // Wait for modal to close or check tags were applied
@@ -462,7 +462,7 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     await expect(nameCb).toBeChecked();
 
     // Click Fill Fields
-    const fillBtn = page.locator("#numistaFillFieldsBtn, #fillNumistaFieldsBtn");
+    const fillBtn = page.locator("#numistaFillBtn");
     await fillBtn.click();
 
     // After fill, userModified should be cleared for "name"
@@ -547,7 +547,7 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     await expect(eagleCb).toBeChecked();
 
     // Click Fill Fields
-    const fillBtn = page.locator("#numistaFillFieldsBtn, #fillNumistaFieldsBtn");
+    const fillBtn = page.locator("#numistaFillBtn");
     await fillBtn.click();
 
     // itemRemovedTags[uuid] should no longer contain "Eagle"
@@ -663,7 +663,8 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     // The spec requires round-trip preservation — the CSV must carry enough info
     // to reconstruct itemRemovedTags on import
     const lines = csvContent.split("\n");
-    const header = lines[0];
+    // lines[0] is the "# exportOrigin:" comment; the actual CSV header is lines[1]
+    const header = lines[1] || lines[0];
     expect(header).toMatch(/removedTags|removed_tags/i);
   });
 
