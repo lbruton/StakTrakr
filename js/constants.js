@@ -1000,6 +1000,7 @@ const ALLOWED_STORAGE_KEYS = [
   // STAK-504: Market data module keys
   "vendorPricesActiveTab", // string: active metal tab in vendor prices section
   "v2SpotHistoryTs", // string: ISO timestamp of cached v2 spot history
+  "itemRemovedTags", // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
 ];
 
 /**
