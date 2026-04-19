@@ -360,12 +360,13 @@ const applyNumistaTags = (
   force = false,
   respectEdits = false
 ) => {
-  if (!uuid || !Array.isArray(numistaTags) || numistaTags.length === 0) return 0;
+  if (!uuid || !Array.isArray(numistaTags) || numistaTags.length === 0)
+    return { added: 0, skippedEdits: [] };
 
   // Check global auto-apply setting (skip when force=true, e.g. from re-sync picker)
   if (!force) {
     const autoApply = loadDataSync("numista_tags_auto", true);
-    if (!autoApply) return 0;
+    if (!autoApply) return { added: 0, skippedEdits: [] };
   }
 
   let added = 0;
