@@ -3,9 +3,6 @@ import { test, expect } from "@playwright/test";
 /**
  * Playwright TDD spec for STAK-556 — Numista picker tag checkboxes and userModified flag.
  *
- * RED PHASE — all tests written BEFORE implementation. They MUST fail until the
- * implementation tasks are complete.
- *
  * Test coverage:
  *   1.  Tag section appears in picker when Numista result has tags
  *   2.  Blacklisted tags default unchecked and dimmed
@@ -596,31 +593,27 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     expect(exportPayload.itemRemovedTags).toBeDefined();
     expect(exportPayload.itemRemovedTags[ITEM_UUID]).toContain("Investment");
 
-    // Now simulate a JSON import with itemRemovedTags present
-    const importResult = await page.evaluate(
-      ({ payload, uuid }) => {
-        // Clear existing itemRemovedTags
+    // Clear existing itemRemovedTags then import the payload
+    await page.evaluate(
+      ({ payloadStr }) => {
         localStorage.removeItem("itemRemovedTags");
-
-        // importJson processes the payload and should restore itemRemovedTags
-        if (typeof window.importJson === "function") {
-          try {
-            const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-            const file = new File([blob], "test-import.json", { type: "application/json" });
-            // Note: importJson typically reads from a file input — check if a direct parse API exists
-            // For now, verify the data structure the import would need to handle
-            const rawParsed = JSON.parse(JSON.stringify(payload));
-            return rawParsed.itemRemovedTags && rawParsed.itemRemovedTags[uuid]
-              ? rawParsed.itemRemovedTags[uuid]
-              : null;
-          } catch (e) {
-            return null;
-          }
+        if (typeof window.importJsonFromText === "function") {
+          window.importJsonFromText(payloadStr, true);
         }
-        return null;
       },
-      { payload: exportPayload, uuid: ITEM_UUID }
+      { payloadStr: JSON.stringify(exportPayload) }
     );
+
+    // Wait for import to process (FileReader is async)
+    await page.waitForTimeout(500);
+
+    // Verify itemRemovedTags was restored
+    const importResult = await page.evaluate((uuid) => {
+      const raw = localStorage.getItem("itemRemovedTags");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed[uuid] || null;
+    }, ITEM_UUID);
 
     expect(importResult).not.toBeNull();
     expect(importResult).toContain("Investment");
@@ -666,6 +659,30 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     // lines[0] is the "# exportOrigin:" comment; the actual CSV header is lines[1]
     const header = lines[1] || lines[0];
     expect(header).toMatch(/removedTags|removed_tags/i);
+
+    // Import the CSV back and verify removedTags round-trip
+    await page.evaluate(
+      ({ csv }) => {
+        localStorage.removeItem("itemRemovedTags");
+        if (typeof window.importCsvFromText === "function") {
+          window.importCsvFromText(csv, true);
+        }
+      },
+      { csv: csvContent }
+    );
+
+    // Wait for PapaParse async processing
+    await page.waitForTimeout(500);
+
+    const restoredRemovedTags = await page.evaluate((uuid) => {
+      const raw = localStorage.getItem("itemRemovedTags");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed[uuid] || null;
+    }, ITEM_UUID);
+
+    expect(restoredRemovedTags).not.toBeNull();
+    expect(restoredRemovedTags).toContain("Commemorative");
   });
 
   // =========================================================================
@@ -706,6 +723,17 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
 
     expect(restoreTest).not.toBeNull();
     expect(restoreTest).toContain("Investment");
+
+    // Verify loadRemovedTags function also reads the restored data correctly
+    const functionResult = await page.evaluate((uuid) => {
+      if (typeof window.loadRemovedTags === "function") {
+        return window.loadRemovedTags(uuid);
+      }
+      return null;
+    }, ITEM_UUID);
+
+    expect(functionResult).not.toBeNull();
+    expect(functionResult).toContain("Investment");
   });
 
   // =========================================================================

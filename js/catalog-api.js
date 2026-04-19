@@ -270,6 +270,9 @@ console.log("🔌 Catalog API system ready - configure API keys through settings
 
 const NUMISTA_CACHE_TTL_DAYS = 30;
 
+// Fields that carry userModified tracking (shared by renderNumistaFieldCheckboxes + fillFormFromNumistaResult)
+const USER_MODIFIED_TRACKED_FIELDS = new Set(["name", "type", "weight", "year", "metal"]);
+
 /**
  * Loads a cached Numista API response for a given type ID.
  * Returns null if not cached or entry is older than NUMISTA_CACHE_TTL_DAYS.
@@ -1385,7 +1388,7 @@ const renderNumistaFieldCheckboxes = (result) => {
   const editingUuid = editingItem?.uuid || null;
 
   // Fields with userModified tracking (name, type, weight, year, metal)
-  const userModifiedTracked = new Set(["name", "type", "weight", "year", "metal"]);
+  const userModifiedTracked = USER_MODIFIED_TRACKED_FIELDS;
 
   const typeValid = result.type && isValidSelectOption("itemType", result.type);
   const metalValid =
@@ -1988,31 +1991,31 @@ const fillFormFromNumistaResult = () => {
       // force=true: user explicitly chose these tags via checkboxes
       applyNumistaTags(_fillUuid, checkedTags, true, true);
     }
-    // Clear removal tracking for re-imported tags
-    if (typeof loadRemovedTags === "function" && typeof clearRemovedTag === "function") {
-      const removed = loadRemovedTags(_fillUuid);
-      for (const tag of checkedTags) {
-        if (removed.some((r) => r.toLowerCase() === tag.toLowerCase())) {
-          clearRemovedTag(_fillUuid, tag);
-        }
+    // Clear removal tracking for re-imported tags (batched: one load + one save)
+    if (typeof loadDataSync === "function" && typeof saveDataSync === "function") {
+      const map = loadDataSync("itemRemovedTags", {});
+      if (Array.isArray(map[_fillUuid]) && map[_fillUuid].length > 0) {
+        const checkedLower = new Set(checkedTags.map((t) => t.toLowerCase()));
+        map[_fillUuid] = map[_fillUuid].filter((r) => !checkedLower.has(r.toLowerCase()));
+        if (map[_fillUuid].length === 0) delete map[_fillUuid];
+        saveDataSync("itemRemovedTags", map);
       }
     }
   }
 
-  // Clear userModified for scalar fields the user chose to override
+  // Clear userModified for scalar fields the user chose to override.
+  // Do NOT persist here — the save happens when the user confirms the edit modal.
+  // If the user cancels, the next load restores the original in-memory state.
   if (_fillItem && _fillItem.fieldMeta) {
-    const userModifiedFields = ["name", "type", "weight", "year", "metal"];
-    let changed = false;
     checkboxes.forEach((cb) => {
       if (!cb.checked) return;
-      if (userModifiedFields.includes(cb.value) && _fillItem.fieldMeta[cb.value]?.userModified) {
+      if (
+        USER_MODIFIED_TRACKED_FIELDS.has(cb.value) &&
+        _fillItem.fieldMeta[cb.value]?.userModified
+      ) {
         _fillItem.fieldMeta[cb.value].userModified = false;
-        changed = true;
       }
     });
-    if (changed) {
-      saveDataSync(LS_KEY, inventory);
-    }
   }
 };
 

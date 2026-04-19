@@ -110,7 +110,7 @@ const addItemTag = (uuid, tag, persist = true) => {
     if (item) window.invalidateSearchCache(item);
   }
 
-  clearRemovedTag(uuid, trimmed);
+  if (persist) clearRemovedTag(uuid, trimmed);
   return true;
 };
 
@@ -149,10 +149,12 @@ const removeItemTag = (uuid, tag) => {
  * @param {string} uuid - Item UUID
  */
 const deleteItemTags = (uuid) => {
-  if (!uuid || !itemTags[uuid]) return;
-  delete itemTags[uuid];
+  if (!uuid) return;
+  if (itemTags[uuid]) {
+    delete itemTags[uuid];
+    saveItemTags();
+  }
   clearAllRemovedTags(uuid);
-  saveItemTags();
 
   if (typeof window.invalidateSearchCache === "function") {
     const item = findItemByUuid(uuid);
@@ -216,16 +218,29 @@ const renameTag = (oldName, newName) => {
 const deleteTagGlobal = (tag) => {
   if (!tag) return 0;
   let affected = 0;
+  const affectedUuids = [];
   for (const [uuid, tags] of Object.entries(itemTags)) {
     const idx = tags.indexOf(tag);
     if (idx !== -1) {
       tags.splice(idx, 1);
       affected++;
+      affectedUuids.push(uuid);
       if (tags.length === 0) delete itemTags[uuid];
     }
   }
   if (affected > 0) {
     saveItemTags();
+    // Record removals so respectEdits sync won't re-add
+    const raw = loadDataSync("itemRemovedTags", {});
+    const map = Object.assign(Object.create(null), raw);
+    const capitalized = String(tag).charAt(0).toUpperCase() + String(tag).slice(1);
+    for (const uuid of affectedUuids) {
+      if (!Array.isArray(map[uuid])) map[uuid] = [];
+      if (!map[uuid].some((t) => t.toLowerCase() === capitalized.toLowerCase())) {
+        map[uuid].push(capitalized);
+      }
+    }
+    saveDataSync("itemRemovedTags", map);
     if (typeof window.resetSearchCache === "function") {
       window.resetSearchCache();
     }
@@ -233,15 +248,6 @@ const deleteTagGlobal = (tag) => {
   return affected;
 };
 
-/**
- * Apply Numista tags to an item from an API result.
- * Capitalizes the first letter of each tag. Skips duplicates.
- * @param {string} uuid - Item UUID
- * @param {string[]} numistaTags - Array of tag strings from Numista API
- * @param {boolean} [persist=true] - Whether to call saveItemTags() after applying.
- *   Pass false when calling in a loop; caller is responsible for a single saveItemTags() after.
- * @returns {number} Number of tags added
- */
 // =============================================================================
 // TAG BLACKLIST — independent from chip-grouping.js blacklist
 // =============================================================================
@@ -317,13 +323,15 @@ const removeFromTagBlacklist = (tag) => {
 
 const loadRemovedTags = (uuid) => {
   if (!uuid) return [];
-  const map = loadDataSync("itemRemovedTags", {});
+  const raw = loadDataSync("itemRemovedTags", {});
+  const map = Object.assign(Object.create(null), raw);
   return Array.isArray(map[uuid]) ? map[uuid] : [];
 };
 
 const addRemovedTag = (uuid, tag) => {
   if (!uuid || !tag) return;
-  const map = loadDataSync("itemRemovedTags", {});
+  const raw = loadDataSync("itemRemovedTags", {});
+  const map = Object.assign(Object.create(null), raw);
   if (!Array.isArray(map[uuid])) map[uuid] = [];
   const capitalized = String(tag).charAt(0).toUpperCase() + String(tag).slice(1);
   // Case-insensitive dedup
@@ -334,7 +342,8 @@ const addRemovedTag = (uuid, tag) => {
 
 const clearRemovedTag = (uuid, tag) => {
   if (!uuid || !tag) return;
-  const map = loadDataSync("itemRemovedTags", {});
+  const raw = loadDataSync("itemRemovedTags", {});
+  const map = Object.assign(Object.create(null), raw);
   if (!Array.isArray(map[uuid])) return;
   const idx = map[uuid].findIndex((t) => t.toLowerCase() === String(tag).toLowerCase());
   if (idx === -1) return;
@@ -345,7 +354,8 @@ const clearRemovedTag = (uuid, tag) => {
 
 const clearAllRemovedTags = (uuid) => {
   if (!uuid) return;
-  const map = loadDataSync("itemRemovedTags", {});
+  const raw = loadDataSync("itemRemovedTags", {});
+  const map = Object.assign(Object.create(null), raw);
   if (!(uuid in map)) return;
   delete map[uuid];
   saveDataSync("itemRemovedTags", map);
@@ -369,6 +379,10 @@ const applyNumistaTags = (
     if (!autoApply) return { added: 0, skippedEdits: [] };
   }
 
+  const removedSet = respectEdits
+    ? new Set(loadRemovedTags(uuid).map((r) => r.toLowerCase()))
+    : null;
+
   let added = 0;
   const skippedEdits = [];
   for (const raw of numistaTags) {
@@ -378,18 +392,27 @@ const applyNumistaTags = (
 
     if (isTagBlacklisted(capitalized)) continue;
 
-    if (respectEdits && typeof loadRemovedTags === "function") {
-      if (loadRemovedTags(uuid).some((r) => r.toLowerCase() === capitalized.toLowerCase())) {
-        skippedEdits.push(capitalized);
-        continue;
-      }
+    if (removedSet && removedSet.has(capitalized.toLowerCase())) {
+      skippedEdits.push(capitalized);
+      continue;
     }
 
     if (addItemTag(uuid, capitalized, false)) {
       added++;
     }
   }
-  if (persist && added > 0) saveItemTags();
+  if (persist && added > 0) {
+    saveItemTags();
+    // Batch-clear removal tracking for re-imported tags
+    const raw = loadDataSync("itemRemovedTags", {});
+    const map = Object.assign(Object.create(null), raw);
+    if (Array.isArray(map[uuid]) && map[uuid].length > 0) {
+      const currentTags = new Set(getItemTags(uuid).map((t) => t.toLowerCase()));
+      map[uuid] = map[uuid].filter((r) => !currentTags.has(r.toLowerCase()));
+      if (map[uuid].length === 0) delete map[uuid];
+      saveDataSync("itemRemovedTags", map);
+    }
+  }
 
   return { added, skippedEdits };
 };

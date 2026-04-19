@@ -291,6 +291,7 @@
           const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
           const skippedNonPM = [];
           const pendingTagsByUuid = new Map();
+          const pendingRemovedTagsByUuid = new Map();
 
           for (const row of results.data) {
             processed++;
@@ -366,6 +367,7 @@
             const serial = row["Serial"] || row["serial"] || getNextSerial();
             const uuid = row["UUID"] || row["uuid"] || "";
             const csvTags = (row["Tags"] || row["tags"] || "").trim();
+            const csvRemovedTags = (row["removedTags"] || row["Removed Tags"] || "").trim();
             const obverseImageUrl = row["Obverse Image URL"] || row["obverseImageUrl"] || "";
             const reverseImageUrl = row["Reverse Image URL"] || row["reverseImageUrl"] || "";
 
@@ -418,6 +420,20 @@
                     ? DiffEngine.computeItemKey(item)
                     : item.uuid || item.serial || "";
                 if (tagKey) pendingTagsByUuid.set(tagKey, tagList);
+              }
+            }
+
+            if (csvRemovedTags) {
+              const removedList = csvRemovedTags
+                .split(";")
+                .map((t) => t.trim())
+                .filter(Boolean);
+              if (removedList.length) {
+                const removedKey =
+                  typeof DiffEngine !== "undefined"
+                    ? DiffEngine.computeItemKey(item)
+                    : item.uuid || item.serial || "";
+                if (removedKey) pendingRemovedTagsByUuid.set(removedKey, removedList);
               }
             }
 
@@ -496,6 +512,22 @@
               }
               if (typeof saveItemTags === "function") saveItemTags();
             }
+            // Restore removed tags from CSV import (STAK-556)
+            if (pendingRemovedTagsByUuid.size > 0 && typeof saveDataSync === "function") {
+              const removedMap =
+                typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
+              for (const item of imported) {
+                const key =
+                  typeof DiffEngine !== "undefined"
+                    ? DiffEngine.computeItemKey(item)
+                    : item.uuid || item.serial || "";
+                const removedTags = pendingRemovedTagsByUuid.get(key);
+                if (removedTags && removedTags.length) {
+                  removedMap[item.uuid] = removedTags;
+                }
+              }
+              saveDataSync("itemRemovedTags", removedMap);
+            }
             // STAK-421: Cancel the debounced sync push that saveInventory() just
             // scheduled — override imports replace all local data, so pushing
             // immediately would overwrite the remote vault before the user can review.
@@ -531,6 +563,22 @@
               pendingTagsByUuid: pendingTagsByUuid,
             },
             function (summary) {
+              // Restore removed tags from CSV import (STAK-556)
+              if (pendingRemovedTagsByUuid.size > 0 && typeof saveDataSync === "function") {
+                const removedMap =
+                  typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
+                for (const item of imported) {
+                  const key =
+                    typeof DiffEngine !== "undefined"
+                      ? DiffEngine.computeItemKey(item)
+                      : item.uuid || item.serial || "";
+                  const removedTags = pendingRemovedTagsByUuid.get(key);
+                  if (removedTags && removedTags.length) {
+                    removedMap[item.uuid] = removedTags;
+                  }
+                }
+                saveDataSync("itemRemovedTags", removedMap);
+              }
               debugLog(
                 "importCsv DiffEngine complete",
                 summary.added,
@@ -964,6 +1012,8 @@
     ];
 
     const sortedInventory = sortInventoryByDateNewestFirst();
+    const _removedTagsMap =
+      typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
     const rows = [];
 
     for (const i of sortedInventory) {
@@ -1002,7 +1052,7 @@
         i.serialNumber || "",
         i.notes || "",
         typeof getItemTags === "function" ? getItemTags(i.uuid).join("; ") : "",
-        typeof loadRemovedTags === "function" ? loadRemovedTags(i.uuid).join("; ") : "",
+        Array.isArray(_removedTagsMap[i.uuid]) ? _removedTagsMap[i.uuid].join("; ") : "",
         i.uuid || "",
         i.obverseImageUrl || "",
         i.reverseImageUrl || "",
@@ -1063,6 +1113,9 @@
           }
           return;
         }
+
+        const parsedRemovedTags =
+          rawParsed && !Array.isArray(rawParsed) ? rawParsed.itemRemovedTags || null : null;
 
         // Process each item
         let imported = [];
@@ -1280,6 +1333,10 @@
             inventory = catalogManager.syncInventory(inventory);
           }
           saveInventory();
+          // Restore itemRemovedTags from import payload (STAK-556)
+          if (parsedRemovedTags && typeof saveDataSync === "function") {
+            saveDataSync("itemRemovedTags", parsedRemovedTags);
+          }
           // STAK-421: Cancel debounced sync push — override import replaces all
           // local data; pushing now would overwrite remote before user can review.
           if (
@@ -1348,6 +1405,10 @@
             exportMeta: parsedMeta,
           },
           function (summary) {
+            // Restore itemRemovedTags from import payload (STAK-556)
+            if (parsedRemovedTags && typeof saveDataSync === "function") {
+              saveDataSync("itemRemovedTags", parsedRemovedTags);
+            }
             debugLog(
               "importJson DiffEngine complete",
               summary.added,
@@ -1373,6 +1434,16 @@
   // Export public API via window.*
   window.importCsv = importCsv;
   window.importJson = importJson;
+  window.importJsonFromText = (text, override = false) => {
+    const blob = new Blob([text], { type: "application/json" });
+    const file = new File([blob], "test-import.json", { type: "application/json" });
+    importJson(file, override);
+  };
+  window.importCsvFromText = (text, override = false) => {
+    const blob = new Blob([text], { type: "text/csv" });
+    const file = new File([blob], "test-import.csv", { type: "text/csv" });
+    importCsv(file, override);
+  };
   window.importNumistaCsv = importNumistaCsv;
   window.exportCsv = exportCsv;
   window.exportNumistaCsv = exportNumistaCsv;

@@ -294,6 +294,7 @@ const startBulkSync = async () => {
     "api-lookup": ["var(--text-secondary, #888)", "Syncing..."],
     metadata: ["var(--success-color, green)", "\u2713 Synced"],
     "meta-failed": ["var(--warning-color, orange)", "\u26a0 Failed"],
+    info: ["var(--text-secondary, #888)", "\u24d8 Info"],
   };
 
   BulkImageCache.cacheAll({
