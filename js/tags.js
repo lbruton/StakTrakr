@@ -353,7 +353,13 @@ const clearAllRemovedTags = (uuid) => {
 
 // =============================================================================
 
-const applyNumistaTags = (uuid, numistaTags, persist = true, force = false) => {
+const applyNumistaTags = (
+  uuid,
+  numistaTags,
+  persist = true,
+  force = false,
+  respectEdits = false
+) => {
   if (!uuid || !Array.isArray(numistaTags) || numistaTags.length === 0) return 0;
 
   // Check global auto-apply setting (skip when force=true, e.g. from re-sync picker)
@@ -371,6 +377,12 @@ const applyNumistaTags = (uuid, numistaTags, persist = true, force = false) => {
 
     // Skip blacklisted tags
     if (isTagBlacklisted(capitalized)) continue;
+
+    // Skip tags the user previously removed (STAK-556)
+    if (respectEdits && typeof loadRemovedTags === "function") {
+      if (loadRemovedTags(uuid).some((r) => r.toLowerCase() === capitalized.toLowerCase()))
+        continue;
+    }
 
     if (addItemTag(uuid, capitalized, false)) {
       added++;
