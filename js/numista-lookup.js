@@ -193,16 +193,6 @@ const NumistaLookup = (() => {
           }
         }
       }
-
-      // STAK-437: Pre-seed ASE pattern for new users (only when numistaLookupRules key
-      // has never been set). Once the key exists — even as "[]" — we never pre-seed again.
-      if (raw === null) {
-        addRule(
-          "\\b(american\\s+silver\\s+eagle|\\bASE\\b)",
-          '"American Silver Eagle" Bullion',
-          "1493"
-        );
-      }
     } catch (e) {
       console.warn("NumistaLookup: failed to load custom rules:", e);
       customRules = [];
