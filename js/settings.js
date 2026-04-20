@@ -315,17 +315,7 @@ const syncSettingsUI = () => {
     });
   }
 
-  // Numista name matching — sync toggle with feature flag
-  const numistaLookupSetting = document.getElementById("settingsNumistaLookup");
-  if (numistaLookupSetting && window.featureFlags) {
-    const nlVal = featureFlags.isEnabled("NUMISTA_SEARCH_LOOKUP") ? "yes" : "no";
-    numistaLookupSetting.querySelectorAll(".chip-sort-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.val === nlVal);
-    });
-  }
-
   // Numista lookup rule tables
-  renderSeedRuleTable();
   renderCustomRuleTable();
 
   // Chip grouping tables and dropdown
@@ -890,124 +880,13 @@ const renderFilterChipCategoryTable = () => {
 };
 
 /**
- * Renders the built-in (seed) Numista lookup rules table with enable/disable toggles.
- */
-const renderSeedRuleTable = () => {
-  const container = document.getElementById("seedRuleTableContainer");
-  if (!container || !window.NumistaLookup) return;
-
-  const rules = NumistaLookup.listSeedRules();
-  const enabledCount =
-    typeof NumistaLookup.getEnabledSeedRuleCount === "function"
-      ? NumistaLookup.getEnabledSeedRuleCount()
-      : rules.length;
-  const countBadge = document.getElementById("seedRuleCount");
-  if (countBadge) countBadge.textContent = `(${enabledCount}/${rules.length})`;
-
-  container.textContent = "";
-  if (!rules.length) {
-    const empty = document.createElement("div");
-    empty.className = "chip-grouping-empty";
-    empty.textContent = "No built-in patterns";
-    container.appendChild(empty);
-    return;
-  }
-
-  // Bulk toggle buttons
-  const btnBar = document.createElement("div");
-  btnBar.style.cssText = "display:flex;gap:0.5rem;margin-bottom:0.5rem";
-
-  const enableAllBtn = document.createElement("button");
-  enableAllBtn.type = "button";
-  enableAllBtn.className = "btn";
-  enableAllBtn.textContent = "Enable All";
-  enableAllBtn.style.cssText = "font-size:0.75rem;padding:0.2rem 0.6rem";
-  enableAllBtn.addEventListener("click", () => {
-    NumistaLookup.setAllSeedRulesEnabled(true);
-    renderSeedRuleTable();
-  });
-
-  const disableAllBtn = document.createElement("button");
-  disableAllBtn.type = "button";
-  disableAllBtn.className = "btn";
-  disableAllBtn.textContent = "Disable All";
-  disableAllBtn.style.cssText = "font-size:0.75rem;padding:0.2rem 0.6rem";
-  disableAllBtn.addEventListener("click", () => {
-    NumistaLookup.setAllSeedRulesEnabled(false);
-    renderSeedRuleTable();
-  });
-
-  btnBar.append(enableAllBtn, disableAllBtn);
-  container.appendChild(btnBar);
-
-  const table = document.createElement("table");
-  table.className = "chip-grouping-table";
-
-  const thead = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  ["Enabled", "Pattern", "Numista Query", "N#"].forEach((text) => {
-    const th = document.createElement("th");
-    th.textContent = text;
-    th.style.cssText = "font-size:0.75rem;font-weight:normal;opacity:0.6;padding:0.2rem 0.4rem";
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-  for (const rule of rules) {
-    const tr = document.createElement("tr");
-
-    // Enabled checkbox
-    const tdEnabled = document.createElement("td");
-    tdEnabled.style.cssText = "width:2.5rem;text-align:center";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked =
-      typeof NumistaLookup.isSeedRuleEnabled === "function"
-        ? NumistaLookup.isSeedRuleEnabled(rule.id)
-        : true;
-    cb.title = "Toggle " + rule.id;
-    cb.addEventListener("change", () => {
-      if (typeof NumistaLookup.setSeedRuleEnabled === "function") {
-        NumistaLookup.setSeedRuleEnabled(rule.id, cb.checked);
-      }
-      // Update count badge
-      const newCount =
-        typeof NumistaLookup.getEnabledSeedRuleCount === "function"
-          ? NumistaLookup.getEnabledSeedRuleCount()
-          : rules.length;
-      if (countBadge) countBadge.textContent = `(${newCount}/${rules.length})`;
-    });
-    tdEnabled.appendChild(cb);
-
-    const tdPattern = document.createElement("td");
-    tdPattern.style.cssText = "font-family:monospace;font-size:0.8rem;word-break:break-all";
-    tdPattern.textContent = rule.pattern;
-
-    const tdReplacement = document.createElement("td");
-    tdReplacement.textContent = rule.replacement;
-
-    const tdId = document.createElement("td");
-    tdId.style.cssText = "font-size:0.85rem;opacity:0.7;white-space:nowrap";
-    tdId.textContent = rule.numistaId || "\u2014";
-
-    tr.append(tdEnabled, tdPattern, tdReplacement, tdId);
-    tbody.appendChild(tr);
-  }
-
-  table.appendChild(tbody);
-  container.appendChild(table);
-};
-
-/**
  * Renders the custom Numista lookup rules table with delete buttons.
  */
 const renderCustomRuleTable = () => {
   const container = document.getElementById("customRuleTableContainer");
   if (!container || !window.NumistaLookup) return;
 
-  const rules = NumistaLookup.listCustomRules();
+  const rules = NumistaLookup.getCustomRules();
   container.textContent = "";
 
   if (!rules.length) {
@@ -1728,7 +1607,7 @@ const renderCustomPatternRules = async () => {
     return;
   }
 
-  const rules = NumistaLookup.listCustomRules();
+  const rules = NumistaLookup.getCustomRules();
   if (!rules.length) {
     container.innerHTML =
       '<p style="font-size:0.85em;color:var(--text-secondary)">No custom pattern rules yet. Use the form above to add one.</p>';
@@ -2114,7 +1993,6 @@ const STORAGE_KEY_LABELS = {
   "staktrakr.catalog.settings": { label: "Catalog Settings", icon: "🔍", category: "Settings" },
   tableImagesEnabled: { label: "Table Images", icon: "🖼", category: "Settings" },
   tableImageSides: { label: "Table Image Sides", icon: "🖼", category: "Settings" },
-  enabledSeedRules: { label: "Enabled Seed Rules", icon: "🌱", category: "Settings" },
   featureFlags: { label: "Feature Flags", icon: "🚩", category: "Settings" },
   headerTrendBtnVisible: { label: "Trend Btn Visible", icon: "⚙️", category: "Settings" },
   headerSyncBtnVisible: { label: "Sync Btn Visible", icon: "⚙️", category: "Settings" },
@@ -2864,7 +2742,6 @@ if (typeof window !== "undefined") {
   window.syncCurrencySettingsUI = syncCurrencySettingsUI;
   window.syncHeaderToggleUI = syncHeaderToggleUI;
   window.syncLayoutVisibilityUI = syncLayoutVisibilityUI;
-  window.renderSeedRuleTable = renderSeedRuleTable;
   window.renderCustomRuleTable = renderCustomRuleTable;
   window.populateImagesSection = populateImagesSection;
   window.renderStorageSection = renderStorageSection;

@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.34.16";
+const APP_VERSION = "3.34.17";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -863,7 +863,6 @@ const SYNC_SCOPE_KEYS = [
   "numistaViewFields", // view modal field config
 
   // ── Seed & provider config ──
-  "enabledSeedRules", // seed data rules
   "apiProviderOrder", // spot provider order
   "providerPriority", // provider priority config
 
@@ -966,7 +965,6 @@ const ALLOWED_STORAGE_KEYS = [
   SHOW_REALIZED_KEY, // boolean string: "true"/"false" — show realized G/L in summary cards (STAK-72)
   METAL_ORDER_KEY, // JSON array: metal order/visibility config
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
-  "enabledSeedRules", // JSON array: enabled built-in Numista lookup rule IDs
   "seedImagesVer", // string: current seed images version for cache invalidation
   "cloud_token_dropbox", // JSON: Dropbox OAuth token data
   "cloud_token_pcloud", // JSON: pCloud OAuth token data
@@ -1421,13 +1419,6 @@ const FEATURE_FLAGS = {
     userToggle: true,
     description: "Show item count badge on filter chips",
     phase: "stable",
-  },
-  NUMISTA_SEARCH_LOOKUP: {
-    enabled: false,
-    urlOverride: true,
-    userToggle: true,
-    description: "Pattern-based Numista search improvement",
-    phase: "beta",
   },
   COIN_IMAGES: {
     enabled: true,

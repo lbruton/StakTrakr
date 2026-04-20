@@ -1414,12 +1414,8 @@ const buildNumistaSearchQuery = (nameVal, metalVal) => {
       ? `${metalVal} ${nameVal}`
       : nameVal;
 
-  // Try pattern-based lookup if feature is enabled
-  if (
-    window.NumistaLookup &&
-    window.featureFlags &&
-    featureFlags.isEnabled("NUMISTA_SEARCH_LOOKUP")
-  ) {
+  // Try pattern-based lookup if available
+  if (window.NumistaLookup) {
     const match = NumistaLookup.matchQuery(combined);
     if (match) {
       return { query: match.replacement, numistaId: match.numistaId, matched: true };

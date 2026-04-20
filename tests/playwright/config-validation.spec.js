@@ -541,8 +541,8 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.03]");
   });
 
-  test("CL-24 — boundary: [3.34.17] does NOT exist (no phantom future entries)", () => {
-    expect(content).not.toContain("## [3.34.17]");
+  test("CL-24 — boundary: [3.34.18] does NOT exist (no phantom future entries)", () => {
+    expect(content).not.toContain("## [3.34.18]");
   });
 
   // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
@@ -639,10 +639,10 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("semicolon");
   });
 
-  test("CL-41 — [3.34.16] is the newest release in the file", () => {
+  test("CL-41 — [3.34.17] is the newest release in the file", () => {
+    const idx17 = content.indexOf("## [3.34.17]");
     const idx16 = content.indexOf("## [3.34.16]");
-    const idx15 = content.indexOf("## [3.34.15]");
-    expect(idx16).toBeGreaterThanOrEqual(0);
-    expect(idx16).toBeLessThan(idx15);
+    expect(idx17).toBeGreaterThanOrEqual(0);
+    expect(idx17).toBeLessThan(idx16);
   });
 });
