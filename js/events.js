@@ -1431,6 +1431,81 @@ const buildNumistaSearchQuery = (nameVal, metalVal) => {
 };
 
 /**
+ * Updates denomination option labels based on selected type.
+ * @param {string} [typeValue=""]
+ */
+const updateDenomLabels = (typeValue = "") => {
+  const denomSelect = safeGetElement("itemGbDenom");
+  if (!denomSelect || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
+
+  const denominationLabel = typeValue === "Silverback" ? "Silverback" : "Goldback";
+  GOLDBACK_DENOMINATIONS.forEach((denomination, index) => {
+    const option = denomSelect.options[index];
+    if (!option) return;
+    const prefix = denomination.weight === 0.5 ? "½" : String(denomination.weight);
+    option.textContent = `${prefix} ${denominationLabel}`;
+  });
+};
+
+/**
+ * Handles type-driven denomination/weight UI state changes.
+ */
+const handleTypeChange = () => {
+  const selectedType = elements.itemType?.value || "";
+  const unitSelect = elements.itemWeightUnit;
+  if (!unitSelect) return;
+
+  const unitGroup = unitSelect.closest(".form-group") || unitSelect.parentElement;
+  const isGoldbackType = selectedType === "Goldback" || selectedType === "Silverback";
+
+  if (isGoldbackType) {
+    unitSelect.value = "gb";
+    if (unitGroup) unitGroup.classList.add("hidden");
+    updateDenomLabels(selectedType);
+  } else {
+    if (unitSelect.value === "gb") {
+      unitSelect.value = "oz";
+    }
+    if (unitGroup) unitGroup.classList.remove("hidden");
+  }
+
+  if (typeof toggleGbDenomPicker === "function") {
+    toggleGbDenomPicker();
+  }
+};
+
+/**
+ * Filters type dropdown options based on selected metal.
+ * @param {string} metalValue
+ */
+const filterTypesByMetal = (metalValue) => {
+  const typeSelect = safeGetElement("itemType");
+  if (!typeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
+
+  Array.from(typeSelect.options).forEach((option) => {
+    const allowedMetals = TYPE_METAL_FILTER[option.value];
+    const isAllowed = !Array.isArray(allowedMetals) || allowedMetals.includes(metalValue);
+    option.hidden = !isAllowed;
+    option.disabled = !isAllowed;
+  });
+
+  const selectedOption = typeSelect.options[typeSelect.selectedIndex];
+  if (selectedOption && selectedOption.hidden) {
+    typeSelect.value = "Coin";
+    const fallbackOption = typeSelect.options[typeSelect.selectedIndex];
+    if (!fallbackOption || fallbackOption.hidden) {
+      const firstVisible = Array.from(typeSelect.options).find((option) => !option.hidden);
+      if (firstVisible) typeSelect.value = firstVisible.value;
+    }
+    handleTypeChange();
+  }
+};
+
+window.updateDenomLabels = updateDenomLabels;
+window.handleTypeChange = handleTypeChange;
+window.filterTypesByMetal = filterTypesByMetal;
+
+/**
  * Sets up item form submission and related button listeners
  */
 const setupItemFormListeners = () => {
@@ -2097,8 +2172,20 @@ const setupItemFormListeners = () => {
       "change",
       () => {
         if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
+        filterTypesByMetal(elements.itemMetal.value);
       },
-      "Metal change clears spot lookup"
+      "Metal change clears spot lookup and filters type options"
+    );
+  }
+
+  if (elements.itemType) {
+    safeAttachListener(
+      elements.itemType,
+      "change",
+      () => {
+        handleTypeChange();
+      },
+      "Type change updates denomination picker"
     );
   }
 
@@ -3196,6 +3283,10 @@ const setupSearch = () => {
           if (elements.itemPurity) elements.itemPurity.value = "";
           // Reset gb denomination picker (STACK-45)
           if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
+          if (elements.itemMetal && typeof filterTypesByMetal === "function") {
+            filterTypesByMetal(elements.itemMetal.value);
+          }
+          if (typeof handleTypeChange === "function") handleTypeChange();
           // Hide PCGS verified icon in add mode
           const certVerifiedIcon = document.getElementById("certVerifiedIcon");
           if (certVerifiedIcon) certVerifiedIcon.style.display = "none";

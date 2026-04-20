@@ -992,7 +992,17 @@ const sanitizeObjectFields = (obj) => {
  * Allowed inventory item types
  * @constant {string[]}
  */
-const VALID_TYPES = ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"];
+const VALID_TYPES = [
+  "Coin",
+  "Bar",
+  "Round",
+  "Note",
+  "Aurum",
+  "Goldback",
+  "Silverback",
+  "Set",
+  "Other",
+];
 
 /**
  * Normalizes item type to one of the predefined options
@@ -1014,6 +1024,8 @@ const normalizeType = (type = "") => {
  */
 const mapNumistaType = (type = "") => {
   const t = type.toLowerCase();
+  if (t.includes("goldback")) return "Goldback";
+  if (t.includes("silverback")) return "Silverback";
   if (t.includes("aurum")) return "Aurum";
   if (t.includes("note")) return "Note";
   if (t.includes("bar") || t.includes("ingot")) return "Bar";

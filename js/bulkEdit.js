@@ -179,7 +179,7 @@ const BULK_EDITABLE_FIELDS = [
     id: "type",
     label: "Type",
     inputType: "select",
-    options: ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"],
+    options: ["Coin", "Bar", "Round", "Note", "Aurum", "Goldback", "Silverback", "Set", "Other"],
   },
   { id: "qty", label: "Quantity", inputType: "number", attrs: { min: "1", step: "1" } },
   { id: "weight", label: "Weight", inputType: "number", attrs: { min: "0", step: "0.001" } },
@@ -205,6 +205,7 @@ const BULK_EDITABLE_FIELDS = [
       { value: "0.9995", label: ".9995 — Pure Platinum" },
       { value: "0.999", label: ".999 — Fine" },
       { value: "0.925", label: ".925 — Sterling" },
+      { value: "0.500", label: ".500 — 12K" },
       { value: "0.9167", label: ".9167 — 22K (Krugerrand)" },
       { value: "0.900", label: ".900 — 90% Silver" },
       { value: "0.800", label: ".800 — 80% (European)" },
@@ -595,8 +596,66 @@ const renderBulkFieldPanel = () => {
       }
     };
 
+    const updateBulkDenomLabels = (typeValue = "") => {
+      const denominationLabel = typeValue === "Silverback" ? "Silverback" : "Goldback";
+      GOLDBACK_DENOMINATIONS.forEach((denomination, index) => {
+        const option = denomSelect.options[index];
+        if (!option) return;
+        const prefix = denomination.weight === 0.5 ? "½" : String(denomination.weight);
+        option.textContent = `${prefix} ${denominationLabel}`;
+      });
+    };
+
+    const bulkTypeSelect = safeGetElement("bulkFieldVal_type");
+    const bulkMetalSelect = safeGetElement("bulkFieldVal_metal");
+
+    const filterBulkTypesByMetal = (metalValue) => {
+      if (!bulkTypeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
+      Array.from(bulkTypeSelect.options).forEach((option) => {
+        const allowedMetals = TYPE_METAL_FILTER[option.value];
+        const isAllowed = !Array.isArray(allowedMetals) || allowedMetals.includes(metalValue);
+        option.hidden = !isAllowed;
+        option.disabled = !isAllowed;
+      });
+
+      const selectedOption = bulkTypeSelect.options[bulkTypeSelect.selectedIndex];
+      if (selectedOption && selectedOption.hidden) {
+        bulkTypeSelect.value = "Coin";
+      }
+    };
+
+    const handleBulkTypeChange = () => {
+      if (!bulkTypeSelect) return;
+      const typeValue = bulkTypeSelect.value;
+      const isGbType = typeValue === "Goldback" || typeValue === "Silverback";
+
+      if (isGbType) {
+        bwUnitSelect.value = "gb";
+        bulkFieldValues["weightUnit"] = "gb";
+        updateBulkDenomLabels(typeValue);
+      } else if (bwUnitSelect.value === "gb") {
+        bwUnitSelect.value = "oz";
+        bulkFieldValues["weightUnit"] = "oz";
+      }
+
+      toggleBulkGbPicker();
+    };
+
     // Listen for unit changes
     bwUnitSelect.addEventListener("change", toggleBulkGbPicker);
+
+    if (bulkMetalSelect) {
+      bulkMetalSelect.addEventListener("change", () => {
+        filterBulkTypesByMetal(bulkMetalSelect.value);
+        handleBulkTypeChange();
+      });
+    }
+
+    if (bulkTypeSelect) {
+      bulkTypeSelect.addEventListener("change", () => {
+        handleBulkTypeChange();
+      });
+    }
 
     // Sync disabled state when weight checkbox toggles
     if (bwCheckbox) {
@@ -609,6 +668,13 @@ const renderBulkFieldPanel = () => {
     if (bulkFieldValues["weightUnit"] === "gb") {
       bwUnitSelect.value = "gb";
       toggleBulkGbPicker();
+    }
+
+    if (bulkMetalSelect) {
+      filterBulkTypesByMetal(bulkMetalSelect.value);
+    }
+    if (bulkTypeSelect) {
+      handleBulkTypeChange();
     }
   }
 

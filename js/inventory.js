@@ -231,7 +231,17 @@ const validateFieldValue = (field, value) => {
       return date >= minDate && date <= today;
 
     case "type":
-      const validTypes = ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"];
+      const validTypes = [
+        "Coin",
+        "Bar",
+        "Round",
+        "Note",
+        "Aurum",
+        "Goldback",
+        "Silverback",
+        "Set",
+        "Other",
+      ];
       return validTypes.includes(trimmedValue);
 
     case "metal":
@@ -274,7 +284,17 @@ const startCellEdit = (idx, field, element) => {
     input.className = "inline-select";
 
     if (field === "type") {
-      const types = ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"];
+      const types = [
+        "Coin",
+        "Bar",
+        "Round",
+        "Note",
+        "Aurum",
+        "Goldback",
+        "Silverback",
+        "Set",
+        "Other",
+      ];
       types.forEach((type) => {
         const option = document.createElement("option");
         option.value = type;
@@ -726,6 +746,15 @@ const editItem = (idx, logIdx = null) => {
   elements.itemQty.value = item.qty;
   elements.itemType.value = item.type;
 
+  const isGoldbackType = item.type === "Goldback" || item.type === "Silverback";
+  const selectedMetal = item.metal || elements.itemMetal.value;
+  if (typeof filterTypesByMetal === "function") {
+    filterTypesByMetal(selectedMetal);
+  }
+  if (typeof handleTypeChange === "function") {
+    handleTypeChange();
+  }
+
   // Weight: use real <select> instead of dataset.unit (BUG FIX)
   if (item.weightUnit === "gb") {
     const denomSelect = elements.itemGbDenom || safeGetElement("itemGbDenom");
@@ -750,6 +779,13 @@ const editItem = (idx, logIdx = null) => {
     elements.itemWeight.value = parseFloat(item.weight).toFixed(2);
     elements.itemWeightUnit.value = "oz";
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
+  }
+
+  if (isGoldbackType) {
+    const denomSelect = safeGetElement("itemGbDenom");
+    if (denomSelect && item.weight !== null && typeof item.weight !== "undefined") {
+      denomSelect.value = String(item.weight);
+    }
   }
 
   // Convert stored USD values to display currency for the form (STACK-50)

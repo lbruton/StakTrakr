@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.34.14";
+const APP_VERSION = "3.34.15";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -583,6 +583,12 @@ const GOLDBACK_DENOMINATIONS = [
   { weight: 50, label: "50 Goldback", goldOz: 0.05 },
   { weight: 100, label: "100 Goldback", goldOz: 0.1 },
 ];
+
+/** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
+const TYPE_METAL_FILTER = {
+  Goldback: ["Gold"],
+  Silverback: ["Silver"],
+};
 
 /** @constant {string} ITEM_TAGS_KEY - LocalStorage key for item tags mapping (STAK-126) */
 const ITEM_TAGS_KEY = "itemTags"; // nosemgrep: codacy.javascript.security.hard-coded-password
