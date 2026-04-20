@@ -2349,6 +2349,9 @@ const setupItemFormListeners = () => {
         if (isActive) {
           elements.itemDate.value = "";
         }
+        if (typeof syncSpotLookupButtons === "function") {
+          syncSpotLookupButtons(!!elements.itemDate.value);
+        }
       },
       "Date N/A toggle button"
     );
