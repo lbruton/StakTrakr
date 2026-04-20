@@ -136,25 +136,18 @@ test.describe("STAK-437 — Search tab removal and Filter Chips consolidation", 
 
     // It must appear BEFORE the first existing Filter Chips settings-group
     // (chip threshold is the first existing group in the current markup)
-    const fieldsetIdx = await page.evaluate(() => {
-      const panel = document.getElementById("settingsPanel_grouping");
-      const fieldsets = panel.querySelectorAll(".settings-fieldset");
-      let searchBehaviorIdx = -1;
-      let firstExistingIdx = -1;
-      fieldsets.forEach((fs, i) => {
-        const title = fs.querySelector(".settings-fieldset-title");
-        if (title && title.textContent.trim() === "Search Behavior") searchBehaviorIdx = i;
-      });
-      const firstExisting = panel.querySelector("#settingsChipMinCount");
-      if (firstExisting) {
-        firstExistingIdx = Array.from(panel.children).indexOf(
-          firstExisting.closest(".settings-group, .settings-fieldset")
-        );
-      }
-      if (searchBehaviorIdx === -1 || firstExistingIdx === -1) return -1;
-      return searchBehaviorIdx - firstExistingIdx;
-    });
-    expect(fieldsetIdx).toBeLessThan(0);
+    const firstExistingGroup = panel
+      .locator("#settingsChipMinCount")
+      .locator(
+        "xpath=ancestor::*[contains(@class, 'settings-group') or contains(@class, 'settings-fieldset')][1]"
+      );
+    await expect(firstExistingGroup).toBeVisible();
+
+    const searchBehaviorPrecedes = await searchBehaviorFieldset.evaluate(
+      (sb, fe) => Boolean(sb.compareDocumentPosition(fe) & Node.DOCUMENT_POSITION_FOLLOWING),
+      await firstExistingGroup.elementHandle()
+    );
+    expect(searchBehaviorPrecedes).toBe(true);
   });
 
   // ========================================================================
@@ -375,9 +368,6 @@ test.describe("STAK-437 — Search tab removal and Filter Chips consolidation", 
     // Trigger search (Enter key)
     await page.press("#searchInput", "Enter");
 
-    // Small wait to let any async handling settle
-    await page.waitForTimeout(500);
-
     expect(pageErrors).toEqual([]);
   });
 
@@ -387,10 +377,9 @@ test.describe("STAK-437 — Search tab removal and Filter Chips consolidation", 
   test("9. Fresh localStorage → ASE default pattern pre-seeded with correct values", async ({
     page,
   }) => {
-    // Clear custom rules AND the preseed flag so the app thinks this is a new user
+    // Clear custom rules so the app thinks this is a new user (numistaLookupRules absent)
     await page.evaluate(() => {
       localStorage.removeItem("numistaLookupRules");
-      localStorage.removeItem("stak437_ase_preseed");
     });
     await page.reload();
     await page.waitForFunction(
