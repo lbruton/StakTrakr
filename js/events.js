@@ -3915,22 +3915,15 @@ const showRealizedOnLoad = storedShowRealized !== "false";
 applyRealizedVisibility(showRealizedOnLoad);
 
 if (settingsShowRealizedToggle) {
-  if (typeof window.syncChipToggle === "function") {
-    window.syncChipToggle("settingsShowRealizedToggle", showRealizedOnLoad);
-  } else {
-    settingsShowRealizedToggle.querySelectorAll(".chip-sort-btn").forEach((btn) => {
-      btn.classList.toggle("active", (btn.dataset.val === "yes") === showRealizedOnLoad);
-    });
-  }
+  window.syncChipToggle("settingsShowRealizedToggle", showRealizedOnLoad);
 
   settingsShowRealizedToggle.addEventListener("click", (e) => {
     const btn = e.target.closest(".chip-sort-btn");
     if (!btn) return;
+    if (btn.classList.contains("active")) return;
 
     const show = btn.dataset.val === "yes";
-    settingsShowRealizedToggle.querySelectorAll(".chip-sort-btn").forEach((chipBtn) => {
-      chipBtn.classList.toggle("active", chipBtn === btn);
-    });
+    window.syncChipToggle("settingsShowRealizedToggle", show);
     saveData(SHOW_REALIZED_KEY, show ? "true" : "false");
     applyRealizedVisibility(show);
   });

@@ -510,7 +510,9 @@ const syncChipToggle = (elementId, isOn) => {
   if (!el) return;
   el.querySelectorAll(".chip-sort-btn").forEach((btn) => {
     const btnIsYes = btn.dataset.val === "yes";
-    btn.classList.toggle("active", isOn ? btnIsYes : !btnIsYes);
+    const isActive = isOn ? btnIsYes : !btnIsYes;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
   });
 };
 

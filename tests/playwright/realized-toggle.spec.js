@@ -16,9 +16,7 @@ test.describe("realized-toggle — STAK-436 Layout toggle migration", () => {
   });
 
   test("RT.1 — Layout card shows Show Realized G/L yes/no toggle", async ({ page }) => {
-    const layoutFieldset = page
-      .locator("#layoutSectionConfigContainer")
-      .locator("xpath=ancestor::div[contains(@class,'settings-fieldset')][1]");
+    const layoutFieldset = page.locator(".settings-fieldset:has(#layoutSectionConfigContainer)");
     await expect(layoutFieldset).toContainText("Layout");
     await expect(page.locator("#settingsShowRealizedToggle")).toBeVisible();
     await expect(
@@ -32,10 +30,10 @@ test.describe("realized-toggle — STAK-436 Layout toggle migration", () => {
   test("RT.2 — clicking No hides realized rows on summary cards", async ({ page }) => {
     await page.locator('#settingsShowRealizedToggle .chip-sort-btn[data-val="no"]').click();
 
-    const silverRealizedRow = page.locator("#realizedGainLossSilver").locator("xpath=..");
+    const silverRealizedRow = page.locator(".total-item:has(#realizedGainLossSilver)");
     await expect(silverRealizedRow).toBeHidden();
 
-    const allMetalsRealizedRow = page.locator("#realizedGainLossAll").locator("xpath=..");
+    const allMetalsRealizedRow = page.locator(".total-item:has(#realizedGainLossAll)");
     await expect(allMetalsRealizedRow).toBeHidden();
   });
 
@@ -43,10 +41,10 @@ test.describe("realized-toggle — STAK-436 Layout toggle migration", () => {
     await page.locator('#settingsShowRealizedToggle .chip-sort-btn[data-val="no"]').click();
     await page.locator('#settingsShowRealizedToggle .chip-sort-btn[data-val="yes"]').click();
 
-    const silverRealizedRow = page.locator("#realizedGainLossSilver").locator("xpath=..");
+    const silverRealizedRow = page.locator(".total-item:has(#realizedGainLossSilver)");
     await expect(silverRealizedRow).toBeVisible();
 
-    const allMetalsRealizedRow = page.locator("#realizedGainLossAll").locator("xpath=..");
+    const allMetalsRealizedRow = page.locator(".total-item:has(#realizedGainLossAll)");
     await expect(allMetalsRealizedRow).toBeVisible();
   });
 
@@ -58,7 +56,7 @@ test.describe("realized-toggle — STAK-436 Layout toggle migration", () => {
     await expect(
       page.locator('#settingsShowRealizedToggle .chip-sort-btn[data-val="no"]')
     ).toHaveClass(/active/);
-    await expect(page.locator("#realizedGainLossSilver").locator("xpath=..")).toBeHidden();
+    await expect(page.locator(".total-item:has(#realizedGainLossSilver)")).toBeHidden();
   });
 
   test("RT.5 — Summary Totals card no longer exists", async ({ page }) => {
