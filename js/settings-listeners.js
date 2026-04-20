@@ -248,8 +248,6 @@ const bindFilterAndNumistaListeners = () => {
     },
   });
 
-  wireFeatureFlagToggle("settingsNumistaLookup", "NUMISTA_SEARCH_LOOKUP");
-
   const numistaViewContainer = getExistingElement("numistaViewFieldToggles");
   if (numistaViewContainer) {
     const nfConfig =

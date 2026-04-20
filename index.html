@@ -3259,22 +3259,6 @@
               </svg>
               Inventory
             </button>
-            <button class="settings-nav-item" data-section="search">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              Search
-            </button>
             <button class="settings-nav-item" data-section="grouping">
               <svg
                 width="16"
@@ -4059,7 +4043,61 @@
             <!-- ===== TABLE SETTINGS ===== -->
             <!-- ===== CHIPS ===== -->
             <div class="settings-section-panel" id="settingsPanel_grouping" style="display: none">
-              <h3>Filter Chips</h3>
+              <h3>Filters &amp; Search</h3>
+
+              <div class="settings-fieldset-title">Search</div>
+
+              <div class="settings-group">
+                <div class="settings-group-label">Fuzzy autocomplete</div>
+                <p class="settings-subtext">
+                  Show smart suggestions when typing in the Name, Purchase Location, and Storage
+                  Location fields.
+                </p>
+                <div class="chip-sort-toggle" id="settingsFuzzyAutocomplete">
+                  <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+                  <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                </div>
+              </div>
+
+              <div class="settings-group">
+                <div class="settings-group-label">Numista search patterns</div>
+                <p class="settings-subtext">
+                  Add your own patterns to rewrite Numista search queries. Custom rules always
+                  apply. Override order: first match wins.
+                </p>
+                <div class="chip-grouping-controls">
+                  <input
+                    type="text"
+                    id="numistaRulePatternInput"
+                    class="chip-grouping-input"
+                    placeholder="Regex pattern"
+                    aria-label="Regex pattern"
+                  />
+                  <input
+                    type="text"
+                    id="numistaRuleReplacementInput"
+                    class="chip-grouping-input-wide"
+                    placeholder="Numista query"
+                    aria-label="Numista query"
+                  />
+                  <input
+                    type="text"
+                    id="numistaRuleIdInput"
+                    class="chip-grouping-input"
+                    placeholder="N# (optional)"
+                    aria-label="Numista ID (optional)"
+                    style="width: 90px"
+                  />
+                  <button type="button" class="btn" id="addNumistaRuleBtn">Add</button>
+                </div>
+                <div class="chip-grouping-table-container" id="customRuleTableContainer">
+                  <div class="chip-grouping-empty">No custom patterns</div>
+                </div>
+              </div>
+
+              <div class="settings-fieldset-title" style="margin-top: var(--spacing-lg)">
+                Filter Chips
+              </div>
 
               <div class="settings-group">
                 <div class="settings-group-label">Filter chip threshold</div>
@@ -4179,89 +4217,6 @@
                 </div>
                 <div class="chip-grouping-table-container" id="customGroupTableContainer">
                   <div class="chip-grouping-empty">No custom grouping rules</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- ===== SEARCH ===== -->
-            <div class="settings-section-panel" id="settingsPanel_search" style="display: none">
-              <h3>Search</h3>
-
-              <div class="settings-group">
-                <div class="settings-group-label">Fuzzy autocomplete</div>
-                <p class="settings-subtext">
-                  Show smart suggestions when typing in the Name, Purchase Location, and Storage
-                  Location fields.
-                </p>
-                <div class="chip-sort-toggle" id="settingsFuzzyAutocomplete">
-                  <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-                  <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-                </div>
-              </div>
-
-              <div class="settings-group">
-                <div class="settings-group-label">Numista name matching</div>
-                <p class="settings-subtext">
-                  Rewrite common coin names (e.g. "ASE") into Numista-optimized search queries with
-                  direct lookups for known catalog IDs.
-                </p>
-                <div class="chip-sort-toggle" id="settingsNumistaLookup">
-                  <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-                  <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-                </div>
-              </div>
-
-              <div class="settings-group">
-                <div class="settings-group-label">
-                  Built-in patterns
-                  <span
-                    id="seedRuleCount"
-                    style="font-size: 0.8em; opacity: 0.6; margin-left: 0.3em"
-                  ></span>
-                </div>
-                <p class="settings-subtext">
-                  Pre-configured lookup rules shipped with StakTrakr. Toggle individual rules on or
-                  off.
-                </p>
-                <div
-                  class="chip-grouping-table-container"
-                  id="seedRuleTableContainer"
-                  style="max-height: 220px; overflow-y: auto"
-                >
-                  <div class="chip-grouping-empty">Loading…</div>
-                </div>
-              </div>
-
-              <div class="settings-group">
-                <div class="settings-group-label">Custom patterns</div>
-                <p class="settings-subtext">
-                  Add your own regex patterns to rewrite Numista search queries. Custom rules
-                  override built-in patterns.
-                </p>
-                <div class="chip-grouping-controls">
-                  <input
-                    type="text"
-                    id="numistaRulePatternInput"
-                    class="chip-grouping-input"
-                    placeholder="Regex pattern"
-                  />
-                  <input
-                    type="text"
-                    id="numistaRuleReplacementInput"
-                    class="chip-grouping-input-wide"
-                    placeholder="Numista query"
-                  />
-                  <input
-                    type="text"
-                    id="numistaRuleIdInput"
-                    class="chip-grouping-input"
-                    placeholder="N# (optional)"
-                    style="width: 90px"
-                  />
-                  <button type="button" class="btn" id="addNumistaRuleBtn">Add</button>
-                </div>
-                <div class="chip-grouping-table-container" id="customRuleTableContainer">
-                  <div class="chip-grouping-empty">No custom patterns</div>
                 </div>
               </div>
             </div>
