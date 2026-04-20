@@ -63,6 +63,9 @@
     Round: "var(--type-round-bg)",
     Bar: "var(--type-bar-bg)",
     Note: "var(--type-note-bg)",
+    Aurum: "var(--type-aurum-bg)",
+    Goldback: "var(--type-goldback-bg)",
+    Silverback: "var(--type-silverback-bg)",
     Set: "var(--type-set-bg)",
     Other: "var(--type-other-bg)",
   };

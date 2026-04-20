@@ -87,6 +87,12 @@
   --type-bar-text: #ffffff;
   --type-note-bg: #047857;
   --type-note-text: #f8fafc;
+  --type-aurum-bg: #6d28d9;
+  --type-aurum-text: #ffffff;
+  --type-goldback-bg: #b8860b;
+  --type-goldback-text: #ffffff;
+  --type-silverback-bg: #708090;
+  --type-silverback-text: #ffffff;
   --type-set-bg: #8b5cf6;
   --type-set-text: #ffffff;
   --type-other-bg: #6d35d0;
@@ -138,6 +144,12 @@
   --type-bar-text: #1e293b;
   --type-note-bg: #047857;
   --type-note-text: #ffffff;
+  --type-aurum-bg: #8b5cf6;
+  --type-aurum-text: #ffffff;
+  --type-goldback-bg: #d4a017;
+  --type-goldback-text: #1e293b;
+  --type-silverback-bg: #94a3b8;
+  --type-silverback-text: #1e293b;
   --type-set-bg: #a78bfa;
   --type-set-text: #1e293b;
   --type-other-bg: #8b5cf6;
@@ -200,6 +212,12 @@
   --type-bar-text: #ffffff;
   --type-note-bg: #066b52;
   --type-note-text: #ffffff;
+  --type-aurum-bg: #6d28d9;
+  --type-aurum-text: #ffffff;
+  --type-goldback-bg: #a66d00;
+  --type-goldback-text: #ffffff;
+  --type-silverback-bg: #6b7280;
+  --type-silverback-text: #ffffff;
   --type-set-bg: #7c3aed;
   --type-set-text: #ffffff;
   --type-other-bg: #6a3fa8;

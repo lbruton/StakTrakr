@@ -231,8 +231,7 @@ const validateFieldValue = (field, value) => {
       return date >= minDate && date <= today;
 
     case "type":
-      const validTypes = ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"];
-      return validTypes.includes(trimmedValue);
+      return VALID_TYPES.includes(trimmedValue);
 
     case "metal":
       const validMetals = ["Silver", "Gold", "Platinum", "Palladium"];
@@ -274,14 +273,23 @@ const startCellEdit = (idx, field, element) => {
     input.className = "inline-select";
 
     if (field === "type") {
-      const types = ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"];
-      types.forEach((type) => {
+      VALID_TYPES.forEach((type) => {
         const option = document.createElement("option");
         option.value = type;
         option.textContent = type;
         if (type === current) option.selected = true;
         input.appendChild(option);
       });
+      // Filter type options based on the item's metal (T21)
+      if (typeof TYPE_METAL_FILTER !== "undefined") {
+        Array.from(input.options).forEach((option) => {
+          const allowedMetals = TYPE_METAL_FILTER[option.value];
+          if (Array.isArray(allowedMetals) && !allowedMetals.includes(item.metal)) {
+            option.hidden = true;
+            option.disabled = true;
+          }
+        });
+      }
     } else if (field === "metal") {
       const metals = ["Silver", "Gold", "Platinum", "Palladium", "Alloy/Other"];
       metals.forEach((metal) => {
@@ -725,6 +733,14 @@ const editItem = (idx, logIdx = null) => {
   elements.itemName.value = item.name;
   elements.itemQty.value = item.qty;
   elements.itemType.value = item.type;
+
+  const selectedMetal = item.metal || elements.itemMetal.value;
+  if (typeof filterTypesByMetal === "function") {
+    filterTypesByMetal(selectedMetal);
+  }
+  if (typeof handleTypeChange === "function") {
+    handleTypeChange();
+  }
 
   // Weight: use real <select> instead of dataset.unit (BUG FIX)
   if (item.weightUnit === "gb") {

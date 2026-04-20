@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.15] - 2026-04-19
+
+### Changed — STAK-562: Goldback and Silverback as first-class type
+
+- **Changed**: Added dedicated `Goldback` and `Silverback` type options in Add/Edit/Bulk Edit flows and made them available to quick filters, grouped filters, and type chip controls.
+- **Changed**: When metal is set to `Gold` or `Silver`, type options now include the corresponding backed note type (`Goldback`/`Silverback`) while preserving existing round filtering and default behavior.
+- **Changed**: Inventory cards/table rows now show backed notes using an icon-first display pattern, and type chips are grouped with map aliases for `gb`, `sb`, `goldbacks`, and `silverbacks`.
+- **Changed**: Added cross-flow regression coverage for STAK-562 in Playwright (`tests/playwright/goldback-type.spec.js`) to verify add/edit/filter/bulk-edit behaviors.
+
+---
+
 ## [3.34.14] - 2026-04-19
 
 ### Added — STAK-558: Comma and semicolon delimiters in tag input
