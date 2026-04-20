@@ -36,8 +36,8 @@ async function openFilterChipsTab(page) {
 async function clearCustomRules(page) {
   await page.evaluate(() => {
     if (window.NumistaLookup) {
-      const rules = NumistaLookup.getCustomRules();
-      for (const r of rules) NumistaLookup.removeRule(r.id);
+      const rules = [...window.NumistaLookup.getCustomRules()];
+      for (const r of rules) window.NumistaLookup.removeRule(r.id);
     }
   });
 }
@@ -354,6 +354,7 @@ test.describe("STAK-437 — Search tab removal and Filter Chips consolidation", 
     // Ensure no custom rules exist
     await clearCustomRules(page);
 
+    await page.waitForFunction(() => typeof window.NumistaLookup !== "undefined");
     const matchResult = await page.evaluate(() => {
       return window.NumistaLookup.matchQuery("SomeRandomCoin");
     });
