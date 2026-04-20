@@ -12229,6 +12229,20 @@ th {
   z-index: 10000;
 }
 
+/* Currency inputs should not show browser spinner controls */
+#itemPrice::-webkit-outer-spin-button,
+#itemPrice::-webkit-inner-spin-button,
+#itemMarketValue::-webkit-outer-spin-button,
+#itemMarketValue::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#itemPrice,
+#itemMarketValue {
+  -moz-appearance: textfield;
+}
+
 /* Delete button in price history tables */
 .price-history-delete-btn {
   background: transparent;

@@ -2343,19 +2343,6 @@ const setupItemFormListeners = () => {
       "Date N/A toggle button"
     );
   }
-
-  if (elements.estimateRetailFromSpot) {
-    safeAttachListener(
-      elements.estimateRetailFromSpot,
-      "change",
-      () => {
-        if (elements.retailSpotModifier) {
-          elements.retailSpotModifier.disabled = !elements.estimateRetailFromSpot.checked;
-        }
-      },
-      "Estimate retail checkbox"
-    );
-  }
 };
 
 /** Closes the notes modal and resets the notes index. */
@@ -3313,12 +3300,6 @@ const setupSearch = () => {
             elements.itemDateNABtn.setAttribute("aria-pressed", "false");
           }
           if (elements.itemDate) elements.itemDate.disabled = false;
-          // Reset estimate retail checkbox
-          if (elements.estimateRetailFromSpot) elements.estimateRetailFromSpot.checked = false;
-          if (elements.retailSpotModifier) {
-            elements.retailSpotModifier.value = "";
-            elements.retailSpotModifier.disabled = true;
-          }
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");
