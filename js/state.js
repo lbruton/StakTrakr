@@ -78,6 +78,7 @@ const elements = {
   searchNumistaBtn: null,
   lookupPcgsBtn: null,
   spotLookupBtn: null,
+  retailSpotLookupBtn: null,
   itemPuritySelect: null,
   itemPurity: null,
   purityCustomWrapper: null,

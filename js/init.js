@@ -162,6 +162,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.searchNumistaBtn = safeGetElement("searchNumistaBtn");
     elements.lookupPcgsBtn = safeGetElement("lookupPcgsBtn");
     elements.spotLookupBtn = safeGetElement("spotLookupBtn");
+    elements.retailSpotLookupBtn = safeGetElement("retailSpotLookupBtn");
     elements.itemPuritySelect = safeGetElement("itemPuritySelect");
     elements.itemPurity = safeGetElement("itemPurity");
     elements.purityCustomWrapper = safeGetElement("purityCustomWrapper");

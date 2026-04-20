@@ -796,6 +796,7 @@ const editItem = (idx, logIdx = null) => {
   // Reset spot lookup state for edit mode (STACK-49)
   if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
   if (elements.spotLookupBtn) elements.spotLookupBtn.disabled = !item.date;
+  if (elements.retailSpotLookupBtn) elements.retailSpotLookupBtn.disabled = !item.date;
   if (elements.itemCatalog) elements.itemCatalog.value = item.numistaId || "";
   if (elements.itemYear) elements.itemYear.value = item.year || item.issuedYear || "";
   if (elements.itemGrade) elements.itemGrade.value = item.grade || "";

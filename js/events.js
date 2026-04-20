@@ -212,15 +212,15 @@ const clearUploadState = () => {
  * Reads catalogConfig.isNumistaEnabled() to set connected/disconnected state.
  */
 const updateNumistaModalDot = () => {
-  const dot = document.getElementById("numistaModalStatusDot");
-  if (!dot) return;
   const connected =
     typeof catalogConfig !== "undefined" &&
     catalogConfig.isNumistaEnabled &&
     catalogConfig.isNumistaEnabled();
-  dot.classList.toggle("connected", !!connected);
-  dot.classList.toggle("disconnected", !connected);
-  dot.title = connected ? "Numista API: connected" : "Numista API: disconnected";
+  document.querySelectorAll(".numista-modal-status-dot").forEach((dot) => {
+    dot.classList.toggle("connected", !!connected);
+    dot.classList.toggle("disconnected", !connected);
+    dot.title = connected ? "Numista API: connected" : "Numista API: disconnected";
+  });
 };
 
 /**
@@ -2148,11 +2148,25 @@ const setupItemFormListeners = () => {
     );
   }
 
+  if (elements.retailSpotLookupBtn) {
+    safeAttachListener(
+      elements.retailSpotLookupBtn,
+      "click",
+      () => {
+        if (typeof openSpotLookupModal === "function") openSpotLookupModal();
+      },
+      "Retail spot lookup button"
+    );
+  }
+
   // DATE FIELD — enable/disable spot lookup button based on date value (STACK-49)
   if (elements.itemDate) {
     const updateSpotBtnState = () => {
       if (elements.spotLookupBtn) {
         elements.spotLookupBtn.disabled = !elements.itemDate.value;
+      }
+      if (elements.retailSpotLookupBtn) {
+        elements.retailSpotLookupBtn.disabled = !elements.itemDate.value;
       }
       if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
     };
@@ -3260,6 +3274,9 @@ const setupSearch = () => {
           // Reset spot lookup state (STACK-49)
           if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
           if (elements.spotLookupBtn) elements.spotLookupBtn.disabled = !elements.itemDate.value;
+          if (elements.retailSpotLookupBtn) {
+            elements.retailSpotLookupBtn.disabled = !elements.itemDate.value;
+          }
           // Set modal to add mode
           if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Add Inventory Item";
           if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Add to Inventory";
