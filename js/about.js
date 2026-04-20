@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.16 &ndash; STAK-436: Appearance tab realized toggle cleanup</strong>: The Realized G/L control now lives in the Layout card header as a Yes/No chip toggle, the empty Summary Totals card is gone, and the setting still persists and syncs on the existing key.</li>
     <li><strong>v3.34.15 &ndash; STAK-562: Goldback and Silverback as first-class type</strong>: Goldback and Silverback are now first-class inventory types across Add, Edit, Bulk Edit, chips, and quick filters. Type options now follow metal selection rules (Gold &rarr; Goldback, Silver &rarr; Silverback), and backed notes render with a dedicated icon-first display in cards and table rows.</li>
     <li><strong>v3.34.14 &ndash; STAK-558: Comma and semicolon delimiters in tag input</strong>: Type or paste multiple tags separated by commas or semicolons in the Add a tag field — all tags are added at once. Empty tokens are skipped, whitespace is trimmed, and existing dedup/max-tag limits still apply per token.</li>
     <li><strong>v3.34.13 &ndash; STAK-556: Cherry-pick Numista tags + respect your edits</strong>: Numista search now uses per-tag checkboxes instead of all-or-none import; blacklisted and previously removed tags default unchecked, while edited fields can be restored by re-checking tagged values.</li>

@@ -416,6 +416,10 @@ const syncSettingsUI = () => {
   // Layout visibility (STACK-54)
   syncLayoutVisibilityUI();
 
+  // Show realized G/L toggle (STAK-436)
+  const showRealized = loadDataSync(SHOW_REALIZED_KEY, "true") !== "false";
+  syncChipToggle("settingsShowRealizedToggle", showRealized);
+
   // Set first provider tab active if none visible — default to Numista
   const anyVisible = document.querySelector('.settings-provider-panel[style*="display: block"]');
   if (!anyVisible) {
