@@ -2142,7 +2142,7 @@ const setupItemFormListeners = () => {
       elements.spotLookupBtn,
       "click",
       () => {
-        if (typeof openSpotLookupModal === "function") openSpotLookupModal();
+        if (typeof openSpotLookupModal === "function") openSpotLookupModal("purchase");
       },
       "Spot lookup button"
     );
@@ -2153,7 +2153,7 @@ const setupItemFormListeners = () => {
       elements.retailSpotLookupBtn,
       "click",
       () => {
-        if (typeof openSpotLookupModal === "function") openSpotLookupModal();
+        if (typeof openSpotLookupModal === "function") openSpotLookupModal("retail");
       },
       "Retail spot lookup button"
     );
@@ -2162,13 +2162,9 @@ const setupItemFormListeners = () => {
   // DATE FIELD — enable/disable spot lookup button based on date value (STACK-49)
   if (elements.itemDate) {
     const updateSpotBtnState = () => {
-      if (elements.spotLookupBtn) {
-        elements.spotLookupBtn.disabled = !elements.itemDate.value;
+      if (typeof syncSpotLookupButtons === "function") {
+        syncSpotLookupButtons(!!elements.itemDate.value);
       }
-      if (elements.retailSpotLookupBtn) {
-        elements.retailSpotLookupBtn.disabled = !elements.itemDate.value;
-      }
-      if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
     };
     safeAttachListener(elements.itemDate, "change", updateSpotBtnState, "Date field for spot btn");
     safeAttachListener(
@@ -3272,10 +3268,8 @@ const setupSearch = () => {
           }
           if (elements.itemSerial) elements.itemSerial.value = "";
           // Reset spot lookup state (STACK-49)
-          if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
-          if (elements.spotLookupBtn) elements.spotLookupBtn.disabled = !elements.itemDate.value;
-          if (elements.retailSpotLookupBtn) {
-            elements.retailSpotLookupBtn.disabled = !elements.itemDate.value;
+          if (typeof syncSpotLookupButtons === "function") {
+            syncSpotLookupButtons(!!elements.itemDate.value);
           }
           // Set modal to add mode
           if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Add Inventory Item";
