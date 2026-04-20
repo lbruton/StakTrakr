@@ -11,11 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.34.17] - 2026-04-20
 
-### Changed — STAK-437: Remove Search tab, consolidate into Filter Chips
+### Changed — STAK-437: Remove Search tab, consolidate into Filters & Search
 
 - **Changed**: Removed the dedicated "Search" settings sidebar tab and its `settingsPanel_search` panel.
-- **Changed**: Moved the Fuzzy autocomplete toggle into a new "Search Behavior" fieldset at the top of the Filter Chips tab.
-- **Changed**: Moved the custom Numista Patterns add-form and table into a new "Numista Patterns" fieldset on the Filter Chips tab.
+- **Changed**: Moved the Fuzzy autocomplete toggle into a new "Search Behavior" fieldset at the top of the Filters & Search tab.
+- **Changed**: Moved the custom Numista Patterns add-form and table into a new "Numista Patterns" fieldset on the Filters & Search tab.
 - **Changed**: Deleted the built-in seed rules system (`SEED_RULES` array, 6 seed functions, seed rule loop) from `numista-lookup.js`.
 - **Changed**: Custom Numista patterns are now always-on — removed the `NUMISTA_SEARCH_LOOKUP` feature flag and its UI toggle.
 - **Changed**: New users get an American Silver Eagle (Numista ID 1493) custom pattern pre-seeded on first load.
