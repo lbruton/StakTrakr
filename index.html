@@ -4043,61 +4043,57 @@
             <!-- ===== TABLE SETTINGS ===== -->
             <!-- ===== CHIPS ===== -->
             <div class="settings-section-panel" id="settingsPanel_grouping" style="display: none">
-              <h3>Filter Chips</h3>
+              <h3>Filters &amp; Search</h3>
 
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Search Behavior</div>
-                <div class="settings-card-grid">
-                  <div class="settings-card">
-                    <div class="settings-group-label">Fuzzy autocomplete</div>
-                    <p class="settings-subtext">
-                      Show smart suggestions when typing in the Name, Purchase Location, and Storage
-                      Location fields.
-                    </p>
-                    <div class="chip-sort-toggle" id="settingsFuzzyAutocomplete">
-                      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-                      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-                    </div>
-                  </div>
+              <div class="settings-fieldset-title">Search</div>
+
+              <div class="settings-group">
+                <div class="settings-group-label">Fuzzy autocomplete</div>
+                <p class="settings-subtext">
+                  Show smart suggestions when typing in the Name, Purchase Location, and Storage
+                  Location fields.
+                </p>
+                <div class="chip-sort-toggle" id="settingsFuzzyAutocomplete">
+                  <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+                  <button type="button" class="chip-sort-btn" data-val="no">Off</button>
                 </div>
               </div>
 
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Numista Patterns</div>
-                <div class="settings-card-grid">
-                  <div class="settings-card">
-                    <div class="settings-group-label">Custom patterns</div>
-                    <p class="settings-subtext">
-                      Add your own patterns to rewrite Numista search queries. Custom rules always
-                      apply. Override order: first match wins.
-                    </p>
-                    <div class="chip-grouping-controls">
-                      <input
-                        type="text"
-                        id="numistaRulePatternInput"
-                        class="chip-grouping-input"
-                        placeholder="Regex pattern"
-                      />
-                      <input
-                        type="text"
-                        id="numistaRuleReplacementInput"
-                        class="chip-grouping-input-wide"
-                        placeholder="Numista query"
-                      />
-                      <input
-                        type="text"
-                        id="numistaRuleIdInput"
-                        class="chip-grouping-input"
-                        placeholder="N# (optional)"
-                        style="width: 90px"
-                      />
-                      <button type="button" class="btn" id="addNumistaRuleBtn">Add</button>
-                    </div>
-                    <div class="chip-grouping-table-container" id="customRuleTableContainer">
-                      <div class="chip-grouping-empty">No custom patterns</div>
-                    </div>
-                  </div>
+              <div class="settings-group">
+                <div class="settings-group-label">Numista search patterns</div>
+                <p class="settings-subtext">
+                  Add your own patterns to rewrite Numista search queries. Custom rules always
+                  apply. Override order: first match wins.
+                </p>
+                <div class="chip-grouping-controls">
+                  <input
+                    type="text"
+                    id="numistaRulePatternInput"
+                    class="chip-grouping-input"
+                    placeholder="Regex pattern"
+                  />
+                  <input
+                    type="text"
+                    id="numistaRuleReplacementInput"
+                    class="chip-grouping-input-wide"
+                    placeholder="Numista query"
+                  />
+                  <input
+                    type="text"
+                    id="numistaRuleIdInput"
+                    class="chip-grouping-input"
+                    placeholder="N# (optional)"
+                    style="width: 90px"
+                  />
+                  <button type="button" class="btn" id="addNumistaRuleBtn">Add</button>
                 </div>
+                <div class="chip-grouping-table-container" id="customRuleTableContainer">
+                  <div class="chip-grouping-empty">No custom patterns</div>
+                </div>
+              </div>
+
+              <div class="settings-fieldset-title" style="margin-top: var(--spacing-lg)">
+                Filter Chips
               </div>
 
               <div class="settings-group">
