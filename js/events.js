@@ -212,15 +212,15 @@ const clearUploadState = () => {
  * Reads catalogConfig.isNumistaEnabled() to set connected/disconnected state.
  */
 const updateNumistaModalDot = () => {
-  const dot = document.getElementById("numistaModalStatusDot");
-  if (!dot) return;
   const connected =
     typeof catalogConfig !== "undefined" &&
     catalogConfig.isNumistaEnabled &&
     catalogConfig.isNumistaEnabled();
-  dot.classList.toggle("connected", !!connected);
-  dot.classList.toggle("disconnected", !connected);
-  dot.title = connected ? "Numista API: connected" : "Numista API: disconnected";
+  document.querySelectorAll(".numista-modal-status-dot").forEach((dot) => {
+    dot.classList.toggle("connected", !!connected);
+    dot.classList.toggle("disconnected", !connected);
+    dot.title = connected ? "Numista API: connected" : "Numista API: disconnected";
+  });
 };
 
 /**
@@ -2142,19 +2142,29 @@ const setupItemFormListeners = () => {
       elements.spotLookupBtn,
       "click",
       () => {
-        if (typeof openSpotLookupModal === "function") openSpotLookupModal();
+        if (typeof openSpotLookupModal === "function") openSpotLookupModal("purchase");
       },
       "Spot lookup button"
+    );
+  }
+
+  if (elements.retailSpotLookupBtn) {
+    safeAttachListener(
+      elements.retailSpotLookupBtn,
+      "click",
+      () => {
+        if (typeof openSpotLookupModal === "function") openSpotLookupModal("retail");
+      },
+      "Retail spot lookup button"
     );
   }
 
   // DATE FIELD — enable/disable spot lookup button based on date value (STACK-49)
   if (elements.itemDate) {
     const updateSpotBtnState = () => {
-      if (elements.spotLookupBtn) {
-        elements.spotLookupBtn.disabled = !elements.itemDate.value;
+      if (typeof syncSpotLookupButtons === "function") {
+        syncSpotLookupButtons(!!elements.itemDate.value);
       }
-      if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
     };
     safeAttachListener(elements.itemDate, "change", updateSpotBtnState, "Date field for spot btn");
     safeAttachListener(
@@ -2339,21 +2349,11 @@ const setupItemFormListeners = () => {
         if (isActive) {
           elements.itemDate.value = "";
         }
-      },
-      "Date N/A toggle button"
-    );
-  }
-
-  if (elements.estimateRetailFromSpot) {
-    safeAttachListener(
-      elements.estimateRetailFromSpot,
-      "change",
-      () => {
-        if (elements.retailSpotModifier) {
-          elements.retailSpotModifier.disabled = !elements.estimateRetailFromSpot.checked;
+        if (typeof syncSpotLookupButtons === "function") {
+          syncSpotLookupButtons(!!elements.itemDate.value);
         }
       },
-      "Estimate retail checkbox"
+      "Date N/A toggle button"
     );
   }
 };
@@ -3271,8 +3271,9 @@ const setupSearch = () => {
           }
           if (elements.itemSerial) elements.itemSerial.value = "";
           // Reset spot lookup state (STACK-49)
-          if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
-          if (elements.spotLookupBtn) elements.spotLookupBtn.disabled = !elements.itemDate.value;
+          if (typeof syncSpotLookupButtons === "function") {
+            syncSpotLookupButtons(!!elements.itemDate.value);
+          }
           // Set modal to add mode
           if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Add Inventory Item";
           if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Add to Inventory";
@@ -3313,12 +3314,6 @@ const setupSearch = () => {
             elements.itemDateNABtn.setAttribute("aria-pressed", "false");
           }
           if (elements.itemDate) elements.itemDate.disabled = false;
-          // Reset estimate retail checkbox
-          if (elements.estimateRetailFromSpot) elements.estimateRetailFromSpot.checked = false;
-          if (elements.retailSpotModifier) {
-            elements.retailSpotModifier.value = "";
-            elements.retailSpotModifier.disabled = true;
-          }
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");

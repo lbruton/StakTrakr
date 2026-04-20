@@ -11,6 +11,70 @@ const METAL_SYMBOLS = {
   Palladium: "XPD",
 };
 
+let _spotLookupTargetField = "purchase";
+
+/**
+ * Syncs spot lookup button state and optionally clears the hidden selected spot value.
+ *
+ * @param {boolean} hasDate - Whether the item currently has a purchase date
+ * @param {{ clearSelectedSpot?: boolean }} [options]
+ */
+const syncSpotLookupButtons = (hasDate, options = {}) => {
+  const { clearSelectedSpot = true } = options;
+
+  if (elements.spotLookupBtn) {
+    elements.spotLookupBtn.disabled = !hasDate;
+  }
+  if (elements.retailSpotLookupBtn) {
+    elements.retailSpotLookupBtn.disabled = !hasDate;
+  }
+  if (clearSelectedSpot && elements.itemSpotPrice) {
+    elements.itemSpotPrice.value = "";
+  }
+};
+
+/**
+ * Converts a selected spot price to the display-currency value for the current item.
+ * Goldback-denominated items reuse the existing per-unit estimate logic.
+ *
+ * @param {number} spotPrice - USD spot price
+ * @returns {string} Display-currency value formatted to 2 decimals
+ */
+const getSpotLookupDisplayValue = (spotPrice) => {
+  const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
+
+  let priceUSD = spotPrice;
+  if (
+    elements.itemWeightUnit &&
+    elements.itemWeightUnit.value === "gb" &&
+    typeof computeGoldbackEstimatedRate === "function"
+  ) {
+    const gbRate = computeGoldbackEstimatedRate(spotPrice);
+    const denom = parseFloat(
+      (elements.itemGbDenom && elements.itemGbDenom.value) ||
+        (elements.itemWeight && elements.itemWeight.value) ||
+        1
+    );
+    priceUSD = gbRate * denom;
+  }
+
+  return (priceUSD * fxRate).toFixed(2);
+};
+
+/**
+ * Briefly highlights an input that was populated from a spot lookup selection.
+ *
+ * @param {HTMLElement|null|undefined} input
+ */
+const flashSpotLookupTarget = (input) => {
+  if (!input) return;
+  input.style.transition = "background-color 0.3s";
+  input.style.backgroundColor = "var(--accent, #fbbf24)";
+  setTimeout(() => {
+    input.style.backgroundColor = "";
+  }, 800);
+};
+
 /**
  * Searches local spot history for prices near a given date for a specific metal.
  * Uses progressive widening: exact → ±1d → ±3d → ±7d.
@@ -292,7 +356,7 @@ const searchHistoricalByDate = async (metalName, dateStr) => {
  * Opens the spot lookup modal, searching local history and historical seed data
  * for the date and metal currently selected in the add/edit form.
  */
-const openSpotLookupModal = async () => {
+const openSpotLookupModal = async (targetField = "purchase") => {
   const dateVal = elements.itemDate ? elements.itemDate.value : "";
   const metalVal = elements.itemMetal ? elements.itemMetal.value : "";
 
@@ -311,6 +375,8 @@ const openSpotLookupModal = async () => {
     appAlert("Please select a supported metal (Silver, Gold, Platinum, or Palladium).");
     return;
   }
+
+  _spotLookupTargetField = targetField === "retail" ? "retail" : "purchase";
 
   // Search local spotHistory first (≤180 days)
   let results = searchSpotByDate(metalName, dateVal);
@@ -465,40 +531,23 @@ const renderSpotLookupEmpty = (container, metalName, dateStr) => {
  * @param {string} timestamp - Timestamp of the selected entry (for reference)
  */
 const useSpotPrice = (spotPrice, timestamp) => {
-  // Store in hidden field for spotPriceAtPurchase (melt value calculation)
-  if (elements.itemSpotPrice) {
-    elements.itemSpotPrice.value = spotPrice;
-  }
+  const displayPrice = getSpotLookupDisplayValue(spotPrice);
 
-  // Populate visible Purchase Price field (convert USD → display currency)
-  if (elements.itemPrice) {
-    const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
-
-    // Goldback: convert gold spot → per-unit Goldback price (STACK-68)
-    let priceUSD = spotPrice;
-    if (
-      elements.itemWeightUnit &&
-      elements.itemWeightUnit.value === "gb" &&
-      typeof computeGoldbackEstimatedRate === "function"
-    ) {
-      const gbRate = computeGoldbackEstimatedRate(spotPrice);
-      const denom = parseFloat(
-        (elements.itemGbDenom && elements.itemGbDenom.value) ||
-          (elements.itemWeight && elements.itemWeight.value) ||
-          1
-      );
-      priceUSD = gbRate * denom;
+  if (_spotLookupTargetField === "retail") {
+    if (elements.itemMarketValue) {
+      elements.itemMarketValue.value = displayPrice;
+      flashSpotLookupTarget(elements.itemMarketValue);
+    }
+  } else {
+    // Store in hidden field for spotPriceAtPurchase (melt value calculation)
+    if (elements.itemSpotPrice) {
+      elements.itemSpotPrice.value = spotPrice;
     }
 
-    const displayPrice = (priceUSD * fxRate).toFixed(2);
-    elements.itemPrice.value = displayPrice;
-
-    // Brief visual highlight on the price field for confirmation
-    elements.itemPrice.style.transition = "background-color 0.3s";
-    elements.itemPrice.style.backgroundColor = "var(--accent, #fbbf24)";
-    setTimeout(() => {
-      elements.itemPrice.style.backgroundColor = "";
-    }, 800);
+    if (elements.itemPrice) {
+      elements.itemPrice.value = displayPrice;
+      flashSpotLookupTarget(elements.itemPrice);
+    }
   }
 
   closeSpotLookupModal();
@@ -518,3 +567,4 @@ window.openSpotLookupModal = openSpotLookupModal;
 window.closeSpotLookupModal = closeSpotLookupModal;
 window.searchSpotByDate = searchSpotByDate;
 window.fetchSpotForDate = fetchSpotForDate;
+window.syncSpotLookupButtons = syncSpotLookupButtons;

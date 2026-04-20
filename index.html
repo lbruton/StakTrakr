@@ -1997,6 +1997,12 @@
                       <circle cx="11" cy="11" r="7" />
                       <line x1="16.5" y1="16.5" x2="21" y2="21" />
                     </svg>
+                    <span
+                      id="numistaNameModalStatusDot"
+                      class="api-status-dot disconnected numista-modal-status-dot"
+                      title="Numista API: disconnected"
+                      aria-hidden="true"
+                    ></span>
                   </button>
                 </div>
               </div>
@@ -2335,8 +2341,9 @@
                         </svg>
                         <span
                           id="numistaModalStatusDot"
-                          class="api-status-dot disconnected"
+                          class="api-status-dot disconnected numista-modal-status-dot"
                           title="Numista API: disconnected"
+                          aria-hidden="true"
                         ></span>
                       </button>
                     </div>
@@ -2411,7 +2418,7 @@
                         >&#x1f4c8;</span
                       >
                     </label>
-                    <div class="currency-input">
+                    <div class="currency-input input-with-action">
                       <input
                         id="itemMarketValue"
                         min="0"
@@ -2419,6 +2426,29 @@
                         type="number"
                         placeholder="Defaults to melt value"
                       />
+                      <button
+                        class="inline-search-btn"
+                        id="retailSpotLookupBtn"
+                        type="button"
+                        disabled
+                        title="Search for spot price on purchase date"
+                        aria-label="Search for spot price on purchase date"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <line x1="12" y1="1" x2="12" y2="23" />
+                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                   <div>
@@ -2430,27 +2460,6 @@
                       id="itemSerialNumber"
                       type="text"
                       placeholder="Bar or note serial number"
-                    />
-                  </div>
-                </div>
-                <div class="grid grid-2" style="margin-top: 0.35rem">
-                  <div>
-                    <label class="settings-checkbox-label estimate-retail-label">
-                      <input type="checkbox" id="estimateRetailFromSpot" />
-                      Estimate Retail From Spot
-                    </label>
-                  </div>
-                  <div>
-                    <label for="retailSpotModifier"
-                      >Modifier <span style="font-weight: normal; opacity: 0.6">(%)</span></label
-                    >
-                    <input
-                      id="retailSpotModifier"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      placeholder="e.g. 5"
-                      disabled
                     />
                   </div>
                 </div>
