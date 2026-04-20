@@ -3998,35 +3998,47 @@
 
               <!-- ── Layout ── -->
               <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Layout</div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 0.25rem;
+                    gap: 0.75rem;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <div class="settings-fieldset-title" style="margin-bottom: 0">Layout</div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500"
+                      >Show Realized G/L</span
+                    >
+                    <div class="chip-sort-toggle" id="settingsShowRealizedToggle">
+                      <button
+                        type="button"
+                        class="chip-sort-btn"
+                        data-val="yes"
+                        aria-pressed="false"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        class="chip-sort-btn"
+                        data-val="no"
+                        aria-pressed="false"
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div class="settings-group">
                   <div class="settings-group-label">Visible sections</div>
                   <p class="settings-subtext">Toggle visibility and reorder major page sections.</p>
                   <div class="chip-grouping-table-container" id="layoutSectionConfigContainer">
                     <div class="chip-grouping-empty">Loading...</div>
                   </div>
-                </div>
-              </div>
-
-              <!-- ── Summary Totals ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Summary Totals</div>
-                <div class="settings-group">
-                  <div class="settings-group-label">Show realized gains/losses</div>
-                  <p class="settings-subtext">
-                    Display the "Realized" line on summary cards for disposed items.
-                  </p>
-                  <label
-                    class="dispose-toggle-card"
-                    for="settingsShowRealized"
-                    style="width: fit-content"
-                  >
-                    <span class="toggle-switch">
-                      <input type="checkbox" id="settingsShowRealized" />
-                      <span class="toggle-track"></span>
-                    </span>
-                    <span>Realized row</span>
-                  </label>
                 </div>
               </div>
 

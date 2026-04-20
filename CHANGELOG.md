@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.16] - 2026-04-20
+
+### Changed — STAK-436: Appearance tab realized toggle cleanup
+
+- **Changed**: Moved the Realized G/L visibility control into the Appearance tab Layout card title row and switched it to the existing Yes/No chip toggle pattern for consistency with other settings controls.
+- **Changed**: Removed the now-empty Summary Totals card and rewired the realized-row behavior to keep using the existing `showRealizedGainLoss` storage and cloud-sync paths.
+- **Changed**: Added focused Playwright coverage in `tests/playwright/realized-toggle.spec.js` for toggle placement, row visibility, persistence, and Summary Totals removal.
+
+---
+
 ## [3.34.15] - 2026-04-19
 
 ### Changed — STAK-562: Goldback and Silverback as first-class type

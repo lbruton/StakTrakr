@@ -3906,19 +3906,24 @@ if (removeItemOpenLog) {
 }
 
 // =============================================================================
-// Summary Totals — show/hide realized G/L row (STAK-72)
+// Appearance > Layout — show/hide realized G/L row (STAK-72/STAK-436)
 // =============================================================================
 
-const settingsShowRealized = document.getElementById("settingsShowRealized");
-if (settingsShowRealized) {
-  // Initialize from stored preference (default: true — show realized)
-  const stored = loadDataSync(SHOW_REALIZED_KEY, "true");
-  const showRealized = stored !== "false";
-  settingsShowRealized.checked = showRealized;
-  applyRealizedVisibility(showRealized);
+const settingsShowRealizedToggle = document.getElementById("settingsShowRealizedToggle");
+const storedShowRealized = loadDataSync(SHOW_REALIZED_KEY, "true");
+const showRealizedOnLoad = storedShowRealized !== "false";
+applyRealizedVisibility(showRealizedOnLoad);
 
-  settingsShowRealized.addEventListener("change", () => {
-    const show = settingsShowRealized.checked;
+if (settingsShowRealizedToggle) {
+  window.syncChipToggle("settingsShowRealizedToggle", showRealizedOnLoad);
+
+  settingsShowRealizedToggle.addEventListener("click", (e) => {
+    const btn = e.target.closest(".chip-sort-btn");
+    if (!btn) return;
+    if (btn.classList.contains("active")) return;
+
+    const show = btn.dataset.val === "yes";
+    window.syncChipToggle("settingsShowRealizedToggle", show);
     saveData(SHOW_REALIZED_KEY, show ? "true" : "false");
     applyRealizedVisibility(show);
   });
