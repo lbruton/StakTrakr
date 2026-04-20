@@ -1435,7 +1435,7 @@ const buildNumistaSearchQuery = (nameVal, metalVal) => {
  * @param {string} [typeValue=""]
  */
 const updateDenomLabels = (typeValue = "") => {
-  const denomSelect = safeGetElement("itemGbDenom");
+  const denomSelect = document.getElementById("itemGbDenom");
   if (!denomSelect || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
 
   const denominationLabel = typeValue === "Silverback" ? "Silverback" : "Goldback";
@@ -1453,7 +1453,7 @@ const updateDenomLabels = (typeValue = "") => {
 const handleTypeChange = () => {
   const selectedType = elements.itemType?.value || "";
   const unitSelect = elements.itemWeightUnit;
-  if (!unitSelect) return;
+  if (!(unitSelect instanceof HTMLElement)) return;
 
   const unitGroup = unitSelect.closest(".form-group") || unitSelect.parentElement;
   const isGoldbackType = selectedType === "Goldback" || selectedType === "Silverback";
@@ -1479,7 +1479,7 @@ const handleTypeChange = () => {
  * @param {string} metalValue
  */
 const filterTypesByMetal = (metalValue) => {
-  const typeSelect = safeGetElement("itemType");
+  const typeSelect = document.getElementById("itemType");
   if (!typeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
 
   Array.from(typeSelect.options).forEach((option) => {

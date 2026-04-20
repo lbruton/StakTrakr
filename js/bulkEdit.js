@@ -179,7 +179,7 @@ const BULK_EDITABLE_FIELDS = [
     id: "type",
     label: "Type",
     inputType: "select",
-    options: ["Coin", "Bar", "Round", "Note", "Aurum", "Goldback", "Silverback", "Set", "Other"],
+    options: VALID_TYPES,
   },
   { id: "qty", label: "Quantity", inputType: "number", attrs: { min: "1", step: "1" } },
   { id: "weight", label: "Weight", inputType: "number", attrs: { min: "0", step: "0.001" } },
@@ -606,7 +606,7 @@ const renderBulkFieldPanel = () => {
       });
     };
 
-    const bulkTypeSelect = safeGetElement("bulkFieldVal_type");
+    const bulkTypeSelect = document.getElementById("bulkFieldVal_type");
     const bulkMetalSelect = safeGetElement("bulkFieldVal_metal");
 
     const filterBulkTypesByMetal = (metalValue) => {
@@ -621,6 +621,7 @@ const renderBulkFieldPanel = () => {
       const selectedOption = bulkTypeSelect.options[bulkTypeSelect.selectedIndex];
       if (selectedOption && selectedOption.hidden) {
         bulkTypeSelect.value = "Coin";
+        handleBulkTypeChange();
       }
     };
 
