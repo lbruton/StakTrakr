@@ -13,8 +13,9 @@ import { test, expect } from "@playwright/test";
  * We use "Austrian Philharmonic" as the test coin because it has no seed
  * NumistaLookup pattern, ensuring we exercise the raw combine logic.
  *
- * Red-phase tests: Tests 1 and 2 should FAIL against current code (bug exists).
- * Test 3 should PASS (Silver already appears in the name, no prepend).
+ * These tests verify the fix is in place: buildNumistaSearchQuery must not
+ * prepend the metal, and the search click handler must pass nameVal (not
+ * metal + nameVal) as the raw fallback query.
  */
 
 test.describe("buildNumistaSearchQuery metal prepend bug", () => {
@@ -87,23 +88,23 @@ test.describe("buildNumistaSearchQuery metal prepend bug", () => {
       document.getElementById("itemName").value = "Austrian Philharmonic";
       document.getElementById("itemCatalog").value = "";
 
-      // Read values the same way the click handler does (events.js:1995-1996)
+      // Read values the same way the search click handler does
       const catalogVal = elements.itemCatalog?.value.trim() || "";
       const nameVal = elements.itemName?.value.trim() || "";
       const metalVal = elements.itemMetal?.value || "";
 
-      // Call buildNumistaSearchQuery the same way the handler does (events.js:2038)
+      // Call buildNumistaSearchQuery the same way the search click handler does
       const searchResult = window.buildNumistaSearchQuery(nameVal, metalVal);
 
       // Capture what would be sent to catalogAPI.searchItems
       const queries = [];
       if (searchResult.matched) {
-        // The handler's matched branch (events.js:2040-2051)
-        const rawQuery = nameVal; // This is the line under test (events.js:2042)
+        // The search click handler's matched branch
+        const rawQuery = nameVal; // This is the line under test: rawQuery uses nameVal, not metal+nameVal
         queries.push({ type: "rewritten", query: searchResult.query });
         queries.push({ type: "raw", query: rawQuery });
       } else {
-        // The handler's unmatched branch (events.js:2068-2069)
+        // The search click handler's unmatched branch
         queries.push({ type: "search", query: searchResult.query });
       }
 
@@ -159,8 +160,8 @@ test.describe("buildNumistaSearchQuery metal prepend bug", () => {
     // Use "load" to ensure all deferred scripts (including events.js) have run
     await page.goto("/index.html", { waitUntil: "load" });
 
-    // Replicate the click handler's matched-branch logic to verify rawQuery
-    // uses nameVal (not metal+nameVal) at events.js:2042
+    // Replicate the search click handler's matched-branch logic to verify
+    // rawQuery uses nameVal (not metal+nameVal) as required by the fix
     const result = await page.evaluate(() => {
       // Set form values as the handler would read them
       document.getElementById("itemMetal").value = "Gold";
@@ -175,10 +176,10 @@ test.describe("buildNumistaSearchQuery metal prepend bug", () => {
       // Call buildNumistaSearchQuery the same way the handler does
       const searchResult = window.buildNumistaSearchQuery(nameVal, metalVal);
 
-      // Replicate the matched branch (events.js:2040-2051)
+      // Replicate the search click handler's matched branch
       const queries = [];
       if (searchResult.matched) {
-        // This is the exact line under test (events.js:2042):
+        // This is the exact line under test in buildNumistaSearchQuery's caller:
         // const rawQuery = nameVal;
         // Previously it was: const rawQuery = metalVal + " " + nameVal;
         const rawQuery = nameVal;

@@ -1405,7 +1405,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
 /**
  * Builds a Numista search query, optionally rewriting via NumistaLookup patterns.
  * @param {string} nameVal - Item name input value
- * @param {string} metalVal - Metal composition value
+ * @param {string} metalVal - Metal composition value (currently unused; kept for API compatibility)
  * @returns {{ query: string, numistaId: string|null, matched: boolean }}
  */
 const buildNumistaSearchQuery = (nameVal, metalVal) => {
@@ -2029,13 +2029,11 @@ const setupItemFormListeners = () => {
             showNumistaResults(result ? [result] : [], true, catalogVal);
           } else {
             const typeVal = elements.itemType?.value || "";
-            const metalVal = elements.itemMetal?.value || "";
-
             const searchFilters = { limit: 20 };
             const numistaCategory = TYPE_TO_NUMISTA_CATEGORY[typeVal];
             if (numistaCategory) searchFilters.category = numistaCategory;
 
-            const searchResult = buildNumistaSearchQuery(nameVal, metalVal);
+            const searchResult = buildNumistaSearchQuery(nameVal, "");
 
             if (searchResult.matched) {
               // Pattern matched — build raw query for fallback results
