@@ -3971,6 +3971,27 @@ input[type="submit"] {
   color: var(--primary);
 }
 
+/* F) Troubleshooting card */
+.about-troubleshooting {
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.about-troubleshooting strong {
+  color: var(--text-secondary);
+}
+.about-troubleshooting .btn {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  padding: 4px 12px;
+  opacity: 0.85;
+}
+
 /* F) Sidebar separator */
 .stk-nav-separator {
   border: 0;
