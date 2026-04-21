@@ -48,6 +48,10 @@ test.describe("retail/slug-resolution — STAK-539 _isSlugResolved predicate", (
       }
     );
 
+    // Block manifest.json fetch so the app falls back to localStorage-seeded values.
+    // Without this, a fast API response overwrites _manifestCoinMeta and drops our synthetics.
+    await page.route("**/manifest.json", (route) => route.abort());
+
     await page.goto("/index.html");
     await page.waitForFunction(() => typeof window._isSlugResolved === "function");
   });
