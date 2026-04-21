@@ -1,16 +1,29 @@
-# StakTrakr
+<h1 align="center">
+  <img src="images/banner-logo-compact.svg" alt="StakTrakr" height="64">
+</h1>
 
-[![MIT License](https://img.shields.io/github/license/lbruton/StakTrakr?style=flat-square)](https://github.com/lbruton/StakTrakr/blob/main/LICENSE)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b8d30126676546cb958fa6a7e0174da8)](https://app.codacy.com/gh/lbruton/StakTrakr/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
-[![GitHub Issues](https://img.shields.io/github/issues/lbruton/StakTrakr?style=flat-square)](https://github.com/lbruton/StakTrakr/issues)
-[![Reddit Community](https://img.shields.io/reddit/subreddit-subscribers/staktrakr?style=flat-square&label=community)](https://www.reddit.com/r/staktrakr/)
-[![Sponsor](https://img.shields.io/badge/sponsor-%E2%99%A1-ea4aaa?style=flat-square)](https://github.com/sponsors/lbruton)
+<p align="center">
+  Track your precious metals stack. Your way.
+</p>
 
-**Track your precious metals stack. Your way.**
+<p align="center">
+  <a href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lbruton/StakTrakr?style=flat-square" alt="MIT License"></a>
+  <a href="https://app.codacy.com/gh/lbruton/StakTrakr/dashboard"><img src="https://app.codacy.com/project/badge/Grade/b8d30126676546cb958fa6a7e0174da8" alt="Codacy Badge"></a>
+  <a href="https://github.com/lbruton/StakTrakr/issues"><img src="https://img.shields.io/github/issues/lbruton/StakTrakr?style=flat-square" alt="GitHub Issues"></a>
+  <a href="https://www.reddit.com/r/staktrakr/"><img src="https://img.shields.io/reddit/subreddit-subscribers/staktrakr?style=flat-square&label=community" alt="Reddit Community"></a>
+  <a href="https://github.com/sponsors/lbruton"><img src="https://img.shields.io/badge/sponsor-%E2%99%A1-ea4aaa?style=flat-square" alt="Sponsor"></a>
+</p>
+
+<p align="center">
+  <a href="https://www.staktrakr.com"><strong>Launch App</strong></a> &bull;
+  <a href="https://beta.staktrakr.com">Beta</a> &bull;
+  <a href="https://lbruton.github.io/StakTrakr/about.html">About</a> &bull;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+---
 
 A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladium, and Goldbacks. Runs entirely in your browser — your stack, your data, your rules.
-
-**Try it now:** [www.staktrakr.com](https://www.staktrakr.com)
 
 ![StakTrakr Dashboard](screenshots/01-hero-overview.png)
 
