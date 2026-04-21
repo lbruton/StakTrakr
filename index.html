@@ -5896,6 +5896,22 @@
                 </p>
                 <button class="btn theme-btn" id="forceRefreshBtn">Force Refresh</button>
               </div>
+
+              <!-- ── Data Reset ── -->
+              <div class="settings-fieldset">
+                <div class="settings-fieldset-title">Data Reset</div>
+                <p class="settings-subtext">
+                  Permanently remove inventory or wipe all app data. These actions cannot be undone.
+                </p>
+                <div class="settings-btn-row">
+                  <button type="button" class="btn warning" id="removeInventoryDataBtn">
+                    Remove Inventory
+                  </button>
+                  <button type="button" class="btn danger" id="boatingAccidentBtn">
+                    Wipe All Data
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- ===== CLOUD ===== -->
@@ -6388,25 +6404,6 @@
                 <div class="settings-fieldset-title">IndexedDB Stores</div>
                 <div id="storageIdbTable" class="storage-key-table">
                   <div class="storage-key-table-loading">Loading…</div>
-                </div>
-              </div>
-
-              <!-- ── Data Reset ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Data Reset</div>
-                <div class="settings-card-grid">
-                  <div class="settings-card boating-accident-section">
-                    <p class="settings-subtext">
-                      Permanently remove inventory or wipe all app data. These actions cannot be
-                      undone.
-                    </p>
-                    <div class="settings-btn-row">
-                      <button class="btn warning" id="removeInventoryDataBtn">
-                        Remove Inventory
-                      </button>
-                      <button class="btn danger" id="boatingAccidentBtn">Wipe All Data</button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

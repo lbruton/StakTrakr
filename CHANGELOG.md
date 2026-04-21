@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.18] - 2026-04-20
+
+### Changed — STAK-442: Move Data Reset buttons from Storage to Inventory tab
+
+- **Changed**: "Remove Inventory" and "Wipe All Data" buttons moved from Settings > Storage to Settings > Inventory, placing all data management actions (import, export, backup, delete) in one tab (STAK-442)
+- **Changed**: Data Reset layout flattened from nested card (`settings-card-grid > settings-card`) to flat `settings-fieldset` pattern, matching the Inventory tab's existing App Updates style (STAK-442)
+- **Changed**: Storage tab is now pure read-only diagnostics — storage summary cards, localStorage keys table, and IndexedDB stores only (STAK-442)
+
+---
+
 ## [3.34.17] - 2026-04-20
 
 ### Changed — STAK-437: Remove Search tab, consolidate into Filters & Search

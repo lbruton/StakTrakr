@@ -139,11 +139,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.18 &ndash; STAK-442: Move danger buttons from Storage to Inventory</strong>: &ldquo;Remove Inventory&rdquo; and &ldquo;Wipe All Data&rdquo; buttons moved from Settings &gt; Storage to Settings &gt; Inventory. All data management actions (import, export, backup, delete) are now in one tab. Storage is now pure diagnostics.</li>
     <li><strong>v3.34.17 &ndash; STAK-437: Remove Search tab, consolidate into Filters &amp; Search</strong>: The Search settings tab is gone — its controls (Fuzzy autocomplete and custom Numista Patterns) now live in the Filters &amp; Search tab. Built-in seed rules deleted; custom patterns are always-on. New users get an American Silver Eagle pattern pre-seeded.</li>
     <li><strong>v3.34.15 &ndash; STAK-562: Goldback and Silverback as first-class type</strong>: Goldback and Silverback are now first-class inventory types across Add, Edit, Bulk Edit, chips, and quick filters. Type options now follow metal selection rules (Gold &rarr; Goldback, Silver &rarr; Silverback), and backed notes render with a dedicated icon-first display in cards and table rows.</li>
     <li><strong>v3.34.14 &ndash; STAK-558: Comma and semicolon delimiters in tag input</strong>: Type or paste multiple tags separated by commas or semicolons in the Add a tag field — all tags are added at once. Empty tokens are skipped, whitespace is trimmed, and existing dedup/max-tag limits still apply per token.</li>
     <li><strong>v3.34.13 &ndash; STAK-556: Cherry-pick Numista tags + respect your edits</strong>: Numista search now uses per-tag checkboxes instead of all-or-none import; blacklisted and previously removed tags default unchecked, while edited fields can be restored by re-checking tagged values.</li>
-    <li><strong>v3.34.12 &ndash; STAK-556: Cherry-pick Numista tags + respect your edits</strong>: Numista search now lets you pick individual tags instead of importing all or none. Fields you&rsquo;ve manually edited default to unchecked with a &ldquo;&#x270E; edited&rdquo; hint. Tags you&rsquo;ve previously removed default to unchecked. Bulk sync warns before overwriting and offers a &ldquo;skip user-edited&rdquo; option.</li>
   `;
 };
 
