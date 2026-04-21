@@ -1,6 +1,6 @@
-<p align="center">
+<h1 align="center">
   <img src="images/banner-logo-compact.svg" alt="StakTrakr" height="64">
-</p>
+</h1>
 
 <p align="center">
   Track your precious metals stack. Your way.
