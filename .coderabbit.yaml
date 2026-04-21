@@ -7,7 +7,7 @@
 # - data/, vendor/, sw.js excluded from review (auto-generated or snapshot data)
 # - chore files (DESIGN.md, preview.html) excluded (known false-positive source)
 #
-# Profile: assertive (solo-dev; nitpicks welcome)
+# Profile: chill (solo-dev; Kuromi personality)
 # Docs: https://docs.coderabbit.ai/reference/configuration
 
 language: "en-US"
