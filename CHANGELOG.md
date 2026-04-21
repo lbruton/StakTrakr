@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.19] - 2026-04-21
+
+### Changed — STAK-564: Move Force Refresh to About tab as Troubleshooting card
+
+- **Moved**: Force Refresh / App Updates control relocated from Settings > Inventory to Settings > About tab as a compact Troubleshooting card below the disclaimer (STAK-564)
+- **Renamed**: Button label changed from "Force Refresh" to "Clear Cache & Reload" with plain-language copy explaining cache behavior (STAK-564)
+- **Removed**: App Updates fieldset removed from Inventory tab — all app-level utilities now live on the About tab (STAK-564)
+
+---
+
 ## [3.34.18] - 2026-04-20
 
 ### Changed — STAK-442: Move Data Reset buttons from Storage to Inventory tab

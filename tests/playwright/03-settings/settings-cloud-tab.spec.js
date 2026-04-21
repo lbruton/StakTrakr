@@ -91,10 +91,19 @@ test.describe("STAK-444/STAK-544 — Settings → Cloud tab and header cloud but
     await expect(systemPanel.locator("#cloudCard_dropbox")).toHaveCount(0);
   });
 
-  test("2.5 — System tab App Updates (forceRefreshBtn) still visible", async ({ page }) => {
+  test("2.5 — About tab Troubleshooting (forceRefreshBtn) visible", async ({ page }) => {
+    await page.locator('[data-section="about"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-section="about"]').click();
+    await expect(page.locator("#forceRefreshBtn")).toBeVisible();
+  });
+
+  test("2.5b — Inventory tab has no App Updates fieldset", async ({ page }) => {
     await page.locator('[data-section="system"]').scrollIntoViewIfNeeded();
     await page.locator('[data-section="system"]').click();
-    await expect(page.locator("#forceRefreshBtn")).toBeVisible();
+    const systemPanel = page.locator("#settingsPanel_system");
+    await expect(
+      systemPanel.locator(".settings-fieldset-title", { hasText: "App Updates" })
+    ).toHaveCount(0);
   });
 
   test("2.6 — Header cloud button opens Cloud settings when sync is not configured", async ({

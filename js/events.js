@@ -2951,16 +2951,16 @@ const setupDataManagementListeners = () => {
       if (!navigator.onLine) {
         if (typeof showAppAlert === "function")
           await showAppAlert(
-            "Force Refresh requires an internet connection. Your cached app is still available.",
-            "Force Refresh"
+            "Clear Cache & Reload requires an internet connection. Your cached app is still available.",
+            "Clear Cache & Reload"
           );
         return;
       }
       const confirmed =
         typeof showAppConfirm === "function"
           ? await showAppConfirm(
-              "This will reload the app and fetch the latest version from the network. Your inventory data will not be affected.",
-              "Force Refresh"
+              "This will clear the cached files and reload the app with the latest version. Your inventory data will not be affected.",
+              "Clear Cache & Reload"
             )
           : false;
       if (!confirmed) return;

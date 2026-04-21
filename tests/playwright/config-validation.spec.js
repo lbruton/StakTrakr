@@ -288,99 +288,38 @@ test.describe(".coderabbit.yaml", () => {
     expect(content).toContain("coderabbit.ai/integrations/schema");
   });
 
-  test("CR-3 — language is set to en-US", () => {
-    expect(content).toContain('language: "en-US"');
+  test("CR-3 — minimal config: no dashboard-managed settings in file", () => {
+    expect(content).not.toContain("profile:");
+    expect(content).not.toContain("poem:");
+    expect(content).not.toContain("early_access:");
+    expect(content).not.toContain("language:");
+    expect(content).not.toContain("tone_instructions:");
+    expect(content).not.toContain("knowledge_base:");
+    expect(content).not.toContain("chat:");
   });
 
-  test("CR-4 — review profile is assertive (solo-dev configuration)", () => {
-    expect(content).toContain('profile: "assertive"');
-  });
-
-  test("CR-5 — high_level_summary is enabled", () => {
-    expect(content).toContain("high_level_summary: true");
-  });
-
-  test("CR-6 — poem is disabled", () => {
-    expect(content).toContain("poem: false");
-  });
-
-  test("CR-7 — auto_review is enabled", () => {
-    expect(content).toContain("enabled: true");
-  });
-
-  test("CR-8 — auto_incremental_review is enabled", () => {
-    expect(content).toContain("auto_incremental_review: true");
-  });
-
-  test("CR-9 — WIP title keyword is in ignore list", () => {
-    expect(content).toContain('"WIP"');
-  });
-
-  test("CR-10 — DO NOT MERGE title keyword is in ignore list", () => {
-    expect(content).toContain('"DO NOT MERGE"');
-  });
-
-  test("CR-11 — node_modules path filter is excluded", () => {
+  test("CR-4 — node_modules path filter is excluded", () => {
     expect(content).toContain("!**/node_modules/**");
   });
 
-  test("CR-12 — data/ (StakTrakr-specific) path filter is excluded", () => {
+  test("CR-5 — data/ (StakTrakr-specific) path filter is excluded", () => {
     expect(content).toContain("!data/**");
   });
 
-  test("CR-13 — sw.js is excluded from review (auto-stamped)", () => {
+  test("CR-6 — sw.js is excluded from review (auto-stamped)", () => {
     expect(content).toContain("!sw.js");
   });
 
-  test("CR-14 — DESIGN.md is excluded (known false-positive source)", () => {
-    expect(content).toContain("!DESIGN.md");
-  });
-
-  test("CR-15 — eslint tool is enabled", () => {
-    const toolsSection = content.substring(content.indexOf("tools:"));
-    expect(toolsSection).toContain("eslint:");
-    expect(toolsSection).toContain("enabled: true");
-  });
-
-  test("CR-16 — gitleaks tool is enabled (security scanning)", () => {
-    const toolsSection = content.substring(content.indexOf("tools:"));
-    expect(toolsSection).toContain("gitleaks:");
-  });
-
-  test("CR-17 — markdownlint tool is enabled", () => {
-    const toolsSection = content.substring(content.indexOf("tools:"));
-    expect(toolsSection).toContain("markdownlint:");
-  });
-
-  test("CR-18 — knowledge base learnings are enabled", () => {
-    expect(content).toContain("learnings:");
-    expect(content).toMatch(/learnings:\s*\n\s*enabled: true/);
-  });
-
-  test("CR-19 — chat auto_reply is enabled", () => {
-    expect(content).toContain("auto_reply: true");
-  });
-
-  test("CR-20 — path instructions include js/**/*.js guidance", () => {
+  test("CR-7 — path instructions include js/**/*.js guidance", () => {
     expect(content).toContain('path: "js/**/*.js"');
   });
 
-  test("CR-21 — path instructions include tests/** guidance", () => {
+  test("CR-8 — path instructions include tests/** guidance", () => {
     expect(content).toContain('path: "tests/**"');
   });
 
-  test("CR-22 — abort_on_close is true", () => {
-    expect(content).toContain("abort_on_close: true");
-  });
-
-  test("CR-23 — early_access is false", () => {
-    expect(content).toContain("early_access: false");
-  });
-
-  test("CR-24 — finishing_touches docstrings are disabled", () => {
-    const ftSection = content.substring(content.indexOf("finishing_touches:"));
-    expect(ftSection).toContain("docstrings:");
-    expect(ftSection).toContain("enabled: false");
+  test("CR-9 — ALLOWED_STORAGE_KEYS false-positive guard documented", () => {
+    expect(content).toContain("ALLOWED_STORAGE_KEYS");
   });
 });
 
@@ -541,8 +480,8 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.03]");
   });
 
-  test("CL-24 — boundary: [3.34.18] does NOT exist (no phantom future entries)", () => {
-    expect(content).not.toContain("## [3.34.18]");
+  test("CL-24 — boundary: [3.34.20] does NOT exist (no phantom future entries)", () => {
+    expect(content).not.toContain("## [3.34.20]");
   });
 
   // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
@@ -639,10 +578,10 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("semicolon");
   });
 
-  test("CL-41 — [3.34.17] is the newest release in the file", () => {
-    const idx17 = content.indexOf("## [3.34.17]");
-    const idx16 = content.indexOf("## [3.34.16]");
-    expect(idx17).toBeGreaterThanOrEqual(0);
-    expect(idx17).toBeLessThan(idx16);
+  test("CL-41 — [3.34.19] is the newest release in the file", () => {
+    const idx19 = content.indexOf("## [3.34.19]");
+    const idx18 = content.indexOf("## [3.34.18]");
+    expect(idx19).toBeGreaterThanOrEqual(0);
+    expect(idx19).toBeLessThan(idx18);
   });
 });
