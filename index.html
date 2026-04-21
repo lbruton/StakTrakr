@@ -3740,8 +3740,9 @@
             <div class="settings-section-panel" id="settingsPanel_site" style="display: none">
               <h3>Appearance</h3>
 
-              <!-- ── Card 1: Visual style pickers ── -->
+              <!-- ── Display ── -->
               <div class="settings-fieldset">
+                <div class="settings-fieldset-title">Display</div>
                 <div
                   style="
                     display: grid;
@@ -3911,12 +3912,28 @@
                         <option value="11">Source</option>
                         <option value="99">Last Modified</option>
                       </select>
-                      <div id="settingsDefaultSortDir" class="chip-sort-toggle">
-                        <button type="button" class="chip-sort-btn active" data-val="asc">
-                          Asc
-                        </button>
-                        <button type="button" class="chip-sort-btn" data-val="desc">Desc</button>
-                      </div>
+                      <button
+                        type="button"
+                        class="card-sort-dir-btn"
+                        id="settingsDefaultSortDir"
+                        data-dir="asc"
+                        title="Toggle sort direction"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <polyline class="sort-arrow-up" points="18 15 12 9 6 15" />
+                          <polyline class="sort-arrow-down" points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                   <div style="display: flex; flex-direction: column; gap: 0.35rem">
@@ -3965,31 +3982,6 @@
                 <div id="headerBtnConfigTable"></div>
               </div>
 
-              <!-- ── Metals & Inline Chips ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Metals &amp; Inline Chips</div>
-                <div class="settings-card-grid">
-                  <div class="settings-card">
-                    <div class="settings-group-label">Metal Order</div>
-                    <p class="settings-subtext">
-                      Reorder and show/hide spot price and summary cards. Drag rows to reorder.
-                    </p>
-                    <div class="chip-grouping-table-container" id="metalOrderConfigContainer">
-                      <div class="chip-grouping-empty">Loading...</div>
-                    </div>
-                  </div>
-                  <div class="settings-card">
-                    <div class="settings-group-label">Inline Name Chips</div>
-                    <p class="settings-subtext">
-                      Choose which badges appear next to item names in the table.
-                    </p>
-                    <div class="chip-grouping-table-container" id="inlineChipConfigContainer">
-                      <div class="chip-grouping-empty">Loading...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <!-- ── Layout ── -->
               <div class="settings-fieldset">
                 <div
@@ -4031,6 +4023,24 @@
                   <div class="settings-group-label">Visible sections</div>
                   <p class="settings-subtext">Toggle visibility and reorder major page sections.</p>
                   <div class="chip-grouping-table-container" id="layoutSectionConfigContainer">
+                    <div class="chip-grouping-empty">Loading...</div>
+                  </div>
+                </div>
+                <div class="settings-group">
+                  <div class="settings-group-label">Metal Order</div>
+                  <p class="settings-subtext">
+                    Reorder and show/hide spot price and summary cards. Drag rows to reorder.
+                  </p>
+                  <div class="chip-grouping-table-container" id="metalOrderConfigContainer">
+                    <div class="chip-grouping-empty">Loading...</div>
+                  </div>
+                </div>
+                <div class="settings-group">
+                  <div class="settings-group-label">Inline Name Chips</div>
+                  <p class="settings-subtext">
+                    Choose which badges appear next to item names in the table.
+                  </p>
+                  <div class="chip-grouping-table-container" id="inlineChipConfigContainer">
                     <div class="chip-grouping-empty">Loading...</div>
                   </div>
                 </div>
