@@ -684,10 +684,7 @@ const bindCardAndTableImageListeners = () => {
       localStorage.setItem(DEFAULT_SORT_COL_KEY, String(val));
       sortColumn = val;
       if (val === SORT_COL_LAST_MODIFIED && sortDirection === "asc") {
-        sortDirection = "desc";
-        localStorage.setItem(DEFAULT_SORT_DIR_KEY, "desc");
-        const dirEl = getExistingElement("settingsDefaultSortDir");
-        if (dirEl) dirEl.dataset.dir = "desc";
+        applyDefaultSortDir("desc");
       }
       if (typeof updateCardSortBar === "function") updateCardSortBar();
       if (typeof renderTable === "function") renderTable();
@@ -695,15 +692,26 @@ const bindCardAndTableImageListeners = () => {
   }
 
   // Default sort direction
+  function applyDefaultSortDir(dir) {
+    const btn = getExistingElement("settingsDefaultSortDir");
+    if (btn) {
+      btn.dataset.dir = dir;
+      btn.setAttribute(
+        "aria-label",
+        dir === "asc" ? "Sort ascending — click to reverse" : "Sort descending — click to reverse"
+      );
+    }
+    localStorage.setItem(DEFAULT_SORT_DIR_KEY, dir);
+    sortDirection = dir;
+  }
+
   const defaultSortDirEl = getExistingElement("settingsDefaultSortDir");
   if (defaultSortDirEl) {
     const savedDir = localStorage.getItem(DEFAULT_SORT_DIR_KEY) || "asc";
-    defaultSortDirEl.dataset.dir = savedDir;
+    applyDefaultSortDir(savedDir);
     defaultSortDirEl.addEventListener("click", () => {
       const newDir = defaultSortDirEl.dataset.dir === "asc" ? "desc" : "asc";
-      defaultSortDirEl.dataset.dir = newDir;
-      localStorage.setItem(DEFAULT_SORT_DIR_KEY, newDir);
-      sortDirection = newDir;
+      applyDefaultSortDir(newDir);
       if (typeof updateCardSortBar === "function") updateCardSortBar();
       if (typeof renderTable === "function") renderTable();
     });
