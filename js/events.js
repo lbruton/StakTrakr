@@ -1405,14 +1405,11 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
 /**
  * Builds a Numista search query, optionally rewriting via NumistaLookup patterns.
  * @param {string} nameVal - Item name input value
- * @param {string} metalVal - Metal composition value
+ * @param {string} metalVal - Metal composition value (currently unused; kept for API compatibility)
  * @returns {{ query: string, numistaId: string|null, matched: boolean }}
  */
 const buildNumistaSearchQuery = (nameVal, metalVal) => {
-  const combined =
-    metalVal && !nameVal.toLowerCase().includes(metalVal.toLowerCase())
-      ? `${metalVal} ${nameVal}`
-      : nameVal;
+  const combined = nameVal;
 
   // Try pattern-based lookup if available
   if (window.NumistaLookup) {
@@ -2032,20 +2029,15 @@ const setupItemFormListeners = () => {
             showNumistaResults(result ? [result] : [], true, catalogVal);
           } else {
             const typeVal = elements.itemType?.value || "";
-            const metalVal = elements.itemMetal?.value || "";
-
             const searchFilters = { limit: 20 };
             const numistaCategory = TYPE_TO_NUMISTA_CATEGORY[typeVal];
             if (numistaCategory) searchFilters.category = numistaCategory;
 
-            const searchResult = buildNumistaSearchQuery(nameVal, metalVal);
+            const searchResult = buildNumistaSearchQuery(nameVal, "");
 
             if (searchResult.matched) {
               // Pattern matched — build raw query for fallback results
-              const rawQuery =
-                metalVal && !nameVal.toLowerCase().includes(metalVal.toLowerCase())
-                  ? `${metalVal} ${nameVal}`
-                  : nameVal;
+              const rawQuery = nameVal;
 
               // Fire all requests in parallel: direct N# + rewritten + raw fallback
               const promises = [
@@ -3829,6 +3821,7 @@ function handleAdvancedSavePassword() {
   }
 }
 window.handleAdvancedSavePassword = handleAdvancedSavePassword;
+window.buildNumistaSearchQuery = buildNumistaSearchQuery;
 
 // =============================================================================
 // Remove Item modal event listeners (STAK-72)

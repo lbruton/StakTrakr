@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.20] - 2026-04-21
+
+### Fixed — STAK-569: Numista search metal prepend removed
+
+- **Fixed**: Numista search no longer auto-prepends the metal dropdown value to the name query — searches use exactly what the user typed (STAK-569)
+- **Preserved**: Custom Numista pattern rules still fire when a match is found; raw fallback query uses the name field value without metal injection (STAK-569)
+- **Added**: 5 Playwright tests covering the metal prepend bug fix and pattern rule fallback behavior (STAK-569)
+
+---
+
 ## [3.34.19] - 2026-04-21
 
 ### Changed — STAK-564: Move Force Refresh to About tab as Troubleshooting card
