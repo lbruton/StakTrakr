@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.34.17";
+const APP_VERSION = "3.34.18";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
