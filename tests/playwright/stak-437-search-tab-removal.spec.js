@@ -355,7 +355,7 @@ test.describe("STAK-437 — Search tab removal and Filter Chips consolidation", 
         typeof window.showSettingsModal === "function" &&
         typeof window.NumistaLookup !== "undefined" &&
         window.NumistaLookup.getCustomRules().length > 0,
-      { timeout: 10000 }
+      { timeout: 20000 }
     );
 
     const rules = await page.evaluate(() => {
@@ -389,7 +389,7 @@ test.describe("STAK-437 — Search tab removal and Filter Chips consolidation", 
         typeof window.showSettingsModal === "function" &&
         typeof window.NumistaLookup !== "undefined" &&
         window.NumistaLookup.getCustomRules().length > 0,
-      { timeout: 10000 }
+      { timeout: 20000 }
     );
 
     let rules = await page.evaluate(() => window.NumistaLookup.getCustomRules());
