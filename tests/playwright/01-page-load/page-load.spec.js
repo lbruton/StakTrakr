@@ -1,9 +1,19 @@
 import { test, expect } from "@playwright/test";
 import { injectSeedInventory } from "../helpers/seed.js";
 
+async function allowWhatsNew(page) {
+  await page.addInitScript(() => {
+    const origSetItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function (key, value) {
+      if (key === "ackVersion") return;
+      origSetItem(key, value);
+    };
+  });
+}
+
 async function dismissWhatsNew(page) {
   const card = page.locator(".whats-new-toast-card");
-  const isVisible = await card.isVisible().catch(() => false);
+  const isVisible = await card.isVisible();
   if (isVisible) {
     await card.locator(".wntc-close").click();
     await expect(card).toBeHidden();
@@ -28,43 +38,23 @@ test.describe("01-page-load", () => {
   test("1.2 — What's New toast card appears on first load", async ({ page }) => {
     // runbook: 01-page-load.md §1.2 — STAK-547 replaced modal with toast card
     // Prevent ackVersion from being set so the toast card appears
-    await page.addInitScript(() => {
-      const origSetItem = localStorage.setItem.bind(localStorage);
-      localStorage.setItem = function (key, value) {
-        if (key === "ackVersion") return;
-        origSetItem(key, value);
-      };
-    });
+    await allowWhatsNew(page);
     await page.goto("/index.html");
     await expect(page.locator(".whats-new-toast-card")).toBeVisible({ timeout: 5000 });
   });
 
   test("1.3 — What's New contains latest patch notes", async ({ page }) => {
     // runbook: 01-page-load.md §1.3 — STAK-547 replaced modal with toast card
-    await page.addInitScript(() => {
-      const origSetItem = localStorage.setItem.bind(localStorage);
-      localStorage.setItem = function (key, value) {
-        if (key === "ackVersion") return;
-        origSetItem(key, value);
-      };
-    });
+    await allowWhatsNew(page);
     await page.goto("/index.html");
     await expect(page.locator(".whats-new-toast-card")).toBeVisible({ timeout: 5000 });
     const versionEl = page.locator(".wntc-version");
     await expect(versionEl).not.toBeEmpty();
-    const versionText = await versionEl.textContent();
-    expect(versionText.trim().length).toBeGreaterThan(0);
   });
 
   test("1.4 — clicking dismiss closes the What's New toast card", async ({ page }) => {
     // runbook: 01-page-load.md §1.4 — STAK-547 replaced modal with toast card
-    await page.addInitScript(() => {
-      const origSetItem = localStorage.setItem.bind(localStorage);
-      localStorage.setItem = function (key, value) {
-        if (key === "ackVersion") return;
-        origSetItem(key, value);
-      };
-    });
+    await allowWhatsNew(page);
     await page.goto("/index.html");
     await expect(page.locator(".whats-new-toast-card")).toBeVisible({ timeout: 5000 });
     await page.locator(".wntc-close").click();

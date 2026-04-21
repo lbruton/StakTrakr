@@ -154,10 +154,11 @@ test.describe("03-settings/03-appearance — Sort Direction Toggle & Metals Sett
     await expect(fieldset.locator("#inlineChipConfigContainer")).toBeVisible();
   });
 
-  test("3.11 — metal order config has draggable rows", async ({ page }) => {
+  test("3.11 — metal order config has rows", async ({ page }) => {
     const container = page.locator("#metalOrderConfigContainer");
     await expect(container).toBeVisible();
     const rows = container.locator("tr, .chip-grouping-row");
+    await expect(rows).not.toHaveCount(0);
     const count = await rows.count();
     expect(count).toBeGreaterThanOrEqual(1);
   });
