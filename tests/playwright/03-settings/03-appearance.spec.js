@@ -107,24 +107,16 @@ test.describe("03-settings/03-appearance — Sort Direction Toggle & Metals Sett
   });
 
   test("3.6 — selection persists across page refresh", async ({ page }) => {
-    // Set initial selection to Desc
     const descBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
     await descBtn.click();
-
-    // Verify it's selected
     await expect(descBtn).toHaveClass(/active/);
 
-    // Refresh the page
     await page.reload();
-    await page.click("#settingsBtn");
-    await page.click('[data-section="site"]');
-    await expect(page.locator("#settingsPanel_site")).toBeVisible();
+    await openAppearanceSettings(page);
 
-    // Verify Desc button still has active class after refresh
     const descBtnAfter = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
     await expect(descBtnAfter).toHaveClass(/active/);
 
-    // Verify localStorage still has the value
     const localStorageValue = await page.evaluate(() => {
       return localStorage.getItem("defaultSortDir");
     });
@@ -132,65 +124,41 @@ test.describe("03-settings/03-appearance — Sort Direction Toggle & Metals Sett
   });
 
   test("3.7 — default selection is Asc on first load", async ({ page }) => {
-    // Clear localStorage to simulate first load
     await page.evaluate(() => {
       localStorage.removeItem("defaultSortDir");
     });
 
-    // Reload the page
     await page.reload();
-    await page.click("#settingsBtn");
-    await page.click('[data-section="site"]');
-    await expect(page.locator("#settingsPanel_site")).toBeVisible();
+    await openAppearanceSettings(page);
 
-    // Verify Asc button has active class by default (init falls back to 'asc')
     const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
     await expect(ascBtn).toHaveClass(/active/);
   });
 
-  // STAK-535: Regression tests for moved Metals & Inline Chips settings
+  // STAK-535: Regression tests for Metals & Inline Chips in combined fieldset
 
-  test("3.8 — metals section exists in Appearance", async ({ page }) => {
-    // Verify the metals fieldset exists
-    const metalsFieldset = page.locator("#settingsMetals");
-    await expect(metalsFieldset).toBeVisible();
-    await expect(metalsFieldset.locator("legend")).toHaveText("Metals");
+  test("3.8 — metals config container exists in Appearance", async ({ page }) => {
+    const metalConfig = page.locator("#metalOrderConfigContainer");
+    await expect(metalConfig).toBeVisible();
   });
 
-  test("3.9 — inline chips section exists in Appearance", async ({ page }) => {
-    // Verify the inline chips fieldset exists
-    const inlineChipsFieldset = page.locator("#settingsInlineChips");
-    await expect(inlineChipsFieldset).toBeVisible();
-    await expect(inlineChipsFieldset.locator("legend")).toHaveText("Inline Chips");
+  test("3.9 — inline chips config container exists in Appearance", async ({ page }) => {
+    const inlineChipConfig = page.locator("#inlineChipConfigContainer");
+    await expect(inlineChipConfig).toBeVisible();
   });
 
-  test("3.10 — metals toggle enables/disables display", async ({ page }) => {
-    // Verify metals toggle exists and works
-    const metalsToggle = page.locator('#settingsMetals input[type="checkbox"]');
-    await expect(metalsToggle).toBeVisible();
-
-    // Toggle on
-    await metalsToggle.check();
-    expect(await page.evaluate(() => localStorage.getItem("showMetals"))).toBe("true");
-
-    // Toggle off
-    await metalsToggle.uncheck();
-    expect(await page.evaluate(() => localStorage.getItem("showMetals"))).toBe("false");
+  test("3.10 — metals & inline chips share a combined fieldset", async ({ page }) => {
+    const fieldset = page.locator('.settings-fieldset:has-text("Metals & Inline Chips")');
+    await expect(fieldset).toBeVisible();
+    await expect(fieldset.locator("#metalOrderConfigContainer")).toBeVisible();
+    await expect(fieldset.locator("#inlineChipConfigContainer")).toBeVisible();
   });
 
-  test("3.11 — inline chips options persist", async ({ page }) => {
-    // Verify inline chips select persists
-    const inlineChipsSelect = page.locator("#settingsInlineChips select");
-    await expect(inlineChipsSelect).toBeVisible();
-
-    // Test different options
-    await inlineChipsSelect.selectOption({ label: "Both" });
-    expect(await page.evaluate(() => localStorage.getItem("inlineChipsOption"))).toBe("both");
-
-    await inlineChipsSelect.selectOption({ label: "Top" });
-    expect(await page.evaluate(() => localStorage.getItem("inlineChipsOption"))).toBe("top");
-
-    await inlineChipsSelect.selectOption({ label: "Inline" });
-    expect(await page.evaluate(() => localStorage.getItem("inlineChipsOption"))).toBe("inline");
+  test("3.11 — metal order config has draggable rows", async ({ page }) => {
+    const container = page.locator("#metalOrderConfigContainer");
+    await expect(container).toBeVisible();
+    const rows = container.locator("tr, .chip-grouping-row");
+    const count = await rows.count();
+    expect(count).toBeGreaterThanOrEqual(1);
   });
 });

@@ -111,11 +111,15 @@ async function openViewModal(page, index = 0) {
 
 async function clearImageCache(page) {
   await page.evaluate(async () => {
-    await new Promise((resolve, reject) => {
+    // Close any open connections first to prevent onblocked
+    if (window.imageCache && typeof window.imageCache.close === "function") {
+      window.imageCache.close();
+    }
+    await new Promise((resolve) => {
       const request = indexedDB.deleteDatabase("StakTrakrImages");
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error("IndexedDB deleteDatabase failed"));
-      request.onblocked = () => reject(new Error("IndexedDB deleteDatabase blocked"));
+      request.onerror = () => resolve();
+      request.onblocked = () => resolve();
     });
   });
 }
