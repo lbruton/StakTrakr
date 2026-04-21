@@ -4,7 +4,7 @@
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.19-b1776776707";
+const CACHE_NAME = "staktrakr-v3.34.20-b1776810194";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =

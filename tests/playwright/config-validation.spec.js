@@ -578,10 +578,10 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("semicolon");
   });
 
-  test("CL-41 — [3.34.19] is the newest release in the file", () => {
+  test("CL-42 — [3.34.20] is the newest release in the file", () => {
+    const idx20 = content.indexOf("## [3.34.20]");
     const idx19 = content.indexOf("## [3.34.19]");
-    const idx18 = content.indexOf("## [3.34.18]");
-    expect(idx19).toBeGreaterThanOrEqual(0);
-    expect(idx19).toBeLessThan(idx18);
+    expect(idx20).toBeGreaterThanOrEqual(0);
+    expect(idx20).toBeLessThan(idx19);
   });
 });

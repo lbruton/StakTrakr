@@ -1409,10 +1409,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
  * @returns {{ query: string, numistaId: string|null, matched: boolean }}
  */
 const buildNumistaSearchQuery = (nameVal, metalVal) => {
-  const combined =
-    metalVal && !nameVal.toLowerCase().includes(metalVal.toLowerCase())
-      ? `${metalVal} ${nameVal}`
-      : nameVal;
+  const combined = nameVal;
 
   // Try pattern-based lookup if available
   if (window.NumistaLookup) {
@@ -2042,10 +2039,7 @@ const setupItemFormListeners = () => {
 
             if (searchResult.matched) {
               // Pattern matched — build raw query for fallback results
-              const rawQuery =
-                metalVal && !nameVal.toLowerCase().includes(metalVal.toLowerCase())
-                  ? `${metalVal} ${nameVal}`
-                  : nameVal;
+              const rawQuery = nameVal;
 
               // Fire all requests in parallel: direct N# + rewritten + raw fallback
               const promises = [
@@ -3829,6 +3823,7 @@ function handleAdvancedSavePassword() {
   }
 }
 window.handleAdvancedSavePassword = handleAdvancedSavePassword;
+window.buildNumistaSearchQuery = buildNumistaSearchQuery;
 
 // =============================================================================
 // Remove Item modal event listeners (STAK-72)
