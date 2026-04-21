@@ -480,8 +480,8 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.03]");
   });
 
-  test("CL-24 — boundary: [3.34.20] does NOT exist (no phantom future entries)", () => {
-    expect(content).not.toContain("## [3.34.20]");
+  test("CL-24 — boundary: [3.34.21] does NOT exist (no phantom future entries)", () => {
+    expect(content).not.toContain("## [3.34.21]");
   });
 
   // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
