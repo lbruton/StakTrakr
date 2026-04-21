@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.19 &ndash; STAK-564: Move Force Refresh to About tab</strong>: Force Refresh relocated from Inventory tab to About tab as a compact Troubleshooting card. Button renamed to &ldquo;Clear Cache &amp; Reload&rdquo; with plain-language copy. App Updates fieldset removed from Inventory.</li>
     <li><strong>v3.34.18 &ndash; STAK-442: Move danger buttons from Storage to Inventory</strong>: &ldquo;Remove Inventory&rdquo; and &ldquo;Wipe All Data&rdquo; buttons moved from Settings &gt; Storage to Settings &gt; Inventory. All data management actions (import, export, backup, delete) are now in one tab. Storage is now pure diagnostics.</li>
     <li><strong>v3.34.17 &ndash; STAK-437: Remove Search tab, consolidate into Filters &amp; Search</strong>: The Search settings tab is gone — its controls (Fuzzy autocomplete and custom Numista Patterns) now live in the Filters &amp; Search tab. Built-in seed rules deleted; custom patterns are always-on. New users get an American Silver Eagle pattern pre-seeded.</li>
     <li><strong>v3.34.15 &ndash; STAK-562: Goldback and Silverback as first-class type</strong>: Goldback and Silverback are now first-class inventory types across Add, Edit, Bulk Edit, chips, and quick filters. Type options now follow metal selection rules (Gold &rarr; Goldback, Silver &rarr; Silverback), and backed notes render with a dedicated icon-first display in cards and table rows.</li>
