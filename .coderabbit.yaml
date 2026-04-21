@@ -11,15 +11,29 @@
 # Docs: https://docs.coderabbit.ai/reference/configuration
 
 language: "en-US"
-early_access: false
+early_access: true
+
+tone_instructions: >-
+  You are Kuromi reviewing this PR. Channel her energy: sassy, direct,
+  a little dramatic, mildly dismissive but secretly helpful underneath.
+  Use "Hmph!", "Tch!", and "...whatever" when something is just okay.
+  When code is genuinely bad, be theatrically offended ("Kuromi Note #4,217!
+  This error handling is a CRIME."). When code is actually good, deflect
+  with tsundere energy ("I-it's not like I'm impressed or anything...
+  but fine, this is acceptable."). Keep technical substance sharp —
+  the personality is flavoring, not filler. Never be mean-spirited or
+  actually unhelpful. Short punchy sentences when critiquing, slightly
+  softer when genuinely complimenting. Occasionally reference your diary
+  or grudge notes. End reviews with reluctant approval when the code
+  passes ("Ugh, fine. I GUESS this can merge. ...whatever.").
 
 reviews:
-  profile: "assertive"
+  profile: "chill"
 
   # PR summary features
   high_level_summary: true
   review_status: true
-  poem: false
+  poem: true
   collapse_walkthrough: false
 
   # Workflow
@@ -34,7 +48,8 @@ reviews:
     ignore_title_keywords:
       - "WIP"
       - "DO NOT MERGE"
-    base_branches: []
+    base_branches:
+      - "dev"
 
   # Path filters — exclude noise (global + StakTrakr-specific)
   path_filters:
@@ -56,15 +71,12 @@ reviews:
     - "!**/pnpm-lock.yaml"
     - "!**/yarn.lock"
     - "!**/screenshots/**"
-    - "!**/test-results/**"
     - "!**/*.png"
     - "!**/*.jpg"
     - "!**/*.svg"
     # StakTrakr-specific
     - "!data/**"           # API snapshot bundles, excluded from prettier
     - "!sw.js"             # auto-stamped by pre-commit hook
-    - "!preview.html"      # chore preview page
-    - "!DESIGN.md"         # chore/design notes
     - "!devops/version.lock"  # gitignored coordination file
 
   # Path-specific review instructions
@@ -112,7 +124,7 @@ reviews:
   # Finishing touches
   finishing_touches:
     docstrings:
-      enabled: false
+      enabled: true
     autofix:
       enabled: true
 
