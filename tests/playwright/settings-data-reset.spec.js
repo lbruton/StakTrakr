@@ -3,10 +3,8 @@ import { test, expect } from "@playwright/test";
 /**
  * STAK-442 — Storage tab danger buttons to Inventory
  *
- * TDD spec: 2 tests that MUST FAIL before implementation.
- *
- * Tests verify that the danger buttons (#removeInventoryDataBtn and
- * #boatingAccidentBtn) move from the Storage tab to the Inventory tab.
+ * Regression tests verifying danger buttons (#removeInventoryDataBtn and
+ * #boatingAccidentBtn) are on the Inventory tab, not the Storage tab.
  */
 
 async function openSettingsModal(page) {
