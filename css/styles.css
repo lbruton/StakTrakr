@@ -10900,6 +10900,156 @@ th {
   color: #cbd5e1;
 }
 
+/* Currency fields — 2-column row matching prototype */
+.currency-fields-row {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .currency-fields-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.currency-field {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+}
+
+.currency-field strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.86rem;
+}
+
+.currency-field select {
+  width: 100%;
+}
+
+/* Goldback pricing source — pill radio buttons */
+.gb-source-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gb-source-btn {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.gb-source-btn:hover {
+  color: var(--text-primary);
+}
+
+.gb-source-btn.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Conditional input rows — 2-column grid with input shell + helper card */
+.gb-conditional-row {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 640px) {
+  .gb-conditional-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.gb-input-shell {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+}
+
+.gb-input-shell label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.gb-input-shell input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.gb-input-shell small {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.gb-helper-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+}
+
+.gb-helper-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.86rem;
+}
+
+.gb-helper-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* History row — card + button side-by-side */
+.gb-history-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.gb-history-btn {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gb-history-btn:hover {
+  background: var(--bg-tertiary);
+}
+
 /* =============================================================================
    SETTINGS CHANGE LOG PANEL
    ============================================================================= */

@@ -6432,24 +6432,19 @@
 
               <div class="settings-fieldset">
                 <div class="settings-fieldset-title">Currency</div>
-                <div class="settings-group">
-                  <div class="settings-group-label">Display currency</div>
-                  <p class="settings-subtext">
-                    All prices, spot values, and exports will use this currency. Spot prices are
-                    fetched in USD and converted using daily exchange rates.
-                  </p>
-                  <select id="settingsDisplayCurrency"></select>
-                </div>
-                <div class="settings-group">
-                  <div class="settings-group-label">24h price comparison</div>
-                  <p class="settings-subtext">
-                    Choose how the 24h percentage change on spot cards is calculated.
-                  </p>
-                  <select id="settingsSpotCompareMode">
-                    <option value="close-close">Close / Close (default)</option>
-                    <option value="open-open">Open / Open</option>
-                    <option value="open-close">Open / Close</option>
-                  </select>
+                <div class="currency-fields-row">
+                  <div class="currency-field">
+                    <strong>Display currency</strong>
+                    <select id="settingsDisplayCurrency"></select>
+                  </div>
+                  <div class="currency-field">
+                    <strong>24h price comparison</strong>
+                    <select id="settingsSpotCompareMode">
+                      <option value="close-close">Close / Close (default)</option>
+                      <option value="open-open">Open / Open</option>
+                      <option value="open-close">Open / Close</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -6461,25 +6456,25 @@
                   <p class="settings-subtext">
                     Choose how Goldback denomination prices are calculated for gb-unit items.
                   </p>
-                  <div id="settingsGoldbackSource" class="chip-sort-group">
-                    <button class="chip-sort-btn" data-val="off" type="button">Off</button>
-                    <button class="chip-sort-btn" data-val="api" type="button">
+                  <div id="settingsGoldbackSource" class="gb-source-group">
+                    <button class="gb-source-btn" data-val="off" type="button">Off</button>
+                    <button class="gb-source-btn" data-val="api" type="button">
                       StakTrakr API
                     </button>
-                    <button class="chip-sort-btn" data-val="spot" type="button">
+                    <button class="gb-source-btn" data-val="spot" type="button">
                       Estimate from Spot
                     </button>
-                    <button class="chip-sort-btn" data-val="manual" type="button">Manual</button>
+                    <button class="gb-source-btn" data-val="manual" type="button">Manual</button>
                   </div>
                 </div>
 
-                <div class="settings-group" id="goldbackSpotModifierGroup" style="display: none">
-                  <div class="settings-group-label">Spot modifier</div>
-                  <p class="settings-subtext">
-                    Estimate 1 GB as
-                    <code>2 &times; (spot&thinsp;/&thinsp;1000) &times; modifier</code>.
-                  </p>
-                  <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem">
+                <div
+                  class="gb-conditional-row"
+                  id="goldbackSpotModifierGroup"
+                  style="display: none"
+                >
+                  <div class="gb-input-shell">
+                    <label for="goldbackEstimateModifierInput">Spot modifier</label>
                     <input
                       type="number"
                       id="goldbackEstimateModifierInput"
@@ -6487,23 +6482,19 @@
                       max="2.0"
                       step="0.01"
                       value="1.0"
-                      style="width: 80px"
                     />
-                    <span style="font-size: 0.8em; color: var(--text-secondary)"
-                      >(1.0 = no premium, 1.03 = ~3% premium)</span
-                    >
+                    <small>Estimate: 2 &times; (spot / 1000) &times; modifier</small>
+                  </div>
+                  <div class="gb-helper-card">
+                    <strong>Spot estimate behavior</strong>
+                    <p>As gold spot refreshes, denomination prices update automatically.</p>
                   </div>
                 </div>
 
-                <div class="settings-group" id="goldbackManualInputGroup" style="display: none">
-                  <div class="settings-group-label">Manual 1 GB rate</div>
-                  <p class="settings-subtext">
-                    Enter the 1 Goldback rate and the remaining denominations will update
-                    automatically.
-                  </p>
-                  <div style="display: flex; align-items: center; gap: 0.5rem">
-                    <span id="goldbackManualRateSymbol" style="color: var(--text-secondary)"
-                      >$</span
+                <div class="gb-conditional-row" id="goldbackManualInputGroup" style="display: none">
+                  <div class="gb-input-shell">
+                    <label for="goldbackManualRateInput"
+                      ><span id="goldbackManualRateSymbol">$</span> 1 GB rate</label
                     >
                     <input
                       type="number"
@@ -6511,8 +6502,12 @@
                       min="0"
                       step="0.01"
                       placeholder="1 GB rate"
-                      style="width: 120px"
                     />
+                    <small>All other rows scale from this value immediately.</small>
+                  </div>
+                  <div class="gb-helper-card">
+                    <strong>Manual mode behavior</strong>
+                    <p>Only one editable input remains. No separate save action needed.</p>
                   </div>
                 </div>
 
@@ -6534,13 +6529,15 @@
                       <!-- Rows rendered dynamically by syncGoldbackSettingsUI() -->
                     </tbody>
                   </table>
-                  <button
-                    class="btn"
-                    id="goldbackHistoryBtn"
-                    type="button"
-                    style="margin-top: 0.75rem"
-                  >
-                    Goldback History
+                </div>
+
+                <div class="gb-history-row">
+                  <div class="gb-helper-card" style="flex: 1 1 260px">
+                    <strong>Goldback History</strong>
+                    <p>View denomination price changes over time.</p>
+                  </div>
+                  <button class="gb-history-btn" id="goldbackHistoryBtn" type="button">
+                    Open history
                   </button>
                 </div>
               </div>

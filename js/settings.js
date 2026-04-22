@@ -972,7 +972,7 @@ const syncCurrencySettingsUI = () => {
 const syncGoldbackSettingsUI = () => {
   const sourceGroup = document.getElementById("settingsGoldbackSource");
   if (sourceGroup) {
-    sourceGroup.querySelectorAll(".chip-sort-btn").forEach((btn) => {
+    sourceGroup.querySelectorAll(".gb-source-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.val === goldbackPricingSource);
     });
   }

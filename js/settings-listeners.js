@@ -388,7 +388,7 @@ const bindGoldbackPricingSourceListener = () => {
 
   if (sourceGroup) {
     sourceGroup.addEventListener("click", async (e) => {
-      const btn = e.target.closest(".chip-sort-btn");
+      const btn = e.target.closest(".gb-source-btn");
       if (!btn) return;
 
       const nextSource = btn.dataset.val;

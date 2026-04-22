@@ -36,20 +36,20 @@ test.describe("settings-currency — STAK-570 merged Currency tab", () => {
   }) => {
     const sourceGroup = page.locator("#settingsPanel_currency #settingsGoldbackSource");
     await expect(sourceGroup).toBeVisible();
-    await expect(sourceGroup.locator(".chip-sort-btn")).toHaveCount(4);
-    await expect(sourceGroup.locator('.chip-sort-btn[data-val="off"]')).toContainText("Off");
-    await expect(sourceGroup.locator('.chip-sort-btn[data-val="api"]')).toContainText(
+    await expect(sourceGroup.locator(".gb-source-btn")).toHaveCount(4);
+    await expect(sourceGroup.locator('.gb-source-btn[data-val="off"]')).toContainText("Off");
+    await expect(sourceGroup.locator('.gb-source-btn[data-val="api"]')).toContainText(
       "StakTrakr API"
     );
-    await expect(sourceGroup.locator('.chip-sort-btn[data-val="spot"]')).toContainText(
+    await expect(sourceGroup.locator('.gb-source-btn[data-val="spot"]')).toContainText(
       "Estimate from Spot"
     );
-    await expect(sourceGroup.locator('.chip-sort-btn[data-val="manual"]')).toContainText("Manual");
+    await expect(sourceGroup.locator('.gb-source-btn[data-val="manual"]')).toContainText("Manual");
   });
 
   test("0.5.3 — pricing source changes persist to localStorage", async ({ page }) => {
     const manualButton = page.locator(
-      '#settingsPanel_currency #settingsGoldbackSource .chip-sort-btn[data-val="manual"]'
+      '#settingsPanel_currency #settingsGoldbackSource .gb-source-btn[data-val="manual"]'
     );
     await expect(manualButton).toBeVisible();
     await manualButton.click();
@@ -74,9 +74,9 @@ test.describe("settings-currency — STAK-570 merged Currency tab", () => {
     const sourceGroup = page.locator("#settingsPanel_currency #settingsGoldbackSource");
     const spotModifierGroup = page.locator("#settingsPanel_currency #goldbackSpotModifierGroup");
     const manualInputGroup = page.locator("#settingsPanel_currency #goldbackManualInputGroup");
-    const spotButton = sourceGroup.locator('.chip-sort-btn[data-val="spot"]');
-    const manualButton = sourceGroup.locator('.chip-sort-btn[data-val="manual"]');
-    const offButton = sourceGroup.locator('.chip-sort-btn[data-val="off"]');
+    const spotButton = sourceGroup.locator('.gb-source-btn[data-val="spot"]');
+    const manualButton = sourceGroup.locator('.gb-source-btn[data-val="manual"]');
+    const offButton = sourceGroup.locator('.gb-source-btn[data-val="off"]');
 
     await expect(sourceGroup).toBeVisible();
 
