@@ -572,6 +572,76 @@ const bindPatternRuleModeListeners = () => {
     }
   });
 
+  // Swap obverse/reverse for pattern rule form (STAK-439)
+  const patternSwapBtn = getExistingElement("patternRuleSwapBtn");
+  if (patternSwapBtn) {
+    patternSwapBtn.addEventListener("click", () => {
+      const obvInput = getExistingElement("patternRuleObverse");
+      const revInput = getExistingElement("patternRuleReverse");
+      const obvNameEl = getExistingElement("patternRuleObverseName");
+      const revNameEl = getExistingElement("patternRuleReverseName");
+      const obvCapture = getExistingElement("patternRuleObverseCapture");
+      const revCapture = getExistingElement("patternRuleReverseCapture");
+
+      // Swap file inputs via DataTransfer
+      if (obvInput && revInput) {
+        const obvHasFile = obvInput.files && obvInput.files.length > 0;
+        const revHasFile = revInput.files && revInput.files.length > 0;
+
+        if (obvHasFile && revHasFile) {
+          const dtObv = new DataTransfer();
+          const dtRev = new DataTransfer();
+          dtObv.items.add(obvInput.files[0]);
+          dtRev.items.add(revInput.files[0]);
+          obvInput.files = dtRev.files;
+          revInput.files = dtObv.files;
+        } else if (obvHasFile) {
+          const dt = new DataTransfer();
+          dt.items.add(obvInput.files[0]);
+          revInput.files = dt.files;
+          obvInput.value = "";
+        } else if (revHasFile) {
+          const dt = new DataTransfer();
+          dt.items.add(revInput.files[0]);
+          obvInput.files = dt.files;
+          revInput.value = "";
+        }
+      }
+
+      // Swap filename labels
+      if (obvNameEl && revNameEl) {
+        const tmpText = obvNameEl.textContent;
+        obvNameEl.textContent = revNameEl.textContent;
+        revNameEl.textContent = tmpText;
+      }
+
+      // Swap camera capture inputs via DataTransfer
+      if (obvCapture && revCapture) {
+        const obvCapHasFile = obvCapture.files && obvCapture.files.length > 0;
+        const revCapHasFile = revCapture.files && revCapture.files.length > 0;
+
+        if (obvCapHasFile && revCapHasFile) {
+          const dtObv = new DataTransfer();
+          const dtRev = new DataTransfer();
+          dtObv.items.add(obvCapture.files[0]);
+          dtRev.items.add(revCapture.files[0]);
+          obvCapture.files = dtRev.files;
+          revCapture.files = dtObv.files;
+        } else if (obvCapHasFile) {
+          const dt = new DataTransfer();
+          dt.items.add(obvCapture.files[0]);
+          revCapture.files = dt.files;
+          obvCapture.value = "";
+        } else if (revCapHasFile) {
+          const dt = new DataTransfer();
+          dt.items.add(revCapture.files[0]);
+          obvCapture.files = dt.files;
+          revCapture.value = "";
+        }
+      }
+    });
+  }
+
   const addPatternRuleBtn = getExistingElement("addPatternRuleBtn");
   if (addPatternRuleBtn) {
     addPatternRuleBtn.addEventListener("click", async () => {
@@ -653,6 +723,10 @@ const bindPatternRuleModeListeners = () => {
       if (patternInput) patternInput.value = "";
       if (obverseInput) obverseInput.value = "";
       if (reverseInput) reverseInput.value = "";
+      const obvName = getExistingElement("patternRuleObverseName");
+      const revName = getExistingElement("patternRuleReverseName");
+      if (obvName) obvName.textContent = "";
+      if (revName) revName.textContent = "";
 
       // Auto-collapse form after successful add (STAK-439)
       const formContainer = getExistingElement("patternRuleFormContainer");
