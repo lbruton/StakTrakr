@@ -1043,10 +1043,15 @@ const syncGoldbackSettingsUI = () => {
           : `${typeof getCurrencySymbol === "function" ? getCurrencySymbol() : "$"}${displayPrice.toFixed(2)}`;
     const effectiveSource =
       entry && typeof entry.source === "string" ? entry.source.toLowerCase() : null;
+    const badgeSource = effectiveSource || goldbackPricingSource || "api";
     const sourceLabel =
       displayPrice == null
         ? "\u2014"
         : sourceLabels[effectiveSource] || sourceLabels[goldbackPricingSource] || sourceLabels.api;
+    const sourceBadge =
+      displayPrice == null
+        ? "—"
+        : `<span class="source-badge ${badgeSource}">${sourceLabel}</span>`;
 
     const tr = document.createElement("tr");
     tr.dataset.denom = key;
@@ -1055,7 +1060,7 @@ const syncGoldbackSettingsUI = () => {
       <td>${d.label}</td>
       <td>${d.goldOz} oz</td>
       <td>${priceLabel}</td>
-      <td style="font-size: 0.85em; color: var(--text-secondary);">${sourceLabel}</td>
+      <td>${sourceBadge}</td>
     `;
     tbody.appendChild(tr);
   }
