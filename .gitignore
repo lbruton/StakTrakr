@@ -29,6 +29,7 @@
 .spec-workflow/
 .agents/
 .mcp.json
+tui.json
 SPRINT.md
 
 # Internal dev docs (not for public repo)

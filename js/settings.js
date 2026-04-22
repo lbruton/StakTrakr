@@ -3,7 +3,7 @@
 
 /**
  * Opens the unified Settings modal, optionally navigating to a section.
- * @param {string} [section='about'] - Section to display: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
+ * @param {string} [section='about'] - Section to display: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'changelog', 'market', 'currency'
  */
 const showSettingsModal = (section = "about") => {
   const modal = document.getElementById("settingsModal");
@@ -39,7 +39,7 @@ const hideSettingsModal = () => {
 
 /**
  * Switches the visible section panel in the Settings modal.
- * @param {string} name - Section key: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'goldback', 'changelog', 'market'
+ * @param {string} name - Section key: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'changelog', 'market', 'currency'
  */
 const switchSettingsSection = (name) => {
   const targetName = document.getElementById(`settingsPanel_${name}`) ? name : "about";
@@ -967,85 +967,94 @@ const syncCurrencySettingsUI = () => {
 
 /**
  * Syncs the Goldback settings panel UI with current state.
- * Renders denomination price rows and updates enabled toggle.
+ * Renders the Currency tab Goldback pricing controls and read-only table.
  */
 const syncGoldbackSettingsUI = () => {
-  // Toggle — Goldback pricing enabled
-  const toggleGroup = document.getElementById("settingsGoldbackEnabled");
-  if (toggleGroup) {
-    toggleGroup.querySelectorAll(".chip-sort-btn").forEach((btn) => {
-      const isOn = btn.dataset.val === "on";
-      btn.classList.toggle("active", goldbackEnabled ? isOn : !isOn);
+  const sourceGroup = document.getElementById("settingsGoldbackSource");
+  if (sourceGroup) {
+    sourceGroup.querySelectorAll(".gb-source-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.val === goldbackPricingSource);
     });
   }
 
-  // Toggle — estimation enabled
-  const estToggle = document.getElementById("settingsGoldbackEstimateEnabled");
-  if (estToggle) {
-    estToggle.querySelectorAll(".chip-sort-btn").forEach((btn) => {
-      const isOn = btn.dataset.val === "on";
-      btn.classList.toggle("active", goldbackEstimateEnabled ? isOn : !isOn);
-    });
+  const spotModifierGroup = document.getElementById("goldbackSpotModifierGroup");
+  if (spotModifierGroup) {
+    spotModifierGroup.style.display = goldbackPricingSource === "spot" ? "" : "none";
   }
 
-  // Refresh button — visible whenever Goldback pricing is ON (API fetch is independent of estimation)
-  const refreshBtn = document.getElementById("goldbackEstimateRefreshBtn");
-  if (refreshBtn) {
-    refreshBtn.style.display = goldbackEnabled ? "" : "none";
+  const manualInputGroup = document.getElementById("goldbackManualInputGroup");
+  if (manualInputGroup) {
+    manualInputGroup.style.display = goldbackPricingSource === "manual" ? "" : "none";
   }
 
-  // Modifier row — visible only when estimation ON
-  const modifierRow = document.getElementById("goldbackEstimateModifierRow");
-  if (modifierRow) {
-    modifierRow.style.display = goldbackEstimateEnabled ? "" : "none";
-  }
   const modifierInput = document.getElementById("goldbackEstimateModifierInput");
   if (modifierInput) {
     modifierInput.value = goldbackEstimateModifier.toFixed(2);
   }
 
-  // Info line — show estimated rate + gold spot reference
-  const infoEl = document.getElementById("goldbackEstimateInfo");
-  if (infoEl) {
-    const goldSpot = spotPrices && spotPrices.gold ? spotPrices.gold : 0;
-    if (goldbackEstimateEnabled && goldSpot > 0) {
-      const rate =
-        typeof computeGoldbackEstimatedRate === "function"
-          ? computeGoldbackEstimatedRate(goldSpot)
-          : 0;
-      const fmtRate =
-        typeof formatCurrency === "function" ? formatCurrency(rate) : "$" + rate.toFixed(2);
-      const fmtSpot =
-        typeof formatCurrency === "function" ? formatCurrency(goldSpot) : "$" + goldSpot.toFixed(2);
-      infoEl.textContent = `Estimated 1 GB rate: ${fmtRate}  (gold spot: ${fmtSpot})`;
-      infoEl.style.display = "";
+  const manualRateInput = document.getElementById("goldbackManualRateInput");
+  const manualRateSymbol = document.getElementById("goldbackManualRateSymbol");
+  const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
+  const sourceLabels = {
+    off: "Off",
+    api: "API",
+    spot: "Spot",
+    manual: "Manual",
+  };
+
+  if (manualRateSymbol && typeof getCurrencySymbol === "function") {
+    manualRateSymbol.textContent = getCurrencySymbol();
+  }
+
+  if (manualRateInput) {
+    const manualEntry = goldbackPrices["1"];
+    if (
+      goldbackPricingSource === "manual" &&
+      manualEntry &&
+      manualEntry.source === "manual" &&
+      typeof manualEntry.price === "number"
+    ) {
+      const displayValue = fxRate !== 1 ? manualEntry.price * fxRate : manualEntry.price;
+      manualRateInput.value = displayValue.toFixed(2);
     } else {
-      infoEl.style.display = "none";
+      manualRateInput.value = "";
     }
   }
 
-  // Denomination table
   const tbody = document.getElementById("goldbackPriceTableBody");
   if (!tbody || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
 
   tbody.innerHTML = "";
-  // Convert stored USD prices to display currency for the input fields (STACK-50)
-  const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
   for (const d of GOLDBACK_DENOMINATIONS) {
     const key = String(d.weight);
     const entry = goldbackPrices[key];
-    const usdPrice = entry ? entry.price : "";
-    const displayPrice =
-      usdPrice !== "" && fxRate !== 1 ? (usdPrice * fxRate).toFixed(2) : usdPrice;
-    let updatedAt =
-      entry && entry.updatedAt
-        ? typeof formatTimestamp === "function"
-          ? formatTimestamp(entry.updatedAt)
-          : new Date(entry.updatedAt).toLocaleString()
-        : "\u2014";
-    if (goldbackEstimateEnabled && entry && entry.updatedAt) {
-      updatedAt += " (auto)";
-    }
+    const usdPrice =
+      goldbackPricingSource === "off" || !entry || typeof entry.price !== "number"
+        ? null
+        : entry.price;
+    const displayPrice = usdPrice == null ? null : fxRate !== 1 ? usdPrice * fxRate : usdPrice;
+    const priceLabel =
+      displayPrice == null
+        ? "\u2014"
+        : typeof formatCurrency === "function"
+          ? formatCurrency(displayPrice)
+          : `${typeof getCurrencySymbol === "function" ? getCurrencySymbol() : "$"}${displayPrice.toFixed(2)}`;
+    const rawSource = entry && typeof entry.source === "string" ? entry.source.toLowerCase() : null;
+    const effectiveSource =
+      rawSource &&
+      typeof GOLD_BACK_PRICING_SOURCES !== "undefined" &&
+      GOLD_BACK_PRICING_SOURCES.has(rawSource)
+        ? rawSource
+        : null;
+    const badgeSource = effectiveSource || goldbackPricingSource || "api";
+    const sourceLabel =
+      displayPrice == null
+        ? "\u2014"
+        : sourceLabels[effectiveSource] || sourceLabels[goldbackPricingSource] || sourceLabels.api;
+    const sourceBadge =
+      displayPrice == null
+        ? "—"
+        : `<span class="source-badge ${badgeSource}">${sourceLabel}</span>`;
 
     const tr = document.createElement("tr");
     tr.dataset.denom = key;
@@ -1053,16 +1062,10 @@ const syncGoldbackSettingsUI = () => {
     tr.innerHTML = `
       <td>${d.label}</td>
       <td>${d.goldOz} oz</td>
-      <td><span class="gb-denom-symbol" style="margin-right:2px;">${typeof getCurrencySymbol === "function" ? getCurrencySymbol() : "$"}</span><input type="number" min="0" step="0.01" value="${displayPrice}" style="width:80px;" /></td>
-      <td style="font-size:0.85em;color:var(--text-secondary);">${updatedAt}</td>
+      <td>${priceLabel}</td>
+      <td>${sourceBadge}</td>
     `;
     tbody.appendChild(tr);
-  }
-
-  // Update Quick Fill currency symbol (STACK-50)
-  const gbQfSymbol = document.getElementById("gbQuickFillSymbol");
-  if (gbQfSymbol && typeof getCurrencySymbol === "function") {
-    gbQfSymbol.textContent = getCurrencySymbol();
   }
 };
 

@@ -114,6 +114,7 @@ const RETAIL_VENDOR_COLORS = {
 let _manifestSlugs = null;
 let _manifestCoinMeta = null;
 let _manifestVendorMeta = null;
+let _manifestCacheRestored = false;
 
 // ---------------------------------------------------------------------------
 // Market Filter — user-configurable slug/vendor visibility (STAK-515)
@@ -189,9 +190,71 @@ const _isSlugResolved = (slug) => {
   return meta.name !== slug && meta.metal !== "unknown";
 };
 
+const _restoreRetailManifestCacheFromStorage = () => {
+  if (_manifestCacheRestored) return;
+  _manifestCacheRestored = true;
+
+  if (_manifestSlugs === null) {
+    try {
+      const cached = localStorage.getItem(RETAIL_MANIFEST_SLUGS_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        _manifestSlugs = Array.isArray(parsed) ? parsed : null;
+        if (!_manifestSlugs) localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY);
+      }
+    } catch {
+      _manifestSlugs = null;
+      try {
+        localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (_manifestCoinMeta === null) {
+    try {
+      const cachedMeta = localStorage.getItem(RETAIL_MANIFEST_COIN_META_KEY);
+      if (cachedMeta) {
+        const parsed = JSON.parse(cachedMeta);
+        _manifestCoinMeta =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+        if (!_manifestCoinMeta) localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
+      }
+    } catch {
+      _manifestCoinMeta = null;
+      try {
+        localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (_manifestVendorMeta === null) {
+    try {
+      const cachedVendor = localStorage.getItem(RETAIL_MANIFEST_VENDOR_META_KEY);
+      if (cachedVendor) {
+        const parsed = JSON.parse(cachedVendor);
+        _manifestVendorMeta =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+        if (!_manifestVendorMeta) localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
+      }
+    } catch {
+      _manifestVendorMeta = null;
+      try {
+        localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+};
+
 /** Returns active slugs: manifest-driven (filtered to those with data) or hardcoded fallback.
  *  Excludes slugs that fail `_isSlugResolved` on ALL return paths (STAK-521 upstream quarantine). */
 const getActiveRetailSlugs = () => {
+  _restoreRetailManifestCacheFromStorage();
   if (!_manifestSlugs) return RETAIL_SLUGS.filter(_isSlugResolved);
   if (!retailPrices?.prices) return _manifestSlugs.filter(_isSlugResolved);
   return _manifestSlugs.filter((slug) => {
@@ -206,6 +269,7 @@ const getActiveRetailSlugs = () => {
 
 /** Resolve coin metadata: manifest → hardcoded → goldback parser → default */
 const getRetailCoinMeta = (slug) => {
+  _restoreRetailManifestCacheFromStorage();
   if (_manifestCoinMeta && _manifestCoinMeta[slug]) return _manifestCoinMeta[slug];
   if (RETAIL_COIN_META[slug]) return RETAIL_COIN_META[slug];
   const gb = _parseGoldbackSlug(slug);
@@ -215,6 +279,7 @@ const getRetailCoinMeta = (slug) => {
 
 /** Resolve vendor display info: manifest → hardcoded → defaults */
 const getVendorDisplay = (vendorId) => {
+  _restoreRetailManifestCacheFromStorage();
   if (_manifestVendorMeta && _manifestVendorMeta[vendorId]) return _manifestVendorMeta[vendorId];
   return {
     name: RETAIL_VENDOR_NAMES[vendorId] || vendorId,

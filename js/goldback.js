@@ -7,6 +7,72 @@
 //   goldbackPriceHistory: { "1": [{ ts: 1707500000000, price: 5.12 }, ...], ... }
 // =============================================================================
 
+let goldbackPricingSource = "api";
+
+const GOLD_BACK_PRICING_SOURCES = new Set(["off", "api", "spot", "manual"]);
+
+const syncLegacyGoldbackFlags = () => {
+  goldbackEnabled = goldbackPricingSource !== "off";
+  goldbackEstimateEnabled = goldbackPricingSource === "spot";
+  if (typeof window !== "undefined") {
+    window.goldbackPricingSource = goldbackPricingSource;
+  }
+};
+
+const normalizeGoldbackPricingSource = (value) => {
+  const source = typeof value === "string" ? value.toLowerCase() : "";
+  return GOLD_BACK_PRICING_SOURCES.has(source) ? source : null;
+};
+
+/**
+ * Loads the active Goldback pricing source from localStorage, migrating from
+ * legacy boolean keys if needed.
+ * @returns {"off"|"api"|"spot"|"manual"}
+ */
+const loadGoldbackPricingSource = () => {
+  try {
+    const storedValue = loadDataSync(GOLDBACK_PRICING_SOURCE_KEY, null);
+    const normalizedValue = normalizeGoldbackPricingSource(storedValue);
+
+    if (normalizedValue) {
+      goldbackPricingSource = normalizedValue;
+      syncLegacyGoldbackFlags();
+      return goldbackPricingSource;
+    }
+
+    const legacyEnabled = loadDataSync(GOLDBACK_ENABLED_KEY, true) === true;
+    const legacyEstimateEnabled = loadDataSync(GOLDBACK_ESTIMATE_ENABLED_KEY, false) === true;
+
+    goldbackPricingSource = !legacyEnabled ? "off" : legacyEstimateEnabled ? "spot" : "api";
+    saveDataSync(GOLDBACK_PRICING_SOURCE_KEY, goldbackPricingSource);
+  } catch (error) {
+    console.error("Error loading Goldback pricing source:", error);
+    goldbackPricingSource = "api";
+  }
+
+  syncLegacyGoldbackFlags();
+  return goldbackPricingSource;
+};
+
+/**
+ * Saves the active Goldback pricing source to localStorage.
+ * @param {"off"|"api"|"spot"|"manual"} value - Selected source identifier
+ * @returns {"off"|"api"|"spot"|"manual"}
+ */
+const saveGoldbackPricingSource = (value) => {
+  const normalizedValue = normalizeGoldbackPricingSource(value) || "api";
+  goldbackPricingSource = normalizedValue;
+  syncLegacyGoldbackFlags();
+
+  try {
+    saveDataSync(GOLDBACK_PRICING_SOURCE_KEY, goldbackPricingSource);
+  } catch (error) {
+    console.error("Error saving Goldback pricing source:", error);
+  }
+
+  return goldbackPricingSource;
+};
+
 /**
  * Saves current Goldback denomination prices to localStorage.
  */
@@ -59,13 +125,8 @@ const loadGoldbackPriceHistory = () => {
  * Loads the Goldback pricing enabled toggle from localStorage.
  */
 const loadGoldbackEnabled = () => {
-  try {
-    const val = loadDataSync(GOLDBACK_ENABLED_KEY, true);
-    goldbackEnabled = val === true;
-  } catch (error) {
-    console.error("Error loading Goldback enabled state:", error);
-    goldbackEnabled = true;
-  }
+  loadGoldbackPricingSource();
+  return goldbackEnabled;
 };
 
 /**
@@ -73,12 +134,12 @@ const loadGoldbackEnabled = () => {
  * @param {boolean} val - Whether Goldback pricing is enabled
  */
 const saveGoldbackEnabled = (val) => {
-  goldbackEnabled = val === true;
-  try {
-    saveDataSync(GOLDBACK_ENABLED_KEY, goldbackEnabled);
-  } catch (error) {
-    console.error("Error saving Goldback enabled state:", error);
+  if (val === true) {
+    return saveGoldbackPricingSource(
+      goldbackPricingSource === "off" ? "api" : goldbackPricingSource
+    );
   }
+  return saveGoldbackPricingSource("off");
 };
 
 /**
@@ -126,11 +187,7 @@ const getGoldbackDenominationPrice = (weightGb) => {
  * @returns {boolean}
  */
 const isGoldbackPricingActive = () => {
-  if (!goldbackEnabled) return false;
-  for (const key of Object.keys(goldbackPrices)) {
-    if (goldbackPrices[key] && goldbackPrices[key].price > 0) return true;
-  }
-  return false;
+  return goldbackPricingSource !== "off";
 };
 
 // =============================================================================
@@ -141,13 +198,8 @@ const isGoldbackPricingActive = () => {
  * Loads the Goldback estimation enabled toggle from localStorage.
  */
 const loadGoldbackEstimateEnabled = () => {
-  try {
-    const val = loadDataSync(GOLDBACK_ESTIMATE_ENABLED_KEY, true);
-    goldbackEstimateEnabled = val === true;
-  } catch (error) {
-    console.error("Error loading Goldback estimate enabled state:", error);
-    goldbackEstimateEnabled = true;
-  }
+  loadGoldbackPricingSource();
+  return goldbackEstimateEnabled;
 };
 
 /**
@@ -155,12 +207,14 @@ const loadGoldbackEstimateEnabled = () => {
  * @param {boolean} val - Whether estimation is enabled
  */
 const saveGoldbackEstimateEnabled = (val) => {
-  goldbackEstimateEnabled = val === true;
-  try {
-    saveDataSync(GOLDBACK_ESTIMATE_ENABLED_KEY, goldbackEstimateEnabled);
-  } catch (error) {
-    console.error("Error saving Goldback estimate enabled state:", error);
+  if (val === true) {
+    return saveGoldbackPricingSource("spot");
   }
+  if (goldbackPricingSource === "spot") {
+    return saveGoldbackPricingSource("api");
+  }
+  syncLegacyGoldbackFlags();
+  return goldbackPricingSource;
 };
 
 /**
@@ -220,7 +274,7 @@ const onGoldSpotPriceChanged = () => {
   for (const d of GOLDBACK_DENOMINATIONS) {
     const key = String(d.weight);
     const denomPrice = Math.round(gbRate * d.weight * 100) / 100;
-    goldbackPrices[key] = { price: denomPrice, updatedAt: now };
+    goldbackPrices[key] = { price: denomPrice, updatedAt: now, source: "spot" };
   }
 
   if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
@@ -239,7 +293,8 @@ const onGoldSpotPriceChanged = () => {
  * denomination prices from g1_usd. Saves and records history on success.
  * @returns {Promise<{ok: boolean, g1_usd?: number, error?: string}>}
  */
-const fetchGoldbackApiPrices = async () => {
+const fetchGoldbackApiPrices = async (options = {}) => {
+  const expectedSource = typeof options.expectedSource === "string" ? options.expectedSource : null;
   const v2Endpoints =
     typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length
       ? V2_API_ENDPOINTS
@@ -271,6 +326,10 @@ const fetchGoldbackApiPrices = async () => {
 
   if (typeof GOLDBACK_DENOMINATIONS === "undefined") {
     return { ok: false, error: "GOLDBACK_DENOMINATIONS not defined" };
+  }
+
+  if (expectedSource && goldbackPricingSource !== expectedSource) {
+    return { ok: false, error: "Stale Goldback API response ignored" };
   }
 
   const now = Date.now();
@@ -488,6 +547,9 @@ const exportGoldbackHistory = () => {
 // GLOBAL EXPOSURE
 // =============================================================================
 if (typeof window !== "undefined") {
+  window.goldbackPricingSource = goldbackPricingSource;
+  window.loadGoldbackPricingSource = loadGoldbackPricingSource;
+  window.saveGoldbackPricingSource = saveGoldbackPricingSource;
   window.loadGoldbackEstimateEnabled = loadGoldbackEstimateEnabled;
   window.saveGoldbackEstimateEnabled = saveGoldbackEstimateEnabled;
   window.loadGoldbackEstimateModifier = loadGoldbackEstimateModifier;

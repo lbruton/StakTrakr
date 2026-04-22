@@ -3310,25 +3310,6 @@
               </svg>
               Currency
             </button>
-            <button class="settings-nav-item" data-section="goldback">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v12" />
-                <path
-                  d="M9 9a3 3 0 0 1 3-1.5c2 0 3 1 3 2.5s-1 2.5-3 2.5-3 1-3 2.5a3 3 0 0 0 3 2.5"
-                />
-              </svg>
-              Goldback
-            </button>
             <button class="settings-nav-item" data-section="market">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -6450,77 +6431,85 @@
               <h3>Currency &amp; Pricing</h3>
 
               <div class="settings-fieldset">
-                <div class="settings-group">
-                  <div class="settings-group-label">Display currency</div>
-                  <p class="settings-subtext">
-                    All prices, spot values, and exports will use this currency. Spot prices are
-                    fetched in USD and converted using daily exchange rates.
-                  </p>
-                  <select id="settingsDisplayCurrency"></select>
-                </div>
-                <div class="settings-group">
-                  <div class="settings-group-label">Header currency button</div>
-                  <p class="settings-subtext">Show a quick currency switcher in the app header.</p>
-                  <div class="chip-sort-toggle" id="settingsHeaderCurrencyBtn">
-                    <button type="button" class="chip-sort-btn" data-val="yes">On</button>
-                    <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                <div class="settings-fieldset-title">Currency</div>
+                <div class="currency-fields-row">
+                  <div class="currency-field">
+                    <label for="settingsDisplayCurrency"><strong>Display currency</strong></label>
+                    <select id="settingsDisplayCurrency"></select>
+                  </div>
+                  <div class="currency-field">
+                    <label for="settingsSpotCompareMode"
+                      ><strong>24h price comparison</strong></label
+                    >
+                    <select id="settingsSpotCompareMode">
+                      <option value="close-close">Close / Close (default)</option>
+                      <option value="open-open">Open / Open</option>
+                      <option value="open-close">Open / Close</option>
+                    </select>
                   </div>
                 </div>
+              </div>
+
+              <div class="settings-fieldset">
+                <div class="settings-fieldset-title">Goldback Pricing</div>
+
                 <div class="settings-group">
-                  <div class="settings-group-label">24h price comparison</div>
+                  <div class="settings-group-label">Pricing source</div>
                   <p class="settings-subtext">
-                    Choose how the 24h percentage change on spot cards is calculated.
+                    Choose how Goldback denomination prices are calculated for gb-unit items.
                   </p>
-                  <select id="settingsSpotCompareMode">
-                    <option value="close-close">Close / Close (default)</option>
-                    <option value="open-open">Open / Open</option>
-                    <option value="open-close">Open / Close</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- ===== GOLDBACK PRICING (STACK-45) ===== -->
-            <div class="settings-section-panel" id="settingsPanel_goldback" style="display: none">
-              <h3>Goldback Denomination Pricing</h3>
-              <p class="settings-subtext">
-                Set market prices for Goldback denominations manually or auto-estimate from gold
-                spot. Check current rates at
-                <a href="#" id="goldbackExchangeRateLink">goldback.com/exchange-rates</a>.
-              </p>
-
-              <div class="settings-group">
-                <label>Goldback Pricing</label>
-                <p class="settings-subtext">
-                  Use denomination prices as retail value for gb-unit items.
-                </p>
-                <div id="settingsGoldbackEnabled" class="chip-sort-group">
-                  <button class="chip-sort-btn" data-val="on" type="button">On</button>
-                  <button class="chip-sort-btn active" data-val="off" type="button">Off</button>
-                </div>
-              </div>
-
-              <div class="settings-group">
-                <label>Real-Time Price Estimation</label>
-                <p class="settings-subtext">
-                  Auto-estimate prices from gold spot:
-                  <code>2 &times; (spot&thinsp;/&thinsp;1000) &times; modifier</code>. Manual edits
-                  will be overwritten on the next spot refresh.
-                </p>
-                <div id="settingsGoldbackEstimateEnabled" class="chip-sort-group">
-                  <button class="chip-sort-btn" data-val="on" type="button">On</button>
-                  <button class="chip-sort-btn active" data-val="off" type="button">Off</button>
-                </div>
-                <div id="goldbackEstimateModifierRow" style="display: none; margin-top: 0.5rem">
-                  <label style="font-size: 0.85em">
-                    Modifier
-                    <span
-                      class="settings-tooltip"
-                      title="Community research suggests Goldback pegs at roughly 2&times; gold spot + ~3% (modifier 1.03). The default is 1.0 (no premium). Adjust based on how your API spot price compares to Goldback's published rates."
-                      >&#9432;</span
+                  <div
+                    id="settingsGoldbackSource"
+                    class="gb-source-group"
+                    role="radiogroup"
+                    aria-label="Goldback pricing source"
+                  >
+                    <button
+                      class="gb-source-btn"
+                      data-val="off"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
                     >
-                  </label>
-                  <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem">
+                      Off
+                    </button>
+                    <button
+                      class="gb-source-btn"
+                      data-val="api"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
+                    >
+                      StakTrakr API
+                    </button>
+                    <button
+                      class="gb-source-btn"
+                      data-val="spot"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
+                    >
+                      Estimate from Spot
+                    </button>
+                    <button
+                      class="gb-source-btn"
+                      data-val="manual"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
+                    >
+                      Manual
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  class="gb-conditional-row"
+                  id="goldbackSpotModifierGroup"
+                  style="display: none"
+                >
+                  <div class="gb-input-shell">
+                    <label for="goldbackEstimateModifierInput">Spot modifier</label>
                     <input
                       type="number"
                       id="goldbackEstimateModifierInput"
@@ -6528,90 +6517,64 @@
                       max="2.0"
                       step="0.01"
                       value="1.0"
-                      style="width: 80px"
                     />
-                    <span style="font-size: 0.8em; color: var(--text-secondary)"
-                      >(1.0 = no premium, 1.03 = ~3% premium)</span
-                    >
+                    <small>Estimate: 2 &times; (spot / 1000) &times; modifier</small>
+                  </div>
+                  <div class="gb-helper-card">
+                    <strong>Spot estimate behavior</strong>
+                    <p>As gold spot refreshes, denomination prices update automatically.</p>
                   </div>
                 </div>
-                <p
-                  id="goldbackEstimateInfo"
-                  class="settings-subtext"
-                  style="display: none; margin-top: 0.5rem"
-                ></p>
-              </div>
 
-              <div class="settings-group">
-                <label>Refresh from API</label>
-                <p class="settings-subtext">
-                  Fetch today's official Goldback exchange rate from the StakTrakr API and populate
-                  all denomination prices automatically.
-                </p>
-                <button
-                  class="btn premium"
-                  id="goldbackEstimateRefreshBtn"
-                  type="button"
-                  style="display: none"
-                >
-                  Refresh from API
-                </button>
-              </div>
+                <div class="gb-conditional-row" id="goldbackManualInputGroup" style="display: none">
+                  <div class="gb-input-shell">
+                    <label for="goldbackManualRateInput"
+                      ><span id="goldbackManualRateSymbol">$</span> 1 GB rate</label
+                    >
+                    <input
+                      type="number"
+                      id="goldbackManualRateInput"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="1 GB rate"
+                    />
+                    <small>All other rows scale from this value immediately.</small>
+                  </div>
+                  <div class="gb-helper-card">
+                    <strong>Manual mode behavior</strong>
+                    <p>Only one editable input remains. No separate save action needed.</p>
+                  </div>
+                </div>
 
-              <div class="settings-group">
-                <label>Quick Fill</label>
-                <p class="settings-subtext">
-                  Enter the 1 Goldback exchange rate to auto-fill all denominations.
-                </p>
-                <div
-                  style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem"
-                >
-                  <span id="gbQuickFillSymbol" style="color: var(--text-secondary)">$</span>
-                  <input
-                    type="number"
-                    id="goldbackQuickFillInput"
-                    min="0"
-                    step="0.01"
-                    placeholder="1 GB rate"
-                    style="width: 100px"
-                  />
-                  <button class="btn premium" id="goldbackQuickFillBtn" type="button">
-                    Set All
+                <div class="settings-group">
+                  <div class="settings-group-label">Denomination prices</div>
+                  <p class="settings-subtext">
+                    Read-only table showing the current denomination pricing and source.
+                  </p>
+                  <table class="settings-goldback-table" id="goldbackPriceTable">
+                    <thead>
+                      <tr>
+                        <th>Denom</th>
+                        <th>Gold content</th>
+                        <th>Current price</th>
+                        <th>Source</th>
+                      </tr>
+                    </thead>
+                    <tbody id="goldbackPriceTableBody">
+                      <!-- Rows rendered dynamically by syncGoldbackSettingsUI() -->
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="gb-history-row">
+                  <div class="gb-helper-card" style="flex: 1 1 260px">
+                    <strong>Goldback History</strong>
+                    <p>View denomination price changes over time.</p>
+                  </div>
+                  <button class="gb-history-btn" id="goldbackHistoryBtn" type="button">
+                    Open history
                   </button>
                 </div>
-              </div>
-
-              <div class="settings-group">
-                <label>Denomination Prices</label>
-                <table class="settings-goldback-table" id="goldbackPriceTable">
-                  <thead>
-                    <tr>
-                      <th>Denomination</th>
-                      <th>Gold Content</th>
-                      <th>Market Price</th>
-                      <th>Last Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody id="goldbackPriceTableBody">
-                    <!-- Rows rendered dynamically by syncGoldbackSettingsUI() -->
-                  </tbody>
-                </table>
-                <button
-                  class="btn premium"
-                  id="goldbackSavePricesBtn"
-                  type="button"
-                  style="margin-top: 0.5rem"
-                >
-                  Save Prices
-                </button>
-                <button
-                  class="btn"
-                  id="goldbackHistoryBtn"
-                  type="button"
-                  style="margin-top: 0.5rem"
-                >
-                  Goldback History
-                </button>
               </div>
             </div>
 

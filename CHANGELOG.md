@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.22] - 2026-04-22
+
+### Changed — STAK-570: Currency tab Goldback pricing redesign
+
+- **Changed**: Goldback pricing controls now live inside Settings > Currency — the separate Goldback sidebar tab and panel were removed (STAK-570)
+- **Changed**: Goldback pricing source now uses a single Off / StakTrakr API / Estimate from Spot / Manual selector with contextual spot-modifier and manual-rate inputs (STAK-570)
+- **Changed**: Denomination prices render as a read-only Currency-tab table with source labels, and stale async/manual updates are guarded when users switch pricing modes quickly (STAK-570)
+- **Added**: Storage migration from legacy Goldback toggle booleans to `goldback-pricing-source`, with compatibility booleans still derived for existing code paths (STAK-570)
+- **Added**: 7 Playwright tests covering the merged Currency-tab Goldback pricing flow and no-regression behavior (STAK-570)
+
+---
+
 ## [3.34.21] - 2026-04-22
 
 ### Changed — STAK-439: Images tab redesign

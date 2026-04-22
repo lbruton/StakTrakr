@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.34.21";
+const APP_VERSION = "3.34.22";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -557,6 +557,9 @@ const GB_ESTIMATE_PREMIUM = 1.0;
 
 /** @constant {string} GB_ESTIMATE_MODIFIER_KEY - LocalStorage key for user-configurable premium modifier */
 const GB_ESTIMATE_MODIFIER_KEY = "goldback-estimate-modifier"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
+/** @constant {string} GOLDBACK_PRICING_SOURCE_KEY - LocalStorage key for the active Goldback pricing source */
+const GOLDBACK_PRICING_SOURCE_KEY = "goldback-pricing-source"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} GB_TO_OZT - Conversion factor: 1 Goldback = 0.001 troy oz 24K gold */
 const GB_TO_OZT = 0.001;
@@ -853,8 +856,7 @@ const SYNC_SCOPE_KEYS = [
   "headerAboutBtnVisible", // about button
 
   // ── Feature toggles ──
-  "goldback-enabled", // GOLDBACK_ENABLED_KEY
-  "goldback-estimate-enabled", // GOLDBACK_ESTIMATE_ENABLED_KEY
+  "goldback-pricing-source", // GOLDBACK_PRICING_SOURCE_KEY
   "goldback-estimate-modifier", // GB_ESTIMATE_MODIFIER_KEY
 
   // ── Numista config ──
@@ -926,6 +928,7 @@ const ALLOWED_STORAGE_KEYS = [
   GOLDBACK_ENABLED_KEY,
   GOLDBACK_ESTIMATE_ENABLED_KEY,
   GB_ESTIMATE_MODIFIER_KEY,
+  GOLDBACK_PRICING_SOURCE_KEY,
   DISPLAY_CURRENCY_KEY,
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
@@ -1881,6 +1884,7 @@ if (typeof window !== "undefined") {
   window.GOLDBACK_ESTIMATE_ENABLED_KEY = GOLDBACK_ESTIMATE_ENABLED_KEY;
   window.GB_ESTIMATE_PREMIUM = GB_ESTIMATE_PREMIUM;
   window.GB_ESTIMATE_MODIFIER_KEY = GB_ESTIMATE_MODIFIER_KEY;
+  window.GOLDBACK_PRICING_SOURCE_KEY = GOLDBACK_PRICING_SOURCE_KEY;
   // View modal section config
   window.VIEW_MODAL_SECTION_DEFAULTS = VIEW_MODAL_SECTION_DEFAULTS;
   window.getViewModalSectionConfig = getViewModalSectionConfig;

@@ -21,6 +21,11 @@ function readRoot(relativePath) {
   return readFileSync(resolve(ROOT, relativePath), "utf-8");
 }
 
+function nextPatchVersion(version) {
+  const [major, minor, patch] = version.split(".").map(Number);
+  return `${major}.${minor}.${patch + 1}`;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // .codacy/codacy.yaml — eslint version bumped from 8.57.0 to 9.21.0 in this PR
 // ────────────────────────────────────────────────────────────────────────────
@@ -329,9 +334,12 @@ test.describe(".coderabbit.yaml", () => {
 
 test.describe("CHANGELOG.md — new entries", () => {
   let content;
+  let nextVersion;
 
   test.beforeAll(() => {
     content = readRoot("CHANGELOG.md");
+    const pkg = JSON.parse(readRoot("package.json"));
+    nextVersion = nextPatchVersion(pkg.version);
   });
 
   test("CL-1 — CHANGELOG.md follows Keep a Changelog format header", () => {
@@ -480,8 +488,8 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.03]");
   });
 
-  test("CL-24 — boundary: [3.34.22] does NOT exist (no phantom future entries)", () => {
-    expect(content).not.toContain("## [3.34.22]");
+  test("CL-24 — boundary: next patch version does NOT exist (no phantom future entries)", () => {
+    expect(content).not.toContain(`## [${nextVersion}]`);
   });
 
   // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
