@@ -558,9 +558,19 @@ const bindPatternRuleModeListeners = () => {
 
   // Styled upload buttons — trigger hidden file inputs (STAK-439)
   [
-    ["patternRuleObverseUploadBtn", "patternRuleObverse", "patternRuleObverseName"],
-    ["patternRuleReverseUploadBtn", "patternRuleReverse", "patternRuleReverseName"],
-  ].forEach(([btnId, inputId, nameId]) => {
+    [
+      "patternRuleObverseUploadBtn",
+      "patternRuleObverse",
+      "patternRuleObverseName",
+      "patternRuleObversePreview",
+    ],
+    [
+      "patternRuleReverseUploadBtn",
+      "patternRuleReverse",
+      "patternRuleReverseName",
+      "patternRuleReversePreview",
+    ],
+  ].forEach(([btnId, inputId, nameId, previewId]) => {
     const btn = getExistingElement(btnId);
     const input = getExistingElement(inputId);
     const nameEl = getExistingElement(nameId);
@@ -568,6 +578,14 @@ const bindPatternRuleModeListeners = () => {
       btn.addEventListener("click", () => input.click());
       input.addEventListener("change", () => {
         if (nameEl) nameEl.textContent = input.files?.[0]?.name || "";
+        const previewEl = getExistingElement(previewId);
+        if (previewEl && input.files?.[0]) {
+          previewEl.src = URL.createObjectURL(input.files[0]);
+          previewEl.parentElement.style.display = "";
+        } else if (previewEl) {
+          previewEl.src = "";
+          previewEl.parentElement.style.display = "none";
+        }
       });
     }
   });
@@ -613,6 +631,18 @@ const bindPatternRuleModeListeners = () => {
         const tmpText = obvNameEl.textContent;
         obvNameEl.textContent = revNameEl.textContent;
         revNameEl.textContent = tmpText;
+      }
+
+      // Swap preview images
+      const obvPreview = getExistingElement("patternRuleObversePreview");
+      const revPreview = getExistingElement("patternRuleReversePreview");
+      if (obvPreview && revPreview) {
+        const tmpSrc = obvPreview.src;
+        const tmpDisplay = obvPreview.parentElement.style.display;
+        obvPreview.src = revPreview.src;
+        obvPreview.parentElement.style.display = revPreview.parentElement.style.display;
+        revPreview.src = tmpSrc;
+        revPreview.parentElement.style.display = tmpDisplay;
       }
 
       // Swap camera capture inputs via DataTransfer
@@ -727,6 +757,16 @@ const bindPatternRuleModeListeners = () => {
       const revName = getExistingElement("patternRuleReverseName");
       if (obvName) obvName.textContent = "";
       if (revName) revName.textContent = "";
+      const obvPreview = getExistingElement("patternRuleObversePreview");
+      const revPreview = getExistingElement("patternRuleReversePreview");
+      if (obvPreview) {
+        obvPreview.src = "";
+        obvPreview.parentElement.style.display = "none";
+      }
+      if (revPreview) {
+        revPreview.src = "";
+        revPreview.parentElement.style.display = "none";
+      }
 
       // Auto-collapse form after successful add (STAK-439)
       const formContainer = getExistingElement("patternRuleFormContainer");

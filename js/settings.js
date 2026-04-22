@@ -1654,11 +1654,11 @@ const renderCustomPatternRules = async () => {
     actions.className = "pattern-rule-actions";
 
     const editBtn = document.createElement("button");
-    editBtn.className = "btn secondary settings-action-btn";
+    editBtn.className = "btn img-btn img-btn-upload";
     editBtn.textContent = "Edit";
 
     const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn danger settings-action-btn";
+    deleteBtn.className = "btn img-btn img-btn-remove";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", async () => {
       NumistaLookup.removeRule(rule.id);
@@ -1678,16 +1678,158 @@ const renderCustomPatternRules = async () => {
     editForm.className = "pattern-rule-edit-form";
     editForm.style.display = "none";
     editForm.innerHTML = `
-      <div class="edit-form-fields">
-        <label>Pattern <input type="text" class="edit-pattern" value="${rule.pattern.replace(/"/g, "&quot;")}" /></label>
-        <label>Replacement <input type="text" class="edit-replacement" value="${(rule.replacement || "").replace(/"/g, "&quot;")}" /></label>
-        <label>Obverse <input type="file" class="edit-obverse" accept="image/*" /></label>
-        <label>Reverse <input type="file" class="edit-reverse" accept="image/*" /></label>
-      </div>
-      <div class="edit-form-actions">
-        <button type="button" class="btn edit-save-btn">Save</button>
-        <button type="button" class="btn edit-cancel-btn">Cancel</button>
+      <div class="cloud-provider-card" style="margin-top: 0.75rem; padding: 1rem">
+        <div class="pattern-rule-form-row">
+          <div class="pattern-rule-field">
+            <label>
+              Name Pattern
+              <div class="chip-sort-toggle pattern-mode-toggle" style="display: inline-flex; margin-left: 0.4rem; vertical-align: middle;">
+                <button type="button" class="chip-sort-btn edit-mode-keywords active" title="Comma or semicolon separated keywords">Keywords</button>
+                <button type="button" class="chip-sort-btn edit-mode-regex" title="Regular expression">Regex</button>
+              </div>
+            </label>
+            <input type="text" class="edit-pattern form-control" value="${rule.pattern.replace(/"/g, "&quot;")}" placeholder="e.g. morgan, peace, walking liberty" />
+          </div>
+        </div>
+        <div class="pattern-rule-form-row" style="margin-top: 0.5rem">
+          <div class="pattern-rule-field">
+            <label>Display Name</label>
+            <input type="text" class="edit-replacement form-control" value="${(rule.replacement || "").replace(/"/g, "&quot;")}" placeholder="Name shown in inventory" />
+          </div>
+        </div>
+        <div class="image-upload-sides" style="margin-top: 0.5rem">
+          <div class="image-upload-side">
+            <span class="image-side-label">Obverse</span>
+            <div class="image-card">
+              <div class="image-upload-preview" style="display: none">
+                <img class="edit-obverse-preview" alt="Obverse preview" />
+              </div>
+              <div class="image-card-actions">
+                <input type="file" class="edit-obverse" accept="image/*" style="display: none" />
+                <button type="button" class="btn img-btn img-btn-upload edit-obverse-upload-btn">Upload</button>
+              </div>
+            </div>
+            <span class="image-upload-filename edit-obverse-name"></span>
+          </div>
+          <div class="image-swap-wrapper" style="display: flex; align-items: center; padding-top: 1.2rem">
+            <button type="button" class="btn btn-icon edit-swap-btn" title="Swap obverse &amp; reverse" style="font-size: 1.1rem; padding: 0.2rem 0.4rem; line-height: 1">⇄</button>
+          </div>
+          <div class="image-upload-side">
+            <span class="image-side-label">Reverse</span>
+            <div class="image-card">
+              <div class="image-upload-preview" style="display: none">
+                <img class="edit-reverse-preview" alt="Reverse preview" />
+              </div>
+              <div class="image-card-actions">
+                <input type="file" class="edit-reverse" accept="image/*" style="display: none" />
+                <button type="button" class="btn img-btn img-btn-upload edit-reverse-upload-btn">Upload</button>
+              </div>
+            </div>
+            <span class="image-upload-filename edit-reverse-name"></span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem">
+          <button type="button" class="btn img-btn img-btn-upload edit-save-btn">Save</button>
+          <button type="button" class="btn img-btn img-btn-remove edit-cancel-btn">Cancel</button>
+        </div>
       </div>`;
+
+    // Wire edit upload buttons
+    [
+      ["edit-obverse-upload-btn", "edit-obverse", "edit-obverse-name", "edit-obverse-preview"],
+      ["edit-reverse-upload-btn", "edit-reverse", "edit-reverse-name", "edit-reverse-preview"],
+    ].forEach(([btnClass, inputClass, nameClass, previewClass]) => {
+      const btn = editForm.querySelector(`.${btnClass}`);
+      const input = editForm.querySelector(`.${inputClass}`);
+      const nameEl = editForm.querySelector(`.${nameClass}`);
+      const previewEl = editForm.querySelector(`.${previewClass}`);
+      if (btn && input) {
+        btn.addEventListener("click", () => input.click());
+        input.addEventListener("change", () => {
+          if (nameEl) nameEl.textContent = input.files?.[0]?.name || "";
+          if (previewEl && input.files?.[0]) {
+            previewEl.src = URL.createObjectURL(input.files[0]);
+            previewEl.parentElement.style.display = "";
+          }
+        });
+      }
+    });
+
+    // Wire edit swap button
+    const editSwapBtn = editForm.querySelector(".edit-swap-btn");
+    if (editSwapBtn) {
+      editSwapBtn.addEventListener("click", () => {
+        const obvInput = editForm.querySelector(".edit-obverse");
+        const revInput = editForm.querySelector(".edit-reverse");
+        const obvName = editForm.querySelector(".edit-obverse-name");
+        const revName = editForm.querySelector(".edit-reverse-name");
+        const obvPreview = editForm.querySelector(".edit-obverse-preview");
+        const revPreview = editForm.querySelector(".edit-reverse-preview");
+        // Swap files via DataTransfer
+        if (obvInput && revInput) {
+          const dt1 = new DataTransfer();
+          const dt2 = new DataTransfer();
+          if (revInput.files[0]) dt1.items.add(revInput.files[0]);
+          if (obvInput.files[0]) dt2.items.add(obvInput.files[0]);
+          obvInput.files = dt1.files;
+          revInput.files = dt2.files;
+        }
+        // Swap names
+        if (obvName && revName) {
+          const tmp = obvName.textContent;
+          obvName.textContent = revName.textContent;
+          revName.textContent = tmp;
+        }
+        // Swap previews
+        if (obvPreview && revPreview) {
+          const tmpSrc = obvPreview.src;
+          const tmpDisplay = obvPreview.parentElement.style.display;
+          obvPreview.src = revPreview.src;
+          obvPreview.parentElement.style.display = revPreview.parentElement.style.display;
+          revPreview.src = tmpSrc;
+          revPreview.parentElement.style.display = tmpDisplay;
+        }
+      });
+    }
+
+    // Pre-populate preview images from existing cached data
+    if (rule.seedImageId && window.imageCache?.isAvailable()) {
+      imageCache.getPatternImage(rule.seedImageId).then((existing) => {
+        if (existing?.obverse) {
+          const obvPreview = editForm.querySelector(".edit-obverse-preview");
+          if (obvPreview) {
+            obvPreview.src = URL.createObjectURL(existing.obverse);
+            obvPreview.parentElement.style.display = "";
+          }
+        }
+        if (existing?.reverse) {
+          const revPreview = editForm.querySelector(".edit-reverse-preview");
+          if (revPreview) {
+            revPreview.src = URL.createObjectURL(existing.reverse);
+            revPreview.parentElement.style.display = "";
+          }
+        }
+      });
+    }
+
+    // Keywords/Regex toggle wiring for edit form
+    const editKeywordsBtn = editForm.querySelector(".edit-mode-keywords");
+    const editRegexBtn = editForm.querySelector(".edit-mode-regex");
+    if (editKeywordsBtn && editRegexBtn) {
+      const isRegex = rule.pattern.startsWith("/") || rule.pattern.startsWith("\\b");
+      if (isRegex) {
+        editKeywordsBtn.classList.remove("active");
+        editRegexBtn.classList.add("active");
+      }
+      editKeywordsBtn.addEventListener("click", () => {
+        editKeywordsBtn.classList.add("active");
+        editRegexBtn.classList.remove("active");
+      });
+      editRegexBtn.addEventListener("click", () => {
+        editRegexBtn.classList.add("active");
+        editKeywordsBtn.classList.remove("active");
+      });
+    }
 
     // Toggle edit form
     editBtn.addEventListener("click", () => {
@@ -1904,7 +2046,7 @@ const renderUserImageGrid = async () => {
     // Edit link — opens item's edit modal
     if (itemIndex >= 0) {
       const editLink = document.createElement("button");
-      editLink.className = "btn secondary settings-action-btn";
+      editLink.className = "btn img-btn img-btn-upload";
       editLink.textContent = "Edit";
       editLink.addEventListener("click", () => {
         hideSettingsModal();
@@ -1914,7 +2056,7 @@ const renderUserImageGrid = async () => {
     }
 
     const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn danger settings-action-btn";
+    deleteBtn.className = "btn img-btn img-btn-remove";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", async () => {
       const confirmed = await appConfirm(`Delete images for "${name}"?`, "User Images");

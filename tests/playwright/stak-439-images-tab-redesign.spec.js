@@ -166,7 +166,7 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
   // ========================================================================
   // Test 9 — Edit buttons in custom rules have correct class
   // ========================================================================
-  test('9. Custom rule Edit buttons have class "btn" and "secondary"', async ({ page }) => {
+  test("9. Custom rule Edit buttons have pill button class", async ({ page }) => {
     await openSettingsModal(page);
     await openImagesTab(page);
 
@@ -179,13 +179,13 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
       "#customPatternImageRules .pattern-rule-actions button:has-text('Edit')"
     );
     await expect(editBtns.first()).toBeVisible();
-    await expect(editBtns.first()).toHaveClass(/secondary/);
+    await expect(editBtns.first()).toHaveClass(/img-btn-upload/);
   });
 
   // ========================================================================
   // Test 10 — Delete buttons in custom rules have correct class (card layout)
   // ========================================================================
-  test('10. Custom rule Delete buttons have "btn" and "danger" classes', async ({ page }) => {
+  test("10. Custom rule Delete buttons have pill button class", async ({ page }) => {
     await openSettingsModal(page);
     await openImagesTab(page);
 
@@ -195,7 +195,7 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
 
     const deleteBtn = page.locator("#customPatternImageRules button:has-text('Delete')");
     await expect(deleteBtn.first()).toBeVisible();
-    await expect(deleteBtn.first()).toHaveClass(/danger/);
+    await expect(deleteBtn.first()).toHaveClass(/img-btn-remove/);
   });
 
   // ========================================================================
