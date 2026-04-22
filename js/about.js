@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.21 &ndash; STAK-439: Images tab redesign</strong>: Settings &gt; Images tab fully redesigned &mdash; Storage fieldset removed, Add Rule form collapses behind a &ldquo;+ New Rule&rdquo; pill button, styled upload buttons with image preview replace native file inputs, Edit form restyled to match Add form, flat Image Display grid, and solid pill buttons for proper dark mode contrast.</li>
     <li><strong>v3.34.20 &ndash; STAK-569: Fix Numista search metal prepend</strong>: Numista search no longer auto-prepends the metal dropdown value to the name query. Searches use exactly what you typed. Custom pattern rules still fire normally.</li>
     <li><strong>v3.34.19 &ndash; STAK-564: Move Force Refresh to About tab</strong>: Force Refresh relocated from Inventory tab to About tab as a compact Troubleshooting card. Button renamed to &ldquo;Clear Cache &amp; Reload&rdquo; with plain-language copy. App Updates fieldset removed from Inventory.</li>
     <li><strong>v3.34.18 &ndash; STAK-442: Move danger buttons from Storage to Inventory</strong>: &ldquo;Remove Inventory&rdquo; and &ldquo;Wipe All Data&rdquo; buttons moved from Settings &gt; Storage to Settings &gt; Inventory. All data management actions (import, export, backup, delete) are now in one tab. Storage is now pure diagnostics.</li>
