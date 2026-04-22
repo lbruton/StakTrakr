@@ -4,9 +4,6 @@ import { injectSeedInventory } from "./helpers/seed.js";
 /**
  * STAK-439 — Images Tab Redesign
  *
- * TDD Phase: RED — All 11 tests target UI elements and behaviors
- * that do not yet exist in the current codebase.
- *
  *  1. Storage fieldset not visible
  *  2. "+ New Rule" button present
  *  3. Form hidden by default

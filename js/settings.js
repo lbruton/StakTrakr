@@ -1688,7 +1688,7 @@ const renderCustomPatternRules = async () => {
                 <button type="button" class="chip-sort-btn edit-mode-regex" title="Regular expression">Regex</button>
               </div>
             </label>
-            <input type="text" class="edit-pattern form-control" value="${rule.pattern.replace(/"/g, "&quot;")}" placeholder="e.g. morgan, peace, walking liberty" />
+            <input type="text" class="edit-pattern form-control" value="${sanitizeHtml(rule.pattern)}" placeholder="e.g. morgan, peace, walking liberty" />
           </div>
         </div>
         <div class="image-upload-sides" style="margin-top: 0.5rem">
@@ -1744,6 +1744,9 @@ const renderCustomPatternRules = async () => {
           if (previewEl && input.files?.[0]) {
             previewEl.src = URL.createObjectURL(input.files[0]);
             previewEl.parentElement.style.display = "";
+          } else if (previewEl) {
+            previewEl.src = "";
+            previewEl.parentElement.style.display = "none";
           }
         });
       }
@@ -1788,22 +1791,31 @@ const renderCustomPatternRules = async () => {
 
     // Pre-populate preview images from existing cached data
     if (rule.seedImageId && window.imageCache?.isAvailable()) {
-      imageCache.getPatternImage(rule.seedImageId).then((existing) => {
-        if (existing?.obverse) {
-          const obvPreview = editForm.querySelector(".edit-obverse-preview");
-          if (obvPreview) {
-            obvPreview.src = URL.createObjectURL(existing.obverse);
-            obvPreview.parentElement.style.display = "";
+      imageCache
+        .getPatternImage(rule.seedImageId)
+        .then((existing) => {
+          if (existing?.obverse) {
+            const obvPreview = editForm.querySelector(".edit-obverse-preview");
+            if (obvPreview) {
+              if (obvPreview.src && obvPreview.src.startsWith("blob:"))
+                URL.revokeObjectURL(obvPreview.src);
+              obvPreview.src = URL.createObjectURL(existing.obverse);
+              obvPreview.parentElement.style.display = "";
+            }
           }
-        }
-        if (existing?.reverse) {
-          const revPreview = editForm.querySelector(".edit-reverse-preview");
-          if (revPreview) {
-            revPreview.src = URL.createObjectURL(existing.reverse);
-            revPreview.parentElement.style.display = "";
+          if (existing?.reverse) {
+            const revPreview = editForm.querySelector(".edit-reverse-preview");
+            if (revPreview) {
+              if (revPreview.src && revPreview.src.startsWith("blob:"))
+                URL.revokeObjectURL(revPreview.src);
+              revPreview.src = URL.createObjectURL(existing.reverse);
+              revPreview.parentElement.style.display = "";
+            }
           }
-        }
-      });
+        })
+        .catch((err) => {
+          console.error("Failed to load pattern images:", err);
+        });
     }
 
     // Keywords/Regex toggle wiring for edit form
@@ -1840,11 +1852,35 @@ const renderCustomPatternRules = async () => {
 
     // Save
     editForm.querySelector(".edit-save-btn").addEventListener("click", async () => {
-      const newPattern = editForm.querySelector(".edit-pattern").value.trim();
-      const newReplacement = newPattern;
+      const rawPattern = editForm.querySelector(".edit-pattern").value.trim();
+      const newReplacement = rawPattern;
 
-      if (!newPattern) {
+      if (!rawPattern) {
         appAlert("Pattern is required.");
+        return;
+      }
+
+      // Convert keywords to regex if Keywords mode is active (mirrors Add form behavior)
+      const isKeywordMode = editForm
+        .querySelector(".edit-mode-keywords")
+        ?.classList.contains("active");
+      let newPattern = rawPattern;
+      if (isKeywordMode) {
+        const terms = rawPattern
+          .split(/[,;]/)
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        if (terms.length === 0) {
+          appAlert("Enter at least one keyword.");
+          return;
+        }
+        newPattern = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+      }
+
+      try {
+        new RegExp(newPattern, "i");
+      } catch (e) {
+        appAlert("Invalid pattern: " + e.message);
         return;
       }
 

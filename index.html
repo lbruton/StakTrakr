@@ -5365,35 +5365,29 @@
                   <div class="cloud-provider-card" style="margin-top: 0.75rem; padding: 1rem">
                     <div class="pattern-rule-form-row">
                       <div class="pattern-rule-field">
-                        <label for="patternRulePattern">
-                          Name Pattern
-                          <div
-                            class="chip-sort-toggle pattern-mode-toggle"
-                            id="patternModeToggle"
-                            style="
-                              display: inline-flex;
-                              margin-left: 0.4rem;
-                              vertical-align: middle;
-                            "
+                        <label for="patternRulePattern">Name Pattern</label>
+                        <div
+                          class="chip-sort-toggle pattern-mode-toggle"
+                          id="patternModeToggle"
+                          style="display: inline-flex; margin-left: 0.4rem; vertical-align: middle"
+                        >
+                          <button
+                            type="button"
+                            id="patternModeKeywords"
+                            class="chip-sort-btn active"
+                            title="Comma or semicolon separated keywords"
                           >
-                            <button
-                              type="button"
-                              id="patternModeKeywords"
-                              class="chip-sort-btn active"
-                              title="Comma or semicolon separated keywords"
-                            >
-                              Keywords
-                            </button>
-                            <button
-                              type="button"
-                              id="patternModeRegex"
-                              class="chip-sort-btn"
-                              title="Regular expression"
-                            >
-                              Regex
-                            </button>
-                          </div>
-                        </label>
+                            Keywords
+                          </button>
+                          <button
+                            type="button"
+                            id="patternModeRegex"
+                            class="chip-sort-btn"
+                            title="Regular expression"
+                          >
+                            Regex
+                          </button>
+                        </div>
                         <input
                           type="text"
                           id="patternRulePattern"

@@ -580,6 +580,8 @@ const bindPatternRuleModeListeners = () => {
         if (nameEl) nameEl.textContent = input.files?.[0]?.name || "";
         const previewEl = getExistingElement(previewId);
         if (previewEl && input.files?.[0]) {
+          if (previewEl.src && previewEl.src.startsWith("blob:"))
+            URL.revokeObjectURL(previewEl.src);
           previewEl.src = URL.createObjectURL(input.files[0]);
           previewEl.parentElement.style.display = "";
         } else if (previewEl) {
