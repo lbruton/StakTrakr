@@ -1654,11 +1654,11 @@ const renderCustomPatternRules = async () => {
     actions.className = "pattern-rule-actions";
 
     const editBtn = document.createElement("button");
-    editBtn.className = "btn";
+    editBtn.className = "btn secondary settings-action-btn";
     editBtn.textContent = "Edit";
 
     const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn danger";
+    deleteBtn.className = "btn danger settings-action-btn";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", async () => {
       NumistaLookup.removeRule(rule.id);
@@ -1904,7 +1904,7 @@ const renderUserImageGrid = async () => {
     // Edit link — opens item's edit modal
     if (itemIndex >= 0) {
       const editLink = document.createElement("button");
-      editLink.className = "btn";
+      editLink.className = "btn secondary settings-action-btn";
       editLink.textContent = "Edit";
       editLink.addEventListener("click", () => {
         hideSettingsModal();
@@ -1914,7 +1914,7 @@ const renderUserImageGrid = async () => {
     }
 
     const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn danger";
+    deleteBtn.className = "btn danger settings-action-btn";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", async () => {
       const confirmed = await appConfirm(`Delete images for "${name}"?`, "User Images");
