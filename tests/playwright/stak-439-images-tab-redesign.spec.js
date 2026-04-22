@@ -208,4 +208,118 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
     const swapBtn = page.locator("#patternRuleFormContainer .image-swap-wrapper button");
     await expect(swapBtn).toHaveCount(1);
   });
+
+  // ========================================================================
+  // Test 12 — File selection updates filename label and shows preview
+  // ========================================================================
+  test("12. Selecting an image updates filename label and displays preview", async ({ page }) => {
+    await openSettingsModal(page);
+    await openImagesTab(page);
+
+    const btn = page.locator("#newPatternRuleBtn");
+    await btn.click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+
+    const fileInput = page.locator("#patternRuleObverse");
+    await fileInput.setInputFiles("tests/playwright/helpers/test-obverse.png");
+
+    const nameLabel = page.locator("#patternRuleObverseName");
+    await expect(nameLabel).toHaveText("test-obverse.png");
+
+    const preview = page.locator("#patternRuleObversePreview");
+    await expect(preview.locator("..")).toBeVisible();
+    const src = await preview.getAttribute("src");
+    expect(src).toBeTruthy();
+    expect(src).toContain("blob:");
+  });
+
+  // ========================================================================
+  // Test 13 — Swap button exchanges file data and filename labels
+  // ========================================================================
+  test("13. Swap button exchanges file names between obverse and reverse", async ({ page }) => {
+    await openSettingsModal(page);
+    await openImagesTab(page);
+
+    const btn = page.locator("#newPatternRuleBtn");
+    await btn.click();
+
+    await page
+      .locator("#patternRuleObverse")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await page
+      .locator("#patternRuleReverse")
+      .setInputFiles("tests/playwright/helpers/test-reverse.png");
+
+    await expect(page.locator("#patternRuleObverseName")).toHaveText("test-obverse.png");
+    await expect(page.locator("#patternRuleReverseName")).toHaveText("test-reverse.png");
+
+    const swapBtn = page.locator("#patternRuleSwapBtn");
+    await swapBtn.click();
+
+    await expect(page.locator("#patternRuleObverseName")).toHaveText("test-reverse.png");
+    await expect(page.locator("#patternRuleReverseName")).toHaveText("test-obverse.png");
+  });
+
+  // ========================================================================
+  // Test 14 — Form auto-collapses and resets after successful add
+  // ========================================================================
+  test("14. Form auto-collapses and clears inputs after successful rule add", async ({ page }) => {
+    await openSettingsModal(page);
+    await openImagesTab(page);
+
+    const toggleBtn = page.locator("#newPatternRuleBtn");
+    await toggleBtn.click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+
+    await page.locator("#patternRulePattern").fill("test-auto-collapse");
+    await page
+      .locator("#patternRuleObverse")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await expect(page.locator("#patternRuleObverseName")).toHaveText("test-obverse.png");
+
+    await page.locator("#addPatternRuleBtn").click();
+
+    await expect(page.locator("#patternRuleFormContainer")).not.toBeVisible();
+    await expect(toggleBtn).toContainText("New Rule");
+
+    // Re-expand and verify inputs are cleared
+    await toggleBtn.click();
+    await expect(page.locator("#patternRulePattern")).toHaveValue("");
+    await expect(page.locator("#patternRuleObverseName")).toHaveText("");
+  });
+
+  // ========================================================================
+  // Test 15 — Edit form Keywords/Regex toggle switches active state
+  // ========================================================================
+  test("15. Edit form Keywords/Regex toggle switches correctly", async ({ page }) => {
+    await openSettingsModal(page);
+    await openImagesTab(page);
+
+    await injectCustomPatternRule(page);
+    await openImagesTab(page);
+
+    const editBtn = page
+      .locator("#customPatternImageRules .pattern-rule-actions button:has-text('Edit')")
+      .first();
+    await editBtn.click();
+
+    const editForm = page.locator(".pattern-rule-edit-form").first();
+    await expect(editForm).toBeVisible();
+
+    const regexBtn = editForm.locator(".edit-mode-regex");
+    const keywordsBtn = editForm.locator(".edit-mode-keywords");
+
+    // Keywords is default active for keyword-style patterns
+    await expect(keywordsBtn).toHaveClass(/active/);
+
+    // Click Regex — should switch active state
+    await regexBtn.click();
+    await expect(regexBtn).toHaveClass(/active/);
+    await expect(keywordsBtn).not.toHaveClass(/active/);
+
+    // Click Keywords back — should switch back
+    await keywordsBtn.click();
+    await expect(keywordsBtn).toHaveClass(/active/);
+    await expect(regexBtn).not.toHaveClass(/active/);
+  });
 });
