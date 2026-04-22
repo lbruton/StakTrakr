@@ -1691,12 +1691,6 @@ const renderCustomPatternRules = async () => {
             <input type="text" class="edit-pattern form-control" value="${rule.pattern.replace(/"/g, "&quot;")}" placeholder="e.g. morgan, peace, walking liberty" />
           </div>
         </div>
-        <div class="pattern-rule-form-row" style="margin-top: 0.5rem">
-          <div class="pattern-rule-field">
-            <label>Display Name</label>
-            <input type="text" class="edit-replacement form-control" value="${(rule.replacement || "").replace(/"/g, "&quot;")}" placeholder="Name shown in inventory" />
-          </div>
-        </div>
         <div class="image-upload-sides" style="margin-top: 0.5rem">
           <div class="image-upload-side">
             <span class="image-side-label">Obverse</span>
@@ -1847,10 +1841,10 @@ const renderCustomPatternRules = async () => {
     // Save
     editForm.querySelector(".edit-save-btn").addEventListener("click", async () => {
       const newPattern = editForm.querySelector(".edit-pattern").value.trim();
-      const newReplacement = editForm.querySelector(".edit-replacement").value.trim();
+      const newReplacement = newPattern;
 
-      if (!newPattern || !newReplacement) {
-        appAlert("Pattern and replacement are required.");
+      if (!newPattern) {
+        appAlert("Pattern is required.");
         return;
       }
 
