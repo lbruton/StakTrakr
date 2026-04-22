@@ -556,6 +556,22 @@ const bindPatternRuleModeListeners = () => {
     }
   });
 
+  // Styled upload buttons — trigger hidden file inputs (STAK-439)
+  [
+    ["patternRuleObverseUploadBtn", "patternRuleObverse", "patternRuleObverseName"],
+    ["patternRuleReverseUploadBtn", "patternRuleReverse", "patternRuleReverseName"],
+  ].forEach(([btnId, inputId, nameId]) => {
+    const btn = getExistingElement(btnId);
+    const input = getExistingElement(inputId);
+    const nameEl = getExistingElement(nameId);
+    if (btn && input) {
+      btn.addEventListener("click", () => input.click());
+      input.addEventListener("change", () => {
+        if (nameEl) nameEl.textContent = input.files?.[0]?.name || "";
+      });
+    }
+  });
+
   const addPatternRuleBtn = getExistingElement("addPatternRuleBtn");
   if (addPatternRuleBtn) {
     addPatternRuleBtn.addEventListener("click", async () => {
@@ -638,8 +654,36 @@ const bindPatternRuleModeListeners = () => {
       if (obverseInput) obverseInput.value = "";
       if (reverseInput) reverseInput.value = "";
 
+      // Auto-collapse form after successful add (STAK-439)
+      const formContainer = getExistingElement("patternRuleFormContainer");
+      const toggleBtn = getExistingElement("newPatternRuleBtn");
+      if (formContainer) formContainer.style.display = "none";
+      if (toggleBtn) {
+        toggleBtn.textContent = "+ New Rule";
+        toggleBtn.classList.remove("img-btn-remove");
+        toggleBtn.classList.add("img-btn-upload");
+      }
+
       renderCustomPatternRules();
       renderImageStorageStats();
+    });
+  }
+
+  // Collapse/expand toggle for pattern rule form (STAK-439)
+  const newRuleBtn = getExistingElement("newPatternRuleBtn");
+  const formContainer = getExistingElement("patternRuleFormContainer");
+  if (newRuleBtn && formContainer) {
+    newRuleBtn.addEventListener("click", () => {
+      const isOpen = formContainer.style.display !== "none";
+      formContainer.style.display = isOpen ? "none" : "";
+      newRuleBtn.textContent = isOpen ? "+ New Rule" : "✕ Cancel";
+      if (isOpen) {
+        newRuleBtn.classList.remove("img-btn-remove");
+        newRuleBtn.classList.add("img-btn-upload");
+      } else {
+        newRuleBtn.classList.remove("img-btn-upload");
+        newRuleBtn.classList.add("img-btn-remove");
+      }
     });
   }
 };

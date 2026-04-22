@@ -2891,6 +2891,20 @@ input[type="submit"] {
   min-height: 100px;
 }
 
+/* Dashed outline for image cards in settings (STAK-439) */
+#settingsPanel_images .image-card {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+.image-upload-filename {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 0.2rem;
+}
+
 .image-upload-preview {
   flex: 1;
   min-width: 0;
