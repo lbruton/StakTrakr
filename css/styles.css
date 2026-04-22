@@ -11058,6 +11058,26 @@ th {
   margin-bottom: var(--spacing);
 }
 
+.settings-changelog-actions .btn,
+.settings-pricehistory-controls .btn,
+.settings-log-panel .btn.secondary {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  padding: 0.4rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  min-height: auto;
+}
+
+.settings-changelog-actions .btn:hover,
+.settings-pricehistory-controls .btn:hover,
+.settings-log-panel .btn.secondary:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--primary);
+}
+
 .settings-changelog-wrap {
   overflow-y: auto;
   max-height: 55vh;
@@ -11178,7 +11198,9 @@ th {
 /* Shared table styles for all log sub-tab tables */
 #settingsSpotHistoryTable,
 #settingsCatalogHistoryTable,
-#settingsPriceHistoryTable {
+#settingsPriceHistoryTable,
+#settingsLbmaHistoryTable,
+#settingsCloudActivityTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.75rem;
@@ -11186,7 +11208,9 @@ th {
 
 #settingsSpotHistoryTable thead,
 #settingsCatalogHistoryTable thead,
-#settingsPriceHistoryTable thead {
+#settingsPriceHistoryTable thead,
+#settingsLbmaHistoryTable thead,
+#settingsCloudActivityTable thead {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -11195,7 +11219,9 @@ th {
 
 #settingsSpotHistoryTable th,
 #settingsCatalogHistoryTable th,
-#settingsPriceHistoryTable th {
+#settingsPriceHistoryTable th,
+#settingsLbmaHistoryTable th,
+#settingsCloudActivityTable th {
   padding: 0.35rem 0.5rem;
   text-align: left;
   font-weight: 600;
@@ -11209,7 +11235,9 @@ th {
 
 #settingsSpotHistoryTable td,
 #settingsCatalogHistoryTable td,
-#settingsPriceHistoryTable td {
+#settingsPriceHistoryTable td,
+#settingsLbmaHistoryTable td,
+#settingsCloudActivityTable td {
   padding: 0.3rem 0.5rem;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;

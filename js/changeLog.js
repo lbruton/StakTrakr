@@ -251,19 +251,81 @@ const toggleChange = (logIdx) => {
 
   if (entry.field === "Deleted") {
     if (entry.undone) {
-      const removed = inventory.splice(entry.idx, 1)[0];
-      if (removed && removed.serial) {
+      const realIdx = entry.itemKey
+        ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
+        : entry.idx;
+      if (realIdx === -1 || realIdx >= inventory.length) return;
+      const removed = inventory.splice(realIdx, 1)[0];
+      if (removed.serial) {
         delete catalogMap[removed.serial];
       }
       entry.undone = false;
     } else {
-      const restored = JSON.parse(entry.oldValue || "{}");
+      if (!entry.oldValue) {
+        if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
+        return;
+      }
+      let restored;
+      try {
+        restored = JSON.parse(entry.oldValue);
+      } catch {
+        if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
+        return;
+      }
       inventory.splice(entry.idx, 0, restored);
       if (restored.serial) {
         catalogMap[restored.serial] = restored.numistaId || "";
       }
       entry.undone = true;
     }
+    saveInventory();
+    renderTable();
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    if (typeof updateSummary === "function") updateSummary();
+    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+    renderChangeLog();
+    saveDataSync("changeLog", changeLog);
+    return;
+  } else if (entry.field === "Added") {
+    if (entry.undone) {
+      // Redo: re-add the item
+      if (!entry.newValue) {
+        if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
+        return;
+      }
+      let restored;
+      try {
+        restored = JSON.parse(entry.newValue);
+      } catch {
+        if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
+        return;
+      }
+      inventory.splice(entry.idx, 0, restored);
+      if (restored.serial) {
+        catalogMap[restored.serial] = restored.numistaId || "";
+      }
+      entry.undone = false;
+    } else {
+      // Undo: remove the item — snapshot it into newValue for redo
+      const realIdx = entry.itemKey
+        ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
+        : entry.idx;
+      if (realIdx === -1 || realIdx >= inventory.length) return;
+      const removed = inventory.splice(realIdx, 1)[0];
+      entry.newValue = JSON.stringify(removed);
+      if (removed.serial) {
+        delete catalogMap[removed.serial];
+      }
+      entry.undone = true;
+    }
+    saveInventory();
+    renderTable();
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    if (typeof updateSummary === "function") updateSummary();
+    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+    renderChangeLog();
+    saveDataSync("changeLog", changeLog);
+    return;
     // Disposition undo/redo (STAK-388)
   } else if (entry.field === "Disposed") {
     const item = inventory[entry.idx];

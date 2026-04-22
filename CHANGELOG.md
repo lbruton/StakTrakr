@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.23] - 2026-04-22
+
+### Changed — STAK-446: Activity Log tab redesign and undo audit
+
+- **Changed**: Activity Log sub-tabs renamed — "Metals" → "Spot Price", "Price History" → "Item History" (STAK-446)
+- **Changed**: Activity Log sub-tabs reordered — Changelog, Catalogs, Cloud, Spot Price, Market, Item History, LBMA History (STAK-446)
+- **Added**: Undo/redo support for "Added" changelog entries — undo removes the item, redo restores it from snapshot (STAK-446)
+- **Fixed**: JSON.parse on redo path now guarded with try/catch for corrupted localStorage resilience (STAK-446)
+- **Added**: 7 Playwright TDD tests covering tab rename, tab order, undo-add, and redo-add (STAK-446)
+
+---
+
 ## [3.34.22] - 2026-04-22
 
 ### Changed — STAK-570: Currency tab Goldback pricing redesign
