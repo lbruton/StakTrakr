@@ -264,6 +264,38 @@ const toggleChange = (logIdx) => {
       }
       entry.undone = true;
     }
+    // Added undo/redo (STAK-446)
+  } else if (entry.field === "Added") {
+    if (entry.undone) {
+      // Redo: re-add the item
+      let restored;
+      try {
+        restored = JSON.parse(entry.newValue || "{}");
+      } catch {
+        return;
+      }
+      inventory.splice(entry.idx, 0, restored);
+      if (restored.serial) {
+        catalogMap[restored.serial] = restored.numistaId || "";
+      }
+      entry.undone = false;
+    } else {
+      // Undo: remove the item — snapshot it into newValue for redo
+      const removed = inventory.splice(entry.idx, 1)[0];
+      if (removed) entry.newValue = JSON.stringify(removed);
+      if (removed && removed.serial) {
+        delete catalogMap[removed.serial];
+      }
+      entry.undone = true;
+    }
+    saveInventory();
+    renderTable();
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    if (typeof updateSummary === "function") updateSummary();
+    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+    renderChangeLog();
+    saveDataSync("changeLog", changeLog);
+    return;
     // Disposition undo/redo (STAK-388)
   } else if (entry.field === "Disposed") {
     const item = inventory[entry.idx];

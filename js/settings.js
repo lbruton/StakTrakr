@@ -225,12 +225,12 @@ const switchLogTab = (key) => {
 /** Dispatch map: log sub-tab key → window function name */
 const LOG_TAB_RENDERERS = {
   changelog: "renderChangeLog",
-  metals: "renderSpotHistoryTable",
-  lbma: "renderLbmaHistoryTable",
   catalogs: "renderCatalogHistoryForSettings",
-  pricehistory: "renderItemPriceHistoryTable",
   cloud: "renderCloudActivityTable",
+  metals: "renderSpotHistoryTable",
   market: "renderRetailHistoryTable",
+  pricehistory: "renderItemPriceHistoryTable",
+  lbma: "renderLbmaHistoryTable",
 };
 
 /**
