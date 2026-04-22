@@ -2,11 +2,7 @@ import { test, expect } from "@playwright/test";
 import { injectSeedInventory } from "./helpers/seed.js";
 
 /**
- * STAK-446: Log / Changelog Redesign — TDD failing tests
- *
- * These tests assert the NEW requirements (tab rename, tab order,
- * undo/redo for "Added" items, CRUD audit). All should fail against
- * the current implementation and pass once the spec is implemented.
+ * STAK-446: Log / Changelog Redesign — tab rename, tab order, undo/redo for Added items, CRUD audit.
  */
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -146,17 +142,17 @@ test.describe("STAK-446: Log/Changelog Redesign", () => {
       );
       expect(addedIdx).toBeGreaterThanOrEqual(0);
 
-      // Click undo via the changelog modal
-      // Open the changelog modal (not settings — the floating button)
-      await dismissWhatsNew(page);
-      await page.evaluate(() => {
-        if (typeof renderChangeLog === "function") renderChangeLog();
-      });
+      // Navigate to Activity Log → Changelog tab and click the undo button
+      await navigateToActivityLog(page);
+      await page.click('[data-log-tab="changelog"]');
+      await page.waitForSelector("#settingsChangeLogTable tbody tr", { state: "visible" });
 
-      // Use toggleChange directly to undo the "Added" entry
-      await page.evaluate((idx) => {
-        if (typeof toggleChange === "function") toggleChange(idx);
-      }, addedIdx);
+      // Click the undo button for the entry matching CL-UNDO-ITEM
+      const undoBtn = page
+        .locator("#settingsChangeLogTable tbody tr")
+        .filter({ hasText: "CL-UNDO-ITEM" })
+        .locator(".action-cell button");
+      await undoBtn.click();
 
       const countAfterUndo = await page.evaluate(() => inventory.length);
       // Undo of "Added" should remove the item, decreasing count by 1
@@ -176,18 +172,20 @@ test.describe("STAK-446: Log/Changelog Redesign", () => {
       );
       expect(addedIdx).toBeGreaterThanOrEqual(0);
 
-      // Undo (remove the item)
-      await page.evaluate((idx) => {
-        if (typeof toggleChange === "function") toggleChange(idx);
-      }, addedIdx);
+      // Navigate to Activity Log → Changelog tab and click Undo
+      await navigateToActivityLog(page);
+      await page.click('[data-log-tab="changelog"]');
+      await page.waitForSelector("#settingsChangeLogTable tbody tr", { state: "visible" });
+      const redoItemRow = page
+        .locator("#settingsChangeLogTable tbody tr")
+        .filter({ hasText: "CL-REDO-ITEM" });
+      await redoItemRow.locator(".action-cell button").click();
 
       const countAfterUndo = await page.evaluate(() => inventory.length);
       expect(countAfterUndo).toBe(countAfterAdd - 1);
 
-      // Redo (restore the item)
-      await page.evaluate((idx) => {
-        if (typeof toggleChange === "function") toggleChange(idx);
-      }, addedIdx);
+      // Click Redo (button label flips to "Redo" after undo)
+      await redoItemRow.locator(".action-cell button").click();
 
       const countAfterRedo = await page.evaluate(() => inventory.length);
       expect(countAfterRedo).toBe(countAfterAdd);
@@ -203,10 +201,11 @@ test.describe("STAK-446: Log/Changelog Redesign", () => {
       await injectSeedInventory(page);
       await gotoApp(page);
 
-      // Clear changelog first
+      // Clear changelog first and persist to localStorage for consistency
       await page.evaluate(() => {
         if (typeof changeLog !== "undefined") {
           changeLog.length = 0;
+          if (typeof saveDataSync === "function") saveDataSync("changeLog", changeLog);
         }
       });
 
