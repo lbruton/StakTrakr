@@ -185,9 +185,7 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
   // ========================================================================
   // Test 10 — Delete buttons in custom rules have correct class (card layout)
   // ========================================================================
-  test('10. Custom rule Delete buttons are inside .pattern-rule-card with "btn" and "danger"', async ({
-    page,
-  }) => {
+  test('10. Custom rule Delete buttons have "btn" and "danger" classes', async ({ page }) => {
     await openSettingsModal(page);
     await openImagesTab(page);
 
@@ -195,10 +193,7 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
     await injectCustomPatternRule(page);
     await openImagesTab(page);
 
-    // The redesign renders rules inside .pattern-rule-card wrappers
-    const deleteBtn = page.locator(
-      "#customPatternImageRules .pattern-rule-card button:has-text('Delete')"
-    );
+    const deleteBtn = page.locator("#customPatternImageRules button:has-text('Delete')");
     await expect(deleteBtn.first()).toBeVisible();
     await expect(deleteBtn.first()).toHaveClass(/danger/);
   });
@@ -210,7 +205,7 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
     await openSettingsModal(page);
     await openImagesTab(page);
 
-    const swapBtn = page.locator("#patternRuleFormContainer .pattern-rule-swap-btn");
+    const swapBtn = page.locator("#patternRuleFormContainer .image-swap-wrapper button");
     await expect(swapBtn).toHaveCount(1);
   });
 });
