@@ -114,6 +114,7 @@ const RETAIL_VENDOR_COLORS = {
 let _manifestSlugs = null;
 let _manifestCoinMeta = null;
 let _manifestVendorMeta = null;
+let _manifestCacheRestored = false;
 
 // ---------------------------------------------------------------------------
 // Market Filter — user-configurable slug/vendor visibility (STAK-515)
@@ -190,6 +191,9 @@ const _isSlugResolved = (slug) => {
 };
 
 const _restoreRetailManifestCacheFromStorage = () => {
+  if (_manifestCacheRestored) return;
+  _manifestCacheRestored = true;
+
   if (_manifestSlugs === null) {
     try {
       const cached = localStorage.getItem(RETAIL_MANIFEST_SLUGS_KEY);

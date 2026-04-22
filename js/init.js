@@ -478,11 +478,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       typeof goldbackPricingSource !== "undefined" &&
       goldbackPricingSource === "api"
     ) {
-      try {
-        await fetchGoldbackApiPrices({ expectedSource: "api" });
-      } catch (error) {
-        console.warn("Initial Goldback API fetch failed:", error);
-      }
+      void fetchGoldbackApiPrices({ expectedSource: "api" }).catch((error) =>
+        console.warn("Initial Goldback API fetch failed:", error)
+      );
     }
 
     // Load retail market prices and start background auto-sync

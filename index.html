@@ -6434,11 +6434,13 @@
                 <div class="settings-fieldset-title">Currency</div>
                 <div class="currency-fields-row">
                   <div class="currency-field">
-                    <strong>Display currency</strong>
+                    <label for="settingsDisplayCurrency"><strong>Display currency</strong></label>
                     <select id="settingsDisplayCurrency"></select>
                   </div>
                   <div class="currency-field">
-                    <strong>24h price comparison</strong>
+                    <label for="settingsSpotCompareMode"
+                      ><strong>24h price comparison</strong></label
+                    >
                     <select id="settingsSpotCompareMode">
                       <option value="close-close">Close / Close (default)</option>
                       <option value="open-open">Open / Open</option>
@@ -6456,15 +6458,48 @@
                   <p class="settings-subtext">
                     Choose how Goldback denomination prices are calculated for gb-unit items.
                   </p>
-                  <div id="settingsGoldbackSource" class="gb-source-group">
-                    <button class="gb-source-btn" data-val="off" type="button">Off</button>
-                    <button class="gb-source-btn" data-val="api" type="button">
+                  <div
+                    id="settingsGoldbackSource"
+                    class="gb-source-group"
+                    role="radiogroup"
+                    aria-label="Goldback pricing source"
+                  >
+                    <button
+                      class="gb-source-btn"
+                      data-val="off"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
+                    >
+                      Off
+                    </button>
+                    <button
+                      class="gb-source-btn"
+                      data-val="api"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
+                    >
                       StakTrakr API
                     </button>
-                    <button class="gb-source-btn" data-val="spot" type="button">
+                    <button
+                      class="gb-source-btn"
+                      data-val="spot"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
+                    >
                       Estimate from Spot
                     </button>
-                    <button class="gb-source-btn" data-val="manual" type="button">Manual</button>
+                    <button
+                      class="gb-source-btn"
+                      data-val="manual"
+                      type="button"
+                      role="radio"
+                      aria-checked="false"
+                    >
+                      Manual
+                    </button>
                   </div>
                 </div>
 
@@ -6499,7 +6534,7 @@
                     <input
                       type="number"
                       id="goldbackManualRateInput"
-                      min="0"
+                      min="0.01"
                       step="0.01"
                       placeholder="1 GB rate"
                     />

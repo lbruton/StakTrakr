@@ -1,12 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { injectSeedInventory } from "./helpers/seed.js";
 
-/**
- * Playwright TDD spec for STAK-570 — Currency tab redesign.
- *
- * RED phase: these assertions describe the approved merged Currency tab UI
- * before production implementation lands.
- */
+// Settings > Currency tab — Playwright tests
 
 async function openCurrencySettings(page) {
   await page.waitForFunction(() => typeof window.showSettingsModal === "function");

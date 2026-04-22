@@ -1016,8 +1016,6 @@ const syncGoldbackSettingsUI = () => {
     ) {
       const displayValue = fxRate !== 1 ? manualEntry.price * fxRate : manualEntry.price;
       manualRateInput.value = displayValue.toFixed(2);
-    } else if (goldbackPricingSource !== "manual") {
-      manualRateInput.value = "";
     } else {
       manualRateInput.value = "";
     }
@@ -1041,8 +1039,13 @@ const syncGoldbackSettingsUI = () => {
         : typeof formatCurrency === "function"
           ? formatCurrency(displayPrice)
           : `${typeof getCurrencySymbol === "function" ? getCurrencySymbol() : "$"}${displayPrice.toFixed(2)}`;
+    const rawSource = entry && typeof entry.source === "string" ? entry.source.toLowerCase() : null;
     const effectiveSource =
-      entry && typeof entry.source === "string" ? entry.source.toLowerCase() : null;
+      rawSource &&
+      typeof GOLD_BACK_PRICING_SOURCES !== "undefined" &&
+      GOLD_BACK_PRICING_SOURCES.has(rawSource)
+        ? rawSource
+        : null;
     const badgeSource = effectiveSource || goldbackPricingSource || "api";
     const sourceLabel =
       displayPrice == null
