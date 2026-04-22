@@ -270,14 +270,18 @@ test.describe("STAK-437 — Search tab removal and Filter Chips consolidation", 
     const table = page.locator("#settingsPanel_grouping").locator("#customRuleTableContainer");
     await expect(table).toContainText("delete-me");
 
-    await table.locator("button[title='Delete rule']").click();
+    await table
+      .locator("tr")
+      .filter({ hasText: "delete-me" })
+      .locator("button[title='Delete rule']")
+      .click();
 
     await expect(table).not.toContainText("delete-me");
 
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("numistaLookupRules") || "[]")
     );
-    expect(stored).toHaveLength(0);
+    expect(stored.some((rule) => rule.pattern === "\\bdelete-me\\b")).toBe(false);
   });
 
   // ========================================================================

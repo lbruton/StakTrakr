@@ -350,59 +350,73 @@ const bindSettingsModalShellListeners = () => {
 };
 
 /**
- * Binds listeners for Goldback feature toggles and estimation settings.
+ * Binds listeners for Goldback pricing source switching, conditional inputs,
+ * and history modal actions within the merged Currency tab.
  */
-const bindGoldbackToggleListeners = () => {
-  const gbToggle = getExistingElement("settingsGoldbackEnabled");
-  if (gbToggle) {
-    gbToggle.addEventListener("click", (e) => {
-      const btn = e.target.closest(".chip-sort-btn");
-      if (!btn) return;
-      const isEnabled = btn.dataset.val === "on";
-      if (typeof saveGoldbackEnabled === "function") saveGoldbackEnabled(isEnabled);
-      gbToggle
-        .querySelectorAll(".chip-sort-btn")
-        .forEach((b) => b.classList.toggle("active", b === btn));
-      if (typeof renderTable === "function") renderTable();
-    });
-  }
+const bindGoldbackPricingSourceListener = () => {
+  const sourceGroup = getExistingElement("settingsGoldbackSource");
+  const gbModifierInput = getExistingElement("goldbackEstimateModifierInput");
+  const manualRateInput = getExistingElement("goldbackManualRateInput");
 
-  const gbEstToggle = getExistingElement("settingsGoldbackEstimateEnabled");
-  if (gbEstToggle) {
-    gbEstToggle.addEventListener("click", (e) => {
+  const applyManualRate = () => {
+    if (goldbackPricingSource !== "manual") return;
+    if (!manualRateInput || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
+
+    const displayRate = parseFloat(manualRateInput.value);
+    if (isNaN(displayRate) || displayRate <= 0) return;
+
+    const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
+    const usdRate = fxRate !== 1 ? displayRate / fxRate : displayRate;
+    const now = Date.now();
+
+    GOLDBACK_DENOMINATIONS.forEach((denomination) => {
+      const weight = Number(denomination.weight);
+      const key = String(denomination.weight);
+      const price = Math.round(usdRate * weight * 100) / 100;
+      goldbackPrices[key] = { price, updatedAt: now, source: "manual" };
+    });
+
+    if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
+    if (typeof recordGoldbackPrices === "function") recordGoldbackPrices();
+    if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
+    if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
+    if (typeof renderTable === "function") renderTable();
+  };
+
+  const debouncedManualRateApply =
+    typeof debounce === "function" ? debounce(applyManualRate, 300) : applyManualRate;
+
+  if (sourceGroup) {
+    sourceGroup.addEventListener("click", async (e) => {
       const btn = e.target.closest(".chip-sort-btn");
       if (!btn) return;
-      const isEnabled = btn.dataset.val === "on";
-      if (typeof saveGoldbackEstimateEnabled === "function") saveGoldbackEstimateEnabled(isEnabled);
-      gbEstToggle
-        .querySelectorAll(".chip-sort-btn")
-        .forEach((b) => b.classList.toggle("active", b === btn));
-      if (isEnabled && typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+
+      const nextSource = btn.dataset.val;
+      if (nextSource !== "manual" && typeof debouncedManualRateApply.cancel === "function") {
+        debouncedManualRateApply.cancel();
+      }
+      if (typeof saveGoldbackPricingSource === "function") {
+        saveGoldbackPricingSource(nextSource);
+      }
+
+      try {
+        if (nextSource === "api" && typeof fetchGoldbackApiPrices === "function") {
+          const result = await fetchGoldbackApiPrices({ expectedSource: nextSource });
+          if (goldbackPricingSource !== nextSource) return;
+          if (!result.ok) console.warn("Goldback API fetch failed:", result.error);
+        } else if (nextSource === "spot" && typeof onGoldSpotPriceChanged === "function") {
+          onGoldSpotPriceChanged();
+          if (goldbackPricingSource !== nextSource) return;
+        }
+      } catch (error) {
+        console.warn("Goldback pricing source change failed:", error);
+      }
+
       if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
       if (typeof renderTable === "function") renderTable();
     });
   }
 
-  const gbEstRefreshBtn = getExistingElement("goldbackEstimateRefreshBtn");
-  if (gbEstRefreshBtn) {
-    gbEstRefreshBtn.addEventListener("click", async () => {
-      if (typeof fetchGoldbackApiPrices !== "function") return;
-      const origText = gbEstRefreshBtn.textContent;
-      gbEstRefreshBtn.textContent = "Fetching...";
-      gbEstRefreshBtn.disabled = true;
-      try {
-        const result = await fetchGoldbackApiPrices();
-        if (!result.ok) console.warn("Goldback API fetch failed:", result.error);
-      } catch (err) {
-        console.warn("Goldback API fetch error:", err);
-      } finally {
-        gbEstRefreshBtn.textContent = origText;
-        gbEstRefreshBtn.disabled = false;
-      }
-    });
-  }
-
-  const gbModifierInput = getExistingElement("goldbackEstimateModifierInput");
   if (gbModifierInput) {
     gbModifierInput.addEventListener("change", () => {
       const val = parseFloat(gbModifierInput.value);
@@ -410,64 +424,30 @@ const bindGoldbackToggleListeners = () => {
         gbModifierInput.value = goldbackEstimateModifier.toFixed(2);
         return;
       }
+
       if (typeof saveGoldbackEstimateModifier === "function") saveGoldbackEstimateModifier(val);
-      if (goldbackEstimateEnabled && typeof onGoldSpotPriceChanged === "function")
+      if (goldbackPricingSource === "spot" && typeof onGoldSpotPriceChanged === "function") {
         onGoldSpotPriceChanged();
-      if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
-      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
-      if (typeof renderTable === "function") renderTable();
-    });
-  }
-};
-
-/**
- * Binds listeners for Goldback price entry and history actions.
- */
-const bindGoldbackActionListeners = () => {
-  const gbSaveBtn = getExistingElement("goldbackSavePricesBtn");
-  if (gbSaveBtn) {
-    gbSaveBtn.addEventListener("click", () => {
-      const tbody = getExistingElement("goldbackPriceTableBody");
-      if (!tbody) return;
-      const now = Date.now();
-      const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
-      tbody.querySelectorAll("tr[data-denom]").forEach((row) => {
-        const denom = row.dataset.denom;
-        const input = row.querySelector('input[type="number"]');
-        if (!input) return;
-        const displayVal = parseFloat(input.value);
-        if (!isNaN(displayVal) && displayVal > 0) {
-          const usdVal = fxRate !== 1 ? displayVal / fxRate : displayVal;
-          goldbackPrices[denom] = { price: usdVal, updatedAt: now };
-        }
-      });
-      if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
-      if (typeof recordGoldbackPrices === "function") recordGoldbackPrices();
-      if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
-      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
-      if (typeof renderTable === "function") renderTable();
-    });
-  }
-
-  const gbQuickFillBtn = getExistingElement("goldbackQuickFillBtn");
-  if (gbQuickFillBtn) {
-    gbQuickFillBtn.addEventListener("click", () => {
-      const input = getExistingElement("goldbackQuickFillInput");
-      if (!input) return;
-      const rate = parseFloat(input.value);
-      if (isNaN(rate) || rate <= 0) {
-        appAlert("Enter a valid 1 Goldback rate.");
-        return;
       }
-      const tbody = getExistingElement("goldbackPriceTableBody");
-      if (!tbody || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
-      tbody.querySelectorAll("tr[data-denom]").forEach((row) => {
-        const denom = parseFloat(row.dataset.denom);
-        const priceInput = row.querySelector('input[type="number"]');
-        if (priceInput) {
-          priceInput.value = (Math.round(rate * denom * 100) / 100).toFixed(2);
-        }
-      });
+      if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
+      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
+      if (typeof renderTable === "function") renderTable();
+    });
+  }
+
+  if (manualRateInput) {
+    manualRateInput.addEventListener("input", () => {
+      if (goldbackPricingSource !== "manual") return;
+      debouncedManualRateApply();
+    });
+
+    manualRateInput.addEventListener("change", () => {
+      if (goldbackPricingSource !== "manual") return;
+      if (typeof debouncedManualRateApply.flush === "function") {
+        debouncedManualRateApply.flush();
+      } else {
+        applyManualRate();
+      }
     });
   }
 
@@ -1540,8 +1520,7 @@ const setupSettingsEventListeners = () => {
   bindFilterAndNumistaListeners();
   bindNumistaBulkSyncListeners();
   bindSettingsModalShellListeners();
-  bindGoldbackToggleListeners();
-  bindGoldbackActionListeners();
+  bindGoldbackPricingSourceListener();
   bindImageSettingsListeners();
   bindCloudStorageListeners();
   bindStorageListeners();

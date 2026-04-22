@@ -10852,33 +10852,6 @@ th {
   color: var(--text-secondary);
 }
 
-/* Hide number spinners on denomination price inputs and quick-fill */
-.settings-goldback-table input[type="number"]::-webkit-outer-spin-button,
-.settings-goldback-table input[type="number"]::-webkit-inner-spin-button,
-#goldbackQuickFillInput::-webkit-outer-spin-button,
-#goldbackQuickFillInput::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.settings-goldback-table input[type="number"],
-#goldbackQuickFillInput {
-  -moz-appearance: textfield;
-}
-
-/* Style links inside the goldback settings panel */
-#settingsPanel_goldback a {
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: 500;
-}
-#settingsPanel_goldback a:hover {
-  text-decoration: underline;
-  opacity: 0.85;
-}
-#settingsPanel_goldback a:visited {
-  color: var(--primary);
-}
-
 /* =============================================================================
    SETTINGS CHANGE LOG PANEL
    ============================================================================= */

@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.22 &ndash; STAK-570: Currency tab Goldback pricing redesign</strong>: Goldback pricing moved into Settings &gt; Currency with a single Off / API / Spot / Manual source selector, contextual inputs, a read-only denomination table, and the old Goldback settings tab removed.</li>
     <li><strong>v3.34.21 &ndash; STAK-439: Images tab redesign</strong>: Settings &gt; Images tab fully redesigned &mdash; Storage fieldset removed, Add Rule form collapses behind a &ldquo;+ New Rule&rdquo; pill button, styled upload buttons with image preview replace native file inputs, Edit form restyled to match Add form, flat Image Display grid, and solid pill buttons for proper dark mode contrast.</li>
     <li><strong>v3.34.20 &ndash; STAK-569: Fix Numista search metal prepend</strong>: Numista search no longer auto-prepends the metal dropdown value to the name query. Searches use exactly what you typed. Custom pattern rules still fire normally.</li>
     <li><strong>v3.34.19 &ndash; STAK-564: Move Force Refresh to About tab</strong>: Force Refresh relocated from Inventory tab to About tab as a compact Troubleshooting card. Button renamed to &ldquo;Clear Cache &amp; Reload&rdquo; with plain-language copy. App Updates fieldset removed from Inventory.</li>

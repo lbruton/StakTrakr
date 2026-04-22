@@ -35,7 +35,7 @@ async function openImagesTab(page) {
 async function injectCustomPatternRule(page) {
   await page.evaluate(() => {
     if (window.NumistaLookup && window.NumistaLookup.addRule) {
-      window.NumistaLookup.addRule("\\bTestCoin439\\b", "Test Coin 439", null, null);
+      window.NumistaLookup.addRule("TestCoin439", "Test Coin 439", null, null);
     }
   });
 }
@@ -300,7 +300,7 @@ test.describe("STAK-439 — Images Tab Redesign", () => {
       .first();
     await editBtn.click();
 
-    const editForm = page.locator(".pattern-rule-edit-form").first();
+    const editForm = page.locator(".pattern-rule-edit-form").filter({ visible: true });
     await expect(editForm).toBeVisible();
 
     const regexBtn = editForm.locator(".edit-mode-regex");

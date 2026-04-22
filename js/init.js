@@ -473,6 +473,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof loadGoldbackEnabled === "function") loadGoldbackEnabled();
     if (typeof loadGoldbackEstimateEnabled === "function") loadGoldbackEstimateEnabled();
     if (typeof loadGoldbackEstimateModifier === "function") loadGoldbackEstimateModifier();
+    if (
+      typeof fetchGoldbackApiPrices === "function" &&
+      typeof goldbackPricingSource !== "undefined" &&
+      goldbackPricingSource === "api"
+    ) {
+      try {
+        await fetchGoldbackApiPrices({ expectedSource: "api" });
+      } catch (error) {
+        console.warn("Initial Goldback API fetch failed:", error);
+      }
+    }
 
     // Load retail market prices and start background auto-sync
     if (typeof initRetailPrices === "function") initRetailPrices();
