@@ -5323,10 +5323,8 @@
               <!-- ── Image Display ── -->
               <div class="settings-fieldset">
                 <div class="settings-fieldset-title">Image Display</div>
-                <div
-                  class="settings-card-grid settings-card-grid--compact settings-card-grid--3col"
-                >
-                  <div class="settings-card">
+                <div class="settings-card-grid settings-card-grid--compact">
+                  <div>
                     <div class="settings-group-label">Table thumbnails</div>
                     <p class="settings-subtext">Show coin images in the table.</p>
                     <div class="chip-sort-toggle" id="tableImagesToggle">
@@ -5334,7 +5332,7 @@
                       <button type="button" class="chip-sort-btn" data-val="no">Off</button>
                     </div>
                   </div>
-                  <div class="settings-card">
+                  <div>
                     <div class="settings-group-label">Image sides</div>
                     <p class="settings-subtext">Which coin sides to show.</p>
                     <div class="chip-sort-toggle" id="tableImageSidesToggle">
@@ -5346,18 +5344,28 @@
                 </div>
               </div>
 
-              <!-- ── Add Pattern Image Rule ── -->
+              <!-- ── Pattern Image Rules ── -->
               <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Add Pattern Image Rule</div>
+                <div class="settings-fieldset-title">Pattern Image Rules</div>
                 <p class="settings-subtext">
                   Create rules that automatically assign images to items matching a name pattern.
                   Per-item uploads always take priority over pattern images on a per-side basis.
                 </p>
-                <div class="pattern-rule-form" id="patternRuleForm">
-                  <div class="pattern-rule-form-row">
-                    <div class="pattern-rule-field">
-                      <label for="patternRulePattern">
-                        Name Pattern
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem">
+                  <button
+                    type="button"
+                    class="btn img-btn img-btn-upload"
+                    id="newPatternRuleBtn"
+                    style="font-size: 0.75rem; padding: 0.3rem 0.8rem"
+                  >
+                    + New Rule
+                  </button>
+                </div>
+                <div class="pattern-rule-form" id="patternRuleFormContainer" style="display: none">
+                  <div class="cloud-provider-card" style="margin-top: 0.75rem; padding: 1rem">
+                    <div class="pattern-rule-form-row">
+                      <div class="pattern-rule-field">
+                        <label for="patternRulePattern">Name Pattern</label>
                         <div
                           class="chip-sort-toggle pattern-mode-toggle"
                           id="patternModeToggle"
@@ -5380,99 +5388,131 @@
                             Regex
                           </button>
                         </div>
-                      </label>
-                      <input
-                        type="text"
-                        id="patternRulePattern"
-                        class="form-control"
-                        placeholder="e.g. morgan, peace, walking liberty"
-                      />
-                      <small id="patternRuleTip" class="pattern-rule-tip"
-                        >Separate keywords with commas or semicolons. Matches item names containing
-                        any keyword.</small
+                        <input
+                          type="text"
+                          id="patternRulePattern"
+                          class="form-control"
+                          placeholder="e.g. morgan, peace, walking liberty"
+                        />
+                        <small id="patternRuleTip" class="pattern-rule-tip"
+                          >Separate keywords with commas or semicolons. Matches item names
+                          containing any keyword.</small
+                        >
+                      </div>
+                    </div>
+                    <div class="image-upload-sides" style="margin-top: 0.5rem">
+                      <!-- Obverse -->
+                      <div class="image-upload-side">
+                        <span class="image-side-label">Obverse</span>
+                        <div class="image-card">
+                          <div class="image-upload-preview" style="display: none">
+                            <img id="patternRuleObversePreview" alt="Obverse preview" />
+                          </div>
+                          <div class="image-card-actions">
+                            <input
+                              type="file"
+                              id="patternRuleObverse"
+                              accept="image/*"
+                              style="display: none"
+                            />
+                            <button
+                              type="button"
+                              class="btn img-btn img-btn-upload"
+                              id="patternRuleObverseUploadBtn"
+                            >
+                              Upload
+                            </button>
+                            <button
+                              type="button"
+                              class="btn img-btn img-btn-camera"
+                              id="patternRuleObverseCamera"
+                              style="display: none"
+                              title="Take photo"
+                              aria-label="Take photo with camera"
+                            >
+                              Camera
+                            </button>
+                            <input
+                              type="file"
+                              id="patternRuleObverseCapture"
+                              accept="image/*"
+                              capture="environment"
+                              style="display: none"
+                              aria-hidden="true"
+                            />
+                          </div>
+                        </div>
+                        <span id="patternRuleObverseName" class="image-upload-filename"></span>
+                      </div>
+                      <!-- Swap -->
+                      <div
+                        class="image-swap-wrapper"
+                        style="display: flex; align-items: center; padding-top: 1.2rem"
                       >
-                    </div>
-                  </div>
-                  <div class="pattern-rule-form-row">
-                    <div class="pattern-rule-field">
-                      <label for="patternRuleObverse">Obverse Image</label>
-                      <div class="image-input-row">
-                        <input type="file" id="patternRuleObverse" accept="image/*" />
                         <button
                           type="button"
-                          class="btn btn-icon camera-capture-btn"
-                          id="patternRuleObverseCamera"
-                          title="Take photo"
-                          aria-label="Take photo with camera"
+                          class="btn btn-icon"
+                          id="patternRuleSwapBtn"
+                          title="Swap obverse &amp; reverse"
+                          aria-label="Swap obverse and reverse images"
+                          style="font-size: 1.1rem; padding: 0.2rem 0.4rem; line-height: 1"
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <path
-                              d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-                            />
-                            <circle cx="12" cy="13" r="4" />
-                          </svg>
+                          ⇄
                         </button>
-                        <input
-                          type="file"
-                          id="patternRuleObverseCapture"
-                          accept="image/*"
-                          capture="environment"
-                          style="display: none"
-                          aria-hidden="true"
-                        />
+                      </div>
+                      <!-- Reverse -->
+                      <div class="image-upload-side">
+                        <span class="image-side-label">Reverse</span>
+                        <div class="image-card">
+                          <div class="image-upload-preview" style="display: none">
+                            <img id="patternRuleReversePreview" alt="Reverse preview" />
+                          </div>
+                          <div class="image-card-actions">
+                            <input
+                              type="file"
+                              id="patternRuleReverse"
+                              accept="image/*"
+                              style="display: none"
+                            />
+                            <button
+                              type="button"
+                              class="btn img-btn img-btn-upload"
+                              id="patternRuleReverseUploadBtn"
+                            >
+                              Upload
+                            </button>
+                            <button
+                              type="button"
+                              class="btn img-btn img-btn-camera"
+                              id="patternRuleReverseCamera"
+                              style="display: none"
+                              title="Take photo"
+                              aria-label="Take photo with camera"
+                            >
+                              Camera
+                            </button>
+                            <input
+                              type="file"
+                              id="patternRuleReverseCapture"
+                              accept="image/*"
+                              capture="environment"
+                              style="display: none"
+                              aria-hidden="true"
+                            />
+                          </div>
+                        </div>
+                        <span id="patternRuleReverseName" class="image-upload-filename"></span>
                       </div>
                     </div>
-                    <div class="pattern-rule-field">
-                      <label for="patternRuleReverse">Reverse Image</label>
-                      <div class="image-input-row">
-                        <input type="file" id="patternRuleReverse" accept="image/*" />
-                        <button
-                          type="button"
-                          class="btn btn-icon camera-capture-btn"
-                          id="patternRuleReverseCamera"
-                          title="Take photo"
-                          aria-label="Take photo with camera"
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <path
-                              d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-                            />
-                            <circle cx="12" cy="13" r="4" />
-                          </svg>
-                        </button>
-                        <input
-                          type="file"
-                          id="patternRuleReverseCapture"
-                          accept="image/*"
-                          capture="environment"
-                          style="display: none"
-                          aria-hidden="true"
-                        />
-                      </div>
-                    </div>
-                    <div
-                      class="pattern-rule-field pattern-rule-field-narrow"
-                      style="align-self: flex-end"
-                    >
-                      <button class="btn" id="addPatternRuleBtn" type="button">Add Rule</button>
+                    <!-- Add Rule button -->
+                    <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem">
+                      <button
+                        class="btn img-btn img-btn-upload"
+                        id="addPatternRuleBtn"
+                        type="button"
+                      >
+                        Add Rule
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -5488,21 +5528,6 @@
               <div class="settings-fieldset">
                 <div class="settings-fieldset-title">Per-Item User Images</div>
                 <div id="userImageGrid"></div>
-              </div>
-
-              <!-- ── Storage (bottom) ── -->
-              <div class="settings-fieldset">
-                <div class="settings-fieldset-title">Storage</div>
-                <div id="imageStorageStats" class="image-storage-stats">
-                  <div class="storage-gauge-row">
-                    <span class="storage-gauge-label">📷 Your Photos</span>
-                    <div class="storage-gauge-bar-wrap">
-                      <div id="gaugeUserBar" class="storage-gauge-bar"></div>
-                    </div>
-                    <span id="gaugeUserSize" class="storage-gauge-size">—</span>
-                  </div>
-                  <div id="gaugePersistLine" class="storage-gauge-persist">—</div>
-                </div>
               </div>
             </div>
 

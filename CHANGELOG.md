@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.21] - 2026-04-22
+
+### Changed — STAK-439: Images tab redesign
+
+- **Removed**: Storage fieldset from Images settings tab — redundant with Storage tab (STAK-439)
+- **Added**: Collapse/expand trigger for Add Pattern Rule form — "+ New Rule" pill button toggles form visibility (STAK-439)
+- **Added**: Styled upload buttons with image preview in dashed-border cards, replacing native file inputs (STAK-439)
+- **Added**: Swap button to exchange obverse/reverse images in both Add and Edit forms (STAK-439)
+- **Changed**: Image Display section uses flat 2-column grid layout without nested card borders (STAK-439)
+- **Changed**: Edit form for custom pattern rules restyled to match Add form — cloud-provider-card, Keywords/Regex toggle, upload sides (STAK-439)
+- **Changed**: Edit/Delete buttons in Custom Pattern Rules and Per-Item User Images use solid pill styling for proper dark mode contrast (STAK-439)
+- **Added**: 11 Playwright E2E tests covering all Images tab redesign acceptance criteria (STAK-439)
+
+---
+
 ## [3.34.20] - 2026-04-21
 
 ### Fixed — STAK-569: Numista search metal prepend removed
