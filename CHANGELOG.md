@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.24] - 2026-04-23
+
+### Changed — STAK-443: Settings Redesign — API tab sectioned card layout
+
+- **Changed**: Replaced monolithic provider-tab panel with three `.settings-fieldset` cards — Market Prices, Spot Price, Catalog (STAK-443)
+- **Changed**: Spot Price card uses single-select pill radio (`.gb-source-group`) with six options — StakTrakr, Metals.dev, Metals-API, MetalPriceAPI, Custom, Manual — replacing the fallback-chain priority system (STAK-443)
+- **Added**: Manual spot-price mode — full offline replacement that disables all feed fetches and accepts direct Au/Ag/Pt/Pd inputs (STAK-443)
+- **Added**: `spotPricingSource` localStorage key + idempotent migration from legacy `providerPriority` / `apiProviderOrder` (STAK-443)
+- **Changed**: Numista + PCGS catalog UI reduced to two `.catalog-row` cards; bulk sync, field toggles, tag blacklist, and activity log moved to a dedicated Bulk Sync modal with 4 tabs (STAK-443)
+- **Added**: Violet `.btn-history` button variant so History actions separate visually from Save/Test on `--bg-tertiary` cards (STAK-443)
+
+---
+
 ## [3.34.23] - 2026-04-22
 
 ### Changed — STAK-446: Activity Log tab redesign and undo audit

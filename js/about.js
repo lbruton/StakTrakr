@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.24 &ndash; STAK-443: Settings &gt; API tab redesign</strong>: Monolithic provider-tab panel replaced with three clean sectioned cards &mdash; Market Prices, Spot Price, Catalog. Spot Price uses a single-select pill radio (StakTrakr / Metals.dev / Metals-API / MetalPriceAPI / Custom / Manual); Manual mode is a full-offline replacement that disables all feeds. Numista + PCGS catalog controls moved to a focused Bulk Sync modal with 4 tabs.</li>
     <li><strong>v3.34.23 &ndash; STAK-446: Activity Log tab redesign</strong>: Activity Log sub-tabs renamed (Metals &rarr; Spot Price, Price History &rarr; Item History) and reordered by usage priority. Undo/redo now works for added items in the changelog.</li>
     <li><strong>v3.34.22 &ndash; STAK-570: Currency tab Goldback pricing redesign</strong>: Goldback pricing moved into Settings &gt; Currency with a single Off / API / Spot / Manual source selector, contextual inputs, a read-only denomination table, and the old Goldback settings tab removed.</li>
     <li><strong>v3.34.21 &ndash; STAK-439: Images tab redesign</strong>: Settings &gt; Images tab fully redesigned &mdash; Storage fieldset removed, Add Rule form collapses behind a &ldquo;+ New Rule&rdquo; pill button, styled upload buttons with image preview replace native file inputs, Edit form restyled to match Add form, flat Image Display grid, and solid pill buttons for proper dark mode contrast.</li>
