@@ -165,6 +165,194 @@ const switchSettingsSection = (name) => {
   }
 };
 
+// STAK-443 — API tab sectioned redesign
+// =============================================================================
+
+/**
+ * Builds a `.status-dot` element reflecting the StakTrakr Market API health.
+ * Reads `window._lastApiHealth` (set by api-health.js) when available; falls
+ * back to a neutral "unknown" dot when data has not loaded yet.
+ * @param {object|null} health - Snapshot from api-health.js, or null
+ * @returns {HTMLElement}
+ */
+const _buildMarketStatusDot = (health) => {
+  const dot = document.createElement("span");
+  dot.classList.add("status-dot");
+  const marketOk = !!(
+    health &&
+    health.primary &&
+    health.primary.market &&
+    health.primary.market.ok
+  );
+  dot.classList.add(marketOk ? "dot-ok" : "dot-off");
+  return dot;
+};
+
+/**
+ * Returns a human-readable "last pull" label for the market feed.
+ * Prefers the cached api-health snapshot; falls back to a neutral placeholder.
+ * Always references "last" so consumers can surface time-based framing even
+ * before the async health fetch completes.
+ * @param {object|null} health
+ * @returns {string}
+ */
+const _marketStatusLabel = (health) => {
+  const market = health && health.primary && health.primary.market;
+  if (!market) return "Last pull pending…";
+  if (market.error) return "Unreachable — last fetch failed";
+  if (market.ago) return market.ok ? `Connected · ${market.ago}` : `Stale · ${market.ago}`;
+  return market.ok ? "Connected · last pull recent" : "Last pull unknown";
+};
+
+/**
+ * Builds the inline market-beacon SVG icon via createElementNS (no innerHTML).
+ * Static markup mirrors artifacts/playground.html Market section.
+ * @returns {SVGSVGElement}
+ */
+const _buildMarketBeaconSvg = () => {
+  const svgNs = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNs, "svg");
+  svg.setAttribute("width", "28");
+  svg.setAttribute("height", "28");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const pathAxes = document.createElementNS(svgNs, "path");
+  pathAxes.setAttribute("d", "M3 3v18h18");
+  svg.appendChild(pathAxes);
+  const pathLine = document.createElementNS(svgNs, "path");
+  pathLine.setAttribute("d", "M7 14l4-4 4 4 6-6");
+  svg.appendChild(pathLine);
+  return svg;
+};
+
+/**
+ * Renders the Market Prices fieldset (StakTrakr Market API beacon).
+ * Produces a header row (title + inline status) and beacon card (icon + body
+ * + attribution). No on/off toggle, no cascade controls. Status is sourced
+ * from `window._lastApiHealth` when available.
+ * @returns {DocumentFragment}
+ */
+const renderMarketBeacon = () => {
+  const frag = document.createDocumentFragment();
+  const health = typeof window !== "undefined" ? window._lastApiHealth || null : null;
+
+  // Header row: title + inline status
+  const headerRow = document.createElement("div");
+  headerRow.className = "fieldset-header-row";
+
+  const title = document.createElement("div");
+  title.className = "settings-fieldset-title";
+  title.textContent = "Market Prices";
+  headerRow.appendChild(title);
+
+  const statusInline = document.createElement("div");
+  statusInline.className = "fieldset-status-inline";
+  statusInline.appendChild(_buildMarketStatusDot(health));
+  const statusText = document.createElement("span");
+  statusText.className = "beacon-meta";
+  statusText.textContent = _marketStatusLabel(health);
+  statusInline.appendChild(statusText);
+  headerRow.appendChild(statusInline);
+
+  frag.appendChild(headerRow);
+
+  // Beacon card
+  const beacon = document.createElement("div");
+  beacon.className = "market-beacon";
+
+  const beaconIcon = document.createElement("div");
+  beaconIcon.className = "market-beacon-icon";
+  beaconIcon.appendChild(_buildMarketBeaconSvg());
+  beacon.appendChild(beaconIcon);
+
+  const beaconBody = document.createElement("div");
+  beaconBody.className = "market-beacon-body";
+
+  const beaconStrong = document.createElement("strong");
+  beaconStrong.textContent = "StakTrakr Market API";
+  beaconBody.appendChild(beaconStrong);
+
+  const beaconDesc = document.createElement("p");
+  beaconDesc.textContent = "Powers the main-page ticker, market cards, and Market tab.";
+  beaconBody.appendChild(beaconDesc);
+
+  const attribution = document.createElement("span");
+  attribution.className = "provider-attribution";
+  attribution.textContent = "Provided by api.staktrakr.com";
+  beaconBody.appendChild(attribution);
+
+  beacon.appendChild(beaconBody);
+  frag.appendChild(beacon);
+
+  return frag;
+};
+
+/**
+ * STUB — Tasks 7-8 replace with the full Spot Price section.
+ * Emits a title-only fragment so the composer preserves the visible ordering
+ * (Market → Spot → Catalog) before subsequent tasks fill in the body.
+ * @returns {DocumentFragment}
+ */
+const renderSpotSection = () => {
+  const frag = document.createDocumentFragment();
+  const title = document.createElement("div");
+  title.className = "settings-fieldset-title";
+  title.textContent = "Spot Price";
+  frag.appendChild(title);
+  return frag;
+};
+
+/**
+ * STUB — Task 9 replaces with the Numista + PCGS catalog rows.
+ * Emits a title-only fragment so the composer preserves the visible ordering
+ * (Market → Spot → Catalog) before subsequent tasks fill in the body.
+ * @returns {DocumentFragment}
+ */
+const renderCatalogCards = () => {
+  const frag = document.createDocumentFragment();
+  const title = document.createElement("div");
+  title.className = "settings-fieldset-title";
+  title.textContent = "Catalog";
+  frag.appendChild(title);
+  return frag;
+};
+
+/**
+ * Composes the API settings panel by populating the three fieldset skeletons
+ * (`#apiSection_market`, `#apiSection_spot`, `#apiSection_catalog`) added by
+ * Task 4. Called from `switchSettingsSection('api')`.
+ */
+const populateApiSection = () => {
+  const marketHost = safeGetElement("apiSection_market");
+  const spotHost = safeGetElement("apiSection_spot");
+  const catHost = safeGetElement("apiSection_catalog");
+
+  if (marketHost && typeof marketHost.replaceChildren === "function") {
+    marketHost.replaceChildren();
+    marketHost.appendChild(renderMarketBeacon());
+  }
+  if (spotHost && typeof spotHost.replaceChildren === "function") {
+    spotHost.replaceChildren();
+    spotHost.appendChild(renderSpotSection());
+  }
+  if (catHost && typeof catHost.replaceChildren === "function") {
+    catHost.replaceChildren();
+    catHost.appendChild(renderCatalogCards());
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.populateApiSection = populateApiSection;
+  window.renderMarketBeacon = renderMarketBeacon;
+  window.renderSpotSection = renderSpotSection;
+  window.renderCatalogCards = renderCatalogCards;
+}
+
 /**
  * Switches the visible provider tab in the API section.
  * @param {string} key - Provider key: 'NUMISTA', 'METALS_DEV', 'METALS_API', 'METAL_PRICE_API', 'CUSTOM'
