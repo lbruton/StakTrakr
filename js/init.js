@@ -58,6 +58,68 @@ if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
 }
 
 /**
+ * One-time boot migration: derive `spotPricingSource` from legacy keys (STAK-443, REQ-9)
+ *
+ * Idempotent — early-returns if `spotPricingSource` is already a non-null string.
+ * Otherwise walks the legacy fallback chain:
+ *   1. `providerPriority` object → key whose value equals 1
+ *   2. `apiProviderOrder` array → index 0
+ *   3. `metalApiConfig.provider`
+ *   4. default `"STAKTRAKR"`
+ * Validates the candidate against `API_PROVIDERS` keys (plus `"MANUAL"`); coerces
+ * to `"STAKTRAKR"` if invalid. Legacy keys remain untouched for one release cycle.
+ *
+ * @returns {Promise<void>}
+ */
+async function migrateSpotPricingSource() {
+  try {
+    const existing = await loadData("spotPricingSource", null);
+    if (typeof existing === "string" && existing.length > 0) return;
+
+    let candidate = null;
+
+    // Step 2: providerPriority (object) — pick key whose value equals 1
+    const priority = await loadData("providerPriority", null);
+    if (priority && typeof priority === "object" && !Array.isArray(priority)) {
+      for (const [prov, rank] of Object.entries(priority)) {
+        if (rank === 1) {
+          candidate = prov;
+          break;
+        }
+      }
+    }
+
+    // Step 3: apiProviderOrder (array) — index 0
+    if (!candidate) {
+      const order = await loadData("apiProviderOrder", null);
+      if (Array.isArray(order) && order.length > 0 && typeof order[0] === "string") {
+        candidate = order[0];
+      }
+    }
+
+    // Step 4: metalApiConfig.provider
+    if (!candidate) {
+      const cfg = await loadData("metalApiConfig", null);
+      if (cfg && typeof cfg === "object" && typeof cfg.provider === "string" && cfg.provider) {
+        candidate = cfg.provider;
+      }
+    }
+
+    // Step 5: default
+    if (!candidate) candidate = "STAKTRAKR";
+
+    // Step 6: validate against API_PROVIDERS keys + "MANUAL"
+    const allowed = new Set([...Object.keys(API_PROVIDERS), "MANUAL"]);
+    if (!allowed.has(candidate)) candidate = "STAKTRAKR";
+
+    // Step 7: persist
+    await saveData("spotPricingSource", candidate);
+  } catch (err) {
+    console.warn("migrateSpotPricingSource failed:", err);
+  }
+}
+
+/**
  * Main application initialization function
  *
  * This function coordinates the complete application startup process with proper
@@ -495,6 +557,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof loadSeedSpotHistory === "function") {
       await loadSeedSpotHistory();
     }
+
+    // Derive spotPricingSource from legacy keys on first load after upgrade (STAK-443, REQ-9)
+    await migrateSpotPricingSource();
 
     // Initialize API system
     apiConfig = loadApiConfig();
