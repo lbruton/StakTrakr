@@ -917,6 +917,7 @@ const ALLOWED_STORAGE_KEYS = [
   "apiProviderOrder",
   "providerPriority",
   "spotPricingSource", // STAK-443: single-select spot source replacing fallback chain
+  "metalSpotPrices", // STAK-443: unified manual-mode spot prices {gold, silver, platinum, palladium}
   "filterChipCategoryConfig",
   "chipSortOrder",
   "disposedFilterMode", // string: "hide"|"show"|"only" — disposed items filter preference (STAK-388)

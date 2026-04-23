@@ -28,13 +28,6 @@ const bindSettingsNavigationListeners = () => {
     });
   });
 
-  // Provider tabs.
-  document.querySelectorAll(".settings-provider-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      switchProviderTab(tab.dataset.provider);
-    });
-  });
-
   // Log sub-tabs.
   document.querySelectorAll("[data-log-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -303,9 +296,12 @@ const bindFilterAndNumistaListeners = () => {
 };
 
 /**
- * Binds listeners for Numista bulk sync operations.
+ * Binds listeners for bulk sync modal control buttons (start / cancel / clear).
+ * Renamed from bindNumistaBulkSyncListeners as part of STAK-443 — the button
+ * IDs now live inside the #bulkSyncModal body but the binding logic is
+ * unchanged.
  */
-const bindNumistaBulkSyncListeners = () => {
+const bindBulkSyncModalListeners = () => {
   const nsStartBtn = getExistingElement("numistaSyncStartBtn");
   if (nsStartBtn) {
     nsStartBtn.addEventListener("click", () => {
@@ -1510,6 +1506,264 @@ const bindMarketFilterListeners = () => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// STAK-443 — Spot/Catalog/Bulk Sync event wiring (Task 11)
+// ---------------------------------------------------------------------------
+
+/**
+ * Delegated click handler on `#apiSection_spot` for `.gb-source-btn[data-val]`
+ * pill clicks. Each pill click swaps the active spot provider via
+ * `window.switchSpotProvider`, which persists the selection and updates UI.
+ * Uses event delegation so re-renders don't break the binding. REQ-3.
+ */
+const wireSpotPillRadio = () => {
+  const host = safeGetElement("apiSection_spot");
+  if (!host || host.__stakSpotPillBound) return;
+  host.__stakSpotPillBound = true;
+  host.addEventListener("click", (e) => {
+    const pill = e.target.closest(".gb-source-btn[data-val]");
+    if (!pill || !host.contains(pill)) return;
+    const value = pill.dataset.val;
+    if (typeof window.switchSpotProvider === "function") {
+      window.switchSpotProvider(value);
+    }
+  });
+};
+
+/**
+ * Delegated click handler on `#apiSection_spot` for action buttons inside
+ * `.spot-accordion-panel` elements. Dispatches by button class:
+ *   - `.js-toggle-password` flips the sibling input between password/text.
+ *   - `.js-save` persists the API key from the panel's input (or the 4
+ *     numeric inputs for the Manual panel).
+ *   - `.js-save-test` saves then calls `window.syncSpotProvider()`.
+ *   - `.js-history` opens `window.showApiHistoryModal()` when available.
+ *   - `.js-clear-key` clears the stored API key for the panel's provider.
+ *   - `.js-pull-history` triggers history fetch (delegates to syncSpotProvider).
+ *   - `.js-reset` (Manual panel) clears the 4 numeric inputs + per-metal keys.
+ * Never logs the key value itself. REQ-4.6, REQ-5.
+ */
+const wireSpotProviderActions = () => {
+  const host = safeGetElement("apiSection_spot");
+  if (!host || host.__stakSpotActionsBound) return;
+  host.__stakSpotActionsBound = true;
+
+  host.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const panel = btn.closest(".spot-accordion-panel");
+    if (!panel) return;
+    const provider = panel.dataset.val;
+
+    if (btn.classList.contains("js-toggle-password")) {
+      const input = panel.querySelector(".js-api-key-input");
+      if (!input) return;
+      const isHidden = input.type === "password";
+      input.type = isHidden ? "text" : "password";
+      const showing = input.type === "text";
+      btn.setAttribute("aria-label", showing ? "Hide API key" : "Show API key");
+      btn.textContent = showing ? "Hide" : "Show";
+      return;
+    }
+
+    if (btn.classList.contains("js-save") || btn.classList.contains("js-save-test")) {
+      if (provider === "MANUAL") {
+        const inputs = panel.querySelectorAll("input.js-manual-spot[data-metal]");
+        const prices = {};
+        inputs.forEach((input) => {
+          const val = parseFloat(input.value);
+          const metal = input.dataset.metal;
+          if (!metal) return;
+          if (Number.isFinite(val)) {
+            prices[metal] = val;
+          }
+        });
+        saveDataSync("metalSpotPrices", prices);
+        // Mirror to per-metal keys consumed by spot.js readers.
+        const perMetalMap = {
+          gold: "spotGold",
+          silver: "spotSilver",
+          platinum: "spotPlatinum",
+          palladium: "spotPalladium",
+        };
+        Object.entries(perMetalMap).forEach(([metal, key]) => {
+          if (Object.prototype.hasOwnProperty.call(prices, metal)) {
+            try {
+              localStorage.setItem(key, String(prices[metal]));
+            } catch (_err) {
+              /* quota errors surfaced elsewhere */
+            }
+          }
+        });
+      } else {
+        const keyInput = panel.querySelector(".js-api-key-input");
+        if (
+          keyInput &&
+          typeof loadApiConfig === "function" &&
+          typeof saveApiConfig === "function"
+        ) {
+          try {
+            const cfg = loadApiConfig();
+            cfg.keys = cfg.keys || {};
+            cfg.keys[provider] = keyInput.value || "";
+            saveApiConfig(cfg);
+          } catch (_err) {
+            debugLog("Failed to save spot provider key (value redacted)");
+          }
+        }
+      }
+      if (btn.classList.contains("js-save-test")) {
+        if (typeof window.syncSpotProvider === "function") {
+          try {
+            window.syncSpotProvider({ showProgress: true, forceSync: true });
+          } catch (_err) {
+            debugLog("syncSpotProvider threw (value redacted)");
+          }
+        }
+      }
+      return;
+    }
+
+    if (btn.classList.contains("js-history") || btn.classList.contains("js-pull-history")) {
+      if (typeof window.showApiHistoryModal === "function") {
+        try {
+          window.showApiHistoryModal(provider);
+        } catch (_err) {
+          debugLog("showApiHistoryModal threw (value redacted)");
+        }
+      }
+      return;
+    }
+
+    if (btn.classList.contains("js-clear-key")) {
+      if (typeof loadApiConfig === "function" && typeof saveApiConfig === "function") {
+        try {
+          const cfg = loadApiConfig();
+          cfg.keys = cfg.keys || {};
+          cfg.keys[provider] = "";
+          saveApiConfig(cfg);
+        } catch (_err) {
+          debugLog("Failed to clear spot provider key (value redacted)");
+        }
+      }
+      const keyInput = panel.querySelector(".js-api-key-input");
+      if (keyInput) keyInput.value = "";
+      return;
+    }
+
+    if (btn.classList.contains("js-reset") && provider === "MANUAL") {
+      panel.querySelectorAll("input.js-manual-spot").forEach((input) => {
+        input.value = "";
+      });
+      saveDataSync("metalSpotPrices", {});
+      ["spotGold", "spotSilver", "spotPlatinum", "spotPalladium"].forEach((key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (_err) {
+          /* ignore */
+        }
+      });
+      return;
+    }
+  });
+};
+
+/**
+ * Delegated click handler on `#apiSection_catalog` for `.catalog-expand-btn` /
+ * `.js-catalog-configure` clicks. Toggles the sibling `.catalog-row-expand`
+ * display, flips `aria-expanded`, and toggles the row's `.open` class so the
+ * chevron rotates. REQ-6.6.
+ */
+const wireCatalogConfigureChevrons = () => {
+  const host = safeGetElement("apiSection_catalog");
+  if (!host || host.__stakCatalogChevronBound) return;
+  host.__stakCatalogChevronBound = true;
+
+  host.addEventListener("click", (e) => {
+    const btn = e.target.closest(".catalog-expand-btn, .js-catalog-configure");
+    if (!btn || !host.contains(btn)) return;
+    const row = btn.closest(".catalog-row");
+    if (!row) return;
+    const expand = row.querySelector(".catalog-row-expand");
+    if (!expand) return;
+    const isOpen = expand.style.display !== "none";
+    expand.style.display = isOpen ? "none" : "";
+    btn.setAttribute("aria-expanded", isOpen ? "false" : "true");
+    row.classList.toggle("open", !isOpen);
+  });
+};
+
+/**
+ * Wires the Bulk Sync modal lifecycle:
+ *   - Delegated click on `.js-open-bulk-sync` buttons (within the Settings
+ *     modal) opens the modal for the provider from `data-provider`.
+ *   - Document-level Escape keydown closes the modal when visible.
+ *   - Backdrop click on `#bulkSyncModal` (but not `.modal-content`) closes it.
+ *   - `.modal-close` inside the modal closes it.
+ *   - `.bulk-tab` clicks switch the active tab via `window.switchBulkSyncTab`.
+ * Document-level listeners are intentional (modal is a floating overlay) and
+ * idempotency-guarded so repeat calls do not stack listeners. REQ-7.
+ */
+const wireBulkSyncModal = () => {
+  const settingsModal = safeGetElement("settingsModal");
+  if (settingsModal && !settingsModal.__stakBulkOpenBound) {
+    settingsModal.__stakBulkOpenBound = true;
+    settingsModal.addEventListener("click", (e) => {
+      const trigger = e.target.closest(".js-open-bulk-sync");
+      if (!trigger || !settingsModal.contains(trigger)) return;
+      const provider =
+        trigger.dataset.provider ||
+        (trigger.closest("[data-provider]") || {}).dataset?.provider ||
+        "";
+      if (typeof window.openBulkSyncModal === "function" && provider) {
+        window.openBulkSyncModal(provider);
+      }
+    });
+  }
+
+  const bulkModal = safeGetElement("bulkSyncModal");
+  if (bulkModal && !bulkModal.__stakBulkModalBound) {
+    bulkModal.__stakBulkModalBound = true;
+
+    // Backdrop click (direct modal element, not its content) closes modal.
+    bulkModal.addEventListener("click", (e) => {
+      if (e.target === bulkModal && typeof window.closeBulkSyncModal === "function") {
+        window.closeBulkSyncModal();
+      }
+    });
+
+    // Delegated click inside the modal: handle close button + tab switching.
+    bulkModal.addEventListener("click", (e) => {
+      const closeBtn = e.target.closest(".modal-close");
+      if (closeBtn && bulkModal.contains(closeBtn)) {
+        if (typeof window.closeBulkSyncModal === "function") {
+          window.closeBulkSyncModal();
+        }
+        return;
+      }
+      const tab = e.target.closest(".bulk-tab");
+      if (tab && bulkModal.contains(tab) && typeof window.switchBulkSyncTab === "function") {
+        const tabId = tab.dataset.tab;
+        if (tabId) window.switchBulkSyncTab(tabId);
+      }
+    });
+  }
+
+  // Document-level Escape handler — bound once for the lifetime of the page.
+  // Safe because it short-circuits when the modal is hidden.
+  if (!document.__stakBulkEscapeBound) {
+    document.__stakBulkEscapeBound = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const modal = safeGetElement("bulkSyncModal");
+      if (!modal || modal.style.display === "none") return;
+      if (typeof window.closeBulkSyncModal === "function") {
+        window.closeBulkSyncModal();
+      }
+    });
+  }
+};
+
 /**
  * Wires up all Settings modal event listeners.
  * Called once during initialization.
@@ -1518,8 +1772,12 @@ const setupSettingsEventListeners = () => {
   bindSettingsNavigationListeners();
   bindAppearanceAndHeaderListeners();
   bindFilterAndNumistaListeners();
-  bindNumistaBulkSyncListeners();
+  bindBulkSyncModalListeners();
   bindSettingsModalShellListeners();
+  wireSpotPillRadio();
+  wireSpotProviderActions();
+  wireCatalogConfigureChevrons();
+  wireBulkSyncModal();
   bindGoldbackPricingSourceListener();
   bindImageSettingsListeners();
   bindCloudStorageListeners();
