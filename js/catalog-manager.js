@@ -385,6 +385,8 @@ const NUMISTA_FIELD_TOGGLES = [
   ["denomination", "Denomination"],
   ["shape", "Shape"],
   ["diameter", "Diameter"],
+  ["length", "Length"],
+  ["width", "Width"],
   ["thickness", "Thickness"],
   ["orientation", "Orientation"],
   ["composition", "Composition"],
@@ -531,14 +533,14 @@ const openBulkSyncModal = (provider) => {
       try {
         window.renderNumistaSyncUI();
       } catch (e) {
-        debugLog("renderNumistaSyncUI failed", e);
+        console.error("renderNumistaSyncUI failed", e);
       }
     }
     if (typeof window.renderNumistaTagSettings === "function") {
       try {
         window.renderNumistaTagSettings();
       } catch (e) {
-        debugLog("renderNumistaTagSettings failed", e);
+        console.error("renderNumistaTagSettings failed", e);
       }
     }
     _populateBulkSyncFieldsPanel(fieldsPanel);
@@ -564,7 +566,7 @@ const openBulkSyncModal = (provider) => {
     try {
       window.trapFocus(modal);
     } catch (e) {
-      debugLog("trapFocus failed", e);
+      console.error("trapFocus failed", e);
     }
   }
 
@@ -581,7 +583,7 @@ const closeBulkSyncModal = () => {
     try {
       window.releaseFocus(modal);
     } catch (e) {
-      debugLog("releaseFocus failed", e);
+      console.error("releaseFocus failed", e);
     }
   }
   modal.style.display = "none";

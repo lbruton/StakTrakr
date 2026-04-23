@@ -881,9 +881,13 @@ const renderSpotPanelCustom = () => {
   fmtField.appendChild(fmtLabel);
   const fmtSelect = document.createElement("select");
   fmtSelect.className = "js-custom-format";
-  ["Symbol (XAU)", "Word (gold)"].forEach((opt) => {
+  [
+    ["symbol", "Symbol (XAU)"],
+    ["word", "Word (gold)"],
+  ].forEach(([val, label]) => {
     const o = document.createElement("option");
-    o.textContent = opt;
+    o.value = val;
+    o.textContent = label;
     fmtSelect.appendChild(o);
   });
   fmtField.appendChild(fmtSelect);

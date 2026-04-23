@@ -73,8 +73,9 @@ if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
  */
 async function migrateSpotPricingSource() {
   try {
-    const existing = await loadData("spotPricingSource", null);
-    if (typeof existing === "string" && existing.length > 0) return;
+    const existing = await loadData(SPOT_PRICING_SOURCE_KEY, null);
+    const allowed = new Set([...Object.keys(API_PROVIDERS), "MANUAL"]);
+    if (typeof existing === "string" && existing.length > 0 && allowed.has(existing)) return;
 
     let candidate = null;
 
@@ -109,11 +110,10 @@ async function migrateSpotPricingSource() {
     if (!candidate) candidate = "STAKTRAKR";
 
     // Step 6: validate against API_PROVIDERS keys + "MANUAL"
-    const allowed = new Set([...Object.keys(API_PROVIDERS), "MANUAL"]);
     if (!allowed.has(candidate)) candidate = "STAKTRAKR";
 
     // Step 7: persist
-    await saveData("spotPricingSource", candidate);
+    await saveData(SPOT_PRICING_SOURCE_KEY, candidate);
   } catch (err) {
     console.warn("migrateSpotPricingSource failed:", err);
   }

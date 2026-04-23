@@ -1571,12 +1571,10 @@ const wireSpotProviderActions = () => {
         const inputs = panel.querySelectorAll("input.js-manual-spot[data-metal]");
         const prices = {};
         inputs.forEach((input) => {
-          const val = parseFloat(input.value);
+          const parsed = parseFloat(input.value);
           const metal = input.dataset.metal;
           if (!metal) return;
-          if (Number.isFinite(val)) {
-            prices[metal] = val;
-          }
+          prices[metal] = Number.isFinite(parsed) ? parsed : 0;
         });
         saveDataSync("metalSpotPrices", prices);
         // Mirror to per-metal keys consumed by spot.js readers.
@@ -1613,7 +1611,7 @@ const wireSpotProviderActions = () => {
           try {
             const cfg = loadApiConfig();
             cfg.keys = cfg.keys || {};
-            cfg.keys[provider] = keyInput.value || "";
+            cfg.keys[provider] = (keyInput.value || "").trim();
             saveApiConfig(cfg);
           } catch (_err) {
             debugLog("Failed to save spot provider key (value redacted)");
@@ -1651,6 +1649,17 @@ const wireSpotProviderActions = () => {
           window.syncSpotProvider({ showProgress: true, forceSync: true });
         } catch (_err) {
           debugLog("syncSpotProvider (js-pull-history) threw (value redacted)");
+        }
+      }
+      return;
+    }
+
+    if (btn.classList.contains("js-flush-cache")) {
+      if (typeof window.syncSpotProvider === "function") {
+        try {
+          window.syncSpotProvider({ showProgress: true, forceSync: true });
+        } catch (_err) {
+          debugLog("syncSpotProvider (flush-cache) threw (value redacted)");
         }
       }
       return;
@@ -1711,6 +1720,78 @@ const wireCatalogConfigureChevrons = () => {
     expand.style.display = isOpen ? "none" : "";
     btn.setAttribute("aria-expanded", isOpen ? "false" : "true");
     row.classList.toggle("open", !isOpen);
+  });
+};
+
+/**
+ * Delegated click handler on `#apiSection_catalog` for Test, Catalog History,
+ * and key-save actions. Uses `window.catalogConfig` (CatalogConfig instance)
+ * for key persistence and `window.testNumistaAPI` / `window.showCatalogHistoryModal`
+ * for feature actions.
+ */
+const wireCatalogActions = () => {
+  const host = safeGetElement("apiSection_catalog");
+  if (!host || host.__stakCatalogActionsBound) return;
+  host.__stakCatalogActionsBound = true;
+
+  host.addEventListener("click", (e) => {
+    const btn = e.target.closest(
+      ".js-catalog-test, .js-catalog-history, .js-toggle-password, .js-open-bulk-sync"
+    );
+    if (!btn || !host.contains(btn)) return;
+    const row = btn.closest(".catalog-row");
+    const provider = btn.dataset.provider || (row ? row.dataset.provider : "");
+
+    if (btn.classList.contains("js-catalog-test")) {
+      if (provider === "numista" && typeof window.testNumistaAPI === "function") {
+        window.testNumistaAPI();
+      } else if (provider === "pcgs") {
+        const keyInput = row ? row.querySelector(".js-api-key-input") : null;
+        const token = keyInput ? (keyInput.value || "").trim() : "";
+        if (!token) {
+          alert("Enter a PCGS bearer token first.");
+          return;
+        }
+        if (typeof window.catalogConfig !== "undefined") {
+          window.catalogConfig.setPcgsConfig(token);
+        }
+        alert("PCGS key saved. Test endpoint not yet available.");
+      }
+      return;
+    }
+
+    if (btn.classList.contains("js-catalog-history")) {
+      if (typeof window.showCatalogHistoryModal === "function") {
+        window.showCatalogHistoryModal();
+      }
+      return;
+    }
+
+    if (btn.classList.contains("js-toggle-password")) {
+      const expand = btn.closest(".catalog-row-expand");
+      if (!expand) return;
+      const input = expand.querySelector(".js-api-key-input");
+      if (input) {
+        const isVisible = input.type === "text";
+        input.type = isVisible ? "password" : "text";
+        btn.setAttribute("aria-label", isVisible ? "Show API key" : "Hide API key");
+      }
+      return;
+    }
+  });
+
+  host.addEventListener("change", (e) => {
+    const input = e.target.closest(".js-api-key-input");
+    if (!input || !host.contains(input)) return;
+    const row = input.closest(".catalog-row");
+    const provider = row ? row.dataset.provider : "";
+    const value = (input.value || "").trim();
+
+    if (provider === "numista" && typeof window.catalogConfig !== "undefined") {
+      window.catalogConfig.setNumistaConfig(value);
+    } else if (provider === "pcgs" && typeof window.catalogConfig !== "undefined") {
+      window.catalogConfig.setPcgsConfig(value);
+    }
   });
 };
 
@@ -1798,6 +1879,7 @@ const setupSettingsEventListeners = () => {
   wireSpotPillRadio();
   wireSpotProviderActions();
   wireCatalogConfigureChevrons();
+  wireCatalogActions();
   wireBulkSyncModal();
   bindGoldbackPricingSourceListener();
   bindImageSettingsListeners();
