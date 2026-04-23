@@ -1751,6 +1751,12 @@ const wireCatalogActions = () => {
       const value = (input.value || "").trim();
       if (provider === "numista" && typeof window.catalogConfig !== "undefined") {
         window.catalogConfig.setNumistaConfig(value);
+        if (
+          typeof window.catalogAPI !== "undefined" &&
+          typeof window.catalogAPI.initializeProviders === "function"
+        ) {
+          window.catalogAPI.initializeProviders();
+        }
       } else if (provider === "pcgs" && typeof window.catalogConfig !== "undefined") {
         window.catalogConfig.setPcgsConfig(value);
       }
@@ -1761,6 +1767,20 @@ const wireCatalogActions = () => {
         input.value = "••••••••";
         input.dataset.masked = "true";
         input.type = "password";
+      }
+      if (provider === "numista" && typeof window.renderNumistaUsageBar === "function") {
+        const usageContainer = row ? row.querySelector("#numistaUsageBar") : null;
+        if (!usageContainer) {
+          const expand = row ? row.querySelector(".catalog-row-expand") : null;
+          if (expand) {
+            const existing = expand.querySelector(".api-usage-label");
+            if (existing) existing.remove();
+            const bar = document.createElement("div");
+            bar.id = "numistaUsageBar";
+            expand.insertBefore(bar, expand.querySelector(".expand-actions"));
+          }
+        }
+        setTimeout(() => window.renderNumistaUsageBar(), 0);
       }
       return;
     }
@@ -1776,11 +1796,21 @@ const wireCatalogActions = () => {
         }
         if (value && !hasStoredKey && typeof window.catalogConfig !== "undefined") {
           window.catalogConfig.setNumistaConfig(value);
+          if (
+            typeof window.catalogAPI !== "undefined" &&
+            typeof window.catalogAPI.initializeProviders === "function"
+          ) {
+            window.catalogAPI.initializeProviders();
+          }
         }
         if (typeof window.testNumistaAPI === "function") {
           try {
-            await window.testNumistaAPI();
-            showAppAlert("Numista API test successful.", "success");
+            const result = await window.testNumistaAPI();
+            if (result) {
+              showAppAlert("Numista API test successful.", "success");
+            } else {
+              showAppAlert("Numista API test failed — check your key.", "error");
+            }
           } catch (err) {
             showAppAlert("Numista API test failed.", "error");
           }
