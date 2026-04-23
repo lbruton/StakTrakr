@@ -402,7 +402,20 @@ const _buildApiKeyField = (opts) => {
   input.className = "js-api-key-input";
   inputWrap.appendChild(input);
 
-  if (typeof loadApiConfig === "function") {
+  if (
+    (provider === "numista" || provider === "pcgs") &&
+    typeof window.catalogConfig !== "undefined" &&
+    window.catalogConfig
+  ) {
+    const cc = window.catalogConfig;
+    if (provider === "numista" && cc.isNumistaEnabled()) {
+      input.value = "••••••••";
+      input.dataset.masked = "true";
+    } else if (provider === "pcgs" && cc.isPcgsEnabled()) {
+      input.value = "••••••••";
+      input.dataset.masked = "true";
+    }
+  } else if (typeof loadApiConfig === "function") {
     try {
       const cfg = loadApiConfig();
       if (cfg && cfg.keys && cfg.keys[provider]) {
@@ -1231,6 +1244,13 @@ const _buildCatalogRow = (opts) => {
   const actions = document.createElement("div");
   actions.className = "catalog-row-actions";
 
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "btn api-action-btn js-catalog-save";
+  saveBtn.dataset.provider = provider;
+  saveBtn.textContent = "Save";
+  actions.appendChild(saveBtn);
+
   const testBtn = document.createElement("button");
   testBtn.type = "button";
   testBtn.className = "btn api-action-btn js-catalog-test";
@@ -1240,7 +1260,7 @@ const _buildCatalogRow = (opts) => {
 
   const historyBtn = document.createElement("button");
   historyBtn.type = "button";
-  historyBtn.className = "btn api-action-btn js-catalog-history";
+  historyBtn.className = "btn api-action-btn btn-history js-catalog-history";
   historyBtn.dataset.provider = provider;
   historyBtn.textContent = "Catalog History";
   actions.appendChild(historyBtn);
@@ -1272,17 +1292,32 @@ const _buildCatalogRow = (opts) => {
   );
 
   if (showUsageBar) {
-    const usage = document.createElement("div");
-    usage.className = "usage-bar";
-    const fill = document.createElement("div");
-    fill.className = "usage-bar-fill";
-    fill.style.width = "0%";
-    usage.appendChild(fill);
-    const label = document.createElement("span");
-    label.className = "usage-bar-label empty";
-    label.textContent = "No key configured";
-    usage.appendChild(label);
-    expand.appendChild(usage);
+    const hasKey =
+      typeof window.catalogConfig !== "undefined" &&
+      window.catalogConfig &&
+      window.catalogConfig.hasNumistaKey();
+    if (hasKey) {
+      const usageHost = document.createElement("div");
+      usageHost.id = "numistaUsageBar";
+      expand.appendChild(usageHost);
+      setTimeout(function () {
+        if (typeof window.renderNumistaUsageBar === "function") {
+          window.renderNumistaUsageBar();
+        }
+      }, 0);
+    } else {
+      const usage = document.createElement("div");
+      usage.className = "usage-bar";
+      const fill = document.createElement("div");
+      fill.className = "usage-bar-fill";
+      fill.style.width = "0%";
+      usage.appendChild(fill);
+      const label = document.createElement("span");
+      label.className = "usage-bar-label empty";
+      label.textContent = "No key configured";
+      usage.appendChild(label);
+      expand.appendChild(usage);
+    }
   }
 
   const expandActions = document.createElement("div");
@@ -1291,7 +1326,7 @@ const _buildCatalogRow = (opts) => {
   openBulk.type = "button";
   openBulk.className = "btn api-action-btn js-open-bulk-sync";
   openBulk.dataset.provider = provider;
-  openBulk.textContent = "Open Bulk Sync";
+  openBulk.textContent = "Advanced Settings";
   expandActions.appendChild(openBulk);
   expand.appendChild(expandActions);
 
