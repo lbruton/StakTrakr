@@ -7439,35 +7439,90 @@
     >
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="bulkSyncModalTitle"></h2>
+          <h2 id="bulkSyncModalTitle">Bulk Sync &amp; Advanced</h2>
           <button type="button" class="modal-close" id="bulkSyncCloseBtn" aria-label="Close modal">
             ×
           </button>
         </div>
         <div class="modal-body">
           <div class="bulk-modal-tabs" role="tablist">
-            <button class="bulk-tab" data-tab="overview" role="tab" aria-selected="true">
+            <button
+              class="bulk-tab"
+              id="bulkTab-overview"
+              data-tab="overview"
+              role="tab"
+              aria-selected="true"
+              aria-controls="bulkPanel-overview"
+            >
               Overview
             </button>
-            <button class="bulk-tab" data-tab="fields" role="tab" aria-selected="false">
+            <button
+              class="bulk-tab"
+              id="bulkTab-fields"
+              data-tab="fields"
+              role="tab"
+              aria-selected="false"
+              aria-controls="bulkPanel-fields"
+            >
               Fields
             </button>
-            <button class="bulk-tab" data-tab="blacklist" role="tab" aria-selected="false">
+            <button
+              class="bulk-tab"
+              id="bulkTab-blacklist"
+              data-tab="blacklist"
+              role="tab"
+              aria-selected="false"
+              aria-controls="bulkPanel-blacklist"
+            >
               Tag Blacklist
             </button>
-            <button class="bulk-tab" data-tab="activity" role="tab" aria-selected="false">
+            <button
+              class="bulk-tab"
+              id="bulkTab-activity"
+              data-tab="activity"
+              role="tab"
+              aria-selected="false"
+              aria-controls="bulkPanel-activity"
+            >
               Activity
             </button>
           </div>
-          <div class="bulk-panel" data-panel="overview" role="tabpanel">
+          <div
+            class="bulk-panel"
+            id="bulkPanel-overview"
+            data-panel="overview"
+            role="tabpanel"
+            aria-labelledby="bulkTab-overview"
+          >
             <div id="numistaSyncStats"></div>
             <div id="numistaSyncTableContainer"></div>
           </div>
-          <div class="bulk-panel" data-panel="fields" role="tabpanel" style="display: none"></div>
-          <div class="bulk-panel" data-panel="blacklist" role="tabpanel" style="display: none">
+          <div
+            class="bulk-panel"
+            id="bulkPanel-fields"
+            data-panel="fields"
+            role="tabpanel"
+            aria-labelledby="bulkTab-fields"
+            style="display: none"
+          ></div>
+          <div
+            class="bulk-panel"
+            id="bulkPanel-blacklist"
+            data-panel="blacklist"
+            role="tabpanel"
+            aria-labelledby="bulkTab-blacklist"
+            style="display: none"
+          >
             <div id="numistaTagSettingsGroup"></div>
           </div>
-          <div class="bulk-panel" data-panel="activity" role="tabpanel" style="display: none"></div>
+          <div
+            class="bulk-panel"
+            id="bulkPanel-activity"
+            data-panel="activity"
+            role="tabpanel"
+            aria-labelledby="bulkTab-activity"
+            style="display: none"
+          ></div>
         </div>
         <div class="modal-footer"></div>
       </div>

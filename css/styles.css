@@ -11520,7 +11520,7 @@ th {
   background: var(--bg-tertiary);
   max-height: 340px;
   overflow-y: auto;
-  font-family: ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
   font-size: 0.76rem;
 }
 .bulk-log-line {

@@ -1593,6 +1593,14 @@ const wireSpotProviderActions = () => {
             } catch (_err) {
               /* quota errors surfaced elsewhere */
             }
+          } else {
+            // Metal cleared by user — remove stale per-metal key so spot readers
+            // don't serve the previous value (STAK-443 CodeRabbit finding).
+            try {
+              localStorage.removeItem(key);
+            } catch (_err) {
+              /* ignore storage errors */
+            }
           }
         });
       } else {
@@ -1624,12 +1632,25 @@ const wireSpotProviderActions = () => {
       return;
     }
 
-    if (btn.classList.contains("js-history") || btn.classList.contains("js-pull-history")) {
+    if (btn.classList.contains("js-history")) {
       if (typeof window.showApiHistoryModal === "function") {
         try {
           window.showApiHistoryModal(provider);
         } catch (_err) {
           debugLog("showApiHistoryModal threw (value redacted)");
+        }
+      }
+      return;
+    }
+
+    if (btn.classList.contains("js-pull-history")) {
+      // Pull triggers a forced history fetch for the active provider, mirroring
+      // the syncSpotProvider path used by js-save-test (STAK-443 CodeRabbit fix).
+      if (typeof window.syncSpotProvider === "function") {
+        try {
+          window.syncSpotProvider({ showProgress: true, forceSync: true });
+        } catch (_err) {
+          debugLog("syncSpotProvider (js-pull-history) threw (value redacted)");
         }
       }
       return;

@@ -542,21 +542,21 @@ const openBulkSyncModal = (provider) => {
       }
     }
     _populateBulkSyncFieldsPanel(fieldsPanel);
-    if (activityPanel && !activityPanel.dataset.populated) {
+    if (activityPanel && activityPanel.dataset.populated !== "numista") {
       _setBulkSyncPanelPlaceholder(
         activityPanel,
         "Activity log is surfaced in the Activity Log tab; this panel is a placeholder for future inline history."
       );
-      activityPanel.dataset.populated = "true";
+      activityPanel.dataset.populated = "numista";
     }
   } else {
     _setBulkSyncPanelPlaceholder(overviewPanel, "PCGS bulk sync — coming soon.");
-    if (activityPanel && !activityPanel.dataset.populated) {
+    if (activityPanel && activityPanel.dataset.populated !== "pcgs") {
       _setBulkSyncPanelPlaceholder(
         activityPanel,
         "PCGS activity history will appear here once bulk sync is available."
       );
-      activityPanel.dataset.populated = "true";
+      activityPanel.dataset.populated = "pcgs";
     }
   }
 
