@@ -246,14 +246,10 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       panel.locator('button:has-text("Pull"), button:has-text("Pull history")')
     ).not.toHaveCount(0);
 
-    // Metals checkboxes — all 5 metals
-    const metalCheckboxes = panel.locator('.metal-checkbox input[type="checkbox"]');
-    await expect(metalCheckboxes).toHaveCount(5);
+    // Metals checkboxes — all supported metals, scoped away from auto-refresh.
+    const metalLabels = panel.locator(".metal-checkboxes .metal-checkbox span");
+    await expect(metalLabels).toHaveText(["Gold", "Silver", "Platinum", "Palladium"]);
     const panelText = await panel.innerText();
-    expect(panelText).toMatch(/Gold/i);
-    expect(panelText).toMatch(/Silver/i);
-    expect(panelText).toMatch(/Platinum/i);
-    expect(panelText).toMatch(/Palladium/i);
 
     // Auto-refresh toggle (checkbox)
     await expect(panel.locator('input[type="checkbox"]').filter({ hasText: "" })).not.toHaveCount(
@@ -780,9 +776,18 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
 
     for (let i = 0; i < count; i++) {
       const btn = btns.nth(i);
-      const radius = await btn.evaluate((el) => window.getComputedStyle(el).borderRadius);
-      // Accept any non-zero border-radius (design uses either 999px or 10px)
-      expect(radius).not.toBe("0px");
+      const radii = await btn.evaluate((el) => {
+        const styles = window.getComputedStyle(el);
+        return [
+          styles.borderTopLeftRadius,
+          styles.borderTopRightRadius,
+          styles.borderBottomRightRadius,
+          styles.borderBottomLeftRadius,
+        ];
+      });
+      expect(
+        radii.every((radius) => Number.isFinite(parseFloat(radius)) && parseFloat(radius) > 0)
+      ).toBe(true);
     }
 
     // History button on the Metals.dev sub-card uses .btn-history

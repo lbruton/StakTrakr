@@ -6,7 +6,7 @@ repos:
   - repo: local
     hooks:
       - id: check-signing-key
-        name: Verify SSH signing key is loaded
+        name: Verify signing key is loaded
         entry: bash devops/hooks/check-signing-key.sh
         language: system
         pass_filenames: false

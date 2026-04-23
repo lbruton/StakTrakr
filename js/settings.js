@@ -411,9 +411,15 @@ const _buildApiKeyField = (opts) => {
     if (provider === "numista" && cc.isNumistaEnabled()) {
       input.value = "••••••••";
       input.dataset.masked = "true";
-    } else if (provider === "pcgs" && cc.isPcgsEnabled()) {
-      input.value = "••••••••";
-      input.dataset.masked = "true";
+    } else if (provider === "pcgs") {
+      const storedCfg =
+        typeof loadDataSync === "function" ? loadDataSync("catalog_api_config", null) : null;
+      const hasPcgsToken =
+        cc.isPcgsEnabled() || !!storedCfg?.pcgs?.bearerToken || !!storedCfg?.pcgs?.apiKey;
+      if (hasPcgsToken) {
+        input.value = "••••••••";
+        input.dataset.masked = "true";
+      }
     }
   } else if (typeof loadApiConfig === "function") {
     try {

@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { injectSeedInventory } from "./helpers/seed.js";
 
 /**
- * STAK-573 — API Tab QA Pass (TDD red phase)
+ * STAK-573 — API Tab QA Pass
  *
- * These tests are written BEFORE implementation. They MUST fail against the
- * current branch. Implementation tasks turn them green.
+ * These tests verify the completed STAK-573 implementation and are expected
+ * to pass on this branch as regression coverage for the API tab QA flow.
  *
  * REQ-1   Save button on catalog expand panels
  * REQ-2   Masked key indicator (bullet chars + data-masked)
@@ -413,10 +413,10 @@ test.describe("STAK-573 — API Tab QA Pass", () => {
   });
 
   // =========================================================================
-  // REQ-12 — Sync pipeline round-trip
+  // REQ-12 — Storage pipeline round-trip
   // =========================================================================
-  test.describe("REQ-12 — Sync pipeline round-trip", () => {
-    test("catalog_api_config survives ZIP export → clear → import", async ({ page }) => {
+  test.describe("REQ-12 — Storage pipeline round-trip", () => {
+    test("catalog_api_config survives saveDataSync/loadDataSync round-trip", async ({ page }) => {
       const testConfig = {
         numista: { apiKey: btoa("test-numista-key-12345"), quota: 2000 },
         numistaUsage: { used: 42, month: "2026-04" },

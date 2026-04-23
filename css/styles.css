@@ -11262,7 +11262,7 @@ th {
 }
 .btn-action-primary:hover {
   background: var(--success);
-  color: #fff;
+  color: var(--surface-alt, #fff);
 }
 .btn-action-neutral {
   color: var(--text-secondary);
