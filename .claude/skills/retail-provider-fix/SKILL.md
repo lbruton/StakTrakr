@@ -12,7 +12,7 @@ Diagnose and fix scraping failures for individual dealers in the StakTrakr retai
 | Piece                            | Path / Location                                                                                   |
 | -------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Extraction code                  | `devops/pollers/shared/price-extract.js`                                                          |
-| Per-provider config              | `PROVIDER_CONFIG` in `price-extract.js` (line ~549)                                               |
+| Per-provider config              | `PROVIDER_CONFIG` in `price-extract.js`                                                           |
 | CF-clearance / Byparr sidecar    | `devops/pollers/shared/cf-clearance.js`                                                           |
 | Goldback scraper                 | `devops/pollers/shared/goldback-scraper.js`                                                       |
 | Fly.io app                       | `devops/pollers/remote-poller/` (app `staktrakr`)                                                 |
@@ -33,7 +33,7 @@ Scrape the failing URL directly through the home poller's Firecrawl to see what 
 
 ```bash
 # From the home LXC (or over Tailscale):
-docker exec -it home-poller curl -s -X POST http://firecrawl:3002/v1/scrape \
+docker exec -it staktrakr-home-poller curl -s -X POST http://firecrawl-api:3002/v1/scrape \
   -H 'Content-Type: application/json' \
   -d '{"url":"PROVIDER_URL_HERE","formats":["markdown"],"waitFor":6000,"onlyMainContent":false}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); \
@@ -44,15 +44,15 @@ docker exec -it home-poller curl -s -X POST http://firecrawl:3002/v1/scrape \
 
 ## Step 2 — Interpret the output
 
-| Symptom                                      | Meaning                                         | Fix category                                                       |
-| -------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
-| `warning: waitFor not supported`             | Firecrawl image too old to honor waitFor        | Upgrade Firecrawl image OR set `phase: "cf-clearance-first"`       |
-| Markdown is only `Loading...`                | Product table is JS-rendered                    | Switch `phase` to `cf-clearance-first` or `phase0`                 |
-| Metadata URL ≠ sourceURL (homepage redirect) | Bot detection (Cloudflare)                      | `phase: "cf-clearance-first"` + `cf_clearance_fallback: true`      |
-| Spot prices appear before product price      | `MARKDOWN_HEADER_SKIP_PATTERNS` not matching    | Update header-skip regex for provider                              |
-| `fractional_weight — 1/4 oz`                 | Nav/menu fractional link matched before product | Set `fractionalExempt: true` OR tighten `MARKDOWN_CUTOFF_PATTERNS` |
-| `page loaded, no price`                      | Page rendered but `extractPrice` regex missed   | Update extraction logic for provider                               |
-| `out_of_stock — PRE-ORDER`                   | Item actually on pre-order                      | Fine unless provider is in `PREORDER_TOLERANT_PROVIDERS`           |
+| Symptom                                      | Meaning                                         | Fix category                                                                             |
+| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `warning: waitFor not supported`             | Firecrawl image too old to honor waitFor        | Upgrade Firecrawl image OR set `phase: "phase0"` (Playwright-direct renders JS natively) |
+| Markdown is only `Loading...`                | Product table is JS-rendered                    | Switch `phase` to `cf-clearance-first` or `phase0`                                       |
+| Metadata URL ≠ sourceURL (homepage redirect) | Bot detection (Cloudflare)                      | `phase: "cf-clearance-first"` + `cf_clearance_fallback: true`                            |
+| Spot prices appear before product price      | `MARKDOWN_HEADER_SKIP_PATTERNS` not matching    | Update header-skip regex for provider                                                    |
+| `fractional_weight — 1/4 oz`                 | Nav/menu fractional link matched before product | Set `fractionalExempt: true` OR tighten `MARKDOWN_CUTOFF_PATTERNS`                       |
+| `page loaded, no price`                      | Page rendered but `extractPrice` regex missed   | Update extraction logic for provider                                                     |
+| `out_of_stock — PRE-ORDER`                   | Item actually on pre-order                      | Fine unless provider is in `PREORDER_TOLERANT_PROVIDERS`                                 |
 
 ## Step 3 — Config map in `price-extract.js`
 
@@ -97,7 +97,7 @@ Current solution is the **Byparr sidecar** reached via `phase: "cf-clearance-fir
 
 If CF bypass stops working:
 
-1. `docker logs byparr` on the home LXC — confirm sidecar up.
+1. `docker logs staktrakr-byparr` on the home LXC — confirm sidecar up.
 2. Check `shared/cf-clearance.js` — cookie cache, retry count, timeout.
 3. Verify `retryOn408` and `timeout` are generous enough (`bullionexchanges` currently `70_000`).
 
@@ -107,16 +107,20 @@ Home poller (primary path for retail):
 
 ```bash
 # On the home LXC
-docker exec -it home-poller bash
+docker exec -it staktrakr-home-poller bash
 cd /app
 DATA_DIR=/data \
-FIRECRAWL_BASE_URL=http://firecrawl:3002 \
+FIRECRAWL_BASE_URL=http://firecrawl-api:3002 \
 PLAYWRIGHT_LAUNCH=1 \
 COINS=ase PROVIDERS=jmbullion \
 DRY_RUN=1 node price-extract.js
 
 # Multi-provider
-COINS=ase,age PROVIDERS=jmbullion,bullionexchanges DRY_RUN=1 node price-extract.js
+DATA_DIR=/data \
+FIRECRAWL_BASE_URL=http://firecrawl-api:3002 \
+PLAYWRIGHT_LAUNCH=1 \
+COINS=ase,age PROVIDERS=jmbullion,bullionexchanges \
+DRY_RUN=1 node price-extract.js
 ```
 
 Fly (only if `RETAIL_ENABLED=1` is being re-enabled or validated):
@@ -172,12 +176,12 @@ FBP is now a **gap-fill pass**, not a primary provider. `devops/pollers/home-pol
 
 ## Firecrawl engine quick reference
 
-Self-hosted Firecrawl lives at `http://firecrawl:3002` on home poller and `http://localhost:3002` on Fly. Capabilities vary by image version — `waitFor` support in particular has changed across upgrades. Verify on the deployed version:
+Self-hosted Firecrawl lives at `http://firecrawl-api:3002` on home poller and `http://localhost:3002` on Fly. Capabilities vary by image version — `waitFor` support in particular has changed across upgrades. Verify on the deployed version:
 
 ```bash
 # Home
-docker exec home-poller curl -s http://firecrawl:3002/health
-docker exec firecrawl node -e "console.log(require('/opt/firecrawl/package.json').version)"
+docker exec staktrakr-home-poller curl -s http://firecrawl-api:3002/health
+docker exec firecrawl-api node -e "console.log(require('/opt/firecrawl/package.json').version)"
 
 # Fly
 fly ssh console -a staktrakr -C "node -e \"console.log(require('/opt/firecrawl/package.json').version)\""
