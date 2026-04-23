@@ -292,18 +292,788 @@ const renderMarketBeacon = () => {
   return frag;
 };
 
+// ---------------------------------------------------------------------------
+// Spot Price section — per-provider sub-card renderers (Task 7)
+// ---------------------------------------------------------------------------
+
 /**
- * STUB — Tasks 7-8 replace with the full Spot Price section.
- * Emits a title-only fragment so the composer preserves the visible ordering
- * (Market → Spot → Catalog) before subsequent tasks fill in the body.
+ * Pill-radio metadata for the six spot-price sources. `data-val` values are
+ * the uppercase enum keys consumed by `switchSpotProvider` (Task 8) and the
+ * Playwright tests in `tests/playwright/stak-443-api-tab.spec.js`.
+ */
+const _SPOT_SOURCE_PILLS = [
+  { val: "STAKTRAKR", label: "StakTrakr" },
+  { val: "METALS_DEV", label: "Metals.dev" },
+  { val: "METALS_API", label: "Metals-API" },
+  { val: "METAL_PRICE_API", label: "MetalPriceAPI" },
+  { val: "CUSTOM", label: "Custom" },
+  { val: "MANUAL", label: "Manual" },
+];
+
+/**
+ * Resolves the currently active spot-source enum value from localStorage.
+ * Falls back to "STAKTRAKR" when the key is missing or corrupted. Uses the
+ * sync reader because `renderSpotSection` builds DOM synchronously.
+ * @returns {string}
+ */
+const _getActiveSpotSource = () => {
+  const raw =
+    typeof loadDataSync === "function" ? loadDataSync(SPOT_PRICING_SOURCE_KEY, null) : null;
+  if (typeof raw === "string" && _SPOT_SOURCE_PILLS.some((p) => p.val === raw)) {
+    return raw;
+  }
+  return "STAKTRAKR";
+};
+
+/**
+ * Builds the `[Save] [Save & Test] [History] [Clear Key]` action row shared by
+ * Metals.dev, Metals-API, MetalPriceAPI, and Custom panels. History button
+ * carries the `.btn-history` class required by REQ-8.2.
+ * @param {object} opts
+ * @param {boolean} [opts.saveTest=true] include the Save & Test button
+ * @param {boolean} [opts.clearKey=true] include the Clear Key button
+ * @returns {HTMLElement}
+ */
+const _buildSpotActionRow = (opts = {}) => {
+  const { saveTest = true, clearKey = true } = opts;
+  const row = document.createElement("div");
+  row.className = "spot-panel-actions";
+
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "btn btn-primary js-save";
+  save.textContent = "Save";
+  row.appendChild(save);
+
+  if (saveTest) {
+    const saveAndTest = document.createElement("button");
+    saveAndTest.type = "button";
+    saveAndTest.className = "btn btn-success js-save-test";
+    saveAndTest.textContent = "Save & Test";
+    row.appendChild(saveAndTest);
+  }
+
+  const history = document.createElement("button");
+  history.type = "button";
+  history.className = "btn btn-history js-history";
+  history.textContent = "History";
+  row.appendChild(history);
+
+  if (clearKey) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "btn btn-warning js-clear-key";
+    clear.textContent = "Clear Key";
+    row.appendChild(clear);
+  }
+
+  return row;
+};
+
+/**
+ * Builds a labeled `type="password"` API-key input with a show/hide toggle
+ * button. Task 11 wires the actual click handler; this renderer only emits
+ * the markup the wireup queries for.
+ * @param {object} opts
+ * @param {string} opts.provider API_PROVIDERS enum key (used for DOM id)
+ * @param {string} opts.placeholder
+ * @param {string} [opts.helpText]
+ * @param {string} [opts.helpHref]
+ * @returns {HTMLElement}
+ */
+const _buildApiKeyField = (opts) => {
+  const { provider, placeholder, helpText, helpHref } = opts;
+  const shell = document.createElement("div");
+  shell.className = "gb-input-shell";
+
+  const label = document.createElement("label");
+  label.textContent = "API Key";
+  shell.appendChild(label);
+
+  const inputWrap = document.createElement("div");
+  inputWrap.className = "inline-field-group";
+
+  const input = document.createElement("input");
+  input.type = "password";
+  input.setAttribute("autocomplete", "off");
+  input.setAttribute("spellcheck", "false");
+  input.placeholder = placeholder;
+  input.dataset.provider = provider;
+  input.className = "js-api-key-input";
+  inputWrap.appendChild(input);
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "btn btn-sm js-toggle-password";
+  toggle.setAttribute("aria-label", "Show API key");
+  toggle.textContent = "Show";
+  inputWrap.appendChild(toggle);
+
+  shell.appendChild(inputWrap);
+
+  if (helpText) {
+    const small = document.createElement("small");
+    small.textContent = helpText + " ";
+    if (helpHref) {
+      const link = document.createElement("a");
+      link.href = helpHref;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = helpHref.replace(/^https?:\/\//, "");
+      small.appendChild(link);
+    }
+    shell.appendChild(small);
+  }
+
+  return shell;
+};
+
+/**
+ * Builds the four-metal checkbox grid used by every provider panel. All
+ * checkboxes are rendered unchecked — Task 11 syncs them to stored state.
+ * @returns {HTMLElement}
+ */
+const _buildMetalsCheckboxes = () => {
+  const wrap = document.createElement("div");
+  wrap.className = "metal-selection";
+
+  const label = document.createElement("label");
+  label.className = "field-label";
+  label.textContent = "Metals to track";
+  wrap.appendChild(label);
+
+  const grid = document.createElement("div");
+  grid.className = "metal-checkboxes";
+
+  [
+    { metal: "gold", display: "Gold" },
+    { metal: "silver", display: "Silver" },
+    { metal: "platinum", display: "Platinum" },
+    { metal: "palladium", display: "Palladium" },
+  ].forEach(({ metal, display }) => {
+    const wrapLabel = document.createElement("label");
+    wrapLabel.className = "metal-checkbox";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.dataset.metal = metal;
+    wrapLabel.appendChild(cb);
+    const span = document.createElement("span");
+    span.textContent = display;
+    wrapLabel.appendChild(span);
+    grid.appendChild(wrapLabel);
+  });
+
+  wrap.appendChild(grid);
+  return wrap;
+};
+
+/**
+ * Builds the auto-refresh toggle row shared by paid-provider panels.
+ * @param {string} [hint] optional settings-hint caption
+ * @returns {HTMLElement}
+ */
+const _buildAutoRefreshRow = (hint) => {
+  const row = document.createElement("div");
+  row.className = "provider-setting-row inline";
+
+  const label = document.createElement("label");
+  label.className = "field-label";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.className = "js-auto-refresh";
+  label.appendChild(cb);
+  label.appendChild(document.createTextNode(" Background auto-refresh"));
+  row.appendChild(label);
+
+  if (hint) {
+    const hintEl = document.createElement("span");
+    hintEl.className = "settings-hint";
+    hintEl.textContent = hint;
+    row.appendChild(hintEl);
+  }
+
+  return row;
+};
+
+/**
+ * Builds the Cache-timeout + Pull-history `.provider-field-grid`. The caller
+ * supplies the timeout / history-length option arrays so each provider can
+ * advertise its own supported ranges.
+ * @param {object} opts
+ * @param {string[]} opts.cacheOptions
+ * @param {string} opts.cacheSelected
+ * @param {string[]} opts.historyOptions
+ * @param {string} opts.historySelected
+ * @returns {HTMLElement}
+ */
+const _buildCachePullGrid = ({ cacheOptions, cacheSelected, historyOptions, historySelected }) => {
+  const grid = document.createElement("div");
+  grid.className = "provider-field-grid";
+
+  // Cache timeout
+  const cacheField = document.createElement("div");
+  cacheField.className = "provider-field";
+  const cacheLabel = document.createElement("label");
+  cacheLabel.className = "field-label";
+  cacheLabel.textContent = "Cache timeout";
+  cacheField.appendChild(cacheLabel);
+  const cacheSelect = document.createElement("select");
+  cacheSelect.className = "js-cache-timeout";
+  cacheOptions.forEach((opt) => {
+    const o = document.createElement("option");
+    o.textContent = opt;
+    if (opt === cacheSelected) o.selected = true;
+    cacheSelect.appendChild(o);
+  });
+  cacheField.appendChild(cacheSelect);
+  grid.appendChild(cacheField);
+
+  // Pull history
+  const histField = document.createElement("div");
+  histField.className = "provider-field";
+  const histLabel = document.createElement("label");
+  histLabel.className = "field-label";
+  histLabel.textContent = "Pull history";
+  histField.appendChild(histLabel);
+  const histGroup = document.createElement("div");
+  histGroup.className = "inline-field-group";
+  const histSelect = document.createElement("select");
+  histSelect.className = "js-history-range";
+  historyOptions.forEach((opt) => {
+    const o = document.createElement("option");
+    o.textContent = opt;
+    if (opt === historySelected) o.selected = true;
+    histSelect.appendChild(o);
+  });
+  histGroup.appendChild(histSelect);
+  const pullBtn = document.createElement("button");
+  pullBtn.type = "button";
+  pullBtn.className = "btn btn-info btn-sm js-pull-history";
+  pullBtn.textContent = "Pull";
+  histGroup.appendChild(pullBtn);
+  histField.appendChild(histGroup);
+  grid.appendChild(histField);
+
+  return grid;
+};
+
+/**
+ * Builds a `.spot-panel-row` header (info block + action row).
+ * @param {object} opts
+ * @param {string} opts.title bold provider name
+ * @param {string} [opts.badgeText]
+ * @param {string} [opts.badgeClass] additional class on `.provider-badge`
+ * @param {string} [opts.meta] optional `.spot-panel-meta` caption
+ * @param {HTMLElement} opts.actions action row element
+ * @returns {HTMLElement}
+ */
+const _buildSpotPanelHeader = ({ title, badgeText, badgeClass, meta, actions }) => {
+  const row = document.createElement("div");
+  row.className = "spot-panel-row";
+
+  const info = document.createElement("div");
+  info.className = "spot-panel-info";
+
+  const strong = document.createElement("strong");
+  strong.textContent = title;
+  info.appendChild(strong);
+
+  if (badgeText) {
+    const badge = document.createElement("span");
+    badge.className = "provider-badge" + (badgeClass ? " " + badgeClass : "");
+    badge.textContent = badgeText;
+    info.appendChild(badge);
+  }
+
+  if (meta) {
+    const metaEl = document.createElement("span");
+    metaEl.className = "spot-panel-meta";
+    metaEl.textContent = meta;
+    info.appendChild(metaEl);
+  }
+
+  row.appendChild(info);
+  row.appendChild(actions);
+  return row;
+};
+
+/**
+ * Panel: StakTrakr Spot API (free, no key).
+ * @returns {HTMLElement}
+ */
+const renderSpotPanelStaktrakr = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "STAKTRAKR";
+
+  // Action row (informational: Sync / Flush Cache / History)
+  const actions = document.createElement("div");
+  actions.className = "spot-panel-actions";
+  const syncBtn = document.createElement("button");
+  syncBtn.type = "button";
+  syncBtn.className = "btn btn-success js-save-test";
+  syncBtn.textContent = "Sync";
+  actions.appendChild(syncBtn);
+  const flushBtn = document.createElement("button");
+  flushBtn.type = "button";
+  flushBtn.className = "btn btn-danger js-flush-cache";
+  flushBtn.textContent = "Flush Cache";
+  actions.appendChild(flushBtn);
+  const histBtn = document.createElement("button");
+  histBtn.type = "button";
+  histBtn.className = "btn btn-history js-history";
+  histBtn.textContent = "History";
+  actions.appendChild(histBtn);
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "StakTrakr Spot API",
+      badgeText: "Free · No key",
+      badgeClass: "free",
+      meta: "Hourly refresh · cached locally",
+      actions,
+    })
+  );
+
+  panel.appendChild(_buildMetalsCheckboxes());
+
+  const footer = document.createElement("div");
+  footer.className = "spot-panel-footer";
+  const attribution = document.createElement("span");
+  attribution.className = "provider-attribution";
+  attribution.textContent = "Provided by api.staktrakr.com";
+  footer.appendChild(attribution);
+  const disclaimer = document.createElement("span");
+  disclaimer.className = "disclaimer";
+  disclaimer.textContent = "Best-effort free service. No uptime or accuracy guarantees.";
+  footer.appendChild(disclaimer);
+  panel.appendChild(footer);
+
+  return panel;
+};
+
+/**
+ * Panel: Metals.dev (key required, full field schema).
+ * @returns {HTMLElement}
+ */
+const renderSpotPanelMetalsDev = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "METALS_DEV";
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "Metals.dev",
+      badgeText: "Key required",
+      badgeClass: "paid",
+      actions: _buildSpotActionRow(),
+    })
+  );
+
+  panel.appendChild(
+    _buildApiKeyField({
+      provider: "METALS_DEV",
+      placeholder: "Enter Metals.dev API key",
+      helpText: "10K requests/month free tier ·",
+      helpHref: "https://metals.dev/documentation",
+    })
+  );
+
+  panel.appendChild(
+    _buildCachePullGrid({
+      cacheOptions: [
+        "No cache",
+        "15 minutes",
+        "30 minutes",
+        "1 hour",
+        "6 hours",
+        "12 hours",
+        "24 hours",
+      ],
+      cacheSelected: "24 hours",
+      historyOptions: ["7 days", "14 days", "30 days"],
+      historySelected: "30 days",
+    })
+  );
+
+  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildAutoRefreshRow("Polls on cache TTL interval."));
+
+  const footer = document.createElement("div");
+  footer.className = "spot-panel-footer";
+  const attribution = document.createElement("span");
+  attribution.className = "provider-attribution";
+  attribution.textContent = "Provided by metals.dev";
+  footer.appendChild(attribution);
+  const hint = document.createElement("span");
+  hint.className = "settings-hint";
+  hint.textContent = "Your API key is stored locally only.";
+  footer.appendChild(hint);
+  panel.appendChild(footer);
+
+  return panel;
+};
+
+/**
+ * Panel: Metals-API (key required, schema parallel to Metals.dev).
+ * @returns {HTMLElement}
+ */
+const renderSpotPanelMetalsApi = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "METALS_API";
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "Metals-API",
+      badgeText: "Key required",
+      badgeClass: "paid",
+      actions: _buildSpotActionRow(),
+    })
+  );
+
+  panel.appendChild(
+    _buildApiKeyField({
+      provider: "METALS_API",
+      placeholder: "Enter Metals-API key",
+      helpText: "100 requests/month free tier ·",
+      helpHref: "https://metals-api.com/documentation",
+    })
+  );
+
+  panel.appendChild(
+    _buildCachePullGrid({
+      cacheOptions: ["No cache", "15 minutes", "1 hour", "24 hours"],
+      cacheSelected: "24 hours",
+      historyOptions: ["7 days", "30 days"],
+      historySelected: "30 days",
+    })
+  );
+
+  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildAutoRefreshRow());
+
+  return panel;
+};
+
+/**
+ * Panel: MetalPriceAPI (key required, schema parallel to Metals.dev).
+ * @returns {HTMLElement}
+ */
+const renderSpotPanelMetalPriceApi = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "METAL_PRICE_API";
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "MetalPriceAPI",
+      badgeText: "Key required",
+      badgeClass: "paid",
+      actions: _buildSpotActionRow(),
+    })
+  );
+
+  panel.appendChild(
+    _buildApiKeyField({
+      provider: "METAL_PRICE_API",
+      placeholder: "Enter MetalPriceAPI key",
+      helpText: "100 requests/month free tier ·",
+      helpHref: "https://metalpriceapi.com/documentation",
+    })
+  );
+
+  panel.appendChild(
+    _buildCachePullGrid({
+      cacheOptions: ["24 hours", "12 hours", "1 hour"],
+      cacheSelected: "24 hours",
+      historyOptions: ["30 days"],
+      historySelected: "30 days",
+    })
+  );
+
+  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildAutoRefreshRow());
+
+  return panel;
+};
+
+/**
+ * Panel: Custom endpoint (BYO URL + template + key).
+ * @returns {HTMLElement}
+ */
+const renderSpotPanelCustom = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "CUSTOM";
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "Custom Spot API",
+      badgeText: "BYO endpoint",
+      badgeClass: "paid",
+      actions: _buildSpotActionRow({ saveTest: true, clearKey: true }),
+    })
+  );
+
+  // Endpoint fields + cache + key all inside a single .provider-field-grid
+  const grid = document.createElement("div");
+  grid.className = "provider-field-grid";
+
+  // Base URL
+  const baseShell = document.createElement("div");
+  baseShell.className = "gb-input-shell full-row";
+  const baseLabel = document.createElement("label");
+  baseLabel.textContent = "Base URL";
+  baseShell.appendChild(baseLabel);
+  const baseInput = document.createElement("input");
+  baseInput.type = "text";
+  baseInput.placeholder = "https://api.example.com";
+  baseInput.className = "js-custom-base";
+  baseShell.appendChild(baseInput);
+  grid.appendChild(baseShell);
+
+  // Endpoint
+  const endShell = document.createElement("div");
+  endShell.className = "gb-input-shell full-row";
+  const endLabel = document.createElement("label");
+  endLabel.textContent = "Endpoint";
+  endShell.appendChild(endLabel);
+  const endInput = document.createElement("input");
+  endInput.type = "text";
+  endInput.placeholder = "/latest?key={API_KEY}&metal={METAL}";
+  endInput.className = "js-custom-endpoint";
+  endShell.appendChild(endInput);
+  const endHelp = document.createElement("small");
+  endHelp.textContent = "Use ";
+  const codeKey = document.createElement("code");
+  codeKey.textContent = "{API_KEY}";
+  endHelp.appendChild(codeKey);
+  endHelp.appendChild(document.createTextNode(" and "));
+  const codeMetal = document.createElement("code");
+  codeMetal.textContent = "{METAL}";
+  endHelp.appendChild(codeMetal);
+  endHelp.appendChild(document.createTextNode(" as placeholders"));
+  endShell.appendChild(endHelp);
+  grid.appendChild(endShell);
+
+  // Metal format
+  const fmtField = document.createElement("div");
+  fmtField.className = "provider-field";
+  const fmtLabel = document.createElement("label");
+  fmtLabel.className = "field-label";
+  fmtLabel.textContent = "Metal format";
+  fmtField.appendChild(fmtLabel);
+  const fmtSelect = document.createElement("select");
+  fmtSelect.className = "js-custom-format";
+  ["Symbol (XAU)", "Word (gold)"].forEach((opt) => {
+    const o = document.createElement("option");
+    o.textContent = opt;
+    fmtSelect.appendChild(o);
+  });
+  fmtField.appendChild(fmtSelect);
+  grid.appendChild(fmtField);
+
+  // Cache timeout
+  const cacheField = document.createElement("div");
+  cacheField.className = "provider-field";
+  const cacheLabel = document.createElement("label");
+  cacheLabel.className = "field-label";
+  cacheLabel.textContent = "Cache timeout";
+  cacheField.appendChild(cacheLabel);
+  const cacheSelect = document.createElement("select");
+  cacheSelect.className = "js-cache-timeout";
+  ["24 hours", "12 hours", "1 hour"].forEach((opt, idx) => {
+    const o = document.createElement("option");
+    o.textContent = opt;
+    if (idx === 0) o.selected = true;
+    cacheSelect.appendChild(o);
+  });
+  cacheField.appendChild(cacheSelect);
+  grid.appendChild(cacheField);
+
+  // API Key inside custom grid (full row)
+  const keyShell = document.createElement("div");
+  keyShell.className = "gb-input-shell full-row";
+  const keyLabel = document.createElement("label");
+  keyLabel.textContent = "API Key";
+  keyShell.appendChild(keyLabel);
+  const keyInputWrap = document.createElement("div");
+  keyInputWrap.className = "inline-field-group";
+  const keyInput = document.createElement("input");
+  keyInput.type = "password";
+  keyInput.setAttribute("autocomplete", "off");
+  keyInput.setAttribute("spellcheck", "false");
+  keyInput.placeholder = "Enter API key (used in {API_KEY})";
+  keyInput.dataset.provider = "CUSTOM";
+  keyInput.className = "js-api-key-input";
+  keyInputWrap.appendChild(keyInput);
+  const keyToggle = document.createElement("button");
+  keyToggle.type = "button";
+  keyToggle.className = "btn btn-sm js-toggle-password";
+  keyToggle.setAttribute("aria-label", "Show API key");
+  keyToggle.textContent = "Show";
+  keyInputWrap.appendChild(keyToggle);
+  keyShell.appendChild(keyInputWrap);
+  grid.appendChild(keyShell);
+
+  panel.appendChild(grid);
+  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildAutoRefreshRow("History pull not supported for custom endpoints."));
+
+  return panel;
+};
+
+/**
+ * Panel: Manual / Offline mode. Four numeric spot inputs + helper text. Save
+ * writes to `metalSpotPrices` (unified object, read by Task 11 wireup). No
+ * Save & Test button — Reset replaces Clear Key.
+ * @returns {HTMLElement}
+ */
+const renderSpotPanelManual = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "MANUAL";
+
+  // Action row: Save / History / Reset
+  const actions = document.createElement("div");
+  actions.className = "spot-panel-actions";
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "btn btn-success js-save";
+  save.textContent = "Save";
+  actions.appendChild(save);
+  const history = document.createElement("button");
+  history.type = "button";
+  history.className = "btn btn-history js-history";
+  history.textContent = "History";
+  actions.appendChild(history);
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "btn btn-warning js-reset";
+  reset.textContent = "Reset";
+  actions.appendChild(reset);
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "Manual / Offline Mode",
+      badgeText: "Offline",
+      badgeClass: "offline",
+      meta: "All feeds disabled. Shift+click spot cards on main page also edits.",
+      actions,
+    })
+  );
+
+  // Four-input manual grid
+  const grid = document.createElement("div");
+  grid.className = "manual-grid";
+  [
+    { metal: "gold", label: "Gold (per oz)" },
+    { metal: "silver", label: "Silver (per oz)" },
+    { metal: "platinum", label: "Platinum (per oz)" },
+    { metal: "palladium", label: "Palladium (per oz)" },
+  ].forEach(({ metal, label }) => {
+    const shell = document.createElement("div");
+    shell.className = "gb-input-shell";
+    const lbl = document.createElement("label");
+    lbl.textContent = label;
+    shell.appendChild(lbl);
+    const input = document.createElement("input");
+    input.type = "number";
+    input.step = "0.01";
+    input.min = "0";
+    input.dataset.metal = metal;
+    input.className = "js-manual-spot";
+    shell.appendChild(input);
+    grid.appendChild(shell);
+  });
+  panel.appendChild(grid);
+
+  const footer = document.createElement("div");
+  footer.className = "spot-panel-footer";
+  const disclaimer = document.createElement("span");
+  disclaimer.className = "disclaimer";
+  disclaimer.textContent = "All automatic refresh is OFF while Manual is active.";
+  footer.appendChild(disclaimer);
+  panel.appendChild(footer);
+
+  return panel;
+};
+
+/**
+ * Maps each spot-source enum value to its panel renderer.
+ */
+const _SPOT_PANEL_RENDERERS = {
+  STAKTRAKR: renderSpotPanelStaktrakr,
+  METALS_DEV: renderSpotPanelMetalsDev,
+  METALS_API: renderSpotPanelMetalsApi,
+  METAL_PRICE_API: renderSpotPanelMetalPriceApi,
+  CUSTOM: renderSpotPanelCustom,
+  MANUAL: renderSpotPanelManual,
+};
+
+/**
+ * Renders the Spot Price fieldset (title + pill radio group + accordion of
+ * six provider sub-cards). Initial active pill/panel is read from
+ * `loadDataSync(SPOT_PRICING_SOURCE_KEY)` with "STAKTRAKR" fallback. Does NOT
+ * bind event listeners — Task 11 wires click delegation.
  * @returns {DocumentFragment}
  */
 const renderSpotSection = () => {
   const frag = document.createDocumentFragment();
+  const active = _getActiveSpotSource();
+
+  // Title row
   const title = document.createElement("div");
   title.className = "settings-fieldset-title";
   title.textContent = "Spot Price";
   frag.appendChild(title);
+
+  // Helper text (per playground subtext)
+  const subtext = document.createElement("p");
+  subtext.className = "settings-subtext";
+  subtext.textContent = "Choose which feed powers spot prices. Only one active at a time.";
+  frag.appendChild(subtext);
+
+  // Pill radio group
+  const pillGroup = document.createElement("div");
+  pillGroup.className = "gb-source-group";
+  pillGroup.setAttribute("role", "radiogroup");
+  pillGroup.setAttribute("aria-label", "Spot price source");
+
+  _SPOT_SOURCE_PILLS.forEach(({ val, label }) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const isActive = val === active;
+    btn.className = "btn gb-source-btn" + (isActive ? " active" : "");
+    btn.dataset.val = val;
+    btn.setAttribute("role", "radio");
+    btn.setAttribute("aria-checked", isActive ? "true" : "false");
+    btn.textContent = label;
+    pillGroup.appendChild(btn);
+  });
+
+  frag.appendChild(pillGroup);
+
+  // Accordion with six panels (only active one visible)
+  const accordion = document.createElement("div");
+  accordion.className = "spot-accordion";
+  accordion.id = "spotAccordion";
+
+  _SPOT_SOURCE_PILLS.forEach(({ val }) => {
+    const renderer = _SPOT_PANEL_RENDERERS[val];
+    if (typeof renderer !== "function") return;
+    const panel = renderer();
+    if (val === active) {
+      panel.classList.add("active");
+      panel.style.display = "";
+    } else {
+      panel.style.display = "none";
+    }
+    accordion.appendChild(panel);
+  });
+
+  frag.appendChild(accordion);
   return frag;
 };
 
