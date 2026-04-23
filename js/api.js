@@ -109,6 +109,12 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
 
   const batchSize = 6;
   for (let i = 0; i < fetchJobs.length; i += batchSize) {
+    // STAK-443 REQ-10: abort in-flight backfill if user switches to MANUAL mid-batch
+    const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+    if (currentSource === "MANUAL") {
+      debugLog("[StakTrakr v2] Backfill aborted — spotPricingSource switched to MANUAL");
+      break;
+    }
     const batch = fetchJobs.slice(i, i + batchSize);
     const results = await Promise.all(
       batch.map(async ({ isoKey, metalName, dayKey }) => {
@@ -177,6 +183,12 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
  * @returns {Promise<number>} Count of new entries added
  */
 const backfillStaktrakrHourly = async () => {
+  // STAK-443 REQ-10: skip backfill entirely if user has switched to MANUAL
+  const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+  if (source === "MANUAL") {
+    debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
+    return 0;
+  }
   const oneDayAgo = Date.now() - 24 * 3600000;
   const hasRecentHourly = spotHistory.some(
     (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
