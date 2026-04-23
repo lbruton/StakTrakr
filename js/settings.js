@@ -1078,17 +1078,223 @@ const renderSpotSection = () => {
 };
 
 /**
- * STUB — Task 9 replaces with the Numista + PCGS catalog rows.
- * Emits a title-only fragment so the composer preserves the visible ordering
- * (Market → Spot → Catalog) before subsequent tasks fill in the body.
+ * Builds the inline chevron SVG used on `.catalog-expand-btn`. Rotated 180°
+ * via CSS when the parent row is `.catalog-row.open`. Constructed with
+ * `createElementNS` to avoid innerHTML.
+ * @returns {SVGSVGElement}
+ */
+const _buildCatalogChevron = () => {
+  const svgNs = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNs, "svg");
+  svg.setAttribute("class", "chevron");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("aria-hidden", "true");
+  const poly = document.createElementNS(svgNs, "polyline");
+  poly.setAttribute("points", "6 9 12 15 18 9");
+  svg.appendChild(poly);
+  return svg;
+};
+
+/**
+ * Reads `catalog_api_config` from localStorage and reports whether each
+ * catalog provider has a non-empty credential. Accepts either `apiKey` or
+ * `bearerToken` for PCGS (CatalogConfig uses `bearerToken`; some tests and
+ * legacy paths use `apiKey`).
+ * @returns {{numista: boolean, pcgs: boolean}}
+ */
+const _getCatalogConfiguredState = () => {
+  const cfg = typeof loadDataSync === "function" ? loadDataSync("catalog_api_config", null) : null;
+  const numista = !!(
+    cfg &&
+    cfg.numista &&
+    typeof cfg.numista.apiKey === "string" &&
+    cfg.numista.apiKey
+  );
+  const pcgsKey = cfg && cfg.pcgs && (cfg.pcgs.bearerToken || cfg.pcgs.apiKey);
+  const pcgs = !!(typeof pcgsKey === "string" && pcgsKey);
+  return { numista, pcgs };
+};
+
+/**
+ * Builds a single `.catalog-row` element with summary + collapsed expand body.
+ * Event wiring (expand/collapse, test, open-bulk-sync, show/hide password) is
+ * deferred to Task 11 — this renderer only emits the DOM hooks.
+ * @param {object} opts
+ * @param {string} opts.provider - "numista" | "pcgs"
+ * @param {string} opts.displayName - "Numista" | "PCGS"
+ * @param {boolean} opts.configured - green dot when true
+ * @param {string} opts.metaText - meta line (e.g. "Not configured")
+ * @param {string} opts.apiKeyPlaceholder
+ * @param {string} [opts.apiKeyHelpText]
+ * @param {string} [opts.apiKeyHelpHref]
+ * @param {boolean} [opts.showUsageBar=false] render usage bar scaffold
+ * @returns {HTMLElement}
+ */
+const _buildCatalogRow = (opts) => {
+  const {
+    provider,
+    displayName,
+    configured,
+    metaText,
+    apiKeyPlaceholder,
+    apiKeyHelpText,
+    apiKeyHelpHref,
+    showUsageBar = false,
+  } = opts;
+
+  const row = document.createElement("div");
+  row.className = "catalog-row";
+  row.dataset.provider = provider;
+
+  // Summary -----------------------------------------------------------------
+  const summary = document.createElement("div");
+  summary.className = "catalog-row-summary";
+
+  const nameBlock = document.createElement("div");
+  nameBlock.className = "catalog-row-name";
+
+  const nameStrong = document.createElement("strong");
+  nameStrong.textContent = displayName;
+  nameBlock.appendChild(nameStrong);
+
+  const badge = document.createElement("span");
+  badge.className = "provider-badge free";
+  badge.textContent = "Free";
+  nameBlock.appendChild(badge);
+
+  const dot = document.createElement("span");
+  dot.className = configured ? "status-dot dot-ok" : "status-dot dot-off";
+  nameBlock.appendChild(dot);
+
+  const meta = document.createElement("span");
+  meta.className = "catalog-row-meta";
+  meta.textContent = metaText;
+  nameBlock.appendChild(meta);
+
+  summary.appendChild(nameBlock);
+
+  // Action pills: Test · Catalog History · Configure ------------------------
+  const actions = document.createElement("div");
+  actions.className = "catalog-row-actions";
+
+  const testBtn = document.createElement("button");
+  testBtn.type = "button";
+  testBtn.className = "btn btn-info js-catalog-test";
+  testBtn.dataset.provider = provider;
+  testBtn.textContent = "Test";
+  actions.appendChild(testBtn);
+
+  const historyBtn = document.createElement("button");
+  historyBtn.type = "button";
+  historyBtn.className = "btn btn-history js-catalog-history";
+  historyBtn.dataset.provider = provider;
+  historyBtn.textContent = "Catalog History";
+  actions.appendChild(historyBtn);
+
+  const configureBtn = document.createElement("button");
+  configureBtn.type = "button";
+  configureBtn.className = "btn btn-primary catalog-expand-btn js-catalog-configure";
+  configureBtn.dataset.provider = provider;
+  configureBtn.setAttribute("aria-expanded", "false");
+  configureBtn.appendChild(document.createTextNode("Configure"));
+  configureBtn.appendChild(_buildCatalogChevron());
+  actions.appendChild(configureBtn);
+
+  summary.appendChild(actions);
+  row.appendChild(summary);
+
+  // Expand body (hidden initially) ------------------------------------------
+  const expand = document.createElement("div");
+  expand.className = "catalog-row-expand";
+  expand.style.display = "none";
+
+  expand.appendChild(
+    _buildApiKeyField({
+      provider,
+      placeholder: apiKeyPlaceholder,
+      helpText: apiKeyHelpText,
+      helpHref: apiKeyHelpHref,
+    })
+  );
+
+  if (showUsageBar) {
+    const usage = document.createElement("div");
+    usage.className = "usage-bar";
+    const fill = document.createElement("div");
+    fill.className = "usage-bar-fill";
+    fill.style.width = "0%";
+    usage.appendChild(fill);
+    const label = document.createElement("span");
+    label.className = "usage-bar-label";
+    label.textContent = "";
+    usage.appendChild(label);
+    expand.appendChild(usage);
+  }
+
+  const openBulk = document.createElement("button");
+  openBulk.type = "button";
+  openBulk.className = "btn btn-primary js-open-bulk-sync";
+  openBulk.dataset.provider = provider;
+  openBulk.textContent = "Open Bulk Sync";
+  expand.appendChild(openBulk);
+
+  row.appendChild(expand);
+  return row;
+};
+
+/**
+ * Builds the Catalog `.settings-fieldset` — title, subtext, and two catalog
+ * rows (Numista then PCGS). Status dots reflect `catalog_api_config` state;
+ * Task 11 wires the expand/collapse, test, history, and bulk-sync handlers.
+ * REQ-6.1 through REQ-6.7 render-side.
  * @returns {DocumentFragment}
  */
 const renderCatalogCards = () => {
   const frag = document.createDocumentFragment();
+
   const title = document.createElement("div");
   title.className = "settings-fieldset-title";
   title.textContent = "Catalog";
   frag.appendChild(title);
+
+  const subtext = document.createElement("p");
+  subtext.className = "settings-subtext";
+  subtext.textContent = "External catalog APIs for coin metadata and pricing reference.";
+  frag.appendChild(subtext);
+
+  const state = _getCatalogConfiguredState();
+
+  frag.appendChild(
+    _buildCatalogRow({
+      provider: "numista",
+      displayName: "Numista",
+      configured: state.numista,
+      metaText: state.numista ? "Configured" : "Not configured",
+      apiKeyPlaceholder: "Enter your Numista API key",
+      apiKeyHelpText: "Get a free key at",
+      apiKeyHelpHref: "https://numista.com/api",
+      showUsageBar: true,
+    })
+  );
+
+  frag.appendChild(
+    _buildCatalogRow({
+      provider: "pcgs",
+      displayName: "PCGS",
+      configured: state.pcgs,
+      metaText: state.pcgs ? "Configured" : "Not configured",
+      apiKeyPlaceholder: "Enter your PCGS bearer token",
+      apiKeyHelpText: "Get a free key at",
+      apiKeyHelpHref: "https://pcgs.com/api",
+      showUsageBar: false,
+    })
+  );
+
   return frag;
 };
 
