@@ -7440,7 +7440,12 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2 id="bulkSyncModalTitle">Bulk Sync &amp; Advanced</h2>
-          <button type="button" class="modal-close" id="bulkSyncCloseBtn" aria-label="Close modal">
+          <button
+            type="button"
+            class="modal-close btn-action-neutral"
+            id="bulkSyncCloseBtn"
+            aria-label="Close modal"
+          >
             ×
           </button>
         </div>
@@ -7458,33 +7463,13 @@
             </button>
             <button
               class="bulk-tab"
-              id="bulkTab-fields"
-              data-tab="fields"
+              id="bulkTab-sync-settings"
+              data-tab="sync-settings"
               role="tab"
               aria-selected="false"
-              aria-controls="bulkPanel-fields"
+              aria-controls="bulkPanel-sync-settings"
             >
-              Fields
-            </button>
-            <button
-              class="bulk-tab"
-              id="bulkTab-blacklist"
-              data-tab="blacklist"
-              role="tab"
-              aria-selected="false"
-              aria-controls="bulkPanel-blacklist"
-            >
-              Tag Blacklist
-            </button>
-            <button
-              class="bulk-tab"
-              id="bulkTab-activity"
-              data-tab="activity"
-              role="tab"
-              aria-selected="false"
-              aria-controls="bulkPanel-activity"
-            >
-              Activity
+              Sync Settings
             </button>
           </div>
           <div
@@ -7499,30 +7484,16 @@
           </div>
           <div
             class="bulk-panel"
-            id="bulkPanel-fields"
-            data-panel="fields"
+            id="bulkPanel-sync-settings"
+            data-panel="sync-settings"
             role="tabpanel"
-            aria-labelledby="bulkTab-fields"
-            style="display: none"
-          ></div>
-          <div
-            class="bulk-panel"
-            id="bulkPanel-blacklist"
-            data-panel="blacklist"
-            role="tabpanel"
-            aria-labelledby="bulkTab-blacklist"
+            aria-labelledby="bulkTab-sync-settings"
             style="display: none"
           >
+            <div id="bulkSyncFieldsSection"></div>
+            <hr style="border: none; border-top: 1px solid var(--border); margin: 1rem 0" />
             <div id="numistaTagSettingsGroup"></div>
           </div>
-          <div
-            class="bulk-panel"
-            id="bulkPanel-activity"
-            data-panel="activity"
-            role="tabpanel"
-            aria-labelledby="bulkTab-activity"
-            style="display: none"
-          ></div>
         </div>
         <div class="modal-footer"></div>
       </div>
