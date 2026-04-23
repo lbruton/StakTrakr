@@ -1780,14 +1780,25 @@ const wireCatalogActions = () => {
       } else if (provider === "pcgs") {
         const keyInput = row ? row.querySelector(".js-api-key-input") : null;
         const token = keyInput ? (keyInput.value || "").trim() : "";
-        if (!token) {
+        if (!token && !(keyInput && keyInput.dataset.masked === "true")) {
           showAppAlert("Enter a PCGS bearer token first.", "warning");
           return;
         }
-        if (typeof window.catalogConfig !== "undefined") {
+        if (
+          token &&
+          keyInput.dataset.masked !== "true" &&
+          typeof window.catalogConfig !== "undefined"
+        ) {
           window.catalogConfig.setPcgsConfig(token);
         }
-        showAppAlert("PCGS key saved. Test endpoint not yet available.", "info");
+        if (
+          typeof window.catalogConfig !== "undefined" &&
+          typeof window.catalogConfig.testPcgsKey === "function"
+        ) {
+          window.catalogConfig.testPcgsKey().then(function (result) {
+            showAppAlert(result.message, result.success ? "success" : "error");
+          });
+        }
       }
       return;
     }

@@ -257,6 +257,24 @@ class CatalogConfig {
       date: this.config.pcgsUsage.date,
     };
   }
+
+  async testPcgsKey() {
+    var token = this.config.pcgs && this.config.pcgs.bearerToken;
+    if (!token) return { success: false, message: "No PCGS token configured" };
+    try {
+      var resp = await fetch(
+        "https://api.pcgs.com/publicapi/coindetail/GetCoinFactsByPCGSNo/38472177",
+        { headers: { Authorization: "Bearer " + token } }
+      );
+      if (resp.ok) return { success: true, message: "PCGS API connected" };
+      return {
+        success: false,
+        message: "Invalid token (HTTP " + resp.status + ")",
+      };
+    } catch (err) {
+      return { success: false, message: "PCGS API unreachable" };
+    }
+  }
 }
 
 // Global catalog configuration instance
