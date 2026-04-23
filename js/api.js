@@ -2291,7 +2291,13 @@ const syncProviderChain = (options) => syncSpotProvider(options);
  * @param {boolean} syncing - Whether sync is in progress
  */
 const updateSyncButtonStates = (syncing = false) => {
-  const source = localStorage.getItem("spotPricingSource") || "STAKTRAKR";
+  let source = "STAKTRAKR";
+  try {
+    const raw = localStorage.getItem("spotPricingSource");
+    if (raw) source = JSON.parse(raw) || "STAKTRAKR";
+  } catch (_e) {
+    /* corrupt value — fall back to default */
+  }
   const hasApi = source !== "MANUAL" && (apiConfig?.keys?.[source] || !providerRequiresKey(source));
 
   Object.values(METALS).forEach((metalConfig) => {
