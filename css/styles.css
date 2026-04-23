@@ -11250,6 +11250,28 @@ th {
   color: #fff;
 }
 
+/* Bulk Sync modal — narrower than Settings (1100px) */
+#bulkSyncModal .modal-content {
+  max-width: 680px;
+}
+
+/* Button color variants — composable with .btn / .api-action-btn */
+.btn-action-primary {
+  color: var(--success);
+  border-color: var(--success);
+}
+.btn-action-primary:hover {
+  background: var(--success);
+  color: #fff;
+}
+.btn-action-neutral {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.btn-action-neutral:hover {
+  background: var(--bg-tertiary);
+}
+
 /* Catalog rows */
 .catalog-row {
   border: 1px solid var(--border);
