@@ -72,8 +72,8 @@ test.describe("STAK-573 — API Tab QA Pass", () => {
       await openApiSettings(page);
       await openCatalogExpandPanel(page, "Numista");
 
-      const catalog = page.locator("#apiSection_catalog");
-      const saveBtn = catalog.locator("button.js-catalog-save").filter({ hasText: /Save/i });
+      const numistaRow = page.locator('.catalog-row[data-provider="numista"]');
+      const saveBtn = numistaRow.locator("button.js-catalog-save");
       await expect(saveBtn).toBeVisible();
       await expect(saveBtn).toHaveText(/Save/);
     });
@@ -84,8 +84,8 @@ test.describe("STAK-573 — API Tab QA Pass", () => {
       await openApiSettings(page);
       await openCatalogExpandPanel(page, "PCGS");
 
-      const catalog = page.locator("#apiSection_catalog");
-      const saveBtn = catalog.locator("button.js-catalog-save");
+      const pcgsRow = page.locator('.catalog-row[data-provider="pcgs"]');
+      const saveBtn = pcgsRow.locator("button.js-catalog-save");
       await expect(saveBtn).toBeVisible();
     });
   });
@@ -170,18 +170,12 @@ test.describe("STAK-573 — API Tab QA Pass", () => {
       await openApiSettings(page);
       await openCatalogExpandPanel(page, "Numista");
 
-      const catalog = page.locator("#apiSection_catalog");
-      // The Test button must be a sibling of the new js-catalog-save button
-      // (i.e., inside the same expand panel action row)
-      const expandPanel = catalog.locator(".catalog-expand-panel, .catalog-detail").first();
-      const testBtn = expandPanel
-        .locator("button")
-        .filter({ hasText: /^Test$/i })
-        .first();
+      const numistaRow = page.locator('.catalog-row[data-provider="numista"]');
+      const testBtn = numistaRow.locator("button.js-catalog-test");
       await expect(testBtn).toBeVisible();
 
-      // Verify the Test button is in the same panel as the Save button
-      const saveBtn = expandPanel.locator("button.js-catalog-save");
+      // Verify the Save button is in the same row
+      const saveBtn = numistaRow.locator("button.js-catalog-save");
       await expect(saveBtn).toBeVisible();
 
       await testBtn.click();
@@ -193,7 +187,7 @@ test.describe("STAK-573 — API Tab QA Pass", () => {
       expect(networkRequests.length).toBeGreaterThan(0);
 
       // After test completes, a result indicator should appear (success/fail badge or text)
-      const resultIndicator = expandPanel.locator(".test-result, .test-status, [data-test-result]");
+      const resultIndicator = numistaRow.locator(".test-result, .test-status, [data-test-result]");
       await expect(resultIndicator).toBeVisible({ timeout: 5000 });
     });
   });
@@ -450,14 +444,13 @@ test.describe("STAK-573 — API Tab QA Pass", () => {
       });
       expect(isAllowed).toBe(true);
 
-      // Verify the key survives a storage round-trip (saveData/loadData or raw localStorage)
+      // Verify the key survives a storage round-trip (saveDataSync/loadDataSync are synchronous)
       const roundTrip = await page.evaluate(() => {
         const original = localStorage.getItem("catalog_api_config");
         const data = JSON.parse(original);
-        // Try the saveData/loadData path first (sync pipeline uses these)
-        if (typeof saveData === "function" && typeof loadData === "function") {
-          saveData("catalog_api_config", data);
-          const restored = loadData("catalog_api_config", null);
+        if (typeof saveDataSync === "function" && typeof loadDataSync === "function") {
+          saveDataSync("catalog_api_config", data);
+          const restored = loadDataSync("catalog_api_config", null);
           return JSON.stringify(restored) === JSON.stringify(data);
         }
         // Fallback: raw localStorage round-trip
