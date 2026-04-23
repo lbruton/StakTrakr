@@ -1736,7 +1736,7 @@ const wireCatalogActions = () => {
   if (!host || host.__stakCatalogActionsBound) return;
   host.__stakCatalogActionsBound = true;
 
-  host.addEventListener("click", (e) => {
+  host.addEventListener("click", async (e) => {
     const btn = e.target.closest(
       ".js-catalog-save, .js-catalog-test, .js-catalog-history, .js-toggle-password, .js-open-bulk-sync"
     );
@@ -1768,14 +1768,22 @@ const wireCatalogActions = () => {
     if (btn.classList.contains("js-catalog-test")) {
       if (provider === "numista") {
         const input = row ? row.querySelector(".js-api-key-input") : null;
-        if (input && input.dataset.masked !== "true") {
-          const value = (input.value || "").trim();
-          if (value && typeof window.catalogConfig !== "undefined") {
-            window.catalogConfig.setNumistaConfig(value);
-          }
+        const hasStoredKey = input && input.dataset.masked === "true";
+        const value = input ? (input.value || "").trim() : "";
+        if (!value && !hasStoredKey) {
+          showAppAlert("Enter a Numista API key first.", "warning");
+          return;
+        }
+        if (value && !hasStoredKey && typeof window.catalogConfig !== "undefined") {
+          window.catalogConfig.setNumistaConfig(value);
         }
         if (typeof window.testNumistaAPI === "function") {
-          window.testNumistaAPI();
+          try {
+            await window.testNumistaAPI();
+            showAppAlert("Numista API test successful.", "success");
+          } catch (err) {
+            showAppAlert("Numista API test failed.", "error");
+          }
         }
       } else if (provider === "pcgs") {
         const keyInput = row ? row.querySelector(".js-api-key-input") : null;
