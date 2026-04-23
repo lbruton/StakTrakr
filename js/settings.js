@@ -542,6 +542,20 @@ const _buildAutoRefreshRow = (hint) => {
   return row;
 };
 
+const _buildProviderFooter = (attributionText) => {
+  const footer = document.createElement("div");
+  footer.className = "spot-panel-footer";
+  const attribution = document.createElement("span");
+  attribution.className = "provider-attribution";
+  attribution.textContent = attributionText;
+  footer.appendChild(attribution);
+  const hint = document.createElement("span");
+  hint.className = "settings-hint";
+  hint.textContent = "Your API key is stored locally only.";
+  footer.appendChild(hint);
+  return footer;
+};
+
 /**
  * Builds the Cache-timeout + Pull-history `.provider-field-grid`. The caller
  * supplies the timeout / history-length option arrays so each provider can
@@ -743,18 +757,7 @@ const renderSpotPanelMetalsDev = () => {
 
   panel.appendChild(_buildMetalsCheckboxes());
   panel.appendChild(_buildAutoRefreshRow());
-
-  const footer = document.createElement("div");
-  footer.className = "spot-panel-footer";
-  const attribution = document.createElement("span");
-  attribution.className = "provider-attribution";
-  attribution.textContent = "Provided by metals.dev";
-  footer.appendChild(attribution);
-  const hint = document.createElement("span");
-  hint.className = "settings-hint";
-  hint.textContent = "Your API key is stored locally only.";
-  footer.appendChild(hint);
-  panel.appendChild(footer);
+  panel.appendChild(_buildProviderFooter("Provided by metals.dev"));
 
   return panel;
 };
@@ -797,18 +800,7 @@ const renderSpotPanelMetalsApi = () => {
 
   panel.appendChild(_buildMetalsCheckboxes());
   panel.appendChild(_buildAutoRefreshRow());
-
-  const footer = document.createElement("div");
-  footer.className = "spot-panel-footer";
-  const attribution = document.createElement("span");
-  attribution.className = "provider-attribution";
-  attribution.textContent = "Provided by metals-api.com";
-  footer.appendChild(attribution);
-  const hint = document.createElement("span");
-  hint.className = "settings-hint";
-  hint.textContent = "Your API key is stored locally only.";
-  footer.appendChild(hint);
-  panel.appendChild(footer);
+  panel.appendChild(_buildProviderFooter("Provided by metals-api.com"));
 
   return panel;
 };
@@ -851,18 +843,7 @@ const renderSpotPanelMetalPriceApi = () => {
 
   panel.appendChild(_buildMetalsCheckboxes());
   panel.appendChild(_buildAutoRefreshRow());
-
-  const footer = document.createElement("div");
-  footer.className = "spot-panel-footer";
-  const attribution = document.createElement("span");
-  attribution.className = "provider-attribution";
-  attribution.textContent = "Provided by metalpriceapi.com";
-  footer.appendChild(attribution);
-  const hint = document.createElement("span");
-  hint.className = "settings-hint";
-  hint.textContent = "Your API key is stored locally only.";
-  footer.appendChild(hint);
-  panel.appendChild(footer);
+  panel.appendChild(_buildProviderFooter("Provided by metalpriceapi.com"));
 
   return panel;
 };
