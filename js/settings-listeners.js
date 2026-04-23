@@ -1738,15 +1738,45 @@ const wireCatalogActions = () => {
 
   host.addEventListener("click", (e) => {
     const btn = e.target.closest(
-      ".js-catalog-test, .js-catalog-history, .js-toggle-password, .js-open-bulk-sync"
+      ".js-catalog-save, .js-catalog-test, .js-catalog-history, .js-toggle-password, .js-open-bulk-sync"
     );
     if (!btn || !host.contains(btn)) return;
     const row = btn.closest(".catalog-row");
     const provider = btn.dataset.provider || (row ? row.dataset.provider : "");
 
+    if (btn.classList.contains("js-catalog-save")) {
+      const input = row ? row.querySelector(".js-api-key-input") : null;
+      if (!input) return;
+      if (input.dataset.masked === "true" && input.value === "••••••••") return;
+      const value = (input.value || "").trim();
+      if (provider === "numista" && typeof window.catalogConfig !== "undefined") {
+        window.catalogConfig.setNumistaConfig(value);
+      } else if (provider === "pcgs" && typeof window.catalogConfig !== "undefined") {
+        window.catalogConfig.setPcgsConfig(value);
+      }
+      if (typeof showAppAlert === "function") {
+        showAppAlert("API key saved.", "success");
+      }
+      if (value) {
+        input.value = "••••••••";
+        input.dataset.masked = "true";
+        input.type = "password";
+      }
+      return;
+    }
+
     if (btn.classList.contains("js-catalog-test")) {
-      if (provider === "numista" && typeof window.testNumistaAPI === "function") {
-        window.testNumistaAPI();
+      if (provider === "numista") {
+        const input = row ? row.querySelector(".js-api-key-input") : null;
+        if (input && input.dataset.masked !== "true") {
+          const value = (input.value || "").trim();
+          if (value && typeof window.catalogConfig !== "undefined") {
+            window.catalogConfig.setNumistaConfig(value);
+          }
+        }
+        if (typeof window.testNumistaAPI === "function") {
+          window.testNumistaAPI();
+        }
       } else if (provider === "pcgs") {
         const keyInput = row ? row.querySelector(".js-api-key-input") : null;
         const token = keyInput ? (keyInput.value || "").trim() : "";
@@ -1793,6 +1823,15 @@ const wireCatalogActions = () => {
       window.catalogConfig.setNumistaConfig(value);
     } else if (provider === "pcgs" && typeof window.catalogConfig !== "undefined") {
       window.catalogConfig.setPcgsConfig(value);
+    }
+  });
+
+  host.addEventListener("focusin", (e) => {
+    const input = e.target.closest(".js-api-key-input");
+    if (!input || !host.contains(input)) return;
+    if (input.dataset.masked === "true") {
+      input.value = "";
+      input.dataset.masked = "false";
     }
   });
 };
