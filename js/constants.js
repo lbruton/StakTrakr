@@ -871,6 +871,7 @@ const SYNC_SCOPE_KEYS = [
   "apiProviderOrder", // spot provider order
   "providerPriority", // provider priority config
   "spotPricingSource", // STAK-443: single-select spot source (STAKTRAKR|METALS_DEV|METALS_API|METAL_PRICE_API|CUSTOM|MANUAL)
+  "metalSpotPrices", // STAK-443: manual-mode spot prices {gold, silver, platinum, palladium}
 
   // ── API credentials ──
   "metalApiConfig", // API_KEY_STORAGE_KEY — spot provider keys (MetalPriceAPI, Metals-API, Custom)

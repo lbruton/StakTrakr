@@ -966,6 +966,8 @@ const renderSpotPanelManual = () => {
   const panel = document.createElement("div");
   panel.className = "spot-accordion-panel";
   panel.dataset.val = "MANUAL";
+  const savedManualPrices =
+    typeof loadDataSync === "function" ? loadDataSync("metalSpotPrices", {}) : {};
 
   // Action row: Save / History / Reset
   const actions = document.createElement("div");
@@ -1016,6 +1018,10 @@ const renderSpotPanelManual = () => {
     input.min = "0";
     input.dataset.metal = metal;
     input.className = "js-manual-spot";
+    const savedValue = Number(savedManualPrices?.[metal]);
+    if (Number.isFinite(savedValue)) {
+      input.value = String(savedValue);
+    }
     shell.appendChild(input);
     grid.appendChild(shell);
   });

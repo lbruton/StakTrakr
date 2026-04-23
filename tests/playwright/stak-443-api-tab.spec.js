@@ -55,6 +55,14 @@ async function seedApiState(page, opts = {}) {
     if (data.apiProviderOrder !== undefined) {
       localStorage.setItem("apiProviderOrder", JSON.stringify(data.apiProviderOrder));
     }
+    if (data.metalSpotPrices !== undefined) {
+      localStorage.setItem("metalSpotPrices", JSON.stringify(data.metalSpotPrices));
+    }
+    if (data.manualSpotStorage !== undefined) {
+      Object.entries(data.manualSpotStorage).forEach(([key, value]) => {
+        localStorage.setItem(key, String(value));
+      });
+    }
     if (data.clearSpotPricingSource) {
       localStorage.removeItem("spotPricingSource");
     }
@@ -63,6 +71,11 @@ async function seedApiState(page, opts = {}) {
       localStorage.removeItem("providerPriority");
       localStorage.removeItem("apiProviderOrder");
       localStorage.removeItem("metalApiConfig");
+      localStorage.removeItem("metalSpotPrices");
+      localStorage.removeItem("spotGold");
+      localStorage.removeItem("spotSilver");
+      localStorage.removeItem("spotPlatinum");
+      localStorage.removeItem("spotPalladium");
     }
   }, opts);
 }
@@ -388,6 +401,218 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       );
     });
     expect(matches).toBe(true);
+  });
+
+  test("6.1 REQ-5 — Manual spot state is included in the sync-scoped vault payload", async ({
+    page,
+  }) => {
+    await seedApiState(page, {
+      spotPricingSource: "MANUAL",
+      metalSpotPrices: {
+        gold: 2712.5,
+        silver: 31.84,
+        platinum: 975.2,
+        palladium: 1014,
+      },
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.vaultEncryptToBytesScoped === "function" &&
+        typeof window.vaultDecryptToData === "function"
+    );
+
+    const payload = await page.evaluate(async () => {
+      const password = "manual-sync-test-password";
+      const bytes = await window.vaultEncryptToBytesScoped(password);
+      const decrypted = await window.vaultDecryptToData(bytes, password);
+      return {
+        spotPricingSource: JSON.parse(decrypted.data.spotPricingSource),
+        metalSpotPrices: JSON.parse(decrypted.data.metalSpotPrices),
+      };
+    });
+
+    expect(payload.spotPricingSource).toBe("MANUAL");
+    expect(payload.metalSpotPrices).toEqual({
+      gold: 2712.5,
+      silver: 31.84,
+      platinum: 975.2,
+      palladium: 1014,
+    });
+  });
+
+  test("6.2 REQ-5 — ZIP backup/restore preserves Manual spot source and values", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.__lastBackupBlob = null;
+      const originalCreateObjectUrl = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = function (value) {
+        if (value instanceof Blob) {
+          window.__lastBackupBlob = value;
+        }
+        return originalCreateObjectUrl(value);
+      };
+    });
+
+    await seedApiState(page, {
+      spotPricingSource: "MANUAL",
+      metalSpotPrices: {
+        gold: 2712.5,
+        silver: 31.84,
+        platinum: 975.2,
+        palladium: 1014,
+      },
+      manualSpotStorage: {
+        spotGold: 2712.5,
+        spotSilver: 31.84,
+        spotPlatinum: 975.2,
+        spotPalladium: 1014,
+      },
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+
+    const exportedSettings = await page.evaluate(async () => {
+      await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(window.__lastBackupBlob);
+      return JSON.parse(await zip.file("settings.json").async("string"));
+    });
+
+    expect(exportedSettings.spotPricingSource).toBe("MANUAL");
+    expect(exportedSettings.metalSpotPrices).toEqual({
+      gold: 2712.5,
+      silver: 31.84,
+      platinum: 975.2,
+      palladium: 1014,
+    });
+
+    await page.evaluate(async () => {
+      const originalShowToast = window.showToast;
+      window.__zipRestoreComplete = false;
+      window.showToast = function (message, level) {
+        if (typeof originalShowToast === "function") {
+          originalShowToast(message, level);
+        }
+        if (String(message || "").includes("ZIP backup restored successfully")) {
+          window.__zipRestoreComplete = true;
+        }
+      };
+
+      window.showImportDiffReview = function (_items, _meta, options, onDone) {
+        const changes = options?.settingsDiff?.changed || [];
+        for (const change of changes) {
+          localStorage.setItem(
+            change.key,
+            typeof change.remoteVal === "string"
+              ? change.remoteVal
+              : JSON.stringify(change.remoteVal)
+          );
+        }
+        onDone({ added: 0, modified: 0, deleted: 0 });
+      };
+
+      const zip = new window.JSZip();
+      zip.file(
+        "inventory_data.json",
+        JSON.stringify({
+          version: "test",
+          exportDate: new Date().toISOString(),
+          inventory: [],
+        })
+      );
+      zip.file(
+        "settings.json",
+        JSON.stringify({
+          version: "test",
+          exportDate: new Date().toISOString(),
+          exportOrigin: window.location.origin,
+          spotPrices: {
+            gold: 2712.5,
+            silver: 31.84,
+            platinum: 975.2,
+            palladium: 1014,
+          },
+          spotPricingSource: "MANUAL",
+          metalSpotPrices: {
+            gold: 2712.5,
+            silver: 31.84,
+            platinum: 975.2,
+            palladium: 1014,
+          },
+          theme: "dark",
+          itemsPerPage: 25,
+          sortColumn: "date",
+          sortDirection: "desc",
+          catalogMappings: {},
+          chipCustomGroups: [],
+          chipBlacklist: [],
+          tableImageSides: "both",
+          tableImagesEnabled: true,
+        })
+      );
+      const file = new File([await zip.generateAsync({ type: "blob" })], "manual-settings.zip", {
+        type: "application/zip",
+      });
+
+      localStorage.removeItem("spotPricingSource");
+      localStorage.removeItem("metalSpotPrices");
+      localStorage.removeItem("spotGold");
+      localStorage.removeItem("spotSilver");
+      localStorage.removeItem("spotPlatinum");
+      localStorage.removeItem("spotPalladium");
+
+      await window.restoreBackupZip(file);
+    });
+
+    await page.waitForFunction(() => window.__zipRestoreComplete === true);
+
+    const restored = await page.evaluate(() => ({
+      source: (() => {
+        const raw = localStorage.getItem("spotPricingSource");
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      })(),
+      prices: JSON.parse(localStorage.getItem("metalSpotPrices")),
+      perMetal: {
+        gold: localStorage.getItem("spotGold"),
+        silver: localStorage.getItem("spotSilver"),
+        platinum: localStorage.getItem("spotPlatinum"),
+        palladium: localStorage.getItem("spotPalladium"),
+      },
+    }));
+
+    expect(restored.source).toBe("MANUAL");
+    expect(restored.prices).toEqual({
+      gold: 2712.5,
+      silver: 31.84,
+      platinum: 975.2,
+      palladium: 1014,
+    });
+    expect(restored.perMetal).toEqual({
+      gold: "2712.5",
+      silver: "31.84",
+      platinum: "975.2",
+      palladium: "1014",
+    });
+
+    await openApiSettings(page);
+    const manualPanel = page.locator('#apiSection_spot .spot-accordion-panel[data-val="MANUAL"]');
+    await expect(manualPanel.locator('input.js-manual-spot[data-metal="gold"]')).toHaveValue(
+      "2712.5"
+    );
+    await expect(manualPanel.locator('input.js-manual-spot[data-metal="silver"]')).toHaveValue(
+      "31.84"
+    );
+    await expect(manualPanel.locator('input.js-manual-spot[data-metal="platinum"]')).toHaveValue(
+      "975.2"
+    );
+    await expect(manualPanel.locator('input.js-manual-spot[data-metal="palladium"]')).toHaveValue(
+      "1014"
+    );
   });
 
   // =========================================================================

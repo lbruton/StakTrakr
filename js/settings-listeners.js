@@ -1571,10 +1571,11 @@ const wireSpotProviderActions = () => {
         const inputs = panel.querySelectorAll("input.js-manual-spot[data-metal]");
         const prices = {};
         inputs.forEach((input) => {
+          if (!input.value.trim()) return;
           const parsed = parseFloat(input.value);
           const metal = input.dataset.metal;
           if (!metal) return;
-          prices[metal] = Number.isFinite(parsed) ? parsed : 0;
+          if (Number.isFinite(parsed)) prices[metal] = parsed;
         });
         saveDataSync("metalSpotPrices", prices);
         // Mirror to per-metal keys consumed by spot.js readers.

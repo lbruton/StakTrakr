@@ -2500,6 +2500,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
 
   // 4. Save & render
   if (typeof saveInventory === "function") saveInventory();
+  if (typeof fetchSpotPrice === "function") fetchSpotPrice();
   if (typeof renderTable === "function") renderTable();
   if (typeof renderActiveFilters === "function") renderActiveFilters();
   if (typeof updateStorageStats === "function") updateStorageStats();
@@ -3166,6 +3167,9 @@ async function pullWithPreview(remoteMeta) {
               // (e.g. QuotaExceededError), leave lastPull stale so the next
               // poll cycle retries
               if (_failedCount === 0) {
+                if (typeof fetchSpotPrice === "function") {
+                  fetchSpotPrice();
+                }
                 syncSetLastPull({
                   syncId: remoteMeta ? remoteMeta.syncId : null,
                   timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
