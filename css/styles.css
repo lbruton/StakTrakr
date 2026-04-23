@@ -11051,6 +11051,556 @@ th {
 }
 
 /* =============================================================================
+   STAK-443 API Tab Redesign
+   ============================================================================= */
+
+/* Fieldset header row + inline status (API section headers) */
+.fieldset-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fieldset-status-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+/* Pill override inside API fieldsets (REQ-8.1) */
+.settings-fieldset .btn {
+  border-radius: 999px;
+}
+
+/* Market beacon (live-data hero card) */
+.market-beacon {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(30, 41, 59, 0.6));
+}
+.market-beacon-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.market-beacon-body {
+  flex: 1;
+}
+.market-beacon-body strong {
+  font-size: 1rem;
+}
+.market-beacon-body p {
+  margin: 4px 0 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.provider-attribution {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.provider-attribution a {
+  color: #60a5fa;
+}
+
+/* Spot provider accordion */
+.spot-accordion {
+  margin-top: 8px;
+}
+.spot-accordion-panel {
+  display: none;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+  padding: 12px 14px;
+}
+.spot-accordion-panel.active {
+  display: block;
+}
+
+.spot-panel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.spot-panel-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.spot-panel-info strong {
+  font-size: 0.95rem;
+}
+.spot-panel-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.spot-panel-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.spot-panel-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.72rem;
+}
+.spot-panel-footer .disclaimer {
+  color: #fbbf24;
+  font-style: italic;
+}
+
+/* Provider field grid — multi-column for API key + options */
+.provider-field-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+  margin-top: 10px;
+}
+@media (min-width: 640px) {
+  .provider-field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.provider-field {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+}
+.provider-field select,
+.provider-field input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+}
+.inline-field-group {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.inline-field-group select {
+  flex: 1;
+}
+
+/* Manual (override) grid */
+.manual-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  margin-top: 10px;
+}
+@media (min-width: 720px) {
+  .manual-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* History button variant (REQ-8.2 — violet gradient) */
+.btn-history {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  border-color: transparent;
+  color: #fff;
+}
+.btn-history:hover {
+  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+}
+
+/* Catalog rows */
+.catalog-row {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.catalog-row-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.catalog-row-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.catalog-row-name strong {
+  font-size: 1rem;
+}
+.catalog-row-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.catalog-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.catalog-row-expand {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  border-top: 1px solid transparent;
+  padding: 0 14px;
+}
+.catalog-row.open .catalog-row-expand {
+  max-height: 500px;
+  border-top-color: var(--border);
+  padding: 12px 14px;
+}
+.catalog-row.open .chevron {
+  transform: rotate(180deg);
+}
+.chevron {
+  transition: transform 0.2s;
+}
+/* JS hook — no dedicated styling; inherits .btn + .btn-primary */
+.catalog-expand-btn {
+  position: relative;
+}
+
+/* Bulk Sync modal — tabs + panels (modal shell reuses existing .modal system) */
+.bulk-modal-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 20px 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.bulk-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.bulk-tab:hover {
+  color: var(--text-primary);
+}
+.bulk-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+.bulk-panel {
+  display: none;
+}
+.bulk-panel.active {
+  display: block;
+}
+
+/* Overview stats */
+.bulk-stat-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 16px;
+}
+@media (min-width: 640px) {
+  .bulk-stat-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.bulk-stat {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bulk-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.bulk-stat strong {
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-top: 2px;
+}
+.bulk-stat small {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Bulk progress + controls */
+.bulk-progress {
+  margin-bottom: 14px;
+}
+.bulk-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success), #059669);
+}
+.bulk-progress-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+.bulk-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.bulk-details {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+.bulk-details summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.bulk-details summary:hover {
+  color: var(--text-primary);
+}
+.bulk-details[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Bulk details table */
+.bulk-table-wrap {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.bulk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.bulk-table th,
+.bulk-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.bulk-table th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  color: var(--text-secondary);
+  position: sticky;
+  top: 0;
+}
+.bulk-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Bulk fields tab */
+.bulk-field-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (min-width: 560px) {
+  .bulk-field-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 780px) {
+  .bulk-field-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.bulk-field-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.bulk-field-checkbox:hover {
+  border-color: var(--border-hover);
+}
+
+/* Blacklist tab */
+.blacklist-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  min-height: 56px;
+  background: rgba(0, 0, 0, 0.1);
+}
+.blacklist-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+.blacklist-chip button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+.blacklist-chip button:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+/* Activity tab */
+.bulk-activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.bulk-log {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  max-height: 340px;
+  overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace;
+  font-size: 0.76rem;
+}
+.bulk-log-line {
+  display: flex;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  align-items: baseline;
+}
+.bulk-log-line:last-child {
+  border-bottom: 0;
+}
+.bulk-log-line time {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 64px;
+}
+.bulk-log-line.ok span {
+  color: var(--text-secondary);
+}
+.bulk-log-line.warn span {
+  color: #fbbf24;
+}
+.bulk-log-line.err span {
+  color: #f87171;
+}
+.bulk-log-line.ok::before,
+.bulk-log-line.warn::before,
+.bulk-log-line.err::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: -4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.bulk-log-line.ok::before {
+  background: var(--success);
+}
+.bulk-log-line.warn::before {
+  background: var(--warning);
+}
+.bulk-log-line.err::before {
+  background: var(--danger);
+}
+
+/* Standalone usage bar (scoped to catalog expand — kept distinct from .api-usage .usage-bar) */
+.catalog-row-expand .usage-bar,
+.bulk-modal-body .usage-bar {
+  position: relative;
+  height: 20px;
+  background: var(--bg-secondary);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+.usage-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, var(--success), #059669);
+}
+.usage-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* end STAK-443 */
+
+/* =============================================================================
    SETTINGS CHANGE LOG PANEL
    ============================================================================= */
 
