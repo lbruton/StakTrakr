@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.25] - 2026-04-23
+
+### Changed — STAK-573: API tab QA pass — catalog UX, spot card polish, Bulk Sync modal rework
+
+- **Added**: Save button on Numista and PCGS catalog expand panels with toast feedback (STAK-573)
+- **Added**: Masked key indicator (`••••••••`) when API key is stored — clears on focus (STAK-573)
+- **Fixed**: Usage bar reads from CatalogConfig instead of showing static "No key configured" (STAK-573)
+- **Fixed**: Numista Test button saves key first, shows success/failure toast (STAK-573)
+- **Added**: PCGS Test button with real API validation via `testPcgsKey()` (STAK-573)
+- **Changed**: "Open Bulk Sync" button renamed to "Advanced Settings" (STAK-573)
+- **Changed**: Bulk Sync modal consolidated from 4 tabs to 2 (Overview + Sync Settings), Activity tab removed (STAK-573)
+- **Added**: "Sync Unsynced" button in Bulk Sync Overview tab (STAK-573)
+- **Fixed**: Bulk Sync modal width constrained to ≤ Settings modal (STAK-573)
+- **Added**: `.btn-action-primary` and `.btn-action-neutral` button color variants for action differentiation (STAK-573)
+- **Fixed**: Metals.dev "Polls on cache TTL interval." leftover text removed (STAK-573)
+- **Added**: Provider attribution footers to Metals-API and MetalPriceAPI spot cards (STAK-573)
+- **Fixed**: Catalog History buttons now use `btn-history` class for consistent blue color (STAK-573)
+- **Fixed**: Provider reinitialization after catalog key save to prevent stale credentials (STAK-573)
+
+---
+
 ## [3.34.24] - 2026-04-23
 
 ### Changed — STAK-443: Settings Redesign — API tab sectioned card layout
