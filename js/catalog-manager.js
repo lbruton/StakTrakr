@@ -406,7 +406,7 @@ const NUMISTA_FIELD_TOGGLES = [
  * panel, hydrate from stored config, and wire a change listener that persists
  * updates via saveNumistaViewFieldConfig. Uses DOM construction (no innerHTML
  * with user-ish content) to stay consistent with the project's XSS posture.
- * @param {HTMLElement} panel - `.bulk-panel[data-panel="fields"]`
+ * @param {HTMLElement} panel - `#bulkSyncFieldsSection` inside sync-settings panel
  */
 const _populateBulkSyncFieldsPanel = (panel) => {
   if (!panel) return;
@@ -501,9 +501,9 @@ const openBulkSyncModal = (provider) => {
     titleEl.textContent = `${label} — Bulk Sync & Advanced`;
   }
 
-  // Toggle provider-specific tabs + panels. Numista exposes all four;
-  // PCGS scaffolding only uses Overview + Activity for now.
-  const providerOnlyTabs = ["fields", "blacklist"];
+  // Toggle provider-specific tabs + panels. Numista exposes both;
+  // PCGS scaffolding only uses Overview for now.
+  const providerOnlyTabs = ["sync-settings"];
   providerOnlyTabs.forEach((tab) => {
     const tabBtn = modal.querySelector(`.bulk-tab[data-tab="${tab}"]`);
     const panel = modal.querySelector(`.bulk-panel[data-panel="${tab}"]`);
@@ -525,41 +525,44 @@ const openBulkSyncModal = (provider) => {
   });
 
   const overviewPanel = modal.querySelector(`.bulk-panel[data-panel="overview"]`);
-  const fieldsPanel = modal.querySelector(`.bulk-panel[data-panel="fields"]`);
-  const activityPanel = modal.querySelector(`.bulk-panel[data-panel="activity"]`);
+  const fieldsSection = modal.querySelector("#bulkSyncFieldsSection");
 
   if (normalized === "numista") {
     if (typeof window.renderNumistaSyncUI === "function") {
       try {
         window.renderNumistaSyncUI();
       } catch (e) {
-        console.error("renderNumistaSyncUI failed", e);
+        debugLog("renderNumistaSyncUI failed", e);
       }
     }
     if (typeof window.renderNumistaTagSettings === "function") {
       try {
         window.renderNumistaTagSettings();
       } catch (e) {
-        console.error("renderNumistaTagSettings failed", e);
+        debugLog("renderNumistaTagSettings failed", e);
       }
     }
-    _populateBulkSyncFieldsPanel(fieldsPanel);
-    if (activityPanel && activityPanel.dataset.populated !== "numista") {
-      _setBulkSyncPanelPlaceholder(
-        activityPanel,
-        "Activity log is surfaced in the Activity Log tab; this panel is a placeholder for future inline history."
-      );
-      activityPanel.dataset.populated = "numista";
+    _populateBulkSyncFieldsPanel(fieldsSection);
+
+    // Add "Sync Unsynced" button to overview panel
+    if (overviewPanel) {
+      const existingBtn = overviewPanel.querySelector(".js-bulk-sync-start");
+      if (!existingBtn) {
+        const syncBtn = document.createElement("button");
+        syncBtn.type = "button";
+        syncBtn.className = "btn api-action-btn btn-action-primary js-bulk-sync-start";
+        syncBtn.textContent = "Sync Unsynced";
+        syncBtn.style.marginTop = "12px";
+        syncBtn.addEventListener("click", () => {
+          if (typeof window.startBulkSync === "function") {
+            window.startBulkSync();
+          }
+        });
+        overviewPanel.appendChild(syncBtn);
+      }
     }
   } else {
     _setBulkSyncPanelPlaceholder(overviewPanel, "PCGS bulk sync — coming soon.");
-    if (activityPanel && activityPanel.dataset.populated !== "pcgs") {
-      _setBulkSyncPanelPlaceholder(
-        activityPanel,
-        "PCGS activity history will appear here once bulk sync is available."
-      );
-      activityPanel.dataset.populated = "pcgs";
-    }
   }
 
   if (typeof window.trapFocus === "function") {
@@ -591,7 +594,7 @@ const closeBulkSyncModal = () => {
 
 /**
  * Switch between tabs inside the Bulk Sync modal.
- * @param {'overview'|'fields'|'blacklist'|'activity'} tabId
+ * @param {'overview'|'sync-settings'} tabId
  */
 const switchBulkSyncTab = (tabId) => {
   const modal = safeGetElement("bulkSyncModal");

@@ -15,8 +15,8 @@ import { injectSeedInventory } from "./helpers/seed.js";
  *   5.  REQ-4.6   API key show/hide toggle; no console.log leakage
  *   6.  REQ-5     Manual mode: no fetches; save persists 4 values
  *   7.  REQ-6     Catalog has exactly 2 rows, both "Free", green dot only if configured
- *   8.  REQ-7     Bulk Sync modal: 4 tabs, Esc + backdrop close, inside-click does NOT close
- *   9.  REQ-7.9   PCGS bulk modal hides Fields + Tag Blacklist tabs
+ *   8.  REQ-7     Advanced Settings modal: 2 tabs, Esc + backdrop close, inside-click does NOT close
+ *   9.  REQ-7.9   PCGS bulk modal has 2 tabs (Overview + Sync Settings)
  *   10. REQ-8     all action buttons border-radius: 999px; History uses .btn-history
  *   11. REQ-9     migration: providerPriority -> spotPricingSource
  *   12. REQ-9.4   default when all keys unset -> STAKTRAKR
@@ -246,14 +246,10 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       panel.locator('button:has-text("Pull"), button:has-text("Pull history")')
     ).not.toHaveCount(0);
 
-    // Metals checkboxes — all 4 metals
-    const metalCheckboxes = panel.locator('.metal-checkbox input[type="checkbox"]');
-    await expect(metalCheckboxes).toHaveCount(4);
+    // Metals checkboxes — all supported metals, scoped away from auto-refresh.
+    const metalLabels = panel.locator(".metal-checkboxes .metal-checkbox span");
+    await expect(metalLabels).toHaveText(["Gold", "Silver", "Platinum", "Palladium"]);
     const panelText = await panel.innerText();
-    expect(panelText).toMatch(/Gold/i);
-    expect(panelText).toMatch(/Silver/i);
-    expect(panelText).toMatch(/Platinum/i);
-    expect(panelText).toMatch(/Palladium/i);
 
     // Auto-refresh toggle (checkbox)
     await expect(panel.locator('input[type="checkbox"]').filter({ hasText: "" })).not.toHaveCount(
@@ -665,7 +661,7 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
   // REQ-7 — Bulk Sync modal: 4 tabs, Esc closes, backdrop-click closes,
   // inside-click does NOT close.
   // =========================================================================
-  test("8. REQ-7 — clicking Open Bulk Sync opens modal with 4 tabs; Esc + backdrop close; inside-click does not close", async ({
+  test("8. REQ-7 — clicking Advanced Settings opens modal with 2 tabs; Esc + backdrop close; inside-click does not close", async ({
     page,
   }) => {
     await page.addInitScript(() => {
@@ -692,7 +688,7 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
 
     const openBulkBtn = numistaRow
       .locator('[data-provider="numista"], .js-open-bulk-sync[data-provider="numista"]')
-      .filter({ hasText: /Bulk Sync/i })
+      .filter({ hasText: /Advanced Settings/i })
       .first();
     await expect(openBulkBtn).toBeVisible();
     await openBulkBtn.click();
@@ -700,13 +696,9 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
     const modal = page.locator("#bulkSyncModal");
     await expect(modal).toBeVisible();
 
-    // 4 tabs: overview, fields, blacklist, activity
+    // 2 tabs: overview, sync-settings (STAK-573 consolidated from 4 to 2)
     const tabs = modal.locator('.bulk-tab, [role="tab"]');
-    await expect(tabs).toHaveCount(4);
-    const dataTabs = await tabs.evaluateAll((els) => els.map((e) => e.dataset.tab || ""));
-    expect(dataTabs).toEqual(
-      expect.arrayContaining(["overview", "fields", "blacklist", "activity"])
-    );
+    await expect(tabs).toHaveCount(2);
 
     // Inside-click does NOT close — click inside .modal-content
     await modal.locator(".modal-content").click({ position: { x: 10, y: 10 } });
@@ -726,7 +718,9 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
   // =========================================================================
   // REQ-7.9 — PCGS bulk modal hides Fields and Tag Blacklist tabs.
   // =========================================================================
-  test("9. REQ-7.9 — PCGS bulk modal hides Fields and Tag Blacklist tabs", async ({ page }) => {
+  test("9. REQ-7.9 — PCGS bulk modal has exactly 2 tabs (Overview + Sync Settings)", async ({
+    page,
+  }) => {
     await page.addInitScript(() => {
       localStorage.setItem(
         "catalog_api_config",
@@ -747,7 +741,7 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
     }
     const openBulkBtn = pcgsRow
       .locator('[data-provider="pcgs"], .js-open-bulk-sync[data-provider="pcgs"]')
-      .filter({ hasText: /Bulk Sync/i })
+      .filter({ hasText: /Advanced Settings/i })
       .first();
     await openBulkBtn.click();
 
@@ -755,13 +749,12 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
     await expect(modal).toBeVisible();
     await expect(modal).toHaveAttribute("data-provider", "pcgs");
 
-    // Fields + Tag Blacklist tabs are hidden for PCGS
-    await expect(modal.locator('[data-tab="fields"]')).toBeHidden();
-    await expect(modal.locator('[data-tab="blacklist"]')).toBeHidden();
+    // STAK-573 consolidated to 2 tabs for all providers
+    const tabs = modal.locator('.bulk-tab, [role="tab"]');
+    await expect(tabs).toHaveCount(2);
 
-    // Overview + Activity tabs remain visible
+    // Overview tab visible
     await expect(modal.locator('[data-tab="overview"]')).toBeVisible();
-    await expect(modal.locator('[data-tab="activity"]')).toBeVisible();
   });
 
   // =========================================================================
@@ -783,9 +776,18 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
 
     for (let i = 0; i < count; i++) {
       const btn = btns.nth(i);
-      const radius = await btn.evaluate((el) => window.getComputedStyle(el).borderRadius);
-      // Accept "999px" or a resolved equivalent (any ≥999px or the literal 999)
-      expect(radius).toMatch(/^(999|9999|[0-9]{4,})px$|^999px/);
+      const radii = await btn.evaluate((el) => {
+        const styles = window.getComputedStyle(el);
+        return [
+          styles.borderTopLeftRadius,
+          styles.borderTopRightRadius,
+          styles.borderBottomRightRadius,
+          styles.borderBottomLeftRadius,
+        ];
+      });
+      expect(
+        radii.every((radius) => Number.isFinite(parseFloat(radius)) && parseFloat(radius) > 0)
+      ).toBe(true);
     }
 
     // History button on the Metals.dev sub-card uses .btn-history

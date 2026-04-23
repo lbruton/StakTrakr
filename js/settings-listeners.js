@@ -1725,6 +1725,127 @@ const wireCatalogConfigureChevrons = () => {
   });
 };
 
+const CATALOG_KEY_MASK = "••••••••";
+
+const reinitializeCatalogProviders = () => {
+  if (
+    typeof window.catalogAPI !== "undefined" &&
+    typeof window.catalogAPI.initializeProviders === "function"
+  ) {
+    window.catalogAPI.initializeProviders();
+  }
+};
+
+const saveCatalogProviderConfig = (provider, value) => {
+  if (typeof window.catalogConfig === "undefined") return false;
+  if (provider === "numista") {
+    window.catalogConfig.setNumistaConfig(value);
+    reinitializeCatalogProviders();
+    return true;
+  }
+  if (provider === "pcgs") {
+    window.catalogConfig.setPcgsConfig(value);
+    reinitializeCatalogProviders();
+    return true;
+  }
+  return false;
+};
+
+const refreshNumistaUsageBar = (row) => {
+  if (typeof window.renderNumistaUsageBar !== "function") return;
+  const usageContainer = row ? row.querySelector("#numistaUsageBar") : null;
+  if (!usageContainer) {
+    const expand = row ? row.querySelector(".catalog-row-expand") : null;
+    if (expand) {
+      const existing = expand.querySelector(".usage-bar, .api-usage-label");
+      if (existing) existing.remove();
+      const bar = document.createElement("div");
+      bar.id = "numistaUsageBar";
+      const actions = expand.querySelector(".catalog-expand-actions");
+      expand.insertBefore(bar, actions || null);
+    }
+  }
+  setTimeout(() => window.renderNumistaUsageBar(), 0);
+};
+
+const markCatalogInputDirty = (input) => {
+  const row = input.closest(".catalog-row");
+  input.dataset.dirty = "true";
+  if (row) row.classList.add("is-dirty");
+};
+
+const handleCatalogSave = (btn) => {
+  const row = btn.closest(".catalog-row");
+  const provider = btn.dataset.provider || (row ? row.dataset.provider : "");
+  const input = row ? row.querySelector(".js-api-key-input") : null;
+  if (!input) return;
+  if (input.dataset.masked === "true" && input.value === CATALOG_KEY_MASK) return;
+
+  const value = (input.value || "").trim();
+  saveCatalogProviderConfig(provider, value);
+  if (typeof showAppAlert === "function") {
+    showAppAlert("API key saved.", "success");
+  }
+  if (value) {
+    input.value = CATALOG_KEY_MASK;
+    input.dataset.masked = "true";
+    input.type = "password";
+  } else {
+    input.dataset.masked = "false";
+  }
+  delete input.dataset.dirty;
+  if (row) row.classList.remove("is-dirty");
+  if (provider === "numista") refreshNumistaUsageBar(row);
+};
+
+const handleCatalogTest = async (btn) => {
+  const row = btn.closest(".catalog-row");
+  const provider = btn.dataset.provider || (row ? row.dataset.provider : "");
+  const input = row ? row.querySelector(".js-api-key-input") : null;
+  const hasStoredKey = !!(input && input.dataset.masked === "true");
+  const value = input ? (input.value || "").trim() : "";
+
+  if (!value && !hasStoredKey) {
+    showAppAlert(
+      provider === "pcgs" ? "Enter a PCGS bearer token first." : "Enter a Numista API key first.",
+      "warning"
+    );
+    return;
+  }
+  if (value && !hasStoredKey) {
+    saveCatalogProviderConfig(provider, value);
+  }
+
+  if (provider === "numista" && typeof window.testNumistaAPI === "function") {
+    try {
+      const result = await window.testNumistaAPI();
+      showAppAlert(
+        result ? "Numista API test successful." : "Numista API test failed — check your key.",
+        result ? "success" : "error"
+      );
+    } catch (err) {
+      showAppAlert("Numista API test failed.", "error");
+    }
+  } else if (
+    provider === "pcgs" &&
+    typeof window.catalogConfig !== "undefined" &&
+    typeof window.catalogConfig.testPcgsKey === "function"
+  ) {
+    const result = await window.catalogConfig.testPcgsKey();
+    showAppAlert(result.message, result.success ? "success" : "error");
+  }
+};
+
+const handleCatalogTogglePassword = (btn) => {
+  const expand = btn.closest(".catalog-row-expand");
+  if (!expand) return;
+  const input = expand.querySelector(".js-api-key-input");
+  if (!input) return;
+  const isVisible = input.type === "text";
+  input.type = isVisible ? "password" : "text";
+  btn.setAttribute("aria-label", isVisible ? "Show API key" : "Hide API key");
+};
+
 /**
  * Delegated click handler on `#apiSection_catalog` for Test, Catalog History,
  * and key-save actions. Uses `window.catalogConfig` (CatalogConfig instance)
@@ -1736,29 +1857,19 @@ const wireCatalogActions = () => {
   if (!host || host.__stakCatalogActionsBound) return;
   host.__stakCatalogActionsBound = true;
 
-  host.addEventListener("click", (e) => {
+  host.addEventListener("click", async (e) => {
     const btn = e.target.closest(
-      ".js-catalog-test, .js-catalog-history, .js-toggle-password, .js-open-bulk-sync"
+      ".js-catalog-save, .js-catalog-test, .js-catalog-history, .js-toggle-password, .js-open-bulk-sync"
     );
     if (!btn || !host.contains(btn)) return;
-    const row = btn.closest(".catalog-row");
-    const provider = btn.dataset.provider || (row ? row.dataset.provider : "");
+
+    if (btn.classList.contains("js-catalog-save")) {
+      handleCatalogSave(btn);
+      return;
+    }
 
     if (btn.classList.contains("js-catalog-test")) {
-      if (provider === "numista" && typeof window.testNumistaAPI === "function") {
-        window.testNumistaAPI();
-      } else if (provider === "pcgs") {
-        const keyInput = row ? row.querySelector(".js-api-key-input") : null;
-        const token = keyInput ? (keyInput.value || "").trim() : "";
-        if (!token) {
-          showAppAlert("Enter a PCGS bearer token first.", "warning");
-          return;
-        }
-        if (typeof window.catalogConfig !== "undefined") {
-          window.catalogConfig.setPcgsConfig(token);
-        }
-        showAppAlert("PCGS key saved. Test endpoint not yet available.", "info");
-      }
+      await handleCatalogTest(btn);
       return;
     }
 
@@ -1770,29 +1881,32 @@ const wireCatalogActions = () => {
     }
 
     if (btn.classList.contains("js-toggle-password")) {
-      const expand = btn.closest(".catalog-row-expand");
-      if (!expand) return;
-      const input = expand.querySelector(".js-api-key-input");
-      if (input) {
-        const isVisible = input.type === "text";
-        input.type = isVisible ? "password" : "text";
-        btn.setAttribute("aria-label", isVisible ? "Show API key" : "Hide API key");
-      }
+      handleCatalogTogglePassword(btn);
       return;
     }
   });
 
-  host.addEventListener("change", (e) => {
+  host.addEventListener("input", (e) => {
     const input = e.target.closest(".js-api-key-input");
     if (!input || !host.contains(input)) return;
-    const row = input.closest(".catalog-row");
-    const provider = row ? row.dataset.provider : "";
-    const value = (input.value || "").trim();
+    if (input.dataset.masked === "true") {
+      if (input.value === CATALOG_KEY_MASK) input.value = "";
+      input.dataset.masked = "false";
+      delete input.dataset.clearOnInput;
+    }
+    markCatalogInputDirty(input);
+  });
 
-    if (provider === "numista" && typeof window.catalogConfig !== "undefined") {
-      window.catalogConfig.setNumistaConfig(value);
-    } else if (provider === "pcgs" && typeof window.catalogConfig !== "undefined") {
-      window.catalogConfig.setPcgsConfig(value);
+  host.addEventListener("focusin", (e) => {
+    const input = e.target.closest(".js-api-key-input");
+    if (!input || !host.contains(input)) return;
+    if (input.dataset.masked === "true") {
+      input.dataset.clearOnInput = "true";
+      requestAnimationFrame(() => {
+        if (document.activeElement === input) {
+          input.select();
+        }
+      });
     }
   });
 };
