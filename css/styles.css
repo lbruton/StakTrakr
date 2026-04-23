@@ -11241,6 +11241,14 @@ th {
 .api-action-btn:hover::before {
   left: -100%;
 }
+.btn-history {
+  color: var(--info);
+  border-color: var(--info);
+}
+.btn-history:hover {
+  background: var(--info);
+  color: #fff;
+}
 
 /* Catalog rows */
 .catalog-row {

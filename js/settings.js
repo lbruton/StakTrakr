@@ -355,7 +355,7 @@ const _buildSpotActionRow = (opts = {}) => {
 
   const history = document.createElement("button");
   history.type = "button";
-  history.className = "btn api-action-btn js-history";
+  history.className = "btn api-action-btn btn-history js-history";
   history.textContent = "History";
   row.appendChild(history);
 
@@ -401,6 +401,17 @@ const _buildApiKeyField = (opts) => {
   input.dataset.provider = provider;
   input.className = "js-api-key-input";
   inputWrap.appendChild(input);
+
+  if (typeof loadApiConfig === "function") {
+    try {
+      const cfg = loadApiConfig();
+      if (cfg && cfg.keys && cfg.keys[provider]) {
+        input.value = cfg.keys[provider];
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+  }
 
   const toggle = document.createElement("button");
   toggle.type = "button";
@@ -979,7 +990,7 @@ const renderSpotPanelManual = () => {
   actions.appendChild(save);
   const history = document.createElement("button");
   history.type = "button";
-  history.className = "btn api-action-btn js-history";
+  history.className = "btn api-action-btn btn-history js-history";
   history.textContent = "History";
   actions.appendChild(history);
   const reset = document.createElement("button");

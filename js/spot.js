@@ -389,8 +389,12 @@ const syncManualSpotStorage = (options = {}) => {
   let applied = 0;
   Object.values(METALS).forEach((metalConfig) => {
     const rawValue = priceMap[metalConfig.key];
+    if (rawValue === "" || rawValue == null) {
+      if (clearMissing) localStorage.removeItem(metalConfig.localStorageKey);
+      return;
+    }
     const parsedValue = Number(rawValue);
-    if (Number.isFinite(parsedValue)) {
+    if (Number.isFinite(parsedValue) && parsedValue > 0) {
       localStorage.setItem(metalConfig.localStorageKey, String(parsedValue));
       applied++;
       return;

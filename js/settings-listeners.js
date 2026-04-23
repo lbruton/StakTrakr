@@ -1562,7 +1562,8 @@ const wireSpotProviderActions = () => {
       input.type = isHidden ? "text" : "password";
       const showing = input.type === "text";
       btn.setAttribute("aria-label", showing ? "Hide API key" : "Show API key");
-      btn.textContent = showing ? "Hide" : "Show";
+      const textNode = Array.from(btn.childNodes).find((n) => n.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.textContent = showing ? " Hide" : " Show";
       return;
     }
 
@@ -1750,13 +1751,13 @@ const wireCatalogActions = () => {
         const keyInput = row ? row.querySelector(".js-api-key-input") : null;
         const token = keyInput ? (keyInput.value || "").trim() : "";
         if (!token) {
-          alert("Enter a PCGS bearer token first.");
+          showAppAlert("Enter a PCGS bearer token first.", "warning");
           return;
         }
         if (typeof window.catalogConfig !== "undefined") {
           window.catalogConfig.setPcgsConfig(token);
         }
-        alert("PCGS key saved. Test endpoint not yet available.");
+        showAppAlert("PCGS key saved. Test endpoint not yet available.", "info");
       }
       return;
     }
