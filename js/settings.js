@@ -1124,36 +1124,43 @@ if (typeof window !== "undefined") {
 }
 
 /**
- * Switches the visible provider tab in the API section.
- * @param {string} key - Provider key: 'NUMISTA', 'METALS_DEV', 'METALS_API', 'METAL_PRICE_API', 'CUSTOM'
+ * Spot pricing source enum — single source of truth for valid values
+ * persisted under `spotPricingSource` via `saveData`.
  */
-const switchProviderTab = (key) => {
-  // Hide all provider panels
-  document.querySelectorAll(".settings-provider-panel").forEach((panel) => {
-    panel.style.display = "none";
+const SPOT_SOURCES = [
+  "STAKTRAKR",
+  "METALS_DEV",
+  "METALS_API",
+  "METAL_PRICE_API",
+  "CUSTOM",
+  "MANUAL",
+];
+
+/**
+ * Selects the active spot pricing source. Persists the choice, then updates
+ * pill `.active` / `aria-checked` state and accordion panel visibility inside
+ * `#apiSection_spot`.
+ *
+ * @param {string} value - One of SPOT_SOURCES; invalid values coerce to 'STAKTRAKR'.
+ */
+const switchSpotProvider = (value) => {
+  const normalized = SPOT_SOURCES.includes(value) ? value : "STAKTRAKR";
+  saveData("spotPricingSource", normalized);
+
+  const spotHost = safeGetElement("apiSection_spot");
+  if (!spotHost) return;
+
+  spotHost.querySelectorAll(".gb-source-btn[data-val]").forEach((pill) => {
+    const isActive = pill.dataset.val === normalized;
+    pill.classList.toggle("active", isActive);
+    pill.setAttribute("aria-checked", isActive ? "true" : "false");
   });
 
-  // Show target panel
-  const target = document.getElementById(`providerPanel_${key}`);
-  if (target) target.style.display = "block";
-
-  // Update active tab
-  document.querySelectorAll(".settings-provider-tab").forEach((tab) => {
-    tab.classList.toggle("active", tab.dataset.provider === key);
+  spotHost.querySelectorAll(".spot-accordion-panel[data-val]").forEach((panel) => {
+    const isActive = panel.dataset.val === normalized;
+    panel.classList.toggle("active", isActive);
+    panel.style.display = isActive ? "" : "none";
   });
-
-  // Render Numista bulk sync UI when switching to Numista tab (STACK-87/88)
-  if (key === "NUMISTA" && typeof renderNumistaSyncUI === "function") {
-    const syncGroup = document.getElementById("numistaBulkSyncGroup");
-    if (syncGroup && syncGroup.style.display !== "none") {
-      renderNumistaSyncUI();
-    }
-  }
-
-  // Render Numista tag settings (auto-apply toggle + blacklist)
-  if (key === "NUMISTA") {
-    renderNumistaTagSettings();
-  }
 };
 
 /**
@@ -1367,12 +1374,6 @@ const syncSettingsUI = () => {
   // Show realized G/L toggle (STAK-436)
   const showRealized = loadDataSync(SHOW_REALIZED_KEY, "true") !== "false";
   syncChipToggle("settingsShowRealizedToggle", showRealized);
-
-  // Set first provider tab active if none visible — default to Numista
-  const anyVisible = document.querySelector('.settings-provider-panel[style*="display: block"]');
-  if (!anyVisible) {
-    switchProviderTab("NUMISTA");
-  }
 };
 
 /**
@@ -3867,7 +3868,7 @@ if (typeof window !== "undefined") {
   window.showSettingsModal = showSettingsModal;
   window.hideSettingsModal = hideSettingsModal;
   window.switchSettingsSection = switchSettingsSection;
-  window.switchProviderTab = switchProviderTab;
+  window.switchSpotProvider = switchSpotProvider;
   window.renderInlineChipConfigTable = renderInlineChipConfigTable;
   window.renderFilterChipCategoryTable = renderFilterChipCategoryTable;
   window.renderLayoutSectionConfigTable = renderLayoutSectionConfigTable;
