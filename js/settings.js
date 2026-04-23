@@ -736,7 +736,7 @@ const renderSpotPanelMetalsDev = () => {
   );
 
   panel.appendChild(_buildMetalsCheckboxes());
-  panel.appendChild(_buildAutoRefreshRow("Polls on cache TTL interval."));
+  panel.appendChild(_buildAutoRefreshRow());
 
   const footer = document.createElement("div");
   footer.className = "spot-panel-footer";
@@ -792,6 +792,18 @@ const renderSpotPanelMetalsApi = () => {
   panel.appendChild(_buildMetalsCheckboxes());
   panel.appendChild(_buildAutoRefreshRow());
 
+  const footer = document.createElement("div");
+  footer.className = "spot-panel-footer";
+  const attribution = document.createElement("span");
+  attribution.className = "provider-attribution";
+  attribution.textContent = "Provided by metals-api.com";
+  footer.appendChild(attribution);
+  const hint = document.createElement("span");
+  hint.className = "settings-hint";
+  hint.textContent = "Your API key is stored locally only.";
+  footer.appendChild(hint);
+  panel.appendChild(footer);
+
   return panel;
 };
 
@@ -833,6 +845,18 @@ const renderSpotPanelMetalPriceApi = () => {
 
   panel.appendChild(_buildMetalsCheckboxes());
   panel.appendChild(_buildAutoRefreshRow());
+
+  const footer = document.createElement("div");
+  footer.className = "spot-panel-footer";
+  const attribution = document.createElement("span");
+  attribution.className = "provider-attribution";
+  attribution.textContent = "Provided by metalpriceapi.com";
+  footer.appendChild(attribution);
+  const hint = document.createElement("span");
+  hint.className = "settings-hint";
+  hint.textContent = "Your API key is stored locally only.";
+  footer.appendChild(hint);
+  panel.appendChild(footer);
 
   return panel;
 };
