@@ -2291,10 +2291,8 @@ const syncProviderChain = (options) => syncSpotProvider(options);
  * @param {boolean} syncing - Whether sync is in progress
  */
 const updateSyncButtonStates = (syncing = false) => {
-  const hasApi =
-    apiConfig &&
-    apiConfig.provider &&
-    (apiConfig.keys[apiConfig.provider] || !providerRequiresKey(apiConfig.provider));
+  const source = localStorage.getItem("spotPricingSource") || "STAKTRAKR";
+  const hasApi = source !== "MANUAL" && (apiConfig?.keys?.[source] || !providerRequiresKey(source));
 
   Object.values(METALS).forEach((metalConfig) => {
     // New sparkline card sync icon

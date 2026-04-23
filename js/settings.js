@@ -328,7 +328,7 @@ const _getActiveSpotSource = () => {
 /**
  * Builds the `[Save] [Save & Test] [History] [Clear Key]` action row shared by
  * Metals.dev, Metals-API, MetalPriceAPI, and Custom panels. History button
- * carries the `.btn-history` class required by REQ-8.2.
+ * uses `.api-action-btn` outlined style (REQ-8.2).
  * @param {object} opts
  * @param {boolean} [opts.saveTest=true] include the Save & Test button
  * @param {boolean} [opts.clearKey=true] include the Clear Key button
@@ -341,28 +341,28 @@ const _buildSpotActionRow = (opts = {}) => {
 
   const save = document.createElement("button");
   save.type = "button";
-  save.className = "btn btn-primary js-save";
+  save.className = "btn api-action-btn js-save";
   save.textContent = "Save";
   row.appendChild(save);
 
   if (saveTest) {
     const saveAndTest = document.createElement("button");
     saveAndTest.type = "button";
-    saveAndTest.className = "btn btn-success js-save-test";
+    saveAndTest.className = "btn api-action-btn js-save-test";
     saveAndTest.textContent = "Save & Test";
     row.appendChild(saveAndTest);
   }
 
   const history = document.createElement("button");
   history.type = "button";
-  history.className = "btn btn-history js-history";
+  history.className = "btn api-action-btn js-history";
   history.textContent = "History";
   row.appendChild(history);
 
   if (clearKey) {
     const clear = document.createElement("button");
     clear.type = "button";
-    clear.className = "btn btn-warning js-clear-key";
+    clear.className = "btn api-action-btn js-clear-key";
     clear.textContent = "Clear Key";
     row.appendChild(clear);
   }
@@ -404,9 +404,22 @@ const _buildApiKeyField = (opts) => {
 
   const toggle = document.createElement("button");
   toggle.type = "button";
-  toggle.className = "btn btn-sm js-toggle-password";
+  toggle.className = "btn btn-toggle-key js-toggle-password";
   toggle.setAttribute("aria-label", "Show API key");
-  toggle.textContent = "Show";
+  const eyeSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  eyeSvg.setAttribute("viewBox", "0 0 24 24");
+  eyeSvg.setAttribute("fill", "none");
+  eyeSvg.setAttribute("stroke", "currentColor");
+  eyeSvg.setAttribute("stroke-width", "2");
+  const eyePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  eyePath.setAttribute("d", "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z");
+  eyeSvg.appendChild(eyePath);
+  const eyeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  eyeCircle.setAttribute("cx", "12");
+  eyeCircle.setAttribute("cy", "12");
+  eyeCircle.setAttribute("r", "3");
+  eyeSvg.appendChild(eyeCircle);
+  toggle.appendChild(eyeSvg);
   inputWrap.appendChild(toggle);
 
   shell.appendChild(inputWrap);
@@ -430,7 +443,7 @@ const _buildApiKeyField = (opts) => {
 
 /**
  * Builds the four-metal checkbox grid used by every provider panel. All
- * checkboxes are rendered unchecked — Task 11 syncs them to stored state.
+ * checkboxes are rendered checked — Task 11 syncs them to stored state.
  * @returns {HTMLElement}
  */
 const _buildMetalsCheckboxes = () => {
@@ -455,6 +468,7 @@ const _buildMetalsCheckboxes = () => {
     wrapLabel.className = "metal-checkbox";
     const cb = document.createElement("input");
     cb.type = "checkbox";
+    cb.checked = true;
     cb.dataset.metal = metal;
     wrapLabel.appendChild(cb);
     const span = document.createElement("span");
@@ -474,20 +488,23 @@ const _buildMetalsCheckboxes = () => {
  */
 const _buildAutoRefreshRow = (hint) => {
   const row = document.createElement("div");
-  row.className = "provider-setting-row inline";
+  row.className = "auto-refresh-row";
 
   const label = document.createElement("label");
-  label.className = "field-label";
+  label.className = "metal-checkbox";
   const cb = document.createElement("input");
   cb.type = "checkbox";
+  cb.checked = true;
   cb.className = "js-auto-refresh";
   label.appendChild(cb);
-  label.appendChild(document.createTextNode(" Background auto-refresh"));
+  const span = document.createElement("span");
+  span.textContent = "Background auto-refresh";
+  label.appendChild(span);
   row.appendChild(label);
 
   if (hint) {
     const hintEl = document.createElement("span");
-    hintEl.className = "settings-hint";
+    hintEl.className = "settings-hint auto-refresh-hint";
     hintEl.textContent = hint;
     row.appendChild(hintEl);
   }
@@ -548,7 +565,7 @@ const _buildCachePullGrid = ({ cacheOptions, cacheSelected, historyOptions, hist
   histGroup.appendChild(histSelect);
   const pullBtn = document.createElement("button");
   pullBtn.type = "button";
-  pullBtn.className = "btn btn-info btn-sm js-pull-history";
+  pullBtn.className = "btn api-action-btn js-pull-history";
   pullBtn.textContent = "Pull";
   histGroup.appendChild(pullBtn);
   histField.appendChild(histGroup);
@@ -611,17 +628,17 @@ const renderSpotPanelStaktrakr = () => {
   actions.className = "spot-panel-actions";
   const syncBtn = document.createElement("button");
   syncBtn.type = "button";
-  syncBtn.className = "btn btn-success js-save-test";
+  syncBtn.className = "btn api-action-btn js-save-test";
   syncBtn.textContent = "Sync";
   actions.appendChild(syncBtn);
   const flushBtn = document.createElement("button");
   flushBtn.type = "button";
-  flushBtn.className = "btn btn-danger js-flush-cache";
+  flushBtn.className = "btn api-action-btn js-flush-cache";
   flushBtn.textContent = "Flush Cache";
   actions.appendChild(flushBtn);
   const histBtn = document.createElement("button");
   histBtn.type = "button";
-  histBtn.className = "btn btn-history js-history";
+  histBtn.className = "btn api-action-btn js-history";
   histBtn.textContent = "History";
   actions.appendChild(histBtn);
 
@@ -634,8 +651,6 @@ const renderSpotPanelStaktrakr = () => {
       actions,
     })
   );
-
-  panel.appendChild(_buildMetalsCheckboxes());
 
   const footer = document.createElement("div");
   footer.className = "spot-panel-footer";
@@ -910,9 +925,22 @@ const renderSpotPanelCustom = () => {
   keyInputWrap.appendChild(keyInput);
   const keyToggle = document.createElement("button");
   keyToggle.type = "button";
-  keyToggle.className = "btn btn-sm js-toggle-password";
+  keyToggle.className = "btn btn-toggle-key js-toggle-password";
   keyToggle.setAttribute("aria-label", "Show API key");
-  keyToggle.textContent = "Show";
+  const keyEyeSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  keyEyeSvg.setAttribute("viewBox", "0 0 24 24");
+  keyEyeSvg.setAttribute("fill", "none");
+  keyEyeSvg.setAttribute("stroke", "currentColor");
+  keyEyeSvg.setAttribute("stroke-width", "2");
+  const keyEyePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  keyEyePath.setAttribute("d", "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z");
+  keyEyeSvg.appendChild(keyEyePath);
+  const keyEyeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  keyEyeCircle.setAttribute("cx", "12");
+  keyEyeCircle.setAttribute("cy", "12");
+  keyEyeCircle.setAttribute("r", "3");
+  keyEyeSvg.appendChild(keyEyeCircle);
+  keyToggle.appendChild(keyEyeSvg);
   keyInputWrap.appendChild(keyToggle);
   keyShell.appendChild(keyInputWrap);
   grid.appendChild(keyShell);
@@ -940,17 +968,17 @@ const renderSpotPanelManual = () => {
   actions.className = "spot-panel-actions";
   const save = document.createElement("button");
   save.type = "button";
-  save.className = "btn btn-success js-save";
+  save.className = "btn api-action-btn js-save";
   save.textContent = "Save";
   actions.appendChild(save);
   const history = document.createElement("button");
   history.type = "button";
-  history.className = "btn btn-history js-history";
+  history.className = "btn api-action-btn js-history";
   history.textContent = "History";
   actions.appendChild(history);
   const reset = document.createElement("button");
   reset.type = "button";
-  reset.className = "btn btn-warning js-reset";
+  reset.className = "btn api-action-btn js-reset";
   reset.textContent = "Reset";
   actions.appendChild(reset);
 
@@ -1184,21 +1212,21 @@ const _buildCatalogRow = (opts) => {
 
   const testBtn = document.createElement("button");
   testBtn.type = "button";
-  testBtn.className = "btn btn-info js-catalog-test";
+  testBtn.className = "btn api-action-btn js-catalog-test";
   testBtn.dataset.provider = provider;
   testBtn.textContent = "Test";
   actions.appendChild(testBtn);
 
   const historyBtn = document.createElement("button");
   historyBtn.type = "button";
-  historyBtn.className = "btn btn-history js-catalog-history";
+  historyBtn.className = "btn api-action-btn js-catalog-history";
   historyBtn.dataset.provider = provider;
   historyBtn.textContent = "Catalog History";
   actions.appendChild(historyBtn);
 
   const configureBtn = document.createElement("button");
   configureBtn.type = "button";
-  configureBtn.className = "btn btn-primary catalog-expand-btn js-catalog-configure";
+  configureBtn.className = "btn api-action-btn catalog-expand-btn js-catalog-configure";
   configureBtn.dataset.provider = provider;
   configureBtn.setAttribute("aria-expanded", "false");
   configureBtn.appendChild(document.createTextNode("Configure"));
@@ -1230,18 +1258,21 @@ const _buildCatalogRow = (opts) => {
     fill.style.width = "0%";
     usage.appendChild(fill);
     const label = document.createElement("span");
-    label.className = "usage-bar-label";
-    label.textContent = "";
+    label.className = "usage-bar-label empty";
+    label.textContent = "No key configured";
     usage.appendChild(label);
     expand.appendChild(usage);
   }
 
+  const expandActions = document.createElement("div");
+  expandActions.className = "catalog-expand-actions";
   const openBulk = document.createElement("button");
   openBulk.type = "button";
-  openBulk.className = "btn btn-primary js-open-bulk-sync";
+  openBulk.className = "btn api-action-btn js-open-bulk-sync";
   openBulk.dataset.provider = provider;
   openBulk.textContent = "Open Bulk Sync";
-  expand.appendChild(openBulk);
+  expandActions.appendChild(openBulk);
+  expand.appendChild(expandActions);
 
   row.appendChild(expand);
   return row;

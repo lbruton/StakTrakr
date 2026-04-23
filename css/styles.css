@@ -11072,7 +11072,7 @@ th {
 }
 
 /* Pill override inside API fieldsets (REQ-8.1) */
-.settings-fieldset .btn {
+.settings-fieldset .btn:not(.btn-toggle-key) {
   border-radius: 999px;
 }
 
@@ -11222,14 +11222,24 @@ th {
   }
 }
 
-/* History button variant (REQ-8.2 — violet gradient) */
-.btn-history {
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-  border-color: transparent;
-  color: #fff;
+/* API-tab action button — outlined, compact (REQ-8.2 visual QA) */
+.api-action-btn {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.3rem 0.75rem;
+  min-height: unset;
+  font-size: 0.78rem;
+  font-weight: 500;
 }
-.btn-history:hover {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+.api-action-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+}
+.api-action-btn:hover::before {
+  left: -100%;
 }
 
 /* Catalog rows */
@@ -11284,9 +11294,15 @@ th {
 .chevron {
   transition: transform 0.2s;
 }
-/* JS hook — no dedicated styling; inherits .btn + .btn-primary */
+/* JS hook — no dedicated styling; inherits .btn */
 .catalog-expand-btn {
   position: relative;
+}
+.catalog-expand-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 /* Bulk Sync modal — tabs + panels (modal shell reuses existing .modal system) */
@@ -11596,6 +11612,69 @@ th {
   font-size: 0.7rem;
   color: #fff;
   font-weight: 600;
+}
+
+/* API-tab help links — no default blue underline */
+.gb-input-shell a,
+.provider-attribution a {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--primary);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.gb-input-shell a:hover,
+.provider-attribution a:hover {
+  color: var(--primary-hover);
+  border-bottom-style: solid;
+}
+
+/* Show/hide toggle — square, corners match input field */
+.btn-toggle-key {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  padding: 0.35rem 0.5rem;
+  min-height: unset;
+  font-size: 0;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+.btn-toggle-key svg {
+  width: 16px;
+  height: 16px;
+}
+.btn-toggle-key:hover {
+  background: var(--primary);
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+}
+.btn-toggle-key:hover::before {
+  left: -100%;
+}
+
+/* Auto-refresh row — sits below metal checkboxes on same axis */
+.auto-refresh-row {
+  margin-top: var(--spacing);
+  padding-top: var(--spacing);
+  border-top: 1px dashed var(--border);
+}
+.auto-refresh-hint {
+  display: block;
+  margin-top: 2px;
+  margin-left: calc(var(--spacing-xs) + 18px);
+}
+
+/* Usage bar empty state */
+.usage-bar-label.empty {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 0.68rem;
 }
 
 /* end STAK-443 */
