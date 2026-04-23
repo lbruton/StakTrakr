@@ -9,14 +9,19 @@ Works on `file://` and HTTP. Runtime artifact: zero build step, zero install. Se
 
 **Version format**: `BRANCH.RELEASE.PATCH` in `js/constants.js`. Use `/release` skill to bump (touches 7 files).
 
-## Filter Chip Predicate Semantics (STAK-551)
+## Dual Config Store — CRITICAL
 
-- **Scalar fields** (metal, type, name, year, grade, purity, location): **OR** within-field. Silver+Gold shows both.
-- **Tags** (array field): **AND** within-field. Red+Green shows items with BOTH tags.
-- **Expansion chips** (customGroup, dynamicName, groupedName): store single constraint in own `activeFilters` key, expand at predicate time with OR. `activeFilters.name` holds only direct name selections — expansion chips use their own key.
-- **Cross-field**: always **AND**. Silver + Coin = silver coins.
-- **`isAccumulate`** (formerly `isMultiSelect`): controls accumulate-vs-replace in `applyQuickFilter`. Metal/type/tags accumulate; everything else replaces.
-- **Chip threshold**: `generateCategorySummary()` honors user's `chipMinCount` at all times — no override to 1 when filters active.
+Two separate localStorage config stores exist. Confusing them causes silent data loss.
+
+| Store                 | localStorage key     | Manages                                              | Read via                                               | Write via                                              |
+| --------------------- | -------------------- | ---------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| **Spot providers**    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM keys | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
+| **Catalog providers** | `catalog_api_config` | Numista apiKey, PCGS bearerToken                     | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
+
+**Never use `loadApiConfig().keys["numista"]`** — it reads from the wrong store and returns `undefined`. Root cause of STAK-573 data loss bug.
+
+- `saveData()` wraps values in `JSON.stringify` — never use raw `localStorage.getItem()` to read `saveData`-written keys. Use `loadData()` or `loadDataSync()`.
+- After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
 
 ## Cloud Sync Patterns
 
@@ -38,7 +43,8 @@ Works on `file://` and HTTP. Runtime artifact: zero build step, zero install. Se
 
 - `ALLOWED_STORAGE_KEYS` "fail-open" / "undefined guard" — constant exists at `constants.js:871`, guard is defensive pattern
 - CodeRabbit re-review duplicates — after pushing fixes, CodeRabbit re-reviews and regenerates threads on the same file/line. Auto-resolve duplicates without user approval.
-- CodeRabbit "simplify code" PRs — auto-generated refactor PRs from CodeRabbit's code simplifier mode. Triage individually; often duplicate existing changes or touch out-of-scope files.
+- CodeRabbit "simplify code" PRs — auto-generated refactor PRs from CodeRabbit's code simplifier mode. Triage individually.
+- `gb-*` CSS classes are **goldback-scoped** — do not copy them to other settings panels without renaming to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
 
 ## Documentation
 
@@ -76,4 +82,6 @@ Run `/vault-drift` periodically to check foundation doc claims against code trut
 - **Rebase merge blocked by signed commits** — GitHub can't sign rebase merge commits. Use **squash merge** or merge locally with SSH signing. If the merge button shows "Rebase merges cannot be automatically signed," switch merge method in the dropdown.
 - **Worktrees need `npm install`** — prettier/lint-staged pre-commit hook requires `node_modules/`. Run `npm install --no-audit --no-fund` after creating a worktree, or the commit hook fails with ENOENT.
 - **`data/` and `vendor/` excluded from prettier** — `.prettierignore` excludes `data/`, `vendor/`, `node_modules/`, `*.min.js/css`. JS/CSS in `js/` and `css/` ARE formatted on commit via lint-staged. Avoid manual formatting of excluded paths.
-- the seedsync step must always be completed if there is a new version, both main and dev
+- **Seed-sync every version** — `/seed-sync` must run for every new version on both dev and main. No exceptions.
+- **Pushing fixes to an open PR** — `cd` into the existing worktree and commit there. Do not create a new worktree for mid-review fixes.
+- **Codex CLI uses `$` prefix** — handoff prompts for Codex use `$spec` not `/spec`.

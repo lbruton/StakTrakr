@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.26] - 2026-04-23
+
+### Fixed — STAK-565: JM Bullion scraper picking wrong price column
+
+- **Fixed**: JM Bullion price readings oscillating between the correct eCheck/Wire tier (~$86 on ASE) and the wrong Card tier (~$95) depending on which scrape engine rendered the page. Root cause: pipe-table fallback was column-blind (STAK-565)
+- **Added**: `jmPriceFromPipeTable()` locates the `(e)Check/Wire` column by header label, returns that column's first in-range data-row price. Handles column reorder, format variants, and shipping-price noise (STAK-565)
+- **Removed**: Column-blind `firstTableRowFirstPrice()` fallback for jmbullion. Missed ticks are preferred over wrong-tier prices — matches existing As-Low-As rejection philosophy (STAK-565, STAK-475 P2)
+- **Docs**: CLAUDE.md — Dual Config Store section carried forward from STAK-573 session
+
+---
+
 ## [3.34.25] - 2026-04-23
 
 ### Changed — STAK-573: API tab QA pass — catalog UX, spot card polish, Bulk Sync modal rework
