@@ -364,9 +364,55 @@ const updateSpotCardColor = (metalKey, newPrice) => {
 };
 
 /**
+ * Rehydrates per-metal localStorage spot keys from the unified Manual-mode
+ * settings payload so Manual spot values survive sync and ZIP restore flows.
+ *
+ * @param {{force?: boolean, clearMissing?: boolean}} [options]
+ * @returns {number} Count of per-metal keys written
+ */
+const syncManualSpotStorage = (options = {}) => {
+  const { force = false, clearMissing = false } = options;
+  const activeSource =
+    typeof loadDataSync === "function" ? loadDataSync(SPOT_PRICING_SOURCE_KEY, null) : null;
+
+  if (!force && activeSource !== "MANUAL") {
+    return 0;
+  }
+
+  const manualPrices =
+    typeof loadDataSync === "function" ? loadDataSync("metalSpotPrices", null) : null;
+  const priceMap =
+    manualPrices && typeof manualPrices === "object" && !Array.isArray(manualPrices)
+      ? manualPrices
+      : {};
+
+  let applied = 0;
+  Object.values(METALS).forEach((metalConfig) => {
+    const rawValue = priceMap[metalConfig.key];
+    if (rawValue === "" || rawValue == null) {
+      if (clearMissing) localStorage.removeItem(metalConfig.localStorageKey);
+      return;
+    }
+    const parsedValue = Number(rawValue);
+    if (Number.isFinite(parsedValue) && parsedValue > 0) {
+      localStorage.setItem(metalConfig.localStorageKey, String(parsedValue));
+      applied++;
+      return;
+    }
+    if (clearMissing) {
+      localStorage.removeItem(metalConfig.localStorageKey);
+    }
+  });
+
+  return applied;
+};
+
+/**
  * Fetches and displays current spot prices from localStorage or defaults
  */
 const fetchSpotPrice = () => {
+  syncManualSpotStorage();
+
   // Load spot prices for all metals
   Object.values(METALS).forEach((metalConfig) => {
     const storedSpot = localStorage.getItem(metalConfig.localStorageKey);
@@ -1483,6 +1529,7 @@ window._loadSpotSeedBundle = function (bundle) {
 
 // Ensure global availability
 window.fetchSpotPrice = fetchSpotPrice;
+window.syncManualSpotStorage = syncManualSpotStorage;
 window.updateSpotCardColor = updateSpotCardColor;
 window.updateSparkline = updateSparkline;
 window.updateAllSparklines = updateAllSparklines;

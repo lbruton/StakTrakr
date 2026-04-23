@@ -109,6 +109,12 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
 
   const batchSize = 6;
   for (let i = 0; i < fetchJobs.length; i += batchSize) {
+    // STAK-443 REQ-10: abort in-flight backfill if user switches to MANUAL mid-batch
+    const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+    if (currentSource === "MANUAL") {
+      debugLog("[StakTrakr v2] Backfill aborted — spotPricingSource switched to MANUAL");
+      break;
+    }
     const batch = fetchJobs.slice(i, i + batchSize);
     const results = await Promise.all(
       batch.map(async ({ isoKey, metalName, dayKey }) => {
@@ -177,6 +183,12 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
  * @returns {Promise<number>} Count of new entries added
  */
 const backfillStaktrakrHourly = async () => {
+  // STAK-443 REQ-10: skip backfill entirely if user has switched to MANUAL
+  const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+  if (source === "MANUAL") {
+    debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
+    return 0;
+  }
   const oneDayAgo = Date.now() - 24 * 3600000;
   const hasRecentHourly = spotHistory.some(
     (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
@@ -2151,17 +2163,29 @@ const syncAllProviders = async () => {
 };
 
 /**
- * Core engine that iterates through configured API providers in priority order.
- * Respects sync modes ('always' vs 'backup') and handles cascading failover.
+ * Syncs spot prices from the single active provider selected in `spotPricingSource`.
+ * Replaces the legacy priority-chain iteration with a single-branch switch (STAK-443, REQ-10).
+ *
+ * - When `spotPricingSource === 'MANUAL'`, returns immediately without any network fetch.
+ * - Otherwise fetches once from the matching provider and updates status/prices/cache.
  *
  * @param {Object} options
  * @param {boolean} [options.showProgress=false] - If true, updates sync button UI states
  * @param {boolean} [options.forceSync=false] - If true, ignores provider-specific cache durations
  * @returns {Promise<{results: Object, updatedCount: number, anySucceeded: boolean}>} Sync operation summary
  */
-const syncProviderChain = async ({ showProgress = false, forceSync = false } = {}) => {
+const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}) => {
+  const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+
+  // MANUAL short-circuit: zero network activity (REQ-10)
+  if (source === "MANUAL") {
+    return { results: { MANUAL: "disabled" }, updatedCount: 0, anySucceeded: false };
+  }
+
+  // Unknown source → coerce to STAKTRAKR default
+  const prov = Object.prototype.hasOwnProperty.call(API_PROVIDERS, source) ? source : "STAKTRAKR";
   const config = loadApiConfig();
-  const order = getProviderOrder();
+  const apiKey = config.keys?.[prov];
   const results = {};
   let updatedCount = 0;
   let anySucceeded = false;
@@ -2170,69 +2194,57 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
     updateSyncButtonStates(true);
   }
 
-  // Load priorities once outside loop (STACK-90)
-  const priorities = typeof loadProviderPriorities === "function" ? loadProviderPriorities() : {};
-
   try {
-    for (const prov of order) {
-      const apiKey = config.keys?.[prov];
-      if (!apiKey && providerRequiresKey(prov)) continue;
+    if (!apiKey && providerRequiresKey(prov)) {
+      results[prov] = "no key";
+      setProviderStatus(prov, "error");
+      return { results, updatedCount, anySucceeded };
+    }
 
-      // Priority-based sync: priority > 1 are backups, skip if primary succeeded (STACK-90)
-      if (priorities[prov] === 0) {
-        results[prov] = "disabled";
-        continue;
+    // Check per-provider cache unless forcing
+    if (!forceSync) {
+      const provDuration = getCacheDurationMs(prov);
+      const lastSync = getLastProviderSyncTime(prov);
+      if (lastSync && Date.now() - lastSync < provDuration) {
+        results[prov] = "cached";
+        anySucceeded = true;
+        return { results, updatedCount, anySucceeded };
       }
-      if (priorities[prov] > 1 && anySucceeded) {
-        results[prov] = "skipped";
-        continue;
-      }
+    }
 
-      // Check per-provider cache unless forcing
-      if (!forceSync) {
-        const provDuration = getCacheDurationMs(prov);
-        const lastSync = getLastProviderSyncTime(prov);
-        if (lastSync && Date.now() - lastSync < provDuration) {
-          results[prov] = "cached";
-          anySucceeded = true;
-          continue;
+    // Single-provider fetch
+    try {
+      const data = await fetchSpotPricesFromApi(prov, apiKey);
+      let provUpdated = 0;
+
+      Object.entries(data).forEach(([metal, price]) => {
+        const metalConfig = Object.values(METALS).find((m) => m.key === metal);
+        if (metalConfig && price > 0) {
+          localStorage.setItem(metalConfig.spotKey, price.toString());
+          spotPrices[metal] = price;
+          elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
+          updateSpotCardColor(metal, price);
+          recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
+          const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
+          if (ts) updateSpotTimestamp(metalConfig.name);
+          provUpdated++;
         }
-      }
+      });
 
-      // Attempt fetch
-      try {
-        const data = await fetchSpotPricesFromApi(prov, apiKey);
-        let provUpdated = 0;
-
-        Object.entries(data).forEach(([metal, price]) => {
-          const metalConfig = Object.values(METALS).find((m) => m.key === metal);
-          if (metalConfig && price > 0) {
-            localStorage.setItem(metalConfig.spotKey, price.toString());
-            spotPrices[metal] = price;
-            elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
-            updateSpotCardColor(metal, price);
-            recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
-            const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
-            if (ts) updateSpotTimestamp(metalConfig.name);
-            provUpdated++;
-          }
-        });
-
-        if (provUpdated > 0) {
-          saveApiCache(data, prov);
-          updatedCount += provUpdated;
-          anySucceeded = true;
-          results[prov] = "success";
-          setProviderStatus(prov, "connected");
-        } else {
-          results[prov] = "no data";
-          setProviderStatus(prov, "error");
-        }
-      } catch (err) {
-        console.warn(`Chain sync failed for ${prov}:`, err.message);
-        results[prov] = "error";
+      if (provUpdated > 0) {
+        saveApiCache(data, prov);
+        updatedCount += provUpdated;
+        anySucceeded = true;
+        results[prov] = "success";
+        setProviderStatus(prov, "connected");
+      } else {
+        results[prov] = "no data";
         setProviderStatus(prov, "error");
       }
+    } catch (err) {
+      console.warn(`Spot sync failed for ${prov}:`, err.message);
+      results[prov] = "error";
+      setProviderStatus(prov, "error");
     }
 
     // Post-sync updates if anything changed
@@ -2247,8 +2259,8 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
       if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
       if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
       if (typeof updateStorageStats === "function") updateStorageStats();
-      // Backfill hourly data when StakTrakr is rank 1 and sync was fresh
-      if (results.STAKTRAKR === "success" && priorities.STAKTRAKR === 1) {
+      // Backfill hourly data when StakTrakr is the active source and sync was fresh
+      if (prov === "STAKTRAKR" && results.STAKTRAKR === "success") {
         try {
           await backfillStaktrakrHourly();
         } catch (err) {
@@ -2267,14 +2279,26 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
 };
 
 /**
+ * Backward-compatible alias for external callers. Delegates to `syncSpotProvider`.
+ * Slated for removal in a follow-up release once callers are migrated.
+ *
+ * @deprecated Use `syncSpotProvider` instead.
+ */
+const syncProviderChain = (options) => syncSpotProvider(options);
+
+/**
  * Updates sync button states based on API availability
  * @param {boolean} syncing - Whether sync is in progress
  */
 const updateSyncButtonStates = (syncing = false) => {
-  const hasApi =
-    apiConfig &&
-    apiConfig.provider &&
-    (apiConfig.keys[apiConfig.provider] || !providerRequiresKey(apiConfig.provider));
+  let source = "STAKTRAKR";
+  try {
+    const raw = localStorage.getItem("spotPricingSource");
+    if (raw) source = JSON.parse(raw) || "STAKTRAKR";
+  } catch (_e) {
+    /* corrupt value — fall back to default */
+  }
+  const hasApi = source !== "MANUAL" && (apiConfig?.keys?.[source] || !providerRequiresKey(source));
 
   Object.values(METALS).forEach((metalConfig) => {
     // New sparkline card sync icon
@@ -2291,169 +2315,8 @@ const updateSyncButtonStates = (syncing = false) => {
   });
 };
 
-/**
- * Updates API status display in modal
- */
-/**
- * Populates the API section fields with current configuration.
- * Called when switching to the API section in the Settings modal.
- */
-const populateApiSection = () => {
-  let currentConfig = loadApiConfig() || {
-    provider: "",
-    keys: {},
-    cacheHours: 24,
-    customConfig: { baseUrl: "", endpoint: "", format: "symbol" },
-  };
-  if (!currentConfig.provider) {
-    currentConfig.provider = Object.keys(API_PROVIDERS)[0];
-    saveApiConfig(currentConfig);
-  }
-
-  // Populate Numista tab
-  if (typeof catalogConfig !== "undefined" && catalogConfig.getNumistaConfig) {
-    const nc = catalogConfig.getNumistaConfig();
-    const numistaKeyInput = document.getElementById("numistaApiKey");
-    if (numistaKeyInput) numistaKeyInput.value = nc.apiKey || "";
-    if (typeof renderNumistaUsageBar === "function") renderNumistaUsageBar();
-    // Update Numista status indicator
-    const numistaStatusEl = document.getElementById("numistaProviderStatus");
-    if (numistaStatusEl) {
-      numistaStatusEl.classList.remove("status-connected", "status-disconnected");
-      if (nc.apiKey) {
-        numistaStatusEl.classList.add("status-connected");
-        const dot = numistaStatusEl.querySelector(".status-dot");
-        const text = numistaStatusEl.querySelector(".status-text");
-        if (dot) dot.style.background = "";
-        if (text) text.textContent = "Connected";
-      } else {
-        numistaStatusEl.classList.add("status-disconnected");
-        const text = numistaStatusEl.querySelector(".status-text");
-        if (text) text.textContent = "Disconnected";
-      }
-    }
-  }
-
-  // Populate PCGS tab status
-  if (typeof catalogConfig !== "undefined" && catalogConfig.isPcgsEnabled) {
-    const pcgsStatusEl = document.getElementById("pcgsProviderStatus");
-    if (pcgsStatusEl) {
-      pcgsStatusEl.classList.remove("status-connected", "status-disconnected");
-      if (catalogConfig.isPcgsEnabled()) {
-        pcgsStatusEl.classList.add("status-connected");
-        const dot = pcgsStatusEl.querySelector(".status-dot");
-        const text = pcgsStatusEl.querySelector(".status-text");
-        if (dot) dot.style.background = "";
-        if (text) text.textContent = "Connected";
-      } else {
-        pcgsStatusEl.classList.add("status-disconnected");
-        const text = pcgsStatusEl.querySelector(".status-text");
-        if (text) text.textContent = "Disconnected";
-      }
-    }
-  }
-
-  // Populate metals provider tabs
-  Object.keys(API_PROVIDERS).forEach((prov) => {
-    const input = document.getElementById(`apiKey_${prov}`);
-    if (input) input.value = currentConfig.keys?.[prov] || "";
-    setProviderStatus(prov, providerStatuses[prov] || "disconnected");
-  });
-  renderApiStatusSummary();
-
-  const baseInput = document.getElementById("apiBase_CUSTOM");
-  if (baseInput) baseInput.value = currentConfig.customConfig?.baseUrl || "";
-  const endpointInput = document.getElementById("apiEndpoint_CUSTOM");
-  if (endpointInput) endpointInput.value = currentConfig.customConfig?.endpoint || "";
-  const formatSelect = document.getElementById("apiFormat_CUSTOM");
-  if (formatSelect) formatSelect.value = currentConfig.customConfig?.format || "symbol";
-
-  autoSelectDefaultProvider();
-  updateProviderHistoryTables();
-
-  // Initialize provider settings listeners and load saved values
-  const cfg = loadApiConfig();
-  Object.keys(API_PROVIDERS).forEach((provider) => {
-    if (typeof setupProviderSettingsListeners === "function") {
-      setupProviderSettingsListeners(provider);
-    }
-
-    // STAKTRAKR: load enabled toggle from providerPriority (the key syncProviderChain reads)
-    if (provider === "STAKTRAKR") {
-      const enabledEl = document.getElementById("enabled_STAKTRAKR");
-      if (enabledEl) {
-        const priorities =
-          typeof loadProviderPriorities === "function" ? loadProviderPriorities() : {};
-        enabledEl.checked = (priorities.STAKTRAKR ?? 1) > 0;
-      }
-    }
-
-    // Load saved cache timeout (skip for STAKTRAKR — no dropdown)
-    if (provider !== "STAKTRAKR") {
-      const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
-      if (cacheSelect) {
-        cacheSelect.value = cfg.cacheTimeouts?.[provider] ?? 24;
-      }
-    }
-
-    // Load saved auto-refresh state (STAK-222)
-    const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
-    if (autoRefreshToggle) {
-      autoRefreshToggle.checked = cfg.autoRefresh?.[provider] ?? provider === "STAKTRAKR";
-    }
-
-    // Initialize history pull cost indicator
-    if (typeof updateHistoryPullCost === "function") {
-      updateHistoryPullCost(provider);
-    }
-
-    // Load saved metal selections
-    const metals = cfg.metals?.[provider] || {};
-    ["silver", "gold", "platinum", "palladium"].forEach((metal) => {
-      const checkbox = document.querySelector(
-        `.provider-metal[data-provider="${provider}"][data-metal="${metal}"]`
-      );
-      if (checkbox) {
-        checkbox.checked = metals[metal] !== false;
-      }
-    });
-  });
-
-  // Restore provider priority UI (STACK-90)
-  if (
-    typeof loadProviderPriorities === "function" &&
-    typeof syncProviderPriorityUI === "function"
-  ) {
-    syncProviderPriorityUI(loadProviderPriorities());
-  }
-
-  if (typeof refreshProviderStatuses === "function") {
-    refreshProviderStatuses();
-  }
-
-  // Wire up spot history export/import buttons
-  if (typeof initSpotHistoryButtons === "function") {
-    initSpotHistoryButtons();
-  }
-
-  // Render Numista bulk sync UI for the default active tab (STACK-87/88)
-  // switchProviderTab only fires on explicit tab clicks, so the default NUMISTA
-  // tab never triggers renderNumistaSyncUI without this call.
-  const syncGroup = safeGetElement("numistaBulkSyncGroup");
-  if (
-    syncGroup &&
-    syncGroup.style.display !== "none" &&
-    typeof renderNumistaSyncUI === "function"
-  ) {
-    renderNumistaSyncUI();
-  }
-
-  // STAK-222: Update PCGS cache stat count
-  const pcgsCountEl = safeGetElement("pcgsResponseCacheCount");
-  if (pcgsCountEl && typeof getPcgsCacheCount === "function") {
-    pcgsCountEl.textContent = getPcgsCacheCount();
-  }
-};
+// STAK-443: populateApiSection relocated to js/settings.js (composer + per-section
+// renderers). The legacy panel DOM it populated was removed in Task 4.
 
 /**
  * Legacy showApiModal — redirects to Settings modal API section
@@ -2548,7 +2411,7 @@ window.showApiModal = showApiModal;
 window.hideApiModal = hideApiModal;
 window.showFilesModal = showFilesModal;
 window.hideFilesModal = hideFilesModal;
-window.populateApiSection = populateApiSection;
+// STAK-443: window.populateApiSection now assigned in js/settings.js
 window.showProviderInfo = showProviderInfo;
 window.hideProviderInfo = hideProviderInfo;
 
@@ -2616,6 +2479,7 @@ window.showApiHistoryModal = showApiHistoryModal;
 window.hideApiHistoryModal = hideApiHistoryModal;
 window.clearApiHistory = clearApiHistory;
 window.syncAllProviders = syncAllProviders;
+window.syncSpotProvider = syncSpotProvider;
 window.syncProviderChain = syncProviderChain;
 window.autoSyncSpotPrices = autoSyncSpotPrices;
 window.startSpotBackgroundSync = startSpotBackgroundSync;

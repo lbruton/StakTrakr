@@ -398,6 +398,7 @@ const initApiHealth = async () => {
   try {
     const health = await fetchApiHealth();
     _lastHealth = health;
+    if (typeof window !== "undefined") window._lastApiHealth = health; // STAK-443: expose for settings renderers
     updateHealthBadges(health);
     // If the modal is open, push the result in now rather than leaving placeholder text.
     // Use getElementById directly — safeGetElement returns a dummy whose style.display
@@ -409,6 +410,7 @@ const initApiHealth = async () => {
   } catch (err) {
     console.warn("API health check failed:", err);
     _lastHealth = null; // clear stale data so modal shows error state, not old green result
+    if (typeof window !== "undefined") window._lastApiHealth = null; // STAK-443
     populateApiHealthModalError(err);
   }
 };

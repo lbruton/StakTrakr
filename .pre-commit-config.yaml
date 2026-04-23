@@ -23,6 +23,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: lint-markdown
+        name: Lint staged Markdown files
+        entry: bash devops/hooks/lint-markdown-changed.sh --staged
+        language: system
+        pass_filenames: false
+        files: \.md$
       - id: lint-staged
         name: Format staged files with prettier
         entry: npx lint-staged

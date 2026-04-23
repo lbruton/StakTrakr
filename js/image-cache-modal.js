@@ -335,7 +335,7 @@ const startBulkSync = async () => {
       await renderSyncStats();
 
       // Refresh Numista usage bar + settings footer storage display
-      if (typeof renderNumistaUsageBar === "function") renderNumistaUsageBar();
+      if (typeof window.renderNumistaUsageBar === "function") window.renderNumistaUsageBar();
       if (typeof updateSettingsFooter === "function") updateSettingsFooter();
 
       // Refresh filter chips so newly-applied tags appear immediately

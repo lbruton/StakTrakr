@@ -158,7 +158,7 @@ No Google Fonts CDN — Inter is expected as a system font, with full sans-serif
 
 ### Buttons (`.btn`)
 
-**Primary (default)**
+#### Primary (default)
 
 - Background: `var(--primary)` (`#3b82f6`)
 - Text: `#f8fafc`
@@ -172,15 +172,16 @@ No Google Fonts CDN — Inter is expected as a system font, with full sans-serif
 - Shimmer: `::before` pseudo-element with `linear-gradient(90deg, transparent, rgba(248, 250, 252, 0.2), transparent)` slides left→right on hover
 
 **Variants** — same structure, different `background`:
-| Variant | Background | Hover | Text |
-|---------|-----------|-------|------|
-| `.danger` | `var(--danger)` | `var(--danger-hover)` | `#f8fafc` |
-| `.success` | `var(--success)` | `var(--success-hover)` | `#f8fafc` |
-| `.info` | `var(--info)` | `var(--info-hover)` | `#f8fafc` |
-| `.secondary` | `var(--secondary)` | `var(--secondary-hover)` | `#f8fafc` |
-| `.warning` | `var(--warning)` | `var(--warning-hover)` | `var(--text-primary)` |
-| `.premium` | `var(--warning)` | `#b45309` | `var(--text-primary)` |
-| `.filters` | `#eab308` | `#ca8a04` | `var(--text-primary)` |
+
+| Variant      | Background         | Hover                    | Text                  |
+| ------------ | ------------------ | ------------------------ | --------------------- |
+| `.danger`    | `var(--danger)`    | `var(--danger-hover)`    | `#f8fafc`             |
+| `.success`   | `var(--success)`   | `var(--success-hover)`   | `#f8fafc`             |
+| `.info`      | `var(--info)`      | `var(--info-hover)`      | `#f8fafc`             |
+| `.secondary` | `var(--secondary)` | `var(--secondary-hover)` | `#f8fafc`             |
+| `.warning`   | `var(--warning)`   | `var(--warning-hover)`   | `var(--text-primary)` |
+| `.premium`   | `var(--warning)`   | `#b45309`                | `var(--text-primary)` |
+| `.filters`   | `#eab308`          | `#ca8a04`                | `var(--text-primary)` |
 
 **Small Button** (`.btn-sm`): `padding: 0.25rem 0.6rem`, `font-size: 0.8rem`
 
@@ -207,7 +208,7 @@ No Google Fonts CDN — Inter is expected as a system font, with full sans-serif
 
 ### Modals (`.modal`)
 
-**Overlay**
+#### Overlay
 
 - Background: `rgba(0, 0, 0, 0.7)`
 - Backdrop filter: `blur(12px)`
@@ -440,7 +441,7 @@ Depth is communicated through three mechanisms: **border weight** (1px default, 
 
 ### Quick Color Reference
 
-```
+```text
 --primary:       #3b82f6 (blue — buttons, links, focus)
 --bg-primary:    #e2e8f0 light / #0f172a dark (page bg)
 --bg-card:       #f8fafc light / #1e293b dark (card bg)
@@ -454,7 +455,7 @@ Depth is communicated through three mechanisms: **border weight** (1px default, 
 
 ### Example Component Prompts
 
-**"Build a new card component"**
+#### "Build a new card component"
 
 ```css
 background: var(--bg-card);
@@ -466,7 +467,7 @@ transition: var(--transition);
 /* hover: box-shadow: var(--shadow-lg) */
 ```
 
-**"Add a button"**
+#### "Add a button"
 
 ```css
 display: inline-flex;
@@ -485,7 +486,7 @@ transition: var(--transition);
 /* hover: background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow) */
 ```
 
-**"Create a status badge"**
+#### "Create a status badge"
 
 ```css
 display: inline-flex;
@@ -500,7 +501,7 @@ white-space: nowrap;
 /* use disposition-badge pattern with hsla() for status indicators */
 ```
 
-**"Add a form input"**
+#### "Add a form input"
 
 ```css
 width: 100%;
@@ -515,7 +516,7 @@ transition: var(--transition);
 /* focus: border-color: var(--primary); box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1) */
 ```
 
-**"Build a modal"**
+#### "Build a modal"
 
 ```css
 /* Overlay */

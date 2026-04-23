@@ -367,3 +367,247 @@ const catalogManager = new CatalogManager({
 
 // Make accessible globally
 window.catalogManager = catalogManager;
+
+// =============================================================================
+// BULK SYNC MODAL CONTROLLER (STAK-443, REQ-7)
+// =============================================================================
+// Controllers for the shared #bulkSyncModal used by the sectioned API tab.
+// Tab wiring (click handlers) lives in Task 11; these functions are the
+// window-exported entrypoints consumed by those handlers.
+// -----------------------------------------------------------------------------
+
+/**
+ * Numista view-modal field toggles rendered into the Fields panel on open.
+ * Matches the pre-redesign settings markup so the hydration/persistence
+ * contract (data-nf attributes + getNumistaViewFieldConfig) is preserved.
+ */
+const NUMISTA_FIELD_TOGGLES = [
+  ["denomination", "Denomination"],
+  ["shape", "Shape"],
+  ["diameter", "Diameter"],
+  ["length", "Length"],
+  ["width", "Width"],
+  ["thickness", "Thickness"],
+  ["orientation", "Orientation"],
+  ["composition", "Composition"],
+  ["country", "Country"],
+  ["technique", "Technique"],
+  ["references", "References (KM#)"],
+  ["edge", "Edge"],
+  ["tags", "Tags"],
+  ["commemorative", "Commemorative"],
+  ["rarity", "Rarity"],
+  ["mintage", "Mintage"],
+  ["imageTooltips", "Image tooltips"],
+];
+
+/**
+ * Build the 15-field Numista "view modal fields" checkbox grid into the Fields
+ * panel, hydrate from stored config, and wire a change listener that persists
+ * updates via saveNumistaViewFieldConfig. Uses DOM construction (no innerHTML
+ * with user-ish content) to stay consistent with the project's XSS posture.
+ * @param {HTMLElement} panel - `.bulk-panel[data-panel="fields"]`
+ */
+const _populateBulkSyncFieldsPanel = (panel) => {
+  if (!panel) return;
+  // Idempotent: clear prior render so reopening the modal does not duplicate.
+  while (panel.firstChild) panel.removeChild(panel.firstChild);
+
+  const heading = document.createElement("div");
+  heading.className = "settings-group-label";
+  heading.textContent = "Metadata Sync Fields";
+  panel.appendChild(heading);
+
+  const intro = document.createElement("p");
+  intro.className = "settings-subtext";
+  intro.textContent =
+    "Toggle which Numista fields are included when the view modal renders catalog data.";
+  panel.appendChild(intro);
+
+  const container = document.createElement("div");
+  container.id = "numistaViewFieldToggles";
+  container.className = "chip-grouping-table-container";
+  panel.appendChild(container);
+
+  const table = document.createElement("table");
+  table.className = "chip-grouping-table";
+  const tbody = document.createElement("tbody");
+  table.appendChild(tbody);
+  container.appendChild(table);
+
+  for (let i = 0; i < NUMISTA_FIELD_TOGGLES.length; i += 3) {
+    const row = document.createElement("tr");
+    for (let j = 0; j < 3; j++) {
+      const entry = NUMISTA_FIELD_TOGGLES[i + j];
+      if (!entry) continue;
+      const [field, label] = entry;
+      const td = document.createElement("td");
+      const lbl = document.createElement("label");
+      lbl.className = "settings-checkbox-label";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.dataset.nf = field;
+      cb.checked = true;
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(" " + label));
+      td.appendChild(lbl);
+      row.appendChild(td);
+    }
+    tbody.appendChild(row);
+  }
+
+  const cfg = typeof getNumistaViewFieldConfig === "function" ? getNumistaViewFieldConfig() : {};
+  container.querySelectorAll("input[data-nf]").forEach((cb) => {
+    const field = cb.dataset.nf;
+    if (cfg[field] !== undefined) cb.checked = cfg[field];
+  });
+  container.addEventListener("change", () => {
+    const next = {};
+    container.querySelectorAll("input[data-nf]").forEach((cb) => {
+      next[cb.dataset.nf] = cb.checked;
+    });
+    if (typeof saveNumistaViewFieldConfig === "function") saveNumistaViewFieldConfig(next);
+  });
+};
+
+/**
+ * Replace a panel's children with a single placeholder paragraph.
+ * @param {HTMLElement|null} panel
+ * @param {string} text
+ */
+const _setBulkSyncPanelPlaceholder = (panel, text) => {
+  if (!panel) return;
+  while (panel.firstChild) panel.removeChild(panel.firstChild);
+  const p = document.createElement("p");
+  p.className = "settings-subtext";
+  p.textContent = text;
+  panel.appendChild(p);
+};
+
+/**
+ * Open the Bulk Sync modal for the given provider.
+ * @param {'numista'|'pcgs'} provider
+ */
+const openBulkSyncModal = (provider) => {
+  const modal = safeGetElement("bulkSyncModal");
+  if (!modal || !modal.id) return;
+
+  const normalized = provider === "pcgs" ? "pcgs" : "numista";
+  modal.dataset.provider = normalized;
+
+  const titleEl = modal.querySelector("#bulkSyncModalTitle");
+  if (titleEl) {
+    const label = normalized === "pcgs" ? "PCGS" : "Numista";
+    titleEl.textContent = `${label} — Bulk Sync & Advanced`;
+  }
+
+  // Toggle provider-specific tabs + panels. Numista exposes all four;
+  // PCGS scaffolding only uses Overview + Activity for now.
+  const providerOnlyTabs = ["fields", "blacklist"];
+  providerOnlyTabs.forEach((tab) => {
+    const tabBtn = modal.querySelector(`.bulk-tab[data-tab="${tab}"]`);
+    const panel = modal.querySelector(`.bulk-panel[data-panel="${tab}"]`);
+    const hide = normalized === "pcgs";
+    if (tabBtn) tabBtn.style.display = hide ? "none" : "";
+    if (panel && hide) panel.style.display = "none";
+  });
+
+  // Force Overview as the active tab on open.
+  modal.querySelectorAll(".bulk-tab").forEach((btn) => {
+    const isOverview = btn.dataset.tab === "overview";
+    btn.classList.toggle("active", isOverview);
+    btn.setAttribute("aria-selected", isOverview ? "true" : "false");
+  });
+  modal.querySelectorAll(".bulk-panel").forEach((panel) => {
+    const isOverview = panel.dataset.panel === "overview";
+    panel.classList.toggle("active", isOverview);
+    panel.style.display = isOverview ? "" : "none";
+  });
+
+  const overviewPanel = modal.querySelector(`.bulk-panel[data-panel="overview"]`);
+  const fieldsPanel = modal.querySelector(`.bulk-panel[data-panel="fields"]`);
+  const activityPanel = modal.querySelector(`.bulk-panel[data-panel="activity"]`);
+
+  if (normalized === "numista") {
+    if (typeof window.renderNumistaSyncUI === "function") {
+      try {
+        window.renderNumistaSyncUI();
+      } catch (e) {
+        console.error("renderNumistaSyncUI failed", e);
+      }
+    }
+    if (typeof window.renderNumistaTagSettings === "function") {
+      try {
+        window.renderNumistaTagSettings();
+      } catch (e) {
+        console.error("renderNumistaTagSettings failed", e);
+      }
+    }
+    _populateBulkSyncFieldsPanel(fieldsPanel);
+    if (activityPanel && activityPanel.dataset.populated !== "numista") {
+      _setBulkSyncPanelPlaceholder(
+        activityPanel,
+        "Activity log is surfaced in the Activity Log tab; this panel is a placeholder for future inline history."
+      );
+      activityPanel.dataset.populated = "numista";
+    }
+  } else {
+    _setBulkSyncPanelPlaceholder(overviewPanel, "PCGS bulk sync — coming soon.");
+    if (activityPanel && activityPanel.dataset.populated !== "pcgs") {
+      _setBulkSyncPanelPlaceholder(
+        activityPanel,
+        "PCGS activity history will appear here once bulk sync is available."
+      );
+      activityPanel.dataset.populated = "pcgs";
+    }
+  }
+
+  if (typeof window.trapFocus === "function") {
+    try {
+      window.trapFocus(modal);
+    } catch (e) {
+      console.error("trapFocus failed", e);
+    }
+  }
+
+  modal.style.display = "flex";
+};
+
+/**
+ * Close the Bulk Sync modal and release its focus trap.
+ */
+const closeBulkSyncModal = () => {
+  const modal = safeGetElement("bulkSyncModal");
+  if (!modal || !modal.id) return;
+  if (typeof window.releaseFocus === "function") {
+    try {
+      window.releaseFocus(modal);
+    } catch (e) {
+      console.error("releaseFocus failed", e);
+    }
+  }
+  modal.style.display = "none";
+};
+
+/**
+ * Switch between tabs inside the Bulk Sync modal.
+ * @param {'overview'|'fields'|'blacklist'|'activity'} tabId
+ */
+const switchBulkSyncTab = (tabId) => {
+  const modal = safeGetElement("bulkSyncModal");
+  if (!modal || !modal.id) return;
+  modal.querySelectorAll(".bulk-tab").forEach((btn) => {
+    const match = btn.dataset.tab === tabId;
+    btn.classList.toggle("active", match);
+    btn.setAttribute("aria-selected", match ? "true" : "false");
+  });
+  modal.querySelectorAll(".bulk-panel").forEach((panel) => {
+    const match = panel.dataset.panel === tabId;
+    panel.classList.toggle("active", match);
+    panel.style.display = match ? "" : "none";
+  });
+};
+
+window.openBulkSyncModal = openBulkSyncModal;
+window.closeBulkSyncModal = closeBulkSyncModal;
+window.switchBulkSyncTab = switchBulkSyncTab;

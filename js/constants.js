@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
  */
 
-const APP_VERSION = "3.34.23";
+const APP_VERSION = "3.34.24";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -638,6 +638,9 @@ const LAST_CACHE_REFRESH_KEY = "lastCacheRefresh"; // nosemgrep: codacy.javascri
 /** @constant {string} LAST_API_SYNC_KEY - LocalStorage key for last API sync timestamp */
 const LAST_API_SYNC_KEY = "lastApiSync"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/** @constant {string} SPOT_PRICING_SOURCE_KEY - LocalStorage key for active spot price source (STAK-443) */
+const SPOT_PRICING_SOURCE_KEY = "spotPricingSource"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {string} APP_VERSION_KEY - LocalStorage key for current app version */
 const APP_VERSION_KEY = "currentAppVersion"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -867,6 +870,8 @@ const SYNC_SCOPE_KEYS = [
   // ── Seed & provider config ──
   "apiProviderOrder", // spot provider order
   "providerPriority", // provider priority config
+  "spotPricingSource", // STAK-443: single-select spot source (STAKTRAKR|METALS_DEV|METALS_API|METAL_PRICE_API|CUSTOM|MANUAL)
+  "metalSpotPrices", // STAK-443: manual-mode spot prices {gold, silver, platinum, palladium}
 
   // ── API credentials ──
   "metalApiConfig", // API_KEY_STORAGE_KEY — spot provider keys (MetalPriceAPI, Metals-API, Custom)
@@ -912,6 +917,8 @@ const ALLOWED_STORAGE_KEYS = [
   "inlineChipConfig",
   "apiProviderOrder",
   "providerPriority",
+  "spotPricingSource", // STAK-443: single-select spot source replacing fallback chain
+  "metalSpotPrices", // STAK-443: unified manual-mode spot prices {gold, silver, platinum, palladium}
   "filterChipCategoryConfig",
   "chipSortOrder",
   "disposedFilterMode", // string: "hide"|"show"|"only" — disposed items filter preference (STAK-388)

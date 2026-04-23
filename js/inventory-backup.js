@@ -78,6 +78,8 @@
         chipMaxCount: localStorage.getItem("chipMaxCount"),
         featureFlags: localStorage.getItem(FEATURE_FLAGS_KEY),
         inlineChipConfig: localStorage.getItem("inlineChipConfig"),
+        spotPricingSource: loadDataSync(SPOT_PRICING_SOURCE_KEY, "STAKTRAKR"),
+        metalSpotPrices: loadDataSync("metalSpotPrices", {}),
         goldbackPrices: goldbackPrices,
         goldbackPriceHistory: goldbackPriceHistory,
         goldbackEnabled: goldbackEnabled,
@@ -383,6 +385,10 @@
           remoteSettings[FEATURE_FLAGS_KEY] = settingsObj.featureFlags;
         if (settingsObj.inlineChipConfig != null)
           remoteSettings["inlineChipConfig"] = settingsObj.inlineChipConfig;
+        if (settingsObj.spotPricingSource != null)
+          remoteSettings[SPOT_PRICING_SOURCE_KEY] = settingsObj.spotPricingSource;
+        if (settingsObj.metalSpotPrices != null)
+          remoteSettings["metalSpotPrices"] = settingsObj.metalSpotPrices;
         if (settingsObj.goldbackEnabled != null)
           remoteSettings[GOLDBACK_ENABLED_KEY] = settingsObj.goldbackEnabled === true;
         if (settingsObj.goldbackEstimateEnabled != null)
@@ -587,6 +593,9 @@
           }
         }
 
+        if (typeof syncManualSpotStorage === "function") {
+          syncManualSpotStorage({ clearMissing: true });
+        }
         fetchSpotPrice();
       };
 
