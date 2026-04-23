@@ -1519,13 +1519,13 @@ const syncSettingsUI = () => {
   }
 
   // Numista usage bar
-  if (typeof renderNumistaUsageBar === "function") {
-    renderNumistaUsageBar();
+  if (typeof window.renderNumistaUsageBar === "function") {
+    window.renderNumistaUsageBar();
   }
 
   // PCGS usage bar
-  if (typeof renderPcgsUsageBar === "function") {
-    renderPcgsUsageBar();
+  if (typeof window.renderPcgsUsageBar === "function") {
+    window.renderPcgsUsageBar();
   }
 
   // Display currency (STACK-50)

@@ -634,14 +634,16 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
   test("13. REQ-10 — switching to Manual results in zero spot-price network requests over 5 seconds", async ({
     page,
   }) => {
-    // Stub every outbound spot-price call BEFORE navigation so nothing slips through
+    // Stub every outbound spot-price call BEFORE navigation so nothing slips through.
+    // REQ-10 scope: SPOT-price endpoints only — retail/goldback/manifest/health are
+    // separate data feeds that are independent of spotPricingSource and must continue.
     const spotFetchUrls = [];
     await page.route("**/*", (route) => {
       const url = route.request().url();
       if (
         /metals\.dev|metals-api|metalpriceapi|api\.staktrakr\.com|\/spot|\/metal/i.test(url) &&
         !/\.(css|js|png|jpg|svg|ico|html|woff2?)(\?|$)/i.test(url) &&
-        !/api\.staktrakr\.com\/data\/v2\/health|manifest/i.test(url)
+        !/api\.staktrakr\.com\/data\/v2\/(health|manifest|retail|goldback)/i.test(url)
       ) {
         spotFetchUrls.push(url);
       }

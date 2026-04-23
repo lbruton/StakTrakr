@@ -527,16 +527,16 @@ const openBulkSyncModal = (provider) => {
   const activityPanel = modal.querySelector(`.bulk-panel[data-panel="activity"]`);
 
   if (normalized === "numista") {
-    if (typeof renderNumistaSyncUI === "function") {
+    if (typeof window.renderNumistaSyncUI === "function") {
       try {
-        renderNumistaSyncUI();
+        window.renderNumistaSyncUI();
       } catch (e) {
         debugLog("renderNumistaSyncUI failed", e);
       }
     }
-    if (typeof renderNumistaTagSettings === "function") {
+    if (typeof window.renderNumistaTagSettings === "function") {
       try {
-        renderNumistaTagSettings();
+        window.renderNumistaTagSettings();
       } catch (e) {
         debugLog("renderNumistaTagSettings failed", e);
       }
