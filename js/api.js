@@ -2151,17 +2151,29 @@ const syncAllProviders = async () => {
 };
 
 /**
- * Core engine that iterates through configured API providers in priority order.
- * Respects sync modes ('always' vs 'backup') and handles cascading failover.
+ * Syncs spot prices from the single active provider selected in `spotPricingSource`.
+ * Replaces the legacy priority-chain iteration with a single-branch switch (STAK-443, REQ-10).
+ *
+ * - When `spotPricingSource === 'MANUAL'`, returns immediately without any network fetch.
+ * - Otherwise fetches once from the matching provider and updates status/prices/cache.
  *
  * @param {Object} options
  * @param {boolean} [options.showProgress=false] - If true, updates sync button UI states
  * @param {boolean} [options.forceSync=false] - If true, ignores provider-specific cache durations
  * @returns {Promise<{results: Object, updatedCount: number, anySucceeded: boolean}>} Sync operation summary
  */
-const syncProviderChain = async ({ showProgress = false, forceSync = false } = {}) => {
+const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}) => {
+  const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+
+  // MANUAL short-circuit: zero network activity (REQ-10)
+  if (source === "MANUAL") {
+    return { results: { MANUAL: "disabled" }, updatedCount: 0, anySucceeded: false };
+  }
+
+  // Unknown source → coerce to STAKTRAKR default
+  const prov = Object.prototype.hasOwnProperty.call(API_PROVIDERS, source) ? source : "STAKTRAKR";
   const config = loadApiConfig();
-  const order = getProviderOrder();
+  const apiKey = config.keys?.[prov];
   const results = {};
   let updatedCount = 0;
   let anySucceeded = false;
@@ -2170,69 +2182,57 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
     updateSyncButtonStates(true);
   }
 
-  // Load priorities once outside loop (STACK-90)
-  const priorities = typeof loadProviderPriorities === "function" ? loadProviderPriorities() : {};
-
   try {
-    for (const prov of order) {
-      const apiKey = config.keys?.[prov];
-      if (!apiKey && providerRequiresKey(prov)) continue;
+    if (!apiKey && providerRequiresKey(prov)) {
+      results[prov] = "no key";
+      setProviderStatus(prov, "error");
+      return { results, updatedCount, anySucceeded };
+    }
 
-      // Priority-based sync: priority > 1 are backups, skip if primary succeeded (STACK-90)
-      if (priorities[prov] === 0) {
-        results[prov] = "disabled";
-        continue;
+    // Check per-provider cache unless forcing
+    if (!forceSync) {
+      const provDuration = getCacheDurationMs(prov);
+      const lastSync = getLastProviderSyncTime(prov);
+      if (lastSync && Date.now() - lastSync < provDuration) {
+        results[prov] = "cached";
+        anySucceeded = true;
+        return { results, updatedCount, anySucceeded };
       }
-      if (priorities[prov] > 1 && anySucceeded) {
-        results[prov] = "skipped";
-        continue;
-      }
+    }
 
-      // Check per-provider cache unless forcing
-      if (!forceSync) {
-        const provDuration = getCacheDurationMs(prov);
-        const lastSync = getLastProviderSyncTime(prov);
-        if (lastSync && Date.now() - lastSync < provDuration) {
-          results[prov] = "cached";
-          anySucceeded = true;
-          continue;
+    // Single-provider fetch
+    try {
+      const data = await fetchSpotPricesFromApi(prov, apiKey);
+      let provUpdated = 0;
+
+      Object.entries(data).forEach(([metal, price]) => {
+        const metalConfig = Object.values(METALS).find((m) => m.key === metal);
+        if (metalConfig && price > 0) {
+          localStorage.setItem(metalConfig.spotKey, price.toString());
+          spotPrices[metal] = price;
+          elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
+          updateSpotCardColor(metal, price);
+          recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
+          const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
+          if (ts) updateSpotTimestamp(metalConfig.name);
+          provUpdated++;
         }
-      }
+      });
 
-      // Attempt fetch
-      try {
-        const data = await fetchSpotPricesFromApi(prov, apiKey);
-        let provUpdated = 0;
-
-        Object.entries(data).forEach(([metal, price]) => {
-          const metalConfig = Object.values(METALS).find((m) => m.key === metal);
-          if (metalConfig && price > 0) {
-            localStorage.setItem(metalConfig.spotKey, price.toString());
-            spotPrices[metal] = price;
-            elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
-            updateSpotCardColor(metal, price);
-            recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
-            const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
-            if (ts) updateSpotTimestamp(metalConfig.name);
-            provUpdated++;
-          }
-        });
-
-        if (provUpdated > 0) {
-          saveApiCache(data, prov);
-          updatedCount += provUpdated;
-          anySucceeded = true;
-          results[prov] = "success";
-          setProviderStatus(prov, "connected");
-        } else {
-          results[prov] = "no data";
-          setProviderStatus(prov, "error");
-        }
-      } catch (err) {
-        console.warn(`Chain sync failed for ${prov}:`, err.message);
-        results[prov] = "error";
+      if (provUpdated > 0) {
+        saveApiCache(data, prov);
+        updatedCount += provUpdated;
+        anySucceeded = true;
+        results[prov] = "success";
+        setProviderStatus(prov, "connected");
+      } else {
+        results[prov] = "no data";
         setProviderStatus(prov, "error");
       }
+    } catch (err) {
+      console.warn(`Spot sync failed for ${prov}:`, err.message);
+      results[prov] = "error";
+      setProviderStatus(prov, "error");
     }
 
     // Post-sync updates if anything changed
@@ -2247,8 +2247,8 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
       if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
       if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
       if (typeof updateStorageStats === "function") updateStorageStats();
-      // Backfill hourly data when StakTrakr is rank 1 and sync was fresh
-      if (results.STAKTRAKR === "success" && priorities.STAKTRAKR === 1) {
+      // Backfill hourly data when StakTrakr is the active source and sync was fresh
+      if (prov === "STAKTRAKR" && results.STAKTRAKR === "success") {
         try {
           await backfillStaktrakrHourly();
         } catch (err) {
@@ -2265,6 +2265,14 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
 
   return { results, updatedCount, anySucceeded };
 };
+
+/**
+ * Backward-compatible alias for external callers. Delegates to `syncSpotProvider`.
+ * Slated for removal in a follow-up release once callers are migrated.
+ *
+ * @deprecated Use `syncSpotProvider` instead.
+ */
+const syncProviderChain = (options) => syncSpotProvider(options);
 
 /**
  * Updates sync button states based on API availability
@@ -2616,6 +2624,7 @@ window.showApiHistoryModal = showApiHistoryModal;
 window.hideApiHistoryModal = hideApiHistoryModal;
 window.clearApiHistory = clearApiHistory;
 window.syncAllProviders = syncAllProviders;
+window.syncSpotProvider = syncSpotProvider;
 window.syncProviderChain = syncProviderChain;
 window.autoSyncSpotPrices = autoSyncSpotPrices;
 window.startSpotBackgroundSync = startSpotBackgroundSync;
