@@ -3355,7 +3355,7 @@ const setupSearch = () => {
           // Hide clone/view/remove buttons in add mode (STAK-173, STAK-576 ISSUE-006)
           if (elements.cloneItemBtn) elements.cloneItemBtn.style.display = "none";
           if (elements.viewItemFromEditBtn) elements.viewItemFromEditBtn.style.display = "none";
-          const deleteFromEditBtnAddReset = document.getElementById("deleteFromEditBtn");
+          const deleteFromEditBtnAddReset = safeGetElement("deleteFromEditBtn");
           if (deleteFromEditBtnAddReset) deleteFromEditBtnAddReset.style.display = "none";
           // Reset date N/A toggle button
           if (elements.itemDateNABtn) {
