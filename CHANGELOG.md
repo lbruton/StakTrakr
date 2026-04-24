@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.29] - 2026-04-24
+
+### Fixed — STAK-576: Numista search magnifier shows misleading error when API key missing
+
+- **Fixed**: Catalog search magnifiers (Name and Catalog N#) now detect the "Numista not configured" state first and open a confirm dialog that links directly to Settings → API instead of showing `Enter a Name or Catalog N# to search.` (STAK-576 ISSUE-005)
+- **Changed**: Disconnected magnifier dot now announces "Numista API not configured — click to configure" via tooltip, and the button `title` flips to match so the hint is visible before clicking
+- **Changed**: `updateNumistaModalDot()` now runs whenever the Add/Edit item modal opens so the dot reflects the current configuration state without requiring a save round-trip
+
+---
+
 ## [3.34.28] - 2026-04-24
 
 ### Fixed — STAK-576: AutoTable vendor fallback warning
