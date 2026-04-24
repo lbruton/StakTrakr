@@ -331,13 +331,16 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
     return !isNaN(p) && p >= min && p <= max;
   }
 
-  // Check if a payment method value matches bank transfer / wire / eCheck.
-  // JM Bullion uses the GoodRelations URI; other vendors may use plain strings.
+  const WIRE_METHOD_RE = /bank|wire|check|ach/i;
   function isBankTransfer(method) {
     if (!method) return false;
-    if (typeof method === "string") return method.includes("ByBankTransferInAdvance");
-    if (method["@id"]) return method["@id"].includes("ByBankTransferInAdvance");
-    if (method.name) return /bank|wire|check/i.test(method.name);
+    if (typeof method === "string")
+      return method.includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method);
+    if (method["@id"])
+      return (
+        method["@id"].includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method["@id"])
+      );
+    if (method.name) return WIRE_METHOD_RE.test(method.name);
     return false;
   }
 
@@ -355,8 +358,9 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
         for (const offer of offerList) {
           // Prefer wire/eCheck price from priceSpecification (qty-1 tier).
           // offer.price is often the Card/PayPal tier — ~4% higher than wire.
-          const specs = offer.priceSpecification;
-          if (Array.isArray(specs) && specs.length > 0) {
+          const rawSpecs = offer.priceSpecification;
+          const specs = rawSpecs == null ? [] : Array.isArray(rawSpecs) ? rawSpecs : [rawSpecs];
+          if (specs.length > 0) {
             let wirePrice = null;
             for (const spec of specs) {
               const methods = Array.isArray(spec.appliesToPaymentMethod)
@@ -364,7 +368,8 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
                 : [spec.appliesToPaymentMethod];
               if (!methods.some(isBankTransfer)) continue;
               const qty = spec.eligibleQuantity;
-              if (qty && String(qty.minValue) !== "1") continue;
+              const qtyMin = qty ? String(qty.minValue ?? qty.value ?? "") : "";
+              if (qtyMin && qtyMin !== "1") continue;
               const p = parseFloat(String(spec.price ?? "").replace(/,/g, ""));
               if (inRange(p)) {
                 wirePrice = p;

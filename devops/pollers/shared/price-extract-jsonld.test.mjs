@@ -31,11 +31,14 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
     return !isNaN(p) && p >= min && p <= max;
   }
 
+  const WIRE_METHOD_RE = /bank|wire|check|ach/i;
   function isBankTransfer(method) {
     if (!method) return false;
-    if (typeof method === "string") return method.includes("ByBankTransferInAdvance");
-    if (method["@id"]) return method["@id"].includes("ByBankTransferInAdvance");
-    if (method.name) return /bank|wire|check/i.test(method.name);
+    if (typeof method === "string")
+      return method.includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method);
+    if (method["@id"])
+      return method["@id"].includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method["@id"]);
+    if (method.name) return WIRE_METHOD_RE.test(method.name);
     return false;
   }
 
@@ -51,8 +54,9 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
         if (!offers) continue;
         const offerList = Array.isArray(offers) ? offers : [offers];
         for (const offer of offerList) {
-          const specs = offer.priceSpecification;
-          if (Array.isArray(specs) && specs.length > 0) {
+          const rawSpecs = offer.priceSpecification;
+          const specs = rawSpecs == null ? [] : Array.isArray(rawSpecs) ? rawSpecs : [rawSpecs];
+          if (specs.length > 0) {
             let wirePrice = null;
             for (const spec of specs) {
               const methods = Array.isArray(spec.appliesToPaymentMethod)
@@ -60,7 +64,8 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
                 : [spec.appliesToPaymentMethod];
               if (!methods.some(isBankTransfer)) continue;
               const qty = spec.eligibleQuantity;
-              if (qty && String(qty.minValue) !== "1") continue;
+              const qtyMin = qty ? String(qty.minValue ?? qty.value ?? "") : "";
+              if (qtyMin && qtyMin !== "1") continue;
               const p = parseFloat(String(spec.price ?? "").replace(/,/g, ""));
               if (inRange(p)) {
                 wirePrice = p;
@@ -296,7 +301,7 @@ assert(
 console.log("\n--- Edge cases ---");
 
 assert(
-  "5. single priceSpecification object (not wrapped in array) is ignored — falls back to offer.price",
+  "5. single priceSpecification object (not wrapped in array) is normalized and extracted",
   extractJsonLdPrice(
     scripts({
       "@type": "Product",
@@ -313,7 +318,7 @@ assert(
     "silver",
     10
   ),
-  895.42
+  859.6
 );
 
 // ---------------------------------------------------------------------------
@@ -442,6 +447,124 @@ assert(
     10
   ),
   859.6
+);
+
+// ---------------------------------------------------------------------------
+// PR review hardening (T1/T2/T3)
+// ---------------------------------------------------------------------------
+
+console.log("\n--- PR review hardening ---");
+
+assert(
+  "13. plain string 'wire' matches isBankTransfer",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: {
+        price: "895.42",
+        priceSpecification: [
+          {
+            appliesToPaymentMethod: "wire",
+            eligibleQuantity: { minValue: "1", maxValue: "9" },
+            price: "859.60",
+          },
+        ],
+      },
+    }),
+    "silver",
+    10
+  ),
+  859.6
+);
+
+assert(
+  "14. plain string 'eCheck' matches isBankTransfer",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: {
+        price: "100.00",
+        priceSpecification: [
+          {
+            appliesToPaymentMethod: "eCheck",
+            eligibleQuantity: { minValue: "1", maxValue: "9" },
+            price: "95.00",
+          },
+        ],
+      },
+    }),
+    "silver",
+    1
+  ),
+  95.0
+);
+
+assert(
+  "15. plain string 'ACH' matches isBankTransfer",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: {
+        price: "5350.00",
+        priceSpecification: [
+          {
+            appliesToPaymentMethod: "ACH",
+            eligibleQuantity: { minValue: "1", maxValue: "9" },
+            price: "5200.00",
+          },
+        ],
+      },
+    }),
+    "gold",
+    1
+  ),
+  5200.0
+);
+
+assert(
+  "16. eligibleQuantity.value (not minValue) for qty-1",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: {
+        price: "895.42",
+        priceSpecification: [
+          {
+            appliesToPaymentMethod:
+              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            eligibleQuantity: { value: 1 },
+            price: "859.60",
+          },
+        ],
+      },
+    }),
+    "silver",
+    10
+  ),
+  859.6
+);
+
+assert(
+  "17. eligibleQuantity.value > 1 is rejected (bulk tier)",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: {
+        price: "893.33",
+        priceSpecification: [
+          {
+            appliesToPaymentMethod:
+              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            eligibleQuantity: { value: 10 },
+            price: "857.60",
+          },
+        ],
+      },
+    }),
+    "silver",
+    10
+  ),
+  893.33
 );
 
 // ---------------------------------------------------------------------------
