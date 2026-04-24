@@ -743,7 +743,11 @@ const fetchExchangeRates = async () => {
         typeof EXCHANGE_RATE_API_URL !== "undefined"
           ? EXCHANGE_RATE_API_URL
           : "https://open.er-api.com/v6/latest/USD";
-      const response = await fetch(url, { method: "GET", mode: "cors" });
+      const response = await fetch(url, {
+        method: "GET",
+        mode: "cors",
+        signal: AbortSignal.timeout(8000),
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data && data.rates && typeof data.rates === "object") {
@@ -751,8 +755,12 @@ const fetchExchangeRates = async () => {
         exchangeRatesLastFetchedAt = Date.now();
         return true;
       }
+      // Payload unusable — still open the dedupe window to suppress retry storms
+      exchangeRatesLastFetchedAt = Date.now();
     } catch (e) {
       console.warn("Exchange rate fetch failed, using cached/fallback rates:", e.message);
+      // Failed fetch still counts as an attempt — suppress retry storms
+      exchangeRatesLastFetchedAt = Date.now();
     }
     return false;
   })();
