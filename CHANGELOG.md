@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.28] - 2026-04-24
+
+### Fixed — STAK-576: AutoTable vendor fallback warning
+
+- **Fixed**: jsPDF AutoTable fallback detection now checks the plugin API registered by the local vendor bundle, preventing the false CDN fallback warning/request when PDF export support is already available offline (STAK-576)
+
+---
+
 ## [3.34.27] - 2026-04-24
 
 ### Fixed — STAK-576: Duplicate network fetches on cold load
