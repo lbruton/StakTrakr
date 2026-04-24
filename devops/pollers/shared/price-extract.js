@@ -616,7 +616,10 @@ const PROVIDER_CONFIG = {
     retryOn408: false, // page either renders in time or doesn't
   },
   jmbullion: {
-    phase: "cf-clearance-first", // Byparr first (100% success), Firecrawl fallback
+    phase: "phase0", // Playwright-direct first (JSON-LD extracts reliably in ~6s on
+    // residential IP). Byparr reserved as fallback via cf_clearance_fallback.
+    // JM's CF tier upgraded beyond Byparr's 45s window ~2026-04-23; fresh-session
+    // Byparr gets harder challenge than long-lived poller browser (STAK-574; follow-up to STAK-565).
     waitFor: 10_000,
     timeout: 40_000,
     onlyMainContent: false, // React pages return empty with onlyMainContent
@@ -1220,8 +1223,8 @@ async function main() {
       const _retriedUrls = new Set();
 
       // ── Phase CF-First: Byparr/CF-clearance first (for cf-clearance-first vendors) ─
-      // For vendors where Byparr has 100% success rate (BE, JM), skip the 70s Firecrawl
-      // timeout entirely. If Byparr fails, fall through to Phase 0/1 as safety net.
+      // For CF-gated vendors (BEx), skip the 70s Firecrawl timeout and solve via Byparr
+      // first. If Byparr fails, fall through to Phase 0/1 as safety net.
       const cfg = providerCfg(provider.id);
       if (cfg.phase === "cf-clearance-first" && CF_CLEARANCE_ENABLED_FLAG) {
         log(`  [cf-first] ${provider.id}: trying Byparr first`);
