@@ -770,19 +770,74 @@ async function scrapeViaProxy(url, waitFor = 15000, timeout = 40000) {
   }
 }
 
+function looksLikeChallengePage(html) {
+  if (!html) return true;
+  if (html.length < 5000) return true;
+  const head = html.slice(0, 4096);
+  if (/<title>\s*(Just a moment|Attention Required|Access denied|Please Wait)/i.test(head))
+    return true;
+  if (/cf-browser-verification|cf-challenge-running|__cf_chl_jschl_tk__/i.test(head)) return true;
+  return false;
+}
+
+function extractJsonLdScriptsFromHtml(html) {
+  if (!html) return [];
+  const scripts = [];
+  const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  while ((match = re.exec(html)) !== null) {
+    const body = match[1].trim();
+    if (body) scripts.push(body);
+  }
+  return scripts;
+}
+
 async function scrapeViaCFClearance(url, providerId, coin) {
   log(`[cf-clearance] attempt: ${providerId} ${url}`);
-  const cfData = await getCFClearanceCookie(url);
+  let cfData = await getCFClearanceCookie(url);
   if (!cfData) {
     warn(`[cf-clearance] sidecar unavailable for ${providerId}`);
     return null;
   }
 
-  // Byparr already fetched the page — try its response HTML first (fast path).
-  // For server-rendered pages this avoids a second Playwright request. For SPAs
-  // (e.g. Bullion Exchanges Magento PWA) the HTML is just the app shell with no
-  // prices — fall through to Playwright with the cookie so the SPA can hydrate.
+  if (cfData.responseHtml && looksLikeChallengePage(cfData.responseHtml)) {
+    warn(
+      `[cf-clearance] challenge-looking HTML from Byparr for ${providerId} (len=${cfData.responseHtml.length}) — retrying once`
+    );
+    const retry = await getCFClearanceCookie(url);
+    if (retry && retry.responseHtml && !looksLikeChallengePage(retry.responseHtml)) {
+      // Merge: take retry's clean HTML but keep whichever cookie/UA is set.
+      // Byparr often returns HTML without a cookie — losing a valid cookie
+      // from the first attempt would silently break the Playwright fallback.
+      cfData = {
+        cfClearance: retry.cfClearance ?? cfData.cfClearance,
+        userAgent: retry.userAgent ?? cfData.userAgent,
+        responseHtml: retry.responseHtml,
+      };
+    } else {
+      // Both attempts returned challenge HTML (or retry failed). Don't try to
+      // extract prices from a challenge page — drop the HTML so we skip to the
+      // Playwright fallback when a cookie is available.
+      cfData = { ...cfData, responseHtml: null };
+    }
+  }
+
+  // Byparr already fetched the page. Try JSON-LD first (authoritative —
+  // matches the Playwright fallback's extractor), then fall back to
+  // regex-on-stripped-text. For SPAs where both fail, fall through to
+  // Playwright with the cookie so the pricing grid can hydrate.
   if (cfData.responseHtml) {
+    const jsonLdScripts = extractJsonLdScriptsFromHtml(cfData.responseHtml);
+    const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
+    if (jsonLdPrice === JSONLD_ZERO_PRICE) {
+      log(`[cf-clearance] ${providerId}: JSON-LD price=0 in Byparr HTML -> OOS`);
+      return { price: null, inStock: false, source: "cf-clearance:jsonLd" };
+    }
+    if (jsonLdPrice !== null) {
+      log(`[cf-clearance] success (html jsonLd): ${providerId} price=${jsonLdPrice}`);
+      return { price: jsonLdPrice, inStock: true, source: "cf-clearance:jsonLd" };
+    }
+
     const rawText = cfData.responseHtml
       .replace(/<(script|style|head)[^>]*>[\s\S]*?<\/(script|style|head)>/gi, " ")
       .replace(/<[^>]+>/g, " ")
@@ -799,17 +854,14 @@ async function scrapeViaCFClearance(url, providerId, coin) {
       };
     }
     warn(
-      `[cf-clearance] no price from Byparr HTML for ${providerId} — falling through to Playwright`
+      `[cf-clearance] no price from Byparr HTML for ${providerId} (len=${cfData.responseHtml.length}, jsonLd=${jsonLdScripts.length}) -- falling through to Playwright`
     );
-    // Don't return null — fall through to Playwright with the cookie.
-    // SPA pages need a real browser to hydrate their pricing grids.
   }
 
-  // Fallback: launch Playwright with the cf_clearance cookie.
-  // Reached when (a) Byparr had no response HTML, or (b) HTML was present but
-  // extraction failed (SPA app shell). Requires a valid cookie.
   if (!cfData.cfClearance) {
-    warn(`[cf-clearance] no cookie and no usable HTML for ${providerId}`);
+    warn(
+      `[cf-clearance] ${providerId}: Byparr had no cookie and HTML yielded no price -- cannot fall back to Playwright`
+    );
     return null;
   }
   let browser;
@@ -1459,7 +1511,13 @@ async function main() {
               source = scrapeResult.source;
               inStock = scrapeResult.inStock;
               finalUrl = url;
-              log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+              // price may be null when cf-clearance detected OOS via JSON-LD
+              // (zero-price sentinel) — guard before toFixed.
+              if (price !== null) {
+                log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+              } else {
+                log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
+              }
               break;
             }
             markdown = scrapeResult;
