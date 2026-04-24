@@ -448,12 +448,16 @@ const BRANDING_DOMAIN_OVERRIDE =
           // domains ("stackrtrackr.com"), www ("www.stackrtrackr.com"),
           // subdomains ("beta.staktrakr.com", "dev.staktrakr.com"), and
           // multi-level hosts ("staktrakr.pages.dev") uniformly.
+          // typeof guard prevents inherited Object.prototype keys
+          // (constructor, toString, etc.) from returning a function.
           for (const part of host.split(".")) {
-            if (part && part !== "www" && domainMap[part]) return domainMap[part];
+            if (part && part !== "www" && typeof domainMap[part] === "string") {
+              return domainMap[part];
+            }
           }
           return null;
         }
-        return domainMap[host] || null;
+        return typeof domainMap[host] === "string" ? domainMap[host] : null;
       })()
     : null;
 
