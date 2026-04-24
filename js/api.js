@@ -2020,7 +2020,7 @@ const syncSpotPricesFromApi = async (showProgress = true, forceSync = false) => 
   });
 
   if (showProgress && updatedCount > 0) {
-    const providerName = Object.entries(results).find(([_, status]) => status === "ok")?.[0];
+    const providerName = Object.entries(results).find(([_, status]) => status === "success")?.[0];
     const label = providerName ? API_PROVIDERS[providerName]?.name || providerName : "API";
     if (typeof showToast === "function") {
       showToast(`\u2713 Synced ${updatedCount} prices from ${label}`);
@@ -2279,7 +2279,7 @@ const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}
             elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
             updateSpotCardColor(metal, price);
             recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
-            const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
+            const ts = safeGetElement(`spotTimestamp${metalConfig.name}`);
             if (ts) updateSpotTimestamp(metalConfig.name);
             provUpdated++;
           }

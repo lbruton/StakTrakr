@@ -927,8 +927,11 @@ const _renderVendorTable = async (metalCode) => {
     const results = await Promise.allSettled(fetchPromises);
     for (const r of results) {
       if (r.status === "fulfilled" && r.value && r.value.data) {
-        detailMap[r.value.slug] = r.value.data;
-        _cachedSlugDetail[r.value.slug] = r.value.data;
+        const normalized = _getCachedRetailDetail(r.value.slug, { [r.value.slug]: r.value.data });
+        if (normalized) {
+          detailMap[r.value.slug] = normalized;
+          _cachedSlugDetail[r.value.slug] = normalized;
+        }
       }
     }
   }
