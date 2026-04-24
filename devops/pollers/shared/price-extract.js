@@ -453,8 +453,20 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
     let wireCol = -1;
     let headerIdx = -1;
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      // CRLF-safe: trim before pipe check so \r or leading whitespace don't break startsWith
+      const line = lines[i].trim();
       if (!line.startsWith("|") || !WIRE_RE.test(line)) continue;
+      // require separator row to avoid prose false-positives (e.g. single-cell note rows)
+      let sepFound = false;
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = lines[j].trim();
+        if (next === "") continue;
+        if (/^\|\s*[-:]+/.test(next)) {
+          sepFound = true;
+        }
+        break;
+      }
+      if (!sepFound) continue;
       const cells = line.split("|");
       for (let c = 0; c < cells.length; c++) {
         if (WIRE_RE.test(cells[c])) {
@@ -466,10 +478,17 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
       if (wireCol !== -1) break;
     }
     if (wireCol === -1) return null;
+    let seenData = false;
     for (let i = headerIdx + 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line.startsWith("|")) continue;
+      // CRLF-safe: trim before pipe check
+      const line = lines[i].trim();
+      if (!line.startsWith("|")) {
+        // stop at table boundary: blank line or prose after we've entered data rows
+        if (seenData) break;
+        continue;
+      }
       if (/^\|\s*[-:]+/.test(line)) continue;
+      seenData = true;
       const cells = line.split("|");
       if (wireCol >= cells.length) continue;
       const m = cells[wireCol].match(/\$?\s*([\d,]+\.\d{2})/);
