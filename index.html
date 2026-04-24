@@ -83,7 +83,12 @@
         },
         {
           check: function () {
-            return !!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.prototype.autoTable);
+            return !!(
+              window.jspdf &&
+              window.jspdf.jsPDF &&
+              window.jspdf.jsPDF.API &&
+              window.jspdf.jsPDF.API.autoTable
+            );
           },
           src: "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js",
           integrity:

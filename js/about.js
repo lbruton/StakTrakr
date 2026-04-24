@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.28 &ndash; STAK-576: AutoTable vendor fallback warning</strong>: PDF export support now recognizes the locally bundled AutoTable plugin correctly, preventing the false CDN fallback warning/request when offline-capable export code is already loaded.</li>
     <li><strong>v3.34.27 &ndash; STAK-576: Duplicate network fetch cleanup</strong>: Cold-load spot sync now shares in-flight provider/backfill work, exchange-rate refreshes dedupe within the startup burst, and the market vendor table reuses the retail cache instead of re-fetching each visible slug.</li>
     <li><strong>v3.34.26 &ndash; STAK-565: JM Bullion scraper column fix</strong>: Fixed JM Bullion price readings oscillating between the correct eCheck/Wire tier (~$86) and the wrong Card tier (~$95) depending on which scrape engine rendered the page. New pipe-table parser locates the (e)Check/Wire column by header label instead of relying on column order. Column-blind fallback removed — missed ticks preferred over wrong-tier prices.</li>
     <li><strong>v3.34.25 &ndash; STAK-573: API tab QA pass</strong>: Save buttons + masked key indicators on catalog cards, working Test endpoints for Numista and PCGS, usage bar fix, Bulk Sync modal consolidated from 4 tabs to 2, footer parity across spot cards, button color variants, modal width constrained.</li>
