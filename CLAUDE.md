@@ -13,14 +13,14 @@ Works on `file://` and HTTP. Runtime artifact: zero build step, zero install. Se
 
 Two separate localStorage config stores exist. Confusing them causes silent data loss.
 
-| Store                 | localStorage key     | Manages                                              | Read via                                               | Write via                                              |
-| --------------------- | -------------------- | ---------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
-| **Spot providers**    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM keys | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
-| **Catalog providers** | `catalog_api_config` | Numista apiKey, PCGS bearerToken                     | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
+| Store                 | localStorage key     | Manages                                                              | Read via                                               | Write via                                              |
+| --------------------- | -------------------- | -------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| **Spot providers**    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM keys                 | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
+| **Catalog providers** | `catalog_api_config` | Numista apiKey, PCGS (Professional Coin Grading Service) bearerToken | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
 
-**Never use `loadApiConfig().keys["numista"]`** — it reads from the wrong store and returns `undefined`. Root cause of STAK-573 data loss bug.
+**Always read catalog provider keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig()`** — they return values from `catalog_api_config`. Calling `loadApiConfig().keys["numista"]` reads the wrong store (`metalApiConfig`) and returns `undefined` — root cause of STAK-573 (StakTrakr issue tracker prefix) data loss bug.
 
-- `saveData()` wraps values in `JSON.stringify` — never use raw `localStorage.getItem()` to read `saveData`-written keys. Use `loadData()` or `loadDataSync()`.
+- `saveData()` wraps values in `JSON.stringify` — always read those keys back through `loadData()` or `loadDataSync()` so the JSON gets parsed. Raw `localStorage.getItem()` returns the stringified payload and silently breaks downstream consumers.
 - After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
 
 ## Cloud Sync Patterns
@@ -82,6 +82,6 @@ Run `/vault-drift` periodically to check foundation doc claims against code trut
 - **Rebase merge blocked by signed commits** — GitHub can't sign rebase merge commits. Use **squash merge** or merge locally with SSH signing. If the merge button shows "Rebase merges cannot be automatically signed," switch merge method in the dropdown.
 - **Worktrees need `npm install`** — prettier/lint-staged pre-commit hook requires `node_modules/`. Run `npm install --no-audit --no-fund` after creating a worktree, or the commit hook fails with ENOENT.
 - **`data/` and `vendor/` excluded from prettier** — `.prettierignore` excludes `data/`, `vendor/`, `node_modules/`, `*.min.js/css`. JS/CSS in `js/` and `css/` ARE formatted on commit via lint-staged. Avoid manual formatting of excluded paths.
-- **Seed-sync every version** — `/seed-sync` must run for every new version on both dev and main. No exceptions.
-- **Pushing fixes to an open PR** — `cd` into the existing worktree and commit there. Do not create a new worktree for mid-review fixes.
+- **Seed-sync every version** — always run `/seed-sync` before opening a release PR on dev or main, so `data/spot-history-bundle.js` ships current.
+- **Pushing fixes to an open PR** — always commit from the existing PR worktree (`cd .worktrees/<branch>`) so fixes land on the same branch the PR tracks.
 - **Codex CLI uses `$` prefix** — handoff prompts for Codex use `$spec` not `/spec`.
