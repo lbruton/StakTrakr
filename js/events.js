@@ -222,15 +222,15 @@ const updateNumistaModalDot = () => {
   document.querySelectorAll(".numista-modal-status-dot").forEach((dot) => {
     dot.classList.toggle("connected", !!connected);
     dot.classList.toggle("disconnected", !connected);
-    dot.title = connected ? "Numista API: connected" : "Numista API: disconnected";
+    dot.title = connected ? "Numista API: connected" : NOT_CONFIGURED_TITLE;
     const btn = dot.closest("button");
     if (btn) {
       if (!connected) {
-        if (!btn.dataset.originalTitle) {
+        if (!("originalTitle" in btn.dataset)) {
           btn.dataset.originalTitle = btn.getAttribute("title") || "";
         }
         btn.setAttribute("title", NOT_CONFIGURED_TITLE);
-      } else if (btn.dataset.originalTitle !== undefined) {
+      } else if ("originalTitle" in btn.dataset) {
         btn.setAttribute("title", btn.dataset.originalTitle);
         delete btn.dataset.originalTitle;
       }
@@ -249,13 +249,18 @@ const ensureNumistaConfiguredOrPrompt = async () => {
     catalogConfig.isNumistaEnabled &&
     catalogConfig.isNumistaEnabled();
   if (configured) return true;
-  const openSettings =
-    typeof appConfirm === "function"
-      ? await appConfirm(
-          "Numista API key isn't configured. Catalog search needs a free Numista key. Open Settings → API to add one now?",
-          "Numista API not configured"
-        )
-      : false;
+  let openSettings = false;
+  if (typeof appConfirm === "function") {
+    openSettings = await appConfirm(
+      "Numista API key isn't configured. Catalog search needs a free Numista key. Open Settings → API to add one now?",
+      "Numista API not configured"
+    );
+  } else if (typeof appAlert === "function") {
+    appAlert(
+      "Numista API key isn't configured. Open Settings → API to add a free Numista key.",
+      "Numista API not configured"
+    );
+  }
   if (openSettings && typeof showSettingsModal === "function") {
     showSettingsModal("api");
   }

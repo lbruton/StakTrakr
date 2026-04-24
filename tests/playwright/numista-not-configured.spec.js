@@ -71,9 +71,8 @@ test.describe("Numista search magnifier — not configured UX", () => {
 
     await page.fill("#itemName", "American Silver Eagle");
     await page.click("#searchNumistaNameBtn");
-    await page.waitForTimeout(150);
+    await expect.poll(() => messages.length).toBeGreaterThan(0);
 
-    expect(messages.length).toBeGreaterThan(0);
     expect(messages[0].title).toMatch(/not configured/i);
     expect(messages[0].message).toMatch(/Numista/i);
     expect(messages[0].message).not.toMatch(/Enter a Name/i);
