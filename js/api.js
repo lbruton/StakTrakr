@@ -13,6 +13,19 @@ const providerStatuses = {
 /** Check whether a provider requires an API key */
 const providerRequiresKey = (prov) => API_PROVIDERS[prov]?.requiresKey !== false;
 
+let _spotProviderSyncPromise = null;
+let _spotProviderSyncKey = null;
+let _staktrakrBackfillPromise = null;
+let _spotProviderAbortController = null;
+let _spotProviderSyncGeneration = 0;
+
+const abortSpotProviderSync = () => {
+  _spotProviderSyncGeneration++;
+  if (_spotProviderAbortController) {
+    _spotProviderAbortController.abort();
+  }
+};
+
 /**
  * Fetch a single JSON file from the first responsive StakTrakr endpoint.
  * Tries each URL in order; moves to the next after a 5-second timeout or error.
@@ -20,11 +33,14 @@ const providerRequiresKey = (prov) => API_PROVIDERS[prov]?.requiresKey !== false
  * @param {string} path - Path appended to each base URL
  * @returns {Promise<any>} Parsed JSON from the first successful endpoint
  */
-const _staktrakrFetch = async (urls, path) => {
+const _staktrakrFetch = async (urls, path, { signal } = {}) => {
   let lastErr;
   for (const base of urls) {
+    if (signal?.aborted) throw new DOMException("Spot sync aborted", "AbortError");
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 5000);
+    const abortCurrentFetch = () => ctrl.abort();
+    if (signal) signal.addEventListener("abort", abortCurrentFetch, { once: true });
     try {
       const resp = await fetch(`${base}${path}`, { mode: "cors", signal: ctrl.signal });
       clearTimeout(tid);
@@ -32,7 +48,11 @@ const _staktrakrFetch = async (urls, path) => {
       return await resp.json();
     } catch (err) {
       clearTimeout(tid);
+      if (signal) signal.removeEventListener("abort", abortCurrentFetch);
+      if (signal?.aborted) throw err;
       lastErr = err;
+    } finally {
+      if (signal) signal.removeEventListener("abort", abortCurrentFetch);
     }
   }
   throw lastErr || new Error("All StakTrakr endpoints failed");
@@ -45,8 +65,8 @@ const _staktrakrFetch = async (urls, path) => {
  */
 const _V2_METAL_MAP = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
 
-const fetchStaktrakrPrices = async (selectedMetals) => {
-  const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json");
+const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
+  const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json", { signal });
   const spotData = data.data || data;
   const results = {};
   Object.entries(spotData).forEach(([isoKey, entry]) => {
@@ -74,11 +94,11 @@ const fetchStaktrakrPrices = async (selectedMetals) => {
  * @param {number} hoursBack - Number of hours to look back
  * @returns {Promise<{newCount: number, fetchCount: number}>} Counts of new entries and successful fetches
  */
-const fetchStaktrakrHourlyRange = async (hoursBack) => {
-  return _fetchStaktrakrHourlyRangeV2(hoursBack);
+const fetchStaktrakrHourlyRange = async (hoursBack, { signal } = {}) => {
+  return _fetchStaktrakrHourlyRangeV2(hoursBack, { signal });
 };
 
-const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
+const _fetchStaktrakrHourlyRangeV2 = async (hoursBack, { signal } = {}) => {
   const now = new Date();
   const cutoff = new Date(now.getTime() - hoursBack * 3600000);
 
@@ -109,6 +129,7 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
 
   const batchSize = 6;
   for (let i = 0; i < fetchJobs.length; i += batchSize) {
+    if (signal?.aborted) break;
     // STAK-443 REQ-10: abort in-flight backfill if user switches to MANUAL mid-batch
     const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
     if (currentSource === "MANUAL") {
@@ -120,7 +141,8 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
       batch.map(async ({ isoKey, metalName, dayKey }) => {
         const path = `/spot/${isoKey}/${dayKey}.json`;
         try {
-          const raw = await _staktrakrFetch(V2_API_ENDPOINTS, path);
+          if (signal?.aborted) return null;
+          const raw = await _staktrakrFetch(V2_API_ENDPOINTS, path, { signal });
           const entries = raw.data || raw;
           if (!Array.isArray(entries)) return null;
           return { metalName, entries };
@@ -182,28 +204,40 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
  * Only runs when STAKTRAKR is the primary provider (rank 1) and sync succeeded.
  * @returns {Promise<number>} Count of new entries added
  */
-const backfillStaktrakrHourly = async () => {
-  // STAK-443 REQ-10: skip backfill entirely if user has switched to MANUAL
-  const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
-  if (source === "MANUAL") {
-    debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
-    return 0;
-  }
-  const oneDayAgo = Date.now() - 24 * 3600000;
-  const hasRecentHourly = spotHistory.some(
-    (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
-  );
-  const hoursBack = hasRecentHourly ? 24 : 7 * 24;
-  const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(hoursBack);
-  // Track usage per file fetched (each file = 1 API request)
-  if (fetchCount > 0) {
-    const config = loadApiConfig();
-    if (config.usage?.STAKTRAKR) {
-      config.usage.STAKTRAKR.used += fetchCount;
-      saveApiConfig(config);
+const backfillStaktrakrHourly = async ({ signal } = {}) => {
+  if (signal?.aborted) return 0;
+  if (_staktrakrBackfillPromise) return _staktrakrBackfillPromise;
+
+  _staktrakrBackfillPromise = (async () => {
+    // STAK-443 REQ-10: skip backfill entirely if user has switched to MANUAL
+    const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+    if (source === "MANUAL") {
+      debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
+      return 0;
     }
+    const oneDayAgo = Date.now() - 24 * 3600000;
+    const hasRecentHourly = spotHistory.some(
+      (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
+    );
+    const hoursBack = hasRecentHourly ? 24 : 7 * 24;
+    if (signal?.aborted) return 0;
+    const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(hoursBack, { signal });
+    // Track usage per file fetched (each file = 1 API request)
+    if (fetchCount > 0) {
+      const config = loadApiConfig();
+      if (config.usage?.STAKTRAKR) {
+        config.usage.STAKTRAKR.used += fetchCount;
+        saveApiConfig(config);
+      }
+    }
+    return newCount;
+  })();
+
+  try {
+    return await _staktrakrBackfillPromise;
+  } finally {
+    _staktrakrBackfillPromise = null;
   }
-  return newCount;
 };
 
 /**
@@ -1609,7 +1643,7 @@ const fetchBatchSpotPrices = async (
  * @param {string} apiKey - The API key for the provider
  * @returns {Promise<Object<string, number>>} Map of metal keys to spot prices
  */
-const fetchSpotPricesFromApi = async (provider, apiKey) => {
+const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
   const providerConfig = API_PROVIDERS[provider];
   if (!providerConfig) {
     throw new Error("Invalid API provider");
@@ -1627,7 +1661,7 @@ const fetchSpotPricesFromApi = async (provider, apiKey) => {
 
   // StakTrakr uses its own hourly JSON fetch instead of generic provider logic
   if (provider === "STAKTRAKR") {
-    return await fetchStaktrakrPrices(selectedMetals);
+    return await fetchStaktrakrPrices(selectedMetals, { signal });
   }
 
   // Latest-only: no history backfill on regular sync
@@ -2176,106 +2210,150 @@ const syncAllProviders = async () => {
  */
 const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}) => {
   const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+  const syncKey = `${source}|${forceSync ? "force" : "cache"}`;
+
+  if (_spotProviderSyncPromise && _spotProviderSyncKey === syncKey) {
+    return _spotProviderSyncPromise;
+  }
 
   // MANUAL short-circuit: zero network activity (REQ-10)
   if (source === "MANUAL") {
     return { results: { MANUAL: "disabled" }, updatedCount: 0, anySucceeded: false };
   }
 
-  // Unknown source → coerce to STAKTRAKR default
-  const prov = Object.prototype.hasOwnProperty.call(API_PROVIDERS, source) ? source : "STAKTRAKR";
-  const config = loadApiConfig();
-  const apiKey = config.keys?.[prov];
-  const results = {};
-  let updatedCount = 0;
-  let anySucceeded = false;
+  _spotProviderSyncKey = syncKey;
+  const syncAbortController = new AbortController();
+  const syncGeneration = _spotProviderSyncGeneration;
+  _spotProviderAbortController = syncAbortController;
+  _spotProviderSyncPromise = (async () => {
+    // Unknown source → coerce to STAKTRAKR default
+    const prov = Object.prototype.hasOwnProperty.call(API_PROVIDERS, source) ? source : "STAKTRAKR";
+    const config = loadApiConfig();
+    const apiKey = config.keys?.[prov];
+    const results = {};
+    let updatedCount = 0;
+    let anySucceeded = false;
 
-  if (showProgress) {
-    updateSyncButtonStates(true);
-  }
-
-  try {
-    if (!apiKey && providerRequiresKey(prov)) {
-      results[prov] = "no key";
-      setProviderStatus(prov, "error");
-      return { results, updatedCount, anySucceeded };
+    if (showProgress) {
+      updateSyncButtonStates(true);
     }
 
-    // Check per-provider cache unless forcing
-    if (!forceSync) {
-      const provDuration = getCacheDurationMs(prov);
-      const lastSync = getLastProviderSyncTime(prov);
-      if (lastSync && Date.now() - lastSync < provDuration) {
-        results[prov] = "cached";
-        anySucceeded = true;
+    try {
+      if (!apiKey && providerRequiresKey(prov)) {
+        results[prov] = "no key";
+        setProviderStatus(prov, "error");
         return { results, updatedCount, anySucceeded };
       }
-    }
 
-    // Single-provider fetch
-    try {
-      const data = await fetchSpotPricesFromApi(prov, apiKey);
-      let provUpdated = 0;
-
-      Object.entries(data).forEach(([metal, price]) => {
-        const metalConfig = Object.values(METALS).find((m) => m.key === metal);
-        if (metalConfig && price > 0) {
-          localStorage.setItem(metalConfig.spotKey, price.toString());
-          spotPrices[metal] = price;
-          elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
-          updateSpotCardColor(metal, price);
-          recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
-          const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
-          if (ts) updateSpotTimestamp(metalConfig.name);
-          provUpdated++;
+      // Check per-provider cache unless forcing
+      if (!forceSync) {
+        const provDuration = getCacheDurationMs(prov);
+        const lastSync = getLastProviderSyncTime(prov);
+        if (lastSync && Date.now() - lastSync < provDuration) {
+          results[prov] = "cached";
+          anySucceeded = true;
+          return { results, updatedCount, anySucceeded };
         }
-      });
+      }
 
-      if (provUpdated > 0) {
-        saveApiCache(data, prov);
-        updatedCount += provUpdated;
-        anySucceeded = true;
-        results[prov] = "success";
-        setProviderStatus(prov, "connected");
-      } else {
-        results[prov] = "no data";
+      // Single-provider fetch
+      try {
+        const data = await fetchSpotPricesFromApi(prov, apiKey, {
+          signal: syncAbortController.signal,
+        });
+        const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+        if (
+          syncAbortController.signal.aborted ||
+          syncGeneration !== _spotProviderSyncGeneration ||
+          currentSource !== source
+        ) {
+          return { results, updatedCount, anySucceeded };
+        }
+        let provUpdated = 0;
+
+        Object.entries(data).forEach(([metal, price]) => {
+          const metalConfig = Object.values(METALS).find((m) => m.key === metal);
+          if (metalConfig && price > 0) {
+            localStorage.setItem(metalConfig.spotKey, price.toString());
+            spotPrices[metal] = price;
+            elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
+            updateSpotCardColor(metal, price);
+            recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
+            const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
+            if (ts) updateSpotTimestamp(metalConfig.name);
+            provUpdated++;
+          }
+        });
+
+        if (provUpdated > 0) {
+          saveApiCache(data, prov);
+          updatedCount += provUpdated;
+          anySucceeded = true;
+          results[prov] = "success";
+          setProviderStatus(prov, "connected");
+        } else {
+          results[prov] = "no data";
+          setProviderStatus(prov, "error");
+        }
+      } catch (err) {
+        if (syncAbortController.signal.aborted) {
+          return { results, updatedCount, anySucceeded };
+        }
+        console.warn(`Spot sync failed for ${prov}:`, err.message);
+        results[prov] = "error";
         setProviderStatus(prov, "error");
       }
-    } catch (err) {
-      console.warn(`Spot sync failed for ${prov}:`, err.message);
-      results[prov] = "error";
-      setProviderStatus(prov, "error");
+
+      // Post-sync updates if anything changed
+      if (updatedCount > 0) {
+        // Refresh exchange rates alongside spot prices (STACK-50)
+        if (typeof fetchExchangeRates === "function") {
+          fetchExchangeRates().catch(() => {});
+        }
+        updateSummary();
+        // Update Goldback denomination prices BEFORE snapshotting item prices,
+        // so the retail hierarchy reflects the new gold spot (STAK-108)
+        if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+        if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
+        if (typeof updateStorageStats === "function") updateStorageStats();
+        // Backfill hourly data when StakTrakr is the active source and sync was fresh
+        if (prov === "STAKTRAKR" && results.STAKTRAKR === "success") {
+          try {
+            const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+            if (
+              !syncAbortController.signal.aborted &&
+              syncGeneration === _spotProviderSyncGeneration &&
+              currentSource === source
+            ) {
+              await backfillStaktrakrHourly({ signal: syncAbortController.signal });
+            }
+          } catch (err) {
+            console.warn("Hourly backfill failed:", err.message);
+          }
+        }
+        if (typeof updateAllSparklines === "function") updateAllSparklines();
+      }
+    } finally {
+      if (showProgress) {
+        updateSyncButtonStates(false);
+      }
     }
 
-    // Post-sync updates if anything changed
-    if (updatedCount > 0) {
-      // Refresh exchange rates alongside spot prices (STACK-50)
-      if (typeof fetchExchangeRates === "function") {
-        fetchExchangeRates().catch(() => {});
-      }
-      updateSummary();
-      // Update Goldback denomination prices BEFORE snapshotting item prices,
-      // so the retail hierarchy reflects the new gold spot (STAK-108)
-      if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
-      if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
-      if (typeof updateStorageStats === "function") updateStorageStats();
-      // Backfill hourly data when StakTrakr is the active source and sync was fresh
-      if (prov === "STAKTRAKR" && results.STAKTRAKR === "success") {
-        try {
-          await backfillStaktrakrHourly();
-        } catch (err) {
-          console.warn("Hourly backfill failed:", err.message);
-        }
-      }
-      if (typeof updateAllSparklines === "function") updateAllSparklines();
-    }
+    return { results, updatedCount, anySucceeded };
+  })();
+
+  const currentSyncPromise = _spotProviderSyncPromise;
+  try {
+    return await currentSyncPromise;
   } finally {
-    if (showProgress) {
-      updateSyncButtonStates(false);
+    if (_spotProviderSyncPromise === currentSyncPromise) {
+      _spotProviderSyncPromise = null;
+      _spotProviderSyncKey = null;
+      if (_spotProviderAbortController === syncAbortController) {
+        _spotProviderAbortController = null;
+      }
     }
   }
-
-  return { results, updatedCount, anySucceeded };
 };
 
 /**
@@ -2483,6 +2561,7 @@ window.syncSpotProvider = syncSpotProvider;
 window.syncProviderChain = syncProviderChain;
 window.autoSyncSpotPrices = autoSyncSpotPrices;
 window.startSpotBackgroundSync = startSpotBackgroundSync;
+window.abortSpotProviderSync = abortSpotProviderSync;
 window.handleHistoryPull = handleHistoryPull;
 window.updateHistoryPullCost = updateHistoryPullCost;
 window.fetchHistoryBatched = fetchHistoryBatched;

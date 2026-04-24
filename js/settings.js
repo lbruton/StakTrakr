@@ -1450,6 +1450,9 @@ const SPOT_SOURCES = [
 const switchSpotProvider = (value) => {
   const normalized = SPOT_SOURCES.includes(value) ? value : "STAKTRAKR";
   saveData("spotPricingSource", normalized);
+  if (normalized === "MANUAL" && typeof abortSpotProviderSync === "function") {
+    abortSpotProviderSync();
+  }
 
   const spotHost = safeGetElement("apiSection_spot");
   if (!spotHost) return;

@@ -821,6 +821,32 @@ const openMarketDetailModal = async (slug) => {
   debugLog("[market-data] Detail modal opened for: " + slug, "info");
 };
 
+const _getCachedRetailDetail = (slug, coins) => {
+  const detail = _cachedSlugDetail[slug] || (coins && coins[slug]);
+  if (!detail || !detail.vendors || typeof detail.vendors !== "object") return null;
+
+  const vendors = {};
+  for (const [vid, vendor] of Object.entries(detail.vendors)) {
+    const inStock = vendor.in_stock === true || vendor.inStock === true;
+    vendors[vid] = {
+      ...vendor,
+      in_stock: inStock,
+      inStock,
+    };
+  }
+
+  return {
+    ...detail,
+    median: detail.median ?? detail.median_price ?? null,
+    median_price: detail.median_price ?? detail.median ?? null,
+    low: detail.low ?? detail.lowest_price ?? null,
+    lowest_price: detail.lowest_price ?? detail.low ?? null,
+    high: detail.high ?? detail.highest_price ?? null,
+    highest_price: detail.highest_price ?? detail.high ?? null,
+    vendors,
+  };
+};
+
 const _renderVendorTable = async (metalCode) => {
   const container = safeGetElement("vendorPricesContainer");
   if (!container) return;
@@ -878,19 +904,32 @@ const _renderVendorTable = async (metalCode) => {
   loadingMsg.textContent = "Loading vendor prices\u2026";
   tableWrap.appendChild(loadingMsg);
 
-  const fetchPromises = metalSlugs.map(({ slug }) =>
-    fetch(V2_API + "/retail/" + slug + "/latest.json", { signal: AbortSignal.timeout(8000) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => ({ slug, data: json && json.data ? json.data : null }))
-      .catch(() => ({ slug, data: null }))
-  );
-
-  const results = await Promise.allSettled(fetchPromises);
   const detailMap = {};
-  for (const r of results) {
-    if (r.status === "fulfilled" && r.value && r.value.data) {
-      detailMap[r.value.slug] = r.value.data;
-      _cachedSlugDetail[r.value.slug] = r.value.data;
+  const missingSlugs = [];
+  for (const { slug } of metalSlugs) {
+    const cachedDetail = _getCachedRetailDetail(slug, coins);
+    if (cachedDetail) {
+      detailMap[slug] = cachedDetail;
+      _cachedSlugDetail[slug] = cachedDetail;
+    } else {
+      missingSlugs.push(slug);
+    }
+  }
+
+  if (missingSlugs.length > 0) {
+    const fetchPromises = missingSlugs.map((slug) =>
+      fetch(V2_API + "/retail/" + slug + "/latest.json", { signal: AbortSignal.timeout(8000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((json) => ({ slug, data: json && json.data ? json.data : null }))
+        .catch(() => ({ slug, data: null }))
+    );
+
+    const results = await Promise.allSettled(fetchPromises);
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value && r.value.data) {
+        detailMap[r.value.slug] = r.value.data;
+        _cachedSlugDetail[r.value.slug] = r.value.data;
+      }
     }
   }
 

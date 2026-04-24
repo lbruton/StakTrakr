@@ -718,29 +718,50 @@ const saveExchangeRates = (rates) => {
   saveDataSync(EXCHANGE_RATES_KEY, rates);
 };
 
+let exchangeRatesFetchPromise = null;
+let exchangeRatesLastFetchedAt = 0;
+const EXCHANGE_RATES_FETCH_DEDUPE_MS = 60 * 1000;
+
 /**
  * Fetches latest exchange rates from the free API and caches them (STACK-50).
  * Non-blocking — if fetch fails, existing cached/fallback rates are used.
  * @returns {Promise<boolean>} Whether the fetch succeeded
  */
 const fetchExchangeRates = async () => {
-  try {
-    // Safe: URL from hardcoded constant EXCHANGE_RATE_API_URL or fallback literal
-    const url =
-      typeof EXCHANGE_RATE_API_URL !== "undefined"
-        ? EXCHANGE_RATE_API_URL
-        : "https://open.er-api.com/v6/latest/USD";
-    const response = await fetch(url, { method: "GET", mode: "cors" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    if (data && data.rates && typeof data.rates === "object") {
-      saveExchangeRates(data.rates);
-      return true;
-    }
-  } catch (e) {
-    console.warn("Exchange rate fetch failed, using cached/fallback rates:", e.message);
+  if (exchangeRatesFetchPromise) return exchangeRatesFetchPromise;
+  if (
+    exchangeRatesLastFetchedAt &&
+    Date.now() - exchangeRatesLastFetchedAt < EXCHANGE_RATES_FETCH_DEDUPE_MS
+  ) {
+    return true;
   }
-  return false;
+
+  exchangeRatesFetchPromise = (async () => {
+    try {
+      // Safe: URL from hardcoded constant EXCHANGE_RATE_API_URL or fallback literal
+      const url =
+        typeof EXCHANGE_RATE_API_URL !== "undefined"
+          ? EXCHANGE_RATE_API_URL
+          : "https://open.er-api.com/v6/latest/USD";
+      const response = await fetch(url, { method: "GET", mode: "cors" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (data && data.rates && typeof data.rates === "object") {
+        saveExchangeRates(data.rates);
+        exchangeRatesLastFetchedAt = Date.now();
+        return true;
+      }
+    } catch (e) {
+      console.warn("Exchange rate fetch failed, using cached/fallback rates:", e.message);
+    }
+    return false;
+  })();
+
+  try {
+    return await exchangeRatesFetchPromise;
+  } finally {
+    exchangeRatesFetchPromise = null;
+  }
 };
 
 /**
