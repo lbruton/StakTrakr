@@ -23,7 +23,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  openTursoDb,
+  openSqldDb,
   writeSnapshot,
   windowFloor,
   startRunLog,
@@ -689,11 +689,6 @@ function resolveProxy(providerId) {
 
 // Compatibility shims — used in code that still references the old Sets.
 // TODO: Remove these after all callsites are refactored to use providerCfg().
-const SLOW_PROVIDERS = new Set(
-  Object.entries(PROVIDER_CONFIG)
-    .filter(([, c]) => c.waitFor > 0)
-    .map(([id]) => id)
-);
 const FIRECRAWL_PREFERRED_PROVIDERS = new Set(
   Object.entries(PROVIDER_CONFIG)
     .filter(([, c]) => c.phase === "firecrawl")
@@ -1086,7 +1081,6 @@ async function main() {
     tursoClient = (await import("./sqld-client.js")).createSqldClient();
   } catch {}
   const providersJson = await loadProviders(tursoClient, DATA_DIR);
-  const dateStr = new Date().toISOString().slice(0, 10);
 
   // Build scrape targets — shuffled to avoid rate-limit fingerprinting
   const targets = [];
@@ -1120,7 +1114,7 @@ async function main() {
   if (DRY_RUN) log("DRY RUN — no SQLite writes");
 
   // Open SQLite for this run — closed in finally block to ensure cleanup on fatal errors
-  const db = DRY_RUN ? null : await openTursoDb();
+  const db = DRY_RUN ? null : await openSqldDb();
   const scrapedAt = new Date().toISOString();
   const winStart = windowFloor();
 
