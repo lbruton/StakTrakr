@@ -210,17 +210,61 @@ const clearUploadState = () => {
 /**
  * Update Numista API status dot in item modal action bar (STAK-173).
  * Reads catalogConfig.isNumistaEnabled() to set connected/disconnected state.
+ * Also updates the parent search button's `title` so the hint is visible
+ * before the user clicks (STAK-576 ISSUE-005).
  */
 const updateNumistaModalDot = () => {
   const connected =
     typeof catalogConfig !== "undefined" &&
     catalogConfig.isNumistaEnabled &&
     catalogConfig.isNumistaEnabled();
+  const NOT_CONFIGURED_TITLE = "Numista API not configured — click to configure";
   document.querySelectorAll(".numista-modal-status-dot").forEach((dot) => {
     dot.classList.toggle("connected", !!connected);
     dot.classList.toggle("disconnected", !connected);
-    dot.title = connected ? "Numista API: connected" : "Numista API: disconnected";
+    dot.title = connected ? "Numista API: connected" : NOT_CONFIGURED_TITLE;
+    const btn = dot.closest("button");
+    if (btn) {
+      if (!connected) {
+        if (!("originalTitle" in btn.dataset)) {
+          btn.dataset.originalTitle = btn.getAttribute("title") || "";
+        }
+        btn.setAttribute("title", NOT_CONFIGURED_TITLE);
+      } else if ("originalTitle" in btn.dataset) {
+        btn.setAttribute("title", btn.dataset.originalTitle);
+        delete btn.dataset.originalTitle;
+      }
+    }
   });
+};
+
+/**
+ * Gate Numista search entry points on an active API key (STAK-576 ISSUE-005).
+ * Returns true when a search can proceed. Otherwise shows a themed confirm
+ * dialog offering to jump straight to Settings → API and returns false.
+ */
+const ensureNumistaConfiguredOrPrompt = async () => {
+  const configured =
+    typeof catalogConfig !== "undefined" &&
+    catalogConfig.isNumistaEnabled &&
+    catalogConfig.isNumistaEnabled();
+  if (configured) return true;
+  let openSettings = false;
+  if (typeof appConfirm === "function") {
+    openSettings = await appConfirm(
+      "Numista API key isn't configured. Catalog search needs a free Numista key. Open Settings → API to add one now?",
+      "Numista API not configured"
+    );
+  } else if (typeof appAlert === "function") {
+    appAlert(
+      "Numista API key isn't configured. Open Settings → API to add a free Numista key.",
+      "Numista API not configured"
+    );
+  }
+  if (openSettings && typeof showSettingsModal === "function") {
+    showSettingsModal("api");
+  }
+  return false;
 };
 
 /**
@@ -1992,6 +2036,11 @@ const setupItemFormListeners = () => {
       elements.searchNumistaBtn,
       "click",
       async () => {
+        // Gate on configured key first — otherwise the empty-field check below
+        // can short-circuit with a misleading "Enter a Name..." error when the
+        // real blocker is a missing API key (STAK-576 ISSUE-005).
+        if (!(await ensureNumistaConfiguredOrPrompt())) return;
+
         const catalogVal = elements.itemCatalog?.value.trim() || "";
         const nameVal = elements.itemName?.value.trim() || "";
 
@@ -2001,7 +2050,17 @@ const setupItemFormListeners = () => {
         }
 
         if (!catalogAPI || !catalogAPI.activeProvider) {
-          appAlert("Configure Numista API key in Settings first.");
+          // Key is present but the provider failed to initialize — rare.
+          // Nudge the user back to Settings without claiming the key is missing.
+          if (typeof appConfirm === "function") {
+            const open = await appConfirm(
+              "Numista catalog provider failed to initialize. Open Settings → API to re-test the key?",
+              "Numista API"
+            );
+            if (open && typeof showSettingsModal === "function") showSettingsModal("api");
+          } else {
+            appAlert("Numista catalog provider failed to initialize. Check Settings → API.");
+          }
           return;
         }
 
@@ -3822,6 +3881,12 @@ function handleAdvancedSavePassword() {
 }
 window.handleAdvancedSavePassword = handleAdvancedSavePassword;
 window.buildNumistaSearchQuery = buildNumistaSearchQuery;
+// Expose the Numista dot refresher + config gate for Playwright tests
+// (STAK-576 ISSUE-005). Both already run internally on modal open and
+// catalog-config save paths — these exports just make them observable
+// from `page.evaluate()`.
+window.updateNumistaModalDot = updateNumistaModalDot;
+window.ensureNumistaConfiguredOrPrompt = ensureNumistaConfiguredOrPrompt;
 
 // =============================================================================
 // Remove Item modal event listeners (STAK-72)

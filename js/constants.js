@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-04-24 - STAK-576: AutoTable vendor fallback warning
  */
 
-const APP_VERSION = "3.34.28";
+const APP_VERSION = "3.34.29";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
