@@ -3352,9 +3352,11 @@ const setupSearch = () => {
           });
           // Update Numista API status dot (STAK-173)
           if (typeof updateNumistaModalDot === "function") updateNumistaModalDot();
-          // Hide clone/view buttons in add mode (STAK-173)
+          // Hide clone/view/remove buttons in add mode (STAK-173, STAK-576 ISSUE-006)
           if (elements.cloneItemBtn) elements.cloneItemBtn.style.display = "none";
           if (elements.viewItemFromEditBtn) elements.viewItemFromEditBtn.style.display = "none";
+          const deleteFromEditBtnAddReset = safeGetElement("deleteFromEditBtn");
+          if (deleteFromEditBtnAddReset) deleteFromEditBtnAddReset.style.display = "none";
           // Reset date N/A toggle button
           if (elements.itemDateNABtn) {
             elements.itemDateNABtn.classList.remove("active");
