@@ -326,12 +326,29 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
   if (!perOz) return null;
   const min = perOz.min * weightOz;
   const max = perOz.max * weightOz;
+
+  function inRange(p) {
+    return !isNaN(p) && p >= min && p <= max;
+  }
+
+  const WIRE_METHOD_RE = /bank|wire|check|ach/i;
+  function isBankTransfer(method) {
+    if (!method) return false;
+    if (typeof method === "string")
+      return method.includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method);
+    if (method["@id"])
+      return (
+        method["@id"].includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method["@id"])
+      );
+    if (method.name) return WIRE_METHOD_RE.test(method.name);
+    return false;
+  }
+
   for (const script of jsonLdScripts) {
     try {
       const data = JSON.parse(script);
       const items = Array.isArray(data) ? data : [data];
       for (const item of items) {
-        // @type may be a string or an array per JSON-LD spec
         const typeVal = item["@type"];
         const types = Array.isArray(typeVal) ? typeVal : [typeVal];
         if (!types.includes("Product")) continue;
@@ -339,13 +356,32 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
         if (!offers) continue;
         const offerList = Array.isArray(offers) ? offers : [offers];
         for (const offer of offerList) {
-          // Strip thousands separators before parsing — "1,200.00" must not become 1
+          // Prefer wire/eCheck price from priceSpecification (qty-1 tier).
+          // offer.price is often the Card/PayPal tier — ~4% higher than wire.
+          const rawSpecs = offer.priceSpecification;
+          const specs = rawSpecs == null ? [] : Array.isArray(rawSpecs) ? rawSpecs : [rawSpecs];
+          if (specs.length > 0) {
+            let wirePrice = null;
+            for (const spec of specs) {
+              const methods = Array.isArray(spec.appliesToPaymentMethod)
+                ? spec.appliesToPaymentMethod
+                : [spec.appliesToPaymentMethod];
+              if (!methods.some(isBankTransfer)) continue;
+              const qty = spec.eligibleQuantity;
+              const qtyMin = qty ? String(qty.minValue ?? qty.value ?? "") : "";
+              if (qtyMin && qtyMin !== "1") continue;
+              const p = parseFloat(String(spec.price ?? "").replace(/,/g, ""));
+              if (inRange(p)) {
+                wirePrice = p;
+                break;
+              }
+            }
+            if (wirePrice !== null) return wirePrice;
+          }
+
           const price = parseFloat(String(offer.price ?? "").replace(/,/g, ""));
-          // price=0 means the product exists but has no price (OOS).
-          // Return sentinel so callers mark OOS instead of falling through
-          // to HTML extraction which grabs unrelated page prices.
           if (!isNaN(price) && price === 0) return JSONLD_ZERO_PRICE;
-          if (!isNaN(price) && price >= min && price <= max) return price;
+          if (inRange(price)) return price;
         }
       }
     } catch {
