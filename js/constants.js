@@ -281,7 +281,7 @@ const CERT_LOOKUP_URLS = {
  * Follows BRANCH.RELEASE.PATCH.state format
  * State codes: a=alpha, b=beta, rc=release candidate
  * Example: 3.03.02a → branch 3, release 03, patch 02, alpha
- * Updated: 2026-02-12 - STACK-38/STACK-31: Responsive card view + mobile layout
+ * Updated: 2026-04-24 - STAK-576: AutoTable vendor fallback warning
  */
 
 const APP_VERSION = "3.34.28";
