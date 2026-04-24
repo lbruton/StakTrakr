@@ -441,6 +441,64 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
     return inRange(p) ? p : null;
   }
 
+  // JM Bullion pipe-table parser. Firecrawl sometimes renders the JM pricing
+  // grid as a markdown pipe table instead of prose. Columns are payment tiers
+  // (e.g. | Qty | (e)Check/Wire | Crypto | Card |); the (e)Check/Wire column is
+  // the correct ACH/wire price StakTrakr compares. Locate that column by header
+  // label, then return its first in-range data-row price. Column-blind fallback
+  // picks Card/PayPal ~half the time (STAK-565).
+  function jmPriceFromPipeTable() {
+    const lines = markdown.split("\n");
+    const WIRE_RE = /\(?e?\)?\s*Check\s*\/\s*Wire/i;
+    let wireCol = -1;
+    let headerIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      // CRLF-safe: trim before pipe check so \r or leading whitespace don't break startsWith
+      const line = lines[i].trim();
+      if (!line.startsWith("|") || !WIRE_RE.test(line)) continue;
+      // require separator row to avoid prose false-positives (e.g. single-cell note rows)
+      let sepFound = false;
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = lines[j].trim();
+        if (next === "") continue;
+        if (/^\|\s*[-:]+/.test(next)) {
+          sepFound = true;
+        }
+        break;
+      }
+      if (!sepFound) continue;
+      const cells = line.split("|");
+      for (let c = 0; c < cells.length; c++) {
+        if (WIRE_RE.test(cells[c])) {
+          wireCol = c;
+          headerIdx = i;
+          break;
+        }
+      }
+      if (wireCol !== -1) break;
+    }
+    if (wireCol === -1) return null;
+    let seenData = false;
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      // CRLF-safe: trim before pipe check
+      const line = lines[i].trim();
+      if (!line.startsWith("|")) {
+        // stop at table boundary: blank line or prose after we've entered data rows
+        if (seenData) break;
+        continue;
+      }
+      if (/^\|\s*[-:]+/.test(line)) continue;
+      seenData = true;
+      const cells = line.split("|");
+      if (wireCol >= cells.length) continue;
+      const m = cells[wireCol].match(/\$?\s*([\d,]+\.\d{2})/);
+      if (!m) continue;
+      const p = parseFloat(m[1].replace(/,/g, ""));
+      if (inRange(p)) return p;
+    }
+    return null;
+  }
+
   // Fallback for SPAs (e.g. Bullion Exchanges) that render prices as prose rather
   // than markdown pipe tables. Returns the first $XX.XX value in the metal range.
   function firstInRangePriceProse() {
@@ -472,19 +530,18 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
   }
 
   if (providerId === "jmbullion") {
-    // JM Bullion: prose table → pipe table ONLY. No "As Low As" fallback.
-    // Prose parser is tried FIRST because it anchors to the "(e)Check/Wire" column
-    // header — guaranteed to return the eCheck price. The pipe-table parser
-    // (firstTableRowFirstPrice) is column-blind and can grab Card/PayPal when
-    // Firecrawl renders columns in non-standard order (STAK-498 Task 6).
-    // "As Low As" is a volume discount (100+ units via ACH) — NOT the single-unit
-    // retail price. Using it causes 10-90% price spread vs. actual retail (STAK-475 P2).
-    // Better to return null (missed window) than record a volume discount.
+    // JM Bullion: prose table → header-aware pipe table. Both anchor to the
+    // "(e)Check/Wire" column label. Column-blind fallbacks are DISALLOWED —
+    // picking the wrong column returns Card/PayPal (~10% higher than wire)
+    // ~half the time depending on which scrape engine rendered the page
+    // (STAK-565 regression; original column-blindness noted in STAK-498 Task 6).
+    // Better to return null (missed window) than record the wrong-tier price.
+    // "As Low As" is a 100+ unit ACH discount, not single-unit retail (STAK-475 P2).
     const proseTbl = jmPriceFromProseTable();
     if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
-    const tblFirst = firstTableRowFirstPrice();
-    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
-    // No asLowAs fallback — return null below.
+    const pipeTbl = jmPriceFromPipeTable();
+    if (pipeTbl !== null) return { price: pipeTbl, matchedBy: "jmPipeTable" };
+    return null;
   } else if (USES_AS_LOW_AS.has(providerId)) {
     // Reserved for vendors that have no pricing table, only "As Low As" display.
     // Currently empty — all vendors now use table-first extraction.
