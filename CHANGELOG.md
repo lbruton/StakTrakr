@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.27] - 2026-04-24
+
+### Fixed — STAK-576: Duplicate network fetches on cold load
+
+- **Fixed**: Startup spot-price sync now shares an in-flight provider sync/backfill instead of letting `autoSyncSpotPrices()` and `startSpotBackgroundSync()` fetch the same `spot/latest.json` and daily spot files concurrently (STAK-576)
+- **Fixed**: Exchange-rate refresh now dedupes concurrent startup calls and suppresses repeated `open.er-api.com/v6/latest/USD` fetches within the same burst (STAK-576)
+- **Changed**: Market vendor table reuses the retail cache populated by startup sync and only fetches per-slug `latest.json` when a slug is missing from cache (STAK-576)
+
+---
+
 ## [3.34.26] - 2026-04-23
 
 ### Fixed — STAK-565: JM Bullion scraper picking wrong price column
