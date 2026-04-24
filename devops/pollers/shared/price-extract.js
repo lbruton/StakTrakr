@@ -783,7 +783,7 @@ function looksLikeChallengePage(html) {
 function extractJsonLdScriptsFromHtml(html) {
   if (!html) return [];
   const scripts = [];
-  const re = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match;
   while ((match = re.exec(html)) !== null) {
     const body = match[1].trim();
@@ -806,7 +806,19 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     );
     const retry = await getCFClearanceCookie(url);
     if (retry && retry.responseHtml && !looksLikeChallengePage(retry.responseHtml)) {
-      cfData = retry;
+      // Merge: take retry's clean HTML but keep whichever cookie/UA is set.
+      // Byparr often returns HTML without a cookie — losing a valid cookie
+      // from the first attempt would silently break the Playwright fallback.
+      cfData = {
+        cfClearance: retry.cfClearance ?? cfData.cfClearance,
+        userAgent: retry.userAgent ?? cfData.userAgent,
+        responseHtml: retry.responseHtml,
+      };
+    } else {
+      // Both attempts returned challenge HTML (or retry failed). Don't try to
+      // extract prices from a challenge page — drop the HTML so we skip to the
+      // Playwright fallback when a cookie is available.
+      cfData = { ...cfData, responseHtml: null };
     }
   }
 
@@ -1499,7 +1511,13 @@ async function main() {
               source = scrapeResult.source;
               inStock = scrapeResult.inStock;
               finalUrl = url;
-              log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+              // price may be null when cf-clearance detected OOS via JSON-LD
+              // (zero-price sentinel) — guard before toFixed.
+              if (price !== null) {
+                log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+              } else {
+                log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
+              }
               break;
             }
             markdown = scrapeResult;

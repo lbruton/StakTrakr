@@ -20,7 +20,7 @@ function looksLikeChallengePage(html) {
 function extractJsonLdScriptsFromHtml(html) {
   if (!html) return [];
   const scripts = [];
-  const re = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match;
   while ((match = re.exec(html)) !== null) {
     const body = match[1].trim();
@@ -143,6 +143,20 @@ test("body preserves raw text (JSON array root)", () => {
   const parsed = JSON.parse(out[0]);
   eq(Array.isArray(parsed), true);
   eq(parsed[0]["@type"], "Product");
+});
+
+test("whitespace around type attribute still matches", () => {
+  const html = `<script type = "application/ld+json">{"f":6}</script>`;
+  const out = extractJsonLdScriptsFromHtml(html);
+  eq(out.length, 1);
+  eq(JSON.parse(out[0]), { f: 6 });
+});
+
+test("mixed whitespace and single quotes still matches", () => {
+  const html = `<script  type\t=  'application/ld+json' >{"g":7}</script>`;
+  const out = extractJsonLdScriptsFromHtml(html);
+  eq(out.length, 1);
+  eq(JSON.parse(out[0]), { g: 7 });
 });
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`);
