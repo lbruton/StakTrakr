@@ -441,17 +441,23 @@ const BRANDING_DOMAIN_OPTIONS = {
 const BRANDING_DOMAIN_OVERRIDE =
   typeof window !== "undefined" && window.location && window.location.hostname
     ? (() => {
-        let host = window.location.hostname.toLowerCase();
-        if (BRANDING_DOMAIN_OPTIONS.removeExtension) {
-          const parts = host.split(".");
-          // Strip www prefix and TLD to get the core domain name
-          // "www.stackrtrackr.com" → ["www","stackrtrackr","com"] → "stackrtrackr"
-          // "stackrtrackr.com" → ["stackrtrackr","com"] → "stackrtrackr"
-          // "staktrakr.pages.dev" → ["staktrakr","pages","dev"] → "staktrakr"
-          const filtered = parts.filter((p) => p !== "www");
-          host = filtered.length > 1 ? filtered[0] : parts[0];
+        const host = window.location.hostname.toLowerCase();
+        const { domainMap, removeExtension } = BRANDING_DOMAIN_OPTIONS;
+        if (removeExtension) {
+          // Scan hostname parts for the first branded label. Handles plain
+          // domains ("stackrtrackr.com"), www ("www.stackrtrackr.com"),
+          // subdomains ("beta.staktrakr.com", "dev.staktrakr.com"), and
+          // multi-level hosts ("staktrakr.pages.dev") uniformly.
+          // typeof guard prevents inherited Object.prototype keys
+          // (constructor, toString, etc.) from returning a function.
+          for (const part of host.split(".")) {
+            if (part && part !== "www" && typeof domainMap[part] === "string") {
+              return domainMap[part];
+            }
+          }
+          return null;
         }
-        return BRANDING_DOMAIN_OPTIONS.domainMap[host] || null;
+        return typeof domainMap[host] === "string" ? domainMap[host] : null;
       })()
     : null;
 
