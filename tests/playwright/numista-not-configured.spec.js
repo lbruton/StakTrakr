@@ -56,41 +56,35 @@ test.describe("Numista search magnifier — not configured UX", () => {
   test("NC-2 — clicking the magnifier with a name typed opens the not-configured dialog, not the empty-field alert", async ({
     page,
   }) => {
-    const messages = [];
-    await page.exposeFunction("__captureDialog", (title, message) => {
-      messages.push({ title, message });
-    });
-    await page.evaluate(() => {
-      const originalConfirm = window.appConfirm;
-      window.appConfirm = async (message, title) => {
-        window.__captureDialog(title || "", message || "");
-        return false; // user cancels — we just want to verify the message
-      };
-      window.__originalAppConfirm = originalConfirm;
-    });
-
     await page.fill("#itemName", "American Silver Eagle");
     await page.click("#searchNumistaNameBtn");
-    await expect.poll(() => messages.length).toBeGreaterThan(0);
 
-    expect(messages[0].title).toMatch(/not configured/i);
-    expect(messages[0].message).toMatch(/Numista/i);
-    expect(messages[0].message).not.toMatch(/Enter a Name/i);
+    // Wait for the real themed dialog to appear
+    await expect(page.locator("#appDialogModal")).toBeVisible({ timeout: 5000 });
+
+    const titleText = await page.locator("#appDialogTitle").textContent();
+    const messageText = await page.locator("#appDialogMessage").textContent();
+
+    expect(titleText).toMatch(/not configured/i);
+    expect(messageText).toMatch(/Numista/i);
+    expect(messageText).not.toMatch(/Enter a Name/i);
+
+    // Dismiss via Cancel — we're only verifying dialog copy, not the handoff
+    await page.click("#appDialogCancel");
+    await expect(page.locator("#appDialogModal")).toBeHidden({ timeout: 3000 });
   });
 
   test("NC-3 — confirming opens Settings → API", async ({ page }) => {
-    // Stub appConfirm to auto-accept so we don't need to click the dialog
-    await page.evaluate(() => {
-      window.appConfirm = async () => true;
-      window.showAppConfirm = async () => true;
-    });
-
     await page.fill("#itemName", "American Silver Eagle");
     await page.click("#searchNumistaBtn");
 
-    // The real side effect: settings modal becomes visible. Use the DOM
-    // outcome instead of stubbing showSettingsModal — the module-scope
-    // binding in events.js is not interceptable via window overrides.
-    await expect(page.locator("#settingsModal")).toBeVisible({ timeout: 3000 });
+    // Wait for the real themed dialog to appear
+    await expect(page.locator("#appDialogModal")).toBeVisible({ timeout: 5000 });
+
+    // Click OK — resolver fires true and events.js calls showSettingsModal("api")
+    await page.click("#appDialogOk");
+
+    // The real side effect: settings modal becomes visible
+    await expect(page.locator("#settingsModal")).toBeVisible({ timeout: 5000 });
   });
 });
