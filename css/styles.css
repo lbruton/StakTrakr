@@ -9288,6 +9288,7 @@ th {
   bottom: calc(-1 * var(--spacing));
   margin: 0.85rem calc(-1 * var(--spacing)) calc(-1 * var(--spacing));
   padding: 0.75rem var(--spacing) 0.65rem;
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: var(--bg-secondary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
