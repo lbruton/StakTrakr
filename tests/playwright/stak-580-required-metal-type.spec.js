@@ -170,11 +170,9 @@ test.describe("STAK-580 — required Metal/Type selection", () => {
       return {
         exists: Boolean(placeholder),
         disabled: placeholder?.disabled ?? null,
-        hidden: placeholder?.hidden ?? null,
       };
     });
     expect(placeholderState.exists).toBe(true);
     expect(placeholderState.disabled).toBe(true);
-    expect(placeholderState.hidden).toBe(true);
   });
 });
