@@ -300,29 +300,218 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
     await expect(keyInput).toHaveAttribute("type", "password");
 
     // Cache timeout selector
-    await expect(panel.locator("select").first()).toHaveCount(1);
+    await expect(panel.locator("select.js-cache-timeout")).toHaveCount(1);
 
     // Pull history button
-    await expect(
-      panel.locator('button:has-text("Pull"), button:has-text("Pull history")')
-    ).not.toHaveCount(0);
+    await expect(panel.locator("button.js-pull-history")).toHaveCount(1);
 
     // Metals checkboxes — all supported metals, scoped away from auto-refresh.
     const metalLabels = panel.locator(".metal-checkboxes .metal-checkbox span");
     await expect(metalLabels).toHaveText(["Gold", "Silver", "Platinum", "Palladium"]);
-    const panelText = await panel.innerText();
 
-    // Auto-refresh toggle (checkbox)
-    await expect(panel.locator('input[type="checkbox"]').filter({ hasText: "" })).not.toHaveCount(
-      0
-    );
-    expect(panelText.toLowerCase()).toMatch(/auto.?refresh|background refresh/);
+    // Auto-refresh toggle
+    await expect(panel.locator(".auto-refresh-row .js-auto-refresh")).toHaveCount(1);
+    await expect(panel.locator(".auto-refresh-row")).toContainText("Background auto-refresh");
 
     // Action row: Save / Save & Test / History / Clear Key
-    await expect(panel.locator('button:has-text("Save")').first()).toBeVisible();
-    await expect(panel.locator('button:has-text("Save & Test")').first()).toBeVisible();
-    await expect(panel.locator('button:has-text("History")').first()).toBeVisible();
-    await expect(panel.locator('button:has-text("Clear Key")').first()).toBeVisible();
+    const actions = panel.locator(".spot-panel-actions");
+    await expect(actions.locator("button.js-save")).toHaveCount(1);
+    await expect(actions.locator("button.js-save-test")).toHaveCount(1);
+    await expect(actions.locator("button.js-history")).toHaveCount(1);
+    await expect(actions.locator("button.js-clear-key")).toHaveCount(1);
+  });
+
+  // =========================================================================
+  // REQ-4.1 — StakTrakr sub-card: no checkboxes, Sync/Flush Cache/History,
+  // Free badge, attribution footer.
+  // =========================================================================
+  test("4.1 REQ-4.1 — StakTrakr sub-card has no checkboxes, shows Sync/Flush Cache/History, Free badge, attribution footer", async ({
+    page,
+  }) => {
+    await seedApiState(page, { spotPricingSource: "STAKTRAKR" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const panel = page
+      .locator("#apiSection_spot")
+      .locator('.spot-accordion-panel[data-val="STAKTRAKR"]');
+    await expect(panel).toBeVisible();
+
+    // Header: title + Free badge + meta
+    const header = panel.locator(".spot-panel-row");
+    await expect(header).toContainText("StakTrakr Spot API");
+    const badge = header.locator(".provider-badge");
+    await expect(badge).toHaveText("Free · No key");
+    await expect(badge).toHaveClass(/free/);
+    await expect(header).toContainText("Hourly refresh · cached locally");
+
+    // Action buttons: Sync, Flush Cache, History (no Save/Save & Test/Clear Key)
+    const actions = panel.locator(".spot-panel-actions");
+    await expect(actions.locator("button.js-save-test")).toHaveCount(1);
+    await expect(actions.locator("button.js-flush-cache")).toHaveCount(1);
+    await expect(actions.locator("button.js-history")).toHaveCount(1);
+    await expect(actions.locator("button.js-save")).toHaveCount(0);
+    await expect(actions.locator("button.js-clear-key")).toHaveCount(0);
+
+    // NO API key, cache selector, pull button, checkboxes, or auto-refresh
+    await expect(panel.locator('input[type="password"]')).toHaveCount(0);
+    await expect(panel.locator("select")).toHaveCount(0);
+    await expect(panel.locator(".metal-checkboxes")).toHaveCount(0);
+    await expect(panel.locator(".auto-refresh-row")).toHaveCount(0);
+
+    // Footer with attribution
+    const footer = panel.locator(".spot-panel-footer");
+    await expect(footer).toContainText("Provided by api.staktrakr.com");
+    await expect(footer).toContainText("Best-effort free service");
+  });
+
+  // =========================================================================
+  // REQ-4.2 — METALS_API + METAL_PRICE_API parallel schema.
+  // =========================================================================
+  ["METALS_API", "METAL_PRICE_API"].forEach((provider) => {
+    test(`4.2.${provider} REQ-4.2 — ${PROVIDER_LABELS[provider]} sub-card has parallel schema to Metals.dev (key, cache, pull, checkboxes, auto-refresh)`, async ({
+      page,
+    }) => {
+      await seedApiState(page, { spotPricingSource: provider });
+      await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+      await openApiSettings(page);
+
+      const panel = page
+        .locator("#apiSection_spot")
+        .locator(`.spot-accordion-panel[data-val="${provider}"]`);
+      await expect(panel).toBeVisible();
+
+      // API key input (password)
+      await expect(panel.locator('input[type="password"]')).toHaveCount(1);
+
+      // Cache timeout selector
+      await expect(panel.locator("select.js-cache-timeout")).toHaveCount(1);
+
+      // Pull history button
+      await expect(panel.locator("button.js-pull-history")).toHaveCount(1);
+
+      // Metal checkboxes
+      await expect(panel.locator(".metal-checkboxes .metal-checkbox span")).toHaveCount(4);
+
+      // Auto-refresh
+      await expect(panel.locator(".auto-refresh-row .js-auto-refresh")).toHaveCount(1);
+
+      // Action buttons
+      const actions = panel.locator(".spot-panel-actions");
+      await expect(actions.locator("button.js-save")).toHaveCount(1);
+      await expect(actions.locator("button.js-save-test")).toHaveCount(1);
+      await expect(actions.locator("button.js-history")).toHaveCount(1);
+      await expect(actions.locator("button.js-clear-key")).toHaveCount(1);
+    });
+  });
+
+  // =========================================================================
+  // REQ-4.3 — Custom sub-card: BYO endpoint fields.
+  // =========================================================================
+  test("4.3 REQ-4.3 — Custom sub-card exposes Base URL, Endpoint, Metal format, Cache, API key, metal checkboxes, auto-refresh with hint", async ({
+    page,
+  }) => {
+    await seedApiState(page, { spotPricingSource: "CUSTOM" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const panel = page
+      .locator("#apiSection_spot")
+      .locator('.spot-accordion-panel[data-val="CUSTOM"]');
+    await expect(panel).toBeVisible();
+
+    // Header
+    await expect(panel.locator(".spot-panel-row")).toContainText("Custom Spot API");
+    const badge = panel.locator(".provider-badge");
+    await expect(badge).toHaveText("BYO endpoint");
+    await expect(badge).toHaveClass(/paid/);
+
+    // Action buttons
+    const actions = panel.locator(".spot-panel-actions");
+    await expect(actions.locator("button.js-save")).toHaveCount(1);
+    await expect(actions.locator("button.js-save-test")).toHaveCount(1);
+    await expect(actions.locator("button.js-history")).toHaveCount(1);
+    await expect(actions.locator("button.js-clear-key")).toHaveCount(1);
+
+    // Custom field grid
+    const grid = panel.locator(".provider-field-grid");
+    await expect(grid).toHaveCount(1);
+
+    // Base URL input
+    await expect(grid.locator('input[type="text"].js-custom-base')).toHaveCount(1);
+    await expect(grid.locator('input[type="text"].js-custom-base')).toHaveAttribute(
+      "placeholder",
+      "https://api.example.com"
+    );
+
+    // Endpoint input
+    await expect(grid.locator('input[type="text"].js-custom-endpoint')).toHaveCount(1);
+
+    // Metal format select
+    const fmtSelect = grid.locator("select.js-custom-format");
+    await expect(fmtSelect).toHaveCount(1);
+    await expect(fmtSelect.locator("option")).toHaveCount(2);
+
+    // Cache timeout select
+    await expect(grid.locator("select.js-cache-timeout")).toHaveCount(1);
+
+    // API key input (password)
+    await expect(grid.locator('input[type="password"].js-api-key-input')).toHaveCount(1);
+
+    // Metal checkboxes
+    await expect(panel.locator(".metal-checkboxes .metal-checkbox span")).toHaveCount(4);
+
+    // Auto-refresh with hint
+    await expect(panel.locator(".auto-refresh-row .js-auto-refresh")).toHaveCount(1);
+    await expect(panel.locator(".auto-refresh-row")).toContainText(
+      "History pull not supported for custom endpoints"
+    );
+  });
+
+  // =========================================================================
+  // REQ-4.4 — Manual sub-card: four numeric inputs, Save/History/Reset.
+  // =========================================================================
+  test("4.4 REQ-4.4 — Manual sub-card shows four numeric inputs, Save/History/Reset buttons, Offline badge", async ({
+    page,
+  }) => {
+    await seedApiState(page, { spotPricingSource: "MANUAL" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const panel = page
+      .locator("#apiSection_spot")
+      .locator('.spot-accordion-panel[data-val="MANUAL"]');
+    await expect(panel).toBeVisible();
+
+    // Header
+    await expect(panel.locator(".spot-panel-row")).toContainText("Manual / Offline Mode");
+    const badge = panel.locator(".provider-badge");
+    await expect(badge).toHaveText("Offline");
+    await expect(badge).toHaveClass(/offline/);
+    await expect(panel.locator(".spot-panel-row")).toContainText("All feeds disabled");
+
+    // Action buttons: Save, History, Reset (no Save & Test / Clear Key)
+    const actions = panel.locator(".spot-panel-actions");
+    await expect(actions.locator("button.js-save")).toHaveCount(1);
+    await expect(actions.locator("button.js-history")).toHaveCount(1);
+    await expect(actions.locator("button.js-reset")).toHaveCount(1);
+    await expect(actions.locator("button.js-save-test")).toHaveCount(0);
+    await expect(actions.locator("button.js-clear-key")).toHaveCount(0);
+
+    // Four numeric inputs
+    await expect(panel.locator('input[type="number"]')).toHaveCount(4);
+
+    // Labels
+    await expect(panel.locator(".manual-grid")).toContainText("Gold (per oz)");
+    await expect(panel.locator(".manual-grid")).toContainText("Silver (per oz)");
+    await expect(panel.locator(".manual-grid")).toContainText("Platinum (per oz)");
+    await expect(panel.locator(".manual-grid")).toContainText("Palladium (per oz)");
+
+    // NO API key, cache, pull, checkboxes, auto-refresh
+    await expect(panel.locator('input[type="password"]')).toHaveCount(0);
+    await expect(panel.locator("select")).toHaveCount(0);
+    await expect(panel.locator(".metal-checkboxes")).toHaveCount(0);
+    await expect(panel.locator(".auto-refresh-row")).toHaveCount(0);
   });
 
   // =========================================================================
