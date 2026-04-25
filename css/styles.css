@@ -6038,12 +6038,18 @@ td input:checked + .slider:before {
 
 /* --- Responsive: mobile view modal (≤768px) --- */
 @media (max-width: 768px) {
-  /* Full-screen modal on phones — no chrome, maximum content */
+  /* Full-screen modal on phones — no chrome, maximum content.
+     STAK-578 P5.2: 100dvh override for Android Chrome (env() resolves to 0
+     on Android, so only dynamic-viewport sizing keeps the sticky footer
+     above the gesture bar). 100vh declarations are kept first as the
+     fallback for browsers that don't yet support dvh. */
   #viewItemModal .modal-content {
     width: 100%;
     max-width: 100%;
-    max-height: 100vh;
     height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     border-radius: 0;
     margin: 0;
   }

@@ -21,6 +21,11 @@ import { test, expect } from "@playwright/test";
  *   Test 2 (#inventoryForm .item-modal-actions) -> R2.5 (regression guard for R2)
  *   Test 3 (mobile fullscreen header)        -> R3.3 (regression guard for R3)
  *   Test 4 (viewport-fit=cover meta)         -> R4.1
+ *   Test 5 (#viewItemModal .modal-content    -> R6 / Phase 5.2 QA finding:
+ *           uses 100dvh on mobile)              Android Chrome resolves
+ *                                               env(safe-area-inset-bottom)
+ *                                               to 0; only 100dvh keeps the
+ *                                               modal off the gesture bar.
  */
 
 // ---------------------------------------------------------------------------
@@ -333,6 +338,58 @@ test.describe("mobile-modal-safe-area — STAK-578", () => {
       cssText,
       "#viewItemModal mobile header rule must reference 'env(safe-area-inset-top'"
     ).toContain("env(safe-area-inset-top");
+  });
+
+  // ========================================================================
+  // Test 3c — #viewItemModal .modal-content mobile rule uses 100dvh
+  // Phase 5.2 QA finding: on Android Chrome, env(safe-area-inset-bottom)
+  // resolves to 0 even with viewport-fit=cover. The compound selector at
+  // css/styles.css line 12462 covers #itemModal, but #viewItemModal is
+  // governed by its more-specific rule earlier in the file. Without an
+  // explicit 100dvh override there, the View modal stays sized to the
+  // LARGE viewport (under the gesture bar) on Android, clipping the
+  // sticky footer buttons. Only the 100vh + 100dvh fallback pair keeps
+  // the modal exactly inside the visible viewport.
+  // ========================================================================
+  test("viewItemModal-modal-content-mobile-uses-100dvh", async ({ page }) => {
+    await seedInventory(page, [BASE_ITEM]);
+    await gotoApp(page);
+
+    const cssText = await page.evaluate(() => {
+      for (const sheet of Array.from(document.styleSheets)) {
+        let topRules;
+        try {
+          topRules = sheet.cssRules;
+        } catch (_e) {
+          continue;
+        }
+        if (!topRules) continue;
+        for (const rule of Array.from(topRules)) {
+          if (!(rule instanceof CSSMediaRule)) continue;
+          const mediaText = (rule.media && rule.media.mediaText) || rule.conditionText || "";
+          if (!mediaText.includes("max-width: 768px")) continue;
+          const innerRules = rule.cssRules;
+          if (!innerRules) continue;
+          for (const inner of Array.from(innerRules)) {
+            if (!(inner instanceof CSSStyleRule)) continue;
+            const sel = inner.selectorText || "";
+            if (sel === "#viewItemModal .modal-content") {
+              return inner.cssText;
+            }
+          }
+        }
+      }
+      return null;
+    });
+
+    expect(
+      cssText,
+      "Inside @media (max-width: 768px), a CSSStyleRule for '#viewItemModal .modal-content' must exist"
+    ).not.toBeNull();
+    expect(
+      cssText,
+      "'#viewItemModal .modal-content' mobile rule must declare height: 100dvh (Android Chrome gesture-bar clearance)"
+    ).toContain("100dvh");
   });
 
   // ========================================================================
