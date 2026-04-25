@@ -929,6 +929,15 @@
     applyRealizedVisibility(showRealized);
   };
 
+  if (typeof window !== "undefined") {
+    window.addEventListener("currencychange", () => {
+      try {
+        if (typeof renderTable === "function") renderTable();
+        if (typeof updateSummary === "function") updateSummary();
+      } catch (e) {}
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Export public API via window.*
   // ---------------------------------------------------------------------------

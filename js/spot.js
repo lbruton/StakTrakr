@@ -1527,6 +1527,14 @@ window._loadSpotSeedBundle = function (bundle) {
   }
 };
 
+if (typeof window !== "undefined") {
+  window.addEventListener("currencychange", () => {
+    try {
+      if (typeof updateAllSparklines === "function") updateAllSparklines();
+    } catch (e) {}
+  });
+}
+
 // Ensure global availability
 window.fetchSpotPrice = fetchSpotPrice;
 window.syncManualSpotStorage = syncManualSpotStorage;

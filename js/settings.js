@@ -2335,6 +2335,14 @@ const syncGoldbackSettingsUI = () => {
   }
 };
 
+if (typeof window !== "undefined") {
+  window.addEventListener("currencychange", () => {
+    try {
+      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
+    } catch (e) {}
+  });
+}
+
 // =============================================================================
 // HEADER TOGGLE & LAYOUT VISIBILITY (STACK-54)
 // =============================================================================
@@ -2790,10 +2798,6 @@ const toggleCurrencyDropdown = () => {
     item.addEventListener("click", (e) => {
       e.stopPropagation();
       saveDisplayCurrency(c.code);
-      if (typeof renderTable === "function") renderTable();
-      if (typeof updateSummary === "function") updateSummary();
-      if (typeof updateAllSparklines === "function") updateAllSparklines();
-      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
       // Sync settings dropdown if open
       const sel = document.getElementById("settingsDisplayCurrency");
       if (sel) sel.value = c.code;

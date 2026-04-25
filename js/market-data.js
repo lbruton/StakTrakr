@@ -148,17 +148,22 @@ const _ensureManifest = async () => {
 const TICKER_SPEED_PIXELS_PER_SECOND = 127;
 const MIN_TICKER_DURATION_SECONDS = 20;
 
-const _buildTickerSignature = (items) =>
-  items
-    .map((item) =>
-      [
-        item.slug,
-        item.bestVid,
-        Number(item.bestPrice || 0).toFixed(2),
-        Number.isFinite(item.premium) ? item.premium.toFixed(3) : "",
-      ].join("|")
-    )
-    .join("||");
+const _buildTickerSignature = (items) => {
+  const currency = typeof displayCurrency !== "undefined" ? displayCurrency : "USD";
+  return [
+    currency,
+    items
+      .map((item) =>
+        [
+          item.slug,
+          item.bestVid,
+          Number(item.bestPrice || 0).toFixed(2),
+          Number.isFinite(item.premium) ? item.premium.toFixed(3) : "",
+        ].join("|")
+      )
+      .join("||"),
+  ].join("::");
+};
 
 const _getTickerLoopPhase = (track) => {
   if (!track || track.classList.contains("static")) return 0;
@@ -359,7 +364,7 @@ const renderBestPriceTicker = () => {
 
     const priceSpan = document.createElement("span");
     priceSpan.className = "price";
-    priceSpan.textContent = "$" + _fmtPrice(item.bestPrice);
+    priceSpan.textContent = formatCurrency(item.bestPrice);
     el.appendChild(priceSpan);
 
     const premiumSpan = document.createElement("span");
@@ -580,10 +585,10 @@ const openMarketDetailModal = async (slug) => {
       priceRow.appendChild(stat);
     };
 
-    if (median != null) addStat("Median", "$" + _fmtPrice(median));
-    if (low != null) addStat("Low", "$" + _fmtPrice(low));
-    if (high != null) addStat("High", "$" + _fmtPrice(high));
-    if (spread != null) addStat("Spread", "$" + _fmtPrice(spread));
+    if (median != null) addStat("Median", formatCurrency(median));
+    if (low != null) addStat("Low", formatCurrency(low));
+    if (high != null) addStat("High", formatCurrency(high));
+    if (spread != null) addStat("Spread", formatCurrency(spread));
 
     content.appendChild(priceRow);
   }
@@ -740,7 +745,7 @@ const openMarketDetailModal = async (slug) => {
         // Price
         const tdPrice = document.createElement("td");
         tdPrice.style.fontFamily = "ui-monospace, monospace";
-        tdPrice.textContent = entry.price > 0 ? "$" + _fmtPrice(entry.price) : "\u2014";
+        tdPrice.textContent = entry.price > 0 ? formatCurrency(entry.price) : "\u2014";
         tr.appendChild(tdPrice);
 
         // Premium
@@ -1055,7 +1060,7 @@ const _renderVendorTable = async (metalCode) => {
 
       const priceSpan = document.createElement("span");
       priceSpan.className = "vp-price";
-      priceSpan.textContent = "$" + _fmtPrice(vInfo.price);
+      priceSpan.textContent = formatCurrency(vInfo.price);
       priceSpan.style.cursor = "pointer";
       priceSpan.addEventListener("click", () => {
         const url =
@@ -1101,7 +1106,7 @@ const _renderVendorTable = async (metalCode) => {
         ? coinSummary.median_price
         : coinSummary.median
       : null;
-    tdMedian.textContent = medianVal != null ? "$" + _fmtPrice(medianVal) : "\u2014";
+    tdMedian.textContent = medianVal != null ? formatCurrency(medianVal) : "\u2014";
     tr.appendChild(tdMedian);
 
     const tdSpread = document.createElement("td");
@@ -1110,7 +1115,7 @@ const _renderVendorTable = async (metalCode) => {
     const calcHigh = allPrices.length > 0 ? Math.max(...allPrices) : null;
     const calcLow = allPrices.length > 0 ? Math.min(...allPrices) : null;
     if (calcHigh != null && calcLow != null && calcHigh !== calcLow) {
-      tdSpread.textContent = "$" + _fmtPrice(calcHigh - calcLow);
+      tdSpread.textContent = formatCurrency(calcHigh - calcLow);
     } else {
       tdSpread.textContent = "\u2014";
     }
@@ -1267,8 +1272,14 @@ const renderVendorPrices = () => {
   const footer = document.createElement("div");
   footer.style.cssText =
     "padding:8px 0 0;font-size:10px;color:var(--text-muted);text-align:center;";
-  footer.textContent =
+  let footerText =
     "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor.";
+  const cur = typeof displayCurrency !== "undefined" ? displayCurrency : "USD";
+  if (cur && cur !== "USD") {
+    footerText +=
+      " Currency conversion is for convenience only — vendors are US-based and may not accept your selected currency at checkout.";
+  }
+  footer.textContent = footerText;
   container.appendChild(footer);
 };
 
@@ -1367,6 +1378,15 @@ const refreshMarketData = () => {
   renderBestPriceTicker();
   renderVendorPrices();
 };
+
+if (typeof window !== "undefined") {
+  window.addEventListener("currencychange", () => {
+    try {
+      if (typeof renderBestPriceTicker === "function") renderBestPriceTicker();
+      if (typeof renderVendorPrices === "function") renderVendorPrices();
+    } catch (e) {}
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Global exposure

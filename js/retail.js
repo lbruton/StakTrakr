@@ -289,15 +289,11 @@ const getVendorDisplay = (vendorId) => {
 };
 
 /**
- * Formats a price value as USD string, or "—" if null/undefined.
- * Retail prices are USD source data — display in USD regardless of user currency setting.
+ * Formats a price value in the active display currency, or "—" if null/undefined.
  * @param {number|null|undefined} v
  * @returns {string}
  */
-const _fmtRetailPrice = (v) =>
-  v != null
-    ? `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : "\u2014";
+const _fmtRetailPrice = (v) => (v != null ? formatCurrency(Number(v)) : "\u2014");
 
 // ---------------------------------------------------------------------------
 // State
@@ -1395,6 +1391,14 @@ const updateMarketHealthDot = () => {
   dot.classList.add(`header-cloud-dot${getHealthStatusClass(ts)}`);
 };
 window.updateMarketHealthDot = updateMarketHealthDot;
+
+if (typeof window !== "undefined") {
+  window.addEventListener("currencychange", () => {
+    try {
+      if (typeof renderRetailHistoryTable === "function") renderRetailHistoryTable();
+    } catch (e) {}
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Global exposure
