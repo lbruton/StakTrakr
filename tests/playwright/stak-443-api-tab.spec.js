@@ -28,6 +28,14 @@ import { injectSeedInventory } from "./helpers/seed.js";
 // ---------------------------------------------------------------------------
 
 const KEYED_PROVIDERS = ["STAKTRAKR", "METALS_DEV", "METALS_API", "METAL_PRICE_API", "CUSTOM"];
+const PROVIDER_LABELS = {
+  STAKTRAKR: "StakTrakr",
+  METALS_DEV: "Metals.dev",
+  METALS_API: "Metals-API",
+  METAL_PRICE_API: "MetalPriceAPI",
+  CUSTOM: "Custom",
+  MANUAL: "Manual",
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -85,6 +93,30 @@ async function openApiSettings(page) {
   await page.evaluate(() => window.showSettingsModal("api"));
   await expect(page.locator("#settingsModal")).toBeVisible();
   await expect(page.locator("#settingsPanel_api")).toBeVisible();
+}
+
+async function readSpotPricingSource(page) {
+  return page.evaluate(() => {
+    const raw = localStorage.getItem("spotPricingSource");
+    if (raw == null) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  });
+}
+
+async function confirmSpotProviderSwitch(page, provider) {
+  const dialog = page.locator("#appDialogModal");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(PROVIDER_LABELS[provider]);
+  await expect(dialog).toContainText("spot prices");
+  await expect(dialog).toContainText("charts");
+  await expect(dialog).toContainText("ticker");
+  await expect(dialog).toContainText("portfolio values");
+  await dialog.locator("#appDialogOk").click();
+  await expect(dialog).toBeHidden();
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +201,8 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       page,
     }) => {
       // Start on a different provider so the click triggers a real state change
-      await seedApiState(page, { spotPricingSource: "STAKTRAKR" });
+      const initialProvider = provider === "STAKTRAKR" ? "MANUAL" : "STAKTRAKR";
+      await seedApiState(page, { spotPricingSource: initialProvider });
       await page.goto("/index.html", { waitUntil: "domcontentloaded" });
       await openApiSettings(page);
 
@@ -186,21 +219,14 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       await expect(pill).toHaveCount(1);
       await expect(pill).toHaveAttribute("role", "radio");
       await pill.click();
+      await confirmSpotProviderSwitch(page, provider);
 
       // Pill reflects active state
       await expect(pill).toHaveClass(/active/);
       await expect(pill).toHaveAttribute("aria-checked", "true");
 
       // Persistence: spotPricingSource localStorage key reads as the enum string
-      const stored = await page.evaluate(() => {
-        const raw = localStorage.getItem("spotPricingSource");
-        if (raw == null) return null;
-        try {
-          return JSON.parse(raw);
-        } catch {
-          return raw;
-        }
-      });
+      const stored = await readSpotPricingSource(page);
       expect(stored).toBe(provider);
 
       // Only the matching sub-card is visible; the other 5 accordion panels are hidden
@@ -216,6 +242,41 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
         await expect(otherPanels.nth(i)).toBeHidden();
       }
     });
+  });
+
+  test("3.1 STAK-571 — canceling spot provider confirmation keeps previous provider", async ({
+    page,
+  }) => {
+    await seedApiState(page, { spotPricingSource: "STAKTRAKR" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const spotSection = page.locator("#apiSection_spot");
+    const metalsDevPill = spotSection.locator('.gb-source-btn[data-val="METALS_DEV"]');
+    await metalsDevPill.click();
+
+    const dialog = page.locator("#appDialogModal");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Metals.dev");
+    await dialog.locator("#appDialogCancel").click();
+    await expect(dialog).toBeHidden();
+
+    expect(await readSpotPricingSource(page)).toBe("STAKTRAKR");
+    await expect(spotSection.locator('.gb-source-btn[data-val="STAKTRAKR"]')).toHaveClass(/active/);
+    await expect(metalsDevPill).not.toHaveClass(/active/);
+  });
+
+  test("3.2 STAK-571 — clicking already-active spot provider does not show confirmation", async ({
+    page,
+  }) => {
+    await seedApiState(page, { spotPricingSource: "METALS_DEV" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    await page.locator('#apiSection_spot .gb-source-btn[data-val="METALS_DEV"]').click();
+
+    await expect(page.locator("#appDialogModal")).toHaveCount(0);
+    expect(await readSpotPricingSource(page)).toBe("METALS_DEV");
   });
 
   // =========================================================================
@@ -339,17 +400,10 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
     const manualPill = spotSection.locator('.gb-source-btn[data-val="MANUAL"]');
     await expect(manualPill).toHaveCount(1);
     await manualPill.click();
+    await confirmSpotProviderSwitch(page, "MANUAL");
     await expect(manualPill).toHaveClass(/active/);
 
-    const stored = await page.evaluate(() => {
-      const raw = localStorage.getItem("spotPricingSource");
-      if (raw == null) return null;
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return raw;
-      }
-    });
+    const stored = await readSpotPricingSource(page);
     expect(stored).toBe("MANUAL");
 
     const manualPanel = spotSection.locator('.spot-accordion-panel[data-val="MANUAL"]');
@@ -885,6 +939,7 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       .locator('.gb-source-btn[data-val="MANUAL"]');
     await expect(manualPill).toHaveCount(1);
     await manualPill.click();
+    await confirmSpotProviderSwitch(page, "MANUAL");
     await expect(manualPill).toHaveClass(/active/);
 
     // Reset counter AFTER selecting Manual to focus on post-switch behavior
