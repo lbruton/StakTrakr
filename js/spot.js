@@ -1529,9 +1529,13 @@ window._loadSpotSeedBundle = function (bundle) {
 
 if (typeof window !== "undefined") {
   window.addEventListener("currencychange", () => {
-    try {
-      if (typeof updateAllSparklines === "function") updateAllSparklines();
-    } catch (e) {}
+    if (typeof updateAllSparklines === "function") {
+      void updateAllSparklines().catch((e) => {
+        if (typeof debugLog === "function") {
+          debugLog("[spot] currencychange refresh failed: " + e.message, "warn");
+        }
+      });
+    }
   });
 }
 

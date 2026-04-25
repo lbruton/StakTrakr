@@ -293,7 +293,8 @@ const getVendorDisplay = (vendorId) => {
  * @param {number|null|undefined} v
  * @returns {string}
  */
-const _fmtRetailPrice = (v) => (v != null ? formatCurrency(Number(v)) : "\u2014");
+const _fmtRetailPrice = (v) =>
+  v !== null && v !== undefined ? formatCurrency(Number(v)) : "\u2014";
 
 // ---------------------------------------------------------------------------
 // State

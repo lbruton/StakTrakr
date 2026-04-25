@@ -932,9 +932,16 @@
   if (typeof window !== "undefined") {
     window.addEventListener("currencychange", () => {
       try {
-        if (typeof renderTable === "function") renderTable();
-        if (typeof updateSummary === "function") updateSummary();
-      } catch (e) {}
+        if (typeof renderTable === "function") {
+          renderTable();
+        } else if (typeof updateSummary === "function") {
+          updateSummary();
+        }
+      } catch (e) {
+        if (typeof debugLog === "function") {
+          debugLog("[inventory-table] currencychange refresh failed: " + e.message, "warn");
+        }
+      }
     });
   }
 

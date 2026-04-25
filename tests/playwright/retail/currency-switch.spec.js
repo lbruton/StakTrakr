@@ -276,7 +276,9 @@ const setupRetailFixture = async (page) => {
       typeof window.renderVendorPrices === "function" &&
       typeof window.renderRetailHistoryTable === "function"
   );
-  await page.waitForTimeout(350);
+  await page.waitForFunction(
+    () => document.querySelectorAll("#bestPriceTickerEl .price").length > 0
+  );
   await page.evaluate(() => {
     window.refreshMarketData();
   });
@@ -302,7 +304,7 @@ const responseForPath = (path) => {
   return null;
 };
 
-test.describe("STAK-581 — retail currency switch red phase", () => {
+test.describe("STAK-581 — retail currency switch", () => {
   test.beforeEach(async ({ page }) => {
     await setupRetailFixture(page);
   });
@@ -365,7 +367,16 @@ test.describe("STAK-581 — retail currency switch red phase", () => {
       timeout: RED_PHASE_EXPECT_TIMEOUT_MS,
     });
 
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER);
+    const modalContent = page.locator("#marketDetailContent");
+    await expect(modalContent).toContainText("€", { timeout: RED_PHASE_EXPECT_TIMEOUT_MS });
+    await expect(modalContent).toContainText(CONVENIENCE_DISCLAIMER);
+
     await page.evaluate(() => window.saveDisplayCurrency("USD"));
+
+    await expect(modalContent).toContainText("$", { timeout: RED_PHASE_EXPECT_TIMEOUT_MS });
+    await expect(modalContent).not.toContainText(CONVENIENCE_DISCLAIMER);
+    await page.evaluate(() => window.closeMarketDetailModal());
 
     await expect(ticker.locator(".price").first()).toContainText("$");
     await expect(apmexCell).toContainText("$41.95");

@@ -2300,10 +2300,10 @@ const syncGoldbackSettingsUI = () => {
         : entry.price;
     const displayPrice = usdPrice == null ? null : fxRate !== 1 ? usdPrice * fxRate : usdPrice;
     const priceLabel =
-      displayPrice == null
+      usdPrice == null
         ? "\u2014"
         : typeof formatCurrency === "function"
-          ? formatCurrency(displayPrice)
+          ? formatCurrency(usdPrice)
           : `${typeof getCurrencySymbol === "function" ? getCurrencySymbol() : "$"}${displayPrice.toFixed(2)}`;
     const rawSource = entry && typeof entry.source === "string" ? entry.source.toLowerCase() : null;
     const effectiveSource =
@@ -2339,7 +2339,11 @@ if (typeof window !== "undefined") {
   window.addEventListener("currencychange", () => {
     try {
       if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
-    } catch (e) {}
+    } catch (e) {
+      if (typeof debugLog === "function") {
+        debugLog("[settings] Goldback currency refresh failed: " + e.message, "warn");
+      }
+    }
   });
 }
 

@@ -147,9 +147,17 @@ const _ensureManifest = async () => {
 
 const TICKER_SPEED_PIXELS_PER_SECOND = 127;
 const MIN_TICKER_DURATION_SECONDS = 20;
+const RETAIL_CURRENCY_DISCLAIMER =
+  "Currency conversion is for convenience only — vendors are US-based and may not accept your selected currency at checkout.";
+
+const _getDisplayCurrency = () =>
+  typeof displayCurrency !== "undefined" && displayCurrency ? displayCurrency : "USD";
+
+const _getRetailCurrencyDisclaimer = () =>
+  _getDisplayCurrency() !== "USD" ? RETAIL_CURRENCY_DISCLAIMER : "";
 
 const _buildTickerSignature = (items) => {
-  const currency = typeof displayCurrency !== "undefined" ? displayCurrency : "USD";
+  const currency = _getDisplayCurrency();
   return [
     currency,
     items
@@ -157,7 +165,9 @@ const _buildTickerSignature = (items) => {
         [
           item.slug,
           item.bestVid,
-          Number(item.bestPrice || 0).toFixed(2),
+          typeof formatCurrency === "function"
+            ? formatCurrency(item.bestPrice || 0, currency)
+            : Number(item.bestPrice || 0).toFixed(2),
           Number.isFinite(item.premium) ? item.premium.toFixed(3) : "",
         ].join("|")
       )
@@ -435,6 +445,7 @@ const _shortVendor = (vid) => {
 };
 
 let _activeModalChart = null;
+let _activeModalSlug = null;
 
 const _modalEscHandler = (e) => {
   if (e.key === "Escape") closeMarketDetailModal();
@@ -445,6 +456,7 @@ const closeMarketDetailModal = () => {
     destroyCoinChart(_activeModalChart);
   }
   _activeModalChart = null;
+  _activeModalSlug = null;
 
   const content = safeGetElement("marketDetailContent");
   if (content) content.textContent = "";
@@ -460,6 +472,7 @@ const openMarketDetailModal = async (slug) => {
   const content = safeGetElement("marketDetailContent");
   if (!overlay || !content) return;
 
+  _activeModalSlug = slug;
   content.textContent = "";
   overlay.removeAttribute("hidden");
 
@@ -821,6 +834,15 @@ const openMarketDetailModal = async (slug) => {
     noData.style.cssText = "padding:16px;text-align:center;color:var(--text-muted);font-size:13px;";
     noData.textContent = "Vendor data unavailable for this coin";
     content.appendChild(noData);
+  }
+
+  const currencyDisclaimer = _getRetailCurrencyDisclaimer();
+  if (currencyDisclaimer) {
+    const disclaimer = document.createElement("div");
+    disclaimer.style.cssText =
+      "padding:8px 0 0;font-size:10px;color:var(--text-muted);text-align:center;";
+    disclaimer.textContent = currencyDisclaimer;
+    content.appendChild(disclaimer);
   }
 
   debugLog("[market-data] Detail modal opened for: " + slug, "info");
@@ -1274,11 +1296,8 @@ const renderVendorPrices = () => {
     "padding:8px 0 0;font-size:10px;color:var(--text-muted);text-align:center;";
   let footerText =
     "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor.";
-  const cur = typeof displayCurrency !== "undefined" ? displayCurrency : "USD";
-  if (cur && cur !== "USD") {
-    footerText +=
-      " Currency conversion is for convenience only — vendors are US-based and may not accept your selected currency at checkout.";
-  }
+  const currencyDisclaimer = _getRetailCurrencyDisclaimer();
+  if (currencyDisclaimer) footerText += " " + currencyDisclaimer;
   footer.textContent = footerText;
   container.appendChild(footer);
 };
@@ -1384,7 +1403,15 @@ if (typeof window !== "undefined") {
     try {
       if (typeof renderBestPriceTicker === "function") renderBestPriceTicker();
       if (typeof renderVendorPrices === "function") renderVendorPrices();
-    } catch (e) {}
+      const overlay = safeGetElement("marketDetailModal");
+      if (_activeModalSlug && overlay && !overlay.hasAttribute("hidden")) {
+        void openMarketDetailModal(_activeModalSlug).catch((e) => {
+          debugLog("[market-data] Detail modal currency refresh failed: " + e.message, "warn");
+        });
+      }
+    } catch (e) {
+      debugLog("[market-data] currencychange refresh failed: " + e.message, "warn");
+    }
   });
 }
 
