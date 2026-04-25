@@ -557,14 +557,14 @@ All new CSS **must** work across light, dark, and sepia themes. Use semantic tok
 
 ### Atomic rollback for settings writes
 
-Settings write loops must snapshot `localStorage.getItem()` before each `setItem`, and restore on failure using `setItem` with the snapshot — never `removeItem`. Track with dual arrays:
+Settings write loops must snapshot `localStorage.getItem()` before each `setItem`, and restore on failure using the snapshot. Use `removeItem` only when restoring a key to its pre-write absent state (i.e., `prior === null`). When the prior value exists, restore with `setItem(key, prior)` — never `removeItem` a key that had a prior value, as this corrupts state by losing the original data. Track with dual arrays:
 
 - `_appliedKeys` — keys successfully written (used for compensation on rollback)
 - `_failedKeys` — keys that failed (logged, not removed)
 
 ### `ALLOWED_STORAGE_KEYS` guard
 
-The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` check in `cloud-sync.js` is **intentional defensive coding** — the constant is defined at `constants.js:871`. Automated reviewers flag this as "fail-open" but it is a false positive. Do not remove the guard.
+The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` check in `cloud-sync.js` is **intentional defensive coding** — the constant is defined in `constants.js`. Automated reviewers flag this as "fail-open" but it is a false positive. Do not remove the guard.
 
 ---
 

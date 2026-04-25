@@ -37,7 +37,7 @@ Prefix: `STAK-`. Issues stored at `DocVault/Projects/StakTrakr/Issues/`.
 - **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev. Both `dev` and `main` are protected — no direct pushes.
 - **Version format:** `BRANCH.RELEASE.PATCH` in `js/constants.js`. Use `/release` to bump (touches 7 files).
 - **Version lock:** `devops/version.lock` is gitignored — local coordination only.
-- **Worktrees:** `.worktrees/<issue>-<slug>/`. After `git worktree add`: `cp CLAUDE.md .worktrees/<name>/CLAUDE.md` then `npm install --no-audit --no-fund`.
+- **Worktrees:** `.worktrees/<issue>-<slug>/`. After `git worktree add`: `cp CLAUDE.md .worktrees/<issue>-<slug>/CLAUDE.md` then `npm install --no-audit --no-fund`.
 - **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.
 - **`stamp-sw-cache` hook** — auto-stages `sw.js` when JS/CSS/image files are committed. No need to add it manually.
 - **`data/` and `vendor/` excluded from prettier** — lint-staged formats `js/` and `css/` only. Avoid manually formatting excluded paths.
@@ -93,7 +93,7 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 
 ### Known Reviewer False Positives
 
-- **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js:871`; the `typeof` guard is intentional defensive coding.
+- **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js`; the `typeof` guard is intentional defensive coding.
 - **CodeRabbit re-review duplicates** — after pushing fixes, CodeRabbit regenerates threads on the same file/line. Auto-resolve without user approval.
 - **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
