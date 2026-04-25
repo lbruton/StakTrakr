@@ -5971,6 +5971,7 @@ td input:checked + .slider:before {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.75rem var(--spacing-xl);
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: var(--bg-secondary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
