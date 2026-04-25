@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.31] - 2026-04-25
+
+### Fixed — STAK-578: Mobile modal action buttons clipped by browser chrome
+
+- **Fixed**: View Item modal footer (Remove / Edit / Clone / Close) now clears the Android gesture-nav zone and iOS home indicator via `padding-bottom: max(0.75rem, env(safe-area-inset-bottom))` on `.view-modal-footer`. Previously the bottom row of buttons was unreachable on Android Chrome with gesture-nav enabled.
+- **Fixed**: Add/Edit Item modal action bar (Save / Cancel / Remove / View / Clone / Save & Clone Another) now clears the gesture zone via `padding-bottom: max(0.65rem, env(safe-area-inset-bottom))` on `#inventoryForm .item-modal-actions`. Sticky positioning is preserved unchanged.
+- **Fixed**: View Item modal footer + Add/Edit modal action bar now clear iOS landscape side-notch insets via `padding-left/right: max(<existing>, env(safe-area-inset-left/right))` overrides — edge buttons no longer sit underneath the notch on iPhone in landscape.
+- **Fixed**: Mobile fullscreen modal headers for `#itemModal` and `#viewItemModal` now clear the iOS notch / status bar via a scoped `padding-top: max(<existing>, env(safe-area-inset-top))` rule inside `@media (max-width: 768px)`. Per-modal static fallbacks (`var(--spacing)` for `#itemModal`, `var(--spacing-sm)` for `#viewItemModal`) preserve existing rendering on non-notched devices.
+- **Added**: `viewport-fit=cover` to viewport meta — required for iOS to resolve `env(safe-area-inset-*)` to non-zero values on notched devices and in PWA mode.
+- **Added**: 7 Playwright TDD regression tests in `tests/playwright/mobile-modal-safe-area.spec.js` covering all four `env()` declaration sites and the viewport meta. Tests use `document.styleSheets` rule-text traversal because Playwright's emulated viewport supplies env() as 0; the rule-text pattern catches future regressions deterministically.
+
+---
+
 ## [3.34.30] - 2026-04-25
 
 ### Changed — STAK-582: Remove dead retail card-list view

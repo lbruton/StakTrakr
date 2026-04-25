@@ -5971,6 +5971,9 @@ td input:checked + .slider:before {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.75rem var(--spacing-xl);
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
+  padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
   border-top: 1px solid var(--border);
   background: var(--bg-secondary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
@@ -6035,12 +6038,18 @@ td input:checked + .slider:before {
 
 /* --- Responsive: mobile view modal (≤768px) --- */
 @media (max-width: 768px) {
-  /* Full-screen modal on phones — no chrome, maximum content */
+  /* Full-screen modal on phones — no chrome, maximum content.
+     STAK-578 P5.2: 100dvh override for Android Chrome (env() resolves to 0
+     on Android, so only dynamic-viewport sizing keeps the sticky footer
+     above the gesture bar). 100vh declarations are kept first as the
+     fallback for browsers that don't yet support dvh. */
   #viewItemModal .modal-content {
     width: 100%;
     max-width: 100%;
-    max-height: 100vh;
     height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     border-radius: 0;
     margin: 0;
   }
@@ -9287,6 +9296,9 @@ th {
   bottom: calc(-1 * var(--spacing));
   margin: 0.85rem calc(-1 * var(--spacing)) calc(-1 * var(--spacing));
   padding: 0.75rem var(--spacing) 0.65rem;
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+  padding-left: max(var(--spacing), env(safe-area-inset-left));
+  padding-right: max(var(--spacing), env(safe-area-inset-right));
   border-top: 1px solid var(--border);
   background: var(--bg-secondary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
@@ -12468,6 +12480,26 @@ th {
   .about-modal-header,
   .bulk-edit-content .modal-header {
     border-radius: 0;
+  }
+
+  /* STAK-578: clear iOS notch / status bar / landscape side-notch on
+     in-scope fullscreen modal headers. Static fallbacks are PER-MODAL so
+     non-notched devices keep their existing padding exactly (R5.2):
+     - #itemModal top: inherits desktop var(--spacing); left/right inherits
+       desktop var(--spacing-xl) (see line 9152-9158).
+     - #viewItemModal top: overrides to var(--spacing-sm) in its own mobile
+       rule (line 6057-6060); left/right matches that rule's var(--spacing).
+     Footers/action-bars cover all three axes since commit 7def3d3f; headers
+     now match. */
+  #itemModal .modal-content .modal-header {
+    padding-top: max(var(--spacing), env(safe-area-inset-top));
+    padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
+  }
+  #viewItemModal .modal-header {
+    padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
+    padding-left: max(var(--spacing), env(safe-area-inset-left));
+    padding-right: max(var(--spacing), env(safe-area-inset-right));
   }
 
   .modal-content::before {
