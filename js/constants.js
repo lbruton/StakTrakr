@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-04-25 - STAK-582: Remove dead retail card-list view
  */
 
-const APP_VERSION = "3.34.30";
+const APP_VERSION = "3.34.31";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.

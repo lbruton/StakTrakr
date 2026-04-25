@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.31 &ndash; STAK-578: Mobile action buttons fix</strong>: Save / Cancel / Edit and other action buttons in the View and Add/Edit item modals are now fully tappable on Android Chrome, Edge, and notched iPhones &mdash; including in landscape orientation. Previously the Android gesture bar and iOS home indicator could swallow taps near the bottom edge, and the iOS landscape side notch could clip edge buttons.</li>
     <li><strong>v3.34.30 &ndash; STAK-582: Remove dead retail card-list view</strong>: Removed the orphaned Market Settings retail card/list render path, stale exports, event listeners, trend-mode storage, sync-error state, and obsolete card CSS while preserving the active ticker, vendor price matrix, market detail modal, market filter matrix, and retail history table.</li>
     <li><strong>v3.34.29 &ndash; STAK-576: Numista not-configured UX</strong>: Catalog search magnifiers now detect a missing Numista key up front and open a confirm dialog linking to Settings &rarr; API instead of the old misleading &ldquo;Enter a Name or Catalog N#&rdquo; alert. Disconnected dot and button tooltip both explain the state before clicking.</li>
     <li><strong>v3.34.28 &ndash; STAK-576: AutoTable vendor fallback warning</strong>: PDF export support now recognizes the locally bundled AutoTable plugin correctly, preventing the false CDN fallback warning/request when offline-capable export code is already loaded.</li>
