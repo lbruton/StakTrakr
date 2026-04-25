@@ -13429,14 +13429,14 @@ th {
   border: 1px solid var(--border-color, var(--bs-border-color));
   border-radius: 0.25rem;
   background: transparent;
-  color: var(--bs-body-color);
+  color: var(--text-primary);
   cursor: pointer;
   line-height: 1.4;
 }
 
 .retail-tf-btn.active {
-  background: var(--bs-primary);
-  border-color: var(--bs-primary);
+  background: var(--primary);
+  border-color: var(--primary);
   color: #fff;
 }
 
@@ -13455,6 +13455,12 @@ th {
   padding: 0.35rem 0.6rem;
   border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
   white-space: nowrap;
+}
+
+.retail-history-table td {
+  max-width: unset;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .retail-history-table th {
@@ -13491,6 +13497,12 @@ th {
   padding: 0.35rem 0.6rem;
   border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
   white-space: nowrap;
+}
+
+.retail-view-table td {
+  max-width: unset;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .retail-view-table th {
@@ -13632,7 +13644,7 @@ th {
   height: 48px;
   margin-bottom: 1rem;
   color: var(--border-hover);
-  fill: currentColor;
+  fill: currentcolor;
 }
 
 .empty-state h3 {
@@ -13692,6 +13704,12 @@ th {
   --type-set-text: #ffffff;
   --type-other-bg: #7c3aed;
   --type-other-text: #ffffff;
+  --type-aurum-bg: #7c3aed;
+  --type-aurum-text: #ffffff;
+  --type-goldback-bg: #d4a017;
+  --type-goldback-text: #fce7f3;
+  --type-silverback-bg: #6d28d9;
+  --type-silverback-text: #ffffff;
 
   /* Backgrounds — dark purple base mirroring dark mode depth levels */
   --bg-primary: #1a0428; /* very dark purple  ≈ dark #0f172a */
@@ -13765,9 +13783,9 @@ th {
   color: var(--text-primary, var(--bs-body-color));
 }
 .market-filter-pill.active[data-metal="all"] {
-  background: var(--bs-primary, #3b82f6);
+  background: var(--primary);
   color: #fff;
-  border-color: var(--bs-primary, #3b82f6);
+  border-color: var(--primary);
 }
 .market-filter-pill.active[data-metal="gold"] {
   background: rgba(245, 158, 11, 0.15);
