@@ -12482,17 +12482,24 @@ th {
     border-radius: 0;
   }
 
-  /* STAK-578: clear iOS notch / status bar on in-scope fullscreen modals.
-     Static fallbacks are PER-MODAL so non-notched devices keep their
-     existing padding-top exactly (R5.2): #itemModal inherits desktop
-     var(--spacing); #viewItemModal already overrides to var(--spacing-sm)
-     in its own mobile rule above (line 6048-6052), so its env() fallback
-     must match that to avoid a visible regression. */
+  /* STAK-578: clear iOS notch / status bar / landscape side-notch on
+     in-scope fullscreen modal headers. Static fallbacks are PER-MODAL so
+     non-notched devices keep their existing padding exactly (R5.2):
+     - #itemModal top: inherits desktop var(--spacing); left/right inherits
+       desktop var(--spacing-xl) (see line 9152-9158).
+     - #viewItemModal top: overrides to var(--spacing-sm) in its own mobile
+       rule (line 6057-6060); left/right matches that rule's var(--spacing).
+     Footers/action-bars cover all three axes since commit 7def3d3f; headers
+     now match. */
   #itemModal .modal-content .modal-header {
     padding-top: max(var(--spacing), env(safe-area-inset-top));
+    padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
   }
   #viewItemModal .modal-header {
     padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
+    padding-left: max(var(--spacing), env(safe-area-inset-left));
+    padding-right: max(var(--spacing), env(safe-area-inset-right));
   }
 
   .modal-content::before {

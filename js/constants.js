@@ -281,7 +281,7 @@ const CERT_LOOKUP_URLS = {
  * Follows BRANCH.RELEASE.PATCH.state format
  * State codes: a=alpha, b=beta, rc=release candidate
  * Example: 3.03.02a → branch 3, release 03, patch 02, alpha
- * Updated: 2026-04-25 - STAK-582: Remove dead retail card-list view
+ * Updated: 2026-04-25 - STAK-578: Mobile modal action buttons safe-area fix
  */
 
 const APP_VERSION = "3.34.31";

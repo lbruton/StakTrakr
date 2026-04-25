@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Playwright TDD spec for STAK-578 — Mobile modal safe-area insets.
+ * Playwright regression suite for STAK-578 — Mobile modal safe-area insets.
  *
- * RED PHASE: These four tests MUST fail before any Phase 1+ implementation
- * lands. They become green once index.html and css/styles.css are patched
- * per spec STAK-578-mobile-modal-safe-area/design.md.
+ * Implementation is complete and all 8 tests run GREEN. This suite acts as a
+ * regression guard: it will catch any future edit to index.html or
+ * css/styles.css that removes an env(safe-area-inset-*) rule or the
+ * viewport-fit=cover meta tag introduced by STAK-578.
  *
  * Why styleSheets-traversal instead of getComputedStyle():
  *   Playwright's emulated viewport does not supply OS-level safe-area
@@ -17,15 +18,16 @@ import { test, expect } from "@playwright/test";
  *   regression deterministically.
  *
  * Acceptance criteria mapping:
- *   Test 1 (.view-modal-footer)              -> R1.5 (regression guard for R1)
- *   Test 2 (#inventoryForm .item-modal-actions) -> R2.5 (regression guard for R2)
- *   Test 3 (mobile fullscreen header)        -> R3.3 (regression guard for R3)
- *   Test 4 (viewport-fit=cover meta)         -> R4.1
- *   Test 5 (#viewItemModal .modal-content    -> R6 / Phase 5.2 QA finding:
- *           uses 100dvh on mobile)              Android Chrome resolves
- *                                               env(safe-area-inset-bottom)
- *                                               to 0; only 100dvh keeps the
- *                                               modal off the gesture bar.
+ *   Test 1  (.view-modal-footer env-bottom)                  -> R1.5
+ *   Test 1b (.view-modal-footer env-left/right)              -> R1.4
+ *   Test 2  (#inventoryForm .item-modal-actions env-bottom)  -> R2.5
+ *   Test 2b (#inventoryForm .item-modal-actions env-left/right) -> R2.4
+ *   Test 3a (#itemModal mobile header env-top)               -> R3.3 + R5.2
+ *   Test 3b (#viewItemModal mobile header env-top)           -> R3.3 + R5.2
+ *   Test 3c (#viewItemModal modal-content 100dvh)            -> Phase 5.2
+ *           (Android Chrome resolves env(safe-area-inset-bottom) to 0;
+ *            only 100dvh keeps the modal clear of the gesture bar.)
+ *   Test 4  (viewport-fit=cover meta)                        -> R4.1
  */
 
 // ---------------------------------------------------------------------------
