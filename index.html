@@ -1976,6 +1976,38 @@
                 <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
               </div>
             </div>
+            <!-- ═══════════════════════════════════════════════════════
+                 CORE FIELDS — Always visible
+                 ═══════════════════════════════════════════════════════ -->
+
+            <!-- Row: Metal & Type (STAK-580 — required, identity fields precede descriptive fields) -->
+            <div class="grid grid-2">
+              <div>
+                <label for="itemMetal">Metal</label>
+                <select id="itemMetal" required>
+                  <option value="" disabled selected>Select metal…</option>
+                  <option value="Silver">Silver</option>
+                  <option value="Gold">Gold</option>
+                  <option value="Platinum">Platinum</option>
+                  <option value="Palladium">Palladium</option>
+                </select>
+              </div>
+              <div>
+                <label for="itemType">Type</label>
+                <select id="itemType" required>
+                  <option value="" disabled selected>Select type…</option>
+                  <option value="Coin">Coin</option>
+                  <option value="Bar">Bar</option>
+                  <option value="Round">Round</option>
+                  <option value="Note">Note</option>
+                  <option value="Aurum">Aurum</option>
+                  <option value="Goldback">Goldback</option>
+                  <option value="Silverback">Silverback</option>
+                  <option value="Set">Set</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
             <!-- Row: Name & Year -->
             <div class="grid grid-name-year">
               <div>
@@ -2016,36 +2048,6 @@
                   >Year <span style="font-weight: normal; opacity: 0.6">(optional)</span></label
                 >
                 <input id="itemYear" type="text" placeholder="e.g. 2024" />
-              </div>
-            </div>
-            <!-- ═══════════════════════════════════════════════════════
-                 CORE FIELDS — Always visible
-                 ═══════════════════════════════════════════════════════ -->
-
-            <!-- Row: Metal & Type -->
-            <div class="grid grid-2">
-              <div>
-                <label for="itemMetal">Metal</label>
-                <select id="itemMetal">
-                  <option value="Silver">Silver</option>
-                  <option value="Gold">Gold</option>
-                  <option value="Platinum">Platinum</option>
-                  <option value="Palladium">Palladium</option>
-                </select>
-              </div>
-              <div>
-                <label for="itemType">Type</label>
-                <select id="itemType">
-                  <option value="Coin">Coin</option>
-                  <option value="Bar">Bar</option>
-                  <option value="Round">Round</option>
-                  <option value="Note">Note</option>
-                  <option value="Aurum">Aurum</option>
-                  <option value="Goldback">Goldback</option>
-                  <option value="Silverback">Silverback</option>
-                  <option value="Set">Set</option>
-                  <option value="Other">Other</option>
-                </select>
               </div>
             </div>
             <!-- Row: Purity, Quantity, Weight, Unit -->

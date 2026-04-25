@@ -136,9 +136,11 @@ test.describe("modal-layout — STAK-559 reorder and denomination label", () => 
   });
 
   // ========================================================================
-  // AC 2.1 — Name/Year row precedes Metal/Type row
+  // AC 2.1 — Metal/Type row precedes Name/Year row
+  //   STAK-580 superseded STAK-559's order — identity fields (Metal/Type)
+  //   now lead so users declare what kind of item this is BEFORE describing it.
   // ========================================================================
-  test("2.1 Name/Year row precedes Metal/Type row", async ({ page }) => {
+  test("2.1 Metal/Type row precedes Name/Year row", async ({ page }) => {
     await seedData(page);
     await gotoApp(page);
     await openEditForm(page);
@@ -155,7 +157,7 @@ test.describe("modal-layout — STAK-559 reorder and denomination label", () => 
 
     expect(nameYearIdx).toBeGreaterThanOrEqual(0);
     expect(metalTypeIdx).toBeGreaterThanOrEqual(0);
-    expect(nameYearIdx).toBeLessThan(metalTypeIdx);
+    expect(metalTypeIdx).toBeLessThan(nameYearIdx);
   });
 
   // ========================================================================

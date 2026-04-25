@@ -1063,6 +1063,10 @@ const parsePurity = (isEditing, existingItem) => {
  * @returns {Object} Parsed field values
  */
 const parseItemFormFields = (isEditing, existingItem) => {
+  // STAK-580: capture raw select values BEFORE getCompositionFirstWords/parseNumistaMetal
+  // coerce empty Metal -> "Alloy", which would otherwise pass the truthy `!f.metal` gate.
+  const rawMetal = elements.itemMetal.value;
+  const rawType = elements.itemType.value;
   const composition = getCompositionFirstWords(elements.itemMetal.value);
   const metal = parseNumistaMetal(composition);
   const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
@@ -1088,6 +1092,11 @@ const parseItemFormFields = (isEditing, existingItem) => {
   return {
     metal,
     composition,
+    // STAK-580: surfaced for validateItemFields so empty selects are caught
+    // before parseNumistaMetal's "Alloy" coercion masks them as truthy.
+    _rawMetal: rawMetal,
+    _rawType: rawType,
+    _isEditing: isEditing,
     name: isEditing ? nameInput || existingItem.name || "" : nameInput,
     qty: qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : parseInt(qtyInput, 10),
     type: elements.itemType.value || (isEditing ? existingItem.type : ""),
@@ -1185,6 +1194,14 @@ const parseNumistaDataFields = (isEditing, existingItem, catalog = "") => {
  * @returns {string|null} Error message or null if valid
  */
 const validateItemFields = (f) => {
+  // STAK-580: explicit check on raw select values for the Add path. The downstream
+  // `!f.metal` gate is bypassed by parseNumistaMetal coercing "" -> "Alloy"; the
+  // raw check closes that hole and also covers `requestSubmit()` flows that skip
+  // HTML5 native validation. Edit path stays permissive — editItem populates the
+  // selects from existing data so this should never trigger there.
+  if (!f._isEditing && (!f._rawMetal || !f._rawType)) {
+    return "Please select a Metal and Type before saving.";
+  }
   if (
     !f.name ||
     !f.type ||
@@ -1516,10 +1533,13 @@ const handleTypeChange = () => {
  * @param {string} metalValue
  */
 const filterTypesByMetal = (metalValue) => {
-  const typeSelect = document.getElementById("itemType");
+  const typeSelect = safeGetElement("itemType");
   if (!typeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
 
   Array.from(typeSelect.options).forEach((option) => {
+    // STAK-580: leave the placeholder option's disabled/hidden state alone
+    // so it remains an unselectable prompt, not a re-enabled fallback.
+    if (option.value === "") return;
     const allowedMetals = TYPE_METAL_FILTER[option.value];
     const isAllowed = !Array.isArray(allowedMetals) || allowedMetals.includes(metalValue);
     option.hidden = !isAllowed;
@@ -1527,11 +1547,15 @@ const filterTypesByMetal = (metalValue) => {
   });
 
   const selectedOption = typeSelect.options[typeSelect.selectedIndex];
-  if (selectedOption && selectedOption.hidden) {
+  // STAK-580: don't auto-bump the placeholder to "Coin" — that would defeat
+  // required Type selection the instant the user picks a Metal.
+  if (selectedOption && selectedOption.value !== "" && selectedOption.hidden) {
     typeSelect.value = "Coin";
     const fallbackOption = typeSelect.options[typeSelect.selectedIndex];
     if (!fallbackOption || fallbackOption.hidden) {
-      const firstVisible = Array.from(typeSelect.options).find((option) => !option.hidden);
+      const firstVisible = Array.from(typeSelect.options).find(
+        (option) => !option.hidden && option.value !== ""
+      );
       if (firstVisible) typeSelect.value = firstVisible.value;
     }
     handleTypeChange();
@@ -1541,6 +1565,8 @@ const filterTypesByMetal = (metalValue) => {
 window.updateDenomLabels = updateDenomLabels;
 window.handleTypeChange = handleTypeChange;
 window.filterTypesByMetal = filterTypesByMetal;
+// STAK-580: exposed so Playwright can exercise the validator without going through DOM submit.
+window.validateItemFields = validateItemFields;
 
 /**
  * Sets up item form submission and related button listeners
@@ -3316,6 +3342,10 @@ const setupSearch = () => {
             elements.itemWeightUnit.value = "oz";
             elements.itemDate.value = todayStr();
           }
+          // STAK-580: form.reset() honors `selected` on the placeholder, but be
+          // explicit so this stays correct if the HTML ever changes.
+          if (elements.itemMetal) elements.itemMetal.value = "";
+          if (elements.itemType) elements.itemType.value = "";
           if (elements.itemSerial) elements.itemSerial.value = "";
           // Reset spot lookup state (STACK-49)
           if (typeof syncSpotLookupButtons === "function") {

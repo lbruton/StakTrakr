@@ -201,8 +201,22 @@ const refreshCompositionOptions = () => {
   [elements.itemMetal].forEach((sel) => {
     if (!sel) return;
     const current = sel.value;
-    // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-    sel.innerHTML = sorted.map((opt) => `<option value="${opt}">${opt}</option>`).join("");
+    // STAK-580: build options as DOM nodes (no innerHTML) AND prepend a
+    // required-selection placeholder so any later `itemMetal.value = ""`
+    // selects something. Without the placeholder, selectedIndex falls to -1
+    // and the closed select renders blank instead of the prompt text.
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    placeholder.textContent = "Select metal…";
+    const optionNodes = sorted.map((opt) => {
+      const node = document.createElement("option");
+      node.value = opt;
+      node.textContent = opt;
+      return node;
+    });
+    sel.replaceChildren(placeholder, ...optionNodes);
     if (sorted.includes(current)) sel.value = current;
   });
 };
