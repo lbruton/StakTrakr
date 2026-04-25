@@ -148,6 +148,10 @@ const OUT_OF_STOCK_PATTERNS = [
   /temporarily out of stock/i,
   /back ?order/i,
   /pre-?order/i,
+  // Hero Bullion (WooCommerce) shows a `<p class="stock out-of-stock">Unavailable</p>`
+  // badge that Firecrawl renders as a bare "Unavailable" line. Anchored to a line
+  // start to avoid matching prose like "Currently unavailable for shipping" elsewhere.
+  /^\s*unavailable\s*$/im,
 ];
 
 // Soft 404 patterns — React SPAs return HTTP 200 but render "not found" content.
@@ -390,6 +394,62 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
   }
   return null;
 }
+
+/**
+ * Extract `availability` from any JSON-LD Product/Offer block.
+ *
+ * schema.org availability values: InStock, OutOfStock, PreOrder, Discontinued,
+ * SoldOut, LimitedAvailability, OnlineOnly, InStoreOnly, BackOrder.
+ *
+ * Returned as a normalized lowercase short token (e.g. "outofstock") or null
+ * when no offer with availability is present. Used by `scrapeUrl` to short-
+ * circuit Hero Bullion OOS pages where the JSON-LD price is non-zero but
+ * the offer is explicitly OutOfStock (STAK-566).
+ *
+ * @param {string[]} jsonLdScripts  textContent of each ld+json script tag
+ * @returns {string|null}
+ */
+function extractJsonLdAvailability(jsonLdScripts) {
+  if (!jsonLdScripts || jsonLdScripts.length === 0) return null;
+
+  function checkProduct(item) {
+    const typeVal = item["@type"];
+    const types = Array.isArray(typeVal) ? typeVal : [typeVal];
+    if (!types.includes("Product")) return null;
+    const offers = item.offers;
+    if (!offers) return null;
+    const offerList = Array.isArray(offers) ? offers : [offers];
+    for (const offer of offerList) {
+      const av = offer.availability;
+      if (!av) continue;
+      // schema.org URLs: http://schema.org/OutOfStock, https://schema.org/InStock, etc.
+      // Also tolerate bare tokens like "OutOfStock".
+      const m = String(av).match(/([A-Za-z]+)$/);
+      if (m) return m[1].toLowerCase();
+    }
+    return null;
+  }
+
+  for (const script of jsonLdScripts) {
+    try {
+      const data = JSON.parse(script);
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        // RankMath/Yoast and many WP themes wrap nodes in @graph.
+        const nodes = Array.isArray(item["@graph"]) ? item["@graph"] : [item];
+        for (const node of nodes) {
+          const av = checkProduct(node);
+          if (av) return av;
+        }
+      }
+    } catch {
+      /* invalid JSON — skip */
+    }
+  }
+  return null;
+}
+
+const JSONLD_OOS_VALUES = new Set(["outofstock", "soldout", "discontinued"]);
 
 /**
  * Extract the lowest plausible per-coin price from scraped markdown.
@@ -636,6 +696,7 @@ const PROVIDER_DEFAULTS = {
   retryOn408: true, // allow retry on Firecrawl 408 timeout
   fractionalExempt: false, // skip fractional_weight nav false-positive check
   cf_clearance_fallback: false, // attempt Phase 2 CF-clearance sidecar on 403
+  requestHtml: false, // also request HTML from Firecrawl (for JSON-LD OOS checks)
   proxy: {}, // per-poller proxy routing
 };
 
@@ -683,6 +744,11 @@ const PROVIDER_CONFIG = {
     // grabs "As Low As" bulk price before the 1-unit table price.
     // Firecrawl markdown has | pipe | tables — extraction works correctly.
     waitFor: 3_000,
+    // STAK-566: Hero pages keep the price visible even when the product is
+    // sold out (`availability: OutOfStock` in JSON-LD). Pull HTML alongside
+    // markdown so scrapeUrl can short-circuit on the JSON-LD availability
+    // signal before the price extractor runs.
+    requestHtml: true,
   },
   gainesvillecoins: {
     phase: "firecrawl", // Phase 0 Playwright direct always times out (15s wasted per coin).
@@ -946,12 +1012,14 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
   const scrapeTimeout = providerCfg(providerId).timeout;
   const timer = setTimeout(() => controller.abort(), scrapeTimeout);
 
+  const cfg = providerCfg(providerId);
+  const formats = cfg.requestHtml ? ["markdown", "html"] : ["markdown"];
   const body = {
     url,
-    formats: ["markdown"],
+    formats,
     // JM Bullion's React pages sometimes return empty markdown with onlyMainContent.
     // Disable it for JM — our MARKDOWN_CUTOFF_PATTERNS handle noise removal instead.
-    onlyMainContent: providerCfg(providerId).onlyMainContent,
+    onlyMainContent: cfg.onlyMainContent,
   };
   // JS-heavy SPAs need time to mount and render prices; 8s covers all slow providers.
   // (Bumped from 6s after jmbullion/bullionexchanges were removed from PLAYWRIGHT_ONLY;
@@ -1003,7 +1071,26 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
     }
 
     const json = await response.json();
-    return json?.data?.markdown ?? null;
+    const markdown = json?.data?.markdown ?? null;
+
+    // STAK-566: When HTML is requested (e.g. herobullion), check JSON-LD
+    // `availability` before returning markdown. Hero pages keep the price
+    // visible on sold-out products, so the markdown-only path always extracts
+    // a valid price and reports inStock=true. Mirrors the cf-clearance JSON-LD
+    // OOS short-circuit pattern in scrapeViaCFClearance.
+    if (cfg.requestHtml) {
+      const html = json?.data?.html ?? null;
+      if (html) {
+        const jsonLdScripts = extractJsonLdScriptsFromHtml(html);
+        const availability = extractJsonLdAvailability(jsonLdScripts);
+        if (availability && JSONLD_OOS_VALUES.has(availability)) {
+          log(`[firecrawl] ${providerId}: JSON-LD availability=${availability} -> OOS`);
+          return { price: null, inStock: false, source: "firecrawl:jsonld-oos" };
+        }
+      }
+    }
+
+    return markdown;
   } catch (err) {
     // Abort/timeout = the request was killed by our AbortController.
     // Retrying the same Firecrawl call won't help; skip retries.
