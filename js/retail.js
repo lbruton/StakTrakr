@@ -673,6 +673,16 @@ async function _fetchV2Json(base, path) {
   }
 }
 
+/**
+ * Synchronizes retail price, provider, intraday, and history data from a v2 API manifest and updates the module's in-memory and persisted retail state.
+ *
+ * Performs a full v2 sync: picks a fresh endpoint, loads manifest coin/vendor metadata, fetches providers.json (flattening to legacy shape), and concurrently fetches per-slug latest, intraday, and history feeds. On success it updates in-memory maps (retailPrices, retailPriceHistory, retailIntradayData, retailProviders, retailAvailability, retailLastKnownPrices), persists v2 and legacy keys to storage, appends a sync log entry, and optionally updates UI status and the market health indicator.
+ *
+ * @param {Object} options - Sync options.
+ * @param {boolean} options.ui - If true, updates provided UI elements (status text and button state).
+ * @param {Element} [options.syncBtn] - Optional sync button element (may be enabled/disabled by the caller).
+ * @param {Element} [options.syncStatus] - Optional element whose textContent will be set with sync status or error messages.
+ */
 async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
   const result = await _pickFreshestV2Endpoint();
   if (!result) {
