@@ -12472,6 +12472,12 @@ th {
     border-radius: 0;
   }
 
+  /* STAK-578: clear iOS notch / status bar on in-scope fullscreen modals */
+  #itemModal .modal-content .modal-header,
+  #viewItemModal .modal-header {
+    padding-top: max(var(--spacing), env(safe-area-inset-top));
+  }
+
   .modal-content::before {
     border-radius: 0;
   }
