@@ -1498,7 +1498,7 @@ const getActiveSpotProviderValue = (host) => {
   const activePill = host.querySelector(".gb-source-btn.active[data-val]");
   if (activePill?.dataset?.val) return activePill.dataset.val;
   if (typeof loadDataSync === "function") {
-    const stored = loadDataSync("spotPricingSource", "STAKTRAKR");
+    const stored = loadDataSync(SPOT_PRICING_SOURCE_KEY, "STAKTRAKR");
     if (typeof stored === "string" && stored) return stored;
   }
   return "STAKTRAKR";
