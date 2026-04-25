@@ -213,6 +213,27 @@ test.describe("mobile-modal-safe-area — STAK-578", () => {
   });
 
   // ========================================================================
+  // Test 1b — .view-modal-footer uses env(safe-area-inset-left|right)
+  // Maps to R1.4 (landscape side-notch clearance — iOS Safari)
+  // ========================================================================
+  test("view-modal-footer-uses-env-safe-area-inset-left-right", async ({ page }) => {
+    await seedInventory(page, [BASE_ITEM]);
+    await gotoApp(page);
+    await openViewModal(page);
+
+    const cssText = await findRuleCssText(page, ".view-modal-footer");
+
+    expect(
+      cssText,
+      "'.view-modal-footer' rule must reference 'env(safe-area-inset-left' for landscape notch clearance"
+    ).toContain("env(safe-area-inset-left");
+    expect(
+      cssText,
+      "'.view-modal-footer' rule must reference 'env(safe-area-inset-right' for landscape notch clearance"
+    ).toContain("env(safe-area-inset-right");
+  });
+
+  // ========================================================================
   // Test 2 — #inventoryForm .item-modal-actions uses env(safe-area-inset-bottom)
   // Maps to R2.5 (no-regression guard for R2.1–R2.4 on real devices)
   // ========================================================================
@@ -235,6 +256,27 @@ test.describe("mobile-modal-safe-area — STAK-578", () => {
       cssText,
       "'#inventoryForm .item-modal-actions' rule cssText must contain 'env(safe-area-inset-bottom'"
     ).toContain("env(safe-area-inset-bottom");
+  });
+
+  // ========================================================================
+  // Test 2b — #inventoryForm .item-modal-actions uses env(safe-area-inset-left|right)
+  // Maps to R2.4 (landscape side-notch clearance — iOS Safari)
+  // ========================================================================
+  test("item-modal-actions-uses-env-safe-area-inset-left-right", async ({ page }) => {
+    await seedInventory(page, [BASE_ITEM]);
+    await gotoApp(page);
+    await openEditModal(page);
+
+    const cssText = await findRuleCssText(page, "#inventoryForm .item-modal-actions");
+
+    expect(
+      cssText,
+      "'#inventoryForm .item-modal-actions' rule must reference 'env(safe-area-inset-left' for landscape notch clearance"
+    ).toContain("env(safe-area-inset-left");
+    expect(
+      cssText,
+      "'#inventoryForm .item-modal-actions' rule must reference 'env(safe-area-inset-right' for landscape notch clearance"
+    ).toContain("env(safe-area-inset-right");
   });
 
   // ========================================================================

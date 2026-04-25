@@ -5972,6 +5972,8 @@ td input:checked + .slider:before {
   gap: 0.5rem;
   padding: 0.75rem var(--spacing-xl);
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
+  padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
   border-top: 1px solid var(--border);
   background: var(--bg-secondary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
@@ -9289,6 +9291,8 @@ th {
   margin: 0.85rem calc(-1 * var(--spacing)) calc(-1 * var(--spacing));
   padding: 0.75rem var(--spacing) 0.65rem;
   padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+  padding-left: max(var(--spacing), env(safe-area-inset-left));
+  padding-right: max(var(--spacing), env(safe-area-inset-right));
   border-top: 1px solid var(--border);
   background: var(--bg-secondary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
