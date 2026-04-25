@@ -419,15 +419,23 @@ function extractJsonLdAvailability(jsonLdScripts) {
     const offers = item.offers;
     if (!offers) return null;
     const offerList = Array.isArray(offers) ? offers : [offers];
+    let nonOos = null;
     for (const offer of offerList) {
       const av = offer.availability;
       if (!av) continue;
-      // schema.org URLs: http://schema.org/OutOfStock, https://schema.org/InStock, etc.
-      // Also tolerate bare tokens like "OutOfStock".
-      const m = String(av).match(/([A-Za-z]+)$/);
-      if (m) return m[1].toLowerCase();
+      // schema.org URLs: http://schema.org/OutOfStock/, https://schema.org/InStock, etc.
+      // Also tolerate bare tokens like "OutOfStock". Split by / or # first, then match.
+      const m = String(av)
+        .split(/[\/#]/)
+        .pop()
+        .match(/([A-Za-z]+)/);
+      if (m) {
+        const token = m[1].toLowerCase();
+        if (JSONLD_OOS_VALUES.has(token)) return token;
+        if (!nonOos) nonOos = token;
+      }
     }
-    return null;
+    return nonOos;
   }
 
   for (const script of jsonLdScripts) {
@@ -435,8 +443,14 @@ function extractJsonLdAvailability(jsonLdScripts) {
       const data = JSON.parse(script);
       const items = Array.isArray(data) ? data : [data];
       for (const item of items) {
+        if (!item) continue;
         // RankMath/Yoast and many WP themes wrap nodes in @graph.
-        const nodes = Array.isArray(item["@graph"]) ? item["@graph"] : [item];
+        let nodes;
+        if (item["@graph"] != null) {
+          nodes = Array.isArray(item["@graph"]) ? item["@graph"] : [item["@graph"]];
+        } else {
+          nodes = [item];
+        }
         for (const node of nodes) {
           const av = checkProduct(node);
           if (av) return av;
@@ -1673,7 +1687,11 @@ async function main() {
                   source = retryRaw.source;
                   inStock = retryRaw.inStock;
                   finalUrl = url;
-                  log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+                  if (price !== null) {
+                    log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+                  } else {
+                    log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
+                  }
                   break;
                 }
                 const retryMd = retryRaw;
