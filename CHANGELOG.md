@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.32] - 2026-04-25
+
+### Changed — STAK-571: Confirm spot provider changes
+
+- **Added**: Settings → API spot provider pills now show an in-app confirmation dialog before switching to a different provider, naming the destination provider and explaining that spot prices, charts, ticker, and portfolio values are affected.
+- **Fixed**: Canceling the provider switch leaves the previous provider active and does not write `spotPricingSource`; clicking the already-active provider remains a no-op with no dialog.
+- **Added**: Playwright coverage for confirm, cancel, and already-active spot provider click behavior in the API tab suite.
+
+---
+
 ## [3.34.31] - 2026-04-25
 
 ### Fixed — STAK-578: Mobile modal action buttons clipped by browser chrome

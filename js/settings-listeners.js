@@ -1482,20 +1482,65 @@ const bindMarketFilterListeners = () => {
 // STAK-443 — Spot/Catalog/Bulk Sync event wiring (Task 11)
 // ---------------------------------------------------------------------------
 
+const SPOT_PROVIDER_CONFIRM_LABELS = {
+  STAKTRAKR: "StakTrakr",
+  METALS_DEV: "Metals.dev",
+  METALS_API: "Metals-API",
+  METAL_PRICE_API: "MetalPriceAPI",
+  CUSTOM: "Custom",
+  MANUAL: "Manual",
+};
+
+const getSpotProviderConfirmLabel = (value) =>
+  SPOT_PROVIDER_CONFIRM_LABELS[value] || value || "the selected provider";
+
+const getActiveSpotProviderValue = (host) => {
+  const activePill = host.querySelector(".gb-source-btn.active[data-val]");
+  if (activePill?.dataset?.val) return activePill.dataset.val;
+  if (typeof loadDataSync === "function") {
+    const stored = loadDataSync("spotPricingSource", "STAKTRAKR");
+    if (typeof stored === "string" && stored) return stored;
+  }
+  return "STAKTRAKR";
+};
+
+const confirmSpotProviderSwitch = async (value) => {
+  if (typeof window.appConfirm !== "function") return false;
+  const label = getSpotProviderConfirmLabel(value);
+  return window.appConfirm(
+    `Switch to ${label} as the spot price provider?\n\n` +
+      "This changes the spot prices used by charts, ticker, and portfolio values throughout StakTrakr.",
+    "Switch Spot Provider"
+  );
+};
+
 /**
  * Delegated click handler on `#apiSection_spot` for `.gb-source-btn[data-val]`
- * pill clicks. Each pill click swaps the active spot provider via
- * `window.switchSpotProvider`, which persists the selection and updates UI.
- * Uses event delegation so re-renders don't break the binding. REQ-3.
+ * pill clicks. Switching to a different spot provider first asks for
+ * confirmation; confirmed switches call `window.switchSpotProvider`, which
+ * persists the selection and updates UI. Uses event delegation so re-renders
+ * don't break the binding. REQ-3, STAK-571.
  */
 const wireSpotPillRadio = () => {
   const host = safeGetElement("apiSection_spot");
   if (!host || host.__stakSpotPillBound) return;
   host.__stakSpotPillBound = true;
-  host.addEventListener("click", (e) => {
+  host.addEventListener("click", async (e) => {
     const pill = e.target.closest(".gb-source-btn[data-val]");
     if (!pill || !host.contains(pill)) return;
     const value = pill.dataset.val;
+    const current = getActiveSpotProviderValue(host);
+    if (value === current || host.__stakSpotConfirmPending) return;
+
+    host.__stakSpotConfirmPending = true;
+    let confirmed = false;
+    try {
+      confirmed = await confirmSpotProviderSwitch(value);
+    } finally {
+      host.__stakSpotConfirmPending = false;
+    }
+
+    if (!confirmed) return;
     if (typeof window.switchSpotProvider === "function") {
       window.switchSpotProvider(value);
     }
