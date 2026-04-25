@@ -12472,10 +12472,17 @@ th {
     border-radius: 0;
   }
 
-  /* STAK-578: clear iOS notch / status bar on in-scope fullscreen modals */
-  #itemModal .modal-content .modal-header,
-  #viewItemModal .modal-header {
+  /* STAK-578: clear iOS notch / status bar on in-scope fullscreen modals.
+     Static fallbacks are PER-MODAL so non-notched devices keep their
+     existing padding-top exactly (R5.2): #itemModal inherits desktop
+     var(--spacing); #viewItemModal already overrides to var(--spacing-sm)
+     in its own mobile rule above (line 6048-6052), so its env() fallback
+     must match that to avoid a visible regression. */
+  #itemModal .modal-content .modal-header {
     padding-top: max(var(--spacing), env(safe-area-inset-top));
+  }
+  #viewItemModal .modal-header {
+    padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
   }
 
   .modal-content::before {

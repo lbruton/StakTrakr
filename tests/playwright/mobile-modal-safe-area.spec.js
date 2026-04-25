@@ -140,18 +140,19 @@ async function findRuleCssText(page, selector) {
 }
 
 /**
- * Find the @media (max-width: 768px) block(s) and collect cssText of any
- * inner CSSStyleRule whose selectorText references either
- * `#itemModal .modal-content .modal-header` or `#viewItemModal .modal-header`.
+ * Find rules inside `@media (max-width: 768px)` whose selector includes the
+ * given target substring AND declare `padding-top` containing `env(`.
  *
- * Returns the concatenated cssText of all matching inner rules (so the
- * implementation may land as one compound selector list OR two separate
- * rules — both shapes pass).
+ * Per-modal isolation matters: a loose "any rule that mentions the selector"
+ * concatenation lets the existing border-radius rule mask whether the new
+ * env() padding-top actually targets the right modal. Tests must assert the
+ * env() declaration on the rule that actually applies it.
+ *
+ * Returns the matched rule's cssText, or null if no rule satisfies both the
+ * selector match and the `padding-top: ...env(...)` declaration.
  */
-async function collectMobileHeaderRuleText(page) {
-  return page.evaluate(() => {
-    const TARGETS = ["#itemModal .modal-content .modal-header", "#viewItemModal .modal-header"];
-    const matches = [];
+async function findMobileHeaderEnvRule(page, targetSelectorSubstring) {
+  return page.evaluate((target) => {
     for (const sheet of Array.from(document.styleSheets)) {
       let topRules;
       try {
@@ -169,17 +170,16 @@ async function collectMobileHeaderRuleText(page) {
         for (const inner of Array.from(innerRules)) {
           if (!(inner instanceof CSSStyleRule)) continue;
           const sel = inner.selectorText || "";
-          // Selector may be a compound list ("#itemModal ..., #viewItemModal ...")
-          // OR a single-target rule. Match either by substring.
-          const hits = TARGETS.some((t) => sel.includes(t));
-          if (hits) {
-            matches.push(inner.cssText);
+          if (!sel.includes(target)) continue;
+          const padTop = inner.style.getPropertyValue("padding-top") || "";
+          if (padTop.includes("env(safe-area-inset-top")) {
+            return inner.cssText;
           }
         }
       }
     }
-    return matches.length === 0 ? null : matches.join("\n");
-  });
+    return null;
+  }, targetSelectorSubstring);
 }
 
 // ---------------------------------------------------------------------------
@@ -238,26 +238,58 @@ test.describe("mobile-modal-safe-area — STAK-578", () => {
   });
 
   // ========================================================================
-  // Test 3 — mobile fullscreen header padding-top uses env(safe-area-inset-top)
-  // Maps to R3.3 (no-regression guard for R3.1–R3.2 on real devices)
+  // Test 3a — #itemModal mobile header uses env(safe-area-inset-top)
+  //           with var(--spacing) static fallback
+  // Maps to R3.3 (per-modal regression guard) + R5.2 (no regression on
+  // non-notched devices: existing #itemModal desktop padding-top is
+  // var(--spacing), so the fallback must match exactly)
   // ========================================================================
-  test("mobile-fullscreen-header-uses-env-safe-area-inset-top", async ({ page }) => {
+  test("itemModal-mobile-header-uses-env-safe-area-inset-top", async ({ page }) => {
     await seedInventory(page, [BASE_ITEM]);
     await gotoApp(page);
 
-    const concatenatedCssText = await collectMobileHeaderRuleText(page);
+    const cssText = await findMobileHeaderEnvRule(page, "#itemModal .modal-content .modal-header");
 
     expect(
-      concatenatedCssText,
-      "Inside @media (max-width: 768px), at least one CSSStyleRule must target '#itemModal .modal-content .modal-header' and/or '#viewItemModal .modal-header'"
+      cssText,
+      "Inside @media (max-width: 768px), a CSSStyleRule targeting '#itemModal .modal-content .modal-header' must declare padding-top with env(safe-area-inset-top"
     ).not.toBeNull();
     expect(
-      concatenatedCssText,
-      "Mobile fullscreen header rule(s) must declare 'padding-top'"
-    ).toContain("padding-top");
+      cssText,
+      "#itemModal mobile header rule must use 'var(--spacing)' as the static fallback so non-notched devices match existing rendering"
+    ).toContain("var(--spacing)");
     expect(
-      concatenatedCssText,
-      "Mobile fullscreen header rule(s) must reference 'env(safe-area-inset-top'"
+      cssText,
+      "#itemModal mobile header rule must reference 'env(safe-area-inset-top'"
+    ).toContain("env(safe-area-inset-top");
+  });
+
+  // ========================================================================
+  // Test 3b — #viewItemModal mobile header uses env(safe-area-inset-top)
+  //           with var(--spacing-sm) static fallback
+  // Maps to R3.3 (per-modal regression guard) + R5.2 (no regression on
+  // non-notched devices: existing #viewItemModal mobile rule already sets
+  // padding-top to var(--spacing-sm), so the fallback must match it — using
+  // var(--spacing) here would visibly increase header padding-top on every
+  // non-notched mobile device)
+  // ========================================================================
+  test("viewItemModal-mobile-header-uses-env-safe-area-inset-top", async ({ page }) => {
+    await seedInventory(page, [BASE_ITEM]);
+    await gotoApp(page);
+
+    const cssText = await findMobileHeaderEnvRule(page, "#viewItemModal .modal-header");
+
+    expect(
+      cssText,
+      "Inside @media (max-width: 768px), a CSSStyleRule targeting '#viewItemModal .modal-header' must declare padding-top with env(safe-area-inset-top"
+    ).not.toBeNull();
+    expect(
+      cssText,
+      "#viewItemModal mobile header rule must use 'var(--spacing-sm)' as the static fallback so non-notched devices keep the existing 0.4rem padding-top (R5.2)"
+    ).toContain("var(--spacing-sm)");
+    expect(
+      cssText,
+      "#viewItemModal mobile header rule must reference 'env(safe-area-inset-top'"
     ).toContain("env(safe-area-inset-top");
   });
 
