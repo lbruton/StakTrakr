@@ -171,12 +171,12 @@ test.describe.serial("02-crud", () => {
 
   test("2.5 — add item — Goldback", async () => {
     // runbook: 02-crud.md §2.5
-    // NOTE: "Goldback" is not a metal dropdown option. Goldbacks use Gold as metal
-    // with weight unit "gb" (goldback denomination), which swaps in the denomination picker.
+    // STAK-562 made Goldback a first-class Type; STAK-580 made Metal/Type required.
+    // Flow: pick Metal=Gold → Type=Goldback (auto-swaps weight unit to "gb" + denomination picker).
     const page = sharedPage;
     await openAddModal(page);
     await page.selectOption("#itemMetal", "Gold");
-    await page.selectOption("#itemWeightUnit", "gb");
+    await page.selectOption("#itemType", "Goldback");
     await page.fill("#itemName", "BB-GOLDBACK");
     // #itemGbDenom defaults to 1; denomination picker is shown, weight input is hidden
     await page.fill("#itemPrice", "5");
@@ -198,6 +198,7 @@ test.describe.serial("02-crud", () => {
     // BB-OZ-ITEM
     await openAddModal(page);
     await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
     await page.fill("#itemName", "BB-OZ-ITEM");
     await page.selectOption("#itemWeightUnit", "oz");
     await page.fill("#itemWeight", "1");
@@ -207,6 +208,7 @@ test.describe.serial("02-crud", () => {
     // BB-G-ITEM
     await openAddModal(page);
     await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
     await page.fill("#itemName", "BB-G-ITEM");
     await page.selectOption("#itemWeightUnit", "g");
     await page.fill("#itemWeight", "31.1");
@@ -216,6 +218,7 @@ test.describe.serial("02-crud", () => {
     // BB-KG-ITEM
     await openAddModal(page);
     await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
     await page.fill("#itemName", "BB-KG-ITEM");
     await page.selectOption("#itemWeightUnit", "kg");
     await page.fill("#itemWeight", "0.0311");
@@ -225,6 +228,7 @@ test.describe.serial("02-crud", () => {
     // BB-DWT-ITEM — using lb (dwt/pennyweight not available in form)
     await openAddModal(page);
     await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
     await page.fill("#itemName", "BB-DWT-ITEM");
     await page.selectOption("#itemWeightUnit", "lb");
     await page.fill("#itemWeight", "20");

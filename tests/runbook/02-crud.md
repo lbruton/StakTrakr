@@ -1,3 +1,8 @@
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 # Section 02 — CRUD
 
 Covers all Create, Read, Update, and Delete operations for inventory items. Tests in this section build on each other: items added in early tests are edited, searched, filtered, and deleted by later tests. The section begins with a seed count of 8 items (established by `00-setup.md`) and ends with a cleanup block that removes all BB-\* items added here, restoring the seed state.
@@ -90,11 +95,13 @@ _Added: v3.33.25 (STAK-396)_
 ### Test 2.5 — Add item — Goldback
 
 _Added: v3.33.25 (STAK-396)_
+_Updated: STAK-580 — Goldback is a Type, not a Metal; explicit Metal=Gold selection now required after STAK-580 made Metal/Type required selects._
 **Preconditions:** Test 2.4 complete (count = 12). No filters or search active.
 **Steps:**
 
 - act: "click the Add Item button"
-- act: "select Goldback from the metal dropdown"
+- act: "select Gold from the metal dropdown"
+- act: "select Goldback from the type dropdown"
 - act: "type 'BB-GOLDBACK' into the name field"
 - act: "type '1' into the weight field"
 - act: "type '5' into the purchase price field"
@@ -109,11 +116,13 @@ _Added: v3.33.25 (STAK-396)_
 ### Test 2.6 — Add items with each weight unit (oz, g, kg, dwt)
 
 _Added: v3.33.25 (STAK-396)_
+_Updated: STAK-580 — explicit Coin Type selection added; Metal/Type are now required selects with no default._
 **Preconditions:** Test 2.5 complete (count = 13). No filters or search active.
 **Steps:**
 
 - act: "click the Add Item button"
 - act: "select Silver from the metal dropdown"
+- act: "select Coin from the type dropdown"
 - act: "type 'BB-OZ-ITEM' into the name field"
 - act: "select oz from the weight unit dropdown"
 - act: "type '1' into the weight field"
@@ -121,6 +130,7 @@ _Added: v3.33.25 (STAK-396)_
 - act: "click the Add to Inventory or Save button"
 - act: "click the Add Item button"
 - act: "select Silver from the metal dropdown"
+- act: "select Coin from the type dropdown"
 - act: "type 'BB-G-ITEM' into the name field"
 - act: "select g from the weight unit dropdown"
 - act: "type '31.1' into the weight field"
@@ -128,6 +138,7 @@ _Added: v3.33.25 (STAK-396)_
 - act: "click the Add to Inventory or Save button"
 - act: "click the Add Item button"
 - act: "select Silver from the metal dropdown"
+- act: "select Coin from the type dropdown"
 - act: "type 'BB-KG-ITEM' into the name field"
 - act: "select kg from the weight unit dropdown"
 - act: "type '0.0311' into the weight field"
@@ -135,6 +146,7 @@ _Added: v3.33.25 (STAK-396)_
 - act: "click the Add to Inventory or Save button"
 - act: "click the Add Item button"
 - act: "select Silver from the metal dropdown"
+- act: "select Coin from the type dropdown"
 - act: "type 'BB-DWT-ITEM' into the name field"
 - act: "select dwt from the weight unit dropdown"
 - act: "type '20' into the weight field"
