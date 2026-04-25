@@ -1,87 +1,108 @@
-# CLAUDE.md
+# StakTrakr
+
+Precious metals inventory tracker. Single HTML page, vanilla JS, localStorage persistence. Works on `file://` and HTTP. Zero build step, zero install.
 
 ---
 
-## Project at a Glance
-
-**StakTrakr** — precious metals inventory tracker. Single HTML page, vanilla JS, localStorage persistence.
-Works on `file://` and HTTP. Runtime artifact: zero build step, zero install. See `coding-standards` skill for patterns.
-
-**Version format**: `BRANCH.RELEASE.PATCH` in `js/constants.js`. Use `/release` skill to bump (touches 7 files).
-
-## Dual Config Store — CRITICAL
-
-Two separate localStorage config stores exist. Confusing them causes silent data loss.
-
-| Store                 | localStorage key     | Manages                                                              | Read via                                               | Write via                                              |
-| --------------------- | -------------------- | -------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
-| **Spot providers**    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM keys                 | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
-| **Catalog providers** | `catalog_api_config` | Numista apiKey, PCGS (Professional Coin Grading Service) bearerToken | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
-
-**Always read catalog provider keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig()`** — they return values from `catalog_api_config`. Calling `loadApiConfig().keys["numista"]` reads the wrong store (`metalApiConfig`) and returns `undefined` — root cause of STAK-573 (StakTrakr issue tracker prefix) data loss bug.
-
-- `saveData()` wraps values in `JSON.stringify` — always read those keys back through `loadData()` or `loadDataSync()` so the JSON gets parsed. Raw `localStorage.getItem()` returns the stringified payload and silently breaks downstream consumers.
-- After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
-
-## Cloud Sync Patterns
-
-- **Atomic rollback**: Settings write loops must snapshot `localStorage.getItem()` before each `setItem`, restore on failure (not `removeItem`). Dual arrays: `_appliedKeys` (compensate), `_failedKeys` (log).
-- **Codex peer review**: All `cloud-sync.js` patches require `/codex:rescue` review before merge.
-- **`ALLOWED_STORAGE_KEYS` guard**: `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` is defensive coding — the constant IS defined at `constants.js:871`. Automated reviewer flags on this are false positives.
-
-## Data Feed Gotchas
-
-> **Before diagnosing any feed/poller/API/data-path issue:** invoke `/api-infrastructure` first — it loads the mandatory DocVault update list (`API Reference.md`, `Remote Poller.md`), the Fly.io two-phase manual-deploy procedure, and `stale_after` conventions. Skipping this routing is the most common way sessions ship wrong-layer fixes.
-
-- **Goldback scrapes DAILY at 16:05 UTC** (cron `05 16 * * *` in `devops/pollers/home-poller/docker-entrypoint.sh`), NOT hourly. `goldback-scraper.js` has no in-script skip-guard — the daily cron is the dedup.
-- **Api Health** — `api-health.js` reads v2 envelope `generated_at` (rewritten each publish cycle by `api-export.js`), not `scraped_at`. For a daily feed, `scraped_at` can legitimately be ~24h old while the badge stays green.
-- **Poller cron source of truth: `devops/pollers/home-poller/docker-entrypoint.sh`** — grep this file before citing any cron schedule.
-- **For any "frontend data is wrong" bug** — `curl` the exact URL the frontend constructs BEFORE analyzing parse/schema logic. A 404 beats any schema analysis, and stale `localStorage` on your dev browser can mask fresh-browser regressions for months.
-- **API base** is `data/v2/` (set in `js/constants.js:527`).
-
-## Known Automated Reviewer False Positives
-
-- `ALLOWED_STORAGE_KEYS` "fail-open" / "undefined guard" — constant exists at `constants.js:871`, guard is defensive pattern
-- CodeRabbit re-review duplicates — after pushing fixes, CodeRabbit re-reviews and regenerates threads on the same file/line. Auto-resolve duplicates without user approval.
-- CodeRabbit "simplify code" PRs — auto-generated refactor PRs from CodeRabbit's code simplifier mode. Triage individually.
-- `gb-*` CSS classes are **goldback-scoped** — do not copy them to other settings panels without renaming to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
-
 ## Documentation
 
-**Tier 1 — Foundation docs** (start here). Seven canonical pages at `DocVault/Projects/StakTrakr/Foundation/`:
+Foundation docs: `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/`
 
-| File                   | When to read                                                                 |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `infrastructure.md`    | Deploy topology, Fly.io, home poller, secrets, CI/CD, health thresholds      |
-| `architecture.md`      | System design, frontend/API/data model, sqld schema                          |
-| `coding-standards.md`  | DOM patterns, localStorage, service worker, release workflow, testing        |
-| `design-philosophy.md` | Brand, colors, typography, component patterns                                |
-| `reusable-patterns.md` | Vendor normalization, providers.json, retail modal, chart abstractions       |
-| `data-pipelines.md`    | Spot / retail / goldback / image pipelines — cron, thresholds, failure modes |
-| `cloud-sync.md`        | Dropbox OAuth, AES-256-GCM, atomic rollback, backup/restore                  |
+**Keep these in sync with code changes.** Run `/vault-drift` after any architectural or infra work.
 
-**Tier 2 — Deep dives.** Individual topic docs at `DocVault/Projects/StakTrakr/` (31 pages). Use these when the foundation doc links out for detail. Full list: `_Index.md`.
+| Doc               | Full Path                                                                          | What's there                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Infrastructure    | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/infrastructure.md`    | Deploy topology, Fly.io, home poller, secrets, CI/CD, health thresholds      |
+| Architecture      | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/architecture.md`      | System design, frontend/API/data model, sqld schema                          |
+| Coding Standards  | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/coding-standards.md`  | DOM patterns, localStorage, service worker, release workflow, testing        |
+| Design Philosophy | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/design-philosophy.md` | Brand, colors, typography, component patterns                                |
+| Reusable Patterns | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/reusable-patterns.md` | Vendor normalization, providers.json, retail modal, chart abstractions       |
+| Data Pipelines    | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/data-pipelines.md`    | Spot / retail / goldback / image pipelines — cron, thresholds, failure modes |
+| Cloud Sync        | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/cloud-sync.md`        | Dropbox OAuth, AES-256-GCM, atomic rollback, backup/restore                  |
 
-**Tier 3 — Source code.** When a foundation doc disagrees with source code, the code wins. Always verify infra/cron claims against `devops/pollers/home-poller/docker-entrypoint.sh` and `devops/pollers/remote-poller/fly.toml` — these are authoritative.
+Tier 2 — 31 deep-dive docs at `DocVault/Projects/StakTrakr/`. Full list: `_Index.md`.
 
-Run `/vault-drift` periodically to check foundation doc claims against code truth.
+Tier 3 — Source code wins on conflicts. Authoritative cron/config files: `devops/pollers/home-poller/docker-entrypoint.sh`, `devops/pollers/remote-poller/fly.toml`.
 
-## Playwright Testing (vanilla JS, no bundler)
+---
 
-- **Expose internal functions for testing** — module-scope functions aren't accessible via `page.evaluate()`. Add `window.X = X` to the exports block at the bottom of the relevant `js/*.js` file.
-- **Inject manifest state via localStorage** — `_manifestSlugs` / `_manifestCoinMeta` hydrate from `retailManifestSlugs` / `retailManifestCoinMeta` localStorage keys during init. Use `page.addInitScript` to set them before page load.
-- **Patching `window.X` after load does NOT intercept module-scope calls** — use localStorage injection instead to control internal state.
+## Issue Tracking
 
-## Release Workflow Gotchas
+Prefix: `STAK-`. Issues stored at `DocVault/Projects/StakTrakr/Issues/`.
 
-- **`devops/version.lock` is gitignored** — local coordination only, stays gitignored. Update the `version` field in place; the file will not appear in `git status`.
-- **`/seed-sync`** — skill at `.claude/skills/seed-sync/` rebuilds `data/spot-history-bundle.js` before a release PR.
-- **`dev` branch is also protected** — requires PRs, same as `main`. All commits must go through a worktree branch → PR → dev. Direct `git push origin dev` will be rejected.
-- **New worktrees need CLAUDE.md copied** — `check-claude-md` pre-commit hook fails if `CLAUDE.md` is absent. Always run `cp CLAUDE.md .worktrees/<name>/CLAUDE.md` after `git worktree add`.
-- **`stamp-sw-cache` auto-stages `sw.js`** — the pre-commit hook modifies and stages `sw.js` when JS/CSS/image files are committed. No need to manually add it; it will appear in the commit automatically.
-- **Rebase merge blocked by signed commits** — GitHub can't sign rebase merge commits. Use **squash merge** or merge locally with SSH signing. If the merge button shows "Rebase merges cannot be automatically signed," switch merge method in the dropdown.
-- **Worktrees need `npm install`** — prettier/lint-staged pre-commit hook requires `node_modules/`. Run `npm install --no-audit --no-fund` after creating a worktree, or the commit hook fails with ENOENT.
-- **`data/` and `vendor/` excluded from prettier** — `.prettierignore` excludes `data/`, `vendor/`, `node_modules/`, `*.min.js/css`. JS/CSS in `js/` and `css/` ARE formatted on commit via lint-staged. Avoid manual formatting of excluded paths.
-- **Seed-sync every version** — always run `/seed-sync` before opening a release PR on dev or main, so `data/spot-history-bundle.js` ships current.
-- **Pushing fixes to an open PR** — always commit from the existing PR worktree (`cd .worktrees/<branch>`) so fixes land on the same branch the PR tracks.
-- **Codex CLI uses `$` prefix** — handoff prompts for Codex use `$spec` not `/spec`.
+---
+
+## Git Topology
+
+- **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev. Both `dev` and `main` are protected — no direct pushes.
+- **Version format:** `BRANCH.RELEASE.PATCH` in `js/constants.js`. Use `/release` to bump (touches 7 files).
+- **Version lock:** `devops/version.lock` is gitignored — local coordination only.
+- **Worktrees:** `.worktrees/<issue>-<slug>/`. After `git worktree add`: `cp CLAUDE.md .worktrees/<name>/CLAUDE.md` then `npm install --no-audit --no-fund`.
+- **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.
+- **`stamp-sw-cache` hook** — auto-stages `sw.js` when JS/CSS/image files are committed. No need to add it manually.
+- **`data/` and `vendor/` excluded from prettier** — lint-staged formats `js/` and `css/` only. Avoid manually formatting excluded paths.
+- **Seed sync before release** — always run `/seed-sync` before opening a release PR (rebuilds `data/spot-history-bundle.js`).
+- **Pushing fixes to an open PR** — commit from the existing PR worktree (`.worktrees/<branch>`), not a new branch.
+
+---
+
+## MCP Notes
+
+- StakTrakrApi config → `mcp__github__*` (Fly.io `fly.toml` lives there during transition)
+- All `cloud-sync.js` patches require `/codex:rescue` peer review before merge.
+- Codex handoff prompts use `$spec` not `/spec`.
+
+---
+
+## Skills
+
+| Skill                             | Use When                                                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `/coding-standards`               | Before writing any JS — DOM patterns, globals, script loading order, localStorage, cloud sync, Playwright testing |
+| `/api-infrastructure`             | Any feed, poller, API, or data-path work. Loads DocVault update list, health check, Fly.io deploy procedure       |
+| `/repo-boundaries`                | Cross-repo work, deploy questions, or when Fly.io / StakTrakrApi / home poller appears in context                 |
+| `/seed-sync`                      | Rebuild `data/spot-history-bundle.js` — run before every release PR                                               |
+| `/ship`                           | Ship `dev → main` — only on explicit "ready to ship" from user                                                    |
+| `/sw-cache`                       | Service worker cache version updates                                                                              |
+| `/retail-poller`                  | Retail pipeline — scraping, confidence scores, providers.json, data pipeline                                      |
+| `/retail-provider-fix`            | Diagnose/fix scraping failures for individual dealers                                                             |
+| `/deploy-verify`                  | Post-deploy health checks for Portainer (home) and Fly.io (cloud)                                                 |
+| `/faq`                            | Add, edit, or remove in-app FAQ entries                                                                           |
+| `/finishing-a-development-branch` | Implementation complete — guides merge/PR/cleanup decision                                                        |
+| `/pr-ready`                       | Pre-PR checklist — version bump, sw.js, DocVault status, Codacy                                                   |
+| `/start-patch`                    | Pick a DocVault issue, claim version lock, create worktree                                                        |
+| `/ui-mockup`                      | New multi-element UI — Playground prototype before production code                                                |
+
+---
+
+## Always-Load Context
+
+### Dual Config Store — CRITICAL
+
+Two separate localStorage stores. Confusing them causes silent data loss.
+
+| Store             | localStorage key     | Manages                                              | Read via                                               | Write via                                              |
+| ----------------- | -------------------- | ---------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| Spot providers    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM keys | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
+| Catalog providers | `catalog_api_config` | Numista apiKey, PCGS bearerToken                     | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
+
+Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` — calling `loadApiConfig().keys["numista"]` reads the wrong store and returns `undefined` (root cause of STAK-573).
+
+- `saveData()` wraps in `JSON.stringify` — always read back through `loadData()` / `loadDataSync()`. Raw `localStorage.getItem()` returns the stringified payload and silently breaks downstream consumers.
+- After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
+
+### Known Reviewer False Positives
+
+- **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js:871`; the `typeof` guard is intentional defensive coding.
+- **CodeRabbit re-review duplicates** — after pushing fixes, CodeRabbit regenerates threads on the same file/line. Auto-resolve without user approval.
+- **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
+- **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
+
+---
+
+## Pre-flight (StakTrakr-specific)
+
+- **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` first. Skipping causes wrong-layer fixes.
+- **Before any release PR** → run `/seed-sync`.
+- **Before `dev → main`** → use `/ship` only on explicit "ready to ship" from user.
+- **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.

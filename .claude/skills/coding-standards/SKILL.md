@@ -550,3 +550,47 @@ All new CSS **must** work across light, dark, and sepia themes. Use semantic tok
 | Spacing     | `--spacing-xs`, `--spacing-sm`, `--spacing`, `--spacing-lg`, `--spacing-xl`                    |
 | Radius      | `--radius` (8px), `--radius-lg` (12px)                                                         |
 | Transition  | `--transition`                                                                                 |
+
+---
+
+## 11. Cloud Sync Patterns
+
+### Atomic rollback for settings writes
+
+Settings write loops must snapshot `localStorage.getItem()` before each `setItem`, and restore on failure using `setItem` with the snapshot — never `removeItem`. Track with dual arrays:
+
+- `_appliedKeys` — keys successfully written (used for compensation on rollback)
+- `_failedKeys` — keys that failed (logged, not removed)
+
+### `ALLOWED_STORAGE_KEYS` guard
+
+The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` check in `cloud-sync.js` is **intentional defensive coding** — the constant is defined at `constants.js:871`. Automated reviewers flag this as "fail-open" but it is a false positive. Do not remove the guard.
+
+---
+
+## 12. Playwright Testing (vanilla JS, no bundler)
+
+### Exposing internal functions
+
+Module-scope functions are not accessible via `page.evaluate()`. To expose a function for test access, add it to the `window.X = X` exports block at the bottom of the relevant `js/*.js` file:
+
+```javascript
+// At the bottom of js/inventory.js
+window.renderTable = renderTable;
+window.sanitizeImportedItem = sanitizeImportedItem;
+```
+
+### Injecting manifest state
+
+`_manifestSlugs` / `_manifestCoinMeta` hydrate from `retailManifestSlugs` / `retailManifestCoinMeta` localStorage keys during init. Inject via `page.addInitScript` before page load to control internal state:
+
+```javascript
+await page.addInitScript(() => {
+  localStorage.setItem('retailManifestSlugs', JSON.stringify(['silver-eagle']));
+  localStorage.setItem('retailManifestCoinMeta', JSON.stringify({ ... }));
+});
+```
+
+### Patching `window.X` after page load does not work
+
+Assigning `window.X = mockFn` after page load does **not** intercept module-scope calls already bound at init time. Use localStorage injection (above) to control internal state instead.
