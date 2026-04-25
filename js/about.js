@@ -139,12 +139,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.30 &ndash; STAK-582: Remove dead retail card-list view</strong>: Removed the orphaned Market Settings retail card/list render path, stale exports, event listeners, trend-mode storage, sync-error state, and obsolete card CSS while preserving the active ticker, vendor price matrix, market detail modal, market filter matrix, and retail history table.</li>
     <li><strong>v3.34.29 &ndash; STAK-576: Numista not-configured UX</strong>: Catalog search magnifiers now detect a missing Numista key up front and open a confirm dialog linking to Settings &rarr; API instead of the old misleading &ldquo;Enter a Name or Catalog N#&rdquo; alert. Disconnected dot and button tooltip both explain the state before clicking.</li>
     <li><strong>v3.34.28 &ndash; STAK-576: AutoTable vendor fallback warning</strong>: PDF export support now recognizes the locally bundled AutoTable plugin correctly, preventing the false CDN fallback warning/request when offline-capable export code is already loaded.</li>
     <li><strong>v3.34.27 &ndash; STAK-576: Duplicate network fetch cleanup</strong>: Cold-load spot sync now shares in-flight provider/backfill work, exchange-rate refreshes dedupe within the startup burst, and the market vendor table reuses the retail cache instead of re-fetching each visible slug.</li>
     <li><strong>v3.34.26 &ndash; STAK-565: JM Bullion scraper column fix</strong>: Fixed JM Bullion price readings oscillating between the correct eCheck/Wire tier (~$86) and the wrong Card tier (~$95) depending on which scrape engine rendered the page. New pipe-table parser locates the (e)Check/Wire column by header label instead of relying on column order. Column-blind fallback removed — missed ticks preferred over wrong-tier prices.</li>
-    <li><strong>v3.34.25 &ndash; STAK-573: API tab QA pass</strong>: Save buttons + masked key indicators on catalog cards, working Test endpoints for Numista and PCGS, usage bar fix, Bulk Sync modal consolidated from 4 tabs to 2, footer parity across spot cards, button color variants, modal width constrained.</li>
-    <li><strong>v3.34.24 &ndash; STAK-443: Settings &gt; API tab redesign</strong>: Monolithic provider-tab panel replaced with three clean sectioned cards &mdash; Market Prices, Spot Price, Catalog. Spot Price uses a single-select pill radio (StakTrakr / Metals.dev / Metals-API / MetalPriceAPI / Custom / Manual); Manual mode is a full-offline replacement that disables all feeds. Numista + PCGS catalog controls moved to a focused Bulk Sync modal with 4 tabs.</li>
   `;
 };
 

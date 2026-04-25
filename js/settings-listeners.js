@@ -1220,8 +1220,7 @@ const bindCloudStorageListeners = () => {
 
 /**
  * Wires up Market Prices section listeners.
- * Handles coin selector change, timeframe button clicks,
- * History card buttons, and View card buttons.
+ * Handles coin selector change and timeframe button clicks.
  */
 const bindRetailMarketListeners = () => {
   // Sync Now button
@@ -1250,33 +1249,6 @@ const bindRetailMarketListeners = () => {
         b.classList.toggle("active", b === btn);
       });
       if (typeof renderRetailHistoryTable === "function") renderRetailHistoryTable();
-    });
-  }
-
-  // History and View card buttons — delegated on retailCardsGrid
-  const cardsGrid = getExistingElement("retailCardsGrid");
-  if (cardsGrid) {
-    cardsGrid.addEventListener("click", (e) => {
-      // "History" button — switch to Activity Log market tab and set coin selector
-      const histBtn = e.target.closest("[data-retail-history-slug]");
-      if (histBtn) {
-        const slug = histBtn.dataset.retailHistorySlug;
-        const select = getExistingElement("retailHistorySlugSelect");
-        if (select) {
-          select.value = slug;
-        }
-        if (typeof switchSettingsSection === "function") switchSettingsSection("changelog");
-        const marketTab = document.querySelector('[data-log-tab="market"]');
-        if (marketTab && typeof switchLogTab === "function") switchLogTab("market");
-        return;
-      }
-
-      // "View" button — open per-coin detail modal
-      const viewBtn = e.target.closest("[data-retail-view-slug]");
-      if (viewBtn) {
-        const slug = viewBtn.dataset.retailViewSlug;
-        if (typeof openRetailViewModal === "function") openRetailViewModal(slug);
-      }
     });
   }
 };

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.30] - 2026-04-25
+
+### Changed — STAK-582: Remove dead retail card-list view
+
+- **Removed**: Legacy Market Settings retail card/list render path that no longer mounts in the app, including stale exports, event listeners, trend-mode storage, and orphaned sync-error state.
+- **Removed**: Obsolete retail card/list CSS while preserving the active main-page ticker, vendor price matrix, market detail modal, market filter matrix, and retail history table.
+- **Changed**: Stale market copy/comments now refer to the active ticker and price table instead of retired market cards.
+
+---
+
 ## [3.34.29] - 2026-04-24
 
 ### Fixed — STAK-576: Numista search magnifier shows misleading error when API key missing

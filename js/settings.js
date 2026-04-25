@@ -278,7 +278,7 @@ const renderMarketBeacon = () => {
   beaconBody.appendChild(beaconStrong);
 
   const beaconDesc = document.createElement("p");
-  beaconDesc.textContent = "Powers the main-page ticker, market cards, and Market tab.";
+  beaconDesc.textContent = "Powers the main-page ticker, market price table, and Market tab.";
   beaconBody.appendChild(beaconDesc);
 
   const attribution = document.createElement("span");
