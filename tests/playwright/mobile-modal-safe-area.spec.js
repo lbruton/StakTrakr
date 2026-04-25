@@ -129,8 +129,7 @@ async function findRuleCssText(page, selector) {
       }
       if (!rules) continue;
       for (const rule of Array.from(rules)) {
-        // CSSStyleRule.type === 1
-        if (rule.type !== 1) continue;
+        if (!(rule instanceof CSSStyleRule)) continue;
         if (rule.selectorText === sel) {
           return rule.cssText;
         }
@@ -162,14 +161,13 @@ async function collectMobileHeaderRuleText(page) {
       }
       if (!topRules) continue;
       for (const rule of Array.from(topRules)) {
-        // CSSMediaRule.type === 4
-        if (rule.type !== 4) continue;
+        if (!(rule instanceof CSSMediaRule)) continue;
         const mediaText = (rule.media && rule.media.mediaText) || rule.conditionText || "";
         if (!mediaText.includes("max-width: 768px")) continue;
         const innerRules = rule.cssRules;
         if (!innerRules) continue;
         for (const inner of Array.from(innerRules)) {
-          if (inner.type !== 1) continue;
+          if (!(inner instanceof CSSStyleRule)) continue;
           const sel = inner.selectorText || "";
           // Selector may be a compound list ("#itemModal ..., #viewItemModal ...")
           // OR a single-target rule. Match either by substring.
