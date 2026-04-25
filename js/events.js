@@ -1533,7 +1533,7 @@ const handleTypeChange = () => {
  * @param {string} metalValue
  */
 const filterTypesByMetal = (metalValue) => {
-  const typeSelect = document.getElementById("itemType");
+  const typeSelect = safeGetElement("itemType");
   if (!typeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
 
   Array.from(typeSelect.options).forEach((option) => {
