@@ -2,6 +2,8 @@
 // =============================================================================
 
 const SORT_COL_LAST_MODIFIED = 99;
+const SORT_COL_MINTAGE = 100;
+const SORT_COL_RARITY = 101;
 
 /**
  * Sorts inventory based on the current sort column and direction.
@@ -19,7 +21,7 @@ const sortInventory = (data = inventory) => {
   // Pre-calculate sort values (Schwartzian transform) to avoid repeated computation
   // Map column index to data property — must match <th> order in index.html
   // 0:Date 1:Metal 2:Type 3:Image 4:Name 5:Qty 6:Weight 7:Purchase 8:Melt 9:Retail 10:Gain/Loss 11:Source 12:Actions
-  // Virtual (no <th>): 99:Last Modified
+  // Virtual (no <th>): 99:Last Modified 100:Mintage 101:Rarity
   const mapped = data.map((item) => {
     let val;
     let secondaryVal = 0; // secondary sort key; only populated for column 4 (Name)
@@ -97,6 +99,23 @@ const sortInventory = (data = inventory) => {
         if (Number.isNaN(val)) val = 0;
         break;
       }
+      case SORT_COL_MINTAGE: {
+        // Mintage — manual or Numista-derived; tolerates "1,000,000" or numeric
+        const raw = item.numistaData?.mintage;
+        if (raw === undefined || raw === null || raw === "") {
+          val = Infinity;
+        } else {
+          const parsed = parseFloat(String(raw).replace(/[, ]/g, ""));
+          val = !isFinite(parsed) || parsed <= 0 ? Infinity : parsed;
+        }
+        break;
+      }
+      case SORT_COL_RARITY: {
+        // Rarity Index (Numista 1-100; 0/missing → end)
+        const r = parseFloat(String(item.numistaData?.rarityIndex ?? "").replace(/[, ]/g, ""));
+        val = !Number.isFinite(r) || r <= 0 ? Infinity : r;
+        break;
+      }
       default:
         val = 0;
     }
@@ -117,6 +136,16 @@ const sortInventory = (data = inventory) => {
       if (aIsEmpty) return sortDirection === "asc" ? -1 : 1;
       if (bIsEmpty) return sortDirection === "asc" ? 1 : -1;
 
+      return sortDirection === "asc" ? valA - valB : valB - valA;
+    }
+
+    // Mintage / Rarity: missing values bucket to the end regardless of direction
+    if (sortColumn === SORT_COL_MINTAGE || sortColumn === SORT_COL_RARITY) {
+      const aIsEmpty = valA === Infinity;
+      const bIsEmpty = valB === Infinity;
+      if (aIsEmpty && bIsEmpty) return 0;
+      if (aIsEmpty) return 1;
+      if (bIsEmpty) return -1;
       return sortDirection === "asc" ? valA - valB : valB - valA;
     }
 
@@ -145,5 +174,7 @@ const sortInventory = (data = inventory) => {
 };
 
 window.SORT_COL_LAST_MODIFIED = SORT_COL_LAST_MODIFIED;
+window.SORT_COL_MINTAGE = SORT_COL_MINTAGE;
+window.SORT_COL_RARITY = SORT_COL_RARITY;
 
 // =============================================================================
