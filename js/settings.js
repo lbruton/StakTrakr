@@ -2300,10 +2300,10 @@ const syncGoldbackSettingsUI = () => {
         : entry.price;
     const displayPrice = usdPrice == null ? null : fxRate !== 1 ? usdPrice * fxRate : usdPrice;
     const priceLabel =
-      displayPrice == null
+      usdPrice == null
         ? "\u2014"
         : typeof formatCurrency === "function"
-          ? formatCurrency(displayPrice)
+          ? formatCurrency(usdPrice)
           : `${typeof getCurrencySymbol === "function" ? getCurrencySymbol() : "$"}${displayPrice.toFixed(2)}`;
     const rawSource = entry && typeof entry.source === "string" ? entry.source.toLowerCase() : null;
     const effectiveSource =
@@ -2334,6 +2334,18 @@ const syncGoldbackSettingsUI = () => {
     tbody.appendChild(tr);
   }
 };
+
+if (typeof window !== "undefined") {
+  window.addEventListener("currencychange", () => {
+    try {
+      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
+    } catch (e) {
+      if (typeof debugLog === "function") {
+        debugLog("[settings] Goldback currency refresh failed: " + e.message, "warn");
+      }
+    }
+  });
+}
 
 // =============================================================================
 // HEADER TOGGLE & LAYOUT VISIBILITY (STACK-54)
@@ -2790,10 +2802,6 @@ const toggleCurrencyDropdown = () => {
     item.addEventListener("click", (e) => {
       e.stopPropagation();
       saveDisplayCurrency(c.code);
-      if (typeof renderTable === "function") renderTable();
-      if (typeof updateSummary === "function") updateSummary();
-      if (typeof updateAllSparklines === "function") updateAllSparklines();
-      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
       // Sync settings dropdown if open
       const sel = document.getElementById("settingsDisplayCurrency");
       if (sel) sel.value = c.code;

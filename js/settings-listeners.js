@@ -69,10 +69,6 @@ const bindAppearanceAndHeaderListeners = () => {
   if (currencySelect) {
     currencySelect.addEventListener("change", () => {
       saveDisplayCurrency(currencySelect.value);
-      if (typeof renderTable === "function") renderTable();
-      if (typeof updateSummary === "function") updateSummary();
-      if (typeof updateAllSparklines === "function") updateAllSparklines();
-      if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
     });
   }
 
