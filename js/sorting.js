@@ -21,7 +21,7 @@ const sortInventory = (data = inventory) => {
   // Pre-calculate sort values (Schwartzian transform) to avoid repeated computation
   // Map column index to data property — must match <th> order in index.html
   // 0:Date 1:Metal 2:Type 3:Image 4:Name 5:Qty 6:Weight 7:Purchase 8:Melt 9:Retail 10:Gain/Loss 11:Source 12:Actions
-  // Virtual (no <th>): 99:Last Modified
+  // Virtual (no <th>): 99:Last Modified 100:Mintage 101:Rarity
   const mapped = data.map((item) => {
     let val;
     let secondaryVal = 0; // secondary sort key; only populated for column 4 (Name)
@@ -101,7 +101,7 @@ const sortInventory = (data = inventory) => {
       }
       case SORT_COL_MINTAGE: {
         // Mintage — manual or Numista-derived; tolerates "1,000,000" or numeric
-        const raw = item.mintage;
+        const raw = item.numistaData?.mintage;
         if (raw === undefined || raw === null || raw === "") {
           val = Infinity;
         } else {
@@ -112,8 +112,8 @@ const sortInventory = (data = inventory) => {
       }
       case SORT_COL_RARITY: {
         // Rarity Index (Numista 1-100; 0/missing → end)
-        const r = parseFloat(item.rarityIndex);
-        val = !isFinite(r) || r <= 0 ? Infinity : r;
+        const r = parseFloat(String(item.numistaData?.rarityIndex ?? "").replace(/[, ]/g, ""));
+        val = !Number.isFinite(r) || r <= 0 ? Infinity : r;
         break;
       }
       default:
