@@ -139,13 +139,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.33 &ndash; STAK-581: Retail currency conversion phase 1</strong>: Retail and market price surfaces now honor the selected display currency through a shared currencychange event bus. Non-USD market tables also show a convenience-conversion note because vendor checkout remains US-based.</li>
     <li><strong>v3.34.32 &ndash; STAK-571: Spot provider switch confirmation</strong>: Settings &rarr; API now asks before switching spot price providers, names the provider being selected, and explains that the change affects spot prices, charts, ticker, and portfolio values. Cancel leaves the previous provider unchanged.</li>
     <li><strong>v3.34.31 &ndash; STAK-578: Mobile action buttons fix</strong>: Save / Cancel / Edit and other action buttons in the View and Add/Edit item modals are now fully tappable on Android Chrome, Edge, and notched iPhones &mdash; including in landscape orientation. Previously the Android gesture bar and iOS home indicator could swallow taps near the bottom edge, and the iOS landscape side notch could clip edge buttons.</li>
     <li><strong>v3.34.30 &ndash; STAK-582: Remove dead retail card-list view</strong>: Removed the orphaned Market Settings retail card/list render path, stale exports, event listeners, trend-mode storage, sync-error state, and obsolete card CSS while preserving the active ticker, vendor price matrix, market detail modal, market filter matrix, and retail history table.</li>
     <li><strong>v3.34.29 &ndash; STAK-576: Numista not-configured UX</strong>: Catalog search magnifiers now detect a missing Numista key up front and open a confirm dialog linking to Settings &rarr; API instead of the old misleading &ldquo;Enter a Name or Catalog N#&rdquo; alert. Disconnected dot and button tooltip both explain the state before clicking.</li>
-    <li><strong>v3.34.28 &ndash; STAK-576: AutoTable vendor fallback warning</strong>: PDF export support now recognizes the locally bundled AutoTable plugin correctly, preventing the false CDN fallback warning/request when offline-capable export code is already loaded.</li>
-    <li><strong>v3.34.27 &ndash; STAK-576: Duplicate network fetch cleanup</strong>: Cold-load spot sync now shares in-flight provider/backfill work, exchange-rate refreshes dedupe within the startup burst, and the market vendor table reuses the retail cache instead of re-fetching each visible slug.</li>
-    <li><strong>v3.34.26 &ndash; STAK-565: JM Bullion scraper column fix</strong>: Fixed JM Bullion price readings oscillating between the correct eCheck/Wire tier (~$86) and the wrong Card tier (~$95) depending on which scrape engine rendered the page. New pipe-table parser locates the (e)Check/Wire column by header label instead of relying on column order. Column-blind fallback removed — missed ticks preferred over wrong-tier prices.</li>
   `;
 };
 

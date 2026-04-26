@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.33] - 2026-04-25
+
+### Changed — STAK-581: Retail currency conversion phase 1
+
+- **Changed**: Retail history, market ticker cards, vendor price grids, and Goldback settings now honor the selected display currency instead of leaving active retail surfaces pinned to USD.
+- **Added**: `saveDisplayCurrency()` now dispatches a shared `currencychange` event so market, retail, inventory, spot sparkline, and Goldback settings surfaces refresh from one signal instead of duplicated manual render calls.
+- **Added**: Non-USD market vendor tables now show a convenience-conversion footer note explaining that vendor checkout remains US-based.
+
+---
+
 ## [3.34.32] - 2026-04-25
 
 ### Changed — STAK-571: Confirm spot provider changes

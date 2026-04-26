@@ -1527,6 +1527,18 @@ window._loadSpotSeedBundle = function (bundle) {
   }
 };
 
+if (typeof window !== "undefined") {
+  window.addEventListener("currencychange", () => {
+    if (typeof updateAllSparklines === "function") {
+      void updateAllSparklines().catch((e) => {
+        if (typeof debugLog === "function") {
+          debugLog("[spot] currencychange refresh failed: " + e.message, "warn");
+        }
+      });
+    }
+  });
+}
+
 // Ensure global availability
 window.fetchSpotPrice = fetchSpotPrice;
 window.syncManualSpotStorage = syncManualSpotStorage;
