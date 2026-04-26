@@ -28,7 +28,9 @@ Tier 3 — Source code wins on conflicts. Authoritative cron/config files: `devo
 
 ## Issue Tracking
 
-Prefix: `STAK-`. Issues stored at `DocVault/Projects/StakTrakr/Issues/`.
+Prefix: `STRK-`. Issues tracked in Plane: <https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/>.
+
+Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-Pre-Plane/StakTrakr/`. New issues are created via `/issue` (which dispatches on `.specflow/config.json` `issue_backend`) or directly via `mcp__plane__create_issue`.
 
 ---
 
