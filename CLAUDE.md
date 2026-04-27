@@ -64,7 +64,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 | `/api-infrastructure`             | Any feed, poller, API, or data-path work. Loads DocVault update list, health check, Fly.io deploy procedure       |
 | `/repo-boundaries`                | Cross-repo work, deploy questions, or when Fly.io / StakTrakrApi / home poller appears in context                 |
 | `/seed-sync`                      | Rebuild `data/spot-history-bundle.js` — run before every release PR                                               |
-| `/ship`                           | Ship `dev → main` — only on explicit "ready to ship" from user                                                    |
+| `/staktrakr-ship`                 | Ship `dev → main` — only on explicit "ready to ship" from user                                                    |
 | `/sw-cache`                       | Service worker cache version updates                                                                              |
 | `/retail-poller`                  | Retail pipeline — scraping, confidence scores, providers.json, data pipeline                                      |
 | `/retail-provider-fix`            | Diagnose/fix scraping failures for individual dealers                                                             |
@@ -105,6 +105,8 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 ## Pre-flight (StakTrakr-specific)
 
 - **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` first. Skipping causes wrong-layer fixes.
+- **Before speculating on infra failure mode** → read the matching Foundation doc. `infrastructure.md` lists known gotchas at specific line numbers (e.g. line 265 documents the recurring Tailscale subnet-route loss). Skim it before dispatching debugger agents.
+- **Before claiming what env/secret is set on Fly.io or home poller** → look it up via `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). I deploy and manage Fly.io for the user; Infisical is the canonical source, not assumption or stale memory.
 - **Before any release PR** → run `/seed-sync`.
-- **Before `dev → main`** → use `/ship` only on explicit "ready to ship" from user.
+- **Before `dev → main`** → use `/staktrakr-ship` only on explicit "ready to ship" from user.
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.

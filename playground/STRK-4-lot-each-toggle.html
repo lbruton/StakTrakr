@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STRK-4 — Lot ⇄ Each toggle for Purchase Price</title>
+    <style>
+      /* =============================================================================
+         Theme tokens — copied from css/styles.css :root / [data-theme=*]
+         Only the subset needed for this mock. See production CSS for full palette.
+         ============================================================================= */
+      :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #059669;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --bg-primary: #e2e8f0;
+        --bg-secondary: #eef2f7;
+        --bg-tertiary: #cbd5e1;
+        --bg-card: #f8fafc;
+        --text-primary: #1b232c;
+        --text-secondary: #344351;
+        --text-muted: #64748b;
+        --border: #94a3b8;
+        --border-hover: #64748b;
+        --radius: 8px;
+        --radius-lg: 12px;
+        --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --glass-input-bg: rgba(0, 0, 0, 0.03);
+        --glass-input-border: var(--border);
+        --glass-input-focus-bg: rgba(0, 0, 0, 0.05);
+      }
+      [data-theme="dark"] {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --bg-card: #1e293b;
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --border-hover: #475569;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+        --glass-input-bg: rgba(255, 255, 255, 0.05);
+        --glass-input-border: rgba(255, 255, 255, 0.1);
+        --glass-input-focus-bg: rgba(255, 255, 255, 0.08);
+      }
+      [data-theme="sepia"] {
+        --primary: #b35c1f;
+        --primary-hover: #934a17;
+        --success: #698f3f;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --bg-primary: #ede5d0;
+        --bg-secondary: #e4dbc4;
+        --bg-tertiary: #d6ccb3;
+        --bg-card: #f5f0e3;
+        --text-primary: #3a2f1f;
+        --text-secondary: #5a4a30;
+        --text-muted: #806a48;
+        --border: #b8a98a;
+        --border-hover: #8b7355;
+        --shadow-sm: 0 1px 3px 0 rgb(80 50 0 / 0.1);
+        --shadow: 0 4px 6px -1px rgb(80 50 0 / 0.15);
+        --shadow-lg: 0 10px 15px -3px rgb(80 50 0 / 0.15);
+        --glass-input-bg: rgba(139, 69, 19, 0.04);
+        --glass-input-border: rgba(139, 69, 19, 0.15);
+        --glass-input-focus-bg: rgba(139, 69, 19, 0.07);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        transition:
+          background 0.2s ease,
+          color 0.2s ease;
+      }
+
+      /* =============================================================================
+         Controls panel
+         ============================================================================= */
+      .controls {
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        overflow-y: auto;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+      }
+      .controls h1 {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .controls h2 {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+      }
+      .controls .group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .controls label.field {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .controls label.field input,
+      .controls label.field select {
+        background: var(--bg-card);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 13px;
+      }
+      .scenarios {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .scenario-btn {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        border-radius: 6px;
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 12px;
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .scenario-btn:hover {
+        border-color: var(--primary);
+        background: var(--bg-tertiary);
+      }
+      .scenario-btn .scenario-title {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 2px;
+      }
+      .scenario-btn .scenario-detail {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .theme-row {
+        display: flex;
+        gap: 4px;
+      }
+      .theme-row button {
+        flex: 1;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        padding: 6px 8px;
+        font-size: 11px;
+        border-radius: 6px;
+        cursor: pointer;
+        text-transform: capitalize;
+      }
+      .theme-row button.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+
+      /* =============================================================================
+         Preview area
+         ============================================================================= */
+      .preview {
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .preview-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        box-shadow: var(--shadow);
+      }
+      .preview-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .preview-section-title::before {
+        content: "";
+        width: 3px;
+        height: 14px;
+        background: var(--primary);
+        border-radius: 2px;
+      }
+
+      /* =============================================================================
+         Modal mock — replicates #itemModal slice from index.html
+         ============================================================================= */
+      .modal-mock {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      .modal-mock .modal-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal-mock .modal-header h2 {
+        font-size: 0.92rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .modal-mock .modal-body {
+        padding: 16px;
+      }
+      .form-section {
+        border: 1px solid var(--glass-input-border);
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        background: transparent;
+      }
+      .form-section-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.55rem 0.7rem;
+        background: transparent;
+        font-weight: 700;
+        font-size: 0.72rem;
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-bottom: 1px solid var(--glass-input-border);
+      }
+      .form-section-icon {
+        color: var(--primary);
+        display: inline-flex;
+      }
+      .form-section-body {
+        padding: 0.75rem;
+        display: grid;
+        gap: 0.5rem;
+      }
+      .grid {
+        display: grid;
+        gap: 0.5rem;
+      }
+      .grid-2 {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+      label.glass-label {
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+        margin-bottom: 0.2rem;
+      }
+      label.glass-label .optional {
+        font-weight: 400;
+        opacity: 0.6;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+      input.glass-input {
+        width: 100%;
+        background: var(--glass-input-bg);
+        color: var(--text-primary);
+        border: 1.5px solid var(--glass-input-border);
+        border-radius: 8px;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
+        font-family: inherit;
+        transition:
+          background 0.2s,
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      input.glass-input:focus {
+        outline: none;
+        background: var(--glass-input-focus-bg);
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+      }
+      /* Strip native number spinners — beta build removed these */
+      input.glass-input[type="number"]::-webkit-outer-spin-button,
+      input.glass-input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input.glass-input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+      .currency-input {
+        position: relative;
+      }
+      .currency-input::before {
+        content: "$";
+        position: absolute;
+        left: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-weight: 500;
+        font-size: 0.85rem;
+        pointer-events: none;
+        z-index: 1;
+      }
+      .currency-input input {
+        padding-left: 1.4rem;
+      }
+      .helper-text {
+        margin-top: 4px;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        line-height: 1.3;
+      }
+      .helper-text.lot-mode {
+        color: var(--primary);
+      }
+      .helper-text strong {
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+
+      /* =============================================================================
+         Lot ⇄ Each toggle — matches .chip-sort-toggle pattern
+         ============================================================================= */
+      .label-with-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 0.2rem;
+      }
+      .label-with-toggle .glass-label {
+        margin-bottom: 0;
+      }
+      .lot-each-toggle {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .lot-each-btn {
+        padding: 0.18rem 0.55rem;
+        border: none;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        font-size: 0.7rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        transition:
+          background 0.15s,
+          color 0.15s;
+        font-family: inherit;
+      }
+      .lot-each-btn:not(:last-child) {
+        border-right: 1px solid var(--border);
+      }
+      .lot-each-btn:hover:not(.active) {
+        background: var(--bg-secondary);
+      }
+      .lot-each-btn.active {
+        background: var(--primary);
+        color: #fff;
+      }
+
+      /* =============================================================================
+         Live previews — stored data, view modal, table row
+         ============================================================================= */
+      .preview-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 900px) {
+        .preview-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .mini-preview {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px;
+      }
+      .mini-preview h3 {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+      }
+      .stored-data {
+        font-family: "SF Mono", "Fira Code", Consolas, monospace;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+      .stored-data .key {
+        color: var(--text-muted);
+      }
+      .stored-data .val {
+        color: var(--success);
+        font-weight: 600;
+      }
+      .stored-data .computed {
+        color: var(--primary);
+        font-weight: 600;
+      }
+      .stored-data .warn {
+        color: var(--warning);
+        font-weight: 600;
+      }
+      .stored-data .comment {
+        color: var(--text-muted);
+      }
+      .stored-data .divider {
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--border);
+      }
+
+      /* View item modal preview — Purchase row */
+      .view-item-row {
+        display: grid;
+        grid-template-columns: 90px 1fr;
+        gap: 8px;
+        font-size: 0.82rem;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .view-item-row:last-child {
+        border-bottom: none;
+      }
+      .view-item-row .vlabel {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 700;
+        color: var(--text-muted);
+        align-self: center;
+      }
+      .view-item-row .vval {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .view-item-row .vval .each {
+        font-weight: 400;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        margin-left: 6px;
+      }
+      .view-item-row .vval .date {
+        font-weight: 400;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        margin-left: 6px;
+      }
+
+      /* Table row preview */
+      .table-preview {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+      }
+      .table-preview th {
+        text-align: left;
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .table-preview td {
+        padding: 8px;
+        color: var(--text-primary);
+      }
+      .table-preview .col-purchase-old {
+        color: var(--danger);
+        text-decoration: line-through;
+      }
+      .table-preview .col-purchase-new {
+        color: var(--success);
+        font-weight: 600;
+      }
+      .table-preview .pill {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 999px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .table-preview .pill.before {
+        background: rgba(220, 38, 38, 0.15);
+        color: var(--danger);
+      }
+      .table-preview .pill.after {
+        background: rgba(5, 150, 105, 0.15);
+        color: var(--success);
+      }
+
+      /* Reddit quote callout */
+      .reddit-callout {
+        background: var(--bg-secondary);
+        border-left: 3px solid var(--warning);
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        font-style: italic;
+        margin-bottom: 14px;
+      }
+      .reddit-callout .reddit-author {
+        display: block;
+        font-style: normal;
+        font-weight: 600;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+
+      /* Validation banner */
+      .validation-warn {
+        margin-top: 8px;
+        padding: 6px 10px;
+        background: rgba(217, 119, 6, 0.12);
+        border: 1px solid var(--warning);
+        border-radius: 6px;
+        font-size: 0.72rem;
+        color: var(--warning);
+        display: none;
+      }
+      .validation-warn.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- =============================================================================
+         CONTROLS PANEL
+         ============================================================================= -->
+    <aside class="controls">
+      <div>
+        <h1>STRK-4 Lot ⇄ Each</h1>
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px">
+          Purchase Price entry mode prototype.
+        </p>
+      </div>
+
+      <div class="group">
+        <h2>Theme</h2>
+        <div class="theme-row">
+          <button data-theme-btn="light">Light</button>
+          <button data-theme-btn="dark" class="active">Dark</button>
+          <button data-theme-btn="sepia">Sepia</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Form values</h2>
+        <label class="field">
+          Quantity
+          <input type="number" id="ctrlQty" min="0" step="1" value="4" />
+        </label>
+        <label class="field">
+          Purchase Price (input)
+          <input type="number" id="ctrlPrice" min="0" step="0.01" value="400" />
+        </label>
+        <label class="field">
+          Purchase date
+          <input type="date" id="ctrlDate" value="2026-04-27" />
+        </label>
+      </div>
+
+      <div class="group">
+        <h2>Try a scenario</h2>
+        <div class="scenarios">
+          <button class="scenario-btn" data-scenario="reddit">
+            <span class="scenario-title">Reddit user (lot)</span>
+            <span class="scenario-detail">120 half-dollars · $120 lot</span>
+          </button>
+          <button class="scenario-btn" data-scenario="test-coin">
+            <span class="scenario-title">Test coin (each)</span>
+            <span class="scenario-detail">4× gold · $100 each</span>
+          </button>
+          <button class="scenario-btn" data-scenario="single">
+            <span class="scenario-title">Single coin</span>
+            <span class="scenario-detail">1× ASE · $33.50</span>
+          </button>
+          <button class="scenario-btn" data-scenario="invalid">
+            <span class="scenario-title">Invalid lot (qty=0)</span>
+            <span class="scenario-detail">Lot mode validation</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="group" style="font-size: 11px; color: var(--text-muted)">
+        <h2>Notes</h2>
+        <p style="line-height: 1.5">
+          • Toggle defaults to <strong>Each</strong> on every form open.<br />
+          • In Lot mode, <code>item.price</code> is stored as <code>input ÷ qty</code>.<br />
+          • View modal &amp; table show totals when qty &gt; 1.<br />
+          • Mode is UI-only — never persisted on the item.
+        </p>
+      </div>
+    </aside>
+
+    <!-- =============================================================================
+         PREVIEW AREA
+         ============================================================================= -->
+    <main class="preview">
+      <!-- Reddit quote -->
+      <div class="reddit-callout">
+        <span class="reddit-author">r/staktrakr · u/dddqqq69 · 2026-04-27</span>
+        "So I put 120 half dollars in and for purchase price used the price paid for the whole lot.
+        It multiplies the whole lot purchase price by the unit quantity. How do I change it so the
+        purchase price is for the whole lot as opposed to each unit."
+      </div>
+
+      <!-- ─── ADD ITEM MODAL SLICE ─── -->
+      <section class="preview-section">
+        <div class="preview-section-title">Add Item modal — Pricing &amp; Details slice</div>
+        <div class="modal-mock">
+          <div class="modal-header"><h2>Add Inventory Item</h2></div>
+          <div class="modal-body">
+            <div class="form-section">
+              <div class="form-section-header">
+                <span class="form-section-icon">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="12" y1="1" x2="12" y2="23" />
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                  </svg>
+                </span>
+                Pricing &amp; Details
+              </div>
+              <div class="form-section-body">
+                <!-- Row 1: Quantity (left half only — matches production grid-2 layout
+                     where Quantity is paired with Weight in the real form) -->
+                <div class="grid grid-2">
+                  <div>
+                    <label class="glass-label" for="formQty">Quantity</label>
+                    <input
+                      class="glass-input"
+                      type="number"
+                      id="formQty"
+                      min="0"
+                      step="1"
+                      value="4"
+                    />
+                  </div>
+                  <div></div>
+                </div>
+
+                <!-- Row 2: Purchase Date (left) + Purchase Price (right) — matches
+                     the production .grid.grid-2 row at index.html:2128. The new
+                     Lot/Each toggle sits inside the right column only. -->
+                <div class="grid grid-2">
+                  <div>
+                    <label class="glass-label" for="formDate">
+                      Purchase Date <span class="optional">(optional)</span>
+                    </label>
+                    <input class="glass-input" type="date" id="formDate" value="2026-04-27" />
+                  </div>
+                  <div>
+                    <div class="label-with-toggle">
+                      <label class="glass-label" for="formPrice">Purchase Price</label>
+                      <div
+                        class="lot-each-toggle"
+                        id="lotEachToggle"
+                        title="Choose how you entered this purchase"
+                      >
+                        <button type="button" class="lot-each-btn active" data-mode="each">
+                          Each
+                        </button>
+                        <button type="button" class="lot-each-btn" data-mode="lot">Lot</button>
+                      </div>
+                    </div>
+                    <div class="currency-input">
+                      <input
+                        class="glass-input"
+                        type="number"
+                        id="formPrice"
+                        min="0"
+                        step="0.01"
+                        value="400"
+                      />
+                    </div>
+                    <div class="helper-text" id="helperText"></div>
+                    <div class="validation-warn" id="validationWarn">
+                      Cannot use Lot mode with a quantity of 0. Set quantity to at least 1.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── DOWNSTREAM PREVIEWS ─── -->
+      <section class="preview-section">
+        <div class="preview-section-title">Downstream — what gets stored, displayed, sorted</div>
+        <div class="preview-grid">
+          <!-- Stored data -->
+          <div class="mini-preview">
+            <h3>Stored item shape</h3>
+            <div class="stored-data" id="storedData"></div>
+            <p
+              style="
+                margin-top: 10px;
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                line-height: 1.4;
+              "
+            >
+              <code>item.price</code> is always per-unit. Lot mode divides the input by qty before
+              save — no schema migration, exports/charts unchanged.
+            </p>
+          </div>
+
+          <!-- View Item modal -->
+          <div class="mini-preview">
+            <h3>View Item modal — Purchase row</h3>
+            <div class="view-item-row">
+              <span class="vlabel">Purchase</span>
+              <span class="vval" id="viewItemPurchase"></span>
+            </div>
+            <p
+              style="
+                margin-top: 10px;
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                line-height: 1.4;
+              "
+            >
+              When <code>qty &gt; 1</code>, show both totals and per-unit. When
+              <code>qty === 1</code>, show only the single value.
+            </p>
+          </div>
+
+          <!-- Inventory table -->
+          <div class="mini-preview" style="grid-column: 1 / -1">
+            <h3>Inventory table — Purchase column</h3>
+            <table class="table-preview">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Qty</th>
+                  <th>
+                    <span class="pill before">Before</span>
+                    Purchase (per-unit)
+                  </th>
+                  <th>
+                    <span class="pill after">After</span>
+                    Purchase (total)
+                  </th>
+                  <th>Melt</th>
+                  <th>Retail</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td id="rowName">TEST COIN</td>
+                  <td id="rowQty">4</td>
+                  <td class="col-purchase-old" id="rowPurchaseOld">$100.00</td>
+                  <td class="col-purchase-new" id="rowPurchaseNew">$400.00</td>
+                  <td>$18,866.11</td>
+                  <td>$18,866.11</td>
+                </tr>
+              </tbody>
+            </table>
+            <p
+              style="
+                margin-top: 10px;
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                line-height: 1.4;
+              "
+            >
+              Today: Purchase column shows per-unit while Melt/Retail show totals — the
+              inconsistency that bit the Reddit reporter. Fix renders
+              <code>qty × item.price</code> like the other columns.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      // ── State ────────────────────────────────────────────────────────────────
+      const state = {
+        mode: "each", // 'each' | 'lot'
+        qty: 4,
+        priceInput: 400,
+        date: "2026-04-27",
+        name: "TEST COIN",
+      };
+
+      // ── Helpers ──────────────────────────────────────────────────────────────
+      const fmtCurrency = (n) => {
+        const num = Number(n);
+        return n == null || Number.isNaN(num)
+          ? "—"
+          : "$" +
+              num.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+      };
+
+      const fmtDate = (iso) => {
+        if (!iso) return "";
+        const d = new Date(iso + "T00:00:00");
+        if (Number.isNaN(d.getTime())) return iso;
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        const y = String(d.getFullYear()).slice(-2);
+        return `${m}/${day}/${y}`;
+      };
+
+      // Build a span with a class and text — safe DOM construction helper
+      const span = (cls, text) => {
+        const el = document.createElement("span");
+        if (cls) el.className = cls;
+        if (text !== undefined) el.textContent = text;
+        return el;
+      };
+      const text = (s) => document.createTextNode(s);
+      const clear = (el) => {
+        while (el.firstChild) el.removeChild(el.firstChild);
+      };
+
+      // Compute what would be stored as item.price
+      function deriveStoredPrice() {
+        const qty = Math.max(0, Number(state.qty) || 0);
+        const input = Number(state.priceInput) || 0;
+        if (state.mode === "lot") {
+          if (qty < 1) return { perUnit: null, total: input, invalid: true };
+          return { perUnit: input / qty, total: input, invalid: false };
+        }
+        return { perUnit: input, total: input * qty, invalid: false };
+      }
+
+      // ── Renderers ────────────────────────────────────────────────────────────
+      function renderHelper() {
+        const helper = document.getElementById("helperText");
+        const warn = document.getElementById("validationWarn");
+        const qty = Math.max(0, Number(state.qty) || 0);
+        const { perUnit, total, invalid } = deriveStoredPrice();
+        clear(helper);
+
+        if (state.mode === "lot") {
+          helper.classList.add("lot-mode");
+          helper.appendChild(span(null, "Lot — total paid for all "));
+          helper.appendChild(span(null, String(qty))).style.fontWeight = "600";
+          helper.appendChild(text(" items."));
+          if (invalid) {
+            warn.classList.add("visible");
+          } else {
+            warn.classList.remove("visible");
+            helper.appendChild(text(" Saved as "));
+            const each = span(null, fmtCurrency(perUnit));
+            each.style.fontWeight = "600";
+            helper.appendChild(each);
+            helper.appendChild(text(" each."));
+          }
+        } else {
+          helper.classList.remove("lot-mode");
+          warn.classList.remove("visible");
+          helper.appendChild(span(null, "Each — price per single item."));
+          if (qty > 1) {
+            helper.appendChild(text(" Total for "));
+            const q = span(null, String(qty));
+            q.style.fontWeight = "600";
+            helper.appendChild(q);
+            helper.appendChild(text(": "));
+            const t = span(null, fmtCurrency(total));
+            t.style.fontWeight = "600";
+            helper.appendChild(t);
+            helper.appendChild(text("."));
+          }
+        }
+      }
+
+      function renderStored() {
+        const { perUnit, total, invalid } = deriveStoredPrice();
+        const qty = Math.max(0, Number(state.qty) || 0);
+        const el = document.getElementById("storedData");
+        clear(el);
+
+        const line = (key, valueNode, comment) => {
+          const div = document.createElement("div");
+          div.appendChild(span("key", key));
+          div.appendChild(text(" = "));
+          div.appendChild(valueNode);
+          if (comment) {
+            div.appendChild(text(" "));
+            div.appendChild(span("comment", comment));
+          }
+          return div;
+        };
+
+        el.appendChild(line("item.qty", span("val", String(qty))));
+        el.appendChild(
+          line(
+            "item.price",
+            invalid ? span("warn", "— (blocked: qty < 1)") : span("val", fmtCurrency(perUnit)),
+            "// per-unit"
+          )
+        );
+        el.appendChild(line("item.date", span("val", `"${state.date}"`)));
+
+        const divider = document.createElement("div");
+        divider.className = "divider";
+        divider.appendChild(span("key", "qty × price"));
+        divider.appendChild(text(" = "));
+        divider.appendChild(span("computed", fmtCurrency(total)));
+        divider.appendChild(text(" "));
+        divider.appendChild(span("comment", "// derived for display"));
+        el.appendChild(divider);
+      }
+
+      function renderViewItem() {
+        const { perUnit, total } = deriveStoredPrice();
+        const qty = Math.max(0, Number(state.qty) || 0);
+        const el = document.getElementById("viewItemPurchase");
+        const date = fmtDate(state.date);
+        clear(el);
+
+        if (qty > 1) {
+          el.appendChild(text(fmtCurrency(total) + " "));
+          el.appendChild(span("each", "total · " + fmtCurrency(perUnit) + " each"));
+        } else {
+          el.appendChild(text(fmtCurrency(perUnit)));
+        }
+        if (date) {
+          el.appendChild(text(" "));
+          el.appendChild(span("date", "(" + date + ")"));
+        }
+      }
+
+      function renderTableRow() {
+        const { perUnit, total } = deriveStoredPrice();
+        const qty = Math.max(0, Number(state.qty) || 0);
+        document.getElementById("rowName").textContent = state.name;
+        document.getElementById("rowQty").textContent = String(qty);
+        document.getElementById("rowPurchaseOld").textContent = fmtCurrency(perUnit);
+        document.getElementById("rowPurchaseNew").textContent = fmtCurrency(total);
+      }
+
+      function renderAll() {
+        renderHelper();
+        renderStored();
+        renderViewItem();
+        renderTableRow();
+      }
+
+      // ── Wiring ───────────────────────────────────────────────────────────────
+      // Lot/Each toggle
+      document.querySelectorAll(".lot-each-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".lot-each-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          state.mode = btn.dataset.mode;
+          renderAll();
+        });
+      });
+
+      // Form fields (and their sidebar twins)
+      const bind = (formId, ctrlId, key, parser) => {
+        const formEl = document.getElementById(formId);
+        const ctrlEl = document.getElementById(ctrlId);
+        const sync = (src) => {
+          state[key] = parser ? parser(src.value) : src.value;
+          if (src === ctrlEl) formEl.value = src.value;
+          else ctrlEl.value = src.value;
+          renderAll();
+        };
+        formEl.addEventListener("input", () => sync(formEl));
+        ctrlEl.addEventListener("input", () => sync(ctrlEl));
+      };
+      bind("formQty", "ctrlQty", "qty", (v) => Number(v));
+      bind("formPrice", "ctrlPrice", "priceInput", (v) => Number(v));
+      bind("formDate", "ctrlDate", "date", (v) => v);
+
+      // Theme switcher
+      document.querySelectorAll("[data-theme-btn]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll("[data-theme-btn]")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const t = btn.dataset.themeBtn;
+          if (t === "light") document.documentElement.removeAttribute("data-theme");
+          else document.documentElement.setAttribute("data-theme", t);
+        });
+      });
+
+      // Scenario buttons
+      const scenarios = {
+        reddit: { mode: "lot", qty: 120, priceInput: 120, name: "Walking Liberty Half" },
+        "test-coin": { mode: "each", qty: 4, priceInput: 100, name: "TEST COIN" },
+        single: { mode: "each", qty: 1, priceInput: 33.5, name: "American Silver Eagle" },
+        invalid: { mode: "lot", qty: 0, priceInput: 200, name: "Invalid lot" },
+      };
+      document.querySelectorAll("[data-scenario]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const s = scenarios[btn.dataset.scenario];
+          if (!s) return;
+          state.mode = s.mode;
+          state.qty = s.qty;
+          state.priceInput = s.priceInput;
+          state.name = s.name;
+
+          // Sync DOM
+          document.getElementById("formQty").value = s.qty;
+          document.getElementById("ctrlQty").value = s.qty;
+          document.getElementById("formPrice").value = s.priceInput;
+          document.getElementById("ctrlPrice").value = s.priceInput;
+          document.querySelectorAll(".lot-each-btn").forEach((b) => {
+            b.classList.toggle("active", b.dataset.mode === s.mode);
+          });
+          renderAll();
+        });
+      });
+
+      // Initial paint
+      renderAll();
+    </script>
+  </body>
+</html>

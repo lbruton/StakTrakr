@@ -129,11 +129,12 @@ Do not merge. Do not mark ready. Do not delete the worktree — user does final 
 
 ## SpecFlow Approval Path Note
 
-- In this repo, `mcp__specflow__approvals` resolves `filePath` from workflow root:
-  - `/Volumes/DATA/GitHub/DocVault/specflow/SpecFlow`
-- For StakTrakr specs, use:
-  - `../StakTrakr/specs/<spec-name>/<doc>.md`
+- In this repo, `mcp__specflow__approvals` resolves StakTrakr approval paths from:
+  - `/Volumes/DATA/GitHub/DocVault/specflow/StakTrakr`
+- For StakTrakr specs, use dashboard-safe workflow-root paths with no `..` segments:
+  - `specs/<spec-name>/<doc>.md`
 - Do **not** use:
+  - `../StakTrakr/specs/<spec-name>/<doc>.md` (approval records may be created, but the dashboard approval preview rejects stored paths containing `..` and can render blank)
   - `../DocVault/specflow/StakTrakr/...` (this resolves to a non-existent nested path and shows blank approval docs in dashboard)
 
 ## SpecFlow Approval Guardrail
@@ -146,8 +147,9 @@ For Codex runs in this repository:
 
 - Always create StakTrakr spec documents under `DocVault/specflow/StakTrakr/specs/...`
 - Always call `mcp__specflow__approvals` with:
-  - `filePath: ../StakTrakr/specs/<spec-name>/<doc>.md`
+  - `filePath: specs/<spec-name>/<doc>.md`
 - After every approval request, immediately verify where the approval JSON was written
+- Open the approval preview in the dashboard before telling the user to review it; if the preview is blank but the spec document page works, check the stored `filePath` for `..`
 - Expected approval location for StakTrakr:
   - `DocVault/specflow/StakTrakr/approvals/<spec-name>/...`
 - Suspicious or misrouted approval location:
@@ -160,6 +162,21 @@ Approval success from the MCP tool is not sufficient in this repo. The storage l
 checked as a postcondition.
 
 ## Session Lessons
+
+### Playwright Agent Concurrency Guardrail
+
+Playwright and browser-heavy tasks open many file descriptors through Chromium,
+Node, pipes, logs, and MCP/runtime streams. To avoid `Too many open files
+(os error 24)` during spec or review work:
+
+- Run no more than 2 subagents in parallel when any active task runs Playwright,
+  starts a browser, inspects browser output, or reviews Playwright artifacts.
+- Prefer serial review after Playwright runs when the task already launched
+  Chromium in the same worktree.
+- Close completed subagents before starting another Playwright batch.
+- If `Too many open files` appears, stop dispatching new agents, close finished
+  agents, let Playwright/Chromium processes exit, and resume with smaller
+  batches after the runtime recovers.
 
 ### Stale Worktree Lock Guardrail
 
