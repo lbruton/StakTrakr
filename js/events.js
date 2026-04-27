@@ -54,6 +54,68 @@ const optionalListener = (el, event, handler, label) => {
 };
 
 // =============================================================================
+// PURCHASE PRICE MODE STATE
+// =============================================================================
+
+let purchasePriceMode = "each";
+
+const getPurchasePriceToggleButtons = () => {
+  const toggle = safeGetElement("purchasePriceModeToggle");
+  if (!toggle) return [];
+
+  return Array.from(toggle.children).filter((child) => child.dataset?.mode);
+};
+
+const setPurchasePriceMode = (mode) => {
+  purchasePriceMode = mode === "lot" ? "lot" : "each";
+
+  getPurchasePriceToggleButtons().forEach((button) => {
+    const isActive = button.dataset.mode === purchasePriceMode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+};
+
+const updatePurchaseHelper = () => {
+  const helper = safeGetElement("purchasePriceHelper");
+  if (!helper) return;
+
+  const qtyInput = elements.itemQty?.value?.trim() ?? "";
+  const priceInput = elements.itemPrice?.value?.trim() ?? "";
+  const qty = parseInt(qtyInput, 10);
+  const price = parseFloat(priceInput) || 0;
+  let helperText;
+
+  if (purchasePriceMode === "lot") {
+    if (!Number.isFinite(qty) || qty <= 0) {
+      helperText = "Lot mode requires a quantity of at least 1.";
+    } else {
+      helperText = `Lot \u2014 total paid for all ${qty} items. Saved as ${formatCurrency(
+        price / qty
+      )} each.`;
+    }
+  } else if (Number.isFinite(qty) && qty > 1) {
+    helperText = `Each \u2014 price per single item. Total for ${qty}: ${formatCurrency(
+      qty * price
+    )}.`;
+  } else {
+    helperText = "Each \u2014 price per single item.";
+  }
+
+  const textNode = document.createElement("span");
+  textNode.textContent = helperText;
+  helper.textContent = "";
+  helper.appendChild(textNode);
+};
+
+const resetPurchasePriceToggle = () => {
+  setPurchasePriceMode("each");
+  updatePurchaseHelper();
+};
+
+window.resetPurchasePriceToggle = resetPurchasePriceToggle;
+
+// =============================================================================
 // IMAGE UPLOAD STATE (STACK-32) — Dual obverse/reverse support
 // =============================================================================
 
@@ -1073,6 +1135,14 @@ const parseItemFormFields = (isEditing, existingItem) => {
 
   const nameInput = elements.itemName.value.trim();
   const qtyInput = elements.itemQty.value.trim();
+  const parsedQty =
+    qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : parseInt(qtyInput, 10);
+  let priceInput = elements.itemPrice.value.trim();
+
+  if (purchasePriceMode === "lot" && priceInput !== "") {
+    const rawInput = parseFloat(priceInput) || 0;
+    priceInput = parsedQty > 0 ? String(rawInput / parsedQty) : "0";
+  }
 
   const weightUnit = elements.itemWeightUnit.value;
   const weightRaw =
@@ -1096,13 +1166,14 @@ const parseItemFormFields = (isEditing, existingItem) => {
     // before parseNumistaMetal's "Alloy" coercion masks them as truthy.
     _rawMetal: rawMetal,
     _rawType: rawType,
+    _rawQty: qtyInput,
     _isEditing: isEditing,
     name: isEditing ? nameInput || existingItem.name || "" : nameInput,
-    qty: qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : parseInt(qtyInput, 10),
+    qty: parsedQty,
     type: elements.itemType.value || (isEditing ? existingItem.type : ""),
     weight: parseWeight(weightRaw, weightUnit, isEditing, existingItem),
     weightUnit,
-    price: parsePriceToUSD(elements.itemPrice.value.trim(), fxRate, isEditing, existingItem.price),
+    price: parsePriceToUSD(priceInput, fxRate, isEditing, existingItem.price),
     purchaseLocation: elements.purchaseLocation.value.trim(),
     storageLocation: elements.storageLocation.value.trim(),
     serialNumber: elements.itemSerialNumber?.value?.trim() ?? "",
@@ -1201,6 +1272,13 @@ const validateItemFields = (f) => {
   // selects from existing data so this should never trigger there.
   if (!f._isEditing && (!f._rawMetal || !f._rawType)) {
     return "Please select a Metal and Type before saving.";
+  }
+  if (purchasePriceMode === "lot") {
+    const rawQty = f._rawQty?.trim() ?? "";
+    const lotQty = rawQty === "" ? NaN : parseInt(rawQty, 10);
+    if (rawQty === "" || isNaN(lotQty) || lotQty <= 0) {
+      return "Lot mode requires a quantity of at least 1.";
+    }
   }
   if (
     !f.name ||
@@ -1760,6 +1838,27 @@ const setupItemFormListeners = () => {
   } else {
     console.error("Main inventory form not found!");
   }
+
+  getPurchasePriceToggleButtons().forEach((button) => {
+    safeAttachListener(
+      button,
+      "click",
+      () => {
+        setPurchasePriceMode(button.dataset.mode);
+        updatePurchaseHelper();
+      },
+      `Purchase price ${button.dataset.mode} toggle`
+    );
+  });
+
+  optionalListener(elements.itemQty, "input", updatePurchaseHelper, "Purchase price qty helper");
+  optionalListener(
+    elements.itemPrice,
+    "input",
+    updatePurchaseHelper,
+    "Purchase price input helper"
+  );
+  resetPurchasePriceToggle();
 
   // UNDO CHANGE BUTTON
   if (elements.undoChangeBtn) {
@@ -3341,6 +3440,7 @@ const setupSearch = () => {
             elements.inventoryForm.reset();
             elements.itemWeightUnit.value = "oz";
             elements.itemDate.value = todayStr();
+            resetPurchasePriceToggle();
           }
           // STAK-580: form.reset() honors `selected` on the placeholder, but be
           // explicit so this stays correct if the HTML ever changes.

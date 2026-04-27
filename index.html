@@ -1686,7 +1686,11 @@
                   </svg>
                   <span class="header-text">Weight</span>
                 </th>
-                <th class="shrink" data-column="purchasePrice" title="USD">
+                <th
+                  class="shrink"
+                  data-column="purchasePrice"
+                  title="Total purchase value (qty × per-unit) · Click to search eBay active listings"
+                >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
                     <line x1="12" y1="1" x2="12" y2="23" />
                     <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -2145,7 +2149,21 @@
                 </div>
               </div>
               <div>
-                <label for="itemPrice">Purchase Price</label>
+                <div class="label-with-toggle">
+                  <label for="itemPrice">Purchase Price</label>
+                  <div
+                    class="chip-sort-toggle"
+                    id="purchasePriceModeToggle"
+                    role="group"
+                    aria-label="Purchase price mode"
+                    title="Choose how you entered this purchase"
+                  >
+                    <button type="button" class="chip-sort-btn active" data-mode="each">
+                      Each
+                    </button>
+                    <button type="button" class="chip-sort-btn" data-mode="lot">Lot</button>
+                  </div>
+                </div>
                 <div class="currency-input input-with-action">
                   <input id="itemPrice" min="0" step="0.01" type="number" />
                   <button
@@ -2170,6 +2188,9 @@
                       <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                     </svg>
                   </button>
+                </div>
+                <div class="helper-text" id="purchasePriceHelper" aria-live="polite">
+                  Each — price per single item.
                 </div>
               </div>
             </div>

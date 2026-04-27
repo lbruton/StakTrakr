@@ -478,7 +478,8 @@ function _buildValuationSection(item, metrics) {
     metrics.currentSpot > 0
       ? metrics.weightOz * metrics.qty * metrics.currentSpot * metrics.purity
       : 0;
-  const purchaseTotal = metrics.qty * (parseFloat(item.price) || 0);
+  const purchasePrice = parseFloat(item.price) || 0;
+  const purchaseTotal = metrics.qty * purchasePrice;
   const marketVal = parseFloat(item.marketValue) || 0;
   const retailTotal = marketVal > 0 ? metrics.qty * marketVal : meltValue;
   const gainLoss = retailTotal > 0 ? retailTotal - purchaseTotal : null;
@@ -490,9 +491,11 @@ function _buildValuationSection(item, metrics) {
       ? formatDisplayDate(item.date)
       : item.date
     : "";
-  const purchaseLabel = purchaseDateStr
-    ? `${formatCurrency(purchaseTotal)} (${purchaseDateStr})`
-    : formatCurrency(purchaseTotal);
+  const purchaseBody =
+    metrics.qty > 1
+      ? `${formatCurrency(purchaseTotal)} total \u00b7 ${formatCurrency(purchasePrice)} each`
+      : formatCurrency(purchasePrice);
+  const purchaseLabel = purchaseDateStr ? `${purchaseBody} (${purchaseDateStr})` : purchaseBody;
   _addDetail(valGrid, "Purchase", purchaseLabel);
   _addDetail(valGrid, "Melt Value", metrics.currentSpot > 0 ? formatCurrency(meltValue) : "—");
   _addDetail(valGrid, "Retail", retailTotal > 0 ? formatCurrency(retailTotal) : "—");

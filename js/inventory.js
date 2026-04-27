@@ -988,6 +988,10 @@ const editItem = (idx, logIdx = null) => {
     window.toggleDimensionFields(shapeEl.value);
   }
 
+  if (typeof window.resetPurchasePriceToggle === "function") {
+    window.resetPurchasePriceToggle();
+  }
+
   // STAK-343: Populate tags in edit modal
   if (item.uuid && typeof getItemTags === "function") {
     const itemTagsChips = safeGetElement("itemModalTagsChips", true);
@@ -1168,6 +1172,10 @@ const duplicateItem = (idx) => {
 
   // Update currency symbols in modal (STACK-50)
   if (typeof updateModalCurrencyUI === "function") updateModalCurrencyUI();
+
+  if (typeof window.resetPurchasePriceToggle === "function") {
+    window.resetPurchasePriceToggle();
+  }
 
   // Open unified modal
   if (window.openModalById) openModalById("itemModal");

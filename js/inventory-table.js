@@ -413,11 +413,9 @@
           typeof computeItemValuation === "function"
             ? computeItemValuation(item, currentSpot)
             : null;
-        const purchasePrice = valuation
-          ? valuation.purchasePrice
-          : typeof item.price === "number"
-            ? item.price
-            : parseFloat(item.price) || 0;
+        const purchaseTotal = valuation
+          ? valuation.purchaseTotal
+          : (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
         const meltValue = valuation ? valuation.meltValue : computeMeltValue(item, currentSpot);
         const gbDenomPrice = valuation ? valuation.gbDenomPrice : null;
         const isManualRetail = valuation ? valuation.isManualRetail : false;
@@ -596,7 +594,7 @@
       <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit), WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
       <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Price (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
-          ${formatCurrency(purchasePrice)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </a>
       </td>
       <td class="shrink" data-column="meltValue" data-label="Melt" title="Melt Value (${displayCurrency})" style="color: var(--text-primary);">${meltDisplay}</td>
