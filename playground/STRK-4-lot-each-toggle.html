@@ -863,14 +863,16 @@
       };
 
       // ── Helpers ──────────────────────────────────────────────────────────────
-      const fmtCurrency = (n) =>
-        n === null || n === undefined || Number.isNaN(n)
+      const fmtCurrency = (n) => {
+        const num = Number(n);
+        return n == null || Number.isNaN(num)
           ? "—"
           : "$" +
-            Number(n).toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            });
+              num.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+      };
 
       const fmtDate = (iso) => {
         if (!iso) return "";
