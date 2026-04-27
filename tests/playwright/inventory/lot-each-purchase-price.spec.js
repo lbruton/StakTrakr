@@ -62,8 +62,8 @@ async function seedData(page, options = {}) {
       localStorage.setItem("displayCurrency", JSON.stringify(currency));
       localStorage.setItem("exchangeRates", JSON.stringify(rates));
       localStorage.setItem("metalSpotHistory", JSON.stringify(history));
-      localStorage.setItem("sortColumn", "4");
-      localStorage.setItem("sortDirection", "asc");
+      localStorage.setItem("defaultSortColumn", "4");
+      localStorage.setItem("defaultSortDir", "asc");
 
       document.addEventListener(
         "DOMContentLoaded",

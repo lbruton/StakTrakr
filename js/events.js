@@ -60,7 +60,7 @@ const optionalListener = (el, event, handler, label) => {
 let purchasePriceMode = "each";
 
 const getPurchasePriceToggleButtons = () => {
-  const toggle = safeGetElement("purchasePriceModeToggle");
+  const toggle = document.getElementById("purchasePriceModeToggle");
   if (!toggle) return [];
 
   return Array.from(toggle.children).filter((child) => child.dataset?.mode);
@@ -1127,13 +1127,12 @@ const parseItemFormFields = (isEditing, existingItem) => {
 
   const nameInput = elements.itemName.value.trim();
   const qtyInput = elements.itemQty.value.trim();
-  const parsedQty =
-    qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : parseInt(qtyInput, 10);
+  const parsedQty = qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : Number(qtyInput);
   let priceInput = elements.itemPrice.value.trim();
 
   if (purchasePriceMode === "lot" && priceInput !== "") {
     const rawInput = parseFloat(priceInput) || 0;
-    priceInput = parsedQty > 0 ? String(rawInput / parsedQty) : "0";
+    priceInput = parsedQty > 0 ? String(parseFloat((rawInput / parsedQty).toFixed(6))) : "0";
   }
 
   const weightUnit = elements.itemWeightUnit.value;
@@ -1267,8 +1266,8 @@ const validateItemFields = (f) => {
   }
   if (purchasePriceMode === "lot") {
     const rawQty = f._rawQty?.trim() ?? "";
-    const lotQty = rawQty === "" ? NaN : parseInt(rawQty, 10);
-    if (rawQty === "" || isNaN(lotQty) || lotQty <= 0) {
+    const lotQty = rawQty === "" ? NaN : Number(rawQty);
+    if (rawQty === "" || isNaN(lotQty) || !Number.isInteger(lotQty) || lotQty <= 0) {
       return "Lot mode requires a quantity of at least 1.";
     }
   }
