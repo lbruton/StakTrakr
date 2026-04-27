@@ -53,20 +53,20 @@ test.describe(".codacy/codacy.yaml", () => {
     expect(content).toContain("node@");
   });
 
-  test("CY-5 — python runtime is declared", () => {
-    expect(content).toContain("python@");
+  test("CY-5 — opengrep tool is declared (replaced semgrep)", () => {
+    expect(content).toContain("opengrep@");
   });
 
-  test("CY-6 — pmd tool is still declared", () => {
-    expect(content).toContain("pmd@");
+  test("CY-6 — semgrep is NOT present (replaced by opengrep)", () => {
+    expect(content).not.toContain("semgrep@");
   });
 
-  test("CY-7 — pylint tool is still declared", () => {
-    expect(content).toContain("pylint@");
+  test("CY-7 — pmd is NOT present (no Java in repo)", () => {
+    expect(content).not.toContain("pmd@");
   });
 
-  test("CY-8 — semgrep tool is still declared", () => {
-    expect(content).toContain("semgrep@");
+  test("CY-8 — python runtime is NOT present (devops/** excluded from analysis)", () => {
+    expect(content).not.toContain("python@");
   });
 
   test("CY-9 — runtimes section is present", () => {
