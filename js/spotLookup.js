@@ -546,6 +546,9 @@ const useSpotPrice = (spotPrice, timestamp) => {
 
     if (elements.itemPrice) {
       elements.itemPrice.value = displayPrice;
+      if (typeof window.resetPurchasePriceToggle === "function") {
+        window.resetPurchasePriceToggle();
+      }
       flashSpotLookupTarget(elements.itemPrice);
     }
   }

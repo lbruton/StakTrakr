@@ -7438,6 +7438,34 @@ a.about-badge:hover {
   color: #fff;
 }
 
+/* STRK-4: Purchase Price label row — label on the left, compact Lot/Each
+   toggle on the right. Sized so the toggle aligns with the small uppercase
+   label and the right column matches the left (Purchase Date) column height,
+   keeping inputs vertically aligned across the .grid.grid-2 row. */
+.label-with-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+.label-with-toggle > label {
+  margin-bottom: 0;
+}
+
+#purchasePriceModeToggle .chip-sort-btn {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+#purchasePriceModeToggle.is-hidden {
+  display: none;
+}
+
 /* Chip context menu (right-click on name/dynamic chips) */
 .chip-context-menu {
   position: fixed;

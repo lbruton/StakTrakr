@@ -59,8 +59,8 @@ const sortInventory = (data = inventory) => {
         val = parseFloat(item.weight) || 0;
         break; // Weight
       case 7:
-        val = parseFloat(item.price) || 0;
-        break; // Purchase Price
+        val = (parseFloat(item.price) || 0) * (Number(item.qty) || 0);
+        break; // Purchase Total (price × qty)
       case 8: // Melt Value (computed)
         val = computeMeltValue(item, spot);
         break;
