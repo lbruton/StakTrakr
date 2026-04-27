@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.34] - 2026-04-27
+
+### Added — STRK-4: Lot ⇄ Each toggle for Purchase Price
+
+- **Added**: Purchase Price field in the Add/Edit modal now has a segmented Lot / Each toggle. In Lot mode, enter the total paid for the whole lot — the app divides by quantity and stores a per-unit price automatically.
+- **Added**: Toggle visibility is tied to quantity: at qty ≤ 1 the control is hidden and mode resets to Each (Lot and Each are equivalent at that point).
+- **Changed**: Purchase column in the inventory table now shows the qty-multiplied total (price × qty) instead of the per-unit price, matching the column header tooltip.
+- **Fixed**: `parseInt` replaced with `Number()` for quantity parsing so fractional inputs like "2.5" are properly rejected by downstream integer validation instead of being silently truncated.
+
+---
+
 ## [3.34.33] - 2026-04-25
 
 ### Changed — STAK-581: Retail currency conversion phase 1
