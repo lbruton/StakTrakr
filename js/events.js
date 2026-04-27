@@ -74,43 +74,35 @@ const setPurchasePriceMode = (mode) => {
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });
+
+  updatePurchasePricePlaceholder();
 };
 
-const updatePurchaseHelper = () => {
-  const helper = safeGetElement("purchasePriceHelper");
-  if (!helper) return;
+const updatePurchasePricePlaceholder = () => {
+  if (!elements.itemPrice) return;
+  elements.itemPrice.placeholder = purchasePriceMode === "lot" ? "Lot total" : "Each";
+};
 
-  const qtyInput = elements.itemQty?.value?.trim() ?? "";
-  const priceInput = elements.itemPrice?.value?.trim() ?? "";
-  const qty = parseInt(qtyInput, 10);
-  const price = parseFloat(priceInput) || 0;
-  let helperText;
+// Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
+// so the segmented control is hidden and mode is forced to Each.
+const updatePurchasePriceToggleVisibility = () => {
+  const toggle = safeGetElement("purchasePriceModeToggle");
+  if (!toggle) return;
 
-  if (purchasePriceMode === "lot") {
-    if (!Number.isFinite(qty) || qty <= 0) {
-      helperText = "Lot mode requires a quantity of at least 1.";
-    } else {
-      helperText = `Lot \u2014 total paid for all ${qty} items. Saved as ${formatCurrency(
-        price / qty
-      )} each.`;
-    }
-  } else if (Number.isFinite(qty) && qty > 1) {
-    helperText = `Each \u2014 price per single item. Total for ${qty}: ${formatCurrency(
-      qty * price
-    )}.`;
-  } else {
-    helperText = "Each \u2014 price per single item.";
+  const qtyRaw = elements.itemQty?.value?.trim() ?? "";
+  const qty = parseInt(qtyRaw, 10);
+  const showToggle = Number.isFinite(qty) && qty > 1;
+
+  toggle.classList.toggle("is-hidden", !showToggle);
+
+  if (!showToggle && purchasePriceMode === "lot") {
+    setPurchasePriceMode("each");
   }
-
-  const textNode = document.createElement("span");
-  textNode.textContent = helperText;
-  helper.textContent = "";
-  helper.appendChild(textNode);
 };
 
 const resetPurchasePriceToggle = () => {
   setPurchasePriceMode("each");
-  updatePurchaseHelper();
+  updatePurchasePriceToggleVisibility();
 };
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
@@ -1845,18 +1837,16 @@ const setupItemFormListeners = () => {
       "click",
       () => {
         setPurchasePriceMode(button.dataset.mode);
-        updatePurchaseHelper();
       },
       `Purchase price ${button.dataset.mode} toggle`
     );
   });
 
-  optionalListener(elements.itemQty, "input", updatePurchaseHelper, "Purchase price qty helper");
   optionalListener(
-    elements.itemPrice,
+    elements.itemQty,
     "input",
-    updatePurchaseHelper,
-    "Purchase price input helper"
+    updatePurchasePriceToggleVisibility,
+    "Purchase price toggle visibility"
   );
   resetPurchasePriceToggle();
 

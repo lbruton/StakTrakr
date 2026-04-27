@@ -236,8 +236,8 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await seedData(page);
     await gotoApp(page);
     await openAddModal(page);
-    await selectPurchaseMode(page, "lot");
     await fillInventoryForm(page, { name: itemName, qty: "4", price: "400" });
+    await selectPurchaseMode(page, "lot");
     await submitItemForm(page);
 
     const item = await getInventoryItem(page, itemName);
@@ -253,13 +253,13 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await seedData(page);
     await gotoApp(page);
     await openAddModal(page);
-    await selectPurchaseMode(page, "lot");
     await fillInventoryForm(page, {
       name: itemName,
       qty: "120",
       price: "120",
       weight: "0.3617",
     });
+    await selectPurchaseMode(page, "lot");
     await submitItemForm(page);
 
     const item = await getInventoryItem(page, itemName);
@@ -269,47 +269,57 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await expectPurchaseCellText(page, itemName, "$120.00");
   });
 
-  test("7. Qty-zero + Lot blocks submission with appAlert — REQ-1.5", async ({ page }) => {
-    const itemName = "STRK-4 Lot Qty Zero";
-    await seedData(page);
-    await gotoApp(page);
-    await openAddModal(page);
-    await selectPurchaseMode(page, "lot");
-    await fillInventoryForm(page, { name: itemName, qty: "0", price: "120" });
-    await page.click("#itemModalSubmit");
-
-    await expect(page.locator("#itemModal")).toBeVisible();
-    await expect(
-      page.locator(".app-dialog, .dialog, [role='dialog']").filter({
-        hasText: /Lot mode requires a quantity of at least 1/i,
-      })
-    ).toBeVisible();
-    await expect.poll(() => getInventoryItem(page, itemName)).toBeNull();
-  });
-
-  test("8. Helper text live-updates as toggle/qty/price change — REQ-2.1, REQ-2.2, REQ-2.3", async ({
+  test("7. Toggle hides at qty <= 1 and auto-coerces Lot back to Each — STRK-4 QA refinement", async ({
     page,
   }) => {
     await seedData(page);
     await gotoApp(page);
     await openAddModal(page);
-    await expectPurchaseModeTogglePresent(page);
 
-    const helper = page.locator("#purchasePriceHelper");
-    await expect(helper).toHaveAttribute("aria-live", "polite");
+    const toggle = page.locator("#purchasePriceModeToggle");
+
+    // Empty qty → toggle hidden (no mode decision to make)
+    await expect(toggle).toHaveClass(/is-hidden/);
+
+    // qty=1 → still hidden (Lot/Each are equivalent)
     await page.fill("#itemQty", "1");
-    await page.fill("#itemPrice", "100");
-    await expect(helper).toHaveText(/Each.*price per single item/i);
+    await expect(toggle).toHaveClass(/is-hidden/);
 
-    await page.fill("#itemQty", "5");
-    await expect(helper).toContainText("Total for 5: $500.00");
-
-    await selectPurchaseMode(page, "lot");
-    await expect(helper).toContainText("Lot — total paid for all 5 items");
-    await expect(helper).toContainText("Saved as $20.00 each");
-
+    // qty>1 → toggle becomes visible
     await page.fill("#itemQty", "4");
-    await expect(helper).toContainText("Saved as $25.00 each");
+    await expect(toggle).not.toHaveClass(/is-hidden/);
+
+    // Switch to Lot mode while qty>1 is valid
+    await selectPurchaseMode(page, "lot");
+    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+
+    // Drop qty back to 1 → toggle hides AND mode auto-coerces to Each
+    await page.fill("#itemQty", "1");
+    await expect(toggle).toHaveClass(/is-hidden/);
+    await expect(purchaseModeButton(page, "each")).toHaveClass(/active/);
+    await expect(purchaseModeButton(page, "lot")).not.toHaveClass(/active/);
+  });
+
+  test("8. Mode hint renders inline as input placeholder — STRK-4 QA refinement", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    const priceInput = page.locator("#itemPrice");
+
+    // Each is the default mode — placeholder reflects it
+    await expect(priceInput).toHaveAttribute("placeholder", "Each");
+
+    // qty>1 reveals the toggle; switching to Lot updates the placeholder inline
+    await page.fill("#itemQty", "5");
+    await selectPurchaseMode(page, "lot");
+    await expect(priceInput).toHaveAttribute("placeholder", "Lot total");
+
+    // Switch back to Each — placeholder restores
+    await selectPurchaseMode(page, "each");
+    await expect(priceInput).toHaveAttribute("placeholder", "Each");
   });
 
   test("9. Spot-lookup auto-selects Each — REQ-1.7", async ({ page }) => {
@@ -410,8 +420,8 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await seedData(page, { displayCurrency: "EUR", exchangeRates: { EUR: 0.9 } });
     await gotoApp(page);
     await openAddModal(page);
-    await selectPurchaseMode(page, "lot");
     await fillInventoryForm(page, { name: itemName, qty: "3", price: "90" });
+    await selectPurchaseMode(page, "lot");
     await submitItemForm(page);
 
     const item = await getInventoryItem(page, itemName);
