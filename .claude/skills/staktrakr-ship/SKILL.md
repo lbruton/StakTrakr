@@ -82,6 +82,7 @@ files to reflect the **full release** being shipped.
 2. Rewrite `## What's New` with **3–5 entries** covering the most significant
    changes in this release (grouped by theme, not per-patch). Use the version
    tags from Step 2 as source material. Format:
+
    ```markdown
    - **vX.X.X &ndash; Title**: Summary sentence. Additional detail sentence (STAK-XX).
    ```
@@ -107,7 +108,7 @@ git push origin dev
 
 Build a comprehensive title from the version tags:
 
-```
+```text
 vLATEST — [primary change] + [secondary] + [tertiary if notable]
 ```
 
@@ -181,7 +182,7 @@ gh release list --limit 3
 
 ## Step 8: Confirm
 
-```
+```text
 Ship complete!
 
 Version:  vLATEST

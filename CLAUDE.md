@@ -105,6 +105,8 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 ## Pre-flight (StakTrakr-specific)
 
 - **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` first. Skipping causes wrong-layer fixes.
+- **Before speculating on infra failure mode** → read the matching Foundation doc. `infrastructure.md` lists known gotchas at specific line numbers (e.g. line 265 documents the recurring Tailscale subnet-route loss). Skim it before dispatching debugger agents.
+- **Before claiming what env/secret is set on Fly.io or home poller** → look it up via `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). I deploy and manage Fly.io for the user; Infisical is the canonical source, not assumption or stale memory.
 - **Before any release PR** → run `/seed-sync`.
 - **Before `dev → main`** → use `/ship` only on explicit "ready to ship" from user.
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
