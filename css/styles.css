@@ -8351,20 +8351,11 @@ input:disabled + .slider {
 
 /* CANONICAL RESPONSIVE TABLE RULES — Progressive disclosure + portfolio layout
    Single source of truth for all inventory table responsive behavior.
-   Card view (≤768px) lives at end of file.  See STACK-38 / STACK-31. */
-
-@media (max-width: 1200px) {
-  #inventoryTable th[data-column="gainLoss"],
-  #inventoryTable td[data-column="gainLoss"] {
-    display: none;
-  }
-}
+   Card view (≤768px) lives at end of file.  See STACK-38 / STACK-31.
+   Column hides removed — .portal-scroll handles horizontal overflow so users
+   can scroll to gain/loss and source columns on narrow viewports. */
 
 @media (max-width: 1024px) {
-  #inventoryTable th[data-column="purchaseLocation"],
-  #inventoryTable td[data-column="purchaseLocation"] {
-    display: none;
-  }
   #inventoryTable {
     font-size: 0.8rem;
   }
