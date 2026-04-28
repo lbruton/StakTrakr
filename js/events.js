@@ -1559,7 +1559,12 @@ const buildNumistaSearchQuery = (nameVal, metalVal) => {
  */
 const updateDenomLabels = (typeValue = "") => {
   const denomSelect = document.getElementById("itemGbDenom");
-  if (!denomSelect || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
+  if (
+    !denomSelect ||
+    typeof GOLDBACK_DENOMINATIONS === "undefined" ||
+    typeof SILVERBACK_DENOMINATIONS === "undefined"
+  )
+    return;
 
   const isSilverback = typeValue === "Silverback";
   const denominations =
@@ -1569,12 +1574,12 @@ const updateDenomLabels = (typeValue = "") => {
   const label = isSilverback ? "Silverback" : "Goldback";
 
   while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
-  denominations.forEach((d, i) => {
+  denominations.forEach((d) => {
     const opt = document.createElement("option");
     opt.value = String(d.weight);
     const prefix = d.weight === 0.5 ? "½" : String(d.weight);
     opt.textContent = `${prefix} ${label}`;
-    if (i === (isSilverback ? 0 : 1)) opt.selected = true;
+    if (d.weight === 1) opt.selected = true;
     denomSelect.appendChild(opt);
   });
 

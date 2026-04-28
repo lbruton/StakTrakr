@@ -605,14 +605,16 @@ const renderBulkFieldPanel = () => {
       const label = isSilverback ? "Silverback" : "Goldback";
 
       while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
-      denominations.forEach((d, i) => {
+      denominations.forEach((d) => {
         const opt = document.createElement("option");
         opt.value = String(d.weight);
         const prefix = d.weight === 0.5 ? "½" : String(d.weight);
         opt.textContent = `${prefix} ${label}`;
-        if (i === (isSilverback ? 0 : 1)) opt.selected = true;
+        if (d.weight === 1) opt.selected = true;
         denomSelect.appendChild(opt);
       });
+      const bulkUnitOpt = bwUnitSelect ? bwUnitSelect.querySelector('option[value="gb"]') : null;
+      if (bulkUnitOpt) bulkUnitOpt.textContent = isSilverback ? "silverback" : "goldback";
     };
 
     const bulkTypeSelect = document.getElementById("bulkFieldVal_type");
