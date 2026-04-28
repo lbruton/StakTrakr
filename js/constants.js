@@ -593,6 +593,8 @@ const GOLDBACK_DENOMINATIONS = [
   { weight: 100, label: "100 Goldback", goldOz: 0.1 },
 ];
 
+const SILVERBACK_DENOMINATIONS = [{ weight: 1, label: "1 Silverback", silverOz: 0.001 }];
+
 /** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
 const TYPE_METAL_FILTER = {
   Goldback: ["Gold"],

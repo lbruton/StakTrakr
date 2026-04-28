@@ -1554,20 +1554,37 @@ const buildNumistaSearchQuery = (nameVal, metalVal) => {
 };
 
 /**
- * Updates denomination option labels based on selected type.
+ * Rebuilds denomination select options for the given type.
  * @param {string} [typeValue=""]
  */
 const updateDenomLabels = (typeValue = "") => {
   const denomSelect = document.getElementById("itemGbDenom");
-  if (!denomSelect || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
+  if (
+    !denomSelect ||
+    typeof GOLDBACK_DENOMINATIONS === "undefined" ||
+    typeof SILVERBACK_DENOMINATIONS === "undefined"
+  )
+    return;
 
-  const denominationLabel = typeValue === "Silverback" ? "Silverback" : "Goldback";
-  GOLDBACK_DENOMINATIONS.forEach((denomination, index) => {
-    const option = denomSelect.options[index];
-    if (!option) return;
-    const prefix = denomination.weight === 0.5 ? "½" : String(denomination.weight);
-    option.textContent = `${prefix} ${denominationLabel}`;
+  const isSilverback = typeValue === "Silverback";
+  const denominations =
+    isSilverback && typeof SILVERBACK_DENOMINATIONS !== "undefined"
+      ? SILVERBACK_DENOMINATIONS
+      : GOLDBACK_DENOMINATIONS;
+  const label = isSilverback ? "Silverback" : "Goldback";
+
+  while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
+  denominations.forEach((d) => {
+    const opt = document.createElement("option");
+    opt.value = String(d.weight);
+    const prefix = d.weight === 0.5 ? "½" : String(d.weight);
+    opt.textContent = `${prefix} ${label}`;
+    if (d.weight === 1) opt.selected = true;
+    denomSelect.appendChild(opt);
   });
+
+  const unitOption = document.querySelector('#itemWeightUnit option[value="gb"]');
+  if (unitOption) unitOption.textContent = isSilverback ? "silverback" : "goldback";
 };
 
 /**
@@ -1585,6 +1602,10 @@ const handleTypeChange = () => {
     unitSelect.value = "gb";
     if (unitGroup) unitGroup.classList.add("hidden");
     updateDenomLabels(selectedType);
+    const puritySelect = document.getElementById("itemPuritySelect");
+    if (puritySelect && puritySelect.value !== "custom") {
+      puritySelect.value = "0.999";
+    }
   } else {
     if (unitSelect.value === "gb") {
       unitSelect.value = "oz";
