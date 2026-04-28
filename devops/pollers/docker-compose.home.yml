@@ -54,7 +54,7 @@ services:
         max-file: "3"
 
   byparr:
-    image: ghcr.io/lbruton/byparr:v2.1.0
+    image: ghcr.io/lbruton/byparr:2.1.0
     container_name: staktrakr-byparr
     restart: unless-stopped
     shm_size: "1g"
