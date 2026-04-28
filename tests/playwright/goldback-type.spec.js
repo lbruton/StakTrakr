@@ -243,4 +243,119 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await expect(page.locator("#bulkFieldVal_weightDenom")).toBeVisible();
     await expect(page.locator("#bulkFieldVal_weight")).toBeHidden();
   });
+
+  test("8. Silverback type shows only 1 Silverback denomination", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Silverback");
+
+    const options = await page.evaluate(() => {
+      const sel = document.getElementById("itemGbDenom");
+      return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
+    });
+    expect(options).toHaveLength(1);
+    expect(options[0].value).toBe("1");
+    expect(options[0].text).toBe("1 Silverback");
+  });
+
+  test("9. Goldback type shows all 8 standard denominations", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.selectOption("#itemMetal", "Gold");
+    await page.selectOption("#itemType", "Goldback");
+
+    const options = await page.evaluate(() => {
+      const sel = document.getElementById("itemGbDenom");
+      return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
+    });
+    expect(options).toHaveLength(8);
+    expect(options[0].text).toBe("½ Goldback");
+    expect(options[7].text).toBe("100 Goldback");
+  });
+
+  test("10. Unit label updates to silverback for Silverback type", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Silverback");
+
+    const unitText = await page.evaluate(() => {
+      const opt = document.querySelector('#itemWeightUnit option[value="gb"]');
+      return opt ? opt.textContent : null;
+    });
+    expect(unitText).toBe("silverback");
+  });
+
+  test("11. Purity defaults to .999 when switching to Goldback or Silverback", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("0.9999");
+
+    await page.selectOption("#itemMetal", "Gold");
+    await page.selectOption("#itemType", "Goldback");
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("0.999");
+
+    await page.selectOption("#itemType", "Coin");
+    await page.selectOption("#itemPuritySelect", "0.925");
+
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Silverback");
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("0.999");
+  });
+
+  test("12. Custom purity is not overwritten when switching to Goldback/Silverback", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.9995");
+
+    await page.selectOption("#itemMetal", "Gold");
+    await page.selectOption("#itemType", "Goldback");
+
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("custom");
+  });
+
+  test("13. Bulk edit Silverback shows only 1 denomination", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    await page.click("#bulkField_metal");
+    await page.click("#bulkField_type");
+    await page.click("#bulkField_weight");
+    await page.click("#bulkField_weightUnit");
+
+    await page.selectOption("#bulkFieldVal_metal", "Silver");
+    await page.selectOption("#bulkFieldVal_type", "Silverback");
+
+    const options = await page.evaluate(() => {
+      const sel = document.getElementById("bulkFieldVal_weightDenom");
+      return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
+    });
+    expect(options).toHaveLength(1);
+    expect(options[0].text).toBe("1 Silverback");
+
+    await page.selectOption("#bulkFieldVal_metal", "Gold");
+    await page.selectOption("#bulkFieldVal_type", "Goldback");
+
+    const goldOptions = await page.evaluate(() => {
+      const sel = document.getElementById("bulkFieldVal_weightDenom");
+      return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
+    });
+    expect(goldOptions).toHaveLength(8);
+    expect(goldOptions[0].text).toBe("½ Goldback");
+  });
 });
