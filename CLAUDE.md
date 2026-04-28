@@ -2,6 +2,16 @@
 
 Precious metals inventory tracker. Single HTML page, vanilla JS, localStorage persistence. Works on `file://` and HTTP. Zero build step, zero install.
 
+## Commands
+
+```bash
+npm test              # Playwright E2E tests (requires Browserbase)
+npm run test:offline  # Playwright tests, skip network-dependent
+npm run lint          # ESLint
+npm run format        # Prettier (js/, css/ only — not data/ or vendor/)
+npm run format:check  # Prettier dry run
+```
+
 ---
 
 ## Documentation
@@ -37,7 +47,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 ## Git Topology
 
 - **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev. Both `dev` and `main` are protected — no direct pushes.
-- **Version format:** `BRANCH.RELEASE.PATCH` in `js/constants.js`. Use `/release` to bump (touches 7 files).
+- **Version format:** `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment calls these `BRANCH.RELEASE.PATCH`). Use `/release` to bump (touches 7 files).
 - **Version lock:** `devops/version.lock` is gitignored — local coordination only.
 - **Worktrees:** `.worktrees/<issue>-<slug>/`. After `git worktree add`: `cp CLAUDE.md .worktrees/<issue>-<slug>/CLAUDE.md` then `npm install --no-audit --no-fund`.
 - **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.

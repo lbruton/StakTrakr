@@ -274,9 +274,12 @@ class CatalogConfig {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (resp.ok) return { success: true, message: "PCGS API connected" };
+      if (resp.status === 401)
+        return { success: false, message: "Invalid or expired bearer token" };
+      if (resp.status === 404) return { success: true, message: "PCGS API connected" };
       return {
         success: false,
-        message: `Invalid token (HTTP ${resp.status})`,
+        message: `PCGS API error (HTTP ${resp.status})`,
       };
     } catch (err) {
       return { success: false, message: "PCGS API unreachable" };
