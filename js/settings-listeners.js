@@ -1738,8 +1738,6 @@ const wireCatalogConfigureChevrons = () => {
   });
 };
 
-const CATALOG_KEY_MASK = "••••••••";
-
 const reinitializeCatalogProviders = () => {
   if (
     typeof window.catalogAPI !== "undefined" &&
