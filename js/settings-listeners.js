@@ -1864,13 +1864,14 @@ const handleCatalogTogglePassword = (btn) => {
     if (isVisible) {
       input.value = CATALOG_KEY_MASK;
     } else {
-      let realKey = "";
+      window.catalogConfig.load();
       if (provider === "numista") {
-        realKey = window.catalogConfig.getNumistaConfig().apiKey || "";
+        const cfg = window.catalogConfig.getNumistaConfig();
+        input.value = cfg.apiKey || "";
       } else if (provider === "pcgs") {
-        realKey = window.catalogConfig.getPcgsConfig().bearerToken || "";
+        const cfg = window.catalogConfig.getPcgsConfig();
+        input.value = cfg.bearerToken || "";
       }
-      input.value = realKey;
     }
   }
 
