@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
  * Simple HTTP server for StakTrakrApi data (redundancy endpoint)
- * Serves static files from /tmp/staktrakr-api-export
+ * Serves static files from /tmp/staktrakr-api-export.
+ *
+ * Also exposes GET /health/sqld-reachable — runs `SELECT 1` against sqld
+ * via the same libSQL client the publisher uses. Detects when the
+ * Tailscale subnet route to home sqld is broken even though Fly.io
+ * itself is up (STRK-6 + STRK-7).
  */
 
 import { createServer } from "http";
@@ -10,6 +15,7 @@ import { join, resolve, extname } from "path";
 
 const PORT = process.env.PORT || 8080;
 const DATA_DIR = resolve(process.env.API_EXPORT_DIR || "/tmp/staktrakr-api-export");
+const SQLD_PROBE_TIMEOUT_MS = 5000;
 
 const MIME_TYPES = {
   ".json": "application/json",
@@ -17,6 +23,48 @@ const MIME_TYPES = {
   ".html": "text/html",
   ".txt": "text/plain",
 };
+
+let sqldClient = null;
+
+async function probeSqldReachable() {
+  const startedAt = Date.now();
+  const checkedAt = new Date().toISOString();
+
+  let timeoutId;
+  try {
+    if (!sqldClient) {
+      const { createSqldClient } = await import("./sqld-client.js");
+      sqldClient = createSqldClient();
+    }
+
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("sqld probe timeout")), SQLD_PROBE_TIMEOUT_MS);
+    });
+
+    await Promise.race([sqldClient.execute("SELECT 1 AS ok"), timeoutPromise]);
+    return { ok: true, latency_ms: Date.now() - startedAt, checked_at: checkedAt };
+  } catch (err) {
+    // Drop the cached client so the next probe attempts a fresh connection,
+    // recovering from a stuck pool after a Tailscale-route flap.
+    sqldClient = null;
+    const msg = String(err?.message || err);
+    let errorClass = "query_error";
+    if (msg.includes("timeout")) errorClass = "timeout";
+    else if (msg.includes("ECONNREFUSED")) errorClass = "connection_refused";
+    else if (msg.includes("EHOSTUNREACH") || msg.includes("ENETUNREACH"))
+      errorClass = "host_unreachable";
+    else if (msg.includes("ENOTFOUND")) errorClass = "dns_error";
+    return {
+      ok: false,
+      error_class: errorClass,
+      error: msg.slice(0, 200),
+      latency_ms: Date.now() - startedAt,
+      checked_at: checkedAt,
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 const server = createServer(async (req, res) => {
   // CORS headers for API access
@@ -43,6 +91,21 @@ const server = createServer(async (req, res) => {
   } catch {
     res.writeHead(400);
     res.end("Bad Request");
+    return;
+  }
+
+  // Active sqld reachability probe — runs SELECT 1 against the libSQL
+  // client. Always returns 200; the boolean result lives in `ok`. The
+  // probe completing at all signals Fly.io itself is up.
+  if (url === "/health/sqld-reachable") {
+    const result = await probeSqldReachable();
+    const body = JSON.stringify(result);
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+      "Cache-Control": "no-store",
+    });
+    res.end(body);
     return;
   }
 
