@@ -597,12 +597,21 @@ const renderBulkFieldPanel = () => {
     };
 
     const updateBulkDenomLabels = (typeValue = "") => {
-      const denominationLabel = typeValue === "Silverback" ? "Silverback" : "Goldback";
-      GOLDBACK_DENOMINATIONS.forEach((denomination, index) => {
-        const option = denomSelect.options[index];
-        if (!option) return;
-        const prefix = denomination.weight === 0.5 ? "½" : String(denomination.weight);
-        option.textContent = `${prefix} ${denominationLabel}`;
+      const isSilverback = typeValue === "Silverback";
+      const denominations =
+        isSilverback && typeof SILVERBACK_DENOMINATIONS !== "undefined"
+          ? SILVERBACK_DENOMINATIONS
+          : GOLDBACK_DENOMINATIONS;
+      const label = isSilverback ? "Silverback" : "Goldback";
+
+      while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
+      denominations.forEach((d, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(d.weight);
+        const prefix = d.weight === 0.5 ? "½" : String(d.weight);
+        opt.textContent = `${prefix} ${label}`;
+        if (i === (isSilverback ? 0 : 1)) opt.selected = true;
+        denomSelect.appendChild(opt);
       });
     };
 
