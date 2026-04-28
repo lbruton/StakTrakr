@@ -64,6 +64,7 @@ if [ -n "$sqld_response" ]; then
   sqld_error_class=$(json_str "$sqld_response" "error_class")
   [ -z "$sqld_ok" ] && sqld_ok="false"
 fi
+[ -z "$sqld_error_class" ] && sqld_error_class="no_response"
 if [ "$sqld_ok" = "true" ]; then
   log "sqld-reachable OK (${sqld_latency_ms:-?}ms)"
 else

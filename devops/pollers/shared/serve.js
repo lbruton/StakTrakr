@@ -46,7 +46,9 @@ async function probeSqldReachable() {
   } catch (err) {
     // Drop the cached client so the next probe attempts a fresh connection,
     // recovering from a stuck pool after a Tailscale-route flap.
+    const clientToClose = sqldClient;
     sqldClient = null;
+    clientToClose?.close().catch(() => {});
     const msg = String(err?.message || err);
     let errorClass = "query_error";
     if (msg.includes("timeout")) errorClass = "timeout";
@@ -57,7 +59,6 @@ async function probeSqldReachable() {
     return {
       ok: false,
       error_class: errorClass,
-      error: msg.slice(0, 200),
       latency_ms: Date.now() - startedAt,
       checked_at: checkedAt,
     };
