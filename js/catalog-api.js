@@ -26,11 +26,17 @@ class CatalogConfig {
             // Key wasn't base64 encoded (legacy or plain text) — keep as-is
           }
         }
-        if (parsed.pcgs && parsed.pcgs.bearerToken) {
-          try {
-            parsed.pcgs.bearerToken = atob(parsed.pcgs.bearerToken);
-          } catch (e) {
-            // Token wasn't base64 encoded — keep as-is
+        if (parsed.pcgs) {
+          if (!parsed.pcgs.bearerToken && parsed.pcgs.apiKey) {
+            parsed.pcgs.bearerToken = parsed.pcgs.apiKey;
+            delete parsed.pcgs.apiKey;
+          }
+          if (parsed.pcgs.bearerToken) {
+            try {
+              parsed.pcgs.bearerToken = atob(parsed.pcgs.bearerToken);
+            } catch (e) {
+              // Token wasn't base64 encoded (legacy or plain text) — keep as-is
+            }
           }
         }
         this.config = parsed;

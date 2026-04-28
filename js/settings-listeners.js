@@ -1738,8 +1738,6 @@ const wireCatalogConfigureChevrons = () => {
   });
 };
 
-const CATALOG_KEY_MASK = "••••••••";
-
 const reinitializeCatalogProviders = () => {
   if (
     typeof window.catalogAPI !== "undefined" &&
@@ -1829,6 +1827,8 @@ const handleCatalogTest = async (btn) => {
     saveCatalogProviderConfig(provider, value);
   }
 
+  if (window.catalogConfig) window.catalogConfig.load();
+
   if (provider === "numista" && typeof window.testNumistaAPI === "function") {
     try {
       const result = await window.testNumistaAPI();
@@ -1855,6 +1855,24 @@ const handleCatalogTogglePassword = (btn) => {
   const input = expand.querySelector(".js-api-key-input");
   if (!input) return;
   const isVisible = input.type === "text";
+
+  if (input.dataset.masked === "true" && input.dataset.dirty !== "true" && window.catalogConfig) {
+    const row = expand.closest(".catalog-row");
+    const provider = row ? row.dataset.provider : "";
+    if (isVisible) {
+      input.value = CATALOG_KEY_MASK;
+    } else {
+      window.catalogConfig.load();
+      if (provider === "numista") {
+        const cfg = window.catalogConfig.getNumistaConfig();
+        input.value = cfg.apiKey || "";
+      } else if (provider === "pcgs") {
+        const cfg = window.catalogConfig.getPcgsConfig();
+        input.value = cfg.bearerToken || "";
+      }
+    }
+  }
+
   input.type = isVisible ? "password" : "text";
   btn.setAttribute("aria-label", isVisible ? "Show API key" : "Hide API key");
 };

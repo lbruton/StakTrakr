@@ -1,6 +1,8 @@
 // SETTINGS MODAL
 // =============================================================================
 
+const CATALOG_KEY_MASK = "••••••••";
+
 /**
  * Opens the unified Settings modal, optionally navigating to a section.
  * @param {string} [section='about'] - Section to display: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'changelog', 'market', 'currency'
@@ -408,18 +410,13 @@ const _buildApiKeyField = (opts) => {
     window.catalogConfig
   ) {
     const cc = window.catalogConfig;
+    cc.load();
     if (provider === "numista" && cc.isNumistaEnabled()) {
-      input.value = "••••••••";
+      input.value = CATALOG_KEY_MASK;
       input.dataset.masked = "true";
-    } else if (provider === "pcgs") {
-      const storedCfg =
-        typeof loadDataSync === "function" ? loadDataSync("catalog_api_config", null) : null;
-      const hasPcgsToken =
-        cc.isPcgsEnabled() || !!storedCfg?.pcgs?.bearerToken || !!storedCfg?.pcgs?.apiKey;
-      if (hasPcgsToken) {
-        input.value = "••••••••";
-        input.dataset.masked = "true";
-      }
+    } else if (provider === "pcgs" && cc.isPcgsEnabled()) {
+      input.value = CATALOG_KEY_MASK;
+      input.dataset.masked = "true";
     }
   } else if (typeof loadApiConfig === "function") {
     try {
