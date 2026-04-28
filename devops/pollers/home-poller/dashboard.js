@@ -344,6 +344,17 @@ function fmtDuration(startedAt, finishedAt) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
+function fmtAgo(iso) {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 function logLineClass(line) {
   if (line.includes("\u2713")) return "log-ok";
   if (line.includes("\u26A0")) return "log-warn";
@@ -622,6 +633,19 @@ function renderStatusBar(data) {
       `Fly.io: ${flyOk ? "OK" : flyOk === false ? "DOWN" : "?"}`
   );
 
+  // Fly→sqld (Tailscale subnet route to home sqld; STRK-6 + STRK-7)
+  const sqldOk = flyioHealth?.sqld_reachable_ok;
+  let sqldLabel;
+  if (sqldOk === true) {
+    sqldLabel = "OK";
+  } else if (sqldOk === false) {
+    const ago = fmtAgo(flyioHealth?.sqld_reachable_last_success);
+    sqldLabel = ago ? `FAIL (${ago})` : "FAIL";
+  } else {
+    sqldLabel = "?";
+  }
+  items.push(dot(sqldOk ? "green" : sqldOk === false ? "red" : "amber") + `Fly→sqld: ${sqldLabel}`);
+
   // Lock
   const anyLocked = (lockStatus || []).some((l) => l.locked);
   items.push(dot(anyLocked ? "amber" : "green") + `Lock: ${anyLocked ? "BUSY" : "free"}`);
@@ -639,6 +663,19 @@ function renderInfraRow(data) {
     data;
   const netRx = net ? fmtBytes(net.rx_bytes) : "?";
   const flyOk = flyioHealth?.http_ok;
+  const sqldOk = flyioHealth?.sqld_reachable_ok;
+  const sqldAgo = sqldOk === false ? fmtAgo(flyioHealth?.sqld_reachable_last_success) : "";
+  let sqldLabel, sqldColor;
+  if (sqldOk === true) {
+    sqldLabel = "OK";
+    sqldColor = "var(--green)";
+  } else if (sqldOk === false) {
+    sqldLabel = sqldAgo ? `FAIL (${sqldAgo})` : "FAIL";
+    sqldColor = "var(--red)";
+  } else {
+    sqldLabel = "?";
+    sqldColor = "var(--amber)";
+  }
   const anyLocked = (lockStatus || []).some((l) => l.locked);
   const containerCount = (dockerContainers || []).filter((c) => c.state === "running").length;
   const serviceCount = (supervisord || []).filter((s) => s.state === "RUNNING").length;
@@ -662,6 +699,7 @@ function renderInfraRow(data) {
         : item("Lock", "Free", "var(--green)")
     }
     ${item("Fly API", flyOk ? "OK" : flyOk === false ? "DOWN" : "?", flyOk ? "var(--green)" : "var(--red)")}
+    ${item("Fly→sqld", sqldLabel, sqldColor)}
     ${item("Turso", tursoUp ? "OK" : "DOWN", tursoUp ? "var(--green)" : "var(--red)")}
     ${item("Containers", `${containerCount} up`, "var(--green)")}
     ${item("Services", `${serviceCount} up`, "var(--green)")}
