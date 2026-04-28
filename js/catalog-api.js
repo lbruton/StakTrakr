@@ -271,7 +271,7 @@ class CatalogConfig {
     try {
       const resp = await fetch(
         `https://api.pcgs.com/publicapi/coindetail/GetCoinFactsByPCGSNo/${PCGS_TEST_COIN_NUMBER}`,
-        { headers: { Authorization: `bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (resp.ok) return { success: true, message: "PCGS API connected" };
       if (resp.status === 401)
