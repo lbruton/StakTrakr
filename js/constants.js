@@ -1019,6 +1019,8 @@ const ALLOWED_STORAGE_KEYS = [
   "vendorPricesActiveTab", // string: active metal tab in vendor prices section
   "v2SpotHistoryTs", // string: ISO timestamp of cached v2 spot history
   "itemRemovedTags", // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
+  "inventorySeedApplied", // STRK-13: ISO timestamp string, sentinel proving seed has been applied (or migration ran)
+  "staktrakr.bootDiagnostics", // STRK-13: JSON array, 10-entry ring buffer of boot classifications
 ];
 
 /**
