@@ -49,7 +49,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 - **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev. Both `dev` and `main` are protected — no direct pushes.
 - **Version format:** `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment calls these `BRANCH.RELEASE.PATCH`). Use `/release` to bump (touches 7 files).
 - **Version lock:** `devops/version.lock` is gitignored — local coordination only.
-- **Worktrees:** `.worktrees/<issue>-<slug>/`. After `git worktree add`: `cp CLAUDE.md .worktrees/<issue>-<slug>/CLAUDE.md` then `npm install --no-audit --no-fund`.
+- **Worktrees:** `.worktrees/<issue>-<slug>/`. Before creating: `git checkout dev && git pull origin dev` to sync local dev first. Then: `git worktree add .worktrees/<issue>-<slug>/ -b <branch-name>`. After: `cp CLAUDE.md .worktrees/<issue>-<slug>/CLAUDE.md` then `npm install --no-audit --no-fund`.
 - **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.
 - **`stamp-sw-cache` hook** — auto-stages `sw.js` when JS/CSS/image files are committed. No need to add it manually.
 - **`data/` and `vendor/` excluded from prettier** — lint-staged formats `js/` and `css/` only. Avoid manually formatting excluded paths.
