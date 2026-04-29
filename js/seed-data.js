@@ -8399,8 +8399,29 @@ function loadSeedInventory(stateResult) {
   debugLog("Seed inventory: loaded " + SEED_INVENTORY_ITEMS.length + " sample items");
 }
 
+/**
+ * STRK-13: Idempotent migration that back-fills the seed sentinel for users
+ * who pre-date this fix. Runs on every boot; only writes when classification
+ * is "returning-with-data" AND the sentinel is missing.
+ *
+ * Does NOT seed inventory — that's loadSeedInventory's job. Does NOT touch
+ * APP_VERSION_KEY (per requirements REQ-4 AC 3).
+ *
+ * @param {{classification: string, keyPresence: object}} stateResult
+ */
+function migrateSentinelIfMissing(stateResult) {
+  if (!stateResult || stateResult.classification !== "returning-with-data") return;
+  if (stateResult.keyPresence && stateResult.keyPresence.inventorySeedApplied) return;
+  if (typeof saveDataSync !== "function") return;
+  saveDataSync("inventorySeedApplied", new Date().toISOString());
+  if (typeof debugLog === "function") {
+    debugLog("Seed sentinel migration: sentinel set for existing user");
+  }
+}
+
 // Export for global access
 window.loadSeedSpotHistory = loadSeedSpotHistory;
 window.loadSeedInventory = loadSeedInventory;
 window.classifyBootState = classifyBootState;
 window.shouldSeedInventory = shouldSeedInventory;
+window.migrateSentinelIfMissing = migrateSentinelIfMissing;
