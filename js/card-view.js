@@ -31,6 +31,7 @@ function _computePortfolioSummary() {
     totalWeight = 0,
     filteredPieces = 0;
   const gbToOzt = typeof GB_TO_OZT !== "undefined" ? GB_TO_OZT : 0.001;
+  const sbToOzt = typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : gbToOzt;
   items.forEach((item) => {
     const qty = Number(item.qty) || 0;
     filteredPieces += qty;
@@ -60,7 +61,7 @@ function _computePortfolioSummary() {
     melt += valuation.meltValue || 0;
     retail += valuation.retailTotal || 0;
     const w = parseFloat(item.weight) || 0;
-    const wOz = item.weightUnit === "gb" ? w * gbToOzt : w;
+    const wOz = item.weightUnit === "gb" ? w * gbToOzt : item.weightUnit === "sb" ? w * sbToOzt : w;
     totalWeight += qty * wOz;
   });
   return {
@@ -553,7 +554,8 @@ const _cardImageHTML = (item, extraClass = "", side = "obverse") => {
     itemType === "note" ||
     itemType === "aurum" ||
     itemType === "set" ||
-    item.weightUnit === "gb";
+    item.weightUnit === "gb" ||
+    item.weightUnit === "sb";
   const shape = isRect ? " bar-shape" : "";
   const uuid = item.uuid || "";
   const catalogId = item.numistaId || "";

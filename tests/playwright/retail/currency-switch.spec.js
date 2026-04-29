@@ -344,6 +344,8 @@ test.describe("STAK-581 — retail currency switch", () => {
     await expect(vendorSection).not.toContainText(CONVENIENCE_DISCLAIMER);
 
     await page.evaluate(() => window.showSettingsModal("changelog"));
+    // Settings log-tab listeners are bound by init.js after a 200ms delayed setup pass.
+    await page.waitForTimeout(250);
     await page.locator('[data-log-tab="market"]').click();
     await page.locator("#retailHistorySlugSelect").selectOption(SLUG_GOLDBACK);
 

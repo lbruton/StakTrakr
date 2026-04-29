@@ -178,7 +178,7 @@ function closeViewModal() {
 /**
  * Compute shared metrics used by all view modal section renderers.
  * @param {Object} item - Inventory item
- * @returns {Object} Metrics object with currentSpot, qty, weight, purity, isGb, weightOz, metalColor
+ * @returns {Object} Metrics object with currentSpot, qty, weight, purity, isGb, isSb, weightOz, metalColor
  */
 function _getViewMetrics(item) {
   const metalKey = (item.metal || "silver").toLowerCase();
@@ -187,9 +187,14 @@ function _getViewMetrics(item) {
   const weight = parseFloat(item.weight) || 0;
   const purity = parseFloat(item.purity) || 1.0;
   const isGb = item.weightUnit === "gb";
-  const weightOz = isGb ? weight * GB_TO_OZT : weight;
+  const isSb = item.weightUnit === "sb";
+  const weightOz = isGb
+    ? weight * GB_TO_OZT
+    : isSb
+      ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+      : weight;
   const metalColor = typeof getMetalColor === "function" ? getMetalColor(metalKey) : null;
-  return { currentSpot, qty, weight, purity, isGb, weightOz, metalColor };
+  return { currentSpot, qty, weight, purity, isGb, isSb, weightOz, metalColor };
 }
 
 function _renderHeaderMeta(item, metrics) {
@@ -252,7 +257,8 @@ function _buildImageSection(item, metrics) {
     itemType === "note" ||
     itemType === "aurum" ||
     itemType === "set" ||
-    metrics.isGb;
+    metrics.isGb ||
+    metrics.isSb;
   const imgSection = _el("div", "view-image-section" + (isRectShape ? " view-shape-rect" : ""));
   imgSection.id = "viewImageSection";
   imgSection.appendChild(_imageSlot("obverse", "Obverse"));

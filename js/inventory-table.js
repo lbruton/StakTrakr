@@ -510,7 +510,8 @@
           _thumbType === "note" ||
           _thumbType === "aurum" ||
           _thumbType === "set" ||
-          item.weightUnit === "gb";
+          item.weightUnit === "gb" ||
+          item.weightUnit === "sb";
         const _thumbShapeClass = _isRectThumb ? " table-thumb-rect" : "";
         const _validUrl = (u) => u && /^https?:\/\/.+\..+/i.test(u);
         const obvUrl = _validUrl(item.obverseImageUrl) ? item.obverseImageUrl : "";
@@ -797,7 +798,12 @@
         const price = parseFloat(item.price) || 0;
 
         totals.totalItems += qty;
-        const weightOz = item.weightUnit === "gb" ? weight * GB_TO_OZT : weight;
+        const weightOz =
+          item.weightUnit === "gb"
+            ? weight * GB_TO_OZT
+            : item.weightUnit === "sb"
+              ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+              : weight;
         const itemWeight = qty * weightOz;
         totals.totalWeight += itemWeight;
 

@@ -244,7 +244,7 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await expect(page.locator("#bulkFieldVal_weight")).toBeHidden();
   });
 
-  test("8. Silverback type shows only 1 Silverback denomination", async ({ page }) => {
+  test("8. Silverback type uses sb unit without denomination picker", async ({ page }) => {
     await seedData(page);
     await gotoApp(page);
     await openAddModal(page);
@@ -252,13 +252,8 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await page.selectOption("#itemMetal", "Silver");
     await page.selectOption("#itemType", "Silverback");
 
-    const options = await page.evaluate(() => {
-      const sel = document.getElementById("itemGbDenom");
-      return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
-    });
-    expect(options).toHaveLength(1);
-    expect(options[0].value).toBe("1");
-    expect(options[0].text).toBe("1 Silverback");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("sb");
+    await expect(page.locator("#itemGbDenom")).toBeHidden();
   });
 
   test("9. Goldback type shows all 8 standard denominations", async ({ page }) => {
@@ -278,7 +273,7 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     expect(options[7].text).toBe("100 Goldback");
   });
 
-  test("10. Unit label updates to silverback for Silverback type", async ({ page }) => {
+  test("10. Silverback has a dedicated silverback unit option", async ({ page }) => {
     await seedData(page);
     await gotoApp(page);
     await openAddModal(page);
@@ -287,10 +282,11 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await page.selectOption("#itemType", "Silverback");
 
     const unitText = await page.evaluate(() => {
-      const opt = document.querySelector('#itemWeightUnit option[value="gb"]');
+      const opt = document.querySelector('#itemWeightUnit option[value="sb"]');
       return opt ? opt.textContent : null;
     });
     expect(unitText).toBe("silverback");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("sb");
   });
 
   test("11. Purity defaults to .999 when switching to Goldback or Silverback", async ({ page }) => {
@@ -328,7 +324,7 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await expect(page.locator("#itemPuritySelect")).toHaveValue("custom");
   });
 
-  test("13. Bulk edit Silverback shows only 1 denomination", async ({ page }) => {
+  test("13. Bulk edit Silverback uses sb unit without denomination picker", async ({ page }) => {
     await seedData(page);
     await gotoApp(page);
     await openBulkEditModal(page);
@@ -341,12 +337,8 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await page.selectOption("#bulkFieldVal_metal", "Silver");
     await page.selectOption("#bulkFieldVal_type", "Silverback");
 
-    const options = await page.evaluate(() => {
-      const sel = document.getElementById("bulkFieldVal_weightDenom");
-      return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
-    });
-    expect(options).toHaveLength(1);
-    expect(options[0].text).toBe("1 Silverback");
+    await expect(page.locator("#bulkFieldVal_weightUnit")).toHaveValue("sb");
+    await expect(page.locator("#bulkFieldVal_weightDenom")).toBeHidden();
 
     await page.selectOption("#bulkFieldVal_metal", "Gold");
     await page.selectOption("#bulkFieldVal_type", "Goldback");

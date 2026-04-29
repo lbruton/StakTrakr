@@ -909,16 +909,20 @@ const oztToLb = (ozt) => ozt / LB_TO_OZT;
 
 /**
  * Formats a weight in troy ounces to either grams or ounces.
- * If weightUnit is 'gb', displays as Goldback denomination (no gram auto-conversion).
+ * If weightUnit is 'gb' or 'sb', displays as denomination units (no gram auto-conversion).
  *
- * @param {number} ozt - Weight in troy ounces (or Goldback denomination if weightUnit='gb')
- * @param {string} [weightUnit] - Optional weight unit: 'oz', 'g', or 'gb'
+ * @param {number} ozt - Weight in troy ounces (or denomination value if weightUnit='gb'/'sb')
+ * @param {string} [weightUnit] - Optional weight unit: 'oz', 'g', 'gb', or 'sb'
  * @returns {string} Formatted weight string with unit
  */
 const formatWeight = (ozt, weightUnit) => {
   if (weightUnit === "gb") {
     const w = parseFloat(ozt);
     return `${w % 1 === 0 ? w : w.toFixed(1)} gb`;
+  }
+  if (weightUnit === "sb") {
+    const w = parseFloat(ozt);
+    return `${w % 1 === 0 ? w : w.toFixed(1)} sb`;
   }
   const weight = parseFloat(ozt);
   if (weightUnit === "kg") {
@@ -1393,7 +1397,12 @@ const computeMeltValue = (item, spot) => {
   const weight = parseFloat(item.weight) || 0;
   const qty = Number(item.qty) || 1;
   const purity = parseFloat(item.purity) || 1.0;
-  const weightOz = item.weightUnit === "gb" ? weight * GB_TO_OZT : weight;
+  const weightOz =
+    item.weightUnit === "gb"
+      ? weight * GB_TO_OZT
+      : item.weightUnit === "sb"
+        ? weight * SB_TO_OZT
+        : weight;
   return weightOz * qty * spot * purity;
 };
 

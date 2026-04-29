@@ -33,7 +33,12 @@ const getBreakdownData = (metal) => {
   metalItems.forEach((item) => {
     const qty = Number(item.qty) || 1;
     const weight = parseFloat(item.weight) || 0;
-    const weightOz = item.weightUnit === "gb" ? weight * GB_TO_OZT : weight;
+    const weightOz =
+      item.weightUnit === "gb"
+        ? weight * GB_TO_OZT
+        : item.weightUnit === "sb"
+          ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+          : weight;
     const itemWeight = qty * weightOz;
     const purchasePrice = parseFloat(item.price) || 0;
     const purchaseTotal = qty * purchasePrice;
@@ -95,7 +100,12 @@ const getAllMetalsBreakdownData = () => {
   inventory.forEach((item) => {
     const qty = Number(item.qty) || 1;
     const weight = parseFloat(item.weight) || 0;
-    const weightOz = item.weightUnit === "gb" ? weight * GB_TO_OZT : weight;
+    const weightOz =
+      item.weightUnit === "gb"
+        ? weight * GB_TO_OZT
+        : item.weightUnit === "sb"
+          ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+          : weight;
     const itemWeight = qty * weightOz;
     const purchasePrice = parseFloat(item.price) || 0;
     const purchaseTotal = qty * purchasePrice;
