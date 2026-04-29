@@ -220,14 +220,20 @@ const DiffEngine = {
 
     var uuidBySerial = new Map();
     var uuidByNumista = new Map();
+    var uuidByNameDate = new Map();
 
     for (var i = 0; i < local.length; i++) {
       var item = local[i];
-      if (item.serial && item.uuid) {
+      if (!item.uuid) continue;
+      if (item.serial) {
         uuidBySerial.set(String(item.serial), item.uuid);
       }
-      if (item.numistaId && item.uuid) {
+      if (item.numistaId) {
         uuidByNumista.set(item.numistaId + "|" + (item.date || ""), item.uuid);
+      }
+      var nameKey = (item.name || "") + "|" + (item.date || "");
+      if (!uuidByNameDate.has(nameKey)) {
+        uuidByNameDate.set(nameKey, item.uuid);
       }
     }
 
@@ -250,7 +256,14 @@ const DiffEngine = {
         if (byNumista) {
           inc.uuid = byNumista;
           enriched++;
+          continue;
         }
+      }
+
+      var byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));
+      if (byNameDate) {
+        inc.uuid = byNameDate;
+        enriched++;
       }
     }
 

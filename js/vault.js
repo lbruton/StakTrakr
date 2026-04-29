@@ -594,9 +594,19 @@ async function vaultRestoreWithPreview(fileBytes, password) {
       }
       remoteSettings[k] = remoteVal;
 
-      // Load matching local value
-      var localVal = typeof loadDataSync === "function" ? loadDataSync(k, null) : null;
-      if (localVal !== null) {
+      // Load matching local value — mirror the remote parse logic so raw
+      // strings (e.g. "3.34.35" stored by setItem instead of saveData)
+      // compare equal instead of producing false-positive diffs.
+      var localRaw = localStorage.getItem(k);
+      if (localRaw !== null) {
+        var decompressedLocal =
+          typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(localRaw) : localRaw;
+        var localVal;
+        try {
+          localVal = JSON.parse(decompressedLocal);
+        } catch (_e2) {
+          localVal = decompressedLocal;
+        }
         localSettings[k] = localVal;
       }
     }

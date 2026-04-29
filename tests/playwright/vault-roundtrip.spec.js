@@ -19,12 +19,12 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
     const result = await page.evaluate(async (password) => {
       const bytes = await window.vaultEncryptToBytes(password);
 
+      let diffModalCalled = false;
       let capturedDiff = null;
-      let capturedSettingsDiff = null;
       const origShow = window.DiffModal.show;
       window.DiffModal.show = (opts) => {
+        diffModalCalled = true;
         capturedDiff = opts.diff;
-        capturedSettingsDiff = opts.settingsDiff;
       };
 
       let toastMsg = "";
@@ -39,21 +39,19 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
       window.showToast = origToast;
 
       return {
+        diffModalCalled,
         added: capturedDiff ? capturedDiff.added.length : 0,
         modified: capturedDiff ? capturedDiff.modified.length : 0,
         deleted: capturedDiff ? capturedDiff.deleted.length : 0,
-        unchanged: capturedDiff ? capturedDiff.unchanged.length : 0,
         toast: toastMsg,
-        hasSettingsDiff: capturedSettingsDiff !== null,
       };
     }, VAULT_PASSWORD);
 
+    expect(result.diffModalCalled).toBe(false);
+    expect(result.toast).toContain("No differences found");
     expect(result.added).toBe(0);
     expect(result.modified).toBe(0);
     expect(result.deleted).toBe(0);
-    if (!result.hasSettingsDiff) {
-      expect(result.toast).toContain("No differences found");
-    }
   });
 
   test("R1-AC3: numistaId+date match when serial/uuid stripped", async ({ page }) => {
@@ -109,11 +107,8 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
       };
     }, VAULT_PASSWORD);
 
-    // Items with numistaId (6 of 8) match by numistaId+date fallback.
-    // Items 7-8 have empty numistaId and no serial/uuid — unmatchable.
-    expect(result.added).toBeLessThanOrEqual(2);
-    expect(result.deleted).toBeLessThanOrEqual(2);
-    expect(result.added).toBe(result.deleted);
+    expect(result.added).toBe(0);
+    expect(result.deleted).toBe(0);
   });
 
   test("R2-AC1,AC3: modified field + new item detected correctly", async ({ page }) => {
