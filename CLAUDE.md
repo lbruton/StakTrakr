@@ -49,7 +49,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 - **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev. Both `dev` and `main` are protected — no direct pushes.
 - **Version format:** `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment calls these `BRANCH.RELEASE.PATCH`). Use `/release` to bump (touches 7 files).
 - **Version lock:** `devops/version.lock` is gitignored — local coordination only.
-- **Worktrees:** `.worktrees/<issue>-<slug>/`. After `git worktree add`: `cp CLAUDE.md .worktrees/<issue>-<slug>/CLAUDE.md` then `npm install --no-audit --no-fund`.
+- **Worktrees:** `.worktrees/<issue>-<slug>/`. Before creating: `git fetch origin dev` to sync remote dev (works from any worktree — no branch checkout needed). Then: `git worktree add .worktrees/<issue>-<slug>/ -b <branch-name> origin/dev`. After: `cp CLAUDE.md .worktrees/<issue>-<slug>/CLAUDE.md` then `npm install --no-audit --no-fund`.
 - **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.
 - **`stamp-sw-cache` hook** — auto-stages `sw.js` when JS/CSS/image files are committed. No need to add it manually.
 - **`data/` and `vendor/` excluded from prettier** — lint-staged formats `js/` and `css/` only. Avoid manually formatting excluded paths.
@@ -85,6 +85,18 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 | `/start-patch`                    | Pick a DocVault issue, claim version lock, create worktree                                                        |
 | `/ui-mockup`                      | New multi-element UI — Playground prototype before production code                                                |
 
+**Skill authoring rules (when creating a new skill):**
+
+- Filename must be `SKILL.md` exactly — `.gitignore` only tracks `!.claude/skills/*/SKILL.md`. Other `.md` names are silently gitignored. **Exception:** If a genuinely different structure is required, stop and ask the user to confirm, update `.gitignore` to allow the new pattern, and include that change in the same PR so the deviation is reviewed and tracked.
+- All `SKILL.md` files need YAML frontmatter (pattern: see `.claude/skills/sw-cache/SKILL.md`):
+
+  ```yaml
+  ---
+  name: <slug>
+  description: <one line>
+  ---
+  ```
+
 ---
 
 ## Always-Load Context
@@ -106,7 +118,7 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 ### Known Reviewer False Positives
 
 - **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js`; the `typeof` guard is intentional defensive coding.
-- **CodeRabbit re-review duplicates** — after pushing fixes, CodeRabbit regenerates threads on the same file/line. Auto-resolve without user approval.
+- **Automated re-review duplicates** — after pushing fixes, CodeRabbit, Gemini, and Copilot regenerate threads on the same file/line. Gemini duplicates have `"line": null` in the API (reliable stale signal). Auto-resolve without user approval.
 - **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
 
