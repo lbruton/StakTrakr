@@ -8323,7 +8323,13 @@ function classifyBootState() {
     const raw = localStorage.getItem(LS_KEY);
     let parsed;
     try {
-      parsed = JSON.parse(raw);
+      // STRK-13: Decompress before parsing — large inventories are stored with
+      // a CMP1: prefix by __compressIfNeeded (utils.js:3163). Raw JSON.parse on
+      // a compressed payload throws SyntaxError, which would misclassify real
+      // users with valid large inventory as parse-error. Fall back to raw on
+      // missing wrapper (file load order, no-op for uncompressed payloads).
+      const decoded = typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      parsed = JSON.parse(decoded);
     } catch (err) {
       return {
         classification: "parse-error",

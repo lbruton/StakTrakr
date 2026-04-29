@@ -157,4 +157,42 @@ test.describe("STRK-13 Inventory Seed Guard", () => {
     const sentinel = await page.evaluate(() => localStorage.getItem("inventorySeedApplied"));
     expect(sentinel).not.toBeNull();
   });
+
+  test("6. compressed-inventory-loads: large CMP1-prefixed inventory must NOT be misclassified as parse-error — REQ-1.1, regression for Codex finding", async ({
+    page,
+  }) => {
+    // Pre-seed a CMP1:-prefixed metalInventory value to exercise the
+    // compression-wrapper code path in classifyBootState. The current
+    // LZString implementation in js/utils.js is a no-op (compressToUTF16
+    // returns input unchanged), so the on-disk shape for large payloads is
+    // simply "CMP1:" + JSON_STRING. Raw JSON.parse on that prefix throws
+    // SyntaxError, which without the decompression-aware classifier would
+    // misclassify a real returning user as parse-error.
+    await suppressWhatsNewPopup(page);
+    await page.addInitScript((item) => {
+      const items = [];
+      for (let i = 0; i < 60; i++) {
+        items.push(Object.assign({}, item, { uuid: `cmp-test-${i}`, serial: i + 1 }));
+      }
+      const json = JSON.stringify(items);
+      // Sanity: confirm the fixture is large enough to actually trip the
+      // production compression threshold (4096 chars).
+      if (json.length < 4096) {
+        throw new Error("test fixture too small to trigger compression wrapper");
+      }
+      localStorage.setItem("metalInventory", "CMP1:" + json);
+      localStorage.setItem("inventorySerial", String(items.length));
+      localStorage.setItem("inventorySeedApplied", "2026-04-01T00:00:00.000Z");
+    }, BASE_ITEM);
+
+    await gotoApp(page);
+
+    // Recovery banner MUST NOT be visible — this is the regression we're guarding.
+    const banner = page.locator("#inventoryRecoveryBanner");
+    await expect(banner).toHaveCount(0);
+
+    // Inventory loaded from the CMP1:-prefixed payload, not seeded over.
+    const inventoryLength = await page.evaluate(() => window.inventory && window.inventory.length);
+    expect(inventoryLength).toBe(60);
+  });
 });
