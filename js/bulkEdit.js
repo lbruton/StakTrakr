@@ -601,25 +601,16 @@ const renderBulkFieldPanel = () => {
       }
     };
 
-    const updateBulkDenomLabels = (typeValue = "") => {
-      const isSilverback = typeValue === "Silverback";
-      const denominations =
-        isSilverback && typeof SILVERBACK_DENOMINATIONS !== "undefined"
-          ? SILVERBACK_DENOMINATIONS
-          : GOLDBACK_DENOMINATIONS;
-      const label = isSilverback ? "Silverback" : "Goldback";
-
+    const updateBulkDenomLabels = () => {
       while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
-      denominations.forEach((d) => {
+      GOLDBACK_DENOMINATIONS.forEach((d) => {
         const opt = document.createElement("option");
         opt.value = String(d.weight);
         const prefix = d.weight === 0.5 ? "½" : String(d.weight);
-        opt.textContent = `${prefix} ${label}`;
+        opt.textContent = `${prefix} Goldback`;
         if (d.weight === 1) opt.selected = true;
         denomSelect.appendChild(opt);
       });
-      const bulkUnitOpt = bwUnitSelect ? bwUnitSelect.querySelector('option[value="gb"]') : null;
-      if (bulkUnitOpt) bulkUnitOpt.textContent = isSilverback ? "silverback" : "goldback";
     };
 
     const filterBulkTypesByMetal = (metalValue) => {
@@ -647,7 +638,7 @@ const renderBulkFieldPanel = () => {
       if (isGoldbackType) {
         bwUnitSelect.value = "gb";
         bulkFieldValues["weightUnit"] = "gb";
-        updateBulkDenomLabels(typeValue);
+        updateBulkDenomLabels();
       } else if (isSilverbackType) {
         bwUnitSelect.value = "sb";
         bulkFieldValues["weightUnit"] = "sb";
