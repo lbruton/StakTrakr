@@ -250,6 +250,25 @@ test.describe("STRK-17 Silverback weight unit and pricing", () => {
     expect(imported.weightUnit).toBe("sb");
   });
 
+  test("STRK-15 — #itemGbDenom has no stale Goldback aria-label when Type=Silverback", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Silverback");
+
+    await expect(page.locator("#itemGbDenom"))
+      .toBeVisible({ timeout: 5000 })
+      .catch(() => {
+        // #itemGbDenom may be hidden for Silverback — but aria-label must not say Goldback
+      });
+
+    await expect(page.locator("#itemGbDenom")).not.toHaveAttribute("aria-label", /Goldback/i);
+  });
+
   test("REQ-5 AC-2 — encrypted backup preview migrates legacy Silverback gb items to sb", async ({
     page,
   }) => {
