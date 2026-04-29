@@ -8334,10 +8334,10 @@ function classifyBootState() {
     if (!Array.isArray(parsed)) {
       return { classification: "parse-error", keyPresence, errorName: "ShapeError" };
     }
-    if (parsed.length > 0) {
-      return { classification: "returning-with-data", keyPresence };
-    }
-    // Empty array — fall through to evidence check
+    // STRK-13: Any valid array — including empty — is "returning-with-data".
+    // An empty array is a legitimate state (user deleted everything); falling
+    // through to the evidence check would misclassify them as damaged-key.
+    return { classification: "returning-with-data", keyPresence };
   }
 
   if (

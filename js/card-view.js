@@ -773,8 +773,14 @@ const renderCardView = (sortedItems, container, itemIndexMap) => {
   }
   _cvBlobUrls = [];
 
+  // STRK-13: Skip the "Add Item" empty-state placeholder during recovery — the
+  // recovery banner already owns the screen real estate, and showing Add Item
+  // would let the user defeat the saveInventory recovery hold.
+  const recoveryActive =
+    typeof isInventoryRecoveryActive === "function" && isInventoryRecoveryActive();
+
   // Handle empty state: no items or no search results
-  if (html.length === 0) {
+  if (html.length === 0 && !recoveryActive) {
     const isFiltered = typeof inventory !== "undefined" && inventory.length > 0;
     const message = isFiltered ? "No matching items found." : "Your stack is empty.";
     const subtext = isFiltered
