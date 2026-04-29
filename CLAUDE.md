@@ -53,7 +53,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 - **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.
 - **`stamp-sw-cache` hook** — auto-stages `sw.js` when JS/CSS/image files are committed. No need to add it manually.
 - **`data/` and `vendor/` excluded from prettier** — lint-staged formats `js/` and `css/` only. Avoid manually formatting excluded paths.
-- **Seed sync before release** — always run `/seed-sync` before opening a release PR (rebuilds `data/spot-history-bundle.js`).
+- **Update spot bundle before release** — always run `/update-spot-bundle` before opening a release PR (queries sqld and rebuilds `data/spot-history-bundle.js` with current data).
 - **Pushing fixes to an open PR** — commit from the existing PR worktree (`.worktrees/<branch>`), not a new branch.
 
 ---
@@ -73,7 +73,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 | `/coding-standards`               | Before writing any JS — DOM patterns, globals, script loading order, localStorage, cloud sync, Playwright testing |
 | `/api-infrastructure`             | Any feed, poller, API, or data-path work. Loads DocVault update list, health check, Fly.io deploy procedure       |
 | `/repo-boundaries`                | Cross-repo work, deploy questions, or when Fly.io / StakTrakrApi / home poller appears in context                 |
-| `/seed-sync`                      | Rebuild `data/spot-history-bundle.js` — run before every release PR                                               |
+| `/update-spot-bundle`             | Query sqld and rebuild `data/spot-history-bundle.js` with current spot data — run before every release PR         |
 | `/staktrakr-ship`                 | Ship `dev → main` — only on explicit "ready to ship" from user                                                    |
 | `/sw-cache`                       | Service worker cache version updates                                                                              |
 | `/retail-poller`                  | Retail pipeline — scraping, confidence scores, providers.json, data pipeline                                      |
@@ -117,6 +117,6 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 - **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` first. Skipping causes wrong-layer fixes.
 - **Before speculating on infra failure mode** → read the matching Foundation doc. `infrastructure.md` lists known gotchas at specific line numbers (e.g. line 265 documents the recurring Tailscale subnet-route loss). Skim it before dispatching debugger agents.
 - **Before claiming what env/secret is set on Fly.io or home poller** → look it up via `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). I deploy and manage Fly.io for the user; Infisical is the canonical source, not assumption or stale memory.
-- **Before any release PR** → run `/seed-sync`.
+- **Before any release PR** → run `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`).
 - **Before `dev → main`** → use `/staktrakr-ship` only on explicit "ready to ship" from user.
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
