@@ -260,12 +260,6 @@ test.describe("STRK-17 Silverback weight unit and pricing", () => {
     await page.selectOption("#itemMetal", "Silver");
     await page.selectOption("#itemType", "Silverback");
 
-    await expect(page.locator("#itemGbDenom"))
-      .toBeVisible({ timeout: 5000 })
-      .catch(() => {
-        // #itemGbDenom may be hidden for Silverback — but aria-label must not say Goldback
-      });
-
     await expect(page.locator("#itemGbDenom")).not.toHaveAttribute("aria-label", /Goldback/i);
   });
 
