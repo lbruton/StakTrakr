@@ -466,6 +466,9 @@
 
           // --- Override path: skip DiffEngine, import all items directly ---
           if (override) {
+            if (typeof migrateLegacySilverbackWeightUnit === "function") {
+              migrateLegacySilverbackWeightUnit(imported);
+            }
             inventory = imported;
 
             // Synchronize all items with catalog manager

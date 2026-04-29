@@ -9,6 +9,7 @@
     kg: "Kilograms (kg)",
     lb: "Pounds (lb)",
     gb: "Goldback denomination",
+    sb: "Silverback denomination",
   };
 
   let _thumbBlobUrls = [];
