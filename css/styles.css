@@ -3643,7 +3643,7 @@ input[type="submit"] {
   margin: 0 0 0.75rem 0;
   border-radius: var(--radius-lg, 12px);
   background: color-mix(in srgb, var(--warning) 10%, var(--bg-secondary));
-  color: var(--text);
+  color: var(--text-primary, var(--text));
   border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
   box-shadow: var(--shadow-sm);
   font-size: 0.9rem;
@@ -3659,7 +3659,7 @@ input[type="submit"] {
 .inventory-recovery-banner__copy {
   flex: 1 1 auto;
   margin: 0;
-  color: var(--text);
+  color: var(--text-primary, var(--text));
 }
 
 .inventory-recovery-banner__actions {
@@ -3673,7 +3673,7 @@ input[type="submit"] {
   border-radius: var(--radius, 8px);
   border: 1px solid var(--border);
   background: var(--bg-card);
-  color: var(--text);
+  color: var(--text-primary, var(--text));
   font-size: 0.85rem;
   cursor: pointer;
 }
@@ -3685,7 +3685,7 @@ input[type="submit"] {
 
 .inventory-recovery-banner__btn--primary {
   background: var(--primary);
-  color: #fff;
+  color: #f8fafc;
   border-color: var(--primary);
 }
 

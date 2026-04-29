@@ -29,8 +29,8 @@
 (function (global) {
   "use strict";
 
-  var STORAGE_KEY = "staktrakr.bootDiagnostics";
-  var MAX_ENTRIES = 10;
+  const STORAGE_KEY = "staktrakr.bootDiagnostics";
+  const MAX_ENTRIES = 10;
 
   /**
    * Record a single boot diagnostic event.
@@ -48,9 +48,9 @@
     try {
       if (!entry || typeof entry !== "object") return;
 
-      var version = typeof APP_VERSION === "string" ? APP_VERSION : "unknown";
+      const version = typeof APP_VERSION === "string" ? APP_VERSION : "unknown";
 
-      var record = {
+      const record = {
         ts: new Date().toISOString(),
         version: version,
         classification: entry.classification,
@@ -61,7 +61,7 @@
         record.errorName = entry.errorName;
       }
 
-      var existing = [];
+      let existing = [];
       if (typeof loadDataSync === "function") {
         existing = loadDataSync(STORAGE_KEY, []);
       }
@@ -92,7 +92,7 @@
   function getBootDiagnostics() {
     try {
       if (typeof loadDataSync !== "function") return [];
-      var arr = loadDataSync(STORAGE_KEY, []);
+      const arr = loadDataSync(STORAGE_KEY, []);
       return Array.isArray(arr) ? arr : [];
     } catch (_) {
       return [];

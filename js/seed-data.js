@@ -8377,7 +8377,7 @@ function loadSeedInventory(stateResult) {
   // Replaces the old `inventory.length > 0` heuristic which silently overwrote
   // damaged storage with sample data.
   if (typeof shouldSeedInventory === "function" && !shouldSeedInventory(stateResult)) {
-    var cls = stateResult && stateResult.classification ? stateResult.classification : "unknown";
+    const cls = stateResult && stateResult.classification ? stateResult.classification : "unknown";
     debugLog("Seed inventory: skipped — classification=" + cls);
     return;
   }
@@ -8398,8 +8398,12 @@ function loadSeedInventory(stateResult) {
 
   // STRK-13: Write the seed sentinel atomically with the seed save so subsequent
   // boots take the "returning user" branch even if the user empties their inventory.
-  if (typeof saveDataSync === "function") {
-    saveDataSync("inventorySeedApplied", new Date().toISOString());
+  try {
+    if (typeof saveDataSync === "function") {
+      saveDataSync("inventorySeedApplied", new Date().toISOString());
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("Seed sentinel write failed:", e && e.name);
   }
 
   debugLog("Seed inventory: loaded " + SEED_INVENTORY_ITEMS.length + " sample items");
@@ -8419,7 +8423,13 @@ function migrateSentinelIfMissing(stateResult) {
   if (!stateResult || stateResult.classification !== "returning-with-data") return;
   if (stateResult.keyPresence && stateResult.keyPresence.inventorySeedApplied) return;
   if (typeof saveDataSync !== "function") return;
-  saveDataSync("inventorySeedApplied", new Date().toISOString());
+  try {
+    saveDataSync("inventorySeedApplied", new Date().toISOString());
+  } catch (e) {
+    if (typeof debugLog === "function")
+      debugLog("Seed sentinel migration write failed:", e && e.name);
+    return;
+  }
   if (typeof debugLog === "function") {
     debugLog("Seed sentinel migration: sentinel set for existing user");
   }
