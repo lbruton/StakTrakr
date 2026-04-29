@@ -687,8 +687,6 @@ const updateModalCurrencyUI = () => {
     el.style.setProperty("--currency-symbol", `"${symbol}"`);
     el.style.setProperty("--currency-padding", padding);
   });
-  const priceInput = document.getElementById("itemPrice");
-  if (priceInput) priceInput.placeholder = displayCurrency || "USD";
   const marketInput = document.getElementById("itemMarketValue");
   if (marketInput) marketInput.placeholder = `${displayCurrency || "USD"} — defaults to melt value`;
 };
