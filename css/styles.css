@@ -3632,6 +3632,78 @@ input[type="submit"] {
   border-bottom: 1px solid var(--border, #dee2e6);
 }
 
+/* STRK-13: Sticky inventory recovery banner — shown when boot detected
+   damaged or unparseable inventory storage. Themes via existing custom
+   properties; no new colors introduced. */
+.inventory-recovery-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin: 0 0 0.75rem 0;
+  border-radius: var(--radius-lg, 12px);
+  background: color-mix(in srgb, var(--warning) 10%, var(--bg-secondary));
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+  box-shadow: var(--shadow-sm);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.inventory-recovery-banner__icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  color: var(--warning);
+}
+
+.inventory-recovery-banner__copy {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--text);
+}
+
+.inventory-recovery-banner__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.inventory-recovery-banner__btn {
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.inventory-recovery-banner__btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-hover);
+}
+
+.inventory-recovery-banner__btn--primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.inventory-recovery-banner__btn--primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+@media (max-width: 640px) {
+  .inventory-recovery-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .inventory-recovery-banner__actions {
+    flex-wrap: wrap;
+  }
+}
+
 /* Cloud beta banner & provider cards */
 .cloud-beta-banner {
   position: relative;

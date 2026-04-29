@@ -36,6 +36,86 @@ window.isInventoryRecoveryActive = isInventoryRecoveryActive;
 window.clearInventoryRecovery = clearInventoryRecovery;
 
 /**
+ * STRK-13: Show the sticky inventory recovery banner above the inventory
+ * table section. Idempotent — re-invocation is a no-op when the banner
+ * already exists. Banner is built with createElement / textContent (no
+ * innerHTML) and stays visible until the user clicks Dismiss or Open Cloud
+ * Settings.
+ *
+ * @param {Object} [opts]
+ * @param {boolean} [opts.cloudConnected] - When true, copy directs the user
+ *   toward cloud restore; when false/undefined, copy directs toward refresh
+ *   or local backup import.
+ */
+const showInventoryRecoveryBanner = ({ cloudConnected } = {}) => {
+  if (typeof document === "undefined") return;
+  if (safeGetElement("inventoryRecoveryBanner")) return;
+  const tableSection = safeGetElement("tableSectionEl");
+  if (!tableSection || !tableSection.parentNode) return;
+
+  const copyConnected =
+    "Your inventory could not be loaded from this device. Restore from your cloud backup, or refresh and try again. Your local data was not modified.";
+  const copyDisconnected =
+    "Your inventory could not be loaded from this device. Refresh and try again, or import a backup file. Your local data was not modified.";
+
+  const banner = document.createElement("div");
+  banner.id = "inventoryRecoveryBanner";
+  banner.className = "inventory-recovery-banner";
+  banner.setAttribute("role", "alert");
+
+  const icon = document.createElement("span");
+  icon.className = "inventory-recovery-banner__icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "⚠";
+
+  const copy = document.createElement("p");
+  copy.className = "inventory-recovery-banner__copy";
+  copy.textContent = cloudConnected ? copyConnected : copyDisconnected;
+
+  const actions = document.createElement("div");
+  actions.className = "inventory-recovery-banner__actions";
+
+  const primaryBtn = document.createElement("button");
+  primaryBtn.type = "button";
+  primaryBtn.className = "inventory-recovery-banner__btn inventory-recovery-banner__btn--primary";
+  primaryBtn.textContent = "Open Cloud Settings";
+  primaryBtn.addEventListener("click", () => {
+    if (typeof showSettingsModal === "function") {
+      showSettingsModal("cloud");
+    }
+    clearInventoryRecovery();
+  });
+
+  const secondaryBtn = document.createElement("button");
+  secondaryBtn.type = "button";
+  secondaryBtn.className =
+    "inventory-recovery-banner__btn inventory-recovery-banner__btn--secondary";
+  secondaryBtn.textContent = "Dismiss";
+  secondaryBtn.addEventListener("click", () => {
+    clearInventoryRecovery();
+  });
+
+  actions.appendChild(primaryBtn);
+  actions.appendChild(secondaryBtn);
+  banner.appendChild(icon);
+  banner.appendChild(copy);
+  banner.appendChild(actions);
+
+  tableSection.parentNode.insertBefore(banner, tableSection);
+};
+
+const dismissInventoryRecoveryBanner = () => {
+  if (typeof document === "undefined") return;
+  const banner = safeGetElement("inventoryRecoveryBanner");
+  if (banner && banner.parentNode) {
+    banner.parentNode.removeChild(banner);
+  }
+};
+
+window.showInventoryRecoveryBanner = showInventoryRecoveryBanner;
+window.dismissInventoryRecoveryBanner = dismissInventoryRecoveryBanner;
+
+/**
  * Invalidates the cached item index map.
  * Should be called whenever the inventory array is mutated (add/remove/reorder).
  */
