@@ -1105,8 +1105,13 @@ const bindCloudStorageListeners = () => {
             var remoteLine =
               "Remote: " + remoteItems.toLocaleString() + " items (" + remoteInfo + ")";
             var localLine = "Local: " + localInfo;
+            var conflictMsg =
+              conflict.reason === "remote_newer"
+                ? "A more recent remote backup exists."
+                : "An existing remote backup was found.";
             const shouldOverwrite = await appConfirm(
-              "A newer remote backup exists.\n\n" +
+              conflictMsg +
+                "\n\n" +
                 remoteLine +
                 "\n" +
                 localLine +
