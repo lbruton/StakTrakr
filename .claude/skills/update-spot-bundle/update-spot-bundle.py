@@ -19,6 +19,7 @@ Env vars:
     SQLD_AUTH_TOKEN   Optional. Bearer token — local sqld runs without auth.
 """
 
+import datetime
 import json
 import os
 import pathlib
@@ -120,7 +121,7 @@ def find_latest_json_date():
     Returns "1968-01-01" if no files exist.
     """
     latest = "1968-01-01"
-    current_year = __import__("datetime").date.today().year
+    current_year = datetime.date.today().year
     for year in range(START_YEAR, current_year + 1):
         entries = load_year_file(year)
         for e in entries:
@@ -139,7 +140,7 @@ def build_bundle_from_json_files():
     """
     bundle = {}
     total = 0
-    current_year = __import__("datetime").date.today().year
+    current_year = datetime.date.today().year
 
     for year in range(START_YEAR, current_year + 1):
         entries = load_year_file(year)
