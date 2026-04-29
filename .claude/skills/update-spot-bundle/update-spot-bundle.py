@@ -102,7 +102,7 @@ def load_year_file(year):
     path = os.path.join(DATA_DIR, f"spot-history-{year}.json")
     if not os.path.exists(path):
         return []
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data if isinstance(data, list) else []
 
@@ -110,7 +110,7 @@ def load_year_file(year):
 def save_year_file(year, entries):
     """Write a year JSON file, pretty-printed for readable diffs."""
     path = os.path.join(DATA_DIR, f"spot-history-{year}.json")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(entries, f, indent=2)
         f.write("\n")
 
@@ -250,7 +250,7 @@ def main():
         f"window._loadSpotSeedBundle({js_data});\n"
     )
 
-    with open(OUTPUT_FILE, "w") as f:
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(js_content)
 
     file_size = os.path.getsize(OUTPUT_FILE)

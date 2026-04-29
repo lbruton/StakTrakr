@@ -1,3 +1,8 @@
+---
+name: update-spot-bundle
+description: Fill the sqld→year JSON→bundle gap and rebuild spot-history-bundle.js with current data.
+---
+
 # Update Spot Bundle
 
 Fills the gap between the committed year JSON files and today's sqld data, then rebuilds `data/spot-history-bundle.js` — the offline fallback for `file://` protocol where the app can't reach the API.
