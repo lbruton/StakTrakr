@@ -9,6 +9,33 @@
 let _cachedItemIndexMap = null;
 
 /**
+ * STRK-13: Inventory recovery flag.
+ * Set true when boot detected damaged or unparseable metalInventory; gated
+ * `saveInventory()` calls become no-ops until cleared by an explicit user
+ * action (add / import / restore — wired in task 8). Prevents the auto-write
+ * of `[]` that would overwrite the corrupt key with an empty array, destroying
+ * forensic evidence and preventing cloud-restore.
+ */
+let inventoryRecoveryActive = false;
+const setInventoryRecoveryActive = (val) => {
+  inventoryRecoveryActive = !!val;
+};
+const isInventoryRecoveryActive = () => inventoryRecoveryActive;
+const clearInventoryRecovery = () => {
+  if (!inventoryRecoveryActive) return;
+  inventoryRecoveryActive = false;
+  if (typeof dismissInventoryRecoveryBanner === "function") {
+    dismissInventoryRecoveryBanner();
+  }
+  if (typeof debugLog === "function") {
+    debugLog("inventoryRecovery: cleared");
+  }
+};
+window.setInventoryRecoveryActive = setInventoryRecoveryActive;
+window.isInventoryRecoveryActive = isInventoryRecoveryActive;
+window.clearInventoryRecovery = clearInventoryRecovery;
+
+/**
  * Invalidates the cached item index map.
  * Should be called whenever the inventory array is mutated (add/remove/reorder).
  */
@@ -49,6 +76,16 @@ window.getNextSerial = getNextSerial;
  * Saves current inventory to localStorage
  */
 const saveInventory = async () => {
+  // STRK-13: Suppress automatic writes during recovery mode. Cleared by the
+  // recovery banner's actions or by the first explicit user-driven mutation
+  // (add/import/restore — see task 8 wiring).
+  if (inventoryRecoveryActive) {
+    if (typeof debugLog === "function") {
+      debugLog("saveInventory: suppressed (recovery mode active — explicit user action required)");
+    }
+    return;
+  }
+
   // Invalidate cached index map as inventory has likely changed
   invalidateItemIndexMap();
 
