@@ -8355,6 +8355,11 @@ input:disabled + .slider {
    Column hides removed — .portal-scroll handles horizontal overflow so users
    can scroll to gain/loss and source columns on narrow viewports. */
 
+/* Dense baseline: slightly smaller font for compact inventory view (>1024px) */
+#inventoryTable {
+  font-size: 0.86rem;
+}
+
 @media (max-width: 1024px) {
   #inventoryTable {
     font-size: 0.8rem;
@@ -8445,11 +8450,7 @@ th {
   height: 0.95rem;
 }
 
-/* Dense table mode: reduce paddings, font-size and icon sizes for a compact view */
-#inventoryTable {
-  font-size: 0.86rem; /* slightly smaller overall */
-}
-
+/* Dense table mode: reduce paddings and icon sizes for a compact view */
 #inventoryTable th,
 #inventoryTable td {
   padding: 0.18rem 0.28rem; /* tighter padding */
