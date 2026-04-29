@@ -94,30 +94,7 @@
       return;
     }
 
-    // STAK-380: Backward-compat for CSVs without UUID column.
-    // Local items have UUIDs (assigned by loadInventory), but old exports don't.
-    // Enrich imported items: copy local UUID when serials match, so DiffEngine
-    // can match them by the same key tier.
-    const localUuidBySerial = new Map();
-    const localUuidByNumista = new Map();
-    for (const item of inventory) {
-      if (item.serial && item.uuid) localUuidBySerial.set(String(item.serial), item.uuid);
-      // STAK-454: Also index by numistaId+date for CSV imports (which lack serial)
-      if (item.numistaId && item.uuid) {
-        localUuidByNumista.set(item.numistaId + "|" + (item.date || ""), item.uuid);
-      }
-    }
-    for (const item of parsedItems) {
-      if (!item.uuid && item.serial) {
-        const localUuid = localUuidBySerial.get(String(item.serial));
-        if (localUuid) item.uuid = localUuid;
-      }
-      // STAK-454: Fallback — match by numistaId+date when serial enrichment missed
-      if (!item.uuid && item.numistaId) {
-        const numistaUuid = localUuidByNumista.get(item.numistaId + "|" + (item.date || ""));
-        if (numistaUuid) item.uuid = numistaUuid;
-      }
-    }
+    DiffEngine.enrichItemIdentities(inventory, parsedItems);
 
     const diffResult = DiffEngine.compareItems(inventory, parsedItems);
 

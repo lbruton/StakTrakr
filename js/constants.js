@@ -1052,6 +1052,24 @@ const VAULT_EXCLUDE_KEYS = [
   "staktrakr_oauth_result",
 ];
 
+/**
+ * Keys whose values are volatile cache data (spot prices, API timestamps,
+ * exchange rates). Excluded from vault settings-diff comparison to prevent
+ * false-positive diffs when async init updates these between export and restore.
+ * Still included in vault export/import — just not flagged as "changed."
+ */
+const VAULT_SETTINGS_DIFF_SKIP = [
+  "spotGold",
+  "spotSilver",
+  "spotPlatinum",
+  "spotPalladium",
+  SPOT_HISTORY_KEY,
+  ITEM_PRICE_HISTORY_KEY,
+  EXCHANGE_RATES_KEY,
+  LAST_CACHE_REFRESH_KEY,
+  LAST_API_SYNC_KEY,
+];
+
 // =============================================================================
 // INLINE CHIP CONFIG — controls which chips appear in the Name cell and order
 // =============================================================================
@@ -1869,6 +1887,7 @@ if (typeof window !== "undefined") {
   window.CLOUD_BACKUP_HISTORY_OPTIONS = CLOUD_BACKUP_HISTORY_OPTIONS;
   window.SYNC_SCOPE_KEYS = SYNC_SCOPE_KEYS;
   window.VAULT_EXCLUDE_KEYS = VAULT_EXCLUDE_KEYS;
+  window.VAULT_SETTINGS_DIFF_SKIP = VAULT_SETTINGS_DIFF_SKIP;
   window.CERT_LOOKUP_URLS = CERT_LOOKUP_URLS;
   // Inline chip config
   window.INLINE_CHIP_DEFAULTS = INLINE_CHIP_DEFAULTS;

@@ -553,11 +553,20 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     debugLog("[Vault] Could not parse metalInventory from backup:", e);
   }
 
-  // 4. Compute item diff
-  var localItems = typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
+  // 4. Enrich backup items with local UUIDs before comparison
+  var localItems =
+    typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory.slice() : [];
+  try {
+    DiffEngine.enrichItemIdentities(localItems, backupItems);
+  } catch (e) {
+    if (typeof debugLog === "function")
+      debugLog("[Vault] Identity enrichment failed, proceeding without:", e);
+  }
+
+  // 5. Compute item diff
   var diffResult = DiffEngine.compareItems(localItems, backupItems);
 
-  // 5. Compute settings diff
+  // 6. Compute settings diff
   var settingsDiff = null;
   if (typeof DiffEngine.compareSettings === "function") {
     var settingsKeys =
@@ -574,6 +583,13 @@ async function vaultRestoreWithPreview(fileBytes, password) {
       if (k === "metalInventory") continue;
       // Only include recognized storage keys
       if (settingsKeys.indexOf(k) === -1) continue;
+      // Skip volatile cache keys (spot prices, timestamps) — async init updates
+      // these between export and restore, producing false-positive diffs
+      if (
+        typeof VAULT_SETTINGS_DIFF_SKIP !== "undefined" &&
+        VAULT_SETTINGS_DIFF_SKIP.indexOf(k) !== -1
+      )
+        continue;
 
       // Parse the remote value (vault stores raw localStorage strings, possibly CMP1-compressed)
       var rawSettingVal = payload.data[k];
@@ -589,9 +605,19 @@ async function vaultRestoreWithPreview(fileBytes, password) {
       }
       remoteSettings[k] = remoteVal;
 
-      // Load matching local value
-      var localVal = typeof loadDataSync === "function" ? loadDataSync(k, null) : null;
-      if (localVal !== null) {
+      // Load matching local value — mirror the remote parse logic so raw
+      // strings (e.g. "3.34.35" stored by setItem instead of saveData)
+      // compare equal instead of producing false-positive diffs.
+      var localRaw = localStorage.getItem(k);
+      if (localRaw !== null) {
+        var decompressedLocal =
+          typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(localRaw) : localRaw;
+        var localVal;
+        try {
+          localVal = JSON.parse(decompressedLocal);
+        } catch (_e2) {
+          localVal = decompressedLocal;
+        }
         localSettings[k] = localVal;
       }
     }
@@ -605,7 +631,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     }
   }
 
-  // 6. Check for zero changes
+  // 7. Check for zero changes
   var totalChanges =
     diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
   if (totalChanges === 0 && !settingsDiff) {
@@ -615,7 +641,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     return;
   }
 
-  // 7. Build metadata from payload._meta
+  // 8. Build metadata from payload._meta
   var payloadMeta = payload._meta || {};
 
   // Cross-domain origin warning (STAK-374): warn when restoring from a different domain
@@ -651,7 +677,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
         ? loadDataSync(LS_KEY, []).length
         : 0;
 
-  // 8. Show DiffModal
+  // 9. Show DiffModal
   DiffModal.show({
     source: { type: "vault", label: "Encrypted Backup" },
     diff: diffResult,

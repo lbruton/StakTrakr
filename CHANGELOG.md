@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.36] - 2026-04-29
+
+### Fixed — STRK-14: Encrypted backup round-trip duplicate prevention
+
+- **Fixed**: Re-importing your own encrypted vault backup no longer produces duplicate items. `DiffEngine.enrichItemIdentities()` copies local UUIDs onto incoming backup items by serial (primary), numistaId+date (secondary), or name+date (tertiary) matching before comparison.
+- **Fixed**: Vault settings comparison now mirrors the export parse logic (JSON.parse with raw-string fallback), preventing false-positive diffs for version strings stored via raw `localStorage.setItem`.
+- **Added**: `VAULT_SETTINGS_DIFF_SKIP` — volatile cache keys (spot prices, exchange rates, API timestamps) are excluded from vault settings-diff comparison to prevent false diffs from async initialization.
+- **Refactored**: Inline UUID enrichment in `showImportDiffReview()` replaced with shared `DiffEngine.enrichItemIdentities()` call, eliminating code duplication between vault restore and CSV/JSON import paths.
+
 ## [3.34.35] - 2026-04-29
 
 ### Fixed — STRK-13: Inventory seed guard prevents data loss on storage failure
