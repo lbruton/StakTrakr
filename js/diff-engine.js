@@ -202,6 +202,85 @@ const DiffEngine = {
   },
 
   // -------------------------------------------------------------------------
+  // enrichItemIdentities
+  // -------------------------------------------------------------------------
+
+  /**
+   * Copies local UUIDs onto incoming items that lack one, matching by serial
+   * (primary), numistaId+date (secondary), or name+date (tertiary). Mirrors
+   * the tier priority of computeItemKey(). Bridges the identity gap when vault
+   * backups or CSV exports lack the UUID assigned by loadInventory().
+   *
+   * @param {object[]} localItems  — items with UUIDs (from in-memory inventory)
+   * @param {object[]} incomingItems — items potentially missing UUIDs (from backup/import)
+   * @returns {number} count of items enriched
+   */
+  enrichItemIdentities(localItems, incomingItems) {
+    const local = Array.isArray(localItems) ? localItems : [];
+    const incoming = Array.isArray(incomingItems) ? incomingItems : [];
+
+    const uuidBySerial = new Map();
+    const uuidByNumista = new Map();
+    const uuidByNameDate = new Map();
+
+    for (let i = 0; i < local.length; i++) {
+      const item = local[i];
+      if (!item || !item.uuid) continue;
+      if (item.serial != null && item.serial !== "") {
+        uuidBySerial.set(String(item.serial), item.uuid);
+      }
+      if (item.numistaId) {
+        uuidByNumista.set(
+          item.numistaId + "|" + (item.name || "") + "|" + (item.date || ""),
+          item.uuid
+        );
+      }
+      const nameKey = (item.name || "") + "|" + (item.date || "");
+      if (!uuidByNameDate.has(nameKey)) {
+        uuidByNameDate.set(nameKey, item.uuid);
+      }
+    }
+
+    let enriched = 0;
+    const usedUUIDs = new Set();
+    for (let j = 0; j < incoming.length; j++) {
+      const inc = incoming[j];
+      if (inc.uuid) continue;
+
+      if (inc.serial != null && inc.serial !== "") {
+        const bySerial = uuidBySerial.get(String(inc.serial));
+        if (bySerial && !usedUUIDs.has(bySerial)) {
+          inc.uuid = bySerial;
+          usedUUIDs.add(bySerial);
+          enriched++;
+          continue;
+        }
+      }
+
+      if (inc.numistaId) {
+        const byNumista = uuidByNumista.get(
+          inc.numistaId + "|" + (inc.name || "") + "|" + (inc.date || "")
+        );
+        if (byNumista && !usedUUIDs.has(byNumista)) {
+          inc.uuid = byNumista;
+          usedUUIDs.add(byNumista);
+          enriched++;
+          continue;
+        }
+      }
+
+      const byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));
+      if (byNameDate && !usedUUIDs.has(byNameDate)) {
+        inc.uuid = byNameDate;
+        usedUUIDs.add(byNameDate);
+        enriched++;
+      }
+    }
+
+    return enriched;
+  },
+
+  // -------------------------------------------------------------------------
   // matchItems
   // -------------------------------------------------------------------------
 
