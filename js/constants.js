@@ -1065,8 +1065,6 @@ const VAULT_SETTINGS_DIFF_SKIP = [
   EXCHANGE_RATES_KEY,
   LAST_CACHE_REFRESH_KEY,
   LAST_API_SYNC_KEY,
-  API_KEY_STORAGE_KEY,
-  RETAIL_PROVIDERS_KEY,
 ];
 
 // =============================================================================
