@@ -8366,10 +8366,13 @@ function shouldSeedInventory(stateResult) {
  * pushes them into the inventory array, and persists with a single
  * saveInventory() call.
  */
-function loadSeedInventory() {
-  // Guard: existing users already have inventory
-  if (typeof inventory !== "undefined" && inventory.length > 0) {
-    debugLog("Seed inventory: skipped — inventory already has " + inventory.length + " items");
+function loadSeedInventory(stateResult) {
+  // STRK-13: Gate on classification — only seed when shouldSeedInventory() agrees.
+  // Replaces the old `inventory.length > 0` heuristic which silently overwrote
+  // damaged storage with sample data.
+  if (typeof shouldSeedInventory === "function" && !shouldSeedInventory(stateResult)) {
+    var cls = stateResult && stateResult.classification ? stateResult.classification : "unknown";
+    debugLog("Seed inventory: skipped — classification=" + cls);
     return;
   }
 
@@ -8386,6 +8389,13 @@ function loadSeedInventory() {
   }
 
   saveInventory();
+
+  // STRK-13: Write the seed sentinel atomically with the seed save so subsequent
+  // boots take the "returning user" branch even if the user empties their inventory.
+  if (typeof saveDataSync === "function") {
+    saveDataSync("inventorySeedApplied", new Date().toISOString());
+  }
+
   debugLog("Seed inventory: loaded " + SEED_INVENTORY_ITEMS.length + " sample items");
 }
 
