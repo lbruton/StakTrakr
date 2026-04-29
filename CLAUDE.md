@@ -85,6 +85,11 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 | `/start-patch`                    | Pick a DocVault issue, claim version lock, create worktree                                                        |
 | `/ui-mockup`                      | New multi-element UI — Playground prototype before production code                                                |
 
+**Skill authoring rules (when creating a new skill):**
+
+- Filename must be `SKILL.md` exactly — `.gitignore` only tracks `!.claude/skills/*/SKILL.md`. Other `.md` names are silently gitignored.
+- All `SKILL.md` files need YAML frontmatter: `---\nname: <slug>\ndescription: <one line>\n---`. Pattern: see `.claude/skills/sw-cache/SKILL.md`.
+
 ---
 
 ## Always-Load Context
@@ -106,7 +111,7 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 ### Known Reviewer False Positives
 
 - **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js`; the `typeof` guard is intentional defensive coding.
-- **CodeRabbit re-review duplicates** — after pushing fixes, CodeRabbit regenerates threads on the same file/line. Auto-resolve without user approval.
+- **Automated re-review duplicates** — after pushing fixes, CodeRabbit, Gemini, and Copilot regenerate threads on the same file/line. Gemini duplicates have `"line": null` in the API (reliable stale signal). Auto-resolve without user approval.
 - **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
 
