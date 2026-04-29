@@ -650,7 +650,12 @@
       }
       _thumbBlobUrls = [];
 
-      if (sortedInventory.length === 0) {
+      // STRK-13: When inventory recovery is active, the banner takes over the
+      // empty-state messaging. Skip the "Your stack is empty / Add Item" placeholder
+      // so a panicked user can't click Add Item and defeat the recovery hold.
+      const recoveryActive =
+        typeof isInventoryRecoveryActive === "function" && isInventoryRecoveryActive();
+      if (sortedInventory.length === 0 && !recoveryActive) {
         const isFiltered = inventory.length > 0;
         const message = isFiltered ? "No matching items found." : "Your stack is empty.";
         const subtext = isFiltered

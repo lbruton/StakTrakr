@@ -49,8 +49,10 @@ window.clearInventoryRecovery = clearInventoryRecovery;
  */
 const showInventoryRecoveryBanner = ({ cloudConnected } = {}) => {
   if (typeof document === "undefined") return;
-  if (safeGetElement("inventoryRecoveryBanner")) return;
-  const tableSection = safeGetElement("tableSectionEl");
+  // safeGetElement returns a truthy dummy on miss, so use document.getElementById
+  // for these existence checks where null matters.
+  if (document.getElementById("inventoryRecoveryBanner")) return;
+  const tableSection = document.getElementById("tableSectionEl");
   if (!tableSection || !tableSection.parentNode) return;
 
   const copyConnected =
