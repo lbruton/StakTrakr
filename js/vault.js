@@ -551,7 +551,8 @@ async function vaultRestoreWithPreview(fileBytes, password) {
   }
 
   // 4. Enrich backup items with local UUIDs before comparison
-  var localItems = typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
+  var localItems =
+    typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory.slice() : [];
   try {
     DiffEngine.enrichItemIdentities(localItems, backupItems);
   } catch (e) {

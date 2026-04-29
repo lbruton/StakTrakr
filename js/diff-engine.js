@@ -225,12 +225,15 @@ const DiffEngine = {
 
     for (let i = 0; i < local.length; i++) {
       const item = local[i];
-      if (!item.uuid) continue;
-      if (item.serial) {
+      if (!item || !item.uuid) continue;
+      if (item.serial != null && item.serial !== "") {
         uuidBySerial.set(String(item.serial), item.uuid);
       }
       if (item.numistaId) {
-        uuidByNumista.set(item.numistaId + "|" + (item.date || ""), item.uuid);
+        uuidByNumista.set(
+          item.numistaId + "|" + (item.name || "") + "|" + (item.date || ""),
+          item.uuid
+        );
       }
       const nameKey = (item.name || "") + "|" + (item.date || "");
       if (!uuidByNameDate.has(nameKey)) {
@@ -239,31 +242,37 @@ const DiffEngine = {
     }
 
     let enriched = 0;
+    const usedUUIDs = new Set();
     for (let j = 0; j < incoming.length; j++) {
       const inc = incoming[j];
       if (inc.uuid) continue;
 
-      if (inc.serial) {
+      if (inc.serial != null && inc.serial !== "") {
         const bySerial = uuidBySerial.get(String(inc.serial));
-        if (bySerial) {
+        if (bySerial && !usedUUIDs.has(bySerial)) {
           inc.uuid = bySerial;
+          usedUUIDs.add(bySerial);
           enriched++;
           continue;
         }
       }
 
       if (inc.numistaId) {
-        const byNumista = uuidByNumista.get(inc.numistaId + "|" + (inc.date || ""));
-        if (byNumista) {
+        const byNumista = uuidByNumista.get(
+          inc.numistaId + "|" + (inc.name || "") + "|" + (inc.date || "")
+        );
+        if (byNumista && !usedUUIDs.has(byNumista)) {
           inc.uuid = byNumista;
+          usedUUIDs.add(byNumista);
           enriched++;
           continue;
         }
       }
 
       const byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));
-      if (byNameDate) {
+      if (byNameDate && !usedUUIDs.has(byNameDate)) {
         inc.uuid = byNameDate;
+        usedUUIDs.add(byNameDate);
         enriched++;
       }
     }

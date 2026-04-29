@@ -72,7 +72,7 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
       localStorage.setItem("metalInventory", raw);
 
       if (typeof window.loadInventory === "function") {
-        window.loadInventory();
+        await window.loadInventory();
       }
 
       let diffModalCalled = false;
@@ -153,7 +153,7 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
       localStorage.setItem("metalInventory", raw);
 
       if (typeof window.loadInventory === "function") {
-        window.loadInventory();
+        await window.loadInventory();
       }
 
       let diffModalCalled = false;
@@ -199,7 +199,7 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
       localStorage.setItem("metalInventory", raw);
 
       if (typeof window.loadInventory === "function") {
-        window.loadInventory();
+        await window.loadInventory();
       }
 
       let diffModalCalled = false;
@@ -270,12 +270,14 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
       localStorage.setItem("metalInventory", raw);
 
       if (typeof window.loadInventory === "function") {
-        window.loadInventory();
+        await window.loadInventory();
       }
 
+      let diffModalCalled = false;
       let capturedDiff = null;
       const origShow = window.DiffModal.show;
       window.DiffModal.show = (opts) => {
+        diffModalCalled = true;
         capturedDiff = opts.diff;
       };
 
@@ -288,13 +290,13 @@ test.describe("Vault round-trip duplicate prevention (STRK-14)", () => {
       window.showToast = origToast;
 
       return {
+        diffModalCalled,
         added: capturedDiff ? capturedDiff.added.length : 0,
-        unchanged: capturedDiff
-          ? capturedDiff.unchanged.length
-          : parseInt(localStorage.getItem("inventorySerial") || "0"),
+        unchanged: capturedDiff ? capturedDiff.unchanged.length : 0,
       };
     }, VAULT_PASSWORD);
 
+    expect(result.diffModalCalled).toBe(true);
     expect(result.added).toBe(1);
     expect(result.unchanged).toBe(8);
   });
