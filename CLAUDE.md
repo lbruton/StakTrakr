@@ -87,7 +87,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 
 **Skill authoring rules (when creating a new skill):**
 
-- Filename must be `SKILL.md` exactly — `.gitignore` only tracks `!.claude/skills/*/SKILL.md`. Other `.md` names are silently gitignored.
+- Filename must be `SKILL.md` exactly — `.gitignore` only tracks `!.claude/skills/*/SKILL.md`. Other `.md` names are silently gitignored. **Exception:** If a genuinely different structure is required, stop and ask the user to confirm, update `.gitignore` to allow the new pattern, and include that change in the same PR so the deviation is reviewed and tracked.
 - All `SKILL.md` files need YAML frontmatter (pattern: see `.claude/skills/sw-cache/SKILL.md`):
 
   ```yaml
