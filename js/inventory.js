@@ -108,7 +108,9 @@ const showInventoryRecoveryBanner = ({ cloudConnected } = {}) => {
 
 const dismissInventoryRecoveryBanner = () => {
   if (typeof document === "undefined") return;
-  const banner = safeGetElement("inventoryRecoveryBanner");
+  // safeGetElement returns a truthy dummy on miss; use document.getElementById so
+  // banner.parentNode is null when absent and the removeChild guard works correctly.
+  const banner = document.getElementById("inventoryRecoveryBanner");
   if (banner && banner.parentNode) {
     banner.parentNode.removeChild(banner);
   }

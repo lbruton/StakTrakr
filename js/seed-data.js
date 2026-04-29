@@ -8320,7 +8320,16 @@ function classifyBootState() {
   });
 
   if (keyPresence.metalInventory) {
-    const raw = localStorage.getItem(LS_KEY);
+    let raw;
+    try {
+      raw = localStorage.getItem("metalInventory");
+    } catch (storageErr) {
+      return {
+        classification: "parse-error",
+        keyPresence,
+        errorName: storageErr && storageErr.name ? storageErr.name : "StorageError",
+      };
+    }
     let parsed;
     try {
       // STRK-13: Decompress before parsing — large inventories are stored with
@@ -8372,7 +8381,7 @@ function shouldSeedInventory(stateResult) {
  * pushes them into the inventory array, and persists with a single
  * saveInventory() call.
  */
-function loadSeedInventory(stateResult) {
+async function loadSeedInventory(stateResult) {
   // STRK-13: Gate on classification — only seed when shouldSeedInventory() agrees.
   // Replaces the old `inventory.length > 0` heuristic which silently overwrote
   // damaged storage with sample data.
@@ -8394,10 +8403,11 @@ function loadSeedInventory(stateResult) {
     inventory.push(item);
   }
 
-  saveInventory();
+  await saveInventory();
 
-  // STRK-13: Write the seed sentinel atomically with the seed save so subsequent
-  // boots take the "returning user" branch even if the user empties their inventory.
+  // STRK-13: Write the seed sentinel only after saveInventory() resolves so a
+  // quota-exceeded or other storage failure doesn't leave the user permanently
+  // stuck with an empty inventory on all subsequent boots.
   try {
     if (typeof saveDataSync === "function") {
       saveDataSync("inventorySeedApplied", new Date().toISOString());

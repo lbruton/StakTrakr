@@ -532,7 +532,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       ) {
         var cloudConnected = false;
         if (typeof syncIsEnabled === "function" && typeof cloudIsConnected === "function") {
-          cloudConnected = !!(syncIsEnabled() && cloudIsConnected("dropbox"));
+          var providers =
+            typeof CLOUD_PROVIDERS === "object"
+              ? Object.keys(CLOUD_PROVIDERS)
+              : ["dropbox", "pcloud", "box"];
+          cloudConnected = !!(
+            syncIsEnabled() &&
+            providers.some(function (p) {
+              return cloudIsConnected(p);
+            })
+          );
         }
         if (typeof showInventoryRecoveryBanner === "function") {
           showInventoryRecoveryBanner({ cloudConnected: cloudConnected });
