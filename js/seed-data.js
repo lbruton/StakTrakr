@@ -8306,6 +8306,58 @@ const SEED_INVENTORY_ITEMS = [
   },
 ];
 
+function classifyBootState() {
+  const PRIOR_KEYS = [
+    "metalInventory",
+    "inventorySerial",
+    "cloud_sync_local_modified",
+    "cloud_sync_device_id",
+    "inventorySeedApplied",
+  ];
+  const keyPresence = {};
+  PRIOR_KEYS.forEach((k) => {
+    keyPresence[k] = localStorage.getItem(k) !== null;
+  });
+
+  if (keyPresence.metalInventory) {
+    const raw = localStorage.getItem(LS_KEY);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      return {
+        classification: "parse-error",
+        keyPresence,
+        errorName: err && err.name ? err.name : "ParseError",
+      };
+    }
+    if (!Array.isArray(parsed)) {
+      return { classification: "parse-error", keyPresence, errorName: "ShapeError" };
+    }
+    if (parsed.length > 0) {
+      return { classification: "returning-with-data", keyPresence };
+    }
+    // Empty array — fall through to evidence check
+  }
+
+  if (
+    keyPresence.inventorySerial ||
+    keyPresence.cloud_sync_local_modified ||
+    keyPresence.cloud_sync_device_id ||
+    keyPresence.inventorySeedApplied
+  ) {
+    return { classification: "damaged-key", keyPresence };
+  }
+
+  return { classification: "first-run", keyPresence };
+}
+
+function shouldSeedInventory(stateResult) {
+  if (!stateResult || stateResult.classification !== "first-run") return false;
+  if (stateResult.keyPresence && stateResult.keyPresence.inventorySeedApplied) return false;
+  return true;
+}
+
 /**
  * Loads sample inventory items for first-time users.
  *
@@ -8340,3 +8392,5 @@ function loadSeedInventory() {
 // Export for global access
 window.loadSeedSpotHistory = loadSeedSpotHistory;
 window.loadSeedInventory = loadSeedInventory;
+window.classifyBootState = classifyBootState;
+window.shouldSeedInventory = shouldSeedInventory;
