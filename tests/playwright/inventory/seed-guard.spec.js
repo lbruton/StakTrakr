@@ -30,6 +30,13 @@ const BASE_ITEM = {
   serial: 1,
 };
 
+async function clearAppStorage(page) {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    indexedDB.deleteDatabase("StakTrakrImages");
+  });
+}
+
 async function suppressWhatsNewPopup(page) {
   await page.addInitScript(() => {
     document.addEventListener(
@@ -51,6 +58,10 @@ async function gotoApp(page) {
 }
 
 test.describe("STRK-13 Inventory Seed Guard", () => {
+  test.beforeEach(async ({ page }) => {
+    await clearAppStorage(page);
+  });
+
   test("1. first-run-seeds: empty localStorage seeds 8 sample items and sets sentinel — REQ-1.4, REQ-1.5", async ({
     page,
   }) => {
