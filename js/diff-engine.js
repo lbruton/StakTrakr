@@ -202,6 +202,62 @@ const DiffEngine = {
   },
 
   // -------------------------------------------------------------------------
+  // enrichItemIdentities
+  // -------------------------------------------------------------------------
+
+  /**
+   * Copies local UUIDs onto incoming items that lack one, matching by serial
+   * (primary) then numistaId+date (fallback). This bridges the identity gap
+   * when vault backups or CSV exports lack the UUID assigned by loadInventory().
+   *
+   * @param {object[]} localItems  — items with UUIDs (from in-memory inventory)
+   * @param {object[]} incomingItems — items potentially missing UUIDs (from backup/import)
+   * @returns {number} count of items enriched
+   */
+  enrichItemIdentities(localItems, incomingItems) {
+    var local = Array.isArray(localItems) ? localItems : [];
+    var incoming = Array.isArray(incomingItems) ? incomingItems : [];
+
+    var uuidBySerial = new Map();
+    var uuidByNumista = new Map();
+
+    for (var i = 0; i < local.length; i++) {
+      var item = local[i];
+      if (item.serial && item.uuid) {
+        uuidBySerial.set(String(item.serial), item.uuid);
+      }
+      if (item.numistaId && item.uuid) {
+        uuidByNumista.set(item.numistaId + "|" + (item.date || ""), item.uuid);
+      }
+    }
+
+    var enriched = 0;
+    for (var j = 0; j < incoming.length; j++) {
+      var inc = incoming[j];
+      if (inc.uuid) continue;
+
+      if (inc.serial) {
+        var bySerial = uuidBySerial.get(String(inc.serial));
+        if (bySerial) {
+          inc.uuid = bySerial;
+          enriched++;
+          continue;
+        }
+      }
+
+      if (inc.numistaId) {
+        var byNumista = uuidByNumista.get(inc.numistaId + "|" + (inc.date || ""));
+        if (byNumista) {
+          inc.uuid = byNumista;
+          enriched++;
+        }
+      }
+    }
+
+    return enriched;
+  },
+
+  // -------------------------------------------------------------------------
   // matchItems
   // -------------------------------------------------------------------------
 

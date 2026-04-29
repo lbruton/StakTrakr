@@ -550,11 +550,19 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     debugLog("[Vault] Could not parse metalInventory from backup:", e);
   }
 
-  // 4. Compute item diff
+  // 4. Enrich backup items with local UUIDs before comparison
   var localItems = typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
+  try {
+    DiffEngine.enrichItemIdentities(localItems, backupItems);
+  } catch (e) {
+    if (typeof debugLog === "function")
+      debugLog("[Vault] Identity enrichment failed, proceeding without:", e);
+  }
+
+  // 5. Compute item diff
   var diffResult = DiffEngine.compareItems(localItems, backupItems);
 
-  // 5. Compute settings diff
+  // 6. Compute settings diff
   var settingsDiff = null;
   if (typeof DiffEngine.compareSettings === "function") {
     var settingsKeys =
@@ -602,7 +610,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     }
   }
 
-  // 6. Check for zero changes
+  // 7. Check for zero changes
   var totalChanges =
     diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
   if (totalChanges === 0 && !settingsDiff) {
@@ -612,7 +620,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     return;
   }
 
-  // 7. Build metadata from payload._meta
+  // 8. Build metadata from payload._meta
   var payloadMeta = payload._meta || {};
 
   // Cross-domain origin warning (STAK-374): warn when restoring from a different domain
@@ -648,7 +656,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
         ? loadDataSync(LS_KEY, []).length
         : 0;
 
-  // 8. Show DiffModal
+  // 9. Show DiffModal
   DiffModal.show({
     source: { type: "vault", label: "Encrypted Backup" },
     diff: diffResult,
