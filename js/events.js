@@ -98,6 +98,7 @@ const updatePurchasePriceToggleVisibility = () => {
   if (!showToggle && purchasePriceMode === "lot") {
     setPurchasePriceMode("each");
   }
+  updatePurchasePricePlaceholder();
 };
 
 const resetPurchasePriceToggle = () => {
