@@ -207,23 +207,24 @@ const DiffEngine = {
 
   /**
    * Copies local UUIDs onto incoming items that lack one, matching by serial
-   * (primary) then numistaId+date (fallback). This bridges the identity gap
-   * when vault backups or CSV exports lack the UUID assigned by loadInventory().
+   * (primary), numistaId+date (secondary), or name+date (tertiary). Mirrors
+   * the tier priority of computeItemKey(). Bridges the identity gap when vault
+   * backups or CSV exports lack the UUID assigned by loadInventory().
    *
    * @param {object[]} localItems  — items with UUIDs (from in-memory inventory)
    * @param {object[]} incomingItems — items potentially missing UUIDs (from backup/import)
    * @returns {number} count of items enriched
    */
   enrichItemIdentities(localItems, incomingItems) {
-    var local = Array.isArray(localItems) ? localItems : [];
-    var incoming = Array.isArray(incomingItems) ? incomingItems : [];
+    const local = Array.isArray(localItems) ? localItems : [];
+    const incoming = Array.isArray(incomingItems) ? incomingItems : [];
 
-    var uuidBySerial = new Map();
-    var uuidByNumista = new Map();
-    var uuidByNameDate = new Map();
+    const uuidBySerial = new Map();
+    const uuidByNumista = new Map();
+    const uuidByNameDate = new Map();
 
-    for (var i = 0; i < local.length; i++) {
-      var item = local[i];
+    for (let i = 0; i < local.length; i++) {
+      const item = local[i];
       if (!item.uuid) continue;
       if (item.serial) {
         uuidBySerial.set(String(item.serial), item.uuid);
@@ -231,19 +232,19 @@ const DiffEngine = {
       if (item.numistaId) {
         uuidByNumista.set(item.numistaId + "|" + (item.date || ""), item.uuid);
       }
-      var nameKey = (item.name || "") + "|" + (item.date || "");
+      const nameKey = (item.name || "") + "|" + (item.date || "");
       if (!uuidByNameDate.has(nameKey)) {
         uuidByNameDate.set(nameKey, item.uuid);
       }
     }
 
-    var enriched = 0;
-    for (var j = 0; j < incoming.length; j++) {
-      var inc = incoming[j];
+    let enriched = 0;
+    for (let j = 0; j < incoming.length; j++) {
+      const inc = incoming[j];
       if (inc.uuid) continue;
 
       if (inc.serial) {
-        var bySerial = uuidBySerial.get(String(inc.serial));
+        const bySerial = uuidBySerial.get(String(inc.serial));
         if (bySerial) {
           inc.uuid = bySerial;
           enriched++;
@@ -252,7 +253,7 @@ const DiffEngine = {
       }
 
       if (inc.numistaId) {
-        var byNumista = uuidByNumista.get(inc.numistaId + "|" + (inc.date || ""));
+        const byNumista = uuidByNumista.get(inc.numistaId + "|" + (inc.date || ""));
         if (byNumista) {
           inc.uuid = byNumista;
           enriched++;
@@ -260,7 +261,7 @@ const DiffEngine = {
         }
       }
 
-      var byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));
+      const byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));
       if (byNameDate) {
         inc.uuid = byNameDate;
         enriched++;

@@ -579,6 +579,13 @@ async function vaultRestoreWithPreview(fileBytes, password) {
       if (k === "metalInventory") continue;
       // Only include recognized storage keys
       if (settingsKeys.indexOf(k) === -1) continue;
+      // Skip volatile cache keys (spot prices, timestamps) — async init updates
+      // these between export and restore, producing false-positive diffs
+      if (
+        typeof VAULT_SETTINGS_DIFF_SKIP !== "undefined" &&
+        VAULT_SETTINGS_DIFF_SKIP.indexOf(k) !== -1
+      )
+        continue;
 
       // Parse the remote value (vault stores raw localStorage strings, possibly CMP1-compressed)
       var rawSettingVal = payload.data[k];
