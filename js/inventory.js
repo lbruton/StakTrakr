@@ -9,6 +9,117 @@
 let _cachedItemIndexMap = null;
 
 /**
+ * STRK-13: Inventory recovery flag.
+ * Set true when boot detected damaged or unparseable metalInventory; gated
+ * `saveInventory()` calls become no-ops until cleared by an explicit user
+ * action (add / import / restore — wired in task 8). Prevents the auto-write
+ * of `[]` that would overwrite the corrupt key with an empty array, destroying
+ * forensic evidence and preventing cloud-restore.
+ */
+let inventoryRecoveryActive = false;
+const setInventoryRecoveryActive = (val) => {
+  inventoryRecoveryActive = !!val;
+};
+const isInventoryRecoveryActive = () => inventoryRecoveryActive;
+const clearInventoryRecovery = () => {
+  if (!inventoryRecoveryActive) return;
+  inventoryRecoveryActive = false;
+  if (typeof dismissInventoryRecoveryBanner === "function") {
+    dismissInventoryRecoveryBanner();
+  }
+  if (typeof debugLog === "function") {
+    debugLog("inventoryRecovery: cleared");
+  }
+};
+window.setInventoryRecoveryActive = setInventoryRecoveryActive;
+window.isInventoryRecoveryActive = isInventoryRecoveryActive;
+window.clearInventoryRecovery = clearInventoryRecovery;
+
+/**
+ * STRK-13: Show the sticky inventory recovery banner above the inventory
+ * table section. Idempotent — re-invocation is a no-op when the banner
+ * already exists. Banner is built with createElement / textContent (no
+ * innerHTML) and stays visible until the user clicks Dismiss or Open Cloud
+ * Settings.
+ *
+ * @param {Object} [opts]
+ * @param {boolean} [opts.cloudConnected] - When true, copy directs the user
+ *   toward cloud restore; when false/undefined, copy directs toward refresh
+ *   or local backup import.
+ */
+const showInventoryRecoveryBanner = ({ cloudConnected } = {}) => {
+  if (typeof document === "undefined") return;
+  // safeGetElement returns a truthy dummy on miss, so use document.getElementById
+  // for these existence checks where null matters.
+  if (document.getElementById("inventoryRecoveryBanner")) return;
+  const tableSection = document.getElementById("tableSectionEl");
+  if (!tableSection || !tableSection.parentNode) return;
+
+  const copyConnected =
+    "Your inventory could not be loaded from this device. Restore from your cloud backup, or refresh and try again. Your local data was not modified.";
+  const copyDisconnected =
+    "Your inventory could not be loaded from this device. Refresh and try again, or import a backup file. Your local data was not modified.";
+
+  const banner = document.createElement("div");
+  banner.id = "inventoryRecoveryBanner";
+  banner.className = "inventory-recovery-banner";
+  banner.setAttribute("role", "alert");
+
+  const icon = document.createElement("span");
+  icon.className = "inventory-recovery-banner__icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "⚠";
+
+  const copy = document.createElement("p");
+  copy.className = "inventory-recovery-banner__copy";
+  copy.textContent = cloudConnected ? copyConnected : copyDisconnected;
+
+  const actions = document.createElement("div");
+  actions.className = "inventory-recovery-banner__actions";
+
+  const primaryBtn = document.createElement("button");
+  primaryBtn.type = "button";
+  primaryBtn.className = "inventory-recovery-banner__btn inventory-recovery-banner__btn--primary";
+  primaryBtn.textContent = "Open Cloud Settings";
+  primaryBtn.addEventListener("click", () => {
+    if (typeof showSettingsModal === "function") {
+      showSettingsModal("cloud");
+    }
+    clearInventoryRecovery();
+  });
+
+  const secondaryBtn = document.createElement("button");
+  secondaryBtn.type = "button";
+  secondaryBtn.className =
+    "inventory-recovery-banner__btn inventory-recovery-banner__btn--secondary";
+  secondaryBtn.textContent = "Dismiss";
+  secondaryBtn.addEventListener("click", () => {
+    clearInventoryRecovery();
+  });
+
+  actions.appendChild(primaryBtn);
+  actions.appendChild(secondaryBtn);
+  banner.appendChild(icon);
+  banner.appendChild(copy);
+  banner.appendChild(actions);
+
+  tableSection.parentNode.insertBefore(banner, tableSection);
+};
+
+const dismissInventoryRecoveryBanner = () => {
+  if (typeof document === "undefined") return;
+  // safeGetElement returns a truthy dummy on miss; use document.getElementById so
+  // banner.parentNode is null when absent and the removeChild guard works correctly.
+  const banner = document.getElementById("inventoryRecoveryBanner");
+  if (banner && banner.parentNode) {
+    banner.parentNode.removeChild(banner);
+  }
+};
+
+window.showInventoryRecoveryBanner = showInventoryRecoveryBanner;
+window.dismissInventoryRecoveryBanner = dismissInventoryRecoveryBanner;
+
+/**
  * Invalidates the cached item index map.
  * Should be called whenever the inventory array is mutated (add/remove/reorder).
  */
@@ -49,6 +160,16 @@ window.getNextSerial = getNextSerial;
  * Saves current inventory to localStorage
  */
 const saveInventory = async () => {
+  // STRK-13: Suppress automatic writes during recovery mode. Cleared by the
+  // recovery banner's actions or by the first explicit user-driven mutation
+  // (add/import/restore — see task 8 wiring).
+  if (inventoryRecoveryActive) {
+    if (typeof debugLog === "function") {
+      debugLog("saveInventory: suppressed (recovery mode active — explicit user action required)");
+    }
+    return;
+  }
+
   // Invalidate cached index map as inventory has likely changed
   invalidateItemIndexMap();
 

@@ -8306,6 +8306,73 @@ const SEED_INVENTORY_ITEMS = [
   },
 ];
 
+function classifyBootState() {
+  const PRIOR_KEYS = [
+    "metalInventory",
+    "inventorySerial",
+    "cloud_sync_local_modified",
+    "cloud_sync_device_id",
+    "inventorySeedApplied",
+  ];
+  const keyPresence = {};
+  PRIOR_KEYS.forEach((k) => {
+    keyPresence[k] = localStorage.getItem(k) !== null;
+  });
+
+  if (keyPresence.metalInventory) {
+    let raw;
+    try {
+      raw = localStorage.getItem("metalInventory");
+    } catch (storageErr) {
+      return {
+        classification: "parse-error",
+        keyPresence,
+        errorName: storageErr && storageErr.name ? storageErr.name : "StorageError",
+      };
+    }
+    let parsed;
+    try {
+      // STRK-13: Decompress before parsing — large inventories are stored with
+      // a CMP1: prefix by __compressIfNeeded (utils.js:3163). Raw JSON.parse on
+      // a compressed payload throws SyntaxError, which would misclassify real
+      // users with valid large inventory as parse-error. Fall back to raw on
+      // missing wrapper (file load order, no-op for uncompressed payloads).
+      const decoded = typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      parsed = JSON.parse(decoded);
+    } catch (err) {
+      return {
+        classification: "parse-error",
+        keyPresence,
+        errorName: err && err.name ? err.name : "ParseError",
+      };
+    }
+    if (!Array.isArray(parsed)) {
+      return { classification: "parse-error", keyPresence, errorName: "ShapeError" };
+    }
+    // STRK-13: Any valid array — including empty — is "returning-with-data".
+    // An empty array is a legitimate state (user deleted everything); falling
+    // through to the evidence check would misclassify them as damaged-key.
+    return { classification: "returning-with-data", keyPresence };
+  }
+
+  if (
+    keyPresence.inventorySerial ||
+    keyPresence.cloud_sync_local_modified ||
+    keyPresence.cloud_sync_device_id ||
+    keyPresence.inventorySeedApplied
+  ) {
+    return { classification: "damaged-key", keyPresence };
+  }
+
+  return { classification: "first-run", keyPresence };
+}
+
+function shouldSeedInventory(stateResult) {
+  if (!stateResult || stateResult.classification !== "first-run") return false;
+  if (stateResult.keyPresence && stateResult.keyPresence.inventorySeedApplied) return false;
+  return true;
+}
+
 /**
  * Loads sample inventory items for first-time users.
  *
@@ -8314,10 +8381,13 @@ const SEED_INVENTORY_ITEMS = [
  * pushes them into the inventory array, and persists with a single
  * saveInventory() call.
  */
-function loadSeedInventory() {
-  // Guard: existing users already have inventory
-  if (typeof inventory !== "undefined" && inventory.length > 0) {
-    debugLog("Seed inventory: skipped — inventory already has " + inventory.length + " items");
+async function loadSeedInventory(stateResult) {
+  // STRK-13: Gate on classification — only seed when shouldSeedInventory() agrees.
+  // Replaces the old `inventory.length > 0` heuristic which silently overwrote
+  // damaged storage with sample data.
+  if (typeof shouldSeedInventory === "function" && !shouldSeedInventory(stateResult)) {
+    const cls = stateResult && stateResult.classification ? stateResult.classification : "unknown";
+    debugLog("Seed inventory: skipped — classification=" + cls);
     return;
   }
 
@@ -8333,10 +8403,51 @@ function loadSeedInventory() {
     inventory.push(item);
   }
 
-  saveInventory();
+  await saveInventory();
+
+  // STRK-13: Write the seed sentinel only after saveInventory() resolves so a
+  // quota-exceeded or other storage failure doesn't leave the user permanently
+  // stuck with an empty inventory on all subsequent boots.
+  try {
+    if (typeof saveDataSync === "function") {
+      saveDataSync("inventorySeedApplied", new Date().toISOString());
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("Seed sentinel write failed:", e && e.name);
+  }
+
   debugLog("Seed inventory: loaded " + SEED_INVENTORY_ITEMS.length + " sample items");
+}
+
+/**
+ * STRK-13: Idempotent migration that back-fills the seed sentinel for users
+ * who pre-date this fix. Runs on every boot; only writes when classification
+ * is "returning-with-data" AND the sentinel is missing.
+ *
+ * Does NOT seed inventory — that's loadSeedInventory's job. Does NOT touch
+ * APP_VERSION_KEY (per requirements REQ-4 AC 3).
+ *
+ * @param {{classification: string, keyPresence: object}} stateResult
+ */
+function migrateSentinelIfMissing(stateResult) {
+  if (!stateResult || stateResult.classification !== "returning-with-data") return;
+  if (stateResult.keyPresence && stateResult.keyPresence.inventorySeedApplied) return;
+  if (typeof saveDataSync !== "function") return;
+  try {
+    saveDataSync("inventorySeedApplied", new Date().toISOString());
+  } catch (e) {
+    if (typeof debugLog === "function")
+      debugLog("Seed sentinel migration write failed:", e && e.name);
+    return;
+  }
+  if (typeof debugLog === "function") {
+    debugLog("Seed sentinel migration: sentinel set for existing user");
+  }
 }
 
 // Export for global access
 window.loadSeedSpotHistory = loadSeedSpotHistory;
 window.loadSeedInventory = loadSeedInventory;
+window.classifyBootState = classifyBootState;
+window.shouldSeedInventory = shouldSeedInventory;
+window.migrateSentinelIfMissing = migrateSentinelIfMissing;

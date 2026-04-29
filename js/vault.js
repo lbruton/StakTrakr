@@ -685,6 +685,8 @@ async function vaultRestoreWithPreview(fileBytes, password) {
         }
 
         // Save & render
+        if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+        if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by vaultRestore");
         if (typeof saveInventory === "function") saveInventory();
         if (typeof renderTable === "function") renderTable();
         if (typeof renderActiveFilters === "function") renderActiveFilters();

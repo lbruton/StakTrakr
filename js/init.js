@@ -491,6 +491,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       elements.itemDate.value = todayStr();
     }
 
+    // STRK-13: Snapshot boot state BEFORE loadInventory() runs. loadInventory
+    // unconditionally writes inventorySerial (inventory.js:291), which would
+    // trip classifyBootState's "damaged-key" branch on a first-run boot. Design.md
+    // documented classify-after-load, but empirically that ordering breaks the
+    // first-run path — see STRK-13 task 9 notes for the design follow-up.
+    let bootState = null;
+    if (typeof classifyBootState === "function") {
+      bootState = classifyBootState();
+    }
+
     // Load data
     await loadInventory();
 
@@ -507,9 +517,50 @@ document.addEventListener("DOMContentLoaded", async () => {
       NumistaLookup.loadEnabledSeedRules();
     }
 
-    // Seed sample inventory for first-time users
-    if (typeof loadSeedInventory === "function") {
-      loadSeedInventory();
+    if (bootState) {
+      if (bootState.classification === "first-run") {
+        if (typeof loadSeedInventory === "function") {
+          loadSeedInventory(bootState);
+        }
+      } else if (bootState.classification === "returning-with-data") {
+        if (typeof migrateSentinelIfMissing === "function") {
+          migrateSentinelIfMissing(bootState);
+        }
+      } else if (
+        bootState.classification === "damaged-key" ||
+        bootState.classification === "parse-error"
+      ) {
+        var cloudConnected = false;
+        if (typeof syncIsEnabled === "function" && typeof cloudIsConnected === "function") {
+          var providers =
+            typeof CLOUD_PROVIDERS === "object"
+              ? Object.keys(CLOUD_PROVIDERS)
+              : ["dropbox", "pcloud", "box"];
+          cloudConnected = !!(
+            syncIsEnabled() &&
+            providers.some(function (p) {
+              return cloudIsConnected(p);
+            })
+          );
+        }
+        if (typeof showInventoryRecoveryBanner === "function") {
+          showInventoryRecoveryBanner({ cloudConnected: cloudConnected });
+        }
+        if (typeof setInventoryRecoveryActive === "function") {
+          setInventoryRecoveryActive(true);
+        }
+      }
+
+      if (typeof recordBootDiagnostic === "function") {
+        var diag = {
+          classification: bootState.classification,
+          keyPresence: bootState.keyPresence,
+        };
+        if (bootState.errorName) {
+          diag.errorName = bootState.errorName;
+        }
+        recordBootDiagnostic(diag);
+      }
     }
     if (typeof sanitizeTablesOnLoad === "function") {
       sanitizeTablesOnLoad();

@@ -139,11 +139,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.35 &ndash; STRK-13: Inventory seed guard</strong>: Startup no longer overwrites your inventory with sample data when localStorage is missing or corrupt. A recovery banner now appears instead of silently replacing your data, and a boot diagnostics buffer records classifications for post-mortem analysis.</li>
     <li><strong>v3.34.34 &ndash; STRK-4: Lot &harr; Each toggle for Purchase Price</strong>: Enter a lot total when buying multiples &mdash; the app divides by quantity to store a per-unit price automatically. The Purchase column now shows the qty-multiplied total instead of the per-unit price.</li>
     <li><strong>v3.34.33 &ndash; STAK-581: Retail currency conversion phase 1</strong>: Retail and market price surfaces now honor the selected display currency through a shared currencychange event bus. Non-USD market tables also show a convenience-conversion note because vendor checkout remains US-based.</li>
     <li><strong>v3.34.32 &ndash; STAK-571: Spot provider switch confirmation</strong>: Settings &rarr; API now asks before switching spot price providers, names the provider being selected, and explains that the change affects spot prices, charts, ticker, and portfolio values. Cancel leaves the previous provider unchanged.</li>
     <li><strong>v3.34.31 &ndash; STAK-578: Mobile action buttons fix</strong>: Save / Cancel / Edit and other action buttons in the View and Add/Edit item modals are now fully tappable on Android Chrome, Edge, and notched iPhones &mdash; including in landscape orientation. Previously the Android gesture bar and iOS home indicator could swallow taps near the bottom edge, and the iOS landscape side notch could clip edge buttons.</li>
-    <li><strong>v3.34.30 &ndash; STAK-582: Remove dead retail card-list view</strong>: Removed the orphaned Market Settings retail card/list render path, stale exports, event listeners, trend-mode storage, sync-error state, and obsolete card CSS while preserving the active ticker, vendor price matrix, market detail modal, market filter matrix, and retail history table.</li>
   `;
 };
 

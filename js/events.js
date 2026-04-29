@@ -1493,6 +1493,8 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       catalogManager.setCatalogId(serial, f.catalog);
     }
 
+    if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+    if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by addItem");
     saveInventory();
 
     // Log the add action to the changelog (BUG-004)
