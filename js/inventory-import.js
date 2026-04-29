@@ -59,6 +59,8 @@
     if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
       inventory = catalogManager.syncInventory(inventory);
     }
+    if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+    if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by import");
     saveInventory();
     renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
@@ -497,6 +499,8 @@
               }
             }
 
+            if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+            if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by csvImport");
             saveInventory();
             // STAK-424: Apply deferred tags after override confirmation
             if (pendingTagsByUuid.size > 0 && typeof addItemTag === "function") {
@@ -832,6 +836,9 @@
             if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
               inventory = catalogManager.syncInventory(inventory);
             }
+            if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+            if (typeof debugLog === "function")
+              debugLog("inventoryRecovery: cleared by numistaImport");
             saveInventory();
             // STAK-421: Cancel debounced sync push after override import
             if (
@@ -1332,6 +1339,8 @@
           if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
             inventory = catalogManager.syncInventory(inventory);
           }
+          if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+          if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by jsonImport");
           saveInventory();
           // Restore itemRemovedTags from import payload (STAK-556)
           if (parsedRemovedTags && typeof saveDataSync === "function") {
