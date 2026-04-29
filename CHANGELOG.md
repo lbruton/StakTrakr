@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.37] - 2026-04-29
+
+### Fixed — STRK-17: Silverback weight unit wrong retail pricing
+
+- **Fixed**: Silverbacks now use a dedicated `sb` weight unit at 0.001 troy ounces so melt, premium, and display calculations no longer reuse Goldback retail pricing semantics.
+- **Added**: Legacy Silverback records stored as `gb` migrate to `sb` on local load, CSV import, encrypted backup preview, and cloud restore/diff paths.
+- **Added**: Playwright coverage for Silverback add/edit, display, bulk edit, migration, and encrypted backup preview behavior.
+
+---
+
 ## [3.34.36] - 2026-04-29
 
 ### Fixed — STRK-14: Encrypted backup round-trip duplicate prevention

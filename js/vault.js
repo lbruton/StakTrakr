@@ -546,6 +546,9 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     var decompressedInv =
       typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawInv) : rawInv;
     backupItems = JSON.parse(decompressedInv);
+    if (typeof migrateLegacySilverbackWeightUnit === "function") {
+      migrateLegacySilverbackWeightUnit(backupItems);
+    }
   } catch (e) {
     debugLog("[Vault] Could not parse metalInventory from backup:", e);
   }

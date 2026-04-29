@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-04-29 - STRK-13: Inventory seed guard prevents data loss
  */
 
-const APP_VERSION = "3.34.36";
+const APP_VERSION = "3.34.37";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -569,6 +569,9 @@ const GOLDBACK_PRICING_SOURCE_KEY = "goldback-pricing-source"; // nosemgrep: cod
 
 /** @constant {number} GB_TO_OZT - Conversion factor: 1 Goldback = 0.001 troy oz 24K gold */
 const GB_TO_OZT = 0.001;
+
+/** @constant {number} SB_TO_OZT - Conversion factor: 1 Silverback = 0.001 troy oz silver */
+const SB_TO_OZT = 0.001;
 
 /** @constant {number} KG_TO_OZT - Conversion factor: 1 kilogram = 32.15075 troy ounces */
 const KG_TO_OZT = 32.15075;
@@ -1912,6 +1915,7 @@ if (typeof window !== "undefined") {
   window.RETAIL_AVAILABILITY_KEY = RETAIL_AVAILABILITY_KEY;
   window.GOLDBACK_ENABLED_KEY = GOLDBACK_ENABLED_KEY;
   window.GB_TO_OZT = GB_TO_OZT;
+  window.SB_TO_OZT = SB_TO_OZT;
   window.GOLDBACK_DENOMINATIONS = GOLDBACK_DENOMINATIONS;
   window.GOLDBACK_ESTIMATE_ENABLED_KEY = GOLDBACK_ESTIMATE_ENABLED_KEY;
   window.GB_ESTIMATE_PREMIUM = GB_ESTIMATE_PREMIUM;

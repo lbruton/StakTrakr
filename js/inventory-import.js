@@ -79,6 +79,9 @@
    */
   const showImportDiffReview = (parsedItems, sourceInfo, options, onComplete) => {
     options = options || {};
+    if (typeof migrateLegacySilverbackWeightUnit === "function") {
+      migrateLegacySilverbackWeightUnit(parsedItems);
+    }
 
     // Guard: if DiffEngine or DiffModal unavailable, fall back to concat-all
     if (typeof DiffEngine === "undefined" || typeof DiffModal === "undefined") {
@@ -463,6 +466,9 @@
 
           // --- Override path: skip DiffEngine, import all items directly ---
           if (override) {
+            if (typeof migrateLegacySilverbackWeightUnit === "function") {
+              migrateLegacySilverbackWeightUnit(imported);
+            }
             inventory = imported;
 
             // Synchronize all items with catalog manager
@@ -1251,6 +1257,9 @@
         }
 
         endImportProgress();
+        if (typeof migrateLegacySilverbackWeightUnit === "function") {
+          migrateLegacySilverbackWeightUnit(imported);
+        }
 
         // Report skipped non-precious-metal items
         if (skippedNonPM.length > 0) {

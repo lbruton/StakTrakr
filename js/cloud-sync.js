@@ -2765,6 +2765,9 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           var decompressedInv =
             typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawInv) : rawInv;
           remoteItems = JSON.parse(decompressedInv);
+          if (typeof migrateLegacySilverbackWeightUnit === "function") {
+            migrateLegacySilverbackWeightUnit(remoteItems);
+          }
         } catch (parseErr) {
           debugLog("[CloudSync] Could not parse metalInventory from vault:", parseErr.message);
         }
@@ -3417,6 +3420,9 @@ async function pullWithPreview(remoteMeta) {
         var _vfDecompressed =
           typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(_vfRaw) : _vfRaw;
         remoteItems = JSON.parse(_vfDecompressed);
+        if (typeof migrateLegacySilverbackWeightUnit === "function") {
+          migrateLegacySilverbackWeightUnit(remoteItems);
+        }
       } catch (_vfErr) {
         debugLog("[CloudSync] Vault-first: could not parse metalInventory:", _vfErr.message);
       }

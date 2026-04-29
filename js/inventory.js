@@ -173,6 +173,7 @@ const saveInventory = async () => {
   // Invalidate cached index map as inventory has likely changed
   invalidateItemIndexMap();
 
+  migrateLegacySilverbackWeightUnit(inventory);
   await saveData(LS_KEY, inventory);
   // CatalogManager handles its own saving, no need to explicitly save catalogMap
   // STACK-62: Invalidate autocomplete cache so lookup table rebuilds with current inventory
@@ -190,6 +191,21 @@ const sanitizeTablesOnLoad = () => {
   inventory = inventory.map((item) => sanitizeObjectFields(item));
   invalidateItemIndexMap();
 };
+
+const migrateLegacySilverbackWeightUnit = (items) => {
+  if (!Array.isArray(items)) return false;
+  let migrated = false;
+  items.forEach((item) => {
+    const isSilverback =
+      item && typeof item.type === "string" && item.type.trim().toLowerCase() === "silverback";
+    if (isSilverback && item.weightUnit === "gb") {
+      item.weightUnit = "sb";
+      migrated = true;
+    }
+  });
+  return migrated;
+};
+window.migrateLegacySilverbackWeightUnit = migrateLegacySilverbackWeightUnit;
 
 /**
  * Loads inventory from localStorage with comprehensive data migration
@@ -269,6 +285,10 @@ const loadInventory = async () => {
       }
       return sanitizeImportedItem(normalized);
     });
+    const migratedSilverbackWeightUnits = migrateLegacySilverbackWeightUnit(inventory);
+    if (migratedSilverbackWeightUnits) {
+      await saveData(LS_KEY, inventory);
+    }
 
     let serialCounter = parseInt(loadDataSync(SERIAL_KEY, 0), 10);
 

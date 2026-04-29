@@ -118,7 +118,11 @@ const switchSettingsSection = (name) => {
             const w = parseFloat(it.weight) || 0;
             const qty = Number(it.qty) || 1;
             const oz =
-              it.weightUnit === "gb" && typeof GB_TO_OZT !== "undefined" ? w * GB_TO_OZT : w;
+              it.weightUnit === "gb" && typeof GB_TO_OZT !== "undefined"
+                ? w * GB_TO_OZT
+                : it.weightUnit === "sb" && typeof SB_TO_OZT !== "undefined"
+                  ? w * SB_TO_OZT
+                  : w;
             return sum + oz * qty;
           }, 0);
           weightEl.textContent =

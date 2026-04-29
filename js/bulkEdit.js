@@ -193,6 +193,7 @@ const BULK_EDITABLE_FIELDS = [
       { value: "kg", label: "kilogram" },
       { value: "lb", label: "pound" },
       { value: "gb", label: "goldback" },
+      { value: "sb", label: "silverback" },
     ],
   },
   {
@@ -584,9 +585,13 @@ const renderBulkFieldPanel = () => {
       bulkFieldValues["weight"] = denomSelect.value;
     });
 
+    const bulkTypeSelect = document.getElementById("bulkFieldVal_type");
+    const bulkMetalSelect = safeGetElement("bulkFieldVal_metal");
+
     // Swap function
     const toggleBulkGbPicker = () => {
-      const isGb = bwUnitSelect.value === "gb";
+      const isSb = bwUnitSelect.value === "sb" || bulkTypeSelect?.value === "Silverback";
+      const isGb = bwUnitSelect.value === "gb" && !isSb;
       bwInput.style.display = isGb ? "none" : "";
       denomSelect.style.display = isGb ? "" : "none";
       if (bwLabel) bwLabel.textContent = isGb ? "DENOMINATION" : "Weight";
@@ -596,29 +601,17 @@ const renderBulkFieldPanel = () => {
       }
     };
 
-    const updateBulkDenomLabels = (typeValue = "") => {
-      const isSilverback = typeValue === "Silverback";
-      const denominations =
-        isSilverback && typeof SILVERBACK_DENOMINATIONS !== "undefined"
-          ? SILVERBACK_DENOMINATIONS
-          : GOLDBACK_DENOMINATIONS;
-      const label = isSilverback ? "Silverback" : "Goldback";
-
+    const updateBulkDenomLabels = () => {
       while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
-      denominations.forEach((d) => {
+      GOLDBACK_DENOMINATIONS.forEach((d) => {
         const opt = document.createElement("option");
         opt.value = String(d.weight);
         const prefix = d.weight === 0.5 ? "½" : String(d.weight);
-        opt.textContent = `${prefix} ${label}`;
+        opt.textContent = `${prefix} Goldback`;
         if (d.weight === 1) opt.selected = true;
         denomSelect.appendChild(opt);
       });
-      const bulkUnitOpt = bwUnitSelect ? bwUnitSelect.querySelector('option[value="gb"]') : null;
-      if (bulkUnitOpt) bulkUnitOpt.textContent = isSilverback ? "silverback" : "goldback";
     };
-
-    const bulkTypeSelect = document.getElementById("bulkFieldVal_type");
-    const bulkMetalSelect = safeGetElement("bulkFieldVal_metal");
 
     const filterBulkTypesByMetal = (metalValue) => {
       if (!bulkTypeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
@@ -639,13 +632,17 @@ const renderBulkFieldPanel = () => {
     const handleBulkTypeChange = () => {
       if (!bulkTypeSelect) return;
       const typeValue = bulkTypeSelect.value;
-      const isGbType = typeValue === "Goldback" || typeValue === "Silverback";
+      const isGoldbackType = typeValue === "Goldback";
+      const isSilverbackType = typeValue === "Silverback";
 
-      if (isGbType) {
+      if (isGoldbackType) {
         bwUnitSelect.value = "gb";
         bulkFieldValues["weightUnit"] = "gb";
-        updateBulkDenomLabels(typeValue);
-      } else if (bwUnitSelect.value === "gb") {
+        updateBulkDenomLabels();
+      } else if (isSilverbackType) {
+        bwUnitSelect.value = "sb";
+        bulkFieldValues["weightUnit"] = "sb";
+      } else if (bwUnitSelect.value === "gb" || bwUnitSelect.value === "sb") {
         bwUnitSelect.value = "oz";
         bulkFieldValues["weightUnit"] = "oz";
       }
@@ -654,7 +651,13 @@ const renderBulkFieldPanel = () => {
     };
 
     // Listen for unit changes
-    bwUnitSelect.addEventListener("change", toggleBulkGbPicker);
+    bwUnitSelect.addEventListener("change", () => {
+      if (bulkTypeSelect?.value === "Silverback") {
+        bwUnitSelect.value = "sb";
+        bulkFieldValues["weightUnit"] = "sb";
+      }
+      toggleBulkGbPicker();
+    });
 
     if (bulkMetalSelect) {
       bulkMetalSelect.addEventListener("change", () => {
@@ -676,9 +679,9 @@ const renderBulkFieldPanel = () => {
       });
     }
 
-    // Initialize state (e.g. if weightUnit was persisted as 'gb')
-    if (bulkFieldValues["weightUnit"] === "gb") {
-      bwUnitSelect.value = "gb";
+    // Initialize state (e.g. if weightUnit was persisted as 'gb' or 'sb')
+    if (bulkFieldValues["weightUnit"] === "gb" || bulkFieldValues["weightUnit"] === "sb") {
+      bwUnitSelect.value = bulkFieldValues["weightUnit"];
       toggleBulkGbPicker();
     }
 
@@ -1174,6 +1177,10 @@ const applyBulkEdit = async () => {
     valuesToApply.purity = rawPurity;
   }
 
+  if (bulkEnabledFields.has("type") && valuesToApply.type === "Silverback") {
+    valuesToApply.weightUnit = "sb";
+  }
+
   // Convert gram weight to ozt for storage (matches parseWeight in events.js)
   if (bulkEnabledFields.has("weight") && valuesToApply.weight !== undefined) {
     const unitSelect = safeGetElement("bulkFieldVal_weightUnit");
@@ -1202,8 +1209,11 @@ const applyBulkEdit = async () => {
   if (bulkEnabledFields.has("weight")) {
     const denomSelect = safeGetElement("bulkFieldVal_weightDenom");
     const unitSelect = safeGetElement("bulkFieldVal_weightUnit");
+    const isSbMode =
+      valuesToApply["weightUnit"] === "sb" || (unitSelect && unitSelect.value === "sb");
     const isGbMode =
-      valuesToApply["weightUnit"] === "gb" || (unitSelect && unitSelect.value === "gb");
+      !isSbMode &&
+      (valuesToApply["weightUnit"] === "gb" || (unitSelect && unitSelect.value === "gb"));
     if (isGbMode && denomSelect && denomSelect.style.display !== "none") {
       valuesToApply["weight"] = denomSelect.value;
     }

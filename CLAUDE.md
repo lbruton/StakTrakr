@@ -122,6 +122,16 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 - **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
 
+### TDD Test Integrity — RED FLAG
+
+NEVER modify a TDD test to make it pass. Tests are written first to define correct behavior — they are the spec. If a test fails:
+
+1. **Investigate the implementation code** — the test is telling you the code is wrong. Fix the code.
+2. **If the test itself is flawed** (wrong assertion, incorrect understanding of requirements) — this means the spec's requirements or design were wrong. STOP implementation. Restart the spec from Phase 1 (Requirements). Do not patch the test and continue.
+3. **Never weaken, skip, or rewrite a test to get a green result.** That defeats the entire purpose of TDD — you are no longer testing behavior, you are testing your ability to make tests pass.
+
+A passing test suite built on modified tests is worse than a failing one — it gives false confidence while masking real bugs.
+
 ---
 
 ## Pre-flight (StakTrakr-specific)

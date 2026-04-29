@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.37 &ndash; STRK-17: Silverback weight unit</strong>: Silverbacks now use their own 0.001 troy ounce unit instead of sharing Goldback retail pricing semantics. Existing Silverback records saved with the old unit are migrated automatically during load, import, backup preview, and cloud restore flows.</li>
     <li><strong>v3.34.36 &ndash; STRK-14: Vault round-trip fix</strong>: Re-importing your own encrypted backup no longer produces duplicates. Items are now matched by serial, numistaId, or name+date before comparison, and volatile cache keys no longer trigger false settings diffs.</li>
     <li><strong>v3.34.35 &ndash; STRK-13: Inventory seed guard</strong>: Startup no longer overwrites your inventory with sample data when localStorage is missing or corrupt. A recovery banner now appears instead of silently replacing your data, and a boot diagnostics buffer records classifications for post-mortem analysis.</li>
     <li><strong>v3.34.34 &ndash; STRK-4: Lot &harr; Each toggle for Purchase Price</strong>: Enter a lot total when buying multiples &mdash; the app divides by quantity to store a per-unit price automatically. The Purchase column now shows the qty-multiplied total instead of the per-unit price.</li>

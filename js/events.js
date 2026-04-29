@@ -1035,6 +1035,7 @@ const setupTableSortListeners = () => {
    */
   window.toggleGbDenomPicker = () => {
     const isGb = elements.itemWeightUnit?.value === "gb";
+    const isSb = elements.itemWeightUnit?.value === "sb";
     const denomSelect = elements.itemGbDenom;
     const weightInput = elements.itemWeight;
     const weightLabel = document.getElementById("itemWeightLabel");
@@ -1043,7 +1044,7 @@ const setupTableSortListeners = () => {
     showEl(weightInput, !isGb);
     if (isGb && weightInput && denomSelect) weightInput.value = denomSelect.value;
     if (weightLabel) {
-      weightLabel.textContent = isGb ? "DENOMINATION" : "Weight";
+      weightLabel.textContent = isGb ? "DENOMINATION" : isSb ? "Silverback Units" : "Weight";
       weightLabel.setAttribute("for", isGb ? "itemGbDenom" : "itemWeight");
     }
   };
@@ -1056,7 +1057,7 @@ const setupTableSortListeners = () => {
  * Parses weight from form input, handling Goldback denominations,
  * fractions, and gram-to-troy-oz conversion.
  * @param {string} weightRaw - Raw weight input value
- * @param {string} weightUnit - Unit: 'oz', 'g', 'kg', 'lb', or 'gb'
+ * @param {string} weightUnit - Unit: 'oz', 'g', 'kg', 'lb', 'gb', or 'sb'
  * @param {boolean} isEditing - Whether in edit mode
  * @param {Object} existingItem - Existing item (edit mode)
  * @returns {number} Weight in troy ounces (or denomination value for gb)
@@ -1073,7 +1074,7 @@ const parseWeight = (weightRaw, weightUnit, isEditing, existingItem) => {
   } else if (weightUnit === "lb") {
     weight = lbToOzt(weight);
   }
-  // gb: weight stays as raw denomination value (conversion happens in computeMeltValue)
+  // gb/sb: weight stays as raw denomination value (conversion happens in computeMeltValue)
   return isNaN(weight) ? 0 : parseFloat(weight.toFixed(6));
 };
 
@@ -1562,32 +1563,28 @@ const buildNumistaSearchQuery = (nameVal, metalVal) => {
  */
 const updateDenomLabels = (typeValue = "") => {
   const denomSelect = document.getElementById("itemGbDenom");
-  if (
-    !denomSelect ||
-    typeof GOLDBACK_DENOMINATIONS === "undefined" ||
-    typeof SILVERBACK_DENOMINATIONS === "undefined"
-  )
-    return;
+  if (!denomSelect || typeof GOLDBACK_DENOMINATIONS === "undefined") return;
 
   const isSilverback = typeValue === "Silverback";
-  const denominations =
-    isSilverback && typeof SILVERBACK_DENOMINATIONS !== "undefined"
-      ? SILVERBACK_DENOMINATIONS
-      : GOLDBACK_DENOMINATIONS;
-  const label = isSilverback ? "Silverback" : "Goldback";
+  const goldbackUnitOption = document.querySelector('#itemWeightUnit option[value="gb"]');
+  const silverbackUnitOption = document.querySelector('#itemWeightUnit option[value="sb"]');
+  if (goldbackUnitOption) goldbackUnitOption.textContent = "goldback";
+  if (silverbackUnitOption) silverbackUnitOption.textContent = "silverback";
+
+  if (isSilverback) {
+    denomSelect.style.display = "none";
+    return;
+  }
 
   while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
-  denominations.forEach((d) => {
+  GOLDBACK_DENOMINATIONS.forEach((d) => {
     const opt = document.createElement("option");
     opt.value = String(d.weight);
     const prefix = d.weight === 0.5 ? "½" : String(d.weight);
-    opt.textContent = `${prefix} ${label}`;
+    opt.textContent = `${prefix} Goldback`;
     if (d.weight === 1) opt.selected = true;
     denomSelect.appendChild(opt);
   });
-
-  const unitOption = document.querySelector('#itemWeightUnit option[value="gb"]');
-  if (unitOption) unitOption.textContent = isSilverback ? "silverback" : "goldback";
 };
 
 /**
@@ -1599,10 +1596,11 @@ const handleTypeChange = () => {
   if (!(unitSelect instanceof HTMLElement)) return;
 
   const unitGroup = unitSelect.closest(".form-group") || unitSelect.parentElement;
-  const isGoldbackType = selectedType === "Goldback" || selectedType === "Silverback";
+  const isGoldbackType = selectedType === "Goldback";
+  const isSilverbackType = selectedType === "Silverback";
 
-  if (isGoldbackType) {
-    unitSelect.value = "gb";
+  if (isGoldbackType || isSilverbackType) {
+    unitSelect.value = isGoldbackType ? "gb" : "sb";
     if (unitGroup) unitGroup.classList.add("hidden");
     updateDenomLabels(selectedType);
     const puritySelect = document.getElementById("itemPuritySelect");
@@ -1610,7 +1608,7 @@ const handleTypeChange = () => {
       puritySelect.value = "0.999";
     }
   } else {
-    if (unitSelect.value === "gb") {
+    if (unitSelect.value === "gb" || unitSelect.value === "sb") {
       unitSelect.value = "oz";
     }
     if (unitGroup) unitGroup.classList.remove("hidden");
