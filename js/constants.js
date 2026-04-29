@@ -281,10 +281,10 @@ const CERT_LOOKUP_URLS = {
  * Follows BRANCH.RELEASE.PATCH.state format
  * State codes: a=alpha, b=beta, rc=release candidate
  * Example: 3.03.02a → branch 3, release 03, patch 02, alpha
- * Updated: 2026-04-27 - STRK-4: Lot ⇄ Each toggle for Purchase Price
+ * Updated: 2026-04-29 - STRK-13: Inventory seed guard prevents data loss
  */
 
-const APP_VERSION = "3.34.34";
+const APP_VERSION = "3.34.35";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.

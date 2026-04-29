@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.35] - 2026-04-29
+
+### Fixed — STRK-13: Inventory seed guard prevents data loss on storage failure
+
+- **Fixed**: Startup no longer overwrites user inventory with sample data when localStorage is missing or corrupt. A new `classifyBootState()` function distinguishes first-run (no prior evidence) from storage failure (orphaned keys like `inventorySerial` exist without `metalInventory`).
+- **Added**: Seed sentinel (`inventorySeedApplied`) — sample data is only persisted once per origin; returning users with existing data are never re-seeded.
+- **Added**: Recovery banner — when storage damage is detected, a non-dismissable warning surfaces above the inventory table instead of silently replacing data with samples. Users can restore from cloud backup or dismiss.
+- **Added**: Boot diagnostics ring buffer (`staktrakr.bootDiagnostics`) — records the last 10 boot classifications for post-mortem analysis without storing PII.
+- **Fixed**: `classifyBootState()` now decompresses CMP1-prefixed inventory before parsing, preventing large inventories from being misclassified as corrupt.
+- **Added**: `migrateSentinelIfMissing()` — one-shot migration writes the seed sentinel for existing users so they are never re-seeded on future boots.
+
+---
+
 ## [3.34.34] - 2026-04-27
 
 ### Added — STRK-4: Lot ⇄ Each toggle for Purchase Price
