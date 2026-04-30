@@ -913,7 +913,8 @@ function htmlToPlainText(html) {
 
     let nameStart = lt + 1;
     while (nameStart < html.length && isHtmlWhitespace(html[nameStart])) nameStart++;
-    if (html[nameStart] === "/") nameStart++;
+    const isClosingTag = html[nameStart] === "/";
+    if (isClosingTag) nameStart++;
     while (nameStart < html.length && isHtmlWhitespace(html[nameStart])) nameStart++;
 
     let nameEnd = nameStart;
@@ -925,7 +926,7 @@ function htmlToPlainText(html) {
     }
 
     const tagName = lowerHtml.slice(nameStart, nameEnd);
-    if (tagName === "script" || tagName === "style") {
+    if (!isClosingTag && (tagName === "script" || tagName === "style")) {
       const closeEnd = findRawTextCloseTag(html, lowerHtml, tagName, nameEnd);
       cursor = closeEnd === -1 ? html.length : closeEnd + 1;
       text += " ";
