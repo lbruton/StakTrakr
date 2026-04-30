@@ -198,20 +198,20 @@ Full-screen bulk operations in Settings > Inventory:
 
 Everything in one place with sidebar navigation:
 
-| Tab            | What's Here                                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------------- |
-| **About**      | Version info, API status badge, What's New, roadmap, badges, changelog, force refresh               |
-| **Appearance** | Theme (Light / Dark / Sepia / System), header button visibility and reorder, layout section toggles |
-| **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit         |
-| **Filters**    | Category toggles, sort order, grouping rules, blacklist, max chip count                             |
-| **Images**     | Image cache management, upload settings, bulk image sync                                            |
-| **Currency**   | Display currency (17 currencies), exchange rates, Goldback pricing controls                         |
-| **Market**     | Market data toggles, vendor display preferences                                                     |
-| **Storage**    | localStorage and IndexedDB usage dashboard, data reset                                              |
-| **API**        | Spot price source selection, Numista and PCGS catalog integration, usage tracking                   |
-| **Cloud**      | Dropbox connection, cloud backup/restore, sync history, multi-account management                    |
-| **Log**        | Activity Log — full change history with undo/redo                                                   |
-| **FAQ**        | Privacy, backup, security, and limitations — built into the app                                     |
+| Tab            | What's Here                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| **About**      | Version info, API status badge, What's New, roadmap, badges, changelog, force refresh                   |
+| **Appearance** | Theme (Light / Dark / Sepia / System), header button visibility and reorder, layout section toggles     |
+| **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit, data reset |
+| **Filters**    | Category toggles, sort order, grouping rules, blacklist, max chip count, search behavior                |
+| **Images**     | Image cache management, upload settings, bulk image sync                                                |
+| **Currency**   | Display currency (17 currencies), exchange rates, Goldback pricing controls                             |
+| **Market**     | Market data toggles, vendor display preferences                                                         |
+| **Storage**    | localStorage and IndexedDB usage dashboard                                                              |
+| **API**        | Spot price source selection, Numista and PCGS catalog integration, usage tracking                       |
+| **Cloud**      | Dropbox connection, cloud backup/restore, sync history, multi-account management                        |
+| **Log**        | Activity Log — full change history with undo/redo                                                       |
+| **FAQ**        | Privacy, backup, security, and limitations — built into the app                                         |
 
 ### More
 
