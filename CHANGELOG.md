@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.34.38] - 2026-04-29
 
+### Fixed — STRK-20: Backup conflict modal context-aware messaging
+
+- **Fixed**: Cloud restore conflict modal now shows "A more recent remote backup exists" vs. "An existing remote backup was found" based on `conflict.reason`, instead of always claiming the remote is stale.
+- **Fixed**: `cloud_last_backup` is now always persisted after a successful sync, preventing stale-timestamp false negatives in conflict detection.
+
+### Fixed — STRK-19: View modal eBay search button overlap
+
+- **Fixed**: eBay search button moved from the title row to the badges row in the View Item modal header, eliminating the overlap with the absolute-positioned close (X) button.
+- **Fixed**: Title row `padding-right` bumped to `32px` to prevent title text from running under the close button on mobile viewports.
+
 ### Fixed — STRK-15: Silverback denomination aria-label
 
 - **Fixed**: Silverback denomination selector no longer carries a stale `aria-label="Goldback denomination"` attribute. The dynamically managed `<label for>` association in `toggleGbDenomPicker` now provides the only accessible name, eliminating the misleading screen-reader announcement.

@@ -7,8 +7,10 @@
 # AI / agent configuration
 .agents/              export-ignore
 .claude/              export-ignore
+.Codex/               export-ignore
 .jules/               export-ignore
 .spec-workflow/       export-ignore
+.specflow/            export-ignore
 CLAUDE.md             export-ignore
 AGENTS.md             export-ignore
 GEMINI.md             export-ignore
@@ -26,15 +28,19 @@ CNAME                 export-ignore
 # Git housekeeping (exclude themselves)
 .gitattributes        export-ignore
 .gitignore            export-ignore
+.geminiignore         export-ignore
 .dockerignore         export-ignore
 
 # Linting & code quality
 .codacy/              export-ignore
 .codacy.yml           export-ignore
+.coderabbit.yaml      export-ignore
 .eslintrc.json        export-ignore
 eslint.config.js      export-ignore
 eslint.config.cjs     export-ignore
 .markdownlint.json    export-ignore
+.prettierrc           export-ignore
+.prettierignore       export-ignore
 ruleset.xml           export-ignore
 
 # Tests
@@ -47,6 +53,8 @@ docs/                 export-ignore
 ROADMAP.md            export-ignore
 SPRINT.md             export-ignore
 CHANGELOG.md          export-ignore
+DESIGN.md             export-ignore
+SECURITY.md           export-ignore
 
 # Dev reference pages & prototypes
 design-preview.html   export-ignore

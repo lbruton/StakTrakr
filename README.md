@@ -63,7 +63,7 @@ Real-time prices from multiple API providers with automatic failover:
 - **Free, keyless provider** — `api.staktrakr.com` delivers hourly spot prices out of the box; no API key needed to get started
 - **Sparkline charts** — interactive mini price charts with 7d / 30d / 60d / 90d range selector
 - **Percentage change** — see how each metal has moved over your selected timeframe
-- **Provider priority** — configure up to 5 API providers (Metals.dev, MetalPriceAPI, GoldAPI, and more) with configurable sync priority
+- **Single source selection** — choose from 6 spot price sources (StakTrakr API, Metals.dev, Metals-API, MetalPriceAPI, Custom URL, or Manual mode for full offline pricing)
 - **Seed data included** — years of historical prices (1968–present) baked in; sparklines work from day one
 - **Health indicators** — color-coded status dots show API sync freshness at a glance
 
@@ -74,12 +74,11 @@ Real-time retail market prices from major bullion dealers, powered by the StakTr
 - **Best Price Ticker** — scrolling ticker strip below spot cards showing the cheapest vendor per coin with premium percentages and direct buy links
 - **Vendor Prices Table** — full comparison matrix across Gold, Silver, Platinum, Palladium, and Goldback tabs with per-vendor prices, premium badges, and clickable buy links to vendor product pages
 - **Market Detail Modal** — click any coin to view TradingView Lightweight Charts 7-day spot history overlaid with per-vendor price comparison lines
-- **Market List View** — full-width card layout with inline 7-day trend charts, vendor price chips with brand-colored labels, medal rankings for best prices, and computed MED/LOW/AVG stats
 - **Metal filter pills** — filter market cards by metal type with color-coded pill buttons
 - **Intraday trends** — toggle between current price and hourly percentage change on market cards
 - **Manifest-driven** — the API can add new coins without any frontend code changes
 - **Goldback support** — denomination-aware pricing for all Goldback variants (G½ through G50) across multiple state series with goldback.com reference pricing
-- **Configurable layout** — Vendor Prices and Best Price Ticker sections are toggleable and reorderable in Settings > Layout
+- **Configurable layout** — Vendor Prices and Best Price Ticker sections are toggleable and reorderable in Settings > Appearance
 
 ### Portfolio Tracking
 
@@ -87,7 +86,8 @@ Full per-item tracking with a rich data model:
 
 - **Purchase Price / Melt Value / Retail Price** with computed Gain/Loss per item and portfolio-wide
 - **Realized Gains/Losses** — mark items as Sold, Traded, Lost, Gifted, or Returned via disposition workflow with realized gain/loss calculation, color-coded badges, and full transaction history
-- **Goldback support** — denomination-aware pricing (½, 1, 5, 10, 25, 50) with real-time estimation and manual rate management
+- **Goldback & Silverback support** — denomination-aware pricing (½, 1, 5, 10, 25, 50) for Goldbacks, plus Silverback tracking with dedicated 0.001 troy ounce weight unit and retail pricing
+- **Lot ⇄ Each purchase toggle** — enter a lot total when buying multiples and the app divides by quantity to store per-unit price; purchase column shows qty-multiplied total
 - **Weight units** — troy ounces, kilograms, and pounds with automatic conversion
 - **Year, Grade, Grading Authority, Cert #** — full numismatic metadata
 - **PCGS catalog numbers** with inline chips and one-click CoinFacts lookup
@@ -200,14 +200,17 @@ Everything in one place with sidebar navigation:
 
 | Tab            | What's Here                                                                                         |
 | -------------- | --------------------------------------------------------------------------------------------------- |
-| **About**      | Version info, API status badge, What's New, roadmap, badges, changelog link                         |
+| **About**      | Version info, API status badge, What's New, roadmap, badges, changelog, force refresh               |
 | **Appearance** | Theme (Light / Dark / Sepia / System), header button visibility and reorder, layout section toggles |
 | **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit         |
-| **Chips**      | Category toggles, sort order, grouping rules, blacklist, max count                                  |
-| **API**        | Multi-provider configuration with priority order, Numista and PCGS tabs, usage tracking             |
-| **Cloud**      | Dropbox connection, cloud backup/restore, activity log, sync history, multi-account management      |
-| **System**     | Timezone, storage dashboard, reset                                                                  |
-| **Log**        | Full change log with undo/redo                                                                      |
+| **Filters**    | Category toggles, sort order, grouping rules, blacklist, max chip count                             |
+| **Images**     | Image cache management, upload settings, bulk image sync                                            |
+| **Currency**   | Display currency (17 currencies), exchange rates, Goldback pricing controls                         |
+| **Market**     | Market data toggles, vendor display preferences                                                     |
+| **Storage**    | localStorage and IndexedDB usage dashboard, data reset                                              |
+| **API**        | Spot price source selection, Numista and PCGS catalog integration, usage tracking                   |
+| **Cloud**      | Dropbox connection, cloud backup/restore, sync history, multi-account management                    |
+| **Log**        | Activity Log — full change history with undo/redo                                                   |
 | **FAQ**        | Privacy, backup, security, and limitations — built into the app                                     |
 
 ### More
@@ -293,7 +296,7 @@ Full details in the [Privacy Policy](https://www.staktrakr.com/privacy.html) and
 
 ## Project Structure
 
-```
+```text
 index.html                  Main application (single page)
 css/styles.css              Complete styling (CSS custom properties, four themes)
 js/                         70+ JavaScript modules — strict load order via index.html
