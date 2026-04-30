@@ -1303,6 +1303,14 @@
         return { med, low, avg };
       }
 
+      function escapeAttr(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
       function renderCard(card, idx) {
         const metal = state.metalOverride || card.metal;
         const stats = computeStats(card);
@@ -1483,7 +1491,7 @@
     </div>
     <div class="market-header-divider"></div>
     <div class="market-header-controls-row">
-      <input type="search" class="market-search" id="liveSearch" placeholder="Search items, metals, vendors..." value="${searchVal}" autocomplete="off">
+      <input type="search" class="market-search" id="liveSearch" placeholder="Search items, metals, vendors..." value="${escapeAttr(searchVal)}" autocomplete="off">
       <div class="market-header-controls-right">
         <div class="market-sort-wrap">
           <span class="market-header-btn">Sort: ${currentSortLabel} <span class="btn-chevron">&#9662;</span></span>
@@ -1526,7 +1534,7 @@
     </div>
   </div>`;
 
-        inner.innerHTML = html; // lgtm[js/xss-through-dom] — playground-only, no user input
+        inner.innerHTML = html;
 
         // Wire live search/sort
         const searchEl = document.getElementById("liveSearch");

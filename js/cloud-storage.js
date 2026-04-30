@@ -25,6 +25,8 @@ function saveCloudActivityLog(log) {
     if (typeof saveDataSync === "function") {
       saveDataSync(CLOUD_ACTIVITY_KEY, log);
     } else {
+      // codeql[js/clear-text-storage-of-sensitive-data]
+      // Activity entries are local device metadata, not server credentials.
       localStorage.setItem(CLOUD_ACTIVITY_KEY, JSON.stringify(log));
     }
   } catch (e) {
