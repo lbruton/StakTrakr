@@ -2370,9 +2370,15 @@ const syncProviderChain = (options) => syncSpotProvider(options);
  */
 const updateSyncButtonStates = (syncing = false) => {
   let source = "STAKTRAKR";
+  const sourceKey =
+    typeof SPOT_PRICING_SOURCE_KEY !== "undefined" ? SPOT_PRICING_SOURCE_KEY : "spotPricingSource";
   try {
-    const raw = localStorage.getItem("spotPricingSource");
-    if (raw) source = JSON.parse(raw) || "STAKTRAKR";
+    if (typeof loadDataSync === "function") {
+      source = loadDataSync(sourceKey, "STAKTRAKR") || "STAKTRAKR";
+    } else {
+      const raw = localStorage.getItem(sourceKey);
+      if (raw) source = JSON.parse(raw) || "STAKTRAKR";
+    }
   } catch (_e) {
     /* corrupt value — fall back to default */
   }

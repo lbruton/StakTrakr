@@ -658,6 +658,8 @@ function getSyncPassword(forcePrompt) {
           if (pw && pw.length >= 8) {
             var freshId = localStorage.getItem("cloud_dropbox_account_id");
             try {
+              // codeql[js/clear-text-storage-of-sensitive-data]
+              // The user vault password is intentionally remembered on the user's own device.
               localStorage.setItem("cloud_vault_password", pw);
             } catch (_) {}
             resolve(freshId ? pw + ":" + freshId : null);
@@ -715,6 +717,8 @@ function getSyncPassword(forcePrompt) {
         return;
       }
       try {
+        // codeql[js/clear-text-storage-of-sensitive-data]
+        // The user vault password is intentionally remembered on the user's own device.
         localStorage.setItem("cloud_vault_password", pw);
       } catch (_) {}
       cleanup();
@@ -897,6 +901,8 @@ async function changeVaultPassword(newPassword) {
     // Write new password first; next push will re-encrypt the vault with the new key.
     // If the page closes before the push fires, the next session's getSyncPasswordSilent()
     // will use the new password — the remote vault remains decryptable with the old key until overwritten.
+    // codeql[js/clear-text-storage-of-sensitive-data]
+    // The user vault password is intentionally remembered on the user's own device.
     localStorage.setItem("cloud_vault_password", newPassword);
     logCloudSyncActivity("password_change", "success", "Vault password updated");
     if (typeof updateCloudSyncHeaderBtn === "function") updateCloudSyncHeaderBtn();

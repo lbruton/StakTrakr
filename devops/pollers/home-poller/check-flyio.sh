@@ -22,9 +22,9 @@ log() { echo "[$(date -u +%H:%M:%S)] [flyio-check] $*"; }
 
 # Extract a JSON field from a single-line response. Shape is fixed by
 # serve.js (no nesting), so grep is sufficient — no jq dependency.
-json_bool() { echo "$1" | grep -oE "\"$2\"[[:space:]]*:[[:space:]]*(true|false)" | grep -oE "(true|false)$"; }
-json_num()  { echo "$1" | grep -oE "\"$2\"[[:space:]]*:[[:space:]]*[0-9]+" | grep -oE "[0-9]+$"; }
-json_str()  { echo "$1" | grep -oE "\"$2\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | sed -E 's/.*"([^"]*)"$/\1/'; }
+json_bool() { echo "$1" | grep -oE "(^|[,{])[[:space:]]*\"$2\"[[:space:]]*:[[:space:]]*(true|false)([[:space:]]*[,}]|$)" | sed -E 's/^.*:[[:space:]]*(true|false).*$/\1/'; }
+json_num()  { echo "$1" | grep -oE "(^|[,{])[[:space:]]*\"$2\"[[:space:]]*:[[:space:]]*[0-9]+([[:space:]]*[,}]|$)" | sed -E 's/^.*:[[:space:]]*([0-9]+).*$/\1/'; }
+json_str()  { echo "$1" | grep -oE "(^|[,{])[[:space:]]*\"$2\"[[:space:]]*:[[:space:]]*\"[^\"]*\"([[:space:]]*[,}]|$)" | sed -E 's/^.*:[[:space:]]*"([^"]*)".*$/\1/'; }
 
 # ── Tailscale ping (best-effort from Docker bridge) ──────────────────────────
 ts_ok=false

@@ -1526,7 +1526,9 @@
     </div>
   </div>`;
 
-        inner.innerHTML = html; // lgtm[js/xss-through-dom] — playground-only, no user input
+        // codeql[js/xss-through-dom]
+        // Playground-only static template: `html` is assembled above, with no user input.
+        inner.innerHTML = html;
 
         // Wire live search/sort
         const searchEl = document.getElementById("liveSearch");

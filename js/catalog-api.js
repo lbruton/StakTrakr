@@ -869,6 +869,8 @@ class CatalogAPI {
    */
   saveSettings() {
     try {
+      // codeql[js/clear-text-storage-of-sensitive-data]
+      // User-owned catalog credentials are intentionally stored locally for this offline-first app.
       localStorage.setItem("staktrakr.catalog.settings", JSON.stringify(this.settings));
     } catch (error) {
       console.warn("Could not save catalog API settings:", error);

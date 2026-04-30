@@ -818,6 +818,128 @@ const FRACTIONAL_EXEMPT_PROVIDERS = new Set(
     .map(([id]) => id)
 );
 
+function findHtmlTagEnd(html, fromIndex) {
+  let quote = null;
+  for (let i = fromIndex; i < html.length; i++) {
+    const ch = html[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === ">") return i;
+  }
+  return -1;
+}
+
+function isHtmlWhitespace(ch) {
+  return ch === " " || ch === "\n" || ch === "\r" || ch === "\t" || ch === "\f";
+}
+
+function findRawTextCloseTag(html, lowerHtml, tagName, fromIndex) {
+  const closeTag = tagName.toLowerCase();
+  let searchFrom = fromIndex;
+  while (searchFrom < html.length) {
+    const lt = html.indexOf("<", searchFrom);
+    if (lt === -1) return -1;
+    let cursor = lt + 1;
+    while (cursor < html.length && isHtmlWhitespace(html[cursor])) cursor++;
+    if (html[cursor] !== "/") {
+      searchFrom = lt + 1;
+      continue;
+    }
+    cursor++;
+    while (cursor < html.length && isHtmlWhitespace(html[cursor])) cursor++;
+    const nameStart = cursor;
+    while (cursor < html.length) {
+      const code = lowerHtml.charCodeAt(cursor);
+      const isNameChar = (code >= 97 && code <= 122) || (code >= 48 && code <= 57);
+      if (!isNameChar) break;
+      cursor++;
+    }
+    if (lowerHtml.slice(nameStart, cursor) !== closeTag) {
+      searchFrom = lt + 1;
+      continue;
+    }
+    while (cursor < html.length && isHtmlWhitespace(html[cursor])) cursor++;
+    if (html[cursor] === ">") return cursor;
+    searchFrom = lt + 1;
+  }
+  return -1;
+}
+
+function collapseWhitespace(text) {
+  let output = "";
+  let pendingSpace = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (isHtmlWhitespace(ch)) {
+      pendingSpace = output.length > 0;
+      continue;
+    }
+    if (pendingSpace) {
+      output += " ";
+      pendingSpace = false;
+    }
+    output += ch;
+  }
+  return output;
+}
+
+function htmlToPlainText(html) {
+  if (!html) return "";
+  const lowerHtml = html.toLowerCase();
+  let text = "";
+  let cursor = 0;
+
+  while (cursor < html.length) {
+    const lt = html.indexOf("<", cursor);
+    if (lt === -1) {
+      text += html.slice(cursor);
+      break;
+    }
+
+    text += html.slice(cursor, lt);
+
+    if (lowerHtml.startsWith("<!--", lt)) {
+      const commentEnd = html.indexOf("-->", lt + 4);
+      cursor = commentEnd === -1 ? html.length : commentEnd + 3;
+      text += " ";
+      continue;
+    }
+
+    let nameStart = lt + 1;
+    while (nameStart < html.length && isHtmlWhitespace(html[nameStart])) nameStart++;
+    if (html[nameStart] === "/") nameStart++;
+    while (nameStart < html.length && isHtmlWhitespace(html[nameStart])) nameStart++;
+
+    let nameEnd = nameStart;
+    while (nameEnd < html.length) {
+      const code = lowerHtml.charCodeAt(nameEnd);
+      const isNameChar = (code >= 97 && code <= 122) || (code >= 48 && code <= 57);
+      if (!isNameChar) break;
+      nameEnd++;
+    }
+
+    const tagName = lowerHtml.slice(nameStart, nameEnd);
+    if (tagName === "script" || tagName === "style") {
+      const closeEnd = findRawTextCloseTag(html, lowerHtml, tagName, nameEnd);
+      cursor = closeEnd === -1 ? html.length : closeEnd + 1;
+      text += " ";
+      continue;
+    }
+
+    const tagEnd = findHtmlTagEnd(html, nameEnd);
+    cursor = tagEnd === -1 ? html.length : tagEnd + 1;
+    text += " ";
+  }
+
+  return collapseWhitespace(text).trim();
+}
+
 // Scrape via proxied playwright-service (port 3004) — bypasses Firecrawl entirely.
 // Returns plain text (like Phase 0 innerText), not markdown.
 // Used for vendors behind Cloudflare that need the Fly.io IP.
@@ -836,15 +958,7 @@ async function scrapeViaProxy(url, waitFor = 15000, timeout = 40000) {
     if (json.pageStatusCode && json.pageStatusCode >= 400) {
       throw new Error(`upstream ${json.pageStatusCode}: ${json.pageError || "error"}`);
     }
-    // Convert HTML to plain text (strip tags) for extractPrice()
-    const html = json.content || "";
-    const text = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style\s*>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    return text;
+    return htmlToPlainText(json.content || "");
   } finally {
     clearTimeout(timer);
   }
@@ -858,6 +972,35 @@ function looksLikeChallengePage(html) {
     return true;
   if (/cf-browser-verification|cf-challenge-running|__cf_chl_jschl_tk__/i.test(head)) return true;
   return false;
+}
+
+function firecrawlMarkdownResult(markdown) {
+  return {
+    type: "markdown",
+    markdown: markdown ?? "",
+    price: null,
+    inStock: true,
+    source: "firecrawl",
+  };
+}
+
+function firecrawlOutOfStockResult(source = "firecrawl:jsonld-oos") {
+  return {
+    type: "price-result",
+    markdown: "",
+    price: null,
+    inStock: false,
+    source,
+  };
+}
+
+function isStructuredPriceResult(result) {
+  return result !== null && typeof result === "object" && result.type === "price-result";
+}
+
+function markdownFromScrapeResult(result) {
+  if (result !== null && typeof result === "object") return result.markdown ?? "";
+  return result ?? "";
 }
 
 function extractJsonLdScriptsFromHtml(html) {
@@ -904,7 +1047,7 @@ async function scrapeViaCFClearance(url, providerId, coin) {
 
   // Byparr already fetched the page. Try JSON-LD first (authoritative —
   // matches the Playwright fallback's extractor), then fall back to
-  // regex-on-stripped-text. For SPAs where both fail, fall through to
+  // scanner-stripped text. For SPAs where both fail, fall through to
   // Playwright with the cookie so the pricing grid can hydrate.
   if (cfData.responseHtml) {
     const jsonLdScripts = extractJsonLdScriptsFromHtml(cfData.responseHtml);
@@ -918,10 +1061,7 @@ async function scrapeViaCFClearance(url, providerId, coin) {
       return { price: jsonLdPrice, inStock: true, source: "cf-clearance:jsonLd" };
     }
 
-    const rawText = cfData.responseHtml
-      .replace(/<(script|style|head)[^>]*>[\s\S]*?<\/(script|style|head)>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ");
+    const rawText = htmlToPlainText(cfData.responseHtml);
     const cleaned = preprocessMarkdown(rawText, providerId);
     const inStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
@@ -1063,7 +1203,7 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
           const phase2 = await scrapeViaCFClearance(url, providerId, coin);
           if (phase2 !== null) {
             cfSuccess++;
-            return phase2;
+            return { type: "price-result", markdown: "", ...phase2 };
           }
           cfFailures++;
         }
@@ -1099,12 +1239,12 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
         const availability = extractJsonLdAvailability(jsonLdScripts);
         if (availability && JSONLD_OOS_VALUES.has(availability)) {
           log(`[firecrawl] ${providerId}: JSON-LD availability=${availability} -> OOS`);
-          return { price: null, inStock: false, source: "firecrawl:jsonld-oos" };
+          return firecrawlOutOfStockResult();
         }
       }
     }
 
-    return markdown;
+    return firecrawlMarkdownResult(markdown);
   } catch (err) {
     // Abort/timeout = the request was killed by our AbortController.
     // Retrying the same Firecrawl call won't help; skip retries.
@@ -1413,7 +1553,7 @@ async function main() {
         log(`  [cf-first] ${provider.id}: trying Byparr first`);
         cfAttempts++;
         const cfResult = await scrapeViaCFClearance(urls[0], provider.id, coin);
-        if (cfResult !== null && cfResult.price !== null) {
+        if (cfResult != null && cfResult.price != null) {
           cfSuccess++;
           price = cfResult.price;
           source = cfResult.source;
@@ -1453,7 +1593,7 @@ async function main() {
           continue;
         }
         // Byparr returned null or no price — OOS with no price is still useful
-        if (cfResult !== null && cfResult.price === null && !cfResult.inStock) {
+        if (cfResult != null && cfResult.price == null && !cfResult.inStock) {
           cfSuccess++;
           log(`  ✓ ${coinSlug}/${provider.id}: OOS detected (cf-first, no price)`);
           scrapeResults.push({
@@ -1606,22 +1746,22 @@ async function main() {
               }
             }
             const scrapeResult = await scrapeUrl(url, provider.id, 1, coin);
-            // Phase 2 (CF-clearance) returns an object directly — short-circuit markdown path
-            if (scrapeResult !== null && typeof scrapeResult === "object") {
+            // Structured scrape results can carry JSON-LD OOS without markdown parsing.
+            if (isStructuredPriceResult(scrapeResult)) {
               price = scrapeResult.price;
               source = scrapeResult.source;
               inStock = scrapeResult.inStock;
               finalUrl = url;
               // price may be null when cf-clearance detected OOS via JSON-LD
               // (zero-price sentinel) — guard before toFixed.
-              if (price !== null) {
+              if (price != null) {
                 log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
               } else {
                 log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
               }
               break;
             }
-            markdown = scrapeResult;
+            markdown = markdownFromScrapeResult(scrapeResult);
             const cleaned = preprocessMarkdown(markdown, provider.id);
             const stock = detectStockStatus(cleaned, coin.weight_oz || 1, provider.id);
 
@@ -1681,20 +1821,20 @@ async function main() {
               await jitter();
               try {
                 const retryRaw = await scrapeUrl(url, provider.id, 1, coin);
-                // Phase 2 result object — short-circuit retry markdown path
-                if (retryRaw !== null && typeof retryRaw === "object") {
+                // Structured scrape results can carry JSON-LD OOS without markdown parsing.
+                if (isStructuredPriceResult(retryRaw)) {
                   price = retryRaw.price;
                   source = retryRaw.source;
                   inStock = retryRaw.inStock;
                   finalUrl = url;
-                  if (price !== null) {
+                  if (price != null) {
                     log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
                   } else {
                     log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
                   }
                   break;
                 }
-                const retryMd = retryRaw;
+                const retryMd = markdownFromScrapeResult(retryRaw);
                 const retryCleaned = preprocessMarkdown(retryMd, provider.id);
                 const retryStock = detectStockStatus(
                   retryCleaned,
