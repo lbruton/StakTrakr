@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — STRK-15: Silverback denomination aria-label
 
-- **Fixed**: Silverback denomination selector now renders correct `aria-label` attributes for screen reader accessibility.
+- **Fixed**: Silverback denomination selector no longer carries a stale `aria-label="Goldback denomination"` attribute. The dynamically managed `<label for>` association in `toggleGbDenomPicker` now provides the only accessible name, eliminating the misleading screen-reader announcement.
 
 ---
 
