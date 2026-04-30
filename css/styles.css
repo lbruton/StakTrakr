@@ -5498,13 +5498,13 @@ td input:checked + .slider:before {
   white-space: nowrap;
 }
 
-/* Title row — title left, eBay right */
+/* Title row — title left, padded so text can't run under the absolute-pos close (X) */
 .view-header-title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--spacing-sm);
   min-width: 0;
+  padding-right: 32px;
 }
 
 /* Badges row — catalog ID + count chip */
@@ -5516,12 +5516,13 @@ td input:checked + .slider:before {
   min-height: 1.4rem;
 }
 
-/* --- Header action buttons (eBay) --- */
+/* --- Header action buttons (eBay) — pushed right inside badges row --- */
 .view-header-actions {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
   align-items: center;
+  margin-left: auto;
 }
 
 .view-header-actions button {
