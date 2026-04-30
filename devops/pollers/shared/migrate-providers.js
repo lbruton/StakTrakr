@@ -32,14 +32,21 @@ const PROVIDERS_PATH = join(DATA_DIR, "retail", "providers.json");
 
 // ---------------------------------------------------------------------------
 // Safety check
-// ---------------------------------------------------------------------------
+/**
+ * Prevent accidental writes to a remote database by validating the configured DB URL.
+ *
+ * Reads the database URL from `process.env.SQLD_URL` or, if absent, `process.env.TURSO_DATABASE_URL`. If the URL does not indicate a local database (does not contain `localhost`, `127.0.0.1`, or `:memory:`) and the global `PRODUCTION` flag is not enabled, logs an error explaining that the configured URL is remote and exits the process with code `1`.
+ */
 
 function checkProductionSafety() {
-  const url = process.env.TURSO_DATABASE_URL || "";
-  const isLocal = url.includes("localhost") || url.includes("127.0.0.1") || url.includes(":memory:");
+  const url = process.env.SQLD_URL || process.env.TURSO_DATABASE_URL || "";
+  const isLocal =
+    url.includes("localhost") || url.includes("127.0.0.1") || url.includes(":memory:");
 
   if (!isLocal && !PRODUCTION) {
-    console.error("ERROR: TURSO_DATABASE_URL points to a remote database.");
+    console.error(
+      "ERROR: configured database URL (SQLD_URL or TURSO_DATABASE_URL) points to a remote database."
+    );
     console.error("       Pass --production to confirm you want to write to production.");
     process.exit(1);
   }

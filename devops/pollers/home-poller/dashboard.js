@@ -18,12 +18,32 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync, spawn } from "node:child_process";
 import { createClient } from "@libsql/client";
 import {
-  initProviderSchema, getProviders, getAllCoins, upsertCoin, upsertVendor,
-  updateVendorUrl, toggleVendor, deleteCoin, deleteVendor, updateVendorFields,
-  getVendorScrapeStatus, getFailureStats, getFailureTrend, getRunStats, getCoverageStats, getSpotCoverage, getMissingItems, exportProvidersJson,
-  batchToggleVendor, batchDeleteVendor, getVendorSummary,
+  initProviderSchema,
+  getProviders,
+  getAllCoins,
+  upsertCoin,
+  upsertVendor,
+  updateVendorUrl,
+  toggleVendor,
+  deleteCoin,
+  deleteVendor,
+  updateVendorFields,
+  getVendorScrapeStatus,
+  getFailureStats,
+  getFailureTrend,
+  getRunStats,
+  getCoverageStats,
+  getSpotCoverage,
+  getMissingItems,
+  exportProvidersJson,
+  batchToggleVendor,
+  batchDeleteVendor,
+  getVendorSummary,
   loadProviders,
-  getLastScanFailures, clearChronicFailure, clearAllChronicFailures, getProvidersByVendor,
+  getLastScanFailures,
+  clearChronicFailure,
+  clearAllChronicFailures,
+  getProvidersByVendor,
 } from "./provider-db.js";
 
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
@@ -45,14 +65,23 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
 })();
 
 // ---------------------------------------------------------------------------
-// Turso client
-// ---------------------------------------------------------------------------
+// sqld client
+/**
+ * Create a libsql client using SQLD_URL/SQLD_AUTH_TOKEN when present, otherwise TURSO_DATABASE_URL/TURSO_AUTH_TOKEN.
+ * @returns {object|null} A libsql client connected to the configured SQL endpoint, or `null` if no connection URL is set.
+ */
 
 function getSqldClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
+  const useSqld = Boolean(process.env.SQLD_URL);
+  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
   if (!url) return null;
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  try {
+    return createClient({ url, ...(authToken ? { authToken } : {}) });
+  } catch (err) {
+    console.error("[dashboard] getSqldClient failed:", err?.message || err);
+    return null;
+  }
 }
 
 /**
@@ -91,7 +120,11 @@ async function fetchRunsFromTurso() {
     await client.close();
     return result.rows;
   } catch (err) {
-    try { await client.close(); } catch { /* ignore */ }
+    try {
+      await client.close();
+    } catch {
+      /* ignore */
+    }
     return null;
   }
 }
@@ -170,15 +203,17 @@ function getUptime() {
   }
 }
 
-const LOCK_FILES = [
-  { name: "Retail Poller", path: "/tmp/retail-poller.lock" },
-];
+const LOCK_FILES = [{ name: "Retail Poller", path: "/tmp/retail-poller.lock" }];
 
 function getLockStatus() {
   return LOCK_FILES.map(({ name, path }) => {
     if (!existsSync(path)) return { name, path, locked: false, age: null };
     try {
-      const stat = execSync(`stat -c %Y "${path}" 2>/dev/null || stat -f %m "${path}"`, { timeout: 2000 }).toString().trim();
+      const stat = execSync(`stat -c %Y "${path}" 2>/dev/null || stat -f %m "${path}"`, {
+        timeout: 2000,
+      })
+        .toString()
+        .trim();
       const mtime = parseInt(stat, 10);
       const ageSec = Math.floor(Date.now() / 1000) - mtime;
       return { name, path, locked: true, age: ageSec };
@@ -191,11 +226,14 @@ function getLockStatus() {
 function getSupervisordStatus() {
   try {
     const out = execSync("supervisorctl status 2>/dev/null", { timeout: 3000 }).toString();
-    return out.trim().split("\n").map((line) => {
-      const m = line.match(/^(\S+)\s+(\S+)\s+(.*)/);
-      if (!m) return { name: line, state: "UNKNOWN", detail: "" };
-      return { name: m[1], state: m[2], detail: m[3] };
-    });
+    return out
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const m = line.match(/^(\S+)\s+(\S+)\s+(.*)/);
+        if (!m) return { name: line, state: "UNKNOWN", detail: "" };
+        return { name: m[1], state: m[2], detail: m[3] };
+      });
   } catch {
     return [];
   }
@@ -211,11 +249,13 @@ function getDockerContainers() {
     const raw = execSync(
       'curl -sf --unix-socket /var/run/docker.sock "http://localhost/containers/json?all=true" 2>/dev/null || echo "[]"',
       { timeout: 5000 }
-    ).toString().trim();
+    )
+      .toString()
+      .trim();
     const all = JSON.parse(raw);
     return all
-      .filter(c => (c.Names?.[0] || "").match(/staktrakr|firecrawl|tailscale|tinyproxy/i))
-      .map(c => ({
+      .filter((c) => (c.Names?.[0] || "").match(/staktrakr|firecrawl|tailscale|tinyproxy/i))
+      .map((c) => ({
         name: (c.Names?.[0] || "?").replace(/^\//, ""),
         image: (c.Image || "?").split(":")[0].split("/").pop(),
         state: c.State || "unknown",
@@ -265,31 +305,34 @@ function statusColor(status) {
 
 function pollerBadgeColor(pollerId) {
   const colorMap = {
-    'home':      '#34d399', // green — home retail
-    'home-spot': '#818cf8', // indigo — home spot
-    'api':       '#fb923c', // orange — fly retail
-    'fly-spot':  '#38bdf8', // sky blue — fly spot
+    home: "#34d399", // green — home retail
+    "home-spot": "#818cf8", // indigo — home spot
+    api: "#fb923c", // orange — fly retail
+    "fly-spot": "#38bdf8", // sky blue — fly spot
     // Future names (STAK-367)
-    'home-retail':   '#34d399',
-    'home-goldback': '#a3e635',
-    'fly-retail':    '#fb923c',
-    'fly-goldback':  '#fbbf24',
+    "home-retail": "#34d399",
+    "home-goldback": "#a3e635",
+    "fly-retail": "#fb923c",
+    "fly-goldback": "#fbbf24",
   };
-  return colorMap[pollerId] || '#94a3b8';
+  return colorMap[pollerId] || "#94a3b8";
 }
 
 /** Map current poller_id to display label (bridges old→new naming) */
 function pollerDisplayName(pollerId) {
   const nameMap = {
-    'home': 'home-retail',
-    'api':  'fly-retail',
+    home: "home-retail",
+    api: "fly-retail",
   };
   return nameMap[pollerId] || pollerId;
 }
 
 function fmtDateTime(iso) {
   if (!iso) return "\u2014";
-  return iso.replace("T", " ").replace(/\.\d+Z$/, "").replace("Z", " UTC");
+  return iso
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "")
+    .replace("Z", " UTC");
 }
 
 function fmtDuration(startedAt, finishedAt) {
@@ -299,6 +342,17 @@ function fmtDuration(startedAt, finishedAt) {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000);
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function fmtAgo(iso) {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function logLineClass(line) {
@@ -312,14 +366,23 @@ function logLineClass(line) {
 }
 
 function escHtml(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function escAttr(s) {
   return escHtml(s);
 }
 
-const METAL_COLORS = { silver: "#94a3b8", gold: "#fbbf24", goldback: "#a3e635", platinum: "#e2e8f0" };
+const METAL_COLORS = {
+  silver: "#94a3b8",
+  gold: "#fbbf24",
+  goldback: "#a3e635",
+  platinum: "#e2e8f0",
+};
 
 function metalBadge(metal) {
   const color = METAL_COLORS[metal] || "#94a3b8";
@@ -388,16 +451,22 @@ const SHARED_CSS = `
 // ---------------------------------------------------------------------------
 
 function renderNav(activePage, failureCount) {
-  const badge = failureCount > 0 ? `<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;color:#fff;background:var(--red);margin-left:4px;">${failureCount}</span>` : "";
+  const badge =
+    failureCount > 0
+      ? `<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;color:#fff;background:var(--red);margin-left:4px;">${failureCount}</span>`
+      : "";
   const links = [
     { href: "/", label: "Dashboard", id: "home" },
     { href: "/providers", label: "Providers", id: "providers" },
     { href: "/failures", label: `Failures${badge}`, id: "failures" },
     { href: "/api-health", label: "v2 API", id: "api-health" },
   ];
-  const navLinks = links.map(l =>
-    `<a href="${l.href}" style="font-size:12px;padding:5px 12px;border-radius:4px;color:${l.id === activePage ? 'var(--text)' : 'var(--muted)'};${l.id === activePage ? 'background:var(--surface2);font-weight:700;' : ''}">${l.label}</a>`
-  ).join("");
+  const navLinks = links
+    .map(
+      (l) =>
+        `<a href="${l.href}" style="font-size:12px;padding:5px 12px;border-radius:4px;color:${l.id === activePage ? "var(--text)" : "var(--muted)"};${l.id === activePage ? "background:var(--surface2);font-weight:700;" : ""}">${l.label}</a>`
+    )
+    .join("");
   return `<header style="background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;">
     <h1 style="font-size:15px;font-weight:600;color:var(--accent);">StakTrakr Poller</h1>
     <nav style="display:flex;gap:4px;align-items:center;">${navLinks}</nav>
@@ -411,39 +480,61 @@ function renderNav(activePage, failureCount) {
 
 /** Compact poller tag (HR/HS/FS) */
 function pollerTag(pollerId) {
-  const map = { 'home': 'HR', 'home-retail': 'HR', 'home-spot': 'HS', 'api': 'FR', 'fly-retail': 'FR', 'fly-spot': 'FS' };
-  const cls = { 'home': 'hr', 'home-retail': 'hr', 'home-spot': 'hs', 'api': 'hr', 'fly-retail': 'hr', 'fly-spot': 'fs' };
-  const tag = map[pollerId] || pollerId?.slice(0, 2).toUpperCase() || '??';
-  return `<span class="poller-tag poller-tag-${cls[pollerId] || 'hr'}">${tag}</span>`;
+  const map = {
+    home: "HR",
+    "home-retail": "HR",
+    "home-spot": "HS",
+    api: "FR",
+    "fly-retail": "FR",
+    "fly-spot": "FS",
+  };
+  const cls = {
+    home: "hr",
+    "home-retail": "hr",
+    "home-spot": "hs",
+    api: "hr",
+    "fly-retail": "hr",
+    "fly-spot": "fs",
+  };
+  const tag = map[pollerId] || pollerId?.slice(0, 2).toUpperCase() || "??";
+  return `<span class="poller-tag poller-tag-${cls[pollerId] || "hr"}">${tag}</span>`;
 }
 
 function renderCompactRunsTable(runs) {
   if (!runs || runs.length === 0) {
     return '<p class="no-data">No runs yet.</p>';
   }
-  const rows = runs.slice(0, 12).map((r) => {
-    const captured = r.captured ?? 0;
-    const total = r.total ?? 0;
-    const rate = total > 0 ? Math.round((captured / total) * 100) : 0;
-    const barColor = rate >= 80 ? "var(--green)" : rate >= 50 ? "var(--amber)" : "var(--red)";
-    const time = (r.started_at || "").slice(11, 16);
-    const dur = fmtDuration(r.started_at, r.finished_at);
-    const isSpot = r.poller_id?.includes("spot");
-    const resultCell = isSpot
-      ? `<small>${captured || 4}/4</small>`
-      : (total > 0
-        ? `<div class="mini-bar"><div style="width:${rate}%;background:${barColor}"></div></div>${captured}`
-        : `${captured}/${total}`);
-    const statusCls = r.status === "ok" ? "status-ok" : r.status === "running" ? "status-running" : "status-failed";
-    const statusLabel = r.status === "running" ? "run" : r.status;
-    return `<tr>
+  const rows = runs
+    .slice(0, 12)
+    .map((r) => {
+      const captured = r.captured ?? 0;
+      const total = r.total ?? 0;
+      const rate = total > 0 ? Math.round((captured / total) * 100) : 0;
+      const barColor = rate >= 80 ? "var(--green)" : rate >= 50 ? "var(--amber)" : "var(--red)";
+      const time = (r.started_at || "").slice(11, 16);
+      const dur = fmtDuration(r.started_at, r.finished_at);
+      const isSpot = r.poller_id?.includes("spot");
+      const resultCell = isSpot
+        ? `<small>${captured || 4}/4</small>`
+        : total > 0
+          ? `<div class="mini-bar"><div style="width:${rate}%;background:${barColor}"></div></div>${captured}`
+          : `${captured}/${total}`;
+      const statusCls =
+        r.status === "ok"
+          ? "status-ok"
+          : r.status === "running"
+            ? "status-running"
+            : "status-failed";
+      const statusLabel = r.status === "running" ? "run" : r.status;
+      return `<tr>
       <td>${pollerTag(r.poller_id)}</td>
       <td>${escHtml(time)}</td>
       <td>${escHtml(dur)}</td>
       <td><span class="status ${statusCls}">${escHtml(statusLabel)}</span></td>
       <td>${resultCell}</td>
     </tr>`;
-  }).join("");
+    })
+    .join("");
   return `<table><thead><tr><th>Type</th><th>Time</th><th>Dur</th><th>Status</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
@@ -457,9 +548,15 @@ function renderKpiStrip(retailStats, spotCov, failureCount, coverageStats) {
   }
   const runs = retailStats ? retailStats.totalRuns : 0;
   const success = retailStats ? retailStats.successRate : 0;
-  const dur = retailStats ? (retailStats.avgDurationSec > 60 ? `${Math.floor(retailStats.avgDurationSec / 60)}m${retailStats.avgDurationSec % 60}s` : `${retailStats.avgDurationSec}s`) : "?";
+  const dur = retailStats
+    ? retailStats.avgDurationSec > 60
+      ? `${Math.floor(retailStats.avgDurationSec / 60)}m${retailStats.avgDurationSec % 60}s`
+      : `${retailStats.avgDurationSec}s`
+    : "?";
   const capture = retailStats ? retailStats.avgCaptureRate : 0;
-  const spotPct = spotCov ? Math.round((spotCov.coveredIntervals / Math.max(spotCov.totalIntervals, 1)) * 100) : 0;
+  const spotPct = spotCov
+    ? Math.round((spotCov.coveredIntervals / Math.max(spotCov.totalIntervals, 1)) * 100)
+    : 0;
   const spotLabel = spotCov ? `${spotCov.coveredIntervals}/${spotCov.totalIntervals}` : "?";
   const covNow = coverageStats?.hours?.[0]?.pct ?? 0;
   const covCovered = coverageStats?.hours?.[0]?.covered ?? 0;
@@ -467,9 +564,9 @@ function renderKpiStrip(retailStats, spotCov, failureCount, coverageStats) {
 
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;">
     ${kpi("Retail Runs", runs, "home | 24h", "var(--accent)")}
-    ${kpi("Success", success + "%", runs > 0 ? `${Math.round(runs * success / 100)}/${runs} ok` : "", success >= 90 ? "var(--green)" : success >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Success", success + "%", runs > 0 ? `${Math.round((runs * success) / 100)}/${runs} ok` : "", success >= 90 ? "var(--green)" : success >= 70 ? "var(--amber)" : "var(--red)")}
     ${kpi("Duration", dur, "avg retail", "var(--accent)")}
-    ${kpi("Capture", capture + "%", retailStats ? `${Math.round(capture * 166 / 100)}/166` : "", capture >= 90 ? "var(--green)" : capture >= 70 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Capture", capture + "%", retailStats ? `${Math.round((capture * 166) / 100)}/166` : "", capture >= 90 ? "var(--green)" : capture >= 70 ? "var(--amber)" : "var(--red)")}
     ${kpi("Spot", spotPct + "%", spotLabel, spotPct >= 90 ? "var(--green)" : spotPct >= 70 ? "var(--amber)" : "var(--red)")}
     ${kpi("Failures", failureCount, "chronic 24+/7d", failureCount > 0 ? "var(--red)" : "var(--green)")}
     ${kpi("Coverage", covNow + "%", `${covCovered}/${covTotal} now`, covNow >= 80 ? "var(--green)" : covNow >= 50 ? "var(--amber)" : "var(--red)")}
@@ -481,62 +578,107 @@ function renderAttentionSidebar(failures) {
     return `<div class="card"><div class="card-title">Needs Attention</div>
       <p style="color:var(--green);font-size:12px;padding:8px 0;">All clear - no chronic failures.</p></div>`;
   }
-  const items = failures.slice(0, 6).map(f =>
-    `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--red);">
+  const items = failures
+    .slice(0, 6)
+    .map(
+      (f) =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--red);">
       <div><span style="font-weight:600;">${escHtml(f.coinName)}</span><br><span style="color:var(--muted);font-size:10px;">${escHtml(f.vendorId)}</span></div>
       <div style="display:flex;gap:4px;">
         <a class="btn-sm" href="/providers#${escAttr(f.coinSlug)}">Edit</a>
         <button class="btn-sm primary btn-retry" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Retry</button>
       </div>
     </div>`
-  ).join("");
+    )
+    .join("");
   return `<div class="card"><div class="card-title">Needs Attention</div>${items}
     <div style="margin-top:6px;text-align:center;"><a href="/failures" style="font-size:11px;">View all failures &rarr;</a></div></div>`;
 }
 
 function renderStatusBar(data) {
-  const { cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats, spotCoverage } = data;
+  const { cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats, spotCoverage } =
+    data;
   const items = [];
-  const dot = (color) => `<span style="width:7px;height:7px;border-radius:50%;background:var(--${color});display:inline-block;margin-right:5px;"></span>`;
+  const dot = (color) =>
+    `<span style="width:7px;height:7px;border-radius:50%;background:var(--${color});display:inline-block;margin-right:5px;"></span>`;
 
   // VM
   const memPct = cpu ? parseFloat(cpu.memUsedPct) : 0;
-  items.push(dot(memPct < 80 ? "green" : memPct < 90 ? "amber" : "red") + `VM: ${cpu ? cpu.memUsedPct + "%" : "?"} mem, ${uptime || "?"}`);
+  items.push(
+    dot(memPct < 80 ? "green" : memPct < 90 ? "amber" : "red") +
+      `VM: ${cpu ? cpu.memUsedPct + "%" : "?"} mem, ${uptime || "?"}`
+  );
 
   // Retail
   const success = retailStats?.successRate ?? 0;
-  items.push(dot(success >= 90 ? "green" : success >= 70 ? "amber" : "red") + `Retail: ${success}%`);
+  items.push(
+    dot(success >= 90 ? "green" : success >= 70 ? "amber" : "red") + `Retail: ${success}%`
+  );
 
   // Spot
-  const spotPct = spotCoverage ? Math.round((spotCoverage.coveredIntervals / Math.max(spotCoverage.totalIntervals, 1)) * 100) : 0;
-  items.push(dot(spotPct >= 90 ? "green" : spotPct >= 70 ? "amber" : "red") + `Spot: ${spotPct}% cov`);
+  const spotPct = spotCoverage
+    ? Math.round((spotCoverage.coveredIntervals / Math.max(spotCoverage.totalIntervals, 1)) * 100)
+    : 0;
+  items.push(
+    dot(spotPct >= 90 ? "green" : spotPct >= 70 ? "amber" : "red") + `Spot: ${spotPct}% cov`
+  );
 
   // Failures
   items.push(dot(failureCount > 0 ? "red" : "green") + `${failureCount} chronic failures`);
 
   // Fly.io
   const flyOk = flyioHealth?.http_ok;
-  items.push(dot(flyOk ? "green" : flyOk === false ? "red" : "amber") + `Fly.io: ${flyOk ? "OK" : flyOk === false ? "DOWN" : "?"}`);
+  items.push(
+    dot(flyOk ? "green" : flyOk === false ? "red" : "amber") +
+      `Fly.io: ${flyOk ? "OK" : flyOk === false ? "DOWN" : "?"}`
+  );
+
+  // Fly→sqld (Tailscale subnet route to home sqld; STRK-6 + STRK-7)
+  const sqldOk = flyioHealth?.sqld_reachable_ok;
+  let sqldLabel;
+  if (sqldOk === true) {
+    sqldLabel = "OK";
+  } else if (sqldOk === false) {
+    const ago = fmtAgo(flyioHealth?.sqld_reachable_last_success);
+    sqldLabel = ago ? `FAIL (${ago})` : "FAIL";
+  } else {
+    sqldLabel = "?";
+  }
+  items.push(dot(sqldOk ? "green" : sqldOk === false ? "red" : "amber") + `Fly→sqld: ${sqldLabel}`);
 
   // Lock
-  const anyLocked = (lockStatus || []).some(l => l.locked);
+  const anyLocked = (lockStatus || []).some((l) => l.locked);
   items.push(dot(anyLocked ? "amber" : "green") + `Lock: ${anyLocked ? "BUSY" : "free"}`);
 
   // Turso
   items.push(dot(tursoUp ? "green" : "red") + `Turso: ${tursoUp ? "OK" : "DOWN"}`);
 
   return `<div style="background:var(--surface2);border-bottom:1px solid var(--border);padding:5px 16px;display:flex;gap:16px;align-items:center;font-size:11px;overflow-x:auto;">
-    ${items.map(i => `<div style="display:flex;align-items:center;white-space:nowrap;">${i}</div>`).join("")}
+    ${items.map((i) => `<div style="display:flex;align-items:center;white-space:nowrap;">${i}</div>`).join("")}
   </div>`;
 }
 
 function renderInfraRow(data) {
-  const { cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord } = data;
+  const { cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord } =
+    data;
   const netRx = net ? fmtBytes(net.rx_bytes) : "?";
   const flyOk = flyioHealth?.http_ok;
-  const anyLocked = (lockStatus || []).some(l => l.locked);
-  const containerCount = (dockerContainers || []).filter(c => c.state === "running").length;
-  const serviceCount = (supervisord || []).filter(s => s.state === "RUNNING").length;
+  const sqldOk = flyioHealth?.sqld_reachable_ok;
+  const sqldAgo = sqldOk === false ? fmtAgo(flyioHealth?.sqld_reachable_last_success) : "";
+  let sqldLabel, sqldColor;
+  if (sqldOk === true) {
+    sqldLabel = "OK";
+    sqldColor = "var(--green)";
+  } else if (sqldOk === false) {
+    sqldLabel = sqldAgo ? `FAIL (${sqldAgo})` : "FAIL";
+    sqldColor = "var(--red)";
+  } else {
+    sqldLabel = "?";
+    sqldColor = "var(--amber)";
+  }
+  const anyLocked = (lockStatus || []).some((l) => l.locked);
+  const containerCount = (dockerContainers || []).filter((c) => c.state === "running").length;
+  const serviceCount = (supervisord || []).filter((s) => s.state === "RUNNING").length;
 
   function item(label, value, color) {
     return `<div style="display:flex;justify-content:space-between;padding:3px 6px;font-size:11px;"><span style="color:var(--muted)">${label}</span><span style="color:${color || "var(--text)"}">${value}</span></div>`;
@@ -545,16 +687,24 @@ function renderInfraRow(data) {
     ${item("VM", `${uptime || "?"} | ${cpu ? cpu.memUsedPct + "%" : "?"}`, "var(--green)")}
     ${item("Load", cpu ? `${cpu.load1}/${cpu.load5}` : "?")}
     ${item("Net", `${netRx} rx`)}
-    ${anyLocked
-      ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:11px;"><span style="color:var(--muted)">Lock</span><span style="display:flex;align-items:center;gap:6px;"><span style="color:var(--amber)">BUSY</span>${lockStatus.filter(l => l.locked).map(l => `<button class="btn-sm danger btn-clear-lock" data-path="${escAttr(l.path)}">Clear</button>`).join("")}</span></div>`
-      : item("Lock", "Free", "var(--green)")}
+    ${
+      anyLocked
+        ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;font-size:11px;"><span style="color:var(--muted)">Lock</span><span style="display:flex;align-items:center;gap:6px;"><span style="color:var(--amber)">BUSY</span>${lockStatus
+            .filter((l) => l.locked)
+            .map(
+              (l) =>
+                `<button class="btn-sm danger btn-clear-lock" data-path="${escAttr(l.path)}">Clear</button>`
+            )
+            .join("")}</span></div>`
+        : item("Lock", "Free", "var(--green)")
+    }
     ${item("Fly API", flyOk ? "OK" : flyOk === false ? "DOWN" : "?", flyOk ? "var(--green)" : "var(--red)")}
+    ${item("Fly→sqld", sqldLabel, sqldColor)}
     ${item("Turso", tursoUp ? "OK" : "DOWN", tursoUp ? "var(--green)" : "var(--red)")}
     ${item("Containers", `${containerCount} up`, "var(--green)")}
     ${item("Services", `${serviceCount} up`, "var(--green)")}
   </div>`;
 }
-
 
 // renderMissingItems kept for backward compat but simplified
 function renderMissingItems(items) {
@@ -566,105 +716,222 @@ function renderMissingItems(items) {
 
 // Legacy coverage rendering — replaced by Chart.js in new dashboard
 function renderCoverageCards_LEGACY(cov, spotCov) {
-  if (!cov || !cov.hours || cov.hours.length === 0) return '';
+  if (!cov || !cov.hours || cov.hours.length === 0) return "";
 
   // ── Style values (from playground Compact preset + user tweaks) ─────
-  const P = 8, G = 24, R = 6, VS = 33, LS = 10, TS = 11, BH = 80, CP = 8, SG = 12;
+  const P = 8,
+    G = 24,
+    R = 6,
+    VS = 33,
+    LS = 10,
+    TS = 11,
+    BH = 80,
+    CP = 8,
+    SG = 12;
 
   function covCard(label, value, sub, color) {
-    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' + R + 'px;padding:' + P + 'px;text-align:center;">'
-      + '<div style="color:var(--muted);font-size:' + LS + 'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">' + label + '</div>'
-      + '<div style="color:' + color + ';font-size:' + VS + 'px;font-weight:700;font-family:\'Cascadia Code\',\'Fira Code\',monospace;">' + value + (sub ? '<span style="font-size:' + Math.round(VS * 0.58) + 'px;color:var(--muted)">' + sub + '</span>' : '') + '</div>'
-      + '</div>';
+    return (
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
+      R +
+      "px;padding:" +
+      P +
+      'px;text-align:center;">' +
+      '<div style="color:var(--muted);font-size:' +
+      LS +
+      'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">' +
+      label +
+      "</div>" +
+      '<div style="color:' +
+      color +
+      ";font-size:" +
+      VS +
+      "px;font-weight:700;font-family:'Cascadia Code','Fira Code',monospace;\">" +
+      value +
+      (sub
+        ? '<span style="font-size:' +
+          Math.round(VS * 0.58) +
+          'px;color:var(--muted)">' +
+          sub +
+          "</span>"
+        : "") +
+      "</div>" +
+      "</div>"
+    );
   }
 
   // ── Retail section ──────────────────────────────────────────────────
   const latest = cov.hours[0];
   const last24 = cov.hours.slice(0, 24);
-  const avg = last24.length > 0
-    ? Math.min(100, Math.round(last24.reduce((s, h) => s + h.pct, 0) / last24.length))
-    : 0;
-  const covColor = latest.pct >= 90 ? 'var(--green)' : latest.pct >= 70 ? 'var(--amber)' : 'var(--red)';
-  const avgColor = avg >= 90 ? 'var(--green)' : avg >= 70 ? 'var(--amber)' : 'var(--red)';
+  const avg =
+    last24.length > 0
+      ? Math.min(100, Math.round(last24.reduce((s, h) => s + h.pct, 0) / last24.length))
+      : 0;
+  const covColor =
+    latest.pct >= 90 ? "var(--green)" : latest.pct >= 70 ? "var(--amber)" : "var(--red)";
+  const avgColor = avg >= 90 ? "var(--green)" : avg >= 70 ? "var(--amber)" : "var(--red)";
   const missingCount = Math.max(0, cov.totalEnabled - latest.covered);
 
-  const retailStatCards = ''
-    + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:' + G + 'px;margin-bottom:' + G + 'px;">'
-    + covCard('Coverage (latest hour)', latest.pct + '%', '', covColor)
-    + covCard('Avg Coverage (24h)', avg + '%', '', avgColor)
-    + covCard('Items Covered', Math.min(latest.covered, cov.totalEnabled), '/' + cov.totalEnabled, 'var(--accent)')
-    + covCard('Missing Items', missingCount, '', missingCount > 0 ? 'var(--red)' : 'var(--green)')
-    + '</div>';
+  const retailStatCards =
+    "" +
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:' +
+    G +
+    "px;margin-bottom:" +
+    G +
+    'px;">' +
+    covCard("Coverage (latest hour)", latest.pct + "%", "", covColor) +
+    covCard("Avg Coverage (24h)", avg + "%", "", avgColor) +
+    covCard(
+      "Items Covered",
+      Math.min(latest.covered, cov.totalEnabled),
+      "/" + cov.totalEnabled,
+      "var(--accent)"
+    ) +
+    covCard("Missing Items", missingCount, "", missingCount > 0 ? "var(--red)" : "var(--green)") +
+    "</div>";
 
   // Use all available hours (up to 48h)
   const allHours = cov.hours.slice(0, 48).reverse();
-  const retailBars = allHours.map((h, i) => {
-    // Use per-hour effectiveTotal (how many vendors existed at that hour)
-    // so adding new items doesn't retroactively penalize historical bars.
-    const denom = h.effectiveTotal || cov.totalEnabled;
-    const adjPct = denom > 0 ? Math.min(100, Math.round((h.covered / denom) * 100)) : 0;
-    const barH = Math.max(2, Math.round(adjPct * 0.5));
-    const c = adjPct >= 90 ? '#22c55e' : adjPct >= 70 ? '#f59e0b' : '#ef4444';
-    const hLabel = h.hour.slice(11, 16);
-    return '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' + hLabel + ': ' + h.covered + '/' + denom + ' (' + adjPct + '%)">'
-      + '<div style="height:' + barH + 'px;background:' + c + ';border-radius:2px;"></div>'
-      + '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:var(--muted);white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' + hLabel + '</span></div>'
-      + '</div>';
-  }).join('');
+  const retailBars = allHours
+    .map((h, i) => {
+      // Use per-hour effectiveTotal (how many vendors existed at that hour)
+      // so adding new items doesn't retroactively penalize historical bars.
+      const denom = h.effectiveTotal || cov.totalEnabled;
+      const adjPct = denom > 0 ? Math.min(100, Math.round((h.covered / denom) * 100)) : 0;
+      const barH = Math.max(2, Math.round(adjPct * 0.5));
+      const c = adjPct >= 90 ? "#22c55e" : adjPct >= 70 ? "#f59e0b" : "#ef4444";
+      const hLabel = h.hour.slice(11, 16);
+      return (
+        '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' +
+        hLabel +
+        ": " +
+        h.covered +
+        "/" +
+        denom +
+        " (" +
+        adjPct +
+        '%)">' +
+        '<div style="height:' +
+        barH +
+        "px;background:" +
+        c +
+        ';border-radius:2px;"></div>' +
+        '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:var(--muted);white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' +
+        hLabel +
+        "</span></div>" +
+        "</div>"
+      );
+    })
+    .join("");
 
-  const retailBarCard = ''
-    + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' + R + 'px;padding:' + CP + 'px ' + CP + 'px ' + Math.round(CP * 0.5) + 'px;">'
-    + '<div style="color:var(--muted);font-size:' + LS + 'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Retail Coverage Trend (' + allHours.length + 'h)</div>'
-    + '<div style="display:flex;gap:1px;align-items:flex-end;height:' + BH + 'px;">' + retailBars + '</div>'
-    + '</div>';
+  const retailBarCard =
+    "" +
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
+    R +
+    "px;padding:" +
+    CP +
+    "px " +
+    CP +
+    "px " +
+    Math.round(CP * 0.5) +
+    'px;">' +
+    '<div style="color:var(--muted);font-size:' +
+    LS +
+    'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Retail Coverage Trend (' +
+    allHours.length +
+    "h)</div>" +
+    '<div style="display:flex;gap:1px;align-items:flex-end;height:' +
+    BH +
+    'px;">' +
+    retailBars +
+    "</div>" +
+    "</div>";
 
   // ── Spot section ────────────────────────────────────────────────────
-  let spotSection = '';
+  let spotSection = "";
 
   if (spotCov) {
-    const spotPct = spotCov.totalIntervals > 0
-      ? Math.round((spotCov.coveredIntervals / spotCov.totalIntervals) * 100) : 0;
-    const spotColor = spotPct >= 90 ? 'var(--green)' : spotPct >= 70 ? 'var(--amber)' : 'var(--red)';
+    const spotPct =
+      spotCov.totalIntervals > 0
+        ? Math.round((spotCov.coveredIntervals / spotCov.totalIntervals) * 100)
+        : 0;
+    const spotColor =
+      spotPct >= 90 ? "var(--green)" : spotPct >= 70 ? "var(--amber)" : "var(--red)";
 
     // Build poller breakdown data for 4th card
     const pollerEntries = Object.entries(spotCov.byPoller || {});
-    const pollerColors = { 'home-spot': '#818cf8', 'fly-spot': '#38bdf8', 'backfill': '#f59e0b' };
+    const pollerColors = { "home-spot": "#818cf8", "fly-spot": "#38bdf8", backfill: "#f59e0b" };
     const pollers = pollerEntries.map(([id, cnt]) => {
-      const pPct = spotCov.totalIntervals > 0 ? Math.round(cnt / spotCov.totalIntervals * 100) : 0;
-      return { name: id, count: cnt, pct: pPct, color: pollerColors[id] || '#94a3b8' };
+      const pPct =
+        spotCov.totalIntervals > 0 ? Math.round((cnt / spotCov.totalIntervals) * 100) : 0;
+      return { name: id, count: cnt, pct: pPct, color: pollerColors[id] || "#94a3b8" };
     });
-    const maxPct = Math.max(...pollers.map(p => p.pct), 1);
+    const maxPct = Math.max(...pollers.map((p) => p.pct), 1);
 
     // Combined sources %
     const combinedPct = pollers.reduce((s, p) => s + p.pct, 0);
-    const combinedColor = combinedPct >= 90 ? 'var(--green)' : combinedPct >= 70 ? 'var(--amber)' : 'var(--red)';
+    const combinedColor =
+      combinedPct >= 90 ? "var(--green)" : combinedPct >= 70 ? "var(--amber)" : "var(--red)";
 
     // Card 4: Source Breakdown with mini horizontal bars
-    const breakdownCard = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' + R + 'px;padding:' + P + 'px;text-align:center;">'
-      + '<div style="color:var(--muted);font-size:' + LS + 'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">Source Breakdown</div>'
-      + '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">'
-      + pollers.map(p => '<div style="display:flex;align-items:center;gap:6px;">'
-        + '<div style="width:8px;height:8px;border-radius:50%;background:' + p.color + ';flex-shrink:0;"></div>'
-        + '<span style="font-size:10px;color:var(--muted);min-width:64px;text-align:left;">' + p.name + '</span>'
-        + '<div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">'
-        + '<div style="height:100%;width:' + (maxPct > 0 ? Math.round(p.pct / maxPct * 100) : 0) + '%;background:' + p.color + ';border-radius:3px;"></div>'
-        + '</div>'
-        + '<span style="font-size:10px;min-width:28px;text-align:right;font-family:monospace;color:' + p.color + ';">' + p.pct + '%</span>'
-        + '</div>').join('')
-      + '</div>'
-      + '</div>';
+    const breakdownCard =
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
+      R +
+      "px;padding:" +
+      P +
+      'px;text-align:center;">' +
+      '<div style="color:var(--muted);font-size:' +
+      LS +
+      'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">Source Breakdown</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">' +
+      pollers
+        .map(
+          (p) =>
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<div style="width:8px;height:8px;border-radius:50%;background:' +
+            p.color +
+            ';flex-shrink:0;"></div>' +
+            '<span style="font-size:10px;color:var(--muted);min-width:64px;text-align:left;">' +
+            p.name +
+            "</span>" +
+            '<div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
+            '<div style="height:100%;width:' +
+            (maxPct > 0 ? Math.round((p.pct / maxPct) * 100) : 0) +
+            "%;background:" +
+            p.color +
+            ';border-radius:3px;"></div>' +
+            "</div>" +
+            '<span style="font-size:10px;min-width:28px;text-align:right;font-family:monospace;color:' +
+            p.color +
+            ';">' +
+            p.pct +
+            "%</span>" +
+            "</div>"
+        )
+        .join("") +
+      "</div>" +
+      "</div>";
 
-    const spotStatCards = ''
-      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:' + G + 'px;margin-bottom:' + G + 'px;">'
-      + covCard('Spot Coverage (' + spotCov.hours + 'h)', spotPct + '%', '', spotColor)
-      + covCard('Intervals Hit', spotCov.coveredIntervals, '/' + spotCov.totalIntervals, 'var(--accent)')
-      + covCard('Combined Sources', combinedPct + '%', '', combinedColor)
-      + breakdownCard
-      + '</div>';
+    const spotStatCards =
+      "" +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:' +
+      G +
+      "px;margin-bottom:" +
+      G +
+      'px;">' +
+      covCard("Spot Coverage (" + spotCov.hours + "h)", spotPct + "%", "", spotColor) +
+      covCard(
+        "Intervals Hit",
+        spotCov.coveredIntervals,
+        "/" + spotCov.totalIntervals,
+        "var(--accent)"
+      ) +
+      covCard("Combined Sources", combinedPct + "%", "", combinedColor) +
+      breakdownCard +
+      "</div>";
 
     // Spot bars — generate placeholders for ALL expected 15-min slots
     const spotIntervals = spotCov.intervals || [];
-    const spotMap = new Map(spotIntervals.map(q => [q.quarter, q]));
+    const spotMap = new Map(spotIntervals.map((q) => [q.quarter, q]));
 
     const allQuarters = [];
     const now = new Date();
@@ -673,50 +940,101 @@ function renderCoverageCards_LEGACY(cov, spotCov) {
     start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0);
     for (let t = new Date(start); t <= now; t = new Date(t.getTime() + 15 * 60000)) {
       const iso = t.toISOString();
-      const q = iso.slice(0, 13) + ':' + String(Math.floor(t.getUTCMinutes() / 15) * 15).padStart(2, '0');
+      const q =
+        iso.slice(0, 13) + ":" + String(Math.floor(t.getUTCMinutes() / 15) * 15).padStart(2, "0");
       allQuarters.push(q);
     }
 
-    const spotBars = allQuarters.map((q, i) => {
-      const data = spotMap.get(q);
-      const label = q.slice(11);
-      if (!data) {
-        return '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' + label + ': no data">'
-          + '<div style="height:2px;background:#334155;border-radius:2px;"></div>'
-          + '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:#475569;white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' + label + '</span></div>'
-          + '</div>';
-      }
-      const full = data.metals >= 4;
-      const c = full ? '#22c55e' : data.metals >= 2 ? '#f59e0b' : '#ef4444';
-      const barH = full ? 28 : Math.max(6, data.metals * 7);
-      const srcLabel = data.sources > 1 ? data.sources + ' sources' : '1 source';
-      return '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' + label + ': ' + data.metals + '/4 metals, ' + srcLabel + '">'
-        + '<div style="height:' + barH + 'px;background:' + c + ';border-radius:2px;"></div>'
-        + '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:var(--muted);white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' + label + '</span></div>'
-        + '</div>';
-    }).join('');
+    const spotBars = allQuarters
+      .map((q, i) => {
+        const data = spotMap.get(q);
+        const label = q.slice(11);
+        if (!data) {
+          return (
+            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' +
+            label +
+            ': no data">' +
+            '<div style="height:2px;background:#334155;border-radius:2px;"></div>' +
+            '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:#475569;white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' +
+            label +
+            "</span></div>" +
+            "</div>"
+          );
+        }
+        const full = data.metals >= 4;
+        const c = full ? "#22c55e" : data.metals >= 2 ? "#f59e0b" : "#ef4444";
+        const barH = full ? 28 : Math.max(6, data.metals * 7);
+        const srcLabel = data.sources > 1 ? data.sources + " sources" : "1 source";
+        return (
+          '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' +
+          label +
+          ": " +
+          data.metals +
+          "/4 metals, " +
+          srcLabel +
+          '">' +
+          '<div style="height:' +
+          barH +
+          "px;background:" +
+          c +
+          ';border-radius:2px;"></div>' +
+          '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:var(--muted);white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' +
+          label +
+          "</span></div>" +
+          "</div>"
+        );
+      })
+      .join("");
 
-    const spotBarCard = ''
-      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' + R + 'px;padding:' + CP + 'px ' + CP + 'px ' + Math.round(CP * 0.5) + 'px;">'
-      + '<div style="color:var(--muted);font-size:' + LS + 'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Spot Price Trend (15-min intervals, ' + hoursBack + 'h)</div>'
-      + '<div style="display:flex;gap:1px;align-items:flex-end;height:' + BH + 'px;">' + spotBars + '</div>'
-      + '</div>';
+    const spotBarCard =
+      "" +
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
+      R +
+      "px;padding:" +
+      CP +
+      "px " +
+      CP +
+      "px " +
+      Math.round(CP * 0.5) +
+      'px;">' +
+      '<div style="color:var(--muted);font-size:' +
+      LS +
+      'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Spot Price Trend (15-min intervals, ' +
+      hoursBack +
+      "h)</div>" +
+      '<div style="display:flex;gap:1px;align-items:flex-end;height:' +
+      BH +
+      'px;">' +
+      spotBars +
+      "</div>" +
+      "</div>";
 
-    spotSection = ''
-      + '<div style="margin-bottom:' + SG + 'px;">'
-      + '<h3 style="font-size:' + TS + 'px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;">Spot Price Coverage</h3>'
-      + spotStatCards
-      + spotBarCard
-      + '</div>';
+    spotSection =
+      "" +
+      '<div style="margin-bottom:' +
+      SG +
+      'px;">' +
+      '<h3 style="font-size:' +
+      TS +
+      'px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;">Spot Price Coverage</h3>' +
+      spotStatCards +
+      spotBarCard +
+      "</div>";
   }
 
   // ── Assemble ────────────────────────────────────────────────────────
-  return '<div style="margin-bottom:' + SG + 'px;">'
-    + '<h3 style="font-size:' + TS + 'px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;">Retail Price Coverage</h3>'
-    + retailStatCards
-    + retailBarCard
-    + '</div>'
-    + spotSection;
+  return (
+    '<div style="margin-bottom:' +
+    SG +
+    'px;">' +
+    '<h3 style="font-size:' +
+    TS +
+    'px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;">Retail Price Coverage</h3>' +
+    retailStatCards +
+    retailBarCard +
+    "</div>" +
+    spotSection
+  );
 }
 
 // Legacy SVG trend chart — replaced by Chart.js
@@ -725,21 +1043,23 @@ function renderFailureTrendChart_LEGACY(trend) {
     return '<p style="color:var(--muted);font-size:13px;padding:8px 0;">No failure data available.</p>';
   }
 
-  const maxF = Math.max(...trend.map(d => d.failures), 1);
-  const chartW = 500, chartH = 140, barGap = 8;
+  const maxF = Math.max(...trend.map((d) => d.failures), 1);
+  const chartW = 500,
+    chartH = 140,
+    barGap = 8;
   const barW = Math.min(50, (chartW - barGap * (trend.length + 1)) / trend.length);
   const startX = (chartW - (barW + barGap) * trend.length + barGap) / 2;
 
-  let bars = '';
+  let bars = "";
   trend.forEach((d, i) => {
     const barH = Math.max(2, (d.failures / maxF) * (chartH - 30));
     const x = startX + i * (barW + barGap);
     const y = chartH - 20 - barH;
-    const color = d.failures >= 20 ? '#ef4444' : d.failures >= 10 ? '#f59e0b' : '#22c55e';
+    const color = d.failures >= 20 ? "#ef4444" : d.failures >= 10 ? "#f59e0b" : "#22c55e";
     const dayLabel = d.day.slice(5); // MM-DD
     bars += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${color}" rx="3"/>`;
-    bars += `<text x="${x + barW/2}" y="${chartH - 6}" text-anchor="middle" fill="#94a3b8" font-size="10">${dayLabel}</text>`;
-    bars += `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" fill="#e2e8f0" font-size="10">${d.failures}</text>`;
+    bars += `<text x="${x + barW / 2}" y="${chartH - 6}" text-anchor="middle" fill="#94a3b8" font-size="10">${dayLabel}</text>`;
+    bars += `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" fill="#e2e8f0" font-size="10">${d.failures}</text>`;
   });
 
   return `<svg width="${chartW}" height="${chartH}" viewBox="0 0 ${chartW} ${chartH}" style="max-width:100%;height:auto;">
@@ -754,18 +1074,36 @@ function renderFailureTrendChart_LEGACY(trend) {
 }
 
 function renderMainPage(data) {
-  const { net, cpu, uptime, supervisord, logLines, tursoRuns, tursoUp, flyioHealth, runStats, failureCount, coverageStats, spotCoverage, failureTrend, flyRuns, dockerContainers, lockStatus, chronicFailures } = data;
+  const {
+    net,
+    cpu,
+    uptime,
+    supervisord,
+    logLines,
+    tursoRuns,
+    tursoUp,
+    flyioHealth,
+    runStats,
+    failureCount,
+    coverageStats,
+    spotCoverage,
+    failureTrend,
+    flyRuns,
+    dockerContainers,
+    lockStatus,
+    chronicFailures,
+  } = data;
 
-  const logHtml = logLines.map((l) =>
-    `<div class="${logLineClass(l)}">${escHtml(l)}</div>`
-  ).join("");
+  const logHtml = logLines
+    .map((l) => `<div class="${logLineClass(l)}">${escHtml(l)}</div>`)
+    .join("");
 
   // Prepare Chart.js data as JSON for client-side rendering
   const covHours = coverageStats?.hours?.slice(0, 48)?.reverse() || [];
   const chartData = JSON.stringify({
-    coverage: covHours.map(h => ({ x: h.hour, y: h.pct })),
+    coverage: covHours.map((h) => ({ x: h.hour, y: h.pct })),
     // We don't have real spot price data on the dashboard server, use coverage as proxy
-    spotIntervals: (spotCoverage?.intervals || []).map(q => ({ x: q.quarter, y: q.metals * 25 })),
+    spotIntervals: (spotCoverage?.intervals || []).map((q) => ({ x: q.quarter, y: q.metals * 25 })),
   });
 
   return `<!DOCTYPE html>
@@ -935,57 +1273,64 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
   const totalCoins = coinEntries.length;
 
   // Build vendor-centric view HTML
-  const vendorViewHtml = (vendorGroups || []).map(vg => {
-    const okCount = vg.items.filter(i => {
-      const key = `${i.coinSlug}:${vg.vendorId}`;
-      const st = scrapeStatus?.get(key);
-      return st && !st.isFailed && st.price != null;
-    }).length;
-    const failCount = vg.items.filter(i => {
-      const key = `${i.coinSlug}:${vg.vendorId}`;
-      const st = scrapeStatus?.get(key);
-      return st?.isFailed;
-    }).length;
-    const statsText = `${vg.items.length} items | ${okCount} ok${failCount > 0 ? ` | <span style="color:var(--red);">${failCount} failing</span>` : ""}`;
+  const vendorViewHtml = (vendorGroups || [])
+    .map((vg) => {
+      const okCount = vg.items.filter((i) => {
+        const key = `${i.coinSlug}:${vg.vendorId}`;
+        const st = scrapeStatus?.get(key);
+        return st && !st.isFailed && st.price != null;
+      }).length;
+      const failCount = vg.items.filter((i) => {
+        const key = `${i.coinSlug}:${vg.vendorId}`;
+        const st = scrapeStatus?.get(key);
+        return st?.isFailed;
+      }).length;
+      const statsText = `${vg.items.length} items | ${okCount} ok${failCount > 0 ? ` | <span style="color:var(--red);">${failCount} failing</span>` : ""}`;
 
-    const itemRows = vg.items.map(item => {
-      const key = `${item.coinSlug}:${vg.vendorId}`;
-      const st = scrapeStatus?.get(key);
-      let dot = '<span style="width:8px;height:8px;border-radius:50%;background:#475569;display:inline-block;"></span>';
-      let priceText = '';
-      if (st) {
-        if (st.isFailed) {
-          dot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;"></span>';
-          priceText = `<span style="color:var(--red);font-size:11px;">failed</span>`;
-        } else if (st.price != null) {
-          dot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>';
-          priceText = `<span style="color:var(--green);font-size:11px;">$${st.price}</span>`;
-        }
-      }
-      return `<div style="display:grid;grid-template-columns:auto 1fr 2fr 1fr auto;gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
+      const itemRows = vg.items
+        .map((item) => {
+          const key = `${item.coinSlug}:${vg.vendorId}`;
+          const st = scrapeStatus?.get(key);
+          let dot =
+            '<span style="width:8px;height:8px;border-radius:50%;background:#475569;display:inline-block;"></span>';
+          let priceText = "";
+          if (st) {
+            if (st.isFailed) {
+              dot =
+                '<span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;"></span>';
+              priceText = `<span style="color:var(--red);font-size:11px;">failed</span>`;
+            } else if (st.price != null) {
+              dot =
+                '<span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>';
+              priceText = `<span style="color:var(--green);font-size:11px;">$${st.price}</span>`;
+            }
+          }
+          return `<div style="display:grid;grid-template-columns:auto 1fr 2fr 1fr auto;gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
         ${dot}
         <span style="font-weight:600;">${escHtml(item.coinName)} ${metalBadge(item.metal)}</span>
         <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://...">
         ${priceText}
         <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;">${item.enabled !== false ? "On" : "Off"}</button>
       </div>`;
-    }).join("");
+        })
+        .join("");
 
-    return `<div style="margin-bottom:12px;" class="vendor-section" data-vendor="${escAttr(vg.vendorId)}">
+      return `<div style="margin-bottom:12px;" class="vendor-section" data-vendor="${escAttr(vg.vendorId)}">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:4px;" class="vendor-section-header">
         <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}</span>
         <span style="font-size:11px;color:var(--muted);">${statsText}</span>
       </div>
       <div class="vendor-section-body" style="display:none;">${itemRows}</div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
   // Build vendorsByMetal map for bulk operations
   const vendorsByMetal = {};
   for (const [slug, coin] of coinEntries) {
-    const metal = coin.metal || 'silver';
+    const metal = coin.metal || "silver";
     if (!vendorsByMetal[metal]) vendorsByMetal[metal] = new Set();
-    for (const p of (coin.providers || [])) {
+    for (const p of coin.providers || []) {
       vendorsByMetal[metal].add(p.id);
     }
   }
@@ -994,26 +1339,28 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
     vendorsByMetal[m] = [...vendorsByMetal[m]].sort();
   }
 
-  const coinSections = coinEntries.map(([slug, coin]) => {
-    const vendorCount = (coin.providers || []).length;
-    const metal = coin.metal || "silver";
+  const coinSections = coinEntries
+    .map(([slug, coin]) => {
+      const vendorCount = (coin.providers || []).length;
+      const metal = coin.metal || "silver";
 
-    const vendorRows = (coin.providers || []).map((p, i) => {
-      const key = `${slug}:${p.id}`;
-      const status = scrapeStatus ? scrapeStatus.get(key) : null;
-      let dot = '<span class="dot dot-gray" title="No data"></span>';
-      let hoverText = "No data";
-      if (status) {
-        if (status.isFailed) {
-          dot = `<span class="dot dot-red" title="Failed \u2014 ${escAttr(status.scrapedAt)}"></span>`;
-          hoverText = `Failed \u2014 ${status.scrapedAt}`;
-        } else if (status.price != null) {
-          dot = `<span class="dot dot-green" title="$${status.price} \u2014 ${escAttr(status.scrapedAt)}"></span>`;
-          hoverText = `$${status.price} \u2014 ${status.scrapedAt}`;
-        }
-      }
+      const vendorRows = (coin.providers || [])
+        .map((p, i) => {
+          const key = `${slug}:${p.id}`;
+          const status = scrapeStatus ? scrapeStatus.get(key) : null;
+          let dot = '<span class="dot dot-gray" title="No data"></span>';
+          let hoverText = "No data";
+          if (status) {
+            if (status.isFailed) {
+              dot = `<span class="dot dot-red" title="Failed \u2014 ${escAttr(status.scrapedAt)}"></span>`;
+              hoverText = `Failed \u2014 ${status.scrapedAt}`;
+            } else if (status.price != null) {
+              dot = `<span class="dot dot-green" title="$${status.price} \u2014 ${escAttr(status.scrapedAt)}"></span>`;
+              hoverText = `$${status.price} \u2014 ${status.scrapedAt}`;
+            }
+          }
 
-      return `<tr class="vendor-row" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}">
+          return `<tr class="vendor-row" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}">
         <td>${dot}</td>
         <td><input type="checkbox" class="vendor-toggle" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" ${p.enabled !== false ? "checked" : ""} ${readOnly ? "disabled" : ""}></td>
         <td><code>${escHtml(p.id)}</code></td>
@@ -1032,19 +1379,24 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
           <button class="btn-save-fields" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" style="margin-top:6px;background:#166534;color:#86efac;" ${readOnly ? "disabled" : ""}>Save Selector/Hints</button>
         </td>
       </tr>`;
-    }).join("");
+        })
+        .join("");
 
-    return `<div class="coin-section" data-slug="${escAttr(slug)}" data-name="${escAttr(coin.name.toLowerCase())}" data-metal="${escAttr(metal)}">
+      return `<div class="coin-section" data-slug="${escAttr(slug)}" data-name="${escAttr(coin.name.toLowerCase())}" data-metal="${escAttr(metal)}">
       <div class="coin-header" data-slug="${escAttr(slug)}">
         <span class="coin-toggle">\u25B6</span>
         <strong>${escHtml(coin.name)}</strong>
         <code style="color:var(--muted);margin:0 8px;">${escHtml(slug)}</code>
         ${metalBadge(metal)}
         <span style="color:var(--muted);font-size:12px;margin-left:8px;">${metal === "goldback" ? (coin.weight_oz || 1) + "/1000 oz gold" : (coin.weight_oz || 1) + " oz"} \u00B7 ${vendorCount} vendor${vendorCount !== 1 ? "s" : ""}</span>
-        ${readOnly ? "" : `<span style="margin-left:auto;display:flex;gap:4px;">
+        ${
+          readOnly
+            ? ""
+            : `<span style="margin-left:auto;display:flex;gap:4px;">
           <button class="btn-edit-coin" data-slug="${escAttr(slug)}" style="background:#1e3a5f;color:var(--accent);font-size:11px;">Edit</button>
           <button class="btn-del-coin" data-slug="${escAttr(slug)}" data-name="${escAttr(coin.name)}" data-vendors="${vendorCount}" style="background:#7f1d1d;color:#fca5a5;font-size:11px;">Delete</button>
-        </span>`}
+        </span>`
+        }
       </div>
       <div class="coin-body" style="display:none;">
         <table>
@@ -1054,7 +1406,8 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
         ${readOnly ? "" : `<button class="btn-add-vendor" data-coin="${escAttr(slug)}" data-coinname="${escAttr(coin.name)}" style="margin:8px 0;background:#1e3a5f;color:var(--accent);">+ Add provider to ${escHtml(slug)}</button>`}
       </div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
   const readOnlyBanner = readOnly
     ? `<div style="background:#7f1d1d;color:#fca5a5;padding:12px;border-radius:6px;margin-bottom:16px;font-weight:600;">\u26A0 Turso offline \u2014 showing cached data (read-only). Editing is disabled.</div>`
@@ -1633,53 +1986,78 @@ async function fetchV2Endpoints() {
   ];
 
   const results = {};
-  await Promise.all(endpoints.map(async (ep) => {
-    try {
-      const resp = await fetch(V2_BASE + ep.path, { signal: AbortSignal.timeout(10_000) });
-      if (!resp.ok) {
-        results[ep.key] = { label: ep.label, status: resp.status, ok: false, data: null };
-        return;
+  await Promise.all(
+    endpoints.map(async (ep) => {
+      try {
+        const resp = await fetch(V2_BASE + ep.path, { signal: AbortSignal.timeout(10_000) });
+        if (!resp.ok) {
+          results[ep.key] = { label: ep.label, status: resp.status, ok: false, data: null };
+          return;
+        }
+        const json = await resp.json();
+        const ageSec = json.generated_at
+          ? Math.round((Date.now() - new Date(json.generated_at).getTime()) / 1000)
+          : null;
+        results[ep.key] = {
+          label: ep.label,
+          status: 200,
+          ok: true,
+          data: json,
+          ageSec,
+          staleAfter: json.stale_after,
+        };
+      } catch (err) {
+        results[ep.key] = { label: ep.label, status: 0, ok: false, error: err.message, data: null };
       }
-      const json = await resp.json();
-      const ageSec = json.generated_at ? Math.round((Date.now() - new Date(json.generated_at).getTime()) / 1000) : null;
-      results[ep.key] = { label: ep.label, status: 200, ok: true, data: json, ageSec, staleAfter: json.stale_after };
-    } catch (err) {
-      results[ep.key] = { label: ep.label, status: 0, ok: false, error: err.message, data: null };
-    }
-  }));
+    })
+  );
 
   // Fetch a sample of per-coin endpoints
   if (results.retail_latest?.ok) {
     const coins = results.retail_latest.data.data.coins;
     const slugs = Object.keys(coins).slice(0, 5);
     const coinResults = {};
-    await Promise.all(slugs.map(async (slug) => {
-      try {
-        const resp = await fetch(`${V2_BASE}/retail/${slug}/latest.json`, { signal: AbortSignal.timeout(10_000) });
-        coinResults[slug] = { ok: resp.ok, status: resp.status };
-        if (resp.ok) {
-          const json = await resp.json();
-          coinResults[slug].vendorCount = Object.keys(json.data.vendors || {}).length;
+    await Promise.all(
+      slugs.map(async (slug) => {
+        try {
+          const resp = await fetch(`${V2_BASE}/retail/${slug}/latest.json`, {
+            signal: AbortSignal.timeout(10_000),
+          });
+          coinResults[slug] = { ok: resp.ok, status: resp.status };
+          if (resp.ok) {
+            const json = await resp.json();
+            coinResults[slug].vendorCount = Object.keys(json.data.vendors || {}).length;
+          }
+        } catch {
+          coinResults[slug] = { ok: false, status: 0 };
         }
-      } catch { coinResults[slug] = { ok: false, status: 0 }; }
-    }));
+      })
+    );
     results.perCoinSample = coinResults;
   }
 
   // Fetch all per-vendor endpoints for matrix
   if (results.vendors?.ok) {
     const vendorList = results.vendors.data.data;
-    const vendorIds = Array.isArray(vendorList) ? vendorList.map(v => v.id) : Object.keys(vendorList);
+    const vendorIds = Array.isArray(vendorList)
+      ? vendorList.map((v) => v.id)
+      : Object.keys(vendorList);
     const vendorData = {};
-    await Promise.all(vendorIds.map(async (vid) => {
-      try {
-        const resp = await fetch(`${V2_BASE}/retail/vendors/${vid}.json`, { signal: AbortSignal.timeout(10_000) });
-        if (resp.ok) {
-          const json = await resp.json();
-          vendorData[vid] = json.data;
+    await Promise.all(
+      vendorIds.map(async (vid) => {
+        try {
+          const resp = await fetch(`${V2_BASE}/retail/vendors/${vid}.json`, {
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (resp.ok) {
+            const json = await resp.json();
+            vendorData[vid] = json.data;
+          }
+        } catch {
+          /* skip */
         }
-      } catch { /* skip */ }
-    }));
+      })
+    );
     results.vendorDetails = vendorData;
   }
 
@@ -1690,22 +2068,31 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   const now = new Date().toUTCString();
 
   // Endpoint health table
-  const epRows = ["manifest", "spot_latest", "spot_7d", "retail_latest", "vendors", "goldback"].map(key => {
-    const ep = v2[key];
-    if (!ep) return "";
-    const statusColor = ep.ok ? "var(--green)" : "var(--red)";
-    const ageStr = ep.ageSec != null ? (ep.ageSec < 60 ? `${ep.ageSec}s` : ep.ageSec < 3600 ? `${Math.round(ep.ageSec / 60)}m` : `${Math.round(ep.ageSec / 3600)}h`) : "--";
-    const staleStr = ep.staleAfter ? `${Math.round(ep.staleAfter / 60)}m` : "--";
-    const isStale = ep.ageSec != null && ep.staleAfter && ep.ageSec > ep.staleAfter;
-    const freshColor = isStale ? "var(--red)" : ep.ok ? "var(--green)" : "var(--muted)";
-    return `<tr>
+  const epRows = ["manifest", "spot_latest", "spot_7d", "retail_latest", "vendors", "goldback"]
+    .map((key) => {
+      const ep = v2[key];
+      if (!ep) return "";
+      const statusColor = ep.ok ? "var(--green)" : "var(--red)";
+      const ageStr =
+        ep.ageSec != null
+          ? ep.ageSec < 60
+            ? `${ep.ageSec}s`
+            : ep.ageSec < 3600
+              ? `${Math.round(ep.ageSec / 60)}m`
+              : `${Math.round(ep.ageSec / 3600)}h`
+          : "--";
+      const staleStr = ep.staleAfter ? `${Math.round(ep.staleAfter / 60)}m` : "--";
+      const isStale = ep.ageSec != null && ep.staleAfter && ep.ageSec > ep.staleAfter;
+      const freshColor = isStale ? "var(--red)" : ep.ok ? "var(--green)" : "var(--muted)";
+      return `<tr>
       <td>${escHtml(ep.label)}</td>
       <td><span class="status ${ep.ok ? "status-ok" : "status-failed"}">${ep.status || "ERR"}</span></td>
       <td style="color:${freshColor}">${ageStr}</td>
       <td>${staleStr}</td>
       <td>${isStale ? '<span style="color:var(--red);font-weight:700;">STALE</span>' : ep.ok ? '<span style="color:var(--green);">Fresh</span>' : '<span style="color:var(--red);">Down</span>'}</td>
     </tr>`;
-  }).join("");
+    })
+    .join("");
 
   // Spot prices table
   let spotHtml = '<p class="no-data">Spot data unavailable</p>';
@@ -1713,16 +2100,19 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
     const spot = v2.spot_latest.data.data;
     const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
     const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
-    const spotRows = Object.entries(spot).map(([metal, d]) => {
-      const change = d.change_24h_pct;
-      const changeColor = change > 0 ? "var(--green)" : change < 0 ? "var(--red)" : "var(--muted)";
-      const changeStr = change != null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
-      return `<tr>
+    const spotRows = Object.entries(spot)
+      .map(([metal, d]) => {
+        const change = d.change_24h_pct;
+        const changeColor =
+          change > 0 ? "var(--green)" : change < 0 ? "var(--red)" : "var(--muted)";
+        const changeStr = change != null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
+        return `<tr>
         <td><span style="color:${metalColors[metal] || "var(--text)"};font-weight:600;">${metalNames[metal] || metal.toUpperCase()}</span> <span style="color:var(--muted);font-size:10px;">${metal.toUpperCase()}</span></td>
         <td style="font-weight:700;font-family:monospace;">$${Number(d.price).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         <td style="color:${changeColor}">${changeStr}</td>
       </tr>`;
-    }).join("");
+      })
+      .join("");
     spotHtml = `<table><thead><tr><th>Metal</th><th>Price</th><th>24h</th></tr></thead><tbody>${spotRows}</tbody></table>`;
   }
 
@@ -1730,9 +2120,12 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   let retailHtml = '<p class="no-data">Retail data unavailable</p>';
   if (v2.retail_latest?.ok) {
     const coins = v2.retail_latest.data.data.coins;
-    const retailRows = Object.entries(coins).map(([slug, c]) => {
-      const metalColor = ({ xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", goldback: "#a3e635" })[c.metal] || "#94a3b8";
-      return `<tr>
+    const retailRows = Object.entries(coins)
+      .map(([slug, c]) => {
+        const metalColor =
+          { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", goldback: "#a3e635" }[c.metal] ||
+          "#94a3b8";
+        return `<tr>
         <td>${escHtml(c.name)}</td>
         <td><span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;background:${metalColor};color:#0f172a;">${escHtml(c.metal)}</span></td>
         <td style="font-family:monospace;font-weight:600;">$${Number(c.median).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -1740,7 +2133,8 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
         <td style="color:var(--muted);font-family:monospace;">$${Number(c.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
         <td style="text-align:center;">${c.vendor_count}</td>
       </tr>`;
-    }).join("");
+      })
+      .join("");
     retailHtml = `<table><thead><tr><th>Coin</th><th>Metal</th><th>Median</th><th>Low</th><th>High</th><th>Vendors</th></tr></thead><tbody>${retailRows}</tbody></table>`;
   }
 
@@ -1752,53 +2146,77 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
     const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
     const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
     // Map coin_slug metal fields (some use "gold"/"silver" vs "xau"/"xag")
-    const metalNorm = { gold: "xau", silver: "xag", platinum: "xpt", palladium: "xpd", xau: "xau", xag: "xag", xpt: "xpt", xpd: "xpd" };
+    const metalNorm = {
+      gold: "xau",
+      silver: "xag",
+      platinum: "xpt",
+      palladium: "xpd",
+      xau: "xau",
+      xag: "xag",
+      xpt: "xpt",
+      xpd: "xpd",
+    };
 
     // Reverse map: xau → gold, xag → silver, xpt → platinum
     const isoToName = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
 
     // Build vendor rows from vendorDetails
     const vendorIds = Object.keys(v2.vendorDetails).sort();
-    const matrixRows = vendorIds.map(vid => {
-      const vd = v2.vendorDetails[vid];
-      if (!vd || !vd.coins) return "";
-      const vendorName = vd.vendor?.name || vid;
+    const matrixRows = vendorIds
+      .map((vid) => {
+        const vd = v2.vendorDetails[vid];
+        if (!vd || !vd.coins) return "";
+        const vendorName = vd.vendor?.name || vid;
 
-      // Aggregate current prices by metal
-      const byMetal = {};
-      for (const [slug, cd] of Object.entries(vd.coins)) {
-        const coinMetal = metalNorm[(coinsMeta[slug]?.metal || "").toLowerCase()] || null;
-        if (!coinMetal || coinMetal === "xpd") continue; // skip goldback and palladium (no retail data)
-        if (!byMetal[coinMetal]) byMetal[coinMetal] = [];
-        if (cd.price != null && cd.price > 0) byMetal[coinMetal].push(cd.price);
-      }
-
-      const cells = metals.map(m => {
-        const prices = byMetal[m] || [];
-        // Turso uses the provider_coins metal name (gold/silver/platinum), try both
-        const avgData = (vendorMetalAvgs || {})[`${vid}:${isoToName[m]}`]
-                     || (vendorMetalAvgs || {})[`${vid}:${m}`]
-                     || {};
-        if (!prices.length && !avgData.avg24h) {
-          return `<td colspan="4" class="matrix-cell" style="color:var(--border);">\u2014</td>`;
+        // Aggregate current prices by metal
+        const byMetal = {};
+        for (const [slug, cd] of Object.entries(vd.coins)) {
+          const coinMetal = metalNorm[(coinsMeta[slug]?.metal || "").toLowerCase()] || null;
+          if (!coinMetal || coinMetal === "xpd") continue; // skip goldback and palladium (no retail data)
+          if (!byMetal[coinMetal]) byMetal[coinMetal] = [];
+          if (cd.price != null && cd.price > 0) byMetal[coinMetal].push(cd.price);
         }
-        const latest = prices.length ? (prices.reduce((a, b) => a + b, 0) / prices.length) : null;
-        const fmtPrice = (v) => v != null ? `$${Number(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '\u2014';
-        return `<td class="matrix-cell">${fmtPrice(latest)}</td>
+
+        const cells = metals
+          .map((m) => {
+            const prices = byMetal[m] || [];
+            // Turso uses the provider_coins metal name (gold/silver/platinum), try both
+            const avgData =
+              (vendorMetalAvgs || {})[`${vid}:${isoToName[m]}`] ||
+              (vendorMetalAvgs || {})[`${vid}:${m}`] ||
+              {};
+            if (!prices.length && !avgData.avg24h) {
+              return `<td colspan="4" class="matrix-cell" style="color:var(--border);">\u2014</td>`;
+            }
+            const latest = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null;
+            const fmtPrice = (v) =>
+              v != null
+                ? `$${Number(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : "\u2014";
+            return `<td class="matrix-cell">${fmtPrice(latest)}</td>
                 <td class="matrix-cell">${fmtPrice(avgData.avg24h)}</td>
                 <td class="matrix-cell">${fmtPrice(avgData.avg7d)}</td>
                 <td class="matrix-cell">${fmtPrice(avgData.avg30d)}</td>`;
-      }).join("");
+          })
+          .join("");
 
-      return `<tr><td style="font-weight:600;font-size:11px;white-space:nowrap;">${escHtml(vendorName)}</td>${cells}</tr>`;
-    }).filter(Boolean).join("");
+        return `<tr><td style="font-weight:600;font-size:11px;white-space:nowrap;">${escHtml(vendorName)}</td>${cells}</tr>`;
+      })
+      .filter(Boolean)
+      .join("");
 
-    const metalHeaders = metals.map(m =>
-      `<th colspan="4" style="text-align:center;color:${metalColors[m]};border-bottom:2px solid ${metalColors[m]}30;">${metalNames[m]}</th>`
-    ).join("");
-    const subHeaders = metals.map(() =>
-      `<th class="matrix-cell">Latest</th><th class="matrix-cell">24h</th><th class="matrix-cell">7d</th><th class="matrix-cell">30d</th>`
-    ).join("");
+    const metalHeaders = metals
+      .map(
+        (m) =>
+          `<th colspan="4" style="text-align:center;color:${metalColors[m]};border-bottom:2px solid ${metalColors[m]}30;">${metalNames[m]}</th>`
+      )
+      .join("");
+    const subHeaders = metals
+      .map(
+        () =>
+          `<th class="matrix-cell">Latest</th><th class="matrix-cell">24h</th><th class="matrix-cell">7d</th><th class="matrix-cell">30d</th>`
+      )
+      .join("");
 
     matrixHtml = `<div class="row full" style="margin-top:12px;">
       <div class="card">
@@ -1820,13 +2238,15 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   // Per-coin sample endpoints
   let sampleHtml = "";
   if (v2.perCoinSample) {
-    const sRows = Object.entries(v2.perCoinSample).map(([slug, s]) => {
-      return `<tr>
+    const sRows = Object.entries(v2.perCoinSample)
+      .map(([slug, s]) => {
+        return `<tr>
         <td><code>${escHtml(slug)}</code></td>
         <td><span class="status ${s.ok ? "status-ok" : "status-failed"}">${s.status}</span></td>
         <td>${s.vendorCount != null ? s.vendorCount + " vendors" : "--"}</td>
       </tr>`;
-    }).join("");
+      })
+      .join("");
     sampleHtml = `<div class="card-title" style="margin-top:12px;">Per-Coin Endpoint Sample (5 of ${Object.keys(v2.retail_latest?.data?.data?.coins || {}).length})</div>
       <table><thead><tr><th>Slug</th><th>Status</th><th>Vendors</th></tr></thead><tbody>${sRows}</tbody></table>`;
   }
@@ -1887,20 +2307,25 @@ ${renderNav("api-health", failureCount)}
   ${matrixHtml}
 
   <!-- 7-Day Spot History — All Metals -->
-  ${v2.spot_7d?.ok ? [
-    { key: "xau", name: "Gold", color: "#fbbf24" },
-    { key: "xag", name: "Silver", color: "#c0c0c0" },
-    { key: "xpt", name: "Platinum", color: "#a78bfa" },
-    { key: "xpd", name: "Palladium", color: "#f97316" },
-  ].map(m => {
-    const rows = v2.spot_7d.data.data[m.key] || [];
-    if (!rows.length) return "";
-    return `<div class="row full">
+  ${
+    v2.spot_7d?.ok
+      ? [
+          { key: "xau", name: "Gold", color: "#fbbf24" },
+          { key: "xag", name: "Silver", color: "#c0c0c0" },
+          { key: "xpt", name: "Platinum", color: "#a78bfa" },
+          { key: "xpd", name: "Palladium", color: "#f97316" },
+        ]
+          .map((m) => {
+            const rows = v2.spot_7d.data.data[m.key] || [];
+            if (!rows.length) return "";
+            return `<div class="row full">
     <div class="card">
       <div class="card-title"><span style="color:${m.color};">${m.name} Spot</span> \u2014 7 Day OHLCA</div>
       <table>
         <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Avg</th><th>Samples</th></tr></thead>
-        <tbody>${rows.map(d => `<tr>
+        <tbody>${rows
+          .map(
+            (d) => `<tr>
           <td>${escHtml((d.t || "").slice(0, 10))}</td>
           <td style="font-family:monospace;">$${Number(d.open).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
           <td style="font-family:monospace;color:var(--green);">$${Number(d.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
@@ -1908,11 +2333,16 @@ ${renderNav("api-health", failureCount)}
           <td style="font-family:monospace;font-weight:600;">$${Number(d.close).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
           <td style="font-family:monospace;">$${Number(d.avg).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
           <td style="text-align:center;">${d.n}</td>
-        </tr>`).join("")}</tbody>
+        </tr>`
+          )
+          .join("")}</tbody>
       </table>
     </div>
   </div>`;
-  }).join("") : ""}
+          })
+          .join("")
+      : ""
+  }
 
 </div>
 </body>
@@ -1927,11 +2357,13 @@ function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, fai
   const now = new Date().toUTCString();
 
   // Last scan failures
-  const scanRows = (!lastScanFailures || lastScanFailures.length === 0)
-    ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No failures in the last scan.</p>`
-    : lastScanFailures.map(f => {
-      const time = (f.failedAt || "").slice(11, 19);
-      return `<div style="display:grid;grid-template-columns:2fr 1fr 3fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:12px;border-left:3px solid var(--red);">
+  const scanRows =
+    !lastScanFailures || lastScanFailures.length === 0
+      ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No failures in the last scan.</p>`
+      : lastScanFailures
+          .map((f) => {
+            const time = (f.failedAt || "").slice(11, 19);
+            return `<div style="display:grid;grid-template-columns:2fr 1fr 3fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:4px;margin-bottom:4px;font-size:12px;border-left:3px solid var(--red);">
         <div><span style="font-weight:600;">${escHtml(f.coinName)}</span><br><span style="color:var(--muted);font-size:10px;">${escHtml(f.vendorId)}</span></div>
         <div>${metalBadge(f.metal)}</div>
         <div style="color:#f87171;font-size:11px;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escAttr(f.error || "")}">${escHtml(f.error || "")}</div>
@@ -1941,16 +2373,26 @@ function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, fai
           <button class="btn-sm primary btn-retry" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Retry</button>
         </div>
       </div>`;
-    }).join("");
+          })
+          .join("");
 
   // Chronic failures
-  const chronicRows = (!chronicFailures || chronicFailures.length === 0)
-    ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No chronic failures.</p>`
-    : chronicFailures.map(f => {
-      const age = f.lastFailure ? Math.round((Date.now() - new Date(f.lastFailure)) / 1000) : null;
-      const ageStr = age != null ? (age < 3600 ? `${Math.round(age/60)}m ago` : `${Math.round(age/3600)}h ago`) : "?";
-      const countColor = f.failureCount >= 48 ? "var(--red)" : "var(--amber)";
-      return `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:4px;margin-bottom:3px;font-size:12px;border-left:3px solid var(--red);">
+  const chronicRows =
+    !chronicFailures || chronicFailures.length === 0
+      ? `<p style="color:var(--green);font-size:12px;padding:12px 0;">No chronic failures.</p>`
+      : chronicFailures
+          .map((f) => {
+            const age = f.lastFailure
+              ? Math.round((Date.now() - new Date(f.lastFailure)) / 1000)
+              : null;
+            const ageStr =
+              age != null
+                ? age < 3600
+                  ? `${Math.round(age / 60)}m ago`
+                  : `${Math.round(age / 3600)}h ago`
+                : "?";
+            const countColor = f.failureCount >= 48 ? "var(--red)" : "var(--amber)";
+            return `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:4px;margin-bottom:3px;font-size:12px;border-left:3px solid var(--red);">
         <div><span style="font-weight:600;">${escHtml(f.coinName)}</span> <span style="color:var(--muted)">/ ${escHtml(f.vendorId)}</span></div>
         <div style="color:${countColor};font-weight:700;">${f.failureCount} fails</div>
         <div style="color:var(--muted);font-size:11px;" title="${escAttr(f.lastError || "")}">${escHtml((f.lastError || "").slice(0, 30))}</div>
@@ -1960,10 +2402,13 @@ function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, fai
           <button class="btn-sm btn-clear-chronic" data-coin="${escAttr(f.coinSlug)}" data-vendor="${escAttr(f.vendorId)}">Clear</button>
         </div>
       </div>`;
-    }).join("");
+          })
+          .join("");
 
   // Trend data for Chart.js
-  const trendJson = JSON.stringify((failureTrend || []).map(d => ({ day: d.day, failures: d.failures })));
+  const trendJson = JSON.stringify(
+    (failureTrend || []).map((d) => ({ day: d.day, failures: d.failures }))
+  );
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1988,7 +2433,7 @@ ${renderNav("failures", failureCount)}
       <div class="card-title">
         <span>Last Scan Failures (${lastScanFailures?.length || 0} of 166)</span>
         <div style="display:flex;gap:6px;">
-          ${lastScanFailures?.length > 0 ? '<button class="btn-sm primary" id="btn-retry-all">Retry All Failed</button>' : ''}
+          ${lastScanFailures?.length > 0 ? '<button class="btn-sm primary" id="btn-retry-all">Retry All Failed</button>' : ""}
         </div>
       </div>
       ${scanRows}
@@ -2001,7 +2446,7 @@ ${renderNav("failures", failureCount)}
       <div class="card-title">
         <span>Chronic Failures \u2014 24+ in 7 days</span>
         <div style="display:flex;gap:6px;">
-          ${chronicFailures?.length > 0 ? '<button class="btn-sm danger" id="btn-clear-all">Clear All</button>' : ''}
+          ${chronicFailures?.length > 0 ? '<button class="btn-sm danger" id="btn-clear-all">Clear All</button>' : ""}
         </div>
       </div>
       ${chronicRows}
@@ -2191,7 +2636,9 @@ if (clearAllBtn) clearAllBtn.addEventListener('click', function() {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", chunk => { body += chunk; });
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
     req.on("end", () => resolve(body));
     req.on("error", reject);
   });
@@ -2203,9 +2650,35 @@ async function getFailureCount(client) {
   try {
     const stats = await getFailureStats(client);
     return stats.length;
-  } catch { return 0; }
+  } catch {
+    return 0;
+  }
 }
 
+/**
+ * Route incoming HTTP requests for the dashboard and send the corresponding HTTP responses.
+ *
+ * Handles provider management, diagnostics, retries, exports, health and failures endpoints,
+ * and renders the main dashboard HTML. It sets permissive iframe/CORS headers and ends the
+ * response for each supported route.
+ *
+ * Supported routes include:
+ * - GET /providers, GET /providers/coin-data
+ * - POST /providers/coin, DELETE /providers/coin
+ * - POST /providers/vendor, DELETE /providers/vendor
+ * - POST /providers/update-url, POST /providers/toggle
+ * - POST /providers/vendor-fields, POST /providers/bulk-toggle
+ * - POST /providers/bulk-delete, GET /providers/vendor-summary
+ * - POST /providers/export
+ * - GET /api-health, GET /failures
+ * - POST /api/diagnose, POST /api/browserbase
+ * - POST /api/retry
+ * - POST /api/clear-chronic, POST /api/clear-chronic-all
+ * - POST /api/clear-lock
+ *
+ * All request handling uses the provided Node.js `req` and `res` objects and writes JSON
+ * or HTML responses as appropriate.
+ */
 async function handleRequest(req, res) {
   // Allow iframe embedding from spec-workflow dashboard
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -2231,12 +2704,21 @@ async function handleRequest(req, res) {
       ]);
     } catch {
       readOnly = true;
-      try { providers = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8")); } catch { providers = { coins: {} }; }
+      try {
+        providers = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8"));
+      } catch {
+        providers = { coins: {} };
+      }
       scrapeStatus = null;
       failureCount = 0;
       vendorGroups = [];
     } finally {
-      if (client) try { await client.close(); } catch { /* ignore */ }
+      if (client)
+        try {
+          await client.close();
+        } catch {
+          /* ignore */
+        }
     }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups));
@@ -2249,7 +2731,7 @@ async function handleRequest(req, res) {
     try {
       const client = getSqldClient();
       const coins = await getAllCoins(client);
-      const coin = coins.find(c => c.slug === slug);
+      const coin = coins.find((c) => c.slug === slug);
       if (!coin) throw new Error("Coin not found");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(coin));
@@ -2266,7 +2748,8 @@ async function handleRequest(req, res) {
       const data = JSON.parse(await readBody(req));
       if (!data.slug || !/^[a-z0-9-]+$/.test(data.slug)) throw new Error("Invalid slug format");
       if (!data.name) throw new Error("Name is required");
-      if (!["silver", "gold", "goldback", "platinum"].includes(data.metal)) throw new Error("Invalid metal");
+      if (!["silver", "gold", "goldback", "platinum"].includes(data.metal))
+        throw new Error("Invalid metal");
       const client = getSqldClient();
       await upsertCoin(client, data);
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -2299,8 +2782,15 @@ async function handleRequest(req, res) {
     try {
       const data = JSON.parse(await readBody(req));
       if (!data.coinSlug || !data.vendorId) throw new Error("coinSlug and vendorId required");
-      if (data.url && !data.url.startsWith("https://")) throw new Error("URL must start with https://");
-      if (data.hints && data.hints.trim()) { try { JSON.parse(data.hints); } catch { throw new Error("Hints must be valid JSON"); } }
+      if (data.url && !data.url.startsWith("https://"))
+        throw new Error("URL must start with https://");
+      if (data.hints && data.hints.trim()) {
+        try {
+          JSON.parse(data.hints);
+        } catch {
+          throw new Error("Hints must be valid JSON");
+        }
+      }
       const client = getSqldClient();
       await upsertVendor(client, {
         coin_slug: data.coinSlug,
@@ -2312,7 +2802,12 @@ async function handleRequest(req, res) {
         hints: data.hints || null,
       });
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, message: `Vendor '${data.vendorId}' saved to '${data.coinSlug}'.` }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          message: `Vendor '${data.vendorId}' saved to '${data.coinSlug}'.`,
+        })
+      );
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
@@ -2365,7 +2860,12 @@ async function handleRequest(req, res) {
       const client = getSqldClient();
       await toggleVendor(client, coinSlug, vendorId, enabled);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, message: `${enabled ? "Enabled" : "Disabled"} ${vendorId}/${coinSlug}.` }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          message: `${enabled ? "Enabled" : "Disabled"} ${vendorId}/${coinSlug}.`,
+        })
+      );
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
@@ -2378,11 +2878,22 @@ async function handleRequest(req, res) {
     try {
       const { coinSlug, vendorId, selector, hints } = JSON.parse(await readBody(req));
       if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
-      if (hints && hints.trim()) { try { JSON.parse(hints); } catch { throw new Error("Hints must be valid JSON"); } }
+      if (hints && hints.trim()) {
+        try {
+          JSON.parse(hints);
+        } catch {
+          throw new Error("Hints must be valid JSON");
+        }
+      }
       const client = getSqldClient();
-      await updateVendorFields(client, coinSlug, vendorId, { selector: selector || null, hints: hints || null });
+      await updateVendorFields(client, coinSlug, vendorId, {
+        selector: selector || null,
+        hints: hints || null,
+      });
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, message: `Updated selector/hints for ${vendorId}/${coinSlug}.` }));
+      res.end(
+        JSON.stringify({ ok: true, message: `Updated selector/hints for ${vendorId}/${coinSlug}.` })
+      );
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
@@ -2394,11 +2905,18 @@ async function handleRequest(req, res) {
   if (req.method === "POST" && url === "/providers/bulk-toggle") {
     try {
       const { vendorId, metal, enabled } = JSON.parse(await readBody(req));
-      if (!vendorId || !metal || enabled === undefined) throw new Error("vendorId, metal, and enabled required");
+      if (!vendorId || !metal || enabled === undefined)
+        throw new Error("vendorId, metal, and enabled required");
       const client = getSqldClient();
       const result = await batchToggleVendor(client, { vendorId, metal, enabled });
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `${enabled ? "Enabled" : "Disabled"} ${vendorId} on ${result.rowsAffected} ${metal} items.` }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          rowsAffected: result.rowsAffected,
+          message: `${enabled ? "Enabled" : "Disabled"} ${vendorId} on ${result.rowsAffected} ${metal} items.`,
+        })
+      );
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
@@ -2414,7 +2932,13 @@ async function handleRequest(req, res) {
       const client = getSqldClient();
       const result = await batchDeleteVendor(client, { vendorId, metal });
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Removed ${vendorId} from ${result.rowsAffected} ${metal} items.` }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          rowsAffected: result.rowsAffected,
+          message: `Removed ${vendorId} from ${result.rowsAffected} ${metal} items.`,
+        })
+      );
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
@@ -2459,17 +2983,22 @@ async function handleRequest(req, res) {
               method: "POST",
               headers: { Authorization: `Bearer ${flyToken}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                command: ["/bin/bash", "-c",
+                command: [
+                  "/bin/bash",
+                  "-c",
                   "git config --global user.name 'StakTrakr Poller' && " +
-                  "git config --global user.email 'poller@staktrakr.local' && " +
-                  "/app/run-publish.sh"],
+                    "git config --global user.email 'poller@staktrakr.local' && " +
+                    "/app/run-publish.sh",
+                ],
                 timeout: 60,
               }),
             }
           );
           const result = await execRes.json();
           published = result.exit_code === 0;
-          publishMsg = published ? "published" : `failed: ${(result.stderr || "unknown").slice(0, 200)}`;
+          publishMsg = published
+            ? "published"
+            : `failed: ${(result.stderr || "unknown").slice(0, 200)}`;
         } catch (pubErr) {
           publishMsg = `error: ${pubErr.message}`;
         }
@@ -2518,7 +3047,9 @@ async function handleRequest(req, res) {
           avg30d: row.avg_30d != null ? parseFloat(Number(row.avg_30d).toFixed(2)) : null,
         };
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     const v2 = await fetchV2Endpoints();
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(renderApiHealthPage(v2, failureCount, vendorMetalAvgs));
@@ -2527,7 +3058,10 @@ async function handleRequest(req, res) {
 
   // ── GET /failures ──────────────────────────────────────────────────────
   if (req.method === "GET" && url === "/failures") {
-    let lastScanFailures = [], chronicFailures = [], failureCount = 0, failureTrend = [];
+    let lastScanFailures = [],
+      chronicFailures = [],
+      failureCount = 0,
+      failureTrend = [];
     try {
       const client = getSqldClient();
       [lastScanFailures, chronicFailures, failureTrend] = await Promise.all([
@@ -2536,12 +3070,13 @@ async function handleRequest(req, res) {
         getFailureTrend(client),
       ]);
       failureCount = chronicFailures.length;
-    } catch { /* empty */ }
+    } catch {
+      /* empty */
+    }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(renderFailuresPage(lastScanFailures, chronicFailures, failureCount, failureTrend));
     return;
   }
-
 
   // ── POST /api/diagnose — AI diagnosis of a failing vendor URL ───────────
   // Multi-step pipeline: Firecrawl → Playwright fallback → Gemini analysis
@@ -2573,7 +3108,15 @@ async function handleRequest(req, res) {
           const loadingCount = (scrapeContent.match(/loading/gi) || []).length;
           const contentLen = scrapeContent.replace(/\s+/g, "").length;
           firecrawlOk = contentLen > 500 && loadingCount < 5;
-          steps.push("FIRECRAWL: " + (firecrawlOk ? "OK" : "THIN/JS-BLOCKED") + " (" + contentLen + " chars, " + loadingCount + " 'loading' refs)");
+          steps.push(
+            "FIRECRAWL: " +
+              (firecrawlOk ? "OK" : "THIN/JS-BLOCKED") +
+              " (" +
+              contentLen +
+              " chars, " +
+              loadingCount +
+              " 'loading' refs)"
+          );
         } else {
           steps.push("FIRECRAWL: HTTP " + fcResp.status);
         }
@@ -2596,10 +3139,17 @@ async function handleRequest(req, res) {
           const textContent = await page.evaluate(() => document.body.innerText);
           const priceElements = await page.evaluate(() => {
             const selectors = [
-              "[class*='price']", "[id*='price']", "[data-price]",
-              "[itemprop='price']", ".product-price", ".price-current",
-              ".our-price", ".sale-price", ".regular-price",
-              "[class*='Price']", "[class*='cost']",
+              "[class*='price']",
+              "[id*='price']",
+              "[data-price]",
+              "[itemprop='price']",
+              ".product-price",
+              ".price-current",
+              ".our-price",
+              ".sale-price",
+              ".regular-price",
+              "[class*='Price']",
+              "[class*='cost']",
             ];
             const results = [];
             for (const sel of selectors) {
@@ -2621,7 +3171,11 @@ async function handleRequest(req, res) {
             for (const s of scripts) {
               try {
                 const data = JSON.parse(s.textContent);
-                if (data["@type"] === "Product" || data["@type"] === "Offer" || JSON.stringify(data).includes("price")) {
+                if (
+                  data["@type"] === "Product" ||
+                  data["@type"] === "Offer" ||
+                  JSON.stringify(data).includes("price")
+                ) {
                   results.push(data);
                 }
               } catch {}
@@ -2643,7 +3197,15 @@ async function handleRequest(req, res) {
           ].join("\n");
 
           playwrightOk = priceElements.length > 0 || jsonLd.length > 0;
-          steps.push("PLAYWRIGHT: " + (playwrightOk ? "FOUND price elements" : "rendered but no price elements") + " (" + priceElements.length + " price DOM nodes, " + jsonLd.length + " JSON-LD blocks)");
+          steps.push(
+            "PLAYWRIGHT: " +
+              (playwrightOk ? "FOUND price elements" : "rendered but no price elements") +
+              " (" +
+              priceElements.length +
+              " price DOM nodes, " +
+              jsonLd.length +
+              " JSON-LD blocks)"
+          );
         } catch (pwErr) {
           steps.push("PLAYWRIGHT: FAILED — " + pwErr.message);
         }
@@ -2683,8 +3245,8 @@ async function handleRequest(req, res) {
         "PRICE_FOUND: yes|no",
         "PRICE_VALUE: $XX.XX (if found)",
         "EXTRACTION_METHOD: css_selector | xpath | json_ld | meta_tag | regex | vision",
-        'SELECTOR: the exact CSS selector or extraction path (e.g. .product-price .price-current)',
-        'HINTS: suggested JSON hints for the vision pipeline',
+        "SELECTOR: the exact CSS selector or extraction path (e.g. .product-price .price-current)",
+        "HINTS: suggested JSON hints for the vision pipeline",
         "ANTI_BOT: none | cloudflare | captcha | js_required | other",
         "SUGGESTED_FIX: one-paragraph explanation of what to change in the scraper config",
         "CONFIDENCE: high | medium | low",
@@ -2694,7 +3256,8 @@ async function handleRequest(req, res) {
       ].join("\n");
 
       const geminiResp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiKey,
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+          geminiKey,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2734,16 +3297,24 @@ async function handleRequest(req, res) {
         const logFile = "/data/logs/diagnose.jsonl";
         const { appendFileSync } = await import("node:fs");
         appendFileSync(logFile, JSON.stringify(logEntry) + "\n");
-      } catch { /* non-critical — don't fail the request */ }
+      } catch {
+        /* non-critical — don't fail the request */
+      }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        result: "=== DIAGNOSIS PIPELINE ===\n" + steps.join("\n") + "\n\n=== AI ANALYSIS (Gemini 2.5 Flash) ===\n" + aiResult,
-        engine: "gemini-2.5-flash",
-        pipeline: steps,
-        scrapeLength: scrapeContent.length,
-        playwrightLength: playwrightContent.length,
-      }));
+      res.end(
+        JSON.stringify({
+          result:
+            "=== DIAGNOSIS PIPELINE ===\n" +
+            steps.join("\n") +
+            "\n\n=== AI ANALYSIS (Gemini 2.5 Flash) ===\n" +
+            aiResult,
+          engine: "gemini-2.5-flash",
+          pipeline: steps,
+          scrapeLength: scrapeContent.length,
+          playwrightLength: playwrightContent.length,
+        })
+      );
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -2765,7 +3336,9 @@ async function handleRequest(req, res) {
     const projectId = process.env.BROWSERBASE_PROJ_ID;
     if (!apiKey || !projectId) {
       res.writeHead(503, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "BROWSERBASE_API_KEY or BROWSERBASE_PROJ_ID not configured" }));
+      res.end(
+        JSON.stringify({ error: "BROWSERBASE_API_KEY or BROWSERBASE_PROJ_ID not configured" })
+      );
       return;
     }
 
@@ -2797,9 +3370,11 @@ async function handleRequest(req, res) {
         const { chromium } = await import("playwright-core");
         const browser = await chromium.connectOverCDP(session.connectUrl);
         const defaultContext = browser.contexts()[0];
-        const page = defaultContext?.pages()[0] || await defaultContext?.newPage();
+        const page = defaultContext?.pages()[0] || (await defaultContext?.newPage());
         if (page) {
-          await page.goto(vendorUrl, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {});
+          await page
+            .goto(vendorUrl, { waitUntil: "domcontentloaded", timeout: 20000 })
+            .catch(() => {});
         }
         // Don't close — leave the session open for the user to inspect
       } catch (navErr) {
@@ -2808,15 +3383,17 @@ async function handleRequest(req, res) {
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        sessionId: session.id,
-        liveUrl,
-        connectUrl: session.connectUrl,
-        vendorUrl,
-        coinSlug,
-        vendorId,
-        message: `Browserbase session created. Navigate to: ${vendorUrl}`,
-      }));
+      res.end(
+        JSON.stringify({
+          sessionId: session.id,
+          liveUrl,
+          connectUrl: session.connectUrl,
+          vendorUrl,
+          coinSlug,
+          vendorId,
+          message: `Browserbase session created. Navigate to: ${vendorUrl}`,
+        })
+      );
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -2833,7 +3410,9 @@ async function handleRequest(req, res) {
       // Validate inputs — only allow alphanumeric, hyphens, underscores, dots
       const SAFE_ID = /^[a-zA-Z0-9._-]+$/;
       if (!SAFE_ID.test(coinSlug) || !SAFE_ID.test(vendorId)) {
-        throw new Error("Invalid coinSlug or vendorId — only alphanumeric, hyphens, underscores, dots allowed");
+        throw new Error(
+          "Invalid coinSlug or vendorId — only alphanumeric, hyphens, underscores, dots allowed"
+        );
       }
 
       // Check if poller is currently running
@@ -2844,22 +3423,42 @@ async function handleRequest(req, res) {
         // Queue for after the current run (5 min after lock clears)
         const queueFile = "/tmp/retry-queue.json";
         let queue = [];
-        try { queue = JSON.parse(readFileSync(queueFile, "utf8")); } catch { /* empty */ }
-        const exists = queue.some(q => q.coinSlug === coinSlug && q.vendorId === vendorId);
+        try {
+          queue = JSON.parse(readFileSync(queueFile, "utf8"));
+        } catch {
+          /* empty */
+        }
+        const exists = queue.some((q) => q.coinSlug === coinSlug && q.vendorId === vendorId);
         if (!exists) {
           queue.push({ coinSlug, vendorId, queuedAt: new Date().toISOString() });
           writeFileSync(queueFile, JSON.stringify(queue, null, 2));
         }
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, queued: true, message: `Queued ${vendorId}/${coinSlug} for retry after current run completes.` }));
+        res.end(
+          JSON.stringify({
+            ok: true,
+            queued: true,
+            message: `Queued ${vendorId}/${coinSlug} for retry after current run completes.`,
+          })
+        );
       } else {
         // Trigger immediate single-item scrape via child process
         // Pass user input via env vars — never interpolate into shell strings
         const script = `
-          import('./shared/price-extract.js').then(async m => {
+          import('./price-extract.js').then(async m => {
             const { createClient } = await import('@libsql/client');
-            const client = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN });
-            const { getProvidersByCoin } = await import('./shared/provider-db.js');
+            const useSqld = Boolean(process.env.SQLD_URL);
+            const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+            const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
+            if (!url) { console.error('SQLD_URL (or legacy TURSO_DATABASE_URL) must be set'); process.exit(1); }
+            let client;
+            try {
+              client = createClient({ url, ...(authToken ? { authToken } : {}) });
+            } catch (err) {
+              console.error('retry-script createClient failed:', err?.message || err);
+              process.exit(1);
+            }
+            const { getProvidersByCoin } = await import('./provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
             const vid = process.env.RETRY_VENDOR_ID;
             const vendors = await getProvidersByCoin(client, slug);
@@ -2880,7 +3479,13 @@ async function handleRequest(req, res) {
         child.unref();
 
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, queued: false, message: `Triggered immediate retry for ${vendorId}/${coinSlug}.` }));
+        res.end(
+          JSON.stringify({
+            ok: true,
+            queued: false,
+            message: `Triggered immediate retry for ${vendorId}/${coinSlug}.`,
+          })
+        );
       }
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
@@ -2897,7 +3502,13 @@ async function handleRequest(req, res) {
       const client = getSqldClient();
       const result = await clearChronicFailure(client, coinSlug, vendorId);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records for ${vendorId}/${coinSlug}.` }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          rowsAffected: result.rowsAffected,
+          message: `Cleared ${result.rowsAffected} failure records for ${vendorId}/${coinSlug}.`,
+        })
+      );
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
@@ -2911,7 +3522,13 @@ async function handleRequest(req, res) {
       const client = getSqldClient();
       const result = await clearAllChronicFailures(client);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, rowsAffected: result.rowsAffected, message: `Cleared ${result.rowsAffected} failure records.` }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          rowsAffected: result.rowsAffected,
+          message: `Cleared ${result.rowsAffected} failure records.`,
+        })
+      );
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
@@ -2923,7 +3540,7 @@ async function handleRequest(req, res) {
   if (req.method === "POST" && url === "/api/clear-lock") {
     try {
       const { path: lockPath } = JSON.parse(await readBody(req));
-      const allowed = LOCK_FILES.map(l => l.path);
+      const allowed = LOCK_FILES.map((l) => l.path);
       if (!lockPath || !allowed.includes(lockPath)) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: false, message: "Invalid lock path" }));
@@ -2931,7 +3548,9 @@ async function handleRequest(req, res) {
       }
       if (!existsSync(lockPath)) {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, message: "Lock file does not exist (already cleared)" }));
+        res.end(
+          JSON.stringify({ ok: true, message: "Lock file does not exist (already cleared)" })
+        );
         return;
       }
       const { unlinkSync } = await import("node:fs");
@@ -2954,8 +3573,25 @@ async function handleRequest(req, res) {
   }
 
   const client = getSqldClient();
-  const [tursoResult, runStats, failureCount, chronicFailures, net, cpu, uptime, supervisord, logLines, flyioHealth, coverageStats, spotCoverage, dockerContainers, lockStatus] = await Promise.all([
-    fetchRunsFromTurso().then(rows => ({ rows, error: null })).catch(err => ({ rows: null, error: err.message })),
+  const [
+    tursoResult,
+    runStats,
+    failureCount,
+    chronicFailures,
+    net,
+    cpu,
+    uptime,
+    supervisord,
+    logLines,
+    flyioHealth,
+    coverageStats,
+    spotCoverage,
+    dockerContainers,
+    lockStatus,
+  ] = await Promise.all([
+    fetchRunsFromTurso()
+      .then((rows) => ({ rows, error: null }))
+      .catch((err) => ({ rows: null, error: err.message })),
     client ? getRunStats(client, ["home", "home-retail"]).catch(() => null) : Promise.resolve(null),
     client ? getFailureCount(client) : Promise.resolve(0),
     client ? getFailureStats(client).catch(() => []) : Promise.resolve([]),
@@ -2972,7 +3608,12 @@ async function handleRequest(req, res) {
   ]);
 
   const html = renderMainPage({
-    net, cpu, uptime, supervisord, logLines, flyioHealth,
+    net,
+    cpu,
+    uptime,
+    supervisord,
+    logLines,
+    flyioHealth,
     tursoRuns: tursoResult.rows,
     tursoUp: !tursoResult.error,
     runStats,

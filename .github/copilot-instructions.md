@@ -44,7 +44,6 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 - `elements` (object) -- cached DOM references
 - `itemTags` (object) -- per-item tag data
 
-
 **From `js/debug-log.js`:**
 
 - `debugLog(message, level)` -- debug logging utility
@@ -161,14 +160,14 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 - `importCsv()`, `importJson()`, `exportCsv()`, `exportNumistaCsv()`, `showImportDiffReview()` -- inventory-import.js
 - `renderTable()`, `updateSummary()`, `hideEmptyColumns()`, `recalcItem()`, `persistInventoryAndRefresh()`, `METAL_COLORS`, `METAL_TEXT_COLORS`, `getTypeColor()`, `getColor()` -- inventory-table.js
 - `saveInventory()`, `loadInventory()` -- inventory.js
-- `catalogManager`, `catalogAPI` -- catalog-*.js
+- `catalogManager`, `catalogAPI` -- catalog-\*.js
 - `NumistaLookup` -- numista-lookup.js
 - `pcgsVerifyCert()`, `pcgsLookupCoin()` -- pcgs-api.js
 - `currentMonthKey()` -- utils.js
 - `openBulkEdit()`, `closeBulkEdit()` -- bulkEdit.js
 - `showSettingsModal()` -- settings.js
 - `openVaultModal()` -- vault.js
-**From `js/tags.js`:**
+  **From `js/tags.js`:**
 
 - `loadItemTags()`, `saveItemTags()` -- tag persistence
 - `getItemTags(uuid)`, `addItemTag(uuid, tag)`, `removeItemTag(uuid, tag)` -- tag CRUD
@@ -207,13 +206,14 @@ Every `event.respondWith()` call **must** guarantee a `Response` object. This is
 
 ```js
 // BAD -- undefined cache miss skips .catch(), respondWith gets undefined
-event.respondWith(
-  caches.match(req).catch(() => new Response("fallback"))
-);
+event.respondWith(caches.match(req).catch(() => new Response("fallback")));
 
 // GOOD -- .then() catches both undefined and rejection paths
 event.respondWith(
-  caches.match(req).then((r) => r || fetch(req)).then((r) => r || new Response("fallback"))
+  caches
+    .match(req)
+    .then((r) => r || fetch(req))
+    .then((r) => r || new Response("fallback"))
 );
 ```
 
@@ -221,15 +221,15 @@ event.respondWith(
 
 When any version-related file changes, verify all 7 are in sync:
 
-| File | Field |
-|------|-------|
-| `js/constants.js` | `APP_VERSION` |
-| `sw.js` | `CACHE_NAME` (includes version) |
-| `CHANGELOG.md` | Latest `## [x.y.z]` heading |
-| `docs/announcements.md` | Latest What's New entry version |
-| `js/about.js` | `getEmbeddedWhatsNew()` version |
-| `version.json` | `"version"` field |
-| `data/spot-history-*.json` | Seed data should be refreshed |
+| File                       | Field                           |
+| -------------------------- | ------------------------------- |
+| `js/constants.js`          | `APP_VERSION`                   |
+| `sw.js`                    | `CACHE_NAME` (includes version) |
+| `CHANGELOG.md`             | Latest `## [x.y.z]` heading     |
+| `docs/announcements.md`    | Latest What's New entry version |
+| `js/about.js`              | `getEmbeddedWhatsNew()` version |
+| `version.json`             | `"version"` field               |
+| `data/spot-history-*.json` | Seed data should be refreshed   |
 
 If only some files are updated, flag the missing ones.
 
@@ -276,24 +276,24 @@ The project uses `.eslintrc.json` with these settings. Copilot should enforce th
 
 **Key rules to enforce** (aligned with Codacy's analysis):
 
-| Rule | Severity | Rationale |
-|------|----------|-----------|
-| `no-var` | error | Always use `const` or `let` -- `var` is banned |
-| `eqeqeq` | error | Always use `===` / `!==` -- never `==` / `!=` |
-| `no-implicit-globals` | warn | All declarations should be `const`/`let` or inside functions |
-| `no-unused-vars` | warn | Flag unused variables (ignore params prefixed with `_`, variables from destructured returns like `{ labels, data }` where only `data` is used, and variables marked as legacy aliases in comments) |
-| `no-redeclare` | error | No re-declaring variables in the same scope |
-| `no-shadow` | warn | Avoid variable shadowing in nested scopes |
-| `no-use-before-define` | warn | Functions/variables should be defined before use |
-| `no-eval` | error | Never use `eval()` or `Function()` constructor |
-| `no-implied-eval` | error | No `setTimeout`/`setInterval` with string arguments |
-| `no-new-wrappers` | error | No `new String()`, `new Number()`, `new Boolean()` |
-| `no-throw-literal` | error | Only throw `Error` objects |
-| `no-self-compare` | error | No comparing a variable to itself |
-| `no-template-curly-in-string` | warn | Catches `"${x}"` that should be `` `${x}` `` |
-| `prefer-const` | warn | Use `const` when variable is never reassigned |
-| `no-loop-func` | warn | No function declarations inside loops |
-| `no-param-reassign` | warn | Avoid reassigning function parameters |
+| Rule                          | Severity | Rationale                                                                                                                                                                                          |
+| ----------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-var`                      | error    | Always use `const` or `let` -- `var` is banned                                                                                                                                                     |
+| `eqeqeq`                      | error    | Always use `===` / `!==` -- never `==` / `!=`                                                                                                                                                      |
+| `no-implicit-globals`         | warn     | All declarations should be `const`/`let` or inside functions                                                                                                                                       |
+| `no-unused-vars`              | warn     | Flag unused variables (ignore params prefixed with `_`, variables from destructured returns like `{ labels, data }` where only `data` is used, and variables marked as legacy aliases in comments) |
+| `no-redeclare`                | error    | No re-declaring variables in the same scope                                                                                                                                                        |
+| `no-shadow`                   | warn     | Avoid variable shadowing in nested scopes                                                                                                                                                          |
+| `no-use-before-define`        | warn     | Functions/variables should be defined before use                                                                                                                                                   |
+| `no-eval`                     | error    | Never use `eval()` or `Function()` constructor                                                                                                                                                     |
+| `no-implied-eval`             | error    | No `setTimeout`/`setInterval` with string arguments                                                                                                                                                |
+| `no-new-wrappers`             | error    | No `new String()`, `new Number()`, `new Boolean()`                                                                                                                                                 |
+| `no-throw-literal`            | error    | Only throw `Error` objects                                                                                                                                                                         |
+| `no-self-compare`             | error    | No comparing a variable to itself                                                                                                                                                                  |
+| `no-template-curly-in-string` | warn     | Catches `"${x}"` that should be `` `${x}` ``                                                                                                                                                       |
+| `prefer-const`                | warn     | Use `const` when variable is never reassigned                                                                                                                                                      |
+| `no-loop-func`                | warn     | No function declarations inside loops                                                                                                                                                              |
+| `no-param-reassign`           | warn     | Avoid reassigning function parameters                                                                                                                                                              |
 
 **`no-undef` is intentionally OFF** -- the app uses global scope extensively across script files (no module bundler). Functions and constants from one file are used in another via the shared global scope.
 
@@ -313,21 +313,21 @@ The project uses `ruleset.xml` at the project root. PMD analyzes JavaScript for 
 
 **Active ruleset**: All `category/ecmascript/errorprone.xml` rules **except**:
 
-| Excluded Rule | Reason |
-|---------------|--------|
+| Excluded Rule               | Reason                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `InnaccurateNumericLiteral` | Values like `42.00`, `3400.00`, `0.0005` are exactly representable in IEEE 754 -- false positives for a financial app |
-| `AvoidTrailingComma` | Trailing commas are standard ES2017+ and used throughout per coding standards |
+| `AvoidTrailingComma`        | Trailing commas are standard ES2017+ and used throughout per coding standards                                         |
 
 **Key PMD rules that ARE active** -- flag violations of these:
 
-| Rule | What it catches |
-|------|----------------|
-| `EqualComparison` | Using `==` instead of `===` |
-| `UnreachableCode` | Code after `return`, `throw`, `break`, `continue` |
-| `ConsistentReturn` | Functions that sometimes return a value and sometimes don't |
-| `AssignmentInOperand` | Assignments inside `if`/`while` conditions (usually a typo) |
-| `ScopeError` | Variables used outside their declared scope |
-| `GlobalVariable` | Implicit global variable creation (missing `const`/`let`/`var`) |
+| Rule                  | What it catches                                                 |
+| --------------------- | --------------------------------------------------------------- |
+| `EqualComparison`     | Using `==` instead of `===`                                     |
+| `UnreachableCode`     | Code after `return`, `throw`, `break`, `continue`               |
+| `ConsistentReturn`    | Functions that sometimes return a value and sometimes don't     |
+| `AssignmentInOperand` | Assignments inside `if`/`while` conditions (usually a typo)     |
+| `ScopeError`          | Variables used outside their declared scope                     |
+| `GlobalVariable`      | Implicit global variable creation (missing `const`/`let`/`var`) |
 
 ## Documentation Policy
 
@@ -358,7 +358,7 @@ These patterns fire regularly on this codebase but are false positives given Sta
 
 **Pattern:** Flags `console.error(templateLiteral, err)` as a "format string depends on user-provided value."
 
-**Why it's a false positive here:** Node.js `console.error` does not perform `%s`/`%d` printf-style substitution when the first argument is a string. Template literals that interpolate user values produce a plain string argument — there is no injection surface. Only flag if user input is passed as the *first positional argument to a function that does perform format substitution* (e.g., `sprintf`, `util.format`).
+**Why it's a false positive here:** Node.js `console.error` does not perform `%s`/`%d` printf-style substitution when the first argument is a string. Template literals that interpolate user values produce a plain string argument — there is no injection surface. Only flag if user input is passed as the _first positional argument to a function that does perform format substitution_ (e.g., `sprintf`, `util.format`).
 
 ### Copilot: `document.getElementById` in `about.js` and `init.js`
 

@@ -5,8 +5,8 @@
 //   Spot prices    — hourly/YYYY/MM/DD/HH.json — stale after 20 min
 //   Goldback       — goldback-spot.json  — stale after 25 hr (daily scrape)
 
-const API_HEALTH_MARKET_STALE_MIN   = 30;  // poller runs every ~15-20 min; 30 min gives comfortable margin
-const API_HEALTH_SPOT_STALE_MIN     = 20;  // metalpriceapi.com updated every 10 min; poller runs every 15 min
+const API_HEALTH_MARKET_STALE_MIN = 30; // poller runs every ~15-20 min; 30 min gives comfortable margin
+const API_HEALTH_SPOT_STALE_MIN = 20; // metalpriceapi.com updated every 10 min; poller runs every 15 min
 const API_HEALTH_GOLDBACK_STALE_MIN = 25 * 60; // 25 hours in minutes
 
 /**
@@ -36,10 +36,10 @@ const _timeAgo = (timestamp) => {
   const ageMs = Date.now() - new Date(_normalizeTs(timestamp)).getTime();
   if (isNaN(ageMs) || ageMs < 0) return "just now";
   const minutes = Math.floor(ageMs / 60000);
-  const hours   = Math.floor(ageMs / 3600000);
-  const days    = Math.floor(ageMs / 86400000);
-  if (days > 0)    return `${days}d ago`;
-  if (hours > 0)   return `${hours}h ago`;
+  const hours = Math.floor(ageMs / 3600000);
+  const days = Math.floor(ageMs / 86400000);
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
   if (minutes > 0) return `${minutes}m ago`;
   return "just now";
 };
@@ -59,14 +59,15 @@ const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
   if (manifestResult.status === "fulfilled") {
     const envelope = manifestResult.value;
     const generatedAt = new Date(envelope.generated_at);
-    const staleAfterMin = typeof envelope.stale_after === "number"
-      ? Math.ceil(envelope.stale_after / 60)
-      : API_HEALTH_MARKET_STALE_MIN;
+    const staleAfterMin =
+      typeof envelope.stale_after === "number"
+        ? Math.ceil(envelope.stale_after / 60)
+        : API_HEALTH_MARKET_STALE_MIN;
     if (!isNaN(generatedAt.getTime())) {
       market.ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
-      market.ago    = _timeAgo(envelope.generated_at);
-      market.ok     = market.ageMin <= staleAfterMin;
-      market.coins  = (envelope.data && envelope.data.coins) || [];
+      market.ago = _timeAgo(envelope.generated_at);
+      market.ok = market.ageMin <= staleAfterMin;
+      market.coins = (envelope.data && envelope.data.coins) || [];
     } else {
       market.error = `Invalid timestamp: ${envelope.generated_at}`;
     }
@@ -79,13 +80,14 @@ const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
   if (spotResult.status === "fulfilled") {
     const envelope = spotResult.value;
     const generatedAt = new Date(envelope.generated_at);
-    const staleAfterMin = typeof envelope.stale_after === "number"
-      ? Math.ceil(envelope.stale_after / 60)
-      : API_HEALTH_SPOT_STALE_MIN;
+    const staleAfterMin =
+      typeof envelope.stale_after === "number"
+        ? Math.ceil(envelope.stale_after / 60)
+        : API_HEALTH_SPOT_STALE_MIN;
     if (!isNaN(generatedAt.getTime())) {
       spot.ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
-      spot.ago    = _timeAgo(envelope.generated_at);
-      spot.ok     = spot.ageMin <= staleAfterMin;
+      spot.ago = _timeAgo(envelope.generated_at);
+      spot.ok = spot.ageMin <= staleAfterMin;
     } else {
       spot.error = `Invalid timestamp: ${envelope.generated_at}`;
     }
@@ -98,13 +100,14 @@ const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
   if (goldbackResult.status === "fulfilled") {
     const envelope = goldbackResult.value;
     const generatedAt = new Date(envelope.generated_at);
-    const staleAfterMin = typeof envelope.stale_after === "number"
-      ? Math.ceil(envelope.stale_after / 60)
-      : API_HEALTH_GOLDBACK_STALE_MIN;
+    const staleAfterMin =
+      typeof envelope.stale_after === "number"
+        ? Math.ceil(envelope.stale_after / 60)
+        : API_HEALTH_GOLDBACK_STALE_MIN;
     if (!isNaN(generatedAt.getTime())) {
-      const ageMin  = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
-      goldback.ago  = _timeAgo(envelope.generated_at);
-      goldback.ok   = ageMin <= staleAfterMin;
+      const ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
+      goldback.ago = _timeAgo(envelope.generated_at);
+      goldback.ok = ageMin <= staleAfterMin;
     } else {
       goldback.error = `Invalid timestamp: ${envelope.generated_at}`;
     }
@@ -122,17 +125,25 @@ const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
  */
 const fetchApiHealth = async () => {
   const _fetchWithTimeout = (url, ms = 5000) => {
-    const bustUrl = `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
+    const bustUrl = `${url}${url.includes("?") ? "&" : "?"}_t=${Date.now()}`;
     const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), ms);
+    const tid = setTimeout(() => ctrl.abort(), ms);
     return fetch(bustUrl, { cache: "no-store", signal: ctrl.signal })
-      .then((r) => { clearTimeout(tid); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .catch((e) => { clearTimeout(tid); throw e; });
+      .then((r) => {
+        clearTimeout(tid);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .catch((e) => {
+        clearTimeout(tid);
+        throw e;
+      });
   };
 
-  const v2Endpoints = (typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length)
-    ? V2_API_ENDPOINTS
-    : ["https://api.staktrakr.com/data/v2"];
+  const v2Endpoints =
+    typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length
+      ? V2_API_ENDPOINTS
+      : ["https://api.staktrakr.com/data/v2"];
 
   const _fetchV2FromEndpoint = async (ep) => {
     return Promise.allSettled([
@@ -155,17 +166,18 @@ const fetchApiHealth = async () => {
 const updateHealthBadges = ({ primary }) => {
   const { market, spot } = primary;
   const allOk = market.ok && spot.ok;
-  const icon  = allOk ? "✅" : "⚠️";
+  const icon = allOk ? "✅" : "⚠️";
 
   const marketPart = market.error ? "Market ❌" : `Market ${market.ago ?? "?"}`;
-  const spotPart   = spot.error   ? "Spot ❌"   : `Spot ${spot.ago ?? "?"}`;
+  const spotPart = spot.error ? "Spot ❌" : `Spot ${spot.ago ?? "?"}`;
 
   const label = `${icon} ${marketPart} · ${spotPart}`;
   // Footer badge uses shield-badge structure (label + value spans)
   const footerVal = safeGetElement("apiHealthValue");
   if (footerVal) {
     footerVal.textContent = `${marketPart} · ${spotPart}`;
-    footerVal.className = "shield-badge-value " + (allOk ? "shield-badge-value--green" : "shield-badge-value--orange");
+    footerVal.className =
+      "shield-badge-value " + (allOk ? "shield-badge-value--green" : "shield-badge-value--orange");
   }
   // About tab badge uses legacy single-element structure
   const aboutBadge = safeGetElement("apiHealthBadgeAbout");
@@ -181,7 +193,10 @@ const updateHealthBadges = ({ primary }) => {
 const _setFeedCell = (id, feed, staleMin) => {
   const el = safeGetElement(id);
   if (!el) return;
-  if (!feed) { el.textContent = "—"; return; }
+  if (!feed) {
+    el.textContent = "—";
+    return;
+  }
   el.textContent = feed.error
     ? `❌ ${feed.error}`
     : feed.ok
@@ -197,7 +212,10 @@ const _setFeedCell = (id, feed, staleMin) => {
 const _setGoldbackCell = (id, gb) => {
   const el = safeGetElement(id);
   if (!el) return;
-  if (!gb) { el.textContent = "—"; return; }
+  if (!gb) {
+    el.textContent = "—";
+    return;
+  }
   el.textContent = gb.error
     ? `❌ ${gb.error}`
     : gb.ok
@@ -212,11 +230,11 @@ const _setGoldbackCell = (id, gb) => {
  */
 const populateApiHealthModal = ({ primary, backup }) => {
   const { market, spot, goldback } = primary;
-  const primaryOk  = market.ok && spot.ok;
-  const backupOk   = backup && backup.market.ok && backup.spot.ok;
+  const primaryOk = market.ok && spot.ok;
+  const backupOk = backup && backup.market.ok && backup.spot.ok;
 
-  const statusEl  = safeGetElement("apiHealthStatus");
-  const coinsEl   = safeGetElement("apiHealthCoins");
+  const statusEl = safeGetElement("apiHealthStatus");
+  const coinsEl = safeGetElement("apiHealthCoins");
   const verdictEl = safeGetElement("apiHealthVerdict");
 
   if (statusEl) {
@@ -228,14 +246,14 @@ const populateApiHealthModal = ({ primary, backup }) => {
   }
 
   // Primary column
-  _setFeedCell("apiHealthMarket",  market,  API_HEALTH_MARKET_STALE_MIN);
-  _setFeedCell("apiHealthSpot",    spot,    API_HEALTH_SPOT_STALE_MIN);
+  _setFeedCell("apiHealthMarket", market, API_HEALTH_MARKET_STALE_MIN);
+  _setFeedCell("apiHealthSpot", spot, API_HEALTH_SPOT_STALE_MIN);
   _setGoldbackCell("apiHealthGoldback", goldback);
 
   // Backup column
   if (backup) {
-    _setFeedCell("apiHealthMarket2",  backup.market,  API_HEALTH_MARKET_STALE_MIN);
-    _setFeedCell("apiHealthSpot2",    backup.spot,    API_HEALTH_SPOT_STALE_MIN);
+    _setFeedCell("apiHealthMarket2", backup.market, API_HEALTH_MARKET_STALE_MIN);
+    _setFeedCell("apiHealthSpot2", backup.spot, API_HEALTH_SPOT_STALE_MIN);
     _setGoldbackCell("apiHealthGoldback2", backup.goldback);
   } else {
     ["apiHealthMarket2", "apiHealthSpot2", "apiHealthGoldback2"].forEach((id) => {
@@ -254,7 +272,8 @@ const populateApiHealthModal = ({ primary, backup }) => {
       const driftParts = [];
       if (market.ageMin !== null && backup.market.ageMin !== null) {
         const d = backup.market.ageMin - market.ageMin;
-        if (Math.abs(d) >= 1) driftParts.push(`market ${Math.abs(d)}m ${d > 0 ? "behind" : "ahead"}`);
+        if (Math.abs(d) >= 1)
+          driftParts.push(`market ${Math.abs(d)}m ${d > 0 ? "behind" : "ahead"}`);
       }
       if (spot.ageMin !== null && backup.spot.ageMin !== null) {
         const d = backup.spot.ageMin - spot.ageMin;
@@ -284,12 +303,19 @@ const populateApiHealthModal = ({ primary, backup }) => {
  * @param {Error} err
  */
 const populateApiHealthModalError = (err) => {
-  const statusEl  = safeGetElement("apiHealthStatus");
+  const statusEl = safeGetElement("apiHealthStatus");
   const verdictEl = safeGetElement("apiHealthVerdict");
-  if (statusEl)  statusEl.textContent  = "❌ Unreachable";
+  if (statusEl) statusEl.textContent = "❌ Unreachable";
   if (verdictEl) verdictEl.textContent = `Could not reach API: ${err.message}`;
-  ["apiHealthMarket", "apiHealthSpot", "apiHealthGoldback", "apiHealthCoins",
-   "apiHealthMarket2", "apiHealthSpot2", "apiHealthGoldback2"].forEach((id) => {
+  [
+    "apiHealthMarket",
+    "apiHealthSpot",
+    "apiHealthGoldback",
+    "apiHealthCoins",
+    "apiHealthMarket2",
+    "apiHealthSpot2",
+    "apiHealthGoldback2",
+  ].forEach((id) => {
     const el = safeGetElement(id);
     if (el) el.textContent = "—";
   });
@@ -311,9 +337,9 @@ let _lastHealth = null;
  * Sets modal fields to a loading/checking placeholder state.
  */
 const _setModalLoading = () => {
-  const statusEl  = safeGetElement("apiHealthStatus");
+  const statusEl = safeGetElement("apiHealthStatus");
   const verdictEl = safeGetElement("apiHealthVerdict");
-  if (statusEl)  statusEl.textContent  = "⏳ Checking…";
+  if (statusEl) statusEl.textContent = "⏳ Checking…";
   if (verdictEl) verdictEl.textContent = "Fetching status…";
 };
 
@@ -346,7 +372,7 @@ let _keydownRegistered = false;
  */
 const setupApiHealthModalEvents = () => {
   const closeBtn = document.getElementById("apiHealthCloseBtn");
-  const modal    = document.getElementById("apiHealthModal");
+  const modal = document.getElementById("apiHealthModal");
   if (closeBtn) closeBtn.addEventListener("click", hideApiHealthModal);
   if (modal) {
     modal.addEventListener("click", (e) => {
@@ -371,7 +397,8 @@ const initApiHealth = async () => {
   setupApiHealthModalEvents();
   try {
     const health = await fetchApiHealth();
-    _lastHealth  = health;
+    _lastHealth = health;
+    if (typeof window !== "undefined") window._lastApiHealth = health; // STAK-443: expose for settings renderers
     updateHealthBadges(health);
     // If the modal is open, push the result in now rather than leaving placeholder text.
     // Use getElementById directly — safeGetElement returns a dummy whose style.display
@@ -383,6 +410,7 @@ const initApiHealth = async () => {
   } catch (err) {
     console.warn("API health check failed:", err);
     _lastHealth = null; // clear stale data so modal shows error state, not old green result
+    if (typeof window !== "undefined") window._lastApiHealth = null; // STAK-443
     populateApiHealthModalError(err);
   }
 };
@@ -391,7 +419,7 @@ const initApiHealth = async () => {
 if (typeof window !== "undefined") {
   window.showApiHealthModal = showApiHealthModal;
   window.hideApiHealthModal = hideApiHealthModal;
-  window.initApiHealth      = initApiHealth;
+  window.initApiHealth = initApiHealth;
 }
 
 // initApiHealth() is called by init.js after safeGetElement and all DOM setup

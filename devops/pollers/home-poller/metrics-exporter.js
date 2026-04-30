@@ -31,11 +31,21 @@ const IFACE = process.env.NET_IFACE || "ens18";
   }
 })();
 
+/**
+ * Returns a configured sqld client, or null if no DB URL env is set.
+ * @returns {import('@libsql/client').Client|null}
+ */
 function getSqldClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
+  const useSqld = Boolean(process.env.SQLD_URL);
+  const url = useSqld ? process.env.SQLD_URL : process.env.TURSO_DATABASE_URL;
+  const authToken = useSqld ? process.env.SQLD_AUTH_TOKEN : process.env.TURSO_AUTH_TOKEN;
   if (!url) return null;
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  try {
+    return createClient({ url, ...(authToken ? { authToken } : {}) });
+  } catch (err) {
+    console.error("[metrics] getSqldClient failed:", err?.message || err);
+    return null;
+  }
 }
 
 // ── System collectors ────────────────────────────────────────────────────────
@@ -46,7 +56,9 @@ function collectSystem() {
   try {
     const secs = parseFloat(readFileSync("/proc/uptime", "utf8").split(" ")[0]);
     metrics.push(`poller_uptime_seconds ${secs}`);
-  } catch { metrics.push("poller_uptime_seconds 0"); }
+  } catch {
+    metrics.push("poller_uptime_seconds 0");
+  }
 
   try {
     const [l1, l5, l15] = readFileSync("/proc/loadavg", "utf8").trim().split(" ");
@@ -66,7 +78,7 @@ function collectSystem() {
 
   try {
     const raw = readFileSync("/proc/net/dev", "utf8");
-    const line = raw.split("\n").find(l => l.trim().startsWith(IFACE + ":"));
+    const line = raw.split("\n").find((l) => l.trim().startsWith(IFACE + ":"));
     if (line) {
       const cols = line.trim().split(/\s+/);
       metrics.push(`poller_net_rx_bytes{iface="${IFACE}"} ${cols[1]}`);
@@ -90,7 +102,9 @@ function collectServices() {
     for (const line of out.trim().split("\n")) {
       const m = line.match(/^(\S+)\s+(\S+)/);
       if (m) {
-        metrics.push(`poller_service_up{service="${m[1]}",manager="supervisord"} ${m[2] === "RUNNING" ? 1 : 0}`);
+        metrics.push(
+          `poller_service_up{service="${m[1]}",manager="supervisord"} ${m[2] === "RUNNING" ? 1 : 0}`
+        );
       }
     }
   } catch {}
@@ -129,7 +143,7 @@ async function collectTurso() {
       const captured = r.captured ?? 0;
       const failures = r.failures ?? 0;
       const total = r.total ?? 0;
-      const rate = total > 0 ? (captured / total) : 0;
+      const rate = total > 0 ? captured / total : 0;
       let durationSecs = 0;
       if (r.started_at && r.finished_at) {
         durationSecs = (new Date(r.finished_at) - new Date(r.started_at)) / 1000;
@@ -148,7 +162,9 @@ async function collectTurso() {
       GROUP BY coin_slug, vendor_id
     `);
     for (const r of pfail.rows) {
-      metrics.push(`poller_provider_failures_total{coin_slug="${r.coin_slug}",vendor_id="${r.vendor_id}"} ${r.cnt}`);
+      metrics.push(
+        `poller_provider_failures_total{coin_slug="${r.coin_slug}",vendor_id="${r.vendor_id}"} ${r.cnt}`
+      );
     }
 
     const fcount = await client.execute(`
@@ -163,7 +179,9 @@ async function collectTurso() {
 
     await client.close();
   } catch (err) {
-    try { await client.close(); } catch {}
+    try {
+      await client.close();
+    } catch {}
     if (!tursoUp) metrics.push("poller_turso_up 0");
     console.error("[metrics] Turso error:", err.message);
   }

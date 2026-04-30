@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <!--
   TEMPLATE: Drag-to-Sort Settings Cards (STAK-320 — saved 2026-02-24)
   =====================================================================
@@ -14,169 +14,226 @@
   the DOM is ready. Add drag-handle + dragging CSS to styles.css.
 -->
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Drag-Sort Cards Template</title>
-<style>
-  :root { --bg: #1a1f2e; --card: #252b3b; --text: #c9d1d9; --text-secondary: #8b949e; --accent: #58a6ff; }
-  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; padding: 2rem; }
-  .settings-card-grid--3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
-  .settings-card-grid--mini .settings-card { padding: 0.5rem 0.65rem; }
-  .settings-card {
-    background: var(--card); border-radius: 6px; display: flex;
-    align-items: center; gap: 0.4rem; padding: 0.75rem; cursor: default;
-    border: 1px solid transparent; transition: border-color 0.15s;
-  }
-  .settings-card:hover { border-color: #30363d; }
-  .settings-group-label { flex: 1; font-size: 0.85rem; font-weight: 600; }
-  .drag-handle {
-    color: var(--text-secondary); cursor: grab; font-size: 0.9rem;
-    margin-right: 0.35rem; user-select: none; flex-shrink: 0;
-    line-height: 1; opacity: 0.6;
-  }
-  .drag-handle:active { cursor: grabbing; }
-  .settings-card.dragging { opacity: 0.4; }
-  .chip-sort-toggle { display: flex; gap: 2px; }
-  .chip-sort-btn {
-    padding: 2px 8px; border-radius: 4px; border: none; cursor: pointer;
-    background: #30363d; color: var(--text-secondary); font-size: 0.78rem;
-  }
-  .chip-sort-btn.active { background: var(--accent); color: #fff; }
-</style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Drag-Sort Cards Template</title>
+    <style>
+      :root {
+        --bg: #1a1f2e;
+        --card: #252b3b;
+        --text: #c9d1d9;
+        --text-secondary: #8b949e;
+        --accent: #58a6ff;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, sans-serif;
+        padding: 2rem;
+      }
+      .settings-card-grid--3col {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+      }
+      .settings-card-grid--mini .settings-card {
+        padding: 0.5rem 0.65rem;
+      }
+      .settings-card {
+        background: var(--card);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.75rem;
+        cursor: default;
+        border: 1px solid transparent;
+        transition: border-color 0.15s;
+      }
+      .settings-card:hover {
+        border-color: #30363d;
+      }
+      .settings-group-label {
+        flex: 1;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .drag-handle {
+        color: var(--text-secondary);
+        cursor: grab;
+        font-size: 0.9rem;
+        margin-right: 0.35rem;
+        user-select: none;
+        flex-shrink: 0;
+        line-height: 1;
+        opacity: 0.6;
+      }
+      .drag-handle:active {
+        cursor: grabbing;
+      }
+      .settings-card.dragging {
+        opacity: 0.4;
+      }
+      .chip-sort-toggle {
+        display: flex;
+        gap: 2px;
+      }
+      .chip-sort-btn {
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        background: #30363d;
+        color: var(--text-secondary);
+        font-size: 0.78rem;
+      }
+      .chip-sort-btn.active {
+        background: var(--accent);
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Header Buttons — Drag-to-Sort Cards Template</h3>
+    <p style="color: var(--text-secondary); font-size: 0.85rem">
+      Drag cards to reorder. On/Off toggles visibility. Order persists to localStorage.
+    </p>
 
-<h3>Header Buttons — Drag-to-Sort Cards Template</h3>
-<p style="color:var(--text-secondary);font-size:0.85rem">
-  Drag cards to reorder. On/Off toggles visibility. Order persists to localStorage.
-</p>
-
-<!-- ── HTML block to paste ── -->
-<div id="headerBtnSortGrid" class="settings-card-grid settings-card-grid--3col settings-card-grid--mini">
-  <div class="settings-card" draggable="true" data-btn-key="themeBtn">
-    <span class="drag-handle" aria-hidden="true">⠿</span>
-    <div class="settings-group-label">Theme</div>
-    <div class="chip-sort-toggle">
-      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+    <!-- ── HTML block to paste ── -->
+    <div
+      id="headerBtnSortGrid"
+      class="settings-card-grid settings-card-grid--3col settings-card-grid--mini"
+    >
+      <div class="settings-card" draggable="true" data-btn-key="themeBtn">
+        <span class="drag-handle" aria-hidden="true">⠿</span>
+        <div class="settings-group-label">Theme</div>
+        <div class="chip-sort-toggle">
+          <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+          <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+        </div>
+      </div>
+      <div class="settings-card" draggable="true" data-btn-key="currencyBtn">
+        <span class="drag-handle" aria-hidden="true">⠿</span>
+        <div class="settings-group-label">Currency</div>
+        <div class="chip-sort-toggle">
+          <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+          <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+        </div>
+      </div>
+      <div class="settings-card" draggable="true" data-btn-key="marketBtn">
+        <span class="drag-handle" aria-hidden="true">⠿</span>
+        <div class="settings-group-label">Market</div>
+        <div class="chip-sort-toggle">
+          <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+          <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+        </div>
+      </div>
+      <div class="settings-card" draggable="true" data-btn-key="trendBtn">
+        <span class="drag-handle" aria-hidden="true">⠿</span>
+        <div class="settings-group-label">Trend</div>
+        <div class="chip-sort-toggle">
+          <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+          <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+        </div>
+      </div>
+      <div class="settings-card" draggable="true" data-btn-key="syncBtn">
+        <span class="drag-handle" aria-hidden="true">⠿</span>
+        <div class="settings-group-label">Spot Sync</div>
+        <div class="chip-sort-toggle">
+          <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+          <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+        </div>
+      </div>
+      <div class="settings-card" draggable="true" data-btn-key="vaultBtn">
+        <span class="drag-handle" aria-hidden="true">⠿</span>
+        <div class="settings-group-label">Backup</div>
+        <div class="chip-sort-toggle">
+          <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+          <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+        </div>
+      </div>
+      <div class="settings-card" draggable="true" data-btn-key="restoreBtn">
+        <span class="drag-handle" aria-hidden="true">⠿</span>
+        <div class="settings-group-label">Restore</div>
+        <div class="chip-sort-toggle">
+          <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+          <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="settings-card" draggable="true" data-btn-key="currencyBtn">
-    <span class="drag-handle" aria-hidden="true">⠿</span>
-    <div class="settings-group-label">Currency</div>
-    <div class="chip-sort-toggle">
-      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-    </div>
-  </div>
-  <div class="settings-card" draggable="true" data-btn-key="marketBtn">
-    <span class="drag-handle" aria-hidden="true">⠿</span>
-    <div class="settings-group-label">Market</div>
-    <div class="chip-sort-toggle">
-      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-    </div>
-  </div>
-  <div class="settings-card" draggable="true" data-btn-key="trendBtn">
-    <span class="drag-handle" aria-hidden="true">⠿</span>
-    <div class="settings-group-label">Trend</div>
-    <div class="chip-sort-toggle">
-      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-    </div>
-  </div>
-  <div class="settings-card" draggable="true" data-btn-key="syncBtn">
-    <span class="drag-handle" aria-hidden="true">⠿</span>
-    <div class="settings-group-label">Spot Sync</div>
-    <div class="chip-sort-toggle">
-      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-    </div>
-  </div>
-  <div class="settings-card" draggable="true" data-btn-key="vaultBtn">
-    <span class="drag-handle" aria-hidden="true">⠿</span>
-    <div class="settings-group-label">Backup</div>
-    <div class="chip-sort-toggle">
-      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-    </div>
-  </div>
-  <div class="settings-card" draggable="true" data-btn-key="restoreBtn">
-    <span class="drag-handle" aria-hidden="true">⠿</span>
-    <div class="settings-group-label">Restore</div>
-    <div class="chip-sort-toggle">
-      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
-    </div>
-  </div>
-</div>
 
-<div id="orderDisplay" style="margin-top:1rem;color:var(--text-secondary);font-size:0.8rem"></div>
+    <div
+      id="orderDisplay"
+      style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.8rem"
+    ></div>
 
-<script>
-// ── JS to paste into settings-listeners.js ──
-const setupCardDragSort = (gridId, onSave) => {
-  const grid = document.getElementById(gridId);
-  if (!grid) return;
+    <script>
+      // ── JS to paste into settings-listeners.js ──
+      const setupCardDragSort = (gridId, onSave) => {
+        const grid = document.getElementById(gridId);
+        if (!grid) return;
 
-  let dragSrc = null;
+        let dragSrc = null;
 
-  grid.addEventListener('dragstart', (e) => {
-    const card = e.target.closest('.settings-card[data-btn-key]');
-    if (!card) return;
-    dragSrc = card;
-    e.dataTransfer.effectAllowed = 'move';
-    card.classList.add('dragging');
-  });
+        grid.addEventListener("dragstart", (e) => {
+          const card = e.target.closest(".settings-card[data-btn-key]");
+          if (!card) return;
+          dragSrc = card;
+          e.dataTransfer.effectAllowed = "move";
+          card.classList.add("dragging");
+        });
 
-  grid.addEventListener('dragend', () => {
-    if (dragSrc) dragSrc.classList.remove('dragging');
-    dragSrc = null;
-  });
+        grid.addEventListener("dragend", () => {
+          if (dragSrc) dragSrc.classList.remove("dragging");
+          dragSrc = null;
+        });
 
-  grid.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (!dragSrc) return;
-    const card = e.target.closest('.settings-card[data-btn-key]');
-    if (!card || card === dragSrc) return;
-    const rect = card.getBoundingClientRect();
-    const after = e.clientX > rect.left + rect.width / 2;
-    grid.insertBefore(dragSrc, after ? card.nextSibling : card);
-  });
+        grid.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          if (!dragSrc) return;
+          const card = e.target.closest(".settings-card[data-btn-key]");
+          if (!card || card === dragSrc) return;
+          const rect = card.getBoundingClientRect();
+          const after = e.clientX > rect.left + rect.width / 2;
+          grid.insertBefore(dragSrc, after ? card.nextSibling : card);
+        });
 
-  grid.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (!dragSrc) return;
-    const order = [...grid.querySelectorAll('.settings-card[data-btn-key]')]
-      .map(c => c.dataset.btnKey);
-    try {
-      localStorage.setItem('headerBtnOrder', JSON.stringify(order));
-      if (typeof onSave === 'function') onSave(order);
-    } catch (err) {
-      console.warn('[CardDragSort] could not save order:', err);
-    }
-  });
-};
+        grid.addEventListener("drop", (e) => {
+          e.preventDefault();
+          if (!dragSrc) return;
+          const order = [...grid.querySelectorAll(".settings-card[data-btn-key]")].map(
+            (c) => c.dataset.btnKey
+          );
+          try {
+            localStorage.setItem("headerBtnOrder", JSON.stringify(order));
+            if (typeof onSave === "function") onSave(order);
+          } catch (err) {
+            console.warn("[CardDragSort] could not save order:", err);
+          }
+        });
+      };
 
-// Demo
-setupCardDragSort('headerBtnSortGrid', (order) => {
-  document.getElementById('orderDisplay').textContent = 'Order: ' + order.join(', ');
-});
+      // Demo
+      setupCardDragSort("headerBtnSortGrid", (order) => {
+        document.getElementById("orderDisplay").textContent = "Order: " + order.join(", ");
+      });
 
-// Restore saved order on load
-const saved = localStorage.getItem('headerBtnOrder');
-if (saved) {
-  try {
-    const order = JSON.parse(saved);
-    const grid = document.getElementById('headerBtnSortGrid');
-    for (const key of order) {
-      const card = grid.querySelector(`[data-btn-key="${CSS.escape(key)}"]`);
-      if (card) grid.append(card);
-    }
-  } catch { /* ignore */ }
-}
-</script>
-</body>
+      // Restore saved order on load
+      const saved = localStorage.getItem("headerBtnOrder");
+      if (saved) {
+        try {
+          const order = JSON.parse(saved);
+          const grid = document.getElementById("headerBtnSortGrid");
+          for (const key of order) {
+            const card = grid.querySelector(`[data-btn-key="${CSS.escape(key)}"]`);
+            if (card) grid.append(card);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    </script>
+  </body>
 </html>

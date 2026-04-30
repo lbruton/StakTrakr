@@ -1,21 +1,20 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: './tests/playwright',
+  testDir: "./tests/playwright",
   fullyParallel: false,
+  workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) || 1 : 1,
   retries: process.env.CI ? 1 : 0,
-  reporter: 'html',
+  reporter: "html",
   use: {
-    baseURL: 'http://localhost:3000',
-    serviceWorkers: 'block',
-    screenshot: 'only-on-failure',
+    baseURL: "http://localhost:3000",
+    serviceWorkers: "block",
+    screenshot: "only-on-failure",
   },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-  ],
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: 'python3 -m http.server 3000',
-    url: 'http://localhost:3000',
+    command: "python3 -m http.server 3000",
+    url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
   },
 });

@@ -1,351 +1,550 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard Coverage Panel — Design Playground</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dashboard Coverage Panel — Design Playground</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-  :root {
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --border: #334155;
-    --accent: #38bdf8;
-    --muted: #94a3b8;
-    --green: #22c55e;
-    --amber: #f59e0b;
-    --red: #ef4444;
-    --text: #e2e8f0;
-    --indigo: #818cf8;
-    --sky: #38bdf8;
-    --emerald: #34d399;
-    --orange: #fb923c;
-  }
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --border: #334155;
+        --accent: #38bdf8;
+        --muted: #94a3b8;
+        --green: #22c55e;
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --text: #e2e8f0;
+        --indigo: #818cf8;
+        --sky: #38bdf8;
+        --emerald: #34d399;
+        --orange: #fb923c;
+      }
 
-  body {
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #0a0e17;
-    color: var(--text);
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    grid-template-rows: 1fr auto;
-    height: 100vh;
-    overflow: hidden;
-  }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #0a0e17;
+        color: var(--text);
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        grid-template-rows: 1fr auto;
+        height: 100vh;
+        overflow: hidden;
+      }
 
-  /* ── Controls Panel ── */
-  .controls {
-    grid-row: 1 / 3;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    padding: 16px;
-    overflow-y: auto;
-  }
-  .controls h1 { font-size: 14px; color: var(--accent); margin-bottom: 16px; text-transform: uppercase; letter-spacing: .05em; }
-  .ctrl-group { margin-bottom: 20px; }
-  .ctrl-group h3 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
-    color: var(--muted); margin-bottom: 10px; padding-bottom: 4px;
-    border-bottom: 1px solid var(--border);
-  }
-  .ctrl-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .ctrl-row label { font-size: 12px; color: var(--text); }
-  .ctrl-row .val { font-size: 11px; color: var(--accent); min-width: 36px; text-align: right; font-family: 'Cascadia Code', monospace; }
-  input[type="range"] { width: 110px; accent-color: var(--accent); }
-  select { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: 12px; }
-  .preset-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-  .preset-btn {
-    background: var(--bg); color: var(--muted); border: 1px solid var(--border);
-    border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; transition: all .15s;
-  }
-  .preset-btn:hover, .preset-btn.active { color: var(--accent); border-color: var(--accent); }
+      /* ── Controls Panel ── */
+      .controls {
+        grid-row: 1 / 3;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 16px;
+        overflow-y: auto;
+      }
+      .controls h1 {
+        font-size: 14px;
+        color: var(--accent);
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .ctrl-group {
+        margin-bottom: 20px;
+      }
+      .ctrl-group h3 {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 10px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+      }
+      .ctrl-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .ctrl-row label {
+        font-size: 12px;
+        color: var(--text);
+      }
+      .ctrl-row .val {
+        font-size: 11px;
+        color: var(--accent);
+        min-width: 36px;
+        text-align: right;
+        font-family: "Cascadia Code", monospace;
+      }
+      input[type="range"] {
+        width: 110px;
+        accent-color: var(--accent);
+      }
+      select {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 3px 6px;
+        font-size: 12px;
+      }
+      .preset-bar {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .preset-btn {
+        background: var(--bg);
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 4px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .preset-btn:hover,
+      .preset-btn.active {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
 
-  /* ── Preview ── */
-  .preview-area {
-    background: var(--bg);
-    padding: 24px;
-    overflow-y: auto;
-  }
+      /* ── Preview ── */
+      .preview-area {
+        background: var(--bg);
+        padding: 24px;
+        overflow-y: auto;
+      }
 
-  /* ── Prompt Output ── */
-  .prompt-area {
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    padding: 12px 24px;
-    display: flex; align-items: flex-start; gap: 12px;
-  }
-  .prompt-text {
-    flex: 1; font-size: 12px; color: var(--muted); line-height: 1.5;
-    font-family: 'Cascadia Code', monospace; white-space: pre-wrap;
-    max-height: 80px; overflow-y: auto;
-  }
-  .copy-btn {
-    background: var(--accent); color: var(--bg); border: none; border-radius: 4px;
-    padding: 6px 14px; font-size: 11px; font-weight: 600; cursor: pointer;
-    white-space: nowrap; flex-shrink: 0;
-  }
-  .copy-btn:hover { opacity: .85; }
+      /* ── Prompt Output ── */
+      .prompt-area {
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        padding: 12px 24px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .prompt-text {
+        flex: 1;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+        font-family: "Cascadia Code", monospace;
+        white-space: pre-wrap;
+        max-height: 80px;
+        overflow-y: auto;
+      }
+      .copy-btn {
+        background: var(--accent);
+        color: var(--bg);
+        border: none;
+        border-radius: 4px;
+        padding: 6px 14px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .copy-btn:hover {
+        opacity: 0.85;
+      }
 
-  /* ── Dashboard Card Styles (preview) ── */
-  .section-title {
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    margin-bottom: 8px;
-  }
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    text-align: center;
-  }
-  .stat-card .label {
-    text-transform: uppercase;
-    letter-spacing: .03em;
-  }
-  .stat-card .value {
-    font-weight: 700;
-    font-family: 'Cascadia Code', 'Fira Code', monospace;
-  }
-  .stat-card .sub {
-    font-family: 'Cascadia Code', monospace;
-  }
+      /* ── Dashboard Card Styles (preview) ── */
+      .section-title {
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+      }
+      .stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        text-align: center;
+      }
+      .stat-card .label {
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .stat-card .value {
+        font-weight: 700;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+      }
+      .stat-card .sub {
+        font-family: "Cascadia Code", monospace;
+      }
 
-  /* Bar chart container */
-  .bar-chart-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-  }
-  .bar-chart-card .chart-title {
-    text-transform: uppercase;
-    letter-spacing: .03em;
-  }
-  .bar-row { display: flex; gap: 1px; align-items: flex-end; height: 55px; }
-  .bar-slot { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; }
-  .bar-fill { border-radius: 2px; }
-  .bar-label { text-align: center; overflow: hidden; height: 28px; display: flex; align-items: flex-start; justify-content: center; }
-  .bar-label span {
-    font-size: 7px; color: var(--muted); white-space: nowrap;
-    writing-mode: vertical-lr; transform: rotate(180deg);
-  }
+      /* Bar chart container */
+      .bar-chart-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+      }
+      .bar-chart-card .chart-title {
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .bar-row {
+        display: flex;
+        gap: 1px;
+        align-items: flex-end;
+        height: 55px;
+      }
+      .bar-slot {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-end;
+      }
+      .bar-fill {
+        border-radius: 2px;
+      }
+      .bar-label {
+        text-align: center;
+        overflow: hidden;
+        height: 28px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+      .bar-label span {
+        font-size: 7px;
+        color: var(--muted);
+        white-space: nowrap;
+        writing-mode: vertical-lr;
+        transform: rotate(180deg);
+      }
 
-  /* Poller breakdown mini-bar inside card */
-  .poller-breakdown { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-  .poller-row { display: flex; align-items: center; gap: 6px; }
-  .poller-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .poller-name { font-size: 10px; color: var(--muted); min-width: 64px; }
-  .poller-bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  .poller-bar-fill { height: 100%; border-radius: 3px; }
-  .poller-pct { font-size: 10px; min-width: 28px; text-align: right; font-family: monospace; }
+      /* Poller breakdown mini-bar inside card */
+      .poller-breakdown {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 6px;
+      }
+      .poller-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .poller-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .poller-name {
+        font-size: 10px;
+        color: var(--muted);
+        min-width: 64px;
+      }
+      .poller-bar-track {
+        flex: 1;
+        height: 6px;
+        background: var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .poller-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+      }
+      .poller-pct {
+        font-size: 10px;
+        min-width: 28px;
+        text-align: right;
+        font-family: monospace;
+      }
 
-  /* Layout variant: split */
-  .spot-split { display: grid; gap: 12px; }
-</style>
-</head>
-<body>
+      /* Layout variant: split */
+      .spot-split {
+        display: grid;
+        gap: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══════════════════ CONTROLS ═══════════════════ -->
+    <div class="controls">
+      <h1>Coverage Panel</h1>
 
-<!-- ═══════════════════ CONTROLS ═══════════════════ -->
-<div class="controls">
-  <h1>Coverage Panel</h1>
+      <div class="preset-bar">
+        <button class="preset-btn active" onclick="applyPreset('current')">Current</button>
+        <button class="preset-btn" onclick="applyPreset('compact')">Compact</button>
+        <button class="preset-btn" onclick="applyPreset('spacious')">Spacious</button>
+        <button class="preset-btn" onclick="applyPreset('minimal')">Minimal</button>
+      </div>
 
-  <div class="preset-bar">
-    <button class="preset-btn active" onclick="applyPreset('current')">Current</button>
-    <button class="preset-btn" onclick="applyPreset('compact')">Compact</button>
-    <button class="preset-btn" onclick="applyPreset('spacious')">Spacious</button>
-    <button class="preset-btn" onclick="applyPreset('minimal')">Minimal</button>
-  </div>
+      <div class="ctrl-group">
+        <h3>Card Layout</h3>
+        <div class="ctrl-row">
+          <label>Card Padding</label>
+          <input type="range" min="6" max="24" value="12" oninput="s('cardPad', +this.value)" />
+          <span class="val" id="v-cardPad">12</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Card Gap</label>
+          <input type="range" min="4" max="24" value="12" oninput="s('cardGap', +this.value)" />
+          <span class="val" id="v-cardGap">12</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Border Radius</label>
+          <input type="range" min="0" max="16" value="8" oninput="s('radius', +this.value)" />
+          <span class="val" id="v-radius">8</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Section Gap</label>
+          <input type="range" min="8" max="40" value="20" oninput="s('sectionGap', +this.value)" />
+          <span class="val" id="v-sectionGap">20</span>
+        </div>
+      </div>
 
-  <div class="ctrl-group">
-    <h3>Card Layout</h3>
-    <div class="ctrl-row">
-      <label>Card Padding</label>
-      <input type="range" min="6" max="24" value="12" oninput="s('cardPad',+this.value)">
-      <span class="val" id="v-cardPad">12</span>
+      <div class="ctrl-group">
+        <h3>Typography</h3>
+        <div class="ctrl-row">
+          <label>Value Size</label>
+          <input type="range" min="16" max="36" value="24" oninput="s('valSize', +this.value)" />
+          <span class="val" id="v-valSize">24</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Label Size</label>
+          <input type="range" min="9" max="14" value="11" oninput="s('labelSize', +this.value)" />
+          <span class="val" id="v-labelSize">11</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Section Title Size</label>
+          <input type="range" min="10" max="16" value="12" oninput="s('titleSize', +this.value)" />
+          <span class="val" id="v-titleSize">12</span>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <h3>Spot Card 4 Layout</h3>
+        <div class="ctrl-row">
+          <label>4th Card Style</label>
+          <select onchange="s('spotCard4', this.value)">
+            <option value="breakdown" selected>Poller Breakdown Bars</option>
+            <option value="split">Split Values (H/F)</option>
+            <option value="backfill">Backfill % Only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <h3>Bar Charts</h3>
+        <div class="ctrl-row">
+          <label>Bar Height Scale</label>
+          <input type="range" min="30" max="80" value="55" oninput="s('barHeight', +this.value)" />
+          <span class="val" id="v-barHeight">55</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Chart Card Padding</label>
+          <input type="range" min="6" max="20" value="12" oninput="s('chartPad', +this.value)" />
+          <span class="val" id="v-chartPad">12</span>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <h3>Spacing & Chrome</h3>
+        <div class="ctrl-row">
+          <label>Outer Padding</label>
+          <input type="range" min="8" max="32" value="16" oninput="s('outerPad', +this.value)" />
+          <span class="val" id="v-outerPad">16</span>
+        </div>
+        <div class="ctrl-row">
+          <label>Border Width</label>
+          <select onchange="s('borderW', +this.value)">
+            <option value="0">None</option>
+            <option value="1" selected>1px</option>
+            <option value="2">2px</option>
+          </select>
+        </div>
+      </div>
     </div>
-    <div class="ctrl-row">
-      <label>Card Gap</label>
-      <input type="range" min="4" max="24" value="12" oninput="s('cardGap',+this.value)">
-      <span class="val" id="v-cardGap">12</span>
+
+    <!-- ═══════════════════ PREVIEW ═══════════════════ -->
+    <div class="preview-area" id="preview"></div>
+
+    <!-- ═══════════════════ PROMPT ═══════════════════ -->
+    <div class="prompt-area">
+      <div class="prompt-text" id="prompt"></div>
+      <button class="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
     </div>
-    <div class="ctrl-row">
-      <label>Border Radius</label>
-      <input type="range" min="0" max="16" value="8" oninput="s('radius',+this.value)">
-      <span class="val" id="v-radius">8</span>
-    </div>
-    <div class="ctrl-row">
-      <label>Section Gap</label>
-      <input type="range" min="8" max="40" value="20" oninput="s('sectionGap',+this.value)">
-      <span class="val" id="v-sectionGap">20</span>
-    </div>
-  </div>
 
-  <div class="ctrl-group">
-    <h3>Typography</h3>
-    <div class="ctrl-row">
-      <label>Value Size</label>
-      <input type="range" min="16" max="36" value="24" oninput="s('valSize',+this.value)">
-      <span class="val" id="v-valSize">24</span>
-    </div>
-    <div class="ctrl-row">
-      <label>Label Size</label>
-      <input type="range" min="9" max="14" value="11" oninput="s('labelSize',+this.value)">
-      <span class="val" id="v-labelSize">11</span>
-    </div>
-    <div class="ctrl-row">
-      <label>Section Title Size</label>
-      <input type="range" min="10" max="16" value="12" oninput="s('titleSize',+this.value)">
-      <span class="val" id="v-titleSize">12</span>
-    </div>
-  </div>
+    <script>
+      // ── State ──
+      const DEFAULTS = {
+        cardPad: 12,
+        cardGap: 12,
+        radius: 8,
+        sectionGap: 20,
+        valSize: 24,
+        labelSize: 11,
+        titleSize: 12,
+        spotCard4: "breakdown",
+        barHeight: 55,
+        chartPad: 12,
+        outerPad: 16,
+        borderW: 1,
+      };
 
-  <div class="ctrl-group">
-    <h3>Spot Card 4 Layout</h3>
-    <div class="ctrl-row">
-      <label>4th Card Style</label>
-      <select onchange="s('spotCard4',this.value)">
-        <option value="breakdown" selected>Poller Breakdown Bars</option>
-        <option value="split">Split Values (H/F)</option>
-        <option value="backfill">Backfill % Only</option>
-      </select>
-    </div>
-  </div>
+      const PRESETS = {
+        current: { ...DEFAULTS },
+        compact: {
+          cardPad: 8,
+          cardGap: 8,
+          radius: 6,
+          sectionGap: 12,
+          valSize: 20,
+          labelSize: 10,
+          titleSize: 11,
+          spotCard4: "split",
+          barHeight: 40,
+          chartPad: 8,
+          outerPad: 12,
+          borderW: 1,
+        },
+        spacious: {
+          cardPad: 20,
+          cardGap: 16,
+          radius: 12,
+          sectionGap: 28,
+          valSize: 28,
+          labelSize: 12,
+          titleSize: 14,
+          spotCard4: "breakdown",
+          barHeight: 65,
+          chartPad: 16,
+          outerPad: 24,
+          borderW: 1,
+        },
+        minimal: {
+          cardPad: 10,
+          cardGap: 10,
+          radius: 4,
+          sectionGap: 16,
+          valSize: 22,
+          labelSize: 10,
+          titleSize: 11,
+          spotCard4: "backfill",
+          barHeight: 45,
+          chartPad: 10,
+          outerPad: 14,
+          borderW: 0,
+        },
+      };
 
-  <div class="ctrl-group">
-    <h3>Bar Charts</h3>
-    <div class="ctrl-row">
-      <label>Bar Height Scale</label>
-      <input type="range" min="30" max="80" value="55" oninput="s('barHeight',+this.value)">
-      <span class="val" id="v-barHeight">55</span>
-    </div>
-    <div class="ctrl-row">
-      <label>Chart Card Padding</label>
-      <input type="range" min="6" max="20" value="12" oninput="s('chartPad',+this.value)">
-      <span class="val" id="v-chartPad">12</span>
-    </div>
-  </div>
+      const state = { ...DEFAULTS };
 
-  <div class="ctrl-group">
-    <h3>Spacing & Chrome</h3>
-    <div class="ctrl-row">
-      <label>Outer Padding</label>
-      <input type="range" min="8" max="32" value="16" oninput="s('outerPad',+this.value)">
-      <span class="val" id="v-outerPad">16</span>
-    </div>
-    <div class="ctrl-row">
-      <label>Border Width</label>
-      <select onchange="s('borderW',+this.value)">
-        <option value="0">None</option>
-        <option value="1" selected>1px</option>
-        <option value="2">2px</option>
-      </select>
-    </div>
-  </div>
-</div>
+      function s(key, val) {
+        state[key] = val;
+        const ve = document.getElementById("v-" + key);
+        if (ve) ve.textContent = val;
+        updateAll();
+      }
 
-<!-- ═══════════════════ PREVIEW ═══════════════════ -->
-<div class="preview-area" id="preview"></div>
+      function applyPreset(name) {
+        Object.assign(state, PRESETS[name]);
+        // Sync controls
+        document.querySelectorAll('.controls input[type="range"]').forEach((inp) => {
+          const key = inp.getAttribute("oninput").match(/s\('(\w+)'/)[1];
+          if (state[key] != null) {
+            inp.value = state[key];
+          }
+          const ve = document.getElementById("v-" + key);
+          if (ve) ve.textContent = state[key];
+        });
+        document.querySelectorAll(".controls select").forEach((sel) => {
+          const key = sel.getAttribute("onchange").match(/s\('(\w+)'/)[1];
+          if (state[key] != null) sel.value = state[key];
+        });
+        document
+          .querySelectorAll(".preset-btn")
+          .forEach((b) => b.classList.toggle("active", b.textContent.toLowerCase() === name));
+        updateAll();
+      }
 
-<!-- ═══════════════════ PROMPT ═══════════════════ -->
-<div class="prompt-area">
-  <div class="prompt-text" id="prompt"></div>
-  <button class="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
-</div>
+      // ── Sample Data ──
+      const retailData = { pct: 94, avg: 100, covered: 67, total: 71, missing: 4 };
+      const spotData = {
+        pct: 52,
+        intervals: 100,
+        total: 192,
+        backfill: 61,
+        backfillPct: 32,
+        flySpot: 20,
+        flyPct: 10,
+        homeSpot: 23,
+        homePct: 12,
+      };
 
-<script>
-// ── State ──
-const DEFAULTS = {
-  cardPad: 12, cardGap: 12, radius: 8, sectionGap: 20,
-  valSize: 24, labelSize: 11, titleSize: 12,
-  spotCard4: 'breakdown',
-  barHeight: 55, chartPad: 12,
-  outerPad: 16, borderW: 1,
-};
+      function genRetailBars() {
+        const bars = [];
+        for (let i = 47; i >= 0; i--) {
+          const h = new Date(Date.now() - i * 3600000);
+          const label = String(h.getHours()).padStart(2, "0") + ":00";
+          // Simulate realistic coverage
+          let pct;
+          if (i >= 44 && i <= 46)
+            pct = 60 + Math.floor(Math.random() * 20); // orange dip
+          else pct = 85 + Math.floor(Math.random() * 16);
+          bars.push({ label, pct });
+        }
+        return bars;
+      }
 
-const PRESETS = {
-  current: { ...DEFAULTS },
-  compact: { cardPad: 8, cardGap: 8, radius: 6, sectionGap: 12, valSize: 20, labelSize: 10, titleSize: 11, spotCard4: 'split', barHeight: 40, chartPad: 8, outerPad: 12, borderW: 1 },
-  spacious: { cardPad: 20, cardGap: 16, radius: 12, sectionGap: 28, valSize: 28, labelSize: 12, titleSize: 14, spotCard4: 'breakdown', barHeight: 65, chartPad: 16, outerPad: 24, borderW: 1 },
-  minimal: { cardPad: 10, cardGap: 10, radius: 4, sectionGap: 16, valSize: 22, labelSize: 10, titleSize: 11, spotCard4: 'backfill', barHeight: 45, chartPad: 10, outerPad: 14, borderW: 0 },
-};
+      function genSpotBars() {
+        const bars = [];
+        for (let i = 191; i >= 0; i--) {
+          const t = new Date(Date.now() - i * 15 * 60000);
+          const label =
+            String(t.getUTCHours()).padStart(2, "0") +
+            ":" +
+            String(Math.floor(t.getUTCMinutes() / 15) * 15).padStart(2, "0");
+          const metals =
+            Math.random() < 0.52 ? 4 : Math.random() < 0.3 ? Math.floor(Math.random() * 3) + 1 : 0;
+          bars.push({ label, metals });
+        }
+        return bars;
+      }
 
-const state = { ...DEFAULTS };
+      const retailBars = genRetailBars();
+      const spotBars = genSpotBars();
 
-function s(key, val) {
-  state[key] = val;
-  const ve = document.getElementById('v-' + key);
-  if (ve) ve.textContent = val;
-  updateAll();
-}
+      // ── Render Helpers ──
+      function colorForPct(pct) {
+        return pct >= 90 ? "var(--green)" : pct >= 70 ? "var(--amber)" : "var(--red)";
+      }
 
-function applyPreset(name) {
-  Object.assign(state, PRESETS[name]);
-  // Sync controls
-  document.querySelectorAll('.controls input[type="range"]').forEach(inp => {
-    const key = inp.getAttribute('oninput').match(/s\('(\w+)'/)[1];
-    if (state[key] != null) { inp.value = state[key]; }
-    const ve = document.getElementById('v-' + key);
-    if (ve) ve.textContent = state[key];
-  });
-  document.querySelectorAll('.controls select').forEach(sel => {
-    const key = sel.getAttribute('onchange').match(/s\('(\w+)'/)[1];
-    if (state[key] != null) sel.value = state[key];
-  });
-  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === name));
-  updateAll();
-}
-
-// ── Sample Data ──
-const retailData = { pct: 94, avg: 100, covered: 67, total: 71, missing: 4 };
-const spotData = { pct: 52, intervals: 100, total: 192, backfill: 61, backfillPct: 32, flySpot: 20, flyPct: 10, homeSpot: 23, homePct: 12 };
-
-function genRetailBars() {
-  const bars = [];
-  for (let i = 47; i >= 0; i--) {
-    const h = new Date(Date.now() - i * 3600000);
-    const label = String(h.getHours()).padStart(2, '0') + ':00';
-    // Simulate realistic coverage
-    let pct;
-    if (i >= 44 && i <= 46) pct = 60 + Math.floor(Math.random() * 20); // orange dip
-    else pct = 85 + Math.floor(Math.random() * 16);
-    bars.push({ label, pct });
-  }
-  return bars;
-}
-
-function genSpotBars() {
-  const bars = [];
-  for (let i = 191; i >= 0; i--) {
-    const t = new Date(Date.now() - i * 15 * 60000);
-    const label = String(t.getUTCHours()).padStart(2, '0') + ':' + String(Math.floor(t.getUTCMinutes() / 15) * 15).padStart(2, '0');
-    const metals = Math.random() < 0.52 ? 4 : (Math.random() < 0.3 ? Math.floor(Math.random() * 3) + 1 : 0);
-    bars.push({ label, metals });
-  }
-  return bars;
-}
-
-const retailBars = genRetailBars();
-const spotBars = genSpotBars();
-
-// ── Render Helpers ──
-function colorForPct(pct) {
-  return pct >= 90 ? 'var(--green)' : pct >= 70 ? 'var(--amber)' : 'var(--red)';
-}
-
-function statCard(label, value, sub, color) {
-  return `<div class="stat-card" style="border-radius:${state.radius}px;padding:${state.cardPad}px;border-width:${state.borderW}px;">
+      function statCard(label, value, sub, color) {
+        return `<div class="stat-card" style="border-radius:${state.radius}px;padding:${state.cardPad}px;border-width:${state.borderW}px;">
     <div class="label" style="color:var(--muted);font-size:${state.labelSize}px;margin-bottom:4px;">${label}</div>
-    <div class="value" style="color:${color};font-size:${state.valSize}px;">${value}${sub ? `<span class="sub" style="font-size:${Math.round(state.valSize * 0.58)}px;color:var(--muted)">${sub}</span>` : ''}</div>
+    <div class="value" style="color:${color};font-size:${state.valSize}px;">${value}${sub ? `<span class="sub" style="font-size:${Math.round(state.valSize * 0.58)}px;color:var(--muted)">${sub}</span>` : ""}</div>
   </div>`;
-}
+      }
 
-function spotCard4() {
-  const pad = state.cardPad;
-  const r = state.radius;
-  const bw = state.borderW;
-  const ls = state.labelSize;
-  const vs = state.valSize;
+      function spotCard4() {
+        const pad = state.cardPad;
+        const r = state.radius;
+        const bw = state.borderW;
+        const ls = state.labelSize;
+        const vs = state.valSize;
 
-  if (state.spotCard4 === 'split') {
-    return `<div class="stat-card" style="border-radius:${r}px;padding:${pad}px;border-width:${bw}px;">
+        if (state.spotCard4 === "split") {
+          return `<div class="stat-card" style="border-radius:${r}px;padding:${pad}px;border-width:${bw}px;">
       <div class="label" style="color:var(--muted);font-size:${ls}px;margin-bottom:6px;">Per-Poller</div>
       <div style="display:flex;justify-content:space-around;">
         <div style="text-align:center;">
@@ -361,62 +560,89 @@ function spotCard4() {
         </div>
       </div>
     </div>`;
-  }
+        }
 
-  if (state.spotCard4 === 'backfill') {
-    return statCard('Backfill', spotData.backfillPct + '%', `<br><span style="font-size:10px;color:var(--muted)">${spotData.backfill}/${spotData.total}</span>`, colorForPct(spotData.backfillPct));
-  }
+        if (state.spotCard4 === "backfill") {
+          return statCard(
+            "Backfill",
+            spotData.backfillPct + "%",
+            `<br><span style="font-size:10px;color:var(--muted)">${spotData.backfill}/${spotData.total}</span>`,
+            colorForPct(spotData.backfillPct)
+          );
+        }
 
-  // Default: breakdown bars
-  const pollers = [
-    { name: 'home-spot', color: 'var(--indigo)', count: spotData.homeSpot, pct: spotData.homePct },
-    { name: 'fly-spot', color: 'var(--sky)', count: spotData.flySpot, pct: spotData.flyPct },
-    { name: 'backfill', color: 'var(--amber)', count: spotData.backfill, pct: spotData.backfillPct },
-  ];
-  const maxPct = Math.max(...pollers.map(p => p.pct), 1);
+        // Default: breakdown bars
+        const pollers = [
+          {
+            name: "home-spot",
+            color: "var(--indigo)",
+            count: spotData.homeSpot,
+            pct: spotData.homePct,
+          },
+          { name: "fly-spot", color: "var(--sky)", count: spotData.flySpot, pct: spotData.flyPct },
+          {
+            name: "backfill",
+            color: "var(--amber)",
+            count: spotData.backfill,
+            pct: spotData.backfillPct,
+          },
+        ];
+        const maxPct = Math.max(...pollers.map((p) => p.pct), 1);
 
-  return `<div class="stat-card" style="border-radius:${r}px;padding:${pad}px;border-width:${bw}px;">
+        return `<div class="stat-card" style="border-radius:${r}px;padding:${pad}px;border-width:${bw}px;">
     <div class="label" style="color:var(--muted);font-size:${ls}px;margin-bottom:4px;">Source Breakdown</div>
     <div class="poller-breakdown">
-      ${pollers.map(p => `<div class="poller-row">
+      ${pollers
+        .map(
+          (p) => `<div class="poller-row">
         <div class="poller-dot" style="background:${p.color}"></div>
         <span class="poller-name">${p.name}</span>
         <div class="poller-bar-track">
           <div class="poller-bar-fill" style="width:${(p.pct / maxPct) * 100}%;background:${p.color};"></div>
         </div>
         <span class="poller-pct" style="color:${p.color}">${p.pct}%</span>
-      </div>`).join('')}
+      </div>`
+        )
+        .join("")}
     </div>
   </div>`;
-}
+      }
 
-function barsHTML(bars, type) {
-  return bars.map(b => {
-    let h, c;
-    if (type === 'retail') {
-      h = Math.max(2, Math.round(b.pct * 0.5));
-      c = b.pct >= 90 ? '#22c55e' : b.pct >= 70 ? '#f59e0b' : '#ef4444';
-    } else {
-      const full = b.metals >= 4;
-      c = full ? '#22c55e' : b.metals >= 2 ? '#f59e0b' : (b.metals > 0 ? '#ef4444' : '#334155');
-      h = full ? 28 : Math.max(2, b.metals * 7);
-    }
-    return `<div class="bar-slot">
+      function barsHTML(bars, type) {
+        return bars
+          .map((b) => {
+            let h, c;
+            if (type === "retail") {
+              h = Math.max(2, Math.round(b.pct * 0.5));
+              c = b.pct >= 90 ? "#22c55e" : b.pct >= 70 ? "#f59e0b" : "#ef4444";
+            } else {
+              const full = b.metals >= 4;
+              c = full
+                ? "#22c55e"
+                : b.metals >= 2
+                  ? "#f59e0b"
+                  : b.metals > 0
+                    ? "#ef4444"
+                    : "#334155";
+              h = full ? 28 : Math.max(2, b.metals * 7);
+            }
+            return `<div class="bar-slot">
       <div class="bar-fill" style="height:${h}px;background:${c};"></div>
       <div class="bar-label"><span>${b.label}</span></div>
     </div>`;
-  }).join('');
-}
+          })
+          .join("");
+      }
 
-// ── Main Render ──
-function renderPreview() {
-  const gap = state.cardGap;
-  const sGap = state.sectionGap;
-  const pad = state.outerPad;
-  const r = state.radius;
-  const bw = state.borderW;
+      // ── Main Render ──
+      function renderPreview() {
+        const gap = state.cardGap;
+        const sGap = state.sectionGap;
+        const pad = state.outerPad;
+        const r = state.radius;
+        const bw = state.borderW;
 
-  const html = `
+        const html = `
     <div style="padding:${pad}px;">
       <div style="background:var(--surface);border:${bw}px solid var(--border);border-radius:${r}px;padding:${pad}px;margin-bottom:${sGap}px;">
         <h2 style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:${sGap}px;">
@@ -427,14 +653,14 @@ function renderPreview() {
         <div style="margin-bottom:${sGap}px;">
           <h3 class="section-title" style="font-size:${state.titleSize}px;color:var(--muted);">Retail Price Coverage</h3>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:${gap}px;margin-bottom:${gap}px;">
-            ${statCard('Coverage (latest hour)', retailData.pct + '%', '', colorForPct(retailData.pct))}
-            ${statCard('Avg Coverage (24h)', retailData.avg + '%', '', colorForPct(retailData.avg))}
-            ${statCard('Items Covered', retailData.covered, '/' + retailData.total, 'var(--accent)')}
-            ${statCard('Missing Items', retailData.missing, '', retailData.missing > 0 ? 'var(--red)' : 'var(--green)')}
+            ${statCard("Coverage (latest hour)", retailData.pct + "%", "", colorForPct(retailData.pct))}
+            ${statCard("Avg Coverage (24h)", retailData.avg + "%", "", colorForPct(retailData.avg))}
+            ${statCard("Items Covered", retailData.covered, "/" + retailData.total, "var(--accent)")}
+            ${statCard("Missing Items", retailData.missing, "", retailData.missing > 0 ? "var(--red)" : "var(--green)")}
           </div>
           <div class="bar-chart-card" style="border-radius:${r}px;padding:${state.chartPad}px ${state.chartPad}px ${Math.round(state.chartPad * 0.5)}px;border-width:${bw}px;">
             <div class="chart-title" style="color:var(--muted);font-size:${state.labelSize}px;margin-bottom:8px;">Retail Coverage Trend (48h)</div>
-            <div class="bar-row" style="height:${state.barHeight}px;">${barsHTML(retailBars, 'retail')}</div>
+            <div class="bar-row" style="height:${state.barHeight}px;">${barsHTML(retailBars, "retail")}</div>
           </div>
         </div>
 
@@ -442,77 +668,96 @@ function renderPreview() {
         <div>
           <h3 class="section-title" style="font-size:${state.titleSize}px;color:var(--muted);">Spot Price Coverage</h3>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:${gap}px;margin-bottom:${gap}px;">
-            ${statCard('Spot Coverage (48h)', spotData.pct + '%', '', colorForPct(spotData.pct))}
-            ${statCard('Intervals Hit', spotData.intervals, '/' + spotData.total, 'var(--accent)')}
-            ${statCard('Combined Sources', (spotData.homePct + spotData.flyPct) + '%', '', colorForPct(spotData.homePct + spotData.flyPct))}
+            ${statCard("Spot Coverage (48h)", spotData.pct + "%", "", colorForPct(spotData.pct))}
+            ${statCard("Intervals Hit", spotData.intervals, "/" + spotData.total, "var(--accent)")}
+            ${statCard("Combined Sources", spotData.homePct + spotData.flyPct + "%", "", colorForPct(spotData.homePct + spotData.flyPct))}
             ${spotCard4()}
           </div>
           <div class="bar-chart-card" style="border-radius:${r}px;padding:${state.chartPad}px ${state.chartPad}px ${Math.round(state.chartPad * 0.5)}px;border-width:${bw}px;">
             <div class="chart-title" style="color:var(--muted);font-size:${state.labelSize}px;margin-bottom:8px;">Spot Price Trend (15-min intervals, 48h)</div>
-            <div class="bar-row" style="height:${state.barHeight}px;">${barsHTML(spotBars, 'spot')}</div>
+            <div class="bar-row" style="height:${state.barHeight}px;">${barsHTML(spotBars, "spot")}</div>
           </div>
         </div>
       </div>
     </div>`;
 
-  document.getElementById('preview').innerHTML = html;
-}
+        document.getElementById("preview").innerHTML = html;
+      }
 
-// ── Prompt ──
-function updatePrompt() {
-  const d = DEFAULTS;
-  const parts = [];
+      // ── Prompt ──
+      function updatePrompt() {
+        const d = DEFAULTS;
+        const parts = [];
 
-  parts.push('Update the Coverage Panel in dashboard.js with the following changes:');
-  parts.push('');
-  parts.push('1. SPOT SECTION: Replace the current dynamic 4+N card grid with a fixed 4-card row:');
-  parts.push('   - Card 1: "Spot Coverage (48h)" — overall %');
-  parts.push('   - Card 2: "Intervals Hit" — covered/total');
-  parts.push('   - Card 3: "Combined Sources" — sum of all poller %');
+        parts.push("Update the Coverage Panel in dashboard.js with the following changes:");
+        parts.push("");
+        parts.push(
+          "1. SPOT SECTION: Replace the current dynamic 4+N card grid with a fixed 4-card row:"
+        );
+        parts.push('   - Card 1: "Spot Coverage (48h)" — overall %');
+        parts.push('   - Card 2: "Intervals Hit" — covered/total');
+        parts.push('   - Card 3: "Combined Sources" — sum of all poller %');
 
-  if (state.spotCard4 === 'breakdown') {
-    parts.push('   - Card 4: "Source Breakdown" — mini horizontal bars per poller (home-spot, fly-spot, backfill) with color dots and % labels');
-  } else if (state.spotCard4 === 'split') {
-    parts.push('   - Card 4: "Per-Poller" — split view showing Home vs Fly side-by-side with vertical divider');
-  } else {
-    parts.push('   - Card 4: "Backfill" — backfill % with count subtitle');
-  }
+        if (state.spotCard4 === "breakdown") {
+          parts.push(
+            '   - Card 4: "Source Breakdown" — mini horizontal bars per poller (home-spot, fly-spot, backfill) with color dots and % labels'
+          );
+        } else if (state.spotCard4 === "split") {
+          parts.push(
+            '   - Card 4: "Per-Poller" — split view showing Home vs Fly side-by-side with vertical divider'
+          );
+        } else {
+          parts.push('   - Card 4: "Backfill" — backfill % with count subtitle');
+        }
 
-  parts.push('');
-  parts.push('2. SYMMETRY: Both Retail and Spot use identical grid-template-columns:repeat(4,1fr) — no orphan 5th card.');
+        parts.push("");
+        parts.push(
+          "2. SYMMETRY: Both Retail and Spot use identical grid-template-columns:repeat(4,1fr) — no orphan 5th card."
+        );
 
-  const styleChanges = [];
-  if (state.cardPad !== d.cardPad) styleChanges.push(`card padding: ${state.cardPad}px`);
-  if (state.cardGap !== d.cardGap) styleChanges.push(`card gap: ${state.cardGap}px`);
-  if (state.radius !== d.radius) styleChanges.push(`border-radius: ${state.radius}px`);
-  if (state.sectionGap !== d.sectionGap) styleChanges.push(`section gap: ${state.sectionGap}px`);
-  if (state.valSize !== d.valSize) styleChanges.push(`value font-size: ${state.valSize}px`);
-  if (state.labelSize !== d.labelSize) styleChanges.push(`label font-size: ${state.labelSize}px`);
-  if (state.barHeight !== d.barHeight) styleChanges.push(`bar chart height: ${state.barHeight}px`);
-  if (state.borderW !== d.borderW) styleChanges.push(state.borderW === 0 ? 'remove card borders' : `border-width: ${state.borderW}px`);
+        const styleChanges = [];
+        if (state.cardPad !== d.cardPad) styleChanges.push(`card padding: ${state.cardPad}px`);
+        if (state.cardGap !== d.cardGap) styleChanges.push(`card gap: ${state.cardGap}px`);
+        if (state.radius !== d.radius) styleChanges.push(`border-radius: ${state.radius}px`);
+        if (state.sectionGap !== d.sectionGap)
+          styleChanges.push(`section gap: ${state.sectionGap}px`);
+        if (state.valSize !== d.valSize) styleChanges.push(`value font-size: ${state.valSize}px`);
+        if (state.labelSize !== d.labelSize)
+          styleChanges.push(`label font-size: ${state.labelSize}px`);
+        if (state.barHeight !== d.barHeight)
+          styleChanges.push(`bar chart height: ${state.barHeight}px`);
+        if (state.borderW !== d.borderW)
+          styleChanges.push(
+            state.borderW === 0 ? "remove card borders" : `border-width: ${state.borderW}px`
+          );
 
-  if (styleChanges.length) {
-    parts.push('');
-    parts.push('3. STYLE ADJUSTMENTS: ' + styleChanges.join(', ') + '.');
-  }
+        if (styleChanges.length) {
+          parts.push("");
+          parts.push("3. STYLE ADJUSTMENTS: " + styleChanges.join(", ") + ".");
+        }
 
-  parts.push('');
-  parts.push('Keep the green/orange/red progress bar charts exactly as-is. Only restructure the stat cards above them.');
+        parts.push("");
+        parts.push(
+          "Keep the green/orange/red progress bar charts exactly as-is. Only restructure the stat cards above them."
+        );
 
-  document.getElementById('prompt').textContent = parts.join('\n');
-}
+        document.getElementById("prompt").textContent = parts.join("\n");
+      }
 
-function copyPrompt() {
-  const text = document.getElementById('prompt').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.querySelector('.copy-btn');
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy Prompt', 1500);
-  });
-}
+      function copyPrompt() {
+        const text = document.getElementById("prompt").textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.querySelector(".copy-btn");
+          btn.textContent = "Copied!";
+          setTimeout(() => (btn.textContent = "Copy Prompt"), 1500);
+        });
+      }
 
-function updateAll() { renderPreview(); updatePrompt(); }
-updateAll();
-</script>
-</body>
+      function updateAll() {
+        renderPreview();
+        updatePrompt();
+      }
+      updateAll();
+    </script>
+  </body>
 </html>

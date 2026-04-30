@@ -3,7 +3,7 @@
 // but maintain the same API for compression helpers used elsewhere.
 const LZString = {
   compressToUTF16: (input) => input,
-  decompressFromUTF16: (input) => input
+  decompressFromUTF16: (input) => input,
 };
 
 // UTILITY FUNCTIONS
@@ -14,7 +14,12 @@ const LZString = {
  * @returns {string} Escaped HTML-safe string
  */
 const escapeHtml = (str) =>
-  String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 /**
  * Logs messages to console when DEBUG flag is enabled
@@ -34,22 +39,35 @@ const debugLog = (...args) => {
  *
  * @returns {string} A UUID v4 string (e.g. "550e8400-e29b-41d4-a716-446655440000")
  */
+/**
+ * Splits a raw tag input string on commas and semicolons, trims whitespace,
+ * and filters out empty tokens.
+ *
+ * @param {string} raw - Raw input string (e.g. "foo, bar; baz")
+ * @returns {string[]} Non-empty trimmed tokens
+ */
+const parseTagInput = (raw) =>
+  String(raw ?? "")
+    .split(/[,;]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
 const generateUUID = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   // CSPRNG fallback (file:// protocol or older browsers)
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = crypto.getRandomValues(new Uint8Array(1))[0] % 16;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
   }
   // RFC 4122 v4 fallback (insecure Math.random)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 };
@@ -68,9 +86,7 @@ const getBrandingName = () => {
     window.location &&
     window.location.hostname
   ) {
-    console.warn(
-      `No branding mapping found for domain: ${window.location.hostname}`
-    );
+    console.warn(`No branding mapping found for domain: ${window.location.hostname}`);
     brandingWarned = true;
   }
   return BRANDING_DOMAIN_OVERRIDE || BRANDING_TITLE;
@@ -96,7 +112,8 @@ const getFooterDomain = () => {
   const host = window.location.hostname.toLowerCase();
   if (host === "staktrakr.com" || host.endsWith(".staktrakr.com")) return "staktrakr.com";
   if (host === "stackrtrackr.com" || host.endsWith(".stackrtrackr.com")) return "stackrtrackr.com";
-  if (host === "stackertrackr.com" || host.endsWith(".stackertrackr.com")) return "stackertrackr.com";
+  if (host === "stackertrackr.com" || host.endsWith(".stackertrackr.com"))
+    return "stackertrackr.com";
   return "staktrakr.com";
 };
 
@@ -144,7 +161,7 @@ const debounce = (func, wait) => {
     }
   };
 
-  const debounced = function(...args) {
+  const debounced = function (...args) {
     const context = this;
     if (timeout) {
       clearTimeout(timeout);
@@ -184,10 +201,22 @@ const refreshCompositionOptions = () => {
   [elements.itemMetal].forEach((sel) => {
     if (!sel) return;
     const current = sel.value;
-    // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-    sel.innerHTML = sorted
-      .map((opt) => `<option value="${opt}">${opt}</option>`)
-      .join("");
+    // STAK-580: build options as DOM nodes (no innerHTML) AND prepend a
+    // required-selection placeholder so any later `itemMetal.value = ""`
+    // selects something. Without the placeholder, selectedIndex falls to -1
+    // and the closed select renders blank instead of the prompt text.
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    placeholder.textContent = "Select metal…";
+    const optionNodes = sorted.map((opt) => {
+      const node = document.createElement("option");
+      node.value = opt;
+      node.textContent = opt;
+      return node;
+    });
+    sel.replaceChildren(placeholder, ...optionNodes);
     if (sorted.includes(current)) sel.value = current;
   });
 };
@@ -262,10 +291,7 @@ const getLastUpdateTime = (metalName, mode = "cache") => {
 
   if (latestEntry.source === "default") return "";
 
-  const info = loadDataSync(
-    mode === "api" ? LAST_API_SYNC_KEY : LAST_CACHE_REFRESH_KEY,
-    null,
-  );
+  const info = loadDataSync(mode === "api" ? LAST_API_SYNC_KEY : LAST_CACHE_REFRESH_KEY, null);
   if (!info || !info.timestamp) return "";
 
   const label = mode === "api" ? "Last API Sync" : "Last Cache Refresh";
@@ -300,7 +326,9 @@ const updateSpotTimestamp = (metalName) => {
   // Compare the underlying data to detect this case correctly (STAK-274).
   const cacheData = loadDataSync(LAST_CACHE_REFRESH_KEY, null);
   const apiData = loadDataSync(LAST_API_SYNC_KEY, null);
-  const sameUnderlying = cacheData && apiData &&
+  const sameUnderlying =
+    cacheData &&
+    apiData &&
     cacheData.provider === apiData.provider &&
     cacheData.timestamp === apiData.timestamp;
 
@@ -386,27 +414,34 @@ const formatTimestamp = (date, options = {}) => {
   let d;
   if (date instanceof Date) {
     d = date;
-  } else if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(date)) {
+  } else if (typeof date === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(date)) {
     // Bare UTC timestamp stored by recordSpot (e.g. "2026-02-15 01:58:32")
     // These are toISOString() values with T/Z stripped — re-attach Z so Date parses as UTC
-    d = new Date(date.replace(' ', 'T') + 'Z');
+    d = new Date(date.replace(" ", "T") + "Z");
   } else {
     d = new Date(date);
   }
-  if (isNaN(d.getTime())) return '—';
-  const tz = localStorage.getItem(TIMEZONE_KEY) || 'auto';
-  const resolvedTz = tz === 'auto' ? undefined : tz;
+  if (isNaN(d.getTime())) return "—";
+  const tz = localStorage.getItem(TIMEZONE_KEY) || "auto";
+  const resolvedTz = tz === "auto" ? undefined : tz;
   const defaults = {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    ...(resolvedTz ? { timeZone: resolvedTz } : {})
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(resolvedTz ? { timeZone: resolvedTz } : {}),
   };
   try {
     return d.toLocaleString(undefined, { ...defaults, ...options });
   } catch (err) {
     if (err instanceof RangeError) {
       // Invalid IANA timezone in localStorage — fall back to auto and clear bad value
-      try { localStorage.removeItem(TIMEZONE_KEY); } catch (_) { /* ignore */ }
+      try {
+        localStorage.removeItem(TIMEZONE_KEY);
+      } catch (_) {
+        /* ignore */
+      }
       const safeDefaults = { ...defaults };
       delete safeDefaults.timeZone;
       return d.toLocaleString(undefined, { ...safeDefaults, ...options });
@@ -423,8 +458,12 @@ const formatTimestamp = (date, options = {}) => {
  */
 const formatTimeOnly = (date) => {
   return formatTimestamp(date, {
-    year: undefined, month: undefined, day: undefined,
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
+    year: undefined,
+    month: undefined,
+    day: undefined,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 };
 
@@ -444,7 +483,7 @@ const formatTimeOnly = (date) => {
  * @returns {string} Date in YYYY-MM-DD format, or 'Unknown' if parsing fails
  */
 function parseDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return "—";
 
   // Clean the input string
   const cleanDateStr = dateStr.trim();
@@ -458,9 +497,7 @@ function parseDate(dateStr) {
   }
 
   // Try YYYY/MM/DD format (unambiguous)
-  const ymdMatch = cleanDateStr.match(
-    /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/,
-  );
+  const ymdMatch = cleanDateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if (ymdMatch) {
     const year = parseInt(ymdMatch[1], 10);
     const month = parseInt(ymdMatch[2], 10) - 1;
@@ -475,9 +512,7 @@ function parseDate(dateStr) {
   }
 
   // Handle ambiguous MM/DD/YYYY vs DD/MM/YYYY formats
-  const ambiguousMatch = cleanDateStr.match(
-    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/,
-  );
+  const ambiguousMatch = cleanDateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (ambiguousMatch) {
     const first = parseInt(ambiguousMatch[1], 10);
     const second = parseInt(ambiguousMatch[2], 10);
@@ -525,7 +560,7 @@ function parseDate(dateStr) {
 
   // If all parsing fails, return '—'
   console.warn(`Could not parse date: "${dateStr}", returning '—'`);
-  return '—';
+  return "—";
 }
 
 /**
@@ -535,16 +570,16 @@ function parseDate(dateStr) {
  * @returns {string} Formatted date (e.g., "1/1/69")
  */
 const formatDisplayDate = (dateStr) => {
-  if (!dateStr || dateStr === '—' || dateStr === 'Unknown') return '—';
+  if (!dateStr || dateStr === "—" || dateStr === "Unknown") return "—";
 
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return '—';
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return "—";
 
   const year = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10);
   const day = parseInt(parts[2], 10);
 
-  if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return '—';
+  if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return "—";
 
   const yy = String(year).slice(-2);
   return `${month}/${day}/${yy}`;
@@ -561,11 +596,14 @@ const numberFormatCache = new Map();
  * @param {string} [currency=DEFAULT_CURRENCY] - ISO currency code
  * @returns {string} Formatted currency string (e.g., "$1,234.56")
  */
-const formatCurrency = (value, currency = (typeof displayCurrency !== 'undefined' ? displayCurrency : DEFAULT_CURRENCY)) => {
+const formatCurrency = (
+  value,
+  currency = typeof displayCurrency !== "undefined" ? displayCurrency : DEFAULT_CURRENCY
+) => {
   const num = parseFloat(value);
   if (isNaN(num)) return "";
   // Convert internal USD value to target currency (STACK-50)
-  const rate = (typeof getExchangeRate === 'function') ? getExchangeRate(currency) : 1;
+  const rate = typeof getExchangeRate === "function" ? getExchangeRate(currency) : 1;
   const converted = num * rate;
   try {
     const upperCurrency = currency.toUpperCase();
@@ -591,10 +629,12 @@ const formatCurrency = (value, currency = (typeof displayCurrency !== 'undefined
 const loadDisplayCurrency = () => {
   try {
     const saved = loadDataSync(DISPLAY_CURRENCY_KEY, DEFAULT_CURRENCY);
-    if (saved && typeof saved === 'string') {
+    if (saved && typeof saved === "string") {
       displayCurrency = saved;
     }
-  } catch (e) { displayCurrency = DEFAULT_CURRENCY; }
+  } catch (e) {
+    displayCurrency = DEFAULT_CURRENCY;
+  }
 };
 
 /**
@@ -604,7 +644,10 @@ const loadDisplayCurrency = () => {
 const saveDisplayCurrency = (code) => {
   displayCurrency = code;
   saveDataSync(DISPLAY_CURRENCY_KEY, code);
-  if (typeof scheduleSyncPush === 'function') scheduleSyncPush();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("currencychange", { detail: { code } }));
+  }
+  if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 };
 
 /**
@@ -613,18 +656,22 @@ const saveDisplayCurrency = (code) => {
  * @returns {string} Currency symbol (e.g. "$", "€", "£", "₽")
  */
 const getCurrencySymbol = (currency) => {
-  const code = (currency || (typeof displayCurrency !== 'undefined' ? displayCurrency : 'USD')).toUpperCase();
+  const code = (
+    currency || (typeof displayCurrency !== "undefined" ? displayCurrency : "USD")
+  ).toUpperCase();
   try {
     const cacheKey = `en-${code}`;
     let formatter = numberFormatCache.get(cacheKey);
     if (!formatter) {
-      formatter = new Intl.NumberFormat('en', { style: 'currency', currency: code });
+      formatter = new Intl.NumberFormat("en", { style: "currency", currency: code });
       numberFormatCache.set(cacheKey, formatter);
     }
     const parts = formatter.formatToParts(0);
-    const sym = parts.find(p => p.type === 'currency');
+    const sym = parts.find((p) => p.type === "currency");
     return sym ? sym.value : code;
-  } catch (e) { return code; }
+  } catch (e) {
+    return code;
+  }
 };
 
 /**
@@ -635,15 +682,13 @@ const getCurrencySymbol = (currency) => {
 const updateModalCurrencyUI = () => {
   const symbol = getCurrencySymbol();
   // Scale padding based on symbol width: 1 char → 2rem, 2 → 2.5rem, 3+ → 3.25rem
-  const padding = symbol.length <= 1 ? '2rem' : symbol.length <= 2 ? '2.5rem' : '3.25rem';
-  document.querySelectorAll('.currency-input').forEach(el => {
-    el.style.setProperty('--currency-symbol', `"${symbol}"`);
-    el.style.setProperty('--currency-padding', padding);
+  const padding = symbol.length <= 1 ? "2rem" : symbol.length <= 2 ? "2.5rem" : "3.25rem";
+  document.querySelectorAll(".currency-input").forEach((el) => {
+    el.style.setProperty("--currency-symbol", `"${symbol}"`);
+    el.style.setProperty("--currency-padding", padding);
   });
-  const priceInput = document.getElementById('itemPrice');
-  if (priceInput) priceInput.placeholder = displayCurrency || 'USD';
-  const marketInput = document.getElementById('itemMarketValue');
-  if (marketInput) marketInput.placeholder = `${displayCurrency || 'USD'} — defaults to melt value`;
+  const marketInput = document.getElementById("itemMarketValue");
+  if (marketInput) marketInput.placeholder = `${displayCurrency || "USD"} — defaults to melt value`;
 };
 
 /**
@@ -656,9 +701,9 @@ const updateModalCurrencyUI = () => {
  */
 const getExchangeRate = (targetCurrency) => {
   const target = targetCurrency || displayCurrency;
-  if (target === 'USD') return 1;
+  if (target === "USD") return 1;
   if (exchangeRates[target]) return exchangeRates[target];
-  if (typeof FALLBACK_EXCHANGE_RATES !== 'undefined' && FALLBACK_EXCHANGE_RATES[target]) {
+  if (typeof FALLBACK_EXCHANGE_RATES !== "undefined" && FALLBACK_EXCHANGE_RATES[target]) {
     return FALLBACK_EXCHANGE_RATES[target];
   }
   return 1;
@@ -671,10 +716,12 @@ const getExchangeRate = (targetCurrency) => {
 const loadExchangeRates = () => {
   try {
     const saved = loadDataSync(EXCHANGE_RATES_KEY, null);
-    if (saved && typeof saved === 'object') {
+    if (saved && typeof saved === "object") {
       exchangeRates = saved;
     }
-  } catch (e) { exchangeRates = {}; }
+  } catch (e) {
+    exchangeRates = {};
+  }
 };
 
 /**
@@ -686,28 +733,58 @@ const saveExchangeRates = (rates) => {
   saveDataSync(EXCHANGE_RATES_KEY, rates);
 };
 
+let exchangeRatesFetchPromise = null;
+let exchangeRatesLastFetchedAt = 0;
+const EXCHANGE_RATES_FETCH_DEDUPE_MS = 60 * 1000;
+
 /**
  * Fetches latest exchange rates from the free API and caches them (STACK-50).
  * Non-blocking — if fetch fails, existing cached/fallback rates are used.
  * @returns {Promise<boolean>} Whether the fetch succeeded
  */
 const fetchExchangeRates = async () => {
-  try {
-    // Safe: URL from hardcoded constant EXCHANGE_RATE_API_URL or fallback literal
-    const url = typeof EXCHANGE_RATE_API_URL !== 'undefined'
-      ? EXCHANGE_RATE_API_URL
-      : 'https://open.er-api.com/v6/latest/USD';
-    const response = await fetch(url, { method: 'GET', mode: 'cors' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    if (data && data.rates && typeof data.rates === 'object') {
-      saveExchangeRates(data.rates);
-      return true;
-    }
-  } catch (e) {
-    console.warn('Exchange rate fetch failed, using cached/fallback rates:', e.message);
+  if (exchangeRatesFetchPromise) return exchangeRatesFetchPromise;
+  if (
+    exchangeRatesLastFetchedAt &&
+    Date.now() - exchangeRatesLastFetchedAt < EXCHANGE_RATES_FETCH_DEDUPE_MS
+  ) {
+    return true;
   }
-  return false;
+
+  exchangeRatesFetchPromise = (async () => {
+    try {
+      // Safe: URL from hardcoded constant EXCHANGE_RATE_API_URL or fallback literal
+      const url =
+        typeof EXCHANGE_RATE_API_URL !== "undefined"
+          ? EXCHANGE_RATE_API_URL
+          : "https://open.er-api.com/v6/latest/USD";
+      const response = await fetch(url, {
+        method: "GET",
+        mode: "cors",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (data && data.rates && typeof data.rates === "object") {
+        saveExchangeRates(data.rates);
+        exchangeRatesLastFetchedAt = Date.now();
+        return true;
+      }
+      // Payload unusable — still open the dedupe window to suppress retry storms
+      exchangeRatesLastFetchedAt = Date.now();
+    } catch (e) {
+      console.warn("Exchange rate fetch failed, using cached/fallback rates:", e.message);
+      // Failed fetch still counts as an attempt — suppress retry storms
+      exchangeRatesLastFetchedAt = Date.now();
+    }
+    return false;
+  })();
+
+  try {
+    return await exchangeRatesFetchPromise;
+  } finally {
+    exchangeRatesFetchPromise = null;
+  }
 };
 
 /**
@@ -740,11 +817,11 @@ const formatLossProfit = (value, percent) => {
 const sanitizeHtml = (text) => {
   if (!text) return "";
   return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 };
 
 /**
@@ -755,7 +832,7 @@ const sanitizeHtml = (text) => {
  * @returns {number} Parsed decimal value, or NaN if invalid
  */
 const parseFraction = (str) => {
-  if (typeof str !== 'string') return parseFloat(str);
+  if (typeof str !== "string") return parseFloat(str);
   str = str.trim();
   if (!str) return NaN;
 
@@ -766,7 +843,7 @@ const parseFraction = (str) => {
     const num = parseFloat(mixedMatch[2]);
     const denom = parseFloat(mixedMatch[3]);
     if (denom === 0) return NaN;
-    return whole + (num / denom);
+    return whole + num / denom;
   }
 
   // Simple fraction: "1/1000"
@@ -832,25 +909,29 @@ const oztToLb = (ozt) => ozt / LB_TO_OZT;
 
 /**
  * Formats a weight in troy ounces to either grams or ounces.
- * If weightUnit is 'gb', displays as Goldback denomination (no gram auto-conversion).
+ * If weightUnit is 'gb' or 'sb', displays as denomination units (no gram auto-conversion).
  *
- * @param {number} ozt - Weight in troy ounces (or Goldback denomination if weightUnit='gb')
- * @param {string} [weightUnit] - Optional weight unit: 'oz', 'g', or 'gb'
+ * @param {number} ozt - Weight in troy ounces (or denomination value if weightUnit='gb'/'sb')
+ * @param {string} [weightUnit] - Optional weight unit: 'oz', 'g', 'gb', or 'sb'
  * @returns {string} Formatted weight string with unit
  */
 const formatWeight = (ozt, weightUnit) => {
-  if (weightUnit === 'gb') {
+  if (weightUnit === "gb") {
     const w = parseFloat(ozt);
-    return `${(w % 1 === 0) ? w : w.toFixed(1)} gb`;
+    return `${w % 1 === 0 ? w : w.toFixed(1)} gb`;
+  }
+  if (weightUnit === "sb") {
+    const w = parseFloat(ozt);
+    return `${w % 1 === 0 ? w : w.toFixed(1)} sb`;
   }
   const weight = parseFloat(ozt);
-  if (weightUnit === 'kg') {
+  if (weightUnit === "kg") {
     return `${oztToKg(weight).toFixed(4)} kg`;
   }
-  if (weightUnit === 'lb') {
+  if (weightUnit === "lb") {
     return `${oztToLb(weight).toFixed(4)} lb`;
   }
-  if (weightUnit === 'g') {
+  if (weightUnit === "g") {
     return `${oztToGrams(weight).toFixed(2)} g`;
   }
   return `${weight.toFixed(2)} oz`;
@@ -897,10 +978,10 @@ const stripNonAlphanumeric = (str = "", { allowHyphen = false, allowSlash = fals
       allowHyphen && allowSlash
         ? /[^a-zA-Z0-9 \\/-]/g
         : allowHyphen
-        ? /[^a-zA-Z0-9 -]/g
-        : allowSlash
-        ? /[^a-zA-Z0-9 \\/]/g
-        : /[^a-zA-Z0-9 ]/g,
+          ? /[^a-zA-Z0-9 -]/g
+          : allowSlash
+            ? /[^a-zA-Z0-9 \\/]/g
+            : /[^a-zA-Z0-9 ]/g,
       ""
     );
 
@@ -914,7 +995,10 @@ const stripNonAlphanumeric = (str = "", { allowHyphen = false, allowSlash = fals
 const cleanString = (str = "") => {
   let s = str.toString();
   let prev;
-  do { prev = s; s = s.replace(/<[^>]*>/g, ''); } while (s !== prev);
+  do {
+    prev = s;
+    s = s.replace(/<[^>]*>/g, "");
+  } while (s !== prev);
   return s
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
@@ -932,13 +1016,19 @@ const cleanString = (str = "") => {
 const sanitizeObjectFields = (obj) => {
   const cleaned = { ...obj };
   for (const key of Object.keys(cleaned)) {
-    if (typeof cleaned[key] === "string" && key !== 'notes') {
+    if (typeof cleaned[key] === "string" && key !== "notes") {
       // URL fields must not be sanitized — they contain :, /, . characters
       // UUID fields must not be sanitized — hyphens are part of the format
-      if (key === 'obverseImageUrl' || key === 'reverseImageUrl' || key === 'uuid') continue;
-      const allowHyphen = key === 'date';
+      if (key === "obverseImageUrl" || key === "reverseImageUrl" || key === "uuid") continue;
+      const allowHyphen = key === "date";
       cleaned[key] =
-        (key === 'name' || key === 'purchaseLocation' || key === 'year' || key === 'grade' || key === 'gradingAuthority' || key === 'certNumber' || key === 'serialNumber')
+        key === "name" ||
+        key === "purchaseLocation" ||
+        key === "year" ||
+        key === "grade" ||
+        key === "gradingAuthority" ||
+        key === "certNumber" ||
+        key === "serialNumber"
           ? cleanString(cleaned[key])
           : stripNonAlphanumeric(cleaned[key], { allowHyphen });
     }
@@ -950,7 +1040,17 @@ const sanitizeObjectFields = (obj) => {
  * Allowed inventory item types
  * @constant {string[]}
  */
-const VALID_TYPES = ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"];
+const VALID_TYPES = [
+  "Coin",
+  "Bar",
+  "Round",
+  "Note",
+  "Aurum",
+  "Goldback",
+  "Silverback",
+  "Set",
+  "Other",
+];
 
 /**
  * Normalizes item type to one of the predefined options
@@ -960,7 +1060,7 @@ const VALID_TYPES = ["Coin", "Bar", "Round", "Note", "Aurum", "Set", "Other"];
  */
 const normalizeType = (type = "") => {
   const t = type.toString().trim().toLowerCase();
-  const match = VALID_TYPES.find(v => v.toLowerCase() === t);
+  const match = VALID_TYPES.find((v) => v.toLowerCase() === t);
   return match || "Other";
 };
 
@@ -972,6 +1072,8 @@ const normalizeType = (type = "") => {
  */
 const mapNumistaType = (type = "") => {
   const t = type.toLowerCase();
+  if (t.includes("goldback")) return "Goldback";
+  if (t.includes("silverback")) return "Silverback";
   if (t.includes("aurum")) return "Aurum";
   if (t.includes("note")) return "Note";
   if (t.includes("bar") || t.includes("ingot")) return "Bar";
@@ -1010,19 +1112,22 @@ const saveData = async (key, data, options = {}) => {
     // STAK-414: Track when inventory was last modified locally so the sync
     // poller can detect that local data is newer than the remote vault and
     // trigger a push instead of a pull.
-    if (key === 'metalInventory') {
-      localStorage.setItem('cloud_sync_local_modified', new Date().toISOString());
+    if (key === "metalInventory") {
+      localStorage.setItem("cloud_sync_local_modified", new Date().toISOString());
     }
-  } catch(e) {
-    console.error('saveData failed', e);
+  } catch (e) {
+    console.error("saveData failed", e);
     // STAK-421: Surface QuotaExceededError unless the caller marked the write as optional.
     if (
       e &&
-      e.name === 'QuotaExceededError' &&
+      e.name === "QuotaExceededError" &&
       !options.quietQuotaToast &&
-      typeof showToast === 'function'
+      typeof showToast === "function"
     ) {
-      showToast('Storage is full — some data could not be saved. Try clearing unused spot history or image cache.', 'error');
+      showToast(
+        "Storage is full — some data could not be saved. Try clearing unused spot history or image cache.",
+        "error"
+      );
     }
   }
 };
@@ -1036,10 +1141,10 @@ const saveData = async (key, data, options = {}) => {
 const loadData = async (key, defaultValue = []) => {
   try {
     const raw = localStorage.getItem(key);
-    if(raw == null) return defaultValue;
+    if (raw == null) return defaultValue;
     const str = __decompressIfNeeded(raw);
     return JSON.parse(str);
-  } catch(e) {
+  } catch (e) {
     console.warn(`loadData failed for ${key}, returning default:`, e);
     return defaultValue;
   }
@@ -1052,19 +1157,31 @@ const saveDataSync = (key, data, options = {}) => {
     const out = __compressIfNeeded(raw);
     localStorage.setItem(key, out);
   } catch (e) {
-    console.error('saveDataSync failed', e);
+    console.error("saveDataSync failed", e);
     if (
       e &&
-      e.name === 'QuotaExceededError' &&
+      e.name === "QuotaExceededError" &&
       !options.quietQuotaToast &&
-      typeof showToast === 'function'
+      typeof showToast === "function"
     ) {
-      showToast('Storage is full — some data could not be saved. Try clearing unused spot history or image cache.', 'error');
+      showToast(
+        "Storage is full — some data could not be saved. Try clearing unused spot history or image cache.",
+        "error"
+      );
     }
     throw e;
   }
 };
-const loadDataSync = (key, defaultValue = []) => { try { const raw = localStorage.getItem(key); if(raw == null) return defaultValue; const str = __decompressIfNeeded(raw); return JSON.parse(str); } catch(e) { return defaultValue; } };
+const loadDataSync = (key, defaultValue = []) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return defaultValue;
+    const str = __decompressIfNeeded(raw);
+    return JSON.parse(str);
+  } catch (e) {
+    return defaultValue;
+  }
+};
 
 /**
  * Removes unknown localStorage keys to maintain a clean storage state
@@ -1073,7 +1190,7 @@ const loadDataSync = (key, defaultValue = []) => { try { const raw = localStorag
  * ALLOWED_STORAGE_KEYS.
  */
 const cleanupStorage = () => {
-  if (typeof localStorage === 'undefined') return;
+  if (typeof localStorage === "undefined") return;
   const allowed = new Set(ALLOWED_STORAGE_KEYS);
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const key = localStorage.key(i);
@@ -1092,13 +1209,15 @@ const cleanupStorage = () => {
 const sortInventoryByDateNewestFirst = (data = inventory) => {
   return [...data].sort((a, b) => {
     // Handle unknown dates (—, empty, or Unknown) - they should sort to the bottom (oldest)
-    const isUnknownA = !a.date || a.date.trim() === '' || a.date.trim() === '—' || a.date.trim() === 'Unknown';
-    const isUnknownB = !b.date || b.date.trim() === '' || b.date.trim() === '—' || b.date.trim() === 'Unknown';
-    
+    const isUnknownA =
+      !a.date || a.date.trim() === "" || a.date.trim() === "—" || a.date.trim() === "Unknown";
+    const isUnknownB =
+      !b.date || b.date.trim() === "" || b.date.trim() === "—" || b.date.trim() === "Unknown";
+
     if (isUnknownA && isUnknownB) return 0; // Both unknown, equal
     if (isUnknownA) return 1; // A is unknown, put it after B (older)
     if (isUnknownB) return -1; // B is unknown, put it after A (older)
-    
+
     // Both have dates, compare normally
     const dateA = new Date(a.date);
     const dateB = new Date(b.date);
@@ -1118,29 +1237,18 @@ const validateInventoryItem = (item) => {
   const errors = [];
 
   // Required fields
-  if (
-    !item.name ||
-    typeof item.name !== "string" ||
-    item.name.trim().length === 0
-  ) {
+  if (!item.name || typeof item.name !== "string" || item.name.trim().length === 0) {
     errors.push("Name is required");
   } else if (item.name.length > 100) {
     errors.push("Name must be 100 characters or less");
   }
 
-  if (
-    !item.metal ||
-    !["Silver", "Gold", "Platinum", "Palladium"].includes(item.metal)
-  ) {
+  if (!item.metal || !["Silver", "Gold", "Platinum", "Palladium"].includes(item.metal)) {
     errors.push("Valid metal type is required");
   }
 
   // Numeric validations
-  if (
-    !item.qty ||
-    !Number.isInteger(Number(item.qty)) ||
-    Number(item.qty) < 1
-  ) {
+  if (!item.qty || !Number.isInteger(Number(item.qty)) || Number(item.qty) < 1) {
     errors.push("Quantity must be a positive integer");
   }
 
@@ -1187,7 +1295,7 @@ const buildImportValidationResult = (items, skippedNonPM) => {
     } else {
       invalid.push({
         index: i,
-        name: (item.name && item.name.trim()) ? item.name.trim() : ('Item ' + (i + 1)),
+        name: item.name && item.name.trim() ? item.name.trim() : "Item " + (i + 1),
         reasons: result.errors,
       });
     }
@@ -1214,10 +1322,10 @@ const sanitizeImportedItem = (item) => {
   const sanitized = { ...item };
 
   // Ensure metal and composition are strings
-  if (typeof sanitized.metal !== 'string') {
-    sanitized.metal = '';
+  if (typeof sanitized.metal !== "string") {
+    sanitized.metal = "";
   }
-  if (typeof sanitized.composition !== 'string') {
+  if (typeof sanitized.composition !== "string") {
     sanitized.composition = sanitized.metal;
   }
 
@@ -1227,11 +1335,11 @@ const sanitizeImportedItem = (item) => {
 
   // Default purity to 1.0 (pure/fine) when missing or invalid
   const parsedPurity = parseFloat(sanitized.purity);
-  sanitized.purity = (isNaN(parsedPurity) || parsedPurity <= 0 || parsedPurity > 1)
-    ? 1.0 : parsedPurity;
+  sanitized.purity =
+    isNaN(parsedPurity) || parsedPurity <= 0 || parsedPurity > 1 ? 1.0 : parsedPurity;
 
   // Ensure other numeric fields parse correctly
-  const numFields = ['qty', 'weight', 'spotPriceAtPurchase'];
+  const numFields = ["qty", "weight", "spotPriceAtPurchase"];
   for (const field of numFields) {
     if (sanitized[field] !== undefined) {
       const parsed = parseFloat(sanitized[field]);
@@ -1240,18 +1348,21 @@ const sanitizeImportedItem = (item) => {
   }
 
   // Normalize and sanitize string fields
-  const basicFields = ['name', 'type', 'purchaseLocation', 'storageLocation'];
-  const cleanMultilineString = (str = '') => {
+  const basicFields = ["name", "type", "purchaseLocation", "storageLocation"];
+  const cleanMultilineString = (str = "") => {
     let s = str.toString();
     let prev;
-    do { prev = s; s = s.replace(/<[^>]*>/g, ''); } while (s !== prev);
+    do {
+      prev = s;
+      s = s.replace(/<[^>]*>/g, "");
+    } while (s !== prev);
     return s
-      .normalize('NFD')
-      .replace(/\p{Diacritic}/gu, '')
-      .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
-      .replace(/\r\n?/g, '\n')
-      .replace(/[ \t]+/g, ' ')
-      .replace(/ *\n */g, '\n')
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/[ \t]+/g, " ")
+      .replace(/ *\n */g, "\n")
       .trim();
   };
   for (const field of basicFields) {
@@ -1286,7 +1397,12 @@ const computeMeltValue = (item, spot) => {
   const weight = parseFloat(item.weight) || 0;
   const qty = Number(item.qty) || 1;
   const purity = parseFloat(item.purity) || 1.0;
-  const weightOz = (item.weightUnit === 'gb') ? weight * GB_TO_OZT : weight;
+  const weightOz =
+    item.weightUnit === "gb"
+      ? weight * GB_TO_OZT
+      : item.weightUnit === "sb"
+        ? weight * SB_TO_OZT
+        : weight;
   return weightOz * qty * spot * purity;
 };
 
@@ -1298,9 +1414,9 @@ const computeMeltValue = (item, spot) => {
  * @returns {number|null} Per-unit denomination price, or null
  */
 const getGoldbackRetailPrice = (item) => {
-  if (item.weightUnit !== 'gb') return null;
-  if (typeof isGoldbackPricingActive !== 'function' || !isGoldbackPricingActive()) return null;
-  if (typeof getGoldbackDenominationPrice !== 'function') return null;
+  if (item.weightUnit !== "gb") return null;
+  if (typeof isGoldbackPricingActive !== "function" || !isGoldbackPricingActive()) return null;
+  if (typeof getGoldbackDenominationPrice !== "function") return null;
   return getGoldbackDenominationPrice(parseFloat(item.weight));
 };
 
@@ -1323,10 +1439,13 @@ const calculateRetailPrice = (item, currentSpot) => {
   const qty = Number(item?.qty) || 1;
   const marketValue = parseFloat(item?.marketValue) || 0;
   const meltValue = computeMeltValue(item, Number(currentSpot) || 0);
-  const gbDenomPrice = (typeof getGoldbackRetailPrice === 'function') ? getGoldbackRetailPrice(item) : null;
+  const gbDenomPrice =
+    typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
   const isManualRetail = !gbDenomPrice && marketValue > 0;
-  const retailTotal = gbDenomPrice ? gbDenomPrice * qty
-    : isManualRetail ? marketValue * qty
+  const retailTotal = gbDenomPrice
+    ? gbDenomPrice * qty
+    : isManualRetail
+      ? marketValue * qty
       : meltValue;
 
   return {
@@ -1360,16 +1479,10 @@ const calculateRetailPrice = (item, currentSpot) => {
  */
 const computeItemValuation = (item, currentSpot) => {
   const normalizedSpot = Number(currentSpot) || 0;
-  const {
-    qty,
-    marketValue,
-    meltValue,
-    gbDenomPrice,
-    isManualRetail,
-    retailTotal,
-  } = calculateRetailPrice(item, normalizedSpot);
+  const { qty, marketValue, meltValue, gbDenomPrice, isManualRetail, retailTotal } =
+    calculateRetailPrice(item, normalizedSpot);
 
-  const purchasePrice = typeof item?.price === 'number' ? item.price : parseFloat(item?.price) || 0;
+  const purchasePrice = typeof item?.price === "number" ? item.price : parseFloat(item?.price) || 0;
   const purchaseTotal = purchasePrice * qty;
   const hasRetailSignal = normalizedSpot > 0 || isManualRetail || !!gbDenomPrice;
   const gainLoss = hasRetailSignal ? retailTotal - purchaseTotal : null;
@@ -1395,8 +1508,7 @@ const computeItemValuation = (item, currentSpot) => {
  * @param {string} context - Context where error occurred
  */
 const handleError = (error, context = "") => {
-  const errorMessage =
-    error instanceof Error ? error.message : error.toString();
+  const errorMessage = error instanceof Error ? error.message : error.toString();
 
   console.error(`Error in ${context}:`, error);
 
@@ -1433,9 +1545,9 @@ const getUserFriendlyMessage = (errorMessage) => {
  * @param {string} content - Content of the file
  * @param {string} mimeType - MIME type of the file (default: text/plain)
  */
-  const downloadFile = (filename, content, mimeType = "text/plain") => {
-    try {
-      const blob = new Blob([content], { type: mimeType });
+const downloadFile = (filename, content, mimeType = "text/plain") => {
+  try {
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
@@ -1453,9 +1565,9 @@ const getUserFriendlyMessage = (errorMessage) => {
     console.error("Error downloading file:", error);
     handleError(error, "file download");
   }
-  };
+};
 
-  // =============================================================================
+// =============================================================================
 
 /**
  * Updates footer with localStorage usage statistics
@@ -1482,7 +1594,9 @@ const updateStorageStats = async () => {
         const idbStats = await imageCache.getStorageUsage();
         idbUsed = idbStats.totalBytes || 0;
         idbLimit = idbStats.limitBytes || idbLimit;
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     // Combined total for display
@@ -1492,13 +1606,14 @@ const updateStorageStats = async () => {
     const el = document.getElementById("storageUsage");
     if (el) {
       const lsKB = (lsUsed / 1024).toFixed(1);
-      const idbKB = idbUsed > 0 ? (idbUsed / 1024).toFixed(1) : '0';
+      const idbKB = idbUsed > 0 ? (idbUsed / 1024).toFixed(1) : "0";
       const totalMB = (combinedUsed / (1024 * 1024)).toFixed(2);
       const limitMB = (combinedLimit / (1024 * 1024)).toFixed(0);
       // Show legend dots + breakdown
-      el.innerHTML = `<span class="storage-dot storage-dot--ls"></span>LS ${lsKB} KB`
-        + ` <span class="storage-dot storage-dot--idb"></span>IDB ${idbKB} KB`
-        + ` <span style="color:var(--text-muted); margin-left:4px;">(${totalMB} MB / ${limitMB} MB)</span>`;
+      el.innerHTML =
+        `<span class="storage-dot storage-dot--ls"></span>LS ${lsKB} KB` +
+        ` <span class="storage-dot storage-dot--idb"></span>IDB ${idbKB} KB` +
+        ` <span style="color:var(--text-muted); margin-left:4px;">(${totalMB} MB / ${limitMB} MB)</span>`;
     }
 
     // Multi-color bar: widths as % of combined limit
@@ -1508,8 +1623,10 @@ const updateStorageStats = async () => {
     if (idbBar) idbBar.style.width = `${(idbUsed / combinedLimit) * 100}%`;
 
     // Update tooltips with details
-    if (lsBar) lsBar.title = `localStorage: ${(lsUsed / 1024).toFixed(1)} KB / ${(lsLimit / (1024 * 1024)).toFixed(0)} MB`;
-    if (idbBar) idbBar.title = `IndexedDB Images: ${(idbUsed / 1024).toFixed(1)} KB / ${(idbLimit / (1024 * 1024)).toFixed(0)} MB`;
+    if (lsBar)
+      lsBar.title = `localStorage: ${(lsUsed / 1024).toFixed(1)} KB / ${(lsLimit / (1024 * 1024)).toFixed(0)} MB`;
+    if (idbBar)
+      idbBar.title = `IndexedDB Images: ${(idbUsed / 1024).toFixed(1)} KB / ${(idbLimit / (1024 * 1024)).toFixed(0)} MB`;
   } catch (err) {
     const el = document.getElementById("storageUsage");
     if (el) el.textContent = "Storage info unavailable";
@@ -1524,38 +1641,42 @@ const openStorageReportPopup = async () => {
   // Fetch IndexedDB stats before generating report
   let idbStats = null;
   if (window.imageCache?.isAvailable()) {
-    try { idbStats = await imageCache.getStorageUsage(); } catch { /* ignore */ }
+    try {
+      idbStats = await imageCache.getStorageUsage();
+    } catch {
+      /* ignore */
+    }
   }
   const htmlContent = generateStorageReportHTML(idbStats);
-  const modal = document.getElementById('storageReportModal');
-  const iframe = document.getElementById('storageReportFrame');
+  const modal = document.getElementById("storageReportModal");
+  const iframe = document.getElementById("storageReportFrame");
 
   if (!modal || !iframe) {
-    appAlert('Storage report modal not found.');
+    appAlert("Storage report modal not found.");
     return;
   }
 
   iframe.srcdoc = htmlContent;
 
-  const closeBtn = document.getElementById('storageReportCloseBtn');
+  const closeBtn = document.getElementById("storageReportCloseBtn");
 
   const closeModal = () => {
-    modal.style.display = 'none';
-    document.body.style.overflow = '';
+    modal.style.display = "none";
+    document.body.style.overflow = "";
   };
 
   if (!modal.dataset.initialized) {
-    modal.addEventListener('click', (e) => {
+    modal.addEventListener("click", (e) => {
       if (e.target === modal) closeModal();
     });
     if (closeBtn) {
-      closeBtn.addEventListener('click', closeModal);
+      closeBtn.addEventListener("click", closeModal);
     }
-    modal.dataset.initialized = 'true';
+    modal.dataset.initialized = "true";
   }
 
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
 };
 /**
  * Globally close a modal by id and clear body overflow safely.
@@ -1564,12 +1685,86 @@ const openStorageReportPopup = async () => {
 const closeModalById = (id) => {
   try {
     const modal = document.getElementById(id);
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      releaseFocus(modal);
+      modal.style.display = "none";
+    }
   } catch (e) {
     /* ignore */
   }
-  try { if (document && document.body) document.body.style.overflow = ''; } catch (e) {}
+  try {
+    if (document && document.body) document.body.style.overflow = "";
+  } catch (e) {}
 };
+// ---------------------------------------------------------------------------
+// Focus trap — confines Tab/Shift+Tab within the topmost open modal
+// ---------------------------------------------------------------------------
+const _FOCUSABLE_SELECTOR =
+  'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
+
+/** Stack of { modal, previousFocus, handler } for nested modals */
+const _focusTrapStack = [];
+
+/**
+ * Activate a focus trap on a modal element.
+ * @param {HTMLElement} modal
+ */
+const trapFocus = (modal) => {
+  // Idempotency: remove stale entry for this modal before re-registering
+  const existingIdx = _focusTrapStack.findIndex((entry) => entry.modal === modal);
+  if (existingIdx !== -1) {
+    const stale = _focusTrapStack.splice(existingIdx, 1)[0];
+    modal.removeEventListener("keydown", stale.handler);
+  }
+
+  const previousFocus = document.activeElement;
+
+  const handler = (e) => {
+    if (e.key !== "Tab") return;
+    const focusable = Array.from(modal.querySelectorAll(_FOCUSABLE_SELECTOR)).filter(
+      (el) => el.offsetWidth > 0 || el.offsetHeight > 0
+    );
+    if (focusable.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+
+  modal.addEventListener("keydown", handler);
+  _focusTrapStack.push({ modal, previousFocus, handler });
+};
+
+/**
+ * Release the focus trap on a modal and restore previous focus.
+ * @param {HTMLElement} modal
+ */
+const releaseFocus = (modal) => {
+  const idx = _focusTrapStack.findIndex((entry) => entry.modal === modal);
+  if (idx === -1) return;
+  const entry = _focusTrapStack.splice(idx, 1)[0];
+  modal.removeEventListener("keydown", entry.handler);
+  if (entry.previousFocus && entry.previousFocus.focus) {
+    try {
+      entry.previousFocus.focus();
+    } catch (e) {
+      /* element may have been removed */
+    }
+  }
+};
+
 /**
  * Opens a modal by id and sets body overflow to hidden.
  * Also initializes a click-outside-to-close handler once.
@@ -1582,17 +1777,21 @@ const openModalById = (id) => {
 
     // initialize click-outside handler once per modal
     if (!modal.dataset.initialized) {
-      modal.addEventListener('click', (e) => {
+      modal.addEventListener("click", (e) => {
         if (e.target === modal) closeModalById(id);
       });
-      modal.dataset.initialized = 'true';
+      modal.dataset.initialized = "true";
     }
 
-    modal.style.display = 'flex';
-    try { if (document && document.body) document.body.style.overflow = 'hidden'; } catch (e) {}
+    modal.style.display = "flex";
+    try {
+      if (document && document.body) document.body.style.overflow = "hidden";
+    } catch (e) {}
+    // activate focus trap
+    trapFocus(modal);
     // focus first focusable element for a11y
     try {
-      const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      const focusable = modal.querySelector(_FOCUSABLE_SELECTOR);
       if (focusable && focusable.focus) focusable.focus();
     } catch (e) {}
   } catch (e) {
@@ -1605,8 +1804,9 @@ const openModalById = (id) => {
 const generateStorageReportHTML = (idbStats) => {
   const reportData = analyzeStorageData();
   const timestamp = formatTimestamp(new Date());
-  const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-  
+  const currentTheme =
+    document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+
   return `<!DOCTYPE html>
 <html lang="en" data-theme="${currentTheme}">
 <head>
@@ -1652,9 +1852,11 @@ const generateStorageReportHTML = (idbStats) => {
                 </div>
                 <div class="summary-item">
                     <span class="summary-label">Largest Item:</span>
-                    <span class="summary-value">${reportData.largestItem ? getStorageItemDisplayName(reportData.largestItem.key) : 'None'} ${reportData.largestItem ? '(' + reportData.largestItem.size.toFixed(2) + ' KB)' : ''}</span>
+                    <span class="summary-value">${reportData.largestItem ? getStorageItemDisplayName(reportData.largestItem.key) : "None"} ${reportData.largestItem ? "(" + reportData.largestItem.size.toFixed(2) + " KB)" : ""}</span>
                 </div>
-                ${idbStats ? `
+                ${
+                  idbStats
+                    ? `
                 <div class="summary-item">
                     <span class="summary-label">IndexedDB (Images):</span>
                     <span class="summary-value">${(idbStats.totalBytes / 1024).toFixed(1)} KB / ${(idbStats.limitBytes / (1024 * 1024)).toFixed(0)} MB (${idbStats.count} cached)</span>
@@ -1662,7 +1864,9 @@ const generateStorageReportHTML = (idbStats) => {
                 <div class="summary-item">
                     <span class="summary-label">Combined Total:</span>
                     <span class="summary-value">${((reportData.totalSize * 1024 + idbStats.totalBytes) / 1024).toFixed(1)} KB</span>
-                </div>` : ''}
+                </div>`
+                    : ""
+                }
             </div>
         </section>
         
@@ -1675,13 +1879,18 @@ const generateStorageReportHTML = (idbStats) => {
                 <div class="chart-legend">
                     <h3>Click on chart or items below for details</h3>
                     <div class="legend-items">
-                        ${reportData.items.slice(0,5).map((item, index) => `
+                        ${reportData.items
+                          .slice(0, 5)
+                          .map(
+                            (item, index) => `
                             <div class="legend-item" onclick="showItemDetail('${item.key}')" data-index="${index}">
                                 <span class="legend-color" style="background-color: ${getChartColor(index)}"></span>
                                 <span class="legend-label">${getStorageItemDisplayName(item.key)}</span>
                                 <span class="legend-value">${item.size.toFixed(1)} KB (${item.percentage.toFixed(1)}%)</span>
                             </div>
-                        `).join('')}
+                        `
+                          )
+                          .join("")}
                     </div>
                 </div>
             </div>
@@ -1690,7 +1899,9 @@ const generateStorageReportHTML = (idbStats) => {
         <section class="storage-breakdown">
             <h2>Storage Items Details</h2>
             <div class="items-grid">
-                ${reportData.items.map(item => `
+                ${reportData.items
+                  .map(
+                    (item) => `
                     <div class="storage-item" onclick="showItemDetail('${item.key}')">
                         <div class="item-header">
                             <h3>${getStorageItemDisplayName(item.key)}</h3>
@@ -1707,7 +1918,9 @@ const generateStorageReportHTML = (idbStats) => {
                             <span class="detail-item">Records: ${item.recordCount}</span>
                         </div>
                     </div>
-                `).join('')}
+                `
+                  )
+                  .join("")}
             </div>
         </section>
         
@@ -1747,8 +1960,16 @@ const generateStorageReportHTML = (idbStats) => {
  */
 const getChartColor = (index) => {
   const colors = [
-    '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1',
-    '#fd7e14', '#20c997', '#e83e8c', '#6c757d', '#17a2b8'
+    "#007bff",
+    "#28a745",
+    "#ffc107",
+    "#dc3545",
+    "#6f42c1",
+    "#fd7e14",
+    "#20c997",
+    "#e83e8c",
+    "#6c757d",
+    "#17a2b8",
   ];
   return colors[index % colors.length];
 };
@@ -1759,51 +1980,51 @@ const getChartColor = (index) => {
 const analyzeStorageData = () => {
   const items = [];
   let totalSize = 0;
-  
+
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     let value = localStorage.getItem(key);
-    
+
     // Sanitize sensitive data
     if (key === API_KEY_STORAGE_KEY) {
       try {
-        const config = JSON.parse(value || '{}');
+        const config = JSON.parse(value || "{}");
         if (config?.keys) {
           value = JSON.stringify({ ...config, keys: {} });
         }
       } catch (err) {
-        console.warn('Could not sanitize API config for report', err);
+        console.warn("Could not sanitize API config for report", err);
       }
     }
-    
+
     // Calculate size (localStorage stores UTF-16, ~2 bytes per character)
     const size = ((key.length + (value ? value.length : 0)) * 2) / 1024; // KB
     totalSize += size;
-    
+
     // Determine data type and record count
     const analysis = analyzeStorageItem(key, value);
-    
+
     items.push({
       key,
       size,
       value,
       type: analysis.type,
       recordCount: analysis.recordCount,
-      parsedData: analysis.parsedData
+      parsedData: analysis.parsedData,
     });
   }
-  
+
   // Calculate percentages and sort by size
-  items.forEach(item => {
+  items.forEach((item) => {
     item.percentage = (item.size / totalSize) * 100;
   });
-  
+
   items.sort((a, b) => b.size - a.size);
-  
+
   return {
     items,
     totalSize,
-    largestItem: items[0] || { name: 'None', size: 0 }
+    largestItem: items[0] || { name: "None", size: 0 },
   };
 };
 
@@ -1811,28 +2032,28 @@ const analyzeStorageData = () => {
  * Analyzes a storage item to determine its type and content
  */
 const analyzeStorageItem = (key, value) => {
-  let type = 'String';
+  let type = "String";
   let recordCount = 1;
   let parsedData = null;
-  
+
   try {
     parsedData = JSON.parse(value);
-    
+
     if (Array.isArray(parsedData)) {
-      type = 'Array';
+      type = "Array";
       recordCount = parsedData.length;
-    } else if (typeof parsedData === 'object' && parsedData !== null) {
-      type = 'Object';
+    } else if (typeof parsedData === "object" && parsedData !== null) {
+      type = "Object";
       recordCount = Object.keys(parsedData).length;
     } else {
-      type = 'JSON Value';
+      type = "JSON Value";
     }
   } catch (e) {
     // Not JSON, treat as string
-    type = 'String';
+    type = "String";
     recordCount = 1;
   }
-  
+
   return { type, recordCount, parsedData };
 };
 
@@ -1841,17 +2062,17 @@ const analyzeStorageItem = (key, value) => {
  */
 const getStorageItemDisplayName = (key) => {
   const names = {
-    'precious-metals-inventory': 'Inventory Data',
-    'spot-price-history': 'Spot Price History',
-    'api-config': 'Metals API Configuration',
-    'api-cache': 'API Cache',
-    'spotPriceSilver': 'Silver Spot Price',
-    'spotPriceGold': 'Gold Spot Price',
-    'spotPricePlatinum': 'Platinum Spot Price',
-    'spotPricePalladium': 'Palladium Spot Price',
-    'theme': 'Theme Setting'
+    "precious-metals-inventory": "Inventory Data",
+    "spot-price-history": "Spot Price History",
+    "api-config": "Metals API Configuration",
+    "api-cache": "API Cache",
+    spotPriceSilver: "Silver Spot Price",
+    spotPriceGold: "Gold Spot Price",
+    spotPricePlatinum: "Platinum Spot Price",
+    spotPricePalladium: "Palladium Spot Price",
+    theme: "Theme Setting",
   };
-  
+
   return names[key] || key;
 };
 
@@ -1860,18 +2081,19 @@ const getStorageItemDisplayName = (key) => {
  */
 const getStorageItemDescription = (key) => {
   const descriptions = {
-    'precious-metals-inventory': 'Your complete inventory of precious metals items with all details',
-    'spot-price-history': 'Historical spot price data from API providers and manual entries',
-    'api-config': 'Metals API provider configurations and usage statistics',
-    'api-cache': 'Cached spot price data to reduce API calls',
-    'spotPriceSilver': 'Current spot price setting for silver',
-    'spotPriceGold': 'Current spot price setting for gold', 
-    'spotPricePlatinum': 'Current spot price setting for platinum',
-    'spotPricePalladium': 'Current spot price setting for palladium',
-    'theme': 'User interface theme preference (dark/light/system)'
+    "precious-metals-inventory":
+      "Your complete inventory of precious metals items with all details",
+    "spot-price-history": "Historical spot price data from API providers and manual entries",
+    "api-config": "Metals API provider configurations and usage statistics",
+    "api-cache": "Cached spot price data to reduce API calls",
+    spotPriceSilver: "Current spot price setting for silver",
+    spotPriceGold: "Current spot price setting for gold",
+    spotPricePlatinum: "Current spot price setting for platinum",
+    spotPricePalladium: "Current spot price setting for palladium",
+    theme: "User interface theme preference (dark/light/system)",
   };
-  
-  return descriptions[key] || 'Application data stored in browser localStorage';
+
+  return descriptions[key] || "Application data stored in browser localStorage";
 };
 
 /**
@@ -2871,17 +3093,17 @@ const getStorageReportJS = () => {
  * Generates a comprehensive ZIP file with storage report and data
  */
 const generateStorageReportTar = async () => {
-  if (typeof JSZip === 'undefined') {
-    throw new Error('JSZip library not available for compressed reports');
+  if (typeof JSZip === "undefined") {
+    throw new Error("JSZip library not available for compressed reports");
   }
-  
+
   const zip = new JSZip();
-  const timestamp = new Date().toISOString().split('T')[0];
-  
+  const timestamp = new Date().toISOString().split("T")[0];
+
   // Add themed HTML report
   const htmlContent = generateStorageReportHTML();
   zip.file(`storage-report-${timestamp}.html`, htmlContent);
-  
+
   // Add JSON data for each storage item
   const reportData = analyzeStorageData();
   const jsonReport = {
@@ -2890,9 +3112,9 @@ const generateStorageReportTar = async () => {
       version: APP_VERSION,
       totalSize: reportData.totalSize,
       itemCount: reportData.items.length,
-      theme: document.documentElement.getAttribute('data-theme') || 'light'
+      theme: document.documentElement.getAttribute("data-theme") || "light",
     },
-    items: reportData.items.map(item => ({
+    items: reportData.items.map((item) => ({
       key: item.key,
       displayName: getStorageItemDisplayName(item.key),
       description: getStorageItemDescription(item.key),
@@ -2900,20 +3122,21 @@ const generateStorageReportTar = async () => {
       percentage: item.percentage,
       type: item.type,
       recordCount: item.recordCount,
-      data: item.parsedData || item.value
-    }))
+      data: item.parsedData || item.value,
+    })),
   };
-  
+
   zip.file(`storage-data-${timestamp}.json`, JSON.stringify(jsonReport, null, 2));
-  
+
   // Add individual data files for large items
   for (const item of reportData.items) {
-    if (item.size > 10 && item.parsedData) { // Items larger than 10KB
+    if (item.size > 10 && item.parsedData) {
+      // Items larger than 10KB
       const filename = `${item.key}-${timestamp}.json`;
       zip.file(filename, JSON.stringify(item.parsedData, null, 2));
     }
   }
-  
+
   // Add README
   const readme = `StakTrakr Storage Report Archive
 =================================
@@ -2934,32 +3157,36 @@ To view the report:
 3. Click on chart segments or table items for detailed views
 
 This archive contains a complete snapshot of your StakTrakr storage data.`;
-  
-  zip.file('README.txt', readme);
-  
+
+  zip.file("README.txt", readme);
+
   // Generate the ZIP file
-  const content = await zip.generateAsync({ type: 'blob' });
+  const content = await zip.generateAsync({ type: "blob" });
   return content;
 };
 
 /** Storage compression helpers (Phase 1C) */
-const __ST_COMP_PREFIX = 'CMP1:';
-function __compressIfNeeded(str){
-  try{
-    if(!str || str.length < 4096) return str;
+const __ST_COMP_PREFIX = "CMP1:";
+function __compressIfNeeded(str) {
+  try {
+    if (!str || str.length < 4096) return str;
     const comp = LZString.compressToUTF16(str);
     return __ST_COMP_PREFIX + comp;
-  }catch(e){ return str; }
+  } catch (e) {
+    return str;
+  }
 }
-function __decompressIfNeeded(stored){
-  try{
-    if(typeof stored !== 'string') return stored;
-    if(stored.startsWith(__ST_COMP_PREFIX)){
+function __decompressIfNeeded(stored) {
+  try {
+    if (typeof stored !== "string") return stored;
+    if (stored.startsWith(__ST_COMP_PREFIX)) {
       const raw = LZString.decompressFromUTF16(stored.slice(__ST_COMP_PREFIX.length));
       return raw;
     }
     return stored;
-  }catch(e){ return stored; }
+  } catch (e) {
+    return stored;
+  }
 }
 /**
  * Returns black or white contrast color for a given background.
@@ -2968,42 +3195,45 @@ function __decompressIfNeeded(stored){
  * @returns {string} '#000000' or '#ffffff'
  */
 function getContrastColor(bg) {
-  if (!bg) return '#000000';
+  if (!bg) return "#000000";
   let hex = bg.trim();
-  if (hex.startsWith('var(')) {
+  if (hex.startsWith("var(")) {
     const varName = hex.slice(4, -1).trim();
-    hex = getComputedStyle(document.documentElement)
-      .getPropertyValue(varName)
-      .trim();
+    hex = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   }
-  if (hex.startsWith('#')) {
+  if (hex.startsWith("#")) {
     hex = hex.slice(1);
   }
   if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join('');
+    hex = hex
+      .split("")
+      .map((c) => c + c)
+      .join("");
   }
-  if (hex.length !== 6) return '#000000';
+  if (hex.length !== 6) return "#000000";
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#000000' : '#ffffff';
+  return luminance > 0.5 ? "#000000" : "#ffffff";
 }
 
 /** Generates a storage utilization report */
-function generateStorageReport(){
-  try{
+function generateStorageReport() {
+  try {
     const items = [];
-    for(let i=0;i<localStorage.length;i++){
+    for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      const v = localStorage.getItem(k) || '';
+      const v = localStorage.getItem(k) || "";
       const sizeBytes = (k.length + v.length) * 2; // rough UTF-16 bytes
-      items.push({ key:k, sizeBytes, sizeKB: +(sizeBytes/1024).toFixed(2) });
+      items.push({ key: k, sizeBytes, sizeKB: +(sizeBytes / 1024).toFixed(2) });
     }
-    items.sort((a,b)=>b.sizeBytes - a.sizeBytes);
-    const totalBytes = items.reduce((s,x)=>s+x.sizeBytes,0);
-    return { totalKB: +(totalBytes/1024).toFixed(2), items };
-  }catch(e){ return { totalKB:0, items:[] }; }
+    items.sort((a, b) => b.sizeBytes - a.sizeBytes);
+    const totalBytes = items.reduce((s, x) => s + x.sizeBytes, 0);
+    return { totalKB: +(totalBytes / 1024).toFixed(2), items };
+  } catch (e) {
+    return { totalKB: 0, items: [] };
+  }
 }
 
 /**
@@ -3014,8 +3244,8 @@ function generateStorageReport(){
  */
 function cleanSearchTerm(term) {
   return term
-    .replace(/["'()\\]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/["'()\\]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -3025,8 +3255,15 @@ function openEbayBuySearch(searchTerm) {
   const encodedTerm = encodeURIComponent(cleanTerm);
   // eBay active listings URL — items currently for sale, sorted by best match
   const ebayUrl = `https://www.ebay.com/sch/i.html?_from=R40&_nkw=${encodedTerm}&_sacat=0&LH_BIN=1&_sop=12`;
-  const popup = window.open(ebayUrl, `ebay_buy_${Date.now()}`, 'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no');
-  if (popup) { popup.opener = null; popup.focus(); }
+  const popup = window.open(
+    ebayUrl,
+    `ebay_buy_${Date.now()}`,
+    "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
+  );
+  if (popup) {
+    popup.opener = null;
+    popup.focus();
+  }
 }
 
 function openEbaySoldSearch(searchTerm) {
@@ -3035,10 +3272,16 @@ function openEbaySoldSearch(searchTerm) {
   const encodedTerm = encodeURIComponent(cleanTerm);
   // eBay sold listings URL — completed sales, sorted by most recent
   const ebayUrl = `https://www.ebay.com/sch/i.html?_from=R40&_nkw=${encodedTerm}&_sacat=0&LH_Sold=1&LH_Complete=1&_sop=13`;
-  const popup = window.open(ebayUrl, `ebay_sold_${Date.now()}`, 'width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no');
-  if (popup) { popup.opener = null; popup.focus(); }
+  const popup = window.open(
+    ebayUrl,
+    `ebay_sold_${Date.now()}`,
+    "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
+  );
+  if (popup) {
+    popup.opener = null;
+    popup.focus();
+  }
 }
-
 
 /**
  * Sets a button's loading state, preserving its width and original content.
@@ -3046,26 +3289,27 @@ function openEbaySoldSearch(searchTerm) {
  * @param {boolean} isLoading - Whether to set loading state
  * @param {string} [loadingText] - Optional text to show next to spinner
  */
-const setButtonLoading = (btn, isLoading, loadingText = '') => {
+const setButtonLoading = (btn, isLoading, loadingText = "") => {
   if (!btn) return;
   if (isLoading) {
     if (!btn.dataset.originalHtml) {
       btn.dataset.originalHtml = btn.innerHTML;
       // Lock width to prevent layout jump
       const rect = btn.getBoundingClientRect();
-      if (rect.width > 0) btn.style.width = rect.width + 'px';
+      if (rect.width > 0) btn.style.width = rect.width + "px";
     }
     btn.disabled = true;
     // Spinner SVG (reusing existing spin animation)
-    const spinner = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite; margin-right:0.4em; vertical-align: middle;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+    const spinner =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite; margin-right:0.4em; vertical-align: middle;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-    btn.innerHTML = spinner + escapeHtml(loadingText || 'Loading...');
+    btn.innerHTML = spinner + escapeHtml(loadingText || "Loading...");
   } else {
     if (btn.dataset.originalHtml) {
       btn.innerHTML = btn.dataset.originalHtml;
       delete btn.dataset.originalHtml;
     }
-    btn.style.width = '';
+    btn.style.width = "";
     btn.disabled = false;
   }
 };
@@ -3077,19 +3321,20 @@ const setButtonLoading = (btn, isLoading, loadingText = '') => {
  * @returns {'--green'|'--orange'|'--red'}
  */
 function getHealthStatusClass(timestamp) {
-  if (!timestamp) return '--red';
-  const normalized = timestamp.replace(' ', 'T') +
-    (timestamp.includes('Z') || timestamp.includes('+') ? '' : 'Z');
+  if (!timestamp) return "--red";
+  const normalized =
+    timestamp.replace(" ", "T") + (timestamp.includes("Z") || timestamp.includes("+") ? "" : "Z");
   const ageMin = Math.floor((Date.now() - new Date(normalized).getTime()) / 60000);
-  if (ageMin < 60) return '--green';
-  if (ageMin < 1440) return '--orange';
-  return '--red';
+  if (ageMin < 60) return "--green";
+  if (ageMin < 1440) return "--orange";
+  return "--red";
 }
 window.getHealthStatusClass = getHealthStatusClass;
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.getContrastColor = getContrastColor;
   window.generateUUID = generateUUID;
+  window.parseTagInput = parseTagInput;
   window.generateStorageReport = generateStorageReport;
   window.updateSpotTimestamp = updateSpotTimestamp;
   /**
@@ -3099,16 +3344,18 @@ if (typeof window !== 'undefined') {
    * @param {number} [duration=3000] - Auto-dismiss time in ms
    */
   window.showToast = (message, duration = 3000) => {
-    const toast = document.createElement('div');
-    toast.className = 'cloud-toast';
+    const toast = document.createElement("div");
+    toast.className = "cloud-toast";
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => {
-      toast.classList.add('fade-out');
-      toast.addEventListener('animationend', () => toast.remove());
+      toast.classList.add("fade-out");
+      toast.addEventListener("animationend", () => toast.remove());
     }, duration);
   };
 
+  window.trapFocus = trapFocus;
+  window.releaseFocus = releaseFocus;
   window.cleanupStorage = cleanupStorage;
   window.closeModalById = closeModalById;
   window.openModalById = openModalById;
@@ -3137,7 +3384,7 @@ if (typeof window !== 'undefined') {
   window.loadDataSync = loadDataSync;
 }
 
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     stripNonAlphanumeric,
     sanitizeObjectFields,

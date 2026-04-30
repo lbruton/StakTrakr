@@ -9,7 +9,7 @@
  */
 class CatalogConfig {
   constructor() {
-    this.storageKey = 'catalog_api_config';
+    this.storageKey = "catalog_api_config";
     this.load();
   }
 
@@ -26,11 +26,17 @@ class CatalogConfig {
             // Key wasn't base64 encoded (legacy or plain text) — keep as-is
           }
         }
-        if (parsed.pcgs && parsed.pcgs.bearerToken) {
-          try {
-            parsed.pcgs.bearerToken = atob(parsed.pcgs.bearerToken);
-          } catch (e) {
-            // Token wasn't base64 encoded — keep as-is
+        if (parsed.pcgs) {
+          if (!parsed.pcgs.bearerToken && parsed.pcgs.apiKey) {
+            parsed.pcgs.bearerToken = parsed.pcgs.apiKey;
+            delete parsed.pcgs.apiKey;
+          }
+          if (parsed.pcgs.bearerToken) {
+            try {
+              parsed.pcgs.bearerToken = atob(parsed.pcgs.bearerToken);
+            } catch (e) {
+              // Token wasn't base64 encoded (legacy or plain text) — keep as-is
+            }
           }
         }
         this.config = parsed;
@@ -38,34 +44,34 @@ class CatalogConfig {
         this.config = this.getDefaultConfig();
       }
     } catch (error) {
-      console.warn('Failed to load catalog config:', error);
+      console.warn("Failed to load catalog config:", error);
       this.config = this.getDefaultConfig();
     }
   }
 
   getDefaultConfig() {
     const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const today = now.toISOString().slice(0, 10);
     return {
       numista: {
-        apiKey: '',
-        quota: 2000
+        apiKey: "",
+        quota: 2000,
       },
       numistaUsage: {
         used: 0,
-        month: month
+        month: month,
       },
       pcgs: {
-        bearerToken: ''
+        bearerToken: "",
       },
       pcgsUsage: {
         used: 0,
-        date: today
+        date: today,
       },
       local: {
-        enabled: true
-      }
+        enabled: true,
+      },
     };
   }
 
@@ -81,7 +87,7 @@ class CatalogConfig {
       }
       localStorage.setItem(this.storageKey, JSON.stringify(toStore));
     } catch (error) {
-      console.error('Failed to save catalog config:', error);
+      console.error("Failed to save catalog config:", error);
     }
   }
 
@@ -92,8 +98,8 @@ class CatalogConfig {
    */
   setNumistaConfig(apiKey, quota = 2000) {
     this.config.numista = {
-      apiKey: apiKey || '',
-      quota
+      apiKey: apiKey || "",
+      quota,
     };
     this.save();
     return true;
@@ -105,7 +111,7 @@ class CatalogConfig {
   getNumistaConfig() {
     return {
       ...this.config.numista,
-      apiKey: this.config.numista.apiKey || ''
+      apiKey: this.config.numista.apiKey || "",
     };
   }
 
@@ -121,8 +127,8 @@ class CatalogConfig {
    */
   clearNumistaKey() {
     this.config.numista = {
-      apiKey: '',
-      quota: 2000
+      apiKey: "",
+      quota: 2000,
     };
     this.save();
   }
@@ -139,7 +145,7 @@ class CatalogConfig {
    */
   incrementNumistaUsage() {
     const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     if (!this.config.numistaUsage) {
       this.config.numistaUsage = { used: 0, month: currentMonth };
     }
@@ -157,7 +163,7 @@ class CatalogConfig {
    */
   getNumistaUsage() {
     const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     if (!this.config.numistaUsage) {
       this.config.numistaUsage = { used: 0, month: currentMonth };
     }
@@ -168,7 +174,7 @@ class CatalogConfig {
     return {
       used: this.config.numistaUsage.used,
       quota: this.config.numista?.quota || 2000,
-      month: this.config.numistaUsage.month
+      month: this.config.numistaUsage.month,
     };
   }
 
@@ -180,7 +186,7 @@ class CatalogConfig {
    */
   setPcgsConfig(token) {
     if (!this.config.pcgs) this.config.pcgs = {};
-    this.config.pcgs.bearerToken = token || '';
+    this.config.pcgs.bearerToken = token || "";
     this.save();
     return true;
   }
@@ -190,8 +196,8 @@ class CatalogConfig {
    * @returns {{ bearerToken: string }}
    */
   getPcgsConfig() {
-    if (!this.config.pcgs) this.config.pcgs = { bearerToken: '' };
-    return { bearerToken: this.config.pcgs.bearerToken || '' };
+    if (!this.config.pcgs) this.config.pcgs = { bearerToken: "" };
+    return { bearerToken: this.config.pcgs.bearerToken || "" };
   }
 
   /**
@@ -206,7 +212,7 @@ class CatalogConfig {
    * Clear stored PCGS token
    */
   clearPcgsToken() {
-    this.config.pcgs = { bearerToken: '' };
+    this.config.pcgs = { bearerToken: "" };
     this.save();
   }
 
@@ -254,21 +260,46 @@ class CatalogConfig {
     return {
       used: this.config.pcgsUsage.used,
       limit: 1000,
-      date: this.config.pcgsUsage.date
+      date: this.config.pcgsUsage.date,
     };
+  }
+
+  async testPcgsKey() {
+    const PCGS_TEST_COIN_NUMBER = "38472177";
+    const token = this.config.pcgs && this.config.pcgs.bearerToken;
+    if (!token) return { success: false, message: "No PCGS token configured" };
+    try {
+      const resp = await fetch(
+        `https://api.pcgs.com/publicapi/coindetail/GetCoinFactsByPCGSNo/${PCGS_TEST_COIN_NUMBER}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (resp.ok) return { success: true, message: "PCGS API connected" };
+      if (resp.status === 401)
+        return { success: false, message: "Invalid or expired bearer token" };
+      if (resp.status === 404) return { success: true, message: "PCGS API connected" };
+      return {
+        success: false,
+        message: `PCGS API error (HTTP ${resp.status})`,
+      };
+    } catch (err) {
+      return { success: false, message: "PCGS API unreachable" };
+    }
   }
 }
 
 // Global catalog configuration instance
 const catalogConfig = new CatalogConfig();
 
-console.log('🔌 Catalog API system ready - configure API keys through settings');
+console.log("🔌 Catalog API system ready - configure API keys through settings");
 
 // ---------------------------------------------------------------------------
 // Numista Response Cache (STAK-222)
 // ---------------------------------------------------------------------------
 
 const NUMISTA_CACHE_TTL_DAYS = 30;
+
+// Fields that carry userModified tracking (shared by renderNumistaFieldCheckboxes + fillFormFromNumistaResult)
+const USER_MODIFIED_TRACKED_FIELDS = new Set(["name", "type", "weight", "year", "metal"]);
 
 /**
  * Loads a cached Numista API response for a given type ID.
@@ -285,7 +316,7 @@ const loadNumistaCache = (typeId) => {
     if (ageMs > entry.ttlDays * 24 * 60 * 60 * 1000) return null;
     return entry.data;
   } catch (e) {
-    debugLog('[numista-cache] Load error: ' + e.message, 'warn');
+    debugLog("[numista-cache] Load error: " + e.message, "warn");
     return null;
   }
 };
@@ -301,7 +332,7 @@ const saveNumistaCache = (typeId, data) => {
     cache[typeId] = { data, fetchedAt: new Date().toISOString(), ttlDays: NUMISTA_CACHE_TTL_DAYS };
     saveDataSync(NUMISTA_RESPONSE_CACHE_KEY, cache);
   } catch (e) {
-    debugLog('[numista-cache] Save error: ' + e.message, 'warn');
+    debugLog("[numista-cache] Save error: " + e.message, "warn");
   }
 };
 
@@ -316,7 +347,7 @@ const clearNumistaCache = () => {
     saveDataSync(NUMISTA_RESPONSE_CACHE_KEY, {});
     return count;
   } catch (e) {
-    debugLog('[numista-cache] Clear error: ' + e.message, 'warn');
+    debugLog("[numista-cache] Clear error: " + e.message, "warn");
     return 0;
   }
 };
@@ -329,7 +360,7 @@ const getNumistaCacheCount = () => {
   try {
     const cache = loadDataSync(NUMISTA_RESPONSE_CACHE_KEY, {});
     const now = Date.now();
-    return Object.values(cache).filter(entry => {
+    return Object.values(cache).filter((entry) => {
       const ageMs = now - new Date(entry.fetchedAt).getTime();
       return ageMs <= entry.ttlDays * 24 * 60 * 60 * 1000;
     }).length;
@@ -344,9 +375,9 @@ const getNumistaCacheCount = () => {
  */
 class CatalogProvider {
   constructor(config = {}) {
-    this.name = config.name || 'Unknown';
-    this.apiKey = config.apiKey || '';
-    this.baseUrl = config.baseUrl || '';
+    this.name = config.name || "Unknown";
+    this.apiKey = config.apiKey || "";
+    this.baseUrl = config.baseUrl || "";
     this.rateLimit = config.rateLimit || 60; // requests per minute
     this.timeout = config.timeout || 10000; // 10 seconds
     this.lastRequest = 0;
@@ -393,21 +424,21 @@ class CatalogProvider {
         ...options,
         signal: controller.signal,
         headers: {
-          'Content-Type': 'application/json',
-          ...options.headers
-        }
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
+      if (error.name === "AbortError") {
         throw new Error(`Request timeout for ${this.name}`);
       }
       throw error;
@@ -420,7 +451,7 @@ class CatalogProvider {
    * @returns {Promise<Object>} Standardized item data
    */
   async lookupItem(catalogId) {
-    throw new Error('lookupItem must be implemented by provider');
+    throw new Error("lookupItem must be implemented by provider");
   }
 
   /**
@@ -430,7 +461,7 @@ class CatalogProvider {
    * @returns {Promise<Array>} Array of standardized item data
    */
   async searchItems(query, filters = {}) {
-    throw new Error('searchItems must be implemented by provider');
+    throw new Error("searchItems must be implemented by provider");
   }
 
   /**
@@ -439,7 +470,7 @@ class CatalogProvider {
    * @returns {Promise<number>} Current market value in USD
    */
   async getMarketValue(catalogId) {
-    throw new Error('getMarketValue must be implemented by provider');
+    throw new Error("getMarketValue must be implemented by provider");
   }
 }
 
@@ -448,13 +479,13 @@ class CatalogProvider {
 // ---------------------------------------------------------------------------
 
 function classifyShape(shapeStr) {
-  if (!shapeStr) return 'round';
+  if (!shapeStr) return "round";
   const s = shapeStr.toLowerCase();
-  if (s.startsWith('round') || s.startsWith('circular')) return 'round';
-  if (s.startsWith('rectangular') || s.startsWith('rectangle')) return 'rectangular';
-  if (s.startsWith('square')) return 'square';
-  if (s.startsWith('oval') || s.startsWith('elliptical')) return 'oval';
-  return 'other';
+  if (s.startsWith("round") || s.startsWith("circular")) return "round";
+  if (s.startsWith("rectangular") || s.startsWith("rectangle")) return "rectangular";
+  if (s.startsWith("square")) return "square";
+  if (s.startsWith("oval") || s.startsWith("elliptical")) return "oval";
+  return "other";
 }
 
 function parseDimensions(sizeValue, shapeStr) {
@@ -463,7 +494,7 @@ function parseDimensions(sizeValue, shapeStr) {
   let width = 0;
 
   // Check for "LxW" pattern in sizeValue
-  const sizeStr = sizeValue != null ? String(sizeValue).trim() : '';
+  const sizeStr = sizeValue != null ? String(sizeValue).trim() : "";
   const splitMatch = sizeStr.match(/^([\d.]+)\s*[xX\u00D7]\s*([\d.]+)/);
   if (splitMatch && splitMatch.length >= 3) {
     length = parseFloat(splitMatch[1]) || 0;
@@ -472,15 +503,15 @@ function parseDimensions(sizeValue, shapeStr) {
   }
 
   // Check for embedded width in shape string, e.g. "Rectangular (41.8mm wide)"
-  const shapeString = shapeStr || '';
+  const shapeString = shapeStr || "";
   const embeddedMatch = shapeString.match(/\((\d+\.?\d*)\s*mm\s*wide\)/i);
   const embeddedWidth = embeddedMatch ? parseFloat(embeddedMatch[1]) || 0 : 0;
 
   const category = classifyShape(shapeString);
-  if (category === 'rectangular' || category === 'square') {
+  if (category === "rectangular" || category === "square") {
     length = parseFloat(sizeValue) || 0;
     // Square items: default width to length when no embedded width available
-    width = embeddedWidth || (category === 'square' ? length : 0);
+    width = embeddedWidth || (category === "square" ? length : 0);
   } else {
     diameter = parseFloat(sizeValue) || 0;
   }
@@ -496,11 +527,11 @@ class NumistaProvider extends CatalogProvider {
   constructor() {
     const config = catalogConfig.getNumistaConfig();
     super({
-      name: 'Numista',
+      name: "Numista",
       apiKey: config.apiKey,
-      baseUrl: 'https://api.numista.com/v3',
+      baseUrl: "https://api.numista.com/v3",
       rateLimit: 100, // Numista allows 100 requests per minute
-      timeout: 15000
+      timeout: 15000,
     });
     this.clientName = config.clientName;
     this.clientId = config.clientId;
@@ -513,12 +544,12 @@ class NumistaProvider extends CatalogProvider {
    * @returns {Promise<Object>} Standardized item data
    */
   async lookupItem(catalogId) {
-    if (!catalogId) throw new Error('Catalog ID is required');
+    if (!catalogId) throw new Error("Catalog ID is required");
 
     // STAK-222: Check response cache before hitting the API
     const cached = loadNumistaCache(catalogId);
     if (cached) {
-      debugLog(`[numista-cache] Cache hit for type ${catalogId}`, 'info');
+      debugLog(`[numista-cache] Cache hit for type ${catalogId}`, "info");
       return this.normalizeItemData(cached);
     }
 
@@ -526,13 +557,13 @@ class NumistaProvider extends CatalogProvider {
 
     try {
       const response = await this.request(url, {
-        headers: { 'Numista-API-Key': this.apiKey }
+        headers: { "Numista-API-Key": this.apiKey },
       });
       const data = await response.json();
-      if (typeof window !== 'undefined' && typeof window.debugLog === 'function') {
-        window.debugLog(`Numista lookup ${catalogId}: keys=${Object.keys(data).join(',')}`);
-        if (data.obverse) window.debugLog(`  obverse keys: ${Object.keys(data.obverse).join(',')}`);
-        if (data.reverse) window.debugLog(`  reverse keys: ${Object.keys(data.reverse).join(',')}`);
+      if (typeof window !== "undefined" && typeof window.debugLog === "function") {
+        window.debugLog(`Numista lookup ${catalogId}: keys=${Object.keys(data).join(",")}`);
+        if (data.obverse) window.debugLog(`  obverse keys: ${Object.keys(data.obverse).join(",")}`);
+        if (data.reverse) window.debugLog(`  reverse keys: ${Object.keys(data.reverse).join(",")}`);
       }
 
       // STAK-222: Cache the raw response for 30 days
@@ -552,33 +583,36 @@ class NumistaProvider extends CatalogProvider {
    * @returns {Promise<Array>} Array of standardized item data
    */
   async searchItems(query, filters = {}) {
-    if (!query || typeof query !== 'string') return [];
+    if (!query || typeof query !== "string") return [];
     // STAK-494: Strip characters the Numista API interprets as search operators
     // - hyphens are negation, parentheses are grouping, plus is required-term
-    const sanitized = query.replace(/[-()+"]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    const sanitized = query
+      .replace(/[-()+"]/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
     if (!sanitized) return [];
     const params = new URLSearchParams({
       q: sanitized,
       count: Math.min(filters.limit || 20, 50),
-      lang: 'en'
+      lang: "en",
     });
 
-    if (filters.page) params.append('page', filters.page);
-    if (filters.country) params.append('issuer', filters.country);
-    if (filters.category) params.append('category', filters.category);
-    if (filters.year) params.append('year', filters.year);
+    if (filters.page) params.append("page", filters.page);
+    if (filters.country) params.append("issuer", filters.country);
+    if (filters.category) params.append("category", filters.category);
+    if (filters.year) params.append("year", filters.year);
 
     const url = `${this.baseUrl}/types?${params.toString()}`;
 
     try {
       const response = await this.request(url, {
-        headers: { 'Numista-API-Key': this.apiKey }
+        headers: { "Numista-API-Key": this.apiKey },
       });
       const data = await response.json();
 
-      return data.types ? data.types.map(item => this.normalizeItemData(item)) : [];
+      return data.types ? data.types.map((item) => this.normalizeItemData(item)) : [];
     } catch (error) {
-      console.error('Numista search failed:', error);
+      console.error("Numista search failed:", error);
       throw new Error(`Numista search failed: ${error.message}`);
     }
   }
@@ -609,29 +643,31 @@ class NumistaProvider extends CatalogProvider {
     // Compose year from min_year / max_year range
     const minY = numistaData.min_year;
     const maxY = numistaData.max_year;
-    const year = minY && maxY && minY !== maxY ? `${minY}-${maxY}` : (minY || maxY || '');
+    const year = minY && maxY && minY !== maxY ? `${minY}-${maxY}` : minY || maxY || "";
 
     // Handle composition — can be a string or object with .text
     const rawComp = numistaData.composition;
-    const composition = typeof rawComp === 'object' && rawComp !== null ? (rawComp.text || '') : (rawComp || '');
+    const composition =
+      typeof rawComp === "object" && rawComp !== null ? rawComp.text || "" : rawComp || "";
 
     // Image: prefer obverse_thumbnail with nested fallback
-    const imageUrl = numistaData.obverse_thumbnail ||
+    const imageUrl =
+      numistaData.obverse_thumbnail ||
       numistaData.obverse?.thumbnail ||
       numistaData.reverse_thumbnail ||
-      '';
+      "";
 
     // Reverse image: separate field for showing both sides
-    const reverseImageUrl = numistaData.reverse_thumbnail ||
-      numistaData.reverse?.thumbnail ||
-      '';
+    const reverseImageUrl = numistaData.reverse_thumbnail || numistaData.reverse?.thumbnail || "";
 
-    debugLog(`  imageUrl: ${imageUrl || '(empty)'}, reverseImageUrl: ${reverseImageUrl || '(empty)'}`);
+    debugLog(
+      `  imageUrl: ${imageUrl || "(empty)"}, reverseImageUrl: ${reverseImageUrl || "(empty)"}`
+    );
 
     // Extract catalog references (KM#, Schon#, etc.)
     const kmReferences = [];
     if (Array.isArray(numistaData.references)) {
-      numistaData.references.forEach(ref => {
+      numistaData.references.forEach((ref) => {
         if (ref.catalogue?.code && ref.number) {
           kmReferences.push(`${ref.catalogue.code}# ${ref.number}`);
         }
@@ -641,57 +677,60 @@ class NumistaProvider extends CatalogProvider {
     // Extract mintage data by year
     const mintageByYear = [];
     if (Array.isArray(numistaData.years)) {
-      numistaData.years.forEach(y => {
+      numistaData.years.forEach((y) => {
         if (y.year) {
           mintageByYear.push({
             year: y.year,
             mintage: y.mintage || 0,
-            remark: y.remark || '',
+            remark: y.remark || "",
           });
         }
       });
     }
 
     // Denomination / face value
-    const denomination = numistaData.value?.text || '';
+    const denomination = numistaData.value?.text || "";
 
     const result = {
-      catalogId: numistaData.id?.toString() || '',
-      name: numistaData.title || '',
+      catalogId: numistaData.id?.toString() || "",
+      name: numistaData.title || "",
       year: year.toString(),
-      country: numistaData.issuer?.name || '',
+      country: numistaData.issuer?.name || "",
       metal: this.normalizeMetal(composition),
       weight: numistaData.weight || 0,
-      ...parseDimensions(numistaData.size, numistaData.shape || ''),
+      ...parseDimensions(numistaData.size, numistaData.shape || ""),
       thickness: numistaData.thickness || 0,
-      type: this.normalizeType(numistaData.category || ''),
+      type: this.normalizeType(numistaData.category || ""),
       mintage: 0, // Mintage is per-issue, not per-type in Numista API
       estimatedValue: numistaData.value?.numeric_value || 0,
       imageUrl: imageUrl,
       reverseImageUrl: reverseImageUrl,
-      description: numistaData.comments || '',
-      provider: 'Numista',
+      description: numistaData.comments || "",
+      provider: "Numista",
       lastUpdated: new Date().toISOString(),
       // Enriched fields for view modal
       denomination: denomination,
-      shape: numistaData.shape || '',
+      shape: numistaData.shape || "",
       composition: composition,
-      orientation: numistaData.orientation || '',
+      orientation: numistaData.orientation || "",
       commemorative: !!numistaData.is_commemorative,
-      commemorativeDesc: numistaData.commemorative_description || '',
+      commemorativeDesc: numistaData.commemorative_description || "",
       rarityIndex: numistaData.rarity_index || 0,
       kmReferences: kmReferences,
       mintageByYear: mintageByYear,
       tags: Array.isArray(numistaData.tags) ? numistaData.tags : [],
-      technique: typeof numistaData.technique === 'object' ? (numistaData.technique?.text || '') : (numistaData.technique || ''),
-      obverseDesc: numistaData.obverse?.description || '',
-      reverseDesc: numistaData.reverse?.description || '',
-      edgeDesc: numistaData.edge?.description || '',
+      technique:
+        typeof numistaData.technique === "object"
+          ? numistaData.technique?.text || ""
+          : numistaData.technique || "",
+      obverseDesc: numistaData.obverse?.description || "",
+      reverseDesc: numistaData.reverse?.description || "",
+      edgeDesc: numistaData.edge?.description || "",
     };
 
     // Attach field-level origin tracking (fieldMeta) for re-sync picker
-    if (typeof window.initFieldMeta === 'function') {
-      result.fieldMeta = window.initFieldMeta(result, 'numista');
+    if (typeof window.initFieldMeta === "function") {
+      result.fieldMeta = window.initFieldMeta(result, "numista");
     }
 
     return result;
@@ -704,12 +743,13 @@ class NumistaProvider extends CatalogProvider {
    */
   normalizeMetal(composition) {
     const comp = composition.toLowerCase();
-    if (comp.includes('gold') || comp.includes('au')) return 'Gold';
-    if (comp.includes('silver') || comp.includes('ag')) return 'Silver';
-    if (comp.includes('platinum') || comp.includes('pt')) return 'Platinum';
-    if (comp.includes('palladium') || comp.includes('pd')) return 'Palladium';
-    if (comp.includes('copper') || comp.includes('bronze') || comp.includes('brass')) return 'Alloy/Other';
-    return 'Alloy/Other';
+    if (comp.includes("gold") || comp.includes("au")) return "Gold";
+    if (comp.includes("silver") || comp.includes("ag")) return "Silver";
+    if (comp.includes("platinum") || comp.includes("pt")) return "Platinum";
+    if (comp.includes("palladium") || comp.includes("pd")) return "Palladium";
+    if (comp.includes("copper") || comp.includes("bronze") || comp.includes("brass"))
+      return "Alloy/Other";
+    return "Alloy/Other";
   }
 
   /**
@@ -719,11 +759,11 @@ class NumistaProvider extends CatalogProvider {
    */
   normalizeType(type) {
     const t = type.toLowerCase();
-    if (t.includes('coin') || t.includes('circulation')) return 'Coin';
-    if (t.includes('bar') || t.includes('ingot')) return 'Bar';
-    if (t.includes('round')) return 'Round';
-    if (t.includes('note') || t.includes('bill')) return 'Note';
-    return 'Other';
+    if (t.includes("coin") || t.includes("circulation")) return "Coin";
+    if (t.includes("bar") || t.includes("ingot")) return "Bar";
+    if (t.includes("round")) return "Round";
+    if (t.includes("note") || t.includes("bill")) return "Note";
+    return "Other";
   }
 }
 
@@ -735,9 +775,9 @@ class NumistaProvider extends CatalogProvider {
 class LocalProvider extends CatalogProvider {
   constructor() {
     super({
-      name: 'Local',
+      name: "Local",
       rateLimit: 1000, // No real rate limit for local data
-      timeout: 1000
+      timeout: 1000,
     });
     this.localData = this.loadLocalData();
   }
@@ -745,10 +785,10 @@ class LocalProvider extends CatalogProvider {
   loadLocalData() {
     // Load any cached catalog data from localStorage
     try {
-      const stored = localStorage.getItem('staktrakr.catalog.cache');
+      const stored = localStorage.getItem("staktrakr.catalog.cache");
       return stored ? JSON.parse(stored) : {};
     } catch (error) {
-      console.warn('Could not load local catalog cache:', error);
+      console.warn("Could not load local catalog cache:", error);
       return {};
     }
   }
@@ -762,16 +802,17 @@ class LocalProvider extends CatalogProvider {
   }
 
   async searchItems(query, filters = {}) {
-    const results = Object.values(this.localData).filter(item => 
-      item.name.toLowerCase().includes(query.toLowerCase()) ||
-      item.description.toLowerCase().includes(query.toLowerCase())
+    const results = Object.values(this.localData).filter(
+      (item) =>
+        item.name.toLowerCase().includes(query.toLowerCase()) ||
+        item.description.toLowerCase().includes(query.toLowerCase())
     );
     return results.slice(0, filters.limit || 20);
   }
 
   async getMarketValue(catalogId) {
     const item = this.localData[catalogId];
-    return item ? (item.estimatedValue || 0) : 0;
+    return item ? item.estimatedValue || 0 : 0;
   }
 
   /**
@@ -782,9 +823,9 @@ class LocalProvider extends CatalogProvider {
   cacheItem(catalogId, itemData) {
     this.localData[catalogId] = itemData;
     try {
-      localStorage.setItem('staktrakr.catalog.cache', JSON.stringify(this.localData));
+      localStorage.setItem("staktrakr.catalog.cache", JSON.stringify(this.localData));
     } catch (error) {
-      console.warn('Could not cache item data:', error);
+      console.warn("Could not cache item data:", error);
     }
   }
 }
@@ -799,7 +840,7 @@ class CatalogAPI {
     this.localProvider = new LocalProvider();
     this.activeProvider = null;
     this.settings = this.loadSettings();
-    
+
     this.initializeProviders();
   }
 
@@ -808,15 +849,17 @@ class CatalogAPI {
    */
   loadSettings() {
     try {
-      const stored = localStorage.getItem('staktrakr.catalog.settings');
-      return stored ? JSON.parse(stored) : {
-        activeProvider: 'numista',
-        numistaApiKey: '',
-        enableFallback: true,
-        cacheDuration: 3600000 // 1 hour
-      };
+      const stored = localStorage.getItem("staktrakr.catalog.settings");
+      return stored
+        ? JSON.parse(stored)
+        : {
+            activeProvider: "numista",
+            numistaApiKey: "",
+            enableFallback: true,
+            cacheDuration: 3600000, // 1 hour
+          };
     } catch (error) {
-      console.warn('Could not load catalog API settings:', error);
+      console.warn("Could not load catalog API settings:", error);
       return {};
     }
   }
@@ -826,9 +869,11 @@ class CatalogAPI {
    */
   saveSettings() {
     try {
-      localStorage.setItem('staktrakr.catalog.settings', JSON.stringify(this.settings));
+      // codeql[js/clear-text-storage-of-sensitive-data]
+      // User-owned catalog credentials are intentionally stored locally for this offline-first app.
+      localStorage.setItem("staktrakr.catalog.settings", JSON.stringify(this.settings));
     } catch (error) {
-      console.warn('Could not save catalog API settings:', error);
+      console.warn("Could not save catalog API settings:", error);
     }
   }
 
@@ -844,9 +889,9 @@ class CatalogAPI {
         const numista = new NumistaProvider();
         this.providers.push(numista);
         this.activeProvider = numista;
-        console.log('✅ Numista provider initialized');
+        console.log("✅ Numista provider initialized");
       } catch (error) {
-        console.error('❌ Failed to initialize Numista provider:', error);
+        console.error("❌ Failed to initialize Numista provider:", error);
       }
     }
 
@@ -864,10 +909,10 @@ class CatalogAPI {
    * @param {string} apiKey - API key
    */
   setApiKey(provider, apiKey) {
-    if (provider === 'numista') {
+    if (provider === "numista") {
       this.settings.numistaApiKey = apiKey;
     }
-    
+
     this.saveSettings();
     this.initializeProviders();
   }
@@ -877,7 +922,9 @@ class CatalogAPI {
    * @param {string} providerName - Provider name to switch to
    */
   switchProvider(providerName) {
-    const provider = this.providers.find(p => p.name.toLowerCase() === providerName.toLowerCase());
+    const provider = this.providers.find(
+      (p) => p.name.toLowerCase() === providerName.toLowerCase()
+    );
     if (provider) {
       this.activeProvider = provider;
       this.settings.activeProvider = providerName.toLowerCase();
@@ -896,10 +943,14 @@ class CatalogAPI {
    */
   async lookupItem(catalogId, options = {}) {
     const startTime = Date.now();
-    const action = options.action || 'lookup';
-    const providers = this.settings.enableFallback ?
-      [this.activeProvider, ...this.providers.filter(p => p !== this.activeProvider), this.localProvider] :
-      [this.activeProvider];
+    const action = options.action || "lookup";
+    const providers = this.settings.enableFallback
+      ? [
+          this.activeProvider,
+          ...this.providers.filter((p) => p !== this.activeProvider),
+          this.localProvider,
+        ]
+      : [this.activeProvider];
 
     let lastError;
 
@@ -918,7 +969,7 @@ class CatalogAPI {
         recordCatalogHistory({
           action,
           query: catalogId,
-          result: 'success',
+          result: "success",
           itemCount: 1,
           provider: provider.name,
           duration: Date.now() - startTime,
@@ -935,14 +986,14 @@ class CatalogAPI {
     recordCatalogHistory({
       action,
       query: catalogId,
-      result: 'fail',
+      result: "fail",
       itemCount: 0,
-      provider: '',
+      provider: "",
       duration: Date.now() - startTime,
-      error: lastError ? lastError.message : 'All providers failed',
+      error: lastError ? lastError.message : "All providers failed",
     });
 
-    throw lastError || new Error('All catalog providers failed');
+    throw lastError || new Error("All catalog providers failed");
   }
 
   /**
@@ -956,23 +1007,23 @@ class CatalogAPI {
 
     if (!this.activeProvider) {
       recordCatalogHistory({
-        action: 'search',
+        action: "search",
         query,
-        result: 'fail',
+        result: "fail",
         itemCount: 0,
-        provider: '',
+        provider: "",
         duration: Date.now() - startTime,
-        error: 'No catalog provider available',
+        error: "No catalog provider available",
       });
-      throw new Error('No catalog provider available');
+      throw new Error("No catalog provider available");
     }
 
     try {
       const results = await this.activeProvider.searchItems(query, filters);
       recordCatalogHistory({
-        action: 'search',
+        action: "search",
         query,
-        result: 'success',
+        result: "success",
         itemCount: results.length,
         provider: this.activeProvider.name,
         duration: Date.now() - startTime,
@@ -980,9 +1031,9 @@ class CatalogAPI {
       return results;
     } catch (error) {
       recordCatalogHistory({
-        action: 'search',
+        action: "search",
         query,
-        result: 'fail',
+        result: "fail",
         itemCount: 0,
         provider: this.activeProvider.name,
         duration: Date.now() - startTime,
@@ -999,9 +1050,9 @@ class CatalogAPI {
    */
   async getMarketValue(catalogId) {
     const startTime = Date.now();
-    const providers = this.settings.enableFallback ?
-      [this.activeProvider, ...this.providers.filter(p => p !== this.activeProvider)] :
-      [this.activeProvider];
+    const providers = this.settings.enableFallback
+      ? [this.activeProvider, ...this.providers.filter((p) => p !== this.activeProvider)]
+      : [this.activeProvider];
 
     let lastError;
 
@@ -1011,9 +1062,9 @@ class CatalogAPI {
       try {
         const value = await provider.getMarketValue(catalogId);
         recordCatalogHistory({
-          action: 'market_value',
+          action: "market_value",
           query: catalogId,
-          result: 'success',
+          result: "success",
           itemCount: 1,
           provider: provider.name,
           duration: Date.now() - startTime,
@@ -1027,13 +1078,13 @@ class CatalogAPI {
     }
 
     recordCatalogHistory({
-      action: 'market_value',
+      action: "market_value",
       query: catalogId,
-      result: 'fail',
+      result: "fail",
       itemCount: 0,
-      provider: '',
+      provider: "",
       duration: Date.now() - startTime,
-      error: lastError ? lastError.message : 'All providers failed',
+      error: lastError ? lastError.message : "All providers failed",
     });
 
     return 0; // Fallback to 0 if all providers fail
@@ -1045,9 +1096,9 @@ class CatalogAPI {
    */
   getProviderStatus() {
     return {
-      active: this.activeProvider ? this.activeProvider.name : 'None',
-      available: this.providers.map(p => p.name),
-      settings: this.settings
+      active: this.activeProvider ? this.activeProvider.name : "None",
+      available: this.providers.map((p) => p.name),
+      settings: this.settings,
     };
   }
 }
@@ -1091,9 +1142,7 @@ const purgeCatalogHistory = (days = 180) => {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
-  catalogHistory = catalogHistory.filter(
-    (e) => e.timestamp >= cutoffStr
-  );
+  catalogHistory = catalogHistory.filter((e) => e.timestamp >= cutoffStr);
 };
 
 /**
@@ -1133,9 +1182,7 @@ const renderCatalogHistoryTable = () => {
   let data = [...catalogHistoryEntries];
   if (catalogHistoryFilterText) {
     const f = catalogHistoryFilterText.toLowerCase();
-    data = data.filter((e) =>
-      Object.values(e).some((v) => String(v).toLowerCase().includes(f))
-    );
+    data = data.filter((e) => Object.values(e).some((v) => String(v).toLowerCase().includes(f)));
   }
   if (catalogHistorySortColumn) {
     data.sort((a, b) => {
@@ -1225,12 +1272,12 @@ const hideCatalogHistoryModal = () => {
  * @returns {string} Escaped string
  */
 const escapeHtmlCatalog = (str) =>
-  String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 /**
  * Build a safe Numista catalogue URL from a catalog id.
@@ -1240,14 +1287,14 @@ const escapeHtmlCatalog = (str) =>
  * @returns {string} Absolute Numista URL or empty string when invalid
  */
 const buildNumistaCatalogUrl = (catalogId) => {
-  const raw = String(catalogId || '').trim();
-  if (!raw) return '';
+  const raw = String(catalogId || "").trim();
+  if (!raw) return "";
 
   // Strip N# prefix first, THEN detect S for sets
-  const stripped = raw.replace(/^N#\s*/i, '').trim();
+  const stripped = raw.replace(/^N#\s*/i, "").trim();
   const isSet = /^S/i.test(stripped);
-  const clean = isSet ? stripped.replace(/^S/i, '').trim() : stripped;
-  if (!/^\d+$/.test(clean)) return '';
+  const clean = isSet ? stripped.replace(/^S/i, "").trim() : stripped;
+  if (!/^\d+$/.test(clean)) return "";
 
   return isSet
     ? `https://en.numista.com/catalogue/set.php?id=${clean}`
@@ -1280,14 +1327,16 @@ const renderNumistaResultCard = (result, index) => {
     : placeholder;
   const reverseImg = result.reverseImageUrl
     ? `<img src="${escapeHtmlCatalog(result.reverseImageUrl)}" alt="Reverse" loading="lazy">`
-    : '';
+    : "";
   const meta = [
     result.year,
     result.country,
     result.metal,
-    result.weight ? `${result.weight}g` : '',
-    result.type
-  ].filter(Boolean).join(' · ');
+    result.weight ? `${result.weight}g` : "",
+    result.type,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const catalogIdAction = renderCatalogIdAction(result.catalogId);
 
   return `<div class="numista-result-card" data-result-index="${index}">
@@ -1314,14 +1363,16 @@ const renderNumistaSelectedItem = (result) => {
     : placeholder;
   const reverseImg = result.reverseImageUrl
     ? `<img src="${escapeHtmlCatalog(result.reverseImageUrl)}" alt="Reverse" loading="lazy">`
-    : '';
+    : "";
   const meta = [
     result.year,
     result.country,
     result.metal,
-    result.weight ? `${result.weight}g` : '',
-    result.type
-  ].filter(Boolean).join(' · ');
+    result.weight ? `${result.weight}g` : "",
+    result.type,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const catalogIdAction = renderCatalogIdAction(result.catalogId);
 
   return `<div class="numista-result-images">${obverseImg}${reverseImg}</div>
@@ -1343,7 +1394,7 @@ const renderNumistaSelectedItem = (result) => {
 const isValidSelectOption = (selectId, value) => {
   const el = document.getElementById(selectId);
   if (!el) return false;
-  return Array.from(el.options).some(o => o.value === value);
+  return Array.from(el.options).some((o) => o.value === value);
 };
 
 /**
@@ -1353,103 +1404,306 @@ const isValidSelectOption = (selectId, value) => {
  * @param {Object} result - Normalized Numista item data
  */
 const renderNumistaFieldCheckboxes = (result) => {
-  const container = document.getElementById('numistaFieldCheckboxes');
+  const container = document.getElementById("numistaFieldCheckboxes");
   if (!container) return;
 
-  const typeValid = result.type && isValidSelectOption('itemType', result.type);
-  const metalValid = result.metal && result.metal !== 'Alloy/Other' && isValidSelectOption('itemMetal', result.metal);
+  // Resolve editing item for userModified awareness (skip in bulk-edit context)
+  const isBulkEdit = typeof window._bulkEditNumistaCallback === "function";
+  let editingItem = null;
+  if (!isBulkEdit) {
+    const idx = typeof editingIndex !== "undefined" && editingIndex !== null ? editingIndex : null;
+    editingItem = idx !== null && Array.isArray(inventory) ? inventory[idx] : null;
+  }
+  const fieldMetaMap = editingItem?.fieldMeta || {};
+  const editingUuid = editingItem?.uuid || null;
+
+  // Fields with userModified tracking (name, type, weight, year, metal)
+  const userModifiedTracked = USER_MODIFIED_TRACKED_FIELDS;
+
+  const typeValid = result.type && isValidSelectOption("itemType", result.type);
+  const metalValid =
+    result.metal &&
+    result.metal !== "Alloy/Other" &&
+    isValidSelectOption("itemMetal", result.metal);
 
   // Fields ordered: primary (checked by default) first, then optional (unchecked)
   const fields = [
-    { key: 'name', label: 'Name', value: result.name || '', available: true, defaultOn: true },
-    { key: 'catalog', label: 'Catalog N#', value: result.catalogId || '', available: true, defaultOn: true },
-    { key: 'year', label: 'Year', value: result.year || '', available: !!result.year, defaultOn: false },
+    { key: "name", label: "Name", value: result.name || "", available: true, defaultOn: true },
     {
-      key: 'type', label: 'Type',
-      value: result.type || '',
+      key: "catalog",
+      label: "Catalog N#",
+      value: result.catalogId || "",
+      available: true,
+      defaultOn: true,
+    },
+    {
+      key: "year",
+      label: "Year",
+      value: result.year || "",
+      available: !!result.year,
+      defaultOn: false,
+    },
+    {
+      key: "type",
+      label: "Type",
+      value: result.type || "",
       available: typeValid,
       defaultOn: false,
-      warn: result.type && !typeValid ? `"${result.type}" — not in form options` : ''
+      warn: result.type && !typeValid ? `"${result.type}" — not in form options` : "",
     },
-    { key: 'weight', label: 'Weight (g)', value: result.weight ? String(result.weight) : '', available: result.weight > 0, defaultOn: result.weight > 0 },
-    { key: 'obverseImage', label: 'Obverse Image', value: result.imageUrl || '', available: !!result.imageUrl, defaultOn: true },
-    { key: 'reverseImage', label: 'Reverse Image', value: result.reverseImageUrl || '', available: !!result.reverseImageUrl, defaultOn: true },
-    { key: 'metal', label: 'Metal', value: result.metal || '', available: metalValid, defaultOn: metalValid, warn: result.metal && !metalValid ? `"${result.metal}" — not in form options` : '' },
+    {
+      key: "weight",
+      label: "Weight (g)",
+      value: result.weight ? String(result.weight) : "",
+      available: result.weight > 0,
+      defaultOn: result.weight > 0,
+    },
+    {
+      key: "obverseImage",
+      label: "Obverse Image",
+      value: result.imageUrl || "",
+      available: !!result.imageUrl,
+      defaultOn: true,
+    },
+    {
+      key: "reverseImage",
+      label: "Reverse Image",
+      value: result.reverseImageUrl || "",
+      available: !!result.reverseImageUrl,
+      defaultOn: true,
+    },
+    {
+      key: "metal",
+      label: "Metal",
+      value: result.metal || "",
+      available: metalValid,
+      defaultOn: metalValid,
+      warn: result.metal && !metalValid ? `"${result.metal}" — not in form options` : "",
+    },
   ];
 
   // Keep the heading, rebuild field rows
-  const heading = container.querySelector('.numista-fields-heading');
-  container.innerHTML = '';
+  const heading = container.querySelector(".numista-fields-heading");
+  container.innerHTML = "";
   if (heading) {
     container.appendChild(heading);
   } else {
-    const h = document.createElement('div');
-    h.className = 'numista-fields-heading';
-    h.textContent = 'Fields to fill:';
+    const h = document.createElement("div");
+    h.className = "numista-fields-heading";
+    h.textContent = "Fields to fill:";
     container.appendChild(h);
   }
 
   // Map field keys to current form values for "Current:" hints
   const currentFormValues = {
-    name: (elements.itemName || safeGetElement('itemName'))?.value?.trim() || '',
-    catalog: (elements.itemCatalog || safeGetElement('itemCatalog'))?.value?.trim() || '',
-    year: (elements.itemYear || safeGetElement('itemYear'))?.value?.trim() || '',
-    type: (elements.itemType || safeGetElement('itemType'))?.value || '',
-    weight: (elements.itemWeight || safeGetElement('itemWeight'))?.value?.trim() || '',
-    obverseImage: (elements.itemObverseImageUrl || safeGetElement('itemObverseImageUrl'))?.value?.trim() || '',
-    reverseImage: (elements.itemReverseImageUrl || safeGetElement('itemReverseImageUrl'))?.value?.trim() || '',
-    metal: (elements.itemMetal || safeGetElement('itemMetal'))?.value || '',
+    name: (elements.itemName || safeGetElement("itemName"))?.value?.trim() || "",
+    catalog: (elements.itemCatalog || safeGetElement("itemCatalog"))?.value?.trim() || "",
+    year: (elements.itemYear || safeGetElement("itemYear"))?.value?.trim() || "",
+    type: (elements.itemType || safeGetElement("itemType"))?.value || "",
+    weight: (elements.itemWeight || safeGetElement("itemWeight"))?.value?.trim() || "",
+    obverseImage:
+      (elements.itemObverseImageUrl || safeGetElement("itemObverseImageUrl"))?.value?.trim() || "",
+    reverseImage:
+      (elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl"))?.value?.trim() || "",
+    metal: (elements.itemMetal || safeGetElement("itemMetal"))?.value || "",
   };
 
-  fields.forEach(f => {
+  fields.forEach((f) => {
+    // Check userModified for tracked fields
+    const isUserModified =
+      !isBulkEdit && userModifiedTracked.has(f.key) && fieldMetaMap[f.key]?.userModified === true;
+
+    // Row wrapper — display:contents preserves the parent 3-column grid layout
+    const row = document.createElement("div");
+    row.className = "numista-field-row";
+
     // Checkbox — grid column 1
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.name = 'numistaField';
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.name = "numistaField";
     cb.value = f.key;
-    cb.checked = f.available && !!f.value && f.defaultOn;
+    // userModified fields default unchecked; others use existing defaultOn logic
+    const effectiveDefaultOn = isUserModified ? false : f.defaultOn;
+    cb.checked = f.available && !!f.value && effectiveDefaultOn;
     if (!f.value) cb.disabled = true;
 
     // Label — grid column 2
-    const label = document.createElement('span');
-    label.className = 'numista-field-label';
-    label.textContent = f.label + ':';
+    const label = document.createElement("span");
+    label.className = "numista-field-label";
+    label.textContent = f.label + ":";
 
     // Editable text input — grid column 3
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'numista-field-input';
-    input.name = 'numistaFieldValue_' + f.key;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "numista-field-input";
+    input.name = "numistaFieldValue_" + f.key;
     input.value = f.value;
-    input.placeholder = f.available ? '' : 'N/A';
+    input.placeholder = f.available ? "" : "N/A";
     if (!f.available && !f.value) input.disabled = true;
 
     // Toggle input enabled/disabled when checkbox changes
-    cb.addEventListener('change', () => { input.disabled = !cb.checked; });
+    cb.addEventListener("change", () => {
+      input.disabled = !cb.checked;
+    });
     if (!cb.checked) input.disabled = true;
 
-    container.appendChild(cb);
-    container.appendChild(label);
-    container.appendChild(input);
+    row.appendChild(cb);
+    row.appendChild(label);
+    row.appendChild(input);
 
     // "Current:" hint showing existing form value (helps user compare before filling)
     const currentVal = currentFormValues[f.key];
     if (currentVal) {
-      const hint = document.createElement('div');
-      hint.className = 'numista-field-current';
+      const hint = document.createElement("div");
+      hint.className = "numista-field-current";
       hint.textContent = `Current: ${currentVal}`;
       hint.title = currentVal;
-      container.appendChild(hint);
+      row.appendChild(hint);
+    }
+
+    // userModified indicator: shown regardless of whether there is a current value
+    if (isUserModified) {
+      const editedHint = document.createElement("span");
+      editedHint.className = "numista-field-edited";
+      editedHint.textContent = "\u270e edited";
+      row.appendChild(editedHint);
     }
 
     // Warning text spanning all columns (e.g. "Alloy/Other — not in form options")
     if (f.warn) {
-      const warn = document.createElement('div');
-      warn.className = 'numista-field-warn';
+      const warn = document.createElement("div");
+      warn.className = "numista-field-warn";
       warn.textContent = f.warn;
-      container.appendChild(warn);
+      row.appendChild(warn);
     }
+
+    container.appendChild(row);
   });
+
+  // ---------------------------------------------------------------------------
+  // Tag checkbox section (STAK-556)
+  // ---------------------------------------------------------------------------
+  const numistaTagsAuto =
+    typeof loadDataSync === "function" ? loadDataSync("numista_tags_auto", true) : true;
+  const itemCurrentTags = editingUuid
+    ? typeof getItemTags === "function"
+      ? getItemTags(editingUuid)
+      : []
+    : [];
+  const removedTags =
+    !isBulkEdit && editingUuid
+      ? typeof loadRemovedTags === "function"
+        ? loadRemovedTags(editingUuid)
+        : []
+      : [];
+
+  const tagList = result.tags || (selectedNumistaResult && selectedNumistaResult.tags) || [];
+
+  if (tagList.length > 0) {
+    // Separator
+    const sep = document.createElement("div");
+    sep.className = "numista-tag-separator";
+    container.appendChild(sep);
+
+    // Heading row with "Tags:" label and check/uncheck all buttons
+    const headingRow = document.createElement("div");
+    headingRow.className = "numista-tag-heading-row";
+
+    const tagsHeading = document.createElement("span");
+    tagsHeading.className = "numista-fields-subheading";
+    tagsHeading.textContent = "Tags:";
+    headingRow.appendChild(tagsHeading);
+
+    const checkAllBtn = document.createElement("span");
+    checkAllBtn.id = "numistaTagCheckAll";
+    checkAllBtn.className = "numista-tag-actions";
+    checkAllBtn.textContent = "Check all";
+    headingRow.appendChild(checkAllBtn);
+
+    const uncheckAllBtn = document.createElement("span");
+    uncheckAllBtn.id = "numistaTagUncheckAll";
+    uncheckAllBtn.className = "numista-tag-actions";
+    uncheckAllBtn.textContent = "Uncheck all";
+    headingRow.appendChild(uncheckAllBtn);
+
+    container.appendChild(headingRow);
+
+    // Tags container
+    const tagsSection = document.createElement("div");
+    tagsSection.className = "numista-tags-section";
+
+    tagList.forEach((rawTag) => {
+      const capitalized = String(rawTag).charAt(0).toUpperCase() + String(rawTag).slice(1);
+
+      const isBlacklisted =
+        typeof isTagBlacklisted === "function" ? isTagBlacklisted(capitalized) : false;
+      const isOnItem = itemCurrentTags.some((t) => t.toLowerCase() === capitalized.toLowerCase());
+      const isRemoved =
+        !isBulkEdit && removedTags.some((t) => t.toLowerCase() === capitalized.toLowerCase());
+
+      // Wrapper is a <label> so tests can use label:has(input[data-tag="..."])
+      const wrapper = document.createElement("label");
+      wrapper.className = "numista-tag-cb-wrap";
+      if (isBlacklisted) wrapper.classList.add("numista-tag-dimmed");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.name = "numistaTag";
+      cb.dataset.tag = capitalized;
+
+      const tagLabel = document.createElement("span");
+      tagLabel.textContent = capitalized;
+
+      if (isBlacklisted) {
+        cb.checked = false;
+        cb.disabled = true;
+        const hint = document.createElement("span");
+        hint.className = "numista-tag-hint";
+        hint.textContent = "(blacklisted)";
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+        wrapper.appendChild(hint);
+      } else if (isOnItem) {
+        cb.checked = true;
+        cb.disabled = true;
+        const hint = document.createElement("span");
+        hint.className = "numista-tag-hint";
+        hint.textContent = "(on item)";
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+        wrapper.appendChild(hint);
+      } else if (isRemoved) {
+        cb.checked = false;
+        const hint = document.createElement("span");
+        hint.className = "numista-tag-hint";
+        hint.textContent = "(removed \u21a9)";
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+        wrapper.appendChild(hint);
+      } else {
+        cb.checked = !!numistaTagsAuto;
+        wrapper.appendChild(cb);
+        wrapper.appendChild(tagLabel);
+      }
+
+      tagsSection.appendChild(wrapper);
+    });
+
+    container.appendChild(tagsSection);
+
+    // Check all / Uncheck all event handlers
+    checkAllBtn.addEventListener("click", () => {
+      tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
+        if (!cb.disabled) cb.checked = true;
+      });
+    });
+
+    uncheckAllBtn.addEventListener("click", () => {
+      tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
+        if (!cb.disabled) cb.checked = false;
+      });
+    });
+  }
 };
 
 /**
@@ -1459,21 +1713,21 @@ const renderNumistaFieldCheckboxes = (result) => {
  */
 const getPopularNumistaItems = () => [
   // Silver bullion
-  { id: '1493',   name: 'American Silver Eagle',         metal: 'Silver' },
-  { id: '298883', name: 'American Silver Eagle (New Rev)', metal: 'Silver' },
-  { id: '9164',   name: 'Canadian Silver Maple Leaf',    metal: 'Silver' },
-  { id: '13410',  name: 'British Silver Britannia',      metal: 'Silver' },
-  { id: '9165',   name: 'Austrian Silver Philharmonic',  metal: 'Silver' },
-  { id: '13855',  name: 'Mexican Silver Libertad',       metal: 'Silver' },
-  { id: '143754', name: 'Silver Krugerrand',             metal: 'Silver' },
+  { id: "1493", name: "American Silver Eagle", metal: "Silver" },
+  { id: "298883", name: "American Silver Eagle (New Rev)", metal: "Silver" },
+  { id: "9164", name: "Canadian Silver Maple Leaf", metal: "Silver" },
+  { id: "13410", name: "British Silver Britannia", metal: "Silver" },
+  { id: "9165", name: "Austrian Silver Philharmonic", metal: "Silver" },
+  { id: "13855", name: "Mexican Silver Libertad", metal: "Silver" },
+  { id: "143754", name: "Silver Krugerrand", metal: "Silver" },
   // Gold bullion
-  { id: '23134',  name: 'American Gold Eagle',           metal: 'Gold' },
-  { id: '18451',  name: 'American Gold Buffalo',         metal: 'Gold' },
-  { id: '6002',   name: 'Gold Krugerrand',               metal: 'Gold' },
-  { id: '15150',  name: 'Austrian Gold Philharmonic',    metal: 'Gold' },
+  { id: "23134", name: "American Gold Eagle", metal: "Gold" },
+  { id: "18451", name: "American Gold Buffalo", metal: "Gold" },
+  { id: "6002", name: "Gold Krugerrand", metal: "Gold" },
+  { id: "15150", name: "Austrian Gold Philharmonic", metal: "Gold" },
   // Classic silver
-  { id: '1492',   name: 'Morgan Dollar',                 metal: 'Silver' },
-  { id: '5580',   name: 'Peace Dollar',                  metal: 'Silver' },
+  { id: "1492", name: "Morgan Dollar", metal: "Silver" },
+  { id: "5580", name: "Peace Dollar", metal: "Silver" },
 ];
 
 /**
@@ -1482,33 +1736,36 @@ const getPopularNumistaItems = () => [
  * @param {boolean} directLookup - If true and single result, skip list and show field picker
  * @param {string} originalQuery - The search query used (for retry pre-fill)
  */
-const showNumistaResults = (results, directLookup = false, originalQuery = '') => {
-  const modal = document.getElementById('numistaResultsModal');
-  const list = document.getElementById('numistaResultsList');
-  const picker = document.getElementById('numistaFieldPicker');
-  const title = document.getElementById('numistaResultsTitle');
-  const preview = document.getElementById('numistaSelectedItem');
+const showNumistaResults = (results, directLookup = false, originalQuery = "") => {
+  const modal = document.getElementById("numistaResultsModal");
+  const list = document.getElementById("numistaResultsList");
+  const picker = document.getElementById("numistaFieldPicker");
+  const title = document.getElementById("numistaResultsTitle");
+  const preview = document.getElementById("numistaSelectedItem");
   if (!modal || !list || !picker) return;
 
   selectedNumistaResult = null;
-  list.innerHTML = '';
-  picker.style.display = 'none';
+  list.innerHTML = "";
+  picker.style.display = "none";
 
   if (!results || results.length === 0) {
-    title.textContent = 'No Results';
+    title.textContent = "No Results";
 
     // Build quick-picks from curated popular items
     const popularItems = getPopularNumistaItems();
     const quickPicksHtml = `<div class="numista-quick-picks">
         <p class="numista-quick-picks-label">Popular bullion items:</p>
         <div class="numista-quick-picks-list">
-          ${popularItems.map(item =>
-            `<button type="button" class="numista-quick-pick" data-numista-id="${escapeHtmlCatalog(item.id)}">
+          ${popularItems
+            .map(
+              (item) =>
+                `<button type="button" class="numista-quick-pick" data-numista-id="${escapeHtmlCatalog(item.id)}">
               <span class="quick-pick-id">N#${escapeHtmlCatalog(item.id)}</span>
               <span class="quick-pick-name">${escapeHtmlCatalog(item.name)}</span>
               <span class="quick-pick-count">${escapeHtmlCatalog(item.metal)}</span>
             </button>`
-          ).join('')}
+            )
+            .join("")}
         </div>
       </div>`;
 
@@ -1524,46 +1781,51 @@ const showNumistaResults = (results, directLookup = false, originalQuery = '') =
       </div>
       ${quickPicksHtml}
     </div>`;
-    list.style.display = 'block';
-    modal.style.display = 'flex';
+    list.style.display = "block";
+    modal.style.display = "flex";
 
     // Wire up retry search
-    const retryBtn = document.getElementById('numistaRetryBtn');
-    const retryInput = document.getElementById('numistaRetryInput');
+    const retryBtn = document.getElementById("numistaRetryBtn");
+    const retryInput = document.getElementById("numistaRetryInput");
     if (retryBtn && retryInput) {
       const doRetry = async () => {
         const query = retryInput.value.trim();
         if (!query) return;
         retryBtn.disabled = true;
-        retryBtn.textContent = 'Searching\u2026';
+        retryBtn.textContent = "Searching\u2026";
         try {
           const retryResults = await catalogAPI.searchItems(query, { limit: 20 });
           showNumistaResults(retryResults, false, query);
         } catch (err) {
-          console.error('Numista retry search failed:', err);
-          retryBtn.textContent = 'Failed';
-          setTimeout(() => { retryBtn.textContent = 'Search'; retryBtn.disabled = false; }, 1500);
+          console.error("Numista retry search failed:", err);
+          retryBtn.textContent = "Failed";
+          setTimeout(() => {
+            retryBtn.textContent = "Search";
+            retryBtn.disabled = false;
+          }, 1500);
         }
       };
-      retryBtn.addEventListener('click', doRetry);
-      retryInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doRetry(); });
+      retryBtn.addEventListener("click", doRetry);
+      retryInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") doRetry();
+      });
       // Auto-focus the search input for quick editing
       setTimeout(() => retryInput.select(), 50);
     }
 
     // Wire up quick-pick clicks
-    list.querySelectorAll('.numista-quick-pick').forEach(pickBtn => {
-      pickBtn.addEventListener('click', async () => {
+    list.querySelectorAll(".numista-quick-pick").forEach((pickBtn) => {
+      pickBtn.addEventListener("click", async () => {
         const nId = pickBtn.dataset.numistaId;
         if (!nId) return;
-        pickBtn.style.opacity = '0.5';
+        pickBtn.style.opacity = "0.5";
         pickBtn.disabled = true;
         try {
           const result = await catalogAPI.lookupItem(nId);
           showNumistaResults(result ? [result] : [], true, nId);
         } catch (err) {
-          console.error('Numista quick-pick lookup failed:', err);
-          pickBtn.style.opacity = '1';
+          console.error("Numista quick-pick lookup failed:", err);
+          pickBtn.style.opacity = "1";
           pickBtn.disabled = false;
         }
       });
@@ -1574,14 +1836,14 @@ const showNumistaResults = (results, directLookup = false, originalQuery = '') =
 
   // Direct lookup with single result → skip to field picker
   if (directLookup && results.length === 1) {
-    title.textContent = 'Numista Item Found';
-    list.style.display = 'none';
+    title.textContent = "Numista Item Found";
+    list.style.display = "none";
     selectedNumistaResult = results[0];
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
     preview.innerHTML = renderNumistaSelectedItem(results[0]);
     renderNumistaFieldCheckboxes(results[0]);
-    picker.style.display = 'block';
-    modal.style.display = 'flex';
+    picker.style.display = "block";
+    modal.style.display = "flex";
     return;
   }
 
@@ -1596,32 +1858,40 @@ const showNumistaResults = (results, directLookup = false, originalQuery = '') =
            placeholder="Refine search..." value="${escapeHtmlCatalog(originalQuery)}">
     <button type="button" id="numistaRefineBtn" class="btn premium numista-refine-btn">Search</button>
   </div>`;
-  const cardsHtml = results.slice(0, 20).map((r, i) => renderNumistaResultCard(r, i)).join('');
+  const cardsHtml = results
+    .slice(0, 20)
+    .map((r, i) => renderNumistaResultCard(r, i))
+    .join("");
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
   list.innerHTML = searchBarHtml + cardsHtml;
-  list.style.display = 'flex';
-  modal.style.display = 'flex';
+  list.style.display = "flex";
+  modal.style.display = "flex";
 
   // Wire up refinement search
-  const refineBtn = document.getElementById('numistaRefineBtn');
-  const refineInput = document.getElementById('numistaRefineInput');
+  const refineBtn = document.getElementById("numistaRefineBtn");
+  const refineInput = document.getElementById("numistaRefineInput");
   if (refineBtn && refineInput) {
     const doRefine = async () => {
       const query = refineInput.value.trim();
       if (!query) return;
       refineBtn.disabled = true;
-      refineBtn.textContent = 'Searching\u2026';
+      refineBtn.textContent = "Searching\u2026";
       try {
         const refineResults = await catalogAPI.searchItems(query, { limit: 20 });
         showNumistaResults(refineResults, false, query);
       } catch (err) {
-        console.error('Numista refine search failed:', err);
-        refineBtn.textContent = 'Failed';
-        setTimeout(() => { refineBtn.textContent = 'Search'; refineBtn.disabled = false; }, 1500);
+        console.error("Numista refine search failed:", err);
+        refineBtn.textContent = "Failed";
+        setTimeout(() => {
+          refineBtn.textContent = "Search";
+          refineBtn.disabled = false;
+        }, 1500);
       }
     };
-    refineBtn.addEventListener('click', doRefine);
-    refineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doRefine(); });
+    refineBtn.addEventListener("click", doRefine);
+    refineInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") doRefine();
+    });
     setTimeout(() => refineInput.select(), 50);
   }
 };
@@ -1631,16 +1901,16 @@ const showNumistaResults = (results, directLookup = false, originalQuery = '') =
  * Reads values from the numistaFieldValue_* text inputs (user may have edited them).
  */
 const fillFormFromNumistaResult = () => {
-  const container = document.getElementById('numistaFieldCheckboxes');
+  const container = document.getElementById("numistaFieldCheckboxes");
   if (!container) return;
 
   // Collect checked fields and their edited values from the picker inputs
   const checkboxes = container.querySelectorAll('input[name="numistaField"]');
 
   // Intercept for bulk edit — when callback is set, route field values there instead
-  if (typeof window._bulkEditNumistaCallback === 'function') {
+  if (typeof window._bulkEditNumistaCallback === "function") {
     const fieldMap = {};
-    checkboxes.forEach(cb => {
+    checkboxes.forEach((cb) => {
       if (!cb.checked) return;
       const input = container.querySelector('input[name="numistaFieldValue_' + cb.value + '"]');
       if (input && input.value.trim()) fieldMap[cb.value] = input.value.trim();
@@ -1651,7 +1921,7 @@ const fillFormFromNumistaResult = () => {
     return;
   }
 
-  checkboxes.forEach(cb => {
+  checkboxes.forEach((cb) => {
     if (!cb.checked) return;
     const input = container.querySelector(`input[name="numistaFieldValue_${cb.value}"]`);
     if (!input) return;
@@ -1659,55 +1929,55 @@ const fillFormFromNumistaResult = () => {
     if (!val) return;
 
     switch (cb.value) {
-      case 'name': {
-        const el = elements.itemName || safeGetElement('itemName');
+      case "name": {
+        const el = elements.itemName || safeGetElement("itemName");
         if (el) el.value = val;
         break;
       }
-      case 'year': {
-        const el = elements.itemYear || safeGetElement('itemYear');
+      case "year": {
+        const el = elements.itemYear || safeGetElement("itemYear");
         if (el) el.value = val;
         break;
       }
-      case 'type': {
-        const el = elements.itemType || safeGetElement('itemType');
+      case "type": {
+        const el = elements.itemType || safeGetElement("itemType");
         if (el) {
-          const valid = Array.from(el.options).map(o => o.value);
+          const valid = Array.from(el.options).map((o) => o.value);
           if (valid.includes(val)) el.value = val;
         }
         break;
       }
-      case 'weight': {
-        const el = elements.itemWeight || safeGetElement('itemWeight');
-        const unitEl = safeGetElement('itemWeightUnit');
+      case "weight": {
+        const el = elements.itemWeight || safeGetElement("itemWeight");
+        const unitEl = safeGetElement("itemWeightUnit");
         const num = parseFloat(val);
         if (el && !isNaN(num) && num > 0) {
           el.value = num;
-          if (unitEl) unitEl.value = 'g';
+          if (unitEl) unitEl.value = "g";
         }
         break;
       }
-      case 'catalog': {
-        const el = elements.itemCatalog || safeGetElement('itemCatalog');
+      case "catalog": {
+        const el = elements.itemCatalog || safeGetElement("itemCatalog");
         if (el) el.value = val;
         break;
       }
-      case 'obverseImage': {
+      case "obverseImage": {
         // STAK-488: Always write the URL when checkbox is checked — the user controls
         // whether to overwrite via the field picker checkbox, not this guard.
-        const el = elements.itemObverseImageUrl || safeGetElement('itemObverseImageUrl');
+        const el = elements.itemObverseImageUrl || safeGetElement("itemObverseImageUrl");
         if (el) el.value = val;
         break;
       }
-      case 'reverseImage': {
-        const el = elements.itemReverseImageUrl || safeGetElement('itemReverseImageUrl');
+      case "reverseImage": {
+        const el = elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl");
         if (el) el.value = val;
         break;
       }
-      case 'metal': {
-        const el = elements.itemMetal || safeGetElement('itemMetal');
+      case "metal": {
+        const el = elements.itemMetal || safeGetElement("itemMetal");
         if (el) {
-          const valid = Array.from(el.options).map(o => o.value);
+          const valid = Array.from(el.options).map((o) => o.value);
           if (valid.includes(val)) el.value = val;
         }
         break;
@@ -1716,21 +1986,67 @@ const fillFormFromNumistaResult = () => {
   });
 
   // STAK-488: Show URL input wrappers if we just filled image URLs (they're hidden by default)
-  ['Obv', 'Rev'].forEach(suffix => {
-    const wrap = document.getElementById('itemImageUrlInput' + suffix);
-    const field = suffix === 'Obv' ? elements.itemObverseImageUrl : elements.itemReverseImageUrl;
-    if (wrap && field && field.value.trim()) wrap.style.display = '';
+  ["Obv", "Rev"].forEach((suffix) => {
+    const wrap = document.getElementById("itemImageUrlInput" + suffix);
+    const field = suffix === "Obv" ? elements.itemObverseImageUrl : elements.itemReverseImageUrl;
+    if (wrap && field && field.value.trim()) wrap.style.display = "";
   });
 
   // Auto-populate Numista Data fields from the selected result (STAK-173)
-  if (selectedNumistaResult && typeof populateNumistaDataFields === 'function') {
+  if (selectedNumistaResult && typeof populateNumistaDataFields === "function") {
     // Cache the metadata first so populateNumistaDataFields can read it
     const catId = selectedNumistaResult.catalogId;
     if (catId && window.imageCache?.isAvailable()) {
-      imageCache.cacheMetadata(catId, selectedNumistaResult).then(() => {
-        populateNumistaDataFields(catId);
-      }).catch(() => {});
+      imageCache
+        .cacheMetadata(catId, selectedNumistaResult)
+        .then(() => {
+          populateNumistaDataFields(catId);
+        })
+        .catch(() => {});
     }
+  }
+
+  // STAK-556: Tag checkbox application and userModified clearing
+  // Resolve editing item once — mirrors the pattern in renderNumistaFieldCheckboxes
+  const _fillIdx =
+    typeof editingIndex !== "undefined" && editingIndex !== null ? editingIndex : null;
+  const _fillItem = _fillIdx !== null && Array.isArray(inventory) ? inventory[_fillIdx] : null;
+  const _fillUuid = _fillItem?.uuid || null;
+
+  // Apply checked tag checkboxes
+  const tagCheckboxes = container.querySelectorAll('input[name="numistaTag"]:checked');
+  if (tagCheckboxes.length > 0 && _fillUuid) {
+    const checkedTags = Array.from(tagCheckboxes).map((cb) => cb.dataset.tag || cb.value);
+    if (typeof applyNumistaTags === "function") {
+      // force=true: user explicitly chose these tags via checkboxes
+      applyNumistaTags(_fillUuid, checkedTags, true, true);
+      if (typeof window._renderEditTags === "function") window._renderEditTags();
+    }
+    // Clear removal tracking for re-imported tags (batched: one load + one save)
+    if (typeof loadDataSync === "function" && typeof saveDataSync === "function") {
+      const map = loadDataSync("itemRemovedTags", {});
+      if (Array.isArray(map[_fillUuid]) && map[_fillUuid].length > 0) {
+        const checkedLower = new Set(checkedTags.map((t) => t.toLowerCase()));
+        map[_fillUuid] = map[_fillUuid].filter((r) => !checkedLower.has(r.toLowerCase()));
+        if (map[_fillUuid].length === 0) delete map[_fillUuid];
+        saveDataSync("itemRemovedTags", map);
+      }
+    }
+  }
+
+  // Clear userModified for scalar fields the user chose to override.
+  // Do NOT persist here — the save happens when the user confirms the edit modal.
+  // If the user cancels, the next load restores the original in-memory state.
+  if (_fillItem && _fillItem.fieldMeta) {
+    checkboxes.forEach((cb) => {
+      if (!cb.checked) return;
+      if (
+        USER_MODIFIED_TRACKED_FIELDS.has(cb.value) &&
+        _fillItem.fieldMeta[cb.value]?.userModified
+      ) {
+        _fillItem.fieldMeta[cb.value].userModified = false;
+      }
+    });
   }
 };
 
@@ -1738,28 +2054,28 @@ const fillFormFromNumistaResult = () => {
  * Close Numista results modal and clean up state
  */
 const closeNumistaResultsModal = () => {
-  const modal = document.getElementById('numistaResultsModal');
-  if (modal) modal.style.display = 'none';
+  const modal = document.getElementById("numistaResultsModal");
+  if (modal) modal.style.display = "none";
   selectedNumistaResult = null;
 };
 
 // Test function for Numista API
 async function testNumistaAPI() {
   if (!catalogConfig.isNumistaEnabled()) {
-    console.log('❌ Numista API not configured');
+    console.log("❌ Numista API not configured");
     return;
   }
 
-  console.log('🧪 Testing Numista API...');
-  
+  console.log("🧪 Testing Numista API...");
+
   try {
     // Test with a known coin ID (American Silver Eagle)
-    const testId = '5685'; // This is a common test ID for American Silver Eagle 1986
-    const result = await catalogAPI.lookupItem(testId, { action: 'test' });
-    console.log('✅ Numista API test successful:', result);
+    const testId = "5685"; // This is a common test ID for American Silver Eagle 1986
+    const result = await catalogAPI.lookupItem(testId, { action: "test" });
+    console.log("✅ Numista API test successful:", result);
     return result;
   } catch (error) {
-    console.error('❌ Numista API test failed:', error);
+    console.error("❌ Numista API test failed:", error);
     return null;
   }
 }
@@ -1769,34 +2085,34 @@ async function testNumistaAPI() {
  * Reuses the same .api-usage / .usage-bar / .usage-text CSS as metals providers
  */
 const renderNumistaUsageBar = () => {
-  const container = document.getElementById('numistaUsageBar');
+  const container = document.getElementById("numistaUsageBar");
   if (!container) return;
   const usage = catalogConfig.getNumistaUsage();
   // Coerce to safe finite numbers and validate month format
   const used = Number.isFinite(usage.used) ? Math.max(0, usage.used) : 0;
   const quota = Number.isFinite(usage.quota) && usage.quota > 0 ? usage.quota : 2000;
-  const month = /^\d{4}-\d{2}$/.test(usage.month) ? usage.month : '';
+  const month = /^\d{4}-\d{2}$/.test(usage.month) ? usage.month : "";
   const usedPercent = Math.min((used / quota) * 100, 100);
   const remainingPercent = 100 - usedPercent;
   const warning = used / quota >= 0.9;
 
   // Build DOM nodes safely (no innerHTML with localStorage-sourced values)
-  container.textContent = '';
-  const wrapper = document.createElement('div');
-  wrapper.className = 'api-usage';
-  const bar = document.createElement('div');
-  bar.className = 'usage-bar';
-  const usedDiv = document.createElement('div');
-  usedDiv.className = 'used';
+  container.textContent = "";
+  const wrapper = document.createElement("div");
+  wrapper.className = "api-usage";
+  const bar = document.createElement("div");
+  bar.className = "usage-bar";
+  const usedDiv = document.createElement("div");
+  usedDiv.className = "used";
   usedDiv.style.width = `${usedPercent}%`;
-  const remainDiv = document.createElement('div');
-  remainDiv.className = 'remaining';
+  const remainDiv = document.createElement("div");
+  remainDiv.className = "remaining";
   remainDiv.style.width = `${remainingPercent}%`;
   bar.appendChild(usedDiv);
   bar.appendChild(remainDiv);
-  const text = document.createElement('div');
-  text.className = 'usage-text';
-  text.textContent = `${used}/${quota} calls${month ? ` (${month})` : ''}${warning ? ' 🚩' : ''}`;
+  const text = document.createElement("div");
+  text.className = "usage-text";
+  text.textContent = `${used}/${quota} calls${month ? ` (${month})` : ""}${warning ? " 🚩" : ""}`;
   wrapper.appendChild(bar);
   wrapper.appendChild(text);
   container.appendChild(wrapper);
@@ -1807,32 +2123,32 @@ const renderNumistaUsageBar = () => {
  * Clones the Numista pattern but uses daily granularity (1,000/day)
  */
 const renderPcgsUsageBar = () => {
-  const container = document.getElementById('pcgsUsageBar');
+  const container = document.getElementById("pcgsUsageBar");
   if (!container) return;
   const usage = catalogConfig.getPcgsUsage();
   const used = Number.isFinite(usage.used) ? Math.max(0, usage.used) : 0;
   const quota = Number.isFinite(usage.limit) && usage.limit > 0 ? usage.limit : 1000;
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(usage.date) ? usage.date : '';
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(usage.date) ? usage.date : "";
   const usedPercent = Math.min((used / quota) * 100, 100);
   const remainingPercent = 100 - usedPercent;
   const warning = used / quota >= 0.9;
 
-  container.textContent = '';
-  const wrapper = document.createElement('div');
-  wrapper.className = 'api-usage';
-  const bar = document.createElement('div');
-  bar.className = 'usage-bar';
-  const usedDiv = document.createElement('div');
-  usedDiv.className = 'used';
+  container.textContent = "";
+  const wrapper = document.createElement("div");
+  wrapper.className = "api-usage";
+  const bar = document.createElement("div");
+  bar.className = "usage-bar";
+  const usedDiv = document.createElement("div");
+  usedDiv.className = "used";
   usedDiv.style.width = `${usedPercent}%`;
-  const remainDiv = document.createElement('div');
-  remainDiv.className = 'remaining';
+  const remainDiv = document.createElement("div");
+  remainDiv.className = "remaining";
   remainDiv.style.width = `${remainingPercent}%`;
   bar.appendChild(usedDiv);
   bar.appendChild(remainDiv);
-  const text = document.createElement('div');
-  text.className = 'usage-text';
-  text.textContent = `${used}/${quota} calls${day ? ` (${day})` : ''}${warning ? ' \uD83D\uDEA9' : ''}`;
+  const text = document.createElement("div");
+  text.className = "usage-text";
+  text.textContent = `${used}/${quota} calls${day ? ` (${day})` : ""}${warning ? " \uD83D\uDEA9" : ""}`;
   wrapper.appendChild(bar);
   wrapper.appendChild(text);
   container.appendChild(wrapper);
@@ -1843,7 +2159,7 @@ const renderPcgsUsageBar = () => {
 // =============================================================================
 
 /** @type {string} Sort column for settings catalog history table */
-let settingsCatalogSortColumn = '';
+let settingsCatalogSortColumn = "";
 /** @type {boolean} Sort ascending for settings catalog history table */
 let settingsCatalogSortAsc = true;
 
@@ -1852,7 +2168,7 @@ let settingsCatalogSortAsc = true;
  * Reads from global catalogHistory, sorts by timestamp descending by default.
  */
 const renderCatalogHistoryForSettings = () => {
-  const table = document.getElementById('settingsCatalogHistoryTable');
+  const table = document.getElementById("settingsCatalogHistoryTable");
   if (!table) return;
 
   loadCatalogHistory();
@@ -1871,29 +2187,30 @@ const renderCatalogHistoryForSettings = () => {
     data.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
   }
 
-  const tbody = table.querySelector('tbody');
+  const tbody = table.querySelector("tbody");
   if (!tbody) return;
 
   if (data.length === 0) {
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-    tbody.innerHTML = '<tr class="settings-log-empty"><td colspan="7">No catalog history recorded yet.</td></tr>';
+    tbody.innerHTML =
+      '<tr class="settings-log-empty"><td colspan="7">No catalog history recorded yet.</td></tr>';
     return;
   }
 
-  const rows = data.map(e => {
-    const resultClass = e.result === 'fail' ? ' style="color: var(--danger, #e74c3c);"' : '';
-    const errorTitle = e.error ? ` title="${String(e.error).replace(/"/g, '&quot;')}"` : '';
-    return `<tr><td>${e.timestamp || ''}</td><td>${e.action || ''}</td><td>${e.query || ''}</td><td${resultClass}${errorTitle}>${e.result || ''}</td><td>${e.itemCount || 0}</td><td>${e.provider || ''}</td><td>${e.duration || 0}ms</td></tr>`;
+  const rows = data.map((e) => {
+    const resultClass = e.result === "fail" ? ' style="color: var(--danger, #e74c3c);"' : "";
+    const errorTitle = e.error ? ` title="${String(e.error).replace(/"/g, "&quot;")}"` : "";
+    return `<tr><td>${e.timestamp || ""}</td><td>${e.action || ""}</td><td>${e.query || ""}</td><td${resultClass}${errorTitle}>${e.result || ""}</td><td>${e.itemCount || 0}</td><td>${e.provider || ""}</td><td>${e.duration || 0}ms</td></tr>`;
   });
 
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  tbody.innerHTML = rows.join('');
+  tbody.innerHTML = rows.join("");
 
   // Sortable headers
-  table.querySelectorAll('th').forEach(th => {
-    th.style.cursor = 'pointer';
+  table.querySelectorAll("th").forEach((th) => {
+    th.style.cursor = "pointer";
     th.onclick = () => {
-      const cols = ['timestamp', 'action', 'query', 'result', 'itemCount', 'provider', 'duration'];
+      const cols = ["timestamp", "action", "query", "result", "itemCount", "provider", "duration"];
       const idx = Array.from(th.parentNode.children).indexOf(th);
       const col = cols[idx];
       if (settingsCatalogSortColumn === col) {
@@ -1911,17 +2228,20 @@ const renderCatalogHistoryForSettings = () => {
  * Clears all catalog API history after user confirmation.
  */
 const clearCatalogHistory = async () => {
-  const confirmed = await appConfirm('Clear all catalog history? This cannot be undone.', 'Catalog History');
+  const confirmed = await appConfirm(
+    "Clear all catalog history? This cannot be undone.",
+    "Catalog History"
+  );
   if (!confirmed) return;
   catalogHistory = [];
   saveCatalogHistory();
-  const panel = document.getElementById('logPanel_catalogs');
+  const panel = document.getElementById("logPanel_catalogs");
   if (panel) delete panel.dataset.rendered;
   renderCatalogHistoryForSettings();
 };
 
 // Export for use in other modules
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.catalogAPI = catalogAPI;
   window.catalogConfig = catalogConfig;
   window.testNumistaAPI = testNumistaAPI;
@@ -1951,12 +2271,12 @@ if (typeof window !== 'undefined') {
 }
 
 // Initialize UI event handlers when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener("DOMContentLoaded", function () {
   // Numista API key input handler
-  const numistaApiKeyInput = document.getElementById('numistaApiKey');
-  const saveNumistaBtn = document.getElementById('saveNumistaBtn');
-  const testNumistaBtn = document.getElementById('testNumistaBtn');
-  const clearNumistaBtn = document.getElementById('clearNumistaBtn');
+  const numistaApiKeyInput = document.getElementById("numistaApiKey");
+  const saveNumistaBtn = document.getElementById("saveNumistaBtn");
+  const testNumistaBtn = document.getElementById("testNumistaBtn");
+  const clearNumistaBtn = document.getElementById("clearNumistaBtn");
 
   if (numistaApiKeyInput) {
     // Load existing API key
@@ -1966,37 +2286,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Save API key when input changes
-    numistaApiKeyInput.addEventListener('change', function() {
+    numistaApiKeyInput.addEventListener("change", function () {
       const apiKey = this.value.trim();
       if (apiKey) {
         catalogConfig.setNumistaConfig(apiKey, 2000);
         catalogAPI.initializeProviders();
-        console.log('✅ Numista API key saved');
+        console.log("✅ Numista API key saved");
       }
     });
   }
 
   // Save key button
   if (saveNumistaBtn) {
-    saveNumistaBtn.addEventListener('click', function() {
+    saveNumistaBtn.addEventListener("click", function () {
       const apiKey = numistaApiKeyInput?.value.trim();
       if (!apiKey) {
-        appAlert('Please enter your Numista API key first');
+        appAlert("Please enter your Numista API key first");
         return;
       }
       catalogConfig.setNumistaConfig(apiKey, 2000);
       catalogAPI.initializeProviders();
       renderNumistaUsageBar();
-      appAlert('Numista API key saved.');
+      appAlert("Numista API key saved.");
     });
   }
 
   // Test connection button
   if (testNumistaBtn) {
-    testNumistaBtn.addEventListener('click', async function() {
+    testNumistaBtn.addEventListener("click", async function () {
       const apiKey = numistaApiKeyInput?.value.trim();
       if (!apiKey) {
-        appAlert('Please enter your Numista API key first');
+        appAlert("Please enter your Numista API key first");
         return;
       }
 
@@ -2005,21 +2325,21 @@ document.addEventListener('DOMContentLoaded', function() {
       catalogAPI.initializeProviders();
 
       // Test the connection
-      this.textContent = 'Testing...';
+      this.textContent = "Testing...";
       this.disabled = true;
 
       try {
         const result = await testNumistaAPI();
         if (result) {
           renderNumistaUsageBar();
-          appAlert('✅ Numista API connection successful!');
+          appAlert("✅ Numista API connection successful!");
         } else {
-          appAlert('❌ Numista API connection failed. Please check your API key.');
+          appAlert("❌ Numista API connection failed. Please check your API key.");
         }
       } catch (error) {
-        appAlert('❌ Connection failed: ' + error.message);
+        appAlert("❌ Connection failed: " + error.message);
       } finally {
-        this.textContent = 'Test Connection';
+        this.textContent = "Test Connection";
         this.disabled = false;
       }
     });
@@ -2027,14 +2347,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Clear API key button
   if (clearNumistaBtn) {
-    clearNumistaBtn.addEventListener('click', async function() {
-      if (await appConfirm('Are you sure you want to clear your Numista API key?', 'Numista API')) {
+    clearNumistaBtn.addEventListener("click", async function () {
+      if (await appConfirm("Are you sure you want to clear your Numista API key?", "Numista API")) {
         catalogConfig.clearNumistaKey();
         if (numistaApiKeyInput) {
-          numistaApiKeyInput.value = '';
+          numistaApiKeyInput.value = "";
         }
         catalogAPI.initializeProviders();
-        console.log('🗑️ Numista API key cleared');
+        console.log("🗑️ Numista API key cleared");
       }
     });
   }
@@ -2043,11 +2363,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // PCGS API — settings UI event wiring
   // =========================================================================
 
-  const pcgsTokenInput = document.getElementById('pcgsBearerToken');
-  const savePcgsBtn = document.getElementById('savePcgsBtn');
-  const testPcgsBtn = document.getElementById('testPcgsBtn');
-  const clearPcgsBtn = document.getElementById('clearPcgsBtn');
-  const pcgsStatus = document.getElementById('pcgsStatus');
+  const pcgsTokenInput = document.getElementById("pcgsBearerToken");
+  const savePcgsBtn = document.getElementById("savePcgsBtn");
+  const testPcgsBtn = document.getElementById("testPcgsBtn");
+  const clearPcgsBtn = document.getElementById("clearPcgsBtn");
+  const pcgsStatus = document.getElementById("pcgsStatus");
 
   if (pcgsTokenInput) {
     const existingPcgs = catalogConfig.getPcgsConfig();
@@ -2057,76 +2377,76 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (savePcgsBtn) {
-    savePcgsBtn.addEventListener('click', function() {
+    savePcgsBtn.addEventListener("click", function () {
       const token = pcgsTokenInput?.value.trim();
       if (!token) {
-        appAlert('Please enter your PCGS bearer token first');
+        appAlert("Please enter your PCGS bearer token first");
         return;
       }
       catalogConfig.setPcgsConfig(token);
-      if (pcgsStatus) pcgsStatus.textContent = 'Token saved.';
+      if (pcgsStatus) pcgsStatus.textContent = "Token saved.";
       // Update provider status indicator and header status row
-      const statusEl = document.getElementById('pcgsProviderStatus');
+      const statusEl = document.getElementById("pcgsProviderStatus");
       if (statusEl) {
-        statusEl.querySelector('.status-dot')?.classList.add('connected');
-        const txt = statusEl.querySelector('.status-text');
-        if (txt) txt.textContent = 'Connected';
+        statusEl.querySelector(".status-dot")?.classList.add("connected");
+        const txt = statusEl.querySelector(".status-text");
+        if (txt) txt.textContent = "Connected";
       }
-      if (typeof renderApiStatusSummary === 'function') renderApiStatusSummary();
+      if (typeof renderApiStatusSummary === "function") renderApiStatusSummary();
       renderPcgsUsageBar();
-      appAlert('PCGS bearer token saved.');
+      appAlert("PCGS bearer token saved.");
     });
   }
 
   if (testPcgsBtn) {
-    testPcgsBtn.addEventListener('click', async function() {
+    testPcgsBtn.addEventListener("click", async function () {
       const token = pcgsTokenInput?.value.trim();
       if (!token) {
-        appAlert('Please enter your PCGS bearer token first');
+        appAlert("Please enter your PCGS bearer token first");
         return;
       }
 
       // Save first
       catalogConfig.setPcgsConfig(token);
 
-      this.textContent = 'Testing...';
+      this.textContent = "Testing...";
       this.disabled = true;
 
       try {
-        if (typeof verifyPcgsCert === 'function') {
-          const result = await verifyPcgsCert('00000000');
+        if (typeof verifyPcgsCert === "function") {
+          const result = await verifyPcgsCert("00000000");
           // Even a "not found" response means the API is reachable
-          if (pcgsStatus) pcgsStatus.textContent = 'Connected — API reachable.';
-          appAlert('PCGS API connection successful!');
+          if (pcgsStatus) pcgsStatus.textContent = "Connected — API reachable.";
+          appAlert("PCGS API connection successful!");
         } else {
-          if (pcgsStatus) pcgsStatus.textContent = 'pcgs-api.js not loaded.';
-          appAlert('PCGS API module not loaded. Ensure pcgs-api.js is included.');
+          if (pcgsStatus) pcgsStatus.textContent = "pcgs-api.js not loaded.";
+          appAlert("PCGS API module not loaded. Ensure pcgs-api.js is included.");
         }
       } catch (error) {
-        const msg = error.message || 'Unknown error';
-        if (pcgsStatus) pcgsStatus.textContent = 'Connection failed: ' + msg;
-        appAlert('PCGS API connection failed: ' + msg);
+        const msg = error.message || "Unknown error";
+        if (pcgsStatus) pcgsStatus.textContent = "Connection failed: " + msg;
+        appAlert("PCGS API connection failed: " + msg);
       } finally {
-        this.textContent = 'Test Connection';
+        this.textContent = "Test Connection";
         this.disabled = false;
       }
     });
   }
 
   if (clearPcgsBtn) {
-    clearPcgsBtn.addEventListener('click', async function() {
-      if (await appConfirm('Are you sure you want to clear your PCGS bearer token?', 'PCGS API')) {
+    clearPcgsBtn.addEventListener("click", async function () {
+      if (await appConfirm("Are you sure you want to clear your PCGS bearer token?", "PCGS API")) {
         catalogConfig.clearPcgsToken();
-        if (pcgsTokenInput) pcgsTokenInput.value = '';
-        if (pcgsStatus) pcgsStatus.textContent = 'Token cleared.';
+        if (pcgsTokenInput) pcgsTokenInput.value = "";
+        if (pcgsStatus) pcgsStatus.textContent = "Token cleared.";
         // Update provider status indicator and header status row
-        const statusEl = document.getElementById('pcgsProviderStatus');
+        const statusEl = document.getElementById("pcgsProviderStatus");
         if (statusEl) {
-          statusEl.querySelector('.status-dot')?.classList.remove('connected');
-          const txt = statusEl.querySelector('.status-text');
-          if (txt) txt.textContent = 'Disconnected';
+          statusEl.querySelector(".status-dot")?.classList.remove("connected");
+          const txt = statusEl.querySelector(".status-text");
+          if (txt) txt.textContent = "Disconnected";
         }
-        if (typeof renderApiStatusSummary === 'function') renderApiStatusSummary();
+        if (typeof renderApiStatusSummary === "function") renderApiStatusSummary();
       }
     });
   }
@@ -2135,35 +2455,37 @@ document.addEventListener('DOMContentLoaded', function() {
   // NUMISTA RESULTS MODAL — event wiring
   // =========================================================================
 
-  const numistaResultsModal = document.getElementById('numistaResultsModal');
-  const numistaResultsCloseBtn = document.getElementById('numistaResultsCloseBtn');
-  const numistaFillCancelBtn = document.getElementById('numistaFillCancelBtn');
-  const numistaFillBtn = document.getElementById('numistaFillBtn');
-  const numistaResultsList = document.getElementById('numistaResultsList');
+  const numistaResultsModal = document.getElementById("numistaResultsModal");
+  const numistaResultsCloseBtn = document.getElementById("numistaResultsCloseBtn");
+  const numistaFillCancelBtn = document.getElementById("numistaFillCancelBtn");
+  const numistaFillBtn = document.getElementById("numistaFillBtn");
+  const numistaResultsList = document.getElementById("numistaResultsList");
 
   // Close button
   if (numistaResultsCloseBtn) {
-    numistaResultsCloseBtn.addEventListener('click', closeNumistaResultsModal);
+    numistaResultsCloseBtn.addEventListener("click", closeNumistaResultsModal);
   }
 
   // Cancel button in field picker
   if (numistaFillCancelBtn) {
-    numistaFillCancelBtn.addEventListener('click', closeNumistaResultsModal);
+    numistaFillCancelBtn.addEventListener("click", closeNumistaResultsModal);
   }
 
   // Fill Fields button
   if (numistaFillBtn) {
-    numistaFillBtn.addEventListener('click', function() {
+    numistaFillBtn.addEventListener("click", function () {
       if (selectedNumistaResult) {
         fillFormFromNumistaResult();
 
         // Fire-and-forget: cache metadata in IndexedDB
-        if (window.imageCache?.isAvailable() && selectedNumistaResult.catalogId &&
-            window.featureFlags?.isEnabled('COIN_IMAGES')) {
-          imageCache.cacheMetadata(
-            selectedNumistaResult.catalogId,
-            selectedNumistaResult
-          ).catch(e => console.warn('Metadata cache failed:', e));
+        if (
+          window.imageCache?.isAvailable() &&
+          selectedNumistaResult.catalogId &&
+          window.featureFlags?.isEnabled("COIN_IMAGES")
+        ) {
+          imageCache
+            .cacheMetadata(selectedNumistaResult.catalogId, selectedNumistaResult)
+            .catch((e) => console.warn("Metadata cache failed:", e));
         }
       }
       closeNumistaResultsModal();
@@ -2172,42 +2494,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Delegated click on result cards → select and show field picker
   if (numistaResultsList) {
-    numistaResultsList.addEventListener('click', function(e) {
+    numistaResultsList.addEventListener("click", function (e) {
       // Let N# links open Numista without also selecting the row.
-      const catalogLink = e.target.closest('.numista-result-id-link');
+      const catalogLink = e.target.closest(".numista-result-id-link");
       if (catalogLink) {
         e.stopPropagation();
         return;
       }
 
       const results = numistaResultsList._numistaResults;
-      const card = e.target.closest('.numista-result-card');
+      const card = e.target.closest(".numista-result-card");
       if (!card) return;
 
       const index = parseInt(card.dataset.resultIndex, 10);
       if (!results || !results[index]) return;
 
       // Highlight selected card
-      numistaResultsList.querySelectorAll('.numista-result-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
+      numistaResultsList
+        .querySelectorAll(".numista-result-card")
+        .forEach((c) => c.classList.remove("selected"));
+      card.classList.add("selected");
 
       // Transition to field picker
       selectedNumistaResult = results[index];
-      const preview = document.getElementById('numistaSelectedItem');
-      const picker = document.getElementById('numistaFieldPicker');
-      const title = document.getElementById('numistaResultsTitle');
+      const preview = document.getElementById("numistaSelectedItem");
+      const picker = document.getElementById("numistaFieldPicker");
+      const title = document.getElementById("numistaResultsTitle");
       // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
       if (preview) preview.innerHTML = renderNumistaSelectedItem(selectedNumistaResult);
       renderNumistaFieldCheckboxes(selectedNumistaResult);
-      if (numistaResultsList) numistaResultsList.style.display = 'none';
-      if (picker) picker.style.display = 'block';
-      if (title) title.textContent = 'Fill Form Fields';
+      if (numistaResultsList) numistaResultsList.style.display = "none";
+      if (picker) picker.style.display = "block";
+      if (title) title.textContent = "Fill Form Fields";
     });
   }
 
   // Background click dismiss
   if (numistaResultsModal) {
-    numistaResultsModal.addEventListener('click', function(e) {
+    numistaResultsModal.addEventListener("click", function (e) {
       if (e.target === numistaResultsModal) {
         closeNumistaResultsModal();
       }
@@ -2215,10 +2539,10 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ESC key handler — results modal has higher z-index, check it first
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      const resultsModal = document.getElementById('numistaResultsModal');
-      if (resultsModal && resultsModal.style.display !== 'none') {
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      const resultsModal = document.getElementById("numistaResultsModal");
+      if (resultsModal && resultsModal.style.display !== "none") {
         e.stopImmediatePropagation();
         closeNumistaResultsModal();
       }

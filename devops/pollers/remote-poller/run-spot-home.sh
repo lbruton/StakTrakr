@@ -31,8 +31,8 @@ fi
 echo "[$(date -u +%H:%M:%S)] Starting spot price poll..."
 METAL_PRICE_API_KEY="$METAL_PRICE_API_KEY" \
   DATA_DIR="$DATA_DIR" \
-  TURSO_DATABASE_URL="$TURSO_DATABASE_URL" \
-  TURSO_AUTH_TOKEN="$TURSO_AUTH_TOKEN" \
+  SQLD_URL="${SQLD_URL:-$TURSO_DATABASE_URL}" \
+  SQLD_AUTH_TOKEN="${SQLD_AUTH_TOKEN:-$TURSO_AUTH_TOKEN}" \
   POLLER_ID=home-spot \
   node /opt/poller/spot-extract.js
 

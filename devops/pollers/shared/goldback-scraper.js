@@ -23,8 +23,8 @@
  *
  * Environment:
  *   DATA_DIR            Path to repo data/ folder (default: ../../data)
- *   TURSO_DATABASE_URL  sqld connection string (legacy env name)
- *   TURSO_AUTH_TOKEN    sqld auth token (optional — sqld has no auth by default)
+ *   SQLD_URL            sqld connection string (legacy: TURSO_DATABASE_URL)
+ *   SQLD_AUTH_TOKEN     sqld auth token (optional — sqld has no auth by default)
  *   DRY_RUN             Set to "1" to skip writes
  */
 
@@ -43,11 +43,12 @@ const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
 const DRY_RUN = process.env.DRY_RUN === "1";
 
 const GOLDBACK_PROXY_URL = "https://www.goldback.com/gb-proxy.php";
-const GOLDBACK_HISTORY_URL = "https://www.goldback.com/wp-admin/admin-ajax.php?action=get_goldback_data";
+const GOLDBACK_HISTORY_URL =
+  "https://www.goldback.com/wp-admin/admin-ajax.php?action=get_goldback_data";
 
 // G1 price must fall in this range (sanity check)
-const G1_MIN = 0.50;
-const G1_MAX = 20.00;
+const G1_MIN = 0.5;
+const G1_MAX = 20.0;
 
 // Denomination multipliers relative to G1
 const DENOMINATION_MULTIPLIERS = { g1: 1, g5: 5, g10: 10, g25: 25, g50: 50 };
@@ -75,7 +76,7 @@ function warn(msg) {
 async function fetchFromProxy() {
   const resp = await fetch(GOLDBACK_PROXY_URL, {
     headers: {
-      "Accept": "application/json",
+      Accept: "application/json",
       "User-Agent": "StakTrakr/1.0 goldback-scraper",
     },
     signal: AbortSignal.timeout(15_000),
@@ -100,7 +101,7 @@ async function fetchFromProxy() {
 async function fetchFromHistory() {
   const resp = await fetch(GOLDBACK_HISTORY_URL, {
     headers: {
-      "Accept": "application/json",
+      Accept: "application/json",
       "User-Agent": "StakTrakr/1.0 goldback-scraper",
     },
     signal: AbortSignal.timeout(15_000),
@@ -163,7 +164,7 @@ function appendHistoryJson(g1Rate, dateStr, scrapedAt) {
   }
 
   // Remove existing entry for today (idempotent re-run)
-  history = history.filter(e => e.date !== dateStr);
+  history = history.filter((e) => e.date !== dateStr);
   history.push({ date: dateStr, g1_usd: g1Rate, scraped_at: scrapedAt });
   history.sort((a, b) => b.date.localeCompare(a.date)); // newest first
 
@@ -243,7 +244,7 @@ async function main() {
   log("Done.");
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error("Fatal:", err);
   process.exit(1);
 });

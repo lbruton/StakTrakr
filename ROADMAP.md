@@ -5,33 +5,33 @@
 
 ## Summary
 
-| Category | Count |
-|----------|-------|
+| Category             | Count  |
+| -------------------- | ------ |
 | Completed (all time) | **67** |
-| Active (todo) | **7** |
-| Backlog | **20** |
-| Blocked | **1** |
-| Total open | **28** |
+| Active (todo)        | **7**  |
+| Backlog              | **20** |
+| Blocked              | **1**  |
+| Total open           | **28** |
 
 ## Recently Completed
 
-| Issue | Title | Type | Completed |
-|-------|-------|------|-----------|
-| STAK-521 | Unresolved slugs hidden from filter matrix but default to enabled | bug | 2026-04-11 |
-| STAK-526 | Cloud sync _applyAndFinalize records success after partial settings write failure | bug | 2026-04-10 |
-| STAK-536 | Add <www.lbruton.cc> portfolio link to footer/about page | chore | 2026-04-07 |
-| STAK-533 | Numista API key stripped during cloud sync — recurring regression | bug | 2026-04-05 |
-| STAK-531 | SECURITY: Malicious GitHub Actions workflow exfiltrating secrets | bug | 2026-04-04 |
-| STAK-528 | Shape-aware dimension fields — bars show Length/Width instead of Diameter | feature | 2026-04-03 |
-| STAK-508 | Epic: Full v2 API Migration — Frontend Cutover | epic | 2026-04-01 |
-| STAK-509 | V1 API dead code cleanup | chore | 2026-04-01 |
-| STAK-518 | StakTrakr API cache settings revert to 24h — simplify to enable v2 | bug | 2026-04-01 |
-| STAK-519 | Cloud sync fails to apply API keys and loops on blank storage | bug | 2026-04-01 |
-| STAK-520 | Market filter deep validation on load | bug | 2026-03-31 |
-| STAK-525 | Market sync button stuck in Syncing state — status text overflow | bug | 2026-03-31 |
-| STAK-515 | Replace Market Settings tab with Ticker & Market Filter content | feature | 2026-03-29 |
-| STAK-510 | APMEX Goldback prices pull CC/PayPal instead of Check/Wire | bug | 2026-03-29 |
-| STAK-516 | Vendor prices refresh button and timestamp stuck on file:// | bug | 2026-03-29 |
+| Issue    | Title                                                                              | Type    | Completed  |
+| -------- | ---------------------------------------------------------------------------------- | ------- | ---------- |
+| STAK-521 | Unresolved slugs hidden from filter matrix but default to enabled                  | bug     | 2026-04-11 |
+| STAK-526 | Cloud sync \_applyAndFinalize records success after partial settings write failure | bug     | 2026-04-10 |
+| STAK-536 | Add <www.lbruton.cc> portfolio link to footer/about page                           | chore   | 2026-04-07 |
+| STAK-533 | Numista API key stripped during cloud sync — recurring regression                  | bug     | 2026-04-05 |
+| STAK-531 | SECURITY: Malicious GitHub Actions workflow exfiltrating secrets                   | bug     | 2026-04-04 |
+| STAK-528 | Shape-aware dimension fields — bars show Length/Width instead of Diameter          | feature | 2026-04-03 |
+| STAK-508 | Epic: Full v2 API Migration — Frontend Cutover                                     | epic    | 2026-04-01 |
+| STAK-509 | V1 API dead code cleanup                                                           | chore   | 2026-04-01 |
+| STAK-518 | StakTrakr API cache settings revert to 24h — simplify to enable v2                 | bug     | 2026-04-01 |
+| STAK-519 | Cloud sync fails to apply API keys and loops on blank storage                      | bug     | 2026-04-01 |
+| STAK-520 | Market filter deep validation on load                                              | bug     | 2026-03-31 |
+| STAK-525 | Market sync button stuck in Syncing state — status text overflow                   | bug     | 2026-03-31 |
+| STAK-515 | Replace Market Settings tab with Ticker & Market Filter content                    | feature | 2026-03-29 |
+| STAK-510 | APMEX Goldback prices pull CC/PayPal instead of Check/Wire                         | bug     | 2026-03-29 |
+| STAK-516 | Vendor prices refresh button and timestamp stuck on file://                        | bug     | 2026-03-29 |
 
 ## Active Work Streams
 
@@ -39,71 +39,71 @@
 
 Live vendor price surfacing, per-item mapping, and the providers endpoint.
 
-| Issue | Title | Status | Priority |
-|-------|-------|--------|----------|
-| STAK-537 | Re-add Clear Lock button to home poller dashboard | todo | P2 |
-| STAK-501 | Per-item retail price mapping — link inventory items to live market prices | backlog | P2 |
-| STAK-507 | Add /v2/providers.json endpoint to StakTrakrApi | backlog | P2 |
+| Issue    | Title                                                                      | Status  | Priority |
+| -------- | -------------------------------------------------------------------------- | ------- | -------- |
+| STAK-537 | Re-add Clear Lock button to home poller dashboard                          | todo    | P2       |
+| STAK-501 | Per-item retail price mapping — link inventory items to live market prices | backlog | P2       |
+| STAK-507 | Add /v2/providers.json endpoint to StakTrakrApi                            | backlog | P2       |
 
 ### Settings Redesign
 
 Full tab-by-tab overhaul of the Settings UI. STAK-443 (API tab) is the highest-priority sub-issue.
 
-| Issue | Title | Status | Priority |
-|-------|-------|--------|----------|
-| STAK-443 | Settings Redesign: API tab — full redesign with sectioned card layout | backlog | P2 |
-| STAK-436 | Settings Redesign: Appearance tab — Realized Row toggle + remove clutter | backlog | P3 |
-| STAK-437 | Settings Redesign: Remove Search page, move to Filters tab as card | backlog | P3 |
-| STAK-438 | Settings Redesign: Filters tab — combine settings into cards with toggles | backlog | P3 |
-| STAK-439 | Settings Redesign: Images tab — remove redundancy, move Numista assets | backlog | P3 |
-| STAK-440 | Settings Redesign: Move Currency and Pricing to Appearance tab | backlog | P3 |
-| STAK-441 | Settings Redesign: Goldback tab — condense to single toggle + rate display | backlog | P3 |
-| STAK-442 | Settings Redesign: Storage tab — move danger buttons to Inventory tab | backlog | P3 |
-| STAK-444 | Settings Redesign: Cloud tab — restore Cloud Settings menu, simplify | backlog | P3 |
-| STAK-446 | Settings Redesign: LOG/Changelog — audit CRUD logging, rename and clean | backlog | P3 |
-| STAK-447 | Settings Redesign: Market tab in LOG — 30-day rolling history with chart | backlog | P3 |
-| STAK-445 | Settings Redesign: Move FAQ below LOG, keep as-is | backlog | P4 |
-| STAK-535 | Move Metal Order and Inline Chips settings from Filter Chips tab to Appearance | todo | P4 |
+| Issue    | Title                                                                          | Status  | Priority |
+| -------- | ------------------------------------------------------------------------------ | ------- | -------- |
+| STAK-443 | Settings Redesign: API tab — full redesign with sectioned card layout          | backlog | P2       |
+| STAK-436 | Settings Redesign: Appearance tab — Realized Row toggle + remove clutter       | backlog | P3       |
+| STAK-437 | Settings Redesign: Remove Search page, move to Filters tab as card             | backlog | P3       |
+| STAK-438 | Settings Redesign: Filters tab — combine settings into cards with toggles      | backlog | P3       |
+| STAK-439 | Settings Redesign: Images tab — remove redundancy, move Numista assets         | backlog | P3       |
+| STAK-440 | Settings Redesign: Move Currency and Pricing to Appearance tab                 | backlog | P3       |
+| STAK-441 | Settings Redesign: Goldback tab — condense to single toggle + rate display     | backlog | P3       |
+| STAK-442 | Settings Redesign: Storage tab — move danger buttons to Inventory tab          | backlog | P3       |
+| STAK-444 | Settings Redesign: Cloud tab — restore Cloud Settings menu, simplify           | backlog | P3       |
+| STAK-446 | Settings Redesign: LOG/Changelog — audit CRUD logging, rename and clean        | backlog | P3       |
+| STAK-447 | Settings Redesign: Market tab in LOG — 30-day rolling history with chart       | backlog | P3       |
+| STAK-445 | Settings Redesign: Move FAQ below LOG, keep as-is                              | backlog | P4       |
+| STAK-535 | Move Metal Order and Inline Chips settings from Filter Chips tab to Appearance | todo    | P4       |
 
 ### Testing Infrastructure
 
 Migrate to Playwright as the primary E2E test runner.
 
-| Issue | Title | Status | Priority |
-|-------|-------|--------|----------|
-| STAK-532 | Migrate from Browserbase-only to Playwright-first testing | backlog | P3 |
-| STAK-539 | Playwright regression test for _isSlugResolved predicate (STAK-521) | blocked | P4 |
+| Issue    | Title                                                                | Status  | Priority |
+| -------- | -------------------------------------------------------------------- | ------- | -------- |
+| STAK-532 | Migrate from Browserbase-only to Playwright-first testing            | backlog | P3       |
+| STAK-539 | Playwright regression test for \_isSlugResolved predicate (STAK-521) | blocked | P4       |
 
 ### Bug Queue
 
-| Issue | Title | Status | Priority |
-|-------|-------|--------|----------|
-| STAK-529 | Settings — default sort direction (asc/desc) control missing | todo | P3 |
-| STAK-527 | STAKTRAKR toggle bypasses priority collision logic and leaves stale state | backlog | P3 |
+| Issue    | Title                                                                     | Status  | Priority |
+| -------- | ------------------------------------------------------------------------- | ------- | -------- |
+| STAK-529 | Settings — default sort direction (asc/desc) control missing              | todo    | P3       |
+| STAK-527 | STAKTRAKR toggle bypasses priority collision logic and leaves stale state | backlog | P3       |
 
 ### Infrastructure & Reliability
 
-| Issue | Title | Status | Priority |
-|-------|-------|--------|----------|
-| STAK-479 | Health check API endpoints for Fly.io remote monitoring | todo | P3 |
-| STAK-482 | Verify flock guard on retail poller cron prevents overlapping runs | todo | P4 |
+| Issue    | Title                                                              | Status | Priority |
+| -------- | ------------------------------------------------------------------ | ------ | -------- |
+| STAK-479 | Health check API endpoints for Fly.io remote monitoring            | todo   | P3       |
+| STAK-482 | Verify flock guard on retail poller cron prevents overlapping runs | todo   | P4       |
 
 ### Cleanup & Polish
 
-| Issue | Title | Status | Priority |
-|-------|-------|--------|----------|
-| STAK-538 | Remove first-run acknowledgment modal (ackModal) — covered by InfoBar | todo | P3 |
-| STAK-540 | Drop orphaned staktrakr.market_filter entries for unresolved slugs | todo | P4 |
-| STAK-493-C | Surface image vault push/pull failures to user | backlog | P3 |
-| STAK-517 | Wire market filter settings into cloud sync, import/export, and backup | backlog | P3 |
-| STAK-530 | Rarity & mintage as table columns with compact visual indicator | backlog | P3 |
-| STAK-534 | Explore replacing firecrawl in /scan-mentions with web-to-markdown | backlog | P3 |
+| Issue      | Title                                                                  | Status  | Priority |
+| ---------- | ---------------------------------------------------------------------- | ------- | -------- |
+| STAK-538   | Remove first-run acknowledgment modal (ackModal) — covered by InfoBar  | todo    | P3       |
+| STAK-540   | Drop orphaned staktrakr.market_filter entries for unresolved slugs     | todo    | P4       |
+| STAK-493-C | Surface image vault push/pull failures to user                         | backlog | P3       |
+| STAK-517   | Wire market filter settings into cloud sync, import/export, and backup | backlog | P3       |
+| STAK-530   | Rarity & mintage as table columns with compact visual indicator        | backlog | P3       |
+| STAK-534   | Explore replacing firecrawl in /scan-mentions with web-to-markdown     | backlog | P3       |
 
 ## Blocked
 
-| Issue | Title | Blocked By | Notes |
-|-------|-------|------------|-------|
-| STAK-539 | Playwright regression test for _isSlugResolved predicate | STAK-532 | Requires Playwright config and tests/playwright/ directory to exist first |
+| Issue    | Title                                                     | Blocked By | Notes                                                                     |
+| -------- | --------------------------------------------------------- | ---------- | ------------------------------------------------------------------------- |
+| STAK-539 | Playwright regression test for \_isSlugResolved predicate | STAK-532   | Requires Playwright config and tests/playwright/ directory to exist first |
 
 ## Dependency Graph
 

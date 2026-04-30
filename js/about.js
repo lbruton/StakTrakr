@@ -15,17 +15,15 @@ const populateAboutTab = () => {
   }
 
   if (aboutAppName) {
-    const stakSpan = aboutAppName.querySelector('.stak');
-    const trakrSpan = aboutAppName.querySelector('.trakr');
+    const stakSpan = aboutAppName.querySelector(".stak");
+    const trakrSpan = aboutAppName.querySelector(".trakr");
     if (stakSpan && trakrSpan) {
       const brand = getBrandingName();
       const split = BRANDING_DOMAIN_OPTIONS?.logoSplit?.[brand];
-      stakSpan.textContent = Array.isArray(split) && split.length >= 2
-        ? split[0].toUpperCase()
-        : 'STAK';
-      trakrSpan.textContent = Array.isArray(split) && split.length >= 2
-        ? split[1].toUpperCase()
-        : 'TRAKR';
+      stakSpan.textContent =
+        Array.isArray(split) && split.length >= 2 ? split[0].toUpperCase() : "STAK";
+      trakrSpan.textContent =
+        Array.isArray(split) && split.length >= 2 ? split[1].toUpperCase() : "TRAKR";
     }
   }
 
@@ -34,12 +32,8 @@ const populateAboutTab = () => {
 };
 
 const loadAnnouncements = async () => {
-  const whatsNewTargets = [
-    document.getElementById("aboutChangelogLatest"),
-  ].filter(Boolean);
-  const roadmapTargets = [
-    document.getElementById("aboutRoadmapList"),
-  ].filter(Boolean);
+  const whatsNewTargets = [document.getElementById("aboutChangelogLatest")].filter(Boolean);
+  const roadmapTargets = [document.getElementById("aboutRoadmapList")].filter(Boolean);
 
   if (!whatsNewTargets.length && !roadmapTargets.length) return;
 
@@ -47,9 +41,13 @@ const loadAnnouncements = async () => {
   // was deleted but CDN ghost caches serve stale copies indefinitely.
   // Embedded content is the single source of truth, maintained by /release.
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  whatsNewTargets.forEach((el) => { el.innerHTML = getEmbeddedWhatsNew(); }); // developer-controlled HTML
+  whatsNewTargets.forEach((el) => {
+    el.innerHTML = getEmbeddedWhatsNew();
+  }); // developer-controlled HTML
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  roadmapTargets.forEach((el) => { el.innerHTML = getEmbeddedRoadmap(); }); // developer-controlled HTML
+  roadmapTargets.forEach((el) => {
+    el.innerHTML = getEmbeddedRoadmap();
+  }); // developer-controlled HTML
 };
 
 const showFullChangelog = () => {
@@ -57,13 +55,13 @@ const showFullChangelog = () => {
   window.open(
     "https://github.com/lbruton/StakTrakr/blob/main/CHANGELOG.md",
     "_blank",
-    "noopener,noreferrer",
+    "noopener,noreferrer"
   );
 };
 
 // STAK-547: Acknowledge version so toast doesn't show again
 const acknowledgeVersion = () => {
-  if (typeof APP_VERSION !== 'undefined') {
+  if (typeof APP_VERSION !== "undefined") {
     localStorage.setItem(VERSION_ACK_KEY, APP_VERSION);
   }
 };
@@ -71,48 +69,46 @@ const acknowledgeVersion = () => {
 // STAK-547: Show latest changelog entry as a bottom-right toast card (replaces modal)
 const showWhatsNewPopup = () => {
   // Prevent duplicate cards if called more than once
-  if (document.querySelector('.whats-new-toast-card')) return;
+  if (document.querySelector(".whats-new-toast-card")) return;
 
   // Parse first entry from embedded list (developer-controlled HTML)
-  const doc = new DOMParser().parseFromString(
-    `<ul>${getEmbeddedWhatsNew()}</ul>`, 'text/html',
-  );
-  const firstLi = doc.querySelector('li');
+  const doc = new DOMParser().parseFromString(`<ul>${getEmbeddedWhatsNew()}</ul>`, "text/html");
+  const firstLi = doc.querySelector("li");
   if (!firstLi) {
     acknowledgeVersion();
     return;
   }
 
   // Build card with DOM methods — no innerHTML on appended elements
-  const label = document.createElement('span');
-  label.className = 'wntc-label';
-  label.textContent = 'What\u2019s New';
+  const label = document.createElement("span");
+  label.className = "wntc-label";
+  label.textContent = "What\u2019s New";
 
-  const versionSpan = document.createElement('span');
-  versionSpan.className = 'wntc-version';
-  versionSpan.textContent = typeof APP_VERSION !== 'undefined' ? `v${APP_VERSION}` : '';
+  const versionSpan = document.createElement("span");
+  versionSpan.className = "wntc-version";
+  versionSpan.textContent = typeof APP_VERSION !== "undefined" ? `v${APP_VERSION}` : "";
 
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'wntc-close';
-  closeBtn.setAttribute('type', 'button');
-  closeBtn.setAttribute('aria-label', 'Dismiss');
-  closeBtn.textContent = '\u00D7';
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "wntc-close";
+  closeBtn.setAttribute("type", "button");
+  closeBtn.setAttribute("aria-label", "Dismiss");
+  closeBtn.textContent = "\u00D7";
 
-  const header = document.createElement('div');
-  header.className = 'wntc-header';
+  const header = document.createElement("div");
+  header.className = "wntc-header";
   header.appendChild(label);
   header.appendChild(versionSpan);
   header.appendChild(closeBtn);
 
-  const body = document.createElement('div');
-  body.className = 'wntc-body';
+  const body = document.createElement("div");
+  body.className = "wntc-body";
   // Clone parsed li child nodes (developer-controlled, not user input)
   Array.from(firstLi.childNodes).forEach((node) => body.appendChild(node.cloneNode(true)));
 
-  const card = document.createElement('div');
-  card.className = 'whats-new-toast-card';
-  card.setAttribute('role', 'status');
-  card.setAttribute('aria-live', 'polite');
+  const card = document.createElement("div");
+  card.className = "whats-new-toast-card";
+  card.setAttribute("role", "status");
+  card.setAttribute("aria-live", "polite");
   card.appendChild(header);
   card.appendChild(body);
   document.body.appendChild(card);
@@ -122,18 +118,18 @@ const showWhatsNewPopup = () => {
     if (dismissed) return;
     dismissed = true;
     clearTimeout(timer);
-    card.classList.add('fade-out');
-    card.addEventListener('animationend', () => card.remove(), { once: true });
+    card.classList.add("fade-out");
+    card.addEventListener("animationend", () => card.remove(), { once: true });
     acknowledgeVersion();
   };
 
-  card.addEventListener('click', dismiss);
+  card.addEventListener("click", dismiss);
   const timer = setTimeout(dismiss, 4000);
 };
 
 // Kept for backward compat — removes toast card if present and acknowledges version
 const hideWhatsNewPopup = () => {
-  const card = document.querySelector('.whats-new-toast-card');
+  const card = document.querySelector(".whats-new-toast-card");
   if (card) card.remove();
   acknowledgeVersion();
 };
@@ -143,17 +139,16 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
-    <li><strong>v3.34.03 &ndash; STAK-544: Header Cloud Button Sync or Open Settings</strong>: The header cloud button now triggers a manual sync for configured users or opens Settings &rarr; Cloud for setup users. Replaced the previous dead-end &quot;autosync disabled&quot; toast behavior.</li>
-    <li><strong>v3.34.02 &ndash; STAK-545: Market Button Triggers Refresh</strong>: The header Market button now triggers a market data refresh instead of opening Settings. A gear icon in the Market dashboard block provides direct access to Market settings.</li>
-    <li><strong>v3.34.01 &ndash; STAK-445: Move FAQ below LOG</strong>: Reordered the Settings modal sidebar so Log appears immediately before FAQ. FAQ content, Activity Log content, and settings panel behavior remain unchanged.</li>
-    <li><strong>v3.34.00 &ndash; STAK-444: Cloud Tab Settings Panel</strong>: Dropbox and Cloud Sync Beta cards moved from System tab to a dedicated Cloud tab. The Cloud nav button now opens cloud sync configuration instead of falling back to About.</li>
-    <li><strong>v3.33.99 &ndash; STAK-538: Remove First-Run Modal</strong>: First-run acknowledgment modal removed &mdash; users now see the app immediately. The Info tab and What&rsquo;s New popup already cover disclaimers and version announcements.</li>
+    <li><strong>v3.34.38 &ndash; Silverback as a first-class metal type</strong>: Silverbacks now have their own 0.001 troy ounce weight unit, separate from Goldback retail pricing. Existing records migrate automatically on load, import, and cloud restore. Denomination selector, purity default, and aria labels are all corrected (STRK-4, STRK-12, STRK-15, STRK-17).</li>
+    <li><strong>v3.34.36 &ndash; Inventory data safety</strong>: Startup no longer overwrites your inventory with sample data when localStorage is missing or corrupt &mdash; a recovery banner appears instead. Re-importing your own encrypted backup no longer produces duplicates; items match by serial, Numista ID, or name+date before comparison (STRK-13, STRK-14).</li>
+    <li><strong>v3.34.34 &ndash; Lot &harr; Each purchase price toggle</strong>: Enter a lot total when buying multiples &mdash; the app divides by quantity and stores a per-unit price. The Purchase column now shows the qty-multiplied total in the inventory table (STRK-4).</li>
+    <li><strong>v3.34.24 &ndash; Settings tab overhaul</strong>: API tab redesigned with sectioned card layout. Search tab merged into Filters. Activity Log, Images, and Currency tabs redesigned. Danger buttons moved from Storage to Inventory. Force Refresh relocated to About (STAK-437, STAK-439, STAK-442, STAK-443, STAK-446, STAK-564).</li>
+    <li><strong>v3.34.33 &ndash; Retail &amp; market improvements</strong>: Retail and market price surfaces now honor your selected display currency. Settings &rarr; API asks for confirmation before switching spot providers. Mobile action buttons clear Android gesture nav and iOS safe-area insets on all notched devices (STAK-571, STAK-578, STAK-581).</li>
   `;
 };
 
 const getEmbeddedRoadmap = () => {
   return `
-    <li><strong>Settings Redesign (STAK-436&ndash;447)</strong>: 12-issue suite covering Appearance, Filters, and API settings tabs</li>
     <li><strong>Market Page Phase 3</strong>: Inventory-to-market linking with auto-update retail prices</li>
     <li><strong>Cloud Backup Conflict Detection (STAK-150)</strong>: Smarter conflict resolution using item count direction, not just timestamps</li>
   `;

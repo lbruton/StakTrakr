@@ -72,11 +72,7 @@ const calculateLevenshteinDistance = (str1, str2) => {
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,
-        dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + cost
-      );
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
     }
   }
   return dp[m][n];
@@ -123,14 +119,8 @@ const fuzzyMatch = (query, target, options = {}) => {
     const levScore = q.length ? 1 - minDist / q.length : 0;
 
     // N-gram similarity (2-grams & 3-grams)
-    const qGrams = new Set([
-      ...generateNGrams(q, 2, true),
-      ...generateNGrams(q, 3, true),
-    ]);
-    const tGrams = new Set([
-      ...generateNGrams(t, 2, true),
-      ...generateNGrams(t, 3, true),
-    ]);
+    const qGrams = new Set([...generateNGrams(q, 2, true), ...generateNGrams(q, 3, true)]);
+    const tGrams = new Set([...generateNGrams(t, 2, true), ...generateNGrams(t, 3, true)]);
     const inter = [...qGrams].filter((g) => tGrams.has(g));
     const union = new Set([...qGrams, ...tGrams]);
     const ngramScore = union.size ? inter.length / union.size : 0;
@@ -146,7 +136,10 @@ const fuzzyMatch = (query, target, options = {}) => {
         let s = l ? 1 - d / l : 0;
         if (tw[0] !== qw[0]) {
           s -= 0.3; // heavy penalty for mismatched first letter
-        } else if (tw.slice(0, Math.min(2, tw.length, qw.length)) !== qw.slice(0, Math.min(2, tw.length, qw.length))) {
+        } else if (
+          tw.slice(0, Math.min(2, tw.length, qw.length)) !==
+          qw.slice(0, Math.min(2, tw.length, qw.length))
+        ) {
           s -= 0.1; // lighter penalty for differing prefix
         }
         if (s > best) best = s;

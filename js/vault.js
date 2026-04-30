@@ -17,7 +17,7 @@
 // CONSTANTS
 // =============================================================================
 
-const VAULT_MAGIC = new Uint8Array([0x53, 0x54, 0x56, 0x41, 0x55, 0x4C, 0x54]); // "STVAULT"
+const VAULT_MAGIC = new Uint8Array([0x53, 0x54, 0x56, 0x41, 0x55, 0x4c, 0x54]); // "STVAULT"
 const VAULT_VERSION = 0x01;
 const VAULT_HEADER_SIZE = 56;
 const VAULT_PBKDF2_ITERATIONS = 600000;
@@ -42,14 +42,14 @@ function getCryptoBackend() {
       return "native";
     }
   } catch (err) {
-    debugLog('[Vault] Crypto backend detection failed: ' + err.message, 'info');
+    debugLog("[Vault] Crypto backend detection failed: " + err.message, "info");
   }
   try {
     if (typeof forge !== "undefined" && forge.cipher && forge.pkcs5) {
       return "forge";
     }
   } catch (err) {
-    debugLog('[Vault] Crypto backend detection failed: ' + err.message, 'info');
+    debugLog("[Vault] Crypto backend detection failed: " + err.message, "info");
   }
   return null;
 }
@@ -69,7 +69,7 @@ function vaultRandomBytes(length) {
     return new Uint8Array(
       bytes.split("").map(function (c) {
         return c.charCodeAt(0);
-      }),
+      })
     );
   }
   throw new Error("No crypto backend available");
@@ -91,7 +91,7 @@ async function vaultDeriveKey(password, salt, iterations) {
       enc.encode(password),
       "PBKDF2",
       false,
-      ["deriveKey"],
+      ["deriveKey"]
     );
     return crypto.subtle.deriveKey(
       {
@@ -103,7 +103,7 @@ async function vaultDeriveKey(password, salt, iterations) {
       keyMaterial,
       { name: "AES-GCM", length: 256 },
       false,
-      ["encrypt", "decrypt"],
+      ["encrypt", "decrypt"]
     );
   }
   if (backend === "forge") {
@@ -124,23 +124,14 @@ async function vaultDeriveKey(password, salt, iterations) {
 async function vaultEncrypt(plaintext, key, iv) {
   var backend = getCryptoBackend();
   if (backend === "native") {
-    var result = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      plaintext,
-    );
+    var result = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, plaintext);
     return new Uint8Array(result);
   }
   if (backend === "forge") {
-    var cipher = forge.cipher.createCipher(
-      "AES-GCM",
-      key,
-    );
+    var cipher = forge.cipher.createCipher("AES-GCM", key);
     var ivStr = String.fromCharCode.apply(null, iv);
     cipher.start({ iv: ivStr, tagLength: 128 });
-    cipher.update(
-      forge.util.createBuffer(String.fromCharCode.apply(null, plaintext)),
-    );
+    cipher.update(forge.util.createBuffer(String.fromCharCode.apply(null, plaintext)));
     cipher.finish();
 
     var encrypted = cipher.output.getBytes();
@@ -170,11 +161,7 @@ async function vaultDecrypt(ciphertext, key, iv) {
   var backend = getCryptoBackend();
   if (backend === "native") {
     try {
-      var result = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: iv },
-        key,
-        ciphertext,
-      );
+      var result = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ciphertext);
       return new Uint8Array(result);
     } catch (_) {
       throw new Error("Incorrect password or corrupted file.");
@@ -209,7 +196,7 @@ async function vaultDecrypt(ciphertext, key, iv) {
     return new Uint8Array(
       output.split("").map(function (c) {
         return c.charCodeAt(0);
-      }),
+      })
     );
   }
   throw new Error("No crypto backend available");
@@ -266,16 +253,11 @@ function parseVaultFile(fileBytes) {
   // Check version
   var version = fileBytes[7];
   if (version > VAULT_VERSION) {
-    throw new Error(
-      "Created by a newer StakTrakr version. Please update.",
-    );
+    throw new Error("Created by a newer StakTrakr version. Please update.");
   }
   // Parse iterations
   var iterations =
-    (fileBytes[8] << 24) |
-    (fileBytes[9] << 16) |
-    (fileBytes[10] << 8) |
-    fileBytes[11];
+    (fileBytes[8] << 24) | (fileBytes[9] << 16) | (fileBytes[10] << 8) | fileBytes[11];
   iterations = iterations >>> 0; // ensure unsigned
 
   var salt = fileBytes.slice(12, 44);
@@ -307,17 +289,18 @@ function parseVaultFile(fileBytes) {
  * When scope is 'sync', collects only SYNC_SCOPE_KEYS (unaffected by exclusions).
  */
 function collectVaultData(scope) {
-  scope = scope || 'full';
+  scope = scope || "full";
 
-  var keysToCollect = scope === 'sync' && typeof SYNC_SCOPE_KEYS !== 'undefined'
-    ? SYNC_SCOPE_KEYS
-    : ALLOWED_STORAGE_KEYS;
+  var keysToCollect =
+    scope === "sync" && typeof SYNC_SCOPE_KEYS !== "undefined"
+      ? SYNC_SCOPE_KEYS
+      : ALLOWED_STORAGE_KEYS;
 
   var payload = {
     _meta: {
       appVersion: typeof APP_VERSION !== "undefined" ? APP_VERSION : "unknown",
       exportTimestamp: new Date().toISOString(),
-      exportOrigin: (typeof window !== 'undefined' && window.location) ? window.location.origin : '',
+      exportOrigin: typeof window !== "undefined" && window.location ? window.location.origin : "",
       scope: scope,
     },
     data: {},
@@ -328,8 +311,11 @@ function collectVaultData(scope) {
   for (var i = 0; i < keysToCollect.length; i++) {
     var key = keysToCollect[i];
     // Skip credentials and device-specific state in portable full exports
-    if (scope === 'full' && typeof VAULT_EXCLUDE_KEYS !== 'undefined' &&
-        VAULT_EXCLUDE_KEYS.indexOf(key) !== -1) {
+    if (
+      scope === "full" &&
+      typeof VAULT_EXCLUDE_KEYS !== "undefined" &&
+      VAULT_EXCLUDE_KEYS.indexOf(key) !== -1
+    ) {
       continue;
     }
     try {
@@ -388,9 +374,9 @@ async function restoreVaultData(payload) {
         // Skip if already CMP1-compressed to avoid double-wrapping.
         var value = data[key];
         if (
-          typeof value === 'string' &&
-          typeof __compressIfNeeded === 'function' &&
-          !value.startsWith('CMP1:')
+          typeof value === "string" &&
+          typeof __compressIfNeeded === "function" &&
+          !value.startsWith("CMP1:")
         ) {
           value = __compressIfNeeded(value);
         }
@@ -409,6 +395,8 @@ async function restoreVaultData(payload) {
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof loadSpotHistory === "function") loadSpotHistory();
     if (typeof fetchSpotPrice === "function") fetchSpotPrice();
+    if (typeof _invalidateMarketFilterCache === "function") _invalidateMarketFilterCache();
+    if (typeof renderMarketFilterMatrix === "function") renderMarketFilterMatrix();
   } catch (e) {
     debugLog("Vault: UI refresh error", e);
   }
@@ -463,7 +451,7 @@ function getPasswordStrength(password) {
  * @returns {Promise<Uint8Array>} serialized vault file bytes
  */
 async function vaultEncryptToBytes(password) {
-  var payload = collectVaultData('full');
+  var payload = collectVaultData("full");
   if (!payload) throw new Error("No data to export.");
   var plaintext = new TextEncoder().encode(JSON.stringify(payload));
   var salt = vaultRandomBytes(32);
@@ -480,7 +468,7 @@ async function vaultEncryptToBytes(password) {
  * @returns {Promise<Uint8Array>} serialized vault file bytes
  */
 async function vaultEncryptToBytesScoped(password) {
-  var payload = collectVaultData('sync');
+  var payload = collectVaultData("sync");
   if (!payload) throw new Error("No inventory data to sync.");
   var plaintext = new TextEncoder().encode(JSON.stringify(payload));
   var salt = vaultRandomBytes(32);
@@ -499,7 +487,7 @@ async function vaultEncryptToBytesScoped(password) {
 async function vaultDecryptAndRestore(fileBytes, password) {
   // STAK-427: Block restore while cloud sync is applying remote changes
   if (window.CloudSync && window.CloudSync.isSyncActive()) {
-    showToast('Cloud sync is in progress — please wait a moment and try again.', 'warning');
+    showToast("Cloud sync is in progress — please wait a moment and try again.", "warning");
     return;
   }
   var payload = await vaultDecryptToData(fileBytes, password);
@@ -541,10 +529,10 @@ async function vaultRestoreWithPreview(fileBytes, password) {
   var payload = await vaultDecryptToData(fileBytes, password);
 
   // 2. Guard: fall back to legacy restore if DiffEngine / DiffModal unavailable
-  if (typeof DiffEngine === 'undefined' || typeof DiffModal === 'undefined') {
-    debugLog('[Vault] DiffEngine/DiffModal not available — falling back to full restore');
-    if (typeof showToast === 'function') {
-      showToast('Diff preview unavailable — restoring full backup');
+  if (typeof DiffEngine === "undefined" || typeof DiffModal === "undefined") {
+    debugLog("[Vault] DiffEngine/DiffModal not available — falling back to full restore");
+    if (typeof showToast === "function") {
+      showToast("Diff preview unavailable — restoring full backup");
     }
     await restoreVaultData(payload);
     return;
@@ -554,23 +542,37 @@ async function vaultRestoreWithPreview(fileBytes, password) {
   // Vault stores raw localStorage strings which may be CMP1-compressed for large inventories
   var backupItems = [];
   try {
-    var rawInv = payload.data.metalInventory || '[]';
-    var decompressedInv = typeof __decompressIfNeeded === 'function' ? __decompressIfNeeded(rawInv) : rawInv;
+    var rawInv = payload.data.metalInventory || "[]";
+    var decompressedInv =
+      typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawInv) : rawInv;
     backupItems = JSON.parse(decompressedInv);
+    if (typeof migrateLegacySilverbackWeightUnit === "function") {
+      migrateLegacySilverbackWeightUnit(backupItems);
+    }
   } catch (e) {
-    debugLog('[Vault] Could not parse metalInventory from backup:', e);
+    debugLog("[Vault] Could not parse metalInventory from backup:", e);
   }
 
-  // 4. Compute item diff
-  var localItems = (typeof inventory !== 'undefined' && Array.isArray(inventory)) ? inventory : [];
+  // 4. Enrich backup items with local UUIDs before comparison
+  var localItems =
+    typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory.slice() : [];
+  try {
+    DiffEngine.enrichItemIdentities(localItems, backupItems);
+  } catch (e) {
+    if (typeof debugLog === "function")
+      debugLog("[Vault] Identity enrichment failed, proceeding without:", e);
+  }
+
+  // 5. Compute item diff
   var diffResult = DiffEngine.compareItems(localItems, backupItems);
 
-  // 5. Compute settings diff
+  // 6. Compute settings diff
   var settingsDiff = null;
-  if (typeof DiffEngine.compareSettings === 'function') {
-    var settingsKeys = (typeof ALLOWED_STORAGE_KEYS !== 'undefined' && Array.isArray(ALLOWED_STORAGE_KEYS))
-      ? ALLOWED_STORAGE_KEYS
-      : [];
+  if (typeof DiffEngine.compareSettings === "function") {
+    var settingsKeys =
+      typeof ALLOWED_STORAGE_KEYS !== "undefined" && Array.isArray(ALLOWED_STORAGE_KEYS)
+        ? ALLOWED_STORAGE_KEYS
+        : [];
     var localSettings = {};
     var remoteSettings = {};
     var payloadKeys = Object.keys(payload.data);
@@ -578,20 +580,44 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     for (var i = 0; i < payloadKeys.length; i++) {
       var k = payloadKeys[i];
       // Skip inventory — handled separately via DiffEngine.compareItems
-      if (k === 'metalInventory') continue;
+      if (k === "metalInventory") continue;
       // Only include recognized storage keys
       if (settingsKeys.indexOf(k) === -1) continue;
+      // Skip volatile cache keys (spot prices, timestamps) — async init updates
+      // these between export and restore, producing false-positive diffs
+      if (
+        typeof VAULT_SETTINGS_DIFF_SKIP !== "undefined" &&
+        VAULT_SETTINGS_DIFF_SKIP.indexOf(k) !== -1
+      )
+        continue;
 
       // Parse the remote value (vault stores raw localStorage strings, possibly CMP1-compressed)
       var rawSettingVal = payload.data[k];
-      var decompressedVal = typeof __decompressIfNeeded === 'function' ? __decompressIfNeeded(rawSettingVal) : rawSettingVal;
+      var decompressedVal =
+        typeof __decompressIfNeeded === "function"
+          ? __decompressIfNeeded(rawSettingVal)
+          : rawSettingVal;
       var remoteVal;
-      try { remoteVal = JSON.parse(decompressedVal); } catch (_e) { remoteVal = decompressedVal; }
+      try {
+        remoteVal = JSON.parse(decompressedVal);
+      } catch (_e) {
+        remoteVal = decompressedVal;
+      }
       remoteSettings[k] = remoteVal;
 
-      // Load matching local value
-      var localVal = (typeof loadDataSync === 'function') ? loadDataSync(k, null) : null;
-      if (localVal !== null) {
+      // Load matching local value — mirror the remote parse logic so raw
+      // strings (e.g. "3.34.35" stored by setItem instead of saveData)
+      // compare equal instead of producing false-positive diffs.
+      var localRaw = localStorage.getItem(k);
+      if (localRaw !== null) {
+        var decompressedLocal =
+          typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(localRaw) : localRaw;
+        var localVal;
+        try {
+          localVal = JSON.parse(decompressedLocal);
+        } catch (_e2) {
+          localVal = decompressedLocal;
+        }
         localSettings[k] = localVal;
       }
     }
@@ -605,37 +631,55 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     }
   }
 
-  // 6. Check for zero changes
-  var totalChanges = diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
+  // 7. Check for zero changes
+  var totalChanges =
+    diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
   if (totalChanges === 0 && !settingsDiff) {
-    if (typeof showToast === 'function') {
-      showToast('No differences found \u2014 backup matches current data');
+    if (typeof showToast === "function") {
+      showToast("No differences found \u2014 backup matches current data");
     }
     return;
   }
 
-  // 7. Build metadata from payload._meta
+  // 8. Build metadata from payload._meta
   var payloadMeta = payload._meta || {};
 
   // Cross-domain origin warning (STAK-374): warn when restoring from a different domain
   var _vaultOrigin = payloadMeta.exportOrigin || null;
-  var _currentOriginVault = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
-  if (_vaultOrigin && _currentOriginVault && _vaultOrigin !== _currentOriginVault && typeof showToast === 'function') {
-    var _safeVaultFrom = typeof sanitizeHtml === 'function' ? sanitizeHtml(_vaultOrigin) : _vaultOrigin;
-    showToast('\u26A0 This vault was exported from a different domain (' + _safeVaultFrom + '). Check item counts carefully.');
+  var _currentOriginVault =
+    typeof window !== "undefined" && window.location ? window.location.origin : null;
+  if (
+    _vaultOrigin &&
+    _currentOriginVault &&
+    _vaultOrigin !== _currentOriginVault &&
+    typeof showToast === "function"
+  ) {
+    var _safeVaultFrom =
+      typeof sanitizeHtml === "function" ? sanitizeHtml(_vaultOrigin) : _vaultOrigin;
+    showToast(
+      "\u26A0 This vault was exported from a different domain (" +
+        _safeVaultFrom +
+        "). Check item counts carefully."
+    );
   }
 
   // Compute count header values for DiffModal (STAK-374)
-  var _vaultBackupCount = (typeof backupItems !== 'undefined' && Array.isArray(backupItems))
-    ? backupItems.length
-    : (payloadMeta.itemCount ? payloadMeta.itemCount : 0);
-  var _vaultLocalCount = (typeof inventory !== 'undefined' && Array.isArray(inventory))
-    ? inventory.length
-    : (typeof loadDataSync === 'function' ? (loadDataSync(LS_KEY, []).length) : 0);
+  var _vaultBackupCount =
+    typeof backupItems !== "undefined" && Array.isArray(backupItems)
+      ? backupItems.length
+      : payloadMeta.itemCount
+        ? payloadMeta.itemCount
+        : 0;
+  var _vaultLocalCount =
+    typeof inventory !== "undefined" && Array.isArray(inventory)
+      ? inventory.length
+      : typeof loadDataSync === "function"
+        ? loadDataSync(LS_KEY, []).length
+        : 0;
 
-  // 8. Show DiffModal
+  // 9. Show DiffModal
   DiffModal.show({
-    source: { type: 'vault', label: 'Encrypted Backup' },
+    source: { type: "vault", label: "Encrypted Backup" },
     diff: diffResult,
     settingsDiff: settingsDiff,
     backupCount: _vaultBackupCount,
@@ -643,7 +687,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
     meta: {
       timestamp: payloadMeta.exportTimestamp || null,
       itemCount: backupItems.length,
-      appVersion: payloadMeta.appVersion || null
+      appVersion: payloadMeta.appVersion || null,
     },
     onApply: function (selectedChanges) {
       try {
@@ -651,7 +695,8 @@ async function vaultRestoreWithPreview(fileBytes, password) {
 
         // Apply items selectively when item changes were selected
         if (hasItemChanges) {
-          var currentInv = (typeof inventory !== 'undefined' && Array.isArray(inventory)) ? inventory : [];
+          var currentInv =
+            typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
           var newInv = DiffEngine.applySelectedChanges(currentInv, selectedChanges);
           inventory = newInv;
         }
@@ -661,7 +706,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
         var appliedSettings = false;
         if (settingsDiff && settingsDiff.changed) {
           for (var si = 0; si < settingsDiff.changed.length; si++) {
-            if (typeof saveDataSync === 'function') {
+            if (typeof saveDataSync === "function") {
               saveDataSync(settingsDiff.changed[si].key, settingsDiff.changed[si].remoteVal);
               appliedSettings = true;
             }
@@ -669,48 +714,55 @@ async function vaultRestoreWithPreview(fileBytes, password) {
         }
 
         // Save & render
-        if (typeof saveInventory === 'function') saveInventory();
-        if (typeof renderTable === 'function') renderTable();
-        if (typeof renderActiveFilters === 'function') renderActiveFilters();
-        if (typeof updateStorageStats === 'function') updateStorageStats();
+        if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+        if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by vaultRestore");
+        if (typeof saveInventory === "function") saveInventory();
+        if (typeof renderTable === "function") renderTable();
+        if (typeof renderActiveFilters === "function") renderActiveFilters();
+        if (typeof updateStorageStats === "function") updateStorageStats();
 
         // Toast summary
-        var addCount = 0, modCount = 0, delCount = 0;
+        var addCount = 0,
+          modCount = 0,
+          delCount = 0;
         if (hasItemChanges) {
           for (var j = 0; j < selectedChanges.length; j++) {
-            if (selectedChanges[j].type === 'add') addCount++;
-            else if (selectedChanges[j].type === 'modify') modCount++;
-            else if (selectedChanges[j].type === 'delete') delCount++;
+            if (selectedChanges[j].type === "add") addCount++;
+            else if (selectedChanges[j].type === "modify") modCount++;
+            else if (selectedChanges[j].type === "delete") delCount++;
           }
         }
         var parts = [];
-        if (addCount > 0) parts.push(addCount + ' added');
-        if (modCount > 0) parts.push(modCount + ' updated');
-        if (delCount > 0) parts.push(delCount + ' removed');
-        if (appliedSettings && !hasItemChanges) parts.push('settings updated');
-        if (typeof showToast === 'function') {
-          showToast('Backup restored: ' + (parts.length > 0 ? parts.join(', ') : 'no changes applied'));
+        if (addCount > 0) parts.push(addCount + " added");
+        if (modCount > 0) parts.push(modCount + " updated");
+        if (delCount > 0) parts.push(delCount + " removed");
+        if (appliedSettings && !hasItemChanges) parts.push("settings updated");
+        if (typeof showToast === "function") {
+          showToast(
+            "Backup restored: " + (parts.length > 0 ? parts.join(", ") : "no changes applied")
+          );
         }
-
 
         // Restore companion photo vault if present
-        if (capturedImageFile && typeof vaultDecryptAndRestoreImages === 'function') {
-          vaultDecryptAndRestoreImages(capturedImageFile, password).then(function (imgCount) {
-            debugLog('[Vault] Restored ' + imgCount + ' photo(s) from companion image vault');
-          }).catch(function (imgErr) {
-            debugLog('[Vault] Image restore failed:', imgErr);
-          });
+        if (capturedImageFile && typeof vaultDecryptAndRestoreImages === "function") {
+          vaultDecryptAndRestoreImages(capturedImageFile, password)
+            .then(function (imgCount) {
+              debugLog("[Vault] Restored " + imgCount + " photo(s) from companion image vault");
+            })
+            .catch(function (imgErr) {
+              debugLog("[Vault] Image restore failed:", imgErr);
+            });
         }
       } catch (applyErr) {
-        debugLog('[Vault] Restore apply failed:', applyErr);
-        if (typeof showToast === 'function') {
-          showToast('Restore failed: ' + (applyErr.message || 'Unknown error'));
+        debugLog("[Vault] Restore apply failed:", applyErr);
+        if (typeof showToast === "function") {
+          showToast("Restore failed: " + (applyErr.message || "Unknown error"));
         }
       }
     },
     onCancel: function () {
-      debugLog('[Vault] Restore preview cancelled');
-    }
+      debugLog("[Vault] Restore preview cancelled");
+    },
   });
 }
 
@@ -726,7 +778,9 @@ async function vaultRestoreWithPreview(fileBytes, password) {
 function _blobToBase64(blob) {
   return new Promise(function (resolve, reject) {
     var reader = new FileReader();
-    reader.onload = function () { resolve(reader.result.split(',')[1]); };
+    reader.onload = function () {
+      resolve(reader.result.split(",")[1]);
+    };
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
@@ -741,8 +795,10 @@ function _blobToBase64(blob) {
 function _base64ToBlob(b64, mimeType) {
   var byteChars = atob(b64);
   var bytes = new Uint8Array(byteChars.length);
-  for (var i = 0; i < byteChars.length; i++) { bytes[i] = byteChars.charCodeAt(i); }
-  return new Blob([bytes], { type: mimeType || 'image/webp' });
+  for (var i = 0; i < byteChars.length; i++) {
+    bytes[i] = byteChars.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType || "image/webp" });
 }
 
 /**
@@ -752,7 +808,8 @@ function _base64ToBlob(b64, mimeType) {
  *   null when there are no user-uploaded images
  */
 async function collectAndHashImageVault() {
-  if (typeof imageCache === 'undefined' || typeof imageCache.exportAllUserImages !== 'function') return null;
+  if (typeof imageCache === "undefined" || typeof imageCache.exportAllUserImages !== "function")
+    return null;
   var records = await imageCache.exportAllUserImages();
   if (!records || records.length === 0) return null;
 
@@ -772,24 +829,29 @@ async function collectAndHashImageVault() {
       }
     } catch (blobErr) {
       failedCount++;
-      debugLog('[Vault] Image vault: blob conversion failed for uuid', r.uuid, blobErr);
+      debugLog("[Vault] Image vault: blob conversion failed for uuid", r.uuid, blobErr);
       continue;
     }
     serialized.push(entry);
   }
 
   if (failedCount > 0) {
-    debugLog('[Vault] Image vault: ' + failedCount + ' of ' + records.length + ' images failed to export', 'warn');
+    debugLog(
+      "[Vault] Image vault: " + failedCount + " of " + records.length + " images failed to export",
+      "warn"
+    );
   }
   if (serialized.length === 0 && records.length > 0) {
-    throw new Error('Image vault export failed — could not read any of ' + records.length + ' images.');
+    throw new Error(
+      "Image vault export failed — could not read any of " + records.length + " images."
+    );
   }
 
   if (serialized.length === 0) return null;
 
   var payload = {
     _meta: {
-      appVersion: typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown',
+      appVersion: typeof APP_VERSION !== "undefined" ? APP_VERSION : "unknown",
       exportTimestamp: new Date().toISOString(),
       imageCount: serialized.length,
     },
@@ -798,9 +860,13 @@ async function collectAndHashImageVault() {
 
   // Hash includes a content sample (first 32 chars of obverse base64) so that
   // replacing an image with one of identical byte size still triggers an upload.
-  var hash = simpleHash(JSON.stringify(serialized.map(function (e) {
-    return e.uuid + ':' + e.size + ':' + (e.obverse ? e.obverse.slice(0, 32) : '');
-  })));
+  var hash = simpleHash(
+    JSON.stringify(
+      serialized.map(function (e) {
+        return e.uuid + ":" + e.size + ":" + (e.obverse ? e.obverse.slice(0, 32) : "");
+      })
+    )
+  );
   return { payload: payload, hash: hash, imageCount: serialized.length };
 }
 
@@ -811,7 +877,7 @@ async function collectAndHashImageVault() {
  * @returns {Promise<Uint8Array>}
  */
 async function vaultEncryptImageVault(password, payload) {
-  if (!password) throw new Error('Image vault encryption requires a non-empty password.');
+  if (!password) throw new Error("Image vault encryption requires a non-empty password.");
   var plaintext = new TextEncoder().encode(JSON.stringify(payload));
   var salt = vaultRandomBytes(32);
   var iv = vaultRandomBytes(12);
@@ -827,7 +893,8 @@ async function vaultEncryptImageVault(password, payload) {
  */
 async function restoreImageVaultData(payload) {
   if (!payload || !Array.isArray(payload.records)) return 0;
-  if (typeof imageCache === 'undefined' || typeof imageCache.importUserImageRecord !== 'function') return 0;
+  if (typeof imageCache === "undefined" || typeof imageCache.importUserImageRecord !== "function")
+    return 0;
 
   var count = 0;
   var failed = 0;
@@ -839,18 +906,25 @@ async function restoreImageVaultData(payload) {
       if (r.obverse) record.obverse = _base64ToBlob(r.obverse, r.obverseType);
       if (r.reverse) record.reverse = _base64ToBlob(r.reverse, r.reverseType);
       var ok = await imageCache.importUserImageRecord(record);
-      if (ok) { count++; } else {
+      if (ok) {
+        count++;
+      } else {
         failed++;
-        debugLog('[Vault] Image vault: importUserImageRecord returned false for uuid', r.uuid);
+        debugLog("[Vault] Image vault: importUserImageRecord returned false for uuid", r.uuid);
       }
     } catch (recErr) {
       failed++;
-      debugLog('[Vault] Image vault: record import error for uuid', r.uuid, recErr);
+      debugLog("[Vault] Image vault: record import error for uuid", r.uuid, recErr);
     }
   }
   if (failed > 0) {
-    var msg = 'Image vault restore: ' + failed + ' of ' + payload.records.length + ' images failed to import.';
-    debugLog('[Vault] ' + msg, 'error');
+    var msg =
+      "Image vault restore: " +
+      failed +
+      " of " +
+      payload.records.length +
+      " images failed to import.";
+    debugLog("[Vault] " + msg, "error");
     throw new Error(msg);
   }
   return count;
@@ -872,10 +946,12 @@ async function vaultDecryptAndRestoreImages(fileBytes, password) {
   } catch (err) {
     // Re-throw with a clear label so callers can surface meaningful messages
     var msg = String(err.message || err);
-    var isPasswordErr = msg.indexOf('Incorrect password') !== -1 || msg.indexOf('corrupted') !== -1;
-    throw new Error(isPasswordErr
-      ? 'Image vault decryption failed — check your sync password.'
-      : 'Image vault restore failed: ' + msg);
+    var isPasswordErr = msg.indexOf("Incorrect password") !== -1 || msg.indexOf("corrupted") !== -1;
+    throw new Error(
+      isPasswordErr
+        ? "Image vault decryption failed — check your sync password."
+        : "Image vault restore failed: " + msg
+    );
   }
 }
 
@@ -891,9 +967,7 @@ async function vaultDecryptAndRestoreImages(fileBytes, password) {
 async function exportEncryptedBackup(password) {
   var backend = getCryptoBackend();
   if (!backend) {
-    throw new Error(
-      "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.",
-    );
+    throw new Error("Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.");
   }
 
   debugLog("Vault: exporting with", backend, "backend");
@@ -925,13 +999,20 @@ async function exportEncryptedBackup(password) {
       var imgUrl = URL.createObjectURL(imgBlob);
       var imgA = document.createElement("a");
       imgA.href = imgUrl;
-      imgA.download = "staktrakr_backup_" + timestamp + VAULT_IMAGE_FILE_SUFFIX + VAULT_FILE_EXTENSION;
+      imgA.download =
+        "staktrakr_backup_" + timestamp + VAULT_IMAGE_FILE_SUFFIX + VAULT_FILE_EXTENSION;
       document.body.appendChild(imgA);
       imgA.click();
       document.body.removeChild(imgA);
       URL.revokeObjectURL(imgUrl);
       imageCount = imgVaultData.imageCount;
-      debugLog("Vault: image vault export complete,", imgBytes.length, "bytes,", imageCount, "images");
+      debugLog(
+        "Vault: image vault export complete,",
+        imgBytes.length,
+        "bytes,",
+        imageCount,
+        "images"
+      );
     }
   } catch (imgErr) {
     debugLog("[Vault] Image vault export failed:", imgErr.message || String(imgErr), "warn");
@@ -955,9 +1036,7 @@ async function exportEncryptedBackup(password) {
 async function importEncryptedBackup(fileBytes, password) {
   var backend = getCryptoBackend();
   if (!backend) {
-    throw new Error(
-      "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.",
-    );
+    throw new Error("Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.");
   }
 
   if (fileBytes.length > VAULT_MAX_FILE_SIZE) {
@@ -1020,26 +1099,26 @@ function openVaultModal(mode, fileOrOpts) {
   var effectiveMode = mode;
   _cloudContext = null;
 
-  if (mode === 'cloud-export') {
-    effectiveMode = 'export';
+  if (mode === "cloud-export") {
+    effectiveMode = "export";
     _cloudContext = {
-      provider: fileOrOpts && fileOrOpts.provider ? fileOrOpts.provider : 'dropbox',
+      provider: fileOrOpts && fileOrOpts.provider ? fileOrOpts.provider : "dropbox",
       isManualBackup: fileOrOpts && fileOrOpts.isManualBackup ? true : false,
     };
-  } else if (mode === 'cloud-import') {
-    effectiveMode = 'import';
+  } else if (mode === "cloud-import") {
+    effectiveMode = "import";
     if (fileOrOpts && fileOrOpts.fileBytes) {
       _cloudContext = {
-        provider: fileOrOpts.provider || 'dropbox',
+        provider: fileOrOpts.provider || "dropbox",
         fileBytes: fileOrOpts.fileBytes,
-        filename: fileOrOpts.filename || 'cloud-backup.stvault',
+        filename: fileOrOpts.filename || "cloud-backup.stvault",
         size: fileOrOpts.size || fileOrOpts.fileBytes.length,
       };
       _vaultPendingFile = fileOrOpts.fileBytes;
     }
-  } else if (mode === 'import' && fileOrOpts instanceof File) {
+  } else if (mode === "import" && fileOrOpts instanceof File) {
     file = fileOrOpts;
-  } else if (mode === 'import') {
+  } else if (mode === "import") {
     file = fileOrOpts;
   }
 
@@ -1071,20 +1150,28 @@ function openVaultModal(mode, fileOrOpts) {
       // Async check for user photos — inject checkbox if any exist
       (function () {
         try {
-          var req = indexedDB.open('StakTrakrImages', 1);
+          var req = indexedDB.open("StakTrakrImages", 1);
           req.onsuccess = function (ev) {
             var db = ev.target.result;
-            if (!db.objectStoreNames.contains('userImages')) { db.close(); return; }
-            var tx = db.transaction('userImages', 'readonly');
-            var countReq = tx.objectStore('userImages').count();
+            if (!db.objectStoreNames.contains("userImages")) {
+              db.close();
+              return;
+            }
+            var tx = db.transaction("userImages", "readonly");
+            var countReq = tx.objectStore("userImages").count();
             countReq.onsuccess = function () {
               db.close();
               if (countReq.result > 0) {
-                var row = document.createElement('div');
-                row.id = 'vaultIncludePhotosRow';
-                row.style.cssText = 'margin:8px 0;display:flex;align-items:center;gap:8px;';
-                row.innerHTML = '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">' +
-                  '<input type="checkbox" id="vaultIncludePhotos"> Include photos (' + countReq.result + ' image' + (countReq.result === 1 ? '' : 's') + ')</label>';
+                var row = document.createElement("div");
+                row.id = "vaultIncludePhotosRow";
+                row.style.cssText = "margin:8px 0;display:flex;align-items:center;gap:8px;";
+                row.innerHTML =
+                  '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">' +
+                  '<input type="checkbox" id="vaultIncludePhotos"> Include photos (' +
+                  countReq.result +
+                  " image" +
+                  (countReq.result === 1 ? "" : "s") +
+                  ")</label>";
                 // Insert before action button row
                 var actionsEl = actionBtn ? actionBtn.parentElement : null;
                 if (actionsEl && actionsEl.parentElement) {
@@ -1154,7 +1241,7 @@ function closeVaultModal() {
   _vaultPendingImageFile = null;
   _cloudContext = null;
   // STAK-427: Remove dynamic photo checkbox
-  var photoRow = document.getElementById('vaultIncludePhotosRow');
+  var photoRow = document.getElementById("vaultIncludePhotosRow");
   if (photoRow) photoRow.remove();
   closeModalById("vaultModal");
 }
@@ -1178,7 +1265,7 @@ async function handleVaultAction() {
   if (password.length < VAULT_MIN_PASSWORD_LENGTH) {
     showVaultStatus(
       "error",
-      "Password must be at least " + VAULT_MIN_PASSWORD_LENGTH + " characters.",
+      "Password must be at least " + VAULT_MIN_PASSWORD_LENGTH + " characters."
     );
     return;
   }
@@ -1186,7 +1273,7 @@ async function handleVaultAction() {
   // Determine effective mode
   var isCloudExport = mode === "cloud-export";
   var isCloudImport = mode === "cloud-import";
-  var effectiveMode = (isCloudExport) ? "export" : (isCloudImport) ? "import" : mode;
+  var effectiveMode = isCloudExport ? "export" : isCloudImport ? "import" : mode;
 
   if (effectiveMode === "export") {
     var confirm = confirmEl ? confirmEl.value : "";
@@ -1198,7 +1285,7 @@ async function handleVaultAction() {
     if (!getCryptoBackend()) {
       showVaultStatus(
         "error",
-        "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.",
+        "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP."
       );
       return;
     }
@@ -1211,55 +1298,98 @@ async function handleVaultAction() {
         // Cloud export: encrypt then upload
         var fileBytes = await vaultEncryptToBytes(password);
         showVaultStatus("info", "Uploading\u2026");
-        await cloudUploadVault(_cloudContext.provider, fileBytes, _cloudContext.isManualBackup ? { skipLatestUpdate: true } : undefined);
+        await cloudUploadVault(
+          _cloudContext.provider,
+          fileBytes,
+          _cloudContext.isManualBackup ? { skipLatestUpdate: true } : undefined
+        );
 
         // STAK-427: Upload image vault if "Include photos" checkbox is checked
         var includePhotos = false;
-        var photoCheckbox = document.getElementById('vaultIncludePhotos');
+        var photoCheckbox = document.getElementById("vaultIncludePhotos");
         if (photoCheckbox && photoCheckbox.checked) includePhotos = true;
-        var photoMsg = '';
+        var photoMsg = "";
         if (includePhotos) {
           try {
             showVaultStatus("info", "Uploading photos\u2026");
-            var imgData = typeof collectAndHashImageVault === 'function' ? await collectAndHashImageVault() : null;
+            var imgData =
+              typeof collectAndHashImageVault === "function"
+                ? await collectAndHashImageVault()
+                : null;
             if (imgData && imgData.payload) {
               var imageBytes = await vaultEncryptImageVault(password, imgData.payload);
-              var token = typeof cloudGetToken === 'function' ? await cloudGetToken(_cloudContext.provider) : null;
-              if (token && typeof SYNC_IMAGES_PATH !== 'undefined') {
-                var imgArg = JSON.stringify({ path: SYNC_IMAGES_PATH, mode: 'overwrite', autorename: false, mute: true });
-                var imgResp = await fetch('https://content.dropboxapi.com/2/files/upload', {
-                  method: 'POST',
-                  headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream', 'Dropbox-API-Arg': imgArg },
+              var token =
+                typeof cloudGetToken === "function"
+                  ? await cloudGetToken(_cloudContext.provider)
+                  : null;
+              if (token && typeof SYNC_IMAGES_PATH !== "undefined") {
+                var imgArg = JSON.stringify({
+                  path: SYNC_IMAGES_PATH,
+                  mode: "overwrite",
+                  autorename: false,
+                  mute: true,
+                });
+                var imgResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+                  method: "POST",
+                  headers: {
+                    Authorization: "Bearer " + token,
+                    "Content-Type": "application/octet-stream",
+                    "Dropbox-API-Arg": imgArg,
+                  },
                   body: imageBytes,
                 });
                 if (imgResp.ok) {
-                  photoMsg = ' (with ' + imgData.imageCount + ' photo' + (imgData.imageCount === 1 ? '' : 's') + ')';
+                  photoMsg =
+                    " (with " +
+                    imgData.imageCount +
+                    " photo" +
+                    (imgData.imageCount === 1 ? "" : "s") +
+                    ")";
                 } else {
-                  throw new Error('Image upload returned ' + imgResp.status);
+                  throw new Error("Image upload returned " + imgResp.status);
                 }
               }
             }
           } catch (imgErr) {
-            console.warn('[Vault] Image vault upload failed (non-fatal):', imgErr.message || imgErr);
-            photoMsg = '';
-            if (typeof showToast === 'function') {
-              showToast('Backup saved, but photos could not be uploaded. Use ZIP backup for full photo coverage.', 'warning');
+            console.warn(
+              "[Vault] Image vault upload failed (non-fatal):",
+              imgErr.message || imgErr
+            );
+            photoMsg = "";
+            if (typeof showToast === "function") {
+              showToast(
+                "Backup saved, but photos could not be uploaded. Use ZIP backup for full photo coverage.",
+                "warning"
+              );
             }
           }
         }
 
         showVaultStatus("success", "Backup uploaded successfully" + photoMsg + ".");
         // Cache password for this browser session
-        if (typeof cloudCachePassword === 'function' && !(_cloudContext && _cloudContext.isManualBackup)) {
+        if (
+          typeof cloudCachePassword === "function" &&
+          !(_cloudContext && _cloudContext.isManualBackup)
+        ) {
           cloudCachePassword(_cloudContext.provider, password);
         }
-        if (typeof showKrakenToastIfFirst === 'function') showKrakenToastIfFirst();
+        if (typeof showKrakenToastIfFirst === "function") showKrakenToastIfFirst();
       } else {
         var exportResult = await exportEncryptedBackup(password);
         if (exportResult && exportResult.imageExportFailed) {
-          showVaultStatus("warning", "Inventory exported. Photo backup failed \u2014 try again or use Settings \u2192 Export Images.");
+          showVaultStatus(
+            "warning",
+            "Inventory exported. Photo backup failed \u2014 try again or use Settings \u2192 Export Images."
+          );
         } else if (exportResult && exportResult.imageCount > 0) {
-          showVaultStatus("success", "Backup exported \u2014 2 files downloaded (inventory + " + exportResult.imageCount + " photo" + (exportResult.imageCount === 1 ? "" : "s") + ").");
+          showVaultStatus(
+            "success",
+            "Backup exported \u2014 2 files downloaded (inventory + " +
+              exportResult.imageCount +
+              " photo" +
+              (exportResult.imageCount === 1 ? "" : "s") +
+              ")."
+          );
         } else {
           showVaultStatus("success", "Backup exported successfully.");
         }
@@ -1279,7 +1409,7 @@ async function handleVaultAction() {
     if (!getCryptoBackend()) {
       showVaultStatus(
         "error",
-        "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.",
+        "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP."
       );
       return;
     }
@@ -1289,11 +1419,11 @@ async function handleVaultAction() {
 
     try {
       // Determine whether the diff preview path is available
-      var hasDiffPreview = (typeof DiffEngine !== 'undefined' && typeof DiffModal !== 'undefined');
+      var hasDiffPreview = typeof DiffEngine !== "undefined" && typeof DiffModal !== "undefined";
 
       await importEncryptedBackup(_vaultPendingFile, password);
       // Cache password for this browser session
-      if (isCloudImport && _cloudContext && typeof cloudCachePassword === 'function') {
+      if (isCloudImport && _cloudContext && typeof cloudCachePassword === "function") {
         cloudCachePassword(_cloudContext.provider, password);
       }
 
@@ -1308,14 +1438,28 @@ async function handleVaultAction() {
           showVaultStatus("info", "Restoring photos\u2026");
           try {
             var imgCount = await vaultDecryptAndRestoreImages(_vaultPendingImageFile, password);
-            showVaultStatus("success", "Data and " + imgCount + " photo" + (imgCount === 1 ? "" : "s") + " restored. Reloading\u2026");
+            showVaultStatus(
+              "success",
+              "Data and " +
+                imgCount +
+                " photo" +
+                (imgCount === 1 ? "" : "s") +
+                " restored. Reloading\u2026"
+            );
           } catch (imgErr) {
-            showVaultStatus("error", "Inventory restored, but photo file failed: " + (imgErr.message || "decryption error") + ". Reloading\u2026");
+            showVaultStatus(
+              "error",
+              "Inventory restored, but photo file failed: " +
+                (imgErr.message || "decryption error") +
+                ". Reloading\u2026"
+            );
           }
         } else {
           showVaultStatus("success", "Data restored successfully. Reloading\u2026");
         }
-        setTimeout(function () { location.reload(); }, 1200);
+        setTimeout(function () {
+          location.reload();
+        }, 1200);
       }
     } catch (err) {
       showVaultStatus("error", err.message || "Import failed.");
@@ -1346,9 +1490,15 @@ function showVaultStatus(type, message) {
 
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
   statusEl.innerHTML =
-    '<div class="status-indicator ' + dotClass + '">' +
-    '<span class="status-dot' + (isAnimated ? " vault-dot-pulse" : "") + '"></span>' +
-    '<span class="status-text">' + escapeHtml(message) + "</span>" +
+    '<div class="status-indicator ' +
+    dotClass +
+    '">' +
+    '<span class="status-dot' +
+    (isAnimated ? " vault-dot-pulse" : "") +
+    '"></span>' +
+    '<span class="status-text">' +
+    escapeHtml(message) +
+    "</span>" +
     "</div>";
 }
 
@@ -1432,7 +1582,6 @@ function toggleVaultPasswordVisibility(inputId, toggleBtn) {
   }
 }
 
-
 // =============================================================================
 // MANIFEST CRYPTO (STAK-188) — .stmanifest encrypt/decrypt
 //
@@ -1445,7 +1594,7 @@ function toggleVaultPasswordVisibility(inputId, toggleBtn) {
 //   53+   : AES-256-GCM ciphertext (includes 16-byte auth tag)
 // =============================================================================
 
-const MANIFEST_MAGIC = new Uint8Array([0x53, 0x54, 0x4D, 0x46]); // "STMF"
+const MANIFEST_MAGIC = new Uint8Array([0x53, 0x54, 0x4d, 0x46]); // "STMF"
 const MANIFEST_VERSION = 0x01;
 const MANIFEST_HEADER_SIZE = 53; // 4 magic + 1 version + 4 iterations + 32 salt + 12 IV
 
@@ -1501,12 +1650,11 @@ async function encryptManifest(manifestJson, password) {
  * @throws {Error} "Failed to decrypt manifest — wrong password or corrupt file" — on decryption failure
  */
 async function decryptManifest(encryptedData, password) {
-  var fileBytes = encryptedData instanceof Uint8Array
-    ? encryptedData
-    : new Uint8Array(encryptedData);
+  var fileBytes =
+    encryptedData instanceof Uint8Array ? encryptedData : new Uint8Array(encryptedData);
 
   if (fileBytes.length < MANIFEST_HEADER_SIZE + 16) {
-    throw new Error('Not a valid .stmanifest file');
+    throw new Error("Not a valid .stmanifest file");
   }
 
   // Check for .stvault magic ("STVAULT" = 0x53 0x54 0x56 0x41 0x55 0x4C 0x54)
@@ -1518,7 +1666,7 @@ async function decryptManifest(encryptedData, password) {
     fileBytes[2] === 0x56 &&
     fileBytes[3] === 0x41
   ) {
-    throw new Error('This is a .stvault file, not a .stmanifest file');
+    throw new Error("This is a .stvault file, not a .stmanifest file");
   }
 
   // Validate STMF magic
@@ -1528,21 +1676,18 @@ async function decryptManifest(encryptedData, password) {
     fileBytes[2] !== MANIFEST_MAGIC[2] ||
     fileBytes[3] !== MANIFEST_MAGIC[3]
   ) {
-    throw new Error('Not a valid .stmanifest file');
+    throw new Error("Not a valid .stmanifest file");
   }
 
   // Check version
   var version = fileBytes[4];
   if (version > MANIFEST_VERSION) {
-    throw new Error('Manifest created by a newer StakTrakr version. Please update.');
+    throw new Error("Manifest created by a newer StakTrakr version. Please update.");
   }
 
   // Parse iterations (uint32 big-endian at offset 5)
   var iterations =
-    ((fileBytes[5] << 24) |
-     (fileBytes[6] << 16) |
-     (fileBytes[7] << 8) |
-      fileBytes[8]) >>> 0; // ensure unsigned
+    ((fileBytes[5] << 24) | (fileBytes[6] << 16) | (fileBytes[7] << 8) | fileBytes[8]) >>> 0; // ensure unsigned
 
   var salt = fileBytes.slice(9, 41);
   var iv = fileBytes.slice(41, 53);
@@ -1553,7 +1698,7 @@ async function decryptManifest(encryptedData, password) {
     var plainBytes = await vaultDecrypt(ciphertext, key, iv);
     return JSON.parse(new TextDecoder().decode(plainBytes));
   } catch (_) {
-    throw new Error('Failed to decrypt manifest — wrong password or corrupt file');
+    throw new Error("Failed to decrypt manifest — wrong password or corrupt file");
   }
 }
 
@@ -1570,9 +1715,12 @@ window.vaultDecryptAndRestore = vaultDecryptAndRestore;
 window.vaultRestoreWithPreview = vaultRestoreWithPreview;
 window.vaultDecryptToData = vaultDecryptToData;
 window.collectVaultData = collectVaultData;
+window.restoreVaultData = restoreVaultData;
 window.collectAndHashImageVault = collectAndHashImageVault;
 window.vaultEncryptImageVault = vaultEncryptImageVault;
 window.vaultDecryptAndRestoreImages = vaultDecryptAndRestoreImages;
 window.encryptManifest = encryptManifest;
 window.decryptManifest = decryptManifest;
-window.setVaultPendingImageFile = function (bytes) { _vaultPendingImageFile = bytes; };
+window.setVaultPendingImageFile = function (bytes) {
+  _vaultPendingImageFile = bytes;
+};

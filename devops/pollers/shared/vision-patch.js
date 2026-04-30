@@ -41,8 +41,11 @@ function warn(msg) {
 
 function readJsonSafe(filePath) {
   if (!existsSync(filePath)) return null;
-  try { return JSON.parse(readFileSync(filePath, "utf-8")); }
-  catch { return null; }
+  try {
+    return JSON.parse(readFileSync(filePath, "utf-8"));
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -58,19 +61,27 @@ function scoreVendorPrice(price, windowMedian, prevMedian) {
   }
   if (prevMedian !== null && prevMedian !== 0) {
     const dayDiff = Math.abs(price - prevMedian) / prevMedian;
-    if (dayDiff > 0.10) score -= 20;
+    if (dayDiff > 0.1) score -= 20;
   }
   return Math.max(0, Math.min(100, score));
 }
 
 function mergeVendorWithVision(firecrawlPrice, visionData, vendorId, windowMedian, prevMedian) {
   if (!visionData?.prices_by_site) {
-    return { price: firecrawlPrice, confidence: scoreVendorPrice(firecrawlPrice, windowMedian, prevMedian), method: "firecrawl" };
+    return {
+      price: firecrawlPrice,
+      confidence: scoreVendorPrice(firecrawlPrice, windowMedian, prevMedian),
+      method: "firecrawl",
+    };
   }
   const visionPrice = visionData.prices_by_site[vendorId];
   const visionConfidence = visionData.confidence_by_site?.[vendorId] ?? "medium";
   if (!visionPrice) {
-    return { price: firecrawlPrice, confidence: scoreVendorPrice(firecrawlPrice, windowMedian, prevMedian), method: "firecrawl" };
+    return {
+      price: firecrawlPrice,
+      confidence: scoreVendorPrice(firecrawlPrice, windowMedian, prevMedian),
+      method: "firecrawl",
+    };
   }
   const diff = Math.abs(firecrawlPrice - visionPrice) / Math.max(firecrawlPrice, visionPrice);
   // Exact match (within rounding) — highest possible confidence
@@ -88,7 +99,7 @@ function mergeVendorWithVision(firecrawlPrice, visionData, vendorId, windowMedia
   let dodMod = 0;
   if (prevMedian !== null && prevMedian !== 0) {
     const dayDiff = Math.abs(firecrawlPrice - prevMedian) / prevMedian;
-    if (dayDiff > 0.10) dodMod = -15;
+    if (dayDiff > 0.1) dodMod = -15;
   }
   return {
     price: firecrawlPrice,
@@ -134,7 +145,7 @@ async function main() {
     const hist7d = readJsonSafe(join(DATA_DIR, "api", slug, "history-7d.json")) || [];
     const today = latestData.window_start?.slice(0, 10) ?? dateStr;
     const prevEntry = hist7d
-      .filter(e => e.date < today)
+      .filter((e) => e.date < today)
       .sort((a, b) => b.date.localeCompare(a.date))[0];
     const prevMedian = prevEntry?.avg_median ?? null;
 
@@ -143,20 +154,31 @@ async function main() {
 
     for (const [vendorId, vendorData] of Object.entries(latestData.vendors)) {
       const { price, confidence, method } = mergeVendorWithVision(
-        vendorData.price, visionData, vendorId, windowMedian, prevMedian
+        vendorData.price,
+        visionData,
+        vendorId,
+        windowMedian,
+        prevMedian
       );
       updatedVendors[vendorId] = { ...vendorData, price, confidence, method };
     }
 
     // Recompute median and lowest from updated prices
-    const prices = Object.values(updatedVendors).map(v => v.price).filter(p => p != null);
+    const prices = Object.values(updatedVendors)
+      .map((v) => v.price)
+      .filter((p) => p != null);
     const sortedPrices = [...prices].sort((a, b) => a - b);
     const newMedian = sortedPrices.length
       ? Math.round(sortedPrices[Math.floor(sortedPrices.length / 2)] * 100) / 100
       : latestData.median_price;
     const newLowest = sortedPrices.length ? sortedPrices[0] : latestData.lowest_price;
 
-    const updatedLatest = { ...latestData, vendors: updatedVendors, median_price: newMedian, lowest_price: newLowest };
+    const updatedLatest = {
+      ...latestData,
+      vendors: updatedVendors,
+      median_price: newMedian,
+      lowest_price: newLowest,
+    };
 
     if (DRY_RUN) {
       log(`[DRY RUN] ${latestPath}`);
@@ -187,7 +209,7 @@ async function main() {
   log(`Done: ${patchedCoins}/${coinSlugs.length} coin(s) patched with vision confidence`);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error("Fatal:", err);
   process.exit(1);
 });

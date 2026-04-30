@@ -1,709 +1,1583 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DiffModal Playground — StakTrakr</title>
-<style>
-  /* ── Reset & Base ── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DiffModal Playground — StakTrakr</title>
+    <style>
+      /* ── Reset & Base ── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-  :root {
-    --pg-bg: #1a1a2e;
-    --pg-surface: #16213e;
-    --pg-border: #334155;
-    --pg-text: #e2e8f0;
-    --pg-text-muted: #94a3b8;
-    --pg-accent: #3b82f6;
-    --pg-radius: 8px;
-    font-family: system-ui, -apple-system, sans-serif;
-    font-size: 14px;
-    color: var(--pg-text);
-    background: var(--pg-bg);
-  }
+      :root {
+        --pg-bg: #1a1a2e;
+        --pg-surface: #16213e;
+        --pg-border: #334155;
+        --pg-text: #e2e8f0;
+        --pg-text-muted: #94a3b8;
+        --pg-accent: #3b82f6;
+        --pg-radius: 8px;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 14px;
+        color: var(--pg-text);
+        background: var(--pg-bg);
+      }
 
-  body { display: flex; height: 100vh; overflow: hidden; }
+      body {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
 
-  /* ── Controls Panel ── */
-  .controls {
-    width: 260px; min-width: 260px;
-    background: var(--pg-surface);
-    border-right: 1px solid var(--pg-border);
-    padding: 1rem; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 1rem;
-  }
-  .controls h1 { font-size: 1rem; font-weight: 700; color: var(--pg-accent); margin-bottom: 0.25rem; }
-  .controls h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--pg-text-muted); margin-bottom: 0.35rem; border-bottom: 1px solid var(--pg-border); padding-bottom: 0.25rem; }
-  .control-group { display: flex; flex-direction: column; gap: 0.4rem; }
-  .control-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-  .control-row label { font-size: 0.8rem; color: var(--pg-text-muted); }
-  select, input[type="range"] { background: var(--pg-bg); border: 1px solid var(--pg-border); color: var(--pg-text); padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
-  select { width: 120px; }
-  input[type="range"] { width: 100px; }
-  .toggle-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-  .toggle-row input { accent-color: var(--pg-accent); }
-  .toggle-row span { font-size: 0.8rem; }
-  .preset-btn { background: var(--pg-bg); border: 1px solid var(--pg-border); color: var(--pg-text); padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; }
-  .preset-btn:hover { border-color: var(--pg-accent); color: var(--pg-accent); }
-  .preset-btn.active { background: var(--pg-accent); color: #fff; border-color: var(--pg-accent); }
-  .presets { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+      /* ── Controls Panel ── */
+      .controls {
+        width: 260px;
+        min-width: 260px;
+        background: var(--pg-surface);
+        border-right: 1px solid var(--pg-border);
+        padding: 1rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .controls h1 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--pg-accent);
+        margin-bottom: 0.25rem;
+      }
+      .controls h2 {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--pg-text-muted);
+        margin-bottom: 0.35rem;
+        border-bottom: 1px solid var(--pg-border);
+        padding-bottom: 0.25rem;
+      }
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .control-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      .control-row label {
+        font-size: 0.8rem;
+        color: var(--pg-text-muted);
+      }
+      select,
+      input[type="range"] {
+        background: var(--pg-bg);
+        border: 1px solid var(--pg-border);
+        color: var(--pg-text);
+        padding: 0.3rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+      }
+      select {
+        width: 120px;
+      }
+      input[type="range"] {
+        width: 100px;
+      }
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+      }
+      .toggle-row input {
+        accent-color: var(--pg-accent);
+      }
+      .toggle-row span {
+        font-size: 0.8rem;
+      }
+      .preset-btn {
+        background: var(--pg-bg);
+        border: 1px solid var(--pg-border);
+        color: var(--pg-text);
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: all 0.15s;
+      }
+      .preset-btn:hover {
+        border-color: var(--pg-accent);
+        color: var(--pg-accent);
+      }
+      .preset-btn.active {
+        background: var(--pg-accent);
+        color: #fff;
+        border-color: var(--pg-accent);
+      }
+      .presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
 
-  /* ── Preview Area ── */
-  .preview-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .preview-container { flex: 1; display: flex; align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto; transition: background 0.3s; }
-  .preview-container.light-bg { background: #cbd5e1; }
-  .preview-container.dark-bg  { background: #0f172a; }
-  .preview-container.sepia-bg { background: #d4c4a8; }
+      /* ── Preview Area ── */
+      .preview-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .preview-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        overflow-y: auto;
+        transition: background 0.3s;
+      }
+      .preview-container.light-bg {
+        background: #cbd5e1;
+      }
+      .preview-container.dark-bg {
+        background: #0f172a;
+      }
+      .preview-container.sepia-bg {
+        background: #d4c4a8;
+      }
 
-  /* ── Prompt Output ── */
-  .prompt-area { background: var(--pg-surface); border-top: 1px solid var(--pg-border); padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; max-height: 30vh; overflow-y: auto; }
-  .prompt-area h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--pg-text-muted); }
-  .prompt-text { font-size: 0.8rem; line-height: 1.5; color: var(--pg-text); white-space: pre-wrap; font-family: 'SF Mono','Fira Code',monospace; background: var(--pg-bg); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--pg-border); }
-  .copy-btn { align-self: flex-end; background: var(--pg-accent); color: #fff; border: none; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: opacity 0.15s; }
-  .copy-btn:hover { opacity: 0.85; }
-  .apply-output { background: var(--pg-bg); border: 1px solid var(--pg-border); border-radius: 4px; padding: 0.5rem; font-family: 'SF Mono','Fira Code',monospace; font-size: 0.75rem; color: var(--pg-text-muted); max-height: 120px; overflow-y: auto; display: none; }
-  .apply-output.visible { display: block; }
+      /* ── Prompt Output ── */
+      .prompt-area {
+        background: var(--pg-surface);
+        border-top: 1px solid var(--pg-border);
+        padding: 0.75rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        max-height: 30vh;
+        overflow-y: auto;
+      }
+      .prompt-area h3 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--pg-text-muted);
+      }
+      .prompt-text {
+        font-size: 0.8rem;
+        line-height: 1.5;
+        color: var(--pg-text);
+        white-space: pre-wrap;
+        font-family: "SF Mono", "Fira Code", monospace;
+        background: var(--pg-bg);
+        padding: 0.5rem;
+        border-radius: 4px;
+        border: 1px solid var(--pg-border);
+      }
+      .copy-btn {
+        align-self: flex-end;
+        background: var(--pg-accent);
+        color: #fff;
+        border: none;
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: opacity 0.15s;
+      }
+      .copy-btn:hover {
+        opacity: 0.85;
+      }
+      .apply-output {
+        background: var(--pg-bg);
+        border: 1px solid var(--pg-border);
+        border-radius: 4px;
+        padding: 0.5rem;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.75rem;
+        color: var(--pg-text-muted);
+        max-height: 120px;
+        overflow-y: auto;
+        display: none;
+      }
+      .apply-output.visible {
+        display: block;
+      }
 
-  /* ═══════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════
      STAKTRAKR MODAL — Updated design language
      No gradient header. Pill buttons. Amber primary action.
      ═══════════════════════════════════════════════════ */
 
-  .st-modal-wrapper {
-    width: 640px; max-width: 95vw;
-    border-radius: 12px;
-    overflow: hidden;
-    font-family: system-ui, -apple-system, sans-serif;
-    transition: all 0.3s;
-    position: relative;
-  }
-
-  /* ── Light theme ── */
-  .st-modal-wrapper[data-theme="light"] {
-    background: rgba(248, 250, 252, 0.95);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(148, 163, 184, 0.5);
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-    color: #1b232c;
-  }
-  /* ── Dark theme ── */
-  .st-modal-wrapper[data-theme="dark"] {
-    background: rgba(30, 41, 59, 0.95);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(148, 163, 184, 0.15);
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-    color: #f1f5f9;
-  }
-  /* ── Sepia theme ── */
-  .st-modal-wrapper[data-theme="sepia"] {
-    background: rgba(232, 220, 197, 0.95);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(139, 69, 19, 0.3);
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-    color: #3e2723;
-  }
-
-  /* ── Modal Header — PLAIN TEXT, no gradient ── */
-  .st-modal-header {
-    padding: 1.25rem 1.25rem 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .st-modal-header h2 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-  [data-theme="light"] .st-modal-header h2 { color: #1b232c; }
-  [data-theme="dark"]  .st-modal-header h2 { color: #f1f5f9; }
-  [data-theme="sepia"] .st-modal-header h2 { color: #3e2723; }
-
-  .st-modal-close {
-    background: none;
-    border: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 6px;
-    transition: all 0.15s;
-  }
-  [data-theme="light"] .st-modal-close { color: #64748b; }
-  [data-theme="light"] .st-modal-close:hover { background: rgba(0,0,0,0.06); color: #334155; }
-  [data-theme="dark"]  .st-modal-close { color: #94a3b8; }
-  [data-theme="dark"]  .st-modal-close:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
-  [data-theme="sepia"] .st-modal-close { color: #8b7355; }
-  [data-theme="sepia"] .st-modal-close:hover { background: rgba(139,69,19,0.08); color: #5d4037; }
-
-  /* ── Modal Body ── */
-  .st-modal-body { padding: 0.75rem 1.25rem 1.25rem; }
-
-  /* ── Source / Meta Section ── */
-  .st-source-badge {
-    display: inline-flex; align-items: center; gap: 0.35rem;
-    font-size: 0.78rem; font-weight: 500;
-    padding: 0.2rem 0.55rem; border-radius: 6px; margin-bottom: 0.6rem;
-  }
-  [data-theme="light"] .st-source-badge { background: rgba(59,130,246,0.08); color: #2563eb; }
-  [data-theme="dark"]  .st-source-badge { background: rgba(59,130,246,0.15); color: #60a5fa; }
-  [data-theme="sepia"] .st-source-badge { background: rgba(139,69,19,0.08); color: #8b4513; }
-
-  .st-meta-row {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 0.5rem; margin-bottom: 0.75rem; padding: 0.5rem 0.65rem;
-    border-radius: 8px; font-size: 0.8rem;
-  }
-  [data-theme="light"] .st-meta-row { background: #f1f5f9; border: 1px solid #cbd5e1; }
-  [data-theme="dark"]  .st-meta-row { background: rgba(51,65,85,0.5); }
-  [data-theme="sepia"] .st-meta-row { background: rgba(139,69,19,0.06); border: 1px solid rgba(139,69,19,0.2); }
-  .st-meta-item { display: flex; flex-direction: column; gap: 0.1rem; }
-  .st-meta-item span:first-child { font-size: 0.65rem; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.05em; }
-  .st-meta-item strong { font-weight: 600; }
-
-  /* ── Summary Chips ── */
-  .st-summary { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
-  .st-summary-chip { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-size: 0.73rem; font-weight: 600; }
-  .st-chip-added    { background: rgba(5,150,105,0.12); color: #059669; }
-  .st-chip-modified { background: rgba(217,119,6,0.12); color: #d97706; }
-  .st-chip-deleted  { background: rgba(220,38,38,0.12); color: #dc2626; }
-  .st-chip-unchanged{ background: rgba(107,114,128,0.1); color: #6b7280; }
-  .st-chip-settings { background: rgba(59,130,246,0.1); color: #3b82f6; }
-  [data-theme="dark"] .st-chip-added    { background: rgba(5,150,105,0.2); color: #34d399; }
-  [data-theme="dark"] .st-chip-modified { background: rgba(217,119,6,0.2); color: #fbbf24; }
-  [data-theme="dark"] .st-chip-deleted  { background: rgba(220,38,38,0.2); color: #f87171; }
-  [data-theme="dark"] .st-chip-unchanged{ background: rgba(107,114,128,0.15); color: #9ca3af; }
-  [data-theme="dark"] .st-chip-settings { background: rgba(59,130,246,0.2); color: #60a5fa; }
-
-  /* ── Conflicts Section ── */
-  .st-conflicts { border-radius: 8px; padding: 0.75rem; margin-bottom: 0.75rem; }
-  [data-theme="light"] .st-conflicts { background: rgba(217,119,6,0.06); border: 1px solid rgba(217,119,6,0.18); }
-  [data-theme="dark"]  .st-conflicts { background: rgba(217,119,6,0.08); border: 1px solid rgba(217,119,6,0.2); }
-  [data-theme="sepia"] .st-conflicts { background: rgba(217,119,6,0.06); border: 1px solid rgba(217,119,6,0.15); }
-  .st-conflicts-header { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem; }
-  [data-theme="light"] .st-conflicts-header { color: #92400e; }
-  [data-theme="dark"]  .st-conflicts-header { color: #fbbf24; }
-  [data-theme="sepia"] .st-conflicts-header { color: #92400e; }
-  .st-conflict-item { padding: 0.5rem; border-radius: 6px; margin-bottom: 0.35rem; font-size: 0.8rem; }
-  [data-theme="light"] .st-conflict-item { background: rgba(255,255,255,0.6); }
-  [data-theme="dark"]  .st-conflict-item { background: rgba(0,0,0,0.2); }
-  [data-theme="sepia"] .st-conflict-item { background: rgba(255,255,255,0.3); }
-  .st-conflict-name { font-weight: 600; margin-bottom: 0.2rem; }
-  .st-conflict-field { font-size: 0.73rem; opacity: 0.6; margin-bottom: 0.35rem; }
-  .st-conflict-options { display: flex; gap: 0.75rem; }
-  .st-conflict-options label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0.5rem; border-radius: 4px; transition: all 0.15s; }
-  .st-conflict-options input[type="radio"] { accent-color: #3b82f6; }
-
-  /* ── Change List ── */
-  .st-change-list { max-height: 320px; overflow-y: auto; border-radius: 8px; margin-bottom: 0.75rem; scrollbar-width: thin; }
-  [data-theme="light"] .st-change-list { border: 1px solid #94a3b8; scrollbar-color: #94a3b8 #f1f5f9; }
-  [data-theme="dark"]  .st-change-list { border: 1px solid rgba(148,163,184,0.15); scrollbar-color: #475569 #1e293b; }
-  [data-theme="sepia"] .st-change-list { border: 1px solid rgba(139,69,19,0.3); }
-
-  .st-category { }
-  .st-category + .st-category { border-top: 1px solid transparent; }
-  [data-theme="light"] .st-category + .st-category { border-top-color: #e2e8f0; }
-  [data-theme="dark"]  .st-category + .st-category { border-top-color: rgba(148,163,184,0.1); }
-  [data-theme="sepia"] .st-category + .st-category { border-top-color: rgba(139,69,19,0.08); }
-
-  .st-category-header {
-    display: flex; align-items: center; gap: 0.4rem;
-    padding: 0.5rem 0.65rem; cursor: pointer; user-select: none;
-    font-size: 0.8rem; font-weight: 600; transition: background 0.15s;
-  }
-  [data-theme="light"] .st-category-header:hover { background: rgba(0,0,0,0.02); }
-  [data-theme="dark"]  .st-category-header:hover { background: rgba(255,255,255,0.03); }
-  .st-category-chevron { font-size: 0.6rem; transition: transform 0.2s; opacity: 0.4; }
-  .st-category.collapsed .st-category-chevron { transform: rotate(-90deg); }
-  .st-category.collapsed .st-category-items { display: none; }
-
-  .st-cat-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
-  .st-cat-badge.added    { background: rgba(5,150,105,0.15); color: #059669; }
-  .st-cat-badge.modified { background: rgba(217,119,6,0.15); color: #d97706; }
-  .st-cat-badge.deleted  { background: rgba(220,38,38,0.15); color: #dc2626; }
-  [data-theme="dark"] .st-cat-badge.added    { background: rgba(5,150,105,0.25); color: #34d399; }
-  [data-theme="dark"] .st-cat-badge.modified { background: rgba(217,119,6,0.25); color: #fbbf24; }
-  [data-theme="dark"] .st-cat-badge.deleted  { background: rgba(220,38,38,0.25); color: #f87171; }
-  .st-category-count { font-weight: 400; opacity: 0.5; font-size: 0.73rem; }
-
-  .st-change-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.45rem 0.65rem; transition: background 0.1s; font-size: 0.85rem; }
-  [data-theme="light"] .st-change-row:hover { background: rgba(0,0,0,0.02); }
-  [data-theme="dark"]  .st-change-row:hover { background: rgba(255,255,255,0.025); }
-  .st-change-row input[type="checkbox"] { accent-color: #3b82f6; margin-top: 2px; flex-shrink: 0; }
-
-  .st-change-badge { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; margin-top: 1px; }
-  .st-change-badge.added    { background: rgba(5,150,105,0.12); color: #059669; }
-  .st-change-badge.modified { background: rgba(217,119,6,0.12); color: #d97706; }
-  .st-change-badge.deleted  { background: rgba(220,38,38,0.12); color: #dc2626; }
-  [data-theme="dark"] .st-change-badge.added    { background: rgba(5,150,105,0.2); color: #34d399; }
-  [data-theme="dark"] .st-change-badge.modified { background: rgba(217,119,6,0.2); color: #fbbf24; }
-  [data-theme="dark"] .st-change-badge.deleted  { background: rgba(220,38,38,0.2); color: #f87171; }
-
-  .st-change-info { flex: 1; min-width: 0; }
-  .st-change-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .st-change-detail { font-size: 0.73rem; opacity: 0.5; margin-top: 0.1rem; }
-
-  .st-field-changes { margin-top: 0.35rem; padding-left: 0.25rem; font-size: 0.78rem; }
-  .st-field-change { padding: 0.15rem 0; display: flex; gap: 0.3rem; align-items: baseline; }
-  .st-field-name { opacity: 0.5; min-width: 80px; }
-  .st-field-old  { text-decoration: line-through; opacity: 0.45; }
-  .st-field-arrow { opacity: 0.35; font-size: 0.7rem; }
-  .st-field-new  { font-weight: 500; }
-  [data-theme="dark"]  .st-field-new { color: #fbbf24; }
-  [data-theme="light"] .st-field-new { color: #b45309; }
-  [data-theme="sepia"] .st-field-new { color: #8b4513; }
-  .st-change-expand { cursor: pointer; }
-
-  /* ── Settings Diff ── */
-  .st-settings { margin-bottom: 0.75rem; }
-  .st-settings summary { cursor: pointer; font-weight: 600; font-size: 0.8rem; padding: 0.4rem 0; user-select: none; }
-  .st-settings-list { padding: 0.4rem 0 0.25rem 0; font-size: 0.8rem; }
-  .st-setting-row { padding: 0.2rem 0; display: flex; gap: 0.3rem; align-items: baseline; }
-
-  /* ── Action Bar — Pill buttons, amber primary ── */
-  .st-action-bar {
-    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-    padding-top: 0.75rem;
-    border-top: 1px solid transparent;
-  }
-  [data-theme="light"] .st-action-bar { border-top-color: #94a3b8; }
-  [data-theme="dark"]  .st-action-bar { border-top-color: rgba(148,163,184,0.1); }
-  [data-theme="sepia"] .st-action-bar { border-top-color: rgba(139,69,19,0.25); }
-  .st-action-bar .spacer { flex: 1; }
-
-  /* Pill button base */
-  .st-btn {
-    display: inline-flex; align-items: center; gap: 0.3rem;
-    padding: 0.45rem 1rem;
-    border-radius: 999px; /* pill */
-    font-size: 0.8rem; font-weight: 500;
-    cursor: pointer; border: 1.5px solid transparent;
-    transition: all 0.15s;
-  }
-
-  /* Select All / Deselect All — small outlined pills */
-  .st-btn-text {
-    background: none; font-size: 0.73rem; padding: 0.3rem 0.7rem;
-  }
-  [data-theme="light"] .st-btn-text { color: #64748b; border-color: #cbd5e1; }
-  [data-theme="light"] .st-btn-text:hover { color: #334155; background: rgba(0,0,0,0.04); border-color: #94a3b8; }
-  [data-theme="dark"]  .st-btn-text { color: #94a3b8; border-color: #475569; }
-  [data-theme="dark"]  .st-btn-text:hover { color: #e2e8f0; background: rgba(255,255,255,0.06); border-color: #64748b; }
-  [data-theme="sepia"] .st-btn-text { color: #8b7355; border-color: rgba(139,69,19,0.2); }
-
-  /* Cancel — outlined pill */
-  .st-btn-cancel { background: none; }
-  [data-theme="light"] .st-btn-cancel { color: #475569; border-color: #cbd5e1; }
-  [data-theme="light"] .st-btn-cancel:hover { background: #f1f5f9; border-color: #94a3b8; }
-  [data-theme="dark"]  .st-btn-cancel { color: #cbd5e1; border-color: #475569; }
-  [data-theme="dark"]  .st-btn-cancel:hover { background: rgba(255,255,255,0.06); border-color: #64748b; }
-  [data-theme="sepia"] .st-btn-cancel { color: #6d4c41; border-color: rgba(139,69,19,0.2); }
-
-  /* Apply — amber/orange filled pill (matches screenshots) */
-  .st-btn-apply {
-    background: #d97706; color: #fff; border-color: #d97706;
-    font-weight: 600; padding: 0.45rem 1.2rem;
-  }
-  .st-btn-apply:hover { background: #b45309; border-color: #b45309; }
-  .st-btn-apply:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* Remove-style — red filled pill */
-  .st-btn-danger {
-    background: #dc2626; color: #fff; border-color: #dc2626;
-  }
-  .st-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }
-
-  /* ── Empty state ── */
-  .st-empty { padding: 2rem; text-align: center; opacity: 0.45; font-size: 0.85rem; }
-</style>
-</head>
-<body>
-
-<!-- ═══ Controls Panel ═══ -->
-<div class="controls">
-  <h1>DiffModal Playground</h1>
-
-  <div class="control-group">
-    <h2>Presets</h2>
-    <div class="presets">
-      <button class="preset-btn active" onclick="applyPreset('sync',this)">Cloud Sync</button>
-      <button class="preset-btn" onclick="applyPreset('csv',this)">CSV Import</button>
-      <button class="preset-btn" onclick="applyPreset('json',this)">JSON Import</button>
-      <button class="preset-btn" onclick="applyPreset('conflict',this)">Conflicts</button>
-      <button class="preset-btn" onclick="applyPreset('empty',this)">No Changes</button>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <h2>Source</h2>
-    <div class="control-row">
-      <label>Type</label>
-      <select id="ctrlSourceType" onchange="onControlChange()">
-        <option value="sync">Cloud Sync</option>
-        <option value="csv">CSV Import</option>
-        <option value="json">JSON Import</option>
-      </select>
-    </div>
-    <div class="control-row">
-      <label>Label</label>
-      <select id="ctrlSourceLabel" onchange="onControlChange()">
-        <option value="Dropbox">Dropbox</option>
-        <option value="pCloud">pCloud</option>
-        <option value="Box">Box</option>
-        <option value="inventory.csv">inventory.csv</option>
-        <option value="backup.json">backup.json</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <h2>Theme</h2>
-    <div class="control-row">
-      <label>Mode</label>
-      <select id="ctrlTheme" onchange="onControlChange()">
-        <option value="dark" selected>Dark</option>
-        <option value="light">Light</option>
-        <option value="sepia">Sepia</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <h2>Sections</h2>
-    <label class="toggle-row"><input type="checkbox" id="ctrlShowMeta" checked onchange="onControlChange()"><span>Show metadata row</span></label>
-    <label class="toggle-row"><input type="checkbox" id="ctrlShowConflicts" onchange="onControlChange()"><span>Show conflicts</span></label>
-    <label class="toggle-row"><input type="checkbox" id="ctrlShowSettings" checked onchange="onControlChange()"><span>Show settings diff</span></label>
-  </div>
-
-  <div class="control-group">
-    <h2>Modal Width</h2>
-    <div class="control-row">
-      <label>Width</label>
-      <input type="range" id="ctrlWidth" min="380" max="800" value="640" oninput="onControlChange()">
-      <span id="ctrlWidthVal" style="font-size:0.75rem;min-width:42px;text-align:right">640px</span>
-    </div>
-  </div>
-
-  <div class="control-group">
-    <h2>Data Volume</h2>
-    <div class="control-row"><label>Added</label><input type="range" id="ctrlAdded" min="0" max="20" value="3" oninput="onControlChange()"><span id="ctrlAddedVal" style="font-size:0.75rem;min-width:20px;text-align:right">3</span></div>
-    <div class="control-row"><label>Modified</label><input type="range" id="ctrlModified" min="0" max="20" value="2" oninput="onControlChange()"><span id="ctrlModifiedVal" style="font-size:0.75rem;min-width:20px;text-align:right">2</span></div>
-    <div class="control-row"><label>Deleted</label><input type="range" id="ctrlDeleted" min="0" max="20" value="2" oninput="onControlChange()"><span id="ctrlDeletedVal" style="font-size:0.75rem;min-width:20px;text-align:right">2</span></div>
-    <div class="control-row"><label>Unchanged</label><input type="range" id="ctrlUnchanged" min="0" max="200" value="47" oninput="onControlChange()"><span id="ctrlUnchangedVal" style="font-size:0.75rem;min-width:30px;text-align:right">47</span></div>
-  </div>
-
-  <div class="control-group">
-    <h2>Apply Output</h2>
-    <div id="applyOutput" class="apply-output">Click "Apply" in the modal to see output here.</div>
-  </div>
-</div>
-
-<!-- ═══ Preview Area ═══ -->
-<div class="preview-area">
-  <div class="preview-container dark-bg" id="previewContainer">
-    <div class="st-modal-wrapper" id="modalPreview" data-theme="dark" style="position:relative;"></div>
-  </div>
-  <div class="prompt-area">
-    <h3>Prompt Output</h3>
-    <div class="prompt-text" id="promptText"></div>
-    <button class="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
-  </div>
-</div>
-
-<script>
-// ── Data generators ──
-const ITEM_NAMES = ['2025 Silver Eagle','2024 Gold Maple','10oz Sunshine Bar','2023 American Eagle','Credit Suisse 1oz','Generic Silver Round','1oz Palladium Bar','2024 Krugerrand','Morgan Dollar 1921','Perth Mint Kilo Bar','Canadian Gold Maple','Austrian Philharmonic','Walking Liberty Half','Peace Dollar 1922','Engelhard 10oz Bar','Pamp Suisse 5g','British Sovereign','Mexican Libertad','Chinese Panda 30g','Buffalo Gold 1oz'];
-const METALS = ['Silver','Gold','Silver','Silver','Gold','Silver','Palladium','Gold','Silver','Silver','Gold','Silver','Silver','Silver','Silver','Gold','Gold','Silver','Gold','Gold'];
-const FIELDS = ['purchasePrice','qty','notes','weight','condition','certified','retailPrice'];
-
-function generateItems(count, type) {
-  const items = [];
-  for (let i = 0; i < count; i++) {
-    const idx = i % ITEM_NAMES.length;
-    if (type === 'added') {
-      items.push({ name: ITEM_NAMES[idx], metal: METALS[idx], weight: [1,1,10,1,1,1,1,1,0.7234,32.15][i%10], qty: Math.ceil(Math.random()*5) });
-    } else if (type === 'modified') {
-      const numChanges = 1 + Math.floor(Math.random()*3);
-      const changes = [];
-      for (let c = 0; c < numChanges; c++) {
-        const f = FIELDS[(i*3+c)%FIELDS.length];
-        changes.push({ field: f, localVal: f==='purchasePrice' ? '$'+(25+Math.random()*10).toFixed(2) : 'old value', remoteVal: f==='purchasePrice' ? '$'+(28+Math.random()*15).toFixed(2) : 'new value' });
+      .st-modal-wrapper {
+        width: 640px;
+        max-width: 95vw;
+        border-radius: 12px;
+        overflow: hidden;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        transition: all 0.3s;
+        position: relative;
       }
-      items.push({ item: { name: ITEM_NAMES[idx], metal: METALS[idx] }, changes });
-    } else if (type === 'deleted') {
-      items.push({ name: ITEM_NAMES[(idx+7)%ITEM_NAMES.length], metal: METALS[(idx+7)%METALS.length], weight: 1, qty: Math.ceil(Math.random()*10) });
-    }
-  }
-  return items;
-}
 
-const sampleConflicts = [
-  { itemKey:'42', itemName:'2023 American Eagle', field:'purchasePrice', localVal:'$29.99', remoteVal:'$31.50' },
-  { itemKey:'88', itemName:'Credit Suisse 1oz', field:'notes', localVal:'In capsule', remoteVal:'In capsule, graded MS69' }
-];
-const sampleSettings = { changed: [{ key:'defaultMetal', localVal:'Silver', remoteVal:'Gold' },{ key:'showRetailPrice', localVal:'false', remoteVal:'true' }] };
-const sampleMeta = { deviceId:'a1b2c3d4-e5f6-7890', timestamp:Date.now()-3600000, itemCount:54, appVersion:'3.33.17' };
+      /* ── Light theme ── */
+      .st-modal-wrapper[data-theme="light"] {
+        background: rgba(248, 250, 252, 0.95);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        color: #1b232c;
+      }
+      /* ── Dark theme ── */
+      .st-modal-wrapper[data-theme="dark"] {
+        background: rgba(30, 41, 59, 0.95);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        color: #f1f5f9;
+      }
+      /* ── Sepia theme ── */
+      .st-modal-wrapper[data-theme="sepia"] {
+        background: rgba(232, 220, 197, 0.95);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(139, 69, 19, 0.3);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        color: #3e2723;
+      }
 
-// ── State ──
-const state = {
-  sourceType:'sync', sourceLabel:'Dropbox', theme:'dark',
-  showMeta:true, showConflicts:false, showSettings:true,
-  width:640, addedCount:3, modifiedCount:2, deletedCount:2, unchangedCount:47,
-  checkedItems: new Set(), conflictResolutions: {},
-  collapsedCategories: new Set(), expandedModified: new Set()
-};
+      /* ── Modal Header — PLAIN TEXT, no gradient ── */
+      .st-modal-header {
+        padding: 1.25rem 1.25rem 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .st-modal-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+      }
+      [data-theme="light"] .st-modal-header h2 {
+        color: #1b232c;
+      }
+      [data-theme="dark"] .st-modal-header h2 {
+        color: #f1f5f9;
+      }
+      [data-theme="sepia"] .st-modal-header h2 {
+        color: #3e2723;
+      }
 
-function onControlChange() {
-  state.sourceType = document.getElementById('ctrlSourceType').value;
-  state.sourceLabel = document.getElementById('ctrlSourceLabel').value;
-  state.theme = document.getElementById('ctrlTheme').value;
-  state.showMeta = document.getElementById('ctrlShowMeta').checked;
-  state.showConflicts = document.getElementById('ctrlShowConflicts').checked;
-  state.showSettings = document.getElementById('ctrlShowSettings').checked;
-  state.width = parseInt(document.getElementById('ctrlWidth').value);
-  state.addedCount = parseInt(document.getElementById('ctrlAdded').value);
-  state.modifiedCount = parseInt(document.getElementById('ctrlModified').value);
-  state.deletedCount = parseInt(document.getElementById('ctrlDeleted').value);
-  state.unchangedCount = parseInt(document.getElementById('ctrlUnchanged').value);
-  document.getElementById('ctrlWidthVal').textContent = state.width+'px';
-  document.getElementById('ctrlAddedVal').textContent = state.addedCount;
-  document.getElementById('ctrlModifiedVal').textContent = state.modifiedCount;
-  document.getElementById('ctrlDeletedVal').textContent = state.deletedCount;
-  document.getElementById('ctrlUnchangedVal').textContent = state.unchangedCount;
-  initCheckedItems();
-  renderPreview();
-  updatePrompt();
-}
+      .st-modal-close {
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.15s;
+      }
+      [data-theme="light"] .st-modal-close {
+        color: #64748b;
+      }
+      [data-theme="light"] .st-modal-close:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: #334155;
+      }
+      [data-theme="dark"] .st-modal-close {
+        color: #94a3b8;
+      }
+      [data-theme="dark"] .st-modal-close:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #e2e8f0;
+      }
+      [data-theme="sepia"] .st-modal-close {
+        color: #8b7355;
+      }
+      [data-theme="sepia"] .st-modal-close:hover {
+        background: rgba(139, 69, 19, 0.08);
+        color: #5d4037;
+      }
 
-function initCheckedItems() {
-  state.checkedItems.clear();
-  for (let i=0; i<state.addedCount; i++) state.checkedItems.add('added-'+i);
-  for (let i=0; i<state.modifiedCount; i++) state.checkedItems.add('modified-'+i);
-  for (let i=0; i<state.deletedCount; i++) state.checkedItems.add('deleted-'+i);
-}
+      /* ── Modal Body ── */
+      .st-modal-body {
+        padding: 0.75rem 1.25rem 1.25rem;
+      }
 
-function applyPreset(name, el) {
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-  if (el) el.classList.add('active');
-  const presets = {
-    sync:     {sourceType:'sync', sourceLabel:'Dropbox',showMeta:true,showConflicts:false,showSettings:true,added:3,modified:2,deleted:2,unchanged:47},
-    csv:      {sourceType:'csv', sourceLabel:'inventory.csv',showMeta:false,showConflicts:false,showSettings:false,added:5,modified:3,deleted:0,unchanged:12},
-    json:     {sourceType:'json', sourceLabel:'backup.json',showMeta:false,showConflicts:false,showSettings:true,added:2,modified:1,deleted:1,unchanged:100},
-    conflict: {sourceType:'sync', sourceLabel:'Dropbox',showMeta:true,showConflicts:true,showSettings:true,added:1,modified:3,deleted:1,unchanged:47},
-    empty:    {sourceType:'sync', sourceLabel:'Dropbox',showMeta:true,showConflicts:false,showSettings:false,added:0,modified:0,deleted:0,unchanged:52}
-  };
-  const p=presets[name];
-  document.getElementById('ctrlSourceType').value=p.sourceType;
-  document.getElementById('ctrlSourceLabel').value=p.sourceLabel;
-  document.getElementById('ctrlShowMeta').checked=p.showMeta;
-  document.getElementById('ctrlShowConflicts').checked=p.showConflicts;
-  document.getElementById('ctrlShowSettings').checked=p.showSettings;
-  document.getElementById('ctrlAdded').value=p.added;
-  document.getElementById('ctrlModified').value=p.modified;
-  document.getElementById('ctrlDeleted').value=p.deleted;
-  document.getElementById('ctrlUnchanged').value=p.unchanged;
-  onControlChange();
-}
+      /* ── Source / Meta Section ── */
+      .st-source-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.78rem;
+        font-weight: 500;
+        padding: 0.2rem 0.55rem;
+        border-radius: 6px;
+        margin-bottom: 0.6rem;
+      }
+      [data-theme="light"] .st-source-badge {
+        background: rgba(59, 130, 246, 0.08);
+        color: #2563eb;
+      }
+      [data-theme="dark"] .st-source-badge {
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+      }
+      [data-theme="sepia"] .st-source-badge {
+        background: rgba(139, 69, 19, 0.08);
+        color: #8b4513;
+      }
 
-function getHeaderTitle() {
-  return { sync:'Review Sync Changes', csv:'Review CSV Import', json:'Review JSON Import' }[state.sourceType];
-}
+      .st-meta-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem 0.65rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+      }
+      [data-theme="light"] .st-meta-row {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+      }
+      [data-theme="dark"] .st-meta-row {
+        background: rgba(51, 65, 85, 0.5);
+      }
+      [data-theme="sepia"] .st-meta-row {
+        background: rgba(139, 69, 19, 0.06);
+        border: 1px solid rgba(139, 69, 19, 0.2);
+      }
+      .st-meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+      .st-meta-item span:first-child {
+        font-size: 0.65rem;
+        opacity: 0.5;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .st-meta-item strong {
+        font-weight: 600;
+      }
 
-function getSourceIcon() {
-  return { sync:'&#9729;', csv:'&#128196;', json:'&#128230;' }[state.sourceType];
-}
+      /* ── Summary Chips ── */
+      .st-summary {
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+      .st-summary-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.73rem;
+        font-weight: 600;
+      }
+      .st-chip-added {
+        background: rgba(5, 150, 105, 0.12);
+        color: #059669;
+      }
+      .st-chip-modified {
+        background: rgba(217, 119, 6, 0.12);
+        color: #d97706;
+      }
+      .st-chip-deleted {
+        background: rgba(220, 38, 38, 0.12);
+        color: #dc2626;
+      }
+      .st-chip-unchanged {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+      }
+      .st-chip-settings {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+      }
+      [data-theme="dark"] .st-chip-added {
+        background: rgba(5, 150, 105, 0.2);
+        color: #34d399;
+      }
+      [data-theme="dark"] .st-chip-modified {
+        background: rgba(217, 119, 6, 0.2);
+        color: #fbbf24;
+      }
+      [data-theme="dark"] .st-chip-deleted {
+        background: rgba(220, 38, 38, 0.2);
+        color: #f87171;
+      }
+      [data-theme="dark"] .st-chip-unchanged {
+        background: rgba(107, 114, 128, 0.15);
+        color: #9ca3af;
+      }
+      [data-theme="dark"] .st-chip-settings {
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+      }
 
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      /* ── Conflicts Section ── */
+      .st-conflicts {
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      [data-theme="light"] .st-conflicts {
+        background: rgba(217, 119, 6, 0.06);
+        border: 1px solid rgba(217, 119, 6, 0.18);
+      }
+      [data-theme="dark"] .st-conflicts {
+        background: rgba(217, 119, 6, 0.08);
+        border: 1px solid rgba(217, 119, 6, 0.2);
+      }
+      [data-theme="sepia"] .st-conflicts {
+        background: rgba(217, 119, 6, 0.06);
+        border: 1px solid rgba(217, 119, 6, 0.15);
+      }
+      .st-conflicts-header {
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      [data-theme="light"] .st-conflicts-header {
+        color: #92400e;
+      }
+      [data-theme="dark"] .st-conflicts-header {
+        color: #fbbf24;
+      }
+      [data-theme="sepia"] .st-conflicts-header {
+        color: #92400e;
+      }
+      .st-conflict-item {
+        padding: 0.5rem;
+        border-radius: 6px;
+        margin-bottom: 0.35rem;
+        font-size: 0.8rem;
+      }
+      [data-theme="light"] .st-conflict-item {
+        background: rgba(255, 255, 255, 0.6);
+      }
+      [data-theme="dark"] .st-conflict-item {
+        background: rgba(0, 0, 0, 0.2);
+      }
+      [data-theme="sepia"] .st-conflict-item {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .st-conflict-name {
+        font-weight: 600;
+        margin-bottom: 0.2rem;
+      }
+      .st-conflict-field {
+        font-size: 0.73rem;
+        opacity: 0.6;
+        margin-bottom: 0.35rem;
+      }
+      .st-conflict-options {
+        display: flex;
+        gap: 0.75rem;
+      }
+      .st-conflict-options label {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        cursor: pointer;
+        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        transition: all 0.15s;
+      }
+      .st-conflict-options input[type="radio"] {
+        accent-color: #3b82f6;
+      }
 
-function renderPreview() {
-  const wrapper = document.getElementById('modalPreview');
-  const container = document.getElementById('previewContainer');
-  wrapper.setAttribute('data-theme', state.theme);
-  wrapper.style.width = state.width+'px';
-  container.className = 'preview-container ' + ({dark:'dark-bg',light:'light-bg',sepia:'sepia-bg'}[state.theme]);
+      /* ── Change List ── */
+      .st-change-list {
+        max-height: 320px;
+        overflow-y: auto;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        scrollbar-width: thin;
+      }
+      [data-theme="light"] .st-change-list {
+        border: 1px solid #94a3b8;
+        scrollbar-color: #94a3b8 #f1f5f9;
+      }
+      [data-theme="dark"] .st-change-list {
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        scrollbar-color: #475569 #1e293b;
+      }
+      [data-theme="sepia"] .st-change-list {
+        border: 1px solid rgba(139, 69, 19, 0.3);
+      }
 
-  const added = generateItems(state.addedCount,'added');
-  const modified = generateItems(state.modifiedCount,'modified');
-  const deleted = generateItems(state.deletedCount,'deleted');
-  const totalChanges = state.addedCount+state.modifiedCount+state.deletedCount;
+      .st-category {
+      }
+      .st-category + .st-category {
+        border-top: 1px solid transparent;
+      }
+      [data-theme="light"] .st-category + .st-category {
+        border-top-color: #e2e8f0;
+      }
+      [data-theme="dark"] .st-category + .st-category {
+        border-top-color: rgba(148, 163, 184, 0.1);
+      }
+      [data-theme="sepia"] .st-category + .st-category {
+        border-top-color: rgba(139, 69, 19, 0.08);
+      }
 
-  let h = '';
+      .st-category-header {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 0.65rem;
+        cursor: pointer;
+        user-select: none;
+        font-size: 0.8rem;
+        font-weight: 600;
+        transition: background 0.15s;
+      }
+      [data-theme="light"] .st-category-header:hover {
+        background: rgba(0, 0, 0, 0.02);
+      }
+      [data-theme="dark"] .st-category-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .st-category-chevron {
+        font-size: 0.6rem;
+        transition: transform 0.2s;
+        opacity: 0.4;
+      }
+      .st-category.collapsed .st-category-chevron {
+        transform: rotate(-90deg);
+      }
+      .st-category.collapsed .st-category-items {
+        display: none;
+      }
 
-  // Header — plain text, no gradient
-  h += `<div class="st-modal-header"><h2>${getHeaderTitle()}</h2><button class="st-modal-close" title="Close">&times;</button></div>`;
-  h += '<div class="st-modal-body">';
+      .st-cat-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+      .st-cat-badge.added {
+        background: rgba(5, 150, 105, 0.15);
+        color: #059669;
+      }
+      .st-cat-badge.modified {
+        background: rgba(217, 119, 6, 0.15);
+        color: #d97706;
+      }
+      .st-cat-badge.deleted {
+        background: rgba(220, 38, 38, 0.15);
+        color: #dc2626;
+      }
+      [data-theme="dark"] .st-cat-badge.added {
+        background: rgba(5, 150, 105, 0.25);
+        color: #34d399;
+      }
+      [data-theme="dark"] .st-cat-badge.modified {
+        background: rgba(217, 119, 6, 0.25);
+        color: #fbbf24;
+      }
+      [data-theme="dark"] .st-cat-badge.deleted {
+        background: rgba(220, 38, 38, 0.25);
+        color: #f87171;
+      }
+      .st-category-count {
+        font-weight: 400;
+        opacity: 0.5;
+        font-size: 0.73rem;
+      }
 
-  // Source badge
-  h += `<div class="st-source-badge">${getSourceIcon()} ${esc(state.sourceLabel)}</div>`;
+      .st-change-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.45rem 0.65rem;
+        transition: background 0.1s;
+        font-size: 0.85rem;
+      }
+      [data-theme="light"] .st-change-row:hover {
+        background: rgba(0, 0, 0, 0.02);
+      }
+      [data-theme="dark"] .st-change-row:hover {
+        background: rgba(255, 255, 255, 0.025);
+      }
+      .st-change-row input[type="checkbox"] {
+        accent-color: #3b82f6;
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
 
-  // Meta row (sync only)
-  if (state.showMeta && state.sourceType==='sync') {
-    h += `<div class="st-meta-row">
+      .st-change-badge {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+      .st-change-badge.added {
+        background: rgba(5, 150, 105, 0.12);
+        color: #059669;
+      }
+      .st-change-badge.modified {
+        background: rgba(217, 119, 6, 0.12);
+        color: #d97706;
+      }
+      .st-change-badge.deleted {
+        background: rgba(220, 38, 38, 0.12);
+        color: #dc2626;
+      }
+      [data-theme="dark"] .st-change-badge.added {
+        background: rgba(5, 150, 105, 0.2);
+        color: #34d399;
+      }
+      [data-theme="dark"] .st-change-badge.modified {
+        background: rgba(217, 119, 6, 0.2);
+        color: #fbbf24;
+      }
+      [data-theme="dark"] .st-change-badge.deleted {
+        background: rgba(220, 38, 38, 0.2);
+        color: #f87171;
+      }
+
+      .st-change-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .st-change-name {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .st-change-detail {
+        font-size: 0.73rem;
+        opacity: 0.5;
+        margin-top: 0.1rem;
+      }
+
+      .st-field-changes {
+        margin-top: 0.35rem;
+        padding-left: 0.25rem;
+        font-size: 0.78rem;
+      }
+      .st-field-change {
+        padding: 0.15rem 0;
+        display: flex;
+        gap: 0.3rem;
+        align-items: baseline;
+      }
+      .st-field-name {
+        opacity: 0.5;
+        min-width: 80px;
+      }
+      .st-field-old {
+        text-decoration: line-through;
+        opacity: 0.45;
+      }
+      .st-field-arrow {
+        opacity: 0.35;
+        font-size: 0.7rem;
+      }
+      .st-field-new {
+        font-weight: 500;
+      }
+      [data-theme="dark"] .st-field-new {
+        color: #fbbf24;
+      }
+      [data-theme="light"] .st-field-new {
+        color: #b45309;
+      }
+      [data-theme="sepia"] .st-field-new {
+        color: #8b4513;
+      }
+      .st-change-expand {
+        cursor: pointer;
+      }
+
+      /* ── Settings Diff ── */
+      .st-settings {
+        margin-bottom: 0.75rem;
+      }
+      .st-settings summary {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 0.4rem 0;
+        user-select: none;
+      }
+      .st-settings-list {
+        padding: 0.4rem 0 0.25rem 0;
+        font-size: 0.8rem;
+      }
+      .st-setting-row {
+        padding: 0.2rem 0;
+        display: flex;
+        gap: 0.3rem;
+        align-items: baseline;
+      }
+
+      /* ── Action Bar — Pill buttons, amber primary ── */
+      .st-action-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        padding-top: 0.75rem;
+        border-top: 1px solid transparent;
+      }
+      [data-theme="light"] .st-action-bar {
+        border-top-color: #94a3b8;
+      }
+      [data-theme="dark"] .st-action-bar {
+        border-top-color: rgba(148, 163, 184, 0.1);
+      }
+      [data-theme="sepia"] .st-action-bar {
+        border-top-color: rgba(139, 69, 19, 0.25);
+      }
+      .st-action-bar .spacer {
+        flex: 1;
+      }
+
+      /* Pill button base */
+      .st-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.45rem 1rem;
+        border-radius: 999px; /* pill */
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1.5px solid transparent;
+        transition: all 0.15s;
+      }
+
+      /* Select All / Deselect All — small outlined pills */
+      .st-btn-text {
+        background: none;
+        font-size: 0.73rem;
+        padding: 0.3rem 0.7rem;
+      }
+      [data-theme="light"] .st-btn-text {
+        color: #64748b;
+        border-color: #cbd5e1;
+      }
+      [data-theme="light"] .st-btn-text:hover {
+        color: #334155;
+        background: rgba(0, 0, 0, 0.04);
+        border-color: #94a3b8;
+      }
+      [data-theme="dark"] .st-btn-text {
+        color: #94a3b8;
+        border-color: #475569;
+      }
+      [data-theme="dark"] .st-btn-text:hover {
+        color: #e2e8f0;
+        background: rgba(255, 255, 255, 0.06);
+        border-color: #64748b;
+      }
+      [data-theme="sepia"] .st-btn-text {
+        color: #8b7355;
+        border-color: rgba(139, 69, 19, 0.2);
+      }
+
+      /* Cancel — outlined pill */
+      .st-btn-cancel {
+        background: none;
+      }
+      [data-theme="light"] .st-btn-cancel {
+        color: #475569;
+        border-color: #cbd5e1;
+      }
+      [data-theme="light"] .st-btn-cancel:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+      }
+      [data-theme="dark"] .st-btn-cancel {
+        color: #cbd5e1;
+        border-color: #475569;
+      }
+      [data-theme="dark"] .st-btn-cancel:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: #64748b;
+      }
+      [data-theme="sepia"] .st-btn-cancel {
+        color: #6d4c41;
+        border-color: rgba(139, 69, 19, 0.2);
+      }
+
+      /* Apply — amber/orange filled pill (matches screenshots) */
+      .st-btn-apply {
+        background: #d97706;
+        color: #fff;
+        border-color: #d97706;
+        font-weight: 600;
+        padding: 0.45rem 1.2rem;
+      }
+      .st-btn-apply:hover {
+        background: #b45309;
+        border-color: #b45309;
+      }
+      .st-btn-apply:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* Remove-style — red filled pill */
+      .st-btn-danger {
+        background: #dc2626;
+        color: #fff;
+        border-color: #dc2626;
+      }
+      .st-btn-danger:hover {
+        background: #b91c1c;
+        border-color: #b91c1c;
+      }
+
+      /* ── Empty state ── */
+      .st-empty {
+        padding: 2rem;
+        text-align: center;
+        opacity: 0.45;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══ Controls Panel ═══ -->
+    <div class="controls">
+      <h1>DiffModal Playground</h1>
+
+      <div class="control-group">
+        <h2>Presets</h2>
+        <div class="presets">
+          <button class="preset-btn active" onclick="applyPreset('sync', this)">Cloud Sync</button>
+          <button class="preset-btn" onclick="applyPreset('csv', this)">CSV Import</button>
+          <button class="preset-btn" onclick="applyPreset('json', this)">JSON Import</button>
+          <button class="preset-btn" onclick="applyPreset('conflict', this)">Conflicts</button>
+          <button class="preset-btn" onclick="applyPreset('empty', this)">No Changes</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Source</h2>
+        <div class="control-row">
+          <label>Type</label>
+          <select id="ctrlSourceType" onchange="onControlChange()">
+            <option value="sync">Cloud Sync</option>
+            <option value="csv">CSV Import</option>
+            <option value="json">JSON Import</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label>Label</label>
+          <select id="ctrlSourceLabel" onchange="onControlChange()">
+            <option value="Dropbox">Dropbox</option>
+            <option value="pCloud">pCloud</option>
+            <option value="Box">Box</option>
+            <option value="inventory.csv">inventory.csv</option>
+            <option value="backup.json">backup.json</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Theme</h2>
+        <div class="control-row">
+          <label>Mode</label>
+          <select id="ctrlTheme" onchange="onControlChange()">
+            <option value="dark" selected>Dark</option>
+            <option value="light">Light</option>
+            <option value="sepia">Sepia</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Sections</h2>
+        <label class="toggle-row"
+          ><input type="checkbox" id="ctrlShowMeta" checked onchange="onControlChange()" /><span
+            >Show metadata row</span
+          ></label
+        >
+        <label class="toggle-row"
+          ><input type="checkbox" id="ctrlShowConflicts" onchange="onControlChange()" /><span
+            >Show conflicts</span
+          ></label
+        >
+        <label class="toggle-row"
+          ><input type="checkbox" id="ctrlShowSettings" checked onchange="onControlChange()" /><span
+            >Show settings diff</span
+          ></label
+        >
+      </div>
+
+      <div class="control-group">
+        <h2>Modal Width</h2>
+        <div class="control-row">
+          <label>Width</label>
+          <input
+            type="range"
+            id="ctrlWidth"
+            min="380"
+            max="800"
+            value="640"
+            oninput="onControlChange()"
+          />
+          <span id="ctrlWidthVal" style="font-size: 0.75rem; min-width: 42px; text-align: right"
+            >640px</span
+          >
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Data Volume</h2>
+        <div class="control-row">
+          <label>Added</label
+          ><input
+            type="range"
+            id="ctrlAdded"
+            min="0"
+            max="20"
+            value="3"
+            oninput="onControlChange()"
+          /><span id="ctrlAddedVal" style="font-size: 0.75rem; min-width: 20px; text-align: right"
+            >3</span
+          >
+        </div>
+        <div class="control-row">
+          <label>Modified</label
+          ><input
+            type="range"
+            id="ctrlModified"
+            min="0"
+            max="20"
+            value="2"
+            oninput="onControlChange()"
+          /><span
+            id="ctrlModifiedVal"
+            style="font-size: 0.75rem; min-width: 20px; text-align: right"
+            >2</span
+          >
+        </div>
+        <div class="control-row">
+          <label>Deleted</label
+          ><input
+            type="range"
+            id="ctrlDeleted"
+            min="0"
+            max="20"
+            value="2"
+            oninput="onControlChange()"
+          /><span id="ctrlDeletedVal" style="font-size: 0.75rem; min-width: 20px; text-align: right"
+            >2</span
+          >
+        </div>
+        <div class="control-row">
+          <label>Unchanged</label
+          ><input
+            type="range"
+            id="ctrlUnchanged"
+            min="0"
+            max="200"
+            value="47"
+            oninput="onControlChange()"
+          /><span
+            id="ctrlUnchangedVal"
+            style="font-size: 0.75rem; min-width: 30px; text-align: right"
+            >47</span
+          >
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h2>Apply Output</h2>
+        <div id="applyOutput" class="apply-output">
+          Click "Apply" in the modal to see output here.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Preview Area ═══ -->
+    <div class="preview-area">
+      <div class="preview-container dark-bg" id="previewContainer">
+        <div
+          class="st-modal-wrapper"
+          id="modalPreview"
+          data-theme="dark"
+          style="position: relative"
+        ></div>
+      </div>
+      <div class="prompt-area">
+        <h3>Prompt Output</h3>
+        <div class="prompt-text" id="promptText"></div>
+        <button class="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
+      </div>
+    </div>
+
+    <script>
+      // ── Data generators ──
+      const ITEM_NAMES = [
+        "2025 Silver Eagle",
+        "2024 Gold Maple",
+        "10oz Sunshine Bar",
+        "2023 American Eagle",
+        "Credit Suisse 1oz",
+        "Generic Silver Round",
+        "1oz Palladium Bar",
+        "2024 Krugerrand",
+        "Morgan Dollar 1921",
+        "Perth Mint Kilo Bar",
+        "Canadian Gold Maple",
+        "Austrian Philharmonic",
+        "Walking Liberty Half",
+        "Peace Dollar 1922",
+        "Engelhard 10oz Bar",
+        "Pamp Suisse 5g",
+        "British Sovereign",
+        "Mexican Libertad",
+        "Chinese Panda 30g",
+        "Buffalo Gold 1oz",
+      ];
+      const METALS = [
+        "Silver",
+        "Gold",
+        "Silver",
+        "Silver",
+        "Gold",
+        "Silver",
+        "Palladium",
+        "Gold",
+        "Silver",
+        "Silver",
+        "Gold",
+        "Silver",
+        "Silver",
+        "Silver",
+        "Silver",
+        "Gold",
+        "Gold",
+        "Silver",
+        "Gold",
+        "Gold",
+      ];
+      const FIELDS = [
+        "purchasePrice",
+        "qty",
+        "notes",
+        "weight",
+        "condition",
+        "certified",
+        "retailPrice",
+      ];
+
+      function generateItems(count, type) {
+        const items = [];
+        for (let i = 0; i < count; i++) {
+          const idx = i % ITEM_NAMES.length;
+          if (type === "added") {
+            items.push({
+              name: ITEM_NAMES[idx],
+              metal: METALS[idx],
+              weight: [1, 1, 10, 1, 1, 1, 1, 1, 0.7234, 32.15][i % 10],
+              qty: Math.ceil(Math.random() * 5),
+            });
+          } else if (type === "modified") {
+            const numChanges = 1 + Math.floor(Math.random() * 3);
+            const changes = [];
+            for (let c = 0; c < numChanges; c++) {
+              const f = FIELDS[(i * 3 + c) % FIELDS.length];
+              changes.push({
+                field: f,
+                localVal:
+                  f === "purchasePrice" ? "$" + (25 + Math.random() * 10).toFixed(2) : "old value",
+                remoteVal:
+                  f === "purchasePrice" ? "$" + (28 + Math.random() * 15).toFixed(2) : "new value",
+              });
+            }
+            items.push({ item: { name: ITEM_NAMES[idx], metal: METALS[idx] }, changes });
+          } else if (type === "deleted") {
+            items.push({
+              name: ITEM_NAMES[(idx + 7) % ITEM_NAMES.length],
+              metal: METALS[(idx + 7) % METALS.length],
+              weight: 1,
+              qty: Math.ceil(Math.random() * 10),
+            });
+          }
+        }
+        return items;
+      }
+
+      const sampleConflicts = [
+        {
+          itemKey: "42",
+          itemName: "2023 American Eagle",
+          field: "purchasePrice",
+          localVal: "$29.99",
+          remoteVal: "$31.50",
+        },
+        {
+          itemKey: "88",
+          itemName: "Credit Suisse 1oz",
+          field: "notes",
+          localVal: "In capsule",
+          remoteVal: "In capsule, graded MS69",
+        },
+      ];
+      const sampleSettings = {
+        changed: [
+          { key: "defaultMetal", localVal: "Silver", remoteVal: "Gold" },
+          { key: "showRetailPrice", localVal: "false", remoteVal: "true" },
+        ],
+      };
+      const sampleMeta = {
+        deviceId: "a1b2c3d4-e5f6-7890",
+        timestamp: Date.now() - 3600000,
+        itemCount: 54,
+        appVersion: "3.33.17",
+      };
+
+      // ── State ──
+      const state = {
+        sourceType: "sync",
+        sourceLabel: "Dropbox",
+        theme: "dark",
+        showMeta: true,
+        showConflicts: false,
+        showSettings: true,
+        width: 640,
+        addedCount: 3,
+        modifiedCount: 2,
+        deletedCount: 2,
+        unchangedCount: 47,
+        checkedItems: new Set(),
+        conflictResolutions: {},
+        collapsedCategories: new Set(),
+        expandedModified: new Set(),
+      };
+
+      function onControlChange() {
+        state.sourceType = document.getElementById("ctrlSourceType").value;
+        state.sourceLabel = document.getElementById("ctrlSourceLabel").value;
+        state.theme = document.getElementById("ctrlTheme").value;
+        state.showMeta = document.getElementById("ctrlShowMeta").checked;
+        state.showConflicts = document.getElementById("ctrlShowConflicts").checked;
+        state.showSettings = document.getElementById("ctrlShowSettings").checked;
+        state.width = parseInt(document.getElementById("ctrlWidth").value);
+        state.addedCount = parseInt(document.getElementById("ctrlAdded").value);
+        state.modifiedCount = parseInt(document.getElementById("ctrlModified").value);
+        state.deletedCount = parseInt(document.getElementById("ctrlDeleted").value);
+        state.unchangedCount = parseInt(document.getElementById("ctrlUnchanged").value);
+        document.getElementById("ctrlWidthVal").textContent = state.width + "px";
+        document.getElementById("ctrlAddedVal").textContent = state.addedCount;
+        document.getElementById("ctrlModifiedVal").textContent = state.modifiedCount;
+        document.getElementById("ctrlDeletedVal").textContent = state.deletedCount;
+        document.getElementById("ctrlUnchangedVal").textContent = state.unchangedCount;
+        initCheckedItems();
+        renderPreview();
+        updatePrompt();
+      }
+
+      function initCheckedItems() {
+        state.checkedItems.clear();
+        for (let i = 0; i < state.addedCount; i++) state.checkedItems.add("added-" + i);
+        for (let i = 0; i < state.modifiedCount; i++) state.checkedItems.add("modified-" + i);
+        for (let i = 0; i < state.deletedCount; i++) state.checkedItems.add("deleted-" + i);
+      }
+
+      function applyPreset(name, el) {
+        document.querySelectorAll(".preset-btn").forEach((b) => b.classList.remove("active"));
+        if (el) el.classList.add("active");
+        const presets = {
+          sync: {
+            sourceType: "sync",
+            sourceLabel: "Dropbox",
+            showMeta: true,
+            showConflicts: false,
+            showSettings: true,
+            added: 3,
+            modified: 2,
+            deleted: 2,
+            unchanged: 47,
+          },
+          csv: {
+            sourceType: "csv",
+            sourceLabel: "inventory.csv",
+            showMeta: false,
+            showConflicts: false,
+            showSettings: false,
+            added: 5,
+            modified: 3,
+            deleted: 0,
+            unchanged: 12,
+          },
+          json: {
+            sourceType: "json",
+            sourceLabel: "backup.json",
+            showMeta: false,
+            showConflicts: false,
+            showSettings: true,
+            added: 2,
+            modified: 1,
+            deleted: 1,
+            unchanged: 100,
+          },
+          conflict: {
+            sourceType: "sync",
+            sourceLabel: "Dropbox",
+            showMeta: true,
+            showConflicts: true,
+            showSettings: true,
+            added: 1,
+            modified: 3,
+            deleted: 1,
+            unchanged: 47,
+          },
+          empty: {
+            sourceType: "sync",
+            sourceLabel: "Dropbox",
+            showMeta: true,
+            showConflicts: false,
+            showSettings: false,
+            added: 0,
+            modified: 0,
+            deleted: 0,
+            unchanged: 52,
+          },
+        };
+        const p = presets[name];
+        document.getElementById("ctrlSourceType").value = p.sourceType;
+        document.getElementById("ctrlSourceLabel").value = p.sourceLabel;
+        document.getElementById("ctrlShowMeta").checked = p.showMeta;
+        document.getElementById("ctrlShowConflicts").checked = p.showConflicts;
+        document.getElementById("ctrlShowSettings").checked = p.showSettings;
+        document.getElementById("ctrlAdded").value = p.added;
+        document.getElementById("ctrlModified").value = p.modified;
+        document.getElementById("ctrlDeleted").value = p.deleted;
+        document.getElementById("ctrlUnchanged").value = p.unchanged;
+        onControlChange();
+      }
+
+      function getHeaderTitle() {
+        return {
+          sync: "Review Sync Changes",
+          csv: "Review CSV Import",
+          json: "Review JSON Import",
+        }[state.sourceType];
+      }
+
+      function getSourceIcon() {
+        return { sync: "&#9729;", csv: "&#128196;", json: "&#128230;" }[state.sourceType];
+      }
+
+      function esc(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function renderPreview() {
+        const wrapper = document.getElementById("modalPreview");
+        const container = document.getElementById("previewContainer");
+        wrapper.setAttribute("data-theme", state.theme);
+        wrapper.style.width = state.width + "px";
+        container.className =
+          "preview-container " +
+          { dark: "dark-bg", light: "light-bg", sepia: "sepia-bg" }[state.theme];
+
+        const added = generateItems(state.addedCount, "added");
+        const modified = generateItems(state.modifiedCount, "modified");
+        const deleted = generateItems(state.deletedCount, "deleted");
+        const totalChanges = state.addedCount + state.modifiedCount + state.deletedCount;
+
+        let h = "";
+
+        // Header — plain text, no gradient
+        h += `<div class="st-modal-header"><h2>${getHeaderTitle()}</h2><button class="st-modal-close" title="Close">&times;</button></div>`;
+        h += '<div class="st-modal-body">';
+
+        // Source badge
+        h += `<div class="st-source-badge">${getSourceIcon()} ${esc(state.sourceLabel)}</div>`;
+
+        // Meta row (sync only)
+        if (state.showMeta && state.sourceType === "sync") {
+          h += `<div class="st-meta-row">
       <div class="st-meta-item"><span>Remote Items</span><strong>${sampleMeta.itemCount}</strong></div>
       <div class="st-meta-item"><span>Local Items</span><strong>52</strong></div>
-      <div class="st-meta-item"><span>Device</span><strong>${sampleMeta.deviceId.slice(0,8)}&#8230;</strong></div>
+      <div class="st-meta-item"><span>Device</span><strong>${sampleMeta.deviceId.slice(0, 8)}&#8230;</strong></div>
       <div class="st-meta-item"><span>Version</span><strong>v${sampleMeta.appVersion}</strong></div>
     </div>`;
-  }
+        }
 
-  // Summary chips
-  h += '<div class="st-summary">';
-  if (state.addedCount>0) h += `<span class="st-summary-chip st-chip-added">+${state.addedCount} added</span>`;
-  if (state.modifiedCount>0) h += `<span class="st-summary-chip st-chip-modified">&#9998; ${state.modifiedCount} modified</span>`;
-  if (state.deletedCount>0) h += `<span class="st-summary-chip st-chip-deleted">&minus;${state.deletedCount} deleted</span>`;
-  if (state.unchangedCount>0) h += `<span class="st-summary-chip st-chip-unchanged">${state.unchangedCount} unchanged</span>`;
-  if (state.showSettings) h += `<span class="st-summary-chip st-chip-settings">${sampleSettings.changed.length} settings</span>`;
-  h += '</div>';
+        // Summary chips
+        h += '<div class="st-summary">';
+        if (state.addedCount > 0)
+          h += `<span class="st-summary-chip st-chip-added">+${state.addedCount} added</span>`;
+        if (state.modifiedCount > 0)
+          h += `<span class="st-summary-chip st-chip-modified">&#9998; ${state.modifiedCount} modified</span>`;
+        if (state.deletedCount > 0)
+          h += `<span class="st-summary-chip st-chip-deleted">&minus;${state.deletedCount} deleted</span>`;
+        if (state.unchangedCount > 0)
+          h += `<span class="st-summary-chip st-chip-unchanged">${state.unchangedCount} unchanged</span>`;
+        if (state.showSettings)
+          h += `<span class="st-summary-chip st-chip-settings">${sampleSettings.changed.length} settings</span>`;
+        h += "</div>";
 
-  // Conflicts
-  if (state.showConflicts && sampleConflicts.length>0) {
-    h += '<div class="st-conflicts">';
-    h += `<div class="st-conflicts-header">&#9888; ${sampleConflicts.length} conflict${sampleConflicts.length>1?'s':''} detected</div>`;
-    sampleConflicts.forEach((c,i) => {
-      const res = state.conflictResolutions['c'+i] || 'remote';
-      h += `<div class="st-conflict-item">
+        // Conflicts
+        if (state.showConflicts && sampleConflicts.length > 0) {
+          h += '<div class="st-conflicts">';
+          h += `<div class="st-conflicts-header">&#9888; ${sampleConflicts.length} conflict${sampleConflicts.length > 1 ? "s" : ""} detected</div>`;
+          sampleConflicts.forEach((c, i) => {
+            const res = state.conflictResolutions["c" + i] || "remote";
+            h += `<div class="st-conflict-item">
         <div class="st-conflict-name">${esc(c.itemName)}</div>
         <div class="st-conflict-field">${esc(c.field)}</div>
         <div class="st-conflict-options">
-          <label><input type="radio" name="conflict-${i}" value="local" ${res==='local'?'checked':''} onchange="resolveConflict(${i},'local')"> Local: <strong>${esc(c.localVal)}</strong></label>
-          <label><input type="radio" name="conflict-${i}" value="remote" ${res==='remote'?'checked':''} onchange="resolveConflict(${i},'remote')"> Remote: <strong>${esc(c.remoteVal)}</strong></label>
+          <label><input type="radio" name="conflict-${i}" value="local" ${res === "local" ? "checked" : ""} onchange="resolveConflict(${i},'local')"> Local: <strong>${esc(c.localVal)}</strong></label>
+          <label><input type="radio" name="conflict-${i}" value="remote" ${res === "remote" ? "checked" : ""} onchange="resolveConflict(${i},'remote')"> Remote: <strong>${esc(c.remoteVal)}</strong></label>
         </div>
       </div>`;
-    });
-    h += '</div>';
-  }
+          });
+          h += "</div>";
+        }
 
-  // Change list
-  h += '<div class="st-change-list">';
-  if (totalChanges===0) {
-    h += '<div class="st-empty">No item changes detected</div>';
-  }
+        // Change list
+        h += '<div class="st-change-list">';
+        if (totalChanges === 0) {
+          h += '<div class="st-empty">No item changes detected</div>';
+        }
 
-  // Added
-  if (state.addedCount>0) {
-    const col=state.collapsedCategories.has('added');
-    h += `<div class="st-category ${col?'collapsed':''}">`;
-    h += `<div class="st-category-header" onclick="toggleCategory('added')"><span class="st-category-chevron">&#9660;</span><span class="st-cat-badge added">+</span><span>Added</span><span class="st-category-count">(${state.addedCount})</span></div>`;
-    h += '<div class="st-category-items">';
-    added.forEach((item,i) => {
-      const chk=state.checkedItems.has('added-'+i);
-      h += `<div class="st-change-row"><input type="checkbox" ${chk?'checked':''} onchange="toggleCheck('added-${i}')"><div class="st-change-badge added">+</div><div class="st-change-info"><div class="st-change-name">${esc(item.name)}</div><div class="st-change-detail">${esc(item.metal)} &middot; ${item.weight}oz &times; ${item.qty}</div></div></div>`;
-    });
-    h += '</div></div>';
-  }
+        // Added
+        if (state.addedCount > 0) {
+          const col = state.collapsedCategories.has("added");
+          h += `<div class="st-category ${col ? "collapsed" : ""}">`;
+          h += `<div class="st-category-header" onclick="toggleCategory('added')"><span class="st-category-chevron">&#9660;</span><span class="st-cat-badge added">+</span><span>Added</span><span class="st-category-count">(${state.addedCount})</span></div>`;
+          h += '<div class="st-category-items">';
+          added.forEach((item, i) => {
+            const chk = state.checkedItems.has("added-" + i);
+            h += `<div class="st-change-row"><input type="checkbox" ${chk ? "checked" : ""} onchange="toggleCheck('added-${i}')"><div class="st-change-badge added">+</div><div class="st-change-info"><div class="st-change-name">${esc(item.name)}</div><div class="st-change-detail">${esc(item.metal)} &middot; ${item.weight}oz &times; ${item.qty}</div></div></div>`;
+          });
+          h += "</div></div>";
+        }
 
-  // Modified
-  if (state.modifiedCount>0) {
-    const col=state.collapsedCategories.has('modified');
-    h += `<div class="st-category ${col?'collapsed':''}">`;
-    h += `<div class="st-category-header" onclick="toggleCategory('modified')"><span class="st-category-chevron">&#9660;</span><span class="st-cat-badge modified">&#9998;</span><span>Modified</span><span class="st-category-count">(${state.modifiedCount})</span></div>`;
-    h += '<div class="st-category-items">';
-    modified.forEach((mod,i) => {
-      const chk=state.checkedItems.has('modified-'+i);
-      const exp=state.expandedModified.has(i);
-      h += `<div class="st-change-row" style="flex-wrap:wrap"><input type="checkbox" ${chk?'checked':''} onchange="toggleCheck('modified-${i}')"><div class="st-change-badge modified">&#9998;</div><div class="st-change-info st-change-expand" onclick="toggleModifiedExpand(${i})"><div class="st-change-name">${esc(mod.item.name)} <span style="font-size:0.65rem;opacity:0.35">${exp?'&#9650;':'&#9660;'}</span></div><div class="st-change-detail">${mod.changes.length} field${mod.changes.length>1?'s':''} changed</div>${exp?'<div class="st-field-changes">'+mod.changes.map(c=>`<div class="st-field-change"><span class="st-field-name">${esc(c.field)}</span><span class="st-field-old">${esc(c.localVal)}</span><span class="st-field-arrow">&rarr;</span><span class="st-field-new">${esc(c.remoteVal)}</span></div>`).join('')+'</div>':''}</div></div>`;
-    });
-    h += '</div></div>';
-  }
+        // Modified
+        if (state.modifiedCount > 0) {
+          const col = state.collapsedCategories.has("modified");
+          h += `<div class="st-category ${col ? "collapsed" : ""}">`;
+          h += `<div class="st-category-header" onclick="toggleCategory('modified')"><span class="st-category-chevron">&#9660;</span><span class="st-cat-badge modified">&#9998;</span><span>Modified</span><span class="st-category-count">(${state.modifiedCount})</span></div>`;
+          h += '<div class="st-category-items">';
+          modified.forEach((mod, i) => {
+            const chk = state.checkedItems.has("modified-" + i);
+            const exp = state.expandedModified.has(i);
+            h += `<div class="st-change-row" style="flex-wrap:wrap"><input type="checkbox" ${chk ? "checked" : ""} onchange="toggleCheck('modified-${i}')"><div class="st-change-badge modified">&#9998;</div><div class="st-change-info st-change-expand" onclick="toggleModifiedExpand(${i})"><div class="st-change-name">${esc(mod.item.name)} <span style="font-size:0.65rem;opacity:0.35">${exp ? "&#9650;" : "&#9660;"}</span></div><div class="st-change-detail">${mod.changes.length} field${mod.changes.length > 1 ? "s" : ""} changed</div>${exp ? '<div class="st-field-changes">' + mod.changes.map((c) => `<div class="st-field-change"><span class="st-field-name">${esc(c.field)}</span><span class="st-field-old">${esc(c.localVal)}</span><span class="st-field-arrow">&rarr;</span><span class="st-field-new">${esc(c.remoteVal)}</span></div>`).join("") + "</div>" : ""}</div></div>`;
+          });
+          h += "</div></div>";
+        }
 
-  // Deleted
-  if (state.deletedCount>0) {
-    const col=state.collapsedCategories.has('deleted');
-    h += `<div class="st-category ${col?'collapsed':''}">`;
-    h += `<div class="st-category-header" onclick="toggleCategory('deleted')"><span class="st-category-chevron">&#9660;</span><span class="st-cat-badge deleted">&minus;</span><span>Deleted</span><span class="st-category-count">(${state.deletedCount})</span></div>`;
-    h += '<div class="st-category-items">';
-    deleted.forEach((item,i) => {
-      const chk=state.checkedItems.has('deleted-'+i);
-      h += `<div class="st-change-row"><input type="checkbox" ${chk?'checked':''} onchange="toggleCheck('deleted-${i}')"><div class="st-change-badge deleted">&minus;</div><div class="st-change-info"><div class="st-change-name">${esc(item.name)}</div><div class="st-change-detail">${esc(item.metal)} &middot; ${item.weight}oz &times; ${item.qty}</div></div></div>`;
-    });
-    h += '</div></div>';
-  }
-  h += '</div>'; // change-list
+        // Deleted
+        if (state.deletedCount > 0) {
+          const col = state.collapsedCategories.has("deleted");
+          h += `<div class="st-category ${col ? "collapsed" : ""}">`;
+          h += `<div class="st-category-header" onclick="toggleCategory('deleted')"><span class="st-category-chevron">&#9660;</span><span class="st-cat-badge deleted">&minus;</span><span>Deleted</span><span class="st-category-count">(${state.deletedCount})</span></div>`;
+          h += '<div class="st-category-items">';
+          deleted.forEach((item, i) => {
+            const chk = state.checkedItems.has("deleted-" + i);
+            h += `<div class="st-change-row"><input type="checkbox" ${chk ? "checked" : ""} onchange="toggleCheck('deleted-${i}')"><div class="st-change-badge deleted">&minus;</div><div class="st-change-info"><div class="st-change-name">${esc(item.name)}</div><div class="st-change-detail">${esc(item.metal)} &middot; ${item.weight}oz &times; ${item.qty}</div></div></div>`;
+          });
+          h += "</div></div>";
+        }
+        h += "</div>"; // change-list
 
-  // Settings
-  if (state.showSettings) {
-    h += '<details class="st-settings" open>';
-    h += `<summary>${sampleSettings.changed.length} setting change${sampleSettings.changed.length>1?'s':''}</summary>`;
-    h += '<div class="st-settings-list">';
-    sampleSettings.changed.forEach(s => {
-      h += `<div class="st-setting-row"><span class="st-field-name">${esc(s.key)}</span><span class="st-field-old">${esc(s.localVal)}</span><span class="st-field-arrow">&rarr;</span><span class="st-field-new">${esc(s.remoteVal)}</span></div>`;
-    });
-    h += '</div></details>';
-  }
+        // Settings
+        if (state.showSettings) {
+          h += '<details class="st-settings" open>';
+          h += `<summary>${sampleSettings.changed.length} setting change${sampleSettings.changed.length > 1 ? "s" : ""}</summary>`;
+          h += '<div class="st-settings-list">';
+          sampleSettings.changed.forEach((s) => {
+            h += `<div class="st-setting-row"><span class="st-field-name">${esc(s.key)}</span><span class="st-field-old">${esc(s.localVal)}</span><span class="st-field-arrow">&rarr;</span><span class="st-field-new">${esc(s.remoteVal)}</span></div>`;
+          });
+          h += "</div></details>";
+        }
 
-  // Action bar — pill buttons, amber primary
-  const cc = state.checkedItems.size;
-  h += `<div class="st-action-bar">
+        // Action bar — pill buttons, amber primary
+        const cc = state.checkedItems.size;
+        h += `<div class="st-action-bar">
     <button class="st-btn st-btn-text" onclick="selectAll()">Select All</button>
     <button class="st-btn st-btn-text" onclick="deselectAll()">Deselect All</button>
     <div class="spacer"></div>
     <button class="st-btn st-btn-cancel" onclick="onCancel()">Cancel</button>
-    <button class="st-btn st-btn-apply" ${cc===0?'disabled':''} onclick="onApply()">Apply${cc>0?' ('+cc+')':''}</button>
+    <button class="st-btn st-btn-apply" ${cc === 0 ? "disabled" : ""} onclick="onApply()">Apply${cc > 0 ? " (" + cc + ")" : ""}</button>
   </div>`;
 
-  h += '</div>'; // modal-body
-  wrapper.innerHTML = h;
-}
+        h += "</div>"; // modal-body
+        wrapper.innerHTML = h;
+      }
 
-// ── Interactions ──
-function toggleCheck(key) { if (state.checkedItems.has(key)) state.checkedItems.delete(key); else state.checkedItems.add(key); renderPreview(); updatePrompt(); }
-function selectAll() { initCheckedItems(); renderPreview(); updatePrompt(); }
-function deselectAll() { state.checkedItems.clear(); renderPreview(); updatePrompt(); }
-function toggleCategory(cat) { if (state.collapsedCategories.has(cat)) state.collapsedCategories.delete(cat); else state.collapsedCategories.add(cat); renderPreview(); }
-function toggleModifiedExpand(idx) { if (state.expandedModified.has(idx)) state.expandedModified.delete(idx); else state.expandedModified.add(idx); renderPreview(); }
-function resolveConflict(idx, val) { state.conflictResolutions['c'+idx] = val; renderPreview(); }
+      // ── Interactions ──
+      function toggleCheck(key) {
+        if (state.checkedItems.has(key)) state.checkedItems.delete(key);
+        else state.checkedItems.add(key);
+        renderPreview();
+        updatePrompt();
+      }
+      function selectAll() {
+        initCheckedItems();
+        renderPreview();
+        updatePrompt();
+      }
+      function deselectAll() {
+        state.checkedItems.clear();
+        renderPreview();
+        updatePrompt();
+      }
+      function toggleCategory(cat) {
+        if (state.collapsedCategories.has(cat)) state.collapsedCategories.delete(cat);
+        else state.collapsedCategories.add(cat);
+        renderPreview();
+      }
+      function toggleModifiedExpand(idx) {
+        if (state.expandedModified.has(idx)) state.expandedModified.delete(idx);
+        else state.expandedModified.add(idx);
+        renderPreview();
+      }
+      function resolveConflict(idx, val) {
+        state.conflictResolutions["c" + idx] = val;
+        renderPreview();
+      }
 
-function onApply() {
-  const output = [];
-  state.checkedItems.forEach(key => { const [type,idx]=key.split('-'); output.push({ type: type==='added'?'add':type==='modified'?'modify':'delete', index:parseInt(idx) }); });
-  const el = document.getElementById('applyOutput');
-  el.textContent = JSON.stringify(output,null,2);
-  el.classList.add('visible');
-}
+      function onApply() {
+        const output = [];
+        state.checkedItems.forEach((key) => {
+          const [type, idx] = key.split("-");
+          output.push({
+            type: type === "added" ? "add" : type === "modified" ? "modify" : "delete",
+            index: parseInt(idx),
+          });
+        });
+        const el = document.getElementById("applyOutput");
+        el.textContent = JSON.stringify(output, null, 2);
+        el.classList.add("visible");
+      }
 
-function onCancel() {
-  const el = document.getElementById('applyOutput');
-  el.textContent = 'Modal cancelled — onCancel() called.';
-  el.classList.add('visible');
-}
+      function onCancel() {
+        const el = document.getElementById("applyOutput");
+        el.textContent = "Modal cancelled — onCancel() called.";
+        el.classList.add("visible");
+      }
 
-function updatePrompt() {
-  const parts = [];
-  parts.push('Implement DiffModal (js/diff-modal.js) for StakTrakr with this visual design:');
-  parts.push('');
-  parts.push('HEADER: Plain text title on modal surface (no gradient bar). Bold, 1.1rem. "Review Sync Changes" / "Review CSV Import" / "Review JSON Import" based on source.type. Close X: 32px circle, no bg, muted color, hover reveals subtle bg.');
-  parts.push('');
-  parts.push('SOURCE BADGE: Inline pill (border-radius 6px) with icon + label. Uses --primary at low opacity for bg.');
-  if (state.showMeta) parts.push('META ROW (sync only): 4-col grid — Remote Items, Local Items, Device (8-char truncated), Version. Uppercase tiny labels above bold values. Subtle surface bg.');
-  parts.push('');
-  parts.push('SUMMARY CHIPS: Horizontal flex-wrap of rounded pills (border-radius 20px). Green=added, amber=modified, red=deleted, gray=unchanged, blue=settings. Dark mode: higher opacity bg + lighter text.');
-  if (state.showConflicts) { parts.push(''); parts.push('CONFLICTS (optional): Amber-bordered card. Warning icon + "N conflicts detected" header. Each conflict: item name, field name, radio buttons for Local vs Remote. Inner cards with slightly darker bg.'); }
-  parts.push('');
-  parts.push('CHANGE LIST: Scrollable (max-height 320px, thin scrollbar). Rounded border. Three collapsible category groups:');
-  parts.push('  - Category headers: small chevron + colored badge (18px, 4px radius) + label + count. Click to collapse.');
-  parts.push('  - ADDED rows: checkbox + green "+" badge (20px) + name + detail (metal, weight, qty).');
-  parts.push('  - MODIFIED rows: checkbox + amber pencil badge + name + click to expand field diffs. Fields: name (muted), old (strikethrough, faded), arrow, new (bold, amber in dark).');
-  parts.push('  - DELETED rows: checkbox + red minus badge + name + detail.');
-  parts.push('  All checked by default. accent-color: #3b82f6.');
-  if (state.showSettings) { parts.push(''); parts.push('SETTINGS DIFF: Collapsible <details>, open by default. Each setting: key, old (strikethrough), arrow, new (bold).'); }
-  parts.push('');
-  parts.push('ACTION BAR (pill buttons): Top border separator. Left: "Select All" + "Deselect All" (small outlined pills, border-radius 999px). Right: "Cancel" (outlined pill) + "Apply (N)" (amber filled pill, #d97706, white text, bold). Apply count updates live. Disabled at 40% opacity when 0 selected.');
-  parts.push('');
-  parts.push(`THEMES: Light = glassmorphic white at 95% + blur. Dark = slate-800 at 95% + blur. Sepia = warm tan. Width: ${state.width}px, 95vw on mobile.`);
-  parts.push('');
-  parts.push('BUTTON STYLE: All buttons are pill-shaped (border-radius: 999px). Primary action = amber/orange (#d97706). Cancel/secondary = outlined. Matches current StakTrakr design language — NO square buttons, NO gradient headers.');
-  document.getElementById('promptText').textContent = parts.join('\n');
-}
+      function updatePrompt() {
+        const parts = [];
+        parts.push("Implement DiffModal (js/diff-modal.js) for StakTrakr with this visual design:");
+        parts.push("");
+        parts.push(
+          'HEADER: Plain text title on modal surface (no gradient bar). Bold, 1.1rem. "Review Sync Changes" / "Review CSV Import" / "Review JSON Import" based on source.type. Close X: 32px circle, no bg, muted color, hover reveals subtle bg.'
+        );
+        parts.push("");
+        parts.push(
+          "SOURCE BADGE: Inline pill (border-radius 6px) with icon + label. Uses --primary at low opacity for bg."
+        );
+        if (state.showMeta)
+          parts.push(
+            "META ROW (sync only): 4-col grid — Remote Items, Local Items, Device (8-char truncated), Version. Uppercase tiny labels above bold values. Subtle surface bg."
+          );
+        parts.push("");
+        parts.push(
+          "SUMMARY CHIPS: Horizontal flex-wrap of rounded pills (border-radius 20px). Green=added, amber=modified, red=deleted, gray=unchanged, blue=settings. Dark mode: higher opacity bg + lighter text."
+        );
+        if (state.showConflicts) {
+          parts.push("");
+          parts.push(
+            'CONFLICTS (optional): Amber-bordered card. Warning icon + "N conflicts detected" header. Each conflict: item name, field name, radio buttons for Local vs Remote. Inner cards with slightly darker bg.'
+          );
+        }
+        parts.push("");
+        parts.push(
+          "CHANGE LIST: Scrollable (max-height 320px, thin scrollbar). Rounded border. Three collapsible category groups:"
+        );
+        parts.push(
+          "  - Category headers: small chevron + colored badge (18px, 4px radius) + label + count. Click to collapse."
+        );
+        parts.push(
+          '  - ADDED rows: checkbox + green "+" badge (20px) + name + detail (metal, weight, qty).'
+        );
+        parts.push(
+          "  - MODIFIED rows: checkbox + amber pencil badge + name + click to expand field diffs. Fields: name (muted), old (strikethrough, faded), arrow, new (bold, amber in dark)."
+        );
+        parts.push("  - DELETED rows: checkbox + red minus badge + name + detail.");
+        parts.push("  All checked by default. accent-color: #3b82f6.");
+        if (state.showSettings) {
+          parts.push("");
+          parts.push(
+            "SETTINGS DIFF: Collapsible <details>, open by default. Each setting: key, old (strikethrough), arrow, new (bold)."
+          );
+        }
+        parts.push("");
+        parts.push(
+          'ACTION BAR (pill buttons): Top border separator. Left: "Select All" + "Deselect All" (small outlined pills, border-radius 999px). Right: "Cancel" (outlined pill) + "Apply (N)" (amber filled pill, #d97706, white text, bold). Apply count updates live. Disabled at 40% opacity when 0 selected.'
+        );
+        parts.push("");
+        parts.push(
+          `THEMES: Light = glassmorphic white at 95% + blur. Dark = slate-800 at 95% + blur. Sepia = warm tan. Width: ${state.width}px, 95vw on mobile.`
+        );
+        parts.push("");
+        parts.push(
+          "BUTTON STYLE: All buttons are pill-shaped (border-radius: 999px). Primary action = amber/orange (#d97706). Cancel/secondary = outlined. Matches current StakTrakr design language — NO square buttons, NO gradient headers."
+        );
+        document.getElementById("promptText").textContent = parts.join("\n");
+      }
 
-function copyPrompt() {
-  const text = document.getElementById('promptText').textContent;
-  navigator.clipboard.writeText(text).then(()=>{ const btn=document.querySelector('.copy-btn'); btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy Prompt',1500); });
-}
+      function copyPrompt() {
+        const text = document.getElementById("promptText").textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.querySelector(".copy-btn");
+          btn.textContent = "Copied!";
+          setTimeout(() => (btn.textContent = "Copy Prompt"), 1500);
+        });
+      }
 
-// ── Init (dark theme default) ──
-initCheckedItems();
-renderPreview();
-updatePrompt();
-</script>
-</body>
+      // ── Init (dark theme default) ──
+      initCheckedItems();
+      renderPreview();
+      updatePrompt();
+    </script>
+  </body>
 </html>

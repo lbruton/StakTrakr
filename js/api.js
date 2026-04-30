@@ -13,6 +13,19 @@ const providerStatuses = {
 /** Check whether a provider requires an API key */
 const providerRequiresKey = (prov) => API_PROVIDERS[prov]?.requiresKey !== false;
 
+let _spotProviderSyncPromise = null;
+let _spotProviderSyncKey = null;
+let _staktrakrBackfillPromise = null;
+let _spotProviderAbortController = null;
+let _spotProviderSyncGeneration = 0;
+
+const abortSpotProviderSync = () => {
+  _spotProviderSyncGeneration++;
+  if (_spotProviderAbortController) {
+    _spotProviderAbortController.abort();
+  }
+};
+
 /**
  * Fetch a single JSON file from the first responsive StakTrakr endpoint.
  * Tries each URL in order; moves to the next after a 5-second timeout or error.
@@ -20,22 +33,29 @@ const providerRequiresKey = (prov) => API_PROVIDERS[prov]?.requiresKey !== false
  * @param {string} path - Path appended to each base URL
  * @returns {Promise<any>} Parsed JSON from the first successful endpoint
  */
-const _staktrakrFetch = async (urls, path) => {
+const _staktrakrFetch = async (urls, path, { signal } = {}) => {
   let lastErr;
   for (const base of urls) {
+    if (signal?.aborted) throw new DOMException("Spot sync aborted", "AbortError");
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 5000);
+    const abortCurrentFetch = () => ctrl.abort();
+    if (signal) signal.addEventListener("abort", abortCurrentFetch, { once: true });
     try {
-      const resp = await fetch(`${base}${path}`, { mode: 'cors', signal: ctrl.signal });
+      const resp = await fetch(`${base}${path}`, { mode: "cors", signal: ctrl.signal });
       clearTimeout(tid);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       return await resp.json();
     } catch (err) {
       clearTimeout(tid);
+      if (signal) signal.removeEventListener("abort", abortCurrentFetch);
+      if (signal?.aborted) throw err;
       lastErr = err;
+    } finally {
+      if (signal) signal.removeEventListener("abort", abortCurrentFetch);
     }
   }
-  throw lastErr || new Error('All StakTrakr endpoints failed');
+  throw lastErr || new Error("All StakTrakr endpoints failed");
 };
 
 /**
@@ -43,10 +63,10 @@ const _staktrakrFetch = async (urls, path) => {
  * Walks back up to 24 hours from the current UTC hour to find data.
  * Tries the primary endpoint first; falls back to backup after 5 s timeout or error.
  */
-const _V2_METAL_MAP = { xau: 'gold', xag: 'silver', xpt: 'platinum', xpd: 'palladium' };
+const _V2_METAL_MAP = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
 
-const fetchStaktrakrPrices = async (selectedMetals) => {
-  const data = await _staktrakrFetch(V2_API_ENDPOINTS, '/spot/latest.json');
+const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
+  const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json", { signal });
   const spotData = data.data || data;
   const results = {};
   Object.entries(spotData).forEach(([isoKey, entry]) => {
@@ -65,7 +85,7 @@ const fetchStaktrakrPrices = async (selectedMetals) => {
     }
     return results;
   }
-  throw new Error('No spot data available from StakTrakr v2 API');
+  throw new Error("No spot data available from StakTrakr v2 API");
 };
 
 /**
@@ -74,18 +94,16 @@ const fetchStaktrakrPrices = async (selectedMetals) => {
  * @param {number} hoursBack - Number of hours to look back
  * @returns {Promise<{newCount: number, fetchCount: number}>} Counts of new entries and successful fetches
  */
-const fetchStaktrakrHourlyRange = async (hoursBack) => {
-  return _fetchStaktrakrHourlyRangeV2(hoursBack);
+const fetchStaktrakrHourlyRange = async (hoursBack, { signal } = {}) => {
+  return _fetchStaktrakrHourlyRangeV2(hoursBack, { signal });
 };
 
-const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
+const _fetchStaktrakrHourlyRangeV2 = async (hoursBack, { signal } = {}) => {
   const now = new Date();
   const cutoff = new Date(now.getTime() - hoursBack * 3600000);
 
   purgeSpotHistory();
-  const existingKeys = new Set(
-    spotHistory.map(e => `${e.timestamp}|${e.metal}`)
-  );
+  const existingKeys = new Set(spotHistory.map((e) => `${e.timestamp}|${e.metal}`));
 
   let newCount = 0;
   let fetchCount = 0;
@@ -95,8 +113,8 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
   for (let i = 0; i < hoursBack; i++) {
     const h = new Date(now.getTime() - i * 3600000);
     const yyyy = h.getUTCFullYear();
-    const mm = String(h.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(h.getUTCDate()).padStart(2, '0');
+    const mm = String(h.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(h.getUTCDate()).padStart(2, "0");
     const dayKey = `${yyyy}/${mm}/${dd}`;
     if (!uniqueDays.has(dayKey)) uniqueDays.set(dayKey, { yyyy, mm, dd });
   }
@@ -111,27 +129,41 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
 
   const batchSize = 6;
   for (let i = 0; i < fetchJobs.length; i += batchSize) {
+    if (signal?.aborted) break;
+    // STAK-443 REQ-10: abort in-flight backfill if user switches to MANUAL mid-batch
+    const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+    if (currentSource === "MANUAL") {
+      debugLog("[StakTrakr v2] Backfill aborted — spotPricingSource switched to MANUAL");
+      break;
+    }
     const batch = fetchJobs.slice(i, i + batchSize);
-    const results = await Promise.all(batch.map(async ({ isoKey, metalName, dayKey }) => {
-      const path = `/spot/${isoKey}/${dayKey}.json`;
-      try {
-        const raw = await _staktrakrFetch(V2_API_ENDPOINTS, path);
-        const entries = raw.data || raw;
-        if (!Array.isArray(entries)) return null;
-        return { metalName, entries };
-      } catch { return null; }
-    }));
+    const results = await Promise.all(
+      batch.map(async ({ isoKey, metalName, dayKey }) => {
+        const path = `/spot/${isoKey}/${dayKey}.json`;
+        try {
+          if (signal?.aborted) return null;
+          const raw = await _staktrakrFetch(V2_API_ENDPOINTS, path, { signal });
+          const entries = raw.data || raw;
+          if (!Array.isArray(entries)) return null;
+          return { metalName, entries };
+        } catch {
+          return null;
+        }
+      })
+    );
 
     const metalConfig = {};
-    Object.values(METALS).forEach(m => { metalConfig[m.key] = m; });
+    Object.values(METALS).forEach((m) => {
+      metalConfig[m.key] = m;
+    });
 
-    results.forEach(result => {
+    results.forEach((result) => {
       if (!result) return;
       fetchCount++;
       const config = metalConfig[result.metalName];
       if (!config) return;
 
-      result.entries.forEach(entry => {
+      result.entries.forEach((entry) => {
         const spot = entry.close;
         if (!spot || spot <= 0) return;
         const ts = entry.t;
@@ -142,8 +174,11 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
         const isDuplicate = existingKeys.has(`${entryTimestamp}|${config.name}`);
         if (!isDuplicate) {
           spotHistory.push({
-            spot, metal: config.name, source: "api-hourly",
-            provider: providerName, timestamp: entryTimestamp,
+            spot,
+            metal: config.name,
+            source: "api-hourly",
+            provider: providerName,
+            timestamp: entryTimestamp,
           });
           existingKeys.add(`${entryTimestamp}|${config.name}`);
           newCount++;
@@ -160,7 +195,6 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
   return { newCount, fetchCount };
 };
 
-
 /**
  * Backfills hourly spot data from StakTrakr into spotHistory.
  * On a fresh load (no recent api-hourly entries), extends to 7 days to populate
@@ -170,22 +204,40 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack) => {
  * Only runs when STAKTRAKR is the primary provider (rank 1) and sync succeeded.
  * @returns {Promise<number>} Count of new entries added
  */
-const backfillStaktrakrHourly = async () => {
-  const oneDayAgo = Date.now() - 24 * 3600000;
-  const hasRecentHourly = spotHistory.some(
-    (e) => e.source === 'api-hourly' && new Date(e.timestamp).getTime() >= oneDayAgo
-  );
-  const hoursBack = hasRecentHourly ? 24 : 7 * 24;
-  const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(hoursBack);
-  // Track usage per file fetched (each file = 1 API request)
-  if (fetchCount > 0) {
-    const config = loadApiConfig();
-    if (config.usage?.STAKTRAKR) {
-      config.usage.STAKTRAKR.used += fetchCount;
-      saveApiConfig(config);
+const backfillStaktrakrHourly = async ({ signal } = {}) => {
+  if (signal?.aborted) return 0;
+  if (_staktrakrBackfillPromise) return _staktrakrBackfillPromise;
+
+  _staktrakrBackfillPromise = (async () => {
+    // STAK-443 REQ-10: skip backfill entirely if user has switched to MANUAL
+    const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+    if (source === "MANUAL") {
+      debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
+      return 0;
     }
+    const oneDayAgo = Date.now() - 24 * 3600000;
+    const hasRecentHourly = spotHistory.some(
+      (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
+    );
+    const hoursBack = hasRecentHourly ? 24 : 7 * 24;
+    if (signal?.aborted) return 0;
+    const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(hoursBack, { signal });
+    // Track usage per file fetched (each file = 1 API request)
+    if (fetchCount > 0) {
+      const config = loadApiConfig();
+      if (config.usage?.STAKTRAKR) {
+        config.usage.STAKTRAKR.used += fetchCount;
+        saveApiConfig(config);
+      }
+    }
+    return newCount;
+  })();
+
+  try {
+    return await _staktrakrBackfillPromise;
+  } finally {
+    _staktrakrBackfillPromise = null;
   }
-  return newCount;
 };
 
 /**
@@ -193,20 +245,24 @@ const backfillStaktrakrHourly = async () => {
  * Reads days from dropdown, confirms, fetches, and updates UI.
  */
 const handleStaktrakrHistoryPull = async () => {
-  const daysSelect = document.getElementById('historyPullDays_STAKTRAKR');
+  const daysSelect = document.getElementById("historyPullDays_STAKTRAKR");
   const totalDays = daysSelect ? parseInt(daysSelect.value, 10) : 7;
   const totalHours = totalDays * 24;
 
   const proceed = await appConfirm(
-    `Pull ${totalDays} day${totalDays > 1 ? 's' : ''} of hourly history from StakTrakr.\n\n` +
-    `This will fetch up to ${totalHours} hourly files (skipping already-fetched hours).\n\nProceed?`
-  , 'History Pull');
+    `Pull ${totalDays} day${totalDays > 1 ? "s" : ""} of hourly history from StakTrakr.\n\n` +
+      `This will fetch up to ${totalHours} hourly files (skipping already-fetched hours).\n\nProceed?`,
+    "History Pull"
+  );
   if (!proceed) return;
 
   // Disable button during pull
   const btn = document.querySelector('.api-history-btn[data-provider="STAKTRAKR"]');
   const origText = btn ? btn.textContent : "";
-  if (btn) { btn.textContent = "Pulling..."; btn.disabled = true; }
+  if (btn) {
+    btn.textContent = "Pulling...";
+    btn.disabled = true;
+  }
 
   try {
     const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(totalHours);
@@ -222,7 +278,7 @@ const handleStaktrakrHistoryPull = async () => {
 
     appAlert(
       `History pull complete!\n\n` +
-      `Added ${newCount} new entries from ${fetchCount} hourly files.`
+        `Added ${newCount} new entries from ${fetchCount} hourly files.`
     );
     updateProviderHistoryTables();
     if (typeof updateAllSparklines === "function") updateAllSparklines();
@@ -230,7 +286,10 @@ const handleStaktrakrHistoryPull = async () => {
     console.error("StakTrakr history pull failed:", err);
     appAlert("History pull failed: " + err.message);
   } finally {
-    if (btn) { btn.textContent = origText; btn.disabled = false; }
+    if (btn) {
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
   }
 };
 
@@ -252,7 +311,9 @@ const renderApiStatusSummary = () => {
       const nc = catalogConfig.getNumistaConfig();
       numistaStatus = nc.apiKey ? "connected" : "disconnected";
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
   items.push({ name: "Numista", status: numistaStatus, provider: "NUMISTA" });
 
   // PCGS status
@@ -261,36 +322,44 @@ const renderApiStatusSummary = () => {
     if (typeof catalogConfig !== "undefined" && catalogConfig.isPcgsEnabled) {
       pcgsStatus = catalogConfig.isPcgsEnabled() ? "connected" : "disconnected";
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
   items.push({ name: "PCGS", status: pcgsStatus, provider: "PCGS" });
 
   // Metals providers
   Object.keys(API_PROVIDERS).forEach((prov) => {
-    const status = Object.hasOwn(providerStatuses, prov) ? providerStatuses[prov] : "disconnected";    const providerConfig = Object.hasOwn(API_PROVIDERS, prov) ? API_PROVIDERS[prov] : null;    if (!providerConfig) return;
+    const status = Object.hasOwn(providerStatuses, prov) ? providerStatuses[prov] : "disconnected";
+    const providerConfig = Object.hasOwn(API_PROVIDERS, prov) ? API_PROVIDERS[prov] : null;
+    if (!providerConfig) return;
     const name = providerConfig.name;
     const statusClass = status === "cached" ? "connected" : status;
-    const lastSync = typeof getLastProviderSyncTime === "function" ? getLastProviderSyncTime(prov) : null;
+    const lastSync =
+      typeof getLastProviderSyncTime === "function" ? getLastProviderSyncTime(prov) : null;
     let tsLabel = "";
     if (lastSync) {
       const d = new Date(lastSync);
-      tsLabel = typeof formatTimestamp === 'function' ? formatTimestamp(d, { year: undefined }) : d.toLocaleString();
+      tsLabel =
+        typeof formatTimestamp === "function"
+          ? formatTimestamp(d, { year: undefined })
+          : d.toLocaleString();
     }
     items.push({ name, status: statusClass, tsLabel, provider: prov });
   });
 
-  container.textContent = '';
-  items.forEach(item => {
-    const span = document.createElement('span');
-    span.className = 'api-header-status-item ' + item.status;
-    const dot = document.createElement('span');
-    dot.className = 'status-dot';
-    const nameEl = document.createElement('span');
-    nameEl.className = 'status-name';
+  container.textContent = "";
+  items.forEach((item) => {
+    const span = document.createElement("span");
+    span.className = "api-header-status-item " + item.status;
+    const dot = document.createElement("span");
+    dot.className = "status-dot";
+    const nameEl = document.createElement("span");
+    nameEl.className = "status-name";
     nameEl.textContent = item.name;
     span.append(dot, nameEl);
     if (item.tsLabel) {
-      const ts = document.createElement('span');
-      ts.className = 'status-timestamp';
+      const ts = document.createElement("span");
+      ts.className = "status-timestamp";
       ts.textContent = item.tsLabel;
       span.appendChild(ts);
     }
@@ -333,10 +402,11 @@ const loadApiConfig = () => {
       const currentMonth = currentMonthKey();
       const savedMonth = config.usageMonth;
       Object.keys(API_PROVIDERS).forEach((p) => {
-        if (!usage[p]) usage[p] = {
-          quota: providerRequiresKey(p) ? DEFAULT_API_QUOTA : 5000,
-          used: 0,
-        };
+        if (!usage[p])
+          usage[p] = {
+            quota: providerRequiresKey(p) ? DEFAULT_API_QUOTA : 5000,
+            used: 0,
+          };
         if (!metals[p])
           metals[p] = {
             silver: true,
@@ -365,7 +435,10 @@ const loadApiConfig = () => {
       const cacheTimeouts = config.cacheTimeouts || {};
       const globalCache = Number.isFinite(config.cacheHours) ? config.cacheHours : 24;
       Object.keys(API_PROVIDERS).forEach((p) => {
-        if (p === 'STAKTRAKR') { cacheTimeouts[p] = 0; return; }
+        if (p === "STAKTRAKR") {
+          cacheTimeouts[p] = 0;
+          return;
+        }
         if (!Number.isFinite(cacheTimeouts[p]) || cacheTimeouts[p] < 0) {
           cacheTimeouts[p] = globalCache;
         }
@@ -375,8 +448,7 @@ const loadApiConfig = () => {
         provider: config.provider || "",
         // Clone keys object to prevent accidental cross-provider references
         keys: { ...(config.keys || {}) },
-        cacheHours:
-          typeof config.cacheHours === "number" ? config.cacheHours : 24,
+        cacheHours: typeof config.cacheHours === "number" ? config.cacheHours : 24,
         cacheTimeouts,
         customConfig: config.customConfig || {
           baseUrl: "",
@@ -439,8 +511,7 @@ const saveApiConfig = (config) => {
     const configToSave = {
       provider: config.provider || "",
       keys: {},
-      cacheHours:
-        typeof config.cacheHours === "number" ? config.cacheHours : 24,
+      cacheHours: typeof config.cacheHours === "number" ? config.cacheHours : 24,
       cacheTimeouts: config.cacheTimeouts || {},
       customConfig: config.customConfig || {
         baseUrl: "",
@@ -486,9 +557,7 @@ const clearApiConfig = () => {
     customConfig: { baseUrl: "", endpoint: "", format: "symbol" },
   };
   apiCache = null;
-  Object.keys(providerStatuses).forEach((p) =>
-    setProviderStatus(p, "disconnected"),
-  );
+  Object.keys(providerStatuses).forEach((p) => setProviderStatus(p, "disconnected"));
   updateSyncButtonStates();
 };
 
@@ -499,9 +568,7 @@ const clearApiCache = () => {
   localStorage.removeItem(API_CACHE_KEY);
   apiCache = null;
   clearApiHistory(true);
-  appAlert(
-    "API cache and history cleared. Next sync will pull fresh data from the API.",
-  );
+  appAlert("API cache and history cleared. Next sync will pull fresh data from the API.");
 };
 
 /**
@@ -510,7 +577,7 @@ const clearApiCache = () => {
  */
 const getCacheDurationMs = (provider) => {
   // STAKTRAKR reads static hourly files — no rate limit, always fetch fresh
-  if (provider === 'STAKTRAKR') return 0;
+  if (provider === "STAKTRAKR") return 0;
   let hours;
   if (provider && Number.isFinite(apiConfig?.cacheTimeouts?.[provider])) {
     hours = apiConfig.cacheTimeouts[provider];
@@ -524,23 +591,21 @@ const getCacheDurationMs = (provider) => {
  * Sets connection status for a provider in the settings UI
  * @param {string} provider
  * @param {"connected"|"disconnected"|"error"|"cached"} status
-*/
+ */
 const setProviderStatus = (provider, status) => {
   providerStatuses[provider] = status;
   renderApiStatusSummary();
   const block = document.querySelector(
-    `.api-provider[data-provider="${provider}"] .provider-status`,
+    `.api-provider[data-provider="${provider}"] .provider-status`
   );
   if (!block) return;
   block.classList.remove(
     "status-connected",
     "status-disconnected",
     "status-error",
-    "status-cached",
+    "status-cached"
   );
-  block.classList.add(
-    status === "cached" ? "status-connected" : `status-${status}`,
-  );
+  block.classList.add(status === "cached" ? "status-connected" : `status-${status}`);
   const text = block.querySelector(".status-text");
   if (text) {
     text.textContent =
@@ -559,7 +624,11 @@ const setProviderStatus = (provider, status) => {
     const ts = getLastProviderSyncTime(provider);
     if (ts) {
       const d = new Date(ts);
-      lastUsed.textContent = "Last: " + (typeof formatTimestamp === 'function' ? formatTimestamp(d, { year: undefined }) : d.toLocaleString());
+      lastUsed.textContent =
+        "Last: " +
+        (typeof formatTimestamp === "function"
+          ? formatTimestamp(d, { year: undefined })
+          : d.toLocaleString());
     } else {
       lastUsed.textContent = "";
     }
@@ -582,14 +651,14 @@ const updateHistoryPullCost = (provider) => {
   const totalDays = daysSelect ? parseInt(daysSelect.value, 10) : 30;
 
   // STAKTRAKR: show hourly file count instead of API calls
-  if (provider === 'STAKTRAKR') {
+  if (provider === "STAKTRAKR") {
     const hours = totalDays * 24;
     costEl.textContent = `${totalDays}d = ${hours} hourly files`;
     return;
   }
 
   const selected = config.metals?.[provider] || {};
-  const selectedMetals = Object.keys(selected).filter(metal => selected[metal] !== false);
+  const selectedMetals = Object.keys(selected).filter((metal) => selected[metal] !== false);
 
   // Check for hourly toggle (MetalPriceAPI)
   const hourlyToggle = document.getElementById(`hourlyPull_${provider}`);
@@ -622,20 +691,23 @@ const updateProviderSettings = (provider) => {
   const config = loadApiConfig();
 
   // STAKTRAKR has no cache dropdown — persist toggle + auto-refresh only
-  if (provider === 'STAKTRAKR') {
-    const enabledEl = document.getElementById('enabled_STAKTRAKR');
+  if (provider === "STAKTRAKR") {
+    const enabledEl = document.getElementById("enabled_STAKTRAKR");
     if (enabledEl) {
       if (!config.syncMode) config.syncMode = {};
       const enabled = enabledEl.checked ? 1 : 0;
       config.syncMode.STAKTRAKR = enabled;
       // Also update providerPriority — syncProviderChain reads this key to gate fetches
-      if (typeof loadProviderPriorities === 'function' && typeof saveProviderPriorities === 'function') {
+      if (
+        typeof loadProviderPriorities === "function" &&
+        typeof saveProviderPriorities === "function"
+      ) {
         const priorities = loadProviderPriorities();
         priorities.STAKTRAKR = enabled;
         saveProviderPriorities(priorities);
       }
     }
-    const autoEl = document.getElementById('autoRefresh_STAKTRAKR');
+    const autoEl = document.getElementById("autoRefresh_STAKTRAKR");
     if (!config.autoRefresh) config.autoRefresh = {};
     if (enabledEl && !enabledEl.checked) {
       // Provider disabled — clear autoRefresh so startSpotBackgroundSync skips the 60-min tick
@@ -644,7 +716,7 @@ const updateProviderSettings = (provider) => {
       config.autoRefresh.STAKTRAKR = autoEl.checked;
     }
     saveApiConfig(config);
-    if (typeof startSpotBackgroundSync === 'function') startSpotBackgroundSync();
+    if (typeof startSpotBackgroundSync === "function") startSpotBackgroundSync();
     return;
   }
 
@@ -666,14 +738,14 @@ const updateProviderSettings = (provider) => {
  */
 const setupProviderSettingsListeners = (provider) => {
   // STAKTRAKR: wire enabled toggle + auto-refresh (no cache dropdown)
-  if (provider === 'STAKTRAKR') {
-    const enabledEl = document.getElementById('enabled_STAKTRAKR');
+  if (provider === "STAKTRAKR") {
+    const enabledEl = document.getElementById("enabled_STAKTRAKR");
     if (enabledEl) {
-      enabledEl.addEventListener('change', () => updateProviderSettings(provider));
+      enabledEl.addEventListener("change", () => updateProviderSettings(provider));
     }
-    const autoEl = document.getElementById('autoRefresh_STAKTRAKR');
+    const autoEl = document.getElementById("autoRefresh_STAKTRAKR");
     if (autoEl) {
-      autoEl.addEventListener('change', () => updateProviderSettings(provider));
+      autoEl.addEventListener("change", () => updateProviderSettings(provider));
     }
     return;
   }
@@ -681,25 +753,25 @@ const setupProviderSettingsListeners = (provider) => {
   // Cache timeout change
   const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
   if (cacheSelect) {
-    cacheSelect.addEventListener('change', () => updateProviderSettings(provider));
+    cacheSelect.addEventListener("change", () => updateProviderSettings(provider));
   }
 
   // History pull days dropdown — update cost indicator
   const pullDaysSelect = document.getElementById(`historyPullDays_${provider}`);
   if (pullDaysSelect) {
-    pullDaysSelect.addEventListener('change', () => updateHistoryPullCost(provider));
+    pullDaysSelect.addEventListener("change", () => updateHistoryPullCost(provider));
   }
 
   // History pull button
   const pullBtn = document.querySelector(`.api-history-btn[data-provider="${provider}"]`);
   if (pullBtn) {
-    pullBtn.addEventListener('click', () => handleHistoryPull(provider));
+    pullBtn.addEventListener("click", () => handleHistoryPull(provider));
   }
 
   // Hourly toggle — cap days dropdown and update cost
   const hourlyToggle = document.getElementById(`hourlyPull_${provider}`);
   if (hourlyToggle) {
-    hourlyToggle.addEventListener('change', () => {
+    hourlyToggle.addEventListener("change", () => {
       const daysEl = document.getElementById(`historyPullDays_${provider}`);
       if (daysEl && hourlyToggle.checked) {
         const maxDays = API_PROVIDERS[provider]?.maxHourlyDays || 7;
@@ -712,8 +784,8 @@ const setupProviderSettingsListeners = (provider) => {
   }
 
   // Metal selection changes
-  document.querySelectorAll(`.provider-metal[data-provider="${provider}"]`).forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
+  document.querySelectorAll(`.provider-metal[data-provider="${provider}"]`).forEach((checkbox) => {
+    checkbox.addEventListener("change", (e) => {
       const config = loadApiConfig();
       const metalKey = e.target.dataset.metal;
       if (!config.metals[provider]) config.metals[provider] = {};
@@ -726,15 +798,14 @@ const setupProviderSettingsListeners = (provider) => {
   // Auto-refresh toggle (STAK-222)
   const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
   if (autoRefreshToggle) {
-    autoRefreshToggle.addEventListener('change', () => {
+    autoRefreshToggle.addEventListener("change", () => {
       const config = loadApiConfig();
       if (!config.autoRefresh) config.autoRefresh = {};
       config.autoRefresh[provider] = autoRefreshToggle.checked;
       saveApiConfig(config);
-      if (typeof startSpotBackgroundSync === 'function') startSpotBackgroundSync();
+      if (typeof startSpotBackgroundSync === "function") startSpotBackgroundSync();
     });
   }
-
 };
 
 /**
@@ -744,9 +815,9 @@ const setupProviderSettingsListeners = (provider) => {
 const updateProviderHistoryTables = () => {
   const config = loadApiConfig();
   Object.keys(API_PROVIDERS).forEach((prov) => {
-      const container = document.querySelector(
-        `.api-provider[data-provider="${prov}"] .provider-settings .provider-history`,
-      );
+    const container = document.querySelector(
+      `.api-provider[data-provider="${prov}"] .provider-settings .provider-history`
+    );
     if (!container) return;
     const usage = config.usage?.[prov] || {
       quota: DEFAULT_API_QUOTA,
@@ -761,19 +832,19 @@ const updateProviderHistoryTables = () => {
     container.innerHTML = usageHtml;
 
     // Make quota bar clickable
-    const usageEl = container.querySelector('.api-usage[data-quota-provider]');
+    const usageEl = container.querySelector(".api-usage[data-quota-provider]");
     if (usageEl) {
-      usageEl.addEventListener('click', () => {
-        const modal = document.getElementById('apiQuotaModal');
-        const input = document.getElementById('apiQuotaInput');
+      usageEl.addEventListener("click", () => {
+        const modal = document.getElementById("apiQuotaModal");
+        const input = document.getElementById("apiQuotaInput");
         if (modal && input) {
           const cfg = loadApiConfig();
           const u = cfg.usage?.[prov] || { quota: DEFAULT_API_QUOTA, used: 0 };
           input.value = u.quota;
           // Store provider for the save handler
           modal.dataset.quotaProvider = prov;
-          if (window.openModalById) openModalById('apiQuotaModal');
-          else modal.style.display = 'flex';
+          if (window.openModalById) openModalById("apiQuotaModal");
+          else modal.style.display = "flex";
         }
       });
     }
@@ -801,25 +872,25 @@ const refreshProviderStatuses = () => {
       if (cache && cache.provider === prov && cache.timestamp) {
         const age = now - cache.timestamp;
         if (age <= duration) {
-          setProviderStatus(prov, "connected");  // Recently used with fresh data
+          setProviderStatus(prov, "connected"); // Recently used with fresh data
         } else {
-          setProviderStatus(prov, "cached");     // Key stored but data is old
+          setProviderStatus(prov, "cached"); // Key stored but data is old
         }
       } else if (!providerRequiresKey(prov)) {
         // Keyless provider: check last sync time instead of cache object
         const lastSync = getLastProviderSyncTime(prov);
-        if (lastSync && (now - lastSync) <= duration) {
+        if (lastSync && now - lastSync <= duration) {
           setProviderStatus(prov, "connected");
         } else if (lastSync) {
           setProviderStatus(prov, "cached");
         } else {
-          setProviderStatus(prov, "connected");  // Keyless, always available
+          setProviderStatus(prov, "connected"); // Keyless, always available
         }
       } else {
-        setProviderStatus(prov, "cached");       // Key stored but no recent usage
+        setProviderStatus(prov, "cached"); // Key stored but no recent usage
       }
     } else {
-      setProviderStatus(prov, "disconnected");   // No API key stored
+      setProviderStatus(prov, "disconnected"); // No API key stored
     }
   });
 };
@@ -837,7 +908,9 @@ const autoSelectDefaultProvider = () => {
   try {
     const stored = localStorage.getItem("apiProviderOrder");
     order = stored ? JSON.parse(stored) : null;
-  } catch (e) { order = null; }
+  } catch (e) {
+    order = null;
+  }
   if (!Array.isArray(order) || order.length === 0) {
     order = Object.keys(API_PROVIDERS);
   }
@@ -867,20 +940,24 @@ const getProviderOrder = () => {
     const stored = localStorage.getItem("providerPriority");
     if (stored) {
       const priorities = JSON.parse(stored);
-      if (typeof priorities === 'object' && priorities !== null) {
+      if (typeof priorities === "object" && priorities !== null) {
         return Object.entries(priorities)
           .filter(([, p]) => p > 0)
           .sort((a, b) => a[1] - b[1])
           .map(([prov]) => prov);
       }
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
   // Legacy fallback
   try {
     const stored = localStorage.getItem("apiProviderOrder");
     const order = stored ? JSON.parse(stored) : null;
     if (Array.isArray(order) && order.length > 0) return order;
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
   return Object.keys(API_PROVIDERS);
 };
 
@@ -894,7 +971,7 @@ const getProviderOrder = () => {
 const getDefaultSyncMode = (provider) => {
   const order = getProviderOrder();
   const config = loadApiConfig();
-  const firstActive = order.find(p => config.keys?.[p] || !providerRequiresKey(p));
+  const firstActive = order.find((p) => config.keys?.[p] || !providerRequiresKey(p));
   return provider === firstActive ? "always" : "backup";
 };
 
@@ -907,9 +984,7 @@ const renderApiHistoryTable = () => {
   let data = [...apiHistoryEntries];
   if (apiHistoryFilterText) {
     const f = apiHistoryFilterText.toLowerCase();
-    data = data.filter((e) =>
-      Object.values(e).some((v) => String(v).toLowerCase().includes(f)),
-    );
+    data = data.filter((e) => Object.values(e).some((v) => String(v).toLowerCase().includes(f)));
   }
   if (apiHistorySortColumn) {
     data.sort((a, b) => {
@@ -925,7 +1000,7 @@ const renderApiHistoryTable = () => {
   }
 
   let html =
-    "<tr><th data-column=\"timestamp\">Time</th><th data-column=\"metal\">Metal</th><th data-column=\"spot\">Price</th><th data-column=\"provider\">Source</th></tr>";
+    '<tr><th data-column="timestamp">Time</th><th data-column="metal">Metal</th><th data-column="spot">Price</th><th data-column="provider">Source</th></tr>';
   data.forEach((e) => {
     let sourceLabel;
     if (e.source === "cached") {
@@ -936,7 +1011,7 @@ const renderApiHistoryTable = () => {
       sourceLabel = escapeHtml(e.provider || e.source || "");
     }
     html += `<tr><td>${escapeHtml(e.timestamp)}</td><td>${escapeHtml(e.metal)}</td><td>${formatCurrency(
-      e.spot,
+      e.spot
     )}</td><td>${sourceLabel}</td></tr>`;
   });
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
@@ -954,7 +1029,6 @@ const renderApiHistoryTable = () => {
       renderApiHistoryTable();
     });
   });
-
 };
 
 /**
@@ -965,7 +1039,13 @@ const showApiHistoryModal = () => {
   const modal = document.getElementById("apiHistoryModal");
   if (!modal) return;
   loadSpotHistory();
-  apiHistoryEntries = spotHistory.filter((e) => e.source === "api" || e.source === "api-hourly" || e.source === "seed" || e.source === "cached");
+  apiHistoryEntries = spotHistory.filter(
+    (e) =>
+      e.source === "api" ||
+      e.source === "api-hourly" ||
+      e.source === "seed" ||
+      e.source === "cached"
+  );
   apiHistorySortColumn = "";
   apiHistorySortAsc = true;
   apiHistoryFilterText = "";
@@ -1003,7 +1083,7 @@ const hideApiHistoryModal = () => {
 const showApiProvidersModal = () => {
   // Redirect to Settings modal API section
   if (typeof showSettingsModal === "function") {
-    showSettingsModal('api');
+    showSettingsModal("api");
   }
 };
 
@@ -1061,7 +1141,9 @@ const clearApiKey = (provider) => {
   if (config.provider === provider) {
     config.provider = "";
   }
-  const active = Object.keys(API_PROVIDERS).filter((p) => config.keys[p] || !providerRequiresKey(p));
+  const active = Object.keys(API_PROVIDERS).filter(
+    (p) => config.keys[p] || !providerRequiresKey(p)
+  );
   if (active.length === 1) {
     config.provider = active[0];
   }
@@ -1109,12 +1191,7 @@ const refreshFromCache = () => {
       updateSpotCardColor(metal, price);
 
       // Record in history as 'cached' to distinguish from fresh API calls
-      recordSpot(
-        price,
-        "cached",
-        metalConfig.name,
-        API_PROVIDERS[cache.provider]?.name,
-      );
+      recordSpot(price, "cached", metalConfig.name, API_PROVIDERS[cache.provider]?.name);
 
       const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
       if (ts) {
@@ -1131,7 +1208,7 @@ const refreshFromCache = () => {
     if (typeof updateAllSparklines === "function") {
       updateAllSparklines();
     }
-    if (typeof onGoldSpotPriceChanged === 'function') onGoldSpotPriceChanged();
+    if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
     return true;
   }
 
@@ -1200,8 +1277,8 @@ const saveApiCache = (data, provider) => {
  */
 const autoSyncSpotPrices = async () => {
   const config = loadApiConfig();
-  const hasAnyKey = Object.values(config.keys || {}).some(k => k);
-  const hasKeylessProvider = Object.keys(API_PROVIDERS).some(p => !providerRequiresKey(p));
+  const hasAnyKey = Object.values(config.keys || {}).some((k) => k);
+  const hasKeylessProvider = Object.keys(API_PROVIDERS).some((p) => !providerRequiresKey(p));
   if (!hasAnyKey && !hasKeylessProvider) return;
 
   await syncProviderChain({ showProgress: false, forceSync: false });
@@ -1227,32 +1304,32 @@ const startSpotBackgroundSync = () => {
   const autoRefresh = config.autoRefresh || { STAKTRAKR: true };
 
   // Find shortest enabled interval to drive the master setInterval tick
-  const enabledProviders = Object.keys(API_PROVIDERS).filter(p => autoRefresh[p]);
+  const enabledProviders = Object.keys(API_PROVIDERS).filter((p) => autoRefresh[p]);
   if (enabledProviders.length === 0) return;
 
   // Use StakTrakr's interval (1h = 3600000ms) as the base tick if enabled,
   // otherwise fall back to the shortest configured cache TTL.
-  const staktrakrEnabled = !!autoRefresh['STAKTRAKR'];
+  const staktrakrEnabled = !!autoRefresh["STAKTRAKR"];
   const tickMs = staktrakrEnabled
-    ? 60 * 60 * 1000  // 1 hour — StakTrakr updates hourly
-    : Math.min(...enabledProviders.map(p => (config.cacheTimeouts?.[p] ?? 24) * 60 * 60 * 1000));
+    ? 60 * 60 * 1000 // 1 hour — StakTrakr updates hourly
+    : Math.min(...enabledProviders.map((p) => (config.cacheTimeouts?.[p] ?? 24) * 60 * 60 * 1000));
 
   const _runSilentSync = () => {
-    syncProviderChain({ showProgress: false, forceSync: false }).catch(err => {
-      debugLog(`[spot-bg-sync] Silent sync failed: ${err.message}`, 'warn');
+    syncProviderChain({ showProgress: false, forceSync: false }).catch((err) => {
+      debugLog(`[spot-bg-sync] Silent sync failed: ${err.message}`, "warn");
     });
   };
 
   // Sync immediately if data is stale or missing
   const cache = loadApiCache();
-  const isStale = !cache || !cache.timestamp || (Date.now() - cache.timestamp > tickMs);
+  const isStale = !cache || !cache.timestamp || Date.now() - cache.timestamp > tickMs;
   if (isStale) {
-    debugLog('[spot-bg-sync] Starting immediate sync (stale or no cache)', 'info');
+    debugLog("[spot-bg-sync] Starting immediate sync (stale or no cache)", "info");
     _runSilentSync();
   }
 
   _spotSyncIntervalId = setInterval(_runSilentSync, tickMs);
-  debugLog(`[spot-bg-sync] Background sync started — tick every ${tickMs / 60000}min`, 'info');
+  debugLog(`[spot-bg-sync] Background sync started — tick every ${tickMs / 60000}min`, "info");
 };
 
 /**
@@ -1268,7 +1345,10 @@ const getLastProviderSyncTime = (provider) => {
     // Find most recent API entry from this provider
     for (let i = spotHistory.length - 1; i >= 0; i--) {
       const entry = spotHistory[i];
-      if ((entry.source === "api" || entry.source === "api-hourly") && entry.provider === providerName) {
+      if (
+        (entry.source === "api" || entry.source === "api-hourly") &&
+        entry.provider === providerName
+      ) {
         // Parse timestamp string "YYYY-MM-DD HH:MM:SS" to ms
         const ts = new Date(entry.timestamp).getTime();
         if (!isNaN(ts)) return ts;
@@ -1293,20 +1373,21 @@ const calculateApiUsage = (selectedMetals, historyDays = 0, batchSupported = fal
   if (batchSupported && selectedMetals.length > 1) {
     return {
       calls: 1,
-      type: 'batch',
+      type: "batch",
       metals: selectedMetals.length,
       days: historyDays,
-      saved: selectedMetals.length - 1 + (historyDays > 0 ? selectedMetals.length * historyDays : 0)
+      saved:
+        selectedMetals.length - 1 + (historyDays > 0 ? selectedMetals.length * historyDays : 0),
     };
   } else {
     const currentPriceCalls = selectedMetals.length;
     const historicalCalls = historyDays > 0 ? selectedMetals.length * historyDays : 0;
     return {
       calls: currentPriceCalls + historicalCalls,
-      type: 'individual',
+      type: "individual",
       metals: selectedMetals.length,
       days: historyDays,
-      saved: 0
+      saved: 0,
     };
   }
 };
@@ -1331,7 +1412,8 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
   // metals.dev supports a batch /latest endpoint returning all metals in one call
   if (provider === "METALS_DEV" && providerConfig.latestBatchEndpoint) {
     try {
-      const url = providerConfig.baseUrl + providerConfig.latestBatchEndpoint.replace("{API_KEY}", apiKey);
+      const url =
+        providerConfig.baseUrl + providerConfig.latestBatchEndpoint.replace("{API_KEY}", apiKey);
       const headers = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
 
@@ -1365,11 +1447,11 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
       // Validate custom API base URL before use
       try {
         const validated = new URL(base);
-        if (validated.protocol !== 'https:') {
-          throw new Error('Custom API base must use HTTPS');
+        if (validated.protocol !== "https:") {
+          throw new Error("Custom API base must use HTTPS");
         }
       } catch (urlErr) {
-        console.warn('Invalid custom API base URL:', base, urlErr.message);
+        console.warn("Invalid custom API base URL:", base, urlErr.message);
         return results;
       }
       const metalCodes = {
@@ -1380,9 +1462,15 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
       };
       for (const metal of remaining) {
         try {
-          const endpoint = pattern.replace("{API_KEY}", apiKey).replace("{METAL}", metalCodes[metal]);
+          const endpoint = pattern
+            .replace("{API_KEY}", apiKey)
+            .replace("{METAL}", metalCodes[metal]);
           const url = `${base}${endpoint}`;
-          const response = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" }, mode: "cors" });
+          const response = await fetch(url, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            mode: "cors",
+          });
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           const data = await response.json();
           usage.used++;
@@ -1434,7 +1522,13 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
  * @param {string[]} [historyTimes=[]] - Array of HH:MM times for granular history
  * @returns {Promise<Object<string, number>>} Map of metal keys to spot prices
  */
-const fetchBatchSpotPrices = async (provider, apiKey, selectedMetals, historyDays = 0, historyTimes = []) => {
+const fetchBatchSpotPrices = async (
+  provider,
+  apiKey,
+  selectedMetals,
+  historyDays = 0,
+  historyTimes = []
+) => {
   const providerConfig = API_PROVIDERS[provider];
   if (!providerConfig || !providerConfig.batchSupported) {
     throw new Error("Provider does not support batch requests");
@@ -1449,37 +1543,34 @@ const fetchBatchSpotPrices = async (provider, apiKey, selectedMetals, historyDay
     let url = providerConfig.baseUrl + providerConfig.batchEndpoint;
 
     // Replace placeholders based on provider specifics
-    if (provider === 'METALS_DEV') {
-      url = url.replace('{API_KEY}', apiKey);
-    } else if (provider === 'METALS_API') {
-      const symbolMap = { silver: 'XAG', gold: 'XAU', platinum: 'XPT', palladium: 'XPD' };
-      const symbols = selectedMetals.map(metal => symbolMap[metal]).join(',');
-      url = url.replace('{API_KEY}', apiKey)
-              .replace('{SYMBOLS}', symbols);
-    } else if (provider === 'METAL_PRICE_API') {
-      const symbolMap = { silver: 'XAG', gold: 'XAU', platinum: 'XPT', palladium: 'XPD' };
-      const currencies = selectedMetals.map(metal => symbolMap[metal]).join(',');
-      url = url.replace('{API_KEY}', apiKey)
-              .replace('{CURRENCIES}', currencies);
+    if (provider === "METALS_DEV") {
+      url = url.replace("{API_KEY}", apiKey);
+    } else if (provider === "METALS_API") {
+      const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
+      const symbols = selectedMetals.map((metal) => symbolMap[metal]).join(",");
+      url = url.replace("{API_KEY}", apiKey).replace("{SYMBOLS}", symbols);
+    } else if (provider === "METAL_PRICE_API") {
+      const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
+      const currencies = selectedMetals.map((metal) => symbolMap[metal]).join(",");
+      url = url.replace("{API_KEY}", apiKey).replace("{CURRENCIES}", currencies);
     }
 
     // Compute start/end dates for timeseries endpoints (all providers)
-    if (url.includes('{START_DATE}') || url.includes('{END_DATE}')) {
+    if (url.includes("{START_DATE}") || url.includes("{END_DATE}")) {
       const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - (historyDays || 29));
       const fmt = (d) => d.toISOString().slice(0, 10);
-      url = url.replace('{START_DATE}', fmt(start))
-              .replace('{END_DATE}', fmt(end));
+      url = url.replace("{START_DATE}", fmt(start)).replace("{END_DATE}", fmt(end));
     }
 
     // Apply historical parameters if supported
-    if (url.includes('{DAYS}')) {
-      url = url.replace('{DAYS}', historyDays);
+    if (url.includes("{DAYS}")) {
+      url = url.replace("{DAYS}", historyDays);
       if (Array.isArray(historyTimes) && historyTimes.length) {
-        const timesParam = historyTimes.map(t => encodeURIComponent(t)).join(',');
-        if (url.includes('{TIMES}')) {
-          url = url.replace('{TIMES}', timesParam);
+        const timesParam = historyTimes.map((t) => encodeURIComponent(t)).join(",");
+        if (url.includes("{TIMES}")) {
+          url = url.replace("{TIMES}", timesParam);
         } else {
           url += `&times=${timesParam}`;
         }
@@ -1507,8 +1598,7 @@ const fetchBatchSpotPrices = async (provider, apiKey, selectedMetals, historyDay
     const data = await response.json();
     usage.used++; // Only increment by 1 for batch request
 
-    const { current = {}, history = {} } =
-      providerConfig.parseBatchResponse(data) || {};
+    const { current = {}, history = {} } = providerConfig.parseBatchResponse(data) || {};
 
     // Filter results to only include selected metals
     const filteredResults = {};
@@ -1553,7 +1643,7 @@ const fetchBatchSpotPrices = async (provider, apiKey, selectedMetals, historyDay
  * @param {string} apiKey - The API key for the provider
  * @returns {Promise<Object<string, number>>} Map of metal keys to spot prices
  */
-const fetchSpotPricesFromApi = async (provider, apiKey) => {
+const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
   const providerConfig = API_PROVIDERS[provider];
   if (!providerConfig) {
     throw new Error("Invalid API provider");
@@ -1563,17 +1653,15 @@ const fetchSpotPricesFromApi = async (provider, apiKey) => {
   const selected = config.metals?.[provider] || {};
 
   // Get selected metals
-  const selectedMetals = Object.keys(selected).filter(
-    (metal) => selected[metal] !== false,
-  );
+  const selectedMetals = Object.keys(selected).filter((metal) => selected[metal] !== false);
 
   if (selectedMetals.length === 0) {
     throw new Error("No metals selected for sync");
   }
 
   // StakTrakr uses its own hourly JSON fetch instead of generic provider logic
-  if (provider === 'STAKTRAKR') {
-    return await fetchStaktrakrPrices(selectedMetals);
+  if (provider === "STAKTRAKR") {
+    return await fetchStaktrakrPrices(selectedMetals, { signal });
   }
 
   // Latest-only: no history backfill on regular sync
@@ -1691,7 +1779,10 @@ const fetchHistoryBatched = async (provider, apiKey, selectedMetals, totalDays) 
           });
         });
       } catch (err) {
-        console.error(`History batch failed (${fmt(chunk.start)}..${fmt(chunk.end)}):`, err.message);
+        console.error(
+          `History batch failed (${fmt(chunk.start)}..${fmt(chunk.end)}):`,
+          err.message
+        );
       }
     }
   }
@@ -1714,7 +1805,7 @@ const fetchHistoryBatched = async (provider, apiKey, selectedMetals, totalDays) 
  */
 const fetchMetalPriceApiHourly = async (apiKey, selectedMetals, totalDays) => {
   const baseUrl = API_PROVIDERS.METAL_PRICE_API.baseUrl;
-  const symbolMap = { silver: 'XAG', gold: 'XAU', platinum: 'XPT', palladium: 'XPD' };
+  const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
   const config = loadApiConfig();
   const usage = config.usage?.METAL_PRICE_API || { quota: DEFAULT_API_QUOTA, used: 0 };
   const providerName = API_PROVIDERS.METAL_PRICE_API.name;
@@ -1726,9 +1817,7 @@ const fetchMetalPriceApiHourly = async (apiKey, selectedMetals, totalDays) => {
 
   // Purge once, then build dedup set for batch append (avoids N×save)
   purgeSpotHistory();
-  const existingKeys = new Set(
-    spotHistory.map(e => `${e.timestamp}|${e.metal}`)
-  );
+  const existingKeys = new Set(spotHistory.map((e) => `${e.timestamp}|${e.metal}`));
 
   let totalEntries = 0;
   let callsMade = 0;
@@ -1742,25 +1831,32 @@ const fetchMetalPriceApiHourly = async (apiKey, selectedMetals, totalDays) => {
       .replace("{START_DATE}", fmt(start))
       .replace("{END_DATE}", fmt(end));
     try {
-      const resp = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, mode: 'cors' });
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        mode: "cors",
+      });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
       callsMade++;
       usage.used++;
 
-      const metalConfig = Object.values(METALS).find(m => m.key === metal);
+      const metalConfig = Object.values(METALS).find((m) => m.key === metal);
       const metalName = metalConfig?.name || metal;
-      (data.rates || []).forEach(entry => {
+      (data.rates || []).forEach((entry) => {
         const ts = new Date(entry.timestamp * 1000);
-        const entryTimestamp = ts.toISOString().replace('T', ' ').slice(0, 19);
+        const entryTimestamp = ts.toISOString().replace("T", " ").slice(0, 19);
         const rate = entry.rates?.[currency];
         if (!Number.isFinite(rate) || rate === 0) return;
         const price = 1 / rate;
         const key = `${entryTimestamp}|${metalName}`;
         if (!existingKeys.has(key)) {
           spotHistory.push({
-            spot: price, metal: metalName, source: 'api-hourly',
-            provider: providerName, timestamp: entryTimestamp,
+            spot: price,
+            metal: metalName,
+            source: "api-hourly",
+            provider: providerName,
+            timestamp: entryTimestamp,
           });
           existingKeys.add(key);
           totalEntries++;
@@ -1788,7 +1884,7 @@ const fetchMetalPriceApiHourly = async (apiKey, selectedMetals, totalDays) => {
  */
 const handleHistoryPull = async (provider) => {
   // STAKTRAKR has its own hourly pull logic (no API key needed)
-  if (provider === 'STAKTRAKR') {
+  if (provider === "STAKTRAKR") {
     return handleStaktrakrHistoryPull();
   }
 
@@ -1826,8 +1922,8 @@ const handleHistoryPull = async (provider) => {
   // Calculate cost — one request per metal for hourly, chunked batches for daily
   const totalCalls = isHourly
     ? selectedMetals.length
-    : Math.ceil(totalDays / (providerConfig.maxHistoryDays || 30))
-      * (providerConfig.symbolsPerRequest === 1 ? selectedMetals.length : 1);
+    : Math.ceil(totalDays / (providerConfig.maxHistoryDays || 30)) *
+      (providerConfig.symbolsPerRequest === 1 ? selectedMetals.length : 1);
 
   const usage = config.usage?.[provider] || { quota: DEFAULT_API_QUOTA, used: 0 };
   const remaining = Math.max(0, usage.quota - usage.used);
@@ -1835,26 +1931,30 @@ const handleHistoryPull = async (provider) => {
   const modeLabel = isHourly ? "hourly" : "daily";
   const proceed = await appConfirm(
     `Pull ${totalDays} days of ${modeLabel} history from ${providerConfig.name}.\n\n` +
-    `This will use ${totalCalls} API call${totalCalls > 1 ? "s" : ""} ` +
-    `(${remaining} remaining this month).\n\nProceed?`
-  , 'History Pull');
+      `This will use ${totalCalls} API call${totalCalls > 1 ? "s" : ""} ` +
+      `(${remaining} remaining this month).\n\nProceed?`,
+    "History Pull"
+  );
   if (!proceed) return;
 
   // Disable button during pull
   const btn = document.querySelector(`.api-history-btn[data-provider="${provider}"]`);
   const origText = btn ? btn.textContent : "";
-  if (btn) { btn.textContent = "Pulling..."; btn.disabled = true; }
+  if (btn) {
+    btn.textContent = "Pulling...";
+    btn.disabled = true;
+  }
 
   try {
     let result;
-    if (isHourly && provider === 'METAL_PRICE_API') {
+    if (isHourly && provider === "METAL_PRICE_API") {
       result = await fetchMetalPriceApiHourly(apiKey, selectedMetals, totalDays);
     } else {
       result = await fetchHistoryBatched(provider, apiKey, selectedMetals, totalDays);
     }
     appAlert(
       `History pull complete!\n\n` +
-      `Pulled ${result.totalEntries} data points using ${result.callsMade} API call${result.callsMade > 1 ? "s" : ""}.`
+        `Pulled ${result.totalEntries} data points using ${result.callsMade} API call${result.callsMade > 1 ? "s" : ""}.`
     );
     updateProviderHistoryTables();
     if (typeof updateAllSparklines === "function") updateAllSparklines();
@@ -1862,7 +1962,10 @@ const handleHistoryPull = async (provider) => {
     console.error("History pull failed:", err);
     appAlert("History pull failed: " + err.message);
   } finally {
-    if (btn) { btn.textContent = origText; btn.disabled = false; }
+    if (btn) {
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
   }
 };
 
@@ -1874,19 +1977,14 @@ const handleHistoryPull = async (provider) => {
  * @param {boolean} [forceSync=false] - If true, ignores the local cache and forces API calls
  * @returns {Promise<boolean>} True if at least one provider successfully synced prices
  */
-const syncSpotPricesFromApi = async (
-  showProgress = true,
-  forceSync = false,
-) => {
+const syncSpotPricesFromApi = async (showProgress = true, forceSync = false) => {
   const config = loadApiConfig();
-  const hasAnyKey = Object.values(config.keys || {}).some(k => k);
-  const hasKeylessProvider = Object.keys(API_PROVIDERS).some(p => !providerRequiresKey(p));
+  const hasAnyKey = Object.values(config.keys || {}).some((k) => k);
+  const hasKeylessProvider = Object.keys(API_PROVIDERS).some((p) => !providerRequiresKey(p));
 
   if (!hasAnyKey && !hasKeylessProvider) {
     if (showProgress) {
-      appAlert(
-        "No Metals API configuration found. Please configure an API provider first.",
-      );
+      appAlert("No Metals API configuration found. Please configure an API provider first.");
     }
     return false;
   }
@@ -1902,14 +2000,11 @@ const syncSpotPricesFromApi = async (
       if (cacheAge < duration) {
         const hoursAgo = Math.floor(cacheAge / (1000 * 60 * 60));
         const minutesAgo = Math.floor(cacheAge / (1000 * 60));
-        const timeText =
-          hoursAgo > 0
-            ? `${hoursAgo} hours ago`
-            : `${minutesAgo} minutes ago`;
+        const timeText = hoursAgo > 0 ? `${hoursAgo} hours ago` : `${minutesAgo} minutes ago`;
 
         const override = await appConfirm(
           `Cached prices from ${timeText}.\n\nFetch fresh prices from the API?`,
-          'Spot Sync',
+          "Spot Sync"
         );
         if (!override) {
           return refreshFromCache();
@@ -1925,9 +2020,8 @@ const syncSpotPricesFromApi = async (
   });
 
   if (showProgress && updatedCount > 0) {
-    const providerName = Object.entries(results)
-      .find(([_, status]) => status === "ok")?.[0];
-    const label = providerName ? (API_PROVIDERS[providerName]?.name || providerName) : "API";
+    const providerName = Object.entries(results).find(([_, status]) => status === "success")?.[0];
+    const label = providerName ? API_PROVIDERS[providerName]?.name || providerName : "API";
     if (typeof showToast === "function") {
       showToast(`\u2713 Synced ${updatedCount} prices from ${label}`);
     }
@@ -1956,8 +2050,8 @@ const testApiConnection = async (provider, apiKey) => {
       throw new Error("Invalid provider");
     }
 
-    if (provider === 'STAKTRAKR') {
-      const result = await fetchStaktrakrPrices(['silver']);
+    if (provider === "STAKTRAKR") {
+      const result = await fetchStaktrakrPrices(["silver"]);
       return result.silver > 0;
     }
 
@@ -2008,7 +2102,7 @@ const testApiConnection = async (provider, apiKey) => {
  * @returns {Promise<void>} Resolves when the provider sync attempt completes
  */
 const handleProviderSync = async (provider) => {
-  let apiKey = ''; // nosemgrep: codacy.javascript.security.hard-coded-password
+  let apiKey = ""; // nosemgrep: codacy.javascript.security.hard-coded-password
   if (providerRequiresKey(provider)) {
     const keyInput = document.getElementById(`apiKey_${provider}`);
     if (!keyInput) return;
@@ -2025,10 +2119,8 @@ const handleProviderSync = async (provider) => {
   if (apiKey) config.keys[provider] = apiKey;
   if (provider === "CUSTOM") {
     const base = document.getElementById("apiBase_CUSTOM")?.value.trim() || "";
-    const endpoint =
-      document.getElementById("apiEndpoint_CUSTOM")?.value.trim() || "";
-    const format =
-      document.getElementById("apiFormat_CUSTOM")?.value || "symbol";
+    const endpoint = document.getElementById("apiEndpoint_CUSTOM")?.value.trim() || "";
+    const format = document.getElementById("apiFormat_CUSTOM")?.value || "symbol";
     if (!base || !endpoint) {
       appAlert("Please enter base URL and endpoint");
       return;
@@ -2059,12 +2151,7 @@ const handleProviderSync = async (provider) => {
         spotPrices[metal] = price;
         elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
         updateSpotCardColor(metal, price);
-        recordSpot(
-          price,
-          "api",
-          metalConfig.name,
-          API_PROVIDERS[provider].name,
-        );
+        recordSpot(price, "api", metalConfig.name, API_PROVIDERS[provider].name);
         const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
         if (ts) {
           updateSpotTimestamp(metalConfig.name);
@@ -2077,15 +2164,15 @@ const handleProviderSync = async (provider) => {
       saveApiCache(data, provider);
       updateSummary();
       // Update Goldback denomination prices BEFORE snapshotting item prices (STAK-108)
-      if (typeof onGoldSpotPriceChanged === 'function') onGoldSpotPriceChanged();
-      if (typeof recordAllItemPriceSnapshots === 'function') recordAllItemPriceSnapshots();
+      if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+      if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
       if (typeof updateAllSparklines === "function") {
         updateAllSparklines();
       }
       setProviderStatus(provider, "connected");
       updateProviderHistoryTables();
       appAlert(
-        `Successfully synced ${updatedCount} metal prices from ${API_PROVIDERS[provider].name}`,
+        `Successfully synced ${updatedCount} metal prices from ${API_PROVIDERS[provider].name}`
       );
     } else {
       setProviderStatus(provider, "error");
@@ -2110,39 +2197,52 @@ const syncAllProviders = async () => {
 };
 
 /**
- * Core engine that iterates through configured API providers in priority order.
- * Respects sync modes ('always' vs 'backup') and handles cascading failover.
+ * Syncs spot prices from the single active provider selected in `spotPricingSource`.
+ * Replaces the legacy priority-chain iteration with a single-branch switch (STAK-443, REQ-10).
+ *
+ * - When `spotPricingSource === 'MANUAL'`, returns immediately without any network fetch.
+ * - Otherwise fetches once from the matching provider and updates status/prices/cache.
  *
  * @param {Object} options
  * @param {boolean} [options.showProgress=false] - If true, updates sync button UI states
  * @param {boolean} [options.forceSync=false] - If true, ignores provider-specific cache durations
  * @returns {Promise<{results: Object, updatedCount: number, anySucceeded: boolean}>} Sync operation summary
  */
-const syncProviderChain = async ({ showProgress = false, forceSync = false } = {}) => {
-  const config = loadApiConfig();
-  const order = getProviderOrder();
-  const results = {};
-  let updatedCount = 0;
-  let anySucceeded = false;
+const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}) => {
+  const source = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+  const syncKey = `${source}|${forceSync ? "force" : "cache"}`;
 
-  if (showProgress) {
-    updateSyncButtonStates(true);
+  if (_spotProviderSyncPromise && _spotProviderSyncKey === syncKey) {
+    return _spotProviderSyncPromise;
   }
 
-  // Load priorities once outside loop (STACK-90)
-  const priorities = typeof loadProviderPriorities === 'function'
-    ? loadProviderPriorities() : {};
+  // MANUAL short-circuit: zero network activity (REQ-10)
+  if (source === "MANUAL") {
+    return { results: { MANUAL: "disabled" }, updatedCount: 0, anySucceeded: false };
+  }
 
-  try {
-    for (const prov of order) {
-      const apiKey = config.keys?.[prov];
-      if (!apiKey && providerRequiresKey(prov)) continue;
+  _spotProviderSyncKey = syncKey;
+  const syncAbortController = new AbortController();
+  const syncGeneration = _spotProviderSyncGeneration;
+  _spotProviderAbortController = syncAbortController;
+  _spotProviderSyncPromise = (async () => {
+    // Unknown source → coerce to STAKTRAKR default
+    const prov = Object.prototype.hasOwnProperty.call(API_PROVIDERS, source) ? source : "STAKTRAKR";
+    const config = loadApiConfig();
+    const apiKey = config.keys?.[prov];
+    const results = {};
+    let updatedCount = 0;
+    let anySucceeded = false;
 
-      // Priority-based sync: priority > 1 are backups, skip if primary succeeded (STACK-90)
-      if (priorities[prov] === 0) { results[prov] = "disabled"; continue; }
-      if (priorities[prov] > 1 && anySucceeded) {
-        results[prov] = "skipped";
-        continue;
+    if (showProgress) {
+      updateSyncButtonStates(true);
+    }
+
+    try {
+      if (!apiKey && providerRequiresKey(prov)) {
+        results[prov] = "no key";
+        setProviderStatus(prov, "error");
+        return { results, updatedCount, anySucceeded };
       }
 
       // Check per-provider cache unless forcing
@@ -2152,13 +2252,23 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
         if (lastSync && Date.now() - lastSync < provDuration) {
           results[prov] = "cached";
           anySucceeded = true;
-          continue;
+          return { results, updatedCount, anySucceeded };
         }
       }
 
-      // Attempt fetch
+      // Single-provider fetch
       try {
-        const data = await fetchSpotPricesFromApi(prov, apiKey);
+        const data = await fetchSpotPricesFromApi(prov, apiKey, {
+          signal: syncAbortController.signal,
+        });
+        const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+        if (
+          syncAbortController.signal.aborted ||
+          syncGeneration !== _spotProviderSyncGeneration ||
+          currentSource !== source
+        ) {
+          return { results, updatedCount, anySucceeded };
+        }
         let provUpdated = 0;
 
         Object.entries(data).forEach(([metal, price]) => {
@@ -2169,7 +2279,7 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
             elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
             updateSpotCardColor(metal, price);
             recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
-            const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
+            const ts = safeGetElement(`spotTimestamp${metalConfig.name}`);
             if (ts) updateSpotTimestamp(metalConfig.name);
             provUpdated++;
           }
@@ -2186,59 +2296,100 @@ const syncProviderChain = async ({ showProgress = false, forceSync = false } = {
           setProviderStatus(prov, "error");
         }
       } catch (err) {
-        console.warn(`Chain sync failed for ${prov}:`, err.message);
+        if (syncAbortController.signal.aborted) {
+          return { results, updatedCount, anySucceeded };
+        }
+        console.warn(`Spot sync failed for ${prov}:`, err.message);
         results[prov] = "error";
         setProviderStatus(prov, "error");
       }
+
+      // Post-sync updates if anything changed
+      if (updatedCount > 0) {
+        // Refresh exchange rates alongside spot prices (STACK-50)
+        if (typeof fetchExchangeRates === "function") {
+          fetchExchangeRates().catch(() => {});
+        }
+        updateSummary();
+        // Update Goldback denomination prices BEFORE snapshotting item prices,
+        // so the retail hierarchy reflects the new gold spot (STAK-108)
+        if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+        if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
+        if (typeof updateStorageStats === "function") updateStorageStats();
+        // Backfill hourly data when StakTrakr is the active source and sync was fresh
+        if (prov === "STAKTRAKR" && results.STAKTRAKR === "success") {
+          try {
+            const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+            if (
+              !syncAbortController.signal.aborted &&
+              syncGeneration === _spotProviderSyncGeneration &&
+              currentSource === source
+            ) {
+              await backfillStaktrakrHourly({ signal: syncAbortController.signal });
+            }
+          } catch (err) {
+            console.warn("Hourly backfill failed:", err.message);
+          }
+        }
+        if (typeof updateAllSparklines === "function") updateAllSparklines();
+      }
+    } finally {
+      if (showProgress) {
+        updateSyncButtonStates(false);
+      }
     }
 
-    // Post-sync updates if anything changed
-    if (updatedCount > 0) {
-      // Refresh exchange rates alongside spot prices (STACK-50)
-      if (typeof fetchExchangeRates === 'function') {
-        fetchExchangeRates().catch(() => {});
-      }
-      updateSummary();
-      // Update Goldback denomination prices BEFORE snapshotting item prices,
-      // so the retail hierarchy reflects the new gold spot (STAK-108)
-      if (typeof onGoldSpotPriceChanged === 'function') onGoldSpotPriceChanged();
-      if (typeof recordAllItemPriceSnapshots === 'function') recordAllItemPriceSnapshots();
-      if (typeof updateStorageStats === "function") updateStorageStats();
-      // Backfill hourly data when StakTrakr is rank 1 and sync was fresh
-      if (results.STAKTRAKR === "success" && priorities.STAKTRAKR === 1) {
-        try { await backfillStaktrakrHourly(); }
-        catch (err) { console.warn("Hourly backfill failed:", err.message); }
-      }
-      if (typeof updateAllSparklines === "function") updateAllSparklines();
-    }
+    return { results, updatedCount, anySucceeded };
+  })();
+
+  const currentSyncPromise = _spotProviderSyncPromise;
+  try {
+    return await currentSyncPromise;
   } finally {
-    if (showProgress) {
-      updateSyncButtonStates(false);
+    if (_spotProviderSyncPromise === currentSyncPromise) {
+      _spotProviderSyncPromise = null;
+      _spotProviderSyncKey = null;
+      if (_spotProviderAbortController === syncAbortController) {
+        _spotProviderAbortController = null;
+      }
     }
   }
-
-  return { results, updatedCount, anySucceeded };
 };
+
+/**
+ * Backward-compatible alias for external callers. Delegates to `syncSpotProvider`.
+ * Slated for removal in a follow-up release once callers are migrated.
+ *
+ * @deprecated Use `syncSpotProvider` instead.
+ */
+const syncProviderChain = (options) => syncSpotProvider(options);
 
 /**
  * Updates sync button states based on API availability
  * @param {boolean} syncing - Whether sync is in progress
  */
 const updateSyncButtonStates = (syncing = false) => {
-  const hasApi =
-    apiConfig && apiConfig.provider &&
-    (apiConfig.keys[apiConfig.provider] || !providerRequiresKey(apiConfig.provider));
+  let source = "STAKTRAKR";
+  const sourceKey =
+    typeof SPOT_PRICING_SOURCE_KEY !== "undefined" ? SPOT_PRICING_SOURCE_KEY : "spotPricingSource";
+  try {
+    if (typeof loadDataSync === "function") {
+      source = loadDataSync(sourceKey, "STAKTRAKR") || "STAKTRAKR";
+    } else {
+      const raw = localStorage.getItem(sourceKey);
+      if (raw) source = JSON.parse(raw) || "STAKTRAKR";
+    }
+  } catch (_e) {
+    /* corrupt value — fall back to default */
+  }
+  const hasApi = source !== "MANUAL" && (apiConfig?.keys?.[source] || !providerRequiresKey(source));
 
   Object.values(METALS).forEach((metalConfig) => {
     // New sparkline card sync icon
     const syncIcon = document.getElementById(`syncIcon${metalConfig.name}`);
     if (syncIcon) {
       syncIcon.disabled = !hasApi || syncing;
-      syncIcon.title = hasApi
-        ? syncing
-          ? "Syncing..."
-          : "Sync from API"
-        : "Configure API first";
+      syncIcon.title = hasApi ? (syncing ? "Syncing..." : "Sync from API") : "Configure API first";
       if (syncing) {
         syncIcon.classList.add("syncing");
       } else {
@@ -2248,170 +2399,15 @@ const updateSyncButtonStates = (syncing = false) => {
   });
 };
 
-/**
- * Updates API status display in modal
- */
-/**
- * Populates the API section fields with current configuration.
- * Called when switching to the API section in the Settings modal.
- */
-const populateApiSection = () => {
-  let currentConfig = loadApiConfig() || {
-    provider: "",
-    keys: {},
-    cacheHours: 24,
-    customConfig: { baseUrl: "", endpoint: "", format: "symbol" },
-  };
-  if (!currentConfig.provider) {
-    currentConfig.provider = Object.keys(API_PROVIDERS)[0];
-    saveApiConfig(currentConfig);
-  }
-
-  // Populate Numista tab
-  if (typeof catalogConfig !== "undefined" && catalogConfig.getNumistaConfig) {
-    const nc = catalogConfig.getNumistaConfig();
-    const numistaKeyInput = document.getElementById("numistaApiKey");
-    if (numistaKeyInput) numistaKeyInput.value = nc.apiKey || "";
-    if (typeof renderNumistaUsageBar === "function") renderNumistaUsageBar();
-    // Update Numista status indicator
-    const numistaStatusEl = document.getElementById("numistaProviderStatus");
-    if (numistaStatusEl) {
-      numistaStatusEl.classList.remove("status-connected", "status-disconnected");
-      if (nc.apiKey) {
-        numistaStatusEl.classList.add("status-connected");
-        const dot = numistaStatusEl.querySelector(".status-dot");
-        const text = numistaStatusEl.querySelector(".status-text");
-        if (dot) dot.style.background = "";
-        if (text) text.textContent = "Connected";
-      } else {
-        numistaStatusEl.classList.add("status-disconnected");
-        const text = numistaStatusEl.querySelector(".status-text");
-        if (text) text.textContent = "Disconnected";
-      }
-    }
-  }
-
-  // Populate PCGS tab status
-  if (typeof catalogConfig !== "undefined" && catalogConfig.isPcgsEnabled) {
-    const pcgsStatusEl = document.getElementById("pcgsProviderStatus");
-    if (pcgsStatusEl) {
-      pcgsStatusEl.classList.remove("status-connected", "status-disconnected");
-      if (catalogConfig.isPcgsEnabled()) {
-        pcgsStatusEl.classList.add("status-connected");
-        const dot = pcgsStatusEl.querySelector(".status-dot");
-        const text = pcgsStatusEl.querySelector(".status-text");
-        if (dot) dot.style.background = "";
-        if (text) text.textContent = "Connected";
-      } else {
-        pcgsStatusEl.classList.add("status-disconnected");
-        const text = pcgsStatusEl.querySelector(".status-text");
-        if (text) text.textContent = "Disconnected";
-      }
-    }
-  }
-
-  // Populate metals provider tabs
-  Object.keys(API_PROVIDERS).forEach((prov) => {
-    const input = document.getElementById(`apiKey_${prov}`);
-    if (input) input.value = currentConfig.keys?.[prov] || "";
-    setProviderStatus(prov, providerStatuses[prov] || "disconnected");
-  });
-  renderApiStatusSummary();
-
-  const baseInput = document.getElementById("apiBase_CUSTOM");
-  if (baseInput) baseInput.value = currentConfig.customConfig?.baseUrl || "";
-  const endpointInput = document.getElementById("apiEndpoint_CUSTOM");
-  if (endpointInput)
-    endpointInput.value = currentConfig.customConfig?.endpoint || "";
-  const formatSelect = document.getElementById("apiFormat_CUSTOM");
-  if (formatSelect)
-    formatSelect.value = currentConfig.customConfig?.format || "symbol";
-
-  autoSelectDefaultProvider();
-  updateProviderHistoryTables();
-
-  // Initialize provider settings listeners and load saved values
-  const cfg = loadApiConfig();
-  Object.keys(API_PROVIDERS).forEach(provider => {
-    if (typeof setupProviderSettingsListeners === 'function') {
-      setupProviderSettingsListeners(provider);
-    }
-
-    // STAKTRAKR: load enabled toggle from providerPriority (the key syncProviderChain reads)
-    if (provider === 'STAKTRAKR') {
-      const enabledEl = document.getElementById('enabled_STAKTRAKR');
-      if (enabledEl) {
-        const priorities = typeof loadProviderPriorities === 'function'
-          ? loadProviderPriorities() : {};
-        enabledEl.checked = (priorities.STAKTRAKR ?? 1) > 0;
-      }
-    }
-
-    // Load saved cache timeout (skip for STAKTRAKR — no dropdown)
-    if (provider !== 'STAKTRAKR') {
-      const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
-      if (cacheSelect) {
-        cacheSelect.value = cfg.cacheTimeouts?.[provider] ?? 24;
-      }
-    }
-
-    // Load saved auto-refresh state (STAK-222)
-    const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
-    if (autoRefreshToggle) {
-      autoRefreshToggle.checked = cfg.autoRefresh?.[provider] ?? (provider === 'STAKTRAKR');
-    }
-
-    // Initialize history pull cost indicator
-    if (typeof updateHistoryPullCost === 'function') {
-      updateHistoryPullCost(provider);
-    }
-
-    // Load saved metal selections
-    const metals = cfg.metals?.[provider] || {};
-    ['silver', 'gold', 'platinum', 'palladium'].forEach(metal => {
-      const checkbox = document.querySelector(`.provider-metal[data-provider="${provider}"][data-metal="${metal}"]`);
-      if (checkbox) {
-        checkbox.checked = metals[metal] !== false;
-      }
-    });
-
-  });
-
-  // Restore provider priority UI (STACK-90)
-  if (typeof loadProviderPriorities === 'function' && typeof syncProviderPriorityUI === 'function') {
-    syncProviderPriorityUI(loadProviderPriorities());
-  }
-
-  if (typeof refreshProviderStatuses === 'function') {
-    refreshProviderStatuses();
-  }
-
-  // Wire up spot history export/import buttons
-  if (typeof initSpotHistoryButtons === 'function') {
-    initSpotHistoryButtons();
-  }
-
-  // Render Numista bulk sync UI for the default active tab (STACK-87/88)
-  // switchProviderTab only fires on explicit tab clicks, so the default NUMISTA
-  // tab never triggers renderNumistaSyncUI without this call.
-  const syncGroup = safeGetElement('numistaBulkSyncGroup');
-  if (syncGroup && syncGroup.style.display !== 'none' && typeof renderNumistaSyncUI === 'function') {
-    renderNumistaSyncUI();
-  }
-
-  // STAK-222: Update PCGS cache stat count
-  const pcgsCountEl = safeGetElement('pcgsResponseCacheCount');
-  if (pcgsCountEl && typeof getPcgsCacheCount === 'function') {
-    pcgsCountEl.textContent = getPcgsCacheCount();
-  }
-};
+// STAK-443: populateApiSection relocated to js/settings.js (composer + per-section
+// renderers). The legacy panel DOM it populated was removed in Task 4.
 
 /**
  * Legacy showApiModal — redirects to Settings modal API section
  */
 const showApiModal = () => {
   if (typeof showSettingsModal === "function") {
-    showSettingsModal('api');
+    showSettingsModal("api");
   }
 };
 
@@ -2429,7 +2425,7 @@ const hideApiModal = () => {
  */
 const showFilesModal = () => {
   if (typeof showSettingsModal === "function") {
-    showSettingsModal('system');
+    showSettingsModal("system");
   }
 };
 
@@ -2441,13 +2437,12 @@ const hideFilesModal = () => {
     hideSettingsModal();
   } else {
     try {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     } catch (e) {
-      console.warn('Failed to reset body overflow:', e);
+      console.warn("Failed to reset body overflow:", e);
     }
   }
 };
-
 
 /**
  * Shows provider information modal
@@ -2496,13 +2491,13 @@ const hideProviderInfo = () => {
 };
 
 // Make modal controls available globally
-  window.showApiModal = showApiModal;
-  window.hideApiModal = hideApiModal;
-  window.showFilesModal = showFilesModal;
-  window.hideFilesModal = hideFilesModal;
-  window.populateApiSection = populateApiSection;
-  window.showProviderInfo = showProviderInfo;
-  window.hideProviderInfo = hideProviderInfo;
+window.showApiModal = showApiModal;
+window.hideApiModal = hideApiModal;
+window.showFilesModal = showFilesModal;
+window.hideFilesModal = hideFilesModal;
+// STAK-443: window.populateApiSection now assigned in js/settings.js
+window.showProviderInfo = showProviderInfo;
+window.hideProviderInfo = hideProviderInfo;
 
 /**
  * Saves provider settings (key, cache timeout, history days) without testing or fetching
@@ -2568,9 +2563,11 @@ window.showApiHistoryModal = showApiHistoryModal;
 window.hideApiHistoryModal = hideApiHistoryModal;
 window.clearApiHistory = clearApiHistory;
 window.syncAllProviders = syncAllProviders;
+window.syncSpotProvider = syncSpotProvider;
 window.syncProviderChain = syncProviderChain;
 window.autoSyncSpotPrices = autoSyncSpotPrices;
 window.startSpotBackgroundSync = startSpotBackgroundSync;
+window.abortSpotProviderSync = abortSpotProviderSync;
 window.handleHistoryPull = handleHistoryPull;
 window.updateHistoryPullCost = updateHistoryPullCost;
 window.fetchHistoryBatched = fetchHistoryBatched;
@@ -2633,8 +2630,7 @@ const resetSpotPrice = (metal) => {
   spotPrices[metalConfig.key] = resetPrice;
 
   // Update display
-  elements.spotPriceDisplay[metalConfig.key].textContent =
-    formatCurrency(resetPrice);
+  elements.spotPriceDisplay[metalConfig.key].textContent = formatCurrency(resetPrice);
 
   updateSpotCardColor(metalConfig.key, resetPrice);
 
@@ -2681,10 +2677,7 @@ const createBackupData = () => {
  */
 const downloadCompleteBackup = async () => {
   try {
-    const timestamp = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace(/[T:]/g, "-");
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
 
     // 1. Create inventory CSV using existing export logic
     const inventory = loadDataSync(LS_KEY, []);
@@ -2705,9 +2698,7 @@ const downloadCompleteBackup = async () => {
         "Notes",
         "Date",
       ];
-      const sortedInventory = [...inventory].sort(
-        (a, b) => new Date(b.date) - new Date(a.date),
-      );
+      const sortedInventory = [...inventory].sort((a, b) => new Date(b.date) - new Date(a.date));
 
       const rows = sortedInventory.map((item) => [
         item.metal || "Silver",
@@ -2726,11 +2717,7 @@ const downloadCompleteBackup = async () => {
       ]);
 
       const inventoryCsv = Papa.unparse([headers, ...rows]);
-      downloadFile(
-        `inventory-backup-${timestamp}.csv`,
-        inventoryCsv,
-        "text/csv",
-      );
+      downloadFile(`inventory-backup-${timestamp}.csv`, inventoryCsv, "text/csv");
     }
 
     // 2. Create spot history CSV
@@ -2738,20 +2725,11 @@ const downloadCompleteBackup = async () => {
     if (spotHistory.length > 0) {
       const historyData = [
         ["Timestamp", "Metal", "Price", "Source"],
-        ...spotHistory.map((entry) => [
-          entry.timestamp,
-          entry.metal,
-          entry.spot,
-          entry.source,
-        ]),
+        ...spotHistory.map((entry) => [entry.timestamp, entry.metal, entry.spot, entry.source]),
       ];
 
       const historyCsv = Papa.unparse(historyData);
-      downloadFile(
-        `spot-price-history-${timestamp}.csv`,
-        historyCsv,
-        "text/csv",
-      );
+      downloadFile(`spot-price-history-${timestamp}.csv`, historyCsv, "text/csv");
     }
 
     // 3. Create complete JSON backup
@@ -2766,8 +2744,7 @@ const downloadCompleteBackup = async () => {
           apiConfig && apiConfig.provider
             ? {
                 provider: apiConfig.provider,
-                providerName:
-                  API_PROVIDERS[apiConfig.provider]?.name || "Unknown",
+                providerName: API_PROVIDERS[apiConfig.provider]?.name || "Unknown",
                 hasKey: !!apiConfig.keys[apiConfig.provider],
                 keyLength: apiConfig.keys[apiConfig.provider]
                   ? apiConfig.keys[apiConfig.provider].length
@@ -2779,17 +2756,13 @@ const downloadCompleteBackup = async () => {
     };
 
     const backupJson = JSON.stringify(completeBackup, null, 2);
-    downloadFile(
-      `complete-backup-${timestamp}.json`,
-      backupJson,
-      "application/json",
-    );
+    downloadFile(`complete-backup-${timestamp}.json`, backupJson, "application/json");
 
     // 4. Create API documentation and restoration guide
     const backupData = createBackupData();
     const apiInfo = `# StakTrakr - Complete Backup
 
-Generated: ${typeof formatTimestamp === 'function' ? formatTimestamp(new Date()) : new Date().toLocaleString()}
+Generated: ${typeof formatTimestamp === "function" ? formatTimestamp(new Date()) : new Date().toLocaleString()}
 Application Version: ${APP_VERSION}
 
 ## Backup Contents
@@ -2806,7 +2779,7 @@ ${
 - Provider: ${backupData.apiConfig.providerName}
 - Has API Key: ${backupData.apiConfig.hasKey}
 - Key Length: ${backupData.apiConfig.keyLength} characters
-- Configured: ${typeof formatTimestamp === 'function' ? formatTimestamp(backupData.apiConfig.timestamp) : new Date(backupData.apiConfig.timestamp).toLocaleString()}
+- Configured: ${typeof formatTimestamp === "function" ? formatTimestamp(backupData.apiConfig.timestamp) : new Date(backupData.apiConfig.timestamp).toLocaleString()}
 
 **⚠️ Security Note:** API keys are not included in backups for security.
 After restoring, reconfigure your API key in the API settings.
@@ -2845,7 +2818,7 @@ ${
     downloadFile(`backup-info-${timestamp}.md`, apiInfo, "text/markdown");
 
     appAlert(
-      `Complete backup created! Downloaded files:\n\n✓ Inventory CSV (${inventory.length} items)\n✓ Spot price history (${spotHistory.length} entries)\n✓ Complete JSON backup\n✓ Documentation & restoration guide\n\nCheck your Downloads folder.`,
+      `Complete backup created! Downloaded files:\n\n✓ Inventory CSV (${inventory.length} items)\n✓ Spot price history (${spotHistory.length} entries)\n✓ Complete JSON backup\n✓ Documentation & restoration guide\n\nCheck your Downloads folder.`
     );
   } catch (error) {
     console.error("Backup error:", error);
@@ -2869,19 +2842,9 @@ const exportSpotHistory = () => {
 
   const csv = Papa.unparse([
     ["Timestamp", "Metal", "Price", "Source", "Provider"],
-    ...spotHistory.map((e) => [
-      e.timestamp,
-      e.metal,
-      e.spot,
-      e.source,
-      e.provider || "",
-    ]),
+    ...spotHistory.map((e) => [e.timestamp, e.metal, e.spot, e.source, e.provider || ""]),
   ]);
-  downloadFile(
-    `spot-history-${new Date().toISOString().slice(0, 10)}.csv`,
-    csv,
-    "text/csv",
-  );
+  downloadFile(`spot-history-${new Date().toISOString().slice(0, 10)}.csv`, csv, "text/csv");
 };
 
 /**
@@ -2927,7 +2890,7 @@ const importSpotHistory = (file) => {
         entry.source || "import",
         entry.metal,
         entry.provider || "import",
-        entry.timestamp,
+        entry.timestamp
       );
       imported++;
     });
@@ -2936,7 +2899,13 @@ const importSpotHistory = (file) => {
     if (typeof updateAllSparklines === "function") updateAllSparklines();
 
     // Refresh the visible history table after import
-    apiHistoryEntries = spotHistory.filter((e) => e.source === "api" || e.source === "api-hourly" || e.source === "seed" || e.source === "cached");
+    apiHistoryEntries = spotHistory.filter(
+      (e) =>
+        e.source === "api" ||
+        e.source === "api-hourly" ||
+        e.source === "seed" ||
+        e.source === "cached"
+    );
     renderApiHistoryTable();
   };
   reader.readAsText(file);
@@ -2956,7 +2925,9 @@ const importSpotHistory = (file) => {
 const restoreHistoricalSpotData = async () => {
   const btn = safeGetElement("restoreHistoricalDataBtn");
   const origText = btn ? btn.textContent : "";
-  if (btn) { btn.disabled = true; }
+  if (btn) {
+    btn.disabled = true;
+  }
 
   try {
     loadSpotHistory();
@@ -2989,14 +2960,17 @@ const restoreHistoricalSpotData = async () => {
             existingKeys.add(key); // prevent API pass from double-adding same slot
           }
         }
-      } catch (_) { /* network or parse error — skip year */ }
+      } catch (_) {
+        /* network or parse error — skip year */
+      }
     }
 
     // --- Pass 2: API files — fills year gaps not yet covered by seed pass ---
     // Derive data-root base URLs from V2_API_ENDPOINTS (strip /v2 suffix)
-    const apiBaseUrls = (typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length)
-      ? V2_API_ENDPOINTS.map(ep => ep.replace(/\/v2$/, ""))
-      : [`${API_PROVIDERS.STAKTRAKR.baseUrl}`];
+    const apiBaseUrls =
+      typeof V2_API_ENDPOINTS !== "undefined" && V2_API_ENDPOINTS.length
+        ? V2_API_ENDPOINTS.map((ep) => ep.replace(/\/v2$/, ""))
+        : [`${API_PROVIDERS.STAKTRAKR.baseUrl}`];
 
     for (const year of years) {
       if (btn) btn.textContent = `Restoring... (${year})`;
@@ -3014,7 +2988,9 @@ const restoreHistoricalSpotData = async () => {
           }
         }
         if (addedThisYear) yearsWithData++;
-      } catch (_) { /* all endpoints failed for this year — skip */ }
+      } catch (_) {
+        /* all endpoints failed for this year — skip */
+      }
     }
 
     if (allNew.length === 0) {
@@ -3032,14 +3008,18 @@ const restoreHistoricalSpotData = async () => {
 
     appAlert(
       `Restored ${allNew.length.toLocaleString()} new entries` +
-      (yearsWithData > 0 ? ` across ${yearsWithData} year${yearsWithData !== 1 ? "s" : ""} from API.` : " from local seed files.")
+        (yearsWithData > 0
+          ? ` across ${yearsWithData} year${yearsWithData !== 1 ? "s" : ""} from API.`
+          : " from local seed files.")
     );
-
   } catch (err) {
     console.error("Restore historical data failed:", err);
     appAlert("Restore failed: " + err.message);
   } finally {
-    if (btn) { btn.textContent = origText; btn.disabled = false; }
+    if (btn) {
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
   }
 };
 

@@ -1,5 +1,5 @@
 export async function injectSeedInventory(page) {
-  const seed = (await import('../../fixtures/seed-inventory.js')).default;
+  const seed = (await import("../../fixtures/seed-inventory.js")).default;
   await page.addInitScript((data) => {
     Object.entries(data).forEach(([k, v]) => {
       localStorage.setItem(k, JSON.stringify(v));
@@ -10,10 +10,14 @@ export async function injectSeedInventory(page) {
   // This DOMContentLoaded listener is registered before versionCheck.js loads,
   // so it fires before checkVersionChange() reads the key.
   await page.addInitScript(() => {
-    document.addEventListener('DOMContentLoaded', () => {
-      if (typeof APP_VERSION !== 'undefined') {
-        localStorage.setItem('ackVersion', APP_VERSION);
-      }
-    }, { once: true });
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        if (typeof APP_VERSION !== "undefined") {
+          localStorage.setItem("ackVersion", APP_VERSION);
+        }
+      },
+      { once: true }
+    );
   });
 }

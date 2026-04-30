@@ -2,7 +2,7 @@
 // =============================================================================
 
 /** @type {string} Current pie chart metric — purchase | melt | retail | gainLoss */
-let detailsChartMetric = 'purchase';
+let detailsChartMetric = "purchase";
 
 /** @type {ResizeObserver|null} Active ResizeObserver for chart resize handling */
 let detailsResizeObserver = null;
@@ -10,12 +10,12 @@ let detailsResizeObserver = null;
 /**
  * Calculates breakdown data for specified metal by type and location
  * RENAMED from calculateBreakdownData to avoid 403 errors
- * 
+ *
  * @param {string} metal - Metal type to calculate ('Silver', 'Gold', 'Platinum', or 'Palladium')
  * @returns {Object} Breakdown data organized by type and location
  */
 const getBreakdownData = (metal) => {
-  const metalItems = inventory.filter(item => item.metal === metal);
+  const metalItems = inventory.filter((item) => item.metal === metal);
   const currentSpot = spotPrices[metal.toLowerCase()] || 0;
 
   const typeBreakdown = {};
@@ -27,24 +27,32 @@ const getBreakdownData = (metal) => {
     purchase: 0,
     melt: 0,
     retail: 0,
-    gainLoss: 0
+    gainLoss: 0,
   });
 
-  metalItems.forEach(item => {
+  metalItems.forEach((item) => {
     const qty = Number(item.qty) || 1;
     const weight = parseFloat(item.weight) || 0;
-    const weightOz = (item.weightUnit === 'gb') ? weight * GB_TO_OZT : weight;
+    const weightOz =
+      item.weightUnit === "gb"
+        ? weight * GB_TO_OZT
+        : item.weightUnit === "sb"
+          ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+          : weight;
     const itemWeight = qty * weightOz;
     const purchasePrice = parseFloat(item.price) || 0;
     const purchaseTotal = qty * purchasePrice;
     const purity = parseFloat(item.purity) || 1.0;
     const meltValue = itemWeight * currentSpot * purity;
-    const gbDenomPrice = (typeof getGoldbackRetailPrice === 'function') ? getGoldbackRetailPrice(item) : null;
+    const gbDenomPrice =
+      typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
     const rawMarket = parseFloat(item.marketValue) || 0;
     const isManualRetail = !gbDenomPrice && rawMarket > 0;
-    const retailTotal = gbDenomPrice   ? gbDenomPrice * qty
-                      : isManualRetail ? rawMarket * qty
-                      : meltValue;
+    const retailTotal = gbDenomPrice
+      ? gbDenomPrice * qty
+      : isManualRetail
+        ? rawMarket * qty
+        : meltValue;
     const gainLoss = retailTotal - purchaseTotal;
 
     // Type breakdown
@@ -57,7 +65,7 @@ const getBreakdownData = (metal) => {
     typeBreakdown[item.type].gainLoss += gainLoss;
 
     // Location breakdown
-    const loc = item.purchaseLocation || 'Unknown';
+    const loc = item.purchaseLocation || "Unknown";
     if (!locationBreakdown[loc]) locationBreakdown[loc] = initBucket();
     locationBreakdown[loc].count += qty;
     locationBreakdown[loc].weight += itemWeight;
@@ -86,29 +94,37 @@ const getAllMetalsBreakdownData = () => {
     purchase: 0,
     melt: 0,
     retail: 0,
-    gainLoss: 0
+    gainLoss: 0,
   });
 
-  inventory.forEach(item => {
+  inventory.forEach((item) => {
     const qty = Number(item.qty) || 1;
     const weight = parseFloat(item.weight) || 0;
-    const weightOz = (item.weightUnit === 'gb') ? weight * GB_TO_OZT : weight;
+    const weightOz =
+      item.weightUnit === "gb"
+        ? weight * GB_TO_OZT
+        : item.weightUnit === "sb"
+          ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+          : weight;
     const itemWeight = qty * weightOz;
     const purchasePrice = parseFloat(item.price) || 0;
     const purchaseTotal = qty * purchasePrice;
     const currentSpot = spotPrices[item.metal.toLowerCase()] || 0;
     const purity = parseFloat(item.purity) || 1.0;
     const meltValue = itemWeight * currentSpot * purity;
-    const gbDenomPrice = (typeof getGoldbackRetailPrice === 'function') ? getGoldbackRetailPrice(item) : null;
+    const gbDenomPrice =
+      typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
     const rawMv2 = parseFloat(item.marketValue) || 0;
     const isManualRetail = !gbDenomPrice && rawMv2 > 0;
-    const retailTotal = gbDenomPrice   ? gbDenomPrice * qty
-                      : isManualRetail ? rawMv2 * qty
-                      : meltValue;
+    const retailTotal = gbDenomPrice
+      ? gbDenomPrice * qty
+      : isManualRetail
+        ? rawMv2 * qty
+        : meltValue;
     const gainLoss = retailTotal - purchaseTotal;
 
     // Metal breakdown
-    const metal = item.metal || 'Unknown';
+    const metal = item.metal || "Unknown";
     if (!metalBreakdown[metal]) metalBreakdown[metal] = initBucket();
     metalBreakdown[metal].count += qty;
     metalBreakdown[metal].weight += itemWeight;
@@ -118,7 +134,7 @@ const getAllMetalsBreakdownData = () => {
     metalBreakdown[metal].gainLoss += gainLoss;
 
     // Location breakdown
-    const loc = item.purchaseLocation || 'Unknown';
+    const loc = item.purchaseLocation || "Unknown";
     if (!locationBreakdown[loc]) locationBreakdown[loc] = initBucket();
     locationBreakdown[loc].count += qty;
     locationBreakdown[loc].weight += itemWeight;
@@ -134,7 +150,7 @@ const getAllMetalsBreakdownData = () => {
 /**
  * Creates breakdown DOM elements for display
  * CHANGED from renderBreakdownHTML to use DOM methods instead of innerHTML
- * 
+ *
  * @param {Object} breakdown - Breakdown data object
  * @returns {DocumentFragment} DOM fragment containing the breakdown elements
  */
@@ -142,11 +158,11 @@ const createBreakdownElements = (breakdown, colorMap = {}) => {
   const container = document.createDocumentFragment();
 
   if (Object.keys(breakdown).length === 0) {
-    const item = document.createElement('div');
-    item.className = 'breakdown-item';
-    const label = document.createElement('span');
-    label.className = 'breakdown-label';
-    label.textContent = 'No data available';
+    const item = document.createElement("div");
+    item.className = "breakdown-item";
+    const label = document.createElement("span");
+    label.className = "breakdown-label";
+    label.textContent = "No data available";
     item.appendChild(label);
     container.appendChild(item);
     return container;
@@ -156,54 +172,59 @@ const createBreakdownElements = (breakdown, colorMap = {}) => {
   const sortedEntries = Object.entries(breakdown).sort((a, b) => b[1].purchase - a[1].purchase);
 
   sortedEntries.forEach(([key, data]) => {
-    const item = document.createElement('div');
-    item.className = 'breakdown-item';
+    const item = document.createElement("div");
+    item.className = "breakdown-item";
 
     // Header row: name + count/weight
-    const header = document.createElement('div');
-    header.className = 'breakdown-header';
+    const header = document.createElement("div");
+    header.className = "breakdown-header";
 
     // Color dot matching pie chart segment
     if (colorMap[key]) {
-      const dot = document.createElement('span');
-      dot.className = 'breakdown-color-dot';
+      const dot = document.createElement("span");
+      dot.className = "breakdown-color-dot";
       dot.style.backgroundColor = colorMap[key];
       header.appendChild(dot);
     }
 
-    const label = document.createElement('span');
-    label.className = 'breakdown-label';
+    const label = document.createElement("span");
+    label.className = "breakdown-label";
     label.textContent = key;
 
-    const meta = document.createElement('span');
-    meta.className = 'breakdown-meta';
+    const meta = document.createElement("span");
+    meta.className = "breakdown-meta";
     meta.textContent = `${data.count} items \u00B7 ${data.weight.toFixed(2)} oz`;
 
     header.appendChild(label);
     header.appendChild(meta);
 
     // 2x2 financial grid
-    const grid = document.createElement('div');
-    grid.className = 'breakdown-grid';
+    const grid = document.createElement("div");
+    grid.className = "breakdown-grid";
 
     const cells = [
-      { label: 'Purchase', value: formatCurrency(data.purchase), cls: 'breakdown-purchase' },
-      { label: 'Melt', value: formatCurrency(data.melt), cls: 'breakdown-melt' },
-      { label: 'Retail', value: formatCurrency(data.retail), cls: 'breakdown-retail' },
-      { label: 'Gain/Loss', value: formatCurrency(Math.abs(data.gainLoss)), cls: data.gainLoss >= 0 ? 'breakdown-gain' : 'breakdown-loss' }
+      { label: "Purchase", value: formatCurrency(data.purchase), cls: "breakdown-purchase" },
+      { label: "Melt", value: formatCurrency(data.melt), cls: "breakdown-melt" },
+      { label: "Retail", value: formatCurrency(data.retail), cls: "breakdown-retail" },
+      {
+        label: "Gain/Loss",
+        value: formatCurrency(Math.abs(data.gainLoss)),
+        cls: data.gainLoss >= 0 ? "breakdown-gain" : "breakdown-loss",
+      },
     ];
 
-    cells.forEach(cell => {
-      const el = document.createElement('div');
+    cells.forEach((cell) => {
+      const el = document.createElement("div");
       el.className = `breakdown-cell ${cell.cls}`;
-      const lbl = document.createElement('span');
-      lbl.className = 'breakdown-cell-label';
+      const lbl = document.createElement("span");
+      lbl.className = "breakdown-cell-label";
       lbl.textContent = cell.label;
-      const val = document.createElement('span');
-      val.className = 'breakdown-cell-value';
-      val.textContent = cell.label === 'Gain/Loss'
-        ? (data.gainLoss > 0 ? '+' : data.gainLoss < 0 ? '-' : '') + cell.value
-        : cell.value;
+      const val = document.createElement("span");
+      val.className = "breakdown-cell-value";
+      val.textContent =
+        cell.label === "Gain/Loss"
+          ? (data.gainLoss > 0 ? "+" : data.gainLoss < 0 ? "-" : "") + cell.value
+          : cell.value;
       el.appendChild(lbl);
       el.appendChild(val);
       grid.appendChild(el);
@@ -219,30 +240,31 @@ const createBreakdownElements = (breakdown, colorMap = {}) => {
 
 /**
  * Shows the details modal for specified metal with pie charts
- * 
+ *
  * @param {string} metal - Metal type to show details for
  */
 const showDetailsModal = (metal) => {
-  const isAll = metal === 'All';
-  const typePanelTitle = document.getElementById('typePanelTitle');
-  const locationPanelTitle = document.getElementById('locationPanelTitle');
+  const isAll = metal === "All";
+  const typePanelTitle = document.getElementById("typePanelTitle");
+  const locationPanelTitle = document.getElementById("locationPanelTitle");
 
   // Update modal title and panel labels
   elements.detailsModalTitle.textContent = isAll
-    ? 'All Metals — Portfolio Breakdown'
+    ? "All Metals — Portfolio Breakdown"
     : `${metal} Detailed Breakdown`;
-  if (typePanelTitle) typePanelTitle.textContent = isAll ? 'Breakdown by Metal' : 'Breakdown by Type';
-  if (locationPanelTitle) locationPanelTitle.textContent = 'Breakdown by Purchase Location';
+  if (typePanelTitle)
+    typePanelTitle.textContent = isAll ? "Breakdown by Metal" : "Breakdown by Type";
+  if (locationPanelTitle) locationPanelTitle.textContent = "Breakdown by Purchase Location";
 
   // Clear existing content
-  elements.typeBreakdown.textContent = '';
-  elements.locationBreakdown.textContent = '';
+  elements.typeBreakdown.textContent = "";
+  elements.locationBreakdown.textContent = "";
 
   // Destroy existing charts
   destroyCharts();
 
   // Reset metric to default for each modal open
-  detailsChartMetric = 'purchase';
+  detailsChartMetric = "purchase";
 
   // Get breakdown data — different shape for "All" vs single metal
   let leftBreakdown, rightBreakdown;
@@ -267,7 +289,7 @@ const showDetailsModal = (metal) => {
       chartInstances.typeChart = createPieChart(
         elements.typeChart,
         leftBreakdown,
-        isAll ? 'Metal Breakdown' : 'Type Breakdown',
+        isAll ? "Metal Breakdown" : "Type Breakdown",
         detailsChartMetric
       );
     }
@@ -275,35 +297,37 @@ const showDetailsModal = (metal) => {
       chartInstances.locationChart = createPieChart(
         elements.locationChart,
         rightBreakdown,
-        'Location Breakdown',
+        "Location Breakdown",
         detailsChartMetric
       );
     }
   };
 
   // Create metric toggle bar before the charts grid
-  const detailsGrid = elements.detailsModal.querySelector('.details-grid');
-  let existingToggle = elements.detailsModal.querySelector('.chart-metric-toggle');
+  const detailsGrid = elements.detailsModal.querySelector(".details-grid");
+  let existingToggle = elements.detailsModal.querySelector(".chart-metric-toggle");
   if (existingToggle) existingToggle.remove();
 
   if (!isMobile) {
-    const toggleBar = document.createElement('div');
-    toggleBar.className = 'chart-metric-toggle';
+    const toggleBar = document.createElement("div");
+    toggleBar.className = "chart-metric-toggle";
     const metrics = [
-      { key: 'purchase', label: 'Purchase' },
-      { key: 'melt',     label: 'Melt' },
-      { key: 'retail',   label: 'Retail' },
-      { key: 'gainLoss', label: 'Gain/Loss' }
+      { key: "purchase", label: "Purchase" },
+      { key: "melt", label: "Melt" },
+      { key: "retail", label: "Retail" },
+      { key: "gainLoss", label: "Gain/Loss" },
     ];
-    metrics.forEach(m => {
-      const btn = document.createElement('button');
-      btn.className = 'chart-metric-btn' + (m.key === detailsChartMetric ? ' active' : '');
+    metrics.forEach((m) => {
+      const btn = document.createElement("button");
+      btn.className = "chart-metric-btn" + (m.key === detailsChartMetric ? " active" : "");
       btn.textContent = m.label;
-      btn.type = 'button';
-      btn.addEventListener('click', () => {
+      btn.type = "button";
+      btn.addEventListener("click", () => {
         detailsChartMetric = m.key;
-        toggleBar.querySelectorAll('.chart-metric-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        toggleBar
+          .querySelectorAll(".chart-metric-btn")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
         renderCharts();
       });
       toggleBar.appendChild(btn);
@@ -322,7 +346,9 @@ const showDetailsModal = (metal) => {
     const keys = Object.keys(breakdown);
     const colors = (window.generateColors || generateColors)(keys.length);
     const map = {};
-    keys.forEach((key, i) => { map[key] = colors[i]; });
+    keys.forEach((key, i) => {
+      map[key] = colors[i];
+    });
     return map;
   };
   const leftColorMap = buildColorMap(leftBreakdown);
@@ -333,14 +359,14 @@ const showDetailsModal = (metal) => {
   elements.locationBreakdown.appendChild(createBreakdownElements(rightBreakdown, rightColorMap));
 
   // Show modal
-  if (window.openModalById) openModalById('detailsModal');
+  if (window.openModalById) openModalById("detailsModal");
   else {
-    elements.detailsModal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    elements.detailsModal.style.display = "flex";
+    document.body.style.overflow = "hidden";
   }
 
   // Scroll modal body to top on open
-  const modalBody = elements.detailsModal.querySelector('.modal-body');
+  const modalBody = elements.detailsModal.querySelector(".modal-body");
   if (modalBody) modalBody.scrollTop = 0;
 
   // Clean up any existing resize observer before creating a new one
@@ -352,7 +378,7 @@ const showDetailsModal = (metal) => {
   // Add chart resize handling (skip on mobile where charts are hidden)
   if (!isMobile) {
     detailsResizeObserver = new ResizeObserver(() => {
-      Object.values(chartInstances).forEach(chart => {
+      Object.values(chartInstances).forEach((chart) => {
         if (chart) chart.resize();
       });
     });
@@ -368,10 +394,12 @@ const closeDetailsModal = () => {
     detailsResizeObserver.disconnect();
     detailsResizeObserver = null;
   }
-  if (window.closeModalById) closeModalById('detailsModal');
+  if (window.closeModalById) closeModalById("detailsModal");
   else {
-    elements.detailsModal.style.display = 'none';
-    try { document.body.style.overflow = ''; } catch (e) {}
+    elements.detailsModal.style.display = "none";
+    try {
+      document.body.style.overflow = "";
+    } catch (e) {}
   }
   destroyCharts();
 };

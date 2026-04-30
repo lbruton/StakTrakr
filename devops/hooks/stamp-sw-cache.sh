@@ -63,20 +63,21 @@ BUILD_TS=$(date +%s)
 
 NEW_CACHE="staktrakr-v${APP_VERSION}-b${BUILD_TS}"
 
-# Current CACHE_NAME value
-CURRENT=$(grep 'const CACHE_NAME' "$SW_FILE" 2>/dev/null | sed "s/.*'\([^']*\)'.*/\1/" | head -1)
+# Current CACHE_NAME value — accept both single- and double-quoted forms
+CURRENT=$(grep 'const CACHE_NAME' "$SW_FILE" 2>/dev/null | sed -E "s/.*[\"']([^\"']*)[\"'].*/\1/" | head -1)
 
 if [ "$CURRENT" = "$NEW_CACHE" ]; then
   exit 0
 fi
 
-# Replace CACHE_NAME in sw.js (macOS-compatible sed -i '')
+# Replace CACHE_NAME in sw.js — match both single- and double-quoted forms
+# (project uses double quotes per prettier config)
 if sed --version >/dev/null 2>&1; then
   # GNU sed
-  sed -i "s|const CACHE_NAME = '.*';|const CACHE_NAME = '${NEW_CACHE}';|" "$SW_FILE"
+  sed -i -E "s|const CACHE_NAME = [\"'][^\"']*[\"'];|const CACHE_NAME = \"${NEW_CACHE}\";|" "$SW_FILE"
 else
   # BSD/macOS sed
-  sed -i '' "s|const CACHE_NAME = '.*';|const CACHE_NAME = '${NEW_CACHE}';|" "$SW_FILE"
+  sed -i '' -E "s|const CACHE_NAME = [\"'][^\"']*[\"'];|const CACHE_NAME = \"${NEW_CACHE}\";|" "$SW_FILE"
 fi
 
 # Re-stage sw.js so the commit includes the updated cache name

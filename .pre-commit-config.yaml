@@ -5,6 +5,12 @@ repos:
       - id: gitleaks
   - repo: local
     hooks:
+      - id: check-signing-key
+        name: Verify signing key is loaded
+        entry: bash devops/hooks/check-signing-key.sh
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: stamp-sw-cache
         name: Stamp service worker cache
         entry: bash devops/hooks/stamp-sw-cache.sh
@@ -20,6 +26,18 @@ repos:
       - id: check-claude-md
         name: Verify CLAUDE.md exists (gitignored, must be restored manually if missing)
         entry: bash devops/hooks/check-claude-md.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: lint-markdown
+        name: Lint staged Markdown files
+        entry: bash devops/hooks/lint-markdown-changed.sh --staged
+        language: system
+        pass_filenames: false
+        files: \.md$
+      - id: lint-staged
+        name: Format staged files with prettier
+        entry: npx lint-staged
         language: system
         pass_filenames: false
         always_run: true

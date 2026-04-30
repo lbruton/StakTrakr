@@ -1,12 +1,12 @@
-import { test, expect } from '@playwright/test';
-import { injectSeedInventory } from '../helpers/seed.js';
+import { test, expect } from "@playwright/test";
+import { injectSeedInventory } from "../helpers/seed.js";
 
 /**
  * Playwright tests for Settings > Appearance settings
  *
- * STAK-529: Add Sort Direction Toggle to Settings > Appearance
- * STAK-535: Move Metals & Inline Chips settings to Appearance
- * These tests verify the sort direction toggle and moved Metals & Inline Chips settings.
+ * STAK-563: Appearance tab UI cleanup — flat layout, section reorder, sort toggle replacement
+ * Tests verify the icon-button sort direction toggle and Metal Order / Inline Name Chips
+ * relocated as flat groups under Layout.
  *
  * TDD Phase: GREEN — Implementation exists in index.html and settings-listeners.js.
  */
@@ -16,181 +16,131 @@ import { injectSeedInventory } from '../helpers/seed.js';
  * @param {Page} page - Playwright page instance
  */
 async function openAppearanceSettings(page) {
-  await page.waitForFunction(() => typeof window.showSettingsModal === 'function');
-  await page.evaluate(() => window.showSettingsModal('site'));
+  await page.waitForFunction(() => typeof window.showSettingsModal === "function");
+  await page.evaluate(() => window.showSettingsModal("site"));
 
-  const settingsModal = page.locator('#settingsModal');
+  const settingsModal = page.locator("#settingsModal");
   await expect(settingsModal).toBeVisible();
-  await expect(page.locator('#settingsPanel_site')).toBeVisible();
+  await expect(page.locator("#settingsPanel_site")).toBeVisible();
 }
 
-test.describe('03-settings/03-appearance — Sort Direction Toggle & Metals Settings', () => {
+test.describe("03-settings/03-appearance — Sort Direction Icon Button & Flat Layout", () => {
   test.beforeEach(async ({ page }) => {
     // Seed localStorage to suppress ack modal and What's New popup
     await injectSeedInventory(page);
     // Navigate to Settings > Site (Appearance)
-    await page.goto('/index.html');
+    await page.goto("/index.html");
     await openAppearanceSettings(page);
   });
 
-  test('3.1 — sort direction toggle element exists', async ({ page }) => {
+  test("3.1 — sort direction toggle element exists", async ({ page }) => {
     // Verify the toggle container exists
-    const toggle = page.locator('#settingsDefaultSortDir');
+    const toggle = page.locator("#settingsDefaultSortDir");
     await expect(toggle).toBeVisible();
   });
 
-  test('3.2 — toggle has two buttons with correct structure', async ({ page }) => {
-    // Verify two buttons exist with correct class and data attributes
-    const buttons = page.locator('#settingsDefaultSortDir .chip-sort-btn');
-    await expect(buttons).toHaveCount(2);
-
-    // Verify data-val attributes
-    const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
-    const descBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
-
-    await expect(ascBtn).toBeVisible();
-    await expect(ascBtn).toHaveText('Asc');
-
-    await expect(descBtn).toBeVisible();
-    await expect(descBtn).toHaveText('Desc');
+  test("3.2 — sort button is an icon button with card-sort-dir-btn class and data-dir", async ({
+    page,
+  }) => {
+    const btn = page.locator("#settingsDefaultSortDir");
+    await expect(btn).toHaveClass(/card-sort-dir-btn/);
+    const dir = await btn.getAttribute("data-dir");
+    expect(["asc", "desc"]).toContain(dir);
   });
 
-  test('3.3 — clicking Asc button sets active class and localStorage', async ({ page }) => {
-    // Click the Asc button
-    const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
-    await ascBtn.click();
+  test("3.3 — clicking button toggles data-dir from asc to desc and saves localStorage", async ({
+    page,
+  }) => {
+    const btn = page.locator("#settingsDefaultSortDir");
+    await expect(btn).toHaveAttribute("data-dir", "asc");
 
-    // Verify active class is set
-    await expect(ascBtn).toHaveClass(/active/);
+    await btn.click();
 
-    // Verify localStorage is set
-    const localStorageValue = await page.evaluate(() => {
-      return localStorage.getItem('defaultSortDir');
-    });
-    expect(localStorageValue).toBe('asc');
+    await expect(btn).toHaveAttribute("data-dir", "desc");
+    const stored = await page.evaluate(() => localStorage.getItem("defaultSortDir"));
+    expect(stored).toBe("desc");
   });
 
-  test('3.4 — clicking Desc button sets active class and localStorage', async ({ page }) => {
-    // Click the Desc button
-    const descBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
-    await descBtn.click();
+  test("3.4 — clicking twice cycles back to asc and saves localStorage", async ({ page }) => {
+    const btn = page.locator("#settingsDefaultSortDir");
 
-    // Verify active class is set
-    await expect(descBtn).toHaveClass(/active/);
+    await btn.click();
+    await expect(btn).toHaveAttribute("data-dir", "desc");
 
-    // Verify localStorage is set
-    const localStorageValue = await page.evaluate(() => {
-      return localStorage.getItem('defaultSortDir');
-    });
-    expect(localStorageValue).toBe('desc');
+    await btn.click();
+    await expect(btn).toHaveAttribute("data-dir", "asc");
+
+    const stored = await page.evaluate(() => localStorage.getItem("defaultSortDir"));
+    expect(stored).toBe("asc");
   });
 
-  test('3.5 — active class toggles between buttons', async ({ page }) => {
-    const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
-    const descBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
+  test("3.5 — each click alternates direction", async ({ page }) => {
+    const btn = page.locator("#settingsDefaultSortDir");
 
-    // Click Asc — verify it's active, Desc is not
-    await ascBtn.click();
-    await expect(ascBtn).toHaveClass(/active/);
-    await expect(descBtn).not.toHaveClass(/active/);
+    await btn.click();
+    await expect(btn).toHaveAttribute("data-dir", "desc");
 
-    // Click Desc — verify it's active, Asc is not
-    await descBtn.click();
-    await expect(descBtn).toHaveClass(/active/);
-    await expect(ascBtn).not.toHaveClass(/active/);
+    await btn.click();
+    await expect(btn).toHaveAttribute("data-dir", "asc");
 
-    // Verify localStorage reflects the final selection
-    const localStorageValue = await page.evaluate(() => {
-      return localStorage.getItem('defaultSortDir');
-    });
-    expect(localStorageValue).toBe('desc');
+    await btn.click();
+    const stored = await page.evaluate(() => localStorage.getItem("defaultSortDir"));
+    expect(stored).toBe("desc");
   });
 
-  test('3.6 — selection persists across page refresh', async ({ page }) => {
-    // Set initial selection to Desc
-    const descBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
-    await descBtn.click();
+  test("3.6 — direction persists across page refresh", async ({ page }) => {
+    const btn = page.locator("#settingsDefaultSortDir");
+    await btn.click();
+    await expect(btn).toHaveAttribute("data-dir", "desc");
 
-    // Verify it's selected
-    await expect(descBtn).toHaveClass(/active/);
-
-    // Refresh the page
     await page.reload();
-    await page.click('#settingsBtn');
-    await page.click('[data-section="site"]');
-    await expect(page.locator('#settingsPanel_site')).toBeVisible();
+    await openAppearanceSettings(page);
 
-    // Verify Desc button still has active class after refresh
-    const descBtnAfter = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="desc"]');
-    await expect(descBtnAfter).toHaveClass(/active/);
-
-    // Verify localStorage still has the value
-    const localStorageValue = await page.evaluate(() => {
-      return localStorage.getItem('defaultSortDir');
-    });
-    expect(localStorageValue).toBe('desc');
+    await expect(page.locator("#settingsDefaultSortDir")).toHaveAttribute("data-dir", "desc");
+    const stored = await page.evaluate(() => localStorage.getItem("defaultSortDir"));
+    expect(stored).toBe("desc");
   });
 
-  test('3.7 — default selection is Asc on first load', async ({ page }) => {
-    // Clear localStorage to simulate first load
-    await page.evaluate(() => {
-      localStorage.removeItem('defaultSortDir');
-    });
+  test("3.7 — default data-dir is asc on first load with no localStorage", async ({ page }) => {
+    await page.evaluate(() => localStorage.removeItem("defaultSortDir"));
 
-    // Reload the page
     await page.reload();
-    await page.click('#settingsBtn');
-    await page.click('[data-section="site"]');
-    await expect(page.locator('#settingsPanel_site')).toBeVisible();
+    await openAppearanceSettings(page);
 
-    // Verify Asc button has active class by default (init falls back to 'asc')
-    const ascBtn = page.locator('#settingsDefaultSortDir .chip-sort-btn[data-val="asc"]');
-    await expect(ascBtn).toHaveClass(/active/);
+    await expect(page.locator("#settingsDefaultSortDir")).toHaveAttribute("data-dir", "asc");
   });
 
-  // STAK-535: Regression tests for moved Metals & Inline Chips settings
+  // STAK-563: Metal Order + Inline Name Chips now flat groups under Layout fieldset
 
-  test('3.8 — metals section exists in Appearance', async ({ page }) => {
-    // Verify the metals fieldset exists
-    const metalsFieldset = page.locator('#settingsMetals');
-    await expect(metalsFieldset).toBeVisible();
-    await expect(metalsFieldset.locator('legend')).toHaveText('Metals');
+  test("3.8 — metals config container exists in Appearance", async ({ page }) => {
+    const metalConfig = page.locator("#metalOrderConfigContainer");
+    await expect(metalConfig).toBeVisible();
   });
 
-  test('3.9 — inline chips section exists in Appearance', async ({ page }) => {
-    // Verify the inline chips fieldset exists
-    const inlineChipsFieldset = page.locator('#settingsInlineChips');
-    await expect(inlineChipsFieldset).toBeVisible();
-    await expect(inlineChipsFieldset.locator('legend')).toHaveText('Inline Chips');
+  test("3.9 — inline chips config container exists in Appearance", async ({ page }) => {
+    const inlineChipConfig = page.locator("#inlineChipConfigContainer");
+    await expect(inlineChipConfig).toBeVisible();
   });
 
-  test('3.10 — metals toggle enables/disables display', async ({ page }) => {
-    // Verify metals toggle exists and works
-    const metalsToggle = page.locator('#settingsMetals input[type="checkbox"]');
-    await expect(metalsToggle).toBeVisible();
-    
-    // Toggle on
-    await metalsToggle.check();
-    expect(await page.evaluate(() => localStorage.getItem('showMetals'))).toBe('true');
-    
-    // Toggle off
-    await metalsToggle.uncheck();
-    expect(await page.evaluate(() => localStorage.getItem('showMetals'))).toBe('false');
+  test("3.10 — metal order and inline chips are flat groups inside the Layout fieldset", async ({
+    page,
+  }) => {
+    const layoutFieldset = page.locator('.settings-fieldset:has-text("Layout")');
+    await expect(layoutFieldset).toBeVisible();
+    await expect(layoutFieldset.locator("#metalOrderConfigContainer")).toBeVisible();
+    await expect(layoutFieldset.locator("#inlineChipConfigContainer")).toBeVisible();
+    // Standalone "Metals & Inline Chips" section no longer exists
+    await expect(
+      page.locator('.settings-fieldset-title:text("Metals & Inline Chips")')
+    ).toHaveCount(0);
   });
 
-  test('3.11 — inline chips options persist', async ({ page }) => {
-    // Verify inline chips select persists
-    const inlineChipsSelect = page.locator('#settingsInlineChips select');
-    await expect(inlineChipsSelect).toBeVisible();
-    
-    // Test different options
-    await inlineChipsSelect.selectOption({ label: 'Both' });
-    expect(await page.evaluate(() => localStorage.getItem('inlineChipsOption'))).toBe('both');
-    
-    await inlineChipsSelect.selectOption({ label: 'Top' });
-    expect(await page.evaluate(() => localStorage.getItem('inlineChipsOption'))).toBe('top');
-    
-    await inlineChipsSelect.selectOption({ label: 'Inline' });
-    expect(await page.evaluate(() => localStorage.getItem('inlineChipsOption'))).toBe('inline');
+  test("3.11 — metal order config has rows", async ({ page }) => {
+    const container = page.locator("#metalOrderConfigContainer");
+    await expect(container).toBeVisible();
+    const rows = container.locator("tr, .chip-grouping-row");
+    await expect(rows).not.toHaveCount(0);
+    const count = await rows.count();
+    expect(count).toBeGreaterThanOrEqual(1);
   });
 });

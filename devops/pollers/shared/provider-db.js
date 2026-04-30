@@ -71,7 +71,9 @@ export async function initProviderSchema(client) {
   }
   // STAK-496: Add skip_bounds column if missing (migration for existing DBs)
   try {
-    await client.execute("ALTER TABLE provider_vendors ADD COLUMN skip_bounds INTEGER NOT NULL DEFAULT 0");
+    await client.execute(
+      "ALTER TABLE provider_vendors ADD COLUMN skip_bounds INTEGER NOT NULL DEFAULT 0"
+    );
   } catch {
     // Column already exists — expected on subsequent runs
   }
@@ -482,7 +484,11 @@ export async function getProvidersByVendor(client) {
   const vendorMap = new Map();
   for (const row of result.rows) {
     if (!vendorMap.has(row.vendor_id)) {
-      vendorMap.set(row.vendor_id, { vendorId: row.vendor_id, vendorName: row.vendor_name, items: [] });
+      vendorMap.set(row.vendor_id, {
+        vendorId: row.vendor_id,
+        vendorName: row.vendor_name,
+        items: [],
+      });
     }
     vendorMap.get(row.vendor_id).items.push({
       coinSlug: row.coin_slug,
@@ -524,11 +530,17 @@ export async function getFailureTrend(client, days = 7) {
     `,
     args: [`-${days}`],
   });
-  return result.rows.map(r => ({ day: r.day, failures: Number(r.failures), uniquePairs: Number(r.unique_pairs) }));
+  return result.rows.map((r) => ({
+    day: r.day,
+    failures: Number(r.failures),
+    uniquePairs: Number(r.unique_pairs),
+  }));
 }
 export async function getRunStats(client, pollerId = null) {
   const where = pollerId
-    ? "WHERE started_at > datetime('now', '-24 hours') AND poller_id IN ('" + (Array.isArray(pollerId) ? pollerId.join("','") : pollerId) + "')"
+    ? "WHERE started_at > datetime('now', '-24 hours') AND poller_id IN ('" +
+      (Array.isArray(pollerId) ? pollerId.join("','") : pollerId) +
+      "')"
     : "WHERE started_at > datetime('now', '-24 hours')";
   const result = await client.execute(`
     SELECT
@@ -637,7 +649,8 @@ export async function getVendorSummary(client) {
     if (isEnabled) vendor.enabled += count;
     else vendor.disabled += count;
 
-    if (!vendor.byMetal[row.metal]) vendor.byMetal[row.metal] = { total: 0, enabled: 0, disabled: 0 };
+    if (!vendor.byMetal[row.metal])
+      vendor.byMetal[row.metal] = { total: 0, enabled: 0, disabled: 0 };
     const m = vendor.byMetal[row.metal];
     m.total += count;
     if (isEnabled) m.enabled += count;
@@ -680,7 +693,8 @@ export async function getCoverageStats(client, hours = 24) {
   const hourlyStats = result.rows.map((row) => ({
     hour: row.hour,
     covered: Number(row.covered),
-    pct: totalEnabled > 0 ? Math.min(100, Math.round((Number(row.covered) / totalEnabled) * 100)) : 0,
+    pct:
+      totalEnabled > 0 ? Math.min(100, Math.round((Number(row.covered) / totalEnabled) * 100)) : 0,
   }));
 
   return { totalEnabled, hours: hourlyStats };
@@ -725,7 +739,7 @@ export async function getSpotCoverage(client, hours = 6) {
     args: [`-${hours}`],
   });
 
-  const intervals = result.rows.map(r => ({
+  const intervals = result.rows.map((r) => ({
     quarter: r.quarter,
     sources: Number(r.sources),
     metals: Number(r.metals),
@@ -852,7 +866,9 @@ export async function loadProviders(client, dataDir) {
     }
     console.warn("[provider-db] WARN: local providers.json is empty, falling back to sqld");
   } catch (err) {
-    console.warn(`[provider-db] WARN: local providers.json unavailable, falling back to sqld: ${err.message}`);
+    console.warn(
+      `[provider-db] WARN: local providers.json unavailable, falling back to sqld: ${err.message}`
+    );
   }
 
   if (client) {

@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Minimal config — profile, poem, early_access, tone, and other settings
+# live in the CodeRabbit dashboard (source of truth). This file provides
+# only path_filters and path_instructions that the dashboard cannot set.
+
+reviews:
+  path_filters:
+    # Global
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/.claude/**"
+    - "!**/.gemini/**"
+    - "!**/.agents/**"
+    - "!**/.spec-workflow/**"
+    - "!**/.codacy/**"
+    - "!**/.github/**"
+    - "!**/vendor/**"
+    - "!**/deprecated/**"
+    - "!**/*.min.js"
+    - "!**/*.min.css"
+    - "!**/package-lock.json"
+    - "!**/pnpm-lock.yaml"
+    - "!**/yarn.lock"
+    - "!**/screenshots/**"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.svg"
+    # StakTrakr-specific
+    - "!data/**"
+    - "!sw.js"
+    - "!devops/version.lock"
+
+  path_instructions:
+    - path: "js/**/*.js"
+      instructions: |
+        - Vanilla JS with NO bundler. Module-scope functions need explicit
+          `window.X = X` in the exports block to be testable.
+        - Prefer existing helpers: `safeGetElement` (DOM), `saveData` /
+          `loadData` (localStorage), `sanitizeHtml` (output).
+        - Only storage keys in `ALLOWED_STORAGE_KEYS` (constants.js) are
+          permitted. A `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard
+          is defensive coding, NOT a bug — do not flag it.
+        - New JS files must be registered in both `sw.js` CORE_ASSETS and
+          `index.html` script load order.
+    - path: "css/**/*.css"
+      instructions: |
+        - Respect component scoping; global selectors can leak into
+          component-scoped DOM.
+    - path: "devops/pollers/**/Dockerfile*"
+      instructions: |
+        - Check for pinned base image versions (no `:latest` tags).
+        - Flag any secrets or credentials in build args.
+    - path: "devops/pollers/home-poller/docker-entrypoint.sh"
+      instructions: |
+        - This file is the AUTHORITATIVE source of truth for poller cron
+          schedules. If DocVault docs disagree, the entrypoint wins.
+    - path: "tests/**"
+      instructions: |
+        - Verify meaningful assertions (not just "it runs without error").
+        - For Playwright tests on vanilla JS: internal state must be injected
+          via `localStorage` (`page.addInitScript`), not by patching
+          `window.X` post-load.

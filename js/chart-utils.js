@@ -23,14 +23,16 @@
       type: "line",
       data: {
         labels: Array(data.length).fill(""),
-        datasets: [{
-          data,
-          borderColor,
-          borderWidth,
-          pointRadius: 0,
-          tension,
-          fill: false,
-        }],
+        datasets: [
+          {
+            data,
+            borderColor,
+            borderWidth,
+            pointRadius: 0,
+            tension,
+            fill: false,
+          },
+        ],
       },
       options: {
         responsive: false,
@@ -50,8 +52,14 @@
     if (!Array.isArray(vendors) || !Array.isArray(dataRows)) return [];
 
     const o = opts || {};
-    const colorMap = o.colorMap || (typeof window.RETAIL_VENDOR_COLORS !== "undefined" ? window.RETAIL_VENDOR_COLORS : {});
-    const labelFn = o.labelFn || function (vendorId) { return vendorId; };
+    const colorMap =
+      o.colorMap ||
+      (typeof window.RETAIL_VENDOR_COLORS !== "undefined" ? window.RETAIL_VENDOR_COLORS : {});
+    const labelFn =
+      o.labelFn ||
+      function (vendorId) {
+        return vendorId;
+      };
     const borderWidth = o.borderWidth != null ? o.borderWidth : 1.5;
     const tension = o.tension != null ? o.tension : 0.3;
     const spanGaps = o.spanGaps != null ? o.spanGaps : true;
@@ -63,7 +71,9 @@
 
       return {
         label: labelFn(vendorId),
-        data: dataRows.map(function (row) { return valueExtractor(row, vendorId); }),
+        data: dataRows.map(function (row) {
+          return valueExtractor(row, vendorId);
+        }),
         borderColor: color,
         backgroundColor: "transparent",
         borderWidth,
@@ -131,7 +141,7 @@
     if (isMap) {
       if (instanceMap.has(key)) {
         const instance = instanceMap.get(key);
-        if (instance && typeof instance.destroy === 'function') {
+        if (instance && typeof instance.destroy === "function") {
           instance.destroy();
         }
       }
@@ -170,12 +180,11 @@
         return label + ": " + nullLabel;
       }
 
-      const isCarried = ctx.dataset._carriedIndices &&
-        ctx.dataset._carriedIndices.has
-        ? ctx.dataset._carriedIndices.has(ctx.dataIndex)
-        : false;
-      const isInterp = ctx.dataset._interp &&
-        ctx.dataset._interp[ctx.dataIndex];
+      const isCarried =
+        ctx.dataset._carriedIndices && ctx.dataset._carriedIndices.has
+          ? ctx.dataset._carriedIndices.has(ctx.dataIndex)
+          : false;
+      const isInterp = ctx.dataset._interp && ctx.dataset._interp[ctx.dataIndex];
 
       if (isCarried || isInterp) {
         return label + ": " + carriedPrefix + "$" + Number(raw).toFixed(2) + interpSuffix;

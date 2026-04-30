@@ -1258,5 +1258,1253 @@
     "source": "seed",
     "provider": "MetalPriceAPI",
     "timestamp": "2026-03-09 12:00:00"
+  },
+  {
+    "spot": 5185.43,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-10 12:00:00"
+  },
+  {
+    "spot": 1679.12,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-10 12:00:00"
+  },
+  {
+    "spot": 2202.55,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-10 12:00:00"
+  },
+  {
+    "spot": 88.65,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-10 12:00:00"
+  },
+  {
+    "spot": 5186.21,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-11 12:00:00"
+  },
+  {
+    "spot": 1650.38,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-11 12:00:00"
+  },
+  {
+    "spot": 2182.6,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-11 12:00:00"
+  },
+  {
+    "spot": 86.57,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-11 12:00:00"
+  },
+  {
+    "spot": 5141.68,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-12 12:00:00"
+  },
+  {
+    "spot": 1640.13,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-12 12:00:00"
+  },
+  {
+    "spot": 2159.93,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-12 12:00:00"
+  },
+  {
+    "spot": 85.46,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-12 12:00:00"
+  },
+  {
+    "spot": 5076.93,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-13 12:00:00"
+  },
+  {
+    "spot": 1599.01,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-13 12:00:00"
+  },
+  {
+    "spot": 2080.28,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-13 12:00:00"
+  },
+  {
+    "spot": 82.57,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-13 12:00:00"
+  },
+  {
+    "spot": 5019.37,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-14 12:00:00"
+  },
+  {
+    "spot": 1552.67,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-14 12:00:00"
+  },
+  {
+    "spot": 2023.48,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-14 12:00:00"
+  },
+  {
+    "spot": 80.6,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-14 12:00:00"
+  },
+  {
+    "spot": 5018.59,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-15 12:00:00"
+  },
+  {
+    "spot": 1551.39,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-15 12:00:00"
+  },
+  {
+    "spot": 2022.47,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-15 12:00:00"
+  },
+  {
+    "spot": 80.56,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-15 12:00:00"
+  },
+  {
+    "spot": 5006.37,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-16 12:00:00"
+  },
+  {
+    "spot": 1577.49,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-16 12:00:00"
+  },
+  {
+    "spot": 2071.98,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-16 12:00:00"
+  },
+  {
+    "spot": 80.11,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-16 12:00:00"
+  },
+  {
+    "spot": 5012.09,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-17 12:00:00"
+  },
+  {
+    "spot": 1615.62,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-17 12:00:00"
+  },
+  {
+    "spot": 2131.36,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-17 12:00:00"
+  },
+  {
+    "spot": 80.39,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-17 12:00:00"
+  },
+  {
+    "spot": 4927.85,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-18 12:00:00"
+  },
+  {
+    "spot": 1555.94,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-18 12:00:00"
+  },
+  {
+    "spot": 2071.98,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-18 12:00:00"
+  },
+  {
+    "spot": 77.92,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-18 12:00:00"
+  },
+  {
+    "spot": 4722.52,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-19 12:00:00"
+  },
+  {
+    "spot": 1461.34,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-19 12:00:00"
+  },
+  {
+    "spot": 1973.6,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-19 12:00:00"
+  },
+  {
+    "spot": 72.95,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-19 12:00:00"
+  },
+  {
+    "spot": 4623.09,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-20 12:00:00"
+  },
+  {
+    "spot": 1445.3,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-20 12:00:00"
+  },
+  {
+    "spot": 1967.58,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-20 12:00:00"
+  },
+  {
+    "spot": 71.16,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-20 12:00:00"
+  },
+  {
+    "spot": 4493.09,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-21 12:00:00"
+  },
+  {
+    "spot": 1408.7,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-21 12:00:00"
+  },
+  {
+    "spot": 1921.69,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-21 12:00:00"
+  },
+  {
+    "spot": 67.91,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-21 12:00:00"
+  },
+  {
+    "spot": 4493.68,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-22 12:00:00"
+  },
+  {
+    "spot": 1409.99,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-22 12:00:00"
+  },
+  {
+    "spot": 1921.58,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-22 12:00:00"
+  },
+  {
+    "spot": 67.95,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-22 12:00:00"
+  },
+  {
+    "spot": 4370.5,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-23 12:00:00"
+  },
+  {
+    "spot": 1410.13,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-23 12:00:00"
+  },
+  {
+    "spot": 1849.78,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-23 12:00:00"
+  },
+  {
+    "spot": 67.13,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-23 12:00:00"
+  },
+  {
+    "spot": 4401.52,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-24 12:00:00"
+  },
+  {
+    "spot": 1415.82,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-24 12:00:00"
+  },
+  {
+    "spot": 1882.33,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-24 12:00:00"
+  },
+  {
+    "spot": 69.17,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-24 12:00:00"
+  },
+  {
+    "spot": 4552.27,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-25 12:00:00"
+  },
+  {
+    "spot": 1443.02,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-25 12:00:00"
+  },
+  {
+    "spot": 1948.36,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-25 12:00:00"
+  },
+  {
+    "spot": 72.72,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-25 12:00:00"
+  },
+  {
+    "spot": 4445.55,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-26 12:00:00"
+  },
+  {
+    "spot": 1382.91,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-26 12:00:00"
+  },
+  {
+    "spot": 1867.36,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-26 12:00:00"
+  },
+  {
+    "spot": 69.16,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-26 12:00:00"
+  },
+  {
+    "spot": 4459.81,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-27 12:00:00"
+  },
+  {
+    "spot": 1387.53,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-27 12:00:00"
+  },
+  {
+    "spot": 1858.84,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-27 12:00:00"
+  },
+  {
+    "spot": 69.3,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-27 12:00:00"
+  },
+  {
+    "spot": 4493.82,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-28 12:00:00"
+  },
+  {
+    "spot": 1378.91,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-28 12:00:00"
+  },
+  {
+    "spot": 1863.27,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-28 12:00:00"
+  },
+  {
+    "spot": 69.76,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-28 12:00:00"
+  },
+  {
+    "spot": 4493.55,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-29 12:00:00"
+  },
+  {
+    "spot": 1377.41,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-29 12:00:00"
+  },
+  {
+    "spot": 1862.02,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-29 12:00:00"
+  },
+  {
+    "spot": 69.68,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-29 12:00:00"
+  },
+  {
+    "spot": 4515.85,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-30 12:00:00"
+  },
+  {
+    "spot": 1414.44,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-30 12:00:00"
+  },
+  {
+    "spot": 1900.89,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-30 12:00:00"
+  },
+  {
+    "spot": 70.24,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-30 12:00:00"
+  },
+  {
+    "spot": 4600.05,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-03-31 12:00:00"
+  },
+  {
+    "spot": 1454.0,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-03-31 12:00:00"
+  },
+  {
+    "spot": 1929.39,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-03-31 12:00:00"
+  },
+  {
+    "spot": 73.27,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-03-31 12:00:00"
+  },
+  {
+    "spot": 4735.02,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-01 12:00:00"
+  },
+  {
+    "spot": 1482.23,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-01 12:00:00"
+  },
+  {
+    "spot": 1965.7,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-01 12:00:00"
+  },
+  {
+    "spot": 74.94,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-01 12:00:00"
+  },
+  {
+    "spot": 4659.61,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-02 12:00:00"
+  },
+  {
+    "spot": 1474.51,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-02 12:00:00"
+  },
+  {
+    "spot": 1945.39,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-02 12:00:00"
+  },
+  {
+    "spot": 72.12,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-02 12:00:00"
+  },
+  {
+    "spot": 4676.71,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-03 12:00:00"
+  },
+  {
+    "spot": 1505.54,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-03 12:00:00"
+  },
+  {
+    "spot": 1987.84,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-03 12:00:00"
+  },
+  {
+    "spot": 73.01,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-03 12:00:00"
+  },
+  {
+    "spot": 4676.71,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-04 12:00:00"
+  },
+  {
+    "spot": 1503.33,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-04 12:00:00"
+  },
+  {
+    "spot": 1982.77,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-04 12:00:00"
+  },
+  {
+    "spot": 73.0,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-04 12:00:00"
+  },
+  {
+    "spot": 4674.07,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-05 12:00:00"
+  },
+  {
+    "spot": 1505.43,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-05 12:00:00"
+  },
+  {
+    "spot": 1981.81,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-05 12:00:00"
+  },
+  {
+    "spot": 72.94,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-05 12:00:00"
+  },
+  {
+    "spot": 4664.56,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-06 12:00:00"
+  },
+  {
+    "spot": 1496.07,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-06 12:00:00"
+  },
+  {
+    "spot": 1981.49,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-06 12:00:00"
+  },
+  {
+    "spot": 72.76,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-06 12:00:00"
+  },
+  {
+    "spot": 4670.06,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-07 12:00:00"
+  },
+  {
+    "spot": 1471.93,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-07 12:00:00"
+  },
+  {
+    "spot": 1956.43,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-07 12:00:00"
+  },
+  {
+    "spot": 72.46,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-07 12:00:00"
+  },
+  {
+    "spot": 4776.54,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-08 12:00:00"
+  },
+  {
+    "spot": 1557.7,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-08 12:00:00"
+  },
+  {
+    "spot": 2042.99,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-08 12:00:00"
+  },
+  {
+    "spot": 75.95,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-08 12:00:00"
+  },
+  {
+    "spot": 4746.28,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-09 12:00:00"
+  },
+  {
+    "spot": 1557.77,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-09 12:00:00"
+  },
+  {
+    "spot": 2054.03,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-09 12:00:00"
+  },
+  {
+    "spot": 74.67,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-09 12:00:00"
+  },
+  {
+    "spot": 4760.18,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-10 12:00:00"
+  },
+  {
+    "spot": 1537.96,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-10 12:00:00"
+  },
+  {
+    "spot": 2061.64,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-10 12:00:00"
+  },
+  {
+    "spot": 75.82,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-10 12:00:00"
+  },
+  {
+    "spot": 4748.84,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-11 12:00:00"
+  },
+  {
+    "spot": 1524.03,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-11 12:00:00"
+  },
+  {
+    "spot": 2046.77,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-11 12:00:00"
+  },
+  {
+    "spot": 75.94,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-11 12:00:00"
+  },
+  {
+    "spot": 4742.35,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-12 12:00:00"
+  },
+  {
+    "spot": 1522.58,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-12 12:00:00"
+  },
+  {
+    "spot": 2045.06,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-12 12:00:00"
+  },
+  {
+    "spot": 75.75,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-12 12:00:00"
+  },
+  {
+    "spot": 4724.79,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-13 12:00:00"
+  },
+  {
+    "spot": 1545.59,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-13 12:00:00"
+  },
+  {
+    "spot": 2047.7,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-13 12:00:00"
+  },
+  {
+    "spot": 74.64,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-13 12:00:00"
+  },
+  {
+    "spot": 4796.1,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-14 12:00:00"
+  },
+  {
+    "spot": 1578.1,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-14 12:00:00"
+  },
+  {
+    "spot": 2088.32,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-14 12:00:00"
+  },
+  {
+    "spot": 77.99,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-14 12:00:00"
+  },
+  {
+    "spot": 4812.5,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-15 12:00:00"
+  },
+  {
+    "spot": 1581.15,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-15 12:00:00"
+  },
+  {
+    "spot": 2114.26,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-15 12:00:00"
+  },
+  {
+    "spot": 79.39,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-15 12:00:00"
+  },
+  {
+    "spot": 4809.95,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-16 12:00:00"
+  },
+  {
+    "spot": 1576.6,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-16 12:00:00"
+  },
+  {
+    "spot": 2121.6,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-16 12:00:00"
+  },
+  {
+    "spot": 79.42,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-16 12:00:00"
+  },
+  {
+    "spot": 4820.77,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-17 12:00:00"
+  },
+  {
+    "spot": 1563.58,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-17 12:00:00"
+  },
+  {
+    "spot": 2100.92,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-17 12:00:00"
+  },
+  {
+    "spot": 80.19,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-17 12:00:00"
+  },
+  {
+    "spot": 4831.16,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-18 12:00:00"
+  },
+  {
+    "spot": 1558.01,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-18 12:00:00"
+  },
+  {
+    "spot": 2102.73,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-18 12:00:00"
+  },
+  {
+    "spot": 80.82,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-18 12:00:00"
+  },
+  {
+    "spot": 4827.39,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-19 12:00:00"
+  },
+  {
+    "spot": 1559.22,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-19 12:00:00"
+  },
+  {
+    "spot": 2100.0,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-19 12:00:00"
+  },
+  {
+    "spot": 80.73,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-19 12:00:00"
+  },
+  {
+    "spot": 4801.6,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-20 12:00:00"
+  },
+  {
+    "spot": 1552.12,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-20 12:00:00"
+  },
+  {
+    "spot": 2084.39,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-20 12:00:00"
+  },
+  {
+    "spot": 79.77,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-20 12:00:00"
+  },
+  {
+    "spot": 4764.54,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-21 12:00:00"
+  },
+  {
+    "spot": 1553.61,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-21 12:00:00"
+  },
+  {
+    "spot": 2061.59,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-21 12:00:00"
+  },
+  {
+    "spot": 78.17,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-21 12:00:00"
+  },
+  {
+    "spot": 4747.5,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-22 12:00:00"
+  },
+  {
+    "spot": 1561.75,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-22 12:00:00"
+  },
+  {
+    "spot": 2073.75,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-22 12:00:00"
+  },
+  {
+    "spot": 77.91,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-22 12:00:00"
+  },
+  {
+    "spot": 4711.9,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-23 12:00:00"
+  },
+  {
+    "spot": 1500.48,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-23 12:00:00"
+  },
+  {
+    "spot": 2027.69,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-23 12:00:00"
+  },
+  {
+    "spot": 76.01,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-23 12:00:00"
+  },
+  {
+    "spot": 4700.05,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-24 12:00:00"
+  },
+  {
+    "spot": 1485.23,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-24 12:00:00"
+  },
+  {
+    "spot": 1999.78,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-24 12:00:00"
+  },
+  {
+    "spot": 75.49,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-24 12:00:00"
+  },
+  {
+    "spot": 4709.43,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-25 12:00:00"
+  },
+  {
+    "spot": 1503.95,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-25 12:00:00"
+  },
+  {
+    "spot": 2014.23,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-25 12:00:00"
+  },
+  {
+    "spot": 75.69,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-25 12:00:00"
+  },
+  {
+    "spot": 4707.68,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-26 12:00:00"
+  },
+  {
+    "spot": 1500.29,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-26 12:00:00"
+  },
+  {
+    "spot": 2014.14,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-26 12:00:00"
+  },
+  {
+    "spot": 75.65,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-26 12:00:00"
+  },
+  {
+    "spot": 4699.11,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-27 12:00:00"
+  },
+  {
+    "spot": 1485.96,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-27 12:00:00"
+  },
+  {
+    "spot": 2007.87,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-27 12:00:00"
+  },
+  {
+    "spot": 75.64,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-27 12:00:00"
+  },
+  {
+    "spot": 4618.16,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-28 12:00:00"
+  },
+  {
+    "spot": 1458.79,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-28 12:00:00"
+  },
+  {
+    "spot": 1953.67,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-28 12:00:00"
+  },
+  {
+    "spot": 73.56,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-28 12:00:00"
+  },
+  {
+    "spot": 4577.15,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-29 12:00:00"
+  },
+  {
+    "spot": 1451.69,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-29 12:00:00"
+  },
+  {
+    "spot": 1924.2,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-29 12:00:00"
+  },
+  {
+    "spot": 73.04,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-29 12:00:00"
+  },
+  {
+    "spot": 4567.08,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-04-30 12:00:00"
+  },
+  {
+    "spot": 1473.06,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-04-30 12:00:00"
+  },
+  {
+    "spot": 1901.51,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-04-30 12:00:00"
+  },
+  {
+    "spot": 72.21,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-04-30 12:00:00"
   }
 ]

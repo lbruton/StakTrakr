@@ -1,0 +1,8 @@
+node_modules/
+devops/node_modules/
+.worktrees/
+.playwright-mcp/
+.opencode/
+.codacy/
+.claude/
+CHANGELOG.md

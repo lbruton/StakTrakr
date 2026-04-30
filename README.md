@@ -1,29 +1,42 @@
-# StakTrakr
+<h1 align="center">
+  <img src="images/banner-logo-compact.svg" alt="StakTrakr" height="64">
+</h1>
 
-[![MIT License](https://img.shields.io/github/license/lbruton/StakTrakr?style=flat-square)](https://github.com/lbruton/StakTrakr/blob/main/LICENSE)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b8d30126676546cb958fa6a7e0174da8)](https://app.codacy.com/gh/lbruton/StakTrakr/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
-[![GitHub Issues](https://img.shields.io/github/issues/lbruton/StakTrakr?style=flat-square)](https://github.com/lbruton/StakTrakr/issues)
-[![Reddit Community](https://img.shields.io/reddit/subreddit-subscribers/staktrakr?style=flat-square&label=community)](https://www.reddit.com/r/staktrakr/)
-[![Sponsor](https://img.shields.io/badge/sponsor-%E2%99%A1-ea4aaa?style=flat-square)](https://github.com/sponsors/lbruton)
+<p align="center">
+  Track your precious metals stack. Your way.
+</p>
 
-**Track your precious metals stack. Your way.**
+<p align="center">
+  <a href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lbruton/StakTrakr?style=flat-square" alt="MIT License"></a>
+  <a href="https://app.codacy.com/gh/lbruton/StakTrakr/dashboard"><img src="https://app.codacy.com/project/badge/Grade/b8d30126676546cb958fa6a7e0174da8" alt="Codacy Badge"></a>
+  <a href="https://github.com/lbruton/StakTrakr/issues"><img src="https://img.shields.io/github/issues/lbruton/StakTrakr?style=flat-square" alt="GitHub Issues"></a>
+  <a href="https://www.reddit.com/r/staktrakr/"><img src="https://img.shields.io/reddit/subreddit-subscribers/staktrakr?style=flat-square&label=community" alt="Reddit Community"></a>
+  <a href="https://github.com/sponsors/lbruton"><img src="https://img.shields.io/badge/sponsor-%E2%99%A1-ea4aaa?style=flat-square" alt="Sponsor"></a>
+</p>
+
+<p align="center">
+  <a href="https://www.staktrakr.com"><strong>Launch App</strong></a> &bull;
+  <a href="https://beta.staktrakr.com">Beta</a> &bull;
+  <a href="https://lbruton.github.io/StakTrakr/about.html">About</a> &bull;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+---
 
 A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladium, and Goldbacks. Runs entirely in your browser — your stack, your data, your rules.
-
-**Try it now:** [www.staktrakr.com](https://www.staktrakr.com)
 
 ![StakTrakr Dashboard](screenshots/01-hero-overview.png)
 
 ## Market Prices & Item View
 
-| Vendor Price Matrix | Item View Modal |
-|---|---|
+| Vendor Price Matrix                                | Item View Modal                                  |
+| -------------------------------------------------- | ------------------------------------------------ |
 | ![Vendor Prices](screenshots/04-vendor-prices.png) | ![Item View](screenshots/06-item-view-modal.png) |
 
 ## Settings
 
-| About | Appearance | Inventory |
-|---|---|---|
+| About                                                | Appearance                                                     | Inventory                                                    |
+| ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | ![Settings About](screenshots/07-settings-about.png) | ![Settings Appearance](screenshots/08-settings-appearance.png) | ![Settings Inventory](screenshots/09-settings-inventory.png) |
 
 ---
@@ -50,7 +63,7 @@ Real-time prices from multiple API providers with automatic failover:
 - **Free, keyless provider** — `api.staktrakr.com` delivers hourly spot prices out of the box; no API key needed to get started
 - **Sparkline charts** — interactive mini price charts with 7d / 30d / 60d / 90d range selector
 - **Percentage change** — see how each metal has moved over your selected timeframe
-- **Provider priority** — configure up to 5 API providers (Metals.dev, MetalPriceAPI, GoldAPI, and more) with configurable sync priority
+- **Single source selection** — choose from 6 spot price sources (StakTrakr API, Metals.dev, Metals-API, MetalPriceAPI, Custom URL, or Manual mode for full offline pricing)
 - **Seed data included** — years of historical prices (1968–present) baked in; sparklines work from day one
 - **Health indicators** — color-coded status dots show API sync freshness at a glance
 
@@ -61,12 +74,11 @@ Real-time retail market prices from major bullion dealers, powered by the StakTr
 - **Best Price Ticker** — scrolling ticker strip below spot cards showing the cheapest vendor per coin with premium percentages and direct buy links
 - **Vendor Prices Table** — full comparison matrix across Gold, Silver, Platinum, Palladium, and Goldback tabs with per-vendor prices, premium badges, and clickable buy links to vendor product pages
 - **Market Detail Modal** — click any coin to view TradingView Lightweight Charts 7-day spot history overlaid with per-vendor price comparison lines
-- **Market List View** — full-width card layout with inline 7-day trend charts, vendor price chips with brand-colored labels, medal rankings for best prices, and computed MED/LOW/AVG stats
 - **Metal filter pills** — filter market cards by metal type with color-coded pill buttons
 - **Intraday trends** — toggle between current price and hourly percentage change on market cards
 - **Manifest-driven** — the API can add new coins without any frontend code changes
 - **Goldback support** — denomination-aware pricing for all Goldback variants (G½ through G50) across multiple state series with goldback.com reference pricing
-- **Configurable layout** — Vendor Prices and Best Price Ticker sections are toggleable and reorderable in Settings > Layout
+- **Configurable layout** — Vendor Prices and Best Price Ticker sections are toggleable and reorderable in Settings > Appearance
 
 ### Portfolio Tracking
 
@@ -74,7 +86,8 @@ Full per-item tracking with a rich data model:
 
 - **Purchase Price / Melt Value / Retail Price** with computed Gain/Loss per item and portfolio-wide
 - **Realized Gains/Losses** — mark items as Sold, Traded, Lost, Gifted, or Returned via disposition workflow with realized gain/loss calculation, color-coded badges, and full transaction history
-- **Goldback support** — denomination-aware pricing (½, 1, 5, 10, 25, 50) with real-time estimation and manual rate management
+- **Goldback & Silverback support** — denomination-aware pricing (½, 1, 5, 10, 25, 50) for Goldbacks, plus Silverback tracking with dedicated 0.001 troy ounce weight unit and retail pricing
+- **Lot ⇄ Each purchase toggle** — enter a lot total when buying multiples and the app divides by quantity to store per-unit price; purchase column shows qty-multiplied total
 - **Weight units** — troy ounces, kilograms, and pounds with automatic conversion
 - **Year, Grade, Grading Authority, Cert #** — full numismatic metadata
 - **PCGS catalog numbers** with inline chips and one-click CoinFacts lookup
@@ -185,17 +198,20 @@ Full-screen bulk operations in Settings > Inventory:
 
 Everything in one place with sidebar navigation:
 
-| Tab | What's Here |
-|-----|-------------|
-| **About** | Version info, API status badge, What's New, roadmap, badges, changelog link |
-| **Appearance** | Theme (Light / Dark / Sepia / System), header button visibility and reorder, layout section toggles |
-| **Inventory** | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit |
-| **Chips** | Category toggles, sort order, grouping rules, blacklist, max count |
-| **API** | Multi-provider configuration with priority order, Numista and PCGS tabs, usage tracking |
-| **Cloud** | Dropbox connection, cloud backup/restore, activity log, sync history, multi-account management |
-| **System** | Timezone, storage dashboard, reset |
-| **Log** | Full change log with undo/redo |
-| **FAQ** | Privacy, backup, security, and limitations — built into the app |
+| Tab            | What's Here                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| **About**      | Version info, API status badge, What's New, roadmap, badges, changelog, force refresh                   |
+| **Appearance** | Theme (Light / Dark / Sepia / System), header button visibility and reorder, layout section toggles     |
+| **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit, data reset |
+| **Filters**    | Category toggles, sort order, grouping rules, blacklist, max chip count, search behavior                |
+| **Images**     | Image cache management, upload settings, bulk image sync                                                |
+| **Currency**   | Display currency (17 currencies), exchange rates, Goldback pricing controls                             |
+| **Market**     | Market data toggles, vendor display preferences                                                         |
+| **Storage**    | localStorage and IndexedDB usage dashboard                                                              |
+| **API**        | Spot price source selection, Numista and PCGS catalog integration, usage tracking                       |
+| **Cloud**      | Dropbox connection, cloud backup/restore, sync history, multi-account management                        |
+| **Log**        | Activity Log — full change history with undo/redo                                                       |
+| **FAQ**        | Privacy, backup, security, and limitations — built into the app                                         |
 
 ### More
 
@@ -259,28 +275,28 @@ Full details in the [Privacy Policy](https://www.staktrakr.com/privacy.html) and
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Runtime | Pure client-side JavaScript (no framework, no build step) |
-| Storage | Browser localStorage + IndexedDB |
-| Encryption | Web Crypto API — AES-256-GCM via PBKDF2 |
-| Styling | Vanilla CSS with CSS custom properties, responsive breakpoints |
-| Charts | Chart.js 3.9.1 + TradingView Lightweight Charts |
-| CSV | PapaParse 5.4.1 |
-| PDF | jsPDF 2.5.1 + AutoTable 3.5.25 |
-| Backup | JSZip 3.10.1 |
-| Hosting | Cloudflare Pages |
-| Spot API | api.staktrakr.com (free, keyless) + Metals.dev, MetalPriceAPI, GoldAPI, others |
-| Market API | api.staktrakr.com v2 (free, keyless) — retail prices from major bullion dealers |
-| Catalog | Numista API, PCGS CoinFacts |
-| Exchange Rates | Open Exchange Rates |
-| Security tooling | Codacy (A+), CodeQL, Semgrep, PMD, ESLint |
+| Layer            | Technology                                                                      |
+| ---------------- | ------------------------------------------------------------------------------- |
+| Runtime          | Pure client-side JavaScript (no framework, no build step)                       |
+| Storage          | Browser localStorage + IndexedDB                                                |
+| Encryption       | Web Crypto API — AES-256-GCM via PBKDF2                                         |
+| Styling          | Vanilla CSS with CSS custom properties, responsive breakpoints                  |
+| Charts           | Chart.js 3.9.1 + TradingView Lightweight Charts                                 |
+| CSV              | PapaParse 5.4.1                                                                 |
+| PDF              | jsPDF 2.5.1 + AutoTable 3.5.25                                                  |
+| Backup           | JSZip 3.10.1                                                                    |
+| Hosting          | Cloudflare Pages                                                                |
+| Spot API         | api.staktrakr.com (free, keyless) + Metals.dev, MetalPriceAPI, GoldAPI, others  |
+| Market API       | api.staktrakr.com v2 (free, keyless) — retail prices from major bullion dealers |
+| Catalog          | Numista API, PCGS CoinFacts                                                     |
+| Exchange Rates   | Open Exchange Rates                                                             |
+| Security tooling | Codacy (A+), CodeQL, Semgrep, PMD, ESLint                                       |
 
 ---
 
 ## Project Structure
 
-```
+```text
 index.html                  Main application (single page)
 css/styles.css              Complete styling (CSS custom properties, four themes)
 js/                         70+ JavaScript modules — strict load order via index.html

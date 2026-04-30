@@ -64,4 +64,3 @@ const CustomMapping = (() => {
 
 // Expose globally for prototype UI hooks
 window.CustomMapping = CustomMapping;
-

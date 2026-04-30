@@ -6,12 +6,12 @@ The S-stack monogram: 5 horizontal bars forming an "S" shape, with silver bars a
 
 ## Asset Inventory
 
-| File | Use | Size |
-|------|-----|------|
-| `icon-logo.svg` | PWA icon, favicon, app stores | 512x512 squircle |
-| `icon-bare.svg` | Transparent — for compositing on any background | 512x512, no bg |
-| `banner-logo.svg` | About page, splash screen, social cards | 512x512 squircle |
-| `banner-logo-compact.svg` | Header bar, navbar horizontal lockup | 400x80 |
+| File                      | Use                                             | Size             |
+| ------------------------- | ----------------------------------------------- | ---------------- |
+| `icon-logo.svg`           | PWA icon, favicon, app stores                   | 512x512 squircle |
+| `icon-bare.svg`           | Transparent — for compositing on any background | 512x512, no bg   |
+| `banner-logo.svg`         | About page, splash screen, social cards         | 512x512 squircle |
+| `banner-logo-compact.svg` | Header bar, navbar horizontal lockup            | 400x80           |
 
 ## PWA Manifest Integration
 
@@ -22,7 +22,12 @@ Replace existing icons in `manifest.json`:
   "icons": [
     { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "img/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
 ```
@@ -46,16 +51,16 @@ Generate from `icon-logo.svg`:
 
 ## Color Reference
 
-| Token | Hex | Usage |
-|-------|-----|-------|
+| Token        | Hex       | Usage                                             |
+| ------------ | --------- | ------------------------------------------------- |
 | Gold Primary | `#d4a017` | Wordmark accent, gold center bar, brand highlight |
-| Gold Light | `#fbbf24` | Gradient highlights, hover states |
-| Silver | `#94a3b8` | Monogram bars, secondary text |
-| Silver Light | `#cbd5e1` | Gradient highlights on bars |
-| Dark Navy | `#0f1729` | Icon background, dark theme base |
-| Navy Surface | `#1a2744` | Gradient end, card backgrounds |
-| Blue Accent | `#60a5fa` | Interactive elements, links (NOT brand — UI only) |
-| Text Primary | `#f8fafc` | White text on dark backgrounds |
+| Gold Light   | `#fbbf24` | Gradient highlights, hover states                 |
+| Silver       | `#94a3b8` | Monogram bars, secondary text                     |
+| Silver Light | `#cbd5e1` | Gradient highlights on bars                       |
+| Dark Navy    | `#0f1729` | Icon background, dark theme base                  |
+| Navy Surface | `#1a2744` | Gradient end, card backgrounds                    |
+| Blue Accent  | `#60a5fa` | Interactive elements, links (NOT brand — UI only) |
+| Text Primary | `#f8fafc` | White text on dark backgrounds                    |
 
 ## Tagline
 

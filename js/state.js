@@ -2,9 +2,9 @@
 // =============================================================================
 
 /** @type {Object} Sorting state tracking — initialized from user preference or factory default */
-const _storedSortCol = localStorage.getItem('defaultSortColumn');
+const _storedSortCol = localStorage.getItem("defaultSortColumn");
 let sortColumn = _storedSortCol !== null ? parseInt(_storedSortCol, 10) : 4;
-const _storedSortDir = localStorage.getItem('defaultSortDir');
+const _storedSortDir = localStorage.getItem("defaultSortDir");
 let sortDirection = _storedSortDir || "asc";
 
 /** @type {number|null} Index of item being edited (null = no edit in progress) */
@@ -78,6 +78,7 @@ const elements = {
   searchNumistaBtn: null,
   lookupPcgsBtn: null,
   spotLookupBtn: null,
+  retailSpotLookupBtn: null,
   itemPuritySelect: null,
   itemPurity: null,
   purityCustomWrapper: null,
@@ -113,7 +114,6 @@ const elements = {
   boatingAccidentBtn: null,
   forceRefreshBtn: null,
 
-
   // Notes modal elements
   notesModal: null,
   notesTextarea: null,
@@ -142,8 +142,8 @@ const elements = {
   itemCount: null,
 
   // Change log elements
-    changeLogBtn: null,
-    backupReminder: null,
+  changeLogBtn: null,
+  backupReminder: null,
   changeLogModal: null,
   changeLogCloseBtn: null,
   changeLogClearBtn: null,
@@ -193,7 +193,6 @@ const elements = {
   // View item modal elements
   viewItemModal: null,
   viewModalCloseBtn: null,
-
 
   // Settings modal elements
   settingsBtn: null,
@@ -271,21 +270,30 @@ const elements = {
 /** @type {Array} Change log entries */
 let changeLog = (function () {
   try {
-    var _raw = localStorage.getItem('changeLog');
+    var _raw = localStorage.getItem("changeLog");
     if (!_raw) return [];
     // saveDataSync may prepend 'CMP1:' for payloads ≥ 4 KB (LZString no-op prefix).
     // Stripping it here mirrors __decompressIfNeeded in utils.js, which isn't
     // loaded yet when state.js runs.
-    if (_raw.startsWith('CMP1:')) _raw = _raw.slice(5);
+    if (_raw.startsWith("CMP1:")) _raw = _raw.slice(5);
     return JSON.parse(_raw);
-  } catch (e) { console.warn('[state] changeLog parse failed — resetting to []. Error:', e); return []; }
-}());
+  } catch (e) {
+    console.warn("[state] changeLog parse failed — resetting to []. Error:", e);
+    return [];
+  }
+})();
 
 /** @type {Array} Main inventory data structure */
 let inventory = [];
 // STAK-301: expose via getter so other scripts can safely access window.inventory
 // without hitting the TDZ on Chrome when empty inventory triggers a faster load path
-Object.defineProperty(window, 'inventory', { get: () => inventory, set: (val) => { inventory = val; }, configurable: true });
+Object.defineProperty(window, "inventory", {
+  get: () => inventory,
+  set: (val) => {
+    inventory = val;
+  },
+  configurable: true,
+});
 
 /** @type {Object} Current spot prices for all metals */
 let spotPrices = {
@@ -335,27 +343,30 @@ let apiConfig = null;
 let apiCache = null;
 
 /** @type {Object} Backward compatibility for catalogMap - now managed by catalogManager */
-let catalogMap = new Proxy({}, {
-  get(target, prop) {
-    if (window.catalogManager) {
-      return catalogManager.getCatalogId(prop) || '';
-    }
-    return target[prop];
-  },
-  set(target, prop, value) {
-    if (window.catalogManager) {
-      catalogManager.setCatalogId(prop, value);
-    }
-    target[prop] = value;
-    return true;
-  },
-  deleteProperty(target, prop) {
-    if (window.catalogManager) {
-      catalogManager.setCatalogId(prop, '');
-    }
-    delete target[prop];
-    return true;
+let catalogMap = new Proxy(
+  {},
+  {
+    get(target, prop) {
+      if (window.catalogManager) {
+        return catalogManager.getCatalogId(prop) || "";
+      }
+      return target[prop];
+    },
+    set(target, prop, value) {
+      if (window.catalogManager) {
+        catalogManager.setCatalogId(prop, value);
+      }
+      target[prop] = value;
+      return true;
+    },
+    deleteProperty(target, prop) {
+      if (window.catalogManager) {
+        catalogManager.setCatalogId(prop, "");
+      }
+      delete target[prop];
+      return true;
+    },
   }
-});
+);
 
 // =============================================================================

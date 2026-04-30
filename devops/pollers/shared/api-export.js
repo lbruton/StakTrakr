@@ -90,7 +90,7 @@ function writeApiFile(relPath, data) {
  */
 function medianPrice(rows) {
   const prices = rows
-    .filter((r) => r.in_stock === 1)  // Only in-stock vendors
+    .filter((r) => r.in_stock === 1) // Only in-stock vendors
     .map((r) => r.price)
     .filter((p) => p !== null && p !== undefined);
   if (!prices.length) return null;
@@ -104,7 +104,7 @@ function medianPrice(rows) {
  */
 function lowestPrice(rows) {
   const prices = rows
-    .filter((r) => r.in_stock === 1)  // Only in-stock vendors
+    .filter((r) => r.in_stock === 1) // Only in-stock vendors
     .map((r) => r.price)
     .filter((p) => p !== null && p !== undefined);
   if (!prices.length) return null;
@@ -120,10 +120,10 @@ function vendorMap(rows) {
     // Include OOS rows (in_stock=0) even with null price
     if (row.price !== null || row.in_stock === 0) {
       map[row.vendor] = {
-        price:      row.price !== null ? Math.round(row.price * 100) / 100 : null,
+        price: row.price !== null ? Math.round(row.price * 100) / 100 : null,
         confidence: row.confidence ?? null,
-        source:     row.source,
-        inStock:    row.in_stock === 1,  // SQLite stores as INTEGER 0/1
+        source: row.source,
+        inStock: row.in_stock === 1, // SQLite stores as INTEGER 0/1
       };
     }
   }
@@ -156,7 +156,7 @@ function aggregateWindows(allRows, bucketMinutes = 30) {
   // Step 1: Bucket rows — keep most recent price per vendor per bucket
   const byBucket = new Map();
   for (const row of allRows) {
-    if (row.price === null || row.in_stock !== 1) continue;  // Skip OOS
+    if (row.price === null || row.in_stock !== 1) continue; // Skip OOS
     const d = new Date(row.window_start);
     const mins = d.getUTCMinutes();
     d.setUTCMinutes(mins - (mins % bucketMinutes), 0, 0);
@@ -195,7 +195,7 @@ function aggregateWindows(allRows, bucketMinutes = 30) {
     result.push({
       window: bucket,
       median: Math.round(sorted[Math.floor(sorted.length / 2)] * 100) / 100,
-      low:    Math.round(sorted[0] * 100) / 100,
+      low: Math.round(sorted[0] * 100) / 100,
       vendors: vendorPrices,
     });
   }
@@ -214,7 +214,7 @@ function aggregateDailyRows(rawRows) {
     }
     const entry = byDate.get(row.date);
     if (row.avg_price !== null) entry.prices.push(row.avg_price);
-    if (row.min_price !== null)  entry.mins.push(row.min_price);
+    if (row.min_price !== null) entry.mins.push(row.min_price);
     entry.sampleCount += row.sample_count || 0;
     if (row.vendor) {
       entry.vendors[row.vendor] = {
@@ -228,10 +228,12 @@ function aggregateDailyRows(rawRows) {
     const sorted = [...entry.prices].sort((a, b) => a - b);
     result.push({
       date,
-      avg_median:   sorted.length ? Math.round(sorted[Math.floor(sorted.length / 2)] * 100) / 100 : null,
-      avg_low:      entry.mins.length ? Math.round(Math.min(...entry.mins) * 100) / 100 : null,
+      avg_median: sorted.length
+        ? Math.round(sorted[Math.floor(sorted.length / 2)] * 100) / 100
+        : null,
+      avg_low: entry.mins.length ? Math.round(Math.min(...entry.mins) * 100) / 100 : null,
       sample_count: entry.sampleCount,
-      vendors:      entry.vendors,
+      vendors: entry.vendors,
     });
   }
   return result.sort((a, b) => a.date.localeCompare(b.date));
@@ -254,7 +256,7 @@ function scoreVendorPrice(price, windowMedian, prevMedian) {
   }
   if (prevMedian !== null && prevMedian !== 0) {
     const dayDiff = Math.abs(price - prevMedian) / prevMedian;
-    if (dayDiff > 0.10) score -= 20;
+    if (dayDiff > 0.1) score -= 20;
   }
   return Math.max(0, Math.min(100, score));
 }
@@ -279,7 +281,9 @@ function loadVisionData(dataDir, slug) {
  * Returns { price, scraped_at } or null if never had an in-stock price.
  */
 function getLastKnownPrice(db, coinSlug, vendorId) {
-  const row = db.prepare(`
+  const row = db
+    .prepare(
+      `
     SELECT price, scraped_at
     FROM price_snapshots
     WHERE coin_slug = ?
@@ -288,7 +292,9 @@ function getLastKnownPrice(db, coinSlug, vendorId) {
       AND price IS NOT NULL
     ORDER BY scraped_at DESC
     LIMIT 1
-  `).get(coinSlug, vendorId);
+  `
+    )
+    .get(coinSlug, vendorId);
 
   return row ? { price: row.price, scraped_at: row.scraped_at } : null;
 }
@@ -336,7 +342,15 @@ function isWithinT4Threshold(scrapedAt) {
  * @param {number|null} windowMedian
  * @param {number|null} prevMedian
  */
-function resolveVendorPrice(coinSlug, vendorId, firecrawlData, visionData, db, windowMedian, prevMedian) {
+function resolveVendorPrice(
+  coinSlug,
+  vendorId,
+  firecrawlData,
+  visionData,
+  db,
+  windowMedian,
+  prevMedian
+) {
   const fcPrice = firecrawlData?.price ?? null;
   const fcInStock = firecrawlData?.inStock ?? true;
   const visionPrice = visionData?.prices_by_site?.[vendorId] ?? null;
@@ -460,7 +474,7 @@ function resolveVendorPrice(coinSlug, vendorId, firecrawlData, visionData, db, w
     price: null,
     confidence: 0,
     source: null,
-    inStock: true,  // Default to in-stock if no data
+    inStock: true, // Default to in-stock if no data
     lastKnownPrice: null,
     lastAvailableDate: null,
     stockReason: "no_data",
@@ -478,9 +492,9 @@ function openOrCreateCache(cachePath) {
   // Integrity check on existing DBs
   if (!isNew) {
     try {
-      const check = db.pragma('integrity_check');
-      if (check[0].integrity_check !== 'ok') {
-        warn('Cache DB integrity check failed — rebuilding');
+      const check = db.pragma("integrity_check");
+      if (check[0].integrity_check !== "ok") {
+        warn("Cache DB integrity check failed — rebuilding");
         db.close();
         unlinkSync(cachePath);
         return openOrCreateCache(cachePath);
@@ -513,7 +527,7 @@ function openOrCreateCache(cachePath) {
       CREATE INDEX idx_coin_date ON price_snapshots(coin_slug, substr(window_start, 1, 10));
       CREATE INDEX idx_coin_vendor_stock ON price_snapshots(coin_slug, vendor, in_stock, scraped_at DESC);
     `);
-    log('Created new cache DB at ' + cachePath);
+    log("Created new cache DB at " + cachePath);
   }
 
   return { db, isNew };
@@ -525,15 +539,17 @@ function openOrCreateCache(cachePath) {
 
 async function main() {
   // Determine cache path — sits alongside the data/ directory
-  const cachePath = join(dirname(DATA_DIR), 'prices-cache.db');
+  const cachePath = join(dirname(DATA_DIR), "prices-cache.db");
 
   // FULL_EXPORT=1 escape hatch: drop cache and rebuild from scratch
-  if (process.env.FULL_EXPORT === '1') {
-    log('[api-export] FULL_EXPORT=1 — rebuilding cache from scratch');
-    try { unlinkSync(cachePath); } catch {}
+  if (process.env.FULL_EXPORT === "1") {
+    log("[api-export] FULL_EXPORT=1 — rebuilding cache from scratch");
+    try {
+      unlinkSync(cachePath);
+    } catch {}
   }
 
-  log('Opening price cache at ' + cachePath);
+  log("Opening price cache at " + cachePath);
   const { db, isNew } = openOrCreateCache(cachePath);
 
   try {
@@ -543,7 +559,7 @@ async function main() {
     // Determine watermark — what's the most recent data we have?
     let watermark = null;
     if (!isNew) {
-      const row = db.prepare('SELECT MAX(scraped_at) AS wm FROM price_snapshots').get();
+      const row = db.prepare("SELECT MAX(scraped_at) AS wm FROM price_snapshots").get();
       watermark = row?.wm || null;
     }
 
@@ -559,7 +575,7 @@ async function main() {
       tursoRows = result.rows;
       log(`Fetched ${tursoRows.length} new rows from sqld`);
     } else {
-      log('Full backfill from sqld (new cache)...');
+      log("Full backfill from sqld (new cache)...");
       const cutoff = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
       const result = await tursoClient.execute({
         sql: `SELECT coin_slug, vendor, price, window_start, scraped_at, source, confidence, in_stock
@@ -572,7 +588,7 @@ async function main() {
     tursoClient.close();
 
     if (!tursoRows.length && isNew) {
-      warn('No price data in sqld — skipping API export');
+      warn("No price data in sqld — skipping API export");
       return;
     }
 
@@ -589,9 +605,15 @@ async function main() {
       const insertMany = db.transaction((rows) => {
         for (const row of rows) {
           insertStmt.run(
-            row.scraped_at, row.window_start, row.coin_slug, row.vendor,
-            row.price, row.source, row.confidence || null,
-            0, row.in_stock !== undefined ? row.in_stock : 1
+            row.scraped_at,
+            row.window_start,
+            row.coin_slug,
+            row.vendor,
+            row.price,
+            row.source,
+            row.confidence || null,
+            0,
+            row.in_stock !== undefined ? row.in_stock : 1
           );
         }
       });
@@ -600,360 +622,400 @@ async function main() {
     }
 
     // Prune old data (keep 31 days)
-    const pruneResult = db.prepare(
-      "DELETE FROM price_snapshots WHERE window_start < datetime('now', '-31 days')"
-    ).run();
+    const pruneResult = db
+      .prepare("DELETE FROM price_snapshots WHERE window_start < datetime('now', '-31 days')")
+      .run();
     if (pruneResult.changes > 0) {
       log(`Pruned ${pruneResult.changes} rows older than 31 days`);
     }
 
-  // Determine the latest window and all coin slugs
-  const latestWindow = readLatestWindow(db);
-  if (!latestWindow) {
-    warn("No price data in DB yet — skipping API export");
-    return; // finally block closes db
-  }
-
-  // Read coin slugs from Turso provider tables (falls back to local file)
-  let coinSlugs = readCoinSlugs(db);
-  let providersJson = null;
-  try {
-    let tursoClient = null;
-    try { tursoClient = (await import("./sqld-client.js")).createSqldClient(); } catch {}
-    providersJson = await loadProviders(tursoClient, DATA_DIR);
-    const allSlugs = Object.keys(providersJson.coins);
-    // Merge: include any slug in provider DB even if not yet in price DB
-    coinSlugs = [...new Set([...allSlugs, ...coinSlugs])].sort();
-  } catch {
-    warn("Could not load providers from Turso or file — using slugs from DB only");
-  }
-
-  // goldback-g1 is a baseline reference price (exported via goldback-spot.json),
-  // not a user-facing product. Exclude from the coins manifest so it doesn't
-  // render as a ghost card in the frontend market view (STAK-498 Task 7).
-  coinSlugs = coinSlugs.filter((s) => s !== "goldback-g1");
-
-  log(`API export: ${coinSlugs.length} coins, latest window: ${latestWindow}`);
-
-  // --------------------------------------------------------------------------
-  // latest.json (global) — all coins at current window
-  // --------------------------------------------------------------------------
-  const globalLatestCoins = {};
-  for (const slug of coinSlugs) {
-    let rows = readLatestPerVendor(db, slug, 2);
-    let isStale = false;
-    if (!rows.length) {
-      // T4 fallback: try last 24h so cards never vanish due to a failed poll cycle
-      rows = readLatestPerVendor(db, slug, 24);
-      if (!rows.length) continue;
-      isStale = true;
+    // Determine the latest window and all coin slugs
+    const latestWindow = readLatestWindow(db);
+    if (!latestWindow) {
+      warn("No price data in DB yet — skipping API export");
+      return; // finally block closes db
     }
-    globalLatestCoins[slug] = {
-      window_start:  latestWindow,
-      median_price:  medianPrice(rows),
-      lowest_price:  lowestPrice(rows),
-      vendor_count:  Object.keys(vendorMap(rows)).length,
-      ...(isStale ? { is_stale: true } : {}),
-    };
-  }
 
-  writeApiFile("latest.json", {
-    window_start:  latestWindow,
-    generated_at:  generatedAt,
-    coin_count:    Object.keys(globalLatestCoins).length,
-    coins:         globalLatestCoins,
-  });
+    // Read coin slugs from Turso provider tables (falls back to local file)
+    let coinSlugs = readCoinSlugs(db);
+    let providersJson = null;
+    try {
+      let tursoClient = null;
+      try {
+        tursoClient = (await import("./sqld-client.js")).createSqldClient();
+      } catch {}
+      providersJson = await loadProviders(tursoClient, DATA_DIR);
+      const allSlugs = Object.keys(providersJson.coins);
+      // Merge: include any slug in provider DB even if not yet in price DB
+      coinSlugs = [...new Set([...allSlugs, ...coinSlugs])].sort();
+    } catch {
+      warn("Could not load providers from Turso or file — using slugs from DB only");
+    }
 
-  // --------------------------------------------------------------------------
-  // Per-slug endpoints
-  // --------------------------------------------------------------------------
+    // goldback-g1 is a baseline reference price (exported via goldback-spot.json),
+    // not a user-facing product. Exclude from the coins manifest so it doesn't
+    // render as a ghost card in the frontend market view (STAK-498 Task 7).
+    coinSlugs = coinSlugs.filter((s) => s !== "goldback-g1");
 
-  // Collect recent 96 windows for 24h time series
-  const recentWindowStarts = readRecentWindowStarts(db, 96);
-  const windowCount = recentWindowStarts.length;
+    log(`API export: ${coinSlugs.length} coins, latest window: ${latestWindow}`);
 
-  for (const slug of coinSlugs) {
-    // latest.json per slug — use most recent row per vendor across last 2h
-    // so data from both pollers (Fly.io :00 and home :30) is represented
-    const latestRows = readLatestPerVendor(db, slug, 2);
-    const vendors = vendorMap(latestRows);
-
-    // Confidence scoring: score each vendor's price, update SQLite
-    const windowMedian = medianPrice(latestRows);
-
-    // Previous day's median for day-over-day check
-    const raw2d = readDailyAggregates(db, slug, 2);
-    const prevEntries = aggregateDailyRows(raw2d);
-    const today = latestWindow.slice(0, 10);
-    const prevEntry = prevEntries.find((e) => e.date !== today);
-    const prevMedian = prevEntry ? prevEntry.avg_median : null;
-
-    const visionData = loadVisionData(DATA_DIR, slug);
-
-    // Build set of vendor IDs that have SQLite rows (for confidence write-back)
-    const sqliteVendorIds = new Set(Object.keys(vendors));
-
-    // Augment vendors map: add null-price stubs for providers configured in providers.json
-    // but absent from SQLite (i.e., Firecrawl returned null for them).
-    // resolveVendorPrice() will try Vision for these.
-    // configuredVendorIds is kept in outer scope so T4 Pass 2 can use it.
-    const configuredVendorIds = new Set(
-      providersJson?.coins?.[slug]?.providers
-        ?.filter(p => p.enabled !== false)
-        ?.map(p => p.id) ?? []
-    );
-    for (const vendorId of configuredVendorIds) {
-      if (!vendors[vendorId]) {
-        vendors[vendorId] = { price: null, confidence: null, source: null };
+    // --------------------------------------------------------------------------
+    // latest.json (global) — all coins at current window
+    // --------------------------------------------------------------------------
+    const globalLatestCoins = {};
+    for (const slug of coinSlugs) {
+      let rows = readLatestPerVendor(db, slug, 2);
+      let isStale = false;
+      if (!rows.length) {
+        // T4 fallback: try last 24h so cards never vanish due to a failed poll cycle
+        rows = readLatestPerVendor(db, slug, 24);
+        if (!rows.length) continue;
+        isStale = true;
       }
-    }
-
-    const confidenceUpdates = [];
-    const availabilityBySite = {};
-    const lastKnownPriceBySite = {};
-    const lastAvailableDateBySite = {};
-
-    for (const [vendorId, vendorData] of Object.entries(vendors)) {
-      // Build Firecrawl data object from SQLite row
-      const firecrawlData = {
-        price: vendorData.price,
-        inStock: vendorData.inStock ?? true,
+      globalLatestCoins[slug] = {
+        window_start: latestWindow,
+        median_price: medianPrice(rows),
+        lowest_price: lowestPrice(rows),
+        vendor_count: Object.keys(vendorMap(rows)).length,
+        ...(isStale ? { is_stale: true } : {}),
       };
-
-      const resolved = resolveVendorPrice(
-        slug,
-        vendorId,
-        firecrawlData,
-        visionData,
-        db,
-        windowMedian,
-        prevMedian
-      );
-
-      vendorData.price = resolved.price;
-      vendorData.confidence = resolved.confidence;
-      vendorData.source = resolved.source;
-
-      // Capture availability metadata
-      availabilityBySite[vendorId] = resolved.inStock;
-      if (resolved.lastKnownPrice !== null) {
-        lastKnownPriceBySite[vendorId] = resolved.lastKnownPrice;
-      }
-      if (resolved.lastAvailableDate !== null) {
-        lastAvailableDateBySite[vendorId] = resolved.lastAvailableDate;
-      }
-
-      // Only write back to SQLite for rows that came from SQLite
-      if (sqliteVendorIds.has(vendorId) && resolved.confidence > 0) {
-        confidenceUpdates.push({ coinSlug: slug, vendor: vendorId, windowStart: latestWindow, confidence: resolved.confidence });
-      }
     }
 
-    // Remove vendors where no price found; for in-stock failures, fill from Turso last-known (T4)
-    for (const vendorId of Object.keys(vendors)) {
-      if (vendors[vendorId].price === null) {
-        const isOos = availabilityBySite[vendorId] === false;
-        if (!isOos) {
-          // T4: use most recent in-stock price from Turso history
-          const lastKnown = getLastKnownPrice(db, slug, vendorId);
-          if (lastKnown && isWithinT4Threshold(lastKnown.scraped_at)) {
-            vendors[vendorId] = {
-              price:      Math.round(lastKnown.price * 100) / 100,
-              confidence: null,
-              source:     "turso_last_known",
-              inStock:    true,
-              stale:      true,
-              stale_since: lastKnown.scraped_at,
-            };
-          } else if (lastKnown) {
-            log('[T4-expired] ' + slug + '/' + vendorId + ' last known at ' + lastKnown.scraped_at + ' exceeds ' + T4_MAX_STALE_HOURS + 'h threshold');
-            delete vendors[vendorId];
+    writeApiFile("latest.json", {
+      window_start: latestWindow,
+      generated_at: generatedAt,
+      coin_count: Object.keys(globalLatestCoins).length,
+      coins: globalLatestCoins,
+    });
+
+    // --------------------------------------------------------------------------
+    // Per-slug endpoints
+    // --------------------------------------------------------------------------
+
+    // Collect recent 96 windows for 24h time series
+    const recentWindowStarts = readRecentWindowStarts(db, 96);
+    const windowCount = recentWindowStarts.length;
+
+    for (const slug of coinSlugs) {
+      // latest.json per slug — use most recent row per vendor across last 2h
+      // so data from both pollers (Fly.io :00 and home :30) is represented
+      const latestRows = readLatestPerVendor(db, slug, 2);
+      const vendors = vendorMap(latestRows);
+
+      // Confidence scoring: score each vendor's price, update SQLite
+      const windowMedian = medianPrice(latestRows);
+
+      // Previous day's median for day-over-day check
+      const raw2d = readDailyAggregates(db, slug, 2);
+      const prevEntries = aggregateDailyRows(raw2d);
+      const today = latestWindow.slice(0, 10);
+      const prevEntry = prevEntries.find((e) => e.date !== today);
+      const prevMedian = prevEntry ? prevEntry.avg_median : null;
+
+      const visionData = loadVisionData(DATA_DIR, slug);
+
+      // Build set of vendor IDs that have SQLite rows (for confidence write-back)
+      const sqliteVendorIds = new Set(Object.keys(vendors));
+
+      // Augment vendors map: add null-price stubs for providers configured in providers.json
+      // but absent from SQLite (i.e., Firecrawl returned null for them).
+      // resolveVendorPrice() will try Vision for these.
+      // configuredVendorIds is kept in outer scope so T4 Pass 2 can use it.
+      const configuredVendorIds = new Set(
+        providersJson?.coins?.[slug]?.providers
+          ?.filter((p) => p.enabled !== false)
+          ?.map((p) => p.id) ?? []
+      );
+      for (const vendorId of configuredVendorIds) {
+        if (!vendors[vendorId]) {
+          vendors[vendorId] = { price: null, confidence: null, source: null };
+        }
+      }
+
+      const confidenceUpdates = [];
+      const availabilityBySite = {};
+      const lastKnownPriceBySite = {};
+      const lastAvailableDateBySite = {};
+
+      for (const [vendorId, vendorData] of Object.entries(vendors)) {
+        // Build Firecrawl data object from SQLite row
+        const firecrawlData = {
+          price: vendorData.price,
+          inStock: vendorData.inStock ?? true,
+        };
+
+        const resolved = resolveVendorPrice(
+          slug,
+          vendorId,
+          firecrawlData,
+          visionData,
+          db,
+          windowMedian,
+          prevMedian
+        );
+
+        vendorData.price = resolved.price;
+        vendorData.confidence = resolved.confidence;
+        vendorData.source = resolved.source;
+
+        // Capture availability metadata
+        availabilityBySite[vendorId] = resolved.inStock;
+        if (resolved.lastKnownPrice !== null) {
+          lastKnownPriceBySite[vendorId] = resolved.lastKnownPrice;
+        }
+        if (resolved.lastAvailableDate !== null) {
+          lastAvailableDateBySite[vendorId] = resolved.lastAvailableDate;
+        }
+
+        // Only write back to SQLite for rows that came from SQLite
+        if (sqliteVendorIds.has(vendorId) && resolved.confidence > 0) {
+          confidenceUpdates.push({
+            coinSlug: slug,
+            vendor: vendorId,
+            windowStart: latestWindow,
+            confidence: resolved.confidence,
+          });
+        }
+      }
+
+      // Remove vendors where no price found; for in-stock failures, fill from Turso last-known (T4)
+      for (const vendorId of Object.keys(vendors)) {
+        if (vendors[vendorId].price === null) {
+          const isOos = availabilityBySite[vendorId] === false;
+          if (!isOos) {
+            // T4: use most recent in-stock price from Turso history
+            const lastKnown = getLastKnownPrice(db, slug, vendorId);
+            if (lastKnown && isWithinT4Threshold(lastKnown.scraped_at)) {
+              vendors[vendorId] = {
+                price: Math.round(lastKnown.price * 100) / 100,
+                confidence: null,
+                source: "turso_last_known",
+                inStock: true,
+                stale: true,
+                stale_since: lastKnown.scraped_at,
+              };
+            } else if (lastKnown) {
+              log(
+                "[T4-expired] " +
+                  slug +
+                  "/" +
+                  vendorId +
+                  " last known at " +
+                  lastKnown.scraped_at +
+                  " exceeds " +
+                  T4_MAX_STALE_HOURS +
+                  "h threshold"
+              );
+              delete vendors[vendorId];
+            } else {
+              delete vendors[vendorId];
+            }
           } else {
             delete vendors[vendorId];
           }
-        } else {
-          delete vendors[vendorId];
         }
       }
-    }
 
-    // T4 Pass 2: absent vendors — configured in providers.json but missing from this window.
-    // Fires when a vendor's scrape completely failed (403, timeout, proxy error) and left
-    // no record in the 2-hour SQLite window. availabilityBySite guards against OOS vendors
-    // that Pass 1 already deleted — getLastKnownPrice alone cannot distinguish "absent due
-    // to scrape failure" from "absent because Pass 1 deleted an OOS vendor". The
-    // availabilityBySite check ensures we only attempt T4 for vendors with no OOS signal
-    // from the current window.
-    for (const vendorId of configuredVendorIds) {
-      if (vendors[vendorId] === undefined && availabilityBySite[vendorId] !== false) {
-        const lastKnown = getLastKnownPrice(db, slug, vendorId);
-        if (lastKnown && isWithinT4Threshold(lastKnown.scraped_at)) {
-          vendors[vendorId] = {
-            price:       Math.round(lastKnown.price * 100) / 100,
-            confidence:  null,
-            source:      "turso_last_known",
-            inStock:     true,
-            stale:       true,
-            stale_since: lastKnown.scraped_at,
-          };
-          log('[T4-absent] ' + slug + '/' + vendorId + ' recovered from Turso (' + lastKnown.scraped_at + ')');
-        } else if (lastKnown) {
-          log('[T4-absent-expired] ' + slug + '/' + vendorId + ' last known at ' + lastKnown.scraped_at + ' — exceeds ' + T4_MAX_STALE_HOURS + 'h threshold, omitting');
+      // T4 Pass 2: absent vendors — configured in providers.json but missing from this window.
+      // Fires when a vendor's scrape completely failed (403, timeout, proxy error) and left
+      // no record in the 2-hour SQLite window. availabilityBySite guards against OOS vendors
+      // that Pass 1 already deleted — getLastKnownPrice alone cannot distinguish "absent due
+      // to scrape failure" from "absent because Pass 1 deleted an OOS vendor". The
+      // availabilityBySite check ensures we only attempt T4 for vendors with no OOS signal
+      // from the current window.
+      for (const vendorId of configuredVendorIds) {
+        if (vendors[vendorId] === undefined && availabilityBySite[vendorId] !== false) {
+          const lastKnown = getLastKnownPrice(db, slug, vendorId);
+          if (lastKnown && isWithinT4Threshold(lastKnown.scraped_at)) {
+            vendors[vendorId] = {
+              price: Math.round(lastKnown.price * 100) / 100,
+              confidence: null,
+              source: "turso_last_known",
+              inStock: true,
+              stale: true,
+              stale_since: lastKnown.scraped_at,
+            };
+            log(
+              "[T4-absent] " +
+                slug +
+                "/" +
+                vendorId +
+                " recovered from Turso (" +
+                lastKnown.scraped_at +
+                ")"
+            );
+          } else if (lastKnown) {
+            log(
+              "[T4-absent-expired] " +
+                slug +
+                "/" +
+                vendorId +
+                " last known at " +
+                lastKnown.scraped_at +
+                " — exceeds " +
+                T4_MAX_STALE_HOURS +
+                "h threshold, omitting"
+            );
+          }
+          // else: no history → vendor stays absent (correct)
         }
-        // else: no history → vendor stays absent (correct)
+      }
+
+      if (confidenceUpdates.length > 0) {
+        try {
+          writeConfidenceScores(db, confidenceUpdates);
+        } catch (err) {
+          warn(`Could not write confidence scores for ${slug}: ${err.message}`);
+        }
+      }
+
+      // 24h windows time series — time-bound to 24h from latest snapshot, aggregated into 60-min buckets
+      // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors (STAK-476)
+      const recentRows = readRecentWindows(db, slug, 96);
+      const windows24h = aggregateWindows(recentRows, 60);
+
+      writeApiFile(`${slug}/latest.json`, {
+        slug,
+        window_start: latestWindow,
+        median_price: medianPrice(latestRows),
+        lowest_price: lowestPrice(latestRows),
+        vendors,
+        availability_by_site: availabilityBySite,
+        last_known_price_by_site: lastKnownPriceBySite,
+        last_available_date_by_site: lastAvailableDateBySite,
+        windows_24h: windows24h,
+      });
+
+      // history-7d.json
+      const raw7d = readDailyAggregates(db, slug, 7);
+      const history7d = aggregateDailyRows(raw7d);
+      writeApiFile(`${slug}/history-7d.json`, history7d);
+
+      // history-30d.json
+      const raw30d = readDailyAggregates(db, slug, 30);
+      const history30d = aggregateDailyRows(raw30d);
+      writeApiFile(`${slug}/history-30d.json`, history30d);
+    }
+
+    // --------------------------------------------------------------------------
+    // manifest.json
+    // --------------------------------------------------------------------------
+    const coinsMeta = {};
+    if (providersJson) {
+      for (const [slug, coinData] of Object.entries(providersJson.coins || {})) {
+        if (slug === "goldback-g1") continue; // baseline ref, not a product
+        coinsMeta[slug] = {
+          name: coinData.name,
+          metal: coinData.metal,
+          weight: coinData.weight_oz,
+        };
       }
     }
 
-    if (confidenceUpdates.length > 0) {
-      try {
-        writeConfidenceScores(db, confidenceUpdates);
-      } catch (err) {
-        warn(`Could not write confidence scores for ${slug}: ${err.message}`);
-      }
-    }
-
-    // 24h windows time series — time-bound to 24h from latest snapshot, aggregated into 60-min buckets
-    // Merges both pollers (:00 Fly.io + :30 home) into one bucket with all vendors (STAK-476)
-    const recentRows = readRecentWindows(db, slug, 96);
-    const windows24h = aggregateWindows(recentRows, 60);
-
-    writeApiFile(`${slug}/latest.json`, {
-      slug,
-      window_start:  latestWindow,
-      median_price:  medianPrice(latestRows),
-      lowest_price:  lowestPrice(latestRows),
-      vendors,
-      availability_by_site: availabilityBySite,
-      last_known_price_by_site: lastKnownPriceBySite,
-      last_available_date_by_site: lastAvailableDateBySite,
-      windows_24h:   windows24h,
+    writeApiFile("manifest.json", {
+      generated_at: generatedAt,
+      latest_window: latestWindow,
+      window_count: windowCount,
+      coin_count: coinSlugs.length,
+      coins: coinSlugs,
+      ...(Object.keys(coinsMeta).length > 0 ? { coins_meta: coinsMeta } : {}),
+      endpoints: {
+        latest: "api/latest.json",
+        slug_latest: "api/{slug}/latest.json",
+        history_7d: "api/{slug}/history-7d.json",
+        history_30d: "api/{slug}/history-30d.json",
+        providers: "api/providers.json",
+      },
     });
 
-    // history-7d.json
-    const raw7d = readDailyAggregates(db, slug, 7);
-    const history7d = aggregateDailyRows(raw7d);
-    writeApiFile(`${slug}/history-7d.json`, history7d);
-
-    // history-30d.json
-    const raw30d = readDailyAggregates(db, slug, 30);
-    const history30d = aggregateDailyRows(raw30d);
-    writeApiFile(`${slug}/history-30d.json`, history30d);
-  }
-
-  // --------------------------------------------------------------------------
-  // manifest.json
-  // --------------------------------------------------------------------------
-  const coinsMeta = {};
-  if (providersJson) {
-    for (const [slug, coinData] of Object.entries(providersJson.coins || {})) {
-      if (slug === "goldback-g1") continue; // baseline ref, not a product
-      coinsMeta[slug] = {
-        name: coinData.name,
-        metal: coinData.metal,
-        weight: coinData.weight_oz,
-      };
-    }
-  }
-
-  writeApiFile("manifest.json", {
-    generated_at:   generatedAt,
-    latest_window:  latestWindow,
-    window_count:   windowCount,
-    coin_count:     coinSlugs.length,
-    coins:          coinSlugs,
-    ...(Object.keys(coinsMeta).length > 0 ? { coins_meta: coinsMeta } : {}),
-    endpoints: {
-      latest:      "api/latest.json",
-      slug_latest: "api/{slug}/latest.json",
-      history_7d:  "api/{slug}/history-7d.json",
-      history_30d: "api/{slug}/history-30d.json",
-      providers:   "api/providers.json",
-    },
-  });
-
-  // --------------------------------------------------------------------------
-  // providers.json — flatten product URLs for frontend consumption
-  // --------------------------------------------------------------------------
-  if (providersJson) {
-    const frontendProviders = {};
-    for (const [slug, coinData] of Object.entries(providersJson.coins || {})) {
-      frontendProviders[slug] = {};
-      for (const provider of (coinData.providers || [])) {
-        const canonicalUrl = provider.url ?? provider.urls?.[0];
-        if (provider.enabled !== false && canonicalUrl) {
-          frontendProviders[slug][provider.id] = canonicalUrl;
+    // --------------------------------------------------------------------------
+    // providers.json — flatten product URLs for frontend consumption
+    // --------------------------------------------------------------------------
+    if (providersJson) {
+      const frontendProviders = {};
+      for (const [slug, coinData] of Object.entries(providersJson.coins || {})) {
+        frontendProviders[slug] = {};
+        for (const provider of coinData.providers || []) {
+          const canonicalUrl = provider.url ?? provider.urls?.[0];
+          if (provider.enabled !== false && canonicalUrl) {
+            frontendProviders[slug][provider.id] = canonicalUrl;
+          }
         }
       }
-    }
-    writeApiFile("providers.json", frontendProviders);
-  }
-
-  // --------------------------------------------------------------------------
-  // goldback-spot.json — generated from Turso goldback-g1 data; backward compat
-  // for api-health.js freshness check and denomination lookups.
-  // goldback-g1 is excluded from coinSlugs (not a user-facing product) but
-  // still exported here as a standalone reference file (STAK-498 Task 7).
-  // --------------------------------------------------------------------------
-  {
-    const gbRows = readLatestPerVendor(db, "goldback-g1", 2);
-    const gbVendors = vendorMap(gbRows);
-    const g1Raw = gbVendors?.goldback?.price;
-    if (g1Raw != null) {
-      const g1 = Math.round(g1Raw * 100) / 100;
-      writeApiFile("goldback-spot.json", {
-        date:        generatedAt.slice(0, 10),
-        scraped_at:  generatedAt,
-        g1_usd:      g1,
-        denominations: {
-          g1:  g1,
-          g5:  Math.round(g1 * 5  * 100) / 100,
-          g10: Math.round(g1 * 10 * 100) / 100,
-          g25: Math.round(g1 * 25 * 100) / 100,
-          g50: Math.round(g1 * 50 * 100) / 100,
-        },
-        source:     "goldback.com",
-        confidence: "high",
-      });
+      writeApiFile("providers.json", frontendProviders);
     }
 
-    // goldback-{YYYY}.json — daily history from DB (replaces file-based append)
-    const gbAllRows = db
-      .prepare(`
+    // --------------------------------------------------------------------------
+    // goldback-spot.json — generated from Turso goldback-g1 data; backward compat
+    // for api-health.js freshness check and denomination lookups.
+    // goldback-g1 is excluded from coinSlugs (not a user-facing product) but
+    // still exported here as a standalone reference file (STAK-498 Task 7).
+    // --------------------------------------------------------------------------
+    {
+      const gbRows = readLatestPerVendor(db, "goldback-g1", 2);
+      const gbVendors = vendorMap(gbRows);
+      const g1Raw = gbVendors?.goldback?.price;
+      if (g1Raw != null) {
+        const g1 = Math.round(g1Raw * 100) / 100;
+        writeApiFile("goldback-spot.json", {
+          date: generatedAt.slice(0, 10),
+          scraped_at: generatedAt,
+          g1_usd: g1,
+          denominations: {
+            g1: g1,
+            g5: Math.round(g1 * 5 * 100) / 100,
+            g10: Math.round(g1 * 10 * 100) / 100,
+            g25: Math.round(g1 * 25 * 100) / 100,
+            g50: Math.round(g1 * 50 * 100) / 100,
+          },
+          source: "goldback.com",
+          confidence: "high",
+        });
+      }
+
+      // goldback-{YYYY}.json — daily history from DB (replaces file-based append)
+      const gbAllRows = db
+        .prepare(
+          `
         SELECT scraped_at, price
         FROM price_snapshots
         WHERE coin_slug = 'goldback-g1' AND vendor = 'goldback' AND price IS NOT NULL
         ORDER BY scraped_at DESC
-      `)
-      .all();
+      `
+        )
+        .all();
 
-    // Aggregate: one entry per date (latest scrape wins)
-    const byDate = {};
-    for (const row of gbAllRows) {
-      const date = row.scraped_at.slice(0, 10);
-      if (!byDate[date]) {
-        byDate[date] = { date, g1_usd: Math.round(row.price * 100) / 100, scraped_at: row.scraped_at };
+      // Aggregate: one entry per date (latest scrape wins)
+      const byDate = {};
+      for (const row of gbAllRows) {
+        const date = row.scraped_at.slice(0, 10);
+        if (!byDate[date]) {
+          byDate[date] = {
+            date,
+            g1_usd: Math.round(row.price * 100) / 100,
+            scraped_at: row.scraped_at,
+          };
+        }
+      }
+
+      // Group by year and write each year file
+      const byYear = {};
+      for (const entry of Object.values(byDate)) {
+        const year = entry.date.slice(0, 4);
+        if (!byYear[year]) byYear[year] = [];
+        byYear[year].push(entry);
+      }
+      for (const [year, entries] of Object.entries(byYear)) {
+        entries.sort((a, b) => b.date.localeCompare(a.date)); // newest first
+        const histPath = join(DATA_DIR, `goldback-${year}.json`);
+        if (!DRY_RUN) {
+          writeFileSync(histPath, JSON.stringify(entries, null, 2) + "\n");
+          log(`Wrote ${histPath} (${entries.length} entries)`);
+        }
       }
     }
 
-    // Group by year and write each year file
-    const byYear = {};
-    for (const entry of Object.values(byDate)) {
-      const year = entry.date.slice(0, 4);
-      if (!byYear[year]) byYear[year] = [];
-      byYear[year].push(entry);
-    }
-    for (const [year, entries] of Object.entries(byYear)) {
-      entries.sort((a, b) => b.date.localeCompare(a.date)); // newest first
-      const histPath = join(DATA_DIR, `goldback-${year}.json`);
-      if (!DRY_RUN) {
-        writeFileSync(histPath, JSON.stringify(entries, null, 2) + "\n");
-        log(`Wrote ${histPath} (${entries.length} entries)`);
-      }
-    }
-  }
-
-  log(`API export complete: ${coinSlugs.length} coin(s), ${windowCount} window(s) in history`);
-
+    log(`API export complete: ${coinSlugs.length} coin(s), ${windowCount} window(s) in history`);
   } finally {
     db.close();
   }
@@ -981,7 +1043,10 @@ async function main() {
      */
     function formatSpotRow(row, source) {
       const metal = String(row.metal).charAt(0).toUpperCase() + String(row.metal).slice(1);
-      const ts = String(row.timestamp).replace("T", " ").replace("Z", "").replace(/\.\d+$/, "");
+      const ts = String(row.timestamp)
+        .replace("T", " ")
+        .replace("Z", "")
+        .replace(/\.\d+$/, "");
       return {
         spot: row.spot,
         metal,

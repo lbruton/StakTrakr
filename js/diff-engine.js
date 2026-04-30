@@ -17,7 +17,7 @@
 
 /* eslint-disable no-unused-vars */
 
-'use strict';
+"use strict";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -31,47 +31,49 @@
  */
 const DIFF_FIELDS = [
   // Core identity & physical
-  'name',
-  'metal',
-  'composition',
-  'weight',
-  'weightUnit',
-  'purity',
-  'qty',
-  'type',
-  'date',
-  'year',
+  "name",
+  "metal",
+  "composition",
+  "weight",
+  "weightUnit",
+  "purity",
+  "qty",
+  "type",
+  "date",
+  "year",
   // Financials
-  'price',
-  'purchasePrice',
-  'retailPrice',
-  'marketValue',
-  'purchaseLocation',
-  'spotPriceAtPurchase',
-  'premiumPerOz',
-  'totalPremium',
+  "price",
+  "purchasePrice",
+  "retailPrice",
+  "marketValue",
+  "purchaseLocation",
+  "spotPriceAtPurchase",
+  "premiumPerOz",
+  "totalPremium",
   // Storage & notes
-  'storageLocation',
-  'notes',
+  "storageLocation",
+  "notes",
   // Grading & certification
-  'grade',
-  'gradingAuthority',
-  'certNumber',
-  'serialNumber',
-  'pcgsNumber',
-  'pcgsVerified',
+  "grade",
+  "gradingAuthority",
+  "certNumber",
+  "serialNumber",
+  "pcgsNumber",
+  "pcgsVerified",
   // Catalog & collection
-  'numistaId',
-  'collectable',
-  'ignorePatternImages',
-  'currency',
+  "numistaId",
+  "collectable",
+  "ignorePatternImages",
+  "currency",
   // Images (STAK-493: these were missing, causing silent data loss during sync)
-  'obverseImageUrl',
-  'reverseImageUrl',
-  'obverseSharedImageId',
-  'reverseSharedImageId',
+  "obverseImageUrl",
+  "reverseImageUrl",
+  "obverseSharedImageId",
+  "reverseSharedImageId",
   // Disposition
-  'disposition',
+  "disposition",
+  // Metadata
+  "lastModified",
 ];
 
 // ---------------------------------------------------------------------------
@@ -89,12 +91,13 @@ const DIFF_FIELDS = [
  * @returns {boolean}
  */
 function _valuesEqual(a, b) {
-  const norm = (v) => (v === undefined || v === '' ? null : v);
-  a = norm(a); b = norm(b);
+  const norm = (v) => (v === undefined || v === "" ? null : v);
+  a = norm(a);
+  b = norm(b);
   if (a === b) return true;
   if (a === null || b === null) return false;
   // Deep compare for objects (e.g. disposition) — recursive stable stringify
-  if (typeof a === 'object' && typeof b === 'object') {
+  if (typeof a === "object" && typeof b === "object") {
     return _stableStringify(a) === _stableStringify(b);
   }
   return false;
@@ -107,11 +110,19 @@ function _valuesEqual(a, b) {
  * @returns {string}
  */
 function _stableStringify(val) {
-  if (val === null || val === undefined) return 'null';
-  if (typeof val !== 'object') return JSON.stringify(val);
-  if (Array.isArray(val)) return '[' + val.map(_stableStringify).join(',') + ']';
+  if (val === null || val === undefined) return "null";
+  if (typeof val !== "object") return JSON.stringify(val);
+  if (Array.isArray(val)) return "[" + val.map(_stableStringify).join(",") + "]";
   var keys = Object.keys(val).sort();
-  return '{' + keys.map(function(k) { return JSON.stringify(k) + ':' + _stableStringify(val[k]); }).join(',') + '}';
+  return (
+    "{" +
+    keys
+      .map(function (k) {
+        return JSON.stringify(k) + ":" + _stableStringify(val[k]);
+      })
+      .join(",") +
+    "}"
+  );
 }
 
 /**
@@ -121,13 +132,14 @@ function _stableStringify(val) {
  */
 function _settingsValuesEqual(a, b) {
   const norm = (v) => (v === undefined ? null : v);
-  a = norm(a); b = norm(b);
+  a = norm(a);
+  b = norm(b);
   if (a === b) return true;
   if (a === null || b === null) return false;
   // Deep compare for objects/arrays — sorted-key stringify for key-order independence
   // Arrays are order-sensitive (e.g. headerBtnOrder), so preserve their element order.
   // Only sort keys for plain objects to normalize key insertion order differences.
-  if (typeof a === 'object' && typeof b === 'object') {
+  if (typeof a === "object" && typeof b === "object") {
     const sortedStringify = (v) =>
       Array.isArray(v) ? JSON.stringify(v) : JSON.stringify(v, Object.keys(v).sort());
     return sortedStringify(a) === sortedStringify(b);
@@ -136,8 +148,10 @@ function _settingsValuesEqual(a, b) {
   if (typeof a !== typeof b) {
     const aType = typeof a;
     const bType = typeof b;
-    if ((aType === 'string' || aType === 'number' || aType === 'boolean') &&
-        (bType === 'string' || bType === 'number' || bType === 'boolean')) {
+    if (
+      (aType === "string" || aType === "number" || aType === "boolean") &&
+      (bType === "string" || bType === "number" || bType === "boolean")
+    ) {
       return String(a) === String(b);
     }
     return false;
@@ -150,7 +164,6 @@ function _settingsValuesEqual(a, b) {
 // ---------------------------------------------------------------------------
 
 const DiffEngine = {
-
   // -------------------------------------------------------------------------
   // computeItemKey
   // -------------------------------------------------------------------------
@@ -169,23 +182,102 @@ const DiffEngine = {
    * @returns {string}
    */
   computeItemKey(item) {
-    if (item == null) return '';
+    if (item == null) return "";
 
     // Primary: UUID (stable across export/import)
     if (item.uuid) return String(item.uuid);
 
     // Secondary: numeric serial assigned by loadInventory()
-    if (item.serial != null && item.serial !== '') {
+    if (item.serial != null && item.serial !== "") {
       return String(item.serial);
     }
 
     // Tertiary: numistaId composite key
     if (item.numistaId) {
-      return `${item.numistaId}|${item.name || ''}|${item.date || ''}`;
+      return `${item.numistaId}|${item.name || ""}|${item.date || ""}`;
     }
 
     // Last resort: name + date
-    return `${item.name || ''}|${item.date || ''}`;
+    return `${item.name || ""}|${item.date || ""}`;
+  },
+
+  // -------------------------------------------------------------------------
+  // enrichItemIdentities
+  // -------------------------------------------------------------------------
+
+  /**
+   * Copies local UUIDs onto incoming items that lack one, matching by serial
+   * (primary), numistaId+date (secondary), or name+date (tertiary). Mirrors
+   * the tier priority of computeItemKey(). Bridges the identity gap when vault
+   * backups or CSV exports lack the UUID assigned by loadInventory().
+   *
+   * @param {object[]} localItems  — items with UUIDs (from in-memory inventory)
+   * @param {object[]} incomingItems — items potentially missing UUIDs (from backup/import)
+   * @returns {number} count of items enriched
+   */
+  enrichItemIdentities(localItems, incomingItems) {
+    const local = Array.isArray(localItems) ? localItems : [];
+    const incoming = Array.isArray(incomingItems) ? incomingItems : [];
+
+    const uuidBySerial = new Map();
+    const uuidByNumista = new Map();
+    const uuidByNameDate = new Map();
+
+    for (let i = 0; i < local.length; i++) {
+      const item = local[i];
+      if (!item || !item.uuid) continue;
+      if (item.serial != null && item.serial !== "") {
+        uuidBySerial.set(String(item.serial), item.uuid);
+      }
+      if (item.numistaId) {
+        uuidByNumista.set(
+          item.numistaId + "|" + (item.name || "") + "|" + (item.date || ""),
+          item.uuid
+        );
+      }
+      const nameKey = (item.name || "") + "|" + (item.date || "");
+      if (!uuidByNameDate.has(nameKey)) {
+        uuidByNameDate.set(nameKey, item.uuid);
+      }
+    }
+
+    let enriched = 0;
+    const usedUUIDs = new Set();
+    for (let j = 0; j < incoming.length; j++) {
+      const inc = incoming[j];
+      if (inc.uuid) continue;
+
+      if (inc.serial != null && inc.serial !== "") {
+        const bySerial = uuidBySerial.get(String(inc.serial));
+        if (bySerial && !usedUUIDs.has(bySerial)) {
+          inc.uuid = bySerial;
+          usedUUIDs.add(bySerial);
+          enriched++;
+          continue;
+        }
+      }
+
+      if (inc.numistaId) {
+        const byNumista = uuidByNumista.get(
+          inc.numistaId + "|" + (inc.name || "") + "|" + (inc.date || "")
+        );
+        if (byNumista && !usedUUIDs.has(byNumista)) {
+          inc.uuid = byNumista;
+          usedUUIDs.add(byNumista);
+          enriched++;
+          continue;
+        }
+      }
+
+      const byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));
+      if (byNameDate && !usedUUIDs.has(byNameDate)) {
+        inc.uuid = byNameDate;
+        usedUUIDs.add(byNameDate);
+        enriched++;
+      }
+    }
+
+    return enriched;
   },
 
   // -------------------------------------------------------------------------
@@ -305,8 +397,9 @@ const DiffEngine = {
    * @returns {{ changed: Array<{key:string, localVal:*, remoteVal:*}>, unchanged: Array<{key:string, val:*}> }}
    */
   compareSettings(localSettings, remoteSettings) {
-    const local = localSettings != null && typeof localSettings === 'object' ? localSettings : {};
-    const remote = remoteSettings != null && typeof remoteSettings === 'object' ? remoteSettings : {};
+    const local = localSettings != null && typeof localSettings === "object" ? localSettings : {};
+    const remote =
+      remoteSettings != null && typeof remoteSettings === "object" ? remoteSettings : {};
 
     const allKeys = new Set([...Object.keys(local), ...Object.keys(remote)]);
     const changed = [];
@@ -366,7 +459,7 @@ const DiffEngine = {
           conflicts.push({
             itemKey: localChange.itemKey,
             field: localChange.field,
-            localVal: localChange.remoteVal,   // local's view of the new value
+            localVal: localChange.remoteVal, // local's view of the new value
             remoteVal: remoteChange.remoteVal, // remote's view of the new value
           });
           conflictedKeys.add(lookupKey);
@@ -424,13 +517,13 @@ const DiffEngine = {
 
     for (const change of selectedChanges) {
       switch (change.type) {
-        case 'add':
+        case "add":
           if (change.item != null) toAdd.push(change.item);
           break;
-        case 'delete':
+        case "delete":
           if (change.itemKey != null) toDelete.add(String(change.itemKey));
           break;
-        case 'modify':
+        case "modify":
           if (change.itemKey != null && change.field != null) {
             toModify.push(change);
           }

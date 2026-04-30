@@ -17,7 +17,8 @@
 
 services:
   tailscale:
-    image: tailscale/tailscale:latest
+    build:
+      context: tailscale
     container_name: tailscale-staktrakr
     hostname: stacktrckr-home
     restart: unless-stopped

@@ -6,29 +6,29 @@
   // =============================================================================
   // IMPORT/EXPORT FUNCTIONS
   // =============================================================================
-  
+
   // Import progress utilities
   const startImportProgress = (total) => {
     if (!elements.importProgress || !elements.importProgressText) return;
     elements.importProgress.max = total;
     elements.importProgress.value = 0;
-    elements.importProgress.style.display = 'block';
-    elements.importProgressText.style.display = 'block';
+    elements.importProgress.style.display = "block";
+    elements.importProgressText.style.display = "block";
     elements.importProgressText.textContent = `0 / ${total} items imported`;
   };
-  
+
   const updateImportProgress = (processed, imported, total) => {
     if (!elements.importProgress || !elements.importProgressText) return;
     elements.importProgress.value = processed;
     elements.importProgressText.textContent = `${imported} / ${total} items imported`;
   };
-  
+
   const endImportProgress = () => {
     if (!elements.importProgress || !elements.importProgressText) return;
-    elements.importProgress.style.display = 'none';
-    elements.importProgressText.style.display = 'none';
+    elements.importProgress.style.display = "none";
+    elements.importProgressText.style.display = "none";
   };
-  
+
   /**
    * Post-import cleanup — registers names, syncs catalog, saves, and re-renders.
    * @param {Array} newItems - Items that were added during import
@@ -36,32 +36,37 @@
    */
   const _postImportCleanup = (newItems, pendingTagsByUuid) => {
     // Apply deferred tags if needed (keyed by DiffEngine.computeItemKey)
-    if (pendingTagsByUuid && typeof addItemTag === 'function') {
+    if (pendingTagsByUuid && typeof addItemTag === "function") {
       for (const item of newItems) {
-        const itemKey = typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(item) : (item.uuid || item.serial || '');
+        const itemKey =
+          typeof DiffEngine !== "undefined"
+            ? DiffEngine.computeItemKey(item)
+            : item.uuid || item.serial || "";
         const tags = pendingTagsByUuid.get(itemKey);
         if (tags && tags.length) {
-          tags.forEach(tag => addItemTag(item.uuid, tag, false));
+          tags.forEach((tag) => addItemTag(item.uuid, tag, false));
         }
       }
-      if (typeof saveItemTags === 'function') saveItemTags();
+      if (typeof saveItemTags === "function") saveItemTags();
     }
-  
+
     // Register names
     for (const item of newItems) {
-      if (typeof registerName === 'function') registerName(item.name);
+      if (typeof registerName === "function") registerName(item.name);
     }
-  
+
     // Catalog sync, save, render
-    if (typeof catalogManager !== 'undefined' && catalogManager.syncInventory) {
+    if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
       inventory = catalogManager.syncInventory(inventory);
     }
+    if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+    if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by import");
     saveInventory();
     renderTable();
-    if (typeof renderActiveFilters === 'function') renderActiveFilters();
-    if (typeof updateStorageStats === 'function') updateStorageStats();
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    if (typeof updateStorageStats === "function") updateStorageStats();
   };
-  
+
   /**
    * Shared import review helper — DiffEngine + DiffModal pattern.
    * Used by importCsv, importJson, and importNumistaCsv to deduplicate
@@ -74,100 +79,114 @@
    */
   const showImportDiffReview = (parsedItems, sourceInfo, options, onComplete) => {
     options = options || {};
-  
+    if (typeof migrateLegacySilverbackWeightUnit === "function") {
+      migrateLegacySilverbackWeightUnit(parsedItems);
+    }
+
     // Guard: if DiffEngine or DiffModal unavailable, fall back to concat-all
-    if (typeof DiffEngine === 'undefined' || typeof DiffModal === 'undefined') {
-      debugLog('showImportDiffReview fallback', 'DiffEngine/DiffModal unavailable');
+    if (typeof DiffEngine === "undefined" || typeof DiffModal === "undefined") {
+      debugLog("showImportDiffReview fallback", "DiffEngine/DiffModal unavailable");
       inventory = inventory.concat(parsedItems);
       _postImportCleanup(parsedItems, options.pendingTagsByUuid);
-      if (typeof showToast === 'function') showToast('Import complete: ' + parsedItems.length + ' added');
+      if (typeof showToast === "function")
+        showToast("Import complete: " + parsedItems.length + " added");
       if (onComplete) onComplete({ added: parsedItems.length, modified: 0, deleted: 0 });
       return;
     }
-  
-    // STAK-380: Backward-compat for CSVs without UUID column.
-    // Local items have UUIDs (assigned by loadInventory), but old exports don't.
-    // Enrich imported items: copy local UUID when serials match, so DiffEngine
-    // can match them by the same key tier.
-    const localUuidBySerial = new Map();
-    const localUuidByNumista = new Map();
-    for (const item of inventory) {
-      if (item.serial && item.uuid) localUuidBySerial.set(String(item.serial), item.uuid);
-      // STAK-454: Also index by numistaId+date for CSV imports (which lack serial)
-      if (item.numistaId && item.uuid) {
-        localUuidByNumista.set(item.numistaId + '|' + (item.date || ''), item.uuid);
-      }
-    }
-    for (const item of parsedItems) {
-      if (!item.uuid && item.serial) {
-        const localUuid = localUuidBySerial.get(String(item.serial));
-        if (localUuid) item.uuid = localUuid;
-      }
-      // STAK-454: Fallback — match by numistaId+date when serial enrichment missed
-      if (!item.uuid && item.numistaId) {
-        const numistaUuid = localUuidByNumista.get(item.numistaId + '|' + (item.date || ''));
-        if (numistaUuid) item.uuid = numistaUuid;
-      }
-    }
-  
+
+    DiffEngine.enrichItemIdentities(inventory, parsedItems);
+
     const diffResult = DiffEngine.compareItems(inventory, parsedItems);
-  
+
     // Build settings diff if provided via options (JSON imports only)
     const settingsDiff = options.settingsDiff || null;
-  
+
     // No changes? Inform user
-    const totalChanges = diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
+    const totalChanges =
+      diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
     if (totalChanges === 0 && !settingsDiff) {
-      if (typeof showToast === 'function') showToast('No changes detected \u2014 inventory is up to date');
+      if (typeof showToast === "function")
+        showToast("No changes detected \u2014 inventory is up to date");
       return;
     }
-  
+
     // Compute count header values for DiffModal (STAK-374)
-    const _backupCount = parsedItems.length + (options.validationResult ? (options.validationResult.skippedCount || 0) : 0);
-    const _localCount = (typeof inventory !== 'undefined' && Array.isArray(inventory)) ? inventory.length : 0;
-  
+    const _backupCount =
+      parsedItems.length +
+      (options.validationResult ? options.validationResult.skippedCount || 0 : 0);
+    const _localCount =
+      typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory.length : 0;
+
     // Cross-domain origin warning (STAK-374): warn when importing from a different domain
-    const _parsedOrigin = options.exportMeta && options.exportMeta.exportOrigin ? options.exportMeta.exportOrigin : null;
-    const _currentOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
-    if (_parsedOrigin && _currentOrigin && _parsedOrigin !== _currentOrigin && typeof showToast === 'function') {
-      const _safeFrom = typeof sanitizeHtml === 'function' ? sanitizeHtml(_parsedOrigin) : _parsedOrigin;
-      showToast('\u26A0 This backup is from a different domain (' + _safeFrom + '). Check item counts carefully.');
+    const _parsedOrigin =
+      options.exportMeta && options.exportMeta.exportOrigin
+        ? options.exportMeta.exportOrigin
+        : null;
+    const _currentOrigin =
+      typeof window !== "undefined" && window.location ? window.location.origin : null;
+    if (
+      _parsedOrigin &&
+      _currentOrigin &&
+      _parsedOrigin !== _currentOrigin &&
+      typeof showToast === "function"
+    ) {
+      const _safeFrom =
+        typeof sanitizeHtml === "function" ? sanitizeHtml(_parsedOrigin) : _parsedOrigin;
+      showToast(
+        "\u26A0 This backup is from a different domain (" +
+          _safeFrom +
+          "). Check item counts carefully."
+      );
     }
-  
+
     DiffModal.show({
       source: sourceInfo,
       diff: diffResult,
       settingsDiff: settingsDiff,
       backupCount: _backupCount,
       localCount: _localCount,
-      onApply: function(selectedChanges) {
+      onApply: function (selectedChanges) {
         if (!selectedChanges || selectedChanges.length === 0) return;
-  
+
         inventory = DiffEngine.applySelectedChanges(inventory, selectedChanges);
-  
+
         // Apply deferred tags for accepted changes (add + modify).
         // Look up by DiffEngine.computeItemKey to match the key used at build time.
-        if (options.pendingTagsByUuid && typeof addItemTag === 'function') {
-          const tagEligible = selectedChanges.filter(function(c) { return c.type === 'add' || c.type === 'modify'; });
+        if (options.pendingTagsByUuid && typeof addItemTag === "function") {
+          const tagEligible = selectedChanges.filter(function (c) {
+            return c.type === "add" || c.type === "modify";
+          });
           for (const change of tagEligible) {
             if (change.item && change.item.uuid) {
-              const tagKey = typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(change.item) : (change.item.uuid || change.item.serial || '');
+              const tagKey =
+                typeof DiffEngine !== "undefined"
+                  ? DiffEngine.computeItemKey(change.item)
+                  : change.item.uuid || change.item.serial || "";
               const tags = options.pendingTagsByUuid.get(tagKey);
               if (tags && tags.length) {
-                tags.forEach(function(tag) { addItemTag(change.item.uuid, tag, false); });
+                tags.forEach(function (tag) {
+                  addItemTag(change.item.uuid, tag, false);
+                });
               }
             }
           }
-          if (typeof saveItemTags === 'function') saveItemTags();
+          if (typeof saveItemTags === "function") saveItemTags();
         }
-  
+
         // Apply settings changes if present
         if (settingsDiff && settingsDiff.changed && settingsDiff.changed.length > 0) {
           // Raw-string settings stored via localStorage.setItem, not JSON-encoded
           const _rawKeys = new Set([
-            'appTheme', 'tableImageSides', 'tableImagesEnabled',
-            'chipMinCount', 'chipMaxCount', 'settingsItemsPerPage',
-            'defaultSortColumn', 'defaultSortDir', 'featureFlags', 'inlineChipConfig'
+            "appTheme",
+            "tableImageSides",
+            "tableImagesEnabled",
+            "chipMinCount",
+            "chipMaxCount",
+            "settingsItemsPerPage",
+            "defaultSortColumn",
+            "defaultSortDir",
+            "featureFlags",
+            "inlineChipConfig",
           ]);
           for (const sc of settingsDiff.changed) {
             if (_rawKeys.has(sc.key)) {
@@ -177,37 +196,54 @@
             }
           }
         }
-  
+
         _postImportCleanup(
-          selectedChanges.filter(function(c) { return c.type === 'add'; }).map(function(c) { return c.item; }).filter(Boolean),
-          null  // tags already handled above
+          selectedChanges
+            .filter(function (c) {
+              return c.type === "add";
+            })
+            .map(function (c) {
+              return c.item;
+            })
+            .filter(Boolean),
+          null // tags already handled above
         );
-  
+
         // Toast summary
-        const addCount = selectedChanges.filter(function(c) { return c.type === 'add'; }).length;
-        const modCount = selectedChanges.filter(function(c) { return c.type === 'modify'; }).length;
-        const delCount = selectedChanges.filter(function(c) { return c.type === 'delete'; }).length;
+        const addCount = selectedChanges.filter(function (c) {
+          return c.type === "add";
+        }).length;
+        const modCount = selectedChanges.filter(function (c) {
+          return c.type === "modify";
+        }).length;
+        const delCount = selectedChanges.filter(function (c) {
+          return c.type === "delete";
+        }).length;
         const parts = [];
-        if (addCount > 0) parts.push(addCount + ' added');
-        if (modCount > 0) parts.push(modCount + ' updated');
-        if (delCount > 0) parts.push(delCount + ' removed');
-        if (typeof showToast === 'function') {
-          showToast('Import complete: ' + (parts.length > 0 ? parts.join(', ') : 'no changes applied'));
+        if (addCount > 0) parts.push(addCount + " added");
+        if (modCount > 0) parts.push(modCount + " updated");
+        if (delCount > 0) parts.push(delCount + " removed");
+        if (typeof showToast === "function") {
+          showToast(
+            "Import complete: " + (parts.length > 0 ? parts.join(", ") : "no changes applied")
+          );
         }
-  
-  
+
         if (onComplete) onComplete({ added: addCount, modified: modCount, deleted: delCount });
-  
-        if (localStorage.getItem('staktrakr.debug') && typeof window.showDebugModal === 'function') {
+
+        if (
+          localStorage.getItem("staktrakr.debug") &&
+          typeof window.showDebugModal === "function"
+        ) {
           showDebugModal();
         }
       },
-      onCancel: function() {
-        debugLog('Import cancelled by user');
-      }
+      onCancel: function () {
+        debugLog("Import cancelled by user");
+      },
     });
   };
-  
+
   /**
    * Imports inventory data from CSV file with comprehensive validation and error handling
    *
@@ -215,95 +251,110 @@
    * @param {boolean} [override=false] - Replace existing inventory instead of merging
    */
   const importCsv = (file, override = false) => {
-    if (typeof Papa === 'undefined') {
-      appAlert('CSV library (PapaParse) failed to load. Please check your internet connection and reload the page.');
+    if (typeof Papa === "undefined") {
+      appAlert(
+        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
+      );
       return;
     }
     try {
-      debugLog('importCsv start', file.name);
+      debugLog("importCsv start", file.name);
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        comments: '#',
-        complete: function(results) {
+        comments: "#",
+        complete: function (results) {
           let imported = [];
           const totalRows = results.data.length;
           startImportProgress(totalRows);
           let processed = 0;
           let importedCount = 0;
-  
-          const supportedMetals = ['Silver', 'Gold', 'Platinum', 'Palladium'];
+
+          const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
           const skippedNonPM = [];
           const pendingTagsByUuid = new Map();
-  
+          const pendingRemovedTagsByUuid = new Map();
+
           for (const row of results.data) {
             processed++;
-            debugLog('importCsv row', processed, JSON.stringify(row));
-            const compositionRaw = row['Composition'] || row['Metal'] || 'Silver';
+            debugLog("importCsv row", processed, JSON.stringify(row));
+            const compositionRaw = row["Composition"] || row["Metal"] || "Silver";
             const composition = getCompositionFirstWords(compositionRaw);
             const metal = parseNumistaMetal(composition);
-  
+
             // Skip non-precious-metal items
             if (!supportedMetals.includes(metal)) {
-              const rowName = row['Name'] || row['name'] || `Row ${processed}`;
+              const rowName = row["Name"] || row["name"] || `Row ${processed}`;
               skippedNonPM.push(`${rowName} (${compositionRaw})`);
               updateImportProgress(processed, importedCount, totalRows);
               continue;
             }
-  
-            const name = row['Name'] || row['name'];
-            const qty = row['Qty'] || row['qty'] || 1;
-            const type = normalizeType(row['Type'] || row['type']);
-            const weight = row['Weight(oz)'] || row['weight'];
-            const weightUnit = row['Weight Unit'] || row['weightUnit'] || 'oz';
-            const priceStr = row['Purchase Price'] || row['price'];
-            let price = typeof priceStr === 'string'
-              ? parseFloat(priceStr.replace(/[^\d.-]+/g, ''))
-              : parseFloat(priceStr);
+
+            const name = row["Name"] || row["name"];
+            const qty = row["Qty"] || row["qty"] || 1;
+            const type = normalizeType(row["Type"] || row["type"]);
+            const weight = row["Weight(oz)"] || row["weight"];
+            const weightUnit = row["Weight Unit"] || row["weightUnit"] || "oz";
+            const priceStr = row["Purchase Price"] || row["price"];
+            let price =
+              typeof priceStr === "string"
+                ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
+                : parseFloat(priceStr);
             if (price < 0) price = 0;
-            const purchaseLocation = row['Purchase Location'] || '';
-            const storageLocation = row['Storage Location'] || '';
-            const notes = row['Notes'] || '';
-            const year = row['Year'] || row['year'] || row['issuedYear'] || '';
-            const grade = row['Grade'] || row['grade'] || '';
-            const gradingAuthority = row['Grading Authority'] || row['gradingAuthority'] || row['Authority'] || '';
-            const certNumber = (row['Cert #'] || row['certNumber'] || row['Cert Number'] || '').toString();
-            const date = parseDate(row['Date']);
-  
+            const purchaseLocation = row["Purchase Location"] || "";
+            const storageLocation = row["Storage Location"] || "";
+            const notes = row["Notes"] || "";
+            const year = row["Year"] || row["year"] || row["issuedYear"] || "";
+            const grade = row["Grade"] || row["grade"] || "";
+            const gradingAuthority =
+              row["Grading Authority"] || row["gradingAuthority"] || row["Authority"] || "";
+            const certNumber = (
+              row["Cert #"] ||
+              row["certNumber"] ||
+              row["Cert Number"] ||
+              ""
+            ).toString();
+            const date = parseDate(row["Date"]);
+
             // Parse retail price from CSV (backward-compatible with legacy columns)
-            const retailStr = row['Retail Price'] || row['Market Value'] || row['marketValue'] || '0';
-            const marketValue = typeof retailStr === 'string'
-              ? parseFloat(retailStr.replace(/[^\d.-]+/g, '')) || 0
-              : parseFloat(retailStr) || 0;
-  
+            const retailStr =
+              row["Retail Price"] || row["Market Value"] || row["marketValue"] || "0";
+            const marketValue =
+              typeof retailStr === "string"
+                ? parseFloat(retailStr.replace(/[^\d.-]+/g, "")) || 0
+                : parseFloat(retailStr) || 0;
+
             let spotPriceAtPurchase;
-            if (row['Spot Price ($/oz)']) {
-              const spotStr = row['Spot Price ($/oz)'].toString();
-              spotPriceAtPurchase = parseFloat(spotStr.replace(/[^0-9.-]+/g, ''));
-            } else if (row['spotPriceAtPurchase']) {
-              spotPriceAtPurchase = parseFloat(row['spotPriceAtPurchase']);
+            if (row["Spot Price ($/oz)"]) {
+              const spotStr = row["Spot Price ($/oz)"].toString();
+              spotPriceAtPurchase = parseFloat(spotStr.replace(/[^0-9.-]+/g, ""));
+            } else if (row["spotPriceAtPurchase"]) {
+              spotPriceAtPurchase = parseFloat(row["spotPriceAtPurchase"]);
             } else {
               spotPriceAtPurchase = 0;
             }
-  
+
             const premiumPerOz = 0;
             const totalPremium = 0;
-  
-            const numistaRaw = (row['N#'] || row['Numista #'] || row['numistaId'] || '').toString();
+
+            const numistaRaw = (row["N#"] || row["Numista #"] || row["numistaId"] || "").toString();
             const numistaMatch = numistaRaw.match(/\d+/);
-            const numistaId = numistaMatch ? numistaMatch[0] : '';
-            const pcgsNumber = (row['PCGS #'] || row['PCGS Number'] || row['pcgsNumber'] || '').toString().trim();
-            const purityRaw = row['Purity'] || row['Fineness'] || row['purity'] || '';
+            const numistaId = numistaMatch ? numistaMatch[0] : "";
+            const pcgsNumber = (row["PCGS #"] || row["PCGS Number"] || row["pcgsNumber"] || "")
+              .toString()
+              .trim();
+            const purityRaw = row["Purity"] || row["Fineness"] || row["purity"] || "";
             const purity = parseFloat(purityRaw) || 1.0;
-            const serialNumber = row['Serial Number'] || row['serialNumber'] || '';
-            const serial = row['Serial'] || row['serial'] || getNextSerial();
-            const uuid = row['UUID'] || row['uuid'] || '';
-            const csvTags = (row['Tags'] || row['tags'] || '').trim();
-            const obverseImageUrl = row['Obverse Image URL'] || row['obverseImageUrl'] || '';
-            const reverseImageUrl = row['Reverse Image URL'] || row['reverseImageUrl'] || '';
-  
+            const serialNumber = row["Serial Number"] || row["serialNumber"] || "";
+            const serial = row["Serial"] || row["serial"] || getNextSerial();
+            const uuid = row["UUID"] || row["uuid"] || "";
+            const csvTags = (row["Tags"] || row["tags"] || "").trim();
+            const csvRemovedTags = (row["removedTags"] || row["Removed Tags"] || "").trim();
+            const obverseImageUrl = row["Obverse Image URL"] || row["obverseImageUrl"] || "";
+            const reverseImageUrl = row["Reverse Image URL"] || row["reverseImageUrl"] || "";
+
             addCompositionOption(composition);
-  
+
             const item = sanitizeImportedItem({
               metal,
               composition,
@@ -332,124 +383,212 @@
               serial,
               uuid,
               obverseImageUrl,
-              reverseImageUrl
+              reverseImageUrl,
             });
-  
+
             imported.push(item);
-  
+
             // STAK-126 / STAK-424: Collect tags but defer persistence until import confirmed.
             // Key by DiffEngine.computeItemKey (uuid → serial → name|date) so legacy
             // CSV exports without UUIDs still match after serial→uuid enrichment.
             if (csvTags) {
-              const tagList = csvTags.split(';').map(t => t.trim()).filter(Boolean);
+              const tagList = csvTags
+                .split(";")
+                .map((t) => t.trim())
+                .filter(Boolean);
               if (tagList.length) {
-                const tagKey = typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(item) : (item.uuid || item.serial || '');
+                const tagKey =
+                  typeof DiffEngine !== "undefined"
+                    ? DiffEngine.computeItemKey(item)
+                    : item.uuid || item.serial || "";
                 if (tagKey) pendingTagsByUuid.set(tagKey, tagList);
               }
             }
-  
+
+            if (csvRemovedTags) {
+              const removedList = csvRemovedTags
+                .split(";")
+                .map((t) => t.trim())
+                .filter(Boolean);
+              if (removedList.length) {
+                const removedKey =
+                  typeof DiffEngine !== "undefined"
+                    ? DiffEngine.computeItemKey(item)
+                    : item.uuid || item.serial || "";
+                if (removedKey) pendingRemovedTagsByUuid.set(removedKey, removedList);
+              }
+            }
+
             importedCount++;
             updateImportProgress(processed, importedCount, totalRows);
           }
-  
+
           endImportProgress();
-  
+
           // Report skipped non-precious-metal items
           if (skippedNonPM.length > 0) {
-            if (typeof showAppAlert === 'function') {
+            if (typeof showAppAlert === "function") {
               showAppAlert(
-                `${skippedNonPM.length} item(s) skipped: no precious metal content\n\n${skippedNonPM.join('\n')}`,
-                'CSV Import',
+                `${skippedNonPM.length} item(s) skipped: no precious metal content\n\n${skippedNonPM.join("\n")}`,
+                "CSV Import"
               );
             }
           }
-  
+
           if (imported.length === 0) {
-            if (typeof showAppAlert === 'function') showAppAlert('No items to import.', 'CSV Import');
+            if (typeof showAppAlert === "function")
+              showAppAlert("No items to import.", "CSV Import");
             return;
           }
-  
+
           // Pre-validation — surface skipped items before DiffModal opens
           let _validationResult = null;
-          if (typeof buildImportValidationResult === 'function') {
+          if (typeof buildImportValidationResult === "function") {
             _validationResult = buildImportValidationResult(imported, skippedNonPM);
             if (_validationResult.valid.length === 0) {
-              const _firstReason = _validationResult.invalid.length > 0 ? _validationResult.invalid[0].reasons[0] : 'Unknown error';
-              if (typeof showToast === 'function') showToast('No items could be imported: ' + _firstReason);
+              const _firstReason =
+                _validationResult.invalid.length > 0
+                  ? _validationResult.invalid[0].reasons[0]
+                  : "Unknown error";
+              if (typeof showToast === "function")
+                showToast("No items could be imported: " + _firstReason);
               return;
             }
             if (_validationResult.skippedCount > 0) {
-              if (typeof showToast === 'function') showToast(_validationResult.skippedCount + ' item(s) could not be imported and were skipped.');
+              if (typeof showToast === "function")
+                showToast(
+                  _validationResult.skippedCount +
+                    " item(s) could not be imported and were skipped."
+                );
             }
             imported = _validationResult.valid;
           }
-  
+
           // --- Override path: skip DiffEngine, import all items directly ---
           if (override) {
+            if (typeof migrateLegacySilverbackWeightUnit === "function") {
+              migrateLegacySilverbackWeightUnit(imported);
+            }
             inventory = imported;
-  
+
             // Synchronize all items with catalog manager
-            if (typeof catalogManager !== 'undefined' && catalogManager.syncInventory) {
+            if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
               inventory = catalogManager.syncInventory(inventory);
             }
-  
+
             for (const item of imported) {
-              if (typeof registerName === 'function') {
+              if (typeof registerName === "function") {
                 registerName(item.name);
               }
             }
-  
+
+            if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+            if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by csvImport");
             saveInventory();
             // STAK-424: Apply deferred tags after override confirmation
-            if (pendingTagsByUuid.size > 0 && typeof addItemTag === 'function') {
+            if (pendingTagsByUuid.size > 0 && typeof addItemTag === "function") {
               for (const item of imported) {
-                const itemKey = typeof DiffEngine !== 'undefined' ? DiffEngine.computeItemKey(item) : (item.uuid || item.serial || '');
+                const itemKey =
+                  typeof DiffEngine !== "undefined"
+                    ? DiffEngine.computeItemKey(item)
+                    : item.uuid || item.serial || "";
                 const tags = pendingTagsByUuid.get(itemKey);
                 if (tags && tags.length) {
-                  tags.forEach(tag => addItemTag(item.uuid, tag, false));
+                  tags.forEach((tag) => addItemTag(item.uuid, tag, false));
                 }
               }
-              if (typeof saveItemTags === 'function') saveItemTags();
+              if (typeof saveItemTags === "function") saveItemTags();
+            }
+            // Restore removed tags from CSV import (STAK-556)
+            if (pendingRemovedTagsByUuid.size > 0 && typeof saveDataSync === "function") {
+              const removedMap =
+                typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
+              for (const item of imported) {
+                const key =
+                  typeof DiffEngine !== "undefined"
+                    ? DiffEngine.computeItemKey(item)
+                    : item.uuid || item.serial || "";
+                const removedTags = pendingRemovedTagsByUuid.get(key);
+                if (removedTags && removedTags.length) {
+                  removedMap[item.uuid] = removedTags;
+                }
+              }
+              saveDataSync("itemRemovedTags", removedMap);
             }
             // STAK-421: Cancel the debounced sync push that saveInventory() just
             // scheduled — override imports replace all local data, so pushing
             // immediately would overwrite the remote vault before the user can review.
-            if (typeof scheduleSyncPush === 'function' && typeof scheduleSyncPush.cancel === 'function') {
+            if (
+              typeof scheduleSyncPush === "function" &&
+              typeof scheduleSyncPush.cancel === "function"
+            ) {
               scheduleSyncPush.cancel();
             }
             renderTable();
-            if (typeof renderActiveFilters === 'function') {
+            if (typeof renderActiveFilters === "function") {
               renderActiveFilters();
             }
-            if (typeof updateStorageStats === 'function') {
+            if (typeof updateStorageStats === "function") {
               updateStorageStats();
             }
-            debugLog('importCsv override complete', imported.length, 'items replaced');
-            if (localStorage.getItem('staktrakr.debug') && typeof window.showDebugModal === 'function') {
+            debugLog("importCsv override complete", imported.length, "items replaced");
+            if (
+              localStorage.getItem("staktrakr.debug") &&
+              typeof window.showDebugModal === "function"
+            ) {
               showDebugModal();
             }
             return;
           }
-  
+
           // --- Merge path: use shared DiffEngine + DiffModal helper ---
-          showImportDiffReview(imported, { type: 'csv', label: file.name }, {
-            validationResult: _validationResult,
-            pendingTagsByUuid: pendingTagsByUuid,
-          }, function(summary) {
-            debugLog('importCsv DiffEngine complete', summary.added, 'added', summary.modified, 'modified', summary.deleted, 'deleted');
-          });
+          showImportDiffReview(
+            imported,
+            { type: "csv", label: file.name },
+            {
+              validationResult: _validationResult,
+              pendingTagsByUuid: pendingTagsByUuid,
+            },
+            function (summary) {
+              // Restore removed tags from CSV import (STAK-556)
+              if (pendingRemovedTagsByUuid.size > 0 && typeof saveDataSync === "function") {
+                const removedMap =
+                  typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
+                for (const item of imported) {
+                  const key =
+                    typeof DiffEngine !== "undefined"
+                      ? DiffEngine.computeItemKey(item)
+                      : item.uuid || item.serial || "";
+                  const removedTags = pendingRemovedTagsByUuid.get(key);
+                  if (removedTags && removedTags.length) {
+                    removedMap[item.uuid] = removedTags;
+                  }
+                }
+                saveDataSync("itemRemovedTags", removedMap);
+              }
+              debugLog(
+                "importCsv DiffEngine complete",
+                summary.added,
+                "added",
+                summary.modified,
+                "modified",
+                summary.deleted,
+                "deleted"
+              );
+            }
+          );
         },
-        error: function(error) {
+        error: function (error) {
           endImportProgress();
-          handleError(error, 'CSV import');
-        }
+          handleError(error, "CSV import");
+        },
       });
     } catch (error) {
       endImportProgress();
-      handleError(error, 'CSV import initialization');
+      handleError(error, "CSV import initialization");
     }
   };
-  
+
   /**
    * Imports inventory data from a Numista CSV export
    *
@@ -457,145 +596,168 @@
    * @param {boolean} [override=false] - Replace existing inventory instead of merging
    */
   const importNumistaCsv = (file, override = false) => {
-    if (typeof Papa === 'undefined') {
-      appAlert('CSV library (PapaParse) failed to load. Please check your internet connection and reload the page.');
+    if (typeof Papa === "undefined") {
+      appAlert(
+        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
+      );
       return;
     }
     try {
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = function (e) {
         try {
           const csvText = e.target.result;
           const results = Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
-            comments: '#',
+            comments: "#",
             transformHeader: (h) => h.trim(), // Handle Numista headers with trailing spaces
           });
           const rawTable = results.data;
           const imported = [];
-          const supportedMetals = ['Silver', 'Gold', 'Platinum', 'Palladium'];
+          const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
           const skippedNonPM = [];
           const totalRows = rawTable.length;
           startImportProgress(totalRows);
           let processed = 0;
           let importedCount = 0;
-  
+
           const getValue = (row, keys) => {
             for (const key of keys) {
-              const foundKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
+              const foundKey = Object.keys(row).find((k) => k.toLowerCase() === key.toLowerCase());
               if (foundKey) return row[foundKey];
             }
             return "";
           };
-  
+
           for (const row of rawTable) {
             processed++;
-  
-            const numistaRaw = (getValue(row, ['N# number', 'N# number (with link)', 'Numista #', 'Numista number', 'Numista id']) || '').toString();
+
+            const numistaRaw = (
+              getValue(row, [
+                "N# number",
+                "N# number (with link)",
+                "Numista #",
+                "Numista number",
+                "Numista id",
+              ]) || ""
+            ).toString();
             const numistaMatch = numistaRaw.match(/\d+/);
-            const numistaId = numistaMatch ? numistaMatch[0] : '';
-            const title = (getValue(row, ['Title', 'Name']) || '').trim();
-            const year = (getValue(row, ['Year', 'Date']) || '').trim();
+            const numistaId = numistaMatch ? numistaMatch[0] : "";
+            const title = (getValue(row, ["Title", "Name"]) || "").trim();
+            const year = (getValue(row, ["Year", "Date"]) || "").trim();
             const name = year.length >= 4 ? `${title} ${year}`.trim() : title;
-            const issuedYear = year.length >= 4 ? year : '';
-            const compositionRaw = getValue(row, ['Composition', 'Metal']) || '';
+            const issuedYear = year.length >= 4 ? year : "";
+            const compositionRaw = getValue(row, ["Composition", "Metal"]) || "";
             const composition = getCompositionFirstWords(compositionRaw);
-  
+
             addCompositionOption(composition);
-  
+
             let metal = parseNumistaMetal(composition);
-  
+
             // Skip non-precious-metal items (Paper, Alloy, Copper, Nickel, etc.)
             if (!supportedMetals.includes(metal)) {
-              skippedNonPM.push(`${name || `Row ${processed}`} (${compositionRaw || 'unknown'})`);
+              skippedNonPM.push(`${name || `Row ${processed}`} (${compositionRaw || "unknown"})`);
               updateImportProgress(processed, importedCount, totalRows);
               continue;
             }
-  
-            const qty = parseInt(getValue(row, ['Quantity', 'Qty', 'Quantity owned']) || 1, 10);
-  
-            let type = normalizeType(mapNumistaType(getValue(row, ['Type']) || ''));
-  
-            const weightCols = Object.keys(row).filter(k => { const key = k.toLowerCase(); return key.includes('weight') || key.includes('mass'); });
+
+            const qty = parseInt(getValue(row, ["Quantity", "Qty", "Quantity owned"]) || 1, 10);
+
+            let type = normalizeType(mapNumistaType(getValue(row, ["Type"]) || ""));
+
+            const weightCols = Object.keys(row).filter((k) => {
+              const key = k.toLowerCase();
+              return key.includes("weight") || key.includes("mass");
+            });
             let weightGrams = 0;
             for (const col of weightCols) {
-              const val = parseFloat(String(row[col]).replace(/[^0-9.]/g, ''));
+              const val = parseFloat(String(row[col]).replace(/[^0-9.]/g, ""));
               if (!isNaN(val)) weightGrams = Math.max(weightGrams, val);
             }
             const weight = parseFloat(gramsToOzt(weightGrams).toFixed(6));
-  
-            const priceKey = Object.keys(row).find(k => /^(buying price|purchase price|price paid)/i.test(k));
-            const estimateKey = Object.keys(row).find(k => /^estimate/i.test(k));
+
+            const priceKey = Object.keys(row).find((k) =>
+              /^(buying price|purchase price|price paid)/i.test(k)
+            );
+            const estimateKey = Object.keys(row).find((k) => /^estimate/i.test(k));
             const parsePriceField = (key) => {
-              const rawVal = String(row[key] ?? '').trim();
+              const rawVal = String(row[key] ?? "").trim();
               const valueCurrency = detectCurrency(rawVal);
               const headerCurrencyMatch = key.match(/\(([^)]+)\)/);
               const headerCurrency = headerCurrencyMatch ? headerCurrencyMatch[1] : displayCurrency;
               const currency = valueCurrency || headerCurrency;
-              const amount = parseFloat(rawVal.replace(/[^0-9.\-]/g, ''));
+              const amount = parseFloat(rawVal.replace(/[^0-9.\-]/g, ""));
               return isNaN(amount) ? 0 : convertToUsd(amount, currency);
             };
-            
+
             let purchasePrice = 0;
             let marketValue = 0;
-            
+
             // Set purchase price from buying price
             if (priceKey) {
               purchasePrice = parsePriceField(priceKey);
             }
-            
+
             // Set market value from estimate price
             if (estimateKey) {
               marketValue = parsePriceField(estimateKey);
             }
-            
+
             // If no market value but we have buying price, use buying price for both
             if (marketValue === 0 && purchasePrice > 0) {
               marketValue = purchasePrice;
             }
-            
+
             // If no purchase price but we have estimate, use estimate for both
             if (purchasePrice === 0 && marketValue > 0) {
               purchasePrice = marketValue;
             }
-  
-            const purchaseLocRaw = getValue(row, ['Acquisition place', 'Acquired from', 'Purchase place']);
-            const purchaseLocation = purchaseLocRaw && purchaseLocRaw.trim() ? purchaseLocRaw.trim() : '—';
-            const storageLocRaw = getValue(row, ['Storage location', 'Stored at', 'Storage place']);
-            const storageLocation = storageLocRaw && storageLocRaw.trim() ? storageLocRaw.trim() : '—';
-  
-            const dateStrRaw = getValue(row, ['Acquisition date', 'Date acquired', 'Date']);
-            const dateStr = dateStrRaw && dateStrRaw.trim() ? dateStrRaw.trim() : '—';
+
+            const purchaseLocRaw = getValue(row, [
+              "Acquisition place",
+              "Acquired from",
+              "Purchase place",
+            ]);
+            const purchaseLocation =
+              purchaseLocRaw && purchaseLocRaw.trim() ? purchaseLocRaw.trim() : "—";
+            const storageLocRaw = getValue(row, ["Storage location", "Stored at", "Storage place"]);
+            const storageLocation =
+              storageLocRaw && storageLocRaw.trim() ? storageLocRaw.trim() : "—";
+
+            const dateStrRaw = getValue(row, ["Acquisition date", "Date acquired", "Date"]);
+            const dateStr = dateStrRaw && dateStrRaw.trim() ? dateStrRaw.trim() : "—";
             const date = parseDate(dateStr);
-  
-            const baseNote = (getValue(row, ['Note', 'Notes']) || '').trim();
-            const privateComment = (getValue(row, ['Private comment']) || '').trim();
-            const publicComment = (getValue(row, ['Public comment']) || '').trim();
-            const otherComment = (getValue(row, ['Comment']) || '').trim();
+
+            const baseNote = (getValue(row, ["Note", "Notes"]) || "").trim();
+            const privateComment = (getValue(row, ["Private comment"]) || "").trim();
+            const publicComment = (getValue(row, ["Public comment"]) || "").trim();
+            const otherComment = (getValue(row, ["Comment"]) || "").trim();
             const noteParts = [];
             if (baseNote) noteParts.push(baseNote);
             if (privateComment) noteParts.push(`Private Comment: ${privateComment}`);
             if (publicComment) noteParts.push(`Public Comment: ${publicComment}`);
             if (otherComment) noteParts.push(`Comment: ${otherComment}`);
-            const notes = noteParts.join('\n');
-  
+            const notes = noteParts.join("\n");
+
             const markdownLines = Object.entries(row)
               .filter(([, v]) => v && String(v).trim())
               .map(([k, v]) => `- **${k.trim()}**: ${String(v).trim()}`);
             const markdownNote = markdownLines.length
-              ? `### Numista Import Data\n${markdownLines.join('\n')}`
-              : '';
+              ? `### Numista Import Data\n${markdownLines.join("\n")}`
+              : "";
             const finalNotes = markdownNote
-              ? notes ? `${notes}\n\n${markdownNote}` : markdownNote
+              ? notes
+                ? `${notes}\n\n${markdownNote}`
+                : markdownNote
               : notes;
-  
+
             const spotPriceAtPurchase = 0;
             const premiumPerOz = 0;
             const totalPremium = 0;
             const serial = getNextSerial();
             const uuid = generateUUID();
-  
+
             const item = sanitizeImportedItem({
               metal,
               composition,
@@ -615,84 +777,99 @@
               totalPremium,
               numistaId,
               year: issuedYear,
-              grade: '',
-              gradingAuthority: '',
-              certNumber: '',
-              pcgsNumber: '',
+              grade: "",
+              gradingAuthority: "",
+              certNumber: "",
+              pcgsNumber: "",
               serial,
-              uuid
+              uuid,
             });
-  
+
             imported.push(item);
             importedCount++;
             updateImportProgress(processed, importedCount, totalRows);
           }
-  
+
           endImportProgress();
-  
+
           // Report skipped non-precious-metal items
           if (skippedNonPM.length > 0) {
-            if (typeof showAppAlert === 'function') {
+            if (typeof showAppAlert === "function") {
               showAppAlert(
-                `${skippedNonPM.length} item(s) skipped: no precious metal content\n\n${skippedNonPM.join('\n')}`,
-                'Numista Import',
+                `${skippedNonPM.length} item(s) skipped: no precious metal content\n\n${skippedNonPM.join("\n")}`,
+                "Numista Import"
               );
             }
           }
-  
+
           if (imported.length === 0) {
-            if (typeof showAppAlert === 'function') showAppAlert('No items to import.', 'Numista Import');
+            if (typeof showAppAlert === "function")
+              showAppAlert("No items to import.", "Numista Import");
             return;
           }
-  
+
           // --- Override path: skip DiffEngine, import all items directly ---
           if (override) {
             inventory = imported;
-  
+
             for (const item of imported) {
-              if (typeof registerName === 'function') registerName(item.name);
+              if (typeof registerName === "function") registerName(item.name);
             }
-  
-            if (typeof catalogManager !== 'undefined' && catalogManager.syncInventory) {
+
+            if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
               inventory = catalogManager.syncInventory(inventory);
             }
+            if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+            if (typeof debugLog === "function")
+              debugLog("inventoryRecovery: cleared by numistaImport");
             saveInventory();
             // STAK-421: Cancel debounced sync push after override import
-            if (typeof scheduleSyncPush === 'function' && typeof scheduleSyncPush.cancel === 'function') {
+            if (
+              typeof scheduleSyncPush === "function" &&
+              typeof scheduleSyncPush.cancel === "function"
+            ) {
               scheduleSyncPush.cancel();
             }
             renderTable();
-            if (typeof renderActiveFilters === 'function') renderActiveFilters();
-            if (typeof updateStorageStats === 'function') updateStorageStats();
-            debugLog('importNumistaCsv override complete', imported.length, 'items replaced');
+            if (typeof renderActiveFilters === "function") renderActiveFilters();
+            if (typeof updateStorageStats === "function") updateStorageStats();
+            debugLog("importNumistaCsv override complete", imported.length, "items replaced");
             return;
           }
-  
+
           // --- Merge path: use shared DiffEngine + DiffModal helper ---
-          showImportDiffReview(imported, { type: 'csv', label: file.name }, {}, function(summary) {
-            debugLog('importNumistaCsv DiffEngine complete', summary.added, 'added', summary.modified, 'modified', summary.deleted, 'deleted');
+          showImportDiffReview(imported, { type: "csv", label: file.name }, {}, function (summary) {
+            debugLog(
+              "importNumistaCsv DiffEngine complete",
+              summary.added,
+              "added",
+              summary.modified,
+              "modified",
+              summary.deleted,
+              "deleted"
+            );
           });
         } catch (error) {
           endImportProgress();
-          handleError(error, 'Numista CSV import');
+          handleError(error, "Numista CSV import");
         }
       };
       reader.onerror = (error) => {
         endImportProgress();
-        handleError(error, 'Numista CSV import');
+        handleError(error, "Numista CSV import");
       };
       reader.readAsText(file);
     } catch (error) {
       endImportProgress();
-      handleError(error, 'Numista CSV import initialization');
+      handleError(error, "Numista CSV import initialization");
     }
   };
-  
+
   /**
    * Exports inventory using Numista-compatible column layout
    */
   const exportNumistaCsv = () => {
-    const timestamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const headers = [
       "N# number",
       "Title",
@@ -710,66 +887,66 @@
       "Public comment",
       "Comment",
     ];
-  
+
     const sortedInventory = sortInventoryByDateNewestFirst();
     const rows = [];
-  
+
     for (const item of sortedInventory) {
-      const year = item.year || item.issuedYear || '';
-      let title = item.name || '';
+      const year = item.year || item.issuedYear || "";
+      let title = item.name || "";
       if (year) {
-        const yearRegex = new RegExp(`\\s*${String(year).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
-        title = title.replace(yearRegex, '').trim();
+        const yearRegex = new RegExp(
+          `\\s*${String(year).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`
+        );
+        title = title.replace(yearRegex, "").trim();
       }
-  
-      const weightGrams = parseFloat(item.weight)
-        ? parseFloat(item.weight) * 31.1034768
-        : 0;
+
+      const weightGrams = parseFloat(item.weight) ? parseFloat(item.weight) * 31.1034768 : 0;
       const purchasePrice = item.purchasePrice ?? item.price;
-  
-      let baseNote = '';
-      let privateComment = '';
-      let publicComment = '';
-      let otherComment = '';
+
+      let baseNote = "";
+      let privateComment = "";
+      let publicComment = "";
+      let otherComment = "";
       if (item.notes) {
         const lines = String(item.notes).split(/\n/);
         for (const line of lines) {
           if (/^\s*Private Comment:/i.test(line)) {
-            privateComment = line.replace(/^\s*Private Comment:\s*/i, '').trim();
+            privateComment = line.replace(/^\s*Private Comment:\s*/i, "").trim();
           } else if (/^\s*Public Comment:/i.test(line)) {
-            publicComment = line.replace(/^\s*Public Comment:\s*/i, '').trim();
+            publicComment = line.replace(/^\s*Public Comment:\s*/i, "").trim();
           } else if (/^\s*Comment:/i.test(line)) {
-            otherComment = line.replace(/^\s*Comment:\s*/i, '').trim();
+            otherComment = line.replace(/^\s*Comment:\s*/i, "").trim();
           } else {
             baseNote = baseNote ? `${baseNote}\n${line}` : line;
           }
         }
       }
-  
+
       rows.push([
-        item.numistaId || '',
+        item.numistaId || "",
         title,
         year,
-        item.metal || '',
-        item.qty || '',
-        item.type || '',
-        weightGrams ? weightGrams.toFixed(2) : '',
-        purchasePrice != null ? Number(purchasePrice).toFixed(2) : '',
-        item.purchaseLocation || '',
-        item.storageLocation || '',
-        item.date || '',
+        item.metal || "",
+        item.qty || "",
+        item.type || "",
+        weightGrams ? weightGrams.toFixed(2) : "",
+        purchasePrice != null ? Number(purchasePrice).toFixed(2) : "",
+        item.purchaseLocation || "",
+        item.storageLocation || "",
+        item.date || "",
         baseNote,
         privateComment,
         publicComment,
         otherComment,
       ]);
     }
-  
+
     const csv = Papa.unparse([headers, ...rows]);
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-  
-    const a = document.createElement('a');
+
+    const a = document.createElement("a");
     a.href = url;
     a.download = `numista_export_${timestamp}.csv`;
     document.body.appendChild(a);
@@ -777,87 +954,122 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
-  
+
   /**
    * Exports current inventory to CSV format
    */
   const exportCsv = () => {
-    if (typeof Papa === 'undefined') {
-      appAlert('CSV library (PapaParse) failed to load. Please check your internet connection and reload the page.');
+    if (typeof Papa === "undefined") {
+      appAlert(
+        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
+      );
       return;
     }
-    debugLog('exportCsv start', inventory.length, 'items');
-    const timestamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    debugLog("exportCsv start", inventory.length, "items");
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const headers = [
-      "Date","Metal","Type","Name","Year","Qty","Weight(oz)","Weight Unit","Purity",
-      "Purchase Price","Melt Value","Retail Price","Gain/Loss",
-      "Purchase Location","Storage Location","N#","PCGS #","Grade","Grading Authority","Cert #","Serial Number","Notes","Tags","UUID",
-      "Obverse Image URL","Reverse Image URL",
-      "Disposition Type","Disposition Date","Disposition Amount","Realized Gain/Loss"
+      "Date",
+      "Metal",
+      "Type",
+      "Name",
+      "Year",
+      "Qty",
+      "Weight(oz)",
+      "Weight Unit",
+      "Purity",
+      "Purchase Price",
+      "Melt Value",
+      "Retail Price",
+      "Gain/Loss",
+      "Purchase Location",
+      "Storage Location",
+      "N#",
+      "PCGS #",
+      "Grade",
+      "Grading Authority",
+      "Cert #",
+      "Serial Number",
+      "Notes",
+      "Tags",
+      "removedTags",
+      "UUID",
+      "Obverse Image URL",
+      "Reverse Image URL",
+      "Disposition Type",
+      "Disposition Date",
+      "Disposition Amount",
+      "Realized Gain/Loss",
     ];
-  
+
     const sortedInventory = sortInventoryByDateNewestFirst();
+    const _removedTagsMap =
+      typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
     const rows = [];
-  
+
     for (const i of sortedInventory) {
       const currentSpot = spotPrices[i.metal.toLowerCase()] || 0;
-      const valuation = (typeof computeItemValuation === 'function')
-        ? computeItemValuation(i, currentSpot)
-        : null;
-      const purchasePrice = valuation ? valuation.purchasePrice : (typeof i.price === 'number' ? i.price : parseFloat(i.price) || 0);
+      const valuation =
+        typeof computeItemValuation === "function" ? computeItemValuation(i, currentSpot) : null;
+      const purchasePrice = valuation
+        ? valuation.purchasePrice
+        : typeof i.price === "number"
+          ? i.price
+          : parseFloat(i.price) || 0;
       const meltValue = valuation ? valuation.meltValue : computeMeltValue(i, currentSpot);
       const gainLoss = valuation ? valuation.gainLoss : null;
-  
+
       rows.push([
         i.date,
-        i.metal || 'Silver',
+        i.metal || "Silver",
         i.type,
         i.name,
-        i.year || '',
+        i.year || "",
         i.qty,
         parseFloat(i.weight).toFixed(4),
-        i.weightUnit || 'oz',
+        i.weightUnit || "oz",
         parseFloat(i.purity) || 1.0,
         formatCurrency(purchasePrice),
-        currentSpot > 0 ? formatCurrency(meltValue) : '—',
+        currentSpot > 0 ? formatCurrency(meltValue) : "—",
         formatCurrency(i.marketValue || 0),
-        gainLoss !== null ? formatCurrency(gainLoss) : '—',
+        gainLoss !== null ? formatCurrency(gainLoss) : "—",
         i.purchaseLocation,
-        i.storageLocation || '',
-        i.numistaId || '',
-        i.pcgsNumber || '',
-        i.grade || '',
-        i.gradingAuthority || '',
-        i.certNumber || '',
-        i.serialNumber || '',
-        i.notes || '',
-        typeof getItemTags === 'function' ? getItemTags(i.uuid).join('; ') : '',
-        i.uuid || '',
-        i.obverseImageUrl || '',
-        i.reverseImageUrl || '',
-        i.disposition ? (DISPOSITION_TYPES[i.disposition.type]?.label || i.disposition.type) : '',
-        i.disposition?.date || '',
-        i.disposition ? (i.disposition.amount || 0) : '',
-        i.disposition ? (i.disposition.realizedGainLoss || 0) : ''
+        i.storageLocation || "",
+        i.numistaId || "",
+        i.pcgsNumber || "",
+        i.grade || "",
+        i.gradingAuthority || "",
+        i.certNumber || "",
+        i.serialNumber || "",
+        i.notes || "",
+        typeof getItemTags === "function" ? getItemTags(i.uuid).join("; ") : "",
+        Array.isArray(_removedTagsMap[i.uuid]) ? _removedTagsMap[i.uuid].join("; ") : "",
+        i.uuid || "",
+        i.obverseImageUrl || "",
+        i.reverseImageUrl || "",
+        i.disposition ? DISPOSITION_TYPES[i.disposition.type]?.label || i.disposition.type : "",
+        i.disposition?.date || "",
+        i.disposition ? i.disposition.amount || 0 : "",
+        i.disposition ? i.disposition.realizedGainLoss || 0 : "",
       ]);
     }
-  
-    const _csvOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
-    const _originComment = '# exportOrigin: ' + _csvOrigin + '\n';
+
+    const _csvOrigin =
+      typeof window !== "undefined" && window.location ? window.location.origin : "";
+    const _originComment = "# exportOrigin: " + _csvOrigin + "\n";
     const csv = _originComment + Papa.unparse([headers, ...rows]);
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-  
-    const a = document.createElement('a');
+
+    const a = document.createElement("a");
     a.href = url;
     a.download = `metal_inventory_${timestamp}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    debugLog('exportCsv complete');
+    debugLog("exportCsv complete");
   };
-  
+
   /**
    * Imports inventory data from JSON file
    *
@@ -866,49 +1078,55 @@
    */
   const importJson = (file, override = false) => {
     const reader = new FileReader();
-    debugLog('importJson start', file.name);
-  
-    reader.onload = function(e) {
+    debugLog("importJson start", file.name);
+
+    reader.onload = function (e) {
       try {
         const rawParsed = JSON.parse(e.target.result);
-  
+
         // Support both plain array and { items: [], settings: {}, exportMeta: {} } object formats
         let data;
         let parsedSettings = null;
         let parsedMeta = null;
         if (Array.isArray(rawParsed)) {
           data = rawParsed;
-        } else if (rawParsed && typeof rawParsed === 'object' && Array.isArray(rawParsed.items)) {
+        } else if (rawParsed && typeof rawParsed === "object" && Array.isArray(rawParsed.items)) {
           data = rawParsed.items;
           parsedSettings = rawParsed.settings || null;
           parsedMeta = rawParsed.exportMeta || null;
         } else {
-          if (typeof showAppAlert === 'function') {
-            showAppAlert('Invalid JSON format. Expected an array of inventory items, { items: [], settings: {} }, or { items: [], exportMeta: {} } (exportMeta is optional).', 'JSON Import');
+          if (typeof showAppAlert === "function") {
+            showAppAlert(
+              "Invalid JSON format. Expected an array of inventory items, { items: [], settings: {} }, or { items: [], exportMeta: {} } (exportMeta is optional).",
+              "JSON Import"
+            );
           }
           return;
         }
-  
+
+        const parsedRemovedTags =
+          rawParsed && !Array.isArray(rawParsed) ? rawParsed.itemRemovedTags || null : null;
+
         // Process each item
         let imported = [];
         const skippedDetails = [];
         const skippedNonPM = [];
-        const supportedMetals = ['Silver', 'Gold', 'Platinum', 'Palladium'];
+        const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
         const totalItems = data.length;
         startImportProgress(totalItems);
         let processed = 0;
         let importedCount = 0;
-  
+
         const pendingTagsByUuid = new Map();
-  
+
         for (const [index, raw] of data.entries()) {
           processed++;
-          debugLog('importJson item', index + 1, JSON.stringify(raw));
-  
-          const compositionRaw = raw.composition || raw.metal || 'Silver';
+          debugLog("importJson item", index + 1, JSON.stringify(raw));
+
+          const compositionRaw = raw.composition || raw.metal || "Silver";
           const composition = getCompositionFirstWords(compositionRaw);
           const metal = parseNumistaMetal(composition);
-  
+
           // Skip non-precious-metal items
           if (!supportedMetals.includes(metal)) {
             const itemName = raw.name || `Item ${index + 1}`;
@@ -916,33 +1134,36 @@
             updateImportProgress(processed, importedCount, totalItems);
             continue;
           }
-  
-          const name = raw.name || '';
+
+          const name = raw.name || "";
           const qty = parseInt(raw.qty ?? raw.quantity ?? 1, 10);
-          const type = normalizeType(raw.type || raw.itemType || 'Other');
+          const type = normalizeType(raw.type || raw.itemType || "Other");
           const weight = parseFloat(raw.weight ?? raw.weightOz ?? 0);
-          const weightUnit = raw.weightUnit || raw['Weight Unit'] || 'oz';
-          const purity = parseFloat(raw.purity ?? raw['Purity'] ?? raw['Fineness'] ?? 1.0) || 1.0;
+          const weightUnit = raw.weightUnit || raw["Weight Unit"] || "oz";
+          const purity = parseFloat(raw.purity ?? raw["Purity"] ?? raw["Fineness"] ?? 1.0) || 1.0;
           const priceStr = raw.price ?? raw.purchasePrice ?? 0;
-          let price = typeof priceStr === 'string'
-            ? parseFloat(priceStr.replace(/[^\d.-]+/g, ''))
-            : parseFloat(priceStr);
+          let price =
+            typeof priceStr === "string"
+              ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
+              : parseFloat(priceStr);
           if (price < 0) price = 0;
-          const purchaseLocation = raw.purchaseLocation || '';
-          const storageLocation = raw.storageLocation || '';
-          const notes = raw.notes || '';
-          const year = (raw.year || raw.issuedYear || '').toString().trim();
-          const grade = (raw.grade || '').toString().trim();
-          const gradingAuthority = (raw.gradingAuthority || raw.authority || '').toString().trim();
-          const certNumber = (raw.certNumber || '').toString().trim();
-          const pcgsNumber = (raw.pcgsNumber || raw['PCGS #'] || raw['PCGS Number'] || '').toString().trim();
+          const purchaseLocation = raw.purchaseLocation || "";
+          const storageLocation = raw.storageLocation || "";
+          const notes = raw.notes || "";
+          const year = (raw.year || raw.issuedYear || "").toString().trim();
+          const grade = (raw.grade || "").toString().trim();
+          const gradingAuthority = (raw.gradingAuthority || raw.authority || "").toString().trim();
+          const certNumber = (raw.certNumber || "").toString().trim();
+          const pcgsNumber = (raw.pcgsNumber || raw["PCGS #"] || raw["PCGS Number"] || "")
+            .toString()
+            .trim();
           const pcgsVerified = raw.pcgsVerified || false;
-          const serialNumber = (raw.serialNumber || raw['Serial Number'] || '').toString().trim();
+          const serialNumber = (raw.serialNumber || raw["Serial Number"] || "").toString().trim();
           const date = parseDate(raw.date);
-  
+
           // Parse marketValue (retail price), backward-compatible with legacy fields
           const marketValue = parseFloat(raw.marketValue ?? raw.retailPrice ?? 0) || 0;
-  
+
           // Legacy field support for backward compatibility
           let spotPriceAtPurchase;
           if (raw.spotPriceAtPurchase) {
@@ -952,20 +1173,20 @@
           } else {
             spotPriceAtPurchase = 0;
           }
-  
+
           const premiumPerOz = 0;
           const totalPremium = 0;
-  
-          const numistaRaw = (raw.numistaId || raw.numista || raw['N#'] || '').toString();
+
+          const numistaRaw = (raw.numistaId || raw.numista || raw["N#"] || "").toString();
           const numistaMatch = numistaRaw.match(/\d+/);
-          const numistaId = numistaMatch ? numistaMatch[0] : '';
+          const numistaId = numistaMatch ? numistaMatch[0] : "";
           const serial = raw.serial || getNextSerial();
           const uuid = raw.uuid || generateUUID();
-          const obverseImageUrl = raw.obverseImageUrl || raw['Obverse Image URL'] || '';
-          const reverseImageUrl = raw.reverseImageUrl || raw['Reverse Image URL'] || '';
+          const obverseImageUrl = raw.obverseImageUrl || raw["Obverse Image URL"] || "";
+          const reverseImageUrl = raw.reverseImageUrl || raw["Reverse Image URL"] || "";
           const numistaData = raw.numistaData || undefined;
           const fieldMeta = raw.fieldMeta || undefined;
-  
+
           const processedItem = sanitizeImportedItem({
             metal,
             composition,
@@ -997,121 +1218,161 @@
             obverseImageUrl,
             reverseImageUrl,
             ...(numistaData ? { numistaData } : {}),
-            ...(fieldMeta ? { fieldMeta } : {})
+            ...(fieldMeta ? { fieldMeta } : {}),
           });
-  
+
           const validation = validateInventoryItem(processedItem);
           if (!validation.isValid) {
-            const reason = validation.errors.join(', ');
+            const reason = validation.errors.join(", ");
             skippedDetails.push(`Item ${index + 1}: ${reason}`);
             updateImportProgress(processed, importedCount, totalItems);
             continue;
           }
-  
+
           addCompositionOption(composition);
           imported.push(processedItem);
-  
+
           // STAK-126: Import tags from JSON if present
-          if (typeof addItemTag === 'function') {
+          if (typeof addItemTag === "function") {
             const jsonTags = raw.tags;
             let pendingTags = [];
             if (Array.isArray(jsonTags)) {
-              pendingTags = jsonTags.map(tag => String(tag).trim()).filter(Boolean);
-            } else if (typeof jsonTags === 'string' && jsonTags.trim()) {
-              pendingTags = jsonTags.split(';').map(t => t.trim()).filter(Boolean);
+              pendingTags = jsonTags.map((tag) => String(tag).trim()).filter(Boolean);
+            } else if (typeof jsonTags === "string" && jsonTags.trim()) {
+              pendingTags = jsonTags
+                .split(";")
+                .map((t) => t.trim())
+                .filter(Boolean);
             }
             if (pendingTags.length > 0) {
               const existing = pendingTagsByUuid.get(processedItem.uuid) || [];
-              pendingTagsByUuid.set(processedItem.uuid, [...new Set([...existing, ...pendingTags])]);
+              pendingTagsByUuid.set(processedItem.uuid, [
+                ...new Set([...existing, ...pendingTags]),
+              ]);
             }
           }
-  
+
           importedCount++;
           updateImportProgress(processed, importedCount, totalItems);
         }
-  
+
         endImportProgress();
-  
+        if (typeof migrateLegacySilverbackWeightUnit === "function") {
+          migrateLegacySilverbackWeightUnit(imported);
+        }
+
         // Report skipped non-precious-metal items
         if (skippedNonPM.length > 0) {
-          if (typeof showAppAlert === 'function') {
+          if (typeof showAppAlert === "function") {
             showAppAlert(
-              `${skippedNonPM.length} item(s) skipped: no precious metal content\n\n${skippedNonPM.join('\n')}`,
-              'JSON Import',
+              `${skippedNonPM.length} item(s) skipped: no precious metal content\n\n${skippedNonPM.join("\n")}`,
+              "JSON Import"
             );
           }
         }
-  
+
         if (skippedDetails.length > 0) {
-          if (typeof showAppAlert === 'function') {
-            showAppAlert(`Skipped entries:\n${skippedDetails.join('\n')}`, 'JSON Import');
+          if (typeof showAppAlert === "function") {
+            showAppAlert(`Skipped entries:\n${skippedDetails.join("\n")}`, "JSON Import");
           }
         }
-  
+
         if (imported.length === 0) {
-          if (typeof showAppAlert === 'function') showAppAlert('No valid items found in JSON file.', 'JSON Import');
+          if (typeof showAppAlert === "function")
+            showAppAlert("No valid items found in JSON file.", "JSON Import");
           return;
         }
-  
+
         // Pre-validation — surface skipped items before DiffModal opens
         let _validationResult = null;
-        if (typeof buildImportValidationResult === 'function') {
+        if (typeof buildImportValidationResult === "function") {
           _validationResult = buildImportValidationResult(imported, skippedNonPM);
           if (_validationResult.valid.length === 0) {
-            const _firstReason = _validationResult.invalid.length > 0 ? _validationResult.invalid[0].reasons[0] : 'Unknown error';
-            if (typeof showToast === 'function') showToast('No items could be imported: ' + _firstReason);
+            const _firstReason =
+              _validationResult.invalid.length > 0
+                ? _validationResult.invalid[0].reasons[0]
+                : "Unknown error";
+            if (typeof showToast === "function")
+              showToast("No items could be imported: " + _firstReason);
             return;
           }
           if (_validationResult.skippedCount > 0) {
-            if (typeof showToast === 'function') showToast(_validationResult.skippedCount + ' item(s) could not be imported and were skipped.');
+            if (typeof showToast === "function")
+              showToast(
+                _validationResult.skippedCount + " item(s) could not be imported and were skipped."
+              );
           }
           imported = _validationResult.valid;
         }
-  
+
         // ── Override path: skip DiffEngine, import all directly ──
         if (override) {
-          if (typeof addItemTag === 'function') {
+          if (typeof addItemTag === "function") {
             for (const item of imported) {
               const pendingTags = pendingTagsByUuid.get(item.uuid);
               if (pendingTags && pendingTags.length) {
-                pendingTags.forEach(tag => addItemTag(item.uuid, tag, false));
+                pendingTags.forEach((tag) => addItemTag(item.uuid, tag, false));
               }
             }
-            if (typeof saveItemTags === 'function') saveItemTags();
+            if (typeof saveItemTags === "function") saveItemTags();
           }
-  
+
           for (const item of imported) {
-            if (typeof registerName === 'function') registerName(item.name);
+            if (typeof registerName === "function") registerName(item.name);
           }
-  
+
           inventory = imported;
-          if (typeof catalogManager !== 'undefined' && catalogManager.syncInventory) {
+          if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
             inventory = catalogManager.syncInventory(inventory);
           }
+          if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+          if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by jsonImport");
           saveInventory();
+          // Restore itemRemovedTags from import payload (STAK-556)
+          if (parsedRemovedTags && typeof saveDataSync === "function") {
+            saveDataSync("itemRemovedTags", parsedRemovedTags);
+          }
           // STAK-421: Cancel debounced sync push — override import replaces all
           // local data; pushing now would overwrite remote before user can review.
-          if (typeof scheduleSyncPush === 'function' && typeof scheduleSyncPush.cancel === 'function') {
+          if (
+            typeof scheduleSyncPush === "function" &&
+            typeof scheduleSyncPush.cancel === "function"
+          ) {
             scheduleSyncPush.cancel();
           }
           renderTable();
-          if (typeof renderActiveFilters === 'function') renderActiveFilters();
-          if (typeof updateStorageStats === 'function') updateStorageStats();
-          debugLog('importJson override complete', imported.length, 'items replaced');
-          if (localStorage.getItem('staktrakr.debug') && typeof window.showDebugModal === 'function') {
+          if (typeof renderActiveFilters === "function") renderActiveFilters();
+          if (typeof updateStorageStats === "function") updateStorageStats();
+          debugLog("importJson override complete", imported.length, "items replaced");
+          if (
+            localStorage.getItem("staktrakr.debug") &&
+            typeof window.showDebugModal === "function"
+          ) {
             showDebugModal();
           }
           return;
         }
-  
+
         // ── DiffEngine + DiffModal path (via shared helper) ──
         // Build settings diff if the parsed JSON contains a settings object
         let settingsDiff = null;
-        if (parsedSettings && typeof parsedSettings === 'object' &&
-            typeof DiffEngine !== 'undefined' && typeof DiffEngine.compareSettings === 'function') {
-          const settingsKeys = (typeof SYNC_SCOPE_KEYS !== 'undefined' && Array.isArray(SYNC_SCOPE_KEYS))
-            ? SYNC_SCOPE_KEYS.filter(k => k !== 'metalInventory' && k !== 'itemTags')
-            : ['displayCurrency', 'appTheme', 'inlineChipConfig', 'filterChipCategoryConfig', 'viewModalSectionConfig', 'chipMinCount'];
+        if (
+          parsedSettings &&
+          typeof parsedSettings === "object" &&
+          typeof DiffEngine !== "undefined" &&
+          typeof DiffEngine.compareSettings === "function"
+        ) {
+          const settingsKeys =
+            typeof SYNC_SCOPE_KEYS !== "undefined" && Array.isArray(SYNC_SCOPE_KEYS)
+              ? SYNC_SCOPE_KEYS.filter((k) => k !== "metalInventory" && k !== "itemTags")
+              : [
+                  "displayCurrency",
+                  "appTheme",
+                  "inlineChipConfig",
+                  "filterChipCategoryConfig",
+                  "viewModalSectionConfig",
+                  "chipMinCount",
+                ];
           const localSettings = {};
           for (const key of settingsKeys) {
             const val = loadDataSync(key, null);
@@ -1127,30 +1388,57 @@
             if (settingsDiff.changed.length === 0) settingsDiff = null;
           }
         }
-  
+
         // Use shared helper for diff review — handles DiffEngine fallback internally
-        showImportDiffReview(imported, { type: 'json', label: file.name }, {
-          settingsDiff: settingsDiff,
-          pendingTagsByUuid: pendingTagsByUuid,
-          validationResult: _validationResult,
-          exportMeta: parsedMeta,
-        }, function(summary) {
-          debugLog('importJson DiffEngine complete', summary.added, 'added', summary.modified, 'modified', summary.deleted, 'deleted');
-        });
+        showImportDiffReview(
+          imported,
+          { type: "json", label: file.name },
+          {
+            settingsDiff: settingsDiff,
+            pendingTagsByUuid: pendingTagsByUuid,
+            validationResult: _validationResult,
+            exportMeta: parsedMeta,
+          },
+          function (summary) {
+            // Restore itemRemovedTags from import payload (STAK-556)
+            if (parsedRemovedTags && typeof saveDataSync === "function") {
+              saveDataSync("itemRemovedTags", parsedRemovedTags);
+            }
+            debugLog(
+              "importJson DiffEngine complete",
+              summary.added,
+              "added",
+              summary.modified,
+              "modified",
+              summary.deleted,
+              "deleted"
+            );
+          }
+        );
       } catch (error) {
         endImportProgress();
-        if (typeof showAppAlert === 'function') {
-          showAppAlert(`Error parsing JSON file: ${error.message}`, 'JSON Import');
+        if (typeof showAppAlert === "function") {
+          showAppAlert(`Error parsing JSON file: ${error.message}`, "JSON Import");
         }
       }
     };
-  
+
     reader.readAsText(file);
   };
 
   // Export public API via window.*
   window.importCsv = importCsv;
   window.importJson = importJson;
+  window.importJsonFromText = (text, override = false) => {
+    const blob = new Blob([text], { type: "application/json" });
+    const file = new File([blob], "test-import.json", { type: "application/json" });
+    importJson(file, override);
+  };
+  window.importCsvFromText = (text, override = false) => {
+    const blob = new Blob([text], { type: "text/csv" });
+    const file = new File([blob], "test-import.csv", { type: "text/csv" });
+    importCsv(file, override);
+  };
   window.importNumistaCsv = importNumistaCsv;
   window.exportCsv = exportCsv;
   window.exportNumistaCsv = exportNumistaCsv;

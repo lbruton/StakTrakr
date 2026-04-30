@@ -9,6 +9,398 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.38] - 2026-04-29
+
+### Fixed — STRK-20: Backup conflict modal context-aware messaging
+
+- **Fixed**: Cloud restore conflict modal now shows "A more recent remote backup exists" vs. "An existing remote backup was found" based on `conflict.reason`, instead of always claiming the remote is stale.
+- **Fixed**: `cloud_last_backup` is now always persisted after a successful sync, preventing stale-timestamp false negatives in conflict detection.
+
+### Fixed — STRK-19: View modal eBay search button overlap
+
+- **Fixed**: eBay search button moved from the title row to the badges row in the View Item modal header, eliminating the overlap with the absolute-positioned close (X) button.
+- **Fixed**: Title row `padding-right` bumped to `32px` to prevent title text from running under the close button on mobile viewports.
+
+### Fixed — STRK-15: Silverback denomination aria-label
+
+- **Fixed**: Silverback denomination selector no longer carries a stale `aria-label="Goldback denomination"` attribute. The dynamically managed `<label for>` association in `toggleGbDenomPicker` now provides the only accessible name, eliminating the misleading screen-reader announcement.
+
+---
+
+## [3.34.37] - 2026-04-29
+
+### Fixed — STRK-17: Silverback weight unit wrong retail pricing
+
+- **Fixed**: Silverbacks now use a dedicated `sb` weight unit at 0.001 troy ounces so melt, premium, and display calculations no longer reuse Goldback retail pricing semantics.
+- **Added**: Legacy Silverback records stored as `gb` migrate to `sb` on local load, CSV import, encrypted backup preview, and cloud restore/diff paths.
+- **Added**: Playwright coverage for Silverback add/edit, display, bulk edit, migration, and encrypted backup preview behavior.
+
+---
+
+## [3.34.36] - 2026-04-29
+
+### Fixed — STRK-14: Encrypted backup round-trip duplicate prevention
+
+- **Fixed**: Re-importing your own encrypted vault backup no longer produces duplicate items. `DiffEngine.enrichItemIdentities()` copies local UUIDs onto incoming backup items by serial (primary), numistaId+date (secondary), or name+date (tertiary) matching before comparison.
+- **Fixed**: Vault settings comparison now mirrors the export parse logic (JSON.parse with raw-string fallback), preventing false-positive diffs for version strings stored via raw `localStorage.setItem`.
+- **Added**: `VAULT_SETTINGS_DIFF_SKIP` — volatile cache keys (spot prices, exchange rates, API timestamps) are excluded from vault settings-diff comparison to prevent false diffs from async initialization.
+- **Refactored**: Inline UUID enrichment in `showImportDiffReview()` replaced with shared `DiffEngine.enrichItemIdentities()` call, eliminating code duplication between vault restore and CSV/JSON import paths.
+
+## [3.34.35] - 2026-04-29
+
+### Fixed — STRK-13: Inventory seed guard prevents data loss on storage failure
+
+- **Fixed**: Startup no longer overwrites user inventory with sample data when localStorage is missing or corrupt. A new `classifyBootState()` function distinguishes first-run (no prior evidence) from storage failure (orphaned keys like `inventorySerial` exist without `metalInventory`).
+- **Added**: Seed sentinel (`inventorySeedApplied`) — sample data is only persisted once per origin; returning users with existing data are never re-seeded.
+- **Added**: Recovery banner — when storage damage is detected, a dismissible warning surfaces above the inventory table instead of silently replacing data with samples. Users can restore from cloud backup or dismiss the banner.
+- **Added**: Boot diagnostics ring buffer (`staktrakr.bootDiagnostics`) — records the last 10 boot classifications for post-mortem analysis without storing PII.
+- **Fixed**: `classifyBootState()` now decompresses CMP1-prefixed inventory before parsing, preventing large inventories from being misclassified as corrupt.
+- **Added**: `migrateSentinelIfMissing()` — one-shot migration writes the seed sentinel for existing users so they are never re-seeded on future boots.
+
+---
+
+## [3.34.34] - 2026-04-27
+
+### Added — STRK-4: Lot ⇄ Each toggle for Purchase Price
+
+- **Added**: Purchase Price field in the Add/Edit modal now has a segmented Lot / Each toggle. In Lot mode, enter the total paid for the whole lot — the app divides by quantity and stores a per-unit price automatically.
+- **Added**: Toggle visibility is tied to quantity: at qty ≤ 1 the control is hidden and mode resets to Each (Lot and Each are equivalent at that point).
+- **Changed**: Purchase column in the inventory table now shows the qty-multiplied total (price × qty) instead of the per-unit price, matching the column header tooltip.
+- **Fixed**: `parseInt` replaced with `Number()` for quantity parsing so fractional inputs like "2.5" are properly rejected by downstream integer validation instead of being silently truncated.
+
+---
+
+## [3.34.33] - 2026-04-25
+
+### Changed — STAK-581: Retail currency conversion phase 1
+
+- **Changed**: Retail history, market ticker cards, vendor price grids, and Goldback settings now honor the selected display currency instead of leaving active retail surfaces pinned to USD.
+- **Added**: `saveDisplayCurrency()` now dispatches a shared `currencychange` event so market, retail, inventory, spot sparkline, and Goldback settings surfaces refresh from one signal instead of duplicated manual render calls.
+- **Added**: Non-USD market vendor tables now show a convenience-conversion footer note explaining that vendor checkout remains US-based.
+
+---
+
+## [3.34.32] - 2026-04-25
+
+### Changed — STAK-571: Confirm spot provider changes
+
+- **Added**: Settings → API spot provider pills now show an in-app confirmation dialog before switching to a different provider, naming the destination provider and explaining that spot prices, charts, ticker, and portfolio values are affected.
+- **Fixed**: Canceling the provider switch leaves the previous provider active and does not write `spotPricingSource`; clicking the already-active provider remains a no-op with no dialog.
+- **Added**: Playwright coverage for confirm, cancel, and already-active spot provider click behavior in the API tab suite.
+
+---
+
+## [3.34.31] - 2026-04-25
+
+### Fixed — STAK-578: Mobile modal action buttons clipped by browser chrome
+
+- **Fixed**: View Item modal footer (Remove / Edit / Clone / Close) now clears the Android gesture-nav zone and iOS home indicator via `padding-bottom: max(0.75rem, env(safe-area-inset-bottom))` on `.view-modal-footer`. Previously the bottom row of buttons was unreachable on Android Chrome with gesture-nav enabled.
+- **Fixed**: Add/Edit Item modal action bar (Save / Cancel / Remove / View / Clone / Save & Clone Another) now clears the gesture zone via `padding-bottom: max(0.65rem, env(safe-area-inset-bottom))` on `#inventoryForm .item-modal-actions`. Sticky positioning is preserved unchanged.
+- **Fixed**: View Item modal footer + Add/Edit modal action bar now clear iOS landscape side-notch insets via `padding-left/right: max(<existing>, env(safe-area-inset-left/right))` overrides — edge buttons no longer sit underneath the notch on iPhone in landscape.
+- **Fixed**: Mobile fullscreen modal headers for `#itemModal` and `#viewItemModal` now clear the iOS notch / status bar via a scoped `padding-top: max(<existing>, env(safe-area-inset-top))` rule inside `@media (max-width: 768px)`. Per-modal static fallbacks (`var(--spacing)` for `#itemModal`, `var(--spacing-sm)` for `#viewItemModal`) preserve existing rendering on non-notched devices.
+- **Added**: `viewport-fit=cover` to viewport meta — required for iOS to resolve `env(safe-area-inset-*)` to non-zero values on notched devices and in PWA mode.
+- **Added**: 7 Playwright TDD regression tests in `tests/playwright/mobile-modal-safe-area.spec.js` covering all four `env()` declaration sites and the viewport meta. Tests use `document.styleSheets` rule-text traversal because Playwright's emulated viewport supplies env() as 0; the rule-text pattern catches future regressions deterministically.
+
+---
+
+## [3.34.30] - 2026-04-25
+
+### Changed — STAK-582: Remove dead retail card-list view
+
+- **Removed**: Legacy Market Settings retail card/list render path that no longer mounts in the app, including stale exports, event listeners, trend-mode storage, and orphaned sync-error state.
+- **Removed**: Obsolete retail card/list CSS while preserving the active main-page ticker, vendor price matrix, market detail modal, market filter matrix, and retail history table.
+- **Changed**: Stale market copy/comments now refer to the active ticker and price table instead of retired market cards.
+
+---
+
+## [3.34.29] - 2026-04-24
+
+### Fixed — STAK-576: Numista search magnifier shows misleading error when API key missing
+
+- **Fixed**: Catalog search magnifiers (Name and Catalog N#) now detect the "Numista not configured" state first and open a confirm dialog that links directly to Settings → API instead of showing `Enter a Name or Catalog N# to search.` (STAK-576 ISSUE-005)
+- **Changed**: Disconnected magnifier dot now announces "Numista API not configured — click to configure" via tooltip, and the button `title` flips to match so the hint is visible before clicking
+- **Changed**: `updateNumistaModalDot()` now runs whenever the Add/Edit item modal opens so the dot reflects the current configuration state without requiring a save round-trip
+
+---
+
+## [3.34.28] - 2026-04-24
+
+### Fixed — STAK-576: AutoTable vendor fallback warning
+
+- **Fixed**: jsPDF AutoTable fallback detection now checks the plugin API registered by the local vendor bundle, preventing the false CDN fallback warning/request when PDF export support is already available offline (STAK-576)
+
+---
+
+## [3.34.27] - 2026-04-24
+
+### Fixed — STAK-576: Duplicate network fetches on cold load
+
+- **Fixed**: Startup spot-price sync now shares an in-flight provider sync/backfill instead of letting `autoSyncSpotPrices()` and `startSpotBackgroundSync()` fetch the same `spot/latest.json` and daily spot files concurrently (STAK-576)
+- **Fixed**: Exchange-rate refresh now dedupes concurrent startup calls and suppresses repeated `open.er-api.com/v6/latest/USD` fetches within the same burst (STAK-576)
+- **Changed**: Market vendor table reuses the retail cache populated by startup sync and only fetches per-slug `latest.json` when a slug is missing from cache (STAK-576)
+
+---
+
+## [3.34.26] - 2026-04-23
+
+### Fixed — STAK-565: JM Bullion scraper picking wrong price column
+
+- **Fixed**: JM Bullion price readings oscillating between the correct eCheck/Wire tier (~$86 on ASE) and the wrong Card tier (~$95) depending on which scrape engine rendered the page. Root cause: pipe-table fallback was column-blind (STAK-565)
+- **Added**: `jmPriceFromPipeTable()` locates the `(e)Check/Wire` column by header label, returns that column's first in-range data-row price. Handles column reorder, format variants, and shipping-price noise (STAK-565)
+- **Removed**: Column-blind `firstTableRowFirstPrice()` fallback for jmbullion. Missed ticks are preferred over wrong-tier prices — matches existing As-Low-As rejection philosophy (STAK-565, STAK-475 P2)
+- **Docs**: CLAUDE.md — Dual Config Store section carried forward from STAK-573 session
+
+---
+
+## [3.34.25] - 2026-04-23
+
+### Changed — STAK-573: API tab QA pass — catalog UX, spot card polish, Bulk Sync modal rework
+
+- **Added**: Save button on Numista and PCGS catalog expand panels with toast feedback (STAK-573)
+- **Added**: Masked key indicator (`••••••••`) when API key is stored — clears on focus (STAK-573)
+- **Fixed**: Usage bar reads from CatalogConfig instead of showing static "No key configured" (STAK-573)
+- **Fixed**: Numista Test button saves key first, shows success/failure toast (STAK-573)
+- **Added**: PCGS Test button with real API validation via `testPcgsKey()` (STAK-573)
+- **Changed**: "Open Bulk Sync" button renamed to "Advanced Settings" (STAK-573)
+- **Changed**: Bulk Sync modal consolidated from 4 tabs to 2 (Overview + Sync Settings), Activity tab removed (STAK-573)
+- **Added**: "Sync Unsynced" button in Bulk Sync Overview tab (STAK-573)
+- **Fixed**: Bulk Sync modal width constrained to ≤ Settings modal (STAK-573)
+- **Added**: `.btn-action-primary` and `.btn-action-neutral` button color variants for action differentiation (STAK-573)
+- **Fixed**: Metals.dev "Polls on cache TTL interval." leftover text removed (STAK-573)
+- **Added**: Provider attribution footers to Metals-API and MetalPriceAPI spot cards (STAK-573)
+- **Fixed**: Catalog History buttons now use `btn-history` class for consistent blue color (STAK-573)
+- **Fixed**: Provider reinitialization after catalog key save to prevent stale credentials (STAK-573)
+
+---
+
+## [3.34.24] - 2026-04-23
+
+### Changed — STAK-443: Settings Redesign — API tab sectioned card layout
+
+- **Changed**: Replaced monolithic provider-tab panel with three `.settings-fieldset` cards — Market Prices, Spot Price, Catalog (STAK-443)
+- **Changed**: Spot Price card uses single-select pill radio (`.gb-source-group`) with six options — StakTrakr, Metals.dev, Metals-API, MetalPriceAPI, Custom, Manual — replacing the fallback-chain priority system (STAK-443)
+- **Added**: Manual spot-price mode — full offline replacement that disables all feed fetches and accepts direct Au/Ag/Pt/Pd inputs (STAK-443)
+- **Added**: `spotPricingSource` localStorage key + idempotent migration from legacy `providerPriority` / `apiProviderOrder` (STAK-443)
+- **Changed**: Numista + PCGS catalog UI reduced to two `.catalog-row` cards; bulk sync, field toggles, tag blacklist, and activity log moved to a dedicated Bulk Sync modal with 4 tabs (STAK-443)
+- **Added**: Violet `.btn-history` button variant so History actions separate visually from Save/Test on `--bg-tertiary` cards (STAK-443)
+
+---
+
+## [3.34.23] - 2026-04-22
+
+### Changed — STAK-446: Activity Log tab redesign and undo audit
+
+- **Changed**: Activity Log sub-tabs renamed — "Metals" → "Spot Price", "Price History" → "Item History" (STAK-446)
+- **Changed**: Activity Log sub-tabs reordered — Changelog, Catalogs, Cloud, Spot Price, Market, Item History, LBMA History (STAK-446)
+- **Added**: Undo/redo support for "Added" changelog entries — undo removes the item, redo restores it from snapshot (STAK-446)
+- **Fixed**: JSON.parse on redo path now guarded with try/catch for corrupted localStorage resilience (STAK-446)
+- **Added**: 7 Playwright TDD tests covering tab rename, tab order, undo-add, and redo-add (STAK-446)
+
+---
+
+## [3.34.22] - 2026-04-22
+
+### Changed — STAK-570: Currency tab Goldback pricing redesign
+
+- **Changed**: Goldback pricing controls now live inside Settings > Currency — the separate Goldback sidebar tab and panel were removed (STAK-570)
+- **Changed**: Goldback pricing source now uses a single Off / StakTrakr API / Estimate from Spot / Manual selector with contextual spot-modifier and manual-rate inputs (STAK-570)
+- **Changed**: Denomination prices render as a read-only Currency-tab table with source labels, and stale async/manual updates are guarded when users switch pricing modes quickly (STAK-570)
+- **Added**: Storage migration from legacy Goldback toggle booleans to `goldback-pricing-source`, with compatibility booleans still derived for existing code paths (STAK-570)
+- **Added**: 7 Playwright tests covering the merged Currency-tab Goldback pricing flow and no-regression behavior (STAK-570)
+
+---
+
+## [3.34.21] - 2026-04-22
+
+### Changed — STAK-439: Images tab redesign
+
+- **Removed**: Storage fieldset from Images settings tab — redundant with Storage tab (STAK-439)
+- **Added**: Collapse/expand trigger for Add Pattern Rule form — "+ New Rule" pill button toggles form visibility (STAK-439)
+- **Added**: Styled upload buttons with image preview in dashed-border cards, replacing native file inputs (STAK-439)
+- **Added**: Swap button to exchange obverse/reverse images in both Add and Edit forms (STAK-439)
+- **Changed**: Image Display section uses flat 2-column grid layout without nested card borders (STAK-439)
+- **Changed**: Edit form for custom pattern rules restyled to match Add form — cloud-provider-card, Keywords/Regex toggle, upload sides (STAK-439)
+- **Changed**: Edit/Delete buttons in Custom Pattern Rules and Per-Item User Images use solid pill styling for proper dark mode contrast (STAK-439)
+- **Added**: 11 Playwright E2E tests covering all Images tab redesign acceptance criteria (STAK-439)
+
+---
+
+## [3.34.20] - 2026-04-21
+
+### Fixed — STAK-569: Numista search metal prepend removed
+
+- **Fixed**: Numista search no longer auto-prepends the metal dropdown value to the name query — searches use exactly what the user typed (STAK-569)
+- **Preserved**: Custom Numista pattern rules still fire when a match is found; raw fallback query uses the name field value without metal injection (STAK-569)
+- **Added**: 5 Playwright tests covering the metal prepend bug fix and pattern rule fallback behavior (STAK-569)
+
+---
+
+## [3.34.19] - 2026-04-21
+
+### Changed — STAK-564: Move Force Refresh to About tab as Troubleshooting card
+
+- **Moved**: Force Refresh / App Updates control relocated from Settings > Inventory to Settings > About tab as a compact Troubleshooting card below the disclaimer (STAK-564)
+- **Renamed**: Button label changed from "Force Refresh" to "Clear Cache & Reload" with plain-language copy explaining cache behavior (STAK-564)
+- **Removed**: App Updates fieldset removed from Inventory tab — all app-level utilities now live on the About tab (STAK-564)
+
+---
+
+## [3.34.18] - 2026-04-20
+
+### Changed — STAK-442: Move Data Reset buttons from Storage to Inventory tab
+
+- **Changed**: "Remove Inventory" and "Wipe All Data" buttons moved from Settings > Storage to Settings > Inventory, placing all data management actions (import, export, backup, delete) in one tab (STAK-442)
+- **Changed**: Data Reset layout flattened from nested card (`settings-card-grid > settings-card`) to flat `settings-fieldset` pattern, matching the Inventory tab's existing App Updates style (STAK-442)
+- **Changed**: Storage tab is now pure read-only diagnostics — storage summary cards, localStorage keys table, and IndexedDB stores only (STAK-442)
+
+---
+
+## [3.34.17] - 2026-04-20
+
+### Changed — STAK-437: Remove Search tab, consolidate into Filters & Search
+
+- **Changed**: Removed the dedicated "Search" settings sidebar tab and its `settingsPanel_search` panel.
+- **Changed**: Moved the Fuzzy autocomplete toggle into a new "Search Behavior" fieldset at the top of the Filters & Search tab.
+- **Changed**: Moved the custom Numista Patterns add-form and table into a new "Numista Patterns" fieldset on the Filters & Search tab.
+- **Changed**: Deleted the built-in seed rules system (`SEED_RULES` array, 6 seed functions, seed rule loop) from `numista-lookup.js`.
+- **Changed**: Custom Numista patterns are now always-on — removed the `NUMISTA_SEARCH_LOOKUP` feature flag and its UI toggle.
+- **Changed**: New users get an American Silver Eagle (Numista ID 1493) custom pattern pre-seeded on first load.
+- **Changed**: Added 10 Playwright E2E tests in `tests/playwright/stak-437-search-tab-removal.spec.js` covering tab removal, fieldset placement, toggle persistence, pattern CRUD, and always-on rewriting.
+
+---
+
+## [3.34.16] - 2026-04-20
+
+### Changed — STAK-436: Appearance tab realized toggle cleanup
+
+- **Changed**: Moved the Realized G/L visibility control into the Appearance tab Layout card title row and switched it to the existing Yes/No chip toggle pattern for consistency with other settings controls.
+- **Changed**: Removed the now-empty Summary Totals card and rewired the realized-row behavior to keep using the existing `showRealizedGainLoss` storage and cloud-sync paths.
+- **Changed**: Added focused Playwright coverage in `tests/playwright/realized-toggle.spec.js` for toggle placement, row visibility, persistence, and Summary Totals removal.
+
+---
+
+## [3.34.15] - 2026-04-19
+
+### Changed — STAK-562: Goldback and Silverback as first-class type
+
+- **Changed**: Added dedicated `Goldback` and `Silverback` type options in Add/Edit/Bulk Edit flows and made them available to quick filters, grouped filters, and type chip controls.
+- **Changed**: When metal is set to `Gold` or `Silver`, type options now include the corresponding backed note type (`Goldback`/`Silverback`) while preserving existing round filtering and default behavior.
+- **Changed**: Inventory cards/table rows now show backed notes using an icon-first display pattern, and type chips are grouped with map aliases for `gb`, `sb`, `goldbacks`, and `silverbacks`.
+- **Changed**: Added cross-flow regression coverage for STAK-562 in Playwright (`tests/playwright/goldback-type.spec.js`) to verify add/edit/filter/bulk-edit behaviors.
+
+---
+
+## [3.34.14] - 2026-04-19
+
+### Added — STAK-558: Comma and semicolon delimiters in tag input
+
+- **Added**: Tag input fields in edit modal and view modal now support comma (`,`) and semicolon (`;`) as delimiters. Type `Silver, Bullion, 2024` or `Silver; Bullion; 2024` and all three tags are added at once.
+- **Added**: Empty tokens between delimiters are automatically skipped, and each token is trimmed of whitespace before adding.
+- **Added**: Single-tag entry without delimiters behaves identically to before — no breaking changes.
+- **Added**: Existing deduplication and max-tag limits apply per token, so bulk entry cannot bypass safety rules.
+
+---
+
+## [3.34.13] - 2026-04-19
+
+### Changed — STAK-556: Cherry-pick Numista tags + respect your edits
+
+- **Changed**: Numista picker now uses per-tag checkboxes, so each tag can be individually imported; blacklisted and removed tags stay unchecked by default.
+- **Changed**: Manually edited scalar fields (name/year/type/weight/metal) now track as user-edited and default unchecked in Numista re-import, with an “✎ edited” indicator and override option.
+- **Changed**: Tag-removal history is persisted and shown in export/cloud backup; re-sync can skip removed or manually edited items.
+
+---
+
+## [3.34.12] - 2026-04-19
+
+### Added — STAK-556 + STAK-555: Numista picker tag checkboxes + userModified flag
+
+- **Added**: Per-tag checkboxes in the edit-modal Numista search picker. When importing a Numista result, each tag now has its own checkbox — no more all-or-nothing tag import. Blacklisted tags default unchecked and dimmed, already-present tags show checked and disabled, and tags you've previously removed default unchecked with a "(removed)" hint. "Check all" / "Uncheck all" buttons respect locked states.
+- **Added**: Scalar fields you've manually edited (name, year, type, weight, metal) now default to unchecked in the Numista picker with a "✎ edited" indicator. You can still force-override by re-checking — doing so clears the edit flag so Numista's value becomes canonical.
+- **Added**: Tag removal tracking — when you remove a Numista tag from an item, the system remembers. Next time you search Numista for that item, the removed tag defaults to unchecked. Re-importing clears the tracking.
+- **Added**: Bulk sync (Settings → API → Sync Metadata) now shows a confirmation dialog with an option to skip tags you've previously removed. The activity log reports which tags were preserved per item.
+- **Added**: `itemRemovedTags` included in JSON/CSV export and cloud sync backup/restore.
+
+---
+
+## [3.34.11] - 2026-04-18
+
+### Fixed — STAK-554: Remove redundant view-modal Numista re-sync picker + fix title entity double-escape
+
+- **Fixed**: Opening an inventory item with a Numista catalog ID no longer auto-triggers a "Re-sync from Numista" field picker modal. The auto-invoke was introduced with STAK-126 (2026-02-26) and fired whenever the 30-day metadata TTL expired and the Numista API returned fresh data. Users could not dismiss the modal without clicking Apply or Cancel.
+- **Fixed**: Item names containing quote characters (e.g., `1 Dollar "American Silver Eagle" New Reverse`) now render cleanly in the view modal. Previously rendered as literal `&quot;` due to `sanitizeHtml()` output being assigned to `.textContent`, which double-encoded the entities. `.textContent` is XSS-safe natively — the wrap has been removed.
+- **Removed**: ~450 lines of dead picker code across `js/viewModal.js` and `js/field-meta.js`. Deleted symbols: `showResyncPicker`, `_resyncPickerShowMore`, `_FIELD_LABELS`, `_valuesMatch`, `_formatPickerValue`, `_buildFieldRow` (viewModal.js); `FIELD_TIERS`, `getFieldMeta`, `applyPickerSelections` (field-meta.js). Retained: `initFieldMeta`, `markUserModified` — still used by `catalog-api.js` and `events.js` respectively. Stored `numistaData` / `fieldMeta` fields on inventory items are untouched.
+- **Unchanged**: Settings → API → "Sync Metadata" (batch sync) and Edit/Add → Numista search → "Fill Fields" (per-item) continue to work as the canonical sync paths.
+
+---
+
+## [3.34.10] - 2026-04-18
+
+### Changed — STAK-553: Last Modified sort + sort bar in table view
+
+- **Added**: `Last Modified` sort option in the live sort dropdown and Settings > Default Sort
+- **Added**: `lastModified` ISO timestamp stamped on inventory items at create and edit time
+- **Added**: Sort bar (`cardSortBar`) now visible in table view (D mode), not just card views
+- **Changed**: `sortInventory()` handles new column 12; items without `lastModified` sort as oldest
+- **Changed**: Selecting `Last Modified` auto-switches sort direction to descending (newest-first default)
+
+---
+
+## [3.34.09] - 2026-04-17
+
+### Fixed — STAK-548 hotfix: revert shared-sqld-client refactor in home-poller
+
+- **Fixed**: `dashboard.js` and `metrics-exporter.js` reverted to inline env-selection for sqld client creation. The `../shared/sqld-client.js` import failed at runtime because the home-poller Dockerfile flattens `shared/*.js` into `/app/` alongside the home-poller JS, so the relative `../shared/` path resolved outside `/app/` and hit `ERR_MODULE_NOT_FOUND` on container start. Containers were entering FATAL state after the v3.34.08 deploy.
+- **Kept**: `shared/sqld-client.js` continues to serve `spot-extract.js` and `migrate-providers.js`, which live in `shared/` and import it as `./sqld-client.js` — that path works in both source tree and the flattened container layout.
+
+---
+
+## [3.34.08] - 2026-04-17
+
+### Changed — STAK-548: Rename `TURSO_DATABASE_URL` → `SQLD_URL` in poller code
+
+- **Changed**: Poller code now reads `SQLD_URL`/`SQLD_AUTH_TOKEN` for the local sqld database (home poller + remote poller via Tailscale). Legacy `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` remain as fallbacks so existing Portainer stacks keep working through rollout (STAK-548)
+- **Changed**: `TURSO_BACKUP_URL`/`TURSO_BACKUP_TOKEN` remain distinct — those target the Turso Cloud DR backup used by `turso-backup-sync.js`, not local sqld (STAK-548)
+- **Changed**: `.env` examples, `docker-compose.home.yml`, `docker-entrypoint.sh` cron, and remote poller run scripts updated to pass the new names alongside legacy fallbacks (STAK-548)
+
+---
+
+## [3.34.07] - 2026-04-17
+
+### Fixed — STAK-517: Invalidate market filter cache after vault restore
+
+- **Fixed**: Market filter matrix now reflects restored settings immediately after vault restore or cloud sync pull — no page reload required (STAK-517)
+- **Fixed**: `restoreVaultData()` now calls `_invalidateMarketFilterCache()` to clear stale in-memory cache after writing `staktrakr.market_filter` to localStorage (STAK-517)
+
+---
+
+## [3.34.06] - 2026-04-17
+
+### Fixed — STAK-551: Fix filter chip predicate logic
+
+- **Fixed**: Scalar fields (metal, type, name, purchaseLocation, storageLocation) use OR within-field — Silver+Gold shows both metals (STAK-551)
+- **Fixed**: Expansion chips (customGroup, dynamicName, groupedName) store single constraints and expand at predicate time — Florida chip no longer returns zero results (STAK-551)
+- **Fixed**: Chip threshold honored when filters active — no more minCount=1 override flooding chip bar (STAK-551)
+- **Changed**: `isMultiSelect` renamed to `isAccumulate` for clarity (STAK-551)
+
+---
+
+## [3.34.05] - 2026-04-16
+
+### Fixed — STAK-546: Restore AND semantics to filter chip predicate
+
+- **Fixed**: Restore AND semantics to filter chip predicate — selecting multiple chips intersects instead of unions (STAK-546)
+
+---
+
+## [3.34.04] - 2026-04-15
+
+### Fixed — STAK-549: Cloud sync header button silent failure
+
+- **Fixed**: Header cloud sync button no longer shows a false "Synced" toast when the vault password is not cached. `syncNow()` now returns `{ synced: boolean }` so the caller can distinguish success from abort. Password prompt modal appears correctly when needed; cancel shows "Cloud sync requires a vault password" instead of false success. (STAK-549)
+
+---
+
 ## [3.34.03] - 2026-04-15
 
 ### Changed — STAK-544: Header cloud button sync or open settings
@@ -142,7 +534,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed — Ticker Duplication & Stale What's New (STAK-513)
 
 - **Fixed**: Market ticker marquee duplicating into 4-5 stacked rows due to race condition in renderBestPriceTicker() — orphaned .ticker-track elements now swept on every finalize (STAK-513)
-- **Fixed**: Removed redundant renderBestPriceTicker() call inside async _renderVendorTable completion that was the primary trigger for the race (STAK-513)
+- **Fixed**: Removed redundant renderBestPriceTicker() call inside async \_renderVendorTable completion that was the primary trigger for the race (STAK-513)
 - **Fixed**: Stale What's New content on Cloudflare-proxied deployments — SPA fallback returning HTML instead of 404 for deleted announcements.md now detected and bypassed (STAK-513)
 - **Added**: CSS max-height safety clamp on .market-ticker to prevent visual overflow if ticker tracks accumulate (STAK-513)
 

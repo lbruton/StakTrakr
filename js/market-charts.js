@@ -7,16 +7,18 @@ const getChartThemeColors = () => {
   const s = getComputedStyle(document.documentElement);
   const get = (p) => s.getPropertyValue(p).trim();
   return {
-    bg: get('--bg-card'),
-    text: get('--text-primary'),
-    textMuted: get('--text-muted'),
-    border: get('--border'),
-    success: get('--success'),
-    danger: get('--danger'),
+    bg: get("--bg-card"),
+    text: get("--text-primary"),
+    textMuted: get("--text-muted"),
+    border: get("--border"),
+    success: get("--success"),
+    danger: get("--danger"),
     metals: {
-      xau: get('--gold'), xag: get('--silver'),
-      xpt: get('--platinum'), xpd: get('--palladium'),
-    }
+      xau: get("--gold"),
+      xag: get("--silver"),
+      xpt: get("--platinum"),
+      xpd: get("--palladium"),
+    },
   };
 };
 
@@ -24,7 +26,7 @@ const getChartThemeColors = () => {
 const _chartConfig = (colors, timeVisible) => ({
   autoSize: true,
   layout: {
-    background: { type: 'solid', color: 'transparent' },
+    background: { type: "solid", color: "transparent" },
     textColor: colors.textMuted,
     fontFamily: '"Inter", -apple-system, sans-serif',
     fontSize: 11,
@@ -32,8 +34,8 @@ const _chartConfig = (colors, timeVisible) => ({
   },
   watermark: { visible: false },
   grid: {
-    vertLines: { color: colors.border + '40' },
-    horzLines: { color: colors.border + '40' },
+    vertLines: { color: colors.border + "40" },
+    horzLines: { color: colors.border + "40" },
   },
   timeScale: {
     borderColor: colors.border,
@@ -51,14 +53,29 @@ const _chartConfig = (colors, timeVisible) => ({
 
 // Fit chart content after next animation frame (container must be laid out first)
 const _fitAfterLayout = (chart) => {
-  requestAnimationFrame(() => { try { chart.timeScale().fitContent(); } catch (e) { /* noop */ } });
+  requestAnimationFrame(() => {
+    try {
+      chart.timeScale().fitContent();
+    } catch (e) {
+      /* noop */
+    }
+  });
 };
 
 // Short vendor name for legend
 const _shortName = (vid) => {
-  const map = { apmex: 'APMEX', jmbullion: 'JM', sdbullion: 'SD', monumentmetals: 'Monument',
-    herobullion: 'Hero', bullionexchanges: 'BullionX', summitmetals: 'Summit',
-    gainesvillecoins: 'Gville', providentmetals: 'Provident', goldback: 'Goldback' };
+  const map = {
+    apmex: "APMEX",
+    jmbullion: "JM",
+    sdbullion: "SD",
+    monumentmetals: "Monument",
+    herobullion: "Hero",
+    bullionexchanges: "BullionX",
+    summitmetals: "Summit",
+    gainesvillecoins: "Gville",
+    providentmetals: "Provident",
+    goldback: "Goldback",
+  };
   return map[vid] || vid;
 };
 
@@ -67,9 +84,10 @@ const _shortName = (vid) => {
  * Data format: [{ t, ts, median, low, vendors: { vid: price, ... } }, ...]
  */
 const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
-  if (typeof LightweightCharts === 'undefined') return null;
+  if (typeof LightweightCharts === "undefined") return null;
   const container = document.getElementById(containerId);
-  if (!container || !intradayRows || !Array.isArray(intradayRows) || intradayRows.length === 0) return null;
+  if (!container || !intradayRows || !Array.isArray(intradayRows) || intradayRows.length === 0)
+    return null;
 
   const colors = getChartThemeColors();
   const chart = LightweightCharts.createChart(container, _chartConfig(colors, true));
@@ -107,7 +125,7 @@ const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
 
     _fitAfterLayout(chart);
   } catch (e) {
-    debugLog('[market-charts] Intraday vendor chart error: ' + e.message, 'warn');
+    debugLog("[market-charts] Intraday vendor chart error: " + e.message, "warn");
   }
 
   return chart;
@@ -118,9 +136,10 @@ const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
  * Data format: [{ t, ts, ..., vendors: { vid: { avg, in_stock } } }, ...]
  */
 const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
-  if (typeof LightweightCharts === 'undefined') return null;
+  if (typeof LightweightCharts === "undefined") return null;
   const container = document.getElementById(containerId);
-  if (!container || !historyRows || !Array.isArray(historyRows) || historyRows.length === 0) return null;
+  if (!container || !historyRows || !Array.isArray(historyRows) || historyRows.length === 0)
+    return null;
 
   const colors = getChartThemeColors();
   const chart = LightweightCharts.createChart(container, _chartConfig(colors, false));
@@ -151,9 +170,9 @@ const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
       const data = [];
       for (const row of rows) {
         if (!row.t) continue;
-        const day = row.t.split('T')[0];
+        const day = row.t.split("T")[0];
         const vData = row.vendors && row.vendors[vid];
-        const price = vData ? (typeof vData === 'number' ? vData : vData.avg) : null;
+        const price = vData ? (typeof vData === "number" ? vData : vData.avg) : null;
         if (price == null || price <= 0) continue;
         data.push({ time: day, value: price });
       }
@@ -162,17 +181,23 @@ const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
 
     _fitAfterLayout(chart);
   } catch (e) {
-    debugLog('[market-charts] History vendor chart error: ' + e.message, 'warn');
+    debugLog("[market-charts] History vendor chart error: " + e.message, "warn");
   }
 
   return chart;
 };
 
 const destroyCoinChart = (chart) => {
-  if (chart) { try { chart.remove(); } catch (e) { /* noop */ } }
+  if (chart) {
+    try {
+      chart.remove();
+    } catch (e) {
+      /* noop */
+    }
+  }
 };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.getChartThemeColors = getChartThemeColors;
   window.createVendorIntradayChart = createVendorIntradayChart;
   window.createVendorHistoryChart = createVendorHistoryChart;
