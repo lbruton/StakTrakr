@@ -5504,7 +5504,7 @@ td input:checked + .slider:before {
   align-items: center;
   gap: var(--spacing-sm);
   min-width: 0;
-  padding-right: 28px;
+  padding-right: 32px;
 }
 
 /* Badges row — catalog ID + count chip */
