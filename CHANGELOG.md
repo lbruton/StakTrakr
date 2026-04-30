@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.38] - 2026-04-29
+
+### Fixed — STRK-15: Silverback denomination aria-label
+
+- **Fixed**: Silverback denomination selector now renders correct `aria-label` attributes for screen reader accessibility.
+
+---
+
 ## [3.34.37] - 2026-04-29
 
 ### Fixed — STRK-17: Silverback weight unit wrong retail pricing
