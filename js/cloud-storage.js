@@ -942,7 +942,11 @@ async function cloudUploadVault(provider, fileBytes, opts) {
     appVersion: cloudSafeAppVersion(),
     itemCount: safeCount,
   };
-  localStorage.setItem("cloud_last_backup", JSON.stringify(backupMeta));
+  try {
+    localStorage.setItem("cloud_last_backup", JSON.stringify(backupMeta));
+  } catch (err) {
+    console.warn("[CloudStorage] Failed to update cloud_last_backup cache", err);
+  }
 
   recordCloudActivity({
     action: "backup",

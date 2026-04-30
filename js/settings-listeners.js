@@ -1105,7 +1105,7 @@ const bindCloudStorageListeners = () => {
             var remoteLine =
               "Remote: " + remoteItems.toLocaleString() + " items (" + remoteInfo + ")";
             var localLine = "Local: " + localInfo;
-            var conflictMsg =
+            const conflictMsg =
               conflict.reason === "remote_newer"
                 ? "A more recent remote backup exists."
                 : "An existing remote backup was found.";
