@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.38] - 2026-04-29
+
+### Fixed — STRK-15: Silverback denomination aria-label
+
+- **Fixed**: Silverback denomination selector no longer carries a stale `aria-label="Goldback denomination"` attribute. The dynamically managed `<label for>` association in `toggleGbDenomPicker` now provides the only accessible name, eliminating the misleading screen-reader announcement.
+
+---
+
 ## [3.34.37] - 2026-04-29
 
 ### Fixed — STRK-17: Silverback weight unit wrong retail pricing
