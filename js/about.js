@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.39 &ndash; Market matrix alphabetical sorting</strong>: Vendor columns and item rows in the market price matrix now appear in alphabetical order by display name, eliminating layout drift between page loads (STRK-21).</li>
     <li><strong>v3.34.38 &ndash; Silverback as a first-class metal type</strong>: Silverbacks now have their own 0.001 troy ounce weight unit, separate from Goldback retail pricing. Existing records migrate automatically on load, import, and cloud restore. Denomination selector, purity default, and aria labels are all corrected (STRK-4, STRK-12, STRK-15, STRK-17).</li>
     <li><strong>v3.34.36 &ndash; Inventory data safety</strong>: Startup no longer overwrites your inventory with sample data when localStorage is missing or corrupt &mdash; a recovery banner appears instead. Re-importing your own encrypted backup no longer produces duplicates; items match by serial, Numista ID, or name+date before comparison (STRK-13, STRK-14).</li>
     <li><strong>v3.34.34 &ndash; Lot &harr; Each purchase price toggle</strong>: Enter a lot total when buying multiples &mdash; the app divides by quantity and stores a per-unit price. The Purchase column now shows the qty-multiplied total in the inventory table (STRK-4).</li>

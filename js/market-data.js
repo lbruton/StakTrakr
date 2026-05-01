@@ -914,6 +914,9 @@ const _renderVendorTable = async (metalCode) => {
       metalSlugs.push({ slug, meta });
     }
   }
+  metalSlugs.sort((a, b) =>
+    String(a.meta.name || a.slug).localeCompare(String(b.meta.name || b.slug))
+  );
 
   if (metalSlugs.length === 0) {
     tableWrap.textContent = "";
@@ -971,7 +974,9 @@ const _renderVendorTable = async (metalCode) => {
     }
   }
 
-  const vendorIds = Array.from(allVendorIds);
+  const vendorIds = Array.from(allVendorIds).sort((a, b) =>
+    _shortVendor(a).localeCompare(_shortVendor(b))
+  );
 
   if (vendorIds.length === 0) {
     tableWrap.textContent = "";
