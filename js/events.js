@@ -66,8 +66,31 @@ const getPurchasePriceToggleButtons = () => {
   return Array.from(toggle.children).filter((child) => child.dataset?.mode);
 };
 
-const setPurchasePriceMode = (mode) => {
-  purchasePriceMode = mode === "lot" ? "lot" : "each";
+const maybeConvertPurchasePriceForMode = (nextMode) => {
+  if (!elements.itemPrice || nextMode === purchasePriceMode) return;
+
+  const rawPrice = elements.itemPrice.value.trim();
+  const price = Number(rawPrice);
+  const qty = Number(elements.itemQty?.value?.trim() ?? "");
+
+  if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
+  if (!Number.isFinite(qty) || qty <= 1) return;
+
+  const convertedPrice = nextMode === "each" ? price / qty : price * qty;
+  if (!Number.isFinite(convertedPrice) || convertedPrice <= 0) return;
+
+  elements.itemPrice.value = convertedPrice.toFixed(2);
+};
+
+const setPurchasePriceMode = (mode, options = {}) => {
+  const nextMode = mode === "lot" ? "lot" : "each";
+  const { convertInput = true } = options;
+
+  if (convertInput) {
+    maybeConvertPurchasePriceForMode(nextMode);
+  }
+
+  purchasePriceMode = nextMode;
 
   getPurchasePriceToggleButtons().forEach((button) => {
     const isActive = button.dataset.mode === purchasePriceMode;
@@ -96,13 +119,13 @@ const updatePurchasePriceToggleVisibility = () => {
   toggle.classList.toggle("is-hidden", !showToggle);
 
   if (!showToggle && purchasePriceMode === "lot") {
-    setPurchasePriceMode("each");
+    setPurchasePriceMode("each", { convertInput: false });
   }
   updatePurchasePricePlaceholder();
 };
 
 const resetPurchasePriceToggle = () => {
-  setPurchasePriceMode("each");
+  setPurchasePriceMode("each", { convertInput: false });
   updatePurchasePriceToggleVisibility();
 };
 

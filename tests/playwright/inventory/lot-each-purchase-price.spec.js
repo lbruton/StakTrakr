@@ -236,8 +236,9 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await seedData(page);
     await gotoApp(page);
     await openAddModal(page);
-    await fillInventoryForm(page, { name: itemName, qty: "4", price: "400" });
+    await fillInventoryForm(page, { name: itemName, qty: "4", price: "" });
     await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "400");
     await submitItemForm(page);
 
     const item = await getInventoryItem(page, itemName);
@@ -256,10 +257,11 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await fillInventoryForm(page, {
       name: itemName,
       qty: "120",
-      price: "120",
+      price: "",
       weight: "0.3617",
     });
     await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "120");
     await submitItemForm(page);
 
     const item = await getInventoryItem(page, itemName);
@@ -420,13 +422,39 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await seedData(page, { displayCurrency: "EUR", exchangeRates: { EUR: 0.9 } });
     await gotoApp(page);
     await openAddModal(page);
-    await fillInventoryForm(page, { name: itemName, qty: "3", price: "90" });
+    await fillInventoryForm(page, { name: itemName, qty: "3", price: "" });
     await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "90");
     await submitItemForm(page);
 
     const item = await getInventoryItem(page, itemName);
     expect(item).not.toBeNull();
     expect(item.qty).toBe(3);
     expect(item.price).toBeCloseTo((90 / 3) * (1 / 0.9), 6);
+  });
+
+  test("15. STRK-23 switching Lot to Each converts the visible input", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemQty", "2");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "100");
+    await selectPurchaseMode(page, "each");
+
+    await expect(page.locator("#itemPrice")).toHaveValue("50.00");
+  });
+
+  test("16. STRK-23 switching Each to Lot converts the visible input", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemQty", "2");
+    await page.fill("#itemPrice", "50");
+    await selectPurchaseMode(page, "lot");
+
+    await expect(page.locator("#itemPrice")).toHaveValue("100.00");
   });
 });
