@@ -457,4 +457,25 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
 
     await expect(page.locator("#itemPrice")).toHaveValue("100");
   });
+
+  test("17. STRK-23 switching modes emits input after auto-conversion", async ({ page }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemQty", "2");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "100");
+    await page.evaluate(() => {
+      window.__strk23PriceInputEvents = 0;
+      document.getElementById("itemPrice").addEventListener("input", () => {
+        window.__strk23PriceInputEvents += 1;
+      });
+    });
+
+    await selectPurchaseMode(page, "each");
+
+    await expect(page.locator("#itemPrice")).toHaveValue("50");
+    await expect.poll(() => page.evaluate(() => window.__strk23PriceInputEvents)).toBe(1);
+  });
 });

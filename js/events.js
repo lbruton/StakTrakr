@@ -80,6 +80,7 @@ const maybeConvertPurchasePriceForMode = (nextMode) => {
   if (!Number.isFinite(convertedPrice) || convertedPrice <= 0) return;
 
   elements.itemPrice.value = Number(convertedPrice.toFixed(6)).toString();
+  elements.itemPrice.dispatchEvent(new Event("input", { bubbles: true }));
 };
 
 const setPurchasePriceMode = (mode, options = {}) => {
