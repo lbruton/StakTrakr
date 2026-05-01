@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.39] - 2026-05-01
+
+### Fixed — STRK-21: Market price matrix alphabetical sorting
+
+- **Fixed**: Vendor columns in the market price matrix now appear in alphabetical order by display name (APMEX, BullionX, Gville, Hero, JM, Monument, Provident, SD, Summit) instead of reflecting unpredictable data load order.
+- **Fixed**: Item rows in the market price matrix now appear in alphabetical order by item name instead of JSON key enumeration order.
+
+---
+
 ## [3.34.38] - 2026-04-29
 
 ### Fixed — STRK-20: Backup conflict modal context-aware messaging
