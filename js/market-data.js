@@ -914,8 +914,11 @@ const _renderVendorTable = async (metalCode) => {
       metalSlugs.push({ slug, meta });
     }
   }
-  metalSlugs.sort((a, b) =>
-    String(a.meta.name || a.slug).localeCompare(String(b.meta.name || b.slug))
+  metalSlugs.sort(
+    (a, b) =>
+      String(a.meta.name || a.slug).localeCompare(String(b.meta.name || b.slug), undefined, {
+        numeric: true,
+      }) || a.slug.localeCompare(b.slug)
   );
 
   if (metalSlugs.length === 0) {
@@ -974,8 +977,8 @@ const _renderVendorTable = async (metalCode) => {
     }
   }
 
-  const vendorIds = Array.from(allVendorIds).sort((a, b) =>
-    _shortVendor(a).localeCompare(_shortVendor(b))
+  const vendorIds = Array.from(allVendorIds).sort(
+    (a, b) => String(_shortVendor(a)).localeCompare(String(_shortVendor(b))) || a.localeCompare(b)
   );
 
   if (vendorIds.length === 0) {
