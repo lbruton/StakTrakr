@@ -195,7 +195,6 @@ const setupSortingFixture = async (page) => {
       typeof window.renderVendorPrices === "function" &&
       typeof window.refreshMarketData === "function"
   );
-  await page.waitForTimeout(350);
   await page.evaluate(() => window.refreshMarketData());
   // Wait for the vendor table to render
   await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
