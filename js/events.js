@@ -71,7 +71,7 @@ const maybeConvertPurchasePriceForMode = (nextMode) => {
 
   const rawPrice = elements.itemPrice.value.trim();
   const price = Number(rawPrice);
-  const qty = Number(elements.itemQty?.value?.trim() ?? "");
+  const qty = parseInt(elements.itemQty?.value?.trim() ?? "", 10);
 
   if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
   if (!Number.isFinite(qty) || qty <= 1) return;
@@ -79,7 +79,7 @@ const maybeConvertPurchasePriceForMode = (nextMode) => {
   const convertedPrice = nextMode === "each" ? price / qty : price * qty;
   if (!Number.isFinite(convertedPrice) || convertedPrice <= 0) return;
 
-  elements.itemPrice.value = convertedPrice.toFixed(2);
+  elements.itemPrice.value = Number(convertedPrice.toFixed(6)).toString();
 };
 
 const setPurchasePriceMode = (mode, options = {}) => {

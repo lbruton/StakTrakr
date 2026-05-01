@@ -443,7 +443,7 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await page.fill("#itemPrice", "100");
     await selectPurchaseMode(page, "each");
 
-    await expect(page.locator("#itemPrice")).toHaveValue("50.00");
+    await expect(page.locator("#itemPrice")).toHaveValue("50");
   });
 
   test("16. STRK-23 switching Each to Lot converts the visible input", async ({ page }) => {
@@ -455,6 +455,6 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await page.fill("#itemPrice", "50");
     await selectPurchaseMode(page, "lot");
 
-    await expect(page.locator("#itemPrice")).toHaveValue("100.00");
+    await expect(page.locator("#itemPrice")).toHaveValue("100");
   });
 });
