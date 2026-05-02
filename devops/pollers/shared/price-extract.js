@@ -191,8 +191,8 @@ const MARKDOWN_CUTOFF_PATTERNS = {
   // page. Review prose can contain OOS keywords ("Out Of Stock") that trigger
   // false positives in detectStockStatus(). Cut before the review block.
   monumentmetals: [
-    /[\d,]+\s+Reviews\]\(https:\/\/www\.shopperapproved/i, // Firecrawl markdown link
-    /[\d,]+\s+Reviews\s*https:\/\/www\.shopperapproved/i, // Playwright plain-text
+    /[\d,]+\s+Reviews\]\(https:\/\/www\.shopperapproved/i, // Firecrawl markdown (includes href)
+    /[\d,]+\s+Reviews\b/i, // Playwright plain-text (innerText has no href)
     /\bSuggested Products\b/i, // "Suggested Products" section after reviews
   ],
 };
