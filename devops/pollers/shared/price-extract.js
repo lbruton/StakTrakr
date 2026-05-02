@@ -187,6 +187,14 @@ const MARKDOWN_CUTOFF_PATTERNS = {
     /^Similar Products You May Like/im, // Firecrawl markdown section heading
     /<[^>]*>\s*Similar Products You May Like/i, // Playwright HTML heading
   ],
+  // Monument Metals embeds ShopperApproved customer reviews on every product
+  // page. Review prose can contain OOS keywords ("Out Of Stock") that trigger
+  // false positives in detectStockStatus(). Cut before the review block.
+  monumentmetals: [
+    /[\d,]+\s+Reviews\]\(https:\/\/www\.shopperapproved/i, // Firecrawl markdown link
+    /[\d,]+\s+Reviews\s*https:\/\/www\.shopperapproved/i, // Playwright plain-text
+    /\bSuggested Products\b/i, // "Suggested Products" section after reviews
+  ],
 };
 
 // Patterns that match the START of the actual product content, used to strip
