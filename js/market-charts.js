@@ -28,7 +28,7 @@ const _chartConfig = (colors, timeVisible) => ({
   layout: {
     background: { type: "solid", color: "transparent" },
     textColor: colors.textMuted,
-    fontFamily: '"Inter", -apple-system, sans-serif',
+    fontFamily: '"Geist", -apple-system, sans-serif',
     fontSize: 11,
     attributionLogo: false,
   },
