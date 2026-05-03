@@ -142,3 +142,35 @@ A passing test suite built on modified tests is worse than a failing one — it 
 - **Before any release PR** → run `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`).
 - **Before `dev → main`** → use `/staktrakr-ship` only on explicit "ready to ship" from user.
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
+
+---
+
+## Design Context
+
+### Users
+
+StakTrakr serves a broad spectrum of precious metals holders — from casual stackers checking what their collection is worth, to serious investors tracking cost basis and portfolio allocation, to preppers holding physical metals as a store of value. Usage context is primarily at home on desktop, though mobile access matters.
+
+### Brand Personality
+
+**Sharp. Capable. Empowering.** Like a pro trading terminal — dense information, full control, respect for the user's intelligence. The interface should feel like a precision instrument, not a toy.
+
+### Aesthetic Direction
+
+- Dashboard layout with card-based and table-based views, plus ticker displays
+- Silver/gold metallic brand identity rooted in physical properties of precious metals
+- Three themes: light (slate/blue-gray), dark (deep navy), sepia — each must feel like StakTrakr
+
+### Anti-References
+
+- **NOT generic fintech** — no Robinhood/Mint aesthetic, no oversized cards with rounded everything
+- **NOT crypto/Web3** — no neon, no glow effects, no "futuristic" styling
+- **NOT a spreadsheet clone** — needs real visual identity beyond tables
+
+### Design Principles
+
+1. **Information density over simplicity** — Users want to see their data, not navigate to it
+2. **Metallic, not digital** — Design language echoes physical metals: weight, luster, solidity
+3. **Precision tool, not consumer app** — Respect the user's intelligence with dense data and functional controls
+4. **Grounded color, not performative** — Color serves function (metal ID, gain/loss, status), not decoration
+5. **Three themes, one identity** — Light, dark, and sepia each feel like StakTrakr, not a generic toggle
