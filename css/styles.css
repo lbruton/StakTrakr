@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Geist";
+  src: url("../fonts/geist-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../fonts/instrument-serif-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* =============================================================================
    UTILITY — SCREEN-READER ONLY
    ============================================================================= */
@@ -120,6 +136,10 @@
   --font-size-xl: 1.25rem;
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 1.875rem;
+
+  /* Font Families */
+  --font-body: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Instrument Serif", Georgia, "Times New Roman", serif;
 
   /* Transitions */
   --transition: var(--transition);
@@ -273,13 +293,7 @@
 }
 
 html {
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
   background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
@@ -318,13 +332,7 @@ h2 {
 
 .section-title {
   text-align: center;
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-heading);
   margin: var(--spacing-lg) 0;
 }
 
@@ -7433,13 +7441,7 @@ a.about-badge:hover {
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius);
   font-size: var(--font-size-sm);
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
   height: 1.5rem;
   line-height: 1;
@@ -7647,13 +7649,7 @@ a.about-badge:hover {
   border: none;
   border-radius: var(--radius);
   font-size: var(--font-size-sm);
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
   height: 1.5rem;
   line-height: 1;
@@ -8475,13 +8471,7 @@ th {
 #inventoryTable thead th {
   color: var(--text-secondary);
   background: var(--bg-secondary);
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -8493,13 +8483,7 @@ th {
 
 /* Ensure uniform font family for entire table */
 #inventoryTable {
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
 }
 
 #inventoryTable thead th .header-icon,
@@ -10888,13 +10872,7 @@ th {
 #inventoryTable td[data-column="metal"],
 #inventoryTable td[data-column="purchaseLocation"],
 #inventoryTable td[data-column="date"] {
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
 }
 
 /* Numerical value consistency across all numeric columns */
