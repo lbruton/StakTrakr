@@ -318,7 +318,7 @@ body {
 h1 {
   font-family: var(--font-heading);
   font-size: var(--font-size-3xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--primary);
   margin-bottom: var(--spacing);
   letter-spacing: -0.025em;
@@ -327,7 +327,7 @@ h1 {
 h2 {
   font-family: var(--font-heading);
   font-size: var(--font-size-xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-primary);
   margin-bottom: var(--spacing-sm);
 }
