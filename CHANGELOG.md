@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.40] - 2026-05-03
+
+### Changed — STRK-24: Replace Inter font with distinctive typeface pairing
+
+- **Changed**: Body font replaced from Inter to Geist (variable WOFF2, weights 100–900) — locally bundled, no CDN.
+- **Changed**: Heading font (h1, h2, .section-title) now uses Instrument Serif — high-contrast serif for visual hierarchy.
+- **Added**: `--font-body` and `--font-heading` CSS custom properties in `:root`.
+- **Added**: Font preload links in `index.html` for faster first render.
+- **Added**: Font files registered in service worker precache for offline availability.
+- **Fixed**: Chart canvas font in market-charts.js updated from Inter to Geist.
+- **Fixed**: preview.html font reference updated from Inter to Geist.
+
+---
+
 ## [3.34.39] - 2026-05-01
 
 ### Fixed — STRK-21: Market price matrix alphabetical sorting
