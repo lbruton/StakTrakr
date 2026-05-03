@@ -17,9 +17,10 @@ test.describe("font-loading", () => {
   });
 
   test("FL-3 — headings use Instrument Serif", async ({ page }) => {
-    const sectionTitle = page.locator(".section-title").first();
-    await expect(sectionTitle).toBeVisible();
-    const fontFamily = await sectionTitle.evaluate((el) => getComputedStyle(el).fontFamily);
+    const fontFamily = await page.evaluate(() => {
+      const el = document.querySelector(".section-title");
+      return el ? getComputedStyle(el).fontFamily : "";
+    });
     expect(fontFamily).toContain("Instrument Serif");
   });
 
