@@ -782,9 +782,6 @@ const openMarketDetailModal = async (slug) => {
         if (entry.in_stock) {
           tdStock.style.color = "var(--success)";
           tdStock.textContent = "In Stock";
-        } else if (entry.carried) {
-          tdStock.style.color = "var(--warning, #eab308)";
-          tdStock.textContent = "Carried";
         } else {
           tdStock.style.color = "var(--danger)";
           tdStock.textContent = "Out of Stock";
@@ -800,7 +797,7 @@ const openMarketDetailModal = async (slug) => {
           entry.url ||
           (vMeta && vMeta.url) ||
           null;
-        if (_isSafeUrl(url) && entry.price > 0) {
+        if (_isSafeUrl(url)) {
           const buyBtn = document.createElement("a");
           buyBtn.textContent = "Buy";
           buyBtn.href = "#";
@@ -1070,7 +1067,7 @@ const _renderVendorTable = async (metalCode) => {
       const td = document.createElement("td");
       const vInfo = vData[vid];
 
-      if (!vInfo || vInfo.price == null || vInfo.price <= 0) {
+      if (!vInfo) {
         td.textContent = "\u2014";
         td.style.color = "var(--text-muted)";
         tr.appendChild(td);
