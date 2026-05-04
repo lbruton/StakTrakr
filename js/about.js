@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.42 &ndash; STRK-26: Cleaner card visuals</strong>: Removed decorative metal-color stripes from inventory cards in all three card layouts. Card C also lost a soft tinted glow on its image column. The cards now feel less &ldquo;templated&rdquo; and put more focus on your actual coin photos (STRK-26).</li>
     <li><strong>v3.34.41 &ndash; STRK-29: Monospace font consolidation</strong>: Added Geist Mono as the unified monospace font, replacing 6 inconsistent font stacks across CSS and JS. All monospace text now flows through a single <code>--font-mono</code> variable. Inline JS styles migrated to CSS classes (STRK-29).</li>
     <li><strong>v3.34.40 &ndash; Distinctive typography</strong>: Replaced the generic Inter font with Geist (body) and Instrument Serif (headings) &mdash; locally bundled, offline-ready, and tuned for dense data at 13px. The interface now feels like a precision instrument, not a template (STRK-24).</li>
     <li><strong>v3.34.39 &ndash; Market matrix alphabetical sorting</strong>: Vendor columns and item rows in the market price matrix now appear in alphabetical order by display name, eliminating layout drift between page loads (STRK-21).</li>
