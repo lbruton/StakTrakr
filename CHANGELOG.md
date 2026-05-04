@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.41] - 2026-05-03
+
+### Changed — STRK-29: Monospace font consolidation and font-size-base review
+
+- **Added**: Geist Mono variable font — self-hosted woff2, registered in sw.js for offline PWA support.
+- **Added**: `--font-mono` CSS custom property in `:root` with cross-platform fallback chain.
+- **Changed**: All 11 monospace `font-family` declarations consolidated to `var(--font-mono)`.
+- **Changed**: 5 JS inline monospace styles migrated to CSS classes (`.cache-id`, `.cache-log-line`, `.market-value`, `.market-price`, `.pattern-cell`).
+- **Kept**: `--font-size-base` at 0.8125rem (13px) — Geist's high x-height compensates.
+
+---
+
 ## [3.34.40] - 2026-05-03
 
 ### Changed — STRK-24: Replace Inter font with distinctive typeface pairing
