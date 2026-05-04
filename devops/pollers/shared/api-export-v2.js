@@ -514,7 +514,7 @@ async function exportRetail(client) {
 
       // Aggregate fresh in-stock prices only
       const allPrices = Object.values(vendors)
-        .filter((v) => v.price !== null && v.in_stock !== false)
+        .filter((v) => v.price !== null && v.in_stock === true)
         .map((v) => v.price);
 
       const median = medianOf(allPrices);
@@ -601,8 +601,6 @@ async function exportRetail(client) {
         vendorCoinMap[vid][slug] = {
           price: vdata.price,
           in_stock: vdata.in_stock,
-          carried: vdata.carried || false,
-          ...(vdata.carried_from ? { carried_from: vdata.carried_from } : {}),
           product_url: providerEntry?.url || null,
         };
       }
