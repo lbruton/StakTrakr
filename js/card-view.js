@@ -707,7 +707,6 @@ const renderCardC = (item, idx, computed) => {
     `<div class="cv-image-col">` +
     `${_cardImageHTML(item, "", "obverse")}` +
     `${_cardImageHTML(item, "", "reverse")}` +
-    `<div class="cv-sparkline-strip"><svg viewBox="0 0 4 120" preserveAspectRatio="none"><rect width="4" height="120" rx="2" fill="var(--metal-color)" opacity="0.3"/></svg></div>` +
     `</div>` +
     `<div class="cv-data-col">` +
     `<div class="cv-item-name">${sanitizeHtml(item.name || "")}${isDisposed(item) ? ` <span class="disposition-badge disposition-badge--${item.disposition.type}">${DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type}</span>` : ""}</div>` +
