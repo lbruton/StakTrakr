@@ -13195,9 +13195,6 @@ th {
   width: 56px;
   height: 56px;
 }
-.card-c .cv-sparkline-strip {
-  display: none;
-}
 .card-c .cv-data-col {
   flex: 1;
   padding: 0.6rem 0.75rem;
