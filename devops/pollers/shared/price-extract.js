@@ -1054,25 +1054,38 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     }
   }
 
-  // Byparr already fetched the page. Try JSON-LD first (authoritative —
-  // matches the Playwright fallback's extractor), then fall back to
-  // scanner-stripped text. For SPAs where both fail, fall through to
-  // Playwright with the cookie so the pricing grid can hydrate.
+  // Byparr already fetched the page. Check stock status from both JSON-LD
+  // availability and page text, then try JSON-LD price (authoritative).
+  // For SPAs where both fail, fall through to Playwright with the cookie.
   if (cfData.responseHtml) {
     const jsonLdScripts = extractJsonLdScriptsFromHtml(cfData.responseHtml);
+
+    // JSON-LD availability is the fastest OOS signal (STRK-30: BullionExchanges
+    // keeps JSON-LD price populated on OOS pages but sets availability=OutOfStock).
+    const availability = extractJsonLdAvailability(jsonLdScripts);
+    if (availability && JSONLD_OOS_VALUES.has(availability)) {
+      log(`[cf-clearance] ${providerId}: JSON-LD availability=${availability} -> OOS`);
+      return { price: null, inStock: false, source: "cf-clearance:jsonLd" };
+    }
+
+    // Text-based OOS detection before JSON-LD price short-circuit — catches
+    // visible "Out Of Stock" text even when JSON-LD availability is stale/missing.
+    const rawText = htmlToPlainText(cfData.responseHtml);
+    const cleaned = preprocessMarkdown(rawText, providerId);
+    const inStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
+
     const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
       log(`[cf-clearance] ${providerId}: JSON-LD price=0 in Byparr HTML -> OOS`);
       return { price: null, inStock: false, source: "cf-clearance:jsonLd" };
     }
     if (jsonLdPrice !== null) {
-      log(`[cf-clearance] success (html jsonLd): ${providerId} price=${jsonLdPrice}`);
-      return { price: jsonLdPrice, inStock: true, source: "cf-clearance:jsonLd" };
+      log(
+        `[cf-clearance] success (html jsonLd): ${providerId} price=${jsonLdPrice} inStock=${inStock.inStock}`
+      );
+      return { price: jsonLdPrice, inStock: inStock.inStock, source: "cf-clearance:jsonLd" };
     }
 
-    const rawText = htmlToPlainText(cfData.responseHtml);
-    const cleaned = preprocessMarkdown(rawText, providerId);
-    const inStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (html): ${providerId} price=${price.price}`);
