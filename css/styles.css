@@ -13022,7 +13022,6 @@ th {
 .card-a {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--metal-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -13095,7 +13094,6 @@ th {
 .card-b {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--metal-color, var(--border));
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -13159,7 +13157,6 @@ th {
 .card-c {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--metal-color, var(--border));
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -13186,20 +13183,7 @@ th {
   justify-content: center;
   gap: 0.35rem;
   padding: 0.5rem;
-  position: relative;
   box-shadow: inset -1px 0 3px rgba(0, 0, 0, 0.08);
-}
-.card-c .cv-image-col::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 0% 50%,
-    var(--metal-color, transparent) 0%,
-    transparent 70%
-  );
-  opacity: 0.18;
-  pointer-events: none;
 }
 /* Rect items in split card — constrained height */
 .card-c .coin-img.bar-shape {
