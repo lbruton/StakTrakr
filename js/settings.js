@@ -2183,7 +2183,7 @@ const renderCustomRuleTable = () => {
     const tr = document.createElement("tr");
 
     const tdPattern = document.createElement("td");
-    tdPattern.style.cssText = "font-family:monospace;font-size:0.8rem;word-break:break-all";
+    tdPattern.classList.add("pattern-cell");
     tdPattern.textContent = rule.pattern;
 
     const tdReplacement = document.createElement("td");

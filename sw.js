@@ -4,7 +4,7 @@
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.40-b1777827319";
+const CACHE_NAME = "staktrakr-v3.34.41-b1777864141";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -23,6 +23,7 @@ const CORE_ASSETS = [
   "./css/styles.css",
   "./fonts/geist-variable.woff2",
   "./fonts/instrument-serif-regular.woff2",
+  "./fonts/geist-mono-variable.woff2",
   "./js/file-protocol-fix.js",
   "./js/debug-log.js",
   "./js/boot-diagnostics.js",
