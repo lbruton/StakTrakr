@@ -327,6 +327,43 @@ async function queryLatestPerVendor(client, coinSlug, lookbackHours = 2) {
   return result.rows;
 }
 
+async function queryInStockNoPriceVendors(client, coinSlug, lookbackHours = 2) {
+  const cutoff = new Date(Date.now() - lookbackHours * MS_PER_HOUR)
+    .toISOString()
+    .replace(".000Z", "Z");
+  const result = await client.execute({
+    sql: `
+      SELECT ps.vendor, ps.in_stock, ps.scraped_at
+      FROM price_snapshots ps
+      INNER JOIN (
+        SELECT vendor, MAX(scraped_at) AS max_scraped
+        FROM price_snapshots
+        WHERE coin_slug = ? AND scraped_at >= ? AND is_failed = 0
+        GROUP BY vendor
+      ) latest ON ps.vendor = latest.vendor AND ps.scraped_at = latest.max_scraped
+      WHERE ps.coin_slug = ? AND ps.is_failed = 0 AND ps.price IS NULL AND ps.in_stock = 1
+    `,
+    args: [coinSlug, cutoff, coinSlug],
+  });
+  return result.rows;
+}
+
+async function queryCarryForwardPrice(client, coinSlug, vendorId) {
+  const cutoff = new Date(Date.now() - MS_PER_DAY).toISOString().replace(".000Z", "Z");
+  const result = await client.execute({
+    sql: `
+      SELECT price, scraped_at
+      FROM price_snapshots
+      WHERE coin_slug = ? AND vendor = ? AND is_failed = 0 AND price IS NOT NULL
+        AND scraped_at >= ?
+      ORDER BY scraped_at DESC
+      LIMIT 1
+    `,
+    args: [coinSlug, vendorId, cutoff],
+  });
+  return result.rows.length ? result.rows[0] : null;
+}
+
 async function queryRetailRange(client, coinSlug, startIso, endIso) {
   const result = await client.execute({
     sql: `
@@ -439,9 +476,37 @@ function buildRetailIntradayEntries(rows) {
   return entries;
 }
 
-function fillMissingVendors(currentVendors, configuredVendorIds) {
+async function applyConditionalCarryForward(
+  currentVendors,
+  slug,
+  client,
+  configuredVendorIds,
+  lookbackHours
+) {
+  const inStockNoPriceRows = await queryInStockNoPriceVendors(client, slug, lookbackHours);
+  const inStockNoPriceSet = new Set(inStockNoPriceRows.map((r) => String(r.vendor)));
+
   for (const vendorId of configuredVendorIds) {
     if (currentVendors[vendorId]) continue;
+
+    if (inStockNoPriceSet.has(vendorId)) {
+      try {
+        const carried = await queryCarryForwardPrice(client, slug, vendorId);
+        if (carried) {
+          currentVendors[vendorId] = {
+            price: parseFloat(Number(carried.price).toFixed(2)),
+            in_stock: true,
+            confidence: null,
+            carried: true,
+            carried_from: String(carried.scraped_at),
+          };
+          continue;
+        }
+      } catch (err) {
+        warn(`carry-forward ${slug}/${vendorId}: ${err.message}`);
+      }
+    }
+
     currentVendors[vendorId] = {
       price: null,
       in_stock: false,
@@ -510,11 +575,11 @@ async function exportRetail(client) {
         };
       }
 
-      fillMissingVendors(vendors, configuredVendorIds);
+      await applyConditionalCarryForward(vendors, slug, client, configuredVendorIds, 2);
 
-      // Aggregate fresh in-stock prices only
+      // Aggregate fresh in-stock prices only (carried prices excluded from aggregation)
       const allPrices = Object.values(vendors)
-        .filter((v) => v.price !== null && v.in_stock === true)
+        .filter((v) => v.price !== null && v.in_stock === true && !v.carried)
         .map((v) => v.price);
 
       const median = medianOf(allPrices);
@@ -601,6 +666,7 @@ async function exportRetail(client) {
         vendorCoinMap[vid][slug] = {
           price: vdata.price,
           in_stock: vdata.in_stock,
+          ...(vdata.carried ? { carried: true, carried_from: vdata.carried_from } : {}),
           product_url: providerEntry?.url || null,
         };
       }
