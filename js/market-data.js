@@ -782,9 +782,6 @@ const openMarketDetailModal = async (slug) => {
         if (entry.in_stock) {
           tdStock.style.color = "var(--success)";
           tdStock.textContent = "In Stock";
-        } else if (entry.carried) {
-          tdStock.style.color = "var(--warning, #eab308)";
-          tdStock.textContent = "Carried";
         } else {
           tdStock.style.color = "var(--danger)";
           tdStock.textContent = "Out of Stock";
