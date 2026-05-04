@@ -338,10 +338,10 @@ async function queryInStockNoPriceVendors(client, coinSlug, lookbackHours = 2) {
       INNER JOIN (
         SELECT vendor, MAX(scraped_at) AS max_scraped
         FROM price_snapshots
-        WHERE coin_slug = ? AND scraped_at >= ? AND is_failed = 0
+        WHERE coin_slug = ? AND scraped_at >= ?
         GROUP BY vendor
       ) latest ON ps.vendor = latest.vendor AND ps.scraped_at = latest.max_scraped
-      WHERE ps.coin_slug = ? AND ps.is_failed = 0 AND ps.price IS NULL AND ps.in_stock = 1
+      WHERE ps.coin_slug = ? AND ps.price IS NULL AND ps.in_stock = 1
     `,
     args: [coinSlug, cutoff, coinSlug],
   });
