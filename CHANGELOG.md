@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed**: 3px metal-color `border-left` accents from `.card-a`, `.card-b`, and `.card-c` — flagged by the Impeccable design critique as the strongest AI-dashboard tell.
 - **Removed**: Card C's `.cv-image-col::before` radial-gradient halo, which was anchored to the now-removed stripe and would have become visually orphaned.
 - **Removed**: Dormant `.cv-sparkline-strip` element from Card C — hidden via `display: none` since the card view engine first shipped (STAK-118), no longer needed.
-- **Note**: 4 remaining `border-left` indicators (`--danger`, `--warning`, `--primary`) encode functional state and are preserved; evaluation tracked separately in STRK-31.
+- **Note**: 4 remaining `border-left` indicators using 3 variables (`--danger`, `--warning`, `--primary` × 2) encode functional state and are preserved; evaluation tracked separately in STRK-31.
 
 ---
 
