@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.44] - 2026-05-04
+
+### Changed — STRK-27: CSS polish pass
+
+- **Normalized**: Border-radius token usage — reclassified 12 of 13 `--radius-xl` usages to semantic tokens (`--radius-lg` for cards/panels, `--radius-pill` for pills/sliders/buttons). Only the decorative about-logo retains `--radius-xl`.
+- **Refactored**: Eliminated 21 `!important` declarations (99 → 78) by converting `.img-btn` pill block to compound selectors (`.btn.img-btn`) that naturally beat `.btn` specificity.
+
+---
+
 ## [3.34.42] - 2026-05-04
 
 ### Changed — STRK-26: Remove side-stripe accents from cards
