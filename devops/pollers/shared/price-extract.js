@@ -1096,6 +1096,10 @@ async function scrapeViaCFClearance(url, providerId, coin) {
         source: `cf-clearance:${price.matchedBy}`,
       };
     }
+    if (!isInStock) {
+      log(`[cf-clearance] ${providerId}: OOS detected but no price extractable`);
+      return { price: null, inStock: false, source: "cf-clearance:oos" };
+    }
     warn(
       `[cf-clearance] no price from Byparr HTML for ${providerId} (len=${cfData.responseHtml.length}, jsonLd=${jsonLdScripts.length}) -- falling through to Playwright`
     );
