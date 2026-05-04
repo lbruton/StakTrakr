@@ -5852,8 +5852,6 @@ td input:checked + .slider:before {
   color: var(--primary);
   margin: 0 0 var(--spacing-sm) 0;
   padding-bottom: 2px;
-  padding-left: 8px;
-  border-left: 2px solid var(--primary);
 }
 
 .view-detail-grid {
@@ -12305,7 +12303,28 @@ th {
 }
 
 .bulk-edit-pinned {
-  border-left: 3px solid var(--primary);
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
+}
+
+[data-theme="dark"] .bulk-edit-pinned {
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+[data-theme="sepia"] .bulk-edit-pinned {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.bulk-pin-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+
+.bulk-pin-icon svg {
+  width: 10px;
+  height: 10px;
 }
 
 .bulk-edit-pinned.bulk-edit-selected {
