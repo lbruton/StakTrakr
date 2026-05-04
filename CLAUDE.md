@@ -47,13 +47,14 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 ## Git Topology
 
 - **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev. Both `dev` and `main` are protected — no direct pushes.
-- **Version format:** `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment calls these `BRANCH.RELEASE.PATCH`). Use `/release` to bump (touches 7 files).
+- **Version format:** `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment calls these `BRANCH.RELEASE.PATCH`). Use `/release` to bump — touches 7 files: `js/constants.js`, `package.json`, `package-lock.json` (two occurrences), `sw.js`, `version.json`, `js/about.js`, `CHANGELOG.md`.
+- **`/release` is the only valid version-bump path.** `/spec`'s shipping tasks (10–12) say "version bump" — that means _invoke `/release patch`_, not hand-edit version files. A spec PR that bumps `package.json` but forgets `about.js` What's New, manifest, or `version.json` will still pass the `check-release-sync` hook but ship incomplete. If the spec workflow appears to do its own bump, treat that as a bug — invoke `/release`.
 - **Version lock:** `devops/version.lock` is gitignored — local coordination only.
-- **Worktrees:** `.worktrees/<issue>-<slug>/`. Before creating: `git fetch origin dev` to sync remote dev (works from any worktree — no branch checkout needed). Then: `git worktree add .worktrees/<issue>-<slug>/ -b <branch-name> origin/dev`. After: `cp CLAUDE.md .worktrees/<issue>-<slug>/CLAUDE.md` then `npm install --no-audit --no-fund`.
+- **Worktrees:** `.worktrees/<issue>-<slug>/` (issue-named, via `/start-patch`) or `.worktrees/patch-<version>/` (version-named, via `/release`). Both conventions are in use; pick whichever the entry skill creates and stick with it for the lifetime of the branch. Before creating: `git fetch origin dev` to sync remote dev (works from any worktree — no branch checkout needed). Then: `git worktree add .worktrees/<name>/ -b <branch-name> origin/dev`. After: `cp CLAUDE.md .worktrees/<name>/CLAUDE.md` then `npm install --no-audit --no-fund`.
 - **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.
 - **`stamp-sw-cache` hook** — auto-stages `sw.js` when JS/CSS/image files are committed. No need to add it manually.
 - **`data/` and `vendor/` excluded from prettier** — lint-staged formats `js/` and `css/` only. Avoid manually formatting excluded paths.
-- **Update spot bundle before release** — always run `/update-spot-bundle` before opening a release PR (queries sqld and rebuilds `data/spot-history-bundle.js` with current data).
+- **Update spot bundle before the `dev → main` ship PR** — run `/update-spot-bundle` (queries sqld and rebuilds `data/spot-history-bundle.js` with current data). Patch PRs to `dev` do not need it; only the ship PR does.
 - **Pushing fixes to an open PR** — commit from the existing PR worktree (`.worktrees/<branch>`), not a new branch.
 
 ---
@@ -63,6 +64,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 - StakTrakrApi config → `mcp__github__*` (Fly.io `fly.toml` lives there during transition)
 - All `cloud-sync.js` patches require `/codex:rescue` peer review before merge.
 - Codex handoff prompts use `$spec` not `/spec`.
+- **Plane UUIDs are session-volatile.** Always re-fetch via `mcp__plane__get_issue_using_readable_identifier` and `mcp__plane__list_states` rather than copying UUIDs from prior session summaries, mem0, or compaction blocks.
 
 ---
 
@@ -82,7 +84,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 | `/faq`                            | Add, edit, or remove in-app FAQ entries                                                                           |
 | `/finishing-a-development-branch` | Implementation complete — guides merge/PR/cleanup decision                                                        |
 | `/pr-ready`                       | Pre-PR checklist — version bump, sw.js, DocVault status, Codacy                                                   |
-| `/start-patch`                    | Pick a DocVault issue, claim version lock, create worktree                                                        |
+| `/start-patch`                    | Pick a Plane issue, claim version lock, create worktree                                                           |
 | `/ui-mockup`                      | New multi-element UI — Playground prototype before production code                                                |
 
 **Skill authoring rules (when creating a new skill):**
@@ -115,12 +117,21 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 - `saveData()` wraps in `JSON.stringify` — always read back through `loadData()` / `loadDataSync()`. Raw `localStorage.getItem()` returns the stringified payload and silently breaks downstream consumers.
 - After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
 
+### Pre-commit hooks — `check-release-sync` is a subset
+
+The `check-release-sync` hook validates `constants.js` ↔ `package.json` ↔ `package-lock.json` ↔ `version.json` ↔ `CHANGELOG.md` are in sync. It does **NOT** check `js/about.js` What's New, `manifest.json`, README badges, or `sw.js` cache version. **Passing the hook is necessary but not sufficient** — `/release` is the only path that touches all release-bearing files. A green hook on a hand-rolled version bump means nothing.
+
+### Pre-PR scan gotchas
+
+- **Codacy CLI fresh-worktree fallthrough** — in a fresh worktree before any commits, `git diff $BASE...HEAD` is empty; `codacy-cli` falls back to whole-repo scan and surfaces hundreds of pre-existing browser-global `no-undef` findings (the project uses script-tag globals the auto-config doesn't recognize). Commit at least once before scanning, or scan only changed files explicitly. **Verify findings on changed lines only**; pre-existing `no-undef` is noise.
+
 ### Known Reviewer False Positives
 
 - **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js`; the `typeof` guard is intentional defensive coding.
 - **Automated re-review duplicates** — after pushing fixes, CodeRabbit, Gemini, and Copilot regenerate threads on the same file/line. Gemini duplicates have `"line": null` in the API (reliable stale signal). Auto-resolve without user approval.
 - **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
+- **Retail OOS detection is content-driven** — `detectStockStatus` in `firecrawl-extract.js` regex-matches the rendered markdown, which **includes ShopperApproved review blocks**. Customer-review text containing "out of stock", "unavailable", "page not found", etc. produces systematic false-OOS for entire vendors. When investigating sudden vendor-wide OOS, scrape the rendered page and check whether the trigger text lies _after_ the pricing table — if so, extend `MARKDOWN_CUTOFF_PATTERNS` to truncate before the review block (regex must be plural-tolerant: `Reviews?`).
 
 ### TDD Test Integrity — RED FLAG
 
@@ -129,6 +140,7 @@ NEVER modify a TDD test to make it pass. Tests are written first to define corre
 1. **Investigate the implementation code** — the test is telling you the code is wrong. Fix the code.
 2. **If the test itself is flawed** (wrong assertion, incorrect understanding of requirements) — this means the spec's requirements or design were wrong. STOP implementation. Restart the spec from Phase 1 (Requirements). Do not patch the test and continue.
 3. **Never weaken, skip, or rewrite a test to get a green result.** That defeats the entire purpose of TDD — you are no longer testing behavior, you are testing your ability to make tests pass.
+4. **Do not disable, suppress, or coach the user around the hookify `block-tdd-test-modification` hook to land a test edit.** The hook firing is a signal to halt and re-spec, not a permission gate to toggle off. If the test was authored in the same PR with wrong expectations, reclassify the underlying issue as a spec error and restart Phase 1 — never silently toggle the hook off, edit, and toggle back on.
 
 A passing test suite built on modified tests is worse than a failing one — it gives false confidence while masking real bugs.
 
@@ -136,10 +148,10 @@ A passing test suite built on modified tests is worse than a failing one — it 
 
 ## Pre-flight (StakTrakr-specific)
 
-- **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` first. Skipping causes wrong-layer fixes.
+- **Before any feed/poller/API/data-path diagnosis OR any retail/spot/feed disconnect between data source and frontend** (poller logs OK but UI wrong, vendor showing systematic anomaly, prices missing for one provider) → invoke `/api-infrastructure` and `/retail-poller` first. They cover the full poll → dashboard → publish → frontend path. Skipping causes wrong-layer fixes.
 - **Before speculating on infra failure mode** → read the matching Foundation doc. `infrastructure.md` lists known gotchas at specific line numbers (e.g. line 265 documents the recurring Tailscale subnet-route loss). Skim it before dispatching debugger agents.
 - **Before claiming what env/secret is set on Fly.io or home poller** → look it up via `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). I deploy and manage Fly.io for the user; Infisical is the canonical source, not assumption or stale memory.
-- **Before any release PR** → run `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`).
+- **Before the `dev → main` ship PR** → run `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`). Skippable for patch PRs to `dev`.
 - **Before `dev → main`** → use `/staktrakr-ship` only on explicit "ready to ship" from user.
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
 
