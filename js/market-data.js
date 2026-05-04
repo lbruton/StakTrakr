@@ -592,7 +592,7 @@ const openMarketDetailModal = async (slug) => {
       lbl.textContent = label;
       stat.appendChild(lbl);
       const val = document.createElement("div");
-      val.style.cssText = "font-family:ui-monospace,monospace;font-size:14px;font-weight:600;";
+      val.classList.add("market-value");
       val.textContent = value;
       stat.appendChild(val);
       priceRow.appendChild(stat);
@@ -757,7 +757,7 @@ const openMarketDetailModal = async (slug) => {
 
         // Price
         const tdPrice = document.createElement("td");
-        tdPrice.style.fontFamily = "ui-monospace, monospace";
+        tdPrice.classList.add("market-price");
         tdPrice.textContent = entry.price > 0 ? formatCurrency(entry.price) : "\u2014";
         tr.appendChild(tdPrice);
 
