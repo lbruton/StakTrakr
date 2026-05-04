@@ -779,7 +779,11 @@ const openMarketDetailModal = async (slug) => {
 
         // Stock
         const tdStock = document.createElement("td");
-        if (entry.in_stock) {
+        if (entry.carried) {
+          tdStock.style.color = "var(--warning, #eab308)";
+          tdStock.textContent = "Carried";
+          if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
+        } else if (entry.in_stock) {
           tdStock.style.color = "var(--success)";
           tdStock.textContent = "In Stock";
         } else {
@@ -1033,7 +1037,7 @@ const _renderVendorTable = async (metalCode) => {
       // STAK-515: Skip disabled vendors in price calculations
       if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
       const _vs = vData[vid];
-      if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true)) {
+      if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true) && !_vs.carried) {
         inStockPrices.push(vData[vid].price);
       }
     }
@@ -1083,7 +1087,11 @@ const _renderVendorTable = async (metalCode) => {
         continue;
       }
 
-      if (vInfo.price === lowestPrice) td.classList.add("vp-best");
+      if (vInfo.carried && vInfo.price != null) {
+        td.style.opacity = "0.5";
+      }
+
+      if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
 
       const priceSpan = document.createElement("span");
       priceSpan.className = "vp-price";
