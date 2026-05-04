@@ -12303,15 +12303,15 @@ th {
 }
 
 .bulk-edit-pinned {
-  background: rgba(59, 130, 246, 0.04);
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
 }
 
 [data-theme="dark"] .bulk-edit-pinned {
-  background: rgba(59, 130, 246, 0.07);
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
 }
 
 [data-theme="sepia"] .bulk-edit-pinned {
-  background: rgba(139, 92, 42, 0.05);
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
 }
 
 .bulk-pin-icon {

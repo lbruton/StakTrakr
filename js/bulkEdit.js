@@ -447,6 +447,8 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
     const pin = document.createElement("span");
     pin.className = "bulk-pin-icon";
     pin.title = "Pinned selection";
+    pin.setAttribute("role", "img");
+    pin.setAttribute("aria-label", "Pinned");
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "currentColor");
