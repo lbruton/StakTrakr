@@ -123,7 +123,7 @@ The `check-release-sync` hook validates `constants.js` ↔ `package.json` ↔ `p
 
 ### Pre-PR scan gotchas
 
-- **Codacy CLI fresh-worktree fallthrough** — in a fresh worktree before any commits, `git diff $BASE...HEAD` is empty; `codacy-cli` falls back to whole-repo scan and surfaces ~937 pre-existing browser-global `no-undef` findings (the project uses script-tag globals the auto-config doesn't recognize). Commit at least once before scanning, or scan only changed files explicitly. **Verify findings on changed lines only**; pre-existing `no-undef` is noise.
+- **Codacy CLI fresh-worktree fallthrough** — in a fresh worktree before any commits, `git diff $BASE...HEAD` is empty; `codacy-cli` falls back to whole-repo scan and surfaces hundreds of pre-existing browser-global `no-undef` findings (the project uses script-tag globals the auto-config doesn't recognize). Commit at least once before scanning, or scan only changed files explicitly. **Verify findings on changed lines only**; pre-existing `no-undef` is noise.
 
 ### Known Reviewer False Positives
 
