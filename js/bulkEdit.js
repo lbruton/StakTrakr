@@ -443,6 +443,23 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   cb.checked = isSelected;
   cb.addEventListener("change", () => toggleItemSelection(serial));
   cbTd.appendChild(cb);
+  if (isPinned) {
+    const pin = document.createElement("span");
+    pin.className = "bulk-pin-icon";
+    pin.title = "Pinned selection";
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "currentColor");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute(
+      "d",
+      "M14 4v5c0 1.12.37 2.16 1 3H9c.63-.84 1-1.88 1-3V4h4m3-2H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3V4h1c.55 0 1-.45 1-1s-.45-1-1-1z"
+    );
+    svg.appendChild(path);
+    pin.appendChild(svg);
+    cbTd.appendChild(pin);
+  }
   tr.appendChild(cbTd);
 
   // Image thumbnail cell — resolved async from IDB after row is appended
