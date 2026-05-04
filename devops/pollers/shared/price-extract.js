@@ -1060,19 +1060,20 @@ async function scrapeViaCFClearance(url, providerId, coin) {
   if (cfData.responseHtml) {
     const jsonLdScripts = extractJsonLdScriptsFromHtml(cfData.responseHtml);
 
-    // JSON-LD availability is the fastest OOS signal (STRK-30: BullionExchanges
-    // keeps JSON-LD price populated on OOS pages but sets availability=OutOfStock).
+    // JSON-LD availability — BullionExchanges keeps JSON-LD price populated on
+    // OOS pages but sets availability=OutOfStock (STRK-30).
     const availability = extractJsonLdAvailability(jsonLdScripts);
-    if (availability && JSONLD_OOS_VALUES.has(availability)) {
+    const jsonLdOos = !!(availability && JSONLD_OOS_VALUES.has(availability));
+    if (jsonLdOos) {
       log(`[cf-clearance] ${providerId}: JSON-LD availability=${availability} -> OOS`);
-      return { price: null, inStock: false, source: "cf-clearance:jsonLd" };
     }
 
-    // Text-based OOS detection before JSON-LD price short-circuit — catches
-    // visible "Out Of Stock" text even when JSON-LD availability is stale/missing.
+    // Text-based OOS detection — catches visible "Out Of Stock" text even when
+    // JSON-LD availability is stale/missing.
     const rawText = htmlToPlainText(cfData.responseHtml);
     const cleaned = preprocessMarkdown(rawText, providerId);
-    const inStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
+    const textStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
+    const isInStock = !jsonLdOos && textStock.inStock;
 
     const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
@@ -1081,9 +1082,9 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     }
     if (jsonLdPrice !== null) {
       log(
-        `[cf-clearance] success (html jsonLd): ${providerId} price=${jsonLdPrice} inStock=${inStock.inStock}`
+        `[cf-clearance] success (html jsonLd): ${providerId} price=${jsonLdPrice} inStock=${isInStock}`
       );
-      return { price: jsonLdPrice, inStock: inStock.inStock, source: "cf-clearance:jsonLd" };
+      return { price: jsonLdPrice, inStock: isInStock, source: "cf-clearance:jsonLd" };
     }
 
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
@@ -1091,9 +1092,13 @@ async function scrapeViaCFClearance(url, providerId, coin) {
       log(`[cf-clearance] success (html): ${providerId} price=${price.price}`);
       return {
         price: price.price,
-        inStock: inStock.inStock,
+        inStock: isInStock,
         source: `cf-clearance:${price.matchedBy}`,
       };
+    }
+    if (!isInStock) {
+      log(`[cf-clearance] ${providerId}: OOS detected but no price extractable`);
+      return { price: null, inStock: false, source: "cf-clearance:oos" };
     }
     warn(
       `[cf-clearance] no price from Byparr HTML for ${providerId} (len=${cfData.responseHtml.length}, jsonLd=${jsonLdScripts.length}) -- falling through to Playwright`
