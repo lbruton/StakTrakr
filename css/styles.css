@@ -2631,7 +2631,7 @@ input[type="submit"] {
   display: block;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   margin-top: 1px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2793,7 +2793,7 @@ input[type="submit"] {
   overflow: hidden;
 }
 .pattern-rule-info .rule-pattern {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   white-space: nowrap;
@@ -3985,7 +3985,7 @@ input[type="submit"] {
 .about-version {
   font-size: var(--font-size-sm);
   color: var(--text-muted);
-  font-family: "SF Mono", "Fira Code", monospace;
+  font-family: var(--font-mono);
 }
 .about-tagline {
   font-size: var(--font-size-base);
@@ -4157,7 +4157,7 @@ input[type="submit"] {
 .wntc-version {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .wntc-close {
   background: none;
@@ -6778,7 +6778,7 @@ a.about-badge:hover {
 .faq-technical > p {
   padding: 0 0.75rem 0.65rem 0.75rem;
   font-size: var(--font-size-base);
-  font-family: monospace;
+  font-family: var(--font-mono);
   line-height: 1.6;
   color: var(--text-secondary, #475569);
 }
@@ -10357,7 +10357,7 @@ th {
 #debugModalContent {
   max-height: 60vh;
   overflow-y: auto;
-  font-family: monospace;
+  font-family: var(--font-mono);
   white-space: pre-wrap;
 }
 
@@ -10873,7 +10873,7 @@ th {
 #inventoryTable td[data-column="meltValue"],
 #inventoryTable td[data-column="retailPrice"],
 #inventoryTable td[data-column="gainLoss"] {
-  font-family: var(--font-mono, "Courier New", monospace);
+  font-family: var(--font-mono);
   font-size: var(--font-size-md);
   font-weight: 500;
 }
@@ -10893,7 +10893,7 @@ th {
 #inventoryTable td[data-column="meltValue"],
 #inventoryTable td[data-column="retailPrice"],
 #inventoryTable td[data-column="gainLoss"] {
-  font-family: var(--font-mono, "Courier New", monospace) !important;
+  font-family: var(--font-mono) !important;
   font-size: var(--font-size-md) !important;
   font-weight: 500 !important;
   text-align: right !important;
@@ -11676,7 +11676,7 @@ th {
   background: var(--bg-tertiary);
   max-height: 340px;
   overflow-y: auto;
-  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
 }
 .bulk-log-line {
@@ -14210,7 +14210,7 @@ th {
 .ticker-item .price {
   font-weight: 700;
   font-size: var(--font-size-base);
-  font-family: monospace;
+  font-family: var(--font-mono);
   color: var(--success);
 }
 
@@ -14336,7 +14336,7 @@ th {
 
 /* ── Price Cell ── */
 .vp-price {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   cursor: pointer;
 }
