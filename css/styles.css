@@ -3936,7 +3936,11 @@ input[type="submit"] {
   padding: 0.75rem;
   font-size: var(--font-size-md);
 }
-:is([data-theme="dark"], [data-theme="slate"]) .cloud-sync-update-meta {
+[data-theme="dark"] .cloud-sync-update-meta {
+  background: color-mix(in oklch, var(--bg-tertiary), transparent 40%);
+  border-color: var(--border);
+}
+[data-theme="slate"] .cloud-sync-update-meta {
   background: rgba(51, 65, 85, 0.6);
   border-color: rgba(148, 163, 184, 0.25);
 }
@@ -4554,14 +4558,19 @@ input[type="submit"] {
   max-height: 80vh;
 }
 
+/* Flat panel-pattern modal headers (STRK-25): replaces the blue brand gradient
+   that read as generic/digital with a metallic-flat surface. Bg + border read
+   from tokens so all 4 themes resolve correctly (warm gunmetal in dark,
+   slate-blue in slate, light surface in light, paper in sepia). */
 #changeLogModal .modal-header,
 #detailsModal .modal-header,
 #storageReportModal .modal-header,
 #itemModal .modal-header {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: var(--text-inverse);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   padding: var(--spacing-xl);
   position: relative;
+  border-bottom: 1px solid var(--border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: var(--shadow);
 }
@@ -4571,7 +4580,7 @@ input[type="submit"] {
 #storageReportModal .modal-header h2,
 #itemModal .modal-header h2 {
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--text-primary);
   text-align: center;
 }
 
@@ -5108,8 +5117,8 @@ th {
 
 td {
   padding: 0.2rem; /* Reduced padding for better density */
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5); /* Softer border for cell separation */
-  border-right: 1px solid rgba(51, 65, 85, 0.3); /* Lighter right border */
+  border-bottom: 1px solid var(--border); /* Themed border for cell separation */
+  border-right: 1px solid color-mix(in oklch, var(--border), transparent 40%); /* Lighter right border */
   color: var(--text-primary);
   font-size: var(--font-size-sm); /* Reduced from 0.875rem for inline editing */
   line-height: 1.2; /* Tighter line height */
@@ -5725,7 +5734,19 @@ td input:checked + .slider:before {
   position: relative;
 }
 
-:is([data-theme="dark"], [data-theme="slate"]) .modal-content {
+/* STRK-25: split — was :is(dark, slate) hardcoding Slate-blue rgba into BOTH
+   themes, defeating the new metallic dark palette. Dark now reads tokens; slate
+   keeps the original Tailwind Slate values. */
+[data-theme="dark"] .modal-content {
+  background: color-mix(in oklch, var(--bg-card), transparent 5%);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px color-mix(in oklch, var(--border), transparent 75%),
+    inset 0 1px 0 color-mix(in oklch, var(--text-primary), transparent 90%);
+}
+
+[data-theme="slate"] .modal-content {
   background: rgba(30, 41, 59, 0.95);
   border: 1px solid rgba(148, 163, 184, 0.2);
   box-shadow:
@@ -7080,8 +7101,11 @@ a.about-badge:hover {
   font-size: var(--font-size-lg);
 }
 
-/* Dark theme overrides */
-:is([data-theme="dark"], [data-theme="slate"]) .faq-item {
+/* Dark theme overrides — STRK-25: split for metallic dark vs preserved slate */
+[data-theme="dark"] .faq-item {
+  background: color-mix(in oklch, var(--bg-card), transparent 60%);
+}
+[data-theme="slate"] .faq-item {
   background: rgba(30, 41, 59, 0.4);
   border-color: rgba(255, 255, 255, 0.08);
 }
@@ -7090,7 +7114,10 @@ a.about-badge:hover {
   border-color: var(--primary, #3b82f6);
 }
 
-:is([data-theme="dark"], [data-theme="slate"]) .faq-technical {
+[data-theme="dark"] .faq-technical {
+  background: color-mix(in oklch, var(--bg-primary), transparent 50%);
+}
+[data-theme="slate"] .faq-technical {
   background: rgba(15, 23, 42, 0.5);
   border-color: rgba(255, 255, 255, 0.1);
 }
@@ -11975,7 +12002,7 @@ th {
   display: flex;
   gap: 12px;
   padding: 6px 12px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 60%);
   align-items: baseline;
 }
 .bulk-log-line:last-child {

@@ -264,7 +264,9 @@ function _buildImageSection(item, metrics) {
   imgSection.appendChild(_imageSlot("obverse", "Obverse"));
   imgSection.appendChild(_imageSlot("reverse", "Reverse"));
   if (metrics.metalColor) {
-    imgSection.style.background = `linear-gradient(145deg, color-mix(in srgb, ${metrics.metalColor} 15%, #1a1a2e), color-mix(in srgb, ${metrics.metalColor} 8%, #16213e))`;
+    const surfaceDeep = getThemeColor("bg-primary") || "#1a1a2e";
+    const surfaceDeeper = getThemeColor("bg-secondary") || "#16213e";
+    imgSection.style.background = `linear-gradient(145deg, color-mix(in srgb, ${metrics.metalColor} 15%, ${surfaceDeep}), color-mix(in srgb, ${metrics.metalColor} 8%, ${surfaceDeeper}))`;
   }
   const badge = _buildImageCertBadge(item);
   if (badge) imgSection.appendChild(badge);
