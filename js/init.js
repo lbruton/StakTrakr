@@ -648,7 +648,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Apply saved theme attribute early so CSS variables resolve correctly
     // before renderActiveFilters() computes contrast colors in Phase 13
     const earlyTheme = localStorage.getItem(THEME_KEY);
-    if (["dark", "light", "sepia", "slate", "hello-kitty"].includes(earlyTheme)) {
+    if (["dark", "light", "sepia", "slate"].includes(earlyTheme)) {
       document.documentElement.setAttribute("data-theme", earlyTheme);
     }
 
