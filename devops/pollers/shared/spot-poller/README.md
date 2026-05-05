@@ -14,6 +14,7 @@ The poller runs in Docker and writes to disk. You commit the updated seed files 
 
 1. Get a free API key from [metalpriceapi.com](https://metalpriceapi.com)
 2. Copy the example env file and add your key:
+
    ```bash
    cp .env.example .env
    # Edit .env and replace your_api_key_here with your actual key
