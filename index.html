@@ -147,7 +147,13 @@
     <script>
       try {
         var __t = localStorage.getItem("appTheme");
-        if (__t === "dark" || __t === "light" || __t === "sepia" || __t === "hello-kitty") {
+        if (
+          __t === "dark" ||
+          __t === "light" ||
+          __t === "sepia" ||
+          __t === "slate" ||
+          __t === "hello-kitty"
+        ) {
           document.documentElement.setAttribute("data-theme", __t);
         } else {
           document.documentElement.setAttribute("data-theme", "dark");
@@ -3802,6 +3808,19 @@
                         "
                       >
                         &#127769; Dark
+                      </button>
+                      <button
+                        class="theme-option"
+                        data-theme="slate"
+                        title="Slate"
+                        style="
+                          padding: 0.55rem 1rem;
+                          font-size: 0.8125rem;
+                          border-radius: 0;
+                          border-right-width: 0;
+                        "
+                      >
+                        &#129704; Slate
                       </button>
                       <button
                         class="theme-option"

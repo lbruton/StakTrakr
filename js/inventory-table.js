@@ -85,7 +85,7 @@
       }
       map[key] = Math.abs(hash) % 360;
     }
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const isDark = ["dark", "slate"].includes(document.documentElement.getAttribute("data-theme"));
     const lightness = isDark ? 65 : 35;
     return `hsl(${map[key]}, 70%, ${lightness}%)`;
   };

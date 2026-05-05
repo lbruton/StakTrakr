@@ -43,6 +43,8 @@ const getChartBackgroundColor = () => {
   const theme = document.documentElement.getAttribute("data-theme") || "light";
   switch (theme) {
     case "dark":
+      return "#2a2520";
+    case "slate":
       return "#1e293b";
     case "sepia":
       return "#e9ddc8";
@@ -60,6 +62,7 @@ const getChartTextColor = () => {
   const theme = document.documentElement.getAttribute("data-theme") || "light";
   switch (theme) {
     case "dark":
+    case "slate":
       return "#f8fafc";
     case "sepia":
       return "#3e2f1e";

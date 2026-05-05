@@ -4,20 +4,15 @@
 /**
  * Sets application theme and updates localStorage
  *
- * @param {string} theme - 'dark', 'light', or 'sepia'
+ * @param {string} theme - 'dark', 'light', 'sepia', or 'slate'
  */
+const VALID_THEMES = ["dark", "light", "sepia", "slate"];
+
 const setTheme = (theme) => {
-  if (theme === "dark") {
-    document.documentElement.setAttribute("data-theme", "dark");
-    localStorage.setItem(THEME_KEY, "dark");
-  } else if (theme === "light") {
-    document.documentElement.setAttribute("data-theme", "light");
-    localStorage.setItem(THEME_KEY, "light");
-  } else if (theme === "sepia") {
-    document.documentElement.setAttribute("data-theme", "sepia");
-    localStorage.setItem(THEME_KEY, "sepia");
+  if (VALID_THEMES.includes(theme)) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
   } else {
-    // Default to light if invalid theme
     document.documentElement.setAttribute("data-theme", "light");
     localStorage.setItem(THEME_KEY, "light");
   }
@@ -40,7 +35,7 @@ const initTheme = () => {
 
   if (savedTheme === "hello-kitty") {
     document.documentElement.setAttribute("data-theme", "hello-kitty");
-  } else if (savedTheme && ["dark", "light", "sepia"].includes(savedTheme)) {
+  } else if (savedTheme && VALID_THEMES.includes(savedTheme)) {
     setTheme(savedTheme);
   } else {
     // Default to dark theme on first load
@@ -49,20 +44,13 @@ const initTheme = () => {
 };
 
 /**
- * Cycles through available themes: dark → light → sepia → dark
+ * Cycles through available themes: dark → light → slate → sepia → dark
  */
 const toggleTheme = () => {
   const current = localStorage.getItem(THEME_KEY) || "light";
-  if (current === "dark") {
-    setTheme("light");
-  } else if (current === "light") {
-    setTheme("sepia");
-  } else if (current === "sepia") {
-    setTheme("dark");
-  } else {
-    // Default fallback
-    setTheme("light");
-  }
+  const cycle = ["dark", "light", "slate", "sepia"];
+  const idx = cycle.indexOf(current);
+  setTheme(cycle[(idx + 1) % cycle.length]);
 };
 
 /**
