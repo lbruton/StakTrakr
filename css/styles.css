@@ -3526,7 +3526,31 @@ input[type="submit"] {
   cursor: pointer;
   transition:
     border-color 0.15s,
-    background 0.15s;
+    box-shadow 0.15s;
+}
+
+.theme-option[data-theme="light"] {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.theme-option[data-theme="dark"] {
+  background: #2a2520;
+  color: #f0ebe5;
+  border-color: #3d3530;
+}
+
+.theme-option[data-theme="slate"] {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+.theme-option[data-theme="sepia"] {
+  background: #f2e7d5;
+  color: #3e2f1e;
+  border-color: #d1c2a5;
 }
 
 .theme-option:hover {
@@ -3535,8 +3559,9 @@ input[type="submit"] {
 
 .theme-option.active {
   border-color: var(--primary);
-  background: var(--primary);
-  color: var(--text-inverse);
+  box-shadow:
+    0 0 0 1px var(--primary),
+    0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Provider tabs */
