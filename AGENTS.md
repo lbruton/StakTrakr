@@ -42,13 +42,13 @@ No application build step is required.
 
 - Follow recent commit style:
   - `fix: <summary>`
-  - `chore: <summary> (STAK-###)`
-  - `test(STAK-###): <summary>`
-  - Versioned releases: `vX.YY.ZZ — STAK-###: <summary>` (em dash `—`, not hyphen)
+  - `chore: <summary> (STRK-###)`
+  - `test(STRK-###): <summary>`
+  - Versioned releases: `vX.YY.ZZ — STRK-###: <summary>` (em dash `—`, not hyphen)
 - Keep commits scoped to one logical change.
 - PRs should include:
   - clear summary and rationale
-  - linked issue (`STAK-###`)
+  - linked Plane issue (`STRK-###`)
   - test evidence (`npm test`, `npm run lint`)
   - screenshots/GIFs for UI changes
 - PRs target `dev`, never `main`. Never push directly to `dev` or `main` — both are branch-protected.
@@ -58,7 +58,7 @@ No application build step is required.
 
 Every code change requires:
 
-1. A DocVault issue under `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues/` with a `STAK-###` ID. The ID goes into the commit message, PR body, and version lock claim.
+1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` references are historical only.
 2. A git worktree at `.worktrees/patch-<VERSION>/` on branch `patch/<VERSION>`. All edits/commits happen inside the worktree. Zero edits on `dev`.
 3. A version lock claim in `devops/version.lock` (gitignored — edit directly, never commit). Format and lifecycle in the Release Workflow doc below.
 
@@ -66,7 +66,9 @@ Exceptions: instruction-file-only edits (AGENTS.md, `.claude/`, DocVault) may by
 
 ## Release Workflow — Required on Every Code PR
 
-**Canonical reference:** `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Release Workflow.md` — read it before your first release of the session.
+**Canonical reference:** `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/coding-standards.md` — read the Release Process section before your first release of the session.
+
+The old `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Depreciated/Release Workflow.md` page is archived and may contain stale Linear/DocVault issue references.
 
 Every PR that ships runtime code must bump the version and update the 5 release artifacts below. The `check-release-sync` pre-commit hook fails the commit if any artifact is out of sync.
 
@@ -75,8 +77,8 @@ Every PR that ships runtime code must bump the version and update the 5 release 
 | 1   | `js/constants.js` | `const APP_VERSION = "X.YY.ZZ"` — bump PATCH component                                                                                                             |
 | 2   | `package.json`    | `"version": "X.YY.ZZ"` — match APP_VERSION                                                                                                                         |
 | 3   | `version.json`    | `"version"` + `"releaseDate"` (today, ISO date)                                                                                                                    |
-| 4   | `CHANGELOG.md`    | Prepend `## [X.YY.ZZ] - YYYY-MM-DD` section with `### Changed — STAK-###: <title>` and bullets                                                                     |
-| 5   | `js/about.js`     | Prepend entry to `getEmbeddedWhatsNew()`: `<li><strong>vX.YY.ZZ &ndash; STAK-###: <Title></strong>: <summary></li>` — this is the in-app "What's New" announcement |
+| 4   | `CHANGELOG.md`    | Prepend `## [X.YY.ZZ] - YYYY-MM-DD` section with `### Changed — STRK-###: <title>` and bullets                                                                     |
+| 5   | `js/about.js`     | Prepend entry to `getEmbeddedWhatsNew()`: `<li><strong>vX.YY.ZZ &ndash; STRK-###: <Title></strong>: <summary></li>` — this is the in-app "What's New" announcement |
 
 Automatic (do NOT edit manually):
 
@@ -91,7 +93,7 @@ Version lock (`devops/version.lock`) claim lifecycle:
 4. Create the worktree: `git worktree add .worktrees/patch-<VERSION> -b patch/<VERSION>`.
 5. After PR merges, remove your claim entry. Delete file only if the array is empty.
 
-Commit message format: `vX.YY.ZZ — STAK-###: <summary>` (em dash).
+Commit message format: `vX.YY.ZZ — STRK-###: <summary>` (em dash).
 
 PR: `gh pr create --base dev --head patch/<VERSION> --draft --label codacy-review --title "vX.YY.ZZ — …" --body "…"`.
 
@@ -121,7 +123,7 @@ When handed a spec at the Tasks phase, the expected flow is:
 3. Claim a version in `devops/version.lock` and create the worktree before editing any file.
 4. Implement each task. After each task, call `mcp__specflow__log-implementation` BEFORE marking the task `[x]` in `tasks.md` — this is a hard gate.
 5. Run `npm run lint` and `npm test` (or `npm run test:offline` when network is unavailable). Fix failures before committing.
-6. Bump the 5 release artifacts above and commit with `vX.YY.ZZ — STAK-###: <summary>`. The pre-commit hooks must all pass.
+6. Bump the 5 release artifacts above and commit with `vX.YY.ZZ — STRK-###: <summary>`. The pre-commit hooks must all pass.
 7. Push to `patch/<VERSION>` and open a **draft** PR against `dev` with label `codacy-review`. Do not mark ready — leave the PR as draft for user review.
 8. Post a summary comment on the PR listing: version bumped, tasks completed, test results, any spec tasks deferred.
 
@@ -201,6 +203,7 @@ StakTrakr has commit hooks that can modify tracked files during commit. In parti
 For publish/PR flows in this repo:
 
 - Expect `sw.js` to appear in the final commit even if it was not manually staged
+- When a patch PR is refreshed after another PR merges, `sw.js` cache stamps may be the only conflict. Keep the active patch version's cache name, finish the merge, then let `stamp-sw-cache` restamp `CACHE_NAME` during the merge/review-fix commit.
 - Always inspect `git show --stat HEAD` after commit and before opening the PR
 - Do not assume the staged file list before commit exactly matches the committed PR scope
 

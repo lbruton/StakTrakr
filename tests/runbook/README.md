@@ -6,7 +6,7 @@ The `tests/runbook/` directory is the living E2E test specification for StakTrak
 
 Each file in this directory is a **runbook section** — a plain Markdown file covering one feature area. The `/bb-test` skill reads these files at runtime and executes each step via Browserbase/Stagehand MCP tools against the PR preview URL. No build step. No compilation. No imports.
 
-The runbook grows with the product: every shipped spec (Phase 5) appends new test blocks to the relevant section file. The `_Added:` traceability line on each test block identifies which patch and Linear issue introduced it.
+The runbook grows with the product: every shipped spec (Phase 5) appends new test blocks to the relevant section file. The `_Added:` traceability line on each test block identifies which patch and Plane issue introduced it.
 
 ---
 
@@ -22,7 +22,7 @@ The runbook grows with the product: every shipped spec (Phase 5) appends new tes
 
 ### Full suite (all sections, all tests)
 
-```
+```text
 /bb-test
 ```
 
@@ -30,7 +30,7 @@ Runs all 8 sections in order (01 through 08) against the PR preview URL.
 
 ### Targeted sections by number
 
-```
+```text
 /bb-test sections=02,05
 ```
 
@@ -38,7 +38,7 @@ Runs only the CRUD section (`02-crud.md`) and the Market section (`05-market.md`
 
 ### Single section by filename
 
-```
+```text
 /bb-test section=03-backup-restore
 ```
 
@@ -46,7 +46,7 @@ Runs only the Backup & Restore section.
 
 ### Tag-filtered run (all sections, matching tests only)
 
-```
+```text
 /bb-test tags=crud
 ```
 
@@ -57,7 +57,7 @@ Reads all section files, runs only tests whose `**Tags:**` field includes `crud`
 | Argument                    | Effect                                                         |
 | --------------------------- | -------------------------------------------------------------- |
 | `pr=NNN`                    | Use PR number NNN to discover the Cloudflare Pages preview URL |
-| `dry-run`                   | Run all checks but do not file Linear issues                   |
+| `dry-run`                   | Run all checks but do not file Plane issues                    |
 | `sections=02,05`            | Comma-separated section numbers to run                         |
 | `section=03-backup-restore` | Single section by filename prefix                              |
 | `tags=crud`                 | Run only tests with this tag (across all sections)             |
@@ -88,7 +88,7 @@ This costs $0 (no Browserbase credits) and is appropriate when:
 - A quick visual check is sufficient
 - You want to verify a single step without a full session
 
-Reserve `/bb-test` (Browserbase) for full pre-release runs, comprehensive patch verification across an entire section, session recordings, and automated Linear issue filing.
+Reserve `/bb-test` (Browserbase) for full pre-release runs, comprehensive patch verification across an entire section, session recordings, and automated Plane issue filing.
 
 ---
 
@@ -106,7 +106,7 @@ Reserve `/bb-test` (Browserbase) for full pre-release runs, comprehensive patch 
 | [07-activity-log.md](./07-activity-log.md)     | Activity log panel, persistence               | 5     |
 | [08-spot-prices.md](./08-spot-prices.md)       | Spot cards, stale indicators, melt values     | 6     |
 
-**Total baseline tests: 84**
+Total baseline tests: 84.
 
 ---
 
@@ -117,7 +117,7 @@ Every test block in every section file uses this exact format. All 7 fields are 
 ```md
 ### Test N.M — {Test Name}
 
-_Added: v{VERSION} ({STAK-XXX})_
+_Added: v{VERSION} ({STRK-XXX})_
 **Preconditions:** {what must be true before this test runs}
 **Steps:**
 
@@ -134,7 +134,7 @@ _Added: v{VERSION} ({STAK-XXX})_
 | Field                | Description                                                                                                                                                         |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Test N.M`           | Section number (N) and test number within section (M). Example: `2.7` = section 2, test 7.                                                                          |
-| `_Added:_`           | Traceability: patch version and Linear issue that introduced this test. Example: `_Added: v3.33.01 (STAK-396)_`                                                     |
+| `_Added:_`           | Traceability: patch version and Plane issue that introduced this test. Example: `_Added: v3.34.46 (STRK-18)_`                                                       |
 | `**Preconditions:**` | State that must be true before this test runs. Reference prior tests by ID if this test depends on their state (e.g., "Test 2.1 has run and added BB-SILVER-COIN"). |
 | `**Steps:**`         | Ordered list of step directives. See step types below.                                                                                                              |
 | `**Pass criteria:**` | Plain English statement of what constitutes a pass for this test as a whole.                                                                                        |
@@ -145,7 +145,7 @@ _Added: v{VERSION} ({STAK-XXX})_
 
 ## Step Types
 
-There are three valid step type prefixes. Each step is one line starting with `- `.
+There are three valid step type prefixes. Each step is one line starting with a dash and a space.
 
 ### `act:`
 
@@ -209,7 +209,7 @@ When implementing a spec (Phase 5), add new test blocks to the relevant section 
 2. **Find the last test number.** Open the target section file and note the highest test ID (e.g., if the last test is `2.20`, your first new test is `2.21`).
 
 3. **Write the test block.** Use the exact 7-field format above.
-   - `_Added:` line must include the current patch version and Linear issue (e.g., `_Added: v3.34.02 (STAK-420)_`)
+   - `_Added:` line must include the current patch version and Plane issue (e.g., `_Added: v3.34.46 (STRK-18)_`)
    - Each `act:` must be one atomic interaction
    - Each `extract:` must have `→ expect:`
    - Screenshot labels must follow the `{NN}-{section-short}-{description}` format
@@ -225,7 +225,7 @@ When implementing a spec (Phase 5), add new test blocks to the relevant section 
 ```md
 ### Test 2.21 — Add item — Copper Round
 
-_Added: v3.34.02 (STAK-420)_
+_Added: v3.34.46 (STRK-18)_
 **Preconditions:** 00-setup has run. Inventory shows 8 seed items.
 **Steps:**
 

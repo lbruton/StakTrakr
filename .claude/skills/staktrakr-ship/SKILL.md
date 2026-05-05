@@ -195,5 +195,5 @@ Ship complete!
 Version:  vLATEST
 PR:       #XX merged
 Release:  https://github.com/lbruton/StakTrakr/releases/tag/vLATEST
-Issues:   STAK-XX → Done (DocVault)
+Issues:   STRK-XX → Done (Plane)
 ```
