@@ -44,28 +44,28 @@
 
 :root {
   /* Primary Colors - Light blues theme */
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --secondary: #8b93a6;
-  --secondary-hover: #6b7280;
-  --success: #059669;
-  --success-hover: #047857;
-  --info: #0ea5e9;
-  --info-hover: #0284c7;
-  --warning: #d97706;
-  --warning-hover: #b45309;
-  --danger: #dc2626;
-  --danger-hover: #b91c1c;
+  --primary: oklch(0.623 0.188 259.8);
+  --primary-hover: oklch(0.546 0.215 262.9);
+  --secondary: oklch(0.663 0.03 267.4);
+  --secondary-hover: oklch(0.551 0.023 264.4);
+  --success: oklch(0.596 0.127 163.2);
+  --success-hover: oklch(0.508 0.105 165.6);
+  --info: oklch(0.685 0.148 237.3);
+  --info-hover: oklch(0.588 0.139 242);
+  --warning: oklch(0.666 0.157 58.3);
+  --warning-hover: oklch(0.555 0.146 49);
+  --danger: oklch(0.577 0.215 27.3);
+  --danger-hover: oklch(0.505 0.19 27.5);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--warning);
 
   /* Background Tokens - Slate/Blue-Gray Mode */
-  --bg: #e2e8f0; /* Slate 200 — lightened from Slate 300 */
-  --bg-elev-1: #eef2f7; /* Slate 100/200 blend — elevated surfaces */
-  --bg-elev-2: #cbd5e1; /* Slate 300 — tertiary surfaces */
-  --surface: #f8fafc; /* Slate 50 - Cards */
-  --surface-alt: #ffffff; /* White */
+  --bg: oklch(0.929 0.013 255.5); /* Slate 200 — lightened from Slate 300 */
+  --bg-elev-1: oklch(0.96 0.008 253.9); /* Slate 100/200 blend — elevated surfaces */
+  --bg-elev-2: oklch(0.869 0.02 252.9); /* Slate 300 — tertiary surfaces */
+  --surface: oklch(0.984 0.003 247.9); /* Slate 50 - Cards */
+  --surface-alt: oklch(1 0 0); /* White */
 
   /* Map existing background variables */
   --bg-primary: var(--bg);
@@ -74,19 +74,19 @@
   --bg-card: var(--surface);
 
   /* Text Tokens */
-  --text: #1b232c;
-  --text-muted: #344351;
+  --text: oklch(0.252 0.021 251.6);
+  --text-muted: oklch(0.376 0.031 246.9);
 
   /* Map existing text variables */
   --text-primary: var(--text);
   --text-secondary: var(--text-muted);
-  --chip-text: #1b232c;
-  --chip-active-outline: rgba(0, 0, 0, 0.75);
-  --chip-search-outline: rgba(34, 197, 94, 0.75);
+  --chip-text: oklch(0.252 0.021 251.6);
+  --chip-active-outline: oklch(0 0 0 / 0.75);
+  --chip-search-outline: oklch(0.723 0.192 149.6 / 0.75);
 
   /* Border & Shadow - Light grays */
-  --border: #94a3b8; /* Slate 400 — was identical to bg-primary */
-  --border-hover: #64748b; /* Slate 500 */
+  --border: oklch(0.711 0.035 256.8); /* Slate 400 — was identical to bg-primary */
+  --border-hover: oklch(0.554 0.041 257.4); /* Slate 500 */
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1);
@@ -97,30 +97,30 @@
   --back-to-top-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
 
   /* Metal-specific Colors - tuned for light mode (WCAG AA on #eef2f7) */
-  --silver: #5f6673;
-  --gold: #a04808;
-  --platinum: #4b5563;
-  --palladium: #6d35d0;
+  --silver: oklch(0.509 0.022 262.9);
+  --gold: oklch(0.507 0.134 48.2);
+  --platinum: oklch(0.446 0.026 256.8);
+  --palladium: oklch(0.495 0.22 293);
 
   /* Inventory Type Colors (darkened for text readability on light backgrounds) */
-  --type-coin-bg: #b85f00;
-  --type-coin-text: #ffffff;
-  --type-round-bg: #5a6170;
-  --type-round-text: #f8fafc;
-  --type-bar-bg: #946d00;
-  --type-bar-text: #ffffff;
-  --type-note-bg: #047857;
-  --type-note-text: #f8fafc;
-  --type-aurum-bg: #6d28d9;
-  --type-aurum-text: #ffffff;
-  --type-goldback-bg: #b8860b;
-  --type-goldback-text: #ffffff;
-  --type-silverback-bg: #708090;
-  --type-silverback-text: #ffffff;
-  --type-set-bg: #8b5cf6;
-  --type-set-text: #ffffff;
-  --type-other-bg: #6d35d0;
-  --type-other-text: #f8fafc;
+  --type-coin-bg: oklch(0.58 0.143 55.6);
+  --type-coin-text: oklch(1 0 0);
+  --type-round-bg: oklch(0.492 0.026 265.6);
+  --type-round-text: oklch(0.984 0.003 247.9);
+  --type-bar-bg: oklch(0.559 0.115 83.7);
+  --type-bar-text: oklch(1 0 0);
+  --type-note-bg: oklch(0.508 0.105 165.6);
+  --type-note-text: oklch(0.984 0.003 247.9);
+  --type-aurum-bg: oklch(0.491 0.241 292.6);
+  --type-aurum-text: oklch(1 0 0);
+  --type-goldback-bg: oklch(0.652 0.132 81.6);
+  --type-goldback-text: oklch(1 0 0);
+  --type-silverback-bg: oklch(0.593 0.031 248.3);
+  --type-silverback-text: oklch(1 0 0);
+  --type-set-bg: oklch(0.606 0.219 292.7);
+  --type-set-text: oklch(1 0 0);
+  --type-other-bg: oklch(0.495 0.22 293);
+  --type-other-text: oklch(0.984 0.003 247.9);
 
   /* Component Spacing */
   --radius-sm: 4px;
@@ -154,39 +154,39 @@
   --transition: var(--transition);
 
   /* STRK-25 — Semantic text on colored backgrounds */
-  --text-inverse: #ffffff;
+  --text-inverse: oklch(1 0 0);
 
   /* STRK-25 — Focus ring */
-  --focus-ring: rgba(59, 130, 246, 0.2);
+  --focus-ring: oklch(0.623 0.188 259.8 / 0.2);
 
   /* STRK-25 — Hover-mix direction (black darkens for light themes) */
   --hover-mix: black;
 
   /* STRK-25 — Tag/badge system */
-  --tag-bg: rgba(99, 102, 241, 0.1);
-  --tag-text: #6366f1;
-  --tag-border: rgba(99, 102, 241, 0.2);
+  --tag-bg: oklch(0.585 0.204 277.1 / 0.1);
+  --tag-text: oklch(0.585 0.204 277.1);
+  --tag-border: oklch(0.585 0.204 277.1 / 0.2);
 
   /* STRK-25 — Brand accent */
-  --brand-gold: #b8860b;
+  --brand-gold: oklch(0.652 0.132 81.6);
 
   /* STRK-25 — Authority brand colors (grading services) */
-  --authority-pcgs: #2563eb;
-  --authority-ngc: #d97706;
-  --authority-anacs: #059669;
-  --authority-icg: #7c3aed;
+  --authority-pcgs: oklch(0.546 0.215 262.9);
+  --authority-ngc: oklch(0.666 0.157 58.3);
+  --authority-anacs: oklch(0.596 0.127 163.2);
+  --authority-icg: oklch(0.541 0.247 293);
 
   /* STRK-25 — Disposition badge tokens (alpha bg shared across themes; text varies) */
-  --disposition-sold-bg: hsla(142, 60%, 45%, 0.18);
-  --disposition-sold-text: hsla(142, 60%, 35%, 1);
-  --disposition-traded-bg: hsla(210, 70%, 50%, 0.18);
-  --disposition-traded-text: hsla(210, 70%, 40%, 1);
-  --disposition-lost-bg: hsla(0, 70%, 50%, 0.18);
-  --disposition-lost-text: hsla(0, 70%, 40%, 1);
-  --disposition-gifted-bg: hsla(270, 60%, 55%, 0.18);
-  --disposition-gifted-text: hsla(270, 60%, 42%, 1);
-  --disposition-returned-bg: hsla(30, 80%, 50%, 0.18);
-  --disposition-returned-text: hsla(30, 80%, 38%, 1);
+  --disposition-sold-bg: oklch(0.691 0.171 150.6 / 0.18);
+  --disposition-sold-text: oklch(0.575 0.14 150.9);
+  --disposition-traded-bg: oklch(0.594 0.159 252.3 / 0.18);
+  --disposition-traded-text: oklch(0.505 0.132 252.3);
+  --disposition-lost-bg: oklch(0.572 0.212 27.3 / 0.18);
+  --disposition-lost-text: oklch(0.485 0.177 27);
+  --disposition-gifted-bg: oklch(0.552 0.204 303.2 / 0.18);
+  --disposition-gifted-text: oklch(0.451 0.191 301.8);
+  --disposition-returned-bg: oklch(0.699 0.161 57.7 / 0.18);
+  --disposition-returned-text: oklch(0.57 0.129 58.4);
 
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
@@ -431,101 +431,101 @@
 
 [data-theme="sepia"] {
   /* Primary Colors - Sepia Mode */
-  --primary: #b35c1f;
-  --primary-hover: #934a17;
-  --secondary: #8b7355;
-  --secondary-hover: #6d5c3f;
-  --success: #698f3f;
-  --success-hover: #577a34;
-  --info: #1d7a8a;
-  --info-hover: #16616e;
-  --warning: #d97706;
-  --warning-hover: #b45309;
-  --danger: #dc2626;
-  --danger-hover: #b91c1c;
+  --primary: oklch(0.569 0.133 50.9);
+  --primary-hover: oklch(0.492 0.116 50.7);
+  --secondary: oklch(0.571 0.053 72.7);
+  --secondary-hover: oklch(0.484 0.048 80.5);
+  --success: oklch(0.603 0.117 130.4);
+  --success-hover: oklch(0.536 0.106 131.3);
+  --info: oklch(0.535 0.085 212.1);
+  --info-hover: oklch(0.455 0.072 212.2);
+  --warning: oklch(0.666 0.157 58.3);
+  --warning-hover: oklch(0.555 0.146 49);
+  --danger: oklch(0.577 0.215 27.3);
+  --danger-hover: oklch(0.505 0.19 27.5);
 
   /* Metal-specific Colors - Sepia tone (darkened for WCAG AA text contrast on warm bg) */
-  --silver: #706b66;
-  --gold: #80620a;
-  --platinum: #5a5a5a;
-  --palladium: #6b5640;
+  --silver: oklch(0.531 0.01 67.6);
+  --gold: oklch(0.513 0.102 86.8);
+  --platinum: oklch(0.468 0 0);
+  --palladium: oklch(0.468 0.043 67.7);
 
   /* Inventory Type Colors (darkened for text readability on sepia backgrounds) */
-  --type-coin-bg: #a35008;
-  --type-coin-text: #ffffff;
-  --type-round-bg: #5e544a;
-  --type-round-text: #ffffff;
-  --type-bar-bg: #8a6b00;
-  --type-bar-text: #ffffff;
-  --type-note-bg: #066b52;
-  --type-note-text: #ffffff;
-  --type-aurum-bg: #6d28d9;
-  --type-aurum-text: #ffffff;
-  --type-goldback-bg: #a66d00;
-  --type-goldback-text: #ffffff;
-  --type-silverback-bg: #6b7280;
-  --type-silverback-text: #ffffff;
-  --type-set-bg: #7c3aed;
-  --type-set-text: #ffffff;
-  --type-other-bg: #6a3fa8;
-  --type-other-text: #ffffff;
+  --type-coin-bg: oklch(0.525 0.131 52.3);
+  --type-coin-text: oklch(1 0 0);
+  --type-round-bg: oklch(0.453 0.021 67.3);
+  --type-round-text: oklch(1 0 0);
+  --type-bar-bg: oklch(0.543 0.111 88.6);
+  --type-bar-text: oklch(1 0 0);
+  --type-note-bg: oklch(0.47 0.092 169.2);
+  --type-note-text: oklch(1 0 0);
+  --type-aurum-bg: oklch(0.491 0.241 292.6);
+  --type-aurum-text: oklch(1 0 0);
+  --type-goldback-bg: oklch(0.581 0.124 73.2);
+  --type-goldback-text: oklch(1 0 0);
+  --type-silverback-bg: oklch(0.551 0.023 264.4);
+  --type-silverback-text: oklch(1 0 0);
+  --type-set-bg: oklch(0.541 0.247 293);
+  --type-set-text: oklch(1 0 0);
+  --type-other-bg: oklch(0.473 0.162 298.9);
+  --type-other-text: oklch(1 0 0);
 
   /* Background Colors - Sepia Mode (Parchment/Cream) */
-  --bg-primary: #ede5d0; /* Warm parchment */
-  --bg-secondary: #e4dbc4; /* Aged linen */
-  --bg-tertiary: #d6ccb3; /* Warm stone */
-  --bg-card: #f5f0e3; /* Light cream for cards */
-  --surface-alt: #faf6eb; /* Warm white — brightest sepia surface */
+  --bg-primary: oklch(0.923 0.029 89.6); /* Warm parchment */
+  --bg-secondary: oklch(0.892 0.032 89.1); /* Aged linen */
+  --bg-tertiary: oklch(0.847 0.036 88.8); /* Warm stone */
+  --bg-card: oklch(0.955 0.018 89.4); /* Light cream for cards */
+  --surface-alt: oklch(0.973 0.015 90.2); /* Warm white — brightest sepia surface */
 
   /* Text Colors - Sepia Mode */
-  --text-primary: #3a3019;
-  --text-secondary: #524730;
-  --text-muted: #706652;
-  --chip-text: #3a3019;
-  --chip-active-outline: rgba(58, 48, 25, 0.8);
-  --chip-search-outline: rgba(80, 120, 50, 0.75);
+  --text-primary: oklch(0.314 0.039 86.7);
+  --text-secondary: oklch(0.403 0.039 85.2);
+  --text-muted: oklch(0.514 0.033 84.5);
+  --chip-text: oklch(0.314 0.039 86.7);
+  --chip-active-outline: oklch(0.314 0.039 86.7 / 0.8);
+  --chip-search-outline: oklch(0.526 0.109 133.6 / 0.75);
 
   /* Border & Shadow - Sepia Mode */
-  --border: #c4b89e;
-  --border-hover: #a89878;
+  --border: oklch(0.786 0.038 86.2);
+  --border-hover: oklch(0.685 0.048 84.5);
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.12);
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
   /* STRK-25 — Semantic text on colored backgrounds */
-  --text-inverse: #ffffff;
+  --text-inverse: oklch(1 0 0);
 
   /* STRK-25 — Focus ring */
-  --focus-ring: rgba(179, 92, 31, 0.2);
+  --focus-ring: oklch(0.569 0.133 50.9 / 0.2);
 
   /* STRK-25 — Hover-mix direction (black darkens for light themes) */
   --hover-mix: black;
 
   /* STRK-25 — Tag/badge system */
-  --tag-bg: rgba(139, 92, 31, 0.1);
-  --tag-text: #6d28d9;
-  --tag-border: rgba(139, 92, 31, 0.2);
+  --tag-bg: oklch(0.515 0.097 69.1 / 0.1);
+  --tag-text: oklch(0.491 0.241 292.6);
+  --tag-border: oklch(0.515 0.097 69.1 / 0.2);
 
   /* STRK-25 — Brand accent */
-  --brand-gold: #a07008;
+  --brand-gold: oklch(0.58 0.119 78.3);
 
   /* STRK-25 — Authority brand colors (grading services) */
-  --authority-pcgs: #1d4ed8;
-  --authority-ngc: #b45309;
-  --authority-anacs: #047857;
-  --authority-icg: #6d28d9;
+  --authority-pcgs: oklch(0.488 0.217 264.4);
+  --authority-ngc: oklch(0.555 0.146 49);
+  --authority-anacs: oklch(0.508 0.105 165.6);
+  --authority-icg: oklch(0.491 0.241 292.6);
 
   /* STRK-25 — Disposition badge tokens (alpha bg shared; text saturated for sepia contrast) */
-  --disposition-sold-bg: hsla(142, 60%, 45%, 0.18);
-  --disposition-sold-text: hsla(142, 60%, 35%, 1);
-  --disposition-traded-bg: hsla(210, 70%, 50%, 0.18);
-  --disposition-traded-text: hsla(210, 70%, 40%, 1);
-  --disposition-lost-bg: hsla(0, 70%, 50%, 0.18);
-  --disposition-lost-text: hsla(0, 70%, 40%, 1);
-  --disposition-gifted-bg: hsla(270, 60%, 55%, 0.18);
-  --disposition-gifted-text: hsla(270, 60%, 42%, 1);
-  --disposition-returned-bg: hsla(30, 80%, 50%, 0.18);
-  --disposition-returned-text: hsla(30, 80%, 38%, 1);
+  --disposition-sold-bg: oklch(0.691 0.171 150.6 / 0.18);
+  --disposition-sold-text: oklch(0.575 0.14 150.9);
+  --disposition-traded-bg: oklch(0.594 0.159 252.3 / 0.18);
+  --disposition-traded-text: oklch(0.505 0.132 252.3);
+  --disposition-lost-bg: oklch(0.572 0.212 27.3 / 0.18);
+  --disposition-lost-text: oklch(0.485 0.177 27);
+  --disposition-gifted-bg: oklch(0.552 0.204 303.2 / 0.18);
+  --disposition-gifted-text: oklch(0.451 0.191 301.8);
+  --disposition-returned-bg: oklch(0.699 0.161 57.7 / 0.18);
+  --disposition-returned-text: oklch(0.57 0.129 58.4);
 
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
