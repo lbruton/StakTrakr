@@ -623,7 +623,7 @@ const _buildIntradayChart = (slug) => {
             carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex) ? [5, 3] : [],
           borderColor: (ctx) =>
             carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)
-              ? baseColor + "80"
+              ? resolveColor(`color-mix(in srgb, ${baseColor} 50%, transparent)`)
               : baseColor,
         };
       });

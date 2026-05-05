@@ -85,7 +85,9 @@ const createPieChart = (canvas, data, title, metric = "purchase") => {
         {
           data: values,
           backgroundColor: colors,
-          borderColor: colors.map((color) => color + "80"), // Add transparency
+          borderColor: colors.map((color) =>
+            resolveColor(`color-mix(in srgb, ${color} 50%, transparent)`)
+          ),
           borderWidth: 2,
           hoverOffset: 8,
         },
