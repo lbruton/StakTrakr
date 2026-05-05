@@ -30,12 +30,8 @@ const setTheme = (theme) => {
  */
 const initTheme = () => {
   const savedTheme = localStorage.getItem(THEME_KEY);
-  const systemPrefersDark =
-    window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-  if (savedTheme === "hello-kitty") {
-    document.documentElement.setAttribute("data-theme", "hello-kitty");
-  } else if (savedTheme && VALID_THEMES.includes(savedTheme)) {
+  if (savedTheme && VALID_THEMES.includes(savedTheme)) {
     setTheme(savedTheme);
   } else {
     // Default to dark theme on first load

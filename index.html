@@ -147,13 +147,7 @@
     <script>
       try {
         var __t = localStorage.getItem("appTheme");
-        if (
-          __t === "dark" ||
-          __t === "light" ||
-          __t === "sepia" ||
-          __t === "slate" ||
-          __t === "hello-kitty"
-        ) {
+        if (__t === "dark" || __t === "light" || __t === "sepia" || __t === "slate") {
           document.documentElement.setAttribute("data-theme", __t);
         } else {
           document.documentElement.setAttribute("data-theme", "dark");
