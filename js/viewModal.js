@@ -1337,23 +1337,11 @@ function _parseColor(color) {
   // Handle rgb(r, g, b) / rgba(r, g, b, a)
   const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
-  // Fallback for any other CSS color form (oklch, hsl, lab, named, etc.) —
-  // render to a 1x1 canvas and read the resulting sRGB. The browser does the
-  // conversion natively. Without this, oklch tokens (used in light/dark/sepia
-  // per STRK-25) fall through to indigo, producing the broken blue-purple
-  // gradient on the viewItemModal header.
-  if (typeof document !== "undefined") {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 1;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = s;
-      ctx.fillRect(0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      return [r, g, b];
-    } catch (_e) {
-      /* fall through to indigo */
-    }
+  // Delegate to the shared resolveColor (theme.js) for oklch, hsl, lab, etc.
+  if (typeof resolveColor === "function") {
+    const resolved = resolveColor(s);
+    const rm = resolved.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rm) return [parseInt(rm[1]), parseInt(rm[2]), parseInt(rm[3])];
   }
   return [99, 102, 241];
 }
@@ -1688,24 +1676,24 @@ function _createPriceHistoryChart(
   const showPoints = spotEntries.length <= 30;
 
   const textColor =
-    typeof getChartTextColor === "function" ? getChartTextColor() : getThemeColor("text-primary");
+    typeof getChartTextColor === "function"
+      ? getChartTextColor()
+      : getThemeColorRGB("text-primary");
   const bgColor =
     typeof getChartBackgroundColor === "function"
       ? getChartBackgroundColor()
-      : getThemeColor("bg-primary");
+      : getThemeColorRGB("bg-primary");
 
-  const dangerColor = getThemeColor("danger");
-  const successColor = getThemeColor("success");
-  const primaryColor = getThemeColor("primary");
+  const dangerColor = getThemeColorRGB("danger");
+  const successColor = getThemeColorRGB("success");
+  const primaryColor = getThemeColorRGB("primary");
 
-  // Dataset order: purchase (bottom) → melt (middle) → retail (top)
-  // Layered fills create visual bands showing cost basis, intrinsic value, and market premium
   const datasets = [
     {
       label: "Purchase Price",
       data: purchaseLine,
       borderColor: dangerColor,
-      backgroundColor: `color-mix(in srgb, ${dangerColor} 6%, transparent)`,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${dangerColor} 6%, transparent)`),
       fill: "origin",
       borderDash: [6, 3],
       tension: 0,
@@ -1718,7 +1706,7 @@ function _createPriceHistoryChart(
       label: "Melt Value",
       data: meltData,
       borderColor: successColor,
-      backgroundColor: `color-mix(in srgb, ${successColor} 12%, transparent)`,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${successColor} 12%, transparent)`),
       fill: "origin",
       tension: 0.3,
       pointRadius: showPoints ? 3 : 0,
@@ -1730,7 +1718,7 @@ function _createPriceHistoryChart(
       label: "Retail Value",
       data: retailData,
       borderColor: primaryColor,
-      backgroundColor: `color-mix(in srgb, ${primaryColor} 8%, transparent)`,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${primaryColor} 8%, transparent)`),
       fill: "origin",
       tension: 0.3,
       spanGaps: true,
@@ -1773,7 +1761,7 @@ function _createPriceHistoryChart(
     const chartOpts = _viewModalChartInstance.options;
     chartOpts.scales.x.grid = { display: false };
     chartOpts.scales.y.grid = {
-      color: `color-mix(in srgb, ${getThemeColor("border")} 40%, transparent)`,
+      color: resolveColor(`color-mix(in srgb, ${getThemeColorRGB("border")} 40%, transparent)`),
     };
     Object.assign(chartOpts.plugins.legend, {
       position: "bottom",

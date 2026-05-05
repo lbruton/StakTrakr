@@ -15,7 +15,7 @@
     if (!Array.isArray(data) || data.length < 2) return null;
 
     const o = opts || {};
-    const borderColor = o.borderColor || getThemeColor("primary");
+    const borderColor = o.borderColor || getThemeColorRGB("primary");
     const borderWidth = o.borderWidth != null ? o.borderWidth : 1.5;
     const tension = o.tension != null ? o.tension : 0.3;
 
@@ -66,7 +66,7 @@
     const carriedIndices = o.carriedIndices || null;
 
     return vendors.map(function (vendorId, vendorIdx) {
-      const color = colorMap[vendorId] || getThemeColor("text-muted");
+      const color = colorMap[vendorId] || getThemeColorRGB("text-muted");
       const carried = carriedIndices ? carriedIndices[vendorIdx] : null;
 
       return {

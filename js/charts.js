@@ -9,16 +9,16 @@
  * @returns {Array<string>} Ordered palette of resolved color strings
  */
 const getChartColors = () => [
-  getThemeColor("primary"),
-  getThemeColor("success"),
-  getThemeColor("warning"),
-  getThemeColor("danger"),
-  getThemeColor("info"),
-  getThemeColor("authority-pcgs"),
-  getThemeColor("authority-ngc"),
-  getThemeColor("authority-anacs"),
-  getThemeColor("authority-icg"),
-  getThemeColor("brand-gold"),
+  getThemeColorRGB("primary"),
+  getThemeColorRGB("success"),
+  getThemeColorRGB("warning"),
+  getThemeColorRGB("danger"),
+  getThemeColorRGB("info"),
+  getThemeColorRGB("authority-pcgs"),
+  getThemeColorRGB("authority-ngc"),
+  getThemeColorRGB("authority-anacs"),
+  getThemeColorRGB("authority-icg"),
+  getThemeColorRGB("brand-gold"),
 ];
 
 /**
@@ -46,14 +46,14 @@ const generateColors = (count) => {
  *
  * @returns {string} Background color
  */
-const getChartBackgroundColor = () => getThemeColor("bg-primary");
+const getChartBackgroundColor = () => getThemeColorRGB("bg-primary");
 
 /**
  * Gets appropriate text color for charts based on current theme
  *
  * @returns {string} Text color
  */
-const getChartTextColor = () => getThemeColor("text-primary");
+const getChartTextColor = () => getThemeColorRGB("text-primary");
 
 /**
  * Creates a pie chart with the given data

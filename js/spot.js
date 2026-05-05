@@ -591,7 +591,7 @@ const resetSpotByName = (metalName) => {
  * @param {string} metalKey - 'silver', 'gold', 'platinum', 'palladium'
  * @returns {string} CSS color string
  */
-const getMetalColor = (metalKey) => getThemeColor(metalKey) || "#6366f1";
+const getMetalColor = (metalKey) => getThemeColorRGB(metalKey) || "#6366f1";
 
 /**
  * Loads saved trend range preferences from localStorage

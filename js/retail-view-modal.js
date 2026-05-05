@@ -590,7 +590,7 @@ const _buildIntradayChart = (slug) => {
           {
             label: "Median",
             data: bucketed.map((w) => w.median),
-            borderColor: getThemeColor("primary"),
+            borderColor: getThemeColorRGB("primary"),
             backgroundColor: "transparent",
             borderWidth: 2,
             pointRadius: 0,
@@ -600,7 +600,7 @@ const _buildIntradayChart = (slug) => {
           {
             label: "Low",
             data: bucketed.map((w) => w.low),
-            borderColor: getThemeColor("success"),
+            borderColor: getThemeColorRGB("success"),
             backgroundColor: "transparent",
             borderWidth: 1.5,
             borderDash: [4, 3],
@@ -644,9 +644,9 @@ const _buildIntradayChart = (slug) => {
           const base =
             typeof getChartTextColor === "function"
               ? getChartTextColor()
-              : getThemeColor("text-muted");
+              : getThemeColorRGB("text-muted");
           if (mins === "00") return base;
-          return `color-mix(in srgb, ${base} 50%, transparent)`;
+          return resolveColor(`color-mix(in srgb, ${base} 50%, transparent)`);
         },
         font: function (context) {
           const label = context.chart.data.labels[context.index] || "";
@@ -753,7 +753,7 @@ const openRetailViewModal = (slug) => {
           {
             label: "Avg Median",
             data: sorted.map((e) => e.avg_median),
-            borderColor: getThemeColor("primary"),
+            borderColor: getThemeColorRGB("primary"),
             backgroundColor: "transparent",
             pointRadius: 2,
             tension: 0.3,

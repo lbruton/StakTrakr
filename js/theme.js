@@ -75,6 +75,42 @@ const setupSystemThemeListener = () => {
 const getThemeColor = (token) =>
   getComputedStyle(document.documentElement).getPropertyValue(`--${token}`).trim();
 
+// Shared 1x1 canvas for resolveColor — created lazily on first call.
+let _colorCanvas = null;
+
+/**
+ * Resolve any CSS color string (oklch, color-mix, hsl, lab, etc.) to an
+ * `rgb(r, g, b)` string that Chart.js / @kurkle/color can parse.
+ * Falls back to the input unchanged if the canvas trick is unavailable.
+ */
+const resolveColor = (css) => {
+  if (!css) return css;
+  const s = css.trim();
+  if (s.startsWith("#") || s.startsWith("rgb")) return s;
+  try {
+    if (!_colorCanvas) {
+      _colorCanvas = document.createElement("canvas");
+      _colorCanvas.width = _colorCanvas.height = 1;
+    }
+    const ctx = _colorCanvas.getContext("2d");
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = s;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    return a < 255 ? `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})` : `rgb(${r}, ${g}, ${b})`;
+  } catch (_e) {
+    return s;
+  }
+};
+
+/**
+ * Read a CSS token and resolve to an rgb/rgba string safe for Chart.js.
+ * Use this instead of getThemeColor when the value feeds into Chart.js
+ * datasets, scales, or tooltip config — Chart.js cannot parse oklch or
+ * color-mix strings.
+ */
+const getThemeColorRGB = (token) => resolveColor(getThemeColor(token));
+
 /**
  * True if the active theme renders as a dark UI (dark or slate).
  * Use to gate dark-only chart palettes, sparkline colors, etc.
@@ -89,6 +125,8 @@ window.setTheme = setTheme;
 window.toggleTheme = toggleTheme;
 window.initTheme = initTheme;
 window.getThemeColor = getThemeColor;
+window.getThemeColorRGB = getThemeColorRGB;
+window.resolveColor = resolveColor;
 window.isDarkTheme = isDarkTheme;
 
 // =============================================================================

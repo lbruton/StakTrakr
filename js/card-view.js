@@ -914,18 +914,20 @@ function _initCardCharts(container) {
 
     // Theme-aware chart colors — bold lines/fills for light & sepia
     const _isLight = typeof isDarkTheme === "function" ? !isDarkTheme() : false;
-    const _danger = getThemeColor("danger");
-    const _success = getThemeColor("success");
-    const _primary = getThemeColor("primary");
-    const _purchFillPct = _isLight ? "15%" : "6%";
-    const _meltFillPct = _isLight ? "25%" : "18%";
-    const _retailFillPct = _isLight ? "15%" : "12%";
+    const _danger = getThemeColorRGB("danger");
+    const _success = getThemeColorRGB("success");
+    const _primary = getThemeColorRGB("primary");
+    const _purchFillAlpha = _isLight ? 0.15 : 0.06;
+    const _meltFillAlpha = _isLight ? 0.25 : 0.18;
+    const _retailFillAlpha = _isLight ? 0.15 : 0.12;
     const datasets = [
       {
         label: "Purchase",
         data: purchaseLine,
         borderColor: _danger,
-        backgroundColor: `color-mix(in srgb, ${_danger} ${_purchFillPct}, transparent)`,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_danger} ${Math.round(_purchFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         borderDash: [6, 3],
         tension: 0,
@@ -938,7 +940,9 @@ function _initCardCharts(container) {
         label: "Melt",
         data: meltData,
         borderColor: _success,
-        backgroundColor: `color-mix(in srgb, ${_success} ${_meltFillPct}, transparent)`,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_success} ${Math.round(_meltFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         tension: 0.3,
         pointRadius: 0,
@@ -950,7 +954,9 @@ function _initCardCharts(container) {
         label: "Retail",
         data: retailData,
         borderColor: _primary,
-        backgroundColor: `color-mix(in srgb, ${_primary} ${_retailFillPct}, transparent)`,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_primary} ${Math.round(_retailFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         tension: 0.3,
         spanGaps: true,
@@ -963,7 +969,9 @@ function _initCardCharts(container) {
     ];
 
     const cvTextColor =
-      typeof getChartTextColor === "function" ? getChartTextColor() : getThemeColor("text-primary");
+      typeof getChartTextColor === "function"
+        ? getChartTextColor()
+        : getThemeColorRGB("text-primary");
     const chart = createTimeSeriesChart(canvas, labels, datasets, {
       animation: false,
       showLegend: true,
@@ -1013,8 +1021,8 @@ function _initCardCharts(container) {
       Object.assign(chartOpts.plugins.tooltip, {
         enabled: true,
         backgroundColor: "rgba(0,0,0,0.8)",
-        titleColor: getThemeColor("text-inverse"),
-        bodyColor: getThemeColor("text-inverse"),
+        titleColor: getThemeColorRGB("text-inverse"),
+        bodyColor: getThemeColorRGB("text-inverse"),
         padding: 6,
         bodyFont: { size: 10 },
         titleFont: { size: 10 },
