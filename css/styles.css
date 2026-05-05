@@ -3559,9 +3559,8 @@ input[type="submit"] {
 
 .theme-option.active {
   border-color: var(--primary);
-  box-shadow:
-    0 0 0 1px var(--primary),
-    0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--primary);
+  color: var(--text-inverse);
 }
 
 /* Provider tabs */
