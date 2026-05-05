@@ -67,9 +67,28 @@ const setupSystemThemeListener = () => {
   }
 };
 
+/**
+ * Read a CSS custom property's resolved value for the active theme.
+ * Caller passes the token name without the `--` prefix.
+ * Returns the trimmed value or an empty string if unset.
+ */
+const getThemeColor = (token) =>
+  getComputedStyle(document.documentElement).getPropertyValue(`--${token}`).trim();
+
+/**
+ * True if the active theme renders as a dark UI (dark or slate).
+ * Use to gate dark-only chart palettes, sparkline colors, etc.
+ */
+const isDarkTheme = () => {
+  const theme = document.documentElement.getAttribute("data-theme");
+  return theme === "dark" || theme === "slate";
+};
+
 // Expose theme controls globally for inline handlers and fallbacks
 window.setTheme = setTheme;
 window.toggleTheme = toggleTheme;
 window.initTheme = initTheme;
+window.getThemeColor = getThemeColor;
+window.isDarkTheme = isDarkTheme;
 
 // =============================================================================
