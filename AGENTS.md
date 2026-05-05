@@ -40,12 +40,12 @@ No application build step is required.
 
 ## Commit & Pull Request Guidelines
 
-- Use `STRK-###` as the StakTrakr Plane issue prefix for current work.
+- Use `STRK-###` (StakTrakr Plane issue identifier) for current work.
 - Follow recent commit style:
   - `fix: <summary>`
   - `chore: <summary> (STRK-###)`
   - `test(STRK-###): <summary>`
-  - Versioned releases: `vX.YY.ZZ (Major.Minor.Patch) — STRK-###: <summary>` (em dash `—`, not hyphen)
+  - Versioned releases: `v<major>.<minor>.<patch> — STRK-###: <summary>` (em dash `—`, not hyphen)
 - Keep commits scoped to one logical change.
 - PRs should include:
   - clear summary and rationale
@@ -59,7 +59,7 @@ No application build step is required.
 
 Every code change requires:
 
-1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` references are historical only.
+1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` (StakTrakr pre-Plane issue identifier) references are historical only.
 2. A git worktree at `.worktrees/patch-<VERSION>/` on branch `patch/<VERSION>`. All edits/commits happen inside the worktree. Zero edits on `dev`.
 3. A version lock claim in `devops/version.lock` (gitignored — edit directly, never commit). Format and lifecycle in the Release Workflow doc below.
 
