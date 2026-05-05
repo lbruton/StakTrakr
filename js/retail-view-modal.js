@@ -115,7 +115,7 @@ const _buildVendorLegend = (slug) => {
     // Skip vendors with no price and no OOS flag (they don't carry this coin)
     if (price == null && !isOOS) return;
 
-    const color = RETAIL_VENDOR_COLORS[vendorId] || "#94a3b8";
+    const color = RETAIL_VENDOR_COLORS[vendorId] || getThemeColor("text-muted");
     const label =
       (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId;
     const vendorUrl =
@@ -590,7 +590,7 @@ const _buildIntradayChart = (slug) => {
           {
             label: "Median",
             data: bucketed.map((w) => w.median),
-            borderColor: "#3b82f6",
+            borderColor: getThemeColor("primary"),
             backgroundColor: "transparent",
             borderWidth: 2,
             pointRadius: 0,
@@ -600,7 +600,7 @@ const _buildIntradayChart = (slug) => {
           {
             label: "Low",
             data: bucketed.map((w) => w.low),
-            borderColor: "#22c55e",
+            borderColor: getThemeColor("success"),
             backgroundColor: "transparent",
             borderWidth: 1.5,
             borderDash: [4, 3],
@@ -641,9 +641,12 @@ const _buildIntradayChart = (slug) => {
         color: function (context) {
           const label = context.chart.data.labels[context.index] || "";
           const mins = label.split(":")[1];
-          const base = typeof getChartTextColor === "function" ? getChartTextColor() : "#94a3b8";
+          const base =
+            typeof getChartTextColor === "function"
+              ? getChartTextColor()
+              : getThemeColor("text-muted");
           if (mins === "00") return base;
-          return base.startsWith("#") && base.length === 7 ? base + "80" : base;
+          return `color-mix(in srgb, ${base} 50%, transparent)`;
         },
         font: function (context) {
           const label = context.chart.data.labels[context.index] || "";
@@ -750,7 +753,7 @@ const openRetailViewModal = (slug) => {
           {
             label: "Avg Median",
             data: sorted.map((e) => e.avg_median),
-            borderColor: "var(--accent-primary, #4a9eff)",
+            borderColor: getThemeColor("primary"),
             backgroundColor: "transparent",
             pointRadius: 2,
             tension: 0.3,

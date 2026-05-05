@@ -1667,9 +1667,16 @@ function _createPriceHistoryChart(
 
   const showPoints = spotEntries.length <= 30;
 
-  const textColor = typeof getChartTextColor === "function" ? getChartTextColor() : "#1e293b";
+  const textColor =
+    typeof getChartTextColor === "function" ? getChartTextColor() : getThemeColor("text-primary");
   const bgColor =
-    typeof getChartBackgroundColor === "function" ? getChartBackgroundColor() : "#f8fafc";
+    typeof getChartBackgroundColor === "function"
+      ? getChartBackgroundColor()
+      : getThemeColor("bg-primary");
+
+  const dangerColor = getThemeColor("danger");
+  const successColor = getThemeColor("success");
+  const primaryColor = getThemeColor("primary");
 
   // Dataset order: purchase (bottom) → melt (middle) → retail (top)
   // Layered fills create visual bands showing cost basis, intrinsic value, and market premium
@@ -1677,8 +1684,8 @@ function _createPriceHistoryChart(
     {
       label: "Purchase Price",
       data: purchaseLine,
-      borderColor: "#ef4444",
-      backgroundColor: "rgba(239, 68, 68, 0.06)",
+      borderColor: dangerColor,
+      backgroundColor: `color-mix(in srgb, ${dangerColor} 6%, transparent)`,
       fill: "origin",
       borderDash: [6, 3],
       tension: 0,
@@ -1690,8 +1697,8 @@ function _createPriceHistoryChart(
     {
       label: "Melt Value",
       data: meltData,
-      borderColor: "#10b981",
-      backgroundColor: "rgba(16, 185, 129, 0.12)",
+      borderColor: successColor,
+      backgroundColor: `color-mix(in srgb, ${successColor} 12%, transparent)`,
       fill: "origin",
       tension: 0.3,
       pointRadius: showPoints ? 3 : 0,
@@ -1702,8 +1709,8 @@ function _createPriceHistoryChart(
     {
       label: "Retail Value",
       data: retailData,
-      borderColor: "#3b82f6",
-      backgroundColor: "rgba(59, 130, 246, 0.08)",
+      borderColor: primaryColor,
+      backgroundColor: `color-mix(in srgb, ${primaryColor} 8%, transparent)`,
       fill: "origin",
       tension: 0.3,
       spanGaps: true,
@@ -1745,7 +1752,9 @@ function _createPriceHistoryChart(
   if (_viewModalChartInstance) {
     const chartOpts = _viewModalChartInstance.options;
     chartOpts.scales.x.grid = { display: false };
-    chartOpts.scales.y.grid = { color: "rgba(128,128,128,0.1)" };
+    chartOpts.scales.y.grid = {
+      color: `color-mix(in srgb, ${getThemeColor("border")} 40%, transparent)`,
+    };
     Object.assign(chartOpts.plugins.legend, {
       position: "bottom",
       labels: {
