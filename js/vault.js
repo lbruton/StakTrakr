@@ -279,6 +279,7 @@ function parseVaultFile(fileBytes) {
  * @returns {*} Parsed JSON value, or the raw/decompressed value when parsing fails
  */
 function parseVaultSettingValue(rawValue) {
+  if (typeof rawValue !== "string") return rawValue;
   var value =
     typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawValue) : rawValue;
   try {
