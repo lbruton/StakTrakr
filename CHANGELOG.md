@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.46] - 2026-05-05
+
+### Changed — STRK-18: Vault settings parse helper
+
+- **Refactored**: Extracted a shared vault settings parser in `js/vault.js` so remote and local settings diff paths use the same CMP1 decompression, JSON parsing, and raw-value fallback behavior.
+
+---
+
 ## [3.34.45] - 2026-05-05
 
 ### Added — STRK-25: New metallic dark theme + oklch token system
