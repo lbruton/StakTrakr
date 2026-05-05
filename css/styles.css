@@ -1436,16 +1436,16 @@ input[type="submit"] {
 }
 
 .btn.premium:hover {
-  background: #b45309;
+  background: var(--warning-hover);
 }
 
 .btn.filters {
-  background: #eab308;
+  background: var(--warning);
   color: var(--text-primary);
 }
 
 .btn.filters:hover {
-  background: #ca8a04;
+  background: var(--warning-hover);
 }
 
 /* =============================================================================
@@ -3264,13 +3264,13 @@ input[type="submit"] {
 }
 
 .btn.img-btn-url {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border-color: rgba(16, 185, 129, 0.3);
+  background: color-mix(in oklch, var(--success), transparent 85%);
+  color: var(--success);
+  border-color: color-mix(in oklch, var(--success), transparent 70%);
 }
 
 .btn.img-btn-url:hover {
-  background: rgba(16, 185, 129, 0.25);
+  background: color-mix(in oklch, var(--success), transparent 75%);
 }
 
 .btn.img-btn-camera {
@@ -3284,13 +3284,13 @@ input[type="submit"] {
 }
 
 .btn.img-btn-remove {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.25);
+  background: color-mix(in oklch, var(--danger), transparent 88%);
+  color: var(--danger);
+  border-color: color-mix(in oklch, var(--danger), transparent 75%);
 }
 
 .btn.img-btn-remove:hover {
-  background: rgba(239, 68, 68, 0.22);
+  background: color-mix(in oklch, var(--danger), transparent 78%);
 }
 
 .image-size-info {
@@ -9390,13 +9390,13 @@ th {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .storage-tag {
-  background: rgba(255, 255, 255, 0.06);
-  color: #6b7280;
+  background: color-mix(in oklch, var(--text-inverse), transparent 94%);
+  color: var(--text-muted);
 }
 
 [data-theme="sepia"] .storage-tag {
-  background: rgba(0, 0, 0, 0.05);
-  color: #a8a29e;
+  background: color-mix(in oklch, var(--text-primary), transparent 95%);
+  color: var(--text-muted);
 }
 
 /* =============================================================================
@@ -9423,11 +9423,11 @@ th {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .notes-indicator {
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 [data-theme="sepia"] .notes-indicator {
-  color: #a8a29e;
+  color: var(--text-muted);
 }
 
 /* =============================================================================
@@ -9454,12 +9454,12 @@ th {
 
 .pcgs-verify-btn.pcgs-verified {
   opacity: 1;
-  color: #16a34a;
+  color: var(--success);
 }
 
 .pcgs-verify-btn.pcgs-verify-failed {
   opacity: 1;
-  color: #dc2626;
+  color: var(--danger);
 }
 
 @keyframes pcgs-pulse {
@@ -9473,18 +9473,18 @@ th {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .pcgs-verify-btn.pcgs-verified {
-  color: #4ade80;
+  color: var(--success);
 }
 
 [data-theme="sepia"] .pcgs-verify-btn.pcgs-verified {
-  color: #15803d;
+  color: var(--success);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) #certVerifiedIcon {
-  color: #4ade80;
+  color: var(--success);
 }
 [data-theme="sepia"] #certVerifiedIcon {
-  color: #15803d;
+  color: var(--success);
 }
 
 /* =============================================================================
@@ -11263,39 +11263,39 @@ th {
 }
 
 .source-badge.api {
-  background: rgba(59, 130, 246, 0.14);
-  color: #2563eb;
+  background: color-mix(in oklch, var(--primary), transparent 86%);
+  color: var(--primary-hover);
 }
 
 .source-badge.spot {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
+  background: color-mix(in oklch, var(--warning), transparent 84%);
+  color: var(--warning-hover);
 }
 
 .source-badge.manual {
-  background: rgba(16, 185, 129, 0.16);
-  color: #047857;
+  background: color-mix(in oklch, var(--success), transparent 84%);
+  color: var(--success-hover);
 }
 
 .source-badge.off {
-  background: rgba(148, 163, 184, 0.18);
-  color: #475569;
+  background: color-mix(in oklch, var(--text-muted), transparent 82%);
+  color: var(--text-muted);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .source-badge.api {
-  color: #93c5fd;
+  color: color-mix(in oklch, var(--primary), var(--text-inverse) 35%);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .source-badge.spot {
-  color: #fcd34d;
+  color: color-mix(in oklch, var(--warning), var(--text-inverse) 35%);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .source-badge.manual {
-  color: #6ee7b7;
+  color: color-mix(in oklch, var(--success), var(--text-inverse) 35%);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .source-badge.off {
-  color: #cbd5e1;
+  color: var(--text-muted);
 }
 
 /* Currency fields — 2-column row matching prototype */
@@ -11636,7 +11636,7 @@ th {
 }
 .api-action-btn:hover {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-inverse);
   transform: none;
   box-shadow: none;
 }
@@ -11649,7 +11649,7 @@ th {
 }
 .btn-history:hover {
   background: var(--info);
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 /* Bulk Sync modal — narrower than Settings (1100px) */
@@ -12042,7 +12042,7 @@ th {
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-xs);
-  color: #fff;
+  color: var(--text-inverse);
   font-weight: 600;
 }
 
@@ -12082,7 +12082,7 @@ th {
 }
 .btn-toggle-key:hover {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-inverse);
   transform: none;
   box-shadow: none;
 }
@@ -12480,7 +12480,7 @@ th {
   padding: 0.2rem 0.6rem;
   border-radius: var(--radius-pill);
   background: var(--primary);
-  color: #fff;
+  color: var(--text-inverse);
   white-space: nowrap;
 }
 
@@ -13162,7 +13162,7 @@ th {
 }
 .cv-chip-grade {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-inverse);
 }
 .cv-chip-qty {
   background: var(--bg-tertiary);
@@ -13173,8 +13173,8 @@ th {
   color: var(--text-muted);
 }
 .cv-chip-tags {
-  background: var(--info, #2196f3);
-  color: #fff;
+  background: var(--info);
+  color: var(--text-inverse);
   opacity: 0.85;
 }
 .cv-chip-type {
@@ -13861,7 +13861,7 @@ th {
 .retail-tf-btn.active {
   background: var(--primary);
   border-color: var(--primary);
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .retail-history-table-wrap {
@@ -14208,7 +14208,7 @@ th {
 }
 .market-filter-pill.active[data-metal="all"] {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-inverse);
   border-color: var(--primary);
 }
 .market-filter-pill.active[data-metal="gold"] {
