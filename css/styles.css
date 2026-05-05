@@ -3529,6 +3529,30 @@ input[type="submit"] {
     background 0.15s;
 }
 
+.theme-option[data-theme="light"] {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.theme-option[data-theme="dark"] {
+  background: #2a2520;
+  color: #f0ebe5;
+  border-color: #3d3530;
+}
+
+.theme-option[data-theme="slate"] {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+.theme-option[data-theme="sepia"] {
+  background: #f2e7d5;
+  color: #3e2f1e;
+  border-color: #d1c2a5;
+}
+
 .theme-option:hover {
   border-color: var(--primary);
 }
