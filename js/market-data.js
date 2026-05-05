@@ -780,7 +780,7 @@ const openMarketDetailModal = async (slug) => {
         // Stock
         const tdStock = document.createElement("td");
         if (entry.carried) {
-          tdStock.style.color = "var(--warning, #eab308)";
+          tdStock.style.color = "var(--warning)";
           tdStock.textContent = "Carried";
           if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
         } else if (entry.in_stock) {
