@@ -40,11 +40,12 @@ No application build step is required.
 
 ## Commit & Pull Request Guidelines
 
+- Use `STRK-###` as the StakTrakr Plane issue prefix for current work.
 - Follow recent commit style:
   - `fix: <summary>`
   - `chore: <summary> (STRK-###)`
   - `test(STRK-###): <summary>`
-  - Versioned releases: `vX.YY.ZZ — STRK-###: <summary>` (em dash `—`, not hyphen)
+  - Versioned releases: `vX.YY.ZZ (Major.Minor.Patch) — STRK-###: <summary>` (em dash `—`, not hyphen)
 - Keep commits scoped to one logical change.
 - PRs should include:
   - clear summary and rationale
@@ -66,9 +67,9 @@ Exceptions: instruction-file-only edits (AGENTS.md, `.claude/`, DocVault) may by
 
 ## Release Workflow — Required on Every Code PR
 
-**Canonical reference:** `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/coding-standards.md` — read the Release Process section before your first release of the session.
+**Canonical reference:** `../DocVault/Projects/StakTrakr/Foundation/coding-standards.md` from the repo root — read the Release Process section before your first release of the session.
 
-The old `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Depreciated/Release Workflow.md` page is archived and may contain stale Linear/DocVault issue references.
+The old `../DocVault/Projects/StakTrakr/Depreciated/Release Workflow.md` page is archived and may contain stale Linear/DocVault issue references. The DocVault folder is currently named `Depreciated`; treat it as a pre-Plane archive even though the spelling is unusual.
 
 Every PR that ships runtime code must bump the version and update the 5 release artifacts below. The `check-release-sync` pre-commit hook fails the commit if any artifact is out of sync.
 

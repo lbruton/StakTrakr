@@ -16,16 +16,17 @@ Rapid session-start triage: fetch Plane issues, rank by priority + session conti
 
 ## Step 0: Project Detection
 
-Read `.claude/project.json` (in the current working directory):
+Read `.claude/project.json` and `.specflow/config.json` (in the current working directory):
 
 ```bash
 cat .claude/project.json
+cat .specflow/config.json
 ```
 
 Extract:
 
 - `plane_project_id` from `.specflow/config.json` → used for Plane queries
-- `name` → display label
+- `name` from `.claude/project.json` → display label
 
 Also capture git state:
 

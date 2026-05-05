@@ -106,7 +106,7 @@ Reserve `/bb-test` (Browserbase) for full pre-release runs, comprehensive patch 
 | [07-activity-log.md](./07-activity-log.md)     | Activity log panel, persistence               | 5     |
 | [08-spot-prices.md](./08-spot-prices.md)       | Spot cards, stale indicators, melt values     | 6     |
 
-Total baseline tests: 84.
+Total baseline tests: over 80.
 
 ---
 
@@ -128,6 +128,9 @@ _Added: v{VERSION} ({STRK-XXX})_
   **Tags:** {comma-separated tags, e.g. crud, add, silver}
   **Section:** {section number and name, e.g. 02-crud}
 ```
+
+Legacy test blocks may still show `STAK-###` from pre-Plane history. Preserve existing
+historical `_Added` lines unless the test itself changes; new test blocks use `STRK-###`.
 
 ### Field definitions
 
