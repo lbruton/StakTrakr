@@ -11491,8 +11491,8 @@ th {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-lg);
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: color-mix(in oklch, var(--success), transparent 80%);
+  color: var(--success);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11515,7 +11515,7 @@ th {
   font-style: italic;
 }
 .provider-attribution a {
-  color: #60a5fa;
+  color: var(--primary);
 }
 
 /* Spot provider accordion */
@@ -11570,7 +11570,7 @@ th {
   font-size: var(--font-size-sm);
 }
 .spot-panel-footer .disclaimer {
-  color: #fbbf24;
+  color: var(--warning);
   font-style: italic;
 }
 
@@ -11990,10 +11990,10 @@ th {
   color: var(--text-secondary);
 }
 .bulk-log-line.warn span {
-  color: #fbbf24;
+  color: var(--warning);
 }
 .bulk-log-line.err span {
-  color: #f87171;
+  color: var(--danger);
 }
 .bulk-log-line.ok::before,
 .bulk-log-line.warn::before,
@@ -13604,12 +13604,12 @@ th {
   text-overflow: ellipsis;
 }
 :is([data-theme="dark"], [data-theme="slate"]) .tags-inline-chip {
-  background: rgba(129, 140, 248, 0.12);
-  color: #a5b4fc;
+  background: var(--tag-bg);
+  color: var(--tag-text);
 }
 [data-theme="sepia"] .tags-inline-chip {
-  background: rgba(99, 102, 241, 0.08);
-  color: #7c7a72;
+  background: var(--tag-bg);
+  color: var(--text-muted);
 }
 
 /* --- View modal tag section ----------------------------------------------- */
@@ -14652,10 +14652,10 @@ th {
   margin-top: 2px;
 }
 .vp-premium.low {
-  color: #f59e0b;
+  color: var(--warning);
 }
 .vp-premium.high {
-  color: #ea580c;
+  color: var(--danger);
 }
 
 /* ── Best Price Highlight ── */
