@@ -272,6 +272,22 @@ function parseVaultFile(fileBytes) {
   };
 }
 
+/**
+ * Parse a raw vault/localStorage setting value.
+ * Settings may be stored as raw strings, JSON strings, or CMP1-compressed strings.
+ * @param {*} rawValue
+ * @returns {*} Parsed JSON value, or the raw/decompressed value when parsing fails
+ */
+function parseVaultSettingValue(rawValue) {
+  var value =
+    typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawValue) : rawValue;
+  try {
+    return JSON.parse(value);
+  } catch (_e) {
+    return value;
+  }
+}
+
 // =============================================================================
 // DATA COLLECTION / RESTORATION
 // =============================================================================
@@ -592,33 +608,14 @@ async function vaultRestoreWithPreview(fileBytes, password) {
         continue;
 
       // Parse the remote value (vault stores raw localStorage strings, possibly CMP1-compressed)
-      var rawSettingVal = payload.data[k];
-      var decompressedVal =
-        typeof __decompressIfNeeded === "function"
-          ? __decompressIfNeeded(rawSettingVal)
-          : rawSettingVal;
-      var remoteVal;
-      try {
-        remoteVal = JSON.parse(decompressedVal);
-      } catch (_e) {
-        remoteVal = decompressedVal;
-      }
-      remoteSettings[k] = remoteVal;
+      remoteSettings[k] = parseVaultSettingValue(payload.data[k]);
 
       // Load matching local value — mirror the remote parse logic so raw
       // strings (e.g. "3.34.35" stored by setItem instead of saveData)
       // compare equal instead of producing false-positive diffs.
       var localRaw = localStorage.getItem(k);
       if (localRaw !== null) {
-        var decompressedLocal =
-          typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(localRaw) : localRaw;
-        var localVal;
-        try {
-          localVal = JSON.parse(decompressedLocal);
-        } catch (_e2) {
-          localVal = decompressedLocal;
-        }
-        localSettings[k] = localVal;
+        localSettings[k] = parseVaultSettingValue(localRaw);
       }
     }
 
