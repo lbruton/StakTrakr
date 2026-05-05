@@ -151,7 +151,9 @@ const _buildVendorLegend = (slug) => {
       });
     }
 
-    const displayColor = isCarried ? color + "80" : color;
+    const displayColor = isCarried
+      ? resolveColor(`color-mix(in srgb, ${color} 50%, transparent)`)
+      : color;
 
     const swatch = document.createElement("span");
     swatch.className = "retail-legend-swatch";

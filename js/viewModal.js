@@ -1341,7 +1341,7 @@ function _parseColor(color) {
   if (typeof resolveColor === "function") {
     const resolved = resolveColor(s);
     const rm = resolved.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-    if (rm) return [parseInt(rm[1]), parseInt(rm[2]), parseInt(rm[3])];
+    if (rm) return [parseInt(rm[1], 10), parseInt(rm[2], 10), parseInt(rm[3], 10)];
   }
   return [99, 102, 241];
 }
