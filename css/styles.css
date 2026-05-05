@@ -219,10 +219,15 @@
   --disclaimer-color: var(--danger);
 
   /* Metal-specific Colors - metallic dark */
-  --silver: oklch(0.85 0.008 85);
-  --gold: oklch(0.78 0.15 85);
-  --platinum: oklch(0.92 0.005 250);
-  --palladium: oklch(0.72 0.12 300);
+  /* Metals — slate-parity oklch values (cool silver/platinum/palladium hues
+     contrast against warm-gunmetal bg, producing visible tint when blended in
+     gradients/sparklines/headers; gold stays warm but high-chroma stands out
+     against the low-chroma bg). Matches the default Slate theme appearance,
+     theme-appropriate (oklch instead of hex). STRK-25. */
+  --silver: oklch(0.851 0.011 248.8); /* #d1d5db equivalent */
+  --gold: oklch(0.811 0.157 79); /* #fbbf24 equivalent */
+  --platinum: oklch(0.961 0.003 264.5); /* #f3f4f6 equivalent */
+  --palladium: oklch(0.794 0.119 305.9); /* #d8b4fe equivalent */
 
   /* Inventory Type Colors */
   --type-coin-bg: oklch(0.52 0.14 60);

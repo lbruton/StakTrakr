@@ -1334,9 +1334,27 @@ function _parseColor(color) {
       parseInt(hex.slice(4, 6), 16),
     ];
   }
-  // Handle rgb(r, g, b)
+  // Handle rgb(r, g, b) / rgba(r, g, b, a)
   const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+  // Fallback for any other CSS color form (oklch, hsl, lab, named, etc.) —
+  // render to a 1x1 canvas and read the resulting sRGB. The browser does the
+  // conversion natively. Without this, oklch tokens (used in light/dark/sepia
+  // per STRK-25) fall through to indigo, producing the broken blue-purple
+  // gradient on the viewItemModal header.
+  if (typeof document !== "undefined") {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = s;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return [r, g, b];
+    } catch (_e) {
+      /* fall through to indigo */
+    }
+  }
   return [99, 102, 241];
 }
 
