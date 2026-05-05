@@ -152,6 +152,48 @@
 
   /* Transitions */
   --transition: var(--transition);
+
+  /* STRK-25 — Semantic text on colored backgrounds */
+  --text-inverse: #ffffff;
+
+  /* STRK-25 — Focus ring */
+  --focus-ring: rgba(59, 130, 246, 0.2);
+
+  /* STRK-25 — Hover-mix direction (black darkens for light themes) */
+  --hover-mix: black;
+
+  /* STRK-25 — Tag/badge system */
+  --tag-bg: rgba(99, 102, 241, 0.1);
+  --tag-text: #6366f1;
+  --tag-border: rgba(99, 102, 241, 0.2);
+
+  /* STRK-25 — Brand accent */
+  --brand-gold: #b8860b;
+
+  /* STRK-25 — Authority brand colors (grading services) */
+  --authority-pcgs: #2563eb;
+  --authority-ngc: #d97706;
+  --authority-anacs: #059669;
+  --authority-icg: #7c3aed;
+
+  /* STRK-25 — Disposition badge tokens (alpha bg shared across themes; text varies) */
+  --disposition-sold-bg: hsla(142, 60%, 45%, 0.18);
+  --disposition-sold-text: hsla(142, 60%, 35%, 1);
+  --disposition-traded-bg: hsla(210, 70%, 50%, 0.18);
+  --disposition-traded-text: hsla(210, 70%, 40%, 1);
+  --disposition-lost-bg: hsla(0, 70%, 50%, 0.18);
+  --disposition-lost-text: hsla(0, 70%, 40%, 1);
+  --disposition-gifted-bg: hsla(270, 60%, 55%, 0.18);
+  --disposition-gifted-text: hsla(270, 60%, 42%, 1);
+  --disposition-returned-bg: hsla(30, 80%, 50%, 0.18);
+  --disposition-returned-text: hsla(30, 80%, 38%, 1);
+
+  /* STRK-25 — Table column accent colors (alias to themed family tokens) */
+  --col-qty: var(--primary);
+  --col-weight: var(--secondary);
+  --col-purchase: var(--success);
+  --col-melt: var(--warning);
+  --col-retail: var(--info);
 }
 
 /* =============================================================================
@@ -227,6 +269,48 @@
   --back-to-top-text: oklch(0.93 0.005 85);
   --back-to-top-hover-bg: oklch(0.28 0.007 85);
   --back-to-top-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
+
+  /* STRK-25 — Semantic text on colored backgrounds */
+  --text-inverse: oklch(0.98 0 0);
+
+  /* STRK-25 — Focus ring */
+  --focus-ring: oklch(0.63 0.18 255 / 0.2);
+
+  /* STRK-25 — Hover-mix direction (white lightens for dark themes) */
+  --hover-mix: white;
+
+  /* STRK-25 — Tag/badge system */
+  --tag-bg: oklch(0.55 0.2 280 / 0.15);
+  --tag-text: oklch(0.7 0.15 280);
+  --tag-border: oklch(0.55 0.2 280 / 0.25);
+
+  /* STRK-25 — Brand accent */
+  --brand-gold: oklch(0.68 0.14 85);
+
+  /* STRK-25 — Authority brand colors (grading services) */
+  --authority-pcgs: oklch(0.63 0.18 255);
+  --authority-ngc: oklch(0.72 0.16 80);
+  --authority-anacs: oklch(0.64 0.17 155);
+  --authority-icg: oklch(0.55 0.2 295);
+
+  /* STRK-25 — Disposition badge tokens (alpha bg shared; text lightened for dark contrast) */
+  --disposition-sold-bg: hsla(142, 60%, 45%, 0.18);
+  --disposition-sold-text: hsla(142, 60%, 65%, 1);
+  --disposition-traded-bg: hsla(210, 70%, 50%, 0.18);
+  --disposition-traded-text: hsla(210, 70%, 70%, 1);
+  --disposition-lost-bg: hsla(0, 70%, 50%, 0.18);
+  --disposition-lost-text: hsla(0, 70%, 70%, 1);
+  --disposition-gifted-bg: hsla(270, 60%, 55%, 0.18);
+  --disposition-gifted-text: hsla(270, 60%, 75%, 1);
+  --disposition-returned-bg: hsla(30, 80%, 50%, 0.18);
+  --disposition-returned-text: hsla(30, 80%, 70%, 1);
+
+  /* STRK-25 — Table column accent colors (alias to themed family tokens) */
+  --col-qty: var(--primary);
+  --col-weight: var(--secondary);
+  --col-purchase: var(--success);
+  --col-melt: var(--warning);
+  --col-retail: var(--info);
 }
 
 /* =============================================================================
@@ -301,6 +385,48 @@
   --back-to-top-text: #f1f5f9;
   --back-to-top-hover-bg: #334155;
   --back-to-top-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
+
+  /* STRK-25 — Semantic text on colored backgrounds */
+  --text-inverse: #f8fafc;
+
+  /* STRK-25 — Focus ring */
+  --focus-ring: rgba(59, 130, 246, 0.2);
+
+  /* STRK-25 — Hover-mix direction (white lightens for dark themes) */
+  --hover-mix: white;
+
+  /* STRK-25 — Tag/badge system */
+  --tag-bg: rgba(99, 102, 241, 0.1);
+  --tag-text: #818cf8;
+  --tag-border: rgba(99, 102, 241, 0.2);
+
+  /* STRK-25 — Brand accent */
+  --brand-gold: #d4a017;
+
+  /* STRK-25 — Authority brand colors (grading services) */
+  --authority-pcgs: #60a5fa;
+  --authority-ngc: #fbbf24;
+  --authority-anacs: #34d399;
+  --authority-icg: #a78bfa;
+
+  /* STRK-25 — Disposition badge tokens (alpha bg shared; text lightened for dark contrast) */
+  --disposition-sold-bg: hsla(142, 60%, 45%, 0.18);
+  --disposition-sold-text: hsla(142, 60%, 65%, 1);
+  --disposition-traded-bg: hsla(210, 70%, 50%, 0.18);
+  --disposition-traded-text: hsla(210, 70%, 70%, 1);
+  --disposition-lost-bg: hsla(0, 70%, 50%, 0.18);
+  --disposition-lost-text: hsla(0, 70%, 70%, 1);
+  --disposition-gifted-bg: hsla(270, 60%, 55%, 0.18);
+  --disposition-gifted-text: hsla(270, 60%, 75%, 1);
+  --disposition-returned-bg: hsla(30, 80%, 50%, 0.18);
+  --disposition-returned-text: hsla(30, 80%, 70%, 1);
+
+  /* STRK-25 — Table column accent colors (alias to themed family tokens) */
+  --col-qty: var(--primary);
+  --col-weight: var(--secondary);
+  --col-purchase: var(--success);
+  --col-melt: var(--warning);
+  --col-retail: var(--info);
 }
 
 [data-theme="sepia"] {
@@ -365,6 +491,48 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.12);
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* STRK-25 — Semantic text on colored backgrounds */
+  --text-inverse: #ffffff;
+
+  /* STRK-25 — Focus ring */
+  --focus-ring: rgba(179, 92, 31, 0.2);
+
+  /* STRK-25 — Hover-mix direction (black darkens for light themes) */
+  --hover-mix: black;
+
+  /* STRK-25 — Tag/badge system */
+  --tag-bg: rgba(139, 92, 31, 0.1);
+  --tag-text: #6d28d9;
+  --tag-border: rgba(139, 92, 31, 0.2);
+
+  /* STRK-25 — Brand accent */
+  --brand-gold: #a07008;
+
+  /* STRK-25 — Authority brand colors (grading services) */
+  --authority-pcgs: #1d4ed8;
+  --authority-ngc: #b45309;
+  --authority-anacs: #047857;
+  --authority-icg: #6d28d9;
+
+  /* STRK-25 — Disposition badge tokens (alpha bg shared; text saturated for sepia contrast) */
+  --disposition-sold-bg: hsla(142, 60%, 45%, 0.18);
+  --disposition-sold-text: hsla(142, 60%, 35%, 1);
+  --disposition-traded-bg: hsla(210, 70%, 50%, 0.18);
+  --disposition-traded-text: hsla(210, 70%, 40%, 1);
+  --disposition-lost-bg: hsla(0, 70%, 50%, 0.18);
+  --disposition-lost-text: hsla(0, 70%, 40%, 1);
+  --disposition-gifted-bg: hsla(270, 60%, 55%, 0.18);
+  --disposition-gifted-text: hsla(270, 60%, 42%, 1);
+  --disposition-returned-bg: hsla(30, 80%, 50%, 0.18);
+  --disposition-returned-text: hsla(30, 80%, 38%, 1);
+
+  /* STRK-25 — Table column accent colors (alias to themed family tokens) */
+  --col-qty: var(--primary);
+  --col-weight: var(--secondary);
+  --col-purchase: var(--success);
+  --col-melt: var(--warning);
+  --col-retail: var(--info);
 }
 
 /* =============================================================================
