@@ -3569,7 +3569,7 @@ const updateThemeButton = () => {
 
   // Apply theme classes to all theme buttons (header buttons)
   document.querySelectorAll(".theme-btn").forEach((btn) => {
-    btn.classList.remove("dark", "light", "sepia");
+    btn.classList.remove("dark", "light", "sepia", "slate");
     btn.classList.add(savedTheme);
   });
 

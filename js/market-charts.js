@@ -4,20 +4,20 @@
 // NOTE: Uses v4 API (chart.addLineSeries) — NOT v5 (chart.addSeries(LineSeries)).
 
 const getChartThemeColors = () => {
-  const s = getComputedStyle(document.documentElement);
-  const get = (p) => s.getPropertyValue(p).trim();
+  const get = (token) =>
+    typeof getThemeColorRGB === "function" ? getThemeColorRGB(token) : getThemeColor(token);
   return {
-    bg: get("--bg-card"),
-    text: get("--text-primary"),
-    textMuted: get("--text-muted"),
-    border: get("--border"),
-    success: get("--success"),
-    danger: get("--danger"),
+    bg: get("bg-card"),
+    text: get("text-primary"),
+    textMuted: get("text-muted"),
+    border: get("border"),
+    success: get("success"),
+    danger: get("danger"),
     metals: {
-      xau: get("--gold"),
-      xag: get("--silver"),
-      xpt: get("--platinum"),
-      xpd: get("--palladium"),
+      xau: get("gold"),
+      xag: get("silver"),
+      xpt: get("platinum"),
+      xpd: get("palladium"),
     },
   };
 };
@@ -34,8 +34,8 @@ const _chartConfig = (colors, timeVisible) => ({
   },
   watermark: { visible: false },
   grid: {
-    vertLines: { color: colors.border + "40" },
-    horzLines: { color: colors.border + "40" },
+    vertLines: { color: resolveColor(`color-mix(in srgb, ${colors.border} 25%, transparent)`) },
+    horzLines: { color: resolveColor(`color-mix(in srgb, ${colors.border} 25%, transparent)`) },
   },
   timeScale: {
     borderColor: colors.border,

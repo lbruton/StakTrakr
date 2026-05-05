@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.45] - 2026-05-05
+
+### Added — STRK-25: New metallic dark theme + oklch token system
+
+- **New dark theme**: Warm-gunmetal palette using oklch (hue 85, low chroma) replaces the Tailwind Slate look as the default dark option. Brand principle: metallic, not digital.
+- **Slate preserved**: Existing Tailwind Slate palette kept as a 4th theme option (Light | Dark | Slate | Sepia).
+- **oklch migration**: `:root` (light) and `[data-theme="sepia"]` palettes migrated from hex/rgba to oklch for perceptual uniformity. `[data-theme="dark"]` already in oklch. `[data-theme="slate"]` keeps original Tailwind hex (preservation intent).
+- **26 new semantic tokens** added to all 4 theme blocks: `--text-inverse`, `--focus-ring`, `--hover-mix`, `--tag-bg/text/border`, `--brand-gold`, `--authority-pcgs/ngc/anacs/icg`, `--disposition-{sold,traded,lost,gifted,returned}-{bg,text}`, `--col-{qty,weight,purchase,melt,retail}`.
+- **JS bridge utilities**: `window.getThemeColor(token)` and `window.isDarkTheme()` allow JS to read CSS tokens dynamically — replaces hardcoded color maps in 8 JS files (charts, card-view, inventory-table, spot, viewModal, diff-modal, chart-utils, retail-view-modal, settings, market-data).
+
+### Changed
+
+- **CSS cleanup**: ~215 hardcoded color values across `css/styles.css` replaced with semantic tokens or `color-mix(in oklch, var(--token), var(--hover-mix) N%)` derivations for hovers. 12 hardcoded gradient endpoints standardized to token references.
+- **Modal headers flattened**: `#changeLogModal`, `#detailsModal`, `#storageReportModal`, `#itemModal` headers no longer use the blue primary-gradient — now flat panel-pattern using `var(--bg-secondary)` + `var(--text-primary)`. Consistent with the metallic-not-digital design intent.
+- **Metal token tuning**: Dark theme `--silver/--platinum/--palladium` shifted from warm hue 85 (which produced no chroma contrast against the warm-gunmetal bg) to cool hues (249/265/306). Final RGB matches the slate-theme reference look. Gold stays warm (hue 79) but high chroma 0.157 makes it stand out against the near-zero-chroma bg.
+
+### Fixed
+
+- **Cascade-poisoning**: `:is([data-theme="dark"], [data-theme="slate"])` rules that hardcoded Tailwind Slate-blue rgba (`rgba(30,41,59,0.95)`, etc.) into BOTH dark themes have been split — dark uses metallic tokens, slate keeps original Tailwind values. Affected `.modal-content`, `.faq-item`, `.faq-technical`, `.cloud-sync-update-meta`.
+- **Light-theme palette leakage**: Table cell borders (`rgba(51,65,85,...)`) and bulk-log line border were applying Tailwind Slate-blue to ALL themes via base rules. Now use `var(--border)`.
+- **viewItemModal header gradient**: `_parseColor` in `js/viewModal.js` had no oklch handler, so `_darkenColor` fell through to indigo fallback when fed the new oklch metal tokens, producing a broken blue-purple "AI slop" gradient. Added a canvas-based fallback that forces any CSS color form to sRGB via 1×1 canvas read.
+
+### Tests
+
+- 5 new theme-token Playwright tests (`tests/playwright/theme-tokens.spec.js`):
+  - TT-1: all 4 themes load without JS runtime errors
+  - TT-2: required tokens resolve in every theme
+  - TT-3: theme picker cycles light → dark → slate → sepia → light
+  - TT-4: modal headers consume `--text-primary` / `--text-inverse` tokens, not hardcoded literals (refactored from literal-string match)
+  - TT-5: dark-theme modal-content backgrounds use metallic tokens, not legacy Slate-blue rgba (catches cascade-poisoning bugs)
+
+### Known follow-up (deferred to future patch)
+
+- Sepia theme metal tokens (`--silver`, `--platinum`, `--palladium`) still use warm low-chroma values that may not tint visibly in the image-section gradient. Pattern matches the dark-theme issue fixed in this release.
+- A few minor unrelated visual polish issues to be tracked in a follow-up issue post-merge.
+
+---
+
 ## [3.34.44] - 2026-05-04
 
 ### Changed — STRK-27: CSS polish pass

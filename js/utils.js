@@ -1804,8 +1804,8 @@ const openModalById = (id) => {
 const generateStorageReportHTML = (idbStats) => {
   const reportData = analyzeStorageData();
   const timestamp = formatTimestamp(new Date());
-  const currentTheme =
-    document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  const rawTheme = document.documentElement.getAttribute("data-theme");
+  const currentTheme = ["dark", "slate"].includes(rawTheme) ? "dark" : "light";
 
   return `<!DOCTYPE html>
 <html lang="en" data-theme="${currentTheme}">
@@ -2116,7 +2116,8 @@ const getStorageReportCSS = () => {
         --border: #dee2e6;
     }
     
-    [data-theme="dark"] {
+    [data-theme="dark"],
+    [data-theme="slate"] {
         --bg-primary: #1a1a1a;
         --bg-secondary: #2d2d2d;
         --text-primary: #f8fafc;
@@ -2900,7 +2901,7 @@ const getStorageReportJS = () => {
         }
 
         const ctx = canvas.getContext('2d');
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const isDark = ['dark', 'slate'].includes(document.documentElement.getAttribute('data-theme'));
 
         const data = {
             labels: currentChartItems.map(item => getStorageItemDisplayName(item.key)),

@@ -3246,9 +3246,9 @@ const renderImageStorageStats = async () => {
 
   const barColor = (b) => {
     const p = (b / limitBytes) * 100;
-    if (p > 90) return "var(--danger, #e74c3c)";
-    if (p > 70) return "var(--warning, #f39c12)";
-    return "var(--accent, #3498db)";
+    if (p > 90) return "var(--danger)";
+    if (p > 70) return "var(--warning)";
+    return "var(--primary)";
   };
 
   const userBar = document.getElementById("gaugeUserBar");
@@ -3267,11 +3267,11 @@ const renderImageStorageStats = async () => {
     if (granted === "true") {
       persistLine.textContent =
         "✅ Persistent storage granted — browser will not auto-clear your images";
-      persistLine.style.color = "var(--success, #27ae60)";
+      persistLine.style.color = "var(--success)";
     } else if (granted === "false") {
       persistLine.textContent =
         "⚠️ Persistent storage not granted — consider using Full Backup regularly";
-      persistLine.style.color = "var(--warning, #f39c12)";
+      persistLine.style.color = "var(--warning)";
     } else {
       persistLine.textContent = "Upload a photo to request persistent storage protection";
       persistLine.style.color = "var(--text-secondary)";
@@ -3842,7 +3842,7 @@ const renderNumistaTagSettings = () => {
       const chip = document.createElement("span");
       chip.className = "tag-chip";
       chip.style.cssText =
-        "display:inline-flex;align-items:center;gap:0.25rem;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.8rem;background:var(--bg-secondary, #eee);color:var(--text);";
+        "display:inline-flex;align-items:center;gap:0.25rem;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.8rem;background:var(--bg-secondary);color:var(--text);";
 
       const nameSpan = document.createElement("span");
       nameSpan.textContent = sanitizeHtml(tag);
@@ -3920,13 +3920,13 @@ const renderMarketFilterMatrix = () => {
   const vendors = Object.keys(vendorSource).map((id) => {
     if (typeof getVendorDisplay === "function") {
       const info = getVendorDisplay(id);
-      return { id, name: info.name || id, color: info.color || "#6c757d" };
+      return { id, name: info.name || id, color: info.color || getThemeColor("text-muted") };
     }
     const colors = typeof RETAIL_VENDOR_COLORS !== "undefined" ? RETAIL_VENDOR_COLORS : {};
     return {
       id,
       name: vendorSource[id]?.name || vendorSource[id] || id,
-      color: colors[id] || "#6c757d",
+      color: colors[id] || getThemeColor("text-muted"),
     };
   });
 

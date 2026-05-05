@@ -435,11 +435,10 @@ const generateSparklineSVG = (item, w, h, opts = {}) => {
   const purchFillPoints = `${purchaseLine} ${w},${h} 0,${h}`;
 
   // Theme-aware — bold strokes and fills on light/sepia backgrounds
-  const _svgTheme = document.documentElement.getAttribute("data-theme") || "light";
-  const _lt = _svgTheme === "light" || _svgTheme === "sepia";
-  const _meltStroke = _lt ? "#047857" : "#10b981";
-  const _purchStroke = _lt ? "#b91c1c" : "#ef4444";
-  const _retailStroke = _lt ? "#1d4ed8" : "#3b82f6";
+  const _lt = typeof isDarkTheme === "function" ? !isDarkTheme() : false;
+  const _meltStroke = getThemeColor("success");
+  const _purchStroke = getThemeColor("danger");
+  const _retailStroke = getThemeColor("primary");
   const _meltFillOp = _lt ? "0.70" : "0.18";
   const _purchFillOp = _lt ? "0.50" : "0.08";
   const _sw = _lt ? "3.5" : "1.5";
@@ -914,14 +913,21 @@ function _initCardCharts(container) {
     const hasRetail = retailData.some((v) => v !== null);
 
     // Theme-aware chart colors — bold lines/fills for light & sepia
-    const _theme = document.documentElement.getAttribute("data-theme") || "light";
-    const _isLight = _theme === "light" || _theme === "sepia";
+    const _isLight = typeof isDarkTheme === "function" ? !isDarkTheme() : false;
+    const _danger = getThemeColorRGB("danger");
+    const _success = getThemeColorRGB("success");
+    const _primary = getThemeColorRGB("primary");
+    const _purchFillAlpha = _isLight ? 0.15 : 0.06;
+    const _meltFillAlpha = _isLight ? 0.25 : 0.18;
+    const _retailFillAlpha = _isLight ? 0.15 : 0.12;
     const datasets = [
       {
         label: "Purchase",
         data: purchaseLine,
-        borderColor: _isLight ? "#b91c1c" : "#ef4444",
-        backgroundColor: _isLight ? "rgba(185, 28, 28, 0.15)" : "rgba(239, 68, 68, 0.06)",
+        borderColor: _danger,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_danger} ${Math.round(_purchFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         borderDash: [6, 3],
         tension: 0,
@@ -933,8 +939,10 @@ function _initCardCharts(container) {
       {
         label: "Melt",
         data: meltData,
-        borderColor: _isLight ? "#047857" : "#10b981",
-        backgroundColor: _isLight ? "rgba(4, 120, 87, 0.25)" : "rgba(16, 185, 129, 0.18)",
+        borderColor: _success,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_success} ${Math.round(_meltFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         tension: 0.3,
         pointRadius: 0,
@@ -945,8 +953,10 @@ function _initCardCharts(container) {
       {
         label: "Retail",
         data: retailData,
-        borderColor: _isLight ? "#1d4ed8" : "#3b82f6",
-        backgroundColor: _isLight ? "rgba(29, 78, 216, 0.15)" : "rgba(59, 130, 246, 0.12)",
+        borderColor: _primary,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_primary} ${Math.round(_retailFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         tension: 0.3,
         spanGaps: true,
@@ -958,7 +968,10 @@ function _initCardCharts(container) {
       },
     ];
 
-    const cvTextColor = typeof getChartTextColor === "function" ? getChartTextColor() : "#8b949e";
+    const cvTextColor =
+      typeof getChartTextColor === "function"
+        ? getChartTextColor()
+        : getThemeColorRGB("text-primary");
     const chart = createTimeSeriesChart(canvas, labels, datasets, {
       animation: false,
       showLegend: true,
@@ -1008,8 +1021,8 @@ function _initCardCharts(container) {
       Object.assign(chartOpts.plugins.tooltip, {
         enabled: true,
         backgroundColor: "rgba(0,0,0,0.8)",
-        titleColor: "#fff",
-        bodyColor: "#fff",
+        titleColor: getThemeColorRGB("text-inverse"),
+        bodyColor: getThemeColorRGB("text-inverse"),
         padding: 6,
         bodyFont: { size: 10 },
         titleFont: { size: 10 },

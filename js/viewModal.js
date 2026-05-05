@@ -264,7 +264,9 @@ function _buildImageSection(item, metrics) {
   imgSection.appendChild(_imageSlot("obverse", "Obverse"));
   imgSection.appendChild(_imageSlot("reverse", "Reverse"));
   if (metrics.metalColor) {
-    imgSection.style.background = `linear-gradient(145deg, color-mix(in srgb, ${metrics.metalColor} 15%, #1a1a2e), color-mix(in srgb, ${metrics.metalColor} 8%, #16213e))`;
+    const surfaceDeep = getThemeColor("bg-primary") || "#1a1a2e";
+    const surfaceDeeper = getThemeColor("bg-secondary") || "#16213e";
+    imgSection.style.background = `linear-gradient(145deg, color-mix(in srgb, ${metrics.metalColor} 15%, ${surfaceDeep}), color-mix(in srgb, ${metrics.metalColor} 8%, ${surfaceDeeper}))`;
   }
   const badge = _buildImageCertBadge(item);
   if (badge) imgSection.appendChild(badge);
@@ -1332,9 +1334,15 @@ function _parseColor(color) {
       parseInt(hex.slice(4, 6), 16),
     ];
   }
-  // Handle rgb(r, g, b)
+  // Handle rgb(r, g, b) / rgba(r, g, b, a)
   const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+  // Delegate to the shared resolveColor (theme.js) for oklch, hsl, lab, etc.
+  if (typeof resolveColor === "function") {
+    const resolved = resolveColor(s);
+    const rm = resolved.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rm) return [parseInt(rm[1], 10), parseInt(rm[2], 10), parseInt(rm[3], 10)];
+  }
   return [99, 102, 241];
 }
 
@@ -1667,18 +1675,25 @@ function _createPriceHistoryChart(
 
   const showPoints = spotEntries.length <= 30;
 
-  const textColor = typeof getChartTextColor === "function" ? getChartTextColor() : "#1e293b";
+  const textColor =
+    typeof getChartTextColor === "function"
+      ? getChartTextColor()
+      : getThemeColorRGB("text-primary");
   const bgColor =
-    typeof getChartBackgroundColor === "function" ? getChartBackgroundColor() : "#f8fafc";
+    typeof getChartBackgroundColor === "function"
+      ? getChartBackgroundColor()
+      : getThemeColorRGB("bg-primary");
 
-  // Dataset order: purchase (bottom) → melt (middle) → retail (top)
-  // Layered fills create visual bands showing cost basis, intrinsic value, and market premium
+  const dangerColor = getThemeColorRGB("danger");
+  const successColor = getThemeColorRGB("success");
+  const primaryColor = getThemeColorRGB("primary");
+
   const datasets = [
     {
       label: "Purchase Price",
       data: purchaseLine,
-      borderColor: "#ef4444",
-      backgroundColor: "rgba(239, 68, 68, 0.06)",
+      borderColor: dangerColor,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${dangerColor} 6%, transparent)`),
       fill: "origin",
       borderDash: [6, 3],
       tension: 0,
@@ -1690,8 +1705,8 @@ function _createPriceHistoryChart(
     {
       label: "Melt Value",
       data: meltData,
-      borderColor: "#10b981",
-      backgroundColor: "rgba(16, 185, 129, 0.12)",
+      borderColor: successColor,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${successColor} 12%, transparent)`),
       fill: "origin",
       tension: 0.3,
       pointRadius: showPoints ? 3 : 0,
@@ -1702,8 +1717,8 @@ function _createPriceHistoryChart(
     {
       label: "Retail Value",
       data: retailData,
-      borderColor: "#3b82f6",
-      backgroundColor: "rgba(59, 130, 246, 0.08)",
+      borderColor: primaryColor,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${primaryColor} 8%, transparent)`),
       fill: "origin",
       tension: 0.3,
       spanGaps: true,
@@ -1745,7 +1760,9 @@ function _createPriceHistoryChart(
   if (_viewModalChartInstance) {
     const chartOpts = _viewModalChartInstance.options;
     chartOpts.scales.x.grid = { display: false };
-    chartOpts.scales.y.grid = { color: "rgba(128,128,128,0.1)" };
+    chartOpts.scales.y.grid = {
+      color: resolveColor(`color-mix(in srgb, ${getThemeColorRGB("border")} 40%, transparent)`),
+    };
     Object.assign(chartOpts.plugins.legend, {
       position: "bottom",
       labels: {
