@@ -1,5 +1,10 @@
 # Section 03 — Backup & Restore
 
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 This section covers all backup, restore, and encrypted vault operations in StakTrakr. Tests verify that inventory data and images can be exported in multiple formats (CSV, JSON, ZIP) and restored correctly, that conflict prompts appear when restoring over existing data, and that the encrypted vault flow completes without error.
 
 **File picker limitation:** Stagehand cannot interact with OS-level file picker dialogs. For any test that requires selecting a file from disk (restore, import), the test validates the UI flow up to the point where the file picker is triggered. Actual file selection and the downstream restore result require manual verification.

@@ -19,7 +19,7 @@ Guide completion of development work by presenting clear options and handling ch
 
 **Before anything else, verify three things:**
 
-**0a. Linear issue exists:** Every branch must trace to a Linear issue (STAK-XXX). If you can't name the issue, STOP — create one or find the existing one before proceeding.
+**0a. Plane issue exists:** Every runtime-code branch must trace to a Plane issue (`STRK-XXX`). If you can't name the issue, STOP — create one or find the existing one before proceeding. Legacy `STAK-XXX` references are historical only.
 
 **0b. Version number exists:** The branch must have a version bump (via `/release patch`). If `js/constants.js` hasn't been updated with a new version in this branch, STOP — run `/release patch` before proceeding. Un-versioned PRs are not allowed.
 
@@ -40,7 +40,7 @@ npm test / cargo test / pytest / go test ./...
 
 **If tests fail:**
 
-```
+```text
 Tests failing (<N> failures). Must fix before completing:
 
 [Show failures]
@@ -77,7 +77,7 @@ git merge-base HEAD dev 2>/dev/null || git merge-base HEAD main 2>/dev/null
 
 Present exactly these 4 options:
 
-```
+```text
 Implementation complete. What would you like to do?
 
 1. Merge back to <base-branch> locally
@@ -144,7 +144,7 @@ Report: "Keeping branch <name>. Worktree preserved at <path>."
 
 **Confirm first:**
 
-```
+```text
 This will permanently delete:
 - Branch <name>
 - All commits: <commit-list>
@@ -193,22 +193,22 @@ git worktree remove <worktree-path>
 
 ## Common Mistakes
 
-**Skipping test verification**
+### Skipping Test Verification
 
 - **Problem:** Merge broken code, create failing PR
 - **Fix:** Always verify tests before offering options
 
-**Open-ended questions**
+### Open-Ended Questions
 
 - **Problem:** "What should I do next?" → ambiguous
 - **Fix:** Present exactly 4 structured options
 
-**Automatic worktree cleanup**
+### Automatic Worktree Cleanup
 
 - **Problem:** Remove worktree when might need it (Option 2, 3)
 - **Fix:** Only cleanup for Options 1 and 4
 
-**No confirmation for discard**
+### No Confirmation For Discard
 
 - **Problem:** Accidentally delete work
 - **Fix:** Require typed "discard" confirmation

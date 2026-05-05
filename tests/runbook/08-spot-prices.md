@@ -1,5 +1,10 @@
 # Section 08 — Spot Prices
 
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 Tests for spot price display, freshness, Goldback pricing, backfill behavior, and stale indicators. The spot price pipeline fetches hourly data from the StakTrakrApi Fly.io container and exposes it via `api.staktrakr.com/data/hourly/`. On page load, the frontend backfills the last 30 days of spot history and renders four metal cards (Gold, Silver, Platinum, Palladium) plus a Goldback value. These tests verify that all cards render with live data, that freshness thresholds are met, that melt values on inventory cards reflect current spot prices, and that stale indicators fire correctly when data is overdue.
 
 Test 8.6 is a controlled/manual test only — it cannot be automated without waiting 75+ minutes for real data aging. It is documented here for completeness and manual verification.

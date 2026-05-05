@@ -70,7 +70,7 @@ Do not attempt to proceed without a valid session.
 
 Navigate to the application:
 
-```
+```text
 stagehand_navigate → {BASE_URL}/index.html
 ```
 

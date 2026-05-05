@@ -9,7 +9,7 @@
     "lint": "eslint js/*.js sw.js",
     "lint:md": "bash devops/hooks/lint-markdown-changed.sh --staged",
     "lint:md:changed": "bash devops/hooks/lint-markdown-changed.sh --changed",
-    "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json \"**/*.md\" --ignore node_modules --ignore .git --ignore test-results",
+    "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\"",
     "test": "npx playwright test",
     "test:offline": "npx playwright test --grep-invert @network",
     "format": "prettier --write .",

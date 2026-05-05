@@ -1,5 +1,10 @@
 # Section 07 — Activity Log
 
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 Tests for activity log recording, display, and persistence. The activity log captures every Add, Edit, and Delete action performed during a session and displays each entry with a timestamp and item name. These tests verify that the log faithfully records all three action types, that the log panel opens and closes correctly via the header icon, and that logged entries survive a page reload.
 
 Note: Tests 7.1 through 7.3 require that CRUD actions have already been performed in this session. REQUIRES: run Section 02 (CRUD) before this section, or manually add, edit, and delete one item before starting 7.1. Running this section without prior CRUD actions will cause 7.1–7.3 to fail.

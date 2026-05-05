@@ -1,13 +1,13 @@
 ---
 name: start-patch
-description: Use when starting a new patch session and needing to pick a DocVault issue to work on before claiming a version lock and creating a worktree.
+description: Use when starting a new patch session and needing to pick a Plane issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
-allowed-tools: Bash, Read, mcp__infisical__get-secret, mcp__mem0__search_memories
+allowed-tools: Bash, Read, mcp__mem0__search_memories, mcp__plane__list_issues
 ---
 
 # Start Patch
 
-Rapid session-start triage: fetch DocVault issues, rank by priority + session continuity, let the user pick, then hand off to `release patch` for lock + worktree creation.
+Rapid session-start triage: fetch Plane issues, rank by priority + session continuity, let the user pick, then hand off to `release patch` for lock + worktree creation.
 
 **Does NOT:** read CHANGELOG, constants, or the full codebase. That's `/prime`.
 **Does NOT:** claim a version lock or create a worktree. That's `/release patch`.
@@ -16,16 +16,17 @@ Rapid session-start triage: fetch DocVault issues, rank by priority + session co
 
 ## Step 0: Project Detection
 
-Read `.claude/project.json` (in the current working directory):
+Read `.claude/project.json` and `.specflow/config.json` (in the current working directory):
 
 ```bash
 cat .claude/project.json
+cat .specflow/config.json
 ```
 
 Extract:
 
-- `linearTeamId` → used for all Linear queries
-- `name` → display label
+- `plane_project_id` from `.specflow/config.json` → used for Plane queries
+- `name` from `.claude/project.json` → display label
 
 Also capture git state:
 
@@ -49,31 +50,22 @@ git log --oneline -5
 git status --short
 ```
 
-### Linear query (single GraphQL call replaces 3 MCP calls)
+### Plane query
 
-Fetch the API key from Infisical:
+Use the Plane MCP project ID from `.specflow/config.json` and fetch non-completed issues
+from the StakTrakr project. Do not query Linear and do not read DocVault issue files for
+active work.
 
-```
-mcp__infisical__get-secret(secretName: "LINEAR_API_KEY", environmentSlug: "dev", projectId: "319a1db5-207d-49d0-a61d-3f3e6b440ded")
-```
-
-Then run a single query that returns In Progress, Todo, and Backlog issues:
-
-```bash
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "$(cat <<'GRAPHQL'
-{"query": "{ team(id: \"<TEAM_ID>\") { issues(filter: { state: { type: { nin: [\"completed\", \"canceled\"] } } }, orderBy: priority, first: 50) { nodes { identifier title priority state { name type } assignee { name } labels { nodes { name } } createdAt } } }"}
-GRAPHQL
-)"
+```text
+mcp__plane__list_issues(project_id: "<plane_project_id>")
 ```
 
-> Linear priority values: 1 = Urgent, 2 = High, 3 = Medium, 4 = Low.
+Filter out completed and canceled states, then keep In Progress, Todo, and Backlog items.
+Plane priorities are strings such as `urgent`, `high`, `medium`, `low`, or `none`.
 
 ### mem0 — session continuity
 
-```
+```text
 mcp__mem0__search_memories
   query: "recent session handoff in progress"
   filters: { "AND": [{ "agent_id": "<project agent_id>" }] }
@@ -90,9 +82,9 @@ Note which issue IDs appear in the mem0 results — these get a continuity boost
 
 **If `devops/version.lock` exists with active (non-expired) claims:**
 
-```
+```text
 ⚠️  Active version claims:
-    - v3.32.29 — claude / STAK-315 (expires 10:30Z)
+    - v3.32.29 — claude / STRK-315 (expires 10:30Z)
     - v3.32.30 — user / hotfix (expires 10:35Z)
     Next available version: v3.32.31
     (Claims expire after 30 min and are pruned automatically on next lock read.)
@@ -100,7 +92,7 @@ Note which issue IDs appear in the mem0 results — these get a continuity boost
 
 **If local branch is behind origin/dev (rev-list count > 0): HARD STOP before showing table:**
 
-```
+```text
 ⛔ Local dev is N commits behind origin/dev.
 
 Run: git pull origin dev
@@ -111,7 +103,7 @@ Do not display the issue table. Stop here and wait for the user.
 
 ### Ranking algorithm (4-tier)
 
-Apply in order — within each tier, use Linear priority as the tiebreaker (Urgent > High > Medium > Low):
+Apply in order — within each tier, use Plane priority as the tiebreaker (urgent > high > medium > low):
 
 | Tier        | Criteria                                          |
 | ----------- | ------------------------------------------------- |
@@ -124,24 +116,24 @@ Apply in order — within each tier, use Linear priority as the tiebreaker (Urge
 
 ### Display table
 
-```
+```text
 ## [ProjectName] — Session Candidates  (YYYY-MM-DD)
 
  #  │ Issue    │ Title                          │ State       │ Priority │ Notes
 ────┼──────────┼────────────────────────────────┼─────────────┼──────────┼───────────────
- 1  │ STAK-183 │ Configurable vault timeout     │ In Progress │ High     │ 🔄 In Progress
- 2  │ STAK-199 │ API health badge               │ Todo        │ High     │ 📅 In cycle
- 3  │ STAK-201 │ Memory sync command            │ Todo        │ Medium   │ 🧠 mem0 recent
- 4  │ STAK-155 │ Mobile layout fixes            │ Backlog     │ High     │
- 5  │ STAK-177 │ Retail price confidence UI     │ Backlog     │ Medium   │
+ 1  │ STRK-183 │ Configurable vault timeout     │ In Progress │ high     │ 🔄 In Progress
+ 2  │ STRK-199 │ API health badge               │ Todo        │ high     │ 📅 In cycle
+ 3  │ STRK-201 │ Memory sync command            │ Todo        │ medium   │ 🧠 mem0 recent
+ 4  │ STRK-155 │ Mobile layout fixes            │ Backlog     │ high     │
+ 5  │ STRK-177 │ Retail price confidence UI     │ Backlog     │ medium   │
 
 Version lock: UNLOCKED  |  Branch: dev  |  Sync: ✅ up to date
 ```
 
 Notes legend:
 
-- `🔄 In Progress` — Linear state is In Progress
-- `📅 In cycle` — issue is in the active Linear cycle
+- `🔄 In Progress` — Plane state is In Progress
+- `📅 In cycle` — issue is in the active Plane cycle
 - `🧠 mem0 recent` — appeared in mem0 session-continuity results
 - (blank) — no special signal
 
@@ -153,7 +145,7 @@ Limit the table to **10 rows maximum.** If more issues qualify, show the top 10 
 
 Ask:
 
-```
+```text
 Which issue(s) will we work on? (Enter number(s), e.g. `1` or `1,3`)
 ```
 
@@ -161,10 +153,10 @@ Wait for the user's selection.
 
 Once selected, display a brief confirmation:
 
-```
+```text
 Selected:
-  1. STAK-183 — Configurable vault timeout
-  3. STAK-201 — Memory sync command
+  1. STRK-183 — Configurable vault timeout
+  3. STRK-201 — Memory sync command
 
 Invoking release patch to claim version lock and create worktree...
 ```
@@ -175,16 +167,16 @@ Invoking release patch to claim version lock and create worktree...
 
 Invoke the `release` skill with `patch` as the argument. Pass the selected issue title(s) as context so the release skill's Step 1 ("determine what's being released") is pre-populated.
 
-```
+```text
 Skill tool: skill="release", args="patch"
 ```
 
 Pre-populate Step 1 context for the release skill:
 
-```
+```text
 Context from /start-patch:
-  Working on: STAK-183 — Configurable vault timeout
-              STAK-201 — Memory sync command
+  Working on: STRK-183 — Configurable vault timeout
+              STRK-201 — Memory sync command
 ```
 
 The release skill takes full ownership from here — sync gate, lock claim, worktree, seed-sync, version bump, PR.

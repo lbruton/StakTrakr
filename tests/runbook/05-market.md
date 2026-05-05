@@ -1,5 +1,10 @@
 # Section 05 — Market
 
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 This section covers E2E tests for the Market feature area: opening the market panel, verifying API-loaded inventory and price data, searching and filtering by metal type, viewing price history, checking source badges, and the Goldback card. Tests 5.7 is marked as manual/visual because triggering a genuine 30-minute data stale state cannot be done programmatically within a Browserbase session.
 
 Each test in this section is independently runnable given that the application has loaded at the PR preview URL (see `00-setup.md`). Tests 5.2 through 5.10 depend on the market panel being open; each test that requires it includes this in Preconditions so that the section can be resumed mid-run without ambiguity.
