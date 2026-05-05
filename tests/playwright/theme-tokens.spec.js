@@ -133,6 +133,11 @@ test.describe("STRK-25: theme token coverage", () => {
     for (const theme of THEMES) {
       await setTheme(page, theme);
       // Force a modal open and inspect the computed color of its .modal-header.
+      // Probe list is narrowed to modals using the gradient/text-inverse pattern.
+      // #itemModal is intentionally excluded: it uses var(--bg-secondary) panel bg +
+      // var(--text-primary) text per the STAK-173 redesign (different design pattern,
+      // not the gradient/colored-bg pattern this test asserts on). In slate theme
+      // --text-primary resolves to #f8fafc by design (Tailwind Slate 50 preserved).
       const headerColors = await page.evaluate(() => {
         const ids = [
           "apiHistoryModal",
@@ -140,7 +145,6 @@ test.describe("STRK-25: theme token coverage", () => {
           "changeLogModal",
           "detailsModal",
           "storageReportModal",
-          "itemModal",
         ];
         const results = [];
         for (const id of ids) {
