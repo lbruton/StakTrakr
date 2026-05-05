@@ -246,11 +246,15 @@
     const key = (metal || "Silver") + ":" + (type || "Coin");
     if (_thumbPlaceholders[key]) return _thumbPlaceholders[key];
 
+    const silver = getThemeColor("silver");
+    const gold = getThemeColor("gold");
+    const platinum = getThemeColor("platinum");
+    const palladium = getThemeColor("palladium");
     const colors = {
-      Silver: { fill: "#a8b5c4", stroke: "#8a9bb0", text: "#6b7d91" },
-      Gold: { fill: "#d4a74a", stroke: "#b8912e", text: "#9a7a24" },
-      Platinum: { fill: "#b8c5d6", stroke: "#95a8bd", text: "#7b8fa5" },
-      Palladium: { fill: "#c2b8a3", stroke: "#a89e8a", text: "#8e846f" },
+      Silver: { fill: silver, stroke: silver, text: silver },
+      Gold: { fill: gold, stroke: gold, text: gold },
+      Platinum: { fill: platinum, stroke: platinum, text: platinum },
+      Palladium: { fill: palladium, stroke: palladium, text: palladium },
     };
     const c = colors[metal] || colors.Silver;
 
