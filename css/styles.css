@@ -387,7 +387,7 @@
   --back-to-top-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
 
   /* STRK-25 — Semantic text on colored backgrounds */
-  --text-inverse: #f8fafc;
+  --text-inverse: #ffffff;
 
   /* STRK-25 — Focus ring */
   --focus-ring: rgba(59, 130, 246, 0.2);
@@ -925,41 +925,41 @@ section {
   letter-spacing: 0.04em;
 }
 .disposition-badge--sold {
-  background: hsla(142, 60%, 45%, 0.18);
-  color: hsla(142, 60%, 35%, 1);
+  background: var(--disposition-sold-bg);
+  color: var(--disposition-sold-text);
 }
 .disposition-badge--traded {
-  background: hsla(210, 70%, 50%, 0.18);
-  color: hsla(210, 70%, 40%, 1);
+  background: var(--disposition-traded-bg);
+  color: var(--disposition-traded-text);
 }
 .disposition-badge--lost {
-  background: hsla(0, 70%, 50%, 0.18);
-  color: hsla(0, 70%, 40%, 1);
+  background: var(--disposition-lost-bg);
+  color: var(--disposition-lost-text);
 }
 .disposition-badge--gifted {
-  background: hsla(270, 60%, 55%, 0.18);
-  color: hsla(270, 60%, 42%, 1);
+  background: var(--disposition-gifted-bg);
+  color: var(--disposition-gifted-text);
 }
 .disposition-badge--returned {
-  background: hsla(30, 80%, 50%, 0.18);
-  color: hsla(30, 80%, 38%, 1);
+  background: var(--disposition-returned-bg);
+  color: var(--disposition-returned-text);
 }
 
 /* Dark theme badge overrides — lighter text for contrast */
 :is([data-theme="dark"], [data-theme="slate"]) .disposition-badge--sold {
-  color: hsla(142, 60%, 65%, 1);
+  color: var(--disposition-sold-text);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .disposition-badge--traded {
-  color: hsla(210, 70%, 70%, 1);
+  color: var(--disposition-traded-text);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .disposition-badge--lost {
-  color: hsla(0, 70%, 70%, 1);
+  color: var(--disposition-lost-text);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .disposition-badge--gifted {
-  color: hsla(270, 60%, 75%, 1);
+  color: var(--disposition-gifted-text);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .disposition-badge--returned {
-  color: hsla(30, 80%, 70%, 1);
+  color: var(--disposition-returned-text);
 }
 
 /* --- Remove Item / Disposition modal form layout ------------------------- */
@@ -1356,7 +1356,7 @@ input[type="submit"] {
   overflow: hidden;
   min-height: 2.75rem;
   background: var(--primary);
-  color: #f8fafc;
+  color: var(--text-inverse);
 }
 
 .btn:hover {
@@ -2327,7 +2327,7 @@ input[type="submit"] {
 
 #apiHistoryModal .modal-header {
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: #f8fafc;
+  color: var(--text-inverse);
   padding: var(--spacing-xl);
   position: relative;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -2336,7 +2336,7 @@ input[type="submit"] {
 
 #apiHistoryModal .modal-header h2 {
   margin: 0;
-  color: #f8fafc;
+  color: var(--text-inverse);
   text-align: center;
 }
 
@@ -4002,7 +4002,7 @@ input[type="submit"] {
 
 .inventory-recovery-banner__btn--primary {
   background: var(--primary);
-  color: #f8fafc;
+  color: var(--text-inverse);
   border-color: var(--primary);
 }
 
@@ -4172,7 +4172,7 @@ input[type="submit"] {
   .settings-nav-item.active {
     border-left: none;
     background: var(--primary);
-    color: #f8fafc;
+    color: var(--text-inverse);
   }
 
   .settings-content-area {
@@ -4262,7 +4262,7 @@ input[type="submit"] {
   color: var(--text-secondary, #e2e8f0);
 }
 .about-app-name .trakr {
-  color: #d4a017;
+  color: var(--brand-gold);
 }
 .about-version {
   font-size: var(--font-size-sm);
@@ -4433,7 +4433,7 @@ input[type="submit"] {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #d4a017;
+  color: var(--brand-gold);
   flex: 1;
 }
 .wntc-version {
@@ -4502,7 +4502,7 @@ input[type="submit"] {
 
 #cloudSyncModal .modal-header {
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: #f8fafc;
+  color: var(--text-inverse);
   padding: var(--spacing-xl);
   position: relative;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -4511,7 +4511,7 @@ input[type="submit"] {
 
 #cloudSyncModal .modal-header h2 {
   margin: 0;
-  color: #f8fafc;
+  color: var(--text-inverse);
   text-align: center;
 }
 
@@ -4554,7 +4554,7 @@ input[type="submit"] {
 #storageReportModal .modal-header,
 #itemModal .modal-header {
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: #f8fafc;
+  color: var(--text-inverse);
   padding: var(--spacing-xl);
   position: relative;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -4566,7 +4566,7 @@ input[type="submit"] {
 #storageReportModal .modal-header h2,
 #itemModal .modal-header h2 {
   margin: 0;
-  color: #f8fafc;
+  color: var(--text-inverse);
   text-align: center;
 }
 
@@ -5471,7 +5471,7 @@ td.editing {
   background: var(--bg-tertiary) !important;
   border: 2px solid var(--primary) !important;
   border-radius: var(--radius);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 td.editing .inline-input {
@@ -5527,7 +5527,7 @@ td.editing .save-inline {
 
 td.editing .save-inline:hover {
   background: var(--success);
-  color: #f8fafc;
+  color: var(--text-inverse);
   transform: translateY(-50%) scale(1.2);
 }
 
@@ -5538,7 +5538,7 @@ td.editing .cancel-inline {
 
 td.editing .cancel-inline:hover {
   background: var(--danger);
-  color: #f8fafc;
+  color: var(--text-inverse);
   transform: translateY(-50%) scale(1.2);
 }
 
@@ -6872,7 +6872,7 @@ a.about-badge:hover {
 
 .about-accept-btn {
   background: linear-gradient(135deg, var(--success), #047857);
-  color: #f8fafc;
+  color: var(--text-inverse);
   font-size: var(--font-size-xl);
   padding: var(--spacing) var(--spacing-xl);
   border: none;
@@ -8067,7 +8067,7 @@ a.about-badge:hover {
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: #f8fafc;
+  background-color: var(--text-inverse);
   transition: var(--transition);
   border-radius: 50%;
   box-shadow: var(--shadow-sm);
@@ -8692,7 +8692,7 @@ input:disabled + .slider {
 }
 
 #inventoryTable .icon-btn:focus {
-  outline: 2px solid rgba(59, 130, 246, 0.25);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -9064,7 +9064,7 @@ th {
   margin-left: 0.25rem;
   border-radius: var(--radius);
   background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
+  color: var(--authority-pcgs);
   cursor: pointer;
   text-decoration: none;
   transition: var(--transition);
@@ -9075,7 +9075,7 @@ th {
 
 .pcgs-tag:hover,
 .pcgs-tag:focus-visible {
-  background: #2563eb;
+  background: var(--authority-pcgs);
   color: #fff;
   outline: none;
 }
@@ -9083,22 +9083,22 @@ th {
 /* Dark theme overrides */
 :is([data-theme="dark"], [data-theme="slate"]) .pcgs-tag {
   background: rgba(37, 99, 235, 0.2);
-  color: #60a5fa;
+  color: var(--authority-pcgs);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .pcgs-tag:hover,
 :is([data-theme="dark"], [data-theme="slate"]) .pcgs-tag:focus-visible {
-  background: #2563eb;
+  background: var(--authority-pcgs);
   color: #fff;
 }
 
 /* Sepia theme overrides */
 [data-theme="sepia"] .pcgs-tag {
   background: rgba(37, 99, 235, 0.08);
-  color: #1d4ed8;
+  color: var(--authority-pcgs);
 }
 [data-theme="sepia"] .pcgs-tag:hover,
 [data-theme="sepia"] .pcgs-tag:focus-visible {
-  background: #1d4ed8;
+  background: var(--authority-pcgs);
   color: #fff;
 }
 
@@ -9195,40 +9195,40 @@ th {
 /* Authority color coding — Light theme */
 .grade-tag[data-authority="PCGS"] {
   background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
+  color: var(--authority-pcgs);
 }
 .grade-tag[data-authority="NGC"] {
   background: rgba(217, 119, 6, 0.12);
-  color: #d97706;
+  color: var(--authority-ngc);
 }
 .grade-tag[data-authority="ANACS"] {
   background: rgba(5, 150, 105, 0.12);
-  color: #059669;
+  color: var(--authority-anacs);
 }
 .grade-tag[data-authority="ICG"] {
   background: rgba(124, 58, 237, 0.12);
-  color: #7c3aed;
+  color: var(--authority-icg);
 }
 
 /* Clickable hover overrides — Light theme */
 .grade-tag[data-clickable="true"][data-authority="PCGS"]:hover,
 .grade-tag[data-clickable="true"][data-authority="PCGS"]:focus-visible {
-  background: #2563eb;
+  background: var(--authority-pcgs);
   color: #fff;
 }
 .grade-tag[data-clickable="true"][data-authority="NGC"]:hover,
 .grade-tag[data-clickable="true"][data-authority="NGC"]:focus-visible {
-  background: #d97706;
+  background: var(--authority-ngc);
   color: #fff;
 }
 .grade-tag[data-clickable="true"][data-authority="ANACS"]:hover,
 .grade-tag[data-clickable="true"][data-authority="ANACS"]:focus-visible {
-  background: #059669;
+  background: var(--authority-anacs);
   color: #fff;
 }
 .grade-tag[data-clickable="true"][data-authority="ICG"]:hover,
 .grade-tag[data-clickable="true"][data-authority="ICG"]:focus-visible {
-  background: #7c3aed;
+  background: var(--authority-icg);
   color: #fff;
 }
 
@@ -9239,46 +9239,46 @@ th {
 }
 :is([data-theme="dark"], [data-theme="slate"]) .grade-tag[data-authority="PCGS"] {
   background: rgba(96, 165, 250, 0.15);
-  color: #60a5fa;
+  color: var(--authority-pcgs);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .grade-tag[data-authority="NGC"] {
   background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
+  color: var(--authority-ngc);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .grade-tag[data-authority="ANACS"] {
   background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
+  color: var(--authority-anacs);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .grade-tag[data-authority="ICG"] {
   background: rgba(167, 139, 250, 0.15);
-  color: #a78bfa;
+  color: var(--authority-icg);
 }
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="PCGS"]:hover,
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="PCGS"]:focus-visible {
-  background: #60a5fa;
+  background: var(--authority-pcgs);
   color: #1a1a2e;
 }
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="NGC"]:hover,
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="NGC"]:focus-visible {
-  background: #fbbf24;
+  background: var(--authority-ngc);
   color: #1a1a2e;
 }
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="ANACS"]:hover,
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="ANACS"]:focus-visible {
-  background: #34d399;
+  background: var(--authority-anacs);
   color: #1a1a2e;
 }
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="ICG"]:hover,
 :is([data-theme="dark"], [data-theme="slate"])
   .grade-tag[data-clickable="true"][data-authority="ICG"]:focus-visible {
-  background: #a78bfa;
+  background: var(--authority-icg);
   color: #1a1a2e;
 }
 
@@ -9289,38 +9289,38 @@ th {
 }
 [data-theme="sepia"] .grade-tag[data-authority="PCGS"] {
   background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  color: var(--authority-pcgs);
 }
 [data-theme="sepia"] .grade-tag[data-authority="NGC"] {
   background: rgba(180, 83, 9, 0.1);
-  color: #b45309;
+  color: var(--authority-ngc);
 }
 [data-theme="sepia"] .grade-tag[data-authority="ANACS"] {
   background: rgba(4, 120, 87, 0.1);
-  color: #047857;
+  color: var(--authority-anacs);
 }
 [data-theme="sepia"] .grade-tag[data-authority="ICG"] {
   background: rgba(109, 40, 217, 0.1);
-  color: #6d28d9;
+  color: var(--authority-icg);
 }
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="PCGS"]:hover,
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="PCGS"]:focus-visible {
-  background: #1d4ed8;
+  background: var(--authority-pcgs);
   color: #fff;
 }
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="NGC"]:hover,
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="NGC"]:focus-visible {
-  background: #b45309;
+  background: var(--authority-ngc);
   color: #fff;
 }
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="ANACS"]:hover,
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="ANACS"]:focus-visible {
-  background: #047857;
+  background: var(--authority-anacs);
   color: #fff;
 }
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="ICG"]:hover,
 [data-theme="sepia"] .grade-tag[data-clickable="true"][data-authority="ICG"]:focus-visible {
-  background: #6d28d9;
+  background: var(--authority-icg);
   color: #fff;
 }
 
@@ -9576,7 +9576,7 @@ th {
 #inventoryForm select:focus {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.05));
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 /* Dark theme glass tokens */
@@ -10591,7 +10591,7 @@ th {
 .table-select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .chip-select:hover,
@@ -11194,23 +11194,23 @@ th {
 
 /* Subtle color variations for different numeric types */
 #inventoryTable td[data-column="qty"] {
-  color: rgba(59, 130, 246, 0.9); /* Soft blue for quantities */
+  color: var(--col-qty);
 }
 
 #inventoryTable td[data-column="weight"] {
-  color: rgba(107, 114, 128, 0.95); /* Muted gray for weights */
+  color: var(--col-weight);
 }
 
 #inventoryTable td[data-column="purchasePrice"] {
-  color: rgba(34, 197, 94, 0.9); /* Soft green for purchase prices */
+  color: var(--col-purchase);
 }
 
 #inventoryTable td[data-column="meltValue"] {
-  color: rgba(245, 158, 11, 0.9); /* Soft amber for melt values */
+  color: var(--col-melt);
 }
 
 #inventoryTable td[data-column="retailPrice"] {
-  color: rgba(59, 130, 246, 0.95); /* Primary blue for retail values */
+  color: var(--col-retail);
 }
 
 /* =============================================================================
@@ -12314,7 +12314,7 @@ th {
 
 .bulk-edit-content .modal-header {
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: #f8fafc;
+  color: var(--text-inverse);
   padding: var(--spacing) var(--spacing-xl);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   flex-shrink: 0;
@@ -12322,7 +12322,7 @@ th {
 
 .bulk-edit-content .modal-header h2 {
   margin: 0;
-  color: #f8fafc;
+  color: var(--text-inverse);
   text-align: center;
 }
 
@@ -12410,7 +12410,7 @@ th {
 .bulk-edit-field-row .field-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .bulk-edit-field-row textarea.field-input {
@@ -13577,8 +13577,8 @@ th {
   padding: 0.1rem 0.3rem;
   margin-left: 0.25rem;
   border-radius: var(--radius);
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
+  background: var(--tag-bg);
+  color: var(--tag-text);
   vertical-align: middle;
   line-height: 1.2;
   white-space: nowrap;
@@ -13614,9 +13614,9 @@ th {
   border-radius: var(--radius-pill);
   line-height: 1.3;
   white-space: nowrap;
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  border: 1px solid var(--tag-border);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .tag-chip {
   background: color-mix(in srgb, var(--info) 12%, transparent);
@@ -13653,7 +13653,7 @@ th {
   border-radius: var(--radius-pill);
   border: 1px dashed rgba(99, 102, 241, 0.35);
   background: transparent;
-  color: #6366f1;
+  color: var(--tag-text);
   cursor: pointer;
   transition:
     background 0.15s,
@@ -13695,7 +13695,7 @@ th {
   transition: border-color 0.15s;
 }
 .tag-input:focus {
-  border-color: #6366f1;
+  border-color: var(--tag-text);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 :is([data-theme="dark"], [data-theme="slate"]) .tag-input {
