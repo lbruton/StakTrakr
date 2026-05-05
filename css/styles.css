@@ -3526,7 +3526,7 @@ input[type="submit"] {
   cursor: pointer;
   transition:
     border-color 0.15s,
-    box-shadow 0.15s;
+    background 0.15s;
 }
 
 .theme-option[data-theme="light"] {
