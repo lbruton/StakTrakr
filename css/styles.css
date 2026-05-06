@@ -6516,6 +6516,10 @@ td input:checked + .slider:before {
     grid-template-columns: 1fr 1fr;
   }
 
+  .view-numista-section .view-detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .view-chart-container {
     height: 160px;
   }

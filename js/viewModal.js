@@ -1470,11 +1470,11 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
     const byDay = new Map();
     for (const e of liveEntries) byDay.set(new Date(e.ts).toISOString().slice(0, 10), e);
     const result = [...byDay.values()].sort((a, b) => a.ts - b.ts);
-    const cutoff = Date.now() - days * 86400000;
+    const cutoff = Date.now() - days * (24 * 60 * 60 * 1000);
     const inRange = result.filter((e) => e.ts >= cutoff);
     if (inRange.length >= 2) return result;
     // Sparse in-memory data — fall back to current year file
-    startYear = new Date(Date.now() - days * 86400000).getFullYear();
+    startYear = new Date(cutoff).getFullYear();
   } else {
     // "All" — go back to 1968 (earliest seed data)
     startYear = 1968;
@@ -1661,7 +1661,7 @@ function _createPriceHistoryChart(
     retailData[spotEntries.length - 1] = currentRetail;
   }
 
-  const hasRetail = allRetailEntries.length > 1;
+  const hasRetail = retailData.some((v) => v !== null);
 
   const showPoints = spotEntries.length <= 30;
 
