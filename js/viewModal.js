@@ -448,6 +448,7 @@ function _buildInventorySection(item, metrics) {
   invSection.appendChild(invGrid2);
   const storGrid = _el("div", "view-detail-grid");
   _addDetail(storGrid, "Storage", item.storageLocation || "\u2014");
+  if (item.serialNumber) _addDetail(storGrid, "Serial #", item.serialNumber);
   invSection.appendChild(storGrid);
   return invSection;
 }
@@ -741,44 +742,31 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
     days === -1 && chartCtx.purchaseDate > 0
       ? Math.max(1, Math.ceil((Date.now() - chartCtx.purchaseDate) / 86400000))
       : days;
-  if (effectiveDays === 0 || effectiveDays > 180) {
-    try {
-      const fullSpot = await _fetchHistoricalSpotData(chartCtx.metalName, effectiveDays);
-      _createPriceHistoryChart(
-        canvas,
-        fullSpot,
-        chartCtx.retailEntries,
-        chartCtx.purchasePerUnit,
-        chartCtx.meltFactor,
-        effectiveDays,
-        chartCtx.purchaseDate,
-        chartCtx.currentRetail
-      );
-    } catch (err) {
-      console.error("Range pill fetch failed:", err);
-      _createPriceHistoryChart(
-        canvas,
-        chartCtx.dailySpotEntries,
-        chartCtx.retailEntries,
-        chartCtx.purchasePerUnit,
-        chartCtx.meltFactor,
-        effectiveDays,
-        chartCtx.purchaseDate,
-        chartCtx.currentRetail
-      );
-    }
-    return;
+  try {
+    const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, effectiveDays);
+    _createPriceHistoryChart(
+      canvas,
+      spotData,
+      chartCtx.retailEntries,
+      chartCtx.purchasePerUnit,
+      chartCtx.meltFactor,
+      effectiveDays,
+      chartCtx.purchaseDate,
+      chartCtx.currentRetail
+    );
+  } catch (err) {
+    console.error("Range pill fetch failed:", err);
+    _createPriceHistoryChart(
+      canvas,
+      chartCtx.dailySpotEntries,
+      chartCtx.retailEntries,
+      chartCtx.purchasePerUnit,
+      chartCtx.meltFactor,
+      effectiveDays,
+      chartCtx.purchaseDate,
+      chartCtx.currentRetail
+    );
   }
-  _createPriceHistoryChart(
-    canvas,
-    chartCtx.dailySpotEntries,
-    chartCtx.retailEntries,
-    chartCtx.purchasePerUnit,
-    chartCtx.meltFactor,
-    effectiveDays,
-    chartCtx.purchaseDate,
-    chartCtx.currentRetail
-  );
 }
 
 function _buildGradingSection(item) {
@@ -1098,12 +1086,9 @@ async function loadViewNumistaData(item, container, apiResult) {
     }
   }
 
-  // Build Numista section
-  const section = _el("div", "view-numista-section");
-
-  const badge = _el("span", "view-numista-badge");
-  badge.textContent = "Catalog Data";
-  section.appendChild(badge);
+  // Build Numista section — uses standard _section() for consistent styling
+  const section = _section("Catalog Data");
+  section.classList.add("view-numista-section");
 
   const grid = _el("div", "view-detail-grid");
 
@@ -1477,14 +1462,19 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
   if (fromTs > 0) {
     startYear = new Date(fromTs).getFullYear();
   } else if (days > 0 && days <= 180) {
-    // Short range — in-memory spotHistory is sufficient
+    // Short range — try in-memory spotHistory first
     const liveEntries = (typeof spotHistory !== "undefined" ? spotHistory : [])
       .filter((e) => e.metal === metalName)
       .map((e) => ({ ts: new Date(e.timestamp).getTime(), spot: e.spot }));
     liveEntries.sort((a, b) => a.ts - b.ts);
     const byDay = new Map();
     for (const e of liveEntries) byDay.set(new Date(e.ts).toISOString().slice(0, 10), e);
-    return [...byDay.values()].sort((a, b) => a.ts - b.ts);
+    const result = [...byDay.values()].sort((a, b) => a.ts - b.ts);
+    const cutoff = Date.now() - days * (24 * 60 * 60 * 1000);
+    const inRange = result.filter((e) => e.ts >= cutoff);
+    if (inRange.length >= 2) return result;
+    // Sparse in-memory data — fall back to current year file
+    startYear = new Date(cutoff).getFullYear();
   } else {
     // "All" — go back to 1968 (earliest seed data)
     startYear = 1968;
@@ -1722,8 +1712,8 @@ function _createPriceHistoryChart(
       fill: "origin",
       tension: 0.3,
       spanGaps: true,
-      pointRadius: 4,
-      pointHoverRadius: 6,
+      pointRadius: showPoints ? 3 : 0,
+      pointHoverRadius: showPoints ? 5 : 3,
       borderWidth: 2,
       hidden: !hasRetail,
       order: 1,

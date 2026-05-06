@@ -6311,42 +6311,7 @@ td input:checked + .slider:before {
   font-style: italic;
 }
 
-/* --- Numista enrichment section — distinct separator --- */
-.view-numista-section {
-  padding: var(--spacing) var(--spacing-xl);
-  background: var(--bg-secondary);
-  border-top: 2px solid var(--border);
-  position: relative;
-}
-
-.view-numista-section::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: var(--spacing-xl);
-  right: var(--spacing-xl);
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
-  opacity: 0.3;
-  margin-top: -2px;
-}
-
-.view-numista-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--spacing-sm);
-}
-
-/* Numista section uses 3 columns by default for compact layout */
+/* Catalog Data (Numista) section — 3-column grid override */
 .view-numista-section .view-detail-grid {
   grid-template-columns: 1fr 1fr 1fr;
 }
@@ -6551,15 +6516,15 @@ td input:checked + .slider:before {
     grid-template-columns: 1fr 1fr;
   }
 
+  .view-numista-section .view-detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .view-chart-container {
     height: 160px;
   }
 
   .view-detail-section {
-    padding: var(--spacing-sm) var(--spacing);
-  }
-
-  .view-numista-section {
     padding: var(--spacing-sm) var(--spacing);
   }
 
