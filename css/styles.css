@@ -201,9 +201,9 @@
    Hue 85° (warm amber), chroma 0.005–0.015 for subtle warmth
    ============================================================================= */
 [data-theme="dark"] {
-  /* Primary Colors - Metallic Dark */
-  --primary: oklch(0.63 0.18 255);
-  --primary-hover: oklch(0.55 0.2 255);
+  /* Primary Colors - Metallic Dark (warm gold accent — STRK-39) */
+  --primary: oklch(0.72 0.16 75);
+  --primary-hover: oklch(0.64 0.18 75);
   --secondary: oklch(0.5 0.01 85);
   --secondary-hover: oklch(0.62 0.01 85);
   --success: oklch(0.64 0.17 155);
@@ -279,7 +279,7 @@
   --text-inverse: oklch(0.98 0 0);
 
   /* STRK-25 — Focus ring */
-  --focus-ring: oklch(0.63 0.18 255 / 0.2);
+  --focus-ring: oklch(0.72 0.16 75 / 0.2);
 
   /* STRK-25 — Hover-mix direction (white lightens for dark themes) */
   --hover-mix: white;
