@@ -606,10 +606,12 @@ const _cvEscapeAttr = (s) => {
  */
 const _cardChipsHTML = (item, small = false) => {
   const s = small ? ' style="font-size:0.58rem;padding:0.05rem 0.35rem"' : "";
-  const type = (item.type || "coin").toLowerCase();
+  const type = (item.type || "coin").toLowerCase().replace(/[^a-z0-9-]/g, "");
   let h = `<span class="cv-chip cv-chip-type ${type}"${s}>${sanitizeHtml(type)}</span>`;
-  const metal = (item.metal || "silver").toLowerCase();
-  h += `<span class="cv-chip cv-chip-metal ${metal}"${s}>${sanitizeHtml(metal)}</span>`;
+  if (item.metal) {
+    const metal = item.metal.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    h += `<span class="cv-chip cv-chip-metal ${metal}"${s}>${sanitizeHtml(metal)}</span>`;
+  }
   if (item.year)
     h += `<span class="cv-chip cv-chip-year"${s}>${sanitizeHtml(String(item.year))}</span>`;
   if (item.grade) h += `<span class="cv-chip cv-chip-grade"${s}>${sanitizeHtml(item.grade)}</span>`;
