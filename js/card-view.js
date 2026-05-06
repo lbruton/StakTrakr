@@ -606,8 +606,12 @@ const _cvEscapeAttr = (s) => {
  */
 const _cardChipsHTML = (item, small = false) => {
   const s = small ? ' style="font-size:0.58rem;padding:0.05rem 0.35rem"' : "";
-  const type = (item.type || "coin").toLowerCase();
+  const type = (item.type || "coin").toLowerCase().replace(/[^a-z0-9-]/g, "");
   let h = `<span class="cv-chip cv-chip-type ${type}"${s}>${sanitizeHtml(type)}</span>`;
+  if (item.metal) {
+    const metal = item.metal.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    h += `<span class="cv-chip cv-chip-metal ${metal}"${s}>${sanitizeHtml(metal)}</span>`;
+  }
   if (item.year)
     h += `<span class="cv-chip cv-chip-year"${s}>${sanitizeHtml(String(item.year))}</span>`;
   if (item.grade) h += `<span class="cv-chip cv-chip-grade"${s}>${sanitizeHtml(item.grade)}</span>`;
@@ -615,12 +619,15 @@ const _cardChipsHTML = (item, small = false) => {
   if (qty > 1) h += `<span class="cv-chip cv-chip-qty"${s}>x${qty}</span>`;
   h += `<span class="cv-chip cv-chip-weight"${s}>${sanitizeHtml(formatWeight(item.weight, item.weightUnit))}</span>`;
 
-  // STAK-343: Inline tags in card view (show first 2, ellipsis if more)
   const _cardTags = typeof getItemTags === "function" ? getItemTags(item.uuid) : [];
   if (_cardTags.length > 0) {
-    const tagText =
-      sanitizeHtml(_cardTags.slice(0, 2).join(", ")) + (_cardTags.length > 2 ? "\u2026" : "");
-    h += `<span class="cv-chip cv-chip-tags"${s} title="${_cvEscapeAttr(_cardTags.join(", "))}">${tagText}</span>`;
+    const show = _cardTags.slice(0, 2);
+    show.forEach((t) => {
+      h += `<span class="cv-chip cv-chip-tags"${s} title="${_cvEscapeAttr(t)}">${sanitizeHtml(t)}</span>`;
+    });
+    if (_cardTags.length > 2) {
+      h += `<span class="cv-chip cv-chip-tags"${s} title="${_cvEscapeAttr(_cardTags.join(", "))}">+${_cardTags.length - 2}</span>`;
+    }
   }
 
   return h;
