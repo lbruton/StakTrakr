@@ -47,7 +47,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 ## Git Topology
 
 - **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev. Both `dev` and `main` are protected — no direct pushes.
-- **Version format:** `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment calls these `BRANCH.RELEASE.PATCH`). Use `/release` to bump — touches 7 files: `js/constants.js`, `package.json`, `package-lock.json` (two occurrences), `sw.js`, `version.json`, `js/about.js`, `CHANGELOG.md`.
+- **Version format:** `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment calls these `BRANCH.RELEASE.PATCH`). Use `/release` to bump — edits 6 files (`js/constants.js`, `package.json`, `package-lock.json`, `version.json`, `js/about.js`, `CHANGELOG.md`) + `sw.js` is stamped automatically by the `stamp-sw-cache` pre-commit hook. Project-level recipe lives in `.claude/skills/release/SKILL.md`.
 - **`/release` is the only valid version-bump path.** `/spec`'s shipping tasks (10–12) say "version bump" — that means _invoke `/release patch`_, not hand-edit version files. A spec PR that bumps `package.json` but forgets `about.js` What's New, manifest, or `version.json` will still pass the `check-release-sync` hook but ship incomplete. If the spec workflow appears to do its own bump, treat that as a bug — invoke `/release`.
 - **Version lock:** `devops/version.lock` is gitignored — local coordination only.
 - **Worktrees:** `.worktrees/<issue>-<slug>/` (issue-named, via `/start-patch`) or `.worktrees/patch-<version>/` (version-named, via `/release`). Both conventions are in use; pick whichever the entry skill creates and stick with it for the lifetime of the branch. Before creating: `git fetch origin dev` to sync remote dev (works from any worktree — no branch checkout needed). Then: `git worktree add .worktrees/<name>/ -b <branch-name> origin/dev`. After: `cp CLAUDE.md .worktrees/<name>/CLAUDE.md` then `npm install --no-audit --no-fund`.
@@ -84,6 +84,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 | `/faq`                            | Add, edit, or remove in-app FAQ entries                                                                           |
 | `/finishing-a-development-branch` | Implementation complete — guides merge/PR/cleanup decision                                                        |
 | `/pr-ready`                       | Pre-PR checklist — version bump, sw.js, DocVault status, Codacy                                                   |
+| `/release`                        | Version bump — edits 6 files + trims What's New to 8 entries. Project override of global `/release`               |
 | `/start-patch`                    | Pick a Plane issue, claim version lock, create worktree                                                           |
 | `/ui-mockup`                      | New multi-element UI — Playground prototype before production code                                                |
 
