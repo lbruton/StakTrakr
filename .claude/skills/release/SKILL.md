@@ -27,9 +27,9 @@ Update the root `version` field:
 "version": "NEW_VERSION",
 ```
 
-### 3. `package-lock.json` (lines 3 and 9 ONLY)
+### 3. `package-lock.json`
 
-Update the root-level `version` field (line 3) and the `packages[""].version` field (line 9). These are the two project version entries — every other `"version"` field is a dependency. Do NOT touch dependency versions.
+Update two fields only — the root-level `"version"` field and the `packages[""].version` field (the self-reference entry). Every other `"version"` field is a dependency. Do NOT touch dependency versions.
 
 ### 4. `version.json`
 
@@ -89,14 +89,16 @@ Format rules:
 
 After all edits, run these checks:
 
+Substitute the actual old and new version strings in all grep commands below.
+
 ```bash
 # 1. Version string appears in all 6 edited files
 grep -l "NEW_VERSION" js/constants.js package.json package-lock.json version.json CHANGELOG.md js/about.js
 
 # 2. Exactly 6 files listed (if fewer, one was missed)
 
-# 3. What's New entry count is <= 8
-grep -c '<li>' js/about.js  # Should be 9 or 10 (8 What's New + 1-2 Roadmap)
+# 3. What's New entry count is exactly 8 (versioned entries only)
+grep -c '<li><strong>v' js/about.js  # Should be 8
 
 # 4. No stale version in edited files
 grep -n "OLD_VERSION" js/constants.js package.json version.json
