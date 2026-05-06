@@ -13239,6 +13239,54 @@ th {
   background: var(--type-bar-bg, #946d00);
   color: var(--type-bar-text, #fff);
 }
+.cv-chip-type.round {
+  background: var(--type-round-bg);
+  color: var(--type-round-text, #fff);
+}
+.cv-chip-type.goldback {
+  background: var(--type-goldback-bg);
+  color: var(--type-goldback-text, #fff);
+}
+.cv-chip-type.silverback {
+  background: var(--type-silverback-bg);
+  color: var(--type-silverback-text, #fff);
+}
+.cv-chip-type.aurum {
+  background: var(--type-aurum-bg);
+  color: var(--type-aurum-text, #fff);
+}
+.cv-chip-type.set {
+  background: var(--type-set-bg);
+  color: var(--type-set-text, #fff);
+}
+.cv-chip-type.other {
+  background: var(--type-other-bg);
+  color: var(--type-other-text, #fff);
+}
+.cv-chip-type.note {
+  background: var(--type-note-bg);
+  color: var(--type-note-text, #fff);
+}
+.cv-chip-metal {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.cv-chip-metal.gold {
+  background: color-mix(in oklch, var(--gold) 18%, var(--bg-tertiary));
+  color: var(--gold);
+}
+.cv-chip-metal.silver {
+  background: color-mix(in oklch, var(--silver) 18%, var(--bg-tertiary));
+  color: var(--silver);
+}
+.cv-chip-metal.platinum {
+  background: color-mix(in oklch, var(--platinum) 18%, var(--bg-tertiary));
+  color: var(--platinum);
+}
+.cv-chip-metal.palladium {
+  background: color-mix(in oklch, var(--palladium) 18%, var(--bg-tertiary));
+  color: var(--palladium);
+}
 
 .cv-gain {
   color: var(--success);
