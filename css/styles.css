@@ -395,7 +395,7 @@
   --text-inverse: #ffffff;
 
   /* STRK-25 — Focus ring */
-  --focus-ring: rgba(59, 130, 246, 0.2);
+  --focus-ring: oklch(0.623 0.188 259.8 / 0.2);
 
   /* STRK-25 — Hover-mix direction (white lightens for dark themes) */
   --hover-mix: white;
@@ -6340,7 +6340,7 @@ td input:checked + .slider:before {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--primary);
-  background: rgba(59, 130, 246, 0.08);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   margin-bottom: var(--spacing-sm);
@@ -7493,7 +7493,7 @@ a.about-badge:hover {
 
 :is([data-theme="dark"], [data-theme="slate"]) .modern-icon-btn:hover {
   background: var(--primary);
-  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 [data-theme="sepia"] .modern-icon-btn {
@@ -7588,7 +7588,7 @@ a.about-badge:hover {
 
 :is([data-theme="dark"], [data-theme="slate"]) .search-action-btn.log-btn:hover {
   background: var(--info);
-  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--info) 30%, transparent);
 }
 
 [data-theme="sepia"] .search-action-btn {
@@ -7608,7 +7608,7 @@ a.about-badge:hover {
 
 [data-theme="sepia"] .search-action-btn.log-btn:hover {
   background: var(--info);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--info) 20%, transparent);
 }
 
 .autocomplete-dropdown {
@@ -9792,7 +9792,7 @@ th {
   border-radius: var(--radius-pill);
   padding: 0.3rem 0.85rem;
   min-height: auto;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--warning) 20%, transparent);
 }
 
 /* --- Numista status dot — position fix inside pill button --------------- */
@@ -11257,7 +11257,7 @@ th {
 /* Allow inline edit icons to remain functional with subtle hover */
 #inventoryTable .inline-edit-icon:hover {
   opacity: 1 !important;
-  background: rgba(59, 130, 246, 0.1) !important;
+  background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
   border-radius: 50% !important;
 }
 
@@ -12608,15 +12608,11 @@ th {
 }
 
 .bulk-edit-selected {
-  background: rgba(59, 130, 246, 0.08) !important;
+  background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .bulk-edit-selected {
-  background: rgba(59, 130, 246, 0.18) !important;
-}
-
-[data-theme="sepia"] .bulk-edit-selected {
-  background: rgba(139, 92, 42, 0.08) !important;
+  background: color-mix(in srgb, var(--primary) 18%, transparent) !important;
 }
 
 /* Pinned section — selected items not matching current search */
@@ -12661,15 +12657,11 @@ th {
 }
 
 .bulk-edit-pinned.bulk-edit-selected {
-  background: rgba(59, 130, 246, 0.12) !important;
+  background: color-mix(in srgb, var(--primary) 12%, transparent) !important;
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .bulk-edit-pinned.bulk-edit-selected {
-  background: rgba(59, 130, 246, 0.22) !important;
-}
-
-[data-theme="sepia"] .bulk-edit-pinned.bulk-edit-selected {
-  background: rgba(139, 92, 42, 0.12) !important;
+  background: color-mix(in srgb, var(--primary) 22%, transparent) !important;
 }
 
 .bulk-edit-pinned-divider td {
