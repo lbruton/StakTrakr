@@ -353,6 +353,49 @@
             const obverseImageUrl = row["Obverse Image URL"] || row["obverseImageUrl"] || "";
             const reverseImageUrl = row["Reverse Image URL"] || row["reverseImageUrl"] || "";
 
+            const dispositionType = (row["Disposition Type"] || "").trim();
+            const dispositionDate = (row["Disposition Date"] || "").trim();
+            const dispositionAmount = row["Disposition Amount"] || "";
+            const dispositionRealizedGainLoss = row["Realized Gain/Loss"] || "";
+            const dispositionRecipient = (row["Disposition Recipient"] || "").trim();
+            const dispositionNotes = (row["Disposition Notes"] || "").trim();
+            const dispositionCurrency = (row["Disposition Currency"] || "").trim();
+            const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
+            const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
+            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            let dispositionSplitFromUuid;
+            if (!dispositionSplitFromUuidRaw) {
+              dispositionSplitFromUuid = undefined;
+            } else if (uuidPattern.test(dispositionSplitFromUuidRaw)) {
+              dispositionSplitFromUuid = dispositionSplitFromUuidRaw;
+            } else {
+              debugLog(
+                "importCsv: dropping invalid splitFromUuid",
+                dispositionSplitFromUuidRaw,
+                "(must be empty or 36-char UUID)"
+              );
+              dispositionSplitFromUuid = undefined;
+            }
+
+            let disposition;
+            if (dispositionType) {
+              disposition = {
+                type: dispositionType,
+                date: dispositionDate || undefined,
+                amount:
+                  dispositionAmount !== "" ? parseFloat(dispositionAmount) || undefined : undefined,
+                realizedGainLoss:
+                  dispositionRealizedGainLoss !== ""
+                    ? parseFloat(dispositionRealizedGainLoss) || undefined
+                    : undefined,
+                recipient: dispositionRecipient || undefined,
+                notes: dispositionNotes || undefined,
+                currency: dispositionCurrency || undefined,
+                disposedAt: dispositionDisposedAt || undefined,
+                splitFromUuid: dispositionSplitFromUuid,
+              };
+            }
+
             addCompositionOption(composition);
 
             const item = sanitizeImportedItem({
@@ -384,6 +427,7 @@
               uuid,
               obverseImageUrl,
               reverseImageUrl,
+              disposition,
             });
 
             imported.push(item);
@@ -999,6 +1043,11 @@
       "Disposition Date",
       "Disposition Amount",
       "Realized Gain/Loss",
+      "Disposition Recipient",
+      "Disposition Notes",
+      "Disposition Currency",
+      "Disposition DisposedAt",
+      "Disposition Split From UUID",
     ];
 
     const sortedInventory = sortInventoryByDateNewestFirst();
@@ -1050,6 +1099,11 @@
         i.disposition?.date || "",
         i.disposition ? i.disposition.amount || 0 : "",
         i.disposition ? i.disposition.realizedGainLoss || 0 : "",
+        i.disposition?.recipient || "",
+        i.disposition?.notes || "",
+        i.disposition?.currency || "",
+        i.disposition?.disposedAt || "",
+        i.disposition?.splitFromUuid || "",
       ]);
     }
 
