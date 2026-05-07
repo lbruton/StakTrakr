@@ -658,6 +658,7 @@ const openRemoveItemModal = (idx, preDispose = false) => {
     if (qtyGroup) qtyGroup.style.display = "none";
   }
 
+  window.disposeAmountToggle?.setMode("each", { convertInput: false });
   window.disposeAmountToggle?.updateVisibility();
 
   // Wire live preview — remove any prior listener first
@@ -957,6 +958,7 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
 
   const clone = structuredClone(original);
   clone.uuid = generateUUID();
+  clone.serial = getNextSerial();
   clone.qty = qty;
   const disposedAt = new Date().toISOString();
   const pricePerUnit = original.price || 0;
@@ -1054,6 +1056,7 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   try {
     if (typeof getItemTags === "function" && typeof addItemTag === "function") {
       getItemTags(original.uuid).forEach((tag) => addItemTag(clone.uuid, tag, false));
+      if (typeof saveItemTags === "function") saveItemTags();
     }
   } catch (e) {
     if (typeof debugLog === "function") debugLog("splitInventoryItem: tag copy failed", e);

@@ -212,7 +212,7 @@ const renderChangeLog = () => {
         <td title="Restored &amp; merged">Restored &amp; merged</td>
         <td title="${mergeSummary}">${mergeSummary}</td>
         <td></td>
-        <td class="action-cell"><button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button></td>
+        <td class="action-cell"><button class="btn action-btn" style="margin:1px;" disabled title="Undo via the paired &quot;Undo Both&quot; button">N/A</button></td>
       </tr>`;
     }
 
@@ -549,7 +549,7 @@ const confirmCascadeUndo = async (transactionId, triggerEntry) => {
 
   const splitEntry = paired.find((e) => e.field === "Stack split");
   const disposedEntry = paired.find((e) => e.field === "Disposed");
-  if (!splitEntry || !disposedEntry) {
+  if (!splitEntry || !disposedEntry || !splitEntry.stackSplit) {
     if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
     return { ok: false, applied: "none", reason: "missing_entry_type" };
   }
