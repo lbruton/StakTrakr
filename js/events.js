@@ -150,6 +150,16 @@ const resetPurchasePriceToggle = () => {
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
 
+const disposeAmountToggle = createLotEachToggle({
+  toggleId: "removeItemAmountModeToggle",
+  priceInputId: "dispositionAmount",
+  qtyInputId: "removeItemQty",
+  eachPlaceholder: "Each",
+  lotPlaceholder: "Lot total",
+});
+
+window.disposeAmountToggle = disposeAmountToggle;
+
 // =============================================================================
 // IMAGE UPLOAD STATE (STACK-32) — Dual obverse/reverse support
 // =============================================================================
@@ -4148,6 +4158,34 @@ if (removeItemOpenLog) {
     if (typeof openModalById === "function") openModalById("changeLogModal");
   });
 }
+
+// Dispose modal Lot/Each toggle button wiring
+const removeItemAmountModeToggle = safeGetElement("removeItemAmountModeToggle");
+if (removeItemAmountModeToggle) {
+  Array.from(removeItemAmountModeToggle.children)
+    .filter((child) => child.dataset?.mode)
+    .forEach((button) => {
+      safeAttachListener(
+        button,
+        "click",
+        () => {
+          disposeAmountToggle.setMode(button.dataset.mode, { convertInput: true });
+        },
+        `Dispose amount ${button.dataset.mode} toggle`
+      );
+    });
+}
+
+// Dispose qty input updates toggle visibility and placeholder
+optionalListener(
+  safeGetElement("removeItemQty"),
+  "input",
+  () => {
+    disposeAmountToggle.updateVisibility();
+    disposeAmountToggle.updatePlaceholder();
+  },
+  "Dispose amount toggle visibility"
+);
 
 // =============================================================================
 // Appearance > Layout — show/hide realized G/L row (STAK-72/STAK-436)
