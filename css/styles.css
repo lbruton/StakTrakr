@@ -4672,6 +4672,30 @@ input[type="submit"] {
   white-space: nowrap;
 }
 
+/* STRK-44: grouped transaction rows in change log */
+.changelog-tx-group-header {
+  cursor: pointer;
+}
+.changelog-tx-group-header td {
+  font-weight: 500;
+}
+.changelog-tx-group-header .changelog-tx-caret {
+  display: inline-block;
+  transition: transform 0.15s;
+  margin-inline-end: 0.3em;
+  font-size: 0.7em;
+}
+.changelog-tx-group-header.expanded .changelog-tx-caret {
+  transform: rotate(90deg);
+}
+.changelog-tx-subtable {
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+.changelog-tx-subtable td {
+  padding: 2px 4px;
+}
+
 @media (max-width: 600px) {
   #changeLogTable th,
   #changeLogTable td {
