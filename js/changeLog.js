@@ -175,9 +175,8 @@ const renderChangeLog = () => {
 
   // Group paired transaction entries by transactionId (STRK-44 partial-stack disposition).
   // A group has exactly two entries sharing the same transactionId.
-  // Key: transactionId string \u2192 value: first entry encountered in reversed (newest-first) order.
-  const txFirstSeen = new Map(); // transactionId \u2192 first entry in reversed order
-  const txGroups = new Map(); // transactionId \u2192 [entry, entry]
+  const txFirstSeen = new Map(); // transactionId -> first entry in reversed order
+  const txGroups = new Map(); // transactionId -> [entry, entry]
   reversedLog.forEach((entry) => {
     if (!entry.transactionId) return;
     if (!txGroups.has(entry.transactionId)) {
@@ -187,76 +186,10 @@ const renderChangeLog = () => {
     txGroups.get(entry.transactionId).push(entry);
   });
 
-  const rows = reversedLog.map((entry) => {
-    const globalIndex = entryGlobalIndex.get(entry);
+  // Renders a single entry as a plain (non-grouped) <tr> string.
+  // Used for the settings panel compact view and all legacy/standard entries in the modal.
+  const renderFlatRow = (entry, globalIndex) => {
     const actionLabel = entry.undone ? "Redo" : "Undo";
-
-    // --- STRK-44: grouped-row rendering for paired transaction entries ---
-    if (entry.transactionId && txGroups.get(entry.transactionId)?.length === 2) {
-      const isFirst = txFirstSeen.get(entry.transactionId) === entry;
-      if (!isFirst) {
-        // Second entry in the pair \u2014 already rendered inside the first's group block
-        return "";
-      }
-
-      const group = txGroups.get(entry.transactionId);
-      // The "Undo Both" button MUST target the Disposed entry's globalIndex because
-      // toggleChange only routes to confirmCascadeUndo via the field === "Disposed" branch.
-      // Targeting the Stack split entry falls through to the default branch and corrupts the item.
-      const disposedEntry = group.find((e) => e.field === "Disposed") || group[1];
-      const disposedGlobalIndex = entryGlobalIndex.get(disposedEntry);
-      const label = sanitizeHtml(entry.transactionLabel || entry.field);
-      const ts = formatTimestamp(entry.timestamp);
-      const itemNameSafe = sanitizeHtml(entry.itemName);
-      const allUndone = group.every((e) => e.undone);
-
-      const undoBtn = allUndone
-        ? `<span class="text-muted">Undone</span>`
-        : `<button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${disposedGlobalIndex})" title="Undo both">Undo Both</button>`;
-
-      // Sub-row for each paired entry
-      const subRows = group
-        .map((sub) => {
-          let subField = sanitizeHtml(sub.field);
-          let subOld = sanitizeHtml(String(sub.oldValue ?? ""));
-          let subNew = sanitizeHtml(String(sub.newValue ?? ""));
-          if (sub.field === "Disposed" && sub.newValue) {
-            try {
-              const snap =
-                typeof sub.newValue === "string" ? JSON.parse(sub.newValue) : sub.newValue;
-              if (snap && snap.type) subNew = sanitizeHtml(snap.type);
-            } catch {
-              /* keep raw */
-            }
-          }
-          return `<tr class="changelog-tx-sub-row">
-            <td>${sanitizeHtml(formatTimestamp(sub.timestamp))}</td>
-            <td>${sanitizeHtml(sub.itemName)}</td>
-            <td>${subField}</td>
-            <td>${subOld}</td>
-            <td>${subNew}</td>
-          </tr>`;
-        })
-        .join("");
-
-      return `
-      <tr class="changelog-tx-group-header" role="group" aria-label="Partial-stack disposition transaction" aria-expanded="false" onclick="(function(hdr){ hdr.classList.toggle('expanded'); var sub = hdr.nextElementSibling; if(sub) sub.style.display = hdr.classList.contains('expanded') ? '' : 'none'; hdr.setAttribute('aria-expanded', hdr.classList.contains('expanded')); })(this)">
-        <td title="${ts}">${ts}</td>
-        <td title="${itemNameSafe}">${itemNameSafe}</td>
-        <td colspan="3" class="changelog-tx-label" title="${label}">
-          <span class="changelog-tx-caret">\u25B6</span>
-          <span class="changelog-tx-summary">${label}</span>
-        </td>
-        <td class="action-cell">${undoBtn}</td>
-      </tr>
-      <tr class="changelog-tx-subrows" style="display:none">
-        <td colspan="6" style="padding:0">
-          <table class="changelog-tx-subtable w-100">
-            <tbody>${subRows}</tbody>
-          </table>
-        </td>
-      </tr>`;
-    }
 
     // --- STRK-44: "Restored (merged)" single-row rendering ---
     if (entry.field === "Restored (merged)") {
@@ -282,8 +215,6 @@ const renderChangeLog = () => {
         <td class="action-cell"><button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button></td>
       </tr>`;
     }
-
-    // --- Legacy / standard entry rendering (unchanged) ---
 
     // Friendly display for price history deletions (STAK-109)
     let displayField = sanitizeHtml(entry.field);
@@ -338,17 +269,98 @@ const renderChangeLog = () => {
         <td title="${displayNew}">${displayNew}</td>
         <td class="action-cell"><button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button></td>
       </tr>`;
+  };
+
+  // Modal table: grouped rendering for paired transaction entries (STRK-44).
+  // The settings panel table receives plain (ungrouped) rows so that the
+  // [role='group'] element appears exactly once in the DOM per transaction.
+  const modalRows = reversedLog.map((entry) => {
+    const globalIndex = entryGlobalIndex.get(entry);
+
+    // --- STRK-44: grouped-row rendering for paired transaction entries ---
+    if (entry.transactionId && txGroups.get(entry.transactionId)?.length === 2) {
+      const isFirst = txFirstSeen.get(entry.transactionId) === entry;
+      if (!isFirst) {
+        // Second entry in the pair \u2014 already rendered inside the first's group block
+        return "";
+      }
+
+      const group = txGroups.get(entry.transactionId);
+      // The "Undo Both" button MUST target the Disposed entry's globalIndex because
+      // toggleChange only routes to confirmCascadeUndo via the field === "Disposed" branch.
+      // Targeting the Stack split entry falls through to the default branch and corrupts the item.
+      const disposedEntry = group.find((e) => e.field === "Disposed") || group[1];
+      const disposedGlobalIndex = entryGlobalIndex.get(disposedEntry);
+      const label = sanitizeHtml(entry.transactionLabel || entry.field);
+      const ts = formatTimestamp(entry.timestamp);
+      const itemNameSafe = sanitizeHtml(entry.itemName);
+      const allUndone = group.every((e) => e.undone);
+
+      const undoBtn = allUndone
+        ? `<span class="text-muted">Undone</span>`
+        : `<button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${disposedGlobalIndex})" title="Undo both">Undo Both</button>`;
+
+      const subRows = group
+        .map((sub) => {
+          let subField = sanitizeHtml(sub.field);
+          let subOld = sanitizeHtml(String(sub.oldValue ?? ""));
+          let subNew = sanitizeHtml(String(sub.newValue ?? ""));
+          if (sub.field === "Disposed" && sub.newValue) {
+            try {
+              const snap =
+                typeof sub.newValue === "string" ? JSON.parse(sub.newValue) : sub.newValue;
+              if (snap && snap.type) subNew = sanitizeHtml(snap.type);
+            } catch {
+              /* keep raw */
+            }
+          }
+          return `<tr class="changelog-tx-sub-row">
+            <td>${sanitizeHtml(formatTimestamp(sub.timestamp))}</td>
+            <td>${sanitizeHtml(sub.itemName)}</td>
+            <td>${subField}</td>
+            <td>${subOld}</td>
+            <td>${subNew}</td>
+          </tr>`;
+        })
+        .join("");
+
+      return `
+      <tr class="changelog-tx-group-header" role="group" aria-label="Partial-stack disposition transaction" aria-expanded="false" onclick="(function(hdr){ hdr.classList.toggle('expanded'); var sub = hdr.nextElementSibling; if(sub) sub.style.display = hdr.classList.contains('expanded') ? '' : 'none'; hdr.setAttribute('aria-expanded', hdr.classList.contains('expanded')); })(this)">
+        <td title="${ts}">${ts}</td>
+        <td title="${itemNameSafe}">${itemNameSafe}</td>
+        <td colspan="3" class="changelog-tx-label" title="${label}">
+          <span class="changelog-tx-caret">\u25B6</span>
+          <span class="changelog-tx-summary">${label}</span>
+        </td>
+        <td class="action-cell">${undoBtn}</td>
+      </tr>
+      <tr class="changelog-tx-subrows" style="display:none">
+        <td colspan="6" style="padding:0">
+          <table class="changelog-tx-subtable w-100">
+            <tbody>${subRows}</tbody>
+          </table>
+        </td>
+      </tr>`;
+    }
+
+    return renderFlatRow(entry, globalIndex);
   });
 
-  const html = rows.join("");
+  // Settings panel: plain rows only (no grouping UI, no [role=group] elements)
+  const settingsRows = reversedLog.map((entry) =>
+    renderFlatRow(entry, entryGlobalIndex.get(entry))
+  );
 
-  // Populate both the modal table and the settings panel table
+  const modalHtml = modalRows.join("");
+  const settingsHtml = settingsRows.join("");
+
+  // Populate the modal table (grouped view) and settings panel table (flat view)
   const modalBody = document.querySelector("#changeLogTable tbody");
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-  if (modalBody) modalBody.innerHTML = html;
+  if (modalBody) modalBody.innerHTML = modalHtml;
   const settingsBody = document.querySelector("#settingsChangeLogTable tbody");
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-  if (settingsBody) settingsBody.innerHTML = html;
+  if (settingsBody) settingsBody.innerHTML = settingsHtml;
 };
 
 const applyLegacyDispositionUndo = (entry) => {
