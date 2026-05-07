@@ -54,80 +54,98 @@ const optionalListener = (el, event, handler, label) => {
 };
 
 // =============================================================================
-// PURCHASE PRICE MODE STATE
+// LOT/EACH TOGGLE FACTORY
 // =============================================================================
 
-let purchasePriceMode = "each";
+const createLotEachToggle = (config) => {
+  const { toggleId, priceInputId, qtyInputId, eachPlaceholder, lotPlaceholder } = config;
+  let mode = "each";
 
-const getPurchasePriceToggleButtons = () => {
-  const toggle = document.getElementById("purchasePriceModeToggle");
-  if (!toggle) return [];
+  const getButtons = () => {
+    const toggle = safeGetElement(toggleId);
+    if (!toggle) return [];
+    return Array.from(toggle.children).filter((child) => child.dataset?.mode);
+  };
 
-  return Array.from(toggle.children).filter((child) => child.dataset?.mode);
+  const maybeConvert = (nextMode) => {
+    const priceEl = safeGetElement(priceInputId);
+    if (!priceEl || nextMode === mode) return;
+
+    const rawPrice = priceEl.value.trim();
+    const price = Number(rawPrice);
+    const qtyEl = safeGetElement(qtyInputId);
+    const qty = parseInt(qtyEl?.value?.trim() ?? "", 10);
+
+    if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
+    if (!Number.isFinite(qty) || qty <= 1) return;
+
+    const convertedPrice = nextMode === "each" ? price / qty : price * qty;
+    if (!Number.isFinite(convertedPrice) || convertedPrice <= 0) return;
+
+    priceEl.value = Number(convertedPrice.toFixed(6)).toString();
+    priceEl.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  const updatePlaceholder = () => {
+    const priceEl = safeGetElement(priceInputId);
+    if (!priceEl) return;
+    priceEl.placeholder = mode === "lot" ? lotPlaceholder : eachPlaceholder;
+  };
+
+  const setMode = (nextModeArg, options = {}) => {
+    const nextMode = nextModeArg === "lot" ? "lot" : "each";
+    const { convertInput = true } = options;
+
+    if (convertInput) {
+      maybeConvert(nextMode);
+    }
+
+    mode = nextMode;
+
+    getButtons().forEach((button) => {
+      const isActive = button.dataset.mode === mode;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+
+    updatePlaceholder();
+  };
+
+  const getMode = () => mode;
+
+  // Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
+  // so the segmented control is hidden and mode is forced to Each.
+  const updateVisibility = () => {
+    const toggle = safeGetElement(toggleId);
+    if (!toggle) return;
+
+    const qtyEl = safeGetElement(qtyInputId);
+    const qtyRaw = qtyEl?.value?.trim() ?? "";
+    const qty = parseInt(qtyRaw, 10);
+    const showToggle = Number.isFinite(qty) && qty > 1;
+
+    toggle.classList.toggle("is-hidden", !showToggle);
+
+    if (!showToggle && mode === "lot") {
+      setMode("each", { convertInput: false });
+    }
+    updatePlaceholder();
+  };
+
+  return { setMode, getMode, updateVisibility, updatePlaceholder };
 };
 
-const maybeConvertPurchasePriceForMode = (nextMode) => {
-  if (!elements.itemPrice || nextMode === purchasePriceMode) return;
-
-  const rawPrice = elements.itemPrice.value.trim();
-  const price = Number(rawPrice);
-  const qty = parseInt(elements.itemQty?.value?.trim() ?? "", 10);
-
-  if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
-  if (!Number.isFinite(qty) || qty <= 1) return;
-
-  const convertedPrice = nextMode === "each" ? price / qty : price * qty;
-  if (!Number.isFinite(convertedPrice) || convertedPrice <= 0) return;
-
-  elements.itemPrice.value = Number(convertedPrice.toFixed(6)).toString();
-  elements.itemPrice.dispatchEvent(new Event("input", { bubbles: true }));
-};
-
-const setPurchasePriceMode = (mode, options = {}) => {
-  const nextMode = mode === "lot" ? "lot" : "each";
-  const { convertInput = true } = options;
-
-  if (convertInput) {
-    maybeConvertPurchasePriceForMode(nextMode);
-  }
-
-  purchasePriceMode = nextMode;
-
-  getPurchasePriceToggleButtons().forEach((button) => {
-    const isActive = button.dataset.mode === purchasePriceMode;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  });
-
-  updatePurchasePricePlaceholder();
-};
-
-const updatePurchasePricePlaceholder = () => {
-  if (!elements.itemPrice) return;
-  elements.itemPrice.placeholder = purchasePriceMode === "lot" ? "Lot total" : "Each";
-};
-
-// Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
-// so the segmented control is hidden and mode is forced to Each.
-const updatePurchasePriceToggleVisibility = () => {
-  const toggle = safeGetElement("purchasePriceModeToggle");
-  if (!toggle) return;
-
-  const qtyRaw = elements.itemQty?.value?.trim() ?? "";
-  const qty = parseInt(qtyRaw, 10);
-  const showToggle = Number.isFinite(qty) && qty > 1;
-
-  toggle.classList.toggle("is-hidden", !showToggle);
-
-  if (!showToggle && purchasePriceMode === "lot") {
-    setPurchasePriceMode("each", { convertInput: false });
-  }
-  updatePurchasePricePlaceholder();
-};
+const purchasePriceToggle = createLotEachToggle({
+  toggleId: "purchasePriceModeToggle",
+  priceInputId: "itemPrice",
+  qtyInputId: "itemQty",
+  eachPlaceholder: "Each",
+  lotPlaceholder: "Lot total",
+});
 
 const resetPurchasePriceToggle = () => {
-  setPurchasePriceMode("each", { convertInput: false });
-  updatePurchasePriceToggleVisibility();
+  purchasePriceToggle.setMode("each", { convertInput: false });
+  purchasePriceToggle.updateVisibility();
 };
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
@@ -1156,7 +1174,7 @@ const parseItemFormFields = (isEditing, existingItem) => {
   const parsedQty = qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : Number(qtyInput);
   let priceInput = elements.itemPrice.value.trim();
 
-  if (purchasePriceMode === "lot" && priceInput !== "") {
+  if (purchasePriceToggle.getMode() === "lot" && priceInput !== "") {
     const rawInput = parseFloat(priceInput) || 0;
     priceInput = parsedQty > 0 ? String(parseFloat((rawInput / parsedQty).toFixed(6))) : "0";
   }
@@ -1290,7 +1308,7 @@ const validateItemFields = (f) => {
   if (!f._isEditing && (!f._rawMetal || !f._rawType)) {
     return "Please select a Metal and Type before saving.";
   }
-  if (purchasePriceMode === "lot") {
+  if (purchasePriceToggle.getMode() === "lot") {
     const rawQty = f._rawQty?.trim() ?? "";
     const lotQty = rawQty === "" ? NaN : Number(rawQty);
     if (rawQty === "" || isNaN(lotQty) || !Number.isInteger(lotQty) || lotQty <= 0) {
@@ -1876,21 +1894,26 @@ const setupItemFormListeners = () => {
     console.error("Main inventory form not found!");
   }
 
-  getPurchasePriceToggleButtons().forEach((button) => {
-    safeAttachListener(
-      button,
-      "click",
-      () => {
-        setPurchasePriceMode(button.dataset.mode);
-      },
-      `Purchase price ${button.dataset.mode} toggle`
-    );
-  });
+  const purchasePriceModeToggle = safeGetElement("purchasePriceModeToggle");
+  if (purchasePriceModeToggle) {
+    Array.from(purchasePriceModeToggle.children)
+      .filter((child) => child.dataset?.mode)
+      .forEach((button) => {
+        safeAttachListener(
+          button,
+          "click",
+          () => {
+            purchasePriceToggle.setMode(button.dataset.mode);
+          },
+          `Purchase price ${button.dataset.mode} toggle`
+        );
+      });
+  }
 
   optionalListener(
     elements.itemQty,
     "input",
-    updatePurchasePriceToggleVisibility,
+    () => purchasePriceToggle.updateVisibility(),
     "Purchase price toggle visibility"
   );
   resetPurchasePriceToggle();
