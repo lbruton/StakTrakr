@@ -759,6 +759,144 @@ const undoDisposition = async (idx) => {
   }
 };
 
+const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) => {
+  // 1. Validate
+  const original = inventory[originalIdx];
+  if (!original) return { ok: false, error: "validation_failed" };
+  const qty = parseInt(disposedQty, 10);
+  if (!Number.isFinite(qty) || qty < 1 || qty >= original.qty) {
+    return { ok: false, error: "validation_failed" };
+  }
+
+  // 2. Snapshot
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
+
+  // 3. Mutate inventory in memory
+  const originalQtyBefore = original.qty;
+  inventory[originalIdx].qty -= qty;
+  const originalQtyAfter = inventory[originalIdx].qty;
+
+  const clone = structuredClone(original);
+  clone.uuid = generateUUID();
+  clone.qty = qty;
+  const disposedAt = new Date().toISOString();
+  const pricePerUnit = original.price || 0;
+  const totalAmount = dispositionInput.amount != null ? Number(dispositionInput.amount) : undefined;
+  const realizedGainLoss =
+    totalAmount != null && Number.isFinite(totalAmount)
+      ? totalAmount - pricePerUnit * qty
+      : undefined;
+
+  clone.disposition = {
+    type: dispositionInput.type || null,
+    date: dispositionInput.date || null,
+    amount: totalAmount,
+    currency: dispositionInput.currency || null,
+    recipient: dispositionInput.recipient || null,
+    notes: dispositionInput.notes || null,
+    realizedGainLoss,
+    disposedAt,
+    splitFromUuid: original.uuid,
+  };
+
+  // Insert clone immediately after original
+  inventory.splice(originalIdx + 1, 0, clone);
+
+  // 4. Build changeLog entries in memory
+  const transactionId = disposedAt;
+  const splitEntry = {
+    timestamp: Date.now(),
+    itemName: original.name,
+    field: "Stack split",
+    oldValue: String(originalQtyBefore),
+    newValue: String(originalQtyAfter),
+    idx: originalIdx,
+    undone: false,
+    transactionId,
+    transactionLabel: `Stack split: ${originalQtyBefore} → ${originalQtyAfter}`,
+    itemKey: original.uuid,
+    stackSplit: {
+      originalUuid: original.uuid,
+      cloneUuid: clone.uuid,
+      originalQtyBefore,
+      originalQtyAfter,
+      disposedQty: qty,
+    },
+  };
+  const disposedEntry = {
+    timestamp: Date.now(),
+    itemName: clone.name,
+    field: "Disposed",
+    oldValue: null,
+    newValue: JSON.stringify(clone.disposition),
+    idx: originalIdx + 1,
+    undone: false,
+    transactionId,
+    transactionLabel: `Disposed: ${qty} of original ${originalQtyBefore}`,
+    itemKey: clone.uuid,
+    splitDisposed: {
+      cloneUuid: clone.uuid,
+      originalUuid: original.uuid,
+      disposedQty: qty,
+      dispositionSnapshot: { ...clone.disposition },
+    },
+  };
+  pushTransactionEntries(splitEntry, disposedEntry);
+
+  // 5. Phase 1 — persist inventory
+  if (!tryPersistInventory()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((item) => inventory.push(item));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((entry) => changeLog.push(entry));
+    return { ok: false, error: "storage_failed_inventory" };
+  }
+
+  // 6. Phase 2 — persist changeLog
+  if (!tryPersistChangeLog()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((item) => inventory.push(item));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((entry) => changeLog.push(entry));
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      if (typeof showToast === "function") {
+        showToast(
+          "Storage failure left audit log out of sync — reload the app to recover.",
+          "error"
+        );
+      }
+      return { ok: false, error: "storage_failed_both" };
+    }
+    return { ok: false, error: "storage_failed_changelog" };
+  }
+
+  // 7. Copy tags (non-blocking — tag loss is acceptable)
+  try {
+    if (typeof getItemTags === "function" && typeof addItemTag === "function") {
+      getItemTags(original.uuid).forEach((tag) => addItemTag(clone.uuid, tag, false));
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: tag copy failed", e);
+  }
+
+  // 8. Copy images (non-blocking)
+  try {
+    if (imageCache && typeof imageCache.getUserImage === "function") {
+      const { obverse, reverse } = await imageCache.getUserImage(original.uuid);
+      if (obverse || reverse) {
+        await imageCache.cacheUserImage(clone.uuid, obverse, reverse);
+      }
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: image copy failed", e);
+  }
+
+  return { ok: true, originalIdx, cloneIdx: originalIdx + 1, transactionId };
+};
+window.splitInventoryItem = splitInventoryItem;
+
 /**
  * Opens modal to view and edit an item's notes
  *
