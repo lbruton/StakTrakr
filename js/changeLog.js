@@ -38,6 +38,16 @@ const logChange = (itemName, field, oldValue, newValue, idx) => {
   saveDataSync("changeLog", changeLog);
 };
 
+const tryPersistChangeLog = () => {
+  try {
+    saveDataSync("changeLog", changeLog, { quietQuotaToast: true });
+    return true;
+  } catch (e) {
+    console.error("tryPersistChangeLog failed", e);
+    return false;
+  }
+};
+
 /**
  * Compares two item objects and logs any differences.
  * Adds scope, itemKey, and type fields to each entry (additive — existing entries
@@ -429,6 +439,7 @@ const markSynced = (syncId, timestamp) => {
 
 window.computeItemKey = computeItemKey;
 window.logChange = logChange;
+window.tryPersistChangeLog = tryPersistChangeLog;
 window.logItemChanges = logItemChanges;
 window.renderChangeLog = renderChangeLog;
 window.toggleChange = toggleChange;
