@@ -161,6 +161,67 @@ const disposeAmountToggle = createLotEachToggle({
 window.disposeAmountToggle = disposeAmountToggle;
 
 // =============================================================================
+// STRK-44: Restore-choice modal — Promise-based picker
+// =============================================================================
+
+const showRestoreChoice = ({ clone, original, mergedQty }) =>
+  new Promise((resolve) => {
+    const modal = safeGetElement("restoreChoiceModal");
+    const message = safeGetElement("restoreChoiceMessage");
+    if (!modal || !message) {
+      resolve("cancel");
+      return;
+    }
+
+    message.textContent =
+      `Merge: original goes from ${original.qty} → ${mergedQty}. ` +
+      `Separate: ${original.qty} + ${clone.qty} as two rows.`;
+
+    openModalById("restoreChoiceModal");
+
+    const mergeBtn = modal.querySelector('[data-action="merge"]');
+    if (mergeBtn) mergeBtn.focus();
+
+    const cleanup = () => {
+      closeModalById("restoreChoiceModal");
+      document.removeEventListener("keydown", escHandler);
+    };
+
+    const escHandler = (e) => {
+      if (e.key === "Escape") {
+        cleanup();
+        resolve("cancel");
+      }
+    };
+    document.addEventListener("keydown", escHandler);
+
+    modal.addEventListener(
+      "click",
+      (e) => {
+        if (e.target === modal) {
+          cleanup();
+          resolve("cancel");
+        }
+      },
+      { once: true }
+    );
+
+    modal.querySelectorAll("[data-action]").forEach((btn) => {
+      btn.addEventListener(
+        "click",
+        () => {
+          const action = btn.dataset.action;
+          cleanup();
+          resolve(action);
+        },
+        { once: true }
+      );
+    });
+  });
+
+window.showRestoreChoice = showRestoreChoice;
+
+// =============================================================================
 // IMAGE UPLOAD STATE (STACK-32) — Dual obverse/reverse support
 // =============================================================================
 
@@ -4186,6 +4247,18 @@ optionalListener(
   },
   "Dispose amount toggle visibility"
 );
+
+// STRK-44: Restore-choice modal — wire X button to click the Cancel action button
+const restoreChoiceModalEl = safeGetElement("restoreChoiceModal");
+if (restoreChoiceModalEl) {
+  const restoreCloseBtn = restoreChoiceModalEl.querySelector(".modal-close");
+  if (restoreCloseBtn) {
+    restoreCloseBtn.addEventListener("click", () => {
+      const cancelBtn = restoreChoiceModalEl.querySelector('[data-action="cancel"]');
+      if (cancelBtn) cancelBtn.click();
+    });
+  }
+}
 
 // =============================================================================
 // Appearance > Layout — show/hide realized G/L row (STAK-72/STAK-436)
