@@ -379,14 +379,18 @@
 
             let disposition;
             if (dispositionType) {
+              const _parsedAmount = parseFloat(dispositionAmount);
+              const _parsedGainLoss = parseFloat(dispositionRealizedGainLoss);
               disposition = {
                 type: dispositionType,
                 date: dispositionDate || undefined,
                 amount:
-                  dispositionAmount !== "" ? parseFloat(dispositionAmount) || undefined : undefined,
+                  dispositionAmount !== "" && Number.isFinite(_parsedAmount)
+                    ? _parsedAmount
+                    : undefined,
                 realizedGainLoss:
-                  dispositionRealizedGainLoss !== ""
-                    ? parseFloat(dispositionRealizedGainLoss) || undefined
+                  dispositionRealizedGainLoss !== "" && Number.isFinite(_parsedGainLoss)
+                    ? _parsedGainLoss
                     : undefined,
                 recipient: dispositionRecipient || undefined,
                 notes: dispositionNotes || undefined,
