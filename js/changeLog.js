@@ -4,6 +4,18 @@
  */
 
 /**
+ * Optional fields added by STRK-44 partial-stack disposition.
+ * Existing entries without these fields continue to work unchanged.
+ *
+ * @typedef {Object} ChangeLogTransactionFields
+ * @property {string} [transactionId]    - ISO timestamp shared by paired split+dispose entries
+ * @property {string} [transactionLabel] - Human-readable label for grouped display
+ * @property {Object} [stackSplit]       - Reverse payload for the stack-split entry
+ * @property {Object} [splitDisposed]    - Reverse payload for the disposed-clone entry
+ * @property {string} [itemKey]          - Stable item key (uuid or fallback) for UUID-drift recovery
+ */
+
+/**
  * Computes a stable composite key for an inventory item.
  * Mirrors DiffEngine.computeItemKey() — uuid → serial → numistaId|name|date → name|date.
  * @param {Object} item - Inventory item object
@@ -47,6 +59,12 @@ const tryPersistChangeLog = () => {
     return false;
   }
 };
+
+const pushTransactionEntries = (splitEntry, disposedEntry) => {
+  changeLog.push(splitEntry);
+  changeLog.push(disposedEntry);
+};
+window.pushTransactionEntries = pushTransactionEntries;
 
 /**
  * Compares two item objects and logs any differences.
@@ -222,11 +240,40 @@ const renderChangeLog = () => {
   if (settingsBody) settingsBody.innerHTML = html;
 };
 
+const applyLegacyDispositionUndo = (entry) => {
+  const item = inventory[entry.idx];
+  if (!item) return;
+  if (entry.undone) {
+    // Redo: re-apply the disposition from newValue
+    try {
+      item.disposition = JSON.parse(entry.newValue);
+    } catch (e) {
+      return;
+    }
+    saveInventory();
+    entry.undone = false;
+    if (typeof showToast === "function") showToast(sanitizeHtml(item.name) + " re-disposed.");
+  } else {
+    // Undo: clear the disposition
+    item.disposition = null;
+    saveInventory();
+    entry.undone = true;
+    if (typeof showToast === "function")
+      showToast(sanitizeHtml(item.name) + " restored to active inventory.");
+  }
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+window.applyLegacyDispositionUndo = applyLegacyDispositionUndo;
+
 /**
  * Toggles a logged change between undone and redone states
  * @param {number} logIdx - Index of change entry in changeLog array
  */
-const toggleChange = (logIdx) => {
+const toggleChange = async (logIdx) => {
   const entry = changeLog[logIdx];
   if (!entry) return;
 
@@ -338,31 +385,13 @@ const toggleChange = (logIdx) => {
     return;
     // Disposition undo/redo (STAK-388)
   } else if (entry.field === "Disposed") {
-    const item = inventory[entry.idx];
-    if (!item) return;
-    if (entry.undone) {
-      // Redo: re-apply the disposition from newValue
-      try {
-        item.disposition = JSON.parse(entry.newValue);
-      } catch (e) {
-        return;
+    if (entry.transactionId) {
+      if (typeof confirmCascadeUndo === "function") {
+        await confirmCascadeUndo(entry.transactionId);
       }
-      saveInventory();
-      entry.undone = false;
-      if (typeof showToast === "function") showToast(sanitizeHtml(item.name) + " re-disposed.");
-    } else {
-      // Undo: clear the disposition
-      item.disposition = null;
-      saveInventory();
-      entry.undone = true;
-      if (typeof showToast === "function")
-        showToast(sanitizeHtml(item.name) + " restored to active inventory.");
+      return;
     }
-    renderTable();
-    if (typeof renderActiveFilters === "function") renderActiveFilters();
-    if (typeof updateSummary === "function") updateSummary();
-    renderChangeLog();
-    saveDataSync("changeLog", changeLog);
+    applyLegacyDispositionUndo(entry);
     return;
   } else {
     const item = inventory[entry.idx];
