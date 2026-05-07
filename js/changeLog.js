@@ -387,7 +387,7 @@ const toggleChange = async (logIdx) => {
   } else if (entry.field === "Disposed") {
     if (entry.transactionId) {
       if (typeof confirmCascadeUndo === "function") {
-        await confirmCascadeUndo(entry.transactionId);
+        await confirmCascadeUndo(entry.transactionId, entry);
       }
       return;
     }
@@ -415,6 +415,69 @@ const toggleChange = async (logIdx) => {
   renderChangeLog();
   saveDataSync("changeLog", changeLog);
 };
+
+const confirmCascadeUndo = async (transactionId, triggerEntry) => {
+  const paired = changeLog.filter((e) => e.transactionId === transactionId && !e.undone);
+
+  if (paired.length !== 2) {
+    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+    return;
+  }
+
+  const splitEntry = paired.find((e) => e.field === "Stack split");
+  const disposedEntry = paired.find((e) => e.field === "Disposed");
+  if (!splitEntry || !disposedEntry) {
+    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+    return;
+  }
+
+  const { originalUuid, cloneUuid, originalQtyBefore } = splitEntry.stackSplit;
+
+  const cloneIdx = inventory.findIndex((item) => item.uuid === cloneUuid);
+  if (cloneIdx === -1) {
+    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+    return;
+  }
+  const originalIdx = inventory.findIndex((item) => item.uuid === originalUuid);
+  if (originalIdx === -1) {
+    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+    return;
+  }
+
+  const confirmed =
+    typeof showAppConfirm === "function"
+      ? await showAppConfirm(
+          "Undoing this entry will reverse both the stack split and the disposition. Continue?",
+          "Reverse Stack Split"
+        )
+      : false;
+  if (!confirmed) return;
+
+  const originalName = inventory[originalIdx].name;
+  inventory[originalIdx].qty = originalQtyBefore;
+  inventory.splice(cloneIdx, 1);
+
+  splitEntry.undone = true;
+  disposedEntry.undone = true;
+
+  tryPersistInventory();
+  tryPersistChangeLog();
+
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+  renderChangeLog();
+
+  if (typeof showToast === "function") {
+    showToast(
+      sanitizeHtml(originalName ?? "Item") +
+        " stack split reversed — restored to " +
+        originalQtyBefore
+    );
+  }
+};
+window.confirmCascadeUndo = confirmCascadeUndo;
 
 /**
  * Clears all change log entries after confirmation
