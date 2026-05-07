@@ -835,7 +835,7 @@ const confirmRemoveItem = async () => {
  *
  * @param {number} idx - Index of item to restore
  */
-const undoDisposition = async (idx) => {
+const restoreInPlace = async (idx) => {
   const item = inventory[idx];
   if (!item || !isDisposed(item)) return;
   const confirmed =
@@ -852,6 +852,89 @@ const undoDisposition = async (idx) => {
     renderActiveFilters();
     updateSummary();
   }
+};
+
+const undoDisposition = async (idx) => {
+  const item = inventory[idx];
+  if (!item || !isDisposed(item)) return;
+  const splitFromUuid = item.disposition?.splitFromUuid;
+  if (!splitFromUuid) return restoreInPlace(idx);
+  const originalIdx = inventory.findIndex((i) => i.uuid === splitFromUuid);
+  if (originalIdx === -1 || isDisposed(inventory[originalIdx])) {
+    showToast("Original record no longer present; restored as separate row.");
+    return restoreInPlace(idx);
+  }
+  const mergedQty = inventory[originalIdx].qty + item.qty;
+  const choice = await window.showRestoreChoice({
+    clone: item,
+    original: inventory[originalIdx],
+    mergedQty,
+  });
+  if (choice === "cancel") return;
+  if (choice === "separate") return restoreInPlace(idx);
+
+  // Merge two-phase commit
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
+
+  const cloneQty = item.qty;
+  const cloneName = item.name;
+  const cloneUuid = item.uuid;
+  inventory[originalIdx].qty += cloneQty;
+  const mergeAdjustedOriginalIdx = idx < originalIdx ? originalIdx - 1 : originalIdx;
+  inventory.splice(idx, 1);
+
+  changeLog.push({
+    timestamp: Date.now(),
+    itemName: cloneName,
+    field: "Restored (merged)",
+    oldValue: { fromUuid: cloneUuid, qty: cloneQty },
+    newValue: {
+      intoUuid: inventory[mergeAdjustedOriginalIdx].uuid,
+      mergedQty: inventory[mergeAdjustedOriginalIdx].qty,
+    },
+    idx: mergeAdjustedOriginalIdx,
+    undone: false,
+  });
+
+  if (!tryPersistInventory()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    showToast("Couldn't merge — storage failed. Try again.", "error");
+    return;
+  }
+
+  if (!tryPersistChangeLog()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      showToast("Critical: storage failure left state inconsistent. Reload to recover.", "error");
+      return;
+    }
+    showToast("Couldn't save audit log — merge was reverted.", "error");
+    return;
+  }
+
+  try {
+    if (window.imageCache && typeof window.imageCache.deleteUserImage === "function") {
+      window.imageCache.deleteUserImage(cloneUuid).catch(() => {});
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("undoDisposition merge: image cleanup failed", e);
+  }
+
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  if (typeof renderChangeLog === "function") renderChangeLog();
+  showToast(
+    `${cloneName} merged back into original (${inventory[mergeAdjustedOriginalIdx].qty} total).`
+  );
 };
 
 const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) => {
