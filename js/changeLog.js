@@ -421,47 +421,99 @@ const confirmCascadeUndo = async (transactionId, triggerEntry) => {
 
   if (paired.length !== 2) {
     if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
-    return;
+    return { ok: false, applied: "none", reason: "no_paired_entries" };
   }
 
   const splitEntry = paired.find((e) => e.field === "Stack split");
   const disposedEntry = paired.find((e) => e.field === "Disposed");
   if (!splitEntry || !disposedEntry) {
     if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
-    return;
+    return { ok: false, applied: "none", reason: "missing_entry_type" };
   }
 
-  const { originalUuid, cloneUuid, originalQtyBefore } = splitEntry.stackSplit;
+  const { originalUuid, cloneUuid, originalQtyBefore, originalQtyAfter, disposedQty } =
+    splitEntry.stackSplit;
 
   const cloneIdx = inventory.findIndex((item) => item.uuid === cloneUuid);
-  if (cloneIdx === -1) {
-    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
-    return;
-  }
   const originalIdx = inventory.findIndex((item) => item.uuid === originalUuid);
-  if (originalIdx === -1) {
-    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
-    return;
+
+  // Four drift invariants — any failure downgrades to single-entry undo
+  const drifted =
+    cloneIdx === -1 ||
+    originalIdx === -1 ||
+    inventory[originalIdx].qty !== originalQtyAfter ||
+    inventory[cloneIdx].disposition?.splitFromUuid !== originalUuid ||
+    inventory[cloneIdx].disposition?.disposedAt !== transactionId;
+
+  if (drifted) {
+    const proceed =
+      typeof showAppConfirm === "function"
+        ? await showAppConfirm(
+            "Original record has been edited since this split — only this disposition entry can be undone. Continue with single-entry undo?",
+            "Cascade undo unavailable"
+          )
+        : false;
+    if (proceed && triggerEntry) {
+      applyLegacyDispositionUndo(triggerEntry);
+      return { ok: true, applied: "single-entry" };
+    }
+    return { ok: true, applied: "none", reason: "user_cancelled" };
   }
 
   const confirmed =
     typeof showAppConfirm === "function"
       ? await showAppConfirm(
           "Undoing this entry will reverse both the stack split and the disposition. Continue?",
-          "Reverse Stack Split"
+          "Cascade undo"
         )
       : false;
-  if (!confirmed) return;
+  if (!confirmed) return { ok: true, applied: "none", reason: "user_cancelled" };
+
+  // Two-phase commit — snapshot before any mutation
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
 
   const originalName = inventory[originalIdx].name;
-  inventory[originalIdx].qty = originalQtyBefore;
+  inventory[originalIdx].qty += disposedQty;
+  // Adjust originalIdx if clone was before it in the array
+  const adjustedOriginalIdx = cloneIdx < originalIdx ? originalIdx - 1 : originalIdx;
   inventory.splice(cloneIdx, 1);
-
   splitEntry.undone = true;
   disposedEntry.undone = true;
 
-  tryPersistInventory();
-  tryPersistChangeLog();
+  if (!tryPersistInventory()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    if (typeof showToast === "function")
+      showToast("Couldn't undo — storage failed. Try again.", "error");
+    return { ok: false, applied: "none", reason: "storage_failed_inventory" };
+  }
+
+  if (!tryPersistChangeLog()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      if (typeof showToast === "function") {
+        showToast("Critical: storage failure left state inconsistent. Reload to recover.", "error");
+      }
+      return { ok: false, applied: "none", reason: "storage_failed_both" };
+    }
+    return { ok: false, applied: "none", reason: "storage_failed_changelog" };
+  }
+
+  // Non-blocking image cleanup
+  try {
+    if (window.imageCache && typeof window.imageCache.deleteUserImage === "function") {
+      window.imageCache.deleteUserImage(cloneUuid).catch(() => {});
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("confirmCascadeUndo: image cleanup failed", e);
+  }
 
   renderTable();
   if (typeof renderActiveFilters === "function") renderActiveFilters();
@@ -473,9 +525,11 @@ const confirmCascadeUndo = async (transactionId, triggerEntry) => {
     showToast(
       sanitizeHtml(originalName ?? "Item") +
         " stack split reversed — restored to " +
-        originalQtyBefore
+        (inventory[adjustedOriginalIdx]?.qty ?? originalQtyBefore)
     );
   }
+
+  return { ok: true, applied: "cascade" };
 };
 window.confirmCascadeUndo = confirmCascadeUndo;
 
