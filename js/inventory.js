@@ -608,6 +608,8 @@ window.startCellEdit = startCellEdit;
  * @param {number} idx - Index of item to remove
  * @param {boolean} [preDispose=false] - Pre-check the dispose checkbox
  */
+let _removeItemQtyPreviewHandler = null;
+
 const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
   if (!item) return;
@@ -637,6 +639,47 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const amountGroup = safeGetElement("dispositionAmountGroup");
   if (amountGroup) amountGroup.style.display = "";
 
+  // Reset partial-dispose fields
+  const qtyInput = safeGetElement("removeItemQty");
+  const previewEl = safeGetElement("removeItemDisposePreview");
+  const qtyGroup = qtyInput?.closest(".form-group");
+  if (qtyInput) qtyInput.value = "";
+  if (previewEl) {
+    previewEl.textContent = "";
+    previewEl.style.display = "none";
+  }
+
+  const stackQty = Number(item.qty) || 1;
+
+  if (stackQty > 1) {
+    if (qtyGroup) qtyGroup.style.display = "";
+    if (qtyInput) qtyInput.value = stackQty;
+  } else {
+    if (qtyGroup) qtyGroup.style.display = "none";
+  }
+
+  window.disposeAmountToggle?.updateVisibility();
+
+  // Wire live preview — remove any prior listener first
+  if (qtyInput) {
+    if (_removeItemQtyPreviewHandler) {
+      qtyInput.removeEventListener("input", _removeItemQtyPreviewHandler);
+    }
+    _removeItemQtyPreviewHandler = () => {
+      const entered = parseInt(qtyInput.value, 10);
+      if (!previewEl) return;
+      if (!Number.isFinite(entered) || entered === stackQty) {
+        previewEl.style.display = "none";
+        previewEl.textContent = "";
+      } else {
+        const remaining = stackQty - entered;
+        previewEl.textContent = `Disposing ${entered} of ${stackQty} — ${remaining} will remain in active inventory`;
+        previewEl.style.display = "";
+      }
+    };
+    qtyInput.addEventListener("input", _removeItemQtyPreviewHandler);
+  }
+
   // Set checkbox state and toggle fields/buttons
   if (checkbox) checkbox.checked = preDispose;
   if (fieldsWrap) fieldsWrap.style.display = preDispose ? "" : "none";
@@ -660,7 +703,7 @@ const disposeItem = (idx) => {
  * Confirms removal from the combined Remove Item modal (STAK-72).
  * Reads checkbox state to decide between plain delete and disposition.
  */
-const confirmRemoveItem = () => {
+const confirmRemoveItem = async () => {
   const idxInput = safeGetElement("removeItemIdx");
   const idx = parseInt(idxInput?.value, 10);
   if (isNaN(idx) || !inventory[idx]) return;
@@ -673,7 +716,6 @@ const confirmRemoveItem = () => {
     // Disposition flow — validate fields
     const type = safeGetElement("dispositionType")?.value;
     const date = safeGetElement("dispositionDate")?.value;
-    const amount = parseFloat(safeGetElement("dispositionAmount")?.value) || 0;
     const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
     const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
 
@@ -681,15 +723,68 @@ const confirmRemoveItem = () => {
       showToast("Please select a disposition type.");
       return;
     }
-    if (DISPOSITION_TYPES[type].requiresAmount && amount <= 0) {
-      showToast("Please enter a sale/trade/refund amount.");
-      return;
-    }
     if (!date) {
       showToast("Please enter a disposition date.");
       return;
     }
 
+    // Determine disposed quantity
+    const qtyInputEl = safeGetElement("removeItemQty");
+    const qtyHidden = !qtyInputEl || qtyInputEl.closest(".form-group")?.style.display === "none";
+    let disposedQty;
+    if (qtyHidden || qtyInputEl.value === "") {
+      disposedQty = Number(item.qty) || 1;
+    } else {
+      disposedQty = parseInt(qtyInputEl.value, 10);
+    }
+
+    if (!Number.isFinite(disposedQty) || disposedQty < 1 || disposedQty > (Number(item.qty) || 1)) {
+      showToast("Please enter a valid quantity to dispose.");
+      return;
+    }
+
+    // Read amount — resolve lot/each
+    const amountMode = window.disposeAmountToggle?.getMode() ?? "each";
+    const rawAmount = parseFloat(safeGetElement("dispositionAmount")?.value ?? "");
+    let resolvedAmount;
+    if (!Number.isFinite(rawAmount)) {
+      resolvedAmount = undefined;
+    } else if (amountMode === "each") {
+      resolvedAmount = rawAmount * disposedQty;
+    } else {
+      resolvedAmount = rawAmount;
+    }
+
+    if (DISPOSITION_TYPES[type].requiresAmount && (resolvedAmount == null || resolvedAmount <= 0)) {
+      showToast("Please enter a sale/trade/refund amount.");
+      return;
+    }
+
+    // Partial-dispose path
+    if (disposedQty < (Number(item.qty) || 1)) {
+      const dispositionInput = {
+        type,
+        date,
+        amount: resolvedAmount,
+        currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+        recipient,
+        notes,
+      };
+      const result = await splitInventoryItem(idx, disposedQty, dispositionInput);
+      if (!result.ok) {
+        showToast(`Could not split stack: ${result.error}`);
+        return;
+      }
+      renderTable();
+      if (typeof renderChangeLog === "function") renderChangeLog();
+      closeModalById("removeItemModal");
+      renderActiveFilters();
+      updateSummary();
+      return;
+    }
+
+    // Full-stack path (unchanged)
+    const amount = resolvedAmount ?? 0;
     const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
     const realizedGainLoss = amount - purchaseTotal;
 
