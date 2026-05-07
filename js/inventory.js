@@ -183,6 +183,50 @@ const saveInventory = async () => {
 };
 
 /**
+ * Synchronous, success-detecting equivalent of saveInventory() for the
+ * partial-disposition two-phase commit path. Returns true on full success,
+ * false on any failure (including recovery mode active). Never throws.
+ * STRK-44: REQ-7.1 cloud propagation depends on this calling scheduleSyncPush.
+ */
+const tryPersistInventory = () => {
+  // STRK-13: Suppress writes during recovery mode
+  if (inventoryRecoveryActive) {
+    if (typeof debugLog === "function") {
+      debugLog(
+        "tryPersistInventory: suppressed (recovery mode active — explicit user action required)"
+      );
+    }
+    return false;
+  }
+
+  // Invalidate cached index map as inventory has likely changed
+  invalidateItemIndexMap();
+
+  migrateLegacySilverbackWeightUnit(inventory);
+
+  try {
+    localStorage.setItem(LS_KEY, __compressIfNeeded(JSON.stringify(inventory)));
+    localStorage.setItem("cloud_sync_local_modified", new Date().toISOString());
+  } catch (e) {
+    if (typeof debugLog === "function") {
+      debugLog("tryPersistInventory: write failed", e);
+    }
+    if (e && e.name === "QuotaExceededError" && typeof showToast === "function") {
+      showToast("Storage is full — partial disposition was not saved.", "error");
+    }
+    return false;
+  }
+
+  // STACK-62: Invalidate autocomplete cache so lookup table rebuilds with current inventory
+  if (typeof clearLookupCache === "function") clearLookupCache();
+  // STAK-149: Trigger debounced cloud auto-sync push (no-op if sync disabled or not connected)
+  if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+
+  return true;
+};
+window.tryPersistInventory = tryPersistInventory;
+
+/**
  * Removes non-alphanumeric characters from inventory records.
  *
  * @returns {void}
