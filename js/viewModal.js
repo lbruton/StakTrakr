@@ -1050,6 +1050,14 @@ function _hasMeaningfulNumistaValue(key, value) {
   if (NON_RENDERING_NUMISTA_KEYS.has(key)) return false;
   if (value === "" || value === null || value === undefined) return false;
   if (!value && !MEANINGFUL_FALSY_KEYS.has(key)) return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 0
+  )
+    return false;
   return true;
 }
 
