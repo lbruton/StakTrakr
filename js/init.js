@@ -613,8 +613,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     await migrateSpotPricingSource();
 
     // Initialize API system
-    apiConfig = loadApiConfig();
-    apiCache = loadApiCache();
+    if (typeof loadApiConfig !== "function" || typeof loadApiCache !== "function") {
+      console.warn("[Init] API helpers unavailable; continuing with degraded API state");
+    }
+    apiConfig = typeof loadApiConfig === "function" ? loadApiConfig() : {};
+    apiCache = typeof loadApiCache === "function" ? loadApiCache() : {};
 
     // Apply saved desktop card view setting (STAK-118)
     const _isCardOnInit = localStorage.getItem(DESKTOP_CARD_VIEW_KEY) === "true";
@@ -703,7 +706,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof updateAllSparklines === "function") {
       updateAllSparklines();
     }
-    updateSyncButtonStates();
+    if (typeof updateSyncButtonStates === "function") {
+      updateSyncButtonStates();
+    }
     if (typeof updateStorageStats === "function") {
       updateStorageStats();
     }
@@ -876,8 +881,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }, 250);
 
-    // Clear stale-cache recovery flag on successful init (STAK-485)
+    // Clear stale-cache recovery flags on successful init (STAK-485, STRK-56)
     sessionStorage.removeItem("sw-recovery-attempted");
+    sessionStorage.removeItem("sw-recovery-nuked");
   } catch (error) {
     console.error("=== CRITICAL INITIALIZATION ERROR ===");
     console.error("Error:", error.message);
@@ -886,9 +892,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Flag init failure for cloud sync guard (STAK-485)
     window._initFailed = true;
 
-    // Detect stale SW cache: ReferenceError for a function that should exist
-    const isStaleCache =
+    const isKnownAssetReferenceError =
       error instanceof ReferenceError &&
+      /\b(loadApiConfig|loadApiCache)\b/.test(error.message || "");
+
+    const nukeStakTrakrCachesAndReload = () =>
+      Promise.all([
+        "serviceWorker" in navigator
+          ? navigator.serviceWorker.getRegistrations()
+          : Promise.resolve([]),
+        typeof caches !== "undefined" ? caches.keys() : Promise.resolve([]),
+      ]).then(([registrations, cacheKeys]) =>
+        Promise.all([
+          ...registrations.map((registration) => registration.unregister()),
+          ...cacheKeys
+            .filter((cacheKey) => cacheKey.startsWith("staktrakr-"))
+            .map((cacheKey) => caches.delete(cacheKey)),
+        ]).then(() => {
+          window.location.reload();
+        })
+      );
+
+    const showInitializationErrorDialog = () => {
+      appActionDialog({
+        title: "Application Error",
+        message: `Application initialization failed: ${error.message}\n\nPlease refresh the page and try again. If the problem persists, use Reset App to clear cached application files.`,
+        primaryLabel: "Reset App",
+        primaryAction: nukeStakTrakrCachesAndReload,
+        secondaryLabel: "OK",
+      });
+    };
+
+    // Detect stale SW cache: known asset globals failed to load after an update
+    const isStaleCache =
+      isKnownAssetReferenceError &&
       "serviceWorker" in navigator &&
       !sessionStorage.getItem("sw-recovery-attempted");
 
@@ -902,12 +939,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    const needsNukeRecovery =
+      isKnownAssetReferenceError &&
+      "serviceWorker" in navigator &&
+      sessionStorage.getItem("sw-recovery-attempted") === "1" &&
+      sessionStorage.getItem("sw-recovery-nuked") !== "1";
+
+    if (needsNukeRecovery) {
+      document._swReloading = true;
+      sessionStorage.setItem("sw-recovery-nuked", "1");
+      console.warn("[Init] Persistent stale cache detected — clearing service worker caches");
+      document.body.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Resetting cached app files\u2026</p></div>';
+      nukeStakTrakrCachesAndReload().catch((recoveryError) => {
+        console.error("[Init] Service worker cache reset failed:", recoveryError);
+        setTimeout(showInitializationErrorDialog, 100);
+      });
+      return;
+    }
+
     // Standard error dialog for non-cache errors
-    setTimeout(() => {
-      appAlert(
-        `Application initialization failed: ${error.message}\n\nPlease refresh the page and try again. If the problem persists, check the browser console for more details.`
-      );
-    }, 100);
+    setTimeout(showInitializationErrorDialog, 100);
   }
 });
 

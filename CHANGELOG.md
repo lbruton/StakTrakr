@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.51] - 2026-05-08
+
+### Changed — STRK-56: Service worker cache recovery
+
+- **Recovery**: Runtime asset requests now fall back to cached service-worker responses when refresh fetches return non-OK responses, and initialization offers a Reset App action that clears registered service workers plus StakTrakr caches when stale cached assets persist (STRK-56).
+
+---
+
 ## [3.34.50] - 2026-05-08
 
 ### Changed — STRK-55: View modal respects per-item Numista edits

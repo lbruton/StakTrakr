@@ -67,7 +67,18 @@
     presentDialog(next.options, next.resolve);
   };
 
-  const presentDialog = ({ title, message, mode = "alert", defaultValue = "" }, resolve) => {
+  const presentDialog = (
+    {
+      title,
+      message,
+      mode = "alert",
+      defaultValue = "",
+      primaryLabel = "OK",
+      primaryAction,
+      secondaryLabel = "Cancel",
+    },
+    resolve
+  ) => {
     dialogActive = true;
     const modal = ensureDialogRoot();
     const titleEl = document.getElementById("appDialogTitle");
@@ -86,7 +97,11 @@
 
     titleEl.textContent = title || "Notice";
     messageEl.innerHTML = escapeDialogText(message);
+    okBtn.disabled = false;
+    cancelBtn.disabled = false;
     cancelBtn.style.display = mode === "alert" ? "none" : "";
+    cancelBtn.textContent = mode === "action" ? secondaryLabel || "OK" : "Cancel";
+    okBtn.textContent = mode === "action" ? primaryLabel || "OK" : "OK";
     inputEl.style.display = mode === "prompt" ? "" : "none";
     if (mode === "prompt") {
       inputEl.value = defaultValue || "";
@@ -109,23 +124,42 @@
       processQueue();
     };
 
+    const finishPrimaryAction = async () => {
+      okBtn.disabled = true;
+      cancelBtn.disabled = true;
+      try {
+        if (typeof primaryAction === "function") {
+          await primaryAction();
+        }
+      } catch (error) {
+        console.error("[Dialog] Primary action failed:", error);
+      }
+      finish(undefined);
+    };
+
     const onKeyDown = (event) => {
       if (event.key === "Escape")
         finish(mode === "prompt" ? null : mode === "confirm" ? false : undefined);
       if (event.key === "Enter" && document.activeElement !== cancelBtn) {
         if (mode === "prompt") finish(inputEl.value);
         else if (mode === "confirm") finish(true);
+        else if (mode === "action") void finishPrimaryAction();
         else finish(undefined);
       }
     };
 
     closeBtn.onclick = () =>
-      finish(mode === "alert" ? undefined : mode === "prompt" ? null : false);
-    cancelBtn.onclick = () => finish(mode === "prompt" ? null : false);
-    okBtn.onclick = () =>
-      finish(mode === "prompt" ? inputEl.value : mode === "confirm" ? true : undefined);
+      finish(mode === "confirm" ? false : mode === "prompt" ? null : undefined);
+    cancelBtn.onclick = () =>
+      finish(mode === "confirm" ? false : mode === "prompt" ? null : undefined);
+    okBtn.onclick = () => {
+      if (mode === "action") void finishPrimaryAction();
+      else finish(mode === "prompt" ? inputEl.value : mode === "confirm" ? true : undefined);
+    };
     modal.onclick = (event) => {
-      if (event.target === modal && mode !== "alert") finish(mode === "prompt" ? null : false);
+      if (event.target === modal && mode !== "alert") {
+        finish(mode === "confirm" ? false : mode === "prompt" ? null : undefined);
+      }
     };
     document.addEventListener("keydown", onKeyDown);
 
@@ -170,6 +204,14 @@
    */
   window.showAppPrompt = (message, defaultValue, title) =>
     showDialog({ mode: "prompt", message, defaultValue, title });
+  /**
+   * Displays an application-styled action dialog.
+   * @global
+   * @function showAppActionDialog
+   * @param {{message: string, title?: string, primaryLabel?: string, primaryAction?: Function, secondaryLabel?: string}} options
+   * @returns {Promise<void>}
+   */
+  window.showAppActionDialog = (options) => showDialog({ ...options, mode: "action" });
 
   /**
    * Shared async wrappers used across the app to eliminate native dialogs.
@@ -187,5 +229,14 @@
     if (typeof window.showAppPrompt === "function")
       return window.showAppPrompt(message, defaultValue, title);
     return null;
+  };
+  window.appActionDialog = async (options) => {
+    if (typeof window.showAppActionDialog === "function") {
+      return window.showAppActionDialog(options);
+    }
+    if (options && typeof options.primaryAction === "function") {
+      await options.primaryAction();
+    }
+    return undefined;
   };
 })();
