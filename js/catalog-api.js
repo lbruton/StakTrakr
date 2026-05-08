@@ -1712,7 +1712,7 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Thickness (mm)",
       value: result.thickness > 0 ? String(result.thickness) : "",
       available: result.thickness > 0,
-      defaultOn: false,
+      defaultOn: true,
     },
     {
       key: "orientation",

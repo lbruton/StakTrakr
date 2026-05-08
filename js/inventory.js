@@ -1211,7 +1211,9 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
       if (isComm) {
         commCb.checked = true;
         if (commDescWrap) commDescWrap.style.display = "";
-        const desc = getData({ itemKey: "commemorativeDesc", cacheKey: "commemorativeDesc" });
+        const desc = !skipFields.has("commemorativeDesc")
+          ? getData({ itemKey: "commemorativeDesc", cacheKey: "commemorativeDesc" })
+          : null;
         if (commDesc && desc) commDesc.value = desc;
       }
     }
