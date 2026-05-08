@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.49] - 2026-05-08
+
+### Changed — STRK-51: Expanded Numista import modal fields
+
+- **Feature**: The Numista import-confirmation modal now shows all 18 Numista-backed stored fields (country, denomination, composition, shape, diameter, length, width, thickness, orientation, technique, mintage, rarity index, KM reference, commemorative flag, commemorative description, and obverse/reverse/edge descriptions) in addition to the existing 8 main-form fields. Fields without candidate values are disabled. First-time imports default physical/reference fields checked; descriptions default unchecked (STRK-51).
+- **Protection**: Fields manually edited by the user (tracked via `fieldMeta.userModified`) appear unchecked with an "✎ edited" badge so re-syncs never silently overwrite custom values. Checking a user-modified field and clicking Fill Fields clears the flag (STRK-51).
+- **Scroll**: The Numista (and PCGS) stacked import modal now constrains to 90 vh with a scrolling body; the Fill Fields/Cancel action bar is sticky so it remains reachable with 15+ picker rows (STRK-51).
+
+---
+
 ## [3.34.48] - 2026-05-07
 
 ### Changed — STRK-47: Sort by Storage Location and Year
