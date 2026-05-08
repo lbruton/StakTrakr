@@ -1015,15 +1015,8 @@
   /**
    * Exports current inventory to CSV format
    */
-  const exportCsv = () => {
-    if (typeof Papa === "undefined") {
-      appAlert(
-        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
-      );
-      return;
-    }
-    debugLog("exportCsv start", inventory.length, "items");
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const buildCsvContent = () => {
+    if (typeof Papa === "undefined") return null;
     const headers = [
       "Date",
       "Metal",
@@ -1123,7 +1116,20 @@
     const _csvOrigin =
       typeof window !== "undefined" && window.location ? window.location.origin : "";
     const _originComment = "# exportOrigin: " + _csvOrigin + "\n";
-    const csv = _originComment + Papa.unparse([headers, ...rows]);
+    return _originComment + Papa.unparse([headers, ...rows]);
+  };
+
+  const exportCsv = () => {
+    if (typeof Papa === "undefined") {
+      appAlert(
+        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
+      );
+      return;
+    }
+    debugLog("exportCsv start", inventory.length, "items");
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const csv = buildCsvContent();
+    if (!csv) return;
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
 
@@ -1508,6 +1514,7 @@
   };
   window.importNumistaCsv = importNumistaCsv;
   window.exportCsv = exportCsv;
+  window.exportInventoryCSV = buildCsvContent;
   window.exportNumistaCsv = exportNumistaCsv;
   window.showImportDiffReview = showImportDiffReview;
   window.startImportProgress = startImportProgress;

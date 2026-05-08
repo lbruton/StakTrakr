@@ -1260,8 +1260,8 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
 
     // Trigger backup export and check that buildInventoryBackup includes disposition
     const backupHasDisposition = await page.evaluate(async () => {
-      if (typeof window.buildInventoryBackup !== "function") return false;
-      const blob = await window.buildInventoryBackup();
+      if (typeof window.createBackupZip !== "function") return false;
+      const blob = await window.createBackupZip();
       if (!blob) return false;
       // We can only verify the function exists and returns something
       return blob instanceof Blob || typeof blob === "string";
@@ -1349,8 +1349,8 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
 
     // Import the CSV back and check that disposition.splitFromUuid is preserved
     const importResult = await page.evaluate(async (csv) => {
-      if (typeof window.parseAndImportCSV !== "function") return null;
-      const parsed = window.parseAndImportCSV(csv);
+      if (typeof window.importCsvFromText !== "function") return null;
+      const parsed = window.importCsvFromText(csv);
       return parsed ? parsed.find((i) => i.disposition && i.disposition.splitFromUuid) : null;
     }, csvContent);
 
@@ -1370,8 +1370,8 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
       "Old Item,Silver,1,30,Sold,2026-01-01,32,2\n";
 
     const importResult = await page.evaluate(async (csv) => {
-      if (typeof window.parseAndImportCSV !== "function") return "no_function";
-      const parsed = window.parseAndImportCSV(csv);
+      if (typeof window.importCsvFromText !== "function") return "no_function";
+      const parsed = window.importCsvFromText(csv);
       if (!parsed || !parsed[0]) return "no_result";
       return parsed[0].disposition
         ? { hasDisposition: true, splitFromUuid: parsed[0].disposition.splitFromUuid }
@@ -1723,9 +1723,9 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     });
 
     const cloneDisposition = await page.evaluate(async () => {
-      if (typeof window.buildInventoryBackup !== "function") return null;
+      if (typeof window.createBackupZip !== "function") return null;
       if (typeof window.JSZip === "undefined") return null;
-      const blob = await window.buildInventoryBackup();
+      const blob = await window.createBackupZip();
       if (!(blob instanceof Blob)) return null;
       const buf = await blob.arrayBuffer();
       const zip = await window.JSZip.loadAsync(buf);
@@ -1780,8 +1780,8 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     expect(csvContent).not.toBeNull();
 
     const imported = await page.evaluate(async (csv) => {
-      if (typeof window.parseAndImportCSV !== "function") return null;
-      const parsed = window.parseAndImportCSV(csv);
+      if (typeof window.importCsvFromText !== "function") return null;
+      const parsed = window.importCsvFromText(csv);
       if (!parsed) return null;
       return parsed.find((i) => i.disposition && i.disposition.splitFromUuid) ?? null;
     }, csvContent);
