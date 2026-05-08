@@ -4,7 +4,7 @@
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.51-b1778270808";
+const CACHE_NAME = "staktrakr-v3.34.51-b1778272613";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -239,7 +239,7 @@ function fetchAndCache(request) {
 
 function respondWithCacheFallback(request, response) {
   if (!response || response.ok) return response;
-  return caches.match(request).then((cached) => cached || response);
+  return self.caches.match(request).then((cached) => cached || response);
 }
 
 // Guarantee a Response for respondWith() — catch undefined and rejections

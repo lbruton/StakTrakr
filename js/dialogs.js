@@ -45,7 +45,7 @@
           <button type="button" id="appDialogClose" class="modal-close" aria-label="Close dialog">&times;</button>
         </div>
         <div class="modal-body">
-          <p id="appDialogMessage" style="margin:0 0 1rem 0; line-height:1.5"></p>
+          <p id="appDialogMessage" style="margin:0 0 1rem 0; line-height:1.5; white-space:pre-line"></p>
           <input id="appDialogInput" type="text" class="form-control" style="display:none; width:100%" />
         </div>
         <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:.5rem">
@@ -100,7 +100,7 @@
     okBtn.disabled = false;
     cancelBtn.disabled = false;
     cancelBtn.style.display = mode === "alert" ? "none" : "";
-    cancelBtn.textContent = mode === "action" ? secondaryLabel || "OK" : "Cancel";
+    cancelBtn.textContent = mode === "action" ? secondaryLabel || "Cancel" : "Cancel";
     okBtn.textContent = mode === "action" ? primaryLabel || "OK" : "OK";
     inputEl.style.display = mode === "prompt" ? "" : "none";
     if (mode === "prompt") {
@@ -124,22 +124,34 @@
       processQueue();
     };
 
+    let actionInFlight = false;
+
+    const dismissValue = () => (mode === "confirm" ? false : mode === "prompt" ? null : undefined);
+
     const finishPrimaryAction = async () => {
+      if (actionInFlight) return;
+      actionInFlight = true;
       okBtn.disabled = true;
       cancelBtn.disabled = true;
       try {
         if (typeof primaryAction === "function") {
           await primaryAction();
         }
+        finish(undefined);
       } catch (error) {
         console.error("[Dialog] Primary action failed:", error);
+        actionInFlight = false;
+        okBtn.disabled = false;
+        cancelBtn.disabled = false;
+        messageEl.innerHTML = escapeDialogText(
+          `${message || "Action failed."}\n\nReset failed: ${error.message || error}`
+        );
       }
-      finish(undefined);
     };
 
     const onKeyDown = (event) => {
-      if (event.key === "Escape")
-        finish(mode === "prompt" ? null : mode === "confirm" ? false : undefined);
+      if (actionInFlight) return;
+      if (event.key === "Escape") finish(dismissValue());
       if (event.key === "Enter" && document.activeElement !== cancelBtn) {
         if (mode === "prompt") finish(inputEl.value);
         else if (mode === "confirm") finish(true);
@@ -148,17 +160,20 @@
       }
     };
 
-    closeBtn.onclick = () =>
-      finish(mode === "confirm" ? false : mode === "prompt" ? null : undefined);
-    cancelBtn.onclick = () =>
-      finish(mode === "confirm" ? false : mode === "prompt" ? null : undefined);
+    closeBtn.onclick = () => {
+      if (!actionInFlight) finish(dismissValue());
+    };
+    cancelBtn.onclick = () => {
+      if (!actionInFlight) finish(dismissValue());
+    };
     okBtn.onclick = () => {
+      if (actionInFlight) return;
       if (mode === "action") void finishPrimaryAction();
       else finish(mode === "prompt" ? inputEl.value : mode === "confirm" ? true : undefined);
     };
     modal.onclick = (event) => {
-      if (event.target === modal && mode !== "alert") {
-        finish(mode === "confirm" ? false : mode === "prompt" ? null : undefined);
+      if (!actionInFlight && event.target === modal && mode !== "alert") {
+        finish(dismissValue());
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -166,6 +181,7 @@
     modal.style.display = "flex";
     if (typeof window.trapFocus === "function") window.trapFocus(modal);
     if (mode === "prompt") inputEl.focus();
+    else if (mode === "action") cancelBtn.focus();
     else okBtn.focus();
   };
 
@@ -208,7 +224,7 @@
    * Displays an application-styled action dialog.
    * @global
    * @function showAppActionDialog
-   * @param {{message: string, title?: string, primaryLabel?: string, primaryAction?: Function, secondaryLabel?: string}} options
+   * @param {{message: string, title?: string, primaryLabel?: string, primaryAction?: () => (void|Promise<void>), secondaryLabel?: string}} options
    * @returns {Promise<void>}
    */
   window.showAppActionDialog = (options) => showDialog({ ...options, mode: "action" });
@@ -234,8 +250,8 @@
     if (typeof window.showAppActionDialog === "function") {
       return window.showAppActionDialog(options);
     }
-    if (options && typeof options.primaryAction === "function") {
-      await options.primaryAction();
+    if (typeof window.appAlert === "function") {
+      return window.appAlert(options && options.message, (options && options.title) || "Notice");
     }
     return undefined;
   };

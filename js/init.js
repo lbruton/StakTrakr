@@ -896,30 +896,42 @@ document.addEventListener("DOMContentLoaded", async () => {
       error instanceof ReferenceError &&
       /\b(loadApiConfig|loadApiCache)\b/.test(error.message || "");
 
-    const nukeStakTrakrCachesAndReload = () =>
-      Promise.all([
+    const nukeStakTrakrCachesAndReload = async () => {
+      const [registrations, cacheKeys] = await Promise.all([
         "serviceWorker" in navigator
           ? navigator.serviceWorker.getRegistrations()
           : Promise.resolve([]),
         typeof caches !== "undefined" ? caches.keys() : Promise.resolve([]),
-      ]).then(([registrations, cacheKeys]) =>
-        Promise.all([
-          ...registrations.map((registration) => registration.unregister()),
-          ...cacheKeys
-            .filter((cacheKey) => cacheKey.startsWith("staktrakr-"))
-            .map((cacheKey) => caches.delete(cacheKey)),
-        ]).then(() => {
-          window.location.reload();
-        })
-      );
+      ]);
+      const cleanupResults = await Promise.allSettled([
+        ...registrations.map((registration) => registration.unregister()),
+        ...cacheKeys
+          .filter((cacheKey) => cacheKey.startsWith("staktrakr-"))
+          .map((cacheKey) => caches.delete(cacheKey)),
+      ]);
+      cleanupResults
+        .filter((result) => result.status === "rejected")
+        .forEach((result) =>
+          console.warn("[Init] Service worker cache reset step failed:", result.reason)
+        );
+      window.location.reload();
+    };
 
-    const showInitializationErrorDialog = () => {
+    const showInitializationErrorDialog = (dialogError = error) => {
+      const message = `Application initialization failed: ${dialogError.message || dialogError}\n\nPlease refresh the page and try again. If the problem persists, use Reset App to clear cached application files.`;
+      if (typeof appActionDialog !== "function") {
+        window.alert(message);
+        return;
+      }
       appActionDialog({
         title: "Application Error",
-        message: `Application initialization failed: ${error.message}\n\nPlease refresh the page and try again. If the problem persists, use Reset App to clear cached application files.`,
+        message,
         primaryLabel: "Reset App",
         primaryAction: nukeStakTrakrCachesAndReload,
         secondaryLabel: "OK",
+      }).catch((dialogFailure) => {
+        console.error("[Init] Error dialog failed:", dialogFailure);
+        window.alert(message);
       });
     };
 
@@ -953,13 +965,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Resetting cached app files\u2026</p></div>';
       nukeStakTrakrCachesAndReload().catch((recoveryError) => {
         console.error("[Init] Service worker cache reset failed:", recoveryError);
-        setTimeout(showInitializationErrorDialog, 100);
+        setTimeout(() => showInitializationErrorDialog(recoveryError), 100);
       });
       return;
     }
 
-    // Standard error dialog for non-cache errors
-    setTimeout(showInitializationErrorDialog, 100);
+    // Catch-all error dialog after automatic recovery tiers are unavailable or exhausted
+    setTimeout(() => {
+      try {
+        showInitializationErrorDialog();
+      } catch (dialogFailure) {
+        console.error("[Init] Error dialog scheduling failed:", dialogFailure);
+        window.alert(`Application initialization failed: ${error.message || error}`);
+      }
+    }, 100);
   }
 });
 
