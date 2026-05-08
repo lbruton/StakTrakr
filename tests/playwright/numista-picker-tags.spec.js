@@ -800,3 +800,220 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     expect(tagsChange).toBeUndefined();
   });
 });
+
+// =============================================================================
+// STRK-51 — Expanded Numista picker: numistaData fields + scroll behavior
+// =============================================================================
+
+// Rich Numista result with numistaData fields populated
+const NUMISTA_RESULT_RICH = {
+  name: "1 Dollar American Silver Eagle",
+  catalogId: "12345",
+  year: "2020",
+  metal: "Silver",
+  type: "Coin",
+  weight: 31.1,
+  imageUrl: "https://example.com/obverse.jpg",
+  reverseImageUrl: "https://example.com/reverse.jpg",
+  tags: ["Bullion", "Eagle"],
+  country: "United States",
+  denomination: "1 Dollar",
+  composition: "Silver .999",
+  shape: "Round",
+  diameter: 38.1,
+  thickness: 2.98,
+  length: 0,
+  width: 0,
+  orientation: "Coin",
+  technique: "Struck",
+  mintageByYear: [{ year: 2020, mintage: 1000000, remark: "" }],
+  rarityIndex: 2,
+  kmReferences: ["KM# 273"],
+  commemorative: false,
+  commemorativeDesc: "",
+  obverseDesc: "Walking Liberty",
+  reverseDesc: "Heraldic Eagle",
+  edgeDesc: "Reeded",
+};
+
+test.describe("numista-picker-tags — STRK-51 expanded Numista Data fields", () => {
+  // =========================================================================
+  // Test 15 — First-time import: numistaData section appears with candidate values
+  // =========================================================================
+  test("15. expanded picker shows Numista Data section when result has numistaData fields", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // Section label should be visible
+    const sectionLabel = page.locator("#numistaFieldCheckboxes .numista-fields-section-label");
+    await expect(sectionLabel).toBeVisible();
+    await expect(sectionLabel).toContainText("Numista Data");
+
+    // Country row should be present and checked (defaultOn: true, has candidate)
+    const countryCb = page.locator('input[name="numistaField"][value="country"]');
+    await expect(countryCb).toBeVisible();
+    await expect(countryCb).toBeChecked();
+
+    // KmRef row should be present and checked (defaultOn: true, has candidate)
+    const kmRefCb = page.locator('input[name="numistaField"][value="kmRef"]');
+    await expect(kmRefCb).toBeVisible();
+    await expect(kmRefCb).toBeChecked();
+
+    // Mintage row present with formatted candidate value
+    const mintageInput = page.locator('input[name="numistaFieldValue_mintage"]');
+    await expect(mintageInput).toBeVisible();
+    const mintageVal = await mintageInput.inputValue();
+    expect(mintageVal).toContain("1,000,000");
+
+    // obverseDesc defaults unchecked (defaultOn: false)
+    const obverseCb = page.locator('input[name="numistaField"][value="obverseDesc"]');
+    await expect(obverseCb).not.toBeChecked();
+  });
+
+  // =========================================================================
+  // Test 16 — Re-sync: user-modified diameter defaults unchecked with edited hint
+  // =========================================================================
+  test("16. re-sync: user-modified diameter field defaults unchecked with edited hint", async ({
+    page,
+  }) => {
+    const itemWithDiameterEdited = {
+      ...BASE_ITEM,
+      fieldMeta: {
+        diameter: { source: "manual", userModified: true },
+      },
+    };
+
+    await seedData(page, { inventory: [itemWithDiameterEdited] });
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // diameter should be unchecked due to userModified
+    const diameterCb = page.locator('input[name="numistaField"][value="diameter"]');
+    await expect(diameterCb).not.toBeChecked();
+
+    // diameter row should show the "edited" hint
+    const diameterRow = page.locator(
+      '#numistaFieldCheckboxes .numista-field-row:has(input[value="diameter"])'
+    );
+    await expect(diameterRow).toContainText("edited");
+  });
+
+  // =========================================================================
+  // Test 17 — Re-sync: user-modified nested field obverseDesc defaults unchecked
+  // =========================================================================
+  test("17. re-sync: user-modified obverseDesc defaults unchecked", async ({ page }) => {
+    const itemWithObverseEdited = {
+      ...BASE_ITEM,
+      fieldMeta: {
+        obverseDesc: { source: "manual", userModified: true },
+      },
+    };
+
+    await seedData(page, { inventory: [itemWithObverseEdited] });
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    const obverseCb = page.locator('input[name="numistaField"][value="obverseDesc"]');
+    await expect(obverseCb).not.toBeChecked();
+
+    const obverseRow = page.locator(
+      '#numistaFieldCheckboxes .numista-field-row:has(input[value="obverseDesc"])'
+    );
+    await expect(obverseRow).toContainText("edited");
+  });
+
+  // =========================================================================
+  // Test 18 — Missing candidate values produce disabled (not checked) rows
+  // =========================================================================
+  test("18. fields with no candidate value are disabled and unchecked", async ({ page }) => {
+    const sparseResult = {
+      ...NUMISTA_RESULT_RICH,
+      edgeDesc: "",
+      commemorativeDesc: "",
+      commemorative: false,
+    };
+
+    await seedData(page);
+    await stubCatalogLookup(page, sparseResult);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, sparseResult);
+
+    // edgeDesc has no candidate → checkbox disabled (or not present)
+    const edgeCb = page.locator('input[name="numistaField"][value="edgeDesc"]');
+    const count = await edgeCb.count();
+    if (count > 0) {
+      await expect(edgeCb).not.toBeChecked();
+      await expect(edgeCb).toBeDisabled();
+    }
+  });
+
+  // =========================================================================
+  // Test 19 — Existing 8-field behavior not regressed
+  // =========================================================================
+  test("19. existing main-form fields still render and Fill Fields still works", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // Original 8 fields present
+    const nameCb = page.locator('input[name="numistaField"][value="name"]');
+    const weightCb = page.locator('input[name="numistaField"][value="weight"]');
+    await expect(nameCb).toBeVisible();
+    await expect(weightCb).toBeVisible();
+    await expect(nameCb).toBeChecked();
+
+    // Fill Fields completes without error
+    const fillBtn = page.locator("#numistaFillBtn");
+    await fillBtn.click();
+
+    // Modal closes and name is filled
+    await expect(page.locator("#numistaFieldPicker")).not.toBeVisible();
+    const nameVal = await page.locator("#itemName").inputValue();
+    expect(nameVal).toBe(NUMISTA_RESULT_RICH.name);
+  });
+
+  // =========================================================================
+  // Test 20 — Layout: fill actions visible without scrolling on short viewports
+  // =========================================================================
+  test("20. Fill Fields button remains visible with expanded picker rows on short viewport", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 900, height: 650 });
+
+    await seedData(page);
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // Fill Fields button must be within the visible viewport
+    const fillBtn = page.locator("#numistaFillBtn");
+    await expect(fillBtn).toBeInViewport();
+
+    // Cancel button also reachable
+    const cancelBtn = page.locator("#numistaFillCancelBtn");
+    await expect(cancelBtn).toBeInViewport();
+
+    // The modal body scrolls (scrollHeight > clientHeight) confirming rows overflow
+    const bodyScrolls = await page.evaluate(() => {
+      const modal = document.querySelector(".numista-results-modal-content .modal-body");
+      if (!modal) return null;
+      return modal.scrollHeight > modal.clientHeight;
+    });
+    expect(bodyScrolls).toBe(true);
+  });
+});
