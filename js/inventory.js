@@ -1155,7 +1155,7 @@ const showNotes = (idx) => {
  * @param {string} catalogId - Numista catalog ID (N#)
  * @param {Object} [itemData] - Stored numistaData from the inventory item
  */
-const populateNumistaDataFields = (catalogId, itemData) => {
+const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set() } = {}) => {
   const set = (id, val) => {
     const el = safeGetElement(id);
     if (el) el.value = val || "";
@@ -1181,21 +1181,24 @@ const populateNumistaDataFields = (catalogId, itemData) => {
     { id: "numistaEdgeDesc", itemKey: "edgeDesc", cacheKey: "edgeDesc" },
   ];
 
-  // Clear all fields
-  fieldMap.forEach((f) => set(f.id, ""));
+  // Clear all fields (skip preserved fields from picker)
+  fieldMap.forEach((f) => {
+    if (!skipFields.has(f.itemKey)) set(f.id, "");
+  });
   const commCb = safeGetElement("numistaCommemorative");
-  if (commCb) commCb.checked = false;
   const commDescWrap = safeGetElement("numistaCommemorativeDescWrap");
-  if (commDescWrap) commDescWrap.style.display = "none";
   const commDesc = safeGetElement("numistaCommemorativeDesc");
-  if (commDesc) commDesc.value = "";
+  if (!skipFields.has("commemorative")) {
+    if (commCb) commCb.checked = false;
+    if (commDescWrap) commDescWrap.style.display = "none";
+    if (commDesc) commDesc.value = "";
+  }
 
-  /**
-   * Apply a data source to the form fields.
-   * Only fills fields that are still empty (preserves higher-rank data).
-   */
+  // Apply a data source to the form fields.
+  // Only fills fields that are still empty (preserves higher-rank data).
   const applySource = (getData) => {
     fieldMap.forEach((f) => {
+      if (skipFields.has(f.itemKey)) return;
       const el = safeGetElement(f.id);
       if (el && !el.value) {
         const val = getData(f);
@@ -1203,7 +1206,7 @@ const populateNumistaDataFields = (catalogId, itemData) => {
       }
     });
     // Commemorative
-    if (commCb && !commCb.checked) {
+    if (!skipFields.has("commemorative") && commCb && !commCb.checked) {
       const isComm = getData({ itemKey: "commemorative", cacheKey: "commemorative" });
       if (isComm) {
         commCb.checked = true;

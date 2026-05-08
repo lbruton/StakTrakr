@@ -1526,6 +1526,34 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
           window.markUserModified(cur, field);
         }
       }
+      // Track user-edited Numista Data tab fields (STRK-51)
+      const numistaTrackedFields = [
+        "country",
+        "denomination",
+        "composition",
+        "shape",
+        "diameter",
+        "length",
+        "width",
+        "thickness",
+        "orientation",
+        "technique",
+        "mintage",
+        "rarityIndex",
+        "kmRef",
+        "commemorative",
+        "commemorativeDesc",
+        "obverseDesc",
+        "reverseDesc",
+        "edgeDesc",
+      ];
+      const oldNumista = oldItem.numistaData || {};
+      const newNumista = cur.numistaData || {};
+      for (const field of numistaTrackedFields) {
+        if (oldNumista[field] !== newNumista[field]) {
+          window.markUserModified(cur, field);
+        }
+      }
     }
 
     addCompositionOption(f.composition);
