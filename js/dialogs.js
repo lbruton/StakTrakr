@@ -45,7 +45,7 @@
           <button type="button" id="appDialogClose" class="modal-close" aria-label="Close dialog">&times;</button>
         </div>
         <div class="modal-body">
-          <p id="appDialogMessage" style="margin:0 0 1rem 0; line-height:1.5; white-space:pre-line"></p>
+          <p id="appDialogMessage" style="margin:0 0 1rem 0; line-height:1.5"></p>
           <input id="appDialogInput" type="text" class="form-control" style="display:none; width:100%" />
         </div>
         <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:.5rem">
