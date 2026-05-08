@@ -299,7 +299,54 @@ console.log("🔌 Catalog API system ready - configure API keys through settings
 const NUMISTA_CACHE_TTL_DAYS = 30;
 
 // Fields that carry userModified tracking (shared by renderNumistaFieldCheckboxes + fillFormFromNumistaResult)
-const USER_MODIFIED_TRACKED_FIELDS = new Set(["name", "type", "weight", "year", "metal"]);
+const USER_MODIFIED_TRACKED_FIELDS = new Set([
+  "name",
+  "type",
+  "weight",
+  "year",
+  "metal",
+  // Numista Data tab fields (STRK-51)
+  "country",
+  "denomination",
+  "composition",
+  "shape",
+  "diameter",
+  "length",
+  "width",
+  "thickness",
+  "orientation",
+  "technique",
+  "mintage",
+  "rarityIndex",
+  "kmRef",
+  "commemorative",
+  "commemorativeDesc",
+  "obverseDesc",
+  "reverseDesc",
+  "edgeDesc",
+]);
+
+// All numistaData field keys that appear as picker rows (STRK-51)
+const NUMISTA_DATA_PICKER_KEYS = new Set([
+  "country",
+  "denomination",
+  "composition",
+  "shape",
+  "diameter",
+  "length",
+  "width",
+  "thickness",
+  "orientation",
+  "technique",
+  "mintage",
+  "rarityIndex",
+  "kmRef",
+  "commemorative",
+  "commemorativeDesc",
+  "obverseDesc",
+  "reverseDesc",
+  "edgeDesc",
+]);
 
 /**
  * Loads a cached Numista API response for a given type ID.
@@ -1506,6 +1553,25 @@ const renderNumistaFieldCheckboxes = (result) => {
     reverseImage:
       (elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl"))?.value?.trim() || "",
     metal: (elements.itemMetal || safeGetElement("itemMetal"))?.value || "",
+    // Numista Data tab fields (STRK-51)
+    country: safeGetElement("numistaCountry")?.value?.trim() || "",
+    denomination: safeGetElement("numistaDenomination")?.value?.trim() || "",
+    composition: safeGetElement("numistaComposition")?.value?.trim() || "",
+    shape: safeGetElement("numistaShape")?.value?.trim() || "",
+    diameter: safeGetElement("numistaDiameter")?.value?.trim() || "",
+    thickness: safeGetElement("numistaThickness")?.value?.trim() || "",
+    length: safeGetElement("numistaLength")?.value?.trim() || "",
+    width: safeGetElement("numistaWidth")?.value?.trim() || "",
+    orientation: safeGetElement("numistaOrientation")?.value?.trim() || "",
+    technique: safeGetElement("numistaTechnique")?.value?.trim() || "",
+    mintage: safeGetElement("numistaMintage")?.value?.trim() || "",
+    rarityIndex: safeGetElement("numistaRarity")?.value?.trim() || "",
+    kmRef: safeGetElement("numistaKmRef")?.value?.trim() || "",
+    commemorative: safeGetElement("numistaCommemorative")?.checked ? "Yes" : "",
+    commemorativeDesc: safeGetElement("numistaCommemorativeDesc")?.value?.trim() || "",
+    obverseDesc: safeGetElement("numistaObverseDesc")?.value?.trim() || "",
+    reverseDesc: safeGetElement("numistaReverseDesc")?.value?.trim() || "",
+    edgeDesc: safeGetElement("numistaEdgeDesc")?.value?.trim() || "",
   };
 
   fields.forEach((f) => {
@@ -1579,6 +1645,212 @@ const renderNumistaFieldCheckboxes = (result) => {
 
     container.appendChild(row);
   });
+
+  // ---------------------------------------------------------------------------
+  // Numista Data tab fields (STRK-51)
+  // ---------------------------------------------------------------------------
+  const mintageCandidate = (() => {
+    if (!result.mintageByYear?.length) return "";
+    const first = result.mintageByYear[0];
+    return typeof first.mintage === "number"
+      ? first.mintage.toLocaleString()
+      : String(first.mintage || "");
+  })();
+
+  const numistaDataFields = [
+    {
+      key: "country",
+      label: "Country",
+      value: result.country || "",
+      available: !!result.country,
+      defaultOn: true,
+    },
+    {
+      key: "denomination",
+      label: "Denomination",
+      value: result.denomination || "",
+      available: !!result.denomination,
+      defaultOn: true,
+    },
+    {
+      key: "composition",
+      label: "Composition",
+      value: result.composition || "",
+      available: !!result.composition,
+      defaultOn: true,
+    },
+    {
+      key: "shape",
+      label: "Shape",
+      value: result.shape || "",
+      available: !!result.shape,
+      defaultOn: true,
+    },
+    {
+      key: "diameter",
+      label: "Diameter (mm)",
+      value: result.diameter > 0 ? String(result.diameter) : "",
+      available: result.diameter > 0,
+      defaultOn: true,
+    },
+    {
+      key: "length",
+      label: "Length (mm)",
+      value: result.length > 0 ? String(result.length) : "",
+      available: result.length > 0,
+      defaultOn: true,
+    },
+    {
+      key: "width",
+      label: "Width (mm)",
+      value: result.width > 0 ? String(result.width) : "",
+      available: result.width > 0,
+      defaultOn: true,
+    },
+    {
+      key: "thickness",
+      label: "Thickness (mm)",
+      value: result.thickness > 0 ? String(result.thickness) : "",
+      available: result.thickness > 0,
+      defaultOn: true,
+    },
+    {
+      key: "orientation",
+      label: "Orientation",
+      value: result.orientation || "",
+      available: !!result.orientation,
+      defaultOn: false,
+    },
+    {
+      key: "technique",
+      label: "Technique",
+      value: result.technique || "",
+      available: !!result.technique,
+      defaultOn: false,
+    },
+    {
+      key: "mintage",
+      label: "Mintage",
+      value: mintageCandidate,
+      available: !!mintageCandidate,
+      defaultOn: true,
+    },
+    {
+      key: "rarityIndex",
+      label: "Rarity Index",
+      value: result.rarityIndex != null ? String(result.rarityIndex) : "",
+      available: result.rarityIndex != null,
+      defaultOn: false,
+    },
+    {
+      key: "kmRef",
+      label: "KM Reference",
+      value: result.kmReferences?.length ? result.kmReferences.join(", ") : "",
+      available: !!result.kmReferences?.length,
+      defaultOn: true,
+    },
+    {
+      key: "commemorative",
+      label: "Commemorative",
+      value: result.commemorative ? "Yes" : "",
+      available: !!result.commemorative,
+      defaultOn: true,
+    },
+    {
+      key: "commemorativeDesc",
+      label: "Commemorative Desc",
+      value: result.commemorativeDesc || "",
+      available: !!result.commemorativeDesc,
+      defaultOn: false,
+    },
+    {
+      key: "obverseDesc",
+      label: "Obverse Description",
+      value: result.obverseDesc || "",
+      available: !!result.obverseDesc,
+      defaultOn: false,
+    },
+    {
+      key: "reverseDesc",
+      label: "Reverse Description",
+      value: result.reverseDesc || "",
+      available: !!result.reverseDesc,
+      defaultOn: false,
+    },
+    {
+      key: "edgeDesc",
+      label: "Edge Description",
+      value: result.edgeDesc || "",
+      available: !!result.edgeDesc,
+      defaultOn: false,
+    },
+  ];
+
+  // Only add the section if at least one field has a candidate value
+  const hasNumistaDataCandidates = numistaDataFields.some((f) => f.available && f.value);
+  if (hasNumistaDataCandidates) {
+    const sectionLabel = document.createElement("div");
+    sectionLabel.className = "numista-fields-section-label";
+    sectionLabel.textContent = "Numista Data fields:";
+    container.appendChild(sectionLabel);
+
+    numistaDataFields.forEach((f) => {
+      const isUserModified =
+        !isBulkEdit &&
+        USER_MODIFIED_TRACKED_FIELDS.has(f.key) &&
+        fieldMetaMap[f.key]?.userModified === true;
+
+      const row = document.createElement("div");
+      row.className = "numista-field-row";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.name = "numistaField";
+      cb.value = f.key;
+      const effectiveDefaultOn = isUserModified ? false : f.defaultOn;
+      cb.checked = f.available && !!f.value && effectiveDefaultOn;
+      if (!f.value) cb.disabled = true;
+
+      const label = document.createElement("span");
+      label.className = "numista-field-label";
+      label.textContent = f.label + ":";
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "numista-field-input";
+      input.name = "numistaFieldValue_" + f.key;
+      input.value = f.value;
+      input.placeholder = f.available ? "" : "N/A";
+      if (!f.available && !f.value) input.disabled = true;
+
+      cb.addEventListener("change", () => {
+        input.disabled = !cb.checked;
+      });
+      if (!cb.checked) input.disabled = true;
+
+      row.appendChild(cb);
+      row.appendChild(label);
+      row.appendChild(input);
+
+      const currentVal = currentFormValues[f.key];
+      if (currentVal) {
+        const hint = document.createElement("div");
+        hint.className = "numista-field-current";
+        hint.textContent = `Current: ${currentVal}`;
+        hint.title = currentVal;
+        row.appendChild(hint);
+      }
+
+      if (isUserModified) {
+        const editedHint = document.createElement("span");
+        editedHint.className = "numista-field-edited";
+        editedHint.textContent = "✎ edited";
+        row.appendChild(editedHint);
+      }
+
+      container.appendChild(row);
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Tag checkbox section (STAK-556)
@@ -1982,6 +2254,101 @@ const fillFormFromNumistaResult = () => {
         }
         break;
       }
+      // Numista Data tab fields (STRK-51)
+      case "country": {
+        const el = safeGetElement("numistaCountry");
+        if (el) el.value = val;
+        break;
+      }
+      case "denomination": {
+        const el = safeGetElement("numistaDenomination");
+        if (el) el.value = val;
+        break;
+      }
+      case "composition": {
+        const el = safeGetElement("numistaComposition");
+        if (el) el.value = val;
+        break;
+      }
+      case "shape": {
+        const el = safeGetElement("numistaShape");
+        if (el) el.value = val;
+        break;
+      }
+      case "diameter": {
+        const el = safeGetElement("numistaDiameter");
+        if (el) el.value = val;
+        break;
+      }
+      case "length": {
+        const el = safeGetElement("numistaLength");
+        if (el) el.value = val;
+        break;
+      }
+      case "width": {
+        const el = safeGetElement("numistaWidth");
+        if (el) el.value = val;
+        break;
+      }
+      case "thickness": {
+        const el = safeGetElement("numistaThickness");
+        if (el) el.value = val;
+        break;
+      }
+      case "orientation": {
+        const el = safeGetElement("numistaOrientation");
+        if (el) el.value = val;
+        break;
+      }
+      case "technique": {
+        const el = safeGetElement("numistaTechnique");
+        if (el) el.value = val;
+        break;
+      }
+      case "mintage": {
+        const el = safeGetElement("numistaMintage");
+        if (el) el.value = val;
+        break;
+      }
+      case "rarityIndex": {
+        const el = safeGetElement("numistaRarity");
+        if (el) el.value = val;
+        break;
+      }
+      case "kmRef": {
+        const el = safeGetElement("numistaKmRef");
+        if (el) el.value = val;
+        break;
+      }
+      case "commemorative": {
+        const cb = safeGetElement("numistaCommemorative");
+        if (cb) {
+          cb.checked = val === "Yes";
+          const wrap = safeGetElement("numistaCommemorativeDescWrap");
+          if (wrap) wrap.style.display = cb.checked ? "" : "none";
+        }
+        break;
+      }
+      case "commemorativeDesc": {
+        const el = safeGetElement("numistaCommemorativeDesc");
+        if (el) el.value = val;
+        break;
+      }
+      case "obverseDesc": {
+        const el = safeGetElement("numistaObverseDesc");
+        if (el) el.value = val;
+        break;
+      }
+      case "reverseDesc": {
+        const el = safeGetElement("numistaReverseDesc");
+        if (el) el.value = val;
+        break;
+      }
+      case "edgeDesc": {
+        const el = safeGetElement("numistaEdgeDesc");
+        if (el) el.value = val;
+        break;
+      }
     }
   });
 
@@ -1993,14 +2360,15 @@ const fillFormFromNumistaResult = () => {
   });
 
   // Auto-populate Numista Data fields from the selected result (STAK-173)
+  // STRK-51: Skip all picker-controlled fields — they were already applied above
+  // (checked rows written synchronously; unchecked rows user declined to import).
   if (selectedNumistaResult && typeof populateNumistaDataFields === "function") {
-    // Cache the metadata first so populateNumistaDataFields can read it
     const catId = selectedNumistaResult.catalogId;
     if (catId && window.imageCache?.isAvailable()) {
       imageCache
         .cacheMetadata(catId, selectedNumistaResult)
         .then(() => {
-          populateNumistaDataFields(catId);
+          populateNumistaDataFields(catId, null, { skipFields: NUMISTA_DATA_PICKER_KEYS });
         })
         .catch(() => {});
     }
