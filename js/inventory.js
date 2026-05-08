@@ -34,6 +34,13 @@ const clearInventoryRecovery = () => {
 window.setInventoryRecoveryActive = setInventoryRecoveryActive;
 window.isInventoryRecoveryActive = isInventoryRecoveryActive;
 window.clearInventoryRecovery = clearInventoryRecovery;
+Object.defineProperty(window, "inventoryRecoveryActive", {
+  get: () => inventoryRecoveryActive,
+  set: (val) => {
+    inventoryRecoveryActive = !!val;
+  },
+  configurable: true,
+});
 
 /**
  * STRK-13: Show the sticky inventory recovery banner above the inventory
@@ -864,13 +871,14 @@ const confirmRemoveItem = async () => {
  *
  * @param {number} idx - Index of item to restore
  */
-const restoreInPlace = async (idx) => {
+const restoreInPlace = async (idx, { skipConfirm = false } = {}) => {
   const item = inventory[idx];
   if (!item || !isDisposed(item)) return;
   const confirmed =
-    typeof showAppConfirm === "function"
+    skipConfirm ||
+    (typeof showAppConfirm === "function"
       ? await showAppConfirm(`Restore "${item.name}" to active inventory?`, "Undo Disposition")
-      : false;
+      : false);
   if (confirmed) {
     const oldDisposition = JSON.stringify(item.disposition);
     inventory[idx].disposition = null;
@@ -900,7 +908,7 @@ const undoDisposition = async (idx) => {
     mergedQty,
   });
   if (choice === "cancel") return;
-  if (choice === "separate") return restoreInPlace(idx);
+  if (choice === "separate") return restoreInPlace(idx, { skipConfirm: true });
 
   // Merge two-phase commit
   const inventorySnapshot = structuredClone(inventory);
@@ -1101,6 +1109,8 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   } catch (e) {
     if (typeof debugLog === "function") debugLog("splitInventoryItem: image copy failed", e);
   }
+
+  if (typeof renderChangeLog === "function") renderChangeLog();
 
   return { ok: true, originalIdx, cloneIdx: originalIdx + 1, transactionId };
 };

@@ -4221,35 +4221,29 @@ if (removeItemOpenLog) {
 }
 
 // Dispose modal Lot/Each toggle button wiring
-const removeItemAmountModeToggle = safeGetElement("removeItemAmountModeToggle");
+// Uses document.getElementById because safeGetElement (init.js) loads after events.js
+const removeItemAmountModeToggle = document.getElementById("removeItemAmountModeToggle");
 if (removeItemAmountModeToggle) {
   Array.from(removeItemAmountModeToggle.children)
     .filter((child) => child.dataset?.mode)
     .forEach((button) => {
-      safeAttachListener(
-        button,
-        "click",
-        () => {
-          disposeAmountToggle.setMode(button.dataset.mode, { convertInput: true });
-        },
-        `Dispose amount ${button.dataset.mode} toggle`
-      );
+      button.addEventListener("click", () => {
+        disposeAmountToggle.setMode(button.dataset.mode, { convertInput: true });
+      });
     });
 }
 
 // Dispose qty input updates toggle visibility and placeholder
-optionalListener(
-  safeGetElement("removeItemQty"),
-  "input",
-  () => {
+const removeItemQtyInput = document.getElementById("removeItemQty");
+if (removeItemQtyInput) {
+  removeItemQtyInput.addEventListener("input", () => {
     disposeAmountToggle.updateVisibility();
     disposeAmountToggle.updatePlaceholder();
-  },
-  "Dispose amount toggle visibility"
-);
+  });
+}
 
 // STRK-44: Restore-choice modal — wire X button to click the Cancel action button
-const restoreChoiceModalEl = safeGetElement("restoreChoiceModal");
+const restoreChoiceModalEl = document.getElementById("restoreChoiceModal");
 if (restoreChoiceModalEl) {
   const restoreCloseBtn = restoreChoiceModalEl.querySelector(".modal-close");
   if (restoreCloseBtn) {

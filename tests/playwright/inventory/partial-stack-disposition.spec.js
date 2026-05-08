@@ -123,8 +123,39 @@ async function setDisposeQty(page, qty) {
   await page.fill("#removeItemQty", String(qty));
 }
 
+async function fillDisposeFields(page, { type = "Sold", date = "2026-05-01", amount = "90" } = {}) {
+  await page.selectOption("#dispositionType", type);
+  await page.fill("#dispositionDate", date);
+  if (amount) await page.fill("#dispositionAmount", amount);
+}
+
 async function confirmDispose(page) {
   await page.click("#removeItemDisposeBtn");
+}
+
+async function acceptAppConfirm(page) {
+  await page.locator("#appDialogOk").click();
+}
+
+async function dismissAppConfirm(page) {
+  await page.locator("#appDialogCancel").click();
+}
+
+async function runCascadeUndo(page, transactionId, { accept = true } = {}) {
+  await page.evaluate((tid) => {
+    window.__cascadeUndoResult = null;
+    window.confirmCascadeUndo(tid).then((r) => {
+      window.__cascadeUndoResult = r;
+    });
+  }, transactionId);
+  await page.waitForSelector("#appDialogModal", { state: "visible" });
+  if (accept) {
+    await acceptAppConfirm(page);
+  } else {
+    await dismissAppConfirm(page);
+  }
+  await page.waitForFunction(() => window.__cascadeUndoResult !== null, null, { timeout: 5000 });
+  return page.evaluate(() => window.__cascadeUndoResult);
 }
 
 async function installStorageFailMock(page, mode) {
@@ -143,8 +174,13 @@ async function installStorageFailMock(page, mode) {
         throw new DOMException("QuotaExceededError", "QuotaExceededError");
       }
       if (window.__storageFailMode === "phase2-and-revert") {
-        // First call (Phase 1 inventory write) succeeds; all subsequent fail
-        if (window.__storageCallCount > 1) {
+        // Phase 1: allow first metalInventory write; Phase 2: fail changeLog; revert: fail metalInventory
+        if (!window.__storageKeyWriteCount) window.__storageKeyWriteCount = {};
+        window.__storageKeyWriteCount[k] = (window.__storageKeyWriteCount[k] || 0) + 1;
+        if (k === "metalInventory" && window.__storageKeyWriteCount[k] > 1) {
+          throw new DOMException("QuotaExceededError", "QuotaExceededError");
+        }
+        if (k === "changeLog") {
           throw new DOMException("QuotaExceededError", "QuotaExceededError");
         }
       }
@@ -225,7 +261,9 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     await openDisposeModal(page, 0);
 
     await setDisposeQty(page, 3);
+    await fillDisposeFields(page);
     await confirmDispose(page);
+    await page.waitForTimeout(300);
 
     const result = await page.evaluate(() => ({
       length: window.inventory.length,
@@ -298,7 +336,9 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     await openDisposeModal(page, 0);
 
     await setDisposeQty(page, 2);
+    await fillDisposeFields(page);
     await confirmDispose(page);
+    await page.waitForTimeout(300);
 
     const uuids = await page.evaluate(() => window.inventory.map((i) => i.uuid));
     const originalIdx = uuids.indexOf("strk44-base-item-uuid");
@@ -800,13 +840,7 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
 
     expect(result.ok).toBe(true);
 
-    // Simulate cascade undo confirmed by user
-    page.on("dialog", (dialog) => dialog.accept());
-
-    const undoResult = await page.evaluate(async (tid) => {
-      if (typeof window.confirmCascadeUndo !== "function") return { ok: false, error: "not_found" };
-      return window.confirmCascadeUndo(tid);
-    }, result.transactionId);
+    const undoResult = await runCascadeUndo(page, result.transactionId, { accept: true });
 
     expect(undoResult.ok).toBe(true);
     expect(undoResult.applied).toBe("cascade");
@@ -837,13 +871,7 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
 
     expect(result.ok).toBe(true);
 
-    // User cancels the cascade confirm dialog
-    page.on("dialog", (dialog) => dialog.dismiss());
-
-    const undoResult = await page.evaluate(async (tid) => {
-      if (typeof window.confirmCascadeUndo !== "function") return { ok: false, error: "not_found" };
-      return window.confirmCascadeUndo(tid);
-    }, result.transactionId);
+    const undoResult = await runCascadeUndo(page, result.transactionId, { accept: false });
 
     expect(undoResult.applied).toBe("none");
 
@@ -869,15 +897,8 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
 
     expect(result.ok).toBe(true);
 
-    // Navigate to activity log / render it
-    if (typeof window !== "undefined") {
-      await page.evaluate(() => {
-        if (typeof window.renderChangeLog === "function") window.renderChangeLog();
-      });
-    }
-
-    // Expect a group container for the transaction entries
-    await expect(page.locator("[role='group'][aria-label]")).toHaveCount(1);
+    // Expect a group container for the transaction entries inside the changelog table
+    await expect(page.locator("#changeLogTable [role='group'][aria-label]")).toHaveCount(1);
   });
 
   // ---------------------------------------------------------------------------
@@ -909,14 +930,9 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
       window.inventory.reverse();
     });
 
-    page.on("dialog", (dialog) => dialog.accept());
-
-    const undoResult = await page.evaluate(async (tid) => {
-      if (typeof window.confirmCascadeUndo !== "function") return { ok: false, error: "not_found" };
-      return window.confirmCascadeUndo(tid);
-    }, result.transactionId);
-
     // UUID-based lookup: cascade should still succeed even though indexes changed
+    const undoResult = await runCascadeUndo(page, result.transactionId, { accept: true });
+
     expect(undoResult.ok).toBe(true);
     expect(undoResult.applied).toBe("cascade");
   });
@@ -944,16 +960,23 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     // Edit original qty — breaks drift invariant 2
     await page.evaluate(() => {
       const original = window.inventory.find((i) => i.uuid === "strk44-base-item-uuid");
-      if (original) original.qty += 1; // tampering with qty
+      if (original) original.qty += 1;
     });
 
-    page.on("dialog", (dialog) => dialog.accept());
-
-    const undoResult = await page.evaluate(async (tid) => {
-      if (typeof window.confirmCascadeUndo !== "function") return { ok: false, error: "not_found" };
-      return window.confirmCascadeUndo(tid);
+    // Drift detected → first dialog is the drift warning, accept to proceed with single-entry undo
+    // Then restoreInPlace shows its own confirm (legacy path)
+    await page.evaluate((tid) => {
+      window.__cascadeUndoResult = null;
+      window.confirmCascadeUndo(tid).then((r) => {
+        window.__cascadeUndoResult = r;
+      });
     }, result.transactionId);
+    // Accept drift warning
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await acceptAppConfirm(page);
+    await page.waitForFunction(() => window.__cascadeUndoResult !== null, null, { timeout: 5000 });
 
+    const undoResult = await page.evaluate(() => window.__cascadeUndoResult);
     expect(undoResult.applied).toBe("single-entry");
   });
 
@@ -983,13 +1006,18 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
       if (idx >= 0) window.inventory.splice(idx, 1);
     });
 
-    page.on("dialog", (dialog) => dialog.accept());
-
-    const undoResult = await page.evaluate(async (tid) => {
-      if (typeof window.confirmCascadeUndo !== "function") return { ok: false, error: "not_found" };
-      return window.confirmCascadeUndo(tid);
+    // Drift detected → accept drift warning to proceed with single-entry undo
+    await page.evaluate((tid) => {
+      window.__cascadeUndoResult = null;
+      window.confirmCascadeUndo(tid).then((r) => {
+        window.__cascadeUndoResult = r;
+      });
     }, result.transactionId);
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await acceptAppConfirm(page);
+    await page.waitForFunction(() => window.__cascadeUndoResult !== null, null, { timeout: 5000 });
 
+    const undoResult = await page.evaluate(() => window.__cascadeUndoResult);
     expect(undoResult.applied).toBe("single-entry");
   });
 
@@ -1467,10 +1495,14 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     await seedData(page, { inventory: [legacyItem] });
     await gotoApp(page);
 
+    // Fire undoDisposition without awaiting — it will show a confirm dialog
     await page.evaluate((idx) => {
       if (typeof window.undoDisposition === "function") window.undoDisposition(idx);
     }, 0);
 
+    // Legacy path shows showAppConfirm — accept it
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await acceptAppConfirm(page);
     await page.waitForTimeout(300);
 
     // Should NOT show the restore choice modal (legacy path)
@@ -1634,12 +1666,7 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
 
     await installSyncPushSpy(page);
 
-    page.on("dialog", (dialog) => dialog.accept());
-
-    const undoResult = await page.evaluate(async (tid) => {
-      if (typeof window.confirmCascadeUndo !== "function") return { ok: false, error: "not_found" };
-      return window.confirmCascadeUndo(tid);
-    }, splitResult.transactionId);
+    const undoResult = await runCascadeUndo(page, splitResult.transactionId, { accept: true });
 
     expect(undoResult.ok).toBe(true);
     expect(undoResult.applied).toBe("cascade");

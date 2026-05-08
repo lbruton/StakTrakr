@@ -324,6 +324,7 @@
       }
 
       appAlert("Backup created successfully!");
+      return zipBlob;
     } catch (error) {
       debugWarn("Backup creation failed:", error);
       appAlert("Backup creation failed: " + error.message);
@@ -334,6 +335,7 @@
         backupBtn.textContent = "Export ZIP";
         backupBtn.disabled = false;
       }
+      return null;
     }
   };
 

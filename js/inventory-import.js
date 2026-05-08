@@ -362,20 +362,7 @@
             const dispositionCurrency = (row["Disposition Currency"] || "").trim();
             const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
             const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
-            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-            let dispositionSplitFromUuid;
-            if (!dispositionSplitFromUuidRaw) {
-              dispositionSplitFromUuid = undefined;
-            } else if (uuidPattern.test(dispositionSplitFromUuidRaw)) {
-              dispositionSplitFromUuid = dispositionSplitFromUuidRaw;
-            } else {
-              debugLog(
-                "importCsv: dropping invalid splitFromUuid",
-                dispositionSplitFromUuidRaw,
-                "(must be empty or 36-char UUID)"
-              );
-              dispositionSplitFromUuid = undefined;
-            }
+            const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
 
             let disposition;
             if (dispositionType) {
@@ -1508,9 +1495,151 @@
     importJson(file, override);
   };
   window.importCsvFromText = (text, override = false) => {
-    const blob = new Blob([text], { type: "text/csv" });
-    const file = new File([blob], "test-import.csv", { type: "text/csv" });
-    importCsv(file, override);
+    if (override) {
+      const blob = new Blob([text], { type: "text/csv" });
+      const file = new File([blob], "test-import.csv", { type: "text/csv" });
+      importCsv(file, override);
+      return;
+    }
+    if (typeof Papa === "undefined") return null;
+    const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const results = Papa.parse(normalizedText, {
+      header: true,
+      skipEmptyLines: true,
+      comments: "#",
+    });
+    if (!results || !results.data) return null;
+    const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
+    const parsed = [];
+    for (const row of results.data) {
+      const compositionRaw = row["Composition"] || row["Metal"] || "Silver";
+      const composition = getCompositionFirstWords(compositionRaw);
+      const metal = parseNumistaMetal(composition);
+      if (!supportedMetals.includes(metal)) continue;
+      const name = row["Name"] || row["name"];
+      const qty = row["Qty"] || row["qty"] || 1;
+      const type = normalizeType(row["Type"] || row["type"]);
+      const weight = row["Weight(oz)"] || row["weight"];
+      const weightUnit = row["Weight Unit"] || row["weightUnit"] || "oz";
+      const priceStr = row["Purchase Price"] || row["price"];
+      let price =
+        typeof priceStr === "string"
+          ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
+          : parseFloat(priceStr);
+      if (price < 0) price = 0;
+      const purchaseLocation = row["Purchase Location"] || "";
+      const storageLocation = row["Storage Location"] || "";
+      const notes = row["Notes"] || "";
+      const year = row["Year"] || row["year"] || row["issuedYear"] || "";
+      const grade = row["Grade"] || row["grade"] || "";
+      const gradingAuthority =
+        row["Grading Authority"] || row["gradingAuthority"] || row["Authority"] || "";
+      const certNumber = (
+        row["Cert #"] ||
+        row["certNumber"] ||
+        row["Cert Number"] ||
+        ""
+      ).toString();
+      const date = parseDate(row["Date"]);
+      const retailStr = row["Retail Price"] || row["Market Value"] || row["marketValue"] || "0";
+      const marketValue =
+        typeof retailStr === "string"
+          ? parseFloat(retailStr.replace(/[^\d.-]+/g, "")) || 0
+          : parseFloat(retailStr) || 0;
+      let spotPriceAtPurchase;
+      if (row["Spot Price ($/oz)"]) {
+        spotPriceAtPurchase = parseFloat(
+          row["Spot Price ($/oz)"].toString().replace(/[^0-9.-]+/g, "")
+        );
+      } else if (row["spotPriceAtPurchase"]) {
+        spotPriceAtPurchase = parseFloat(row["spotPriceAtPurchase"]);
+      } else {
+        spotPriceAtPurchase = 0;
+      }
+      const numistaRaw = (row["N#"] || row["Numista #"] || row["numistaId"] || "").toString();
+      const numistaMatch = numistaRaw.match(/\d+/);
+      const numistaId = numistaMatch ? numistaMatch[0] : "";
+      const pcgsNumber = (row["PCGS #"] || row["PCGS Number"] || row["pcgsNumber"] || "")
+        .toString()
+        .trim();
+      const purityRaw = row["Purity"] || row["Fineness"] || row["purity"] || "";
+      const purity = parseFloat(purityRaw) || 1.0;
+      const serialNumber = row["Serial Number"] || row["serialNumber"] || "";
+      const serial = row["Serial"] || row["serial"] || getNextSerial();
+      const uuid = row["UUID"] || row["uuid"] || "";
+
+      const dispositionType = (row["Disposition Type"] || "").trim();
+      const dispositionDate = (row["Disposition Date"] || "").trim();
+      const dispositionAmount = row["Disposition Amount"] || "";
+      const dispositionRealizedGainLoss = row["Realized Gain/Loss"] || "";
+      const dispositionRecipient = (row["Disposition Recipient"] || "").trim();
+      const dispositionNotes = (row["Disposition Notes"] || "").trim();
+      const dispositionCurrency = (row["Disposition Currency"] || "").trim();
+      const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
+      const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
+      const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
+
+      let disposition;
+      if (dispositionType) {
+        const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.\-]/g, ""));
+        const _parsedGainLoss = parseFloat(
+          String(dispositionRealizedGainLoss).replace(/[^0-9.\-]/g, "")
+        );
+        const dispositionTypeKey =
+          typeof DISPOSITION_TYPES !== "undefined"
+            ? (Object.keys(DISPOSITION_TYPES).find(
+                (k) => DISPOSITION_TYPES[k].label === dispositionType
+              ) ?? dispositionType.toLowerCase())
+            : dispositionType.toLowerCase();
+        disposition = {
+          type: dispositionTypeKey,
+          date: dispositionDate || undefined,
+          amount:
+            dispositionAmount !== "" && Number.isFinite(_parsedAmount) ? _parsedAmount : undefined,
+          realizedGainLoss:
+            dispositionRealizedGainLoss !== "" && Number.isFinite(_parsedGainLoss)
+              ? _parsedGainLoss
+              : undefined,
+          recipient: dispositionRecipient || undefined,
+          notes: dispositionNotes || undefined,
+          currency: dispositionCurrency || undefined,
+          disposedAt: dispositionDisposedAt || undefined,
+          splitFromUuid: dispositionSplitFromUuid,
+        };
+      }
+
+      const item = sanitizeImportedItem({
+        metal,
+        composition,
+        name,
+        qty,
+        type,
+        weight,
+        weightUnit,
+        price,
+        marketValue,
+        date,
+        purchaseLocation,
+        storageLocation,
+        notes,
+        year,
+        grade,
+        gradingAuthority,
+        certNumber,
+        pcgsNumber,
+        purity,
+        spotPriceAtPurchase,
+        premiumPerOz: 0,
+        totalPremium: 0,
+        numistaId,
+        serialNumber,
+        serial,
+        uuid,
+        disposition,
+      });
+      parsed.push(item);
+    }
+    return parsed;
   };
   window.importNumistaCsv = importNumistaCsv;
   window.exportCsv = exportCsv;

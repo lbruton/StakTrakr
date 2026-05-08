@@ -589,9 +589,12 @@ const confirmCascadeUndo = async (transactionId, triggerEntry) => {
               "Cascade undo unavailable"
             )
           : false;
-      if (proceed && triggerEntry) {
-        applyLegacyDispositionUndo(triggerEntry);
-        return { ok: true, applied: "single-entry" };
+      if (proceed) {
+        const fallbackEntry = triggerEntry || paired.find((e) => e.field === "Disposed");
+        if (fallbackEntry) {
+          applyLegacyDispositionUndo(fallbackEntry);
+          return { ok: true, applied: "single-entry" };
+        }
       }
       return { ok: true, applied: "none", reason: "user_cancelled" };
     }

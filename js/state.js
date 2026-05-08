@@ -282,6 +282,13 @@ let changeLog = (function () {
     return [];
   }
 })();
+Object.defineProperty(window, "changeLog", {
+  get: () => changeLog,
+  set: (val) => {
+    changeLog = val;
+  },
+  configurable: true,
+});
 
 /** @type {Array} Main inventory data structure */
 let inventory = [];
