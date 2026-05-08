@@ -364,7 +364,11 @@ const renderChangeLog = () => {
 };
 
 const applyLegacyDispositionUndo = (entry) => {
-  const item = inventory[entry.idx];
+  const realIdx = entry.itemKey
+    ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
+    : entry.idx;
+  if (realIdx === -1 || realIdx >= inventory.length) return;
+  const item = inventory[realIdx];
   if (!item) return;
   if (entry.undone) {
     // Redo: re-apply the disposition from newValue
@@ -399,6 +403,14 @@ window.applyLegacyDispositionUndo = applyLegacyDispositionUndo;
 const toggleChange = async (logIdx) => {
   const entry = changeLog[logIdx];
   if (!entry) return;
+
+  // Cascade undo/redo — any transactionId routes here regardless of field (STAK-388)
+  if (entry.transactionId) {
+    if (typeof confirmCascadeUndo === "function") {
+      await confirmCascadeUndo(entry.transactionId, entry);
+    }
+    return;
+  }
 
   // Price history delete — undo restores the entry, redo re-deletes it (STAK-109)
   if (entry.field === "priceHistoryDelete") {
@@ -508,12 +520,6 @@ const toggleChange = async (logIdx) => {
     return;
     // Disposition undo/redo (STAK-388)
   } else if (entry.field === "Disposed") {
-    if (entry.transactionId) {
-      if (typeof confirmCascadeUndo === "function") {
-        await confirmCascadeUndo(entry.transactionId, entry);
-      }
-      return;
-    }
     applyLegacyDispositionUndo(entry);
     return;
   } else {

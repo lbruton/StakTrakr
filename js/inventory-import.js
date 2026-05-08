@@ -379,8 +379,10 @@
 
             let disposition;
             if (dispositionType) {
-              const _parsedAmount = parseFloat(dispositionAmount);
-              const _parsedGainLoss = parseFloat(dispositionRealizedGainLoss);
+              const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.\-]/g, ""));
+              const _parsedGainLoss = parseFloat(
+                String(dispositionRealizedGainLoss).replace(/[^0-9.\-]/g, "")
+              );
               // Normalize display labels ("Sold") → internal keys ("sold") for round-trip
               const dispositionTypeKey =
                 typeof DISPOSITION_TYPES !== "undefined"

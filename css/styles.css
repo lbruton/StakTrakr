@@ -7893,6 +7893,10 @@ a.about-badge:hover {
   display: none;
 }
 
+#removeItemAmountModeToggle.is-hidden {
+  display: none;
+}
+
 /* Chip context menu (right-click on name/dynamic chips) */
 .chip-context-menu {
   position: fixed;

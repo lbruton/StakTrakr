@@ -680,7 +680,7 @@ const openRemoveItemModal = (idx, preDispose = false) => {
     _removeItemQtyPreviewHandler = () => {
       const entered = parseInt(qtyInput.value, 10);
       if (!previewEl) return;
-      if (!Number.isFinite(entered) || entered === stackQty) {
+      if (!Number.isFinite(entered) || entered < 1 || entered >= stackQty) {
         previewEl.style.display = "none";
         previewEl.textContent = "";
       } else {
@@ -750,7 +750,11 @@ const confirmRemoveItem = async () => {
       if (qtyHidden || qtyInputEl.value === "") {
         disposedQty = Number(item.qty) || 1;
       } else {
-        disposedQty = parseInt(qtyInputEl.value, 10);
+        disposedQty = Number(qtyInputEl.value);
+        if (!Number.isInteger(disposedQty)) {
+          showToast("Please enter a whole number quantity to dispose.");
+          return;
+        }
       }
 
       if (
