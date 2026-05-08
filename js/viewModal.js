@@ -992,10 +992,10 @@ function buildViewContent(item, index) {
 // ---------------------------------------------------------------------------
 
 /**
- * Load coin images from IndexedDB cache → CDN URL fallback.
- * @param {Object} item
- * @param {HTMLElement} container
- * @returns {Promise<{loaded: boolean, source: string|null}>}
+ * Load obverse and reverse images for the view modal, preferring cached user-uploaded or pattern-derived URLs and falling back to CDN URLs stored on the item.
+ * @param {Object} item - Inventory item containing image references (e.g., obverseImageUrl, reverseImageUrl).
+ * @param {HTMLElement} container - Modal container element that contains the image section (#viewImageSection).
+ * @returns {{loaded: boolean, source: ('userOrPattern'|'cdn'|null)}} `loaded` is `true` if at least one image was set, `false` otherwise. `source` is `'userOrPattern'` when a cached/uploaded URL was used, `'cdn'` when fallback item URLs were used, or `null` when no valid images were available.
  */
 async function loadViewImages(item, container) {
   const section = container.querySelector("#viewImageSection");
@@ -1039,6 +1039,13 @@ async function loadViewImages(item, container) {
 const MEANINGFUL_FALSY_KEYS = new Set(["commemorative", "rarityIndex"]);
 const NON_RENDERING_NUMISTA_KEYS = new Set(["source", "updatedAt", "fieldMeta"]);
 
+/**
+ * Determines whether a Numista metadata field contains a value that should be rendered in the UI.
+ * Considers configured exclusions and treats certain falsy values as meaningful for specific keys.
+ * @param {string} key - The Numista metadata field name.
+ * @param {*} value - The field value to evaluate.
+ * @returns {boolean} `true` if the field should be displayed, `false` otherwise.
+ */
 function _hasMeaningfulNumistaValue(key, value) {
   if (NON_RENDERING_NUMISTA_KEYS.has(key)) return false;
   if (value === "" || value === null || value === undefined) {
@@ -1048,9 +1055,10 @@ function _hasMeaningfulNumistaValue(key, value) {
 }
 
 /**
- * Detect whether item-level Numista data can render without cache/API metadata.
- * @param {Object|null|undefined} itemData
- * @returns {boolean}
+ * Determine whether the supplied Numista item edits contain any fields that should be rendered in the Catalog Data section.
+ *
+ * @param {Object|null|undefined} itemData - Item-level Numista edits (may be null/undefined). The function treats non-empty strings and numbers as meaningful and also treats certain intentionally falsy fields (for example `commemorative` or `rarityIndex`) as meaningful when present.
+ * @returns {boolean} `true` if at least one renderable Numista field exists on `itemData`, `false` otherwise.
  */
 function hasMeaningfulItemData(itemData) {
   if (!itemData || typeof itemData !== "object") return false;
@@ -1058,18 +1066,14 @@ function hasMeaningfulItemData(itemData) {
 }
 
 /**
- * Merge item-level Numista edits over cache/API metadata.
+ * Combine cached/API Numista metadata with item-level Numista edits, giving precedence to item edits.
  *
- * Import/clone paths can carry raw numistaData that did not pass through
- * parseNumistaDataFields, so strip empty item values here before they can hide
- * valid cache fallbacks. If future save logic preserves intentional blanks,
- * update this helper in lockstep. Falsy exemptions: commemorative false is an
- * explicit user choice, and rarityIndex 0 is a valid score even though it does
- * not render in the current rarity bar.
+ * Empty or otherwise non-meaningful item fields are removed before merging so they do not override valid cached values.
+ * The function preserves intentionally meaningful falsy values such as `commemorative: false` and `rarityIndex: 0`.
  *
- * @param {Object|null|undefined} itemData
- * @param {Object|null|undefined} cacheMeta
- * @returns {Object}
+ * @param {Object|null|undefined} itemData - Item-level Numista edits; may contain partial or raw fields.
+ * @param {Object|null|undefined} cacheMeta - Cached or API-provided Numista metadata.
+ * @returns {Object} Merged metadata object where keys from `itemData` override those in `cacheMeta`.
  */
 function mergeNumistaSources(itemData, cacheMeta) {
   const sanitizedItemData = {};
@@ -1084,6 +1088,12 @@ function mergeNumistaSources(itemData, cacheMeta) {
   return { ...(cacheMeta || {}), ...sanitizedItemData };
 }
 
+/**
+ * Format a KM (catalogue) reference into a user-facing string.
+ *
+ * @param {string|Object} ref - A KM reference, either a display string or an object with optional `catalogue` and `number` properties (e.g. `{ catalogue: "KM", number: 123 }`).
+ * @returns {string} The formatted reference: the input string unchanged when `ref` is a string; `"catalogue#number"` when both fields are present; the `catalogue` or `number` (as a string) when only one is present; otherwise an empty string.
+ */
 function _formatKmReference(ref) {
   if (typeof ref === "string") return ref;
   if (!ref || typeof ref !== "object") return "";
@@ -1094,10 +1104,13 @@ function _formatKmReference(ref) {
 }
 
 /**
- * Load Numista metadata from IndexedDB cache or pre-fetched API result, render enrichment section.
- * @param {Object} item
- * @param {HTMLElement} container
- * @param {Object|null} apiResult - Pre-fetched Numista API result (avoids duplicate call)
+ * Render the "Catalog Data" enrichment for an item using cached Numista metadata, a provided API result, or item-level Numista edits.
+ *
+ * Attempts to read metadata from the image cache (IndexedDB) and falls back to the supplied `apiResult` when available. If neither cache/API metadata nor meaningful item-level Numista edits exist, the function returns without rendering. The final rendered view merges item-level edits over any metadata, updates the image frame shape when the merged shape indicates a non-round form, sets obverse/reverse image tooltips when available, and replaces the `#viewNumistaSection` placeholder with the constructed section. When an `apiResult` is used, it is cached for future use when an image cache is available.
+ *
+ * @param {Object} item - Inventory item object; `item.numistaId` identifies the catalog entry and `item.numistaData` may contain user edits that override cached/API fields.
+ * @param {HTMLElement} container - Container element containing the `#viewNumistaSection` placeholder and optional `#viewImageSection`.
+ * @param {Object|null} apiResult - Optional pre-fetched Numista API result to use when cache is missing or stale; when provided and used, it will be cached if an image cache is available.
  */
 async function loadViewNumistaData(item, container, apiResult) {
   const catalogId = item.numistaId || "";
