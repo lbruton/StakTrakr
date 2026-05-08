@@ -762,7 +762,7 @@ const updateColumnVisibility = () => {
     { width: 768, hide: ["notes", "premium", "spot"] },
     {
       width: 640,
-      hide: ["notes", "premium", "spot", "weight", "year"],
+      hide: ["notes", "premium", "spot", "weight"],
     },
     {
       width: 576,
@@ -771,7 +771,6 @@ const updateColumnVisibility = () => {
         "premium",
         "spot",
         "weight",
-        "year",
         "purchaseLocation",
         "storageLocation",
         "numista",
@@ -806,7 +805,6 @@ const updateColumnVisibility = () => {
     "premium",
     "purchaseLocation",
     "storageLocation",
-    "year",
     "numista",
     "notes",
     "actions",

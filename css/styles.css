@@ -11148,15 +11148,6 @@ th {
   width: 140px !important;
 }
 
-/* Year column — compact numeric */
-#inventoryTable th[data-column="year"],
-#inventoryTable td[data-column="year"] {
-  max-width: 80px !important;
-  width: 80px !important;
-  text-align: center;
-  white-space: nowrap;
-}
-
 .purchase-link {
   color: var(--primary);
   text-decoration: none;

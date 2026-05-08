@@ -13,9 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — STRK-47: Sort by Storage Location and Year
 
-- **Feature**: Added `Storage Location` (column 12) and `Year` (column 13) as sortable options in both the card sort dropdown and the Settings default sort selector.
-- **Sorting**: Year sorts numerically with missing/unknown values bucketed to the end regardless of direction. Storage Location sorts alphabetically like Purchase Location.
-- **Responsive**: Year column is hidden at viewports ≤ 640px alongside other compact columns.
+- **Feature**: Added `Storage Location` and `Year` as virtual sortable options in both the card sort dropdown and the Settings default sort selector.
+- **Sorting**: Year sorts numerically with missing/unknown values bucketed to the end regardless of direction. Storage Location sorts alphabetically while remaining an inline chip in the Name cell.
 
 ---
 
