@@ -10050,6 +10050,26 @@ th {
 .numista-results-modal-content {
   max-width: 600px;
   width: 90%;
+  /* STRK-51: keep header and actions reachable with 15+ expanded picker rows */
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.numista-results-modal-content .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.numista-results-modal-content .numista-fill-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-primary);
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  z-index: 1;
 }
 
 .numista-results-list {
@@ -10227,6 +10247,17 @@ th {
   font-weight: 600;
   font-size: var(--font-size-md);
   margin-bottom: 0.15rem;
+}
+
+.numista-fields-section-label {
+  grid-column: 1 / -1;
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  margin-top: 0.5rem;
+  margin-bottom: 0.15rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary, var(--text-primary));
 }
 
 .numista-field-checkboxes input[type="checkbox"] {
