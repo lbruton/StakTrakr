@@ -1698,4 +1698,117 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     expect(finalQty).toBe(initialQty);
     expect(finalLogLength).toBe(initialLogLength);
   });
+
+  // ---------------------------------------------------------------------------
+  // ZIP backup — content verification
+  // ---------------------------------------------------------------------------
+
+  test("58. REQ-7.3 — ZIP backup JSON payload preserves full disposition including splitFromUuid", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+
+    await page.evaluate(async () => {
+      if (typeof window.splitInventoryItem === "function") {
+        await window.splitInventoryItem(0, 3, {
+          type: "Sold",
+          date: "2026-05-01",
+          amount: 90,
+          currency: "USD",
+          recipient: "Buyer",
+          notes: "ZIP test",
+        });
+      }
+    });
+
+    const cloneDisposition = await page.evaluate(async () => {
+      if (typeof window.buildInventoryBackup !== "function") return null;
+      if (typeof window.JSZip === "undefined") return null;
+      const blob = await window.buildInventoryBackup();
+      if (!(blob instanceof Blob)) return null;
+      const buf = await blob.arrayBuffer();
+      const zip = await window.JSZip.loadAsync(buf);
+      const jsonFile = zip.file("inventory_data.json");
+      if (!jsonFile) return null;
+      const text = await jsonFile.async("string");
+      const data = JSON.parse(text);
+      const clone = data.inventory.find((i) => i.disposition && i.disposition.splitFromUuid);
+      return clone ? clone.disposition : null;
+    });
+
+    expect(cloneDisposition).not.toBeNull();
+    expect(cloneDisposition.splitFromUuid).toBe("strk44-base-item-uuid");
+    expect(cloneDisposition.amount).toBe(90);
+    expect(cloneDisposition.date).toBe("2026-05-01");
+    expect(cloneDisposition.recipient).toBe("Buyer");
+    expect(cloneDisposition.notes).toBe("ZIP test");
+    expect(typeof cloneDisposition.disposedAt).toBe("string");
+    expect(cloneDisposition.disposedAt.length).toBeGreaterThan(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // CSV round-trip — all new disposition fields
+  // ---------------------------------------------------------------------------
+
+  test("59. REQ-7.4 — CSV round-trip preserves all new disposition fields (recipient, notes, currency, disposedAt, splitFromUuid)", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+
+    await page.evaluate(async () => {
+      if (typeof window.splitInventoryItem === "function") {
+        await window.splitInventoryItem(0, 3, {
+          type: "Sold",
+          date: "2026-05-01",
+          amount: 90,
+          currency: "USD",
+          recipient: "CSV Buyer",
+          notes: "CSV round-trip notes",
+        });
+      }
+    });
+
+    const csvContent = await page.evaluate(() => {
+      if (typeof window.exportInventoryCSV === "function") {
+        return window.exportInventoryCSV();
+      }
+      return null;
+    });
+
+    expect(csvContent).not.toBeNull();
+
+    const imported = await page.evaluate(async (csv) => {
+      if (typeof window.parseAndImportCSV !== "function") return null;
+      const parsed = window.parseAndImportCSV(csv);
+      if (!parsed) return null;
+      return parsed.find((i) => i.disposition && i.disposition.splitFromUuid) ?? null;
+    }, csvContent);
+
+    expect(imported).not.toBeNull();
+    expect(imported.disposition.splitFromUuid).toBe("strk44-base-item-uuid");
+    expect(imported.disposition.date).toBe("2026-05-01");
+    expect(imported.disposition.amount).toBe(90);
+    expect(imported.disposition.recipient).toBe("CSV Buyer");
+    expect(imported.disposition.notes).toBe("CSV round-trip notes");
+    expect(imported.disposition.currency).toBe("USD");
+    expect(typeof imported.disposition.disposedAt).toBe("string");
+    expect(imported.disposition.disposedAt.length).toBeGreaterThan(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Qty input max attribute — UI spinner upper-bound (bug fix regression)
+  // ---------------------------------------------------------------------------
+
+  test("60. REQ-1.1 — Qty input max attribute clamped to stack qty when modal opens", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+
+    const maxAttr = await page.getAttribute("#removeItemQty", "max");
+    expect(maxAttr).toBe(String(BASE_ITEM.qty)); // "10"
+  });
 });
