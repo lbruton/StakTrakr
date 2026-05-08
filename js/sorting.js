@@ -20,7 +20,7 @@ const sortInventory = (data = inventory) => {
 
   // Pre-calculate sort values (Schwartzian transform) to avoid repeated computation
   // Map column index to data property — must match <th> order in index.html
-  // 0:Date 1:Metal 2:Type 3:Image 4:Name 5:Qty 6:Weight 7:Purchase 8:Melt 9:Retail 10:Gain/Loss 11:Source 12:Actions
+  // 0:Date 1:Metal 2:Type 3:Image 4:Name 5:Qty 6:Weight 7:Purchase 8:Melt 9:Retail 10:Gain/Loss 11:Source 12:Storage 13:Year 14:Actions
   // Virtual (no <th>): 99:Last Modified 100:Mintage 101:Rarity
   const mapped = data.map((item) => {
     let val;
@@ -92,6 +92,20 @@ const sortInventory = (data = inventory) => {
       case 11:
         val = item.purchaseLocation;
         break; // Source
+      case 12:
+        val = item.storageLocation || "—";
+        break; // Storage Location
+      case 13: {
+        // Year — numeric, missing/unknown → end
+        const yearStr = String(item.year || "").trim();
+        if (!item.year || yearStr === "" || yearStr === "—" || yearStr === "Unknown") {
+          val = Infinity;
+        } else {
+          const parsed = parseInt(yearStr, 10);
+          val = Number.isNaN(parsed) ? Infinity : parsed;
+        }
+        break;
+      }
       case SORT_COL_LAST_MODIFIED: {
         // Last Modified
         const lmStr = item.lastModified || "";
@@ -139,8 +153,8 @@ const sortInventory = (data = inventory) => {
       return sortDirection === "asc" ? valA - valB : valB - valA;
     }
 
-    // Mintage / Rarity: missing values bucket to the end regardless of direction
-    if (sortColumn === SORT_COL_MINTAGE || sortColumn === SORT_COL_RARITY) {
+    // Mintage / Rarity / Year: missing values bucket to the end regardless of direction
+    if (sortColumn === SORT_COL_MINTAGE || sortColumn === SORT_COL_RARITY || sortColumn === 13) {
       const aIsEmpty = valA === Infinity;
       const bIsEmpty = valB === Infinity;
       if (aIsEmpty && bIsEmpty) return 0;
