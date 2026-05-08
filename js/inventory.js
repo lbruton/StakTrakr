@@ -206,15 +206,22 @@ const tryPersistInventory = () => {
 
   try {
     localStorage.setItem(LS_KEY, __compressIfNeeded(JSON.stringify(inventory)));
-    localStorage.setItem("cloud_sync_local_modified", new Date().toISOString());
   } catch (e) {
     if (typeof debugLog === "function") {
-      debugLog("tryPersistInventory: write failed", e);
+      debugLog("tryPersistInventory: inventory write failed", e);
     }
     if (e && e.name === "QuotaExceededError" && typeof showToast === "function") {
       showToast("Storage is full — partial disposition was not saved.", "error");
     }
     return false;
+  }
+  // Timestamp is best-effort: failure here must NOT trigger caller rollback because inventory
+  // is already persisted. A stale timestamp causes sync to re-sync harmlessly on next change.
+  try {
+    localStorage.setItem("cloud_sync_local_modified", new Date().toISOString());
+  } catch (_) {
+    if (typeof debugLog === "function")
+      debugLog("tryPersistInventory: timestamp write skipped (quota)");
   }
 
   // STACK-62: Invalidate autocomplete cache so lookup table rebuilds with current inventory
@@ -609,6 +616,7 @@ window.startCellEdit = startCellEdit;
  * @param {boolean} [preDispose=false] - Pre-check the dispose checkbox
  */
 let _removeItemQtyPreviewHandler = null;
+let _confirmRemoveItemInFlight = false;
 
 const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
@@ -705,129 +713,142 @@ const disposeItem = (idx) => {
  * Reads checkbox state to decide between plain delete and disposition.
  */
 const confirmRemoveItem = async () => {
-  const idxInput = safeGetElement("removeItemIdx");
-  const idx = parseInt(idxInput?.value, 10);
-  if (isNaN(idx) || !inventory[idx]) return;
+  if (_confirmRemoveItemInFlight) return;
+  _confirmRemoveItemInFlight = true;
+  try {
+    const idxInput = safeGetElement("removeItemIdx");
+    const idx = parseInt(idxInput?.value, 10);
+    if (isNaN(idx) || !inventory[idx]) return;
 
-  const item = inventory[idx];
-  const checkbox = safeGetElement("removeItemDisposeCheck");
-  const isDispose = checkbox?.checked;
+    const item = inventory[idx];
+    const checkbox = safeGetElement("removeItemDisposeCheck");
+    const isDispose = checkbox?.checked;
 
-  if (isDispose) {
-    // Disposition flow — validate fields
-    const type = safeGetElement("dispositionType")?.value;
-    const date = safeGetElement("dispositionDate")?.value;
-    const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
-    const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
+    if (isDispose) {
+      // Disposition flow — validate fields
+      const type = safeGetElement("dispositionType")?.value;
+      const date = safeGetElement("dispositionDate")?.value;
+      const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
+      const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
 
-    if (!type || !DISPOSITION_TYPES[type]) {
-      showToast("Please select a disposition type.");
-      return;
-    }
-    if (!date) {
-      showToast("Please enter a disposition date.");
-      return;
-    }
+      if (!type || !DISPOSITION_TYPES[type]) {
+        showToast("Please select a disposition type.");
+        return;
+      }
+      if (!date) {
+        showToast("Please enter a disposition date.");
+        return;
+      }
 
-    // Determine disposed quantity
-    const qtyInputEl = safeGetElement("removeItemQty");
-    const qtyHidden = !qtyInputEl || qtyInputEl.closest(".form-group")?.style.display === "none";
-    let disposedQty;
-    if (qtyHidden || qtyInputEl.value === "") {
-      disposedQty = Number(item.qty) || 1;
-    } else {
-      disposedQty = parseInt(qtyInputEl.value, 10);
-    }
+      // Determine disposed quantity
+      const qtyInputEl = safeGetElement("removeItemQty");
+      const qtyHidden = !qtyInputEl || qtyInputEl.closest(".form-group")?.style.display === "none";
+      let disposedQty;
+      if (qtyHidden || qtyInputEl.value === "") {
+        disposedQty = Number(item.qty) || 1;
+      } else {
+        disposedQty = parseInt(qtyInputEl.value, 10);
+      }
 
-    if (!Number.isFinite(disposedQty) || disposedQty < 1 || disposedQty > (Number(item.qty) || 1)) {
-      showToast("Please enter a valid quantity to dispose.");
-      return;
-    }
+      if (
+        !Number.isFinite(disposedQty) ||
+        disposedQty < 1 ||
+        disposedQty > (Number(item.qty) || 1)
+      ) {
+        showToast("Please enter a valid quantity to dispose.");
+        return;
+      }
 
-    // Read amount — resolve lot/each
-    const amountMode = window.disposeAmountToggle?.getMode() ?? "each";
-    const rawAmount = parseFloat(safeGetElement("dispositionAmount")?.value ?? "");
-    let resolvedAmount;
-    if (!Number.isFinite(rawAmount)) {
-      resolvedAmount = undefined;
-    } else if (amountMode === "each") {
-      resolvedAmount = rawAmount * disposedQty;
-    } else {
-      resolvedAmount = rawAmount;
-    }
+      // Read amount — resolve lot/each
+      const amountMode = window.disposeAmountToggle?.getMode() ?? "each";
+      const rawAmount = parseFloat(safeGetElement("dispositionAmount")?.value ?? "");
+      let resolvedAmount;
+      if (!Number.isFinite(rawAmount)) {
+        resolvedAmount = undefined;
+      } else if (amountMode === "each") {
+        resolvedAmount = rawAmount * disposedQty;
+      } else {
+        resolvedAmount = rawAmount;
+      }
 
-    if (DISPOSITION_TYPES[type].requiresAmount && (resolvedAmount == null || resolvedAmount <= 0)) {
-      showToast("Please enter a sale/trade/refund amount.");
-      return;
-    }
+      if (
+        DISPOSITION_TYPES[type].requiresAmount &&
+        (resolvedAmount == null || resolvedAmount <= 0)
+      ) {
+        showToast("Please enter a sale/trade/refund amount.");
+        return;
+      }
 
-    // Partial-dispose path
-    if (disposedQty < (Number(item.qty) || 1)) {
-      const dispositionInput = {
+      // Partial-dispose path
+      if (disposedQty < (Number(item.qty) || 1)) {
+        const dispositionInput = {
+          type,
+          date,
+          amount: resolvedAmount,
+          currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+          recipient,
+          notes,
+        };
+        const result = await splitInventoryItem(idx, disposedQty, dispositionInput);
+        if (!result.ok) {
+          showToast(`Could not split stack: ${result.error}`);
+          return;
+        }
+        renderTable();
+        if (typeof renderChangeLog === "function") renderChangeLog();
+        closeModalById("removeItemModal");
+        renderActiveFilters();
+        updateSummary();
+        return;
+      }
+
+      // Full-stack path (unchanged)
+      const amount = resolvedAmount ?? 0;
+      const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
+      const realizedGainLoss = amount - purchaseTotal;
+
+      const disposition = {
         type,
         date,
-        amount: resolvedAmount,
+        amount,
         currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
         recipient,
         notes,
+        realizedGainLoss,
+        disposedAt: new Date().toISOString(),
       };
-      const result = await splitInventoryItem(idx, disposedQty, dispositionInput);
-      if (!result.ok) {
-        showToast(`Could not split stack: ${result.error}`);
-        return;
-      }
-      renderTable();
-      if (typeof renderChangeLog === "function") renderChangeLog();
+
+      inventory[idx].disposition = disposition;
+      saveInventory();
       closeModalById("removeItemModal");
-      renderActiveFilters();
-      updateSummary();
-      return;
+      logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
+      showToast(`${item.name} marked as ${DISPOSITION_TYPES[type].label.toLowerCase()}.`);
+    } else {
+      // Plain delete flow
+      inventory.splice(idx, 1);
+      saveInventory();
+      closeModalById("removeItemModal");
+      logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
+
+      // Clean up user images from IndexedDB (STAK-120)
+      if (item?.uuid && window.imageCache?.isAvailable()) {
+        window.imageCache.deleteUserImage(item.uuid).catch((err) => {
+          debugLog(`Failed to delete user images for deleted item: ${err}`);
+        });
+      }
+
+      // Clean up item tags (STAK-126)
+      if (item?.uuid && typeof deleteItemTags === "function") {
+        deleteItemTags(item.uuid);
+      }
     }
 
-    // Full-stack path (unchanged)
-    const amount = resolvedAmount ?? 0;
-    const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
-    const realizedGainLoss = amount - purchaseTotal;
-
-    const disposition = {
-      type,
-      date,
-      amount,
-      currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
-      recipient,
-      notes,
-      realizedGainLoss,
-      disposedAt: new Date().toISOString(),
-    };
-
-    inventory[idx].disposition = disposition;
-    saveInventory();
-    closeModalById("removeItemModal");
-    logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
-    showToast(`${item.name} marked as ${DISPOSITION_TYPES[type].label.toLowerCase()}.`);
-  } else {
-    // Plain delete flow
-    inventory.splice(idx, 1);
-    saveInventory();
-    closeModalById("removeItemModal");
-    logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
-
-    // Clean up user images from IndexedDB (STAK-120)
-    if (item?.uuid && window.imageCache?.isAvailable()) {
-      window.imageCache.deleteUserImage(item.uuid).catch((err) => {
-        debugLog(`Failed to delete user images for deleted item: ${err}`);
-      });
-    }
-
-    // Clean up item tags (STAK-126)
-    if (item?.uuid && typeof deleteItemTags === "function") {
-      deleteItemTags(item.uuid);
-    }
+    renderTable();
+    renderActiveFilters();
+    updateSummary();
+  } finally {
+    _confirmRemoveItemInFlight = false;
   }
-
-  renderTable();
-  renderActiveFilters();
-  updateSummary();
 };
 
 /**

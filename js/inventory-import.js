@@ -381,8 +381,15 @@
             if (dispositionType) {
               const _parsedAmount = parseFloat(dispositionAmount);
               const _parsedGainLoss = parseFloat(dispositionRealizedGainLoss);
+              // Normalize display labels ("Sold") → internal keys ("sold") for round-trip
+              const dispositionTypeKey =
+                typeof DISPOSITION_TYPES !== "undefined"
+                  ? (Object.keys(DISPOSITION_TYPES).find(
+                      (k) => DISPOSITION_TYPES[k].label === dispositionType
+                    ) ?? dispositionType.toLowerCase())
+                  : dispositionType.toLowerCase();
               disposition = {
-                type: dispositionType,
+                type: dispositionTypeKey,
                 date: dispositionDate || undefined,
                 amount:
                   dispositionAmount !== "" && Number.isFinite(_parsedAmount)
