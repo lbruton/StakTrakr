@@ -1036,6 +1036,63 @@ async function loadViewImages(item, container) {
   return { loaded: validObv || validRev, source: validObv || validRev ? "cdn" : null };
 }
 
+const MEANINGFUL_FALSY_KEYS = new Set(["commemorative", "rarityIndex"]);
+const NON_RENDERING_NUMISTA_KEYS = new Set(["source", "updatedAt", "fieldMeta"]);
+
+function _hasMeaningfulNumistaValue(key, value) {
+  if (NON_RENDERING_NUMISTA_KEYS.has(key)) return false;
+  if (value === "" || value === null || value === undefined) {
+    return MEANINGFUL_FALSY_KEYS.has(key);
+  }
+  return true;
+}
+
+/**
+ * Detect whether item-level Numista data can render without cache/API metadata.
+ * @param {Object|null|undefined} itemData
+ * @returns {boolean}
+ */
+function hasMeaningfulItemData(itemData) {
+  if (!itemData || typeof itemData !== "object") return false;
+  return Object.entries(itemData).some(([key, value]) => _hasMeaningfulNumistaValue(key, value));
+}
+
+/**
+ * Merge item-level Numista edits over cache/API metadata.
+ *
+ * Import/clone paths can carry raw numistaData that did not pass through
+ * parseNumistaDataFields, so strip empty item values here before they can hide
+ * valid cache fallbacks. If future save logic preserves intentional blanks,
+ * update this helper in lockstep. Falsy exemptions: commemorative false is an
+ * explicit user choice, and rarityIndex 0 is a valid score even though it does
+ * not render in the current rarity bar.
+ *
+ * @param {Object|null|undefined} itemData
+ * @param {Object|null|undefined} cacheMeta
+ * @returns {Object}
+ */
+function mergeNumistaSources(itemData, cacheMeta) {
+  const sanitizedItemData = {};
+  if (itemData && typeof itemData === "object") {
+    Object.entries(itemData).forEach(([key, value]) => {
+      if (_hasMeaningfulNumistaValue(key, value)) {
+        sanitizedItemData[key] = value;
+      }
+    });
+  }
+
+  return { ...(cacheMeta || {}), ...sanitizedItemData };
+}
+
+function _formatKmReference(ref) {
+  if (typeof ref === "string") return ref;
+  if (!ref || typeof ref !== "object") return "";
+  if (ref.catalogue && ref.number) return `${ref.catalogue}#${ref.number}`;
+  if (ref.catalogue) return ref.catalogue;
+  if (ref.number) return String(ref.number);
+  return "";
+}
+
 /**
  * Load Numista metadata from IndexedDB cache or pre-fetched API result, render enrichment section.
  * @param {Object} item
@@ -1071,15 +1128,16 @@ async function loadViewNumistaData(item, container, apiResult) {
     }
   }
 
-  if (!meta) return;
+  if (!meta && !hasMeaningfulItemData(item.numistaData)) return;
+  const merged = mergeNumistaSources(item.numistaData, meta);
 
   // Load user's field visibility config
   const cfg = typeof getNumistaViewFieldConfig === "function" ? getNumistaViewFieldConfig() : {};
 
   // Update image frame shape based on Numista data if not already rectangular
-  if (meta.shape) {
+  if (merged.shape) {
     const imgSection = container.querySelector("#viewImageSection");
-    const shapeStr = meta.shape.toLowerCase();
+    const shapeStr = merged.shape.toLowerCase();
     const isNonRound = shapeStr !== "round" && shapeStr !== "circular";
     if (isNonRound && imgSection && !imgSection.classList.contains("view-shape-rect")) {
       imgSection.classList.add("view-shape-rect");
@@ -1092,90 +1150,102 @@ async function loadViewNumistaData(item, container, apiResult) {
 
   const grid = _el("div", "view-detail-grid");
 
-  if (cfg.denomination !== false && meta.denomination)
-    _addDetail(grid, "Denomination", meta.denomination);
-  if (cfg.shape !== false && meta.shape) _addDetail(grid, "Shape", meta.shape);
+  if (cfg.denomination !== false && merged.denomination)
+    _addDetail(grid, "Denomination", merged.denomination);
+  if (cfg.shape !== false && merged.shape) _addDetail(grid, "Shape", merged.shape);
   if (cfg.diameter !== false) {
-    if (meta.length && meta.width) {
+    if (merged.length && merged.width) {
       // Both dimensions available — composite "L × W" or "L × W × T"
       const dims =
-        cfg.thickness !== false && meta.thickness
-          ? `${meta.length} \u00D7 ${meta.width} \u00D7 ${meta.thickness} mm`
-          : `${meta.length} \u00D7 ${meta.width} mm`;
+        cfg.thickness !== false && merged.thickness
+          ? `${merged.length} \u00D7 ${merged.width} \u00D7 ${merged.thickness} mm`
+          : `${merged.length} \u00D7 ${merged.width} mm`;
       _addDetail(grid, "Dimensions", dims);
-    } else if (meta.length) {
+    } else if (merged.length) {
       // Only length (width=0) — show what we have
-      _addDetail(grid, "Dimensions", `${meta.length} mm`);
-      if (cfg.thickness !== false && meta.thickness) {
-        _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+      _addDetail(grid, "Dimensions", `${merged.length} mm`);
+      if (cfg.thickness !== false && merged.thickness) {
+        _addDetail(grid, "Thickness", `${merged.thickness} mm`);
       }
-    } else if (meta.diameter) {
-      _addDetail(grid, "Diameter", `${meta.diameter} mm`);
-      if (cfg.thickness !== false && meta.thickness) {
-        _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+    } else if (merged.diameter) {
+      _addDetail(grid, "Diameter", `${merged.diameter} mm`);
+      if (cfg.thickness !== false && merged.thickness) {
+        _addDetail(grid, "Thickness", `${merged.thickness} mm`);
       }
     }
   }
   // Standalone thickness for items with only thickness (no other dimensions)
-  if (cfg.thickness !== false && meta.thickness && !meta.diameter && !meta.length) {
-    _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+  if (cfg.thickness !== false && merged.thickness && !merged.diameter && !merged.length) {
+    _addDetail(grid, "Thickness", `${merged.thickness} mm`);
   }
-  if (cfg.orientation !== false && meta.orientation)
-    _addDetail(grid, "Orientation", meta.orientation);
-  if (cfg.composition !== false && meta.composition)
-    _addDetail(grid, "Composition", meta.composition);
-  if (cfg.country !== false && meta.country) _addDetail(grid, "Country", meta.country);
-  if (cfg.technique !== false && meta.technique) _addDetail(grid, "Technique", meta.technique);
+  if (cfg.orientation !== false && merged.orientation)
+    _addDetail(grid, "Orientation", merged.orientation);
+  if (cfg.composition !== false && merged.composition)
+    _addDetail(grid, "Composition", merged.composition);
+  if (cfg.country !== false && merged.country) _addDetail(grid, "Country", merged.country);
+  if (cfg.technique !== false && merged.technique) _addDetail(grid, "Technique", merged.technique);
 
-  if (cfg.references !== false && meta.kmReferences && meta.kmReferences.length > 0) {
-    _addDetail(grid, "References", meta.kmReferences.join(", "));
+  if (cfg.references !== false) {
+    if (merged.kmRef) {
+      _addDetail(grid, "KM Reference", merged.kmRef);
+    } else if (merged.kmReferences && merged.kmReferences.length > 0) {
+      const references = merged.kmReferences.map(_formatKmReference).filter(Boolean).join(", ");
+      if (references) _addDetail(grid, "References", references);
+    }
   }
 
   section.appendChild(grid);
 
+  // Obverse/reverse descriptions on full-width lines; image tooltips below stay additive.
+  if (cfg.obverse !== false && merged.obverseDesc) {
+    const obvGrid = _el("div", "view-detail-grid");
+    const obvItem = _detailItem("Obverse", merged.obverseDesc);
+    obvItem.classList.add("full-width");
+    obvGrid.appendChild(obvItem);
+    section.appendChild(obvGrid);
+  }
+  if (cfg.reverse !== false && merged.reverseDesc) {
+    const revGrid = _el("div", "view-detail-grid");
+    const revItem = _detailItem("Reverse", merged.reverseDesc);
+    revItem.classList.add("full-width");
+    revGrid.appendChild(revItem);
+    section.appendChild(revGrid);
+  }
+
   // Edge description on its own full-width line (can be long)
-  if (cfg.edge !== false && meta.edgeDesc) {
+  if (cfg.edge !== false && merged.edgeDesc) {
     const edgeGrid = _el("div", "view-detail-grid");
-    const edgeItem = _detailItem("Edge", meta.edgeDesc);
+    const edgeItem = _detailItem("Edge", merged.edgeDesc);
     edgeItem.classList.add("full-width");
     edgeGrid.appendChild(edgeItem);
     section.appendChild(edgeGrid);
   }
 
   // Set obverse/reverse descriptions as tooltips on the image slots
-  if (cfg.imageTooltips !== false && (meta.obverseDesc || meta.reverseDesc)) {
+  if (cfg.imageTooltips !== false && (merged.obverseDesc || merged.reverseDesc)) {
     const imgSection = container.querySelector("#viewImageSection");
     if (imgSection) {
       const slots = imgSection.querySelectorAll(".view-image-slot");
-      if (meta.obverseDesc && slots[0]) {
-        slots[0].title = `Obverse: ${meta.obverseDesc}`;
+      if (merged.obverseDesc && slots[0]) {
+        slots[0].title = `Obverse: ${merged.obverseDesc}`;
       }
-      if (meta.reverseDesc && slots[1]) {
-        slots[1].title = `Reverse: ${meta.reverseDesc}`;
+      if (merged.reverseDesc && slots[1]) {
+        slots[1].title = `Reverse: ${merged.reverseDesc}`;
       }
     }
   }
 
-  // Tags
-  if (cfg.tags !== false && meta.tags && meta.tags.length > 0) {
-    const tagGrid = _el("div", "view-detail-grid");
-    const tagItem = _detailItem("Tags", meta.tags.join(", "));
-    tagItem.classList.add("full-width");
-    tagGrid.appendChild(tagItem);
-    section.appendChild(tagGrid);
-  }
-
   // Commemorative
-  if (cfg.commemorative !== false && meta.commemorative && meta.commemorativeDesc) {
+  if (cfg.commemorative !== false && merged.commemorative && merged.commemorativeDesc) {
     const commGrid = _el("div", "view-detail-grid");
-    const commItem = _detailItem("Commemorative", meta.commemorativeDesc);
+    const commItem = _detailItem("Commemorative", merged.commemorativeDesc);
     commItem.classList.add("full-width");
     commGrid.appendChild(commItem);
     section.appendChild(commGrid);
   }
 
   // Rarity index
-  if (cfg.rarity !== false && meta.rarityIndex > 0) {
+  if (cfg.rarity !== false && merged.rarityIndex > 0) {
     const rarityRow = _el("div", "view-detail-item");
 
     const lbl = _el("span", "view-detail-label");
@@ -1186,20 +1256,20 @@ async function loadViewNumistaData(item, container, apiResult) {
 
     const track = _el("div", "view-rarity-track");
     const fill = _el("div", "view-rarity-fill");
-    fill.style.width = `${Math.min(meta.rarityIndex, 100)}%`;
+    fill.style.width = `${Math.min(merged.rarityIndex, 100)}%`;
     track.appendChild(fill);
     bar.appendChild(track);
 
     const score = _el("span", "view-rarity-score");
-    score.textContent = String(meta.rarityIndex);
+    score.textContent = String(merged.rarityIndex);
     bar.appendChild(score);
 
     rarityRow.appendChild(bar);
     section.appendChild(rarityRow);
   }
 
-  // Mintage by year (show first few)
-  if (cfg.mintage !== false && meta.mintageByYear && meta.mintageByYear.length > 0) {
+  // Mintage: prefer item-level flat value, then cache/API per-year data.
+  if (cfg.mintage !== false && (merged.mintage || merged.mintageByYear?.length > 0)) {
     const mintGrid = _el("div", "view-detail-grid");
     const mintItem = _el("div", "view-detail-item full-width");
     const mintLabel = _el("span", "view-detail-label");
@@ -1207,14 +1277,18 @@ async function loadViewNumistaData(item, container, apiResult) {
     mintItem.appendChild(mintLabel);
 
     const mintVal = _el("span", "view-detail-value");
-    const entries = meta.mintageByYear.slice(0, 5);
-    mintVal.textContent = entries
-      .map((e) => {
-        const m = typeof e.mintage === "number" ? e.mintage.toLocaleString() : e.mintage;
-        return `${e.year}: ${m}${e.remark ? ` (${e.remark})` : ""}`;
-      })
-      .join(" | ");
-    if (meta.mintageByYear.length > 5) mintVal.textContent += " ...";
+    if (merged.mintage) {
+      mintVal.textContent = String(merged.mintage);
+    } else {
+      const entries = merged.mintageByYear.slice(0, 5);
+      mintVal.textContent = entries
+        .map((e) => {
+          const m = typeof e.mintage === "number" ? e.mintage.toLocaleString() : e.mintage;
+          return `${e.year}: ${m}${e.remark ? ` (${e.remark})` : ""}`;
+        })
+        .join(" | ");
+      if (merged.mintageByYear.length > 5) mintVal.textContent += " ...";
+    }
     mintItem.appendChild(mintVal);
     mintGrid.appendChild(mintItem);
     section.appendChild(mintGrid);
