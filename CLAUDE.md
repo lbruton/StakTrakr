@@ -122,6 +122,18 @@ Always read catalog keys via `catalogConfig.getNumistaConfig()` / `getPcgsConfig
 
 The `check-release-sync` hook validates `constants.js` ↔ `package.json` ↔ `package-lock.json` ↔ `version.json` ↔ `CHANGELOG.md` are in sync. It does **NOT** check `js/about.js` What's New, `manifest.json`, README badges, or `sw.js` cache version. **Passing the hook is necessary but not sufficient** — `/release` is the only path that touches all release-bearing files. A green hook on a hand-rolled version bump means nothing.
 
+### Script load order — `safeGetElement` unavailable in `events.js` top-level
+
+`init.js` (defines `safeGetElement`) loads AFTER `events.js` (both `defer`). Top-level code in `events.js` that calls `safeGetElement` throws a silent ReferenceError. Use `document.getElementById` for event wiring that runs at parse time. The factory closures (e.g., `createLotEachToggle`) are fine — they call `safeGetElement` at runtime, after all scripts have loaded.
+
+### Playwright dialog testing — `showAppConfirm` is NOT `window.confirm`
+
+`showAppConfirm` (js/dialogs.js) is a custom DOM modal (`#appDialogModal`), not native `window.confirm`. `page.on("dialog", ...)` does NOT intercept it. Tests must: (1) fire-and-forget the async function via `page.evaluate`, (2) `waitForSelector("#appDialogModal", { state: "visible" })`, (3) click `#appDialogOk` or `#appDialogCancel`. Same for `showAppAlert` and `showAppPrompt`.
+
+### `state.js` variable exposure — `let` needs `Object.defineProperty`
+
+Variables declared with `let` in `state.js` are NOT on `window`. `inventory` and `changeLog` have explicit `Object.defineProperty` getter/setters. Any new state variable that tests or other modules need via `window.X` must follow the same pattern.
+
 ### Pre-PR scan gotchas
 
 - **Codacy CLI fresh-worktree fallthrough** — in a fresh worktree before any commits, `git diff $BASE...HEAD` is empty; `codacy-cli` falls back to whole-repo scan and surfaces hundreds of pre-existing browser-global `no-undef` findings (the project uses script-tag globals the auto-config doesn't recognize). Commit at least once before scanning, or scan only changed files explicitly. **Verify findings on changed lines only**; pre-existing `no-undef` is noise.
