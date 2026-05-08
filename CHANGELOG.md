@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.47] - 2026-05-07
+
+### Changed — STRK-44: Partial-stack disposition
+
+- **Feature**: Dispose fewer than the full stack quantity in one action — a Quantity field appears on the disposition modal when qty > 1, pre-filled with the full stack. An inline preview shows remaining units. A Lot/Each toggle on the Amount field mirrors the purchase-price toggle pattern. The original record is decremented in place and a disposed clone is created adjacent, carrying all metadata (notes, tags, images, location, numismatic fields). The Activity Log records two correlated entries with a shared transaction marker that undo atomically via a cascade-undo prompt. Restoring a split-clone offers a Merge-or-Separate choice (STRK-44).
+
+---
+
 ## [3.34.46] - 2026-05-05
 
 ### Changed — STRK-18: Vault settings parse helper

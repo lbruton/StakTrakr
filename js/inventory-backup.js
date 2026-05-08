@@ -55,6 +55,7 @@
           reverseImageUrl: item.reverseImageUrl || "",
           obverseSharedImageId: item.obverseSharedImageId || null,
           reverseSharedImageId: item.reverseSharedImageId || null,
+          disposition: item.disposition || null,
         })),
       };
       zip.file("inventory_data.json", JSON.stringify(inventoryData, null, 2));
@@ -323,6 +324,7 @@
       }
 
       appAlert("Backup created successfully!");
+      return zipBlob;
     } catch (error) {
       debugWarn("Backup creation failed:", error);
       appAlert("Backup creation failed: " + error.message);
@@ -333,6 +335,7 @@
         backupBtn.textContent = "Export ZIP";
         backupBtn.disabled = false;
       }
+      return null;
     }
   };
 

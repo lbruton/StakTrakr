@@ -34,6 +34,13 @@ const clearInventoryRecovery = () => {
 window.setInventoryRecoveryActive = setInventoryRecoveryActive;
 window.isInventoryRecoveryActive = isInventoryRecoveryActive;
 window.clearInventoryRecovery = clearInventoryRecovery;
+Object.defineProperty(window, "inventoryRecoveryActive", {
+  get: () => inventoryRecoveryActive,
+  set: (val) => {
+    inventoryRecoveryActive = !!val;
+  },
+  configurable: true,
+});
 
 /**
  * STRK-13: Show the sticky inventory recovery banner above the inventory
@@ -181,6 +188,57 @@ const saveInventory = async () => {
   // STAK-149: Trigger debounced cloud auto-sync push (no-op if sync disabled or not connected)
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 };
+
+/**
+ * Synchronous, success-detecting equivalent of saveInventory() for the
+ * partial-disposition two-phase commit path. Returns true on full success,
+ * false on any failure (including recovery mode active). Never throws.
+ * STRK-44: REQ-7.1 cloud propagation depends on this calling scheduleSyncPush.
+ */
+const tryPersistInventory = () => {
+  // STRK-13: Suppress writes during recovery mode
+  if (inventoryRecoveryActive) {
+    if (typeof debugLog === "function") {
+      debugLog(
+        "tryPersistInventory: suppressed (recovery mode active — explicit user action required)"
+      );
+    }
+    return false;
+  }
+
+  // Invalidate cached index map as inventory has likely changed
+  invalidateItemIndexMap();
+
+  migrateLegacySilverbackWeightUnit(inventory);
+
+  try {
+    localStorage.setItem(LS_KEY, __compressIfNeeded(JSON.stringify(inventory)));
+  } catch (e) {
+    if (typeof debugLog === "function") {
+      debugLog("tryPersistInventory: inventory write failed", e);
+    }
+    if (e && e.name === "QuotaExceededError" && typeof showToast === "function") {
+      showToast("Storage is full — partial disposition was not saved.", "error");
+    }
+    return false;
+  }
+  // Timestamp is best-effort: failure here must NOT trigger caller rollback because inventory
+  // is already persisted. A stale timestamp causes sync to re-sync harmlessly on next change.
+  try {
+    localStorage.setItem("cloud_sync_local_modified", new Date().toISOString());
+  } catch (_) {
+    if (typeof debugLog === "function")
+      debugLog("tryPersistInventory: timestamp write skipped (quota)");
+  }
+
+  // STACK-62: Invalidate autocomplete cache so lookup table rebuilds with current inventory
+  if (typeof clearLookupCache === "function") clearLookupCache();
+  // STAK-149: Trigger debounced cloud auto-sync push (no-op if sync disabled or not connected)
+  if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+
+  return true;
+};
+window.tryPersistInventory = tryPersistInventory;
 
 /**
  * Removes non-alphanumeric characters from inventory records.
@@ -564,6 +622,9 @@ window.startCellEdit = startCellEdit;
  * @param {number} idx - Index of item to remove
  * @param {boolean} [preDispose=false] - Pre-check the dispose checkbox
  */
+let _removeItemQtyPreviewHandler = null;
+let _confirmRemoveItemInFlight = false;
+
 const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
   if (!item) return;
@@ -593,6 +654,51 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const amountGroup = safeGetElement("dispositionAmountGroup");
   if (amountGroup) amountGroup.style.display = "";
 
+  // Reset partial-dispose fields
+  const qtyInput = safeGetElement("removeItemQty");
+  const previewEl = safeGetElement("removeItemDisposePreview");
+  const qtyGroup = qtyInput?.closest(".form-group");
+  if (qtyInput) qtyInput.value = "";
+  if (previewEl) {
+    previewEl.textContent = "";
+    previewEl.style.display = "none";
+  }
+
+  const stackQty = Number(item.qty) || 1;
+
+  if (stackQty > 1) {
+    if (qtyGroup) qtyGroup.style.display = "";
+    if (qtyInput) {
+      qtyInput.value = stackQty;
+      qtyInput.max = stackQty;
+    }
+  } else {
+    if (qtyGroup) qtyGroup.style.display = "none";
+  }
+
+  window.disposeAmountToggle?.setMode("each", { convertInput: false });
+  window.disposeAmountToggle?.updateVisibility();
+
+  // Wire live preview — remove any prior listener first
+  if (qtyInput) {
+    if (_removeItemQtyPreviewHandler) {
+      qtyInput.removeEventListener("input", _removeItemQtyPreviewHandler);
+    }
+    _removeItemQtyPreviewHandler = () => {
+      const entered = parseInt(qtyInput.value, 10);
+      if (!previewEl) return;
+      if (!Number.isFinite(entered) || entered < 1 || entered >= stackQty) {
+        previewEl.style.display = "none";
+        previewEl.textContent = "";
+      } else {
+        const remaining = stackQty - entered;
+        previewEl.textContent = `Disposing ${entered} of ${stackQty} — ${remaining} will remain in active inventory`;
+        previewEl.style.display = "";
+      }
+    };
+    qtyInput.addEventListener("input", _removeItemQtyPreviewHandler);
+  }
+
   // Set checkbox state and toggle fields/buttons
   if (checkbox) checkbox.checked = preDispose;
   if (fieldsWrap) fieldsWrap.style.display = preDispose ? "" : "none";
@@ -616,78 +722,147 @@ const disposeItem = (idx) => {
  * Confirms removal from the combined Remove Item modal (STAK-72).
  * Reads checkbox state to decide between plain delete and disposition.
  */
-const confirmRemoveItem = () => {
-  const idxInput = safeGetElement("removeItemIdx");
-  const idx = parseInt(idxInput?.value, 10);
-  if (isNaN(idx) || !inventory[idx]) return;
+const confirmRemoveItem = async () => {
+  if (_confirmRemoveItemInFlight) return;
+  _confirmRemoveItemInFlight = true;
+  try {
+    const idxInput = safeGetElement("removeItemIdx");
+    const idx = parseInt(idxInput?.value, 10);
+    if (isNaN(idx) || !inventory[idx]) return;
 
-  const item = inventory[idx];
-  const checkbox = safeGetElement("removeItemDisposeCheck");
-  const isDispose = checkbox?.checked;
+    const item = inventory[idx];
+    const checkbox = safeGetElement("removeItemDisposeCheck");
+    const isDispose = checkbox?.checked;
 
-  if (isDispose) {
-    // Disposition flow — validate fields
-    const type = safeGetElement("dispositionType")?.value;
-    const date = safeGetElement("dispositionDate")?.value;
-    const amount = parseFloat(safeGetElement("dispositionAmount")?.value) || 0;
-    const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
-    const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
+    if (isDispose) {
+      // Disposition flow — validate fields
+      const type = safeGetElement("dispositionType")?.value;
+      const date = safeGetElement("dispositionDate")?.value;
+      const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
+      const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
 
-    if (!type || !DISPOSITION_TYPES[type]) {
-      showToast("Please select a disposition type.");
-      return;
+      if (!type || !DISPOSITION_TYPES[type]) {
+        showToast("Please select a disposition type.");
+        return;
+      }
+      if (!date) {
+        showToast("Please enter a disposition date.");
+        return;
+      }
+
+      // Determine disposed quantity
+      const qtyInputEl = safeGetElement("removeItemQty");
+      const qtyHidden = !qtyInputEl || qtyInputEl.closest(".form-group")?.style.display === "none";
+      let disposedQty;
+      if (qtyHidden || qtyInputEl.value === "") {
+        disposedQty = Number(item.qty) || 1;
+      } else {
+        disposedQty = Number(qtyInputEl.value);
+        if (!Number.isInteger(disposedQty)) {
+          showToast("Please enter a whole number quantity to dispose.");
+          return;
+        }
+      }
+
+      if (
+        !Number.isFinite(disposedQty) ||
+        disposedQty < 1 ||
+        disposedQty > (Number(item.qty) || 1)
+      ) {
+        showToast("Please enter a valid quantity to dispose.");
+        return;
+      }
+
+      // Read amount — resolve lot/each
+      const amountMode = window.disposeAmountToggle?.getMode() ?? "each";
+      const rawAmount = parseFloat(safeGetElement("dispositionAmount")?.value ?? "");
+      let resolvedAmount;
+      if (!Number.isFinite(rawAmount)) {
+        resolvedAmount = undefined;
+      } else if (amountMode === "each") {
+        resolvedAmount = rawAmount * disposedQty;
+      } else {
+        resolvedAmount = rawAmount;
+      }
+
+      if (
+        DISPOSITION_TYPES[type].requiresAmount &&
+        (resolvedAmount == null || resolvedAmount <= 0)
+      ) {
+        showToast("Please enter a sale/trade/refund amount.");
+        return;
+      }
+
+      // Partial-dispose path
+      if (disposedQty < (Number(item.qty) || 1)) {
+        const dispositionInput = {
+          type,
+          date,
+          amount: resolvedAmount,
+          currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+          recipient,
+          notes,
+        };
+        const result = await splitInventoryItem(idx, disposedQty, dispositionInput);
+        if (!result.ok) {
+          showToast(`Could not split stack: ${result.error}`);
+          return;
+        }
+        renderTable();
+        if (typeof renderChangeLog === "function") renderChangeLog();
+        closeModalById("removeItemModal");
+        renderActiveFilters();
+        updateSummary();
+        return;
+      }
+
+      // Full-stack path (unchanged)
+      const amount = resolvedAmount ?? 0;
+      const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
+      const realizedGainLoss = amount - purchaseTotal;
+
+      const disposition = {
+        type,
+        date,
+        amount,
+        currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+        recipient,
+        notes,
+        realizedGainLoss,
+        disposedAt: new Date().toISOString(),
+      };
+
+      inventory[idx].disposition = disposition;
+      saveInventory();
+      closeModalById("removeItemModal");
+      logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
+      showToast(`${item.name} marked as ${DISPOSITION_TYPES[type].label.toLowerCase()}.`);
+    } else {
+      // Plain delete flow
+      inventory.splice(idx, 1);
+      saveInventory();
+      closeModalById("removeItemModal");
+      logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
+
+      // Clean up user images from IndexedDB (STAK-120)
+      if (item?.uuid && window.imageCache?.isAvailable()) {
+        window.imageCache.deleteUserImage(item.uuid).catch((err) => {
+          debugLog(`Failed to delete user images for deleted item: ${err}`);
+        });
+      }
+
+      // Clean up item tags (STAK-126)
+      if (item?.uuid && typeof deleteItemTags === "function") {
+        deleteItemTags(item.uuid);
+      }
     }
-    if (DISPOSITION_TYPES[type].requiresAmount && amount <= 0) {
-      showToast("Please enter a sale/trade/refund amount.");
-      return;
-    }
-    if (!date) {
-      showToast("Please enter a disposition date.");
-      return;
-    }
 
-    const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
-    const realizedGainLoss = amount - purchaseTotal;
-
-    const disposition = {
-      type,
-      date,
-      amount,
-      currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
-      recipient,
-      notes,
-      realizedGainLoss,
-      disposedAt: new Date().toISOString(),
-    };
-
-    inventory[idx].disposition = disposition;
-    saveInventory();
-    closeModalById("removeItemModal");
-    logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
-    showToast(`${item.name} marked as ${DISPOSITION_TYPES[type].label.toLowerCase()}.`);
-  } else {
-    // Plain delete flow
-    inventory.splice(idx, 1);
-    saveInventory();
-    closeModalById("removeItemModal");
-    logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
-
-    // Clean up user images from IndexedDB (STAK-120)
-    if (item?.uuid && window.imageCache?.isAvailable()) {
-      window.imageCache.deleteUserImage(item.uuid).catch((err) => {
-        debugLog(`Failed to delete user images for deleted item: ${err}`);
-      });
-    }
-
-    // Clean up item tags (STAK-126)
-    if (item?.uuid && typeof deleteItemTags === "function") {
-      deleteItemTags(item.uuid);
-    }
+    renderTable();
+    renderActiveFilters();
+    updateSummary();
+  } finally {
+    _confirmRemoveItemInFlight = false;
   }
-
-  renderTable();
-  renderActiveFilters();
-  updateSummary();
 };
 
 /**
@@ -696,13 +871,14 @@ const confirmRemoveItem = () => {
  *
  * @param {number} idx - Index of item to restore
  */
-const undoDisposition = async (idx) => {
+const restoreInPlace = async (idx, { skipConfirm = false } = {}) => {
   const item = inventory[idx];
   if (!item || !isDisposed(item)) return;
   const confirmed =
-    typeof showAppConfirm === "function"
+    skipConfirm ||
+    (typeof showAppConfirm === "function"
       ? await showAppConfirm(`Restore "${item.name}" to active inventory?`, "Undo Disposition")
-      : false;
+      : false);
   if (confirmed) {
     const oldDisposition = JSON.stringify(item.disposition);
     inventory[idx].disposition = null;
@@ -714,6 +890,231 @@ const undoDisposition = async (idx) => {
     updateSummary();
   }
 };
+
+const undoDisposition = async (idx) => {
+  const item = inventory[idx];
+  if (!item || !isDisposed(item)) return;
+  const splitFromUuid = item.disposition?.splitFromUuid;
+  if (!splitFromUuid) return restoreInPlace(idx);
+  const originalIdx = inventory.findIndex((i) => i.uuid === splitFromUuid);
+  if (originalIdx === -1 || isDisposed(inventory[originalIdx])) {
+    showToast("Original record no longer present; restored as separate row.");
+    return restoreInPlace(idx);
+  }
+  const mergedQty = inventory[originalIdx].qty + item.qty;
+  const choice = await window.showRestoreChoice({
+    clone: item,
+    original: inventory[originalIdx],
+    mergedQty,
+  });
+  if (choice === "cancel") return;
+  if (choice === "separate") return restoreInPlace(idx, { skipConfirm: true });
+
+  // Merge two-phase commit
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
+
+  const cloneQty = item.qty;
+  const cloneName = item.name;
+  const cloneUuid = item.uuid;
+  inventory[originalIdx].qty += cloneQty;
+  const mergeAdjustedOriginalIdx = idx < originalIdx ? originalIdx - 1 : originalIdx;
+  inventory.splice(idx, 1);
+
+  changeLog.push({
+    timestamp: Date.now(),
+    itemName: cloneName,
+    field: "Restored (merged)",
+    oldValue: { fromUuid: cloneUuid, qty: cloneQty },
+    newValue: {
+      intoUuid: inventory[mergeAdjustedOriginalIdx].uuid,
+      mergedQty: inventory[mergeAdjustedOriginalIdx].qty,
+    },
+    idx: mergeAdjustedOriginalIdx,
+    undone: false,
+  });
+
+  if (!tryPersistInventory()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    showToast("Couldn't merge — storage failed. Try again.", "error");
+    return;
+  }
+
+  if (!tryPersistChangeLog()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      showToast("Critical: storage failure left state inconsistent. Reload to recover.", "error");
+      return;
+    }
+    showToast("Couldn't save audit log — merge was reverted.", "error");
+    return;
+  }
+
+  try {
+    if (window.imageCache && typeof window.imageCache.deleteUserImage === "function") {
+      window.imageCache.deleteUserImage(cloneUuid).catch(() => {});
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("undoDisposition merge: image cleanup failed", e);
+  }
+
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  if (typeof renderChangeLog === "function") renderChangeLog();
+  showToast(
+    `${cloneName} merged back into original (${inventory[mergeAdjustedOriginalIdx].qty} total).`
+  );
+};
+
+const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) => {
+  // 1. Validate
+  const original = inventory[originalIdx];
+  if (!original) return { ok: false, error: "validation_failed" };
+  const qty = parseInt(disposedQty, 10);
+  if (!Number.isFinite(qty) || qty < 1 || qty >= original.qty) {
+    return { ok: false, error: "validation_failed" };
+  }
+
+  // 2. Snapshot
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
+
+  // 3. Mutate inventory in memory
+  const originalQtyBefore = original.qty;
+  inventory[originalIdx].qty -= qty;
+  const originalQtyAfter = inventory[originalIdx].qty;
+
+  const clone = structuredClone(original);
+  clone.uuid = generateUUID();
+  clone.serial = getNextSerial();
+  clone.qty = qty;
+  const disposedAt = new Date().toISOString();
+  const pricePerUnit = original.price || 0;
+  const totalAmount = dispositionInput.amount != null ? Number(dispositionInput.amount) : undefined;
+  const realizedGainLoss =
+    totalAmount != null && Number.isFinite(totalAmount)
+      ? totalAmount - pricePerUnit * qty
+      : undefined;
+
+  clone.disposition = {
+    type: dispositionInput.type || null,
+    date: dispositionInput.date || null,
+    amount: totalAmount,
+    currency: dispositionInput.currency || null,
+    recipient: dispositionInput.recipient || null,
+    notes: dispositionInput.notes || null,
+    realizedGainLoss,
+    disposedAt,
+    splitFromUuid: original.uuid,
+  };
+
+  // Insert clone immediately after original
+  inventory.splice(originalIdx + 1, 0, clone);
+
+  // 4. Build changeLog entries in memory
+  const transactionId = disposedAt;
+  const splitEntry = {
+    timestamp: Date.now(),
+    itemName: original.name,
+    field: "Stack split",
+    oldValue: String(originalQtyBefore),
+    newValue: String(originalQtyAfter),
+    idx: originalIdx,
+    undone: false,
+    transactionId,
+    transactionLabel: `Stack split: ${originalQtyBefore} → ${originalQtyAfter}`,
+    itemKey: original.uuid,
+    stackSplit: {
+      originalUuid: original.uuid,
+      cloneUuid: clone.uuid,
+      originalQtyBefore,
+      originalQtyAfter,
+      disposedQty: qty,
+    },
+  };
+  const disposedEntry = {
+    timestamp: Date.now(),
+    itemName: clone.name,
+    field: "Disposed",
+    oldValue: null,
+    newValue: JSON.stringify(clone.disposition),
+    idx: originalIdx + 1,
+    undone: false,
+    transactionId,
+    transactionLabel: `Disposed: ${qty} of original ${originalQtyBefore}`,
+    itemKey: clone.uuid,
+    splitDisposed: {
+      cloneUuid: clone.uuid,
+      originalUuid: original.uuid,
+      disposedQty: qty,
+      dispositionSnapshot: { ...clone.disposition },
+    },
+  };
+  pushTransactionEntries(splitEntry, disposedEntry);
+
+  // 5. Phase 1 — persist inventory
+  if (!tryPersistInventory()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((item) => inventory.push(item));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((entry) => changeLog.push(entry));
+    return { ok: false, error: "storage_failed_inventory" };
+  }
+
+  // 6. Phase 2 — persist changeLog
+  if (!tryPersistChangeLog()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((item) => inventory.push(item));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((entry) => changeLog.push(entry));
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      if (typeof showToast === "function") {
+        showToast(
+          "Storage failure left audit log out of sync — reload the app to recover.",
+          "error"
+        );
+      }
+      return { ok: false, error: "storage_failed_both" };
+    }
+    return { ok: false, error: "storage_failed_changelog" };
+  }
+
+  // 7. Copy tags (non-blocking — tag loss is acceptable)
+  try {
+    if (typeof getItemTags === "function" && typeof addItemTag === "function") {
+      getItemTags(original.uuid).forEach((tag) => addItemTag(clone.uuid, tag, false));
+      if (typeof saveItemTags === "function") saveItemTags();
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: tag copy failed", e);
+  }
+
+  // 8. Copy images (non-blocking)
+  try {
+    if (imageCache && typeof imageCache.getUserImage === "function") {
+      const { obverse, reverse } = await imageCache.getUserImage(original.uuid);
+      if (obverse || reverse) {
+        await imageCache.cacheUserImage(clone.uuid, obverse, reverse);
+      }
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: image copy failed", e);
+  }
+
+  if (typeof renderChangeLog === "function") renderChangeLog();
+
+  return { ok: true, originalIdx, cloneIdx: originalIdx + 1, transactionId };
+};
+window.splitInventoryItem = splitInventoryItem;
 
 /**
  * Opens modal to view and edit an item's notes
