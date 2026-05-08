@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.52 &ndash; STRK-54: Lost disposition realized loss</strong>: Partial-stack Lost dispositions now record the disposed units&rsquo; full cost basis as realized loss, keeping item-level and portfolio realized G/L totals aligned with full-stack lost items (STRK-54).</li>
     <li><strong>v3.34.51 &ndash; STRK-56: Service worker cache recovery</strong>: StakTrakr now falls back to cached app files when an asset refresh fails and offers Reset App recovery when stale service-worker state persists (STRK-56).</li>
     <li><strong>v3.34.50 &ndash; STRK-55: View modal respects per-item Numista edits</strong>: The item detail modal now shows your saved Numista customizations instead of only the shared catalog snapshot. Obverse and reverse descriptions are visible text rows in Catalog Data, and duplicate tags were removed from that section (STRK-55).</li>
     <li><strong>v3.34.49 &ndash; STRK-51: Expanded Numista import modal fields</strong>: The Numista import-confirmation modal now shows all 18 Numista-backed stored fields (dimensions, mintage, KM reference, rarity, commemorative, descriptions, etc.) alongside the existing 8. User-edited fields appear unchecked with an &ldquo;&#x270e;&nbsp;edited&rdquo; badge so re-syncs never silently overwrite custom values. The modal body scrolls on short viewports; Fill Fields/Cancel stay sticky (STRK-51).</li>
