@@ -1677,14 +1677,14 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Composition",
       value: result.composition || "",
       available: !!result.composition,
-      defaultOn: false,
+      defaultOn: true,
     },
     {
       key: "shape",
       label: "Shape",
       value: result.shape || "",
       available: !!result.shape,
-      defaultOn: false,
+      defaultOn: true,
     },
     {
       key: "diameter",
@@ -1733,13 +1733,13 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Mintage",
       value: mintageCandidate,
       available: !!mintageCandidate,
-      defaultOn: false,
+      defaultOn: true,
     },
     {
       key: "rarityIndex",
       label: "Rarity Index",
-      value: result.rarityIndex > 0 ? String(result.rarityIndex) : "",
-      available: result.rarityIndex > 0,
+      value: result.rarityIndex != null ? String(result.rarityIndex) : "",
+      available: result.rarityIndex != null,
       defaultOn: false,
     },
     {
@@ -1761,7 +1761,7 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Commemorative Desc",
       value: result.commemorativeDesc || "",
       available: !!result.commemorativeDesc,
-      defaultOn: true,
+      defaultOn: false,
     },
     {
       key: "obverseDesc",

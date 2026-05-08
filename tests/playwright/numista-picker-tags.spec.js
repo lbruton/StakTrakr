@@ -868,7 +868,7 @@ test.describe("numista-picker-tags — STRK-51 expanded Numista Data fields", ()
     const mintageInput = page.locator('input[name="numistaFieldValue_mintage"]');
     await expect(mintageInput).toBeVisible();
     const mintageVal = await mintageInput.inputValue();
-    expect(mintageVal).toContain("1,000,000");
+    expect(mintageVal.replace(/\D/g, "")).toBe("1000000");
 
     // obverseDesc defaults unchecked (defaultOn: false)
     const obverseCb = page.locator('input[name="numistaField"][value="obverseDesc"]');
