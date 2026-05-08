@@ -661,7 +661,10 @@ const openRemoveItemModal = (idx, preDispose = false) => {
 
   if (stackQty > 1) {
     if (qtyGroup) qtyGroup.style.display = "";
-    if (qtyInput) qtyInput.value = stackQty;
+    if (qtyInput) {
+      qtyInput.value = stackQty;
+      qtyInput.max = stackQty;
+    }
   } else {
     if (qtyGroup) qtyGroup.style.display = "none";
   }
