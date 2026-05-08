@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.50] - 2026-05-08
+
+### Changed — STRK-55: View modal respects per-item Numista edits
+
+- **View modal**: The item detail modal now shows saved per-item Numista customizations before falling back to the shared IndexedDB catalog snapshot. Obverse and reverse descriptions render as visible Catalog Data rows while retaining image hover tooltips, flat item-level mintage/KM reference values take precedence over cache arrays, and items with only partial Numista edits still use refreshed catalog fallback data for the rest (STRK-55).
+- **Cleanup**: Removed the redundant Catalog Data tags row so tags appear only in the dedicated TAGS section chips (STRK-55).
+
+---
+
 ## [3.34.49] - 2026-05-08
 
 ### Changed — STRK-51: Expanded Numista import modal fields

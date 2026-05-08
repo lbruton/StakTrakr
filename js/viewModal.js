@@ -992,10 +992,10 @@ function buildViewContent(item, index) {
 // ---------------------------------------------------------------------------
 
 /**
- * Load coin images from IndexedDB cache → CDN URL fallback.
- * @param {Object} item
- * @param {HTMLElement} container
- * @returns {Promise<{loaded: boolean, source: string|null}>}
+ * Load obverse and reverse images for the view modal, preferring cached user-uploaded or pattern-derived URLs and falling back to CDN URLs stored on the item.
+ * @param {Object} item - Inventory item containing image references (e.g., obverseImageUrl, reverseImageUrl).
+ * @param {HTMLElement} container - Modal container element that contains the image section (#viewImageSection).
+ * @returns {{loaded: boolean, source: ('userOrPattern'|'cdn'|null)}} `loaded` is `true` if at least one image was set, `false` otherwise. `source` is `'userOrPattern'` when a cached/uploaded URL was used, `'cdn'` when fallback item URLs were used, or `null` when no valid images were available.
  */
 async function loadViewImages(item, container) {
   const section = container.querySelector("#viewImageSection");
@@ -1036,11 +1036,88 @@ async function loadViewImages(item, container) {
   return { loaded: validObv || validRev, source: validObv || validRev ? "cdn" : null };
 }
 
+const MEANINGFUL_FALSY_KEYS = new Set(["commemorative", "rarityIndex"]);
+const NON_RENDERING_NUMISTA_KEYS = new Set(["source", "updatedAt", "fieldMeta"]);
+
 /**
- * Load Numista metadata from IndexedDB cache or pre-fetched API result, render enrichment section.
- * @param {Object} item
- * @param {HTMLElement} container
- * @param {Object|null} apiResult - Pre-fetched Numista API result (avoids duplicate call)
+ * Determines whether a Numista metadata field contains a value that should be rendered in the UI.
+ * Considers configured exclusions and treats certain falsy values as meaningful for specific keys.
+ * @param {string} key - The Numista metadata field name.
+ * @param {*} value - The field value to evaluate.
+ * @returns {boolean} `true` if the field should be displayed, `false` otherwise.
+ */
+function _hasMeaningfulNumistaValue(key, value) {
+  if (NON_RENDERING_NUMISTA_KEYS.has(key)) return false;
+  if (value === "" || value === null || value === undefined) return false;
+  if (!value && !MEANINGFUL_FALSY_KEYS.has(key)) return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 0
+  )
+    return false;
+  return true;
+}
+
+/**
+ * Determine whether the supplied Numista item edits contain any fields that should be rendered in the Catalog Data section.
+ *
+ * @param {Object|null|undefined} itemData - Item-level Numista edits (may be null/undefined). The function treats non-empty strings and numbers as meaningful and also treats certain intentionally falsy fields (for example `commemorative` or `rarityIndex`) as meaningful when present.
+ * @returns {boolean} `true` if at least one renderable Numista field exists on `itemData`, `false` otherwise.
+ */
+function hasMeaningfulItemData(itemData) {
+  if (!itemData || typeof itemData !== "object") return false;
+  return Object.entries(itemData).some(([key, value]) => _hasMeaningfulNumistaValue(key, value));
+}
+
+/**
+ * Combine cached/API Numista metadata with item-level Numista edits, giving precedence to item edits.
+ *
+ * Empty or otherwise non-meaningful item fields are removed before merging so they do not override valid cached values.
+ * The function preserves intentionally meaningful falsy values such as `commemorative: false` and `rarityIndex: 0`.
+ *
+ * @param {Object|null|undefined} itemData - Item-level Numista edits; may contain partial or raw fields.
+ * @param {Object|null|undefined} cacheMeta - Cached or API-provided Numista metadata.
+ * @returns {Object} Merged metadata object where keys from `itemData` override those in `cacheMeta`.
+ */
+function mergeNumistaSources(itemData, cacheMeta) {
+  const sanitizedItemData = {};
+  if (itemData && typeof itemData === "object") {
+    Object.entries(itemData).forEach(([key, value]) => {
+      if (_hasMeaningfulNumistaValue(key, value)) {
+        sanitizedItemData[key] = value;
+      }
+    });
+  }
+
+  return { ...(cacheMeta || {}), ...sanitizedItemData };
+}
+
+/**
+ * Format a KM (catalogue) reference into a user-facing string.
+ *
+ * @param {string|Object} ref - A KM reference, either a display string or an object with optional `catalogue` and `number` properties (e.g. `{ catalogue: "KM", number: 123 }`).
+ * @returns {string} The formatted reference: the input string unchanged when `ref` is a string; `"catalogue#number"` when both fields are present; the `catalogue` or `number` (as a string) when only one is present; otherwise an empty string.
+ */
+function _formatKmReference(ref) {
+  if (typeof ref === "string") return ref;
+  if (!ref || typeof ref !== "object") return "";
+  if (ref.catalogue && ref.number) return `${ref.catalogue}#${ref.number}`;
+  if (ref.catalogue) return ref.catalogue;
+  if (ref.number) return String(ref.number);
+  return "";
+}
+
+/**
+ * Render the "Catalog Data" enrichment for an item using cached Numista metadata, a provided API result, or item-level Numista edits.
+ *
+ * Attempts to read metadata from the image cache (IndexedDB) and falls back to the supplied `apiResult` when available. If neither cache/API metadata nor meaningful item-level Numista edits exist, the function returns without rendering. The final rendered view merges item-level edits over any metadata, updates the image frame shape when the merged shape indicates a non-round form, sets obverse/reverse image tooltips when available, and replaces the `#viewNumistaSection` placeholder with the constructed section. When an `apiResult` is used, it is cached for future use when an image cache is available.
+ *
+ * @param {Object} item - Inventory item object; `item.numistaId` identifies the catalog entry and `item.numistaData` may contain user edits that override cached/API fields.
+ * @param {HTMLElement} container - Container element containing the `#viewNumistaSection` placeholder and optional `#viewImageSection`.
+ * @param {Object|null} apiResult - Optional pre-fetched Numista API result to use when cache is missing or stale; when provided and used, it will be cached if an image cache is available.
  */
 async function loadViewNumistaData(item, container, apiResult) {
   const catalogId = item.numistaId || "";
@@ -1071,15 +1148,16 @@ async function loadViewNumistaData(item, container, apiResult) {
     }
   }
 
-  if (!meta) return;
+  if (!meta && !hasMeaningfulItemData(item.numistaData)) return;
+  const merged = mergeNumistaSources(item.numistaData, meta);
 
   // Load user's field visibility config
   const cfg = typeof getNumistaViewFieldConfig === "function" ? getNumistaViewFieldConfig() : {};
 
   // Update image frame shape based on Numista data if not already rectangular
-  if (meta.shape) {
+  if (merged.shape) {
     const imgSection = container.querySelector("#viewImageSection");
-    const shapeStr = meta.shape.toLowerCase();
+    const shapeStr = (typeof merged.shape === "string" ? merged.shape : "").toLowerCase();
     const isNonRound = shapeStr !== "round" && shapeStr !== "circular";
     if (isNonRound && imgSection && !imgSection.classList.contains("view-shape-rect")) {
       imgSection.classList.add("view-shape-rect");
@@ -1092,90 +1170,102 @@ async function loadViewNumistaData(item, container, apiResult) {
 
   const grid = _el("div", "view-detail-grid");
 
-  if (cfg.denomination !== false && meta.denomination)
-    _addDetail(grid, "Denomination", meta.denomination);
-  if (cfg.shape !== false && meta.shape) _addDetail(grid, "Shape", meta.shape);
-  if (cfg.diameter !== false) {
-    if (meta.length && meta.width) {
+  if (cfg.denomination !== false && merged.denomination)
+    _addDetail(grid, "Denomination", merged.denomination);
+  if (cfg.shape !== false && merged.shape) _addDetail(grid, "Shape", merged.shape);
+  if (cfg.diameter !== false || (merged.length && merged.width)) {
+    if (merged.length && merged.width) {
       // Both dimensions available — composite "L × W" or "L × W × T"
       const dims =
-        cfg.thickness !== false && meta.thickness
-          ? `${meta.length} \u00D7 ${meta.width} \u00D7 ${meta.thickness} mm`
-          : `${meta.length} \u00D7 ${meta.width} mm`;
+        cfg.thickness !== false && merged.thickness
+          ? `${merged.length} \u00D7 ${merged.width} \u00D7 ${merged.thickness} mm`
+          : `${merged.length} \u00D7 ${merged.width} mm`;
       _addDetail(grid, "Dimensions", dims);
-    } else if (meta.length) {
+    } else if (merged.length) {
       // Only length (width=0) — show what we have
-      _addDetail(grid, "Dimensions", `${meta.length} mm`);
-      if (cfg.thickness !== false && meta.thickness) {
-        _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+      _addDetail(grid, "Dimensions", `${merged.length} mm`);
+      if (cfg.thickness !== false && merged.thickness) {
+        _addDetail(grid, "Thickness", `${merged.thickness} mm`);
       }
-    } else if (meta.diameter) {
-      _addDetail(grid, "Diameter", `${meta.diameter} mm`);
-      if (cfg.thickness !== false && meta.thickness) {
-        _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+    } else if (merged.diameter) {
+      _addDetail(grid, "Diameter", `${merged.diameter} mm`);
+      if (cfg.thickness !== false && merged.thickness) {
+        _addDetail(grid, "Thickness", `${merged.thickness} mm`);
       }
     }
   }
   // Standalone thickness for items with only thickness (no other dimensions)
-  if (cfg.thickness !== false && meta.thickness && !meta.diameter && !meta.length) {
-    _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+  if (cfg.thickness !== false && merged.thickness && !merged.diameter && !merged.length) {
+    _addDetail(grid, "Thickness", `${merged.thickness} mm`);
   }
-  if (cfg.orientation !== false && meta.orientation)
-    _addDetail(grid, "Orientation", meta.orientation);
-  if (cfg.composition !== false && meta.composition)
-    _addDetail(grid, "Composition", meta.composition);
-  if (cfg.country !== false && meta.country) _addDetail(grid, "Country", meta.country);
-  if (cfg.technique !== false && meta.technique) _addDetail(grid, "Technique", meta.technique);
+  if (cfg.orientation !== false && merged.orientation)
+    _addDetail(grid, "Orientation", merged.orientation);
+  if (cfg.composition !== false && merged.composition)
+    _addDetail(grid, "Composition", merged.composition);
+  if (cfg.country !== false && merged.country) _addDetail(grid, "Country", merged.country);
+  if (cfg.technique !== false && merged.technique) _addDetail(grid, "Technique", merged.technique);
 
-  if (cfg.references !== false && meta.kmReferences && meta.kmReferences.length > 0) {
-    _addDetail(grid, "References", meta.kmReferences.join(", "));
+  if (cfg.references !== false) {
+    if (merged.kmRef) {
+      _addDetail(grid, "KM Reference", merged.kmRef);
+    } else if (Array.isArray(merged.kmReferences) && merged.kmReferences.length > 0) {
+      const references = merged.kmReferences.map(_formatKmReference).filter(Boolean).join(", ");
+      if (references) _addDetail(grid, "References", references);
+    }
   }
 
   section.appendChild(grid);
 
+  // Obverse/reverse descriptions on full-width lines; image tooltips below stay additive.
+  if (cfg.obverse !== false && merged.obverseDesc) {
+    const obvGrid = _el("div", "view-detail-grid");
+    const obvItem = _detailItem("Obverse", merged.obverseDesc);
+    obvItem.classList.add("full-width");
+    obvGrid.appendChild(obvItem);
+    section.appendChild(obvGrid);
+  }
+  if (cfg.reverse !== false && merged.reverseDesc) {
+    const revGrid = _el("div", "view-detail-grid");
+    const revItem = _detailItem("Reverse", merged.reverseDesc);
+    revItem.classList.add("full-width");
+    revGrid.appendChild(revItem);
+    section.appendChild(revGrid);
+  }
+
   // Edge description on its own full-width line (can be long)
-  if (cfg.edge !== false && meta.edgeDesc) {
+  if (cfg.edge !== false && merged.edgeDesc) {
     const edgeGrid = _el("div", "view-detail-grid");
-    const edgeItem = _detailItem("Edge", meta.edgeDesc);
+    const edgeItem = _detailItem("Edge", merged.edgeDesc);
     edgeItem.classList.add("full-width");
     edgeGrid.appendChild(edgeItem);
     section.appendChild(edgeGrid);
   }
 
   // Set obverse/reverse descriptions as tooltips on the image slots
-  if (cfg.imageTooltips !== false && (meta.obverseDesc || meta.reverseDesc)) {
+  if (cfg.imageTooltips !== false && (merged.obverseDesc || merged.reverseDesc)) {
     const imgSection = container.querySelector("#viewImageSection");
     if (imgSection) {
       const slots = imgSection.querySelectorAll(".view-image-slot");
-      if (meta.obverseDesc && slots[0]) {
-        slots[0].title = `Obverse: ${meta.obverseDesc}`;
+      if (merged.obverseDesc && slots[0]) {
+        slots[0].title = `Obverse: ${merged.obverseDesc}`;
       }
-      if (meta.reverseDesc && slots[1]) {
-        slots[1].title = `Reverse: ${meta.reverseDesc}`;
+      if (merged.reverseDesc && slots[1]) {
+        slots[1].title = `Reverse: ${merged.reverseDesc}`;
       }
     }
   }
 
-  // Tags
-  if (cfg.tags !== false && meta.tags && meta.tags.length > 0) {
-    const tagGrid = _el("div", "view-detail-grid");
-    const tagItem = _detailItem("Tags", meta.tags.join(", "));
-    tagItem.classList.add("full-width");
-    tagGrid.appendChild(tagItem);
-    section.appendChild(tagGrid);
-  }
-
   // Commemorative
-  if (cfg.commemorative !== false && meta.commemorative && meta.commemorativeDesc) {
+  if (cfg.commemorative !== false && merged.commemorative && merged.commemorativeDesc) {
     const commGrid = _el("div", "view-detail-grid");
-    const commItem = _detailItem("Commemorative", meta.commemorativeDesc);
+    const commItem = _detailItem("Commemorative", merged.commemorativeDesc);
     commItem.classList.add("full-width");
     commGrid.appendChild(commItem);
     section.appendChild(commGrid);
   }
 
   // Rarity index
-  if (cfg.rarity !== false && meta.rarityIndex > 0) {
+  if (cfg.rarity !== false && merged.rarityIndex > 0) {
     const rarityRow = _el("div", "view-detail-item");
 
     const lbl = _el("span", "view-detail-label");
@@ -1186,20 +1276,24 @@ async function loadViewNumistaData(item, container, apiResult) {
 
     const track = _el("div", "view-rarity-track");
     const fill = _el("div", "view-rarity-fill");
-    fill.style.width = `${Math.min(meta.rarityIndex, 100)}%`;
+    fill.style.width = `${Math.min(merged.rarityIndex, 100)}%`;
     track.appendChild(fill);
     bar.appendChild(track);
 
     const score = _el("span", "view-rarity-score");
-    score.textContent = String(meta.rarityIndex);
+    score.textContent = String(merged.rarityIndex);
     bar.appendChild(score);
 
     rarityRow.appendChild(bar);
     section.appendChild(rarityRow);
   }
 
-  // Mintage by year (show first few)
-  if (cfg.mintage !== false && meta.mintageByYear && meta.mintageByYear.length > 0) {
+  // Mintage: prefer item-level flat value, then cache/API per-year data.
+  if (
+    cfg.mintage !== false &&
+    ((merged.mintage != null && merged.mintage !== "") ||
+      (Array.isArray(merged.mintageByYear) && merged.mintageByYear.length > 0))
+  ) {
     const mintGrid = _el("div", "view-detail-grid");
     const mintItem = _el("div", "view-detail-item full-width");
     const mintLabel = _el("span", "view-detail-label");
@@ -1207,14 +1301,21 @@ async function loadViewNumistaData(item, container, apiResult) {
     mintItem.appendChild(mintLabel);
 
     const mintVal = _el("span", "view-detail-value");
-    const entries = meta.mintageByYear.slice(0, 5);
-    mintVal.textContent = entries
-      .map((e) => {
-        const m = typeof e.mintage === "number" ? e.mintage.toLocaleString() : e.mintage;
-        return `${e.year}: ${m}${e.remark ? ` (${e.remark})` : ""}`;
-      })
-      .join(" | ");
-    if (meta.mintageByYear.length > 5) mintVal.textContent += " ...";
+    if (merged.mintage != null && merged.mintage !== "") {
+      mintVal.textContent =
+        typeof merged.mintage === "number"
+          ? merged.mintage.toLocaleString()
+          : String(merged.mintage);
+    } else {
+      const entries = merged.mintageByYear.slice(0, 5);
+      mintVal.textContent = entries
+        .map((e) => {
+          const m = typeof e.mintage === "number" ? e.mintage.toLocaleString() : e.mintage;
+          return `${e.year}: ${m}${e.remark ? ` (${e.remark})` : ""}`;
+        })
+        .join(" | ");
+      if (merged.mintageByYear.length > 5) mintVal.textContent += " ...";
+    }
     mintItem.appendChild(mintVal);
     mintGrid.appendChild(mintItem);
     section.appendChild(mintGrid);

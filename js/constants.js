@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-04-29 - STRK-13: Inventory seed guard prevents data loss
  */
 
-const APP_VERSION = "3.34.49";
+const APP_VERSION = "3.34.50";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1335,6 +1335,8 @@ const NUMISTA_VIEW_FIELD_DEFAULTS = {
   country: true,
   technique: true,
   references: true,
+  obverse: true,
+  reverse: true,
   edge: true,
   tags: true,
   commemorative: true,
