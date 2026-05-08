@@ -1048,9 +1048,8 @@ const NON_RENDERING_NUMISTA_KEYS = new Set(["source", "updatedAt", "fieldMeta"])
  */
 function _hasMeaningfulNumistaValue(key, value) {
   if (NON_RENDERING_NUMISTA_KEYS.has(key)) return false;
-  if (value === "" || value === null || value === undefined) {
-    return MEANINGFUL_FALSY_KEYS.has(key);
-  }
+  if (value === "" || value === null || value === undefined) return false;
+  if (!value && !MEANINGFUL_FALSY_KEYS.has(key)) return false;
   return true;
 }
 
@@ -1150,7 +1149,7 @@ async function loadViewNumistaData(item, container, apiResult) {
   // Update image frame shape based on Numista data if not already rectangular
   if (merged.shape) {
     const imgSection = container.querySelector("#viewImageSection");
-    const shapeStr = merged.shape.toLowerCase();
+    const shapeStr = (typeof merged.shape === "string" ? merged.shape : "").toLowerCase();
     const isNonRound = shapeStr !== "round" && shapeStr !== "circular";
     if (isNonRound && imgSection && !imgSection.classList.contains("view-shape-rect")) {
       imgSection.classList.add("view-shape-rect");
@@ -1166,7 +1165,7 @@ async function loadViewNumistaData(item, container, apiResult) {
   if (cfg.denomination !== false && merged.denomination)
     _addDetail(grid, "Denomination", merged.denomination);
   if (cfg.shape !== false && merged.shape) _addDetail(grid, "Shape", merged.shape);
-  if (cfg.diameter !== false) {
+  if (cfg.diameter !== false || (merged.length && merged.width)) {
     if (merged.length && merged.width) {
       // Both dimensions available — composite "L × W" or "L × W × T"
       const dims =
@@ -1201,7 +1200,7 @@ async function loadViewNumistaData(item, container, apiResult) {
   if (cfg.references !== false) {
     if (merged.kmRef) {
       _addDetail(grid, "KM Reference", merged.kmRef);
-    } else if (merged.kmReferences && merged.kmReferences.length > 0) {
+    } else if (Array.isArray(merged.kmReferences) && merged.kmReferences.length > 0) {
       const references = merged.kmReferences.map(_formatKmReference).filter(Boolean).join(", ");
       if (references) _addDetail(grid, "References", references);
     }
@@ -1282,7 +1281,11 @@ async function loadViewNumistaData(item, container, apiResult) {
   }
 
   // Mintage: prefer item-level flat value, then cache/API per-year data.
-  if (cfg.mintage !== false && (merged.mintage || merged.mintageByYear?.length > 0)) {
+  if (
+    cfg.mintage !== false &&
+    ((merged.mintage != null && merged.mintage !== "") ||
+      (Array.isArray(merged.mintageByYear) && merged.mintageByYear.length > 0))
+  ) {
     const mintGrid = _el("div", "view-detail-grid");
     const mintItem = _el("div", "view-detail-item full-width");
     const mintLabel = _el("span", "view-detail-label");
@@ -1290,8 +1293,11 @@ async function loadViewNumistaData(item, container, apiResult) {
     mintItem.appendChild(mintLabel);
 
     const mintVal = _el("span", "view-detail-value");
-    if (merged.mintage) {
-      mintVal.textContent = String(merged.mintage);
+    if (merged.mintage != null && merged.mintage !== "") {
+      mintVal.textContent =
+        typeof merged.mintage === "number"
+          ? merged.mintage.toLocaleString()
+          : String(merged.mintage);
     } else {
       const entries = merged.mintageByYear.slice(0, 5);
       mintVal.textContent = entries
