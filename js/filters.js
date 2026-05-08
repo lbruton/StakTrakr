@@ -1121,6 +1121,8 @@ const filterInventoryAdvanced = () => {
         item.purchaseLocation,
         item.storageLocation || "",
         item.notes || "",
+        item.capsule || "",
+        item.capsuleNotes || "",
         String(item.year || ""),
         item.grade || "",
         item.gradingAuthority || "",
@@ -1247,6 +1249,8 @@ const filterInventoryAdvanced = () => {
           wordRegex.test(item.purchaseLocation) ||
           (item.storageLocation && wordRegex.test(item.storageLocation)) ||
           (item.notes && wordRegex.test(item.notes)) ||
+          (item.capsule && wordRegex.test(item.capsule)) ||
+          (item.capsuleNotes && wordRegex.test(item.capsuleNotes)) ||
           item.date.includes(word) ||
           formattedDate.includes(word) ||
           String(Number.isFinite(Number(item.qty)) ? Number(item.qty) : "").includes(word) ||
@@ -1282,6 +1286,8 @@ const filterInventoryAdvanced = () => {
           item.purchaseLocation,
           item.storageLocation || "",
           item.notes || "",
+          item.capsule || "",
+          item.capsuleNotes || "",
         ];
         for (const field of fieldsToCheck) {
           if (field && fuzzyMatch(q, field, { threshold: fuzzyThreshold }) > 0) {

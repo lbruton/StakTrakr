@@ -1284,6 +1284,8 @@ const parseItemFormFields = (isEditing, existingItem) => {
     storageLocation: elements.storageLocation.value.trim(),
     serialNumber: elements.itemSerialNumber?.value?.trim() ?? "",
     notes: elements.itemNotes.value.trim(),
+    capsule: elements.itemCapsule?.value?.trim() ?? "",
+    capsuleNotes: elements.itemCapsuleNotes?.value?.trim() ?? "",
     date: elements.itemDateNABtn?.classList.contains("active")
       ? ""
       : elements.itemDate.value || (isEditing ? existingItem.date || "" : todayStr()),
@@ -1421,6 +1423,8 @@ const buildItemFields = (f) => ({
   storageLocation: f.storageLocation,
   serialNumber: f.serialNumber,
   notes: f.notes,
+  capsule: f.capsule,
+  capsuleNotes: f.capsuleNotes,
   year: f.year,
   grade: f.grade,
   gradingAuthority: f.gradingAuthority,
@@ -1504,6 +1508,8 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
         "storageLocation",
         "serialNumber",
         "notes",
+        "capsule",
+        "capsuleNotes",
         "year",
         "grade",
         "gradingAuthority",
@@ -1557,6 +1563,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     }
 
     addCompositionOption(f.composition);
+    if (typeof registerCapsule === "function") registerCapsule(f.capsule);
 
     try {
       // STAK-302: always sync the mapping — pass '' when N# is cleared so
@@ -1630,6 +1637,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     });
 
     typeof registerName === "function" && registerName(f.name);
+    if (typeof registerCapsule === "function") registerCapsule(f.capsule);
     addCompositionOption(f.composition);
 
     if (window.catalogManager && f.catalog) {
@@ -2644,6 +2652,9 @@ const setupItemFormListeners = () => {
       "change",
       () => {
         toggleDimensionFields(shapeSelect.value);
+        if (typeof updateCapsuleSuggestion === "function") {
+          updateCapsuleSuggestion(safeGetElement("numistaDiameter")?.value || "");
+        }
       },
       "Shape dropdown dimension toggle"
     );
@@ -3598,6 +3609,7 @@ const setupSearch = () => {
             elements.itemWeightUnit.value = "oz";
             elements.itemDate.value = todayStr();
             resetPurchasePriceToggle();
+            if (typeof updateCapsuleSuggestion === "function") updateCapsuleSuggestion("");
           }
           // STAK-580: form.reset() honors `selected` on the placeholder, but be
           // explicit so this stays correct if the HTML ever changes.

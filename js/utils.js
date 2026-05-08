@@ -1020,7 +1020,11 @@ const sanitizeObjectFields = (obj) => {
       // URL fields must not be sanitized — they contain :, /, . characters
       // UUID fields must not be sanitized — hyphens are part of the format
       if (key === "obverseImageUrl" || key === "reverseImageUrl" || key === "uuid") continue;
-      const allowHyphen = key === "date";
+      if (key === "capsuleNotes") {
+        cleaned[key] = cleanString(cleaned[key]);
+        continue;
+      }
+      const allowHyphen = key === "date" || key === "capsule";
       cleaned[key] =
         key === "name" ||
         key === "purchaseLocation" ||
@@ -1028,7 +1032,8 @@ const sanitizeObjectFields = (obj) => {
         key === "grade" ||
         key === "gradingAuthority" ||
         key === "certNumber" ||
-        key === "serialNumber"
+        key === "serialNumber" ||
+        key === "capsule"
           ? cleanString(cleaned[key])
           : stripNonAlphanumeric(cleaned[key], { allowHyphen });
     }
@@ -1348,7 +1353,7 @@ const sanitizeImportedItem = (item) => {
   }
 
   // Normalize and sanitize string fields
-  const basicFields = ["name", "type", "purchaseLocation", "storageLocation"];
+  const basicFields = ["name", "type", "purchaseLocation", "storageLocation", "capsule"];
   const cleanMultilineString = (str = "") => {
     let s = str.toString();
     let prev;
@@ -1369,6 +1374,7 @@ const sanitizeImportedItem = (item) => {
     sanitized[field] = cleanString(sanitized[field]);
   }
   sanitized.notes = cleanMultilineString(sanitized.notes);
+  sanitized.capsuleNotes = cleanMultilineString(sanitized.capsuleNotes);
   sanitized.type = normalizeType(sanitized.type);
 
   // Reset premium calculations if price or weight are missing

@@ -1121,7 +1121,8 @@ function _formatKmReference(ref) {
  */
 async function loadViewNumistaData(item, container, apiResult) {
   const catalogId = item.numistaId || "";
-  if (!catalogId) return;
+  const hasCapsuleData = !!(item.capsule || item.capsuleNotes);
+  if (!catalogId && !hasCapsuleData) return;
 
   const placeholder = container.querySelector("#viewNumistaSection");
   if (!placeholder) return;
@@ -1129,7 +1130,7 @@ async function loadViewNumistaData(item, container, apiResult) {
   let meta = null;
 
   // Check cache
-  if (window.imageCache?.isAvailable()) {
+  if (catalogId && window.imageCache?.isAvailable()) {
     meta = await imageCache.getMetadata(catalogId);
 
     // Stale check
@@ -1143,12 +1144,12 @@ async function loadViewNumistaData(item, container, apiResult) {
     meta = _extractMetadata(apiResult);
 
     // Cache for next time
-    if (window.imageCache?.isAvailable()) {
+    if (catalogId && window.imageCache?.isAvailable()) {
       imageCache.cacheMetadata(catalogId, apiResult).catch(() => {});
     }
   }
 
-  if (!meta && !hasMeaningfulItemData(item.numistaData)) return;
+  if (!meta && !hasMeaningfulItemData(item.numistaData) && !hasCapsuleData) return;
   const merged = mergeNumistaSources(item.numistaData, meta);
 
   // Load user's field visibility config
@@ -1198,6 +1199,8 @@ async function loadViewNumistaData(item, container, apiResult) {
   if (cfg.thickness !== false && merged.thickness && !merged.diameter && !merged.length) {
     _addDetail(grid, "Thickness", `${merged.thickness} mm`);
   }
+  if (item.capsule) _addDetail(grid, "Capsule", item.capsule);
+  if (item.capsuleNotes) _addDetail(grid, "Capsule Notes", item.capsuleNotes);
   if (cfg.orientation !== false && merged.orientation)
     _addDetail(grid, "Orientation", merged.orientation);
   if (cfg.composition !== false && merged.composition)

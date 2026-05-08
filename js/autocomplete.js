@@ -34,6 +34,7 @@ const AUTOCOMPLETE_CONFIG = {
  * @property {string[]} names - Unique item names from inventory
  * @property {string[]} purchaseLocations - Unique purchase locations
  * @property {string[]} storageLocations - Unique storage locations
+ * @property {string[]} capsules - Standard and user-entered capsule model codes
  * @property {string[]} types - Unique item types
  * @property {Object} abbreviations - Common abbreviations and expansions
  * @property {number} lastUpdated - Timestamp of last update
@@ -359,6 +360,105 @@ const PREBUILT_LOOKUP_DATA = [
   "Argor-Heraeus 1 oz Silver Bar",
   "Argor-Heraeus 10 oz Silver Bar",
 ];
+
+const AIRTITE_CAPSULE_SIZES = [
+  // Direct Fit capsules
+  { diameter: 16.5, model: "A-16.5-DF", series: "Direct Fit", description: "Model A direct fit" },
+  { diameter: 17.9, model: "A-18-DF", series: "Direct Fit", description: "Model A direct fit" },
+  { diameter: 19.0, model: "A-19-DF", series: "Direct Fit", description: "Model A direct fit" },
+  { diameter: 21.2, model: "A-21-DF", series: "Direct Fit", description: "Model A direct fit" },
+  { diameter: 22.0, model: "A-22-DF", series: "Direct Fit", description: "Model A direct fit" },
+  { diameter: 24.3, model: "A-24-DF", series: "Direct Fit", description: "Model A direct fit" },
+  { diameter: 26.5, model: "A-26-DF", series: "Direct Fit", description: "Model A direct fit" },
+  { diameter: 30.6, model: "T-30.6-DF", series: "Direct Fit", description: "Model T direct fit" },
+  { diameter: 27.0, model: "H-27-DF", series: "Direct Fit", description: "Model H direct fit" },
+  { diameter: 32.7, model: "H-32-DF", series: "Direct Fit", description: "Model H direct fit" },
+  { diameter: 38.1, model: "H-38-DF", series: "Direct Fit", description: "Model H direct fit" },
+  { diameter: 39.0, model: "H-39-DF", series: "Direct Fit", description: "Model H direct fit" },
+  { diameter: 40.6, model: "H-40.6-DF", series: "Direct Fit", description: "Model H direct fit" },
+  { diameter: 38.0, model: "X-38-DF", series: "Direct Fit", description: "Model X direct fit" },
+  { diameter: 43.8, model: "X-43-DF", series: "Direct Fit", description: "Model X direct fit" },
+  { diameter: 44.5, model: "X-44-DF", series: "Direct Fit", description: "Model X direct fit" },
+  { diameter: 47.6, model: "X-47.6-DF", series: "Direct Fit", description: "Model X direct fit" },
+  { diameter: 65.0, model: "Y-65-DF", series: "Direct Fit", description: "Model Y direct fit" },
+  { diameter: 76.8, model: "Z-76.8-DF", series: "Direct Fit", description: "Model Z direct fit" },
+
+  // Common Ring Type ranges
+  { diameter: 26.0, model: "H-26-Ring", series: "Ring Type", description: "Model H ring type" },
+  { diameter: 27.0, model: "H-27-Ring", series: "Ring Type", description: "Model H ring type" },
+  { diameter: 28.0, model: "H-28-Ring", series: "Ring Type", description: "Model H ring type" },
+  { diameter: 29.0, model: "H-29-Ring", series: "Ring Type", description: "Model H ring type" },
+  { diameter: 30.0, model: "H-30-Ring", series: "Ring Type", description: "Model H ring type" },
+  { diameter: 31.0, model: "H-31-Ring", series: "Ring Type", description: "Model H ring type" },
+  { diameter: 32.0, model: "H-32-Ring", series: "Ring Type", description: "Model H ring type" },
+  { diameter: 33.0, model: "I-33-Ring", series: "Ring Type", description: "Model I ring type" },
+  { diameter: 34.0, model: "I-34-Ring", series: "Ring Type", description: "Model I ring type" },
+  { diameter: 35.0, model: "I-35-Ring", series: "Ring Type", description: "Model I ring type" },
+  { diameter: 36.0, model: "I-36-Ring", series: "Ring Type", description: "Model I ring type" },
+  { diameter: 37.0, model: "I-37-Ring", series: "Ring Type", description: "Model I ring type" },
+  { diameter: 38.0, model: "X-38-Ring", series: "Ring Type", description: "Model X ring type" },
+  { diameter: 39.0, model: "X-39-Ring", series: "Ring Type", description: "Model X ring type" },
+  { diameter: 40.0, model: "X-40-Ring", series: "Ring Type", description: "Model X ring type" },
+  { diameter: 43.0, model: "X-43-Ring", series: "Ring Type", description: "Model X ring type" },
+  { diameter: 44.0, model: "X-44-Ring", series: "Ring Type", description: "Model X ring type" },
+];
+
+const getAirtiteModelCodes = () => AIRTITE_CAPSULE_SIZES.map((size) => size.model);
+
+const sortCapsuleCodes = (codes) =>
+  Array.from(new Set(codes.filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+  );
+
+const buildCapsuleLookupValues = (inventoryCapsules = []) =>
+  sortCapsuleCodes([...getAirtiteModelCodes(), ...inventoryCapsules]);
+
+const parseCapsuleDiameter = (diameterMm) => {
+  if (diameterMm === null || diameterMm === undefined) return null;
+  const raw = String(diameterMm).trim();
+  if (!raw || /[xX\u00D7]/.test(raw)) return null;
+  const match = raw.replace(",", ".").match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = parseFloat(match[0]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const formatCapsuleDiameter = (diameter) =>
+  Number.isInteger(diameter) ? String(diameter) : String(diameter).replace(/\.0$/, "");
+
+const getNearestAirtiteSize = (diameterMm) => {
+  const diameter = parseCapsuleDiameter(diameterMm);
+  if (diameter === null) return null;
+
+  return AIRTITE_CAPSULE_SIZES.reduce((nearest, size) => {
+    if (!nearest) return size;
+    const nearestDiff = Math.abs(nearest.diameter - diameter);
+    const sizeDiff = Math.abs(size.diameter - diameter);
+    return sizeDiff < nearestDiff ? size : nearest;
+  }, null);
+};
+
+const updateCapsuleSuggestion = (diameterMm) => {
+  const hint =
+    typeof elements !== "undefined" && elements?.capsuleSuggestion
+      ? elements.capsuleSuggestion
+      : typeof document !== "undefined"
+        ? document.getElementById("capsuleSuggestion")
+        : null;
+  if (!hint) return null;
+
+  const match = getNearestAirtiteSize(diameterMm);
+  if (!match) {
+    hint.textContent = "";
+    hint.removeAttribute("title");
+    return null;
+  }
+
+  hint.textContent = `Suggested: ${match.model} (${formatCapsuleDiameter(match.diameter)}mm)`;
+  hint.title = match.description;
+  return match;
+};
+
 const METAL_ABBREVIATIONS = {
   // Coin series abbreviations (stacker slang)
   ase: "American Silver Eagle",
@@ -660,12 +760,14 @@ const generateLookupTable = (inventory, options = {}) => {
     const inventoryNames = extractUniqueValues(data, "name");
     const inventoryPurchaseLocations = extractUniqueValues(data, "purchase_location");
     const inventoryStorageLocations = extractUniqueValues(data, "storage_location");
+    const inventoryCapsules = extractUniqueValues(data, "capsule", { caseSensitive: true });
     const inventoryTypes = extractUniqueValues(data, "type");
 
     // Combine with pre-built data if enabled
     let allNames = inventoryNames;
     let allPurchaseLocations = inventoryPurchaseLocations;
     let allStorageLocations = inventoryStorageLocations;
+    let allCapsules = inventoryCapsules;
     let allTypes = inventoryTypes;
 
     if (usePrebuiltData) {
@@ -715,6 +817,8 @@ const generateLookupTable = (inventory, options = {}) => {
         allStorageLocations = inventoryStorageLocations;
       }
 
+      allCapsules = buildCapsuleLookupValues(inventoryCapsules);
+
       // Add standard types (if none exist)
       if (inventoryTypes.length === 0) {
         allTypes = ["Coin", "Bar", "Round", "Note", "Other"].sort();
@@ -729,6 +833,7 @@ const generateLookupTable = (inventory, options = {}) => {
       names: allNames,
       purchaseLocations: allPurchaseLocations,
       storageLocations: allStorageLocations,
+      capsules: allCapsules,
       types: allTypes,
       abbreviations: includeAbbreviations ? { ...METAL_ABBREVIATIONS } : {},
       lastUpdated: Date.now(),
@@ -745,7 +850,7 @@ const generateLookupTable = (inventory, options = {}) => {
     const prebuiltCount = usePrebuiltData ? PREBUILT_LOOKUP_DATA.length : 0;
 
     console.log(
-      `✅ Lookup table generated: ${totalNames} names (${prebuiltCount} pre-built + ${inventoryNames.length} from inventory), ${allPurchaseLocations.length} purchase locations, ${allStorageLocations.length} storage locations, ${allTypes.length} types`
+      `✅ Lookup table generated: ${totalNames} names (${prebuiltCount} pre-built + ${inventoryNames.length} from inventory), ${allPurchaseLocations.length} purchase locations, ${allStorageLocations.length} storage locations, ${allCapsules.length} capsule codes, ${allTypes.length} types`
     );
 
     return lookupTable;
@@ -786,6 +891,7 @@ const createEmptyLookupTable = () => ({
     "Secure Storage Facility",
     "Personal Safe",
   ],
+  capsules: buildCapsuleLookupValues(),
   types: ["Coin", "Bar", "Round", "Note", "Other"],
   abbreviations: { ...METAL_ABBREVIATIONS },
   lastUpdated: Date.now(),
@@ -859,7 +965,12 @@ const getCachedLookupTable = () => {
     const cached = JSON.parse(cacheStr);
 
     // Validate cache structure
-    if (!cached || typeof cached !== "object" || !Array.isArray(cached.names)) {
+    if (
+      !cached ||
+      typeof cached !== "object" ||
+      !Array.isArray(cached.names) ||
+      !Array.isArray(cached.capsules)
+    ) {
       console.warn("📋 Invalid cached lookup table structure");
       return null;
     }
@@ -940,6 +1051,7 @@ const getLookupStats = () => {
     names: table.names.length,
     purchaseLocations: table.purchaseLocations.length,
     storageLocations: table.storageLocations.length,
+    capsules: table.capsules.length,
     types: table.types.length,
     abbreviations: Object.keys(table.abbreviations).length,
     lastUpdated: table.lastUpdated,
@@ -991,6 +1103,21 @@ if (typeof window !== "undefined") {
   window.registerName = registerName;
 }
 
+const registerCapsule = (capsule) => {
+  if (!capsule || !currentLookupTable) return;
+  const trimmed = String(capsule).trim();
+  if (!trimmed) return;
+  if (!Array.isArray(currentLookupTable.capsules)) {
+    currentLookupTable.capsules = buildCapsuleLookupValues();
+  }
+  if (currentLookupTable.capsules.includes(trimmed)) return;
+  currentLookupTable.capsules = sortCapsuleCodes([...currentLookupTable.capsules, trimmed]);
+};
+
+if (typeof window !== "undefined") {
+  window.registerCapsule = registerCapsule;
+}
+
 /**
  * Attach autocomplete dropdown to an input element.
  * Creates a dropdown that shows filtered suggestions from the lookup table.
@@ -1000,6 +1127,8 @@ if (typeof window !== "undefined") {
  */
 const attachAutocomplete = (inputEl, sourceType) => {
   if (!inputEl || !inputEl.tagName) return;
+  if (inputEl.dataset?.autocompleteSource === sourceType) return;
+  if (inputEl.dataset) inputEl.dataset.autocompleteSource = sourceType;
 
   // Suppress native browser autocomplete
   // Firefox ignores "off" — a non-standard value forces it to back off
@@ -1249,6 +1378,7 @@ const initializeAutocomplete = (inventory) => {
         attachAutocomplete(elements.purchaseLocation, "purchaseLocations");
       if (elements.storageLocation)
         attachAutocomplete(elements.storageLocation, "storageLocations");
+      if (elements.itemCapsule) attachAutocomplete(elements.itemCapsule, "capsules");
     }
 
     // Log initialization stats
@@ -1274,6 +1404,8 @@ if (typeof window !== "undefined") {
   window.dismissAllAutocompletes = dismissAllAutocompletes;
   window.initializeAutocomplete = initializeAutocomplete;
   window.clearLookupCache = clearLookupCache;
+  window.getNearestAirtiteSize = getNearestAirtiteSize;
+  window.updateCapsuleSuggestion = updateCapsuleSuggestion;
   window.autocomplete = {
     // Core functions
     generateLookupTable,
@@ -1281,6 +1413,7 @@ if (typeof window !== "undefined") {
     refreshLookupTable,
     initializeAutocomplete,
     registerName,
+    registerCapsule,
     attachAutocomplete,
 
     // Utility functions
@@ -1288,6 +1421,8 @@ if (typeof window !== "undefined") {
     generateVariations,
     buildSearchIndices,
     normalizeItemName,
+    getNearestAirtiteSize,
+    updateCapsuleSuggestion,
 
     // Cache management
     getCachedLookupTable,
@@ -1299,6 +1434,7 @@ if (typeof window !== "undefined") {
 
     // Configuration
     config: AUTOCOMPLETE_CONFIG,
+    airtiteCapsuleSizes: AIRTITE_CAPSULE_SIZES,
     abbreviations: METAL_ABBREVIATIONS,
 
     // Current state
@@ -1314,16 +1450,20 @@ if (typeof module !== "undefined" && module.exports) {
     refreshLookupTable,
     initializeAutocomplete,
     registerName,
+    registerCapsule,
     attachAutocomplete,
     extractUniqueValues,
     generateVariations,
     buildSearchIndices,
     normalizeItemName,
+    getNearestAirtiteSize,
+    updateCapsuleSuggestion,
     getCachedLookupTable,
     cacheLookupTable,
     clearLookupCache,
     getLookupStats,
     config: AUTOCOMPLETE_CONFIG,
+    airtiteCapsuleSizes: AIRTITE_CAPSULE_SIZES,
     abbreviations: METAL_ABBREVIATIONS,
     getCurrentLookupTable: () => currentLookupTable,
   };

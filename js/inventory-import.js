@@ -1210,6 +1210,8 @@
           const purchaseLocation = raw.purchaseLocation || "";
           const storageLocation = raw.storageLocation || "";
           const notes = raw.notes || "";
+          const capsule = (raw.capsule || "").toString().trim();
+          const capsuleNotes = (raw.capsuleNotes || "").toString().trim();
           const year = (raw.year || raw.issuedYear || "").toString().trim();
           const grade = (raw.grade || "").toString().trim();
           const gradingAuthority = (raw.gradingAuthority || raw.authority || "").toString().trim();
@@ -1261,6 +1263,8 @@
             purchaseLocation,
             storageLocation,
             notes,
+            capsule,
+            capsuleNotes,
             spotPriceAtPurchase,
             premiumPerOz,
             totalPremium,
