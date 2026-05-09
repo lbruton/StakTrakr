@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.52] - 2026-05-08
+
+### Changed — STRK-54: Lost disposition realized loss
+
+- **Disposition**: Partial-stack Lost dispositions now record zero proceeds and a realized loss equal to the disposed units' cost basis, so item-level and portfolio realized G/L totals match full-stack lost behavior (STRK-54).
+
+---
+
 ## [3.34.51] - 2026-05-08
 
 ### Changed — STRK-56: Service worker cache recovery

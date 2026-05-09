@@ -997,8 +997,19 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   clone.serial = getNextSerial();
   clone.qty = qty;
   const disposedAt = new Date().toISOString();
-  const pricePerUnit = original.price || 0;
-  const totalAmount = dispositionInput.amount != null ? Number(dispositionInput.amount) : undefined;
+  const pricePerUnit = parseFloat(original.price) || 0;
+  const rawTotalAmount =
+    dispositionInput.amount != null ? Number(dispositionInput.amount) : undefined;
+  const typeInfo =
+    typeof DISPOSITION_TYPES !== "undefined" && dispositionInput.type
+      ? DISPOSITION_TYPES[dispositionInput.type]
+      : null;
+  const totalAmount =
+    rawTotalAmount != null && Number.isFinite(rawTotalAmount)
+      ? rawTotalAmount
+      : typeInfo && !typeInfo.requiresAmount
+        ? 0
+        : undefined;
   const realizedGainLoss =
     totalAmount != null && Number.isFinite(totalAmount)
       ? totalAmount - pricePerUnit * qty

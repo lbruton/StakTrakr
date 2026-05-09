@@ -629,6 +629,60 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     expect(gl).toBeCloseTo(15, 2);
   });
 
+  test("22a. STRK-54 — Partial-stack Lost records full disposed cost as realized loss", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+
+    await openDisposeModal(page, 0);
+    await page.selectOption("#dispositionType", "Lost");
+    await setDisposeQty(page, 3);
+    await confirmDispose(page);
+
+    const result = await page.evaluate(() => {
+      if (typeof window.updateSummary === "function") window.updateSummary();
+      const clone = window.inventory.find((i) => i.disposition && i.disposition.splitFromUuid);
+      return {
+        cloneAmount: clone ? clone.disposition.amount : null,
+        cloneRealizedGainLoss: clone ? clone.disposition.realizedGainLoss : null,
+        silverRealized: document.getElementById("realizedGainLossSilver")?.textContent || "",
+        allRealized: document.getElementById("realizedGainLossAll")?.textContent || "",
+      };
+    });
+
+    expect(result.cloneAmount).toBe(0);
+    expect(result.cloneRealizedGainLoss).toBeCloseTo(-90, 2);
+    expect(result.silverRealized).toContain("-$90.00");
+    expect(result.allRealized).toContain("-$90.00");
+  });
+
+  test("22b. STRK-54 — Full-stack Lost records full item cost as realized loss", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+
+    await openDisposeModal(page, 0);
+    await page.selectOption("#dispositionType", "Lost");
+    await confirmDispose(page);
+
+    const result = await page.evaluate(() => {
+      if (typeof window.updateSummary === "function") window.updateSummary();
+      return {
+        amount: window.inventory[0].disposition?.amount,
+        realizedGainLoss: window.inventory[0].disposition?.realizedGainLoss,
+        silverRealized: document.getElementById("realizedGainLossSilver")?.textContent || "",
+        allRealized: document.getElementById("realizedGainLossAll")?.textContent || "",
+      };
+    });
+
+    expect(result.amount).toBe(0);
+    expect(result.realizedGainLoss).toBeCloseTo(-300, 2);
+    expect(result.silverRealized).toContain("-$300.00");
+    expect(result.allRealized).toContain("-$300.00");
+  });
+
   test("23. REQ-4.2 — G/L equals full amount when no purchase price recorded", async ({ page }) => {
     const noPriceItem = { ...BASE_ITEM, uuid: "strk44-noprice-uuid", price: 0 };
     await seedData(page, { inventory: [noPriceItem] });
