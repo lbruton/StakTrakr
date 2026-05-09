@@ -1171,6 +1171,10 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
     const el = safeGetElement(id);
     if (el) el.value = val || "";
   };
+  const refreshCapsuleSuggestion = () => {
+    if (typeof updateCapsuleSuggestion !== "function") return;
+    updateCapsuleSuggestion(safeGetElement("numistaDiameter")?.value || "");
+  };
 
   // Field mapping: formId → { itemKey, cacheKey }
   const fieldMap = [
@@ -1233,6 +1237,7 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
   // Layer 1 (highest rank): Item's stored numistaData (user edits persist here)
   if (itemData && Object.keys(itemData).length > 0) {
     applySource((f) => itemData[f.itemKey] || "");
+    refreshCapsuleSuggestion();
   }
 
   // Layer 2 (fallback): IndexedDB cache from API
@@ -1261,6 +1266,7 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
           }
           return meta[f.cacheKey] || "";
         });
+        refreshCapsuleSuggestion();
       })
       .catch(() => {});
   }
@@ -1343,6 +1349,8 @@ const editItem = (idx, logIdx = null) => {
     item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
   if (elements.itemSerialNumber) elements.itemSerialNumber.value = item.serialNumber || "";
   if (elements.itemNotes) elements.itemNotes.value = item.notes || "";
+  if (elements.itemCapsule) elements.itemCapsule.value = item.capsule || "";
+  if (elements.itemCapsuleNotes) elements.itemCapsuleNotes.value = item.capsuleNotes || "";
   elements.itemDate.value = item.date || "";
   // Set date N/A button state based on whether item has a date
   if (elements.itemDateNABtn) {
@@ -1545,6 +1553,9 @@ const editItem = (idx, logIdx = null) => {
   if (shapeEl && window.toggleDimensionFields) {
     window.toggleDimensionFields(shapeEl.value);
   }
+  if (typeof updateCapsuleSuggestion === "function") {
+    updateCapsuleSuggestion(diamEl?.value || item.numistaData?.diameter || "");
+  }
 
   if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
@@ -1694,6 +1705,8 @@ const duplicateItem = (idx) => {
     item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
   if (elements.itemSerialNumber) elements.itemSerialNumber.value = item.serialNumber || "";
   if (elements.itemNotes) elements.itemNotes.value = item.notes || "";
+  if (elements.itemCapsule) elements.itemCapsule.value = item.capsule || "";
+  if (elements.itemCapsuleNotes) elements.itemCapsuleNotes.value = item.capsuleNotes || "";
   elements.itemDate.value = item.date || todayStr();
   if (elements.itemCatalog) elements.itemCatalog.value = item.numistaId || "";
   if (elements.itemYear) elements.itemYear.value = item.year || item.issuedYear || "";
@@ -1733,6 +1746,10 @@ const duplicateItem = (idx) => {
 
   if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
+  }
+
+  if (typeof updateCapsuleSuggestion === "function") {
+    updateCapsuleSuggestion(item.numistaData?.diameter || "");
   }
 
   // Open unified modal
@@ -1781,6 +1798,8 @@ const exportJson = () => {
     storageLocation: item.storageLocation,
     tags: typeof getItemTags === "function" ? getItemTags(item.uuid) : [],
     notes: item.notes,
+    capsule: item.capsule || "",
+    capsuleNotes: item.capsuleNotes || "",
     numistaId: item.numistaId,
     grade: item.grade || "",
     gradingAuthority: item.gradingAuthority || "",

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.53] - 2026-05-08
+
+### Changed — STRK-46: Structured Capsule field + capsule notes
+
+- **Capsules**: Added structured Capsule and Capsule Notes fields to the inventory form, edit flow, view modal, search/filter paths, autocomplete, and JSON backup round trip so holder fit data no longer has to live in general notes or tags (STRK-46).
+- **Suggestions**: Capsule entry now suggests the nearest bundled Air-Tite model from entered round diameter values, while blank, non-numeric, and non-round dimensions leave the hint empty (STRK-46).
+- **Seed rules**: Hardened seed image rule loading so clearing rule storage during a reload cannot leave a version-only marker without persisted seed rules (STRK-46).
+
+---
+
 ## [3.34.52] - 2026-05-08
 
 ### Changed — STRK-54: Lost disposition realized loss

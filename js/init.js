@@ -210,6 +210,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.purchaseLocation = safeGetElement("purchaseLocation", true);
     elements.storageLocation = safeGetElement("storageLocation");
     elements.itemNotes = safeGetElement("itemNotes");
+    elements.itemCapsule = safeGetElement("itemCapsule");
+    elements.itemCapsuleNotes = safeGetElement("itemCapsuleNotes");
+    elements.capsuleSuggestion = safeGetElement("capsuleSuggestion");
     elements.itemDate = safeGetElement("itemDate", true);
     elements.itemSpotPrice = safeGetElement("itemSpotPrice");
     elements.itemCatalog = safeGetElement("itemCatalog");
@@ -238,6 +241,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.tagsSection = safeGetElement("tagsSection");
     elements.newTagInput = safeGetElement("newTagInput");
     elements.addTagBtn = safeGetElement("addTagBtn");
+
+    const numistaDiameterEl = safeGetElement("numistaDiameter");
+    if (numistaDiameterEl && typeof safeAttachListener === "function") {
+      safeAttachListener(
+        numistaDiameterEl,
+        "input",
+        () => {
+          if (typeof updateCapsuleSuggestion === "function") {
+            updateCapsuleSuggestion(numistaDiameterEl.value);
+          }
+        },
+        "Capsule suggestion diameter input"
+      );
+    }
 
     // Header buttons - CRITICAL
     debugLog("Phase 2: Initializing header buttons...");
