@@ -1821,6 +1821,63 @@
         '">';
       for (var c = 0; c < changes.length; c++) {
         var ch = changes[c];
+
+        // Attachments: expand to per-entry rows instead of rendering the raw array
+        if (
+          ch.field === "attachments" &&
+          window.DiffEngine &&
+          typeof DiffEngine.diffAttachments === "function"
+        ) {
+          var attDiffs = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
+          for (var ad = 0; ad < attDiffs.length; ad++) {
+            var attEntry = attDiffs[ad];
+            var attUuid = attEntry.attachmentUuid;
+            var attFKey = "conflict-" + i + "-attachments:" + attUuid;
+            var attSel = _fieldSelections[attFKey] || "remote";
+            var attLocalSel = attSel === "local" ? " selected" : "";
+            var attRemoteSel = attSel === "remote" ? " selected" : "";
+            var attLocalDisplay = attEntry.localVal ? _esc(attEntry.localVal.fileName) : "\u2014";
+            var attRemoteDisplay = attEntry.remoteVal
+              ? _esc(attEntry.remoteVal.fileName)
+              : "\u2014";
+            var attLabel =
+              attEntry.action === "add"
+                ? "Attachment (added)"
+                : attEntry.action === "remove"
+                  ? "Attachment (removed)"
+                  : "Attachment (replaced)";
+            html += '<div class="dm-field-diff">';
+            html += '<div class="dm-field-label">' + _esc(attLabel) + "</div>";
+            html +=
+              '<div class="dm-field-value local' +
+              attLocalSel +
+              '" data-field="attachments:' +
+              _esc(attUuid) +
+              '" data-card="' +
+              i +
+              '" title="' +
+              attLocalDisplay +
+              '">' +
+              attLocalDisplay +
+              "</div>";
+            html += '<div class="dm-field-arrow">&#10231;</div>';
+            html +=
+              '<div class="dm-field-value remote' +
+              attRemoteSel +
+              '" data-field="attachments:' +
+              _esc(attUuid) +
+              '" data-card="' +
+              i +
+              '" title="' +
+              attRemoteDisplay +
+              '">' +
+              attRemoteDisplay +
+              "</div>";
+            html += "</div>";
+          }
+          continue;
+        }
+
         var fKey = "conflict-" + i + "-" + ch.field;
         var sel = _fieldSelections[fKey] || "remote";
         var localSelected = sel === "local" ? " selected" : "";
@@ -2730,6 +2787,32 @@
         // Card-based: always emit all fields, user picks local vs remote per field
         for (var c = 0; c < mod.changes.length; c++) {
           var ch = mod.changes[c];
+          // Attachments: emit per-entry records keyed by UUID
+          if (
+            ch.field === "attachments" &&
+            window.DiffEngine &&
+            typeof DiffEngine.diffAttachments === "function"
+          ) {
+            var attDiffsC = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
+            for (var ace = 0; ace < attDiffsC.length; ace++) {
+              var entryC = attDiffsC[ace];
+              var entryKeyC = "conflict-" + m + "-attachments:" + entryC.attachmentUuid;
+              var entrySelC = _fieldSelections[entryKeyC] || "remote";
+              if (entrySelC === "remote") {
+                // Accept remote side: add/remove/replace as computed
+                result.push({
+                  type: "attach-entry",
+                  itemKey: mKey,
+                  action: entryC.action,
+                  attachmentUuid: entryC.attachmentUuid,
+                  oldAttachmentUuid: entryC.oldAttachmentUuid || null,
+                  value: entryC.remoteVal,
+                });
+              }
+              // entrySel === "local" → no record; local keeps its state unchanged
+            }
+            continue;
+          }
           var fSel = _fieldSelections["conflict-" + m + "-" + ch.field] || "remote";
           result.push({
             type: "modify",
@@ -2743,6 +2826,26 @@
         if (_checkedItems["modified-" + m] !== false) {
           for (var c2 = 0; c2 < mod.changes.length; c2++) {
             var ch2 = mod.changes[c2];
+            // Attachments: emit per-entry records (all remote)
+            if (
+              ch2.field === "attachments" &&
+              window.DiffEngine &&
+              typeof DiffEngine.diffAttachments === "function"
+            ) {
+              var attDiffsL = DiffEngine.diffAttachments(ch2.localVal, ch2.remoteVal);
+              for (var ale = 0; ale < attDiffsL.length; ale++) {
+                var entryL = attDiffsL[ale];
+                result.push({
+                  type: "attach-entry",
+                  itemKey: mKey,
+                  action: entryL.action,
+                  attachmentUuid: entryL.attachmentUuid,
+                  oldAttachmentUuid: entryL.oldAttachmentUuid || null,
+                  value: entryL.remoteVal,
+                });
+              }
+              continue;
+            }
             result.push({
               type: "modify",
               itemKey: mKey,
