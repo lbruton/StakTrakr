@@ -147,12 +147,12 @@ test.describe("STRK-45 — syncAttachments toggle behavior", () => {
     await injectSeedInventory(page);
     await setupCloudConnected(page);
     await page.goto("/index.html");
-    await page.waitForFunction(() => typeof window.saveData === "function");
+    await page.waitForFunction(() => typeof window.saveDataSync === "function");
   });
 
   test("setting syncAttachments to false persists via saveData/loadDataSync", async ({ page }) => {
     const result = await page.evaluate(() => {
-      saveData("syncAttachments", false);
+      saveDataSync("syncAttachments", false);
       return loadDataSync("syncAttachments", null);
     });
     expect(result).toBe(false);
@@ -160,7 +160,7 @@ test.describe("STRK-45 — syncAttachments toggle behavior", () => {
 
   test("setting syncAttachments to true persists via saveData/loadDataSync", async ({ page }) => {
     const result = await page.evaluate(() => {
-      saveData("syncAttachments", true);
+      saveDataSync("syncAttachments", true);
       return loadDataSync("syncAttachments", null);
     });
     expect(result).toBe(true);
@@ -168,7 +168,7 @@ test.describe("STRK-45 — syncAttachments toggle behavior", () => {
 
   test("syncAttachmentsWarnSeen can be set and retrieved", async ({ page }) => {
     const result = await page.evaluate(() => {
-      saveData("syncAttachmentsWarnSeen", true);
+      saveDataSync("syncAttachmentsWarnSeen", true);
       return loadDataSync("syncAttachmentsWarnSeen", null);
     });
     expect(result).toBe(true);

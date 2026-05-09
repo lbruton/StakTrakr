@@ -10,19 +10,21 @@ test.describe("STRK-45 — renderAttachmentBadge", () => {
     await page.waitForFunction(() => typeof window.renderAttachmentBadge === "function");
   });
 
-  test("returns null for empty attachments array", async ({ page }) => {
-    const result = await page.evaluate(() => renderAttachmentBadge([]));
+  test("returns null for item with empty attachments array", async ({ page }) => {
+    const result = await page.evaluate(() => renderAttachmentBadge({ attachments: [] }));
     expect(result).toBeNull();
   });
 
-  test("returns null for null/undefined", async ({ page }) => {
+  test("returns null for null/undefined item", async ({ page }) => {
     const result = await page.evaluate(() => renderAttachmentBadge(null));
     expect(result).toBeNull();
   });
 
   test("returns a DOM element with count for single attachment", async ({ page }) => {
     const text = await page.evaluate(() => {
-      const el = renderAttachmentBadge([{ attachmentUuid: "a1", fileName: "a.pdf" }]);
+      const el = renderAttachmentBadge({
+        attachments: [{ attachmentUuid: "a1", fileName: "a.pdf" }],
+      });
       if (!el) return null;
       document.body.appendChild(el);
       const t = el.textContent;
@@ -35,12 +37,14 @@ test.describe("STRK-45 — renderAttachmentBadge", () => {
 
   test("returns a DOM element with count for multiple attachments", async ({ page }) => {
     const text = await page.evaluate(() => {
-      const atts = [
-        { attachmentUuid: "a1", fileName: "a.pdf" },
-        { attachmentUuid: "a2", fileName: "b.pdf" },
-        { attachmentUuid: "a3", fileName: "c.jpg" },
-      ];
-      const el = renderAttachmentBadge(atts);
+      const item = {
+        attachments: [
+          { attachmentUuid: "a1", fileName: "a.pdf" },
+          { attachmentUuid: "a2", fileName: "b.pdf" },
+          { attachmentUuid: "a3", fileName: "c.jpg" },
+        ],
+      };
+      const el = renderAttachmentBadge(item);
       if (!el) return null;
       document.body.appendChild(el);
       const t = el.textContent;
@@ -61,16 +65,18 @@ test.describe("STRK-45 — renderAttachmentListPanel", () => {
 
   test("renders file names in the panel", async ({ page }) => {
     const text = await page.evaluate(() => {
-      const atts = [
-        {
-          attachmentUuid: "s1",
-          fileName: "receipt-test.pdf",
-          mimeType: "application/pdf",
-          size: 2048,
-          uploadedAt: "2026-01-01T00:00:00.000Z",
-        },
-      ];
-      const el = renderAttachmentListPanel(atts, null, {});
+      const item = {
+        attachments: [
+          {
+            attachmentUuid: "s1",
+            fileName: "receipt-test.pdf",
+            mimeType: "application/pdf",
+            size: 2048,
+            uploadedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      };
+      const el = renderAttachmentListPanel(item, {});
       if (!el) return null;
       document.body.appendChild(el);
       const text = el.textContent;
@@ -82,7 +88,7 @@ test.describe("STRK-45 — renderAttachmentListPanel", () => {
 
   test("shows empty state when no attachments", async ({ page }) => {
     const result = await page.evaluate(() => {
-      const el = renderAttachmentListPanel([], null, {});
+      const el = renderAttachmentListPanel({ attachments: [] }, {});
       if (!el) return null;
       document.body.appendChild(el);
       const text = el.textContent;
