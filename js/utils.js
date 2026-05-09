@@ -1024,7 +1024,7 @@ const sanitizeObjectFields = (obj) => {
         cleaned[key] = cleanString(cleaned[key]);
         continue;
       }
-      const allowHyphen = key === "date" || key === "capsule";
+      const allowHyphen = key === "date";
       cleaned[key] =
         key === "name" ||
         key === "purchaseLocation" ||

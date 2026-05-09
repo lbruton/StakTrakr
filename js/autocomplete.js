@@ -417,24 +417,32 @@ const parseCapsuleDiameter = (diameterMm) => {
   if (diameterMm === null || diameterMm === undefined) return null;
   const raw = String(diameterMm).trim();
   if (!raw || /[xX\u00D7]/.test(raw)) return null;
-  const match = raw.replace(",", ".").match(/\d+(?:\.\d+)?/);
+  const match = raw.replace(",", ".").match(/\d*\.?\d+/);
   if (!match) return null;
   const parsed = parseFloat(match[0]);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
-const formatCapsuleDiameter = (diameter) =>
-  Number.isInteger(diameter) ? String(diameter) : String(diameter).replace(/\.0$/, "");
+const formatCapsuleDiameter = (diameter) => String(Number(diameter));
+
+const shouldShowCapsuleSuggestion = () => {
+  if (typeof document === "undefined") return true;
+  const shapeEl =
+    typeof elements !== "undefined" && elements?.numistaShape
+      ? elements.numistaShape
+      : document.getElementById("numistaShape");
+  if (!shapeEl || !shapeEl.value) return true;
+  return shapeEl.value === "Round";
+};
 
 const getNearestAirtiteSize = (diameterMm) => {
   const diameter = parseCapsuleDiameter(diameterMm);
   if (diameter === null) return null;
 
-  return AIRTITE_CAPSULE_SIZES.reduce((nearest, size) => {
-    if (!nearest) return size;
-    const nearestDiff = Math.abs(nearest.diameter - diameter);
-    const sizeDiff = Math.abs(size.diameter - diameter);
-    return sizeDiff < nearestDiff ? size : nearest;
+  return AIRTITE_CAPSULE_SIZES.reduce((bestFit, size) => {
+    if (size.diameter < diameter) return bestFit;
+    if (!bestFit) return size;
+    return size.diameter < bestFit.diameter ? size : bestFit;
   }, null);
 };
 
@@ -446,6 +454,12 @@ const updateCapsuleSuggestion = (diameterMm) => {
         ? document.getElementById("capsuleSuggestion")
         : null;
   if (!hint) return null;
+
+  if (!shouldShowCapsuleSuggestion()) {
+    hint.textContent = "";
+    hint.removeAttribute("title");
+    return null;
+  }
 
   const match = getNearestAirtiteSize(diameterMm);
   if (!match) {

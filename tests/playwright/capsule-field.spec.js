@@ -94,6 +94,16 @@ test.describe("STRK-46 capsule field", () => {
     await page.fill("#numistaDiameter", "38");
     await expect(page.locator("#capsuleSuggestion")).toHaveText(/Suggested: X-38-DF \(38mm\)/);
 
+    await page.fill("#numistaDiameter", "38.04");
+    await expect(page.locator("#capsuleSuggestion")).toHaveText(/Suggested: H-38-DF \(38.1mm\)/);
+
+    await page.selectOption("#numistaShape", "Rectangular");
+    await expect(page.locator("#capsuleSuggestion")).toHaveText("");
+
+    await page.selectOption("#numistaShape", "Round");
+    await page.fill("#numistaDiameter", ".5");
+    await expect(page.locator("#capsuleSuggestion")).toHaveText(/Suggested: A-16\.5-DF \(16.5mm\)/);
+
     await page.fill("#itemCapsule", "X-38");
     await expect(page.locator(".autocomplete-dropdown .autocomplete-item").first()).toContainText(
       "X-38"
