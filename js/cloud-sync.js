@@ -3338,6 +3338,60 @@ async function pullWithPreview(remoteMeta) {
                 _spImgErr.message
               );
             }
+            // STRK-45: Silent-pull path — attachment vault
+            try {
+              if (
+                remoteMeta &&
+                remoteMeta.attachmentVault &&
+                typeof vaultDecryptAndRestoreAttachments === "function"
+              ) {
+                var _spAttachLastPull = syncGetLastPull();
+                var _spAttachLocalHash = _spAttachLastPull
+                  ? _spAttachLastPull.attachmentHash
+                  : null;
+                if (remoteMeta.attachmentVault.hash !== _spAttachLocalHash) {
+                  debugLog(
+                    "[CloudSync] Silent-pull path: attachment vault changed — pulling",
+                    remoteMeta.attachmentVault.attachmentCount,
+                    "attachments"
+                  );
+                  var _spAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+                  var _spAttachResp = await fetch(
+                    "https://content.dropboxapi.com/2/files/download",
+                    {
+                      method: "POST",
+                      headers: {
+                        Authorization: "Bearer " + token,
+                        "Dropbox-API-Arg": _spAttachArg,
+                      },
+                    }
+                  );
+                  if (_spAttachResp.ok) {
+                    var _spAttachBytes = new Uint8Array(await _spAttachResp.arrayBuffer());
+                    var _spAttachRestored = await vaultDecryptAndRestoreAttachments(
+                      _spAttachBytes,
+                      password
+                    );
+                    _silentPullMeta.attachmentHash = remoteMeta.attachmentVault.hash;
+                    debugLog(
+                      "[CloudSync] Silent-pull path: attachment vault restored:",
+                      _spAttachRestored,
+                      "attachments"
+                    );
+                    logCloudSyncActivity(
+                      "attachment_vault_pull",
+                      "success",
+                      (_spAttachRestored || "?") + " attachments restored (silent-pull path)"
+                    );
+                  }
+                }
+              }
+            } catch (_spAttachErr) {
+              debugLog(
+                "[CloudSync] Silent-pull path: attachment vault pull failed (non-blocking):",
+                _spAttachErr.message
+              );
+            }
             syncSetLastPull(_silentPullMeta);
             logCloudSyncActivity(
               "auto_sync_pull",
@@ -3516,6 +3570,75 @@ async function pullWithPreview(remoteMeta) {
                   "image_vault_pull",
                   "fail",
                   "Auto-merge path: " + _amImgErr.message
+                );
+              }
+              // STRK-45: Auto-merge path — attachment vault
+              try {
+                if (
+                  remoteMeta &&
+                  remoteMeta.attachmentVault &&
+                  typeof vaultDecryptAndRestoreAttachments === "function"
+                ) {
+                  var _amAttachLastPull = syncGetLastPull();
+                  var _amAttachLocalHash = _amAttachLastPull
+                    ? _amAttachLastPull.attachmentHash
+                    : null;
+                  if (remoteMeta.attachmentVault.hash !== _amAttachLocalHash) {
+                    debugLog(
+                      "[CloudSync] STAK-470 path: attachment vault changed — pulling",
+                      remoteMeta.attachmentVault.attachmentCount,
+                      "attachments"
+                    );
+                    var _amAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+                    var _amAttachResp = await fetch(
+                      "https://content.dropboxapi.com/2/files/download",
+                      {
+                        method: "POST",
+                        headers: {
+                          Authorization: "Bearer " + token,
+                          "Dropbox-API-Arg": _amAttachArg,
+                        },
+                      }
+                    );
+                    if (_amAttachResp.ok) {
+                      var _amAttachBytes = new Uint8Array(await _amAttachResp.arrayBuffer());
+                      var _amAttachRestored = await vaultDecryptAndRestoreAttachments(
+                        _amAttachBytes,
+                        password
+                      );
+                      debugLog(
+                        "[CloudSync] STAK-470 path: attachment vault restored:",
+                        _amAttachRestored,
+                        "attachments"
+                      );
+                      logCloudSyncActivity(
+                        "attachment_vault_pull",
+                        "success",
+                        (_amAttachRestored || "?") + " attachments restored (auto-merge path)"
+                      );
+                      if (_failedCount === 0) {
+                        var _amPrevPull = syncGetLastPull() || {};
+                        syncSetLastPull(
+                          Object.assign({}, _amPrevPull, {
+                            syncId: remoteMeta ? remoteMeta.syncId : null,
+                            timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
+                            rev: remoteMeta ? remoteMeta.rev : null,
+                            attachmentHash: remoteMeta.attachmentVault.hash,
+                          })
+                        );
+                      }
+                    }
+                  }
+                }
+              } catch (_amAttachErr) {
+                debugLog(
+                  "[CloudSync] STAK-470 path: attachment vault pull failed (non-blocking):",
+                  _amAttachErr.message
+                );
+                logCloudSyncActivity(
+                  "attachment_vault_pull",
+                  "fail",
+                  "Auto-merge path: " + _amAttachErr.message
                 );
               }
               // Push to update remote manifest with local-only keys
@@ -3822,6 +3945,48 @@ async function pullWithPreview(remoteMeta) {
             _vfSpImgErr.message
           );
         }
+        // STRK-45: Vault-first silent-pull — attachment vault
+        try {
+          if (
+            remoteMeta &&
+            remoteMeta.attachmentVault &&
+            typeof vaultDecryptAndRestoreAttachments === "function"
+          ) {
+            var _vfSpAttachLastPull = syncGetLastPull();
+            var _vfSpAttachLocalHash = _vfSpAttachLastPull
+              ? _vfSpAttachLastPull.attachmentHash
+              : null;
+            if (remoteMeta.attachmentVault.hash !== _vfSpAttachLocalHash) {
+              debugLog("[CloudSync] Vault-first silent-pull: attachment vault changed — pulling");
+              var _vfSpAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+              var _vfSpAttachResp = await fetch("https://content.dropboxapi.com/2/files/download", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Dropbox-API-Arg": _vfSpAttachArg,
+                },
+              });
+              if (_vfSpAttachResp.ok) {
+                var _vfSpAttachBytes = new Uint8Array(await _vfSpAttachResp.arrayBuffer());
+                var _vfSpAttachRestored = await vaultDecryptAndRestoreAttachments(
+                  _vfSpAttachBytes,
+                  password
+                );
+                _previewPullMeta.attachmentHash = remoteMeta.attachmentVault.hash;
+                logCloudSyncActivity(
+                  "attachment_vault_pull",
+                  "success",
+                  (_vfSpAttachRestored || "?") + " attachments restored (vault-first silent)"
+                );
+              }
+            }
+          }
+        } catch (_vfSpAttachErr) {
+          debugLog(
+            "[CloudSync] Vault-first silent-pull: attachment vault failed (non-blocking):",
+            _vfSpAttachErr.message
+          );
+        }
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
@@ -3895,6 +4060,60 @@ async function pullWithPreview(remoteMeta) {
           _vfImgErr.message
         );
         logCloudSyncActivity("image_vault_pull", "fail", "Vault-first path: " + _vfImgErr.message);
+      }
+      // STRK-45: Vault-first DiffModal post-restore — attachment vault
+      try {
+        if (
+          remoteMeta &&
+          remoteMeta.attachmentVault &&
+          typeof vaultDecryptAndRestoreAttachments === "function"
+        ) {
+          var _vfAttachLastPull = syncGetLastPull();
+          var _vfAttachLocalHash = _vfAttachLastPull ? _vfAttachLastPull.attachmentHash : null;
+          if (remoteMeta.attachmentVault.hash !== _vfAttachLocalHash) {
+            debugLog("[CloudSync] Vault-first path: pulling attachment vault");
+            var _vfAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+            var _vfAttachResp = await fetch("https://content.dropboxapi.com/2/files/download", {
+              method: "POST",
+              headers: {
+                Authorization: "Bearer " + token,
+                "Dropbox-API-Arg": _vfAttachArg,
+              },
+            });
+            if (_vfAttachResp.ok) {
+              var _vfAttachBytes = new Uint8Array(await _vfAttachResp.arrayBuffer());
+              var _vfAttachRestored = await vaultDecryptAndRestoreAttachments(
+                _vfAttachBytes,
+                password
+              );
+              debugLog(
+                "[CloudSync] Vault-first path: attachment vault restored:",
+                _vfAttachRestored,
+                "attachments"
+              );
+              logCloudSyncActivity(
+                "attachment_vault_pull",
+                "success",
+                (_vfAttachRestored || "?") + " attachments restored (vault-first path)"
+              );
+              var _vfAttachPullMeta = syncGetLastPull();
+              if (_vfAttachPullMeta) {
+                _vfAttachPullMeta.attachmentHash = remoteMeta.attachmentVault.hash;
+                syncSetLastPull(_vfAttachPullMeta);
+              }
+            }
+          }
+        }
+      } catch (_vfAttachErr) {
+        debugLog(
+          "[CloudSync] Vault-first path: attachment vault failed (non-blocking):",
+          _vfAttachErr.message
+        );
+        logCloudSyncActivity(
+          "attachment_vault_pull",
+          "fail",
+          "Vault-first path: " + _vfAttachErr.message
+        );
       }
     } catch (decryptErr) {
       // Decryption or diff failed — offer fallback

@@ -597,10 +597,10 @@
               (n, it) => n + (Array.isArray(it.attachments) ? it.attachments.length : 0),
               0
             );
-            if (_overrideAttachCount > 0 && typeof appToast === "function") {
-              appToast(
+            if (_overrideAttachCount > 0 && typeof showToast === "function") {
+              showToast(
                 `${_overrideAttachCount} attachment(s) imported as metadata only — use a backup ZIP to restore files.`,
-                "warn"
+                "warning"
               );
             }
             if (
@@ -625,10 +625,10 @@
                 (n, it) => n + (Array.isArray(it.attachments) ? it.attachments.length : 0),
                 0
               );
-              if (_csvAttachCount > 0 && typeof appToast === "function") {
-                appToast(
+              if (_csvAttachCount > 0 && typeof showToast === "function") {
+                showToast(
                   `${_csvAttachCount} attachment(s) imported as metadata only — use a backup ZIP to restore files.`,
-                  "warn"
+                  "warning"
                 );
               }
               // Restore removed tags from CSV import (STAK-556)

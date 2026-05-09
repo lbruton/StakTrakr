@@ -659,10 +659,12 @@
             }
           }
           if (missingBinaryCount > 0) {
-            appToast(
-              `${missingBinaryCount} attachment file(s) could not be restored — metadata only.`,
-              "warn"
-            );
+            if (typeof showToast === "function") {
+              showToast(
+                `${missingBinaryCount} attachment file(s) could not be restored — metadata only.`,
+                "warning"
+              );
+            }
           }
         }
 
