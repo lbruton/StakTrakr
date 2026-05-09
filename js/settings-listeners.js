@@ -1209,6 +1209,17 @@ const bindCloudStorageListeners = () => {
   // Advanced modal is rendered at body level (outside settingsPanel_cloud), so it needs its own listener.
   var advancedModal = document.getElementById("cloudSyncAdvancedModal");
   if (advancedModal) advancedModal.addEventListener("click", _cloudBtnHandler);
+
+  // Sync attachments toggle (STRK-45) — persists to syncAttachments localStorage key.
+  // Default is true when the key is absent (opt-out model).
+  var syncAttachToggle = document.getElementById("syncAttachmentsToggle");
+  if (syncAttachToggle) {
+    var storedVal = loadDataSync("syncAttachments", null);
+    syncAttachToggle.checked = storedVal !== "false" && storedVal !== false;
+    syncAttachToggle.addEventListener("change", function () {
+      saveDataSync("syncAttachments", String(this.checked));
+    });
+  }
 };
 
 /**

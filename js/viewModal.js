@@ -844,6 +844,14 @@ function _buildNotesSection(item) {
   return notesSection;
 }
 
+function _buildAttachmentsSection(item) {
+  if (!item.attachments?.length) return null;
+  if (typeof renderAttachmentListPanel !== "function") return null;
+  const section = _el("div", "view-detail-section");
+  section.appendChild(renderAttachmentListPanel(item, { editable: false }));
+  return section;
+}
+
 function _appendSectionsInConfiguredOrder(frag, sectionBuilders) {
   const sectionConfig =
     typeof getViewModalSectionConfig === "function"
@@ -970,6 +978,7 @@ function buildViewContent(item, index) {
     numista: () => _buildNumistaPlaceholderSection(),
     tags: () => _buildTagsSection(item),
     notes: () => _buildNotesSection(item),
+    attachments: () => _buildAttachmentsSection(item),
   };
 
   _appendSectionsInConfiguredOrder(frag, sectionBuilders);

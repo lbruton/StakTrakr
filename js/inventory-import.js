@@ -364,6 +364,22 @@
             const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
             const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
 
+            const attachmentsRaw = (row["Attachments"] || "").trim();
+            const csvAttachments = attachmentsRaw
+              ? attachmentsRaw
+                  .split("|")
+                  .map((entry) => {
+                    const hashIdx = entry.lastIndexOf("#");
+                    if (hashIdx === -1) return null;
+                    const fileName = entry.slice(0, hashIdx);
+                    const attachmentUuid = entry.slice(hashIdx + 1);
+                    return fileName && attachmentUuid
+                      ? { attachmentUuid, fileName, type: "", size: 0, uploadedAt: 0 }
+                      : null;
+                  })
+                  .filter(Boolean)
+              : [];
+
             let disposition;
             if (dispositionType) {
               const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.\-]/g, ""));
@@ -430,6 +446,7 @@
               disposition,
             });
 
+            if (csvAttachments.length > 0) item.attachments = csvAttachments;
             imported.push(item);
 
             // STAK-126 / STAK-424: Collect tags but defer persistence until import confirmed.
@@ -576,6 +593,16 @@
               updateStorageStats();
             }
             debugLog("importCsv override complete", imported.length, "items replaced");
+            const _overrideAttachCount = imported.reduce(
+              (n, it) => n + (Array.isArray(it.attachments) ? it.attachments.length : 0),
+              0
+            );
+            if (_overrideAttachCount > 0 && typeof showToast === "function") {
+              showToast(
+                `${_overrideAttachCount} attachment(s) imported as metadata only — use a backup ZIP to restore files.`,
+                "warning"
+              );
+            }
             if (
               localStorage.getItem("staktrakr.debug") &&
               typeof window.showDebugModal === "function"
@@ -594,6 +621,16 @@
               pendingTagsByUuid: pendingTagsByUuid,
             },
             function (summary) {
+              const _csvAttachCount = imported.reduce(
+                (n, it) => n + (Array.isArray(it.attachments) ? it.attachments.length : 0),
+                0
+              );
+              if (_csvAttachCount > 0 && typeof showToast === "function") {
+                showToast(
+                  `${_csvAttachCount} attachment(s) imported as metadata only — use a backup ZIP to restore files.`,
+                  "warning"
+                );
+              }
               // Restore removed tags from CSV import (STAK-556)
               if (pendingRemovedTagsByUuid.size > 0 && typeof saveDataSync === "function") {
                 const removedMap =

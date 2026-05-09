@@ -953,6 +953,167 @@ async function vaultDecryptAndRestoreImages(fileBytes, password) {
   }
 }
 
+/**
+ * Export attachments from IndexedDB, convert blobs to base64, and compute a
+ * stable hash so push can skip upload when attachments haven't changed.
+ * @returns {Promise<{payload: object, hash: string, attachmentCount: number}|null>}
+ */
+async function collectAndHashAttachmentVault() {
+  if (
+    typeof attachmentManager === "undefined" ||
+    typeof attachmentManager.exportAllAttachments !== "function"
+  )
+    return null;
+  var records = await attachmentManager.exportAllAttachments();
+  if (!records || records.length === 0) return null;
+
+  var serialized = [];
+  var failedCount = 0;
+  for (var i = 0; i < records.length; i++) {
+    var r = records[i];
+    var entry = {
+      attachmentUuid: r.attachmentUuid,
+      itemUuid: r.itemUuid,
+      fileName: r.fileName,
+      type: r.type,
+      size: r.size,
+      uploadedAt: r.uploadedAt,
+    };
+    try {
+      if (r.blob instanceof Blob) {
+        entry.data = await _blobToBase64(r.blob);
+        entry.mimeType = r.blob.type || r.type || "application/octet-stream";
+      }
+    } catch (blobErr) {
+      failedCount++;
+      debugLog("[Vault] Attachment vault: blob conversion failed for", r.attachmentUuid, blobErr);
+      continue;
+    }
+    serialized.push(entry);
+  }
+
+  if (failedCount > 0) {
+    debugLog(
+      "[Vault] Attachment vault: " +
+        failedCount +
+        " of " +
+        records.length +
+        " attachments failed to export",
+      "warn"
+    );
+  }
+  if (serialized.length === 0 && records.length > 0) {
+    throw new Error(
+      "Attachment vault export failed — could not read any of " + records.length + " attachments."
+    );
+  }
+  if (serialized.length === 0) return null;
+
+  var payload = {
+    _meta: {
+      appVersion: typeof APP_VERSION !== "undefined" ? APP_VERSION : "unknown",
+      exportTimestamp: new Date().toISOString(),
+      attachmentCount: serialized.length,
+    },
+    records: serialized,
+  };
+
+  var hash = simpleHash(
+    JSON.stringify(
+      serialized.map(function (e) {
+        return e.attachmentUuid + ":" + e.size + ":" + (e.data ? e.data.slice(0, 32) : "");
+      })
+    )
+  );
+  return { payload: payload, hash: hash, attachmentCount: serialized.length };
+}
+
+/**
+ * Encrypt an attachment vault payload into raw bytes for cloud upload.
+ * @param {string} password
+ * @param {object} payload - From collectAndHashAttachmentVault().payload
+ * @returns {Promise<Uint8Array>}
+ */
+async function vaultEncryptAttachmentVault(password, payload) {
+  if (!password) throw new Error("Attachment vault encryption requires a non-empty password.");
+  var plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  var salt = vaultRandomBytes(32);
+  var iv = vaultRandomBytes(12);
+  var key = await vaultDeriveKey(password, salt, VAULT_PBKDF2_ITERATIONS);
+  var ciphertext = await vaultEncrypt(plaintext, key, iv);
+  return serializeVaultFile(salt, iv, VAULT_PBKDF2_ITERATIONS, ciphertext);
+}
+
+/**
+ * Restore attachments from a decrypted attachment vault payload.
+ * @param {object} payload
+ * @returns {Promise<number>} Number of attachments imported
+ */
+async function restoreAttachmentVaultData(payload) {
+  if (!payload || !Array.isArray(payload.records)) return 0;
+  if (typeof attachmentManager === "undefined" || !attachmentManager.isAvailable()) return 0;
+
+  var count = 0;
+  var failed = 0;
+  for (var i = 0; i < payload.records.length; i++) {
+    var r = payload.records[i];
+    if (!r.attachmentUuid) continue;
+    try {
+      var blob = r.data
+        ? _base64ToBlob(r.data, r.mimeType || r.type || "application/octet-stream")
+        : null;
+      await attachmentManager.addAttachment({
+        attachmentUuid: r.attachmentUuid,
+        itemUuid: r.itemUuid,
+        fileName: r.fileName,
+        type: r.type,
+        size: r.size,
+        uploadedAt: r.uploadedAt,
+        blob: blob,
+      });
+      count++;
+    } catch (recErr) {
+      failed++;
+      debugLog("[Vault] Attachment vault: record import error for", r.attachmentUuid, recErr);
+    }
+  }
+  if (failed > 0) {
+    var msg =
+      "Attachment vault restore: " +
+      failed +
+      " of " +
+      payload.records.length +
+      " attachments failed to import.";
+    debugLog("[Vault] " + msg, "error");
+    throw new Error(msg);
+  }
+  return count;
+}
+
+/**
+ * Decrypt attachment vault bytes and import all attachments into IndexedDB.
+ * @param {Uint8Array} fileBytes
+ * @param {string} password
+ * @returns {Promise<number>} Number of attachments restored
+ */
+async function vaultDecryptAndRestoreAttachments(fileBytes, password) {
+  try {
+    var parsed = parseVaultFile(new Uint8Array(fileBytes));
+    var key = await vaultDeriveKey(password, parsed.salt, parsed.iterations);
+    var plainBytes = await vaultDecrypt(parsed.ciphertext, key, parsed.iv);
+    var payload = JSON.parse(new TextDecoder().decode(plainBytes));
+    return restoreAttachmentVaultData(payload);
+  } catch (err) {
+    var msg = String(err.message || err);
+    var isPasswordErr = msg.indexOf("Incorrect password") !== -1 || msg.indexOf("corrupted") !== -1;
+    throw new Error(
+      isPasswordErr
+        ? "Attachment vault decryption failed — check your sync password."
+        : "Attachment vault restore failed: " + msg
+    );
+  }
+}
+
 // =============================================================================
 // EXPORT FLOW
 // =============================================================================
@@ -1018,7 +1179,41 @@ async function exportEncryptedBackup(password) {
     return { imageExportFailed: true };
   }
 
-  return { imageCount: imageCount };
+  // Export companion attachment vault if user has attachments
+  var attachmentCount = 0;
+  try {
+    var attachVaultData = await collectAndHashAttachmentVault();
+    if (attachVaultData && attachVaultData.attachmentCount > 0) {
+      var attachBytes = await vaultEncryptAttachmentVault(password, attachVaultData.payload);
+      var attachBlob = new Blob([attachBytes], { type: "application/octet-stream" });
+      var attachUrl = URL.createObjectURL(attachBlob);
+      var attachA = document.createElement("a");
+      attachA.href = attachUrl;
+      attachA.download =
+        "staktrakr_backup_" + timestamp + VAULT_ATTACHMENT_FILE_SUFFIX + VAULT_FILE_EXTENSION;
+      document.body.appendChild(attachA);
+      attachA.click();
+      document.body.removeChild(attachA);
+      URL.revokeObjectURL(attachUrl);
+      attachmentCount = attachVaultData.attachmentCount;
+      debugLog(
+        "Vault: attachment vault export complete,",
+        attachBytes.length,
+        "bytes,",
+        attachmentCount,
+        "attachments"
+      );
+    }
+  } catch (attachErr) {
+    debugLog(
+      "[Vault] Attachment vault export failed:",
+      attachErr.message || String(attachErr),
+      "warn"
+    );
+    return { imageCount: imageCount, attachmentExportFailed: true };
+  }
+
+  return { imageCount: imageCount, attachmentCount: attachmentCount };
 }
 
 // =============================================================================
@@ -1055,6 +1250,9 @@ var _vaultPendingFile = null;
 
 /** @type {Uint8Array|null} Companion image vault bytes loaded by the optional image file picker */
 var _vaultPendingImageFile = null;
+
+/** @type {Uint8Array|null} Companion attachment vault bytes loaded by the optional attachment file picker */
+var _vaultPendingAttachmentFile = null;
 
 /** @type {object|null} Cloud context for cloud-export/cloud-import modes */
 var _cloudContext = null;
@@ -1141,6 +1339,46 @@ function openVaultModal(mode, fileOrOpts) {
     }
     _vaultPendingFile = null;
 
+    // "Include attachments" checkbox for manual cloud backup
+    var existingAttachRow = document.getElementById("vaultIncludeAttachmentsRow");
+    if (existingAttachRow instanceof HTMLElement) existingAttachRow.remove();
+    if (_cloudContext && _cloudContext.isManualBackup) {
+      (function () {
+        try {
+          var req = indexedDB.open("StakTrakrAttachments", 1);
+          req.onsuccess = function (ev) {
+            var db = ev.target.result;
+            if (!db.objectStoreNames.contains("userAttachments")) {
+              db.close();
+              return;
+            }
+            var tx = db.transaction("userAttachments", "readonly");
+            var countReq = tx.objectStore("userAttachments").count();
+            countReq.onsuccess = function () {
+              db.close();
+              if (countReq.result > 0) {
+                var row = document.createElement("div");
+                row.id = "vaultIncludeAttachmentsRow";
+                row.style.cssText = "margin:8px 0;display:flex;align-items:center;gap:8px;";
+                row.innerHTML =
+                  '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">' +
+                  '<input type="checkbox" id="vaultIncludeAttachments"> Include attachments (' +
+                  countReq.result +
+                  " file" +
+                  (countReq.result === 1 ? "" : "s") +
+                  ")</label>";
+                var actionsEl = actionBtn ? actionBtn.parentElement : null;
+                if (actionsEl && actionsEl.parentElement) {
+                  actionsEl.parentElement.insertBefore(row, actionsEl);
+                }
+              }
+            };
+          };
+          req.onerror = function () {};
+        } catch (_) {}
+      })();
+    }
+
     // STAK-427: "Include photos" checkbox for manual cloud backup
     var existingPhotoRow = safeGetElement("vaultIncludePhotosRow");
     if (existingPhotoRow instanceof HTMLElement) existingPhotoRow.remove();
@@ -1213,6 +1451,17 @@ function openVaultModal(mode, fileOrOpts) {
     var imgPickerRowEl = safeGetElement("vaultImagePickerRow");
     if (imgFileInfoEl) imgFileInfoEl.style.display = "none";
     if (imgPickerRowEl) imgPickerRowEl.style.display = "";
+
+    // Reset attachment file state when modal opens
+    _vaultPendingAttachmentFile = null;
+    var attachInputEl = safeGetElement("vaultAttachmentImportFile");
+    if (attachInputEl) attachInputEl.value = "";
+    var attachFileInfoEl = safeGetElement("vaultAttachmentFileInfo");
+    var attachPickerRowEl = safeGetElement("vaultAttachmentPickerRow");
+    var attachFileRowEl = safeGetElement("vaultAttachmentFileRow");
+    if (attachFileInfoEl) attachFileInfoEl.style.display = "none";
+    if (attachPickerRowEl) attachPickerRowEl.style.display = "";
+    if (attachFileRowEl) attachFileRowEl.style.display = _cloudContext ? "none" : "";
     if (actionBtn) {
       actionBtn.textContent = _cloudContext ? "Decrypt & Restore" : "Import";
       actionBtn.className = "btn info";
@@ -1237,10 +1486,13 @@ function openVaultModal(mode, fileOrOpts) {
 function closeVaultModal() {
   _vaultPendingFile = null;
   _vaultPendingImageFile = null;
+  _vaultPendingAttachmentFile = null;
   _cloudContext = null;
   // STAK-427: Remove dynamic photo checkbox
   var photoRow = document.getElementById("vaultIncludePhotosRow");
   if (photoRow) photoRow.remove();
+  var attachRow = document.getElementById("vaultIncludeAttachmentsRow");
+  if (attachRow) attachRow.remove();
   closeModalById("vaultModal");
 }
 
@@ -1301,6 +1553,58 @@ async function handleVaultAction() {
           fileBytes,
           _cloudContext.isManualBackup ? { skipLatestUpdate: true } : undefined
         );
+
+        // Upload attachment vault if "Include attachments" checkbox is checked
+        var includeAttachments = false;
+        var attachCheckbox = document.getElementById("vaultIncludeAttachments");
+        if (attachCheckbox && attachCheckbox.checked) includeAttachments = true;
+        if (includeAttachments) {
+          try {
+            showVaultStatus("info", "Uploading attachments…");
+            var attachData =
+              typeof collectAndHashAttachmentVault === "function"
+                ? await collectAndHashAttachmentVault()
+                : null;
+            if (attachData && attachData.payload) {
+              var attachmentBytes = await vaultEncryptAttachmentVault(password, attachData.payload);
+              var attachToken =
+                typeof cloudGetToken === "function"
+                  ? await cloudGetToken(_cloudContext.provider)
+                  : null;
+              if (attachToken && typeof SYNC_ATTACHMENTS_PATH !== "undefined") {
+                var attachArg = JSON.stringify({
+                  path: SYNC_ATTACHMENTS_PATH,
+                  mode: "overwrite",
+                  autorename: false,
+                  mute: true,
+                });
+                var attachResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+                  method: "POST",
+                  headers: {
+                    Authorization: "Bearer " + attachToken,
+                    "Content-Type": "application/octet-stream",
+                    "Dropbox-API-Arg": attachArg,
+                  },
+                  body: attachmentBytes,
+                });
+                if (!attachResp.ok) {
+                  throw new Error("Attachment upload returned " + attachResp.status);
+                }
+              }
+            }
+          } catch (attachErr) {
+            console.warn(
+              "[Vault] Attachment vault upload failed (non-fatal):",
+              attachErr.message || attachErr
+            );
+            if (typeof showToast === "function") {
+              showToast(
+                "Backup saved, but attachments could not be uploaded. Use ZIP backup for full coverage.",
+                "warning"
+              );
+            }
+          }
+        }
 
         // STAK-427: Upload image vault if "Include photos" checkbox is checked
         var includePhotos = false;
@@ -1379,17 +1683,40 @@ async function handleVaultAction() {
             "warning",
             "Inventory exported. Photo backup failed \u2014 try again or use Settings \u2192 Export Images."
           );
-        } else if (exportResult && exportResult.imageCount > 0) {
+        } else if (exportResult && exportResult.attachmentExportFailed) {
           showVaultStatus(
-            "success",
-            "Backup exported \u2014 2 files downloaded (inventory + " +
-              exportResult.imageCount +
-              " photo" +
-              (exportResult.imageCount === 1 ? "" : "s") +
-              ")."
+            "warning",
+            "Inventory" +
+              (exportResult.imageCount > 0 ? " + photos" : "") +
+              " exported. Attachment backup failed \u2014 try again or use ZIP backup."
           );
         } else {
-          showVaultStatus("success", "Backup exported successfully.");
+          var _extraFiles =
+            (exportResult && exportResult.imageCount > 0 ? 1 : 0) +
+            (exportResult && exportResult.attachmentCount > 0 ? 1 : 0);
+          if (_extraFiles > 0) {
+            showVaultStatus(
+              "success",
+              "Backup exported \u2014 " +
+                (1 + _extraFiles) +
+                " files downloaded (inventory" +
+                (exportResult.imageCount > 0
+                  ? " + " +
+                    exportResult.imageCount +
+                    " photo" +
+                    (exportResult.imageCount === 1 ? "" : "s")
+                  : "") +
+                (exportResult.attachmentCount > 0
+                  ? " + " +
+                    exportResult.attachmentCount +
+                    " attachment" +
+                    (exportResult.attachmentCount === 1 ? "" : "s")
+                  : "") +
+                ")."
+            );
+          } else {
+            showVaultStatus("success", "Backup exported successfully.");
+          }
         }
       }
     } catch (err) {
@@ -1432,26 +1759,48 @@ async function handleVaultAction() {
         closeVaultModal();
       } else {
         // Fallback: full overwrite already happened, handle image vault + reload
+        var _imgRestoreCount = 0;
+        var _attachRestoreCount = 0;
+        var _restoreWarning = null;
         if (_vaultPendingImageFile) {
           showVaultStatus("info", "Restoring photos\u2026");
           try {
-            var imgCount = await vaultDecryptAndRestoreImages(_vaultPendingImageFile, password);
-            showVaultStatus(
-              "success",
-              "Data and " +
-                imgCount +
-                " photo" +
-                (imgCount === 1 ? "" : "s") +
-                " restored. Reloading\u2026"
-            );
+            _imgRestoreCount = await vaultDecryptAndRestoreImages(_vaultPendingImageFile, password);
           } catch (imgErr) {
-            showVaultStatus(
-              "error",
-              "Inventory restored, but photo file failed: " +
-                (imgErr.message || "decryption error") +
-                ". Reloading\u2026"
-            );
+            _restoreWarning = "photo file failed: " + (imgErr.message || "decryption error");
           }
+        }
+        if (_vaultPendingAttachmentFile) {
+          showVaultStatus("info", "Restoring attachments\u2026");
+          try {
+            _attachRestoreCount = await vaultDecryptAndRestoreAttachments(
+              _vaultPendingAttachmentFile,
+              password
+            );
+          } catch (attachErr) {
+            _restoreWarning =
+              (_restoreWarning ? _restoreWarning + "; " : "") +
+              "attachment file failed: " +
+              (attachErr.message || "decryption error");
+          }
+        }
+        if (_restoreWarning) {
+          showVaultStatus(
+            "error",
+            "Inventory restored, but " + _restoreWarning + ". Reloading\u2026"
+          );
+        } else if (_imgRestoreCount > 0 || _attachRestoreCount > 0) {
+          var _restoredParts = [];
+          if (_imgRestoreCount > 0)
+            _restoredParts.push(_imgRestoreCount + " photo" + (_imgRestoreCount === 1 ? "" : "s"));
+          if (_attachRestoreCount > 0)
+            _restoredParts.push(
+              _attachRestoreCount + " attachment" + (_attachRestoreCount === 1 ? "" : "s")
+            );
+          showVaultStatus(
+            "success",
+            "Data and " + _restoredParts.join(" + ") + " restored. Reloading\u2026"
+          );
         } else {
           showVaultStatus("success", "Data restored successfully. Reloading\u2026");
         }
@@ -1721,4 +2070,7 @@ window.encryptManifest = encryptManifest;
 window.decryptManifest = decryptManifest;
 window.setVaultPendingImageFile = function (bytes) {
   _vaultPendingImageFile = bytes;
+};
+window.setVaultPendingAttachmentFile = function (bytes) {
+  _vaultPendingAttachmentFile = bytes;
 };

@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-04-29 - STRK-13: Inventory seed guard prevents data loss
  */
 
-const APP_VERSION = "3.34.54";
+const APP_VERSION = "3.34.55";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -766,6 +766,9 @@ const VAULT_FILE_EXTENSION = ".stvault";
 /** Filename suffix for the companion image vault file exported alongside a backup */
 const VAULT_IMAGE_FILE_SUFFIX = "-images";
 
+/** Filename suffix for the companion attachment vault file exported alongside a backup */
+const VAULT_ATTACHMENT_FILE_SUFFIX = "-attachments";
+
 // =============================================================================
 // CLOUD AUTO-SYNC CONSTANTS (STAK-149)
 // =============================================================================
@@ -789,6 +792,12 @@ const SYNC_META_PATH = "/StakTrakr/sync/staktrakr-sync.json";
 
 /** Dropbox path for the encrypted user-image vault (v2 — /sync/ subfolder) */
 const SYNC_IMAGES_PATH = "/StakTrakr/sync/staktrakr-images.stvault";
+
+/** Dropbox path for the encrypted attachment vault (v2 — /sync/ subfolder) */
+const SYNC_ATTACHMENTS_PATH = "/StakTrakr/sync/staktrakr-attachments.stvault";
+
+/** Attachment total-size threshold in bytes above which the user sees a one-time sync warning */
+const SYNC_ATTACHMENT_SIZE_WARN_BYTES = 100 * 1024 * 1024; // 100 MB
 
 /** Dropbox path for the encrypted change manifest (v2 — /sync/ subfolder) */
 const SYNC_MANIFEST_PATH = "/StakTrakr/sync/staktrakr-sync.stmanifest";
@@ -884,6 +893,9 @@ const SYNC_SCOPE_KEYS = [
   // ── API credentials ──
   "metalApiConfig", // API_KEY_STORAGE_KEY — spot provider keys (MetalPriceAPI, Metals-API, Custom)
   "catalog_api_config", // Numista API key, PCGS bearer token (CatalogConfig)
+
+  // ── Attachment sync ──
+  "syncAttachments", // boolean: include attachment binaries in cloud sync (default true when missing)
 ];
 
 const SPOT_HISTORY_RUNTIME_WINDOW_DAYS = 180;
@@ -1024,6 +1036,9 @@ const ALLOWED_STORAGE_KEYS = [
   "itemRemovedTags", // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   "inventorySeedApplied", // STRK-13: ISO timestamp string, sentinel proving seed has been applied (or migration ran)
   "staktrakr.bootDiagnostics", // STRK-13: JSON array, 10-entry ring buffer of boot classifications
+  // STRK-45: per-item attachments
+  "syncAttachments", // boolean string: "true"/"false" — include attachment binaries in cloud sync (default true when missing)
+  "syncAttachmentsWarnSeen", // boolean string: "true"/"false" — one-time 100 MB warning has been shown
 ];
 
 /**
@@ -1303,6 +1318,7 @@ const VIEW_MODAL_SECTION_DEFAULTS = [
   { id: "numista", label: "Numista data", enabled: true },
   { id: "notes", label: "Notes", enabled: true },
   { id: "tags", label: "Tags", enabled: true },
+  { id: "attachments", label: "Attachments", enabled: true },
 ];
 
 /** Loads the view modal section config from localStorage, merged with defaults. */
@@ -1875,6 +1891,9 @@ if (typeof window !== "undefined") {
   window.SYNC_FILE_PATH = SYNC_FILE_PATH;
   window.SYNC_META_PATH = SYNC_META_PATH;
   window.SYNC_IMAGES_PATH = SYNC_IMAGES_PATH;
+  window.SYNC_ATTACHMENTS_PATH = SYNC_ATTACHMENTS_PATH;
+  window.SYNC_ATTACHMENT_SIZE_WARN_BYTES = SYNC_ATTACHMENT_SIZE_WARN_BYTES;
+  window.VAULT_ATTACHMENT_FILE_SUFFIX = VAULT_ATTACHMENT_FILE_SUFFIX;
   window.SYNC_FILE_PATH_LEGACY = SYNC_FILE_PATH_LEGACY;
   window.SYNC_META_PATH_LEGACY = SYNC_META_PATH_LEGACY;
   window.SYNC_IMAGES_PATH_LEGACY = SYNC_IMAGES_PATH_LEGACY;

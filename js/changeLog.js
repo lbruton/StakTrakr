@@ -216,6 +216,24 @@ const renderChangeLog = () => {
       </tr>`;
     }
 
+    // Attachment add/remove/replace — no undo/redo via the change log UI
+    if (entry.type === "attachment-change") {
+      const ts = formatTimestamp(entry.timestamp);
+      const itemNameSafe = sanitizeHtml(entry.itemName);
+      const displayField = sanitizeHtml(entry.field);
+      const displayOld = entry.oldValue != null ? sanitizeHtml(String(entry.oldValue)) : "";
+      const displayNew = entry.newValue != null ? sanitizeHtml(String(entry.newValue)) : "";
+      return `
+      <tr>
+        <td title="${ts}">${ts}</td>
+        <td title="${itemNameSafe}">${itemNameSafe}</td>
+        <td title="${displayField}">${displayField}</td>
+        <td title="${displayOld}">${displayOld}</td>
+        <td title="${displayNew}">${displayNew}</td>
+        <td class="action-cell"><button class="btn action-btn" style="margin:1px;" disabled title="Attachment changes cannot be undone">N/A</button></td>
+      </tr>`;
+    }
+
     // Friendly display for price history deletions (STAK-109)
     let displayField = sanitizeHtml(entry.field);
     let displayOld = sanitizeHtml(String(entry.oldValue));
@@ -411,6 +429,9 @@ const toggleChange = async (logIdx) => {
     }
     return;
   }
+
+  // Attachment changes — no undo supported; prevent fall-through to scalar assignment
+  if (entry.type === "attachment-change") return;
 
   // Price history delete — undo restores the entry, redo re-deletes it (STAK-109)
   if (entry.field === "priceHistoryDelete") {
@@ -693,6 +714,39 @@ const clearChangeLog = async () => {
 };
 
 /**
+ * Logs a single attachment add/remove/replace event to the change log.
+ * Attachments are arrays so logItemChanges can't diff them per-entry — this function
+ * emits one entry per operation keyed by attachmentUuid.
+ * @param {Object} item - Inventory item that owns the attachment
+ * @param {"add"|"remove"|"replace"} action
+ * @param {Object} attachRecord - New attachment record (for add/replace)
+ * @param {Object|null} oldRecord - Previous attachment record (replace only)
+ */
+const logAttachmentChange = (item, action, attachRecord, oldRecord = null) => {
+  const fieldLabels = {
+    add: "Attachment added",
+    remove: "Attachment removed",
+    replace: "Attachment replaced",
+  };
+  const field = fieldLabels[action] || "Attachment changed";
+  const idx = inventory.indexOf(item);
+  changeLog.push({
+    timestamp: Date.now(),
+    itemName: item.name || "",
+    field,
+    oldValue: action === "add" ? null : (oldRecord?.fileName ?? attachRecord?.fileName ?? null),
+    newValue: action === "remove" ? null : (attachRecord?.fileName ?? null),
+    attachmentUuid: attachRecord?.attachmentUuid ?? oldRecord?.attachmentUuid ?? null,
+    idx,
+    undone: false,
+    scope: "inventory",
+    itemKey: computeItemKey(item),
+    type: "attachment-change",
+  });
+  saveDataSync("changeLog", changeLog);
+};
+
+/**
  * Returns change log entries at or after the given timestamp, shaped for sync manifests.
  * Sentinel entries (type === 'sync-marker') are excluded from manifest output.
  * @param {number|null|undefined} sinceTimestamp - Unix ms lower bound (inclusive). Pass null/undefined for all entries.
@@ -732,6 +786,7 @@ window.computeItemKey = computeItemKey;
 window.logChange = logChange;
 window.tryPersistChangeLog = tryPersistChangeLog;
 window.logItemChanges = logItemChanges;
+window.logAttachmentChange = logAttachmentChange;
 window.renderChangeLog = renderChangeLog;
 window.toggleChange = toggleChange;
 window.clearChangeLog = clearChangeLog;

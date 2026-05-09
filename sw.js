@@ -4,11 +4,7 @@
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-<<<<<<< sketch/STRK-52-numista-resync-tag-membership
-const CACHE_NAME = "staktrakr-v3.34.53-b1778293544";
-=======
-const CACHE_NAME = "staktrakr-v3.34.54-b1778292876";
->>>>>>> dev
+const CACHE_NAME = "staktrakr-v3.34.55-b1778367697";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -40,6 +36,8 @@ const CORE_ASSETS = [
   "./js/image-processor.js",
   "./js/bulk-image-cache.js",
   "./js/image-cache-modal.js",
+  "./js/attachment-manager.js",
+  "./js/attachment-ui.js",
   "./js/fuzzy-search.js",
   "./js/autocomplete.js",
   "./js/numista-lookup.js",
