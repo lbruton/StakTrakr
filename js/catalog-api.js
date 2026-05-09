@@ -2411,18 +2411,24 @@ const fillFormFromNumistaResult = () => {
   // returns the pre-submit stored list here, making the case-insensitive lookup safe.
   if (_fillUuid) {
     const allTagCbs = container.querySelectorAll('input[name="numistaTag"]');
+    let didRemove = false;
     allTagCbs.forEach((cb) => {
       if (cb.dataset.onItem !== "1" || cb.checked) return;
       // Tag was on the item at render time but the user unchecked it — record opt-out.
       // Resolve stored-exact-case via case-insensitive search so removeItemTag() matches.
       const numistaLabel = (cb.dataset.tag || "").toLowerCase();
-      const storedTags = typeof getItemTags === "function" ? getItemTags(_fillUuid) : [];
+      const storedTags =
+        typeof getItemTags === "function"
+          ? getItemTags(_fillUuid)
+          : (console.warn("STRK-52: getItemTags not available — skipping on-item removal walk"),
+            []);
       const exactStored = storedTags.find((t) => t.toLowerCase() === numistaLabel);
       if (exactStored && typeof removeItemTag === "function") {
         removeItemTag(_fillUuid, exactStored); // internally calls addRemovedTag
-        if (typeof window._renderEditTags === "function") window._renderEditTags();
+        didRemove = true;
       }
     });
+    if (didRemove && typeof window._renderEditTags === "function") window._renderEditTags();
   }
 
   // Clear userModified for scalar fields the user chose to override.
