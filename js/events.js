@@ -3259,6 +3259,41 @@ const setupVaultListeners = () => {
     },
     "Vault image import file input"
   );
+
+  // Attachment vault companion file picker (import mode only)
+  const vaultAttachmentImportFile = document.getElementById("vaultAttachmentImportFile");
+  optionalListener(
+    vaultAttachmentImportFile,
+    "change",
+    function (e) {
+      const attachFile = e.target.files && e.target.files[0];
+      if (!attachFile) return;
+      const attachFileInfoEl = safeGetElement("vaultAttachmentFileInfo");
+      const attachPickerRowEl = safeGetElement("vaultAttachmentPickerRow");
+      const attachFileNameEl = safeGetElement("vaultAttachmentFileName");
+      const attachFileSizeEl = safeGetElement("vaultAttachmentFileSize");
+      if (attachFileNameEl) attachFileNameEl.textContent = attachFile.name;
+      if (attachFileSizeEl && typeof formatFileSize === "function") {
+        attachFileSizeEl.textContent = formatFileSize(attachFile.size);
+      }
+      if (attachFileInfoEl) attachFileInfoEl.style.display = "";
+      if (attachPickerRowEl) attachPickerRowEl.style.display = "none";
+      const attachReader = new FileReader();
+      attachReader.onload = function (ev) {
+        if (typeof setVaultPendingAttachmentFile === "function") {
+          setVaultPendingAttachmentFile(new Uint8Array(ev.target.result));
+        }
+      };
+      attachReader.onerror = function () {
+        debugLog("[Vault] Failed to read attachment file", "error");
+        if (attachFileInfoEl) attachFileInfoEl.style.display = "none";
+        if (attachPickerRowEl) attachPickerRowEl.style.display = "";
+      };
+      attachReader.readAsArrayBuffer(attachFile);
+      e.target.value = "";
+    },
+    "Vault attachment import file input"
+  );
 };
 
 /**
