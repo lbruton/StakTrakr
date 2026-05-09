@@ -240,6 +240,9 @@ let _deleteObverseOnSave = false;
 /** @type {boolean} User clicked Remove on reverse — delete on save */
 let _deleteReverseOnSave = false;
 
+/** @type {File[]} Queued attachment files — written to IDB on item commit (STRK-45) */
+let _pendingAttachments = [];
+
 /**
  * Process a user-selected image file and show preview for a specific side.
  * @param {File} file
@@ -373,6 +376,29 @@ const clearUploadState = () => {
   if (patternToggle) patternToggle.checked = false;
   if (patternKeywordsGroup) patternKeywordsGroup.style.display = "none";
   if (patternKeywords) patternKeywords.value = "";
+};
+
+/**
+ * Validate and queue an attachment file for IDB write on next item commit (STRK-45).
+ * Accepted types: PDF, PNG, JPEG. Called by drop/browse handlers and attachment-ui.js.
+ * @param {File} file
+ */
+const queueAttachmentFile = (file) => {
+  if (!file) return;
+  const ALLOWED = ["application/pdf", "image/png", "image/jpeg"];
+  if (!ALLOWED.includes(file.type)) {
+    if (typeof showToast === "function")
+      showToast(`Unsupported file type: ${file.type || file.name}`);
+    return;
+  }
+  _pendingAttachments.push(file);
+  if (typeof renderQueuedAttachments === "function") renderQueuedAttachments(_pendingAttachments);
+};
+
+/** Clear the pending attachment queue and reset the queued-files UI (STRK-45). */
+const clearAttachmentQueue = () => {
+  _pendingAttachments = [];
+  if (typeof renderQueuedAttachments === "function") renderQueuedAttachments([]);
 };
 
 /**
@@ -1967,6 +1993,46 @@ const setupItemFormListeners = () => {
           }
         } else if (!patternRuleSaved) {
           clearUploadState();
+        }
+
+        // Write queued attachments to IDB (STRK-45)
+        // commitItemToInventory() has already run, so savedItem.uuid is stable
+        if (window._cloneMode) {
+          // Clone starts with no attachments
+          if (savedItem) savedItem.attachments = [];
+          saveInventory();
+        } else if (
+          _pendingAttachments.length > 0 &&
+          savedItem?.uuid &&
+          window.attachmentManager?.isAvailable()
+        ) {
+          const queue = [..._pendingAttachments];
+          clearAttachmentQueue();
+          if (!Array.isArray(savedItem.attachments)) savedItem.attachments = [];
+          for (const file of queue) {
+            const uuid = typeof generateUUID === "function" ? generateUUID() : crypto.randomUUID();
+            const record = {
+              attachmentUuid: uuid,
+              itemUuid: savedItem.uuid,
+              fileName: file.name,
+              type: file.type,
+              size: file.size,
+              uploadedAt: new Date().toISOString(),
+              blob: file,
+            };
+            const ok = await attachmentManager.addAttachment(record);
+            savedItem.attachments.push({
+              attachmentUuid: uuid,
+              fileName: file.name,
+              type: file.type,
+              size: file.size,
+              uploadedAt: record.uploadedAt,
+              ...(ok ? {} : { missingBinary: true }),
+            });
+          }
+          saveInventory();
+        } else {
+          clearAttachmentQueue();
         }
 
         // Clear spot lookup hidden field after commit (STACK-49)
@@ -4317,6 +4383,38 @@ if (settingsShowRealizedToggle) {
     applyRealizedVisibility(show);
   });
 }
+
+// =============================================================================
+// Attachment drop zone + browse button event wiring (STRK-45)
+// =============================================================================
+
+const attachmentDropZone = document.getElementById("attachmentDropZone");
+const attachmentFileInput = document.getElementById("attachmentFileInput");
+
+if (attachmentDropZone) {
+  attachmentDropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    attachmentDropZone.classList.add("drag-over");
+  });
+  attachmentDropZone.addEventListener("dragleave", () => {
+    attachmentDropZone.classList.remove("drag-over");
+  });
+  attachmentDropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    attachmentDropZone.classList.remove("drag-over");
+    Array.from(e.dataTransfer.files).forEach(queueAttachmentFile);
+  });
+}
+
+if (attachmentFileInput) {
+  attachmentFileInput.addEventListener("change", (e) => {
+    Array.from(e.target.files).forEach(queueAttachmentFile);
+    e.target.value = "";
+  });
+}
+
+window.queueAttachmentFile = queueAttachmentFile;
+window.clearAttachmentQueue = clearAttachmentQueue;
 
 // =============================================================================
 
