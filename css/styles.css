@@ -13313,6 +13313,17 @@ th {
   background: color-mix(in oklch, var(--palladium) 18%, var(--bg-tertiary));
   color: var(--palladium);
 }
+.cv-chip-attach {
+  background: color-mix(in oklch, var(--primary) 14%, var(--bg-tertiary));
+  color: var(--primary);
+  border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border));
+  gap: 0.25rem;
+  cursor: pointer;
+}
+.cv-chip-attach svg {
+  width: 10px;
+  height: 10px;
+}
 
 .cv-gain {
   color: var(--success);
@@ -14850,5 +14861,373 @@ th {
 
   .ticker-item {
     font-size: var(--font-size-xs);
+  }
+}
+
+/* ── STRK-45 Attachment UI ──────────────────────────────────────────── */
+
+/* Drop zone */
+.attachment-drop-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--glass-input-bg);
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background var(--transition);
+  flex-wrap: wrap;
+  row-gap: 0.4rem;
+  column-gap: 0.6rem;
+}
+.attachment-drop-zone:hover,
+.attachment-drop-zone.drag-over {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 6%, transparent);
+}
+.attachment-drop-zone.drag-over {
+  border-style: solid;
+}
+.attachment-drop-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.attachment-drop-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 100px;
+}
+.attachment-browse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition:
+    background var(--transition),
+    border-color var(--transition);
+  white-space: nowrap;
+}
+.attachment-browse-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Attachment list items */
+.attachment-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0;
+  margin: 0;
+}
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--glass-input-bg);
+  border: 1px solid var(--border);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  position: relative;
+  min-width: 0;
+}
+.attachment-item--queued {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+  background: color-mix(in oklch, var(--primary) 5%, var(--glass-input-bg));
+}
+.attachment-item--missing {
+  border-color: color-mix(in oklch, var(--warning) 40%, var(--border));
+  background: color-mix(in oklch, var(--warning) 5%, var(--glass-input-bg));
+}
+
+/* File type icons */
+.attach-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+}
+.attach-icon--pdf {
+  background: #fde8e8;
+  color: #c0392b;
+}
+.attach-icon--png {
+  background: #e8f4fd;
+  color: #2980b9;
+}
+.attach-icon--jpg {
+  background: #fef9e7;
+  color: #d4ac0d;
+}
+.attach-icon--file {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+[data-theme="dark"] .attach-icon--pdf {
+  background: rgba(192, 57, 43, 0.18);
+  color: #e57373;
+}
+[data-theme="dark"] .attach-icon--png {
+  background: rgba(41, 128, 185, 0.18);
+  color: #64b5f6;
+}
+[data-theme="dark"] .attach-icon--jpg {
+  background: rgba(212, 172, 13, 0.18);
+  color: #ffd54f;
+}
+[data-theme="sepia"] .attach-icon--pdf {
+  background: rgba(160, 40, 20, 0.12);
+  color: #a02814;
+}
+[data-theme="sepia"] .attach-icon--png {
+  background: rgba(30, 80, 140, 0.12);
+  color: #1e508c;
+}
+[data-theme="sepia"] .attach-icon--jpg {
+  background: rgba(140, 90, 0, 0.12);
+  color: #8c5a00;
+}
+
+/* Attachment info row */
+.attach-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.attach-name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attach-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+/* Staging progress bar */
+.attach-progress {
+  height: 2px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 0.15rem;
+}
+.attach-progress-bar {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+/* Action buttons */
+.attach-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+.attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition:
+    background var(--transition),
+    color var(--transition);
+  font-size: 13px;
+}
+.attach-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.attach-btn.danger:hover {
+  background: color-mix(in oklch, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+/* Missing-binary warning badge */
+.attach-badge-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--font-size-xs);
+  color: var(--warning);
+  background: color-mix(in oklch, var(--warning) 12%, transparent);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.5rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Sub-list label */
+.attach-list-header {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.1rem;
+}
+
+/* Table row attachment count chip */
+.attach-count-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  color: var(--primary);
+  border: 1px solid color-mix(in oklch, var(--primary) 25%, transparent);
+  cursor: pointer;
+}
+
+/* Shared attachment list panel (view modal + detail modal) */
+.attach-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.attach-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.attach-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+.attach-panel-count {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  background: var(--primary);
+  color: var(--text-inverse);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.4rem;
+}
+.attach-panel-body {
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.attach-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+.attach-panel-empty svg {
+  opacity: 0.35;
+}
+
+/* DiffModal attachment rows */
+.diff-attach-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  border: 1px solid transparent;
+}
+.diff-attach-row--added {
+  background: color-mix(in oklch, var(--success) 8%, transparent);
+  border-color: color-mix(in oklch, var(--success) 20%, transparent);
+}
+.diff-attach-row--removed {
+  background: color-mix(in oklch, var(--danger) 8%, transparent);
+  border-color: color-mix(in oklch, var(--danger) 20%, transparent);
+}
+.diff-attach-row--changed {
+  background: color-mix(in oklch, var(--warning) 7%, transparent);
+  border-color: color-mix(in oklch, var(--warning) 20%, transparent);
+}
+.diff-sign {
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+.diff-sign--added {
+  color: var(--success);
+}
+.diff-sign--removed {
+  color: var(--danger);
+}
+.diff-sign--changed {
+  color: var(--warning);
+}
+.diff-attach-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+}
+.diff-attach-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+.diff-strikethrough {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.diff-arrow {
+  color: var(--text-muted);
+  margin: 0 0.25rem;
+}
+
+/* Mobile: ensure browse button is always visible and tappable */
+@media (max-width: 768px) {
+  .attachment-browse-btn {
+    min-height: 36px;
+    padding: 0.4rem 0.9rem;
+  }
+  .attachment-drop-zone {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
