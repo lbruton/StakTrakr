@@ -54,7 +54,7 @@ Pre-migration DocVault issues (STAK-) are archived at `DocVault/Archive/Issues-P
 - **Squash merge only** — rebase merge is blocked (GitHub can't sign rebase commits). Use squash merge or local merge with SSH signing.
 - **`stamp-sw-cache` hook** — auto-stages `sw.js` when JS/CSS/image files are committed. No need to add it manually.
 - **`data/` and `vendor/` excluded from prettier** — lint-staged formats `js/` and `css/` only. Avoid manually formatting excluded paths.
-- **Update spot bundle before the `dev → main` ship PR** — run `/update-spot-bundle` (queries sqld and rebuilds `data/spot-history-bundle.js` with current data). Patch PRs to `dev` do not need it; only the ship PR does.
+- **Update spot bundle on every version bump** — run `/update-spot-bundle` (queries sqld and rebuilds `data/spot-history-bundle.js` with current data) before every PR that bumps the version, whether targeting `dev` or `main`. Copilot has an instruction reminding about this; honor that reminder — it is NOT a false positive.
 - **Pushing fixes to an open PR** — commit from the existing PR worktree (`.worktrees/<branch>`), not a new branch.
 
 ---
@@ -164,7 +164,7 @@ A passing test suite built on modified tests is worse than a failing one — it 
 - **Before any feed/poller/API/data-path diagnosis OR any retail/spot/feed disconnect between data source and frontend** (poller logs OK but UI wrong, vendor showing systematic anomaly, prices missing for one provider) → invoke `/api-infrastructure` and `/retail-poller` first. They cover the full poll → dashboard → publish → frontend path. Skipping causes wrong-layer fixes.
 - **Before speculating on infra failure mode** → read the matching Foundation doc. `infrastructure.md` lists known gotchas at specific line numbers (e.g. line 265 documents the recurring Tailscale subnet-route loss). Skim it before dispatching debugger agents.
 - **Before claiming what env/secret is set on Fly.io or home poller** → look it up via `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). I deploy and manage Fly.io for the user; Infisical is the canonical source, not assumption or stale memory.
-- **Before the `dev → main` ship PR** → run `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`). Skippable for patch PRs to `dev`.
+- **Before any PR that bumps the version (to `dev` or `main`)** → run `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`). This applies to every version-bump PR, not just the ship PR. If Copilot reminds you to update the bundle, do it — that reminder is correct, not a false positive.
 - **Before `dev → main`** → use `/staktrakr-ship` only on explicit "ready to ship" from user.
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
 
