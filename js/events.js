@@ -401,6 +401,13 @@ const clearAttachmentQueue = () => {
   if (typeof renderQueuedAttachments === "function") renderQueuedAttachments([]);
 };
 
+/** Remove a single file from the queue by filename (STRK-45). */
+const dequeueAttachment = (fileName) => {
+  const idx = _pendingAttachments.findIndex((f) => f.name === fileName);
+  if (idx !== -1) _pendingAttachments.splice(idx, 1);
+  if (typeof renderQueuedAttachments === "function") renderQueuedAttachments(_pendingAttachments);
+};
+
 /**
  * Update Numista API status dot in item modal action bar (STAK-173).
  * Reads catalogConfig.isNumistaEnabled() to set connected/disconnected state.
@@ -4450,6 +4457,7 @@ if (attachmentFileInput) {
 
 window.queueAttachmentFile = queueAttachmentFile;
 window.clearAttachmentQueue = clearAttachmentQueue;
+window.dequeueAttachment = dequeueAttachment;
 
 // =============================================================================
 
