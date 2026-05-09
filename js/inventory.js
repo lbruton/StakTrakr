@@ -635,6 +635,18 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const nameEl = safeGetElement("removeItemName");
   if (nameEl) nameEl.textContent = item.name || "Unnamed item";
 
+  // Show attachment deletion warning (STRK-45)
+  const attachWarn = safeGetElement("removeItemAttachmentWarn");
+  if (attachWarn) {
+    const count = item.attachments?.length || 0;
+    if (count > 0) {
+      attachWarn.textContent = `${count} attachment${count === 1 ? "" : "s"} will also be deleted.`;
+      attachWarn.style.display = "";
+    } else {
+      attachWarn.style.display = "none";
+    }
+  }
+
   const checkbox = safeGetElement("removeItemDisposeCheck");
   const fieldsWrap = safeGetElement("removeItemDisposeFields");
   const deleteBtn = safeGetElement("removeItemDeleteBtn");
@@ -851,6 +863,13 @@ const confirmRemoveItem = async () => {
         });
       }
 
+      // Clean up attachments from IndexedDB (STRK-45)
+      if (item?.uuid && window.attachmentManager?.isAvailable()) {
+        attachmentManager.deleteAttachmentsForItem(item.uuid).catch((err) => {
+          debugLog(`Failed to delete attachments for deleted item: ${err}`);
+        });
+      }
+
       // Clean up item tags (STAK-126)
       if (item?.uuid && typeof deleteItemTags === "function") {
         deleteItemTags(item.uuid);
@@ -996,6 +1015,7 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   clone.uuid = generateUUID();
   clone.serial = getNextSerial();
   clone.qty = qty;
+  clone.attachments = []; // split-off starts with no attachments (STRK-45 D13)
   const disposedAt = new Date().toISOString();
   const pricePerUnit = parseFloat(original.price) || 0;
   const rawTotalAmount =
@@ -1501,6 +1521,9 @@ const editItem = (idx, logIdx = null) => {
     showUrlPreviewFallback({ obverse: false, reverse: false });
     if (typeof updateSwapButtonVisibility === "function") updateSwapButtonVisibility();
   }
+
+  // Render attachment section in edit modal (STRK-45 — UI in Cohort D)
+  if (typeof renderAttachmentSection === "function") renderAttachmentSection(item);
 
   // Update Numista API status dot (STAK-173)
   if (typeof updateNumistaModalDot === "function") updateNumistaModalDot();
