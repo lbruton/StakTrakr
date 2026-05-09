@@ -568,6 +568,10 @@
           .filter((c) => c.enabled && chipMap[c.id])
           .map((c) => chipMap[c.id])
           .join("");
+        const attachChip =
+          item.attachments?.length > 0
+            ? `<span class="attach-count-chip" title="${item.attachments.length} attachment${item.attachments.length === 1 ? "" : "s"}" onclick="showViewModal(${originalIdx});event.stopPropagation()"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> ${item.attachments.length}</span>`
+            : "";
 
         const meltDisplay = currentSpot > 0 ? formatCurrency(meltValue) : "—";
         const retailDisplay = hasRetailSignal ? formatCurrency(retailTotal) : "—";
@@ -593,7 +597,7 @@
           featureFlags.isEnabled("COIN_IMAGES")
             ? `<span class="filter-text" style="color: var(--text-primary); cursor: pointer;" onclick="showViewModal(${originalIdx})" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ')showViewModal(${originalIdx})" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
             : filterLink("name", item.name, "var(--text-primary)", undefined, item.name)
-        }${isDisposed(item) ? `<span class="disposition-badge disposition-badge--${item.disposition.type}">${DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type}</span>` : ""}${orderedChips}
+        }${isDisposed(item) ? `<span class="disposition-badge disposition-badge--${item.disposition.type}">${DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type}</span>` : ""}${orderedChips}${attachChip}
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>

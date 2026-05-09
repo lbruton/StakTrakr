@@ -1318,6 +1318,7 @@ const VIEW_MODAL_SECTION_DEFAULTS = [
   { id: "numista", label: "Numista data", enabled: true },
   { id: "notes", label: "Notes", enabled: true },
   { id: "tags", label: "Tags", enabled: true },
+  { id: "attachments", label: "Attachments", enabled: true },
 ];
 
 /** Loads the view modal section config from localStorage, merged with defaults. */
