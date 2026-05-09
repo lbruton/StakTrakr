@@ -137,7 +137,7 @@ function _buildQueuedRow(file) {
 // ── Saved-row builder ───────────────────────────────────────────────────────
 
 function _buildSavedRow(rec, item, editable, onUpdate) {
-  const icon = _fileIconInfo(rec.mimeType, rec.fileName);
+  const icon = _fileIconInfo(rec.type, rec.fileName);
   const isMissing = !!rec.missingBinary;
 
   const li = _el("li", `attachment-item${isMissing ? " attachment-item--missing" : ""}`);
@@ -296,7 +296,7 @@ function renderAttachmentListPanel(item, options = {}) {
 
 /**
  * Builds a diff row element for the DiffModal attachment change log.
- * @param {{ attachmentUuid?: string, fileName: string, mimeType: string, size: number, uploadedAt?: string, oldFileName?: string }} entry
+ * @param {{ attachmentUuid?: string, fileName: string, type: string, size: number, uploadedAt?: string, oldFileName?: string }} entry
  * @param {'added'|'removed'|'replaced'} type
  * @returns {HTMLElement}
  */
@@ -312,7 +312,7 @@ function renderAttachmentDiffRow(entry, type) {
   const signEl = _el("span", `diff-sign diff-sign--${cssType}`);
   signEl.textContent = sign;
 
-  const icon = _fileIconInfo(entry.mimeType, entry.fileName);
+  const icon = _fileIconInfo(entry.type, entry.fileName);
   const iconEl = _el("div", `attach-icon ${icon.cls}`);
   iconEl.style.cssText = "width:22px;height:22px;font-size:9px;font-weight:700";
   iconEl.textContent = icon.label;
