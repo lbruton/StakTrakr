@@ -682,6 +682,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
+    // Initialize IndexedDB attachment manager (STRK-45)
+    if (typeof attachmentManager !== "undefined") {
+      try {
+        await attachmentManager.init();
+        debugLog("AttachmentManager available:", attachmentManager.isAvailable());
+      } catch (e) {
+        console.warn("AttachmentManager init failed:", e);
+      }
+    }
+
     // CDN Backfill removed — URLs are written at save/bulk-sync time (STAK-309)
     debugLog("[Init] Skipping CDN backfill (removed in STAK-309 fix)");
 

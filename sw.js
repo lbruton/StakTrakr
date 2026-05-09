@@ -4,7 +4,7 @@
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.54-b1778350274";
+const CACHE_NAME = "staktrakr-v3.34.54-b1778350350";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -36,6 +36,8 @@ const CORE_ASSETS = [
   "./js/image-processor.js",
   "./js/bulk-image-cache.js",
   "./js/image-cache-modal.js",
+  "./js/attachment-manager.js",
+  "./js/attachment-ui.js",
   "./js/fuzzy-search.js",
   "./js/autocomplete.js",
   "./js/numista-lookup.js",
