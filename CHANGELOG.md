@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.54] - 2026-05-08
+
+### Changed — STRK-52: Numista re-sync tag membership
+
+- **Tag picker**: Existing on-item tags in the Numista re-sync picker are now shown checked and enabled instead of locked-disabled, allowing users to explicitly uncheck them to record an opt-out removal (STRK-52).
+- **Bulk controls**: Uncheck-all now preserves existing on-item tags (in addition to blacklisted tags), preventing accidental mass-removal of tags already on an item (STRK-52).
+
+---
+
 ## [3.34.53] - 2026-05-08
 
 ### Changed — STRK-46: Structured Capsule field + capsule notes
