@@ -1016,14 +1016,10 @@ const cleanString = (str = "") => {
 const sanitizeObjectFields = (obj) => {
   const cleaned = { ...obj };
   for (const key of Object.keys(cleaned)) {
-    if (typeof cleaned[key] === "string" && key !== "notes") {
+    if (typeof cleaned[key] === "string" && key !== "notes" && key !== "capsuleNotes") {
       // URL fields must not be sanitized — they contain :, /, . characters
       // UUID fields must not be sanitized — hyphens are part of the format
       if (key === "obverseImageUrl" || key === "reverseImageUrl" || key === "uuid") continue;
-      if (key === "capsuleNotes") {
-        cleaned[key] = cleanString(cleaned[key]);
-        continue;
-      }
       const allowHyphen = key === "date";
       cleaned[key] =
         key === "name" ||

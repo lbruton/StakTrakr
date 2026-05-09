@@ -430,7 +430,7 @@ const shouldShowCapsuleSuggestion = () => {
   const shapeEl =
     typeof elements !== "undefined" && elements?.numistaShape
       ? elements.numistaShape
-      : document.getElementById("numistaShape");
+      : safeGetElement("numistaShape");
   if (!shapeEl || !shapeEl.value) return true;
   return shapeEl.value === "Round";
 };
@@ -451,7 +451,7 @@ const updateCapsuleSuggestion = (diameterMm) => {
     typeof elements !== "undefined" && elements?.capsuleSuggestion
       ? elements.capsuleSuggestion
       : typeof document !== "undefined"
-        ? document.getElementById("capsuleSuggestion")
+        ? safeGetElement("capsuleSuggestion")
         : null;
   if (!hint) return null;
 
