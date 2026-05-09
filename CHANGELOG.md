@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.55] - 2026-05-09
+
+### Changed — STRK-45: Per-item PDF/image attachments
+
+- **Attachments**: Attach receipts, COAs, and dealer invoices to individual inventory items (PDF, PNG, JPG) — persisted in IndexedDB, visible as a badge on card/table/detail views, included in zip/stvault backups and CSV exports, and synced via cloud sync with an opt-out toggle (STRK-45).
+
+---
+
 ## [3.34.54] - 2026-05-08
 
 ### Changed — STRK-52: Numista re-sync tag membership
