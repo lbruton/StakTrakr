@@ -1,0 +1,1345 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STRK-45 Attachment UI Playground</title>
+    <style>
+      /* ── StakTrakr Design Tokens ── */
+      :root {
+        --primary: oklch(0.623 0.188 259.8);
+        --primary-hover: oklch(0.546 0.215 262.9);
+        --success: oklch(0.596 0.127 163.2);
+        --warning: oklch(0.666 0.157 58.3);
+        --danger: oklch(0.577 0.215 27.3);
+        --danger-hover: oklch(0.505 0.19 27.5);
+        --info: oklch(0.568 0.136 244.6);
+        --bg-elev-1: oklch(0.96 0.008 253.9);
+        --bg-elev-2: oklch(0.869 0.02 252.9);
+        --surface: oklch(0.984 0.003 247.9);
+        --surface-alt: oklch(1 0 0);
+        --bg: oklch(0.925 0.013 252.5);
+        --bg-secondary: var(--bg-elev-1);
+        --bg-tertiary: var(--bg-elev-2);
+        --bg-card: var(--surface);
+        --text: oklch(0.224 0.025 255.6);
+        --text-primary: var(--text);
+        --text-secondary: oklch(0.376 0.031 246.9);
+        --text-muted: oklch(0.376 0.031 246.9);
+        --text-inverse: oklch(1 0 0);
+        --border: oklch(0.711 0.035 256.8);
+        --border-hover: oklch(0.554 0.041 257.4);
+        --glass-input-bg: rgba(0, 0, 0, 0.03);
+        --glass-input-border: var(--border);
+        --radius-sm: 4px;
+        --radius: 8px;
+        --radius-lg: 12px;
+        --radius-xl: 20px;
+        --radius-pill: 999px;
+        --font-size-xs: 0.6875rem;
+        --font-size-sm: 0.75rem;
+        --font-size-base: 0.8125rem;
+        --font-size-md: 0.875rem;
+        --font-size-lg: 1rem;
+        --spacing-xs: 0.2rem;
+        --spacing-sm: 0.4rem;
+        --spacing-md: 0.5rem;
+        --spacing: 0.75rem;
+        --spacing-lg: 1.25rem;
+        --transition: 120ms ease;
+      }
+      [data-theme="dark"] {
+        --primary: oklch(0.72 0.16 75);
+        --primary-hover: oklch(0.64 0.18 75);
+        --success: oklch(0.64 0.17 155);
+        --warning: oklch(0.72 0.16 80);
+        --danger: oklch(0.58 0.22 25);
+        --danger-hover: oklch(0.5 0.22 25);
+        --info: oklch(0.65 0.15 240);
+        --bg: oklch(0.143 0.005 252.8);
+        --bg-elev-1: oklch(0.195 0.006 252.8);
+        --bg-elev-2: oklch(0.245 0.007 253.4);
+        --surface: oklch(0.175 0.006 252.8);
+        --surface-alt: oklch(0.205 0.007 252.8);
+        --bg-secondary: oklch(0.22 0.008 85);
+        --bg-tertiary: oklch(0.28 0.01 85);
+        --bg-card: var(--surface);
+        --text: oklch(0.95 0.005 85);
+        --text-primary: oklch(0.95 0.005 85);
+        --text-secondary: oklch(0.75 0.012 85);
+        --text-muted: oklch(0.65 0.012 85);
+        --text-inverse: oklch(0.98 0 0);
+        --border: oklch(0.32 0.008 85);
+        --border-hover: oklch(0.4 0.01 85);
+        --glass-input-bg: rgba(255, 255, 255, 0.04);
+        --glass-input-border: var(--border);
+      }
+      [data-theme="sepia"] {
+        --primary: oklch(0.569 0.133 50.9);
+        --primary-hover: oklch(0.492 0.116 50.7);
+        --success: oklch(0.603 0.117 130.4);
+        --warning: oklch(0.666 0.157 58.3);
+        --danger: oklch(0.577 0.215 27.3);
+        --danger-hover: oklch(0.505 0.19 27.5);
+        --info: oklch(0.55 0.13 220);
+        --bg: oklch(0.932 0.028 91.2);
+        --bg-elev-1: oklch(0.908 0.03 89.2);
+        --bg-elev-2: oklch(0.878 0.034 88.1);
+        --surface: oklch(0.956 0.022 90.4);
+        --surface-alt: oklch(0.973 0.015 90.2);
+        --bg-secondary: oklch(0.892 0.032 89.1);
+        --bg-tertiary: oklch(0.878 0.034 88.1);
+        --bg-card: var(--surface);
+        --text: oklch(0.268 0.042 87.2);
+        --text-primary: oklch(0.314 0.039 86.7);
+        --text-secondary: oklch(0.465 0.036 85.2);
+        --text-muted: oklch(0.514 0.033 84.5);
+        --text-inverse: oklch(1 0 0);
+        --border: oklch(0.786 0.038 86.2);
+        --border-hover: oklch(0.685 0.048 84.5);
+        --glass-input-bg: rgba(120, 80, 0, 0.04);
+        --glass-input-border: var(--border);
+      }
+
+      /* ── Playground shell ── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px;
+        background: #1a1d23;
+        color: #e8eaf0;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: 700;
+        color: #b8bcc8;
+        padding: 12px 16px 0;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .pg-layout {
+        display: flex;
+        flex: 1;
+        gap: 0;
+        min-height: 0;
+      }
+      .pg-controls {
+        width: 230px;
+        min-width: 200px;
+        background: #12141a;
+        border-right: 1px solid #2a2d38;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+      .pg-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .pg-preview {
+        flex: 1;
+        overflow-y: auto;
+        background: var(--bg, #f5f7fa);
+        transition: background 0.2s;
+        padding: 20px;
+      }
+      .pg-prompt-area {
+        background: #12141a;
+        border-top: 1px solid #2a2d38;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .pg-prompt-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7080;
+      }
+      .pg-prompt-text {
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 11px;
+        color: #a8b4c8;
+        line-height: 1.5;
+        min-height: 40px;
+      }
+      .pg-copy-btn {
+        align-self: flex-end;
+        background: #2a2d38;
+        border: 1px solid #3a3d4a;
+        border-radius: 6px;
+        color: #b8bcc8;
+        cursor: pointer;
+        font-size: 11px;
+        padding: 5px 12px;
+        transition: background 0.15s;
+      }
+      .pg-copy-btn:hover {
+        background: #3a3d4a;
+      }
+      .pg-copy-btn.copied {
+        color: #4ade80;
+      }
+
+      /* ── Controls ── */
+      .ctrl-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .ctrl-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #6b7080;
+      }
+      .ctrl-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .ctrl-btn {
+        background: #2a2d38;
+        border: 1px solid #3a3d4a;
+        border-radius: 5px;
+        color: #b8bcc8;
+        cursor: pointer;
+        font-size: 11px;
+        padding: 4px 10px;
+        transition: all 0.12s;
+      }
+      .ctrl-btn:hover {
+        background: #3a3d4a;
+      }
+      .ctrl-btn.active {
+        background: #3a5cb8;
+        border-color: #4a6cd0;
+        color: #fff;
+      }
+      .ctrl-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        font-size: 11px;
+        color: #a0a8b8;
+      }
+      .ctrl-toggle input {
+        cursor: pointer;
+      }
+
+      /* ── Tabs for panel switching ── */
+      .pg-tabs {
+        display: flex;
+        background: #0e1016;
+        border-bottom: 1px solid #2a2d38;
+        padding: 0 12px;
+        gap: 0;
+      }
+      .pg-tab {
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: #6b7080;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 8px 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.12s;
+      }
+      .pg-tab:hover {
+        color: #a8b4c8;
+      }
+      .pg-tab.active {
+        border-bottom-color: #4a6cd0;
+        color: #c0ccdf;
+      }
+
+      /* ── StakTrakr Component Styles ── */
+      /* Reused from the real app */
+      .form-section {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+      }
+      .form-section-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.7rem;
+        background: var(--bg-secondary);
+        font-weight: 600;
+        font-size: var(--font-size-base);
+        color: var(--text-primary);
+        min-height: 36px;
+      }
+      .form-section-icon {
+        color: var(--text-secondary);
+        display: inline-flex;
+        align-items: center;
+      }
+      .form-section-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.25rem;
+        height: 1.25rem;
+        padding: 0 0.35rem;
+        border-radius: var(--radius-pill);
+        background: var(--primary);
+        color: var(--text-inverse);
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        line-height: 1;
+      }
+      .form-section-body {
+        padding: 0.55rem 0.7rem 0.65rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      /* Drop zone */
+      .attachment-drop-zone {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.7rem 0.8rem;
+        border: 1.5px dashed var(--border);
+        border-radius: var(--radius);
+        background: var(--glass-input-bg);
+        cursor: pointer;
+        transition:
+          border-color var(--transition),
+          background var(--transition);
+        flex-wrap: wrap;
+        gap: 0.4rem 0.6rem;
+      }
+      .attachment-drop-zone:hover,
+      .attachment-drop-zone.drag-over {
+        border-color: var(--primary);
+        background: color-mix(in oklch, var(--primary) 6%, transparent);
+      }
+      .attachment-drop-zone.drag-over {
+        border-style: solid;
+      }
+      .attachment-drop-icon {
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+      .attachment-drop-label {
+        font-size: var(--font-size-sm);
+        color: var(--text-muted);
+        flex: 1;
+        min-width: 100px;
+      }
+      .attachment-browse-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.25rem 0.7rem;
+        border-radius: var(--radius-pill);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+        cursor: pointer;
+        font-weight: 500;
+        transition:
+          background var(--transition),
+          border-color var(--transition);
+        white-space: nowrap;
+      }
+      .attachment-browse-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      /* Attachment list items (queued + saved) */
+      .attachment-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .attachment-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.55rem;
+        border-radius: var(--radius-sm);
+        background: var(--glass-input-bg);
+        border: 1px solid var(--border);
+        font-size: var(--font-size-sm);
+        color: var(--text-primary);
+        position: relative;
+        min-width: 0;
+      }
+      .attachment-item--queued {
+        border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+        background: color-mix(in oklch, var(--primary) 5%, var(--glass-input-bg));
+      }
+      .attachment-item--missing {
+        border-color: color-mix(in oklch, var(--warning) 40%, var(--border));
+        background: color-mix(in oklch, var(--warning) 5%, var(--glass-input-bg));
+      }
+      .attach-icon {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .attach-icon--pdf {
+        background: #fde8e8;
+        color: #c0392b;
+      }
+      .attach-icon--png {
+        background: #e8f4fd;
+        color: #2980b9;
+      }
+      .attach-icon--jpg {
+        background: #fef9e7;
+        color: #d4ac0d;
+      }
+      .attach-icon--file {
+        background: var(--bg-tertiary);
+        color: var(--text-muted);
+      }
+      [data-theme="dark"] .attach-icon--pdf {
+        background: rgba(192, 57, 43, 0.18);
+        color: #e57373;
+      }
+      [data-theme="dark"] .attach-icon--png {
+        background: rgba(41, 128, 185, 0.18);
+        color: #64b5f6;
+      }
+      [data-theme="dark"] .attach-icon--jpg {
+        background: rgba(212, 172, 13, 0.18);
+        color: #ffd54f;
+      }
+      [data-theme="sepia"] .attach-icon--pdf {
+        background: rgba(160, 40, 20, 0.12);
+        color: #a02814;
+      }
+      [data-theme="sepia"] .attach-icon--png {
+        background: rgba(30, 80, 140, 0.12);
+        color: #1e508c;
+      }
+      [data-theme="sepia"] .attach-icon--jpg {
+        background: rgba(140, 90, 0, 0.12);
+        color: #8c5a00;
+      }
+      .attach-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+      .attach-name {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .attach-meta {
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+      }
+      .attach-progress {
+        height: 2px;
+        background: var(--border);
+        border-radius: 99px;
+        overflow: hidden;
+        margin-top: 0.15rem;
+      }
+      .attach-progress-bar {
+        height: 100%;
+        background: var(--primary);
+        border-radius: 99px;
+        transition: width 0.4s ease;
+      }
+      .attach-actions {
+        display: flex;
+        gap: 0.25rem;
+        flex-shrink: 0;
+      }
+      .attach-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-sm);
+        border: 1px solid transparent;
+        background: transparent;
+        cursor: pointer;
+        color: var(--text-muted);
+        transition:
+          background var(--transition),
+          color var(--transition);
+        font-size: 13px;
+      }
+      .attach-btn:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+      .attach-btn.danger:hover {
+        background: color-mix(in oklch, var(--danger) 12%, transparent);
+        color: var(--danger);
+      }
+      .attach-badge-warn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: var(--font-size-xs);
+        color: var(--warning);
+        background: color-mix(in oklch, var(--warning) 12%, transparent);
+        border-radius: var(--radius-pill);
+        padding: 0.1rem 0.5rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .attach-list-header {
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.1rem;
+      }
+
+      /* Badge in card chip row */
+      .cv-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.1rem 0.45rem;
+        border-radius: var(--radius-pill);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
+      .cv-chip-bg {
+        background: var(--bg-tertiary);
+        color: var(--text-muted);
+      }
+      .cv-chip-attach {
+        background: color-mix(in oklch, var(--primary) 14%, var(--bg-tertiary));
+        color: var(--primary);
+        border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border));
+        gap: 0.25rem;
+      }
+      .cv-chip-attach svg {
+        width: 10px;
+        height: 10px;
+      }
+
+      /* Table row */
+      .mock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--font-size-base);
+      }
+      .mock-table th,
+      .mock-table td {
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        color: var(--text-primary);
+      }
+      .mock-table th {
+        background: var(--bg-secondary);
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .mock-table tr:last-child td {
+        border-bottom: none;
+      }
+      /* Inline info badges in Name cell (Numista #, year, storage, etc.) */
+      .table-info-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.05rem 0.4rem;
+        border-radius: var(--radius-pill);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        background: var(--bg-tertiary);
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .attach-count-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.05rem 0.4rem;
+        border-radius: var(--radius-pill);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        background: color-mix(in oklch, var(--primary) 12%, transparent);
+        color: var(--primary);
+        border: 1px solid color-mix(in oklch, var(--primary) 25%, transparent);
+      }
+
+      /* Shared attachment panel */
+      .attach-panel {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-card);
+        overflow: hidden;
+      }
+      .attach-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6rem 0.85rem;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+      }
+      .attach-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        font-size: var(--font-size-md);
+        color: var(--text-primary);
+      }
+      .attach-panel-count {
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        background: var(--primary);
+        color: var(--text-inverse);
+        border-radius: var(--radius-pill);
+        padding: 0.1rem 0.4rem;
+      }
+      .attach-panel-body {
+        padding: 0.5rem 0.7rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .attach-panel-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1.5rem 1rem;
+        color: var(--text-muted);
+        font-size: var(--font-size-sm);
+        text-align: center;
+      }
+      .attach-panel-empty svg {
+        opacity: 0.35;
+      }
+
+      /* DiffModal rows */
+      .diff-section-header {
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        padding: 0.4rem 0.6rem;
+        background: var(--bg-secondary);
+        border-radius: var(--radius-sm);
+        margin-bottom: 0.3rem;
+      }
+      .diff-attach-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.6rem;
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-sm);
+        border: 1px solid transparent;
+      }
+      .diff-attach-row--added {
+        background: color-mix(in oklch, var(--success) 8%, transparent);
+        border-color: color-mix(in oklch, var(--success) 20%, transparent);
+      }
+      .diff-attach-row--removed {
+        background: color-mix(in oklch, var(--danger) 8%, transparent);
+        border-color: color-mix(in oklch, var(--danger) 20%, transparent);
+      }
+      .diff-attach-row--changed {
+        background: color-mix(in oklch, var(--warning) 7%, transparent);
+        border-color: color-mix(in oklch, var(--warning) 20%, transparent);
+      }
+      .diff-sign {
+        font-weight: 700;
+        font-size: 14px;
+        flex-shrink: 0;
+        width: 14px;
+        text-align: center;
+      }
+      .diff-sign--added {
+        color: var(--success);
+      }
+      .diff-sign--removed {
+        color: var(--danger);
+      }
+      .diff-sign--changed {
+        color: var(--warning);
+      }
+      .diff-attach-text {
+        flex: 1;
+        min-width: 0;
+        color: var(--text-primary);
+      }
+      .diff-attach-meta {
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+      }
+      .diff-strikethrough {
+        text-decoration: line-through;
+        color: var(--text-muted);
+      }
+      .diff-arrow {
+        color: var(--text-muted);
+        margin: 0 0.25rem;
+      }
+
+      /* Preview wrapper */
+      .preview-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        max-width: 540px;
+      }
+      .preview-panel-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-muted);
+        padding: 0.4rem 0.7rem;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+      }
+      .preview-panel-body {
+        padding: 0.6rem 0.7rem;
+      }
+      .preview-section-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #888;
+        margin-bottom: 10px;
+        margin-top: 18px;
+      }
+      .preview-section-title:first-child {
+        margin-top: 0;
+      }
+      .preview-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 700px) {
+        .preview-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>STRK-45 · Attachment UI Playground</h1>
+
+    <div class="pg-layout">
+      <!-- ── Controls ── -->
+      <div class="pg-controls">
+        <div class="ctrl-group">
+          <div class="ctrl-label">Theme</div>
+          <div class="ctrl-row">
+            <button
+              class="ctrl-btn active"
+              data-theme-val="light"
+              onclick="setTheme('light', this)"
+            >
+              Light
+            </button>
+            <button class="ctrl-btn" data-theme-val="dark" onclick="setTheme('dark', this)">
+              Dark
+            </button>
+            <button class="ctrl-btn" data-theme-val="sepia" onclick="setTheme('sepia', this)">
+              Sepia
+            </button>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label">Panel</div>
+          <div class="ctrl-row" style="flex-direction: column">
+            <button class="ctrl-btn active" data-panel="1" onclick="setPanel(1, this)">
+              ① Edit modal section
+            </button>
+            <button class="ctrl-btn" data-panel="2" onclick="setPanel(2, this)">
+              ② Card &amp; table badges
+            </button>
+            <button class="ctrl-btn" data-panel="3" onclick="setPanel(3, this)">
+              ③ Attachment panel
+            </button>
+            <button class="ctrl-btn" data-panel="4" onclick="setPanel(4, this)">
+              ④ DiffModal rows
+            </button>
+          </div>
+        </div>
+
+        <div class="ctrl-group" id="ctrl-state-group">
+          <div class="ctrl-label">State</div>
+          <div class="ctrl-row" style="flex-direction: column">
+            <button class="ctrl-btn active" data-state="empty" onclick="setState('empty', this)">
+              Empty
+            </button>
+            <button class="ctrl-btn" data-state="queued" onclick="setState('queued', this)">
+              Files queued
+            </button>
+            <button class="ctrl-btn" data-state="saved" onclick="setState('saved', this)">
+              Saved files
+            </button>
+            <button class="ctrl-btn" data-state="mixed" onclick="setState('mixed', this)">
+              Mixed + missing
+            </button>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label">Drop zone style</div>
+          <div class="ctrl-row">
+            <button class="ctrl-btn active" data-dz="subtle" onclick="setDz('subtle', this)">
+              Subtle
+            </button>
+            <button class="ctrl-btn" data-dz="prominent" onclick="setDz('prominent', this)">
+              Prominent
+            </button>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label">Options</div>
+          <label class="ctrl-toggle">
+            <input type="checkbox" id="showDragOver" onchange="render()" />
+            Drag-over active state
+          </label>
+          <label class="ctrl-toggle">
+            <input type="checkbox" id="showProgress" checked onchange="render()" />
+            Show upload progress
+          </label>
+          <label class="ctrl-toggle">
+            <input type="checkbox" id="showCount" checked onchange="render()" />
+            Show badge count
+          </label>
+        </div>
+      </div>
+
+      <!-- ── Preview ── -->
+      <div class="pg-main">
+        <div class="pg-tabs">
+          <button class="pg-tab active" onclick="setPanel(1, null, this)">① Modal section</button>
+          <button class="pg-tab" onclick="setPanel(2, null, this)">② Badges</button>
+          <button class="pg-tab" onclick="setPanel(3, null, this)">③ Panel</button>
+          <button class="pg-tab" onclick="setPanel(4, null, this)">④ DiffModal</button>
+        </div>
+
+        <div class="pg-preview" id="preview-root">
+          <!-- rendered by JS -->
+        </div>
+
+        <div class="pg-prompt-area">
+          <div class="pg-prompt-label">Generated design prompt</div>
+          <div class="pg-prompt-text" id="prompt-text">…</div>
+          <button class="pg-copy-btn" id="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── State ──
+      const S = {
+        theme: "light",
+        panel: 1,
+        state: "empty",
+        dz: "subtle",
+        dragOver: false,
+        progress: true,
+        showCount: true,
+      };
+
+      // ── Sample data ──
+      const QUEUED = [
+        { name: "APMEX-receipt-2024.pdf", type: "application/pdf", size: 48200, progress: 65 },
+        { name: "PCGS-cert-Morgan.jpg", type: "image/jpeg", size: 312400, progress: 30 },
+      ];
+      const SAVED = [
+        {
+          name: "APMEX-receipt-2024.pdf",
+          type: "application/pdf",
+          size: 48200,
+          uuid: "a1b2",
+          date: "2026-04-12",
+        },
+        {
+          name: "COA-ASE-2023.png",
+          type: "image/png",
+          size: 185300,
+          uuid: "c3d4",
+          date: "2026-04-12",
+        },
+        {
+          name: "dealer-invoice.pdf",
+          type: "application/pdf",
+          size: 92100,
+          uuid: "e5f6",
+          date: "2026-03-20",
+        },
+      ];
+      const SAVED_MISSING = [
+        ...SAVED,
+        {
+          name: "PCGS-cert-Morgan.jpg",
+          type: "image/jpeg",
+          size: 234000,
+          uuid: "g7h8",
+          date: "2026-01-05",
+          missing: true,
+        },
+      ];
+
+      // ── Helpers ──
+      function formatBytes(b) {
+        if (b < 1024) return b + " B";
+        if (b < 1024 * 1024) return (b / 1024).toFixed(0) + " KB";
+        return (b / (1024 * 1024)).toFixed(1) + " MB";
+      }
+      function fileIcon(type, name = "") {
+        if (type === "application/pdf" || name.endsWith(".pdf"))
+          return { cls: "attach-icon--pdf", label: "PDF" };
+        if (type === "image/png" || name.endsWith(".png"))
+          return { cls: "attach-icon--png", label: "PNG" };
+        if (type === "image/jpeg" || name.endsWith(".jpg") || name.endsWith(".jpeg"))
+          return { cls: "attach-icon--jpg", label: "JPG" };
+        return { cls: "attach-icon--file", label: "📎" };
+      }
+      function paperclipSvg(w = 14, h = 14) {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
+      }
+      function warnSvg() {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+      }
+      function downloadSvg() {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+      }
+      function trashSvg() {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+      }
+      function eyeSvg() {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      }
+
+      // ── Render pieces ──
+      function renderDropZone() {
+        const prominent = S.dz === "prominent";
+        const dragOver = document.getElementById("showDragOver")?.checked;
+        return `
+    <div class="attachment-drop-zone ${dragOver ? "drag-over" : ""}" style="${prominent ? "padding:1.1rem 0.8rem; flex-direction:column; text-align:center;" : ""}">
+      <span class="attachment-drop-icon">${paperclipSvg(16, 16)}</span>
+      <span class="attachment-drop-label">${prominent ? 'Drop PDF, PNG, or JPG here<br><small style="font-size:var(--font-size-xs);opacity:0.7">Maximum 50 MB per file</small>' : "Drag PDF, PNG, or JPG here"}</span>
+      <button class="attachment-browse-btn">Browse</button>
+    </div>`;
+      }
+
+      function renderQueuedItem(f) {
+        const prog = document.getElementById("showProgress")?.checked;
+        const icon = fileIcon(f.type, f.name);
+        return `
+    <li class="attachment-item attachment-item--queued">
+      <div class="attach-icon ${icon.cls}">${icon.label}</div>
+      <div class="attach-info">
+        <div class="attach-name">${f.name}</div>
+        <div class="attach-meta">${formatBytes(f.size)} · Queuing…</div>
+        ${prog ? `<div class="attach-progress"><div class="attach-progress-bar" style="width:${f.progress}%"></div></div>` : ""}
+      </div>
+      <div class="attach-actions">
+        <button class="attach-btn danger" title="Remove">${trashSvg()}</button>
+      </div>
+    </li>`;
+      }
+
+      function renderSavedItem(f) {
+        const icon = fileIcon(f.type, f.name);
+        if (f.missing) {
+          return `
+      <li class="attachment-item attachment-item--missing">
+        <div class="attach-icon ${icon.cls}" style="opacity:0.5">${icon.label}</div>
+        <div class="attach-info">
+          <div class="attach-name" style="opacity:0.7">${f.name}</div>
+          <div class="attach-meta">${formatBytes(f.size)} · Added ${f.date}</div>
+        </div>
+        <span class="attach-badge-warn">${warnSvg()} Binary missing</span>
+        <div class="attach-actions">
+          <button class="attach-btn danger" title="Remove">${trashSvg()}</button>
+        </div>
+      </li>`;
+        }
+        return `
+    <li class="attachment-item">
+      <div class="attach-icon ${icon.cls}">${icon.label}</div>
+      <div class="attach-info">
+        <div class="attach-name">${f.name}</div>
+        <div class="attach-meta">${formatBytes(f.size)} · Added ${f.date}</div>
+      </div>
+      <div class="attach-actions">
+        <button class="attach-btn" title="View/Open">${eyeSvg()}</button>
+        <button class="attach-btn" title="Download">${downloadSvg()}</button>
+        <button class="attach-btn danger" title="Remove">${trashSvg()}</button>
+      </div>
+    </li>`;
+      }
+
+      function renderPanel1() {
+        const st = S.state;
+        const queued = st === "queued" || st === "mixed" ? QUEUED : [];
+        const saved = st === "saved" ? SAVED : st === "mixed" ? SAVED_MISSING : [];
+        const count = saved.length;
+        const showCt = count > 0 && document.getElementById("showCount")?.checked;
+
+        return `
+    <div style="max-width:500px; margin:0 auto; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden;">
+      <div style="background:var(--bg-secondary); border-bottom:1px solid var(--border); padding:0.5rem 0.85rem; font-size:var(--font-size-xs); color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em;">Edit modal — form context</div>
+      <div style="padding:0.65rem 0.75rem;">
+        <div class="form-section">
+          <div class="form-section-header">
+            <span class="form-section-icon">${paperclipSvg()}</span>
+            Attachments
+            ${showCt ? `<span class="form-section-count">${count}</span>` : ""}
+          </div>
+          <div class="form-section-body">
+            ${renderDropZone()}
+            ${
+              queued.length
+                ? `
+              <div class="attach-list-header">Queued (${queued.length})</div>
+              <ul class="attachment-list">
+                ${queued.map(renderQueuedItem).join("")}
+              </ul>`
+                : ""
+            }
+            ${
+              saved.length
+                ? `
+              <div class="attach-list-header" style="margin-top:${queued.length ? "0.35rem" : "0"}">Saved (${saved.length})</div>
+              <ul class="attachment-list">
+                ${saved.map(renderSavedItem).join("")}
+              </ul>`
+                : ""
+            }
+            ${!queued.length && !saved.length ? `<div style="font-size:var(--font-size-xs);color:var(--text-muted);text-align:center;padding:0.3rem 0;">No attachments yet — drag a file above or click Browse.</div>` : ""}
+          </div>
+        </div>
+        <div class="form-section" style="opacity:0.35; pointer-events:none;">
+          <div class="form-section-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="form-section-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            Tags
+          </div>
+        </div>
+      </div>
+    </div>`;
+      }
+
+      function renderPanel2() {
+        const ct = S.state === "empty" ? 0 : S.state === "queued" ? 0 : SAVED.length;
+        const showCt = document.getElementById("showCount")?.checked;
+        return `
+    <div style="display:flex; flex-direction:column; gap:1.5rem; max-width:560px; margin:0 auto;">
+      <div>
+        <div class="preview-section-title">Card chip row</div>
+        <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:0.85rem 1rem; display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;">
+          <span class="cv-chip cv-chip-bg">2025</span>
+          <span class="cv-chip cv-chip-bg">Coin</span>
+          <span class="cv-chip cv-chip-bg">1 oz</span>
+          <span class="cv-chip cv-chip-bg" style="background:var(--primary);color:var(--text-inverse);">MS-69</span>
+          ${ct > 0 && showCt ? `<span class="cv-chip cv-chip-attach">${paperclipSvg(10, 10)} ${ct}</span>` : ""}
+          <span style="margin-left:auto; font-size:var(--font-size-sm); color:var(--text-muted);">2024-04-10</span>
+        </div>
+        ${ct === 0 ? '<div style="font-size:11px;color:#888;margin-top:4px;">→ No badge shown when item has no attachments</div>' : ""}
+      </div>
+
+      <div>
+        <div class="preview-section-title">Table row — badge inline in Name cell (with Numista #, year, storage)</div>
+        <table class="mock-table" style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden;">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Weight</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div><strong>2024 American Silver Eagle</strong></div>
+                <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.25rem;align-items:center;">
+                  <span class="table-info-badge">N# 65837</span>
+                  <span class="table-info-badge">2024</span>
+                  <span class="table-info-badge">Safe A</span>
+                  ${ct > 0 && showCt ? `<span class="attach-count-chip">${paperclipSvg(9, 9)} ${ct}</span>` : ""}
+                </div>
+              </td>
+              <td>Coin</td>
+              <td>1 oz</td>
+              <td>$31.42</td>
+            </tr>
+            <tr>
+              <td>
+                <div><strong>10 oz Engelhard Bar</strong></div>
+                <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.25rem;align-items:center;">
+                  <span class="table-info-badge">Safe B</span>
+                </div>
+              </td>
+              <td>Bar</td>
+              <td>10 oz</td>
+              <td>$314.20</td>
+            </tr>
+            <tr>
+              <td>
+                <div><strong>1 oz Krugerrand</strong></div>
+                <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.25rem;align-items:center;">
+                  <span class="table-info-badge">2023</span>
+                  ${ct > 0 && showCt ? `<span class="attach-count-chip">${paperclipSvg(9, 9)} 1</span>` : ""}
+                </div>
+              </td>
+              <td>Coin</td>
+              <td>1 oz</td>
+              <td>$2,890.00</td>
+            </tr>
+          </tbody>
+        </table>
+        ${ct === 0 ? '<div style="font-size:11px;color:#888;margin-top:4px;">→ No badge shown when item has no attachments; no extra column needed</div>' : ""}
+      </div>
+    </div>`;
+      }
+
+      function renderPanel3() {
+        const st = S.state;
+        const files =
+          st === "empty" ? [] : st === "queued" ? [] : st === "saved" ? SAVED : SAVED_MISSING;
+        return `
+    <div style="max-width:500px; margin:0 auto;">
+      <div class="preview-section-title">View modal — attachment panel</div>
+      <div class="attach-panel">
+        <div class="attach-panel-header">
+          <div class="attach-panel-title">
+            ${paperclipSvg(15, 15)}
+            Attachments
+            ${files.length ? `<span class="attach-panel-count">${files.length}</span>` : ""}
+          </div>
+          ${files.length ? `<button class="attachment-browse-btn" style="font-size:var(--font-size-xs);">+ Add</button>` : ""}
+        </div>
+        ${
+          files.length
+            ? `
+          <div class="attach-panel-body">
+            <ul class="attachment-list">
+              ${files.map(renderSavedItem).join("")}
+            </ul>
+          </div>`
+            : `
+          <div class="attach-panel-empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            No attachments
+            <button class="attachment-browse-btn">+ Add file</button>
+          </div>`
+        }
+      </div>
+    </div>`;
+      }
+
+      function renderPanel4() {
+        return `
+    <div style="max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:1rem;">
+      <div class="preview-section-title">DiffModal — attachment changes</div>
+
+      <div>
+        <div class="diff-section-header">Attachments changed</div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;margin-top:0.25rem;">
+          <div class="diff-attach-row diff-attach-row--added">
+            <span class="diff-sign diff-sign--added">+</span>
+            <div class="attach-icon attach-icon--pdf" style="width:22px;height:22px;font-size:9px;font-weight:700;">PDF</div>
+            <div class="diff-attach-text">
+              <div style="font-weight:500;font-size:var(--font-size-sm);">APMEX-receipt-2024.pdf</div>
+              <div class="diff-attach-meta">48 KB · Added 2026-04-12</div>
+            </div>
+          </div>
+          <div class="diff-attach-row diff-attach-row--removed">
+            <span class="diff-sign diff-sign--removed">−</span>
+            <div class="attach-icon attach-icon--jpg" style="width:22px;height:22px;font-size:9px;font-weight:700;">JPG</div>
+            <div class="diff-attach-text">
+              <div style="font-weight:500;font-size:var(--font-size-sm);">old-photo.jpg</div>
+              <div class="diff-attach-meta">312 KB · Added 2025-11-03</div>
+            </div>
+          </div>
+          <div class="diff-attach-row diff-attach-row--changed">
+            <span class="diff-sign diff-sign--changed">~</span>
+            <div class="attach-icon attach-icon--png" style="width:22px;height:22px;font-size:9px;font-weight:700;">PNG</div>
+            <div class="diff-attach-text">
+              <div style="font-weight:500;font-size:var(--font-size-sm);">
+                <span class="diff-strikethrough">COA-ASE-draft.png</span>
+                <span class="diff-arrow">→</span>
+                COA-ASE-2023.png
+              </div>
+              <div class="diff-attach-meta">185 KB · Replaced 2026-04-12</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="diff-section-header">No changes (unchanged attachments)</div>
+        <div style="display:flex;flex-direction:column;gap:0.25rem;margin-top:0.25rem;">
+          <div class="diff-attach-row" style="opacity:0.6;">
+            <span class="diff-sign" style="color:var(--text-muted);">·</span>
+            <div class="attach-icon attach-icon--pdf" style="width:22px;height:22px;font-size:9px;font-weight:700;opacity:0.5">PDF</div>
+            <div class="diff-attach-text">
+              <div style="font-size:var(--font-size-sm);color:var(--text-muted);">dealer-invoice.pdf</div>
+              <div class="diff-attach-meta">92 KB · Unchanged</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:var(--font-size-xs);color:var(--text-muted);background:var(--bg-secondary);padding:0.5rem 0.65rem;border-radius:var(--radius-sm);">
+        <strong>Replacement detection:</strong> same UUID with different fileName → "replaced" row. New UUID entirely → "added" row. Missing UUID → "removed" row.
+      </div>
+    </div>`;
+      }
+
+      // ── Main render ──
+      function render() {
+        const root = document.getElementById("preview-root");
+        let html = "";
+        if (S.panel === 1) html = renderPanel1();
+        else if (S.panel === 2) html = renderPanel2();
+        else if (S.panel === 3) html = renderPanel3();
+        else if (S.panel === 4) html = renderPanel4();
+        root.innerHTML = html;
+        updatePrompt();
+      }
+
+      function updatePrompt() {
+        const panelNames = [
+          "",
+          "edit-modal attachments section",
+          "card & table count badges",
+          "shared attachment panel",
+          "DiffModal attachment rows",
+        ];
+        const parts = [];
+        parts.push(`Panel: ${panelNames[S.panel]}.`);
+        parts.push(`Theme: ${S.theme}.`);
+        if (S.panel <= 3) parts.push(`State: ${S.state}.`);
+        if (S.panel === 1) {
+          parts.push(`Drop zone style: ${S.dz}.`);
+          const prog = document.getElementById("showProgress")?.checked;
+          if (!prog) parts.push("Upload progress bar: hidden.");
+        }
+        const ct = document.getElementById("showCount")?.checked;
+        if (!ct && S.panel <= 2) parts.push("Count badge: hidden.");
+
+        const desc = {
+          1: `The edit-modal attachments form-section uses the standard .form-section pattern (bg-secondary header, border, radius). Drop zone: 1.5px dashed --border, hover/drag-over brightens border to --primary with 6% primary tint. File rows: PDF=red icon, PNG=blue icon, JPG=yellow icon; 28×28px colored tile. Queued rows have a primary-tinted border and an optional 2px progress bar below the meta line. Saved rows show eye+download+trash action buttons (24×24, revealed on hover). Missing-binary items get a warning-colored border + "⚠ Binary missing" pill badge.`,
+          2: `Attachment count badge in card chip row: .cv-chip-attach with primary-tinted bg (14% primary mix), matching border (25% primary mix), paperclip SVG icon + count number. In table: attach-count-chip pill (12% primary bg). Badge hidden when count is 0.`,
+          3: `Shared attachment panel: border+rounded-lg card with bg-secondary header showing paperclip icon, "Attachments" title, blue count pill, and "+ Add" button. Body lists attachment rows. Empty state: centered paperclip SVG (opacity 0.35) + "No attachments" text + "+ Add file" button.`,
+          4: `DiffModal rows: added (success-tinted bg+border, "+" prefix), removed (danger-tinted, "−" prefix), changed (warning-tinted, "~" prefix, strikethrough old name → new name). Unchanged attachments shown at 0.6 opacity with "·" prefix. Replacement detection note in bg-secondary footer.`,
+        };
+        document.getElementById("prompt-text").textContent =
+          `${parts.join(" ")}\n\n${desc[S.panel]}`;
+      }
+
+      // ── Controls ──
+      function setTheme(t, btn) {
+        S.theme = t;
+        document.querySelector(".pg-preview").setAttribute("data-theme", t);
+        document
+          .querySelectorAll("[data-theme-val]")
+          .forEach((b) => b.classList.toggle("active", b.dataset.themeVal === t));
+        render();
+      }
+
+      function setPanel(p, sideBtn, tabBtn) {
+        S.panel = p;
+        document
+          .querySelectorAll("[data-panel]")
+          .forEach((b) => b.classList.toggle("active", +b.dataset.panel === p));
+        document
+          .querySelectorAll(".pg-tab")
+          .forEach((b, i) => b.classList.toggle("active", i === p - 1));
+        render();
+      }
+
+      function setState(st, btn) {
+        S.state = st;
+        document
+          .querySelectorAll("[data-state]")
+          .forEach((b) => b.classList.toggle("active", b.dataset.state === st));
+        render();
+      }
+
+      function setDz(dz, btn) {
+        S.dz = dz;
+        document
+          .querySelectorAll("[data-dz]")
+          .forEach((b) => b.classList.toggle("active", b.dataset.dz === dz));
+        render();
+      }
+
+      function copyPrompt() {
+        const txt = document.getElementById("prompt-text").textContent;
+        navigator.clipboard.writeText(txt).then(() => {
+          const btn = document.getElementById("copy-btn");
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
+          setTimeout(() => {
+            btn.textContent = "Copy Prompt";
+            btn.classList.remove("copied");
+          }, 1500);
+        });
+      }
+
+      // ── Init ──
+      document.querySelector(".pg-preview").setAttribute("data-theme", "light");
+      render();
+    </script>
+  </body>
+</html>
