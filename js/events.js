@@ -2006,6 +2006,7 @@ const setupItemFormListeners = () => {
         // commitItemToInventory() has already run, so savedItem.uuid is stable
         if (window._cloneMode) {
           // Clone starts with no attachments
+          clearAttachmentQueue();
           if (savedItem) savedItem.attachments = [];
           saveInventory();
         } else if (
@@ -2123,6 +2124,7 @@ const setupItemFormListeners = () => {
   const closeItemModal = (e) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
     if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+    clearAttachmentQueue();
     // In clone mode, "Back" returns to edit mode instead of closing (STAK-375)
     if (window._cloneMode && typeof exitCloneMode === "function") {
       exitCloneMode();
