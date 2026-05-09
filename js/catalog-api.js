@@ -1937,7 +1937,7 @@ const renderNumistaFieldCheckboxes = (result) => {
         wrapper.appendChild(hint);
       } else if (isOnItem) {
         cb.checked = true;
-        cb.disabled = true;
+        cb.dataset.onItem = "1"; // interactable (user can opt-out); not locked like blacklisted
         const hint = document.createElement("span");
         hint.className = "numista-tag-hint";
         hint.textContent = "(on item)";
@@ -1965,14 +1965,17 @@ const renderNumistaFieldCheckboxes = (result) => {
 
     // Check all / Uncheck all event handlers
     checkAllBtn.addEventListener("click", () => {
+      // Check-all: skip only blacklisted (disabled). On-item rows are already checked, so no-op is correct.
       tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
         if (!cb.disabled) cb.checked = true;
       });
     });
 
     uncheckAllBtn.addEventListener("click", () => {
+      // Uncheck-all: skip blacklisted (!cb.disabled) AND on-item (!cb.dataset.onItem) — asymmetric by design.
+      // Check-all only needs the blacklist guard; Uncheck-all needs both to preserve user opt-in signals.
       tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
-        if (!cb.disabled) cb.checked = false;
+        if (!cb.disabled && !cb.dataset.onItem) cb.checked = false;
       });
     });
   }
@@ -2399,6 +2402,32 @@ const fillFormFromNumistaResult = () => {
         if (map[_fillUuid].length === 0) delete map[_fillUuid];
         saveDataSync("itemRemovedTags", map);
       }
+    }
+  }
+
+  // STRK-52: Walk unchecked on-item checkboxes and record explicit opt-outs.
+  // This runs outside the tagCheckboxes block so it fires even when zero tags are checked.
+  // applyNumistaTags() only adds — it never removes existing tags — so getItemTags() still
+  // returns the pre-submit stored list here, making the case-insensitive lookup safe.
+  if (_fillUuid) {
+    if (typeof getItemTags !== "function") {
+      console.warn("STRK-52: getItemTags not available — skipping on-item removal walk");
+    } else {
+      const allTagCbs = container.querySelectorAll('input[name="numistaTag"]');
+      const storedTags = getItemTags(_fillUuid);
+      let didRemove = false;
+      allTagCbs.forEach((cb) => {
+        if (cb.dataset.onItem !== "1" || cb.checked) return;
+        // Tag was on the item at render time but the user unchecked it — record opt-out.
+        // Resolve stored-exact-case via case-insensitive search so removeItemTag() matches.
+        const numistaLabel = (cb.dataset.tag || "").toLowerCase();
+        const exactStored = storedTags.find((t) => t.toLowerCase() === numistaLabel);
+        if (exactStored && typeof removeItemTag === "function") {
+          removeItemTag(_fillUuid, exactStored); // internally calls addRemovedTag
+          didRemove = true;
+        }
+      });
+      if (didRemove && typeof window._renderEditTags === "function") window._renderEditTags();
     }
   }
 

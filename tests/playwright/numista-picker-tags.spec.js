@@ -70,6 +70,12 @@ const NUMISTA_RESULT = {
   tags: ["Bullion", "Eagle", "Investment"],
 };
 
+// 4-tag result for AC-10 mixed-state test (on-item + blacklisted + removed + new)
+const NUMISTA_RESULT_4 = {
+  ...NUMISTA_RESULT,
+  tags: ["Bullion", "Eagle", "Investment", "Silver"],
+};
+
 // ---------------------------------------------------------------------------
 // Setup helpers
 // ---------------------------------------------------------------------------
@@ -276,25 +282,162 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
   });
 
   // =========================================================================
-  // Test 3 — Already-present tags checked and disabled
+  // Test 3 — Existing on-item tag is shown checked and ENABLED (STRK-52 spec correction)
+  // Previously asserted toBeDisabled(); that was the wrong spec — STRK-52 corrects it.
   // =========================================================================
-  test("3. already-present tags checked and disabled", async ({ page }) => {
-    await seedData(page, {
-      itemTags: { [ITEM_UUID]: ["Bullion"] },
-    });
+  test("3. existing on-item tag is shown checked and enabled with '(on item)' hint (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Bullion"] } });
     await stubCatalogLookup(page);
     await gotoApp(page);
     await openEditForm(page);
     await openNumistaPicker(page);
 
-    // "Bullion" is already on the item — should be checked and disabled
     const alreadyPresentCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
     await expect(alreadyPresentCb).toBeChecked();
-    await expect(alreadyPresentCb).toBeDisabled();
+    await expect(alreadyPresentCb).not.toBeDisabled();
+
+    const bullionLabel = page.locator('label:has(input[data-tag="Bullion"])');
+    await expect(bullionLabel).toContainText("on item");
 
     // "Eagle" is not on the item — should be enabled
     const newTagCb = page.locator('input[name="numistaTag"][data-tag="Eagle"]');
     await expect(newTagCb).toBeEnabled();
+  });
+
+  // =========================================================================
+  // Test 3-AC3 — Unchecking an on-item tag records removal (STRK-52)
+  // =========================================================================
+  test("3-AC3: unchecking an on-item tag records removal and opts-out future syncs (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Bullion"] }, numistaTagsAuto: false });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page);
+
+    const bullionCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    await expect(bullionCb).toBeChecked();
+    await expect(bullionCb).not.toBeDisabled();
+    await bullionCb.uncheck();
+    await expect(bullionCb).not.toBeChecked();
+
+    await page.locator("#numistaFillBtn").click();
+
+    const tags = await page.evaluate(
+      (uuid) => (typeof window.getItemTags === "function" ? window.getItemTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(tags.map((t) => t.toLowerCase())).not.toContain("bullion");
+
+    const removed = await page.evaluate(
+      (uuid) => (typeof window.loadRemovedTags === "function" ? window.loadRemovedTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(removed.map((t) => t.toLowerCase())).toContain("bullion");
+
+    // Re-open picker — Bullion should now show as removed, not on-item
+    await openNumistaPicker(page);
+    await expect(bullionCb).not.toBeChecked();
+    const bullionLabel = page.locator('label:has(input[data-tag="Bullion"])');
+    await expect(bullionLabel).toContainText("removed");
+  });
+
+  // =========================================================================
+  // Test 3-AC6 — Case-insensitive removal (STRK-52)
+  // =========================================================================
+  test("3-AC6: unchecking removes the stored tag case-insensitively (STRK-52)", async ({
+    page,
+  }) => {
+    // Stored as lowercase "bullion"; Numista returns "Bullion" (capitalized)
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["bullion"] }, numistaTagsAuto: false });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page);
+
+    const bullionCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    await expect(bullionCb).toHaveCount(1);
+    await expect(bullionCb).toBeChecked();
+    await expect(bullionCb).not.toBeDisabled();
+    await bullionCb.uncheck();
+
+    await page.locator("#numistaFillBtn").click();
+
+    const tags = await page.evaluate(
+      (uuid) => (typeof window.getItemTags === "function" ? window.getItemTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(tags.map((t) => t.toLowerCase())).not.toContain("bullion");
+
+    const removed = await page.evaluate(
+      (uuid) => (typeof window.loadRemovedTags === "function" ? window.loadRemovedTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(removed.map((t) => t.toLowerCase())).toContain("bullion");
+  });
+
+  // =========================================================================
+  // Test 3-AC10 — Uncheck-all protects on-item AND blacklisted rows (STRK-52)
+  // =========================================================================
+  test("3-AC10: Uncheck-all protects on-item and blacklisted rows simultaneously (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      itemTags: { [ITEM_UUID]: ["Bullion"] },
+      itemRemovedTags: { [ITEM_UUID]: ["Eagle"] },
+      tagBlacklist: ["Investment"],
+      numistaTagsAuto: true,
+    });
+    await stubCatalogLookup(page, NUMISTA_RESULT_4);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_4);
+
+    const bullionCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    const eagleCb = page.locator('input[name="numistaTag"][data-tag="Eagle"]');
+    const investmentCb = page.locator('input[name="numistaTag"][data-tag="Investment"]');
+    const silverCb = page.locator('input[name="numistaTag"][data-tag="Silver"]');
+
+    // Pre-conditions
+    await expect(bullionCb).toBeChecked();
+    await expect(bullionCb).not.toBeDisabled(); // ← fails before B.1 (TDD red)
+    await expect(eagleCb).not.toBeChecked(); // removed tag — unchecked
+    await expect(investmentCb).not.toBeChecked(); // blacklisted — unchecked + disabled
+    await expect(silverCb).toBeChecked(); // new tag, auto=true
+
+    await page.locator("#numistaTagUncheckAll").click();
+
+    // Post-conditions: Bullion (on-item) stays checked; Investment (blacklisted) stays unchecked+disabled
+    await expect(bullionCb).toBeChecked();
+    await expect(investmentCb).not.toBeChecked();
+    await expect(investmentCb).toBeDisabled();
+    await expect(silverCb).not.toBeChecked(); // unprotected — cleared
+    await expect(eagleCb).not.toBeChecked(); // removed — still unchecked
+  });
+
+  // =========================================================================
+  // Test 3-AC5 — Manual + Numista matching tag renders as one row (STRK-52 regression lock)
+  // Should PASS before implementation (behavior already correct via isOnItem predicate)
+  // =========================================================================
+  test("3-AC5: matching manual and Numista tag renders as one checked on-item row (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Bullion"] } });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page);
+
+    // Only one "Bullion" row — no duplicate from the manual tag
+    const bullionRows = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    await expect(bullionRows).toHaveCount(1);
+    await expect(bullionRows).toBeChecked();
+
+    const bullionLabel = page.locator('label:has(input[data-tag="Bullion"])');
+    await expect(bullionLabel).toContainText("on item");
   });
 
   // =========================================================================

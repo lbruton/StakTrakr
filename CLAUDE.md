@@ -30,7 +30,7 @@ Foundation docs: `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/`
 | Data Pipelines    | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/data-pipelines.md`    | Spot / retail / goldback / image pipelines — cron, thresholds, failure modes |
 | Cloud Sync        | `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/cloud-sync.md`        | Dropbox OAuth, AES-256-GCM, atomic rollback, backup/restore                  |
 
-Tier 2 — 31 deep-dive docs at `DocVault/Projects/StakTrakr/`. Full list: `_Index.md`.
+Tier 2 — 11 deep-dive reference docs at `DocVault/Projects/StakTrakr/Foundation/Deep Dives/`. Linked from Foundation summaries and `Overview.md`.
 
 Tier 3 — Source code wins on conflicts. Authoritative cron/config files: `devops/pollers/home-poller/docker-entrypoint.sh`, `devops/pollers/remote-poller/fly.toml`.
 
