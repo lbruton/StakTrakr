@@ -2710,6 +2710,58 @@
             </div>
 
             <!-- ═══════════════════════════════════════════════════════
+                 Attachments (STRK-45)
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="form-section" id="attachmentsSection">
+              <div class="form-section-header">
+                <span class="form-section-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+                    />
+                  </svg>
+                </span>
+                Attachments
+              </div>
+              <div class="form-section-body">
+                <!-- Drop zone -->
+                <div id="attachmentDropZone" class="attachment-drop-zone">
+                  <span class="attachment-drop-label">Drag PDF, PNG, or JPG here</span>
+                  <label class="btn attachment-browse-btn" for="attachmentFileInput">Browse</label>
+                  <input
+                    id="attachmentFileInput"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                    multiple
+                    style="display: none"
+                  />
+                </div>
+                <!-- Queued (staged, not yet saved) files -->
+                <ul
+                  id="attachmentQueuedList"
+                  class="attachment-list attachment-list--queued"
+                  hidden
+                ></ul>
+                <!-- Saved attachments for the current item -->
+                <ul
+                  id="attachmentSavedList"
+                  class="attachment-list attachment-list--saved"
+                  hidden
+                ></ul>
+              </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════
                  Tags
                  ═══════════════════════════════════════════════════════ -->
             <div class="form-section" id="tagsSection">
@@ -5150,6 +5202,19 @@
                     </div>
                   </div>
 
+                  <!-- Sync attachments toggle (STRK-45) -->
+                  <div
+                    class="cloud-status-row"
+                    id="syncAttachmentsRow"
+                    style="align-items: center; margin-top: 0.4rem"
+                  >
+                    <span class="cloud-status-label">Sync attachments</span>
+                    <label class="settings-toggle-switch" style="margin-left: auto">
+                      <input type="checkbox" id="syncAttachmentsToggle" checked />
+                      <span class="settings-toggle-slider"></span>
+                    </label>
+                  </div>
+
                   <!-- Manual Backup & Restore -->
                   <div
                     class="settings-fieldset-title"
@@ -6580,6 +6645,25 @@
               >
             </div>
             <input type="file" id="vaultImageImportFile" accept=".stvault" hidden />
+          </div>
+
+          <!-- Attachment vault companion file (import mode only — STRK-45) -->
+          <div id="vaultAttachmentFileRow" style="display: none">
+            <div class="encryption-info" id="vaultAttachmentFileInfo" style="display: none">
+              <strong>Attachments:</strong> <span id="vaultAttachmentFileName"></span> (<span
+                id="vaultAttachmentFileSize"
+              ></span
+              >)
+            </div>
+            <div class="settings-btn-row" id="vaultAttachmentPickerRow">
+              <label class="btn" style="cursor: pointer" for="vaultAttachmentImportFile"
+                >+ Add Attachments File</label
+              >
+              <small style="opacity: 0.65"
+                >Optional: <em>-attachments.stvault</em> from the same export</small
+              >
+            </div>
+            <input type="file" id="vaultAttachmentImportFile" accept=".stvault" hidden />
           </div>
 
           <div class="form-row">
@@ -8318,6 +8402,8 @@
     <script defer src="./js/dialogs.js"></script>
     <script defer src="./js/image-processor.js"></script>
     <script defer src="./js/image-cache.js"></script>
+    <script defer src="./js/attachment-manager.js"></script>
+    <script defer src="./js/attachment-ui.js"></script>
     <script defer src="./js/bulk-image-cache.js"></script>
     <script defer src="./js/image-cache-modal.js"></script>
     <script defer src="./js/fuzzy-search.js"></script>

@@ -38,6 +38,7 @@
  * @property {string|null} [obverseSharedImageId] - UUID of source item if obverse image was tagged from the shared library (null for original uploads)
  * @property {string|null} [reverseSharedImageId] - UUID of source item if reverse image was tagged from the shared library (null for original uploads)
  * @property {boolean} [collectable] - Whether item is marked as collectable
+ * @property {AttachmentEntry[]} [attachments] - Per-item file attachments (STRK-45)
  */
 
 /**
@@ -100,4 +101,44 @@
  * @property {HTMLElement} typeFilter - Type filter select field
  * @property {HTMLElement} metalFilter - Metal filter select field
  * @property {Object} totals - Totals display elements organized by metal
+ */
+
+// =============================================================================
+// STRK-45: Per-item attachment type definitions
+// =============================================================================
+
+/**
+ * Attachment entry stored on an inventory item record (metadata only — no blob).
+ * @typedef {Object} AttachmentEntry
+ * @property {string} attachmentUuid - UUID v4 identifying this attachment
+ * @property {string} fileName - Original filename (e.g. "receipt-2024.pdf")
+ * @property {string} type - MIME type (e.g. "application/pdf", "image/png", "image/jpeg")
+ * @property {number} size - File size in bytes
+ * @property {string} uploadedAt - ISO 8601 timestamp of when the attachment was added
+ */
+
+/**
+ * Full attachment record stored in the IndexedDB `userAttachments` store.
+ * Extends AttachmentEntry with the parent item link and the binary blob.
+ * @typedef {Object} AttachmentRecord
+ * @property {string} attachmentUuid - UUID v4 (keyPath for the IDB store)
+ * @property {string} itemUuid - UUID of the parent inventory item
+ * @property {string} fileName - Original filename
+ * @property {string} type - MIME type
+ * @property {number} size - File size in bytes
+ * @property {string} uploadedAt - ISO 8601 timestamp
+ * @property {Blob} blob - The file binary
+ */
+
+/**
+ * Entry in `user_attachment_manifest.json` inside a zip backup.
+ * Extends AttachmentRecord metadata with the stored file path inside the zip.
+ * @typedef {Object} AttachmentManifestEntry
+ * @property {string} attachmentUuid - UUID v4
+ * @property {string} itemUuid - UUID of the parent inventory item
+ * @property {string} file - Path inside the zip (e.g. "user_attachments/{uuid}.pdf")
+ * @property {string} fileName - Original filename
+ * @property {string} type - MIME type
+ * @property {number} size - File size in bytes
+ * @property {string} uploadedAt - ISO 8601 timestamp
  */
