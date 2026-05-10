@@ -364,18 +364,29 @@ const _setUrlPreviewGeneration = (side) => {
 const _getUrlPreviewGeneration = (side) =>
   side === "reverse" ? _urlPreviewGenRev : _urlPreviewGenObv;
 
+const _normalizeHttpImageUrl = (value = "") => {
+  const trimmed = value.trim();
+  if (!/^https?:\/\/.+\..+/i.test(trimmed)) return "";
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+  } catch {
+    return "";
+  }
+};
+
 const previewImageUrlForSide = (side = "obverse", url = "") => {
   const suffix = _frameSuffix(side);
   const preview = document.getElementById("itemImagePreview" + suffix);
   const img = document.getElementById("itemImagePreviewImg" + suffix);
   const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
   const sizeInfo = document.getElementById("itemImageSizeInfo" + suffix);
-  const trimmed = (url || "").trim();
+  const imageUrl = _normalizeHttpImageUrl(url || "");
   const gen = _setUrlPreviewGeneration(side);
 
   if (!preview || !img) return;
 
-  if (!/^https?:\/\/.+\..+/i.test(trimmed)) {
+  if (!imageUrl) {
     preview.style.display = "none";
     img.removeAttribute("src");
     if (removeBtn) removeBtn.style.display = "none";
@@ -399,7 +410,7 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     if (sizeInfo) sizeInfo.textContent = "Couldn't load image - check the URL";
     updateSwapButtonVisibility();
   };
-  img.src = trimmed;
+  img.src = imageUrl;
   preview.style.display = "block";
   if (removeBtn) removeBtn.style.display = "";
   if (sizeInfo) sizeInfo.textContent = "";
