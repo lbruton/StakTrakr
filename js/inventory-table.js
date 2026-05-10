@@ -407,6 +407,7 @@
 
       const _tableImagesOnSetting = localStorage.getItem("tableImagesEnabled") !== "false";
       const _tableImageSidesSetting = localStorage.getItem("tableImageSides") || "both";
+      const hasImageFrameResolver = typeof resolveImageFrame === "function";
 
       for (let i = 0; i < sortedInventory.length; i++) {
         const item = sortedInventory[i];
@@ -509,15 +510,10 @@
             ? `<span class="purity-tag" title="Purity: ${purityVal}" onclick="applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})" tabindex="0" role="button" style="cursor:pointer;">${purityVal}</span>`
             : "";
 
-        const _thumbType = (item.type || "").toLowerCase();
-        const _isRectThumb =
-          _thumbType === "bar" ||
-          _thumbType === "note" ||
-          _thumbType === "aurum" ||
-          _thumbType === "set" ||
-          item.weightUnit === "gb" ||
-          item.weightUnit === "sb";
-        const _thumbShapeClass = _isRectThumb ? " table-thumb-rect" : "";
+        const _thumbShapeClass = (side) =>
+          hasImageFrameResolver && resolveImageFrame(item, side) === "rect"
+            ? " table-thumb-rect"
+            : "";
         const _validUrl = (u) => u && /^https?:\/\/.+\..+/i.test(u);
         const obvUrl = _validUrl(item.obverseImageUrl) ? item.obverseImageUrl : "";
         const revUrl = _validUrl(item.reverseImageUrl) ? item.reverseImageUrl : "";
@@ -535,12 +531,12 @@
         const thumbHtml =
           _tableImagesOnSetting && featureFlags.isEnabled("COIN_IMAGES")
             ? (_showObv
-                ? `<img class="table-thumb${_thumbShapeClass}"${obvSrcAttr}
+                ? `<img class="table-thumb${_thumbShapeClass("obverse")}"${obvSrcAttr}
                  ${_sharedThumbAttrs} data-side="obverse"
                  alt="" loading="lazy" />`
                 : "") +
               (_showRev
-                ? `<img class="table-thumb${_thumbShapeClass}"${revSrcAttr}
+                ? `<img class="table-thumb${_thumbShapeClass("reverse")}"${revSrcAttr}
                  ${_sharedThumbAttrs} data-side="reverse"
                  alt="" loading="lazy" />`
                 : "")

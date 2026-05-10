@@ -1449,6 +1449,9 @@ const editItem = (idx, logIdx = null) => {
 
   // Preload user images (obverse + reverse) into upload previews (STACK-32)
   if (typeof clearUploadState === "function") clearUploadState();
+  if (typeof setPendingImageFrames === "function") {
+    setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
+  }
 
   /**
    * Show a preview thumbnail for a given side.
@@ -1470,10 +1473,18 @@ const editItem = (idx, logIdx = null) => {
   /** Fall back to image URL fields when no user-uploaded blob exists */
   const showUrlPreviewFallback = (loadedSides) => {
     if (!loadedSides.obverse && item.obverseImageUrl) {
-      showPreview(item.obverseImageUrl, "Obv", "obverse");
+      if (typeof previewImageUrlForSide === "function") {
+        previewImageUrlForSide("obverse", item.obverseImageUrl);
+      } else {
+        showPreview(item.obverseImageUrl, "Obv", "obverse");
+      }
     }
     if (!loadedSides.reverse && item.reverseImageUrl) {
-      showPreview(item.reverseImageUrl, "Rev", "reverse");
+      if (typeof previewImageUrlForSide === "function") {
+        previewImageUrlForSide("reverse", item.reverseImageUrl);
+      } else {
+        showPreview(item.reverseImageUrl, "Rev", "reverse");
+      }
     }
   };
 

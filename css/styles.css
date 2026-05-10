@@ -3241,6 +3241,7 @@ input[type="submit"] {
 }
 
 .image-upload-preview {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -3254,6 +3255,47 @@ input[type="submit"] {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   object-fit: contain;
+}
+
+.frame-toggle {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--bg-primary), transparent 8%);
+  color: var(--text-muted);
+  box-shadow: 0 2px 8px color-mix(in oklch, #000, transparent 82%);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  line-height: 1;
+  padding: 0;
+}
+
+.frame-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+
+.frame-toggle[data-frame-state="circle"],
+.frame-toggle[data-frame-state="rectangle"] {
+  color: var(--metal-gold, var(--gold));
+  border-color: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 45%);
+  background: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 88%);
+}
+
+.frame-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .image-card-actions {
@@ -6044,7 +6086,7 @@ td input:checked + .slider:before {
 }
 
 /* Rectangular frame for bars, notes, Aurum/Goldback — auto-fits aspect ratio */
-.view-image-section.view-shape-rect .view-image-slot img {
+.view-image-slot.view-shape-rect img {
   border-radius: var(--radius);
   max-width: 200px;
   max-height: 260px;
@@ -6052,7 +6094,7 @@ td input:checked + .slider:before {
   height: auto;
 }
 
-.view-image-section.view-shape-rect .view-image-placeholder {
+.view-image-slot.view-shape-rect .view-image-placeholder {
   border-radius: var(--radius);
   width: 140px;
   height: 200px;
@@ -6551,12 +6593,12 @@ td input:checked + .slider:before {
     font-size: var(--font-size-3xl);
   }
 
-  .view-image-section.view-shape-rect .view-image-slot img {
+  .view-image-slot.view-shape-rect img {
     max-width: 100%;
     max-height: 200px;
   }
 
-  .view-image-section.view-shape-rect .view-image-placeholder {
+  .view-image-slot.view-shape-rect .view-image-placeholder {
     width: 100%;
     aspect-ratio: 3/4;
   }
@@ -6607,7 +6649,7 @@ td input:checked + .slider:before {
     max-height: 150px;
   }
 
-  .view-image-section.view-shape-rect .view-image-slot img {
+  .view-image-slot.view-shape-rect img {
     max-height: 180px;
   }
 

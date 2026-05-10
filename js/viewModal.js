@@ -251,18 +251,14 @@ function _renderCountChip(item) {
 }
 
 function _buildImageSection(item, metrics) {
-  const itemType = (item.type || "").toLowerCase();
-  const isRectShape =
-    itemType === "bar" ||
-    itemType === "note" ||
-    itemType === "aurum" ||
-    itemType === "set" ||
-    metrics.isGb ||
-    metrics.isSb;
-  const imgSection = _el("div", "view-image-section" + (isRectShape ? " view-shape-rect" : ""));
+  const imgSection = _el("div", "view-image-section");
   imgSection.id = "viewImageSection";
-  imgSection.appendChild(_imageSlot("obverse", "Obverse"));
-  imgSection.appendChild(_imageSlot("reverse", "Reverse"));
+  const obverseSlot = _imageSlot("obverse", "Obverse");
+  const reverseSlot = _imageSlot("reverse", "Reverse");
+  _applyViewSlotFrame(obverseSlot, item, "obverse");
+  _applyViewSlotFrame(reverseSlot, item, "reverse");
+  imgSection.appendChild(obverseSlot);
+  imgSection.appendChild(reverseSlot);
   if (metrics.metalColor) {
     const surfaceDeep = getThemeColor("bg-primary") || "#1a1a2e";
     const surfaceDeeper = getThemeColor("bg-secondary") || "#16213e";
@@ -1170,14 +1166,20 @@ async function loadViewNumistaData(item, container, apiResult) {
   // Load user's field visibility config
   const cfg = typeof getNumistaViewFieldConfig === "function" ? getNumistaViewFieldConfig() : {};
 
-  // Update image frame shape based on Numista data if not already rectangular
+  // Update image frame shape after late Numista enrichment; use a two-way
+  // per-slot toggle so explicit circle overrides do not get stuck rectangular.
   if (merged.shape) {
-    const imgSection = container.querySelector("#viewImageSection");
-    const shapeStr = (typeof merged.shape === "string" ? merged.shape : "").toLowerCase();
-    const isNonRound = shapeStr !== "round" && shapeStr !== "circular";
-    if (isNonRound && imgSection && !imgSection.classList.contains("view-shape-rect")) {
-      imgSection.classList.add("view-shape-rect");
-    }
+    const enrichedItem = { ...item, numistaData: merged };
+    _applyViewSlotFrame(
+      container.querySelector('.view-image-slot[data-side="obverse"]'),
+      enrichedItem,
+      "obverse"
+    );
+    _applyViewSlotFrame(
+      container.querySelector('.view-image-slot[data-side="reverse"]'),
+      enrichedItem,
+      "reverse"
+    );
   }
 
   // Build Numista section — uses standard _section() for consistent styling
@@ -1944,6 +1946,13 @@ function _imageSlot(side, label) {
   slot.appendChild(lbl);
 
   return slot;
+}
+
+function _applyViewSlotFrame(slot, item, side) {
+  if (!slot) return;
+  const isRect =
+    typeof resolveImageFrame === "function" && resolveImageFrame(item, side) === "rect";
+  slot.classList.toggle("view-shape-rect", isRect);
 }
 
 /** Replace placeholder with actual image in a slot */

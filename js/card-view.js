@@ -547,14 +547,8 @@ const _cardMetalClass = (metal) => `metal-${(metal || "silver").toLowerCase()}`;
  * @returns {string}
  */
 const _cardImageHTML = (item, extraClass = "", side = "obverse") => {
-  const itemType = (item.type || "").toLowerCase();
   const isRect =
-    itemType === "bar" ||
-    itemType === "note" ||
-    itemType === "aurum" ||
-    itemType === "set" ||
-    item.weightUnit === "gb" ||
-    item.weightUnit === "sb";
+    typeof resolveImageFrame === "function" && resolveImageFrame(item, side) === "rect";
   const shape = isRect ? " bar-shape" : "";
   const uuid = item.uuid || "";
   const catalogId = item.numistaId || "";

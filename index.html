@@ -1868,6 +1868,16 @@
                       style="display: none"
                     >
                       <img id="itemImagePreviewImgObv" alt="Obverse preview" />
+                      <button
+                        type="button"
+                        id="frameToggleObv"
+                        class="frame-toggle"
+                        data-frame-state="auto"
+                        aria-pressed="false"
+                        aria-label="Image frame: auto (default)"
+                      >
+                        <span aria-hidden="true">A</span>
+                      </button>
                     </div>
                     <div class="image-card-actions">
                       <input
@@ -1941,6 +1951,16 @@
                       style="display: none"
                     >
                       <img id="itemImagePreviewImgRev" alt="Reverse preview" />
+                      <button
+                        type="button"
+                        id="frameToggleRev"
+                        class="frame-toggle"
+                        data-frame-state="auto"
+                        aria-pressed="false"
+                        aria-label="Image frame: auto (default)"
+                      >
+                        <span aria-hidden="true">A</span>
+                      </button>
                     </div>
                     <div class="image-card-actions">
                       <input
@@ -8450,6 +8470,7 @@
     <script defer src="./js/retail-view-modal.js"></script>
     <script defer src="./js/api.js"></script>
     <script defer src="./js/catalog-api.js"></script>
+    <script defer src="./js/image-frame.js"></script>
     <script defer src="./js/pcgs-api.js"></script>
     <script defer src="./js/catalog-providers.js"></script>
     <script defer src="./js/catalog-manager.js"></script>
