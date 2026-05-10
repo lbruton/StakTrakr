@@ -628,40 +628,50 @@
           }
         }
 
-        // Restore user-uploaded attachments (STRK-45)
+        // Restore user-uploaded attachments (STRK-45, STRK-65: fail-soft on malformed manifest)
         const attachManifestFile = zip.file("user_attachment_manifest.json");
         if (
           attachManifestFile &&
           typeof attachmentManager !== "undefined" &&
           attachmentManager.isAvailable()
         ) {
-          const acceptedUuids = new Set(
-            typeof inventory !== "undefined" ? inventory.map((i) => i.uuid) : []
-          );
-          const attachManifestData = JSON.parse(await attachManifestFile.async("string"));
-          let missingBinaryCount = 0;
-          for (const entry of attachManifestData.entries || []) {
-            if (!acceptedUuids.has(entry.itemUuid)) continue;
-            const zipFile = entry.file ? zip.file(entry.file) : null;
-            const blob = zipFile ? await zipFile.async("blob") : null;
-            if (blob) {
-              await attachmentManager.addAttachment({
-                attachmentUuid: entry.attachmentUuid,
-                itemUuid: entry.itemUuid,
-                fileName: entry.fileName,
-                type: entry.type,
-                size: entry.size,
-                uploadedAt: entry.uploadedAt,
-                blob,
-              });
-            } else {
-              missingBinaryCount++;
+          try {
+            const acceptedUuids = new Set(
+              typeof inventory !== "undefined" ? inventory.map((i) => i.uuid) : []
+            );
+            const attachManifestData = JSON.parse(await attachManifestFile.async("string"));
+            let missingBinaryCount = 0;
+            for (const entry of attachManifestData.entries || []) {
+              if (!acceptedUuids.has(entry.itemUuid)) continue;
+              const zipFile = entry.file ? zip.file(entry.file) : null;
+              const blob = zipFile ? await zipFile.async("blob") : null;
+              if (blob) {
+                await attachmentManager.addAttachment({
+                  attachmentUuid: entry.attachmentUuid,
+                  itemUuid: entry.itemUuid,
+                  fileName: entry.fileName,
+                  type: entry.type,
+                  size: entry.size,
+                  uploadedAt: entry.uploadedAt,
+                  blob,
+                });
+              } else {
+                missingBinaryCount++;
+              }
             }
-          }
-          if (missingBinaryCount > 0) {
+            if (missingBinaryCount > 0) {
+              if (typeof showToast === "function") {
+                showToast(
+                  `${missingBinaryCount} attachment file(s) could not be restored — metadata only.`,
+                  "warning"
+                );
+              }
+            }
+          } catch (attachRestoreErr) {
+            console.warn("Attachment manifest parse/restore failed:", attachRestoreErr);
             if (typeof showToast === "function") {
               showToast(
-                `${missingBinaryCount} attachment file(s) could not be restored — metadata only.`,
+                "Attachment manifest was malformed — inventory restored without attachments.",
                 "warning"
               );
             }
