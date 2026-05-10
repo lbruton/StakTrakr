@@ -240,6 +240,16 @@ let _deleteObverseOnSave = false;
 /** @type {boolean} User clicked Remove on reverse — delete on save */
 let _deleteReverseOnSave = false;
 
+/** @type {"auto"|"circle"|"rectangle"} Pending obverse frame override */
+let _pendingObverseFrame = "auto";
+/** @type {"auto"|"circle"|"rectangle"} Pending reverse frame override */
+let _pendingReverseFrame = "auto";
+/** @type {number} Obverse URL preview generation token */
+let _urlPreviewGenObv = 0;
+/** @type {number} Reverse URL preview generation token */
+let _urlPreviewGenRev = 0;
+const _urlPreviewTimers = { obverse: null, reverse: null };
+
 /** @type {{id:number, file:File}[]} Queued attachment entries — written to IDB on item commit (STRK-45, STRK-65) */
 let _pendingAttachments = [];
 let _pendingAttachmentNextId = 0;
@@ -306,6 +316,105 @@ const updateSwapButtonVisibility = () => {
   wrapper.classList.toggle("d-none", !bothVisible);
 };
 
+const _frameSuffix = (side) => (side === "reverse" ? "Rev" : "Obv");
+const _getPendingFrame = (side) =>
+  side === "reverse" ? _pendingReverseFrame : _pendingObverseFrame;
+const _setPendingFrame = (side, value) => {
+  const normalized =
+    typeof normalizeImageFrame === "function" ? normalizeImageFrame(value) : value || "auto";
+  if (side === "reverse") {
+    _pendingReverseFrame = normalized;
+  } else {
+    _pendingObverseFrame = normalized;
+  }
+};
+
+const _frameToggleLabel = (state) => {
+  if (state === "circle") return "Image frame: circle. Press to set rectangle.";
+  if (state === "rectangle") return "Image frame: rectangle. Press to reset to auto.";
+  return "Image frame: auto (default). Press to set circle.";
+};
+
+const _renderFrameToggle = (side = "obverse") => {
+  const suffix = _frameSuffix(side);
+  const button = document.getElementById("frameToggle" + suffix);
+  if (!button) return;
+  const state = _getPendingFrame(side);
+  const glyph = state === "circle" ? "\u25cb" : state === "rectangle" ? "\u25ad" : "A";
+  button.dataset.frameState = state;
+  button.setAttribute(
+    "aria-pressed",
+    state === "rectangle" ? "true" : state === "circle" ? "mixed" : "false"
+  );
+  button.setAttribute("aria-label", _frameToggleLabel(state));
+  const label = button.querySelector("span") || button;
+  label.textContent = glyph;
+};
+
+const renderFrameToggles = () => {
+  _renderFrameToggle("obverse");
+  _renderFrameToggle("reverse");
+};
+
+const _setUrlPreviewGeneration = (side) => {
+  if (side === "reverse") return ++_urlPreviewGenRev;
+  return ++_urlPreviewGenObv;
+};
+
+const _getUrlPreviewGeneration = (side) =>
+  side === "reverse" ? _urlPreviewGenRev : _urlPreviewGenObv;
+
+const previewImageUrlForSide = (side = "obverse", url = "") => {
+  const suffix = _frameSuffix(side);
+  const preview = document.getElementById("itemImagePreview" + suffix);
+  const img = document.getElementById("itemImagePreviewImg" + suffix);
+  const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
+  const sizeInfo = document.getElementById("itemImageSizeInfo" + suffix);
+  const trimmed = (url || "").trim();
+  const gen = _setUrlPreviewGeneration(side);
+
+  if (!preview || !img) return;
+
+  if (!/^https?:\/\/.+\..+/i.test(trimmed)) {
+    preview.style.display = "none";
+    img.removeAttribute("src");
+    if (removeBtn) removeBtn.style.display = "none";
+    if (sizeInfo) sizeInfo.textContent = "";
+    updateSwapButtonVisibility();
+    return;
+  }
+
+  img.onload = () => {
+    if (gen !== _getUrlPreviewGeneration(side)) return;
+    preview.style.display = "block";
+    if (removeBtn) removeBtn.style.display = "";
+    if (sizeInfo) sizeInfo.textContent = "";
+    updateSwapButtonVisibility();
+  };
+  img.onerror = () => {
+    if (gen !== _getUrlPreviewGeneration(side)) return;
+    preview.style.display = "none";
+    img.removeAttribute("src");
+    if (removeBtn) removeBtn.style.display = "none";
+    if (sizeInfo) sizeInfo.textContent = "Couldn't load image - check the URL";
+    updateSwapButtonVisibility();
+  };
+  img.src = trimmed;
+  preview.style.display = "block";
+  if (removeBtn) removeBtn.style.display = "";
+  if (sizeInfo) sizeInfo.textContent = "";
+  updateSwapButtonVisibility();
+};
+
+const scheduleUrlPreview = (side = "obverse") => {
+  const field = side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+  if (!field) return;
+  if (_urlPreviewTimers[side]) clearTimeout(_urlPreviewTimers[side]);
+  _urlPreviewTimers[side] = setTimeout(() => {
+    previewImageUrlForSide(side, field.value);
+  }, 300);
+};
+
 /**
  * Track an externally-created preview object URL so it gets revoked
  * when clearUploadState() runs (prevents memory leaks in editItem preview).
@@ -330,6 +439,14 @@ const clearUploadState = () => {
   _pendingReverseBlob = null;
   _deleteObverseOnSave = false;
   _deleteReverseOnSave = false;
+  _pendingObverseFrame = "auto";
+  _pendingReverseFrame = "auto";
+  _urlPreviewGenObv++;
+  _urlPreviewGenRev++;
+  if (_urlPreviewTimers.obverse) clearTimeout(_urlPreviewTimers.obverse);
+  if (_urlPreviewTimers.reverse) clearTimeout(_urlPreviewTimers.reverse);
+  _urlPreviewTimers.obverse = null;
+  _urlPreviewTimers.reverse = null;
 
   if (_pendingObversePreviewUrl) {
     URL.revokeObjectURL(_pendingObversePreviewUrl);
@@ -369,6 +486,7 @@ const clearUploadState = () => {
   // Hide swap button (STAK-341)
   const swapWrapper = document.getElementById("swapImagesBtnWrapper");
   if (swapWrapper) swapWrapper.classList.add("d-none");
+  renderFrameToggles();
 
   // Reset pattern toggle state
   const patternToggle = document.getElementById("imagePatternToggle");
@@ -1332,6 +1450,8 @@ const parseItemFormFields = (isEditing, existingItem) => {
     marketValue,
     purity: parsePurity(isEditing, existingItem),
     currency: displayCurrency,
+    obverseImageFrame: _pendingObverseFrame,
+    reverseImageFrame: _pendingReverseFrame,
     obverseImageUrl: elements.itemObverseImageUrl?.value?.trim() ?? "",
     reverseImageUrl: elements.itemReverseImageUrl?.value?.trim() ?? "",
     ignorePatternImages: document.getElementById("itemIgnorePatternImages")?.checked || false,
@@ -1442,30 +1562,41 @@ const validateItemFields = (f) => {
  * @param {Object} f - Parsed fields from parseItemFormFields()
  * @returns {Object} Common item fields
  */
-const buildItemFields = (f) => ({
-  metal: f.metal,
-  composition: f.composition,
-  name: f.name,
-  qty: f.qty,
-  type: f.type,
-  weight: f.weight,
-  weightUnit: f.weightUnit,
-  price: f.price,
-  marketValue: f.marketValue,
-  date: f.date,
-  purchaseLocation: f.purchaseLocation,
-  storageLocation: f.storageLocation,
-  serialNumber: f.serialNumber,
-  notes: f.notes,
-  capsule: f.capsule,
-  capsuleNotes: f.capsuleNotes,
-  year: f.year,
-  grade: f.grade,
-  gradingAuthority: f.gradingAuthority,
-  certNumber: f.certNumber,
-  pcgsNumber: f.pcgsNumber,
-  purity: f.purity,
-});
+const buildItemFields = (f) => {
+  const fields = {
+    metal: f.metal,
+    composition: f.composition,
+    name: f.name,
+    qty: f.qty,
+    type: f.type,
+    weight: f.weight,
+    weightUnit: f.weightUnit,
+    price: f.price,
+    marketValue: f.marketValue,
+    date: f.date,
+    purchaseLocation: f.purchaseLocation,
+    storageLocation: f.storageLocation,
+    serialNumber: f.serialNumber,
+    notes: f.notes,
+    capsule: f.capsule,
+    capsuleNotes: f.capsuleNotes,
+    year: f.year,
+    grade: f.grade,
+    gradingAuthority: f.gradingAuthority,
+    certNumber: f.certNumber,
+    pcgsNumber: f.pcgsNumber,
+    purity: f.purity,
+  };
+
+  if (f.obverseImageFrame && f.obverseImageFrame !== "auto") {
+    fields.obverseImageFrame = f.obverseImageFrame;
+  }
+  if (f.reverseImageFrame && f.reverseImageFrame !== "auto") {
+    fields.reverseImageFrame = f.reverseImageFrame;
+  }
+
+  return fields;
+};
 
 /**
  * Commits a parsed item to inventory (add or edit mode).
@@ -1523,6 +1654,8 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       reverseSharedImageId: oldItem.reverseSharedImageId || null,
       ignorePatternImages: f.ignorePatternImages || false,
     };
+    if (f.obverseImageFrame === "auto") delete inventory[editIdx].obverseImageFrame;
+    if (f.reverseImageFrame === "auto") delete inventory[editIdx].reverseImageFrame;
 
     // Track user-modified fields by comparing old vs new values
     if (typeof window.markUserModified === "function") {
@@ -2140,6 +2273,7 @@ const setupItemFormListeners = () => {
       exitCloneMode();
       return;
     }
+    clearUploadState();
     // Dismiss any open autocomplete dropdowns (BUG-002/003)
     if (typeof dismissAllAutocompletes === "function") dismissAllAutocompletes();
     try {
@@ -2236,6 +2370,23 @@ const setupItemFormListeners = () => {
       const uploadBtn = document.getElementById("itemImageUploadBtn" + suffix);
       const cameraBtn = document.getElementById("itemImageCameraBtn" + suffix);
       const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
+      const frameBtn = document.getElementById("frameToggle" + suffix);
+      const urlField =
+        side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+
+      if (frameBtn) {
+        frameBtn.addEventListener("click", () => {
+          _setPendingFrame(
+            side,
+            typeof cycleFrame === "function" ? cycleFrame(_getPendingFrame(side)) : "auto"
+          );
+          _renderFrameToggle(side);
+        });
+      }
+
+      if (urlField) {
+        urlField.addEventListener("input", () => scheduleUrlPreview(side));
+      }
 
       if (isMobile && isSecure && cameraBtn && fileInput) {
         cameraBtn.style.display = "";
@@ -2265,6 +2416,7 @@ const setupItemFormListeners = () => {
           if (side === "reverse") {
             _pendingReverseBlob = null;
             _deleteReverseOnSave = true;
+            _pendingReverseFrame = "auto";
             if (_pendingReversePreviewUrl) {
               URL.revokeObjectURL(_pendingReversePreviewUrl);
               _pendingReversePreviewUrl = null;
@@ -2272,6 +2424,7 @@ const setupItemFormListeners = () => {
           } else {
             _pendingObverseBlob = null;
             _deleteObverseOnSave = true;
+            _pendingObverseFrame = "auto";
             if (_pendingObversePreviewUrl) {
               URL.revokeObjectURL(_pendingObversePreviewUrl);
               _pendingObversePreviewUrl = null;
@@ -2292,6 +2445,7 @@ const setupItemFormListeners = () => {
           // STAK-332: Flag item to ignore pattern rule images after explicit removal
           const ignorePatternCheckbox = document.getElementById("itemIgnorePatternImages");
           if (ignorePatternCheckbox) ignorePatternCheckbox.checked = true;
+          _renderFrameToggle(side);
           updateSwapButtonVisibility();
 
           // STAK-244: Also clear Numista image cache if user is removing a catalog-synced image
@@ -2370,6 +2524,11 @@ const setupItemFormListeners = () => {
       _deleteObverseOnSave = _deleteReverseOnSave;
       _deleteReverseOnSave = tmpDel;
 
+      // Swap frame override state with the images it describes
+      const tmpFrame = _pendingObverseFrame;
+      _pendingObverseFrame = _pendingReverseFrame;
+      _pendingReverseFrame = tmpFrame;
+
       // Swap visible preview images
       const imgObv = document.getElementById("itemImagePreviewImgObv");
       const imgRev = document.getElementById("itemImagePreviewImgRev");
@@ -2402,6 +2561,7 @@ const setupItemFormListeners = () => {
       const fileRev = document.getElementById("itemImageFileRev");
       if (fileObv) fileObv.value = "";
       if (fileRev) fileRev.value = "";
+      renderFrameToggles();
     });
   }
 
