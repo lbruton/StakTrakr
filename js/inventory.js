@@ -1449,13 +1449,9 @@ const editItem = (idx, logIdx = null) => {
 
   // Preload user images (obverse + reverse) into upload previews (STACK-32)
   if (typeof clearUploadState === "function") clearUploadState();
-  if (typeof _pendingObverseFrame !== "undefined") {
-    _pendingObverseFrame = item.obverseImageFrame || "auto";
+  if (typeof setPendingImageFrames === "function") {
+    setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
   }
-  if (typeof _pendingReverseFrame !== "undefined") {
-    _pendingReverseFrame = item.reverseImageFrame || "auto";
-  }
-  if (typeof renderFrameToggles === "function") renderFrameToggles();
 
   /**
    * Show a preview thumbnail for a given side.

@@ -344,7 +344,7 @@ const _renderFrameToggle = (side = "obverse") => {
   button.dataset.frameState = state;
   button.setAttribute(
     "aria-pressed",
-    state === "rectangle" ? "true" : state === "circle" ? "mixed" : "false"
+    state === "rectangle" || state === "circle" ? "true" : "false"
   );
   button.setAttribute("aria-label", _frameToggleLabel(state));
   const label = button.querySelector("span") || button;
@@ -354,6 +354,12 @@ const _renderFrameToggle = (side = "obverse") => {
 const renderFrameToggles = () => {
   _renderFrameToggle("obverse");
   _renderFrameToggle("reverse");
+};
+
+const setPendingImageFrames = (obverse = "auto", reverse = "auto") => {
+  _setPendingFrame("obverse", obverse);
+  _setPendingFrame("reverse", reverse);
+  renderFrameToggles();
 };
 
 const _setUrlPreviewGeneration = (side) => {

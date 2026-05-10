@@ -407,6 +407,7 @@
 
       const _tableImagesOnSetting = localStorage.getItem("tableImagesEnabled") !== "false";
       const _tableImageSidesSetting = localStorage.getItem("tableImageSides") || "both";
+      const hasImageFrameResolver = typeof resolveImageFrame === "function";
 
       for (let i = 0; i < sortedInventory.length; i++) {
         const item = sortedInventory[i];
@@ -510,7 +511,7 @@
             : "";
 
         const _thumbShapeClass = (side) =>
-          typeof resolveImageFrame === "function" && resolveImageFrame(item, side) === "rect"
+          hasImageFrameResolver && resolveImageFrame(item, side) === "rect"
             ? " table-thumb-rect"
             : "";
         const _validUrl = (u) => u && /^https?:\/\/.+\..+/i.test(u);

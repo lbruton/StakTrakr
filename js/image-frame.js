@@ -53,12 +53,15 @@ function resolveImageFrame(item, side = "obverse") {
   }
 
   const rawShape = record.numistaData?.shape;
+  const rawShapeText = String(rawShape || "").toLowerCase();
   const shape =
     typeof window !== "undefined" && typeof window.classifyShape === "function"
       ? window.classifyShape(rawShape)
       : typeof classifyShape === "function"
         ? classifyShape(rawShape)
-        : String(rawShape || "round").toLowerCase();
+        : rawShapeText.startsWith("round") || rawShapeText.startsWith("circular")
+          ? "round"
+          : rawShapeText;
   return shape && shape !== "round" ? "rect" : "round";
 }
 

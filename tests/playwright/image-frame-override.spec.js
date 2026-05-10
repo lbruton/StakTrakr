@@ -99,6 +99,10 @@ test.describe("image frame overrides — STRK-67", () => {
         { name: "weight unit rule", item: { type: "Coin", weightUnit: "gb" } },
         { name: "grading rule", item: { type: "Coin", gradingAuthority: "PCGS" } },
         { name: "Numista shape rule", item: { type: "Coin", numistaData: { shape: "oval" } } },
+        {
+          name: "circular Numista shape fallback",
+          item: { type: "Coin", numistaData: { shape: "circular" } },
+        },
         { name: "fallback", item: { type: "Coin", numistaData: { shape: "round" } } },
       ];
       return cases.map((entry) => [entry.name, window.resolveImageFrame(entry.item, "obverse")]);
@@ -111,6 +115,7 @@ test.describe("image frame overrides — STRK-67", () => {
       "weight unit rule": "rect",
       "grading rule": "rect",
       "Numista shape rule": "rect",
+      "circular Numista shape fallback": "round",
       fallback: "round",
     });
   });
