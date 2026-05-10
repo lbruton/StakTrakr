@@ -1217,7 +1217,7 @@ const bindCloudStorageListeners = () => {
     var storedVal = loadDataSync("syncAttachments", null);
     syncAttachToggle.checked = storedVal !== "false" && storedVal !== false;
     syncAttachToggle.addEventListener("change", function () {
-      saveDataSync("syncAttachments", String(this.checked));
+      saveDataSync("syncAttachments", this.checked);
     });
   }
 };
