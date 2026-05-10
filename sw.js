@@ -4,7 +4,7 @@
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.57-b1778447770";
+const CACHE_NAME = "staktrakr-v3.34.57-b1778455865";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -58,6 +58,7 @@ const CORE_ASSETS = [
   "./js/sorting.js",
   "./js/pagination.js",
   "./js/detailsModal.js",
+  "./js/image-frame.js",
   "./js/viewModal.js",
   "./js/debugModal.js",
   "./js/numista-modal.js",
