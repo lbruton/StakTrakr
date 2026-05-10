@@ -67,13 +67,19 @@ function _iconBtn(classes, titleText, svgHtml) {
 
 // ── File access helpers ─────────────────────────────────────────────────────
 
+const _activeOpenUrls = new Set();
+window.addEventListener("pagehide", () => {
+  for (const u of _activeOpenUrls) URL.revokeObjectURL(u);
+  _activeOpenUrls.clear();
+});
+
 async function _openAttachment(rec) {
   if (!window.attachmentManager?.isAvailable()) return;
   const stored = await window.attachmentManager.getAttachment(rec.attachmentUuid);
   if (!stored?.blob) return;
   const url = URL.createObjectURL(stored.blob);
+  _activeOpenUrls.add(url);
   window.open(url, "_blank");
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 async function _downloadAttachment(rec) {
@@ -85,7 +91,7 @@ async function _downloadAttachment(rec) {
   a.href = url;
   a.download = rec.fileName;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 async function _removeSavedAttachment(rec, item, onUpdate) {
