@@ -110,6 +110,8 @@ const logItemChanges = (oldItem, newItem) => {
     "currency",
     "obverseImageUrl",
     "reverseImageUrl",
+    "obverseImageFrame",
+    "reverseImageFrame",
     "obverseSharedImageId",
     "reverseSharedImageId",
     "disposition",

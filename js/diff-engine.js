@@ -68,6 +68,8 @@ const DIFF_FIELDS = [
   // Images (STAK-493: these were missing, causing silent data loss during sync)
   "obverseImageUrl",
   "reverseImageUrl",
+  "obverseImageFrame",
+  "reverseImageFrame",
   "obverseSharedImageId",
   "reverseSharedImageId",
   // Disposition

@@ -35,6 +35,8 @@
  * @property {string} uuid - Unique identifier for the item
  * @property {string} [obverseImageUrl] - URL for obverse image
  * @property {string} [reverseImageUrl] - URL for reverse image
+ * @property {"auto"|"circle"|"rectangle"} [obverseImageFrame] - Optional obverse image frame override
+ * @property {"auto"|"circle"|"rectangle"} [reverseImageFrame] - Optional reverse image frame override
  * @property {string|null} [obverseSharedImageId] - UUID of source item if obverse image was tagged from the shared library (null for original uploads)
  * @property {string|null} [reverseSharedImageId] - UUID of source item if reverse image was tagged from the shared library (null for original uploads)
  * @property {boolean} [collectable] - Whether item is marked as collectable
