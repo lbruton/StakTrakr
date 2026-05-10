@@ -169,6 +169,68 @@ class AttachmentManager {
     }
   }
 
+  async hasAttachments(uuids) {
+    const existing = new Set();
+    const uniqueUuids = Array.from(new Set((uuids || []).filter(Boolean)));
+    if (uniqueUuids.length === 0 || !(await this._ensureDb())) return existing;
+
+    try {
+      const tx = this._db.transaction("userAttachments", "readonly");
+      const store = tx.objectStore("userAttachments");
+      await Promise.all(
+        uniqueUuids.map(
+          (uuid) =>
+            new Promise((resolve) => {
+              const req = store.getKey(uuid);
+              req.onsuccess = () => {
+                if (req.result !== undefined) existing.add(uuid);
+                resolve();
+              };
+              req.onerror = () => resolve();
+            })
+        )
+      );
+    } catch (err) {
+      console.warn("AttachmentManager: hasAttachments failed", err);
+    }
+    return existing;
+  }
+
+  async copyAttachments(uuidMap, targetItemUuid) {
+    if (!uuidMap?.size || !targetItemUuid || !(await this._ensureDb())) return 0;
+
+    let copied = 0;
+    try {
+      const tx = this._db.transaction("userAttachments", "readwrite");
+      const store = tx.objectStore("userAttachments");
+      await Promise.all(
+        Array.from(uuidMap).map(
+          ([sourceUuid, targetUuid]) =>
+            new Promise((resolve) => {
+              const req = store.get(sourceUuid);
+              req.onsuccess = () => {
+                const stored = req.result;
+                if (stored?.blob) {
+                  store.put({
+                    ...stored,
+                    attachmentUuid: targetUuid,
+                    itemUuid: targetItemUuid,
+                  });
+                  copied++;
+                }
+                resolve();
+              };
+              req.onerror = () => resolve();
+            })
+        )
+      );
+      await this._txComplete(tx);
+    } catch (err) {
+      console.warn("AttachmentManager: copyAttachments failed", err);
+    }
+    return copied;
+  }
+
   /**
    * Delete a single attachment by its UUID.
    * @param {string} uuid - attachmentUuid
@@ -413,7 +475,8 @@ if (typeof window !== "undefined") {
   window.attachmentManager = attachmentManager;
 
   window.reconcileAttachmentOrphans = async () => {
-    if (!attachmentManager.isAvailable() || typeof inventory === "undefined") return 0;
+    if (typeof inventory === "undefined" || !Array.isArray(inventory)) return 0;
+    if (!attachmentManager.isAvailable() && !(await attachmentManager.init())) return 0;
     const validUuids = new Set();
     for (const item of inventory) {
       for (const a of item.attachments || []) {

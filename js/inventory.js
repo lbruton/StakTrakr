@@ -1149,16 +1149,7 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   // 9. Copy attachment blobs (non-blocking — missing blobs show derived warning)
   try {
     if (_splitAttachmentMap.size > 0 && window.attachmentManager?.isAvailable()) {
-      for (const [origUuid, newUuid] of _splitAttachmentMap) {
-        const stored = await window.attachmentManager.getAttachment(origUuid);
-        if (stored?.blob) {
-          await window.attachmentManager.addAttachment({
-            ...stored,
-            attachmentUuid: newUuid,
-            itemUuid: clone.uuid,
-          });
-        }
-      }
+      await window.attachmentManager.copyAttachments(_splitAttachmentMap, clone.uuid);
     }
   } catch (e) {
     if (typeof debugLog === "function") debugLog("splitInventoryItem: attachment copy failed", e);

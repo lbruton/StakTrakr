@@ -1182,30 +1182,30 @@ async function exportEncryptedBackup(password) {
   // Export companion attachment vault if user has attachments (STRK-65: preflight size guard)
   var attachmentCount = 0;
   try {
-    var _exportAttachUsage = window.attachmentManager?.isAvailable()
+    const exportAttachUsage = window.attachmentManager?.isAvailable()
       ? await window.attachmentManager.getStorageUsage()
       : null;
-    var _exportSizeThreshold =
+    const exportSizeThreshold =
       typeof SYNC_ATTACHMENT_SIZE_WARN_BYTES !== "undefined"
         ? SYNC_ATTACHMENT_SIZE_WARN_BYTES
         : 100 * 1024 * 1024;
-    if (_exportAttachUsage && _exportAttachUsage.totalBytes > _exportSizeThreshold) {
-      var _sizeMB = Math.round(_exportAttachUsage.totalBytes / 1024 / 1024);
-      var _continueExport =
+    let continueExport = true;
+    if (exportAttachUsage && exportAttachUsage.totalBytes > exportSizeThreshold) {
+      const sizeMB = Math.round(exportAttachUsage.totalBytes / 1024 / 1024);
+      continueExport =
         typeof showAppConfirm === "function"
           ? await showAppConfirm(
               "Attachment vault is " +
-                _sizeMB +
+                sizeMB +
                 " MB. Exporting this much data may use significant memory. Continue?",
               { confirmLabel: "Export Anyway", cancelLabel: "Skip Attachments" }
             )
           : true;
-      if (!_continueExport) {
-        debugLog("[Vault] Attachment export skipped by user (" + _sizeMB + " MB)");
+      if (!continueExport) {
+        debugLog("[Vault] Attachment export skipped by user (" + sizeMB + " MB)");
       }
     }
-    var _continueExport2 = typeof _continueExport === "undefined" || _continueExport !== false;
-    var attachVaultData = _continueExport2 ? await collectAndHashAttachmentVault() : null;
+    var attachVaultData = continueExport ? await collectAndHashAttachmentVault() : null;
     if (attachVaultData && attachVaultData.attachmentCount > 0) {
       var attachBytes = await vaultEncryptAttachmentVault(password, attachVaultData.payload);
       var attachBlob = new Blob([attachBytes], { type: "application/octet-stream" });

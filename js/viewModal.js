@@ -848,9 +848,13 @@ function _buildAttachmentsSection(item) {
   if (!item.attachments?.length) return null;
   if (typeof renderAttachmentListPanel !== "function") return null;
   const section = _el("div", "view-detail-section");
-  renderAttachmentListPanel(item, { editable: false }).then((panel) => {
-    if (panel) section.appendChild(panel);
-  });
+  renderAttachmentListPanel(item, { editable: false })
+    .then((panel) => {
+      if (panel) section.appendChild(panel);
+    })
+    .catch((err) => {
+      console.warn("Failed to render attachment panel:", err);
+    });
   return section;
 }
 

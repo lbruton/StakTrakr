@@ -2031,8 +2031,11 @@ const setupItemFormListeners = () => {
               blob: file,
             };
             const ok = await attachmentManager.addAttachment(record);
-            if (!ok && typeof showToast === "function")
-              showToast(`Attachment "${file.name}" could not be stored`, "warning");
+            if (!ok) {
+              if (typeof showToast === "function")
+                showToast(`Attachment "${file.name}" could not be stored`, "warning");
+              continue;
+            }
             savedItem.attachments.push({
               attachmentUuid: uuid,
               fileName: file.name,
@@ -4439,9 +4442,18 @@ if (settingsShowRealizedToggle) {
 // Attachment drop zone + browse button event wiring (STRK-45)
 // =============================================================================
 
-const attachmentDropZone = document.getElementById("attachmentDropZone");
-const attachmentFileInput = document.getElementById("attachmentFileInput");
-const attachmentBrowseBtn = document.getElementById("attachmentBrowseBtn");
+const attachmentDropZone =
+  typeof safeGetElement === "function"
+    ? safeGetElement("attachmentDropZone")
+    : document.getElementById("attachmentDropZone");
+const attachmentFileInput =
+  typeof safeGetElement === "function"
+    ? safeGetElement("attachmentFileInput")
+    : document.getElementById("attachmentFileInput");
+const attachmentBrowseBtn =
+  typeof safeGetElement === "function"
+    ? safeGetElement("attachmentBrowseBtn")
+    : document.getElementById("attachmentBrowseBtn");
 
 if (attachmentDropZone) {
   attachmentDropZone.addEventListener("dragover", (e) => {

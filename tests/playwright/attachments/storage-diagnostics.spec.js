@@ -11,10 +11,14 @@ test.describe("STRK-65 — Storage diagnostics clarity", () => {
   test("settings footer labels localStorage with ~5 MB (not implying origin total)", async ({
     page,
   }) => {
-    await page.evaluate(() => {
-      if (typeof updateSettingsFooter === "function") updateSettingsFooter();
+    await page.evaluate(async () => {
+      if (typeof updateSettingsFooter === "function") await updateSettingsFooter();
     });
-    await page.waitForTimeout(500);
+    await page.waitForFunction(() => {
+      const el = document.getElementById("settingsFooter");
+      const text = el ? el.textContent || "" : "";
+      return text.includes("~5 MB") && !/LS:.*\/ 5 MB/.test(text);
+    });
     const footerText = await page.evaluate(() => {
       const el = document.getElementById("settingsFooter");
       return el ? el.textContent : "";
@@ -25,7 +29,7 @@ test.describe("STRK-65 — Storage diagnostics clarity", () => {
 
   test("storage diagnostics combined card says browser quota varies", async ({ page }) => {
     const cardText = await page.evaluate(async () => {
-      if (typeof renderStorageDiagnostics === "function") await renderStorageDiagnostics();
+      if (typeof renderStorageSection === "function") await renderStorageSection(true);
       const sub = document.getElementById("storageStat_combined_sub");
       return sub ? sub.textContent : "";
     });

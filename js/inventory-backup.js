@@ -643,19 +643,25 @@
             let missingBinaryCount = 0;
             for (const entry of attachManifestData.entries || []) {
               if (!acceptedUuids.has(entry.itemUuid)) continue;
-              const zipFile = entry.file ? zip.file(entry.file) : null;
-              const blob = zipFile ? await zipFile.async("blob") : null;
-              if (blob) {
-                await attachmentManager.addAttachment({
-                  attachmentUuid: entry.attachmentUuid,
-                  itemUuid: entry.itemUuid,
-                  fileName: entry.fileName,
-                  type: entry.type,
-                  size: entry.size,
-                  uploadedAt: entry.uploadedAt,
-                  blob,
-                });
-              } else {
+              try {
+                const zipFile = entry.file ? zip.file(entry.file) : null;
+                const blob = zipFile ? await zipFile.async("blob") : null;
+                if (blob) {
+                  const ok = await attachmentManager.addAttachment({
+                    attachmentUuid: entry.attachmentUuid,
+                    itemUuid: entry.itemUuid,
+                    fileName: entry.fileName,
+                    type: entry.type,
+                    size: entry.size,
+                    uploadedAt: entry.uploadedAt,
+                    blob,
+                  });
+                  if (!ok) missingBinaryCount++;
+                } else {
+                  missingBinaryCount++;
+                }
+              } catch (entryErr) {
+                console.warn("Attachment restore entry failed:", entryErr);
                 missingBinaryCount++;
               }
             }

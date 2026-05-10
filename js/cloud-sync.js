@@ -2409,6 +2409,13 @@ async function _pullAttachmentVault(remoteMeta, token, password, pathLabel) {
     return result;
   }
   try {
+    var syncAttachPref =
+      typeof loadDataSync === "function" ? loadDataSync("syncAttachments", null) : null;
+    if (syncAttachPref === "false" || syncAttachPref === false) {
+      debugLog("[CloudSync] " + pathLabel + ": attachment binary sync disabled — skipping pull");
+      result.skipped = true;
+      return result;
+    }
     var lastPull = syncGetLastPull();
     var localHash = lastPull ? lastPull.attachmentHash : null;
     if (remoteMeta.attachmentVault.hash === localHash) {

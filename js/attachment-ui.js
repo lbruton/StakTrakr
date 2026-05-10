@@ -102,10 +102,31 @@ async function _removeSavedAttachment(rec, item, onUpdate) {
   const idx = item.attachments.findIndex((a) => a.attachmentUuid === rec.attachmentUuid);
   if (idx !== -1) item.attachments.splice(idx, 1);
   if (typeof saveInventory === "function") saveInventory();
-  // Refresh the edit-modal saved list if the edit modal is currently open
-  renderAttachmentSection(item);
-  // Refresh a standalone panel (e.g., viewModal) via the caller-supplied callback
-  if (typeof onUpdate === "function") onUpdate();
+  if (typeof onUpdate === "function") {
+    await onUpdate();
+  } else {
+    renderAttachmentSection(item);
+  }
+}
+
+async function _getExistingAttachmentUuids(attachments) {
+  const mgr = window.attachmentManager;
+  if (!mgr?.isAvailable()) return null;
+  try {
+    if (typeof mgr.hasAttachments === "function") {
+      return await mgr.hasAttachments(attachments.map((rec) => rec.attachmentUuid));
+    }
+    const existing = new Set();
+    await Promise.all(
+      attachments.map(async (rec) => {
+        if (await mgr.hasAttachment(rec.attachmentUuid)) existing.add(rec.attachmentUuid);
+      })
+    );
+    return existing;
+  } catch (err) {
+    console.warn("Attachment existence check failed:", err);
+    return null;
+  }
 }
 
 // ── Queued-row builder ──────────────────────────────────────────────────────
@@ -223,10 +244,11 @@ async function renderAttachmentSection(item) {
     list.hidden = true;
     return;
   }
-  const mgr = window.attachmentManager;
+  const existingUuids = await _getExistingAttachmentUuids(attachments);
+  const onUpdate = () => renderAttachmentSection(item);
   for (const rec of attachments) {
-    const isMissing = mgr?.isAvailable() ? !(await mgr.hasAttachment(rec.attachmentUuid)) : false;
-    list.appendChild(_buildSavedRow(rec, item, /* editable */ true, undefined, isMissing));
+    const isMissing = existingUuids ? !existingUuids.has(rec.attachmentUuid) : false;
+    list.appendChild(_buildSavedRow(rec, item, /* editable */ true, onUpdate, isMissing));
   }
   list.hidden = false;
 }
@@ -263,7 +285,7 @@ function renderAttachmentBadge(item, options = {}) {
  * Used in viewModal (read-only by default); pass { editable: true } to enable removes.
  * @param {Object} item
  * @param {{ editable?: boolean }} [options]
- * @returns {HTMLElement}
+ * @returns {Promise<HTMLElement>}
  */
 async function renderAttachmentListPanel(item, options = {}) {
   const { editable = false } = options;
@@ -291,10 +313,12 @@ async function renderAttachmentListPanel(item, options = {}) {
   } else {
     const body = _el("div", "attach-panel-body");
     const list = _el("ul", "attachment-list");
-    const onUpdate = async () => panel.replaceWith(await renderAttachmentListPanel(item, options));
-    const mgr = window.attachmentManager;
+    const onUpdate = async () => {
+      panel.replaceWith(await renderAttachmentListPanel(item, options));
+    };
+    const existingUuids = await _getExistingAttachmentUuids(attachments);
     for (const rec of attachments) {
-      const isMissing = mgr?.isAvailable() ? !(await mgr.hasAttachment(rec.attachmentUuid)) : false;
+      const isMissing = existingUuids ? !existingUuids.has(rec.attachmentUuid) : false;
       list.appendChild(_buildSavedRow(rec, item, editable, onUpdate, isMissing));
     }
     body.appendChild(list);

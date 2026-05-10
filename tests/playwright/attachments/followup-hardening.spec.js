@@ -6,6 +6,7 @@ test.describe("STRK-65 — Attachment follow-up hardening", () => {
     await injectSeedInventory(page);
     await page.goto("/index.html");
     await page.waitForFunction(() => typeof window.attachmentManager !== "undefined");
+    await page.waitForFunction(() => typeof window.queueAttachmentFile === "function");
   });
 
   test("queue entries use stable ids — duplicate filenames removable independently", async ({
@@ -121,7 +122,9 @@ test.describe("STRK-65 — Attachment follow-up hardening", () => {
     page,
   }) => {
     const result = await page.evaluate(() => {
-      if (typeof DiffEngine === "undefined") return { skip: true };
+      if (typeof DiffEngine === "undefined") {
+        throw new Error("DiffEngine is not loaded");
+      }
       const local = [
         {
           attachmentUuid: "loc-1",
@@ -158,7 +161,6 @@ test.describe("STRK-65 — Attachment follow-up hardening", () => {
           : [];
       return { actions, hasReplace: actions.includes("replace") };
     });
-    if (result.skip) return;
     expect(result.hasReplace).toBe(false);
   });
 });
