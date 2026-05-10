@@ -242,6 +242,7 @@ function renderAttachmentBadge(item, options = {}) {
 
   const { variant = "card", onClick } = options;
   const el = _el("span", variant === "table" ? "attach-count-chip" : "cv-chip cv-chip-attach");
+  el.title = `${count} attachment${count === 1 ? "" : "s"}`;
   el.innerHTML = _SVG.paperclipSm;
   el.appendChild(document.createTextNode(" " + count));
 
