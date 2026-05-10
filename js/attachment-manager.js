@@ -155,6 +155,20 @@ class AttachmentManager {
     return this._get("userAttachments", uuid);
   }
 
+  async hasAttachment(uuid) {
+    if (!uuid || !(await this._ensureDb())) return false;
+    try {
+      const tx = this._db.transaction("userAttachments", "readonly");
+      const req = tx.objectStore("userAttachments").getKey(uuid);
+      return new Promise((resolve) => {
+        req.onsuccess = () => resolve(req.result !== undefined);
+        req.onerror = () => resolve(false);
+      });
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Delete a single attachment by its UUID.
    * @param {string} uuid - attachmentUuid

@@ -143,9 +143,8 @@ function _buildQueuedRow(entry) {
 
 // ── Saved-row builder ───────────────────────────────────────────────────────
 
-function _buildSavedRow(rec, item, editable, onUpdate) {
+function _buildSavedRow(rec, item, editable, onUpdate, isMissing) {
   const icon = _fileIconInfo(rec.type, rec.fileName);
-  const isMissing = !!rec.missingBinary;
 
   const li = _el("li", `attachment-item${isMissing ? " attachment-item--missing" : ""}`);
   li.dataset.attachmentUuid = rec.attachmentUuid;
@@ -213,7 +212,7 @@ function renderQueuedAttachments(entries) {
  * Called by inventory.js when the edit modal opens for an item (single-arg call site).
  * @param {Object} item
  */
-function renderAttachmentSection(item) {
+async function renderAttachmentSection(item) {
   const list = document.getElementById("attachmentSavedList");
   if (!list) return;
   list.innerHTML = "";
@@ -224,8 +223,10 @@ function renderAttachmentSection(item) {
     list.hidden = true;
     return;
   }
+  const mgr = window.attachmentManager;
   for (const rec of attachments) {
-    list.appendChild(_buildSavedRow(rec, item, /* editable */ true));
+    const isMissing = mgr?.isAvailable() ? !(await mgr.hasAttachment(rec.attachmentUuid)) : false;
+    list.appendChild(_buildSavedRow(rec, item, /* editable */ true, undefined, isMissing));
   }
   list.hidden = false;
 }
@@ -264,7 +265,7 @@ function renderAttachmentBadge(item, options = {}) {
  * @param {{ editable?: boolean }} [options]
  * @returns {HTMLElement}
  */
-function renderAttachmentListPanel(item, options = {}) {
+async function renderAttachmentListPanel(item, options = {}) {
   const { editable = false } = options;
   const attachments = item?.attachments || [];
 
@@ -290,10 +291,11 @@ function renderAttachmentListPanel(item, options = {}) {
   } else {
     const body = _el("div", "attach-panel-body");
     const list = _el("ul", "attachment-list");
-    // onUpdate replaces the entire panel in-place when a row's remove fires
-    const onUpdate = () => panel.replaceWith(renderAttachmentListPanel(item, options));
+    const onUpdate = async () => panel.replaceWith(await renderAttachmentListPanel(item, options));
+    const mgr = window.attachmentManager;
     for (const rec of attachments) {
-      list.appendChild(_buildSavedRow(rec, item, editable, onUpdate));
+      const isMissing = mgr?.isAvailable() ? !(await mgr.hasAttachment(rec.attachmentUuid)) : false;
+      list.appendChild(_buildSavedRow(rec, item, editable, onUpdate, isMissing));
     }
     body.appendChild(list);
     panel.appendChild(body);

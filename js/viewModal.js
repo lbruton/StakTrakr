@@ -848,7 +848,9 @@ function _buildAttachmentsSection(item) {
   if (!item.attachments?.length) return null;
   if (typeof renderAttachmentListPanel !== "function") return null;
   const section = _el("div", "view-detail-section");
-  section.appendChild(renderAttachmentListPanel(item, { editable: false }));
+  renderAttachmentListPanel(item, { editable: false }).then((panel) => {
+    if (panel) section.appendChild(panel);
+  });
   return section;
 }
 

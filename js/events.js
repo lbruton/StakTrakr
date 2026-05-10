@@ -2031,13 +2031,14 @@ const setupItemFormListeners = () => {
               blob: file,
             };
             const ok = await attachmentManager.addAttachment(record);
+            if (!ok && typeof showToast === "function")
+              showToast(`Attachment "${file.name}" could not be stored`, "warning");
             savedItem.attachments.push({
               attachmentUuid: uuid,
               fileName: file.name,
               type: file.type,
               size: file.size,
               uploadedAt: record.uploadedAt,
-              ...(ok ? {} : { missingBinary: true }),
             });
           }
           saveInventory();
