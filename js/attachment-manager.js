@@ -189,14 +189,22 @@ class AttachmentManager {
     if (!itemUuid || !(await this._ensureDb())) return false;
 
     try {
-      const records = await this.getAttachmentsByItemUuid(itemUuid);
-      if (records.length === 0) return true;
-
       const tx = this._db.transaction("userAttachments", "readwrite");
       const store = tx.objectStore("userAttachments");
-      for (const rec of records) {
-        store.delete(rec.attachmentUuid);
-      }
+      const index = store.index("itemUuid");
+      await new Promise((resolve, reject) => {
+        const req = index.openKeyCursor(IDBKeyRange.only(itemUuid));
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            store.delete(cursor.primaryKey);
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => reject(req.error);
+      });
       await this._txComplete(tx);
       return true;
     } catch (err) {
