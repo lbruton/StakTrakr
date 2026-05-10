@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.56] - 2026-05-10
+
+### Changed — STRK-65: Attachment review follow-ups
+
+- **Queue identity**: Duplicate filenames can now be removed independently — queue entries use stable ids instead of filename matching (STRK-59).
+- **Object URL lifecycle**: Open-in-new-tab no longer revokes blob URLs on a fixed timer; tracked URLs are cleaned up on page unload (STRK-60).
+- **Cloud sync hash**: All 6 attachment pull paths now use a shared helper; manifest-first path writes attachmentHash to last-pull metadata (STRK-61).
+- **Size guard**: Cloud sync and manual export check attachment size against threshold before Base64 serialization; syncAttachments opt-out respected (STRK-62).
+- **DiffEngine safety**: Duplicate-filename attachments are emitted as additions, not replacements, unless the match is unambiguous (STRK-63).
+- **Split behavior change**: Stack split now duplicates attachment metadata and IDB blobs for both original and split-off items (STRK-64).
+- **Storage diagnostics**: Footer, summary cards, and detail tables distinguish localStorage (~5 MB) from IndexedDB and note that browser quota varies (STRK-65).
+- **Data integrity**: missingBinary is derived locally instead of persisted; orphan IDB records reconciled after restore/sync; deleteAttachmentsForItem uses key cursor without loading blobs.
+- **UI polish**: Browse button is keyboard-accessible; table badge uses shared helper; icon colors use theme custom properties; malformed attachment manifests fail soft during restore.
+
+---
+
 ## [3.34.55] - 2026-05-09
 
 ### Changed — STRK-45: Per-item PDF/image attachments
