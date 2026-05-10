@@ -67,13 +67,19 @@ function _iconBtn(classes, titleText, svgHtml) {
 
 // ── File access helpers ─────────────────────────────────────────────────────
 
+const _activeOpenUrls = new Set();
+window.addEventListener("pagehide", () => {
+  for (const u of _activeOpenUrls) URL.revokeObjectURL(u);
+  _activeOpenUrls.clear();
+});
+
 async function _openAttachment(rec) {
   if (!window.attachmentManager?.isAvailable()) return;
   const stored = await window.attachmentManager.getAttachment(rec.attachmentUuid);
   if (!stored?.blob) return;
   const url = URL.createObjectURL(stored.blob);
+  _activeOpenUrls.add(url);
   window.open(url, "_blank");
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 async function _downloadAttachment(rec) {
@@ -85,7 +91,7 @@ async function _downloadAttachment(rec) {
   a.href = url;
   a.download = rec.fileName;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 async function _removeSavedAttachment(rec, item, onUpdate) {
@@ -96,18 +102,40 @@ async function _removeSavedAttachment(rec, item, onUpdate) {
   const idx = item.attachments.findIndex((a) => a.attachmentUuid === rec.attachmentUuid);
   if (idx !== -1) item.attachments.splice(idx, 1);
   if (typeof saveInventory === "function") saveInventory();
-  // Refresh the edit-modal saved list if the edit modal is currently open
-  renderAttachmentSection(item);
-  // Refresh a standalone panel (e.g., viewModal) via the caller-supplied callback
-  if (typeof onUpdate === "function") onUpdate();
+  if (typeof onUpdate === "function") {
+    await onUpdate();
+  } else {
+    renderAttachmentSection(item);
+  }
+}
+
+async function _getExistingAttachmentUuids(attachments) {
+  const mgr = window.attachmentManager;
+  if (!mgr?.isAvailable()) return null;
+  try {
+    if (typeof mgr.hasAttachments === "function") {
+      return await mgr.hasAttachments(attachments.map((rec) => rec.attachmentUuid));
+    }
+    const existing = new Set();
+    await Promise.all(
+      attachments.map(async (rec) => {
+        if (await mgr.hasAttachment(rec.attachmentUuid)) existing.add(rec.attachmentUuid);
+      })
+    );
+    return existing;
+  } catch (err) {
+    console.warn("Attachment existence check failed:", err);
+    return null;
+  }
 }
 
 // ── Queued-row builder ──────────────────────────────────────────────────────
 
-function _buildQueuedRow(file) {
+function _buildQueuedRow(entry) {
+  const file = entry.file;
   const icon = _fileIconInfo(file.type, file.name);
   const li = _el("li", "attachment-item attachment-item--queued");
-  li.dataset.attachmentName = file.name;
+  li.dataset.attachmentEntryId = String(entry.id);
 
   const iconEl = _el("div", `attach-icon ${icon.cls}`);
   iconEl.textContent = icon.label;
@@ -126,7 +154,7 @@ function _buildQueuedRow(file) {
   const actions = _el("div", "attach-actions");
   const removeBtn = _iconBtn("attach-btn danger", "Remove", _SVG.trash);
   removeBtn.addEventListener("click", () => {
-    if (typeof window.dequeueAttachment === "function") window.dequeueAttachment(file.name);
+    if (typeof window.dequeueAttachment === "function") window.dequeueAttachment(entry.id);
   });
   actions.appendChild(removeBtn);
 
@@ -136,9 +164,8 @@ function _buildQueuedRow(file) {
 
 // ── Saved-row builder ───────────────────────────────────────────────────────
 
-function _buildSavedRow(rec, item, editable, onUpdate) {
+function _buildSavedRow(rec, item, editable, onUpdate, isMissing) {
   const icon = _fileIconInfo(rec.type, rec.fileName);
-  const isMissing = !!rec.missingBinary;
 
   const li = _el("li", `attachment-item${isMissing ? " attachment-item--missing" : ""}`);
   li.dataset.attachmentUuid = rec.attachmentUuid;
@@ -185,19 +212,19 @@ function _buildSavedRow(rec, item, editable, onUpdate) {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Re-renders #attachmentQueuedList with the current pending File objects.
+ * Re-renders #attachmentQueuedList with the current pending attachment entries.
  * Called by events.js whenever _pendingAttachments changes.
- * @param {File[]} files
+ * @param {{id:number, file:File}[]} entries
  */
-function renderQueuedAttachments(files) {
+function renderQueuedAttachments(entries) {
   const list = document.getElementById("attachmentQueuedList");
   if (!list) return;
   list.innerHTML = "";
-  if (!files || files.length === 0) {
+  if (!entries || entries.length === 0) {
     list.hidden = true;
     return;
   }
-  for (const f of files) list.appendChild(_buildQueuedRow(f));
+  for (const entry of entries) list.appendChild(_buildQueuedRow(entry));
   list.hidden = false;
 }
 
@@ -206,7 +233,7 @@ function renderQueuedAttachments(files) {
  * Called by inventory.js when the edit modal opens for an item (single-arg call site).
  * @param {Object} item
  */
-function renderAttachmentSection(item) {
+async function renderAttachmentSection(item) {
   const list = document.getElementById("attachmentSavedList");
   if (!list) return;
   list.innerHTML = "";
@@ -217,8 +244,11 @@ function renderAttachmentSection(item) {
     list.hidden = true;
     return;
   }
+  const existingUuids = await _getExistingAttachmentUuids(attachments);
+  const onUpdate = () => renderAttachmentSection(item);
   for (const rec of attachments) {
-    list.appendChild(_buildSavedRow(rec, item, /* editable */ true));
+    const isMissing = existingUuids ? !existingUuids.has(rec.attachmentUuid) : false;
+    list.appendChild(_buildSavedRow(rec, item, /* editable */ true, onUpdate, isMissing));
   }
   list.hidden = false;
 }
@@ -235,6 +265,7 @@ function renderAttachmentBadge(item, options = {}) {
 
   const { variant = "card", onClick } = options;
   const el = _el("span", variant === "table" ? "attach-count-chip" : "cv-chip cv-chip-attach");
+  el.title = `${count} attachment${count === 1 ? "" : "s"}`;
   el.innerHTML = _SVG.paperclipSm;
   el.appendChild(document.createTextNode(" " + count));
 
@@ -254,9 +285,9 @@ function renderAttachmentBadge(item, options = {}) {
  * Used in viewModal (read-only by default); pass { editable: true } to enable removes.
  * @param {Object} item
  * @param {{ editable?: boolean }} [options]
- * @returns {HTMLElement}
+ * @returns {Promise<HTMLElement>}
  */
-function renderAttachmentListPanel(item, options = {}) {
+async function renderAttachmentListPanel(item, options = {}) {
   const { editable = false } = options;
   const attachments = item?.attachments || [];
 
@@ -282,10 +313,13 @@ function renderAttachmentListPanel(item, options = {}) {
   } else {
     const body = _el("div", "attach-panel-body");
     const list = _el("ul", "attachment-list");
-    // onUpdate replaces the entire panel in-place when a row's remove fires
-    const onUpdate = () => panel.replaceWith(renderAttachmentListPanel(item, options));
+    const onUpdate = async () => {
+      panel.replaceWith(await renderAttachmentListPanel(item, options));
+    };
+    const existingUuids = await _getExistingAttachmentUuids(attachments);
     for (const rec of attachments) {
-      list.appendChild(_buildSavedRow(rec, item, editable, onUpdate));
+      const isMissing = existingUuids ? !existingUuids.has(rec.attachmentUuid) : false;
+      list.appendChild(_buildSavedRow(rec, item, editable, onUpdate, isMissing));
     }
     body.appendChild(list);
     panel.appendChild(body);

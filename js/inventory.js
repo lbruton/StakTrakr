@@ -1015,7 +1015,12 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   clone.uuid = generateUUID();
   clone.serial = getNextSerial();
   clone.qty = qty;
-  clone.attachments = []; // split-off starts with no attachments (STRK-45 D13)
+  const _splitAttachmentMap = new Map();
+  clone.attachments = (original.attachments || []).map((a) => {
+    const newUuid = generateUUID();
+    _splitAttachmentMap.set(a.attachmentUuid, newUuid);
+    return { ...a, attachmentUuid: newUuid };
+  });
   const disposedAt = new Date().toISOString();
   const pricePerUnit = parseFloat(original.price) || 0;
   const rawTotalAmount =
@@ -1139,6 +1144,15 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
     }
   } catch (e) {
     if (typeof debugLog === "function") debugLog("splitInventoryItem: image copy failed", e);
+  }
+
+  // 9. Copy attachment blobs (non-blocking — missing blobs show derived warning)
+  try {
+    if (_splitAttachmentMap.size > 0 && window.attachmentManager?.isAvailable()) {
+      await window.attachmentManager.copyAttachments(_splitAttachmentMap, clone.uuid);
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: attachment copy failed", e);
   }
 
   if (typeof renderChangeLog === "function") renderChangeLog();

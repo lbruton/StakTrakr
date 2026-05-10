@@ -1700,18 +1700,29 @@ const updateSettingsFooter = async () => {
       totalBytes += (key.length + (val ? val.length : 0)) * 2; // UTF-16
     }
     const lsMb = (totalBytes / (1024 * 1024)).toFixed(2);
-    storageText = `LS: ${lsMb} MB / 5 MB`;
+    storageText = `LS: ${lsMb} MB / ~5 MB`;
 
-    // Append IndexedDB usage if available
+    // Append IndexedDB usage: images + attachments (STRK-65)
+    let idbTotalBytes = 0;
     if (window.imageCache?.isAvailable()) {
       try {
-        const idbUsage = await imageCache.getStorageUsage();
-        const idbMb = (idbUsage.totalBytes / (1024 * 1024)).toFixed(2);
-        const idbLimit = (idbUsage.limitBytes / (1024 * 1024)).toFixed(0);
-        storageText += `  \u00b7  IDB: ${idbMb} MB / ${idbLimit} MB`;
+        const imgUsage = await imageCache.getStorageUsage();
+        idbTotalBytes += imgUsage.totalBytes || 0;
       } catch {
         /* ignore */
       }
+    }
+    if (window.attachmentManager?.isAvailable()) {
+      try {
+        const attachUsage = await attachmentManager.getStorageUsage();
+        idbTotalBytes += attachUsage.totalBytes || 0;
+      } catch {
+        /* ignore */
+      }
+    }
+    if (idbTotalBytes > 0) {
+      const idbMb = (idbTotalBytes / (1024 * 1024)).toFixed(2);
+      storageText += `  \u00b7  IDB: ${idbMb} MB`;
     }
   } catch (e) {
     storageText = "Storage: unknown";
@@ -3582,7 +3593,7 @@ const renderStorageSection = async (silent = false) => {
   setCard(
     "storageStat_ls",
     fmt(lsTotalKB),
-    `${pct(lsTotalKB, lsLimitKB).toFixed(1)}% of 5,120 KB`,
+    `${pct(lsTotalKB, lsLimitKB).toFixed(1)}% of ~5 MB (localStorage)`,
     "storageStatBar_ls",
     pct(lsTotalKB, lsLimitKB),
     "storage-stat-bar--ls"
@@ -3590,7 +3601,9 @@ const renderStorageSection = async (silent = false) => {
   setCard(
     "storageStat_idb",
     fmt(idbTotalKB),
-    `${pct(idbTotalKB, idbLimitKB).toFixed(1)}% of ${fmt(idbLimitKB)}`,
+    idbTotalKB > 0
+      ? `Images: ~${fmt(idbTotalKB - attachTotalKB)} · Attachments: ${fmt(attachTotalKB)}`
+      : "No IndexedDB data",
     "storageStatBar_idb",
     pct(idbTotalKB, idbLimitKB),
     "storage-stat-bar--idb"
@@ -3598,7 +3611,7 @@ const renderStorageSection = async (silent = false) => {
   setCard(
     "storageStat_combined",
     fmt(combinedKB),
-    `of ~${fmt(combinedLimitKB)} cap`,
+    `LS + IDB combined (browser quota varies)`,
     "storageStatBar_combined_ls",
     pct(lsTotalKB, combinedLimitKB),
     "storage-stat-bar--ls"

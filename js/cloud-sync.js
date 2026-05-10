@@ -1808,125 +1808,155 @@ async function pushSyncVault() {
       logCloudSyncActivity("image_vault_push", "fail", imgErrMsg);
     }
 
-    // Upload attachment vault if user attachments exist and have changed (STRK-45)
+    // Upload attachment vault if user attachments exist and have changed (STRK-45, STRK-65)
     var attachmentVaultMeta = null;
     var _attachmentVaultPreserved = false;
     try {
-      if (typeof collectAndHashAttachmentVault === "function") {
-        var attachData = await collectAndHashAttachmentVault();
-        var _lastPushForAttach = syncGetLastPush();
-        var lastAttachmentHash = _lastPushForAttach ? _lastPushForAttach.attachmentHash : null;
-        if (attachData) {
-          var _remoteAttachMissing = !_remoteAttachmentVaultMeta;
-          if (attachData.hash !== lastAttachmentHash || _remoteAttachMissing) {
-            debugLog(
-              "[CloudSync] Attachment vault",
-              _remoteAttachMissing ? "missing from remote — re-uploading" : "changed — uploading",
-              attachData.attachmentCount,
-              "attachments"
-            );
-            var attachmentBytes = await vaultEncryptAttachmentVault(password, attachData.payload);
-            var attachArg = JSON.stringify({
-              path: SYNC_ATTACHMENTS_PATH,
-              mode: "overwrite",
-              autorename: false,
-              mute: true,
-            });
-            var attachResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
-              method: "POST",
-              headers: {
-                Authorization: "Bearer " + token,
-                "Content-Type": "application/octet-stream",
-                "Dropbox-API-Arg": attachArg,
-              },
-              body: attachmentBytes,
-            });
-            if (!attachResp.ok)
-              throw new Error("Attachment vault upload failed: " + attachResp.status);
-            attachmentVaultMeta = {
-              attachmentCount: attachData.attachmentCount,
-              hash: attachData.hash,
-            };
-            debugLog(
-              "[CloudSync] Attachment vault uploaded:",
-              attachData.attachmentCount,
-              "attachments"
-            );
-            logCloudSyncActivity(
-              "attachment_vault_push",
-              "success",
-              attachData.attachmentCount +
-                " attachments, " +
-                Math.round(attachmentBytes.byteLength / 1024) +
-                " KB" +
-                (_remoteAttachMissing ? " (re-upload)" : "")
-            );
-          } else {
-            attachmentVaultMeta = lastAttachmentHash
-              ? { attachmentCount: attachData.attachmentCount, hash: attachData.hash }
-              : null;
-            debugLog("[CloudSync] Attachment vault unchanged — skipping upload");
-            logCloudSyncActivity(
-              "attachment_vault_push",
-              "skipped",
-              "Hash unchanged — " + attachData.attachmentCount + " attachments"
-            );
-          }
-        } else if (_remoteAttachmentVaultMeta) {
-          attachmentVaultMeta = _remoteAttachmentVaultMeta;
-          _attachmentVaultPreserved = true;
+      // STRK-65: Respect syncAttachments opt-out
+      var _syncAttachPref =
+        typeof loadDataSync === "function" ? loadDataSync("syncAttachments", null) : null;
+      if (_syncAttachPref === "false" || _syncAttachPref === false) {
+        debugLog("[CloudSync] Attachment binary sync disabled by user preference — skipping");
+      } else if (typeof collectAndHashAttachmentVault === "function") {
+        // STRK-65: Preflight size check before Base64 serialization
+        var _attachUsage = window.attachmentManager?.isAvailable()
+          ? await window.attachmentManager.getStorageUsage()
+          : null;
+        if (
+          _attachUsage &&
+          _attachUsage.totalBytes >
+            (typeof SYNC_ATTACHMENT_SIZE_WARN_BYTES !== "undefined"
+              ? SYNC_ATTACHMENT_SIZE_WARN_BYTES
+              : 100 * 1024 * 1024) &&
+          loadDataSync("syncAttachmentsWarnSeen", null) !== "true" &&
+          loadDataSync("syncAttachmentsWarnSeen", null) !== true
+        ) {
           debugLog(
-            "[CloudSync] No local attachments — preserving remote attachment vault reference:",
-            _remoteAttachmentVaultMeta.attachmentCount,
-            "attachments"
+            "[CloudSync] Attachment vault exceeds size threshold (" +
+              Math.round(_attachUsage.totalBytes / 1024 / 1024) +
+              " MB) — skipping binary upload until user confirms via Settings"
           );
           logCloudSyncActivity(
             "attachment_vault_push",
             "skipped",
-            "No local attachments — preserved remote reference (" +
-              _remoteAttachmentVaultMeta.attachmentCount +
-              " attachments)"
+            "Size threshold exceeded — awaiting user confirmation"
           );
-        } else if (lastAttachmentHash) {
-          // Attachments all deleted locally — propagate deletion
-          try {
-            var attachDelArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
-            var attachDelResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
-              method: "POST",
-              headers: {
-                Authorization: "Bearer " + token,
-                "Content-Type": "application/json",
-              },
-              body: attachDelArg,
-            });
-            if (attachDelResp.ok || attachDelResp.status === 409) {
+        } else {
+          var attachData = await collectAndHashAttachmentVault();
+          var _lastPushForAttach = syncGetLastPush();
+          var lastAttachmentHash = _lastPushForAttach ? _lastPushForAttach.attachmentHash : null;
+          if (attachData) {
+            var _remoteAttachMissing = !_remoteAttachmentVaultMeta;
+            if (attachData.hash !== lastAttachmentHash || _remoteAttachMissing) {
               debugLog(
-                "[CloudSync] Remote attachment vault deleted (all local attachments removed)"
+                "[CloudSync] Attachment vault",
+                _remoteAttachMissing ? "missing from remote — re-uploading" : "changed — uploading",
+                attachData.attachmentCount,
+                "attachments"
+              );
+              var attachmentBytes = await vaultEncryptAttachmentVault(password, attachData.payload);
+              var attachArg = JSON.stringify({
+                path: SYNC_ATTACHMENTS_PATH,
+                mode: "overwrite",
+                autorename: false,
+                mute: true,
+              });
+              var attachResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/octet-stream",
+                  "Dropbox-API-Arg": attachArg,
+                },
+                body: attachmentBytes,
+              });
+              if (!attachResp.ok)
+                throw new Error("Attachment vault upload failed: " + attachResp.status);
+              attachmentVaultMeta = {
+                attachmentCount: attachData.attachmentCount,
+                hash: attachData.hash,
+              };
+              debugLog(
+                "[CloudSync] Attachment vault uploaded:",
+                attachData.attachmentCount,
+                "attachments"
               );
               logCloudSyncActivity(
                 "attachment_vault_push",
                 "success",
-                "All local attachments removed — remote vault deleted"
+                attachData.attachmentCount +
+                  " attachments, " +
+                  Math.round(attachmentBytes.byteLength / 1024) +
+                  " KB" +
+                  (_remoteAttachMissing ? " (re-upload)" : "")
               );
             } else {
-              debugLog(
-                "[CloudSync] Attachment vault deletion returned status:",
-                attachDelResp.status
+              attachmentVaultMeta = lastAttachmentHash
+                ? { attachmentCount: attachData.attachmentCount, hash: attachData.hash }
+                : null;
+              debugLog("[CloudSync] Attachment vault unchanged — skipping upload");
+              logCloudSyncActivity(
+                "attachment_vault_push",
+                "skipped",
+                "Hash unchanged — " + attachData.attachmentCount + " attachments"
               );
             }
-          } catch (attachDelErr) {
+          } else if (_remoteAttachmentVaultMeta) {
+            attachmentVaultMeta = _remoteAttachmentVaultMeta;
+            _attachmentVaultPreserved = true;
             debugLog(
-              "[CloudSync] Attachment vault deletion failed (non-blocking):",
-              attachDelErr.message
+              "[CloudSync] No local attachments — preserving remote attachment vault reference:",
+              _remoteAttachmentVaultMeta.attachmentCount,
+              "attachments"
+            );
+            logCloudSyncActivity(
+              "attachment_vault_push",
+              "skipped",
+              "No local attachments — preserved remote reference (" +
+                _remoteAttachmentVaultMeta.attachmentCount +
+                " attachments)"
+            );
+          } else if (lastAttachmentHash) {
+            // Attachments all deleted locally — propagate deletion
+            try {
+              var attachDelArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+              var attachDelResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/json",
+                },
+                body: attachDelArg,
+              });
+              if (attachDelResp.ok || attachDelResp.status === 409) {
+                debugLog(
+                  "[CloudSync] Remote attachment vault deleted (all local attachments removed)"
+                );
+                logCloudSyncActivity(
+                  "attachment_vault_push",
+                  "success",
+                  "All local attachments removed — remote vault deleted"
+                );
+              } else {
+                debugLog(
+                  "[CloudSync] Attachment vault deletion returned status:",
+                  attachDelResp.status
+                );
+              }
+            } catch (attachDelErr) {
+              debugLog(
+                "[CloudSync] Attachment vault deletion failed (non-blocking):",
+                attachDelErr.message
+              );
+            }
+          } else {
+            logCloudSyncActivity(
+              "attachment_vault_push",
+              "skipped",
+              "No user attachments on this device"
             );
           }
-        } else {
-          logCloudSyncActivity(
-            "attachment_vault_push",
-            "skipped",
-            "No user attachments on this device"
-          );
-        }
+        } // close size-check else
       }
     } catch (attachPushErr) {
       var attachPushErrMsg = String(attachPushErr.message || attachPushErr);
@@ -2370,6 +2400,65 @@ async function handleRemoteChange(remoteMeta) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared attachment vault pull helper (STRK-65)
+// ---------------------------------------------------------------------------
+
+async function _pullAttachmentVault(remoteMeta, token, password, pathLabel) {
+  var result = { hash: null, restored: null, skipped: false };
+  if (!remoteMeta?.attachmentVault || typeof vaultDecryptAndRestoreAttachments !== "function") {
+    return result;
+  }
+  try {
+    var syncAttachPref =
+      typeof loadDataSync === "function" ? loadDataSync("syncAttachments", null) : null;
+    if (syncAttachPref === "false" || syncAttachPref === false) {
+      debugLog("[CloudSync] " + pathLabel + ": attachment binary sync disabled — skipping pull");
+      result.skipped = true;
+      return result;
+    }
+    var lastPull = syncGetLastPull();
+    var localHash = lastPull ? lastPull.attachmentHash : null;
+    if (remoteMeta.attachmentVault.hash === localHash) {
+      debugLog("[CloudSync] " + pathLabel + ": attachment vault hash matches — skipping");
+      return { hash: localHash, restored: null, skipped: true };
+    }
+    debugLog(
+      "[CloudSync] " + pathLabel + ": attachment vault changed — pulling",
+      remoteMeta.attachmentVault.attachmentCount,
+      "attachments"
+    );
+    var apiArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+    var resp = await fetch("https://content.dropboxapi.com/2/files/download", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": apiArg },
+    });
+    if (resp.ok) {
+      var bytes = new Uint8Array(await resp.arrayBuffer());
+      var count = await vaultDecryptAndRestoreAttachments(bytes, password);
+      result.hash = remoteMeta.attachmentVault.hash;
+      result.restored = count || 0;
+      debugLog("[CloudSync] " + pathLabel + ": attachment vault restored:", count, "attachments");
+      logCloudSyncActivity(
+        "attachment_vault_pull",
+        "success",
+        (count || "?") + " attachments restored (" + pathLabel + ")"
+      );
+    } else if (resp.status === 404) {
+      result.hash = remoteMeta.attachmentVault.hash;
+      debugLog("[CloudSync] " + pathLabel + ": attachment vault not found (404) — skipping");
+    } else {
+      console.warn("[CloudSync] " + pathLabel + ": attachment vault download failed:", resp.status);
+      logCloudSyncActivity("attachment_vault_pull", "fail", "HTTP " + resp.status);
+    }
+  } catch (err) {
+    var msg = String(err.message || err);
+    console.warn("[CloudSync] " + pathLabel + ": attachment vault pull error (non-fatal):", msg);
+    logCloudSyncActivity("attachment_vault_pull", "fail", pathLabel + ": " + msg);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Pull (download and restore remote vault)
 // ---------------------------------------------------------------------------
 
@@ -2482,57 +2571,9 @@ async function pullSyncVault(remoteMeta) {
       }
     }
 
-    // Pull attachment vault if remote has attachments we don't have (STRK-45)
-    var pulledAttachmentHash = null;
-    if (
-      remoteMeta &&
-      remoteMeta.attachmentVault &&
-      typeof vaultDecryptAndRestoreAttachments === "function"
-    ) {
-      try {
-        var _lastPullForAttach = syncGetLastPull();
-        var localAttachmentHash = _lastPullForAttach ? _lastPullForAttach.attachmentHash : null;
-        if (remoteMeta.attachmentVault.hash !== localAttachmentHash) {
-          debugLog(
-            "[CloudSync] Attachment vault changed — pulling",
-            remoteMeta.attachmentVault.attachmentCount,
-            "attachments"
-          );
-          var attachApiArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
-          var attachPullResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-            method: "POST",
-            headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": attachApiArg },
-          });
-          if (attachPullResp.ok) {
-            var attachPullBytes = new Uint8Array(await attachPullResp.arrayBuffer());
-            var attachRestoredCount = await vaultDecryptAndRestoreAttachments(
-              attachPullBytes,
-              password
-            );
-            pulledAttachmentHash = remoteMeta.attachmentVault.hash;
-            debugLog("[CloudSync] Attachment vault restored:", attachRestoredCount, "attachments");
-            logCloudSyncActivity(
-              "attachment_vault_pull",
-              "success",
-              attachRestoredCount + " attachments restored"
-            );
-          } else if (attachPullResp.status === 404) {
-            pulledAttachmentHash = remoteMeta.attachmentVault.hash;
-            debugLog("[CloudSync] Attachment vault not found on remote (404) — skipping");
-          } else {
-            console.warn("[CloudSync] Attachment vault download failed:", attachPullResp.status);
-            logCloudSyncActivity("attachment_vault_pull", "fail", "HTTP " + attachPullResp.status);
-          }
-        } else {
-          debugLog("[CloudSync] Attachment vault hash matches — no attachment pull needed");
-          pulledAttachmentHash = localAttachmentHash;
-        }
-      } catch (attachPullErr) {
-        var attachPullErrMsg = String(attachPullErr.message || attachPullErr);
-        console.warn("[CloudSync] Attachment vault pull error (non-fatal):", attachPullErrMsg);
-        logCloudSyncActivity("attachment_vault_pull", "fail", attachPullErrMsg);
-      }
-    }
+    // Pull attachment vault if remote has attachments we don't have (STRK-45, STRK-65)
+    var _attachResult = await _pullAttachmentVault(remoteMeta, token, password, "auto-sync");
+    var pulledAttachmentHash = _attachResult.hash;
 
     // Record the pull
     var pullMeta = {
@@ -2698,6 +2739,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
 
   // 4. Save & render
   if (typeof saveInventory === "function") saveInventory();
+  if (typeof reconcileAttachmentOrphans === "function") reconcileAttachmentOrphans();
   if (typeof fetchSpotPrice === "function") {
     try {
       fetchSpotPrice();
@@ -3110,54 +3152,17 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             logCloudSyncActivity("image_vault_pull", "fail", "Manifest path: " + _dvImgErr.message);
           }
 
-          // STRK-45: Restore attachment vault on manifest-first path
-          try {
-            if (
-              remoteMeta &&
-              remoteMeta.attachmentVault &&
-              typeof vaultDecryptAndRestoreAttachments === "function"
-            ) {
-              var _dvLastPull2 = syncGetLastPull();
-              var _dvLocalAttachHash = _dvLastPull2 ? _dvLastPull2.attachmentHash : null;
-              if (remoteMeta.attachmentVault.hash !== _dvLocalAttachHash) {
-                debugLog(
-                  "[CloudSync] Manifest-path: attachment vault changed — pulling",
-                  remoteMeta.attachmentVault.attachmentCount,
-                  "attachments"
-                );
-                var _dvAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
-                var _dvAttachResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-                  method: "POST",
-                  headers: {
-                    Authorization: "Bearer " + token,
-                    "Dropbox-API-Arg": _dvAttachArg,
-                  },
-                });
-                if (_dvAttachResp.ok) {
-                  var _dvAttachBytes = new Uint8Array(await _dvAttachResp.arrayBuffer());
-                  var _dvAttachCount = await vaultDecryptAndRestoreAttachments(
-                    _dvAttachBytes,
-                    password
-                  );
-                  debugLog("[CloudSync] Manifest-path: attachment vault restored");
-                  logCloudSyncActivity(
-                    "attachment_vault_pull",
-                    "success",
-                    (_dvAttachCount || "?") + " attachments restored (manifest path)"
-                  );
-                }
-              }
-            }
-          } catch (_dvAttachErr) {
-            debugLog(
-              "[CloudSync] Manifest-path attachment restore failed (non-blocking):",
-              _dvAttachErr.message
-            );
-            logCloudSyncActivity(
-              "attachment_vault_pull",
-              "fail",
-              "Manifest path: " + _dvAttachErr.message
-            );
+          // STRK-45/STRK-65: Restore attachment vault on manifest-first path
+          var _dvAttachResult = await _pullAttachmentVault(
+            remoteMeta,
+            token,
+            password,
+            "manifest-path"
+          );
+          if (_dvAttachResult.hash) {
+            var _dvPullMeta = syncGetLastPull() || {};
+            _dvPullMeta.attachmentHash = _dvAttachResult.hash;
+            syncSetLastPull(_dvPullMeta);
           }
 
           return;
@@ -3338,60 +3343,14 @@ async function pullWithPreview(remoteMeta) {
                 _spImgErr.message
               );
             }
-            // STRK-45: Silent-pull path — attachment vault
-            try {
-              if (
-                remoteMeta &&
-                remoteMeta.attachmentVault &&
-                typeof vaultDecryptAndRestoreAttachments === "function"
-              ) {
-                var _spAttachLastPull = syncGetLastPull();
-                var _spAttachLocalHash = _spAttachLastPull
-                  ? _spAttachLastPull.attachmentHash
-                  : null;
-                if (remoteMeta.attachmentVault.hash !== _spAttachLocalHash) {
-                  debugLog(
-                    "[CloudSync] Silent-pull path: attachment vault changed — pulling",
-                    remoteMeta.attachmentVault.attachmentCount,
-                    "attachments"
-                  );
-                  var _spAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
-                  var _spAttachResp = await fetch(
-                    "https://content.dropboxapi.com/2/files/download",
-                    {
-                      method: "POST",
-                      headers: {
-                        Authorization: "Bearer " + token,
-                        "Dropbox-API-Arg": _spAttachArg,
-                      },
-                    }
-                  );
-                  if (_spAttachResp.ok) {
-                    var _spAttachBytes = new Uint8Array(await _spAttachResp.arrayBuffer());
-                    var _spAttachRestored = await vaultDecryptAndRestoreAttachments(
-                      _spAttachBytes,
-                      password
-                    );
-                    _silentPullMeta.attachmentHash = remoteMeta.attachmentVault.hash;
-                    debugLog(
-                      "[CloudSync] Silent-pull path: attachment vault restored:",
-                      _spAttachRestored,
-                      "attachments"
-                    );
-                    logCloudSyncActivity(
-                      "attachment_vault_pull",
-                      "success",
-                      (_spAttachRestored || "?") + " attachments restored (silent-pull path)"
-                    );
-                  }
-                }
-              }
-            } catch (_spAttachErr) {
-              debugLog(
-                "[CloudSync] Silent-pull path: attachment vault pull failed (non-blocking):",
-                _spAttachErr.message
-              );
-            }
+            // STRK-45/STRK-65: Silent-pull path — attachment vault
+            var _spAttachResult = await _pullAttachmentVault(
+              remoteMeta,
+              token,
+              password,
+              "silent-pull"
+            );
+            if (_spAttachResult.hash) _silentPullMeta.attachmentHash = _spAttachResult.hash;
             syncSetLastPull(_silentPullMeta);
             logCloudSyncActivity(
               "auto_sync_pull",
@@ -3572,73 +3531,22 @@ async function pullWithPreview(remoteMeta) {
                   "Auto-merge path: " + _amImgErr.message
                 );
               }
-              // STRK-45: Auto-merge path — attachment vault
-              try {
-                if (
-                  remoteMeta &&
-                  remoteMeta.attachmentVault &&
-                  typeof vaultDecryptAndRestoreAttachments === "function"
-                ) {
-                  var _amAttachLastPull = syncGetLastPull();
-                  var _amAttachLocalHash = _amAttachLastPull
-                    ? _amAttachLastPull.attachmentHash
-                    : null;
-                  if (remoteMeta.attachmentVault.hash !== _amAttachLocalHash) {
-                    debugLog(
-                      "[CloudSync] STAK-470 path: attachment vault changed — pulling",
-                      remoteMeta.attachmentVault.attachmentCount,
-                      "attachments"
-                    );
-                    var _amAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
-                    var _amAttachResp = await fetch(
-                      "https://content.dropboxapi.com/2/files/download",
-                      {
-                        method: "POST",
-                        headers: {
-                          Authorization: "Bearer " + token,
-                          "Dropbox-API-Arg": _amAttachArg,
-                        },
-                      }
-                    );
-                    if (_amAttachResp.ok) {
-                      var _amAttachBytes = new Uint8Array(await _amAttachResp.arrayBuffer());
-                      var _amAttachRestored = await vaultDecryptAndRestoreAttachments(
-                        _amAttachBytes,
-                        password
-                      );
-                      debugLog(
-                        "[CloudSync] STAK-470 path: attachment vault restored:",
-                        _amAttachRestored,
-                        "attachments"
-                      );
-                      logCloudSyncActivity(
-                        "attachment_vault_pull",
-                        "success",
-                        (_amAttachRestored || "?") + " attachments restored (auto-merge path)"
-                      );
-                      if (_failedCount === 0) {
-                        var _amPrevPull = syncGetLastPull() || {};
-                        syncSetLastPull(
-                          Object.assign({}, _amPrevPull, {
-                            syncId: remoteMeta ? remoteMeta.syncId : null,
-                            timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
-                            rev: remoteMeta ? remoteMeta.rev : null,
-                            attachmentHash: remoteMeta.attachmentVault.hash,
-                          })
-                        );
-                      }
-                    }
-                  }
-                }
-              } catch (_amAttachErr) {
-                debugLog(
-                  "[CloudSync] STAK-470 path: attachment vault pull failed (non-blocking):",
-                  _amAttachErr.message
-                );
-                logCloudSyncActivity(
-                  "attachment_vault_pull",
-                  "fail",
-                  "Auto-merge path: " + _amAttachErr.message
+              // STRK-45/STRK-65: Auto-merge path — attachment vault
+              var _amAttachResult = await _pullAttachmentVault(
+                remoteMeta,
+                token,
+                password,
+                "auto-merge"
+              );
+              if (_amAttachResult.hash && _failedCount === 0) {
+                var _amPrevPull = syncGetLastPull() || {};
+                syncSetLastPull(
+                  Object.assign({}, _amPrevPull, {
+                    syncId: remoteMeta ? remoteMeta.syncId : null,
+                    timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
+                    rev: remoteMeta ? remoteMeta.rev : null,
+                    attachmentHash: _amAttachResult.hash,
+                  })
                 );
               }
               // Push to update remote manifest with local-only keys
@@ -3945,48 +3853,14 @@ async function pullWithPreview(remoteMeta) {
             _vfSpImgErr.message
           );
         }
-        // STRK-45: Vault-first silent-pull — attachment vault
-        try {
-          if (
-            remoteMeta &&
-            remoteMeta.attachmentVault &&
-            typeof vaultDecryptAndRestoreAttachments === "function"
-          ) {
-            var _vfSpAttachLastPull = syncGetLastPull();
-            var _vfSpAttachLocalHash = _vfSpAttachLastPull
-              ? _vfSpAttachLastPull.attachmentHash
-              : null;
-            if (remoteMeta.attachmentVault.hash !== _vfSpAttachLocalHash) {
-              debugLog("[CloudSync] Vault-first silent-pull: attachment vault changed — pulling");
-              var _vfSpAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
-              var _vfSpAttachResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-                method: "POST",
-                headers: {
-                  Authorization: "Bearer " + token,
-                  "Dropbox-API-Arg": _vfSpAttachArg,
-                },
-              });
-              if (_vfSpAttachResp.ok) {
-                var _vfSpAttachBytes = new Uint8Array(await _vfSpAttachResp.arrayBuffer());
-                var _vfSpAttachRestored = await vaultDecryptAndRestoreAttachments(
-                  _vfSpAttachBytes,
-                  password
-                );
-                _previewPullMeta.attachmentHash = remoteMeta.attachmentVault.hash;
-                logCloudSyncActivity(
-                  "attachment_vault_pull",
-                  "success",
-                  (_vfSpAttachRestored || "?") + " attachments restored (vault-first silent)"
-                );
-              }
-            }
-          }
-        } catch (_vfSpAttachErr) {
-          debugLog(
-            "[CloudSync] Vault-first silent-pull: attachment vault failed (non-blocking):",
-            _vfSpAttachErr.message
-          );
-        }
+        // STRK-45/STRK-65: Vault-first silent-pull — attachment vault
+        var _vfSpAttachResult = await _pullAttachmentVault(
+          remoteMeta,
+          token,
+          password,
+          "vault-first silent"
+        );
+        if (_vfSpAttachResult.hash) _previewPullMeta.attachmentHash = _vfSpAttachResult.hash;
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
@@ -4061,59 +3935,14 @@ async function pullWithPreview(remoteMeta) {
         );
         logCloudSyncActivity("image_vault_pull", "fail", "Vault-first path: " + _vfImgErr.message);
       }
-      // STRK-45: Vault-first DiffModal post-restore — attachment vault
-      try {
-        if (
-          remoteMeta &&
-          remoteMeta.attachmentVault &&
-          typeof vaultDecryptAndRestoreAttachments === "function"
-        ) {
-          var _vfAttachLastPull = syncGetLastPull();
-          var _vfAttachLocalHash = _vfAttachLastPull ? _vfAttachLastPull.attachmentHash : null;
-          if (remoteMeta.attachmentVault.hash !== _vfAttachLocalHash) {
-            debugLog("[CloudSync] Vault-first path: pulling attachment vault");
-            var _vfAttachArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
-            var _vfAttachResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-              method: "POST",
-              headers: {
-                Authorization: "Bearer " + token,
-                "Dropbox-API-Arg": _vfAttachArg,
-              },
-            });
-            if (_vfAttachResp.ok) {
-              var _vfAttachBytes = new Uint8Array(await _vfAttachResp.arrayBuffer());
-              var _vfAttachRestored = await vaultDecryptAndRestoreAttachments(
-                _vfAttachBytes,
-                password
-              );
-              debugLog(
-                "[CloudSync] Vault-first path: attachment vault restored:",
-                _vfAttachRestored,
-                "attachments"
-              );
-              logCloudSyncActivity(
-                "attachment_vault_pull",
-                "success",
-                (_vfAttachRestored || "?") + " attachments restored (vault-first path)"
-              );
-              var _vfAttachPullMeta = syncGetLastPull();
-              if (_vfAttachPullMeta) {
-                _vfAttachPullMeta.attachmentHash = remoteMeta.attachmentVault.hash;
-                syncSetLastPull(_vfAttachPullMeta);
-              }
-            }
-          }
+      // STRK-45/STRK-65: Vault-first DiffModal post-restore — attachment vault
+      var _vfAttachResult = await _pullAttachmentVault(remoteMeta, token, password, "vault-first");
+      if (_vfAttachResult.hash) {
+        var _vfAttachPullMeta = syncGetLastPull();
+        if (_vfAttachPullMeta) {
+          _vfAttachPullMeta.attachmentHash = _vfAttachResult.hash;
+          syncSetLastPull(_vfAttachPullMeta);
         }
-      } catch (_vfAttachErr) {
-        debugLog(
-          "[CloudSync] Vault-first path: attachment vault failed (non-blocking):",
-          _vfAttachErr.message
-        );
-        logCloudSyncActivity(
-          "attachment_vault_pull",
-          "fail",
-          "Vault-first path: " + _vfAttachErr.message
-        );
       }
     } catch (decryptErr) {
       // Decryption or diff failed — offer fallback

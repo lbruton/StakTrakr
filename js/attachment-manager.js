@@ -155,6 +155,82 @@ class AttachmentManager {
     return this._get("userAttachments", uuid);
   }
 
+  async hasAttachment(uuid) {
+    if (!uuid || !(await this._ensureDb())) return false;
+    try {
+      const tx = this._db.transaction("userAttachments", "readonly");
+      const req = tx.objectStore("userAttachments").getKey(uuid);
+      return new Promise((resolve) => {
+        req.onsuccess = () => resolve(req.result !== undefined);
+        req.onerror = () => resolve(false);
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  async hasAttachments(uuids) {
+    const existing = new Set();
+    const uniqueUuids = Array.from(new Set((uuids || []).filter(Boolean)));
+    if (uniqueUuids.length === 0 || !(await this._ensureDb())) return existing;
+
+    try {
+      const tx = this._db.transaction("userAttachments", "readonly");
+      const store = tx.objectStore("userAttachments");
+      await Promise.all(
+        uniqueUuids.map(
+          (uuid) =>
+            new Promise((resolve) => {
+              const req = store.getKey(uuid);
+              req.onsuccess = () => {
+                if (req.result !== undefined) existing.add(uuid);
+                resolve();
+              };
+              req.onerror = () => resolve();
+            })
+        )
+      );
+    } catch (err) {
+      console.warn("AttachmentManager: hasAttachments failed", err);
+    }
+    return existing;
+  }
+
+  async copyAttachments(uuidMap, targetItemUuid) {
+    if (!uuidMap?.size || !targetItemUuid || !(await this._ensureDb())) return 0;
+
+    let copied = 0;
+    try {
+      const tx = this._db.transaction("userAttachments", "readwrite");
+      const store = tx.objectStore("userAttachments");
+      await Promise.all(
+        Array.from(uuidMap).map(
+          ([sourceUuid, targetUuid]) =>
+            new Promise((resolve) => {
+              const req = store.get(sourceUuid);
+              req.onsuccess = () => {
+                const stored = req.result;
+                if (stored?.blob) {
+                  store.put({
+                    ...stored,
+                    attachmentUuid: targetUuid,
+                    itemUuid: targetItemUuid,
+                  });
+                  copied++;
+                }
+                resolve();
+              };
+              req.onerror = () => resolve();
+            })
+        )
+      );
+      await this._txComplete(tx);
+    } catch (err) {
+      console.warn("AttachmentManager: copyAttachments failed", err);
+    }
+    return copied;
+  }
+
   /**
    * Delete a single attachment by its UUID.
    * @param {string} uuid - attachmentUuid
@@ -175,14 +251,22 @@ class AttachmentManager {
     if (!itemUuid || !(await this._ensureDb())) return false;
 
     try {
-      const records = await this.getAttachmentsByItemUuid(itemUuid);
-      if (records.length === 0) return true;
-
       const tx = this._db.transaction("userAttachments", "readwrite");
       const store = tx.objectStore("userAttachments");
-      for (const rec of records) {
-        store.delete(rec.attachmentUuid);
-      }
+      const index = store.index("itemUuid");
+      await new Promise((resolve, reject) => {
+        const req = index.openKeyCursor(IDBKeyRange.only(itemUuid));
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            store.delete(cursor.primaryKey);
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => reject(req.error);
+      });
       await this._txComplete(tx);
       return true;
     } catch (err) {
@@ -219,6 +303,35 @@ class AttachmentManager {
         resolve([]);
       }
     });
+  }
+
+  async reconcileOrphans(validUuids) {
+    if (!(await this._ensureDb()) || !validUuids) return 0;
+    let removed = 0;
+    try {
+      const tx = this._db.transaction("userAttachments", "readwrite");
+      const store = tx.objectStore("userAttachments");
+      await new Promise((resolve, reject) => {
+        const req = store.openKeyCursor();
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            if (!validUuids.has(cursor.key)) {
+              store.delete(cursor.key);
+              removed++;
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => reject(req.error);
+      });
+      await this._txComplete(tx);
+    } catch (err) {
+      console.warn("AttachmentManager: reconcileOrphans failed", err);
+    }
+    return removed;
   }
 
   /**
@@ -360,4 +473,20 @@ class AttachmentManager {
 const attachmentManager = new AttachmentManager();
 if (typeof window !== "undefined") {
   window.attachmentManager = attachmentManager;
+
+  window.reconcileAttachmentOrphans = async () => {
+    if (typeof inventory === "undefined" || !Array.isArray(inventory)) return 0;
+    if (!attachmentManager.isAvailable() && !(await attachmentManager.init())) return 0;
+    const validUuids = new Set();
+    for (const item of inventory) {
+      for (const a of item.attachments || []) {
+        if (a.attachmentUuid) validUuids.add(a.attachmentUuid);
+      }
+    }
+    const removed = await attachmentManager.reconcileOrphans(validUuids);
+    if (removed > 0) {
+      console.log(`AttachmentManager: reconciled ${removed} orphan record(s)`);
+    }
+    return removed;
+  };
 }

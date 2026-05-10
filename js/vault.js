@@ -1179,10 +1179,33 @@ async function exportEncryptedBackup(password) {
     return { imageExportFailed: true };
   }
 
-  // Export companion attachment vault if user has attachments
+  // Export companion attachment vault if user has attachments (STRK-65: preflight size guard)
   var attachmentCount = 0;
   try {
-    var attachVaultData = await collectAndHashAttachmentVault();
+    const exportAttachUsage = window.attachmentManager?.isAvailable()
+      ? await window.attachmentManager.getStorageUsage()
+      : null;
+    const exportSizeThreshold =
+      typeof SYNC_ATTACHMENT_SIZE_WARN_BYTES !== "undefined"
+        ? SYNC_ATTACHMENT_SIZE_WARN_BYTES
+        : 100 * 1024 * 1024;
+    let continueExport = true;
+    if (exportAttachUsage && exportAttachUsage.totalBytes > exportSizeThreshold) {
+      const sizeMB = Math.round(exportAttachUsage.totalBytes / 1024 / 1024);
+      continueExport =
+        typeof showAppConfirm === "function"
+          ? await showAppConfirm(
+              "Attachment vault is " +
+                sizeMB +
+                " MB. Exporting this much data may use significant memory. Continue?",
+              { confirmLabel: "Export Anyway", cancelLabel: "Skip Attachments" }
+            )
+          : true;
+      if (!continueExport) {
+        debugLog("[Vault] Attachment export skipped by user (" + sizeMB + " MB)");
+      }
+    }
+    var attachVaultData = continueExport ? await collectAndHashAttachmentVault() : null;
     if (attachVaultData && attachVaultData.attachmentCount > 0) {
       var attachBytes = await vaultEncryptAttachmentVault(password, attachVaultData.payload);
       var attachBlob = new Blob([attachBytes], { type: "application/octet-stream" });
