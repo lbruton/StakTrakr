@@ -4440,6 +4440,7 @@ if (settingsShowRealizedToggle) {
 
 const attachmentDropZone = document.getElementById("attachmentDropZone");
 const attachmentFileInput = document.getElementById("attachmentFileInput");
+const attachmentBrowseBtn = document.getElementById("attachmentBrowseBtn");
 
 if (attachmentDropZone) {
   attachmentDropZone.addEventListener("dragover", (e) => {
@@ -4461,6 +4462,10 @@ if (attachmentFileInput) {
     Array.from(e.target.files).forEach(queueAttachmentFile);
     e.target.value = "";
   });
+}
+
+if (attachmentBrowseBtn && attachmentFileInput) {
+  attachmentBrowseBtn.addEventListener("click", () => attachmentFileInput.click());
 }
 
 window.queueAttachmentFile = queueAttachmentFile;
