@@ -240,8 +240,9 @@ let _deleteObverseOnSave = false;
 /** @type {boolean} User clicked Remove on reverse — delete on save */
 let _deleteReverseOnSave = false;
 
-/** @type {File[]} Queued attachment files — written to IDB on item commit (STRK-45) */
+/** @type {{id:number, file:File}[]} Queued attachment entries — written to IDB on item commit (STRK-45, STRK-65) */
 let _pendingAttachments = [];
+let _pendingAttachmentNextId = 0;
 
 /**
  * Process a user-selected image file and show preview for a specific side.
@@ -391,7 +392,7 @@ const queueAttachmentFile = (file) => {
       showToast(`Unsupported file type: ${file.type || file.name}`);
     return;
   }
-  _pendingAttachments.push(file);
+  _pendingAttachments.push({ id: _pendingAttachmentNextId++, file });
   if (typeof renderQueuedAttachments === "function") renderQueuedAttachments(_pendingAttachments);
 };
 
@@ -401,9 +402,9 @@ const clearAttachmentQueue = () => {
   if (typeof renderQueuedAttachments === "function") renderQueuedAttachments([]);
 };
 
-/** Remove a single file from the queue by filename (STRK-45). */
-const dequeueAttachment = (fileName) => {
-  const idx = _pendingAttachments.findIndex((f) => f.name === fileName);
+/** Remove a single entry from the queue by its stable id (STRK-65). */
+const dequeueAttachment = (entryId) => {
+  const idx = _pendingAttachments.findIndex((e) => e.id === entryId);
   if (idx !== -1) _pendingAttachments.splice(idx, 1);
   if (typeof renderQueuedAttachments === "function") renderQueuedAttachments(_pendingAttachments);
 };
@@ -2017,7 +2018,8 @@ const setupItemFormListeners = () => {
           const queue = [..._pendingAttachments];
           clearAttachmentQueue();
           if (!Array.isArray(savedItem.attachments)) savedItem.attachments = [];
-          for (const file of queue) {
+          for (const entry of queue) {
+            const file = entry.file;
             const uuid = typeof generateUUID === "function" ? generateUUID() : crypto.randomUUID();
             const record = {
               attachmentUuid: uuid,

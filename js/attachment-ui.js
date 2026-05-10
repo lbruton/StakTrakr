@@ -104,10 +104,11 @@ async function _removeSavedAttachment(rec, item, onUpdate) {
 
 // ── Queued-row builder ──────────────────────────────────────────────────────
 
-function _buildQueuedRow(file) {
+function _buildQueuedRow(entry) {
+  const file = entry.file;
   const icon = _fileIconInfo(file.type, file.name);
   const li = _el("li", "attachment-item attachment-item--queued");
-  li.dataset.attachmentName = file.name;
+  li.dataset.attachmentEntryId = String(entry.id);
 
   const iconEl = _el("div", `attach-icon ${icon.cls}`);
   iconEl.textContent = icon.label;
@@ -126,7 +127,7 @@ function _buildQueuedRow(file) {
   const actions = _el("div", "attach-actions");
   const removeBtn = _iconBtn("attach-btn danger", "Remove", _SVG.trash);
   removeBtn.addEventListener("click", () => {
-    if (typeof window.dequeueAttachment === "function") window.dequeueAttachment(file.name);
+    if (typeof window.dequeueAttachment === "function") window.dequeueAttachment(entry.id);
   });
   actions.appendChild(removeBtn);
 
@@ -185,19 +186,19 @@ function _buildSavedRow(rec, item, editable, onUpdate) {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Re-renders #attachmentQueuedList with the current pending File objects.
+ * Re-renders #attachmentQueuedList with the current pending attachment entries.
  * Called by events.js whenever _pendingAttachments changes.
- * @param {File[]} files
+ * @param {{id:number, file:File}[]} entries
  */
-function renderQueuedAttachments(files) {
+function renderQueuedAttachments(entries) {
   const list = document.getElementById("attachmentQueuedList");
   if (!list) return;
   list.innerHTML = "";
-  if (!files || files.length === 0) {
+  if (!entries || entries.length === 0) {
     list.hidden = true;
     return;
   }
-  for (const f of files) list.appendChild(_buildQueuedRow(f));
+  for (const entry of entries) list.appendChild(_buildQueuedRow(entry));
   list.hidden = false;
 }
 
