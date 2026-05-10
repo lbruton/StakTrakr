@@ -668,6 +668,8 @@
           }
         }
 
+        if (typeof reconcileAttachmentOrphans === "function") reconcileAttachmentOrphans();
+
         if (typeof syncManualSpotStorage === "function") {
           syncManualSpotStorage({ clearMissing: true });
         }

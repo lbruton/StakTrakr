@@ -2698,6 +2698,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
 
   // 4. Save & render
   if (typeof saveInventory === "function") saveInventory();
+  if (typeof reconcileAttachmentOrphans === "function") reconcileAttachmentOrphans();
   if (typeof fetchSpotPrice === "function") {
     try {
       fetchSpotPrice();

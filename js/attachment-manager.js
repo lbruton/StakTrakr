@@ -243,6 +243,35 @@ class AttachmentManager {
     });
   }
 
+  async reconcileOrphans(validUuids) {
+    if (!(await this._ensureDb()) || !validUuids) return 0;
+    let removed = 0;
+    try {
+      const tx = this._db.transaction("userAttachments", "readwrite");
+      const store = tx.objectStore("userAttachments");
+      await new Promise((resolve, reject) => {
+        const req = store.openKeyCursor();
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            if (!validUuids.has(cursor.key)) {
+              store.delete(cursor.key);
+              removed++;
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => reject(req.error);
+      });
+      await this._txComplete(tx);
+    } catch (err) {
+      console.warn("AttachmentManager: reconcileOrphans failed", err);
+    }
+    return removed;
+  }
+
   /**
    * Report attachment storage usage.
    * @returns {Promise<{count: number, totalBytes: number, limitBytes: number}>}
@@ -382,4 +411,19 @@ class AttachmentManager {
 const attachmentManager = new AttachmentManager();
 if (typeof window !== "undefined") {
   window.attachmentManager = attachmentManager;
+
+  window.reconcileAttachmentOrphans = async () => {
+    if (!attachmentManager.isAvailable() || typeof inventory === "undefined") return 0;
+    const validUuids = new Set();
+    for (const item of inventory) {
+      for (const a of item.attachments || []) {
+        if (a.attachmentUuid) validUuids.add(a.attachmentUuid);
+      }
+    }
+    const removed = await attachmentManager.reconcileOrphans(validUuids);
+    if (removed > 0) {
+      console.log(`AttachmentManager: reconciled ${removed} orphan record(s)`);
+    }
+    return removed;
+  };
 }
