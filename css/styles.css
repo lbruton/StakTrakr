@@ -6086,7 +6086,7 @@ td input:checked + .slider:before {
 }
 
 /* Rectangular frame for bars, notes, Aurum/Goldback — auto-fits aspect ratio */
-.view-image-section.view-shape-rect .view-image-slot img {
+.view-image-slot.view-shape-rect img {
   border-radius: var(--radius);
   max-width: 200px;
   max-height: 260px;
@@ -6094,7 +6094,7 @@ td input:checked + .slider:before {
   height: auto;
 }
 
-.view-image-section.view-shape-rect .view-image-placeholder {
+.view-image-slot.view-shape-rect .view-image-placeholder {
   border-radius: var(--radius);
   width: 140px;
   height: 200px;
@@ -6593,12 +6593,12 @@ td input:checked + .slider:before {
     font-size: var(--font-size-3xl);
   }
 
-  .view-image-section.view-shape-rect .view-image-slot img {
+  .view-image-slot.view-shape-rect img {
     max-width: 100%;
     max-height: 200px;
   }
 
-  .view-image-section.view-shape-rect .view-image-placeholder {
+  .view-image-slot.view-shape-rect .view-image-placeholder {
     width: 100%;
     aspect-ratio: 3/4;
   }
@@ -6649,7 +6649,7 @@ td input:checked + .slider:before {
     max-height: 150px;
   }
 
-  .view-image-section.view-shape-rect .view-image-slot img {
+  .view-image-slot.view-shape-rect img {
     max-height: 180px;
   }
 
