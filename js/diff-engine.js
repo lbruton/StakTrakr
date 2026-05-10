@@ -194,23 +194,33 @@ function _diffAttachments(localArr, remoteArr) {
   const consumedLocal = new Set();
   const consumedRemote = new Set();
 
-  // Pass 1: replacements — same fileName, different UUID
+  // Pass 1: replacements — same fileName, different UUID, unambiguous match (STRK-65)
+  const remoteByFileName = new Map();
+  for (const a of remote) {
+    if (!a.attachmentUuid || !a.fileName) continue;
+    if (!remoteByFileName.has(a.fileName)) remoteByFileName.set(a.fileName, []);
+    remoteByFileName.get(a.fileName).push(a);
+  }
   for (const rem of remote) {
     if (!rem.attachmentUuid || consumedRemote.has(rem.attachmentUuid)) continue;
-    const candidates = localByFileName.get(rem.fileName) || [];
-    for (const loc of candidates) {
-      if (loc.attachmentUuid !== rem.attachmentUuid && !consumedLocal.has(loc.attachmentUuid)) {
-        result.push({
-          action: "replace",
-          attachmentUuid: rem.attachmentUuid,
-          oldAttachmentUuid: loc.attachmentUuid,
-          localVal: loc,
-          remoteVal: rem,
-        });
-        consumedLocal.add(loc.attachmentUuid);
-        consumedRemote.add(rem.attachmentUuid);
-        break;
-      }
+    if (localMap.has(rem.attachmentUuid)) continue;
+    const localCandidates = (localByFileName.get(rem.fileName) || []).filter(
+      (c) => !consumedLocal.has(c.attachmentUuid) && c.attachmentUuid !== rem.attachmentUuid
+    );
+    const remoteSameName = (remoteByFileName.get(rem.fileName) || []).filter(
+      (c) => !consumedRemote.has(c.attachmentUuid)
+    );
+    if (localCandidates.length === 1 && remoteSameName.length === 1) {
+      const loc = localCandidates[0];
+      result.push({
+        action: "replace",
+        attachmentUuid: rem.attachmentUuid,
+        oldAttachmentUuid: loc.attachmentUuid,
+        localVal: loc,
+        remoteVal: rem,
+      });
+      consumedLocal.add(loc.attachmentUuid);
+      consumedRemote.add(rem.attachmentUuid);
     }
   }
 
