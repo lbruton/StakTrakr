@@ -2041,6 +2041,10 @@ const setupItemFormListeners = () => {
             });
           }
           saveInventory();
+        } else if (_pendingAttachments.length > 0) {
+          if (typeof showToast === "function")
+            showToast("Attachments could not be saved — storage is unavailable", "error");
+          clearAttachmentQueue();
         } else {
           clearAttachmentQueue();
         }
