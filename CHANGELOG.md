@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.57] - 2026-05-10
+
+### Changed — STRK-67: Per-side image frame override
+
+- **Image frames**: Add per-side Auto/Circle/Rectangle frame overrides for obverse and reverse images, preserving automatic shape detection while allowing graded slabs, bars, notes, and other rectangular media to be corrected from the item form (STRK-67).
+- **Display consistency**: Apply the resolved frame independently in upload previews, table thumbnails, card images, view-modal image slots, field diffs, change history, and JSON backup data (STRK-67).
+
+---
+
 ## [3.34.56] - 2026-05-10
 
 ### Changed — STRK-65: Attachment review follow-ups
