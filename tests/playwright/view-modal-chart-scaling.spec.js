@@ -231,6 +231,48 @@ async function purchaseLinePixelProbe(page) {
   });
 }
 
+async function horizontalRedLineProbe(page) {
+  return page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const canvas = document.getElementById("viewPriceHistoryChart");
+    const chart = Chart.getChart(canvas);
+    const ctx = canvas.getContext("2d");
+    const { left, right, top, bottom } = chart.chartArea;
+    const scaleX = canvas.width / canvas.clientWidth;
+    const scaleY = canvas.height / canvas.clientHeight;
+    const rows = [];
+
+    for (let y = Math.floor(top); y <= Math.ceil(bottom); y += 1) {
+      let redPixels = 0;
+      for (let x = Math.floor(left); x <= Math.ceil(right); x += 3) {
+        const [red, green, blue] = ctx.getImageData(
+          Math.round(x * scaleX),
+          Math.round(y * scaleY),
+          1,
+          1
+        ).data;
+        if (red > 140 && red > green + 40 && red > blue + 40) {
+          redPixels += 1;
+        }
+      }
+      if (redPixels > 12) rows.push({ y, redPixels });
+    }
+
+    const clusters = [];
+    for (const row of rows) {
+      const last = clusters[clusters.length - 1];
+      if (last && row.y <= last.end + 1) {
+        last.end = row.y;
+        last.maxRedPixels = Math.max(last.maxRedPixels, row.redPixels);
+      } else {
+        clusters.push({ start: row.y, end: row.y, maxRedPixels: row.redPixels });
+      }
+    }
+
+    return { clusters, rowsChecked: Math.ceil(bottom) - Math.floor(top) + 1 };
+  });
+}
+
 async function installYearFileStub(page) {
   const yearData = {
     2025: [yearEntry("2025-11-15", 66), yearEntry("2025-12-15", 67)],
@@ -351,8 +393,10 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     for (const range of ["5Y", "10Y", "Purchased", "All"]) {
       await clickRange(page, range);
       const snapshot = await chartSnapshot(page);
+      const redLineProbe = await horizontalRedLineProbe(page);
       expect(snapshot.suggestedMin).toBeLessThanOrEqual(38);
       expect(snapshot.suggestedMax).toBeGreaterThanOrEqual(95);
+      expect(redLineProbe.clusters).toHaveLength(1);
       expectVisibleDatasetsWithinScale(snapshot);
     }
   });
@@ -414,14 +458,16 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     const meltDataset = snapshot.datasets.find((dataset) => dataset.label === "Melt Value");
     const retailDataset = snapshot.datasets.find((dataset) => dataset.label === "Retail Value");
     const pixelProbe = await purchaseLinePixelProbe(page);
+    const redLineProbe = await horizontalRedLineProbe(page);
 
     expect(purchaseDataset.visible).toBe(true);
-    expect(purchaseDataset.fill).toBe("origin");
-    expect(purchaseDataset.backgroundColor).not.toBe(purchaseDataset.borderColor);
+    expect(purchaseDataset.fill).toBe(false);
+    expect(purchaseDataset.backgroundColor).toBe("transparent");
     expect(purchaseDataset.order).toBeGreaterThan(meltDataset.order);
     expect(retailDataset.fill).toBe("origin");
     expect(retailDataset.backgroundColor).not.toBe(retailDataset.borderColor);
     expect(pixelProbe.redPixelCount).toBeGreaterThan(0);
+    expect(redLineProbe.clusters).toHaveLength(1);
     expect(snapshot.yMin).toBeGreaterThan(3000);
     expect(snapshot.yMin).toBeLessThan(3380);
     expect(snapshot.yMax).toBeGreaterThan(4694);
