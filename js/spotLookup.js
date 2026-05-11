@@ -13,6 +13,32 @@ const METAL_SYMBOLS = {
 
 let _spotLookupTargetField = "purchase";
 
+const _spotLookupModalRefs = {
+  title: null,
+  body: null,
+};
+
+const getSpotLookupModalRef = (key, id) => {
+  const cached = _spotLookupModalRefs[key];
+  if (cached?.isConnected) return cached;
+
+  const element = typeof safeGetElement === "function" ? safeGetElement(id) : null;
+  _spotLookupModalRefs[key] = element?.nodeType === 1 ? element : null;
+  return _spotLookupModalRefs[key];
+};
+
+const isGoldbackRetailLookup = () => {
+  return _spotLookupTargetField === "retail" && elements.itemWeightUnit?.value === "gb";
+};
+
+const getGoldbackLookupDenomination = () => {
+  return parseFloat(
+    elements.itemGbDenom?.value ||
+      elements.itemWeight?.value ||
+      (elements.itemWeightUnit?.value === "gb" ? 1 : 0)
+  );
+};
+
 /**
  * Syncs spot lookup button state and optionally clears the hidden selected spot value.
  *
@@ -40,22 +66,24 @@ const syncSpotLookupButtons = (hasDate, options = {}) => {
  * @param {number} spotPrice - USD spot price
  * @returns {string} Display-currency value formatted to 2 decimals
  */
-const getSpotLookupDisplayValue = (spotPrice) => {
+const getSpotLookupDisplayValue = (spotPrice, timestamp = "") => {
   const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
 
   let priceUSD = spotPrice;
-  if (
-    elements.itemWeightUnit &&
-    elements.itemWeightUnit.value === "gb" &&
-    typeof computeGoldbackEstimatedRate === "function"
-  ) {
-    const gbRate = computeGoldbackEstimatedRate(spotPrice);
-    const denom = parseFloat(
-      (elements.itemGbDenom && elements.itemGbDenom.value) ||
-        (elements.itemWeight && elements.itemWeight.value) ||
-        1
-    );
-    priceUSD = gbRate * denom;
+  if (elements.itemWeightUnit?.value === "gb") {
+    const denom = getGoldbackLookupDenomination() || 1;
+    const historyPrice =
+      timestamp && typeof getGoldbackHistoryPrice === "function"
+        ? getGoldbackHistoryPrice(denom, timestamp)
+        : null;
+
+    if (historyPrice) {
+      priceUSD = historyPrice;
+    } else if (typeof getGoldbackDenominationPrice === "function") {
+      priceUSD = getGoldbackDenominationPrice(denom) || priceUSD;
+    } else if (typeof computeGoldbackEstimatedRate === "function") {
+      priceUSD = computeGoldbackEstimatedRate(spotPrice) * denom;
+    }
   }
 
   return (priceUSD * fxRate).toFixed(2);
@@ -377,6 +405,55 @@ const openSpotLookupModal = async (targetField = "purchase") => {
   }
 
   _spotLookupTargetField = targetField === "retail" ? "retail" : "purchase";
+  const isGbRetailLookup = isGoldbackRetailLookup();
+
+  if (isGbRetailLookup) {
+    const denom = getGoldbackLookupDenomination() || 1;
+    let goldbackResults =
+      typeof searchGoldbackHistoryByDate === "function"
+        ? searchGoldbackHistoryByDate(denom, dateVal)
+        : [];
+
+    if (
+      goldbackResults.length === 0 &&
+      window.goldbackPricingSource === "api" &&
+      typeof fetchGoldbackApiPrices === "function"
+    ) {
+      await fetchGoldbackApiPrices({ expectedSource: "api" });
+      goldbackResults =
+        typeof searchGoldbackHistoryByDate === "function"
+          ? searchGoldbackHistoryByDate(denom, dateVal)
+          : [];
+    }
+
+    const titleEl = getSpotLookupModalRef("title", "spotLookupTitle");
+    if (titleEl) {
+      titleEl.textContent = `Goldback Lookup — ${denom} Goldback on ${dateVal}`;
+    }
+
+    const bodyEl = getSpotLookupModalRef("body", "spotLookupBody");
+    if (!bodyEl) return;
+
+    if (goldbackResults.length > 0) {
+      renderSpotLookupResults(
+        bodyEl,
+        goldbackResults.map((entry) => ({
+          ...entry,
+          spot: entry.price,
+          lookupPrice: entry.price,
+        })),
+        "Goldback",
+        dateVal
+      );
+    } else {
+      renderGoldbackLookupEmpty(bodyEl, denom, dateVal);
+    }
+
+    if (typeof openModalById === "function") {
+      openModalById("spotLookupModal");
+    }
+    return;
+  }
 
   // Search local spotHistory first (≤180 days)
   let results = searchSpotByDate(metalName, dateVal);
@@ -387,13 +464,13 @@ const openSpotLookupModal = async (targetField = "purchase") => {
   }
 
   // Update modal title
-  const titleEl = document.getElementById("spotLookupTitle");
+  const titleEl = getSpotLookupModalRef("title", "spotLookupTitle");
   if (titleEl) {
     titleEl.textContent = `Spot Lookup — ${metalName} on ${dateVal}`;
   }
 
   // Render results into modal body
-  const bodyEl = document.getElementById("spotLookupBody");
+  const bodyEl = getSpotLookupModalRef("body", "spotLookupBody");
   if (!bodyEl) return;
 
   if (results.length > 0) {
@@ -418,14 +495,18 @@ const openSpotLookupModal = async (targetField = "purchase") => {
 const renderSpotLookupResults = (container, results, metalName, dateStr) => {
   const formatPrice =
     typeof formatCurrency === "function" ? formatCurrency : (v) => "$" + Number(v).toFixed(2);
+  const isGbRetail = isGoldbackRetailLookup();
+  const priceHeading = isGbRetail ? "Goldback Price" : "Spot Price";
 
   let html = '<table class="spot-lookup-table"><thead><tr>';
-  html += "<th>Date/Time</th><th>Spot Price</th><th>Source</th><th>Offset</th><th></th>";
+  html += `<th>Date/Time</th><th>${priceHeading}</th><th>Source</th><th>Offset</th><th></th>`;
   html += "</tr></thead><tbody>";
 
   results.forEach((entry) => {
     const ts = entry.timestamp ? formatTimestamp(entry.timestamp) : "";
-    const price = formatPrice(entry.spot);
+    const lookupPrice =
+      typeof entry.lookupPrice === "number" && entry.lookupPrice > 0 ? entry.lookupPrice : null;
+    const price = formatPrice(lookupPrice || entry.spot);
     const source = entry.source === "seed" ? "Seed" : entry.provider || entry.source || "";
     const offsetLabel = formatOffsetLabel(entry.dayOffset);
     const exactClass = entry.dayOffset === 0 ? " exact" : "";
@@ -437,7 +518,7 @@ const renderSpotLookupResults = (container, results, metalName, dateStr) => {
     html += `<td><span class="spot-lookup-offset${exactClass}">${offsetLabel}</span></td>`;
     html +=
       `<td><button class="btn spot-lookup-use-btn" type="button" ` +
-      `data-spot="${escapeHtml(entry.spot)}" data-ts="${escapeHtml(entry.timestamp || "")}">Use</button></td>`;
+      `data-spot="${escapeHtml(entry.spot)}" data-retail="${escapeHtml(lookupPrice || "")}" data-ts="${escapeHtml(entry.timestamp || "")}">Use</button></td>`;
     html += "</tr>";
   });
 
@@ -450,10 +531,20 @@ const renderSpotLookupResults = (container, results, metalName, dateStr) => {
   container.querySelectorAll(".spot-lookup-use-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const spotPrice = parseFloat(btn.dataset.spot);
+      const retailPrice = parseFloat(btn.dataset.retail);
       const timestamp = btn.dataset.ts || "";
-      useSpotPrice(spotPrice, timestamp);
+      useSpotPrice(spotPrice, timestamp, retailPrice);
     });
   });
+};
+
+const renderGoldbackLookupEmpty = (container, denom, dateStr) => {
+  // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
+  container.innerHTML =
+    '<div class="spot-lookup-empty">' +
+    `<p>No Goldback price history found for ${escapeHtml(String(denom))} Goldback on ${escapeHtml(dateStr)}.</p>` +
+    '<p class="spot-lookup-hint">Goldback API history is used for Goldback retail lookup. If it is unavailable, the saved manual retail value can still be entered directly.</p>' +
+    "</div>";
 };
 
 /**
@@ -530,8 +621,14 @@ const renderSpotLookupEmpty = (container, metalName, dateStr) => {
  * @param {number} spotPrice - The selected spot price
  * @param {string} timestamp - Timestamp of the selected entry (for reference)
  */
-const useSpotPrice = (spotPrice, timestamp) => {
-  const displayPrice = getSpotLookupDisplayValue(spotPrice);
+const useSpotPrice = (spotPrice, timestamp, retailLookupPrice = NaN) => {
+  const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
+  const displayPrice =
+    _spotLookupTargetField === "retail" &&
+    typeof retailLookupPrice === "number" &&
+    retailLookupPrice > 0
+      ? (retailLookupPrice * fxRate).toFixed(2)
+      : getSpotLookupDisplayValue(spotPrice, timestamp);
 
   if (_spotLookupTargetField === "retail") {
     if (elements.itemMarketValue) {

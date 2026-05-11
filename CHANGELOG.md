@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.59] - 2026-05-11
+
+### Fixed — STRK-69: Goldback daily retail chart history
+
+- **Goldback history**: Store one Goldback denomination history row per calendar day even when the vendor price is unchanged, so flat weekend pricing still appears as daily chart points (STRK-69).
+- **Item detail charts**: Use Goldback denomination retail history and current denomination valuation in the item detail modal when item `marketValue` is empty, falling back to melt only when denomination pricing is unavailable (STRK-69).
+
+---
+
 ## [3.34.58] - 2026-05-11
 
 ### Changed — STRK-42: Chart viewport scaling

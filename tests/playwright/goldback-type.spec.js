@@ -61,10 +61,15 @@ const BASE_ITEMS = [
   },
 ];
 
-async function seedData(page, inventory = BASE_ITEMS) {
+async function seedData(page, inventory = BASE_ITEMS, options = {}) {
+  const { goldbackPrices = {}, goldbackPriceHistory = {}, goldbackPricingSource = "api" } = options;
+
   await page.addInitScript(
-    ({ inv }) => {
+    ({ inv, gbPrices, gbHistory, gbSource }) => {
       localStorage.setItem("metalInventory", JSON.stringify(inv));
+      localStorage.setItem("goldback-prices", JSON.stringify(gbPrices));
+      localStorage.setItem("goldback-price-history", JSON.stringify(gbHistory));
+      localStorage.setItem("goldback-pricing-source", JSON.stringify(gbSource));
       document.addEventListener(
         "DOMContentLoaded",
         () => {
@@ -75,7 +80,12 @@ async function seedData(page, inventory = BASE_ITEMS) {
         { once: true }
       );
     },
-    { inv: inventory }
+    {
+      inv: inventory,
+      gbPrices: goldbackPrices,
+      gbHistory: goldbackPriceHistory,
+      gbSource: goldbackPricingSource,
+    }
   );
 }
 
@@ -349,5 +359,64 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     });
     expect(goldOptions).toHaveLength(8);
     expect(goldOptions[0].text).toBe("½ Goldback");
+  });
+
+  test("14. Manual Goldback retail value is a floor override, not ignored", async ({ page }) => {
+    await seedData(page, BASE_ITEMS, {
+      goldbackPrices: { 1: { price: 9.48, updatedAt: Date.now(), source: "api" } },
+      goldbackPricingSource: "manual",
+    });
+    await gotoApp(page);
+    await page.waitForFunction(() => typeof window.calculateRetailPrice === "function");
+
+    const values = await page.evaluate(() => {
+      const baseItem = {
+        metal: "Gold",
+        type: "Goldback",
+        weight: 1,
+        weightUnit: "gb",
+        qty: 1,
+        purity: 0.999,
+        price: 0,
+      };
+
+      return {
+        highManual: window.calculateRetailPrice({ ...baseItem, marketValue: 100 }, 4715.22),
+        lowManual: window.calculateRetailPrice({ ...baseItem, marketValue: 2 }, 4715.22),
+      };
+    });
+
+    expect(values.highManual.gbDenomPrice).toBe(9.48);
+    expect(values.highManual.isManualRetail).toBe(true);
+    expect(values.highManual.retailTotal).toBe(100);
+    expect(values.lowManual.isManualRetail).toBe(false);
+    expect(values.lowManual.retailTotal).toBe(9.48);
+  });
+
+  test("15. Goldback retail lookup uses daily Goldback history instead of gold spot", async ({
+    page,
+  }) => {
+    await seedData(page, [], {
+      goldbackPriceHistory: {
+        1: [{ ts: new Date("2026-05-11T12:00:00.000Z").getTime(), price: 9.48, source: "api" }],
+      },
+      goldbackPricingSource: "manual",
+    });
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemDate", "2026-05-11");
+    await page.selectOption("#itemMetal", "Gold");
+    await page.selectOption("#itemType", "Goldback");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("gb");
+
+    await page.click("#retailSpotLookupBtn");
+    await expect(page.locator("#spotLookupModal")).toBeVisible();
+    await expect(page.locator("#spotLookupTitle")).toContainText("Goldback Lookup");
+    await expect(page.locator("#spotLookupBody")).toContainText("Goldback Price");
+    await expect(page.locator("#spotLookupBody")).toContainText("$9.48");
+
+    await page.locator(".spot-lookup-use-btn").first().click();
+    await expect(page.locator("#itemMarketValue")).toHaveValue("9.48");
   });
 });

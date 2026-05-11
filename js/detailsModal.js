@@ -40,20 +40,19 @@ const getBreakdownData = (metal) => {
           ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
           : weight;
     const itemWeight = qty * weightOz;
+    const valuation =
+      typeof computeItemValuation === "function" ? computeItemValuation(item, currentSpot) : null;
     const purchasePrice = parseFloat(item.price) || 0;
-    const purchaseTotal = qty * purchasePrice;
+    const purchaseTotal = valuation ? valuation.purchaseTotal : qty * purchasePrice;
     const purity = parseFloat(item.purity) || 1.0;
-    const meltValue = itemWeight * currentSpot * purity;
-    const gbDenomPrice =
-      typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
-    const rawMarket = parseFloat(item.marketValue) || 0;
-    const isManualRetail = !gbDenomPrice && rawMarket > 0;
-    const retailTotal = gbDenomPrice
-      ? gbDenomPrice * qty
-      : isManualRetail
-        ? rawMarket * qty
+    const meltValue = valuation ? valuation.meltValue : itemWeight * currentSpot * purity;
+    const manualMarket = parseFloat(item.marketValue) || 0;
+    const retailTotal = valuation
+      ? valuation.retailTotal
+      : manualMarket > 0
+        ? qty * manualMarket
         : meltValue;
-    const gainLoss = retailTotal - purchaseTotal;
+    const gainLoss = valuation?.gainLoss ?? retailTotal - purchaseTotal;
 
     // Type breakdown
     if (!typeBreakdown[item.type]) typeBreakdown[item.type] = initBucket();
@@ -110,18 +109,17 @@ const getAllMetalsBreakdownData = () => {
     const purchasePrice = parseFloat(item.price) || 0;
     const purchaseTotal = qty * purchasePrice;
     const currentSpot = spotPrices[item.metal.toLowerCase()] || 0;
+    const valuation =
+      typeof computeItemValuation === "function" ? computeItemValuation(item, currentSpot) : null;
     const purity = parseFloat(item.purity) || 1.0;
-    const meltValue = itemWeight * currentSpot * purity;
-    const gbDenomPrice =
-      typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
-    const rawMv2 = parseFloat(item.marketValue) || 0;
-    const isManualRetail = !gbDenomPrice && rawMv2 > 0;
-    const retailTotal = gbDenomPrice
-      ? gbDenomPrice * qty
-      : isManualRetail
-        ? rawMv2 * qty
+    const meltValue = valuation ? valuation.meltValue : itemWeight * currentSpot * purity;
+    const manualMarket = parseFloat(item.marketValue) || 0;
+    const retailTotal = valuation
+      ? valuation.retailTotal
+      : manualMarket > 0
+        ? qty * manualMarket
         : meltValue;
-    const gainLoss = retailTotal - purchaseTotal;
+    const gainLoss = valuation?.gainLoss ?? retailTotal - purchaseTotal;
 
     // Metal breakdown
     const metal = item.metal || "Unknown";

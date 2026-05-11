@@ -611,7 +611,7 @@
         </a>
       </td>
       <td class="shrink" data-column="meltValue" data-label="Melt" title="Melt Value (${displayCurrency})" style="color: var(--text-primary);">${meltDisplay}</td>
-      <td class="shrink ${gbDenomPrice ? "retail-confirmed" : isManualRetail ? "retail-confirmed" : "retail-estimated"}" data-column="retailPrice" data-label="Retail" title="${gbDenomPrice ? "Goldback denomination price" : isManualRetail ? "Manual retail price (confirmed)" : "Estimated — defaults to melt value"} - Click to search eBay sold listings">
+      <td class="shrink ${gbDenomPrice || isManualRetail ? "retail-confirmed" : "retail-estimated"}" data-column="retailPrice" data-label="Retail" title="${isManualRetail ? "Manual retail price (confirmed)" : gbDenomPrice ? "Goldback denomination price" : "Estimated — defaults to melt value"} - Click to search eBay sold listings">
         <a href="#" class="ebay-sold-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay sold listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${retailDisplay} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </a>
