@@ -446,6 +446,62 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     expect(nonNullRetail.at(-1).label).toContain("May 10");
   });
 
+  test("STRK-69: Goldback manual retail higher than daily rate takes precedence", async ({
+    page,
+  }) => {
+    const gbItem = {
+      ...BASE_ITEM,
+      uuid: "strk69-graded-goldback",
+      metal: "Gold",
+      composition: "Gold",
+      name: "STRK-69 Graded Goldback",
+      type: "Goldback",
+      weight: 1,
+      weightUnit: "gb",
+      price: 0,
+      marketValue: 100,
+      date: "2026-05-04",
+      purity: 0.999,
+    };
+    const goldHistory = Array.from({ length: 7 }, (_, index) => ({
+      timestamp: new Date(
+        new Date("2026-05-04T12:00:00.000Z").getTime() + index * DAY_MS
+      ).toISOString(),
+      metal: "Gold",
+      spot: 4715.22,
+      source: "seed",
+      provider: "Playwright",
+    }));
+
+    await seedData(page, {
+      inventory: [gbItem],
+      spotHistory: goldHistory,
+      retailHistory: {
+        [gbItem.uuid]: [{ ts: new Date("2026-05-10T13:00:00.000Z").getTime(), retail: 100 }],
+      },
+      goldbackPrices: { 1: { price: 9.48, updatedAt: Date.now(), source: "api" } },
+      goldbackPriceHistory: {
+        1: [{ ts: new Date("2026-05-10T12:00:00.000Z").getTime(), price: 9.48, source: "api" }],
+      },
+      goldbackPricingSource: "manual",
+    });
+    await gotoApp(page);
+    await openViewModal(page);
+    await expect(page.locator(".view-valuation-section")).toContainText("$100.00");
+
+    await clickRange(page, "7d");
+    const may10Retail = await page.evaluate(() => {
+      const chart = Chart.getChart(document.getElementById("viewPriceHistoryChart"));
+      const retailDataset = chart.data.datasets.find((dataset) => dataset.label === "Retail Value");
+      const index = chart.data.labels.findIndex((label) =>
+        (Array.isArray(label) ? label.join(" ") : label).includes("May 10")
+      );
+      return retailDataset.data[index];
+    });
+
+    expect(may10Retail).toBe(100);
+  });
+
   test("STRK-69: Goldback history records same price on a new calendar day", async ({ page }) => {
     await seedData(page, {
       goldbackPrices: { 1: { price: 9.42, updatedAt: Date.now(), source: "api" } },

@@ -67,27 +67,24 @@ const sortInventory = (data = inventory) => {
         val = computeMeltValue(item, spot);
         break;
       case 9: {
-        // Retail Price (gbDenom → marketValue → melt, matching render logic)
-        const qty = Number(item.qty) || 1;
-        const gb =
-          typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
-        val = gb
-          ? gb * qty
-          : item.marketValue && item.marketValue > 0
-            ? item.marketValue * qty
-            : computeMeltValue(item, spot);
+        // Retail Price (max Goldback denomination/manual → melt, matching render logic)
+        val =
+          typeof calculateRetailPrice === "function"
+            ? calculateRetailPrice(item, spot).retailTotal
+            : item.marketValue && item.marketValue > 0
+              ? item.marketValue * (Number(item.qty) || 1)
+              : computeMeltValue(item, spot);
         break;
       }
       case 10: {
         // Gain/Loss (computed, qty-adjusted, matching render logic)
         const qty = Number(item.qty) || 1;
-        const gb =
-          typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
-        const retail = gb
-          ? gb * qty
-          : item.marketValue && item.marketValue > 0
-            ? item.marketValue * qty
-            : computeMeltValue(item, spot);
+        const retail =
+          typeof calculateRetailPrice === "function"
+            ? calculateRetailPrice(item, spot).retailTotal
+            : item.marketValue && item.marketValue > 0
+              ? item.marketValue * qty
+              : computeMeltValue(item, spot);
         val = retail - (parseFloat(item.price) || 0) * qty;
         break;
       }

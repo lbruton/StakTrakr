@@ -1424,7 +1424,7 @@ const getGoldbackRetailPrice = (item) => {
 
 /**
  * Calculates qty-adjusted retail value using the portfolio hierarchy:
- * Goldback denomination price → manual market value → melt value.
+ * max(Goldback denomination price, manual market value) → melt value.
  *
  * @param {Object} item - Inventory item
  * @param {number} currentSpot - Current spot price for the item's metal
@@ -1443,12 +1443,9 @@ const calculateRetailPrice = (item, currentSpot) => {
   const meltValue = computeMeltValue(item, Number(currentSpot) || 0);
   const gbDenomPrice =
     typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
-  const isManualRetail = !gbDenomPrice && marketValue > 0;
-  const retailTotal = gbDenomPrice
-    ? gbDenomPrice * qty
-    : isManualRetail
-      ? marketValue * qty
-      : meltValue;
+  const retailUnitPrice = gbDenomPrice ? Math.max(gbDenomPrice, marketValue) : marketValue;
+  const isManualRetail = marketValue > 0 && (!gbDenomPrice || marketValue >= gbDenomPrice);
+  const retailTotal = retailUnitPrice > 0 ? retailUnitPrice * qty : meltValue;
 
   return {
     qty,

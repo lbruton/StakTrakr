@@ -547,7 +547,11 @@ function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
   const byDay = new Map();
   for (const entry of [...itemRetailEntries, ...goldbackRetailEntries]) {
     if (!entry || typeof entry.retail !== "number" || entry.retail <= 0 || !entry.ts) continue;
-    byDay.set(new Date(entry.ts).toISOString().slice(0, 10), entry);
+    const day = new Date(entry.ts).toISOString().slice(0, 10);
+    const existing = byDay.get(day);
+    if (!existing || entry.retail >= existing.retail) {
+      byDay.set(day, entry);
+    }
   }
   return [...byDay.values()].sort((a, b) => a.ts - b.ts);
 }

@@ -123,6 +123,65 @@ const loadGoldbackPriceHistory = () => {
 
 const getGoldbackHistoryDay = (ts) => new Date(ts).toISOString().slice(0, 10);
 
+const getGoldbackHistoryPrice = (weightGb, dateLike) => {
+  const key = String(parseFloat(weightGb) || 0);
+  const entries = Array.isArray(goldbackPriceHistory[key]) ? goldbackPriceHistory[key] : [];
+  const ts =
+    typeof dateLike === "number"
+      ? dateLike
+      : typeof dateLike === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateLike)
+        ? new Date(`${dateLike.slice(0, 10)}T12:00:00Z`).getTime()
+        : new Date(dateLike).getTime();
+  if (!ts || Number.isNaN(ts)) return null;
+
+  const day = getGoldbackHistoryDay(ts);
+  const entry = [...entries]
+    .reverse()
+    .find((candidate) => candidate?.ts && getGoldbackHistoryDay(candidate.ts) === day);
+  return entry && typeof entry.price === "number" && entry.price > 0 ? entry.price : null;
+};
+
+const searchGoldbackHistoryByDate = (weightGb, dateStr) => {
+  const key = String(parseFloat(weightGb) || 0);
+  const entries = Array.isArray(goldbackPriceHistory[key]) ? goldbackPriceHistory[key] : [];
+  const targetDate = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(targetDate.getTime())) return [];
+
+  const withOffset = entries
+    .filter((entry) => entry && typeof entry.price === "number" && entry.price > 0 && entry.ts)
+    .map((entry) => {
+      const entryDate = new Date(entry.ts);
+      const diffMs = entryDate.getTime() - targetDate.getTime();
+      return {
+        timestamp: entryDate.toISOString(),
+        price: entry.price,
+        source: entry.source || "goldback",
+        provider: entry.provider || "Goldback",
+        dayOffset: Math.round(diffMs / (1000 * 60 * 60 * 24)),
+      };
+    });
+
+  const windows = [0, 1, 3, 7];
+  let results = [];
+  for (const window of windows) {
+    results = withOffset.filter((entry) => Math.abs(entry.dayOffset) <= window);
+    if (results.length > 0) break;
+  }
+
+  results.sort((a, b) => {
+    const proxDiff = Math.abs(a.dayOffset) - Math.abs(b.dayOffset);
+    if (proxDiff !== 0) return proxDiff;
+    return new Date(b.timestamp) - new Date(a.timestamp);
+  });
+
+  const byDay = new Map();
+  for (const entry of results) {
+    const day = entry.timestamp.slice(0, 10);
+    if (!byDay.has(day)) byDay.set(day, entry);
+  }
+  return [...byDay.values()];
+};
+
 const upsertGoldbackHistoryEntry = (key, entry) => {
   if (!entry || typeof entry.price !== "number" || entry.price <= 0 || !entry.ts) return false;
 
@@ -638,6 +697,8 @@ if (typeof window !== "undefined") {
   window.saveGoldbackEnabled = saveGoldbackEnabled;
   window.recordGoldbackPrices = recordGoldbackPrices;
   window.getGoldbackDenominationPrice = getGoldbackDenominationPrice;
+  window.getGoldbackHistoryPrice = getGoldbackHistoryPrice;
+  window.searchGoldbackHistoryByDate = searchGoldbackHistoryByDate;
   window.isGoldbackPricingActive = isGoldbackPricingActive;
   window.fetchGoldbackApiPrices = fetchGoldbackApiPrices;
   window.getGoldbackVendorPrice = getGoldbackVendorPrice;
