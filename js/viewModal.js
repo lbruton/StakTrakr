@@ -32,6 +32,18 @@ const _VIEW_CHART_RANGE_LABELS = [
 /** @type {number} Default chart range in days (-1 = from purchase date, falls back to 30d) */
 const _VIEW_CHART_DEFAULT_RANGE = -1;
 
+const _VIEW_CHART_DAY_MS = 24 * 60 * 60 * 1000;
+
+function _getViewChartRangeCutoff(days) {
+  const rangeDays = Number(days) || 0;
+  if (rangeDays <= 0) return 0;
+  if (rangeDays > 180) return Date.now() - rangeDays * _VIEW_CHART_DAY_MS;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - Math.max(rangeDays - 1, 0));
+  return start.getTime();
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -58,15 +70,40 @@ async function showViewModal(index) {
   const chartCanvas = body.querySelector("#viewPriceHistoryChart");
   if (chartCanvas && chartCanvas._chartData) {
     const cd = chartCanvas._chartData;
-    // "Purchased" default (-1): calculate days from purchase date, fall back to 30d
-    let initRange = _VIEW_CHART_DEFAULT_RANGE;
-    if (initRange === -1) {
-      initRange =
-        cd.purchaseDate > 0
-          ? Math.max(1, Math.ceil((Date.now() - cd.purchaseDate) / 86400000))
-          : 30;
-    }
-    if (initRange === 0 || initRange > 180) {
+    const initRange = _VIEW_CHART_DEFAULT_RANGE;
+    if (initRange === -1 && cd.purchaseDate > 0) {
+      const metalName = item.metal || "Silver";
+      const toTs = Date.now();
+      _fetchHistoricalSpotData(metalName, 0, cd.purchaseDate, toTs)
+        .then((fullSpot) => {
+          _createPriceHistoryChart(
+            chartCanvas,
+            fullSpot,
+            cd.retailEntries,
+            cd.purchasePerUnit,
+            cd.meltFactor,
+            0,
+            cd.purchaseDate,
+            cd.currentRetail,
+            cd.purchaseDate,
+            toTs
+          );
+        })
+        .catch(() => {
+          _createPriceHistoryChart(
+            chartCanvas,
+            cd.spotEntries,
+            cd.retailEntries,
+            cd.purchasePerUnit,
+            cd.meltFactor,
+            0,
+            cd.purchaseDate,
+            cd.currentRetail,
+            cd.purchaseDate,
+            toTs
+          );
+        });
+    } else if (initRange === 0 || initRange > 180) {
       const metalName = item.metal || "Silver";
       _fetchHistoricalSpotData(metalName, initRange)
         .then((fullSpot) => {
@@ -775,10 +812,45 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
   dateRange.toInput.min = "";
   const canvas = chartSection.querySelector("#viewPriceHistoryChart");
   if (!canvas) return;
-  const effectiveDays =
-    days === -1 && chartCtx.purchaseDate > 0
-      ? Math.max(1, Math.ceil((Date.now() - chartCtx.purchaseDate) / 86400000))
-      : days;
+  if (days === -1 && chartCtx.purchaseDate > 0) {
+    const toTs = Date.now();
+    try {
+      const spotData = await _fetchHistoricalSpotData(
+        chartCtx.metalName,
+        0,
+        chartCtx.purchaseDate,
+        toTs
+      );
+      _createPriceHistoryChart(
+        canvas,
+        spotData,
+        chartCtx.retailEntries,
+        chartCtx.purchasePerUnit,
+        chartCtx.meltFactor,
+        0,
+        chartCtx.purchaseDate,
+        chartCtx.currentRetail,
+        chartCtx.purchaseDate,
+        toTs
+      );
+    } catch (err) {
+      console.error("Purchased range fetch failed:", err);
+      _createPriceHistoryChart(
+        canvas,
+        chartCtx.dailySpotEntries,
+        chartCtx.retailEntries,
+        chartCtx.purchasePerUnit,
+        chartCtx.meltFactor,
+        0,
+        chartCtx.purchaseDate,
+        chartCtx.currentRetail,
+        chartCtx.purchaseDate,
+        toTs
+      );
+    }
+    return;
+  }
+  const effectiveDays = days;
   try {
     const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, effectiveDays);
     _createPriceHistoryChart(
@@ -1633,13 +1705,13 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
     const byDay = new Map();
     for (const e of liveEntries) byDay.set(new Date(e.ts).toISOString().slice(0, 10), e);
     const result = [...byDay.values()].sort((a, b) => a.ts - b.ts);
-    const cutoff = Date.now() - days * (24 * 60 * 60 * 1000);
+    const cutoff = _getViewChartRangeCutoff(days);
     const inRange = result.filter((e) => e.ts >= cutoff);
     if (inRange.length >= 2) return result;
     // Sparse in-memory data — fall back to current year file
     startYear = new Date(cutoff).getFullYear();
   } else if (days > 180) {
-    const cutoff = Date.now() - days * (24 * 60 * 60 * 1000);
+    const cutoff = _getViewChartRangeCutoff(days);
     startYear = new Date(cutoff).getFullYear();
   } else {
     // "All" — go back to 1968 (earliest seed data)
@@ -1717,7 +1789,7 @@ function _createPriceHistoryChart(
   // Filter spot entries by time range
   fromTs = fromTs || 0;
   toTs = toTs || 0;
-  const cutoff = days > 0 ? Date.now() - days * 86400000 : 0;
+  const cutoff = _getViewChartRangeCutoff(days);
   let spotEntries;
   if (fromTs > 0 || toTs > 0) {
     // Custom date range mode
@@ -1729,11 +1801,16 @@ function _createPriceHistoryChart(
   }
 
   // If "All" range or custom range and purchase date is before earliest spot data,
-  // prepend a synthetic entry so the chart extends back to purchase date.
-  // For bounded ranges, anchor sparse historical data at the viewport start.
+  // prepend a synthetic entry so the chart extends back to purchase date. Long
+  // bounded ranges keep their sparse-data viewport anchor; short ranges show
+  // only actual days so a 7d chart cannot invent an extra left-edge point.
   const isAllOrCustom = days === 0 || fromTs > 0 || toTs > 0;
   const boundedAnchorTs =
-    !isAllOrCustom && cutoff > 0 && spotEntries.length > 0 && spotEntries[0].ts > cutoff
+    !isAllOrCustom &&
+    days > 180 &&
+    cutoff > 0 &&
+    spotEntries.length > 0 &&
+    spotEntries[0].ts > cutoff
       ? cutoff
       : 0;
   const purchaseAnchorTs =
@@ -1804,22 +1881,6 @@ function _createPriceHistoryChart(
     return best;
   };
 
-  // Anchor start: purchase price at the leftmost chart position.
-  // If purchase date is within the visible range, snap to that day.
-  // If purchase date is before the range, pin to index 0 so the
-  // retail line always starts with "what you paid" as a reference.
-  if (hasRetailSeries && purchaseDate > 0) {
-    if (
-      purchaseDate >= spotEntries[0].ts &&
-      purchaseDate <= spotEntries[spotEntries.length - 1].ts
-    ) {
-      const idx = _nearestSpotIdx(purchaseDate);
-      retailData[idx] = purchasePerUnit;
-    } else if (purchaseDate < spotEntries[0].ts) {
-      retailData[0] = purchasePerUnit;
-    }
-  }
-
   // Middle: sparse itemPriceHistory retail values snapped to nearest spot day
   for (const re of allRetailEntries) {
     if (cutoff > 0 && re.ts < cutoff) continue;
@@ -1832,6 +1893,25 @@ function _createPriceHistoryChart(
   // Anchor end: current market value on the last spot entry (≈ today)
   if (currentRetail > 0) {
     retailData[spotEntries.length - 1] = currentRetail;
+  }
+
+  if (hasRetailSeries) {
+    const firstRetailIdx = retailData.findIndex((value) => value !== null);
+    const firstSpotTs = spotEntries[0].ts;
+    if (firstRetailIdx > 0) {
+      const previousRetail = [...allRetailEntries]
+        .filter((entry) => Number(entry.retail) > 0 && entry.ts < firstSpotTs)
+        .sort((a, b) => a.ts - b.ts)
+        .at(-1);
+      if (previousRetail) {
+        retailData[0] = previousRetail.retail;
+      } else if (purchaseDate >= firstSpotTs && currentRetail > 0) {
+        retailData[0] = currentRetail;
+      }
+    } else if (firstRetailIdx === -1 && currentRetail > 0) {
+      retailData[0] = currentRetail;
+      retailData[spotEntries.length - 1] = currentRetail;
+    }
   }
 
   const hasRetail = hasRetailSeries && retailData.some((v) => v !== null);

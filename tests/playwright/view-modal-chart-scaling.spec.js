@@ -525,6 +525,114 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     expect(history.map((entry) => entry.price)).toEqual([9.42, 9.42]);
   });
 
+  test("STRK-69: Purchased range does not anchor Goldback retail to purchase price", async ({
+    page,
+  }) => {
+    const gbItem = {
+      ...BASE_ITEM,
+      uuid: "strk69-purchased-goldback-retail-anchor",
+      metal: "Gold",
+      composition: "Gold",
+      name: "STRK-69 Purchased Goldback",
+      type: "Goldback",
+      weight: 5,
+      weightUnit: "gb",
+      price: 20,
+      marketValue: 0,
+      date: "2026-05-09",
+      purity: 0.999,
+    };
+    const goldHistory = ["2026-05-08", "2026-05-09", "2026-05-10"].map((date) => ({
+      timestamp: `${date}T12:00:00.000Z`,
+      metal: "Gold",
+      spot: 4715.22,
+      source: "seed",
+      provider: "Playwright",
+    }));
+
+    await seedData(page, {
+      inventory: [gbItem],
+      spotHistory: goldHistory,
+      retailHistory: {},
+      goldbackPrices: { 5: { price: 47.1, updatedAt: Date.now(), source: "api" } },
+      goldbackPriceHistory: {},
+      goldbackPricingSource: "manual",
+    });
+    await gotoApp(page);
+    await openViewModal(page);
+    await clickRange(page, "Purchased");
+
+    const retailValues = await page.evaluate(() => {
+      const chart = Chart.getChart(document.getElementById("viewPriceHistoryChart"));
+      const retailDataset = chart.data.datasets.find((dataset) => dataset.label === "Retail Value");
+      return retailDataset.data.filter((value) => value !== null);
+    });
+
+    expect(retailValues).not.toContain(20);
+    expect(retailValues).toContain(47.1);
+  });
+
+  test("STRK-69: short ranges do not inject purchase-price retail at viewport start", async ({
+    page,
+  }) => {
+    const gbItem = {
+      ...BASE_ITEM,
+      uuid: "strk69-short-range-goldback-retail-anchor",
+      metal: "Gold",
+      composition: "Gold",
+      name: "STRK-69 Short Range Goldback",
+      type: "Goldback",
+      weight: 5,
+      weightUnit: "gb",
+      price: 20,
+      marketValue: 0,
+      date: "2026-04-11",
+      purity: 0.999,
+    };
+    const goldHistory = Array.from({ length: 7 }, (_, index) => ({
+      timestamp: new Date(
+        new Date("2026-05-04T12:00:00.000Z").getTime() + index * DAY_MS
+      ).toISOString(),
+      metal: "Gold",
+      spot: 4715.22,
+      source: "seed",
+      provider: "Playwright",
+    }));
+    const goldbackPriceHistory = {
+      5: Array.from({ length: 6 }, (_, index) => ({
+        ts: new Date(new Date("2026-05-05T12:00:00.000Z").getTime() + index * DAY_MS).getTime(),
+        price: 47.1,
+        source: "api",
+      })),
+    };
+
+    await seedData(page, {
+      inventory: [gbItem],
+      spotHistory: goldHistory,
+      retailHistory: {},
+      goldbackPrices: { 5: { price: 47.1, updatedAt: Date.now(), source: "api" } },
+      goldbackPriceHistory,
+      goldbackPricingSource: "manual",
+    });
+    await gotoApp(page);
+    await openViewModal(page);
+    await clickRange(page, "7d");
+
+    const retailSeries = await page.evaluate(() => {
+      const chart = Chart.getChart(document.getElementById("viewPriceHistoryChart"));
+      const retailDataset = chart.data.datasets.find((dataset) => dataset.label === "Retail Value");
+      return chart.data.labels.map((label, index) => ({
+        label: Array.isArray(label) ? label.join(" ") : label,
+        value: retailDataset.data[index],
+      }));
+    });
+    const nonNullRetail = retailSeries.filter((point) => point.value !== null);
+
+    expect(nonNullRetail.map((point) => point.value)).not.toContain(20);
+    expect(nonNullRetail[0].label).toContain("May 5");
+    expect(nonNullRetail[0].value).toBe(47.1);
+  });
+
   test("AC-1: low purchase price line gets padded below short-range melt values", async ({
     page,
   }) => {
