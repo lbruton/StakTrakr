@@ -1566,7 +1566,8 @@ function _fetchYearFile(year) {
  * (live data wins over seed). Returns sorted {ts, spot} entries.
  *
  * For ranges <= 180 days, just returns the in-memory spotHistory slice (no fetch).
- * For longer ranges (including "All"), async-fetches year files back to 1968.
+ * For longer bounded ranges, fetches only the years needed for that viewport.
+ * For "All", async-fetches year files back to 1968.
  *
  * @param {string} metalName - Metal name ('Silver', 'Gold', etc.)
  * @param {number} days - Number of days (0 = all available data)
@@ -1595,6 +1596,9 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
     const inRange = result.filter((e) => e.ts >= cutoff);
     if (inRange.length >= 2) return result;
     // Sparse in-memory data — fall back to current year file
+    startYear = new Date(cutoff).getFullYear();
+  } else if (days > 180) {
+    const cutoff = Date.now() - days * (24 * 60 * 60 * 1000);
     startYear = new Date(cutoff).getFullYear();
   } else {
     // "All" — go back to 1968 (earliest seed data)
@@ -1684,15 +1688,20 @@ function _createPriceHistoryChart(
   }
 
   // If "All" range or custom range and purchase date is before earliest spot data,
-  // prepend a synthetic entry so the chart extends back to purchase date
+  // prepend a synthetic entry so the chart extends back to purchase date.
+  // For bounded ranges, anchor sparse historical data at the viewport start.
   const isAllOrCustom = days === 0 || fromTs > 0 || toTs > 0;
-  if (
-    isAllOrCustom &&
-    purchaseDate > 0 &&
-    spotEntries.length > 0 &&
-    purchaseDate < spotEntries[0].ts
-  ) {
-    spotEntries.unshift({ ts: purchaseDate, spot: spotEntries[0].spot });
+  const boundedAnchorTs =
+    !isAllOrCustom && cutoff > 0 && spotEntries.length > 0 && spotEntries[0].ts > cutoff
+      ? cutoff
+      : 0;
+  const purchaseAnchorTs =
+    isAllOrCustom && purchaseDate > 0 && spotEntries.length > 0 && purchaseDate < spotEntries[0].ts
+      ? purchaseDate
+      : 0;
+  const syntheticAnchorTs = boundedAnchorTs || purchaseAnchorTs;
+  if (syntheticAnchorTs > 0) {
+    spotEntries.unshift({ ts: syntheticAnchorTs, spot: spotEntries[0].spot });
   }
 
   // Show fallback message if insufficient data for selected range
@@ -1804,14 +1813,14 @@ function _createPriceHistoryChart(
       label: "Purchase Price",
       data: purchaseLine,
       borderColor: dangerColor,
-      backgroundColor: resolveColor(`color-mix(in srgb, ${dangerColor} 6%, transparent)`),
-      fill: "origin",
+      backgroundColor: dangerColor,
+      fill: false,
       borderDash: [6, 3],
       tension: 0,
       pointRadius: 0,
       pointHoverRadius: 0,
       borderWidth: 1.5,
-      order: 3,
+      order: 0,
     },
     {
       label: "Melt Value",
@@ -1829,8 +1838,8 @@ function _createPriceHistoryChart(
       label: "Retail Value",
       data: retailData,
       borderColor: primaryColor,
-      backgroundColor: resolveColor(`color-mix(in srgb, ${primaryColor} 8%, transparent)`),
-      fill: "origin",
+      backgroundColor: primaryColor,
+      fill: false,
       tension: 0.3,
       spanGaps: true,
       pointRadius: showPoints ? 3 : 0,
@@ -1883,6 +1892,12 @@ function _createPriceHistoryChart(
         padding: 12,
         font: { size: 10 },
       },
+      onClick: function (event, legendItem, legend) {
+        const defaultLegendClick = Chart.defaults.plugins.legend.onClick;
+        defaultLegendClick.call(this, event, legendItem, legend);
+        _applyPriceHistoryYAxisBounds(legend.chart);
+        legend.chart.update();
+      },
     });
     Object.assign(chartOpts.plugins.tooltip, {
       backgroundColor: bgColor,
@@ -1891,8 +1906,54 @@ function _createPriceHistoryChart(
       borderColor: textColor,
       borderWidth: 1,
     });
+
+    _applyPriceHistoryYAxisBounds(_viewModalChartInstance);
+
     _viewModalChartInstance.update("none");
   }
+}
+
+function _applyPriceHistoryYAxisBounds(chart) {
+  if (!chart?.options?.scales?.y) return;
+  let dataMin = Infinity;
+  let dataMax = -Infinity;
+  let hasVisibleValue = false;
+  chart.data.datasets.forEach((dataset, index) => {
+    const isVisible =
+      typeof chart.isDatasetVisible === "function"
+        ? chart.isDatasetVisible(index)
+        : dataset.hidden !== true;
+    if (!isVisible || !Array.isArray(dataset.data)) return;
+    dataset.data.forEach((point) => {
+      if (point === null || point === undefined) return;
+      const rawValue = point && typeof point === "object" && "y" in point ? point.y : point;
+      if (rawValue === null || rawValue === undefined) return;
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) return;
+      if (value < dataMin) dataMin = value;
+      if (value > dataMax) dataMax = value;
+      hasVisibleValue = true;
+    });
+  });
+
+  const yScale = chart.options.scales.y;
+  if (!hasVisibleValue) {
+    delete yScale.min;
+    delete yScale.max;
+    delete yScale.suggestedMin;
+    delete yScale.suggestedMax;
+    return;
+  }
+
+  const dataRange = dataMax - dataMin;
+  const padding = dataRange > 0 ? dataRange * 0.05 : Math.max(dataMax * 0.05, 1);
+  const yMin = Math.max(0, dataMin - padding);
+  const yMax = dataMax + padding;
+
+  yScale.min = yMin;
+  yScale.max = yMax;
+  yScale.suggestedMin = yMin;
+  yScale.suggestedMax = yMax;
 }
 
 // ---------------------------------------------------------------------------
