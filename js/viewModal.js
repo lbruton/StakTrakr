@@ -76,71 +76,22 @@ async function showViewModal(index) {
       const toTs = Date.now();
       _fetchHistoricalSpotData(metalName, 0, cd.purchaseDate, toTs)
         .then((fullSpot) => {
-          _createPriceHistoryChart(
-            chartCanvas,
-            fullSpot,
-            cd.retailEntries,
-            cd.purchasePerUnit,
-            cd.meltFactor,
-            0,
-            cd.purchaseDate,
-            cd.currentRetail,
-            cd.purchaseDate,
-            toTs
-          );
+          _renderPriceHistoryChart(chartCanvas, fullSpot, cd, 0, cd.purchaseDate, toTs);
         })
         .catch(() => {
-          _createPriceHistoryChart(
-            chartCanvas,
-            cd.spotEntries,
-            cd.retailEntries,
-            cd.purchasePerUnit,
-            cd.meltFactor,
-            0,
-            cd.purchaseDate,
-            cd.currentRetail,
-            cd.purchaseDate,
-            toTs
-          );
+          _renderPriceHistoryChart(chartCanvas, cd.spotEntries, cd, 0, cd.purchaseDate, toTs);
         });
     } else if (initRange === 0 || initRange > 180) {
       const metalName = item.metal || "Silver";
       _fetchHistoricalSpotData(metalName, initRange)
         .then((fullSpot) => {
-          _createPriceHistoryChart(
-            chartCanvas,
-            fullSpot,
-            cd.retailEntries,
-            cd.purchasePerUnit,
-            cd.meltFactor,
-            initRange,
-            cd.purchaseDate,
-            cd.currentRetail
-          );
+          _renderPriceHistoryChart(chartCanvas, fullSpot, cd, initRange);
         })
         .catch(() => {
-          _createPriceHistoryChart(
-            chartCanvas,
-            cd.spotEntries,
-            cd.retailEntries,
-            cd.purchasePerUnit,
-            cd.meltFactor,
-            initRange,
-            cd.purchaseDate,
-            cd.currentRetail
-          );
+          _renderPriceHistoryChart(chartCanvas, cd.spotEntries, cd, initRange);
         });
     } else {
-      _createPriceHistoryChart(
-        chartCanvas,
-        cd.spotEntries,
-        cd.retailEntries,
-        cd.purchasePerUnit,
-        cd.meltFactor,
-        initRange,
-        cd.purchaseDate,
-        cd.currentRetail
-      );
+      _renderPriceHistoryChart(chartCanvas, cd.spotEntries, cd, initRange);
     }
   }
 
@@ -516,47 +467,129 @@ function _appendSourceField(container, sourceValue) {
 }
 
 function _buildValuationSection(item, metrics) {
+  const chartCtx = _getPriceHistoryContext(item, metrics);
+  return _buildValuationSectionWithChartContext(item, metrics, chartCtx);
+}
+
+function _buildValuationSectionWithChartContext(item, metrics, chartCtx) {
+  const valSection = _section("Valuation");
+  valSection.classList.add("view-valuation-section");
+  const canToggleUnits = metrics.qty > 1;
+  if (canToggleUnits) {
+    valSection.appendChild(_buildValuationUnitToggle(valSection, item, metrics, chartCtx));
+  }
+  const valGrid = _el("div", "view-detail-grid four-col");
+  valGrid.dataset.unitGrid = "valuation";
+  _renderValuationGrid(valGrid, _getValuationDisplayValues(item, metrics, "lot"));
+  valSection.appendChild(valGrid);
+  return valSection;
+}
+
+function _buildValuationUnitToggle(valSection, item, metrics, chartCtx) {
+  const toggle = _el("div", "view-valuation-unit-toggle");
+  toggle.setAttribute("role", "group");
+  toggle.setAttribute("aria-label", "Valuation unit");
+  ["lot", "each"].forEach((mode) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip-sort-btn" + (mode === "lot" ? " active" : "");
+    btn.dataset.unitMode = mode;
+    btn.setAttribute("aria-pressed", String(mode === "lot"));
+    btn.textContent = mode === "lot" ? "Lot" : "Each";
+    btn.addEventListener("click", () => {
+      if (chartCtx.unitMode === mode) return;
+      chartCtx.unitMode = mode;
+      toggle.querySelectorAll("[data-unit-mode]").forEach((button) => {
+        const isActive = button.dataset.unitMode === mode;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+      const grid = valSection.querySelector('[data-unit-grid="valuation"]');
+      if (grid) {
+        const unitValues = _getValuationDisplayValues(item, metrics, mode);
+        _renderValuationGrid(grid, unitValues);
+      }
+      _rerenderCurrentPriceHistoryChart(chartCtx);
+    });
+    toggle.appendChild(btn);
+  });
+  return toggle;
+}
+
+function _getValuationDisplayValues(item, metrics, unitMode) {
   const computed =
     typeof computeItemValuation === "function"
       ? computeItemValuation(item, metrics.currentSpot)
       : null;
+  const purchasePrice = computed?.purchasePrice ?? (parseFloat(item.price) || 0);
+  const purchaseTotal = computed?.purchaseTotal ?? metrics.qty * purchasePrice;
   const meltValue =
     computed?.meltValue ??
     (metrics.currentSpot > 0
       ? metrics.weightOz * metrics.qty * metrics.currentSpot * metrics.purity
       : 0);
-  const purchasePrice = computed?.purchasePrice ?? (parseFloat(item.price) || 0);
-  const purchaseTotal = computed?.purchaseTotal ?? metrics.qty * purchasePrice;
   const manualMarket = parseFloat(item.marketValue) || 0;
   const retailTotal =
     computed?.retailTotal ?? (manualMarket > 0 ? metrics.qty * manualMarket : meltValue);
   const gainLoss = computed?.gainLoss ?? (retailTotal > 0 ? retailTotal - purchaseTotal : null);
-  const valSection = _section("Valuation");
-  valSection.classList.add("view-valuation-section");
-  const valGrid = _el("div", "view-detail-grid four-col");
   const purchaseDateStr = item.date
     ? typeof formatDisplayDate === "function"
       ? formatDisplayDate(item.date)
       : item.date
     : "";
-  const purchaseBody =
-    metrics.qty > 1
-      ? `${formatCurrency(purchaseTotal)} total \u00b7 ${formatCurrency(purchasePrice)} each`
-      : formatCurrency(purchasePrice);
-  const purchaseLabel = purchaseDateStr ? `${purchaseBody} (${purchaseDateStr})` : purchaseBody;
-  _addDetail(valGrid, "Purchase", purchaseLabel);
-  _addDetail(valGrid, "Melt Value", metrics.currentSpot > 0 ? formatCurrency(meltValue) : "—");
-  _addDetail(valGrid, "Retail", retailTotal > 0 ? formatCurrency(retailTotal) : "—");
-  if (gainLoss !== null && retailTotal > 0) {
-    const glItem = _detailItem("Gain/Loss", (gainLoss >= 0 ? "+" : "") + formatCurrency(gainLoss));
-    const valEl = glItem.querySelector(".view-detail-value");
-    if (valEl) valEl.classList.add(gainLoss >= 0 ? "gain" : "loss");
-    valGrid.appendChild(glItem);
-  } else {
-    _addDetail(valGrid, "Gain/Loss", "—", "muted");
+
+  if (unitMode !== "each") {
+    return {
+      unitMode: "lot",
+      qty: metrics.qty,
+      purchaseDateStr,
+      purchasePrice,
+      purchaseTotal,
+      meltValue,
+      retailTotal,
+      gainLoss,
+      hasSpot: metrics.currentSpot > 0,
+    };
   }
-  valSection.appendChild(valGrid);
-  return valSection;
+
+  return {
+    unitMode: "each",
+    qty: metrics.qty,
+    purchaseDateStr,
+    purchasePrice,
+    purchaseTotal: purchasePrice,
+    meltValue: metrics.qty > 0 ? meltValue / metrics.qty : meltValue,
+    retailTotal: metrics.qty > 0 ? retailTotal / metrics.qty : retailTotal,
+    gainLoss: gainLoss !== null && metrics.qty > 0 ? gainLoss / metrics.qty : gainLoss,
+    hasSpot: metrics.currentSpot > 0,
+  };
+}
+
+function _renderValuationGrid(grid, values) {
+  grid.textContent = "";
+  const purchaseBody =
+    values.unitMode === "lot" && values.qty > 1
+      ? `${formatCurrency(values.purchaseTotal)} total \u00b7 ${formatCurrency(values.purchasePrice)} each`
+      : values.unitMode === "each" && values.qty > 1
+        ? `${formatCurrency(values.purchasePrice)} each`
+        : formatCurrency(values.purchasePrice);
+  const purchaseLabel = values.purchaseDateStr
+    ? `${purchaseBody} (${values.purchaseDateStr})`
+    : purchaseBody;
+  _addDetail(grid, "Purchase", purchaseLabel);
+  _addDetail(grid, "Melt Value", values.hasSpot ? formatCurrency(values.meltValue) : "—");
+  _addDetail(grid, "Retail", values.retailTotal > 0 ? formatCurrency(values.retailTotal) : "—");
+  if (values.gainLoss !== null && values.retailTotal > 0) {
+    const glItem = _detailItem(
+      "Gain/Loss",
+      (values.gainLoss >= 0 ? "+" : "") + formatCurrency(values.gainLoss)
+    );
+    const valEl = glItem.querySelector(".view-detail-value");
+    if (valEl) valEl.classList.add(values.gainLoss >= 0 ? "gain" : "loss");
+    grid.appendChild(glItem);
+  } else {
+    _addDetail(grid, "Gain/Loss", "—", "muted");
+  }
 }
 
 function _getChartCurrentRetail(item, metrics) {
@@ -677,11 +710,18 @@ function _getPriceHistoryContext(item, metrics) {
   const dailySpotEntries = [...spotByDay.values()];
   const retailEntries =
     typeof itemPriceHistory !== "undefined" && item.uuid
-      ? (itemPriceHistory[item.uuid] || []).filter((e) => e.retail > 0)
+      ? (itemPriceHistory[item.uuid] || [])
+          .filter((e) => e.retail > 0)
+          .map((e) => ({
+            ...e,
+            retail: parseFloat((Number(e.retail) * metrics.qty).toFixed(2)),
+          }))
       : [];
   const goldbackRetailEntries = _getGoldbackRetailHistoryEntries(item, metrics);
   return {
     metalName,
+    unitMode: "lot",
+    qty: metrics.qty,
     meltFactor,
     dailySpotEntries,
     retailEntries: _mergeRetailHistoryEntries(retailEntries, goldbackRetailEntries),
@@ -689,6 +729,35 @@ function _getPriceHistoryContext(item, metrics) {
     purchaseDate: item.date ? new Date(item.date).getTime() : 0,
     currentRetail: _getChartCurrentRetail(item, metrics),
   };
+}
+
+function _getPriceHistoryUnitValues(chartCtx) {
+  const divisor = chartCtx.unitMode === "each" && chartCtx.qty > 1 ? chartCtx.qty : 1;
+  return {
+    retailEntries: chartCtx.retailEntries.map((entry) => ({
+      ...entry,
+      retail: parseFloat((Number(entry.retail) / divisor).toFixed(2)),
+    })),
+    purchasePerUnit: chartCtx.purchasePerUnit / divisor,
+    meltFactor: chartCtx.meltFactor / divisor,
+    currentRetail: chartCtx.currentRetail / divisor,
+  };
+}
+
+function _renderPriceHistoryChart(canvas, spotEntries, chartCtx, days, fromTs, toTs) {
+  const unitValues = _getPriceHistoryUnitValues(chartCtx);
+  _createPriceHistoryChart(
+    canvas,
+    spotEntries,
+    unitValues.retailEntries,
+    unitValues.purchasePerUnit,
+    unitValues.meltFactor,
+    days,
+    chartCtx.purchaseDate,
+    unitValues.currentRetail,
+    fromTs,
+    toTs
+  );
 }
 
 function _buildPriceHistorySection(chartCtx) {
@@ -774,32 +843,10 @@ function _buildChartDateRangePicker(rangeBar, chartSection, chartCtx) {
     if (!canvas) return;
     try {
       const fullSpot = await _fetchHistoricalSpotData(chartCtx.metalName, 0, fromTs, toTs);
-      _createPriceHistoryChart(
-        canvas,
-        fullSpot,
-        chartCtx.retailEntries,
-        chartCtx.purchasePerUnit,
-        chartCtx.meltFactor,
-        0,
-        chartCtx.purchaseDate,
-        chartCtx.currentRetail,
-        fromTs,
-        toTs
-      );
+      _renderPriceHistoryChart(canvas, fullSpot, chartCtx, 0, fromTs, toTs);
     } catch (err) {
       console.error("Custom date range fetch failed:", err);
-      _createPriceHistoryChart(
-        canvas,
-        [],
-        chartCtx.retailEntries,
-        chartCtx.purchasePerUnit,
-        chartCtx.meltFactor,
-        0,
-        chartCtx.purchaseDate,
-        chartCtx.currentRetail,
-        fromTs,
-        toTs
-      );
+      _renderPriceHistoryChart(canvas, [], chartCtx, 0, fromTs, toTs);
     }
   };
   fromInput.addEventListener("change", onDateChange);
@@ -823,29 +870,14 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
         chartCtx.purchaseDate,
         toTs
       );
-      _createPriceHistoryChart(
-        canvas,
-        spotData,
-        chartCtx.retailEntries,
-        chartCtx.purchasePerUnit,
-        chartCtx.meltFactor,
-        0,
-        chartCtx.purchaseDate,
-        chartCtx.currentRetail,
-        chartCtx.purchaseDate,
-        toTs
-      );
+      _renderPriceHistoryChart(canvas, spotData, chartCtx, 0, chartCtx.purchaseDate, toTs);
     } catch (err) {
       console.error("Purchased range fetch failed:", err);
-      _createPriceHistoryChart(
+      _renderPriceHistoryChart(
         canvas,
         chartCtx.dailySpotEntries,
-        chartCtx.retailEntries,
-        chartCtx.purchasePerUnit,
-        chartCtx.meltFactor,
+        chartCtx,
         0,
-        chartCtx.purchaseDate,
-        chartCtx.currentRetail,
         chartCtx.purchaseDate,
         toTs
       );
@@ -855,28 +887,70 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
   const effectiveDays = days;
   try {
     const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, effectiveDays);
-    _createPriceHistoryChart(
-      canvas,
-      spotData,
-      chartCtx.retailEntries,
-      chartCtx.purchasePerUnit,
-      chartCtx.meltFactor,
-      effectiveDays,
-      chartCtx.purchaseDate,
-      chartCtx.currentRetail
-    );
+    _renderPriceHistoryChart(canvas, spotData, chartCtx, effectiveDays);
   } catch (err) {
     console.error("Range pill fetch failed:", err);
-    _createPriceHistoryChart(
-      canvas,
-      chartCtx.dailySpotEntries,
-      chartCtx.retailEntries,
-      chartCtx.purchasePerUnit,
-      chartCtx.meltFactor,
-      effectiveDays,
-      chartCtx.purchaseDate,
-      chartCtx.currentRetail
-    );
+    _renderPriceHistoryChart(canvas, chartCtx.dailySpotEntries, chartCtx, effectiveDays);
+  }
+}
+
+async function _rerenderCurrentPriceHistoryChart(chartCtx) {
+  const canvas = document.getElementById("viewPriceHistoryChart");
+  const chartSection = canvas?.closest(".view-detail-section");
+  if (!canvas || !chartSection) return;
+
+  const inputs = chartSection.querySelectorAll(".view-chart-date-input");
+  const fromValue = inputs[0]?.value || "";
+  const toValue = inputs[1]?.value || "";
+  const fromTs = fromValue ? new Date(fromValue + "T00:00:00").getTime() : 0;
+  const toTs = toValue ? new Date(toValue + "T23:59:59").getTime() : 0;
+  if (fromTs > 0 || toTs > 0) {
+    try {
+      const fullSpot = await _fetchHistoricalSpotData(chartCtx.metalName, 0, fromTs, toTs);
+      _renderPriceHistoryChart(canvas, fullSpot, chartCtx, 0, fromTs, toTs);
+    } catch (err) {
+      console.error("Unit toggle date-range refresh failed:", err);
+      _renderPriceHistoryChart(canvas, [], chartCtx, 0, fromTs, toTs);
+    }
+    return;
+  }
+
+  const activePill = chartSection.querySelector(".view-chart-range-pill.active");
+  const days = activePill
+    ? Number(activePill.dataset.days)
+    : chartCtx.purchaseDate
+      ? _VIEW_CHART_DEFAULT_RANGE
+      : 30;
+  if (days === -1 && chartCtx.purchaseDate > 0) {
+    const toTsCurrent = Date.now();
+    try {
+      const spotData = await _fetchHistoricalSpotData(
+        chartCtx.metalName,
+        0,
+        chartCtx.purchaseDate,
+        toTsCurrent
+      );
+      _renderPriceHistoryChart(canvas, spotData, chartCtx, 0, chartCtx.purchaseDate, toTsCurrent);
+    } catch (err) {
+      console.error("Unit toggle purchased-range refresh failed:", err);
+      _renderPriceHistoryChart(
+        canvas,
+        chartCtx.dailySpotEntries,
+        chartCtx,
+        0,
+        chartCtx.purchaseDate,
+        toTsCurrent
+      );
+    }
+    return;
+  }
+
+  try {
+    const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, days);
+    _renderPriceHistoryChart(canvas, spotData, chartCtx, days);
+  } catch (err) {
+    console.error("Unit toggle range refresh failed:", err);
+    _renderPriceHistoryChart(canvas, chartCtx.dailySpotEntries, chartCtx, days);
   }
 }
 
@@ -1089,7 +1163,7 @@ function buildViewContent(item, index) {
   const sectionBuilders = {
     images: () => _buildImageSection(item, metrics),
     priceHistory: () => _buildPriceHistorySection(chartCtx),
-    valuation: () => _buildValuationSection(item, metrics),
+    valuation: () => _buildValuationSectionWithChartContext(item, metrics, chartCtx),
     inventory: () => _buildInventorySection(item, metrics),
     grading: () => _buildGradingSection(item),
     numista: () => _buildNumistaPlaceholderSection(),

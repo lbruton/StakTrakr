@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.60] - 2026-05-11
+
+### Changed — STRK-68: View modal lot/each chart toggle
+
+- **Item detail valuation**: Add a Lot/Each toggle for multi-quantity item detail modals so purchase, melt, retail, and gain/loss can switch between stack totals and per-unit values (STRK-68).
+- **Item detail charts**: Keep the price history chart in the same unit mode as the valuation section while preserving the active chart range or custom date window (STRK-68).
+
+---
+
 ## [3.34.59] - 2026-05-11
 
 ### Fixed — STRK-69: Goldback daily retail chart history

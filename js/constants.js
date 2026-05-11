@@ -281,10 +281,10 @@ const CERT_LOOKUP_URLS = {
  * Follows BRANCH.RELEASE.PATCH.state format
  * State codes: a=alpha, b=beta, rc=release candidate
  * Example: 3.03.02a → branch 3, release 03, patch 02, alpha
- * Updated: 2026-05-11 - STRK-69: Goldback daily retail chart history
+ * Updated: 2026-05-11 - STRK-68: View modal lot/each chart toggle
  */
 
-const APP_VERSION = "3.34.59";
+const APP_VERSION = "3.34.60";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.

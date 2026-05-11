@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.60 &ndash; STRK-68: View modal lot/each chart toggle</strong>: Multi-quantity item detail modals now include a Lot/Each toggle that switches valuation totals and price history chart lines together, preserving the selected chart range while comparing stack totals or per-unit values (STRK-68).</li>
     <li><strong>v3.34.59 &ndash; STRK-69: Goldback daily retail chart history</strong>: Goldback denomination prices now keep one retail-history point per calendar day even when the vendor price is flat, and item detail charts use denomination retail values when stored market value is empty (STRK-69).</li>
     <li><strong>v3.34.58 &ndash; STRK-42: Chart viewport scaling</strong>: Item detail charts now fit the y-axis to visible purchase, melt, and retail lines with padding, fetch only needed bounded-range history, and keep sparse 1Y ranges anchored at the viewport start (STRK-42).</li>
     <li><strong>v3.34.57 &ndash; STRK-67: Per-side image frame override</strong>: Add Auto/Circle/Rectangle frame controls for obverse and reverse images so rectangular slabs, bars, notes, and similar media can be corrected while default shape detection stays automatic (STRK-67).</li>

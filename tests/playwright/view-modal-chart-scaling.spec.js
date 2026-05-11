@@ -738,10 +738,13 @@ test.describe("view-modal-chart-scaling — STRK-42 / STRK-69", () => {
   test("regression: quantity items chart purchase, melt, and retail as totals", async ({
     page,
   }) => {
+    const item = { ...BASE_ITEM, qty: 3, price: 10, marketValue: 20, purity: 1 };
     await seedData(page, {
-      inventory: [{ ...BASE_ITEM, qty: 3, price: 10, marketValue: 20, purity: 1 }],
+      inventory: [item],
       spotHistory: makeSpotHistory(40, 15),
-      retailHistory: {},
+      retailHistory: {
+        [item.uuid]: [{ ts: new Date("2026-05-09T12:00:00.000Z").getTime(), retail: 21 }],
+      },
     });
     await gotoApp(page);
     await openViewModal(page);
@@ -758,7 +761,117 @@ test.describe("view-modal-chart-scaling — STRK-42 / STRK-69", () => {
 
     expect(new Set(purchaseDataset.data)).toEqual(new Set([30]));
     expect(meltDataset.data.every((value) => value > 0)).toBe(true);
+    expect(retailDataset.data).toContain(63);
     expect(retailDataset.data.at(-1)).toBe(60);
+  });
+
+  test("STRK-68: view modal Lot/Each toggle switches valuation and chart units", async ({
+    page,
+  }) => {
+    const item = { ...BASE_ITEM, qty: 3, price: 10, marketValue: 20, purity: 1 };
+    await seedData(page, {
+      inventory: [item],
+      spotHistory: makeSpotHistory(40, 15),
+      retailHistory: {
+        [item.uuid]: [{ ts: new Date("2026-05-09T12:00:00.000Z").getTime(), retail: 21 }],
+      },
+    });
+    await gotoApp(page);
+    await openViewModal(page);
+
+    await clickRange(page, "7d");
+    await expect(page.locator(".view-valuation-unit-toggle [data-unit-mode='lot']")).toHaveClass(
+      /active/
+    );
+    await expect(page.locator(".view-valuation-section")).toContainText("$30.00 total");
+    await expect(page.locator(".view-chart-range-pill.active")).toHaveText("7d");
+
+    let snapshot = await chartSnapshot(page);
+    let purchaseDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Purchase Price"
+    );
+    let meltDataset = snapshot.visibleDatasets.find((dataset) => dataset.label === "Melt Value");
+    let retailDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Retail Value"
+    );
+    expect(new Set(purchaseDataset.data)).toEqual(new Set([30]));
+    const lotMeltData = meltDataset.data;
+    expect(lotMeltData.every((value) => value > 0)).toBe(true);
+    expect(retailDataset.data).toContain(63);
+    expect(retailDataset.data.at(-1)).toBe(60);
+
+    await page.locator(".view-valuation-unit-toggle [data-unit-mode='each']").click();
+    await page.waitForFunction(() => {
+      const chart = Chart.getChart(document.getElementById("viewPriceHistoryChart"));
+      const purchaseDataset = chart.data.datasets.find(
+        (dataset) => dataset.label === "Purchase Price"
+      );
+      return purchaseDataset?.data?.every((value) => Number(value) === 10);
+    });
+    await expect(page.locator(".view-valuation-unit-toggle [data-unit-mode='each']")).toHaveClass(
+      /active/
+    );
+    await expect(page.locator(".view-valuation-section")).toContainText("$10.00 each");
+    await expect(page.locator(".view-valuation-section")).toContainText("$20.00");
+    await expect(page.locator(".view-chart-range-pill.active")).toHaveText("7d");
+
+    snapshot = await chartSnapshot(page);
+    purchaseDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Purchase Price"
+    );
+    meltDataset = snapshot.visibleDatasets.find((dataset) => dataset.label === "Melt Value");
+    retailDataset = snapshot.visibleDatasets.find((dataset) => dataset.label === "Retail Value");
+    expect(new Set(purchaseDataset.data)).toEqual(new Set([10]));
+    meltDataset.data.forEach((value, index) => {
+      expect(value).toBeCloseTo(lotMeltData[index] / 3, 2);
+    });
+    expect(retailDataset.data).toContain(21);
+    expect(retailDataset.data.at(-1)).toBe(20);
+    expectVisibleDatasetsWithinScale(snapshot);
+
+    await page.locator(".view-valuation-unit-toggle [data-unit-mode='lot']").click();
+    await page.waitForFunction(() => {
+      const chart = Chart.getChart(document.getElementById("viewPriceHistoryChart"));
+      const purchaseDataset = chart.data.datasets.find(
+        (dataset) => dataset.label === "Purchase Price"
+      );
+      return purchaseDataset?.data?.every((value) => Number(value) === 30);
+    });
+    snapshot = await chartSnapshot(page);
+    purchaseDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Purchase Price"
+    );
+    retailDataset = snapshot.visibleDatasets.find((dataset) => dataset.label === "Retail Value");
+    expect(new Set(purchaseDataset.data)).toEqual(new Set([30]));
+    expect(retailDataset.data.at(-1)).toBe(60);
+    await expect(page.locator(".view-chart-range-pill.active")).toHaveText("7d");
+  });
+
+  test("STRK-68: single-quantity items keep the chart unchanged and hide unit toggle", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      inventory: [{ ...BASE_ITEM, qty: 1, price: 10, marketValue: 20, purity: 1 }],
+      spotHistory: makeSpotHistory(40, 15),
+      retailHistory: {},
+    });
+    await gotoApp(page);
+    await openViewModal(page);
+
+    await expect(page.locator(".view-valuation-unit-toggle")).toHaveCount(0);
+    await clickRange(page, "7d");
+    const snapshot = await chartSnapshot(page);
+    const purchaseDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Purchase Price"
+    );
+    const meltDataset = snapshot.visibleDatasets.find((dataset) => dataset.label === "Melt Value");
+    const retailDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Retail Value"
+    );
+
+    expect(new Set(purchaseDataset.data)).toEqual(new Set([10]));
+    expect(meltDataset.data.every((value) => value > 0)).toBe(true);
+    expect(retailDataset.data.at(-1)).toBe(20);
   });
 
   test("AC-4/AC-5: wide ranges keep purchase, melt, and retail lines inside y-axis bounds", async ({

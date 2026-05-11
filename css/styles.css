@@ -6323,6 +6323,24 @@ td input:checked + .slider:before {
   background: var(--bg-secondary);
 }
 
+.view-valuation-unit-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: var(--spacing-xs);
+}
+
+.view-valuation-unit-toggle .chip-sort-btn {
+  padding: 0.1rem 0.5rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
 /* --- Chart range pills --- */
 .view-chart-range-bar {
   display: flex;
