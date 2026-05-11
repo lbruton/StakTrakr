@@ -121,7 +121,38 @@ const loadGoldbackPriceHistory = () => {
   }
 };
 
-const getGoldbackHistoryDay = (ts) => new Date(ts).toISOString().slice(0, 10);
+const GOLDBACK_HISTORY_DAY_MS = 24 * 60 * 60 * 1000;
+
+const getGoldbackHistoryDay = (ts) => {
+  const date = new Date(ts);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+};
+
+const getGoldbackHistoryDayIndexFromDay = (day) => {
+  if (typeof day !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+
+  const ts = new Date(`${day}T00:00:00Z`).getTime();
+  if (Number.isNaN(ts) || getGoldbackHistoryDay(ts) !== day) return null;
+
+  return ts / GOLDBACK_HISTORY_DAY_MS;
+};
+
+const getGoldbackHistoryDayIndex = (dateLike) => {
+  const day =
+    typeof dateLike === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateLike)
+      ? dateLike.slice(0, 10)
+      : getGoldbackHistoryDay(dateLike);
+  return getGoldbackHistoryDayIndexFromDay(day);
+};
+
+const sortGoldbackHistoryEntries = (key) => {
+  const entries = goldbackPriceHistory[key];
+  if (Array.isArray(entries)) entries.sort((a, b) => a.ts - b.ts);
+};
+
+const sortGoldbackHistoryKeys = (keys) => {
+  keys.forEach((key) => sortGoldbackHistoryEntries(key));
+};
 
 const getGoldbackHistoryPrice = (weightGb, dateLike) => {
   const key = String(parseFloat(weightGb) || 0);
@@ -144,22 +175,25 @@ const getGoldbackHistoryPrice = (weightGb, dateLike) => {
 const searchGoldbackHistoryByDate = (weightGb, dateStr) => {
   const key = String(parseFloat(weightGb) || 0);
   const entries = Array.isArray(goldbackPriceHistory[key]) ? goldbackPriceHistory[key] : [];
-  const targetDate = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(targetDate.getTime())) return [];
+  const targetDayIndex = getGoldbackHistoryDayIndex(dateStr);
+  if (targetDayIndex === null) return [];
 
   const withOffset = entries
     .filter((entry) => entry && typeof entry.price === "number" && entry.price > 0 && entry.ts)
     .map((entry) => {
       const entryDate = new Date(entry.ts);
-      const diffMs = entryDate.getTime() - targetDate.getTime();
+      const entryDayIndex = getGoldbackHistoryDayIndex(entry.ts);
+      if (entryDayIndex === null) return null;
+
       return {
         timestamp: entryDate.toISOString(),
         price: entry.price,
         source: entry.source || "goldback",
         provider: entry.provider || "Goldback",
-        dayOffset: Math.round(diffMs / (1000 * 60 * 60 * 24)),
+        dayOffset: entryDayIndex - targetDayIndex,
       };
-    });
+    })
+    .filter(Boolean);
 
   const windows = [0, 1, 3, 7];
   let results = [];
@@ -182,7 +216,7 @@ const searchGoldbackHistoryByDate = (weightGb, dateStr) => {
   return [...byDay.values()];
 };
 
-const upsertGoldbackHistoryEntry = (key, entry) => {
+const upsertGoldbackHistoryEntry = (key, entry, options = {}) => {
   if (!entry || typeof entry.price !== "number" || entry.price <= 0 || !entry.ts) return false;
 
   if (!goldbackPriceHistory[key]) {
@@ -196,12 +230,13 @@ const upsertGoldbackHistoryEntry = (key, entry) => {
   if (existingIdx >= 0) {
     const existing = arr[existingIdx];
     if (existing.price === entry.price && existing.source === entry.source) return false;
+    if (existing.source === "manual" && entry.source !== "manual") return false;
     arr[existingIdx] = { ...existing, ...entry };
   } else {
     arr.push(entry);
   }
 
-  arr.sort((a, b) => a.ts - b.ts);
+  if (options.sort !== false) sortGoldbackHistoryEntries(key);
   return true;
 };
 
@@ -233,17 +268,28 @@ const saveGoldbackEnabled = (val) => {
 const recordGoldbackPrices = () => {
   const now = Date.now();
   let changed = false;
+  const changedKeys = new Set();
 
   for (const key of Object.keys(goldbackPrices)) {
     const entry = goldbackPrices[key];
     if (!entry || typeof entry.price !== "number" || entry.price <= 0) continue;
 
-    changed =
-      upsertGoldbackHistoryEntry(key, { ts: now, price: entry.price, source: entry.source }) ||
-      changed;
+    const source = entry.source || (goldbackPricingSource === "manual" ? "manual" : undefined);
+    const didChange = upsertGoldbackHistoryEntry(
+      key,
+      { ts: now, price: entry.price, source },
+      { sort: false }
+    );
+    if (didChange) {
+      changed = true;
+      changedKeys.add(key);
+    }
   }
 
-  if (changed) saveGoldbackPriceHistory();
+  if (changed) {
+    sortGoldbackHistoryKeys(changedKeys);
+    saveGoldbackPriceHistory();
+  }
 };
 
 /**
@@ -447,6 +493,7 @@ const fetchGoldbackApiHistory = async (baseEndpoint) => {
     const envelope = await res.json();
     const rows = Array.isArray(envelope?.data) ? envelope.data : [];
     let changed = false;
+    const changedKeys = new Set();
 
     for (const row of rows) {
       const g1 =
@@ -470,11 +517,22 @@ const fetchGoldbackApiHistory = async (baseEndpoint) => {
       for (const d of GOLDBACK_DENOMINATIONS) {
         const key = String(d.weight);
         const price = Math.round(g1 * d.weight * 100) / 100;
-        changed = upsertGoldbackHistoryEntry(key, { ts, price, source: "api" }) || changed;
+        const didChange = upsertGoldbackHistoryEntry(
+          key,
+          { ts, price, source: "api" },
+          { sort: false }
+        );
+        if (didChange) {
+          changed = true;
+          changedKeys.add(key);
+        }
       }
     }
 
-    if (changed) saveGoldbackPriceHistory();
+    if (changed) {
+      sortGoldbackHistoryKeys(changedKeys);
+      saveGoldbackPriceHistory();
+    }
     return changed;
   } catch (error) {
     clearTimeout(tid);

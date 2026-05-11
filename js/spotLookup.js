@@ -13,6 +13,20 @@ const METAL_SYMBOLS = {
 
 let _spotLookupTargetField = "purchase";
 
+const _spotLookupModalRefs = {
+  title: null,
+  body: null,
+};
+
+const getSpotLookupModalRef = (key, id) => {
+  const cached = _spotLookupModalRefs[key];
+  if (cached?.isConnected) return cached;
+
+  const element = typeof safeGetElement === "function" ? safeGetElement(id) : null;
+  _spotLookupModalRefs[key] = element?.nodeType === 1 ? element : null;
+  return _spotLookupModalRefs[key];
+};
+
 const isGoldbackRetailLookup = () => {
   return _spotLookupTargetField === "retail" && elements.itemWeightUnit?.value === "gb";
 };
@@ -412,12 +426,12 @@ const openSpotLookupModal = async (targetField = "purchase") => {
           : [];
     }
 
-    const titleEl = document.getElementById("spotLookupTitle");
+    const titleEl = getSpotLookupModalRef("title", "spotLookupTitle");
     if (titleEl) {
       titleEl.textContent = `Goldback Lookup — ${denom} Goldback on ${dateVal}`;
     }
 
-    const bodyEl = document.getElementById("spotLookupBody");
+    const bodyEl = getSpotLookupModalRef("body", "spotLookupBody");
     if (!bodyEl) return;
 
     if (goldbackResults.length > 0) {
@@ -450,13 +464,13 @@ const openSpotLookupModal = async (targetField = "purchase") => {
   }
 
   // Update modal title
-  const titleEl = document.getElementById("spotLookupTitle");
+  const titleEl = getSpotLookupModalRef("title", "spotLookupTitle");
   if (titleEl) {
     titleEl.textContent = `Spot Lookup — ${metalName} on ${dateVal}`;
   }
 
   // Render results into modal body
-  const bodyEl = document.getElementById("spotLookupBody");
+  const bodyEl = getSpotLookupModalRef("body", "spotLookupBody");
   if (!bodyEl) return;
 
   if (results.length > 0) {

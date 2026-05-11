@@ -562,7 +562,9 @@ function _buildValuationSection(item, metrics) {
 function _getChartCurrentRetail(item, metrics) {
   if (typeof computeItemValuation === "function") {
     const computed = computeItemValuation(item, metrics.currentSpot);
-    if (computed.gbDenomPrice || computed.isManualRetail) return computed.retailTotal;
+    if (computed && (computed.gbDenomPrice || computed.isManualRetail)) {
+      return computed.retailTotal;
+    }
     return 0;
   }
 

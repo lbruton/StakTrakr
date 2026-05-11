@@ -46,7 +46,12 @@ const getBreakdownData = (metal) => {
     const purchaseTotal = valuation ? valuation.purchaseTotal : qty * purchasePrice;
     const purity = parseFloat(item.purity) || 1.0;
     const meltValue = valuation ? valuation.meltValue : itemWeight * currentSpot * purity;
-    const retailTotal = valuation ? valuation.retailTotal : meltValue;
+    const manualMarket = parseFloat(item.marketValue) || 0;
+    const retailTotal = valuation
+      ? valuation.retailTotal
+      : manualMarket > 0
+        ? qty * manualMarket
+        : meltValue;
     const gainLoss = valuation?.gainLoss ?? retailTotal - purchaseTotal;
 
     // Type breakdown
@@ -108,7 +113,12 @@ const getAllMetalsBreakdownData = () => {
       typeof computeItemValuation === "function" ? computeItemValuation(item, currentSpot) : null;
     const purity = parseFloat(item.purity) || 1.0;
     const meltValue = valuation ? valuation.meltValue : itemWeight * currentSpot * purity;
-    const retailTotal = valuation ? valuation.retailTotal : meltValue;
+    const manualMarket = parseFloat(item.marketValue) || 0;
+    const retailTotal = valuation
+      ? valuation.retailTotal
+      : manualMarket > 0
+        ? qty * manualMarket
+        : meltValue;
     const gainLoss = valuation?.gainLoss ?? retailTotal - purchaseTotal;
 
     // Metal breakdown

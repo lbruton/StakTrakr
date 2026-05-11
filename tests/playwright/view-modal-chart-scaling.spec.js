@@ -379,7 +379,7 @@ async function installYearFileStub(page) {
   }, yearData);
 }
 
-test.describe("view-modal-chart-scaling — STRK-42", () => {
+test.describe("view-modal-chart-scaling — STRK-42 / STRK-69", () => {
   test("STRK-69: Goldback modal uses denomination retail history when market value is empty", async ({
     page,
   }) => {
