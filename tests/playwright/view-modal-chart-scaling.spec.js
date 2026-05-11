@@ -473,6 +473,32 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     expect(fetchedYears).toEqual([2024]);
   });
 
+  test("regression: quantity items chart purchase, melt, and retail as totals", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      inventory: [{ ...BASE_ITEM, qty: 3, price: 10, marketValue: 20, purity: 1 }],
+      spotHistory: makeSpotHistory(40, 15),
+      retailHistory: {},
+    });
+    await gotoApp(page);
+    await openViewModal(page);
+
+    await clickRange(page, "7d");
+    const snapshot = await chartSnapshot(page);
+    const purchaseDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Purchase Price"
+    );
+    const meltDataset = snapshot.visibleDatasets.find((dataset) => dataset.label === "Melt Value");
+    const retailDataset = snapshot.visibleDatasets.find(
+      (dataset) => dataset.label === "Retail Value"
+    );
+
+    expect(new Set(purchaseDataset.data)).toEqual(new Set([30]));
+    expect(meltDataset.data.every((value) => value > 0)).toBe(true);
+    expect(retailDataset.data.at(-1)).toBe(60);
+  });
+
   test("AC-4/AC-5: wide ranges keep purchase, melt, and retail lines inside y-axis bounds", async ({
     page,
   }) => {

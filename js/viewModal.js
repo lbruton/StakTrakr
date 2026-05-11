@@ -605,9 +605,9 @@ function _getPriceHistoryContext(item, metrics) {
     meltFactor,
     dailySpotEntries,
     retailEntries,
-    purchasePerUnit: parseFloat(item.price) || 0,
+    purchasePerUnit: (parseFloat(item.price) || 0) * metrics.qty,
     purchaseDate: item.date ? new Date(item.date).getTime() : 0,
-    currentRetail: parseFloat(item.marketValue) || 0,
+    currentRetail: (parseFloat(item.marketValue) || 0) * metrics.qty,
   };
 }
 
@@ -1645,11 +1645,11 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
  * @param {HTMLCanvasElement} canvas
  * @param {Array<{ts:number, spot:number}>} allSpotEntries - Daily spot prices for this metal
  * @param {Array<{ts:number, retail:number}>} allRetailEntries - Sparse retail value snapshots
- * @param {number} purchasePerUnit - Original purchase price per unit
+ * @param {number} purchasePerUnit - Original total purchase price for the viewed item quantity
  * @param {number} meltFactor - weightOz * qty * purity (melt = spot * meltFactor)
  * @param {number} [days=0] - Number of days to show (0 = all)
  * @param {number} [purchaseDate=0] - Purchase date timestamp (anchor start for retail line)
- * @param {number} [currentRetail=0] - Current market/retail value (anchor end for retail line)
+ * @param {number} [currentRetail=0] - Current total market/retail value (anchor end for retail line)
  * @param {number} [fromTs=0] - Custom range start timestamp (0 = unbounded)
  * @param {number} [toTs=0] - Custom range end timestamp (0 = unbounded)
  */
