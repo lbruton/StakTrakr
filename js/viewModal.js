@@ -1605,7 +1605,7 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
     startYear = 1968;
   }
 
-  const endYear = new Date().getFullYear();
+  const endYear = Math.max(startYear, new Date(toTs > 0 ? toTs : Date.now()).getFullYear());
   const years = [];
   for (let y = startYear; y <= endYear; y++) years.push(y);
 
@@ -1895,8 +1895,7 @@ function _createPriceHistoryChart(
         font: { size: 10 },
       },
       onClick: function (event, legendItem, legend) {
-        const defaultLegendClick = Chart.defaults.plugins.legend.onClick;
-        defaultLegendClick.call(this, event, legendItem, legend);
+        Chart.defaults.plugins.legend.onClick?.call(this, event, legendItem, legend);
         _applyPriceHistoryYAxisBounds(legend.chart);
         legend.chart.update();
       },
