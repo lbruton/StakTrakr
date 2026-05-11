@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import seedInventory from "../fixtures/seed-inventory.js";
 
 const FIXED_NOW_ISO = "2026-05-10T12:00:00.000Z";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -121,6 +122,39 @@ async function seedData(page, options = {}) {
       itemHistory: retailHistory,
       fixedNowIso: FIXED_NOW_ISO,
     }
+  );
+}
+
+async function seedSampleInventory(page) {
+  await page.addInitScript(
+    ({ inventory, fixedNowIso }) => {
+      const RealDate = Date;
+      const fixedNow = new RealDate(fixedNowIso).getTime();
+
+      class MockDate extends RealDate {
+        constructor(...args) {
+          super(...(args.length ? args : [fixedNow]));
+        }
+
+        static now() {
+          return fixedNow;
+        }
+      }
+
+      MockDate.UTC = RealDate.UTC;
+      MockDate.parse = RealDate.parse;
+      window.Date = MockDate;
+
+      localStorage.setItem("metalInventory", JSON.stringify(inventory));
+      localStorage.setItem("seedInventoryLoaded", "true");
+      localStorage.setItem("itemTags", JSON.stringify({}));
+      localStorage.setItem("cardViewStyle", "D");
+      localStorage.setItem("displayCurrency", JSON.stringify("USD"));
+      localStorage.setItem("exchangeRates", JSON.stringify({ EUR: 0.9 }));
+      localStorage.setItem("defaultSortColumn", "4");
+      localStorage.setItem("defaultSortDir", "asc");
+    },
+    { inventory: seedInventory.metalInventory, fixedNowIso: FIXED_NOW_ISO }
   );
 }
 
@@ -270,6 +304,42 @@ async function horizontalRedLineProbe(page) {
     }
 
     return { clusters, rowsChecked: Math.ceil(bottom) - Math.floor(top) + 1 };
+  });
+}
+
+async function greenMeltCoverageProbe(page) {
+  return page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const canvas = document.getElementById("viewPriceHistoryChart");
+    const chart = Chart.getChart(canvas);
+    const ctx = canvas.getContext("2d");
+    const { left, right, top, bottom } = chart.chartArea;
+    const scaleX = canvas.width / canvas.clientWidth;
+    const scaleY = canvas.height / canvas.clientHeight;
+    const width = right - left;
+    const bands = [
+      { name: "left", from: left, to: left + width * 0.25 },
+      { name: "middle", from: left + width * 0.375, to: left + width * 0.625 },
+      { name: "right", from: right - width * 0.25, to: right },
+    ];
+
+    return bands.map((band) => {
+      let greenPixels = 0;
+      for (let x = Math.floor(band.from); x <= Math.ceil(band.to); x += 4) {
+        for (let y = Math.floor(top); y <= Math.ceil(bottom); y += 4) {
+          const [red, green, blue, alpha] = ctx.getImageData(
+            Math.round(x * scaleX),
+            Math.round(y * scaleY),
+            1,
+            1
+          ).data;
+          if (alpha > 20 && green > red + 15 && green > blue + 15) {
+            greenPixels += 1;
+          }
+        }
+      }
+      return { name: band.name, greenPixels };
+    });
   });
 }
 
@@ -463,14 +533,49 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     expect(purchaseDataset.visible).toBe(true);
     expect(purchaseDataset.fill).toBe(false);
     expect(purchaseDataset.backgroundColor).toBe("transparent");
-    expect(purchaseDataset.order).toBeGreaterThan(meltDataset.order);
-    expect(retailDataset.fill).toBe("origin");
-    expect(retailDataset.backgroundColor).not.toBe(retailDataset.borderColor);
+    expect(purchaseDataset.order).toBeLessThan(meltDataset.order);
+    expect(retailDataset.fill).toBe(false);
+    expect(retailDataset.backgroundColor).toBe("transparent");
     expect(pixelProbe.redPixelCount).toBeGreaterThan(0);
     expect(redLineProbe.clusters).toHaveLength(1);
     expect(snapshot.yMin).toBeGreaterThan(3000);
     expect(snapshot.yMin).toBeLessThan(3380);
     expect(snapshot.yMax).toBeGreaterThan(4694);
     expectVisibleDatasetsWithinScale(snapshot);
+  });
+
+  test("regression: seeded Gold Maple 10Y renders one purchase line and full melt history", async ({
+    page,
+  }) => {
+    await seedSampleInventory(page);
+    await gotoApp(page);
+
+    const goldIndex = await page.evaluate(() =>
+      window.inventory.findIndex(
+        (item) => item.name === "SAMPLE - 1 oz Canadian Gold Maple" && String(item.year) === "2023"
+      )
+    );
+    expect(goldIndex).toBeGreaterThanOrEqual(0);
+
+    await openViewModal(page, goldIndex);
+    await clickRange(page, "10Y");
+
+    const snapshot = await chartSnapshot(page);
+    const purchaseDataset = snapshot.datasets.find((dataset) => dataset.label === "Purchase Price");
+    const meltDataset = snapshot.visibleDatasets.find((dataset) => dataset.label === "Melt Value");
+    const retailDataset = snapshot.datasets.find((dataset) => dataset.label === "Retail Value");
+    const redLineProbe = await horizontalRedLineProbe(page);
+    const greenCoverage = await greenMeltCoverageProbe(page);
+
+    expect(snapshot.labels.length).toBeGreaterThan(2000);
+    expect(meltDataset.data.length).toBe(snapshot.labels.length);
+    expect(Math.min(...meltDataset.data)).toBeGreaterThanOrEqual(snapshot.yMin);
+    expect(Math.max(...meltDataset.data)).toBeLessThanOrEqual(snapshot.yMax);
+    expect(retailDataset.visible).toBe(false);
+    expect(purchaseDataset.fill).toBe(false);
+    expect(redLineProbe.clusters).toHaveLength(1);
+    for (const band of greenCoverage) {
+      expect(band.greenPixels).toBeGreaterThan(0);
+    }
   });
 });

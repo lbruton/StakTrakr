@@ -10,7 +10,6 @@ let _viewModalObjectUrls = [];
 
 /** @type {Chart|null} Price history chart instance — destroyed on modal close */
 let _viewModalChartInstance = null;
-let _priceHistoryPurchaseLineOverlayRegistered = false;
 
 /** @type {number[]} Available chart range options (0 = all, -1 = from purchase date) */
 const _VIEW_CHART_RANGES = [7, 14, 30, 60, 90, 180, 365, 1825, 3650, -1, 0];
@@ -1636,56 +1635,6 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
 // Price history chart (private)
 // ---------------------------------------------------------------------------
 
-function _registerPriceHistoryPurchaseLineOverlay() {
-  if (_priceHistoryPurchaseLineOverlayRegistered || typeof Chart === "undefined") return;
-  Chart.register({
-    id: "priceHistoryPurchaseLineOverlay",
-    afterDatasetsDraw(chart) {
-      if (chart.canvas?.id !== "viewPriceHistoryChart") return;
-      _drawPriceHistoryPurchaseLineOverlay(chart);
-    },
-  });
-  _priceHistoryPurchaseLineOverlayRegistered = true;
-}
-
-function _drawPriceHistoryPurchaseLineOverlay(chart) {
-  const datasetIndex = chart.data.datasets.findIndex(
-    (dataset) => dataset.label === "Purchase Price"
-  );
-  if (datasetIndex < 0 || !chart.isDatasetVisible(datasetIndex)) return;
-
-  const dataset = chart.data.datasets[datasetIndex];
-  const purchaseValue = dataset.data.find((value) => Number.isFinite(Number(value)));
-  if (!Number.isFinite(Number(purchaseValue))) return;
-
-  const yScale = chart.scales.y;
-  const chartArea = chart.chartArea;
-  if (!yScale || !chartArea) return;
-
-  const y = yScale.getPixelForValue(Number(purchaseValue));
-  if (y < chartArea.top || y > chartArea.bottom) return;
-
-  const ctx = chart.ctx;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(
-    chartArea.left,
-    chartArea.top,
-    chartArea.right - chartArea.left,
-    chartArea.bottom - chartArea.top
-  );
-  ctx.clip();
-  ctx.strokeStyle = dataset.borderColor;
-  ctx.lineWidth = dataset.borderWidth || 1.5;
-  ctx.setLineDash(dataset.borderDash || []);
-  ctx.lineDashOffset = dataset.borderDashOffset || 0;
-  ctx.beginPath();
-  ctx.moveTo(chartArea.left, y);
-  ctx.lineTo(chartArea.right, y);
-  ctx.stroke();
-  ctx.restore();
-}
-
 /**
  * Create a Chart.js line chart showing price history for the viewed item.
  * Primary: melt value derived from spotHistory (dense daily data).
@@ -1723,7 +1672,6 @@ function _createPriceHistoryChart(
     _viewModalChartInstance.destroy();
     _viewModalChartInstance = null;
   }
-  _registerPriceHistoryPurchaseLineOverlay();
 
   // Filter spot entries by time range
   fromTs = fromTs || 0;
@@ -1798,6 +1746,8 @@ function _createPriceHistoryChart(
   // Uses index-based snapping to find the nearest spot entry for each retail point,
   // since anchor dates may not have an exact-match spot entry on that calendar day.
   const retailData = new Array(spotEntries.length).fill(null);
+  const hasRetailSeries =
+    currentRetail > 0 || allRetailEntries.some((entry) => Number(entry.retail) > 0);
 
   // Helper: find the index of the spot entry nearest to a given timestamp
   const _nearestSpotIdx = (ts) => {
@@ -1817,7 +1767,7 @@ function _createPriceHistoryChart(
   // If purchase date is within the visible range, snap to that day.
   // If purchase date is before the range, pin to index 0 so the
   // retail line always starts with "what you paid" as a reference.
-  if (purchaseDate > 0) {
+  if (hasRetailSeries && purchaseDate > 0) {
     if (
       purchaseDate >= spotEntries[0].ts &&
       purchaseDate <= spotEntries[spotEntries.length - 1].ts
@@ -1843,7 +1793,7 @@ function _createPriceHistoryChart(
     retailData[spotEntries.length - 1] = currentRetail;
   }
 
-  const hasRetail = retailData.some((v) => v !== null);
+  const hasRetail = hasRetailSeries && retailData.some((v) => v !== null);
 
   const showPoints = spotEntries.length <= 30;
 
@@ -1872,7 +1822,7 @@ function _createPriceHistoryChart(
       pointRadius: 0,
       pointHoverRadius: 0,
       borderWidth: 1.5,
-      order: 3,
+      order: 0,
     },
     {
       label: "Melt Value",
@@ -1890,8 +1840,8 @@ function _createPriceHistoryChart(
       label: "Retail Value",
       data: retailData,
       borderColor: primaryColor,
-      backgroundColor: resolveColor(`color-mix(in srgb, ${primaryColor} 8%, transparent)`),
-      fill: "origin",
+      backgroundColor: "transparent",
+      fill: false,
       tension: 0.3,
       spanGaps: true,
       pointRadius: showPoints ? 3 : 0,
@@ -1903,7 +1853,7 @@ function _createPriceHistoryChart(
   ];
 
   _viewModalChartInstance = createTimeSeriesChart(canvas, labels, datasets, {
-    animation: { duration: 400 },
+    animation: false,
     showLegend: true,
     xTicks: {
       color: textColor,
