@@ -479,15 +479,21 @@ function _appendSourceField(container, sourceValue) {
 }
 
 function _buildValuationSection(item, metrics) {
+  const computed =
+    typeof computeItemValuation === "function"
+      ? computeItemValuation(item, metrics.currentSpot)
+      : null;
   const meltValue =
-    metrics.currentSpot > 0
+    computed?.meltValue ??
+    (metrics.currentSpot > 0
       ? metrics.weightOz * metrics.qty * metrics.currentSpot * metrics.purity
-      : 0;
-  const purchasePrice = parseFloat(item.price) || 0;
-  const purchaseTotal = metrics.qty * purchasePrice;
-  const marketVal = parseFloat(item.marketValue) || 0;
-  const retailTotal = marketVal > 0 ? metrics.qty * marketVal : meltValue;
-  const gainLoss = retailTotal > 0 ? retailTotal - purchaseTotal : null;
+      : 0);
+  const purchasePrice = computed?.purchasePrice ?? (parseFloat(item.price) || 0);
+  const purchaseTotal = computed?.purchaseTotal ?? metrics.qty * purchasePrice;
+  const manualMarket = parseFloat(item.marketValue) || 0;
+  const retailTotal =
+    computed?.retailTotal ?? (manualMarket > 0 ? metrics.qty * manualMarket : meltValue);
+  const gainLoss = computed?.gainLoss ?? (retailTotal > 0 ? retailTotal - purchaseTotal : null);
   const valSection = _section("Valuation");
   valSection.classList.add("view-valuation-section");
   const valGrid = _el("div", "view-detail-grid four-col");
@@ -514,6 +520,36 @@ function _buildValuationSection(item, metrics) {
   }
   valSection.appendChild(valGrid);
   return valSection;
+}
+
+function _getChartCurrentRetail(item, metrics) {
+  if (typeof computeItemValuation === "function") {
+    const computed = computeItemValuation(item, metrics.currentSpot);
+    if (computed.gbDenomPrice || computed.isManualRetail) return computed.retailTotal;
+    return 0;
+  }
+
+  const manualMarket = parseFloat(item.marketValue) || 0;
+  return manualMarket > 0 ? manualMarket * metrics.qty : 0;
+}
+
+function _getGoldbackRetailHistoryEntries(item, metrics) {
+  if (item.weightUnit !== "gb" || typeof goldbackPriceHistory === "undefined") return [];
+
+  const key = String(parseFloat(item.weight) || 0);
+  const entries = Array.isArray(goldbackPriceHistory[key]) ? goldbackPriceHistory[key] : [];
+  return entries
+    .filter((entry) => entry && typeof entry.price === "number" && entry.price > 0 && entry.ts)
+    .map((entry) => ({ ts: entry.ts, retail: parseFloat((entry.price * metrics.qty).toFixed(2)) }));
+}
+
+function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
+  const byDay = new Map();
+  for (const entry of [...itemRetailEntries, ...goldbackRetailEntries]) {
+    if (!entry || typeof entry.retail !== "number" || entry.retail <= 0 || !entry.ts) continue;
+    byDay.set(new Date(entry.ts).toISOString().slice(0, 10), entry);
+  }
+  return [...byDay.values()].sort((a, b) => a.ts - b.ts);
 }
 
 /**
@@ -600,14 +636,15 @@ function _getPriceHistoryContext(item, metrics) {
     typeof itemPriceHistory !== "undefined" && item.uuid
       ? (itemPriceHistory[item.uuid] || []).filter((e) => e.retail > 0)
       : [];
+  const goldbackRetailEntries = _getGoldbackRetailHistoryEntries(item, metrics);
   return {
     metalName,
     meltFactor,
     dailySpotEntries,
-    retailEntries,
+    retailEntries: _mergeRetailHistoryEntries(retailEntries, goldbackRetailEntries),
     purchasePerUnit: (parseFloat(item.price) || 0) * metrics.qty,
     purchaseDate: item.date ? new Date(item.date).getTime() : 0,
-    currentRetail: (parseFloat(item.marketValue) || 0) * metrics.qty,
+    currentRetail: _getChartCurrentRetail(item, metrics),
   };
 }
 

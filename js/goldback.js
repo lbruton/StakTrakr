@@ -121,6 +121,31 @@ const loadGoldbackPriceHistory = () => {
   }
 };
 
+const getGoldbackHistoryDay = (ts) => new Date(ts).toISOString().slice(0, 10);
+
+const upsertGoldbackHistoryEntry = (key, entry) => {
+  if (!entry || typeof entry.price !== "number" || entry.price <= 0 || !entry.ts) return false;
+
+  if (!goldbackPriceHistory[key]) {
+    goldbackPriceHistory[key] = [];
+  }
+
+  const arr = goldbackPriceHistory[key];
+  const day = getGoldbackHistoryDay(entry.ts);
+  const existingIdx = arr.findIndex((candidate) => getGoldbackHistoryDay(candidate.ts) === day);
+
+  if (existingIdx >= 0) {
+    const existing = arr[existingIdx];
+    if (existing.price === entry.price && existing.source === entry.source) return false;
+    arr[existingIdx] = { ...existing, ...entry };
+  } else {
+    arr.push(entry);
+  }
+
+  arr.sort((a, b) => a.ts - b.ts);
+  return true;
+};
+
 /**
  * Loads the Goldback pricing enabled toggle from localStorage.
  */
@@ -148,24 +173,18 @@ const saveGoldbackEnabled = (val) => {
  */
 const recordGoldbackPrices = () => {
   const now = Date.now();
+  let changed = false;
 
   for (const key of Object.keys(goldbackPrices)) {
     const entry = goldbackPrices[key];
     if (!entry || typeof entry.price !== "number" || entry.price <= 0) continue;
 
-    if (!goldbackPriceHistory[key]) {
-      goldbackPriceHistory[key] = [];
-    }
-
-    // Skip exact duplicate of last entry
-    const arr = goldbackPriceHistory[key];
-    const last = arr.length > 0 ? arr[arr.length - 1] : null;
-    if (last && last.price === entry.price) continue;
-
-    arr.push({ ts: now, price: entry.price });
+    changed =
+      upsertGoldbackHistoryEntry(key, { ts: now, price: entry.price, source: entry.source }) ||
+      changed;
   }
 
-  saveGoldbackPriceHistory();
+  if (changed) saveGoldbackPriceHistory();
 };
 
 /**
@@ -302,6 +321,7 @@ const fetchGoldbackApiPrices = async (options = {}) => {
 
   let envelope;
   let lastErr;
+  let usedEndpoint;
   for (const ep of v2Endpoints) {
     const url = `${ep}/goldback/latest.json`;
     const ctrl = new AbortController();
@@ -311,6 +331,7 @@ const fetchGoldbackApiPrices = async (options = {}) => {
       clearTimeout(tid);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       envelope = await res.json();
+      usedEndpoint = ep;
       break;
     } catch (err) {
       clearTimeout(tid);
@@ -344,10 +365,63 @@ const fetchGoldbackApiPrices = async (options = {}) => {
   }
 
   if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
+  if (usedEndpoint) await fetchGoldbackApiHistory(usedEndpoint);
   if (typeof recordGoldbackPrices === "function") recordGoldbackPrices();
   if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
 
   return { ok: true, g1_usd: g1 };
+};
+
+const fetchGoldbackApiHistory = async (baseEndpoint) => {
+  if (!baseEndpoint || typeof GOLDBACK_DENOMINATIONS === "undefined") return false;
+
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const res = await fetch(`${baseEndpoint}/goldback/history-30d.json`, {
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+    clearTimeout(tid);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const envelope = await res.json();
+    const rows = Array.isArray(envelope?.data) ? envelope.data : [];
+    let changed = false;
+
+    for (const row of rows) {
+      const g1 =
+        typeof row.close === "number"
+          ? row.close
+          : typeof row.avg === "number"
+            ? row.avg
+            : typeof row.g1_usd === "number"
+              ? row.g1_usd
+              : null;
+      if (!g1 || g1 <= 0) continue;
+
+      const ts =
+        typeof row.t === "string"
+          ? new Date(row.t).getTime()
+          : typeof row.ts === "number"
+            ? row.ts * (row.ts < 1000000000000 ? 1000 : 1)
+            : 0;
+      if (!ts || Number.isNaN(ts)) continue;
+
+      for (const d of GOLDBACK_DENOMINATIONS) {
+        const key = String(d.weight);
+        const price = Math.round(g1 * d.weight * 100) / 100;
+        changed = upsertGoldbackHistoryEntry(key, { ts, price, source: "api" }) || changed;
+      }
+    }
+
+    if (changed) saveGoldbackPriceHistory();
+    return changed;
+  } catch (error) {
+    clearTimeout(tid);
+    console.warn("Goldback API history fetch failed:", error);
+    return false;
+  }
 };
 
 /**
