@@ -174,6 +174,8 @@ async function chartSnapshot(page) {
       labels: chart.data.labels,
       datasets: chart.data.datasets.map((dataset, index) => ({
         label: dataset.label,
+        borderColor: dataset.borderColor,
+        backgroundColor: dataset.backgroundColor,
         fill: dataset.fill,
         order: dataset.order,
         hidden: dataset.hidden === true,
@@ -191,6 +193,42 @@ function expectVisibleDatasetsWithinScale(snapshot) {
       expect(value).toBeLessThanOrEqual(snapshot.yMax);
     }
   }
+}
+
+async function purchaseLinePixelProbe(page) {
+  return page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const canvas = document.getElementById("viewPriceHistoryChart");
+    const chart = Chart.getChart(canvas);
+    const purchaseDataset = chart.data.datasets.find(
+      (dataset) => dataset.label === "Purchase Price"
+    );
+    const purchaseValue = purchaseDataset.data.find((value) => Number.isFinite(Number(value)));
+    const y = chart.scales.y.getPixelForValue(Number(purchaseValue));
+    const ctx = canvas.getContext("2d");
+    const { left, right } = chart.chartArea;
+    const scaleX = canvas.width / canvas.clientWidth;
+    const scaleY = canvas.height / canvas.clientHeight;
+    let redPixelCount = 0;
+    let samplesChecked = 0;
+
+    for (let x = Math.floor(left); x <= Math.ceil(right); x += 2) {
+      for (let dy = -2; dy <= 2; dy += 1) {
+        const [red, green, blue, alpha] = ctx.getImageData(
+          Math.round(x * scaleX),
+          Math.round((y + dy) * scaleY),
+          1,
+          1
+        ).data;
+        samplesChecked += 1;
+        if (alpha > 30 && red > green + 30 && red > blue + 30) {
+          redPixelCount += 1;
+        }
+      }
+    }
+
+    return { y, redPixelCount, samplesChecked };
+  });
 }
 
 async function installYearFileStub(page) {
@@ -349,7 +387,7 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     }
   });
 
-  test("regression: initial render keeps purchase line above melt fill and avoids zero baseline", async ({
+  test("regression: initial render preserves reference-line styling and avoids zero baseline", async ({
     page,
   }) => {
     await seedData(page, {
@@ -374,10 +412,16 @@ test.describe("view-modal-chart-scaling — STRK-42", () => {
     const snapshot = await chartSnapshot(page);
     const purchaseDataset = snapshot.datasets.find((dataset) => dataset.label === "Purchase Price");
     const meltDataset = snapshot.datasets.find((dataset) => dataset.label === "Melt Value");
+    const retailDataset = snapshot.datasets.find((dataset) => dataset.label === "Retail Value");
+    const pixelProbe = await purchaseLinePixelProbe(page);
 
     expect(purchaseDataset.visible).toBe(true);
-    expect(purchaseDataset.fill).toBe(false);
-    expect(purchaseDataset.order).toBeLessThan(meltDataset.order);
+    expect(purchaseDataset.fill).toBe("origin");
+    expect(purchaseDataset.backgroundColor).not.toBe(purchaseDataset.borderColor);
+    expect(purchaseDataset.order).toBeGreaterThan(meltDataset.order);
+    expect(retailDataset.fill).toBe("origin");
+    expect(retailDataset.backgroundColor).not.toBe(retailDataset.borderColor);
+    expect(pixelProbe.redPixelCount).toBeGreaterThan(0);
     expect(snapshot.yMin).toBeGreaterThan(3000);
     expect(snapshot.yMin).toBeLessThan(3380);
     expect(snapshot.yMax).toBeGreaterThan(4694);

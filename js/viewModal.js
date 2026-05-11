@@ -10,6 +10,7 @@ let _viewModalObjectUrls = [];
 
 /** @type {Chart|null} Price history chart instance — destroyed on modal close */
 let _viewModalChartInstance = null;
+let _priceHistoryPurchaseLineOverlayRegistered = false;
 
 /** @type {number[]} Available chart range options (0 = all, -1 = from purchase date) */
 const _VIEW_CHART_RANGES = [7, 14, 30, 60, 90, 180, 365, 1825, 3650, -1, 0];
@@ -1635,6 +1636,56 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
 // Price history chart (private)
 // ---------------------------------------------------------------------------
 
+function _registerPriceHistoryPurchaseLineOverlay() {
+  if (_priceHistoryPurchaseLineOverlayRegistered || typeof Chart === "undefined") return;
+  Chart.register({
+    id: "priceHistoryPurchaseLineOverlay",
+    afterDatasetsDraw(chart) {
+      if (chart.canvas?.id !== "viewPriceHistoryChart") return;
+      _drawPriceHistoryPurchaseLineOverlay(chart);
+    },
+  });
+  _priceHistoryPurchaseLineOverlayRegistered = true;
+}
+
+function _drawPriceHistoryPurchaseLineOverlay(chart) {
+  const datasetIndex = chart.data.datasets.findIndex(
+    (dataset) => dataset.label === "Purchase Price"
+  );
+  if (datasetIndex < 0 || !chart.isDatasetVisible(datasetIndex)) return;
+
+  const dataset = chart.data.datasets[datasetIndex];
+  const purchaseValue = dataset.data.find((value) => Number.isFinite(Number(value)));
+  if (!Number.isFinite(Number(purchaseValue))) return;
+
+  const yScale = chart.scales.y;
+  const chartArea = chart.chartArea;
+  if (!yScale || !chartArea) return;
+
+  const y = yScale.getPixelForValue(Number(purchaseValue));
+  if (y < chartArea.top || y > chartArea.bottom) return;
+
+  const ctx = chart.ctx;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    chartArea.left,
+    chartArea.top,
+    chartArea.right - chartArea.left,
+    chartArea.bottom - chartArea.top
+  );
+  ctx.clip();
+  ctx.strokeStyle = dataset.borderColor;
+  ctx.lineWidth = dataset.borderWidth || 1.5;
+  ctx.setLineDash(dataset.borderDash || []);
+  ctx.lineDashOffset = dataset.borderDashOffset || 0;
+  ctx.beginPath();
+  ctx.moveTo(chartArea.left, y);
+  ctx.lineTo(chartArea.right, y);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /**
  * Create a Chart.js line chart showing price history for the viewed item.
  * Primary: melt value derived from spotHistory (dense daily data).
@@ -1672,6 +1723,7 @@ function _createPriceHistoryChart(
     _viewModalChartInstance.destroy();
     _viewModalChartInstance = null;
   }
+  _registerPriceHistoryPurchaseLineOverlay();
 
   // Filter spot entries by time range
   fromTs = fromTs || 0;
@@ -1813,14 +1865,14 @@ function _createPriceHistoryChart(
       label: "Purchase Price",
       data: purchaseLine,
       borderColor: dangerColor,
-      backgroundColor: dangerColor,
-      fill: false,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${dangerColor} 6%, transparent)`),
+      fill: "origin",
       borderDash: [6, 3],
       tension: 0,
       pointRadius: 0,
       pointHoverRadius: 0,
       borderWidth: 1.5,
-      order: 0,
+      order: 3,
     },
     {
       label: "Melt Value",
@@ -1838,8 +1890,8 @@ function _createPriceHistoryChart(
       label: "Retail Value",
       data: retailData,
       borderColor: primaryColor,
-      backgroundColor: primaryColor,
-      fill: false,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${primaryColor} 8%, transparent)`),
+      fill: "origin",
       tension: 0.3,
       spanGaps: true,
       pointRadius: showPoints ? 3 : 0,
