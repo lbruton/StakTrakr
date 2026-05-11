@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.58 &ndash; STRK-42: Chart viewport scaling</strong>: Item detail charts now fit the y-axis to visible purchase, melt, and retail lines with padding, fetch only needed bounded-range history, and keep sparse 1Y ranges anchored at the viewport start (STRK-42).</li>
     <li><strong>v3.34.57 &ndash; STRK-67: Per-side image frame override</strong>: Add Auto/Circle/Rectangle frame controls for obverse and reverse images so rectangular slabs, bars, notes, and similar media can be corrected while default shape detection stays automatic (STRK-67).</li>
     <li><strong>v3.34.56 &ndash; STRK-65: Attachment review follow-ups</strong>: Hardens per-item attachments after PR review &mdash; queue entries removable independently, object URL lifecycle fixed, cloud-sync pull helper extracted (fixes repeat downloads), size guard before vault serialization, DiffEngine duplicate-filename safety, split items keep attachments on both records, storage diagnostics clarified (STRK-65).</li>
     <li><strong>v3.34.55 &ndash; STRK-45: Per-item PDF/image attachments</strong>: Attach receipts, COAs, and dealer invoices directly to inventory items (PDF, PNG, JPG) from the Edit modal drag-drop zone. Attachments are persisted in IndexedDB, shown as a count badge on card, table, and detail views, included in zip/stvault backups and CSV exports, and synced via cloud sync with an opt-out toggle in Settings (STRK-45).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.53 &ndash; STRK-46: Structured Capsule field + capsule notes</strong>: Inventory items now have dedicated Capsule and Capsule Notes fields with Air-Tite-style suggestions, autocomplete, search/filter support, view-modal display, and JSON backup round-trip preservation (STRK-46).</li>
     <li><strong>v3.34.52 &ndash; STRK-54: Lost disposition realized loss</strong>: Partial-stack Lost dispositions now record the disposed units&rsquo; full cost basis as realized loss, keeping item-level and portfolio realized G/L totals aligned with full-stack lost items (STRK-54).</li>
     <li><strong>v3.34.51 &ndash; STRK-56: Service worker cache recovery</strong>: StakTrakr now falls back to cached app files when an asset refresh fails and offers Reset App recovery when stale service-worker state persists (STRK-56).</li>
-    <li><strong>v3.34.50 &ndash; STRK-55: View modal respects per-item Numista edits</strong>: The item detail modal now shows your saved Numista customizations instead of only the shared catalog snapshot. Obverse and reverse descriptions are visible text rows in Catalog Data, and duplicate tags were removed from that section (STRK-55).</li>
   `;
 };
 

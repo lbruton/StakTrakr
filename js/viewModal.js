@@ -605,9 +605,9 @@ function _getPriceHistoryContext(item, metrics) {
     meltFactor,
     dailySpotEntries,
     retailEntries,
-    purchasePerUnit: parseFloat(item.price) || 0,
+    purchasePerUnit: (parseFloat(item.price) || 0) * metrics.qty,
     purchaseDate: item.date ? new Date(item.date).getTime() : 0,
-    currentRetail: parseFloat(item.marketValue) || 0,
+    currentRetail: (parseFloat(item.marketValue) || 0) * metrics.qty,
   };
 }
 
@@ -1566,7 +1566,8 @@ function _fetchYearFile(year) {
  * (live data wins over seed). Returns sorted {ts, spot} entries.
  *
  * For ranges <= 180 days, just returns the in-memory spotHistory slice (no fetch).
- * For longer ranges (including "All"), async-fetches year files back to 1968.
+ * For longer bounded ranges, fetches only the years needed for that viewport.
+ * For "All", async-fetches year files back to 1968.
  *
  * @param {string} metalName - Metal name ('Silver', 'Gold', etc.)
  * @param {number} days - Number of days (0 = all available data)
@@ -1596,12 +1597,15 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
     if (inRange.length >= 2) return result;
     // Sparse in-memory data — fall back to current year file
     startYear = new Date(cutoff).getFullYear();
+  } else if (days > 180) {
+    const cutoff = Date.now() - days * (24 * 60 * 60 * 1000);
+    startYear = new Date(cutoff).getFullYear();
   } else {
     // "All" — go back to 1968 (earliest seed data)
     startYear = 1968;
   }
 
-  const endYear = new Date().getFullYear();
+  const endYear = Math.max(startYear, new Date(toTs > 0 ? toTs : Date.now()).getFullYear());
   const years = [];
   for (let y = startYear; y <= endYear; y++) years.push(y);
 
@@ -1641,11 +1645,11 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
  * @param {HTMLCanvasElement} canvas
  * @param {Array<{ts:number, spot:number}>} allSpotEntries - Daily spot prices for this metal
  * @param {Array<{ts:number, retail:number}>} allRetailEntries - Sparse retail value snapshots
- * @param {number} purchasePerUnit - Original purchase price per unit
+ * @param {number} purchasePerUnit - Original total purchase price for the viewed item quantity
  * @param {number} meltFactor - weightOz * qty * purity (melt = spot * meltFactor)
  * @param {number} [days=0] - Number of days to show (0 = all)
  * @param {number} [purchaseDate=0] - Purchase date timestamp (anchor start for retail line)
- * @param {number} [currentRetail=0] - Current market/retail value (anchor end for retail line)
+ * @param {number} [currentRetail=0] - Current total market/retail value (anchor end for retail line)
  * @param {number} [fromTs=0] - Custom range start timestamp (0 = unbounded)
  * @param {number} [toTs=0] - Custom range end timestamp (0 = unbounded)
  */
@@ -1684,15 +1688,20 @@ function _createPriceHistoryChart(
   }
 
   // If "All" range or custom range and purchase date is before earliest spot data,
-  // prepend a synthetic entry so the chart extends back to purchase date
+  // prepend a synthetic entry so the chart extends back to purchase date.
+  // For bounded ranges, anchor sparse historical data at the viewport start.
   const isAllOrCustom = days === 0 || fromTs > 0 || toTs > 0;
-  if (
-    isAllOrCustom &&
-    purchaseDate > 0 &&
-    spotEntries.length > 0 &&
-    purchaseDate < spotEntries[0].ts
-  ) {
-    spotEntries.unshift({ ts: purchaseDate, spot: spotEntries[0].spot });
+  const boundedAnchorTs =
+    !isAllOrCustom && cutoff > 0 && spotEntries.length > 0 && spotEntries[0].ts > cutoff
+      ? cutoff
+      : 0;
+  const purchaseAnchorTs =
+    isAllOrCustom && purchaseDate > 0 && spotEntries.length > 0 && purchaseDate < spotEntries[0].ts
+      ? purchaseDate
+      : 0;
+  const syntheticAnchorTs = boundedAnchorTs || purchaseAnchorTs;
+  if (syntheticAnchorTs > 0) {
+    spotEntries.unshift({ ts: syntheticAnchorTs, spot: spotEntries[0].spot });
   }
 
   // Show fallback message if insufficient data for selected range
@@ -1737,6 +1746,8 @@ function _createPriceHistoryChart(
   // Uses index-based snapping to find the nearest spot entry for each retail point,
   // since anchor dates may not have an exact-match spot entry on that calendar day.
   const retailData = new Array(spotEntries.length).fill(null);
+  const hasRetailSeries =
+    currentRetail > 0 || allRetailEntries.some((entry) => Number(entry.retail) > 0);
 
   // Helper: find the index of the spot entry nearest to a given timestamp
   const _nearestSpotIdx = (ts) => {
@@ -1756,7 +1767,7 @@ function _createPriceHistoryChart(
   // If purchase date is within the visible range, snap to that day.
   // If purchase date is before the range, pin to index 0 so the
   // retail line always starts with "what you paid" as a reference.
-  if (purchaseDate > 0) {
+  if (hasRetailSeries && purchaseDate > 0) {
     if (
       purchaseDate >= spotEntries[0].ts &&
       purchaseDate <= spotEntries[spotEntries.length - 1].ts
@@ -1782,7 +1793,7 @@ function _createPriceHistoryChart(
     retailData[spotEntries.length - 1] = currentRetail;
   }
 
-  const hasRetail = retailData.some((v) => v !== null);
+  const hasRetail = hasRetailSeries && retailData.some((v) => v !== null);
 
   const showPoints = spotEntries.length <= 30;
 
@@ -1804,14 +1815,14 @@ function _createPriceHistoryChart(
       label: "Purchase Price",
       data: purchaseLine,
       borderColor: dangerColor,
-      backgroundColor: resolveColor(`color-mix(in srgb, ${dangerColor} 6%, transparent)`),
-      fill: "origin",
+      backgroundColor: "transparent",
+      fill: false,
       borderDash: [6, 3],
       tension: 0,
       pointRadius: 0,
       pointHoverRadius: 0,
       borderWidth: 1.5,
-      order: 3,
+      order: 0,
     },
     {
       label: "Melt Value",
@@ -1829,8 +1840,8 @@ function _createPriceHistoryChart(
       label: "Retail Value",
       data: retailData,
       borderColor: primaryColor,
-      backgroundColor: resolveColor(`color-mix(in srgb, ${primaryColor} 8%, transparent)`),
-      fill: "origin",
+      backgroundColor: "transparent",
+      fill: false,
       tension: 0.3,
       spanGaps: true,
       pointRadius: showPoints ? 3 : 0,
@@ -1842,7 +1853,7 @@ function _createPriceHistoryChart(
   ];
 
   _viewModalChartInstance = createTimeSeriesChart(canvas, labels, datasets, {
-    animation: { duration: 400 },
+    animation: false,
     showLegend: true,
     xTicks: {
       color: textColor,
@@ -1883,6 +1894,11 @@ function _createPriceHistoryChart(
         padding: 12,
         font: { size: 10 },
       },
+      onClick: function (event, legendItem, legend) {
+        Chart.defaults.plugins.legend.onClick?.call(this, event, legendItem, legend);
+        _applyPriceHistoryYAxisBounds(legend.chart);
+        legend.chart.update();
+      },
     });
     Object.assign(chartOpts.plugins.tooltip, {
       backgroundColor: bgColor,
@@ -1891,8 +1907,54 @@ function _createPriceHistoryChart(
       borderColor: textColor,
       borderWidth: 1,
     });
+
+    _applyPriceHistoryYAxisBounds(_viewModalChartInstance);
+
     _viewModalChartInstance.update("none");
   }
+}
+
+function _applyPriceHistoryYAxisBounds(chart) {
+  if (!chart?.options?.scales?.y) return;
+  let dataMin = Infinity;
+  let dataMax = -Infinity;
+  let hasVisibleValue = false;
+  chart.data.datasets.forEach((dataset, index) => {
+    const isVisible =
+      typeof chart.isDatasetVisible === "function"
+        ? chart.isDatasetVisible(index)
+        : dataset.hidden !== true;
+    if (!isVisible || !Array.isArray(dataset.data)) return;
+    dataset.data.forEach((point) => {
+      if (point === null || point === undefined) return;
+      const rawValue = point && typeof point === "object" && "y" in point ? point.y : point;
+      if (rawValue === null || rawValue === undefined) return;
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) return;
+      if (value < dataMin) dataMin = value;
+      if (value > dataMax) dataMax = value;
+      hasVisibleValue = true;
+    });
+  });
+
+  const yScale = chart.options.scales.y;
+  if (!hasVisibleValue) {
+    delete yScale.min;
+    delete yScale.max;
+    delete yScale.suggestedMin;
+    delete yScale.suggestedMax;
+    return;
+  }
+
+  const dataRange = dataMax - dataMin;
+  const padding = dataRange > 0 ? dataRange * 0.05 : Math.max(dataMax * 0.05, 1);
+  const yMin = Math.max(0, dataMin - padding);
+  const yMax = dataMax + padding;
+
+  yScale.min = yMin;
+  yScale.max = yMax;
+  yScale.suggestedMin = yMin;
+  yScale.suggestedMax = yMax;
 }
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.58] - 2026-05-11
+
+### Changed — STRK-42: Chart viewport scaling
+
+- **Chart viewport**: Fit item detail chart y-axis bounds to visible purchase, melt, and retail lines with padding so short-range views no longer clip outlier purchase prices (STRK-42).
+- **Historical ranges**: Limit bounded long-range fetches to needed years and anchor sparse 1Y lines at the viewport start so melt, retail, and purchase traces stay visible (STRK-42).
+- **Regression coverage**: Add Playwright coverage for short-range purchase lines, 1Y range anchoring, wide ranges, and mobile/desktop chart heights (STRK-42).
+
+---
+
 ## [3.34.57] - 2026-05-10
 
 ### Changed — STRK-67: Per-side image frame override
