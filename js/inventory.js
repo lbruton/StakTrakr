@@ -1608,7 +1608,7 @@ const editItem = (idx, logIdx = null) => {
   if (typeof window.restorePurchasePriceToggle === "function") {
     const isLot = window.restorePurchasePriceToggle(item.pricingType, item.qty);
     if (isLot) {
-      const priceEl = document.getElementById("itemPrice");
+      const priceEl = safeGetElement("itemPrice");
       if (priceEl) {
         const perUnit = parseFloat(priceEl.value);
         if (!isNaN(perUnit) && perUnit > 0) {
