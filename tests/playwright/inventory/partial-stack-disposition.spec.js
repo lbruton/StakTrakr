@@ -1991,8 +1991,7 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     await openDisposeModal(page, 0);
 
     await page.locator("#removeItemQtySelect").focus();
-    await page.keyboard.press("4");
-    await page.keyboard.press("7");
+    await page.keyboard.type("47", { delay: 100 });
     await page.keyboard.press("Tab");
 
     expect(await page.locator("#removeItemQty").inputValue()).toBe("47");

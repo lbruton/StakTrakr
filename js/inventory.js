@@ -675,6 +675,7 @@ const renderDisposeQtyChips = (stackQty, labelMaxEl) => {
     btn.className = "chip-sort-btn";
     btn.dataset.qty = String(n);
     btn.textContent = String(n);
+    btn.setAttribute("aria-label", `Dispose ${n} of ${stackQty}`);
     const isLast = n === stackQty;
     btn.setAttribute("aria-pressed", isLast ? "true" : "false");
     btn.tabIndex = isLast ? 0 : -1;
