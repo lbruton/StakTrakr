@@ -8304,8 +8304,21 @@
 
           <div id="removeItemDisposeFields" style="display: none">
             <div class="form-group" style="display: none">
-              <label for="removeItemQty">Quantity to dispose</label>
-              <input type="number" id="removeItemQty" min="1" />
+              <label id="removeItemQtyLabel" for="removeItemQty">
+                Quantity to dispose<span id="removeItemQtyLabelMax" class="qty-max-suffix"></span>
+              </label>
+              <div
+                id="removeItemQtyChips"
+                role="group"
+                aria-labelledby="removeItemQtyLabel"
+                style="display: none"
+              ></div>
+              <select
+                id="removeItemQtySelect"
+                aria-labelledby="removeItemQtyLabel"
+                style="display: none"
+              ></select>
+              <input type="hidden" id="removeItemQty" />
               <p
                 id="removeItemDisposePreview"
                 class="form-helper"
