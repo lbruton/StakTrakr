@@ -962,6 +962,7 @@ async function main() {
           scraped_at: generatedAt,
           g1_usd: g1,
           denominations: {
+            "g0.25": Math.round(g1 * 0.25 * 100) / 100,
             g1: g1,
             g5: Math.round(g1 * 5 * 100) / 100,
             g10: Math.round(g1 * 10 * 100) / 100,

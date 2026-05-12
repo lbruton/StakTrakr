@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.61 &ndash; STRK-66: ¼ Goldback denomination (Idaho, g0.25)</strong>: Adds the 1/4 Goldback (1/4000 oz gold) as the ninth canonical denomination with correct label rendering in add/edit and bulk-edit dropdowns, slug resolution, poller publishing, and bounds-guard regex fix for decimal denomination suffixes (STRK-66).</li>
     <li><strong>v3.34.60 &ndash; STRK-68: Chart unit alignment for lot/each pricing</strong>: Purchase, melt, and retail chart lines now use consistent units based on the stored lot/each pricing choice; re-editing an item restores the toggle and lot-total price to the edit form (STRK-68).</li>
     <li><strong>v3.34.59 &ndash; STRK-69: Goldback daily retail chart history</strong>: Goldback denomination prices now keep one retail-history point per calendar day even when the vendor price is flat, and item detail charts use denomination retail values when stored market value is empty (STRK-69).</li>
     <li><strong>v3.34.58 &ndash; STRK-42: Chart viewport scaling</strong>: Item detail charts now fit the y-axis to visible purchase, melt, and retail lines with padding, fetch only needed bounded-range history, and keep sparse 1Y ranges anchored at the viewport start (STRK-42).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.56 &ndash; STRK-65: Attachment review follow-ups</strong>: Hardens per-item attachments after PR review &mdash; queue entries removable independently, object URL lifecycle fixed, cloud-sync pull helper extracted (fixes repeat downloads), size guard before vault serialization, DiffEngine duplicate-filename safety, split items keep attachments on both records, storage diagnostics clarified (STRK-65).</li>
     <li><strong>v3.34.55 &ndash; STRK-45: Per-item PDF/image attachments</strong>: Attach receipts, COAs, and dealer invoices directly to inventory items (PDF, PNG, JPG) from the Edit modal drag-drop zone. Attachments are persisted in IndexedDB, shown as a count badge on card, table, and detail views, included in zip/stvault backups and CSV exports, and synced via cloud sync with an opt-out toggle in Settings (STRK-45).</li>
     <li><strong>v3.34.54 &ndash; STRK-52: Numista re-sync tag membership</strong>: Existing on-item tags in the Numista re-sync picker are now shown checked and enabled instead of locked-disabled, letting you uncheck them to record an explicit opt-out. Uncheck-all also protects on-item tags from accidental mass-removal (STRK-52).</li>
-    <li><strong>v3.34.53 &ndash; STRK-46: Structured Capsule field + capsule notes</strong>: Inventory items now have dedicated Capsule and Capsule Notes fields with Air-Tite-style suggestions, autocomplete, search/filter support, view-modal display, and JSON backup round-trip preservation (STRK-46).</li>
   `;
 };
 

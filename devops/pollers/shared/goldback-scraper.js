@@ -51,7 +51,7 @@ const G1_MIN = 0.5;
 const G1_MAX = 20.0;
 
 // Denomination multipliers relative to G1
-const DENOMINATION_MULTIPLIERS = { g1: 1, g5: 5, g10: 10, g25: 25, g50: 50 };
+const DENOMINATION_MULTIPLIERS = { "g0.25": 0.25, g1: 1, g5: 5, g10: 10, g25: 25, g50: 50 };
 
 // ---------------------------------------------------------------------------
 // Logging

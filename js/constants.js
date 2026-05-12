@@ -281,10 +281,10 @@ const CERT_LOOKUP_URLS = {
  * Follows BRANCH.RELEASE.PATCH.state format
  * State codes: a=alpha, b=beta, rc=release candidate
  * Example: 3.03.02a → branch 3, release 03, patch 02, alpha
- * Updated: 2026-05-11 - STRK-68: Chart unit alignment for lot/each pricing
+ * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.34.60";
+const APP_VERSION = "3.34.61";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -586,6 +586,7 @@ const LB_TO_OZT = 14.58333;
  * @constant {Array<{weight: number, label: string, goldOz: number}>}
  */
 const GOLDBACK_DENOMINATIONS = [
+  { weight: 0.25, label: "¼ Goldback", goldOz: 0.00025 },
   { weight: 0.5, label: "½ Goldback", goldOz: 0.0005 },
   { weight: 1, label: "1 Goldback", goldOz: 0.001 },
   { weight: 2, label: "2 Goldback", goldOz: 0.002 },
