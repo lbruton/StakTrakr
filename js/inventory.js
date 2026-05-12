@@ -630,7 +630,7 @@ let _removeItemQtySelectChangeHandler = null;
 
 const writeDisposeQty = (n) => {
   const el = safeGetElement("removeItemQty");
-  if (!el) return;
+  if (!(el instanceof HTMLElement)) return;
   el.value = String(n);
   el.dispatchEvent(new Event("input", { bubbles: true }));
 };
