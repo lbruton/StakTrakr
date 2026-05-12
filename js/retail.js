@@ -63,7 +63,7 @@ const _parseGoldbackSlug = (slug) => {
   const weight = GOLDBACK_WEIGHTS[m[2]];
   if (weight == null) return null;
   const state = m[1].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  const denom = m[2] === "ghalf" ? "G\u00BD" : m[2].toUpperCase();
+  const denom = m[2] === "ghalf" ? "G\u00BD" : m[2] === "g0.25" ? "G\u00BC" : m[2].toUpperCase();
   return { name: `${denom} ${state} Goldback`, weight, metal: "goldback" };
 };
 
