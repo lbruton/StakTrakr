@@ -60,6 +60,7 @@ const optionalListener = (el, event, handler, label) => {
 const createLotEachToggle = (config) => {
   const { toggleId, priceInputId, qtyInputId, eachPlaceholder, lotPlaceholder } = config;
   let mode = "each";
+  let userInteracted = false;
 
   const getButtons = () => {
     const toggle = safeGetElement(toggleId);
@@ -112,6 +113,13 @@ const createLotEachToggle = (config) => {
   };
 
   const getMode = () => mode;
+  const wasInteracted = () => userInteracted;
+  const markInteracted = () => {
+    userInteracted = true;
+  };
+  const resetInteracted = () => {
+    userInteracted = false;
+  };
 
   // Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
   // so the segmented control is hidden and mode is forced to Each.
@@ -132,7 +140,15 @@ const createLotEachToggle = (config) => {
     updatePlaceholder();
   };
 
-  return { setMode, getMode, updateVisibility, updatePlaceholder };
+  return {
+    setMode,
+    getMode,
+    updateVisibility,
+    updatePlaceholder,
+    wasInteracted,
+    markInteracted,
+    resetInteracted,
+  };
 };
 
 const purchasePriceToggle = createLotEachToggle({
@@ -146,9 +162,19 @@ const purchasePriceToggle = createLotEachToggle({
 const resetPurchasePriceToggle = () => {
   purchasePriceToggle.setMode("each", { convertInput: false });
   purchasePriceToggle.updateVisibility();
+  purchasePriceToggle.resetInteracted();
 };
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
+
+// Sets toggle to storedMode (or "lot" for legacy), hides at qty ≤ 1, clears interaction flag.
+// Returns true if lot mode is active after visibility resolution (caller may need to adjust price field).
+window.restorePurchasePriceToggle = (storedMode, qty) => {
+  purchasePriceToggle.setMode(storedMode === "each" ? "each" : "lot", { convertInput: false });
+  purchasePriceToggle.updateVisibility();
+  purchasePriceToggle.resetInteracted();
+  return purchasePriceToggle.getMode() === "lot" && qty > 1;
+};
 
 const disposeAmountToggle = createLotEachToggle({
   toggleId: "removeItemAmountModeToggle",
@@ -1458,6 +1484,14 @@ const parseItemFormFields = (isEditing, existingItem) => {
     date: elements.itemDateNABtn?.classList.contains("active")
       ? ""
       : elements.itemDate.value || (isEditing ? existingItem.date || "" : todayStr()),
+    // AC-3/AC-4: new items always capture toggle state; edited items preserve stored pricingType
+    // unless the user explicitly interacted with the toggle this session.
+    // Legacy items (no stored pricingType) with no toggle interaction keep absence → lot-total chart.
+    pricingType: !isEditing
+      ? purchasePriceToggle.getMode()
+      : purchasePriceToggle.wasInteracted()
+        ? purchasePriceToggle.getMode()
+        : existingItem.pricingType,
     catalog: elements.itemCatalog ? elements.itemCatalog.value.trim() : "",
     year: elements.itemYear?.value?.trim() ?? "",
     grade: elements.itemGrade?.value?.trim() ?? "",
@@ -1605,6 +1639,9 @@ const buildItemFields = (f) => {
     purity: f.purity,
   };
 
+  if (f.pricingType !== undefined) {
+    fields.pricingType = f.pricingType;
+  }
   if (f.obverseImageFrame && f.obverseImageFrame !== "auto") {
     fields.obverseImageFrame = f.obverseImageFrame;
   }
@@ -2245,6 +2282,7 @@ const setupItemFormListeners = () => {
           "click",
           () => {
             purchasePriceToggle.setMode(button.dataset.mode);
+            purchasePriceToggle.markInteracted();
           },
           `Purchase price ${button.dataset.mode} toggle`
         );

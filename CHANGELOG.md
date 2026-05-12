@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.60] - 2026-05-11
+
+### Changed — STRK-68: Chart unit alignment for lot/each pricing
+
+- **pricingType field**: Persist the lot/each toggle choice on each item (`pricingType: "each" | "lot"`) so the price history chart can display all three lines in the intended unit (STRK-68).
+- **Chart scaling**: Purchase, melt, and retail chart lines now use the same unit — per-unit when `pricingType="each"`, lot-total when `"lot"` or absent. Fixes the pre-existing retail-line inconsistency where midpoints were per-unit and endpoints were lot-total (STRK-68).
+- **Edit modal restore**: Re-editing an item now restores the lot/each toggle and shows the lot-total price in the price field when the item was priced in lot mode (STRK-68).
+
+---
+
 ## [3.34.59] - 2026-05-11
 
 ### Fixed — STRK-69: Goldback daily retail chart history
