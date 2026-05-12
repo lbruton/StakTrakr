@@ -125,8 +125,6 @@ The duplication-checker hook respects `// duplication-ok` inline comments. Use t
 
 ### Closing task ordering in sketch workflow
 
-### Closing task ordering in sketch workflow
-
 Follow this sequence:
 1. Version bump
 2. Spot bundle update
