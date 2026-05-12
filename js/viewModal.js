@@ -572,14 +572,14 @@ function _getChartCurrentRetail(item, metrics) {
   return manualMarket > 0 ? manualMarket * metrics.qty : 0;
 }
 
-function _getGoldbackRetailHistoryEntries(item, metrics) {
+function _getGoldbackRetailHistoryEntries(item) {
   if (item.weightUnit !== "gb" || typeof goldbackPriceHistory === "undefined") return [];
 
   const key = String(parseFloat(item.weight) || 0);
   const entries = Array.isArray(goldbackPriceHistory[key]) ? goldbackPriceHistory[key] : [];
   return entries
     .filter((entry) => entry && typeof entry.price === "number" && entry.price > 0 && entry.ts)
-    .map((entry) => ({ ts: entry.ts, retail: parseFloat((entry.price * metrics.qty).toFixed(2)) }));
+    .map((entry) => ({ ts: entry.ts, retail: parseFloat(entry.price.toFixed(2)) }));
 }
 
 function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
@@ -681,7 +681,7 @@ function _getPriceHistoryContext(item, metrics) {
     typeof itemPriceHistory !== "undefined" && item.uuid
       ? (itemPriceHistory[item.uuid] || []).filter((e) => e.retail > 0)
       : [];
-  const goldbackRetailEntries = _getGoldbackRetailHistoryEntries(item, metrics);
+  const goldbackRetailEntries = _getGoldbackRetailHistoryEntries(item);
   const mergedRetail = _mergeRetailHistoryEntries(retailEntries, goldbackRetailEntries);
   // D-3: itemPriceHistory retail midpoints are stored per-unit; scale to match display unit.
   const scaledRetailEntries =
