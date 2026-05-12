@@ -16,5 +16,6 @@ export default defineConfig({
     command: "python3 -m http.server 3000",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
+    stderr: "ignore",
   },
 });
