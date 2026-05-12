@@ -120,7 +120,13 @@ async function openDisposeModal(page, idx) {
 }
 
 async function setDisposeQty(page, qty) {
-  await page.fill("#removeItemQty", String(qty));
+  await page.waitForSelector("#removeItemModal", { state: "visible" });
+  const chipsVisible = await page.locator("#removeItemQtyChips:visible").count();
+  if (chipsVisible > 0) {
+    await page.locator(`#removeItemQtyChips button[data-qty="${qty}"]`).click();
+  } else {
+    await page.selectOption("#removeItemQtySelect", String(qty));
+  }
 }
 
 async function fillDisposeFields(page, { type = "Sold", date = "2026-05-01", amount = "90" } = {}) {
@@ -217,12 +223,13 @@ async function installSyncPushSpy(page) {
 // ---------------------------------------------------------------------------
 
 test.describe("STRK-44 Partial-Stack Disposition", () => {
-  test("1. REQ-1.1 — Quantity field visible when stack qty > 1", async ({ page }) => {
+  test("1. REQ-1.1 — Quantity selector visible when stack qty > 1", async ({ page }) => {
     await seedData(page, { inventory: [BASE_ITEM] });
     await gotoApp(page);
     await openDisposeModal(page, 0);
 
-    await expect(page.locator("#removeItemQty")).toBeVisible();
+    // BASE_ITEM.qty = 10 (> DISPOSE_QTY_CHIP_MAX=8) → select mode
+    await expect(page.locator("#removeItemQtySelect")).toBeVisible();
   });
 
   test("2. REQ-1.1 — Quantity field pre-filled with full stack qty", async ({ page }) => {
@@ -233,12 +240,20 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     await expect(page.locator("#removeItemQty")).toHaveValue("10");
   });
 
-  test("3. REQ-1.2 — Quantity field hidden when stack qty = 1", async ({ page }) => {
+  test("3. REQ-1.1 — Quantity control visible with disabled-look when stack qty = 1", async ({
+    page,
+  }) => {
     await seedData(page, { inventory: [SINGLE_ITEM] });
     await gotoApp(page);
     await openDisposeModal(page, 0);
 
-    await expect(page.locator("#removeItemQty")).toBeHidden();
+    await expect(page.locator("#removeItemQtyGroup")).toBeVisible();
+    await expect(page.locator("#removeItemQtyChips")).toBeVisible();
+    await expect(page.locator("#removeItemQtyChips")).toHaveAttribute("aria-disabled", "true");
+    await expect(page.locator('#removeItemQtyChips button[data-qty="1"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
   });
 
   test("4. REQ-1.3 — Full-stack qty produces no split (existing behavior)", async ({ page }) => {
@@ -294,32 +309,38 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     await expect(preview).toContainText("7");
   });
 
-  test("7. REQ-1.6 — Zero qty blocks submission with validation message", async ({ page }) => {
-    await seedData(page, { inventory: [BASE_ITEM] });
+  test("7. REQ-1.6 — Zero qty is not selectable in the UI", async ({ page }) => {
+    const stack4Item = { ...BASE_ITEM, qty: 4, uuid: "strk53-stack4-uuid" };
+    const stack20Item = { ...BASE_ITEM, qty: 20, uuid: "strk53-stack20-uuid" };
+
+    // Chip mode (qty=4 ≤ DISPOSE_QTY_CHIP_MAX=8): no chip for qty 0
+    await seedData(page, { inventory: [stack4Item] });
     await gotoApp(page);
     await openDisposeModal(page, 0);
+    await expect(page.locator('#removeItemQtyChips button[data-qty="0"]')).toHaveCount(0);
 
-    await setDisposeQty(page, 0);
-    await confirmDispose(page);
-
-    await expect(page.locator("#removeItemModal")).toBeVisible();
-    const inventoryLength = await page.evaluate(() => window.inventory.length);
-    expect(inventoryLength).toBe(1);
+    // Select mode (qty=20 > 8): no option for qty 0
+    await seedData(page, { inventory: [stack20Item] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+    await expect(page.locator('#removeItemQtySelect option[value="0"]')).toHaveCount(0);
   });
 
-  test("8. REQ-1.6 — Qty greater than stack blocks submission with validation message", async ({
-    page,
-  }) => {
-    await seedData(page, { inventory: [BASE_ITEM] });
+  test("8. REQ-1.6 — Qty greater than stack is not selectable in the UI", async ({ page }) => {
+    const stack4Item = { ...BASE_ITEM, qty: 4, uuid: "strk53-stack4b-uuid" };
+    const stack20Item = { ...BASE_ITEM, qty: 20, uuid: "strk53-stack20b-uuid" };
+
+    // Chip mode: no chip for qty > stack (e.g. qty=5 for a stack-4 item)
+    await seedData(page, { inventory: [stack4Item] });
     await gotoApp(page);
     await openDisposeModal(page, 0);
+    await expect(page.locator('#removeItemQtyChips button[data-qty="5"]')).toHaveCount(0);
 
-    await setDisposeQty(page, 999);
-    await confirmDispose(page);
-
-    await expect(page.locator("#removeItemModal")).toBeVisible();
-    const inventoryLength = await page.evaluate(() => window.inventory.length);
-    expect(inventoryLength).toBe(1);
+    // Select mode: no option for qty > stack (e.g. value=999 for a stack-20 item)
+    await seedData(page, { inventory: [stack20Item] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+    await expect(page.locator('#removeItemQtySelect option[value="999"]')).toHaveCount(0);
   });
 
   test("9. REQ-1.7 — Split clone appears adjacent to original in inventory order", async ({
@@ -1882,14 +1903,97 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
   // Qty input max attribute — UI spinner upper-bound (bug fix regression)
   // ---------------------------------------------------------------------------
 
-  test("60. REQ-1.1 — Qty input max attribute clamped to stack qty when modal opens", async ({
+  test("60. REQ-1.1 — Select has exactly stack-qty options, last pre-selected", async ({
     page,
   }) => {
+    // BASE_ITEM.qty = 10 > DISPOSE_QTY_CHIP_MAX=8 → select mode
     await seedData(page, { inventory: [BASE_ITEM] });
     await gotoApp(page);
     await openDisposeModal(page, 0);
 
-    const maxAttr = await page.getAttribute("#removeItemQty", "max");
-    expect(maxAttr).toBe(String(BASE_ITEM.qty)); // "10"
+    const optionCount = await page.locator("#removeItemQtySelect option").count();
+    expect(optionCount).toBe(BASE_ITEM.qty); // 10 options
+    await expect(page.locator("#removeItemQtySelect")).toHaveValue(String(BASE_ITEM.qty)); // "10" selected
+  });
+
+  // ---------------------------------------------------------------------------
+  // STRK-53 — Chip keyboard nav, touch targets, viewport wrap
+  // ---------------------------------------------------------------------------
+
+  test("STRK-53 — Chip ArrowLeft moves selection", async ({ page }) => {
+    const stack4Item = { ...BASE_ITEM, qty: 4, uuid: "strk53-kbd-uuid" };
+    await seedData(page, { inventory: [stack4Item] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+
+    // Chip 4 is focused by default (last chip, pre-selected)
+    await page.locator('#removeItemQtyChips button[data-qty="4"]').focus();
+    await page.keyboard.press("ArrowLeft");
+
+    await expect(page.locator('#removeItemQtyChips button[data-qty="3"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(await page.locator("#removeItemQty").inputValue()).toBe("3");
+  });
+
+  test("STRK-53 — Chip Home/End jump to bounds", async ({ page }) => {
+    const stack6Item = { ...BASE_ITEM, qty: 6, uuid: "strk53-homeend-uuid" };
+    await seedData(page, { inventory: [stack6Item] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+
+    await page.locator('#removeItemQtyChips button[data-qty="6"]').focus();
+    await page.keyboard.press("Home");
+    await expect(page.locator('#removeItemQtyChips button[data-qty="1"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await page.keyboard.press("End");
+    await expect(page.locator('#removeItemQtyChips button[data-qty="6"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+  });
+
+  test("STRK-53 — Chip touch target ≥ 44×44 px", async ({ page }) => {
+    const stack4Item = { ...BASE_ITEM, qty: 4, uuid: "strk53-target-uuid" };
+    await seedData(page, { inventory: [stack4Item] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+    // Wait for modal slide-in animation (scale 0.95→1) to settle before measuring
+    await page.waitForTimeout(400);
+
+    const box = await page.locator('#removeItemQtyChips button[data-qty="1"]').boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test("STRK-53 — Chip group wraps at 360 px viewport", async ({ page }) => {
+    const stack8Item = { ...BASE_ITEM, qty: 8, uuid: "strk53-wrap-uuid" };
+    await page.setViewportSize({ width: 360, height: 800 });
+    await seedData(page, { inventory: [stack8Item] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+
+    const box1 = await page.locator('#removeItemQtyChips button[data-qty="1"]').boundingBox();
+    const box8 = await page.locator('#removeItemQtyChips button[data-qty="8"]').boundingBox();
+    expect(box8.y).toBeGreaterThan(box1.y);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+  });
+
+  test("STRK-53 — Select type-ahead reaches qty 47 of 50 in ≤ 3 interactions", async ({ page }) => {
+    const stack50Item = { ...BASE_ITEM, qty: 50, uuid: "strk53-typeahead-uuid" };
+    await seedData(page, { inventory: [stack50Item] });
+    await gotoApp(page);
+    await openDisposeModal(page, 0);
+
+    await page.locator("#removeItemQtySelect").focus();
+    await page.keyboard.type("47", { delay: 100 });
+    await page.keyboard.press("Tab");
+
+    expect(await page.locator("#removeItemQty").inputValue()).toBe("47");
   });
 });

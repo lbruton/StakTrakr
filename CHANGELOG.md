@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.62] - 2026-05-12
+
+### Changed — STRK-53: Constrained quantity selector for partial-stack disposition
+
+- **Chip mode**: Dispose modal now renders chip buttons (1–N) for stacks of 8 or fewer, making invalid quantities unreachable. Chips use roving tabindex with ArrowLeft/Right/Home/End keyboard navigation and aria-pressed state (STRK-53).
+- **Select mode**: Stacks larger than 8 use a native `<select>` pre-populated with options 1–N and the maximum quantity pre-selected, replacing the free-entry number input (STRK-53).
+- **Single-item stacks**: A stack of 1 now shows a pre-selected, dimmed chip control instead of hiding the quantity field, making the affordance consistent and accessible (STRK-53).
+- **Hidden carrier**: Both modes write through a hidden `<input id="removeItemQty">` via `writeDisposeQty()` so the existing preview-update handler fires without modification (STRK-53).
+
+---
+
 ## [3.34.61] - 2026-05-12
 
 ### Changed — STRK-66: Add ¼ Goldback denomination support (Idaho, g0.25)

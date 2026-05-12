@@ -7963,6 +7963,34 @@ a.about-badge:hover {
   line-height: 1;
 }
 
+/* STRK-53: dispose-modal quantity selector — AAA touch targets + wrap on narrow viewports */
+.chip-sort-toggle--quantity {
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow: visible;
+  border: none;
+}
+.chip-sort-toggle--quantity .chip-sort-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.chip-sort-toggle--quantity.is-disabled .chip-sort-btn {
+  opacity: 0.55;
+  cursor: default;
+}
+.qty-max-suffix {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: var(--font-size-sm);
+  margin-left: 0.4rem;
+}
+#removeItemQtySelect {
+  min-height: 44px;
+}
+
 #purchasePriceModeToggle.is-hidden {
   display: none;
 }
