@@ -1524,7 +1524,8 @@ async function main() {
       // Goldback denominations: G1, G5, G10, G25, G50
       if (!_goldbackG1) return null;
       const denomMatch =
-        coinSlug.match(/goldback-.*?-?g(\d+)$/i) || coinSlug.match(/goldback-g(\d+)/i);
+        coinSlug.match(/goldback-.*?-?g(\d+(?:\.\d+)?)$/i) ||
+        coinSlug.match(/goldback-g(\d+(?:\.\d+)?)/i);
       const multiplier = denomMatch ? Number(denomMatch[1]) : 1;
       return _goldbackG1 * multiplier;
     }

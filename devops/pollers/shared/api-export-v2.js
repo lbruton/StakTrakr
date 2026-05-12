@@ -831,6 +831,7 @@ async function queryGoldbackRange(client, startIso, endIso) {
 
 function buildGoldbackDenominations(g1) {
   return {
+    "g0.25": Math.round(g1 * 0.25 * 100) / 100,
     g1: g1,
     g5: Math.round(g1 * 5 * 100) / 100,
     g10: Math.round(g1 * 10 * 100) / 100,

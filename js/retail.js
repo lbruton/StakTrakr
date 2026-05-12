@@ -41,6 +41,7 @@ const RETAIL_COIN_META = {
 
 /** Goldback denomination weights (troy oz) */
 const GOLDBACK_WEIGHTS = {
+  "g0.25": 0.00025,
   "g0.5": 0.0005,
   ghalf: 0.0005,
   g1: 0.001,

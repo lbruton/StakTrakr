@@ -586,6 +586,7 @@ const LB_TO_OZT = 14.58333;
  * @constant {Array<{weight: number, label: string, goldOz: number}>}
  */
 const GOLDBACK_DENOMINATIONS = [
+  { weight: 0.25, label: "¼ Goldback", goldOz: 0.00025 },
   { weight: 0.5, label: "½ Goldback", goldOz: 0.0005 },
   { weight: 1, label: "1 Goldback", goldOz: 0.001 },
   { weight: 2, label: "2 Goldback", goldOz: 0.002 },

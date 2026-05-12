@@ -266,7 +266,7 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await expect(page.locator("#itemGbDenom")).toBeHidden();
   });
 
-  test("9. Goldback type shows all 8 standard denominations", async ({ page }) => {
+  test("9. Goldback type shows all 9 standard denominations", async ({ page }) => {
     await seedData(page);
     await gotoApp(page);
     await openAddModal(page);
@@ -278,9 +278,10 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
       const sel = document.getElementById("itemGbDenom");
       return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
     });
-    expect(options).toHaveLength(8);
-    expect(options[0].text).toBe("½ Goldback");
-    expect(options[7].text).toBe("100 Goldback");
+    expect(options).toHaveLength(9);
+    expect(options[0].text).toBe("¼ Goldback");
+    expect(options[1].text).toBe("½ Goldback");
+    expect(options[8].text).toBe("100 Goldback");
   });
 
   test("10. Silverback has a dedicated silverback unit option", async ({ page }) => {
@@ -357,8 +358,8 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
       const sel = document.getElementById("bulkFieldVal_weightDenom");
       return Array.from(sel.options).map((o) => ({ value: o.value, text: o.textContent }));
     });
-    expect(goldOptions).toHaveLength(8);
-    expect(goldOptions[0].text).toBe("½ Goldback");
+    expect(goldOptions).toHaveLength(9);
+    expect(goldOptions[0].text).toBe("¼ Goldback");
   });
 
   test("14. Manual Goldback retail value is a floor override, not ignored", async ({ page }) => {

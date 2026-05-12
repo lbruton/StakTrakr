@@ -625,7 +625,7 @@ const renderBulkFieldPanel = () => {
       GOLDBACK_DENOMINATIONS.forEach((d) => {
         const opt = document.createElement("option");
         opt.value = String(d.weight);
-        const prefix = d.weight === 0.5 ? "½" : String(d.weight);
+        const prefix = d.weight === 0.25 ? "¼" : d.weight === 0.5 ? "½" : String(d.weight);
         opt.textContent = `${prefix} Goldback`;
         if (d.weight === 1) opt.selected = true;
         denomSelect.appendChild(opt);
