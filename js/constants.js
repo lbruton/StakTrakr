@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-11 - STRK-69: Goldback daily retail chart history
  */
 
-const APP_VERSION = "3.34.59";
+const APP_VERSION = "3.34.60";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
