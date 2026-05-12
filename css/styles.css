@@ -7977,9 +7977,6 @@ a.about-badge:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.chip-sort-toggle--quantity .chip-sort-btn:not(:last-child) {
-  border-right: 1px solid var(--border); /* override the in-pill divider — chips are individual buttons here */
-}
 .chip-sort-toggle--quantity.is-disabled .chip-sort-btn {
   opacity: 0.55;
   cursor: default;

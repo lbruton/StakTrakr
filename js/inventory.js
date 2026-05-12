@@ -704,7 +704,8 @@ const renderDisposeQtyChips = (stackQty, labelMaxEl) => {
       return;
     }
     event.preventDefault();
-    selectChip(parseInt(chips[targetIdx].dataset.qty, 10));
+    const parsedQty = Number(chips[targetIdx].dataset.qty);
+    selectChip(Number.isNaN(parsedQty) ? 1 : parsedQty);
   };
   chipsEl.addEventListener("keydown", _removeItemQtyChipKeyHandler);
 
