@@ -661,7 +661,9 @@ function _buildDispositionSection(item) {
 
 function _getPriceHistoryContext(item, metrics) {
   const metalName = item.metal || "Silver";
-  const meltFactor = metrics.weightOz * metrics.qty * metrics.purity;
+  // AC-1/AC-2: pricingType drives display unit. "each" → per-unit (×1); "lot" or absent → lot-total (×qty).
+  const unitQty = item.pricingType === "each" ? 1 : metrics.qty;
+  const meltFactor = metrics.weightOz * unitQty * metrics.purity;
   const spotEntries =
     typeof spotHistory !== "undefined"
       ? spotHistory
@@ -680,14 +682,26 @@ function _getPriceHistoryContext(item, metrics) {
       ? (itemPriceHistory[item.uuid] || []).filter((e) => e.retail > 0)
       : [];
   const goldbackRetailEntries = _getGoldbackRetailHistoryEntries(item, metrics);
+  const mergedRetail = _mergeRetailHistoryEntries(retailEntries, goldbackRetailEntries);
+  // D-3: itemPriceHistory retail midpoints are stored per-unit; scale to match display unit.
+  const scaledRetailEntries =
+    unitQty !== 1
+      ? mergedRetail.map((e) => ({ ...e, retail: parseFloat((e.retail * unitQty).toFixed(2)) }))
+      : mergedRetail;
+  // currentRetail is lot-total from _getChartCurrentRetail; scale to display unit.
+  const lotCurrentRetail = _getChartCurrentRetail(item, metrics);
+  const currentRetail =
+    metrics.qty > 0
+      ? parseFloat((lotCurrentRetail * (unitQty / metrics.qty)).toFixed(2))
+      : lotCurrentRetail;
   return {
     metalName,
     meltFactor,
     dailySpotEntries,
-    retailEntries: _mergeRetailHistoryEntries(retailEntries, goldbackRetailEntries),
-    purchasePerUnit: (parseFloat(item.price) || 0) * metrics.qty,
+    retailEntries: scaledRetailEntries,
+    purchasePerUnit: (parseFloat(item.price) || 0) * unitQty,
     purchaseDate: item.date ? new Date(item.date).getTime() : 0,
-    currentRetail: _getChartCurrentRetail(item, metrics),
+    currentRetail,
   };
 }
 

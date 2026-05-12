@@ -167,6 +167,15 @@ const resetPurchasePriceToggle = () => {
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
 
+// Sets toggle to storedMode (or "each" for legacy), hides at qty ≤ 1, clears interaction flag.
+// Returns true if lot mode is active after visibility resolution (caller may need to adjust price field).
+window.restorePurchasePriceToggle = (storedMode, qty) => {
+  purchasePriceToggle.setMode(storedMode === "lot" ? "lot" : "each", { convertInput: false });
+  purchasePriceToggle.updateVisibility();
+  purchasePriceToggle.resetInteracted();
+  return purchasePriceToggle.getMode() === "lot" && qty > 1;
+};
+
 const disposeAmountToggle = createLotEachToggle({
   toggleId: "removeItemAmountModeToggle",
   priceInputId: "dispositionAmount",

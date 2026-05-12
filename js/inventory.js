@@ -1605,7 +1605,18 @@ const editItem = (idx, logIdx = null) => {
     updateCapsuleSuggestion(diamEl?.value || item.numistaData?.diameter || "");
   }
 
-  if (typeof window.resetPurchasePriceToggle === "function") {
+  if (typeof window.restorePurchasePriceToggle === "function") {
+    const isLot = window.restorePurchasePriceToggle(item.pricingType, item.qty);
+    if (isLot) {
+      const priceEl = document.getElementById("itemPrice");
+      if (priceEl) {
+        const perUnit = parseFloat(priceEl.value);
+        if (!isNaN(perUnit) && perUnit > 0) {
+          priceEl.value = String(parseFloat((perUnit * item.qty).toFixed(6)));
+        }
+      }
+    }
+  } else if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
   }
 
