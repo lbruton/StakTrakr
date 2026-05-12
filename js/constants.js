@@ -281,7 +281,7 @@ const CERT_LOOKUP_URLS = {
  * Follows BRANCH.RELEASE.PATCH.state format
  * State codes: a=alpha, b=beta, rc=release candidate
  * Example: 3.03.02a → branch 3, release 03, patch 02, alpha
- * Updated: 2026-05-11 - STRK-68: Chart unit alignment for lot/each pricing
+ * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
 const APP_VERSION = "3.34.61";
