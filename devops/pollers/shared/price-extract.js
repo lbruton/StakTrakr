@@ -1521,7 +1521,7 @@ async function main() {
    */
   function computeBaseline(coinSlug, coin) {
     if (coin.metal === "goldback") {
-      // Goldback denominations: G1, G5, G10, G25, G50
+      // Goldback denominations: g0.25, G1, G5, G10, G25, G50
       if (!_goldbackG1) return null;
       const denomMatch =
         coinSlug.match(/goldback-.*?-?g(\d+(?:\.\d+)?)$/i) ||
