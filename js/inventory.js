@@ -624,6 +624,123 @@ window.startCellEdit = startCellEdit;
  */
 let _removeItemQtyPreviewHandler = null;
 let _confirmRemoveItemInFlight = false;
+const DISPOSE_QTY_CHIP_MAX = 8;
+let _removeItemQtyChipKeyHandler = null;
+let _removeItemQtySelectChangeHandler = null;
+
+const writeDisposeQty = (n) => {
+  const el = safeGetElement("removeItemQty");
+  if (!el) return;
+  el.value = String(n);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+};
+
+const renderDisposeQtyChips = (stackQty, labelMaxEl) => {
+  const chipsEl = safeGetElement("removeItemQtyChips");
+  const selectEl = safeGetElement("removeItemQtySelect");
+  if (!chipsEl || !selectEl) return;
+
+  chipsEl.innerHTML = "";
+  chipsEl.className = "chip-sort-toggle chip-sort-toggle--quantity";
+  chipsEl.style.display = "";
+  selectEl.style.display = "none";
+
+  if (labelMaxEl) labelMaxEl.textContent = ` (max ${stackQty})`;
+
+  if (stackQty === 1) {
+    chipsEl.classList.add("is-disabled");
+    chipsEl.setAttribute("aria-disabled", "true");
+  } else {
+    chipsEl.classList.remove("is-disabled");
+    chipsEl.removeAttribute("aria-disabled");
+  }
+
+  const selectChip = (n) => {
+    const disabled = chipsEl.classList.contains("is-disabled");
+    for (const btn of chipsEl.children) {
+      const active = btn.dataset.qty === String(n);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      btn.tabIndex = active ? 0 : -1;
+      btn.classList.toggle("active", active);
+    }
+    writeDisposeQty(n);
+    if (!disabled) {
+      chipsEl.querySelector(`[data-qty="${n}"]`)?.focus();
+    }
+  };
+
+  for (let n = 1; n <= stackQty; n++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip-sort-btn";
+    btn.dataset.qty = String(n);
+    btn.textContent = String(n);
+    const isLast = n === stackQty;
+    btn.setAttribute("aria-pressed", isLast ? "true" : "false");
+    btn.tabIndex = isLast ? 0 : -1;
+    if (isLast) btn.classList.add("active");
+    btn.addEventListener("click", () => selectChip(n));
+    chipsEl.appendChild(btn);
+  }
+
+  if (_removeItemQtyChipKeyHandler) {
+    chipsEl.removeEventListener("keydown", _removeItemQtyChipKeyHandler);
+  }
+  _removeItemQtyChipKeyHandler = (event) => {
+    if (chipsEl.classList.contains("is-disabled")) return;
+    const chips = Array.from(chipsEl.children);
+    const currentIdx = chips.findIndex((b) => b.tabIndex === 0);
+    let targetIdx = currentIdx;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      targetIdx = (currentIdx + 1) % chips.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      targetIdx = (currentIdx - 1 + chips.length) % chips.length;
+    } else if (event.key === "Home") {
+      targetIdx = 0;
+    } else if (event.key === "End") {
+      targetIdx = chips.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    selectChip(parseInt(chips[targetIdx].dataset.qty, 10));
+  };
+  chipsEl.addEventListener("keydown", _removeItemQtyChipKeyHandler);
+
+  writeDisposeQty(stackQty);
+  if (!chipsEl.classList.contains("is-disabled")) {
+    chipsEl.querySelector(`[data-qty="${stackQty}"]`)?.focus();
+  }
+};
+
+const renderDisposeQtySelect = (stackQty, labelMaxEl) => {
+  const chipsEl = safeGetElement("removeItemQtyChips");
+  const selectEl = safeGetElement("removeItemQtySelect");
+  if (!chipsEl || !selectEl) return;
+
+  chipsEl.style.display = "none";
+  selectEl.style.display = "";
+
+  if (labelMaxEl) labelMaxEl.textContent = ` (max ${stackQty})`;
+
+  selectEl.innerHTML = "";
+  for (let n = 1; n <= stackQty; n++) {
+    const opt = document.createElement("option");
+    opt.value = String(n);
+    opt.textContent = String(n);
+    if (n === stackQty) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+
+  if (_removeItemQtySelectChangeHandler) {
+    selectEl.removeEventListener("change", _removeItemQtySelectChangeHandler);
+  }
+  _removeItemQtySelectChangeHandler = (e) => writeDisposeQty(parseInt(e.target.value, 10));
+  selectEl.addEventListener("change", _removeItemQtySelectChangeHandler);
+
+  writeDisposeQty(stackQty);
+  selectEl.focus();
+};
 
 const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
@@ -678,15 +795,15 @@ const openRemoveItemModal = (idx, preDispose = false) => {
 
   const stackQty = Number(item.qty) || 1;
 
-  if (stackQty > 1) {
-    if (qtyGroup) qtyGroup.style.display = "";
-    if (qtyInput) {
-      qtyInput.value = stackQty;
-      qtyInput.max = stackQty;
-    }
+  // STRK-53: control is always visible — qty=1 shows pre-selected, dimmed.
+  if (qtyGroup) qtyGroup.style.display = "";
+  const labelMaxEl = safeGetElement("removeItemQtyLabelMax");
+  if (stackQty <= DISPOSE_QTY_CHIP_MAX) {
+    renderDisposeQtyChips(stackQty, labelMaxEl);
   } else {
-    if (qtyGroup) qtyGroup.style.display = "none";
+    renderDisposeQtySelect(stackQty, labelMaxEl);
   }
+  // qtyInput.value is set by writeDisposeQty inside the helpers; no direct write here.
 
   window.disposeAmountToggle?.setMode("each", { convertInput: false });
   window.disposeAmountToggle?.updateVisibility();
@@ -770,12 +887,16 @@ const confirmRemoveItem = async () => {
         disposedQty = Number(item.qty) || 1;
       } else {
         disposedQty = Number(qtyInputEl.value);
+        // STRK-53: defense-in-depth. The chip/<select> UI does not expose a path to a non-integer
+        // value. This branch is reachable only via programmatic DOM access — keep as a safety net.
         if (!Number.isInteger(disposedQty)) {
           showToast("Please enter a whole number quantity to dispose.");
           return;
         }
       }
 
+      // STRK-53: defense-in-depth. Same reasoning as above — out-of-range values are not
+      // selectable through the UI.
       if (
         !Number.isFinite(disposedQty) ||
         disposedQty < 1 ||
