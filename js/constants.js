@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-11 - STRK-68: Chart unit alignment for lot/each pricing
  */
 
-const APP_VERSION = "3.34.60";
+const APP_VERSION = "3.34.61";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.

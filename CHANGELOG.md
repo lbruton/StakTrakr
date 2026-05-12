@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.61] - 2026-05-12
+
+### Changed — STRK-66: Add ¼ Goldback denomination support (Idaho, g0.25)
+
+- **GOLDBACK_DENOMINATIONS**: Prepend `{ weight: 0.25, label: "¼ Goldback", goldOz: 0.00025 }` as the new first entry; array now has 9 denominations (STRK-66).
+- **Label rendering**: Add `d.weight === 0.25 ? "¼"` branch in `updateDenomLabels` and `updateBulkDenomLabels` so the denomination shows as "¼ Goldback" in item add/edit and bulk-edit modals (STRK-66).
+- **Slug parser**: Add `"g0.25": 0.00025` to `GOLDBACK_WEIGHTS` so `goldback-idaho-g0.25` resolves to 0.00025 oz (STRK-66).
+- **Poller**: Add `g0.25` to `DENOMINATION_MULTIPLIERS` in `goldback-scraper.js` and to `buildGoldbackDenominations` in `api-export.js` and `api-export-v2.js` (STRK-66).
+- **Bounds-guard fix**: Update price-extract.js regex to `/goldback-.*?-?g(\d+(?:\.\d+)?)$/i` so decimal denomination slugs are matched and their multiplier is computed correctly (STRK-66).
+
+---
+
 ## [3.34.60] - 2026-05-11
 
 ### Changed — STRK-68: Chart unit alignment for lot/each pricing
