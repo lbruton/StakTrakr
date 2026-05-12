@@ -1962,6 +1962,8 @@ test.describe("STRK-44 Partial-Stack Disposition", () => {
     await seedData(page, { inventory: [stack4Item] });
     await gotoApp(page);
     await openDisposeModal(page, 0);
+    // Wait for modal slide-in animation (scale 0.95→1) to settle before measuring
+    await page.waitForTimeout(400);
 
     const box = await page.locator('#removeItemQtyChips button[data-qty="1"]').boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(44);
