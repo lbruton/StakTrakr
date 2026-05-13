@@ -9728,7 +9728,10 @@ th {
   border-radius: var(--radius);
   padding: 0.4rem 0.6rem;
   font-size: var(--font-size-md);
-  min-height: 0;
+  line-height: 1.2;
+  min-height: var(--inventory-control-height);
+  height: var(--inventory-control-height);
+  box-sizing: border-box;
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -9788,6 +9791,7 @@ th {
 }
 
 #inventoryForm {
+  --inventory-control-height: 34px;
   gap: var(--spacing-md);
 }
 
@@ -9903,9 +9907,10 @@ th {
 /* --- Inline search buttons next to inputs ------------------------------- */
 .input-with-action {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0;
   position: relative;
+  min-height: var(--inventory-control-height, 34px);
 }
 
 .input-with-action input,
@@ -9920,8 +9925,11 @@ th {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   min-width: 32px;
-  min-height: 32px;
+  min-height: var(--inventory-control-height, 34px);
+  height: var(--inventory-control-height, 34px);
+  box-sizing: border-box;
   padding: 0.25rem;
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
   border: 1.5px solid var(--glass-input-border, var(--border));
@@ -9985,7 +9993,8 @@ th {
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: normal !important;
-  padding: 0.25rem 0.6rem;
+  min-width: 40px;
+  padding: 0 0.6rem;
 }
 .date-na-btn.active {
   color: var(--text-inverse);
@@ -10143,7 +10152,7 @@ th {
 }
 
 #inventoryForm .currency-input.input-with-action .inline-search-btn {
-  min-height: 100%;
+  min-height: var(--inventory-control-height, 34px);
   align-self: stretch;
 }
 
