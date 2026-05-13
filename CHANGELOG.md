@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.64] - 2026-05-13
+
+### Changed — STRK-50: Optional structured Payment Method dropdown
+
+- **Payment method field**: Adds an optional Payment Method dropdown to the item add/edit form, persists it on inventory records only when selected, and preserves it through edit, clone, bulk edit, JSON/CSV import/export, ZIP backup, and view details (STRK-50).
+- **Filtering and search**: Payment Method is now available as a filter chip category and participates in inventory text search without changing totals or valuation math (STRK-50).
+
+---
+
 ## [3.34.63] - 2026-05-12
 
 ### Changed — STRK-71: Attachment chip controllable in inline chip settings

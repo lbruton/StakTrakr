@@ -8,6 +8,7 @@
 # needed by Agentlinter and cross-agent workflows.
 .claude/*
 !.claude/project.json
+!.claude/settings.json
 !.claude/agents/
 !.claude/hooks/
 !.claude/skills/

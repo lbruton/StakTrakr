@@ -1501,6 +1501,7 @@ const editItem = (idx, logIdx = null) => {
       : "";
   elements.itemPrice.value = displayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = displayMv;
+  if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
   elements.purchaseLocation.value = item.purchaseLocation || "";
   elements.storageLocation.value =
     item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
@@ -1882,6 +1883,7 @@ const duplicateItem = (idx) => {
       : "";
   elements.itemPrice.value = dupDisplayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = dupDisplayMv;
+  if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
   elements.purchaseLocation.value = item.purchaseLocation || "";
   elements.storageLocation.value =
     item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
@@ -1976,6 +1978,7 @@ const exportJson = () => {
     purity: parseFloat(item.purity) || 1.0,
     price: item.price,
     marketValue: item.marketValue || 0,
+    ...(item.paymentMethod && { paymentMethod: item.paymentMethod }),
     purchaseLocation: item.purchaseLocation,
     storageLocation: item.storageLocation,
     tags: typeof getItemTags === "function" ? getItemTags(item.uuid) : [],
@@ -2081,6 +2084,7 @@ const exportPdf = () => {
       currentSpot > 0 ? formatCurrency(meltValue) : "—",
       formatCurrency(retailTotal),
       gainLoss !== null ? formatCurrency(gainLoss) : "—",
+      item.paymentMethod || "",
       item.purchaseLocation,
       item.numistaId || "",
       item.pcgsNumber || "",
@@ -2108,6 +2112,7 @@ const exportPdf = () => {
         "Melt Value",
         "Retail",
         "Gain/Loss",
+        "Payment Method",
         "Location",
         "N#",
         "PCGS#",

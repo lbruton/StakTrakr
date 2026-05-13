@@ -1,0 +1,101 @@
+{
+  "model": "claude-sonnet-4-6",
+  "permissions": {
+    "allow": [
+      "Skill(*)",
+      "WebFetch",
+      "WebSearch",
+      "Read(//Volumes/DATA/GitHub/**)",
+      "Write(//Volumes/DATA/GitHub/**)",
+      "Edit(//Volumes/DATA/GitHub/**)",
+      "Read(//Users/lbruton/.claude/**)",
+      "Write(//Users/lbruton/.claude/**)",
+      "Edit(//Users/lbruton/.claude/**)",
+      "Bash(grep *)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(git rev-parse *)",
+      "Bash(git fetch *)",
+      "Bash(git stash list *)",
+      "Bash(git worktree list *)",
+      "Bash(git cat-file *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr status *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)",
+      "Bash(gh api *)",
+      "Bash(npx playwright *)",
+      "Bash(npx markdownlint-cli2 *)",
+      "Bash(node -c *)",
+      "Bash(npm install --no-audit *)",
+      "mcp__specflow__approvals",
+      "mcp__specflow__log-implementation",
+      "mcp__specflow__spec-list",
+      "mcp__specflow__spec-workflow-guide",
+      "mcp__specflow__spec-status",
+      "mcp__mem0__add_memory",
+      "mcp__mem0__search_memories",
+      "mcp__claude-context__get_indexing_status",
+      "mcp__claude-context__search_code",
+      "mcp__claude-context__index_codebase",
+      "mcp__code-graph-context__find_code",
+      "mcp__code-graph-context__analyze_code_relationships",
+      "mcp__code-graph-context__list_indexed_repositories",
+      "mcp__sessionflow__search_all_sessions",
+      "mcp__sessionflow__search_session",
+      "mcp__github__get_pull_request",
+      "mcp__github__list_pull_requests",
+      "mcp__github__get_pull_request_files",
+      "mcp__github__get_pull_request_comments",
+      "mcp__github__get_pull_request_reviews",
+      "mcp__github__get_pull_request_status",
+      "mcp__github__list_issues",
+      "mcp__github__get_issue",
+      "mcp__plane__get_issue_using_readable_identifier",
+      "mcp__plane__list_states",
+      "mcp__codacy__codacy_cli_analyze"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/tool-tier-reminder.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/post-edit-lint.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/post-edit-lint.py"
+          }
+        ]
+      }
+    ]
+  }
+}

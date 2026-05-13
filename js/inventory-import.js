@@ -301,6 +301,7 @@
                 ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
                 : parseFloat(priceStr);
             if (price < 0) price = 0;
+            const paymentMethod = row["Payment Method"] || row["paymentMethod"] || "";
             const purchaseLocation = row["Purchase Location"] || "";
             const storageLocation = row["Storage Location"] || "";
             const notes = row["Notes"] || "";
@@ -425,6 +426,7 @@
               price,
               marketValue,
               date,
+              paymentMethod,
               purchaseLocation,
               storageLocation,
               notes,
@@ -448,6 +450,7 @@
 
             if (csvAttachments.length > 0) item.attachments = csvAttachments;
             imported.push(item);
+            if (!item.paymentMethod) delete item.paymentMethod;
 
             // STAK-126 / STAK-424: Collect tags but defer persistence until import confirmed.
             // Key by DiffEngine.computeItemKey (uuid → serial → name|date) so legacy
@@ -802,6 +805,7 @@
             ]);
             const purchaseLocation =
               purchaseLocRaw && purchaseLocRaw.trim() ? purchaseLocRaw.trim() : "—";
+            const paymentMethod = getValue(row, ["Payment Method", "Payment method"]) || "";
             const storageLocRaw = getValue(row, ["Storage location", "Stored at", "Storage place"]);
             const storageLocation =
               storageLocRaw && storageLocRaw.trim() ? storageLocRaw.trim() : "—";
@@ -850,6 +854,7 @@
               purchasePrice,
               marketValue,
               date,
+              paymentMethod,
               purchaseLocation,
               storageLocation,
               notes: finalNotes,
@@ -867,6 +872,7 @@
             });
 
             imported.push(item);
+            if (!item.paymentMethod) delete item.paymentMethod;
             importedCount++;
             updateImportProgress(processed, importedCount, totalRows);
           }
@@ -1055,6 +1061,7 @@
       "Melt Value",
       "Retail Price",
       "Gain/Loss",
+      "Payment Method",
       "Purchase Location",
       "Storage Location",
       "N#",
@@ -1111,6 +1118,7 @@
         currentSpot > 0 ? formatCurrency(meltValue) : "—",
         formatCurrency(i.marketValue || 0),
         gainLoss !== null ? formatCurrency(gainLoss) : "—",
+        i.paymentMethod || "",
         i.purchaseLocation,
         i.storageLocation || "",
         i.numistaId || "",
@@ -1244,6 +1252,7 @@
               ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
               : parseFloat(priceStr);
           if (price < 0) price = 0;
+          const paymentMethod = raw.paymentMethod || raw["Payment Method"] || "";
           const purchaseLocation = raw.purchaseLocation || "";
           const storageLocation = raw.storageLocation || "";
           const notes = raw.notes || "";
@@ -1297,6 +1306,7 @@
             price,
             marketValue,
             date,
+            paymentMethod,
             purchaseLocation,
             storageLocation,
             notes,
@@ -1332,6 +1342,7 @@
 
           addCompositionOption(composition);
           imported.push(processedItem);
+          if (!processedItem.paymentMethod) delete processedItem.paymentMethod;
 
           // STAK-126: Import tags from JSON if present
           if (typeof addItemTag === "function") {
@@ -1568,6 +1579,7 @@
           ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
           : parseFloat(priceStr);
       if (price < 0) price = 0;
+      const paymentMethod = row["Payment Method"] || row["paymentMethod"] || "";
       const purchaseLocation = row["Purchase Location"] || "";
       const storageLocation = row["Storage Location"] || "";
       const notes = row["Notes"] || "";
@@ -1660,6 +1672,7 @@
         price,
         marketValue,
         date,
+        paymentMethod,
         purchaseLocation,
         storageLocation,
         notes,

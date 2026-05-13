@@ -477,6 +477,7 @@ function _buildInventorySection(item, metrics) {
       : item.date
     : "—";
   _addDetail(invGrid2, "Date", dateVal);
+  _addDetail(invGrid2, "Payment Method", item.paymentMethod || "—");
   _appendSourceField(invGrid2, item.purchaseLocation || "—");
   invSection.appendChild(invGrid2);
   const storGrid = _el("div", "view-detail-grid");

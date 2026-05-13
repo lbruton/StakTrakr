@@ -62,6 +62,7 @@ const elements = {
   itemMarketValue: null,
   marketValueField: null,
   dateField: null,
+  itemPaymentMethod: null,
   purchaseLocation: null,
   storageLocation: null,
   itemSerialNumber: null,
