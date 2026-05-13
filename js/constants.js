@@ -1104,6 +1104,7 @@ const INLINE_CHIP_DEFAULTS = [
   { id: "notes", label: "Notes Indicator", enabled: false },
   { id: "purity", label: "Purity", enabled: false },
   { id: "tags", label: "Tags", enabled: false },
+  { id: "attachment", label: "Attachments", enabled: true },
 ];
 
 /**
