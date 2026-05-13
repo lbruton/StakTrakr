@@ -7954,7 +7954,8 @@ a.about-badge:hover {
   gap: var(--spacing-md);
   margin-bottom: 0.2rem;
 }
-.label-with-toggle > label {
+.label-with-toggle > label,
+#inventoryForm .label-with-toggle > label {
   margin-bottom: 0;
 }
 
