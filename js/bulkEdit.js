@@ -277,6 +277,23 @@ const BULK_EDITABLE_FIELDS = [
   },
   { id: "certNumber", label: "Cert #", inputType: "text" },
   { id: "pcgsNumber", label: "PCGS Number", inputType: "text" },
+  {
+    id: "paymentMethod",
+    label: "Payment Method",
+    inputType: "select",
+    options: [
+      "",
+      "Zelle",
+      "PayPal",
+      "Credit Card",
+      "Debit Card",
+      "Cash",
+      "Check",
+      "Wire",
+      "Crypto",
+      "Other",
+    ],
+  },
   { id: "purchaseLocation", label: "Purchase Loc", inputType: "text" },
   { id: "storageLocation", label: "Storage Loc", inputType: "text" },
   { id: "date", label: "Purchase Date", inputType: "date" },
@@ -1263,6 +1280,9 @@ const applyBulkEdit = async () => {
     Object.keys(valuesToApply).forEach((fieldId) => {
       item[fieldId] = coerceFieldValue(fieldId, valuesToApply[fieldId]);
     });
+    if (bulkEnabledFields.has("paymentMethod") && !item.paymentMethod) {
+      delete item.paymentMethod;
+    }
 
     // STACK-62: Invalidate search cache for modified item
     if (typeof window.invalidateSearchCache === "function") {

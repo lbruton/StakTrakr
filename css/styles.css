@@ -1189,6 +1189,10 @@ section:hover {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .grid-purity-row {
   grid-template-columns: 2fr 1fr 1fr auto;
 }
@@ -8541,6 +8545,7 @@ input:disabled + .slider {
   }
 
   .grid-2,
+  .grid-3,
   .grid-name-year,
   .grid-grade {
     grid-template-columns: 1fr;
@@ -13016,6 +13021,7 @@ th {
   }
 
   .grid-2,
+  .grid-3,
   .grid-purity-row {
     grid-template-columns: 1fr;
   }

@@ -301,6 +301,7 @@
                 ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
                 : parseFloat(priceStr);
             if (price < 0) price = 0;
+            const paymentMethod = row["Payment Method"] || row["paymentMethod"] || "";
             const purchaseLocation = row["Purchase Location"] || "";
             const storageLocation = row["Storage Location"] || "";
             const notes = row["Notes"] || "";
@@ -425,6 +426,7 @@
               price,
               marketValue,
               date,
+              paymentMethod,
               purchaseLocation,
               storageLocation,
               notes,
@@ -802,6 +804,7 @@
             ]);
             const purchaseLocation =
               purchaseLocRaw && purchaseLocRaw.trim() ? purchaseLocRaw.trim() : "—";
+            const paymentMethod = getValue(row, ["Payment Method", "Payment method"]) || "";
             const storageLocRaw = getValue(row, ["Storage location", "Stored at", "Storage place"]);
             const storageLocation =
               storageLocRaw && storageLocRaw.trim() ? storageLocRaw.trim() : "—";
@@ -850,6 +853,7 @@
               purchasePrice,
               marketValue,
               date,
+              paymentMethod,
               purchaseLocation,
               storageLocation,
               notes: finalNotes,
@@ -1055,6 +1059,7 @@
       "Melt Value",
       "Retail Price",
       "Gain/Loss",
+      "Payment Method",
       "Purchase Location",
       "Storage Location",
       "N#",
@@ -1111,6 +1116,7 @@
         currentSpot > 0 ? formatCurrency(meltValue) : "—",
         formatCurrency(i.marketValue || 0),
         gainLoss !== null ? formatCurrency(gainLoss) : "—",
+        i.paymentMethod || "",
         i.purchaseLocation,
         i.storageLocation || "",
         i.numistaId || "",
@@ -1244,6 +1250,7 @@
               ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
               : parseFloat(priceStr);
           if (price < 0) price = 0;
+          const paymentMethod = raw.paymentMethod || raw["Payment Method"] || "";
           const purchaseLocation = raw.purchaseLocation || "";
           const storageLocation = raw.storageLocation || "";
           const notes = raw.notes || "";
@@ -1297,6 +1304,7 @@
             price,
             marketValue,
             date,
+            paymentMethod,
             purchaseLocation,
             storageLocation,
             notes,
@@ -1568,6 +1576,7 @@
           ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
           : parseFloat(priceStr);
       if (price < 0) price = 0;
+      const paymentMethod = row["Payment Method"] || row["paymentMethod"] || "";
       const purchaseLocation = row["Purchase Location"] || "";
       const storageLocation = row["Storage Location"] || "";
       const notes = row["Notes"] || "";
@@ -1660,6 +1669,7 @@
         price,
         marketValue,
         date,
+        paymentMethod,
         purchaseLocation,
         storageLocation,
         notes,

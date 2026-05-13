@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STRK-50 Payment Method Row Mockup</title>
+    <style>
+      :root {
+        --bg: #101319;
+        --panel: #171b24;
+        --panel-2: #202633;
+        --text: #eef2f7;
+        --muted: #a7b0bf;
+        --line: #353d4d;
+        --accent: #59b392;
+        --field: #0f131a;
+        --field-border: #495365;
+        --danger: #d66b6b;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .control-panel,
+      .preview-panel,
+      .prompt-panel {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 8px;
+      }
+
+      .control-panel {
+        padding: 16px;
+        position: sticky;
+        top: 18px;
+      }
+
+      .control-panel h1 {
+        font-size: 18px;
+        line-height: 1.25;
+        margin-bottom: 6px;
+      }
+
+      .control-panel p {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+        margin-bottom: 18px;
+      }
+
+      .control-group {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      select,
+      input[type="range"] {
+        width: 100%;
+      }
+
+      select,
+      .btn {
+        appearance: none;
+        border: 1px solid var(--field-border);
+        border-radius: 6px;
+        background: var(--field);
+        color: var(--text);
+        font: inherit;
+        min-height: 38px;
+        padding: 0 10px;
+      }
+
+      .preset-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .btn {
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .btn:hover {
+        border-color: var(--accent);
+      }
+
+      .preview-panel {
+        padding: 18px;
+        min-width: 0;
+      }
+
+      .preview-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .preview-head h2 {
+        font-size: 16px;
+      }
+
+      .viewport-label {
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .device-frame {
+        margin: 0 auto;
+        border: 1px solid var(--line);
+        background: #0b0e13;
+        border-radius: 8px;
+        padding: 16px;
+        overflow: auto;
+        transition: width 180ms ease;
+      }
+
+      .modal-shell {
+        background: #181d27;
+        border: 1px solid #343d4d;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 760px;
+        margin: 0 auto;
+        overflow: hidden;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+      }
+
+      .modal-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid #303849;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .modal-title {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .modal-body {
+        padding: 18px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .section-title {
+        color: #d6dde8;
+        font-size: 14px;
+        font-weight: 700;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #2d3544;
+      }
+
+      .grid {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .grid-3 {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .form-group {
+        display: grid;
+        gap: 5px;
+        min-width: 0;
+      }
+
+      .form-group > label {
+        color: #c7cfdb;
+        letter-spacing: 0;
+        text-transform: none;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .form-control,
+      .form-select {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        border-radius: 6px;
+        border: 1px solid #4b5567;
+        background: #0f141c;
+        color: #f0f4f8;
+        font: inherit;
+        font-size: 14px;
+        padding: 0 10px;
+      }
+
+      .input-group {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .input-group .form-control {
+        min-width: 0;
+      }
+
+      .icon-btn {
+        width: 36px;
+        min-width: 36px;
+        min-height: 36px;
+        border-radius: 6px;
+        border: 1px solid #4b5567;
+        background: #232b39;
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .status-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px;
+        background: var(--panel-2);
+        min-width: 0;
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 3px;
+      }
+
+      .metric span {
+        color: var(--muted);
+        display: block;
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+
+      .metric.warn strong {
+        color: var(--danger);
+      }
+
+      .prompt-panel {
+        margin-top: 18px;
+        padding: 16px;
+      }
+
+      .prompt-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .prompt-head h3 {
+        font-size: 14px;
+      }
+
+      pre {
+        margin: 0;
+        padding: 12px;
+        border-radius: 6px;
+        background: #0c1016;
+        border: 1px solid var(--line);
+        color: #dce5f0;
+        font:
+          13px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        white-space: pre-wrap;
+      }
+
+      @media (max-width: 860px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .control-panel {
+          position: static;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+
+        .status-strip {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .device-frame.is-mobile .grid-2,
+      .device-frame.is-mobile .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .device-frame.is-mobile .status-strip {
+        grid-template-columns: 1fr;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="workspace">
+        <aside class="control-panel">
+          <h1>STRK-50 Row Mockup</h1>
+          <p>Validate the Date / Price / Payment Method row before editing the production modal.</p>
+
+          <div class="control-group">
+            <label for="viewportPreset">Viewport</label>
+            <select id="viewportPreset">
+              <option value="desktop">Desktop modal</option>
+              <option value="tablet">Tablet width</option>
+              <option value="mobile">Mobile width</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="paymentMethod">Payment Method</label>
+            <select id="paymentMethod">
+              <option value="">(blank)</option>
+              <option>Zelle</option>
+              <option>PayPal</option>
+              <option>Credit Card</option>
+              <option>Debit Card</option>
+              <option>Cash</option>
+              <option>Check</option>
+              <option>Wire</option>
+              <option>Crypto</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="priceText">Purchase Price</label>
+            <select id="priceText">
+              <option value="short">$1,245.00</option>
+              <option value="medium">$12,450.75</option>
+              <option value="long">$123,456.78</option>
+            </select>
+          </div>
+
+          <div class="preset-row">
+            <button class="btn" type="button" data-preset="desktop">Desktop</button>
+            <button class="btn" type="button" data-preset="mobile">Mobile</button>
+            <button class="btn" type="button" data-preset="credit">Credit Card</button>
+            <button class="btn" type="button" data-preset="stress">Stress Test</button>
+          </div>
+        </aside>
+
+        <section>
+          <div class="preview-panel">
+            <div class="preview-head">
+              <h2>Edit Item Modal Purchase Section</h2>
+              <span class="viewport-label" id="viewportLabel"></span>
+            </div>
+            <div class="device-frame" id="deviceFrame">
+              <div class="modal-shell">
+                <div class="modal-header">
+                  <div class="modal-title">Edit Item</div>
+                  <button class="icon-btn" type="button" aria-label="Close">x</button>
+                </div>
+                <div class="modal-body">
+                  <div class="section-title">Purchase Information</div>
+                  <div class="grid grid-3" id="purchaseRow">
+                    <div class="form-group">
+                      <label for="mockDate">Purchase Date</label>
+                      <div class="input-group">
+                        <input class="form-control" id="mockDate" type="date" value="2026-05-13" />
+                        <button class="icon-btn" type="button" aria-label="Clear date">x</button>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="mockPrice">Purchase Price</label>
+                      <div class="input-group">
+                        <input class="form-control" id="mockPrice" value="$1,245.00" />
+                        <button class="icon-btn" type="button" aria-label="Use spot price">
+                          $
+                        </button>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="mockPaymentMethod">Payment Method</label>
+                      <select class="form-select" id="mockPaymentMethod">
+                        <option value="">(blank)</option>
+                        <option>Zelle</option>
+                        <option>PayPal</option>
+                        <option>Credit Card</option>
+                        <option>Debit Card</option>
+                        <option>Cash</option>
+                        <option>Check</option>
+                        <option>Wire</option>
+                        <option>Crypto</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="grid grid-2">
+                    <div class="form-group">
+                      <label for="mockPurchaseLocation">Purchase Location</label>
+                      <input
+                        class="form-control"
+                        id="mockPurchaseLocation"
+                        value="Local coin shop"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="mockStorageLocation">Storage Location</label>
+                      <input class="form-control" id="mockStorageLocation" value="Safe" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="status-strip" id="statusStrip"></div>
+            </div>
+          </div>
+
+          <div class="prompt-panel">
+            <div class="prompt-head">
+              <h3>Approval Note</h3>
+              <button class="btn" type="button" id="copyPrompt">Copy</button>
+            </div>
+            <pre id="promptOutput"></pre>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const DEFAULTS = {
+        viewport: "desktop",
+        paymentMethod: "",
+        priceText: "short",
+      };
+
+      const state = { ...DEFAULTS };
+      const viewports = {
+        desktop: { width: 860, label: "860px desktop preview" },
+        tablet: { width: 620, label: "620px tablet preview" },
+        mobile: { width: 360, label: "360px mobile preview" },
+      };
+      const prices = {
+        short: "$1,245.00",
+        medium: "$12,450.75",
+        long: "$123,456.78",
+      };
+
+      const viewportPreset = document.getElementById("viewportPreset");
+      const paymentMethod = document.getElementById("paymentMethod");
+      const priceText = document.getElementById("priceText");
+      const frame = document.getElementById("deviceFrame");
+      const viewportLabel = document.getElementById("viewportLabel");
+      const mockPaymentMethod = document.getElementById("mockPaymentMethod");
+      const mockPrice = document.getElementById("mockPrice");
+      const statusStrip = document.getElementById("statusStrip");
+      const promptOutput = document.getElementById("promptOutput");
+      const copyPrompt = document.getElementById("copyPrompt");
+
+      function setPreset(name) {
+        if (name === "desktop") {
+          Object.assign(state, DEFAULTS, { viewport: "desktop" });
+        } else if (name === "mobile") {
+          Object.assign(state, DEFAULTS, { viewport: "mobile" });
+        } else if (name === "credit") {
+          Object.assign(state, DEFAULTS, { viewport: "desktop", paymentMethod: "Credit Card" });
+        } else if (name === "stress") {
+          Object.assign(state, DEFAULTS, {
+            viewport: "mobile",
+            paymentMethod: "Credit Card",
+            priceText: "long",
+          });
+        }
+        syncControls();
+        updateAll();
+      }
+
+      function syncControls() {
+        viewportPreset.value = state.viewport;
+        paymentMethod.value = state.paymentMethod;
+        priceText.value = state.priceText;
+      }
+
+      function renderPreview() {
+        const viewport = viewports[state.viewport];
+        frame.style.width = `${viewport.width}px`;
+        frame.style.maxWidth = "100%";
+        frame.classList.toggle("is-mobile", viewport.width <= 480);
+        viewportLabel.textContent = viewport.label;
+        mockPaymentMethod.value = state.paymentMethod;
+        mockPrice.value = prices[state.priceText];
+
+        const narrow = viewport.width <= 480;
+        const priceValue = prices[state.priceText];
+        const metrics = [
+          ["Row mode", narrow ? "Single column collapse" : "Three equal columns", false],
+          ["Price value", priceValue, state.priceText === "long" && !narrow],
+          ["Payment option", state.paymentMethod || "(blank)", false],
+          ["Location row", "Unchanged grid-2 row", false],
+        ];
+        statusStrip.innerHTML = metrics
+          .map(
+            ([label, value, warn]) => `
+        <div class="metric${warn ? " warn" : ""}">
+          <strong>${label}</strong>
+          <span>${value}</span>
+        </div>
+      `
+          )
+          .join("");
+      }
+
+      function updatePrompt() {
+        const viewport = viewports[state.viewport];
+        const parts = [`Mockup reviewed at ${viewport.label}`];
+        if (state.paymentMethod) parts.push(`Payment Method set to ${state.paymentMethod}`);
+        if (state.priceText !== DEFAULTS.priceText)
+          parts.push(`price field stress-tested with ${prices[state.priceText]}`);
+        parts.push(
+          state.viewport === "mobile"
+            ? "mobile collapse keeps Date, Price, and Payment Method as separate full-width rows"
+            : "desktop layout keeps Date, Price, and Payment Method in one three-column row"
+        );
+        parts.push("Purchase Location / Storage Location row remains unchanged");
+        promptOutput.textContent = `${parts.join(". ")}. If accepted, record in tasks.md: > Mockup approved — 2026-05-13`;
+      }
+
+      function updateAll() {
+        renderPreview();
+        updatePrompt();
+      }
+
+      viewportPreset.addEventListener("change", () => {
+        state.viewport = viewportPreset.value;
+        updateAll();
+      });
+      paymentMethod.addEventListener("change", () => {
+        state.paymentMethod = paymentMethod.value;
+        updateAll();
+      });
+      priceText.addEventListener("change", () => {
+        state.priceText = priceText.value;
+        updateAll();
+      });
+      document.querySelectorAll("[data-preset]").forEach((button) => {
+        button.addEventListener("click", () => setPreset(button.dataset.preset));
+      });
+      copyPrompt.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(promptOutput.textContent);
+        copyPrompt.textContent = "Copied";
+        setTimeout(() => {
+          copyPrompt.textContent = "Copy";
+        }, 1200);
+      });
+
+      syncControls();
+      updateAll();
+    </script>
+  </body>
+</html>

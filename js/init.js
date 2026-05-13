@@ -207,6 +207,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.itemMarketValue = safeGetElement("itemMarketValue");
     elements.marketValueField = safeGetElement("marketValueField");
     elements.dateField = safeGetElement("dateField");
+    elements.itemPaymentMethod = safeGetElement("itemPaymentMethod");
     elements.purchaseLocation = safeGetElement("purchaseLocation", true);
     elements.storageLocation = safeGetElement("storageLocation");
     elements.itemNotes = safeGetElement("itemNotes");

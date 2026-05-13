@@ -2164,8 +2164,8 @@
                 />
               </div>
             </div>
-            <!-- Row: Purchase Date & Purchase Price -->
-            <div class="grid grid-2">
+            <!-- Row: Purchase Date, Purchase Price & Payment Method -->
+            <div class="grid grid-3">
               <div id="dateField">
                 <label for="itemDate"
                   >Purchase Date
@@ -2226,6 +2226,21 @@
                     </svg>
                   </button>
                 </div>
+              </div>
+              <div>
+                <label for="itemPaymentMethod">Payment Method</label>
+                <select id="itemPaymentMethod">
+                  <option value="">(blank)</option>
+                  <option value="Zelle">Zelle</option>
+                  <option value="PayPal">PayPal</option>
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Debit Card">Debit Card</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Check">Check</option>
+                  <option value="Wire">Wire</option>
+                  <option value="Crypto">Crypto</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
             </div>
             <!-- Row: Purchase Location & Storage Location -->

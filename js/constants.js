@@ -284,7 +284,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.34.63";
+const APP_VERSION = "3.34.64";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1162,6 +1162,7 @@ const FILTER_CHIP_CATEGORY_DEFAULTS = [
   { id: "name", label: "Names", enabled: true, group: null },
   { id: "customGroup", label: "Custom Groups", enabled: true, group: null },
   { id: "dynamicName", label: "Dynamic Names", enabled: true, group: null },
+  { id: "paymentMethod", label: "Payment Method", enabled: true, group: null },
   { id: "purchaseLocation", label: "Purchase Location", enabled: true, group: null },
   { id: "storageLocation", label: "Storage Location", enabled: true, group: null },
   { id: "year", label: "Years", enabled: true, group: null },

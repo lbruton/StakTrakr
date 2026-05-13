@@ -167,10 +167,10 @@ const resetPurchasePriceToggle = () => {
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
 
-// Sets toggle to storedMode (or "lot" for legacy), hides at qty ≤ 1, clears interaction flag.
+// Sets toggle to storedMode, defaulting legacy records with no mode to Each.
 // Returns true if lot mode is active after visibility resolution (caller may need to adjust price field).
 window.restorePurchasePriceToggle = (storedMode, qty) => {
-  purchasePriceToggle.setMode(storedMode === "each" ? "each" : "lot", { convertInput: false });
+  purchasePriceToggle.setMode(storedMode === "lot" ? "lot" : "each", { convertInput: false });
   purchasePriceToggle.updateVisibility();
   purchasePriceToggle.resetInteracted();
   return purchasePriceToggle.getMode() === "lot" && qty > 1;
@@ -1475,6 +1475,7 @@ const parseItemFormFields = (isEditing, existingItem) => {
     weight: parseWeight(weightRaw, weightUnit, isEditing, existingItem),
     weightUnit,
     price: parsePriceToUSD(priceInput, fxRate, isEditing, existingItem.price),
+    paymentMethod: elements.itemPaymentMethod?.value?.trim() ?? "",
     purchaseLocation: elements.purchaseLocation.value.trim(),
     storageLocation: elements.storageLocation.value.trim(),
     serialNumber: elements.itemSerialNumber?.value?.trim() ?? "",
@@ -1625,6 +1626,7 @@ const buildItemFields = (f) => {
     price: f.price,
     marketValue: f.marketValue,
     date: f.date,
+    paymentMethod: f.paymentMethod,
     purchaseLocation: f.purchaseLocation,
     storageLocation: f.storageLocation,
     serialNumber: f.serialNumber,
@@ -1710,6 +1712,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     };
     if (f.obverseImageFrame === "auto") delete inventory[editIdx].obverseImageFrame;
     if (f.reverseImageFrame === "auto") delete inventory[editIdx].reverseImageFrame;
+    if (!f.paymentMethod) delete inventory[editIdx].paymentMethod;
 
     // Track user-modified fields by comparing old vs new values
     if (typeof window.markUserModified === "function") {
@@ -1725,6 +1728,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
         "price",
         "marketValue",
         "date",
+        "paymentMethod",
         "purchaseLocation",
         "storageLocation",
         "serialNumber",
@@ -1856,6 +1860,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       reverseSharedImageId: null,
       ignorePatternImages: f.ignorePatternImages || false,
     });
+    if (!f.paymentMethod) delete inventory[inventory.length - 1].paymentMethod;
 
     typeof registerName === "function" && registerName(f.name);
     if (typeof registerCapsule === "function") registerCapsule(f.capsule);

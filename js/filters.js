@@ -135,6 +135,7 @@ const generateCategorySummary = (inventory) => {
 
   const metals = {};
   const types = {};
+  const paymentMethods = {};
   const purchaseLocations = {};
   const storageLocations = {};
   const names = {};
@@ -154,6 +155,12 @@ const generateCategorySummary = (inventory) => {
     // Count types
     if (item.type) {
       types[item.type] = (types[item.type] || 0) + 1;
+    }
+
+    // Count payment methods (skip empty)
+    const payMethod = (item.paymentMethod || "").trim();
+    if (payMethod) {
+      paymentMethods[payMethod] = (paymentMethods[payMethod] || 0) + 1;
     }
 
     // Count purchase locations (skip empty / "Unknown")
@@ -234,6 +241,7 @@ const generateCategorySummary = (inventory) => {
   // Apply minCount threshold to all categories
   const filteredMetals = applyMinCountThreshold(metals, minCount);
   const filteredTypes = applyMinCountThreshold(types, minCount);
+  const filteredPaymentMethods = applyMinCountThreshold(paymentMethods, minCount);
   const filteredPurchaseLocations = applyMinCountThreshold(purchaseLocations, minCount);
   const filteredStorageLocations = applyMinCountThreshold(storageLocations, minCount);
   let filteredNames = applyMinCountThreshold(names, nameMinCount);
@@ -283,6 +291,7 @@ const generateCategorySummary = (inventory) => {
   return {
     metals: filteredMetals,
     types: filteredTypes,
+    paymentMethods: filteredPaymentMethods,
     purchaseLocations: filteredPurchaseLocations,
     storageLocations: filteredStorageLocations,
     names: filteredNames,
@@ -359,6 +368,7 @@ const renderActiveFilters = () => {
       field: "dynamicName",
       extraProps: { isDynamic: true },
     },
+    paymentMethod: { summaryKey: "paymentMethods", field: "paymentMethod" },
     purchaseLocation: { summaryKey: "purchaseLocations", field: "purchaseLocation" },
     storageLocation: { summaryKey: "storageLocations", field: "storageLocation" },
     year: { summaryKey: "years", field: "year" },
@@ -378,6 +388,7 @@ const renderActiveFilters = () => {
           { id: "name", enabled: true },
           { id: "customGroup", enabled: true },
           { id: "dynamicName", enabled: true },
+          { id: "paymentMethod", enabled: true },
           { id: "purchaseLocation", enabled: true },
           { id: "storageLocation", enabled: true },
           { id: "year", enabled: true },
@@ -938,6 +949,14 @@ const filterInventoryAdvanced = () => {
             return exclude ? !match : match;
           });
           break;
+        case "paymentMethod":
+          result = result.filter((item) => {
+            const method = (item.paymentMethod || "").trim();
+            const normalized = !method ? "—" : method;
+            const match = values.includes(normalized);
+            return exclude ? !match : match;
+          });
+          break;
         case "purchaseLocation":
           result = result.filter((item) => {
             const loc = item.purchaseLocation;
@@ -1246,6 +1265,7 @@ const filterInventoryAdvanced = () => {
           (item.composition && wordRegex.test(item.composition)) ||
           wordRegex.test(item.name) ||
           wordRegex.test(item.type) ||
+          (item.paymentMethod && wordRegex.test(item.paymentMethod)) ||
           wordRegex.test(item.purchaseLocation) ||
           (item.storageLocation && wordRegex.test(item.storageLocation)) ||
           (item.notes && wordRegex.test(item.notes)) ||

@@ -1349,7 +1349,14 @@ const sanitizeImportedItem = (item) => {
   }
 
   // Normalize and sanitize string fields
-  const basicFields = ["name", "type", "purchaseLocation", "storageLocation", "capsule"];
+  const basicFields = [
+    "name",
+    "type",
+    "paymentMethod",
+    "purchaseLocation",
+    "storageLocation",
+    "capsule",
+  ];
   const cleanMultilineString = (str = "") => {
     let s = str.toString();
     let prev;

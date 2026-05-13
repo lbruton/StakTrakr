@@ -34,6 +34,7 @@
           purity: item.purity || 1.0,
           price: item.price,
           date: item.date,
+          paymentMethod: item.paymentMethod || "",
           purchaseLocation: item.purchaseLocation,
           storageLocation: item.storageLocation,
           notes: item.notes,
@@ -142,6 +143,7 @@
         "Melt Value",
         "Retail Price",
         "Gain/Loss",
+        "Payment Method",
         "Purchase Location",
         "Storage Location",
         "N#",
@@ -191,6 +193,7 @@
           currentSpot > 0 ? formatCurrency(meltValue) : "\u2014",
           formatCurrency(item.marketValue || 0),
           gainLoss !== null ? formatCurrency(gainLoss) : "\u2014",
+          item.paymentMethod || "",
           item.purchaseLocation,
           item.storageLocation || "",
           item.numistaId || "",
@@ -240,6 +243,7 @@
           purity: item.purity || 1.0,
           price: item.price,
           date: item.date,
+          paymentMethod: item.paymentMethod || "",
           purchaseLocation: item.purchaseLocation,
           storageLocation: item.storageLocation,
           notes: item.notes,
@@ -765,7 +769,7 @@
     <thead>
       <tr>
         <th>Composition</th><th>Name</th><th>Qty</th><th>Type</th><th>Weight</th>
-        <th>Purchase Price</th><th>Purchase Location</th><th>Storage Location</th>
+        <th>Purchase Price</th><th>Payment Method</th><th>Purchase Location</th><th>Storage Location</th>
         <th>Notes</th><th>Date</th>
       </tr>
     </thead>
@@ -780,6 +784,7 @@
           <td>${escapeHtml(item.type)}</td>
           <td>${formatWeight(item.weight, item.weightUnit)}</td>
           <td>${formatCurrency(item.price)}</td>
+          <td>${escapeHtml(item.paymentMethod || "")}</td>
           <td>${escapeHtml(item.purchaseLocation)}</td>
           <td>${escapeHtml(item.storageLocation || "")}</td>
           <td>${escapeHtml(item.notes || "")}</td>
