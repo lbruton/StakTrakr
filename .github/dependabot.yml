@@ -1,0 +1,62 @@
+# Dependabot config — supply-chain hardening (DEVS-10 / DEVS-12)
+#
+# Cooldown matches the `min-release-age` value set in `.npmrc` so Dependabot
+# never proposes a version still inside the release-age quarantine window.
+# Keep this in sync with `.npmrc` if the floor changes.
+#
+# Security alerts (dependabot security updates) bypass cooldown by design and
+# continue to flow normally.
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/devops"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/devops/pollers/shared"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/.opencode"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
