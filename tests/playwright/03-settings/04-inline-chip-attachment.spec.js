@@ -4,20 +4,10 @@ import { injectSeedInventory } from "../helpers/seed.js";
 /**
  * STRK-71 — inline chip: attachment settings
  *
- * TDD Phase: RED — all tests written before implementation.
- * Expected failures before implementation (Cohort B):
- *   AC-1  (chip cannot be hidden — hardcoded ${attachChip} outside chipMap)
- *   AC-2  (no attachment row in settings → interaction fails)
- *   AC-3  (all-hidden still shows attach chip — hardcoded outside chipMap)
- *   AC-4  (chip pinned rightmost — outside chipMap, not orderable)
- *   AC-5  (no attachment row in settings → interaction fails)
- *   AC-6a (attachment not in INLINE_CHIP_DEFAULTS — won't render as controlled chip)
- *   AC-6b (no attachment entry to merge — upgrade path not wired)
- *   AC-8  (settings panel has 9 rows, not 10)
- * AC-7 passes coincidentally — card view chip is independent of inlineChipConfig.
+ * TDD Phase: GREEN — all ACs implemented and passing.
  */
 
-// seed-inventory.js has no attachment-bearing or disposed rows (verified at discovery.md:31)
+// seed-inventory.js has no attachment-bearing or disposed rows
 const ATTACH_ITEM = {
   metal: "Silver",
   composition: "Silver",
@@ -43,9 +33,7 @@ const ATTACH_ITEM = {
   attachments: [{ attachmentUuid: "att-a1", fileName: "receipt.pdf" }],
 };
 
-// Disposed item WITH attachment — needed for AC-3 to expose the chipMap gap:
-// before implementation, disabling all chips still shows attachChip because it
-// is appended outside chipMap.
+// Disposed item WITH attachment — verifies attach chip in the disposed row section.
 const DISPOSED_ATTACH_ITEM = {
   metal: "Silver",
   composition: "Silver",
@@ -80,7 +68,7 @@ async function injectCustomInventory(page) {
     (items) => {
       localStorage.setItem("metalInventory", JSON.stringify(items));
       localStorage.setItem("inventorySerial", JSON.stringify(102));
-      localStorage.setItem("cardStyle", "D");
+      localStorage.setItem("cardViewStyle", "D");
     },
     [ATTACH_ITEM, DISPOSED_ATTACH_ITEM]
   );
@@ -195,12 +183,13 @@ test.describe("STRK-71 — inline chip: attachment settings", () => {
     expect(idx).toBeGreaterThanOrEqual(0);
 
     while (idx > 0) {
+      const prevIdx = idx;
       await page
         .locator('#inlineChipConfigContainer tr[data-section-id="attachment"]')
         .locator(".inline-chip-move")
         .first()
         .click();
-      await page.waitForTimeout(50);
+      await expect.poll(() => getAttachIdx(), { timeout: 2000 }).toBeLessThan(prevIdx);
       idx = await getAttachIdx();
     }
 
@@ -222,12 +211,19 @@ test.describe("STRK-71 — inline chip: attachment settings", () => {
     await openInlineChipSettings(page);
 
     // Move Attachments up one position
+    const attachRowPos = async () =>
+      page.evaluate(() =>
+        Array.from(
+          document.querySelectorAll("#inlineChipConfigContainer tr[data-section-id]")
+        ).findIndex((r) => r.dataset.sectionId === "attachment")
+      );
+    const posBefore = await attachRowPos();
     await page
       .locator('#inlineChipConfigContainer tr[data-section-id="attachment"]')
       .locator(".inline-chip-move")
       .first()
       .click();
-    await page.waitForTimeout(50);
+    await expect.poll(() => attachRowPos(), { timeout: 2000 }).toBeLessThan(posBefore);
 
     // Toggle off
     const attachToggle = page

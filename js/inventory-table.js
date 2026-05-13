@@ -555,7 +555,7 @@
           if (badgeEl) {
             badgeEl.setAttribute(
               "onclick",
-              `showViewModal(${originalIdx});event.stopPropagation()`
+              `typeof showViewModal === "function" && showViewModal(${originalIdx});event.stopPropagation()`
             );
             attachChipHtml = badgeEl.outerHTML;
           }
