@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.63 &ndash; STRK-71: Attachment chip in inline chip settings</strong>: The attachment count badge is now toggleable and reorderable in Settings &rarr; Appearance &rarr; Layout &rarr; Inline Name Chips, just like the other name-cell chips (STRK-71).</li>
     <li><strong>v3.34.62 &ndash; STRK-53: Constrained quantity selector</strong>: Dispose modal now uses chip buttons (stacks &le; 8) or a native select (stacks &gt; 8) to make invalid quantities unreachable via the UI. Single-item stacks show a pre-selected, dimmed chip instead of hiding the control (STRK-53).</li>
     <li><strong>v3.34.61 &ndash; STRK-66: ¼ Goldback denomination (Idaho, g0.25)</strong>: Adds the 1/4 Goldback (1/4000 oz gold) as the ninth canonical denomination with correct label rendering in add/edit and bulk-edit dropdowns, slug resolution, poller publishing, and bounds-guard regex fix for decimal denomination suffixes (STRK-66).</li>
     <li><strong>v3.34.60 &ndash; STRK-68: Chart unit alignment for lot/each pricing</strong>: Purchase, melt, and retail chart lines now use consistent units based on the stored lot/each pricing choice; re-editing an item restores the toggle and lot-total price to the edit form (STRK-68).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.58 &ndash; STRK-42: Chart viewport scaling</strong>: Item detail charts now fit the y-axis to visible purchase, melt, and retail lines with padding, fetch only needed bounded-range history, and keep sparse 1Y ranges anchored at the viewport start (STRK-42).</li>
     <li><strong>v3.34.57 &ndash; STRK-67: Per-side image frame override</strong>: Add Auto/Circle/Rectangle frame controls for obverse and reverse images so rectangular slabs, bars, notes, and similar media can be corrected while default shape detection stays automatic (STRK-67).</li>
     <li><strong>v3.34.56 &ndash; STRK-65: Attachment review follow-ups</strong>: Hardens per-item attachments after PR review &mdash; queue entries removable independently, object URL lifecycle fixed, cloud-sync pull helper extracted (fixes repeat downloads), size guard before vault serialization, DiffEngine duplicate-filename safety, split items keep attachments on both records, storage diagnostics clarified (STRK-65).</li>
-    <li><strong>v3.34.55 &ndash; STRK-45: Per-item PDF/image attachments</strong>: Attach receipts, COAs, and dealer invoices directly to inventory items (PDF, PNG, JPG) from the Edit modal drag-drop zone. Attachments are persisted in IndexedDB, shown as a count badge on card, table, and detail views, included in zip/stvault backups and CSV exports, and synced via cloud sync with an opt-out toggle in Settings (STRK-45).</li>
   `;
 };
 

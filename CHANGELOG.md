@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.63] - 2026-05-12
+
+### Changed — STRK-71: Attachment chip controllable in inline chip settings
+
+- **Inline chip settings**: The attachment count badge (📎) is now part of the inline chip settings panel — it can be toggled and reordered alongside the other name-cell chips (grade, year, numista, etc.) in Settings → Appearance → Layout (STRK-71).
+
+---
+
 ## [3.34.62] - 2026-05-12
 
 ### Changed — STRK-53: Constrained quantity selector for partial-stack disposition

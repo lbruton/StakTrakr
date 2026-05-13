@@ -549,6 +549,17 @@
             ? `<span class="tags-inline-chip" title="${escapeAttribute(_inlineTags.join(", "))}">${sanitizeHtml(_inlineTags.slice(0, 2).join(", "))}${_inlineTags.length > 2 ? "\u2026" : ""}</span>`
             : "";
 
+        let attachChipHtml = "";
+        if (item.attachments?.length > 0 && typeof renderAttachmentBadge === "function") {
+          const badgeEl = renderAttachmentBadge(item, { variant: "table" });
+          if (badgeEl) {
+            badgeEl.setAttribute(
+              "onclick",
+              `typeof showViewModal === "function" && showViewModal(${originalIdx});event.stopPropagation()`
+            );
+            attachChipHtml = badgeEl.outerHTML;
+          }
+        }
         const chipMap = {
           grade: gradeTag,
           numista: numistaTag,
@@ -559,22 +570,12 @@
           notes: notesIndicator,
           purity: purityTag,
           tags: tagsChip,
+          attachment: attachChipHtml,
         };
         const orderedChips = chipConfig
           .filter((c) => c.enabled && chipMap[c.id])
           .map((c) => chipMap[c.id])
           .join("");
-        let attachChip = "";
-        if (item.attachments?.length > 0 && typeof renderAttachmentBadge === "function") {
-          const badgeEl = renderAttachmentBadge(item, { variant: "table" });
-          if (badgeEl) {
-            badgeEl.setAttribute(
-              "onclick",
-              `showViewModal(${originalIdx});event.stopPropagation()`
-            );
-            attachChip = badgeEl.outerHTML;
-          }
-        }
 
         const meltDisplay = currentSpot > 0 ? formatCurrency(meltValue) : "—";
         const retailDisplay = hasRetailSignal ? formatCurrency(retailTotal) : "—";
@@ -600,7 +601,7 @@
           featureFlags.isEnabled("COIN_IMAGES")
             ? `<span class="filter-text" style="color: var(--text-primary); cursor: pointer;" onclick="showViewModal(${originalIdx})" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ')showViewModal(${originalIdx})" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
             : filterLink("name", item.name, "var(--text-primary)", undefined, item.name)
-        }${isDisposed(item) ? `<span class="disposition-badge disposition-badge--${item.disposition.type}">${DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type}</span>` : ""}${orderedChips}${attachChip}
+        }${isDisposed(item) ? `<span class="disposition-badge disposition-badge--${item.disposition.type}">${DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type}</span>` : ""}${orderedChips}
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
