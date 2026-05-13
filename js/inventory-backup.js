@@ -34,7 +34,7 @@
           purity: item.purity || 1.0,
           price: item.price,
           date: item.date,
-          paymentMethod: item.paymentMethod || "",
+          ...(item.paymentMethod && { paymentMethod: item.paymentMethod }),
           purchaseLocation: item.purchaseLocation,
           storageLocation: item.storageLocation,
           notes: item.notes,

@@ -450,6 +450,7 @@
 
             if (csvAttachments.length > 0) item.attachments = csvAttachments;
             imported.push(item);
+            if (!item.paymentMethod) delete item.paymentMethod;
 
             // STAK-126 / STAK-424: Collect tags but defer persistence until import confirmed.
             // Key by DiffEngine.computeItemKey (uuid → serial → name|date) so legacy
@@ -871,6 +872,7 @@
             });
 
             imported.push(item);
+            if (!item.paymentMethod) delete item.paymentMethod;
             importedCount++;
             updateImportProgress(processed, importedCount, totalRows);
           }
@@ -1340,6 +1342,7 @@
 
           addCompositionOption(composition);
           imported.push(processedItem);
+          if (!processedItem.paymentMethod) delete processedItem.paymentMethod;
 
           // STAK-126: Import tags from JSON if present
           if (typeof addItemTag === "function") {
