@@ -266,7 +266,7 @@
 
     const outerShape =
       resolvedShape === "rect"
-        ? `<rect x="1" y="1" width="30" height="30" rx="8" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`
+        ? `<rect x="1" y="1" width="30" height="30" rx="8" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" opacity="0.25"/>`
         : `<circle cx="16" cy="16" r="15" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" opacity="0.25"/>`;
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
