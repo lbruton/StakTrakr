@@ -274,7 +274,8 @@
     ${icon}
   </svg>`;
 
-    const uri = "data:image/svg+xml," + svg;
+    const encoded = svg.replace(/#/g, "%23");
+    const uri = "data:image/svg+xml," + encoded;
     _thumbPlaceholders[key] = uri;
     return uri;
   }
