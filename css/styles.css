@@ -10632,21 +10632,6 @@ th {
   border-bottom: none;
 }
 
-.spot-lookup-offset {
-  display: inline-block;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
-  color: var(--text-muted);
-}
-
-.spot-lookup-offset.exact {
-  background: var(--primary);
-  color: var(--text-inverse);
-}
-
 .spot-lookup-use-btn {
   padding: 0.25rem 0.75rem;
   font-size: var(--font-size-base);
