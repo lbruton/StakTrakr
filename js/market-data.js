@@ -986,10 +986,24 @@ const _renderVendorTable = async (metalCode) => {
   }
 
   const allVendorIds = new Set();
-  for (const slug in detailMap) {
-    const vendors = detailMap[slug].vendors;
-    if (vendors) {
-      for (const vid in vendors) allVendorIds.add(vid);
+  if (isAllScope) {
+    for (const { slug } of metalSlugs) {
+      const detail = detailMap[slug];
+      const vendors = detail && detail.vendors;
+      if (!vendors) continue;
+      for (const vid in vendors) {
+        if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
+          continue;
+        }
+        allVendorIds.add(vid);
+      }
+    }
+  } else {
+    for (const slug in detailMap) {
+      const vendors = detailMap[slug].vendors;
+      if (vendors) {
+        for (const vid in vendors) allVendorIds.add(vid);
+      }
     }
   }
 
