@@ -50,7 +50,7 @@ const syncSpotLookupButtons = (hasDate, options = {}) => {
     elements.spotLookupBtn.disabled = !hasDate;
   }
   if (elements.retailSpotLookupBtn) {
-    elements.retailSpotLookupBtn.disabled = false;
+    elements.retailSpotLookupBtn.disabled = !hasDate;
   }
   if (clearSelectedSpot && elements.itemSpotPrice) {
     elements.itemSpotPrice.value = "";
@@ -379,10 +379,8 @@ const openSpotLookupModal = async (targetField = "purchase") => {
 
   // Retail snapshots use today's date; purchase lookups use the entered purchase date.
   const dateVal = isRetailTarget
-    ? new Date().toISOString().slice(0, 10)
-    : elements.itemDate
-      ? elements.itemDate.value
-      : "";
+    ? new Date().toLocaleDateString("en-CA")
+    : (elements.itemDate?.value ?? "");
 
   if (!dateVal) {
     appAlert("Please select a purchase date first.");
@@ -436,9 +434,7 @@ const openSpotLookupModal = async (targetField = "purchase") => {
           ...entry,
           spot: entry.price,
           lookupPrice: entry.price,
-        })),
-        "Goldback",
-        dateVal
+        }))
       );
     } else {
       renderGoldbackLookupEmpty(bodyEl, denom, dateVal);
@@ -469,7 +465,7 @@ const openSpotLookupModal = async (targetField = "purchase") => {
   if (!bodyEl) return;
 
   if (results.length > 0) {
-    renderSpotLookupResults(bodyEl, results, metalName, dateVal);
+    renderSpotLookupResults(bodyEl, results);
   } else {
     renderSpotLookupEmpty(bodyEl, metalName, dateVal);
   }
@@ -484,10 +480,8 @@ const openSpotLookupModal = async (targetField = "purchase") => {
  * Renders spot lookup results into the modal body.
  * @param {HTMLElement} container - The modal body element
  * @param {Array} results - Search results with dayOffset
- * @param {string} metalName - Metal name for API fallback context
- * @param {string} dateStr - Target date for API fallback context
  */
-const renderSpotLookupResults = (container, results, metalName, dateStr) => {
+const renderSpotLookupResults = (container, results) => {
   const formatPrice =
     typeof formatCurrency === "function" ? formatCurrency : (v) => "$" + Number(v).toFixed(2);
   const isGb = isGoldbackLookup();
@@ -586,7 +580,7 @@ const renderSpotLookupEmpty = (container, metalName, dateStr) => {
         const fetched = await fetchSpotForDate(metal, date);
         if (fetched.length > 0) {
           // Re-render with results
-          renderSpotLookupResults(container, fetched, metal, date);
+          renderSpotLookupResults(container, fetched);
         } else {
           fetchBtn.textContent = "No data returned";
           fetchBtn.disabled = true;
