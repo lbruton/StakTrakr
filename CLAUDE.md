@@ -154,4 +154,4 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 
 ## Design Context
 
-Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters. Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy. Full design system + brand identity + three-theme rules + anti-references (NOT generic fintech, NOT crypto/Web3, NOT spreadsheet clone) in [[Foundation/design-philosophy]].
+Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters. Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy. Full design system + brand identity + three-theme rules + anti-references (NOT generic fintech, NOT crypto/Web3, NOT spreadsheet clone) in `DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
