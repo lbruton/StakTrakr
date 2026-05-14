@@ -467,7 +467,7 @@ test.describe("STAK-582 — surviving market retail surfaces", () => {
 
     const vendorSection = page.locator("#vendorPricesSectionEl");
     await expect(vendorSection).toBeVisible();
-    await expect(vendorSection.locator(".vendor-prices-tabs button.active")).toHaveText("Silver");
+    await expect(vendorSection.locator(".vendor-prices-tabs button.active")).toHaveText("All");
     await expect(vendorSection.locator(".vendor-prices-table")).toBeVisible();
     await expect(vendorSection.locator(".vendor-prices-table")).toContainText(
       "American Silver Eagle"
