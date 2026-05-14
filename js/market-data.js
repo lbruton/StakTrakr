@@ -1264,6 +1264,7 @@ const renderVendorPrices = () => {
   }
 
   const allMetals = [
+    { code: "all", label: "All" },
     { code: "xau", label: "Gold" },
     { code: "xag", label: "Silver" },
     { code: "xpt", label: "Platinum" },
@@ -1271,14 +1272,10 @@ const renderVendorPrices = () => {
     { code: "goldback", label: "Goldback" },
   ];
   // Only show tabs that have coins
-  const metals = allMetals.filter((m) => metalHasCoins[m.code]);
+  const metals = allMetals.filter((m) => m.code === "all" || metalHasCoins[m.code]);
 
-  const savedTab = loadDataSync("vendorPricesActiveTab", "xag");
-  let activeTab = metals.some((m) => m.code === savedTab)
-    ? savedTab
-    : metals[0]
-      ? metals[0].code
-      : "xag";
+  const savedTab = loadDataSync("vendorPricesActiveTab", "all");
+  let activeTab = metals.some((m) => m.code === savedTab) ? savedTab : "all";
 
   const setActive = (code) => {
     activeTab = code;
