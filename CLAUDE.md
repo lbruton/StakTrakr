@@ -125,7 +125,16 @@ The duplication-checker hook respects `// duplication-ok` inline comments. Use t
 
 ### Closing task ordering in sketch workflow
 
-The standard closing-task sequence must follow: version bump → spot bundle → `gh pr create` → post-merge archive → Plane issue Done. **Never mark the Plane issue Done before the PR is merged** — CLOSE-N for Plane closure must come after `/sketch archive` post-merge.
+### Closing task ordering in sketch workflow
+
+Follow this sequence:
+1. Version bump
+2. Spot bundle update
+3. `gh pr create`
+4. Post-merge archive
+5. Mark Plane issue as Done
+
+**Warning:** Never mark Plane issues Done before the PR merges. Plane closure tasks (CLOSE-N, where N is the task number) must follow `/sketch archive` after merging.
 
 ### Pre-PR scan — Codacy CLI project-specific noise
 
