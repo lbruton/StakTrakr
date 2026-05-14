@@ -120,7 +120,7 @@ test.describe("image frame overrides — STRK-67", () => {
     });
   });
 
-  test("table, card, and view modal render mixed per-side frames consistently", async ({
+  test("table, card A/B/C, and view modal render mixed per-side frames consistently", async ({
     page,
   }) => {
     await seedInventory(page, [
@@ -142,12 +142,34 @@ test.describe("image frame overrides — STRK-67", () => {
       localStorage.setItem("cardViewStyle", "A");
       window.renderTable();
     });
-    const cardObv = page.locator('.coin-img:has(img[data-side="obverse"])').first();
-    const cardRev = page.locator('.coin-img:has(img[data-side="reverse"])').first();
-    await expect(cardObv).toHaveClass(/bar-shape/);
-    await expect(cardRev).not.toHaveClass(/bar-shape/);
-    await expect(cardObv.locator("img")).toHaveCSS("object-fit", "contain");
-    await expect(cardRev.locator("img")).toHaveCSS("object-fit", "cover");
+    const cardAObv = page.locator('.coin-img:has(img[data-side="obverse"])').first();
+    const cardARev = page.locator('.coin-img:has(img[data-side="reverse"])').first();
+    await expect(cardAObv).toHaveClass(/bar-shape/);
+    await expect(cardARev).not.toHaveClass(/bar-shape/);
+    await expect(cardAObv.locator("img")).toHaveCSS("object-fit", "contain");
+    await expect(cardARev.locator("img")).toHaveCSS("object-fit", "cover");
+
+    await page.evaluate(() => {
+      localStorage.setItem("cardViewStyle", "B");
+      window.renderTable();
+    });
+    const cardBObv = page.locator('.coin-img:has(img[data-side="obverse"])').first();
+    const cardBRev = page.locator('.coin-img:has(img[data-side="reverse"])').first();
+    await expect(cardBObv).toHaveClass(/bar-shape/);
+    await expect(cardBRev).not.toHaveClass(/bar-shape/);
+    await expect(cardBObv).toHaveCSS("width", "80px");
+    await expect(cardBObv).toHaveCSS("height", "56px");
+
+    await page.evaluate(() => {
+      localStorage.setItem("cardViewStyle", "C");
+      window.renderTable();
+    });
+    const cardCObv = page.locator('.coin-img:has(img[data-side="obverse"])').first();
+    const cardCRev = page.locator('.coin-img:has(img[data-side="reverse"])').first();
+    await expect(cardCObv).toHaveClass(/bar-shape/);
+    await expect(cardCRev).not.toHaveClass(/bar-shape/);
+    await expect(cardCObv).toHaveCSS("width", "80px");
+    await expect(cardCObv).toHaveCSS("height", "56px");
 
     await page.evaluate(() => window.showViewModal(0));
     await expect(
