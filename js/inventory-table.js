@@ -259,7 +259,7 @@
     };
     const c = colors[metal] || colors.Silver;
 
-    const isBar = /bar|ingot/i.test(type || "");
+    const isBar = /bar|ingot/i.test(type || "") || resolvedShape === "rect";
     const icon = isBar
       ? `<rect x="11" y="7" width="10" height="18" rx="1.5" fill="none" stroke="${c.text}" stroke-width="1.5" opacity="0.5"/><line x1="13" y1="12" x2="19" y2="12" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="15" x2="19" y2="15" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="18" x2="19" y2="18" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/>`
       : `<circle cx="16" cy="16" r="8" fill="none" stroke="${c.text}" stroke-width="1.2" opacity="0.45"/><circle cx="16" cy="16" r="5" fill="none" stroke="${c.text}" stroke-width="0.8" opacity="0.3" stroke-dasharray="2 2"/>`;
@@ -274,7 +274,7 @@
     ${icon}
   </svg>`;
 
-    const uri = "data:image/svg+xml," + encodeURIComponent(svg);
+    const uri = "data:image/svg+xml," + svg;
     _thumbPlaceholders[key] = uri;
     return uri;
   }
