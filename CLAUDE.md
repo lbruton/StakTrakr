@@ -32,11 +32,6 @@ Tier 2: 11 deep-dive docs at `Foundation/Deep Dives/`. Authoritative cron/config
 
 Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`. Pre-migration `STAK-*` archived at `DocVault/Archive/Issues-Pre-Plane/StakTrakr/`. Create via `/issue` or `mcp__plane__create_issue`.
 
-## Plane Issue Context
-
-- Before asking clarifying questions about a Plane issue (SFLW-\*, STRK-\*, SESF-\*), READ THE ISSUE BODY FIRST via the Plane MCP tool. Most context is already there.
-- All Obsidian/Linear/mem0/DocVault references in skills are stale — the system of record is Plane.
-
 ## Git Topology
 
 - Branch model: `feature/* → dev → main`. All commits via worktree → PR → dev. Both `dev` and `main` protected — no direct pushes.
@@ -48,15 +43,14 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 - `stamp-sw-cache` hook auto-stages `sw.js` when JS/CSS/image files commit. Don't add manually.
 - **Run `/update-spot-bundle` before EVERY version-bump PR** (whether targeting `dev` or `main`). Queries sqld and rebuilds `data/spot-history-bundle.js`. Copilot's reminder is correct — not a false positive.
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
-
-## MDX Document Authoring
-
-- When writing spec docs (requirements.md, design.md, tasks.md, discovery.md), escape angle brackets (`<`, `>`) and curly braces (`{`, `}`) that aren't valid JSX, or wrap them in backticks. MDX will fail to compile otherwise.
-- Always run the MDX validation hook locally before submitting a doc for approval.
+- **Sketch branch naming** → `/sketch orchestrate` generates `sketch/{ISSUE-ID}-{slug}` branch names by default, but StakTrakr requires `patch/VERSION` via `/start-patch`. Override generated tasks.md if it uses the sketch convention.
+- **`/sketch orchestrate` closing tasks** → always dispatch as a single batched prompt, not one-at-a-time. Closing tasks have no model-routing ambiguity and benefit from no parallel hazard.
+- **Stale dev-targeting branches** → `/pr-cleanup` only detects `[gone]` refs, which requires the upstream branch to have been deleted. Squash-merged branches targeting `dev` never appear as `[gone]` — prune periodically with `git branch -vv | grep ': gone]'` after checking `dev` merges.
+- **PR branch staleness check** → before opening a PR, run `git merge-base HEAD origin/dev` and compare to `git rev-parse origin/dev`. A large changed-file count (50+) is a signal the branch was created from stale local `dev` rather than fetched `origin/dev`.
 
 ## MCP Notes
 
-- StakTrakrApi config (Fly.io `fly.toml`) lives there during transition — use `mcp__github__*`.
+- StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
 - All `cloud-sync.js` patches require `/codex:rescue` peer review before merge.
 - Codex handoff prompts use `$spec` not `/spec`.
 - StakTrakr-specific code-search hint: the project uses script-tag globals, so when claude-context returns thin results for a global, fall back to CGC structural query before Grep.
@@ -66,10 +60,8 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 | Skill                             | Use When                                                            |
 | --------------------------------- | ------------------------------------------------------------------- |
 | `/api-infrastructure`             | Feed / poller / API / data-path work                                |
-| `/repo-boundaries`                | Cross-repo, Fly.io / StakTrakrApi / home poller                     |
 | `/update-spot-bundle`             | Rebuild `data/spot-history-bundle.js` — run before every release PR |
 | `/staktrakr-ship`                 | Ship `dev → main` (only on explicit "ready to ship")                |
-| `/sw-cache`                       | Service worker cache version updates                                |
 | `/retail-poller`                  | Retail pipeline — scraping, confidence, providers.json              |
 | `/retail-provider-fix`            | Diagnose scraping failures for individual dealers                   |
 | `/deploy-verify`                  | Post-deploy health (Portainer home + Fly.io cloud)                  |
@@ -80,7 +72,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 | `/start-patch`                    | Pick Plane issue, claim version lock, create worktree               |
 | `/ui-mockup`                      | New multi-element UI — Playground prototype first                   |
 
-**Skill authoring:** filename MUST be `SKILL.md` — `.gitignore` only tracks `!.claude/skills/*/SKILL.md`. Other `.md` names silently gitignored. If a genuinely different structure is needed, stop and ask + update `.gitignore` in the same PR. YAML frontmatter required (pattern: `.claude/skills/sw-cache/SKILL.md`).
+**Skill authoring:** filename MUST be `SKILL.md` — `.gitignore` only tracks `!.claude/skills/*/SKILL.md`. Other `.md` names silently gitignored. If a genuinely different structure is needed, stop and ask + update `.gitignore` in the same PR. YAML frontmatter required (pattern: `.claude/skills/release/SKILL.md`).
 
 ## Always-Load Context
 
@@ -93,7 +85,7 @@ Two separate localStorage stores. Confusing them = silent data loss.
 | Spot providers    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
 | Catalog providers | `catalog_api_config` | Numista apiKey, PCGS bearerToken                | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
 
-Reading catalog keys via `loadApiConfig().keys["numista"]` returns `undefined` (wrong store — root cause of STAK-573). `saveData()` wraps in `JSON.stringify` — always read via `loadData()` / `loadDataSync()`. After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
+Reading catalog keys via `loadApiConfig().keys["numista"]` returns `undefined` (wrong store — root cause of STRK-573). `saveData()` wraps in `JSON.stringify` — always read via `loadData()` / `loadDataSync()`. After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
 
 ### `check-release-sync` hook is a SUBSET
 
@@ -111,6 +103,30 @@ Validates `constants.js ↔ package.json ↔ package-lock.json ↔ version.json 
 
 Variables declared with `let` in `state.js` are NOT on `window`. `inventory` and `changeLog` have explicit `Object.defineProperty` getter/setters. Any new state variable that tests or other modules need via `window.X` must follow the same pattern.
 
+### Worktree Edit discipline
+
+Before calling `Edit`/`Write` inside a worktree session → verify `EnterWorktree` has been invoked for that path. If the Edit tool is blocked, the root cause is missing `EnterWorktree` registration — call it first. Never fall back to Python/subprocess file writes as a workaround.
+
+### Date formatting — `toLocaleDateString('en-CA')`
+
+Use `toLocaleDateString('en-CA')` to produce `YYYY-MM-DD` local dates. Do NOT use `toISOString().slice(0, 10)` — it returns a UTC date and causes off-by-one errors for users in negative UTC offsets.
+
+### Goldback lookup predicates
+
+`isGoldbackLookup` (target+unit check) and `isGoldbackRetailLookup` (unit-only check) have different semantics and are easy to confuse. Use the correct predicate for the context — retail lookup uses unit-only.
+
+### `_isMarketItemEnabled` guard — apply on both tab paths
+
+In `_renderVendorTable()`, the `_isMarketItemEnabled` filter must be applied on **both** the All-tab code path and the per-metal-tab `else` branch. Missing it on the `else` branch causes disabled vendors to appear as column headers.
+
+### `// duplication-ok` hook escape hatch
+
+The duplication-checker hook respects `// duplication-ok` inline comments. Use this when intentional shadowing or deliberate repetition would otherwise trigger the hook.
+
+### Closing task ordering in sketch workflow
+
+The standard closing-task sequence must follow: version bump → spot bundle → `gh pr create` → post-merge archive → Plane issue Done. **Never mark the Plane issue Done before the PR is merged** — CLOSE-N for Plane closure must come after `/sketch archive` post-merge.
+
 ### Pre-PR scan — Codacy CLI project-specific noise
 
 Project uses script-tag globals the auto-config doesn't recognize. Pre-existing browser-global `no-undef` findings are noise. Verify findings on changed lines only. (Global `Action Gates` covers the fresh-worktree empty-diff issue.)
@@ -120,6 +136,8 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 - **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js`; the `typeof` guard is intentional.
 - **Automated re-review duplicates** — after pushing fixes, CodeRabbit/Gemini/Copilot regenerate threads on the same file/line. Gemini duplicates have `"line": null` in the API (reliable stale signal). Auto-resolve without user approval.
 - **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
+- **CodeRabbit `STRK-*` issue prefix** — bots may expect old `STAK-###` prefix after the Plane migration. False positive; do not rename.
+- **Copilot `no-undef` on browser globals** — project uses script-tag globals across vanilla JS files with no bundler. The phrasing "vanilla JS global scope, no module bundler" is sufficient context in PR replies; do not include a file count (it changes).
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
 - **Retail OOS detection is content-driven** — `detectStockStatus` in `firecrawl-extract.js` regex-matches rendered markdown which **includes ShopperApproved review blocks**. Customer-review text containing "out of stock", "unavailable", "page not found" produces systematic false-OOS for entire vendors. Investigation: scrape page, check if trigger text lies AFTER pricing table — if so extend `MARKDOWN_CUTOFF_PATTERNS` (regex must be plural-tolerant: `Reviews?`).
 
@@ -128,11 +146,12 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 - **Before writing any JS** → read `Foundation/coding-standards.md` (DocVault). Authoritative source for code style, DOM rules, storage patterns, error handling, API integration, library standards, CSS design system, and anti-patterns.
 - **Before any feed/poller/API/data-path diagnosis** (poller logs OK but UI wrong, vendor anomaly, prices missing) → invoke `/api-infrastructure` and `/retail-poller` first. Skipping causes wrong-layer fixes.
 - **Before speculating on infra failure mode** → read matching Foundation doc. `infrastructure.md` documents recurring gotchas at specific line numbers (e.g. line 265 = recurring Tailscale subnet-route loss).
-- **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). Infisical is canonical, not assumption or stale memory.
-- **Before any version-bump PR** → `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`).
+- **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). Infisical MCP is disabled by default for security — enable with `/mcp` if not active. Infisical is canonical, not assumption or stale memory.
+- **Before any version-bump PR** → `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`). In `/sketch orchestrate`, run this in the same closing-task cohort as the version bump (CLOSE-4), staged and committed before `gh pr create` — not as a sub-step of CLOSE-6.
+- **Version lock high-water mark** → the next version must be `max(all entries in version.lock including expired, APP_VERSION on origin/dev)`. Never derive the next version from stale local `APP_VERSION` alone. Prune expired entries from the lock file but treat their version numbers as consumed.
 - **Before `dev → main`** → `/staktrakr-ship`, only on explicit user "ready to ship".
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
 
 ## Design Context
 
-Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters. Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy. Full design system + brand identity + three-theme rules + anti-references (NOT generic fintech, NOT crypto/Web3, NOT spreadsheet clone) in `DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
+Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters. Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy. Full design system + brand identity + three-theme rules + anti-references (NOT generic fintech, NOT crypto/Web3, NOT spreadsheet clone) in [[Foundation/design-philosophy]].
