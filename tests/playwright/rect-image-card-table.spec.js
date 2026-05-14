@@ -93,7 +93,7 @@ test.describe("rectangular item image rendering — STRK-38", () => {
   // -------------------------------------------------------------------------
   // AC-1: Card A rect item
   // -------------------------------------------------------------------------
-  test("Card A rect item has transparent background, 36x24px container, and object-fit contain", async ({
+  test("Card A rect item has transparent background, 44x44px container, and object-fit contain", async ({
     page,
   }) => {
     await seedInventory(page, [
@@ -109,8 +109,8 @@ test.describe("rectangular item image rendering — STRK-38", () => {
 
     const container = page.locator(".card-a .coin-img.bar-shape").first();
     await expect(container).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    await expect(container).toHaveCSS("width", "36px");
-    await expect(container).toHaveCSS("height", "24px");
+    await expect(container).toHaveCSS("width", "44px");
+    await expect(container).toHaveCSS("height", "44px");
 
     const img = container.locator("img");
     await expect(img).toHaveCSS("object-fit", "contain");
@@ -119,7 +119,7 @@ test.describe("rectangular item image rendering — STRK-38", () => {
   // -------------------------------------------------------------------------
   // AC-2: Card B rect item
   // -------------------------------------------------------------------------
-  test("Card B rect item has transparent background and 80x56px container", async ({ page }) => {
+  test("Card B rect item has transparent background and 80x80px container", async ({ page }) => {
     await seedInventory(page, [
       { ...BASE_ITEM, type: "Bar", obverseImageUrl: "https://images.example/obv.png" },
     ]);
@@ -134,7 +134,7 @@ test.describe("rectangular item image rendering — STRK-38", () => {
     const container = page.locator(".card-b .coin-img.bar-shape").first();
     await expect(container).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(container).toHaveCSS("width", "80px");
-    await expect(container).toHaveCSS("height", "56px");
+    await expect(container).toHaveCSS("height", "80px");
   });
 
   // -------------------------------------------------------------------------
