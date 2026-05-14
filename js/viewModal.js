@@ -39,7 +39,7 @@ function _purchasedRangeFrom(purchaseDate) {
   const toTs = Date.now();
   const windowMs = toTs - purchaseDate;
   if (windowMs < _VIEW_CHART_MIN_WINDOW_MS) {
-    const daysSince = Math.floor(windowMs / _VIEW_CHART_DAY_MS);
+    const daysSince = Math.max(0, Math.floor(windowMs / _VIEW_CHART_DAY_MS));
     const caption =
       daysSince === 0
         ? "Purchased today — showing last 7 days"
@@ -50,7 +50,7 @@ function _purchasedRangeFrom(purchaseDate) {
 }
 
 function _setChartCaption(canvas, text) {
-  const caption = document.getElementById("viewChartCaption");
+  const caption = safeGetElement("viewChartCaption");
   if (!caption) return;
   if (text) {
     caption.textContent = text;
@@ -822,6 +822,7 @@ function _buildChartDateRangePicker(rangeBar, chartSection, chartCtx) {
     if (fromTs <= 0 && toTs <= 0) return;
     const canvas = chartSection.querySelector("#viewPriceHistoryChart");
     if (!canvas) return;
+    _setChartCaption(canvas, null);
     try {
       const fullSpot = await _fetchHistoricalSpotData(chartCtx.metalName, 0, fromTs, toTs);
       _createPriceHistoryChart(
