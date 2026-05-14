@@ -32,6 +32,11 @@ Tier 2: 11 deep-dive docs at `Foundation/Deep Dives/`. Authoritative cron/config
 
 Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`. Pre-migration `STAK-*` archived at `DocVault/Archive/Issues-Pre-Plane/StakTrakr/`. Create via `/issue` or `mcp__plane__create_issue`.
 
+## Plane Issue Context
+
+- Before asking clarifying questions about a Plane issue (SFLW-\*, STRK-\*, SESF-\*), READ THE ISSUE BODY FIRST via the Plane MCP tool. Most context is already there.
+- All Obsidian/Linear/mem0/DocVault references in skills are stale — the system of record is Plane.
+
 ## Git Topology
 
 - Branch model: `feature/* → dev → main`. All commits via worktree → PR → dev. Both `dev` and `main` protected — no direct pushes.
@@ -43,6 +48,11 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 - `stamp-sw-cache` hook auto-stages `sw.js` when JS/CSS/image files commit. Don't add manually.
 - **Run `/update-spot-bundle` before EVERY version-bump PR** (whether targeting `dev` or `main`). Queries sqld and rebuilds `data/spot-history-bundle.js`. Copilot's reminder is correct — not a false positive.
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
+
+## MDX Document Authoring
+
+- When writing spec docs (requirements.md, design.md, tasks.md, discovery.md), escape angle brackets (`<`, `>`) and curly braces (`{`, `}`) that aren't valid JSX, or wrap them in backticks. MDX will fail to compile otherwise.
+- Always run the MDX validation hook locally before submitting a doc for approval.
 
 ## MCP Notes
 
