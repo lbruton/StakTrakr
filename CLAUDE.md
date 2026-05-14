@@ -147,7 +147,11 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 - **Before any feed/poller/API/data-path diagnosis** (poller logs OK but UI wrong, vendor anomaly, prices missing) → invoke `/api-infrastructure` and `/retail-poller` first. Skipping causes wrong-layer fixes.
 - **Before speculating on infra failure mode** → read matching Foundation doc. `infrastructure.md` documents recurring gotchas at specific line numbers (e.g. line 265 = recurring Tailscale subnet-route loss).
 - **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`). Infisical MCP is disabled by default for security — enable with `/mcp` if not active. Infisical is canonical, not assumption or stale memory.
-- **Before any version-bump PR** → `/update-spot-bundle` (requires Tailscale + `SQLD_URL=http://192.168.1.81:8080`). In `/sketch orchestrate`, run this in the same closing-task cohort as the version bump (CLOSE-4), staged and committed before `gh pr create` — not as a sub-step of CLOSE-6.
+- **Before any version-bump PR**:
+  - Run `/update-spot-bundle`.
+  - Ensure Tailscale is active and `SQLD_URL=http://192.168.1.81:8080` is set.
+  - In `/sketch orchestrate`: Run in the same closing-task cohort as the version bump (CLOSE-4).
+  - Stage and commit before executing `gh pr create`.
 - **Version lock high-water mark** → the next version must be `max(all entries in version.lock including expired, APP_VERSION on origin/dev)`. Never derive the next version from stale local `APP_VERSION` alone. Prune expired entries from the lock file but treat their version numbers as consumed.
 - **Before `dev → main`** → `/staktrakr-ship`, only on explicit user "ready to ship".
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
