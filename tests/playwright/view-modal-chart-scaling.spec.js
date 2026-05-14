@@ -889,3 +889,72 @@ test.describe("view-modal-chart-scaling — STRK-42 / STRK-69", () => {
     }
   });
 });
+
+test.describe("view-modal-chart-scaling — STRK-76 purchased range minimum window", () => {
+  function makeWindowSpotHistory(days = 8, spot = 32) {
+    const now = new Date(FIXED_NOW_ISO).getTime();
+    return Array.from({ length: days }, (_, i) => ({
+      timestamp: new Date(now - (days - 1 - i) * DAY_MS).toISOString(),
+      metal: "Silver",
+      spot,
+      source: "seed",
+      provider: "Playwright",
+    }));
+  }
+
+  async function installWindowYearStub(page, days = 8, spot = 32) {
+    const now = new Date(FIXED_NOW_ISO).getTime();
+    const entries = Array.from({ length: days }, (_, i) => ({
+      timestamp: new Date(now - (days - 1 - i) * DAY_MS).toISOString(),
+      metal: "Silver",
+      spot,
+      source: "year-file",
+      provider: "Playwright",
+    }));
+    await page.evaluate((data) => {
+      window.fetchYearFile = async () => data;
+    }, entries);
+  }
+
+  test("STRK-76: same-day purchase renders chart and shows today caption", async ({ page }) => {
+    await seedData(page, {
+      inventory: [{ ...BASE_ITEM, date: "2026-05-10", price: 32, marketValue: 32 }],
+      spotHistory: makeWindowSpotHistory(8, 32),
+    });
+    await gotoApp(page);
+    await installWindowYearStub(page);
+    await openViewModal(page);
+
+    await expect(page.locator("#viewChartCaption")).toBeVisible();
+    await expect(page.locator("#viewChartCaption")).toHaveText(
+      "Purchased today — showing last 7 days"
+    );
+  });
+
+  test("STRK-76: purchase 3 days ago uses 7d floor and shows N-days caption", async ({ page }) => {
+    await seedData(page, {
+      inventory: [{ ...BASE_ITEM, date: "2026-05-07", price: 32, marketValue: 32 }],
+      spotHistory: makeWindowSpotHistory(8, 32),
+    });
+    await gotoApp(page);
+    await installWindowYearStub(page);
+    await openViewModal(page);
+
+    await expect(page.locator("#viewChartCaption")).toBeVisible();
+    await expect(page.locator("#viewChartCaption")).toHaveText(
+      "Purchased 3 days ago — showing last 7 days"
+    );
+  });
+
+  test("STRK-76: purchase 10 days ago uses real window, caption hidden", async ({ page }) => {
+    await seedData(page, {
+      inventory: [{ ...BASE_ITEM, date: "2026-04-30", price: 32, marketValue: 32 }],
+      spotHistory: Array.from({ length: 11 }, (_, i) => daysAgo(10 - i, 32)),
+    });
+    await gotoApp(page);
+    await installYearFileStub(page);
+    await openViewModal(page);
+
+    await expect(page.locator("#viewChartCaption")).not.toBeVisible();
+  });
+});

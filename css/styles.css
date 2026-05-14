@@ -6413,6 +6413,14 @@ td input:checked + .slider:before {
   font-style: italic;
 }
 
+.view-chart-caption {
+  margin: var(--spacing-xs) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+}
+
 /* Catalog Data (Numista) section — 3-column grid override */
 .view-numista-section .view-detail-grid {
   grid-template-columns: 1fr 1fr 1fr;
