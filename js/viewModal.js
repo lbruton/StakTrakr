@@ -33,6 +33,32 @@ const _VIEW_CHART_RANGE_LABELS = [
 const _VIEW_CHART_DEFAULT_RANGE = -1;
 
 const _VIEW_CHART_DAY_MS = 24 * 60 * 60 * 1000;
+const _VIEW_CHART_MIN_WINDOW_MS = 7 * _VIEW_CHART_DAY_MS;
+
+function _purchasedRangeFrom(purchaseDate) {
+  const toTs = Date.now();
+  const windowMs = toTs - purchaseDate;
+  if (windowMs < _VIEW_CHART_MIN_WINDOW_MS) {
+    const daysSince = Math.floor(windowMs / _VIEW_CHART_DAY_MS);
+    const caption =
+      daysSince === 0
+        ? "Purchased today — showing last 7 days"
+        : `Purchased ${daysSince} day${daysSince === 1 ? "" : "s"} ago — showing last 7 days`;
+    return { fromTs: toTs - _VIEW_CHART_MIN_WINDOW_MS, caption };
+  }
+  return { fromTs: purchaseDate, caption: null };
+}
+
+function _setChartCaption(canvas, text) {
+  const caption = document.getElementById("viewChartCaption");
+  if (!caption) return;
+  if (text) {
+    caption.textContent = text;
+    caption.hidden = false;
+  } else {
+    caption.hidden = true;
+  }
+}
 
 function _getViewChartRangeCutoff(days) {
   const rangeDays = Number(days) || 0;
@@ -74,8 +100,12 @@ async function showViewModal(index) {
     if (initRange === -1 && cd.purchaseDate > 0) {
       const metalName = item.metal || "Silver";
       const toTs = Date.now();
-      _fetchHistoricalSpotData(metalName, 0, cd.purchaseDate, toTs)
+      const { fromTs: purchasedFrom, caption: purchasedCaption } = _purchasedRangeFrom(
+        cd.purchaseDate
+      );
+      _fetchHistoricalSpotData(metalName, 0, purchasedFrom, toTs)
         .then((fullSpot) => {
+          _setChartCaption(chartCanvas, purchasedCaption);
           _createPriceHistoryChart(
             chartCanvas,
             fullSpot,
@@ -85,11 +115,12 @@ async function showViewModal(index) {
             0,
             cd.purchaseDate,
             cd.currentRetail,
-            cd.purchaseDate,
+            purchasedFrom,
             toTs
           );
         })
         .catch(() => {
+          _setChartCaption(chartCanvas, purchasedCaption);
           _createPriceHistoryChart(
             chartCanvas,
             cd.spotEntries,
@@ -99,7 +130,7 @@ async function showViewModal(index) {
             0,
             cd.purchaseDate,
             cd.currentRetail,
-            cd.purchaseDate,
+            purchasedFrom,
             toTs
           );
         });
@@ -724,6 +755,10 @@ function _buildPriceHistorySection(chartCtx) {
   };
   chartContainer.appendChild(canvas);
   chartSection.appendChild(chartContainer);
+  const chartCaption = _el("p", "view-chart-caption");
+  chartCaption.id = "viewChartCaption";
+  chartCaption.hidden = true;
+  chartSection.appendChild(chartCaption);
   return chartSection;
 }
 
@@ -831,13 +866,10 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
   if (!canvas) return;
   if (days === -1 && chartCtx.purchaseDate > 0) {
     const toTs = Date.now();
+    const { fromTs, caption } = _purchasedRangeFrom(chartCtx.purchaseDate);
+    _setChartCaption(canvas, caption);
     try {
-      const spotData = await _fetchHistoricalSpotData(
-        chartCtx.metalName,
-        0,
-        chartCtx.purchaseDate,
-        toTs
-      );
+      const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, 0, fromTs, toTs);
       _createPriceHistoryChart(
         canvas,
         spotData,
@@ -847,7 +879,7 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
         0,
         chartCtx.purchaseDate,
         chartCtx.currentRetail,
-        chartCtx.purchaseDate,
+        fromTs,
         toTs
       );
     } catch (err) {
@@ -861,13 +893,14 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
         0,
         chartCtx.purchaseDate,
         chartCtx.currentRetail,
-        chartCtx.purchaseDate,
+        fromTs,
         toTs
       );
     }
     return;
   }
   const effectiveDays = days;
+  _setChartCaption(canvas, null);
   try {
     const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, effectiveDays);
     _createPriceHistoryChart(
