@@ -45,7 +45,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
 - **Sketch branch naming** → `/sketch orchestrate` generates `sketch/{ISSUE-ID}-{slug}` branch names by default, but StakTrakr requires `patch/VERSION` via `/start-patch`. Override generated tasks.md if it uses the sketch convention.
 - **`/sketch orchestrate` closing tasks** → always dispatch as a single batched prompt, not one-at-a-time. Closing tasks have no model-routing ambiguity and benefit from no parallel hazard.
-- Stale dev-targeting branches → /pr-cleanup only detects [gone] refs, which requires the upstream branch to have been deleted. Squash-merged branches targeting dev never appear as merged — prune periodically with git branch -vv | grep ': gone]' after checking dev merges.
+- **Stale dev-targeting branches** → `/pr-cleanup` only detects `[gone]` refs, which requires the upstream branch to have been deleted. Squash-merged branches targeting `dev` never appear as `[gone]` — prune periodically with `git branch -vv | grep ': gone]'` after checking `dev` merges.
 - **PR branch staleness check** → before opening a PR, run `git merge-base HEAD origin/dev` and compare to `git rev-parse origin/dev`. A large changed-file count (50+) is a signal the branch was created from stale local `dev` rather than fetched `origin/dev`.
 
 ## MCP Notes
@@ -126,6 +126,7 @@ The duplication-checker hook respects `// duplication-ok` inline comments. Use t
 ### Closing task ordering in sketch workflow
 
 Follow this sequence:
+
 1. Version bump
 2. Spot bundle update
 3. `gh pr create`

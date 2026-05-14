@@ -68,12 +68,14 @@ def main():
             errors.append(f"ESLint ({basename}):\n{out}")
 
     elif file_path.endswith(".md"):
-        rc, out = run_cmd(
-            ["npx", "markdownlint", "--config", ".markdownlint.json", file_path],
-            timeout=15,
-        )
-        if rc != 0 and out:
-            errors.append(f"Markdownlint ({basename}):\n{out}")
+        # Skip DocVault files — global docvault-lint.py handles those
+        if not file_path.startswith("/Volumes/DATA/GitHub/DocVault/"):
+            rc, out = run_cmd(
+                ["npx", "markdownlint", "--config", ".markdownlint.json", file_path],
+                timeout=15,
+            )
+            if rc != 0 and out:
+                errors.append(f"Markdownlint ({basename}):\n{out}")
 
     elif file_path.endswith(".json"):
         try:

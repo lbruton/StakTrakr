@@ -33,10 +33,6 @@
       "Bash(gh run view *)",
       "Bash(gh run list *)",
       "Bash(gh api *)",
-      "Bash(npx playwright *)",
-      "Bash(npx markdownlint-cli2 *)",
-      "Bash(node -c *)",
-      "Bash(npm install --no-audit *)",
       "mcp__specflow__approvals",
       "mcp__specflow__log-implementation",
       "mcp__specflow__spec-list",
@@ -66,17 +62,6 @@
     ]
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/tool-tier-reminder.py"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Edit",
