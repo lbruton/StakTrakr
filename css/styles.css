@@ -13609,15 +13609,15 @@ th {
   align-items: center;
 }
 .card-a .cv-images-sm .coin-img {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
 }
 .card-a .cv-images-sm .coin-img.bar-shape {
-  width: 36px;
-  height: 24px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius);
   background: transparent;
 }
@@ -13692,9 +13692,10 @@ th {
 }
 .card-b .coin-img.bar-shape {
   width: 80px;
-  height: 56px;
+  height: 80px;
   border-radius: var(--radius);
   background: transparent;
+  border: none;
 }
 .card-b .cv-value-hero {
   font-size: var(--font-size-2xl);
