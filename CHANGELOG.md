@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.65] - 2026-05-13
+
+### Changed — STRK-75: All tab as default in vendor price matrix
+
+- **All tab**: Adds an All tab as the first and default entry in the vendor price matrix tab bar; new users land on a unified view of all market-tracked metals grouped Gold → Silver → Platinum → Palladium → Goldback (STRK-75).
+- **Tab preference preserved**: Returning users whose stored tab is valid (e.g. Silver) keep their selection; missing or unrecognised saved values fall back to All (STRK-75).
+
+---
+
 ## [3.34.64] - 2026-05-13
 
 ### Changed — STRK-50: Optional structured Payment Method dropdown

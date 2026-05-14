@@ -75,6 +75,12 @@ const _getVendorMeta = () => {
   return {};
 };
 
+const _getRetailCoinMetaForSlug = (slug, coinMetaMap) => {
+  if (typeof window.getRetailCoinMeta === "function") return window.getRetailCoinMeta(slug);
+  if (coinMetaMap && coinMetaMap[slug]) return coinMetaMap[slug];
+  return { name: slug, weight: 0, metal: "unknown" };
+};
+
 // Fetch v2 manifest for coin + vendor metadata if not already cached
 const _ensureManifest = async () => {
   const coinMeta = _getCoinMeta();
@@ -890,20 +896,20 @@ const _renderVendorTable = async (metalCode) => {
   const coinMetaMap = _getCoinMeta();
   const vendorMeta = _getVendorMeta();
 
+  const rowComparator = (a, b) =>
+    String(a.meta.name || a.slug).localeCompare(String(b.meta.name || b.slug), undefined, {
+      numeric: true,
+    }) || a.slug.localeCompare(b.slug);
+  const allScopeOrder = ["xau", "xag", "xpt", "xpd", "goldback"];
+  const isAllScope = metalCode === "all";
   const metalSlugs = [];
+  const rowsByIsoCode = {};
   const slugs = Object.keys(coins);
   for (const slug of slugs) {
-    let meta;
-    if (coinMetaMap && coinMetaMap[slug]) {
-      meta = coinMetaMap[slug];
-    } else if (typeof window.getRetailCoinMeta === "function") {
-      meta = window.getRetailCoinMeta(slug);
-    } else {
-      meta = { name: slug, weight: 0, metal: "unknown" };
-    }
+    const meta = _getRetailCoinMetaForSlug(slug, coinMetaMap);
     const metalLower = (meta.metal || "").toLowerCase();
     const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
-    if (isoCode === metalCode) {
+    if (isAllScope ? allScopeOrder.includes(isoCode) : isoCode === metalCode) {
       // STAK-515: Skip slugs where ALL vendors are disabled by market filter
       if (typeof _isMarketItemEnabled === "function") {
         const coin = coins[slug];
@@ -912,15 +918,24 @@ const _renderVendorTable = async (metalCode) => {
           if (vids.length > 0 && !vids.some((vid) => _isMarketItemEnabled(slug, vid))) continue;
         }
       }
-      metalSlugs.push({ slug, meta });
+      if (isAllScope) {
+        if (!rowsByIsoCode[isoCode]) rowsByIsoCode[isoCode] = [];
+        rowsByIsoCode[isoCode].push({ slug, meta, isoCode });
+      } else {
+        metalSlugs.push({ slug, meta, isoCode });
+      }
     }
   }
-  metalSlugs.sort(
-    (a, b) =>
-      String(a.meta.name || a.slug).localeCompare(String(b.meta.name || b.slug), undefined, {
-        numeric: true,
-      }) || a.slug.localeCompare(b.slug)
-  );
+  if (isAllScope) {
+    for (const isoCode of allScopeOrder) {
+      const groupRows = rowsByIsoCode[isoCode];
+      if (!groupRows || groupRows.length === 0) continue;
+      groupRows.sort(rowComparator);
+      metalSlugs.push(...groupRows);
+    }
+  } else {
+    metalSlugs.sort(rowComparator);
+  }
 
   if (metalSlugs.length === 0) {
     tableWrap.textContent = "";
@@ -971,10 +986,15 @@ const _renderVendorTable = async (metalCode) => {
   }
 
   const allVendorIds = new Set();
-  for (const slug in detailMap) {
-    const vendors = detailMap[slug].vendors;
-    if (vendors) {
-      for (const vid in vendors) allVendorIds.add(vid);
+  for (const { slug } of metalSlugs) {
+    const detail = detailMap[slug];
+    const vendors = detail && detail.vendors;
+    if (!vendors) continue;
+    for (const vid in vendors) {
+      if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
+        continue;
+      }
+      allVendorIds.add(vid);
     }
   }
 
@@ -1024,13 +1044,13 @@ const _renderVendorTable = async (metalCode) => {
 
   const tbody = document.createElement("tbody");
 
-  for (const { slug, meta } of metalSlugs) {
+  for (const { slug, meta, isoCode } of metalSlugs) {
     const detail = detailMap[slug];
     if (!detail || !detail.vendors) continue;
 
     const vData = detail.vendors;
     const weightOz = detail.weight_oz || meta.weight || 0;
-    const spotPrice = _getSpotPrice(metalCode);
+    const spotPrice = _getSpotPrice(isoCode);
 
     const inStockPrices = [];
     for (const vid in vData) {
@@ -1247,9 +1267,7 @@ const renderVendorPrices = () => {
   const coinMetaMap = _getCoinMeta();
   const metalHasCoins = {};
   for (const slug of Object.keys(coins)) {
-    let meta;
-    if (coinMetaMap && coinMetaMap[slug]) meta = coinMetaMap[slug];
-    else meta = { metal: "unknown" };
+    const meta = _getRetailCoinMetaForSlug(slug, coinMetaMap);
     const metalLower = (meta.metal || "").toLowerCase();
     const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
     // STAK-515: Only count metal if at least one vendor is enabled for this slug
@@ -1264,6 +1282,7 @@ const renderVendorPrices = () => {
   }
 
   const allMetals = [
+    { code: "all", label: "All" },
     { code: "xau", label: "Gold" },
     { code: "xag", label: "Silver" },
     { code: "xpt", label: "Platinum" },
@@ -1271,14 +1290,10 @@ const renderVendorPrices = () => {
     { code: "goldback", label: "Goldback" },
   ];
   // Only show tabs that have coins
-  const metals = allMetals.filter((m) => metalHasCoins[m.code]);
+  const metals = allMetals.filter((m) => m.code === "all" || metalHasCoins[m.code]);
 
-  const savedTab = loadDataSync("vendorPricesActiveTab", "xag");
-  let activeTab = metals.some((m) => m.code === savedTab)
-    ? savedTab
-    : metals[0]
-      ? metals[0].code
-      : "xag";
+  const savedTab = loadDataSync("vendorPricesActiveTab", "all");
+  let activeTab = metals.some((m) => m.code === savedTab) ? savedTab : "all";
 
   const setActive = (code) => {
     activeTab = code;

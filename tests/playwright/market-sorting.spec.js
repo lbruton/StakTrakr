@@ -12,11 +12,17 @@ import { injectSeedInventory } from "./helpers/seed.js";
  * REQ-2: Item rows sorted alphabetically by meta.name
  */
 
-// Three vendor IDs injected in REVERSE-alphabetical display order:
-//   herobullion → "Hero", apmex → "APMEX", bullionexchanges → "BullionX"
-// After fix, column order must be: APMEX, BullionX, Hero
+const MARKET_FILTER_KEY = "staktrakr.market_filter";
+const GOLDBACK_G1_RATE = 4.25;
+
+// Five vendor IDs injected in REVERSE-ish alphabetical display order:
+//   herobullion -> "Hero", jmbullion -> "JM", goldback -> "Goldback",
+//   apmex -> "APMEX", bullionexchanges -> "BullionX"
+// After sorting, column order must be: APMEX, BullionX, Goldback, Hero, JM
 const VENDORS = [
   { id: "herobullion", name: "Hero Bullion", color: "#10b981", url: "https://herobullion.com" },
+  { id: "jmbullion", name: "JM Bullion", color: "#ef4444", url: "https://www.jmbullion.com" },
+  { id: "goldback", name: "Goldback", color: "#fbbf24", url: "https://www.goldback.com" },
   { id: "apmex", name: "APMEX", color: "#60a5fa", url: "https://www.apmex.com" },
   {
     id: "bullionexchanges",
@@ -31,6 +37,9 @@ const VENDORS = [
 const SLUG_Z = "strk21-zebra"; // Zebra Silver Round — last alphabetically
 const SLUG_A = "strk21-alpha"; // Alpha Silver Bar   — first alphabetically
 const SLUG_M = "strk21-middle"; // Middle Silver Coin — second alphabetically
+const SLUG_GOLD_A = "strk75-alpha-gold"; // Alpha Gold Coin — first gold row
+const SLUG_GOLD_Z = "strk75-zulu-gold"; // Zulu Gold Coin  — second gold row
+const SLUG_GOLDBACK = "strk75-utah-goldback-g1"; // Goldback rows sort after metals
 
 const generatedAt = new Date().toISOString();
 
@@ -38,6 +47,9 @@ const coinMeta = {
   [SLUG_Z]: { name: "Zebra Silver Round", weight: 1, metal: "silver" },
   [SLUG_A]: { name: "Alpha Silver Bar", weight: 1, metal: "silver" },
   [SLUG_M]: { name: "Middle Silver Coin", weight: 1, metal: "silver" },
+  [SLUG_GOLD_A]: { name: "Alpha Gold Coin", weight: 1, metal: "gold" },
+  [SLUG_GOLD_Z]: { name: "Zulu Gold Coin", weight: 1, metal: "gold" },
+  [SLUG_GOLDBACK]: { name: "Utah 1 Goldback", weight: 0, metal: "goldback" },
 };
 
 const vendorMeta = Object.fromEntries(
@@ -72,6 +84,30 @@ const prices = {
       highest_price: 41.0,
       vendors: {
         bullionexchanges: { price: 40.0, inStock: true, in_stock: true },
+      },
+    },
+    [SLUG_GOLD_Z]: {
+      median_price: 2150.0,
+      lowest_price: 2150.0,
+      highest_price: 2150.0,
+      vendors: {
+        jmbullion: { price: 2150.0, inStock: true, in_stock: true },
+      },
+    },
+    [SLUG_GOLD_A]: {
+      median_price: 2200.0,
+      lowest_price: 2200.0,
+      highest_price: 2200.0,
+      vendors: {
+        apmex: { price: 2200.0, inStock: true, in_stock: true },
+      },
+    },
+    [SLUG_GOLDBACK]: {
+      median_price: 5.1,
+      lowest_price: 5.1,
+      highest_price: 5.1,
+      vendors: {
+        goldback: { price: 5.1, inStock: true, in_stock: true },
       },
     },
   },
@@ -123,13 +159,57 @@ const detailBySlug = {
       },
     },
   },
+  [SLUG_GOLD_Z]: {
+    weight_oz: 1,
+    median: 2150.0,
+    median_price: 2150.0,
+    low: 2150.0,
+    lowest_price: 2150.0,
+    high: 2150.0,
+    highest_price: 2150.0,
+    window_start: generatedAt,
+    vendors: {
+      jmbullion: {
+        price: 2150.0,
+        in_stock: true,
+        inStock: true,
+        url: "https://www.jmbullion.com",
+      },
+    },
+  },
+  [SLUG_GOLD_A]: {
+    weight_oz: 1,
+    median: 2200.0,
+    median_price: 2200.0,
+    low: 2200.0,
+    lowest_price: 2200.0,
+    high: 2200.0,
+    highest_price: 2200.0,
+    window_start: generatedAt,
+    vendors: {
+      apmex: { price: 2200.0, in_stock: true, inStock: true, url: "https://www.apmex.com" },
+    },
+  },
+  [SLUG_GOLDBACK]: {
+    weight_oz: 0,
+    median: 5.1,
+    median_price: 5.1,
+    low: 5.1,
+    lowest_price: 5.1,
+    high: 5.1,
+    highest_price: 5.1,
+    window_start: generatedAt,
+    vendors: {
+      goldback: { price: 5.1, in_stock: true, inStock: true, url: "https://www.goldback.com" },
+    },
+  },
 };
 
-const setupSortingFixture = async (page) => {
+const setupSortingFixture = async (page, options = {}) => {
   await injectSeedInventory(page);
 
   await page.addInitScript(
-    ({ pricesData, slugs, meta, vendors, generatedAtValue }) => {
+    ({ pricesData, slugs, meta, vendors, generatedAtValue, savedTab, marketFilter, filterKey }) => {
       const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
       writeJson("v2RetailPrices", pricesData);
       writeJson("retailPrices", pricesData);
@@ -138,6 +218,9 @@ const setupSortingFixture = async (page) => {
       writeJson("retailManifestVendorMeta", vendors);
       localStorage.setItem("retailManifestGeneratedAt", generatedAtValue);
       localStorage.setItem("spotSilver", JSON.stringify(36));
+      localStorage.setItem("spotGold", JSON.stringify(2000));
+      if (savedTab !== undefined) writeJson("vendorPricesActiveTab", savedTab);
+      if (marketFilter) writeJson(filterKey, marketFilter);
       // Stub LightweightCharts so market detail modal works without the CDN
       window.LightweightCharts = {
         CrosshairMode: { Normal: 0 },
@@ -161,10 +244,13 @@ const setupSortingFixture = async (page) => {
     },
     {
       pricesData: prices,
-      slugs: [SLUG_Z, SLUG_A, SLUG_M],
+      slugs: [SLUG_Z, SLUG_A, SLUG_M, SLUG_GOLD_Z, SLUG_GOLD_A, SLUG_GOLDBACK],
       meta: coinMeta,
       vendors: vendorMeta,
       generatedAtValue: generatedAt,
+      savedTab: options.savedTab,
+      marketFilter: options.marketFilter,
+      filterKey: MARKET_FILTER_KEY,
     }
   );
 
@@ -172,6 +258,18 @@ const setupSortingFixture = async (page) => {
   await page.route("https://api.staktrakr.com/data/v2/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/data\/v2\//, "");
+    if (path === "goldback/latest.json") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: generatedAt,
+          data: { g1_usd: GOLDBACK_G1_RATE },
+        }),
+      });
+      return;
+    }
     const match = path.match(/^retail\/([^/]+)\/latest\.json$/);
     if (match && detailBySlug[match[1]]) {
       await route.fulfill({
@@ -193,22 +291,62 @@ const setupSortingFixture = async (page) => {
     () =>
       typeof window.showSettingsModal === "function" &&
       typeof window.renderVendorPrices === "function" &&
+      typeof window.initMarketData === "function" &&
       typeof window.refreshMarketData === "function"
   );
+  await page.evaluate(() => {
+    if (typeof spotPrices !== "undefined") {
+      spotPrices.gold = 2000;
+      spotPrices.silver = 36;
+    }
+  });
+  await page.evaluate(() => window.initMarketData());
   await page.evaluate(() => window.refreshMarketData());
   // Wait for the vendor table to render
   await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
 };
 
-test.describe("STRK-21 — Market price matrix sorting", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupSortingFixture(page);
-  });
+const getActiveMarketTab = async (page) =>
+  page.locator(".vendor-prices-tabs button.active").getAttribute("data-metal");
 
+const getMarketTabLabels = async (page) =>
+  (await page.locator(".vendor-prices-tabs button").allTextContents()).map((label) => label.trim());
+
+const getVendorHeaders = async (page) => {
+  const headers = await page.locator(".vendor-prices-table thead tr th").allTextContents();
+  return headers.map((h) => h.trim()).filter((h) => !["ITEM", "MEDIAN", "SPREAD"].includes(h));
+};
+
+const getRowNames = async (page) =>
+  (await page.locator(".vendor-prices-table tbody tr td:first-child").allTextContents())
+    .map((name) => name.trim())
+    .filter(Boolean);
+
+const getVendorCellText = async (page, rowName, vendorHeader) =>
+  page.locator(".vendor-prices-table").evaluate(
+    (table, args) => {
+      const headers = Array.from(table.querySelectorAll("thead th")).map((th) =>
+        th.textContent.trim()
+      );
+      const columnIndex = headers.indexOf(args.vendorHeader);
+      if (columnIndex === -1) return null;
+      const row = Array.from(table.querySelectorAll("tbody tr")).find((tr) => {
+        const firstCell = tr.querySelector("td:first-child");
+        return firstCell && firstCell.textContent.trim() === args.rowName;
+      });
+      if (!row) return null;
+      return row.children[columnIndex] ? row.children[columnIndex].textContent.trim() : null;
+    },
+    { rowName, vendorHeader }
+  );
+
+test.describe("STRK-21 — Market price matrix sorting", () => {
   // REQ-1: Vendor column headers are sorted alphabetically by display name.
   // Input order in localStorage: Hero, APMEX, BullionX (non-alphabetical).
   // Expected rendered order: APMEX, BullionX, Hero.
   test("REQ-1 — vendor columns appear in alphabetical order by display name", async ({ page }) => {
+    await setupSortingFixture(page, { savedTab: "xag" });
+
     const table = page.locator(".vendor-prices-table");
     await expect(table).toBeVisible();
 
@@ -224,6 +362,8 @@ test.describe("STRK-21 — Market price matrix sorting", () => {
   // Input order in localStorage: Zebra Silver Round, Alpha Silver Bar, Middle Silver Coin.
   // Expected rendered order: Alpha Silver Bar, Middle Silver Coin, Zebra Silver Round.
   test("REQ-2 — item rows appear in alphabetical order by display name", async ({ page }) => {
+    await setupSortingFixture(page, { savedTab: "xag" });
+
     const table = page.locator(".vendor-prices-table");
     await expect(table).toBeVisible();
 
@@ -233,5 +373,112 @@ test.describe("STRK-21 — Market price matrix sorting", () => {
 
     // Exact expected order: the 3 fixture slugs sorted alphabetically by meta.name
     expect(trimmed).toEqual(["Alpha Silver Bar", "Middle Silver Coin", "Zebra Silver Round"]);
+  });
+});
+
+test.describe("STRK-75 — Market price matrix All tab", () => {
+  test("AC-1/AC-2 — All tab is present, first, and active by default with no stored value", async ({
+    page,
+  }) => {
+    await setupSortingFixture(page);
+
+    expect(await getMarketTabLabels(page)).toEqual(["All", "Gold", "Silver", "Goldback"]);
+    expect(await getActiveMarketTab(page)).toBe("all");
+    expect(await getRowNames(page)).toEqual([
+      "Alpha Gold Coin",
+      "Zulu Gold Coin",
+      "Alpha Silver Bar",
+      "Middle Silver Coin",
+      "Zebra Silver Round",
+      "Utah 1 Goldback",
+    ]);
+  });
+
+  test("AC-3 — valid stored xag tab is preserved as Silver", async ({ page }) => {
+    await setupSortingFixture(page, { savedTab: "xag" });
+
+    expect(await getActiveMarketTab(page)).toBe("xag");
+    await expect(page.locator(".vendor-prices-tabs button.active")).toHaveText("Silver");
+    expect(await getRowNames(page)).toEqual([
+      "Alpha Silver Bar",
+      "Middle Silver Coin",
+      "Zebra Silver Round",
+    ]);
+  });
+
+  test("AC-4 — invalid stored tab falls back to All", async ({ page }) => {
+    await setupSortingFixture(page, { savedTab: "stale-metal" });
+
+    expect(await getActiveMarketTab(page)).toBe("all");
+    await expect(page.locator(".vendor-prices-tabs button.active")).toHaveText("All");
+    await expect(page.locator(".vendor-prices-table")).toContainText("Alpha Gold Coin");
+    await expect(page.locator(".vendor-prices-table")).toContainText("Utah 1 Goldback");
+  });
+
+  test("AC-5 — All-tab rows are grouped Gold, Silver, then Goldback", async ({ page }) => {
+    await setupSortingFixture(page);
+
+    expect(await getRowNames(page)).toEqual([
+      "Alpha Gold Coin",
+      "Zulu Gold Coin",
+      "Alpha Silver Bar",
+      "Middle Silver Coin",
+      "Zebra Silver Round",
+      "Utah 1 Goldback",
+    ]);
+  });
+
+  test("AC-6 — clicking a per-metal tab narrows the table correctly", async ({ page }) => {
+    await setupSortingFixture(page);
+
+    await page.locator('.vendor-prices-tabs button[data-metal="xau"]').click();
+
+    expect(await getActiveMarketTab(page)).toBe("xau");
+    expect(await getRowNames(page)).toEqual(["Alpha Gold Coin", "Zulu Gold Coin"]);
+    await expect(page.locator(".vendor-prices-table")).not.toContainText("Alpha Silver Bar");
+    await expect(page.locator(".vendor-prices-table")).not.toContainText("Utah 1 Goldback");
+  });
+
+  test("AC-7 — market-filter hiding applies in the All tab", async ({ page }) => {
+    await setupSortingFixture(page, {
+      marketFilter: {
+        [SLUG_GOLD_Z]: { jmbullion: false },
+      },
+    });
+
+    expect(await getActiveMarketTab(page)).toBe("all");
+    expect(await getRowNames(page)).toEqual([
+      "Alpha Gold Coin",
+      "Alpha Silver Bar",
+      "Middle Silver Coin",
+      "Zebra Silver Round",
+      "Utah 1 Goldback",
+    ]);
+    await expect(page.locator(".vendor-prices-table")).not.toContainText("Zulu Gold Coin");
+  });
+
+  test("AC-8 — All-tab premium math uses per-row spot and Goldback G1 rate", async ({ page }) => {
+    await setupSortingFixture(page);
+
+    const goldCell = await getVendorCellText(page, "Alpha Gold Coin", "APMEX");
+    expect(goldCell).toContain("$2,200.00");
+    expect(goldCell).toContain("+10.0%");
+
+    const silverCell = await getVendorCellText(page, "Alpha Silver Bar", "APMEX");
+    expect(silverCell).toContain("$38.00");
+    expect(silverCell).toContain("+5.6%");
+
+    const goldbackCell = await getVendorCellText(page, "Utah 1 Goldback", "Goldback");
+    expect(goldbackCell).toContain("$5.10");
+    expect(goldbackCell).toContain("+20.0%");
+  });
+
+  test("AC-9 — All-tab vendor columns are the sorted union across metals", async ({ page }) => {
+    await setupSortingFixture(page);
+
+    expect(await getVendorHeaders(page)).toEqual(["APMEX", "BullionX", "Goldback", "Hero", "JM"]);
+    expect(await getVendorCellText(page, "Alpha Gold Coin", "Goldback")).toBe("—");
+    expect(await getVendorCellText(page, "Utah 1 Goldback", "JM")).toBe("—");
+    expect(await getVendorCellText(page, "Zulu Gold Coin", "JM")).toContain("$2,150.00");
   });
 });
