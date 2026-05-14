@@ -27,9 +27,7 @@ const getSpotLookupModalRef = (key, id) => {
   return _spotLookupModalRefs[key];
 };
 
-const isGoldbackRetailLookup = () => {
-  return _spotLookupTargetField === "retail" && elements.itemWeightUnit?.value === "gb";
-};
+const isGoldbackLookup = () => elements.itemWeightUnit?.value === "gb";
 
 const getGoldbackLookupDenomination = () => {
   return parseFloat(
@@ -52,7 +50,7 @@ const syncSpotLookupButtons = (hasDate, options = {}) => {
     elements.spotLookupBtn.disabled = !hasDate;
   }
   if (elements.retailSpotLookupBtn) {
-    elements.retailSpotLookupBtn.disabled = !hasDate;
+    elements.retailSpotLookupBtn.disabled = false;
   }
   if (clearSelectedSpot && elements.itemSpotPrice) {
     elements.itemSpotPrice.value = "";
@@ -154,16 +152,6 @@ const searchSpotByDate = (metalName, dateStr) => {
   });
 
   return [...byDay.values()];
-};
-
-/**
- * Formats a day offset into a human-readable badge label.
- * @param {number} offset - Day offset from target date
- * @returns {string} Label like "Exact", "+1d", "-2d"
- */
-const formatOffsetLabel = (offset) => {
-  if (offset === 0) return "Exact";
-  return (offset > 0 ? "+" : "") + offset + "d";
 };
 
 /**
@@ -385,29 +373,36 @@ const searchHistoricalByDate = async (metalName, dateStr) => {
  * for the date and metal currently selected in the add/edit form.
  */
 const openSpotLookupModal = async (targetField = "purchase") => {
-  const dateVal = elements.itemDate ? elements.itemDate.value : "";
-  const metalVal = elements.itemMetal ? elements.itemMetal.value : "";
+  _spotLookupTargetField = targetField === "retail" ? "retail" : "purchase";
+  const isRetailTarget = _spotLookupTargetField === "retail";
+  const isGb = isGoldbackLookup();
+
+  // Retail snapshots use today's date; purchase lookups use the entered purchase date.
+  const dateVal = isRetailTarget
+    ? new Date().toISOString().slice(0, 10)
+    : elements.itemDate
+      ? elements.itemDate.value
+      : "";
 
   if (!dateVal) {
     appAlert("Please select a purchase date first.");
     return;
   }
 
-  // Derive metal name from composition (same logic as parseItemFormFields)
+  // Derive metal name from composition (same logic as parseItemFormFields).
+  // Skipped for goldback lookups since the goldback branch doesn't use metalName.
+  const metalVal = elements.itemMetal ? elements.itemMetal.value : "";
   const composition =
     typeof getCompositionFirstWords === "function" ? getCompositionFirstWords(metalVal) : metalVal;
   const metalName =
     typeof parseNumistaMetal === "function" ? parseNumistaMetal(composition) : composition;
 
-  if (!metalName || metalName === "Alloy") {
+  if (!isGb && (!metalName || metalName === "Alloy")) {
     appAlert("Please select a supported metal (Silver, Gold, Platinum, or Palladium).");
     return;
   }
 
-  _spotLookupTargetField = targetField === "retail" ? "retail" : "purchase";
-  const isGbRetailLookup = isGoldbackRetailLookup();
-
-  if (isGbRetailLookup) {
+  if (isGb) {
     const denom = getGoldbackLookupDenomination() || 1;
     let goldbackResults =
       typeof searchGoldbackHistoryByDate === "function"
@@ -495,11 +490,11 @@ const openSpotLookupModal = async (targetField = "purchase") => {
 const renderSpotLookupResults = (container, results, metalName, dateStr) => {
   const formatPrice =
     typeof formatCurrency === "function" ? formatCurrency : (v) => "$" + Number(v).toFixed(2);
-  const isGbRetail = isGoldbackRetailLookup();
-  const priceHeading = isGbRetail ? "Goldback Price" : "Spot Price";
+  const isGb = isGoldbackLookup();
+  const priceHeading = isGb ? "Goldback Price" : "Spot Price";
 
   let html = '<table class="spot-lookup-table"><thead><tr>';
-  html += `<th>Date/Time</th><th>${priceHeading}</th><th>Source</th><th>Offset</th><th></th>`;
+  html += `<th>Date/Time</th><th>${priceHeading}</th><th>Source</th><th></th>`;
   html += "</tr></thead><tbody>";
 
   results.forEach((entry) => {
@@ -508,14 +503,11 @@ const renderSpotLookupResults = (container, results, metalName, dateStr) => {
       typeof entry.lookupPrice === "number" && entry.lookupPrice > 0 ? entry.lookupPrice : null;
     const price = formatPrice(lookupPrice || entry.spot);
     const source = entry.source === "seed" ? "Seed" : entry.provider || entry.source || "";
-    const offsetLabel = formatOffsetLabel(entry.dayOffset);
-    const exactClass = entry.dayOffset === 0 ? " exact" : "";
 
     html += "<tr>";
     html += `<td>${ts}</td>`;
     html += `<td><strong>${price}</strong></td>`;
     html += `<td>${escapeHtml(source)}</td>`;
-    html += `<td><span class="spot-lookup-offset${exactClass}">${offsetLabel}</span></td>`;
     html +=
       `<td><button class="btn spot-lookup-use-btn" type="button" ` +
       `data-spot="${escapeHtml(entry.spot)}" data-retail="${escapeHtml(lookupPrice || "")}" data-ts="${escapeHtml(entry.timestamp || "")}">Use</button></td>`;

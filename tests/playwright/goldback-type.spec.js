@@ -420,4 +420,32 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
     await page.locator(".spot-lookup-use-btn").first().click();
     await expect(page.locator("#itemMarketValue")).toHaveValue("9.48");
   });
+
+  test("16. Goldback purchase-price lookup uses Goldback history, not gold spot (STRK-77)", async ({
+    page,
+  }) => {
+    await seedData(page, [], {
+      goldbackPriceHistory: {
+        1: [{ ts: new Date("2026-05-11T12:00:00.000Z").getTime(), price: 9.48, source: "api" }],
+      },
+      goldbackPricingSource: "manual",
+    });
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemDate", "2026-05-11");
+    await page.selectOption("#itemMetal", "Gold");
+    await page.selectOption("#itemType", "Goldback");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("gb");
+
+    await page.click("#spotLookupBtn");
+    await expect(page.locator("#spotLookupModal")).toBeVisible();
+    await expect(page.locator("#spotLookupTitle")).toContainText("Goldback Lookup");
+    await expect(page.locator("#spotLookupBody")).toContainText("Goldback Price");
+    await expect(page.locator("#spotLookupBody")).toContainText("$9.48");
+    await expect(page.locator("#spotLookupBody")).not.toContainText("Offset");
+
+    await page.locator(".spot-lookup-use-btn").first().click();
+    await expect(page.locator("#itemPrice")).toHaveValue("9.48");
+  });
 });
