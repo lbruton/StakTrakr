@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.66 &ndash; STRK-38: Rectangular item images auto-size in card/table views</strong>: Bars, notes, Goldbacks, and other rectangular items now render with transparent backgrounds, proper aspect-ratio sizing via object-fit: contain, and shape-aware SVG placeholders in card views (A/B/C) and the table view &mdash; matching the detail modal&rsquo;s existing behavior (STRK-38).</li>
     <li><strong>v3.34.65 &ndash; STRK-75: All tab as default in vendor price matrix</strong>: Adds an All tab as the first and default tab in the market price matrix; market-tracked metals appear grouped Gold → Silver → Platinum → Palladium → Goldback, while per-metal tabs and saved tab preferences are fully preserved (STRK-75).</li>
     <li><strong>v3.34.64 &ndash; STRK-50: Optional structured Payment Method dropdown</strong>: Adds an optional payment method selector that persists through edit, clone, bulk edit, import/export, backup, filtering, search, and item details without affecting valuation math (STRK-50).</li>
     <li><strong>v3.34.63 &ndash; STRK-71: Attachment chip in inline chip settings</strong>: The attachment count badge is now toggleable and reorderable in Settings &rarr; Appearance &rarr; Layout &rarr; Inline Name Chips, just like the other name-cell chips (STRK-71).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.61 &ndash; STRK-66: ¼ Goldback denomination (Idaho, g0.25)</strong>: Adds the 1/4 Goldback (1/4000 oz gold) as the ninth canonical denomination with correct label rendering in add/edit and bulk-edit dropdowns, slug resolution, poller publishing, and bounds-guard regex fix for decimal denomination suffixes (STRK-66).</li>
     <li><strong>v3.34.60 &ndash; STRK-68: Chart unit alignment for lot/each pricing</strong>: Purchase, melt, and retail chart lines now use consistent units based on the stored lot/each pricing choice; re-editing an item restores the toggle and lot-total price to the edit form (STRK-68).</li>
     <li><strong>v3.34.59 &ndash; STRK-69: Goldback daily retail chart history</strong>: Goldback denomination prices now keep one retail-history point per calendar day even when the vendor price is flat, and item detail charts use denomination retail values when stored market value is empty (STRK-69).</li>
-    <li><strong>v3.34.58 &ndash; STRK-42: Chart viewport scaling</strong>: Item detail charts now fit the y-axis to visible purchase, melt, and retail lines with padding, fetch only needed bounded-range history, and keep sparse 1Y ranges anchored at the viewport start (STRK-42).</li>
   `;
 };
 
