@@ -1,6 +1,6 @@
 ---
 name: api-infrastructure
-description: Use when making any change to API feeds, pollers, feed thresholds, data file paths, or StakTrakrApi repo structure. Also use when diagnosing stale health badges, feed failures, or Fly.io/GHA poller issues. Triggers on any mention of manifest.json, goldback-spot.json, hourly files, spot-poller, retail-poller, Fly.io staktrakr app, or api.staktrakr.com.
+description: API feeds, pollers, feed thresholds, data paths, StakTrakrApi structure, Fly.io and health badge issues.
 ---
 
 # API Infrastructure

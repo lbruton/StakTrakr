@@ -39,6 +39,7 @@
       "mcp__specflow__spec-workflow-guide",
       "mcp__specflow__spec-status",
       "mcp__mem0__add_memory",
+      "mcp__mem0__update_memory",
       "mcp__mem0__search_memories",
       "mcp__claude-context__get_indexing_status",
       "mcp__claude-context__search_code",
@@ -58,7 +59,11 @@
       "mcp__github__get_issue",
       "mcp__plane__get_issue_using_readable_identifier",
       "mcp__plane__list_states",
-      "mcp__codacy__codacy_cli_analyze"
+      "mcp__plane__list_project_issues",
+      "mcp__codacy__codacy_cli_analyze",
+      "mcp__firecrawl-local__firecrawl_scrape",
+      "mcp__firecrawl-local__firecrawl_search",
+      "Bash(node -c *)"
     ]
   },
   "hooks": {
