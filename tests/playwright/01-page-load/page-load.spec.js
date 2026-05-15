@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { DEFAULT_RETAIL_LATEST } from "../helpers/mocks/fixtures.js";
 
 async function allowWhatsNew(page) {
   await page.addInitScript(() => {
@@ -146,20 +147,13 @@ test.describe("01-page-load", () => {
 
   test("1.12 — fresh startup stays quota-safe and keeps market UI available", async ({ page }) => {
     // runbook: 01-page-load.md §1.12
-    // Seed minimal retail data so the best-price ticker renders
-    await page.addInitScript(() => {
+    // Seed shared retail fixture data so the best-price ticker renders.
+    await page.addInitScript((retailLatest) => {
       window._v2RetailData = {
-        prices: {
-          "1oz-silver-eagle": {
-            median_price: 32,
-            lowest_price: 31.5,
-            highest_price: 33,
-            vendors: { apmex: { price: 32, inStock: true, in_stock: true } },
-          },
-        },
+        prices: retailLatest,
         lastSync: new Date().toISOString(),
       };
-    });
+    }, DEFAULT_RETAIL_LATEST);
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     // Verify no storage-full/quota toasts appear during cold startup

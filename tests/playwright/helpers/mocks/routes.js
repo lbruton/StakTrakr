@@ -18,8 +18,9 @@ import {
   makeVersion,
   LIGHTWEIGHT_CHARTS_STUB,
   DEFAULT_RETAIL_LATEST,
+  DEFAULT_SPOT_LATEST,
 } from "./fixtures.js";
-import { isDenied } from "./audit.js";
+import { isAllowed, isDenied, isMocked } from "./audit.js";
 
 const V2_PRIMARY = "https://api.staktrakr.com/data/v2/**";
 const V2_FALLBACK = "https://api2.staktrakr.com/data/v2/**";
@@ -38,6 +39,7 @@ const VERSION_CHECK = "https://www.staktrakr.com/version.json";
  * @param {object} [options.retailIntraday] — map of slug -> intraday rows
  * @param {object} [options.goldback] — override goldback data
  * @param {object} [options.exchangeRates] — override exchange-rate data
+ * @param {object} [options.version] — override version-check data
  * @param {object} [options.spotLatest] — map of isoKey -> { price } for spot mocks
  * @param {boolean} [options.denyAll] — if true, abort all external traffic
  */
@@ -51,10 +53,13 @@ async function installStakTrakrNetworkMocks(page, options = {}) {
   // Specific routes registered later win.  We abort denied hosts and
   // fall back for everything else so narrower mocks still get a chance.
   await page.route("https://**/*", async (route) => {
-    if (isDenied(route.request().url())) {
+    const url = route.request().url();
+    if (isDenied(url)) {
       await route.abort();
-    } else {
+    } else if (isMocked(url) || isAllowed(url)) {
       await route.fallback();
+    } else {
+      await route.abort();
     }
   });
 
@@ -143,14 +148,15 @@ async function installStakTrakrNetworkMocks(page, options = {}) {
     // spot/{isoKey}/{year}/{month}/{day}.json
     const spotDayMatch = path.match(/^spot\/([^/]+)\/(\d{4})\/(\d{2})\/(\d{2})\.json$/);
     if (spotDayMatch) {
-      const [, isoKey] = spotDayMatch;
+      const isoKey = spotDayMatch[1].toLowerCase();
       const spotMap = options.spotLatest || {};
-      const price = spotMap[isoKey]?.price || 25;
+      const price = spotMap[isoKey]?.price || DEFAULT_SPOT_LATEST[isoKey]?.price || 25;
       const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
+      const metal = typeof metalNames[isoKey] === "string" ? metalNames[isoKey] : isoKey;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(makeSpotDay(metalNames[isoKey] || isoKey, price)),
+        body: JSON.stringify(makeSpotDay(metal, price)),
       });
       return;
     }
@@ -159,9 +165,15 @@ async function installStakTrakrNetworkMocks(page, options = {}) {
     const latestMatch = path.match(/^retail\/([^/]+)\/latest\.json$/);
     if (latestMatch) {
       const slug = latestMatch[1];
-      const prices =
-        (options.retailLatest && options.retailLatest[slug]) ||
-        (DEFAULT_RETAIL_LATEST && DEFAULT_RETAIL_LATEST[slug]);
+      const optionPrice =
+        options.retailLatest &&
+        typeof options.retailLatest[slug] === "object" &&
+        options.retailLatest[slug];
+      const defaultPrice =
+        DEFAULT_RETAIL_LATEST &&
+        typeof DEFAULT_RETAIL_LATEST[slug] === "object" &&
+        DEFAULT_RETAIL_LATEST[slug];
+      const prices = optionPrice || defaultPrice || {};
       await route.fulfill({
         status: 200,
         contentType: "application/json",

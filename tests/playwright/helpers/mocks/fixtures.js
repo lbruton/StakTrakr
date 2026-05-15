@@ -117,27 +117,54 @@ const makeGoldbackLatest = (overrides = {}) => v2({ ...DEFAULT_GOLDBACK, ...over
 // ── Providers ───────────────────────────────────────────────────────────────
 
 const DEFAULT_PROVIDERS = {
-  providers: [
-    {
-      id: "apmex",
-      name: "APMEX",
-      baseUrl: "https://www.apmex.com",
-      searchUrl: "https://www.apmex.com/search?q={query}",
-      productUrl: "https://www.apmex.com/product/{id}",
-      enabled: true,
+  coins: {
+    "1oz-silver-eagle": {
+      name: "1 oz Silver Eagle",
+      providers: [
+        {
+          id: "apmex",
+          enabled: true,
+          url: "https://www.apmex.com/product/1oz-silver-eagle",
+        },
+        {
+          id: "jmbullion",
+          enabled: true,
+          url: "https://www.jmbullion.com/product/1oz-silver-eagle",
+        },
+      ],
     },
-    {
-      id: "jmbullion",
-      name: "JM Bullion",
-      baseUrl: "https://www.jmbullion.com",
-      searchUrl: "https://www.jmbullion.com/search?q={query}",
-      productUrl: "https://www.jmbullion.com/product/{id}",
-      enabled: true,
+    "1oz-gold-eagle": {
+      name: "1 oz Gold Eagle",
+      providers: [
+        {
+          id: "jmbullion",
+          enabled: true,
+          url: "https://www.jmbullion.com/product/1oz-gold-eagle",
+        },
+      ],
     },
-  ],
+    "utah-1-goldback": {
+      name: "Utah 1 Goldback",
+      providers: [
+        {
+          id: "herobullion",
+          enabled: true,
+          url: "https://herobullion.com/product/utah-1-goldback",
+        },
+      ],
+    },
+  },
 };
 
-const makeProviders = (overrides = {}) => v2({ ...DEFAULT_PROVIDERS, ...overrides });
+const makeProviders = (overrides = {}) =>
+  v2(
+    {
+      ...DEFAULT_PROVIDERS,
+      ...overrides,
+      coins: { ...DEFAULT_PROVIDERS.coins, ...(overrides.coins || {}) },
+    },
+    overrides.generated_at
+  );
 
 // ── CDN lightweight-charts stub ─────────────────────────────────────────────
 
@@ -222,7 +249,7 @@ const makeVersion = (overrides = {}) => ({ ...DEFAULT_VERSION, ...overrides });
 
 const getImageBytes = (name) => {
   const helpersDir = path.join(__dirname, "..");
-  const filePath = path.join(helpersDir, name);
+  const filePath = path.join(helpersDir, path.basename(name));
   if (fs.existsSync(filePath)) {
     return fs.readFileSync(filePath);
   }

@@ -11,6 +11,8 @@ const MOCKED_HOSTS = [
   "api2.staktrakr.com",
   "open.er-api.com",
   "cdn.jsdelivr.net",
+  "www.staktrakr.com",
+  "img.shields.io",
 ];
 
 // External hosts that are ALLOWED (intentionally hit during tests)
@@ -35,7 +37,12 @@ const DENIED_HOSTS = [
   "jmbullion.com",
   // Analytics / misc
   "www.google-analytics.com",
+  "www.redditstatic.com",
 ];
+
+function hostMatches(hostname, configuredHost) {
+  return hostname === configuredHost || hostname.endsWith(`.${configuredHost}`);
+}
 
 /**
  * Check if a URL matches the deny list.
@@ -45,7 +52,7 @@ const DENIED_HOSTS = [
 function isDenied(url) {
   try {
     const hostname = new URL(url).hostname;
-    return DENIED_HOSTS.some((h) => hostname.includes(h));
+    return DENIED_HOSTS.some((h) => hostMatches(hostname, h));
   } catch {
     return false;
   }
@@ -59,7 +66,7 @@ function isDenied(url) {
 function isAllowed(url) {
   try {
     const hostname = new URL(url).hostname;
-    return ALLOWED_HOSTS.some((h) => hostname.includes(h));
+    return ALLOWED_HOSTS.some((h) => hostMatches(hostname, h));
   } catch {
     return false;
   }
@@ -73,7 +80,7 @@ function isAllowed(url) {
 function isMocked(url) {
   try {
     const hostname = new URL(url).hostname;
-    return MOCKED_HOSTS.some((h) => hostname.includes(h));
+    return MOCKED_HOSTS.some((h) => hostMatches(hostname, h));
   } catch {
     return false;
   }
