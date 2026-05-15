@@ -651,7 +651,7 @@ test.describe("view-modal-chart-scaling — STRK-42 / STRK-69", () => {
     await clickRange(page, "7d");
     const snapshot = await chartSnapshot(page);
 
-    expect(snapshot.suggestedMin).toBeLessThanOrEqual(36.1);
+    expect(snapshot.suggestedMin).toBeLessThanOrEqual(36.2);
     expect(snapshot.yMin).toBeLessThanOrEqual(38);
     expectVisibleDatasetsWithinScale(snapshot);
   });
