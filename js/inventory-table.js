@@ -327,7 +327,10 @@
             invItem[urlKey] && /^https?:\/\/.+\..+/i.test(invItem[urlKey]) ? invItem[urlKey] : "";
         }
       }
-      const resolvedShape = resolveImageFrame(invItem, side) === "rect" ? "rect" : "round";
+      const resolvedShape =
+        typeof resolveImageFrame === "function" && resolveImageFrame(invItem, side) === "rect"
+          ? "rect"
+          : "round";
 
       const blobUrl = await imageCache.resolveImageUrlForItem(item, side);
       if (blobUrl) {

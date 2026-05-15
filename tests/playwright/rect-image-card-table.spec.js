@@ -1,5 +1,13 @@
 import { test, expect } from "@playwright/test";
 
+function decodeSvgDataUri(src) {
+  if (!src || !src.startsWith("data:image/svg+xml")) return src;
+  const commaIdx = src.indexOf(",");
+  if (commaIdx === -1) return src;
+  const payload = src.slice(commaIdx + 1);
+  return decodeURIComponent(payload);
+}
+
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGOSHzRgQAAAABJRU5ErkJggg==",
   "base64"
@@ -191,8 +199,9 @@ test.describe("rectangular item image rendering — STRK-38", () => {
       await expect(thumb).toHaveAttribute("src", /^data:image\/svg/);
 
       const src = await thumb.getAttribute("src");
-      expect(src).toContain("<rect");
-      expect(src).not.toContain("<circle");
+      const decoded = decodeSvgDataUri(src);
+      expect(decoded).toContain("<rect");
+      expect(decoded).not.toContain("<circle");
     });
 
     test("grading-authority-driven rect", async ({ page }) => {
@@ -212,7 +221,8 @@ test.describe("rectangular item image rendering — STRK-38", () => {
       await expect(thumb).toHaveAttribute("src", /^data:image\/svg/);
 
       const src = await thumb.getAttribute("src");
-      expect(src).toContain("<rect");
+      const decoded = decodeSvgDataUri(src);
+      expect(decoded).toContain("<rect");
     });
 
     test("Numista non-round shape", async ({ page }) => {
@@ -232,7 +242,8 @@ test.describe("rectangular item image rendering — STRK-38", () => {
       await expect(thumb).toHaveAttribute("src", /^data:image\/svg/);
 
       const src = await thumb.getAttribute("src");
-      expect(src).toContain("<rect");
+      const decoded = decodeSvgDataUri(src);
+      expect(decoded).toContain("<rect");
     });
   });
 
