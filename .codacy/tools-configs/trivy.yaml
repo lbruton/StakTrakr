@@ -1,0 +1,28 @@
+severity:
+  - LOW
+  - MEDIUM
+  - HIGH
+  - CRITICAL
+
+scan:
+  scanners:
+    - vuln
+    - secret
+  skip-dirs:
+    - .agents
+    - .codacy
+    - .claude
+    - .gemini
+    - .github
+    - .spec-workflow
+    - .jules
+    - vendor
+    - node_modules
+    - deprecated
+    - tests
+    - playground
+    - devops
+    - docs
+    - about
+    - screenshots
+    - ui-standards
