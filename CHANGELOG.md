@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.67] - 2026-05-15
+
+### Changed — STRK-78: Playwright test suite mock audit and consolidation
+
+- **Shared mock layer**: New `tests/playwright/helpers/mocks/` with canonical fixtures (`fixtures.js`), route installers (`routes.js`), and an extended Playwright fixture (`extended-test.js`) that auto-installs mocks before every test — eliminating real external API calls across the suite (STRK-78).
+- **App-shell migration**: 47 spec files migrated to shared mocks; 4 `@network`-tagged tests in `01-page-load` now run offline with deterministic fixture data (STRK-78).
+- **Market/retail/catalog cleanup**: Existing mocked specs refactored to use shared helpers, removing duplicate inline response blobs while preserving per-spec override behavior (STRK-78).
+
+---
+
 ## [3.34.66] - 2026-05-14
 
 ### Fixed — STRK-38: Rectangular item images auto-size in card/table views
