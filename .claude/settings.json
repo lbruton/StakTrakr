@@ -59,10 +59,10 @@
       "mcp__github__get_issue",
       "mcp__plane__get_issue_using_readable_identifier",
       "mcp__plane__list_states",
+      "mcp__plane__list_project_issues",
       "mcp__codacy__codacy_cli_analyze",
       "mcp__firecrawl-local__firecrawl_scrape",
       "mcp__firecrawl-local__firecrawl_search",
-      "mcp__plane__list_project_issues",
       "Bash(node -c *)"
     ]
   },
