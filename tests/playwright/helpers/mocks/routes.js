@@ -19,6 +19,7 @@ import {
   LIGHTWEIGHT_CHARTS_STUB,
   DEFAULT_RETAIL_LATEST,
 } from "./fixtures.js";
+import { isDenied } from "./audit.js";
 
 const V2_PRIMARY = "https://api.staktrakr.com/data/v2/**";
 const V2_FALLBACK = "https://api2.staktrakr.com/data/v2/**";
@@ -44,6 +45,17 @@ async function installStakTrakrNetworkMocks(page, options = {}) {
     await page.route("**/*", (route) => route.abort());
     return;
   }
+
+  // 0. Audit catch-all — registered FIRST so it is checked LAST (LIFO).
+  // Specific routes registered later win.  We abort denied hosts and
+  // fall back for everything else so narrower mocks still get a chance.
+  await page.route("https://**/*", async (route) => {
+    if (isDenied(route.request().url())) {
+      await route.abort();
+    } else {
+      await route.fallback();
+    }
+  });
 
   // 1. Exchange rates
   await page.route(EXCHANGE_RATE, async (route) => {
