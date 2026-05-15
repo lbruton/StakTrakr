@@ -79,11 +79,4 @@ function isMocked(url) {
   }
 }
 
-module.exports = {
-  MOCKED_HOSTS,
-  ALLOWED_HOSTS,
-  DENIED_HOSTS,
-  isDenied,
-  isAllowed,
-  isMocked,
-};
+export { MOCKED_HOSTS, ALLOWED_HOSTS, DENIED_HOSTS, isDenied, isAllowed, isMocked };

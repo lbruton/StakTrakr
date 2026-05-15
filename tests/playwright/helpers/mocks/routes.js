@@ -5,7 +5,7 @@
  * all known external API calls with deterministic fixture data.
  */
 
-const {
+import {
   makeExchangeRates,
   makeManifest,
   makeRetailLatest,
@@ -13,13 +13,18 @@ const {
   makeRetailIntraday,
   makeGoldbackLatest,
   makeProviders,
+  makeSpotLatest,
+  makeSpotDay,
+  makeVersion,
   LIGHTWEIGHT_CHARTS_STUB,
-} = require("./fixtures.js");
+  DEFAULT_RETAIL_LATEST,
+} from "./fixtures.js";
 
 const V2_PRIMARY = "https://api.staktrakr.com/data/v2/**";
 const V2_FALLBACK = "https://api2.staktrakr.com/data/v2/**";
 const EXCHANGE_RATE = "https://open.er-api.com/v6/latest/USD";
 const CDN_CHARTS = "https://cdn.jsdelivr.net/npm/lightweight-charts@4/**";
+const VERSION_CHECK = "https://www.staktrakr.com/version.json";
 
 /**
  * Install default StakTrakr network mocks on a Playwright page.
@@ -58,7 +63,26 @@ async function installStakTrakrNetworkMocks(page, options = {}) {
     });
   });
 
-  // 3. V2 primary API
+  // 3. Version check
+  await page.route(VERSION_CHECK, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(makeVersion(options.version)),
+    });
+  });
+
+  // 4. Badge / shield images — return empty SVG to avoid layout shifts
+  await page.route("https://img.shields.io/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg"/>',
+    });
+  });
+  await page.route("https://www.redditstatic.com/**", async (route) => route.abort());
+
+  // 5. V2 primary API
   await page.route(V2_PRIMARY, async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/data\/v2\//, "");
@@ -93,11 +117,38 @@ async function installStakTrakrNetworkMocks(page, options = {}) {
       return;
     }
 
+    // spot/latest.json
+    if (path === "spot/latest.json") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(makeSpotLatest(options.spotLatest)),
+      });
+      return;
+    }
+
+    // spot/{isoKey}/{year}/{month}/{day}.json
+    const spotDayMatch = path.match(/^spot\/([^/]+)\/(\d{4})\/(\d{2})\/(\d{2})\.json$/);
+    if (spotDayMatch) {
+      const [, isoKey] = spotDayMatch;
+      const spotMap = options.spotLatest || {};
+      const price = spotMap[isoKey]?.price || 25;
+      const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(makeSpotDay(metalNames[isoKey] || isoKey, price)),
+      });
+      return;
+    }
+
     // retail/{slug}/latest.json
     const latestMatch = path.match(/^retail\/([^/]+)\/latest\.json$/);
     if (latestMatch) {
       const slug = latestMatch[1];
-      const prices = options.retailLatest && options.retailLatest[slug];
+      const prices =
+        (options.retailLatest && options.retailLatest[slug]) ||
+        (DEFAULT_RETAIL_LATEST && DEFAULT_RETAIL_LATEST[slug]);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -136,16 +187,17 @@ async function installStakTrakrNetworkMocks(page, options = {}) {
     await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
   });
 
-  // 4. V2 fallback API — always 503
+  // 6. V2 fallback API — always 503
   await page.route(V2_FALLBACK, async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   });
 }
 
-module.exports = {
+export {
   installStakTrakrNetworkMocks,
   V2_PRIMARY,
   V2_FALLBACK,
   EXCHANGE_RATE,
   CDN_CHARTS,
+  VERSION_CHECK,
 };

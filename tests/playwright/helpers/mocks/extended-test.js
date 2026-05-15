@@ -10,8 +10,8 @@
  * when you intentionally want to delegate back to the default handler.
  */
 
-const { test: base, expect } = require("@playwright/test");
-const { installStakTrakrNetworkMocks } = require("./routes.js");
+import { test as base, expect } from "@playwright/test";
+import { installStakTrakrNetworkMocks } from "./routes.js";
 
 const test = base.extend({
   page: async ({ page }, use) => {
@@ -20,4 +20,4 @@ const test = base.extend({
   },
 });
 
-module.exports = { test, expect };
+export { test, expect };

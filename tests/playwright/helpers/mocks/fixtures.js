@@ -5,8 +5,11 @@
  * runs without real network requests.
  */
 
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ── Timestamp helpers ───────────────────────────────────────────────────────
 
@@ -54,6 +57,34 @@ const DEFAULT_MANIFEST = {
     { id: "jmbullion", name: "JM Bullion", color: "#ef4444", url: "https://www.jmbullion.com" },
     { id: "herobullion", name: "Hero Bullion", color: "#10b981", url: "https://herobullion.com" },
   ],
+};
+
+// Default retail prices so the best-price ticker has data to render
+const DEFAULT_RETAIL_LATEST = {
+  "1oz-silver-eagle": {
+    median_price: 32.0,
+    lowest_price: 31.5,
+    highest_price: 33.0,
+    vendors: {
+      apmex: { price: 32.0, inStock: true, in_stock: true },
+    },
+  },
+  "1oz-gold-eagle": {
+    median_price: 2550.0,
+    lowest_price: 2540.0,
+    highest_price: 2560.0,
+    vendors: {
+      jmbullion: { price: 2550.0, inStock: true, in_stock: true },
+    },
+  },
+  "utah-1-goldback": {
+    median_price: 4.25,
+    lowest_price: 4.0,
+    highest_price: 4.5,
+    vendors: {
+      herobullion: { price: 4.25, inStock: true, in_stock: true },
+    },
+  },
 };
 
 const makeManifest = (overrides = {}) =>
@@ -159,6 +190,38 @@ window.LightweightCharts = {
 };
 `;
 
+// ── Spot prices ─────────────────────────────────────────────────────────────
+
+const DEFAULT_SPOT_LATEST = {
+  xau: { price: 2500.0 },
+  xag: { price: 25.0 },
+  xpt: { price: 1000.0 },
+  xpd: { price: 1000.0 },
+};
+
+const makeSpotLatest = (overrides = {}) => v2({ ...DEFAULT_SPOT_LATEST, ...overrides });
+
+const makeSpotDay = (metal, price, timestamp) =>
+  v2([
+    {
+      spot: price,
+      metal: metal,
+      source: "mock",
+      provider: "TEST",
+      timestamp: timestamp || nowIso(),
+    },
+  ]);
+
+// ── Version check ───────────────────────────────────────────────────────────
+
+const DEFAULT_VERSION = {
+  version: "3.34.66",
+  releaseDate: "2026-05-14",
+  releaseUrl: "https://github.com/lbruton/StakTrakr/releases/latest",
+};
+
+const makeVersion = (overrides = {}) => ({ ...DEFAULT_VERSION, ...overrides });
+
 // ── Image bytes ─────────────────────────────────────────────────────────────
 
 const getImageBytes = (name) => {
@@ -174,7 +237,7 @@ const getImageBytes = (name) => {
   );
 };
 
-module.exports = {
+export {
   nowIso,
   v2,
   makeExchangeRates,
@@ -184,10 +247,15 @@ module.exports = {
   makeRetailIntraday,
   makeGoldbackLatest,
   makeProviders,
+  makeSpotLatest,
+  makeSpotDay,
+  makeVersion,
   LIGHTWEIGHT_CHARTS_STUB,
   getImageBytes,
   // Raw defaults for convenient override
   DEFAULT_EXCHANGE_RATES,
   DEFAULT_MANIFEST,
   DEFAULT_GOLDBACK,
+  DEFAULT_SPOT_LATEST,
+  DEFAULT_RETAIL_LATEST,
 };
