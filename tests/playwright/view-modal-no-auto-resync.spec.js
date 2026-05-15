@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 
 const NUMISTA_ID = "298883";
 const QUOTED_TITLE = '1 Dollar "American Silver Eagle" New Reverse';

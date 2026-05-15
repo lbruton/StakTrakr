@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 import seedInventory from "../fixtures/seed-inventory.js";
 
 const FIXED_NOW_ISO = "2026-05-10T12:00:00.000Z";
@@ -80,6 +80,11 @@ async function seedData(page, options = {}) {
       contentType: "application/json",
       body: JSON.stringify({ result: "success", base_code: "USD", rates: { EUR: 0.9 } }),
     });
+  });
+
+  // Abort V2 spot API calls so the chart uses only seeded localStorage data
+  await page.route("https://api.staktrakr.com/data/v2/spot/**", async (route) => {
+    await route.abort();
   });
 
   await page.addInitScript(
