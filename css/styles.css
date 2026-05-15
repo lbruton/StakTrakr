@@ -5305,6 +5305,7 @@ td[data-column="name"] {
 }
 /* Rectangular thumbnails for bars, notes, aurum, sets */
 .table-thumb.table-thumb-rect {
+  background: transparent;
   border-radius: var(--radius);
 }
 .table-thumb.table-thumb-rect:hover {
@@ -13502,6 +13503,7 @@ th {
   flex-shrink: 0;
 }
 .card-view-grid .coin-img.bar-shape {
+  background: transparent;
   border-radius: var(--radius);
 }
 
@@ -13607,11 +13609,17 @@ th {
   align-items: center;
 }
 .card-a .cv-images-sm .coin-img {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
+}
+.card-a .cv-images-sm .coin-img.bar-shape {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: transparent;
 }
 .card-a .cv-value-row {
   display: flex;
@@ -13682,6 +13690,13 @@ th {
   height: 80px;
   border: 2px solid var(--border);
 }
+.card-b .coin-img.bar-shape {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius);
+  background: transparent;
+  border: none;
+}
 .card-b .cv-value-hero {
   font-size: var(--font-size-2xl);
   font-weight: 700;
@@ -13730,6 +13745,7 @@ th {
   width: 80px;
   height: 56px;
   border-radius: var(--radius);
+  background: transparent;
 }
 .card-c .coin-img {
   width: 56px;

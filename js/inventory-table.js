@@ -242,8 +242,9 @@
 
   const _thumbPlaceholders = {};
 
-  function _getThumbPlaceholder(metal, type) {
-    const key = (metal || "Silver") + ":" + (type || "Coin");
+  function _getThumbPlaceholder(metal, type, shape) {
+    const resolvedShape = shape || "round";
+    const key = (metal || "Silver") + ":" + (type || "Coin") + ":" + resolvedShape;
     if (_thumbPlaceholders[key]) return _thumbPlaceholders[key];
 
     const silver = getThemeColor("silver");
@@ -258,17 +259,23 @@
     };
     const c = colors[metal] || colors.Silver;
 
-    const isBar = /bar|ingot/i.test(type || "");
+    const isBar = /bar|ingot/i.test(type || "") || resolvedShape === "rect";
     const icon = isBar
       ? `<rect x="11" y="7" width="10" height="18" rx="1.5" fill="none" stroke="${c.text}" stroke-width="1.5" opacity="0.5"/><line x1="13" y1="12" x2="19" y2="12" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="15" x2="19" y2="15" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="18" x2="19" y2="18" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/>`
       : `<circle cx="16" cy="16" r="8" fill="none" stroke="${c.text}" stroke-width="1.2" opacity="0.45"/><circle cx="16" cy="16" r="5" fill="none" stroke="${c.text}" stroke-width="0.8" opacity="0.3" stroke-dasharray="2 2"/>`;
 
+    const outerShape =
+      resolvedShape === "rect"
+        ? `<rect x="1" y="1" width="30" height="30" rx="8" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" opacity="0.25"/>`
+        : `<circle cx="16" cy="16" r="15" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" opacity="0.25"/>`;
+
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-    <circle cx="16" cy="16" r="15" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" opacity="0.25"/>
+    ${outerShape}
     ${icon}
   </svg>`;
 
-    const uri = "data:image/svg+xml," + encodeURIComponent(svg);
+    const encoded = svg.replace(/#/g, "%23");
+    const uri = "data:image/svg+xml," + encoded;
     _thumbPlaceholders[key] = uri;
     return uri;
   }
@@ -311,14 +318,19 @@
       const row = img.closest("tr");
       const idx = row?.dataset?.idx;
       let cdnUrl = "";
+      let invItem;
       if (idx !== undefined) {
-        const invItem = inventory[parseInt(idx, 10)];
+        invItem = inventory[parseInt(idx, 10)];
         if (invItem) {
           const urlKey = side === "reverse" ? "reverseImageUrl" : "obverseImageUrl";
           cdnUrl =
             invItem[urlKey] && /^https?:\/\/.+\..+/i.test(invItem[urlKey]) ? invItem[urlKey] : "";
         }
       }
+      const resolvedShape =
+        typeof resolveImageFrame === "function" && resolveImageFrame(invItem, side) === "rect"
+          ? "rect"
+          : "round";
 
       const blobUrl = await imageCache.resolveImageUrlForItem(item, side);
       if (blobUrl) {
@@ -328,7 +340,7 @@
           if (cdnUrl) {
             img.src = cdnUrl;
           } else {
-            img.src = _getThumbPlaceholder(item.metal, item.type);
+            img.src = _getThumbPlaceholder(item.metal, item.type, resolvedShape);
             img.classList.add("table-thumb-placeholder");
           }
         };
@@ -343,7 +355,7 @@
         return;
       }
 
-      img.src = _getThumbPlaceholder(item.metal, item.type);
+      img.src = _getThumbPlaceholder(item.metal, item.type, resolvedShape);
       img.style.visibility = "";
       img.classList.add("table-thumb-placeholder");
     } catch {

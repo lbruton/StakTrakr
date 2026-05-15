@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.66] - 2026-05-14
+
+### Fixed — STRK-38: Rectangular item images auto-size in card/table views
+
+- **Card views (A/B/C):** Rectangular items (bars, notes, Goldbacks, Silverbacks, proof sets) now render with transparent backgrounds and `object-fit: contain` instead of floating inside a visible `--bg-tertiary` dead-space box. Card A images bumped from 36px to 44px. Card B `.bar-shape` gains `border: none` to suppress the inherited border on transparent backgrounds (STRK-38).
+- **Table view:** Rectangular thumbnails get transparent backgrounds. SVG placeholders use `<rect>` outer shape (instead of `<circle>`) for rect items, resolved via `resolveImageFrame()` to honor manual overrides, grading authority, and Numista shape (STRK-38).
+- **Tests:** New `rect-image-card-table.spec.js` covering AC-1 through AC-7; extended `image-frame-override.spec.js` with Card B/C mixed-side assertions (STRK-38).
+
+---
+
 ## [3.34.65] - 2026-05-13
 
 ### Changed — STRK-75: All tab as default in vendor price matrix
