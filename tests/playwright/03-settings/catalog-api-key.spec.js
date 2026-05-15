@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/mocks/extended-test.js";
 
 /**
  * fix/catalog-api-settings — Catalog API key toggle and legacy format migration.

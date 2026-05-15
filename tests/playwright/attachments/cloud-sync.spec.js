@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 
 // F.4 — Cloud sync attachment tests (AC-9)

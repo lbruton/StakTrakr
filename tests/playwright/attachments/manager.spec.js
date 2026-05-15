@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 
 // F.1 — AttachmentManager IDB roundtrip tests (AC-2, D6, D7, D13, D14)

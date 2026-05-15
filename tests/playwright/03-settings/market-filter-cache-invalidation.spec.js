@@ -25,7 +25,7 @@
  * STAK-521 quarantine predicate inside _loadMarketFilter.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 
 const MARKET_FILTER_KEY = "staktrakr.market_filter";

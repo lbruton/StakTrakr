@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 
 // F.5 — DiffEngine attachment diff support (AC-6, D8)
