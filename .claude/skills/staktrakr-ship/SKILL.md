@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship dev to main — collect version tags as changelog source, create the dev→main PR, mark it ready, resolve threads, create GitHub Release. ONLY run when user explicitly says "ready to ship", "release", or "merge to main" in this session. Never runs automatically.
+description: Ship dev→main — PR, resolve threads, GitHub Release. Only on explicit user "ready to ship".
 allowed-tools: Bash, Read, Task, mcp__github__create_pull_request, mcp__github__list_pull_requests, mcp__github__get_pull_request_status, mcp__plane__get_issue_using_readable_identifier, mcp__plane__list_states, mcp__plane__update_issue
 ---
 

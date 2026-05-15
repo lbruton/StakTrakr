@@ -1,1 +1,1 @@
-sandbox_mode = "workspace-write"
+sandbox_mode = "danger-full-access"

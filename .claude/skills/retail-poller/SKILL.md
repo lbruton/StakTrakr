@@ -1,6 +1,6 @@
 ---
 name: retail-poller
-description: Use when working on the retail market price poller — debugging scraping failures, wrong prices, confidence scores, providers.json config, adding vendors or coins, understanding the data pipeline, or investigating what latest.json contains.
+description: Retail market price poller — scraping failures, confidence scores, providers.json, data pipeline.
 ---
 
 # StakTrakr Retail Price Poller
@@ -11,7 +11,7 @@ Reference guide for the retail market price polling system. Scrapes dealer websi
 
 ## Architecture Overview
 
-```
+```text
 providers.json (api branch)
        ↓
 price-extract.js  (Firecrawl → sqld)
@@ -160,7 +160,7 @@ Two provider groups with different strategies:
 
 **Metal price ranges** (per oz, used to filter out accessories/spot tickers):
 
-```
+```text
 silver:    $40–200/oz
 gold:      $1,500–15,000/oz
 platinum:  $500–6,000/oz
@@ -317,7 +317,7 @@ PATCH_GAPS=1 DATA_DIR=/path/to/api-branch/data node price-extract.js
 
 `run-local.sh` uses `git pull --rebase origin api` before each scrape. If another agent commits to the api branch **between** the poller's pull and its final push, the rebase of the local export commit will fail with:
 
-```
+```text
 fatal: It seems that there is already a rebase-merge directory
 ```
 
