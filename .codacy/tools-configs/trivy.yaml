@@ -1,0 +1,20 @@
+severity:
+  - LOW
+  - MEDIUM
+  - HIGH
+  - CRITICAL
+
+scan:
+  scanners:
+    - vuln
+    - secret
+  skip-dirs:
+    - vendor
+    - node_modules
+    - deprecated
+    - tests
+    - playground
+    - devops
+    - about
+    - screenshots
+    - ui-standards
