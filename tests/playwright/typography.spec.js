@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

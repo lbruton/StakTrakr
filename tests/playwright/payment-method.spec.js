@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 
 const makeItem = (overrides = {}) => ({
   uuid: overrides.uuid || `strk-50-${overrides.serial || 1}`,

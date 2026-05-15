@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../helpers/mocks/extended-test.js";
 
 const BASE_ITEM = {
   metal: "Silver",

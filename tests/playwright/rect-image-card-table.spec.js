@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/mocks/extended-test.js";
 
 function decodeSvgDataUri(src) {
   if (!src || !src.startsWith("data:image/svg+xml")) return src;

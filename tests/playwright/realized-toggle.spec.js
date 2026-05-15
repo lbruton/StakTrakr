@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "./helpers/seed.js";
 
 async function openAppearanceSettings(page) {
