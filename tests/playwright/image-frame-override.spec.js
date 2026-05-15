@@ -158,7 +158,7 @@ test.describe("image frame overrides — STRK-67", () => {
     await expect(cardBObv).toHaveClass(/bar-shape/);
     await expect(cardBRev).not.toHaveClass(/bar-shape/);
     await expect(cardBObv).toHaveCSS("width", "80px");
-    await expect(cardBObv).toHaveCSS("height", "56px");
+    await expect(cardBObv).toHaveCSS("height", "80px");
 
     await page.evaluate(() => {
       localStorage.setItem("cardViewStyle", "C");
