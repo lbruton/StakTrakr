@@ -38,6 +38,7 @@ const VERSION_CHECK = "https://www.staktrakr.com/version.json";
  * @param {object} [options.retailIntraday] — map of slug -> intraday rows
  * @param {object} [options.goldback] — override goldback data
  * @param {object} [options.exchangeRates] — override exchange-rate data
+ * @param {object} [options.spotLatest] — map of isoKey -> { price } for spot mocks
  * @param {boolean} [options.denyAll] — if true, abort all external traffic
  */
 async function installStakTrakrNetworkMocks(page, options = {}) {

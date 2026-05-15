@@ -99,14 +99,10 @@ const makeManifest = (overrides = {}) =>
 // ── Retail price shapes ─────────────────────────────────────────────────────
 
 const makeRetailLatest = (slug, prices, generatedAt) =>
-  v2(
-    {
-      lastSync: generatedAt || nowIso(),
-      window_start: generatedAt || nowIso(),
-      prices: prices || {},
-    },
-    generatedAt
-  );
+  // Return raw price data directly in the v2 envelope's `data` field.
+  // The app unwraps the envelope via `_fetchV2Json` and expects:
+  // { median_price, lowest_price, highest_price, vendors }
+  v2(prices || {}, generatedAt);
 
 const makeRetailHistory = (rows, generatedAt) => v2(rows || [], generatedAt);
 
@@ -215,8 +211,8 @@ const makeSpotDay = (metal, price, timestamp) =>
 // ── Version check ───────────────────────────────────────────────────────────
 
 const DEFAULT_VERSION = {
-  version: "3.34.66",
-  releaseDate: "2026-05-14",
+  version: "3.34.67",
+  releaseDate: "2026-05-15",
   releaseUrl: "https://github.com/lbruton/StakTrakr/releases/latest",
 };
 
