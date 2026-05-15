@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 
 // Helper: count visible inventory cards (card style A/B/C)
 async function countCards(page) {
@@ -51,6 +52,8 @@ let sharedPage;
 test.describe.serial("02-crud", () => {
   test.beforeAll(async ({ browser }) => {
     sharedPage = await browser.newPage();
+    // Install shared network mocks before navigating to the app shell
+    await installStakTrakrNetworkMocks(sharedPage);
     // Inject seed inventory data (includes ackVersion suppression for What's New popup)
     await injectSeedInventory(sharedPage);
     // Start in card view A so article elements are rendered for count assertions
