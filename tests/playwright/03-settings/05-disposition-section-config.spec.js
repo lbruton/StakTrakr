@@ -116,7 +116,9 @@ async function seedData(page, { inventory, sectionConfig = null } = {}) {
       );
       localStorage.setItem("defaultSortColumn", "4");
       localStorage.setItem("defaultSortDir", "asc");
-      if (cfg !== null) {
+      // Guard against overwriting on reload: only seed if no saved value exists yet.
+      // Tests that verify "persists after reload" rely on the click-saved value surviving.
+      if (cfg !== null && !localStorage.getItem("viewModalSectionConfig")) {
         localStorage.setItem("viewModalSectionConfig", JSON.stringify(cfg));
       }
       document.addEventListener(
