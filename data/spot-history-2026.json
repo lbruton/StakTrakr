@@ -2866,5 +2866,29 @@
     "metal": "Silver",
     "source": "sqld",
     "timestamp": "2026-05-15 12:00:00"
+  },
+  {
+    "spot": 4540.25,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-05-16 12:00:00"
+  },
+  {
+    "spot": 1412.49,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-05-16 12:00:00"
+  },
+  {
+    "spot": 1978.18,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-05-16 12:00:00"
+  },
+  {
+    "spot": 75.97,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-05-16 12:00:00"
   }
 ]

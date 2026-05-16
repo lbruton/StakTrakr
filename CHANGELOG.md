@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.68] - 2026-05-15
+
+### Changed — STRK-79: Market API service-worker routing
+
+- **Classified caching**: New `sw-router.js` endpoint-family classifier routes all StakTrakr API and spot-history requests through cache-first-with-TTL with per-family freshness windows; envelope `stale_after` fields take precedence over floor TTLs when present (STRK-79).
+- **Age-gate mechanism**: Synthesized `x-generated-at` / `x-cached-at` headers on cached responses provide publisher-mint-time accuracy; legacy entries without age headers are force-revalidated once (STRK-79).
+- **Test coverage**: 26 unit tests for `classifyEndpoint` (all 10 families × both API hosts + local origin + negative cases); 3 Playwright integration tests verifying cache-miss/network, stale-revalidation, and offline fallback strategies (STRK-79).
+
+---
+
 ## [3.34.67] - 2026-05-15
 
 ### Changed — STRK-78: Playwright test suite mock audit and consolidation

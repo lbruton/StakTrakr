@@ -13,7 +13,6 @@ import { URL } from "node:url";
 
 const routerCode = readFileSync(new URL("../../sw-router.js", import.meta.url), "utf-8");
 const _module = { exports: {} };
-// eslint-disable-next-line no-new-func
 new Function("module", "exports", routerCode)(_module, _module.exports);
 const { FAMILY_TABLE, classifyEndpoint } = _module.exports;
 

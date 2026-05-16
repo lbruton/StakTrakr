@@ -104,7 +104,7 @@ function classifyEndpoint(urlString, selfOrigin) {
   var url;
   try {
     url = new URL(urlString);
-  } catch (_) {
+  } catch {
     return null;
   }
 

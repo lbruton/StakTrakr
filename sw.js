@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.67-b1778900291";
+const CACHE_NAME = "staktrakr-v3.34.68-b1778902892";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -322,7 +322,7 @@ function fetchAndCacheClassified(request, family) {
           if (typeof body.stale_after === "number") {
             syntheticHeaders["x-stale-after"] = String(body.stale_after);
           }
-        } catch (_) {
+        } catch {
           // Non-JSON or malformed envelope — x-generated-at and x-stale-after remain absent
         }
       }
@@ -336,11 +336,11 @@ function fetchAndCacheClassified(request, family) {
         statusText: response.statusText,
         headers: syntheticHeaders,
       });
-      caches
+      return caches
         .open(CACHE_NAME)
         .then((cache) => cache.put(request, toCache))
-        .catch((err) => console.warn("[SW] Classified cache put failed:", request.url, err));
-      return toReturn;
+        .catch((err) => console.warn("[SW] Classified cache put failed:", request.url, err))
+        .then(() => toReturn);
     });
   });
 }
