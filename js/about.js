@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.69 &ndash; STRK-73: Configurable Disposition section</strong>: The Disposition section is now a draggable row in Settings &rarr; Appearance &rarr; Item Detail Modal; legacy configs auto-upgrade with Disposition appended last, and items without a valid disposition payload never render the section (STRK-73).</li>
     <li><strong>v3.34.68 &ndash; STRK-79: Market API service-worker routing</strong>: New <code>sw-router.js</code> classifier routes all StakTrakr API and spot-history requests through cache-first-with-TTL; per-family freshness windows use envelope <code>stale_after</code> when present, falling back to floor TTLs; 26 unit tests + 3 Playwright integration tests (STRK-79).</li>
     <li><strong>v3.34.67 &ndash; STRK-78: Playwright test suite mock audit and consolidation</strong>: New shared mock layer eliminates real external API calls across the Playwright test suite; 47 spec files migrated to deterministic fixtures with zero network dependency (STRK-78).</li>
     <li><strong>v3.34.66 &ndash; STRK-38: Rectangular item images auto-size in card/table views</strong>: Bars, notes, Goldbacks, and other rectangular items now render with transparent backgrounds, proper aspect-ratio sizing via object-fit: contain, and shape-aware SVG placeholders in card views (A/B/C) and the table view &mdash; matching the detail modal&rsquo;s existing behavior (STRK-38).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.64 &ndash; STRK-50: Optional structured Payment Method dropdown</strong>: Adds an optional payment method selector that persists through edit, clone, bulk edit, import/export, backup, filtering, search, and item details without affecting valuation math (STRK-50).</li>
     <li><strong>v3.34.63 &ndash; STRK-71: Attachment chip in inline chip settings</strong>: The attachment count badge is now toggleable and reorderable in Settings &rarr; Appearance &rarr; Layout &rarr; Inline Name Chips, just like the other name-cell chips (STRK-71).</li>
     <li><strong>v3.34.62 &ndash; STRK-53: Constrained quantity selector</strong>: Dispose modal now uses chip buttons (stacks &le; 8) or a native select (stacks &gt; 8) to make invalid quantities unreachable via the UI. Single-item stacks show a pre-selected, dimmed chip instead of hiding the control (STRK-53).</li>
-    <li><strong>v3.34.61 &ndash; STRK-66: &frac14; Goldback denomination (Idaho, g0.25)</strong>: Adds the 1/4 Goldback (1/4000 oz gold) as the ninth canonical denomination with correct label rendering in add/edit and bulk-edit dropdowns, slug resolution, poller publishing, and bounds-guard regex fix for decimal denomination suffixes (STRK-66).</li>
   `;
 };
 

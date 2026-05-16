@@ -634,7 +634,13 @@ function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
  * @returns {HTMLElement|null}
  */
 function _buildDispositionSection(item) {
-  if (!item.disposition) return null;
+  if (
+    item.disposition == null ||
+    typeof item.disposition !== "object" ||
+    Array.isArray(item.disposition) ||
+    Object.keys(item.disposition).length === 0
+  )
+    return null;
 
   const d = item.disposition;
   const section = _section("Disposition");
@@ -667,13 +673,13 @@ function _buildDispositionSection(item) {
   // Optional fields
   if (d.recipient) {
     const grid2 = _el("div", "view-detail-grid two-col");
-    _addDetail(grid2, "Recipient", sanitizeHtml(d.recipient));
+    _addDetail(grid2, "Recipient", d.recipient);
     section.appendChild(grid2);
   }
 
   if (d.notes) {
     const grid3 = _el("div", "view-detail-grid two-col");
-    _addDetail(grid3, "Notes", sanitizeHtml(d.notes));
+    _addDetail(grid3, "Notes", d.notes);
     section.appendChild(grid3);
   }
 
@@ -1145,17 +1151,10 @@ function buildViewContent(item, index) {
     tags: () => _buildTagsSection(item),
     notes: () => _buildNotesSection(item),
     attachments: () => _buildAttachmentsSection(item),
+    disposition: () => _buildDispositionSection(item),
   };
 
   _appendSectionsInConfiguredOrder(frag, sectionBuilders);
-
-  // Always append disposition section if item is disposed (STAK-72).
-  // This ensures the section appears even if 'disposition' is not yet
-  // in the user's saved sectionConfig order.
-  if (typeof isDisposed === "function" && isDisposed(item)) {
-    const dispositionEl = _buildDispositionSection(item);
-    if (dispositionEl) frag.appendChild(dispositionEl);
-  }
 
   _renderHeaderActions(item, index);
   _renderFooterActions(item, index);
