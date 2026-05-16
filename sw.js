@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.68-b1778902892";
+const CACHE_NAME = "staktrakr-v3.34.68-b1778903502";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -295,17 +295,18 @@ function staleWhileRevalidate(request) {
 // Envelope families (hasEnvelope: true) parse generated_at / stale_after from the response body.
 function fetchAndCacheClassified(request, family) {
   return fetch(request, { cache: "no-store" }).then((response) => {
-    if (!response.ok) {
-      // Non-OK upstream responses are returned unchanged and never cached
-      return response;
-    }
     if (response.type === "opaque") {
-      // Opaque responses cannot be synthesized — store raw, no age headers
+      // Opaque responses have status 0 (ok=false) — check before !response.ok guard.
+      // Cannot synthesize freshness headers — store raw, no age headers.
       caches
         .open(CACHE_NAME)
         .then((cache) => cache.put(request, response.clone()))
         .catch((err) => console.warn("[SW] Classified opaque cache put failed:", err));
       return response.clone();
+    }
+    if (!response.ok) {
+      // Non-OK upstream responses are returned unchanged and never cached
+      return response;
     }
     return response.arrayBuffer().then((buffer) => {
       const now = Date.now();
