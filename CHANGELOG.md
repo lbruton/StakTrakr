@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.69] - 2026-05-16
+
+### Changed — STRK-73: Make Disposition section position-configurable
+
+- **Configurable placement**: Disposition section now appears as a draggable row in Settings → Appearance → Item Detail Modal; users can reorder it relative to the other nine sections and the preference persists across reloads (STRK-73).
+- **Legacy migration**: `_loadSectionConfig()` auto-appends a Disposition entry for users with pre-STRK-73 saved configs, placing it last by default without overwriting existing order (STRK-73).
+- **Empty-object guard**: `_buildDispositionSection()` returns `null` for both falsy and empty-object `disposition` payloads, preventing ghost section renders for items with no valid disposition data (STRK-73).
+- **Test coverage**: 6 Playwright tests covering settings-row presence after legacy seed, reorder controls at the 10-entry boundary, configured section placement, non-disposed absence, persist-after-reload, and DOM-absent empty-object guard (STRK-73).
+
+---
+
 ## [3.34.68] - 2026-05-15
 
 ### Changed — STRK-79: Market API service-worker routing
