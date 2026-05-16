@@ -40,16 +40,14 @@ test.describe("SW classified caching", () => {
       () =>
         new Promise((resolve, reject) => {
           const timer = setTimeout(() => reject(new Error("SW postMessage timeout")), 4000);
-          navigator.serviceWorker.addEventListener(
-            "message",
-            (event) => {
-              if (event.data && event.data.type === "__sw_test_state__") {
-                clearTimeout(timer);
-                resolve(event.data.lastStrategy);
-              }
-            },
-            { once: true }
-          );
+          const listener = (event) => {
+            if (event.data && event.data.type === "__sw_test_state__") {
+              clearTimeout(timer);
+              navigator.serviceWorker.removeEventListener("message", listener);
+              resolve(event.data.lastStrategy);
+            }
+          };
+          navigator.serviceWorker.addEventListener("message", listener);
           navigator.serviceWorker.controller.postMessage({ type: "__sw_test_state__" });
         })
     );
@@ -100,6 +98,7 @@ test.describe("SW classified caching", () => {
       const keys = await caches.keys();
       return keys.find((k) => k.startsWith("staktrakr-")) || null;
     });
+    expect(cacheName).not.toBeNull();
     await page.evaluate(
       async ({ cn, url, ts }) => {
         const cache = await caches.open(cn);
@@ -129,8 +128,11 @@ test.describe("SW classified caching", () => {
     // matchWithAgeCheck → null → fetchAndCacheClassified → fetch throws (offline)
     // → catch → caches.match → pre-cached entry returned → lastStrategy = "network-fallback"
     await page.context().setOffline(true);
-    await fetchClassified(page, "http://localhost:3000/data/spot-history-2025.json");
-    expect(await readSwStrategy(page)).toBe("network-fallback");
-    await page.context().setOffline(false);
+    try {
+      await fetchClassified(page, "http://localhost:3000/data/spot-history-2025.json");
+      expect(await readSwStrategy(page)).toBe("network-fallback");
+    } finally {
+      await page.context().setOffline(false);
+    }
   });
 });
