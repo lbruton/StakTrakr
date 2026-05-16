@@ -1,0 +1,229 @@
+// Unit tests for sw-router.js using Node built-in test runner.
+// Run: npm run test:unit  (node --test tests/unit/sw-router.test.js)
+//
+// sw-router.js is a plain script file (importScripts-compatible, no ESM syntax).
+// We load it via new Function() with a synthetic CJS module context so the CJS
+// export guard fires and exports FAMILY_TABLE / classifyEndpoint without requiring
+// ESM refactoring of the production script.
+
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { URL } from "node:url";
+
+const routerCode = readFileSync(new URL("../../sw-router.js", import.meta.url), "utf-8");
+const _module = { exports: {} };
+// eslint-disable-next-line no-new-func
+new Function("module", "exports", routerCode)(_module, _module.exports);
+const { FAMILY_TABLE, classifyEndpoint } = _module.exports;
+
+const API1 = "https://api.staktrakr.com";
+const API2 = "https://api2.staktrakr.com";
+const SELF = "https://staktrakr.com"; // mock selfOrigin for local-origin tests
+
+function classifyOnBothHosts(path) {
+  return {
+    api1: classifyEndpoint(API1 + path, SELF),
+    api2: classifyEndpoint(API2 + path, SELF),
+  };
+}
+
+describe("FAMILY_TABLE", () => {
+  it("has exactly 10 entries", () => {
+    assert.equal(FAMILY_TABLE.length, 10);
+  });
+
+  it("contains all expected family names in order", () => {
+    assert.deepEqual(
+      FAMILY_TABLE.map((e) => e.family),
+      [
+        "manifest",
+        "spot-latest",
+        "spot-history-daily",
+        "goldback-latest",
+        "retail-latest",
+        "retail-intraday",
+        "retail-history-short",
+        "retail-history-long",
+        "providers",
+        "annual-spot-history",
+      ]
+    );
+  });
+});
+
+describe("classifyEndpoint — manifest", () => {
+  it("classifies on api.staktrakr.com", () => {
+    const r = classifyEndpoint(API1 + "/v2/manifest.json", SELF);
+    assert.equal(r.family, "manifest");
+    assert.equal(r.floor, 1800);
+    assert.equal(r.hasEnvelope, true);
+  });
+
+  it("classifies on api2.staktrakr.com", () => {
+    assert.equal(classifyEndpoint(API2 + "/v2/manifest.json", SELF).family, "manifest");
+  });
+});
+
+describe("classifyEndpoint — spot-latest", () => {
+  it("classifies on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/spot/latest.json");
+    assert.equal(api1.family, "spot-latest");
+    assert.equal(api1.floor, 1200);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "spot-latest");
+  });
+});
+
+describe("classifyEndpoint — spot-history-daily", () => {
+  it("classifies hourly backfill path on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/spot/xau/2026/05/15.json");
+    assert.equal(api1.family, "spot-history-daily");
+    assert.equal(api1.floor, 3600);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "spot-history-daily");
+  });
+
+  it("classifies different metal ISO codes", () => {
+    assert.equal(
+      classifyEndpoint(API1 + "/v2/spot/xag/2025/12/31.json", SELF).family,
+      "spot-history-daily"
+    );
+  });
+
+  it("does NOT match spot-latest as spot-history-daily (regexes are mutually exclusive)", () => {
+    assert.equal(classifyEndpoint(API1 + "/v2/spot/latest.json", SELF).family, "spot-latest");
+  });
+});
+
+describe("classifyEndpoint — goldback-latest", () => {
+  it("classifies on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/goldback/latest.json");
+    assert.equal(api1.family, "goldback-latest");
+    assert.equal(api1.floor, 90000);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "goldback-latest");
+  });
+});
+
+describe("classifyEndpoint — retail-latest", () => {
+  it("classifies on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/retail/apmex/latest.json");
+    assert.equal(api1.family, "retail-latest");
+    assert.equal(api1.floor, 1800);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "retail-latest");
+  });
+
+  it("classifies with hyphenated slug", () => {
+    assert.equal(
+      classifyEndpoint(API1 + "/v2/retail/jm-bullion/latest.json", SELF).family,
+      "retail-latest"
+    );
+  });
+});
+
+describe("classifyEndpoint — retail-intraday", () => {
+  it("classifies on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/retail/apmex/intraday.json");
+    assert.equal(api1.family, "retail-intraday");
+    assert.equal(api1.floor, 1200);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "retail-intraday");
+  });
+});
+
+describe("classifyEndpoint — retail-history-short", () => {
+  it("classifies history-7d on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/retail/apmex/history-7d.json");
+    assert.equal(api1.family, "retail-history-short");
+    assert.equal(api1.floor, 3600);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "retail-history-short");
+  });
+});
+
+describe("classifyEndpoint — retail-history-long", () => {
+  it("classifies history-30d on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/retail/apmex/history-30d.json");
+    assert.equal(api1.family, "retail-history-long");
+    assert.equal(api1.floor, 86400);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "retail-history-long");
+  });
+
+  it("classifies history-90d on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/retail/apmex/history-90d.json");
+    assert.equal(api1.family, "retail-history-long");
+    assert.equal(api2.family, "retail-history-long");
+  });
+});
+
+describe("classifyEndpoint — providers", () => {
+  it("classifies on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/providers.json");
+    assert.equal(api1.family, "providers");
+    assert.equal(api1.floor, 86400);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "providers");
+  });
+});
+
+describe("classifyEndpoint — annual-spot-history", () => {
+  it("classifies /data/spot-history-YYYY.json on local (self) origin", () => {
+    const r = classifyEndpoint(SELF + "/data/spot-history-2025.json", SELF);
+    assert.equal(r.family, "annual-spot-history");
+    assert.equal(r.floor, 86400);
+    assert.equal(r.hasEnvelope, false);
+  });
+
+  it("classifies /spot-history-YYYY.json (API-root path) on api.staktrakr.com", () => {
+    const r = classifyEndpoint(API1 + "/spot-history-2025.json", SELF);
+    assert.equal(r.family, "annual-spot-history");
+    assert.equal(r.hasEnvelope, false);
+  });
+
+  it("classifies /spot-history-YYYY.json on api2.staktrakr.com", () => {
+    assert.equal(
+      classifyEndpoint(API2 + "/spot-history-2026.json", SELF).family,
+      "annual-spot-history"
+    );
+  });
+
+  it("classifies /data/spot-history-YYYY.json when path is under /data/ on API host", () => {
+    assert.equal(
+      classifyEndpoint(API1 + "/data/spot-history-2024.json", SELF).family,
+      "annual-spot-history"
+    );
+  });
+});
+
+describe("classifyEndpoint — negative cases", () => {
+  it("returns null for staktrakr.com when it is NOT the selfOrigin (third-party scope)", () => {
+    const r = classifyEndpoint(
+      "https://staktrakr.com/data/spot-history-2025.json",
+      "https://other.example.com"
+    );
+    assert.equal(r, null);
+  });
+
+  it("returns null for unclassified API paths", () => {
+    assert.equal(classifyEndpoint(API1 + "/v2/unknown/endpoint.json", SELF), null);
+  });
+
+  it("returns null for non-API non-local hosts", () => {
+    assert.equal(classifyEndpoint("https://example.com/v2/spot/latest.json", SELF), null);
+  });
+
+  it("returns null for a malformed URL", () => {
+    assert.equal(classifyEndpoint("not-a-url", SELF), null);
+  });
+
+  it("returns null for empty string", () => {
+    assert.equal(classifyEndpoint("", SELF), null);
+  });
+
+  it("returns null for monthly archive retail path (not in FAMILY_TABLE)", () => {
+    assert.equal(classifyEndpoint(API1 + "/v2/retail/apmex/2025/11.json", SELF), null);
+  });
+});
