@@ -1,23 +1,367 @@
-paths:
-    exclude:
-        - .agents
-        - .codacy
-        - .claude
-        - .gemini
-        - .github
-        - .spec-workflow
-        - .jules
-        - vendor
-        - node_modules
-        - deprecated
-        - tests
-        - playground
-        - devops
-        - docs
-        - about
-        - screenshots
-        - ui-standards
 rules:
+    - id: ai.csharp.detect-openai.detect-openai
+      languages:
+        - csharp
+      message: 'Possibly found usage of AI: OpenAI'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: using OpenAI
+        - pattern: (ChatClient $CLIENT)
+        - pattern: (ChatClient $CLIENT).$FUNC(...)
+      severity: INFO
+    - id: ai.dart.detect-gemini.detect-gemini
+      languages:
+        - dart
+      message: 'Possibly found usage of AI: Gemini'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import 'package:google_generative_ai';
+        - pattern: final $MODEL = GenerativeModel(...);
+      severity: INFO
+    - id: ai.go.detect-gemini.detect-gemini
+      languages:
+        - go
+      message: 'Possibly found usage of AI: Gemini'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "github.com/google/generative-ai-go"
+        - pattern: genai.NewClient(...)
+      severity: INFO
+    - id: ai.go.detect-openai.detect-openai
+      languages:
+        - go
+      message: 'Possibly found usage of AI: OpenAI'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "github.com/sashabaranov/go-openai"
+        - pattern: gogpt.NewClient(...)
+      severity: INFO
+    - id: ai.kotlin.detect-gemini.detect-gemini
+      languages:
+        - kotlin
+      message: 'Possibly found usage of AI: Gemini'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import com.google.ai
+        - pattern: GenerativeModel(...)
+      severity: INFO
+    - id: ai.python.detect-anthropic.detect-anthropic
+      languages:
+        - python
+      message: 'Possibly found usage of AI: Anthropic'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import anthropic
+        - pattern: from anthropic import $ANYTHING
+        - pattern: Anthropic(...)
+        - pattern: anthropic.Anthropic(...)
+        - pattern: $CLIENT.messages.$FUNC(...,model=...,...)
+      severity: INFO
+    - id: ai.python.detect-gemini.detect-gemini
+      languages:
+        - python
+      message: 'Possibly found usage of AI: Gemini'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import google.generativeai
+      severity: INFO
+    - id: ai.python.detect-huggingface.detect-huggingface
+      languages:
+        - python
+      message: 'Possibly found usage of AI: HuggingFace'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import huggingface_hub
+      severity: INFO
+    - id: ai.python.detect-langchain.detect-langchain
+      languages:
+        - python
+      message: 'Possibly found usage of AI tooling: LangChain'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import langchain_openai
+        - pattern: ChatOpenAI(...)
+        - pattern: import langchain_community
+        - pattern: Ollama(...)
+        - pattern: import langchain_anthropic
+        - pattern: ChatAnthropic(...)
+        - pattern: import langchain_cohere
+        - pattern: ChatCohere(...)
+        - pattern: import langchain_core
+        - pattern: import langchain
+      severity: INFO
+    - id: ai.python.detect-mistral.detect-mistral
+      languages:
+        - python
+      message: 'Possibly found usage of AI: Mistral'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import mistralai
+        - pattern: MistralClient(...)
+        - pattern: $CLIENT.chat(...,model=...,...)
+      severity: INFO
+    - id: ai.python.detect-openai.detect-openai
+      languages:
+        - python
+      message: 'Possibly found usage of AI: OpenAI'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import openai
+        - pattern: from openai import $ANYTHING
+        - pattern: OpenAI(...)
+        - pattern: $CLIENT.chat.completions.$FUNC(...)
+      severity: INFO
+    - id: ai.python.detect-pytorch.detect-pytorch
+      languages:
+        - python
+      message: 'Possibly found usage of AI tooling: PyTorch'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import torch
+        - pattern: torch.$FUNC(...)
+      severity: INFO
+    - id: ai.python.detect-tensorflow.detect-tensorflow
+      languages:
+        - python
+      message: 'Possibly found usage of AI tooling: Tensorflow'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import tensorflow
+      severity: INFO
+    - id: ai.swift.detect-apple-core-ml.detect-apple-core-ml
+      languages:
+        - swift
+      message: 'Possibly found usage of AI: Apple CoreML'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: VNCoreMLModel(...)
+        - pattern: MLModelConfiguration(...)
+      severity: INFO
+    - id: ai.swift.detect-gemini.detect-gemini
+      languages:
+        - swift
+      message: 'Possibly found usage of AI: Gemini'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import GoogleGenerativeAI
+        - pattern: GenerativeModel(...)
+      severity: INFO
+    - id: ai.typescript.detect-anthropic.detect-anthropic
+      languages:
+        - js
+        - ts
+      message: 'Possibly found usage of AI: Anthropic'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "@anthropic-ai"
+        - pattern: import $ANYTHING from "@anthropic-ai";
+        - pattern: new Anthropic(...)
+        - pattern: anthropic.messages.$FUNC(...)
+      severity: INFO
+    - id: ai.typescript.detect-gemini.detect-gemini
+      languages:
+        - js
+        - ts
+      message: 'Possibly found usage of AI: Gemini'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "@google/generative-ai"
+        - pattern: import $ANYTHING from "@google/generative-ai";
+        - pattern: new GoogleGenerativeAI(...)
+        - pattern: $GENAI.getGenerativeModel(...)
+      severity: INFO
+    - id: ai.typescript.detect-mistral.detect-mistral
+      languages:
+        - js
+        - ts
+      message: 'Possibly found usage of AI: Mistral'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "@mistralai"
+        - pattern: new MistralClient(...)
+        - pattern: '$CLIENT.chat({model: ...})'
+      severity: INFO
+    - id: ai.typescript.detect-openai.detect-openai
+      languages:
+        - js
+        - ts
+      message: 'Possibly found usage of AI: OpenAI'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "openai"
+        - pattern: import $ANYTHING from "openai";
+        - pattern: new OpenAI(...)
+        - pattern: $CLIENT.chat.completions.$FUNC(...)
+      severity: INFO
+    - id: ai.typescript.detect-promptfoo.detect-promptfoo
+      languages:
+        - js
+        - ts
+      message: 'Possibly found usage of AI tooling: promptfoo'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "promptfoo"
+        - pattern: promptfoo.evaluate(...)
+      severity: INFO
+    - id: ai.typescript.detect-vercel-ai.detect-vercel-ai
+      languages:
+        - js
+        - ts
+      message: 'Possibly found usage of AI: VercelAI'
+      metadata:
+        category: maintainability
+        confidence: LOW
+        references:
+            - http://semgrep.dev/blog/2024/detecting-shadow-ai
+        technology:
+            - genAI
+            - LLMs
+      pattern-either:
+        - pattern: import "ai"
+        - pattern: import "@ai-sdk"
+        - pattern: generateText({model:...})
+        - pattern: generateText({prompt:...})
+      severity: INFO
     - id: bash.curl.security.curl-eval.curl-eval
       languages:
         - bash
@@ -7309,6 +7653,67 @@ rules:
                     exports.handler = $FUNC
             - pattern: $EVENT
       severity: WARNING
+    - id: javascript.aws-lambda.security.tainted-sql-string.tainted-sql-string
+      languages:
+        - javascript
+        - typescript
+      message: Detected user input used to manually construct a SQL string. This is usually bad practice because manual construction could accidentally result in a SQL injection. An attacker could use a SQL injection to steal or modify contents of the database. Instead, use a parameterized query which is available by default in most database engines. Alternatively, consider using an object-relational mapper (ORM) such as Sequelize which will protect your queries.
+      metadata:
+        category: security
+        confidence: MEDIUM
+        cwe:
+            - 'CWE-89: Improper Neutralization of Special Elements used in an SQL Command (''SQL Injection'')'
+        cwe2021-top25: true
+        cwe2022-top25: true
+        impact: MEDIUM
+        likelihood: LOW
+        owasp:
+            - A01:2017 - Injection
+            - A03:2021 - Injection
+        references:
+            - https://owasp.org/www-community/attacks/SQL_Injection
+        subcategory:
+            - vuln
+        technology:
+            - aws-lambda
+      mode: taint
+      pattern-sinks:
+        - patterns:
+            - pattern-either:
+                - patterns:
+                    - pattern-either:
+                        - pattern: |
+                            "$SQLSTR" + $EXPR
+                        - pattern: |
+                            "$SQLSTR".concat(...)
+                        - pattern: util.format($SQLSTR, ...)
+                    - metavariable-regex:
+                        metavariable: $SQLSTR
+                        regex: .*\b(?i)(select|delete|insert|create|update|alter|drop)\b.*
+                - patterns:
+                    - pattern: |
+                        `...${...}...`
+                    - pattern-regex: |
+                        .*\b(?i)(select|delete|insert|create|update|alter|drop)\b.*
+            - pattern-not-inside: |
+                console.$LOG(...)
+      pattern-sources:
+        - patterns:
+            - pattern-either:
+                - pattern-inside: |
+                    exports.handler = function ($EVENT, ...) {
+                      ...
+                    }
+                - pattern-inside: |
+                    function $FUNC ($EVENT, ...) {...}
+                    ...
+                    exports.handler = $FUNC
+                - pattern-inside: |
+                    $FUNC = function ($EVENT, ...) {...}
+                    ...
+                    exports.handler = $FUNC
+            - pattern: $EVENT
+      severity: ERROR
     - id: javascript.aws-lambda.security.vm-runincontext-injection.vm-runincontext-injection
       languages:
         - javascript
@@ -22278,6 +22683,101 @@ rules:
         - pattern: urllib3.HTTPConnectionPool(...)
         - pattern: urllib3.connectionpool.HTTPConnectionPool(...)
       severity: ERROR
+    - id: python.lang.security.audit.sqli.aiopg-sqli.aiopg-sqli
+      languages:
+        - python
+      message: 'Detected string concatenation with a non-literal variable in an aiopg Python SQL statement. This could lead to SQL injection if the variable is user-controlled and not properly sanitized. In order to prevent SQL injection, use parameterized queries instead. You can create parameterized queries like so: ''cur.execute("SELECT %s FROM table", (user_value,))''.'
+      metadata:
+        category: security
+        confidence: LOW
+        cwe:
+            - 'CWE-89: Improper Neutralization of Special Elements used in an SQL Command (''SQL Injection'')'
+        cwe2021-top25: true
+        cwe2022-top25: true
+        impact: HIGH
+        likelihood: LOW
+        owasp:
+            - A01:2017 - Injection
+            - A03:2021 - Injection
+        references:
+            - https://github.com/aio-libs/aiopg
+        subcategory:
+            - audit
+        technology:
+            - aiopg
+      patterns:
+        - pattern-either:
+            - patterns:
+                - pattern: $CUR.$METHOD(...,$QUERY,...)
+                - pattern-either:
+                    - pattern-inside: |
+                        $QUERY = $X + $Y
+                        ...
+                    - pattern-inside: |
+                        $QUERY += $X
+                        ...
+                    - pattern-inside: |
+                        $QUERY = '...'.format(...)
+                        ...
+                    - pattern-inside: |
+                        $QUERY = '...' % (...)
+                        ...
+                    - pattern-inside: |
+                        $QUERY = f'...{$USERINPUT}...'
+                        ...
+                - pattern-not-inside: |
+                    $QUERY += "..."
+                    ...
+                - pattern-not-inside: |
+                    $QUERY = "..." + "..."
+                    ...
+                - pattern-not-inside: |
+                    $QUERY = '...'.format()
+                    ...
+                - pattern-not-inside: |
+                    $QUERY = '...' % ()
+                    ...
+            - pattern: $CUR.$METHOD(..., $X + $Y, ...)
+            - pattern: $CUR.$METHOD(..., '...'.format(...), ...)
+            - pattern: $CUR.$METHOD(..., '...' % (...), ...)
+            - pattern: $CUR.$METHOD(..., f'...{$USERINPUT}...', ...)
+        - pattern-either:
+            - pattern-inside: |
+                $CONN = await aiopg.connect(...)
+                ...
+                $CUR = await $CONN.cursor(...)
+                ...
+            - pattern-inside: |
+                $POOL = await aiopg.create_pool(...)
+                ...
+                async with $POOL.acquire(...) as $CONN:
+                  ...
+                  async with $CONN.cursor(...) as $CUR:
+                    ...
+            - pattern-inside: |
+                $POOL = await aiopg.create_pool(...)
+                ...
+                with (await $POOL.cursor(...)) as $CUR:
+                  ...
+            - pattern-inside: |
+                $POOL = await aiopg.create_pool(...)
+                ...
+                async with $POOL as $CONN:
+                  ...
+                  $CUR = await $CONN.cursor(...)
+                  ...
+            - pattern-inside: |
+                $POOL = await aiopg.create_pool(...)
+                ...
+                async with $POOL.cursor(...) as $CUR:
+                  ...
+        - pattern-not: $CUR.$METHOD(..., "..." + "...", ...)
+        - pattern-not: $CUR.$METHOD(..., '...'.format(), ...)
+        - pattern-not: $CUR.$METHOD(..., '...'%(), ...)
+        - metavariable-regex:
+            metavariable: $METHOD
+            regex: ^(execute)$
+      severity: WARNING
     - id: python.lang.security.audit.ssl-wrap-socket-is-deprecated.ssl-wrap-socket-is-deprecated
       languages:
         - python

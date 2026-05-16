@@ -32,6 +32,7 @@ CACHED_PATTERNS=(
   "images/"
   "manifest.json"
   "sw.js"
+  "sw-router.js"
 )
 
 # Check if any cached asset is in the staged diff
