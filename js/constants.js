@@ -1322,6 +1322,7 @@ const VIEW_MODAL_SECTION_DEFAULTS = [
   { id: "notes", label: "Notes", enabled: true },
   { id: "tags", label: "Tags", enabled: true },
   { id: "attachments", label: "Attachments", enabled: true },
+  { id: "disposition", label: "Disposition", enabled: true },
 ];
 
 /** Loads the view modal section config from localStorage, merged with defaults. */

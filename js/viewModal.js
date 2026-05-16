@@ -634,7 +634,7 @@ function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
  * @returns {HTMLElement|null}
  */
 function _buildDispositionSection(item) {
-  if (!item.disposition) return null;
+  if (!item.disposition || Object.keys(item.disposition).length === 0) return null;
 
   const d = item.disposition;
   const section = _section("Disposition");
@@ -1145,17 +1145,10 @@ function buildViewContent(item, index) {
     tags: () => _buildTagsSection(item),
     notes: () => _buildNotesSection(item),
     attachments: () => _buildAttachmentsSection(item),
+    disposition: () => _buildDispositionSection(item),
   };
 
   _appendSectionsInConfiguredOrder(frag, sectionBuilders);
-
-  // Always append disposition section if item is disposed (STAK-72).
-  // This ensures the section appears even if 'disposition' is not yet
-  // in the user's saved sectionConfig order.
-  if (typeof isDisposed === "function" && isDisposed(item)) {
-    const dispositionEl = _buildDispositionSection(item);
-    if (dispositionEl) frag.appendChild(dispositionEl);
-  }
 
   _renderHeaderActions(item, index);
   _renderFooterActions(item, index);
