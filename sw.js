@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.68-b1778903502";
+const CACHE_NAME = "staktrakr-v3.34.68-b1778903699";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -377,7 +377,7 @@ function matchWithAgeCheck(request, family) {
 // Test instrumentation: tracks the last classified-fetch strategy decision within this SW lifetime.
 // Written only by classifiedFetch; read by the __sw_test_state__ postMessage listener below.
 // Tests must serialize requests (one request → one postMessage read) to avoid race conditions.
-var lastStrategy = null;
+let lastStrategy = null;
 
 // Classified dispatcher: cache-first-with-TTL, network on miss, stale fallback on error.
 function classifiedFetch(request, family) {

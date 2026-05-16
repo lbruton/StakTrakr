@@ -101,22 +101,22 @@ const FAMILY_TABLE = [
 //   - third-party staktrakr.com (GitHub Pages remote fallback — SW cannot intercept)
 //   - API paths not covered by any family
 function classifyEndpoint(urlString, selfOrigin) {
-  var url;
+  let url;
   try {
     url = new URL(urlString);
   } catch {
     return null;
   }
 
-  var isApiHost = _ALLOWED_API_HOSTS.indexOf(url.hostname) !== -1;
-  var isSelfOrigin = Boolean(selfOrigin) && url.origin === selfOrigin;
+  const isApiHost = _ALLOWED_API_HOSTS.indexOf(url.hostname) !== -1;
+  const isSelfOrigin = Boolean(selfOrigin) && url.origin === selfOrigin;
 
   if (!isApiHost && !isSelfOrigin) {
     return null;
   }
 
-  for (var i = 0; i < FAMILY_TABLE.length; i++) {
-    var entry = FAMILY_TABLE[i];
+  for (let i = 0; i < FAMILY_TABLE.length; i++) {
+    const entry = FAMILY_TABLE[i];
     if (entry.family === "annual-spot-history") {
       // Annual spot-history: valid on API hosts (API-root path) and local origin (/data/ path)
       if ((isApiHost || isSelfOrigin) && entry.test(url.pathname)) {
