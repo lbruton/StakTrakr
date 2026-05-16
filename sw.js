@@ -2,9 +2,11 @@
 // Enables offline support and installable PWA experience
 // Cache version: auto-stamped by devops/hooks/stamp-sw-cache.sh pre-commit hook
 
+importScripts("sw-router.js");
+
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.67-b1778874630";
+const CACHE_NAME = "staktrakr-v3.34.67-b1778900291";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -199,15 +201,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Stale-while-revalidate for StakTrakr hourly price API (primary + backup)
+  // Classified cache-first-with-TTL for StakTrakr API (primary + backup)
   if (url.hostname === "api.staktrakr.com" || url.hostname === "api2.staktrakr.com") {
-    event.respondWith(staleWhileRevalidate(event.request));
+    const family = classifyEndpoint(event.request.url, self.location.origin);
+    event.respondWith(
+      family ? classifiedFetch(event.request, family) : staleWhileRevalidate(event.request)
+    );
     return;
   }
 
-  // Stale-while-revalidate for seed data (updated between releases by Docker poller)
+  // Classified cache-first-with-TTL for seed data (updated between releases by Docker poller)
   if (url.origin === self.location.origin && url.pathname.includes("/data/spot-history")) {
-    event.respondWith(staleWhileRevalidate(event.request));
+    const family = classifyEndpoint(event.request.url, self.location.origin);
+    event.respondWith(
+      family ? classifiedFetch(event.request, family) : staleWhileRevalidate(event.request)
+    );
     return;
   }
 
@@ -281,3 +289,118 @@ function staleWhileRevalidate(request) {
     })
   );
 }
+
+// Classified strategy: fetch with no-store, synthesize a cacheable Response with freshness headers.
+// Only caches response.ok results (matches fetchAndCache contract at sw.js:232-240).
+// Envelope families (hasEnvelope: true) parse generated_at / stale_after from the response body.
+function fetchAndCacheClassified(request, family) {
+  return fetch(request, { cache: "no-store" }).then((response) => {
+    if (!response.ok) {
+      // Non-OK upstream responses are returned unchanged and never cached
+      return response;
+    }
+    if (response.type === "opaque") {
+      // Opaque responses cannot be synthesized — store raw, no age headers
+      caches
+        .open(CACHE_NAME)
+        .then((cache) => cache.put(request, response.clone()))
+        .catch((err) => console.warn("[SW] Classified opaque cache put failed:", err));
+      return response.clone();
+    }
+    return response.arrayBuffer().then((buffer) => {
+      const now = Date.now();
+      const syntheticHeaders = {
+        "Content-Type": response.headers.get("Content-Type") || "application/json",
+        "x-cached-at": String(now),
+      };
+      if (family.hasEnvelope) {
+        try {
+          const body = JSON.parse(new TextDecoder().decode(buffer));
+          if (typeof body.generated_at === "number") {
+            syntheticHeaders["x-generated-at"] = String(body.generated_at);
+          }
+          if (typeof body.stale_after === "number") {
+            syntheticHeaders["x-stale-after"] = String(body.stale_after);
+          }
+        } catch (_) {
+          // Non-JSON or malformed envelope — x-generated-at and x-stale-after remain absent
+        }
+      }
+      const toCache = new Response(buffer, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: syntheticHeaders,
+      });
+      const toReturn = new Response(buffer, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: syntheticHeaders,
+      });
+      caches
+        .open(CACHE_NAME)
+        .then((cache) => cache.put(request, toCache))
+        .catch((err) => console.warn("[SW] Classified cache put failed:", request.url, err));
+      return toReturn;
+    });
+  });
+}
+
+// Classified strategy: read cache and check age against family TTL.
+// Returns a cloned Response if the cached entry is fresh, null otherwise.
+// Age clock: x-generated-at (envelope families) → x-cached-at (non-envelope / legacy) → stale.
+// TTL: x-stale-after (envelope) ?? family.floor.
+function matchWithAgeCheck(request, family) {
+  return caches.match(request).then((cached) => {
+    if (!cached) return null;
+    const headers = cached.headers;
+    const staleAfterHeader = headers.get("x-stale-after");
+    const ttl = staleAfterHeader !== null ? Number(staleAfterHeader) : family.floor;
+    let ageSeconds;
+    const generatedAt = headers.get("x-generated-at");
+    if (generatedAt !== null) {
+      // Authoritative age origin: publisher mint time (matches api-health.js contract)
+      ageSeconds = Date.now() / 1000 - Number(generatedAt);
+    } else {
+      const cachedAt = headers.get("x-cached-at");
+      if (cachedAt === null) {
+        // Legacy entry with no age headers — treat as stale, force one cold network hit
+        return null;
+      }
+      ageSeconds = (Date.now() - Number(cachedAt)) / 1000;
+    }
+    if (isNaN(ageSeconds) || ageSeconds >= ttl) return null;
+    return cached.clone();
+  });
+}
+
+// Test instrumentation: tracks the last classified-fetch strategy decision within this SW lifetime.
+// Written only by classifiedFetch; read by the __sw_test_state__ postMessage listener below.
+// Tests must serialize requests (one request → one postMessage read) to avoid race conditions.
+var lastStrategy = null;
+
+// Classified dispatcher: cache-first-with-TTL, network on miss, stale fallback on error.
+function classifiedFetch(request, family) {
+  return matchWithAgeCheck(request, family).then((cached) => {
+    if (cached) {
+      lastStrategy = "cache-hit";
+      return cached;
+    }
+    return fetchAndCacheClassified(request, family)
+      .then((response) => {
+        lastStrategy = "network";
+        return response;
+      })
+      .catch(() => {
+        lastStrategy = "network-fallback";
+        return caches.match(request).then((stale) => stale || Response.error());
+      });
+  });
+}
+
+// Test instrumentation: respond to __sw_test_state__ postMessages with the lastStrategy value.
+// No general RPC surface — only this specific message type is handled.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "__sw_test_state__") {
+    event.source.postMessage({ type: "__sw_test_state__", lastStrategy: lastStrategy });
+  }
+});
