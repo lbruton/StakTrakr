@@ -890,6 +890,66 @@ const getChipColors = (field, value, index) => {
 };
 
 /**
+ * Recursively collect all string/number leaf values from a Numista catalog object,
+ * walking nested objects (obverse, reverse, edge, etc.) while skipping booleans and arrays.
+ *
+ * Defined at module scope so a single function object is reused for every item
+ * rather than a new closure being allocated per filter-loop iteration.
+ *
+ * @param {object} obj - The object to flatten
+ * @returns {string[]} Array of stringified leaf values
+ */
+const collectNumistaStrings = (obj) =>
+  Object.values(obj).flatMap((v) => {
+    if ((typeof v === "string" || typeof v === "number") && v !== "") return [String(v)];
+    if (v && typeof v === "object" && !Array.isArray(v)) return collectNumistaStrings(v);
+    return [];
+  });
+
+/**
+ * Build the full-text search haystack for a single inventory item.
+ * Extracts and joins all searchable fields (including recursively-flattened
+ * Numista catalog data) into a single lowercase string.
+ *
+ * Extracted from `filterInventoryAdvanced` to reduce its cyclomatic complexity
+ * and make the indexing logic independently testable.
+ *
+ * @param {InventoryItem} item - The inventory item to index
+ * @param {string} searchTags - Pre-joined tag string for the item
+ * @param {string} formattedDate - Pre-formatted display date (lowercase)
+ * @returns {string} Lowercase haystack string
+ */
+const getItemSearchHaystack = (item, searchTags, formattedDate) => {
+  let catalogText = "";
+  if (item.numistaData && typeof item.numistaData === "object") {
+    catalogText = collectNumistaStrings(item.numistaData).join(" ").toLowerCase();
+  }
+
+  return [
+    item.metal,
+    item.composition || "",
+    item.name,
+    item.type,
+    item.purchaseLocation,
+    item.storageLocation || "",
+    item.notes || "",
+    item.capsule || "",
+    item.capsuleNotes || "",
+    String(item.year || ""),
+    item.grade || "",
+    item.gradingAuthority || "",
+    String(item.certNumber || ""),
+    String(item.numistaId || ""),
+    item.serialNumber || "",
+    searchTags,
+    formattedDate,
+    catalogText,
+  ]
+    .join(" ")
+    .toLowerCase();
+};
+
+/**
  * Enhanced filter inventory function that includes advanced filters.
  * Applies all active filters in `activeFilters` to the inventory.
  *
@@ -1132,49 +1192,15 @@ const filterInventoryAdvanced = () => {
       const _searchTags = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
       const _formattedDate = formatDisplayDate(item.date).toLowerCase();
 
-      // STRK-86: Flatten Numista catalog data (country, denomination, descriptions, etc.)
-      // into the searchable haystack so items match by catalog fields, not just title/notes.
-      // Booleans are skipped — they're never useful matches and would inject literal "true"/"false".
-      // Nested objects (obverse/reverse/edge descriptions) are walked recursively.
-      let _catalogText = "";
-      if (item.numistaData && typeof item.numistaData === "object") {
-        const collectNumistaStrings = (obj) =>
-          Object.values(obj).flatMap((v) => {
-            if ((typeof v === "string" || typeof v === "number") && v !== "") return [String(v)];
-            if (v && typeof v === "object" && !Array.isArray(v)) return collectNumistaStrings(v);
-            return [];
-          });
-        _catalogText = collectNumistaStrings(item.numistaData).join(" ").toLowerCase();
-      }
+      // STRK-86: Delegate haystack assembly to getItemSearchHaystack so that
+      // filterInventoryAdvanced stays focused on filter orchestration only.
+      const itemText = getItemSearchHaystack(item, _searchTags, _formattedDate);
 
-      const itemText = [
-        item.metal,
-        item.composition || "",
-        item.name,
-        item.type,
-        item.purchaseLocation,
-        item.storageLocation || "",
-        item.notes || "",
-        item.capsule || "",
-        item.capsuleNotes || "",
-        String(item.year || ""),
-        item.grade || "",
-        item.gradingAuthority || "",
-        String(item.certNumber || ""),
-        String(item.numistaId || ""),
-        item.serialNumber || "",
-        _searchTags,
-        _formattedDate,
-        _catalogText,
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      cached = { text: itemText, formattedDate: _formattedDate, catalogText: _catalogText };
+      cached = { text: itemText, formattedDate: _formattedDate };
       searchCache.set(item, cached);
     }
 
-    const { text: itemText, formattedDate, catalogText } = cached;
+    const { text: itemText, formattedDate } = cached;
 
     // Handle comma-separated terms (OR logic between comma terms)
     return parsedTerms.some((termData) => {
