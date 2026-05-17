@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.71] - 2026-05-17
+
+### Changed — STRK-49: Direct Print button + Settings Data tab UI fixes
+
+- **Print button**: New one-click Print button (Export card, teal-green) renders the full inventory as a landscape jsPDF report and opens it in a new tab with `autoPrint()` — native print dialog fires automatically in Chrome, Edge, and Safari; Firefox opens the PDF for manual Ctrl+P (accepted v1 limitation) (STRK-49).
+- **Restore ZIP relocated**: "Restore ZIP Backup" button moved from Export card to Import card where restore/import actions belong; no JS wiring changes — ID-based listeners remain intact (STRK-49).
+- **Data Reset button sizing**: "Remove Inventory" and "Wipe All Data" buttons now match the 0.82rem / 0.4rem 0.6rem inline sizing of all other card buttons for visual consistency (STRK-49).
+
+---
+
 ## [3.34.70] - 2026-05-17
 
 ### Changed — STRK-86: Search ignores Numista catalog data

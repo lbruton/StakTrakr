@@ -3682,6 +3682,7 @@ const setupImportExportListeners = () => {
   optionalListener(elements.exportCsvBtn, "click", exportCsv, "CSV export");
   optionalListener(elements.exportJsonBtn, "click", exportJson, "JSON export");
   optionalListener(elements.exportPdfBtn, "click", exportPdf, "PDF export");
+  optionalListener(elements.printBtn, "click", printInventory, "Print inventory");
   optionalListener(
     document.getElementById("exportZipBtn"),
     "click",

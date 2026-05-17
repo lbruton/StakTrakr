@@ -106,6 +106,7 @@ const elements = {
   exportCsvBtn: null,
   exportJsonBtn: null,
   exportPdfBtn: null,
+  printBtn: null,
   cloudSyncBtn: null,
   syncAllBtn: null,
   // Vault encrypted backup elements
