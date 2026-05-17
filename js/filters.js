@@ -1135,16 +1135,16 @@ const filterInventoryAdvanced = () => {
       // STRK-86: Flatten Numista catalog data (country, denomination, descriptions, etc.)
       // into the searchable haystack so items match by catalog fields, not just title/notes.
       // Booleans are skipped — they're never useful matches and would inject literal "true"/"false".
+      // Nested objects (obverse/reverse/edge descriptions) are walked recursively.
       let _catalogText = "";
       if (item.numistaData && typeof item.numistaData === "object") {
-        const parts = [];
-        for (const key in item.numistaData) {
-          const v = item.numistaData[key];
-          if ((typeof v === "string" || typeof v === "number") && v !== "") {
-            parts.push(String(v));
-          }
-        }
-        _catalogText = parts.join(" ").toLowerCase();
+        const collectNumistaStrings = (obj) =>
+          Object.values(obj).flatMap((v) => {
+            if ((typeof v === "string" || typeof v === "number") && v !== "") return [String(v)];
+            if (v && typeof v === "object" && !Array.isArray(v)) return collectNumistaStrings(v);
+            return [];
+          });
+        _catalogText = collectNumistaStrings(item.numistaData).join(" ").toLowerCase();
       }
 
       const itemText = [
