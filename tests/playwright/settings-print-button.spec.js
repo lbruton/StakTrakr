@@ -50,6 +50,10 @@ async function seedAndLoad(page) {
       typeof window.showSettingsModal === "function" &&
       typeof window.switchSettingsSection === "function"
   );
+  // Phase 14 (event listeners including #printBtn/#exportPdfBtn) fires in a
+  // 200 ms setTimeout after DOMContentLoaded. Wait long enough for it to
+  // complete before any test clicks those buttons.
+  await page.waitForTimeout(300); // let deferred setupEventListeners fire
 }
 
 async function openSystemPanel(page) {
@@ -78,7 +82,7 @@ test.describe("STRK-49 — Print button, ZIP relocation, Data Reset sizing", () 
     await expect(desc).toHaveText("Direct browser print of your full inventory");
     await expect(desc).toHaveClass(/sr-only/);
 
-    // Must NOT appear in Export card's parent — verify it's inside the export-block
+    // Verify #printBtn is inside the Export card (.export-block)
     const exportBlock = panel.locator(".export-block");
     await expect(exportBlock.locator("#printBtn")).toHaveCount(1);
   });
@@ -143,6 +147,7 @@ test.describe("STRK-49 — Print button, ZIP relocation, Data Reset sizing", () 
 
       const style = await btn.getAttribute("style");
       expect(style).toContain("font-size: 0.82rem");
+      expect(style).toContain("0.4rem");
       expect(style).toContain("0.6rem");
     }
   });
