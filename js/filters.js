@@ -1132,6 +1132,21 @@ const filterInventoryAdvanced = () => {
       const _searchTags = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
       const _formattedDate = formatDisplayDate(item.date).toLowerCase();
 
+      // STRK-86: Flatten Numista catalog data (country, denomination, descriptions, etc.)
+      // into the searchable haystack so items match by catalog fields, not just title/notes.
+      // Booleans are skipped — they're never useful matches and would inject literal "true"/"false".
+      let _catalogText = "";
+      if (item.numistaData && typeof item.numistaData === "object") {
+        const parts = [];
+        for (const key in item.numistaData) {
+          const v = item.numistaData[key];
+          if ((typeof v === "string" || typeof v === "number") && v !== "") {
+            parts.push(String(v));
+          }
+        }
+        _catalogText = parts.join(" ").toLowerCase();
+      }
+
       const itemText = [
         item.metal,
         item.composition || "",
@@ -1150,15 +1165,16 @@ const filterInventoryAdvanced = () => {
         item.serialNumber || "",
         _searchTags,
         _formattedDate,
+        _catalogText,
       ]
         .join(" ")
         .toLowerCase();
 
-      cached = { text: itemText, formattedDate: _formattedDate };
+      cached = { text: itemText, formattedDate: _formattedDate, catalogText: _catalogText };
       searchCache.set(item, cached);
     }
 
-    const { text: itemText, formattedDate } = cached;
+    const { text: itemText, formattedDate, catalogText } = cached;
 
     // Handle comma-separated terms (OR logic between comma terms)
     return parsedTerms.some((termData) => {
@@ -1283,7 +1299,8 @@ const filterInventoryAdvanced = () => {
           (item.numistaId && wordRegex.test(String(item.numistaId))) ||
           (item.serialNumber && wordRegex.test(item.serialNumber)) ||
           (typeof getItemTags === "function" &&
-            getItemTags(item.uuid).some((t) => wordRegex.test(t)))
+            getItemTags(item.uuid).some((t) => wordRegex.test(t))) ||
+          (catalogText && wordRegex.test(catalogText))
         );
       });
       if (fieldMatch) return true;

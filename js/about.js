@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.70 &ndash; STRK-86: Search ignores Numista catalog data</strong>: Inventory search now matches against Numista-synced catalog fields (country, denomination, composition, technique, obverse/reverse/edge descriptions, KM reference) in addition to title and notes. Searching &ldquo;Australia&rdquo; now returns coins whose Country catalog field is Australia even when the title does not contain the word (STRK-86).</li>
     <li><strong>v3.34.69 &ndash; STRK-73: Configurable Disposition section</strong>: The Disposition section is now a draggable row in Settings &rarr; Appearance &rarr; Item Detail Modal; legacy configs auto-upgrade with Disposition appended last, and items without a valid disposition payload never render the section (STRK-73).</li>
     <li><strong>v3.34.68 &ndash; STRK-79: Market API service-worker routing</strong>: New <code>sw-router.js</code> classifier routes all StakTrakr API and spot-history requests through cache-first-with-TTL; per-family freshness windows use envelope <code>stale_after</code> when present, falling back to floor TTLs; 26 unit tests + 3 Playwright integration tests (STRK-79).</li>
     <li><strong>v3.34.67 &ndash; STRK-78: Playwright test suite mock audit and consolidation</strong>: New shared mock layer eliminates real external API calls across the Playwright test suite; 47 spec files migrated to deterministic fixtures with zero network dependency (STRK-78).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.65 &ndash; STRK-75: All tab as default in vendor price matrix</strong>: Adds an All tab as the first and default tab in the market price matrix; market-tracked metals appear grouped Gold &rarr; Silver &rarr; Platinum &rarr; Palladium &rarr; Goldback, while per-metal tabs and saved tab preferences are fully preserved (STRK-75).</li>
     <li><strong>v3.34.64 &ndash; STRK-50: Optional structured Payment Method dropdown</strong>: Adds an optional payment method selector that persists through edit, clone, bulk edit, import/export, backup, filtering, search, and item details without affecting valuation math (STRK-50).</li>
     <li><strong>v3.34.63 &ndash; STRK-71: Attachment chip in inline chip settings</strong>: The attachment count badge is now toggleable and reorderable in Settings &rarr; Appearance &rarr; Layout &rarr; Inline Name Chips, just like the other name-cell chips (STRK-71).</li>
-    <li><strong>v3.34.62 &ndash; STRK-53: Constrained quantity selector</strong>: Dispose modal now uses chip buttons (stacks &le; 8) or a native select (stacks &gt; 8) to make invalid quantities unreachable via the UI. Single-item stacks show a pre-selected, dimmed chip instead of hiding the control (STRK-53).</li>
   `;
 };
 

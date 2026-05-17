@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.70] - 2026-05-17
+
+### Changed — STRK-86: Search ignores Numista catalog data
+
+- **Catalog-aware search**: Inventory search now matches against Numista-synced catalog data (country, denomination, composition, technique, obverse/reverse/edge descriptions, KM reference, etc.), not just title and top-level item fields. Searching "Australia" now returns coins whose Country catalog field equals Australia even when the title does not contain the word (STRK-86).
+- **Cache-aware integration**: New `catalogText` field is computed once per item and stored in the existing `searchCache` WeakMap; cache invalidates automatically on item edit, so no migration is required (STRK-86).
+
+---
+
 ## [3.34.69] - 2026-05-16
 
 ### Changed — STRK-73: Make Disposition section position-configurable
