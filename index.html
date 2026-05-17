@@ -4780,9 +4780,22 @@
                         >
                           Import JSON
                         </button>
+                        <button
+                          class="btn warning"
+                          id="importZipBtn"
+                          style="
+                            font-size: 0.82rem;
+                            padding: 0.4rem 0.6rem;
+                            min-height: 0;
+                            grid-column: span 2;
+                          "
+                        >
+                          Restore ZIP Backup
+                        </button>
                       </div>
                       <input accept=".csv" hidden id="importCsvFile" type="file" />
                       <input accept=".json" hidden id="importJsonFile" type="file" />
+                      <input accept=".zip" hidden id="importZipFile" type="file" />
                       <progress
                         class="import-progress"
                         id="importProgress"
@@ -4895,18 +4908,23 @@
                           >Full backup — inventory, settings, price history, and images</span
                         >
                         <button
-                          class="btn warning"
-                          id="importZipBtn"
+                          class="btn success"
+                          id="printBtn"
+                          aria-describedby="printDesc"
+                          title="Direct browser print of your full inventory"
                           style="
                             font-size: 0.82rem;
                             padding: 0.4rem 0.6rem;
                             min-height: 0;
+                            width: 100%;
                             grid-column: span 2;
                           "
                         >
-                          Restore ZIP Backup
+                          Print
                         </button>
-                        <input accept=".zip" hidden id="importZipFile" type="file" />
+                        <span id="printDesc" class="sr-only"
+                          >Direct browser print of your full inventory</span
+                        >
                       </div>
                     </div>
                   </div>
@@ -5029,10 +5047,20 @@
                   Permanently remove inventory or wipe all app data. These actions cannot be undone.
                 </p>
                 <div class="settings-btn-row">
-                  <button type="button" class="btn warning" id="removeInventoryDataBtn">
+                  <button
+                    type="button"
+                    class="btn warning"
+                    id="removeInventoryDataBtn"
+                    style="font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0"
+                  >
                     Remove Inventory
                   </button>
-                  <button type="button" class="btn danger" id="boatingAccidentBtn">
+                  <button
+                    type="button"
+                    class="btn danger"
+                    id="boatingAccidentBtn"
+                    style="font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0"
+                  >
                     Wipe All Data
                   </button>
                 </div>
