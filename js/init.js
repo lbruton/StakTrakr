@@ -290,6 +290,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.exportCsvBtn = safeGetElement("exportCsvBtn");
     elements.exportJsonBtn = safeGetElement("exportJsonBtn");
     elements.exportPdfBtn = safeGetElement("exportPdfBtn");
+    elements.printBtn = safeGetElement("printBtn");
     elements.cloudSyncBtn = safeGetElement("cloudSyncBtn");
     elements.syncAllBtn = safeGetElement("syncAllBtn");
     elements.numistaApiKey = safeGetElement("numistaApiKey");

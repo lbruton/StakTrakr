@@ -2033,12 +2033,12 @@ const exportJson = () => {
 /**
  * Exports current inventory to PDF format
  */
-const exportPdf = () => {
+const _buildInventoryPdf = () => {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     appAlert(
       "PDF library (jsPDF) failed to load. Please check your internet connection and reload the page."
     );
-    return;
+    return null;
   }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF("landscape");
@@ -2178,8 +2178,24 @@ const exportPdf = () => {
   doc.text(`Retail: ${txt(elements.totals.palladium.retailValue)}`, 25, finalY + 90);
   doc.text(`Gain/Loss: ${txt(elements.totals.palladium.lossProfit)}`, 25, finalY + 96);
 
-  // Save PDF
-  doc.save(`metal_inventory_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`);
+  return doc;
+};
+
+const exportPdf = () => {
+  const doc = _buildInventoryPdf();
+  if (!doc) return;
+  doc.save(`metal_inventory_${new Date().toLocaleDateString("en-CA").replace(/-/g, "")}.pdf`);
+};
+
+const printInventory = () => {
+  const doc = _buildInventoryPdf();
+  if (!doc) return;
+  doc.autoPrint();
+  // Must remain synchronous in click-handler stack — browsers block popup if await precedes window.open
+  const popup = window.open(doc.output("bloburl"), "_blank");
+  if (!popup) {
+    appAlert("Your browser blocked the print window — allow popups for this page.");
+  }
 };
 /**
  * Show or hide the "Realized:" row on all summary cards (STAK-72).
@@ -2198,6 +2214,7 @@ const applyRealizedVisibility = (show) => {
 // Expose inventory actions globally for inline event handlers
 window.exportJson = exportJson;
 window.exportPdf = exportPdf;
+window.printInventory = printInventory;
 // window.updateSummary exported from inventory-table.js
 window.applyRealizedVisibility = applyRealizedVisibility;
 window.toggleGlobalPriceView = toggleGlobalPriceView;
