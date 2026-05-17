@@ -45,7 +45,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
 - **Sketch branch naming** → `/sketch orchestrate` generates `sketch/{ISSUE-ID}-{slug}` branch names by default, but StakTrakr requires `patch/VERSION` via `/start-patch`. Override generated tasks.md if it uses the sketch convention.
 - **`/sketch orchestrate` closing tasks** → always dispatch as a single batched prompt, not one-at-a-time. Closing tasks have no model-routing ambiguity and benefit from no parallel hazard.
-- **Stale dev-targeting branches** → `/pr-cleanup` only detects `[gone]` refs, which requires the upstream branch to have been deleted. Squash-merged branches targeting `dev` never appear as `[gone]` — prune periodically with `git branch -vv | grep ': gone]'` after checking `dev` merges.
+- **Stale dev-targeting branches** → `/pr-cleanup` only detects `[gone]` refs, which requires the upstream branch to have been deleted. Squash-merged branches targeting `dev` never appear as `[gone]` (the local branch tracks `origin/dev`, not its merged ref) — so `git branch -vv | grep ': gone]'` will NOT find them. Cross-check instead by branch name: list merged PR heads with `gh pr list --state merged --base dev --json headRefName --jq '.[].headRefName' | grep '^patch/'` and compare that set against local `.worktrees/patch-*/` names plus `git for-each-ref --format='%(refname:short)' refs/heads/patch/`.
 - **PR branch staleness check** → before opening a PR, run `git merge-base HEAD origin/dev` and compare to `git rev-parse origin/dev`. A large changed-file count (50+) is a signal the branch was created from stale local `dev` rather than fetched `origin/dev`.
 
 ## MCP Notes
@@ -139,12 +139,16 @@ Follow this sequence:
 
 Project uses script-tag globals the auto-config doesn't recognize. Pre-existing browser-global `no-undef` findings are noise. Verify findings on changed lines only. (Global `Action Gates` covers the fresh-worktree empty-diff issue.)
 
+### Codacy CLI mutates `.codacy/codacy.yaml`
+
+`/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites `.codacy/codacy.yaml` — adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest. This breaks the `config-validation.spec.js` CY-2/CY-7/CY-8 assertions every time. **After any CLOSE-2 codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.** The mutation is a CLI side effect, not a real config change.
+
 ### Known Reviewer False Positives
 
 - **`ALLOWED_STORAGE_KEYS` "undefined guard"** — constant exists at `constants.js`; the `typeof` guard is intentional.
 - **Automated re-review duplicates** — after pushing fixes, CodeRabbit/Gemini/Copilot regenerate threads on the same file/line. Gemini duplicates have `"line": null` in the API (reliable stale signal). Auto-resolve without user approval.
 - **CodeRabbit "simplify code" PRs** — auto-generated refactor PRs. Triage individually.
-- **CodeRabbit `STRK-*` issue prefix** — bots may expect old `STAK-###` prefix after the Plane migration. False positive; do not rename.
+- **CodeRabbit `STRK-*` issue prefix** — see global CLAUDE.md "Conventions" rule on post-migration prefix flags; pre-classify as false positive.
 - **Copilot `no-undef` on browser globals** — project uses script-tag globals across vanilla JS files with no bundler. The phrasing "vanilla JS global scope, no module bundler" is sufficient context in PR replies; do not include a file count (it changes).
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
 - **Retail OOS detection is content-driven** — `detectStockStatus` in `firecrawl-extract.js` regex-matches rendered markdown which **includes ShopperApproved review blocks**. Customer-review text containing "out of stock", "unavailable", "page not found" produces systematic false-OOS for entire vendors. Investigation: scrape page, check if trigger text lies AFTER pricing table — if so extend `MARKDOWN_CUTOFF_PATTERNS` (regex must be plural-tolerant: `Reviews?`).
