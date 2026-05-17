@@ -2031,7 +2031,8 @@ const exportJson = () => {
 };
 
 /**
- * Exports current inventory to PDF format
+ * Builds and returns a jsPDF document of the current inventory.
+ * Does not save or open the document — callers (exportPdf, printInventory) handle that.
  */
 const _buildInventoryPdf = () => {
   if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -2192,7 +2193,10 @@ const printInventory = () => {
   if (!doc) return;
   doc.autoPrint();
   // Must remain synchronous in click-handler stack — browsers block popup if await precedes window.open
-  const popup = window.open(doc.output("bloburl"), "_blank");
+  const blobUrl = doc.output("bloburl");
+  const popup = window.open(blobUrl, "_blank");
+  // Revoke after a short delay to allow the popup to load the blob before the URL is released
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
   if (!popup) {
     appAlert("Your browser blocked the print window — allow popups for this page.");
   }
