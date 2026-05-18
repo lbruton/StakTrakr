@@ -648,6 +648,57 @@ const getRequiredYears = (days) => {
 /** @constant {string} Remote base URL for historical data (file:// fallback) */
 const HISTORICAL_DATA_REMOTE = "https://staktrakr.com/data/";
 
+const SUPPORTED_SPOT_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium"]);
+
+/**
+ * Synchronous historical spot lookup from the in-memory cache only.
+ * Searches the target year and adjacent years with progressive date widening.
+ * @param {string} metalName - Metal name (any casing, e.g. "gold", "SILVER")
+ * @param {string} dateStr - Target date in "YYYY-MM-DD" format
+ * @returns {number|null} Spot price or null if not found
+ */
+const lookupHistoricalSpot = (metalName, dateStr) => {
+  const normalized = metalName.charAt(0).toUpperCase() + metalName.slice(1).toLowerCase();
+  if (!SUPPORTED_SPOT_METALS.has(normalized)) return null;
+
+  const yearMatch = dateStr && dateStr.match(/^(\d{4})-/);
+  if (!yearMatch) return null;
+  const targetYear = parseInt(yearMatch[1], 10);
+
+  const targetDate = new Date(dateStr + "T00:00:00");
+  if (isNaN(targetDate.getTime())) return null;
+  const targetMs = targetDate.getTime();
+
+  const yearEntries = [
+    ...(historicalDataCache.get(targetYear - 1) || []),
+    ...(historicalDataCache.get(targetYear) || []),
+    ...(historicalDataCache.get(targetYear + 1) || []),
+  ].filter((e) => e.metal === normalized);
+
+  if (yearEntries.length === 0) return null;
+
+  const windows = [0, 1, 3, 7];
+  for (const windowDays of windows) {
+    const windowMs = windowDays * 86400000;
+    const matches = yearEntries
+      .filter((e) => {
+        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
+        if (isNaN(entryDate.getTime())) return false;
+        return Math.abs(entryDate.getTime() - targetMs) <= windowMs;
+      })
+      .map((e) => {
+        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
+        const dayOffset = Math.abs(entryDate.getTime() - targetMs) / 86400000;
+        return { spot: e.spot, dayOffset, timestamp: e.timestamp };
+      })
+      .sort((a, b) => a.dayOffset - b.dayOffset || b.timestamp.localeCompare(a.timestamp));
+
+    if (matches.length > 0) return matches[0].spot;
+  }
+
+  return null;
+};
+
 /**
  * Loads a local JSON file via XMLHttpRequest (sync-free).
  * Broader file:// compatibility than fetch() — works in Firefox/Safari
@@ -1548,6 +1599,7 @@ window.saveSpotHistory = saveSpotHistory;
 window.getHistoricalSparklineData = getHistoricalSparklineData;
 window.getRequiredYears = getRequiredYears;
 window.fetchYearFile = fetchYearFile;
+window.lookupHistoricalSpot = lookupHistoricalSpot;
 window.historicalDataCache = historicalDataCache;
 // STAK-222: Expose spotHistory via getter so window.spotHistory always reflects current array
 Object.defineProperty(window, "spotHistory", { get: () => spotHistory, configurable: true });
