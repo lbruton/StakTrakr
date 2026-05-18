@@ -6283,6 +6283,10 @@ td input:checked + .slider:before {
   grid-template-columns: 1fr 1fr 1fr 1fr;
 }
 
+.view-detail-grid.six-col {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+}
+
 .view-detail-item {
   display: flex;
   flex-direction: column;
@@ -6627,6 +6631,10 @@ td input:checked + .slider:before {
     grid-template-columns: 1fr 1fr;
   }
 
+  .view-detail-grid.six-col {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
   .view-numista-section .view-detail-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -6650,6 +6658,10 @@ td input:checked + .slider:before {
   .view-detail-grid.three-col,
   .view-detail-grid.four-col {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .view-detail-grid.six-col {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   /* Tighter image gap at smallest screens */
