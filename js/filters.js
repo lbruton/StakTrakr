@@ -1196,11 +1196,15 @@ const filterInventoryAdvanced = () => {
       // filterInventoryAdvanced stays focused on filter orchestration only.
       const itemText = getItemSearchHaystack(item, _searchTags, _formattedDate);
 
-      cached = { text: itemText, formattedDate: _formattedDate };
+      const _catalogText =
+        item.numistaData && typeof item.numistaData === "object"
+          ? collectNumistaStrings(item.numistaData).join(" ").toLowerCase()
+          : "";
+      cached = { text: itemText, formattedDate: _formattedDate, catalogText: _catalogText };
       searchCache.set(item, cached);
     }
 
-    const { text: itemText, formattedDate } = cached;
+    const { text: itemText, formattedDate, catalogText } = cached;
 
     // Handle comma-separated terms (OR logic between comma terms)
     return parsedTerms.some((termData) => {

@@ -485,6 +485,7 @@ test.describe("STRK-48 — diff scoping", () => {
       "js/viewModal.js",
       "js/spot.js",
       "js/utils.js",
+      "js/filters.js",
       "css/styles.css",
       "sw.js",
       "tests/playwright/view-modal-valuation.spec.js",
