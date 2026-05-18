@@ -5,7 +5,8 @@
  * Coverage:
  *  T1–T5:  lookupHistoricalSpot() — exact match, weekend fallback, null date,
  *          unsupported metal, case-insensitive metal name.
- *  T6–T8:  computeItemValuation() — pricingType "lot", "each", legacy (missing).
+ *  T6–T8:  computeItemValuation() — item.price is always per-unit; pricingType
+ *          does not affect purchasePrice. Covers lot, each, and legacy (missing).
  *  T9–T15: Valuation section DOM — cell counts, premium %, G/L %, sign classes,
  *          missing-spot fallback to "—" / .muted.
  *  T16–T17: .six-col grid column count — desktop 6-col, mobile 3-col.
@@ -74,7 +75,7 @@ const LOT_SILVER = {
   weight: 1,
   weightUnit: "oz",
   purity: 0.999,
-  price: 150, // total lot price → purchasePrice = 150/5 = 30 each
+  price: 150, // per-unit price (form already converted at save time)
   pricingType: "lot",
   spotPriceAtPurchase: 0, // no stored spot → premium = null → "—"
   marketValue: 0, // no manual retail → retailTotal = meltValue = 0 (no live spot)
@@ -272,7 +273,11 @@ test.describe("STRK-48 — spot lookup", () => {
 });
 
 // =============================================================================
-// T6–T8 — computeItemValuation() pricingType branching
+// T6–T8 — computeItemValuation() purchasePrice derivation
+//
+// item.price is ALWAYS stored as per-unit — the Add/Edit form converts a lot
+// total → per-unit at save time. pricingType is a UI display flag only and
+// must NOT affect the purchase price calculation.
 // =============================================================================
 
 test.describe("STRK-48 — pricingType purchasePrice derivation", () => {
@@ -281,24 +286,30 @@ test.describe("STRK-48 — pricingType purchasePrice derivation", () => {
     await gotoApp(page);
   });
 
-  test("T6: pricingType 'lot' divides total price by qty for purchasePrice", async ({ page }) => {
-    const purchasePrice = await page.evaluate(() => {
+  test("T6: pricingType 'lot' — purchasePrice equals item.price (per-unit, no division)", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(() => {
       const item = {
         qty: 3,
-        price: 300,
+        price: 100, // already per-unit — the form converted at save time
         pricingType: "lot",
         weight: 1,
         weightUnit: "oz",
         purity: 0.999,
         marketValue: 0,
       };
-      return window.computeItemValuation(item, 0).purchasePrice;
+      const { purchasePrice, purchaseTotal } = window.computeItemValuation(item, 0);
+      return { purchasePrice, purchaseTotal };
     });
-    expect(purchasePrice).toBeCloseTo(100, 5);
+    expect(result.purchasePrice).toBeCloseTo(100, 5);
+    expect(result.purchaseTotal).toBeCloseTo(300, 5); // 100 × 3
   });
 
-  test("T7: pricingType 'each' uses price directly as purchasePrice", async ({ page }) => {
-    const purchasePrice = await page.evaluate(() => {
+  test("T7: pricingType 'each' — purchasePrice equals item.price (same result as lot)", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(() => {
       const item = {
         qty: 3,
         price: 100,
@@ -308,15 +319,15 @@ test.describe("STRK-48 — pricingType purchasePrice derivation", () => {
         purity: 0.999,
         marketValue: 0,
       };
-      return window.computeItemValuation(item, 0).purchasePrice;
+      const { purchasePrice, purchaseTotal } = window.computeItemValuation(item, 0);
+      return { purchasePrice, purchaseTotal };
     });
-    expect(purchasePrice).toBeCloseTo(100, 5);
+    expect(result.purchasePrice).toBeCloseTo(100, 5);
+    expect(result.purchaseTotal).toBeCloseTo(300, 5); // 100 × 3
   });
 
-  test("T8: missing pricingType (legacy) uses price directly as purchasePrice", async ({
-    page,
-  }) => {
-    const purchasePrice = await page.evaluate(() => {
+  test("T8: missing pricingType (legacy) — purchasePrice equals item.price", async ({ page }) => {
+    const result = await page.evaluate(() => {
       const item = {
         qty: 3,
         price: 100,
@@ -326,9 +337,11 @@ test.describe("STRK-48 — pricingType purchasePrice derivation", () => {
         purity: 0.999,
         marketValue: 0,
       };
-      return window.computeItemValuation(item, 0).purchasePrice;
+      const { purchasePrice, purchaseTotal } = window.computeItemValuation(item, 0);
+      return { purchasePrice, purchaseTotal };
     });
-    expect(purchasePrice).toBeCloseTo(100, 5);
+    expect(result.purchasePrice).toBeCloseTo(100, 5);
+    expect(result.purchaseTotal).toBeCloseTo(300, 5); // 100 × 3
   });
 });
 

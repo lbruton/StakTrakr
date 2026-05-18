@@ -1488,8 +1488,7 @@ const computeItemValuation = (item, currentSpot) => {
   const { qty, marketValue, meltValue, gbDenomPrice, isManualRetail, retailTotal } =
     calculateRetailPrice(item, normalizedSpot);
 
-  const rawPrice = typeof item?.price === "number" ? item.price : parseFloat(item?.price) || 0;
-  const purchasePrice = item?.pricingType === "lot" && qty > 0 ? rawPrice / qty : rawPrice;
+  const purchasePrice = typeof item?.price === "number" ? item.price : parseFloat(item?.price) || 0;
   const purchaseTotal = purchasePrice * qty;
   const hasRetailSignal = normalizedSpot > 0 || isManualRetail || !!gbDenomPrice;
   const gainLoss = hasRetailSignal ? retailTotal - purchaseTotal : null;

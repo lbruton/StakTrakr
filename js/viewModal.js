@@ -667,8 +667,8 @@ function _buildValuationSection(item, metrics) {
 
   if (qty > 1) {
     const totalLabel = purchaseDateStr
-      ? `${formatCurrency(purchaseTotal)} (${purchaseDateStr})`
-      : formatCurrency(purchaseTotal);
+      ? `${formatCurrency(purchaseTotal)} total (${purchaseDateStr})`
+      : `${formatCurrency(purchaseTotal)} total`;
     addRow(totalLabel, purchaseTotal, meltValue, retailTotal, gainLoss, premiumData.glPercent);
 
     const eachLabel = formatCurrency(purchasePrice) + " each";
