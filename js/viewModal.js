@@ -612,28 +612,81 @@ function _buildValuationSection(item, metrics) {
   const valSection = _section("Valuation");
   valSection.classList.add("view-valuation-section");
   valSection._premiumData = premiumData;
-  const valGrid = _el("div", "view-detail-grid four-col");
+
+  const formatPercent = (value) => {
+    if (value === null || value === undefined) return "—";
+    const sign = value >= 0 ? "+" : "";
+    return sign + value.toFixed(1) + "%";
+  };
+
+  const signClass = (value) => {
+    if (value === null || value === undefined) return "muted";
+    return value >= 0 ? "gain" : "loss";
+  };
+
   const purchaseDateStr = item.date
     ? typeof formatDisplayDate === "function"
       ? formatDisplayDate(item.date)
       : item.date
     : "";
-  const purchaseBody =
-    metrics.qty > 1
-      ? `${formatCurrency(purchaseTotal)} total \u00b7 ${formatCurrency(purchasePrice)} each`
-      : formatCurrency(purchasePrice);
-  const purchaseLabel = purchaseDateStr ? `${purchaseBody} (${purchaseDateStr})` : purchaseBody;
-  _addDetail(valGrid, "Purchase", purchaseLabel);
-  _addDetail(valGrid, "Melt Value", metrics.currentSpot > 0 ? formatCurrency(meltValue) : "—");
-  _addDetail(valGrid, "Retail", retailTotal > 0 ? formatCurrency(retailTotal) : "—");
-  if (gainLoss !== null && retailTotal > 0) {
-    const glItem = _detailItem("Gain/Loss", (gainLoss >= 0 ? "+" : "") + formatCurrency(gainLoss));
-    const valEl = glItem.querySelector(".view-detail-value");
-    if (valEl) valEl.classList.add(gainLoss >= 0 ? "gain" : "loss");
-    valGrid.appendChild(glItem);
+
+  const valGrid = _el("div", "view-detail-grid six-col");
+  const qty = metrics.qty || 1;
+  const perUnitMelt = metrics.currentSpot > 0 ? meltValue / qty : 0;
+  const perUnitRetail = retailTotal > 0 ? retailTotal / qty : 0;
+  const perUnitGainLoss = gainLoss !== null ? gainLoss / qty : null;
+
+  const addRow = (purchaseLabel, pPrice, mMelt, mRetail, mGainLoss, mGlPercent) => {
+    _addDetail(valGrid, "Purchase", purchaseLabel);
+    _addDetail(
+      valGrid,
+      "Premium",
+      formatPercent(premiumData.premiumPercent),
+      signClass(premiumData.premiumPercent)
+    );
+    _addDetail(valGrid, "Melt", mMelt > 0 ? formatCurrency(mMelt) : "—");
+    _addDetail(valGrid, "Retail", mRetail > 0 ? formatCurrency(mRetail) : "—");
+
+    if (mGainLoss !== null && mRetail > 0) {
+      const glItem = _detailItem(
+        "Gain/Loss",
+        (mGainLoss >= 0 ? "+" : "") + formatCurrency(mGainLoss),
+        signClass(mGainLoss)
+      );
+      valGrid.appendChild(glItem);
+    } else {
+      _addDetail(valGrid, "Gain/Loss", "—", "muted");
+    }
+
+    if (mGlPercent !== null && mRetail > 0 && pPrice > 0) {
+      _addDetail(valGrid, "G/L%", formatPercent(mGlPercent), signClass(mGlPercent));
+    } else {
+      _addDetail(valGrid, "G/L%", "—", "muted");
+    }
+  };
+
+  if (qty > 1) {
+    const totalLabel = purchaseDateStr
+      ? `${formatCurrency(purchaseTotal)} (${purchaseDateStr})`
+      : formatCurrency(purchaseTotal);
+    addRow(totalLabel, purchaseTotal, meltValue, retailTotal, gainLoss, premiumData.glPercent);
+
+    const eachLabel = formatCurrency(purchasePrice) + " each";
+    addRow(
+      eachLabel,
+      purchasePrice,
+      perUnitMelt,
+      perUnitRetail,
+      perUnitGainLoss,
+      premiumData.glPercent
+    );
   } else {
-    _addDetail(valGrid, "Gain/Loss", "—", "muted");
+    const singleLabel = purchaseDateStr
+      ? `${formatCurrency(purchasePrice)} (${purchaseDateStr})`
+      : formatCurrency(purchasePrice);
+    addRow(singleLabel, purchasePrice, meltValue, retailTotal, gainLoss, premiumData.glPercent);
   }
+
   valSection.appendChild(valGrid);
   return valSection;
 }
