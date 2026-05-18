@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.72] - 2026-05-17
+
+### Changed — STRK-48: Per-oz/per-coin premium in Item Detail modal
+
+- **Premium display**: Valuation section now shows premium as a percentage of spot at purchase, gain/loss %, and lot-aware rows (total + per-unit) in a 6-column grid layout that collapses to 3×2 on mobile (STRK-48).
+- **Spot lookup**: New `lookupHistoricalSpot()` synchronous cache-only helper resolves the nearest trading day spot from `historicalDataCache` with progressive date widening (STRK-48).
+- **Search fix**: Fixed `catalogText` ReferenceError in `filterInventoryAdvanced()` where the variable was declared in `getItemSearchHaystack()` but referenced in a different function scope (STRK-86).
+
+---
+
 ## [3.34.71] - 2026-05-17
 
 ### Changed — STRK-49: Direct Print button + Settings Data tab UI fixes

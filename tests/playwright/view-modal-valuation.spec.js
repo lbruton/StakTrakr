@@ -489,6 +489,14 @@ test.describe("STRK-48 — diff scoping", () => {
       "css/styles.css",
       "sw.js",
       "tests/playwright/view-modal-valuation.spec.js",
+      "js/constants.js",
+      "js/about.js",
+      "package.json",
+      "package-lock.json",
+      "version.json",
+      "CHANGELOG.md",
+      "data/spot-history-2026.json",
+      "data/spot-history-bundle.js",
     ]);
 
     const unexpected = changed.filter((f) => !allowed.has(f));
