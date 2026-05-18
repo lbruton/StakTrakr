@@ -2891,7 +2891,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Delegated click on result cards → select and show field picker
   if (numistaResultsList) {
-    numistaResultsList.addEventListener("click", function (e) {
+    numistaResultsList.addEventListener("click", async function (e) {
       // Let N# links open Numista without also selecting the row.
       const catalogLink = e.target.closest(".numista-result-id-link");
       if (catalogLink) {
@@ -2912,8 +2912,26 @@ document.addEventListener("DOMContentLoaded", function () {
         .forEach((c) => c.classList.remove("selected"));
       card.classList.add("selected");
 
-      // Transition to field picker
+      // Search results are lightweight — fetch full coin detail before populating
+      // the field picker so Composition / Shape / Diameter / Orientation / Technique /
+      // Edge Description / descriptions / tags are available. Falls back to the
+      // search hit on failure to preserve partial-data UX. lookupItem() is cached.
       selectedNumistaResult = results[index];
+      const detailCatalogId = selectedNumistaResult.catalogId;
+      if (detailCatalogId) {
+        const prevOpacity = card.style.opacity;
+        card.style.opacity = "0.5";
+        try {
+          const detail = await catalogAPI.lookupItem(detailCatalogId);
+          if (detail) selectedNumistaResult = detail;
+        } catch (err) {
+          console.warn("Numista detail fetch failed; using lightweight search result", err);
+        } finally {
+          card.style.opacity = prevOpacity;
+        }
+      }
+
+      // Transition to field picker
       const preview = document.getElementById("numistaSelectedItem");
       const picker = document.getElementById("numistaFieldPicker");
       const title = document.getElementById("numistaResultsTitle");
