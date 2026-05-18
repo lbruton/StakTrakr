@@ -547,6 +547,51 @@ function _appendSourceField(container, sourceValue) {
   container.appendChild(srcItem);
 }
 
+const SUPPORTED_PREMIUM_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium"]);
+
+function _resolvePremiumData(item, metrics, computed) {
+  const purchasePrice = computed?.purchasePrice ?? (parseFloat(item.price) || 0);
+  const purchaseTotal = computed?.purchaseTotal ?? metrics.qty * purchasePrice;
+  const retailTotal =
+    computed?.retailTotal ??
+    (parseFloat(item.marketValue) > 0 ? metrics.qty * parseFloat(item.marketValue) : 0);
+
+  let resolvedSpot = null;
+  const metalName = item.metal || "";
+  if (SUPPORTED_PREMIUM_METALS.has(metalName) && item.date) {
+    const lookedUp =
+      typeof lookupHistoricalSpot === "function"
+        ? lookupHistoricalSpot(metalName, item.date)
+        : null;
+    if (typeof lookedUp === "number" && lookedUp > 0) resolvedSpot = lookedUp;
+  }
+  if (resolvedSpot === null) {
+    const stored = parseFloat(item.spotPriceAtPurchase);
+    if (stored > 0) resolvedSpot = stored;
+  }
+
+  const asw = metrics.weightOz * metrics.purity;
+  const hasValidInputs = resolvedSpot !== null && resolvedSpot > 0 && asw > 0;
+
+  const premiumPerOz = hasValidInputs ? purchasePrice / asw - resolvedSpot : null;
+  const premiumPerCoin = hasValidInputs ? purchasePrice - resolvedSpot * asw : null;
+  const premiumPercent = hasValidInputs ? (purchasePrice / asw / resolvedSpot - 1) * 100 : null;
+
+  const glPercent =
+    purchaseTotal > 0 && retailTotal > 0
+      ? ((retailTotal - purchaseTotal) / purchaseTotal) * 100
+      : null;
+
+  return {
+    resolvedSpot,
+    asw,
+    premiumPerOz,
+    premiumPerCoin,
+    premiumPercent,
+    glPercent,
+  };
+}
+
 function _buildValuationSection(item, metrics) {
   const computed =
     typeof computeItemValuation === "function"
@@ -563,8 +608,10 @@ function _buildValuationSection(item, metrics) {
   const retailTotal =
     computed?.retailTotal ?? (manualMarket > 0 ? metrics.qty * manualMarket : meltValue);
   const gainLoss = computed?.gainLoss ?? (retailTotal > 0 ? retailTotal - purchaseTotal : null);
+  const premiumData = _resolvePremiumData(item, metrics, computed);
   const valSection = _section("Valuation");
   valSection.classList.add("view-valuation-section");
+  valSection._premiumData = premiumData;
   const valGrid = _el("div", "view-detail-grid four-col");
   const purchaseDateStr = item.date
     ? typeof formatDisplayDate === "function"
