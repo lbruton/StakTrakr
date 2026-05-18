@@ -2241,12 +2241,21 @@ const fillFormFromNumistaResult = () => {
         // STAK-488: Always write the URL when checkbox is checked — the user controls
         // whether to overwrite via the field picker checkbox, not this guard.
         const el = elements.itemObverseImageUrl || safeGetElement("itemObverseImageUrl");
-        if (el) el.value = val;
+        if (el) {
+          el.value = val;
+          // Programmatic .value doesn't fire input events; dispatch one so
+          // scheduleUrlPreview() runs and the preview/frame-toggle UI updates
+          // without requiring the user to save and re-edit the item.
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         break;
       }
       case "reverseImage": {
         const el = elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl");
-        if (el) el.value = val;
+        if (el) {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         break;
       }
       case "metal": {
