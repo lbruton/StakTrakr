@@ -658,10 +658,13 @@ const SUPPORTED_SPOT_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium"
  * @returns {number|null} Spot price or null if not found
  */
 const lookupHistoricalSpot = (metalName, dateStr) => {
-  const normalized = metalName.charAt(0).toUpperCase() + metalName.slice(1).toLowerCase();
+  if (typeof metalName !== "string" || typeof dateStr !== "string") return null;
+  const trimmedMetal = metalName.trim();
+  if (!trimmedMetal) return null;
+  const normalized = trimmedMetal.charAt(0).toUpperCase() + trimmedMetal.slice(1).toLowerCase();
   if (!SUPPORTED_SPOT_METALS.has(normalized)) return null;
 
-  const yearMatch = dateStr && dateStr.match(/^(\d{4})-/);
+  const yearMatch = dateStr.match(/^(\d{4})-/);
   if (!yearMatch) return null;
   const targetYear = parseInt(yearMatch[1], 10);
 
@@ -677,9 +680,10 @@ const lookupHistoricalSpot = (metalName, dateStr) => {
 
   if (yearEntries.length === 0) return null;
 
+  const MS_PER_DAY = 86400000;
   const windows = [0, 1, 3, 7];
   for (const windowDays of windows) {
-    const windowMs = windowDays * 86400000;
+    const windowMs = windowDays * MS_PER_DAY;
     const matches = yearEntries
       .filter((e) => {
         const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
@@ -688,7 +692,7 @@ const lookupHistoricalSpot = (metalName, dateStr) => {
       })
       .map((e) => {
         const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
-        const dayOffset = Math.abs(entryDate.getTime() - targetMs) / 86400000;
+        const dayOffset = Math.abs(entryDate.getTime() - targetMs) / MS_PER_DAY;
         return { spot: e.spot, dayOffset, timestamp: e.timestamp };
       })
       .sort((a, b) => a.dayOffset - b.dayOffset || b.timestamp.localeCompare(a.timestamp));

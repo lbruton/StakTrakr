@@ -557,7 +557,10 @@ function _resolvePremiumData(item, metrics, computed) {
     (parseFloat(item.marketValue) > 0 ? metrics.qty * parseFloat(item.marketValue) : 0);
 
   let resolvedSpot = null;
-  const metalName = item.metal || "";
+  const rawMetal = String(item.metal || "").trim();
+  const metalName = rawMetal
+    ? rawMetal.charAt(0).toUpperCase() + rawMetal.slice(1).toLowerCase()
+    : "";
   if (SUPPORTED_PREMIUM_METALS.has(metalName) && item.date) {
     const lookedUp =
       typeof lookupHistoricalSpot === "function"
