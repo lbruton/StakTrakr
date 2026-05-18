@@ -128,8 +128,13 @@ const NEG_PREMIUM = {
 };
 
 /**
- * Gold coin with no spot data — resolvedSpot stays null, so premium and G/L%
- * render as "—" with .muted.
+ * Gold coin with zero ASW (weight=0) and no stored spot — both conditions
+ * needed to show "—" for Premium AND G/L%.
+ *
+ * Premium="—" requires resolvedSpot=null OR asw=0. With weight=0, asw=0 → null.
+ * G/L%="—" requires retailTotal=0. meltValue = 0*spot*purity = 0, and with no
+ * manual marketValue, retailTotal = meltValue = 0 regardless of live spot price
+ * (the mock API always returns a non-zero default; weight=0 neutralises it).
  */
 const NO_SPOT = {
   uuid: "strk48-test-no-spot",
@@ -138,13 +143,13 @@ const NO_SPOT = {
   name: "STRK-48 No Spot Coin",
   qty: 1,
   type: "Coin",
-  weight: 1,
+  weight: 0, // zero weight → asw=0 → meltValue=0 → retailTotal=0 → G/L%="—"
   weightUnit: "oz",
   purity: 0.9167,
   price: 1800,
   pricingType: "each",
-  spotPriceAtPurchase: 0, // no stored spot
-  marketValue: 0, // no manual retail, no live spot → hasRetailSignal = false
+  spotPriceAtPurchase: 0, // no stored spot → resolvedSpot=null → premium="—"
+  marketValue: 0, // no manual retail
   date: "2031-06-15", // beyond bundle AND distinct year from 2030 items
   purchaseLocation: "Unknown",
   storageLocation: "Safe",
