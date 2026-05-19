@@ -2940,7 +2940,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // STRK-84: render preview tag chips in Add mode so the user sees
       // which Numista tags will be applied after submit
       const _addSnap = window.pendingNumistaPickerSnapshot;
-      if (_addSnap && _addSnap.checked.length > 0 && editingIndex == null) {
+      if (_addSnap && editingIndex == null) {
         const chipsEl = document.getElementById("itemModalTagsChips");
         if (chipsEl) {
           chipsEl.textContent = "";
