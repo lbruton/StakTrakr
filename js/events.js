@@ -1891,19 +1891,10 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       .join(" · ");
     logChange(addedItem.name, "Added", "", addSummary, inventory.length - 1);
 
-    // STRK-84: consume pending picker snapshot to apply tags for new Add Item
-    const snap = window.pendingNumistaPickerSnapshot;
-    if (snap && typeof applyNumistaTags === "function") {
+    // STAK-126: Auto-apply Numista tags from the lookup result
+    if (window.selectedNumistaResult?.tags && typeof applyNumistaTags === "function") {
       const newUuid = addedItem.uuid;
-      if (snap.resultId === f.catalog) {
-        if (snap.checked.length > 0) {
-          applyNumistaTags(newUuid, snap.checked, true, true);
-        }
-        if (snap.removed.length > 0 && typeof addRemovedTag === "function") {
-          snap.removed.forEach((tag) => addRemovedTag(newUuid, tag));
-        }
-      }
-      window.pendingNumistaPickerSnapshot = null;
+      applyNumistaTags(newUuid, window.selectedNumistaResult.tags);
     }
 
     // Record initial price data point (STACK-43)
@@ -3949,8 +3940,6 @@ const setupSearch = () => {
         elements.newItemBtn,
         "click",
         () => {
-          // STRK-84: defensive clear of stale picker snapshot
-          window.pendingNumistaPickerSnapshot = null;
           // Clear editing state (ensures add mode)
           editingIndex = null;
           editingChangeLogIndex = null;
