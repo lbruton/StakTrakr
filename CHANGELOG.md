@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.73] - 2026-05-18
+
+### Changed — STRK-84: Numista picker tags applied on first Fill Fields for new items
+
+- **Tag persistence**: Numista picker tag checkboxes now persist on the first Fill Fields click when adding a new item — no second sync required. Captures picker state as a snapshot before modal teardown, consumed after UUID minting in the Add-branch submit handler (STRK-84).
+- **Opt-out recording**: Unchecked default-on tags are recorded as opt-outs (`itemRemovedTags`) for new items, matching the existing Edit flow behavior from STRK-52 (STRK-84).
+- **Dead code removal**: Removed unreachable STAK-126 fallback in events.js that referenced `window.selectedNumistaResult` (never set due to `let` vs `window` namespace isolation) (STRK-84).
+
+---
+
 ## [3.34.72] - 2026-05-17
 
 ### Changed — STRK-48: Per-oz/per-coin premium in Item Detail modal

@@ -1958,6 +1958,11 @@ const renderNumistaFieldCheckboxes = (result) => {
         wrapper.appendChild(tagLabel);
       }
 
+      // STRK-84: track user intent for Add-mode opt-out recording
+      cb.addEventListener("change", () => {
+        cb.dataset.userTouched = "1";
+      });
+
       tagsSection.appendChild(wrapper);
     });
 
@@ -1967,7 +1972,10 @@ const renderNumistaFieldCheckboxes = (result) => {
     checkAllBtn.addEventListener("click", () => {
       // Check-all: skip only blacklisted (disabled). On-item rows are already checked, so no-op is correct.
       tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
-        if (!cb.disabled) cb.checked = true;
+        if (!cb.disabled) {
+          cb.dataset.userTouched = "1";
+          cb.checked = true;
+        }
       });
     });
 
@@ -1975,7 +1983,10 @@ const renderNumistaFieldCheckboxes = (result) => {
       // Uncheck-all: skip blacklisted (!cb.disabled) AND on-item (!cb.dataset.onItem) — asymmetric by design.
       // Check-all only needs the blacklist guard; Uncheck-all needs both to preserve user opt-in signals.
       tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
-        if (!cb.disabled && !cb.dataset.onItem) cb.checked = false;
+        if (!cb.disabled && !cb.dataset.onItem) {
+          cb.dataset.userTouched = "1";
+          cb.checked = false;
+        }
       });
     });
   }
@@ -2192,7 +2203,7 @@ const fillFormFromNumistaResult = () => {
     });
     window._bulkEditNumistaCallback(fieldMap);
     window._bulkEditNumistaCallback = null;
-    closeNumistaResultsModal();
+    closeNumistaResultsModal({ clearPendingSnapshot: true });
     return;
   }
 
@@ -2459,10 +2470,13 @@ const fillFormFromNumistaResult = () => {
 /**
  * Close Numista results modal and clean up state
  */
-const closeNumistaResultsModal = () => {
+const closeNumistaResultsModal = (opts) => {
   const modal = document.getElementById("numistaResultsModal");
   if (modal) modal.style.display = "none";
   selectedNumistaResult = null;
+  if (opts == null || opts.clearPendingSnapshot !== false) {
+    window.pendingNumistaPickerSnapshot = null;
+  }
 };
 
 // Test function for Numista API
@@ -2869,17 +2883,43 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Close button
   if (numistaResultsCloseBtn) {
-    numistaResultsCloseBtn.addEventListener("click", closeNumistaResultsModal);
+    numistaResultsCloseBtn.addEventListener("click", () =>
+      closeNumistaResultsModal({ clearPendingSnapshot: true })
+    );
   }
 
   // Cancel button in field picker
   if (numistaFillCancelBtn) {
-    numistaFillCancelBtn.addEventListener("click", closeNumistaResultsModal);
+    numistaFillCancelBtn.addEventListener("click", () =>
+      closeNumistaResultsModal({ clearPendingSnapshot: true })
+    );
   }
 
   // Fill Fields button
   if (numistaFillBtn) {
     numistaFillBtn.addEventListener("click", function () {
+      // STRK-84: capture tag checkbox state BEFORE closeNumistaResultsModal
+      // tears down the picker DOM. The snapshot is consumed by the Add-branch
+      // submit handler in events.js after commitItemToInventory mints the UUID.
+      const pickerContainer = document.getElementById("numistaFieldCheckboxes");
+      if (pickerContainer && selectedNumistaResult) {
+        const checked = [];
+        const removed = [];
+        pickerContainer.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
+          if (cb.disabled) return;
+          if (cb.checked) {
+            checked.push(cb.dataset.tag);
+          } else if (cb.dataset.userTouched === "1") {
+            removed.push(cb.dataset.tag);
+          }
+        });
+        window.pendingNumistaPickerSnapshot = {
+          resultId: selectedNumistaResult.catalogId,
+          checked,
+          removed,
+        };
+      }
+
       if (selectedNumistaResult) {
         fillFormFromNumistaResult();
 
@@ -2894,7 +2934,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch((e) => console.warn("Metadata cache failed:", e));
         }
       }
-      closeNumistaResultsModal();
+      closeNumistaResultsModal({ clearPendingSnapshot: editingIndex != null });
     });
   }
 
@@ -2966,7 +3006,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (numistaResultsModal) {
     numistaResultsModal.addEventListener("click", function (e) {
       if (e.target === numistaResultsModal) {
-        closeNumistaResultsModal();
+        closeNumistaResultsModal({ clearPendingSnapshot: true });
       }
     });
   }
@@ -2977,7 +3017,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const resultsModal = document.getElementById("numistaResultsModal");
       if (resultsModal && resultsModal.style.display !== "none") {
         e.stopImmediatePropagation();
-        closeNumistaResultsModal();
+        closeNumistaResultsModal({ clearPendingSnapshot: true });
       }
     }
   });
