@@ -1488,14 +1488,14 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Year",
       value: result.year || "",
       available: !!result.year,
-      defaultOn: false,
+      defaultOn: !!result.year,
     },
     {
       key: "type",
       label: "Type",
       value: result.type || "",
       available: typeValid,
-      defaultOn: false,
+      defaultOn: typeValid,
       warn: result.type && !typeValid ? `"${result.type}" — not in form options` : "",
     },
     {
@@ -1719,14 +1719,14 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Orientation",
       value: result.orientation || "",
       available: !!result.orientation,
-      defaultOn: false,
+      defaultOn: !!result.orientation,
     },
     {
       key: "technique",
       label: "Technique",
       value: result.technique || "",
       available: !!result.technique,
-      defaultOn: false,
+      defaultOn: !!result.technique,
     },
     {
       key: "mintage",
@@ -1740,7 +1740,7 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Rarity Index",
       value: result.rarityIndex != null ? String(result.rarityIndex) : "",
       available: result.rarityIndex != null,
-      defaultOn: false,
+      defaultOn: result.rarityIndex != null && result.rarityIndex !== 0,
     },
     {
       key: "kmRef",
@@ -1761,28 +1761,28 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Commemorative Desc",
       value: result.commemorativeDesc || "",
       available: !!result.commemorativeDesc,
-      defaultOn: false,
+      defaultOn: !!result.commemorativeDesc,
     },
     {
       key: "obverseDesc",
       label: "Obverse Description",
       value: result.obverseDesc || "",
       available: !!result.obverseDesc,
-      defaultOn: false,
+      defaultOn: !!result.obverseDesc,
     },
     {
       key: "reverseDesc",
       label: "Reverse Description",
       value: result.reverseDesc || "",
       available: !!result.reverseDesc,
-      defaultOn: false,
+      defaultOn: !!result.reverseDesc,
     },
     {
       key: "edgeDesc",
       label: "Edge Description",
       value: result.edgeDesc || "",
       available: !!result.edgeDesc,
-      defaultOn: false,
+      defaultOn: !!result.edgeDesc,
     },
   ];
 
@@ -2241,12 +2241,21 @@ const fillFormFromNumistaResult = () => {
         // STAK-488: Always write the URL when checkbox is checked — the user controls
         // whether to overwrite via the field picker checkbox, not this guard.
         const el = elements.itemObverseImageUrl || safeGetElement("itemObverseImageUrl");
-        if (el) el.value = val;
+        if (el instanceof HTMLElement) {
+          el.value = val;
+          // Programmatic .value doesn't fire input events; dispatch one so
+          // scheduleUrlPreview() runs and the preview/frame-toggle UI updates
+          // without requiring the user to save and re-edit the item.
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         break;
       }
       case "reverseImage": {
         const el = elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl");
-        if (el) el.value = val;
+        if (el instanceof HTMLElement) {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         break;
       }
       case "metal": {
@@ -2889,9 +2898,15 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Click-sequence token: guards async handler against stale in-flight fetches
+  // overwriting selectedNumistaResult when the user clicks multiple cards rapidly.
+  let _numistaClickSeq = 0;
+
   // Delegated click on result cards → select and show field picker
   if (numistaResultsList) {
-    numistaResultsList.addEventListener("click", function (e) {
+    numistaResultsList.addEventListener("click", async function (e) {
+      const seq = ++_numistaClickSeq;
+
       // Let N# links open Numista without also selecting the row.
       const catalogLink = e.target.closest(".numista-result-id-link");
       if (catalogLink) {
@@ -2912,8 +2927,29 @@ document.addEventListener("DOMContentLoaded", function () {
         .forEach((c) => c.classList.remove("selected"));
       card.classList.add("selected");
 
-      // Transition to field picker
+      // Search results are lightweight — fetch full coin detail before populating
+      // the field picker so Composition / Shape / Diameter / Orientation / Technique /
+      // Edge Description / descriptions / tags are available. Falls back to the
+      // search hit on failure to preserve partial-data UX. lookupItem() is cached.
       selectedNumistaResult = results[index];
+      const detailCatalogId = selectedNumistaResult.catalogId;
+      if (detailCatalogId) {
+        const prevOpacity = card.style.opacity;
+        card.style.opacity = "0.5";
+        try {
+          const detail = await catalogAPI.lookupItem(detailCatalogId);
+          if (seq !== _numistaClickSeq) return;
+          if (detail) selectedNumistaResult = detail;
+        } catch (err) {
+          if (seq !== _numistaClickSeq) return;
+          console.warn("Numista detail fetch failed; using lightweight search result", err);
+        } finally {
+          card.style.opacity = prevOpacity;
+        }
+      }
+      if (seq !== _numistaClickSeq) return;
+
+      // Transition to field picker
       const preview = document.getElementById("numistaSelectedItem");
       const picker = document.getElementById("numistaFieldPicker");
       const title = document.getElementById("numistaResultsTitle");
