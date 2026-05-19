@@ -2898,9 +2898,15 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Click-sequence token: guards async handler against stale in-flight fetches
+  // overwriting selectedNumistaResult when the user clicks multiple cards rapidly.
+  let _numistaClickSeq = 0;
+
   // Delegated click on result cards → select and show field picker
   if (numistaResultsList) {
     numistaResultsList.addEventListener("click", async function (e) {
+      const seq = ++_numistaClickSeq;
+
       // Let N# links open Numista without also selecting the row.
       const catalogLink = e.target.closest(".numista-result-id-link");
       if (catalogLink) {
@@ -2932,13 +2938,16 @@ document.addEventListener("DOMContentLoaded", function () {
         card.style.opacity = "0.5";
         try {
           const detail = await catalogAPI.lookupItem(detailCatalogId);
+          if (seq !== _numistaClickSeq) return;
           if (detail) selectedNumistaResult = detail;
         } catch (err) {
+          if (seq !== _numistaClickSeq) return;
           console.warn("Numista detail fetch failed; using lightweight search result", err);
         } finally {
           card.style.opacity = prevOpacity;
         }
       }
+      if (seq !== _numistaClickSeq) return;
 
       // Transition to field picker
       const preview = document.getElementById("numistaSelectedItem");
