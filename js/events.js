@@ -1893,17 +1893,49 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
 
     // STRK-84: consume pending picker snapshot to apply tags for new Add Item
     const snap = window.pendingNumistaPickerSnapshot;
+    console.log("[STRK-84:TRACE] Submit consumer — snap:", JSON.stringify(snap));
+    console.log(
+      "[STRK-84:TRACE] f.catalog:",
+      JSON.stringify(f.catalog),
+      "addedItem.uuid:",
+      addedItem.uuid
+    );
+    console.log(
+      "[STRK-84:TRACE] applyNumistaTags available:",
+      typeof applyNumistaTags === "function"
+    );
     if (snap && typeof applyNumistaTags === "function") {
       const newUuid = addedItem.uuid;
+      console.log(
+        "[STRK-84:TRACE] snap.resultId:",
+        JSON.stringify(snap.resultId),
+        "=== f.catalog:",
+        snap.resultId === f.catalog,
+        "(types:",
+        typeof snap.resultId,
+        typeof f.catalog,
+        ")"
+      );
       if (snap.resultId === f.catalog) {
         if (snap.checked.length > 0) {
-          applyNumistaTags(newUuid, snap.checked, true, true);
+          console.log("[STRK-84:TRACE] Calling applyNumistaTags with:", newUuid, snap.checked);
+          const tagResult = applyNumistaTags(newUuid, snap.checked, true, true);
+          console.log("[STRK-84:TRACE] applyNumistaTags returned:", JSON.stringify(tagResult));
         }
         if (snap.removed.length > 0 && typeof addRemovedTag === "function") {
           snap.removed.forEach((tag) => addRemovedTag(newUuid, tag));
         }
+      } else {
+        console.warn("[STRK-84:TRACE] resultId/catalog MISMATCH — tags NOT applied");
       }
       window.pendingNumistaPickerSnapshot = null;
+    } else {
+      console.warn(
+        "[STRK-84:TRACE] No snapshot or applyNumistaTags missing — snap:",
+        !!snap,
+        "fn:",
+        typeof applyNumistaTags
+      );
     }
 
     // Record initial price data point (STACK-43)

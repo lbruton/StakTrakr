@@ -2471,10 +2471,26 @@ const fillFormFromNumistaResult = () => {
  * Close Numista results modal and clean up state
  */
 const closeNumistaResultsModal = (opts) => {
+  console.log(
+    "[STRK-84:TRACE] closeNumistaResultsModal called — opts:",
+    JSON.stringify(opts),
+    "snapshot before:",
+    JSON.stringify(window.pendingNumistaPickerSnapshot)
+  );
   const modal = document.getElementById("numistaResultsModal");
   if (modal) modal.style.display = "none";
   selectedNumistaResult = null;
-  if (opts == null || opts.clearPendingSnapshot !== false) {
+  const willClear = opts == null || opts.clearPendingSnapshot !== false;
+  console.log(
+    "[STRK-84:TRACE] closeModal willClear:",
+    willClear,
+    "(opts==null:",
+    opts == null,
+    "clearPendingSnapshot:",
+    opts?.clearPendingSnapshot,
+    ")"
+  );
+  if (willClear) {
     window.pendingNumistaPickerSnapshot = null;
   }
 };
@@ -2902,6 +2918,14 @@ document.addEventListener("DOMContentLoaded", function () {
       // tears down the picker DOM. The snapshot is consumed by the Add-branch
       // submit handler in events.js after commitItemToInventory mints the UUID.
       const pickerContainer = document.getElementById("numistaFieldCheckboxes");
+      console.log(
+        "[STRK-84:TRACE] Fill Fields clicked. pickerContainer:",
+        !!pickerContainer,
+        "selectedNumistaResult:",
+        !!selectedNumistaResult,
+        "catalogId:",
+        selectedNumistaResult?.catalogId
+      );
       if (pickerContainer && selectedNumistaResult) {
         const checked = [];
         const removed = [];
@@ -2918,6 +2942,12 @@ document.addEventListener("DOMContentLoaded", function () {
           checked,
           removed,
         };
+        console.log(
+          "[STRK-84:TRACE] Snapshot captured:",
+          JSON.stringify(window.pendingNumistaPickerSnapshot)
+        );
+      } else {
+        console.warn("[STRK-84:TRACE] Snapshot NOT captured — missing container or result");
       }
 
       if (selectedNumistaResult) {
@@ -2934,7 +2964,25 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch((e) => console.warn("Metadata cache failed:", e));
         }
       }
+      console.log(
+        "[STRK-84:TRACE] Before closeModal — editingIndex:",
+        typeof editingIndex !== "undefined" ? editingIndex : "UNDEFINED",
+        "clearPendingSnapshot:",
+        editingIndex != null
+      );
+      console.log(
+        "[STRK-84:TRACE] Snapshot BEFORE closeModal:",
+        JSON.stringify(window.pendingNumistaPickerSnapshot)
+      );
       closeNumistaResultsModal({ clearPendingSnapshot: editingIndex != null });
+      console.log(
+        "[STRK-84:TRACE] Snapshot AFTER closeModal:",
+        JSON.stringify(window.pendingNumistaPickerSnapshot)
+      );
+      console.log(
+        "[STRK-84:TRACE] itemCatalog value after fill:",
+        document.getElementById("itemCatalog")?.value
+      );
     });
   }
 
