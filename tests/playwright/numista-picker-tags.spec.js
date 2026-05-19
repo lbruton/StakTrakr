@@ -1403,4 +1403,59 @@ test.describe("numista-picker-tags — STRK-51 expanded Numista Data fields", ()
     expect(result.uuid).toBeTruthy();
     expect(result.removed).toHaveLength(0);
   });
+
+  test("24. STRK-87: Add Item clears catalog value after editing an item with Numista ID", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openEditForm(page);
+
+    await expect(page.locator("#itemCatalog")).toHaveValue(BASE_ITEM.numistaId);
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    await page.click("#newItemBtn");
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemCatalog")).toHaveValue("");
+
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "STRK-87 New Silver Dollar");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemPrice", "35");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    const saved = await page.evaluate(() => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      return inv.map((item) => ({ name: item.name, numistaId: item.numistaId || "" }));
+    });
+
+    expect(saved).toContainEqual({
+      name: "STRK-87 New Silver Dollar",
+      numistaId: "",
+    });
+  });
+
+  test("25. STRK-87: Add Item clears stale edit tag chips and handlers", async ({ page }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Scottsdale"] } });
+    await gotoApp(page);
+    await openEditForm(page);
+
+    await expect(page.locator("#itemModalTagsChips")).toContainText("Scottsdale");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    await page.click("#newItemBtn");
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemModalTagsChips")).toContainText("No tags");
+    await expect(page.locator("#itemModalTagsChips")).not.toContainText("Scottsdale");
+
+    await page.fill("#newTagInput", "LeakedTag");
+    await page.click("#addTagBtn");
+
+    const tags = await page.evaluate(() => JSON.parse(localStorage.getItem("itemTags") || "{}"));
+    expect(tags[ITEM_UUID]).toEqual(["Scottsdale"]);
+  });
 });

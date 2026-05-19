@@ -3967,6 +3967,17 @@ const setupSearch = () => {
           if (elements.itemMetal) elements.itemMetal.value = "";
           if (elements.itemType) elements.itemType.value = "";
           if (elements.itemSerial) elements.itemSerial.value = "";
+          if (elements.itemCatalog) elements.itemCatalog.value = "";
+          const addModeTagsChips = safeGetElement("itemModalTagsChips");
+          if (addModeTagsChips && typeof addModeTagsChips.appendChild === "function") {
+            addModeTagsChips.innerHTML = '<span class="tag-empty-hint">No tags</span>';
+          }
+          if (elements.newTagInput) {
+            elements.newTagInput.value = "";
+            elements.newTagInput.onkeydown = null;
+          }
+          if (elements.addTagBtn) elements.addTagBtn.onclick = null;
+          window._renderEditTags = null;
           // Reset spot lookup state (STACK-49)
           if (typeof syncSpotLookupButtons === "function") {
             syncSpotLookupButtons(!!elements.itemDate.value);

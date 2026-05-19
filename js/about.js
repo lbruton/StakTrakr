@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.74 &ndash; STRK-87: Add Item Numista reset hygiene</strong>: Add Item now explicitly clears stale Numista catalog and tag UI state after editing another item, preventing previous item catalog data or tag handlers from leaking into a new inventory entry (STRK-87).</li>
     <li><strong>v3.34.73 &ndash; STRK-84: Numista picker tags on first Fill Fields</strong>: Tag checkboxes selected in the Numista picker now persist on the first Fill Fields click when adding a new item &mdash; no second sync required; unchecked default-on tags are recorded as opt-outs for new items (STRK-84).</li>
     <li><strong>v3.34.72 &ndash; STRK-48: Per-oz/per-coin premium display</strong>: Valuation section shows premium % over spot at purchase, gain/loss %, and lot-aware rows (total + per-unit) in a 6-column grid; new synchronous spot lookup resolves nearest trading day from historical cache; also fixes catalogText search scope bug from STRK-86 (STRK-48).</li>
     <li><strong>v3.34.71 &ndash; STRK-49: Direct Print button for inventory</strong>: New one-click Print button in the Export card renders the full inventory as a landscape PDF and opens it in a new tab with auto-print; Restore ZIP Backup relocated to the Import card; Data Reset buttons now match card button sizing (STRK-49).</li>
