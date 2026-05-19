@@ -2474,7 +2474,8 @@ const closeNumistaResultsModal = (opts) => {
   const modal = document.getElementById("numistaResultsModal");
   if (modal) modal.style.display = "none";
   selectedNumistaResult = null;
-  if (opts == null || opts.clearPendingSnapshot !== false) {
+  const willClear = opts == null || opts.clearPendingSnapshot !== false;
+  if (willClear) {
     window.pendingNumistaPickerSnapshot = null;
   }
 };
@@ -2935,6 +2936,23 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       closeNumistaResultsModal({ clearPendingSnapshot: editingIndex != null });
+
+      // STRK-84: render preview tag chips in Add mode so the user sees
+      // which Numista tags will be applied after submit
+      const _addSnap = window.pendingNumistaPickerSnapshot;
+      if (_addSnap && editingIndex == null) {
+        const chipsEl = document.getElementById("itemModalTagsChips");
+        if (chipsEl) {
+          chipsEl.textContent = "";
+          _addSnap.checked.forEach((tag) => {
+            const chip = document.createElement("span");
+            chip.className = "tag-chip";
+            chip.textContent = tag;
+            chip.title = "Pending Numista tag — applied on save";
+            chipsEl.appendChild(chip);
+          });
+        }
+      }
     });
   }
 
