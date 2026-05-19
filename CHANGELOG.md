@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.74] - 2026-05-19
+
+### Changed — STRK-87: Add Item Numista reset hygiene
+
+- **Catalog reset hardening**: Add Item now explicitly clears the Numista catalog input after editing another item, so new entries cannot inherit a previous item's hidden catalog value if browser form reset behavior changes (STRK-87).
+- **Tag state cleanup**: Add Item clears stale edit-modal tag chips, tag input state, and edit-bound tag handlers so tags added in Add mode cannot write back to the previously edited item (STRK-87).
+- **Regression coverage**: Added Playwright coverage for edit-with-Numista-ID → Add Item and edit-with-tags → Add Item flows (STRK-87).
+
+---
+
 ## [3.34.73] - 2026-05-18
 
 ### Changed — STRK-84: Numista picker tags applied on first Fill Fields for new items

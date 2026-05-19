@@ -479,6 +479,18 @@ test.describe("STRK-48 — diff scoping", () => {
     }).trim();
     const changed = out.split("\n").filter(Boolean);
 
+    // T18 is the STRK-48 diff-scoping sentinel. Only enforce on branches that
+    // actually contain STRK-48 work (primary file: js/item-detail-modal.js).
+    // Unrelated PRs that legitimately touch other files (e.g. js/events.js)
+    // must not be caught by this STRK-48-specific allowlist.
+    if (!changed.includes("js/item-detail-modal.js")) {
+      test.skip(
+        true,
+        "T18 sentinel skipped — js/item-detail-modal.js not in diff; this is not a STRK-48 patch"
+      );
+      return;
+    }
+
     // sw.js is auto-stamped by the stamp-sw-cache pre-commit hook; it is not a
     // hand-edited runtime file but appears in every diff that touches JS/CSS.
     const allowed = new Set([

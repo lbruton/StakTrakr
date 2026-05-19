@@ -1404,3 +1404,88 @@ test.describe("numista-picker-tags — STRK-51 expanded Numista Data fields", ()
     expect(result.removed).toHaveLength(0);
   });
 });
+
+test.describe("numista-picker-tags — STRK-87 Add mode reset hygiene", () => {
+  test("24. STRK-87: Add Item clears catalog value after editing an item with Numista ID", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openEditForm(page);
+
+    await expect(page.locator("#itemCatalog")).toHaveValue(BASE_ITEM.numistaId);
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    await page.click("#newItemBtn");
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemCatalog")).toHaveValue("");
+
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "STRK-87 New Silver Dollar");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemPrice", "35");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    const saved = await page.evaluate(() => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      return inv.map((item) => ({ name: item.name, numistaId: item.numistaId || "" }));
+    });
+
+    expect(saved).toContainEqual({
+      name: "STRK-87 New Silver Dollar",
+      numistaId: "",
+    });
+  });
+
+  test("25. STRK-87: Add Item clears stale edit tag chips and handlers", async ({ page }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Scottsdale"] } });
+    await gotoApp(page);
+    await openEditForm(page);
+
+    await expect(page.locator("#itemModalTagsChips")).toContainText("Scottsdale");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    await page.click("#newItemBtn");
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemModalTagsChips")).toContainText("No tags");
+    await expect(page.locator("#itemModalTagsChips")).not.toContainText("Scottsdale");
+
+    // Add a tag in Add mode and verify chip appears
+    await page.fill("#newTagInput", "LeakedTag");
+    await page.click("#addTagBtn");
+    await expect(page.locator("#itemModalTagsChips")).toContainText("LeakedTag");
+
+    // Fill required fields and save the new item
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "STRK-87 Tag Hygiene Item");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemPrice", "35");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    // Verify tag durability: LeakedTag is saved under the new item's UUID
+    const result = await page.evaluate((seedUuid) => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      const newItem = inv.find((item) => item.uuid && item.uuid !== seedUuid);
+      if (!newItem) return { newUuid: null, newItemTags: [], seededItemTags: [] };
+      const tags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+      return {
+        newUuid: newItem.uuid,
+        newItemTags: tags[newItem.uuid] || [],
+        seededItemTags: tags[seedUuid] || [],
+      };
+    }, ITEM_UUID);
+
+    // New item must have LeakedTag durably saved under its own UUID
+    expect(result.newUuid).toBeTruthy();
+    expect(result.newItemTags).toContain("LeakedTag");
+
+    // Hygiene: the seeded item's tags must remain unchanged (no leak)
+    expect(result.seededItemTags).toEqual(["Scottsdale"]);
+  });
+});
