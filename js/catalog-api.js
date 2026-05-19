@@ -2241,7 +2241,7 @@ const fillFormFromNumistaResult = () => {
         // STAK-488: Always write the URL when checkbox is checked — the user controls
         // whether to overwrite via the field picker checkbox, not this guard.
         const el = elements.itemObverseImageUrl || safeGetElement("itemObverseImageUrl");
-        if (el) {
+        if (el instanceof HTMLElement) {
           el.value = val;
           // Programmatic .value doesn't fire input events; dispatch one so
           // scheduleUrlPreview() runs and the preview/frame-toggle UI updates
@@ -2252,7 +2252,7 @@ const fillFormFromNumistaResult = () => {
       }
       case "reverseImage": {
         const el = elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl");
-        if (el) {
+        if (el instanceof HTMLElement) {
           el.value = val;
           el.dispatchEvent(new Event("input", { bubbles: true }));
         }
