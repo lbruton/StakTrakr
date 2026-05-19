@@ -2474,7 +2474,7 @@ const closeNumistaResultsModal = (opts) => {
   const modal = document.getElementById("numistaResultsModal");
   if (modal) modal.style.display = "none";
   selectedNumistaResult = null;
-  if (!opts || opts.clearPendingSnapshot !== false) {
+  if (opts == null || opts.clearPendingSnapshot !== false) {
     window.pendingNumistaPickerSnapshot = null;
   }
 };
@@ -2934,7 +2934,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch((e) => console.warn("Metadata cache failed:", e));
         }
       }
-      closeNumistaResultsModal({ clearPendingSnapshot: false });
+      closeNumistaResultsModal({ clearPendingSnapshot: editingIndex != null });
     });
   }
 
