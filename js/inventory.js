@@ -1491,17 +1491,21 @@ const editItem = (idx, logIdx = null) => {
 
   // Convert stored USD values to display currency for the form (STACK-50)
   // STRK-88: round to active currency precision to prevent drifted-float display
-  // (e.g. 56.66666666666667 → 56.67 in the #itemPrice field)
+  // (e.g. 56.66666666666667 → 56.67 in the #itemPrice field).
+  // Use roundToPricePrecision + toFixed(digits) to preserve trailing zeros
+  // (String() on a number drops them: 1700.00 → "1700"). T2/T14 fix.
   const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
-  const _roundDisplay =
+  const _fracDigits =
+    typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+  const _fmtDisplay =
     typeof roundToPricePrecision === "function"
-      ? roundToPricePrecision
-      : (v) => parseFloat(Number(v).toFixed(2));
+      ? (v) => roundToPricePrecision(v).toFixed(_fracDigits)
+      : (v) => Number(v).toFixed(2);
   const displayPrice =
-    item.price > 0 ? String(_roundDisplay(fxRate !== 1 ? item.price * fxRate : item.price)) : "";
+    item.price > 0 ? _fmtDisplay(fxRate !== 1 ? item.price * fxRate : item.price) : "";
   const displayMv =
     item.marketValue > 0
-      ? String(_roundDisplay(fxRate !== 1 ? item.marketValue * fxRate : item.marketValue))
+      ? _fmtDisplay(fxRate !== 1 ? item.marketValue * fxRate : item.marketValue)
       : "";
   elements.itemPrice.value = displayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = displayMv;
@@ -1745,14 +1749,16 @@ const editItem = (idx, logIdx = null) => {
         const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
         const perUnitFull = item.price > 0 ? item.price * fxRate : 0;
         if (!isNaN(perUnitFull) && perUnitFull > 0) {
-          // STRK-88: round the restored LOT total to currency precision
+          // STRK-88: round the restored LOT total to currency precision and
+          // preserve trailing zeros via toFixed(digits). T2/T14 fix.
           const lotTotal = perUnitFull * item.qty;
-          const _roundLot =
+          const _lotFracDigits =
+            typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+          const _fmtLot =
             typeof roundToPricePrecision === "function"
-              ? roundToPricePrecision
-              : (v) => parseFloat(Number(v).toFixed(2));
-          const roundedLot = _roundLot(lotTotal);
-          priceEl.value = String(roundedLot);
+              ? (v) => roundToPricePrecision(v).toFixed(_lotFracDigits)
+              : (v) => Number(v).toFixed(2);
+          priceEl.value = _fmtLot(lotTotal);
           // Seed the exact-lot cache so EACH→LOT toggle can restore the original total (STRK-88)
           if (typeof window.purchasePriceSeedLotCache === "function") {
             // Cache the full-precision lot total so toggle can recover it losslessly.
@@ -1894,19 +1900,20 @@ const duplicateItem = (idx) => {
   }
 
   // Convert stored USD values to display currency for the form (STACK-50)
-  // STRK-88: round to active currency precision to prevent drifted-float display
+  // STRK-88: round to active currency precision to prevent drifted-float display.
+  // Use toFixed(digits) to preserve trailing zeros (String() drops them). T2/T14 fix.
   const dupFxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
-  const _dupRoundDisplay =
+  const _dupFracDigits =
+    typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+  const _dupFmtDisplay =
     typeof roundToPricePrecision === "function"
-      ? roundToPricePrecision
-      : (v) => parseFloat(Number(v).toFixed(2));
+      ? (v) => roundToPricePrecision(v).toFixed(_dupFracDigits)
+      : (v) => Number(v).toFixed(2);
   let dupDisplayPrice =
-    item.price > 0
-      ? String(_dupRoundDisplay(dupFxRate !== 1 ? item.price * dupFxRate : item.price))
-      : "";
+    item.price > 0 ? _dupFmtDisplay(dupFxRate !== 1 ? item.price * dupFxRate : item.price) : "";
   const dupDisplayMv =
     item.marketValue > 0
-      ? String(_dupRoundDisplay(dupFxRate !== 1 ? item.marketValue * dupFxRate : item.marketValue))
+      ? _dupFmtDisplay(dupFxRate !== 1 ? item.marketValue * dupFxRate : item.marketValue)
       : "";
   elements.itemPrice.value = dupDisplayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = dupDisplayMv;
@@ -1966,7 +1973,7 @@ const duplicateItem = (idx) => {
     if (isLot && elements.itemPrice) {
       const lotTotal = (item.price > 0 ? item.price * dupFxRate : 0) * Number(item.qty || 0);
       if (Number.isFinite(lotTotal) && lotTotal > 0) {
-        dupDisplayPrice = String(_dupRoundDisplay(lotTotal));
+        dupDisplayPrice = _dupFmtDisplay(lotTotal);
         elements.itemPrice.value = dupDisplayPrice;
         if (typeof window.purchasePriceSeedLotCache === "function") {
           window.purchasePriceSeedLotCache(lotTotal, Number(item.qty));

@@ -86,12 +86,43 @@ const createLotEachToggle = (config) => {
 
     let convertedPrice;
     if (nextMode === "each") {
-      // LOT → EACH: cache the exact lot price before rounding (STRK-88)
-      _lotExactPrice = { price, qty };
+      // LOT → EACH: cache the exact lot price before rounding (STRK-88).
+      // If a seed already exists for this qty and the displayed price is just the
+      // rounded form of the seeded exact total (e.g. from duplicateItem seeding),
+      // preserve the exact seeded value rather than replacing it with the rounded
+      // display value — otherwise the first toggle discards the precision we seeded.
+      const seededForQty = _lotExactPrice !== null && _lotExactPrice.qty === qty;
+      const displayedMatchesSeed =
+        seededForQty &&
+        (() => {
+          const rounded =
+            typeof roundDisplay === "function"
+              ? roundDisplay(_lotExactPrice.price)
+              : Number(_lotExactPrice.price.toFixed(6));
+          return Math.abs(price - rounded) < 1e-9;
+        })();
+      if (!displayedMatchesSeed) {
+        _lotExactPrice = { price, qty };
+      }
+      // else: keep the existing seeded exact value — T15 fix
       convertedPrice = price / qty;
     } else {
-      // EACH → LOT: restore exact lot price if qty matches (STRK-88)
-      if (_lotExactPrice !== null && _lotExactPrice.qty === qty) {
+      // EACH → LOT: restore exact lot price only if qty matches AND user hasn't
+      // edited the EACH value since the last LOT→EACH conversion (STRK-88).
+      // Without this guard, toggling back after a manual EACH edit would restore
+      // the stale cached total instead of computing from the new per-unit price.
+      const cacheValid =
+        _lotExactPrice !== null &&
+        _lotExactPrice.qty === qty &&
+        (() => {
+          const cachedEach = _lotExactPrice.price / qty;
+          const roundedCachedEach =
+            typeof roundDisplay === "function"
+              ? roundDisplay(cachedEach)
+              : Number(cachedEach.toFixed(6));
+          return Math.abs(price - roundedCachedEach) < 1e-9;
+        })();
+      if (cacheValid) {
         convertedPrice = _lotExactPrice.price;
       } else {
         convertedPrice = price * qty;
@@ -102,9 +133,15 @@ const createLotEachToggle = (config) => {
 
     // Use provided roundDisplay callback (STRK-88 purchase toggle), or fall back to
     // toFixed(6) for disposeAmountToggle which preserves its existing higher-precision behavior.
+    // Use .toFixed(digits) to preserve trailing zeros (e.g. 1700.00, not 1700).
     const displayValue =
       typeof roundDisplay === "function"
-        ? String(roundDisplay(convertedPrice))
+        ? (() => {
+            const rounded = roundDisplay(convertedPrice);
+            const digits =
+              typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+            return rounded.toFixed(digits);
+          })()
         : Number(convertedPrice.toFixed(6)).toString();
 
     priceEl.value = displayValue;

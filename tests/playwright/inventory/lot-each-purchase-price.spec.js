@@ -182,7 +182,7 @@ async function getInventoryItem(page, name) {
 
 async function captureNumistaCsvExport(page) {
   return page.evaluate(() => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const originalCreateObjectURL = URL.createObjectURL;
       URL.createObjectURL = (blob) => {
         const reader = new FileReader();
@@ -190,10 +190,19 @@ async function captureNumistaCsvExport(page) {
           URL.createObjectURL = originalCreateObjectURL;
           resolve(reader.result);
         };
+        reader.onerror = () => {
+          URL.createObjectURL = originalCreateObjectURL;
+          reject(new Error("FileReader failed to read export blob"));
+        };
         reader.readAsText(blob);
         return originalCreateObjectURL.call(URL, blob);
       };
-      window.exportNumistaCsv();
+      try {
+        window.exportNumistaCsv();
+      } catch (err) {
+        URL.createObjectURL = originalCreateObjectURL;
+        reject(err);
+      }
     });
   });
 }
@@ -525,7 +534,7 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
 // STRK-88 — Floating-point price artifact: purchase price rounding
 // =============================================================================
 
-test.describe("STRK-88 — Purchase price rounding (RED — must fail before implementation)", () => {
+test.describe("STRK-88 — Purchase price rounding", () => {
   // AC-1: LOT→EACH toggle displays currency-rounded value (not 6-decimal raw)
 
   test("18. STRK-88 AC-1: $1700 LOT/qty 30 toggles to $56.67 EACH (not $56.666667)", async ({

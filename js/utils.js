@@ -713,7 +713,7 @@ const getCurrencyFractionDigits = (currency) => {
 const roundToPricePrecision = (value, currency) => {
   const digits = getCurrencyFractionDigits(currency);
   const factor = Math.pow(10, digits);
-  return Math.round(value * factor) / factor;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
 /**
@@ -991,11 +991,15 @@ const convertToUsd = (amount, currency = "USD") => {
   if (code === "USD") return amount;
   if (typeof getExchangeRate === "function") {
     const rate = getExchangeRate(code);
-    if (Number.isFinite(rate) && rate > 0) return amount / rate;
+    // rate === 1 for a non-USD currency is the sentinel value (no rate loaded);
+    // fall through to the static table rather than silently returning the wrong value.
+    if (Number.isFinite(rate) && rate > 0 && rate !== 1) return amount / rate;
   }
-  const rates = { EUR: 1.08, GBP: 1.27, CAD: 0.74 };
+  // Static fallback — rates expressed as foreign-per-USD (same convention as getExchangeRate).
+  // 1 USD = N foreign → USD = amount / N
+  const rates = { EUR: 0.926, GBP: 0.787, CAD: 1.351 };
   const rate = rates[code] || 1;
-  return amount * rate;
+  return amount / rate;
 };
 
 /**
