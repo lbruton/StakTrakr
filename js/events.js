@@ -58,9 +58,13 @@ const optionalListener = (el, event, handler, label) => {
 // =============================================================================
 
 const createLotEachToggle = (config) => {
-  const { toggleId, priceInputId, qtyInputId, eachPlaceholder, lotPlaceholder } = config;
+  const { toggleId, priceInputId, qtyInputId, eachPlaceholder, lotPlaceholder, roundDisplay } =
+    config;
   let mode = "each";
   let userInteracted = false;
+  /** @STRK-88 Cache the exact LOT price the user typed, keyed to qty, so LOT→EACH→LOT
+   *  can restore the original value without floating-point round-trip drift. */
+  let _lotExactPrice = null; // {price: number, qty: number} | null
 
   const getButtons = () => {
     const toggle = safeGetElement(toggleId);
@@ -80,10 +84,67 @@ const createLotEachToggle = (config) => {
     if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
     if (!Number.isFinite(qty) || qty <= 1) return;
 
-    const convertedPrice = nextMode === "each" ? price / qty : price * qty;
+    let convertedPrice;
+    if (nextMode === "each") {
+      // LOT → EACH: cache the exact lot price before rounding (STRK-88).
+      // If a seed already exists for this qty and the displayed price is just the
+      // rounded form of the seeded exact total (e.g. from duplicateItem seeding),
+      // preserve the exact seeded value rather than replacing it with the rounded
+      // display value — otherwise the first toggle discards the precision we seeded.
+      const seededForQty = _lotExactPrice !== null && _lotExactPrice.qty === qty;
+      const displayedMatchesSeed =
+        seededForQty &&
+        (() => {
+          const rounded =
+            typeof roundDisplay === "function"
+              ? roundDisplay(_lotExactPrice.price)
+              : Number(_lotExactPrice.price.toFixed(6));
+          return Math.abs(price - rounded) < 1e-9;
+        })();
+      if (!displayedMatchesSeed) {
+        _lotExactPrice = { price, qty };
+      }
+      // else: keep the existing seeded exact value — T15 fix
+      convertedPrice = price / qty;
+    } else {
+      // EACH → LOT: restore exact lot price only if qty matches AND user hasn't
+      // edited the EACH value since the last LOT→EACH conversion (STRK-88).
+      // Without this guard, toggling back after a manual EACH edit would restore
+      // the stale cached total instead of computing from the new per-unit price.
+      const cacheValid =
+        _lotExactPrice !== null &&
+        _lotExactPrice.qty === qty &&
+        (() => {
+          const cachedEach = _lotExactPrice.price / qty;
+          const roundedCachedEach =
+            typeof roundDisplay === "function"
+              ? roundDisplay(cachedEach)
+              : Number(cachedEach.toFixed(6));
+          return Math.abs(price - roundedCachedEach) < 1e-9;
+        })();
+      if (cacheValid) {
+        convertedPrice = _lotExactPrice.price;
+      } else {
+        convertedPrice = price * qty;
+        _lotExactPrice = null;
+      }
+    }
     if (!Number.isFinite(convertedPrice) || convertedPrice <= 0) return;
 
-    priceEl.value = Number(convertedPrice.toFixed(6)).toString();
+    // Use provided roundDisplay callback (STRK-88 purchase toggle), or fall back to
+    // toFixed(6) for disposeAmountToggle which preserves its existing higher-precision behavior.
+    // Use .toFixed(digits) to preserve trailing zeros (e.g. 1700.00, not 1700).
+    const displayValue =
+      typeof roundDisplay === "function"
+        ? (() => {
+            const rounded = roundDisplay(convertedPrice);
+            const digits =
+              typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+            return rounded.toFixed(digits);
+          })()
+        : Number(convertedPrice.toFixed(6)).toString();
+
+    priceEl.value = displayValue;
     priceEl.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
@@ -119,6 +180,9 @@ const createLotEachToggle = (config) => {
   };
   const resetInteracted = () => {
     userInteracted = false;
+    // STRK-88: clear exact-lot cache on modal reset/close so stale LOT prices
+    // don't bleed across sessions or between add→edit modal openings.
+    _lotExactPrice = null;
   };
 
   // Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
@@ -135,9 +199,34 @@ const createLotEachToggle = (config) => {
     toggle.classList.toggle("is-hidden", !showToggle);
 
     if (!showToggle && mode === "lot") {
+      // STRK-88: changing qty while LOT active invalidates the exact-lot cache
+      _lotExactPrice = null;
       setMode("each", { convertInput: false });
     }
     updatePlaceholder();
+  };
+
+  /**
+   * Seeds the exact-lot price cache so callers like editItem can prime the cache
+   * when restoring a saved LOT item. This allows the user to toggle EACH→LOT
+   * and recover the original unrounded lot total without drift (STRK-88).
+   * @param {number} lotPrice - The exact lot total (in display currency)
+   * @param {number} qty      - Quantity the lot price corresponds to
+   */
+  const seedLotCache = (lotPrice, qty) => {
+    if (Number.isFinite(lotPrice) && lotPrice > 0 && Number.isFinite(qty) && qty > 1) {
+      _lotExactPrice = { price: lotPrice, qty };
+    }
+  };
+
+  const getExactLotPrice = (displayedLotPrice, qty) => {
+    if (_lotExactPrice === null || _lotExactPrice.qty !== qty) return null;
+    if (!Number.isFinite(displayedLotPrice) || displayedLotPrice <= 0) return null;
+    const round =
+      typeof roundDisplay === "function"
+        ? roundDisplay
+        : (value) => Number(Number(value).toFixed(6));
+    return round(_lotExactPrice.price) === round(displayedLotPrice) ? _lotExactPrice.price : null;
   };
 
   return {
@@ -148,6 +237,8 @@ const createLotEachToggle = (config) => {
     wasInteracted,
     markInteracted,
     resetInteracted,
+    seedLotCache,
+    getExactLotPrice,
   };
 };
 
@@ -157,6 +248,8 @@ const purchasePriceToggle = createLotEachToggle({
   qtyInputId: "itemQty",
   eachPlaceholder: "Each",
   lotPlaceholder: "Lot total",
+  // STRK-88: round display values to active currency precision for purchase prices
+  roundDisplay: typeof roundToPricePrecision === "function" ? roundToPricePrecision : null,
 });
 
 const resetPurchasePriceToggle = () => {
@@ -166,6 +259,16 @@ const resetPurchasePriceToggle = () => {
 };
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
+
+// Seeds the lot-price cache for a given lotTotal / qty pair (STRK-88).
+// Called by inventory.js editItem after it writes the LOT total to #itemPrice
+// so the user can toggle EACH→LOT and recover the exact typed amount.
+window.purchasePriceSeedLotCache = (lotPrice, qty) => {
+  purchasePriceToggle.seedLotCache(lotPrice, qty);
+};
+
+window.purchasePriceGetExactLotPrice = (displayedLotPrice, qty) =>
+  purchasePriceToggle.getExactLotPrice(displayedLotPrice, qty);
 
 // Sets toggle to storedMode, defaulting legacy records with no mode to Each.
 // Returns true if lot mode is active after visibility resolution (caller may need to adjust price field).
@@ -1442,7 +1545,16 @@ const parseItemFormFields = (isEditing, existingItem) => {
 
   if (purchasePriceToggle.getMode() === "lot" && priceInput !== "") {
     const rawInput = parseFloat(priceInput) || 0;
-    priceInput = parsedQty > 0 ? String(parseFloat((rawInput / parsedQty).toFixed(6))) : "0";
+    if (parsedQty > 0) {
+      const exactLotPrice =
+        typeof window.purchasePriceGetExactLotPrice === "function"
+          ? window.purchasePriceGetExactLotPrice(rawInput, parsedQty)
+          : null;
+      const lotPrice = exactLotPrice ?? rawInput;
+      priceInput = String(lotPrice / parsedQty);
+    } else {
+      priceInput = "0";
+    }
   }
 
   const weightUnit = elements.itemWeightUnit.value;

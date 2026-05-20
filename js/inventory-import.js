@@ -977,6 +977,11 @@
 
     const sortedInventory = sortInventoryByDateNewestFirst();
     const rows = [];
+    const fxRate = typeof getExchangeRate === "function" ? getExchangeRate(displayCurrency) : 1;
+    const fracDigits =
+      typeof getCurrencyFractionDigits === "function"
+        ? getCurrencyFractionDigits(displayCurrency)
+        : 2;
 
     for (const item of sortedInventory) {
       const year = item.year || item.issuedYear || "";
@@ -1018,7 +1023,16 @@
         item.qty || "",
         item.type || "",
         weightGrams ? weightGrams.toFixed(2) : "",
-        purchasePrice != null ? Number(purchasePrice).toFixed(2) : "",
+        // STRK-88 (D-6): Convert internal USD price to display currency to match the
+        // column header "Buying price (${displayCurrency})". The importer reads this column
+        // and calls convertToUsd(amount, headerCurrency), so exporting raw USD under a
+        // non-USD header causes round-trip inflation.
+        (() => {
+          if (purchasePrice === null || purchasePrice === undefined) return "";
+          const usdVal = Number(purchasePrice);
+          if (isNaN(usdVal)) return "";
+          return (usdVal * fxRate).toFixed(fracDigits);
+        })(),
         item.purchaseLocation || "",
         item.storageLocation || "",
         item.date || "",
