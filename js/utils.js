@@ -675,6 +675,48 @@ const getCurrencySymbol = (currency) => {
 };
 
 /**
+ * Returns the number of minor-unit fraction digits for a currency code.
+ * Uses Intl.NumberFormat to resolve the correct decimal count per ISO 4217.
+ * Examples: USD → 2, EUR → 2, JPY → 0, KWD → 3.
+ *
+ * @param {string} [currency] - ISO 4217 code; defaults to displayCurrency
+ * @returns {number} Number of fraction digits (typically 2 for most currencies)
+ * @STRK-88
+ */
+const getCurrencyFractionDigits = (currency) => {
+  const code = (
+    currency || (typeof displayCurrency !== "undefined" ? displayCurrency : "USD")
+  ).toUpperCase();
+  try {
+    const cacheKey = `frac-${code}`;
+    let cached = numberFormatCache.get(cacheKey);
+    if (!cached) {
+      cached = new Intl.NumberFormat(undefined, { style: "currency", currency: code });
+      numberFormatCache.set(cacheKey, cached);
+    }
+    return cached.resolvedOptions().minimumFractionDigits;
+  } catch (e) {
+    return 2; // safe default
+  }
+};
+
+/**
+ * Rounds a numeric price value to the active display-currency's minor-unit precision.
+ * Prevents floating-point drift artifacts such as "56.666667" from appearing in
+ * price input fields after LOT/EACH toggle conversions (STRK-88).
+ *
+ * @param {number} value - Price value to round (in display currency units)
+ * @param {string} [currency] - ISO 4217 code; defaults to displayCurrency
+ * @returns {number} Rounded value
+ * @STRK-88
+ */
+const roundToPricePrecision = (value, currency) => {
+  const digits = getCurrencyFractionDigits(currency);
+  const factor = Math.pow(10, digits);
+  return Math.round(value * factor) / factor;
+};
+
+/**
  * Updates the add/edit modal's currency symbols and placeholders (STACK-50)
  * Sets the CSS custom property --currency-symbol on .currency-input wrappers
  * and updates input placeholders with the current currency code.
@@ -3379,6 +3421,8 @@ if (typeof window !== "undefined") {
   window.loadDisplayCurrency = loadDisplayCurrency;
   window.saveDisplayCurrency = saveDisplayCurrency;
   window.getCurrencySymbol = getCurrencySymbol;
+  window.getCurrencyFractionDigits = getCurrencyFractionDigits;
+  window.roundToPricePrecision = roundToPricePrecision;
   window.updateModalCurrencyUI = updateModalCurrencyUI;
   window.getExchangeRate = getExchangeRate;
   window.loadExchangeRates = loadExchangeRates;
@@ -3402,6 +3446,8 @@ if (typeof module !== "undefined" && module.exports) {
     getContrastColor,
     debounce,
     generateUUID,
+    getCurrencyFractionDigits,
+    roundToPricePrecision,
     setButtonLoading,
     escapeHtml,
   };

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.75] - 2026-05-20
+
+### Changed — STRK-88: Lot/each purchase price rounding and CSV normalization
+
+- **Precision rounding**: Preserved full decimal precision in memory for purchase price values while formatting them for display in UI grids, inputs, and duplicate/edit modal states (STRK-88).
+- **Lot/each toggle**: Parameterized lot/each toggle helpers to safely initialize and restore toggle states during edit, duplication, and quantity boundaries (STRK-88).
+- **Numista import/export**: Normalized CSV parsing/export routines to support decimal-precision purchase values across both lot and unit boundaries (STRK-88).
+- **Test coverage**: Corrected Playwright tests for lot/each purchase price rounding, ensuring deterministic validation in localized environments (STRK-88).
+
+---
+
 ## [3.34.74] - 2026-05-19
 
 ### Changed — STRK-87: Add Item Numista reset hygiene

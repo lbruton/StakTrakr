@@ -479,3 +479,203 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await expect.poll(() => page.evaluate(() => window.__strk23PriceInputEvents)).toBe(1);
   });
 });
+
+// =============================================================================
+// STRK-88 — Floating-point price artifact: purchase price rounding
+// =============================================================================
+
+test.describe("STRK-88 — Purchase price rounding (RED — must fail before implementation)", () => {
+  // AC-1: LOT→EACH toggle displays currency-rounded value (not 6-decimal raw)
+
+  test("18. STRK-88 AC-1: $1700 LOT/qty 30 toggles to $56.67 EACH (not $56.666667)", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemQty", "30");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "1700");
+    await selectPurchaseMode(page, "each");
+
+    // Should show $56.67 (2dp USD), NOT 56.666667
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+  });
+
+  test("19. STRK-88 AC-1: EACH→LOT with exact-lot cache restores original $1700", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemQty", "30");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "1700");
+    await selectPurchaseMode(page, "each");
+
+    // LOT→EACH: should now show 56.67
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+
+    // EACH→LOT: with exact LOT cache, should restore original $1700
+    await selectPurchaseMode(page, "lot");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+  });
+
+  // AC-2: Mode emits exactly one input event after conversion (regression guard)
+
+  test("20. STRK-88 AC-2: toggle emits exactly one input event after LOT→EACH conversion", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemQty", "30");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "1700");
+
+    await page.evaluate(() => {
+      window.__strk88InputEvents = 0;
+      document.getElementById("itemPrice").addEventListener("input", () => {
+        window.__strk88InputEvents += 1;
+      });
+    });
+
+    await selectPurchaseMode(page, "each");
+    await expect.poll(() => page.evaluate(() => window.__strk88InputEvents)).toBe(1);
+  });
+
+  // AC-3a: Edit-mode EACH reopens with rounded value (not raw 6dp float)
+
+  test("21. STRK-88 AC-3b: editing an EACH-saved item with drift reopens in EACH mode showing $56.67", async ({
+    page,
+  }) => {
+    const itemName = "STRK-88 EACH Edit Restore";
+    const EACH_ITEM = {
+      ...BASE_ITEM,
+      uuid: "strk88-each-restore",
+      name: itemName,
+      qty: 30,
+      price: 56.66666666666667, // legacy drifted value (1700/30 stored as raw float)
+      pricingType: "each",
+    };
+
+    await seedData(page, { inventory: [EACH_ITEM] });
+    await gotoApp(page);
+    await openEditModal(page);
+
+    // Verify EACH mode and rounded display
+    await expect(purchaseModeButton(page, "each")).toHaveClass(/active/);
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+  });
+
+  // AC-3a: Edit-mode LOT restore shows $1700 and rehydrates exact-lot cache
+
+  test("22. STRK-88 AC-3a: editing a LOT-saved item reopens in LOT mode showing $1700", async ({
+    page,
+  }) => {
+    const itemName = "STRK-88 LOT Edit Restore";
+    const LOT_ITEM = {
+      ...BASE_ITEM,
+      uuid: "strk88-lot-restore",
+      name: itemName,
+      qty: 30,
+      price: 1700 / 30, // stored per-unit
+      pricingType: "lot",
+    };
+
+    await seedData(page, { inventory: [LOT_ITEM] });
+    await gotoApp(page);
+    await openEditModal(page);
+
+    // Should be in LOT mode, showing $1700
+    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+
+    // Cache should be rehydrated: switching to EACH shows $56.67
+    await selectPurchaseMode(page, "each");
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+
+    // Switching back to LOT recovers $1700 (not 56.67 × 30 = 1700.10)
+    await selectPurchaseMode(page, "lot");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+  });
+
+  // AC-4: Changing qty in LOT mode invalidates the exact-lot cache
+
+  test("23. STRK-88 AC-4: changing qty while LOT mode active clears the exact-lot cache", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await page.fill("#itemQty", "30");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "1700");
+
+    // Prime the exact-lot cache via LOT→EACH→LOT cycle
+    await selectPurchaseMode(page, "each");
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+    await selectPurchaseMode(page, "lot");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+
+    // Changing qty should invalidate the old cache
+    await page.fill("#itemQty", "10");
+    await page.fill("#itemPrice", "1000");
+
+    // LOT→EACH: should use new qty (1000/10=100, rounded to $100.00)
+    await selectPurchaseMode(page, "each");
+    await expect(page.locator("#itemPrice")).toHaveValue("100");
+
+    // EACH→LOT with no old cache: should compute 100*10=1000
+    await selectPurchaseMode(page, "lot");
+    await expect(page.locator("#itemPrice")).toHaveValue("1000");
+  });
+
+  // AC-5a: Duplicate mode rounds drifted EACH values
+
+  test("24. STRK-88 AC-5a: duplicating a drifted EACH item rounds the price display", async ({
+    page,
+  }) => {
+    const DRIFTED_ITEM = {
+      ...BASE_ITEM,
+      uuid: "strk88-drifted-each",
+      name: "STRK-88 Drifted Each",
+      qty: 4,
+      price: 56.66666666666667, // legacy drifted value (1700/30 stored as raw float)
+      pricingType: "each",
+    };
+
+    await seedData(page, { inventory: [DRIFTED_ITEM] });
+    await gotoApp(page);
+    await openCloneModal(page);
+
+    // Should show rounded $56.67, not $56.666667
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+  });
+
+  // AC-5b: Duplicate mode for a LOT source item shows per-unit rounded price in EACH mode
+
+  test("25. STRK-88 AC-5b: duplicating a LOT-saved item shows rounded per-unit price", async ({
+    page,
+  }) => {
+    const LOT_SOURCE = {
+      ...BASE_ITEM,
+      uuid: "strk88-lot-source",
+      name: "STRK-88 LOT Source",
+      qty: 30,
+      price: 1700 / 30, // stored per-unit
+      pricingType: "lot",
+    };
+
+    await seedData(page, { inventory: [LOT_SOURCE] });
+    await gotoApp(page);
+    await openCloneModal(page);
+
+    // Duplicate resets qty=1; toggle hidden; price shown as per-unit rounded value
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+  });
+});

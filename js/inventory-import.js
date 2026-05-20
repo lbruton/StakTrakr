@@ -1018,7 +1018,23 @@
         item.qty || "",
         item.type || "",
         weightGrams ? weightGrams.toFixed(2) : "",
-        purchasePrice != null ? Number(purchasePrice).toFixed(2) : "",
+        // STRK-88 (D-6): Convert internal USD price to display currency to match the
+        // column header "Buying price (${displayCurrency})". The importer reads this column
+        // and calls convertToUsd(amount, headerCurrency), so exporting raw USD under a
+        // non-USD header causes round-trip inflation.
+        (() => {
+          if (purchasePrice == null) return "";
+          const usdVal = Number(purchasePrice);
+          if (isNaN(usdVal)) return "";
+          const fxRate =
+            typeof getExchangeRate === "function" ? getExchangeRate(displayCurrency) : 1;
+          const converted = usdVal * fxRate;
+          const fracDigits =
+            typeof getCurrencyFractionDigits === "function"
+              ? getCurrencyFractionDigits(displayCurrency)
+              : 2;
+          return converted.toFixed(fracDigits);
+        })(),
         item.purchaseLocation || "",
         item.storageLocation || "",
         item.date || "",
