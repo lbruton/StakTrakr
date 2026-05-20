@@ -1863,7 +1863,8 @@ const duplicateItem = (idx) => {
   // Pre-fill from source item
   elements.itemMetal.value = item.composition || item.metal;
   elements.itemName.value = item.name;
-  elements.itemQty.value = 1; // Reset qty to 1
+  const duplicatePreservesLot = item.pricingType === "lot" && Number(item.qty) > 1;
+  elements.itemQty.value = duplicatePreservesLot ? item.qty : 1;
   elements.itemType.value = item.type;
 
   // Weight: same conversion logic as editItem
@@ -1899,7 +1900,7 @@ const duplicateItem = (idx) => {
     typeof roundToPricePrecision === "function"
       ? roundToPricePrecision
       : (v) => parseFloat(Number(v).toFixed(2));
-  const dupDisplayPrice =
+  let dupDisplayPrice =
     item.price > 0
       ? String(_dupRoundDisplay(dupFxRate !== 1 ? item.price * dupFxRate : item.price))
       : "";
@@ -1955,11 +1956,23 @@ const duplicateItem = (idx) => {
   if (typeof updateModalCurrencyUI === "function") updateModalCurrencyUI();
 
   // STRK-88 (D-5): Preserve source item's pricing mode rather than unconditionally resetting.
-  // Duplicate resets qty=1 so the toggle is hidden, but the mode is primed correctly for when
-  // the user later changes qty. For LOT-mode sources, the primed mode means the toggle reveals
-  // in LOT mode as soon as qty > 1 — consistent with editItem behavior.
+  // EACH-mode duplicates still reset qty to 1; LOT-mode duplicates preserve qty/mode so
+  // the visible price remains the rounded lot total instead of a rounded per-unit value.
   if (typeof window.restorePurchasePriceToggle === "function") {
-    window.restorePurchasePriceToggle(item.pricingType, 1); // qty=1 (duplicate resets qty)
+    const isLot = window.restorePurchasePriceToggle(
+      item.pricingType,
+      Number(elements.itemQty.value)
+    );
+    if (isLot && elements.itemPrice) {
+      const lotTotal = (item.price > 0 ? item.price * dupFxRate : 0) * Number(item.qty || 0);
+      if (Number.isFinite(lotTotal) && lotTotal > 0) {
+        dupDisplayPrice = String(_dupRoundDisplay(lotTotal));
+        elements.itemPrice.value = dupDisplayPrice;
+        if (typeof window.purchasePriceSeedLotCache === "function") {
+          window.purchasePriceSeedLotCache(lotTotal, Number(item.qty));
+        }
+      }
+    }
   } else if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
   }

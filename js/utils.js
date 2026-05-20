@@ -987,8 +987,14 @@ const formatWeight = (ozt, weightUnit) => {
  * @returns {number} Amount converted to USD
  */
 const convertToUsd = (amount, currency = "USD") => {
-  const rates = { USD: 1, EUR: 1.08, GBP: 1.27, CAD: 0.74 };
-  const rate = rates[currency.toUpperCase()] || 1;
+  const code = currency.toUpperCase();
+  if (code === "USD") return amount;
+  if (typeof getExchangeRate === "function") {
+    const rate = getExchangeRate(code);
+    if (Number.isFinite(rate) && rate > 0) return amount / rate;
+  }
+  const rates = { EUR: 1.08, GBP: 1.27, CAD: 0.74 };
+  const rate = rates[code] || 1;
   return amount * rate;
 };
 

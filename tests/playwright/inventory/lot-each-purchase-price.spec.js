@@ -180,6 +180,47 @@ async function getInventoryItem(page, name) {
   );
 }
 
+async function captureNumistaCsvExport(page) {
+  return page.evaluate(() => {
+    return new Promise((resolve) => {
+      const originalCreateObjectURL = URL.createObjectURL;
+      URL.createObjectURL = (blob) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          URL.createObjectURL = originalCreateObjectURL;
+          resolve(reader.result);
+        };
+        reader.readAsText(blob);
+        return originalCreateObjectURL.call(URL, blob);
+      };
+      window.exportNumistaCsv();
+    });
+  });
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const next = line[i + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      i++;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      values.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  values.push(current);
+  return values;
+}
+
 function tableRowByName(page, name) {
   return page.locator("#inventoryTable tbody tr").filter({ hasText: name });
 }
@@ -547,6 +588,35 @@ test.describe("STRK-88 — Purchase price rounding (RED — must fail before imp
     await expect.poll(() => page.evaluate(() => window.__strk88InputEvents)).toBe(1);
   });
 
+  test("20b. STRK-88 AC-5b: saving $1700 LOT/qty 30 does not persist six-decimal drift", async ({
+    page,
+  }) => {
+    const itemName = "STRK-88 LOT Save Precision";
+    await seedData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    await fillInventoryForm(page, { name: itemName, qty: "30", price: "" });
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "1700");
+    await submitItemForm(page);
+
+    const saved = await getInventoryItem(page, itemName);
+    expect(saved).toBeTruthy();
+    expect(saved.pricingType).toBe("lot");
+    expect(saved.price).toBeCloseTo(1700 / 30, 12);
+    expect(saved.price).not.toBe(56.666667);
+    expect(saved.price * saved.qty).toBeCloseTo(1700, 12);
+
+    await openEditModal(page, 0);
+    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await selectPurchaseMode(page, "each");
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+    await selectPurchaseMode(page, "lot");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+  });
+
   // AC-3a: Edit-mode EACH reopens with rounded value (not raw 6dp float)
 
   test("21. STRK-88 AC-3b: editing an EACH-saved item with drift reopens in EACH mode showing $56.67", async ({
@@ -659,7 +729,7 @@ test.describe("STRK-88 — Purchase price rounding (RED — must fail before imp
 
   // AC-5b: Duplicate mode for a LOT source item shows per-unit rounded price in EACH mode
 
-  test("25. STRK-88 AC-5b: duplicating a LOT-saved item shows rounded per-unit price", async ({
+  test("25. STRK-88 AC-5b: duplicating a LOT-saved item preserves LOT mode and total", async ({
     page,
   }) => {
     const LOT_SOURCE = {
@@ -675,7 +745,84 @@ test.describe("STRK-88 — Purchase price rounding (RED — must fail before imp
     await gotoApp(page);
     await openCloneModal(page);
 
-    // Duplicate resets qty=1; toggle hidden; price shown as per-unit rounded value
+    await expect(page.locator("#itemQty")).toHaveValue("30");
+    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+
+    await selectPurchaseMode(page, "each");
     await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+    await selectPurchaseMode(page, "lot");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+  });
+
+  test("26. STRK-88 AC-4: Numista CSV export writes display-currency buying price", async ({
+    page,
+  }) => {
+    const itemName = "STRK-88 Numista Export";
+    const NUMISTA_ITEM = {
+      ...BASE_ITEM,
+      uuid: "strk88-numista-export",
+      numistaId: "12345",
+      name: `${itemName} 2026`,
+      qty: 1,
+      price: 100,
+      purchasePrice: 100,
+      purchaseLocation: "Coin Shop",
+      storageLocation: "Safe",
+    };
+
+    await seedData(page, {
+      inventory: [NUMISTA_ITEM],
+      displayCurrency: "EUR",
+      exchangeRates: { EUR: 0.9 },
+    });
+    await gotoApp(page);
+
+    const csv = await captureNumistaCsvExport(page);
+    const [headerLine, rowLine] = String(csv).trim().split(/\r?\n/);
+    const headers = parseCsvLine(headerLine);
+    const row = parseCsvLine(rowLine);
+    const buyingPriceIndex = headers.indexOf("Buying price (EUR)");
+
+    expect(buyingPriceIndex).toBeGreaterThanOrEqual(0);
+    expect(row[buyingPriceIndex]).toBe("90.00");
+  });
+
+  test("27. STRK-88 AC-4: Numista EUR export reimports without USD price inflation", async ({
+    page,
+  }) => {
+    const NUMISTA_ITEM = {
+      ...BASE_ITEM,
+      uuid: "strk88-numista-roundtrip",
+      numistaId: "67890",
+      name: "STRK-88 Numista Roundtrip 2026",
+      qty: 1,
+      price: 100,
+      purchasePrice: 100,
+    };
+
+    await seedData(page, {
+      inventory: [NUMISTA_ITEM],
+      displayCurrency: "EUR",
+      exchangeRates: { EUR: 0.9 },
+    });
+    await gotoApp(page);
+
+    const csv = await captureNumistaCsvExport(page);
+    await page.evaluate((csvText) => {
+      localStorage.setItem("metalInventory", JSON.stringify([]));
+      window.inventory = [];
+      const file = new File([csvText], "numista-roundtrip.csv", { type: "text/csv" });
+      window.importNumistaCsv(file, true);
+    }, csv);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem("metalInventory") || "[]";
+          return JSON.parse(raw)[0]?.price ?? null;
+        })
+      )
+      .toBeCloseTo(100, 2);
   });
 });

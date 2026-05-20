@@ -93,7 +93,6 @@ const createLotEachToggle = (config) => {
       // EACH → LOT: restore exact lot price if qty matches (STRK-88)
       if (_lotExactPrice !== null && _lotExactPrice.qty === qty) {
         convertedPrice = _lotExactPrice.price;
-        _lotExactPrice = null;
       } else {
         convertedPrice = price * qty;
         _lotExactPrice = null;
@@ -183,6 +182,16 @@ const createLotEachToggle = (config) => {
     }
   };
 
+  const getExactLotPrice = (displayedLotPrice, qty) => {
+    if (_lotExactPrice === null || _lotExactPrice.qty !== qty) return null;
+    if (!Number.isFinite(displayedLotPrice) || displayedLotPrice <= 0) return null;
+    const round =
+      typeof roundDisplay === "function"
+        ? roundDisplay
+        : (value) => Number(Number(value).toFixed(6));
+    return round(_lotExactPrice.price) === round(displayedLotPrice) ? _lotExactPrice.price : null;
+  };
+
   return {
     setMode,
     getMode,
@@ -192,6 +201,7 @@ const createLotEachToggle = (config) => {
     markInteracted,
     resetInteracted,
     seedLotCache,
+    getExactLotPrice,
   };
 };
 
@@ -219,6 +229,9 @@ window.resetPurchasePriceToggle = resetPurchasePriceToggle;
 window.purchasePriceSeedLotCache = (lotPrice, qty) => {
   purchasePriceToggle.seedLotCache(lotPrice, qty);
 };
+
+window.purchasePriceGetExactLotPrice = (displayedLotPrice, qty) =>
+  purchasePriceToggle.getExactLotPrice(displayedLotPrice, qty);
 
 // Sets toggle to storedMode, defaulting legacy records with no mode to Each.
 // Returns true if lot mode is active after visibility resolution (caller may need to adjust price field).
@@ -1495,7 +1508,16 @@ const parseItemFormFields = (isEditing, existingItem) => {
 
   if (purchasePriceToggle.getMode() === "lot" && priceInput !== "") {
     const rawInput = parseFloat(priceInput) || 0;
-    priceInput = parsedQty > 0 ? String(parseFloat((rawInput / parsedQty).toFixed(6))) : "0";
+    if (parsedQty > 0) {
+      const exactLotPrice =
+        typeof window.purchasePriceGetExactLotPrice === "function"
+          ? window.purchasePriceGetExactLotPrice(rawInput, parsedQty)
+          : null;
+      const lotPrice = exactLotPrice ?? rawInput;
+      priceInput = String(lotPrice / parsedQty);
+    } else {
+      priceInput = "0";
+    }
   }
 
   const weightUnit = elements.itemWeightUnit.value;
