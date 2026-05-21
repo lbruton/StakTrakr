@@ -209,10 +209,10 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       const spotSection = page.locator("#apiSection_spot");
       await expect(spotSection).toBeVisible();
 
-      // Pill radio group must exist with 6 pills (5 keyed + Manual)
+      // Pill radio group must exist with 7 pills (6 keyed + Manual)
       const pillGroup = spotSection.locator('.gb-source-group[role="radiogroup"]');
       await expect(pillGroup).toHaveCount(1);
-      await expect(pillGroup.locator(".gb-source-btn")).toHaveCount(6);
+      await expect(pillGroup.locator(".gb-source-btn")).toHaveCount(7);
 
       // Click the target pill
       const pill = pillGroup.locator(`.gb-source-btn[data-val="${provider}"]`);
@@ -229,7 +229,7 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
       const stored = await readSpotPricingSource(page);
       expect(stored).toBe(provider);
 
-      // Only the matching sub-card is visible; the other 5 accordion panels are hidden
+      // Only the matching sub-card is visible; the other 6 accordion panels are hidden
       const activePanel = spotSection.locator(`.spot-accordion-panel[data-val="${provider}"]`);
       await expect(activePanel).toBeVisible();
 
@@ -237,7 +237,7 @@ test.describe("STAK-443 — API Tab Sectioned Redesign", () => {
         `.spot-accordion-panel:not([data-val="${provider}"])`
       );
       const otherCount = await otherPanels.count();
-      expect(otherCount).toBe(5);
+      expect(otherCount).toBe(6);
       for (let i = 0; i < otherCount; i++) {
         await expect(otherPanels.nth(i)).toBeHidden();
       }

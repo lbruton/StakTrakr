@@ -11777,6 +11777,19 @@ th {
   font-style: italic;
 }
 
+.optional-key-details {
+  margin: 0.5rem 0;
+}
+.optional-key-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding: 0.25rem 0;
+}
+.optional-key-details summary:hover {
+  color: var(--text-primary);
+}
+
 /* Provider field grid — multi-column for API key + options */
 .provider-field-grid {
   display: grid;

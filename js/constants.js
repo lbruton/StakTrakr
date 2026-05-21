@@ -233,6 +233,27 @@ const API_PROVIDERS = {
       return { current, history };
     },
   },
+  GOLD_API: {
+    name: "Gold API",
+    baseUrl: "https://api.gold-api.com",
+    requiresKey: false,
+    optionalKey: true,
+    documentation: "https://gold-api.com/docs",
+    endpoints: {
+      silver: "/price/XAG",
+      gold: "/price/XAU",
+      platinum: "/price/XPT",
+      palladium: "/price/XPD",
+    },
+    parseResponse: (data) => {
+      const price = data?.price;
+      return typeof price === "number" && price > 0 ? price : null;
+    },
+    batchSupported: false,
+    parseBatchResponse: () => ({ current: {}, history: {} }),
+    maxHistoryDays: 0,
+    symbolsPerRequest: 1,
+  },
   CUSTOM: {
     name: "Custom Provider",
     requiresKey: true,
@@ -284,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.34.75";
+const APP_VERSION = "3.34.76";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -888,7 +909,7 @@ const SYNC_SCOPE_KEYS = [
   // ── Seed & provider config ──
   "apiProviderOrder", // spot provider order
   "providerPriority", // provider priority config
-  "spotPricingSource", // STAK-443: single-select spot source (STAKTRAKR|METALS_DEV|METALS_API|METAL_PRICE_API|CUSTOM|MANUAL)
+  "spotPricingSource", // STAK-443: single-select spot source (STAKTRAKR|METALS_DEV|METALS_API|METAL_PRICE_API|GOLD_API|CUSTOM|MANUAL)
   "metalSpotPrices", // STAK-443: manual-mode spot prices {gold, silver, platinum, palladium}
 
   // ── API credentials ──

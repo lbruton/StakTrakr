@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.76] - 2026-05-21
+
+### Changed — STRK-89: Add gold-api.com as first-class spot price provider
+
+- **New provider**: Added gold-api.com as a built-in spot price source with free unlimited real-time prices for all four metals (XAU, XAG, XPT, XPD) — no API key required (STRK-89).
+- **Optional key support**: Introduced `optionalKey: true` provider flag with a collapsible `<details>/<summary>` disclosure widget for premium API key entry, collapsed by default for zero-friction free-tier use (STRK-89).
+- **Settings UI**: Gold API pill at position 5 of 7 in the Spot Price pill-radio group with dedicated sub-card renderer, connection test, and metal selection checkboxes (STRK-89).
+
+---
+
 ## [3.34.75] - 2026-05-20
 
 ### Changed — STRK-88: Lot/each purchase price rounding and CSV normalization
