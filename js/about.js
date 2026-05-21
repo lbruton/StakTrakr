@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.76 &ndash; STRK-89: Add gold-api.com as first-class spot price provider</strong>: New built-in Gold API provider offers free unlimited real-time spot prices for all four metals with no API key required; optional premium key support via collapsible disclosure widget (STRK-89).</li>
     <li><strong>v3.34.75 &ndash; STRK-88: Lot/each purchase price rounding and CSV normalization</strong>: Preserves full precision for purchase prices in memory while displaying rounded inputs, handles lot/each toggle restoration on edit/duplicate, and normalizes CSV parsers/exporters (STRK-88).</li>
     <li><strong>v3.34.74 &ndash; STRK-87: Add Item Numista reset hygiene</strong>: Add Item now explicitly clears stale Numista catalog and tag UI state after editing another item, preventing previous item catalog data or tag handlers from leaking into a new inventory entry (STRK-87).</li>
     <li><strong>v3.34.73 &ndash; STRK-84: Numista picker tags on first Fill Fields</strong>: Tag checkboxes selected in the Numista picker now persist on the first Fill Fields click when adding a new item &mdash; no second sync required; unchecked default-on tags are recorded as opt-outs for new items (STRK-84).</li>
@@ -146,8 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.71 &ndash; STRK-49: Direct Print button for inventory</strong>: New one-click Print button in the Export card renders the full inventory as a landscape PDF and opens it in a new tab with auto-print; Restore ZIP Backup relocated to the Import card; Data Reset buttons now match card button sizing (STRK-49).</li>
     <li><strong>v3.34.70 &ndash; STRK-86: Search ignores Numista catalog data</strong>: Inventory search now matches against Numista-synced catalog fields (country, denomination, composition, technique, obverse/reverse/edge descriptions, KM reference) in addition to title and notes. Searching &ldquo;Australia&rdquo; now returns coins whose Country catalog field is Australia even when the title does not contain the word (STRK-86).</li>
     <li><strong>v3.34.69 &ndash; STRK-73: Configurable Disposition section</strong>: The Disposition section is now a draggable row in Settings &rarr; Appearance &rarr; Item Detail Modal; legacy configs auto-upgrade with Disposition appended last, and items without a valid disposition payload never render the section (STRK-73).</li>
-    <li><strong>v3.34.68 &ndash; STRK-79: Market API service-worker routing</strong>: New <code>sw-router.js</code> classifier routes all StakTrakr API and spot-history requests through cache-first-with-TTL; per-family freshness windows use envelope <code>stale_after</code> when present, falling back to floor TTLs; 26 unit tests + 3 Playwright integration tests (STRK-79).</li>
-    <li><strong>v3.34.67 &ndash; STRK-78: Playwright test suite mock audit and consolidation</strong>: New shared mock layer eliminates real external API calls across the Playwright test suite; 47 spec files migrated to deterministic fixtures with zero network dependency (STRK-78).</li>
   `;
 };
 
