@@ -2,10 +2,10 @@ import { test, expect } from "./helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "./helpers/seed.js";
 
 /**
- * STRK-89 — Add gold-api.com as first-class spot price provider (TDD red phase)
+ * STRK-89 — Add gold-api.com as first-class spot price provider (green phase)
  *
- * These tests are written BEFORE implementation. They MUST fail against the
- * current `dev` branch. Phase 1 tasks turn them green.
+ * Acceptance / regression tests for the STRK-89 implementation shipped in
+ * v3.34.76. All tests should pass against the current branch.
  *
  * Test list (maps to requirements.md acceptance criteria):
  *   1. REQ-6.1/6.2  Gold API pill exists at position 4 in pill group (7 total)

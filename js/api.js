@@ -1490,6 +1490,7 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
           const url = `${providerConfig.baseUrl}${endpoint.replace("{API_KEY}", apiKey)}`;
           const headers = { "Content-Type": "application/json" };
           if (provider === "METALS_DEV" && apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+          if (provider === "GOLD_API" && apiKey) headers["x-api-key"] = apiKey;
           const response = await fetch(url, { method: "GET", headers, mode: "cors" });
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           const data = await response.json();
@@ -2056,16 +2057,6 @@ const testApiConnection = async (provider, apiKey) => {
       return result.silver > 0;
     }
 
-    if (provider === "GOLD_API") {
-      const response = await fetch("https://api.gold-api.com/price/XAG", {
-        method: "GET",
-        mode: "cors",
-      });
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      const data = await response.json();
-      return typeof data.price === "number" && data.price > 0;
-    }
-
     let url = "";
     const headers = {
       "Content-Type": "application/json",
@@ -2082,6 +2073,9 @@ const testApiConnection = async (provider, apiKey) => {
       url = `${providerConfig.baseUrl}${endpoint.replace("{API_KEY}", apiKey)}`;
       if (provider === "METALS_DEV" && apiKey) {
         headers["Authorization"] = `Bearer ${apiKey}`;
+      }
+      if (provider === "GOLD_API" && apiKey) {
+        headers["x-api-key"] = apiKey;
       }
     }
 
@@ -2100,7 +2094,7 @@ const testApiConnection = async (provider, apiKey) => {
 
     return price && price > 0;
   } catch (error) {
-    console.error("API connection test failed:", error);
+    debugLog("API connection test failed:", error, "warn");
     return false;
   }
 };
