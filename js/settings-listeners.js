@@ -1491,6 +1491,7 @@ const SPOT_PROVIDER_CONFIRM_LABELS = {
   METALS_DEV: "Metals.dev",
   METALS_API: "Metals-API",
   METAL_PRICE_API: "MetalPriceAPI",
+  GOLD_API: "Gold API",
   CUSTOM: "Custom",
   MANUAL: "Manual",
 };
