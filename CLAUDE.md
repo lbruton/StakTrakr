@@ -54,6 +54,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 - All `cloud-sync.js` patches require `/codex:rescue` peer review before merge.
 - Codex handoff prompts use `$spec` not `/spec`.
 - StakTrakr-specific code-search hint: the project uses script-tag globals, so when claude-context returns thin results for a global, fall back to CGC structural query before Grep.
+- When calling `mcp__specflow__approvals` with `action: "request"`, `filePath` must be relative to the specflow workflow root (e.g., `specs/STRK-89-foo/requirements.md`), NOT relative to the project root with `../DocVault/...` traversal. The dashboard content endpoint rejects paths containing `..`.
 
 ## Skills
 
