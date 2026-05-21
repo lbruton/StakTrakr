@@ -312,6 +312,7 @@ const _SPOT_SOURCE_PILLS = [
   { val: "METALS_DEV", label: "Metals.dev" },
   { val: "METALS_API", label: "Metals-API" },
   { val: "METAL_PRICE_API", label: "MetalPriceAPI" },
+  { val: "GOLD_API", label: "Gold API" },
   { val: "CUSTOM", label: "Custom" },
   { val: "MANUAL", label: "Manual" },
 ];
@@ -849,6 +850,43 @@ const renderSpotPanelMetalPriceApi = () => {
   return panel;
 };
 
+const renderSpotPanelGoldApi = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "GOLD_API";
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "Gold API",
+      badgeText: "Free · Optional key",
+      badgeClass: "free",
+      meta: "Unlimited real-time · gold-api.com",
+      actions: _buildSpotActionRow(),
+    })
+  );
+
+  const details = document.createElement("details");
+  details.className = "optional-key-details";
+  const summary = document.createElement("summary");
+  summary.textContent = "Premium API Key (optional)";
+  details.appendChild(summary);
+  details.appendChild(
+    _buildApiKeyField({
+      provider: "GOLD_API",
+      placeholder: "Enter Gold API premium key (optional)",
+      helpText: "Free tier: unlimited real-time prices ·",
+      helpHref: "https://gold-api.com/docs",
+    })
+  );
+  panel.appendChild(details);
+
+  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildAutoRefreshRow());
+  panel.appendChild(_buildProviderFooter("Provided by gold-api.com"));
+
+  return panel;
+};
+
 /**
  * Panel: Custom endpoint (BYO URL + template + key).
  * @returns {HTMLElement}
@@ -1082,6 +1120,7 @@ const _SPOT_PANEL_RENDERERS = {
   METALS_DEV: renderSpotPanelMetalsDev,
   METALS_API: renderSpotPanelMetalsApi,
   METAL_PRICE_API: renderSpotPanelMetalPriceApi,
+  GOLD_API: renderSpotPanelGoldApi,
   CUSTOM: renderSpotPanelCustom,
   MANUAL: renderSpotPanelManual,
 };
@@ -1437,6 +1476,7 @@ const SPOT_SOURCES = [
   "METALS_DEV",
   "METALS_API",
   "METAL_PRICE_API",
+  "GOLD_API",
   "CUSTOM",
   "MANUAL",
 ];
