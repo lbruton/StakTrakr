@@ -7,6 +7,7 @@ const providerStatuses = {
   METALS_DEV: "disconnected",
   METALS_API: "disconnected",
   METAL_PRICE_API: "disconnected",
+  GOLD_API: "disconnected",
   CUSTOM: "disconnected",
 };
 
@@ -2053,6 +2054,16 @@ const testApiConnection = async (provider, apiKey) => {
     if (provider === "STAKTRAKR") {
       const result = await fetchStaktrakrPrices(["silver"]);
       return result.silver > 0;
+    }
+
+    if (provider === "GOLD_API") {
+      const response = await fetch("https://api.gold-api.com/price/XAG", {
+        method: "GET",
+        mode: "cors",
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const data = await response.json();
+      return typeof data.price === "number" && data.price > 0;
     }
 
     let url = "";
