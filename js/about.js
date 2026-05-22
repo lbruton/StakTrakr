@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.77 &ndash; STRK-93: Fix header Spot button 4&times; API sync</strong>: Header Spot sync button now triggers a single all-metals API sync instead of looping over four per-metal icons, eliminating redundant API calls, stacked cache-age dialogs, and duplicate toast notifications (STRK-93).</li>
     <li><strong>v3.34.76 &ndash; STRK-89: Add gold-api.com as first-class spot price provider</strong>: New built-in Gold API provider offers free unlimited real-time spot prices for all four metals with no API key required; optional premium key support via collapsible disclosure widget (STRK-89).</li>
     <li><strong>v3.34.75 &ndash; STRK-88: Lot/each purchase price rounding and CSV normalization</strong>: Preserves full precision for purchase prices in memory while displaying rounded inputs, handles lot/each toggle restoration on edit/duplicate, and normalizes CSV parsers/exporters (STRK-88).</li>
     <li><strong>v3.34.74 &ndash; STRK-87: Add Item Numista reset hygiene</strong>: Add Item now explicitly clears stale Numista catalog and tag UI state after editing another item, preventing previous item catalog data or tag handlers from leaking into a new inventory entry (STRK-87).</li>

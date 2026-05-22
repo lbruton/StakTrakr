@@ -58,6 +58,17 @@ async function confirmSpotProviderSwitch(page, label) {
   await expect(dialog).toBeHidden();
 }
 
+async function wrapSpotSyncForHeaderAssertions(page) {
+  await page.evaluate(() => {
+    window.__headerSpotSyncCalls = [];
+    const original = window.syncSpotPricesFromApi;
+    window.syncSpotPricesFromApi = async (...args) => {
+      window.__headerSpotSyncCalls.push(args);
+      return original(...args);
+    };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -254,5 +265,46 @@ test.describe("STRK-89 — Gold API provider", () => {
 
     // Verify persisted as GOLD_API
     expect(await readSpotPricingSource(page)).toBe("GOLD_API");
+  });
+
+  test("7. Header Spot sync works with the default StakTrakr provider", async ({ page }) => {
+    await seedApiState(page, { spotPricingSource: "STAKTRAKR" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.syncSpotPricesFromApi === "function");
+    await page.waitForTimeout(300);
+    await wrapSpotSyncForHeaderAssertions(page);
+
+    await page.locator("#headerSyncBtn").click();
+
+    await page.waitForFunction(() => window.__headerSpotSyncCalls?.length === 1);
+    await expect.poll(() => page.evaluate(() => window.__headerSpotSyncCalls[0])).toEqual([true]);
+    await expect(page.locator("body")).not.toContainText(
+      "API sync functionality requires Metals API configuration"
+    );
+  });
+
+  test("8. Header Spot sync works with Gold API and no premium key", async ({ page }) => {
+    await page.route("https://api.gold-api.com/price/**", async (route) => {
+      const symbol = route.request().url().split("/").pop();
+      const prices = { XAU: 3333, XAG: 44, XPT: 1111, XPD: 999 };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ price: prices[symbol] || 1 }),
+      });
+    });
+    await seedApiState(page, { spotPricingSource: "GOLD_API" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.syncSpotPricesFromApi === "function");
+    await page.waitForTimeout(300);
+    await wrapSpotSyncForHeaderAssertions(page);
+
+    await page.locator("#headerSyncBtn").click();
+
+    await page.waitForFunction(() => window.__headerSpotSyncCalls?.length === 1);
+    await expect.poll(() => page.evaluate(() => window.__headerSpotSyncCalls[0])).toEqual([true]);
+    await expect(page.locator("body")).not.toContainText(
+      "API sync functionality requires Metals API configuration"
+    );
   });
 });

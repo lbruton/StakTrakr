@@ -92,14 +92,17 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // Sync all spot prices header button.
+  // Sync all spot prices header button — single call, not per-metal loop (STRK-93).
   const headerSyncBtn = safeGetElement("headerSyncBtn");
   if (headerSyncBtn) {
     headerSyncBtn.addEventListener("click", () => {
-      ["Silver", "Gold", "Platinum", "Palladium"].forEach((m) => {
-        const btn = document.getElementById(`syncIcon${m}`);
-        if (btn && !btn.disabled) btn.click();
-      });
+      if (typeof window.syncSpotPricesFromApi === "function") {
+        window.syncSpotPricesFromApi(true);
+      } else {
+        appAlert(
+          "API sync functionality requires Metals API configuration. Please configure an API provider first."
+        );
+      }
     });
   }
 
