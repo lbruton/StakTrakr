@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.78] - 2026-05-22
+
+### Changed — STRK-92: Fill 90-day Market History with per-vendor data
+
+- **Feature**: 90-day retail history endpoint now includes per-vendor daily breakdown matching the 30-day schema, so Market History "All" view shows vendor prices for the full 90-day window instead of dashes on older rows (STRK-92).
+- **Bug fix**: Frontend dedup merge uses vendor-set union instead of all-or-nothing overwrite, retaining departed vendors on overlapping dates (STRK-92).
+
+---
+
 ## [3.34.77] - 2026-05-21
 
 ### Changed — STRK-93: Fix header Spot button 4× API sync

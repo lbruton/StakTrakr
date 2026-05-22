@@ -17,6 +17,8 @@ const daysAgo = (days) => {
 
 const recentDate = daysAgo(2);
 const oldDate = daysAgo(20);
+const veryOldDate = daysAgo(45);
+const overlapDate = daysAgo(15);
 const generatedAt = new Date().toISOString();
 const recentTs = Math.floor(new Date(`${recentDate}T18:00:00Z`).getTime() / 1000);
 const olderTs = Math.floor(new Date(`${recentDate}T12:00:00Z`).getTime() / 1000);
@@ -107,7 +109,36 @@ const syncedPrices = {
   },
 };
 
-const historyRows = {
+const recentSilverEntry = {
+  date: recentDate,
+  t: `${recentDate}T00:00:00Z`,
+  ts: recentTs,
+  avg_median: 42.25,
+  avg_low: 41.95,
+  avg: 42.25,
+  low: 41.95,
+  close: 42.25,
+  vendors: { apmex: { avg: 43.1 }, jmbullion: { avg: 41.95 } },
+};
+
+const recentGoldEntry = {
+  date: recentDate,
+  t: `${recentDate}T00:00:00Z`,
+  ts: recentTs,
+  avg_median: 3520.75,
+  avg_low: 3499.95,
+  avg: 3520.75,
+  low: 3499.95,
+  close: 3520.75,
+  vendors: { apmex: { avg: 3550.5 }, jmbullion: { avg: 3499.95 } },
+};
+
+const history7dRows = {
+  [SLUG_SILVER]: [recentSilverEntry],
+  [SLUG_GOLD]: [recentGoldEntry],
+};
+
+const history30dRows = {
   [SLUG_SILVER]: [
     {
       date: oldDate,
@@ -121,30 +152,59 @@ const historyRows = {
       vendors: { apmex: { avg: 40 }, jmbullion: { avg: 39 } },
     },
     {
-      date: recentDate,
-      t: `${recentDate}T00:00:00Z`,
-      ts: recentTs,
-      avg_median: 42.25,
-      avg_low: 41.95,
-      avg: 42.25,
-      low: 41.95,
-      close: 42.25,
-      vendors: { apmex: { avg: 43.1 }, jmbullion: { avg: 41.95 } },
+      date: overlapDate,
+      t: `${overlapDate}T00:00:00Z`,
+      ts: Math.floor(new Date(`${overlapDate}T00:00:00Z`).getTime() / 1000),
+      avg_median: 41.2,
+      avg_low: 41,
+      avg: 41.2,
+      low: 41,
+      close: 41.2,
+      vendors: { apmex: { avg: 41.2 } },
     },
+    recentSilverEntry,
   ],
-  [SLUG_GOLD]: [
+  [SLUG_GOLD]: [recentGoldEntry],
+};
+
+const history90dRows = {
+  [SLUG_SILVER]: [
     {
-      date: recentDate,
-      t: `${recentDate}T00:00:00Z`,
-      ts: recentTs,
-      avg_median: 3520.75,
-      avg_low: 3499.95,
-      avg: 3520.75,
-      low: 3499.95,
-      close: 3520.75,
-      vendors: { apmex: { avg: 3550.5 }, jmbullion: { avg: 3499.95 } },
+      date: veryOldDate,
+      t: `${veryOldDate}T00:00:00Z`,
+      ts: Math.floor(new Date(`${veryOldDate}T00:00:00Z`).getTime() / 1000),
+      avg_median: 38,
+      avg_low: 37,
+      avg: 38,
+      low: 37,
+      close: 38,
+      vendors: { apmex: { avg: 38.5 }, jmbullion: { avg: 37.5 } },
     },
+    {
+      date: oldDate,
+      t: `${oldDate}T00:00:00Z`,
+      ts: Math.floor(new Date(`${oldDate}T00:00:00Z`).getTime() / 1000),
+      avg_median: 39.5,
+      avg_low: 39,
+      avg: 39.5,
+      low: 39,
+      close: 39.5,
+      vendors: { apmex: { avg: 40 }, jmbullion: { avg: 39 } },
+    },
+    {
+      date: overlapDate,
+      t: `${overlapDate}T00:00:00Z`,
+      ts: Math.floor(new Date(`${overlapDate}T00:00:00Z`).getTime() / 1000),
+      avg_median: 40.75,
+      avg_low: 40.5,
+      avg: 40.75,
+      low: 40.5,
+      close: 40.75,
+      vendors: { apmex: { avg: 41 }, jmbullion: { avg: 40.5 } },
+    },
+    recentSilverEntry,
   ],
+  [SLUG_GOLD]: [recentGoldEntry],
 };
 
 const intradayRows = {
@@ -299,7 +359,7 @@ const setupRetailFixture = async (page) => {
     },
     {
       prices: initialPrices,
-      history: historyRows,
+      history: history90dRows,
       intraday: intradayRows,
       slugs: [SLUG_SILVER, SLUG_GOLD],
       meta: coinMeta,
@@ -363,9 +423,11 @@ const responseForPath = (path) => {
 
   if (file === "latest") return { v: 2, generated_at: generatedAt, data: syncedPrices[slug] };
   if (file === "intraday") return { v: 2, generated_at: generatedAt, data: intradayRows[slug] };
-  if (file === "history-7d" || file === "history-30d" || file === "history-90d") {
-    return { v: 2, generated_at: generatedAt, data: historyRows[slug] };
-  }
+  if (file === "history-7d") return { v: 2, generated_at: generatedAt, data: history7dRows[slug] };
+  if (file === "history-30d")
+    return { v: 2, generated_at: generatedAt, data: history30dRows[slug] };
+  if (file === "history-90d")
+    return { v: 2, generated_at: generatedAt, data: history90dRows[slug] };
   return null;
 };
 
@@ -391,6 +453,38 @@ test.describe("STAK-582 — surviving market retail surfaces", () => {
     await page.locator("#retailHistorySlugSelect").selectOption(SLUG_GOLD);
     await expect(page.locator("#retailHistoryTableBody")).toContainText("$3,520.75");
     await expect(page.locator("#retailHistoryTableBody")).not.toContainText("$42.25");
+  });
+
+  test("90d-only row renders vendor prices in All view", async ({ page }) => {
+    await page.evaluate(async () => await window.syncRetailPrices({ ui: false }));
+
+    await page.evaluate(() => window.showSettingsModal("changelog"));
+    await page.locator('[data-log-tab="market"]').click();
+    await page.locator('[data-retail-timeframe="all"]').click();
+
+    const tbody = page.locator("#retailHistoryTableBody");
+    await expect(tbody).toContainText(veryOldDate);
+
+    const veryOldRow = tbody.locator("tr").filter({ hasText: veryOldDate });
+    await expect(veryOldRow).toHaveCount(1);
+    await expect(veryOldRow).not.toContainText("—");
+    await expect(veryOldRow).toContainText("$38.50");
+  });
+
+  test("departed vendor retained via union merge on overlapping dates", async ({ page }) => {
+    await page.evaluate(async () => await window.syncRetailPrices({ ui: false }));
+
+    await page.evaluate(() => window.showSettingsModal("changelog"));
+    await page.locator('[data-log-tab="market"]').click();
+    await page.locator('[data-retail-timeframe="all"]').click();
+
+    const tbody = page.locator("#retailHistoryTableBody");
+    await expect(tbody).toContainText(overlapDate);
+
+    const overlapRow = tbody.locator("tr").filter({ hasText: overlapDate });
+    await expect(overlapRow).toHaveCount(1);
+    await expect(overlapRow).toContainText("$41.20");
+    await expect(overlapRow).toContainText("$40.50");
   });
 
   test("Market Filter Matrix toggles slug/vendor visibility and keeps matrix styling", async ({

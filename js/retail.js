@@ -911,12 +911,12 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
         });
       }
     };
+    // Coarsest-first: union spread in dedup relies on finer entries overwriting coarser
     addHistory(hist90);
     addHistory(hist30);
     addHistory(hist7);
 
-    // Deduplicate by date, preferring the latest (finest granularity) entry
-    // but preserving vendor data from coarser sources when finer source lacks it
+    // Deduplicate by date, preferring finest-granularity aggregates; union-merge vendors
     if (historyEntries.length) {
       const byDate = new Map();
       for (const e of historyEntries) {
@@ -925,12 +925,11 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
         if (!existing) {
           byDate.set(e.date, e);
         } else {
-          // Merge: take the newer entry's aggregates but keep vendors if the newer lacks them
           const merged = { ...e };
           const mergedHasVendors = merged.vendors && Object.keys(merged.vendors).length > 0;
           const existingHasVendors = existing.vendors && Object.keys(existing.vendors).length > 0;
-          if (!mergedHasVendors && existingHasVendors) {
-            merged.vendors = existing.vendors;
+          if (mergedHasVendors || existingHasVendors) {
+            merged.vendors = { ...(existing.vendors || {}), ...(merged.vendors || {}) };
           }
           byDate.set(e.date, merged);
         }

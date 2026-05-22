@@ -639,14 +639,13 @@ async function exportRetail(client) {
       const daily30dEntries = buildDailyWithVendors(dailyAgg30d);
       writeV2File(`retail/${slug}/history-30d.json`, daily30dEntries, 86400);
 
-      // --- retail/{slug}/history-90d.json (daily OHLCA, no per-vendor) ---
+      // --- retail/{slug}/history-90d.json (daily OHLCA with per-vendor breakdown) ---
       const hist90dStart = new Date(now.getTime() - 90 * MS_PER_DAY)
         .toISOString()
         .replace(".000Z", "Z");
-      const hist90dRows = await queryRetailRange(client, slug, hist90dStart, nowIso);
-      const hist90dEntries = buildRetailOhlcaBuckets(hist90dRows, "daily");
-      const hist90dClean = hist90dEntries.map(({ _vendorPrices, ...rest }) => rest);
-      writeV2File(`retail/${slug}/history-90d.json`, hist90dClean, 86400);
+      const dailyAgg90d = await queryRetailDailyAggregates(client, slug, hist90dStart, nowIso);
+      const daily90dEntries = buildDailyWithVendors(dailyAgg90d);
+      writeV2File(`retail/${slug}/history-90d.json`, daily90dEntries, 86400);
 
       // --- retail/{slug}/{YYYY}/{MM}.json (monthly archive) ---
       const yyyy = String(now.getUTCFullYear());
