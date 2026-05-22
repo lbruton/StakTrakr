@@ -926,6 +926,13 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
           byDate.set(e.date, e);
         } else {
           const merged = { ...e };
+          // Aggregate OHLC across entries sharing a date (hist7d is hourly)
+          if (existing.high != null && merged.high != null)
+            merged.high = Math.max(existing.high, merged.high);
+          if (existing.low != null && merged.low != null)
+            merged.low = Math.min(existing.low, merged.low);
+          if (existing.open != null && merged.open == null) merged.open = existing.open;
+          if (existing.n != null && merged.n != null) merged.n = existing.n + merged.n;
           const mergedHasVendors = merged.vendors && Object.keys(merged.vendors).length > 0;
           const existingHasVendors = existing.vendors && Object.keys(existing.vendors).length > 0;
           if (mergedHasVendors || existingHasVendors) {
