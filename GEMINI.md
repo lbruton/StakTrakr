@@ -23,7 +23,7 @@ No application build step is required.
 
 Foundation docs: `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/`
 
-Before discussing architecture, infra, or UI design, read the corresponding Foundation doc (e.g., `design-philosophy.md` for UI). Use `activate_skill` with `vault-drift` after architectural changes to ensure DocVault is in sync.
+Before discussing architecture, infra, or UI design, read the corresponding Foundation doc (e.g., `design-philosophy.md` for UI). Run the `vault-drift` skill after architectural changes to ensure DocVault is in sync.
 
 ## Dual Config Store — CRITICAL
 
@@ -45,3 +45,38 @@ Tests define correct behavior. If a test fails, the implementation is wrong. If 
 - **Pre-commit Hooks:** `check-release-sync` ensures `constants.js` and other version files match. `stamp-sw-cache` updates `sw.js` automatically.
 
 If you are asked to review a PR or a set of changes before a release, verify that the 5 core version files (`js/constants.js`, `package.json`, `version.json`, `CHANGELOG.md`, `js/about.js`) have been updated in sync.
+
+## SessionFlow — Cross-Harness History Search
+
+SessionFlow provides semantic search over historical conversation history across all agents and harnesses (`claude_code_cli`, `codex`, `opencode`, `antigravity_desktop`, `antigravity_cli`).
+
+- **Search All Sessions:** Use `search_all_sessions` to search globally.
+  - Useful for finding past PR audits, research summaries, or system setups.
+  - Can be filtered by `provider` (e.g. `codex`, `claude_code_cli`), `git_branch`, or `project_root` (use `*` for cross-repo results).
+- **Search Current Session:** Use `search_session` to query the current session history (results are boosted by recency). Pass `session_id` using the current session environment.
+- **Retrieve Context:** After finding a match, use `get_turns` with the `session_id` and `turn_index` to fetch preceding/succeeding turns (defaults to 2 turns surrounding the hit) to understand the context of a decision.
+
+## Skills — StakTrakr Quick Reference
+
+Skills are invoked via natural language in Antigravity 2.0 (see global `GEMINI.md` for the full progressive disclosure model). Below are the most common StakTrakr workflows and how to trigger them:
+
+| Workflow          | How to invoke                                | What it does                                              |
+| ----------------- | -------------------------------------------- | --------------------------------------------------------- |
+| **Sketch**        | "sketch requirements for STRK-88"            | Middle-tier spec: 4 phased markdown artifacts in DocVault |
+| **Sketch review** | "review the requirements phase for STRK-88"  | Peer review of a sketch phase                             |
+| **Discover**      | "discover STRK-88" / "research this issue"   | Phase 1 structured brainstorm, produces Discovery Brief   |
+| **Release**       | "release patch" / "run the release workflow" | Version lock → worktree → bump → commit → PR              |
+| **Retro**         | "run a retro" / "session retrospective"      | End-of-session prescriptive lessons → mem0                |
+| **Health check**  | "health check" / "project health"            | Code quality + security + instruction file scan           |
+| **Dogfood**       | "dogfood the app" / "QA StakTrakr"           | Exploratory testing with screenshots and repro steps      |
+| **Vault drift**   | "check for vault drift"                      | Detect DocVault ↔ source code divergence                  |
+
+**Phase-by-phase sketch invocation** (most common multi-step workflow):
+
+1. "sketch new STRK-88 fp-price-artifact" → scaffold
+2. "sketch requirements for STRK-88" → phase 1
+3. "review requirements for STRK-88" → peer review
+4. "sketch discovery for STRK-88" → phase 2
+5. ... continue through approach → tasks → apply
+
+**Tip:** For multi-step skills, always name the skill and the subcommand explicitly. The agent needs both to route correctly.
