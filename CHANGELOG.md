@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.77] - 2026-05-21
+
+### Changed — STRK-93: Fix header Spot button 4× API sync
+
+- **Bug fix**: Header Spot sync button now calls `syncSpotPricesFromApi` once instead of looping over 4 per-metal sync icons — eliminates 4× redundant API calls, 4× stacked cache-age dialogs, and 4× toast notifications per click (STRK-93).
+
+---
+
 ## [3.34.76] - 2026-05-21
 
 ### Changed — STRK-89: Add gold-api.com as first-class spot price provider
