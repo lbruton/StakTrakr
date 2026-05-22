@@ -893,10 +893,11 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
 
     // Merge history data (7d hourly, 30d daily, 90d daily)
     const historyEntries = [];
-    const addHistory = (data) => {
+    const addHistory = (data, sourceRank) => {
       if (!Array.isArray(data)) return;
       for (const entry of data) {
         historyEntries.push({
+          _sourceRank: sourceRank,
           date: entry.t ? entry.t.slice(0, 10) : null,
           t: entry.t,
           ts: entry.ts,
@@ -912,36 +913,72 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
       }
     };
     // Coarsest-first: union spread in dedup relies on finer entries overwriting coarser
-    addHistory(hist90);
-    addHistory(hist30);
-    addHistory(hist7);
+    addHistory(hist90, 0);
+    addHistory(hist30, 1);
+    addHistory(hist7, 2);
 
     // Deduplicate by date, preferring finest-granularity aggregates; union-merge vendors
     if (historyEntries.length) {
       const byDate = new Map();
+      const weightedAverage = (a, aWeight, b, bWeight) => {
+        if (a == null) return b;
+        if (b == null) return a;
+        return (a * aWeight + b * bWeight) / (aWeight + bWeight);
+      };
       for (const e of historyEntries) {
         if (!e.date) continue;
         const existing = byDate.get(e.date);
         if (!existing) {
           byDate.set(e.date, e);
         } else {
-          const merged = { ...e };
-          // Aggregate OHLC across entries sharing a date (hist7d is hourly)
-          if (existing.high != null && merged.high != null)
-            merged.high = Math.max(existing.high, merged.high);
-          if (existing.low != null && merged.low != null)
-            merged.low = Math.min(existing.low, merged.low);
-          if (existing.open != null && merged.open == null) merged.open = existing.open;
-          if (existing.n != null && merged.n != null) merged.n = existing.n + merged.n;
-          const mergedHasVendors = merged.vendors && Object.keys(merged.vendors).length > 0;
-          const existingHasVendors = existing.vendors && Object.keys(existing.vendors).length > 0;
-          if (mergedHasVendors || existingHasVendors) {
-            merged.vendors = { ...(existing.vendors || {}), ...(merged.vendors || {}) };
+          const eRank = e._sourceRank ?? 0;
+          const existingRank = existing._sourceRank ?? 0;
+          const finer = eRank > existingRank ? e : existing;
+          const coarser = eRank > existingRank ? existing : e;
+          const sameRank = eRank === existingRank;
+          const merged = { ...finer };
+
+          if (sameRank) {
+            const existingWeight = existing.n > 0 ? existing.n : 1;
+            const eWeight = e.n > 0 ? e.n : 1;
+            const totalWeight = existingWeight + eWeight;
+            merged.open = existing.open ?? e.open;
+            if (existing.high != null && e.high != null)
+              merged.high = Math.max(existing.high, e.high);
+            else merged.high = existing.high ?? e.high;
+            if (existing.low != null && e.low != null) merged.low = Math.min(existing.low, e.low);
+            else merged.low = existing.low ?? e.low;
+            merged.close = (e.ts ?? 0) >= (existing.ts ?? 0) ? e.close : existing.close;
+            merged.avg_median = weightedAverage(
+              existing.avg_median,
+              existingWeight,
+              e.avg_median,
+              eWeight
+            );
+            merged.avg_low = weightedAverage(existing.avg_low, existingWeight, e.avg_low, eWeight);
+            merged.n = totalWeight;
+          } else {
+            merged._sourceRank = finer._sourceRank;
+            merged.open = finer.open ?? coarser.open;
+            merged.high = finer.high ?? coarser.high;
+            merged.low = finer.low ?? coarser.low;
+            merged.close = finer.close ?? coarser.close;
+            merged.avg_median = finer.avg_median ?? coarser.avg_median;
+            merged.avg_low = finer.avg_low ?? coarser.avg_low;
+            merged.n = finer.n ?? coarser.n;
+          }
+
+          const primaryVendors = sameRank ? e.vendors : finer.vendors;
+          const fallbackVendors = sameRank ? existing.vendors : coarser.vendors;
+          if (primaryVendors || fallbackVendors) {
+            merged.vendors = { ...(fallbackVendors || {}), ...(primaryVendors || {}) };
           }
           byDate.set(e.date, merged);
         }
       }
-      retailPriceHistory[slug] = [...byDate.values()].sort((a, b) => (a.date > b.date ? 1 : -1));
+      retailPriceHistory[slug] = [...byDate.values()]
+        .map(({ _sourceRank, ...entry }) => entry)
+        .sort((a, b) => (a.date > b.date ? 1 : -1));
     }
   });
 

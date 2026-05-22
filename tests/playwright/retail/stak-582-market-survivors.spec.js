@@ -121,6 +121,36 @@ const recentSilverEntry = {
   vendors: { apmex: { avg: 43.1 }, jmbullion: { avg: 41.95 } },
 };
 
+const recentSilverEarlyEntry = {
+  date: recentDate,
+  t: `${recentDate}T12:00:00Z`,
+  ts: olderTs,
+  open: 41.75,
+  high: 42.5,
+  low: 41.5,
+  close: 42,
+  avg_median: 42,
+  avg_low: 41.5,
+  avg: 42,
+  n: 2,
+  vendors: { apmex: { avg: 42.2 } },
+};
+
+const recentSilverLateEntry = {
+  date: recentDate,
+  t: `${recentDate}T18:00:00Z`,
+  ts: recentTs,
+  open: 43.75,
+  high: 44.5,
+  low: 43.5,
+  close: 44,
+  avg_median: 44,
+  avg_low: 43.5,
+  avg: 44,
+  n: 1,
+  vendors: { jmbullion: { avg: 44.1 } },
+};
+
 const recentGoldEntry = {
   date: recentDate,
   t: `${recentDate}T00:00:00Z`,
@@ -134,7 +164,7 @@ const recentGoldEntry = {
 };
 
 const history7dRows = {
-  [SLUG_SILVER]: [recentSilverEntry],
+  [SLUG_SILVER]: [recentSilverEarlyEntry, recentSilverLateEntry],
   [SLUG_GOLD]: [recentGoldEntry],
 };
 
@@ -485,6 +515,20 @@ test.describe("STAK-582 — surviving market retail surfaces", () => {
     await expect(overlapRow).toHaveCount(1);
     await expect(overlapRow).toContainText("$41.20");
     await expect(overlapRow).toContainText("$40.50");
+  });
+
+  test("7d hourly rows own aggregates without double-counting daily history", async ({ page }) => {
+    await page.evaluate(async () => await window.syncRetailPrices({ ui: false }));
+
+    await page.evaluate(() => window.showSettingsModal("changelog"));
+    await page.locator('[data-log-tab="market"]').click();
+
+    const recentRow = page.locator("#retailHistoryTableBody tr").filter({ hasText: recentDate });
+    await expect(recentRow).toHaveCount(1);
+    await expect(recentRow).toContainText("$42.67");
+    await expect(recentRow).toContainText("$42.17");
+    await expect(recentRow).toContainText("$42.20");
+    await expect(recentRow).toContainText("$44.10");
   });
 
   test("Market Filter Matrix toggles slug/vendor visibility and keeps matrix styling", async ({
