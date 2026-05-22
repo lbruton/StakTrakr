@@ -164,6 +164,25 @@ For Codex runs in this repository:
 Approval success from the MCP tool is not sufficient in this repo. The storage location must be
 checked as a postcondition.
 
+## Perplexity MCP Usage
+
+Perplexity MCP is available for live web research, but it is a paid service. Use it
+sparingly and intentionally:
+
+- Use Perplexity when the user explicitly asks for it, asks for web research, or needs
+  current external context that local docs/source cannot answer.
+- Use Perplexity during research/discovery work where citations, recent facts, product
+  changes, library status, or market/news context materially affect the answer.
+- Do not use Perplexity for routine repo navigation, local code questions, simple facts,
+  formatting, or tasks that can be answered from DocVault, memory, source files, or standard
+  local tooling.
+- Prefer `perplexity_search` to find URLs and source candidates, `perplexity_ask` for quick
+  cited answers, `perplexity_reason` when web-grounded reasoning is needed, and
+  `perplexity_research` for deeper multi-source investigation.
+- When Perplexity results influence an architectural choice, dependency selection, or technical
+  decision, cite or summarize the relevant sources and make clear what came from live web
+  research.
+
 ## Session Lessons
 
 ### Playwright Agent Concurrency Guardrail
