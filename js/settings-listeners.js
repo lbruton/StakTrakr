@@ -96,8 +96,12 @@ const bindAppearanceAndHeaderListeners = () => {
   const headerSyncBtn = safeGetElement("headerSyncBtn");
   if (headerSyncBtn) {
     headerSyncBtn.addEventListener("click", () => {
-      if (typeof syncSpotPricesFromApi === "function") {
-        syncSpotPricesFromApi(true);
+      if (typeof window.syncSpotPricesFromApi === "function") {
+        window.syncSpotPricesFromApi(true);
+      } else {
+        appAlert(
+          "API sync functionality requires Metals API configuration. Please configure an API provider first."
+        );
       }
     });
   }
