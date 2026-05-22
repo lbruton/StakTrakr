@@ -55,7 +55,8 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
   - **Perplexity** (`mcp__perplexity__*`) — pay-per-query API, restrict to:
     1. `/discover` research phases (deep investigation before spec work)
     2. Explicit user request ("use perplexity", "research this deeply")
-  - Never use Perplexity for routine lookups that Brave can handle. Tool ladder: `perplexity_search` (ranked results, no synthesis) → `perplexity_ask` (quick AI answer, cheapest) → `perplexity_reason` (chain-of-thought, mid-cost) → `perplexity_research` (deep multi-source, slowest/most expensive, 30s+). Always pass `strip_thinking: true` on `perplexity_research`/`perplexity_reason` to save context tokens.
+  - Never use Perplexity for routine lookups that Brave can handle. Tool ladder by cost: `perplexity_search` (ranked results) → `perplexity_ask` (quick AI answer) → `perplexity_reason` (chain-of-thought) → `perplexity_research` (deep multi-source, 30s+).
+  - Pass `strip_thinking: true` on `perplexity_research`/`perplexity_reason` to save context tokens.
 - StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
 - All `cloud-sync.js` patches require `/codex:rescue` peer review before merge.
 - Codex handoff prompts use `$spec` not `/spec`.

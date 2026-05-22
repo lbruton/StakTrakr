@@ -177,10 +177,11 @@ sparingly and intentionally:
   formatting, or tasks that can be answered from DocVault, memory, source files, or standard
   local tooling.
 - Prefer `perplexity_search` to find URLs and source candidates, `perplexity_ask` for quick
-  cited answers, `perplexity_research` for deeper multi-source research, and
-  `perplexity_reason` only when the question needs web-grounded reasoning.
-- When Perplexity results affect a decision, cite or summarize the relevant sources and make
-  clear what came from live web research.
+  cited answers, `perplexity_reason` when web-grounded reasoning is needed, and
+  `perplexity_research` for deeper multi-source investigation.
+- When Perplexity results influence an architectural choice, dependency selection, or technical
+  decision, cite or summarize the relevant sources and make clear what came from live web
+  research.
 
 ## Session Lessons
 

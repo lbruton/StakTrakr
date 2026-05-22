@@ -48,7 +48,7 @@ If you are asked to review a PR or a set of changes before a release, verify tha
 
 ## SessionFlow — Cross-Harness History Search
 
-SessionFlow provides semantic search over historical conversation history across all agents and harnesses (`claude_code_cli`, `codex`, `opencode`, `antigravity_desktop`, `antigravity_cli`).
+SessionFlow provides semantic search over conversation history across all agents and harnesses (`claude_code_cli`, `codex`, `opencode`, `antigravity_desktop`, `antigravity_cli`).
 
 - **Search All Sessions:** Use `search_all_sessions` to search globally.
   - Useful for finding past PR audits, research summaries, or system setups.
