@@ -12543,6 +12543,12 @@ th {
   flex-direction: column;
   padding: 0;
   overflow: hidden;
+  /* STRK-91 C.5: the default `.modal-content` modalSlideIn animation runs a
+     `transform: scale(0.95)`; mid-animation bounding rects are 5% smaller
+     than computed dimensions, which breaks WCAG 2.5.8 24x24 visual-size
+     checks for the bulk-edit checkboxes. The bulk editor is a large/full-
+     screen modal where the slide-and-scale entrance adds little. Skip it. */
+  animation: none;
 }
 
 .bulk-edit-content .modal-header {
@@ -12585,6 +12591,56 @@ th {
   color: var(--text-secondary);
 }
 
+/* STRK-91 C.4: collapsible field-panel <details>/<summary>.
+   Desktop default: forced open via the JS matchMedia breakpoint handler so the
+   summary acts as a section header. Mobile: collapses to free vertical space
+   for the toolbar/table/footer stack. */
+.bulk-edit-fields-details {
+  display: block;
+}
+.bulk-edit-fields-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin: 0 0 var(--spacing) 0;
+  padding: 0.35rem 0.25rem;
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  list-style: none;
+  border-radius: var(--radius);
+}
+.bulk-edit-fields-summary::-webkit-details-marker {
+  display: none;
+}
+.bulk-edit-fields-summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.bulk-edit-fields-summary-count {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius);
+  background: var(--bg-tertiary, var(--bg));
+  border: 1px solid var(--border);
+}
+.bulk-edit-fields-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem 0;
+}
+.bulk-edit-fields-content {
+  display: block;
+}
+
 .bulk-edit-field-row {
   display: flex;
   align-items: center;
@@ -12600,10 +12656,15 @@ th {
 }
 
 .bulk-edit-field-row input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
+  /* STRK-91 C.5: WCAG 2.5.8 minimum 24x24 target visual size. The base
+     `input` rule injects border+padding under universal border-box; zero them
+     so 24x24 is the real painted size. */
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
+  border: 0;
   flex-shrink: 0;
   cursor: pointer;
 }
@@ -12628,8 +12689,8 @@ th {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: var(--font-size-sm);
-  background: var(--bg);
-  color: var(--text);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   transition:
     opacity 0.15s,
     border-color 0.15s;
@@ -12675,8 +12736,8 @@ th {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: var(--font-size-md);
-  background: var(--bg);
-  color: var(--text);
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .bulk-edit-toolbar input[type="search"]:focus {
@@ -12713,7 +12774,16 @@ th {
   width: max-content;
   min-width: 100%;
   table-layout: auto;
-  border-collapse: collapse;
+  /* STRK-91 C.5: separate + border-spacing 0 required for position: sticky on
+     th/td cells (the collapsed border model disables independent positioning).
+     Mirrors the #inventoryTable pattern. */
+  border-collapse: separate;
+  border-spacing: 0;
+  /* The global `table { overflow: hidden }` rule turns the table into the
+     nearest scrolling ancestor for sticky cells (sticky needs an overflow
+     scroll/auto/visible chain). Reset to visible so #bulkEditTableWrap is
+     the sticky-scrolling container instead. */
+  overflow: visible;
   font-size: var(--font-size-base);
 }
 
@@ -12721,7 +12791,92 @@ th {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--bg);
+  background: var(--bg-secondary);
+}
+
+/* STRK-91 C.5: sticky identity region — cb (checkbox), img (thumbnail), and
+   name columns stay pinned to the left while data columns scroll.
+   Stable `data-column` anchors are emitted by buildBulkItemRow() and the
+   header builder so generic td:nth-child selectors are not needed (avoids
+   sticking pinned colSpan rows).
+   Offsets: cb=0, img=44px (cb width), name=120px (cb 44 + img 76). */
+.bulk-edit-table thead th[data-column="cb"],
+.bulk-edit-table tbody tr[data-serial] > td[data-column="cb"] {
+  position: sticky;
+  left: 0;
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  background: var(--bg-primary);
+  /* Pseudo-element 44x44 hit-area target needs to escape the parent
+     td { overflow: hidden } clip — set overflow visible on the sticky
+     identity cells so ::before can extend without being chopped. */
+  overflow: visible;
+}
+.bulk-edit-table thead th[data-column="img"],
+.bulk-edit-table tbody tr[data-serial] > td[data-column="img"] {
+  position: sticky;
+  left: 44px;
+  width: 76px;
+  min-width: 76px;
+  max-width: 76px;
+  background: var(--bg-primary);
+  overflow: visible;
+}
+.bulk-edit-table thead th[data-column="name"],
+.bulk-edit-table tbody tr[data-serial] > td[data-column="name"] {
+  position: sticky;
+  left: 120px;
+  min-width: 9rem;
+  background: var(--bg-primary);
+  /* Theme-safe right-edge divider marks the sticky boundary in all four
+     themes (light, dark, slate, sepia) — replaces a potentially-faint
+     shadow with a crisp 1px border. */
+  border-right: 1px solid var(--border);
+}
+
+/* Three-tier z-index per CLAUDE.md "CSS sticky columns — required setup":
+   sticky thead corners (sticky-left + sticky-top) sit above the sticky thead
+   strip; sticky body cells sit above other body cells but below thead. */
+.bulk-edit-table thead th[data-column="cb"],
+.bulk-edit-table thead th[data-column="img"],
+.bulk-edit-table thead th[data-column="name"] {
+  z-index: 3;
+}
+.bulk-edit-table tbody tr[data-serial] > td[data-column="cb"],
+.bulk-edit-table tbody tr[data-serial] > td[data-column="img"],
+.bulk-edit-table tbody tr[data-serial] > td[data-column="name"] {
+  z-index: 1;
+}
+
+/* Sticky cell background must match the row state — without this the row
+   hover/selected/pinned highlights would be hidden behind the default bg. */
+.bulk-edit-table tbody tr[data-serial]:hover > td[data-column="cb"],
+.bulk-edit-table tbody tr[data-serial]:hover > td[data-column="img"],
+.bulk-edit-table tbody tr[data-serial]:hover > td[data-column="name"] {
+  background: var(--bg-secondary);
+}
+.bulk-edit-table tbody tr.bulk-edit-selected > td[data-column="cb"],
+.bulk-edit-table tbody tr.bulk-edit-selected > td[data-column="img"],
+.bulk-edit-table tbody tr.bulk-edit-selected > td[data-column="name"] {
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg-primary));
+}
+:is([data-theme="dark"], [data-theme="slate"])
+  .bulk-edit-table
+  tbody
+  tr.bulk-edit-selected
+  > td[data-column="cb"],
+:is([data-theme="dark"], [data-theme="slate"])
+  .bulk-edit-table
+  tbody
+  tr.bulk-edit-selected
+  > td[data-column="img"],
+:is([data-theme="dark"], [data-theme="slate"])
+  .bulk-edit-table
+  tbody
+  tr.bulk-edit-selected
+  > td[data-column="name"] {
+  background: color-mix(in srgb, var(--primary) 18%, var(--bg-primary));
 }
 
 .bulk-edit-table th {
@@ -12738,9 +12893,17 @@ th {
 }
 
 .bulk-edit-table input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  /* STRK-91 C.5: WCAG 2.5.8 minimum 24x24 target visual size. The base
+     `input { border: 2px solid; padding: 0.75rem }` rule plus universal
+     `box-sizing: border-box` would shrink the inner glyph below 24px —
+     zero the padding/border so 24x24 is the real painted size. */
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
+  border: 0;
+  cursor: pointer;
 }
 
 .bulk-edit-table td {
@@ -12879,7 +13042,7 @@ th {
   user-select: none;
 }
 .bulk-edit-table th.bulk-sortable:hover {
-  color: var(--text);
+  color: var(--text-primary);
 }
 .bulk-edit-table th.bulk-sortable::after {
   content: " ⇅";
@@ -13022,6 +13185,16 @@ th {
     border-bottom: 1px solid var(--border);
     padding-right: 0;
     padding-bottom: var(--spacing);
+  }
+  /* STRK-91 C.4: when collapsed on mobile, the panel only shows its summary
+     (no inner content), so let it shrink instead of holding the 200px slot. */
+  .bulk-edit-fields:has(.bulk-edit-fields-details:not([open])) {
+    max-height: none;
+    padding-bottom: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .bulk-edit-fields-details:not([open]) {
+    border-bottom: none;
   }
   .bulk-edit-content {
     width: 98vw;
@@ -13226,6 +13399,11 @@ th {
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
+  /* STRK-91 C.4: collapsed mobile panel shrinks to its summary so the table
+     and toolbar can occupy remaining height without overlap. */
+  .bulk-edit-fields:has(.bulk-edit-fields-details:not([open])) {
+    flex: 0 0 auto;
+  }
   .bulk-edit-fields input,
   .bulk-edit-fields select {
     min-height: 44px;
@@ -13233,6 +13411,57 @@ th {
   .bulk-edit-items {
     flex: 1;
     overflow-y: auto;
+  }
+
+  /* STRK-91 C.5: safe-area padding on the bulk-edit fullscreen modal header
+     and footer — matches the STAK-578 pattern already applied to #itemModal
+     and #viewItemModal headers. Closes the iOS notch / home-indicator gap. */
+  .bulk-edit-content .modal-header {
+    padding-top: max(var(--spacing), env(safe-area-inset-top));
+    padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
+  }
+  .bulk-edit-footer {
+    padding-bottom: max(var(--spacing), env(safe-area-inset-bottom));
+    padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
+  }
+
+  /* STRK-91 C.5: 44x44 effective tap targets at <=768px without widening
+     the visual checkbox. A transparent pseudo-element on the host cell/row
+     gives the WCAG 2.5.5 / Apple HIG 44px touch target while the visible
+     checkbox stays at its 24x24 visual size. */
+  .bulk-edit-table tbody tr[data-serial] > td[data-column="cb"] {
+    min-width: 44px;
+    height: 44px;
+    overflow: visible;
+  }
+  .bulk-edit-table tbody tr[data-serial] > td[data-column="cb"]::before {
+    content: "";
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    pointer-events: none;
+  }
+
+  .bulk-edit-field-row {
+    position: relative;
+    min-height: 44px;
+  }
+  .bulk-edit-field-row::before {
+    content: "";
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    pointer-events: none;
   }
 }
 

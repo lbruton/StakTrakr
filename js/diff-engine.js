@@ -76,6 +76,12 @@ const DIFF_FIELDS = [
   "disposition",
   // Metadata
   "lastModified",
+  // Bulk-editor fields (STRK-91 C.3 — capsule/notes, payment, nested objects)
+  "capsule",
+  "capsuleNotes",
+  "paymentMethod",
+  "numistaData",
+  "fieldMeta",
   // Attachments — array field; compareItems emits ONE coarse record per item so
   // detectConflicts (which keys on itemKey|field) sees at most one entry per item.
   // Per-entry diffing is handled by _diffAttachments / renderAttachmentDiffRow.

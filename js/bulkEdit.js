@@ -24,14 +24,23 @@ let bulkSortDir = "asc"; // 'asc' | 'desc'
 // when the modal closes, preventing memory leaks.
 const _bulkBlobUrls = new Set();
 
+// Module-level matchMedia state for the field-panel breakpoint listener.
+// Re-registering on every renderBulkFieldPanel call would leak listeners;
+// instead we keep a single mql + handler pair and swap the handler on
+// re-render so only one listener is ever active.
+let _bulkMql = null;
+let _bulkMqlHandler = null;
+
 const BULK_COLUMN_PRIORITY = [
   "name",
   "metal",
   "composition",
+  "numistaComposition",
   "type",
   "qty",
   "weight",
   "weightUnit",
+  "numistaDiameter",
   "purity",
   "price",
   "marketValue",
@@ -59,6 +68,7 @@ const BULK_COLUMN_PRIORITY = [
 
 const BULK_COLUMN_LABEL_OVERRIDES = {
   qty: "Qty",
+  composition: "Composition",
   marketValue: "Retail Price",
   spotPriceAtPurchase: "Spot At Purchase",
   premiumPerOz: "Premium / Oz",
@@ -72,6 +82,61 @@ const BULK_COLUMN_LABEL_OVERRIDES = {
   obverseImageUrl: "Obverse URL",
   reverseImageUrl: "Reverse URL",
   uuid: "UUID",
+  numistaComposition: "Catalog Composition",
+  numistaDiameter: "Diameter",
+};
+
+// Synthetic dot-path columns: stable flat `data-column` anchors that resolve
+// to nested catalog fields. Keeps `data-column` selector-friendly while value
+// lookup traverses nested data (AC-5).
+const BULK_SYNTHETIC_COLUMN_PATHS = {
+  numistaComposition: "numistaData.composition",
+  numistaDiameter: "numistaData.diameter",
+};
+
+// Columns we never want surfaced as raw object/blob columns in the table.
+// Their useful contents are exposed via synthetic dot-path columns above.
+const BULK_COLUMN_SUPPRESSED_RAW = new Set(["numistaData"]);
+
+// Nested storage map for bulk-edit fields. Fields listed here write through
+// the dot-path on the item rather than as a top-level key. Top-level keys
+// with the same id are NEVER created (STRK-91 AC-4).
+const BULK_FIELD_STORAGE_MAP = {
+  shape: "numistaData.shape",
+};
+
+// Apply a value to a possibly-nested dot-path on an item, initializing
+// intermediate objects when needed.
+const applyBulkFieldToItem = (item, fieldId, value) => {
+  const path = BULK_FIELD_STORAGE_MAP[fieldId];
+  if (!path) {
+    item[fieldId] = value;
+    return;
+  }
+  const parts = path.split(".");
+  let cursor = item;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    if (!cursor[key] || typeof cursor[key] !== "object") {
+      cursor[key] = {};
+    }
+    cursor = cursor[key];
+  }
+  cursor[parts[parts.length - 1]] = value;
+};
+
+const resolveBulkValue = (item, key) => {
+  if (!item || !key) return undefined;
+  const path = BULK_SYNTHETIC_COLUMN_PATHS[key] || key;
+  if (path.indexOf(".") === -1) return item[path];
+  const parts = path.split(".");
+  let cursor = item;
+  for (let i = 0; i < parts.length; i++) {
+    if (cursor === null || cursor === undefined) return undefined;
+    if (typeof cursor !== "object") return undefined;
+    cursor = cursor[parts[i]];
+  }
+  return cursor;
 };
 
 const normalizeBulkValue = (value) => {
@@ -91,11 +156,28 @@ const normalizeBulkValue = (value) => {
 
 const getBulkTableDataKeys = () => {
   if (typeof inventory === "undefined" || !Array.isArray(inventory)) return [];
+  const source =
+    typeof getFilteredItems === "function" ? getFilteredItems(bulkSearchTerm) : inventory;
+  const items = Array.isArray(source) && source.length ? source : inventory;
   const keySet = new Set();
-  inventory.forEach((item) => {
+  items.forEach((item) => {
     if (!item || typeof item !== "object") return;
-    Object.keys(item).forEach((key) => keySet.add(key));
+    Object.keys(item).forEach((key) => {
+      if (BULK_COLUMN_SUPPRESSED_RAW.has(key)) return;
+      keySet.add(key);
+    });
   });
+
+  // Synthesize dot-path columns only when nested data is present on at least
+  // one item in the visible/filtered set.
+  Object.keys(BULK_SYNTHETIC_COLUMN_PATHS).forEach((syntheticKey) => {
+    const hasValue = items.some((item) => {
+      const v = resolveBulkValue(item, syntheticKey);
+      return v !== undefined && v !== null && v !== "";
+    });
+    if (hasValue) keySet.add(syntheticKey);
+  });
+
   const prioritized = BULK_COLUMN_PRIORITY.filter((key) => keySet.has(key));
   const remaining = [...keySet]
     .filter((key) => !BULK_COLUMN_PRIORITY.includes(key))
@@ -113,12 +195,12 @@ const getBulkColumnLabel = (key) => {
 
 const getBulkSortableValue = (item, key) => {
   if (!item || !key) return "";
-  return normalizeBulkValue(item[key]);
+  return normalizeBulkValue(resolveBulkValue(item, key));
 };
 
 const formatBulkCellValue = (item, key) => {
   if (!item || !key) return "";
-  const value = item[key];
+  const value = resolveBulkValue(item, key);
   if (value === null || value === undefined) return "";
 
   switch (key) {
@@ -155,7 +237,14 @@ const getFilteredItems = (term) => {
   if (!t) return inventory.slice();
   return inventory.filter((item) => {
     const tagText = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
-    const itemValues = Object.keys(item || {}).map((key) => normalizeBulkValue(item[key]));
+    // Searchable surface = the same key set we render: top-level keys minus
+    // suppressed raw blobs, plus synthetic dot-path columns. Keeps display +
+    // search + sort aligned (AC-5).
+    const keys = Object.keys(item || {}).filter((key) => !BULK_COLUMN_SUPPRESSED_RAW.has(key));
+    const syntheticKeys = Object.keys(BULK_SYNTHETIC_COLUMN_PATHS);
+    const itemValues = [...keys, ...syntheticKeys].map((key) =>
+      normalizeBulkValue(resolveBulkValue(item, key))
+    );
     const searchText = [...itemValues, tagText]
       .map((value) => String(value || "").toLowerCase())
       .join(" ");
@@ -299,6 +388,20 @@ const BULK_EDITABLE_FIELDS = [
   { id: "date", label: "Purchase Date", inputType: "date" },
   { id: "serialNumber", label: "Serial Number", inputType: "text" },
   { id: "notes", label: "Notes", inputType: "textarea" },
+  {
+    id: "shape",
+    label: "Shape",
+    inputType: "select",
+    options: [
+      { value: "round", label: "Round" },
+      { value: "rectangular", label: "Rectangular" },
+      { value: "square", label: "Square" },
+      { value: "oval", label: "Oval" },
+      { value: "other", label: "Other" },
+    ],
+  },
+  { id: "capsule", label: "Capsule", inputType: "text" },
+  { id: "capsuleNotes", label: "Capsule Notes", inputType: "text" },
   { id: "numistaId", label: "Numista #", inputType: "text" },
   {
     id: "obverseImageUrl",
@@ -455,11 +558,19 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
 
   // Checkbox cell
   const cbTd = document.createElement("td");
+  cbTd.setAttribute("data-column", "cb");
   const cb = document.createElement("input");
   cb.type = "checkbox";
   cb.checked = isSelected;
   cb.addEventListener("change", () => toggleItemSelection(serial));
   cbTd.appendChild(cb);
+  // Forward clicks that land on the ::before tap-target expansion (44×44px
+  // pseudo-element) to the checkbox. The row-level click handler already
+  // covers most of this, but the explicit forward here ensures the checkbox
+  // receives the event even when e.target is cbTd itself.
+  cbTd.addEventListener("click", (e) => {
+    if (e.target !== cb) cb.click();
+  });
   if (isPinned) {
     const pin = document.createElement("span");
     pin.className = "bulk-pin-icon";
@@ -484,6 +595,7 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   // Image thumbnail cell — resolved async from IDB after row is appended
   const imgTd = document.createElement("td");
   imgTd.className = "bulk-img-cell";
+  imgTd.setAttribute("data-column", "img");
   // Placeholder pair shown until IDB resolves
   imgTd.innerHTML = '<span class="bulk-img-placeholder" data-side="obverse"></span>';
   // Store item identity for the async loader and upload popover
@@ -500,15 +612,16 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   tr.appendChild(imgTd);
 
   // Data cells
-  const addCell = (text) => {
+  const addCell = (text, columnKey) => {
     const td = document.createElement("td");
+    td.setAttribute("data-column", columnKey);
     td.textContent = text || "";
     td.title = text || "";
     tr.appendChild(td);
   };
 
   dataColumns.forEach((column) => {
-    addCell(formatBulkCellValue(item, column.key));
+    addCell(formatBulkCellValue(item, column.key), column.key);
   });
 
   return tr;
@@ -525,17 +638,111 @@ const renderBulkFieldPanel = () => {
   // Clear existing content
   while (panel.firstChild) panel.removeChild(panel.firstChild);
 
-  // Header
-  const heading = document.createElement("h3");
-  heading.textContent = "Fields to Update";
-  panel.appendChild(heading);
+  // STRK-91 C.4: collapsible mobile field panel.
+  // Wrap heading + hint + field rows in <details>/<summary>. Wide viewports
+  // (>768px) get `open` forced via matchMedia listener; narrow viewports start
+  // collapsed so the right-hand item table is reachable without scrolling past
+  // the entire field list.
+  const details = document.createElement("details");
+  details.className = "bulk-edit-fields-details";
+  details.id = "bulkEditFieldPanelDetails";
+
+  const summary = document.createElement("summary");
+  summary.className = "bulk-edit-fields-summary";
+  // Stable structure: "Fields to Update — <count> enabled". The count node is
+  // updated in place on checkbox toggle (single text-node mutation, no full
+  // re-render).
+  const summaryLabel = document.createElement("span");
+  summaryLabel.className = "bulk-edit-fields-summary-label";
+  summaryLabel.textContent = "Fields to Update";
+  summary.appendChild(summaryLabel);
+
+  const summaryCount = document.createElement("span");
+  summaryCount.className = "bulk-edit-fields-summary-count";
+  summaryCount.id = "bulkEditFieldPanelCount";
+  summaryCount.setAttribute("aria-live", "polite");
+  summaryCount.setAttribute("aria-atomic", "true");
+  const formatCountText = (n) => `${n} enabled`;
+  summaryCount.textContent = formatCountText(bulkEnabledFields.size);
+  summary.appendChild(summaryCount);
+
+  details.appendChild(summary);
+
+  // Content wrapper (children scroll within the panel).
+  const content = document.createElement("div");
+  content.className = "bulk-edit-fields-content";
+  content.id = "bulkEditFieldPanelContent";
 
   const hint = document.createElement("p");
-  hint.style.cssText = "font-size:0.75rem;color:var(--text-secondary);margin:0 0 0.75rem 0;";
+  hint.className = "bulk-edit-fields-hint";
   hint.textContent = "Check a field to enable it, then set the value to apply.";
-  panel.appendChild(hint);
+  content.appendChild(hint);
 
-  // Build field rows
+  details.appendChild(content);
+  panel.appendChild(details);
+
+  // ARIA wiring: <summary> already toggles `open`; mirror state into
+  // aria-expanded/aria-controls for AT clarity and keep in sync on toggle.
+  summary.setAttribute("aria-controls", "bulkEditFieldPanelContent");
+  const syncAria = () => {
+    summary.setAttribute("aria-expanded", details.open ? "true" : "false");
+  };
+  syncAria();
+  details.addEventListener("toggle", syncAria);
+
+  // Breakpoint behavior: force open on wide viewports, collapsed default on
+  // narrow. Re-evaluate when crossing the 768px boundary so a resize from
+  // mobile→desktop reveals the fields automatically.
+  //
+  // Use module-level _bulkMql / _bulkMqlHandler so that re-renders (e.g.
+  // after a field toggle) remove the previous listener before adding a new
+  // one — prevents unbounded listener accumulation across render calls.
+  if (!_bulkMql && typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    _bulkMql = window.matchMedia("(max-width: 768px)");
+  }
+  const mql = _bulkMql;
+  const applyBreakpoint = () => {
+    const isNarrow = mql ? mql.matches : false;
+    if (isNarrow) {
+      // Leave whatever the user toggled if they've interacted; only force the
+      // initial collapsed state on first render.
+      if (!details.dataset.userToggled) {
+        details.open = false;
+      }
+    } else {
+      details.open = true;
+    }
+    syncAria();
+  };
+  // Track explicit user interaction so a resize doesn't clobber their choice.
+  summary.addEventListener("click", () => {
+    details.dataset.userToggled = "1";
+  });
+  applyBreakpoint();
+  if (mql) {
+    // Remove the previous handler before registering the new one so each
+    // renderBulkFieldPanel call does not stack an additional listener.
+    if (_bulkMqlHandler) {
+      if (typeof mql.removeEventListener === "function") {
+        mql.removeEventListener("change", _bulkMqlHandler);
+      } else if (typeof mql.removeListener === "function") {
+        mql.removeListener(_bulkMqlHandler);
+      }
+    }
+    _bulkMqlHandler = () => applyBreakpoint();
+    if (typeof mql.addEventListener === "function") {
+      mql.addEventListener("change", _bulkMqlHandler);
+    } else if (typeof mql.addListener === "function") {
+      mql.addListener(_bulkMqlHandler);
+    }
+  }
+
+  // Field-count update helper (single text-node mutation per toggle).
+  const updateFieldCount = () => {
+    summaryCount.textContent = formatCountText(bulkEnabledFields.size);
+  };
+
+  // Build field rows (appended into the <details> content wrapper).
   BULK_EDITABLE_FIELDS.forEach((field) => {
     const row = document.createElement("div");
     row.className = "bulk-edit-field-row";
@@ -570,6 +777,7 @@ const renderBulkFieldPanel = () => {
         bulkEnabledFields.delete(field.id);
         input.disabled = true;
       }
+      updateFieldCount();
       renderBulkFooter();
     });
 
@@ -584,7 +792,7 @@ const renderBulkFieldPanel = () => {
     row.appendChild(cb);
     row.appendChild(lbl);
     row.appendChild(input);
-    panel.appendChild(row);
+    content.appendChild(row);
   });
 
   // Wire up denomination picker swap for weight field (mirrors main modal)
@@ -828,6 +1036,7 @@ const renderBulkToolbar = () => {
 
   const selectAllBtn = document.createElement("button");
   selectAllBtn.type = "button";
+  selectAllBtn.id = "bulkSelectAllBtn";
   selectAllBtn.className = "btn secondary";
   selectAllBtn.textContent = "Select All";
   selectAllBtn.addEventListener("click", () => selectAllItems(true));
@@ -835,6 +1044,7 @@ const renderBulkToolbar = () => {
 
   const selectNoneBtn = document.createElement("button");
   selectNoneBtn.type = "button";
+  selectNoneBtn.id = "bulkSelectNoneBtn";
   selectNoneBtn.className = "btn secondary";
   selectNoneBtn.textContent = "Select None";
   selectNoneBtn.addEventListener("click", () => selectAllItems(false));
@@ -928,6 +1138,7 @@ const renderBulkTableBody = () => {
 
   columns.forEach((col) => {
     const th = document.createElement("th");
+    th.setAttribute("data-column", col.key);
     if (col.key === "cb") {
       const masterCb = document.createElement("input");
       masterCb.type = "checkbox";
@@ -1105,6 +1316,7 @@ const renderBulkFooter = () => {
   // Apply Changes button
   const applyBtn = document.createElement("button");
   applyBtn.type = "button";
+  applyBtn.id = "bulkEditApplyBtn";
   applyBtn.className = "btn premium";
   applyBtn.textContent = "Apply Changes" + (count ? " (" + count + ")" : "");
   applyBtn.disabled = count === 0 || enabledCount === 0;
@@ -1273,15 +1485,65 @@ const applyBulkEdit = async () => {
   inventory.forEach((item) => {
     if (!bulkSelection.has(String(item.serial))) return;
 
-    // Snapshot old item for change logging
+    // Snapshot old item for change logging. Deep-copy nested objects we may
+    // mutate (numistaData, fieldMeta) so the snapshot survives in-place edits
+    // — shallow Object.assign would share references and erase before/after
+    // diffs (STRK-91).
     const oldItem = Object.assign({}, item);
+    if (item.numistaData && typeof item.numistaData === "object") {
+      oldItem.numistaData = structuredClone(item.numistaData);
+    }
+    if (item.fieldMeta && typeof item.fieldMeta === "object") {
+      oldItem.fieldMeta = structuredClone(item.fieldMeta);
+    }
 
-    // Apply each enabled field
+    // Apply each enabled field — honor BULK_FIELD_STORAGE_MAP for nested paths.
     Object.keys(valuesToApply).forEach((fieldId) => {
-      item[fieldId] = coerceFieldValue(fieldId, valuesToApply[fieldId]);
+      const coerced = coerceFieldValue(fieldId, valuesToApply[fieldId]);
+      applyBulkFieldToItem(item, fieldId, coerced);
     });
+
     if (bulkEnabledFields.has("paymentMethod") && !item.paymentMethod) {
       delete item.paymentMethod;
+    }
+
+    // Empty capsule / capsuleNotes → delete key (parity with paymentMethod).
+    if (bulkEnabledFields.has("capsule") && !item.capsule) {
+      delete item.capsule;
+    }
+    if (bulkEnabledFields.has("capsuleNotes") && !item.capsuleNotes) {
+      delete item.capsuleNotes;
+    }
+
+    // Shape overrides: clear incompatible dimension keys on numistaData.
+    // Mirrors the single-item modal's toggleDimensionFields behavior, but
+    // intentionally skips the parseDimensions copy-then-clear step — bulk
+    // edit just clears stale keys cleanly (STRK-91 explicit decision).
+    if (bulkEnabledFields.has("shape") && item.numistaData) {
+      const shapeValue = item.numistaData.shape;
+      const category =
+        typeof window.classifyShape === "function" ? window.classifyShape(shapeValue) : "round";
+      if (category === "rectangular" || category === "square") {
+        delete item.numistaData.diameter;
+      } else {
+        delete item.numistaData.length;
+        delete item.numistaData.width;
+      }
+    }
+
+    // Track user-overridden shape for parity with single-item modal
+    // (events.js:1830-1869).
+    if (bulkEnabledFields.has("shape") && typeof window.markUserModified === "function") {
+      window.markUserModified(item, "shape");
+    }
+
+    // Register non-empty capsule for autocomplete (capsuleNotes is NOT registered).
+    if (
+      bulkEnabledFields.has("capsule") &&
+      item.capsule &&
+      typeof window.registerCapsule === "function"
+    ) {
+      window.registerCapsule(item.capsule);
     }
 
     // STACK-62: Invalidate search cache for modified item
@@ -1514,6 +1776,13 @@ const receiveBulkNumistaResult = (fieldMap) => {
 
   // Update footer to reflect newly enabled fields
   renderBulkFooter();
+
+  // STRK-91 C.4: refresh the collapsible panel's enabled-field count without
+  // re-rendering the panel (preserves user collapse state on mobile).
+  const summaryCount = safeGetElement("bulkEditFieldPanelCount");
+  if (summaryCount instanceof HTMLElement) {
+    summaryCount.textContent = `${bulkEnabledFields.size} enabled`;
+  }
 
   // Clear the callback
   window._bulkEditNumistaCallback = null;

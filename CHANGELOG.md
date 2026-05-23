@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.81] - 2026-05-23
+
+### Changed — STRK-91: Bulk editor mobile parity + field gap closure
+
+- **Mobile bulk editor**: Sticky identity columns (checkbox / image / name) pin while scrolling; 24×24 base / 44×44 mobile tap targets; safe-area padding for fullscreen modal; collapsible field panel at ≤768px (STRK-91).
+- **Bulk field parity**: Adds `shape`, `capsule`, `capsuleNotes` to the bulk editor with nested-path apply via `BULK_FIELD_STORAGE_MAP` and dimension cleanup on shape change (STRK-91).
+- **Catalog display columns**: New `Catalog Composition` and `Diameter` read-only columns sourced from `numistaData.*`; raw JSON blob column suppressed; search/sort routed through dot-path resolver (STRK-91).
+- **Change-log + sync coverage**: `capsule`, `capsuleNotes`, `paymentMethod`, `numistaData`, `fieldMeta` now produce activity-log + sync manifest entries; deep-equality comparison prevents false change rows on nested objects (STRK-91).
+
+---
+
 ## [3.34.80] - 2026-05-23
 
 ### Changed — STRK-85: Goldback premium in ticker + tiered premium colors
