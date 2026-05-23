@@ -1004,6 +1004,21 @@ function pruneManifestEntries(entries, maxSyncs) {
 }
 
 /**
+ * Normalize item-scoped changelog type names for manifest consumers.
+ * Producers keep their "item-*" vocabulary; manifest diffs use add/edit/delete.
+ * @param {*} type - Raw changelog or manifest change type.
+ * @returns {string} Normalized type, or the original string for unknown types.
+ */
+function _normalizeItemChangeType(type) {
+  if (type == null) return "";
+  var normalized = String(type);
+  if (normalized.startsWith("item-")) {
+    return normalized.slice("item-".length);
+  }
+  return normalized;
+}
+
+/**
  * Build a sync manifest from the changeLog and upload it encrypted to Dropbox.
  * The manifest captures field-level changes since the last push so that
  * diff-merge can resolve conflicts without downloading the full vault.
