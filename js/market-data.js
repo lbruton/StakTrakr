@@ -9,6 +9,18 @@ const _ISO_TO_METAL = { xag: "silver", xau: "gold", xpt: "platinum", xpd: "palla
 
 const _isSafeUrl = (url) => typeof url === "string" && /^https?:\/\//i.test(url);
 
+// Shared premium helpers — used across ticker, Matrix, and detail modal (AC-4)
+const _calcMarketPremium = (price, referenceRate) => {
+  if (!referenceRate || referenceRate <= 0 || !price || price <= 0) return null;
+  return ((price - referenceRate) / referenceRate) * 100;
+};
+const _premiumTierClass = (pct) => {
+  if (pct == null || !Number.isFinite(pct)) return "low";
+  if (pct >= 5) return "high";
+  if (pct >= 2) return "mid";
+  return "low";
+};
+
 let _cachedSlugDetail = {};
 let _goldbackG1Rate = null;
 
@@ -293,8 +305,9 @@ const renderBestPriceTicker = () => {
     const spot = _getSpotPrice(metalLower);
     let premium = null;
     if (spot && spot > 0 && weightOz > 0) {
-      const meltValue = spot * weightOz;
-      premium = ((bestPrice - meltValue) / meltValue) * 100;
+      premium = _calcMarketPremium(bestPrice, spot * weightOz);
+    } else if (metalLower === "goldback" && _goldbackG1Rate > 0) {
+      premium = _calcMarketPremium(bestPrice, _goldbackG1Rate);
     }
 
     // Get vendor display info
@@ -387,6 +400,7 @@ const renderBestPriceTicker = () => {
     premiumSpan.className = "premium";
     if (item.premium != null) {
       premiumSpan.textContent = (item.premium >= 0 ? "+" : "") + item.premium.toFixed(1) + "%";
+      premiumSpan.classList.add(_premiumTierClass(item.premium));
     }
     el.appendChild(premiumSpan);
 
@@ -769,13 +783,16 @@ const openMarketDetailModal = async (slug) => {
 
         // Premium
         const tdPrem = document.createElement("td");
+        let _modalPremium = null;
         if (entry.price > 0 && spotPrice && spotPrice > 0 && weightOz > 0) {
-          const meltValue = spotPrice * weightOz;
-          const premium = ((entry.price - meltValue) / meltValue) * 100;
-          const premClass = premium < 10 ? "low" : "high";
+          _modalPremium = _calcMarketPremium(entry.price, spotPrice * weightOz);
+        } else if (entry.price > 0 && metalCode === "goldback" && _goldbackG1Rate > 0) {
+          _modalPremium = _calcMarketPremium(entry.price, _goldbackG1Rate);
+        }
+        if (_modalPremium != null) {
           const badge = document.createElement("span");
-          badge.className = "vp-premium " + premClass;
-          badge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
+          badge.className = "vp-premium " + _premiumTierClass(_modalPremium);
+          badge.textContent = (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%";
           tdPrem.appendChild(badge);
         } else {
           tdPrem.textContent = "\u2014";
@@ -1137,16 +1154,13 @@ const _renderVendorTable = async (metalCode) => {
 
       let premium = null;
       if (spotPrice && spotPrice > 0 && weightOz > 0) {
-        const meltValue = spotPrice * weightOz;
-        premium = ((vInfo.price - meltValue) / meltValue) * 100;
-      } else if (_goldbackG1Rate && _goldbackG1Rate > 0 && vInfo.price > 0) {
-        // Goldback premium over the official G1 rate from goldback.com
-        premium = ((vInfo.price - _goldbackG1Rate) / _goldbackG1Rate) * 100;
+        premium = _calcMarketPremium(vInfo.price, spotPrice * weightOz);
+      } else if (isoCode === "goldback" && _goldbackG1Rate > 0 && vInfo.price > 0) {
+        premium = _calcMarketPremium(vInfo.price, _goldbackG1Rate);
       }
       if (premium != null) {
-        const premClass = premium < 10 ? "low" : "high";
         const premBadge = document.createElement("span");
-        premBadge.className = "vp-premium " + premClass;
+        premBadge.className = "vp-premium " + _premiumTierClass(premium);
         premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
         td.appendChild(premBadge);
       }

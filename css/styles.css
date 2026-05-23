@@ -14709,6 +14709,18 @@ th {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
+.ticker-item .premium.low {
+  color: var(--success);
+  opacity: 0.8;
+}
+.ticker-item .premium.mid {
+  color: oklch(0.55 0.15 60);
+  opacity: 0.8;
+}
+.ticker-item .premium.high {
+  color: var(--danger);
+  opacity: 0.8;
+}
 
 /* ── Metal Dot Helper ── */
 .metal-dot {
@@ -14845,7 +14857,10 @@ th {
   margin-top: 2px;
 }
 .vp-premium.low {
-  color: var(--warning);
+  color: var(--success);
+}
+.vp-premium.mid {
+  color: oklch(0.55 0.15 60);
 }
 .vp-premium.high {
   color: var(--danger);
