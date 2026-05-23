@@ -12689,7 +12689,7 @@ th {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: var(--font-size-sm);
-  background: var(--bg);
+  background: var(--bg-primary);
   color: var(--text);
   transition:
     opacity 0.15s,
@@ -12736,7 +12736,7 @@ th {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: var(--font-size-md);
-  background: var(--bg);
+  background: var(--bg-primary);
   color: var(--text);
 }
 
@@ -12791,7 +12791,7 @@ th {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--bg);
+  background: var(--bg-secondary);
 }
 
 /* STRK-91 C.5: sticky identity region — cb (checkbox), img (thumbnail), and
@@ -12807,7 +12807,7 @@ th {
   width: 44px;
   min-width: 44px;
   max-width: 44px;
-  background: var(--bg);
+  background: var(--bg-primary);
   /* Pseudo-element 44x44 hit-area target needs to escape the parent
      td { overflow: hidden } clip — set overflow visible on the sticky
      identity cells so ::before can extend without being chopped. */
@@ -12820,7 +12820,7 @@ th {
   width: 76px;
   min-width: 76px;
   max-width: 76px;
-  background: var(--bg);
+  background: var(--bg-primary);
   overflow: visible;
 }
 .bulk-edit-table thead th[data-column="name"],
@@ -12828,7 +12828,7 @@ th {
   position: sticky;
   left: 120px;
   min-width: 9rem;
-  background: var(--bg);
+  background: var(--bg-primary);
   /* Theme-safe right-edge divider marks the sticky boundary in all four
      themes (light, dark, slate, sepia) — replaces a potentially-faint
      shadow with a crisp 1px border. */
@@ -12854,12 +12854,12 @@ th {
 .bulk-edit-table tbody tr[data-serial]:hover > td[data-column="cb"],
 .bulk-edit-table tbody tr[data-serial]:hover > td[data-column="img"],
 .bulk-edit-table tbody tr[data-serial]:hover > td[data-column="name"] {
-  background: var(--bg-secondary, var(--bg));
+  background: var(--bg-secondary);
 }
 .bulk-edit-table tbody tr.bulk-edit-selected > td[data-column="cb"],
 .bulk-edit-table tbody tr.bulk-edit-selected > td[data-column="img"],
 .bulk-edit-table tbody tr.bulk-edit-selected > td[data-column="name"] {
-  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg-primary));
 }
 :is([data-theme="dark"], [data-theme="slate"])
   .bulk-edit-table
@@ -12876,7 +12876,7 @@ th {
   tbody
   tr.bulk-edit-selected
   > td[data-column="name"] {
-  background: color-mix(in srgb, var(--primary) 18%, var(--bg));
+  background: color-mix(in srgb, var(--primary) 18%, var(--bg-primary));
 }
 
 .bulk-edit-table th {
