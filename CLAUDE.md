@@ -36,7 +36,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 
 ## Git Topology
 
-- Branch model: `feature/* → dev → main`. All commits via worktree → PR → dev. Both `dev` and `main` protected — no direct pushes.
+- Branch model: `feature/* → dev → main`. Runtime code changes require worktree → PR → dev. `main` is fully protected (PR required). `dev` allows direct push for config/tooling only (instruction files, `.claude/`, `.gitignore`, skill files, devops config). Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) still requires PR discipline.
 - Version format: `MAJOR.MINOR.PATCH` in `js/constants.js` (code comment: `BRANCH.RELEASE.PATCH`). `/release` bumps 6 files (`js/constants.js`, `package.json`, `package-lock.json`, `version.json`, `js/about.js`, `CHANGELOG.md`); `sw.js` auto-stamped by `stamp-sw-cache` pre-commit hook. Recipe: `.claude/skills/release/SKILL.md`.
 - **`/release` is the ONLY valid version-bump path.** `/spec`'s shipping tasks 10–12 say "version bump" → that means _invoke `/release patch`_, not hand-edit. A spec PR that bumps `package.json` but forgets `about.js` What's New / manifest / `version.json` will still pass `check-release-sync` and ship incomplete. If spec workflow appears to do its own bump → it's a bug, invoke `/release`.
 - Version lock: `devops/version.lock` is gitignored (local coordination only).
@@ -181,6 +181,15 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 ### Codacy CLI mutates `.codacy/codacy.yaml`
 
 `/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites `.codacy/codacy.yaml` — adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest. This breaks the `config-validation.spec.js` Cypress (CY) assertions CY-2, CY-7, and CY-8 every time. **After any CLOSE-2 codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.** The mutation is a CLI side effect, not a real config change. Valid scan invocation: `codacy analyze --tool eslint --format sarif` — `--directory` is not a valid flag.
+
+### Codacy Agentlint
+
+Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skill files). These policies are modeled on real-world failure patterns and their intent is worth honoring:
+
+- When agentlint flags a pattern, evaluate whether the underlying concern is valid for this project. If it is, adjust the instructions to address the concern.
+- Do not weaken project-specific instructions to satisfy a generic policy. Our instructions encode hard-won lessons; agentlint policies encode general best practices. When they conflict, project instructions win — but note the tension.
+- Do not reflexively dismiss every finding as a false positive. If a policy catches a genuine gap, fix it.
+- Do not add the `codacy-review` label to PRs — it triggers review-loop feedback cycles with agentlint.
 
 ### Known Reviewer False Positives
 
