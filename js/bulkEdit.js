@@ -626,17 +626,98 @@ const renderBulkFieldPanel = () => {
   // Clear existing content
   while (panel.firstChild) panel.removeChild(panel.firstChild);
 
-  // Header
-  const heading = document.createElement("h3");
-  heading.textContent = "Fields to Update";
-  panel.appendChild(heading);
+  // STRK-91 C.4: collapsible mobile field panel.
+  // Wrap heading + hint + field rows in <details>/<summary>. Wide viewports
+  // (>768px) get `open` forced via matchMedia listener; narrow viewports start
+  // collapsed so the right-hand item table is reachable without scrolling past
+  // the entire field list.
+  const details = document.createElement("details");
+  details.className = "bulk-edit-fields-details";
+  details.id = "bulkEditFieldPanelDetails";
+
+  const summary = document.createElement("summary");
+  summary.className = "bulk-edit-fields-summary";
+  // Stable structure: "Fields to Update — <count> enabled". The count node is
+  // updated in place on checkbox toggle (single text-node mutation, no full
+  // re-render).
+  const summaryLabel = document.createElement("span");
+  summaryLabel.className = "bulk-edit-fields-summary-label";
+  summaryLabel.textContent = "Fields to Update";
+  summary.appendChild(summaryLabel);
+
+  const summaryCount = document.createElement("span");
+  summaryCount.className = "bulk-edit-fields-summary-count";
+  summaryCount.id = "bulkEditFieldPanelCount";
+  summaryCount.setAttribute("aria-live", "polite");
+  summaryCount.setAttribute("aria-atomic", "true");
+  const formatCountText = (n) => `${n} enabled`;
+  summaryCount.textContent = formatCountText(bulkEnabledFields.size);
+  summary.appendChild(summaryCount);
+
+  details.appendChild(summary);
+
+  // Content wrapper (children scroll within the panel).
+  const content = document.createElement("div");
+  content.className = "bulk-edit-fields-content";
+  content.id = "bulkEditFieldPanelContent";
 
   const hint = document.createElement("p");
-  hint.style.cssText = "font-size:0.75rem;color:var(--text-secondary);margin:0 0 0.75rem 0;";
+  hint.className = "bulk-edit-fields-hint";
   hint.textContent = "Check a field to enable it, then set the value to apply.";
-  panel.appendChild(hint);
+  content.appendChild(hint);
 
-  // Build field rows
+  details.appendChild(content);
+  panel.appendChild(details);
+
+  // ARIA wiring: <summary> already toggles `open`; mirror state into
+  // aria-expanded/aria-controls for AT clarity and keep in sync on toggle.
+  summary.setAttribute("aria-controls", "bulkEditFieldPanelContent");
+  const syncAria = () => {
+    summary.setAttribute("aria-expanded", details.open ? "true" : "false");
+  };
+  syncAria();
+  details.addEventListener("toggle", syncAria);
+
+  // Breakpoint behavior: force open on wide viewports, collapsed default on
+  // narrow. Re-evaluate when crossing the 768px boundary so a resize from
+  // mobile→desktop reveals the fields automatically.
+  const mql =
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(max-width: 768px)")
+      : null;
+  const applyBreakpoint = () => {
+    const isNarrow = mql ? mql.matches : false;
+    if (isNarrow) {
+      // Leave whatever the user toggled if they've interacted; only force the
+      // initial collapsed state on first render.
+      if (!details.dataset.userToggled) {
+        details.open = false;
+      }
+    } else {
+      details.open = true;
+    }
+    syncAria();
+  };
+  // Track explicit user interaction so a resize doesn't clobber their choice.
+  summary.addEventListener("click", () => {
+    details.dataset.userToggled = "1";
+  });
+  applyBreakpoint();
+  if (mql) {
+    const mqlHandler = () => applyBreakpoint();
+    if (typeof mql.addEventListener === "function") {
+      mql.addEventListener("change", mqlHandler);
+    } else if (typeof mql.addListener === "function") {
+      mql.addListener(mqlHandler);
+    }
+  }
+
+  // Field-count update helper (single text-node mutation per toggle).
+  const updateFieldCount = () => {
+    summaryCount.textContent = formatCountText(bulkEnabledFields.size);
+  };
+
+  // Build field rows (appended into the <details> content wrapper).
   BULK_EDITABLE_FIELDS.forEach((field) => {
     const row = document.createElement("div");
     row.className = "bulk-edit-field-row";
@@ -671,6 +752,7 @@ const renderBulkFieldPanel = () => {
         bulkEnabledFields.delete(field.id);
         input.disabled = true;
       }
+      updateFieldCount();
       renderBulkFooter();
     });
 
@@ -685,7 +767,7 @@ const renderBulkFieldPanel = () => {
     row.appendChild(cb);
     row.appendChild(lbl);
     row.appendChild(input);
-    panel.appendChild(row);
+    content.appendChild(row);
   });
 
   // Wire up denomination picker swap for weight field (mirrors main modal)
@@ -1667,6 +1749,13 @@ const receiveBulkNumistaResult = (fieldMap) => {
 
   // Update footer to reflect newly enabled fields
   renderBulkFooter();
+
+  // STRK-91 C.4: refresh the collapsible panel's enabled-field count without
+  // re-rendering the panel (preserves user collapse state on mobile).
+  const summaryCount = safeGetElement("bulkEditFieldPanelCount");
+  if (summaryCount instanceof HTMLElement) {
+    summaryCount.textContent = `${bulkEnabledFields.size} enabled`;
+  }
 
   // Clear the callback
   window._bulkEditNumistaCallback = null;

@@ -12585,6 +12585,56 @@ th {
   color: var(--text-secondary);
 }
 
+/* STRK-91 C.4: collapsible field-panel <details>/<summary>.
+   Desktop default: forced open via the JS matchMedia breakpoint handler so the
+   summary acts as a section header. Mobile: collapses to free vertical space
+   for the toolbar/table/footer stack. */
+.bulk-edit-fields-details {
+  display: block;
+}
+.bulk-edit-fields-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin: 0 0 var(--spacing) 0;
+  padding: 0.35rem 0.25rem;
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  list-style: none;
+  border-radius: var(--radius);
+}
+.bulk-edit-fields-summary::-webkit-details-marker {
+  display: none;
+}
+.bulk-edit-fields-summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.bulk-edit-fields-summary-count {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius);
+  background: var(--bg-tertiary, var(--bg));
+  border: 1px solid var(--border);
+}
+.bulk-edit-fields-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem 0;
+}
+.bulk-edit-fields-content {
+  display: block;
+}
+
 .bulk-edit-field-row {
   display: flex;
   align-items: center;
@@ -13023,6 +13073,16 @@ th {
     padding-right: 0;
     padding-bottom: var(--spacing);
   }
+  /* STRK-91 C.4: when collapsed on mobile, the panel only shows its summary
+     (no inner content), so let it shrink instead of holding the 200px slot. */
+  .bulk-edit-fields:has(.bulk-edit-fields-details:not([open])) {
+    max-height: none;
+    padding-bottom: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .bulk-edit-fields-details:not([open]) {
+    border-bottom: none;
+  }
   .bulk-edit-content {
     width: 98vw;
     max-height: 95vh;
@@ -13225,6 +13285,11 @@ th {
     max-height: none;
     border-right: none;
     border-bottom: 1px solid var(--border);
+  }
+  /* STRK-91 C.4: collapsed mobile panel shrinks to its summary so the table
+     and toolbar can occupy remaining height without overlap. */
+  .bulk-edit-fields:has(.bulk-edit-fields-details:not([open])) {
+    flex: 0 0 auto;
   }
   .bulk-edit-fields input,
   .bulk-edit-fields select {
