@@ -23,6 +23,8 @@ No application build step is required.
 
 Foundation docs: `/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Foundation/`
 
+Access DocVault documentation primarily using the **`mcpvault-docvault`** MCP server tools (such as `read_note` or `search_notes` with `ServerName: "mcpvault-docvault"`) or via direct file reads.
+
 Before discussing architecture, infra, or UI design, read the corresponding Foundation doc (e.g., `design-philosophy.md` for UI). Run the `vault-drift` skill after architectural changes to ensure DocVault is in sync.
 
 ## Dual Config Store — CRITICAL
