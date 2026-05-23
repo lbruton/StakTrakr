@@ -198,7 +198,11 @@ test.describe("STRK-85 — Goldback premium tiers", () => {
     await page.evaluate(() => window.renderVendorPrices());
     await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
 
-    const matrixBadge = page.locator(".vendor-prices-table .vp-premium").first();
+    // Scope Matrix badge to the goldback row (background sync adds other coins to the table)
+    const matrixBadge = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ hasText: "Goldback" })
+      .locator(".vp-premium");
 
     // Before C.1: ticker shows no premium text; only Matrix shows it (via G1 rate branch).
     await expect(goldbackTickerPremium(page)).toHaveText("+20.0%");
