@@ -1041,7 +1041,17 @@ function htmlToPlainText(html) {
     // captured the React shell before the product price grid rendered.
     // HTML5 forbids <main>-style product content inside these tags, so this
     // is safe across all vendors using the cf-clearance HTML path.
-    if (!isClosingTag && CHROME_OR_RAWTEXT_TAGS.has(tagName)) {
+    //
+    // Partial-name guard: `<nav-bar>` stops the name-char loop at `-` and
+    // gives tagName="nav". Without checking the char AFTER the name, a
+    // custom element would trigger the chrome strip; findRawTextCloseTag
+    // would never find a matching `</nav>`, so cursor jumps to html.length
+    // and the rest of the document is dropped. Require the next char to be
+    // HTML whitespace, `>`, or `/` before treating tagName as a real chrome
+    // tag (Gemini review on PR #1148).
+    const nextChar = nameEnd < html.length ? html[nameEnd] : "";
+    const isCompleteTagName = nameEnd >= html.length || /[\s>/]/.test(nextChar);
+    if (!isClosingTag && CHROME_OR_RAWTEXT_TAGS.has(tagName) && isCompleteTagName) {
       const closeEnd = findRawTextCloseTag(html, lowerHtml, tagName, nameEnd);
       cursor = closeEnd === -1 ? html.length : closeEnd + 1;
       text += " ";

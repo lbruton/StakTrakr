@@ -81,7 +81,10 @@ function htmlToPlainText(html) {
       nameEnd++;
     }
     const tagName = lowerHtml.slice(nameStart, nameEnd);
-    if (!isClosingTag && CHROME_OR_RAWTEXT_TAGS.has(tagName)) {
+    // Same partial-name guard as price-extract.js — see Gemini PR #1148 review.
+    const nextChar = nameEnd < html.length ? html[nameEnd] : "";
+    const isCompleteTagName = nameEnd >= html.length || /[\s>/]/.test(nextChar);
+    if (!isClosingTag && CHROME_OR_RAWTEXT_TAGS.has(tagName) && isCompleteTagName) {
       const closeEnd = findRawTextCloseTag(html, lowerHtml, tagName, nameEnd);
       cursor = closeEnd === -1 ? html.length : closeEnd + 1;
       text += " ";
@@ -217,6 +220,38 @@ assert(
 assert(
   "8. data-tag='header' attribute does NOT trigger strip",
   htmlToPlainText('<div data-tag="header">$77.82</div>'),
+  "$77.82"
+);
+
+// ---------------------------------------------------------------------------
+// Gemini PR #1148 review: partial-name guard for custom elements.
+// Without this guard, `<nav-bar>...</nav-bar>` would be treated as a `nav`
+// open tag because the name-char loop stops at `-`. findRawTextCloseTag
+// would not find `</nav>`, and cursor would jump to html.length, silently
+// dropping the rest of the document.
+// ---------------------------------------------------------------------------
+
+assert(
+  "8a. <nav-bar> custom element preserved (not stripped as <nav>)",
+  htmlToPlainText("<nav-bar>$77.82</nav-bar><main>$80.00</main>"),
+  "$77.82 $80.00"
+);
+
+assert(
+  "8b. <header-banner> custom element preserved (not stripped as <header>)",
+  htmlToPlainText("<header-banner>$77.82</header-banner><div>$80.00</div>"),
+  "$77.82 $80.00"
+);
+
+assert(
+  "8c. <footer1> custom element preserved (not stripped as <footer>)",
+  htmlToPlainText("<footer1>$77.82</footer1><div>$80.00</div>"),
+  "$77.82 $80.00"
+);
+
+assert(
+  "8d. real <nav> still stripped when followed by a real custom element",
+  htmlToPlainText("<nav>$4,520.00</nav><nav-bar>$77.82</nav-bar>"),
   "$77.82"
 );
 
