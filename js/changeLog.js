@@ -126,10 +126,25 @@ const logItemChanges = (oldItem, newItem) => {
   // Deep-equality check for object-typed fields. Snapshot wrappers (STRK-91 C.2)
   // deep-copy nested objects, so `!==` would log unchanged nested objects as
   // changed because the references differ.
+  //
+  // Key-sorted serialization prevents false positives when object property
+  // insertion order differs between the old and new snapshots (STRK-91 C.3).
+  const _stableStringify = (v) => {
+    if (v === null || typeof v !== "object") return JSON.stringify(v);
+    if (Array.isArray(v)) return "[" + v.map(_stableStringify).join(",") + "]";
+    return (
+      "{" +
+      Object.keys(v)
+        .sort()
+        .map((k) => JSON.stringify(k) + ":" + _stableStringify(v[k]))
+        .join(",") +
+      "}"
+    );
+  };
   const OBJECT_FIELDS = new Set(["numistaData", "fieldMeta", "disposition"]);
   const fieldChanged = (field, a, b) => {
     if (OBJECT_FIELDS.has(field)) {
-      return JSON.stringify(a) !== JSON.stringify(b);
+      return _stableStringify(a) !== _stableStringify(b);
     }
     return a !== b;
   };
