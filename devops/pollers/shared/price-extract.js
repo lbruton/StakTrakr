@@ -321,10 +321,22 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
  * the authoritative structured price set by the merchant, and avoids
  * false positives from spot ticker values appearing earlier in innerText.
  *
+ * Resolution order per Product/Offer:
+ *   1. `priceSpecification` with qty-1 + wire/eCheck `appliesToPaymentMethod` (preferred)
+ *   2. Bare `offer.price` in metal range — SKIPPED when providerId is in
+ *      UNTRUSTED_OFFER_PRICE_VENDORS (STRK-99); caller then falls through to
+ *      markdown-table extraction in `extractPrice()`.
+ *   3. `offer.price === 0` → returns JSONLD_ZERO_PRICE sentinel (OOS signal,
+ *      STAK-475 P1) — honored for ALL vendors including denied ones.
+ *
  * @param {string[]} jsonLdScripts  textContent of each ld+json script tag
  * @param {string}   metal
- * @param {number}   weightOz
- * @returns {number|null}
+ * @param {number}   [weightOz=1]
+ * @param {string}   [providerId=""]  Used to consult UNTRUSTED_OFFER_PRICE_VENDORS
+ *                                    denylist (STRK-99). Empty string keeps the
+ *                                    legacy "always honor offer.price" behavior.
+ * @returns {number|symbol|null}  Numeric price, JSONLD_ZERO_PRICE sentinel for
+ *                                OOS, or null if no usable price was found.
  */
 // Sentinel returned by extractJsonLdPrice when JSON-LD has a valid Product
 // with price=0 — signals "real product page, no price (OOS)". Callers must
