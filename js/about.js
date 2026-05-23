@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.81 &ndash; STRK-91: Bulk editor mobile parity + field gap closure</strong>: Sticky identity columns and 44px mobile tap targets make the bulk editor usable on phones and zoomed displays; new bulk-editable shape, capsule, and capsule-notes fields write through nested storage paths; catalog composition and diameter render as read-only reference columns with search and sort routed through a dot-path resolver (STRK-91).</li>
     <li><strong>v3.34.80 &ndash; STRK-85: Goldback premium in ticker + tiered premium colors</strong>: Ticker now shows G1-rate-based premium % for Goldback items; three-tier color scheme (low &lt;2%, mid 2&ndash;5%, high &ge;5%) applied across ticker, vendor price Matrix, and market detail modal via a shared helper (STRK-85).</li>
     <li><strong>v3.34.79 &ndash; STRK-74: Align inline chip config to saveData wrapper</strong>: Inline chip display preferences now save and load through the project-standard storage wrappers for consistent compression, quota handling, and future storage middleware coverage (STRK-74).</li>
     <li><strong>v3.34.78 &ndash; STRK-92: Fill 90-day Market History with per-vendor data</strong>: 90-day retail history now includes per-vendor daily breakdown; Market History &ldquo;All&rdquo; view shows vendor prices for the full window instead of dashes on older rows; departed vendors retained via union merge on overlapping dates (STRK-92).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.76 &ndash; STRK-89: Add gold-api.com as first-class spot price provider</strong>: New built-in Gold API provider offers free unlimited real-time spot prices for all four metals with no API key required; optional premium key support via collapsible disclosure widget (STRK-89).</li>
     <li><strong>v3.34.75 &ndash; STRK-88: Lot/each purchase price rounding and CSV normalization</strong>: Preserves full precision for purchase prices in memory while displaying rounded inputs, handles lot/each toggle restoration on edit/duplicate, and normalizes CSV parsers/exporters (STRK-88).</li>
     <li><strong>v3.34.74 &ndash; STRK-87: Add Item Numista reset hygiene</strong>: Add Item now explicitly clears stale Numista catalog and tag UI state after editing another item, preventing previous item catalog data or tag handlers from leaking into a new inventory entry (STRK-87).</li>
-    <li><strong>v3.34.73 &ndash; STRK-84: Numista picker tags on first Fill Fields</strong>: Tag checkboxes selected in the Numista picker now persist on the first Fill Fields click when adding a new item &mdash; no second sync required; unchecked default-on tags are recorded as opt-outs for new items (STRK-84).</li>
   `;
 };
 
