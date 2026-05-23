@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.82] - 2026-05-23
+
+### Changed — STRK-99: SDB + BE bulk-tier scrape fix
+
+- **Retail poller**: Add `UNTRUSTED_OFFER_PRICE_VENDORS` denylist
+  (`sdbullion`, `bullionexchanges`) in `extractJsonLdPrice()` to skip the bare
+  `offer.price` JSON-LD fallback when no `priceSpecification` is present.
+  Both vendors recently shipped a Magento template change that publishes the
+  deepest "As Low As" bulk-tier price as `offer.price`, causing the home poller
+  to record bulk prices instead of single-unit Check/Wire prices. With the
+  denylist, `extractPrice()` falls through to the markdown-table extractor
+  which reads the 1-unit row correctly. Tiered `priceSpecification` blocks and
+  the zero-price OOS sentinel still apply for denied vendors. (STRK-99)
+- **Tests**: 6 new fixtures in `price-extract-jsonld.test.mjs` lock in the
+  STRK-99 behavior, including a verbatim capture of SDB's live Product JSON-LD
+  payload from 2026-05-23. (STRK-99)
+
+---
+
 ## [3.34.81] - 2026-05-23
 
 ### Changed — STRK-91: Bulk editor mobile parity + field gap closure

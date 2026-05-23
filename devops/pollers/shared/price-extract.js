@@ -321,10 +321,22 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
  * the authoritative structured price set by the merchant, and avoids
  * false positives from spot ticker values appearing earlier in innerText.
  *
+ * Resolution order per Product/Offer:
+ *   1. `priceSpecification` with qty-1 + wire/eCheck `appliesToPaymentMethod` (preferred)
+ *   2. Bare `offer.price` in metal range — SKIPPED when providerId is in
+ *      UNTRUSTED_OFFER_PRICE_VENDORS (STRK-99); caller then falls through to
+ *      markdown-table extraction in `extractPrice()`.
+ *   3. `offer.price === 0` → returns JSONLD_ZERO_PRICE sentinel (OOS signal,
+ *      STAK-475 P1) — honored for ALL vendors including denied ones.
+ *
  * @param {string[]} jsonLdScripts  textContent of each ld+json script tag
  * @param {string}   metal
- * @param {number}   weightOz
- * @returns {number|null}
+ * @param {number}   [weightOz=1]
+ * @param {string}   [providerId=""]  Used to consult UNTRUSTED_OFFER_PRICE_VENDORS
+ *                                    denylist (STRK-99). Empty string keeps the
+ *                                    legacy "always honor offer.price" behavior.
+ * @returns {number|symbol|null}  Numeric price, JSONLD_ZERO_PRICE sentinel for
+ *                                OOS, or null if no usable price was found.
  */
 // Sentinel returned by extractJsonLdPrice when JSON-LD has a valid Product
 // with price=0 — signals "real product page, no price (OOS)". Callers must
@@ -332,7 +344,19 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
 // grab ticker/carousel prices from a zero-priced product page (STAK-475 P1).
 const JSONLD_ZERO_PRICE = Symbol("jsonld-zero-price");
 
-function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
+// Vendors whose JSON-LD `offer.price` is the deepest "As Low As" bulk tier
+// rather than the 1-unit retail price (STRK-99). For these vendors, we still
+// honor a tier-aware `priceSpecification` block if present (qty-1 wire entry),
+// but we skip the bare `offer.price` fallback so extractPrice() can pull the
+// correct 1-unit Check/Wire price from the markdown table instead.
+//
+// Verified 2026-05-23: SDB and BE both publish only `offer.price` (no
+// priceSpecification array, no eligibleQuantity, no appliesToPaymentMethod).
+// Add a vendor here only after confirming via live JSON-LD capture that the
+// bare offer.price is consistently the bulk-tier value.
+const UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"]);
+
+function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerId = "") {
   if (!jsonLdScripts || jsonLdScripts.length === 0) return null;
   const perOz = METAL_PRICE_RANGE_PER_OZ[metal];
   if (!perOz) return null;
@@ -392,7 +416,15 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
           }
 
           const price = parseFloat(String(offer.price ?? "").replace(/,/g, ""));
+          // Always honor the zero-price OOS sentinel — even for denied vendors.
+          // A zero offer.price reliably signals "real product page, no price"
+          // (STAK-475 P1); only the in-range fallback is untrustworthy.
           if (!isNaN(price) && price === 0) return JSONLD_ZERO_PRICE;
+          // STRK-99: SDB and BE publish offer.price as the deepest bulk tier.
+          // Skip the bare-offer fallback for these vendors so extractPrice()
+          // can read the correct 1-unit Check/Wire price from the markdown table.
+          // Tiered priceSpecification above is still honored if a vendor adds one.
+          if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) continue;
           if (inRange(price)) return price;
         }
       }
@@ -1075,7 +1107,12 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const textStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
     const isInStock = !jsonLdOos && textStock.inStock;
 
-    const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
+    const jsonLdPrice = extractJsonLdPrice(
+      jsonLdScripts,
+      coin.metal,
+      coin.weight_oz || 1,
+      providerId
+    );
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
       log(`[cf-clearance] ${providerId}: JSON-LD price=0 in Byparr HTML -> OOS`);
       return { price: null, inStock: false, source: "cf-clearance:jsonLd" };
@@ -1160,7 +1197,12 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const cleaned = preprocessMarkdown(text, providerId);
     const inStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
     // JSON-LD is authoritative — avoids related-product / spot ticker false positives.
-    const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
+    const jsonLdPrice = extractJsonLdPrice(
+      jsonLdScripts,
+      coin.metal,
+      coin.weight_oz || 1,
+      providerId
+    );
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
       log(`[cf-clearance] ${providerId}: JSON-LD price=0 → OOS, skipping HTML extraction`);
       return { price: null, inStock: false, source: "cf-clearance" };
@@ -1374,7 +1416,12 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
 
     // JSON-LD is authoritative — check before regex fallbacks to avoid
     // grabbing spot ticker deltas or related-product prices from innerText.
-    const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
+    const jsonLdPrice = extractJsonLdPrice(
+      jsonLdScripts,
+      coin.metal,
+      coin.weight_oz || 1,
+      providerId
+    );
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
       log(`  ${providerId}: JSON-LD price=0 → OOS, skipping HTML extraction`);
       return { price: null, inStock: false, source: "playwright-direct" };
