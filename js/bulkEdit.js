@@ -1011,6 +1011,7 @@ const renderBulkToolbar = () => {
 
   const selectAllBtn = document.createElement("button");
   selectAllBtn.type = "button";
+  selectAllBtn.id = "bulkSelectAllBtn";
   selectAllBtn.className = "btn secondary";
   selectAllBtn.textContent = "Select All";
   selectAllBtn.addEventListener("click", () => selectAllItems(true));
@@ -1018,6 +1019,7 @@ const renderBulkToolbar = () => {
 
   const selectNoneBtn = document.createElement("button");
   selectNoneBtn.type = "button";
+  selectNoneBtn.id = "bulkSelectNoneBtn";
   selectNoneBtn.className = "btn secondary";
   selectNoneBtn.textContent = "Select None";
   selectNoneBtn.addEventListener("click", () => selectAllItems(false));

@@ -558,10 +558,9 @@ test.describe("STRK-91 B.1 — no overlap at narrow viewports (AC-3, AC-6)", () 
       ).toBeLessThanOrEqual(VIEWPORTS[label].height + 1);
 
       // Toolbar Select All / action buttons must not be covered by the footer.
-      const selectAll = await getRect(
-        page,
-        '#bulkEditModal #bulkEditToolbar button:has-text("Select All")'
-      );
+      // NOTE: `:has-text()` is a Playwright pseudo-selector, not valid for
+      // document.querySelector. Use the native id added by C.5 instead.
+      const selectAll = await getRect(page, "#bulkEditModal #bulkSelectAllBtn");
       if (selectAll) {
         expect(
           rectsOverlap(footer, selectAll),
