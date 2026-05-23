@@ -43,7 +43,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 - Worktree naming: `.worktrees/<issue>-<slug>/` (via `/start-patch`) or `.worktrees/patch-<version>/` (via `/release`). Pick what the entry skill creates and keep it for the branch lifetime. Create: `git fetch origin dev && git worktree add .worktrees/<name>/ -b <branch> origin/dev`. After: `cp CLAUDE.md .worktrees/<name>/` then `npm install --no-audit --no-fund`.
 - Squash merge only — rebase merge blocked (GitHub can't sign rebase commits). Use squash or local merge with SSH signing.
 - `stamp-sw-cache` hook auto-stages `sw.js` when JS/CSS/image files commit. Don't add manually.
-- **Run `/update-spot-bundle` before EVERY version-bump PR** (whether targeting `dev` or `main`). Queries sqld and rebuilds `data/spot-history-bundle.js`. Copilot's reminder is correct — not a false positive. **Worktree note:** the script writes to the **main checkout**, not the active worktree — after running, copy to the worktree: `cp /Volumes/DATA/GitHub/StakTrakr/data/spot-history-bundle.js data/ && cp /Volumes/DATA/GitHub/StakTrakr/data/spot-history-bundle-*.js data/` (run from worktree root).
+- **Run `/update-spot-bundle` before EVERY version-bump PR** (whether targeting `dev` or `main`). Queries sqld and rebuilds `data/spot-history-bundle.js`. Copilot's reminder is correct — not a false positive. **Worktree note:** the script writes to the **main checkout**, not the active worktree — after running, copy to the worktree: `cp ../../data/spot-history-bundle.js data/ && cp ../../data/spot-history-bundle-*.js data/` (run from worktree root).
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
 - **Sketch branch naming** → `/sketch orchestrate` generates `sketch/{ISSUE-ID}-{slug}` branch names by default, but StakTrakr requires `patch/VERSION` via `/start-patch`. Override generated tasks.md if it uses the sketch convention.
 - **`/sketch orchestrate` closing tasks** → always dispatch as a single batched prompt, not one-at-a-time. Closing tasks have no model-routing ambiguity and benefit from no parallel hazard.
@@ -146,7 +146,7 @@ Tables using `position: sticky` on `th`/`td` require `border-collapse: separate;
 
 ### `--warning` color — WCAG fail on small text in light/sepia
 
-`--warning` (oklch L≈0.666) on `--bg-secondary` (oklch L≈0.96) produces ~1.4:1 contrast in light and sepia themes — fails WCAG AA for small text. Use a darker custom amber (~`oklch(0.55 0.15 60)`) for ticker or `font-size-xs` contexts in these themes.
+`--warning` (oklch L≈0.666) on `--bg-secondary` produces ~1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes — fails WCAG AA for small text. Use a darker custom amber (~`oklch(0.55 0.15 60)`) for ticker or `font-size-xs` contexts in these themes.
 
 ### `_isMarketItemEnabled` guard — apply on both tab paths
 
@@ -168,7 +168,11 @@ Follow this sequence:
 
 **Warning:** Never mark Plane issues Done before the PR merges. Plane closure tasks (CLOSE-N, where N is the task number) must follow `/sketch archive` after merging.
 
-**DocVault git add discipline:** When committing sketch archives, always stage by exact file paths (`git add specs/STRK-74/requirements.md ...`), never `git add specs/` or `git add .` — broad staging picks up in-progress sketches as unintended additions.
+**DocVault git add discipline:** When committing sketch archives, stage with surgical precision:
+
+- Stage by exact file paths: `git add specs/STRK-74/requirements.md ...`
+- Never use broad staging: `git add specs/` or `git add .`
+- Broad staging picks up in-progress sketches as unintended additions.
 
 ### Pre-PR scan — Codacy CLI project-specific noise
 
@@ -176,7 +180,7 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 
 ### Codacy CLI mutates `.codacy/codacy.yaml`
 
-`/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites `.codacy/codacy.yaml` — adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest. This breaks the `config-validation.spec.js` CY-2/CY-7/CY-8 assertions every time. **After any CLOSE-2 codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.** The mutation is a CLI side effect, not a real config change. Valid scan invocation: `codacy analyze --tool eslint --format sarif` — `--directory` is not a valid flag.
+`/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites `.codacy/codacy.yaml` — adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest. This breaks the `config-validation.spec.js` Cypress (CY) assertions CY-2, CY-7, and CY-8 every time. **After any CLOSE-2 codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.** The mutation is a CLI side effect, not a real config change. Valid scan invocation: `codacy analyze --tool eslint --format sarif` — `--directory` is not a valid flag.
 
 ### Known Reviewer False Positives
 
