@@ -91,6 +91,33 @@ const BULK_SYNTHETIC_COLUMN_PATHS = {
 // Their useful contents are exposed via synthetic dot-path columns above.
 const BULK_COLUMN_SUPPRESSED_RAW = new Set(["numistaData"]);
 
+// Nested storage map for bulk-edit fields. Fields listed here write through
+// the dot-path on the item rather than as a top-level key. Top-level keys
+// with the same id are NEVER created (STRK-91 AC-4).
+const BULK_FIELD_STORAGE_MAP = {
+  shape: "numistaData.shape",
+};
+
+// Apply a value to a possibly-nested dot-path on an item, initializing
+// intermediate objects when needed.
+const applyBulkFieldToItem = (item, fieldId, value) => {
+  const path = BULK_FIELD_STORAGE_MAP[fieldId];
+  if (!path) {
+    item[fieldId] = value;
+    return;
+  }
+  const parts = path.split(".");
+  let cursor = item;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    if (!cursor[key] || typeof cursor[key] !== "object") {
+      cursor[key] = {};
+    }
+    cursor = cursor[key];
+  }
+  cursor[parts[parts.length - 1]] = value;
+};
+
 const resolveBulkValue = (item, key) => {
   if (!item || !key) return undefined;
   const path = BULK_SYNTHETIC_COLUMN_PATHS[key] || key;
@@ -356,6 +383,20 @@ const BULK_EDITABLE_FIELDS = [
   { id: "date", label: "Purchase Date", inputType: "date" },
   { id: "serialNumber", label: "Serial Number", inputType: "text" },
   { id: "notes", label: "Notes", inputType: "textarea" },
+  {
+    id: "shape",
+    label: "Shape",
+    inputType: "select",
+    options: [
+      { value: "round", label: "Round" },
+      { value: "rectangular", label: "Rectangular" },
+      { value: "square", label: "Square" },
+      { value: "oval", label: "Oval" },
+      { value: "other", label: "Other" },
+    ],
+  },
+  { id: "capsule", label: "Capsule", inputType: "text" },
+  { id: "capsuleNotes", label: "Capsule Notes", inputType: "text" },
   { id: "numistaId", label: "Numista #", inputType: "text" },
   {
     id: "obverseImageUrl",
@@ -1166,6 +1207,7 @@ const renderBulkFooter = () => {
   // Apply Changes button
   const applyBtn = document.createElement("button");
   applyBtn.type = "button";
+  applyBtn.id = "bulkEditApplyBtn";
   applyBtn.className = "btn premium";
   applyBtn.textContent = "Apply Changes" + (count ? " (" + count + ")" : "");
   applyBtn.disabled = count === 0 || enabledCount === 0;
@@ -1334,15 +1376,65 @@ const applyBulkEdit = async () => {
   inventory.forEach((item) => {
     if (!bulkSelection.has(String(item.serial))) return;
 
-    // Snapshot old item for change logging
+    // Snapshot old item for change logging. Deep-copy nested objects we may
+    // mutate (numistaData, fieldMeta) so the snapshot survives in-place edits
+    // — shallow Object.assign would share references and erase before/after
+    // diffs (STRK-91).
     const oldItem = Object.assign({}, item);
+    if (item.numistaData && typeof item.numistaData === "object") {
+      oldItem.numistaData = JSON.parse(JSON.stringify(item.numistaData));
+    }
+    if (item.fieldMeta && typeof item.fieldMeta === "object") {
+      oldItem.fieldMeta = JSON.parse(JSON.stringify(item.fieldMeta));
+    }
 
-    // Apply each enabled field
+    // Apply each enabled field — honor BULK_FIELD_STORAGE_MAP for nested paths.
     Object.keys(valuesToApply).forEach((fieldId) => {
-      item[fieldId] = coerceFieldValue(fieldId, valuesToApply[fieldId]);
+      const coerced = coerceFieldValue(fieldId, valuesToApply[fieldId]);
+      applyBulkFieldToItem(item, fieldId, coerced);
     });
+
     if (bulkEnabledFields.has("paymentMethod") && !item.paymentMethod) {
       delete item.paymentMethod;
+    }
+
+    // Empty capsule / capsuleNotes → delete key (parity with paymentMethod).
+    if (bulkEnabledFields.has("capsule") && !item.capsule) {
+      delete item.capsule;
+    }
+    if (bulkEnabledFields.has("capsuleNotes") && !item.capsuleNotes) {
+      delete item.capsuleNotes;
+    }
+
+    // Shape overrides: clear incompatible dimension keys on numistaData.
+    // Mirrors the single-item modal's toggleDimensionFields behavior, but
+    // intentionally skips the parseDimensions copy-then-clear step — bulk
+    // edit just clears stale keys cleanly (STRK-91 explicit decision).
+    if (bulkEnabledFields.has("shape") && item.numistaData) {
+      const shapeValue = item.numistaData.shape;
+      const category =
+        typeof window.classifyShape === "function" ? window.classifyShape(shapeValue) : "round";
+      if (category === "rectangular" || category === "square") {
+        delete item.numistaData.diameter;
+      } else {
+        delete item.numistaData.length;
+        delete item.numistaData.width;
+      }
+    }
+
+    // Track user-overridden shape for parity with single-item modal
+    // (events.js:1830-1869).
+    if (bulkEnabledFields.has("shape") && typeof window.markUserModified === "function") {
+      window.markUserModified(item, "shape");
+    }
+
+    // Register non-empty capsule for autocomplete (capsuleNotes is NOT registered).
+    if (
+      bulkEnabledFields.has("capsule") &&
+      item.capsule &&
+      typeof window.registerCapsule === "function"
+    ) {
+      window.registerCapsule(item.capsule);
     }
 
     // STACK-62: Invalidate search cache for modified item
