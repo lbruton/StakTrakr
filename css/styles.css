@@ -12690,7 +12690,7 @@ th {
   border-radius: var(--radius);
   font-size: var(--font-size-sm);
   background: var(--bg-primary);
-  color: var(--text);
+  color: var(--text-primary);
   transition:
     opacity 0.15s,
     border-color 0.15s;
@@ -12737,7 +12737,7 @@ th {
   border-radius: var(--radius);
   font-size: var(--font-size-md);
   background: var(--bg-primary);
-  color: var(--text);
+  color: var(--text-primary);
 }
 
 .bulk-edit-toolbar input[type="search"]:focus {
@@ -13042,7 +13042,7 @@ th {
   user-select: none;
 }
 .bulk-edit-table th.bulk-sortable:hover {
-  color: var(--text);
+  color: var(--text-primary);
 }
 .bulk-edit-table th.bulk-sortable::after {
   content: " ⇅";
