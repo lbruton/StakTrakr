@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.83] - 2026-05-23
+
+### Fixed — STRK-99 hotfix: SDB + BE spot-ticker / sidebar leak
+
+- **Retail poller — HTML chrome strip**: `htmlToPlainText()` now drops
+  `<nav>`, `<header>`, and `<footer>` content the same way it already drops
+  `<script>` and `<style>`. v3.34.82's STRK-99 denylist forced BE through the
+  markdown extractor, which then matched the spot ticker inside `<header>`
+  (silver $75.92 / gold $4,520) instead of the product price. (STRK-99)
+- **Retail poller — tier-anchored extractor**: New `tierAnchoredPrice()`
+  matches qty-range patterns (`1-24`, `1 - 49`, `50+`, `1+`) and returns the
+  first wire price after the first match. For `UNTRUSTED_OFFER_PRICE_VENDORS`
+  (sdbullion, bullionexchanges), this is the only prose fallback after JSON-LD
+  is denied — `firstInRangePriceProse` is no longer reachable for these
+  vendors, so spot tickers and "Related Products" sidebar prices can never
+  poison the dashboard again. When neither a pipe table nor a tier-anchored
+  pattern is present, extraction returns null (the page is treated as OOS
+  rather than written with a misleading value). (STRK-99)
+- **Tests**: 12 new fixtures in `price-extract-html-chrome-strip.test.mjs` and
+  18 new fixtures in `price-extract-tier-anchored.test.mjs`, including
+  regressions for SDB's `1 - 49` whitespace pattern (which the v1 of the
+  regex silently skipped, returning the bulk tier) and year-range guards
+  (`2024 - 2025 $99` must NOT match). 55/55 tests across the three poller
+  suites pass green. (STRK-99)
+- **In-container live verification** (DRY_RUN against home-poller Byparr):
+  SDB silver maple → $79.23 (correct 1-unit); SDB gold maple → $4,580.63
+  (correct 1-unit); BE silver maple → $77.82 (correct 1-unit Check/Wire);
+  BE gold maple → NULL (safe-OOS — Byparr couldn't hydrate the price grid
+  in its render window, which is the new desired behavior over recording
+  a spot or sidebar value). (STRK-99)
+
+---
+
 ## [3.34.82] - 2026-05-23
 
 ### Changed — STRK-99: SDB + BE bulk-tier scrape fix

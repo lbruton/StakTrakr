@@ -649,6 +649,42 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
     return null;
   }
 
+  // STRK-99 hotfix: tier-anchored prose extractor for vendors whose Byparr-
+  // rendered HTML produces flat plain text (no markdown pipe tables) and whose
+  // pricing grid is structured as
+  //     <qty-range> $<wire> $<crypto> $<card>
+  //     <qty-range> $<wire> $<crypto> $<card>
+  //     ...
+  // (e.g. "1-24 $77.82 $78.61 $80.93   25-99 $77.62 ..." on Bullion Exchanges).
+  //
+  // qty-range patterns we accept:
+  //   "1-24" / "20-99" / "100-499" / "500+"  (multi-tier)
+  //   "1+"   (single-tier — no quantity break advertised)
+  //
+  // The price we return is the FIRST in-range $-value immediately following the
+  // FIRST qty-range marker. This:
+  //   (a) avoids spot tickers (no qty-range precedes them in the chrome-stripped text),
+  //   (b) avoids related-product sidebars (which use "As low as" prose, never qty-range),
+  //   (c) gives the 1-unit Check/Wire price (the smallest qty-range always comes first).
+  //
+  // Returns null when no qty-range pattern is found — the caller should treat
+  // this as "no usable price extracted" rather than fall through to a looser
+  // matcher that would re-introduce the spot-ticker / related-product noise.
+  function tierAnchoredPrice() {
+    // qty-range forms we accept (allowing whitespace around dashes since some
+    // vendors render "1 - 49" rather than "1-49" in their hydrated DOM):
+    //   <1-3 digits> [ws] - [ws] <1-5 digits>    → "1-49" / "1 - 49" / "100-499"
+    //   <1-3 digits> +                            → "50+" / "500+" / "1+"
+    // We cap the LOW side at 3 digits to prevent "2024 - 2025" year ranges
+    // from matching when a description and a price happen to share a line.
+    const pattern = /\b(?:\d{1,3}\s*-\s*\d{1,5}|\d{1,3}\+)\s+\$\s*([\d,]+\.\d{2})/g;
+    for (const m of markdown.matchAll(pattern)) {
+      const p = parseFloat(m[1].replace(/,/g, ""));
+      if (inRange(p)) return p;
+    }
+    return null;
+  }
+
   // Fallback for SPAs (e.g. Bullion Exchanges) that render prices as prose rather
   // than markdown pipe tables. Returns the first $XX.XX value in the metal range.
   function firstInRangePriceProse() {
@@ -691,6 +727,25 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
     if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
     const pipeTbl = jmPriceFromPipeTable();
     if (pipeTbl !== null) return { price: pipeTbl, matchedBy: "jmPipeTable" };
+    return null;
+  } else if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) {
+    // STRK-99 hotfix (v3.34.83): tier-anchored extraction for SDB + BE.
+    // These vendors' Byparr/innerText payloads can contain (in order):
+    //   1. Spot ticker in chrome (silver $75.92 / gold $4,520) — survives if
+    //      htmlToPlainText chrome-strip misses it.
+    //   2. Related-product sidebar entries like "American Eagle ... As low as: $4,566".
+    //   3. The main pricing grid:  "1-24 $77.82 $78.61 $80.93   25-99 $77.62 ..."
+    //
+    // firstInRangePriceProse() picks (1) or (2) when (3) hasn't rendered yet,
+    // which is the regression we observed at v3.34.82. Tier-anchored extraction
+    // skips (1) and (2) entirely because neither is preceded by a "1-24" /
+    // "1+" / "500+" quantity-range marker. Returns null when (3) isn't present
+    // — the caller treats that as "no price extracted" rather than poisoning
+    // the dashboard with a sidebar or spot value.
+    const tblFirst = firstTableRowFirstPrice();
+    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
+    const tier = tierAnchoredPrice();
+    if (tier !== null) return { price: tier, matchedBy: "tierAnchored" };
     return null;
   } else if (USES_AS_LOW_AS.has(providerId)) {
     // Reserved for vendors that have no pricing table, only "As Low As" display.
@@ -929,6 +984,17 @@ function collapseWhitespace(text) {
   return output;
 }
 
+// Tags whose entire content is dropped (not just their open/close markers) when
+// converting HTML to plain text via htmlToPlainText():
+//   - script / style: HTML5 raw-text elements; never contain product text.
+//   - nav / header / footer: SPA chrome that contains site-wide spot tickers,
+//     mega-menu category links, and pre-footer ads. Per HTML5, these MUST NOT
+//     contain product (<main>) content, so dropping them is safe across vendors.
+//     (STRK-99 hotfix: bullionexchanges returned spot ticker for every coin
+//     because Byparr captured the React shell before the price grid hydrated;
+//     the only $-values in its plain text were the header ticker.)
+const CHROME_OR_RAWTEXT_TAGS = new Set(["script", "style", "nav", "header", "footer"]);
+
 function htmlToPlainText(html) {
   if (!html) return "";
   const lowerHtml = html.toLowerCase();
@@ -966,7 +1032,16 @@ function htmlToPlainText(html) {
     }
 
     const tagName = lowerHtml.slice(nameStart, nameEnd);
-    if (!isClosingTag && (tagName === "script" || tagName === "style")) {
+    // STRK-99 hotfix: drop entire <script>, <style>, AND SPA chrome blocks
+    // (<nav>, <header>, <footer>) before flattening to plain text. The chrome
+    // tags carry site-wide spot tickers and mega-menu links that otherwise
+    // poison firstInRangePriceProse() on vendors whose product price is JS-
+    // hydrated AFTER Byparr's render window — bullionexchanges was returning
+    // spot silver/gold from the header ticker for every coin because Byparr
+    // captured the React shell before the product price grid rendered.
+    // HTML5 forbids <main>-style product content inside these tags, so this
+    // is safe across all vendors using the cf-clearance HTML path.
+    if (!isClosingTag && CHROME_OR_RAWTEXT_TAGS.has(tagName)) {
       const closeEnd = findRawTextCloseTag(html, lowerHtml, tagName, nameEnd);
       cursor = closeEnd === -1 ? html.length : closeEnd + 1;
       text += " ";
