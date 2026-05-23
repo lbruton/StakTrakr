@@ -12,6 +12,8 @@ npm run format        # Prettier (js/ + css/ only — not data/, vendor/)
 npm run format:check
 ```
 
+Pre-existing flaky test categories: `goldback-type`, `lot-each-purchase-price`, `numista-picker-tags` — skip per the 10-min hard-timeout rule; do not fix unrelated failures.
+
 ## Documentation
 
 Foundation docs at `DocVault/Projects/StakTrakr/Foundation/`. Run `/vault-drift` after architectural/infra work.
@@ -41,7 +43,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
 - Worktree naming: `.worktrees/<issue>-<slug>/` (via `/start-patch`) or `.worktrees/patch-<version>/` (via `/release`). Pick what the entry skill creates and keep it for the branch lifetime. Create: `git fetch origin dev && git worktree add .worktrees/<name>/ -b <branch> origin/dev`. After: `cp CLAUDE.md .worktrees/<name>/` then `npm install --no-audit --no-fund`.
 - Squash merge only — rebase merge blocked (GitHub can't sign rebase commits). Use squash or local merge with SSH signing.
 - `stamp-sw-cache` hook auto-stages `sw.js` when JS/CSS/image files commit. Don't add manually.
-- **Run `/update-spot-bundle` before EVERY version-bump PR** (whether targeting `dev` or `main`). Queries sqld and rebuilds `data/spot-history-bundle.js`. Copilot's reminder is correct — not a false positive.
+- **Run `/update-spot-bundle` before EVERY version-bump PR** (whether targeting `dev` or `main`). Queries sqld and rebuilds `data/spot-history-bundle.js`. Copilot's reminder is correct — not a false positive. **Worktree note:** the script writes to the **main checkout**, not the active worktree — after running, copy to the worktree: `cp /Volumes/DATA/GitHub/StakTrakr/data/spot-history-bundle.js data/ && cp /Volumes/DATA/GitHub/StakTrakr/data/spot-history-bundle-*.js data/` (run from worktree root).
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
 - **Sketch branch naming** → `/sketch orchestrate` generates `sketch/{ISSUE-ID}-{slug}` branch names by default, but StakTrakr requires `patch/VERSION` via `/start-patch`. Override generated tasks.md if it uses the sketch convention.
 - **`/sketch orchestrate` closing tasks** → always dispatch as a single batched prompt, not one-at-a-time. Closing tasks have no model-routing ambiguity and benefit from no parallel hazard.
@@ -58,8 +60,7 @@ Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4
   - Never use Perplexity for routine lookups that Brave can handle. Tool ladder by cost: `perplexity_search` (ranked results) → `perplexity_ask` (quick AI answer) → `perplexity_reason` (chain-of-thought) → `perplexity_research` (deep multi-source, 30s+).
   - Pass `strip_thinking: true` on `perplexity_research`/`perplexity_reason` to save context tokens.
 - StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
-- All `cloud-sync.js` patches require `/codex:rescue` peer review before merge.
-- Codex handoff prompts use `$spec` not `/spec`.
+- All `cloud-sync.js` patches require `/sketch-review` (Opus or equivalent) peer review before merge. (`/codex:rescue` is DISABLED — see global CLAUDE.md Peer Review.)
 - StakTrakr-specific code-search hint: the project uses script-tag globals, so when claude-context returns thin results for a global, fall back to CGC structural query before Grep.
 - When calling `mcp__specflow__approvals` with `action: "request"`, `filePath` must be relative to the specflow workflow root (e.g., `specs/STRK-89-foo/requirements.md`), NOT relative to the project root with `../DocVault/...` traversal. The dashboard content endpoint rejects paths containing `..`.
 
@@ -123,6 +124,30 @@ Use `toLocaleDateString('en-CA')` to produce `YYYY-MM-DD` local dates. Do NOT us
 
 `isGoldbackLookup` (target+unit check) and `isGoldbackRetailLookup` (unit-only check) have different semantics and are easy to confuse. Use the correct predicate for the context — retail lookup uses unit-only.
 
+### Theme count — four themes, not three
+
+StakTrakr has **four** CSS themes: `light`, `dark`, `slate`, `sepia`. There is no `contrast` theme. AI reviewers frequently hallucinate "three themes" or a "contrast" theme — both are wrong. Any sketch/approach doc referencing three themes or a `contrast` theme is inaccurate.
+
+### `applyBulkEdit()` — nested field paths and shallow copy
+
+- **Flat assignment hazard:** `applyBulkEdit()` uses `item[fieldId] = value`. Any field at a nested path (e.g., `item.numistaData.shape`) silently writes to a nonexistent top-level key. Fields at nested paths require an explicit `BULK_FIELD_STORAGE_MAP` entry (precedent: STRK-91).
+- **Shallow copy hazard:** `Object.assign({}, item)` before mutation means `oldItem.numistaData === item.numistaData`. Mutating a nested field silently mutates `oldItem` too, making change-log before/after diffs invisible. Deep-copy the nested object before mutation.
+- **`BULK_COLUMN_PRIORITY`** has **30 entries** — grep rather than trusting prior docs (reviewers have guessed 22, 28, and 32 in separate sessions).
+
+### `loadDataSync` behaviors
+
+- **Swallows parse errors** — returns the default value on parse/decompression error instead of throwing. Outer `try/catch` around `loadDataSync` will never fire for parse failures; `console.warn` in a catch block is dead code in this scenario.
+- **Default is `[]`, not `null`** — `[]` is truthy. When the caller checks `if (!storedValue)` before merging defaults, pass `null` explicitly: `loadDataSync("key", null)`. The default `[]` silently skips the merge.
+- **`saveDataSync` re-throws** — unlike raw `localStorage.setItem`, it re-throws on quota errors. Fire-and-forget callers need a `try/catch` wrapper when migrating from raw storage calls.
+
+### CSS sticky columns — required setup
+
+Tables using `position: sticky` on `th`/`td` require `border-collapse: separate; border-spacing: 0` (the default `collapse` disables sticky). For sticky-left + sticky-top intersections, use a three-tier z-index: corner cells = `z-index: 3`, sticky column body cells = `z-index: 1`, data cells = auto. Missing the corner tier causes data cells to paint over the frozen header corner during diagonal scroll.
+
+### `--warning` color — WCAG fail on small text in light/sepia
+
+`--warning` (oklch L≈0.666) on `--bg-secondary` (oklch L≈0.96) produces ~1.4:1 contrast in light and sepia themes — fails WCAG AA for small text. Use a darker custom amber (~`oklch(0.55 0.15 60)`) for ticker or `font-size-xs` contexts in these themes.
+
 ### `_isMarketItemEnabled` guard — apply on both tab paths
 
 In `_renderVendorTable()`, the `_isMarketItemEnabled` filter must be applied on **both** the All-tab code path and the per-metal-tab `else` branch. Missing it on the `else` branch causes disabled vendors to appear as column headers.
@@ -143,13 +168,15 @@ Follow this sequence:
 
 **Warning:** Never mark Plane issues Done before the PR merges. Plane closure tasks (CLOSE-N, where N is the task number) must follow `/sketch archive` after merging.
 
+**DocVault git add discipline:** When committing sketch archives, always stage by exact file paths (`git add specs/STRK-74/requirements.md ...`), never `git add specs/` or `git add .` — broad staging picks up in-progress sketches as unintended additions.
+
 ### Pre-PR scan — Codacy CLI project-specific noise
 
 Project uses script-tag globals the auto-config doesn't recognize. Pre-existing browser-global `no-undef` findings are noise. Verify findings on changed lines only. (Global `Action Gates` covers the fresh-worktree empty-diff issue.)
 
 ### Codacy CLI mutates `.codacy/codacy.yaml`
 
-`/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites `.codacy/codacy.yaml` — adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest. This breaks the `config-validation.spec.js` CY-2/CY-7/CY-8 assertions every time. **After any CLOSE-2 codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.** The mutation is a CLI side effect, not a real config change.
+`/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites `.codacy/codacy.yaml` — adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest. This breaks the `config-validation.spec.js` CY-2/CY-7/CY-8 assertions every time. **After any CLOSE-2 codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.** The mutation is a CLI side effect, not a real config change. Valid scan invocation: `codacy analyze --tool eslint --format sarif` — `--directory` is not a valid flag.
 
 ### Known Reviewer False Positives
 
@@ -159,6 +186,7 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 - **CodeRabbit `STRK-*` issue prefix** — see global CLAUDE.md "Conventions" rule on post-migration prefix flags; pre-classify as false positive.
 - **Copilot `no-undef` on browser globals** — project uses script-tag globals across vanilla JS files with no bundler. The phrasing "vanilla JS global scope, no module bundler" is sufficient context in PR replies; do not include a file count (it changes).
 - **`gb-*` CSS classes** — goldback-scoped. Don't copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
+- **CodeRabbit skips dev-targeting PRs** — configured for the default branch only. Don't wait for a review that won't arrive; check `gh pr view` to confirm no review is pending.
 - **Retail OOS detection is content-driven** — `detectStockStatus` in `firecrawl-extract.js` regex-matches rendered markdown which **includes ShopperApproved review blocks**. Customer-review text containing "out of stock", "unavailable", "page not found" produces systematic false-OOS for entire vendors. Investigation: scrape page, check if trigger text lies AFTER pricing table — if so extend `MARKDOWN_CUTOFF_PATTERNS` (regex must be plural-tolerant: `Reviews?`).
 
 ## Pre-flight (StakTrakr-specific)
@@ -178,4 +206,4 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 
 ## Design Context
 
-Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters. Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy. Full design system + brand identity + three-theme rules + anti-references (NOT generic fintech, NOT crypto/Web3, NOT spreadsheet clone) in `DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
+Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters. Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy. Full design system + brand identity + four-theme rules (light, dark, slate, sepia) + anti-references (NOT generic fintech, NOT crypto/Web3, NOT spreadsheet clone) in `DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
