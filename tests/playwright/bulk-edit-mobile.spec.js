@@ -243,6 +243,335 @@ test.describe("STRK-91 bulk-edit mobile parity — A.1 harness scaffolding", () 
   }
 });
 
+// ---------------------------------------------------------------------------
+// B.1 — RED assertions: sticky identity region, tap targets, no overlap.
+//
+// These tests MUST FAIL against the current implementation (Cohort A only
+// introduced data-column anchors and harness helpers — no sticky CSS, no
+// enlarged tap targets, no responsive layout fixes). When Cohort C lands,
+// they flip to green.
+//
+// Why page.evaluate() + getComputedStyle() over boundingBox():
+//   For sticky-positioned cells inside an `overflow: auto` table wrap,
+//   boundingBox() returns the painted rect (which is fine), but to assert
+//   the contract — `position: sticky` with a numeric `left` offset —
+//   we need the computed style. The mobile-modal-safe-area precedent uses
+//   the same styleSheet/getComputedStyle pattern for the same reason.
+// ---------------------------------------------------------------------------
+
+// Selectors for the three sticky-identity columns (anchors added by A.2).
+const STICKY_COLUMNS = ["cb", "img", "name"];
+
+/** Return computed position+left for a header or body cell, in the page. */
+async function getComputedPositionLeft(page, selector) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const cs = window.getComputedStyle(el);
+    return {
+      position: cs.position,
+      left: cs.left,
+      zIndex: cs.zIndex,
+    };
+  }, selector);
+}
+
+/** Return the bounding rect for the first match, or null. */
+async function getRect(page, selector) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom };
+  }, selector);
+}
+
+/** Effective hit area = the larger of the input rect or the wrapping label. */
+async function getEffectiveHitArea(page, inputSelector) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const inputRect = el.getBoundingClientRect();
+    // Climb to the closest label OR a wrapping clickable ancestor (li, .field-row, etc.).
+    let host =
+      el.closest("label") || el.closest(".bulk-field-row") || el.closest("td") || el.parentElement;
+    const hostRect = host ? host.getBoundingClientRect() : inputRect;
+    // Account for ::before / ::after pseudo-element overlays (the recommended
+    // 44x44 expansion pattern from approach D-5 / C.5).
+    const beforeBox = host
+      ? (() => {
+          const pseudo = window.getComputedStyle(host, "::before");
+          const w = parseFloat(pseudo.width) || 0;
+          const h = parseFloat(pseudo.height) || 0;
+          return { width: w, height: h };
+        })()
+      : { width: 0, height: 0 };
+    const afterBox = host
+      ? (() => {
+          const pseudo = window.getComputedStyle(host, "::after");
+          const w = parseFloat(pseudo.width) || 0;
+          const h = parseFloat(pseudo.height) || 0;
+          return { width: w, height: h };
+        })()
+      : { width: 0, height: 0 };
+    const pseudoMaxW = Math.max(beforeBox.width, afterBox.width);
+    const pseudoMaxH = Math.max(beforeBox.height, afterBox.height);
+    return {
+      inputWidth: inputRect.width,
+      inputHeight: inputRect.height,
+      hostWidth: hostRect.width,
+      hostHeight: hostRect.height,
+      effectiveWidth: Math.max(inputRect.width, hostRect.width, pseudoMaxW),
+      effectiveHeight: Math.max(inputRect.height, hostRect.height, pseudoMaxH),
+    };
+  }, inputSelector);
+}
+
+/** True if two rects overlap (strictly — touching edges OK). */
+function rectsOverlap(a, b) {
+  if (!a || !b) return false;
+  return !(a.right <= b.x || b.right <= a.x || a.bottom <= b.y || b.bottom <= a.y);
+}
+
+test.describe("STRK-91 B.1 — sticky identity region (AC-1, AC-6, AC-7)", () => {
+  for (const [label, viewport] of Object.entries(VIEWPORTS)) {
+    test(`sticky cb/img/name columns retain stable left offsets while table scrolls (${label})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await seedBulkInventory(page);
+      await gotoApp(page);
+      await openBulkEditModal(page);
+
+      // Header cells — all three must be position: sticky with a defined left.
+      for (const key of STICKY_COLUMNS) {
+        const headerSel = `#bulkEditModal .bulk-edit-table thead th[data-column="${key}"]`;
+        const cs = await getComputedPositionLeft(page, headerSel);
+        expect(cs, `header cell for [data-column="${key}"] must exist at ${label}`).not.toBeNull();
+        expect(
+          cs.position,
+          `thead th[data-column="${key}"] must be position: sticky at ${label} (got ${cs.position})`
+        ).toBe("sticky");
+        expect(
+          cs.left,
+          `thead th[data-column="${key}"] must declare a numeric left offset at ${label} (got "${cs.left}")`
+        ).not.toBe("auto");
+      }
+
+      // Body cells on the first item row — same contract.
+      for (const key of STICKY_COLUMNS) {
+        const bodySel = `#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] td[data-column="${key}"]`;
+        const cs = await getComputedPositionLeft(page, bodySel);
+        expect(cs, `body cell for [data-column="${key}"] must exist at ${label}`).not.toBeNull();
+        expect(
+          cs.position,
+          `tbody td[data-column="${key}"] must be position: sticky at ${label} (got ${cs.position})`
+        ).toBe("sticky");
+        expect(
+          cs.left,
+          `tbody td[data-column="${key}"] must declare a numeric left offset at ${label} (got "${cs.left}")`
+        ).not.toBe("auto");
+      }
+
+      // Stable left positions while scrolling the table wrap horizontally:
+      // capture rects before and after a scrollLeft change. The viewport-x of
+      // sticky cells must NOT move (within 1px tolerance for sub-pixel paint).
+      const beforeRects = [];
+      for (const key of STICKY_COLUMNS) {
+        const sel = `#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] td[data-column="${key}"]`;
+        beforeRects.push({ key, rect: await getRect(page, sel) });
+      }
+
+      await page.evaluate(() => {
+        const wrap = document.getElementById("bulkEditTableWrap");
+        if (wrap) wrap.scrollLeft = 250;
+      });
+      // Allow a paint frame.
+      await page.waitForTimeout(50);
+
+      for (const { key, rect: before } of beforeRects) {
+        const sel = `#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] td[data-column="${key}"]`;
+        const after = await getRect(page, sel);
+        expect(after, `body cell [data-column="${key}"] still present after scroll`).not.toBeNull();
+        const drift = Math.abs(after.x - before.x);
+        expect(
+          drift,
+          `[data-column="${key}"] body cell viewport-x must not drift after scrollLeft=250 at ${label} (drift=${drift}px, before=${before.x}, after=${after.x}) — sticky positioning is required`
+        ).toBeLessThanOrEqual(1);
+      }
+
+      // Pinned colSpan header/divider rows must NOT become sticky overlays
+      // (approach D-1 / C.5 risk note: generic td selectors would catch them).
+      const pinnedSticky = await page.evaluate(() => {
+        const rows = document.querySelectorAll(
+          "#bulkEditModal .bulk-edit-table tbody tr.bulk-edit-pinned-header, " +
+            "#bulkEditModal .bulk-edit-table tbody tr.bulk-edit-pinned-divider"
+        );
+        const offenders = [];
+        for (const row of rows) {
+          for (const cell of row.querySelectorAll("td")) {
+            const cs = window.getComputedStyle(cell);
+            if (cs.position === "sticky" && cs.left !== "auto") {
+              offenders.push(cell.className || "(pinned)");
+            }
+          }
+        }
+        return offenders;
+      });
+      expect(
+        pinnedSticky,
+        "pinned header/divider colSpan cells must not be position: sticky (would cover scrolling data)"
+      ).toEqual([]);
+    });
+  }
+});
+
+test.describe("STRK-91 B.1 — tap target sizing (AC-2)", () => {
+  test("table row checkbox meets 24x24 base (all viewports)", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    const sel = '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]';
+    const rect = await getRect(page, sel);
+    expect(rect, "row checkbox must exist").not.toBeNull();
+    expect(
+      rect.width,
+      `row checkbox width must be >=24px to meet WCAG 2.2 SC 2.5.8 (got ${rect.width}px)`
+    ).toBeGreaterThanOrEqual(24);
+    expect(
+      rect.height,
+      `row checkbox height must be >=24px to meet WCAG 2.2 SC 2.5.8 (got ${rect.height}px)`
+    ).toBeGreaterThanOrEqual(24);
+  });
+
+  test("field-panel checkbox meets 24x24 base (all viewports)", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    // Use a deterministic always-present field id from BULK_EDITABLE_FIELDS.
+    const sel = "#bulkEditModal #bulkField_qty";
+    const rect = await getRect(page, sel);
+    expect(rect, "field-panel checkbox #bulkField_qty must exist").not.toBeNull();
+    expect(
+      rect.width,
+      `field-panel checkbox width must be >=24px to meet WCAG 2.2 SC 2.5.8 (got ${rect.width}px)`
+    ).toBeGreaterThanOrEqual(24);
+    expect(
+      rect.height,
+      `field-panel checkbox height must be >=24px (got ${rect.height}px)`
+    ).toBeGreaterThanOrEqual(24);
+  });
+
+  for (const label of ["mobile", "zoomedDesktop"]) {
+    test(`table row checkbox provides 44x44 effective hit area at ${label}`, async ({ page }) => {
+      await page.setViewportSize(VIEWPORTS[label]);
+      await seedBulkInventory(page);
+      await gotoApp(page);
+      await openBulkEditModal(page);
+
+      const sel =
+        '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]';
+      const hit = await getEffectiveHitArea(page, sel);
+      expect(hit, "row checkbox host must exist").not.toBeNull();
+      expect(
+        hit.effectiveWidth,
+        `row checkbox effective hit area width must be >=44px at ${label} (got ${hit.effectiveWidth}px; input=${hit.inputWidth}, host=${hit.hostWidth})`
+      ).toBeGreaterThanOrEqual(44);
+      expect(
+        hit.effectiveHeight,
+        `row checkbox effective hit area height must be >=44px at ${label} (got ${hit.effectiveHeight}px; input=${hit.inputHeight}, host=${hit.hostHeight})`
+      ).toBeGreaterThanOrEqual(44);
+    });
+
+    test(`field-panel checkbox provides 44x44 effective hit area at ${label}`, async ({ page }) => {
+      await page.setViewportSize(VIEWPORTS[label]);
+      await seedBulkInventory(page);
+      await gotoApp(page);
+      await openBulkEditModal(page);
+
+      const sel = "#bulkEditModal #bulkField_qty";
+      const hit = await getEffectiveHitArea(page, sel);
+      expect(hit, "field-panel checkbox host must exist").not.toBeNull();
+      expect(
+        hit.effectiveWidth,
+        `field-panel checkbox effective hit area width must be >=44px at ${label} (got ${hit.effectiveWidth}px)`
+      ).toBeGreaterThanOrEqual(44);
+      expect(
+        hit.effectiveHeight,
+        `field-panel checkbox effective hit area height must be >=44px at ${label} (got ${hit.effectiveHeight}px)`
+      ).toBeGreaterThanOrEqual(44);
+    });
+  }
+});
+
+test.describe("STRK-91 B.1 — no overlap at narrow viewports (AC-3, AC-6)", () => {
+  for (const label of ["mobile", "zoomedDesktop"]) {
+    test(`toolbar, panel, table, and footer do not overlap at ${label}`, async ({ page }) => {
+      await page.setViewportSize(VIEWPORTS[label]);
+      await seedBulkInventory(page);
+      await gotoApp(page);
+      await openBulkEditModal(page);
+
+      const panel = await getRect(page, "#bulkEditModal #bulkEditFieldPanel");
+      const toolbar = await getRect(page, "#bulkEditModal #bulkEditToolbar");
+      const tableWrap = await getRect(page, "#bulkEditModal #bulkEditTableWrap");
+      const footer = await getRect(page, "#bulkEditModal #bulkEditFooter");
+
+      expect(panel, "field panel must exist").not.toBeNull();
+      expect(toolbar, "toolbar must exist").not.toBeNull();
+      expect(tableWrap, "table wrap must exist").not.toBeNull();
+      expect(footer, "footer must exist").not.toBeNull();
+
+      // Footer must NOT overlap the table or toolbar (the existing 375/640
+      // regression: footer floats over Select All / table edge).
+      expect(
+        rectsOverlap(footer, toolbar),
+        `footer (y=${footer.y}..${footer.bottom}) must not overlap toolbar (y=${toolbar.y}..${toolbar.bottom}) at ${label}`
+      ).toBe(false);
+      expect(
+        rectsOverlap(footer, tableWrap),
+        `footer (y=${footer.y}..${footer.bottom}) must not overlap table wrap (y=${tableWrap.y}..${tableWrap.bottom}) at ${label}`
+      ).toBe(false);
+      expect(rectsOverlap(footer, panel), `footer must not overlap field panel at ${label}`).toBe(
+        false
+      );
+
+      // Panel and toolbar/table must stack cleanly at <=768px (panel above).
+      expect(
+        rectsOverlap(panel, toolbar),
+        `field panel must not overlap toolbar at ${label} (stacked layout expected)`
+      ).toBe(false);
+      expect(
+        rectsOverlap(panel, tableWrap),
+        `field panel must not overlap table wrap at ${label}`
+      ).toBe(false);
+
+      // Footer must remain inside the viewport (a common breakage at 375px is
+      // the footer pushed off the bottom because the modal content overflows).
+      expect(
+        footer.bottom,
+        `footer bottom (${footer.bottom}) must be within viewport height (${VIEWPORTS[label].height}) at ${label}`
+      ).toBeLessThanOrEqual(VIEWPORTS[label].height + 1);
+
+      // Toolbar Select All / action buttons must not be covered by the footer.
+      const selectAll = await getRect(
+        page,
+        '#bulkEditModal #bulkEditToolbar button:has-text("Select All")'
+      );
+      if (selectAll) {
+        expect(
+          rectsOverlap(footer, selectAll),
+          `footer must not overlap Select All button at ${label}`
+        ).toBe(false);
+      }
+    });
+  }
+});
+
 // Re-export helpers for potential reuse by sibling specs in Cohort B.
 // (Playwright test files can `import` from each other — keeping the surface
 // here avoids a separate helpers/ module just for STRK-91.)
