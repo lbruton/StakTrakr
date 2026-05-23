@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.80] - 2026-05-23
+
+### Changed — STRK-85: Goldback premium in ticker + tiered premium colors
+
+- **Goldback premium**: Ticker now shows G1-rate-based premium % for Goldback items; three-tier color scheme (low <2%, mid 2–5%, high ≥5%) applied consistently across ticker, vendor price Matrix, and market detail modal via shared `_calcMarketPremium` helper (STRK-85).
+
+---
+
 ## [3.34.79] - 2026-05-22
 
 ### Changed — STRK-74: Align inline chip config to saveData wrapper

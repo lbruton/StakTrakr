@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.80 &ndash; STRK-85: Goldback premium in ticker + tiered premium colors</strong>: Ticker now shows G1-rate-based premium % for Goldback items; three-tier color scheme (low &lt;2%, mid 2&ndash;5%, high &ge;5%) applied across ticker, vendor price Matrix, and market detail modal via a shared helper (STRK-85).</li>
     <li><strong>v3.34.79 &ndash; STRK-74: Align inline chip config to saveData wrapper</strong>: Inline chip display preferences now save and load through the project-standard storage wrappers for consistent compression, quota handling, and future storage middleware coverage (STRK-74).</li>
     <li><strong>v3.34.78 &ndash; STRK-92: Fill 90-day Market History with per-vendor data</strong>: 90-day retail history now includes per-vendor daily breakdown; Market History &ldquo;All&rdquo; view shows vendor prices for the full window instead of dashes on older rows; departed vendors retained via union merge on overlapping dates (STRK-92).</li>
     <li><strong>v3.34.77 &ndash; STRK-93: Fix header Spot button 4&times; API sync</strong>: Header Spot sync button now triggers a single all-metals API sync instead of looping over four per-metal icons, eliminating redundant API calls, stacked cache-age dialogs, and duplicate toast notifications (STRK-93).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.75 &ndash; STRK-88: Lot/each purchase price rounding and CSV normalization</strong>: Preserves full precision for purchase prices in memory while displaying rounded inputs, handles lot/each toggle restoration on edit/duplicate, and normalizes CSV parsers/exporters (STRK-88).</li>
     <li><strong>v3.34.74 &ndash; STRK-87: Add Item Numista reset hygiene</strong>: Add Item now explicitly clears stale Numista catalog and tag UI state after editing another item, preventing previous item catalog data or tag handlers from leaking into a new inventory entry (STRK-87).</li>
     <li><strong>v3.34.73 &ndash; STRK-84: Numista picker tags on first Fill Fields</strong>: Tag checkboxes selected in the Numista picker now persist on the first Fill Fields click when adding a new item &mdash; no second sync required; unchecked default-on tags are recorded as opt-outs for new items (STRK-84).</li>
-    <li><strong>v3.34.72 &ndash; STRK-48: Per-oz/per-coin premium display</strong>: Valuation section shows premium % over spot at purchase, gain/loss %, and lot-aware rows (total + per-unit) in a 6-column grid; new synchronous spot lookup resolves nearest trading day from historical cache; also fixes catalogText search scope bug from STRK-86 (STRK-48).</li>
   `;
 };
 
