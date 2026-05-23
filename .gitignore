@@ -107,3 +107,9 @@ devops/hub/
 # Wiki nightwatch — local rotation state, not project history
 wiki/.nightwatch-log.json
 .playwright-mcp/
+
+# Antigravity CLI — symlinks to user's home ~/.gemini/config/projects/, per-user state
+.antigravitycli/
+
+# Claude read tracker — session-scoped UUID-named read history, not project history
+claude-read-tracker/
