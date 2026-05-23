@@ -1134,24 +1134,16 @@ const INLINE_CHIP_DEFAULTS = [
  * @returns {Array<{id: string, label: string, enabled: boolean}>}
  */
 const getInlineChipConfig = () => {
-  try {
-    const raw = localStorage.getItem("inlineChipConfig");
-    if (raw) {
-      const saved = JSON.parse(raw);
-      // Build a map of saved chips for quick lookup
-      const savedMap = new Map(saved.map((c) => [c.id, c]));
-      // Start with saved order, preserving user's arrangement
-      const merged = saved.filter((c) => INLINE_CHIP_DEFAULTS.some((d) => d.id === c.id));
-      // Append any new defaults not in saved config
-      for (const def of INLINE_CHIP_DEFAULTS) {
-        if (!savedMap.has(def.id)) {
-          merged.push({ ...def });
-        }
+  const saved = loadDataSync("inlineChipConfig", null);
+  if (saved && Array.isArray(saved)) {
+    const savedMap = new Map(saved.map((c) => [c.id, c]));
+    const merged = saved.filter((c) => INLINE_CHIP_DEFAULTS.some((d) => d.id === c.id));
+    for (const def of INLINE_CHIP_DEFAULTS) {
+      if (!savedMap.has(def.id)) {
+        merged.push({ ...def });
       }
-      return merged;
     }
-  } catch (e) {
-    console.warn("Failed to load inline chip config:", e);
+    return merged;
   }
   return INLINE_CHIP_DEFAULTS.map((d) => ({ ...d }));
 };
@@ -1162,7 +1154,7 @@ const getInlineChipConfig = () => {
  */
 const saveInlineChipConfig = (config) => {
   try {
-    localStorage.setItem("inlineChipConfig", JSON.stringify(config));
+    saveDataSync("inlineChipConfig", config);
     if (typeof scheduleSyncPush === "function") scheduleSyncPush();
   } catch (e) {
     console.warn("Failed to save inline chip config:", e);
