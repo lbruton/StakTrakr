@@ -572,6 +572,406 @@ test.describe("STRK-91 B.1 — no overlap at narrow viewports (AC-3, AC-6)", () 
   }
 });
 
+// ---------------------------------------------------------------------------
+// B.2 — RED assertions: field parity + nested-data apply + display-only cols.
+//
+// These tests MUST FAIL against the current implementation:
+//   - shape / capsule / capsuleNotes are NOT in BULK_EDITABLE_FIELDS today
+//   - applyBulkEdit() uses item[fieldId] = value (flat) so any "shape" write
+//     today lands at item.shape, not item.numistaData.shape
+//   - no BULK_FIELD_STORAGE_MAP exists yet (lands in Cohort C)
+//   - numistaData renders as a JSON-stringified column today
+//
+// Maps to AC-4 (field parity), AC-5 (display-only catalog columns),
+// AC-7 (shared editor tracking — capsule autocomplete registration).
+// ---------------------------------------------------------------------------
+
+/**
+ * Bypass the bulkConfirm modal so an Apply click resolves synchronously.
+ * Must be installed AFTER openBulkEditModal — re-renders reattach handlers.
+ */
+async function autoConfirmBulkApply(page) {
+  await page.evaluate(() => {
+    // Show the modal then auto-click OK whenever it becomes visible.
+    const modal = document.getElementById("bulkConfirmModal");
+    if (!modal) return;
+    const observer = new MutationObserver(() => {
+      if (modal.style.display && modal.style.display !== "none") {
+        const ok = document.getElementById("bulkConfirmOkBtn");
+        if (ok) ok.click();
+      }
+    });
+    observer.observe(modal, { attributes: true, attributeFilter: ["style"] });
+    window.__strk91ConfirmObserver = observer;
+  });
+}
+
+/** Enable a single field-panel checkbox and set its value (by visible input). */
+async function enableBulkField(page, fieldId, value) {
+  // Wait for field-panel checkbox to exist; B.2 RED case = it doesn't exist.
+  await page.waitForSelector(`#bulkField_${fieldId}`, { state: "attached", timeout: 5000 });
+  await page.evaluate(
+    ({ fieldId, value }) => {
+      const cb = document.getElementById(`bulkField_${fieldId}`);
+      if (!cb) throw new Error(`bulkField_${fieldId} missing`);
+      if (!cb.checked) cb.click();
+      const input = document.getElementById(`bulkFieldVal_${fieldId}`);
+      if (!input) throw new Error(`bulkFieldVal_${fieldId} missing`);
+      input.value = value;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    { fieldId, value }
+  );
+}
+
+/** Click the bulk-edit Apply button (#bulkEditApplyBtn or by name fallback). */
+async function clickBulkApply(page) {
+  const btn = page.locator("#bulkEditApplyBtn, button#bulkApplyBtn").first();
+  if ((await btn.count()) > 0) {
+    await btn.click();
+  } else {
+    await page.getByRole("button", { name: /^Apply( Changes)?$/i }).click();
+  }
+}
+
+/** Select every row via the toolbar Select All button. */
+async function selectAllRows(page) {
+  // Toolbar Select All button is hidden behind footer overlap at narrow viewports,
+  // but at desktop viewport it is clickable. B.2 runs at desktop only.
+  await page
+    .getByRole("button", { name: /^Select All/i })
+    .first()
+    .click();
+}
+
+/** Read inventory item by serial after an apply. */
+async function getInventoryItem(page, serial) {
+  return page.evaluate(
+    (s) => (window.inventory || []).find((it) => String(it.serial) === String(s)) || null,
+    serial
+  );
+}
+
+test.describe("STRK-91 B.2 — field parity (AC-4): shape, capsule, capsuleNotes", () => {
+  test("field panel exposes a 'shape' checkbox + select input", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    const cb = page.locator("#bulkField_shape");
+    const input = page.locator("#bulkFieldVal_shape");
+    await expect(cb, "shape field checkbox must exist (AC-4)").toHaveCount(1);
+    await expect(input, "shape field input must exist (AC-4)").toHaveCount(1);
+  });
+
+  test("field panel exposes a 'capsule' checkbox + text input", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    await expect(
+      page.locator("#bulkField_capsule"),
+      "capsule field checkbox must exist (AC-4)"
+    ).toHaveCount(1);
+    await expect(
+      page.locator("#bulkFieldVal_capsule"),
+      "capsule field input must exist (AC-4)"
+    ).toHaveCount(1);
+  });
+
+  test("field panel exposes a 'capsuleNotes' checkbox + input", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    await expect(
+      page.locator("#bulkField_capsuleNotes"),
+      "capsuleNotes field checkbox must exist (AC-4)"
+    ).toHaveCount(1);
+    await expect(
+      page.locator("#bulkFieldVal_capsuleNotes"),
+      "capsuleNotes field input must exist (AC-4)"
+    ).toHaveCount(1);
+  });
+});
+
+test.describe("STRK-91 B.2 — nested-data apply (AC-4 + BULK_FIELD_STORAGE_MAP)", () => {
+  test("applying 'shape' writes item.numistaData.shape, NOT top-level item.shape", async ({
+    page,
+  }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await selectAllRows(page);
+    await enableBulkField(page, "shape", "round");
+    await clickBulkApply(page);
+
+    // Wait for apply to drain (toast appears or re-render completes).
+    await page.waitForTimeout(150);
+
+    const item = await getInventoryItem(page, 1);
+    expect(item, "item serial=1 must exist after apply").not.toBeNull();
+    expect(
+      item.shape,
+      "top-level item.shape must NOT be created (BULK_FIELD_STORAGE_MAP contract)"
+    ).toBeUndefined();
+    expect(
+      item.numistaData && item.numistaData.shape,
+      "shape must be written to item.numistaData.shape"
+    ).toBe("round");
+  });
+
+  test("changing shape to rectangular clears numistaData.diameter", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    // Use ONLY the round Silver Eagle row so diameter is present pre-apply.
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 2,
+        name: "STRK-91 Silver Eagle",
+        numistaData: {
+          shape: "round",
+          composition: "Silver (.999)",
+          diameter: 40.6,
+        },
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await selectAllRows(page);
+    await enableBulkField(page, "shape", "rectangular");
+    await clickBulkApply(page);
+    await page.waitForTimeout(150);
+
+    const item = await getInventoryItem(page, 2);
+    expect(item.numistaData.shape).toBe("rectangular");
+    expect(
+      item.numistaData.diameter,
+      "diameter must be cleared when shape becomes rectangular"
+    ).toBeUndefined();
+  });
+
+  test("changing shape to round clears numistaData.length and width", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 1,
+        name: "STRK-91 Goldback Rect",
+        metal: "Gold",
+        composition: "Gold",
+        type: "Note",
+        numistaData: {
+          shape: "rectangular",
+          composition: "Gold 24K (.9999)",
+          length: 51,
+          width: 89,
+        },
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await selectAllRows(page);
+    await enableBulkField(page, "shape", "round");
+    await clickBulkApply(page);
+    await page.waitForTimeout(150);
+
+    const item = await getInventoryItem(page, 1);
+    expect(item.numistaData.shape).toBe("round");
+    expect(
+      item.numistaData.length,
+      "length must be cleared when shape becomes round"
+    ).toBeUndefined();
+    expect(
+      item.numistaData.width,
+      "width must be cleared when shape becomes round"
+    ).toBeUndefined();
+  });
+
+  test("applying empty capsule deletes item.capsule (matches paymentMethod pattern)", async ({
+    page,
+  }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 2,
+        name: "STRK-91 Silver Eagle",
+        capsule: "Air-Tite A40",
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await selectAllRows(page);
+    await enableBulkField(page, "capsule", "");
+    await clickBulkApply(page);
+    await page.waitForTimeout(150);
+
+    const item = await getInventoryItem(page, 2);
+    expect(item, "item must exist").not.toBeNull();
+    expect(
+      Object.prototype.hasOwnProperty.call(item, "capsule"),
+      "empty capsule must DELETE the key, not store ''"
+    ).toBe(false);
+  });
+
+  test("applying empty capsuleNotes deletes item.capsuleNotes", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 4,
+        name: "STRK-91 Oval Token",
+        capsule: "Custom flip",
+        capsuleNotes: "blue cardboard 2x2",
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await selectAllRows(page);
+    await enableBulkField(page, "capsuleNotes", "");
+    await clickBulkApply(page);
+    await page.waitForTimeout(150);
+
+    const item = await getInventoryItem(page, 4);
+    expect(item, "item must exist").not.toBeNull();
+    expect(
+      Object.prototype.hasOwnProperty.call(item, "capsuleNotes"),
+      "empty capsuleNotes must DELETE the key"
+    ).toBe(false);
+  });
+});
+
+test.describe("STRK-91 B.2 — capsule autocomplete registration (AC-7)", () => {
+  test("applying non-empty capsule invokes registerCapsule(); capsuleNotes does NOT", async ({
+    page,
+  }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+
+    // Instrument BEFORE opening the modal so we capture every call.
+    await page.evaluate(() => {
+      window.__strk91CapsuleCalls = [];
+      const orig = window.registerCapsule;
+      window.registerCapsule = function (v) {
+        window.__strk91CapsuleCalls.push(v);
+        if (typeof orig === "function") return orig.apply(this, arguments);
+      };
+    });
+
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await selectAllRows(page);
+    await enableBulkField(page, "capsule", "Air-Tite H17");
+    await enableBulkField(page, "capsuleNotes", "noteworthy");
+    await clickBulkApply(page);
+    await page.waitForTimeout(200);
+
+    const calls = await page.evaluate(() => window.__strk91CapsuleCalls || []);
+    expect(calls, "registerCapsule must be called with the applied capsule value (AC-7)").toContain(
+      "Air-Tite H17"
+    );
+    expect(calls, "registerCapsule must NOT be called with capsuleNotes content").not.toContain(
+      "noteworthy"
+    );
+  });
+});
+
+test.describe("STRK-91 B.2 — display-only catalog columns (AC-5, AC-7)", () => {
+  test("table renders a 'Catalog Composition' column sourced from numistaData.composition", async ({
+    page,
+  }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    // Header lookup by data-column anchor (the C.2 contract — display-only cols
+    // share the anchoring approach added in A.2). Falls through to label match.
+    const header = page.locator(
+      '#bulkEditModal .bulk-edit-table thead th[data-column="numistaComposition"]'
+    );
+    await expect(
+      header,
+      "Catalog Composition column header must exist (AC-5 — display-only)"
+    ).toHaveCount(1);
+
+    // Row 2 has numistaData.composition = "Silver (.999)" — the cell must render it.
+    const cell = page.locator(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="2"] td[data-column="numistaComposition"]'
+    );
+    await expect(cell, "Catalog Composition cell on row 2 must exist").toHaveCount(1);
+    await expect(cell).toContainText("Silver (.999)");
+  });
+
+  test("table renders a 'Diameter' column sourced from numistaData.diameter", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    const header = page.locator(
+      '#bulkEditModal .bulk-edit-table thead th[data-column="numistaDiameter"]'
+    );
+    await expect(
+      header,
+      "Diameter column header must exist (AC-5 — display-only catalog field)"
+    ).toHaveCount(1);
+
+    const cell = page.locator(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="2"] td[data-column="numistaDiameter"]'
+    );
+    await expect(cell, "Diameter cell on row 2 must exist").toHaveCount(1);
+    await expect(cell).toContainText("40.6");
+  });
+
+  test("raw 'numistaData' JSON blob does NOT render as its own column", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    // No data-column="numistaData" header.
+    const rawHeader = page.locator(
+      '#bulkEditModal .bulk-edit-table thead th[data-column="numistaData"]'
+    );
+    await expect(rawHeader, "raw numistaData JSON column must NOT be rendered (AC-5)").toHaveCount(
+      0
+    );
+
+    // And no header label literally reading "Numista Data".
+    const headers = getBulkHeaderCells(page);
+    const headerTexts = await headers.allTextContents();
+    const offenders = headerTexts.filter((t) => /^\s*Numista Data\s*$/i.test(t));
+    expect(
+      offenders,
+      `no header may render as raw "Numista Data" (got: ${JSON.stringify(headerTexts)})`
+    ).toEqual([]);
+
+    // And no body cell may contain a JSON-stringified numistaData blob
+    // (current impl normalizeBulkValue does JSON.stringify on objects).
+    const rowCells = getBulkBodyRowCells(page, 2);
+    const cellTexts = await rowCells.allTextContents();
+    const jsonOffenders = cellTexts.filter((t) => /"composition"\s*:\s*"Silver \(\.999\)"/.test(t));
+    expect(jsonOffenders, "no body cell may render numistaData as JSON.stringify output").toEqual(
+      []
+    );
+  });
+});
+
 // Re-export helpers for potential reuse by sibling specs in Cohort B.
 // (Playwright test files can `import` from each other — keeping the surface
 // here avoids a separate helpers/ module just for STRK-91.)
