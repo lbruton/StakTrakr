@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.79] - 2026-05-22
+
+### Changed — STRK-74: Align inline chip config to saveData wrapper
+
+- **Storage**: Align `saveInlineChipConfig` and `getInlineChipConfig` to project-standard `saveDataSync`/`loadDataSync` wrappers instead of raw `localStorage` calls, improving consistency with compression, quota handling, and future storage middleware (STRK-74).
+
+---
+
 ## [3.34.78] - 2026-05-22
 
 ### Changed — STRK-92: Fill 90-day Market History with per-vendor data

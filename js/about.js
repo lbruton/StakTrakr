@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.79 &ndash; STRK-74: Align inline chip config to saveData wrapper</strong>: Inline chip display preferences now save and load through the project-standard storage wrappers for consistent compression, quota handling, and future storage middleware coverage (STRK-74).</li>
     <li><strong>v3.34.78 &ndash; STRK-92: Fill 90-day Market History with per-vendor data</strong>: 90-day retail history now includes per-vendor daily breakdown; Market History &ldquo;All&rdquo; view shows vendor prices for the full window instead of dashes on older rows; departed vendors retained via union merge on overlapping dates (STRK-92).</li>
     <li><strong>v3.34.77 &ndash; STRK-93: Fix header Spot button 4&times; API sync</strong>: Header Spot sync button now triggers a single all-metals API sync instead of looping over four per-metal icons, eliminating redundant API calls, stacked cache-age dialogs, and duplicate toast notifications (STRK-93).</li>
     <li><strong>v3.34.76 &ndash; STRK-89: Add gold-api.com as first-class spot price provider</strong>: New built-in Gold API provider offers free unlimited real-time spot prices for all four metals with no API key required; optional premium key support via collapsible disclosure widget (STRK-89).</li>
