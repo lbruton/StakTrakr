@@ -972,6 +972,378 @@ test.describe("STRK-91 B.2 — display-only catalog columns (AC-5, AC-7)", () =>
   });
 });
 
+// ---------------------------------------------------------------------------
+// B.3 — RED assertions: search/sort via synthetic dot-path columns +
+// shared activity-log/sync-manifest tracking (AC-4, AC-5, AC-7).
+//
+// These tests MUST FAIL against the current implementation:
+//   - getFilteredItems() flattens via Object.keys(item) — nested
+//     numistaData.composition is reachable today only because the raw
+//     numistaData object gets JSON.stringified into a column. The test
+//     proves the match comes from the NEW dedicated dot-path column and
+//     that no raw numistaData column is rendered.
+//   - DIFF_FIELDS (js/diff-engine.js) and logItemChanges() (js/changeLog.js)
+//     do NOT include capsule, capsuleNotes, paymentMethod, numistaData,
+//     or fieldMeta. Bulk-edit of those fields produces no activity log
+//     entries and no sync manifest entries today.
+//   - DIFF_FIELDS is a file-scoped const — NOT on window. These tests
+//     assert on runtime side effects only (changeLog DOM entries and
+//     getManifestEntries() output), never on code internals.
+// ---------------------------------------------------------------------------
+
+/**
+ * Set the bulk-edit search input value and wait for the debounced re-render.
+ * Mirrors the live input handler (250ms debounce in bulkEdit.js); we wait
+ * a bit longer to be safe and then for at least one matching row.
+ */
+async function setBulkSearch(page, term) {
+  await page.evaluate((t) => {
+    const input = document.getElementById("bulkEditSearch");
+    if (!input) throw new Error("bulkEditSearch input missing");
+    input.value = t;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, term);
+  // Debounce is ~250ms; allow 400ms then re-render.
+  await page.waitForTimeout(400);
+}
+
+/** Read the latest changeLog entries from the live state. */
+async function getChangeLogEntries(page) {
+  return page.evaluate(() => {
+    const log = window.changeLog;
+    if (!Array.isArray(log)) return [];
+    return log.map((e) => ({
+      timestamp: e.timestamp,
+      field: e.field,
+      type: e.type,
+      itemName: e.itemName,
+      scope: e.scope,
+      itemKey: e.itemKey,
+      oldValue: e.oldValue,
+      newValue: e.newValue,
+    }));
+  });
+}
+
+/** Read manifest entries since a timestamp via the public window helper. */
+async function getManifestSince(page, sinceTimestamp) {
+  return page.evaluate((ts) => {
+    if (typeof window.getManifestEntries !== "function") return null;
+    return window.getManifestEntries(ts) || [];
+  }, sinceTimestamp);
+}
+
+test.describe("STRK-91 B.3 — search via synthetic dot-path columns (AC-5)", () => {
+  test("search for catalog composition matches via numistaComposition column, not raw numistaData JSON", async ({
+    page,
+  }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    // Search for a value that lives ONLY in numistaData.composition.
+    // Row 2 has numistaData.composition = "Silver (.999)".
+    await setBulkSearch(page, "Silver (.999)");
+
+    // Row 2 should be the (only) visible match.
+    const matchedRow = page.locator('#bulkEditModal .bulk-edit-table tbody tr[data-serial="2"]');
+    await expect(
+      matchedRow,
+      "row with numistaData.composition='Silver (.999)' must remain visible after search"
+    ).toBeVisible();
+
+    // The match must come from the dedicated dot-path column …
+    const dotPathCell = page.locator(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="2"] td[data-column="numistaComposition"]'
+    );
+    await expect(
+      dotPathCell,
+      "numistaComposition dot-path column cell must exist on the matched row (AC-5)"
+    ).toHaveCount(1);
+    await expect(dotPathCell).toContainText("Silver (.999)");
+
+    // … NOT from a raw numistaData JSON blob column.
+    const rawHeader = page.locator(
+      '#bulkEditModal .bulk-edit-table thead th[data-column="numistaData"]'
+    );
+    await expect(
+      rawHeader,
+      "raw numistaData JSON column must NOT exist — search must rely on dot-path column"
+    ).toHaveCount(0);
+
+    // And no body cell on the matched row may render the JSON.stringify shape.
+    const rowCells = getBulkBodyRowCells(page, 2);
+    const cellTexts = await rowCells.allTextContents();
+    const jsonOffenders = cellTexts.filter((t) => /"composition"\s*:\s*"Silver \(\.999\)"/.test(t));
+    expect(
+      jsonOffenders,
+      "search match must NOT come from a JSON-stringified numistaData blob in a cell"
+    ).toEqual([]);
+  });
+
+  test("search for catalog diameter matches via numistaDiameter column, not raw numistaData JSON", async ({
+    page,
+  }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+
+    // Row 2 has numistaData.diameter = 40.6 — unique across the fixture.
+    await setBulkSearch(page, "40.6");
+
+    const matchedRow = page.locator('#bulkEditModal .bulk-edit-table tbody tr[data-serial="2"]');
+    await expect(
+      matchedRow,
+      "row with numistaData.diameter=40.6 must remain visible after search"
+    ).toBeVisible();
+
+    const dotPathCell = page.locator(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="2"] td[data-column="numistaDiameter"]'
+    );
+    await expect(
+      dotPathCell,
+      "numistaDiameter dot-path column cell must exist on the matched row (AC-5)"
+    ).toHaveCount(1);
+    await expect(dotPathCell).toContainText("40.6");
+
+    const rawHeader = page.locator(
+      '#bulkEditModal .bulk-edit-table thead th[data-column="numistaData"]'
+    );
+    await expect(
+      rawHeader,
+      "raw numistaData JSON column must NOT exist — diameter search must use dot-path column"
+    ).toHaveCount(0);
+
+    const rowCells = getBulkBodyRowCells(page, 2);
+    const cellTexts = await rowCells.allTextContents();
+    const jsonOffenders = cellTexts.filter((t) => /"diameter"\s*:\s*40\.6/.test(t));
+    expect(
+      jsonOffenders,
+      "diameter search match must NOT come from a JSON.stringify numistaData blob"
+    ).toEqual([]);
+  });
+});
+
+test.describe("STRK-91 B.3 — activity log + sync manifest tracking (AC-4, AC-7)", () => {
+  // Each test: seed → snapshot timestamp → bulk-edit one field → assert both
+  // a) changeLog gained an entry with field === <field>, AND
+  // b) getManifestEntries(snapshotTs) includes an entry for that field.
+  //
+  // Bulk path drives logItemChanges() via applyBulkEdit() — both surfaces
+  // (in-memory window.changeLog AND the sync manifest projection) must
+  // capture the change. The current app skips these fields entirely.
+
+  const editAndCheckTracking = async (page, { fieldId, value, itemSerial, fieldLabel }) => {
+    const snapshotTs = await page.evaluate(() => Date.now());
+
+    await selectAllRows(page);
+    await enableBulkField(page, fieldId, value);
+    await clickBulkApply(page);
+    await page.waitForTimeout(250);
+
+    const itemAfter = await getInventoryItem(page, itemSerial);
+    expect(itemAfter, `item serial=${itemSerial} must exist after apply`).not.toBeNull();
+
+    // Activity log: at least one entry with field === fieldLabel after the snapshot ts.
+    const logEntries = await getChangeLogEntries(page);
+    const matchedLog = logEntries.filter(
+      (e) => e.timestamp >= snapshotTs && e.field === fieldLabel
+    );
+    expect(
+      matchedLog.length,
+      `activity log must contain an entry with field="${fieldLabel}" after bulk edit (AC-7); got entries=${JSON.stringify(
+        logEntries.filter((e) => e.timestamp >= snapshotTs)
+      )}`
+    ).toBeGreaterThanOrEqual(1);
+
+    // Sync manifest: getManifestEntries(snapshotTs) includes an entry for fieldLabel.
+    const manifest = await getManifestSince(page, snapshotTs);
+    expect(
+      manifest,
+      "window.getManifestEntries must be exposed for sync manifest tracking"
+    ).not.toBeNull();
+    const matchedManifest = (manifest || []).filter((e) => e.field === fieldLabel);
+    expect(
+      matchedManifest.length,
+      `sync manifest must contain an entry with field="${fieldLabel}" after bulk edit (AC-7); got manifest=${JSON.stringify(
+        manifest
+      )}`
+    ).toBeGreaterThanOrEqual(1);
+  };
+
+  test("bulk-edit 'capsule' produces activity log + sync manifest entry", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 2,
+        name: "STRK-91 Silver Eagle",
+        capsule: "Air-Tite A40",
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await editAndCheckTracking(page, {
+      fieldId: "capsule",
+      value: "Air-Tite H17",
+      itemSerial: 2,
+      fieldLabel: "capsule",
+    });
+  });
+
+  test("bulk-edit 'capsuleNotes' produces activity log + sync manifest entry", async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 4,
+        name: "STRK-91 Oval Token",
+        capsule: "Custom flip",
+        capsuleNotes: "blue cardboard 2x2",
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await editAndCheckTracking(page, {
+      fieldId: "capsuleNotes",
+      value: "red cardboard 2x2",
+      itemSerial: 4,
+      fieldLabel: "capsuleNotes",
+    });
+  });
+
+  test("bulk-edit 'paymentMethod' produces activity log + sync manifest entry (pre-existing gap)", async ({
+    page,
+  }) => {
+    // paymentMethod IS already bulk-editable but missing from DIFF_FIELDS
+    // and logItemChanges() — this is a pre-existing tracking bug bundled
+    // into STRK-91 scope per tasks.md C.3.
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 2,
+        name: "STRK-91 Silver Eagle",
+        paymentMethod: "Cash",
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    await editAndCheckTracking(page, {
+      fieldId: "paymentMethod",
+      value: "Credit Card",
+      itemSerial: 2,
+      fieldLabel: "paymentMethod",
+    });
+  });
+
+  test("bulk-edit 'shape' (nested numistaData) produces activity log + sync manifest entry", async ({
+    page,
+  }) => {
+    // Editing shape mutates item.numistaData.shape (via BULK_FIELD_STORAGE_MAP).
+    // The tracking surfaces must record this as a numistaData change — either
+    // a field === "numistaData" entry (object-typed tracking) OR a field
+    // entry whose label clearly corresponds to the nested change. We assert
+    // on "numistaData" per tasks.md C.3 acceptance ("DIFF_FIELDS include …
+    // numistaData and fieldMeta").
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 2,
+        name: "STRK-91 Silver Eagle",
+        numistaData: {
+          shape: "round",
+          composition: "Silver (.999)",
+          diameter: 40.6,
+        },
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    const snapshotTs = await page.evaluate(() => Date.now());
+    await selectAllRows(page);
+    await enableBulkField(page, "shape", "oval");
+    await clickBulkApply(page);
+    await page.waitForTimeout(250);
+
+    const item = await getInventoryItem(page, 2);
+    expect(item.numistaData && item.numistaData.shape).toBe("oval");
+
+    const logEntries = await getChangeLogEntries(page);
+    const matchedLog = logEntries.filter(
+      (e) => e.timestamp >= snapshotTs && e.field === "numistaData"
+    );
+    expect(
+      matchedLog.length,
+      `activity log must contain a numistaData entry after bulk shape edit; got=${JSON.stringify(
+        logEntries.filter((e) => e.timestamp >= snapshotTs)
+      )}`
+    ).toBeGreaterThanOrEqual(1);
+
+    const manifest = await getManifestSince(page, snapshotTs);
+    expect(manifest, "getManifestEntries must be available").not.toBeNull();
+    const matchedManifest = (manifest || []).filter((e) => e.field === "numistaData");
+    expect(
+      matchedManifest.length,
+      `sync manifest must include numistaData after bulk shape edit; got=${JSON.stringify(manifest)}`
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  test("bulk-edit that mutates fieldMeta produces activity log + sync manifest entry", async ({
+    page,
+  }) => {
+    // C.3 requires fieldMeta in DIFF_FIELDS / logItemChanges(). The bulk
+    // editor sets fieldMeta when applying values to fields that have user-
+    // override tracking (e.g. shape). After a bulk shape apply on an item
+    // that already had a fieldMeta object, the tracking surfaces must see
+    // a fieldMeta change entry.
+    await page.setViewportSize(VIEWPORTS.desktop);
+    await seedBulkInventory(page, [
+      makeBulkItem({
+        serial: 2,
+        name: "STRK-91 Silver Eagle",
+        numistaData: { shape: "round", composition: "Silver (.999)", diameter: 40.6 },
+        fieldMeta: { shape: { userOverride: false, source: "numista" } },
+      }),
+    ]);
+    await gotoApp(page);
+    await openBulkEditModal(page);
+    await autoConfirmBulkApply(page);
+
+    const snapshotTs = await page.evaluate(() => Date.now());
+    await selectAllRows(page);
+    await enableBulkField(page, "shape", "rectangular");
+    await clickBulkApply(page);
+    await page.waitForTimeout(250);
+
+    const logEntries = await getChangeLogEntries(page);
+    const matchedLog = logEntries.filter(
+      (e) => e.timestamp >= snapshotTs && e.field === "fieldMeta"
+    );
+    expect(
+      matchedLog.length,
+      `activity log must contain a fieldMeta entry after bulk shape edit (markUserModified); got=${JSON.stringify(
+        logEntries.filter((e) => e.timestamp >= snapshotTs)
+      )}`
+    ).toBeGreaterThanOrEqual(1);
+
+    const manifest = await getManifestSince(page, snapshotTs);
+    expect(manifest, "getManifestEntries must be available").not.toBeNull();
+    const matchedManifest = (manifest || []).filter((e) => e.field === "fieldMeta");
+    expect(
+      matchedManifest.length,
+      `sync manifest must include fieldMeta after bulk shape edit; got=${JSON.stringify(manifest)}`
+    ).toBeGreaterThanOrEqual(1);
+  });
+});
+
 // Re-export helpers for potential reuse by sibling specs in Cohort B.
 // (Playwright test files can `import` from each other — keeping the surface
 // here avoids a separate helpers/ module just for STRK-91.)
