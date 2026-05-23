@@ -1,9 +1,8 @@
 /**
  * STRK-85 — Goldback premium in ticker + tiered premium colors
  *
- * TDD RED phase. These tests encode the acceptance criteria and MUST fail before Cohort C
- * (C.1) is implemented. They pass after _calcMarketPremium is wired into all three render
- * surfaces (ticker, Matrix, detail modal).
+ * Acceptance / regression tests. Implementation ships in this same PR (Cohort C).
+ * Covers _calcMarketPremium wired into all three render surfaces: ticker, Matrix, detail modal.
  *
  * AC-1: Goldback ticker items render a premium percentage.
  * AC-2: Premium math matches ((bestPrice - g1Rate) / g1Rate) * 100.
