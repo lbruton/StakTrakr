@@ -786,7 +786,7 @@ const openMarketDetailModal = async (slug) => {
         let _modalPremium = null;
         if (entry.price > 0 && spotPrice && spotPrice > 0 && weightOz > 0) {
           _modalPremium = _calcMarketPremium(entry.price, spotPrice * weightOz);
-        } else if (entry.price > 0 && _goldbackG1Rate && _goldbackG1Rate > 0) {
+        } else if (entry.price > 0 && metalCode === "goldback" && _goldbackG1Rate > 0) {
           _modalPremium = _calcMarketPremium(entry.price, _goldbackG1Rate);
         }
         if (_modalPremium != null) {
@@ -1155,7 +1155,7 @@ const _renderVendorTable = async (metalCode) => {
       let premium = null;
       if (spotPrice && spotPrice > 0 && weightOz > 0) {
         premium = _calcMarketPremium(vInfo.price, spotPrice * weightOz);
-      } else if (_goldbackG1Rate && _goldbackG1Rate > 0 && vInfo.price > 0) {
+      } else if (isoCode === "goldback" && _goldbackG1Rate > 0 && vInfo.price > 0) {
         premium = _calcMarketPremium(vInfo.price, _goldbackG1Rate);
       }
       if (premium != null) {
