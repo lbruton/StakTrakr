@@ -455,6 +455,7 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
 
   // Checkbox cell
   const cbTd = document.createElement("td");
+  cbTd.setAttribute("data-column", "cb");
   const cb = document.createElement("input");
   cb.type = "checkbox";
   cb.checked = isSelected;
@@ -484,6 +485,7 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   // Image thumbnail cell — resolved async from IDB after row is appended
   const imgTd = document.createElement("td");
   imgTd.className = "bulk-img-cell";
+  imgTd.setAttribute("data-column", "img");
   // Placeholder pair shown until IDB resolves
   imgTd.innerHTML = '<span class="bulk-img-placeholder" data-side="obverse"></span>';
   // Store item identity for the async loader and upload popover
@@ -500,15 +502,16 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   tr.appendChild(imgTd);
 
   // Data cells
-  const addCell = (text) => {
+  const addCell = (text, columnKey) => {
     const td = document.createElement("td");
+    td.setAttribute("data-column", columnKey);
     td.textContent = text || "";
     td.title = text || "";
     tr.appendChild(td);
   };
 
   dataColumns.forEach((column) => {
-    addCell(formatBulkCellValue(item, column.key));
+    addCell(formatBulkCellValue(item, column.key), column.key);
   });
 
   return tr;
@@ -928,6 +931,7 @@ const renderBulkTableBody = () => {
 
   columns.forEach((col) => {
     const th = document.createElement("th");
+    th.setAttribute("data-column", col.key);
     if (col.key === "cb") {
       const masterCb = document.createElement("input");
       masterCb.type = "checkbox";
