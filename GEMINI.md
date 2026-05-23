@@ -6,7 +6,7 @@ These are the Gemini-specific instructions for the StakTrakr project. They inher
 
 ## Your Primary Roles in StakTrakr
 
-1. **UI/UX & Mockups:** StakTrakr has a very specific brand personality ("Sharp. Capable. Empowering. Precision tool, not generic fintech"). Ensure all UI designs, mockups, and reviews adhere to the three themes (light, dark, sepia) and prioritize information density over simplicity.
+1. **UI/UX & Mockups:** StakTrakr has a very specific brand personality ("Sharp. Capable. Empowering. Precision tool, not generic fintech"). Ensure all UI designs, mockups, and reviews adhere to the four themes (light, dark, slate, sepia) and prioritize information density over simplicity.
 2. **Playwright Testing:** You are responsible for reviewing, troubleshooting, and occasionally writing Playwright E2E tests (`npm test`, `npm run test:offline`).
 3. **SpecFlow Reviews:** When reviewing sketch artifacts (`DocVault/Projects/StakTrakr/sketches/`), focus on user-facing constraints, cross-view consistency, and accessibility.
 
@@ -41,8 +41,8 @@ Tests define correct behavior. If a test fails, the implementation is wrong. If 
 
 ## Release & Git Workflow
 
-- **Branch model:** `feature/* → dev → main`. All commits go through worktree branch → PR → dev.
-- **Worktrees:** Required for every code change. Ensure you are working in the `.worktrees/` directory before editing files.
+- **Branch model:** `feature/* → dev → main`. Runtime code changes go through worktree branch → PR → dev. Config/tooling (instruction files, `.claude/`, `.gitignore`, skill files, devops config) may commit directly to `dev`.
+- **Worktrees:** Required for runtime code changes. Config/tooling edits may bypass the worktree requirement.
 - **Version Lock:** Claim a version in `devops/version.lock` before starting work.
 - **Pre-commit Hooks:** `check-release-sync` ensures `constants.js` and other version files match. `stamp-sw-cache` updates `sw.js` automatically.
 
@@ -82,3 +82,11 @@ Skills are invoked via natural language in Antigravity 2.0 (see global `GEMINI.m
 5. ... continue through approach → tasks → apply
 
 **Tip:** For multi-step skills, always name the skill and the subcommand explicitly. The agent needs both to route correctly.
+
+## Codacy Agentlint
+
+Codacy runs agentlint policies on instruction files. These policies are modeled on real-world failure patterns and their intent is worth honoring:
+
+- When agentlint flags a pattern, evaluate whether the underlying concern is valid for this project. If it is, adjust the instructions to address the concern.
+- Do not weaken project-specific instructions to satisfy a generic policy. Our instructions encode hard-won lessons; agentlint policies encode general best practices. When they conflict, project instructions win — but note the tension.
+- Do not reflexively dismiss every finding as a false positive. If a policy catches a genuine gap, fix it.
