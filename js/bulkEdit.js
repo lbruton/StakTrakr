@@ -24,6 +24,13 @@ let bulkSortDir = "asc"; // 'asc' | 'desc'
 // when the modal closes, preventing memory leaks.
 const _bulkBlobUrls = new Set();
 
+// Module-level matchMedia state for the field-panel breakpoint listener.
+// Re-registering on every renderBulkFieldPanel call would leak listeners;
+// instead we keep a single mql + handler pair and swap the handler on
+// re-render so only one listener is ever active.
+let _bulkMql = null;
+let _bulkMqlHandler = null;
+
 const BULK_COLUMN_PRIORITY = [
   "name",
   "metal",
@@ -163,14 +170,12 @@ const getBulkTableDataKeys = () => {
 
   // Synthesize dot-path columns only when nested data is present on at least
   // one item in the visible/filtered set.
-  Object.entries(BULK_SYNTHETIC_COLUMN_PATHS).forEach(([syntheticKey, dotPath]) => {
+  Object.keys(BULK_SYNTHETIC_COLUMN_PATHS).forEach((syntheticKey) => {
     const hasValue = items.some((item) => {
       const v = resolveBulkValue(item, syntheticKey);
       return v !== undefined && v !== null && v !== "";
     });
     if (hasValue) keySet.add(syntheticKey);
-    // path-only existence guard noop reference to keep lint happy
-    void dotPath;
   });
 
   const prioritized = BULK_COLUMN_PRIORITY.filter((key) => keySet.has(key));
@@ -559,6 +564,13 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   cb.checked = isSelected;
   cb.addEventListener("change", () => toggleItemSelection(serial));
   cbTd.appendChild(cb);
+  // Forward clicks that land on the ::before tap-target expansion (44×44px
+  // pseudo-element) to the checkbox. The row-level click handler already
+  // covers most of this, but the explicit forward here ensures the checkbox
+  // receives the event even when e.target is cbTd itself.
+  cbTd.addEventListener("click", (e) => {
+    if (e.target !== cb) cb.click();
+  });
   if (isPinned) {
     const pin = document.createElement("span");
     pin.className = "bulk-pin-icon";
@@ -681,10 +693,14 @@ const renderBulkFieldPanel = () => {
   // Breakpoint behavior: force open on wide viewports, collapsed default on
   // narrow. Re-evaluate when crossing the 768px boundary so a resize from
   // mobile→desktop reveals the fields automatically.
-  const mql =
-    typeof window !== "undefined" && typeof window.matchMedia === "function"
-      ? window.matchMedia("(max-width: 768px)")
-      : null;
+  //
+  // Use module-level _bulkMql / _bulkMqlHandler so that re-renders (e.g.
+  // after a field toggle) remove the previous listener before adding a new
+  // one — prevents unbounded listener accumulation across render calls.
+  if (!_bulkMql && typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    _bulkMql = window.matchMedia("(max-width: 768px)");
+  }
+  const mql = _bulkMql;
   const applyBreakpoint = () => {
     const isNarrow = mql ? mql.matches : false;
     if (isNarrow) {
@@ -704,11 +720,20 @@ const renderBulkFieldPanel = () => {
   });
   applyBreakpoint();
   if (mql) {
-    const mqlHandler = () => applyBreakpoint();
+    // Remove the previous handler before registering the new one so each
+    // renderBulkFieldPanel call does not stack an additional listener.
+    if (_bulkMqlHandler) {
+      if (typeof mql.removeEventListener === "function") {
+        mql.removeEventListener("change", _bulkMqlHandler);
+      } else if (typeof mql.removeListener === "function") {
+        mql.removeListener(_bulkMqlHandler);
+      }
+    }
+    _bulkMqlHandler = () => applyBreakpoint();
     if (typeof mql.addEventListener === "function") {
-      mql.addEventListener("change", mqlHandler);
+      mql.addEventListener("change", _bulkMqlHandler);
     } else if (typeof mql.addListener === "function") {
-      mql.addListener(mqlHandler);
+      mql.addListener(_bulkMqlHandler);
     }
   }
 
@@ -1466,10 +1491,10 @@ const applyBulkEdit = async () => {
     // diffs (STRK-91).
     const oldItem = Object.assign({}, item);
     if (item.numistaData && typeof item.numistaData === "object") {
-      oldItem.numistaData = JSON.parse(JSON.stringify(item.numistaData));
+      oldItem.numistaData = structuredClone(item.numistaData);
     }
     if (item.fieldMeta && typeof item.fieldMeta === "object") {
-      oldItem.fieldMeta = JSON.parse(JSON.stringify(item.fieldMeta));
+      oldItem.fieldMeta = structuredClone(item.fieldMeta);
     }
 
     // Apply each enabled field — honor BULK_FIELD_STORAGE_MAP for nested paths.
