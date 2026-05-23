@@ -20,7 +20,12 @@ const METAL_PRICE_RANGE_PER_OZ = {
   gold: { min: 1500, max: 15000 },
 };
 
-function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
+// STRK-99: vendors whose JSON-LD offer.price is the deepest "As Low As" bulk
+// tier. For these vendors, skip the bare offer.price fallback so extractPrice()
+// can read the correct 1-unit price from the markdown table instead.
+const UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"]);
+
+function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerId = "") {
   if (!jsonLdScripts || jsonLdScripts.length === 0) return null;
   const perOz = METAL_PRICE_RANGE_PER_OZ[metal];
   if (!perOz) return null;
@@ -77,6 +82,7 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
 
           const price = parseFloat(String(offer.price ?? "").replace(/,/g, ""));
           if (!isNaN(price) && price === 0) return JSONLD_ZERO_PRICE;
+          if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) continue;
           if (inRange(price)) return price;
         }
       }
@@ -565,6 +571,124 @@ assert(
     10
   ),
   893.33
+);
+
+// ---------------------------------------------------------------------------
+// STRK-99: UNTRUSTED_OFFER_PRICE_VENDORS — SDB + BE publish bulk-tier in
+// offer.price with no priceSpecification. The denylist must skip the bare
+// offer.price fallback so extractPrice() can read the correct 1-unit price
+// from the markdown table. Fixture captured live from SDB on 2026-05-23.
+// ---------------------------------------------------------------------------
+
+// Live SDB Product JSON-LD payload (captured via Playwright with real Chrome UA
+// against https://sdbullion.com/canadian-silver-maple-leaf-coin-random-year).
+// The visible 1-unit Check/Wire price was $79.23 at capture time; SDB publishes
+// the 50+ bulk tier ($78.23) as offer.price.
+const SDB_LIVE_JSONLD_2026_05_23 = {
+  "@context": "http://schema.org",
+  "@type": "Product",
+  "@id": "https://sdbullion.com/canadian-silver-maple-leaf-coin-random-year",
+  name: "Canadian Silver Maple Leaf Coin - Random Year",
+  sku: "SRCMAPLE-1",
+  offers: {
+    "@type": "Offer",
+    price: "78.23",
+    priceCurrency: "USD",
+    availability: "https://schema.org/InStock",
+    url: "https://sdbullion.com/canadian-silver-maple-leaf-coin-random-year",
+    seller: { "@type": "Organization", name: "SD Bullion" },
+    itemCondition: "https://schema.org/NewCondition",
+  },
+};
+
+assert(
+  "18. STRK-99: bare offer.price skipped for sdbullion (no priceSpecification)",
+  extractJsonLdPrice(scripts(SDB_LIVE_JSONLD_2026_05_23), "silver", 1, "sdbullion"),
+  null
+);
+
+assert(
+  "19. STRK-99: bare offer.price skipped for bullionexchanges (no priceSpecification)",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: {
+        "@type": "Offer",
+        price: "77.22",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+      },
+    }),
+    "silver",
+    1,
+    "bullionexchanges"
+  ),
+  null
+);
+
+assert(
+  "20. STRK-99: bare offer.price honored for non-denied vendor (jmbullion)",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: { "@type": "Offer", price: "79.23", priceCurrency: "USD" },
+    }),
+    "silver",
+    1,
+    "jmbullion"
+  ),
+  79.23
+);
+
+assert(
+  "21. STRK-99: tiered priceSpecification still honored for denied vendor",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: {
+        price: "78.23", // bulk in offer.price — would be picked without the fix
+        priceSpecification: [
+          {
+            appliesToPaymentMethod:
+              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            eligibleQuantity: { minValue: "1", maxValue: "49" },
+            price: "79.23", // single-unit wire — should win
+          },
+        ],
+      },
+    }),
+    "silver",
+    1,
+    "sdbullion"
+  ),
+  79.23
+);
+
+assert(
+  "22. STRK-99: zero-price OOS sentinel still returned for denied vendor",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    }),
+    "silver",
+    1,
+    "sdbullion"
+  ),
+  JSONLD_ZERO_PRICE
+);
+
+assert(
+  "23. STRK-99: empty providerId (legacy callers) keeps old behavior",
+  extractJsonLdPrice(
+    scripts({
+      "@type": "Product",
+      offers: { "@type": "Offer", price: "79.23", priceCurrency: "USD" },
+    }),
+    "silver",
+    1
+  ),
+  79.23
 );
 
 // ---------------------------------------------------------------------------
