@@ -28,10 +28,12 @@ const BULK_COLUMN_PRIORITY = [
   "name",
   "metal",
   "composition",
+  "numistaComposition",
   "type",
   "qty",
   "weight",
   "weightUnit",
+  "numistaDiameter",
   "purity",
   "price",
   "marketValue",
@@ -59,6 +61,7 @@ const BULK_COLUMN_PRIORITY = [
 
 const BULK_COLUMN_LABEL_OVERRIDES = {
   qty: "Qty",
+  composition: "Composition",
   marketValue: "Retail Price",
   spotPriceAtPurchase: "Spot At Purchase",
   premiumPerOz: "Premium / Oz",
@@ -72,6 +75,34 @@ const BULK_COLUMN_LABEL_OVERRIDES = {
   obverseImageUrl: "Obverse URL",
   reverseImageUrl: "Reverse URL",
   uuid: "UUID",
+  numistaComposition: "Catalog Composition",
+  numistaDiameter: "Diameter",
+};
+
+// Synthetic dot-path columns: stable flat `data-column` anchors that resolve
+// to nested catalog fields. Keeps `data-column` selector-friendly while value
+// lookup traverses nested data (AC-5).
+const BULK_SYNTHETIC_COLUMN_PATHS = {
+  numistaComposition: "numistaData.composition",
+  numistaDiameter: "numistaData.diameter",
+};
+
+// Columns we never want surfaced as raw object/blob columns in the table.
+// Their useful contents are exposed via synthetic dot-path columns above.
+const BULK_COLUMN_SUPPRESSED_RAW = new Set(["numistaData"]);
+
+const resolveBulkValue = (item, key) => {
+  if (!item || !key) return undefined;
+  const path = BULK_SYNTHETIC_COLUMN_PATHS[key] || key;
+  if (path.indexOf(".") === -1) return item[path];
+  const parts = path.split(".");
+  let cursor = item;
+  for (let i = 0; i < parts.length; i++) {
+    if (cursor === null || cursor === undefined) return undefined;
+    if (typeof cursor !== "object") return undefined;
+    cursor = cursor[parts[i]];
+  }
+  return cursor;
 };
 
 const normalizeBulkValue = (value) => {
@@ -91,11 +122,30 @@ const normalizeBulkValue = (value) => {
 
 const getBulkTableDataKeys = () => {
   if (typeof inventory === "undefined" || !Array.isArray(inventory)) return [];
+  const source =
+    typeof getFilteredItems === "function" ? getFilteredItems(bulkSearchTerm) : inventory;
+  const items = Array.isArray(source) && source.length ? source : inventory;
   const keySet = new Set();
-  inventory.forEach((item) => {
+  items.forEach((item) => {
     if (!item || typeof item !== "object") return;
-    Object.keys(item).forEach((key) => keySet.add(key));
+    Object.keys(item).forEach((key) => {
+      if (BULK_COLUMN_SUPPRESSED_RAW.has(key)) return;
+      keySet.add(key);
+    });
   });
+
+  // Synthesize dot-path columns only when nested data is present on at least
+  // one item in the visible/filtered set.
+  Object.entries(BULK_SYNTHETIC_COLUMN_PATHS).forEach(([syntheticKey, dotPath]) => {
+    const hasValue = items.some((item) => {
+      const v = resolveBulkValue(item, syntheticKey);
+      return v !== undefined && v !== null && v !== "";
+    });
+    if (hasValue) keySet.add(syntheticKey);
+    // path-only existence guard noop reference to keep lint happy
+    void dotPath;
+  });
+
   const prioritized = BULK_COLUMN_PRIORITY.filter((key) => keySet.has(key));
   const remaining = [...keySet]
     .filter((key) => !BULK_COLUMN_PRIORITY.includes(key))
@@ -113,12 +163,12 @@ const getBulkColumnLabel = (key) => {
 
 const getBulkSortableValue = (item, key) => {
   if (!item || !key) return "";
-  return normalizeBulkValue(item[key]);
+  return normalizeBulkValue(resolveBulkValue(item, key));
 };
 
 const formatBulkCellValue = (item, key) => {
   if (!item || !key) return "";
-  const value = item[key];
+  const value = resolveBulkValue(item, key);
   if (value === null || value === undefined) return "";
 
   switch (key) {
@@ -155,7 +205,14 @@ const getFilteredItems = (term) => {
   if (!t) return inventory.slice();
   return inventory.filter((item) => {
     const tagText = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
-    const itemValues = Object.keys(item || {}).map((key) => normalizeBulkValue(item[key]));
+    // Searchable surface = the same key set we render: top-level keys minus
+    // suppressed raw blobs, plus synthetic dot-path columns. Keeps display +
+    // search + sort aligned (AC-5).
+    const keys = Object.keys(item || {}).filter((key) => !BULK_COLUMN_SUPPRESSED_RAW.has(key));
+    const syntheticKeys = Object.keys(BULK_SYNTHETIC_COLUMN_PATHS);
+    const itemValues = [...keys, ...syntheticKeys].map((key) =>
+      normalizeBulkValue(resolveBulkValue(item, key))
+    );
     const searchText = [...itemValues, tagText]
       .map((value) => String(value || "").toLowerCase())
       .join(" ");
