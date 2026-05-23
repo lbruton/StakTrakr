@@ -1019,6 +1019,32 @@ function _normalizeItemChangeType(type) {
 }
 
 /**
+ * Merge sequential change types for one item into the final manifest action.
+ * Order matters: delete+add means a re-add, while add+delete means deleted.
+ * @param {*} existingType - Current grouped type.
+ * @param {*} incomingType - Next changelog entry type.
+ * @returns {string} Merged normalized item change type.
+ */
+function _mergeItemChangeTypes(existingType, incomingType) {
+  var existing = _normalizeItemChangeType(existingType);
+  var incoming = _normalizeItemChangeType(incomingType);
+
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  if (existing === "setting" || incoming === "setting") return incoming;
+
+  if (incoming === "add") return "add";
+  if (incoming === "delete") return "delete";
+  if (incoming === "edit") {
+    if (existing === "add") return "add";
+    if (existing === "delete") return "delete";
+    return "edit";
+  }
+
+  return incoming;
+}
+
+/**
  * Build a sync manifest from the changeLog and upload it encrypted to Dropbox.
  * The manifest captures field-level changes since the last push so that
  * diff-merge can resolve conflicts without downloading the full vault.
@@ -1068,9 +1094,11 @@ async function buildAndUploadManifest(token, password, syncId) {
       changesByKey[key] = {
         itemKey: key,
         itemName: entry.itemName || null,
-        type: entry.type,
+        type: _normalizeItemChangeType(entry.type),
         fields: [],
       };
+    } else {
+      changesByKey[key].type = _mergeItemChangeTypes(changesByKey[key].type, entry.type);
     }
 
     changesByKey[key].fields.push({
@@ -1079,29 +1107,30 @@ async function buildAndUploadManifest(token, password, syncId) {
       newValue: entry.newValue != null ? entry.newValue : null,
       timestamp: entry.timestamp,
     });
-
-    // Count unique items per type for the summary
-    var entryType = entry.type;
-    if (entryType === "add" && !countedKeys.add[key]) {
-      countedKeys.add[key] = true;
-      summary.itemsAdded++;
-    } else if (entryType === "edit" && !countedKeys.edit[key]) {
-      countedKeys.edit[key] = true;
-      summary.itemsEdited++;
-    } else if (entryType === "delete" && !countedKeys.delete[key]) {
-      countedKeys.delete[key] = true;
-      summary.itemsDeleted++;
-    } else if (entryType === "setting" && !countedKeys.setting[key]) {
-      countedKeys.setting[key] = true;
-      summary.settingsChanged++;
-    }
   }
 
   // Convert grouped changes object to array
   var transformedEntries = [];
   var keys = Object.keys(changesByKey);
   for (var k = 0; k < keys.length; k++) {
-    transformedEntries.push(changesByKey[keys[k]]);
+    var groupedChange = changesByKey[keys[k]];
+    transformedEntries.push(groupedChange);
+
+    // Count unique items by final normalized type for the summary.
+    var entryType = _normalizeItemChangeType(groupedChange.type);
+    if (entryType === "add" && !countedKeys.add[groupedChange.itemKey]) {
+      countedKeys.add[groupedChange.itemKey] = true;
+      summary.itemsAdded++;
+    } else if (entryType === "edit" && !countedKeys.edit[groupedChange.itemKey]) {
+      countedKeys.edit[groupedChange.itemKey] = true;
+      summary.itemsEdited++;
+    } else if (entryType === "delete" && !countedKeys.delete[groupedChange.itemKey]) {
+      countedKeys.delete[groupedChange.itemKey] = true;
+      summary.itemsDeleted++;
+    } else if (entryType === "setting" && !countedKeys.setting[groupedChange.itemKey]) {
+      countedKeys.setting[groupedChange.itemKey] = true;
+      summary.settingsChanged++;
+    }
   }
 
   // 4. Build manifest JSON (schema v1)
@@ -2945,9 +2974,10 @@ function _buildDiffFromManifest(manifest) {
 
   for (var i = 0; i < changes.length; i++) {
     var change = changes[i];
-    if (change.type === "add") {
+    var changeType = _normalizeItemChangeType(change.type);
+    if (changeType === "add") {
       added.push({ name: change.itemName || change.itemKey, itemKey: change.itemKey });
-    } else if (change.type === "edit") {
+    } else if (changeType === "edit") {
       var modChanges = [];
       var fields = change.fields || [];
       for (var f = 0; f < fields.length; f++) {
@@ -2961,7 +2991,7 @@ function _buildDiffFromManifest(manifest) {
         item: { name: change.itemName || change.itemKey, itemKey: change.itemKey },
         changes: modChanges,
       });
-    } else if (change.type === "delete") {
+    } else if (changeType === "delete") {
       deleted.push({ name: change.itemName || change.itemKey, itemKey: change.itemKey });
     }
   }
@@ -3613,7 +3643,7 @@ async function pullWithPreview(remoteMeta) {
               var mChanges = manifest.changes || [];
               for (var mr = 0; mr < mChanges.length; mr++) {
                 var mc = mChanges[mr];
-                if (mc.type === "edit" && mc.fields) {
+                if (_normalizeItemChangeType(mc.type) === "edit" && mc.fields) {
                   for (var mf = 0; mf < mc.fields.length; mf++) {
                     mRemoteChanges.push({
                       itemKey: mc.itemKey,
