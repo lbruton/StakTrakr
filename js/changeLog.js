@@ -116,7 +116,23 @@ const logItemChanges = (oldItem, newItem) => {
     "reverseSharedImageId",
     "disposition",
     "lastModified",
+    "capsule",
+    "capsuleNotes",
+    "paymentMethod",
+    "numistaData",
+    "fieldMeta",
   ];
+
+  // Deep-equality check for object-typed fields. Snapshot wrappers (STRK-91 C.2)
+  // deep-copy nested objects, so `!==` would log unchanged nested objects as
+  // changed because the references differ.
+  const OBJECT_FIELDS = new Set(["numistaData", "fieldMeta", "disposition"]);
+  const fieldChanged = (field, a, b) => {
+    if (OBJECT_FIELDS.has(field)) {
+      return JSON.stringify(a) !== JSON.stringify(b);
+    }
+    return a !== b;
+  };
 
   const refItem = newItem || oldItem;
   const itemKey = computeItemKey(refItem);
@@ -144,7 +160,7 @@ const logItemChanges = (oldItem, newItem) => {
   }
 
   fields.forEach((field) => {
-    if (oldItem[field] !== newItem[field]) {
+    if (fieldChanged(field, oldItem[field], newItem[field])) {
       const idx = inventory.indexOf(newItem);
       changeLog.push({
         timestamp: Date.now(),
