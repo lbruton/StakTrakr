@@ -27,17 +27,30 @@ A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladiu
 
 ![StakTrakr Dashboard](screenshots/01-hero-overview.png)
 
-## Market Prices & Item View
-
 | Vendor Price Matrix                                | Item View Modal                                  |
 | -------------------------------------------------- | ------------------------------------------------ |
 | ![Vendor Prices](screenshots/04-vendor-prices.png) | ![Item View](screenshots/06-item-view-modal.png) |
 
-## Settings
-
-| About                                                | Appearance                                                     | Inventory                                                    |
+| Settings — About                                     | Appearance                                                     | Inventory                                                    |
 | ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | ![Settings About](screenshots/07-settings-about.png) | ![Settings Appearance](screenshots/08-settings-appearance.png) | ![Settings Inventory](screenshots/09-settings-inventory.png) |
+
+---
+
+## What's New in v3.34.85
+
+First public release since v3.34.38 (April 30). Highlights from 24 days of fixes and enhancements:
+
+- **Mobile bulk editor** — sticky identity columns and 44px tap targets make bulk operations usable on phones (STRK-91)
+- **Better spot pricing** — gold-api.com added as a first-class provider; the header Spot button no longer fires four redundant syncs per click (STRK-89, STRK-93)
+- **Retail accuracy** — SD Bullion and Bullion Exchanges scrape now lands on the correct 1-unit price instead of bulk-tier values; 90-day Market History "All" view now carries per-vendor data for the full window (STRK-99, STRK-92)
+- **Goldback** — ¼ Goldback (Idaho) added; ticker now shows premium % with three-tier color coding; daily retail charts fixed (STRK-66, STRK-85, STRK-69)
+- **Catalog UX** — Numista tag preview chips, reset hardening for new items, per-side image override, structured Capsule field with notes (STRK-84, STRK-87, STRK-67, STRK-46)
+- **Workflow** — direct Print button, partial-stack disposition with constrained quantity selector, optional payment method dropdown (STRK-49, STRK-44, STRK-53, STRK-50)
+- **Polish** — new metallic dark theme on an oklch token system, CSS polish pass, chart viewport scaling, lot/each unit alignment (STRK-25, STRK-27, STRK-42, STRK-68)
+- **Reliability** — service worker cache recovery, manifest-first sync now preserves item field edits (STRK-56, STRK-101)
+
+Full details in the [Changelog](CHANGELOG.md).
 
 ---
 
@@ -45,163 +58,51 @@ A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladiu
 
 Most precious metals apps want your email, store your data on their servers, or lock features behind a paywall. StakTrakr is different:
 
-- **100% client-side** — all data lives in your browser. The full source is available to anyone; it even runs on `file://` from a single HTML file
-- **Zero data collection** — no account, no email, no profile. Nothing leaves your device unless you explicitly cloud-backup
-- **Works offline** — once loaded, the app works without internet (spot prices require connectivity)
-- **Portable** — download the ZIP, open `index.html`, and it runs anywhere, forever
-- **Open source** — MIT licensed, fork it, hack it, make it yours
-- **Free, always** — every feature is free. Optional [sponsorships](https://github.com/sponsors/lbruton) support the free API infrastructure
+- **100% client-side** — all data lives in your browser. The full source is open; it even runs on `file://` from a single HTML file.
+- **Zero data collection** — no account, no email, no profile. Nothing leaves your device unless you explicitly cloud-backup.
+- **Works offline** — once loaded, the app runs without internet (spot prices require connectivity).
+- **Portable & free** — download the ZIP, open `index.html`, runs anywhere, forever. MIT licensed.
+
+Optional [sponsorships](https://github.com/sponsors/lbruton) keep the free API infrastructure running.
 
 ---
 
 ## Features
 
-### Live Spot Prices
+### Pricing — Spot & Market
 
-Real-time prices from multiple API providers with automatic failover:
+Real-time prices from multiple providers with automatic failover. The free, keyless `api.staktrakr.com` works out of the box; add Metals.dev, MetalPriceAPI, GoldAPI, or a custom URL for higher-frequency updates. Manual mode supports fully offline pricing. Sparkline charts with 7d/30d/60d/90d range selector, health indicators, and years of seed history (1968–present) baked in.
 
-- **Free, keyless provider** — `api.staktrakr.com` delivers hourly spot prices out of the box; no API key needed to get started
-- **Sparkline charts** — interactive mini price charts with 7d / 30d / 60d / 90d range selector
-- **Percentage change** — see how each metal has moved over your selected timeframe
-- **Single source selection** — choose from 6 spot price sources (StakTrakr API, Metals.dev, Metals-API, MetalPriceAPI, Custom URL, or Manual mode for full offline pricing)
-- **Seed data included** — years of historical prices (1968–present) baked in; sparklines work from day one
-- **Health indicators** — color-coded status dots show API sync freshness at a glance
-
-### Market Prices & Vendor Comparison
-
-Real-time retail market prices from major bullion dealers, powered by the StakTrakr API:
-
-- **Best Price Ticker** — scrolling ticker strip below spot cards showing the cheapest vendor per coin with premium percentages and direct buy links
-- **Vendor Prices Table** — full comparison matrix across Gold, Silver, Platinum, Palladium, and Goldback tabs with per-vendor prices, premium badges, and clickable buy links to vendor product pages
-- **Market Detail Modal** — click any coin to view TradingView Lightweight Charts 7-day spot history overlaid with per-vendor price comparison lines
-- **Metal filter pills** — filter market cards by metal type with color-coded pill buttons
-- **Intraday trends** — toggle between current price and hourly percentage change on market cards
-- **Manifest-driven** — the API can add new coins without any frontend code changes
-- **Goldback support** — denomination-aware pricing for all Goldback variants (G½ through G50) across multiple state series with goldback.com reference pricing
-- **Configurable layout** — Vendor Prices and Best Price Ticker sections are toggleable and reorderable in Settings > Appearance
+For retail, a **Best Price Ticker** highlights the cheapest vendor per coin with direct buy links. The **Vendor Prices Matrix** compares Gold, Silver, Platinum, Palladium, and Goldbacks across major bullion dealers with premium badges and clickable product-page links. Click any coin to see a **TradingView chart** overlaying spot history with per-vendor price lines.
 
 ### Portfolio Tracking
 
-Full per-item tracking with a rich data model:
+Rich per-item data model: Purchase Price / Melt / Retail with computed Gain/Loss (per item and portfolio-wide); realized gains/losses via Sold / Traded / Lost / Gifted / Returned dispositions with full transaction history; lot ⇄ each purchase toggle; troy ounces / kilograms / pounds with auto-conversion; year, grade, grading authority, cert # for graded coins; serial numbers for bars and notes; per-item notes, photos (your own or Numista CDN), price history, and storage location. Goldback and Silverback support with denomination-aware pricing.
 
-- **Purchase Price / Melt Value / Retail Price** with computed Gain/Loss per item and portfolio-wide
-- **Realized Gains/Losses** — mark items as Sold, Traded, Lost, Gifted, or Returned via disposition workflow with realized gain/loss calculation, color-coded badges, and full transaction history
-- **Goldback & Silverback support** — denomination-aware pricing (½, 1, 5, 10, 25, 50) for Goldbacks, plus Silverback tracking with dedicated 0.001 troy ounce weight unit and retail pricing
-- **Lot ⇄ Each purchase toggle** — enter a lot total when buying multiples and the app divides by quantity to store per-unit price; purchase column shows qty-multiplied total
-- **Weight units** — troy ounces, kilograms, and pounds with automatic conversion
-- **Year, Grade, Grading Authority, Cert #** — full numismatic metadata
-- **PCGS catalog numbers** with inline chips and one-click CoinFacts lookup
-- **PCGS / NGC cert verification** — verify grading directly from the inventory table
-- **Serial numbers** for bars and notes, **Notes** per item with indicator badges
-- **Item photos** — upload your own photos or pull CDN images from Numista; obverse and reverse supported
-- **Per-item price history** — track retail price over time with inline chart and delete controls
-- **Storage Location** tracking per item
+### Browse — Cards, Table, Filters, Tags
 
-### Portfolio Summary
+Four card styles (sparkline header, full-bleed image, split layout, accessible table) plus a sortable table view with thumbnails and inline chip badges. **Smart filter chips** auto-generate from your collection across 10 configurable categories (Metal, Type, Name, Year, Grade, Numista ID, Source, Storage, etc.) with custom grouping rules, save-search-as-chip, and right-click blacklist. **Tags** — both Numista-synced (Bullion, Proof, Commemorative) and your own — integrate with filters and global rename/delete.
 
-- **Summary bar** — Buy / Melt / Market / G/L displayed at the top, with item count and total weight in troy ounces (shows filtered/total when filters active)
-- **Disposed item totals** — realized gain/loss per metal shown alongside active portfolio stats
+### Catalog — Numista & PCGS
 
-### Four Card Styles + Table View
+**Numista** search by name, country, or catalog number; bulk metadata + CDN image sync with progress log; regex pattern rules for auto-matching catalog IDs to your item names. **PCGS** lookup by number with form auto-fill; cert verification badges link directly to PCGS/NGC. Per-field origin tracking shows whether each field came from Numista, PCGS, CSV import, or manual entry — and powers a two-tier re-sync picker with smart defaults. The **Item View Modal** combines price history charts (melt + retail, 1Y/5Y/10Y/Purchased/custom range), Numista metadata, tags, certification badge, and disposition history.
 
-- **Style A — Sparkline Header**: live price chart in the card header
-- **Style B — Full-Bleed Overlay**: image-dominant with overlay text
-- **Style C — Split Card**: image left, data right
-- **Style D — Accessible Table**: horizontal-scroll layout optimized for readability
-- **Table view** with multi-column sorting, per-item thumbnails, and inline chip badges
-- Toggle between card and table with a single header button
+### Cloud Sync — Encrypted, Zero-Knowledge
 
-### Smart Filter Chips
+Connect Dropbox via OAuth PKCE and sync an encrypted `.stvault` across devices. AES-256-GCM + PBKDF2-SHA256 (100,000 iterations) via the Web Crypto API — the cloud provider only ever receives ciphertext. Bi-directional sync with conflict detection; a **DiffModal** for visual item-level and settings-level review with click-to-pick field selection; encrypted image vault for photo sync; BroadcastChannel leader election prevents concurrent multi-tab races; multi-account switching; backup-before-overwrite with configurable history depth. Google Drive, OneDrive, pCloud, and Box are coming (same encryption, all client-side).
 
-A filtering system that adapts to your collection:
+### Data Tools — Import, Export, Backup, Bulk Edit
 
-- **Auto-generated chips** — Metal, Type, Name, Year, Grade, Numista ID, Source, and Storage Location chips appear automatically
-- **Smart name grouping** — "American Silver Eagle" consolidates into one chip with count badge
-- **Save Search as Chip** — bookmark a multi-term comma-separated search as a persistent custom filter chip
-- **Custom grouping rules** — define your own chip labels matching multiple name variants
-- **Dynamic chips** — auto-extract text from parentheses and quotes in item names
-- **Chip blacklist** — right-click any chip to hide it
-- **Chip max count** — configurable cap on displayed chips to prevent overflow on small screens
-- **10 configurable categories** — enable/disable, reorder, and sort (A-Z or by count)
+CSV import with intelligent field mapping, regex custom rules, and merge/override modes (DiffModal preview). Export as CSV, JSON, PDF, or full ZIP backup. Encrypted `.stvault` exports with password strength meter. Spot history import/export between instances. Inline clone with Save & Clone Another; full-screen **Bulk Edit** in Settings → Inventory with searchable checkbox table, 16 fields editable at once, bulk copy/delete, and Numista Lookup populating fields from catalog data.
 
-### Item Tags
-
-- **Numista tags** — synced automatically from the Numista API (Bullion, Proof, Commemorative, etc.) with configurable auto-apply toggle
-- **Custom tags** — add your own tags per item with autocomplete from existing tags
-- **Independent tag blacklist** — separate from chip grouping, managed in Settings
-- **Tag management** — rename and delete tags globally across all items
-- **Filter integration** — tags show as filter chips and are searchable
-
-### Numista & PCGS Integration
-
-- **Numista search** — look up any coin, get catalog numbers, images, and metadata
-- **Bulk sync** — sync metadata and CDN image URLs for your entire inventory in one operation with progress log
-- **Custom pattern rules** — regex-based rules that auto-match Numista catalog IDs to your item names
-- **Per-field origin tracking** — tracks whether each field came from Numista, PCGS, CSV import, or manual entry
-- **Two-tier re-sync picker** — diff hints and smart pre-check defaults based on field origin when re-syncing items
-- **PCGS lookup** — search by PCGS number, populate form fields from catalog data
-- **Cert verification** — grade badge on PCGS/NGC graded items links directly to the grading service
-- **Inline chips** — N#, PCGS#, Grade, Year, Serial, Storage, and Notes badges in the Name column (configurable)
-
-### Item View Modal
-
-Click any item for a full-detail view:
-
-- **Price history chart** — melt value derived from spot history since purchase, retail line, 1Y/5Y/10Y/Purchased range pills, and a custom date range picker
-- **Certification badge** — authority-color-coded (PCGS gold, NGC blue, etc.) with one-click cert verification
-- **Valuation section** — purchase price, melt value, retail, gain/loss with purchase date shown
-- **Numista metadata** — type, composition, weight, series, and description from the Numista API
-- **Tags** — view and manage item tags inline
-- **Disposition history** — full transaction details for disposed items with "Restore to Inventory" option
-
-### Cloud Sync
-
-Encrypt your inventory and sync it across devices:
-
-- **Dropbox** — connect via OAuth PKCE, encrypted `.stvault` files (AES-256-GCM)
-- **Bi-directional sync** — automatic polling with conflict detection and resolution
-- **DiffModal** — visual item-level and settings-level diff review before applying remote changes, with click-to-pick field selection for granular merge control
-- **Item cards** — bordered card layout with metal-colored image placeholders and async image loading in the sync review
-- **Settings sync** — 44 sync-scoped keys covering all user preferences, feature toggles, API credentials, and header button config
-- **Image vault** — encrypted photo sync across devices with automatic push/pull
-- **Backup safety** — cloud-side backup-before-overwrite, configurable backup history depth (3/5/10/20), separate manual and sync backup management
-- **Multi-account** — switch Dropbox accounts with forced re-authentication
-- **Multi-tab guard** — BroadcastChannel leader election prevents concurrent sync from multiple tabs
-- **Zero-knowledge** — the cloud provider receives only ciphertext; your plaintext never leaves your device
-- **Coming soon** — Google Drive, OneDrive, pCloud, Box (same encryption, all client-side)
-
-### Import / Export / Backup
-
-- **CSV import** — intelligent field mapping, regex-based custom rules, merge/override modes with DiffModal preview
-- **CSV / JSON / PDF export** — all fields including numismatic metadata, image URLs, Storage Location, and Tags
-- **ZIP backup** — full application state (inventory, settings, API keys, price history, image URLs) with DiffModal preview on restore
-- **Encrypted vault** — AES-256-GCM `.stvault` files with PBKDF2 key derivation and password strength meter
-- **Spot history import/export** — export price history as CSV, import on another device
-- **Export origin tracking** — cross-domain import warnings when importing from a different instance
-- **Post-import summary** — banner showing added, updated, and skipped item counts
-
-### Bulk Edit
-
-Full-screen bulk operations in Settings > Inventory:
-
-- Select multiple items with a searchable checkbox table
-- Edit 16 fields at once with enable/disable toggles per field
-- Copy or delete items in bulk
-- Numista Lookup populates bulk fields from catalog data
-
-### Clone Mode
-
-- **Inline clone** — clone button activates clone mode on the edit modal with field-level checkboxes
-- **Save & Clone Another** — create multiple clones in one session without closing the modal
-
-### Settings
+### Settings & Quality of Life
 
 Everything in one place with sidebar navigation:
 
 | Tab            | What's Here                                                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------------- |
 | **About**      | Version info, API status badge, What's New, roadmap, badges, changelog, force refresh                   |
-| **Appearance** | Theme (Light / Dark / Sepia / System), header button visibility and reorder, layout section toggles     |
+| **Appearance** | Theme (Light / Dark / Slate / Sepia), header button visibility and reorder, layout section toggles      |
 | **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit, data reset |
 | **Filters**    | Category toggles, sort order, grouping rules, blacklist, max chip count, search behavior                |
 | **Images**     | Image cache management, upload settings, bulk image sync                                                |
@@ -213,61 +114,25 @@ Everything in one place with sidebar navigation:
 | **Log**        | Activity Log — full change history with undo/redo                                                       |
 | **FAQ**        | Privacy, backup, security, and limitations — built into the app                                         |
 
-### More
-
-- **PWA support** — install to your home screen / desktop, works offline
-- **Multi-currency** — 17 currencies with live exchange rates (Open Exchange Rates)
-- **Fuzzy search** — across all fields including Year, Grade, Cert #, and Numista ID
-- **Shift+click / long-press inline editing** — click any editable cell to edit in place (mobile long-press supported)
-- **Change log** — tracks every edit with full undo/redo
-- **Storage dashboard** — see localStorage (blue) and IndexedDB (green) usage side by side
-- **Timezone-aware** — all timestamps display in your configured timezone; stored data stays UTC
-- **Three-state disposed filter** — Hide / Show All / Disposed Only with persistent selection
-- **Environment badges** — BETA / PREVIEW / LOCAL indicators on non-production domains
+Also: PWA install, 17-currency support with live exchange rates, fuzzy search across all fields, shift+click / long-press inline editing, timezone-aware display, three-state disposed filter, and environment badges (BETA / PREVIEW / LOCAL) on non-production domains.
 
 ---
 
 ## Getting Started
 
-### Option 1 — Just open it
+Open [www.staktrakr.com](https://www.staktrakr.com) for the hosted version, or download a release ZIP, extract, and open `index.html` in any modern browser — no server required. For local development, `python3 -m http.server 8000` works fine. StakTrakr ships with sample inventory and years of spot history so every feature is explorable on first launch; sample items are clearly labeled.
 
-Download a release ZIP, extract, and open `index.html` in any modern browser. No server required.
-
-### Option 2 — Local HTTP server
-
-```bash
-python3 -m http.server 8000
-# then open http://localhost:8000
-```
-
-### Option 3 — Live site
-
-Visit [www.staktrakr.com](https://www.staktrakr.com) — same app, hosted on Cloudflare Pages.
-
-### First launch
-
-StakTrakr comes pre-loaded with **sample inventory items** and **years of spot price history** so you can explore every feature immediately. Sample items are clearly labeled — edit or delete them whenever you're ready.
-
-Live spot prices and market prices work out of the box via the free `api.staktrakr.com` provider. For higher-frequency spot updates, add a free API key from [Metals.dev](https://metals.dev) or another supported provider in Settings > API.
-
-### Optional API Keys
-
-StakTrakr works fully out of the box, but two optional integrations enhance the experience:
-
-- **Numista API** — free key from [numista.com](https://en.numista.com/api/) enables coin catalog search, automatic image population, and metadata sync. Dramatically enriches your inventory with composition, weight, series, and catalog images.
-- **PCGS API** — free key from [pcgs.com](https://www.pcgs.com/coinfacts) enables PCGS number lookup and cert verification for graded coins.
-
-Both are optional and configured in Settings > API.
+Two optional integrations enhance the experience: a free [Numista API](https://en.numista.com/api/) key enables catalog search, image population, and metadata sync; a free [PCGS API](https://www.pcgs.com/coinfacts) key enables PCGS lookup and cert verification. Both are configured in Settings → API.
 
 ---
 
 ## Data & Privacy
 
-- **No server-side component** — the developer has no technical means to access your data
-- **No cookies, no tracking SDKs, no advertising** — the app uses only localStorage and IndexedDB for your own data
-- **Cloudflare Web Analytics** runs on the hosted site (staktrakr.com) — aggregated, anonymous page-view counts only; no cookies, no individual fingerprinting. Cloudflare may set a temporary infrastructure cookie (e.g. `__cf_bm`) for bot protection — safe to block. Not present when running locally
-- **Cloud backup is zero-knowledge** — AES-256-GCM + PBKDF2-SHA256 (100,000 iterations) via the Web Crypto API; the cloud provider receives only ciphertext
-- **localStorage caveat** — browser storage can be cleared. Export ZIP or vault backups regularly, especially on iOS Safari
+- **No server-side component** — the developer has no technical means to access your data.
+- **No cookies, no tracking SDKs, no advertising** — only localStorage and IndexedDB are used for your data.
+- **Cloud backup is zero-knowledge** — AES-256-GCM + PBKDF2-SHA256 (100,000 iterations); the cloud provider receives only ciphertext.
+- **localStorage caveat** — browser storage can be cleared. Export ZIP or vault backups regularly, especially on iOS Safari.
+- Cloudflare Web Analytics runs on the hosted site (aggregated, anonymous page-views only — not present when running locally).
 
 Full details in the [Privacy Policy](https://www.staktrakr.com/privacy.html) and the FAQ tab in Settings.
 
@@ -280,11 +145,9 @@ Full details in the [Privacy Policy](https://www.staktrakr.com/privacy.html) and
 | Runtime          | Pure client-side JavaScript (no framework, no build step)                       |
 | Storage          | Browser localStorage + IndexedDB                                                |
 | Encryption       | Web Crypto API — AES-256-GCM via PBKDF2                                         |
-| Styling          | Vanilla CSS with CSS custom properties, responsive breakpoints                  |
+| Styling          | Vanilla CSS with CSS custom properties (oklch token system), four themes        |
 | Charts           | Chart.js 3.9.1 + TradingView Lightweight Charts                                 |
-| CSV              | PapaParse 5.4.1                                                                 |
-| PDF              | jsPDF 2.5.1 + AutoTable 3.5.25                                                  |
-| Backup           | JSZip 3.10.1                                                                    |
+| CSV / PDF / ZIP  | PapaParse 5.4.1, jsPDF 2.5.1 + AutoTable 3.5.25, JSZip 3.10.1                   |
 | Hosting          | Cloudflare Pages                                                                |
 | Spot API         | api.staktrakr.com (free, keyless) + Metals.dev, MetalPriceAPI, GoldAPI, others  |
 | Market API       | api.staktrakr.com v2 (free, keyless) — retail prices from major bullion dealers |
@@ -294,77 +157,13 @@ Full details in the [Privacy Policy](https://www.staktrakr.com/privacy.html) and
 
 ---
 
-## Project Structure
-
-```text
-index.html                  Main application (single page)
-css/styles.css              Complete styling (CSS custom properties, four themes)
-js/                         70+ JavaScript modules — strict load order via index.html
-  constants.js                Global config, API providers, storage keys, app version
-  state.js                    Application state (inventory, spotPrices, DOM refs)
-  utils.js                    Formatting, validation, storage helpers, sanitizeHtml
-  inventory.js                Core CRUD and table orchestration
-  inventory-table.js          Table rendering engine
-  inventory-backup.js         ZIP/vault backup and restore
-  inventory-import.js         CSV/JSON import with DiffModal integration
-  events.js                   Event handlers and UI interactions
-  init.js                     Application initialization (loads last)
-  spot.js                     Spot price history, sparklines, card indicators
-  api.js                      Multi-provider pricing API integration
-  market-data.js              Market data module — ticker, vendor table, detail modal
-  market-charts.js            TradingView Lightweight Charts integration
-  retail.js                   Market list view — card layout, trend charts, vendor chips
-  filters.js                  Smart filter chips (10 categories)
-  chip-grouping.js            Custom chip grouping rules engine
-  tags.js                     Per-item tagging system (Numista + custom tags)
-  card-view.js                Card view engine — styles A, B, C, D
-  sorting.js                  Multi-column table sorting
-  charts.js                   Chart.js spot price visualization
-  chart-utils.js              Shared chart utility library
-  image-processor.js          Image resize/compress (WebP/JPEG adaptive)
-  image-cache.js              IndexedDB image cache (coin photos + CDN images)
-  bulk-image-cache.js         Batch Numista metadata and image URL sync
-  catalog-api.js              Numista API client
-  catalog-manager.js          Catalog orchestration
-  pcgs-api.js                 PCGS CoinFacts + cert verification
-  numista-lookup.js           Pattern-based Numista lookup rules engine
-  vault.js                    AES-256-GCM encrypted backup (.stvault)
-  cloud-storage.js            Dropbox OAuth PKCE, encrypted cloud backup/restore
-  cloud-sync.js               Bi-directional sync engine
-  diff-engine.js              Item and settings diff computation
-  diff-modal.js               Visual diff review with click-to-pick merge
-  viewModal.js                Full item view modal — charts, tags, cert badge
-  bulkEdit.js                 Bulk item operations
-  settings.js                 Unified settings modal with sidebar navigation
-  settings-listeners.js       Settings event binders
-  priceHistory.js             Per-item retail price history tracking
-  spotLookup.js               Multi-provider spot price fetching orchestrator
-  goldback.js                 Goldback denomination pricing
-  about.js                    About tab, What's New, embedded FAQ fallback
-  versionCheck.js             Version change detection, What's New splash
-  customMapping.js            Regex-based CSV field mapping engine
-  field-meta.js               Per-field origin tracking
-  ...and more
-data/
-  spot-history-bundle.js      Bundled historical spot prices (loaded via <script>)
-  spot-history-YYYY.json      Per-year spot price JSON (1968–2026)
-sw.js                         Service worker — offline caching, PWA support
-version.json                  Remote version check endpoint
-```
-
----
-
 ## Contributing
 
-Bug reports and pull requests are welcome. Please open an [issue](https://github.com/lbruton/StakTrakr/issues) first to discuss significant changes.
-
-The app must remain a **zero-install, single-page, vanilla JS** application — no build step, no framework, works on `file://` protocol. Development tooling (tests, linters, build scripts) lives in `devops/` and is fine.
+Bug reports and pull requests are welcome — please open an [issue](https://github.com/lbruton/StakTrakr/issues) first to discuss significant changes. The app must remain a **zero-install, single-page, vanilla JS** application: no build step, no framework, runs on `file://`. Development tooling lives in `devops/`.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
-
----
+MIT License. See [LICENSE](LICENSE).
 
 ## Community
 
