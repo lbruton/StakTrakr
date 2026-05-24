@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.86] - 2026-05-24
+
+### Fixed — STRK-106: Bullion Exchanges gold scrape failures
+
+- **Byparr content-quality retry**: The cf-clearance sidecar client now inspects
+  Byparr's returned HTML for price-token density and retries up to 3 attempts
+  when the response looks like a pre-hydration shell (BE's React price grid
+  hydrates asynchronously after Playwright's `load` event, causing ~26% of
+  gold-page scrapes to snapshot before the price table renders). Retry threshold,
+  attempt cap, and backoff are tunable via `CF_CLEARANCE_MIN_DOLLARS`,
+  `CF_CLEARANCE_MAX_ATTEMPTS`, and `CF_CLEARANCE_RETRY_DELAY_MS` env vars.
+  Network/HTTP errors are not retried here — the caller's existing fallback
+  chain handles those. (STRK-106)
+
+---
+
 ## [3.34.85] - 2026-05-24
 
 ### Fixed — STRK-96: Playwright suite failures
