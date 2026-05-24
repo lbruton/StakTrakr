@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.85] - 2026-05-24
+
+### Fixed — STRK-96: Playwright suite failures
+
+- **Add Item tag entry**: The Add Item modal now wires its tag controls to a
+  pending tag buffer and persists those tags to the newly-created item UUID on
+  save, while keeping stale edit-mode chips and handlers cleared. (STRK-96)
+- **Regression expectations**: Playwright coverage now matches current
+  Goldback retail lookup date semantics, currency-rounded purchase input
+  formatting, and Numista description-field default selection behavior.
+  (STRK-96)
+
+---
+
 ## [3.34.84] - 2026-05-23
 
 ### Fixed — STRK-101: manifest-first sync item edits

@@ -255,7 +255,7 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await openEditModal(page);
 
     await expectEachModeActive(page);
-    await expect(page.locator("#itemPrice")).toHaveValue("100");
+    await expect(page.locator("#itemPrice")).toHaveValue("100.00");
   });
 
   test("3. Toggle defaults to Each on clone — REQ-1.2", async ({ page }) => {
@@ -493,7 +493,7 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await page.fill("#itemPrice", "100");
     await selectPurchaseMode(page, "each");
 
-    await expect(page.locator("#itemPrice")).toHaveValue("50");
+    await expect(page.locator("#itemPrice")).toHaveValue("50.00");
   });
 
   test("16. STRK-23 switching Each to Lot converts the visible input", async ({ page }) => {
@@ -505,7 +505,7 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
     await page.fill("#itemPrice", "50");
     await selectPurchaseMode(page, "lot");
 
-    await expect(page.locator("#itemPrice")).toHaveValue("100");
+    await expect(page.locator("#itemPrice")).toHaveValue("100.00");
   });
 
   test("17. STRK-23 switching modes emits input after auto-conversion", async ({ page }) => {
@@ -525,7 +525,7 @@ test.describe("STRK-4 Lot/Each Purchase Price toggle", () => {
 
     await selectPurchaseMode(page, "each");
 
-    await expect(page.locator("#itemPrice")).toHaveValue("50");
+    await expect(page.locator("#itemPrice")).toHaveValue("50.00");
     await expect.poll(() => page.evaluate(() => window.__strk23PriceInputEvents)).toBe(1);
   });
 });
@@ -570,7 +570,7 @@ test.describe("STRK-88 — Purchase price rounding", () => {
 
     // EACH→LOT: with exact LOT cache, should restore original $1700
     await selectPurchaseMode(page, "lot");
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
   });
 
   // AC-2: Mode emits exactly one input event after conversion (regression guard)
@@ -619,11 +619,11 @@ test.describe("STRK-88 — Purchase price rounding", () => {
 
     await openEditModal(page, 0);
     await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
     await selectPurchaseMode(page, "each");
     await expect(page.locator("#itemPrice")).toHaveValue("56.67");
     await selectPurchaseMode(page, "lot");
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
   });
 
   // AC-3a: Edit-mode EACH reopens with rounded value (not raw 6dp float)
@@ -671,7 +671,7 @@ test.describe("STRK-88 — Purchase price rounding", () => {
 
     // Should be in LOT mode, showing $1700
     await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
 
     // Cache should be rehydrated: switching to EACH shows $56.67
     await selectPurchaseMode(page, "each");
@@ -679,7 +679,7 @@ test.describe("STRK-88 — Purchase price rounding", () => {
 
     // Switching back to LOT recovers $1700 (not 56.67 × 30 = 1700.10)
     await selectPurchaseMode(page, "lot");
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
   });
 
   // AC-4: Changing qty in LOT mode invalidates the exact-lot cache
@@ -699,7 +699,7 @@ test.describe("STRK-88 — Purchase price rounding", () => {
     await selectPurchaseMode(page, "each");
     await expect(page.locator("#itemPrice")).toHaveValue("56.67");
     await selectPurchaseMode(page, "lot");
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
 
     // Changing qty should invalidate the old cache
     await page.fill("#itemQty", "10");
@@ -707,11 +707,11 @@ test.describe("STRK-88 — Purchase price rounding", () => {
 
     // LOT→EACH: should use new qty (1000/10=100, rounded to $100.00)
     await selectPurchaseMode(page, "each");
-    await expect(page.locator("#itemPrice")).toHaveValue("100");
+    await expect(page.locator("#itemPrice")).toHaveValue("100.00");
 
     // EACH→LOT with no old cache: should compute 100*10=1000
     await selectPurchaseMode(page, "lot");
-    await expect(page.locator("#itemPrice")).toHaveValue("1000");
+    await expect(page.locator("#itemPrice")).toHaveValue("1000.00");
   });
 
   // AC-5a: Duplicate mode rounds drifted EACH values
@@ -756,12 +756,12 @@ test.describe("STRK-88 — Purchase price rounding", () => {
 
     await expect(page.locator("#itemQty")).toHaveValue("30");
     await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
 
     await selectPurchaseMode(page, "each");
     await expect(page.locator("#itemPrice")).toHaveValue("56.67");
     await selectPurchaseMode(page, "lot");
-    await expect(page.locator("#itemPrice")).toHaveValue("1700");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
   });
 
   test("26. STRK-88 AC-4: Numista CSV export writes display-currency buying price", async ({

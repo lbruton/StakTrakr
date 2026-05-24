@@ -1091,9 +1091,9 @@ test.describe("numista-picker-tags — STRK-51 expanded Numista Data fields", ()
     const mintageVal = await mintageInput.inputValue();
     expect(mintageVal.replace(/\D/g, "")).toBe("1000000");
 
-    // obverseDesc defaults unchecked (defaultOn: false)
+    // obverseDesc defaults checked when Numista provides a candidate value
     const obverseCb = page.locator('input[name="numistaField"][value="obverseDesc"]');
-    await expect(obverseCb).not.toBeChecked();
+    await expect(obverseCb).toBeChecked();
   });
 
   // =========================================================================

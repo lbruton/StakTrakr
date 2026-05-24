@@ -2018,6 +2018,18 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       window.pendingNumistaPickerSnapshot = null;
     }
 
+    const pendingTags = getPendingAddItemTags();
+    if (
+      pendingTags.length > 0 &&
+      addedItem.uuid &&
+      typeof addItemTag === "function" &&
+      typeof saveItemTags === "function"
+    ) {
+      pendingTags.forEach((tag) => addItemTag(addedItem.uuid, tag, false));
+      saveItemTags();
+      window.pendingAddItemTags = [];
+    }
+
     // Record initial price data point (STACK-43)
     if (typeof recordSingleItemPrice === "function") {
       recordSingleItemPrice(addedItem, "add");
@@ -2146,6 +2158,90 @@ const filterTypesByMetal = (metalValue) => {
     }
     handleTypeChange();
   }
+};
+
+const getPendingAddItemTags = () => {
+  if (!Array.isArray(window.pendingAddItemTags)) window.pendingAddItemTags = [];
+  return window.pendingAddItemTags;
+};
+
+const renderPendingAddItemTags = () => {
+  const itemTagsChips = safeGetElement("itemModalTagsChips");
+  if (!itemTagsChips || typeof itemTagsChips.appendChild !== "function") return;
+
+  const tags = getPendingAddItemTags();
+  itemTagsChips.textContent = "";
+
+  if (tags.length === 0) {
+    itemTagsChips.innerHTML = '<span class="tag-empty-hint">No tags</span>';
+    return;
+  }
+
+  tags.forEach((tag) => {
+    const chip = document.createElement("span");
+    chip.className = "tag-chip";
+    chip.textContent = tag;
+    chip.title = `Tag: ${tag} (click × to remove)`;
+
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.className = "tag-chip-remove";
+    rm.textContent = "\u00d7";
+    rm.setAttribute("aria-label", `Remove tag ${tag}`);
+    rm.onclick = (e) => {
+      e.stopPropagation();
+      window.pendingAddItemTags = getPendingAddItemTags().filter((existing) => existing !== tag);
+      renderPendingAddItemTags();
+    };
+
+    chip.appendChild(rm);
+    itemTagsChips.appendChild(chip);
+  });
+};
+
+const addPendingAddItemTags = (rawValue) => {
+  const parsed =
+    typeof parseTagInput === "function"
+      ? parseTagInput(rawValue)
+      : String(rawValue || "")
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+  const tags = getPendingAddItemTags();
+  const maxTags = typeof MAX_TAGS_PER_ITEM === "number" ? MAX_TAGS_PER_ITEM : 20;
+  const maxLength = typeof MAX_TAG_LENGTH === "number" ? MAX_TAG_LENGTH : 50;
+
+  parsed.forEach((tag) => {
+    const trimmed = String(tag || "").trim();
+    if (trimmed.length === 0 || trimmed.length > maxLength || tags.length >= maxTags) return;
+    if (tags.some((existing) => existing.toLowerCase() === trimmed.toLowerCase())) return;
+    tags.push(trimmed);
+  });
+};
+
+const wirePendingAddItemTags = () => {
+  window.pendingAddItemTags = [];
+  renderPendingAddItemTags();
+
+  const addHandler = () => {
+    const val = elements.newTagInput?.value.trim() || "";
+    if (!val) return;
+    addPendingAddItemTags(val);
+    if (elements.newTagInput) elements.newTagInput.value = "";
+    renderPendingAddItemTags();
+  };
+
+  if (elements.addTagBtn) elements.addTagBtn.onclick = addHandler;
+  if (elements.newTagInput) {
+    elements.newTagInput.value = "";
+    elements.newTagInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addHandler();
+      }
+    };
+  }
+  window._renderEditTags = renderPendingAddItemTags;
 };
 
 window.updateDenomLabels = updateDenomLabels;
@@ -4080,16 +4176,7 @@ const setupSearch = () => {
           if (elements.itemType) elements.itemType.value = "";
           if (elements.itemSerial) elements.itemSerial.value = "";
           if (elements.itemCatalog) elements.itemCatalog.value = "";
-          const addModeTagsChips = safeGetElement("itemModalTagsChips");
-          if (addModeTagsChips && typeof addModeTagsChips.appendChild === "function") {
-            addModeTagsChips.innerHTML = '<span class="tag-empty-hint">No tags</span>';
-          }
-          if (elements.newTagInput) {
-            elements.newTagInput.value = "";
-            elements.newTagInput.onkeydown = null;
-          }
-          if (elements.addTagBtn) elements.addTagBtn.onclick = null;
-          window._renderEditTags = null;
+          wirePendingAddItemTags();
           // Reset spot lookup state (STACK-49)
           if (typeof syncSpotLookupButtons === "function") {
             syncSpotLookupButtons(!!elements.itemDate.value);
