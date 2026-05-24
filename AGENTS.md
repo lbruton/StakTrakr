@@ -35,6 +35,10 @@ No application build step is required.
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
 - Place specs under `tests/playwright/<area>/` and name files `*.spec.js`.
 - Use stable, user-visible assertions and keep fixtures in `tests/fixtures/`.
+- In Codex sandboxed sessions on macOS, Playwright/Chromium may fail with
+  `bootstrap_check_in ... MachPortRendezvousServer ... Permission denied (1100)`;
+  rerun the same Playwright command with sandbox escalation instead of retrying
+  inside the sandbox.
 - For quick local checks, run a focused file:
   - `npx playwright test tests/playwright/01-page-load/page-load.spec.js`
 
@@ -192,6 +196,8 @@ Playwright and browser-heavy tasks open many file descriptors through Chromium,
 Node, pipes, logs, and MCP/runtime streams. To avoid `Too many open files
 (os error 24)` during spec or review work:
 
+- If Chromium launch fails with the macOS Mach port permission error, treat it
+  as a sandbox boundary and rerun the exact Playwright command with escalation.
 - Run no more than 2 subagents in parallel when any active task runs Playwright,
   starts a browser, inspects browser output, or reviews Playwright artifacts.
 - Prefer serial review after Playwright runs when the task already launched
