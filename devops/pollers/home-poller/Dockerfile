@@ -80,9 +80,9 @@ RUN printf '%s\n' \
 WORKDIR /app
 
 # ── Shared poller code (single source of truth) ──────────
-COPY shared/package.json ./
+COPY shared/package.json shared/package-lock.json ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 # Cache-bust: change this value to force rebuild of JS layer
 ARG CACHE_BUST=2026-03-19a

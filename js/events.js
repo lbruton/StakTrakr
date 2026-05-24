@@ -54,59 +54,301 @@ const optionalListener = (el, event, handler, label) => {
 };
 
 // =============================================================================
-// PURCHASE PRICE MODE STATE
+// LOT/EACH TOGGLE FACTORY
 // =============================================================================
 
-let purchasePriceMode = "each";
+const createLotEachToggle = (config) => {
+  const { toggleId, priceInputId, qtyInputId, eachPlaceholder, lotPlaceholder, roundDisplay } =
+    config;
+  let mode = "each";
+  let userInteracted = false;
+  /** @STRK-88 Cache the exact LOT price the user typed, keyed to qty, so LOT→EACH→LOT
+   *  can restore the original value without floating-point round-trip drift. */
+  let _lotExactPrice = null; // {price: number, qty: number} | null
 
-const getPurchasePriceToggleButtons = () => {
-  const toggle = document.getElementById("purchasePriceModeToggle");
-  if (!toggle) return [];
+  const getButtons = () => {
+    const toggle = safeGetElement(toggleId);
+    if (!toggle) return [];
+    return Array.from(toggle.children).filter((child) => child.dataset?.mode);
+  };
 
-  return Array.from(toggle.children).filter((child) => child.dataset?.mode);
+  const maybeConvert = (nextMode) => {
+    const priceEl = safeGetElement(priceInputId);
+    if (!priceEl || nextMode === mode) return;
+
+    const rawPrice = priceEl.value.trim();
+    const price = Number(rawPrice);
+    const qtyEl = safeGetElement(qtyInputId);
+    const qty = parseInt(qtyEl?.value?.trim() ?? "", 10);
+
+    if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
+    if (!Number.isFinite(qty) || qty <= 1) return;
+
+    let convertedPrice;
+    if (nextMode === "each") {
+      // LOT → EACH: cache the exact lot price before rounding (STRK-88).
+      // If a seed already exists for this qty and the displayed price is just the
+      // rounded form of the seeded exact total (e.g. from duplicateItem seeding),
+      // preserve the exact seeded value rather than replacing it with the rounded
+      // display value — otherwise the first toggle discards the precision we seeded.
+      const seededForQty = _lotExactPrice !== null && _lotExactPrice.qty === qty;
+      const displayedMatchesSeed =
+        seededForQty &&
+        (() => {
+          const rounded =
+            typeof roundDisplay === "function"
+              ? roundDisplay(_lotExactPrice.price)
+              : Number(_lotExactPrice.price.toFixed(6));
+          return Math.abs(price - rounded) < 1e-9;
+        })();
+      if (!displayedMatchesSeed) {
+        _lotExactPrice = { price, qty };
+      }
+      // else: keep the existing seeded exact value — T15 fix
+      convertedPrice = price / qty;
+    } else {
+      // EACH → LOT: restore exact lot price only if qty matches AND user hasn't
+      // edited the EACH value since the last LOT→EACH conversion (STRK-88).
+      // Without this guard, toggling back after a manual EACH edit would restore
+      // the stale cached total instead of computing from the new per-unit price.
+      const cacheValid =
+        _lotExactPrice !== null &&
+        _lotExactPrice.qty === qty &&
+        (() => {
+          const cachedEach = _lotExactPrice.price / qty;
+          const roundedCachedEach =
+            typeof roundDisplay === "function"
+              ? roundDisplay(cachedEach)
+              : Number(cachedEach.toFixed(6));
+          return Math.abs(price - roundedCachedEach) < 1e-9;
+        })();
+      if (cacheValid) {
+        convertedPrice = _lotExactPrice.price;
+      } else {
+        convertedPrice = price * qty;
+        _lotExactPrice = null;
+      }
+    }
+    if (!Number.isFinite(convertedPrice) || convertedPrice <= 0) return;
+
+    // Use provided roundDisplay callback (STRK-88 purchase toggle), or fall back to
+    // toFixed(6) for disposeAmountToggle which preserves its existing higher-precision behavior.
+    // Use .toFixed(digits) to preserve trailing zeros (e.g. 1700.00, not 1700).
+    const displayValue =
+      typeof roundDisplay === "function"
+        ? (() => {
+            const rounded = roundDisplay(convertedPrice);
+            const digits =
+              typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+            return rounded.toFixed(digits);
+          })()
+        : Number(convertedPrice.toFixed(6)).toString();
+
+    priceEl.value = displayValue;
+    priceEl.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  const updatePlaceholder = () => {
+    const priceEl = safeGetElement(priceInputId);
+    if (!priceEl) return;
+    priceEl.placeholder = mode === "lot" ? lotPlaceholder : eachPlaceholder;
+  };
+
+  const setMode = (nextModeArg, options = {}) => {
+    const nextMode = nextModeArg === "lot" ? "lot" : "each";
+    const { convertInput = true } = options;
+
+    if (convertInput) {
+      maybeConvert(nextMode);
+    }
+
+    mode = nextMode;
+
+    getButtons().forEach((button) => {
+      const isActive = button.dataset.mode === mode;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+
+    updatePlaceholder();
+  };
+
+  const getMode = () => mode;
+  const wasInteracted = () => userInteracted;
+  const markInteracted = () => {
+    userInteracted = true;
+  };
+  const resetInteracted = () => {
+    userInteracted = false;
+    // STRK-88: clear exact-lot cache on modal reset/close so stale LOT prices
+    // don't bleed across sessions or between add→edit modal openings.
+    _lotExactPrice = null;
+  };
+
+  // Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
+  // so the segmented control is hidden and mode is forced to Each.
+  const updateVisibility = () => {
+    const toggle = safeGetElement(toggleId);
+    if (!toggle) return;
+
+    const qtyEl = safeGetElement(qtyInputId);
+    const qtyRaw = qtyEl?.value?.trim() ?? "";
+    const qty = parseInt(qtyRaw, 10);
+    const showToggle = Number.isFinite(qty) && qty > 1;
+
+    toggle.classList.toggle("is-hidden", !showToggle);
+
+    if (!showToggle && mode === "lot") {
+      // STRK-88: changing qty while LOT active invalidates the exact-lot cache
+      _lotExactPrice = null;
+      setMode("each", { convertInput: false });
+    }
+    updatePlaceholder();
+  };
+
+  /**
+   * Seeds the exact-lot price cache so callers like editItem can prime the cache
+   * when restoring a saved LOT item. This allows the user to toggle EACH→LOT
+   * and recover the original unrounded lot total without drift (STRK-88).
+   * @param {number} lotPrice - The exact lot total (in display currency)
+   * @param {number} qty      - Quantity the lot price corresponds to
+   */
+  const seedLotCache = (lotPrice, qty) => {
+    if (Number.isFinite(lotPrice) && lotPrice > 0 && Number.isFinite(qty) && qty > 1) {
+      _lotExactPrice = { price: lotPrice, qty };
+    }
+  };
+
+  const getExactLotPrice = (displayedLotPrice, qty) => {
+    if (_lotExactPrice === null || _lotExactPrice.qty !== qty) return null;
+    if (!Number.isFinite(displayedLotPrice) || displayedLotPrice <= 0) return null;
+    const round =
+      typeof roundDisplay === "function"
+        ? roundDisplay
+        : (value) => Number(Number(value).toFixed(6));
+    return round(_lotExactPrice.price) === round(displayedLotPrice) ? _lotExactPrice.price : null;
+  };
+
+  return {
+    setMode,
+    getMode,
+    updateVisibility,
+    updatePlaceholder,
+    wasInteracted,
+    markInteracted,
+    resetInteracted,
+    seedLotCache,
+    getExactLotPrice,
+  };
 };
 
-const setPurchasePriceMode = (mode) => {
-  purchasePriceMode = mode === "lot" ? "lot" : "each";
-
-  getPurchasePriceToggleButtons().forEach((button) => {
-    const isActive = button.dataset.mode === purchasePriceMode;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  });
-
-  updatePurchasePricePlaceholder();
-};
-
-const updatePurchasePricePlaceholder = () => {
-  if (!elements.itemPrice) return;
-  elements.itemPrice.placeholder = purchasePriceMode === "lot" ? "Lot total" : "Each";
-};
-
-// Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
-// so the segmented control is hidden and mode is forced to Each.
-const updatePurchasePriceToggleVisibility = () => {
-  const toggle = safeGetElement("purchasePriceModeToggle");
-  if (!toggle) return;
-
-  const qtyRaw = elements.itemQty?.value?.trim() ?? "";
-  const qty = parseInt(qtyRaw, 10);
-  const showToggle = Number.isFinite(qty) && qty > 1;
-
-  toggle.classList.toggle("is-hidden", !showToggle);
-
-  if (!showToggle && purchasePriceMode === "lot") {
-    setPurchasePriceMode("each");
-  }
-  updatePurchasePricePlaceholder();
-};
+const purchasePriceToggle = createLotEachToggle({
+  toggleId: "purchasePriceModeToggle",
+  priceInputId: "itemPrice",
+  qtyInputId: "itemQty",
+  eachPlaceholder: "Each",
+  lotPlaceholder: "Lot total",
+  // STRK-88: round display values to active currency precision for purchase prices
+  roundDisplay: typeof roundToPricePrecision === "function" ? roundToPricePrecision : null,
+});
 
 const resetPurchasePriceToggle = () => {
-  setPurchasePriceMode("each");
-  updatePurchasePriceToggleVisibility();
+  purchasePriceToggle.setMode("each", { convertInput: false });
+  purchasePriceToggle.updateVisibility();
+  purchasePriceToggle.resetInteracted();
 };
 
 window.resetPurchasePriceToggle = resetPurchasePriceToggle;
+
+// Seeds the lot-price cache for a given lotTotal / qty pair (STRK-88).
+// Called by inventory.js editItem after it writes the LOT total to #itemPrice
+// so the user can toggle EACH→LOT and recover the exact typed amount.
+window.purchasePriceSeedLotCache = (lotPrice, qty) => {
+  purchasePriceToggle.seedLotCache(lotPrice, qty);
+};
+
+window.purchasePriceGetExactLotPrice = (displayedLotPrice, qty) =>
+  purchasePriceToggle.getExactLotPrice(displayedLotPrice, qty);
+
+// Sets toggle to storedMode, defaulting legacy records with no mode to Each.
+// Returns true if lot mode is active after visibility resolution (caller may need to adjust price field).
+window.restorePurchasePriceToggle = (storedMode, qty) => {
+  purchasePriceToggle.setMode(storedMode === "lot" ? "lot" : "each", { convertInput: false });
+  purchasePriceToggle.updateVisibility();
+  purchasePriceToggle.resetInteracted();
+  return purchasePriceToggle.getMode() === "lot" && qty > 1;
+};
+
+const disposeAmountToggle = createLotEachToggle({
+  toggleId: "removeItemAmountModeToggle",
+  priceInputId: "dispositionAmount",
+  qtyInputId: "removeItemQty",
+  eachPlaceholder: "Each",
+  lotPlaceholder: "Lot total",
+});
+
+window.disposeAmountToggle = disposeAmountToggle;
+
+// =============================================================================
+// STRK-44: Restore-choice modal — Promise-based picker
+// =============================================================================
+
+const showRestoreChoice = ({ clone, original, mergedQty }) =>
+  new Promise((resolve) => {
+    const modal = safeGetElement("restoreChoiceModal");
+    const message = safeGetElement("restoreChoiceMessage");
+    if (!modal || !message) {
+      resolve("cancel");
+      return;
+    }
+
+    message.textContent =
+      `Merge: original goes from ${original.qty} → ${mergedQty}. ` +
+      `Separate: ${original.qty} + ${clone.qty} as two rows.`;
+
+    openModalById("restoreChoiceModal");
+
+    const mergeBtn = modal.querySelector('[data-action="merge"]');
+    if (mergeBtn) mergeBtn.focus();
+
+    const cleanup = () => {
+      closeModalById("restoreChoiceModal");
+      document.removeEventListener("keydown", escHandler);
+    };
+
+    const escHandler = (e) => {
+      if (e.key === "Escape") {
+        cleanup();
+        resolve("cancel");
+      }
+    };
+    document.addEventListener("keydown", escHandler);
+
+    modal.addEventListener(
+      "click",
+      (e) => {
+        if (e.target === modal) {
+          cleanup();
+          resolve("cancel");
+        }
+      },
+      { once: true }
+    );
+
+    modal.querySelectorAll("[data-action]").forEach((btn) => {
+      btn.addEventListener(
+        "click",
+        () => {
+          const action = btn.dataset.action;
+          cleanup();
+          resolve(action);
+        },
+        { once: true }
+      );
+    });
+  });
+
+window.showRestoreChoice = showRestoreChoice;
 
 // =============================================================================
 // IMAGE UPLOAD STATE (STACK-32) — Dual obverse/reverse support
@@ -126,6 +368,20 @@ let _pendingReversePreviewUrl = null;
 let _deleteObverseOnSave = false;
 /** @type {boolean} User clicked Remove on reverse — delete on save */
 let _deleteReverseOnSave = false;
+
+/** @type {"auto"|"circle"|"rectangle"} Pending obverse frame override */
+let _pendingObverseFrame = "auto";
+/** @type {"auto"|"circle"|"rectangle"} Pending reverse frame override */
+let _pendingReverseFrame = "auto";
+/** @type {number} Obverse URL preview generation token */
+let _urlPreviewGenObv = 0;
+/** @type {number} Reverse URL preview generation token */
+let _urlPreviewGenRev = 0;
+const _urlPreviewTimers = { obverse: null, reverse: null };
+
+/** @type {{id:number, file:File}[]} Queued attachment entries — written to IDB on item commit (STRK-45, STRK-65) */
+let _pendingAttachments = [];
+let _pendingAttachmentNextId = 0;
 
 /**
  * Process a user-selected image file and show preview for a specific side.
@@ -189,6 +445,122 @@ const updateSwapButtonVisibility = () => {
   wrapper.classList.toggle("d-none", !bothVisible);
 };
 
+const _frameSuffix = (side) => (side === "reverse" ? "Rev" : "Obv");
+const _getPendingFrame = (side) =>
+  side === "reverse" ? _pendingReverseFrame : _pendingObverseFrame;
+const _setPendingFrame = (side, value) => {
+  const normalized =
+    typeof normalizeImageFrame === "function" ? normalizeImageFrame(value) : value || "auto";
+  if (side === "reverse") {
+    _pendingReverseFrame = normalized;
+  } else {
+    _pendingObverseFrame = normalized;
+  }
+};
+
+const _frameToggleLabel = (state) => {
+  if (state === "circle") return "Image frame: circle. Press to set rectangle.";
+  if (state === "rectangle") return "Image frame: rectangle. Press to reset to auto.";
+  return "Image frame: auto (default). Press to set circle.";
+};
+
+const _renderFrameToggle = (side = "obverse") => {
+  const suffix = _frameSuffix(side);
+  const button = document.getElementById("frameToggle" + suffix);
+  if (!button) return;
+  const state = _getPendingFrame(side);
+  const glyph = state === "circle" ? "\u25cb" : state === "rectangle" ? "\u25ad" : "A";
+  button.dataset.frameState = state;
+  button.setAttribute(
+    "aria-pressed",
+    state === "rectangle" || state === "circle" ? "true" : "false"
+  );
+  button.setAttribute("aria-label", _frameToggleLabel(state));
+  const label = button.querySelector("span") || button;
+  label.textContent = glyph;
+};
+
+const renderFrameToggles = () => {
+  _renderFrameToggle("obverse");
+  _renderFrameToggle("reverse");
+};
+
+const setPendingImageFrames = (obverse = "auto", reverse = "auto") => {
+  _setPendingFrame("obverse", obverse);
+  _setPendingFrame("reverse", reverse);
+  renderFrameToggles();
+};
+
+const _setUrlPreviewGeneration = (side) => {
+  if (side === "reverse") return ++_urlPreviewGenRev;
+  return ++_urlPreviewGenObv;
+};
+
+const _getUrlPreviewGeneration = (side) =>
+  side === "reverse" ? _urlPreviewGenRev : _urlPreviewGenObv;
+
+const _normalizeHttpImageUrl = (value = "") => {
+  const trimmed = value.trim();
+  if (!/^https?:\/\/.+\..+/i.test(trimmed)) return "";
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+  } catch {
+    return "";
+  }
+};
+
+const previewImageUrlForSide = (side = "obverse", url = "") => {
+  const suffix = _frameSuffix(side);
+  const preview = document.getElementById("itemImagePreview" + suffix);
+  const img = document.getElementById("itemImagePreviewImg" + suffix);
+  const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
+  const sizeInfo = document.getElementById("itemImageSizeInfo" + suffix);
+  const imageUrl = _normalizeHttpImageUrl(url || "");
+  const gen = _setUrlPreviewGeneration(side);
+
+  if (!preview || !img) return;
+
+  if (!imageUrl) {
+    preview.style.display = "none";
+    img.removeAttribute("src");
+    if (removeBtn) removeBtn.style.display = "none";
+    if (sizeInfo) sizeInfo.textContent = "";
+    updateSwapButtonVisibility();
+    return;
+  }
+
+  img.onload = () => {
+    if (gen !== _getUrlPreviewGeneration(side)) return;
+    preview.style.display = "block";
+    if (removeBtn) removeBtn.style.display = "";
+    if (sizeInfo) sizeInfo.textContent = "";
+    updateSwapButtonVisibility();
+  };
+  img.onerror = () => {
+    if (gen !== _getUrlPreviewGeneration(side)) return;
+    preview.style.display = "none";
+    img.removeAttribute("src");
+    if (removeBtn) removeBtn.style.display = "none";
+    if (sizeInfo) sizeInfo.textContent = "Couldn't load image - check the URL";
+    updateSwapButtonVisibility();
+  };
+  img.src = imageUrl;
+  preview.style.display = "block";
+  if (removeBtn) removeBtn.style.display = "";
+  if (sizeInfo) sizeInfo.textContent = "";
+  updateSwapButtonVisibility();
+};
+
+const scheduleUrlPreview = (side = "obverse") => {
+  const field = side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+  if (!field) return;
+  if (_urlPreviewTimers[side]) clearTimeout(_urlPreviewTimers[side]);
+  _urlPreviewTimers[side] = setTimeout(() => {
+    previewImageUrlForSide(side, field.value);
+  }, 300);
+};
+
 /**
  * Track an externally-created preview object URL so it gets revoked
  * when clearUploadState() runs (prevents memory leaks in editItem preview).
@@ -213,6 +585,14 @@ const clearUploadState = () => {
   _pendingReverseBlob = null;
   _deleteObverseOnSave = false;
   _deleteReverseOnSave = false;
+  _pendingObverseFrame = "auto";
+  _pendingReverseFrame = "auto";
+  _urlPreviewGenObv++;
+  _urlPreviewGenRev++;
+  if (_urlPreviewTimers.obverse) clearTimeout(_urlPreviewTimers.obverse);
+  if (_urlPreviewTimers.reverse) clearTimeout(_urlPreviewTimers.reverse);
+  _urlPreviewTimers.obverse = null;
+  _urlPreviewTimers.reverse = null;
 
   if (_pendingObversePreviewUrl) {
     URL.revokeObjectURL(_pendingObversePreviewUrl);
@@ -252,6 +632,7 @@ const clearUploadState = () => {
   // Hide swap button (STAK-341)
   const swapWrapper = document.getElementById("swapImagesBtnWrapper");
   if (swapWrapper) swapWrapper.classList.add("d-none");
+  renderFrameToggles();
 
   // Reset pattern toggle state
   const patternToggle = document.getElementById("imagePatternToggle");
@@ -260,6 +641,36 @@ const clearUploadState = () => {
   if (patternToggle) patternToggle.checked = false;
   if (patternKeywordsGroup) patternKeywordsGroup.style.display = "none";
   if (patternKeywords) patternKeywords.value = "";
+};
+
+/**
+ * Validate and queue an attachment file for IDB write on next item commit (STRK-45).
+ * Accepted types: PDF, PNG, JPEG. Called by drop/browse handlers and attachment-ui.js.
+ * @param {File} file
+ */
+const queueAttachmentFile = (file) => {
+  if (!file) return;
+  const ALLOWED = ["application/pdf", "image/png", "image/jpeg"];
+  if (!ALLOWED.includes(file.type)) {
+    if (typeof showToast === "function")
+      showToast(`Unsupported file type: ${file.type || file.name}`);
+    return;
+  }
+  _pendingAttachments.push({ id: _pendingAttachmentNextId++, file });
+  if (typeof renderQueuedAttachments === "function") renderQueuedAttachments(_pendingAttachments);
+};
+
+/** Clear the pending attachment queue and reset the queued-files UI (STRK-45). */
+const clearAttachmentQueue = () => {
+  _pendingAttachments = [];
+  if (typeof renderQueuedAttachments === "function") renderQueuedAttachments([]);
+};
+
+/** Remove a single entry from the queue by its stable id (STRK-65). */
+const dequeueAttachment = (entryId) => {
+  const idx = _pendingAttachments.findIndex((e) => e.id === entryId);
+  if (idx !== -1) _pendingAttachments.splice(idx, 1);
+  if (typeof renderQueuedAttachments === "function") renderQueuedAttachments(_pendingAttachments);
 };
 
 /**
@@ -1132,9 +1543,18 @@ const parseItemFormFields = (isEditing, existingItem) => {
   const parsedQty = qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : Number(qtyInput);
   let priceInput = elements.itemPrice.value.trim();
 
-  if (purchasePriceMode === "lot" && priceInput !== "") {
+  if (purchasePriceToggle.getMode() === "lot" && priceInput !== "") {
     const rawInput = parseFloat(priceInput) || 0;
-    priceInput = parsedQty > 0 ? String(parseFloat((rawInput / parsedQty).toFixed(6))) : "0";
+    if (parsedQty > 0) {
+      const exactLotPrice =
+        typeof window.purchasePriceGetExactLotPrice === "function"
+          ? window.purchasePriceGetExactLotPrice(rawInput, parsedQty)
+          : null;
+      const lotPrice = exactLotPrice ?? rawInput;
+      priceInput = String(lotPrice / parsedQty);
+    } else {
+      priceInput = "0";
+    }
   }
 
   const weightUnit = elements.itemWeightUnit.value;
@@ -1167,13 +1587,24 @@ const parseItemFormFields = (isEditing, existingItem) => {
     weight: parseWeight(weightRaw, weightUnit, isEditing, existingItem),
     weightUnit,
     price: parsePriceToUSD(priceInput, fxRate, isEditing, existingItem.price),
+    paymentMethod: elements.itemPaymentMethod?.value?.trim() ?? "",
     purchaseLocation: elements.purchaseLocation.value.trim(),
     storageLocation: elements.storageLocation.value.trim(),
     serialNumber: elements.itemSerialNumber?.value?.trim() ?? "",
     notes: elements.itemNotes.value.trim(),
+    capsule: elements.itemCapsule?.value?.trim() ?? "",
+    capsuleNotes: elements.itemCapsuleNotes?.value?.trim() ?? "",
     date: elements.itemDateNABtn?.classList.contains("active")
       ? ""
       : elements.itemDate.value || (isEditing ? existingItem.date || "" : todayStr()),
+    // AC-3/AC-4: new items always capture toggle state; edited items preserve stored pricingType
+    // unless the user explicitly interacted with the toggle this session.
+    // Legacy items (no stored pricingType) with no toggle interaction keep absence → lot-total chart.
+    pricingType: !isEditing
+      ? purchasePriceToggle.getMode()
+      : purchasePriceToggle.wasInteracted()
+        ? purchasePriceToggle.getMode()
+        : existingItem.pricingType,
     catalog: elements.itemCatalog ? elements.itemCatalog.value.trim() : "",
     year: elements.itemYear?.value?.trim() ?? "",
     grade: elements.itemGrade?.value?.trim() ?? "",
@@ -1183,6 +1614,8 @@ const parseItemFormFields = (isEditing, existingItem) => {
     marketValue,
     purity: parsePurity(isEditing, existingItem),
     currency: displayCurrency,
+    obverseImageFrame: _pendingObverseFrame,
+    reverseImageFrame: _pendingReverseFrame,
     obverseImageUrl: elements.itemObverseImageUrl?.value?.trim() ?? "",
     reverseImageUrl: elements.itemReverseImageUrl?.value?.trim() ?? "",
     ignorePatternImages: document.getElementById("itemIgnorePatternImages")?.checked || false,
@@ -1266,7 +1699,7 @@ const validateItemFields = (f) => {
   if (!f._isEditing && (!f._rawMetal || !f._rawType)) {
     return "Please select a Metal and Type before saving.";
   }
-  if (purchasePriceMode === "lot") {
+  if (purchasePriceToggle.getMode() === "lot") {
     const rawQty = f._rawQty?.trim() ?? "";
     const lotQty = rawQty === "" ? NaN : Number(rawQty);
     if (rawQty === "" || isNaN(lotQty) || !Number.isInteger(lotQty) || lotQty <= 0) {
@@ -1293,28 +1726,45 @@ const validateItemFields = (f) => {
  * @param {Object} f - Parsed fields from parseItemFormFields()
  * @returns {Object} Common item fields
  */
-const buildItemFields = (f) => ({
-  metal: f.metal,
-  composition: f.composition,
-  name: f.name,
-  qty: f.qty,
-  type: f.type,
-  weight: f.weight,
-  weightUnit: f.weightUnit,
-  price: f.price,
-  marketValue: f.marketValue,
-  date: f.date,
-  purchaseLocation: f.purchaseLocation,
-  storageLocation: f.storageLocation,
-  serialNumber: f.serialNumber,
-  notes: f.notes,
-  year: f.year,
-  grade: f.grade,
-  gradingAuthority: f.gradingAuthority,
-  certNumber: f.certNumber,
-  pcgsNumber: f.pcgsNumber,
-  purity: f.purity,
-});
+const buildItemFields = (f) => {
+  const fields = {
+    metal: f.metal,
+    composition: f.composition,
+    name: f.name,
+    qty: f.qty,
+    type: f.type,
+    weight: f.weight,
+    weightUnit: f.weightUnit,
+    price: f.price,
+    marketValue: f.marketValue,
+    date: f.date,
+    paymentMethod: f.paymentMethod,
+    purchaseLocation: f.purchaseLocation,
+    storageLocation: f.storageLocation,
+    serialNumber: f.serialNumber,
+    notes: f.notes,
+    capsule: f.capsule,
+    capsuleNotes: f.capsuleNotes,
+    year: f.year,
+    grade: f.grade,
+    gradingAuthority: f.gradingAuthority,
+    certNumber: f.certNumber,
+    pcgsNumber: f.pcgsNumber,
+    purity: f.purity,
+  };
+
+  if (f.pricingType !== undefined) {
+    fields.pricingType = f.pricingType;
+  }
+  if (f.obverseImageFrame && f.obverseImageFrame !== "auto") {
+    fields.obverseImageFrame = f.obverseImageFrame;
+  }
+  if (f.reverseImageFrame && f.reverseImageFrame !== "auto") {
+    fields.reverseImageFrame = f.reverseImageFrame;
+  }
+
+  return fields;
+};
 
 /**
  * Commits a parsed item to inventory (add or edit mode).
@@ -1372,6 +1822,9 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       reverseSharedImageId: oldItem.reverseSharedImageId || null,
       ignorePatternImages: f.ignorePatternImages || false,
     };
+    if (f.obverseImageFrame === "auto") delete inventory[editIdx].obverseImageFrame;
+    if (f.reverseImageFrame === "auto") delete inventory[editIdx].reverseImageFrame;
+    if (!f.paymentMethod) delete inventory[editIdx].paymentMethod;
 
     // Track user-modified fields by comparing old vs new values
     if (typeof window.markUserModified === "function") {
@@ -1387,10 +1840,13 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
         "price",
         "marketValue",
         "date",
+        "paymentMethod",
         "purchaseLocation",
         "storageLocation",
         "serialNumber",
         "notes",
+        "capsule",
+        "capsuleNotes",
         "year",
         "grade",
         "gradingAuthority",
@@ -1413,9 +1869,38 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
           window.markUserModified(cur, field);
         }
       }
+      // Track user-edited Numista Data tab fields (STRK-51)
+      const numistaTrackedFields = [
+        "country",
+        "denomination",
+        "composition",
+        "shape",
+        "diameter",
+        "length",
+        "width",
+        "thickness",
+        "orientation",
+        "technique",
+        "mintage",
+        "rarityIndex",
+        "kmRef",
+        "commemorative",
+        "commemorativeDesc",
+        "obverseDesc",
+        "reverseDesc",
+        "edgeDesc",
+      ];
+      const oldNumista = oldItem.numistaData || {};
+      const newNumista = cur.numistaData || {};
+      for (const field of numistaTrackedFields) {
+        if (oldNumista[field] !== newNumista[field]) {
+          window.markUserModified(cur, field);
+        }
+      }
     }
 
     addCompositionOption(f.composition);
+    if (typeof registerCapsule === "function") registerCapsule(f.capsule);
 
     try {
       // STAK-302: always sync the mapping — pass '' when N# is cleared so
@@ -1487,8 +1972,10 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       reverseSharedImageId: null,
       ignorePatternImages: f.ignorePatternImages || false,
     });
+    if (!f.paymentMethod) delete inventory[inventory.length - 1].paymentMethod;
 
     typeof registerName === "function" && registerName(f.name);
+    if (typeof registerCapsule === "function") registerCapsule(f.capsule);
     addCompositionOption(f.composition);
 
     if (window.catalogManager && f.catalog) {
@@ -1516,10 +2003,31 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       .join(" · ");
     logChange(addedItem.name, "Added", "", addSummary, inventory.length - 1);
 
-    // STAK-126: Auto-apply Numista tags from the lookup result
-    if (window.selectedNumistaResult?.tags && typeof applyNumistaTags === "function") {
+    // STRK-84: consume pending picker snapshot to apply tags for new Add Item
+    const snap = window.pendingNumistaPickerSnapshot;
+    if (snap && typeof applyNumistaTags === "function") {
       const newUuid = addedItem.uuid;
-      applyNumistaTags(newUuid, window.selectedNumistaResult.tags);
+      if (snap.resultId === f.catalog) {
+        if (snap.checked.length > 0) {
+          applyNumistaTags(newUuid, snap.checked, true, true);
+        }
+        if (snap.removed.length > 0 && typeof addRemovedTag === "function") {
+          snap.removed.forEach((tag) => addRemovedTag(newUuid, tag));
+        }
+      }
+      window.pendingNumistaPickerSnapshot = null;
+    }
+
+    const pendingTags = getPendingAddItemTags();
+    if (
+      pendingTags.length > 0 &&
+      addedItem.uuid &&
+      typeof addItemTag === "function" &&
+      typeof saveItemTags === "function"
+    ) {
+      pendingTags.forEach((tag) => addItemTag(addedItem.uuid, tag, false));
+      saveItemTags();
+      window.pendingAddItemTags = [];
     }
 
     // Record initial price data point (STACK-43)
@@ -1580,8 +2088,7 @@ const updateDenomLabels = (typeValue = "") => {
   GOLDBACK_DENOMINATIONS.forEach((d) => {
     const opt = document.createElement("option");
     opt.value = String(d.weight);
-    const prefix = d.weight === 0.5 ? "½" : String(d.weight);
-    opt.textContent = `${prefix} Goldback`;
+    opt.textContent = d.label;
     if (d.weight === 1) opt.selected = true;
     denomSelect.appendChild(opt);
   });
@@ -1651,6 +2158,90 @@ const filterTypesByMetal = (metalValue) => {
     }
     handleTypeChange();
   }
+};
+
+const getPendingAddItemTags = () => {
+  if (!Array.isArray(window.pendingAddItemTags)) window.pendingAddItemTags = [];
+  return window.pendingAddItemTags;
+};
+
+const renderPendingAddItemTags = () => {
+  const itemTagsChips = safeGetElement("itemModalTagsChips");
+  if (!itemTagsChips || typeof itemTagsChips.appendChild !== "function") return;
+
+  const tags = getPendingAddItemTags();
+  itemTagsChips.textContent = "";
+
+  if (tags.length === 0) {
+    itemTagsChips.innerHTML = '<span class="tag-empty-hint">No tags</span>';
+    return;
+  }
+
+  tags.forEach((tag) => {
+    const chip = document.createElement("span");
+    chip.className = "tag-chip";
+    chip.textContent = tag;
+    chip.title = `Tag: ${tag} (click × to remove)`;
+
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.className = "tag-chip-remove";
+    rm.textContent = "\u00d7";
+    rm.setAttribute("aria-label", `Remove tag ${tag}`);
+    rm.onclick = (e) => {
+      e.stopPropagation();
+      window.pendingAddItemTags = getPendingAddItemTags().filter((existing) => existing !== tag);
+      renderPendingAddItemTags();
+    };
+
+    chip.appendChild(rm);
+    itemTagsChips.appendChild(chip);
+  });
+};
+
+const addPendingAddItemTags = (rawValue) => {
+  const parsed =
+    typeof parseTagInput === "function"
+      ? parseTagInput(rawValue)
+      : String(rawValue || "")
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+  const tags = getPendingAddItemTags();
+  const maxTags = typeof MAX_TAGS_PER_ITEM === "number" ? MAX_TAGS_PER_ITEM : 20;
+  const maxLength = typeof MAX_TAG_LENGTH === "number" ? MAX_TAG_LENGTH : 50;
+
+  parsed.forEach((tag) => {
+    const trimmed = String(tag || "").trim();
+    if (trimmed.length === 0 || trimmed.length > maxLength || tags.length >= maxTags) return;
+    if (tags.some((existing) => existing.toLowerCase() === trimmed.toLowerCase())) return;
+    tags.push(trimmed);
+  });
+};
+
+const wirePendingAddItemTags = () => {
+  window.pendingAddItemTags = [];
+  renderPendingAddItemTags();
+
+  const addHandler = () => {
+    const val = elements.newTagInput?.value.trim() || "";
+    if (!val) return;
+    addPendingAddItemTags(val);
+    if (elements.newTagInput) elements.newTagInput.value = "";
+    renderPendingAddItemTags();
+  };
+
+  if (elements.addTagBtn) elements.addTagBtn.onclick = addHandler;
+  if (elements.newTagInput) {
+    elements.newTagInput.value = "";
+    elements.newTagInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addHandler();
+      }
+    };
+  }
+  window._renderEditTags = renderPendingAddItemTags;
 };
 
 window.updateDenomLabels = updateDenomLabels;
@@ -1820,6 +2411,56 @@ const setupItemFormListeners = () => {
           clearUploadState();
         }
 
+        // Write queued attachments to IDB (STRK-45)
+        // commitItemToInventory() has already run, so savedItem.uuid is stable
+        if (window._cloneMode) {
+          // Clone starts with no attachments
+          clearAttachmentQueue();
+          if (savedItem) savedItem.attachments = [];
+          saveInventory();
+        } else if (
+          _pendingAttachments.length > 0 &&
+          savedItem?.uuid &&
+          window.attachmentManager?.isAvailable()
+        ) {
+          const queue = [..._pendingAttachments];
+          clearAttachmentQueue();
+          if (!Array.isArray(savedItem.attachments)) savedItem.attachments = [];
+          for (const entry of queue) {
+            const file = entry.file;
+            const uuid = typeof generateUUID === "function" ? generateUUID() : crypto.randomUUID();
+            const record = {
+              attachmentUuid: uuid,
+              itemUuid: savedItem.uuid,
+              fileName: file.name,
+              type: file.type,
+              size: file.size,
+              uploadedAt: new Date().toISOString(),
+              blob: file,
+            };
+            const ok = await attachmentManager.addAttachment(record);
+            if (!ok) {
+              if (typeof showToast === "function")
+                showToast(`Attachment "${file.name}" could not be stored`, "warning");
+              continue;
+            }
+            savedItem.attachments.push({
+              attachmentUuid: uuid,
+              fileName: file.name,
+              type: file.type,
+              size: file.size,
+              uploadedAt: record.uploadedAt,
+            });
+          }
+          saveInventory();
+        } else if (_pendingAttachments.length > 0) {
+          if (typeof showToast === "function")
+            showToast("Attachments could not be saved — storage is unavailable", "error");
+          clearAttachmentQueue();
+        } else {
+          clearAttachmentQueue();
+        }
+
         // Clear spot lookup hidden field after commit (STACK-49)
         if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
 
@@ -1852,21 +2493,27 @@ const setupItemFormListeners = () => {
     console.error("Main inventory form not found!");
   }
 
-  getPurchasePriceToggleButtons().forEach((button) => {
-    safeAttachListener(
-      button,
-      "click",
-      () => {
-        setPurchasePriceMode(button.dataset.mode);
-      },
-      `Purchase price ${button.dataset.mode} toggle`
-    );
-  });
+  const purchasePriceModeToggle = safeGetElement("purchasePriceModeToggle");
+  if (purchasePriceModeToggle) {
+    Array.from(purchasePriceModeToggle.children)
+      .filter((child) => child.dataset?.mode)
+      .forEach((button) => {
+        safeAttachListener(
+          button,
+          "click",
+          () => {
+            purchasePriceToggle.setMode(button.dataset.mode);
+            purchasePriceToggle.markInteracted();
+          },
+          `Purchase price ${button.dataset.mode} toggle`
+        );
+      });
+  }
 
   optionalListener(
     elements.itemQty,
     "input",
-    updatePurchasePriceToggleVisibility,
+    () => purchasePriceToggle.updateVisibility(),
     "Purchase price toggle visibility"
   );
   resetPurchasePriceToggle();
@@ -1896,11 +2543,13 @@ const setupItemFormListeners = () => {
   const closeItemModal = (e) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
     if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+    clearAttachmentQueue();
     // In clone mode, "Back" returns to edit mode instead of closing (STAK-375)
     if (window._cloneMode && typeof exitCloneMode === "function") {
       exitCloneMode();
       return;
     }
+    clearUploadState();
     // Dismiss any open autocomplete dropdowns (BUG-002/003)
     if (typeof dismissAllAutocompletes === "function") dismissAllAutocompletes();
     try {
@@ -1997,6 +2646,23 @@ const setupItemFormListeners = () => {
       const uploadBtn = document.getElementById("itemImageUploadBtn" + suffix);
       const cameraBtn = document.getElementById("itemImageCameraBtn" + suffix);
       const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
+      const frameBtn = document.getElementById("frameToggle" + suffix);
+      const urlField =
+        side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+
+      if (frameBtn) {
+        frameBtn.addEventListener("click", () => {
+          _setPendingFrame(
+            side,
+            typeof cycleFrame === "function" ? cycleFrame(_getPendingFrame(side)) : "auto"
+          );
+          _renderFrameToggle(side);
+        });
+      }
+
+      if (urlField) {
+        urlField.addEventListener("input", () => scheduleUrlPreview(side));
+      }
 
       if (isMobile && isSecure && cameraBtn && fileInput) {
         cameraBtn.style.display = "";
@@ -2026,6 +2692,7 @@ const setupItemFormListeners = () => {
           if (side === "reverse") {
             _pendingReverseBlob = null;
             _deleteReverseOnSave = true;
+            _pendingReverseFrame = "auto";
             if (_pendingReversePreviewUrl) {
               URL.revokeObjectURL(_pendingReversePreviewUrl);
               _pendingReversePreviewUrl = null;
@@ -2033,6 +2700,7 @@ const setupItemFormListeners = () => {
           } else {
             _pendingObverseBlob = null;
             _deleteObverseOnSave = true;
+            _pendingObverseFrame = "auto";
             if (_pendingObversePreviewUrl) {
               URL.revokeObjectURL(_pendingObversePreviewUrl);
               _pendingObversePreviewUrl = null;
@@ -2053,6 +2721,7 @@ const setupItemFormListeners = () => {
           // STAK-332: Flag item to ignore pattern rule images after explicit removal
           const ignorePatternCheckbox = document.getElementById("itemIgnorePatternImages");
           if (ignorePatternCheckbox) ignorePatternCheckbox.checked = true;
+          _renderFrameToggle(side);
           updateSwapButtonVisibility();
 
           // STAK-244: Also clear Numista image cache if user is removing a catalog-synced image
@@ -2131,6 +2800,11 @@ const setupItemFormListeners = () => {
       _deleteObverseOnSave = _deleteReverseOnSave;
       _deleteReverseOnSave = tmpDel;
 
+      // Swap frame override state with the images it describes
+      const tmpFrame = _pendingObverseFrame;
+      _pendingObverseFrame = _pendingReverseFrame;
+      _pendingReverseFrame = tmpFrame;
+
       // Swap visible preview images
       const imgObv = document.getElementById("itemImagePreviewImgObv");
       const imgRev = document.getElementById("itemImagePreviewImgRev");
@@ -2163,6 +2837,7 @@ const setupItemFormListeners = () => {
       const fileRev = document.getElementById("itemImageFileRev");
       if (fileObv) fileObv.value = "";
       if (fileRev) fileRev.value = "";
+      renderFrameToggles();
     });
   }
 
@@ -2498,6 +3173,9 @@ const setupItemFormListeners = () => {
       "change",
       () => {
         toggleDimensionFields(shapeSelect.value);
+        if (typeof updateCapsuleSuggestion === "function") {
+          updateCapsuleSuggestion(safeGetElement("numistaDiameter")?.value || "");
+        }
       },
       "Shape dropdown dimension toggle"
     );
@@ -3036,6 +3714,41 @@ const setupVaultListeners = () => {
     },
     "Vault image import file input"
   );
+
+  // Attachment vault companion file picker (import mode only)
+  const vaultAttachmentImportFile = document.getElementById("vaultAttachmentImportFile");
+  optionalListener(
+    vaultAttachmentImportFile,
+    "change",
+    function (e) {
+      const attachFile = e.target.files && e.target.files[0];
+      if (!attachFile) return;
+      const attachFileInfoEl = safeGetElement("vaultAttachmentFileInfo");
+      const attachPickerRowEl = safeGetElement("vaultAttachmentPickerRow");
+      const attachFileNameEl = safeGetElement("vaultAttachmentFileName");
+      const attachFileSizeEl = safeGetElement("vaultAttachmentFileSize");
+      if (attachFileNameEl) attachFileNameEl.textContent = attachFile.name;
+      if (attachFileSizeEl && typeof formatFileSize === "function") {
+        attachFileSizeEl.textContent = formatFileSize(attachFile.size);
+      }
+      if (attachFileInfoEl) attachFileInfoEl.style.display = "";
+      if (attachPickerRowEl) attachPickerRowEl.style.display = "none";
+      const attachReader = new FileReader();
+      attachReader.onload = function (ev) {
+        if (typeof setVaultPendingAttachmentFile === "function") {
+          setVaultPendingAttachmentFile(new Uint8Array(ev.target.result));
+        }
+      };
+      attachReader.onerror = function () {
+        debugLog("[Vault] Failed to read attachment file", "error");
+        if (attachFileInfoEl) attachFileInfoEl.style.display = "none";
+        if (attachPickerRowEl) attachPickerRowEl.style.display = "";
+      };
+      attachReader.readAsArrayBuffer(attachFile);
+      e.target.value = "";
+    },
+    "Vault attachment import file input"
+  );
 };
 
 /**
@@ -3186,6 +3899,7 @@ const setupImportExportListeners = () => {
   optionalListener(elements.exportCsvBtn, "click", exportCsv, "CSV export");
   optionalListener(elements.exportJsonBtn, "click", exportJson, "JSON export");
   optionalListener(elements.exportPdfBtn, "click", exportPdf, "PDF export");
+  optionalListener(elements.printBtn, "click", printInventory, "Print inventory");
   optionalListener(
     document.getElementById("exportZipBtn"),
     "click",
@@ -3443,6 +4157,8 @@ const setupSearch = () => {
         elements.newItemBtn,
         "click",
         () => {
+          // STRK-84: defensive clear of stale picker snapshot
+          window.pendingNumistaPickerSnapshot = null;
           // Clear editing state (ensures add mode)
           editingIndex = null;
           editingChangeLogIndex = null;
@@ -3452,12 +4168,15 @@ const setupSearch = () => {
             elements.itemWeightUnit.value = "oz";
             elements.itemDate.value = todayStr();
             resetPurchasePriceToggle();
+            if (typeof updateCapsuleSuggestion === "function") updateCapsuleSuggestion("");
           }
           // STAK-580: form.reset() honors `selected` on the placeholder, but be
           // explicit so this stays correct if the HTML ever changes.
           if (elements.itemMetal) elements.itemMetal.value = "";
           if (elements.itemType) elements.itemType.value = "";
           if (elements.itemSerial) elements.itemSerial.value = "";
+          if (elements.itemCatalog) elements.itemCatalog.value = "";
+          wirePendingAddItemTags();
           // Reset spot lookup state (STACK-49)
           if (typeof syncSpotLookupButtons === "function") {
             syncSpotLookupButtons(!!elements.itemDate.value);
@@ -3545,7 +4264,7 @@ const updateThemeButton = () => {
 
   // Apply theme classes to all theme buttons (header buttons)
   document.querySelectorAll(".theme-btn").forEach((btn) => {
-    btn.classList.remove("dark", "light", "sepia");
+    btn.classList.remove("dark", "light", "sepia", "slate");
     btn.classList.add(savedTheme);
   });
 
@@ -4102,6 +4821,40 @@ if (removeItemOpenLog) {
   });
 }
 
+// Dispose modal Lot/Each toggle button wiring
+// Uses document.getElementById because safeGetElement (init.js) loads after events.js
+const removeItemAmountModeToggle = document.getElementById("removeItemAmountModeToggle");
+if (removeItemAmountModeToggle) {
+  Array.from(removeItemAmountModeToggle.children)
+    .filter((child) => child.dataset?.mode)
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        disposeAmountToggle.setMode(button.dataset.mode, { convertInput: true });
+      });
+    });
+}
+
+// Dispose qty input updates toggle visibility and placeholder
+const removeItemQtyInput = document.getElementById("removeItemQty");
+if (removeItemQtyInput) {
+  removeItemQtyInput.addEventListener("input", () => {
+    disposeAmountToggle.updateVisibility();
+    disposeAmountToggle.updatePlaceholder();
+  });
+}
+
+// STRK-44: Restore-choice modal — wire X button to click the Cancel action button
+const restoreChoiceModalEl = document.getElementById("restoreChoiceModal");
+if (restoreChoiceModalEl) {
+  const restoreCloseBtn = restoreChoiceModalEl.querySelector(".modal-close");
+  if (restoreCloseBtn) {
+    restoreCloseBtn.addEventListener("click", () => {
+      const cancelBtn = restoreChoiceModalEl.querySelector('[data-action="cancel"]');
+      if (cancelBtn) cancelBtn.click();
+    });
+  }
+}
+
 // =============================================================================
 // Appearance > Layout — show/hide realized G/L row (STAK-72/STAK-436)
 // =============================================================================
@@ -4125,6 +4878,53 @@ if (settingsShowRealizedToggle) {
     applyRealizedVisibility(show);
   });
 }
+
+// =============================================================================
+// Attachment drop zone + browse button event wiring (STRK-45)
+// =============================================================================
+
+const attachmentDropZone =
+  typeof safeGetElement === "function"
+    ? safeGetElement("attachmentDropZone")
+    : document.getElementById("attachmentDropZone");
+const attachmentFileInput =
+  typeof safeGetElement === "function"
+    ? safeGetElement("attachmentFileInput")
+    : document.getElementById("attachmentFileInput");
+const attachmentBrowseBtn =
+  typeof safeGetElement === "function"
+    ? safeGetElement("attachmentBrowseBtn")
+    : document.getElementById("attachmentBrowseBtn");
+
+if (attachmentDropZone) {
+  attachmentDropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    attachmentDropZone.classList.add("drag-over");
+  });
+  attachmentDropZone.addEventListener("dragleave", () => {
+    attachmentDropZone.classList.remove("drag-over");
+  });
+  attachmentDropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    attachmentDropZone.classList.remove("drag-over");
+    Array.from(e.dataTransfer.files).forEach(queueAttachmentFile);
+  });
+}
+
+if (attachmentFileInput) {
+  attachmentFileInput.addEventListener("change", (e) => {
+    Array.from(e.target.files).forEach(queueAttachmentFile);
+    e.target.value = "";
+  });
+}
+
+if (attachmentBrowseBtn && attachmentFileInput) {
+  attachmentBrowseBtn.addEventListener("click", () => attachmentFileInput.click());
+}
+
+window.queueAttachmentFile = queueAttachmentFile;
+window.clearAttachmentQueue = clearAttachmentQueue;
+window.dequeueAttachment = dequeueAttachment;
 
 // =============================================================================
 

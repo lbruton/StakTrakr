@@ -301,6 +301,7 @@
                 ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
                 : parseFloat(priceStr);
             if (price < 0) price = 0;
+            const paymentMethod = row["Payment Method"] || row["paymentMethod"] || "";
             const purchaseLocation = row["Purchase Location"] || "";
             const storageLocation = row["Storage Location"] || "";
             const notes = row["Notes"] || "";
@@ -353,6 +354,65 @@
             const obverseImageUrl = row["Obverse Image URL"] || row["obverseImageUrl"] || "";
             const reverseImageUrl = row["Reverse Image URL"] || row["reverseImageUrl"] || "";
 
+            const dispositionType = (row["Disposition Type"] || "").trim();
+            const dispositionDate = (row["Disposition Date"] || "").trim();
+            const dispositionAmount = row["Disposition Amount"] || "";
+            const dispositionRealizedGainLoss = row["Realized Gain/Loss"] || "";
+            const dispositionRecipient = (row["Disposition Recipient"] || "").trim();
+            const dispositionNotes = (row["Disposition Notes"] || "").trim();
+            const dispositionCurrency = (row["Disposition Currency"] || "").trim();
+            const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
+            const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
+            const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
+
+            const attachmentsRaw = (row["Attachments"] || "").trim();
+            const csvAttachments = attachmentsRaw
+              ? attachmentsRaw
+                  .split("|")
+                  .map((entry) => {
+                    const hashIdx = entry.lastIndexOf("#");
+                    if (hashIdx === -1) return null;
+                    const fileName = entry.slice(0, hashIdx);
+                    const attachmentUuid = entry.slice(hashIdx + 1);
+                    return fileName && attachmentUuid
+                      ? { attachmentUuid, fileName, type: "", size: 0, uploadedAt: 0 }
+                      : null;
+                  })
+                  .filter(Boolean)
+              : [];
+
+            let disposition;
+            if (dispositionType) {
+              const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.\-]/g, ""));
+              const _parsedGainLoss = parseFloat(
+                String(dispositionRealizedGainLoss).replace(/[^0-9.\-]/g, "")
+              );
+              // Normalize display labels ("Sold") → internal keys ("sold") for round-trip
+              const dispositionTypeKey =
+                typeof DISPOSITION_TYPES !== "undefined"
+                  ? (Object.keys(DISPOSITION_TYPES).find(
+                      (k) => DISPOSITION_TYPES[k].label === dispositionType
+                    ) ?? dispositionType.toLowerCase())
+                  : dispositionType.toLowerCase();
+              disposition = {
+                type: dispositionTypeKey,
+                date: dispositionDate || undefined,
+                amount:
+                  dispositionAmount !== "" && Number.isFinite(_parsedAmount)
+                    ? _parsedAmount
+                    : undefined,
+                realizedGainLoss:
+                  dispositionRealizedGainLoss !== "" && Number.isFinite(_parsedGainLoss)
+                    ? _parsedGainLoss
+                    : undefined,
+                recipient: dispositionRecipient || undefined,
+                notes: dispositionNotes || undefined,
+                currency: dispositionCurrency || undefined,
+                disposedAt: dispositionDisposedAt || undefined,
+                splitFromUuid: dispositionSplitFromUuid,
+              };
+            }
+
             addCompositionOption(composition);
 
             const item = sanitizeImportedItem({
@@ -366,6 +426,7 @@
               price,
               marketValue,
               date,
+              paymentMethod,
               purchaseLocation,
               storageLocation,
               notes,
@@ -384,9 +445,12 @@
               uuid,
               obverseImageUrl,
               reverseImageUrl,
+              disposition,
             });
 
+            if (csvAttachments.length > 0) item.attachments = csvAttachments;
             imported.push(item);
+            if (!item.paymentMethod) delete item.paymentMethod;
 
             // STAK-126 / STAK-424: Collect tags but defer persistence until import confirmed.
             // Key by DiffEngine.computeItemKey (uuid → serial → name|date) so legacy
@@ -532,6 +596,16 @@
               updateStorageStats();
             }
             debugLog("importCsv override complete", imported.length, "items replaced");
+            const _overrideAttachCount = imported.reduce(
+              (n, it) => n + (Array.isArray(it.attachments) ? it.attachments.length : 0),
+              0
+            );
+            if (_overrideAttachCount > 0 && typeof showToast === "function") {
+              showToast(
+                `${_overrideAttachCount} attachment(s) imported as metadata only — use a backup ZIP to restore files.`,
+                "warning"
+              );
+            }
             if (
               localStorage.getItem("staktrakr.debug") &&
               typeof window.showDebugModal === "function"
@@ -550,6 +624,16 @@
               pendingTagsByUuid: pendingTagsByUuid,
             },
             function (summary) {
+              const _csvAttachCount = imported.reduce(
+                (n, it) => n + (Array.isArray(it.attachments) ? it.attachments.length : 0),
+                0
+              );
+              if (_csvAttachCount > 0 && typeof showToast === "function") {
+                showToast(
+                  `${_csvAttachCount} attachment(s) imported as metadata only — use a backup ZIP to restore files.`,
+                  "warning"
+                );
+              }
               // Restore removed tags from CSV import (STAK-556)
               if (pendingRemovedTagsByUuid.size > 0 && typeof saveDataSync === "function") {
                 const removedMap =
@@ -721,6 +805,7 @@
             ]);
             const purchaseLocation =
               purchaseLocRaw && purchaseLocRaw.trim() ? purchaseLocRaw.trim() : "—";
+            const paymentMethod = getValue(row, ["Payment Method", "Payment method"]) || "";
             const storageLocRaw = getValue(row, ["Storage location", "Stored at", "Storage place"]);
             const storageLocation =
               storageLocRaw && storageLocRaw.trim() ? storageLocRaw.trim() : "—";
@@ -769,6 +854,7 @@
               purchasePrice,
               marketValue,
               date,
+              paymentMethod,
               purchaseLocation,
               storageLocation,
               notes: finalNotes,
@@ -786,6 +872,7 @@
             });
 
             imported.push(item);
+            if (!item.paymentMethod) delete item.paymentMethod;
             importedCount++;
             updateImportProgress(processed, importedCount, totalRows);
           }
@@ -890,6 +977,11 @@
 
     const sortedInventory = sortInventoryByDateNewestFirst();
     const rows = [];
+    const fxRate = typeof getExchangeRate === "function" ? getExchangeRate(displayCurrency) : 1;
+    const fracDigits =
+      typeof getCurrencyFractionDigits === "function"
+        ? getCurrencyFractionDigits(displayCurrency)
+        : 2;
 
     for (const item of sortedInventory) {
       const year = item.year || item.issuedYear || "";
@@ -931,7 +1023,16 @@
         item.qty || "",
         item.type || "",
         weightGrams ? weightGrams.toFixed(2) : "",
-        purchasePrice != null ? Number(purchasePrice).toFixed(2) : "",
+        // STRK-88 (D-6): Convert internal USD price to display currency to match the
+        // column header "Buying price (${displayCurrency})". The importer reads this column
+        // and calls convertToUsd(amount, headerCurrency), so exporting raw USD under a
+        // non-USD header causes round-trip inflation.
+        (() => {
+          if (purchasePrice === null || purchasePrice === undefined) return "";
+          const usdVal = Number(purchasePrice);
+          if (isNaN(usdVal)) return "";
+          return (usdVal * fxRate).toFixed(fracDigits);
+        })(),
         item.purchaseLocation || "",
         item.storageLocation || "",
         item.date || "",
@@ -958,15 +1059,8 @@
   /**
    * Exports current inventory to CSV format
    */
-  const exportCsv = () => {
-    if (typeof Papa === "undefined") {
-      appAlert(
-        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
-      );
-      return;
-    }
-    debugLog("exportCsv start", inventory.length, "items");
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const buildCsvContent = () => {
+    if (typeof Papa === "undefined") return null;
     const headers = [
       "Date",
       "Metal",
@@ -981,6 +1075,7 @@
       "Melt Value",
       "Retail Price",
       "Gain/Loss",
+      "Payment Method",
       "Purchase Location",
       "Storage Location",
       "N#",
@@ -995,10 +1090,17 @@
       "UUID",
       "Obverse Image URL",
       "Reverse Image URL",
+      "Obverse Frame",
+      "Reverse Frame",
       "Disposition Type",
       "Disposition Date",
       "Disposition Amount",
       "Realized Gain/Loss",
+      "Disposition Recipient",
+      "Disposition Notes",
+      "Disposition Currency",
+      "Disposition DisposedAt",
+      "Disposition Split From UUID",
     ];
 
     const sortedInventory = sortInventoryByDateNewestFirst();
@@ -1032,6 +1134,7 @@
         currentSpot > 0 ? formatCurrency(meltValue) : "—",
         formatCurrency(i.marketValue || 0),
         gainLoss !== null ? formatCurrency(gainLoss) : "—",
+        i.paymentMethod || "",
         i.purchaseLocation,
         i.storageLocation || "",
         i.numistaId || "",
@@ -1046,17 +1149,37 @@
         i.uuid || "",
         i.obverseImageUrl || "",
         i.reverseImageUrl || "",
+        i.obverseImageFrame || "",
+        i.reverseImageFrame || "",
         i.disposition ? DISPOSITION_TYPES[i.disposition.type]?.label || i.disposition.type : "",
         i.disposition?.date || "",
         i.disposition ? i.disposition.amount || 0 : "",
         i.disposition ? i.disposition.realizedGainLoss || 0 : "",
+        i.disposition?.recipient || "",
+        i.disposition?.notes || "",
+        i.disposition?.currency || "",
+        i.disposition?.disposedAt || "",
+        i.disposition?.splitFromUuid || "",
       ]);
     }
 
     const _csvOrigin =
       typeof window !== "undefined" && window.location ? window.location.origin : "";
     const _originComment = "# exportOrigin: " + _csvOrigin + "\n";
-    const csv = _originComment + Papa.unparse([headers, ...rows]);
+    return _originComment + Papa.unparse([headers, ...rows]);
+  };
+
+  const exportCsv = () => {
+    if (typeof Papa === "undefined") {
+      appAlert(
+        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
+      );
+      return;
+    }
+    debugLog("exportCsv start", inventory.length, "items");
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const csv = buildCsvContent();
+    if (!csv) return;
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
 
@@ -1147,9 +1270,12 @@
               ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
               : parseFloat(priceStr);
           if (price < 0) price = 0;
+          const paymentMethod = raw.paymentMethod || raw["Payment Method"] || "";
           const purchaseLocation = raw.purchaseLocation || "";
           const storageLocation = raw.storageLocation || "";
           const notes = raw.notes || "";
+          const capsule = (raw.capsule || "").toString().trim();
+          const capsuleNotes = (raw.capsuleNotes || "").toString().trim();
           const year = (raw.year || raw.issuedYear || "").toString().trim();
           const grade = (raw.grade || "").toString().trim();
           const gradingAuthority = (raw.gradingAuthority || raw.authority || "").toString().trim();
@@ -1198,9 +1324,12 @@
             price,
             marketValue,
             date,
+            paymentMethod,
             purchaseLocation,
             storageLocation,
             notes,
+            capsule,
+            capsuleNotes,
             spotPriceAtPurchase,
             premiumPerOz,
             totalPremium,
@@ -1231,6 +1360,7 @@
 
           addCompositionOption(composition);
           imported.push(processedItem);
+          if (!processedItem.paymentMethod) delete processedItem.paymentMethod;
 
           // STAK-126: Import tags from JSON if present
           if (typeof addItemTag === "function") {
@@ -1435,12 +1565,157 @@
     importJson(file, override);
   };
   window.importCsvFromText = (text, override = false) => {
-    const blob = new Blob([text], { type: "text/csv" });
-    const file = new File([blob], "test-import.csv", { type: "text/csv" });
-    importCsv(file, override);
+    if (override) {
+      const blob = new Blob([text], { type: "text/csv" });
+      const file = new File([blob], "test-import.csv", { type: "text/csv" });
+      importCsv(file, override);
+      return;
+    }
+    if (typeof Papa === "undefined") return null;
+    const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const results = Papa.parse(normalizedText, {
+      header: true,
+      skipEmptyLines: true,
+      comments: "#",
+    });
+    if (!results || !results.data) return null;
+    const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
+    const parsed = [];
+    for (const row of results.data) {
+      const compositionRaw = row["Composition"] || row["Metal"] || "Silver";
+      const composition = getCompositionFirstWords(compositionRaw);
+      const metal = parseNumistaMetal(composition);
+      if (!supportedMetals.includes(metal)) continue;
+      const name = row["Name"] || row["name"];
+      const qty = row["Qty"] || row["qty"] || 1;
+      const type = normalizeType(row["Type"] || row["type"]);
+      const weight = row["Weight(oz)"] || row["weight"];
+      const weightUnit = row["Weight Unit"] || row["weightUnit"] || "oz";
+      const priceStr = row["Purchase Price"] || row["price"];
+      let price =
+        typeof priceStr === "string"
+          ? parseFloat(priceStr.replace(/[^\d.-]+/g, ""))
+          : parseFloat(priceStr);
+      if (price < 0) price = 0;
+      const paymentMethod = row["Payment Method"] || row["paymentMethod"] || "";
+      const purchaseLocation = row["Purchase Location"] || "";
+      const storageLocation = row["Storage Location"] || "";
+      const notes = row["Notes"] || "";
+      const year = row["Year"] || row["year"] || row["issuedYear"] || "";
+      const grade = row["Grade"] || row["grade"] || "";
+      const gradingAuthority =
+        row["Grading Authority"] || row["gradingAuthority"] || row["Authority"] || "";
+      const certNumber = (
+        row["Cert #"] ||
+        row["certNumber"] ||
+        row["Cert Number"] ||
+        ""
+      ).toString();
+      const date = parseDate(row["Date"]);
+      const retailStr = row["Retail Price"] || row["Market Value"] || row["marketValue"] || "0";
+      const marketValue =
+        typeof retailStr === "string"
+          ? parseFloat(retailStr.replace(/[^\d.-]+/g, "")) || 0
+          : parseFloat(retailStr) || 0;
+      let spotPriceAtPurchase;
+      if (row["Spot Price ($/oz)"]) {
+        spotPriceAtPurchase = parseFloat(
+          row["Spot Price ($/oz)"].toString().replace(/[^0-9.-]+/g, "")
+        );
+      } else if (row["spotPriceAtPurchase"]) {
+        spotPriceAtPurchase = parseFloat(row["spotPriceAtPurchase"]);
+      } else {
+        spotPriceAtPurchase = 0;
+      }
+      const numistaRaw = (row["N#"] || row["Numista #"] || row["numistaId"] || "").toString();
+      const numistaMatch = numistaRaw.match(/\d+/);
+      const numistaId = numistaMatch ? numistaMatch[0] : "";
+      const pcgsNumber = (row["PCGS #"] || row["PCGS Number"] || row["pcgsNumber"] || "")
+        .toString()
+        .trim();
+      const purityRaw = row["Purity"] || row["Fineness"] || row["purity"] || "";
+      const purity = parseFloat(purityRaw) || 1.0;
+      const serialNumber = row["Serial Number"] || row["serialNumber"] || "";
+      const serial = row["Serial"] || row["serial"] || getNextSerial();
+      const uuid = row["UUID"] || row["uuid"] || "";
+
+      const dispositionType = (row["Disposition Type"] || "").trim();
+      const dispositionDate = (row["Disposition Date"] || "").trim();
+      const dispositionAmount = row["Disposition Amount"] || "";
+      const dispositionRealizedGainLoss = row["Realized Gain/Loss"] || "";
+      const dispositionRecipient = (row["Disposition Recipient"] || "").trim();
+      const dispositionNotes = (row["Disposition Notes"] || "").trim();
+      const dispositionCurrency = (row["Disposition Currency"] || "").trim();
+      const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
+      const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
+      const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
+
+      let disposition;
+      if (dispositionType) {
+        const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.\-]/g, ""));
+        const _parsedGainLoss = parseFloat(
+          String(dispositionRealizedGainLoss).replace(/[^0-9.\-]/g, "")
+        );
+        const dispositionTypeKey =
+          typeof DISPOSITION_TYPES !== "undefined"
+            ? (Object.keys(DISPOSITION_TYPES).find(
+                (k) => DISPOSITION_TYPES[k].label === dispositionType
+              ) ?? dispositionType.toLowerCase())
+            : dispositionType.toLowerCase();
+        disposition = {
+          type: dispositionTypeKey,
+          date: dispositionDate || undefined,
+          amount:
+            dispositionAmount !== "" && Number.isFinite(_parsedAmount) ? _parsedAmount : undefined,
+          realizedGainLoss:
+            dispositionRealizedGainLoss !== "" && Number.isFinite(_parsedGainLoss)
+              ? _parsedGainLoss
+              : undefined,
+          recipient: dispositionRecipient || undefined,
+          notes: dispositionNotes || undefined,
+          currency: dispositionCurrency || undefined,
+          disposedAt: dispositionDisposedAt || undefined,
+          splitFromUuid: dispositionSplitFromUuid,
+        };
+      }
+
+      const item = sanitizeImportedItem({
+        metal,
+        composition,
+        name,
+        qty,
+        type,
+        weight,
+        weightUnit,
+        price,
+        marketValue,
+        date,
+        paymentMethod,
+        purchaseLocation,
+        storageLocation,
+        notes,
+        year,
+        grade,
+        gradingAuthority,
+        certNumber,
+        pcgsNumber,
+        purity,
+        spotPriceAtPurchase,
+        premiumPerOz: 0,
+        totalPremium: 0,
+        numistaId,
+        serialNumber,
+        serial,
+        uuid,
+        disposition,
+      });
+      parsed.push(item);
+    }
+    return parsed;
   };
   window.importNumistaCsv = importNumistaCsv;
   window.exportCsv = exportCsv;
+  window.exportInventoryCSV = buildCsvContent;
   window.exportNumistaCsv = exportNumistaCsv;
   window.showImportDiffReview = showImportDiffReview;
   window.startImportProgress = startImportProgress;

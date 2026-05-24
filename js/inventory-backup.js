@@ -33,7 +33,11 @@
           weightUnit: item.weightUnit || "oz",
           purity: item.purity || 1.0,
           price: item.price,
+          purchasePrice: item.purchasePrice || 0,
+          // Canonical retail price field; CSV "Retail Price" remains marketValue.
+          retailPrice: item.retailPrice || 0,
           date: item.date,
+          ...(item.paymentMethod && { paymentMethod: item.paymentMethod }),
           purchaseLocation: item.purchaseLocation,
           storageLocation: item.storageLocation,
           notes: item.notes,
@@ -41,7 +45,11 @@
           premiumPerOz: item.premiumPerOz,
           totalPremium: item.totalPremium,
           marketValue: item.marketValue || 0,
+          collectable: item.collectable || false,
+          ignorePatternImages: item.ignorePatternImages || false,
+          currency: item.currency || "",
           numistaId: item.numistaId,
+          numistaData: item.numistaData || null,
           year: item.year || "",
           grade: item.grade || "",
           gradingAuthority: item.gradingAuthority || "",
@@ -53,8 +61,16 @@
           uuid: item.uuid,
           obverseImageUrl: item.obverseImageUrl || "",
           reverseImageUrl: item.reverseImageUrl || "",
+          obverseImageFrame: item.obverseImageFrame || "",
+          reverseImageFrame: item.reverseImageFrame || "",
           obverseSharedImageId: item.obverseSharedImageId || null,
           reverseSharedImageId: item.reverseSharedImageId || null,
+          lastModified: item.lastModified || "",
+          capsule: item.capsule || "",
+          capsuleNotes: item.capsuleNotes || "",
+          fieldMeta: item.fieldMeta || null,
+          attachments: item.attachments || [],
+          disposition: item.disposition || null,
         })),
       };
       zip.file("inventory_data.json", JSON.stringify(inventoryData, null, 2));
@@ -141,6 +157,7 @@
         "Melt Value",
         "Retail Price",
         "Gain/Loss",
+        "Payment Method",
         "Purchase Location",
         "Storage Location",
         "N#",
@@ -154,10 +171,13 @@
         "UUID",
         "Obverse Image URL",
         "Reverse Image URL",
+        "Obverse Frame",
+        "Reverse Frame",
         "Disposition Type",
         "Disposition Date",
         "Disposition Amount",
         "Realized Gain/Loss",
+        "Attachments",
       ];
       const sortedInventory = sortInventoryByDateNewestFirst();
       const csvRows = [];
@@ -189,6 +209,7 @@
           currentSpot > 0 ? formatCurrency(meltValue) : "\u2014",
           formatCurrency(item.marketValue || 0),
           gainLoss !== null ? formatCurrency(gainLoss) : "\u2014",
+          item.paymentMethod || "",
           item.purchaseLocation,
           item.storageLocation || "",
           item.numistaId || "",
@@ -202,6 +223,8 @@
           item.uuid || "",
           item.obverseImageUrl || "",
           item.reverseImageUrl || "",
+          item.obverseImageFrame || "",
+          item.reverseImageFrame || "",
           item.disposition
             ? typeof DISPOSITION_TYPES !== "undefined" && DISPOSITION_TYPES[item.disposition.type]
               ? DISPOSITION_TYPES[item.disposition.type].label
@@ -210,6 +233,9 @@
           item.disposition ? item.disposition.date || "" : "",
           item.disposition ? item.disposition.amount || 0 : "",
           item.disposition ? item.disposition.realizedGainLoss || 0 : "",
+          Array.isArray(item.attachments) && item.attachments.length > 0
+            ? item.attachments.map((a) => `${a.fileName}#${a.attachmentUuid}`).join("|")
+            : "",
         ]);
       }
       const csvContent = Papa.unparse([csvHeaders, ...csvRows]);
@@ -235,6 +261,7 @@
           purity: item.purity || 1.0,
           price: item.price,
           date: item.date,
+          paymentMethod: item.paymentMethod || "",
           purchaseLocation: item.purchaseLocation,
           storageLocation: item.storageLocation,
           notes: item.notes,
@@ -293,6 +320,34 @@
           zip.file("user_image_manifest.json", JSON.stringify(userImageManifest, null, 2));
         }
 
+        // User-uploaded attachments (PDFs, images) -- STRK-45
+        if (typeof attachmentManager !== "undefined" && attachmentManager.isAvailable()) {
+          const allAttachments = await attachmentManager.exportAllAttachments();
+          if (allAttachments.length > 0) {
+            const attachFolder = zip.folder("user_attachments");
+            const attachManifest = {
+              version: APP_VERSION,
+              exportDate: new Date().toISOString(),
+              entries: [],
+            };
+            for (const rec of allAttachments) {
+              const ext = rec.fileName.includes(".") ? rec.fileName.split(".").pop() : "bin";
+              const zipPath = `user_attachments/${rec.attachmentUuid}.${ext}`;
+              attachFolder.file(`${rec.attachmentUuid}.${ext}`, rec.blob);
+              attachManifest.entries.push({
+                attachmentUuid: rec.attachmentUuid,
+                itemUuid: rec.itemUuid,
+                file: zipPath,
+                fileName: rec.fileName,
+                type: rec.type,
+                size: rec.size,
+                uploadedAt: rec.uploadedAt,
+              });
+            }
+            zip.file("user_attachment_manifest.json", JSON.stringify(attachManifest, null, 2));
+          }
+        }
+
         // Custom pattern rule images (keyed by rule ID) -- STAK-225
         const allPatternImages = await imageCache.exportAllPatternImages();
         if (allPatternImages.length > 0) {
@@ -323,6 +378,7 @@
       }
 
       appAlert("Backup created successfully!");
+      return zipBlob;
     } catch (error) {
       debugWarn("Backup creation failed:", error);
       appAlert("Backup creation failed: " + error.message);
@@ -333,6 +389,7 @@
         backupBtn.textContent = "Export ZIP";
         backupBtn.disabled = false;
       }
+      return null;
     }
   };
 
@@ -593,6 +650,64 @@
           }
         }
 
+        // Restore user-uploaded attachments (STRK-45, STRK-65: fail-soft on malformed manifest)
+        const attachManifestFile = zip.file("user_attachment_manifest.json");
+        if (
+          attachManifestFile &&
+          typeof attachmentManager !== "undefined" &&
+          attachmentManager.isAvailable()
+        ) {
+          try {
+            const acceptedUuids = new Set(
+              typeof inventory !== "undefined" ? inventory.map((i) => i.uuid) : []
+            );
+            const attachManifestData = JSON.parse(await attachManifestFile.async("string"));
+            let missingBinaryCount = 0;
+            for (const entry of attachManifestData.entries || []) {
+              if (!acceptedUuids.has(entry.itemUuid)) continue;
+              try {
+                const zipFile = entry.file ? zip.file(entry.file) : null;
+                const blob = zipFile ? await zipFile.async("blob") : null;
+                if (blob) {
+                  const ok = await attachmentManager.addAttachment({
+                    attachmentUuid: entry.attachmentUuid,
+                    itemUuid: entry.itemUuid,
+                    fileName: entry.fileName,
+                    type: entry.type,
+                    size: entry.size,
+                    uploadedAt: entry.uploadedAt,
+                    blob,
+                  });
+                  if (!ok) missingBinaryCount++;
+                } else {
+                  missingBinaryCount++;
+                }
+              } catch (entryErr) {
+                console.warn("Attachment restore entry failed:", entryErr);
+                missingBinaryCount++;
+              }
+            }
+            if (missingBinaryCount > 0) {
+              if (typeof showToast === "function") {
+                showToast(
+                  `${missingBinaryCount} attachment file(s) could not be restored — metadata only.`,
+                  "warning"
+                );
+              }
+            }
+          } catch (attachRestoreErr) {
+            console.warn("Attachment manifest parse/restore failed:", attachRestoreErr);
+            if (typeof showToast === "function") {
+              showToast(
+                "Attachment manifest was malformed — inventory restored without attachments.",
+                "warning"
+              );
+            }
+          }
+        }
+
+        if (typeof reconcileAttachmentOrphans === "function") reconcileAttachmentOrphans();
+
         if (typeof syncManualSpotStorage === "function") {
           syncManualSpotStorage({ clearMissing: true });
         }
@@ -672,7 +787,7 @@
     <thead>
       <tr>
         <th>Composition</th><th>Name</th><th>Qty</th><th>Type</th><th>Weight</th>
-        <th>Purchase Price</th><th>Purchase Location</th><th>Storage Location</th>
+        <th>Purchase Price</th><th>Payment Method</th><th>Purchase Location</th><th>Storage Location</th>
         <th>Notes</th><th>Date</th>
       </tr>
     </thead>
@@ -687,6 +802,7 @@
           <td>${escapeHtml(item.type)}</td>
           <td>${formatWeight(item.weight, item.weightUnit)}</td>
           <td>${formatCurrency(item.price)}</td>
+          <td>${escapeHtml(item.paymentMethod || "")}</td>
           <td>${escapeHtml(item.purchaseLocation)}</td>
           <td>${escapeHtml(item.storageLocation || "")}</td>
           <td>${escapeHtml(item.notes || "")}</td>

@@ -135,6 +135,7 @@ const generateCategorySummary = (inventory) => {
 
   const metals = {};
   const types = {};
+  const paymentMethods = {};
   const purchaseLocations = {};
   const storageLocations = {};
   const names = {};
@@ -154,6 +155,12 @@ const generateCategorySummary = (inventory) => {
     // Count types
     if (item.type) {
       types[item.type] = (types[item.type] || 0) + 1;
+    }
+
+    // Count payment methods (skip empty)
+    const payMethod = (item.paymentMethod || "").trim();
+    if (payMethod) {
+      paymentMethods[payMethod] = (paymentMethods[payMethod] || 0) + 1;
     }
 
     // Count purchase locations (skip empty / "Unknown")
@@ -234,6 +241,7 @@ const generateCategorySummary = (inventory) => {
   // Apply minCount threshold to all categories
   const filteredMetals = applyMinCountThreshold(metals, minCount);
   const filteredTypes = applyMinCountThreshold(types, minCount);
+  const filteredPaymentMethods = applyMinCountThreshold(paymentMethods, minCount);
   const filteredPurchaseLocations = applyMinCountThreshold(purchaseLocations, minCount);
   const filteredStorageLocations = applyMinCountThreshold(storageLocations, minCount);
   let filteredNames = applyMinCountThreshold(names, nameMinCount);
@@ -283,6 +291,7 @@ const generateCategorySummary = (inventory) => {
   return {
     metals: filteredMetals,
     types: filteredTypes,
+    paymentMethods: filteredPaymentMethods,
     purchaseLocations: filteredPurchaseLocations,
     storageLocations: filteredStorageLocations,
     names: filteredNames,
@@ -359,6 +368,7 @@ const renderActiveFilters = () => {
       field: "dynamicName",
       extraProps: { isDynamic: true },
     },
+    paymentMethod: { summaryKey: "paymentMethods", field: "paymentMethod" },
     purchaseLocation: { summaryKey: "purchaseLocations", field: "purchaseLocation" },
     storageLocation: { summaryKey: "storageLocations", field: "storageLocation" },
     year: { summaryKey: "years", field: "year" },
@@ -378,6 +388,7 @@ const renderActiveFilters = () => {
           { id: "name", enabled: true },
           { id: "customGroup", enabled: true },
           { id: "dynamicName", enabled: true },
+          { id: "paymentMethod", enabled: true },
           { id: "purchaseLocation", enabled: true },
           { id: "storageLocation", enabled: true },
           { id: "year", enabled: true },
@@ -879,6 +890,66 @@ const getChipColors = (field, value, index) => {
 };
 
 /**
+ * Recursively collect all string/number leaf values from a Numista catalog object,
+ * walking nested objects (obverse, reverse, edge, etc.) while skipping booleans and arrays.
+ *
+ * Defined at module scope so a single function object is reused for every item
+ * rather than a new closure being allocated per filter-loop iteration.
+ *
+ * @param {object} obj - The object to flatten
+ * @returns {string[]} Array of stringified leaf values
+ */
+const collectNumistaStrings = (obj) =>
+  Object.values(obj).flatMap((v) => {
+    if ((typeof v === "string" || typeof v === "number") && v !== "") return [String(v)];
+    if (v && typeof v === "object" && !Array.isArray(v)) return collectNumistaStrings(v);
+    return [];
+  });
+
+/**
+ * Build the full-text search haystack for a single inventory item.
+ * Extracts and joins all searchable fields (including recursively-flattened
+ * Numista catalog data) into a single lowercase string.
+ *
+ * Extracted from `filterInventoryAdvanced` to reduce its cyclomatic complexity
+ * and make the indexing logic independently testable.
+ *
+ * @param {InventoryItem} item - The inventory item to index
+ * @param {string} searchTags - Pre-joined tag string for the item
+ * @param {string} formattedDate - Pre-formatted display date (lowercase)
+ * @returns {string} Lowercase haystack string
+ */
+const getItemSearchHaystack = (item, searchTags, formattedDate) => {
+  let catalogText = "";
+  if (item.numistaData && typeof item.numistaData === "object") {
+    catalogText = collectNumistaStrings(item.numistaData).join(" ").toLowerCase();
+  }
+
+  return [
+    item.metal,
+    item.composition || "",
+    item.name,
+    item.type,
+    item.purchaseLocation,
+    item.storageLocation || "",
+    item.notes || "",
+    item.capsule || "",
+    item.capsuleNotes || "",
+    String(item.year || ""),
+    item.grade || "",
+    item.gradingAuthority || "",
+    String(item.certNumber || ""),
+    String(item.numistaId || ""),
+    item.serialNumber || "",
+    searchTags,
+    formattedDate,
+    catalogText,
+  ]
+    .join(" ")
+    .toLowerCase();
+};
+
+/**
  * Enhanced filter inventory function that includes advanced filters.
  * Applies all active filters in `activeFilters` to the inventory.
  *
@@ -935,6 +1006,14 @@ const filterInventoryAdvanced = () => {
         case "type":
           result = result.filter((item) => {
             const match = values.includes(item.type);
+            return exclude ? !match : match;
+          });
+          break;
+        case "paymentMethod":
+          result = result.filter((item) => {
+            const method = (item.paymentMethod || "").trim();
+            const normalized = !method ? "—" : method;
+            const match = values.includes(normalized);
             return exclude ? !match : match;
           });
           break;
@@ -1113,31 +1192,19 @@ const filterInventoryAdvanced = () => {
       const _searchTags = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
       const _formattedDate = formatDisplayDate(item.date).toLowerCase();
 
-      const itemText = [
-        item.metal,
-        item.composition || "",
-        item.name,
-        item.type,
-        item.purchaseLocation,
-        item.storageLocation || "",
-        item.notes || "",
-        String(item.year || ""),
-        item.grade || "",
-        item.gradingAuthority || "",
-        String(item.certNumber || ""),
-        String(item.numistaId || ""),
-        item.serialNumber || "",
-        _searchTags,
-        _formattedDate,
-      ]
-        .join(" ")
-        .toLowerCase();
+      // STRK-86: Delegate haystack assembly to getItemSearchHaystack so that
+      // filterInventoryAdvanced stays focused on filter orchestration only.
+      const itemText = getItemSearchHaystack(item, _searchTags, _formattedDate);
 
-      cached = { text: itemText, formattedDate: _formattedDate };
+      const _catalogText =
+        item.numistaData && typeof item.numistaData === "object"
+          ? collectNumistaStrings(item.numistaData).join(" ").toLowerCase()
+          : "";
+      cached = { text: itemText, formattedDate: _formattedDate, catalogText: _catalogText };
       searchCache.set(item, cached);
     }
 
-    const { text: itemText, formattedDate } = cached;
+    const { text: itemText, formattedDate, catalogText } = cached;
 
     // Handle comma-separated terms (OR logic between comma terms)
     return parsedTerms.some((termData) => {
@@ -1244,9 +1311,12 @@ const filterInventoryAdvanced = () => {
           (item.composition && wordRegex.test(item.composition)) ||
           wordRegex.test(item.name) ||
           wordRegex.test(item.type) ||
+          (item.paymentMethod && wordRegex.test(item.paymentMethod)) ||
           wordRegex.test(item.purchaseLocation) ||
           (item.storageLocation && wordRegex.test(item.storageLocation)) ||
           (item.notes && wordRegex.test(item.notes)) ||
+          (item.capsule && wordRegex.test(item.capsule)) ||
+          (item.capsuleNotes && wordRegex.test(item.capsuleNotes)) ||
           item.date.includes(word) ||
           formattedDate.includes(word) ||
           String(Number.isFinite(Number(item.qty)) ? Number(item.qty) : "").includes(word) ||
@@ -1259,7 +1329,8 @@ const filterInventoryAdvanced = () => {
           (item.numistaId && wordRegex.test(String(item.numistaId))) ||
           (item.serialNumber && wordRegex.test(item.serialNumber)) ||
           (typeof getItemTags === "function" &&
-            getItemTags(item.uuid).some((t) => wordRegex.test(t)))
+            getItemTags(item.uuid).some((t) => wordRegex.test(t))) ||
+          (catalogText && wordRegex.test(catalogText))
         );
       });
       if (fieldMatch) return true;
@@ -1282,6 +1353,8 @@ const filterInventoryAdvanced = () => {
           item.purchaseLocation,
           item.storageLocation || "",
           item.notes || "",
+          item.capsule || "",
+          item.capsuleNotes || "",
         ];
         for (const field of fieldsToCheck) {
           if (field && fuzzyMatch(q, field, { threshold: fuzzyThreshold }) > 0) {

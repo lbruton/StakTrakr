@@ -224,9 +224,9 @@ When any version-related file changes, verify all 7 are in sync:
 | File                       | Field                           |
 | -------------------------- | ------------------------------- |
 | `js/constants.js`          | `APP_VERSION`                   |
+| `package.json`             | `"version"` field               |
 | `sw.js`                    | `CACHE_NAME` (includes version) |
 | `CHANGELOG.md`             | Latest `## [x.y.z]` heading     |
-| `docs/announcements.md`    | Latest What's New entry version |
 | `js/about.js`              | `getEmbeddedWhatsNew()` version |
 | `version.json`             | `"version"` field               |
 | `data/spot-history-*.json` | Seed data should be refreshed   |
@@ -245,13 +245,11 @@ All user-supplied strings rendered into the DOM must go through `sanitizeHtml()`
 
 If `sw.js` CACHE_NAME does not match the version in `js/constants.js`, the service worker will serve stale assets. This causes the What's New splash to re-trigger on every page load. Always flag CACHE_NAME/APP_VERSION mismatches.
 
-### 8. Announcements Entry Rotation -- Intentional Limit
+### 8. What's New Entry Rotation -- Intentional Limit
 
-`docs/announcements.md` and `js/about.js` (`getEmbeddedWhatsNew()`) are **intentionally capped at 3-5 entries**. When a new release is added, the oldest entry is rotated out. Do not flag removed older entries as missing -- this is by design. Both files must contain the **same** entries in the **same** order; flag any drift between them.
+`js/about.js` (`getEmbeddedWhatsNew()`) is the **sole source of truth** for What's New content. `docs/announcements.md` was deprecated per STAK-513 and no longer exists -- do not flag it as missing or out of sync. Entries in `getEmbeddedWhatsNew()` are **intentionally capped at 3-5**. When a new release is added, the oldest entry is rotated out. Do not flag removed older entries as missing -- this is by design.
 
-Similarly, the Development Roadmap section in `announcements.md` and `getEmbeddedRoadmap()` in `about.js` are capped at 3-4 items. Completed roadmap items are removed during releases.
-
-**Long lines in `announcements.md` are intentional.** Each release is a single line starting with `- **Title (vX.Y.Z)**:`. The `loadAnnouncements()` parser in `about.js` splits on newlines and filters for lines starting with `-`. Splitting entries across multiple lines would break the parser. Do not flag line length in this file.
+Similarly, `getEmbeddedRoadmap()` in `about.js` is capped at 3-4 items. Completed roadmap items are removed during releases.
 
 ### 9. Seed Data Files -- Auto-Generated, Must Be Included
 

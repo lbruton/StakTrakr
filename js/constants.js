@@ -233,6 +233,27 @@ const API_PROVIDERS = {
       return { current, history };
     },
   },
+  GOLD_API: {
+    name: "Gold API",
+    baseUrl: "https://api.gold-api.com",
+    requiresKey: false,
+    optionalKey: true,
+    documentation: "https://gold-api.com/docs",
+    endpoints: {
+      silver: "/price/XAG",
+      gold: "/price/XAU",
+      platinum: "/price/XPT",
+      palladium: "/price/XPD",
+    },
+    parseResponse: (data) => {
+      const price = data?.price;
+      return typeof price === "number" && price > 0 ? price : null;
+    },
+    batchSupported: false,
+    parseBatchResponse: () => ({ current: {}, history: {} }),
+    maxHistoryDays: 0,
+    symbolsPerRequest: 1,
+  },
   CUSTOM: {
     name: "Custom Provider",
     requiresKey: true,
@@ -281,10 +302,10 @@ const CERT_LOOKUP_URLS = {
  * Follows BRANCH.RELEASE.PATCH.state format
  * State codes: a=alpha, b=beta, rc=release candidate
  * Example: 3.03.02a → branch 3, release 03, patch 02, alpha
- * Updated: 2026-04-29 - STRK-13: Inventory seed guard prevents data loss
+ * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.34.38";
+const APP_VERSION = "3.34.85";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -586,6 +607,7 @@ const LB_TO_OZT = 14.58333;
  * @constant {Array<{weight: number, label: string, goldOz: number}>}
  */
 const GOLDBACK_DENOMINATIONS = [
+  { weight: 0.25, label: "¼ Goldback", goldOz: 0.00025 },
   { weight: 0.5, label: "½ Goldback", goldOz: 0.0005 },
   { weight: 1, label: "1 Goldback", goldOz: 0.001 },
   { weight: 2, label: "2 Goldback", goldOz: 0.002 },
@@ -766,6 +788,9 @@ const VAULT_FILE_EXTENSION = ".stvault";
 /** Filename suffix for the companion image vault file exported alongside a backup */
 const VAULT_IMAGE_FILE_SUFFIX = "-images";
 
+/** Filename suffix for the companion attachment vault file exported alongside a backup */
+const VAULT_ATTACHMENT_FILE_SUFFIX = "-attachments";
+
 // =============================================================================
 // CLOUD AUTO-SYNC CONSTANTS (STAK-149)
 // =============================================================================
@@ -789,6 +814,12 @@ const SYNC_META_PATH = "/StakTrakr/sync/staktrakr-sync.json";
 
 /** Dropbox path for the encrypted user-image vault (v2 — /sync/ subfolder) */
 const SYNC_IMAGES_PATH = "/StakTrakr/sync/staktrakr-images.stvault";
+
+/** Dropbox path for the encrypted attachment vault (v2 — /sync/ subfolder) */
+const SYNC_ATTACHMENTS_PATH = "/StakTrakr/sync/staktrakr-attachments.stvault";
+
+/** Attachment total-size threshold in bytes above which the user sees a one-time sync warning */
+const SYNC_ATTACHMENT_SIZE_WARN_BYTES = 100 * 1024 * 1024; // 100 MB
 
 /** Dropbox path for the encrypted change manifest (v2 — /sync/ subfolder) */
 const SYNC_MANIFEST_PATH = "/StakTrakr/sync/staktrakr-sync.stmanifest";
@@ -878,12 +909,15 @@ const SYNC_SCOPE_KEYS = [
   // ── Seed & provider config ──
   "apiProviderOrder", // spot provider order
   "providerPriority", // provider priority config
-  "spotPricingSource", // STAK-443: single-select spot source (STAKTRAKR|METALS_DEV|METALS_API|METAL_PRICE_API|CUSTOM|MANUAL)
+  "spotPricingSource", // STAK-443: single-select spot source (STAKTRAKR|METALS_DEV|METALS_API|METAL_PRICE_API|GOLD_API|CUSTOM|MANUAL)
   "metalSpotPrices", // STAK-443: manual-mode spot prices {gold, silver, platinum, palladium}
 
   // ── API credentials ──
   "metalApiConfig", // API_KEY_STORAGE_KEY — spot provider keys (MetalPriceAPI, Metals-API, Custom)
   "catalog_api_config", // Numista API key, PCGS bearer token (CatalogConfig)
+
+  // ── Attachment sync ──
+  "syncAttachments", // boolean: include attachment binaries in cloud sync (default true when missing)
 ];
 
 const SPOT_HISTORY_RUNTIME_WINDOW_DAYS = 180;
@@ -1024,6 +1058,9 @@ const ALLOWED_STORAGE_KEYS = [
   "itemRemovedTags", // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   "inventorySeedApplied", // STRK-13: ISO timestamp string, sentinel proving seed has been applied (or migration ran)
   "staktrakr.bootDiagnostics", // STRK-13: JSON array, 10-entry ring buffer of boot classifications
+  // STRK-45: per-item attachments
+  "syncAttachments", // boolean string: "true"/"false" — include attachment binaries in cloud sync (default true when missing)
+  "syncAttachmentsWarnSeen", // boolean string: "true"/"false" — one-time 100 MB warning has been shown
 ];
 
 /**
@@ -1088,6 +1125,7 @@ const INLINE_CHIP_DEFAULTS = [
   { id: "notes", label: "Notes Indicator", enabled: false },
   { id: "purity", label: "Purity", enabled: false },
   { id: "tags", label: "Tags", enabled: false },
+  { id: "attachment", label: "Attachments", enabled: true },
 ];
 
 /**
@@ -1096,24 +1134,16 @@ const INLINE_CHIP_DEFAULTS = [
  * @returns {Array<{id: string, label: string, enabled: boolean}>}
  */
 const getInlineChipConfig = () => {
-  try {
-    const raw = localStorage.getItem("inlineChipConfig");
-    if (raw) {
-      const saved = JSON.parse(raw);
-      // Build a map of saved chips for quick lookup
-      const savedMap = new Map(saved.map((c) => [c.id, c]));
-      // Start with saved order, preserving user's arrangement
-      const merged = saved.filter((c) => INLINE_CHIP_DEFAULTS.some((d) => d.id === c.id));
-      // Append any new defaults not in saved config
-      for (const def of INLINE_CHIP_DEFAULTS) {
-        if (!savedMap.has(def.id)) {
-          merged.push({ ...def });
-        }
+  const saved = loadDataSync("inlineChipConfig", null);
+  if (saved && Array.isArray(saved)) {
+    const savedMap = new Map(saved.map((c) => [c.id, c]));
+    const merged = saved.filter((c) => INLINE_CHIP_DEFAULTS.some((d) => d.id === c.id));
+    for (const def of INLINE_CHIP_DEFAULTS) {
+      if (!savedMap.has(def.id)) {
+        merged.push({ ...def });
       }
-      return merged;
     }
-  } catch (e) {
-    console.warn("Failed to load inline chip config:", e);
+    return merged;
   }
   return INLINE_CHIP_DEFAULTS.map((d) => ({ ...d }));
 };
@@ -1124,7 +1154,7 @@ const getInlineChipConfig = () => {
  */
 const saveInlineChipConfig = (config) => {
   try {
-    localStorage.setItem("inlineChipConfig", JSON.stringify(config));
+    saveDataSync("inlineChipConfig", config);
     if (typeof scheduleSyncPush === "function") scheduleSyncPush();
   } catch (e) {
     console.warn("Failed to save inline chip config:", e);
@@ -1145,6 +1175,7 @@ const FILTER_CHIP_CATEGORY_DEFAULTS = [
   { id: "name", label: "Names", enabled: true, group: null },
   { id: "customGroup", label: "Custom Groups", enabled: true, group: null },
   { id: "dynamicName", label: "Dynamic Names", enabled: true, group: null },
+  { id: "paymentMethod", label: "Payment Method", enabled: true, group: null },
   { id: "purchaseLocation", label: "Purchase Location", enabled: true, group: null },
   { id: "storageLocation", label: "Storage Location", enabled: true, group: null },
   { id: "year", label: "Years", enabled: true, group: null },
@@ -1303,6 +1334,8 @@ const VIEW_MODAL_SECTION_DEFAULTS = [
   { id: "numista", label: "Numista data", enabled: true },
   { id: "notes", label: "Notes", enabled: true },
   { id: "tags", label: "Tags", enabled: true },
+  { id: "attachments", label: "Attachments", enabled: true },
+  { id: "disposition", label: "Disposition", enabled: true },
 ];
 
 /** Loads the view modal section config from localStorage, merged with defaults. */
@@ -1335,6 +1368,8 @@ const NUMISTA_VIEW_FIELD_DEFAULTS = {
   country: true,
   technique: true,
   references: true,
+  obverse: true,
+  reverse: true,
   edge: true,
   tags: true,
   commemorative: true,
@@ -1873,6 +1908,9 @@ if (typeof window !== "undefined") {
   window.SYNC_FILE_PATH = SYNC_FILE_PATH;
   window.SYNC_META_PATH = SYNC_META_PATH;
   window.SYNC_IMAGES_PATH = SYNC_IMAGES_PATH;
+  window.SYNC_ATTACHMENTS_PATH = SYNC_ATTACHMENTS_PATH;
+  window.SYNC_ATTACHMENT_SIZE_WARN_BYTES = SYNC_ATTACHMENT_SIZE_WARN_BYTES;
+  window.VAULT_ATTACHMENT_FILE_SUFFIX = VAULT_ATTACHMENT_FILE_SUFFIX;
   window.SYNC_FILE_PATH_LEGACY = SYNC_FILE_PATH_LEGACY;
   window.SYNC_META_PATH_LEGACY = SYNC_META_PATH_LEGACY;
   window.SYNC_IMAGES_PATH_LEGACY = SYNC_IMAGES_PATH_LEGACY;

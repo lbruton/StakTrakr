@@ -42,15 +42,7 @@ const bindSettingsNavigationListeners = () => {
 const bindAppearanceAndHeaderListeners = () => {
   // Theme picker buttons.
   document.querySelectorAll(".theme-option").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      if (e.shiftKey && btn.dataset.theme === "sepia") {
-        document.documentElement.setAttribute("data-theme", "hello-kitty");
-        saveDataSync(THEME_KEY, "hello-kitty");
-        document.querySelectorAll(".theme-option").forEach((b) => b.classList.remove("active"));
-        if (typeof renderTable === "function") renderTable();
-        if (typeof updateAllSparklines === "function") updateAllSparklines();
-        return;
-      }
+    btn.addEventListener("click", () => {
       const theme = btn.dataset.theme;
       if (typeof setTheme === "function") {
         setTheme(theme);
@@ -100,14 +92,17 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // Sync all spot prices header button.
+  // Sync all spot prices header button — single call, not per-metal loop (STRK-93).
   const headerSyncBtn = safeGetElement("headerSyncBtn");
   if (headerSyncBtn) {
     headerSyncBtn.addEventListener("click", () => {
-      ["Silver", "Gold", "Platinum", "Palladium"].forEach((m) => {
-        const btn = document.getElementById(`syncIcon${m}`);
-        if (btn && !btn.disabled) btn.click();
-      });
+      if (typeof window.syncSpotPricesFromApi === "function") {
+        window.syncSpotPricesFromApi(true);
+      } else {
+        appAlert(
+          "API sync functionality requires Metals API configuration. Please configure an API provider first."
+        );
+      }
     });
   }
 
@@ -1217,6 +1212,17 @@ const bindCloudStorageListeners = () => {
   // Advanced modal is rendered at body level (outside settingsPanel_cloud), so it needs its own listener.
   var advancedModal = document.getElementById("cloudSyncAdvancedModal");
   if (advancedModal) advancedModal.addEventListener("click", _cloudBtnHandler);
+
+  // Sync attachments toggle (STRK-45) — persists to syncAttachments localStorage key.
+  // Default is true when the key is absent (opt-out model).
+  var syncAttachToggle = document.getElementById("syncAttachmentsToggle");
+  if (syncAttachToggle) {
+    var storedVal = loadDataSync("syncAttachments", null);
+    syncAttachToggle.checked = storedVal !== "false" && storedVal !== false;
+    syncAttachToggle.addEventListener("change", function () {
+      saveDataSync("syncAttachments", this.checked);
+    });
+  }
 };
 
 /**
@@ -1488,6 +1494,7 @@ const SPOT_PROVIDER_CONFIRM_LABELS = {
   METALS_DEV: "Metals.dev",
   METALS_API: "Metals-API",
   METAL_PRICE_API: "MetalPriceAPI",
+  GOLD_API: "Gold API",
   CUSTOM: "Custom",
   MANUAL: "Manual",
 };

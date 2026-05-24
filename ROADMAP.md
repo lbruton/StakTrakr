@@ -107,7 +107,7 @@ Migrate to Playwright as the primary E2E test runner.
 
 ## Dependency Graph
 
-```
+```text
 STAK-532 (Playwright migration)
   └── STAK-539 (slug resolution regression test) — blocked until STAK-532 lands
 ```

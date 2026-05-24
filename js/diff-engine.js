@@ -68,12 +68,24 @@ const DIFF_FIELDS = [
   // Images (STAK-493: these were missing, causing silent data loss during sync)
   "obverseImageUrl",
   "reverseImageUrl",
+  "obverseImageFrame",
+  "reverseImageFrame",
   "obverseSharedImageId",
   "reverseSharedImageId",
   // Disposition
   "disposition",
   // Metadata
   "lastModified",
+  // Bulk-editor fields (STRK-91 C.3 — capsule/notes, payment, nested objects)
+  "capsule",
+  "capsuleNotes",
+  "paymentMethod",
+  "numistaData",
+  "fieldMeta",
+  // Attachments — array field; compareItems emits ONE coarse record per item so
+  // detectConflicts (which keys on itemKey|field) sees at most one entry per item.
+  // Per-entry diffing is handled by _diffAttachments / renderAttachmentDiffRow.
+  "attachments",
 ];
 
 // ---------------------------------------------------------------------------
@@ -157,6 +169,96 @@ function _settingsValuesEqual(a, b) {
     return false;
   }
   return false;
+}
+
+/**
+ * Computes per-entry diffs between two attachments arrays.
+ * Detects replacements (same fileName, different UUID), pure removals,
+ * and pure additions. Returns a flat array of change records.
+ *
+ * @param {object[]} localArr
+ * @param {object[]} remoteArr
+ * @returns {Array<{action:"add"|"remove"|"replace", attachmentUuid:string, oldAttachmentUuid?:string, localVal:object|null, remoteVal:object|null}>}
+ */
+function _diffAttachments(localArr, remoteArr) {
+  const local = Array.isArray(localArr) ? localArr : [];
+  const remote = Array.isArray(remoteArr) ? remoteArr : [];
+  const result = [];
+
+  // Build lookup maps by UUID
+  const localMap = new Map(local.filter((a) => a.attachmentUuid).map((a) => [a.attachmentUuid, a]));
+  const remoteMap = new Map(
+    remote.filter((a) => a.attachmentUuid).map((a) => [a.attachmentUuid, a])
+  );
+
+  // Build local index by fileName for replacement detection
+  const localByFileName = new Map();
+  for (const a of local) {
+    if (!a.attachmentUuid || !a.fileName) continue;
+    if (!localByFileName.has(a.fileName)) localByFileName.set(a.fileName, []);
+    localByFileName.get(a.fileName).push(a);
+  }
+
+  const consumedLocal = new Set();
+  const consumedRemote = new Set();
+
+  // Pass 1: replacements — same fileName, different UUID, unambiguous match (STRK-65)
+  const remoteByFileName = new Map();
+  for (const a of remote) {
+    if (!a.attachmentUuid || !a.fileName) continue;
+    if (!remoteByFileName.has(a.fileName)) remoteByFileName.set(a.fileName, []);
+    remoteByFileName.get(a.fileName).push(a);
+  }
+  for (const rem of remote) {
+    if (!rem.attachmentUuid || consumedRemote.has(rem.attachmentUuid)) continue;
+    if (localMap.has(rem.attachmentUuid)) continue;
+    const localCandidates = (localByFileName.get(rem.fileName) || []).filter(
+      (c) => !consumedLocal.has(c.attachmentUuid) && c.attachmentUuid !== rem.attachmentUuid
+    );
+    const remoteSameName = (remoteByFileName.get(rem.fileName) || []).filter(
+      (c) => !consumedRemote.has(c.attachmentUuid)
+    );
+    if (localCandidates.length === 1 && remoteSameName.length === 1) {
+      const loc = localCandidates[0];
+      result.push({
+        action: "replace",
+        attachmentUuid: rem.attachmentUuid,
+        oldAttachmentUuid: loc.attachmentUuid,
+        localVal: loc,
+        remoteVal: rem,
+      });
+      consumedLocal.add(loc.attachmentUuid);
+      consumedRemote.add(rem.attachmentUuid);
+    }
+  }
+
+  // Pass 2: removals — in local, not in remote, not consumed
+  for (const loc of local) {
+    if (!loc.attachmentUuid || consumedLocal.has(loc.attachmentUuid)) continue;
+    if (!remoteMap.has(loc.attachmentUuid)) {
+      result.push({
+        action: "remove",
+        attachmentUuid: loc.attachmentUuid,
+        localVal: loc,
+        remoteVal: null,
+      });
+    }
+  }
+
+  // Pass 3: additions — in remote, not in local, not consumed
+  for (const rem of remote) {
+    if (!rem.attachmentUuid || consumedRemote.has(rem.attachmentUuid)) continue;
+    if (!localMap.has(rem.attachmentUuid)) {
+      result.push({
+        action: "add",
+        attachmentUuid: rem.attachmentUuid,
+        localVal: null,
+        remoteVal: rem,
+      });
+    }
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -493,9 +595,11 @@ const DiffEngine = {
    * the updated inventory (non-destructive — returns a new array).
    *
    * Each change in `selectedChanges` is one of:
-   *   { type: 'add',    item: object }         — append item
-   *   { type: 'delete', itemKey: string }       — remove item by key
-   *   { type: 'modify', itemKey: string, field: string, value: * } — patch field
+   *   { type: 'add',          item: object }         — append item
+   *   { type: 'delete',       itemKey: string }       — remove item by key
+   *   { type: 'modify',       itemKey: string, field: string, value: * } — patch field
+   *   { type: 'attach-entry', itemKey: string, action: 'add'|'remove'|'replace',
+   *     attachmentUuid: string, oldAttachmentUuid?: string, value: object|null } — per-attachment patch
    *
    * @param {object[]} inventory
    * @param {Array<{type:string, item?:object, itemKey?:string, field?:string, value?:*}>} selectedChanges
@@ -514,6 +618,7 @@ const DiffEngine = {
     const toAdd = [];
     const toDelete = new Set();
     const toModify = []; // [{itemKey, field, value}]
+    const toAttachEntry = []; // [{itemKey, action, attachmentUuid, oldAttachmentUuid, value}]
 
     for (const change of selectedChanges) {
       switch (change.type) {
@@ -528,6 +633,11 @@ const DiffEngine = {
             toModify.push(change);
           }
           break;
+        case "attach-entry":
+          if (change.itemKey != null && change.attachmentUuid != null) {
+            toAttachEntry.push(change);
+          }
+          break;
         default:
           // Unknown change type — skip silently
           break;
@@ -540,13 +650,37 @@ const DiffEngine = {
       .map((item) => {
         const key = DiffEngine.computeItemKey(item);
         const patches = toModify.filter((c) => String(c.itemKey) === key);
-        if (patches.length === 0) return item;
+        const attachPatches = toAttachEntry.filter((c) => String(c.itemKey) === key);
+        if (patches.length === 0 && attachPatches.length === 0) return item;
 
-        // Clone item and apply patches
+        // Clone item and apply scalar patches
         const updated = Object.assign({}, item);
         for (const patch of patches) {
           updated[patch.field] = patch.value;
         }
+
+        // Apply per-attachment patches
+        if (attachPatches.length > 0) {
+          let atts = Array.isArray(updated.attachments) ? updated.attachments.slice() : [];
+          for (const ap of attachPatches) {
+            if (ap.action === "add") {
+              if (!atts.some((a) => a.attachmentUuid === ap.attachmentUuid)) {
+                atts.push(ap.value);
+              }
+            } else if (ap.action === "remove") {
+              atts = atts.filter((a) => a.attachmentUuid !== ap.attachmentUuid);
+            } else if (ap.action === "replace") {
+              const idx = atts.findIndex((a) => a.attachmentUuid === ap.oldAttachmentUuid);
+              if (idx !== -1) {
+                atts.splice(idx, 1, ap.value);
+              } else if (!atts.some((a) => a.attachmentUuid === ap.attachmentUuid)) {
+                atts.push(ap.value);
+              }
+            }
+          }
+          updated.attachments = atts;
+        }
+
         return updated;
       });
 
@@ -557,6 +691,12 @@ const DiffEngine = {
 
     return result;
   },
+
+  // -------------------------------------------------------------------------
+  // diffAttachments
+  // -------------------------------------------------------------------------
+
+  diffAttachments: _diffAttachments,
 };
 
 // ---------------------------------------------------------------------------

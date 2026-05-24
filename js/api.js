@@ -7,6 +7,7 @@ const providerStatuses = {
   METALS_DEV: "disconnected",
   METALS_API: "disconnected",
   METAL_PRICE_API: "disconnected",
+  GOLD_API: "disconnected",
   CUSTOM: "disconnected",
 };
 
@@ -1489,6 +1490,7 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
           const url = `${providerConfig.baseUrl}${endpoint.replace("{API_KEY}", apiKey)}`;
           const headers = { "Content-Type": "application/json" };
           if (provider === "METALS_DEV" && apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+          if (provider === "GOLD_API" && apiKey) headers["x-api-key"] = apiKey;
           const response = await fetch(url, { method: "GET", headers, mode: "cors" });
           if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           const data = await response.json();
@@ -2072,6 +2074,9 @@ const testApiConnection = async (provider, apiKey) => {
       if (provider === "METALS_DEV" && apiKey) {
         headers["Authorization"] = `Bearer ${apiKey}`;
       }
+      if (provider === "GOLD_API" && apiKey) {
+        headers["x-api-key"] = apiKey;
+      }
     }
 
     const response = await fetch(url, {
@@ -2089,7 +2094,7 @@ const testApiConnection = async (provider, apiKey) => {
 
     return price && price > 0;
   } catch (error) {
-    console.error("API connection test failed:", error);
+    debugLog("API connection test failed:", error, "warn");
     return false;
   }
 };
@@ -2563,6 +2568,7 @@ window.showApiHistoryModal = showApiHistoryModal;
 window.hideApiHistoryModal = hideApiHistoryModal;
 window.clearApiHistory = clearApiHistory;
 window.syncAllProviders = syncAllProviders;
+window.syncSpotPricesFromApi = syncSpotPricesFromApi;
 window.syncSpotProvider = syncSpotProvider;
 window.syncProviderChain = syncProviderChain;
 window.autoSyncSpotPrices = autoSyncSpotPrices;

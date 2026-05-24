@@ -25,12 +25,14 @@ fi
 # If any of these are staged, the cache name must change.
 CACHED_PATTERNS=(
   "css/"
+  "fonts/"
   "js/"
   "index.html"
   "data/"
   "images/"
   "manifest.json"
   "sw.js"
+  "sw-router.js"
 )
 
 # Check if any cached asset is in the staged diff

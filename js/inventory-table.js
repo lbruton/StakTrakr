@@ -85,7 +85,7 @@
       }
       map[key] = Math.abs(hash) % 360;
     }
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const isDark = ["dark", "slate"].includes(document.documentElement.getAttribute("data-theme"));
     const lightness = isDark ? 65 : 35;
     return `hsl(${map[key]}, 70%, ${lightness}%)`;
   };
@@ -242,29 +242,40 @@
 
   const _thumbPlaceholders = {};
 
-  function _getThumbPlaceholder(metal, type) {
-    const key = (metal || "Silver") + ":" + (type || "Coin");
+  function _getThumbPlaceholder(metal, type, shape) {
+    const resolvedShape = shape || "round";
+    const key = (metal || "Silver") + ":" + (type || "Coin") + ":" + resolvedShape;
     if (_thumbPlaceholders[key]) return _thumbPlaceholders[key];
 
+    const silver = getThemeColor("silver");
+    const gold = getThemeColor("gold");
+    const platinum = getThemeColor("platinum");
+    const palladium = getThemeColor("palladium");
     const colors = {
-      Silver: { fill: "#a8b5c4", stroke: "#8a9bb0", text: "#6b7d91" },
-      Gold: { fill: "#d4a74a", stroke: "#b8912e", text: "#9a7a24" },
-      Platinum: { fill: "#b8c5d6", stroke: "#95a8bd", text: "#7b8fa5" },
-      Palladium: { fill: "#c2b8a3", stroke: "#a89e8a", text: "#8e846f" },
+      Silver: { fill: silver, stroke: silver, text: silver },
+      Gold: { fill: gold, stroke: gold, text: gold },
+      Platinum: { fill: platinum, stroke: platinum, text: platinum },
+      Palladium: { fill: palladium, stroke: palladium, text: palladium },
     };
     const c = colors[metal] || colors.Silver;
 
-    const isBar = /bar|ingot/i.test(type || "");
+    const isBar = /bar|ingot/i.test(type || "") || resolvedShape === "rect";
     const icon = isBar
       ? `<rect x="11" y="7" width="10" height="18" rx="1.5" fill="none" stroke="${c.text}" stroke-width="1.5" opacity="0.5"/><line x1="13" y1="12" x2="19" y2="12" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="15" x2="19" y2="15" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="18" x2="19" y2="18" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/>`
       : `<circle cx="16" cy="16" r="8" fill="none" stroke="${c.text}" stroke-width="1.2" opacity="0.45"/><circle cx="16" cy="16" r="5" fill="none" stroke="${c.text}" stroke-width="0.8" opacity="0.3" stroke-dasharray="2 2"/>`;
 
+    const outerShape =
+      resolvedShape === "rect"
+        ? `<rect x="1" y="1" width="30" height="30" rx="8" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" opacity="0.25"/>`
+        : `<circle cx="16" cy="16" r="15" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" opacity="0.25"/>`;
+
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-    <circle cx="16" cy="16" r="15" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" opacity="0.25"/>
+    ${outerShape}
     ${icon}
   </svg>`;
 
-    const uri = "data:image/svg+xml," + encodeURIComponent(svg);
+    const encoded = svg.replace(/#/g, "%23");
+    const uri = "data:image/svg+xml," + encoded;
     _thumbPlaceholders[key] = uri;
     return uri;
   }
@@ -307,14 +318,19 @@
       const row = img.closest("tr");
       const idx = row?.dataset?.idx;
       let cdnUrl = "";
+      let invItem;
       if (idx !== undefined) {
-        const invItem = inventory[parseInt(idx, 10)];
+        invItem = inventory[parseInt(idx, 10)];
         if (invItem) {
           const urlKey = side === "reverse" ? "reverseImageUrl" : "obverseImageUrl";
           cdnUrl =
             invItem[urlKey] && /^https?:\/\/.+\..+/i.test(invItem[urlKey]) ? invItem[urlKey] : "";
         }
       }
+      const resolvedShape =
+        typeof resolveImageFrame === "function" && resolveImageFrame(invItem, side) === "rect"
+          ? "rect"
+          : "round";
 
       const blobUrl = await imageCache.resolveImageUrlForItem(item, side);
       if (blobUrl) {
@@ -324,7 +340,7 @@
           if (cdnUrl) {
             img.src = cdnUrl;
           } else {
-            img.src = _getThumbPlaceholder(item.metal, item.type);
+            img.src = _getThumbPlaceholder(item.metal, item.type, resolvedShape);
             img.classList.add("table-thumb-placeholder");
           }
         };
@@ -339,7 +355,7 @@
         return;
       }
 
-      img.src = _getThumbPlaceholder(item.metal, item.type);
+      img.src = _getThumbPlaceholder(item.metal, item.type, resolvedShape);
       img.style.visibility = "";
       img.classList.add("table-thumb-placeholder");
     } catch {
@@ -403,6 +419,7 @@
 
       const _tableImagesOnSetting = localStorage.getItem("tableImagesEnabled") !== "false";
       const _tableImageSidesSetting = localStorage.getItem("tableImageSides") || "both";
+      const hasImageFrameResolver = typeof resolveImageFrame === "function";
 
       for (let i = 0; i < sortedInventory.length; i++) {
         const item = sortedInventory[i];
@@ -505,15 +522,10 @@
             ? `<span class="purity-tag" title="Purity: ${purityVal}" onclick="applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})" tabindex="0" role="button" style="cursor:pointer;">${purityVal}</span>`
             : "";
 
-        const _thumbType = (item.type || "").toLowerCase();
-        const _isRectThumb =
-          _thumbType === "bar" ||
-          _thumbType === "note" ||
-          _thumbType === "aurum" ||
-          _thumbType === "set" ||
-          item.weightUnit === "gb" ||
-          item.weightUnit === "sb";
-        const _thumbShapeClass = _isRectThumb ? " table-thumb-rect" : "";
+        const _thumbShapeClass = (side) =>
+          hasImageFrameResolver && resolveImageFrame(item, side) === "rect"
+            ? " table-thumb-rect"
+            : "";
         const _validUrl = (u) => u && /^https?:\/\/.+\..+/i.test(u);
         const obvUrl = _validUrl(item.obverseImageUrl) ? item.obverseImageUrl : "";
         const revUrl = _validUrl(item.reverseImageUrl) ? item.reverseImageUrl : "";
@@ -531,12 +543,12 @@
         const thumbHtml =
           _tableImagesOnSetting && featureFlags.isEnabled("COIN_IMAGES")
             ? (_showObv
-                ? `<img class="table-thumb${_thumbShapeClass}"${obvSrcAttr}
+                ? `<img class="table-thumb${_thumbShapeClass("obverse")}"${obvSrcAttr}
                  ${_sharedThumbAttrs} data-side="obverse"
                  alt="" loading="lazy" />`
                 : "") +
               (_showRev
-                ? `<img class="table-thumb${_thumbShapeClass}"${revSrcAttr}
+                ? `<img class="table-thumb${_thumbShapeClass("reverse")}"${revSrcAttr}
                  ${_sharedThumbAttrs} data-side="reverse"
                  alt="" loading="lazy" />`
                 : "")
@@ -549,6 +561,17 @@
             ? `<span class="tags-inline-chip" title="${escapeAttribute(_inlineTags.join(", "))}">${sanitizeHtml(_inlineTags.slice(0, 2).join(", "))}${_inlineTags.length > 2 ? "\u2026" : ""}</span>`
             : "";
 
+        let attachChipHtml = "";
+        if (item.attachments?.length > 0 && typeof renderAttachmentBadge === "function") {
+          const badgeEl = renderAttachmentBadge(item, { variant: "table" });
+          if (badgeEl) {
+            badgeEl.setAttribute(
+              "onclick",
+              `typeof showViewModal === "function" && showViewModal(${originalIdx});event.stopPropagation()`
+            );
+            attachChipHtml = badgeEl.outerHTML;
+          }
+        }
         const chipMap = {
           grade: gradeTag,
           numista: numistaTag,
@@ -559,6 +582,7 @@
           notes: notesIndicator,
           purity: purityTag,
           tags: tagsChip,
+          attachment: attachChipHtml,
         };
         const orderedChips = chipConfig
           .filter((c) => c.enabled && chipMap[c.id])
@@ -600,7 +624,7 @@
         </a>
       </td>
       <td class="shrink" data-column="meltValue" data-label="Melt" title="Melt Value (${displayCurrency})" style="color: var(--text-primary);">${meltDisplay}</td>
-      <td class="shrink ${gbDenomPrice ? "retail-confirmed" : isManualRetail ? "retail-confirmed" : "retail-estimated"}" data-column="retailPrice" data-label="Retail" title="${gbDenomPrice ? "Goldback denomination price" : isManualRetail ? "Manual retail price (confirmed)" : "Estimated — defaults to melt value"} - Click to search eBay sold listings">
+      <td class="shrink ${gbDenomPrice || isManualRetail ? "retail-confirmed" : "retail-estimated"}" data-column="retailPrice" data-label="Retail" title="${isManualRetail ? "Manual retail price (confirmed)" : gbDenomPrice ? "Goldback denomination price" : "Estimated — defaults to melt value"} - Click to search eBay sold listings">
         <a href="#" class="ebay-sold-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay sold listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${retailDisplay} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </a>

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 
 /**
  * STAK-442 — Storage tab danger buttons to Inventory

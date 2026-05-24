@@ -1,5 +1,10 @@
 # Section 04 — Import & Export
 
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 This section covers CSV/eBay import flows, duplicate detection, the merge diff viewer, selective import, and PDF export. It is distinct from Section 03 (backup/restore) in that it focuses on structured data import from external sources and the merge/conflict resolution UX rather than full inventory backup cycles.
 
 **File picker limitation:** Stagehand cannot interact with OS-level file picker dialogs. For any test that requires selecting a file from disk, the test validates the UI flow up to the point where the file picker is triggered. Actual file selection and downstream import results require manual verification.

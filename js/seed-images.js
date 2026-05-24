@@ -115,9 +115,13 @@ const loadSeedImages = async () => {
     }
   }
 
-  // Mark version as loaded (even if 0 loaded — prevents retry on rules that were deleted)
+  // Mark version as loaded only when the seed rules still have persisted state.
+  // This avoids a version-only marker if storage is cleared while async image
+  // caching is still finishing.
   try {
-    localStorage.setItem("seedImagesVer", SEED_IMAGES_VERSION);
+    if (localStorage.getItem("numistaLookupRules") !== null) {
+      localStorage.setItem("seedImagesVer", SEED_IMAGES_VERSION);
+    }
   } catch (e) {
     /* ignore */
   }

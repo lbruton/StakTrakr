@@ -393,6 +393,8 @@ const NUMISTA_FIELD_TOGGLES = [
   ["country", "Country"],
   ["technique", "Technique"],
   ["references", "References (KM#)"],
+  ["obverse", "Obverse"],
+  ["reverse", "Reverse"],
   ["edge", "Edge"],
   ["tags", "Tags"],
   ["commemorative", "Commemorative"],

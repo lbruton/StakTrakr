@@ -34,6 +34,13 @@ const clearInventoryRecovery = () => {
 window.setInventoryRecoveryActive = setInventoryRecoveryActive;
 window.isInventoryRecoveryActive = isInventoryRecoveryActive;
 window.clearInventoryRecovery = clearInventoryRecovery;
+Object.defineProperty(window, "inventoryRecoveryActive", {
+  get: () => inventoryRecoveryActive,
+  set: (val) => {
+    inventoryRecoveryActive = !!val;
+  },
+  configurable: true,
+});
 
 /**
  * STRK-13: Show the sticky inventory recovery banner above the inventory
@@ -181,6 +188,57 @@ const saveInventory = async () => {
   // STAK-149: Trigger debounced cloud auto-sync push (no-op if sync disabled or not connected)
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 };
+
+/**
+ * Synchronous, success-detecting equivalent of saveInventory() for the
+ * partial-disposition two-phase commit path. Returns true on full success,
+ * false on any failure (including recovery mode active). Never throws.
+ * STRK-44: REQ-7.1 cloud propagation depends on this calling scheduleSyncPush.
+ */
+const tryPersistInventory = () => {
+  // STRK-13: Suppress writes during recovery mode
+  if (inventoryRecoveryActive) {
+    if (typeof debugLog === "function") {
+      debugLog(
+        "tryPersistInventory: suppressed (recovery mode active — explicit user action required)"
+      );
+    }
+    return false;
+  }
+
+  // Invalidate cached index map as inventory has likely changed
+  invalidateItemIndexMap();
+
+  migrateLegacySilverbackWeightUnit(inventory);
+
+  try {
+    localStorage.setItem(LS_KEY, __compressIfNeeded(JSON.stringify(inventory)));
+  } catch (e) {
+    if (typeof debugLog === "function") {
+      debugLog("tryPersistInventory: inventory write failed", e);
+    }
+    if (e && e.name === "QuotaExceededError" && typeof showToast === "function") {
+      showToast("Storage is full — partial disposition was not saved.", "error");
+    }
+    return false;
+  }
+  // Timestamp is best-effort: failure here must NOT trigger caller rollback because inventory
+  // is already persisted. A stale timestamp causes sync to re-sync harmlessly on next change.
+  try {
+    localStorage.setItem("cloud_sync_local_modified", new Date().toISOString());
+  } catch (_) {
+    if (typeof debugLog === "function")
+      debugLog("tryPersistInventory: timestamp write skipped (quota)");
+  }
+
+  // STACK-62: Invalidate autocomplete cache so lookup table rebuilds with current inventory
+  if (typeof clearLookupCache === "function") clearLookupCache();
+  // STAK-149: Trigger debounced cloud auto-sync push (no-op if sync disabled or not connected)
+  if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+
+  return true;
+};
+window.tryPersistInventory = tryPersistInventory;
 
 /**
  * Removes non-alphanumeric characters from inventory records.
@@ -564,6 +622,128 @@ window.startCellEdit = startCellEdit;
  * @param {number} idx - Index of item to remove
  * @param {boolean} [preDispose=false] - Pre-check the dispose checkbox
  */
+let _removeItemQtyPreviewHandler = null;
+let _confirmRemoveItemInFlight = false;
+const DISPOSE_QTY_CHIP_MAX = 8;
+let _removeItemQtyChipKeyHandler = null;
+let _removeItemQtySelectChangeHandler = null;
+
+const writeDisposeQty = (n) => {
+  const el = safeGetElement("removeItemQty");
+  if (!(el instanceof HTMLElement)) return;
+  el.value = String(n);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+};
+
+const renderDisposeQtyChips = (stackQty, labelMaxEl) => {
+  const chipsEl = safeGetElement("removeItemQtyChips");
+  const selectEl = safeGetElement("removeItemQtySelect");
+  if (!chipsEl || !selectEl) return;
+
+  chipsEl.innerHTML = "";
+  chipsEl.className = "chip-sort-toggle chip-sort-toggle--quantity";
+  chipsEl.style.display = "";
+  selectEl.style.display = "none";
+
+  if (labelMaxEl) labelMaxEl.textContent = ` (max ${stackQty})`;
+
+  if (stackQty === 1) {
+    chipsEl.classList.add("is-disabled");
+    chipsEl.setAttribute("aria-disabled", "true");
+  } else {
+    chipsEl.classList.remove("is-disabled");
+    chipsEl.removeAttribute("aria-disabled");
+  }
+
+  const selectChip = (n) => {
+    const disabled = chipsEl.classList.contains("is-disabled");
+    for (const btn of chipsEl.children) {
+      const active = btn.dataset.qty === String(n);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      btn.tabIndex = active ? 0 : -1;
+      btn.classList.toggle("active", active);
+    }
+    writeDisposeQty(n);
+    if (!disabled) {
+      chipsEl.querySelector(`[data-qty="${n}"]`)?.focus();
+    }
+  };
+
+  for (let n = 1; n <= stackQty; n++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip-sort-btn";
+    btn.dataset.qty = String(n);
+    btn.textContent = String(n);
+    btn.setAttribute("aria-label", `Dispose ${n} of ${stackQty}`);
+    const isLast = n === stackQty;
+    btn.setAttribute("aria-pressed", isLast ? "true" : "false");
+    btn.tabIndex = isLast ? 0 : -1;
+    if (isLast) btn.classList.add("active");
+    btn.addEventListener("click", () => selectChip(n));
+    chipsEl.appendChild(btn);
+  }
+
+  if (_removeItemQtyChipKeyHandler) {
+    chipsEl.removeEventListener("keydown", _removeItemQtyChipKeyHandler);
+  }
+  _removeItemQtyChipKeyHandler = (event) => {
+    if (chipsEl.classList.contains("is-disabled")) return;
+    const chips = Array.from(chipsEl.children);
+    const currentIdx = chips.findIndex((b) => b.tabIndex === 0);
+    let targetIdx = currentIdx;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      targetIdx = (currentIdx + 1) % chips.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      targetIdx = (currentIdx - 1 + chips.length) % chips.length;
+    } else if (event.key === "Home") {
+      targetIdx = 0;
+    } else if (event.key === "End") {
+      targetIdx = chips.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    const parsedQty = Number(chips[targetIdx].dataset.qty);
+    selectChip(Number.isNaN(parsedQty) ? 1 : parsedQty);
+  };
+  chipsEl.addEventListener("keydown", _removeItemQtyChipKeyHandler);
+
+  writeDisposeQty(stackQty);
+  if (!chipsEl.classList.contains("is-disabled")) {
+    chipsEl.querySelector(`[data-qty="${stackQty}"]`)?.focus();
+  }
+};
+
+const renderDisposeQtySelect = (stackQty, labelMaxEl) => {
+  const chipsEl = safeGetElement("removeItemQtyChips");
+  const selectEl = safeGetElement("removeItemQtySelect");
+  if (!chipsEl || !selectEl) return;
+
+  chipsEl.style.display = "none";
+  selectEl.style.display = "";
+
+  if (labelMaxEl) labelMaxEl.textContent = ` (max ${stackQty})`;
+
+  selectEl.innerHTML = "";
+  for (let n = 1; n <= stackQty; n++) {
+    const opt = document.createElement("option");
+    opt.value = String(n);
+    opt.textContent = String(n);
+    if (n === stackQty) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+
+  if (_removeItemQtySelectChangeHandler) {
+    selectEl.removeEventListener("change", _removeItemQtySelectChangeHandler);
+  }
+  _removeItemQtySelectChangeHandler = (e) => writeDisposeQty(parseInt(e.target.value, 10));
+  selectEl.addEventListener("change", _removeItemQtySelectChangeHandler);
+
+  writeDisposeQty(stackQty);
+  selectEl.focus();
+};
+
 const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
   if (!item) return;
@@ -573,6 +753,18 @@ const openRemoveItemModal = (idx, preDispose = false) => {
 
   const nameEl = safeGetElement("removeItemName");
   if (nameEl) nameEl.textContent = item.name || "Unnamed item";
+
+  // Show attachment deletion warning (STRK-45)
+  const attachWarn = safeGetElement("removeItemAttachmentWarn");
+  if (attachWarn) {
+    const count = item.attachments?.length || 0;
+    if (count > 0) {
+      attachWarn.textContent = `${count} attachment${count === 1 ? "" : "s"} will also be deleted.`;
+      attachWarn.style.display = "";
+    } else {
+      attachWarn.style.display = "none";
+    }
+  }
 
   const checkbox = safeGetElement("removeItemDisposeCheck");
   const fieldsWrap = safeGetElement("removeItemDisposeFields");
@@ -592,6 +784,51 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   if (notesInput) notesInput.value = "";
   const amountGroup = safeGetElement("dispositionAmountGroup");
   if (amountGroup) amountGroup.style.display = "";
+
+  // Reset partial-dispose fields
+  const qtyInput = safeGetElement("removeItemQty");
+  const previewEl = safeGetElement("removeItemDisposePreview");
+  const qtyGroup = qtyInput?.closest(".form-group");
+  if (qtyInput) qtyInput.value = "";
+  if (previewEl) {
+    previewEl.textContent = "";
+    previewEl.style.display = "none";
+  }
+
+  const stackQty = Number(item.qty) || 1;
+
+  // STRK-53: control is always visible — qty=1 shows pre-selected, dimmed.
+  if (qtyGroup) qtyGroup.style.display = "";
+  const labelMaxEl = safeGetElement("removeItemQtyLabelMax");
+  if (stackQty <= DISPOSE_QTY_CHIP_MAX) {
+    renderDisposeQtyChips(stackQty, labelMaxEl);
+  } else {
+    renderDisposeQtySelect(stackQty, labelMaxEl);
+  }
+  // qtyInput.value is set by writeDisposeQty inside the helpers; no direct write here.
+
+  window.disposeAmountToggle?.setMode("each", { convertInput: false });
+  window.disposeAmountToggle?.updateVisibility();
+
+  // Wire live preview — remove any prior listener first
+  if (qtyInput) {
+    if (_removeItemQtyPreviewHandler) {
+      qtyInput.removeEventListener("input", _removeItemQtyPreviewHandler);
+    }
+    _removeItemQtyPreviewHandler = () => {
+      const entered = parseInt(qtyInput.value, 10);
+      if (!previewEl) return;
+      if (!Number.isFinite(entered) || entered < 1 || entered >= stackQty) {
+        previewEl.style.display = "none";
+        previewEl.textContent = "";
+      } else {
+        const remaining = stackQty - entered;
+        previewEl.textContent = `Disposing ${entered} of ${stackQty} — ${remaining} will remain in active inventory`;
+        previewEl.style.display = "";
+      }
+    };
+    qtyInput.addEventListener("input", _removeItemQtyPreviewHandler);
+  }
 
   // Set checkbox state and toggle fields/buttons
   if (checkbox) checkbox.checked = preDispose;
@@ -616,78 +853,158 @@ const disposeItem = (idx) => {
  * Confirms removal from the combined Remove Item modal (STAK-72).
  * Reads checkbox state to decide between plain delete and disposition.
  */
-const confirmRemoveItem = () => {
-  const idxInput = safeGetElement("removeItemIdx");
-  const idx = parseInt(idxInput?.value, 10);
-  if (isNaN(idx) || !inventory[idx]) return;
+const confirmRemoveItem = async () => {
+  if (_confirmRemoveItemInFlight) return;
+  _confirmRemoveItemInFlight = true;
+  try {
+    const idxInput = safeGetElement("removeItemIdx");
+    const idx = parseInt(idxInput?.value, 10);
+    if (isNaN(idx) || !inventory[idx]) return;
 
-  const item = inventory[idx];
-  const checkbox = safeGetElement("removeItemDisposeCheck");
-  const isDispose = checkbox?.checked;
+    const item = inventory[idx];
+    const checkbox = safeGetElement("removeItemDisposeCheck");
+    const isDispose = checkbox?.checked;
 
-  if (isDispose) {
-    // Disposition flow — validate fields
-    const type = safeGetElement("dispositionType")?.value;
-    const date = safeGetElement("dispositionDate")?.value;
-    const amount = parseFloat(safeGetElement("dispositionAmount")?.value) || 0;
-    const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
-    const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
+    if (isDispose) {
+      // Disposition flow — validate fields
+      const type = safeGetElement("dispositionType")?.value;
+      const date = safeGetElement("dispositionDate")?.value;
+      const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
+      const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
 
-    if (!type || !DISPOSITION_TYPES[type]) {
-      showToast("Please select a disposition type.");
-      return;
+      if (!type || !DISPOSITION_TYPES[type]) {
+        showToast("Please select a disposition type.");
+        return;
+      }
+      if (!date) {
+        showToast("Please enter a disposition date.");
+        return;
+      }
+
+      // Determine disposed quantity
+      const qtyInputEl = safeGetElement("removeItemQty");
+      const qtyHidden = !qtyInputEl || qtyInputEl.closest(".form-group")?.style.display === "none";
+      let disposedQty;
+      if (qtyHidden || qtyInputEl.value === "") {
+        disposedQty = Number(item.qty) || 1;
+      } else {
+        disposedQty = Number(qtyInputEl.value);
+        // STRK-53: defense-in-depth. The chip/<select> UI does not expose a path to a non-integer
+        // value. This branch is reachable only via programmatic DOM access — keep as a safety net.
+        if (!Number.isInteger(disposedQty)) {
+          showToast("Please enter a whole number quantity to dispose.");
+          return;
+        }
+      }
+
+      // STRK-53: defense-in-depth. Same reasoning as above — out-of-range values are not
+      // selectable through the UI.
+      if (
+        !Number.isFinite(disposedQty) ||
+        disposedQty < 1 ||
+        disposedQty > (Number(item.qty) || 1)
+      ) {
+        showToast("Please enter a valid quantity to dispose.");
+        return;
+      }
+
+      // Read amount — resolve lot/each
+      const amountMode = window.disposeAmountToggle?.getMode() ?? "each";
+      const rawAmount = parseFloat(safeGetElement("dispositionAmount")?.value ?? "");
+      let resolvedAmount;
+      if (!Number.isFinite(rawAmount)) {
+        resolvedAmount = undefined;
+      } else if (amountMode === "each") {
+        resolvedAmount = rawAmount * disposedQty;
+      } else {
+        resolvedAmount = rawAmount;
+      }
+
+      if (
+        DISPOSITION_TYPES[type].requiresAmount &&
+        (resolvedAmount == null || resolvedAmount <= 0)
+      ) {
+        showToast("Please enter a sale/trade/refund amount.");
+        return;
+      }
+
+      // Partial-dispose path
+      if (disposedQty < (Number(item.qty) || 1)) {
+        const dispositionInput = {
+          type,
+          date,
+          amount: resolvedAmount,
+          currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+          recipient,
+          notes,
+        };
+        const result = await splitInventoryItem(idx, disposedQty, dispositionInput);
+        if (!result.ok) {
+          showToast(`Could not split stack: ${result.error}`);
+          return;
+        }
+        renderTable();
+        if (typeof renderChangeLog === "function") renderChangeLog();
+        closeModalById("removeItemModal");
+        renderActiveFilters();
+        updateSummary();
+        return;
+      }
+
+      // Full-stack path (unchanged)
+      const amount = resolvedAmount ?? 0;
+      const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
+      const realizedGainLoss = amount - purchaseTotal;
+
+      const disposition = {
+        type,
+        date,
+        amount,
+        currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+        recipient,
+        notes,
+        realizedGainLoss,
+        disposedAt: new Date().toISOString(),
+      };
+
+      inventory[idx].disposition = disposition;
+      saveInventory();
+      closeModalById("removeItemModal");
+      logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
+      showToast(`${item.name} marked as ${DISPOSITION_TYPES[type].label.toLowerCase()}.`);
+    } else {
+      // Plain delete flow
+      inventory.splice(idx, 1);
+      saveInventory();
+      closeModalById("removeItemModal");
+      logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
+
+      // Clean up user images from IndexedDB (STAK-120)
+      if (item?.uuid && window.imageCache?.isAvailable()) {
+        window.imageCache.deleteUserImage(item.uuid).catch((err) => {
+          debugLog(`Failed to delete user images for deleted item: ${err}`);
+        });
+      }
+
+      // Clean up attachments from IndexedDB (STRK-45)
+      if (item?.uuid && window.attachmentManager?.isAvailable()) {
+        attachmentManager.deleteAttachmentsForItem(item.uuid).catch((err) => {
+          debugLog(`Failed to delete attachments for deleted item: ${err}`);
+        });
+      }
+
+      // Clean up item tags (STAK-126)
+      if (item?.uuid && typeof deleteItemTags === "function") {
+        deleteItemTags(item.uuid);
+      }
     }
-    if (DISPOSITION_TYPES[type].requiresAmount && amount <= 0) {
-      showToast("Please enter a sale/trade/refund amount.");
-      return;
-    }
-    if (!date) {
-      showToast("Please enter a disposition date.");
-      return;
-    }
 
-    const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
-    const realizedGainLoss = amount - purchaseTotal;
-
-    const disposition = {
-      type,
-      date,
-      amount,
-      currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
-      recipient,
-      notes,
-      realizedGainLoss,
-      disposedAt: new Date().toISOString(),
-    };
-
-    inventory[idx].disposition = disposition;
-    saveInventory();
-    closeModalById("removeItemModal");
-    logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
-    showToast(`${item.name} marked as ${DISPOSITION_TYPES[type].label.toLowerCase()}.`);
-  } else {
-    // Plain delete flow
-    inventory.splice(idx, 1);
-    saveInventory();
-    closeModalById("removeItemModal");
-    logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
-
-    // Clean up user images from IndexedDB (STAK-120)
-    if (item?.uuid && window.imageCache?.isAvailable()) {
-      window.imageCache.deleteUserImage(item.uuid).catch((err) => {
-        debugLog(`Failed to delete user images for deleted item: ${err}`);
-      });
-    }
-
-    // Clean up item tags (STAK-126)
-    if (item?.uuid && typeof deleteItemTags === "function") {
-      deleteItemTags(item.uuid);
-    }
+    renderTable();
+    renderActiveFilters();
+    updateSummary();
+  } finally {
+    _confirmRemoveItemInFlight = false;
   }
-
-  renderTable();
-  renderActiveFilters();
-  updateSummary();
 };
 
 /**
@@ -696,13 +1013,14 @@ const confirmRemoveItem = () => {
  *
  * @param {number} idx - Index of item to restore
  */
-const undoDisposition = async (idx) => {
+const restoreInPlace = async (idx, { skipConfirm = false } = {}) => {
   const item = inventory[idx];
   if (!item || !isDisposed(item)) return;
   const confirmed =
-    typeof showAppConfirm === "function"
+    skipConfirm ||
+    (typeof showAppConfirm === "function"
       ? await showAppConfirm(`Restore "${item.name}" to active inventory?`, "Undo Disposition")
-      : false;
+      : false);
   if (confirmed) {
     const oldDisposition = JSON.stringify(item.disposition);
     inventory[idx].disposition = null;
@@ -714,6 +1032,257 @@ const undoDisposition = async (idx) => {
     updateSummary();
   }
 };
+
+const undoDisposition = async (idx) => {
+  const item = inventory[idx];
+  if (!item || !isDisposed(item)) return;
+  const splitFromUuid = item.disposition?.splitFromUuid;
+  if (!splitFromUuid) return restoreInPlace(idx);
+  const originalIdx = inventory.findIndex((i) => i.uuid === splitFromUuid);
+  if (originalIdx === -1 || isDisposed(inventory[originalIdx])) {
+    showToast("Original record no longer present; restored as separate row.");
+    return restoreInPlace(idx);
+  }
+  const mergedQty = inventory[originalIdx].qty + item.qty;
+  const choice = await window.showRestoreChoice({
+    clone: item,
+    original: inventory[originalIdx],
+    mergedQty,
+  });
+  if (choice === "cancel") return;
+  if (choice === "separate") return restoreInPlace(idx, { skipConfirm: true });
+
+  // Merge two-phase commit
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
+
+  const cloneQty = item.qty;
+  const cloneName = item.name;
+  const cloneUuid = item.uuid;
+  inventory[originalIdx].qty += cloneQty;
+  const mergeAdjustedOriginalIdx = idx < originalIdx ? originalIdx - 1 : originalIdx;
+  inventory.splice(idx, 1);
+
+  changeLog.push({
+    timestamp: Date.now(),
+    itemName: cloneName,
+    field: "Restored (merged)",
+    oldValue: { fromUuid: cloneUuid, qty: cloneQty },
+    newValue: {
+      intoUuid: inventory[mergeAdjustedOriginalIdx].uuid,
+      mergedQty: inventory[mergeAdjustedOriginalIdx].qty,
+    },
+    idx: mergeAdjustedOriginalIdx,
+    undone: false,
+  });
+
+  if (!tryPersistInventory()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    showToast("Couldn't merge — storage failed. Try again.", "error");
+    return;
+  }
+
+  if (!tryPersistChangeLog()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((i) => inventory.push(i));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((e) => changeLog.push(e));
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      showToast("Critical: storage failure left state inconsistent. Reload to recover.", "error");
+      return;
+    }
+    showToast("Couldn't save audit log — merge was reverted.", "error");
+    return;
+  }
+
+  try {
+    if (window.imageCache && typeof window.imageCache.deleteUserImage === "function") {
+      window.imageCache.deleteUserImage(cloneUuid).catch(() => {});
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("undoDisposition merge: image cleanup failed", e);
+  }
+
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  if (typeof renderChangeLog === "function") renderChangeLog();
+  showToast(
+    `${cloneName} merged back into original (${inventory[mergeAdjustedOriginalIdx].qty} total).`
+  );
+};
+
+const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) => {
+  // 1. Validate
+  const original = inventory[originalIdx];
+  if (!original) return { ok: false, error: "validation_failed" };
+  const qty = parseInt(disposedQty, 10);
+  if (!Number.isFinite(qty) || qty < 1 || qty >= original.qty) {
+    return { ok: false, error: "validation_failed" };
+  }
+
+  // 2. Snapshot
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
+
+  // 3. Mutate inventory in memory
+  const originalQtyBefore = original.qty;
+  inventory[originalIdx].qty -= qty;
+  const originalQtyAfter = inventory[originalIdx].qty;
+
+  const clone = structuredClone(original);
+  clone.uuid = generateUUID();
+  clone.serial = getNextSerial();
+  clone.qty = qty;
+  const _splitAttachmentMap = new Map();
+  clone.attachments = (original.attachments || []).map((a) => {
+    const newUuid = generateUUID();
+    _splitAttachmentMap.set(a.attachmentUuid, newUuid);
+    return { ...a, attachmentUuid: newUuid };
+  });
+  const disposedAt = new Date().toISOString();
+  const pricePerUnit = parseFloat(original.price) || 0;
+  const rawTotalAmount =
+    dispositionInput.amount != null ? Number(dispositionInput.amount) : undefined;
+  const typeInfo =
+    typeof DISPOSITION_TYPES !== "undefined" && dispositionInput.type
+      ? DISPOSITION_TYPES[dispositionInput.type]
+      : null;
+  const totalAmount =
+    rawTotalAmount != null && Number.isFinite(rawTotalAmount)
+      ? rawTotalAmount
+      : typeInfo && !typeInfo.requiresAmount
+        ? 0
+        : undefined;
+  const realizedGainLoss =
+    totalAmount != null && Number.isFinite(totalAmount)
+      ? totalAmount - pricePerUnit * qty
+      : undefined;
+
+  clone.disposition = {
+    type: dispositionInput.type || null,
+    date: dispositionInput.date || null,
+    amount: totalAmount,
+    currency: dispositionInput.currency || null,
+    recipient: dispositionInput.recipient || null,
+    notes: dispositionInput.notes || null,
+    realizedGainLoss,
+    disposedAt,
+    splitFromUuid: original.uuid,
+  };
+
+  // Insert clone immediately after original
+  inventory.splice(originalIdx + 1, 0, clone);
+
+  // 4. Build changeLog entries in memory
+  const transactionId = disposedAt;
+  const splitEntry = {
+    timestamp: Date.now(),
+    itemName: original.name,
+    field: "Stack split",
+    oldValue: String(originalQtyBefore),
+    newValue: String(originalQtyAfter),
+    idx: originalIdx,
+    undone: false,
+    transactionId,
+    transactionLabel: `Stack split: ${originalQtyBefore} → ${originalQtyAfter}`,
+    itemKey: original.uuid,
+    stackSplit: {
+      originalUuid: original.uuid,
+      cloneUuid: clone.uuid,
+      originalQtyBefore,
+      originalQtyAfter,
+      disposedQty: qty,
+    },
+  };
+  const disposedEntry = {
+    timestamp: Date.now(),
+    itemName: clone.name,
+    field: "Disposed",
+    oldValue: null,
+    newValue: JSON.stringify(clone.disposition),
+    idx: originalIdx + 1,
+    undone: false,
+    transactionId,
+    transactionLabel: `Disposed: ${qty} of original ${originalQtyBefore}`,
+    itemKey: clone.uuid,
+    splitDisposed: {
+      cloneUuid: clone.uuid,
+      originalUuid: original.uuid,
+      disposedQty: qty,
+      dispositionSnapshot: { ...clone.disposition },
+    },
+  };
+  pushTransactionEntries(splitEntry, disposedEntry);
+
+  // 5. Phase 1 — persist inventory
+  if (!tryPersistInventory()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((item) => inventory.push(item));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((entry) => changeLog.push(entry));
+    return { ok: false, error: "storage_failed_inventory" };
+  }
+
+  // 6. Phase 2 — persist changeLog
+  if (!tryPersistChangeLog()) {
+    inventory.length = 0;
+    inventorySnapshot.forEach((item) => inventory.push(item));
+    changeLog.length = 0;
+    changeLogSnapshot.forEach((entry) => changeLog.push(entry));
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      if (typeof showToast === "function") {
+        showToast(
+          "Storage failure left audit log out of sync — reload the app to recover.",
+          "error"
+        );
+      }
+      return { ok: false, error: "storage_failed_both" };
+    }
+    return { ok: false, error: "storage_failed_changelog" };
+  }
+
+  // 7. Copy tags (non-blocking — tag loss is acceptable)
+  try {
+    if (typeof getItemTags === "function" && typeof addItemTag === "function") {
+      getItemTags(original.uuid).forEach((tag) => addItemTag(clone.uuid, tag, false));
+      if (typeof saveItemTags === "function") saveItemTags();
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: tag copy failed", e);
+  }
+
+  // 8. Copy images (non-blocking)
+  try {
+    if (imageCache && typeof imageCache.getUserImage === "function") {
+      const { obverse, reverse } = await imageCache.getUserImage(original.uuid);
+      if (obverse || reverse) {
+        await imageCache.cacheUserImage(clone.uuid, obverse, reverse);
+      }
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: image copy failed", e);
+  }
+
+  // 9. Copy attachment blobs (non-blocking — missing blobs show derived warning)
+  try {
+    if (_splitAttachmentMap.size > 0 && window.attachmentManager?.isAvailable()) {
+      await window.attachmentManager.copyAttachments(_splitAttachmentMap, clone.uuid);
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("splitInventoryItem: attachment copy failed", e);
+  }
+
+  if (typeof renderChangeLog === "function") renderChangeLog();
+
+  return { ok: true, originalIdx, cloneIdx: originalIdx + 1, transactionId };
+};
+window.splitInventoryItem = splitInventoryItem;
 
 /**
  * Opens modal to view and edit an item's notes
@@ -754,10 +1323,14 @@ const showNotes = (idx) => {
  * @param {string} catalogId - Numista catalog ID (N#)
  * @param {Object} [itemData] - Stored numistaData from the inventory item
  */
-const populateNumistaDataFields = (catalogId, itemData) => {
+const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set() } = {}) => {
   const set = (id, val) => {
     const el = safeGetElement(id);
     if (el) el.value = val || "";
+  };
+  const refreshCapsuleSuggestion = () => {
+    if (typeof updateCapsuleSuggestion !== "function") return;
+    updateCapsuleSuggestion(safeGetElement("numistaDiameter")?.value || "");
   };
 
   // Field mapping: formId → { itemKey, cacheKey }
@@ -780,21 +1353,24 @@ const populateNumistaDataFields = (catalogId, itemData) => {
     { id: "numistaEdgeDesc", itemKey: "edgeDesc", cacheKey: "edgeDesc" },
   ];
 
-  // Clear all fields
-  fieldMap.forEach((f) => set(f.id, ""));
+  // Clear all fields (skip preserved fields from picker)
+  fieldMap.forEach((f) => {
+    if (!skipFields.has(f.itemKey)) set(f.id, "");
+  });
   const commCb = safeGetElement("numistaCommemorative");
-  if (commCb) commCb.checked = false;
   const commDescWrap = safeGetElement("numistaCommemorativeDescWrap");
-  if (commDescWrap) commDescWrap.style.display = "none";
   const commDesc = safeGetElement("numistaCommemorativeDesc");
-  if (commDesc) commDesc.value = "";
+  if (!skipFields.has("commemorative")) {
+    if (commCb) commCb.checked = false;
+    if (commDescWrap) commDescWrap.style.display = "none";
+    if (commDesc) commDesc.value = "";
+  }
 
-  /**
-   * Apply a data source to the form fields.
-   * Only fills fields that are still empty (preserves higher-rank data).
-   */
+  // Apply a data source to the form fields.
+  // Only fills fields that are still empty (preserves higher-rank data).
   const applySource = (getData) => {
     fieldMap.forEach((f) => {
+      if (skipFields.has(f.itemKey)) return;
       const el = safeGetElement(f.id);
       if (el && !el.value) {
         const val = getData(f);
@@ -802,12 +1378,14 @@ const populateNumistaDataFields = (catalogId, itemData) => {
       }
     });
     // Commemorative
-    if (commCb && !commCb.checked) {
+    if (!skipFields.has("commemorative") && commCb && !commCb.checked) {
       const isComm = getData({ itemKey: "commemorative", cacheKey: "commemorative" });
       if (isComm) {
         commCb.checked = true;
         if (commDescWrap) commDescWrap.style.display = "";
-        const desc = getData({ itemKey: "commemorativeDesc", cacheKey: "commemorativeDesc" });
+        const desc = !skipFields.has("commemorativeDesc")
+          ? getData({ itemKey: "commemorativeDesc", cacheKey: "commemorativeDesc" })
+          : null;
         if (commDesc && desc) commDesc.value = desc;
       }
     }
@@ -816,6 +1394,7 @@ const populateNumistaDataFields = (catalogId, itemData) => {
   // Layer 1 (highest rank): Item's stored numistaData (user edits persist here)
   if (itemData && Object.keys(itemData).length > 0) {
     applySource((f) => itemData[f.itemKey] || "");
+    refreshCapsuleSuggestion();
   }
 
   // Layer 2 (fallback): IndexedDB cache from API
@@ -844,6 +1423,7 @@ const populateNumistaDataFields = (catalogId, itemData) => {
           }
           return meta[f.cacheKey] || "";
         });
+        refreshCapsuleSuggestion();
       })
       .catch(() => {});
   }
@@ -910,22 +1490,33 @@ const editItem = (idx, logIdx = null) => {
   }
 
   // Convert stored USD values to display currency for the form (STACK-50)
+  // STRK-88: round to active currency precision to prevent drifted-float display
+  // (e.g. 56.66666666666667 → 56.67 in the #itemPrice field).
+  // Use roundToPricePrecision + toFixed(digits) to preserve trailing zeros
+  // (String() on a number drops them: 1700.00 → "1700"). T2/T14 fix.
   const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
+  const _fracDigits =
+    typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+  const _fmtDisplay =
+    typeof roundToPricePrecision === "function"
+      ? (v) => roundToPricePrecision(v).toFixed(_fracDigits)
+      : (v) => Number(v).toFixed(2);
   const displayPrice =
-    item.price > 0 ? (fxRate !== 1 ? (item.price * fxRate).toFixed(2) : item.price) : "";
+    item.price > 0 ? _fmtDisplay(fxRate !== 1 ? item.price * fxRate : item.price) : "";
   const displayMv =
     item.marketValue > 0
-      ? fxRate !== 1
-        ? (item.marketValue * fxRate).toFixed(2)
-        : item.marketValue
+      ? _fmtDisplay(fxRate !== 1 ? item.marketValue * fxRate : item.marketValue)
       : "";
   elements.itemPrice.value = displayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = displayMv;
+  if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
   elements.purchaseLocation.value = item.purchaseLocation || "";
   elements.storageLocation.value =
     item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
   if (elements.itemSerialNumber) elements.itemSerialNumber.value = item.serialNumber || "";
   if (elements.itemNotes) elements.itemNotes.value = item.notes || "";
+  if (elements.itemCapsule) elements.itemCapsule.value = item.capsule || "";
+  if (elements.itemCapsuleNotes) elements.itemCapsuleNotes.value = item.capsuleNotes || "";
   elements.itemDate.value = item.date || "";
   // Set date N/A button state based on whether item has a date
   if (elements.itemDateNABtn) {
@@ -990,6 +1581,9 @@ const editItem = (idx, logIdx = null) => {
 
   // Preload user images (obverse + reverse) into upload previews (STACK-32)
   if (typeof clearUploadState === "function") clearUploadState();
+  if (typeof setPendingImageFrames === "function") {
+    setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
+  }
 
   /**
    * Show a preview thumbnail for a given side.
@@ -1011,10 +1605,18 @@ const editItem = (idx, logIdx = null) => {
   /** Fall back to image URL fields when no user-uploaded blob exists */
   const showUrlPreviewFallback = (loadedSides) => {
     if (!loadedSides.obverse && item.obverseImageUrl) {
-      showPreview(item.obverseImageUrl, "Obv", "obverse");
+      if (typeof previewImageUrlForSide === "function") {
+        previewImageUrlForSide("obverse", item.obverseImageUrl);
+      } else {
+        showPreview(item.obverseImageUrl, "Obv", "obverse");
+      }
     }
     if (!loadedSides.reverse && item.reverseImageUrl) {
-      showPreview(item.reverseImageUrl, "Rev", "reverse");
+      if (typeof previewImageUrlForSide === "function") {
+        previewImageUrlForSide("reverse", item.reverseImageUrl);
+      } else {
+        showPreview(item.reverseImageUrl, "Rev", "reverse");
+      }
     }
   };
 
@@ -1077,6 +1679,9 @@ const editItem = (idx, logIdx = null) => {
     if (typeof updateSwapButtonVisibility === "function") updateSwapButtonVisibility();
   }
 
+  // Render attachment section in edit modal (STRK-45 — UI in Cohort D)
+  if (typeof renderAttachmentSection === "function") renderAttachmentSection(item);
+
   // Update Numista API status dot (STAK-173)
   if (typeof updateNumistaModalDot === "function") updateNumistaModalDot();
   // Show URL inputs if item has URL values (STAK-173)
@@ -1128,8 +1733,41 @@ const editItem = (idx, logIdx = null) => {
   if (shapeEl && window.toggleDimensionFields) {
     window.toggleDimensionFields(shapeEl.value);
   }
+  if (typeof updateCapsuleSuggestion === "function") {
+    updateCapsuleSuggestion(diamEl?.value || item.numistaData?.diameter || "");
+  }
 
-  if (typeof window.resetPurchasePriceToggle === "function") {
+  if (typeof window.restorePurchasePriceToggle === "function") {
+    const isLot = window.restorePurchasePriceToggle(item.pricingType, item.qty);
+    if (isLot) {
+      const priceEl = safeGetElement("itemPrice");
+      if (priceEl) {
+        // STRK-88: use item.price (full-precision stored per-unit) rather than the
+        // already-rounded display value in #itemPrice to avoid double-rounding drift.
+        // e.g. item.price=56.666... × qty=30 = 1699.999... → rounds to 1700.00 ✓
+        // vs  displayPrice="56.67"   × qty=30 = 1700.10   → would round to 1700.10 ✗
+        const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
+        const perUnitFull = item.price > 0 ? item.price * fxRate : 0;
+        if (!isNaN(perUnitFull) && perUnitFull > 0) {
+          // STRK-88: round the restored LOT total to currency precision and
+          // preserve trailing zeros via toFixed(digits). T2/T14 fix.
+          const lotTotal = perUnitFull * item.qty;
+          const _lotFracDigits =
+            typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+          const _fmtLot =
+            typeof roundToPricePrecision === "function"
+              ? (v) => roundToPricePrecision(v).toFixed(_lotFracDigits)
+              : (v) => Number(v).toFixed(2);
+          priceEl.value = _fmtLot(lotTotal);
+          // Seed the exact-lot cache so EACH→LOT toggle can restore the original total (STRK-88)
+          if (typeof window.purchasePriceSeedLotCache === "function") {
+            // Cache the full-precision lot total so toggle can recover it losslessly.
+            window.purchasePriceSeedLotCache(lotTotal, item.qty);
+          }
+        }
+      }
+    }
+  } else if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
   }
 
@@ -1231,7 +1869,8 @@ const duplicateItem = (idx) => {
   // Pre-fill from source item
   elements.itemMetal.value = item.composition || item.metal;
   elements.itemName.value = item.name;
-  elements.itemQty.value = 1; // Reset qty to 1
+  const duplicatePreservesLot = item.pricingType === "lot" && Number(item.qty) > 1;
+  elements.itemQty.value = duplicatePreservesLot ? item.qty : 1;
   elements.itemType.value = item.type;
 
   // Weight: same conversion logic as editItem
@@ -1261,22 +1900,31 @@ const duplicateItem = (idx) => {
   }
 
   // Convert stored USD values to display currency for the form (STACK-50)
+  // STRK-88: round to active currency precision to prevent drifted-float display.
+  // Use toFixed(digits) to preserve trailing zeros (String() drops them). T2/T14 fix.
   const dupFxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
-  const dupDisplayPrice =
-    item.price > 0 ? (dupFxRate !== 1 ? (item.price * dupFxRate).toFixed(2) : item.price) : "";
+  const _dupFracDigits =
+    typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+  const _dupFmtDisplay =
+    typeof roundToPricePrecision === "function"
+      ? (v) => roundToPricePrecision(v).toFixed(_dupFracDigits)
+      : (v) => Number(v).toFixed(2);
+  let dupDisplayPrice =
+    item.price > 0 ? _dupFmtDisplay(dupFxRate !== 1 ? item.price * dupFxRate : item.price) : "";
   const dupDisplayMv =
     item.marketValue > 0
-      ? dupFxRate !== 1
-        ? (item.marketValue * dupFxRate).toFixed(2)
-        : item.marketValue
+      ? _dupFmtDisplay(dupFxRate !== 1 ? item.marketValue * dupFxRate : item.marketValue)
       : "";
   elements.itemPrice.value = dupDisplayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = dupDisplayMv;
+  if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
   elements.purchaseLocation.value = item.purchaseLocation || "";
   elements.storageLocation.value =
     item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
   if (elements.itemSerialNumber) elements.itemSerialNumber.value = item.serialNumber || "";
   if (elements.itemNotes) elements.itemNotes.value = item.notes || "";
+  if (elements.itemCapsule) elements.itemCapsule.value = item.capsule || "";
+  if (elements.itemCapsuleNotes) elements.itemCapsuleNotes.value = item.capsuleNotes || "";
   elements.itemDate.value = item.date || todayStr();
   if (elements.itemCatalog) elements.itemCatalog.value = item.numistaId || "";
   if (elements.itemYear) elements.itemYear.value = item.year || item.issuedYear || "";
@@ -1314,8 +1962,30 @@ const duplicateItem = (idx) => {
   // Update currency symbols in modal (STACK-50)
   if (typeof updateModalCurrencyUI === "function") updateModalCurrencyUI();
 
-  if (typeof window.resetPurchasePriceToggle === "function") {
+  // STRK-88 (D-5): Preserve source item's pricing mode rather than unconditionally resetting.
+  // EACH-mode duplicates still reset qty to 1; LOT-mode duplicates preserve qty/mode so
+  // the visible price remains the rounded lot total instead of a rounded per-unit value.
+  if (typeof window.restorePurchasePriceToggle === "function") {
+    const isLot = window.restorePurchasePriceToggle(
+      item.pricingType,
+      Number(elements.itemQty.value)
+    );
+    if (isLot && elements.itemPrice) {
+      const lotTotal = (item.price > 0 ? item.price * dupFxRate : 0) * Number(item.qty || 0);
+      if (Number.isFinite(lotTotal) && lotTotal > 0) {
+        dupDisplayPrice = _dupFmtDisplay(lotTotal);
+        elements.itemPrice.value = dupDisplayPrice;
+        if (typeof window.purchasePriceSeedLotCache === "function") {
+          window.purchasePriceSeedLotCache(lotTotal, Number(item.qty));
+        }
+      }
+    }
+  } else if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
+  }
+
+  if (typeof updateCapsuleSuggestion === "function") {
+    updateCapsuleSuggestion(item.numistaData?.diameter || "");
   }
 
   // Open unified modal
@@ -1360,10 +2030,13 @@ const exportJson = () => {
     purity: parseFloat(item.purity) || 1.0,
     price: item.price,
     marketValue: item.marketValue || 0,
+    ...(item.paymentMethod && { paymentMethod: item.paymentMethod }),
     purchaseLocation: item.purchaseLocation,
     storageLocation: item.storageLocation,
     tags: typeof getItemTags === "function" ? getItemTags(item.uuid) : [],
     notes: item.notes,
+    capsule: item.capsule || "",
+    capsuleNotes: item.capsuleNotes || "",
     numistaId: item.numistaId,
     grade: item.grade || "",
     gradingAuthority: item.gradingAuthority || "",
@@ -1410,14 +2083,15 @@ const exportJson = () => {
 };
 
 /**
- * Exports current inventory to PDF format
+ * Builds and returns a jsPDF document of the current inventory.
+ * Does not save or open the document — callers (exportPdf, printInventory) handle that.
  */
-const exportPdf = () => {
+const _buildInventoryPdf = () => {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     appAlert(
       "PDF library (jsPDF) failed to load. Please check your internet connection and reload the page."
     );
-    return;
+    return null;
   }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF("landscape");
@@ -1463,6 +2137,7 @@ const exportPdf = () => {
       currentSpot > 0 ? formatCurrency(meltValue) : "—",
       formatCurrency(retailTotal),
       gainLoss !== null ? formatCurrency(gainLoss) : "—",
+      item.paymentMethod || "",
       item.purchaseLocation,
       item.numistaId || "",
       item.pcgsNumber || "",
@@ -1490,6 +2165,7 @@ const exportPdf = () => {
         "Melt Value",
         "Retail",
         "Gain/Loss",
+        "Payment Method",
         "Location",
         "N#",
         "PCGS#",
@@ -1555,8 +2231,27 @@ const exportPdf = () => {
   doc.text(`Retail: ${txt(elements.totals.palladium.retailValue)}`, 25, finalY + 90);
   doc.text(`Gain/Loss: ${txt(elements.totals.palladium.lossProfit)}`, 25, finalY + 96);
 
-  // Save PDF
-  doc.save(`metal_inventory_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`);
+  return doc;
+};
+
+const exportPdf = () => {
+  const doc = _buildInventoryPdf();
+  if (!doc) return;
+  doc.save(`metal_inventory_${new Date().toLocaleDateString("en-CA").replace(/-/g, "")}.pdf`);
+};
+
+const printInventory = () => {
+  const doc = _buildInventoryPdf();
+  if (!doc) return;
+  doc.autoPrint();
+  // Must remain synchronous in click-handler stack — browsers block popup if await precedes window.open
+  const blobUrl = doc.output("bloburl");
+  const popup = window.open(blobUrl, "_blank");
+  // Revoke after a short delay to allow the popup to load the blob before the URL is released
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  if (!popup) {
+    appAlert("Your browser blocked the print window — allow popups for this page.");
+  }
 };
 /**
  * Show or hide the "Realized:" row on all summary cards (STAK-72).
@@ -1575,6 +2270,7 @@ const applyRealizedVisibility = (show) => {
 // Expose inventory actions globally for inline event handlers
 window.exportJson = exportJson;
 window.exportPdf = exportPdf;
+window.printInventory = printInventory;
 // window.updateSummary exported from inventory-table.js
 window.applyRealizedVisibility = applyRealizedVisibility;
 window.toggleGlobalPriceView = toggleGlobalPriceView;

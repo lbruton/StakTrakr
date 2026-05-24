@@ -7,7 +7,9 @@
 # AI / agent configuration
 .agents/              export-ignore
 .claude/              export-ignore
+.cgcignore            export-ignore
 .Codex/               export-ignore
+.impeccable.md        export-ignore
 .jules/               export-ignore
 .spec-workflow/       export-ignore
 .specflow/            export-ignore
@@ -20,6 +22,8 @@ devops/               export-ignore
 functions/            export-ignore
 package.json          export-ignore
 package-lock.json     export-ignore
+.npmrc                export-ignore
+.pre-commit-config.yaml  export-ignore
 
 # GitHub & hosting infrastructure
 .github/              export-ignore
@@ -39,6 +43,7 @@ CNAME                 export-ignore
 eslint.config.js      export-ignore
 eslint.config.cjs     export-ignore
 .markdownlint.json    export-ignore
+.markdownlintignore   export-ignore
 .prettierrc           export-ignore
 .prettierignore       export-ignore
 ruleset.xml           export-ignore
@@ -58,6 +63,7 @@ SECURITY.md           export-ignore
 
 # Dev reference pages & prototypes
 design-preview.html   export-ignore
+preview.html          export-ignore
 style.html            export-ignore
 playground/           export-ignore
 ui-standards/         export-ignore

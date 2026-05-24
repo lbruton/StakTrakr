@@ -12,7 +12,7 @@ This protocol solves both problems: a **version lock** claims the next version n
 **git worktree** gives each agent an isolated filesystem to work in.
 
 The actual lock state lives in `devops/version.lock` (gitignored). Worktrees live in
-`.claude/worktrees/` (also gitignored).
+`.worktrees/` (also gitignored).
 
 ---
 
@@ -86,9 +86,9 @@ Add a new entry to the `claims` array and write the file:
   "claims": [
     {
       "version": "3.32.29",
-      "claimed_by": "claude / STAK-315 vault images",
+      "claimed_by": "claude / STRK-315 vault images",
       "spec": "vault-image-upload",
-      "issue": "STAK-315",
+      "issue": "STRK-315",
       "files_touched": ["js/vault.js", "js/image-cache.js"],
       "status": "implementing",
       "claimed_at": "2026-02-24T10:00:00Z",
@@ -103,28 +103,28 @@ Fields:
 - `version` — the version number you are claiming (matches your computed version)
 - `claimed_by` — agent name + brief task description
 - `spec` — spec folder name (e.g. `"vault-image-upload"`), or `null` if not spec-driven
-- `issue` — Linear issue ID (e.g. `"STAK-315"`), or `null` if not issue-driven
+- `issue` — Plane issue ID (e.g. `"STRK-315"`), or `null` if not issue-driven
 - `files_touched` — list of files this agent will modify (enables conflict detection)
 - `status` — one of `"queued"` → `"implementing"` → `"pr_open"` → `"done"`
 - `claimed_at` / `expires_at` — ISO 8601 UTC timestamps; **30-minute TTL for hotfixes, 4-hour TTL for spec implementations**
 
-The `version` becomes the **anchor** for all work: Linear notes, changelog bullets,
+The `version` becomes the **anchor** for all work: Plane notes, changelog bullets,
 commit messages, and mem0 handoffs should all reference this version number.
 
 ### Step 5 — CREATE worktree + branch
 
 ```bash
-git worktree add .claude/worktrees/patch-VERSION -b patch/VERSION
+git worktree add .worktrees/patch-VERSION -b patch/VERSION
 ```
 
-Example: `git worktree add .claude/worktrees/patch-3.32.29 -b patch/3.32.29`
+Example: `git worktree add .worktrees/patch-3.32.29 -b patch/3.32.29`
 
 The new branch is created off the current HEAD of `dev`.
 
 ### Step 6 — DO ALL WORK in the worktree
 
 All file edits, the `/release patch` version bump, and test runs happen inside
-`.claude/worktrees/patch-VERSION/`. Do not make changes to the main `dev` working tree
+`.worktrees/patch-VERSION/`. Do not make changes to the main `dev` working tree
 while your claim is held.
 
 The `/release patch` skill reads `js/constants.js` relative to the worktree CWD, so
@@ -168,7 +168,7 @@ as other agents may still hold active claims:
 Remove the worktree and branch:
 
 ```bash
-git worktree remove .claude/worktrees/patch-VERSION --force
+git worktree remove .worktrees/patch-VERSION --force
 git branch -d patch/VERSION
 ```
 
@@ -187,9 +187,9 @@ git push origin --delete patch/VERSION
   "claims": [
     {
       "version": "3.32.29",
-      "claimed_by": "claude / STAK-315 vault images",
+      "claimed_by": "claude / STRK-315 vault images",
       "spec": "vault-image-upload",
-      "issue": "STAK-315",
+      "issue": "STRK-315",
       "files_touched": ["js/vault.js", "js/image-cache.js"],
       "status": "implementing",
       "claimed_at": "2026-02-24T10:00:00Z",
@@ -214,7 +214,7 @@ git push origin --delete patch/VERSION
 | `version`                   | Version number being worked on (matches `APP_VERSION` bump target)        |
 | `claimed_by`                | Agent name + brief task description (for human visibility)                |
 | `spec`                      | Spec folder name, or `null` if not spec-driven                            |
-| `issue`                     | Linear issue ID, or `null`                                                |
+| `issue`                     | Plane issue ID, or `null`                                                 |
 | `files_touched`             | Files this agent will modify — enables conflict detection by other agents |
 | `status`                    | `"queued"` → `"implementing"` → `"pr_open"` → `"done"`                    |
 | `claimed_at` / `expires_at` | ISO 8601 UTC timestamps                                                   |
@@ -257,7 +257,7 @@ Minor gaps in the version sequence are acceptable.
 
 ## Parallel Agent Example
 
-Agent A (STAK-315) and Agent B (hotfix) start at the same time:
+Agent A (STRK-315) and Agent B (hotfix) start at the same time:
 
 1. Both read the lock → `claims: []`
 2. Agent A computes `3.32.29`, writes claim → `claims: [{version: "3.32.29", ...}]`
@@ -298,7 +298,7 @@ The `/release` skill (`.claude/skills/release/SKILL.md`) integrates this protoco
 Each version tag is an **anchor** for a batch of work:
 
 - Version number is claimed _before_ any code is written
-- All Linear notes, changelog bullets, and mem0 handoffs reference that version
+- All Plane notes, changelog bullets, and mem0 handoffs reference that version
 - The git tag (`v3.32.29`) is the permanent breadcrumb
 - The PR body is assembled from all the patch tags between the last release and now
 
@@ -313,7 +313,7 @@ This means the version number is the _first_ thing decided, not the last.
 git worktree list
 
 # Remove a worktree (after merging)
-git worktree remove .claude/worktrees/patch-3.32.29 --force
+git worktree remove .worktrees/patch-3.32.29 --force
 
 # If a worktree directory was deleted manually, prune stale metadata
 git worktree prune
@@ -321,4 +321,4 @@ git worktree prune
 
 ---
 
-_Protocol established: 2026-02-22 | Worktree flow added: 2026-02-22 | Claims array: 2026-02-24_
+Protocol established: 2026-02-22 | Worktree flow added: 2026-02-22 | Claims array: 2026-02-24

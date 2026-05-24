@@ -1,0 +1,44 @@
+# Dependabot config — supply-chain hardening (DEVS-10 / DEVS-12)
+#
+# Release-age enforcement is handled by `min-release-age=3` in the `.npmrc`
+# files at each workspace root (./.npmrc, ./devops/.npmrc,
+# ./devops/pollers/shared/.npmrc). Dependabot itself has no native cooldown
+# primitive, so the quarantine window is enforced at install time by npm.
+#
+# Security alerts (dependabot security updates) bypass the release-age floor
+# by design and continue to flow normally.
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/devops"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/devops/pollers/shared"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

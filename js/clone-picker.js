@@ -104,6 +104,7 @@ const CLONE_FIELDS = [
   { labelFor: "itemYear", key: "year", defaultOn: true },
   { labelFor: "itemDate", key: "date", defaultOn: true },
   { labelFor: "itemPrice", key: "price", defaultOn: true },
+  { labelFor: "itemPaymentMethod", key: "paymentMethod", defaultOn: true },
   { labelFor: "purchaseLocation", key: "purchaseLocation", defaultOn: true },
   { labelFor: "storageLocation", key: "storageLocation", defaultOn: true },
   { labelFor: "itemGrade", key: "grade", defaultOn: true },

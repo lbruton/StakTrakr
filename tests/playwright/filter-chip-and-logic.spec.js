@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 
 /**
  * Playwright regression spec for filter chip predicate logic (STAK-546, STAK-551).

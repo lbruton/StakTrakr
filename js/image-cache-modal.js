@@ -94,7 +94,7 @@ const renderEligibleItemsTable = async () => {
 
     // Catalog ID cell
     const tdId = document.createElement("td");
-    tdId.style.cssText = "font-family:monospace;font-size:0.85rem;white-space:nowrap";
+    tdId.classList.add("cache-id");
     tdId.textContent = catalogId;
 
     // Item name cell
@@ -213,7 +213,7 @@ const logSyncActivity = (message, type = "info") => {
   if (!logEl) return;
 
   const line = document.createElement("div");
-  line.style.cssText = "font-size:0.8rem;font-family:monospace;padding:0.1rem 0;";
+  line.classList.add("cache-log-line");
 
   const colorMap = {
     info: "inherit",

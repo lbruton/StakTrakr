@@ -86,6 +86,8 @@ const filterInventory = () => {
           item.purchaseLocation,
           item.storageLocation || "",
           item.notes || "",
+          item.capsule || "",
+          item.capsuleNotes || "",
           String(item.year || ""),
           item.grade || "",
           item.gradingAuthority || "",
@@ -331,6 +333,8 @@ const filterInventory = () => {
           wordRegex.test(item.purchaseLocation) ||
           (item.storageLocation && wordRegex.test(item.storageLocation)) ||
           (item.notes && wordRegex.test(item.notes)) ||
+          (item.capsule && wordRegex.test(item.capsule)) ||
+          (item.capsuleNotes && wordRegex.test(item.capsuleNotes)) ||
           item.date.includes(word) ||
           formattedDate.includes(word) ||
           String(Number.isFinite(Number(item.qty)) ? Number(item.qty) : "").includes(word) ||
@@ -365,7 +369,9 @@ const filterInventory = () => {
           (q.length > 2 &&
             item.storageLocation &&
             fuzzyMatch(q, item.storageLocation, fuzzyOptions) > 0) ||
-          (q.length > 3 && item.notes && fuzzyMatch(q, item.notes, fuzzyOptions) > 0)
+          (q.length > 3 && item.notes && fuzzyMatch(q, item.notes, fuzzyOptions) > 0) ||
+          (q.length > 2 && item.capsule && fuzzyMatch(q, item.capsule, fuzzyOptions) > 0) ||
+          (q.length > 3 && item.capsuleNotes && fuzzyMatch(q, item.capsuleNotes, fuzzyOptions) > 0)
         ) {
           // Mark that fuzzy matching was used (for indicator)
           if (!window._fuzzyMatchUsed) window._fuzzyMatchUsed = true;

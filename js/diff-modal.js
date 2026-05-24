@@ -231,7 +231,7 @@
     var html = matchedSection || "";
     html += '<div class="dm-setting-sides">';
     html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary,#6366f1)">Local</div><div class="dm-setting-expanded">' +
+      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary)">Local</div><div class="dm-setting-expanded">' +
       localHtml;
     if (overflowLocal) {
       var lLabel =
@@ -248,7 +248,7 @@
     html += "</div></div>";
     html += '<div class="dm-setting-arrow">\u2192</div>';
     html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info,#3b82f6)">Remote</div><div class="dm-setting-expanded">' +
+      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info)">Remote</div><div class="dm-setting-expanded">' +
       remoteHtml;
     if (overflowRemote) {
       var rLabel =
@@ -775,7 +775,7 @@
 
   function _metalColor(metal) {
     var key = (metal || "").toLowerCase();
-    return _metalCssVar[key] || "var(--text-muted,#6b7094)";
+    return _metalCssVar[key] || "var(--text-muted)";
   }
 
   function _metalBgGradient(metal) {
@@ -969,7 +969,7 @@
         count: conflictCount,
         label: "Conflicts",
         target: "diffSectionModified",
-        color: conflictCount > 0 ? "color:#d97706" : "",
+        color: conflictCount > 0 ? "color:var(--warning)" : "",
         style: "",
       },
       {
@@ -1029,9 +1029,9 @@
 
     var pct = total > 0 ? Math.round((resolved / total) * 100) : 100;
     var html =
-      '<div style="height:6px;border-radius:3px;background:var(--border-color,#ddd);margin:0.5rem 0">';
+      '<div style="height:6px;border-radius:3px;background:var(--border);margin:0.5rem 0">';
     html +=
-      '<div style="height:100%;border-radius:3px;background:#22c55e;width:' +
+      '<div style="height:100%;border-radius:3px;background:var(--success);width:' +
       pct +
       '%;transition:width 0.3s"></div>';
     html += "</div>";
@@ -1095,13 +1095,13 @@
       html +=
         '<div data-conflict-card="' +
         _esc(itemName) +
-        '" style="border-radius:8px;border:1px solid var(--border-color,#ddd);padding:0.75rem;margin-bottom:0.75rem">';
+        '" style="border-radius:8px;border:1px solid var(--border);padding:0.75rem;margin-bottom:0.75rem">';
 
       // Card header
       html += "<div>";
       html += '<span style="font-weight:600;font-size:0.85rem">' + _esc(itemName) + "</span>";
       html +=
-        '<span style="display:inline-block;background:rgba(217,119,6,0.1);color:#d97706;border-radius:12px;padding:0.1rem 0.5rem;font-size:0.7rem;margin-left:0.5rem">' +
+        '<span style="display:inline-block;background:color-mix(in srgb, var(--warning) 10%, transparent);color:var(--warning);border-radius:12px;padding:0.1rem 0.5rem;font-size:0.7rem;margin-left:0.5rem">' +
         fields.length +
         " field" +
         (fields.length !== 1 ? "s" : "") +
@@ -1119,11 +1119,13 @@
           "padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.8rem;";
 
         if (selected === "local") {
-          localStyle += "border:1px solid #22c55e;background:rgba(34,197,94,0.08)";
+          localStyle +=
+            "border:1px solid var(--success);background:color-mix(in srgb, var(--success) 8%, transparent)";
           remoteStyle += "border:1px solid transparent";
         } else if (selected === "remote") {
           localStyle += "border:1px solid transparent";
-          remoteStyle += "border:1px solid #22c55e;background:rgba(34,197,94,0.08)";
+          remoteStyle +=
+            "border:1px solid var(--success);background:color-mix(in srgb, var(--success) 8%, transparent)";
         } else {
           localStyle += "border:1px solid transparent";
           remoteStyle += "border:1px solid transparent";
@@ -1235,9 +1237,9 @@
     // Visual separator between Items and Settings sections
     var collapsed = _collapsedCategories.settings;
     var html =
-      '<div style="margin:1.2rem 0 0.8rem;border-top:2px solid var(--border-color,rgba(255,255,255,0.1));padding-top:0.6rem">';
+      '<div style="margin:1.2rem 0 0.8rem;border-top:2px solid var(--border);padding-top:0.6rem">';
     html +=
-      '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted,#888);margin-bottom:0.4rem">User Configuration</div>';
+      '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.4rem">User Configuration</div>';
     html += "</div>";
 
     // Section wrapper (matches item card section structure)
@@ -1278,7 +1280,7 @@
         else remoteCount++;
       }
       html +=
-        '<div style="background:var(--bg-secondary,#1e293b);border-radius:8px;padding:0.5rem 0.75rem;margin:0.4rem 0">';
+        '<div style="background:var(--bg-secondary);border-radius:8px;padding:0.5rem 0.75rem;margin:0.4rem 0">';
       html +=
         '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem">';
       html += "<span>Using <strong>remote</strong> for <strong>" + remoteCount + "</strong>";
@@ -1286,7 +1288,7 @@
         html += ", <strong>local</strong> for <strong>" + localCount + "</strong>";
       html += " of " + totalChanged + " settings</span>";
       html +=
-        '<span style="font-size:0.7rem;color:var(--text-muted,#888)">Click values to switch</span>';
+        '<span style="font-size:0.7rem;color:var(--text-muted)">Click values to switch</span>';
       html += "</div>";
       html += "</div>";
     }
@@ -1350,8 +1352,7 @@
         // Try rich renderer first
         var expandedHtml = _renderSettingRow(entry.key, entry.localVal, entry.remoteVal);
         if (expandedHtml !== null) {
-          html +=
-            '<div style="padding:0.4rem 0;border-top:1px solid var(--border-color,rgba(255,255,255,0.05))">';
+          html += '<div style="padding:0.4rem 0;border-top:1px solid var(--border)">';
           html +=
             '<div style="font-size:0.78rem;font-weight:500;margin-bottom:0.3rem">' +
             _esc(label) +
@@ -1368,7 +1369,7 @@
         var remoteSel = selected === "remote" ? " selected" : "";
 
         html +=
-          '<div class="dm-field-diff" style="border-top:1px solid var(--border-color,rgba(255,255,255,0.05));padding:0.4rem 0">';
+          '<div class="dm-field-diff" style="border-top:1px solid var(--border);padding:0.4rem 0">';
         html += '<div class="dm-field-label">' + _esc(label) + "</div>";
         html +=
           '<div class="dm-field-value local' +
@@ -1400,7 +1401,7 @@
         html +=
           '<div data-toggle-matched="' +
           _esc(catKey) +
-          '" style="font-size:0.73rem;cursor:pointer;color:var(--primary,#3b82f6);margin-top:0.4rem;padding-top:0.3rem;border-top:1px solid var(--border-color,rgba(255,255,255,0.05))">';
+          '" style="font-size:0.73rem;cursor:pointer;color:var(--primary);margin-top:0.4rem;padding-top:0.3rem;border-top:1px solid var(--border)">';
         html +=
           (isExpanded ? "\u25BC Hide" : "\u25B6 Show") +
           " " +
@@ -1541,7 +1542,7 @@
     if (!items || items.length === 0) return "";
     var collapsed = _collapsedCategories[type];
     var isAdded = type === "added";
-    var sectionColor = isAdded ? "var(--info,#3b82f6)" : "var(--loss,#ef4444)";
+    var sectionColor = isAdded ? "var(--info)" : "var(--danger)";
     var sectionIcon = isAdded ? "&#8595;" : "&#8593;";
     var sectionLabel = isAdded ? "Added / Remote Only" : "Deleted / Local Only";
 
@@ -1671,7 +1672,7 @@
       html +=
         '<div class="dm-show-more" data-show-more="' +
         type +
-        '" style="text-align:center;padding:0.5rem;font-size:0.78rem;cursor:pointer;color:var(--primary,#6366f1)">Show ' +
+        '" style="text-align:center;padding:0.5rem;font-size:0.78rem;cursor:pointer;color:var(--primary)">Show ' +
         (items.length - 30) +
         " more...</div>";
     }
@@ -1695,7 +1696,7 @@
       '" data-cat-toggle="modified">' +
       (collapsed ? "&#9654;" : "&#9660;") +
       "</span>";
-    html += '<span style="color:var(--warning,#d97706)">&#9888;</span> Modified / Conflicts';
+    html += '<span style="color:var(--warning)">&#9888;</span> Modified / Conflicts';
     html +=
       '<span class="dm-chip">' +
       modifiedItems.length +
@@ -1820,6 +1821,63 @@
         '">';
       for (var c = 0; c < changes.length; c++) {
         var ch = changes[c];
+
+        // Attachments: expand to per-entry rows instead of rendering the raw array
+        if (
+          ch.field === "attachments" &&
+          window.DiffEngine &&
+          typeof DiffEngine.diffAttachments === "function"
+        ) {
+          var attDiffs = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
+          for (var ad = 0; ad < attDiffs.length; ad++) {
+            var attEntry = attDiffs[ad];
+            var attUuid = attEntry.attachmentUuid;
+            var attFKey = "conflict-" + i + "-attachments:" + attUuid;
+            var attSel = _fieldSelections[attFKey] || "remote";
+            var attLocalSel = attSel === "local" ? " selected" : "";
+            var attRemoteSel = attSel === "remote" ? " selected" : "";
+            var attLocalDisplay = attEntry.localVal ? _esc(attEntry.localVal.fileName) : "\u2014";
+            var attRemoteDisplay = attEntry.remoteVal
+              ? _esc(attEntry.remoteVal.fileName)
+              : "\u2014";
+            var attLabel =
+              attEntry.action === "add"
+                ? "Attachment (added)"
+                : attEntry.action === "remove"
+                  ? "Attachment (removed)"
+                  : "Attachment (replaced)";
+            html += '<div class="dm-field-diff">';
+            html += '<div class="dm-field-label">' + _esc(attLabel) + "</div>";
+            html +=
+              '<div class="dm-field-value local' +
+              attLocalSel +
+              '" data-field="attachments:' +
+              _esc(attUuid) +
+              '" data-card="' +
+              i +
+              '" title="' +
+              attLocalDisplay +
+              '">' +
+              attLocalDisplay +
+              "</div>";
+            html += '<div class="dm-field-arrow">&#10231;</div>';
+            html +=
+              '<div class="dm-field-value remote' +
+              attRemoteSel +
+              '" data-field="attachments:' +
+              _esc(attUuid) +
+              '" data-card="' +
+              i +
+              '" title="' +
+              attRemoteDisplay +
+              '">' +
+              attRemoteDisplay +
+              "</div>";
+            html += "</div>";
+          }
+          continue;
+        }
+
         var fKey = "conflict-" + i + "-" + ch.field;
         var sel = _fieldSelections[fKey] || "remote";
         var localSelected = sel === "local" ? " selected" : "";
@@ -2057,14 +2115,14 @@
     // Source badge + meta
     if (sourceEl) {
       var sourceHtml =
-        '<div style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.78rem;font-weight:500;padding:0.2rem 0.55rem;border-radius:6px;background:rgba(59,130,246,0.12);color:var(--primary,#3b82f6)">';
+        '<div style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.78rem;font-weight:500;padding:0.2rem 0.55rem;border-radius:6px;background:color-mix(in srgb, var(--primary) 12%, transparent);color:var(--primary)">';
       sourceHtml += _getSourceIcon(source) + _esc(source.label || "");
       sourceHtml += "</div>";
 
       // Meta row (sync only)
       if (meta && source.type === "sync") {
         sourceHtml +=
-          '<div class="cloud-sync-update-meta" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:0.5rem;margin-top:0.6rem;padding:0.5rem 0.65rem;border-radius:8px;background:var(--bg-secondary,var(--bg-elev-1,#f1f5f9));font-size:0.8rem">';
+          '<div class="cloud-sync-update-meta" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:0.5rem;margin-top:0.6rem;padding:0.5rem 0.65rem;border-radius:8px;background:var(--bg-secondary);font-size:0.8rem">';
         sourceHtml += _metaCell(
           "Remote Items",
           meta.itemCount != null ? String(meta.itemCount) : "\u2014"
@@ -2319,7 +2377,8 @@
           if (!fieldDiffs[fd].querySelector(".dm-field-value.selected")) {
             allResolved = false;
             // Flash unresolved field
-            fieldDiffs[fd].style.background = "rgba(239,68,68,0.1)";
+            fieldDiffs[fd].style.background =
+              `color-mix(in srgb, ${getThemeColor("danger")} 10%, transparent)`;
             (function (el) {
               setTimeout(function () {
                 el.style.background = "";
@@ -2728,6 +2787,32 @@
         // Card-based: always emit all fields, user picks local vs remote per field
         for (var c = 0; c < mod.changes.length; c++) {
           var ch = mod.changes[c];
+          // Attachments: emit per-entry records keyed by UUID
+          if (
+            ch.field === "attachments" &&
+            window.DiffEngine &&
+            typeof DiffEngine.diffAttachments === "function"
+          ) {
+            var attDiffsC = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
+            for (var ace = 0; ace < attDiffsC.length; ace++) {
+              var entryC = attDiffsC[ace];
+              var entryKeyC = "conflict-" + m + "-attachments:" + entryC.attachmentUuid;
+              var entrySelC = _fieldSelections[entryKeyC] || "remote";
+              if (entrySelC === "remote") {
+                // Accept remote side: add/remove/replace as computed
+                result.push({
+                  type: "attach-entry",
+                  itemKey: mKey,
+                  action: entryC.action,
+                  attachmentUuid: entryC.attachmentUuid,
+                  oldAttachmentUuid: entryC.oldAttachmentUuid || null,
+                  value: entryC.remoteVal,
+                });
+              }
+              // entrySel === "local" → no record; local keeps its state unchanged
+            }
+            continue;
+          }
           var fSel = _fieldSelections["conflict-" + m + "-" + ch.field] || "remote";
           result.push({
             type: "modify",
@@ -2741,6 +2826,26 @@
         if (_checkedItems["modified-" + m] !== false) {
           for (var c2 = 0; c2 < mod.changes.length; c2++) {
             var ch2 = mod.changes[c2];
+            // Attachments: emit per-entry records (all remote)
+            if (
+              ch2.field === "attachments" &&
+              window.DiffEngine &&
+              typeof DiffEngine.diffAttachments === "function"
+            ) {
+              var attDiffsL = DiffEngine.diffAttachments(ch2.localVal, ch2.remoteVal);
+              for (var ale = 0; ale < attDiffsL.length; ale++) {
+                var entryL = attDiffsL[ale];
+                result.push({
+                  type: "attach-entry",
+                  itemKey: mKey,
+                  action: entryL.action,
+                  attachmentUuid: entryL.attachmentUuid,
+                  oldAttachmentUuid: entryL.oldAttachmentUuid || null,
+                  value: entryL.remoteVal,
+                });
+              }
+              continue;
+            }
             result.push({
               type: "modify",
               itemKey: mKey,
@@ -2881,7 +2986,7 @@
         selectAllBtn.setAttribute(
           "style",
           btnStyle +
-            "padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)"
+            "padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border);color:var(--text-muted)"
         );
       }
     }
@@ -2894,7 +2999,7 @@
         deselectAllBtn.setAttribute(
           "style",
           btnStyle +
-            "padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)"
+            "padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border);color:var(--text-muted)"
         );
       }
     }
@@ -2909,7 +3014,7 @@
         selectAllToggleBtn.setAttribute(
           "style",
           btnStyle +
-            "padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)"
+            "padding:0.3rem 0.7rem;background:none;border:1.5px solid var(--border);color:var(--text-muted)"
         );
         selectAllToggleBtn.style.display = "";
       } else {
@@ -2923,7 +3028,7 @@
       cancelBtn.setAttribute(
         "style",
         btnStyle +
-          "padding:0.45rem 1rem;font-size:0.8rem;background:none;border:1.5px solid var(--border,#cbd5e1);color:var(--text-muted,#64748b)"
+          "padding:0.45rem 1rem;font-size:0.8rem;background:none;border:1.5px solid var(--border);color:var(--text-muted)"
       );
     }
     if (applyBtn) {
@@ -2931,7 +3036,7 @@
       applyBtn.setAttribute(
         "style",
         btnStyle +
-          "padding:0.45rem 1.2rem;font-size:0.8rem;font-weight:600;background:#d97706;color:#fff;border:1.5px solid #d97706"
+          "padding:0.45rem 1.2rem;font-size:0.8rem;font-weight:600;background:var(--warning);color:var(--text-inverse);border:1.5px solid var(--warning)"
       );
     }
     if (dismissX) {

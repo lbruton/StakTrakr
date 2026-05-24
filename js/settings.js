@@ -312,6 +312,7 @@ const _SPOT_SOURCE_PILLS = [
   { val: "METALS_DEV", label: "Metals.dev" },
   { val: "METALS_API", label: "Metals-API" },
   { val: "METAL_PRICE_API", label: "MetalPriceAPI" },
+  { val: "GOLD_API", label: "Gold API" },
   { val: "CUSTOM", label: "Custom" },
   { val: "MANUAL", label: "Manual" },
 ];
@@ -849,6 +850,43 @@ const renderSpotPanelMetalPriceApi = () => {
   return panel;
 };
 
+const renderSpotPanelGoldApi = () => {
+  const panel = document.createElement("div");
+  panel.className = "spot-accordion-panel";
+  panel.dataset.val = "GOLD_API";
+
+  panel.appendChild(
+    _buildSpotPanelHeader({
+      title: "Gold API",
+      badgeText: "Free · Optional key",
+      badgeClass: "free",
+      meta: "Unlimited real-time · gold-api.com",
+      actions: _buildSpotActionRow(),
+    })
+  );
+
+  const details = document.createElement("details");
+  details.className = "optional-key-details";
+  const summary = document.createElement("summary");
+  summary.textContent = "Premium API Key (optional)";
+  details.appendChild(summary);
+  details.appendChild(
+    _buildApiKeyField({
+      provider: "GOLD_API",
+      placeholder: "Enter Gold API premium key (optional)",
+      helpText: "Free tier: unlimited real-time prices ·",
+      helpHref: "https://gold-api.com/docs",
+    })
+  );
+  panel.appendChild(details);
+
+  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildAutoRefreshRow());
+  panel.appendChild(_buildProviderFooter("Provided by gold-api.com"));
+
+  return panel;
+};
+
 /**
  * Panel: Custom endpoint (BYO URL + template + key).
  * @returns {HTMLElement}
@@ -1082,6 +1120,7 @@ const _SPOT_PANEL_RENDERERS = {
   METALS_DEV: renderSpotPanelMetalsDev,
   METALS_API: renderSpotPanelMetalsApi,
   METAL_PRICE_API: renderSpotPanelMetalPriceApi,
+  GOLD_API: renderSpotPanelGoldApi,
   CUSTOM: renderSpotPanelCustom,
   MANUAL: renderSpotPanelManual,
 };
@@ -1437,6 +1476,7 @@ const SPOT_SOURCES = [
   "METALS_DEV",
   "METALS_API",
   "METAL_PRICE_API",
+  "GOLD_API",
   "CUSTOM",
   "MANUAL",
 ];
@@ -1700,18 +1740,29 @@ const updateSettingsFooter = async () => {
       totalBytes += (key.length + (val ? val.length : 0)) * 2; // UTF-16
     }
     const lsMb = (totalBytes / (1024 * 1024)).toFixed(2);
-    storageText = `LS: ${lsMb} MB / 5 MB`;
+    storageText = `LS: ${lsMb} MB / ~5 MB`;
 
-    // Append IndexedDB usage if available
+    // Append IndexedDB usage: images + attachments (STRK-65)
+    let idbTotalBytes = 0;
     if (window.imageCache?.isAvailable()) {
       try {
-        const idbUsage = await imageCache.getStorageUsage();
-        const idbMb = (idbUsage.totalBytes / (1024 * 1024)).toFixed(2);
-        const idbLimit = (idbUsage.limitBytes / (1024 * 1024)).toFixed(0);
-        storageText += `  \u00b7  IDB: ${idbMb} MB / ${idbLimit} MB`;
+        const imgUsage = await imageCache.getStorageUsage();
+        idbTotalBytes += imgUsage.totalBytes || 0;
       } catch {
         /* ignore */
       }
+    }
+    if (window.attachmentManager?.isAvailable()) {
+      try {
+        const attachUsage = await attachmentManager.getStorageUsage();
+        idbTotalBytes += attachUsage.totalBytes || 0;
+      } catch {
+        /* ignore */
+      }
+    }
+    if (idbTotalBytes > 0) {
+      const idbMb = (idbTotalBytes / (1024 * 1024)).toFixed(2);
+      storageText += `  \u00b7  IDB: ${idbMb} MB`;
     }
   } catch (e) {
     storageText = "Storage: unknown";
@@ -2183,7 +2234,7 @@ const renderCustomRuleTable = () => {
     const tr = document.createElement("tr");
 
     const tdPattern = document.createElement("td");
-    tdPattern.style.cssText = "font-family:monospace;font-size:0.8rem;word-break:break-all";
+    tdPattern.classList.add("pattern-cell");
     tdPattern.textContent = rule.pattern;
 
     const tdReplacement = document.createElement("td");
@@ -3246,9 +3297,9 @@ const renderImageStorageStats = async () => {
 
   const barColor = (b) => {
     const p = (b / limitBytes) * 100;
-    if (p > 90) return "var(--danger, #e74c3c)";
-    if (p > 70) return "var(--warning, #f39c12)";
-    return "var(--accent, #3498db)";
+    if (p > 90) return "var(--danger)";
+    if (p > 70) return "var(--warning)";
+    return "var(--primary)";
   };
 
   const userBar = document.getElementById("gaugeUserBar");
@@ -3267,11 +3318,11 @@ const renderImageStorageStats = async () => {
     if (granted === "true") {
       persistLine.textContent =
         "✅ Persistent storage granted — browser will not auto-clear your images";
-      persistLine.style.color = "var(--success, #27ae60)";
+      persistLine.style.color = "var(--success)";
     } else if (granted === "false") {
       persistLine.textContent =
         "⚠️ Persistent storage not granted — consider using Full Backup regularly";
-      persistLine.style.color = "var(--warning, #f39c12)";
+      persistLine.style.color = "var(--warning)";
     } else {
       persistLine.textContent = "Upload a photo to request persistent storage protection";
       persistLine.style.color = "var(--text-secondary)";
@@ -3547,7 +3598,17 @@ const renderStorageSection = async (silent = false) => {
     }
   }
 
-  const idbTotalKB = idbStats ? idbStats.totalBytes / 1024 : 0;
+  let attachStats = null;
+  if (window.attachmentManager?.isAvailable()) {
+    try {
+      attachStats = await attachmentManager.getStorageUsage();
+    } catch (e) {
+      /* unavailable */
+    }
+  }
+
+  const attachTotalKB = attachStats ? attachStats.totalBytes / 1024 : 0;
+  const idbTotalKB = (idbStats ? idbStats.totalBytes / 1024 : 0) + attachTotalKB;
   const idbLimitKB = idbStats ? idbStats.limitBytes / 1024 : 50 * 1024;
   const lsLimitKB = 5 * 1024;
   const combinedKB = lsTotalKB + idbTotalKB;
@@ -3572,7 +3633,7 @@ const renderStorageSection = async (silent = false) => {
   setCard(
     "storageStat_ls",
     fmt(lsTotalKB),
-    `${pct(lsTotalKB, lsLimitKB).toFixed(1)}% of 5,120 KB`,
+    `${pct(lsTotalKB, lsLimitKB).toFixed(1)}% of ~5 MB (localStorage)`,
     "storageStatBar_ls",
     pct(lsTotalKB, lsLimitKB),
     "storage-stat-bar--ls"
@@ -3580,7 +3641,9 @@ const renderStorageSection = async (silent = false) => {
   setCard(
     "storageStat_idb",
     fmt(idbTotalKB),
-    `${pct(idbTotalKB, idbLimitKB).toFixed(1)}% of ${fmt(idbLimitKB)}`,
+    idbTotalKB > 0
+      ? `Images: ~${fmt(idbTotalKB - attachTotalKB)} · Attachments: ${fmt(attachTotalKB)}`
+      : "No IndexedDB data",
     "storageStatBar_idb",
     pct(idbTotalKB, idbLimitKB),
     "storage-stat-bar--idb"
@@ -3588,7 +3651,7 @@ const renderStorageSection = async (silent = false) => {
   setCard(
     "storageStat_combined",
     fmt(combinedKB),
-    `of ~${fmt(combinedLimitKB)} cap`,
+    `LS + IDB combined (browser quota varies)`,
     "storageStatBar_combined_ls",
     pct(lsTotalKB, combinedLimitKB),
     "storage-stat-bar--ls"
@@ -3645,6 +3708,7 @@ const renderStorageSection = async (silent = false) => {
     if (!idbStats) {
       idbTable.innerHTML = '<p class="settings-subtext">IndexedDB unavailable in this browser.</p>';
     } else {
+      const imagesTotalKB = idbStats ? idbStats.totalBytes / 1024 : 0;
       const idbRows = [
         { label: "Coin Images", icon: "🖼", count: idbStats.numistaCount, sizeKB: null },
         { label: "User Images", icon: "📷", count: idbStats.userImageCount, sizeKB: null },
@@ -3656,21 +3720,32 @@ const renderStorageSection = async (silent = false) => {
         },
         { label: "Coin Metadata", icon: "📄", count: idbStats.metadataCount, sizeKB: null },
       ];
-      // Estimate size by proportion of total (exact per-store breakdown not available from getStorageUsage)
-      const idbTotalCount = idbRows.reduce((s, r) => s + r.count, 0) || 1;
+      // Estimate image row sizes by proportion of images total (exact per-store breakdown unavailable)
+      const idbImageCount = idbRows.reduce((s, r) => s + r.count, 0) || 1;
       idbRows.forEach((r) => {
-        r.sizeKB = idbTotalCount > 0 ? (r.count / idbTotalCount) * idbTotalKB : 0;
+        r.sizeKB = idbImageCount > 0 ? (r.count / idbImageCount) * imagesTotalKB : 0;
       });
+      // Attachments row uses exact bytes from attachmentManager (rec.size is stored on write)
+      if (attachStats !== null) {
+        idbRows.push({
+          label: "Attachments",
+          icon: "📎",
+          count: attachStats.count,
+          sizeKB: attachTotalKB,
+          exact: true,
+        });
+      }
 
       const idbRowsHtml = idbRows
         .map((r) => {
           const barPct = idbTotalKB > 0 ? Math.min((r.sizeKB / idbTotalKB) * 100, 100) : 0;
           const sizeStr =
             r.sizeKB >= 1024 ? `${(r.sizeKB / 1024).toFixed(1)} MB` : `${r.sizeKB.toFixed(1)} KB`;
+          const dbName = r.exact ? "StakTrakrAttachments" : "StakTrakrImages";
           return `<tr class="storage-key-row">
           <td class="storage-key-icon">${r.icon}</td>
-          <td class="storage-key-label">${r.label}<span class="storage-key-raw">StakTrakrImages</span></td>
-          <td class="storage-key-size">~${sizeStr}</td>
+          <td class="storage-key-label">${r.label}<span class="storage-key-raw">${dbName}</span></td>
+          <td class="storage-key-size">${r.exact ? "" : "~"}${sizeStr}</td>
           <td class="storage-key-bar-cell"><div class="storage-key-bar-wrap"><div class="storage-key-bar storage-key-bar--idb" style="width:${barPct.toFixed(1)}%"></div></div></td>
           <td class="storage-key-pct">${barPct.toFixed(1)}%</td>
           <td class="storage-key-type"><span class="storage-type-badge storage-type-badge--idb">IDB</span></td>
@@ -3842,7 +3917,7 @@ const renderNumistaTagSettings = () => {
       const chip = document.createElement("span");
       chip.className = "tag-chip";
       chip.style.cssText =
-        "display:inline-flex;align-items:center;gap:0.25rem;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.8rem;background:var(--bg-secondary, #eee);color:var(--text);";
+        "display:inline-flex;align-items:center;gap:0.25rem;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.8rem;background:var(--bg-secondary);color:var(--text);";
 
       const nameSpan = document.createElement("span");
       nameSpan.textContent = sanitizeHtml(tag);
@@ -3920,13 +3995,13 @@ const renderMarketFilterMatrix = () => {
   const vendors = Object.keys(vendorSource).map((id) => {
     if (typeof getVendorDisplay === "function") {
       const info = getVendorDisplay(id);
-      return { id, name: info.name || id, color: info.color || "#6c757d" };
+      return { id, name: info.name || id, color: info.color || getThemeColor("text-muted") };
     }
     const colors = typeof RETAIL_VENDOR_COLORS !== "undefined" ? RETAIL_VENDOR_COLORS : {};
     return {
       id,
       name: vendorSource[id]?.name || vendorSource[id] || id,
-      color: colors[id] || "#6c757d",
+      color: colors[id] || getThemeColor("text-muted"),
     };
   });
 

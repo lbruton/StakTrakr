@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 
 /**
  * Playwright TDD spec for STAK-556 — Numista picker tag checkboxes and userModified flag.
@@ -70,6 +70,12 @@ const NUMISTA_RESULT = {
   tags: ["Bullion", "Eagle", "Investment"],
 };
 
+// 4-tag result for AC-10 mixed-state test (on-item + blacklisted + removed + new)
+const NUMISTA_RESULT_4 = {
+  ...NUMISTA_RESULT,
+  tags: ["Bullion", "Eagle", "Investment", "Silver"],
+};
+
 // ---------------------------------------------------------------------------
 // Setup helpers
 // ---------------------------------------------------------------------------
@@ -135,6 +141,7 @@ async function stubCatalogLookup(page, result = NUMISTA_RESULT) {
       if (!api || typeof api !== "object") return;
       api.lookupItem = async () => ({ ...lookupResult });
       api.searchItems = async () => [{ ...lookupResult }];
+      if (!api.activeProvider) api.activeProvider = { name: "numista" };
     };
 
     let currentCatalogApi;
@@ -188,6 +195,83 @@ async function openNumistaPicker(page, result = NUMISTA_RESULT) {
   await page.evaluate((r) => {
     window.showNumistaResults([r], true, "");
   }, result);
+  await expect(page.locator("#numistaResultsModal")).toBeVisible();
+  await expect(page.locator("#numistaFieldPicker")).toBeVisible();
+}
+
+/**
+ * Seed empty inventory with a fake Numista API key so the search-button flow
+ * passes ensureNumistaConfiguredOrPrompt(). No inventory rows are created —
+ * the Add Item modal starts from a truly empty state.
+ */
+async function seedAddItemData(page, opts = {}) {
+  const { numistaTagsAuto = true, tagBlacklist = [] } = opts;
+
+  await page.addInitScript(
+    ({ tagsAuto, blacklist }) => {
+      localStorage.setItem("metalInventory", JSON.stringify([]));
+      localStorage.setItem("itemTags", JSON.stringify({}));
+      localStorage.setItem("numista_tags_auto", JSON.stringify(tagsAuto));
+      if (blacklist.length > 0) {
+        localStorage.setItem("tagBlacklist", JSON.stringify(blacklist));
+      }
+      localStorage.setItem(
+        "catalog_api_config",
+        JSON.stringify({
+          numista: { apiKey: btoa("fake-test-key"), quota: 2000 },
+        })
+      );
+
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") {
+            localStorage.setItem("ackVersion", APP_VERSION);
+          }
+        },
+        { once: true }
+      );
+    },
+    { tagsAuto: numistaTagsAuto, blacklist: tagBlacklist }
+  );
+}
+
+/**
+ * Navigate to the app with empty inventory. Unlike gotoApp(), does NOT wait
+ * for window.inventory.length > 0 — that would hang with an empty store.
+ */
+async function gotoEmptyApp(page) {
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () =>
+      typeof window.showNumistaResults === "function" &&
+      Array.isArray(window.inventory) &&
+      typeof window.catalogAPI === "object" &&
+      window.catalogAPI !== null &&
+      typeof window.ensureNumistaConfiguredOrPrompt === "function"
+  );
+  // init.js Phase 14 attaches event listeners inside setTimeout(…, 200).
+  // Wait for the newItemBtn click handler to exist before interacting.
+  await page.waitForFunction(() => {
+    const btn = document.getElementById("newItemBtn");
+    return btn && btn.offsetParent !== null;
+  });
+  await page.waitForTimeout(250);
+}
+
+/**
+ * Open the Add Item modal, enter a Numista ID, click the search button, and
+ * wait for the picker to appear. Routes through the real Add Item entry point
+ * (#newItemBtn → #itemCatalog → #searchNumistaBtn), NOT through openEditForm()
+ * or window.showNumistaResults().
+ */
+async function openAddItemPicker(page, numistaId) {
+  await page.click("#newItemBtn");
+  await expect(page.locator("#itemModal")).toBeVisible();
+
+  await page.fill("#itemCatalog", numistaId);
+  await page.click("#searchNumistaBtn");
+
   await expect(page.locator("#numistaResultsModal")).toBeVisible();
   await expect(page.locator("#numistaFieldPicker")).toBeVisible();
 }
@@ -276,25 +360,162 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
   });
 
   // =========================================================================
-  // Test 3 — Already-present tags checked and disabled
+  // Test 3 — Existing on-item tag is shown checked and ENABLED (STRK-52 spec correction)
+  // Previously asserted toBeDisabled(); that was the wrong spec — STRK-52 corrects it.
   // =========================================================================
-  test("3. already-present tags checked and disabled", async ({ page }) => {
-    await seedData(page, {
-      itemTags: { [ITEM_UUID]: ["Bullion"] },
-    });
+  test("3. existing on-item tag is shown checked and enabled with '(on item)' hint (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Bullion"] } });
     await stubCatalogLookup(page);
     await gotoApp(page);
     await openEditForm(page);
     await openNumistaPicker(page);
 
-    // "Bullion" is already on the item — should be checked and disabled
     const alreadyPresentCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
     await expect(alreadyPresentCb).toBeChecked();
-    await expect(alreadyPresentCb).toBeDisabled();
+    await expect(alreadyPresentCb).not.toBeDisabled();
+
+    const bullionLabel = page.locator('label:has(input[data-tag="Bullion"])');
+    await expect(bullionLabel).toContainText("on item");
 
     // "Eagle" is not on the item — should be enabled
     const newTagCb = page.locator('input[name="numistaTag"][data-tag="Eagle"]');
     await expect(newTagCb).toBeEnabled();
+  });
+
+  // =========================================================================
+  // Test 3-AC3 — Unchecking an on-item tag records removal (STRK-52)
+  // =========================================================================
+  test("3-AC3: unchecking an on-item tag records removal and opts-out future syncs (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Bullion"] }, numistaTagsAuto: false });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page);
+
+    const bullionCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    await expect(bullionCb).toBeChecked();
+    await expect(bullionCb).not.toBeDisabled();
+    await bullionCb.uncheck();
+    await expect(bullionCb).not.toBeChecked();
+
+    await page.locator("#numistaFillBtn").click();
+
+    const tags = await page.evaluate(
+      (uuid) => (typeof window.getItemTags === "function" ? window.getItemTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(tags.map((t) => t.toLowerCase())).not.toContain("bullion");
+
+    const removed = await page.evaluate(
+      (uuid) => (typeof window.loadRemovedTags === "function" ? window.loadRemovedTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(removed.map((t) => t.toLowerCase())).toContain("bullion");
+
+    // Re-open picker — Bullion should now show as removed, not on-item
+    await openNumistaPicker(page);
+    await expect(bullionCb).not.toBeChecked();
+    const bullionLabel = page.locator('label:has(input[data-tag="Bullion"])');
+    await expect(bullionLabel).toContainText("removed");
+  });
+
+  // =========================================================================
+  // Test 3-AC6 — Case-insensitive removal (STRK-52)
+  // =========================================================================
+  test("3-AC6: unchecking removes the stored tag case-insensitively (STRK-52)", async ({
+    page,
+  }) => {
+    // Stored as lowercase "bullion"; Numista returns "Bullion" (capitalized)
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["bullion"] }, numistaTagsAuto: false });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page);
+
+    const bullionCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    await expect(bullionCb).toHaveCount(1);
+    await expect(bullionCb).toBeChecked();
+    await expect(bullionCb).not.toBeDisabled();
+    await bullionCb.uncheck();
+
+    await page.locator("#numistaFillBtn").click();
+
+    const tags = await page.evaluate(
+      (uuid) => (typeof window.getItemTags === "function" ? window.getItemTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(tags.map((t) => t.toLowerCase())).not.toContain("bullion");
+
+    const removed = await page.evaluate(
+      (uuid) => (typeof window.loadRemovedTags === "function" ? window.loadRemovedTags(uuid) : []),
+      ITEM_UUID
+    );
+    expect(removed.map((t) => t.toLowerCase())).toContain("bullion");
+  });
+
+  // =========================================================================
+  // Test 3-AC10 — Uncheck-all protects on-item AND blacklisted rows (STRK-52)
+  // =========================================================================
+  test("3-AC10: Uncheck-all protects on-item and blacklisted rows simultaneously (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      itemTags: { [ITEM_UUID]: ["Bullion"] },
+      itemRemovedTags: { [ITEM_UUID]: ["Eagle"] },
+      tagBlacklist: ["Investment"],
+      numistaTagsAuto: true,
+    });
+    await stubCatalogLookup(page, NUMISTA_RESULT_4);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_4);
+
+    const bullionCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    const eagleCb = page.locator('input[name="numistaTag"][data-tag="Eagle"]');
+    const investmentCb = page.locator('input[name="numistaTag"][data-tag="Investment"]');
+    const silverCb = page.locator('input[name="numistaTag"][data-tag="Silver"]');
+
+    // Pre-conditions
+    await expect(bullionCb).toBeChecked();
+    await expect(bullionCb).not.toBeDisabled(); // ← fails before B.1 (TDD red)
+    await expect(eagleCb).not.toBeChecked(); // removed tag — unchecked
+    await expect(investmentCb).not.toBeChecked(); // blacklisted — unchecked + disabled
+    await expect(silverCb).toBeChecked(); // new tag, auto=true
+
+    await page.locator("#numistaTagUncheckAll").click();
+
+    // Post-conditions: Bullion (on-item) stays checked; Investment (blacklisted) stays unchecked+disabled
+    await expect(bullionCb).toBeChecked();
+    await expect(investmentCb).not.toBeChecked();
+    await expect(investmentCb).toBeDisabled();
+    await expect(silverCb).not.toBeChecked(); // unprotected — cleared
+    await expect(eagleCb).not.toBeChecked(); // removed — still unchecked
+  });
+
+  // =========================================================================
+  // Test 3-AC5 — Manual + Numista matching tag renders as one row (STRK-52 regression lock)
+  // Should PASS before implementation (behavior already correct via isOnItem predicate)
+  // =========================================================================
+  test("3-AC5: matching manual and Numista tag renders as one checked on-item row (STRK-52)", async ({
+    page,
+  }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Bullion"] } });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page);
+
+    // Only one "Bullion" row — no duplicate from the manual tag
+    const bullionRows = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    await expect(bullionRows).toHaveCount(1);
+    await expect(bullionRows).toBeChecked();
+
+    const bullionLabel = page.locator('label:has(input[data-tag="Bullion"])');
+    await expect(bullionLabel).toContainText("on item");
   });
 
   // =========================================================================
@@ -798,5 +1019,473 @@ test.describe("numista-picker-tags — STAK-556 tag checkboxes + userModified", 
     // itemTags did NOT change → should NOT appear in changed
     const tagsChange = changed.find((c) => c.key === "itemTags");
     expect(tagsChange).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// STRK-51 — Expanded Numista picker: numistaData fields + scroll behavior
+// =============================================================================
+
+// Rich Numista result with numistaData fields populated
+const NUMISTA_RESULT_RICH = {
+  name: "1 Dollar American Silver Eagle",
+  catalogId: "12345",
+  year: "2020",
+  metal: "Silver",
+  type: "Coin",
+  weight: 31.1,
+  imageUrl: "https://example.com/obverse.jpg",
+  reverseImageUrl: "https://example.com/reverse.jpg",
+  tags: ["Bullion", "Eagle"],
+  country: "United States",
+  denomination: "1 Dollar",
+  composition: "Silver .999",
+  shape: "Round",
+  diameter: 38.1,
+  thickness: 2.98,
+  length: 0,
+  width: 0,
+  orientation: "Coin",
+  technique: "Struck",
+  mintageByYear: [{ year: 2020, mintage: 1000000, remark: "" }],
+  rarityIndex: 2,
+  kmReferences: ["KM# 273"],
+  commemorative: false,
+  commemorativeDesc: "",
+  obverseDesc: "Walking Liberty",
+  reverseDesc: "Heraldic Eagle",
+  edgeDesc: "Reeded",
+};
+
+test.describe("numista-picker-tags — STRK-51 expanded Numista Data fields", () => {
+  // =========================================================================
+  // Test 15 — First-time import: numistaData section appears with candidate values
+  // =========================================================================
+  test("15. expanded picker shows Numista Data section when result has numistaData fields", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // Section label should be visible
+    const sectionLabel = page.locator("#numistaFieldCheckboxes .numista-fields-section-label");
+    await expect(sectionLabel).toBeVisible();
+    await expect(sectionLabel).toContainText("Numista Data");
+
+    // Country row should be present and checked (defaultOn: true, has candidate)
+    const countryCb = page.locator('input[name="numistaField"][value="country"]');
+    await expect(countryCb).toBeVisible();
+    await expect(countryCb).toBeChecked();
+
+    // KmRef row should be present and checked (defaultOn: true, has candidate)
+    const kmRefCb = page.locator('input[name="numistaField"][value="kmRef"]');
+    await expect(kmRefCb).toBeVisible();
+    await expect(kmRefCb).toBeChecked();
+
+    // Mintage row present with formatted candidate value
+    const mintageInput = page.locator('input[name="numistaFieldValue_mintage"]');
+    await expect(mintageInput).toBeVisible();
+    const mintageVal = await mintageInput.inputValue();
+    expect(mintageVal.replace(/\D/g, "")).toBe("1000000");
+
+    // obverseDesc defaults checked when Numista provides a candidate value
+    const obverseCb = page.locator('input[name="numistaField"][value="obverseDesc"]');
+    await expect(obverseCb).toBeChecked();
+  });
+
+  // =========================================================================
+  // Test 16 — Re-sync: user-modified diameter defaults unchecked with edited hint
+  // =========================================================================
+  test("16. re-sync: user-modified diameter field defaults unchecked with edited hint", async ({
+    page,
+  }) => {
+    const itemWithDiameterEdited = {
+      ...BASE_ITEM,
+      fieldMeta: {
+        diameter: { source: "manual", userModified: true },
+      },
+    };
+
+    await seedData(page, { inventory: [itemWithDiameterEdited] });
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // diameter should be unchecked due to userModified
+    const diameterCb = page.locator('input[name="numistaField"][value="diameter"]');
+    await expect(diameterCb).not.toBeChecked();
+
+    // diameter row should show the "edited" hint
+    const diameterRow = page.locator(
+      '#numistaFieldCheckboxes .numista-field-row:has(input[value="diameter"])'
+    );
+    await expect(diameterRow).toContainText("edited");
+  });
+
+  // =========================================================================
+  // Test 17 — Re-sync: user-modified nested field obverseDesc defaults unchecked
+  // =========================================================================
+  test("17. re-sync: user-modified obverseDesc defaults unchecked", async ({ page }) => {
+    const itemWithObverseEdited = {
+      ...BASE_ITEM,
+      fieldMeta: {
+        obverseDesc: { source: "manual", userModified: true },
+      },
+    };
+
+    await seedData(page, { inventory: [itemWithObverseEdited] });
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    const obverseCb = page.locator('input[name="numistaField"][value="obverseDesc"]');
+    await expect(obverseCb).not.toBeChecked();
+
+    const obverseRow = page.locator(
+      '#numistaFieldCheckboxes .numista-field-row:has(input[value="obverseDesc"])'
+    );
+    await expect(obverseRow).toContainText("edited");
+  });
+
+  // =========================================================================
+  // Test 18 — Missing candidate values produce disabled (not checked) rows
+  // =========================================================================
+  test("18. fields with no candidate value are disabled and unchecked", async ({ page }) => {
+    const sparseResult = {
+      ...NUMISTA_RESULT_RICH,
+      edgeDesc: "",
+      commemorativeDesc: "",
+      commemorative: false,
+    };
+
+    await seedData(page);
+    await stubCatalogLookup(page, sparseResult);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, sparseResult);
+
+    // edgeDesc has no candidate → checkbox disabled (or not present)
+    const edgeCb = page.locator('input[name="numistaField"][value="edgeDesc"]');
+    const count = await edgeCb.count();
+    if (count > 0) {
+      await expect(edgeCb).not.toBeChecked();
+      await expect(edgeCb).toBeDisabled();
+    }
+  });
+
+  // =========================================================================
+  // Test 19 — Existing 8-field behavior not regressed
+  // =========================================================================
+  test("19. existing main-form fields still render and Fill Fields still works", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // Original 8 fields present
+    const nameCb = page.locator('input[name="numistaField"][value="name"]');
+    const weightCb = page.locator('input[name="numistaField"][value="weight"]');
+    await expect(nameCb).toBeVisible();
+    await expect(weightCb).toBeVisible();
+    await expect(nameCb).toBeChecked();
+
+    // Fill Fields completes without error
+    const fillBtn = page.locator("#numistaFillBtn");
+    await fillBtn.click();
+
+    // Modal closes and name is filled
+    await expect(page.locator("#numistaFieldPicker")).not.toBeVisible();
+    const nameVal = await page.locator("#itemName").inputValue();
+    expect(nameVal).toBe(NUMISTA_RESULT_RICH.name);
+  });
+
+  // =========================================================================
+  // Test 20 — Layout: fill actions visible without scrolling on short viewports
+  // =========================================================================
+  test("20. Fill Fields button remains visible with expanded picker rows on short viewport", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 900, height: 650 });
+
+    await seedData(page);
+    await stubCatalogLookup(page, NUMISTA_RESULT_RICH);
+    await gotoApp(page);
+    await openEditForm(page);
+    await openNumistaPicker(page, NUMISTA_RESULT_RICH);
+
+    // Fill Fields button must be within the visible viewport
+    const fillBtn = page.locator("#numistaFillBtn");
+    await expect(fillBtn).toBeInViewport();
+
+    // Cancel button also reachable
+    const cancelBtn = page.locator("#numistaFillCancelBtn");
+    await expect(cancelBtn).toBeInViewport();
+
+    // The modal body scrolls (scrollHeight > clientHeight) confirming rows overflow
+    const bodyScrolls = await page.evaluate(() => {
+      const modal = document.querySelector(".numista-results-modal-content .modal-body");
+      if (!modal) return null;
+      return modal.scrollHeight > modal.clientHeight;
+    });
+    expect(bodyScrolls).toBe(true);
+  });
+
+  // =========================================================================
+  // STRK-84 — Add Item tag persistence (TDD red → green)
+  // =========================================================================
+
+  test("21. STRK-84 AC-1: tags persist on first Fill Fields for new Add Item", async ({ page }) => {
+    await seedAddItemData(page);
+    await stubCatalogLookup(page);
+    await gotoEmptyApp(page);
+    await openAddItemPicker(page, "12345");
+
+    // Default-checked tag "Bullion" should be ticked (numistaTagsAuto=true)
+    const bullionCb = page.locator('input[name="numistaTag"][data-tag="Bullion"]');
+    await expect(bullionCb).toBeChecked();
+
+    // Click Fill Fields once
+    await page.click("#numistaFillBtn");
+
+    // Wait for the picker to close
+    await expect(page.locator("#numistaResultsModal")).not.toBeVisible();
+
+    // Submit the Add Item form
+    await page.click("#itemModalSubmit");
+
+    // Wait for the modal to close (item saved)
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    // Verify the saved row has the tag applied
+    const result = await page.evaluate(() => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      const newItem = inv[inv.length - 1];
+      if (!newItem) return { uuid: null, tags: [] };
+      const tags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+      return { uuid: newItem.uuid, tags: tags[newItem.uuid] || [] };
+    });
+
+    expect(result.uuid).toBeTruthy();
+    expect(result.tags).toContain("Bullion");
+    expect(result.tags).toContain("Eagle");
+    expect(result.tags).toContain("Investment");
+  });
+
+  test("22. STRK-84 AC-2: opt-out recording for unchecked default-on tags on new items", async ({
+    page,
+  }) => {
+    await seedAddItemData(page);
+    await stubCatalogLookup(page);
+    await gotoEmptyApp(page);
+    await openAddItemPicker(page, "12345");
+
+    // Uncheck "Eagle" tag (direct user click)
+    const eagleCb = page.locator('input[name="numistaTag"][data-tag="Eagle"]');
+    await expect(eagleCb).toBeChecked();
+    await eagleCb.uncheck();
+    await expect(eagleCb).not.toBeChecked();
+
+    // Click Fill Fields
+    await page.click("#numistaFillBtn");
+    await expect(page.locator("#numistaResultsModal")).not.toBeVisible();
+
+    // Submit the form
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    // Verify opt-out was recorded in itemRemovedTags
+    const result = await page.evaluate(() => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      const newItem = inv[inv.length - 1];
+      if (!newItem) return { uuid: null, removed: {}, tags: [] };
+      const removed = JSON.parse(localStorage.getItem("itemRemovedTags") || "{}");
+      const tags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+      return {
+        uuid: newItem.uuid,
+        removed: removed[newItem.uuid] || [],
+        tags: tags[newItem.uuid] || [],
+      };
+    });
+
+    expect(result.uuid).toBeTruthy();
+    expect(result.removed).toContain("Eagle");
+    expect(result.tags).not.toContain("Eagle");
+    expect(result.tags).toContain("Bullion");
+    expect(result.tags).toContain("Investment");
+  });
+
+  test("22b. STRK-84 AC-2: Uncheck all records opt-outs for default-on tags on new items", async ({
+    page,
+  }) => {
+    await seedAddItemData(page);
+    await stubCatalogLookup(page);
+    await gotoEmptyApp(page);
+    await openAddItemPicker(page, "12345");
+
+    // All default-on tags should be checked
+    const allTagCbs = page.locator('input[name="numistaTag"]');
+    const initialCount = await allTagCbs.count();
+    expect(initialCount).toBeGreaterThan(0);
+
+    // Click "Uncheck all"
+    const uncheckAllBtn = page.locator(
+      "#numistaTagUncheckAll, [data-action='tag-uncheck-all'], .numista-tag-uncheck-all"
+    );
+    await uncheckAllBtn.click();
+
+    // Click Fill Fields
+    await page.click("#numistaFillBtn");
+    await expect(page.locator("#numistaResultsModal")).not.toBeVisible();
+
+    // Submit the form
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    // Verify all previously-default-on tags are recorded as opt-outs
+    const result = await page.evaluate(() => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      const newItem = inv[inv.length - 1];
+      if (!newItem) return { uuid: null, removed: [], tags: [] };
+      const removed = JSON.parse(localStorage.getItem("itemRemovedTags") || "{}");
+      const tags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+      return {
+        uuid: newItem.uuid,
+        removed: removed[newItem.uuid] || [],
+        tags: tags[newItem.uuid] || [],
+      };
+    });
+
+    expect(result.uuid).toBeTruthy();
+    expect(result.tags).toHaveLength(0);
+    expect(result.removed).toContain("Bullion");
+    expect(result.removed).toContain("Eagle");
+    expect(result.removed).toContain("Investment");
+  });
+
+  test("23. STRK-84 AC-2 negative: no checkbox interaction produces no removedTags", async ({
+    page,
+  }) => {
+    await seedAddItemData(page);
+    await stubCatalogLookup(page);
+    await gotoEmptyApp(page);
+    await openAddItemPicker(page, "12345");
+
+    // Do NOT interact with any tag checkbox — leave defaults as-is
+
+    // Click Fill Fields
+    await page.click("#numistaFillBtn");
+    await expect(page.locator("#numistaResultsModal")).not.toBeVisible();
+
+    // Submit the form
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    // Verify no removedTags entries for the new item
+    const result = await page.evaluate(() => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      const newItem = inv[inv.length - 1];
+      if (!newItem) return { uuid: null, removed: [] };
+      const removed = JSON.parse(localStorage.getItem("itemRemovedTags") || "{}");
+      return {
+        uuid: newItem.uuid,
+        removed: removed[newItem.uuid] || [],
+      };
+    });
+
+    expect(result.uuid).toBeTruthy();
+    expect(result.removed).toHaveLength(0);
+  });
+});
+
+test.describe("numista-picker-tags — STRK-87 Add mode reset hygiene", () => {
+  test("24. STRK-87: Add Item clears catalog value after editing an item with Numista ID", async ({
+    page,
+  }) => {
+    await seedData(page);
+    await gotoApp(page);
+    await openEditForm(page);
+
+    await expect(page.locator("#itemCatalog")).toHaveValue(BASE_ITEM.numistaId);
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    await page.click("#newItemBtn");
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemCatalog")).toHaveValue("");
+
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "STRK-87 New Silver Dollar");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemPrice", "35");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    const saved = await page.evaluate(() => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      return inv.map((item) => ({ name: item.name, numistaId: item.numistaId || "" }));
+    });
+
+    expect(saved).toContainEqual({
+      name: "STRK-87 New Silver Dollar",
+      numistaId: "",
+    });
+  });
+
+  test("25. STRK-87: Add Item clears stale edit tag chips and handlers", async ({ page }) => {
+    await seedData(page, { itemTags: { [ITEM_UUID]: ["Scottsdale"] } });
+    await gotoApp(page);
+    await openEditForm(page);
+
+    await expect(page.locator("#itemModalTagsChips")).toContainText("Scottsdale");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    await page.click("#newItemBtn");
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemModalTagsChips")).toContainText("No tags");
+    await expect(page.locator("#itemModalTagsChips")).not.toContainText("Scottsdale");
+
+    // Add a tag in Add mode and verify chip appears
+    await page.fill("#newTagInput", "LeakedTag");
+    await page.click("#addTagBtn");
+    await expect(page.locator("#itemModalTagsChips")).toContainText("LeakedTag");
+
+    // Fill required fields and save the new item
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "STRK-87 Tag Hygiene Item");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemPrice", "35");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).not.toBeVisible();
+
+    // Verify tag durability: LeakedTag is saved under the new item's UUID
+    const result = await page.evaluate((seedUuid) => {
+      const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+      const newItem = inv.find((item) => item.uuid && item.uuid !== seedUuid);
+      if (!newItem) return { newUuid: null, newItemTags: [], seededItemTags: [] };
+      const tags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+      return {
+        newUuid: newItem.uuid,
+        newItemTags: tags[newItem.uuid] || [],
+        seededItemTags: tags[seedUuid] || [],
+      };
+    }, ITEM_UUID);
+
+    // New item must have LeakedTag durably saved under its own UUID
+    expect(result.newUuid).toBeTruthy();
+    expect(result.newItemTags).toContain("LeakedTag");
+
+    // Hygiene: the seeded item's tags must remain unchanged (no leak)
+    expect(result.seededItemTags).toEqual(["Scottsdale"]);
   });
 });

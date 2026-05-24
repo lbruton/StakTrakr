@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 
 /**
  * STAK-576 ISSUE-005 — Numista search magnifier with no API key must surface

@@ -1,5 +1,10 @@
 # Section 06 — UI / UX
 
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 This section covers E2E tests for responsive layout, theme switching, totals accuracy, item count display, currency switching, and settings persistence. It validates that the application renders correctly at standard breakpoints, responds to user-initiated theme and currency changes, and that the Settings modal saves and persists state across a page reload.
 
 **Viewport note (applies to 6.1 and 6.2):** Browserbase sessions use a fixed viewport configured at session creation time. Mid-session viewport resizing via Stagehand is not supported. Tests 6.1 (375px) and 6.2 (768px) are best executed in separate targeted Browserbase sessions configured at those widths. Within a standard desktop session, those tests capture a screenshot for reference and rely on session recording for visual verification. Test 6.3 (1280px desktop) runs normally in any standard Browserbase session.

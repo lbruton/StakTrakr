@@ -675,6 +675,48 @@ const getCurrencySymbol = (currency) => {
 };
 
 /**
+ * Returns the number of minor-unit fraction digits for a currency code.
+ * Uses Intl.NumberFormat to resolve the correct decimal count per ISO 4217.
+ * Examples: USD → 2, EUR → 2, JPY → 0, KWD → 3.
+ *
+ * @param {string} [currency] - ISO 4217 code; defaults to displayCurrency
+ * @returns {number} Number of fraction digits (typically 2 for most currencies)
+ * @STRK-88
+ */
+const getCurrencyFractionDigits = (currency) => {
+  const code = (
+    currency || (typeof displayCurrency !== "undefined" ? displayCurrency : "USD")
+  ).toUpperCase();
+  try {
+    const cacheKey = `frac-${code}`;
+    let cached = numberFormatCache.get(cacheKey);
+    if (!cached) {
+      cached = new Intl.NumberFormat(undefined, { style: "currency", currency: code });
+      numberFormatCache.set(cacheKey, cached);
+    }
+    return cached.resolvedOptions().minimumFractionDigits;
+  } catch (e) {
+    return 2; // safe default
+  }
+};
+
+/**
+ * Rounds a numeric price value to the active display-currency's minor-unit precision.
+ * Prevents floating-point drift artifacts such as "56.666667" from appearing in
+ * price input fields after LOT/EACH toggle conversions (STRK-88).
+ *
+ * @param {number} value - Price value to round (in display currency units)
+ * @param {string} [currency] - ISO 4217 code; defaults to displayCurrency
+ * @returns {number} Rounded value
+ * @STRK-88
+ */
+const roundToPricePrecision = (value, currency) => {
+  const digits = getCurrencyFractionDigits(currency);
+  const factor = Math.pow(10, digits);
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+};
+
+/**
  * Updates the add/edit modal's currency symbols and placeholders (STACK-50)
  * Sets the CSS custom property --currency-symbol on .currency-input wrappers
  * and updates input placeholders with the current currency code.
@@ -945,9 +987,19 @@ const formatWeight = (ozt, weightUnit) => {
  * @returns {number} Amount converted to USD
  */
 const convertToUsd = (amount, currency = "USD") => {
-  const rates = { USD: 1, EUR: 1.08, GBP: 1.27, CAD: 0.74 };
-  const rate = rates[currency.toUpperCase()] || 1;
-  return amount * rate;
+  const code = currency.toUpperCase();
+  if (code === "USD") return amount;
+  if (typeof getExchangeRate === "function") {
+    const rate = getExchangeRate(code);
+    // rate === 1 for a non-USD currency is the sentinel value (no rate loaded);
+    // fall through to the static table rather than silently returning the wrong value.
+    if (Number.isFinite(rate) && rate > 0 && rate !== 1) return amount / rate;
+  }
+  // Static fallback — rates expressed as foreign-per-USD (same convention as getExchangeRate).
+  // 1 USD = N foreign → USD = amount / N
+  const rates = { EUR: 0.926, GBP: 0.787, CAD: 1.351 };
+  const rate = rates[code] || 1;
+  return amount / rate;
 };
 
 /**
@@ -1016,7 +1068,7 @@ const cleanString = (str = "") => {
 const sanitizeObjectFields = (obj) => {
   const cleaned = { ...obj };
   for (const key of Object.keys(cleaned)) {
-    if (typeof cleaned[key] === "string" && key !== "notes") {
+    if (typeof cleaned[key] === "string" && key !== "notes" && key !== "capsuleNotes") {
       // URL fields must not be sanitized — they contain :, /, . characters
       // UUID fields must not be sanitized — hyphens are part of the format
       if (key === "obverseImageUrl" || key === "reverseImageUrl" || key === "uuid") continue;
@@ -1028,7 +1080,8 @@ const sanitizeObjectFields = (obj) => {
         key === "grade" ||
         key === "gradingAuthority" ||
         key === "certNumber" ||
-        key === "serialNumber"
+        key === "serialNumber" ||
+        key === "capsule"
           ? cleanString(cleaned[key])
           : stripNonAlphanumeric(cleaned[key], { allowHyphen });
     }
@@ -1348,7 +1401,14 @@ const sanitizeImportedItem = (item) => {
   }
 
   // Normalize and sanitize string fields
-  const basicFields = ["name", "type", "purchaseLocation", "storageLocation"];
+  const basicFields = [
+    "name",
+    "type",
+    "paymentMethod",
+    "purchaseLocation",
+    "storageLocation",
+    "capsule",
+  ];
   const cleanMultilineString = (str = "") => {
     let s = str.toString();
     let prev;
@@ -1369,6 +1429,7 @@ const sanitizeImportedItem = (item) => {
     sanitized[field] = cleanString(sanitized[field]);
   }
   sanitized.notes = cleanMultilineString(sanitized.notes);
+  sanitized.capsuleNotes = cleanMultilineString(sanitized.capsuleNotes);
   sanitized.type = normalizeType(sanitized.type);
 
   // Reset premium calculations if price or weight are missing
@@ -1422,7 +1483,7 @@ const getGoldbackRetailPrice = (item) => {
 
 /**
  * Calculates qty-adjusted retail value using the portfolio hierarchy:
- * Goldback denomination price → manual market value → melt value.
+ * max(Goldback denomination price, manual market value) → melt value.
  *
  * @param {Object} item - Inventory item
  * @param {number} currentSpot - Current spot price for the item's metal
@@ -1441,12 +1502,9 @@ const calculateRetailPrice = (item, currentSpot) => {
   const meltValue = computeMeltValue(item, Number(currentSpot) || 0);
   const gbDenomPrice =
     typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
-  const isManualRetail = !gbDenomPrice && marketValue > 0;
-  const retailTotal = gbDenomPrice
-    ? gbDenomPrice * qty
-    : isManualRetail
-      ? marketValue * qty
-      : meltValue;
+  const retailUnitPrice = gbDenomPrice ? Math.max(gbDenomPrice, marketValue) : marketValue;
+  const isManualRetail = marketValue > 0 && (!gbDenomPrice || marketValue >= gbDenomPrice);
+  const retailTotal = retailUnitPrice > 0 ? retailUnitPrice * qty : meltValue;
 
   return {
     qty,
@@ -1804,8 +1862,8 @@ const openModalById = (id) => {
 const generateStorageReportHTML = (idbStats) => {
   const reportData = analyzeStorageData();
   const timestamp = formatTimestamp(new Date());
-  const currentTheme =
-    document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  const rawTheme = document.documentElement.getAttribute("data-theme");
+  const currentTheme = ["dark", "slate"].includes(rawTheme) ? "dark" : "light";
 
   return `<!DOCTYPE html>
 <html lang="en" data-theme="${currentTheme}">
@@ -2116,7 +2174,8 @@ const getStorageReportCSS = () => {
         --border: #dee2e6;
     }
     
-    [data-theme="dark"] {
+    [data-theme="dark"],
+    [data-theme="slate"] {
         --bg-primary: #1a1a1a;
         --bg-secondary: #2d2d2d;
         --text-primary: #f8fafc;
@@ -2900,7 +2959,7 @@ const getStorageReportJS = () => {
         }
 
         const ctx = canvas.getContext('2d');
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const isDark = ['dark', 'slate'].includes(document.documentElement.getAttribute('data-theme'));
 
         const data = {
             labels: currentChartItems.map(item => getStorageItemDisplayName(item.key)),
@@ -3372,6 +3431,8 @@ if (typeof window !== "undefined") {
   window.loadDisplayCurrency = loadDisplayCurrency;
   window.saveDisplayCurrency = saveDisplayCurrency;
   window.getCurrencySymbol = getCurrencySymbol;
+  window.getCurrencyFractionDigits = getCurrencyFractionDigits;
+  window.roundToPricePrecision = roundToPricePrecision;
   window.updateModalCurrencyUI = updateModalCurrencyUI;
   window.getExchangeRate = getExchangeRate;
   window.loadExchangeRates = loadExchangeRates;
@@ -3395,6 +3456,8 @@ if (typeof module !== "undefined" && module.exports) {
     getContrastColor,
     debounce,
     generateUUID,
+    getCurrencyFractionDigits,
+    roundToPricePrecision,
     setButtonLoading,
     escapeHtml,
   };
