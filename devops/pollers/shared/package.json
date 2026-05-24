@@ -8,7 +8,10 @@
     "@libsql/client": "^0.14.0",
     "better-sqlite3": "^11.0.0",
     "dotenv": "^16.4.0",
-    "playwright": "1.49.0",
-    "playwright-core": "1.49.0"
+    "playwright": "1.55.1",
+    "playwright-core": "1.55.1"
+  },
+  "overrides": {
+    "ws": "^8.20.1"
   }
 }
