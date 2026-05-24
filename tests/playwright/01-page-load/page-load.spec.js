@@ -1,5 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { DEFAULT_RETAIL_LATEST } from "../helpers/mocks/fixtures.js";
 
 async function allowWhatsNew(page) {
   await page.addInitScript(() => {
@@ -90,7 +91,7 @@ test.describe("01-page-load", () => {
     expect(text.trim()).not.toContain("undefined");
   });
 
-  test("1.8 — spot cards render (all 4 metals, non-zero values) @network", async ({ page }) => {
+  test("1.8 — spot cards render (all 4 metals, non-zero values)", async ({ page }) => {
     // runbook: 01-page-load.md §1.8
     await page.goto("/index.html");
     await dismissWhatsNew(page);
@@ -105,7 +106,7 @@ test.describe("01-page-load", () => {
     }
   });
 
-  test("1.9 — spot API backfills missing spot prices for last 30 days on load @network", async ({
+  test("1.9 — spot API backfills missing spot prices for last 30 days on load", async ({
     page,
   }) => {
     // runbook: 01-page-load.md §1.9
@@ -122,7 +123,7 @@ test.describe("01-page-load", () => {
     }
   });
 
-  test("1.10 — market API backfills daily market prices for last 30 days on load @network", async ({
+  test("1.10 — market API backfills daily market prices for last 30 days on load", async ({
     page,
   }) => {
     // runbook: 01-page-load.md §1.10
@@ -144,10 +145,15 @@ test.describe("01-page-load", () => {
     await expect(countEl).toHaveText("8");
   });
 
-  test("1.12 — fresh startup stays quota-safe and keeps market UI available @network", async ({
-    page,
-  }) => {
+  test("1.12 — fresh startup stays quota-safe and keeps market UI available", async ({ page }) => {
     // runbook: 01-page-load.md §1.12
+    // Seed shared retail fixture data so the best-price ticker renders.
+    await page.addInitScript((retailLatest) => {
+      window._v2RetailData = {
+        prices: retailLatest,
+        lastSync: new Date().toISOString(),
+      };
+    }, DEFAULT_RETAIL_LATEST);
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     // Verify no storage-full/quota toasts appear during cold startup

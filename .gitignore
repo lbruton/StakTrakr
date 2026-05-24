@@ -8,6 +8,7 @@
 # needed by Agentlinter and cross-agent workflows.
 .claude/*
 !.claude/project.json
+!.claude/settings.json
 !.claude/agents/
 !.claude/hooks/
 !.claude/skills/
@@ -78,21 +79,21 @@ logs/
 __pycache__/
 *.pyc
 
-# DevOps tooling — all tracked in git; excluded from releases via .gitattributes export-ignore
-# Keep secrets and build artifacts out
+# DevOps tooling — hooks and protocol docs tracked; build artifacts and secrets excluded
 devops/**/.env
 devops/screenshots/
 devops/node_modules/
+devops/docs/
+devops/cgc/
+devops/claude-backup/
+devops/firecrawl-docker/
 
 # Playwright test artifacts
 test-results/
 playwright-report/
 
 # AI/MCP configuration files are tracked for project consistency
-# (removed: .github/instructions/codacy.instructions.md)
 .firecrawl/
-
-devops/mem0/.env
 
 # Version lock — transient runtime file, not project history
 devops/version.lock
@@ -106,3 +107,9 @@ devops/hub/
 # Wiki nightwatch — local rotation state, not project history
 wiki/.nightwatch-log.json
 .playwright-mcp/
+
+# Antigravity CLI — symlinks to user's home ~/.gemini/config/projects/, per-user state
+.antigravitycli/
+
+# Claude read tracker — session-scoped UUID-named read history, not project history
+claude-read-tracker/

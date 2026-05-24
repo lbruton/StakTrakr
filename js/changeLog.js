@@ -4,6 +4,18 @@
  */
 
 /**
+ * Optional fields added by STRK-44 partial-stack disposition.
+ * Existing entries without these fields continue to work unchanged.
+ *
+ * @typedef {Object} ChangeLogTransactionFields
+ * @property {string} [transactionId]    - ISO timestamp shared by paired split+dispose entries
+ * @property {string} [transactionLabel] - Human-readable label for grouped display
+ * @property {Object} [stackSplit]       - Reverse payload for the stack-split entry
+ * @property {Object} [splitDisposed]    - Reverse payload for the disposed-clone entry
+ * @property {string} [itemKey]          - Stable item key (uuid or fallback) for UUID-drift recovery
+ */
+
+/**
  * Computes a stable composite key for an inventory item.
  * Mirrors DiffEngine.computeItemKey() — uuid → serial → numistaId|name|date → name|date.
  * @param {Object} item - Inventory item object
@@ -37,6 +49,22 @@ const logChange = (itemName, field, oldValue, newValue, idx) => {
   });
   saveDataSync("changeLog", changeLog);
 };
+
+const tryPersistChangeLog = () => {
+  try {
+    saveDataSync("changeLog", changeLog, { quietQuotaToast: true });
+    return true;
+  } catch (e) {
+    console.error("tryPersistChangeLog failed", e);
+    return false;
+  }
+};
+
+const pushTransactionEntries = (splitEntry, disposedEntry) => {
+  changeLog.push(splitEntry);
+  changeLog.push(disposedEntry);
+};
+window.pushTransactionEntries = pushTransactionEntries;
 
 /**
  * Compares two item objects and logs any differences.
@@ -82,11 +110,44 @@ const logItemChanges = (oldItem, newItem) => {
     "currency",
     "obverseImageUrl",
     "reverseImageUrl",
+    "obverseImageFrame",
+    "reverseImageFrame",
     "obverseSharedImageId",
     "reverseSharedImageId",
     "disposition",
     "lastModified",
+    "capsule",
+    "capsuleNotes",
+    "paymentMethod",
+    "numistaData",
+    "fieldMeta",
   ];
+
+  // Deep-equality check for object-typed fields. Snapshot wrappers (STRK-91 C.2)
+  // deep-copy nested objects, so `!==` would log unchanged nested objects as
+  // changed because the references differ.
+  //
+  // Key-sorted serialization prevents false positives when object property
+  // insertion order differs between the old and new snapshots (STRK-91 C.3).
+  const _stableStringify = (v) => {
+    if (v === null || typeof v !== "object") return JSON.stringify(v);
+    if (Array.isArray(v)) return "[" + v.map(_stableStringify).join(",") + "]";
+    return (
+      "{" +
+      Object.keys(v)
+        .sort()
+        .map((k) => JSON.stringify(k) + ":" + _stableStringify(v[k]))
+        .join(",") +
+      "}"
+    );
+  };
+  const OBJECT_FIELDS = new Set(["numistaData", "fieldMeta", "disposition"]);
+  const fieldChanged = (field, a, b) => {
+    if (OBJECT_FIELDS.has(field)) {
+      return _stableStringify(a) !== _stableStringify(b);
+    }
+    return a !== b;
+  };
 
   const refItem = newItem || oldItem;
   const itemKey = computeItemKey(refItem);
@@ -114,7 +175,7 @@ const logItemChanges = (oldItem, newItem) => {
   }
 
   fields.forEach((field) => {
-    if (oldItem[field] !== newItem[field]) {
+    if (fieldChanged(field, oldItem[field], newItem[field])) {
       const idx = inventory.indexOf(newItem);
       changeLog.push({
         timestamp: Date.now(),
@@ -137,60 +198,120 @@ const logItemChanges = (oldItem, newItem) => {
  * Renders the change log table with all entries
  */
 const renderChangeLog = () => {
-  const rows = [...changeLog]
-    .slice()
-    .reverse()
-    .map((entry, i) => {
-      const globalIndex = changeLog.length - 1 - i;
-      const actionLabel = entry.undone ? "Redo" : "Undo";
+  const reversedLog = [...changeLog].reverse();
 
-      // Friendly display for price history deletions (STAK-109)
-      let displayField = sanitizeHtml(entry.field);
-      let displayOld = sanitizeHtml(String(entry.oldValue));
-      let displayNew = sanitizeHtml(String(entry.newValue));
+  // Map each entry object to its index in the original changeLog array
+  const entryGlobalIndex = new Map();
+  reversedLog.forEach((entry, i) => {
+    entryGlobalIndex.set(entry, changeLog.length - 1 - i);
+  });
 
-      // Format raw JSON snapshots into human-readable summaries (UX-001)
-      if ((entry.field === "Deleted" || entry.field === "Added") && entry.oldValue) {
-        try {
-          const snap =
-            typeof entry.oldValue === "string" ? JSON.parse(entry.oldValue) : entry.oldValue;
-          if (snap && typeof snap === "object" && snap.name) {
-            const fmtFn =
-              typeof formatCurrency === "function"
-                ? formatCurrency
-                : (v) => "$" + Number(v).toFixed(2);
-            const parts = [snap.metal, snap.type, snap.name];
-            if (snap.weight)
-              parts.push(
-                typeof formatWeight === "function"
-                  ? formatWeight(snap.weight, snap.weightUnit)
-                  : snap.weight + " oz"
-              );
-            if (snap.price) parts.push(fmtFn(snap.price));
-            displayOld = sanitizeHtml(parts.filter(Boolean).join(" \u00B7 "));
-          }
-        } catch {
-          /* keep original */
-        }
+  // Group paired transaction entries by transactionId (STRK-44 partial-stack disposition).
+  // A group has exactly two entries sharing the same transactionId.
+  const txFirstSeen = new Map(); // transactionId -> first entry in reversed order
+  const txGroups = new Map(); // transactionId -> [entry, entry]
+  reversedLog.forEach((entry) => {
+    if (!entry.transactionId) return;
+    if (!txGroups.has(entry.transactionId)) {
+      txGroups.set(entry.transactionId, []);
+      txFirstSeen.set(entry.transactionId, entry);
+    }
+    txGroups.get(entry.transactionId).push(entry);
+  });
+
+  // Renders a single entry as a plain (non-grouped) <tr> string.
+  // Used for the settings panel compact view and all legacy/standard entries in the modal.
+  const renderFlatRow = (entry, globalIndex) => {
+    const actionLabel = entry.undone ? "Redo" : "Undo";
+
+    // --- STRK-44: "Restored (merged)" single-row rendering ---
+    if (entry.field === "Restored (merged)") {
+      const ts = formatTimestamp(entry.timestamp);
+      const itemNameSafe = sanitizeHtml(entry.itemName);
+      let mergeSummary = "";
+      try {
+        const oldVal =
+          typeof entry.oldValue === "object" ? entry.oldValue : JSON.parse(entry.oldValue);
+        const newVal =
+          typeof entry.newValue === "object" ? entry.newValue : JSON.parse(entry.newValue);
+        mergeSummary = sanitizeHtml(`${oldVal.qty} units merged \u2192 ${newVal.mergedQty} total`);
+      } catch {
+        mergeSummary = sanitizeHtml(String(entry.newValue ?? ""));
       }
-      let rowClick = `onclick="editFromChangeLog(${entry.idx}, ${globalIndex})"`;
-      if (entry.field === "priceHistoryDelete") {
-        displayField = "Price Entry Deleted";
-        try {
-          const d = JSON.parse(entry.oldValue);
+      return `
+      <tr>
+        <td title="${ts}">${ts}</td>
+        <td title="${itemNameSafe}">${itemNameSafe}</td>
+        <td title="Restored &amp; merged">Restored &amp; merged</td>
+        <td title="${mergeSummary}">${mergeSummary}</td>
+        <td></td>
+        <td class="action-cell"><button class="btn action-btn" style="margin:1px;" disabled title="Undo via the paired &quot;Undo Both&quot; button">N/A</button></td>
+      </tr>`;
+    }
+
+    // Attachment add/remove/replace — no undo/redo via the change log UI
+    if (entry.type === "attachment-change") {
+      const ts = formatTimestamp(entry.timestamp);
+      const itemNameSafe = sanitizeHtml(entry.itemName);
+      const displayField = sanitizeHtml(entry.field);
+      const displayOld = entry.oldValue != null ? sanitizeHtml(String(entry.oldValue)) : "";
+      const displayNew = entry.newValue != null ? sanitizeHtml(String(entry.newValue)) : "";
+      return `
+      <tr>
+        <td title="${ts}">${ts}</td>
+        <td title="${itemNameSafe}">${itemNameSafe}</td>
+        <td title="${displayField}">${displayField}</td>
+        <td title="${displayOld}">${displayOld}</td>
+        <td title="${displayNew}">${displayNew}</td>
+        <td class="action-cell"><button class="btn action-btn" style="margin:1px;" disabled title="Attachment changes cannot be undone">N/A</button></td>
+      </tr>`;
+    }
+
+    // Friendly display for price history deletions (STAK-109)
+    let displayField = sanitizeHtml(entry.field);
+    let displayOld = sanitizeHtml(String(entry.oldValue));
+    let displayNew = sanitizeHtml(String(entry.newValue));
+
+    // Format raw JSON snapshots into human-readable summaries (UX-001)
+    if ((entry.field === "Deleted" || entry.field === "Added") && entry.oldValue) {
+      try {
+        const snap =
+          typeof entry.oldValue === "string" ? JSON.parse(entry.oldValue) : entry.oldValue;
+        if (snap && typeof snap === "object" && snap.name) {
           const fmtFn =
             typeof formatCurrency === "function"
               ? formatCurrency
               : (v) => "$" + Number(v).toFixed(2);
-          displayOld = `Retail: ${sanitizeHtml(fmtFn(d.entry.retail))}`;
-        } catch {
-          displayOld = "(price entry)";
+          const parts = [snap.metal, snap.type, snap.name];
+          if (snap.weight)
+            parts.push(
+              typeof formatWeight === "function"
+                ? formatWeight(snap.weight, snap.weightUnit)
+                : snap.weight + " oz"
+            );
+          if (snap.price) parts.push(fmtFn(snap.price));
+          displayOld = sanitizeHtml(parts.filter(Boolean).join(" \u00B7 "));
         }
-        displayNew = entry.undone ? "Restored" : "Deleted";
-        rowClick = ""; // No item to navigate to
+      } catch {
+        /* keep original */
       }
+    }
+    let rowClick = `onclick="editFromChangeLog(${entry.idx}, ${globalIndex})"`;
+    if (entry.field === "priceHistoryDelete") {
+      displayField = "Price Entry Deleted";
+      try {
+        const d = JSON.parse(entry.oldValue);
+        const fmtFn =
+          typeof formatCurrency === "function" ? formatCurrency : (v) => "$" + Number(v).toFixed(2);
+        displayOld = `Retail: ${sanitizeHtml(fmtFn(d.entry.retail))}`;
+      } catch {
+        displayOld = "(price entry)";
+      }
+      displayNew = entry.undone ? "Restored" : "Deleted";
+      rowClick = ""; // No item to navigate to
+    }
 
-      return `
+    return `
       <tr ${rowClick}>
         <td title="${formatTimestamp(entry.timestamp)}">${formatTimestamp(entry.timestamp)}</td>
         <td title="${sanitizeHtml(entry.itemName)}">${sanitizeHtml(entry.itemName)}</td>
@@ -199,26 +320,151 @@ const renderChangeLog = () => {
         <td title="${displayNew}">${displayNew}</td>
         <td class="action-cell"><button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button></td>
       </tr>`;
-    });
+  };
 
-  const html = rows.join("");
+  // Modal table: grouped rendering for paired transaction entries (STRK-44).
+  // The settings panel table receives plain (ungrouped) rows so that the
+  // [role='group'] element appears exactly once in the DOM per transaction.
+  const modalRows = reversedLog.map((entry) => {
+    const globalIndex = entryGlobalIndex.get(entry);
 
-  // Populate both the modal table and the settings panel table
+    // --- STRK-44: grouped-row rendering for paired transaction entries ---
+    if (entry.transactionId && txGroups.get(entry.transactionId)?.length === 2) {
+      const isFirst = txFirstSeen.get(entry.transactionId) === entry;
+      if (!isFirst) {
+        // Second entry in the pair \u2014 already rendered inside the first's group block
+        return "";
+      }
+
+      const group = txGroups.get(entry.transactionId);
+      // The "Undo Both" button MUST target the Disposed entry's globalIndex because
+      // toggleChange only routes to confirmCascadeUndo via the field === "Disposed" branch.
+      // Targeting the Stack split entry falls through to the default branch and corrupts the item.
+      const disposedEntry = group.find((e) => e.field === "Disposed") || group[1];
+      const disposedGlobalIndex = entryGlobalIndex.get(disposedEntry);
+      const label = sanitizeHtml(entry.transactionLabel || entry.field);
+      const ts = formatTimestamp(entry.timestamp);
+      const itemNameSafe = sanitizeHtml(entry.itemName);
+      const allUndone = group.every((e) => e.undone);
+
+      const undoBtn = allUndone
+        ? `<span class="text-muted">Undone</span>`
+        : `<button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${disposedGlobalIndex})" title="Undo both">Undo Both</button>`;
+
+      const subRows = group
+        .map((sub) => {
+          let subField = sanitizeHtml(sub.field);
+          let subOld = sanitizeHtml(String(sub.oldValue ?? ""));
+          let subNew = sanitizeHtml(String(sub.newValue ?? ""));
+          if (sub.field === "Disposed" && sub.newValue) {
+            try {
+              const snap =
+                typeof sub.newValue === "string" ? JSON.parse(sub.newValue) : sub.newValue;
+              if (snap && snap.type) subNew = sanitizeHtml(snap.type);
+            } catch {
+              /* keep raw */
+            }
+          }
+          return `<tr class="changelog-tx-sub-row">
+            <td>${sanitizeHtml(formatTimestamp(sub.timestamp))}</td>
+            <td>${sanitizeHtml(sub.itemName)}</td>
+            <td>${subField}</td>
+            <td>${subOld}</td>
+            <td>${subNew}</td>
+          </tr>`;
+        })
+        .join("");
+
+      return `
+      <tr class="changelog-tx-group-header" role="group" aria-label="Partial-stack disposition transaction" aria-expanded="false" onclick="(function(hdr){ hdr.classList.toggle('expanded'); var sub = hdr.nextElementSibling; if(sub) sub.style.display = hdr.classList.contains('expanded') ? '' : 'none'; hdr.setAttribute('aria-expanded', hdr.classList.contains('expanded')); })(this)">
+        <td title="${ts}">${ts}</td>
+        <td title="${itemNameSafe}">${itemNameSafe}</td>
+        <td colspan="3" class="changelog-tx-label" title="${label}">
+          <span class="changelog-tx-caret">\u25B6</span>
+          <span class="changelog-tx-summary">${label}</span>
+        </td>
+        <td class="action-cell">${undoBtn}</td>
+      </tr>
+      <tr class="changelog-tx-subrows" style="display:none">
+        <td colspan="6" style="padding:0">
+          <table class="changelog-tx-subtable w-100">
+            <tbody>${subRows}</tbody>
+          </table>
+        </td>
+      </tr>`;
+    }
+
+    return renderFlatRow(entry, globalIndex);
+  });
+
+  // Settings panel: plain rows only (no grouping UI, no [role=group] elements)
+  const settingsRows = reversedLog.map((entry) =>
+    renderFlatRow(entry, entryGlobalIndex.get(entry))
+  );
+
+  const modalHtml = modalRows.join("");
+  const settingsHtml = settingsRows.join("");
+
+  // Populate the modal table (grouped view) and settings panel table (flat view)
   const modalBody = document.querySelector("#changeLogTable tbody");
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-  if (modalBody) modalBody.innerHTML = html;
+  if (modalBody) modalBody.innerHTML = modalHtml;
   const settingsBody = document.querySelector("#settingsChangeLogTable tbody");
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-  if (settingsBody) settingsBody.innerHTML = html;
+  if (settingsBody) settingsBody.innerHTML = settingsHtml;
 };
+
+const applyLegacyDispositionUndo = (entry) => {
+  const realIdx = entry.itemKey
+    ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
+    : entry.idx;
+  if (realIdx === -1 || realIdx >= inventory.length) return;
+  const item = inventory[realIdx];
+  if (!item) return;
+  if (entry.undone) {
+    // Redo: re-apply the disposition from newValue
+    try {
+      item.disposition = JSON.parse(entry.newValue);
+    } catch (e) {
+      return;
+    }
+    saveInventory();
+    entry.undone = false;
+    if (typeof showToast === "function") showToast(sanitizeHtml(item.name) + " re-disposed.");
+  } else {
+    // Undo: clear the disposition
+    item.disposition = null;
+    saveInventory();
+    entry.undone = true;
+    if (typeof showToast === "function")
+      showToast(sanitizeHtml(item.name) + " restored to active inventory.");
+  }
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+window.applyLegacyDispositionUndo = applyLegacyDispositionUndo;
 
 /**
  * Toggles a logged change between undone and redone states
  * @param {number} logIdx - Index of change entry in changeLog array
  */
-const toggleChange = (logIdx) => {
+const toggleChange = async (logIdx) => {
   const entry = changeLog[logIdx];
   if (!entry) return;
+
+  // Cascade undo/redo — any transactionId routes here regardless of field (STAK-388)
+  if (entry.transactionId) {
+    if (typeof confirmCascadeUndo === "function") {
+      await confirmCascadeUndo(entry.transactionId, entry);
+    }
+    return;
+  }
+
+  // Attachment changes — no undo supported; prevent fall-through to scalar assignment
+  if (entry.type === "attachment-change") return;
 
   // Price history delete — undo restores the entry, redo re-deletes it (STAK-109)
   if (entry.field === "priceHistoryDelete") {
@@ -328,31 +574,7 @@ const toggleChange = (logIdx) => {
     return;
     // Disposition undo/redo (STAK-388)
   } else if (entry.field === "Disposed") {
-    const item = inventory[entry.idx];
-    if (!item) return;
-    if (entry.undone) {
-      // Redo: re-apply the disposition from newValue
-      try {
-        item.disposition = JSON.parse(entry.newValue);
-      } catch (e) {
-        return;
-      }
-      saveInventory();
-      entry.undone = false;
-      if (typeof showToast === "function") showToast(sanitizeHtml(item.name) + " re-disposed.");
-    } else {
-      // Undo: clear the disposition
-      item.disposition = null;
-      saveInventory();
-      entry.undone = true;
-      if (typeof showToast === "function")
-        showToast(sanitizeHtml(item.name) + " restored to active inventory.");
-    }
-    renderTable();
-    if (typeof renderActiveFilters === "function") renderActiveFilters();
-    if (typeof updateSummary === "function") updateSummary();
-    renderChangeLog();
-    saveDataSync("changeLog", changeLog);
+    applyLegacyDispositionUndo(entry);
     return;
   } else {
     const item = inventory[entry.idx];
@@ -377,6 +599,139 @@ const toggleChange = (logIdx) => {
   saveDataSync("changeLog", changeLog);
 };
 
+// Re-entrancy guard — prevents double-fire when user clicks "Undo Both" twice rapidly
+const _activeCascadeUndos = new Set();
+
+const confirmCascadeUndo = async (transactionId, triggerEntry) => {
+  if (_activeCascadeUndos.has(transactionId))
+    return { ok: false, applied: "none", reason: "already_in_flight" };
+  _activeCascadeUndos.add(transactionId);
+  try {
+    const paired = changeLog.filter((e) => e.transactionId === transactionId && !e.undone);
+
+    if (paired.length !== 2) {
+      if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+      return { ok: false, applied: "none", reason: "no_paired_entries" };
+    }
+
+    const splitEntry = paired.find((e) => e.field === "Stack split");
+    const disposedEntry = paired.find((e) => e.field === "Disposed");
+    if (!splitEntry || !disposedEntry || !splitEntry.stackSplit) {
+      if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+      return { ok: false, applied: "none", reason: "missing_entry_type" };
+    }
+
+    const { originalUuid, cloneUuid, originalQtyBefore, originalQtyAfter, disposedQty } =
+      splitEntry.stackSplit;
+
+    const cloneIdx = inventory.findIndex((item) => item.uuid === cloneUuid);
+    const originalIdx = inventory.findIndex((item) => item.uuid === originalUuid);
+
+    // Four drift invariants — any failure downgrades to single-entry undo
+    const drifted =
+      cloneIdx === -1 ||
+      originalIdx === -1 ||
+      inventory[originalIdx].qty !== originalQtyAfter ||
+      inventory[cloneIdx].disposition?.splitFromUuid !== originalUuid ||
+      inventory[cloneIdx].disposition?.disposedAt !== transactionId;
+
+    if (drifted) {
+      const proceed =
+        typeof showAppConfirm === "function"
+          ? await showAppConfirm(
+              "Original record has been edited since this split — only this disposition entry can be undone. Continue with single-entry undo?",
+              "Cascade undo unavailable"
+            )
+          : false;
+      if (proceed) {
+        const fallbackEntry = triggerEntry || paired.find((e) => e.field === "Disposed");
+        if (fallbackEntry) {
+          applyLegacyDispositionUndo(fallbackEntry);
+          return { ok: true, applied: "single-entry" };
+        }
+      }
+      return { ok: true, applied: "none", reason: "user_cancelled" };
+    }
+
+    const confirmed =
+      typeof showAppConfirm === "function"
+        ? await showAppConfirm(
+            "Undoing this entry will reverse both the stack split and the disposition. Continue?",
+            "Cascade undo"
+          )
+        : false;
+    if (!confirmed) return { ok: true, applied: "none", reason: "user_cancelled" };
+
+    // Two-phase commit — snapshot before any mutation
+    const inventorySnapshot = structuredClone(inventory);
+    const changeLogSnapshot = structuredClone(changeLog);
+
+    const originalName = inventory[originalIdx].name;
+    inventory[originalIdx].qty += disposedQty;
+    // Adjust originalIdx if clone was before it in the array
+    const adjustedOriginalIdx = cloneIdx < originalIdx ? originalIdx - 1 : originalIdx;
+    inventory.splice(cloneIdx, 1);
+    splitEntry.undone = true;
+    disposedEntry.undone = true;
+
+    if (!tryPersistInventory()) {
+      inventory.length = 0;
+      inventorySnapshot.forEach((i) => inventory.push(i));
+      changeLog.length = 0;
+      changeLogSnapshot.forEach((e) => changeLog.push(e));
+      if (typeof showToast === "function")
+        showToast("Couldn't undo — storage failed. Try again.", "error");
+      return { ok: false, applied: "none", reason: "storage_failed_inventory" };
+    }
+
+    if (!tryPersistChangeLog()) {
+      inventory.length = 0;
+      inventorySnapshot.forEach((i) => inventory.push(i));
+      changeLog.length = 0;
+      changeLogSnapshot.forEach((e) => changeLog.push(e));
+      const revertOk = tryPersistInventory();
+      if (!revertOk) {
+        if (typeof showToast === "function") {
+          showToast(
+            "Critical: storage failure left state inconsistent. Reload to recover.",
+            "error"
+          );
+        }
+        return { ok: false, applied: "none", reason: "storage_failed_both" };
+      }
+      return { ok: false, applied: "none", reason: "storage_failed_changelog" };
+    }
+
+    // Non-blocking image cleanup
+    try {
+      if (window.imageCache && typeof window.imageCache.deleteUserImage === "function") {
+        window.imageCache.deleteUserImage(cloneUuid).catch(() => {});
+      }
+    } catch (e) {
+      if (typeof debugLog === "function") debugLog("confirmCascadeUndo: image cleanup failed", e);
+    }
+
+    renderTable();
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    if (typeof updateSummary === "function") updateSummary();
+    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+    renderChangeLog();
+
+    if (typeof showToast === "function") {
+      showToast(
+        sanitizeHtml(originalName ?? "Item") +
+          " stack split reversed — restored to " +
+          (inventory[adjustedOriginalIdx]?.qty ?? originalQtyBefore)
+      );
+    }
+
+    return { ok: true, applied: "cascade" };
+  } finally {
+    _activeCascadeUndos.delete(transactionId);
+  }
+};
+window.confirmCascadeUndo = confirmCascadeUndo;
+
 /**
  * Clears all change log entries after confirmation
  */
@@ -389,6 +744,39 @@ const clearChangeLog = async () => {
   changeLog = [];
   saveDataSync("changeLog", changeLog);
   renderChangeLog();
+};
+
+/**
+ * Logs a single attachment add/remove/replace event to the change log.
+ * Attachments are arrays so logItemChanges can't diff them per-entry — this function
+ * emits one entry per operation keyed by attachmentUuid.
+ * @param {Object} item - Inventory item that owns the attachment
+ * @param {"add"|"remove"|"replace"} action
+ * @param {Object} attachRecord - New attachment record (for add/replace)
+ * @param {Object|null} oldRecord - Previous attachment record (replace only)
+ */
+const logAttachmentChange = (item, action, attachRecord, oldRecord = null) => {
+  const fieldLabels = {
+    add: "Attachment added",
+    remove: "Attachment removed",
+    replace: "Attachment replaced",
+  };
+  const field = fieldLabels[action] || "Attachment changed";
+  const idx = inventory.indexOf(item);
+  changeLog.push({
+    timestamp: Date.now(),
+    itemName: item.name || "",
+    field,
+    oldValue: action === "add" ? null : (oldRecord?.fileName ?? attachRecord?.fileName ?? null),
+    newValue: action === "remove" ? null : (attachRecord?.fileName ?? null),
+    attachmentUuid: attachRecord?.attachmentUuid ?? oldRecord?.attachmentUuid ?? null,
+    idx,
+    undone: false,
+    scope: "inventory",
+    itemKey: computeItemKey(item),
+    type: "attachment-change",
+  });
+  saveDataSync("changeLog", changeLog);
 };
 
 /**
@@ -429,7 +817,9 @@ const markSynced = (syncId, timestamp) => {
 
 window.computeItemKey = computeItemKey;
 window.logChange = logChange;
+window.tryPersistChangeLog = tryPersistChangeLog;
 window.logItemChanges = logItemChanges;
+window.logAttachmentChange = logAttachmentChange;
 window.renderChangeLog = renderChangeLog;
 window.toggleChange = toggleChange;
 window.clearChangeLog = clearChangeLog;

@@ -187,6 +187,14 @@ const MARKDOWN_CUTOFF_PATTERNS = {
     /^Similar Products You May Like/im, // Firecrawl markdown section heading
     /<[^>]*>\s*Similar Products You May Like/i, // Playwright HTML heading
   ],
+  // Monument Metals embeds ShopperApproved customer reviews on every product
+  // page. Review prose can contain OOS keywords ("Out Of Stock") that trigger
+  // false positives in detectStockStatus(). Cut before the review block.
+  monumentmetals: [
+    /[\d,]+\s+Reviews?\]\(https:\/\/www\.shopperapproved/i, // Firecrawl markdown (includes href)
+    /[\d,]+\s+Reviews?\b/i, // Playwright plain-text (innerText has no href)
+    /\bSuggested Products\b/i, // "Suggested Products" section after reviews
+  ],
 };
 
 // Patterns that match the START of the actual product content, used to strip
@@ -313,10 +321,22 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
  * the authoritative structured price set by the merchant, and avoids
  * false positives from spot ticker values appearing earlier in innerText.
  *
+ * Resolution order per Product/Offer:
+ *   1. `priceSpecification` with qty-1 + wire/eCheck `appliesToPaymentMethod` (preferred)
+ *   2. Bare `offer.price` in metal range — SKIPPED when providerId is in
+ *      UNTRUSTED_OFFER_PRICE_VENDORS (STRK-99); caller then falls through to
+ *      markdown-table extraction in `extractPrice()`.
+ *   3. `offer.price === 0` → returns JSONLD_ZERO_PRICE sentinel (OOS signal,
+ *      STAK-475 P1) — honored for ALL vendors including denied ones.
+ *
  * @param {string[]} jsonLdScripts  textContent of each ld+json script tag
  * @param {string}   metal
- * @param {number}   weightOz
- * @returns {number|null}
+ * @param {number}   [weightOz=1]
+ * @param {string}   [providerId=""]  Used to consult UNTRUSTED_OFFER_PRICE_VENDORS
+ *                                    denylist (STRK-99). Empty string keeps the
+ *                                    legacy "always honor offer.price" behavior.
+ * @returns {number|symbol|null}  Numeric price, JSONLD_ZERO_PRICE sentinel for
+ *                                OOS, or null if no usable price was found.
  */
 // Sentinel returned by extractJsonLdPrice when JSON-LD has a valid Product
 // with price=0 — signals "real product page, no price (OOS)". Callers must
@@ -324,7 +344,19 @@ function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
 // grab ticker/carousel prices from a zero-priced product page (STAK-475 P1).
 const JSONLD_ZERO_PRICE = Symbol("jsonld-zero-price");
 
-function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
+// Vendors whose JSON-LD `offer.price` is the deepest "As Low As" bulk tier
+// rather than the 1-unit retail price (STRK-99). For these vendors, we still
+// honor a tier-aware `priceSpecification` block if present (qty-1 wire entry),
+// but we skip the bare `offer.price` fallback so extractPrice() can pull the
+// correct 1-unit Check/Wire price from the markdown table instead.
+//
+// Verified 2026-05-23: SDB and BE both publish only `offer.price` (no
+// priceSpecification array, no eligibleQuantity, no appliesToPaymentMethod).
+// Add a vendor here only after confirming via live JSON-LD capture that the
+// bare offer.price is consistently the bulk-tier value.
+const UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"]);
+
+function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerId = "") {
   if (!jsonLdScripts || jsonLdScripts.length === 0) return null;
   const perOz = METAL_PRICE_RANGE_PER_OZ[metal];
   if (!perOz) return null;
@@ -384,7 +416,15 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1) {
           }
 
           const price = parseFloat(String(offer.price ?? "").replace(/,/g, ""));
+          // Always honor the zero-price OOS sentinel — even for denied vendors.
+          // A zero offer.price reliably signals "real product page, no price"
+          // (STAK-475 P1); only the in-range fallback is untrustworthy.
           if (!isNaN(price) && price === 0) return JSONLD_ZERO_PRICE;
+          // STRK-99: SDB and BE publish offer.price as the deepest bulk tier.
+          // Skip the bare-offer fallback for these vendors so extractPrice()
+          // can read the correct 1-unit Check/Wire price from the markdown table.
+          // Tiered priceSpecification above is still honored if a vendor adds one.
+          if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) continue;
           if (inRange(price)) return price;
         }
       }
@@ -609,6 +649,42 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
     return null;
   }
 
+  // STRK-99 hotfix: tier-anchored prose extractor for vendors whose Byparr-
+  // rendered HTML produces flat plain text (no markdown pipe tables) and whose
+  // pricing grid is structured as
+  //     <qty-range> $<wire> $<crypto> $<card>
+  //     <qty-range> $<wire> $<crypto> $<card>
+  //     ...
+  // (e.g. "1-24 $77.82 $78.61 $80.93   25-99 $77.62 ..." on Bullion Exchanges).
+  //
+  // qty-range patterns we accept:
+  //   "1-24" / "20-99" / "100-499" / "500+"  (multi-tier)
+  //   "1+"   (single-tier — no quantity break advertised)
+  //
+  // The price we return is the FIRST in-range $-value immediately following the
+  // FIRST qty-range marker. This:
+  //   (a) avoids spot tickers (no qty-range precedes them in the chrome-stripped text),
+  //   (b) avoids related-product sidebars (which use "As low as" prose, never qty-range),
+  //   (c) gives the 1-unit Check/Wire price (the smallest qty-range always comes first).
+  //
+  // Returns null when no qty-range pattern is found — the caller should treat
+  // this as "no usable price extracted" rather than fall through to a looser
+  // matcher that would re-introduce the spot-ticker / related-product noise.
+  function tierAnchoredPrice() {
+    // qty-range forms we accept (allowing whitespace around dashes since some
+    // vendors render "1 - 49" rather than "1-49" in their hydrated DOM):
+    //   <1-3 digits> [ws] - [ws] <1-5 digits>    → "1-49" / "1 - 49" / "100-499"
+    //   <1-3 digits> +                            → "50+" / "500+" / "1+"
+    // We cap the LOW side at 3 digits to prevent "2024 - 2025" year ranges
+    // from matching when a description and a price happen to share a line.
+    const pattern = /\b(?:\d{1,3}\s*-\s*\d{1,5}|\d{1,3}\+)\s+\$\s*([\d,]+\.\d{2})/g;
+    for (const m of markdown.matchAll(pattern)) {
+      const p = parseFloat(m[1].replace(/,/g, ""));
+      if (inRange(p)) return p;
+    }
+    return null;
+  }
+
   // Fallback for SPAs (e.g. Bullion Exchanges) that render prices as prose rather
   // than markdown pipe tables. Returns the first $XX.XX value in the metal range.
   function firstInRangePriceProse() {
@@ -651,6 +727,25 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
     if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
     const pipeTbl = jmPriceFromPipeTable();
     if (pipeTbl !== null) return { price: pipeTbl, matchedBy: "jmPipeTable" };
+    return null;
+  } else if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) {
+    // STRK-99 hotfix (v3.34.83): tier-anchored extraction for SDB + BE.
+    // These vendors' Byparr/innerText payloads can contain (in order):
+    //   1. Spot ticker in chrome (silver $75.92 / gold $4,520) — survives if
+    //      htmlToPlainText chrome-strip misses it.
+    //   2. Related-product sidebar entries like "American Eagle ... As low as: $4,566".
+    //   3. The main pricing grid:  "1-24 $77.82 $78.61 $80.93   25-99 $77.62 ..."
+    //
+    // firstInRangePriceProse() picks (1) or (2) when (3) hasn't rendered yet,
+    // which is the regression we observed at v3.34.82. Tier-anchored extraction
+    // skips (1) and (2) entirely because neither is preceded by a "1-24" /
+    // "1+" / "500+" quantity-range marker. Returns null when (3) isn't present
+    // — the caller treats that as "no price extracted" rather than poisoning
+    // the dashboard with a sidebar or spot value.
+    const tblFirst = firstTableRowFirstPrice();
+    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
+    const tier = tierAnchoredPrice();
+    if (tier !== null) return { price: tier, matchedBy: "tierAnchored" };
     return null;
   } else if (USES_AS_LOW_AS.has(providerId)) {
     // Reserved for vendors that have no pricing table, only "As Low As" display.
@@ -889,6 +984,17 @@ function collapseWhitespace(text) {
   return output;
 }
 
+// Tags whose entire content is dropped (not just their open/close markers) when
+// converting HTML to plain text via htmlToPlainText():
+//   - script / style: HTML5 raw-text elements; never contain product text.
+//   - nav / header / footer: SPA chrome that contains site-wide spot tickers,
+//     mega-menu category links, and pre-footer ads. Per HTML5, these MUST NOT
+//     contain product (<main>) content, so dropping them is safe across vendors.
+//     (STRK-99 hotfix: bullionexchanges returned spot ticker for every coin
+//     because Byparr captured the React shell before the price grid hydrated;
+//     the only $-values in its plain text were the header ticker.)
+const CHROME_OR_RAWTEXT_TAGS = new Set(["script", "style", "nav", "header", "footer"]);
+
 function htmlToPlainText(html) {
   if (!html) return "";
   const lowerHtml = html.toLowerCase();
@@ -926,7 +1032,26 @@ function htmlToPlainText(html) {
     }
 
     const tagName = lowerHtml.slice(nameStart, nameEnd);
-    if (!isClosingTag && (tagName === "script" || tagName === "style")) {
+    // STRK-99 hotfix: drop entire <script>, <style>, AND SPA chrome blocks
+    // (<nav>, <header>, <footer>) before flattening to plain text. The chrome
+    // tags carry site-wide spot tickers and mega-menu links that otherwise
+    // poison firstInRangePriceProse() on vendors whose product price is JS-
+    // hydrated AFTER Byparr's render window — bullionexchanges was returning
+    // spot silver/gold from the header ticker for every coin because Byparr
+    // captured the React shell before the product price grid rendered.
+    // HTML5 forbids <main>-style product content inside these tags, so this
+    // is safe across all vendors using the cf-clearance HTML path.
+    //
+    // Partial-name guard: `<nav-bar>` stops the name-char loop at `-` and
+    // gives tagName="nav". Without checking the char AFTER the name, a
+    // custom element would trigger the chrome strip; findRawTextCloseTag
+    // would never find a matching `</nav>`, so cursor jumps to html.length
+    // and the rest of the document is dropped. Require the next char to be
+    // HTML whitespace, `>`, or `/` before treating tagName as a real chrome
+    // tag (Gemini review on PR #1148).
+    const nextChar = nameEnd < html.length ? html[nameEnd] : "";
+    const isCompleteTagName = nameEnd >= html.length || /[\s>/]/.test(nextChar);
+    if (!isClosingTag && CHROME_OR_RAWTEXT_TAGS.has(tagName) && isCompleteTagName) {
       const closeEnd = findRawTextCloseTag(html, lowerHtml, tagName, nameEnd);
       cursor = closeEnd === -1 ? html.length : closeEnd + 1;
       text += " ";
@@ -1046,33 +1171,56 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     }
   }
 
-  // Byparr already fetched the page. Try JSON-LD first (authoritative —
-  // matches the Playwright fallback's extractor), then fall back to
-  // scanner-stripped text. For SPAs where both fail, fall through to
-  // Playwright with the cookie so the pricing grid can hydrate.
+  // Byparr already fetched the page. Check stock status from both JSON-LD
+  // availability and page text, then try JSON-LD price (authoritative).
+  // For SPAs where both fail, fall through to Playwright with the cookie.
   if (cfData.responseHtml) {
     const jsonLdScripts = extractJsonLdScriptsFromHtml(cfData.responseHtml);
-    const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
+
+    // JSON-LD availability — BullionExchanges keeps JSON-LD price populated on
+    // OOS pages but sets availability=OutOfStock (STRK-30).
+    const availability = extractJsonLdAvailability(jsonLdScripts);
+    const jsonLdOos = !!(availability && JSONLD_OOS_VALUES.has(availability));
+    if (jsonLdOos) {
+      log(`[cf-clearance] ${providerId}: JSON-LD availability=${availability} -> OOS`);
+    }
+
+    // Text-based OOS detection — catches visible "Out Of Stock" text even when
+    // JSON-LD availability is stale/missing.
+    const rawText = htmlToPlainText(cfData.responseHtml);
+    const cleaned = preprocessMarkdown(rawText, providerId);
+    const textStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
+    const isInStock = !jsonLdOos && textStock.inStock;
+
+    const jsonLdPrice = extractJsonLdPrice(
+      jsonLdScripts,
+      coin.metal,
+      coin.weight_oz || 1,
+      providerId
+    );
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
       log(`[cf-clearance] ${providerId}: JSON-LD price=0 in Byparr HTML -> OOS`);
       return { price: null, inStock: false, source: "cf-clearance:jsonLd" };
     }
     if (jsonLdPrice !== null) {
-      log(`[cf-clearance] success (html jsonLd): ${providerId} price=${jsonLdPrice}`);
-      return { price: jsonLdPrice, inStock: true, source: "cf-clearance:jsonLd" };
+      log(
+        `[cf-clearance] success (html jsonLd): ${providerId} price=${jsonLdPrice} inStock=${isInStock}`
+      );
+      return { price: jsonLdPrice, inStock: isInStock, source: "cf-clearance:jsonLd" };
     }
 
-    const rawText = htmlToPlainText(cfData.responseHtml);
-    const cleaned = preprocessMarkdown(rawText, providerId);
-    const inStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
     const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (html): ${providerId} price=${price.price}`);
       return {
         price: price.price,
-        inStock: inStock.inStock,
+        inStock: isInStock,
         source: `cf-clearance:${price.matchedBy}`,
       };
+    }
+    if (!isInStock) {
+      log(`[cf-clearance] ${providerId}: OOS detected but no price extractable`);
+      return { price: null, inStock: false, source: "cf-clearance:oos" };
     }
     warn(
       `[cf-clearance] no price from Byparr HTML for ${providerId} (len=${cfData.responseHtml.length}, jsonLd=${jsonLdScripts.length}) -- falling through to Playwright`
@@ -1134,7 +1282,12 @@ async function scrapeViaCFClearance(url, providerId, coin) {
     const cleaned = preprocessMarkdown(text, providerId);
     const inStock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
     // JSON-LD is authoritative — avoids related-product / spot ticker false positives.
-    const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
+    const jsonLdPrice = extractJsonLdPrice(
+      jsonLdScripts,
+      coin.metal,
+      coin.weight_oz || 1,
+      providerId
+    );
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
       log(`[cf-clearance] ${providerId}: JSON-LD price=0 → OOS, skipping HTML extraction`);
       return { price: null, inStock: false, source: "cf-clearance" };
@@ -1348,7 +1501,12 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
 
     // JSON-LD is authoritative — check before regex fallbacks to avoid
     // grabbing spot ticker deltas or related-product prices from innerText.
-    const jsonLdPrice = extractJsonLdPrice(jsonLdScripts, coin.metal, coin.weight_oz || 1);
+    const jsonLdPrice = extractJsonLdPrice(
+      jsonLdScripts,
+      coin.metal,
+      coin.weight_oz || 1,
+      providerId
+    );
     if (jsonLdPrice === JSONLD_ZERO_PRICE) {
       log(`  ${providerId}: JSON-LD price=0 → OOS, skipping HTML extraction`);
       return { price: null, inStock: false, source: "playwright-direct" };
@@ -1495,10 +1653,11 @@ async function main() {
    */
   function computeBaseline(coinSlug, coin) {
     if (coin.metal === "goldback") {
-      // Goldback denominations: G1, G5, G10, G25, G50
+      // Goldback denominations: g0.25, G1, G5, G10, G25, G50
       if (!_goldbackG1) return null;
       const denomMatch =
-        coinSlug.match(/goldback-.*?-?g(\d+)$/i) || coinSlug.match(/goldback-g(\d+)/i);
+        coinSlug.match(/goldback-.*?-?g(\d+(?:\.\d+)?)$/i) ||
+        coinSlug.match(/goldback-g(\d+(?:\.\d+)?)/i);
       const multiplier = denomMatch ? Number(denomMatch[1]) : 1;
       return _goldbackG1 * multiplier;
     }

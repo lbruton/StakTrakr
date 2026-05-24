@@ -1,3 +1,8 @@
+---
+name: faq
+description: Use when adding, editing, or removing StakTrakr in-app FAQ entries in the Settings FAQ tab, including known or honest limitation copy.
+---
+
 # FAQ — StakTrakr In-App FAQ Management
 
 Update the in-app FAQ in Settings > FAQ. Use when adding, editing, or removing FAQ entries. Triggers on: "faq", "add faq", "update faq", "faq entry", "known limitation", "honest limitation".
@@ -68,8 +73,8 @@ The FAQ is organized into collapsible sections using `<details>` + `<summary>` e
 </details>
 ```
 
-3. **Use `&mdash;` for em dashes, `&amp;` for ampersands** — standard HTML entities
-4. **Commit to the current working branch** (not a separate PR for FAQ-only changes)
+1. **Use `&mdash;` for em dashes, `&amp;` for ampersands** — standard HTML entities
+1. **Commit to the current working branch** (not a separate PR for FAQ-only changes)
 
 ### Style Guidelines
 

@@ -1004,6 +1004,47 @@ function pruneManifestEntries(entries, maxSyncs) {
 }
 
 /**
+ * Normalize item-scoped changelog type names for manifest consumers.
+ * Producers keep their "item-*" vocabulary; manifest diffs use add/edit/delete.
+ * @param {*} type - Raw changelog or manifest change type.
+ * @returns {string} Normalized type, or the original string for unknown types.
+ */
+function _normalizeItemChangeType(type) {
+  if (type == null) return "";
+  var normalized = String(type);
+  if (normalized.startsWith("item-")) {
+    return normalized.slice("item-".length);
+  }
+  return normalized;
+}
+
+/**
+ * Merge sequential change types for one item into the final manifest action.
+ * Order matters: delete+add means a re-add, while add+delete means deleted.
+ * @param {*} existingType - Current grouped type.
+ * @param {*} incomingType - Next changelog entry type.
+ * @returns {string} Merged normalized item change type.
+ */
+function _mergeItemChangeTypes(existingType, incomingType) {
+  var existing = _normalizeItemChangeType(existingType);
+  var incoming = _normalizeItemChangeType(incomingType);
+
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  if (existing === "setting" || incoming === "setting") return incoming;
+
+  if (incoming === "add") return "add";
+  if (incoming === "delete") return "delete";
+  if (incoming === "edit") {
+    if (existing === "add") return "add";
+    if (existing === "delete") return "delete";
+    return "edit";
+  }
+
+  return incoming;
+}
+
+/**
  * Build a sync manifest from the changeLog and upload it encrypted to Dropbox.
  * The manifest captures field-level changes since the last push so that
  * diff-merge can resolve conflicts without downloading the full vault.
@@ -1053,9 +1094,11 @@ async function buildAndUploadManifest(token, password, syncId) {
       changesByKey[key] = {
         itemKey: key,
         itemName: entry.itemName || null,
-        type: entry.type,
+        type: _normalizeItemChangeType(entry.type),
         fields: [],
       };
+    } else {
+      changesByKey[key].type = _mergeItemChangeTypes(changesByKey[key].type, entry.type);
     }
 
     changesByKey[key].fields.push({
@@ -1064,29 +1107,30 @@ async function buildAndUploadManifest(token, password, syncId) {
       newValue: entry.newValue != null ? entry.newValue : null,
       timestamp: entry.timestamp,
     });
-
-    // Count unique items per type for the summary
-    var entryType = entry.type;
-    if (entryType === "add" && !countedKeys.add[key]) {
-      countedKeys.add[key] = true;
-      summary.itemsAdded++;
-    } else if (entryType === "edit" && !countedKeys.edit[key]) {
-      countedKeys.edit[key] = true;
-      summary.itemsEdited++;
-    } else if (entryType === "delete" && !countedKeys.delete[key]) {
-      countedKeys.delete[key] = true;
-      summary.itemsDeleted++;
-    } else if (entryType === "setting" && !countedKeys.setting[key]) {
-      countedKeys.setting[key] = true;
-      summary.settingsChanged++;
-    }
   }
 
   // Convert grouped changes object to array
   var transformedEntries = [];
   var keys = Object.keys(changesByKey);
   for (var k = 0; k < keys.length; k++) {
-    transformedEntries.push(changesByKey[keys[k]]);
+    var groupedChange = changesByKey[keys[k]];
+    transformedEntries.push(groupedChange);
+
+    // Count unique items by final normalized type for the summary.
+    var entryType = _normalizeItemChangeType(groupedChange.type);
+    if (entryType === "add" && !countedKeys.add[groupedChange.itemKey]) {
+      countedKeys.add[groupedChange.itemKey] = true;
+      summary.itemsAdded++;
+    } else if (entryType === "edit" && !countedKeys.edit[groupedChange.itemKey]) {
+      countedKeys.edit[groupedChange.itemKey] = true;
+      summary.itemsEdited++;
+    } else if (entryType === "delete" && !countedKeys.delete[groupedChange.itemKey]) {
+      countedKeys.delete[groupedChange.itemKey] = true;
+      summary.itemsDeleted++;
+    } else if (entryType === "setting" && !countedKeys.setting[groupedChange.itemKey]) {
+      countedKeys.setting[groupedChange.itemKey] = true;
+      summary.settingsChanged++;
+    }
   }
 
   // 4. Build manifest JSON (schema v1)
@@ -1216,6 +1260,7 @@ async function pushSyncVault() {
   updateSyncStatusIndicator("syncing");
   var pushStart = Date.now();
   var _remoteImageVaultMeta = null; // Preserve remote image vault reference across pushes
+  var _remoteAttachmentVaultMeta = null; // Preserve remote attachment vault reference across pushes
 
   try {
     // -----------------------------------------------------------------------
@@ -1482,6 +1527,15 @@ async function pushSyncVault() {
         _remoteImageVaultMeta.imageCount,
         "photos, hash:",
         _remoteImageVaultMeta.hash
+      );
+    }
+    if (typeof prePushMeta !== "undefined" && prePushMeta && prePushMeta.attachmentVault) {
+      _remoteAttachmentVaultMeta = prePushMeta.attachmentVault;
+      debugLog(
+        "[CloudSync] Pre-push: remote has attachment vault —",
+        _remoteAttachmentVaultMeta.attachmentCount,
+        "attachments, hash:",
+        _remoteAttachmentVaultMeta.hash
       );
     }
 
@@ -1798,6 +1852,162 @@ async function pushSyncVault() {
       logCloudSyncActivity("image_vault_push", "fail", imgErrMsg);
     }
 
+    // Upload attachment vault if user attachments exist and have changed (STRK-45, STRK-65)
+    var attachmentVaultMeta = null;
+    var _attachmentVaultPreserved = false;
+    try {
+      // STRK-65: Respect syncAttachments opt-out
+      var _syncAttachPref =
+        typeof loadDataSync === "function" ? loadDataSync("syncAttachments", null) : null;
+      if (_syncAttachPref === "false" || _syncAttachPref === false) {
+        debugLog("[CloudSync] Attachment binary sync disabled by user preference — skipping");
+      } else if (typeof collectAndHashAttachmentVault === "function") {
+        // STRK-65: Preflight size check before Base64 serialization
+        var _attachUsage = window.attachmentManager?.isAvailable()
+          ? await window.attachmentManager.getStorageUsage()
+          : null;
+        if (
+          _attachUsage &&
+          _attachUsage.totalBytes >
+            (typeof SYNC_ATTACHMENT_SIZE_WARN_BYTES !== "undefined"
+              ? SYNC_ATTACHMENT_SIZE_WARN_BYTES
+              : 100 * 1024 * 1024) &&
+          loadDataSync("syncAttachmentsWarnSeen", null) !== "true" &&
+          loadDataSync("syncAttachmentsWarnSeen", null) !== true
+        ) {
+          debugLog(
+            "[CloudSync] Attachment vault exceeds size threshold (" +
+              Math.round(_attachUsage.totalBytes / 1024 / 1024) +
+              " MB) — skipping binary upload until user confirms via Settings"
+          );
+          logCloudSyncActivity(
+            "attachment_vault_push",
+            "skipped",
+            "Size threshold exceeded — awaiting user confirmation"
+          );
+        } else {
+          var attachData = await collectAndHashAttachmentVault();
+          var _lastPushForAttach = syncGetLastPush();
+          var lastAttachmentHash = _lastPushForAttach ? _lastPushForAttach.attachmentHash : null;
+          if (attachData) {
+            var _remoteAttachMissing = !_remoteAttachmentVaultMeta;
+            if (attachData.hash !== lastAttachmentHash || _remoteAttachMissing) {
+              debugLog(
+                "[CloudSync] Attachment vault",
+                _remoteAttachMissing ? "missing from remote — re-uploading" : "changed — uploading",
+                attachData.attachmentCount,
+                "attachments"
+              );
+              var attachmentBytes = await vaultEncryptAttachmentVault(password, attachData.payload);
+              var attachArg = JSON.stringify({
+                path: SYNC_ATTACHMENTS_PATH,
+                mode: "overwrite",
+                autorename: false,
+                mute: true,
+              });
+              var attachResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/octet-stream",
+                  "Dropbox-API-Arg": attachArg,
+                },
+                body: attachmentBytes,
+              });
+              if (!attachResp.ok)
+                throw new Error("Attachment vault upload failed: " + attachResp.status);
+              attachmentVaultMeta = {
+                attachmentCount: attachData.attachmentCount,
+                hash: attachData.hash,
+              };
+              debugLog(
+                "[CloudSync] Attachment vault uploaded:",
+                attachData.attachmentCount,
+                "attachments"
+              );
+              logCloudSyncActivity(
+                "attachment_vault_push",
+                "success",
+                attachData.attachmentCount +
+                  " attachments, " +
+                  Math.round(attachmentBytes.byteLength / 1024) +
+                  " KB" +
+                  (_remoteAttachMissing ? " (re-upload)" : "")
+              );
+            } else {
+              attachmentVaultMeta = lastAttachmentHash
+                ? { attachmentCount: attachData.attachmentCount, hash: attachData.hash }
+                : null;
+              debugLog("[CloudSync] Attachment vault unchanged — skipping upload");
+              logCloudSyncActivity(
+                "attachment_vault_push",
+                "skipped",
+                "Hash unchanged — " + attachData.attachmentCount + " attachments"
+              );
+            }
+          } else if (_remoteAttachmentVaultMeta) {
+            attachmentVaultMeta = _remoteAttachmentVaultMeta;
+            _attachmentVaultPreserved = true;
+            debugLog(
+              "[CloudSync] No local attachments — preserving remote attachment vault reference:",
+              _remoteAttachmentVaultMeta.attachmentCount,
+              "attachments"
+            );
+            logCloudSyncActivity(
+              "attachment_vault_push",
+              "skipped",
+              "No local attachments — preserved remote reference (" +
+                _remoteAttachmentVaultMeta.attachmentCount +
+                " attachments)"
+            );
+          } else if (lastAttachmentHash) {
+            // Attachments all deleted locally — propagate deletion
+            try {
+              var attachDelArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+              var attachDelResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/json",
+                },
+                body: attachDelArg,
+              });
+              if (attachDelResp.ok || attachDelResp.status === 409) {
+                debugLog(
+                  "[CloudSync] Remote attachment vault deleted (all local attachments removed)"
+                );
+                logCloudSyncActivity(
+                  "attachment_vault_push",
+                  "success",
+                  "All local attachments removed — remote vault deleted"
+                );
+              } else {
+                debugLog(
+                  "[CloudSync] Attachment vault deletion returned status:",
+                  attachDelResp.status
+                );
+              }
+            } catch (attachDelErr) {
+              debugLog(
+                "[CloudSync] Attachment vault deletion failed (non-blocking):",
+                attachDelErr.message
+              );
+            }
+          } else {
+            logCloudSyncActivity(
+              "attachment_vault_push",
+              "skipped",
+              "No user attachments on this device"
+            );
+          }
+        } // close size-check else
+      }
+    } catch (attachPushErr) {
+      var attachPushErrMsg = String(attachPushErr.message || attachPushErr);
+      console.warn("[CloudSync] Attachment vault push error (non-fatal):", attachPushErrMsg);
+      logCloudSyncActivity("attachment_vault_push", "fail", attachPushErrMsg);
+    }
+
     // Upload the metadata pointer JSON
     var metaPayload = {
       rev: rev,
@@ -1808,6 +2018,7 @@ async function pushSyncVault() {
       deviceId: deviceId,
     };
     if (imageVaultMeta) metaPayload.imageVault = imageVaultMeta;
+    if (attachmentVaultMeta) metaPayload.attachmentVault = attachmentVaultMeta;
 
     // Layer 4 — Manifest schema v2 enrichment (REQ-4)
     metaPayload.manifestVersion = 2;
@@ -1872,6 +2083,8 @@ async function pushSyncVault() {
     // cause the next push to enter the "all local photos deleted" path and
     // erroneously delete the remote image vault file.
     if (imageVaultMeta && !_imageVaultPreserved) pushMeta.imageHash = imageVaultMeta.hash;
+    if (attachmentVaultMeta && !_attachmentVaultPreserved)
+      pushMeta.attachmentHash = attachmentVaultMeta.hash;
     syncSetLastPush(pushMeta);
     syncSetCursor(rev);
 
@@ -2231,6 +2444,65 @@ async function handleRemoteChange(remoteMeta) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared attachment vault pull helper (STRK-65)
+// ---------------------------------------------------------------------------
+
+async function _pullAttachmentVault(remoteMeta, token, password, pathLabel) {
+  var result = { hash: null, restored: null, skipped: false };
+  if (!remoteMeta?.attachmentVault || typeof vaultDecryptAndRestoreAttachments !== "function") {
+    return result;
+  }
+  try {
+    var syncAttachPref =
+      typeof loadDataSync === "function" ? loadDataSync("syncAttachments", null) : null;
+    if (syncAttachPref === "false" || syncAttachPref === false) {
+      debugLog("[CloudSync] " + pathLabel + ": attachment binary sync disabled — skipping pull");
+      result.skipped = true;
+      return result;
+    }
+    var lastPull = syncGetLastPull();
+    var localHash = lastPull ? lastPull.attachmentHash : null;
+    if (remoteMeta.attachmentVault.hash === localHash) {
+      debugLog("[CloudSync] " + pathLabel + ": attachment vault hash matches — skipping");
+      return { hash: localHash, restored: null, skipped: true };
+    }
+    debugLog(
+      "[CloudSync] " + pathLabel + ": attachment vault changed — pulling",
+      remoteMeta.attachmentVault.attachmentCount,
+      "attachments"
+    );
+    var apiArg = JSON.stringify({ path: SYNC_ATTACHMENTS_PATH });
+    var resp = await fetch("https://content.dropboxapi.com/2/files/download", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": apiArg },
+    });
+    if (resp.ok) {
+      var bytes = new Uint8Array(await resp.arrayBuffer());
+      var count = await vaultDecryptAndRestoreAttachments(bytes, password);
+      result.hash = remoteMeta.attachmentVault.hash;
+      result.restored = count || 0;
+      debugLog("[CloudSync] " + pathLabel + ": attachment vault restored:", count, "attachments");
+      logCloudSyncActivity(
+        "attachment_vault_pull",
+        "success",
+        (count || "?") + " attachments restored (" + pathLabel + ")"
+      );
+    } else if (resp.status === 404) {
+      result.hash = remoteMeta.attachmentVault.hash;
+      debugLog("[CloudSync] " + pathLabel + ": attachment vault not found (404) — skipping");
+    } else {
+      console.warn("[CloudSync] " + pathLabel + ": attachment vault download failed:", resp.status);
+      logCloudSyncActivity("attachment_vault_pull", "fail", "HTTP " + resp.status);
+    }
+  } catch (err) {
+    var msg = String(err.message || err);
+    console.warn("[CloudSync] " + pathLabel + ": attachment vault pull error (non-fatal):", msg);
+    logCloudSyncActivity("attachment_vault_pull", "fail", pathLabel + ": " + msg);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Pull (download and restore remote vault)
 // ---------------------------------------------------------------------------
 
@@ -2343,6 +2615,10 @@ async function pullSyncVault(remoteMeta) {
       }
     }
 
+    // Pull attachment vault if remote has attachments we don't have (STRK-45, STRK-65)
+    var _attachResult = await _pullAttachmentVault(remoteMeta, token, password, "auto-sync");
+    var pulledAttachmentHash = _attachResult.hash;
+
     // Record the pull
     var pullMeta = {
       syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -2350,6 +2626,7 @@ async function pullSyncVault(remoteMeta) {
       rev: remoteMeta ? remoteMeta.rev : null,
     };
     if (pulledImageHash) pullMeta.imageHash = pulledImageHash;
+    if (pulledAttachmentHash) pullMeta.attachmentHash = pulledAttachmentHash;
     syncSetLastPull(pullMeta);
 
     var duration = Date.now() - pullStart;
@@ -2506,6 +2783,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
 
   // 4. Save & render
   if (typeof saveInventory === "function") saveInventory();
+  if (typeof reconcileAttachmentOrphans === "function") reconcileAttachmentOrphans();
   if (typeof fetchSpotPrice === "function") {
     try {
       fetchSpotPrice();
@@ -2696,9 +2974,10 @@ function _buildDiffFromManifest(manifest) {
 
   for (var i = 0; i < changes.length; i++) {
     var change = changes[i];
-    if (change.type === "add") {
+    var changeType = _normalizeItemChangeType(change.type);
+    if (changeType === "add") {
       added.push({ name: change.itemName || change.itemKey, itemKey: change.itemKey });
-    } else if (change.type === "edit") {
+    } else if (changeType === "edit") {
       var modChanges = [];
       var fields = change.fields || [];
       for (var f = 0; f < fields.length; f++) {
@@ -2712,7 +2991,7 @@ function _buildDiffFromManifest(manifest) {
         item: { name: change.itemName || change.itemKey, itemKey: change.itemKey },
         changes: modChanges,
       });
-    } else if (change.type === "delete") {
+    } else if (changeType === "delete") {
       deleted.push({ name: change.itemName || change.itemKey, itemKey: change.itemKey });
     }
   }
@@ -2918,6 +3197,19 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             logCloudSyncActivity("image_vault_pull", "fail", "Manifest path: " + _dvImgErr.message);
           }
 
+          // STRK-45/STRK-65: Restore attachment vault on manifest-first path
+          var _dvAttachResult = await _pullAttachmentVault(
+            remoteMeta,
+            token,
+            password,
+            "manifest-path"
+          );
+          if (_dvAttachResult.hash) {
+            var _dvPullMeta = syncGetLastPull() || {};
+            _dvPullMeta.attachmentHash = _dvAttachResult.hash;
+            syncSetLastPull(_dvPullMeta);
+          }
+
           return;
         }
       }
@@ -3096,6 +3388,14 @@ async function pullWithPreview(remoteMeta) {
                 _spImgErr.message
               );
             }
+            // STRK-45/STRK-65: Silent-pull path — attachment vault
+            var _spAttachResult = await _pullAttachmentVault(
+              remoteMeta,
+              token,
+              password,
+              "silent-pull"
+            );
+            if (_spAttachResult.hash) _silentPullMeta.attachmentHash = _spAttachResult.hash;
             syncSetLastPull(_silentPullMeta);
             logCloudSyncActivity(
               "auto_sync_pull",
@@ -3276,6 +3576,24 @@ async function pullWithPreview(remoteMeta) {
                   "Auto-merge path: " + _amImgErr.message
                 );
               }
+              // STRK-45/STRK-65: Auto-merge path — attachment vault
+              var _amAttachResult = await _pullAttachmentVault(
+                remoteMeta,
+                token,
+                password,
+                "auto-merge"
+              );
+              if (_amAttachResult.hash && _failedCount === 0) {
+                var _amPrevPull = syncGetLastPull() || {};
+                syncSetLastPull(
+                  Object.assign({}, _amPrevPull, {
+                    syncId: remoteMeta ? remoteMeta.syncId : null,
+                    timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
+                    rev: remoteMeta ? remoteMeta.rev : null,
+                    attachmentHash: _amAttachResult.hash,
+                  })
+                );
+              }
               // Push to update remote manifest with local-only keys
               if (
                 _appliedCount < manifestSettingsDiff.changed.length &&
@@ -3325,7 +3643,7 @@ async function pullWithPreview(remoteMeta) {
               var mChanges = manifest.changes || [];
               for (var mr = 0; mr < mChanges.length; mr++) {
                 var mc = mChanges[mr];
-                if (mc.type === "edit" && mc.fields) {
+                if (_normalizeItemChangeType(mc.type) === "edit" && mc.fields) {
                   for (var mf = 0; mf < mc.fields.length; mf++) {
                     mRemoteChanges.push({
                       itemKey: mc.itemKey,
@@ -3580,6 +3898,14 @@ async function pullWithPreview(remoteMeta) {
             _vfSpImgErr.message
           );
         }
+        // STRK-45/STRK-65: Vault-first silent-pull — attachment vault
+        var _vfSpAttachResult = await _pullAttachmentVault(
+          remoteMeta,
+          token,
+          password,
+          "vault-first silent"
+        );
+        if (_vfSpAttachResult.hash) _previewPullMeta.attachmentHash = _vfSpAttachResult.hash;
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
@@ -3653,6 +3979,15 @@ async function pullWithPreview(remoteMeta) {
           _vfImgErr.message
         );
         logCloudSyncActivity("image_vault_pull", "fail", "Vault-first path: " + _vfImgErr.message);
+      }
+      // STRK-45/STRK-65: Vault-first DiffModal post-restore — attachment vault
+      var _vfAttachResult = await _pullAttachmentVault(remoteMeta, token, password, "vault-first");
+      if (_vfAttachResult.hash) {
+        var _vfAttachPullMeta = syncGetLastPull();
+        if (_vfAttachPullMeta) {
+          _vfAttachPullMeta.attachmentHash = _vfAttachResult.hash;
+          syncSetLastPull(_vfAttachPullMeta);
+        }
       }
     } catch (decryptErr) {
       // Decryption or diff failed — offer fallback

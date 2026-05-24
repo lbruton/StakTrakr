@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/mocks/extended-test.js";
 
 /**
  * STAK-437 — Remove Search Settings Tab, move controls to Filter Chips tab.

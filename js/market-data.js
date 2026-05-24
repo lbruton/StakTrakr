@@ -9,6 +9,18 @@ const _ISO_TO_METAL = { xag: "silver", xau: "gold", xpt: "platinum", xpd: "palla
 
 const _isSafeUrl = (url) => typeof url === "string" && /^https?:\/\//i.test(url);
 
+// Shared premium helpers — used across ticker, Matrix, and detail modal (AC-4)
+const _calcMarketPremium = (price, referenceRate) => {
+  if (!referenceRate || referenceRate <= 0 || !price || price <= 0) return null;
+  return ((price - referenceRate) / referenceRate) * 100;
+};
+const _premiumTierClass = (pct) => {
+  if (pct == null || !Number.isFinite(pct)) return "low";
+  if (pct >= 5) return "high";
+  if (pct >= 2) return "mid";
+  return "low";
+};
+
 let _cachedSlugDetail = {};
 let _goldbackG1Rate = null;
 
@@ -73,6 +85,12 @@ const _getVendorMeta = () => {
   const cached = loadDataSync("retailManifestVendorMeta", null);
   if (cached && Object.keys(cached).length > 0) return cached;
   return {};
+};
+
+const _getRetailCoinMetaForSlug = (slug, coinMetaMap) => {
+  if (typeof window.getRetailCoinMeta === "function") return window.getRetailCoinMeta(slug);
+  if (coinMetaMap && coinMetaMap[slug]) return coinMetaMap[slug];
+  return { name: slug, weight: 0, metal: "unknown" };
 };
 
 // Fetch v2 manifest for coin + vendor metadata if not already cached
@@ -287,8 +305,9 @@ const renderBestPriceTicker = () => {
     const spot = _getSpotPrice(metalLower);
     let premium = null;
     if (spot && spot > 0 && weightOz > 0) {
-      const meltValue = spot * weightOz;
-      premium = ((bestPrice - meltValue) / meltValue) * 100;
+      premium = _calcMarketPremium(bestPrice, spot * weightOz);
+    } else if (metalLower === "goldback" && _goldbackG1Rate > 0) {
+      premium = _calcMarketPremium(bestPrice, _goldbackG1Rate);
     }
 
     // Get vendor display info
@@ -381,6 +400,7 @@ const renderBestPriceTicker = () => {
     premiumSpan.className = "premium";
     if (item.premium != null) {
       premiumSpan.textContent = (item.premium >= 0 ? "+" : "") + item.premium.toFixed(1) + "%";
+      premiumSpan.classList.add(_premiumTierClass(item.premium));
     }
     el.appendChild(premiumSpan);
 
@@ -592,7 +612,7 @@ const openMarketDetailModal = async (slug) => {
       lbl.textContent = label;
       stat.appendChild(lbl);
       const val = document.createElement("div");
-      val.style.cssText = "font-family:ui-monospace,monospace;font-size:14px;font-weight:600;";
+      val.classList.add("market-value");
       val.textContent = value;
       stat.appendChild(val);
       priceRow.appendChild(stat);
@@ -757,19 +777,22 @@ const openMarketDetailModal = async (slug) => {
 
         // Price
         const tdPrice = document.createElement("td");
-        tdPrice.style.fontFamily = "ui-monospace, monospace";
+        tdPrice.classList.add("market-price");
         tdPrice.textContent = entry.price > 0 ? formatCurrency(entry.price) : "\u2014";
         tr.appendChild(tdPrice);
 
         // Premium
         const tdPrem = document.createElement("td");
+        let _modalPremium = null;
         if (entry.price > 0 && spotPrice && spotPrice > 0 && weightOz > 0) {
-          const meltValue = spotPrice * weightOz;
-          const premium = ((entry.price - meltValue) / meltValue) * 100;
-          const premClass = premium < 10 ? "low" : "high";
+          _modalPremium = _calcMarketPremium(entry.price, spotPrice * weightOz);
+        } else if (entry.price > 0 && metalCode === "goldback" && _goldbackG1Rate > 0) {
+          _modalPremium = _calcMarketPremium(entry.price, _goldbackG1Rate);
+        }
+        if (_modalPremium != null) {
           const badge = document.createElement("span");
-          badge.className = "vp-premium " + premClass;
-          badge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
+          badge.className = "vp-premium " + _premiumTierClass(_modalPremium);
+          badge.textContent = (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%";
           tdPrem.appendChild(badge);
         } else {
           tdPrem.textContent = "\u2014";
@@ -779,12 +802,13 @@ const openMarketDetailModal = async (slug) => {
 
         // Stock
         const tdStock = document.createElement("td");
-        if (entry.in_stock) {
+        if (entry.carried) {
+          tdStock.style.color = "var(--warning)";
+          tdStock.textContent = "Carried";
+          if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
+        } else if (entry.in_stock) {
           tdStock.style.color = "var(--success)";
           tdStock.textContent = "In Stock";
-        } else if (entry.carried) {
-          tdStock.style.color = "var(--warning, #eab308)";
-          tdStock.textContent = "Carried";
         } else {
           tdStock.style.color = "var(--danger)";
           tdStock.textContent = "Out of Stock";
@@ -800,7 +824,7 @@ const openMarketDetailModal = async (slug) => {
           entry.url ||
           (vMeta && vMeta.url) ||
           null;
-        if (_isSafeUrl(url) && entry.price > 0) {
+        if (_isSafeUrl(url)) {
           const buyBtn = document.createElement("a");
           buyBtn.textContent = "Buy";
           buyBtn.href = "#";
@@ -889,20 +913,20 @@ const _renderVendorTable = async (metalCode) => {
   const coinMetaMap = _getCoinMeta();
   const vendorMeta = _getVendorMeta();
 
+  const rowComparator = (a, b) =>
+    String(a.meta.name || a.slug).localeCompare(String(b.meta.name || b.slug), undefined, {
+      numeric: true,
+    }) || a.slug.localeCompare(b.slug);
+  const allScopeOrder = ["xau", "xag", "xpt", "xpd", "goldback"];
+  const isAllScope = metalCode === "all";
   const metalSlugs = [];
+  const rowsByIsoCode = {};
   const slugs = Object.keys(coins);
   for (const slug of slugs) {
-    let meta;
-    if (coinMetaMap && coinMetaMap[slug]) {
-      meta = coinMetaMap[slug];
-    } else if (typeof window.getRetailCoinMeta === "function") {
-      meta = window.getRetailCoinMeta(slug);
-    } else {
-      meta = { name: slug, weight: 0, metal: "unknown" };
-    }
+    const meta = _getRetailCoinMetaForSlug(slug, coinMetaMap);
     const metalLower = (meta.metal || "").toLowerCase();
     const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
-    if (isoCode === metalCode) {
+    if (isAllScope ? allScopeOrder.includes(isoCode) : isoCode === metalCode) {
       // STAK-515: Skip slugs where ALL vendors are disabled by market filter
       if (typeof _isMarketItemEnabled === "function") {
         const coin = coins[slug];
@@ -911,8 +935,23 @@ const _renderVendorTable = async (metalCode) => {
           if (vids.length > 0 && !vids.some((vid) => _isMarketItemEnabled(slug, vid))) continue;
         }
       }
-      metalSlugs.push({ slug, meta });
+      if (isAllScope) {
+        if (!rowsByIsoCode[isoCode]) rowsByIsoCode[isoCode] = [];
+        rowsByIsoCode[isoCode].push({ slug, meta, isoCode });
+      } else {
+        metalSlugs.push({ slug, meta, isoCode });
+      }
     }
+  }
+  if (isAllScope) {
+    for (const isoCode of allScopeOrder) {
+      const groupRows = rowsByIsoCode[isoCode];
+      if (!groupRows || groupRows.length === 0) continue;
+      groupRows.sort(rowComparator);
+      metalSlugs.push(...groupRows);
+    }
+  } else {
+    metalSlugs.sort(rowComparator);
   }
 
   if (metalSlugs.length === 0) {
@@ -964,14 +1003,21 @@ const _renderVendorTable = async (metalCode) => {
   }
 
   const allVendorIds = new Set();
-  for (const slug in detailMap) {
-    const vendors = detailMap[slug].vendors;
-    if (vendors) {
-      for (const vid in vendors) allVendorIds.add(vid);
+  for (const { slug } of metalSlugs) {
+    const detail = detailMap[slug];
+    const vendors = detail && detail.vendors;
+    if (!vendors) continue;
+    for (const vid in vendors) {
+      if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
+        continue;
+      }
+      allVendorIds.add(vid);
     }
   }
 
-  const vendorIds = Array.from(allVendorIds);
+  const vendorIds = Array.from(allVendorIds).sort(
+    (a, b) => String(_shortVendor(a)).localeCompare(String(_shortVendor(b))) || a.localeCompare(b)
+  );
 
   if (vendorIds.length === 0) {
     tableWrap.textContent = "";
@@ -1015,20 +1061,20 @@ const _renderVendorTable = async (metalCode) => {
 
   const tbody = document.createElement("tbody");
 
-  for (const { slug, meta } of metalSlugs) {
+  for (const { slug, meta, isoCode } of metalSlugs) {
     const detail = detailMap[slug];
     if (!detail || !detail.vendors) continue;
 
     const vData = detail.vendors;
     const weightOz = detail.weight_oz || meta.weight || 0;
-    const spotPrice = _getSpotPrice(metalCode);
+    const spotPrice = _getSpotPrice(isoCode);
 
     const inStockPrices = [];
     for (const vid in vData) {
       // STAK-515: Skip disabled vendors in price calculations
       if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
       const _vs = vData[vid];
-      if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true)) {
+      if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true) && !_vs.carried) {
         inStockPrices.push(vData[vid].price);
       }
     }
@@ -1062,7 +1108,7 @@ const _renderVendorTable = async (metalCode) => {
       const td = document.createElement("td");
       const vInfo = vData[vid];
 
-      if (!vInfo || vInfo.price == null || vInfo.price <= 0) {
+      if (!vInfo) {
         td.textContent = "\u2014";
         td.style.color = "var(--text-muted)";
         tr.appendChild(td);
@@ -1078,7 +1124,11 @@ const _renderVendorTable = async (metalCode) => {
         continue;
       }
 
-      if (vInfo.price === lowestPrice) td.classList.add("vp-best");
+      if (vInfo.carried && vInfo.price != null) {
+        td.style.opacity = "0.5";
+      }
+
+      if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
 
       const priceSpan = document.createElement("span");
       priceSpan.className = "vp-price";
@@ -1104,16 +1154,13 @@ const _renderVendorTable = async (metalCode) => {
 
       let premium = null;
       if (spotPrice && spotPrice > 0 && weightOz > 0) {
-        const meltValue = spotPrice * weightOz;
-        premium = ((vInfo.price - meltValue) / meltValue) * 100;
-      } else if (_goldbackG1Rate && _goldbackG1Rate > 0 && vInfo.price > 0) {
-        // Goldback premium over the official G1 rate from goldback.com
-        premium = ((vInfo.price - _goldbackG1Rate) / _goldbackG1Rate) * 100;
+        premium = _calcMarketPremium(vInfo.price, spotPrice * weightOz);
+      } else if (isoCode === "goldback" && _goldbackG1Rate > 0 && vInfo.price > 0) {
+        premium = _calcMarketPremium(vInfo.price, _goldbackG1Rate);
       }
       if (premium != null) {
-        const premClass = premium < 10 ? "low" : "high";
         const premBadge = document.createElement("span");
-        premBadge.className = "vp-premium " + premClass;
+        premBadge.className = "vp-premium " + _premiumTierClass(premium);
         premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
         td.appendChild(premBadge);
       }
@@ -1234,9 +1281,7 @@ const renderVendorPrices = () => {
   const coinMetaMap = _getCoinMeta();
   const metalHasCoins = {};
   for (const slug of Object.keys(coins)) {
-    let meta;
-    if (coinMetaMap && coinMetaMap[slug]) meta = coinMetaMap[slug];
-    else meta = { metal: "unknown" };
+    const meta = _getRetailCoinMetaForSlug(slug, coinMetaMap);
     const metalLower = (meta.metal || "").toLowerCase();
     const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
     // STAK-515: Only count metal if at least one vendor is enabled for this slug
@@ -1251,6 +1296,7 @@ const renderVendorPrices = () => {
   }
 
   const allMetals = [
+    { code: "all", label: "All" },
     { code: "xau", label: "Gold" },
     { code: "xag", label: "Silver" },
     { code: "xpt", label: "Platinum" },
@@ -1258,14 +1304,10 @@ const renderVendorPrices = () => {
     { code: "goldback", label: "Goldback" },
   ];
   // Only show tabs that have coins
-  const metals = allMetals.filter((m) => metalHasCoins[m.code]);
+  const metals = allMetals.filter((m) => m.code === "all" || metalHasCoins[m.code]);
 
-  const savedTab = loadDataSync("vendorPricesActiveTab", "xag");
-  let activeTab = metals.some((m) => m.code === savedTab)
-    ? savedTab
-    : metals[0]
-      ? metals[0].code
-      : "xag";
+  const savedTab = loadDataSync("vendorPricesActiveTab", "all");
+  let activeTab = metals.some((m) => m.code === savedTab) ? savedTab : "all";
 
   const setActive = (code) => {
     activeTab = code;

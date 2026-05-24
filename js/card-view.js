@@ -435,11 +435,10 @@ const generateSparklineSVG = (item, w, h, opts = {}) => {
   const purchFillPoints = `${purchaseLine} ${w},${h} 0,${h}`;
 
   // Theme-aware — bold strokes and fills on light/sepia backgrounds
-  const _svgTheme = document.documentElement.getAttribute("data-theme") || "light";
-  const _lt = _svgTheme === "light" || _svgTheme === "sepia";
-  const _meltStroke = _lt ? "#047857" : "#10b981";
-  const _purchStroke = _lt ? "#b91c1c" : "#ef4444";
-  const _retailStroke = _lt ? "#1d4ed8" : "#3b82f6";
+  const _lt = typeof isDarkTheme === "function" ? !isDarkTheme() : false;
+  const _meltStroke = getThemeColor("success");
+  const _purchStroke = getThemeColor("danger");
+  const _retailStroke = getThemeColor("primary");
   const _meltFillOp = _lt ? "0.70" : "0.18";
   const _purchFillOp = _lt ? "0.50" : "0.08";
   const _sw = _lt ? "3.5" : "1.5";
@@ -548,14 +547,8 @@ const _cardMetalClass = (metal) => `metal-${(metal || "silver").toLowerCase()}`;
  * @returns {string}
  */
 const _cardImageHTML = (item, extraClass = "", side = "obverse") => {
-  const itemType = (item.type || "").toLowerCase();
   const isRect =
-    itemType === "bar" ||
-    itemType === "note" ||
-    itemType === "aurum" ||
-    itemType === "set" ||
-    item.weightUnit === "gb" ||
-    item.weightUnit === "sb";
+    typeof resolveImageFrame === "function" && resolveImageFrame(item, side) === "rect";
   const shape = isRect ? " bar-shape" : "";
   const uuid = item.uuid || "";
   const catalogId = item.numistaId || "";
@@ -607,8 +600,12 @@ const _cvEscapeAttr = (s) => {
  */
 const _cardChipsHTML = (item, small = false) => {
   const s = small ? ' style="font-size:0.58rem;padding:0.05rem 0.35rem"' : "";
-  const type = (item.type || "coin").toLowerCase();
+  const type = (item.type || "coin").toLowerCase().replace(/[^a-z0-9-]/g, "");
   let h = `<span class="cv-chip cv-chip-type ${type}"${s}>${sanitizeHtml(type)}</span>`;
+  if (item.metal) {
+    const metal = item.metal.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    h += `<span class="cv-chip cv-chip-metal ${metal}"${s}>${sanitizeHtml(metal)}</span>`;
+  }
   if (item.year)
     h += `<span class="cv-chip cv-chip-year"${s}>${sanitizeHtml(String(item.year))}</span>`;
   if (item.grade) h += `<span class="cv-chip cv-chip-grade"${s}>${sanitizeHtml(item.grade)}</span>`;
@@ -616,12 +613,22 @@ const _cardChipsHTML = (item, small = false) => {
   if (qty > 1) h += `<span class="cv-chip cv-chip-qty"${s}>x${qty}</span>`;
   h += `<span class="cv-chip cv-chip-weight"${s}>${sanitizeHtml(formatWeight(item.weight, item.weightUnit))}</span>`;
 
-  // STAK-343: Inline tags in card view (show first 2, ellipsis if more)
   const _cardTags = typeof getItemTags === "function" ? getItemTags(item.uuid) : [];
   if (_cardTags.length > 0) {
-    const tagText =
-      sanitizeHtml(_cardTags.slice(0, 2).join(", ")) + (_cardTags.length > 2 ? "\u2026" : "");
-    h += `<span class="cv-chip cv-chip-tags"${s} title="${_cvEscapeAttr(_cardTags.join(", "))}">${tagText}</span>`;
+    const show = _cardTags.slice(0, 2);
+    show.forEach((t) => {
+      h += `<span class="cv-chip cv-chip-tags"${s} title="${_cvEscapeAttr(t)}">${sanitizeHtml(t)}</span>`;
+    });
+    if (_cardTags.length > 2) {
+      h += `<span class="cv-chip cv-chip-tags"${s} title="${_cvEscapeAttr(_cardTags.join(", "))}">+${_cardTags.length - 2}</span>`;
+    }
+  }
+
+  if (item.attachments?.length > 0) {
+    h +=
+      `<span class="cv-chip cv-chip-attach"${s} title="${item.attachments.length} attachment${item.attachments.length === 1 ? "" : "s"}">` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>` +
+      ` ${item.attachments.length}</span>`;
   }
 
   return h;
@@ -707,7 +714,6 @@ const renderCardC = (item, idx, computed) => {
     `<div class="cv-image-col">` +
     `${_cardImageHTML(item, "", "obverse")}` +
     `${_cardImageHTML(item, "", "reverse")}` +
-    `<div class="cv-sparkline-strip"><svg viewBox="0 0 4 120" preserveAspectRatio="none"><rect width="4" height="120" rx="2" fill="var(--metal-color)" opacity="0.3"/></svg></div>` +
     `</div>` +
     `<div class="cv-data-col">` +
     `<div class="cv-item-name">${sanitizeHtml(item.name || "")}${isDisposed(item) ? ` <span class="disposition-badge disposition-badge--${item.disposition.type}">${DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type}</span>` : ""}</div>` +
@@ -915,14 +921,21 @@ function _initCardCharts(container) {
     const hasRetail = retailData.some((v) => v !== null);
 
     // Theme-aware chart colors — bold lines/fills for light & sepia
-    const _theme = document.documentElement.getAttribute("data-theme") || "light";
-    const _isLight = _theme === "light" || _theme === "sepia";
+    const _isLight = typeof isDarkTheme === "function" ? !isDarkTheme() : false;
+    const _danger = getThemeColorRGB("danger");
+    const _success = getThemeColorRGB("success");
+    const _primary = getThemeColorRGB("primary");
+    const _purchFillAlpha = _isLight ? 0.15 : 0.06;
+    const _meltFillAlpha = _isLight ? 0.25 : 0.18;
+    const _retailFillAlpha = _isLight ? 0.15 : 0.12;
     const datasets = [
       {
         label: "Purchase",
         data: purchaseLine,
-        borderColor: _isLight ? "#b91c1c" : "#ef4444",
-        backgroundColor: _isLight ? "rgba(185, 28, 28, 0.15)" : "rgba(239, 68, 68, 0.06)",
+        borderColor: _danger,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_danger} ${Math.round(_purchFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         borderDash: [6, 3],
         tension: 0,
@@ -934,8 +947,10 @@ function _initCardCharts(container) {
       {
         label: "Melt",
         data: meltData,
-        borderColor: _isLight ? "#047857" : "#10b981",
-        backgroundColor: _isLight ? "rgba(4, 120, 87, 0.25)" : "rgba(16, 185, 129, 0.18)",
+        borderColor: _success,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_success} ${Math.round(_meltFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         tension: 0.3,
         pointRadius: 0,
@@ -946,8 +961,10 @@ function _initCardCharts(container) {
       {
         label: "Retail",
         data: retailData,
-        borderColor: _isLight ? "#1d4ed8" : "#3b82f6",
-        backgroundColor: _isLight ? "rgba(29, 78, 216, 0.15)" : "rgba(59, 130, 246, 0.12)",
+        borderColor: _primary,
+        backgroundColor: resolveColor(
+          `color-mix(in srgb, ${_primary} ${Math.round(_retailFillAlpha * 100)}%, transparent)`
+        ),
         fill: "origin",
         tension: 0.3,
         spanGaps: true,
@@ -959,7 +976,10 @@ function _initCardCharts(container) {
       },
     ];
 
-    const cvTextColor = typeof getChartTextColor === "function" ? getChartTextColor() : "#8b949e";
+    const cvTextColor =
+      typeof getChartTextColor === "function"
+        ? getChartTextColor()
+        : getThemeColorRGB("text-primary");
     const chart = createTimeSeriesChart(canvas, labels, datasets, {
       animation: false,
       showLegend: true,
@@ -1009,8 +1029,8 @@ function _initCardCharts(container) {
       Object.assign(chartOpts.plugins.tooltip, {
         enabled: true,
         backgroundColor: "rgba(0,0,0,0.8)",
-        titleColor: "#fff",
-        bodyColor: "#fff",
+        titleColor: getThemeColorRGB("text-inverse"),
+        bodyColor: getThemeColorRGB("text-inverse"),
         padding: 6,
         bodyFont: { size: 10 },
         titleFont: { size: 10 },

@@ -93,12 +93,14 @@ const recordItemPrice = (item, trigger = "spot-sync") => {
   const spot = spotPrices[metalKey] || 0;
   const melt = parseFloat(computeMeltValue(item, spot).toFixed(2));
 
-  // Retail hierarchy: (1) Goldback denomination price, (2) manual marketValue, (3) 0
-  // Must match the 3-tier lookup used by table renderer, CSV/PDF export, and details modal
+  // Retail hierarchy: max(Goldback denomination price, manual marketValue), then 0.
+  // Must match the lookup used by table renderer, CSV/PDF export, and details modal.
   const gbDenomPrice =
     typeof getGoldbackRetailPrice === "function" ? getGoldbackRetailPrice(item) : null;
   const rawMarket = item.marketValue && item.marketValue > 0 ? parseFloat(item.marketValue) : 0;
-  const retail = gbDenomPrice ? parseFloat(gbDenomPrice.toFixed(2)) : rawMarket;
+  const retail = gbDenomPrice
+    ? parseFloat(Math.max(gbDenomPrice, rawMarket).toFixed(2))
+    : rawMarket;
   const now = Date.now();
 
   // Initialize array for this UUID if needed

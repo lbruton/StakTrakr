@@ -147,7 +147,7 @@
     <script>
       try {
         var __t = localStorage.getItem("appTheme");
-        if (__t === "dark" || __t === "light" || __t === "sepia" || __t === "hello-kitty") {
+        if (__t === "dark" || __t === "light" || __t === "sepia" || __t === "slate") {
           document.documentElement.setAttribute("data-theme", __t);
         } else {
           document.documentElement.setAttribute("data-theme", "dark");
@@ -155,6 +155,20 @@
       } catch (e) {}
     </script>
 
+    <link
+      rel="preload"
+      href="./fonts/geist-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./fonts/instrument-serif-regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="./css/styles.css" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=3.27.03" />
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon.png?v=3.27.03" />
@@ -1558,6 +1572,8 @@
               <option value="9">Retail</option>
               <option value="10">Gain/Loss</option>
               <option value="11">Source</option>
+              <option value="102">Storage</option>
+              <option value="103">Year</option>
               <option value="99">Last Modified</option>
               <option value="100">Mintage</option>
               <option value="101">Rarity</option>
@@ -1852,6 +1868,16 @@
                       style="display: none"
                     >
                       <img id="itemImagePreviewImgObv" alt="Obverse preview" />
+                      <button
+                        type="button"
+                        id="frameToggleObv"
+                        class="frame-toggle"
+                        data-frame-state="auto"
+                        aria-pressed="false"
+                        aria-label="Image frame: auto (default)"
+                      >
+                        <span aria-hidden="true">A</span>
+                      </button>
                     </div>
                     <div class="image-card-actions">
                       <input
@@ -1925,6 +1951,16 @@
                       style="display: none"
                     >
                       <img id="itemImagePreviewImgRev" alt="Reverse preview" />
+                      <button
+                        type="button"
+                        id="frameToggleRev"
+                        class="frame-toggle"
+                        data-frame-state="auto"
+                        aria-pressed="false"
+                        aria-label="Image frame: auto (default)"
+                      >
+                        <span aria-hidden="true">A</span>
+                      </button>
                     </div>
                     <div class="image-card-actions">
                       <input
@@ -2128,8 +2164,8 @@
                 />
               </div>
             </div>
-            <!-- Row: Purchase Date & Purchase Price -->
-            <div class="grid grid-2">
+            <!-- Row: Purchase Date, Purchase Price & Payment Method -->
+            <div class="grid grid-3">
               <div id="dateField">
                 <label for="itemDate"
                   >Purchase Date
@@ -2190,6 +2226,21 @@
                     </svg>
                   </button>
                 </div>
+              </div>
+              <div>
+                <label for="itemPaymentMethod">Payment Method</label>
+                <select id="itemPaymentMethod">
+                  <option value="">(blank)</option>
+                  <option value="Zelle">Zelle</option>
+                  <option value="PayPal">PayPal</option>
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Debit Card">Debit Card</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Check">Check</option>
+                  <option value="Wire">Wire</option>
+                  <option value="Crypto">Crypto</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
             </div>
             <!-- Row: Purchase Location & Storage Location -->
@@ -2458,9 +2509,8 @@
                         class="inline-search-btn"
                         id="retailSpotLookupBtn"
                         type="button"
-                        disabled
-                        title="Search for spot price on purchase date"
-                        aria-label="Search for spot price on purchase date"
+                        title="Look up current retail price"
+                        aria-label="Look up current retail price"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -2577,6 +2627,30 @@
                 </div>
                 <div class="grid grid-2">
                   <div>
+                    <label for="itemCapsule">Capsule</label>
+                    <input id="itemCapsule" type="text" placeholder="e.g. A-32, X-38-Ring" />
+                    <span
+                      id="capsuleSuggestion"
+                      aria-live="polite"
+                      style="
+                        display: block;
+                        margin-top: 0.35rem;
+                        color: var(--text-muted);
+                        font-size: var(--font-size-base);
+                      "
+                    ></span>
+                  </div>
+                  <div>
+                    <label for="itemCapsuleNotes">Capsule Notes</label>
+                    <input
+                      id="itemCapsuleNotes"
+                      type="text"
+                      placeholder="e.g. Guardhouse 38mm &mdash; tight fit"
+                    />
+                  </div>
+                </div>
+                <div class="grid grid-2">
+                  <div>
                     <label for="numistaTechnique">Technique</label>
                     <input id="numistaTechnique" type="text" placeholder="e.g. Milled" />
                   </div>
@@ -2666,6 +2740,60 @@
                   <label for="itemNotes">Notes</label>
                   <input id="itemNotes" type="text" placeholder="Additional notes or comments..." />
                 </div>
+              </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════
+                 Attachments (STRK-45)
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="form-section" id="attachmentsSection">
+              <div class="form-section-header">
+                <span class="form-section-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+                    />
+                  </svg>
+                </span>
+                Attachments
+              </div>
+              <div class="form-section-body">
+                <!-- Drop zone -->
+                <div id="attachmentDropZone" class="attachment-drop-zone">
+                  <span class="attachment-drop-label">Drag PDF, PNG, or JPG here</span>
+                  <button type="button" class="btn attachment-browse-btn" id="attachmentBrowseBtn">
+                    Browse
+                  </button>
+                  <input
+                    id="attachmentFileInput"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                    multiple
+                    style="display: none"
+                  />
+                </div>
+                <!-- Queued (staged, not yet saved) files -->
+                <ul
+                  id="attachmentQueuedList"
+                  class="attachment-list attachment-list--queued"
+                  hidden
+                ></ul>
+                <!-- Saved attachments for the current item -->
+                <ul
+                  id="attachmentSavedList"
+                  class="attachment-list attachment-list--saved"
+                  hidden
+                ></ul>
               </div>
             </div>
 
@@ -3791,6 +3919,19 @@
                       </button>
                       <button
                         class="theme-option"
+                        data-theme="slate"
+                        title="Slate"
+                        style="
+                          padding: 0.55rem 1rem;
+                          font-size: 0.8125rem;
+                          border-radius: 0;
+                          border-right-width: 0;
+                        "
+                      >
+                        &#129704; Slate
+                      </button>
+                      <button
+                        class="theme-option"
                         data-theme="sepia"
                         title="Sepia"
                         style="
@@ -3919,6 +4060,8 @@
                         <option value="9">Retail</option>
                         <option value="10">Gain/Loss</option>
                         <option value="11">Source</option>
+                        <option value="102">Storage</option>
+                        <option value="103">Year</option>
                         <option value="99">Last Modified</option>
                         <option value="100">Mintage</option>
                         <option value="101">Rarity</option>
@@ -4637,9 +4780,22 @@
                         >
                           Import JSON
                         </button>
+                        <button
+                          class="btn warning"
+                          id="importZipBtn"
+                          style="
+                            font-size: 0.82rem;
+                            padding: 0.4rem 0.6rem;
+                            min-height: 0;
+                            grid-column: span 2;
+                          "
+                        >
+                          Restore ZIP Backup
+                        </button>
                       </div>
                       <input accept=".csv" hidden id="importCsvFile" type="file" />
                       <input accept=".json" hidden id="importJsonFile" type="file" />
+                      <input accept=".zip" hidden id="importZipFile" type="file" />
                       <progress
                         class="import-progress"
                         id="importProgress"
@@ -4752,18 +4908,23 @@
                           >Full backup — inventory, settings, price history, and images</span
                         >
                         <button
-                          class="btn warning"
-                          id="importZipBtn"
+                          class="btn success"
+                          id="printBtn"
+                          aria-describedby="printDesc"
+                          title="Direct browser print of your full inventory"
                           style="
                             font-size: 0.82rem;
                             padding: 0.4rem 0.6rem;
                             min-height: 0;
+                            width: 100%;
                             grid-column: span 2;
                           "
                         >
-                          Restore ZIP Backup
+                          Print
                         </button>
-                        <input accept=".zip" hidden id="importZipFile" type="file" />
+                        <span id="printDesc" class="sr-only"
+                          >Direct browser print of your full inventory</span
+                        >
                       </div>
                     </div>
                   </div>
@@ -4886,10 +5047,20 @@
                   Permanently remove inventory or wipe all app data. These actions cannot be undone.
                 </p>
                 <div class="settings-btn-row">
-                  <button type="button" class="btn warning" id="removeInventoryDataBtn">
+                  <button
+                    type="button"
+                    class="btn warning"
+                    id="removeInventoryDataBtn"
+                    style="font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0"
+                  >
                     Remove Inventory
                   </button>
-                  <button type="button" class="btn danger" id="boatingAccidentBtn">
+                  <button
+                    type="button"
+                    class="btn danger"
+                    id="boatingAccidentBtn"
+                    style="font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0"
+                  >
                     Wipe All Data
                   </button>
                 </div>
@@ -5093,6 +5264,19 @@
                         Sync Now
                       </button>
                     </div>
+                  </div>
+
+                  <!-- Sync attachments toggle (STRK-45) -->
+                  <div
+                    class="cloud-status-row"
+                    id="syncAttachmentsRow"
+                    style="align-items: center; margin-top: 0.4rem"
+                  >
+                    <span class="cloud-status-label">Sync attachments</span>
+                    <label class="settings-toggle-switch" style="margin-left: auto">
+                      <input type="checkbox" id="syncAttachmentsToggle" checked />
+                      <span class="settings-toggle-slider"></span>
+                    </label>
                   </div>
 
                   <!-- Manual Backup & Restore -->
@@ -6525,6 +6709,25 @@
               >
             </div>
             <input type="file" id="vaultImageImportFile" accept=".stvault" hidden />
+          </div>
+
+          <!-- Attachment vault companion file (import mode only — STRK-45) -->
+          <div id="vaultAttachmentFileRow" style="display: none">
+            <div class="encryption-info" id="vaultAttachmentFileInfo" style="display: none">
+              <strong>Attachments:</strong> <span id="vaultAttachmentFileName"></span> (<span
+                id="vaultAttachmentFileSize"
+              ></span
+              >)
+            </div>
+            <div class="settings-btn-row" id="vaultAttachmentPickerRow">
+              <label class="btn" style="cursor: pointer" for="vaultAttachmentImportFile"
+                >+ Add Attachments File</label
+              >
+              <small style="opacity: 0.65"
+                >Optional: <em>-attachments.stvault</em> from the same export</small
+              >
+            </div>
+            <input type="file" id="vaultAttachmentImportFile" accept=".stvault" hidden />
           </div>
 
           <div class="form-row">
@@ -8114,6 +8317,15 @@
         <div class="modal-body">
           <input type="hidden" id="removeItemIdx" />
           <p id="removeItemName" style="margin: 0 0 0.75rem; font-weight: 600"></p>
+          <p
+            id="removeItemAttachmentWarn"
+            style="
+              display: none;
+              margin: -0.4rem 0 0.75rem;
+              font-size: 0.85rem;
+              color: var(--text-secondary);
+            "
+          ></p>
           <p style="margin: 0 0 1rem; color: var(--text-secondary); font-size: 0.9rem">
             This can be undone from the
             <a
@@ -8133,6 +8345,30 @@
           </label>
 
           <div id="removeItemDisposeFields" style="display: none">
+            <div id="removeItemQtyGroup" class="form-group" style="display: none">
+              <label id="removeItemQtyLabel">
+                Quantity to dispose<span id="removeItemQtyLabelMax" class="qty-max-suffix"></span>
+              </label>
+              <div
+                id="removeItemQtyChips"
+                role="group"
+                aria-labelledby="removeItemQtyLabel"
+                style="display: none"
+              ></div>
+              <select
+                id="removeItemQtySelect"
+                aria-labelledby="removeItemQtyLabel"
+                style="display: none"
+              ></select>
+              <input type="hidden" id="removeItemQty" />
+              <p
+                id="removeItemDisposePreview"
+                class="form-helper"
+                aria-live="polite"
+                style="display: none"
+              ></p>
+            </div>
+
             <div class="form-group">
               <label for="dispositionType">Type</label>
               <select id="dispositionType">
@@ -8150,7 +8386,18 @@
             </div>
 
             <div class="form-group" id="dispositionAmountGroup">
-              <label for="dispositionAmount">Amount</label>
+              <div class="label-with-toggle">
+                <label for="dispositionAmount">Amount</label>
+                <div
+                  id="removeItemAmountModeToggle"
+                  class="chip-sort-toggle"
+                  role="group"
+                  aria-label="Amount mode"
+                >
+                  <button type="button" class="chip-sort-btn active" data-mode="each">Each</button>
+                  <button type="button" class="chip-sort-btn" data-mode="lot">Lot total</button>
+                </div>
+              </div>
               <input type="number" id="dispositionAmount" min="0" step="0.01" placeholder="0.00" />
             </div>
 
@@ -8173,6 +8420,45 @@
           <button class="btn premium" type="button" id="removeItemDisposeBtn" style="display: none">
             Confirm Disposition
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =============================================================================
+       RESTORE CHOICE MODAL
+
+       Shown when the user undoes a partial-stack disposition. Lets the user choose
+       whether to merge the disposed portion back into the original stack row or
+       restore it as a separate row. Task 11 (events.js showRestoreChoice) wires
+       the behavior; this block is the markup scaffold only.
+       ============================================================================= -->
+    <div
+      class="modal"
+      id="restoreChoiceModal"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="restoreChoiceModalTitle"
+    >
+      <div class="modal-content" style="max-width: 440px">
+        <div class="modal-header">
+          <h2 id="restoreChoiceModalTitle">Restore disposed item?</h2>
+          <button
+            aria-label="Close modal"
+            class="modal-close"
+            type="button"
+            onclick="closeModalById('restoreChoiceModal')"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <p id="restoreChoiceMessage" aria-live="polite" style="margin: 0 0 1rem"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn secondary" type="button" data-action="cancel">Cancel</button>
+          <button class="btn" type="button" data-action="separate">Restore as separate row</button>
+          <button class="btn premium" type="button" data-action="merge">Merge with original</button>
         </div>
       </div>
     </div>
@@ -8202,6 +8488,8 @@
     <script defer src="./js/dialogs.js"></script>
     <script defer src="./js/image-processor.js"></script>
     <script defer src="./js/image-cache.js"></script>
+    <script defer src="./js/attachment-manager.js"></script>
+    <script defer src="./js/attachment-ui.js"></script>
     <script defer src="./js/bulk-image-cache.js"></script>
     <script defer src="./js/image-cache-modal.js"></script>
     <script defer src="./js/fuzzy-search.js"></script>
@@ -8237,6 +8525,7 @@
     <script defer src="./js/retail-view-modal.js"></script>
     <script defer src="./js/api.js"></script>
     <script defer src="./js/catalog-api.js"></script>
+    <script defer src="./js/image-frame.js"></script>
     <script defer src="./js/pcgs-api.js"></script>
     <script defer src="./js/catalog-providers.js"></script>
     <script defer src="./js/catalog-manager.js"></script>

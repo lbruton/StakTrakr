@@ -1,6 +1,6 @@
 ---
 name: pr-ready
-description: Pre-PR readiness checklist for StakTrakr. Verifies version bump, sw.js and index.html registrations for new JS files, DocVault update status, and Codacy findings before pushing.
+description: Pre-PR checklist — version bump, sw.js registration, DocVault status, Codacy findings.
 allowed-tools: Bash, Read, Grep, Glob, mcp__codacy__codacy_get_repository_with_analysis, mcp__codacy__codacy_list_repository_issues
 ---
 

@@ -299,7 +299,54 @@ console.log("🔌 Catalog API system ready - configure API keys through settings
 const NUMISTA_CACHE_TTL_DAYS = 30;
 
 // Fields that carry userModified tracking (shared by renderNumistaFieldCheckboxes + fillFormFromNumistaResult)
-const USER_MODIFIED_TRACKED_FIELDS = new Set(["name", "type", "weight", "year", "metal"]);
+const USER_MODIFIED_TRACKED_FIELDS = new Set([
+  "name",
+  "type",
+  "weight",
+  "year",
+  "metal",
+  // Numista Data tab fields (STRK-51)
+  "country",
+  "denomination",
+  "composition",
+  "shape",
+  "diameter",
+  "length",
+  "width",
+  "thickness",
+  "orientation",
+  "technique",
+  "mintage",
+  "rarityIndex",
+  "kmRef",
+  "commemorative",
+  "commemorativeDesc",
+  "obverseDesc",
+  "reverseDesc",
+  "edgeDesc",
+]);
+
+// All numistaData field keys that appear as picker rows (STRK-51)
+const NUMISTA_DATA_PICKER_KEYS = new Set([
+  "country",
+  "denomination",
+  "composition",
+  "shape",
+  "diameter",
+  "length",
+  "width",
+  "thickness",
+  "orientation",
+  "technique",
+  "mintage",
+  "rarityIndex",
+  "kmRef",
+  "commemorative",
+  "commemorativeDesc",
+  "obverseDesc",
+  "reverseDesc",
+  "edgeDesc",
+]);
 
 /**
  * Loads a cached Numista API response for a given type ID.
@@ -1441,14 +1488,14 @@ const renderNumistaFieldCheckboxes = (result) => {
       label: "Year",
       value: result.year || "",
       available: !!result.year,
-      defaultOn: false,
+      defaultOn: !!result.year,
     },
     {
       key: "type",
       label: "Type",
       value: result.type || "",
       available: typeValid,
-      defaultOn: false,
+      defaultOn: typeValid,
       warn: result.type && !typeValid ? `"${result.type}" — not in form options` : "",
     },
     {
@@ -1506,6 +1553,25 @@ const renderNumistaFieldCheckboxes = (result) => {
     reverseImage:
       (elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl"))?.value?.trim() || "",
     metal: (elements.itemMetal || safeGetElement("itemMetal"))?.value || "",
+    // Numista Data tab fields (STRK-51)
+    country: safeGetElement("numistaCountry")?.value?.trim() || "",
+    denomination: safeGetElement("numistaDenomination")?.value?.trim() || "",
+    composition: safeGetElement("numistaComposition")?.value?.trim() || "",
+    shape: safeGetElement("numistaShape")?.value?.trim() || "",
+    diameter: safeGetElement("numistaDiameter")?.value?.trim() || "",
+    thickness: safeGetElement("numistaThickness")?.value?.trim() || "",
+    length: safeGetElement("numistaLength")?.value?.trim() || "",
+    width: safeGetElement("numistaWidth")?.value?.trim() || "",
+    orientation: safeGetElement("numistaOrientation")?.value?.trim() || "",
+    technique: safeGetElement("numistaTechnique")?.value?.trim() || "",
+    mintage: safeGetElement("numistaMintage")?.value?.trim() || "",
+    rarityIndex: safeGetElement("numistaRarity")?.value?.trim() || "",
+    kmRef: safeGetElement("numistaKmRef")?.value?.trim() || "",
+    commemorative: safeGetElement("numistaCommemorative")?.checked ? "Yes" : "",
+    commemorativeDesc: safeGetElement("numistaCommemorativeDesc")?.value?.trim() || "",
+    obverseDesc: safeGetElement("numistaObverseDesc")?.value?.trim() || "",
+    reverseDesc: safeGetElement("numistaReverseDesc")?.value?.trim() || "",
+    edgeDesc: safeGetElement("numistaEdgeDesc")?.value?.trim() || "",
   };
 
   fields.forEach((f) => {
@@ -1579,6 +1645,212 @@ const renderNumistaFieldCheckboxes = (result) => {
 
     container.appendChild(row);
   });
+
+  // ---------------------------------------------------------------------------
+  // Numista Data tab fields (STRK-51)
+  // ---------------------------------------------------------------------------
+  const mintageCandidate = (() => {
+    if (!result.mintageByYear?.length) return "";
+    const first = result.mintageByYear[0];
+    return typeof first.mintage === "number"
+      ? first.mintage.toLocaleString()
+      : String(first.mintage || "");
+  })();
+
+  const numistaDataFields = [
+    {
+      key: "country",
+      label: "Country",
+      value: result.country || "",
+      available: !!result.country,
+      defaultOn: true,
+    },
+    {
+      key: "denomination",
+      label: "Denomination",
+      value: result.denomination || "",
+      available: !!result.denomination,
+      defaultOn: true,
+    },
+    {
+      key: "composition",
+      label: "Composition",
+      value: result.composition || "",
+      available: !!result.composition,
+      defaultOn: true,
+    },
+    {
+      key: "shape",
+      label: "Shape",
+      value: result.shape || "",
+      available: !!result.shape,
+      defaultOn: true,
+    },
+    {
+      key: "diameter",
+      label: "Diameter (mm)",
+      value: result.diameter > 0 ? String(result.diameter) : "",
+      available: result.diameter > 0,
+      defaultOn: true,
+    },
+    {
+      key: "length",
+      label: "Length (mm)",
+      value: result.length > 0 ? String(result.length) : "",
+      available: result.length > 0,
+      defaultOn: true,
+    },
+    {
+      key: "width",
+      label: "Width (mm)",
+      value: result.width > 0 ? String(result.width) : "",
+      available: result.width > 0,
+      defaultOn: true,
+    },
+    {
+      key: "thickness",
+      label: "Thickness (mm)",
+      value: result.thickness > 0 ? String(result.thickness) : "",
+      available: result.thickness > 0,
+      defaultOn: true,
+    },
+    {
+      key: "orientation",
+      label: "Orientation",
+      value: result.orientation || "",
+      available: !!result.orientation,
+      defaultOn: !!result.orientation,
+    },
+    {
+      key: "technique",
+      label: "Technique",
+      value: result.technique || "",
+      available: !!result.technique,
+      defaultOn: !!result.technique,
+    },
+    {
+      key: "mintage",
+      label: "Mintage",
+      value: mintageCandidate,
+      available: !!mintageCandidate,
+      defaultOn: true,
+    },
+    {
+      key: "rarityIndex",
+      label: "Rarity Index",
+      value: result.rarityIndex != null ? String(result.rarityIndex) : "",
+      available: result.rarityIndex != null,
+      defaultOn: result.rarityIndex != null && result.rarityIndex !== 0,
+    },
+    {
+      key: "kmRef",
+      label: "KM Reference",
+      value: result.kmReferences?.length ? result.kmReferences.join(", ") : "",
+      available: !!result.kmReferences?.length,
+      defaultOn: true,
+    },
+    {
+      key: "commemorative",
+      label: "Commemorative",
+      value: result.commemorative ? "Yes" : "",
+      available: !!result.commemorative,
+      defaultOn: true,
+    },
+    {
+      key: "commemorativeDesc",
+      label: "Commemorative Desc",
+      value: result.commemorativeDesc || "",
+      available: !!result.commemorativeDesc,
+      defaultOn: !!result.commemorativeDesc,
+    },
+    {
+      key: "obverseDesc",
+      label: "Obverse Description",
+      value: result.obverseDesc || "",
+      available: !!result.obverseDesc,
+      defaultOn: !!result.obverseDesc,
+    },
+    {
+      key: "reverseDesc",
+      label: "Reverse Description",
+      value: result.reverseDesc || "",
+      available: !!result.reverseDesc,
+      defaultOn: !!result.reverseDesc,
+    },
+    {
+      key: "edgeDesc",
+      label: "Edge Description",
+      value: result.edgeDesc || "",
+      available: !!result.edgeDesc,
+      defaultOn: !!result.edgeDesc,
+    },
+  ];
+
+  // Only add the section if at least one field has a candidate value
+  const hasNumistaDataCandidates = numistaDataFields.some((f) => f.available && f.value);
+  if (hasNumistaDataCandidates) {
+    const sectionLabel = document.createElement("div");
+    sectionLabel.className = "numista-fields-section-label";
+    sectionLabel.textContent = "Numista Data fields:";
+    container.appendChild(sectionLabel);
+
+    numistaDataFields.forEach((f) => {
+      const isUserModified =
+        !isBulkEdit &&
+        USER_MODIFIED_TRACKED_FIELDS.has(f.key) &&
+        fieldMetaMap[f.key]?.userModified === true;
+
+      const row = document.createElement("div");
+      row.className = "numista-field-row";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.name = "numistaField";
+      cb.value = f.key;
+      const effectiveDefaultOn = isUserModified ? false : f.defaultOn;
+      cb.checked = f.available && !!f.value && effectiveDefaultOn;
+      if (!f.value) cb.disabled = true;
+
+      const label = document.createElement("span");
+      label.className = "numista-field-label";
+      label.textContent = f.label + ":";
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "numista-field-input";
+      input.name = "numistaFieldValue_" + f.key;
+      input.value = f.value;
+      input.placeholder = f.available ? "" : "N/A";
+      if (!f.available && !f.value) input.disabled = true;
+
+      cb.addEventListener("change", () => {
+        input.disabled = !cb.checked;
+      });
+      if (!cb.checked) input.disabled = true;
+
+      row.appendChild(cb);
+      row.appendChild(label);
+      row.appendChild(input);
+
+      const currentVal = currentFormValues[f.key];
+      if (currentVal) {
+        const hint = document.createElement("div");
+        hint.className = "numista-field-current";
+        hint.textContent = `Current: ${currentVal}`;
+        hint.title = currentVal;
+        row.appendChild(hint);
+      }
+
+      if (isUserModified) {
+        const editedHint = document.createElement("span");
+        editedHint.className = "numista-field-edited";
+        editedHint.textContent = "✎ edited";
+        row.appendChild(editedHint);
+      }
+
+      container.appendChild(row);
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Tag checkbox section (STAK-556)
@@ -1665,7 +1937,7 @@ const renderNumistaFieldCheckboxes = (result) => {
         wrapper.appendChild(hint);
       } else if (isOnItem) {
         cb.checked = true;
-        cb.disabled = true;
+        cb.dataset.onItem = "1"; // interactable (user can opt-out); not locked like blacklisted
         const hint = document.createElement("span");
         hint.className = "numista-tag-hint";
         hint.textContent = "(on item)";
@@ -1686,6 +1958,11 @@ const renderNumistaFieldCheckboxes = (result) => {
         wrapper.appendChild(tagLabel);
       }
 
+      // STRK-84: track user intent for Add-mode opt-out recording
+      cb.addEventListener("change", () => {
+        cb.dataset.userTouched = "1";
+      });
+
       tagsSection.appendChild(wrapper);
     });
 
@@ -1693,14 +1970,23 @@ const renderNumistaFieldCheckboxes = (result) => {
 
     // Check all / Uncheck all event handlers
     checkAllBtn.addEventListener("click", () => {
+      // Check-all: skip only blacklisted (disabled). On-item rows are already checked, so no-op is correct.
       tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
-        if (!cb.disabled) cb.checked = true;
+        if (!cb.disabled) {
+          cb.dataset.userTouched = "1";
+          cb.checked = true;
+        }
       });
     });
 
     uncheckAllBtn.addEventListener("click", () => {
+      // Uncheck-all: skip blacklisted (!cb.disabled) AND on-item (!cb.dataset.onItem) — asymmetric by design.
+      // Check-all only needs the blacklist guard; Uncheck-all needs both to preserve user opt-in signals.
       tagsSection.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
-        if (!cb.disabled) cb.checked = false;
+        if (!cb.disabled && !cb.dataset.onItem) {
+          cb.dataset.userTouched = "1";
+          cb.checked = false;
+        }
       });
     });
   }
@@ -1917,7 +2203,7 @@ const fillFormFromNumistaResult = () => {
     });
     window._bulkEditNumistaCallback(fieldMap);
     window._bulkEditNumistaCallback = null;
-    closeNumistaResultsModal();
+    closeNumistaResultsModal({ clearPendingSnapshot: true });
     return;
   }
 
@@ -1966,12 +2252,21 @@ const fillFormFromNumistaResult = () => {
         // STAK-488: Always write the URL when checkbox is checked — the user controls
         // whether to overwrite via the field picker checkbox, not this guard.
         const el = elements.itemObverseImageUrl || safeGetElement("itemObverseImageUrl");
-        if (el) el.value = val;
+        if (el instanceof HTMLElement) {
+          el.value = val;
+          // Programmatic .value doesn't fire input events; dispatch one so
+          // scheduleUrlPreview() runs and the preview/frame-toggle UI updates
+          // without requiring the user to save and re-edit the item.
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         break;
       }
       case "reverseImage": {
         const el = elements.itemReverseImageUrl || safeGetElement("itemReverseImageUrl");
-        if (el) el.value = val;
+        if (el instanceof HTMLElement) {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         break;
       }
       case "metal": {
@@ -1980,6 +2275,101 @@ const fillFormFromNumistaResult = () => {
           const valid = Array.from(el.options).map((o) => o.value);
           if (valid.includes(val)) el.value = val;
         }
+        break;
+      }
+      // Numista Data tab fields (STRK-51)
+      case "country": {
+        const el = safeGetElement("numistaCountry");
+        if (el) el.value = val;
+        break;
+      }
+      case "denomination": {
+        const el = safeGetElement("numistaDenomination");
+        if (el) el.value = val;
+        break;
+      }
+      case "composition": {
+        const el = safeGetElement("numistaComposition");
+        if (el) el.value = val;
+        break;
+      }
+      case "shape": {
+        const el = safeGetElement("numistaShape");
+        if (el) el.value = val;
+        break;
+      }
+      case "diameter": {
+        const el = safeGetElement("numistaDiameter");
+        if (el) el.value = val;
+        break;
+      }
+      case "length": {
+        const el = safeGetElement("numistaLength");
+        if (el) el.value = val;
+        break;
+      }
+      case "width": {
+        const el = safeGetElement("numistaWidth");
+        if (el) el.value = val;
+        break;
+      }
+      case "thickness": {
+        const el = safeGetElement("numistaThickness");
+        if (el) el.value = val;
+        break;
+      }
+      case "orientation": {
+        const el = safeGetElement("numistaOrientation");
+        if (el) el.value = val;
+        break;
+      }
+      case "technique": {
+        const el = safeGetElement("numistaTechnique");
+        if (el) el.value = val;
+        break;
+      }
+      case "mintage": {
+        const el = safeGetElement("numistaMintage");
+        if (el) el.value = val;
+        break;
+      }
+      case "rarityIndex": {
+        const el = safeGetElement("numistaRarity");
+        if (el) el.value = val;
+        break;
+      }
+      case "kmRef": {
+        const el = safeGetElement("numistaKmRef");
+        if (el) el.value = val;
+        break;
+      }
+      case "commemorative": {
+        const cb = safeGetElement("numistaCommemorative");
+        if (cb) {
+          cb.checked = val === "Yes";
+          const wrap = safeGetElement("numistaCommemorativeDescWrap");
+          if (wrap) wrap.style.display = cb.checked ? "" : "none";
+        }
+        break;
+      }
+      case "commemorativeDesc": {
+        const el = safeGetElement("numistaCommemorativeDesc");
+        if (el) el.value = val;
+        break;
+      }
+      case "obverseDesc": {
+        const el = safeGetElement("numistaObverseDesc");
+        if (el) el.value = val;
+        break;
+      }
+      case "reverseDesc": {
+        const el = safeGetElement("numistaReverseDesc");
+        if (el) el.value = val;
+        break;
+      }
+      case "edgeDesc": {
+        const el = safeGetElement("numistaEdgeDesc");
+        if (el) el.value = val;
         break;
       }
     }
@@ -1993,14 +2383,15 @@ const fillFormFromNumistaResult = () => {
   });
 
   // Auto-populate Numista Data fields from the selected result (STAK-173)
+  // STRK-51: Skip all picker-controlled fields — they were already applied above
+  // (checked rows written synchronously; unchecked rows user declined to import).
   if (selectedNumistaResult && typeof populateNumistaDataFields === "function") {
-    // Cache the metadata first so populateNumistaDataFields can read it
     const catId = selectedNumistaResult.catalogId;
     if (catId && window.imageCache?.isAvailable()) {
       imageCache
         .cacheMetadata(catId, selectedNumistaResult)
         .then(() => {
-          populateNumistaDataFields(catId);
+          populateNumistaDataFields(catId, null, { skipFields: NUMISTA_DATA_PICKER_KEYS });
         })
         .catch(() => {});
     }
@@ -2034,6 +2425,32 @@ const fillFormFromNumistaResult = () => {
     }
   }
 
+  // STRK-52: Walk unchecked on-item checkboxes and record explicit opt-outs.
+  // This runs outside the tagCheckboxes block so it fires even when zero tags are checked.
+  // applyNumistaTags() only adds — it never removes existing tags — so getItemTags() still
+  // returns the pre-submit stored list here, making the case-insensitive lookup safe.
+  if (_fillUuid) {
+    if (typeof getItemTags !== "function") {
+      console.warn("STRK-52: getItemTags not available — skipping on-item removal walk");
+    } else {
+      const allTagCbs = container.querySelectorAll('input[name="numistaTag"]');
+      const storedTags = getItemTags(_fillUuid);
+      let didRemove = false;
+      allTagCbs.forEach((cb) => {
+        if (cb.dataset.onItem !== "1" || cb.checked) return;
+        // Tag was on the item at render time but the user unchecked it — record opt-out.
+        // Resolve stored-exact-case via case-insensitive search so removeItemTag() matches.
+        const numistaLabel = (cb.dataset.tag || "").toLowerCase();
+        const exactStored = storedTags.find((t) => t.toLowerCase() === numistaLabel);
+        if (exactStored && typeof removeItemTag === "function") {
+          removeItemTag(_fillUuid, exactStored); // internally calls addRemovedTag
+          didRemove = true;
+        }
+      });
+      if (didRemove && typeof window._renderEditTags === "function") window._renderEditTags();
+    }
+  }
+
   // Clear userModified for scalar fields the user chose to override.
   // Do NOT persist here — the save happens when the user confirms the edit modal.
   // If the user cancels, the next load restores the original in-memory state.
@@ -2053,10 +2470,14 @@ const fillFormFromNumistaResult = () => {
 /**
  * Close Numista results modal and clean up state
  */
-const closeNumistaResultsModal = () => {
+const closeNumistaResultsModal = (opts) => {
   const modal = document.getElementById("numistaResultsModal");
   if (modal) modal.style.display = "none";
   selectedNumistaResult = null;
+  const willClear = opts == null || opts.clearPendingSnapshot !== false;
+  if (willClear) {
+    window.pendingNumistaPickerSnapshot = null;
+  }
 };
 
 // Test function for Numista API
@@ -2463,17 +2884,43 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Close button
   if (numistaResultsCloseBtn) {
-    numistaResultsCloseBtn.addEventListener("click", closeNumistaResultsModal);
+    numistaResultsCloseBtn.addEventListener("click", () =>
+      closeNumistaResultsModal({ clearPendingSnapshot: true })
+    );
   }
 
   // Cancel button in field picker
   if (numistaFillCancelBtn) {
-    numistaFillCancelBtn.addEventListener("click", closeNumistaResultsModal);
+    numistaFillCancelBtn.addEventListener("click", () =>
+      closeNumistaResultsModal({ clearPendingSnapshot: true })
+    );
   }
 
   // Fill Fields button
   if (numistaFillBtn) {
     numistaFillBtn.addEventListener("click", function () {
+      // STRK-84: capture tag checkbox state BEFORE closeNumistaResultsModal
+      // tears down the picker DOM. The snapshot is consumed by the Add-branch
+      // submit handler in events.js after commitItemToInventory mints the UUID.
+      const pickerContainer = document.getElementById("numistaFieldCheckboxes");
+      if (pickerContainer && selectedNumistaResult) {
+        const checked = [];
+        const removed = [];
+        pickerContainer.querySelectorAll('input[name="numistaTag"]').forEach((cb) => {
+          if (cb.disabled) return;
+          if (cb.checked) {
+            checked.push(cb.dataset.tag);
+          } else if (cb.dataset.userTouched === "1") {
+            removed.push(cb.dataset.tag);
+          }
+        });
+        window.pendingNumistaPickerSnapshot = {
+          resultId: selectedNumistaResult.catalogId,
+          checked,
+          removed,
+        };
+      }
+
       if (selectedNumistaResult) {
         fillFormFromNumistaResult();
 
@@ -2488,13 +2935,36 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch((e) => console.warn("Metadata cache failed:", e));
         }
       }
-      closeNumistaResultsModal();
+      closeNumistaResultsModal({ clearPendingSnapshot: editingIndex != null });
+
+      // STRK-84: render preview tag chips in Add mode so the user sees
+      // which Numista tags will be applied after submit
+      const _addSnap = window.pendingNumistaPickerSnapshot;
+      if (_addSnap && editingIndex == null) {
+        const chipsEl = document.getElementById("itemModalTagsChips");
+        if (chipsEl) {
+          chipsEl.textContent = "";
+          _addSnap.checked.forEach((tag) => {
+            const chip = document.createElement("span");
+            chip.className = "tag-chip";
+            chip.textContent = tag;
+            chip.title = "Pending Numista tag — applied on save";
+            chipsEl.appendChild(chip);
+          });
+        }
+      }
     });
   }
 
+  // Click-sequence token: guards async handler against stale in-flight fetches
+  // overwriting selectedNumistaResult when the user clicks multiple cards rapidly.
+  let _numistaClickSeq = 0;
+
   // Delegated click on result cards → select and show field picker
   if (numistaResultsList) {
-    numistaResultsList.addEventListener("click", function (e) {
+    numistaResultsList.addEventListener("click", async function (e) {
+      const seq = ++_numistaClickSeq;
+
       // Let N# links open Numista without also selecting the row.
       const catalogLink = e.target.closest(".numista-result-id-link");
       if (catalogLink) {
@@ -2515,8 +2985,29 @@ document.addEventListener("DOMContentLoaded", function () {
         .forEach((c) => c.classList.remove("selected"));
       card.classList.add("selected");
 
-      // Transition to field picker
+      // Search results are lightweight — fetch full coin detail before populating
+      // the field picker so Composition / Shape / Diameter / Orientation / Technique /
+      // Edge Description / descriptions / tags are available. Falls back to the
+      // search hit on failure to preserve partial-data UX. lookupItem() is cached.
       selectedNumistaResult = results[index];
+      const detailCatalogId = selectedNumistaResult.catalogId;
+      if (detailCatalogId) {
+        const prevOpacity = card.style.opacity;
+        card.style.opacity = "0.5";
+        try {
+          const detail = await catalogAPI.lookupItem(detailCatalogId);
+          if (seq !== _numistaClickSeq) return;
+          if (detail) selectedNumistaResult = detail;
+        } catch (err) {
+          if (seq !== _numistaClickSeq) return;
+          console.warn("Numista detail fetch failed; using lightweight search result", err);
+        } finally {
+          card.style.opacity = prevOpacity;
+        }
+      }
+      if (seq !== _numistaClickSeq) return;
+
+      // Transition to field picker
       const preview = document.getElementById("numistaSelectedItem");
       const picker = document.getElementById("numistaFieldPicker");
       const title = document.getElementById("numistaResultsTitle");
@@ -2533,7 +3024,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (numistaResultsModal) {
     numistaResultsModal.addEventListener("click", function (e) {
       if (e.target === numistaResultsModal) {
-        closeNumistaResultsModal();
+        closeNumistaResultsModal({ clearPendingSnapshot: true });
       }
     });
   }
@@ -2544,7 +3035,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const resultsModal = document.getElementById("numistaResultsModal");
       if (resultsModal && resultsModal.style.display !== "none") {
         e.stopImmediatePropagation();
-        closeNumistaResultsModal();
+        closeNumistaResultsModal({ clearPendingSnapshot: true });
       }
     }
   });

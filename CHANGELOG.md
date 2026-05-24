@@ -9,6 +9,527 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.85] - 2026-05-24
+
+### Changed — STRK-96: Playwright suite failures
+
+- **Add Item tag entry**: The Add Item modal now wires its tag controls to a
+  pending tag buffer and persists those tags to the newly-created item UUID on
+  save, while keeping stale edit-mode chips and handlers cleared. (STRK-96)
+- **Regression expectations**: Playwright coverage now matches current
+  Goldback retail lookup date semantics, currency-rounded purchase input
+  formatting, and Numista description-field default selection behavior.
+  (STRK-96)
+
+---
+
+## [3.34.84] - 2026-05-23
+
+### Fixed — STRK-101: manifest-first sync item edits
+
+- **Cloud sync manifest diff**: Manifest consumers now normalize legacy
+  `item-add`, `item-edit`, and `item-delete` changelog types before summary
+  counting, diff classification, and conflict detection, so manifest-first
+  pulls no longer silently skip item field edits. (STRK-101)
+- **Manifest grouping**: Multiple changelog entries for one item now merge in
+  chronological order, preserving re-add and delete transitions without relying
+  on a static priority map. (STRK-101)
+- **Backup/export parity**: ZIP JSON exports now include the DIFF_FIELDS values
+  previously omitted from the allowlist, and both ZIP and standalone CSV exports
+  include Obverse Frame and Reverse Frame columns. (STRK-101)
+
+---
+
+## [3.34.83] - 2026-05-23
+
+### Fixed — STRK-99 hotfix: SDB + BE spot-ticker / sidebar leak
+
+- **Retail poller — HTML chrome strip**: `htmlToPlainText()` now drops
+  `<nav>`, `<header>`, and `<footer>` content the same way it already drops
+  `<script>` and `<style>`. v3.34.82's STRK-99 denylist forced BE through the
+  markdown extractor, which then matched the spot ticker inside `<header>`
+  (silver $75.92 / gold $4,520) instead of the product price. (STRK-99)
+- **Retail poller — tier-anchored extractor**: New `tierAnchoredPrice()`
+  matches qty-range patterns (`1-24`, `1 - 49`, `50+`, `1+`) and returns the
+  first wire price after the first match. For `UNTRUSTED_OFFER_PRICE_VENDORS`
+  (sdbullion, bullionexchanges), this is the only prose fallback after JSON-LD
+  is denied — `firstInRangePriceProse` is no longer reachable for these
+  vendors, so spot tickers and "Related Products" sidebar prices can never
+  poison the dashboard again. When neither a pipe table nor a tier-anchored
+  pattern is present, extraction returns null (the page is treated as OOS
+  rather than written with a misleading value). (STRK-99)
+- **Tests**: 12 new fixtures in `price-extract-html-chrome-strip.test.mjs` and
+  18 new fixtures in `price-extract-tier-anchored.test.mjs`, including
+  regressions for SDB's `1 - 49` whitespace pattern (which the v1 of the
+  regex silently skipped, returning the bulk tier) and year-range guards
+  (`2024 - 2025 $99` must NOT match). 55/55 tests across the three poller
+  suites pass green. (STRK-99)
+- **In-container live verification** (DRY_RUN against home-poller Byparr):
+  SDB silver maple → $79.23 (correct 1-unit); SDB gold maple → $4,580.63
+  (correct 1-unit); BE silver maple → $77.82 (correct 1-unit Check/Wire);
+  BE gold maple → NULL (safe-OOS — Byparr couldn't hydrate the price grid
+  in its render window, which is the new desired behavior over recording
+  a spot or sidebar value). (STRK-99)
+
+---
+
+## [3.34.82] - 2026-05-23
+
+### Changed — STRK-99: SDB + BE bulk-tier scrape fix
+
+- **Retail poller**: Add `UNTRUSTED_OFFER_PRICE_VENDORS` denylist
+  (`sdbullion`, `bullionexchanges`) in `extractJsonLdPrice()` to skip the bare
+  `offer.price` JSON-LD fallback when no `priceSpecification` is present.
+  Both vendors recently shipped a Magento template change that publishes the
+  deepest "As Low As" bulk-tier price as `offer.price`, causing the home poller
+  to record bulk prices instead of single-unit Check/Wire prices. With the
+  denylist, `extractPrice()` falls through to the markdown-table extractor
+  which reads the 1-unit row correctly. Tiered `priceSpecification` blocks and
+  the zero-price OOS sentinel still apply for denied vendors. (STRK-99)
+- **Tests**: 6 new fixtures in `price-extract-jsonld.test.mjs` lock in the
+  STRK-99 behavior, including a verbatim capture of SDB's live Product JSON-LD
+  payload from 2026-05-23. (STRK-99)
+
+---
+
+## [3.34.81] - 2026-05-23
+
+### Changed — STRK-91: Bulk editor mobile parity + field gap closure
+
+- **Mobile bulk editor**: Sticky identity columns (checkbox / image / name) pin while scrolling; 24×24 base / 44×44 mobile tap targets; safe-area padding for fullscreen modal; collapsible field panel at ≤768px (STRK-91).
+- **Bulk field parity**: Adds `shape`, `capsule`, `capsuleNotes` to the bulk editor with nested-path apply via `BULK_FIELD_STORAGE_MAP` and dimension cleanup on shape change (STRK-91).
+- **Catalog display columns**: New `Catalog Composition` and `Diameter` read-only columns sourced from `numistaData.*`; raw JSON blob column suppressed; search/sort routed through dot-path resolver (STRK-91).
+- **Change-log + sync coverage**: `capsule`, `capsuleNotes`, `paymentMethod`, `numistaData`, `fieldMeta` now produce activity-log + sync manifest entries; deep-equality comparison prevents false change rows on nested objects (STRK-91).
+
+---
+
+## [3.34.80] - 2026-05-23
+
+### Changed — STRK-85: Goldback premium in ticker + tiered premium colors
+
+- **Goldback premium**: Ticker now shows G1-rate-based premium % for Goldback items; three-tier color scheme (low <2%, mid 2–5%, high ≥5%) applied consistently across ticker, vendor price Matrix, and market detail modal via shared `_calcMarketPremium` helper (STRK-85).
+
+---
+
+## [3.34.79] - 2026-05-22
+
+### Changed — STRK-74: Align inline chip config to saveData wrapper
+
+- **Storage**: Align `saveInlineChipConfig` and `getInlineChipConfig` to project-standard `saveDataSync`/`loadDataSync` wrappers instead of raw `localStorage` calls, improving consistency with compression, quota handling, and future storage middleware (STRK-74).
+
+---
+
+## [3.34.78] - 2026-05-22
+
+### Changed — STRK-92: Fill 90-day Market History with per-vendor data
+
+- **Feature**: 90-day retail history endpoint now includes per-vendor daily breakdown matching the 30-day schema, so Market History "All" view shows vendor prices for the full 90-day window instead of dashes on older rows (STRK-92).
+- **Bug fix**: Frontend dedup merge uses vendor-set union instead of all-or-nothing overwrite, retaining departed vendors on overlapping dates (STRK-92).
+
+---
+
+## [3.34.77] - 2026-05-21
+
+### Changed — STRK-93: Fix header Spot button 4× API sync
+
+- **Bug fix**: Header Spot sync button now calls `syncSpotPricesFromApi` once instead of looping over 4 per-metal sync icons — eliminates 4× redundant API calls, 4× stacked cache-age dialogs, and 4× toast notifications per click (STRK-93).
+
+---
+
+## [3.34.76] - 2026-05-21
+
+### Changed — STRK-89: Add gold-api.com as first-class spot price provider
+
+- **New provider**: Added gold-api.com as a built-in spot price source with free unlimited real-time prices for all four metals (XAU, XAG, XPT, XPD) — no API key required (STRK-89).
+- **Optional key support**: Introduced `optionalKey: true` provider flag with a collapsible `<details>/<summary>` disclosure widget for premium API key entry, collapsed by default for zero-friction free-tier use (STRK-89).
+- **Settings UI**: Gold API pill at position 5 of 7 in the Spot Price pill-radio group with dedicated sub-card renderer, connection test, and metal selection checkboxes (STRK-89).
+
+---
+
+## [3.34.75] - 2026-05-20
+
+### Changed — STRK-88: Lot/each purchase price rounding and CSV normalization
+
+- **Precision rounding**: Preserved full decimal precision in memory for purchase price values while formatting them for display in UI grids, inputs, and duplicate/edit modal states (STRK-88).
+- **Lot/each toggle**: Parameterized lot/each toggle helpers to safely initialize and restore toggle states during edit, duplication, and quantity boundaries (STRK-88).
+- **Numista import/export**: Normalized CSV parsing/export routines to support decimal-precision purchase values across both lot and unit boundaries (STRK-88).
+- **Test coverage**: Corrected Playwright tests for lot/each purchase price rounding, ensuring deterministic validation in localized environments (STRK-88).
+
+---
+
+## [3.34.74] - 2026-05-19
+
+### Changed — STRK-87: Add Item Numista reset hygiene
+
+- **Catalog reset hardening**: Add Item now explicitly clears the Numista catalog input after editing another item, so new entries cannot inherit a previous item's hidden catalog value if browser form reset behavior changes (STRK-87).
+- **Tag state cleanup**: Add Item clears stale edit-modal tag chips, tag input state, and edit-bound tag handlers so tags added in Add mode cannot write back to the previously edited item (STRK-87).
+- **Regression coverage**: Added Playwright coverage for edit-with-Numista-ID → Add Item and edit-with-tags → Add Item flows (STRK-87).
+
+---
+
+## [3.34.73] - 2026-05-18
+
+### Changed — STRK-84: Numista picker tags applied on first Fill Fields for new items
+
+- **Tag persistence**: Numista picker tag checkboxes now persist on the first Fill Fields click when adding a new item — no second sync required. Captures picker state as a snapshot before modal teardown, consumed after UUID minting in the Add-branch submit handler (STRK-84).
+- **Opt-out recording**: Unchecked default-on tags are recorded as opt-outs (`itemRemovedTags`) for new items, matching the existing Edit flow behavior from STRK-52 (STRK-84).
+- **Dead code removal**: Removed unreachable STAK-126 fallback in events.js that referenced `window.selectedNumistaResult` (never set due to `let` vs `window` namespace isolation) (STRK-84).
+
+---
+
+## [3.34.72] - 2026-05-17
+
+### Changed — STRK-48: Per-oz/per-coin premium in Item Detail modal
+
+- **Premium display**: Valuation section now shows premium as a percentage of spot at purchase, gain/loss %, and lot-aware rows (total + per-unit) in a 6-column grid layout that collapses to 3×2 on mobile (STRK-48).
+- **Spot lookup**: New `lookupHistoricalSpot()` synchronous cache-only helper resolves the nearest trading day spot from `historicalDataCache` with progressive date widening (STRK-48).
+- **Search fix**: Fixed `catalogText` ReferenceError in `filterInventoryAdvanced()` where the variable was declared in `getItemSearchHaystack()` but referenced in a different function scope (STRK-86).
+
+---
+
+## [3.34.71] - 2026-05-17
+
+### Changed — STRK-49: Direct Print button + Settings Data tab UI fixes
+
+- **Print button**: New one-click Print button (Export card, teal-green) renders the full inventory as a landscape jsPDF report and opens it in a new tab with `autoPrint()` — native print dialog fires automatically in Chrome, Edge, and Safari; Firefox opens the PDF for manual Ctrl+P (accepted v1 limitation) (STRK-49).
+- **Restore ZIP relocated**: "Restore ZIP Backup" button moved from Export card to Import card where restore/import actions belong; no JS wiring changes — ID-based listeners remain intact (STRK-49).
+- **Data Reset button sizing**: "Remove Inventory" and "Wipe All Data" buttons now match the 0.82rem / 0.4rem 0.6rem inline sizing of all other card buttons for visual consistency (STRK-49).
+
+---
+
+## [3.34.70] - 2026-05-17
+
+### Changed — STRK-86: Search ignores Numista catalog data
+
+- **Catalog-aware search**: Inventory search now matches against Numista-synced catalog data (country, denomination, composition, technique, obverse/reverse/edge descriptions, KM reference, etc.), not just title and top-level item fields. Searching "Australia" now returns coins whose Country catalog field equals Australia even when the title does not contain the word (STRK-86).
+- **Cache-aware integration**: New `catalogText` field is computed once per item and stored in the existing `searchCache` WeakMap; cache invalidates automatically on item edit, so no migration is required (STRK-86).
+
+---
+
+## [3.34.69] - 2026-05-16
+
+### Changed — STRK-73: Make Disposition section position-configurable
+
+- **Configurable placement**: Disposition section now appears as a draggable row in Settings → Appearance → Item Detail Modal; users can reorder it relative to the other nine sections and the preference persists across reloads (STRK-73).
+- **Legacy migration**: `_loadSectionConfig()` auto-appends a Disposition entry for users with pre-STRK-73 saved configs, placing it last by default without overwriting existing order (STRK-73).
+- **Empty-object guard**: `_buildDispositionSection()` returns `null` for both falsy and empty-object `disposition` payloads, preventing ghost section renders for items with no valid disposition data (STRK-73).
+- **Test coverage**: 6 Playwright tests covering settings-row presence after legacy seed, reorder controls at the 10-entry boundary, configured section placement, non-disposed absence, persist-after-reload, and DOM-absent empty-object guard (STRK-73).
+
+---
+
+## [3.34.68] - 2026-05-15
+
+### Changed — STRK-79: Market API service-worker routing
+
+- **Classified caching**: New `sw-router.js` endpoint-family classifier routes all StakTrakr API and spot-history requests through cache-first-with-TTL with per-family freshness windows; envelope `stale_after` fields take precedence over floor TTLs when present (STRK-79).
+- **Age-gate mechanism**: Synthesized `x-generated-at` / `x-cached-at` headers on cached responses provide publisher-mint-time accuracy; legacy entries without age headers are force-revalidated once (STRK-79).
+- **Test coverage**: 26 unit tests for `classifyEndpoint` (all 10 families × both API hosts + local origin + negative cases); 3 Playwright integration tests verifying cache-miss/network, stale-revalidation, and offline fallback strategies (STRK-79).
+
+---
+
+## [3.34.67] - 2026-05-15
+
+### Changed — STRK-78: Playwright test suite mock audit and consolidation
+
+- **Shared mock layer**: New `tests/playwright/helpers/mocks/` with canonical fixtures (`fixtures.js`), route installers (`routes.js`), and an extended Playwright fixture (`extended-test.js`) that auto-installs mocks before every test — eliminating real external API calls across the suite (STRK-78).
+- **App-shell migration**: 47 spec files migrated to shared mocks; 4 `@network`-tagged tests in `01-page-load` now run offline with deterministic fixture data (STRK-78).
+- **Market/retail/catalog cleanup**: Existing mocked specs refactored to use shared helpers, removing duplicate inline response blobs while preserving per-spec override behavior (STRK-78).
+
+---
+
+## [3.34.66] - 2026-05-14
+
+### Fixed — STRK-38: Rectangular item images auto-size in card/table views
+
+- **Card views (A/B/C):** Rectangular items (bars, notes, Goldbacks, Silverbacks, proof sets) now render with transparent backgrounds and `object-fit: contain` instead of floating inside a visible `--bg-tertiary` dead-space box. Card A images bumped from 36px to 44px. Card B `.bar-shape` gains `border: none` to suppress the inherited border on transparent backgrounds (STRK-38).
+- **Table view:** Rectangular thumbnails get transparent backgrounds. SVG placeholders use `<rect>` outer shape (instead of `<circle>`) for rect items, resolved via `resolveImageFrame()` to honor manual overrides, grading authority, and Numista shape (STRK-38).
+- **Tests:** New `rect-image-card-table.spec.js` covering AC-1 through AC-7; extended `image-frame-override.spec.js` with Card B/C mixed-side assertions (STRK-38).
+
+---
+
+## [3.34.65] - 2026-05-13
+
+### Changed — STRK-75: All tab as default in vendor price matrix
+
+- **All tab**: Adds an All tab as the first and default entry in the vendor price matrix tab bar; new users land on a unified view of all market-tracked metals grouped Gold → Silver → Platinum → Palladium → Goldback (STRK-75).
+- **Tab preference preserved**: Returning users whose stored tab is valid (e.g. Silver) keep their selection; missing or unrecognised saved values fall back to All (STRK-75).
+
+---
+
+## [3.34.64] - 2026-05-13
+
+### Changed — STRK-50: Optional structured Payment Method dropdown
+
+- **Payment method field**: Adds an optional Payment Method dropdown to the item add/edit form, persists it on inventory records only when selected, and preserves it through edit, clone, bulk edit, JSON/CSV import/export, ZIP backup, and view details (STRK-50).
+- **Filtering and search**: Payment Method is now available as a filter chip category and participates in inventory text search without changing totals or valuation math (STRK-50).
+
+---
+
+## [3.34.63] - 2026-05-12
+
+### Changed — STRK-71: Attachment chip controllable in inline chip settings
+
+- **Inline chip settings**: The attachment count badge (📎) is now part of the inline chip settings panel — it can be toggled and reordered alongside the other name-cell chips (grade, year, numista, etc.) in Settings → Appearance → Layout (STRK-71).
+
+---
+
+## [3.34.62] - 2026-05-12
+
+### Changed — STRK-53: Constrained quantity selector for partial-stack disposition
+
+- **Chip mode**: Dispose modal now renders chip buttons (1–N) for stacks of 8 or fewer, making invalid quantities unreachable. Chips use roving tabindex with ArrowLeft/Right/Home/End keyboard navigation and aria-pressed state (STRK-53).
+- **Select mode**: Stacks larger than 8 use a native `<select>` pre-populated with options 1–N and the maximum quantity pre-selected, replacing the free-entry number input (STRK-53).
+- **Single-item stacks**: A stack of 1 now shows a pre-selected, dimmed chip control instead of hiding the quantity field, making the affordance consistent and accessible (STRK-53).
+- **Hidden carrier**: Both modes write through a hidden `<input id="removeItemQty">` via `writeDisposeQty()` so the existing preview-update handler fires without modification (STRK-53).
+
+---
+
+## [3.34.61] - 2026-05-12
+
+### Changed — STRK-66: Add ¼ Goldback denomination support (Idaho, g0.25)
+
+- **GOLDBACK_DENOMINATIONS**: Prepend `{ weight: 0.25, label: "¼ Goldback", goldOz: 0.00025 }` as the new first entry; array now has 9 denominations (STRK-66).
+- **Label rendering**: Add `d.weight === 0.25 ? "¼"` branch in `updateDenomLabels` and `updateBulkDenomLabels` so the denomination shows as "¼ Goldback" in item add/edit and bulk-edit modals (STRK-66).
+- **Slug parser**: Add `"g0.25": 0.00025` to `GOLDBACK_WEIGHTS` so `goldback-idaho-g0.25` resolves to 0.00025 oz (STRK-66).
+- **Poller**: Add `g0.25` to `DENOMINATION_MULTIPLIERS` in `goldback-scraper.js` and to `buildGoldbackDenominations` in `api-export.js` and `api-export-v2.js` (STRK-66).
+- **Bounds-guard fix**: Update price-extract.js regex to `/goldback-.*?-?g(\d+(?:\.\d+)?)$/i` so decimal denomination slugs are matched and their multiplier is computed correctly (STRK-66).
+
+---
+
+## [3.34.60] - 2026-05-11
+
+### Changed — STRK-68: Chart unit alignment for lot/each pricing
+
+- **pricingType field**: Persist the lot/each toggle choice on each item (`pricingType: "each" | "lot"`) so the price history chart can display all three lines in the intended unit (STRK-68).
+- **Chart scaling**: Purchase, melt, and retail chart lines now use the same unit — per-unit when `pricingType="each"`, lot-total when `"lot"` or absent. Fixes the pre-existing retail-line inconsistency where midpoints were per-unit and endpoints were lot-total (STRK-68).
+- **Edit modal restore**: Re-editing an item now restores the lot/each toggle and shows the lot-total price in the price field when the item was priced in lot mode (STRK-68).
+
+---
+
+## [3.34.59] - 2026-05-11
+
+### Fixed — STRK-69: Goldback daily retail chart history
+
+- **Goldback history**: Store one Goldback denomination history row per calendar day even when the vendor price is unchanged, so flat weekend pricing still appears as daily chart points (STRK-69).
+- **Item detail charts**: Use Goldback denomination retail history and current denomination valuation in the item detail modal when item `marketValue` is empty, falling back to melt only when denomination pricing is unavailable (STRK-69).
+
+---
+
+## [3.34.58] - 2026-05-11
+
+### Changed — STRK-42: Chart viewport scaling
+
+- **Chart viewport**: Fit item detail chart y-axis bounds to visible purchase, melt, and retail lines with padding so short-range views no longer clip outlier purchase prices (STRK-42).
+- **Historical ranges**: Limit bounded long-range fetches to needed years and anchor sparse 1Y lines at the viewport start so melt, retail, and purchase traces stay visible (STRK-42).
+- **Regression coverage**: Add Playwright coverage for short-range purchase lines, 1Y range anchoring, wide ranges, and mobile/desktop chart heights (STRK-42).
+
+---
+
+## [3.34.57] - 2026-05-10
+
+### Changed — STRK-67: Per-side image frame override
+
+- **Image frames**: Add per-side Auto/Circle/Rectangle frame overrides for obverse and reverse images, preserving automatic shape detection while allowing graded slabs, bars, notes, and other rectangular media to be corrected from the item form (STRK-67).
+- **Display consistency**: Apply the resolved frame independently in upload previews, table thumbnails, card images, view-modal image slots, field diffs, change history, and JSON backup data (STRK-67).
+
+---
+
+## [3.34.56] - 2026-05-10
+
+### Changed — STRK-65: Attachment review follow-ups
+
+- **Queue identity**: Duplicate filenames can now be removed independently — queue entries use stable ids instead of filename matching (STRK-59).
+- **Object URL lifecycle**: Open-in-new-tab no longer revokes blob URLs on a fixed timer; tracked URLs are cleaned up on page unload (STRK-60).
+- **Cloud sync hash**: All 6 attachment pull paths now use a shared helper; manifest-first path writes attachmentHash to last-pull metadata (STRK-61).
+- **Size guard**: Cloud sync and manual export check attachment size against threshold before Base64 serialization; syncAttachments opt-out respected (STRK-62).
+- **DiffEngine safety**: Duplicate-filename attachments are emitted as additions, not replacements, unless the match is unambiguous (STRK-63).
+- **Split behavior change**: Stack split now duplicates attachment metadata and IDB blobs for both original and split-off items (STRK-64).
+- **Storage diagnostics**: Footer, summary cards, and detail tables distinguish localStorage (~5 MB) from IndexedDB and note that browser quota varies (STRK-65).
+- **Data integrity**: missingBinary is derived locally instead of persisted; orphan IDB records reconciled after restore/sync; deleteAttachmentsForItem uses key cursor without loading blobs.
+- **UI polish**: Browse button is keyboard-accessible; table badge uses shared helper; icon colors use theme custom properties; malformed attachment manifests fail soft during restore.
+
+---
+
+## [3.34.55] - 2026-05-09
+
+### Changed — STRK-45: Per-item PDF/image attachments
+
+- **Attachments**: Attach receipts, COAs, and dealer invoices to individual inventory items (PDF, PNG, JPG) — persisted in IndexedDB, visible as a badge on card/table/detail views, included in zip/stvault backups and CSV exports, and synced via cloud sync with an opt-out toggle (STRK-45).
+
+---
+
+## [3.34.54] - 2026-05-08
+
+### Changed — STRK-52: Numista re-sync tag membership
+
+- **Tag picker**: Existing on-item tags in the Numista re-sync picker are now shown checked and enabled instead of locked-disabled, allowing users to explicitly uncheck them to record an opt-out removal (STRK-52).
+- **Bulk controls**: Uncheck-all now preserves existing on-item tags (in addition to blacklisted tags), preventing accidental mass-removal of tags already on an item (STRK-52).
+
+---
+
+## [3.34.53] - 2026-05-08
+
+### Changed — STRK-46: Structured Capsule field + capsule notes
+
+- **Capsules**: Added structured Capsule and Capsule Notes fields to the inventory form, edit flow, view modal, search/filter paths, autocomplete, and JSON backup round trip so holder fit data no longer has to live in general notes or tags (STRK-46).
+- **Suggestions**: Capsule entry now suggests the nearest bundled Air-Tite model from entered round diameter values, while blank, non-numeric, and non-round dimensions leave the hint empty (STRK-46).
+- **Seed rules**: Hardened seed image rule loading so clearing rule storage during a reload cannot leave a version-only marker without persisted seed rules (STRK-46).
+
+---
+
+## [3.34.52] - 2026-05-08
+
+### Changed — STRK-54: Lost disposition realized loss
+
+- **Disposition**: Partial-stack Lost dispositions now record zero proceeds and a realized loss equal to the disposed units' cost basis, so item-level and portfolio realized G/L totals match full-stack lost behavior (STRK-54).
+
+---
+
+## [3.34.51] - 2026-05-08
+
+### Changed — STRK-56: Service worker cache recovery
+
+- **Recovery**: Runtime asset requests now fall back to cached service-worker responses when refresh fetches return non-OK responses, and initialization offers a Reset App action that clears registered service workers plus StakTrakr caches when stale cached assets persist (STRK-56).
+
+---
+
+## [3.34.50] - 2026-05-08
+
+### Changed — STRK-55: View modal respects per-item Numista edits
+
+- **View modal**: The item detail modal now shows saved per-item Numista customizations before falling back to the shared IndexedDB catalog snapshot. Obverse and reverse descriptions render as visible Catalog Data rows while retaining image hover tooltips, flat item-level mintage/KM reference values take precedence over cache arrays, and items with only partial Numista edits still use refreshed catalog fallback data for the rest (STRK-55).
+- **Cleanup**: Removed the redundant Catalog Data tags row so tags appear only in the dedicated TAGS section chips (STRK-55).
+
+---
+
+## [3.34.49] - 2026-05-08
+
+### Changed — STRK-51: Expanded Numista import modal fields
+
+- **Feature**: The Numista import-confirmation modal now shows all 18 Numista-backed stored fields (country, denomination, composition, shape, diameter, length, width, thickness, orientation, technique, mintage, rarity index, KM reference, commemorative flag, commemorative description, and obverse/reverse/edge descriptions) in addition to the existing 8 main-form fields. Fields without candidate values are disabled. First-time imports default physical/reference fields checked; descriptions default unchecked (STRK-51).
+- **Protection**: Fields manually edited by the user (tracked via `fieldMeta.userModified`) appear unchecked with an "✎ edited" badge so re-syncs never silently overwrite custom values. Checking a user-modified field and clicking Fill Fields clears the flag (STRK-51).
+- **Scroll**: The Numista (and PCGS) stacked import modal now constrains to 90vh with a scrolling body; the Fill Fields/Cancel action bar is sticky so it remains reachable with 15+ picker rows (STRK-51).
+
+---
+
+## [3.34.48] - 2026-05-07
+
+### Changed — STRK-47: Sort by Storage Location and Year
+
+- **Feature**: Added `Storage Location` and `Year` as virtual sortable options in both the card sort dropdown and the Settings default sort selector.
+- **Sorting**: Year sorts numerically with missing/unknown values bucketed to the end regardless of direction. Storage Location sorts alphabetically while remaining an inline chip in the Name cell.
+
+---
+
+## [3.34.47] - 2026-05-07
+
+### Changed — STRK-44: Partial-stack disposition
+
+- **Feature**: Dispose fewer than the full stack quantity in one action — a Quantity field appears on the disposition modal when qty > 1, pre-filled with the full stack. An inline preview shows remaining units. A Lot/Each toggle on the Amount field mirrors the purchase-price toggle pattern. The original record is decremented in place and a disposed clone is created adjacent, carrying all metadata (notes, tags, images, location, numismatic fields). The Activity Log records two correlated entries with a shared transaction marker that undo atomically via a cascade-undo prompt. Restoring a split-clone offers a Merge-or-Separate choice (STRK-44).
+
+---
+
+## [3.34.46] - 2026-05-05
+
+### Changed — STRK-18: Vault settings parse helper
+
+- **Refactored**: Extracted a shared vault settings parser in `js/vault.js` so remote and local settings diff paths use the same CMP1 decompression, JSON parsing, and raw-value fallback behavior.
+
+---
+
+## [3.34.45] - 2026-05-05
+
+### Added — STRK-25: New metallic dark theme + oklch token system
+
+- **New dark theme**: Warm-gunmetal palette using oklch (hue 85, low chroma) replaces the Tailwind Slate look as the default dark option. Brand principle: metallic, not digital.
+- **Slate preserved**: Existing Tailwind Slate palette kept as a 4th theme option (Light | Dark | Slate | Sepia).
+- **oklch migration**: `:root` (light) and `[data-theme="sepia"]` palettes migrated from hex/rgba to oklch for perceptual uniformity. `[data-theme="dark"]` already in oklch. `[data-theme="slate"]` keeps original Tailwind hex (preservation intent).
+- **26 new semantic tokens** added to all 4 theme blocks: `--text-inverse`, `--focus-ring`, `--hover-mix`, `--tag-bg/text/border`, `--brand-gold`, `--authority-pcgs/ngc/anacs/icg`, `--disposition-{sold,traded,lost,gifted,returned}-{bg,text}`, `--col-{qty,weight,purchase,melt,retail}`.
+- **JS bridge utilities**: `window.getThemeColor(token)` and `window.isDarkTheme()` allow JS to read CSS tokens dynamically — replaces hardcoded color maps in 8 JS files (charts, card-view, inventory-table, spot, viewModal, diff-modal, chart-utils, retail-view-modal, settings, market-data).
+
+### Changed
+
+- **CSS cleanup**: ~215 hardcoded color values across `css/styles.css` replaced with semantic tokens or `color-mix(in oklch, var(--token), var(--hover-mix) N%)` derivations for hovers. 12 hardcoded gradient endpoints standardized to token references.
+- **Modal headers flattened**: `#changeLogModal`, `#detailsModal`, `#storageReportModal`, `#itemModal` headers no longer use the blue primary-gradient — now flat panel-pattern using `var(--bg-secondary)` + `var(--text-primary)`. Consistent with the metallic-not-digital design intent.
+- **Metal token tuning**: Dark theme `--silver/--platinum/--palladium` shifted from warm hue 85 (which produced no chroma contrast against the warm-gunmetal bg) to cool hues (249/265/306). Final RGB matches the slate-theme reference look. Gold stays warm (hue 79) but high chroma 0.157 makes it stand out against the near-zero-chroma bg.
+
+### Fixed
+
+- **Cascade-poisoning**: `:is([data-theme="dark"], [data-theme="slate"])` rules that hardcoded Tailwind Slate-blue rgba (`rgba(30,41,59,0.95)`, etc.) into BOTH dark themes have been split — dark uses metallic tokens, slate keeps original Tailwind values. Affected `.modal-content`, `.faq-item`, `.faq-technical`, `.cloud-sync-update-meta`.
+- **Light-theme palette leakage**: Table cell borders (`rgba(51,65,85,...)`) and bulk-log line border were applying Tailwind Slate-blue to ALL themes via base rules. Now use `var(--border)`.
+- **viewItemModal header gradient**: `_parseColor` in `js/viewModal.js` had no oklch handler, so `_darkenColor` fell through to indigo fallback when fed the new oklch metal tokens, producing a broken blue-purple "AI slop" gradient. Added a canvas-based fallback that forces any CSS color form to sRGB via 1×1 canvas read.
+
+### Tests
+
+- 5 new theme-token Playwright tests (`tests/playwright/theme-tokens.spec.js`):
+  - TT-1: all 4 themes load without JS runtime errors
+  - TT-2: required tokens resolve in every theme
+  - TT-3: theme picker cycles light → dark → slate → sepia → light
+  - TT-4: modal headers consume `--text-primary` / `--text-inverse` tokens, not hardcoded literals (refactored from literal-string match)
+  - TT-5: dark-theme modal-content backgrounds use metallic tokens, not legacy Slate-blue rgba (catches cascade-poisoning bugs)
+
+### Known follow-up (deferred to future patch)
+
+- Sepia theme metal tokens (`--silver`, `--platinum`, `--palladium`) still use warm low-chroma values that may not tint visibly in the image-section gradient. Pattern matches the dark-theme issue fixed in this release.
+- A few minor unrelated visual polish issues to be tracked in a follow-up issue post-merge.
+
+---
+
+## [3.34.44] - 2026-05-04
+
+### Changed — STRK-27: CSS polish pass
+
+- **Normalized**: Border-radius token usage — reclassified 12 of 13 `--radius-xl` usages to semantic tokens (`--radius-lg` for cards/panels, `--radius-pill` for pills/sliders/buttons). Only the decorative about-logo retains `--radius-xl`.
+- **Refactored**: Eliminated 21 `!important` declarations (99 → 78) by converting `.img-btn` pill block to compound selectors (`.btn.img-btn`) that naturally beat `.btn` specificity.
+
+---
+
+## [3.34.42] - 2026-05-04
+
+### Changed — STRK-26: Remove side-stripe accents from cards
+
+- **Removed**: 3px metal-color `border-left` accents from `.card-a`, `.card-b`, and `.card-c` — flagged by the Impeccable design critique as the strongest AI-dashboard tell.
+- **Removed**: Card C's `.cv-image-col::before` radial-gradient halo, which was anchored to the now-removed stripe and would have become visually orphaned.
+- **Removed**: Dormant `.cv-sparkline-strip` element from Card C — hidden via `display: none` since the card view engine first shipped (STAK-118), no longer needed.
+- **Note**: 4 remaining `border-left` indicators using 3 variables (`--danger`, `--warning`, `--primary` × 2) encode functional state and are preserved; evaluation tracked separately in STRK-31.
+
+---
+
+## [3.34.41] - 2026-05-03
+
+### Changed — STRK-29: Monospace font consolidation and font-size-base review
+
+- **Added**: Geist Mono variable font — self-hosted woff2, registered in sw.js for offline PWA support.
+- **Added**: `--font-mono` CSS custom property in `:root` with cross-platform fallback chain.
+- **Changed**: All 11 monospace `font-family` declarations consolidated to `var(--font-mono)`.
+- **Changed**: 5 JS inline monospace styles migrated to CSS classes (`.cache-id`, `.cache-log-line`, `.market-value`, `.market-price`, `.pattern-cell`).
+- **Kept**: `--font-size-base` at 0.8125rem (13px) — Geist's high x-height compensates.
+
+---
+
+## [3.34.40] - 2026-05-03
+
+### Changed — STRK-24: Replace Inter font with distinctive typeface pairing
+
+- **Changed**: Body font replaced from Inter to Geist (variable WOFF2, weights 100–900) — locally bundled, no CDN.
+- **Changed**: Heading font (h1, h2, .section-title) now uses Instrument Serif — high-contrast serif for visual hierarchy.
+- **Added**: `--font-body` and `--font-heading` CSS custom properties in `:root`.
+- **Added**: Font preload links in `index.html` for faster first render.
+- **Added**: Font files registered in service worker precache for offline availability.
+- **Fixed**: Chart canvas font in market-charts.js updated from Inter to Geist.
+- **Fixed**: preview.html font reference updated from Inter to Geist.
+
+---
+
+## [3.34.39] - 2026-05-01
+
+### Fixed — STRK-21: Market price matrix alphabetical sorting
+
+- **Fixed**: Vendor columns in the market price matrix now appear in alphabetical order by display name (APMEX, BullionX, Gville, Hero, JM, Monument, Provident, SD, Summit) instead of reflecting unpredictable data load order.
+- **Fixed**: Item rows in the market price matrix now appear in alphabetical order by item name instead of JSON key enumeration order.
+
+---
+
 ## [3.34.38] - 2026-04-29
 
 ### Fixed — STRK-20: Backup conflict modal context-aware messaging

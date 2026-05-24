@@ -62,10 +62,14 @@ const elements = {
   itemMarketValue: null,
   marketValueField: null,
   dateField: null,
+  itemPaymentMethod: null,
   purchaseLocation: null,
   storageLocation: null,
   itemSerialNumber: null,
   itemNotes: null,
+  itemCapsule: null,
+  itemCapsuleNotes: null,
+  capsuleSuggestion: null,
   itemDate: null,
   itemSpotPrice: null,
   itemCatalog: null,
@@ -102,6 +106,7 @@ const elements = {
   exportCsvBtn: null,
   exportJsonBtn: null,
   exportPdfBtn: null,
+  printBtn: null,
   cloudSyncBtn: null,
   syncAllBtn: null,
   // Vault encrypted backup elements
@@ -282,6 +287,13 @@ let changeLog = (function () {
     return [];
   }
 })();
+Object.defineProperty(window, "changeLog", {
+  get: () => changeLog,
+  set: (val) => {
+    changeLog = val;
+  },
+  configurable: true,
+});
 
 /** @type {Array} Main inventory data structure */
 let inventory = [];

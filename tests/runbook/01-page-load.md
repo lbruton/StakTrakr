@@ -1,5 +1,10 @@
 # Section 01 — Page Load
 
+<!-- markdownlint-disable MD001 -->
+<!-- All runbook files use h1 (# Section) directly followed by h3 (### Test X.Y);
+     test sections are intentionally skipped from h2 so bb-test parsers can match
+     ### headings as test boundaries. Repo-wide convention, not a per-file choice. -->
+
 Tests for initial page load, version display, spot price rendering, and startup modals. These tests validate the fundamental "cold open" experience: that the application renders correctly at the PR preview URL, displays the expected version, shows the What's New modal on first visit (and suppresses it on subsequent visits within the same session), renders all four metal spot price cards with live values, and accurately reflects the seed inventory count.
 
 Run these tests first in any full-suite session. Tests 1.2 through 1.5 are sequentially dependent within this section — 1.4 must complete before 1.5 can be meaningful.

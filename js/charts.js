@@ -2,26 +2,33 @@
 // =============================================================================
 
 /**
+ * Returns the theme-aware chart palette as resolved CSS token values.
+ * Reads the active theme via getThemeColor(), so palette adapts to
+ * light / dark / slate / sepia automatically.
+ *
+ * @returns {Array<string>} Ordered palette of resolved color strings
+ */
+const getChartColors = () => [
+  getThemeColorRGB("primary"),
+  getThemeColorRGB("success"),
+  getThemeColorRGB("warning"),
+  getThemeColorRGB("danger"),
+  getThemeColorRGB("info"),
+  getThemeColorRGB("authority-pcgs"),
+  getThemeColorRGB("authority-ngc"),
+  getThemeColorRGB("authority-anacs"),
+  getThemeColorRGB("authority-icg"),
+  getThemeColorRGB("brand-gold"),
+];
+
+/**
  * Generates a color palette for pie chart segments
  *
  * @param {number} count - Number of colors needed
  * @returns {Array} Array of color strings
  */
 const generateColors = (count) => {
-  const colors = [
-    "#3b82f6", // Primary blue
-    "#ef4444", // Red
-    "#10b981", // Green
-    "#f59e0b", // Yellow
-    "#8b5cf6", // Purple
-    "#06b6d4", // Cyan
-    "#f97316", // Orange
-    "#84cc16", // Lime
-    "#ec4899", // Pink
-    "#6b7280", // Gray
-    "#14b8a6", // Teal
-    "#f43f5e", // Rose
-  ];
+  const colors = getChartColors();
 
   // If we need more colors than predefined, generate them
   if (count > colors.length) {
@@ -39,34 +46,14 @@ const generateColors = (count) => {
  *
  * @returns {string} Background color
  */
-const getChartBackgroundColor = () => {
-  const theme = document.documentElement.getAttribute("data-theme") || "light";
-  switch (theme) {
-    case "dark":
-      return "#1e293b";
-    case "sepia":
-      return "#e9ddc8";
-    default:
-      return "#f8fafc";
-  }
-};
+const getChartBackgroundColor = () => getThemeColorRGB("bg-primary");
 
 /**
  * Gets appropriate text color for charts based on current theme
  *
  * @returns {string} Text color
  */
-const getChartTextColor = () => {
-  const theme = document.documentElement.getAttribute("data-theme") || "light";
-  switch (theme) {
-    case "dark":
-      return "#f8fafc";
-    case "sepia":
-      return "#3e2f1e";
-    default:
-      return "#1e293b";
-  }
-};
+const getChartTextColor = () => getThemeColorRGB("text-primary");
 
 /**
  * Creates a pie chart with the given data
@@ -98,7 +85,9 @@ const createPieChart = (canvas, data, title, metric = "purchase") => {
         {
           data: values,
           backgroundColor: colors,
-          borderColor: colors.map((color) => color + "80"), // Add transparency
+          borderColor: colors.map((color) =>
+            resolveColor(`color-mix(in srgb, ${color} 50%, transparent)`)
+          ),
           borderWidth: 2,
           hoverOffset: 8,
         },

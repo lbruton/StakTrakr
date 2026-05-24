@@ -1,7 +1,7 @@
 ---
 name: ship
-description: Ship dev to main — collect version tags as changelog source, create the dev→main PR, mark it ready, resolve threads, create GitHub Release. ONLY run when user explicitly says "ready to ship", "release", or "merge to main" in this session. Never runs automatically.
-allowed-tools: Bash, Read, Task, mcp__github__create_pull_request, mcp__github__list_pull_requests, mcp__github__get_pull_request_status
+description: Ship dev→main — PR, resolve threads, GitHub Release. Only on explicit user "ready to ship".
+allowed-tools: Bash, Read, Task, mcp__github__create_pull_request, mcp__github__list_pull_requests, mcp__github__get_pull_request_status, mcp__plane__get_issue_using_readable_identifier, mcp__plane__list_states, mcp__plane__update_issue
 ---
 
 # Ship — StakTrakr (`dev → main`)
@@ -43,61 +43,67 @@ For each tag found, get its commit message title:
 git log --format="%s" "$tag"^.."$tag" | head -1
 ```
 
-## Step 2.5: Seed Data Sync (MANDATORY)
+## Step 2.5: Spot bundle refresh (MANDATORY)
 
-Before creating the ship PR, ensure seed data is fresh:
+Before creating the ship PR, rebuild the spot-history bundle from sqld so the
+deployed app ships with current data:
 
 ```bash
-bash .claude/skills/seed-sync/fetch-live.sh
+# Invokes /update-spot-bundle — queries sqld, regenerates data/spot-history-bundle.js
+# Requires Tailscale + SQLD_URL=http://192.168.1.81:8080
 ```
 
-This pulls the latest spot-history entries from `api.staktrakr.com` and merges
-them into local `data/spot-history-*.json` files. If new entries are found,
-stage and commit them to dev before proceeding.
+Run `/update-spot-bundle` (skill). If new data is bundled, the change must land
+on `dev` via worktree + PR before proceeding (see Step 3.5). Direct pushes to
+`dev` are blocked by branch protection.
 
-## Step 3: Fetch DocVault issue titles
+## Step 3: Fetch Plane issue titles
 
-For each `STAK-###` reference found across tag names and commit messages,
-read the issue file from DocVault to get the current title and status:
+For each `STRK-###` reference found across tag names and commit messages, fetch
+the issue from Plane to get the current title and status:
 
-```bash
-ISSUE_DIR="/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues"
-# For each STAK-### found:
-cat "$ISSUE_DIR/STAK-###.md"
-# Extract: id, title, status from YAML frontmatter
+```text
+mcp__plane__get_issue_using_readable_identifier  identifier: "STRK-###"
 ```
 
 This ensures the PR description uses accurate titles, not just commit messages.
 
-## Step 3.5: Audit announcements & about.js (MANDATORY)
+> **Pre-migration note:** legacy `STAK-###` references in old commit messages
+> point to `DocVault/Archive/Issues-Pre-Plane/StakTrakr/STAK-###.md`. Resolve
+> those by file read; new work uses `STRK-###` only.
 
-The `/release patch` skill updates `docs/announcements.md` and `js/about.js`
-per-patch, but over a long release cycle (many patches) the entries drift and
-accumulate stale content. Before creating the ship PR, audit and rewrite both
-files to reflect the **full release** being shipped.
+## Step 3.5: About-page What's New audit (MANDATORY)
 
-### announcements.md
+The release announcements live **only** in `js/about.js` `getEmbeddedWhatsNew()`
+(per STAK-513 — `docs/announcements.md` was retired). `/release patch` updates
+this per-patch, but over a long release cycle entries drift and accumulate
+stale content. Before creating the ship PR, audit and rewrite the entries to
+reflect the full release being shipped.
 
-1. Read `docs/announcements.md`
-2. Rewrite `## What's New` with **3–5 entries** covering the most significant
-   changes in this release (grouped by theme, not per-patch). Use the version
-   tags from Step 2 as source material. Format:
+1. Read `js/about.js` `getEmbeddedWhatsNew()`.
+2. Rewrite with **3–5 entries** covering the most significant changes in this
+   release (grouped by theme, not per-patch). Use the version tags from Step 2
+   as source material. Format:
 
-   ```markdown
-   - **vX.X.X &ndash; Title**: Summary sentence. Additional detail sentence (STAK-XX).
+   ```text
+   - **vX.X.X — Title**: Summary sentence. Additional detail sentence (STRK-XX).
    ```
 
-### Sync check
+### Commit the update via worktree + PR
 
-After updating both files, verify the entries match in count and content.
-Flag any drift before proceeding.
-
-### Commit the update
+`dev` is protected. Do **NOT** push directly. Land the about.js audit through a
+chore PR:
 
 ```bash
-git add docs/announcements.md js/about.js
-git commit -m "docs: update announcements and about.js for vLATEST release"
-git push origin dev
+git fetch origin dev
+git worktree add .worktrees/ship-prep-vLATEST/ -b chore/ship-prep-vLATEST origin/dev
+cd .worktrees/ship-prep-vLATEST/
+# Edit js/about.js
+git add js/about.js
+git commit -m "chore: refresh about.js What's New for vLATEST release"
+git push -u origin chore/ship-prep-vLATEST
+gh pr create --base dev --title "chore: refresh about.js for vLATEST ship" --body "..."
+# Wait for merge to dev, then proceed to Step 4
 ```
 
 > **Why here?** Individual patches update announcements incrementally, but the
@@ -137,23 +143,24 @@ gh pr ready PR_NUMBER
 Then run `/pr-resolve` to clear all open Codacy and Copilot review threads
 before the PR goes to final review.
 
-## Step 6: Update DocVault issues
+## Step 6: Mark Plane issues Done
 
-Mark all referenced STAK-### issues as **done** — they ship with this merge.
+Mark all referenced `STRK-###` issues as **Done** in Plane — they ship with this merge.
 
-For each issue file in DocVault:
+For each issue:
 
-```bash
-ISSUE_DIR="/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/Issues"
-# Update YAML frontmatter: status: done, completed: "YYYY-MM-DD"
+```text
+# Resolve the Done state UUID once (UUIDs are session-volatile — do not cache)
+mcp__plane__list_states  project_id: "026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb"
+# → find the state where group == "completed" and name == "Done"
+
+# For each STRK-### shipping in this release:
+mcp__plane__update_issue  identifier: "STRK-###"  state: "<Done UUID>"
 ```
 
-Update each issue's frontmatter:
-
-- `status: done`
-- `completed: "YYYY-MM-DD"` (today's date)
-
-Commit the DocVault changes separately (DocVault commits go direct to main).
+> **Legacy:** if any `STAK-###` references appear in commit messages, those are
+> pre-migration archives — no status update needed. Plane is the only live
+> tracker.
 
 ## Step 7: After the PR merges to main — GitHub Release (MANDATORY)
 
@@ -188,5 +195,5 @@ Ship complete!
 Version:  vLATEST
 PR:       #XX merged
 Release:  https://github.com/lbruton/StakTrakr/releases/tag/vLATEST
-Issues:   STAK-XX → Done (DocVault)
+Issues:   STRK-XX → Done (Plane)
 ```

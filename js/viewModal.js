@@ -32,6 +32,44 @@ const _VIEW_CHART_RANGE_LABELS = [
 /** @type {number} Default chart range in days (-1 = from purchase date, falls back to 30d) */
 const _VIEW_CHART_DEFAULT_RANGE = -1;
 
+const _VIEW_CHART_DAY_MS = 24 * 60 * 60 * 1000;
+const _VIEW_CHART_MIN_WINDOW_MS = 7 * _VIEW_CHART_DAY_MS;
+
+function _purchasedRangeFrom(purchaseDate) {
+  const toTs = Date.now();
+  const windowMs = toTs - purchaseDate;
+  if (windowMs < _VIEW_CHART_MIN_WINDOW_MS) {
+    const daysSince = Math.max(0, Math.floor(windowMs / _VIEW_CHART_DAY_MS));
+    const caption =
+      daysSince === 0
+        ? "Purchased today — showing last 7 days"
+        : `Purchased ${daysSince} day${daysSince === 1 ? "" : "s"} ago — showing last 7 days`;
+    return { fromTs: toTs - _VIEW_CHART_MIN_WINDOW_MS, caption };
+  }
+  return { fromTs: purchaseDate, caption: null };
+}
+
+function _setChartCaption(canvas, text) {
+  const caption = safeGetElement("viewChartCaption");
+  if (!caption) return;
+  if (text) {
+    caption.textContent = text;
+    caption.hidden = false;
+  } else {
+    caption.hidden = true;
+  }
+}
+
+function _getViewChartRangeCutoff(days) {
+  const rangeDays = Number(days) || 0;
+  if (rangeDays <= 0) return 0;
+  if (rangeDays > 180) return Date.now() - rangeDays * _VIEW_CHART_DAY_MS;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - Math.max(rangeDays - 1, 0));
+  return start.getTime();
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -58,15 +96,45 @@ async function showViewModal(index) {
   const chartCanvas = body.querySelector("#viewPriceHistoryChart");
   if (chartCanvas && chartCanvas._chartData) {
     const cd = chartCanvas._chartData;
-    // "Purchased" default (-1): calculate days from purchase date, fall back to 30d
-    let initRange = _VIEW_CHART_DEFAULT_RANGE;
-    if (initRange === -1) {
-      initRange =
-        cd.purchaseDate > 0
-          ? Math.max(1, Math.ceil((Date.now() - cd.purchaseDate) / 86400000))
-          : 30;
-    }
-    if (initRange === 0 || initRange > 180) {
+    const initRange = _VIEW_CHART_DEFAULT_RANGE;
+    if (initRange === -1 && cd.purchaseDate > 0) {
+      const metalName = item.metal || "Silver";
+      const toTs = Date.now();
+      const { fromTs: purchasedFrom, caption: purchasedCaption } = _purchasedRangeFrom(
+        cd.purchaseDate
+      );
+      _fetchHistoricalSpotData(metalName, 0, purchasedFrom, toTs)
+        .then((fullSpot) => {
+          _setChartCaption(chartCanvas, purchasedCaption);
+          _createPriceHistoryChart(
+            chartCanvas,
+            fullSpot,
+            cd.retailEntries,
+            cd.purchasePerUnit,
+            cd.meltFactor,
+            0,
+            cd.purchaseDate,
+            cd.currentRetail,
+            purchasedFrom,
+            toTs
+          );
+        })
+        .catch(() => {
+          _setChartCaption(chartCanvas, purchasedCaption);
+          _createPriceHistoryChart(
+            chartCanvas,
+            cd.spotEntries,
+            cd.retailEntries,
+            cd.purchasePerUnit,
+            cd.meltFactor,
+            0,
+            cd.purchaseDate,
+            cd.currentRetail,
+            purchasedFrom,
+            toTs
+          );
+        });
+    } else if (initRange === 0 || initRange > 180) {
       const metalName = item.metal || "Silver";
       _fetchHistoricalSpotData(metalName, initRange)
         .then((fullSpot) => {
@@ -251,20 +319,18 @@ function _renderCountChip(item) {
 }
 
 function _buildImageSection(item, metrics) {
-  const itemType = (item.type || "").toLowerCase();
-  const isRectShape =
-    itemType === "bar" ||
-    itemType === "note" ||
-    itemType === "aurum" ||
-    itemType === "set" ||
-    metrics.isGb ||
-    metrics.isSb;
-  const imgSection = _el("div", "view-image-section" + (isRectShape ? " view-shape-rect" : ""));
+  const imgSection = _el("div", "view-image-section");
   imgSection.id = "viewImageSection";
-  imgSection.appendChild(_imageSlot("obverse", "Obverse"));
-  imgSection.appendChild(_imageSlot("reverse", "Reverse"));
+  const obverseSlot = _imageSlot("obverse", "Obverse");
+  const reverseSlot = _imageSlot("reverse", "Reverse");
+  _applyViewSlotFrame(obverseSlot, item, "obverse");
+  _applyViewSlotFrame(reverseSlot, item, "reverse");
+  imgSection.appendChild(obverseSlot);
+  imgSection.appendChild(reverseSlot);
   if (metrics.metalColor) {
-    imgSection.style.background = `linear-gradient(145deg, color-mix(in srgb, ${metrics.metalColor} 15%, #1a1a2e), color-mix(in srgb, ${metrics.metalColor} 8%, #16213e))`;
+    const surfaceDeep = getThemeColor("bg-primary") || "#1a1a2e";
+    const surfaceDeeper = getThemeColor("bg-secondary") || "#16213e";
+    imgSection.style.background = `linear-gradient(145deg, color-mix(in srgb, ${metrics.metalColor} 15%, ${surfaceDeep}), color-mix(in srgb, ${metrics.metalColor} 8%, ${surfaceDeeper}))`;
   }
   const badge = _buildImageCertBadge(item);
   if (badge) imgSection.appendChild(badge);
@@ -442,10 +508,12 @@ function _buildInventorySection(item, metrics) {
       : item.date
     : "—";
   _addDetail(invGrid2, "Date", dateVal);
+  _addDetail(invGrid2, "Payment Method", item.paymentMethod || "—");
   _appendSourceField(invGrid2, item.purchaseLocation || "—");
   invSection.appendChild(invGrid2);
   const storGrid = _el("div", "view-detail-grid");
   _addDetail(storGrid, "Storage", item.storageLocation || "\u2014");
+  if (item.serialNumber) _addDetail(storGrid, "Serial #", item.serialNumber);
   invSection.appendChild(storGrid);
   return invSection;
 }
@@ -479,42 +547,187 @@ function _appendSourceField(container, sourceValue) {
   container.appendChild(srcItem);
 }
 
+const SUPPORTED_PREMIUM_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium"]);
+
+function _resolvePremiumData(item, metrics, computed) {
+  const purchasePrice = computed?.purchasePrice ?? (parseFloat(item.price) || 0);
+  const purchaseTotal = computed?.purchaseTotal ?? metrics.qty * purchasePrice;
+  const retailTotal =
+    computed?.retailTotal ??
+    (parseFloat(item.marketValue) > 0 ? metrics.qty * parseFloat(item.marketValue) : 0);
+
+  let resolvedSpot = null;
+  const rawMetal = String(item.metal || "").trim();
+  const metalName = rawMetal
+    ? rawMetal.charAt(0).toUpperCase() + rawMetal.slice(1).toLowerCase()
+    : "";
+  if (SUPPORTED_PREMIUM_METALS.has(metalName) && item.date) {
+    const lookedUp =
+      typeof lookupHistoricalSpot === "function"
+        ? lookupHistoricalSpot(metalName, item.date)
+        : null;
+    if (typeof lookedUp === "number" && lookedUp > 0) resolvedSpot = lookedUp;
+  }
+  if (resolvedSpot === null) {
+    const stored = parseFloat(item.spotPriceAtPurchase);
+    if (stored > 0) resolvedSpot = stored;
+  }
+
+  const asw = metrics.weightOz * metrics.purity;
+  const hasValidInputs = resolvedSpot !== null && resolvedSpot > 0 && asw > 0;
+
+  const premiumPerOz = hasValidInputs ? purchasePrice / asw - resolvedSpot : null;
+  const premiumPerCoin = hasValidInputs ? purchasePrice - resolvedSpot * asw : null;
+  const premiumPercent = hasValidInputs ? (purchasePrice / asw / resolvedSpot - 1) * 100 : null;
+
+  const glPercent =
+    purchaseTotal > 0 && retailTotal > 0
+      ? ((retailTotal - purchaseTotal) / purchaseTotal) * 100
+      : null;
+
+  return {
+    resolvedSpot,
+    asw,
+    premiumPerOz,
+    premiumPerCoin,
+    premiumPercent,
+    glPercent,
+  };
+}
+
 function _buildValuationSection(item, metrics) {
+  const computed =
+    typeof computeItemValuation === "function"
+      ? computeItemValuation(item, metrics.currentSpot)
+      : null;
   const meltValue =
-    metrics.currentSpot > 0
+    computed?.meltValue ??
+    (metrics.currentSpot > 0
       ? metrics.weightOz * metrics.qty * metrics.currentSpot * metrics.purity
-      : 0;
-  const purchasePrice = parseFloat(item.price) || 0;
-  const purchaseTotal = metrics.qty * purchasePrice;
-  const marketVal = parseFloat(item.marketValue) || 0;
-  const retailTotal = marketVal > 0 ? metrics.qty * marketVal : meltValue;
-  const gainLoss = retailTotal > 0 ? retailTotal - purchaseTotal : null;
+      : 0);
+  const purchasePrice = computed?.purchasePrice ?? (parseFloat(item.price) || 0);
+  const purchaseTotal = computed?.purchaseTotal ?? metrics.qty * purchasePrice;
+  const manualMarket = parseFloat(item.marketValue) || 0;
+  const retailTotal =
+    computed?.retailTotal ?? (manualMarket > 0 ? metrics.qty * manualMarket : meltValue);
+  const gainLoss = computed?.gainLoss ?? (retailTotal > 0 ? retailTotal - purchaseTotal : null);
+  const premiumData = _resolvePremiumData(item, metrics, computed);
   const valSection = _section("Valuation");
   valSection.classList.add("view-valuation-section");
-  const valGrid = _el("div", "view-detail-grid four-col");
+  valSection._premiumData = premiumData;
+
+  const formatPercent = (value) => {
+    if (value === null || value === undefined) return "—";
+    const sign = value >= 0 ? "+" : "";
+    return sign + value.toFixed(1) + "%";
+  };
+
+  const signClass = (value) => {
+    if (value === null || value === undefined) return "muted";
+    return value >= 0 ? "gain" : "loss";
+  };
+
   const purchaseDateStr = item.date
     ? typeof formatDisplayDate === "function"
       ? formatDisplayDate(item.date)
       : item.date
     : "";
-  const purchaseBody =
-    metrics.qty > 1
-      ? `${formatCurrency(purchaseTotal)} total \u00b7 ${formatCurrency(purchasePrice)} each`
-      : formatCurrency(purchasePrice);
-  const purchaseLabel = purchaseDateStr ? `${purchaseBody} (${purchaseDateStr})` : purchaseBody;
-  _addDetail(valGrid, "Purchase", purchaseLabel);
-  _addDetail(valGrid, "Melt Value", metrics.currentSpot > 0 ? formatCurrency(meltValue) : "—");
-  _addDetail(valGrid, "Retail", retailTotal > 0 ? formatCurrency(retailTotal) : "—");
-  if (gainLoss !== null && retailTotal > 0) {
-    const glItem = _detailItem("Gain/Loss", (gainLoss >= 0 ? "+" : "") + formatCurrency(gainLoss));
-    const valEl = glItem.querySelector(".view-detail-value");
-    if (valEl) valEl.classList.add(gainLoss >= 0 ? "gain" : "loss");
-    valGrid.appendChild(glItem);
+
+  const valGrid = _el("div", "view-detail-grid six-col");
+  const qty = metrics.qty || 1;
+  const perUnitMelt = metrics.currentSpot > 0 ? meltValue / qty : 0;
+  const perUnitRetail = retailTotal > 0 ? retailTotal / qty : 0;
+  const perUnitGainLoss = gainLoss !== null ? gainLoss / qty : null;
+
+  const addRow = (purchaseLabel, pPrice, mMelt, mRetail, mGainLoss, mGlPercent) => {
+    _addDetail(valGrid, "Purchase", purchaseLabel);
+    _addDetail(
+      valGrid,
+      "Premium",
+      formatPercent(premiumData.premiumPercent),
+      signClass(premiumData.premiumPercent)
+    );
+    _addDetail(valGrid, "Melt", mMelt > 0 ? formatCurrency(mMelt) : "—");
+    _addDetail(valGrid, "Retail", mRetail > 0 ? formatCurrency(mRetail) : "—");
+
+    if (mGainLoss !== null && mRetail > 0) {
+      const glItem = _detailItem(
+        "Gain/Loss",
+        (mGainLoss >= 0 ? "+" : "") + formatCurrency(mGainLoss),
+        signClass(mGainLoss)
+      );
+      valGrid.appendChild(glItem);
+    } else {
+      _addDetail(valGrid, "Gain/Loss", "—", "muted");
+    }
+
+    if (mGlPercent !== null && mRetail > 0 && pPrice > 0) {
+      _addDetail(valGrid, "G/L%", formatPercent(mGlPercent), signClass(mGlPercent));
+    } else {
+      _addDetail(valGrid, "G/L%", "—", "muted");
+    }
+  };
+
+  if (qty > 1) {
+    const totalLabel = purchaseDateStr
+      ? `${formatCurrency(purchaseTotal)} total (${purchaseDateStr})`
+      : `${formatCurrency(purchaseTotal)} total`;
+    addRow(totalLabel, purchaseTotal, meltValue, retailTotal, gainLoss, premiumData.glPercent);
+
+    const eachLabel = formatCurrency(purchasePrice) + " each";
+    addRow(
+      eachLabel,
+      purchasePrice,
+      perUnitMelt,
+      perUnitRetail,
+      perUnitGainLoss,
+      premiumData.glPercent
+    );
   } else {
-    _addDetail(valGrid, "Gain/Loss", "—", "muted");
+    const singleLabel = purchaseDateStr
+      ? `${formatCurrency(purchasePrice)} (${purchaseDateStr})`
+      : formatCurrency(purchasePrice);
+    addRow(singleLabel, purchasePrice, meltValue, retailTotal, gainLoss, premiumData.glPercent);
   }
+
   valSection.appendChild(valGrid);
   return valSection;
+}
+
+function _getChartCurrentRetail(item, metrics) {
+  if (typeof computeItemValuation === "function") {
+    const computed = computeItemValuation(item, metrics.currentSpot);
+    if (computed && (computed.gbDenomPrice || computed.isManualRetail)) {
+      return computed.retailTotal;
+    }
+    return 0;
+  }
+
+  const manualMarket = parseFloat(item.marketValue) || 0;
+  return manualMarket > 0 ? manualMarket * metrics.qty : 0;
+}
+
+function _getGoldbackRetailHistoryEntries(item) {
+  if (item.weightUnit !== "gb" || typeof goldbackPriceHistory === "undefined") return [];
+
+  const key = String(parseFloat(item.weight) || 0);
+  const entries = Array.isArray(goldbackPriceHistory[key]) ? goldbackPriceHistory[key] : [];
+  return entries
+    .filter((entry) => entry && typeof entry.price === "number" && entry.price > 0 && entry.ts)
+    .map((entry) => ({ ts: entry.ts, retail: parseFloat(entry.price.toFixed(2)) }));
+}
+
+function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
+  const byDay = new Map();
+  for (const entry of [...itemRetailEntries, ...goldbackRetailEntries]) {
+    if (!entry || typeof entry.retail !== "number" || entry.retail <= 0 || !entry.ts) continue;
+    const day = new Date(entry.ts).toISOString().slice(0, 10);
+    const existing = byDay.get(day);
+    if (!existing || entry.retail >= existing.retail) {
+      byDay.set(day, entry);
+    }
+  }
+  return [...byDay.values()].sort((a, b) => a.ts - b.ts);
 }
 
 /**
@@ -524,7 +737,13 @@ function _buildValuationSection(item, metrics) {
  * @returns {HTMLElement|null}
  */
 function _buildDispositionSection(item) {
-  if (!item.disposition) return null;
+  if (
+    item.disposition == null ||
+    typeof item.disposition !== "object" ||
+    Array.isArray(item.disposition) ||
+    Object.keys(item.disposition).length === 0
+  )
+    return null;
 
   const d = item.disposition;
   const section = _section("Disposition");
@@ -557,13 +776,13 @@ function _buildDispositionSection(item) {
   // Optional fields
   if (d.recipient) {
     const grid2 = _el("div", "view-detail-grid two-col");
-    _addDetail(grid2, "Recipient", sanitizeHtml(d.recipient));
+    _addDetail(grid2, "Recipient", d.recipient);
     section.appendChild(grid2);
   }
 
   if (d.notes) {
     const grid3 = _el("div", "view-detail-grid two-col");
-    _addDetail(grid3, "Notes", sanitizeHtml(d.notes));
+    _addDetail(grid3, "Notes", d.notes);
     section.appendChild(grid3);
   }
 
@@ -583,7 +802,9 @@ function _buildDispositionSection(item) {
 
 function _getPriceHistoryContext(item, metrics) {
   const metalName = item.metal || "Silver";
-  const meltFactor = metrics.weightOz * metrics.qty * metrics.purity;
+  // AC-1/AC-2: pricingType drives display unit. "each" → per-unit (×1); "lot" or absent → lot-total (×qty).
+  const unitQty = item.pricingType === "each" ? 1 : metrics.qty;
+  const meltFactor = metrics.weightOz * unitQty * metrics.purity;
   const spotEntries =
     typeof spotHistory !== "undefined"
       ? spotHistory
@@ -601,14 +822,27 @@ function _getPriceHistoryContext(item, metrics) {
     typeof itemPriceHistory !== "undefined" && item.uuid
       ? (itemPriceHistory[item.uuid] || []).filter((e) => e.retail > 0)
       : [];
+  const goldbackRetailEntries = _getGoldbackRetailHistoryEntries(item);
+  const mergedRetail = _mergeRetailHistoryEntries(retailEntries, goldbackRetailEntries);
+  // D-3: itemPriceHistory retail midpoints are stored per-unit; scale to match display unit.
+  const scaledRetailEntries =
+    unitQty !== 1
+      ? mergedRetail.map((e) => ({ ...e, retail: parseFloat((e.retail * unitQty).toFixed(2)) }))
+      : mergedRetail;
+  // currentRetail is lot-total from _getChartCurrentRetail; scale to display unit.
+  const lotCurrentRetail = _getChartCurrentRetail(item, metrics);
+  const currentRetail =
+    metrics.qty > 0
+      ? parseFloat((lotCurrentRetail * (unitQty / metrics.qty)).toFixed(2))
+      : lotCurrentRetail;
   return {
     metalName,
     meltFactor,
     dailySpotEntries,
-    retailEntries,
-    purchasePerUnit: parseFloat(item.price) || 0,
+    retailEntries: scaledRetailEntries,
+    purchasePerUnit: (parseFloat(item.price) || 0) * unitQty,
     purchaseDate: item.date ? new Date(item.date).getTime() : 0,
-    currentRetail: parseFloat(item.marketValue) || 0,
+    currentRetail,
   };
 }
 
@@ -630,6 +864,10 @@ function _buildPriceHistorySection(chartCtx) {
   };
   chartContainer.appendChild(canvas);
   chartSection.appendChild(chartContainer);
+  const chartCaption = _el("p", "view-chart-caption");
+  chartCaption.id = "viewChartCaption";
+  chartCaption.hidden = true;
+  chartSection.appendChild(chartCaption);
   return chartSection;
 }
 
@@ -693,6 +931,7 @@ function _buildChartDateRangePicker(rangeBar, chartSection, chartCtx) {
     if (fromTs <= 0 && toTs <= 0) return;
     const canvas = chartSection.querySelector("#viewPriceHistoryChart");
     if (!canvas) return;
+    _setChartCaption(canvas, null);
     try {
       const fullSpot = await _fetchHistoricalSpotData(chartCtx.metalName, 0, fromTs, toTs);
       _createPriceHistoryChart(
@@ -735,48 +974,68 @@ async function _onChartRangePillClick(days, dateRange, chartSection, chartCtx) {
   dateRange.toInput.min = "";
   const canvas = chartSection.querySelector("#viewPriceHistoryChart");
   if (!canvas) return;
-  const effectiveDays =
-    days === -1 && chartCtx.purchaseDate > 0
-      ? Math.max(1, Math.ceil((Date.now() - chartCtx.purchaseDate) / 86400000))
-      : days;
-  if (effectiveDays === 0 || effectiveDays > 180) {
+  if (days === -1 && chartCtx.purchaseDate > 0) {
+    const toTs = Date.now();
+    const { fromTs, caption } = _purchasedRangeFrom(chartCtx.purchaseDate);
+    _setChartCaption(canvas, caption);
     try {
-      const fullSpot = await _fetchHistoricalSpotData(chartCtx.metalName, effectiveDays);
+      const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, 0, fromTs, toTs);
       _createPriceHistoryChart(
         canvas,
-        fullSpot,
+        spotData,
         chartCtx.retailEntries,
         chartCtx.purchasePerUnit,
         chartCtx.meltFactor,
-        effectiveDays,
+        0,
         chartCtx.purchaseDate,
-        chartCtx.currentRetail
+        chartCtx.currentRetail,
+        fromTs,
+        toTs
       );
     } catch (err) {
-      console.error("Range pill fetch failed:", err);
+      console.error("Purchased range fetch failed:", err);
       _createPriceHistoryChart(
         canvas,
         chartCtx.dailySpotEntries,
         chartCtx.retailEntries,
         chartCtx.purchasePerUnit,
         chartCtx.meltFactor,
-        effectiveDays,
+        0,
         chartCtx.purchaseDate,
-        chartCtx.currentRetail
+        chartCtx.currentRetail,
+        fromTs,
+        toTs
       );
     }
     return;
   }
-  _createPriceHistoryChart(
-    canvas,
-    chartCtx.dailySpotEntries,
-    chartCtx.retailEntries,
-    chartCtx.purchasePerUnit,
-    chartCtx.meltFactor,
-    effectiveDays,
-    chartCtx.purchaseDate,
-    chartCtx.currentRetail
-  );
+  const effectiveDays = days;
+  _setChartCaption(canvas, null);
+  try {
+    const spotData = await _fetchHistoricalSpotData(chartCtx.metalName, effectiveDays);
+    _createPriceHistoryChart(
+      canvas,
+      spotData,
+      chartCtx.retailEntries,
+      chartCtx.purchasePerUnit,
+      chartCtx.meltFactor,
+      effectiveDays,
+      chartCtx.purchaseDate,
+      chartCtx.currentRetail
+    );
+  } catch (err) {
+    console.error("Range pill fetch failed:", err);
+    _createPriceHistoryChart(
+      canvas,
+      chartCtx.dailySpotEntries,
+      chartCtx.retailEntries,
+      chartCtx.purchasePerUnit,
+      chartCtx.meltFactor,
+      effectiveDays,
+      chartCtx.purchaseDate,
+      chartCtx.currentRetail
+    );
+  }
 }
 
 function _buildGradingSection(item) {
@@ -852,6 +1111,20 @@ function _buildNotesSection(item) {
   noteText.textContent = item.notes;
   notesSection.appendChild(noteText);
   return notesSection;
+}
+
+function _buildAttachmentsSection(item) {
+  if (!item.attachments?.length) return null;
+  if (typeof renderAttachmentListPanel !== "function") return null;
+  const section = _el("div", "view-detail-section");
+  renderAttachmentListPanel(item, { editable: false })
+    .then((panel) => {
+      if (panel) section.appendChild(panel);
+    })
+    .catch((err) => {
+      console.warn("Failed to render attachment panel:", err);
+    });
+  return section;
 }
 
 function _appendSectionsInConfiguredOrder(frag, sectionBuilders) {
@@ -980,17 +1253,11 @@ function buildViewContent(item, index) {
     numista: () => _buildNumistaPlaceholderSection(),
     tags: () => _buildTagsSection(item),
     notes: () => _buildNotesSection(item),
+    attachments: () => _buildAttachmentsSection(item),
+    disposition: () => _buildDispositionSection(item),
   };
 
   _appendSectionsInConfiguredOrder(frag, sectionBuilders);
-
-  // Always append disposition section if item is disposed (STAK-72).
-  // This ensures the section appears even if 'disposition' is not yet
-  // in the user's saved sectionConfig order.
-  if (typeof isDisposed === "function" && isDisposed(item)) {
-    const dispositionEl = _buildDispositionSection(item);
-    if (dispositionEl) frag.appendChild(dispositionEl);
-  }
 
   _renderHeaderActions(item, index);
   _renderFooterActions(item, index);
@@ -1002,10 +1269,10 @@ function buildViewContent(item, index) {
 // ---------------------------------------------------------------------------
 
 /**
- * Load coin images from IndexedDB cache → CDN URL fallback.
- * @param {Object} item
- * @param {HTMLElement} container
- * @returns {Promise<{loaded: boolean, source: string|null}>}
+ * Load obverse and reverse images for the view modal, preferring cached user-uploaded or pattern-derived URLs and falling back to CDN URLs stored on the item.
+ * @param {Object} item - Inventory item containing image references (e.g., obverseImageUrl, reverseImageUrl).
+ * @param {HTMLElement} container - Modal container element that contains the image section (#viewImageSection).
+ * @returns {{loaded: boolean, source: ('userOrPattern'|'cdn'|null)}} `loaded` is `true` if at least one image was set, `false` otherwise. `source` is `'userOrPattern'` when a cached/uploaded URL was used, `'cdn'` when fallback item URLs were used, or `null` when no valid images were available.
  */
 async function loadViewImages(item, container) {
   const section = container.querySelector("#viewImageSection");
@@ -1046,15 +1313,93 @@ async function loadViewImages(item, container) {
   return { loaded: validObv || validRev, source: validObv || validRev ? "cdn" : null };
 }
 
+const MEANINGFUL_FALSY_KEYS = new Set(["commemorative", "rarityIndex"]);
+const NON_RENDERING_NUMISTA_KEYS = new Set(["source", "updatedAt", "fieldMeta"]);
+
 /**
- * Load Numista metadata from IndexedDB cache or pre-fetched API result, render enrichment section.
- * @param {Object} item
- * @param {HTMLElement} container
- * @param {Object|null} apiResult - Pre-fetched Numista API result (avoids duplicate call)
+ * Determines whether a Numista metadata field contains a value that should be rendered in the UI.
+ * Considers configured exclusions and treats certain falsy values as meaningful for specific keys.
+ * @param {string} key - The Numista metadata field name.
+ * @param {*} value - The field value to evaluate.
+ * @returns {boolean} `true` if the field should be displayed, `false` otherwise.
+ */
+function _hasMeaningfulNumistaValue(key, value) {
+  if (NON_RENDERING_NUMISTA_KEYS.has(key)) return false;
+  if (value === "" || value === null || value === undefined) return false;
+  if (!value && !MEANINGFUL_FALSY_KEYS.has(key)) return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 0
+  )
+    return false;
+  return true;
+}
+
+/**
+ * Determine whether the supplied Numista item edits contain any fields that should be rendered in the Catalog Data section.
+ *
+ * @param {Object|null|undefined} itemData - Item-level Numista edits (may be null/undefined). The function treats non-empty strings and numbers as meaningful and also treats certain intentionally falsy fields (for example `commemorative` or `rarityIndex`) as meaningful when present.
+ * @returns {boolean} `true` if at least one renderable Numista field exists on `itemData`, `false` otherwise.
+ */
+function hasMeaningfulItemData(itemData) {
+  if (!itemData || typeof itemData !== "object") return false;
+  return Object.entries(itemData).some(([key, value]) => _hasMeaningfulNumistaValue(key, value));
+}
+
+/**
+ * Combine cached/API Numista metadata with item-level Numista edits, giving precedence to item edits.
+ *
+ * Empty or otherwise non-meaningful item fields are removed before merging so they do not override valid cached values.
+ * The function preserves intentionally meaningful falsy values such as `commemorative: false` and `rarityIndex: 0`.
+ *
+ * @param {Object|null|undefined} itemData - Item-level Numista edits; may contain partial or raw fields.
+ * @param {Object|null|undefined} cacheMeta - Cached or API-provided Numista metadata.
+ * @returns {Object} Merged metadata object where keys from `itemData` override those in `cacheMeta`.
+ */
+function mergeNumistaSources(itemData, cacheMeta) {
+  const sanitizedItemData = {};
+  if (itemData && typeof itemData === "object") {
+    Object.entries(itemData).forEach(([key, value]) => {
+      if (_hasMeaningfulNumistaValue(key, value)) {
+        sanitizedItemData[key] = value;
+      }
+    });
+  }
+
+  return { ...(cacheMeta || {}), ...sanitizedItemData };
+}
+
+/**
+ * Format a KM (catalogue) reference into a user-facing string.
+ *
+ * @param {string|Object} ref - A KM reference, either a display string or an object with optional `catalogue` and `number` properties (e.g. `{ catalogue: "KM", number: 123 }`).
+ * @returns {string} The formatted reference: the input string unchanged when `ref` is a string; `"catalogue#number"` when both fields are present; the `catalogue` or `number` (as a string) when only one is present; otherwise an empty string.
+ */
+function _formatKmReference(ref) {
+  if (typeof ref === "string") return ref;
+  if (!ref || typeof ref !== "object") return "";
+  if (ref.catalogue && ref.number) return `${ref.catalogue}#${ref.number}`;
+  if (ref.catalogue) return ref.catalogue;
+  if (ref.number) return String(ref.number);
+  return "";
+}
+
+/**
+ * Render the "Catalog Data" enrichment for an item using cached Numista metadata, a provided API result, or item-level Numista edits.
+ *
+ * Attempts to read metadata from the image cache (IndexedDB) and falls back to the supplied `apiResult` when available. If neither cache/API metadata nor meaningful item-level Numista edits exist, the function returns without rendering. The final rendered view merges item-level edits over any metadata, updates the image frame shape when the merged shape indicates a non-round form, sets obverse/reverse image tooltips when available, and replaces the `#viewNumistaSection` placeholder with the constructed section. When an `apiResult` is used, it is cached for future use when an image cache is available.
+ *
+ * @param {Object} item - Inventory item object; `item.numistaId` identifies the catalog entry and `item.numistaData` may contain user edits that override cached/API fields.
+ * @param {HTMLElement} container - Container element containing the `#viewNumistaSection` placeholder and optional `#viewImageSection`.
+ * @param {Object|null} apiResult - Optional pre-fetched Numista API result to use when cache is missing or stale; when provided and used, it will be cached if an image cache is available.
  */
 async function loadViewNumistaData(item, container, apiResult) {
   const catalogId = item.numistaId || "";
-  if (!catalogId) return;
+  const hasCapsuleData = !!(item.capsule || item.capsuleNotes);
+  if (!catalogId && !hasCapsuleData) return;
 
   const placeholder = container.querySelector("#viewNumistaSection");
   if (!placeholder) return;
@@ -1062,7 +1407,7 @@ async function loadViewNumistaData(item, container, apiResult) {
   let meta = null;
 
   // Check cache
-  if (window.imageCache?.isAvailable()) {
+  if (catalogId && window.imageCache?.isAvailable()) {
     meta = await imageCache.getMetadata(catalogId);
 
     // Stale check
@@ -1076,119 +1421,137 @@ async function loadViewNumistaData(item, container, apiResult) {
     meta = _extractMetadata(apiResult);
 
     // Cache for next time
-    if (window.imageCache?.isAvailable()) {
+    if (catalogId && window.imageCache?.isAvailable()) {
       imageCache.cacheMetadata(catalogId, apiResult).catch(() => {});
     }
   }
 
-  if (!meta) return;
+  if (!meta && !hasMeaningfulItemData(item.numistaData) && !hasCapsuleData) return;
+  const merged = mergeNumistaSources(item.numistaData, meta);
 
   // Load user's field visibility config
   const cfg = typeof getNumistaViewFieldConfig === "function" ? getNumistaViewFieldConfig() : {};
 
-  // Update image frame shape based on Numista data if not already rectangular
-  if (meta.shape) {
-    const imgSection = container.querySelector("#viewImageSection");
-    const shapeStr = meta.shape.toLowerCase();
-    const isNonRound = shapeStr !== "round" && shapeStr !== "circular";
-    if (isNonRound && imgSection && !imgSection.classList.contains("view-shape-rect")) {
-      imgSection.classList.add("view-shape-rect");
-    }
+  // Update image frame shape after late Numista enrichment; use a two-way
+  // per-slot toggle so explicit circle overrides do not get stuck rectangular.
+  if (merged.shape) {
+    const enrichedItem = { ...item, numistaData: merged };
+    _applyViewSlotFrame(
+      container.querySelector('.view-image-slot[data-side="obverse"]'),
+      enrichedItem,
+      "obverse"
+    );
+    _applyViewSlotFrame(
+      container.querySelector('.view-image-slot[data-side="reverse"]'),
+      enrichedItem,
+      "reverse"
+    );
   }
 
-  // Build Numista section
-  const section = _el("div", "view-numista-section");
-
-  const badge = _el("span", "view-numista-badge");
-  badge.textContent = "Catalog Data";
-  section.appendChild(badge);
+  // Build Numista section — uses standard _section() for consistent styling
+  const section = _section("Catalog Data");
+  section.classList.add("view-numista-section");
 
   const grid = _el("div", "view-detail-grid");
 
-  if (cfg.denomination !== false && meta.denomination)
-    _addDetail(grid, "Denomination", meta.denomination);
-  if (cfg.shape !== false && meta.shape) _addDetail(grid, "Shape", meta.shape);
-  if (cfg.diameter !== false) {
-    if (meta.length && meta.width) {
+  if (cfg.denomination !== false && merged.denomination)
+    _addDetail(grid, "Denomination", merged.denomination);
+  if (cfg.shape !== false && merged.shape) _addDetail(grid, "Shape", merged.shape);
+  if (cfg.diameter !== false || (merged.length && merged.width)) {
+    if (merged.length && merged.width) {
       // Both dimensions available — composite "L × W" or "L × W × T"
       const dims =
-        cfg.thickness !== false && meta.thickness
-          ? `${meta.length} \u00D7 ${meta.width} \u00D7 ${meta.thickness} mm`
-          : `${meta.length} \u00D7 ${meta.width} mm`;
+        cfg.thickness !== false && merged.thickness
+          ? `${merged.length} \u00D7 ${merged.width} \u00D7 ${merged.thickness} mm`
+          : `${merged.length} \u00D7 ${merged.width} mm`;
       _addDetail(grid, "Dimensions", dims);
-    } else if (meta.length) {
+    } else if (merged.length) {
       // Only length (width=0) — show what we have
-      _addDetail(grid, "Dimensions", `${meta.length} mm`);
-      if (cfg.thickness !== false && meta.thickness) {
-        _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+      _addDetail(grid, "Dimensions", `${merged.length} mm`);
+      if (cfg.thickness !== false && merged.thickness) {
+        _addDetail(grid, "Thickness", `${merged.thickness} mm`);
       }
-    } else if (meta.diameter) {
-      _addDetail(grid, "Diameter", `${meta.diameter} mm`);
-      if (cfg.thickness !== false && meta.thickness) {
-        _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+    } else if (merged.diameter) {
+      _addDetail(grid, "Diameter", `${merged.diameter} mm`);
+      if (cfg.thickness !== false && merged.thickness) {
+        _addDetail(grid, "Thickness", `${merged.thickness} mm`);
       }
     }
   }
   // Standalone thickness for items with only thickness (no other dimensions)
-  if (cfg.thickness !== false && meta.thickness && !meta.diameter && !meta.length) {
-    _addDetail(grid, "Thickness", `${meta.thickness} mm`);
+  if (cfg.thickness !== false && merged.thickness && !merged.diameter && !merged.length) {
+    _addDetail(grid, "Thickness", `${merged.thickness} mm`);
   }
-  if (cfg.orientation !== false && meta.orientation)
-    _addDetail(grid, "Orientation", meta.orientation);
-  if (cfg.composition !== false && meta.composition)
-    _addDetail(grid, "Composition", meta.composition);
-  if (cfg.country !== false && meta.country) _addDetail(grid, "Country", meta.country);
-  if (cfg.technique !== false && meta.technique) _addDetail(grid, "Technique", meta.technique);
+  if (item.capsule) _addDetail(grid, "Capsule", item.capsule);
+  if (item.capsuleNotes) _addDetail(grid, "Capsule Notes", item.capsuleNotes);
+  if (cfg.orientation !== false && merged.orientation)
+    _addDetail(grid, "Orientation", merged.orientation);
+  if (cfg.composition !== false && merged.composition)
+    _addDetail(grid, "Composition", merged.composition);
+  if (cfg.country !== false && merged.country) _addDetail(grid, "Country", merged.country);
+  if (cfg.technique !== false && merged.technique) _addDetail(grid, "Technique", merged.technique);
 
-  if (cfg.references !== false && meta.kmReferences && meta.kmReferences.length > 0) {
-    _addDetail(grid, "References", meta.kmReferences.join(", "));
+  if (cfg.references !== false) {
+    if (merged.kmRef) {
+      _addDetail(grid, "KM Reference", merged.kmRef);
+    } else if (Array.isArray(merged.kmReferences) && merged.kmReferences.length > 0) {
+      const references = merged.kmReferences.map(_formatKmReference).filter(Boolean).join(", ");
+      if (references) _addDetail(grid, "References", references);
+    }
   }
 
   section.appendChild(grid);
 
+  // Obverse/reverse descriptions on full-width lines; image tooltips below stay additive.
+  if (cfg.obverse !== false && merged.obverseDesc) {
+    const obvGrid = _el("div", "view-detail-grid");
+    const obvItem = _detailItem("Obverse", merged.obverseDesc);
+    obvItem.classList.add("full-width");
+    obvGrid.appendChild(obvItem);
+    section.appendChild(obvGrid);
+  }
+  if (cfg.reverse !== false && merged.reverseDesc) {
+    const revGrid = _el("div", "view-detail-grid");
+    const revItem = _detailItem("Reverse", merged.reverseDesc);
+    revItem.classList.add("full-width");
+    revGrid.appendChild(revItem);
+    section.appendChild(revGrid);
+  }
+
   // Edge description on its own full-width line (can be long)
-  if (cfg.edge !== false && meta.edgeDesc) {
+  if (cfg.edge !== false && merged.edgeDesc) {
     const edgeGrid = _el("div", "view-detail-grid");
-    const edgeItem = _detailItem("Edge", meta.edgeDesc);
+    const edgeItem = _detailItem("Edge", merged.edgeDesc);
     edgeItem.classList.add("full-width");
     edgeGrid.appendChild(edgeItem);
     section.appendChild(edgeGrid);
   }
 
   // Set obverse/reverse descriptions as tooltips on the image slots
-  if (cfg.imageTooltips !== false && (meta.obverseDesc || meta.reverseDesc)) {
+  if (cfg.imageTooltips !== false && (merged.obverseDesc || merged.reverseDesc)) {
     const imgSection = container.querySelector("#viewImageSection");
     if (imgSection) {
       const slots = imgSection.querySelectorAll(".view-image-slot");
-      if (meta.obverseDesc && slots[0]) {
-        slots[0].title = `Obverse: ${meta.obverseDesc}`;
+      if (merged.obverseDesc && slots[0]) {
+        slots[0].title = `Obverse: ${merged.obverseDesc}`;
       }
-      if (meta.reverseDesc && slots[1]) {
-        slots[1].title = `Reverse: ${meta.reverseDesc}`;
+      if (merged.reverseDesc && slots[1]) {
+        slots[1].title = `Reverse: ${merged.reverseDesc}`;
       }
     }
   }
 
-  // Tags
-  if (cfg.tags !== false && meta.tags && meta.tags.length > 0) {
-    const tagGrid = _el("div", "view-detail-grid");
-    const tagItem = _detailItem("Tags", meta.tags.join(", "));
-    tagItem.classList.add("full-width");
-    tagGrid.appendChild(tagItem);
-    section.appendChild(tagGrid);
-  }
-
   // Commemorative
-  if (cfg.commemorative !== false && meta.commemorative && meta.commemorativeDesc) {
+  if (cfg.commemorative !== false && merged.commemorative && merged.commemorativeDesc) {
     const commGrid = _el("div", "view-detail-grid");
-    const commItem = _detailItem("Commemorative", meta.commemorativeDesc);
+    const commItem = _detailItem("Commemorative", merged.commemorativeDesc);
     commItem.classList.add("full-width");
     commGrid.appendChild(commItem);
     section.appendChild(commGrid);
   }
 
   // Rarity index
-  if (cfg.rarity !== false && meta.rarityIndex > 0) {
+  if (cfg.rarity !== false && merged.rarityIndex > 0) {
     const rarityRow = _el("div", "view-detail-item");
 
     const lbl = _el("span", "view-detail-label");
@@ -1199,20 +1562,24 @@ async function loadViewNumistaData(item, container, apiResult) {
 
     const track = _el("div", "view-rarity-track");
     const fill = _el("div", "view-rarity-fill");
-    fill.style.width = `${Math.min(meta.rarityIndex, 100)}%`;
+    fill.style.width = `${Math.min(merged.rarityIndex, 100)}%`;
     track.appendChild(fill);
     bar.appendChild(track);
 
     const score = _el("span", "view-rarity-score");
-    score.textContent = String(meta.rarityIndex);
+    score.textContent = String(merged.rarityIndex);
     bar.appendChild(score);
 
     rarityRow.appendChild(bar);
     section.appendChild(rarityRow);
   }
 
-  // Mintage by year (show first few)
-  if (cfg.mintage !== false && meta.mintageByYear && meta.mintageByYear.length > 0) {
+  // Mintage: prefer item-level flat value, then cache/API per-year data.
+  if (
+    cfg.mintage !== false &&
+    ((merged.mintage != null && merged.mintage !== "") ||
+      (Array.isArray(merged.mintageByYear) && merged.mintageByYear.length > 0))
+  ) {
     const mintGrid = _el("div", "view-detail-grid");
     const mintItem = _el("div", "view-detail-item full-width");
     const mintLabel = _el("span", "view-detail-label");
@@ -1220,14 +1587,21 @@ async function loadViewNumistaData(item, container, apiResult) {
     mintItem.appendChild(mintLabel);
 
     const mintVal = _el("span", "view-detail-value");
-    const entries = meta.mintageByYear.slice(0, 5);
-    mintVal.textContent = entries
-      .map((e) => {
-        const m = typeof e.mintage === "number" ? e.mintage.toLocaleString() : e.mintage;
-        return `${e.year}: ${m}${e.remark ? ` (${e.remark})` : ""}`;
-      })
-      .join(" | ");
-    if (meta.mintageByYear.length > 5) mintVal.textContent += " ...";
+    if (merged.mintage != null && merged.mintage !== "") {
+      mintVal.textContent =
+        typeof merged.mintage === "number"
+          ? merged.mintage.toLocaleString()
+          : String(merged.mintage);
+    } else {
+      const entries = merged.mintageByYear.slice(0, 5);
+      mintVal.textContent = entries
+        .map((e) => {
+          const m = typeof e.mintage === "number" ? e.mintage.toLocaleString() : e.mintage;
+          return `${e.year}: ${m}${e.remark ? ` (${e.remark})` : ""}`;
+        })
+        .join(" | ");
+      if (merged.mintageByYear.length > 5) mintVal.textContent += " ...";
+    }
     mintItem.appendChild(mintVal);
     mintGrid.appendChild(mintItem);
     section.appendChild(mintGrid);
@@ -1332,9 +1706,15 @@ function _parseColor(color) {
       parseInt(hex.slice(4, 6), 16),
     ];
   }
-  // Handle rgb(r, g, b)
+  // Handle rgb(r, g, b) / rgba(r, g, b, a)
   const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+  // Delegate to the shared resolveColor (theme.js) for oklch, hsl, lab, etc.
+  if (typeof resolveColor === "function") {
+    const resolved = resolveColor(s);
+    const rm = resolved.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rm) return [parseInt(rm[1], 10), parseInt(rm[2], 10), parseInt(rm[3], 10)];
+  }
   return [99, 102, 241];
 }
 
@@ -1452,7 +1832,8 @@ function _fetchYearFile(year) {
  * (live data wins over seed). Returns sorted {ts, spot} entries.
  *
  * For ranges <= 180 days, just returns the in-memory spotHistory slice (no fetch).
- * For longer ranges (including "All"), async-fetches year files back to 1968.
+ * For longer bounded ranges, fetches only the years needed for that viewport.
+ * For "All", async-fetches year files back to 1968.
  *
  * @param {string} metalName - Metal name ('Silver', 'Gold', etc.)
  * @param {number} days - Number of days (0 = all available data)
@@ -1469,20 +1850,28 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
   if (fromTs > 0) {
     startYear = new Date(fromTs).getFullYear();
   } else if (days > 0 && days <= 180) {
-    // Short range — in-memory spotHistory is sufficient
+    // Short range — try in-memory spotHistory first
     const liveEntries = (typeof spotHistory !== "undefined" ? spotHistory : [])
       .filter((e) => e.metal === metalName)
       .map((e) => ({ ts: new Date(e.timestamp).getTime(), spot: e.spot }));
     liveEntries.sort((a, b) => a.ts - b.ts);
     const byDay = new Map();
     for (const e of liveEntries) byDay.set(new Date(e.ts).toISOString().slice(0, 10), e);
-    return [...byDay.values()].sort((a, b) => a.ts - b.ts);
+    const result = [...byDay.values()].sort((a, b) => a.ts - b.ts);
+    const cutoff = _getViewChartRangeCutoff(days);
+    const inRange = result.filter((e) => e.ts >= cutoff);
+    if (inRange.length >= 2) return result;
+    // Sparse in-memory data — fall back to current year file
+    startYear = new Date(cutoff).getFullYear();
+  } else if (days > 180) {
+    const cutoff = _getViewChartRangeCutoff(days);
+    startYear = new Date(cutoff).getFullYear();
   } else {
     // "All" — go back to 1968 (earliest seed data)
     startYear = 1968;
   }
 
-  const endYear = new Date().getFullYear();
+  const endYear = Math.max(startYear, new Date(toTs > 0 ? toTs : Date.now()).getFullYear());
   const years = [];
   for (let y = startYear; y <= endYear; y++) years.push(y);
 
@@ -1522,11 +1911,11 @@ async function _fetchHistoricalSpotData(metalName, days, fromTs, toTs) {
  * @param {HTMLCanvasElement} canvas
  * @param {Array<{ts:number, spot:number}>} allSpotEntries - Daily spot prices for this metal
  * @param {Array<{ts:number, retail:number}>} allRetailEntries - Sparse retail value snapshots
- * @param {number} purchasePerUnit - Original purchase price per unit
+ * @param {number} purchasePerUnit - Original total purchase price for the viewed item quantity
  * @param {number} meltFactor - weightOz * qty * purity (melt = spot * meltFactor)
  * @param {number} [days=0] - Number of days to show (0 = all)
  * @param {number} [purchaseDate=0] - Purchase date timestamp (anchor start for retail line)
- * @param {number} [currentRetail=0] - Current market/retail value (anchor end for retail line)
+ * @param {number} [currentRetail=0] - Current total market/retail value (anchor end for retail line)
  * @param {number} [fromTs=0] - Custom range start timestamp (0 = unbounded)
  * @param {number} [toTs=0] - Custom range end timestamp (0 = unbounded)
  */
@@ -1553,7 +1942,7 @@ function _createPriceHistoryChart(
   // Filter spot entries by time range
   fromTs = fromTs || 0;
   toTs = toTs || 0;
-  const cutoff = days > 0 ? Date.now() - days * 86400000 : 0;
+  const cutoff = _getViewChartRangeCutoff(days);
   let spotEntries;
   if (fromTs > 0 || toTs > 0) {
     // Custom date range mode
@@ -1565,15 +1954,25 @@ function _createPriceHistoryChart(
   }
 
   // If "All" range or custom range and purchase date is before earliest spot data,
-  // prepend a synthetic entry so the chart extends back to purchase date
+  // prepend a synthetic entry so the chart extends back to purchase date. Long
+  // bounded ranges keep their sparse-data viewport anchor; short ranges show
+  // only actual days so a 7d chart cannot invent an extra left-edge point.
   const isAllOrCustom = days === 0 || fromTs > 0 || toTs > 0;
-  if (
-    isAllOrCustom &&
-    purchaseDate > 0 &&
+  const boundedAnchorTs =
+    !isAllOrCustom &&
+    days > 180 &&
+    cutoff > 0 &&
     spotEntries.length > 0 &&
-    purchaseDate < spotEntries[0].ts
-  ) {
-    spotEntries.unshift({ ts: purchaseDate, spot: spotEntries[0].spot });
+    spotEntries[0].ts > cutoff
+      ? cutoff
+      : 0;
+  const purchaseAnchorTs =
+    isAllOrCustom && purchaseDate > 0 && spotEntries.length > 0 && purchaseDate < spotEntries[0].ts
+      ? purchaseDate
+      : 0;
+  const syntheticAnchorTs = boundedAnchorTs || purchaseAnchorTs;
+  if (syntheticAnchorTs > 0) {
+    spotEntries.unshift({ ts: syntheticAnchorTs, spot: spotEntries[0].spot });
   }
 
   // Show fallback message if insufficient data for selected range
@@ -1618,6 +2017,8 @@ function _createPriceHistoryChart(
   // Uses index-based snapping to find the nearest spot entry for each retail point,
   // since anchor dates may not have an exact-match spot entry on that calendar day.
   const retailData = new Array(spotEntries.length).fill(null);
+  const hasRetailSeries =
+    currentRetail > 0 || allRetailEntries.some((entry) => Number(entry.retail) > 0);
 
   // Helper: find the index of the spot entry nearest to a given timestamp
   const _nearestSpotIdx = (ts) => {
@@ -1633,22 +2034,6 @@ function _createPriceHistoryChart(
     return best;
   };
 
-  // Anchor start: purchase price at the leftmost chart position.
-  // If purchase date is within the visible range, snap to that day.
-  // If purchase date is before the range, pin to index 0 so the
-  // retail line always starts with "what you paid" as a reference.
-  if (purchaseDate > 0) {
-    if (
-      purchaseDate >= spotEntries[0].ts &&
-      purchaseDate <= spotEntries[spotEntries.length - 1].ts
-    ) {
-      const idx = _nearestSpotIdx(purchaseDate);
-      retailData[idx] = purchasePerUnit;
-    } else if (purchaseDate < spotEntries[0].ts) {
-      retailData[0] = purchasePerUnit;
-    }
-  }
-
   // Middle: sparse itemPriceHistory retail values snapped to nearest spot day
   for (const re of allRetailEntries) {
     if (cutoff > 0 && re.ts < cutoff) continue;
@@ -1663,35 +2048,61 @@ function _createPriceHistoryChart(
     retailData[spotEntries.length - 1] = currentRetail;
   }
 
-  const hasRetail = retailData.some((v) => v !== null);
+  if (hasRetailSeries) {
+    const firstRetailIdx = retailData.findIndex((value) => value !== null);
+    const firstSpotTs = spotEntries[0].ts;
+    if (firstRetailIdx > 0) {
+      const previousRetail = [...allRetailEntries]
+        .filter((entry) => Number(entry.retail) > 0 && entry.ts < firstSpotTs)
+        .sort((a, b) => a.ts - b.ts)
+        .at(-1);
+      if (previousRetail) {
+        retailData[0] = previousRetail.retail;
+      } else if (purchaseDate >= firstSpotTs && currentRetail > 0) {
+        retailData[0] = currentRetail;
+      }
+    } else if (firstRetailIdx === -1 && currentRetail > 0) {
+      retailData[0] = currentRetail;
+      retailData[spotEntries.length - 1] = currentRetail;
+    }
+  }
+
+  const hasRetail = hasRetailSeries && retailData.some((v) => v !== null);
 
   const showPoints = spotEntries.length <= 30;
 
-  const textColor = typeof getChartTextColor === "function" ? getChartTextColor() : "#1e293b";
+  const textColor =
+    typeof getChartTextColor === "function"
+      ? getChartTextColor()
+      : getThemeColorRGB("text-primary");
   const bgColor =
-    typeof getChartBackgroundColor === "function" ? getChartBackgroundColor() : "#f8fafc";
+    typeof getChartBackgroundColor === "function"
+      ? getChartBackgroundColor()
+      : getThemeColorRGB("bg-primary");
 
-  // Dataset order: purchase (bottom) → melt (middle) → retail (top)
-  // Layered fills create visual bands showing cost basis, intrinsic value, and market premium
+  const dangerColor = getThemeColorRGB("danger");
+  const successColor = getThemeColorRGB("success");
+  const primaryColor = getThemeColorRGB("primary");
+
   const datasets = [
     {
       label: "Purchase Price",
       data: purchaseLine,
-      borderColor: "#ef4444",
-      backgroundColor: "rgba(239, 68, 68, 0.06)",
-      fill: "origin",
+      borderColor: dangerColor,
+      backgroundColor: "transparent",
+      fill: false,
       borderDash: [6, 3],
       tension: 0,
       pointRadius: 0,
       pointHoverRadius: 0,
       borderWidth: 1.5,
-      order: 3,
+      order: 0,
     },
     {
       label: "Melt Value",
       data: meltData,
-      borderColor: "#10b981",
-      backgroundColor: "rgba(16, 185, 129, 0.12)",
+      borderColor: successColor,
+      backgroundColor: resolveColor(`color-mix(in srgb, ${successColor} 12%, transparent)`),
       fill: "origin",
       tension: 0.3,
       pointRadius: showPoints ? 3 : 0,
@@ -1702,13 +2113,13 @@ function _createPriceHistoryChart(
     {
       label: "Retail Value",
       data: retailData,
-      borderColor: "#3b82f6",
-      backgroundColor: "rgba(59, 130, 246, 0.08)",
-      fill: "origin",
+      borderColor: primaryColor,
+      backgroundColor: "transparent",
+      fill: false,
       tension: 0.3,
       spanGaps: true,
-      pointRadius: 4,
-      pointHoverRadius: 6,
+      pointRadius: showPoints ? 3 : 0,
+      pointHoverRadius: showPoints ? 5 : 3,
       borderWidth: 2,
       hidden: !hasRetail,
       order: 1,
@@ -1716,7 +2127,7 @@ function _createPriceHistoryChart(
   ];
 
   _viewModalChartInstance = createTimeSeriesChart(canvas, labels, datasets, {
-    animation: { duration: 400 },
+    animation: false,
     showLegend: true,
     xTicks: {
       color: textColor,
@@ -1745,7 +2156,9 @@ function _createPriceHistoryChart(
   if (_viewModalChartInstance) {
     const chartOpts = _viewModalChartInstance.options;
     chartOpts.scales.x.grid = { display: false };
-    chartOpts.scales.y.grid = { color: "rgba(128,128,128,0.1)" };
+    chartOpts.scales.y.grid = {
+      color: resolveColor(`color-mix(in srgb, ${getThemeColorRGB("border")} 40%, transparent)`),
+    };
     Object.assign(chartOpts.plugins.legend, {
       position: "bottom",
       labels: {
@@ -1755,6 +2168,11 @@ function _createPriceHistoryChart(
         padding: 12,
         font: { size: 10 },
       },
+      onClick: function (event, legendItem, legend) {
+        Chart.defaults.plugins.legend.onClick?.call(this, event, legendItem, legend);
+        _applyPriceHistoryYAxisBounds(legend.chart);
+        legend.chart.update();
+      },
     });
     Object.assign(chartOpts.plugins.tooltip, {
       backgroundColor: bgColor,
@@ -1763,8 +2181,54 @@ function _createPriceHistoryChart(
       borderColor: textColor,
       borderWidth: 1,
     });
+
+    _applyPriceHistoryYAxisBounds(_viewModalChartInstance);
+
     _viewModalChartInstance.update("none");
   }
+}
+
+function _applyPriceHistoryYAxisBounds(chart) {
+  if (!chart?.options?.scales?.y) return;
+  let dataMin = Infinity;
+  let dataMax = -Infinity;
+  let hasVisibleValue = false;
+  chart.data.datasets.forEach((dataset, index) => {
+    const isVisible =
+      typeof chart.isDatasetVisible === "function"
+        ? chart.isDatasetVisible(index)
+        : dataset.hidden !== true;
+    if (!isVisible || !Array.isArray(dataset.data)) return;
+    dataset.data.forEach((point) => {
+      if (point === null || point === undefined) return;
+      const rawValue = point && typeof point === "object" && "y" in point ? point.y : point;
+      if (rawValue === null || rawValue === undefined) return;
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) return;
+      if (value < dataMin) dataMin = value;
+      if (value > dataMax) dataMax = value;
+      hasVisibleValue = true;
+    });
+  });
+
+  const yScale = chart.options.scales.y;
+  if (!hasVisibleValue) {
+    delete yScale.min;
+    delete yScale.max;
+    delete yScale.suggestedMin;
+    delete yScale.suggestedMax;
+    return;
+  }
+
+  const dataRange = dataMax - dataMin;
+  const padding = dataRange > 0 ? dataRange * 0.05 : Math.max(dataMax * 0.05, 1);
+  const yMin = Math.max(0, dataMin - padding);
+  const yMax = dataMax + padding;
+
+  yScale.min = yMin;
+  yScale.max = yMax;
+  yScale.suggestedMin = yMin;
+  yScale.suggestedMax = yMax;
 }
 
 // ---------------------------------------------------------------------------
@@ -1818,6 +2282,13 @@ function _imageSlot(side, label) {
   slot.appendChild(lbl);
 
   return slot;
+}
+
+function _applyViewSlotFrame(slot, item, side) {
+  if (!slot) return;
+  const isRect =
+    typeof resolveImageFrame === "function" && resolveImageFrame(item, side) === "rect";
+  slot.classList.toggle("view-shape-rect", isRect);
 }
 
 /** Replace placeholder with actual image in a slot */

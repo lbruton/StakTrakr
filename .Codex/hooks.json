@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.Codex/hooks/post-edit-lint.py'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.Codex/hooks/post-edit-lint.py'"
+          }
+        ]
+      }
+    ]
+  }
+}

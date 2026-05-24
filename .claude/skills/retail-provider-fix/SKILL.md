@@ -1,6 +1,6 @@
 ---
 name: retail-provider-fix
-description: Use when retail prices are failing for a vendor — wrong prices, fractional_weight warnings, all-zeros for a provider, page-loaded-no-price errors, or after a dealer changes their site structure. Covers live diagnostics on the home poller, interpreting PROVIDER_CONFIG, phase routing (phase0/firecrawl/cf-clearance-first), and editing provider URLs via the home dashboard.
+description: Diagnose and fix retail scraping failures for individual dealers — wrong prices, OOS, site structure changes.
 ---
 
 # Retail Provider Fix
