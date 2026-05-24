@@ -87,6 +87,61 @@ test.describe("STRK-45 — Zip backup attachment structure", () => {
     expect(result.uuid).toBe("f2-item-att");
   });
 
+  test("inventory_data.json includes the complete DIFF_FIELDS export surface", async ({ page }) => {
+    const exportedItem = await page.evaluate(async () => {
+      const richItem = {
+        uuid: "strk101-diff-fields",
+        serial: 101,
+        metal: "Gold",
+        composition: "Gold",
+        name: "STRK-101 Complete Export",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        weightUnit: "oz",
+        purity: 0.9999,
+        price: 1900,
+        purchasePrice: 1900,
+        retailPrice: 2010,
+        date: "2026-05-23",
+        collectable: true,
+        ignorePatternImages: true,
+        currency: "USD",
+        obverseImageFrame: "rectangle",
+        reverseImageFrame: "circle",
+        lastModified: "2026-05-23T12:00:00.000Z",
+        capsule: "Air-Tite",
+        capsuleNotes: "Black ring",
+        numistaData: { id: "N-101", shape: "round" },
+        fieldMeta: { source: "test" },
+        attachments: [{ attachmentUuid: "att-101", fileName: "receipt.pdf" }],
+      };
+      window.inventory = [richItem];
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const data = JSON.parse(await zip.file("inventory_data.json").async("string"));
+      return data.inventory[0];
+    });
+
+    expect(exportedItem).toMatchObject({
+      purchasePrice: 1900,
+      retailPrice: 2010,
+      collectable: true,
+      ignorePatternImages: true,
+      currency: "USD",
+      obverseImageFrame: "rectangle",
+      reverseImageFrame: "circle",
+      lastModified: "2026-05-23T12:00:00.000Z",
+      capsule: "Air-Tite",
+      capsuleNotes: "Black ring",
+      numistaData: { id: "N-101", shape: "round" },
+      fieldMeta: { source: "test" },
+    });
+    expect(exportedItem.attachments).toEqual([
+      { attachmentUuid: "att-101", fileName: "receipt.pdf" },
+    ]);
+  });
+
   test("CSV Attachments column shape: fileName#attachmentUuid pairs joined by |", async ({
     page,
   }) => {

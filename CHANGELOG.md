@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.84] - 2026-05-23
+
+### Fixed — STRK-101: manifest-first sync item edits
+
+- **Cloud sync manifest diff**: Manifest consumers now normalize legacy
+  `item-add`, `item-edit`, and `item-delete` changelog types before summary
+  counting, diff classification, and conflict detection, so manifest-first
+  pulls no longer silently skip item field edits. (STRK-101)
+- **Manifest grouping**: Multiple changelog entries for one item now merge in
+  chronological order, preserving re-add and delete transitions without relying
+  on a static priority map. (STRK-101)
+- **Backup/export parity**: ZIP JSON exports now include the DIFF_FIELDS values
+  previously omitted from the allowlist, and both ZIP and standalone CSV exports
+  include Obverse Frame and Reverse Frame columns. (STRK-101)
+
+---
+
 ## [3.34.83] - 2026-05-23
 
 ### Fixed — STRK-99 hotfix: SDB + BE spot-ticker / sidebar leak
