@@ -144,7 +144,7 @@
         okBtn.disabled = false;
         cancelBtn.disabled = false;
         messageEl.innerHTML = escapeDialogText(
-          `${message || "Action failed."}\n\nReset failed: ${error.message || error}`
+          `${message || "Action failed."}\n\n${error.message || error}`
         );
       }
     };

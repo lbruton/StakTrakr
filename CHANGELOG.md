@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.34.85] - 2026-05-24
 
-### Fixed — STRK-96: Playwright suite failures
+### Changed — STRK-96: Playwright suite failures
 
 - **Add Item tag entry**: The Add Item modal now wires its tag controls to a
   pending tag buffer and persists those tags to the newly-created item UUID on

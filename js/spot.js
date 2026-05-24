@@ -668,7 +668,7 @@ const lookupHistoricalSpot = (metalName, dateStr) => {
   if (!yearMatch) return null;
   const targetYear = parseInt(yearMatch[1], 10);
 
-  const targetDate = new Date(dateStr + "T00:00:00");
+  const targetDate = new Date(dateStr + "T00:00:00Z");
   if (isNaN(targetDate.getTime())) return null;
   const targetMs = targetDate.getTime();
 
@@ -686,12 +686,12 @@ const lookupHistoricalSpot = (metalName, dateStr) => {
     const windowMs = windowDays * MS_PER_DAY;
     const matches = yearEntries
       .filter((e) => {
-        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
+        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00Z");
         if (isNaN(entryDate.getTime())) return false;
         return Math.abs(entryDate.getTime() - targetMs) <= windowMs;
       })
       .map((e) => {
-        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
+        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00Z");
         const dayOffset = Math.abs(entryDate.getTime() - targetMs) / MS_PER_DAY;
         return { spot: e.spot, dayOffset, timestamp: e.timestamp };
       })

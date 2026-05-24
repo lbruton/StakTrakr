@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.codex/hooks/post-edit-lint.py'"
+            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.Codex/hooks/post-edit-lint.py'"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.codex/hooks/post-edit-lint.py'"
+            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.Codex/hooks/post-edit-lint.py'"
           }
         ]
       }
