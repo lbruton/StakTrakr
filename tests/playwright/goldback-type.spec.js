@@ -397,9 +397,11 @@ test.describe("goldback-type — STAK-562 first-class type behavior", () => {
   test("15. Goldback retail lookup uses daily Goldback history instead of gold spot", async ({
     page,
   }) => {
+    const today = new Date().toLocaleDateString("en-CA");
+
     await seedData(page, [], {
       goldbackPriceHistory: {
-        1: [{ ts: new Date("2026-05-11T12:00:00.000Z").getTime(), price: 9.48, source: "api" }],
+        1: [{ ts: new Date(`${today}T12:00:00.000Z`).getTime(), price: 9.48, source: "api" }],
       },
       goldbackPricingSource: "manual",
     });
