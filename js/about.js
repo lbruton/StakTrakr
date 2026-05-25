@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.88 &ndash; STRK-108: Cloud sync tag merge</strong>: Cloud sync now preserves item tags, removed-tag opt-outs, and per-item tag timestamps across devices during selective sync merges (STRK-108).</li>
     <li><strong>v3.34.87 &ndash; STRK-107: Cloud sync conflict loop fix</strong>: Accepting remote item changes now neutralizes superseded local changelog entries at the acceptance cutoff, preserving Activity Log history while preventing stale conflicts from reappearing on the next sync (STRK-107).</li>
     <li><strong>v3.34.86 &ndash; STRK-106: Bullion Exchanges gold reliability</strong>: Byparr scrape now retries on pre-hydration shells (the React price grid loads after Playwright&rsquo;s &lsquo;load&rsquo; event, causing ~26% of gold pages to snapshot empty); content-quality check + bounded retry restore gold price coverage (STRK-106).</li>
     <li><strong>v3.34.85 &ndash; Memorial Day public release</strong>: First full public release since v3.34.38 (April 30) &mdash; 47 patches across 111 issues over 24 days. Highlights below; see the full <a href="https://github.com/lbruton/StakTrakr/blob/main/CHANGELOG.md">CHANGELOG</a> for everything.</li>

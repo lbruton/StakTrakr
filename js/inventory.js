@@ -1250,7 +1250,12 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   // 7. Copy tags (non-blocking — tag loss is acceptable)
   try {
     if (typeof getItemTags === "function" && typeof addItemTag === "function") {
-      getItemTags(original.uuid).forEach((tag) => addItemTag(clone.uuid, tag, false));
+      const copiedTags = getItemTags(original.uuid);
+      let addedTags = false;
+      copiedTags.forEach((tag) => {
+        if (addItemTag(clone.uuid, tag, false)) addedTags = true;
+      });
+      if (addedTags && typeof stampTagTimestamp === "function") stampTagTimestamp([clone.uuid]);
       if (typeof saveItemTags === "function") saveItemTags();
     }
   } catch (e) {
@@ -1814,7 +1819,11 @@ const editItem = (idx, logIdx = null) => {
       const addHandler = () => {
         const val = elements.newTagInput.value.trim();
         if (val && typeof addItemTag === "function") {
-          parseTagInput(val).forEach((t) => addItemTag(item.uuid, t, false));
+          let addedTags = false;
+          parseTagInput(val).forEach((t) => {
+            if (addItemTag(item.uuid, t, false)) addedTags = true;
+          });
+          if (addedTags && typeof stampTagTimestamp === "function") stampTagTimestamp([item.uuid]);
           if (typeof saveItemTags === "function") saveItemTags();
           elements.newTagInput.value = "";
           renderEditTags();

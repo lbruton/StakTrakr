@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.34.87";
+const APP_VERSION = "3.34.88";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -629,6 +629,12 @@ const TYPE_METAL_FILTER = {
 /** @constant {string} ITEM_TAGS_KEY - LocalStorage key for item tags mapping (STAK-126) */
 const ITEM_TAGS_KEY = "itemTags"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/** @constant {string} ITEM_REMOVED_TAGS_KEY - LocalStorage key for removed per-item tags (STAK-556) */
+const ITEM_REMOVED_TAGS_KEY = "itemRemovedTags"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
+/** @constant {string} ITEM_TAGS_LAST_MODIFIED_KEY - LocalStorage key for per-item tag timestamps (STRK-108) */
+const ITEM_TAGS_LAST_MODIFIED_KEY = "itemTagsLastModified"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {number} MAX_TAGS_PER_ITEM - Maximum number of tags allowed per item (STAK-126) */
 const MAX_TAGS_PER_ITEM = 20;
 
@@ -853,6 +859,8 @@ const SYNC_SCOPE_KEYS = [
   // ── Core data ──
   "metalInventory", // LS_KEY — inventory items
   "itemTags", // ITEM_TAGS_KEY — per-item tags
+  "itemRemovedTags", // ITEM_REMOVED_TAGS_KEY — removed per-item tags
+  "itemTagsLastModified", // ITEM_TAGS_LAST_MODIFIED_KEY — per-item tag timestamps
 
   // ── Display preferences ──
   "displayCurrency", // DISPLAY_CURRENCY_KEY — active display currency
@@ -1016,6 +1024,8 @@ const ALLOWED_STORAGE_KEYS = [
   SHOW_REALIZED_KEY, // boolean string: "true"/"false" — show realized G/L in summary cards (STAK-72)
   METAL_ORDER_KEY, // JSON array: metal order/visibility config
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
+  ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
+  ITEM_TAGS_LAST_MODIFIED_KEY, // JSON object: per-item tag timestamps keyed by UUID (STRK-108)
   "seedImagesVer", // string: current seed images version for cache invalidation
   "cloud_token_dropbox", // JSON: Dropbox OAuth token data
   "cloud_token_pcloud", // JSON: pCloud OAuth token data
@@ -1055,7 +1065,6 @@ const ALLOWED_STORAGE_KEYS = [
   // STAK-504: Market data module keys
   "vendorPricesActiveTab", // string: active metal tab in vendor prices section
   "v2SpotHistoryTs", // string: ISO timestamp of cached v2 spot history
-  "itemRemovedTags", // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   "inventorySeedApplied", // STRK-13: ISO timestamp string, sentinel proving seed has been applied (or migration ran)
   "staktrakr.bootDiagnostics", // STRK-13: JSON array, 10-entry ring buffer of boot classifications
   // STRK-45: per-item attachments
@@ -1969,6 +1978,8 @@ if (typeof window !== "undefined") {
   window.saveNumistaViewFieldConfig = saveNumistaViewFieldConfig;
   // Item tags (STAK-126)
   window.ITEM_TAGS_KEY = ITEM_TAGS_KEY;
+  window.ITEM_REMOVED_TAGS_KEY = ITEM_REMOVED_TAGS_KEY;
+  window.ITEM_TAGS_LAST_MODIFIED_KEY = ITEM_TAGS_LAST_MODIFIED_KEY;
   window.MAX_TAGS_PER_ITEM = MAX_TAGS_PER_ITEM;
   window.MAX_TAG_LENGTH = MAX_TAG_LENGTH;
   // Multi-currency support (STACK-50)

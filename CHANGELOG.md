@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.88] - 2026-05-25
+
+### Fixed — STRK-108: Cloud sync tag merge
+
+- **Cloud sync tags**: Selective cloud sync now carries per-item tags,
+  removed-tag opt-outs, and per-UUID tag timestamps through the encrypted sync
+  payload, using last-writer-wins merge semantics and refreshing in-memory tag
+  state after pulls. (STRK-108)
+- **Tag-only pulls**: Manifest-first sync now detects tag-only remote changes
+  and routes version-upgrade tag keys through dedicated merge logic instead of
+  generic settings writes. (STRK-108)
+
+---
+
 ## [3.34.87] - 2026-05-25
 
 ### Changed — STRK-107: Cloud sync conflict loop after accepting remote changes

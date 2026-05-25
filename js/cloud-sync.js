@@ -2665,6 +2665,178 @@ async function pullSyncVault(remoteMeta) {
 // Restore preview (Layer 5 — REQ-5)
 // ---------------------------------------------------------------------------
 
+function _tagSyncKeys() {
+  return [
+    typeof ITEM_TAGS_KEY !== "undefined" ? ITEM_TAGS_KEY : "itemTags",
+    typeof ITEM_REMOVED_TAGS_KEY !== "undefined" ? ITEM_REMOVED_TAGS_KEY : "itemRemovedTags",
+    typeof ITEM_TAGS_LAST_MODIFIED_KEY !== "undefined"
+      ? ITEM_TAGS_LAST_MODIFIED_KEY
+      : "itemTagsLastModified",
+  ];
+}
+
+function _isTagSyncKey(key) {
+  return _tagSyncKeys().indexOf(key) !== -1;
+}
+
+function _normalizeRawStorageValue(value) {
+  if (value === undefined || value === null) return null;
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function _parseTagStore(rawValue, fallback) {
+  if (rawValue === undefined || rawValue === null) return fallback || {};
+  try {
+    var raw = typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue);
+    var decoded = typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+    var parsed = typeof decoded === "string" ? JSON.parse(decoded) : decoded;
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? parsed
+      : fallback || {};
+  } catch (_e) {
+    return fallback || {};
+  }
+}
+
+function _extractRemoteTagData(remoteSettings) {
+  remoteSettings = remoteSettings || {};
+  return {
+    itemTags: remoteSettings[_tagSyncKeys()[0]],
+    itemRemovedTags: remoteSettings[_tagSyncKeys()[1]],
+    itemTagsLastModified: remoteSettings[_tagSyncKeys()[2]],
+  };
+}
+
+function _hasTagChanges(remoteSettings) {
+  if (!remoteSettings) return false;
+  var keys = _tagSyncKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var localVal = typeof localStorage !== "undefined" ? localStorage.getItem(keys[i]) : null;
+    var remoteVal = _normalizeRawStorageValue(remoteSettings[keys[i]]);
+    if (localVal !== remoteVal) return true;
+  }
+  return false;
+}
+
+function _restoreRawStorageValues(priorValues) {
+  if (!priorValues || typeof localStorage === "undefined") return;
+  var keys = Object.keys(priorValues);
+  for (var i = 0; i < keys.length; i++) {
+    if (priorValues[keys[i]] === null) localStorage.removeItem(keys[i]);
+    else localStorage.setItem(keys[i], priorValues[keys[i]]);
+  }
+}
+
+function _mergeTagData(remoteTagData) {
+  var keys = _tagSyncKeys();
+  remoteTagData = remoteTagData || {};
+
+  var localTags =
+    typeof loadDataSync === "function" ? loadDataSync(keys[0], {}) : _parseTagStore(null, {});
+  var localRemoved =
+    typeof loadDataSync === "function" ? loadDataSync(keys[1], {}) : _parseTagStore(null, {});
+  var localTimestamps =
+    typeof loadTagTimestamps === "function"
+      ? loadTagTimestamps()
+      : typeof loadDataSync === "function"
+        ? loadDataSync(keys[2], {})
+        : {};
+
+  var remoteTags = _parseTagStore(remoteTagData.itemTags, {});
+  var remoteRemoved = _parseTagStore(remoteTagData.itemRemovedTags, {});
+  var remoteTimestamps = _parseTagStore(remoteTagData.itemTagsLastModified, {});
+
+  localTags =
+    typeof localTags === "object" && localTags !== null && !Array.isArray(localTags)
+      ? localTags
+      : {};
+  localRemoved =
+    typeof localRemoved === "object" && localRemoved !== null && !Array.isArray(localRemoved)
+      ? localRemoved
+      : {};
+  localTimestamps =
+    typeof localTimestamps === "object" &&
+    localTimestamps !== null &&
+    !Array.isArray(localTimestamps)
+      ? localTimestamps
+      : {};
+
+  var mergedTags = Object.assign({}, localTags);
+  var mergedRemoved = Object.assign({}, localRemoved);
+  var mergedTimestamps = Object.assign({}, localTimestamps);
+  var uuidSet = new Set();
+  [localTags, localRemoved, localTimestamps, remoteTags, remoteRemoved, remoteTimestamps].forEach(
+    function (store) {
+      Object.keys(store || {}).forEach(function (uuid) {
+        uuidSet.add(uuid);
+      });
+    }
+  );
+
+  var updated = 0;
+  uuidSet.forEach(function (uuid) {
+    var localTs = Number(localTimestamps[uuid] || 0);
+    var remoteTs = Number(remoteTimestamps[uuid] || 0);
+    if (remoteTs > localTs) {
+      if (Array.isArray(remoteTags[uuid]) && remoteTags[uuid].length > 0) {
+        mergedTags[uuid] = remoteTags[uuid].slice();
+      } else {
+        delete mergedTags[uuid];
+      }
+      if (Array.isArray(remoteRemoved[uuid]) && remoteRemoved[uuid].length > 0) {
+        mergedRemoved[uuid] = remoteRemoved[uuid].slice();
+      } else {
+        delete mergedRemoved[uuid];
+      }
+      mergedTimestamps[uuid] = remoteTs;
+      updated++;
+    }
+  });
+
+  Object.keys(mergedTags).forEach(function (uuid) {
+    if (!Array.isArray(mergedTags[uuid]) || mergedTags[uuid].length === 0) {
+      delete mergedTags[uuid];
+      return;
+    }
+    if (!Array.isArray(mergedRemoved[uuid])) return;
+    var presentTags = new Set(
+      mergedTags[uuid].map(function (tag) {
+        return String(tag).toLowerCase();
+      })
+    );
+    mergedRemoved[uuid] = mergedRemoved[uuid].filter(function (tag) {
+      return !presentTags.has(String(tag).toLowerCase());
+    });
+    if (mergedRemoved[uuid].length === 0) delete mergedRemoved[uuid];
+  });
+
+  if (typeof saveDataSync === "function") {
+    saveDataSync(keys[0], mergedTags);
+    saveDataSync(keys[1], mergedRemoved);
+    saveDataSync(keys[2], mergedTimestamps);
+  } else if (typeof localStorage !== "undefined") {
+    localStorage.setItem(keys[0], JSON.stringify(mergedTags));
+    localStorage.setItem(keys[1], JSON.stringify(mergedRemoved));
+    localStorage.setItem(keys[2], JSON.stringify(mergedTimestamps));
+  }
+
+  if (typeof loadItemTags === "function") loadItemTags();
+  return { merged: true, uuidsUpdated: updated };
+}
+
+function _mergeOneSidedTagSettings(remoteSettings) {
+  var tagKeysMerged = 0;
+  var tagData = _extractRemoteTagData(remoteSettings);
+  Object.keys(tagData).forEach(function (key) {
+    if (tagData[key] !== undefined && tagData[key] !== null) tagKeysMerged++;
+  });
+  if (tagKeysMerged === 0) return { tagKeysMerged: 0, mergeResult: null };
+  return {
+    tagKeysMerged: tagKeysMerged,
+    mergeResult: _mergeTagData(tagData),
+  };
+}
+
 /**
  * Consolidated post-apply sequence for sync and vault restore paths.
  * Handles backup, inventory assignment, settings application, save/render,
@@ -2682,6 +2854,7 @@ async function pullSyncVault(remoteMeta) {
  * @param {string} [options.source='sync'] - 'sync' or 'vault' — controls toast prefix
  * @param {boolean} [options.showToast=true] - Whether to show the summary toast
  * @param {boolean} [options.broadcastPull=true] - Whether to broadcast pull-complete to other tabs
+ * @param {object} [options.remoteTagData] - Raw remote tag stores from sync payload
  */
 function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remoteMeta, options) {
   var acceptanceCutoff = Date.now();
@@ -2691,6 +2864,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   var source = opts.source || "sync";
   var shouldToast = opts.showToast !== false;
   var shouldBroadcast = opts.broadcastPull !== false;
+  var tagPriorValues = null;
 
   // 1. Pre-apply backup
   if (typeof syncSaveOverrideBackup === "function") {
@@ -2704,6 +2878,33 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   var _prevInventory = inventory;
   if (typeof newInventory !== "undefined" && newInventory !== null) {
     inventory = newInventory;
+  }
+
+  if (opts.remoteTagData) {
+    var tagKeys = _tagSyncKeys();
+    tagPriorValues = {};
+    for (var tk = 0; tk < tagKeys.length; tk++) {
+      tagPriorValues[tagKeys[tk]] =
+        typeof localStorage !== "undefined" ? localStorage.getItem(tagKeys[tk]) : null;
+    }
+    try {
+      _mergeTagData(opts.remoteTagData);
+    } catch (tagErr) {
+      inventory = _prevInventory;
+      _restoreRawStorageValues(tagPriorValues);
+      console.warn("[CloudSync] Tag merge failed — rolling back pull:", tagErr);
+      logCloudSyncActivity(
+        "cloud_sync_pull",
+        "partial",
+        { failedCount: 1, failedKeys: tagKeys },
+        null
+      );
+      if (typeof updateSyncStatusIndicator === "function") {
+        updateSyncStatusIndicator("error", "rollback");
+      }
+      if (typeof refreshSyncUI === "function") refreshSyncUI();
+      return;
+    }
   }
 
   // 3. Apply settings changes.
@@ -2748,6 +2949,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     }
     if (_failedCount > 0) {
       inventory = _prevInventory;
+      _restoreRawStorageValues(tagPriorValues);
       for (var r = 0; r < _appliedKeys.length; r++) {
         try {
           var prior = _priorValues[_appliedKeys[r]];
@@ -2944,6 +3146,10 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
             // Delegate everything to _applyAndFinalize (backup, save, render, toast, status, broadcast)
             _applyAndFinalize(newInv, selectedChanges, settingsChanges, remoteMeta, {
               source: "sync",
+              remoteTagData:
+                remotePayload && remotePayload.data
+                  ? _extractRemoteTagData(remotePayload.data)
+                  : null,
             });
             debugLog("[CloudSync] Restore preview: applied selected changes via DiffEngine");
             p = Promise.resolve();
@@ -3133,7 +3339,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             for (var _dvs = 0; _dvs < SYNC_SCOPE_KEYS.length; _dvs++) {
               if (
                 SYNC_SCOPE_KEYS[_dvs] === "metalInventory" ||
-                SYNC_SCOPE_KEYS[_dvs] === "itemTags"
+                _isTagSyncKey(SYNC_SCOPE_KEYS[_dvs])
               )
                 continue;
               var _dvlv =
@@ -3152,6 +3358,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           }
           _applyAndFinalize(newInv, selectedChanges, _dvSettingsChanges, remoteMeta, {
             source: "sync",
+            remoteTagData: _extractRemoteTagData(payload.data),
           });
           debugLog(
             "[CloudSync] Deferred vault restore complete (selective apply, settings:",
@@ -3323,7 +3530,7 @@ async function pullWithPreview(remoteMeta) {
             var _mLocalSettings = {};
             if (typeof SYNC_SCOPE_KEYS !== "undefined" && typeof localStorage !== "undefined") {
               for (var ms = 0; ms < SYNC_SCOPE_KEYS.length; ms++) {
-                if (SYNC_SCOPE_KEYS[ms] === "metalInventory" || SYNC_SCOPE_KEYS[ms] === "itemTags")
+                if (SYNC_SCOPE_KEYS[ms] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[ms]))
                   continue;
                 var msv = localStorage.getItem(SYNC_SCOPE_KEYS[ms]);
                 if (msv !== null) _mLocalSettings[SYNC_SCOPE_KEYS[ms]] = msv;
@@ -3342,7 +3549,8 @@ async function pullWithPreview(remoteMeta) {
             !manifestSettingsDiff ||
             !manifestSettingsDiff.changed ||
             manifestSettingsDiff.changed.length === 0;
-          if (_mNoChanges && _mNoSettingsChanges) {
+          var _mHasTagChanges = _hasTagChanges(manifest.settings);
+          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
             var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -3411,6 +3619,20 @@ async function pullWithPreview(remoteMeta) {
             return;
           }
 
+          if (_mNoChanges && _mNoSettingsChanges && _mHasTagChanges) {
+            _applyAndFinalize(inventory, [], null, remoteMeta, {
+              source: "sync",
+              showToast: false,
+              remoteTagData: _extractRemoteTagData(manifest.settings),
+            });
+            logCloudSyncActivity(
+              "auto_sync_pull",
+              "success",
+              "Tag-only changes merged silently (manifest)"
+            );
+            return;
+          }
+
           // STAK-402 + STAK-412: Verify the manifest diff is complete by checking
           // whether the expected post-apply count matches the remote item count.
           // The manifest changelog only records changes the pushing device made — it
@@ -3452,8 +3674,17 @@ async function pullWithPreview(remoteMeta) {
             if (_allOneSided) {
               var _appliedCount = 0;
               var _failedCount = 0;
+              try {
+                var _tagMerge = _mergeOneSidedTagSettings(manifest.settings || {});
+                _appliedCount += _tagMerge.tagKeysMerged;
+              } catch (_tagMergeErr) {
+                _failedCount++;
+              }
               for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
                 var _sc = manifestSettingsDiff.changed[_si];
+                if (_isTagSyncKey(_sc.key)) {
+                  continue;
+                }
                 // Guard: only apply keys in the ALLOWED_STORAGE_KEYS allowlist
                 if (
                   typeof ALLOWED_STORAGE_KEYS !== "undefined" &&
@@ -3769,14 +4000,14 @@ async function pullWithPreview(remoteMeta) {
       if (remotePayload.data) {
         var _rsKeys = Object.keys(remotePayload.data);
         for (var rs = 0; rs < _rsKeys.length; rs++) {
-          if (_rsKeys[rs] !== "metalInventory" && _rsKeys[rs] !== "itemTags") {
+          if (_rsKeys[rs] !== "metalInventory" && !_isTagSyncKey(_rsKeys[rs])) {
             remoteSettings[_rsKeys[rs]] = remotePayload.data[_rsKeys[rs]];
           }
         }
       }
       if (typeof SYNC_SCOPE_KEYS !== "undefined") {
         for (var i = 0; i < SYNC_SCOPE_KEYS.length; i++) {
-          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || SYNC_SCOPE_KEYS[i] === "itemTags")
+          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[i]))
             continue;
           // STAK-497: Use raw localStorage.getItem to match vault payload format.
           // loadDataSync JSON-parses values, which fails for scalar settings
@@ -4361,3 +4592,9 @@ window.syncRestoreOverrideBackup = syncRestoreOverrideBackup;
 window.changeVaultPassword = changeVaultPassword;
 window.syncGetLastPush = syncGetLastPush;
 window._syncRelativeTime = _syncRelativeTime;
+if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
+  window.CloudSyncTest = window.CloudSyncTest || {};
+  window.CloudSyncTest.hasTagChanges = _hasTagChanges;
+  window.CloudSyncTest.mergeTagData = _mergeTagData;
+  window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
+}

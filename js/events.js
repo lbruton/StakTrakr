@@ -2025,7 +2025,13 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       typeof addItemTag === "function" &&
       typeof saveItemTags === "function"
     ) {
-      pendingTags.forEach((tag) => addItemTag(addedItem.uuid, tag, false));
+      let addedTags = false;
+      pendingTags.forEach((tag) => {
+        if (addItemTag(addedItem.uuid, tag, false)) addedTags = true;
+      });
+      if (addedTags && typeof stampTagTimestamp === "function") {
+        stampTagTimestamp([addedItem.uuid]);
+      }
       saveItemTags();
       window.pendingAddItemTags = [];
     }
@@ -2299,7 +2305,13 @@ const setupItemFormListeners = () => {
               typeof isCloneFieldChecked === "function" &&
               isCloneFieldChecked("tags")
             ) {
-              sourceTags.forEach((tag) => addItemTag(newItem.uuid, tag, false));
+              let addedTags = false;
+              sourceTags.forEach((tag) => {
+                if (addItemTag(newItem.uuid, tag, false)) addedTags = true;
+              });
+              if (addedTags && typeof stampTagTimestamp === "function") {
+                stampTagTimestamp([newItem.uuid]);
+              }
               saveItemTags();
             }
           }
