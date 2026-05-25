@@ -37,6 +37,7 @@
   const _postImportCleanup = (newItems, pendingTagsByUuid) => {
     // Apply deferred tags if needed (keyed by DiffEngine.computeItemKey)
     if (pendingTagsByUuid && typeof addItemTag === "function") {
+      const stampedUuids = new Set();
       for (const item of newItems) {
         const itemKey =
           typeof DiffEngine !== "undefined"
@@ -44,8 +45,13 @@
             : item.uuid || item.serial || "";
         const tags = pendingTagsByUuid.get(itemKey);
         if (tags && tags.length) {
-          tags.forEach((tag) => addItemTag(item.uuid, tag, false));
+          tags.forEach((tag) => {
+            if (addItemTag(item.uuid, tag, false)) stampedUuids.add(item.uuid);
+          });
         }
+      }
+      if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+        stampTagTimestamp(Array.from(stampedUuids));
       }
       if (typeof saveItemTags === "function") saveItemTags();
     }
@@ -156,6 +162,7 @@
           const tagEligible = selectedChanges.filter(function (c) {
             return c.type === "add" || c.type === "modify";
           });
+          const stampedUuids = new Set();
           for (const change of tagEligible) {
             if (change.item && change.item.uuid) {
               const tagKey =
@@ -165,10 +172,15 @@
               const tags = options.pendingTagsByUuid.get(tagKey);
               if (tags && tags.length) {
                 tags.forEach(function (tag) {
-                  addItemTag(change.item.uuid, tag, false);
+                  if (addItemTag(change.item.uuid, tag, false)) {
+                    stampedUuids.add(change.item.uuid);
+                  }
                 });
               }
             }
+          }
+          if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+            stampTagTimestamp(Array.from(stampedUuids));
           }
           if (typeof saveItemTags === "function") saveItemTags();
         }
@@ -551,6 +563,7 @@
             saveInventory();
             // STAK-424: Apply deferred tags after override confirmation
             if (pendingTagsByUuid.size > 0 && typeof addItemTag === "function") {
+              const stampedUuids = new Set();
               for (const item of imported) {
                 const itemKey =
                   typeof DiffEngine !== "undefined"
@@ -558,8 +571,13 @@
                     : item.uuid || item.serial || "";
                 const tags = pendingTagsByUuid.get(itemKey);
                 if (tags && tags.length) {
-                  tags.forEach((tag) => addItemTag(item.uuid, tag, false));
+                  tags.forEach((tag) => {
+                    if (addItemTag(item.uuid, tag, false)) stampedUuids.add(item.uuid);
+                  });
                 }
+              }
+              if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+                stampTagTimestamp(Array.from(stampedUuids));
               }
               if (typeof saveItemTags === "function") saveItemTags();
             }
@@ -1438,11 +1456,17 @@
         // ── Override path: skip DiffEngine, import all directly ──
         if (override) {
           if (typeof addItemTag === "function") {
+            const stampedUuids = new Set();
             for (const item of imported) {
               const pendingTags = pendingTagsByUuid.get(item.uuid);
               if (pendingTags && pendingTags.length) {
-                pendingTags.forEach((tag) => addItemTag(item.uuid, tag, false));
+                pendingTags.forEach((tag) => {
+                  if (addItemTag(item.uuid, tag, false)) stampedUuids.add(item.uuid);
+                });
               }
+            }
+            if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+              stampTagTimestamp(Array.from(stampedUuids));
             }
             if (typeof saveItemTags === "function") saveItemTags();
           }
