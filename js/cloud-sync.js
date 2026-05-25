@@ -2684,6 +2684,8 @@ async function pullSyncVault(remoteMeta) {
  * @param {boolean} [options.broadcastPull=true] - Whether to broadcast pull-complete to other tabs
  */
 function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remoteMeta, options) {
+  var acceptanceCutoff = Date.now();
+
   // Normalize options with defaults
   var opts = options || {};
   var source = opts.source || "sync";
@@ -2783,6 +2785,9 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
 
   // 4. Save & render
   if (typeof saveInventory === "function") saveInventory();
+  if (typeof window.neutralizeSupersededChangelog === "function") {
+    window.neutralizeSupersededChangelog(selectedChanges, acceptanceCutoff);
+  }
   if (typeof reconcileAttachmentOrphans === "function") reconcileAttachmentOrphans();
   if (typeof fetchSpotPrice === "function") {
     try {

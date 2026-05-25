@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.87] - 2026-05-25
+
+### Changed — STRK-107: Cloud sync conflict loop after accepting remote changes
+
+- **Cloud sync conflicts**: Accepting remote item changes now neutralizes superseded
+  local changelog entries at the acceptance cutoff, preserving Activity Log history
+  while preventing stale local edits from reappearing in the next sync manifest.
+  (STRK-107)
+- **Regression coverage**: Added cloud sync conflict-loop Playwright coverage for
+  repeated conflicts, `lastModified`, rollback safety, and post-acceptance local
+  edit cutoff behavior. (STRK-107)
+
+---
+
 ## [3.34.86] - 2026-05-24
 
 ### Fixed — STRK-106: Bullion Exchanges gold scrape failures
