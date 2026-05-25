@@ -464,16 +464,18 @@ const fetchSpotPrice = () => {
  */
 const updateManualSpot = (metalKey) => {
   const metalConfig = Object.values(METALS).find((m) => m.key === metalKey);
-  if (!metalConfig) return;
+  if (!metalConfig) return undefined;
 
   const input = elements.userSpotPriceInput[metalKey];
   const value = input.value;
 
-  if (!value) return;
+  if (!value) return undefined;
 
   const num = parseFloat(value);
-  if (isNaN(num) || num <= 0)
-    return appAlert(`Invalid ${metalConfig.name.toLowerCase()} spot price.`);
+  if (isNaN(num) || num <= 0) {
+    appAlert(`Invalid ${metalConfig.name.toLowerCase()} spot price.`);
+    return undefined;
+  }
 
   localStorage.setItem(metalConfig.localStorageKey, num);
   spotPrices[metalKey] = num;
@@ -507,6 +509,8 @@ const updateManualSpot = (metalKey) => {
   if (typeof hideManualInput === "function") {
     hideManualInput(metalConfig.name);
   }
+
+  return undefined;
 };
 
 /**

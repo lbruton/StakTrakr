@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.89 &ndash; STRK-110: Consistent return cleanup</strong>: Manual spot entry and retail detail modal open paths now return undefined consistently, clearing PMD ConsistentReturn findings without changing user-facing behavior (STRK-110).</li>
     <li><strong>v3.34.88 &ndash; STRK-108: Cloud sync tag merge</strong>: Cloud sync now preserves item tags, removed-tag opt-outs, and per-item tag timestamps across devices during selective sync merges (STRK-108).</li>
     <li><strong>v3.34.87 &ndash; STRK-107: Cloud sync conflict loop fix</strong>: Accepting remote item changes now neutralizes superseded local changelog entries at the acceptance cutoff, preserving Activity Log history while preventing stale conflicts from reappearing on the next sync (STRK-107).</li>
     <li><strong>v3.34.86 &ndash; STRK-106: Bullion Exchanges gold reliability</strong>: Byparr scrape now retries on pre-hydration shells (the React price grid loads after Playwright&rsquo;s &lsquo;load&rsquo; event, causing ~26% of gold pages to snapshot empty); content-quality check + bounded retry restore gold price coverage (STRK-106).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.81 &ndash; Mobile parity</strong>: Bulk editor now usable on phones with sticky identity columns and 44px tap targets; nested-path fields (shape, capsule, capsule notes) bulk-edit correctly; modal action buttons safe-area aware on notched devices; chart viewports scale properly on small screens (STRK-91, STRK-42, STAK-578).</li>
     <li><strong>v3.34.80 &ndash; Goldback expansion</strong>: New &frac14; Goldback (Idaho, g0.25) denomination; ticker now shows G1-rate-based premium % with three-tier color coding (low &lt;2%, mid 2&ndash;5%, high &ge;5%) across ticker, vendor matrix, and detail modal; daily retail charts fixed; goldback purchase-price lookup repaired (STRK-66, STRK-85, STRK-69, STRK-77).</li>
     <li><strong>v3.34.78 &ndash; Retail accuracy + new spot provider</strong>: SD Bullion and Bullion Exchanges scrape now lands on the correct 1-unit Check/Wire price instead of bulk-tier values; 90-day Market History &ldquo;All&rdquo; view carries per-vendor data across the full window; gold-api.com added as a first-class spot provider; header Spot button no longer fires four redundant per-metal syncs (STRK-99, STRK-92, STRK-89, STRK-93).</li>
-    <li><strong>v3.34.71 &ndash; Workflow, catalog & reliability</strong>: Direct Print button for inventory; partial-stack disposition with constrained quantity selector; per-side image override (obverse + reverse independently); structured Capsule field with notes; new metallic dark theme on an oklch token system; service-worker cache recovery; manifest-first cloud sync now preserves item field edits (STRK-49, STRK-44, STRK-53, STRK-67, STRK-46, STRK-25, STRK-56, STRK-101).</li>
   `;
 };
 
