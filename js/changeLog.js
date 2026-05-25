@@ -66,7 +66,42 @@ const pushTransactionEntries = (splitEntry, disposedEntry) => {
 };
 window.pushTransactionEntries = pushTransactionEntries;
 
-function neutralizeSupersededChangelog() {}
+function neutralizeSupersededChangelog(selectedChanges, cutoffTimestamp) {
+  if (!Array.isArray(selectedChanges) || selectedChanges.length === 0) return 0;
+  const acceptedKeys = new Set();
+  selectedChanges.forEach((change) => {
+    if (!change) return;
+    if (change.itemKey) {
+      acceptedKeys.add(String(change.itemKey));
+      return;
+    }
+    if (change.item) {
+      const itemKey = computeItemKey(change.item);
+      if (itemKey) acceptedKeys.add(String(itemKey));
+    }
+  });
+  if (acceptedKeys.size === 0) return 0;
+
+  const cutoff = Number.isFinite(Number(cutoffTimestamp)) ? Number(cutoffTimestamp) : Date.now();
+  let neutralizedCount = 0;
+  changeLog.forEach((entry) => {
+    if (!entry?.itemKey) return;
+    if (!acceptedKeys.has(String(entry.itemKey))) return;
+    if (Number(entry.timestamp) > cutoff) return;
+    if (entry.neutralized) return;
+    entry.neutralized = true;
+    neutralizedCount++;
+  });
+
+  if (neutralizedCount > 0) {
+    try {
+      saveDataSync("changeLog", changeLog);
+    } catch (e) {
+      console.warn("[ChangeLog] Failed to persist neutralized sync entries", e);
+    }
+  }
+  return neutralizedCount;
+}
 window.neutralizeSupersededChangelog = neutralizeSupersededChangelog;
 
 /**
@@ -226,6 +261,9 @@ const renderChangeLog = () => {
   // Used for the settings panel compact view and all legacy/standard entries in the modal.
   const renderFlatRow = (entry, globalIndex) => {
     const actionLabel = entry.undone ? "Redo" : "Undo";
+    const actionCell = entry.neutralized
+      ? '<span class="synced-badge" title="Resolved by sync">Synced</span>'
+      : `<button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button>`;
 
     // --- STRK-44: "Restored (merged)" single-row rendering ---
     if (entry.field === "Restored (merged)") {
@@ -321,7 +359,7 @@ const renderChangeLog = () => {
         <td title="${displayField}">${displayField}</td>
         <td title="${displayOld}">${displayOld}</td>
         <td title="${displayNew}">${displayNew}</td>
-        <td class="action-cell"><button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button></td>
+        <td class="action-cell">${actionCell}</td>
       </tr>`;
   };
 
@@ -457,6 +495,7 @@ window.applyLegacyDispositionUndo = applyLegacyDispositionUndo;
 const toggleChange = async (logIdx) => {
   const entry = changeLog[logIdx];
   if (!entry) return;
+  if (entry.neutralized) return;
 
   // Cascade undo/redo — any transactionId routes here regardless of field (STAK-388)
   if (entry.transactionId) {
@@ -791,6 +830,7 @@ const logAttachmentChange = (item, action, attachRecord, oldRecord = null) => {
 const getManifestEntries = (sinceTimestamp) => {
   return changeLog
     .filter((entry) => {
+      if (entry.neutralized) return false;
       if (entry.type === "sync-marker") return false;
       if (sinceTimestamp == null) return true;
       return entry.timestamp >= sinceTimestamp;

@@ -4,7 +4,7 @@ const ACCOUNT_ID = "dbid:strk107-test-account";
 const VAULT_PASSWORD = "strk107-test-password";
 const SYNC_KEY = `${VAULT_PASSWORD}:${ACCOUNT_ID}`;
 const ITEM_KEY = "strk107-item";
-const BASE_TS = 1_800_000_000_000;
+const BASE_TS = 1_700_000_000_000;
 
 const LOCAL_ITEM = {
   uuid: ITEM_KEY,
@@ -91,6 +91,8 @@ async function gotoCloudReady(page) {
       typeof window.encryptManifest === "function" &&
       typeof window.decryptManifest === "function" &&
       typeof window.neutralizeSupersededChangelog === "function" &&
+      typeof window.DiffEngine !== "undefined" &&
+      typeof window.DiffEngine.applySelectedChanges === "function" &&
       typeof window.DiffModal !== "undefined"
   );
 }
@@ -107,15 +109,6 @@ function dropboxPath(route) {
 
 async function routeDropbox(page, options = {}) {
   await page.route("https://content.dropboxapi.com/2/files/download", async (route) => {
-    const path = dropboxPath(route);
-    if (path.endsWith(".stmanifest") && options.manifestBytes) {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/octet-stream",
-        body: Buffer.from(options.manifestBytes),
-      });
-      return;
-    }
     await route.fulfill({ status: 409, body: "{}" });
   });
 
@@ -136,40 +129,21 @@ async function routeDropbox(page, options = {}) {
   });
 }
 
-async function encryptedManifest(page, manifest) {
-  return page.evaluate(
-    async ({ payload, key }) =>
-      Array.from(new Uint8Array(await window.encryptManifest(payload, key))),
-    { payload: manifest, key: SYNC_KEY }
-  );
-}
-
-function remoteManifest(field = "name", value = REMOTE_ITEM.name) {
-  return {
-    version: 1,
-    changes: [
-      {
-        itemKey: ITEM_KEY,
-        itemName: REMOTE_ITEM.name,
-        type: "item-edit",
-        fields: [{ field, oldValue: LOCAL_ITEM[field], newValue: value, timestamp: BASE_TS + 200 }],
-      },
-    ],
-    summary: { itemsAdded: 0, itemsEdited: 1, itemsDeleted: 0, settingsChanged: 0 },
-  };
-}
-
-async function acceptRemoteAndCaptureManifest(page, selectedChanges, manifest = remoteManifest()) {
-  const manifestBytes = await encryptedManifest(page, manifest);
+async function acceptRemoteAndCaptureManifest(page, selectedChanges, afterApply = null) {
   let uploadedManifestBytes = null;
   await routeDropbox(page, {
-    manifestBytes,
     onManifestUpload: async (bytes) => {
       uploadedManifestBytes = Array.from(bytes);
     },
   });
   await page.evaluate((changes) => {
     window.__strk107ApplyCalls = 0;
+    window.__strk107NeutralizeCalls = 0;
+    const originalNeutralize = window.neutralizeSupersededChangelog;
+    window.neutralizeSupersededChangelog = function () {
+      window.__strk107NeutralizeCalls += 1;
+      return originalNeutralize.apply(this, arguments);
+    };
     window.DiffModal.show = (options) => {
       window.__strk107ApplyCalls += 1;
       options.onApply(changes);
@@ -178,17 +152,43 @@ async function acceptRemoteAndCaptureManifest(page, selectedChanges, manifest = 
   }, selectedChanges);
 
   await page.evaluate(
-    (timestamp) =>
-      window.pullWithPreview({
-        syncId: "remote-sync",
-        timestamp,
-        rev: "remote-rev",
-        itemCount: 1,
-        deviceId: "remote-device",
-      }),
-    BASE_TS + 300
+    ({ timestamp, diff }) =>
+      window.showRestorePreviewModal(
+        diff,
+        null,
+        { data: { metalInventory: JSON.stringify([window.inventory[0]]) } },
+        {
+          syncId: "remote-sync",
+          timestamp,
+          rev: "remote-rev",
+          itemCount: 1,
+          deviceId: "remote-device",
+        },
+        null
+      ),
+    {
+      timestamp: BASE_TS + 300,
+      diff: {
+        added: [],
+        deleted: [],
+        unchanged: [],
+        modified: [
+          {
+            item: REMOTE_ITEM,
+            itemKey: ITEM_KEY,
+            fields: selectedChanges.map((change) => ({
+              field: change.field,
+              oldValue: LOCAL_ITEM[change.field],
+              newValue: change.value,
+            })),
+          },
+        ],
+      },
+    }
   );
   await expect.poll(() => page.evaluate(() => window.__strk107ApplyCalls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__strk107NeutralizeCalls)).toBe(1);
+  if (afterApply) await afterApply();
   await expect.poll(() => uploadedManifestBytes, { timeout: 5000 }).not.toBeNull();
   return page.evaluate(
     async ({ bytes, key }) => window.decryptManifest(new Uint8Array(bytes), key),
@@ -228,18 +228,14 @@ test.describe("STRK-107 — sync conflict acceptance neutralization", () => {
     );
     await gotoCloudReady(page);
 
-    const manifest = await acceptRemoteAndCaptureManifest(
-      page,
-      [
-        {
-          type: "modify",
-          itemKey: ITEM_KEY,
-          field: "lastModified",
-          value: REMOTE_ITEM.lastModified,
-        },
-      ],
-      remoteManifest("lastModified", REMOTE_ITEM.lastModified)
-    );
+    const manifest = await acceptRemoteAndCaptureManifest(page, [
+      {
+        type: "modify",
+        itemKey: ITEM_KEY,
+        field: "lastModified",
+        value: REMOTE_ITEM.lastModified,
+      },
+    ]);
 
     expect(manifest.changes.map((change) => change.itemKey)).not.toContain(ITEM_KEY);
   });
@@ -247,19 +243,15 @@ test.describe("STRK-107 — sync conflict acceptance neutralization", () => {
   test("AC-6: post-acceptance edits remain eligible for manifest upload", async ({ page }) => {
     await seedCloudState(page, [LOCAL_ITEM], [staleEntry()]);
     await gotoCloudReady(page);
-    await page.evaluate(() => {
-      window.__strk107OriginalSaveInventory = window.saveInventory;
-      window.saveInventory = function () {
-        const result = window.__strk107OriginalSaveInventory.apply(this, arguments);
+
+    const manifest = await acceptRemoteAndCaptureManifest(page, selectedNameChange(), () =>
+      page.evaluate(() => {
         window.logItemChanges(
           { ...window.inventory[0], name: "STRK-107 Remote" },
           { ...window.inventory[0], name: "STRK-107 Post Accept" }
         );
-        return result;
-      };
-    });
-
-    const manifest = await acceptRemoteAndCaptureManifest(page, selectedNameChange());
+      })
+    );
     const itemChange = manifest.changes.find((change) => change.itemKey === ITEM_KEY);
 
     expect(itemChange?.fields.map((field) => field.newValue)).toEqual(["STRK-107 Post Accept"]);
@@ -297,21 +289,26 @@ test.describe("STRK-107 — sync conflict acceptance neutralization", () => {
       };
     });
 
-    const manifestBytes = await encryptedManifest(page, {
-      ...remoteManifest(),
-      settings: { appTheme: "dark" },
-      summary: { itemsAdded: 0, itemsEdited: 1, itemsDeleted: 0, settingsChanged: 1 },
-    });
-    await routeDropbox(page, { manifestBytes });
     await page.evaluate(
       (timestamp) =>
-        window.pullWithPreview({
-          syncId: "remote-sync",
-          timestamp,
-          rev: "remote-rev",
-          itemCount: 1,
-          deviceId: "remote-device",
-        }),
+        window.showRestorePreviewModal(
+          {
+            added: [],
+            deleted: [],
+            unchanged: [],
+            modified: [{ item: { ...window.inventory[0], name: "STRK-107 Remote" } }],
+          },
+          { changed: [{ key: "appTheme", remoteVal: "dark" }] },
+          { data: { metalInventory: JSON.stringify([window.inventory[0]]) } },
+          {
+            syncId: "remote-sync",
+            timestamp,
+            rev: "remote-rev",
+            itemCount: 1,
+            deviceId: "remote-device",
+          },
+          null
+        ),
       BASE_TS + 300
     );
 
