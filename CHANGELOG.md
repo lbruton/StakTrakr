@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.89] - 2026-05-25
+
+### Fixed — STRK-110: Consistent return cleanup
+
+- **Code quality**: Normalized `updateManualSpot()` and `openRetailViewModal()`
+  to return `undefined` explicitly without leaking helper return values, clearing
+  PMD ConsistentReturn findings while preserving existing UI behavior. (STRK-110)
+
+---
+
 ## [3.34.88] - 2026-05-25
 
 ### Fixed — STRK-108: Cloud sync tag merge
