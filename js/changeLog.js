@@ -66,6 +66,9 @@ const pushTransactionEntries = (splitEntry, disposedEntry) => {
 };
 window.pushTransactionEntries = pushTransactionEntries;
 
+function neutralizeSupersededChangelog() {}
+window.neutralizeSupersededChangelog = neutralizeSupersededChangelog;
+
 /**
  * Compares two item objects and logs any differences.
  * Adds scope, itemKey, and type fields to each entry (additive — existing entries
