@@ -4592,7 +4592,9 @@ window.syncRestoreOverrideBackup = syncRestoreOverrideBackup;
 window.changeVaultPassword = changeVaultPassword;
 window.syncGetLastPush = syncGetLastPush;
 window._syncRelativeTime = _syncRelativeTime;
-window.CloudSyncTest = window.CloudSyncTest || {};
-window.CloudSyncTest.hasTagChanges = _hasTagChanges;
-window.CloudSyncTest.mergeTagData = _mergeTagData;
-window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
+if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
+  window.CloudSyncTest = window.CloudSyncTest || {};
+  window.CloudSyncTest.hasTagChanges = _hasTagChanges;
+  window.CloudSyncTest.mergeTagData = _mergeTagData;
+  window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
+}
