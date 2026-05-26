@@ -789,47 +789,48 @@ const generateLookupTable = (inventory, options = {}) => {
       const combinedNames = new Set([...inventoryNames, ...PREBUILT_LOOKUP_DATA]);
       allNames = Array.from(combinedNames).sort();
 
-      // Add common purchase locations (if none exist)
-      if (inventoryPurchaseLocations.length === 0) {
-        allPurchaseLocations = [
-          "APMEX",
-          "JM Bullion",
-          "SD Bullion",
-          "Provident Metals",
-          "Golden Eagle Coins",
-          "Money Metals Exchange",
-          "Bullion Exchanges",
-          "Liberty Coin",
-          "Local Coin Shop",
-          "Precious Metals Exchange",
-          "Scottsdale Mint",
-          "SilverTowne",
-          "BGASC",
-          "Gainesville Coins",
-          "Texas Precious Metals",
-          "Bullion Depot",
-        ].sort();
-      } else {
-        allPurchaseLocations = inventoryPurchaseLocations;
-      }
+      // Merge inventory purchase locations with common vendors
+      const COMMON_PURCHASE_LOCATIONS = [
+        "APMEX",
+        "JM Bullion",
+        "SD Bullion",
+        "Provident Metals",
+        "Golden Eagle Coins",
+        "Money Metals Exchange",
+        "Bullion Exchanges",
+        "Liberty Coin",
+        "Local Coin Shop",
+        "Precious Metals Exchange",
+        "Scottsdale Mint",
+        "SilverTowne",
+        "BGASC",
+        "Gainesville Coins",
+        "Texas Precious Metals",
+        "Bullion Depot",
+        "Hero Bullion",
+        "Monument Metals",
+      ];
+      const combinedPurchase = new Set([
+        ...inventoryPurchaseLocations,
+        ...COMMON_PURCHASE_LOCATIONS,
+      ]);
+      allPurchaseLocations = Array.from(combinedPurchase).sort();
 
-      // Add common storage locations (if none exist)
-      if (inventoryStorageLocations.length === 0) {
-        allStorageLocations = [
-          "Home Safe",
-          "Bank Safety Deposit Box",
-          "Private Vault",
-          "Home Storage",
-          "Safety Deposit Box",
-          "Secure Storage Facility",
-          "Personal Safe",
-          "Bank Vault",
-          "Precious Metals Depository",
-          "Allocated Storage",
-        ].sort();
-      } else {
-        allStorageLocations = inventoryStorageLocations;
-      }
+      // Merge inventory storage locations with common defaults
+      const COMMON_STORAGE_LOCATIONS = [
+        "Home Safe",
+        "Bank Safety Deposit Box",
+        "Private Vault",
+        "Home Storage",
+        "Safety Deposit Box",
+        "Secure Storage Facility",
+        "Personal Safe",
+        "Bank Vault",
+        "Precious Metals Depository",
+        "Allocated Storage",
+      ];
+      const combinedStorage = new Set([...inventoryStorageLocations, ...COMMON_STORAGE_LOCATIONS]);
+      allStorageLocations = Array.from(combinedStorage).sort();
 
       allCapsules = buildCapsuleLookupValues(inventoryCapsules);
 
