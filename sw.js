@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.34.90-b1779769740";
+const CACHE_NAME = "staktrakr-v3.34.91-b1779771467";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -256,19 +256,6 @@ function respondWithCacheFallback(request, response) {
 // Guarantee a Response for respondWith() — catch undefined and rejections
 function ensureResponse(promise) {
   return promise.then((response) => response || Response.error()).catch(() => Response.error());
-}
-
-// Strategy: cache-first with network fallback
-function cacheFirst(request) {
-  return ensureResponse(
-    caches
-      .match(request)
-      .then(
-        (cached) =>
-          cached ||
-          fetchAndCache(request).then((response) => respondWithCacheFallback(request, response))
-      )
-  );
 }
 
 // Strategy: network-first with cache fallback
