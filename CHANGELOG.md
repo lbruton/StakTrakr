@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.94] - 2026-05-26
+
+### Changed — STRK-117: Playwright consolidation batch
+
+- **Money and disposition coverage**: Consolidated 6 high-risk Playwright specs
+  (132 historical tests) into 2 compact core suites — `inventory-math.spec.js`
+  (10 tests) and `disposition.spec.js` (13 tests) — while preserving archived
+  source coverage for on-demand legacy verification. (STRK-117)
+
+---
+
 ## [3.34.93] - 2026-05-26
 
 ### Changed — STRK-116: Playwright suite consolidation batch
