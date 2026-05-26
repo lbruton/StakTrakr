@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 
 /**
  * Playwright TDD spec for STAK-559 — Edit/Add Modal layout reorder.

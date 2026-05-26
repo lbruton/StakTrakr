@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 
 /**
  * Playwright regression suite for STAK-578 — Mobile modal safe-area insets.

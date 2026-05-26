@@ -1,6 +1,51 @@
-import { test, expect } from "@playwright/test";
+import { test, describe, before } from "node:test";
+import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
+
+test.describe = describe;
+test.beforeAll = before;
+
+function expect(actual) {
+  const api = {
+    toBe(expected) {
+      assert.equal(actual, expected);
+    },
+    toEqual(expected) {
+      assert.deepEqual(actual, expected);
+    },
+    toContain(expected) {
+      assert.ok(actual.includes(expected));
+    },
+    toMatch(expected) {
+      assert.match(actual, expected);
+    },
+    toBeNull() {
+      assert.equal(actual, null);
+    },
+    toBeTruthy() {
+      assert.ok(actual);
+    },
+    toBeGreaterThan(expected) {
+      assert.ok(actual > expected);
+    },
+    toBeGreaterThanOrEqual(expected) {
+      assert.ok(actual >= expected);
+    },
+    toBeLessThan(expected) {
+      assert.ok(actual < expected);
+    },
+  };
+  api.not = {
+    toBeNull() {
+      assert.notEqual(actual, null);
+    },
+    toContain(expected) {
+      assert.ok(!actual.includes(expected));
+    },
+  };
+  return api;
+}
 
 /**
  * Config file validation tests for files changed in this PR.

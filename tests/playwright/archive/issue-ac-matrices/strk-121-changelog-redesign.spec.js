@@ -1,5 +1,5 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "./helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 /**
  * STAK-446: Log / Changelog Redesign — tab rename, tab order, undo/redo for Added items, CRUD audit.
