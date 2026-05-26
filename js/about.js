@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.96 &ndash; STRK-119: Playwright consolidation batch</strong>: Consolidated catalog, Numista, and tag coverage into numista-catalog (9 tests), preserving configured and unconfigured search, picker tag opt-outs, tag delimiters, no-auto-resync behavior, and Numista metadata merge coverage with historical source specs preserved in the archive (STRK-119).</li>
     <li><strong>v3.34.95 &ndash; STRK-118: Playwright consolidation batch</strong>: Consolidated backup, attachment, cloud sync, vault, and CSV coverage into compact core and extended suites &mdash; attachments-cloud (8 tests), import-export (5 tests), and attachment-zip (3 tests) &mdash; with historical source specs preserved in the archive (STRK-118).</li>
     <li><strong>v3.34.94 &ndash; STRK-117: Playwright consolidation batch</strong>: Consolidated high-risk money math and disposition coverage into compact core suites &mdash; inventory-math (10 tests) and disposition (13 tests) &mdash; with historical source specs preserved in the archive (STRK-117).</li>
     <li><strong>v3.34.93 &ndash; STRK-116: Playwright suite consolidation batch</strong>: Consolidated 7 scattered spec files into 2 compact domain suites under core/ &mdash; smoke (12 tests) and inventory-crud (53 tests) &mdash; without deleting historical coverage (STRK-116).</li>
