@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.93] - 2026-05-26
+
+### Changed — STRK-116: Playwright suite consolidation batch
+
+- **Test consolidation**: Consolidated 7 scattered Playwright spec files (63 tests)
+  into 2 compact domain suites under `tests/playwright/core/` — `smoke.spec.js`
+  (12 tests) and `inventory-crud.spec.js` (53 tests) — without deleting historical
+  coverage. Original source files removed after verifying all assertions migrated.
+  (STRK-116)
+
+---
+
 ## [3.34.92] - 2026-05-26
 
 ### Changed — STRK-97: Playwright suite consolidation pilot
