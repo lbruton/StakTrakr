@@ -81,7 +81,7 @@ No application build step is required.
 
 Every **runtime code** change requires:
 
-1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` (StakTrakr pre-Plane issue identifier) references are historical only.
+1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` (StakTrakr pre-Plane issue identifier) references are historical only. Parent epics use the **Epic** Plane state (`0d1317b4-883f-44f0-b277-8f1f7f0388c0`); child issues use the standard states (Todo → In Progress → In Review → Done). Full state UUID table in `CLAUDE.md` under Issue Tracking.
 2. A git worktree at `.worktrees/patch-<VERSION>/` on branch `patch/<VERSION>`. All edits/commits happen inside the worktree. Zero edits on `dev`.
 3. A version lock claim in `devops/version.lock` (gitignored — edit directly, never commit). Format and lifecycle in the Release Workflow doc below.
 
