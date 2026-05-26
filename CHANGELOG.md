@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.97] - 2026-05-26
+
+### Changed — STRK-120: Playwright consolidation batch
+
+- **Retail market and valuation chart coverage**: Consolidated 6 retail,
+  premium, slug-resolution, valuation, and chart Playwright specs (60
+  historical tests) into `retail-market.spec.js` (6 tests) and
+  `valuation.spec.js` (7 tests), preserving market sorting, premium tiers,
+  display currency, slug quarantine, valuation math, responsive layout, and
+  representative chart behavior with archived source specs retained for
+  on-demand legacy verification. (STRK-120)
+
+---
+
 ## [3.34.96] - 2026-05-26
 
 ### Changed — STRK-119: Playwright consolidation batch

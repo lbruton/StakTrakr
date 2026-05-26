@@ -1,5 +1,5 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
-import seedInventory from "../fixtures/seed-inventory.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import seedInventory from "../../../fixtures/seed-inventory.js";
 
 const FIXED_NOW_ISO = "2026-05-10T12:00:00.000Z";
 const DAY_MS = 24 * 60 * 60 * 1000;

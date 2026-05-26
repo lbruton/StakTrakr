@@ -14,14 +14,14 @@
  *           localStorage keys introduced.
  */
 
-import { test, expect } from "./helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 // tests/playwright → ../../ = repo root
-const REPO_ROOT = path.resolve(path.dirname(__filename), "../../");
+const REPO_ROOT = path.resolve(path.dirname(__filename), "../../../..");
 
 // =============================================================================
 // Fixture items
