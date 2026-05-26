@@ -27,9 +27,7 @@ test.describe("extended/visual-layout-regressions", () => {
     await expect(page.locator("footer a")).toHaveCount(5);
   });
 
-  test("log/changelog tabs retain renamed labels, order, and add/undo/redo behavior", async ({
-    page,
-  }) => {
+  test("log/changelog tabs retain renamed labels and order", async ({ page }) => {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => typeof window.showSettingsModal === "function");
     await page.evaluate(() => window.showSettingsModal("changelog"));

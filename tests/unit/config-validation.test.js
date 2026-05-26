@@ -1,7 +1,7 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "fs";
-import { resolve } from "path";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 test.describe = describe;
 test.beforeAll = before;
