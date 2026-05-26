@@ -260,7 +260,14 @@ test.describe("core/inventory-math", () => {
     await expect(page.locator("#itemGbDenom")).toBeVisible();
     await expect(page.locator("#itemWeight")).toBeHidden();
     await expect(page.locator("#itemWeightUnit")).toHaveValue("gb");
-    await expect(page.locator("#itemGbDenom option")).toHaveCount(9);
+    const expectedDenominations = await page.evaluate(() =>
+      window.GOLDBACK_DENOMINATIONS.map((denomination) => String(denomination.weight))
+    );
+    const actualDenominations = await page
+      .locator("#itemGbDenom option")
+      .evaluateAll((options) => options.map((option) => option.value));
+    expect(actualDenominations).toEqual(expectedDenominations);
+    expect(actualDenominations).toEqual(expect.arrayContaining(["0.25", "1", "100"]));
 
     await page.selectOption("#itemMetal", "Silver");
     await page.selectOption("#itemType", "Silverback");
