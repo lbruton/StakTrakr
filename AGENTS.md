@@ -43,11 +43,11 @@ No application build step is required.
 - Put always-run browser coverage in `tests/playwright/core/<domain>.spec.js`, slower
   or edge coverage in `tests/playwright/extended/`, and archived issue matrices in
   `tests/playwright/archive/issue-ac-matrices/`.
-- Before adding a new Playwright file, check `tests/playwright/coverage-map.csv` and
-  prefer folding assertions into an existing domain suite.
-- Do not add new issue-prefixed specs at the Playwright root. Temporary issue AC
-  matrices must be reconciled into core/extended coverage or moved to archive before
-  merge.
+- Before adding a new Playwright file, check `tests/playwright/coverage-map.csv`.
+- Prefer folding assertions into an existing domain suite when possible.
+- Do not add new issue-prefixed specs at the Playwright root.
+- Temporary issue acceptance-criteria (AC) matrices must be reconciled into core/extended
+  coverage or moved to archive before merge.
 - Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`
   and include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 - Use stable, user-visible assertions and keep fixtures in `tests/fixtures/`.
