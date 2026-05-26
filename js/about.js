@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.97 &ndash; STRK-120: Playwright consolidation batch</strong>: Consolidated retail market and valuation chart coverage into retail-market (6 tests) and valuation (7 tests), preserving market sorting, premium tiers, display currency, slug quarantine, valuation math, responsive layout, and representative chart behavior with historical source specs preserved in the archive (STRK-120).</li>
     <li><strong>v3.34.96 &ndash; STRK-119: Playwright consolidation batch</strong>: Consolidated catalog, Numista, and tag coverage into numista-catalog (9 tests), preserving configured and unconfigured search, picker tag opt-outs, tag delimiters, no-auto-resync behavior, and Numista metadata merge coverage with historical source specs preserved in the archive (STRK-119).</li>
     <li><strong>v3.34.95 &ndash; STRK-118: Playwright consolidation batch</strong>: Consolidated backup, attachment, cloud sync, vault, and CSV coverage into compact core and extended suites &mdash; attachments-cloud (8 tests), import-export (5 tests), and attachment-zip (3 tests) &mdash; with historical source specs preserved in the archive (STRK-118).</li>
     <li><strong>v3.34.94 &ndash; STRK-117: Playwright consolidation batch</strong>: Consolidated high-risk money math and disposition coverage into compact core suites &mdash; inventory-math (10 tests) and disposition (13 tests) &mdash; with historical source specs preserved in the archive (STRK-117).</li>
@@ -147,7 +148,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.91 &ndash; STRK-111: Sweep cleanup</strong>: Removed unused cacheFirst() service worker strategy and bumped 3 transitive dependencies to resolve npm audit vulnerabilities (STRK-111, STRK-112).</li>
     <li><strong>v3.34.90 &ndash; STRK-114: Autocomplete field name fix</strong>: Purchase Location and Storage Location suggestions now remember your past entries instead of only showing generic defaults (STRK-114).</li>
     <li><strong>v3.34.89 &ndash; STRK-110: Consistent return cleanup</strong>: Manual spot entry and retail detail modal open paths now return undefined consistently, clearing PMD ConsistentReturn findings without changing user-facing behavior (STRK-110).</li>
-    <li><strong>v3.34.88 &ndash; STRK-108: Cloud sync tag merge</strong>: Cloud sync now preserves item tags, removed-tag opt-outs, and per-item tag timestamps across devices during selective sync merges (STRK-108).</li>
   `;
 };
 

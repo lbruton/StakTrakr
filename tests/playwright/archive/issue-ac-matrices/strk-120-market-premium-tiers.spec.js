@@ -14,8 +14,8 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { installStakTrakrNetworkMocks } from "./helpers/mocks/routes.js";
-import { injectSeedInventory } from "./helpers/seed.js";
+import { installStakTrakrNetworkMocks } from "../../helpers/mocks/routes.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 // ── Fixture constants ─────────────────────────────────────────────────────────
 
