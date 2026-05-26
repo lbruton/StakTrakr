@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.90] - 2026-05-25
+
+### Fixed — STRK-114: Autocomplete field name casing
+
+- **Autocomplete**: Purchase Location and Storage Location autocomplete suggestions
+  now pull from the user's actual inventory entries instead of only showing hardcoded
+  defaults — snake_case field keys corrected to camelCase in `extractUniqueValues()`
+  calls. (STRK-114)
+
+---
+
 ## [3.34.89] - 2026-05-25
 
 ### Fixed — STRK-110: Consistent return cleanup
