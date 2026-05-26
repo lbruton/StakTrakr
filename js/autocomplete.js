@@ -19,8 +19,8 @@ const AUTOCOMPLETE_CONFIG = {
   minCharacters: 2,
   /** Fuzzy match threshold (0-1) */
   threshold: 0.3,
-  /** Cache TTL in milliseconds (1 hour) */
-  cacheTTL: 60 * 60 * 1000,
+  /** Cache TTL in milliseconds (5 minutes — inventory changes frequently) */
+  cacheTTL: 5 * 60 * 1000,
   /** LocalStorage key for lookup cache */
   cacheKey: "autocomplete_lookup_cache",
   /** LocalStorage key for cache timestamp */
