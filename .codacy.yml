@@ -3,7 +3,11 @@
 # Local CLI exclusions live per-tool in .codacy/tools-configs/.
 ---
 exclude_paths:
+  - "AGENTS.md"
+  - "CLAUDE.md"
+  - "GEMINI.md"
   - ".agents/**"
+  - ".Codex/**"
   - ".codacy/**"
   - ".claude/**"
   - ".gemini/**"
