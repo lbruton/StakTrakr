@@ -43,7 +43,7 @@ const staleEntry = (overrides = {}) => ({
 
 async function seedCloudState(page, inventory = [LOCAL_ITEM], changeLog = []) {
   await page.addInitScript(
-    ({ accountId, password, inventorySeed, changeLogSeed }) => {
+    ({ accountId, password, inventorySeed, changeLogSeed, baseTs }) => {
       localStorage.setItem("metalInventory", JSON.stringify(inventorySeed));
       localStorage.setItem("changeLog", JSON.stringify(changeLogSeed));
       localStorage.setItem("cloud_dropbox_account_id", accountId);
@@ -61,7 +61,7 @@ async function seedCloudState(page, inventory = [LOCAL_ITEM], changeLog = []) {
         "cloud_sync_last_push",
         JSON.stringify({
           syncId: "local-before-acceptance",
-          timestamp: BASE_TS,
+          timestamp: baseTs,
           rev: "rev-local",
           itemCount: inventorySeed.length,
         })
@@ -79,6 +79,7 @@ async function seedCloudState(page, inventory = [LOCAL_ITEM], changeLog = []) {
       password: VAULT_PASSWORD,
       inventorySeed: inventory,
       changeLogSeed: changeLog,
+      baseTs: BASE_TS,
     }
   );
 }

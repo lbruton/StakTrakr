@@ -239,20 +239,20 @@ test.describe("core/numista-catalog", () => {
     await gotoApp(page);
 
     const result = await page.evaluate(() => {
-      const direct = window.buildNumistaSearchQuery("Austrian Philharmonic", "Gold");
+      const direct = window.buildNumistaSearchQuery("Canadian Maple Leaf", "Gold");
       const matched = window.buildNumistaSearchQuery("Austrian Philharmonic", "Gold");
       return {
         directQuery: direct.query,
+        directMatched: direct.matched,
         matched: matched.matched,
         rewrittenQuery: matched.query,
-        rawFallback: "Austrian Philharmonic",
       };
     });
 
-    expect(result.directQuery).not.toContain("Gold");
+    expect(result.directQuery).toBe("Canadian Maple Leaf");
+    expect(result.directMatched).toBe(false);
     expect(result.matched).toBe(true);
     expect(result.rewrittenQuery).toBe("Philharmonic rewritten");
-    expect(result.rawFallback).toBe("Austrian Philharmonic");
   });
 
   test("tag input delimiters split consistently in edit and view modals", async ({ page }) => {
