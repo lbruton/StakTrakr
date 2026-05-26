@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 
 /**
  * STAK-569 — buildNumistaSearchQuery should NOT prepend the metal dropdown

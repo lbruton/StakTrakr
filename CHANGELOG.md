@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.96] - 2026-05-26
+
+### Changed — STRK-119: Playwright consolidation batch
+
+- **Catalog, Numista, and tag coverage**: Consolidated 6 catalog and tag
+  Playwright specs (64 historical tests) into `numista-catalog.spec.js` (9
+  tests), preserving configured and unconfigured search, picker tag opt-outs,
+  tag delimiters, no-auto-resync behavior, and Numista metadata merge coverage
+  with archived source specs retained for on-demand legacy verification.
+  (STRK-119)
+
+---
+
 ## [3.34.95] - 2026-05-26
 
 ### Changed — STRK-118: Playwright consolidation batch
