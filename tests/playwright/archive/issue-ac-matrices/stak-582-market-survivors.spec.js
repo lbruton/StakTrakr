@@ -1,5 +1,5 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "../helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 const MARKET_FILTER_KEY = "staktrakr.market_filter";
 const SLUG_SILVER = "ase";

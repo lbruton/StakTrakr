@@ -19,8 +19,13 @@ No application build step is required.
 - `python3 -m http.server 8000` — run locally, then open `http://localhost:8000`
 - `npm run lint` — run ESLint on `js/*.js` and `sw.js`
 - `npm run lint:md:all` — lint all Markdown files
-- `npm test` — run full Playwright test suite
-- `npm run test:offline` — run Playwright tests excluding `@network` scenarios
+- `npm test` — run the core Playwright PR gate (`tests/playwright/core/`)
+- `npm run test:core` — run the core Playwright suite explicitly
+- `npm run test:extended` — run slower extended Playwright coverage (`tests/playwright/extended/`)
+- `npm run test:legacy` — run archived issue acceptance matrices (`tests/playwright/archive/`)
+- `npm run test:all` — run unit + core + extended suites
+- `npm run test:unit` — run Node/unit tests
+- `npm run test:offline` — legacy full-suite command excluding `@network` scenarios
 
 ## Coding Style & Naming Conventions
 
@@ -33,14 +38,25 @@ No application build step is required.
 ## Testing Guidelines
 
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
-- Place specs under `tests/playwright/<area>/` and name files `*.spec.js`.
+- Default PR gate: `npm test` delegates to `npm run test:core`; do not treat it as the
+  full historical suite.
+- Put always-run browser coverage in `tests/playwright/core/<domain>.spec.js`, slower
+  or edge coverage in `tests/playwright/extended/`, and archived issue matrices in
+  `tests/playwright/archive/issue-ac-matrices/`.
+- Before adding a new Playwright file, check `tests/playwright/coverage-map.csv` and
+  prefer folding assertions into an existing domain suite.
+- Do not add new issue-prefixed specs at the Playwright root. Temporary issue AC
+  matrices must be reconciled into core/extended coverage or moved to archive before
+  merge.
+- Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`
+  and include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 - Use stable, user-visible assertions and keep fixtures in `tests/fixtures/`.
 - In Codex sandboxed sessions on macOS, Playwright/Chromium may fail with
   `bootstrap_check_in ... MachPortRendezvousServer ... Permission denied (1100)`;
   rerun the same Playwright command with sandbox escalation instead of retrying
   inside the sandbox.
 - For quick local checks, run a focused file:
-  - `npx playwright test tests/playwright/01-page-load/page-load.spec.js`
+  - `npx playwright test tests/playwright/core/inventory-crud.spec.js`
 
 ## Commit & Pull Request Guidelines
 

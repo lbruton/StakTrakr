@@ -5,14 +5,33 @@ Precious metals inventory tracker. Single HTML page, vanilla JS, localStorage. R
 ## Commands
 
 ```bash
-npm test              # Playwright E2E (local Chromium)
-npm run test:offline  # Skip @network-tagged
+npm test              # Core Playwright PR gate
+npm run test:core     # Core Playwright suite
+npm run test:extended # Slower/edge Playwright suite
+npm run test:legacy   # Archived issue AC matrices
+npm run test:all      # Unit + core + extended
+npm run test:unit     # Node/unit tests
+npm run test:offline  # Legacy full-suite command excluding @network-tagged tests
 npm run lint          # ESLint
 npm run format        # Prettier (js/ + css/ only — not data/, vendor/)
 npm run format:check
 ```
 
-Pre-existing flaky test categories: `goldback-type`, `lot-each-purchase-price`, `numista-picker-tags` — skip per the 10-min hard-timeout rule; do not fix unrelated failures.
+## Playwright Test Tier Rules
+
+- `npm test` is the default PR gate and runs `tests/playwright/core/`, not the full
+  historical suite.
+- New always-run browser coverage belongs in existing domain suites under
+  `tests/playwright/core/`. Slower or edge coverage belongs in
+  `tests/playwright/extended/`.
+- Do not add new issue-prefixed specs at the Playwright root. Temporary issue AC
+  matrices must be reconciled into domain coverage or archived under
+  `tests/playwright/archive/issue-ac-matrices/` before merge.
+- Archived issue matrices are rollback/reference coverage and run on demand with
+  `npm run test:legacy`; they are intentionally excluded from `npm test` and
+  `npm run test:all`.
+- Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`
+  and include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 
 ## Documentation
 

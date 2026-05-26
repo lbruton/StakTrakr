@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.92] - 2026-05-26
+
+### Changed — STRK-97: Playwright suite consolidation pilot
+
+- **Test tiers**: Added the `core`, `extended`, and `archive` Playwright tiers,
+  made `npm test` run the new core gate, and kept archived issue acceptance
+  matrices available through `npm run test:legacy`. (STRK-97)
+- **Issue-spec archive pilot**: Folded the first issue-prefixed regression cluster
+  into compact core coverage and moved the original historical specs to
+  `tests/playwright/archive/issue-ac-matrices/` as the rollback reference.
+  (STRK-97)
+
+---
+
 ## [3.34.91] - 2026-05-25
 
 ### Changed — STRK-111: Sweep cleanup

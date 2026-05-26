@@ -1,5 +1,5 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "./helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 /**
  * STAK-443 — API Tab Sectioned Redesign (TDD red phase)
