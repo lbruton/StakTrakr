@@ -1,4 +1,4 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 
 const BASE_ITEM = {
   uuid: "strk4-base-item",

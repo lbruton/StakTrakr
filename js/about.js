@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.94 &ndash; STRK-117: Playwright consolidation batch</strong>: Consolidated high-risk money math and disposition coverage into compact core suites &mdash; inventory-math (10 tests) and disposition (13 tests) &mdash; with historical source specs preserved in the archive (STRK-117).</li>
     <li><strong>v3.34.93 &ndash; STRK-116: Playwright suite consolidation batch</strong>: Consolidated 7 scattered spec files into 2 compact domain suites under core/ &mdash; smoke (12 tests) and inventory-crud (53 tests) &mdash; without deleting historical coverage (STRK-116).</li>
     <li><strong>v3.34.92 &ndash; STRK-97: Playwright suite consolidation pilot</strong>: The default test gate now runs the new core Playwright tier, with historical issue acceptance matrices retained under the archive tier for rollback reference (STRK-97).</li>
     <li><strong>v3.34.91 &ndash; STRK-111: Sweep cleanup</strong>: Removed unused cacheFirst() service worker strategy and bumped 3 transitive dependencies to resolve npm audit vulnerabilities (STRK-111, STRK-112).</li>
