@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.100 &ndash; STRK-123: Trade linking</strong>: Added bidirectional trade links between disposed traded items and received inventory, with editable provenance, spot-derived trade values, backup/export coverage, and cloud-sync visibility (STRK-123).</li>
     <li><strong>v3.34.99 &ndash; STRK-122: Playwright consolidation closeout</strong>: Consolidated the final root-level Playwright specs into settings-api, archived the source specs, and added a final suite inventory audit confirming the core, extended, legacy, and root-level test tiers after the consolidation sequence (STRK-122).</li>
     <li><strong>v3.34.98 &ndash; STRK-121: Playwright consolidation batch</strong>: Consolidated remaining settings, mobile layout, static page, service worker, and config coverage into compact core, extended, and unit targets, preserving high-value behavior while moving static/design depth out of the default gate with historical source specs preserved in the archive (STRK-121).</li>
     <li><strong>v3.34.97 &ndash; STRK-120: Playwright consolidation batch</strong>: Consolidated retail market and valuation chart coverage into retail-market (6 tests) and valuation (7 tests), preserving market sorting, premium tiers, display currency, slug quarantine, valuation math, responsive layout, and representative chart behavior with historical source specs preserved in the archive (STRK-120).</li>
@@ -146,8 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.95 &ndash; STRK-118: Playwright consolidation batch</strong>: Consolidated backup, attachment, cloud sync, vault, and CSV coverage into compact core and extended suites &mdash; attachments-cloud (8 tests), import-export (5 tests), and attachment-zip (3 tests) &mdash; with historical source specs preserved in the archive (STRK-118).</li>
     <li><strong>v3.34.94 &ndash; STRK-117: Playwright consolidation batch</strong>: Consolidated high-risk money math and disposition coverage into compact core suites &mdash; inventory-math (10 tests) and disposition (13 tests) &mdash; with historical source specs preserved in the archive (STRK-117).</li>
     <li><strong>v3.34.93 &ndash; STRK-116: Playwright suite consolidation batch</strong>: Consolidated 7 scattered spec files into 2 compact domain suites under core/ &mdash; smoke (12 tests) and inventory-crud (53 tests) &mdash; without deleting historical coverage (STRK-116).</li>
-    <li><strong>v3.34.92 &ndash; STRK-97: Playwright suite consolidation pilot</strong>: The default test gate now runs the new core Playwright tier, with historical issue acceptance matrices retained under the archive tier for rollback reference (STRK-97).</li>
-    <li><strong>v3.34.91 &ndash; STRK-111: Sweep cleanup</strong>: Removed unused cacheFirst() service worker strategy and bumped 3 transitive dependencies to resolve npm audit vulnerabilities (STRK-111, STRK-112).</li>
   `;
 };
 
