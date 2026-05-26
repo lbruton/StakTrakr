@@ -1,0 +1,68 @@
+file,test_count,domain,risk_class,decision,replacement_target,rationale
+tests/playwright/01-page-load/page-load.spec.js,12,smoke-shell,P1 core user workflow,keep,tests/playwright/core/smoke.spec.js,boot and startup behavior should become core smoke coverage
+tests/playwright/02-crud/crud.spec.js,21,inventory-crud,P1 core user workflow,keep,tests/playwright/core/inventory-crud.spec.js,add edit delete image and view-switch journeys remain core candidates
+tests/playwright/03-settings/03-appearance.spec.js,11,layout-settings,P2 integration edge,move,tests/playwright/extended/visual-layout-regressions.spec.js,appearance micro-assertions are mostly extended visual regression coverage
+tests/playwright/03-settings/04-inline-chip-attachment.spec.js,9,settings-attachments,P2 integration edge,move,tests/playwright/core/settings.spec.js,attachment chip setting needs one durable domain assertion
+tests/playwright/03-settings/04-market-controls.spec.js,5,settings-market,P1 core user workflow,move,tests/playwright/core/settings-api.spec.js,market and vault entry points belong with settings API controls
+tests/playwright/03-settings/05-disposition-section-config.spec.js,6,disposition-settings,P1 core user workflow,move,tests/playwright/core/disposition.spec.js,configured disposition rendering should stay core but compact
+tests/playwright/03-settings/catalog-api-key.spec.js,6,settings-api,P1 core user workflow,keep,tests/playwright/core/settings-api.spec.js,catalog key mask and dirty behavior are durable settings coverage
+tests/playwright/03-settings/market-filter-cache-invalidation.spec.js,1,retail-market,P2 integration edge,move,tests/playwright/extended/provider-edge-cases.spec.js,vault restore cache invalidation is edge coverage
+tests/playwright/03-settings/settings-cloud-tab.spec.js,9,attachments-cloud,P1 core user workflow,move,tests/playwright/core/attachments-cloud.spec.js,cloud tab and header cloud behavior need compact core coverage
+tests/playwright/04-cloud-sync/cloud-sync-tags.spec.js,6,attachments-cloud,P0 money-data loss,keep,tests/playwright/core/attachments-cloud.spec.js,tag merge behavior protects sync correctness
+tests/playwright/about-page.spec.js,45,static-about,P3 static design history,move,tests/playwright/extended/visual-layout-regressions.spec.js,static marketing copy should not be in the default gate
+tests/playwright/attachments/backup-zip.spec.js,5,attachments-cloud,P0 money-data loss,keep,tests/playwright/core/import-export.spec.js,backup attachment manifest shape protects restore fidelity
+tests/playwright/attachments/cloud-sync.spec.js,9,attachments-cloud,P0 money-data loss,keep,tests/playwright/core/attachments-cloud.spec.js,attachment sync keys and toggles protect cloud data
+tests/playwright/attachments/diff-modal.spec.js,12,attachments-cloud,P1 core user workflow,move,tests/playwright/core/attachments-cloud.spec.js,diff modal behavior should be compacted into cloud domain suite
+tests/playwright/attachments/followup-hardening.spec.js,5,attachments-cloud,P2 integration edge,move,tests/playwright/extended/attachment-zip.spec.js,hardening edge cases are extended candidates
+tests/playwright/attachments/manager.spec.js,8,attachments-cloud,P1 core user workflow,move,tests/playwright/core/attachments-cloud.spec.js,attachment manager core flows should be compacted
+tests/playwright/attachments/storage-diagnostics.spec.js,2,attachments-cloud,P2 integration edge,move,tests/playwright/extended/attachment-zip.spec.js,diagnostic copy is lower-risk edge coverage
+tests/playwright/attachments/ui.spec.js,11,attachments-cloud,P1 core user workflow,move,tests/playwright/core/attachments-cloud.spec.js,attachment badge and UI behavior need compact core coverage
+tests/playwright/attachments/vault-stvault.spec.js,7,import-export,P0 money-data loss,keep,tests/playwright/core/import-export.spec.js,vault attachment encryption and hashing protect backups
+tests/playwright/bulk-edit-mobile.spec.js,33,mobile-layout,P1 core user workflow,move,tests/playwright/extended/visual-layout-regressions.spec.js,bulk editor mobile should keep a small core smoke plus extended depth
+tests/playwright/capsule-field.spec.js,3,inventory-crud,P1 core user workflow,move,tests/playwright/core/inventory-crud.spec.js,capsule fields should fold into inventory domain coverage
+tests/playwright/changelog-redesign.spec.js,7,static-about,P3 static design history,archive,tests/playwright/archive/issue-ac-matrices/,release-note presentation is not default-gate risk
+tests/playwright/cloud-sync-conflict-loop.spec.js,5,attachments-cloud,P0 money-data loss,keep,tests/playwright/core/attachments-cloud.spec.js,conflict loop regression protects cloud sync integrity
+tests/playwright/cloud-sync-header-button.spec.js,3,attachments-cloud,P1 core user workflow,move,tests/playwright/core/attachments-cloud.spec.js,header cloud button belongs in compact cloud suite
+tests/playwright/cloud-sync-manifest-type.spec.js,4,attachments-cloud,P0 money-data loss,keep,tests/playwright/core/attachments-cloud.spec.js,manifest type merge protects cloud sync integrity
+tests/playwright/config-validation.spec.js,94,config-validation,P2 integration edge,move,tests/unit/config-validation.test.js,filesystem config validation should move out of browser tests
+tests/playwright/csv-frame-columns.spec.js,2,import-export,P0 money-data loss,keep,tests/playwright/core/import-export.spec.js,CSV round-trip field preservation protects export fidelity
+tests/playwright/filter-chip-and-logic.spec.js,14,inventory-crud,P1 core user workflow,move,tests/playwright/core/inventory-crud.spec.js,filter chip logic belongs with inventory search coverage
+tests/playwright/font-loading.spec.js,6,mobile-layout,P2 integration edge,move,tests/playwright/extended/visual-layout-regressions.spec.js,font and SW cache checks are extended coverage
+tests/playwright/goldback-type.spec.js,16,money-math,P0 money-data loss,keep,tests/playwright/core/inventory-math.spec.js,Goldback math and type behavior stays high value
+tests/playwright/image-frame-override.spec.js,3,mobile-layout,P2 integration edge,move,tests/playwright/extended/visual-layout-regressions.spec.js,image frame override can be compacted into layout coverage
+tests/playwright/inventory/lot-each-purchase-price.spec.js,28,money-math,P0 money-data loss,keep,tests/playwright/core/inventory-math.spec.js,lot each purchase math protects financial correctness
+tests/playwright/inventory/partial-stack-disposition.spec.js,67,disposition,P0 money-data loss,keep,tests/playwright/core/disposition.spec.js,disposition math is critical but needs compaction and unit extraction
+tests/playwright/inventory/seed-guard.spec.js,6,inventory-crud,P1 core user workflow,keep,tests/playwright/core/inventory-crud.spec.js,seed guard protects user inventory from accidental overwrite
+tests/playwright/inventory/virtual-sort-options.spec.js,3,inventory-crud,P1 core user workflow,move,tests/playwright/core/inventory-crud.spec.js,sort options should fold into inventory domain suite
+tests/playwright/market-premium-tiers.spec.js,8,retail-market,P1 core user workflow,keep,tests/playwright/core/retail-market.spec.js,premium tiers affect buying signals and should remain core
+tests/playwright/market-sorting.spec.js,10,retail-market,P1 core user workflow,keep,tests/playwright/core/retail-market.spec.js,market sorting affects buying comparisons
+tests/playwright/mobile-modal-safe-area.spec.js,8,mobile-layout,P1 core user workflow,move,tests/playwright/core/mobile-and-layout.spec.js,mobile safe area needs compact core coverage
+tests/playwright/modal-layout.spec.js,6,mobile-layout,P2 integration edge,move,tests/playwright/extended/visual-layout-regressions.spec.js,modal sizing details are extended after core smoke
+tests/playwright/numista-not-configured.spec.js,3,numista-catalog,P1 core user workflow,move,tests/playwright/core/numista-catalog.spec.js,unconfigured catalog flow belongs in catalog suite
+tests/playwright/numista-picker-tags.spec.js,32,numista-catalog,P1 core user workflow,keep,tests/playwright/core/numista-catalog.spec.js,tag fill fields and picker paths are durable catalog behavior
+tests/playwright/numista-search.spec.js,5,numista-catalog,P1 core user workflow,keep,tests/playwright/core/numista-catalog.spec.js,configured search belongs in catalog suite
+tests/playwright/payment-method.spec.js,4,inventory-crud,P1 core user workflow,move,tests/playwright/core/inventory-crud.spec.js,payment method should fold into inventory CRUD coverage
+tests/playwright/realized-toggle.spec.js,5,disposition,P1 core user workflow,move,tests/playwright/core/disposition.spec.js,realized toggle belongs in disposition domain suite
+tests/playwright/rect-image-card-table.spec.js,11,mobile-layout,P2 integration edge,move,tests/playwright/core/mobile-and-layout.spec.js,card table image frame coverage should be compacted
+tests/playwright/retail/currency-switch.spec.js,1,retail-market,P1 core user workflow,keep,tests/playwright/core/retail-market.spec.js,display currency changes affect retail prices
+tests/playwright/retail/slug-resolution.spec.js,4,retail-market,P1 core user workflow,keep,tests/playwright/core/retail-market.spec.js,slug resolution affects market data lookup
+tests/playwright/retail/stak-582-market-survivors.spec.js,8,retail-market,P2 integration edge,archive,tests/playwright/archive/issue-ac-matrices/stak-582-market-survivors.spec.js,durable survivor assertions are mapped to retail-market compaction
+tests/playwright/settings-currency.spec.js,7,settings-api,P0 money-data loss,keep,tests/playwright/core/settings-api.spec.js,currency precision affects financial display
+tests/playwright/settings-data-reset.spec.js,2,settings-api,P0 money-data loss,keep,tests/playwright/core/settings-api.spec.js,destructive reset behavior needs durable coverage
+tests/playwright/settings-print-button.spec.js,5,settings-api,P2 integration edge,move,tests/playwright/core/settings-api.spec.js,print button should fold into settings coverage
+tests/playwright/silverback.spec.js,10,money-math,P0 money-data loss,keep,tests/playwright/core/inventory-math.spec.js,Silverback conversion affects metal accounting
+tests/playwright/stak-437-search-tab-removal.spec.js,10,settings-search,P2 integration edge,archive,tests/playwright/archive/issue-ac-matrices/stak-437-search-tab-removal.spec.js,durable search behavior folded into core settings-search-images
+tests/playwright/stak-439-images-tab-redesign.spec.js,15,settings-images,P2 integration edge,archive,tests/playwright/archive/issue-ac-matrices/stak-439-images-tab-redesign.spec.js,durable image-rule behavior folded into core settings-search-images
+tests/playwright/stak-443-api-tab.spec.js,21,settings-api,P1 core user workflow,archive,tests/playwright/archive/issue-ac-matrices/stak-443-api-tab.spec.js,durable API provider behavior folded into core settings-api
+tests/playwright/stak-573-api-tab-qa.spec.js,15,settings-api,P2 integration edge,archive,tests/playwright/archive/issue-ac-matrices/stak-573-api-tab-qa.spec.js,durable catalog key behavior folded into core settings-api
+tests/playwright/stak-580-required-metal-type.spec.js,6,inventory-crud,P1 core user workflow,archive,tests/playwright/archive/issue-ac-matrices/stak-580-required-metal-type.spec.js,durable required-field behavior folded into core inventory-crud
+tests/playwright/strk-89-gold-api.spec.js,8,settings-api,P1 core user workflow,archive,tests/playwright/archive/issue-ac-matrices/strk-89-gold-api.spec.js,durable Gold API behavior folded into core settings-api
+tests/playwright/sw-caching.spec.js,3,service-worker,P2 integration edge,move,tests/playwright/extended/service-worker.spec.js,service worker cache behavior should be extended not default gate
+tests/playwright/tags.spec.js,8,numista-catalog,P1 core user workflow,move,tests/playwright/core/numista-catalog.spec.js,tag delimiter behavior belongs in catalog suite
+tests/playwright/theme-tokens.spec.js,5,mobile-layout,P2 integration edge,move,tests/playwright/extended/visual-layout-regressions.spec.js,theme token depth belongs in extended coverage
+tests/playwright/typography.spec.js,5,mobile-layout,P3 static design history,move,tests/playwright/extended/visual-layout-regressions.spec.js,font implementation checks are lower-risk layout coverage
+tests/playwright/vault-roundtrip.spec.js,5,import-export,P0 money-data loss,keep,tests/playwright/core/import-export.spec.js,vault duplicate prevention protects backups
+tests/playwright/view-modal-chart-scaling.spec.js,18,valuation-charts,P1 core user workflow,move,tests/playwright/core/valuation.spec.js,chart behavior should be compacted with valuation coverage
+tests/playwright/view-modal-no-auto-resync.spec.js,5,numista-catalog,P1 core user workflow,move,tests/playwright/core/numista-catalog.spec.js,no auto-resync protects catalog UX and user data
+tests/playwright/view-modal-numista-merge.spec.js,11,numista-catalog,P1 core user workflow,keep,tests/playwright/core/numista-catalog.spec.js,merge behavior protects catalog display fidelity
+tests/playwright/view-modal-valuation.spec.js,19,valuation-charts,P0 money-data loss,keep,tests/playwright/core/valuation.spec.js,valuation math and display affect financial correctness

@@ -1,5 +1,5 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "./helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 /**
  * STRK-89 — Add gold-api.com as first-class spot price provider (green phase)

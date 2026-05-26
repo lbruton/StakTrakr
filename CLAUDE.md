@@ -5,14 +5,23 @@ Precious metals inventory tracker. Single HTML page, vanilla JS, localStorage. R
 ## Commands
 
 ```bash
-npm test              # Playwright E2E (local Chromium)
-npm run test:offline  # Skip @network-tagged
+npm test              # Core Playwright PR gate
+npm run test:core     # Core Playwright suite
+npm run test:extended # Slower/edge Playwright suite
+npm run test:legacy   # Archived issue acceptance-criteria (AC) matrices
+npm run test:all      # Unit + core + extended
+npm run test:unit     # Node/unit tests
+npm run test:offline  # Legacy full-suite command excluding @network-tagged tests
 npm run lint          # ESLint
 npm run format        # Prettier (js/ + css/ only — not data/, vendor/)
 npm run format:check
 ```
 
-Pre-existing flaky test categories: `goldback-type`, `lot-each-purchase-price`, `numista-picker-tags` — skip per the 10-min hard-timeout rule; do not fix unrelated failures.
+## Playwright Test Tier Rules
+
+- Playwright policy reference: `AGENTS.md`.
+- Archived issue acceptance-criteria (AC) matrices are located in
+  `tests/playwright/archive/issue-ac-matrices/`.
 
 ## Documentation
 
