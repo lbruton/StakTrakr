@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.95 &ndash; STRK-118: Playwright consolidation batch</strong>: Consolidated backup, attachment, cloud sync, vault, and CSV coverage into compact core and extended suites &mdash; attachments-cloud (8 tests), import-export (5 tests), and attachment-zip (3 tests) &mdash; with historical source specs preserved in the archive (STRK-118).</li>
     <li><strong>v3.34.94 &ndash; STRK-117: Playwright consolidation batch</strong>: Consolidated high-risk money math and disposition coverage into compact core suites &mdash; inventory-math (10 tests) and disposition (13 tests) &mdash; with historical source specs preserved in the archive (STRK-117).</li>
     <li><strong>v3.34.93 &ndash; STRK-116: Playwright suite consolidation batch</strong>: Consolidated 7 scattered spec files into 2 compact domain suites under core/ &mdash; smoke (12 tests) and inventory-crud (53 tests) &mdash; without deleting historical coverage (STRK-116).</li>
     <li><strong>v3.34.92 &ndash; STRK-97: Playwright suite consolidation pilot</strong>: The default test gate now runs the new core Playwright tier, with historical issue acceptance matrices retained under the archive tier for rollback reference (STRK-97).</li>
@@ -147,7 +148,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.89 &ndash; STRK-110: Consistent return cleanup</strong>: Manual spot entry and retail detail modal open paths now return undefined consistently, clearing PMD ConsistentReturn findings without changing user-facing behavior (STRK-110).</li>
     <li><strong>v3.34.88 &ndash; STRK-108: Cloud sync tag merge</strong>: Cloud sync now preserves item tags, removed-tag opt-outs, and per-item tag timestamps across devices during selective sync merges (STRK-108).</li>
     <li><strong>v3.34.87 &ndash; STRK-107: Cloud sync conflict loop fix</strong>: Accepting remote item changes now neutralizes superseded local changelog entries at the acceptance cutoff, preserving Activity Log history while preventing stale conflicts from reappearing on the next sync (STRK-107).</li>
-    <li><strong>v3.34.86 &ndash; STRK-106: Bullion Exchanges gold reliability</strong>: Byparr scrape now retries on pre-hydration shells (the React price grid loads after Playwright&rsquo;s &lsquo;load&rsquo; event, causing ~26% of gold pages to snapshot empty); content-quality check + bounded retry restore gold price coverage (STRK-106).</li>
   `;
 };
 

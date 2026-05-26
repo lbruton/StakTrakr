@@ -1,5 +1,5 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "./helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 /**
  * STAK-549 — Header cloud sync button: syncNow() return contract and toast behavior.

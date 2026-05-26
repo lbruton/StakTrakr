@@ -1,5 +1,5 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "../helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 async function closeSettingsModal(page) {
   await page.evaluate(() => {

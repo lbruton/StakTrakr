@@ -1,5 +1,5 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "../helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 // F.3 — stvault companion file tests (AC-4, AC-7)
 
