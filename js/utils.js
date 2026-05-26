@@ -1480,7 +1480,7 @@ const computeMeltValue = (item, spot) => {
  * @param {string} uuid - Inventory item UUID
  * @returns {Object|null} Matching item or null
  */
-const findItemByUuid = (uuid) => {
+const findInventoryItemByUuid = (uuid) => {
   if (!uuid || typeof inventory === "undefined" || !Array.isArray(inventory)) return null;
   return inventory.find((item) => item?.uuid === uuid) || null;
 };
@@ -3461,7 +3461,7 @@ if (typeof window !== "undefined") {
   window.openEbaySoldSearch = openEbaySoldSearch;
   window.cleanSearchTerm = cleanSearchTerm;
   window.computeMeltValue = computeMeltValue;
-  window.findItemByUuid = findItemByUuid;
+  window.findItemByUuid = findInventoryItemByUuid;
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
   window.computeItemValuation = computeItemValuation;
@@ -3489,7 +3489,7 @@ if (typeof module !== "undefined" && module.exports) {
     sanitizeObjectFields,
     sanitizeImportedItem,
     computeMeltValue,
-    findItemByUuid,
+    findItemByUuid: findInventoryItemByUuid,
     computeTradeValue,
     calculateRetailPrice,
     computeItemValuation,
