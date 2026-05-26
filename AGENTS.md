@@ -48,8 +48,8 @@ No application build step is required.
 - Do not add new issue-prefixed specs at the Playwright root.
 - Temporary issue acceptance-criteria (AC) matrices must be reconciled into core/extended
   coverage or moved to archive before merge.
-- Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`
-  and include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
+- Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`.
+- Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 - Use stable, user-visible assertions and keep fixtures in `tests/fixtures/`.
 - In Codex sandboxed sessions on macOS, Playwright/Chromium may fail with
   `bootstrap_check_in ... MachPortRendezvousServer ... Permission denied (1100)`;
