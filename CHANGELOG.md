@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.91] - 2026-05-25
+
+### Changed — STRK-111+112: Sweep cleanup
+
+- **Dead code**: Removed unused `cacheFirst()` strategy function from service worker (STRK-111)
+- **Dependencies**: Bumped `flatted`, `ajv`, and `brace-expansion` to fix 3 npm audit vulnerabilities (1 high, 2 moderate) (STRK-112)
+
+---
+
 ## [3.34.90] - 2026-05-25
 
 ### Fixed — STRK-114: Autocomplete field name casing
