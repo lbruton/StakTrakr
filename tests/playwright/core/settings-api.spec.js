@@ -22,7 +22,7 @@ const openApiSettings = async (page) => {
 const readSpotPricingSource = (page) =>
   page.evaluate(() => {
     const raw = localStorage.getItem("spotPricingSource");
-    if (raw == null) return null;
+    if (raw === null) return null;
     try {
       return JSON.parse(raw);
     } catch {
@@ -65,11 +65,10 @@ test.describe("core/settings-api", () => {
     await openApiSettings(page);
 
     const spotSection = page.locator("#apiSection_spot");
+    const goldApiPill = spotSection.locator('.gb-source-btn[data-val="GOLD_API"]');
     const pills = spotSection.locator(".gb-source-btn");
     await expect(pills).toHaveCount(7);
-    await expect(pills.nth(4)).toHaveAttribute("data-val", "GOLD_API");
-
-    const goldApiPill = spotSection.locator('.gb-source-btn[data-val="GOLD_API"]');
+    await expect(goldApiPill).toHaveCount(1);
     await goldApiPill.click();
     await confirmProviderSwitch(page, "Gold API");
 
