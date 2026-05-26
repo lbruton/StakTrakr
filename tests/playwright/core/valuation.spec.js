@@ -370,7 +370,9 @@ test.describe("core/valuation", () => {
       retailHistory: {
         [gbItem.uuid]: [{ ts: new Date("2026-05-10T13:00:00.000Z").getTime(), retail: 100 }],
       },
-      goldbackPrices: { 0.5: { price: 4.71, updatedAt: Date.now(), source: "api" } },
+      goldbackPrices: {
+        0.5: { price: 4.71, updatedAt: new Date(FIXED_NOW_ISO).getTime(), source: "api" },
+      },
       goldbackPriceHistory: {
         0.5: [
           { ts: new Date("2026-05-08T12:00:00.000Z").getTime(), price: 4.74, source: "api" },
