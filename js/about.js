@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.34.99 &ndash; STRK-122: Playwright consolidation closeout</strong>: Consolidated the final root-level Playwright specs into settings-api, archived the source specs, and added a final suite inventory audit confirming the core, extended, legacy, and root-level test tiers after the consolidation sequence (STRK-122).</li>
     <li><strong>v3.34.98 &ndash; STRK-121: Playwright consolidation batch</strong>: Consolidated remaining settings, mobile layout, static page, service worker, and config coverage into compact core, extended, and unit targets, preserving high-value behavior while moving static/design depth out of the default gate with historical source specs preserved in the archive (STRK-121).</li>
     <li><strong>v3.34.97 &ndash; STRK-120: Playwright consolidation batch</strong>: Consolidated retail market and valuation chart coverage into retail-market (6 tests) and valuation (7 tests), preserving market sorting, premium tiers, display currency, slug quarantine, valuation math, responsive layout, and representative chart behavior with historical source specs preserved in the archive (STRK-120).</li>
     <li><strong>v3.34.96 &ndash; STRK-119: Playwright consolidation batch</strong>: Consolidated catalog, Numista, and tag coverage into numista-catalog (9 tests), preserving configured and unconfigured search, picker tag opt-outs, tag delimiters, no-auto-resync behavior, and Numista metadata merge coverage with historical source specs preserved in the archive (STRK-119).</li>
@@ -147,7 +148,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.34.93 &ndash; STRK-116: Playwright suite consolidation batch</strong>: Consolidated 7 scattered spec files into 2 compact domain suites under core/ &mdash; smoke (12 tests) and inventory-crud (53 tests) &mdash; without deleting historical coverage (STRK-116).</li>
     <li><strong>v3.34.92 &ndash; STRK-97: Playwright suite consolidation pilot</strong>: The default test gate now runs the new core Playwright tier, with historical issue acceptance matrices retained under the archive tier for rollback reference (STRK-97).</li>
     <li><strong>v3.34.91 &ndash; STRK-111: Sweep cleanup</strong>: Removed unused cacheFirst() service worker strategy and bumped 3 transitive dependencies to resolve npm audit vulnerabilities (STRK-111, STRK-112).</li>
-    <li><strong>v3.34.90 &ndash; STRK-114: Autocomplete field name fix</strong>: Purchase Location and Storage Location suggestions now remember your past entries instead of only showing generic defaults (STRK-114).</li>
   `;
 };
 

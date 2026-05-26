@@ -19,6 +19,20 @@ const openApiSettings = async (page) => {
   await expect(page.locator("#settingsPanel_api")).toBeVisible();
 };
 
+const openSettingsSection = async (page, section) => {
+  await page.waitForFunction(
+    () =>
+      typeof window.showSettingsModal === "function" &&
+      typeof window.switchSettingsSection === "function"
+  );
+  await page.evaluate((target) => {
+    window.showSettingsModal(target);
+    window.switchSettingsSection(target);
+  }, section);
+  await expect(page.locator("#settingsModal")).toBeVisible();
+  await expect(page.locator(`#settingsPanel_${section}`)).toBeVisible();
+};
+
 const readSpotPricingSource = (page) =>
   page.evaluate(() => {
     const raw = localStorage.getItem("spotPricingSource");
@@ -106,5 +120,107 @@ test.describe("core/settings-api", () => {
       return false;
     });
     expect(roundTrip).toBe(true);
+  });
+
+  test("Currency settings keep Goldback pricing controls and history access in the currency panel", async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openSettingsSection(page, "currency");
+
+    await expect(page.locator('.settings-nav-item[data-section="goldback"]')).toHaveCount(0);
+    await expect(page.locator("#settingsPanel_goldback")).toHaveCount(0);
+
+    const sourceGroup = page.locator("#settingsPanel_currency #settingsGoldbackSource");
+    await expect(sourceGroup.locator(".gb-source-btn")).toHaveCount(4);
+    await expect(sourceGroup.locator('.gb-source-btn[data-val="api"]')).toContainText(
+      "StakTrakr API"
+    );
+
+    const manualButton = sourceGroup.locator('.gb-source-btn[data-val="manual"]');
+    await manualButton.click();
+    await expect(manualButton).toHaveClass(/active/);
+    expect(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("goldback-pricing-source")))
+    ).toBe("manual");
+
+    await expect(page.locator("#settingsPanel_currency #goldbackSpotModifierGroup")).toBeHidden();
+    await expect(page.locator("#settingsPanel_currency #goldbackManualInputGroup")).toBeVisible();
+    const denominationTable = page.locator("#settingsPanel_currency #goldbackPriceTable");
+    await expect(denominationTable.locator("tbody tr")).not.toHaveCount(0);
+    await expect(denominationTable.locator('input, button[type="submit"]')).toHaveCount(0);
+
+    await page.locator("#settingsPanel_currency #goldbackHistoryBtn").click();
+    await expect(page.locator("#goldbackHistoryModal")).toBeVisible();
+  });
+
+  test("System settings keep destructive reset actions isolated from storage settings", async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openSettingsSection(page, "system");
+
+    const systemPanel = page.locator("#settingsPanel_system");
+    await expect(systemPanel.locator("#removeInventoryDataBtn")).toBeVisible();
+    await expect(systemPanel.locator("#boatingAccidentBtn")).toBeVisible();
+
+    await openSettingsSection(page, "storage");
+    const storagePanel = page.locator("#settingsPanel_storage");
+    await expect(storagePanel.locator("#removeInventoryDataBtn")).toHaveCount(0);
+    await expect(storagePanel.locator("#boatingAccidentBtn")).toHaveCount(0);
+  });
+
+  test("System export actions keep print, PDF, and ZIP restore wiring in the right cards", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window._openCallArgs = [];
+      window.open = (...args) => {
+        window._openCallArgs.push(args);
+        return { closed: false };
+      };
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openSettingsSection(page, "system");
+
+    const panel = page.locator("#settingsPanel_system");
+    await expect(panel.locator(".export-block #printBtn")).toBeVisible();
+    await expect(panel.locator(".export-block #printBtn")).toHaveAttribute(
+      "aria-describedby",
+      "printDesc"
+    );
+    await expect(panel.locator(".import-block #importZipBtn")).toHaveCount(1);
+    await expect(panel.locator(".export-block #importZipBtn")).toHaveCount(0);
+
+    for (const id of ["removeInventoryDataBtn", "boatingAccidentBtn"]) {
+      const style = await panel.locator(`#${id}`).getAttribute("style");
+      expect(style).toContain("font-size: 0.82rem");
+    }
+
+    await page.waitForFunction(() => window.jspdf && window.jspdf.jsPDF);
+    await page.evaluate(() => {
+      window._pdfSaveCalls = [];
+      const OriginalJsPDF = window.jspdf.jsPDF;
+      function SpyJsPDF(...args) {
+        const instance = new OriginalJsPDF(...args);
+        instance.save = (filename) => {
+          window._pdfSaveCalls.push(filename);
+        };
+        return instance;
+      }
+      SpyJsPDF.prototype = OriginalJsPDF.prototype;
+      window.jspdf.jsPDF = SpyJsPDF;
+    });
+
+    await panel.locator("#printBtn").click();
+    const printCalls = await page.evaluate(() => window._openCallArgs);
+    expect(printCalls).toHaveLength(1);
+    expect(printCalls[0][0]).toMatch(/^blob:/);
+    expect(printCalls[0][1]).toBe("_blank");
+
+    await panel.locator("#exportPdfBtn").click();
+    const pdfCalls = await page.evaluate(() => window._pdfSaveCalls);
+    expect(pdfCalls).toHaveLength(1);
+    expect(pdfCalls[0]).toMatch(/^metal_inventory_\d{8}\.pdf$/);
   });
 });

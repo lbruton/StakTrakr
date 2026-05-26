@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.99] - 2026-05-26
+
+### Changed — STRK-122: Playwright consolidation closeout
+
+- **Settings API closeout and suite audit**: Consolidated the final 3
+  root-level Playwright specs (14 historical tests) into
+  `settings-api.spec.js` (3 compact tests), archived the source specs, and
+  added a consolidation audit documenting the final core, extended, legacy, and
+  root-level test inventory after the STRK-97 through STRK-122 consolidation
+  sequence. (STRK-122)
+
+---
+
 ## [3.34.98] - 2026-05-26
 
 ### Changed — STRK-121: Playwright consolidation batch
