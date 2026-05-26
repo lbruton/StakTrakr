@@ -737,6 +737,37 @@ function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
  * @returns {HTMLElement|null}
  */
 function _buildDispositionSection(item) {
+  if (item.tradedFromUuid && typeof findItemByUuid === "function") {
+    const source = findItemByUuid(item.tradedFromUuid);
+    const section = _section("Trade");
+    const line = _el("div", "trade-provenance-line");
+    const text = _el("span");
+    text.textContent = source
+      ? `Acquired via trade for ${source.name || "source item"}`
+      : "Acquired via trade for missing source item";
+    line.appendChild(text);
+    if (source) {
+      const openBtn = _el("button", "view-footer-btn secondary");
+      openBtn.type = "button";
+      openBtn.textContent = "View Source";
+      openBtn.addEventListener("click", () => {
+        const idx = inventory.findIndex((candidate) => candidate.uuid === source.uuid);
+        if (idx >= 0 && typeof showViewModal === "function") showViewModal(idx);
+      });
+      line.appendChild(openBtn);
+    }
+    const unlinkBtn = _el("button", "view-footer-btn secondary trade-unlink-btn");
+    unlinkBtn.type = "button";
+    unlinkBtn.textContent = "Unlink from Trade";
+    unlinkBtn.addEventListener("click", () => {
+      if (source && typeof unlinkTradeItem === "function") unlinkTradeItem(source, item.uuid);
+      closeViewModal();
+    });
+    section.appendChild(line);
+    section.appendChild(unlinkBtn);
+    return section;
+  }
+
   if (
     item.disposition == null ||
     typeof item.disposition !== "object" ||
@@ -746,6 +777,56 @@ function _buildDispositionSection(item) {
     return null;
 
   const d = item.disposition;
+  if (d.type === "traded" && Array.isArray(d.tradedForUuids) && d.tradedForUuids.length > 0) {
+    const section = _section("Trade");
+    const base = _buildDispositionSection({ ...item, disposition: { ...d, tradedForUuids: [] } });
+    if (base) {
+      const title = base.querySelector(".view-section-title");
+      if (title) title.remove();
+      section.append(...base.childNodes);
+    }
+    const table = _el("table", "trade-comparison-table");
+    table.innerHTML =
+      "<thead><tr><th>Received item</th><th>Qty</th><th>Current melt</th><th>Current retail</th><th>Status</th></tr></thead><tbody></tbody>";
+    const body = table.querySelector("tbody");
+    let receivedTotal = 0;
+    d.tradedForUuids.forEach((uuid) => {
+      const linked = typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null;
+      const tr = document.createElement("tr");
+      if (!linked) {
+        tr.innerHTML = `<td class="trade-missing-item">Missing item</td><td>—</td><td>—</td><td>—</td><td>Missing</td>`;
+      } else {
+        const spot = spotPrices?.[String(linked.metal || "").toLowerCase()] || 0;
+        const valuation =
+          typeof computeItemValuation === "function" ? computeItemValuation(linked, spot) : null;
+        const meltValue = valuation?.meltValue || 0;
+        const retailTotal = valuation?.retailTotal || 0;
+        receivedTotal += retailTotal || meltValue;
+        const status = linked.disposition ? "Disposed" : "Active";
+        tr.innerHTML = `<td></td><td>${Number(linked.qty) || 1}</td><td>${formatCurrency(meltValue)}</td><td>${formatCurrency(retailTotal)}</td><td>${status}</td>`;
+        tr.firstElementChild.textContent = linked.name || "Unnamed item";
+      }
+      body.appendChild(tr);
+    });
+    section.appendChild(table);
+    const sourceSpot = spotPrices?.[String(item.metal || "").toLowerCase()] || 0;
+    const sourceValue =
+      typeof computeMeltValue === "function" ? computeMeltValue(item, sourceSpot) : 0;
+    const summary = _el("div", "trade-summary-row");
+    summary.innerHTML = `<span>Current source value ${formatCurrency(sourceValue)}</span><strong class="trade-gain-loss">TRADE GAIN/LOSS ${(receivedTotal - sourceValue >= 0 ? "+" : "") + formatCurrency(receivedTotal - sourceValue)}</strong>`;
+    section.appendChild(summary);
+    const editBtn = _el("button", "view-footer-btn secondary");
+    editBtn.type = "button";
+    editBtn.textContent = "Edit Trade";
+    editBtn.addEventListener("click", () => {
+      closeViewModal();
+      const idx = inventory.findIndex((candidate) => candidate.uuid === item.uuid);
+      if (idx >= 0 && typeof openRemoveItemModal === "function") openRemoveItemModal(idx, true);
+    });
+    section.appendChild(editBtn);
+    return section;
+  }
+
   const section = _section("Disposition");
   const grid = _el("div", "view-detail-grid three-col");
 

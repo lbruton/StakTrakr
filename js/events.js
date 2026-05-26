@@ -2048,6 +2048,12 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       showToast("\u2713 " + addedItem.name + " added to inventory");
     }
   }
+  const committed = isEditing ? inventory[editIdx] : inventory[inventory.length - 1];
+  window.__lastCommittedItemUuid = committed?.uuid;
+  if (!isEditing && window.__tradeAddNewPending && committed?.uuid) {
+    window.addPendingTradeLinkUuid?.(committed.uuid);
+    window.__tradeAddNewPending = false;
+  }
 };
 
 /**
@@ -4799,6 +4805,69 @@ if (removeItemDisposeBtn) {
 }
 
 // Disposition type changes show/hide amount field
+let _pendingTradeLinkUuids = [];
+
+const tradeEls = () => ({
+  section: document.getElementById("tradeLinkSection"),
+  search: document.getElementById("tradeItemSearch"),
+  suggestions: document.getElementById("tradeItemSuggestions"),
+  linked: document.getElementById("tradeLinkedItems"),
+  summary: document.getElementById("tradeValueSummary"),
+});
+
+const getTradeDate = () => document.getElementById("dispositionDate")?.value || "";
+
+const renderPendingTradeLinks = () => {
+  const { linked, summary } = tradeEls();
+  if (!linked) return;
+  let total = 0;
+  linked.innerHTML = _pendingTradeLinkUuids
+    .map((uuid) => {
+      const item = typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null;
+      if (!item) return "";
+      const value =
+        typeof computeTradeValue === "function" ? computeTradeValue(item, getTradeDate()) : null;
+      const meltValue = value?.meltValue || 0;
+      total += meltValue;
+      return `
+        <div class="trade-linked-item" data-uuid="${sanitizeHtml(uuid)}">
+          <div>
+            <strong>${sanitizeHtml(item.name || "Unnamed item")}</strong>
+            <div class="trade-item-meta">${sanitizeHtml(item.metal || "")} · Qty ${Number(item.qty) || 1}</div>
+          </div>
+          <div class="trade-linked-item__value">
+            <input type="number" class="trade-value-input" data-uuid="${sanitizeHtml(uuid)}" value="${meltValue ? meltValue.toFixed(2) : ""}" placeholder="—" />
+            <span class="trade-value-label">${value ? "spot value" : "custom"}</span>
+            <button type="button" class="btn secondary trade-linked-item__remove" data-remove-trade-uuid="${sanitizeHtml(uuid)}">×</button>
+          </div>
+        </div>`;
+    })
+    .join("");
+  if (summary) summary.textContent = formatCurrency(total);
+  const dispositionAmount = document.getElementById("dispositionAmount");
+  if (dispositionAmount && total > 0 && !dispositionAmount.value) {
+    dispositionAmount.value = total.toFixed(2);
+  }
+};
+
+window.getPendingTradeLinkUuids = () => [..._pendingTradeLinkUuids];
+window.addPendingTradeLinkUuid = (uuid) => {
+  if (uuid && !_pendingTradeLinkUuids.includes(uuid)) _pendingTradeLinkUuids.push(uuid);
+  renderPendingTradeLinks();
+};
+window.resetPendingTradeLinks = () => {
+  _pendingTradeLinkUuids = [];
+  const { search, suggestions } = tradeEls();
+  if (search) search.value = "";
+  if (suggestions) suggestions.innerHTML = "";
+  renderPendingTradeLinks();
+};
+
+const updateTradeSectionVisibility = () => {
+  const { section } = tradeEls();
+  if (section) section.style.display = dispositionTypeSelect?.value === "traded" ? "" : "none";
+};
+
 const dispositionTypeSelect = document.getElementById("dispositionType");
 if (dispositionTypeSelect) {
   dispositionTypeSelect.addEventListener("change", () => {
@@ -4809,6 +4878,57 @@ if (dispositionTypeSelect) {
       const amountInput = document.getElementById("dispositionAmount");
       if (amountInput) amountInput.value = "";
     }
+    updateTradeSectionVisibility();
+  });
+}
+
+const tradeSearch = document.getElementById("tradeItemSearch");
+if (tradeSearch) {
+  tradeSearch.addEventListener("input", () => {
+    const { suggestions } = tradeEls();
+    if (!suggestions) return;
+    const query = tradeSearch.value.trim().toLowerCase();
+    if (!query) {
+      suggestions.innerHTML = "";
+      return;
+    }
+    const removeIdx = parseInt(document.getElementById("removeItemIdx")?.value, 10);
+    const sourceUuid = inventory[removeIdx]?.uuid;
+    const matches = inventory
+      .filter((item) => !item.disposition && item.uuid !== sourceUuid)
+      .filter((item) => (item.name || "").toLowerCase().includes(query))
+      .slice(0, 8);
+    suggestions.innerHTML = matches
+      .map(
+        (item) =>
+          `<div class="trade-item-suggestion" role="option" tabindex="0" data-trade-uuid="${sanitizeHtml(item.uuid)}">${sanitizeHtml(item.name || "Unnamed item")}</div>`
+      )
+      .join("");
+  });
+}
+
+document.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-trade-uuid]");
+  if (option) {
+    window.addPendingTradeLinkUuid(option.dataset.tradeUuid);
+    const { search, suggestions } = tradeEls();
+    if (search) search.value = "";
+    if (suggestions) suggestions.innerHTML = "";
+  }
+  const remove = event.target.closest("[data-remove-trade-uuid]");
+  if (remove) {
+    _pendingTradeLinkUuids = _pendingTradeLinkUuids.filter(
+      (uuid) => uuid !== remove.dataset.removeTradeUuid
+    );
+    renderPendingTradeLinks();
+  }
+});
+
+const tradeAddNewItemBtn = document.getElementById("tradeAddNewItemBtn");
+if (tradeAddNewItemBtn) {
+  tradeAddNewItemBtn.addEventListener("click", () => {
+    window.__tradeAddNewPending = true;
+    document.getElementById("newItemBtn")?.click();
   });
 }
 
