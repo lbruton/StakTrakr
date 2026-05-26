@@ -1687,6 +1687,14 @@
       const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
       const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
       const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
+      const tradedForUuids = (row["Traded For UUIDs"] || row["tradedForUuids"] || "")
+        .toString()
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      const tradedFromUuid = (row["Traded From UUID"] || row["tradedFromUuid"] || "")
+        .toString()
+        .trim();
 
       let disposition;
       if (dispositionType) {
@@ -1715,6 +1723,7 @@
           disposedAt: dispositionDisposedAt || undefined,
           splitFromUuid: dispositionSplitFromUuid,
         };
+        if (tradedForUuids.length > 0) disposition.tradedForUuids = tradedForUuids;
       }
 
       const item = sanitizeImportedItem({
@@ -1746,6 +1755,7 @@
         serial,
         uuid,
         disposition,
+        tradedFromUuid: tradedFromUuid || undefined,
       });
       parsed.push(item);
     }

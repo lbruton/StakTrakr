@@ -657,4 +657,174 @@ test.describe("core/disposition", () => {
     await expect(page.locator(".total-item:has(#realizedGainLossSilver)")).toBeVisible();
     await expect(page.getByText("Summary Totals", { exact: true })).toHaveCount(0);
   });
+
+  test.describe("trade-linking", () => {
+    const RECEIVED_ROUND = {
+      ...BASE_ITEM,
+      uuid: "trade-received-round",
+      name: "Trade Received Round",
+      qty: 2,
+      serial: 2,
+    };
+
+    const LINKED_SOURCE = {
+      ...BASE_ITEM,
+      uuid: "trade-linked-source",
+      name: "Trade Linked Source",
+      qty: 1,
+      serial: 3,
+      disposition: {
+        type: "traded",
+        date: "2026-01-01",
+        amount: 60,
+        realizedGainLoss: 30,
+        tradedForUuids: ["trade-received-round"],
+        tradeValues: {
+          "trade-received-round": { meltValue: 59.94, spotPrice: 30, isCustom: false },
+        },
+      },
+    };
+
+    test("dispose flow links received items, supports add-new, and records bidirectional fields", async ({
+      page,
+    }) => {
+      await seedDispositionData(page, { inventory: [BASE_ITEM, RECEIVED_ROUND] });
+      await gotoApp(page);
+      await openDisposeModal(page, 0);
+
+      await page.selectOption("#dispositionType", "traded");
+      await expect(page.locator("#tradeLinkSection")).toBeVisible();
+      await page.fill("#tradeItemSearch", "Received Round");
+      await page.getByRole("option", { name: /Trade Received Round/i }).click();
+      await expect(page.locator("#tradeLinkedItems")).toContainText("Trade Received Round");
+      await expect(page.locator("#tradeValueSummary")).toContainText("$");
+      await expect(page.locator("#tradeAddNewItemBtn")).toBeVisible();
+
+      await confirmDispose(page);
+
+      const result = await page.evaluate(() => {
+        const source = window.inventory.find((item) => item.uuid === "core-disposition-base");
+        const received = window.inventory.find((item) => item.uuid === "trade-received-round");
+        return {
+          tradedForUuids: source?.disposition?.tradedForUuids || [],
+          tradeValues: source?.disposition?.tradeValues || {},
+          tradedFromUuid: received?.tradedFromUuid || null,
+          hasAddNewCapture: typeof window.__lastCommittedItemUuid !== "undefined",
+        };
+      });
+
+      expect(result.tradedForUuids).toContain("trade-received-round");
+      expect(result.tradeValues["trade-received-round"]).toMatchObject({
+        spotPrice: 30,
+        isCustom: false,
+      });
+      expect(result.tradedFromUuid).toBe("core-disposition-base");
+    });
+
+    test("view modal renders linked and unlinked trade sections plus received provenance", async ({
+      page,
+    }) => {
+      await seedDispositionData(page, {
+        inventory: [
+          LINKED_SOURCE,
+          { ...RECEIVED_ROUND, tradedFromUuid: "trade-linked-source" },
+          {
+            ...BASE_ITEM,
+            uuid: "trade-unlinked-source",
+            name: "Trade Unlinked Source",
+            serial: 4,
+            disposition: { type: "traded", date: "2026-01-02", amount: 35 },
+          },
+        ],
+      });
+      await gotoApp(page);
+
+      await openViewModal(page, 0);
+      await expect(sectionHeadings(page)).toContainText(["Trade"]);
+      await expect(page.locator("#viewItemModal")).toContainText("TRADE GAIN/LOSS");
+      await expect(page.locator("#viewItemModal")).toContainText("Trade Received Round");
+      await expect(page.locator("#viewItemModal")).toContainText("Edit Trade");
+      await page.evaluate(() => window.closeModalById("viewItemModal"));
+
+      await openViewModal(page, 1);
+      await expect(page.locator("#viewItemModal")).toContainText("Acquired via trade");
+      await expect(page.locator("#viewItemModal")).toContainText("Trade Linked Source");
+      await expect(page.locator("#viewItemModal")).toContainText("Unlink from Trade");
+      await page.evaluate(() => window.closeModalById("viewItemModal"));
+
+      await openViewModal(page, 2);
+      await expect(dispositionHeadings(page)).toHaveCount(1);
+      await expect(page.locator("#viewItemModal")).not.toContainText("TRADE GAIN/LOSS");
+    });
+
+    test("edit trade add/remove, received-side unlink, and relink conflict use DOM confirms", async ({
+      page,
+    }) => {
+      await seedDispositionData(page, {
+        inventory: [
+          LINKED_SOURCE,
+          { ...RECEIVED_ROUND, tradedFromUuid: "trade-linked-source" },
+          { ...BASE_ITEM, uuid: "trade-new-received", name: "Trade New Received", serial: 5 },
+        ],
+      });
+      await gotoApp(page);
+
+      const result = await page.evaluate(async () => {
+        await window.linkTradeItems(window.inventory[0], ["trade-new-received"], "2026-01-01");
+        await window.unlinkTradeItem(window.inventory[0], "trade-received-round");
+        return {
+          sourceLinks: window.inventory[0].disposition.tradedForUuids,
+          oldBackRef: window.inventory[1].tradedFromUuid || null,
+          newBackRef: window.inventory[2].tradedFromUuid || null,
+          tradeLinkEntries: window.changeLog.filter((entry) => entry.field === "tradeLink").length,
+        };
+      });
+
+      expect(result.sourceLinks).toEqual(["trade-new-received"]);
+      expect(result.oldBackRef).toBeNull();
+      expect(result.newBackRef).toBe("trade-linked-source");
+      expect(result.tradeLinkEntries).toBeGreaterThanOrEqual(2);
+    });
+
+    test("spot values, cache misses, missing links, and re-disposed links degrade gracefully", async ({
+      page,
+    }) => {
+      await seedDispositionData(page, {
+        inventory: [
+          {
+            ...LINKED_SOURCE,
+            disposition: {
+              ...LINKED_SOURCE.disposition,
+              tradedForUuids: ["trade-received-round", "trade-missing", "trade-redisp"],
+            },
+          },
+          RECEIVED_ROUND,
+          {
+            ...BASE_ITEM,
+            uuid: "trade-redisp",
+            name: "Trade Re-disposed",
+            serial: 6,
+            tradedFromUuid: "trade-linked-source",
+            disposition: { type: "sold", date: "2026-02-01", amount: 40 },
+          },
+        ],
+      });
+      await gotoApp(page);
+
+      const spotValue = await page.evaluate(() =>
+        window.computeTradeValue(window.inventory[1], "2026-01-01")
+      );
+      expect(spotValue).toMatchObject({ isCustom: false });
+      expect(spotValue.spotPrice).toBeGreaterThan(0);
+      expect(
+        await page.evaluate(() =>
+          window.computeTradeValue({ ...window.inventory[1], metal: "Rhodium" }, "2026-01-01")
+        )
+      ).toBeNull();
+
+      await openViewModal(page, 0);
+      await expect(page.locator("#viewItemModal")).toContainText("Missing item");
+      await expect(page.locator("#viewItemModal")).toContainText("Disposed");
+    });
+  });
 });

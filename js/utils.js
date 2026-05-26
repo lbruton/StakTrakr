@@ -1071,7 +1071,14 @@ const sanitizeObjectFields = (obj) => {
     if (typeof cleaned[key] === "string" && key !== "notes" && key !== "capsuleNotes") {
       // URL fields must not be sanitized — they contain :, /, . characters
       // UUID fields must not be sanitized — hyphens are part of the format
-      if (key === "obverseImageUrl" || key === "reverseImageUrl" || key === "uuid") continue;
+      if (
+        key === "obverseImageUrl" ||
+        key === "reverseImageUrl" ||
+        key === "uuid" ||
+        key === "tradedFromUuid"
+      ) {
+        continue;
+      }
       const allowHyphen = key === "date";
       cleaned[key] =
         key === "name" ||

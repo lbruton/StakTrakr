@@ -149,6 +149,39 @@ async function encryptedManifest(page, manifest) {
 }
 
 test.describe("core/attachments-cloud", () => {
+  test("trade received-side back-reference changes inventory hash", async ({ page }) => {
+    await injectSeedInventory(page);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.computeInventoryHash === "function");
+
+    const result = await page.evaluate(async () => {
+      window.inventory = [
+        {
+          uuid: "strk123-sync-received",
+          serial: 123,
+          metal: "Silver",
+          composition: "Silver",
+          name: "STRK-123 Sync Received",
+          qty: 1,
+          type: "Round",
+          weight: 1,
+          weightUnit: "oz",
+          purity: 0.999,
+          price: 30,
+          date: "2026-01-01",
+        },
+      ];
+      const before = await window.computeInventoryHash(window.inventory);
+      window.inventory[0].tradedFromUuid = "strk123-sync-source";
+      const after = await window.computeInventoryHash(window.inventory);
+      return { before, after };
+    });
+
+    expect(result.before).toBeTruthy();
+    expect(result.after).toBeTruthy();
+    expect(result.after).not.toBe(result.before);
+  });
+
   test("Cloud settings tab and header button route to settings or manual sync based on config", async ({
     page,
   }) => {
