@@ -19,8 +19,8 @@ const AUTOCOMPLETE_CONFIG = {
   minCharacters: 2,
   /** Fuzzy match threshold (0-1) */
   threshold: 0.3,
-  /** Cache TTL in milliseconds (1 hour) */
-  cacheTTL: 60 * 60 * 1000,
+  /** Cache TTL in milliseconds (5 minutes — inventory changes frequently) */
+  cacheTTL: 5 * 60 * 1000,
   /** LocalStorage key for lookup cache */
   cacheKey: "autocomplete_lookup_cache",
   /** LocalStorage key for cache timestamp */
@@ -772,8 +772,12 @@ const generateLookupTable = (inventory, options = {}) => {
     debugLog(`🔍 Generating lookup table from ${data.length} inventory items...`);
     // Extract unique values for each field from inventory
     const inventoryNames = extractUniqueValues(data, "name");
-    const inventoryPurchaseLocations = extractUniqueValues(data, "purchase_location");
-    const inventoryStorageLocations = extractUniqueValues(data, "storage_location");
+    const inventoryPurchaseLocations = extractUniqueValues(data, "purchaseLocation", {
+      caseSensitive: true,
+    });
+    const inventoryStorageLocations = extractUniqueValues(data, "storageLocation", {
+      caseSensitive: true,
+    });
     const inventoryCapsules = extractUniqueValues(data, "capsule", { caseSensitive: true });
     const inventoryTypes = extractUniqueValues(data, "type");
 
@@ -789,47 +793,48 @@ const generateLookupTable = (inventory, options = {}) => {
       const combinedNames = new Set([...inventoryNames, ...PREBUILT_LOOKUP_DATA]);
       allNames = Array.from(combinedNames).sort();
 
-      // Add common purchase locations (if none exist)
-      if (inventoryPurchaseLocations.length === 0) {
-        allPurchaseLocations = [
-          "APMEX",
-          "JM Bullion",
-          "SD Bullion",
-          "Provident Metals",
-          "Golden Eagle Coins",
-          "Money Metals Exchange",
-          "Bullion Exchanges",
-          "Liberty Coin",
-          "Local Coin Shop",
-          "Precious Metals Exchange",
-          "Scottsdale Mint",
-          "SilverTowne",
-          "BGASC",
-          "Gainesville Coins",
-          "Texas Precious Metals",
-          "Bullion Depot",
-        ].sort();
-      } else {
-        allPurchaseLocations = inventoryPurchaseLocations;
-      }
+      // Merge inventory purchase locations with common vendors
+      const COMMON_PURCHASE_LOCATIONS = [
+        "APMEX",
+        "JM Bullion",
+        "SD Bullion",
+        "Provident Metals",
+        "Golden Eagle Coins",
+        "Money Metals Exchange",
+        "Bullion Exchanges",
+        "Liberty Coin",
+        "Local Coin Shop",
+        "Precious Metals Exchange",
+        "Scottsdale Mint",
+        "SilverTowne",
+        "BGASC",
+        "Gainesville Coins",
+        "Texas Precious Metals",
+        "Bullion Depot",
+        "Hero Bullion",
+        "Monument Metals",
+      ];
+      const combinedPurchase = new Set([
+        ...inventoryPurchaseLocations,
+        ...COMMON_PURCHASE_LOCATIONS,
+      ]);
+      allPurchaseLocations = Array.from(combinedPurchase).sort();
 
-      // Add common storage locations (if none exist)
-      if (inventoryStorageLocations.length === 0) {
-        allStorageLocations = [
-          "Home Safe",
-          "Bank Safety Deposit Box",
-          "Private Vault",
-          "Home Storage",
-          "Safety Deposit Box",
-          "Secure Storage Facility",
-          "Personal Safe",
-          "Bank Vault",
-          "Precious Metals Depository",
-          "Allocated Storage",
-        ].sort();
-      } else {
-        allStorageLocations = inventoryStorageLocations;
-      }
+      // Merge inventory storage locations with common defaults
+      const COMMON_STORAGE_LOCATIONS = [
+        "Home Safe",
+        "Bank Safety Deposit Box",
+        "Private Vault",
+        "Home Storage",
+        "Safety Deposit Box",
+        "Secure Storage Facility",
+        "Personal Safe",
+        "Bank Vault",
+        "Precious Metals Depository",
+        "Allocated Storage",
+      ];
+      const combinedStorage = new Set([...inventoryStorageLocations, ...COMMON_STORAGE_LOCATIONS]);
+      allStorageLocations = Array.from(combinedStorage).sort();
 
       allCapsules = buildCapsuleLookupValues(inventoryCapsules);
 
@@ -931,9 +936,16 @@ const loadLookupTable = (inventory, forceRefresh = false) => {
     if (!forceRefresh) {
       const cached = getCachedLookupTable();
       if (cached) {
-        console.log("📋 Using cached lookup table");
-        currentLookupTable = cached;
-        return cached;
+        const currentCount = Array.isArray(inventory) ? inventory.length : 0;
+        if (cached.itemCount !== currentCount && currentCount > 0) {
+          console.log(
+            `📋 Inventory count changed (${cached.itemCount} → ${currentCount}), rebuilding`
+          );
+        } else {
+          console.log("📋 Using cached lookup table");
+          currentLookupTable = cached;
+          return cached;
+        }
       }
     }
 
@@ -977,6 +989,13 @@ const getCachedLookupTable = () => {
     }
 
     const cached = JSON.parse(cacheStr);
+
+    // Invalidate cache when app version changes (ensures code fixes take effect)
+    const currentVersion = typeof APP_VERSION !== "undefined" ? APP_VERSION : "";
+    if (cached._appVersion && cached._appVersion !== currentVersion) {
+      console.log("📋 Lookup table cache stale (version mismatch)");
+      return null;
+    }
 
     // Validate cache structure
     if (
@@ -1028,6 +1047,7 @@ const cacheLookupTable = (lookupTable) => {
       };
     }
 
+    serializable._appVersion = typeof APP_VERSION !== "undefined" ? APP_VERSION : "";
     localStorage.setItem(AUTOCOMPLETE_CONFIG.cacheKey, JSON.stringify(serializable));
     localStorage.setItem(AUTOCOMPLETE_CONFIG.timestampKey, Date.now().toString());
 
