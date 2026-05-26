@@ -139,7 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
-    <li><strong>v3.34.91 &ndash; STRK-111+112: Sweep cleanup</strong>: Removed unused cacheFirst() service worker strategy and bumped 3 transitive dependencies to resolve npm audit vulnerabilities (STRK-111, STRK-112).</li>
+    <li><strong>v3.34.91 &ndash; STRK-111: Sweep cleanup</strong>: Removed unused cacheFirst() service worker strategy and bumped 3 transitive dependencies to resolve npm audit vulnerabilities (STRK-111, STRK-112).</li>
     <li><strong>v3.34.90 &ndash; STRK-114: Autocomplete field name fix</strong>: Purchase Location and Storage Location suggestions now remember your past entries instead of only showing generic defaults (STRK-114).</li>
     <li><strong>v3.34.89 &ndash; STRK-110: Consistent return cleanup</strong>: Manual spot entry and retail detail modal open paths now return undefined consistently, clearing PMD ConsistentReturn findings without changing user-facing behavior (STRK-110).</li>
     <li><strong>v3.34.88 &ndash; STRK-108: Cloud sync tag merge</strong>: Cloud sync now preserves item tags, removed-tag opt-outs, and per-item tag timestamps across devices during selective sync merges (STRK-108).</li>
