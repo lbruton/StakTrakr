@@ -19,10 +19,9 @@ npm run format:check
 
 ## Playwright Test Tier Rules
 
-- Apply the repository-level Playwright policy from `AGENTS.md`:
-  - `npm test` is the default PR gate and runs `tests/playwright/core/`.
-  - Archive issue acceptance-criteria (AC) matrices in
-    `tests/playwright/archive/issue-ac-matrices/`.
+- Playwright policy reference: `AGENTS.md`.
+- Archived issue acceptance-criteria (AC) matrices are located in
+  `tests/playwright/archive/issue-ac-matrices/`.
 
 ## Documentation
 

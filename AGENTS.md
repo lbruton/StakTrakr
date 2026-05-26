@@ -38,16 +38,17 @@ No application build step is required.
 ## Testing Guidelines
 
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
-- Default PR gate: `npm test` delegates to `npm run test:core`; do not treat it as the
-  full historical suite.
+- Default PR gate: `npm test` delegates to `npm run test:core`.
+- Do not treat it as the full historical suite.
 - Put always-run browser coverage in `tests/playwright/core/<domain>.spec.js`, slower
   or edge coverage in `tests/playwright/extended/`, and archived issue matrices in
   `tests/playwright/archive/issue-ac-matrices/`.
 - Before adding a new Playwright file, check `tests/playwright/coverage-map.csv`.
-- Prefer folding assertions into an existing domain suite when possible.
+- Add a new file only when assertions do not fit an existing domain suite.
 - Do not add new issue-prefixed specs at the Playwright root.
-- Temporary issue acceptance-criteria (AC) matrices must be reconciled into core/extended
-  coverage or moved to archive before merge.
+- Temporary issue acceptance-criteria (AC) matrices should be reconciled into
+  core/extended coverage before merge.
+- If reconciliation is not possible, move the matrix to archive.
 - Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 - Use stable, user-visible assertions and keep fixtures in `tests/fixtures/`.
