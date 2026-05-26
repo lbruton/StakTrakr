@@ -772,8 +772,12 @@ const generateLookupTable = (inventory, options = {}) => {
     debugLog(`🔍 Generating lookup table from ${data.length} inventory items...`);
     // Extract unique values for each field from inventory
     const inventoryNames = extractUniqueValues(data, "name");
-    const inventoryPurchaseLocations = extractUniqueValues(data, "purchaseLocation");
-    const inventoryStorageLocations = extractUniqueValues(data, "storageLocation");
+    const inventoryPurchaseLocations = extractUniqueValues(data, "purchaseLocation", {
+      caseSensitive: true,
+    });
+    const inventoryStorageLocations = extractUniqueValues(data, "storageLocation", {
+      caseSensitive: true,
+    });
     const inventoryCapsules = extractUniqueValues(data, "capsule", { caseSensitive: true });
     const inventoryTypes = extractUniqueValues(data, "type");
 
