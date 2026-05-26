@@ -131,6 +131,8 @@ async function computeInventoryHash(items) {
         "|" +
         (item.grade || "") +
         "|" +
+        (item.tradedFromUuid || "") +
+        "|" +
         (item.disposition ? JSON.stringify(item.disposition) : "");
       keys.push(itemKey + "::" + contentSample);
     }

@@ -152,6 +152,7 @@ const logItemChanges = (oldItem, newItem) => {
     "reverseImageFrame",
     "obverseSharedImageId",
     "reverseSharedImageId",
+    "tradedFromUuid",
     "disposition",
     "lastModified",
     "capsule",

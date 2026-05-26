@@ -8410,6 +8410,31 @@
               <label for="dispositionNotes">Notes</label>
               <textarea id="dispositionNotes" rows="3" placeholder="Optional notes..."></textarea>
             </div>
+
+            <section id="tradeLinkSection" class="trade-link-section" style="display: none">
+              <div class="trade-link-section__header">
+                <label for="tradeItemSearch">Link received items</label>
+                <span id="tradeValueSummary" class="trade-value-summary">$0.00 linked</span>
+              </div>
+              <div class="trade-item-picker">
+                <input
+                  type="search"
+                  id="tradeItemSearch"
+                  autocomplete="off"
+                  placeholder="Search active inventory"
+                  aria-controls="tradeItemSuggestions"
+                />
+                <div id="tradeItemSuggestions" class="trade-item-suggestions" role="listbox"></div>
+              </div>
+              <div id="tradeLinkedItems" class="trade-linked-items" aria-live="polite"></div>
+              <button type="button" id="tradeAddNewItemBtn" class="btn secondary">
+                + Add new item to inventory
+              </button>
+              <div id="tradeEditControls" class="trade-edit-controls" style="display: none">
+                <button type="button" id="tradeSaveEditBtn" class="btn primary">Save trade</button>
+                <button type="button" id="tradeCancelEditBtn" class="btn secondary">Cancel</button>
+              </div>
+            </section>
           </div>
         </div>
         <div class="modal-footer" style="justify-content: space-between">

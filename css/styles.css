@@ -969,6 +969,106 @@ section {
   background: var(--disposition-traded-bg);
   color: var(--disposition-traded-text);
 }
+
+.trade-link-section,
+.trade-section {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.trade-link-section__header,
+.trade-summary-row,
+.trade-provenance-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.trade-value-summary,
+.trade-value-label,
+.trade-provenance-line,
+.trade-item-meta,
+.trade-missing-item {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.trade-item-picker {
+  position: relative;
+}
+
+.trade-item-suggestions {
+  position: absolute;
+  z-index: 20;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.trade-item-suggestion,
+.trade-linked-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.trade-item-suggestion {
+  cursor: pointer;
+}
+
+.trade-item-suggestion:hover,
+.trade-item-suggestion:focus {
+  background: var(--bg-hover);
+}
+
+.trade-linked-item:last-child,
+.trade-item-suggestion:last-child {
+  border-bottom: 0;
+}
+
+.trade-linked-item__value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trade-linked-item__value input {
+  width: 8rem;
+}
+
+.trade-linked-item__remove,
+.trade-unlink-btn {
+  min-width: 2rem;
+}
+
+.trade-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.trade-comparison-table th,
+.trade-comparison-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+}
+
+.trade-gain-loss {
+  font-weight: 600;
+}
 .disposition-badge--lost {
   background: var(--disposition-lost-bg);
   color: var(--disposition-lost-text);

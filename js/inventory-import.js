@@ -376,6 +376,14 @@
             const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
             const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
             const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
+            const tradedForUuids = (row["Traded For UUIDs"] || row["tradedForUuids"] || "")
+              .toString()
+              .split(",")
+              .map((uuid) => uuid.trim())
+              .filter(Boolean);
+            const tradedFromUuid = (row["Traded From UUID"] || row["tradedFromUuid"] || "")
+              .toString()
+              .trim();
 
             const attachmentsRaw = (row["Attachments"] || "").trim();
             const csvAttachments = attachmentsRaw
@@ -423,6 +431,7 @@
                 disposedAt: dispositionDisposedAt || undefined,
                 splitFromUuid: dispositionSplitFromUuid,
               };
+              if (tradedForUuids.length > 0) disposition.tradedForUuids = tradedForUuids;
             }
 
             addCompositionOption(composition);
@@ -458,6 +467,7 @@
               obverseImageUrl,
               reverseImageUrl,
               disposition,
+              tradedFromUuid: tradedFromUuid || undefined,
             });
 
             if (csvAttachments.length > 0) item.attachments = csvAttachments;
@@ -1119,6 +1129,8 @@
       "Disposition Currency",
       "Disposition DisposedAt",
       "Disposition Split From UUID",
+      "Traded For UUIDs",
+      "Traded From UUID",
     ];
 
     const sortedInventory = sortInventoryByDateNewestFirst();
@@ -1178,6 +1190,8 @@
         i.disposition?.currency || "",
         i.disposition?.disposedAt || "",
         i.disposition?.splitFromUuid || "",
+        Array.isArray(i.disposition?.tradedForUuids) ? i.disposition.tradedForUuids.join(",") : "",
+        i.tradedFromUuid || "",
       ]);
     }
 

@@ -65,6 +65,7 @@
           reverseImageFrame: item.reverseImageFrame || "",
           obverseSharedImageId: item.obverseSharedImageId || null,
           reverseSharedImageId: item.reverseSharedImageId || null,
+          tradedFromUuid: item.tradedFromUuid || null,
           lastModified: item.lastModified || "",
           capsule: item.capsule || "",
           capsuleNotes: item.capsuleNotes || "",
