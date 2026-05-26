@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 
 const THEMES = ["light", "dark", "slate", "sepia"];
 const REQUIRED_TOKENS = [

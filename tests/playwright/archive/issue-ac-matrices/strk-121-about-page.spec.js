@@ -24,9 +24,7 @@ test.describe("about-page", () => {
   });
 
   test("AP-3 — meta description is present and non-empty", async ({ page }) => {
-    const description = await page
-      .locator('meta[name="description"]')
-      .getAttribute("content");
+    const description = await page.locator('meta[name="description"]').getAttribute("content");
     expect(description).toBeTruthy();
     expect(description.length).toBeGreaterThan(20);
   });
@@ -109,9 +107,7 @@ test.describe("about-page", () => {
   });
 
   test("AP-17 — 'Free Spot & Market API' pillar is present", async ({ page }) => {
-    await expect(
-      page.locator(".pillar h3", { hasText: "Free Spot & Market API" })
-    ).toBeVisible();
+    await expect(page.locator(".pillar h3", { hasText: "Free Spot & Market API" })).toBeVisible();
   });
 
   test("AP-18 — 'Truly Portable' pillar is present", async ({ page }) => {
@@ -170,9 +166,7 @@ test.describe("about-page", () => {
   });
 
   test("AP-27 — StakTrakr API row is in the api-table", async ({ page }) => {
-    await expect(
-      page.locator("table.api-table td", { hasText: "StakTrakr API" })
-    ).toBeVisible();
+    await expect(page.locator("table.api-table td", { hasText: "StakTrakr API" })).toBeVisible();
   });
 
   test("AP-28 — 'Bundled' badge is visible in api-table", async ({ page }) => {
@@ -205,8 +199,12 @@ test.describe("about-page", () => {
   });
 
   test("AP-33 — Option A and Option B cards are present", async ({ page }) => {
-    await expect(page.locator(".feature-card h3", { hasText: "Option A: Just Open It" })).toBeVisible();
-    await expect(page.locator(".feature-card h3", { hasText: "Option B: Run It Locally" })).toBeVisible();
+    await expect(
+      page.locator(".feature-card h3", { hasText: "Option A: Just Open It" })
+    ).toBeVisible();
+    await expect(
+      page.locator(".feature-card h3", { hasText: "Option B: Run It Locally" })
+    ).toBeVisible();
   });
 
   // ── Sponsor section ───────────────────────────────────────────────────────

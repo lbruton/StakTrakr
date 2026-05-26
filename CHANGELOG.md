@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.98] - 2026-05-26
+
+### Changed — STRK-121: Playwright consolidation batch
+
+- **Settings, mobile layout, static page, service worker, and config coverage**:
+  Consolidated 17 remaining settings/layout/static/browser-edge Playwright
+  specs (258 historical tests) into compact core, extended, and unit targets:
+  `settings.spec.js` (4 tests), `mobile-and-layout.spec.js` (4 tests),
+  `visual-layout-regressions.spec.js` (4 tests), `service-worker.spec.js` (3
+  tests), and `config-validation.test.js` (94 unit tests), with historical
+  source specs retained in the archive for on-demand legacy verification.
+  (STRK-121)
+
+---
+
 ## [3.34.97] - 2026-05-26
 
 ### Changed — STRK-120: Playwright consolidation batch

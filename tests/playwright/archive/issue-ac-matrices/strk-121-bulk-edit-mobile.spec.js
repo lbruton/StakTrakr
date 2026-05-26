@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 
 /**
  * Playwright harness scaffolding for STRK-91 — bulk editor mobile parity.

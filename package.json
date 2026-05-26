@@ -1,13 +1,13 @@
 {
   "name": "staktrakr",
   "private": true,
-  "version": "3.34.97",
+  "version": "3.34.98",
   "license": "MIT",
   "type": "module",
   "description": "Precious metals inventory tracker",
   "scripts": {
     "lint": "eslint js/*.js sw.js sw-router.js \"tests/unit/**/*.js\"",
-    "test:unit": "node --test tests/unit/sw-router.test.js",
+    "test:unit": "node --test tests/unit/*.test.js",
     "lint:md": "bash devops/hooks/lint-markdown-changed.sh --staged",
     "lint:md:changed": "bash devops/hooks/lint-markdown-changed.sh --changed",
     "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\"",
