@@ -625,7 +625,7 @@ test.describe("payment-method", () => {
     ]);
     await gotoApp(page);
     await page.evaluate(() => window.clearAllFilters());
-    await page.waitForTimeout(300);
+    await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
 
     const creditChip = page
       .locator("#activeFilters .filter-chip")
@@ -633,13 +633,11 @@ test.describe("payment-method", () => {
       .first();
     await expect(creditChip).toBeVisible();
     await creditChip.click();
-    await page.waitForTimeout(300);
     await expect(page.locator("#cardViewGrid")).toContainText("STRK-50 Card 1");
     await expect(page.locator("#cardViewGrid")).not.toContainText("STRK-50 Zelle");
 
     await page.evaluate(() => window.clearAllFilters());
     await page.fill("#searchInput", "Zelle");
-    await page.waitForTimeout(500);
     await expect(page.locator("#cardViewGrid")).toContainText("STRK-50 Zelle");
     await expect(page.locator("#cardViewGrid")).not.toContainText("STRK-50 Card 1");
 
@@ -999,7 +997,7 @@ test.describe.serial("crud-journey", () => {
       const row = sharedPage.locator("#inventoryTable tbody tr").filter({ hasText: name });
       if ((await row.count()) > 0) {
         await deleteItemByName(sharedPage, name);
-        await sharedPage.waitForTimeout(200);
+        await expect(row).toBeHidden();
       }
     }
     await sharedPage.close();
@@ -1270,7 +1268,6 @@ test.describe.serial("crud-journey", () => {
   test("search for an item by name", async () => {
     const page = sharedPage;
     await page.fill("#searchInput", "BB-SILVER");
-    await page.waitForTimeout(500);
 
     await expect(page.locator("#cardViewGrid")).toContainText("BB-SILVER-COIN");
     const grid = page.locator("#cardViewGrid");
@@ -1285,13 +1282,13 @@ test.describe.serial("crud-journey", () => {
     expect(chipCount).toBeGreaterThan(0);
 
     await page.evaluate(() => window.clearAllFilters());
-    await page.waitForTimeout(300);
+    await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
   });
 
   test("filter via chip (metal)", async () => {
     const page = sharedPage;
     await page.evaluate(() => window.clearAllFilters());
-    await page.waitForTimeout(300);
+    await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
 
     const beforeCount = await countCards(page);
     expect(beforeCount).toBe(16);
@@ -1299,8 +1296,7 @@ test.describe.serial("crud-journey", () => {
     const silverChip = page.locator(".filter-chip").filter({ hasText: "Silver" }).first();
     await expect(silverChip).toBeVisible({ timeout: 5000 });
     await silverChip.click();
-    await page.waitForTimeout(300);
-
+    await expect(page.locator("#cardViewGrid article")).not.toHaveCount(beforeCount);
     const afterCount = await countCards(page);
     expect(afterCount).toBeGreaterThan(0);
     expect(afterCount).toBeLessThan(beforeCount);
@@ -1316,39 +1312,34 @@ test.describe.serial("crud-journey", () => {
       .filter({ hasText: "Silver" })
       .first();
     await activeChip.click();
-    await page.waitForTimeout(300);
+    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
 
     const afterCount = await countCards(page);
     expect(afterCount).toBe(16);
 
     await page.evaluate(() => window.clearAllFilters());
-    await page.waitForTimeout(300);
+    await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
   });
 
   test("switch card views A → B → C → Table (D)", async () => {
     const page = sharedPage;
 
     await page.click('[data-style="A"]');
-    await page.waitForTimeout(300);
-    expect(await countCards(page)).toBe(16);
+    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
 
     await page.click('[data-style="B"]');
-    await page.waitForTimeout(300);
-    expect(await countCards(page)).toBe(16);
+    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
 
     await page.click('[data-style="C"]');
-    await page.waitForTimeout(300);
-    expect(await countCards(page)).toBe(16);
+    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
 
     await page.click('[data-style="D"]');
-    await page.waitForTimeout(300);
     await expect(page.locator("#inventoryTable")).toBeVisible();
     const tableRows = await page.locator("#inventoryTable tbody tr").count();
     expect(tableRows).toBeGreaterThan(0);
 
     await page.click('[data-style="A"]');
-    await page.waitForTimeout(300);
-    expect(await countCards(page)).toBe(16);
+    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
   });
 
   test("melt value recalculates correctly when spot price changes", async () => {
@@ -1364,7 +1355,6 @@ test.describe.serial("crud-journey", () => {
       spotPrices.silver = 50;
       if (typeof renderTable === "function") renderTable();
     });
-    await page.waitForTimeout(300);
 
     const updatedMelt = await page.evaluate(() => {
       const item = window.inventory.find((i) => i.name === "BB-SILVER-COIN");
