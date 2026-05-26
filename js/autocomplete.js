@@ -931,9 +931,16 @@ const loadLookupTable = (inventory, forceRefresh = false) => {
     if (!forceRefresh) {
       const cached = getCachedLookupTable();
       if (cached) {
-        console.log("📋 Using cached lookup table");
-        currentLookupTable = cached;
-        return cached;
+        const currentCount = Array.isArray(inventory) ? inventory.length : 0;
+        if (cached.itemCount !== currentCount && currentCount > 0) {
+          console.log(
+            `📋 Inventory count changed (${cached.itemCount} → ${currentCount}), rebuilding`
+          );
+        } else {
+          console.log("📋 Using cached lookup table");
+          currentLookupTable = cached;
+          return cached;
+        }
       }
     }
 
@@ -977,6 +984,13 @@ const getCachedLookupTable = () => {
     }
 
     const cached = JSON.parse(cacheStr);
+
+    // Invalidate cache when app version changes (ensures code fixes take effect)
+    const currentVersion = typeof APP_VERSION !== "undefined" ? APP_VERSION : "";
+    if (cached._appVersion && cached._appVersion !== currentVersion) {
+      console.log("📋 Lookup table cache stale (version mismatch)");
+      return null;
+    }
 
     // Validate cache structure
     if (
@@ -1028,6 +1042,7 @@ const cacheLookupTable = (lookupTable) => {
       };
     }
 
+    serializable._appVersion = typeof APP_VERSION !== "undefined" ? APP_VERSION : "";
     localStorage.setItem(AUTOCOMPLETE_CONFIG.cacheKey, JSON.stringify(serializable));
     localStorage.setItem(AUTOCOMPLETE_CONFIG.timestampKey, Date.now().toString());
 
