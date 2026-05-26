@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers/mocks/extended-test.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
 
 const ACCOUNT_ID = "dbid:strk101-test-account";
 const VAULT_PASSWORD = "strk101-test-password";

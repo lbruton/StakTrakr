@@ -1,5 +1,5 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "../helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 // F.2 — Zip backup/restore attachment tests (AC-3, AC-5, AC-6)
 

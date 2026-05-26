@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.34.95] - 2026-05-26
+
+### Changed — STRK-118: Playwright consolidation batch
+
+- **Attachments, cloud sync, and import/export coverage**: Consolidated 15
+  backup, attachment, cloud sync, vault, and CSV Playwright specs (93 historical
+  tests) into compact core and extended suites — `attachments-cloud.spec.js`
+  (8 tests), `import-export.spec.js` (5 tests), and `attachment-zip.spec.js`
+  (3 tests) — while preserving archived source coverage for on-demand legacy
+  verification. (STRK-118)
+
+---
+
 ## [3.34.94] - 2026-05-26
 
 ### Changed — STRK-117: Playwright consolidation batch
