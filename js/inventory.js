@@ -780,7 +780,7 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const typeSelect = safeGetElement("dispositionType");
   if (typeSelect) typeSelect.value = "sold";
   const dateInput = safeGetElement("dispositionDate");
-  if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
+  if (dateInput) dateInput.value = new Date().toLocaleDateString("en-CA");
   const amountInput = safeGetElement("dispositionAmount");
   if (amountInput) amountInput.value = "";
   const recipientInput = safeGetElement("dispositionRecipient");
