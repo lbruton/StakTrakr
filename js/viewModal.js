@@ -1175,11 +1175,11 @@ function _buildDispositionSection(item) {
     });
 
     // Save: persist the updated trade links
-    saveBtn.addEventListener("click", () => {
+    saveBtn.addEventListener("click", async () => {
       const sourceIdx = inventory.findIndex((c) => c.uuid === item.uuid);
       if (sourceIdx < 0) return;
       if (typeof updateTradeLinks === "function") {
-        updateTradeLinks(item, editUuids);
+        await updateTradeLinks(item, editUuids);
       }
       closeViewModal();
       if (typeof showViewModal === "function") showViewModal(sourceIdx);

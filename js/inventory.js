@@ -944,18 +944,6 @@ const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
     if (tradeValue) disposedItem.disposition.tradeValues[receivedUuid] = tradeValue;
     receivedItem.tradedFromUuid = disposedItem.uuid;
 
-    // STRK-132: cost basis = given-up item's value at trade date (carryover),
-    // NOT the FMV of the received item. Matches the "what did I pay?" mental
-    // model consistent with cash purchases.
-    const givenUpTradeValue =
-      typeof computeTradeValue === "function" ? computeTradeValue(disposedItem, tradeDate) : null;
-    const givenUpValue =
-      givenUpTradeValue?.meltValue || parseFloat(disposedItem.disposition.amount) || 0;
-    if (givenUpValue > 0 && receivedUuids.length > 0) {
-      receivedItem.price = String(givenUpValue / receivedUuids.length);
-      receivedItem.date = tradeDate || disposedItem.disposition.date || "";
-    }
-
     pushTradeLinkChange(disposedItem, receivedItem, before, {
       disposedUuid: disposedItem.uuid,
       receivedUuid,
@@ -965,6 +953,27 @@ const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
     });
     linked.push(receivedUuid);
   }
+
+  // STRK-132: cost basis = given-up item's value at trade date (carryover),
+  // NOT the FMV of the received item. Divide by actual linked count, not the
+  // input array length (some UUIDs may be skipped via null/self-ref/cancel).
+  if (linked.length > 0) {
+    const givenUpTradeValue =
+      typeof computeTradeValue === "function" ? computeTradeValue(disposedItem, tradeDate) : null;
+    const givenUpValue =
+      givenUpTradeValue?.meltValue || parseFloat(disposedItem.disposition.amount) || 0;
+    if (givenUpValue > 0) {
+      const perUnitCost = String(givenUpValue / linked.length);
+      for (const uuid of linked) {
+        const item = typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null;
+        if (item) {
+          item.price = perUnitCost;
+          item.date = tradeDate || disposedItem.disposition.date || "";
+        }
+      }
+    }
+  }
+
   if (Object.keys(disposedItem.disposition.tradeValues).length === 0) {
     delete disposedItem.disposition.tradeValues;
   }

@@ -4832,15 +4832,15 @@ if (removeItemDisposeBtn) {
 let _pendingTradeLinkUuids = [];
 
 const tradeEls = () => ({
-  section: document.getElementById("tradeLinkSection"),
-  search: document.getElementById("tradeItemSearch"),
-  suggestions: document.getElementById("tradeItemSuggestions"),
-  linked: document.getElementById("tradeLinkedItems"),
-  summary: document.getElementById("tradeValueSummary"),
+  section: safeGetElement("tradeLinkSection"),
+  search: safeGetElement("tradeItemSearch"),
+  suggestions: safeGetElement("tradeItemSuggestions"),
+  linked: safeGetElement("tradeLinkedItems"),
+  summary: safeGetElement("tradeValueSummary"),
 });
 
 const getTradeDate = () => {
-  const val = document.getElementById("dispositionDate")?.value;
+  const val = safeGetElement("dispositionDate")?.value;
   return val || new Date().toLocaleDateString("en-CA");
 };
 
@@ -4917,7 +4917,7 @@ if (tradeSearch) {
       if (searchIcon) searchIcon.style.display = "";
       return;
     }
-    const removeIdx = parseInt(document.getElementById("removeItemIdx")?.value, 10);
+    const removeIdx = parseInt(safeGetElement("removeItemIdx")?.value, 10);
     const sourceUuid = inventory[removeIdx]?.uuid;
     const matches = inventory
       .filter((item, idx) => idx !== removeIdx && (!sourceUuid || item.uuid !== sourceUuid))
