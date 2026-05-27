@@ -4802,9 +4802,11 @@ if (removeItemDisposeCheck) {
     const fields = document.getElementById("removeItemDisposeFields");
     const deleteBtn = document.getElementById("removeItemDeleteBtn");
     const disposeBtn = document.getElementById("removeItemDisposeBtn");
+    const title = document.getElementById("removeItemModalTitle");
     if (fields) fields.style.display = checked ? "" : "none";
     if (deleteBtn) deleteBtn.style.display = checked ? "none" : "";
     if (disposeBtn) disposeBtn.style.display = checked ? "" : "none";
+    if (title) title.textContent = checked ? "Dispose Item" : "Remove Item";
   });
 }
 
@@ -4888,9 +4890,13 @@ if (dispositionTypeSelect) {
     const typeInfo = DISPOSITION_TYPES[dispositionTypeSelect.value];
     const amountGroup = document.getElementById("dispositionAmountGroup");
     if (amountGroup) amountGroup.style.display = typeInfo?.requiresAmount ? "" : "none";
+    const amountInput = document.getElementById("dispositionAmount");
     if (!typeInfo || !typeInfo.requiresAmount) {
-      const amountInput = document.getElementById("dispositionAmount");
       if (amountInput) amountInput.value = "";
+    }
+    if (amountInput) {
+      const placeholders = { traded: "Trade value", sold: "Sale amount" };
+      amountInput.placeholder = placeholders[dispositionTypeSelect.value] || "Amount";
     }
     updateTradeSectionVisibility();
   });
@@ -4901,9 +4907,11 @@ if (tradeSearch) {
   tradeSearch.addEventListener("input", () => {
     const { suggestions } = tradeEls();
     if (!suggestions) return;
+    const searchIcon = tradeSearch.parentElement?.querySelector(".trade-search-icon");
     const query = tradeSearch.value.trim().toLowerCase();
     if (!query) {
       suggestions.innerHTML = "";
+      if (searchIcon) searchIcon.style.display = "";
       return;
     }
     const removeIdx = parseInt(document.getElementById("removeItemIdx")?.value, 10);
@@ -4926,6 +4934,7 @@ if (tradeSearch) {
         return `<div class="trade-item-suggestion" role="option" tabindex="0" data-trade-uuid="${sanitizeHtml(item.uuid)}"><span class="result-name">${sanitizeHtml(item.name || "Unnamed item")}</span><span class="result-meta">${meta}${badge}</span></div>`;
       })
       .join("");
+    if (searchIcon) searchIcon.style.display = suggestions.innerHTML ? "none" : "";
   });
 }
 
@@ -4936,6 +4945,8 @@ document.addEventListener("click", (event) => {
     const { search, suggestions } = tradeEls();
     if (search) search.value = "";
     if (suggestions) suggestions.innerHTML = "";
+    const searchIcon = search?.parentElement?.querySelector(".trade-search-icon");
+    if (searchIcon) searchIcon.style.display = "";
   }
   const remove = event.target.closest("[data-remove-trade-uuid]");
   if (remove) {

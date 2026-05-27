@@ -14518,17 +14518,13 @@ th {
   z-index: 10000;
 }
 
-/* Currency inputs should not show browser spinner controls */
-#itemPrice::-webkit-outer-spin-button,
-#itemPrice::-webkit-inner-spin-button,
-#itemMarketValue::-webkit-outer-spin-button,
-#itemMarketValue::-webkit-inner-spin-button {
+/* Hide native number-input spinners globally (design-system override) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-
-#itemPrice,
-#itemMarketValue {
+input[type="number"] {
   -moz-appearance: textfield;
 }
 
