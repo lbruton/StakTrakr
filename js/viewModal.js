@@ -639,8 +639,9 @@ function _buildValuationSection(item, metrics) {
   const perUnitRetail = retailTotal > 0 ? retailTotal / qty : 0;
   const perUnitGainLoss = gainLoss !== null ? gainLoss / qty : null;
 
+  const costLabel = item.tradedFromUuid ? "Trade" : "Purchase";
   const addRow = (purchaseLabel, pPrice, mMelt, mRetail, mGainLoss, mGlPercent) => {
-    _addDetail(valGrid, "Purchase", purchaseLabel);
+    _addDetail(valGrid, costLabel, purchaseLabel);
     _addDetail(
       valGrid,
       "Premium",
@@ -772,6 +773,54 @@ function _buildDispositionSection(item) {
     }
     line.appendChild(text);
     section.appendChild(line);
+
+    // Mini comparison bar — gave up vs this item now (STRK-128)
+    if (source) {
+      const sd = source.disposition || {};
+      const tradeTimeValue =
+        typeof computeTradeValue === "function" ? computeTradeValue(source, sd.date || "") : null;
+      const gaveUpValue = tradeTimeValue?.meltValue || 0;
+      const thisSpot = spotPrices?.[String(item.metal || "").toLowerCase()] || 0;
+      const thisValuation =
+        typeof computeItemValuation === "function" ? computeItemValuation(item, thisSpot) : null;
+      const thisValue = thisValuation?.retailTotal || thisValuation?.meltValue || 0;
+      const netValue = thisValue - gaveUpValue;
+
+      const comp = _el("div", "trade-comparison");
+
+      const gaveUpSide = _el("div", "trade-comparison-side");
+      const gaveLabel = _el("span", "comp-label");
+      gaveLabel.textContent = "Gave Up (at trade)";
+      const gaveVal = _el("span", "comp-value");
+      gaveVal.textContent = formatCurrency(gaveUpValue);
+      gaveUpSide.appendChild(gaveLabel);
+      gaveUpSide.appendChild(gaveVal);
+      comp.appendChild(gaveUpSide);
+
+      const arrowEl = _el("div", "trade-comparison-arrow");
+      arrowEl.textContent = "→";
+      comp.appendChild(arrowEl);
+
+      const thisSide = _el("div", "trade-comparison-side");
+      const thisLabel = _el("span", "comp-label");
+      thisLabel.textContent = "This Item (Now)";
+      const thisVal = _el("span", "comp-value");
+      thisVal.textContent = formatCurrency(thisValue);
+      thisSide.appendChild(thisLabel);
+      thisSide.appendChild(thisVal);
+      comp.appendChild(thisSide);
+
+      const verdict = _el("div", "trade-comparison-verdict");
+      const netLabel = _el("span", "comp-label");
+      netLabel.textContent = "Net";
+      const netVal = _el("span", "comp-value " + (netValue >= 0 ? "gain" : "loss"));
+      netVal.textContent = (netValue >= 0 ? "+" : "") + formatCurrency(netValue);
+      verdict.appendChild(netLabel);
+      verdict.appendChild(netVal);
+      comp.appendChild(verdict);
+
+      section.appendChild(comp);
+    }
 
     const unlinkWrap = _el("div");
     unlinkWrap.style.cssText = "margin-top:var(--spacing-sm);display:flex;justify-content:flex-end";

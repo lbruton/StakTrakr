@@ -938,6 +938,14 @@ const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
       typeof computeTradeValue === "function" ? computeTradeValue(receivedItem, tradeDate) : null;
     if (tradeValue) disposedItem.disposition.tradeValues[receivedUuid] = tradeValue;
     receivedItem.tradedFromUuid = disposedItem.uuid;
+
+    // Write cost basis: split disposed amount equally across received items (STRK-128)
+    const disposedAmount = parseFloat(disposedItem.disposition.amount) || 0;
+    if (disposedAmount > 0 && receivedUuids.length > 0) {
+      receivedItem.price = String(disposedAmount / receivedUuids.length);
+      receivedItem.date = tradeDate || disposedItem.disposition.date || "";
+    }
+
     pushTradeLinkChange(disposedItem, receivedItem, before, {
       disposedUuid: disposedItem.uuid,
       receivedUuid,
