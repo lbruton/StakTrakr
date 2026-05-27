@@ -739,7 +739,7 @@ test.describe("core/disposition", () => {
 
       await openViewModal(page, 0);
       await expect(sectionHeadings(page)).toContainText(["Trade"]);
-      await expect(page.locator("#viewItemModal")).toContainText("TRADE GAIN/LOSS");
+      await expect(page.locator("#viewItemModal")).toContainText("Trade Gain/Loss");
       await expect(page.locator("#viewItemModal")).toContainText("Trade Received Round");
       await expect(page.locator("#viewItemModal")).toContainText("Edit Trade");
       await page.evaluate(() => window.closeModalById("viewItemModal"));
@@ -822,7 +822,7 @@ test.describe("core/disposition", () => {
 
       await openViewModal(page, 0);
       await expect(page.locator("#viewItemModal")).toContainText("Missing item");
-      await expect(page.locator("#viewItemModal")).toContainText("Disposed");
+      await expect(page.locator("#viewItemModal")).toContainText("Trade Re-disposed");
     });
   });
 });
