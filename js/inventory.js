@@ -959,6 +959,21 @@ const unlinkTradeItem = (disposedItem, receivedUuid) => {
   if (typeof renderChangeLog === "function") renderChangeLog();
 };
 
+const updateTradeLinks = async (disposedItem, newUuids) => {
+  if (!disposedItem?.disposition) return;
+  const oldUuids = [...(disposedItem.disposition.tradedForUuids || [])];
+  const removed = oldUuids.filter((u) => !newUuids.includes(u));
+  const added = newUuids.filter((u) => !oldUuids.includes(u));
+  removed.forEach((uuid) => removeTradeLinkReference(disposedItem, uuid));
+  if (added.length > 0) {
+    const tradeDate = disposedItem.disposition.date || "";
+    await linkTradeItems(disposedItem, added, tradeDate);
+  }
+  saveInventory();
+  if (typeof renderChangeLog === "function") renderChangeLog();
+  if (typeof renderTable === "function") renderTable();
+};
+
 const clearTradeLinks = (disposedItem) => {
   const linked = [...(disposedItem?.disposition?.tradedForUuids || [])];
   linked.forEach((uuid) => removeTradeLinkReference(disposedItem, uuid));
@@ -1418,6 +1433,7 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
 window.splitInventoryItem = splitInventoryItem;
 window.linkTradeItems = linkTradeItems;
 window.unlinkTradeItem = unlinkTradeItem;
+window.updateTradeLinks = updateTradeLinks;
 window.clearTradeLinks = clearTradeLinks;
 
 /**

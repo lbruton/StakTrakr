@@ -8413,27 +8413,26 @@
 
             <section id="tradeLinkSection" class="trade-link-section" style="display: none">
               <div class="trade-link-section__header">
-                <label for="tradeItemSearch">Link received items</label>
-                <span id="tradeValueSummary" class="trade-value-summary">$0.00 linked</span>
+                <label for="tradeItemSearch">Link Received Items</label>
+                <span id="tradeValueSummary" class="trade-value-summary"></span>
               </div>
+              <div id="tradeLinkedItems" class="trade-linked-chips" aria-live="polite"></div>
               <div class="trade-item-picker">
+                <span class="trade-search-icon">&#x1F50D;</span>
                 <input
                   type="search"
                   id="tradeItemSearch"
                   autocomplete="off"
-                  placeholder="Search active inventory"
+                  placeholder="Search active items..."
                   aria-controls="tradeItemSuggestions"
                 />
                 <div id="tradeItemSuggestions" class="trade-item-suggestions" role="listbox"></div>
               </div>
-              <div id="tradeLinkedItems" class="trade-linked-items" aria-live="polite"></div>
-              <button type="button" id="tradeAddNewItemBtn" class="btn secondary">
-                + Add new item to inventory
+              <button type="button" id="tradeAddNewItemBtn" class="trade-add-new-btn">
+                <span class="add-icon">+</span>
+                <span>Add new item to inventory</span>
+                <span class="add-hint">— opens Add Item form</span>
               </button>
-              <div id="tradeEditControls" class="trade-edit-controls" style="display: none">
-                <button type="button" id="tradeSaveEditBtn" class="btn primary">Save trade</button>
-                <button type="button" id="tradeCancelEditBtn" class="btn secondary">Cancel</button>
-              </div>
             </section>
           </div>
         </div>

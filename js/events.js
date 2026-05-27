@@ -2056,6 +2056,21 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     const itemModal = document.getElementById("itemModal");
     if (itemModal) itemModal.style.zIndex = "";
   }
+  if (!isEditing && window.__tradeEditAddNewPending && committed?.uuid) {
+    const editUuids = window.__tradeEditUuids;
+    if (Array.isArray(editUuids) && !editUuids.includes(committed.uuid)) {
+      editUuids.push(committed.uuid);
+    }
+    if (typeof window.__tradeEditRenderChips === "function") {
+      window.__tradeEditRenderChips();
+    }
+    window.__tradeEditAddNewPending = false;
+    window.__tradeEditSourceItem = null;
+    window.__tradeEditUuids = null;
+    window.__tradeEditRenderChips = null;
+    const itemModal = document.getElementById("itemModal");
+    if (itemModal) itemModal.style.zIndex = "";
+  }
 };
 
 /**
@@ -4824,11 +4839,13 @@ const tradeEls = () => ({
 
 const getTradeDate = () => document.getElementById("dispositionDate")?.value || "";
 
+// nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
 const renderPendingTradeLinks = () => {
   const { linked, summary } = tradeEls();
   if (!linked) return;
   let total = 0;
-  linked.innerHTML = _pendingTradeLinkUuids
+  // developer-controlled HTML — all values pass through sanitizeHtml()
+  linked.innerHTML = _pendingTradeLinkUuids // duplication-ok
     .map((uuid) => {
       const item = typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null;
       if (!item) return "";
@@ -4836,21 +4853,11 @@ const renderPendingTradeLinks = () => {
         typeof computeTradeValue === "function" ? computeTradeValue(item, getTradeDate()) : null;
       const meltValue = value?.meltValue || 0;
       total += meltValue;
-      return `
-        <div class="trade-linked-item" data-uuid="${sanitizeHtml(uuid)}">
-          <div>
-            <strong>${sanitizeHtml(item.name || "Unnamed item")}</strong>
-            <div class="trade-item-meta">${sanitizeHtml(item.metal || "")} · Qty ${Number(item.qty) || 1}</div>
-          </div>
-          <div class="trade-linked-item__value">
-            <input type="number" class="trade-value-input" data-uuid="${sanitizeHtml(uuid)}" value="${meltValue ? meltValue.toFixed(2) : ""}" placeholder="—" />
-            <span class="trade-value-label">${value ? "spot value" : "custom"}</span>
-            <button type="button" class="btn secondary trade-linked-item__remove" data-remove-trade-uuid="${sanitizeHtml(uuid)}">×</button>
-          </div>
-        </div>`;
+      const name = sanitizeHtml(item.name || "Unnamed item");
+      return `<span class="trade-linked-chip" data-uuid="${sanitizeHtml(uuid)}">${name}<button type="button" class="chip-remove" data-remove-trade-uuid="${sanitizeHtml(uuid)}">&times;</button></span>`;
     })
     .join("");
-  if (summary) summary.textContent = formatCurrency(total);
+  if (summary) summary.textContent = total > 0 ? formatCurrency(total) : "";
   const dispositionAmount = document.getElementById("dispositionAmount");
   if (dispositionAmount && total > 0 && !dispositionAmount.value) {
     dispositionAmount.value = total.toFixed(2);
@@ -4908,10 +4915,11 @@ if (tradeSearch) {
       )
       .filter((item) => (item.name || "").toLowerCase().includes(query))
       .slice(0, 8);
-    suggestions.innerHTML = matches
+    // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
+    suggestions.innerHTML = matches // developer-controlled HTML — sanitizeHtml on all values
       .map(
         (item) =>
-          `<div class="trade-item-suggestion" role="option" tabindex="0" data-trade-uuid="${sanitizeHtml(item.uuid)}">${sanitizeHtml(item.name || "Unnamed item")}</div>`
+          `<div class="trade-item-suggestion" role="option" tabindex="0" data-trade-uuid="${sanitizeHtml(item.uuid)}"><span class="result-name">${sanitizeHtml(item.name || "Unnamed item")}</span><span class="result-meta">${sanitizeHtml(item.metal || "")} · Qty ${Number(item.qty) || 1}</span></div>`
       )
       .join("");
   });

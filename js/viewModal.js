@@ -737,34 +737,53 @@ function _mergeRetailHistoryEntries(itemRetailEntries, goldbackRetailEntries) {
  * @returns {HTMLElement|null}
  */
 function _buildDispositionSection(item) {
+  // Path 1: Received item — compact provenance line (AC-5, AC-7)
   if (item.tradedFromUuid && typeof findItemByUuid === "function") {
     const source = findItemByUuid(item.tradedFromUuid);
     const section = _section("Trade");
+
     const line = _el("div", "trade-provenance-line");
+    const icon = _el("span", "prov-icon");
+    icon.textContent = "\u{1F501}";
+    line.appendChild(icon);
+
     const text = _el("span");
-    text.textContent = source
-      ? `Acquired via trade for ${source.name || "source item"}`
-      : "Acquired via trade for missing source item";
-    line.appendChild(text);
     if (source) {
-      const openBtn = _el("button", "view-footer-btn secondary");
-      openBtn.type = "button";
-      openBtn.textContent = "View Source";
-      openBtn.addEventListener("click", () => {
-        const idx = inventory.findIndex((candidate) => candidate.uuid === source.uuid);
+      const sd = source.disposition || {};
+      const amountStr = sd.amount ? formatCurrency(sd.amount) : "";
+      const sdDateStr = sd.date
+        ? typeof formatDisplayDate === "function"
+          ? formatDisplayDate(sd.date)
+          : sd.date
+        : "";
+      text.textContent = "Acquired via trade — gave up: ";
+      const nameLink = _el("button", "prov-link");
+      nameLink.textContent = source.name || "source item";
+      nameLink.type = "button";
+      nameLink.addEventListener("click", () => {
+        const idx = inventory.findIndex((c) => c.uuid === source.uuid);
         if (idx >= 0 && typeof showViewModal === "function") showViewModal(idx);
       });
-      line.appendChild(openBtn);
+      text.appendChild(nameLink);
+      const suffix = [amountStr, sdDateStr].filter(Boolean).join(", ");
+      if (suffix) text.appendChild(document.createTextNode(", " + suffix));
+    } else {
+      text.textContent = "Acquired via trade — source item missing";
     }
-    const unlinkBtn = _el("button", "view-footer-btn secondary trade-unlink-btn");
+    line.appendChild(text);
+    section.appendChild(line);
+
+    const unlinkWrap = _el("div");
+    unlinkWrap.style.cssText = "margin-top:var(--spacing-sm);display:flex;justify-content:flex-end";
+    const unlinkBtn = _el("button", "trade-unlink-btn");
     unlinkBtn.type = "button";
-    unlinkBtn.textContent = "Unlink from Trade";
+    _setUnlinkBtnContent(unlinkBtn);
     unlinkBtn.addEventListener("click", () => {
       if (source && typeof unlinkTradeItem === "function") unlinkTradeItem(source, item.uuid);
       closeViewModal();
     });
-    section.appendChild(line);
-    section.appendChild(unlinkBtn);
+    unlinkWrap.appendChild(unlinkBtn);
+    section.appendChild(unlinkWrap);
     return section;
   }
 
@@ -777,24 +796,94 @@ function _buildDispositionSection(item) {
     return null;
 
   const d = item.disposition;
+
+  // Path 2: Disposed traded item with linked items (AC-3, AC-6, AC-10)
   if (d.type === "traded" && Array.isArray(d.tradedForUuids) && d.tradedForUuids.length > 0) {
-    const section = _section("Trade");
-    const base = _buildDispositionSection({ ...item, disposition: { ...d, tradedForUuids: [] } });
-    if (base) {
-      const title = base.querySelector(".view-section-title");
-      if (title) title.remove();
-      section.append(...base.childNodes);
+    const section = _el("div", "view-detail-section");
+
+    // Section header with Edit Trade pencil button
+    const headerBar = _el("div");
+    headerBar.style.cssText = "display:flex;align-items:center;justify-content:space-between";
+    const titleEl = _el("div", "view-section-title");
+    titleEl.textContent = "Trade";
+    titleEl.style.margin = "0";
+    headerBar.appendChild(titleEl);
+
+    const editBtn = _el("button", "trade-edit-toggle");
+    editBtn.type = "button";
+    _setEditBtnContent(editBtn, "Edit Trade");
+    headerBar.appendChild(editBtn);
+    section.appendChild(headerBar);
+
+    // Disposition detail grid (Type / Date / Amount)
+    const typeLabel =
+      typeof DISPOSITION_TYPES !== "undefined" && DISPOSITION_TYPES[d.type]
+        ? DISPOSITION_TYPES[d.type].label
+        : d.type;
+    const dateStr = d.date
+      ? typeof formatDisplayDate === "function"
+        ? formatDisplayDate(d.date)
+        : d.date
+      : "—";
+    const grid = _el("div", "view-detail-grid three-col");
+    grid.style.marginTop = "var(--spacing-sm)";
+    _addDetail(grid, "Type", typeLabel);
+    _addDetail(grid, "Date", dateStr);
+    _addDetail(grid, "Amount", formatCurrency(d.amount || 0));
+    section.appendChild(grid);
+
+    // Optional fields
+    if (d.recipient || d.notes) {
+      const optGrid = _el("div", "view-detail-grid");
+      optGrid.style.marginTop = "2px";
+      if (d.recipient) _addDetail(optGrid, "Recipient", d.recipient);
+      if (d.notes) _addDetail(optGrid, "Notes", d.notes);
+      section.appendChild(optGrid);
     }
-    const table = _el("table", "trade-comparison-table");
-    table.innerHTML =
-      "<thead><tr><th>Received item</th><th>Qty</th><th>Current melt</th><th>Current retail</th><th>Status</th></tr></thead><tbody></tbody>";
-    const body = table.querySelector("tbody");
+
+    // Trade Gain/Loss
+    const glGrid = _el("div", "view-detail-grid");
+    glGrid.style.marginTop = "2px";
+    const glItem = _detailItem(
+      "Trade Gain/Loss",
+      (d.realizedGainLoss >= 0 ? "+" : "") + formatCurrency(d.realizedGainLoss || 0)
+    );
+    const glVal = glItem.querySelector(".view-detail-value");
+    if (glVal) glVal.classList.add(d.realizedGainLoss >= 0 ? "gain" : "loss");
+    glGrid.appendChild(glItem);
+    section.appendChild(glGrid);
+
+    // Received Items sub-section
+    const recSection = _el("div", "view-detail-section");
+    const recTitle = _el("div", "view-section-title");
+    recTitle.textContent = "Received Items";
+    recSection.appendChild(recTitle);
+
+    // View mode: table
+    const viewMode = _el("div");
+    viewMode.dataset.tradeViewMode = "view";
+    const table = _el("table", "trade-items-table");
+    const thead = _el("thead");
+    const headRow = _el("tr");
+    ["Item", "Qty", "Melt", "Retail"].forEach((label, i) => {
+      const th = _el("th");
+      th.textContent = label;
+      if (i >= 2) th.className = "num";
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = _el("tbody");
     let receivedTotal = 0;
     d.tradedForUuids.forEach((uuid) => {
       const linked = typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null;
-      const tr = document.createElement("tr");
+      const tr = _el("tr");
       if (!linked) {
-        tr.innerHTML = `<td class="trade-missing-item">Missing item</td><td>—</td><td>—</td><td>—</td><td>Missing</td>`;
+        const td = _el("td", "trade-missing-item");
+        td.textContent = "Missing item";
+        td.colSpan = 4;
+        tr.appendChild(td);
       } else {
         const spot = spotPrices?.[String(linked.metal || "").toLowerCase()] || 0;
         const valuation =
@@ -802,42 +891,242 @@ function _buildDispositionSection(item) {
         const meltValue = valuation?.meltValue || 0;
         const retailTotal = valuation?.retailTotal || 0;
         receivedTotal += retailTotal || meltValue;
-        const status = linked.disposition ? "Disposed" : "Active";
-        tr.innerHTML = `<td></td><td>${Number(linked.qty) || 1}</td><td>${formatCurrency(meltValue)}</td><td>${formatCurrency(retailTotal)}</td><td>${status}</td>`;
-        tr.firstElementChild.textContent = linked.name || "Unnamed item";
+
+        const nameTd = _el("td");
+        const nameBtn = _el("button", "item-name");
+        nameBtn.type = "button";
+        nameBtn.textContent = linked.name || "Unnamed item";
+        nameBtn.addEventListener("click", () => {
+          const idx = inventory.findIndex((c) => c.uuid === linked.uuid);
+          if (idx >= 0 && typeof showViewModal === "function") showViewModal(idx);
+        });
+        nameTd.appendChild(nameBtn);
+        tr.appendChild(nameTd);
+
+        const qtyTd = _el("td");
+        qtyTd.textContent = String(Number(linked.qty) || 1);
+        tr.appendChild(qtyTd);
+
+        const meltTd = _el("td", "num");
+        meltTd.textContent = formatCurrency(meltValue);
+        tr.appendChild(meltTd);
+
+        const retailTd = _el("td", "num");
+        retailTd.textContent = formatCurrency(retailTotal);
+        tr.appendChild(retailTd);
       }
-      body.appendChild(tr);
+      tbody.appendChild(tr);
     });
-    section.appendChild(table);
+    table.appendChild(tbody);
+    viewMode.appendChild(table);
+
+    // Comparison bar
     const sourceSpot = spotPrices?.[String(item.metal || "").toLowerCase()] || 0;
     const sourceValue =
       typeof computeMeltValue === "function" ? computeMeltValue(item, sourceSpot) : 0;
-    const summary = _el("div", "trade-summary-row");
-    summary.innerHTML = `<span>Current source value ${formatCurrency(sourceValue)}</span><strong class="trade-gain-loss">TRADE GAIN/LOSS ${(receivedTotal - sourceValue >= 0 ? "+" : "") + formatCurrency(receivedTotal - sourceValue)}</strong>`;
-    section.appendChild(summary);
-    const editBtn = _el("button", "view-footer-btn secondary");
-    editBtn.type = "button";
-    editBtn.textContent = "Edit Trade";
+    const netValue = receivedTotal - sourceValue;
+
+    const comp = _el("div", "trade-comparison");
+
+    const gaveUp = _el("div", "trade-comparison-side");
+    const gaveLabel = _el("span", "comp-label");
+    gaveLabel.textContent = "Gave Up (Now)";
+    const gaveVal = _el("span", "comp-value");
+    gaveVal.textContent = formatCurrency(sourceValue);
+    gaveUp.appendChild(gaveLabel);
+    gaveUp.appendChild(gaveVal);
+    comp.appendChild(gaveUp);
+
+    const arrowEl = _el("div", "trade-comparison-arrow");
+    arrowEl.textContent = "→";
+    comp.appendChild(arrowEl);
+
+    const receivedSide = _el("div", "trade-comparison-side");
+    const recLabel = _el("span", "comp-label");
+    recLabel.textContent = "Received (Now)";
+    const recVal = _el("span", "comp-value");
+    recVal.textContent = formatCurrency(receivedTotal);
+    receivedSide.appendChild(recLabel);
+    receivedSide.appendChild(recVal);
+    comp.appendChild(receivedSide);
+
+    const verdict = _el("div", "trade-comparison-verdict");
+    const netLabel = _el("span", "comp-label");
+    netLabel.textContent = "Net";
+    const netVal = _el("span", "comp-value " + (netValue >= 0 ? "gain" : "loss"));
+    netVal.textContent = (netValue >= 0 ? "+" : "") + formatCurrency(netValue);
+    verdict.appendChild(netLabel);
+    verdict.appendChild(netVal);
+    comp.appendChild(verdict);
+
+    viewMode.appendChild(comp);
+    recSection.appendChild(viewMode);
+
+    // Edit mode (hidden by default) — inline chip+picker editor (AC-6)
+    const editMode = _el("div");
+    editMode.dataset.tradeViewMode = "edit";
+    editMode.style.display = "none";
+
+    const editChips = _el("div", "trade-linked-chips");
+    editChips.dataset.editChips = "true";
+    editMode.appendChild(editChips);
+
+    const editPickerWrap = _el("div", "trade-item-picker");
+    editPickerWrap.style.marginTop = "var(--spacing-sm)";
+    const editSearchIcon = _el("span", "trade-search-icon");
+    editSearchIcon.textContent = "\u{1F50D}";
+    editPickerWrap.appendChild(editSearchIcon);
+    const editSearch = _el("input");
+    editSearch.type = "search";
+    editSearch.placeholder = "Add item...";
+    editSearch.autocomplete = "off";
+    editPickerWrap.appendChild(editSearch);
+    const editSuggestions = _el("div", "trade-item-suggestions");
+    editSuggestions.setAttribute("role", "listbox");
+    editPickerWrap.appendChild(editSuggestions);
+    editMode.appendChild(editPickerWrap);
+
+    const editAddBtn = _el("button", "trade-add-new-btn");
+    editAddBtn.type = "button";
+    const addIcon = _el("span", "add-icon");
+    addIcon.textContent = "+";
+    editAddBtn.appendChild(addIcon);
+    const addText = _el("span");
+    addText.textContent = "Add new item to inventory";
+    editAddBtn.appendChild(addText);
+    const addHint = _el("span", "add-hint");
+    addHint.textContent = "— opens Add Item form";
+    editAddBtn.appendChild(addHint);
+    editMode.appendChild(editAddBtn);
+
+    const editActions = _el("div", "trade-edit-actions");
+    const saveBtn = _el("button", "btn-sm save");
+    saveBtn.textContent = "Save";
+    const cancelBtn = _el("button", "btn-sm cancel");
+    cancelBtn.textContent = "Cancel";
+    editActions.appendChild(saveBtn);
+    editActions.appendChild(cancelBtn);
+    editMode.appendChild(editActions);
+
+    recSection.appendChild(editMode);
+
+    // Wire up edit toggle
+    let editUuids = [...d.tradedForUuids];
+
+    const renderEditChips = () => {
+      editChips.textContent = "";
+      editUuids.forEach((uuid) => {
+        const linked = typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null;
+        const chip = _el("span", "trade-linked-chip");
+        chip.textContent = linked ? linked.name || "Unnamed item" : "Missing item";
+        chip.dataset.uuid = uuid;
+        const removeBtn = _el("button", "chip-remove");
+        removeBtn.type = "button";
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", () => {
+          editUuids = editUuids.filter((u) => u !== uuid);
+          renderEditChips();
+        });
+        chip.appendChild(removeBtn);
+        editChips.appendChild(chip);
+      });
+    };
+
     editBtn.addEventListener("click", () => {
-      closeViewModal();
-      const idx = inventory.findIndex((candidate) => candidate.uuid === item.uuid);
-      if (idx >= 0 && typeof openRemoveItemModal === "function") openRemoveItemModal(idx, true);
+      const isEditing = viewMode.style.display === "none";
+      if (isEditing) {
+        viewMode.style.display = "";
+        editMode.style.display = "none";
+        _setEditBtnContent(editBtn, "Edit Trade");
+      } else {
+        editUuids = [...d.tradedForUuids];
+        renderEditChips();
+        viewMode.style.display = "none";
+        editMode.style.display = "";
+        _setEditBtnContent(editBtn, "Cancel Edit");
+      }
     });
-    section.appendChild(editBtn);
+
+    // Edit mode search
+    editSearch.addEventListener("input", () => {
+      const query = editSearch.value.trim().toLowerCase();
+      if (!query) {
+        editSuggestions.textContent = "";
+        return;
+      }
+      const sourceUuid = item.uuid;
+      const matches = inventory
+        .filter(
+          (inv) =>
+            !inv.disposition &&
+            inv.uuid !== sourceUuid &&
+            !editUuids.includes(inv.uuid) &&
+            (inv.name || "").toLowerCase().includes(query)
+        )
+        .slice(0, 8);
+      editSuggestions.textContent = "";
+      matches.forEach((inv) => {
+        const opt = _el("div", "trade-item-suggestion");
+        opt.setAttribute("role", "option");
+        opt.tabIndex = 0;
+        const nameSpan = _el("span", "result-name");
+        nameSpan.textContent = inv.name || "Unnamed item";
+        opt.appendChild(nameSpan);
+        const metaSpan = _el("span", "result-meta");
+        metaSpan.textContent = (inv.metal || "") + " · Qty " + (Number(inv.qty) || 1);
+        opt.appendChild(metaSpan);
+        opt.addEventListener("click", () => {
+          if (!editUuids.includes(inv.uuid)) editUuids.push(inv.uuid);
+          renderEditChips();
+          editSearch.value = "";
+          editSuggestions.textContent = "";
+        });
+        editSuggestions.appendChild(opt);
+      });
+    });
+
+    // Edit mode add new item
+    editAddBtn.addEventListener("click", () => {
+      window.__tradeEditAddNewPending = true;
+      window.__tradeEditSourceItem = item;
+      window.__tradeEditUuids = editUuids;
+      window.__tradeEditRenderChips = renderEditChips;
+      const itemModal = document.getElementById("itemModal");
+      if (itemModal) itemModal.style.zIndex = "10001";
+      document.getElementById("newItemBtn")?.click();
+    });
+
+    // Save: persist the updated trade links
+    saveBtn.addEventListener("click", () => {
+      const sourceIdx = inventory.findIndex((c) => c.uuid === item.uuid);
+      if (sourceIdx < 0) return;
+      if (typeof updateTradeLinks === "function") {
+        updateTradeLinks(item, editUuids);
+      }
+      closeViewModal();
+      if (typeof showViewModal === "function") showViewModal(sourceIdx);
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      viewMode.style.display = "";
+      editMode.style.display = "none";
+      _setEditBtnContent(editBtn, "Edit Trade");
+    });
+
+    section.appendChild(recSection);
     return section;
   }
 
+  // Path 3: Standard (non-trade) disposition
   const section = _section("Disposition");
   const grid = _el("div", "view-detail-grid three-col");
 
-  // Type
   const typeLabel =
     typeof DISPOSITION_TYPES !== "undefined" && DISPOSITION_TYPES[d.type]
       ? DISPOSITION_TYPES[d.type].label
       : d.type;
   _addDetail(grid, "Type", typeLabel);
 
-  // Date
   const dateStr = d.date
     ? typeof formatDisplayDate === "function"
       ? formatDisplayDate(d.date)
@@ -845,7 +1134,6 @@ function _buildDispositionSection(item) {
     : "—";
   _addDetail(grid, "Date", dateStr);
 
-  // Amount (show "N/A" for lost/gifted where amount is 0 and not required)
   const requiresAmount =
     typeof DISPOSITION_TYPES !== "undefined" && DISPOSITION_TYPES[d.type]
       ? DISPOSITION_TYPES[d.type].requiresAmount
@@ -854,7 +1142,6 @@ function _buildDispositionSection(item) {
 
   section.appendChild(grid);
 
-  // Optional fields
   if (d.recipient) {
     const grid2 = _el("div", "view-detail-grid two-col");
     _addDetail(grid2, "Recipient", d.recipient);
@@ -867,7 +1154,6 @@ function _buildDispositionSection(item) {
     section.appendChild(grid3);
   }
 
-  // Realized G/L (color-coded like existing gain/loss)
   const glGrid = _el("div", "view-detail-grid two-col");
   const glItem = _detailItem(
     "Realized Gain/Loss",
@@ -2315,6 +2601,45 @@ function _applyPriceHistoryYAxisBounds(chart) {
 // ---------------------------------------------------------------------------
 // DOM helpers (private)
 // ---------------------------------------------------------------------------
+
+function _svgIcon(paths, size) {
+  const sz = size || 12;
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("width", String(sz));
+  svg.setAttribute("height", String(sz));
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  paths.forEach((d) => {
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", d);
+    svg.appendChild(p);
+  });
+  return svg;
+}
+
+function _setEditBtnContent(btn, label) {
+  btn.textContent = "";
+  btn.appendChild(
+    _svgIcon([
+      "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7",
+      "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+    ])
+  );
+  const span = document.createElement("span");
+  span.textContent = label;
+  btn.appendChild(span);
+}
+
+function _setUnlinkBtnContent(btn) {
+  btn.textContent = "";
+  btn.appendChild(_svgIcon(["M18 6L6 18", "M6 6l12 12"]));
+  btn.appendChild(document.createTextNode(" Unlink from Trade"));
+}
 
 /** Create element with className */
 function _el(tag, className) {
