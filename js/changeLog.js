@@ -470,11 +470,26 @@ const applyLegacyDispositionUndo = (entry) => {
     } catch (e) {
       return;
     }
+    // Re-establish tradedFromUuid back-references on received items
+    const redoUuids = item.disposition?.tradedForUuids;
+    if (Array.isArray(redoUuids)) {
+      redoUuids.forEach((uuid) => {
+        const received = inventory.find((i) => i.uuid === uuid);
+        if (received) received.tradedFromUuid = item.uuid;
+      });
+    }
     saveInventory();
     entry.undone = false;
     if (typeof showToast === "function") showToast(sanitizeHtml(item.name) + " re-disposed.");
   } else {
-    // Undo: clear the disposition
+    // Undo: clean up trade link back-references before clearing disposition
+    const linkedUuids = item.disposition?.tradedForUuids;
+    if (Array.isArray(linkedUuids)) {
+      linkedUuids.forEach((uuid) => {
+        const received = inventory.find((i) => i.uuid === uuid);
+        if (received?.tradedFromUuid === item.uuid) delete received.tradedFromUuid;
+      });
+    }
     item.disposition = null;
     saveInventory();
     entry.undone = true;
