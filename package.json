@@ -1,17 +1,21 @@
 {
   "name": "staktrakr",
   "private": true,
-  "version": "3.34.85",
+  "version": "3.35.0",
   "license": "MIT",
   "type": "module",
   "description": "Precious metals inventory tracker",
   "scripts": {
     "lint": "eslint js/*.js sw.js sw-router.js \"tests/unit/**/*.js\"",
-    "test:unit": "node --test tests/unit/sw-router.test.js",
+    "test:unit": "node --test tests/unit/*.test.js",
     "lint:md": "bash devops/hooks/lint-markdown-changed.sh --staged",
     "lint:md:changed": "bash devops/hooks/lint-markdown-changed.sh --changed",
     "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\"",
-    "test": "npx playwright test",
+    "test": "npm run test:core",
+    "test:core": "npx playwright test tests/playwright/core",
+    "test:extended": "npx playwright test tests/playwright/extended --pass-with-no-tests",
+    "test:legacy": "npx playwright test tests/playwright/archive",
+    "test:all": "npm run test:unit && npm run test:core && npm run test:extended",
     "test:offline": "npx playwright test --grep-invert @network",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -20,7 +24,7 @@
     "*.{js,css,html,json,md}": "prettier --write"
   },
   "devDependencies": {
-    "@playwright/test": "^1.51.0",
+    "@playwright/test": "^1.60.0",
     "eslint": "^9.21.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3"

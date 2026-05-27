@@ -9,7 +9,7 @@ These are non-negotiable. Violating any of these will fail spec review.
 ### DOM Access
 
 - **Always** use `safeGetElement(id)` from `js/utils.js`
-- **Never** use raw `document.getElementById()` — **exceptions**: (a) startup code in `about.js` / `init.js`, and (b) top-level event wiring in `events.js` (per CLAUDE.md: `events.js` loads BEFORE `init.js`, so `safeGetElement` is undefined at parse time)
+- **Never** use raw `document.getElementById()` (exception: startup code in `about.js` / `init.js`)
 - `safeGetElement` returns `null` on missing elements — always handle the null case
 
 ### Data Persistence
@@ -105,14 +105,7 @@ Stage and commit your changes with a descriptive message:
 
 ```bash
 git add <specific files>
-git commit -m "<type>(STRK-###): <description>"
-# Allowed patterns:
-#   fix(STRK-###): <summary>
-#   feat(STRK-###): <summary>
-#   chore: <summary> (STRK-###)
-#   test(STRK-###): <summary>
-#   docs(STRK-###): <summary>
-# Release tags use em dash: vX.Y.Z — STRK-###: <summary>
+git commit -m "<type>: <description>"
 ```
 
 ### 7. Report

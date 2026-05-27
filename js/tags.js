@@ -58,6 +58,49 @@ const saveItemTags = () => {
 };
 
 /**
+ * Load per-item tag modification timestamps.
+ * @returns {Object<string, number>} Timestamp map keyed by item UUID
+ */
+const loadTagTimestamps = () => {
+  const key =
+    typeof ITEM_TAGS_LAST_MODIFIED_KEY !== "undefined"
+      ? ITEM_TAGS_LAST_MODIFIED_KEY
+      : "itemTagsLastModified";
+  const loaded = loadDataSync(key, {});
+  return typeof loaded === "object" && loaded !== null && !Array.isArray(loaded) ? loaded : {};
+};
+
+/**
+ * Save per-item tag modification timestamps without scheduling a sync push.
+ * @param {Object<string, number>} map - Timestamp map keyed by item UUID
+ */
+const saveTagTimestampsDirect = (map) => {
+  const key =
+    typeof ITEM_TAGS_LAST_MODIFIED_KEY !== "undefined"
+      ? ITEM_TAGS_LAST_MODIFIED_KEY
+      : "itemTagsLastModified";
+  const safeMap = typeof map === "object" && map !== null && !Array.isArray(map) ? map : {};
+  saveDataSync(key, safeMap);
+};
+
+/**
+ * Stamp tag modification timestamps for one or more item UUIDs.
+ * @param {string|string[]} uuids - Item UUID or UUID array
+ */
+const stampTagTimestamp = (uuids) => {
+  const list = Array.isArray(uuids) ? uuids : [uuids];
+  const filtered = list.filter((uuid) => typeof uuid === "string" && uuid.trim().length > 0);
+  if (filtered.length === 0) return;
+
+  const timestamps = loadTagTimestamps();
+  const now = Date.now();
+  filtered.forEach((uuid) => {
+    timestamps[uuid] = now;
+  });
+  saveTagTimestampsDirect(timestamps);
+};
+
+/**
  * Helper to find an inventory item by UUID for cache invalidation.
  * @param {string} uuid - The item UUID
  * @returns {Object|null} The inventory item or null
@@ -83,7 +126,8 @@ const getItemTags = (uuid) => {
  * Add a tag to an item. Prevents duplicates and enforces limits.
  * @param {string} uuid - Item UUID
  * @param {string} tag - Tag name
- * @param {boolean} [persist=true] - Whether to save to localStorage immediately
+ * @param {boolean} [persist=true] - Whether to stamp and save to localStorage immediately.
+ *   Callers using persist=false must stamp after their batch and before saveItemTags().
  * @returns {boolean} True if tag was added
  */
 const addItemTag = (uuid, tag, persist = true) => {
@@ -103,7 +147,11 @@ const addItemTag = (uuid, tag, persist = true) => {
 
   itemTags[uuid].push(trimmed);
 
-  if (persist) saveItemTags();
+  if (persist) {
+    stampTagTimestamp([uuid]);
+    clearRemovedTag(uuid, trimmed);
+    saveItemTags();
+  }
 
   if (typeof window.invalidateSearchCache === "function") {
     const item = findItemByUuid(uuid);
@@ -128,6 +176,7 @@ const removeItemTag = (uuid, tag) => {
 
   itemTags[uuid].splice(idx, 1);
   addRemovedTag(uuid, tag);
+  stampTagTimestamp([uuid]);
 
   // Clean up empty arrays
   if (itemTags[uuid].length === 0) {
@@ -150,11 +199,17 @@ const removeItemTag = (uuid, tag) => {
  */
 const deleteItemTags = (uuid) => {
   if (!uuid) return;
+  let changed = false;
+  const removedTagsBeforeDelete = loadRemovedTags(uuid);
   if (itemTags[uuid]) {
     delete itemTags[uuid];
-    saveItemTags();
+    changed = true;
   }
   clearAllRemovedTags(uuid);
+  if (changed || removedTagsBeforeDelete.length > 0) {
+    stampTagTimestamp([uuid]);
+    saveItemTags();
+  }
 
   if (typeof window.invalidateSearchCache === "function") {
     const item = findItemByUuid(uuid);
@@ -186,6 +241,7 @@ const renameTag = (oldName, newName) => {
   if (trimmed.length === 0 || trimmed.length > MAX_TAG_LENGTH) return 0;
 
   let affected = 0;
+  const affectedUuids = [];
   for (const [uuid, tags] of Object.entries(itemTags)) {
     const idx = tags.indexOf(oldName);
     if (idx !== -1) {
@@ -198,10 +254,12 @@ const renameTag = (oldName, newName) => {
         tags[idx] = trimmed;
       }
       affected++;
+      affectedUuids.push(uuid);
       if (tags.length === 0) delete itemTags[uuid];
     }
   }
   if (affected > 0) {
+    stampTagTimestamp(affectedUuids);
     saveItemTags();
     if (typeof window.resetSearchCache === "function") {
       window.resetSearchCache();
@@ -229,7 +287,7 @@ const deleteTagGlobal = (tag) => {
     }
   }
   if (affected > 0) {
-    saveItemTags();
+    stampTagTimestamp(affectedUuids);
     // Record removals so respectEdits sync won't re-add
     const raw = loadDataSync("itemRemovedTags", {});
     const map = Object.assign(Object.create(null), raw);
@@ -241,6 +299,7 @@ const deleteTagGlobal = (tag) => {
       }
     }
     saveDataSync("itemRemovedTags", map);
+    saveItemTags();
     if (typeof window.resetSearchCache === "function") {
       window.resetSearchCache();
     }
@@ -402,7 +461,7 @@ const applyNumistaTags = (
     }
   }
   if (persist && added > 0) {
-    saveItemTags();
+    stampTagTimestamp([uuid]);
     // Batch-clear removal tracking for re-imported tags
     const raw = loadDataSync("itemRemovedTags", {});
     const map = Object.assign(Object.create(null), raw);
@@ -412,6 +471,7 @@ const applyNumistaTags = (
       if (map[uuid].length === 0) delete map[uuid];
       saveDataSync("itemRemovedTags", map);
     }
+    saveItemTags();
   }
 
   return { added, skippedEdits };
@@ -560,7 +620,11 @@ const showTagInput = (container, uuid, renderTags, onChanged) => {
   const commitTag = () => {
     const val = input.value.trim();
     if (val) {
-      parseTagInput(val).forEach((t) => addItemTag(uuid, t, false));
+      let addedTags = false;
+      parseTagInput(val).forEach((t) => {
+        if (addItemTag(uuid, t, false)) addedTags = true;
+      });
+      if (addedTags && typeof stampTagTimestamp === "function") stampTagTimestamp([uuid]);
       if (typeof saveItemTags === "function") saveItemTags();
     }
     renderTags();
@@ -601,6 +665,9 @@ const showTagInput = (container, uuid, renderTags, onChanged) => {
 // Expose globally
 window.loadItemTags = loadItemTags;
 window.saveItemTags = saveItemTags;
+window.loadTagTimestamps = loadTagTimestamps;
+window.saveTagTimestampsDirect = saveTagTimestampsDirect;
+window.stampTagTimestamp = stampTagTimestamp;
 window.getItemTags = getItemTags;
 window.addItemTag = addItemTag;
 window.removeItemTag = removeItemTag;

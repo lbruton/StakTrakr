@@ -5,14 +5,23 @@ Precious metals inventory tracker. Single HTML page, vanilla JS, localStorage. R
 ## Commands
 
 ```bash
-npm test              # Playwright E2E (local Chromium)
-npm run test:offline  # Skip @network-tagged
+npm test              # Core Playwright PR gate
+npm run test:core     # Core Playwright suite
+npm run test:extended # Slower/edge Playwright suite
+npm run test:legacy   # Archived issue acceptance-criteria (AC) matrices
+npm run test:all      # Unit + core + extended
+npm run test:unit     # Node/unit tests
+npm run test:offline  # Legacy full-suite command excluding @network-tagged tests
 npm run lint          # ESLint
 npm run format        # Prettier (js/ + css/ only — not data/, vendor/)
 npm run format:check
 ```
 
-Pre-existing flaky test categories: `goldback-type`, `lot-each-purchase-price`, `numista-picker-tags` — skip per the 10-min hard-timeout rule; do not fix unrelated failures.
+## Playwright Test Tier Rules
+
+- Playwright policy reference: `AGENTS.md`.
+- Archived issue acceptance-criteria (AC) matrices are located in
+  `tests/playwright/archive/issue-ac-matrices/`.
 
 ## Documentation
 
@@ -33,6 +42,20 @@ Tier 2: 11 deep-dive docs at `Foundation/Deep Dives/`. Authoritative cron/config
 ## Issue Tracking
 
 Prefix `STRK`. Plane: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`. Pre-migration `STAK-*` archived at `DocVault/Archive/Issues-Pre-Plane/StakTrakr/`. Create via `/issue` or `mcp__plane__create_issue`.
+
+**Plane state conventions:**
+
+| State       | UUID (re-fetch if stale)                         | Use for                                               |
+| ----------- | ------------------------------------------------ | ----------------------------------------------------- |
+| Epic        | `0d1317b4-883f-44f0-b277-8f1f7f0388c0`           | Parent epic issues — appears in its own Kanban column |
+| Todo        | `6f8780df-5ca8-4dc1-9951-fd96e9886647` (default) | Normal child issues not yet started                   |
+| In Progress | `36cd8909-caa7-48ca-aeab-9f6cd4913740`           | Actively being worked                                 |
+| In Review   | `1a90f64f-be80-42ae-aa82-dd8d3f28db88`           | Complete, awaiting review                             |
+| Done        | `b6039898-c1c1-46ea-8396-1ae8b52f0692`           | Merged / closed                                       |
+| Backlog     | `fc9a6f2f-7152-43ee-8f8d-95a05d9b2480`           | Parked, not yet scheduled                             |
+| Cancelled   | `7645f387-5f01-4395-9f40-03d75fda6fda`           | Won't fix                                             |
+
+When creating an epic → set state to **Epic**. Child issues inherit the standard states (Todo → In Progress → In Review → Done). UUIDs are convenience references — re-fetch via `mcp__plane__list_states` if a session boundary or compaction may have introduced drift.
 
 ## Git Topology
 

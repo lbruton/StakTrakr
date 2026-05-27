@@ -1,5 +1,5 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
-import { injectSeedInventory } from "../helpers/seed.js";
+import { test, expect } from "../../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../../helpers/seed.js";
 
 /**
  * Playwright regression spec for STAK-545 — Market button behavior split.

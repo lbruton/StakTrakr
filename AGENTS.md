@@ -19,8 +19,13 @@ No application build step is required.
 - `python3 -m http.server 8000` — run locally, then open `http://localhost:8000`
 - `npm run lint` — run ESLint on `js/*.js` and `sw.js`
 - `npm run lint:md:all` — lint all Markdown files
-- `npm test` — run full Playwright test suite
-- `npm run test:offline` — run Playwright tests excluding `@network` scenarios
+- `npm test` — run the core Playwright PR gate (`tests/playwright/core/`)
+- `npm run test:core` — run the core Playwright suite explicitly
+- `npm run test:extended` — run slower extended Playwright coverage (`tests/playwright/extended/`)
+- `npm run test:legacy` — run archived issue acceptance matrices (`tests/playwright/archive/`)
+- `npm run test:all` — run unit + core + extended suites
+- `npm run test:unit` — run Node/unit tests
+- `npm run test:offline` — legacy full-suite command excluding `@network` scenarios
 
 ## Coding Style & Naming Conventions
 
@@ -33,14 +38,26 @@ No application build step is required.
 ## Testing Guidelines
 
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
-- Place specs under `tests/playwright/<area>/` and name files `*.spec.js`.
+- Default PR gate: `npm test` delegates to `npm run test:core`.
+- Do not treat it as the full historical suite.
+- Put always-run browser coverage in `tests/playwright/core/<domain>.spec.js`, slower
+  or edge coverage in `tests/playwright/extended/`, and archived issue matrices in
+  `tests/playwright/archive/issue-ac-matrices/`.
+- Before adding a new Playwright file, check `tests/playwright/coverage-map.csv`.
+- Add a new file only when assertions do not fit an existing domain suite.
+- Do not add new issue-prefixed specs at the Playwright root.
+- Temporary issue acceptance-criteria (AC) matrices should be reconciled into
+  core/extended coverage before merge.
+- If reconciliation is not possible, move the matrix to archive.
+- Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`.
+- Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 - Use stable, user-visible assertions and keep fixtures in `tests/fixtures/`.
 - In Codex sandboxed sessions on macOS, Playwright/Chromium may fail with
   `bootstrap_check_in ... MachPortRendezvousServer ... Permission denied (1100)`;
   rerun the same Playwright command with sandbox escalation instead of retrying
   inside the sandbox.
 - For quick local checks, run a focused file:
-  - `npx playwright test tests/playwright/01-page-load/page-load.spec.js`
+  - `npx playwright test tests/playwright/core/inventory-crud.spec.js`
 
 ## Commit & Pull Request Guidelines
 
@@ -64,11 +81,31 @@ No application build step is required.
 
 Every **runtime code** change requires:
 
-1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` (StakTrakr pre-Plane issue identifier) references are historical only.
+1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` (StakTrakr pre-Plane issue identifier) references are historical only. Parent epics use the **Epic** Plane state (`0d1317b4-883f-44f0-b277-8f1f7f0388c0`); child issues use the standard states (Todo → In Progress → In Review → Done). Full state UUID table in `CLAUDE.md` under Issue Tracking.
 2. A git worktree at `.worktrees/patch-<VERSION>/` on branch `patch/<VERSION>`. All edits/commits happen inside the worktree. Zero edits on `dev`.
 3. A version lock claim in `devops/version.lock` (gitignored — edit directly, never commit). Format and lifecycle in the Release Workflow doc below.
 
 Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, devops config) may commit directly to `dev` without a worktree or PR.
+
+## Sketch Apply Contract
+
+When applying a `/sketch`, the four sketch documents are cumulative and binding:
+
+1. Read `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md` before coding.
+2. Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code and artifact inventory, `approach.md` as the implementation authority, and `tasks.md` as the execution order.
+3. Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
+4. Do not mark a task or AC complete if the implementation only satisfies `tasks.md` text while contradicting requirements, discovery, approach, approved mockups, or project design guidance.
+
+## UI / Mockup Gates
+
+For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
+
+- Read `../DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
+- Check `ui-standards/style.html` for live component and token patterns.
+- Search the issue/sketch and `playground/` for mockups. If a mockup is approved or referenced by the sketch/user, treat it as binding even if the file is untracked.
+- Use existing StakTrakr design tokens and components; do not invent generic token names.
+- Verify every mocked screen/state in a browser and include screenshot/GIF evidence in the PR.
+- For UI-heavy Playwright coverage, tests must exercise the user-visible workflow and assert the interaction contract. Storage-only assertions are insufficient for ACs about layout, labels, visual sections, inline editing, or modal behavior.
 
 ## Release Workflow — Required on Every Code PR
 

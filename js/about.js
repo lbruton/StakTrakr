@@ -139,11 +139,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
-    <li><strong>v3.34.85 &ndash; Memorial Day public release</strong>: First full public release since v3.34.38 (April 30) &mdash; 47 patches across 111 issues over 24 days. Highlights below; see the full <a href="https://github.com/lbruton/StakTrakr/blob/main/CHANGELOG.md">CHANGELOG</a> for everything.</li>
-    <li><strong>v3.34.81 &ndash; Mobile parity</strong>: Bulk editor now usable on phones with sticky identity columns and 44px tap targets; nested-path fields (shape, capsule, capsule notes) bulk-edit correctly; modal action buttons safe-area aware on notched devices; chart viewports scale properly on small screens (STRK-91, STRK-42, STAK-578).</li>
-    <li><strong>v3.34.80 &ndash; Goldback expansion</strong>: New &frac14; Goldback (Idaho, g0.25) denomination; ticker now shows G1-rate-based premium % with three-tier color coding (low &lt;2%, mid 2&ndash;5%, high &ge;5%) across ticker, vendor matrix, and detail modal; daily retail charts fixed; goldback purchase-price lookup repaired (STRK-66, STRK-85, STRK-69, STRK-77).</li>
-    <li><strong>v3.34.78 &ndash; Retail accuracy + new spot provider</strong>: SD Bullion and Bullion Exchanges scrape now lands on the correct 1-unit Check/Wire price instead of bulk-tier values; 90-day Market History &ldquo;All&rdquo; view carries per-vendor data across the full window; gold-api.com added as a first-class spot provider; header Spot button no longer fires four redundant per-metal syncs (STRK-99, STRK-92, STRK-89, STRK-93).</li>
-    <li><strong>v3.34.71 &ndash; Workflow, catalog & reliability</strong>: Direct Print button for inventory; partial-stack disposition with constrained quantity selector; per-side image override (obverse + reverse independently); structured Capsule field with notes; new metallic dark theme on an oklch token system; service-worker cache recovery; manifest-first cloud sync now preserves item field edits (STRK-49, STRK-44, STRK-53, STRK-67, STRK-46, STRK-25, STRK-56, STRK-101).</li>
+    <li><strong>v3.35.0 &ndash; Trade linking</strong>: Bidirectional trade links between disposed traded items and received inventory, with editable provenance, spot-derived trade values, backup/export coverage, and cloud-sync visibility (STRK-123).</li>
+    <li><strong>v3.35.0 &ndash; Cloud sync hardening</strong>: Tag merge on sync, conflict-loop fix after accepting remote changes, Bullion Exchanges content-quality retry (STRK-106, STRK-107, STRK-108).</li>
+    <li><strong>v3.35.0 &ndash; Retail &amp; autocomplete fixes</strong>: SDB/BE spot-ticker sidebar leak patched, autocomplete field name casing corrected (STRK-99, STRK-114).</li>
+    <li><strong>v3.35.0 &ndash; Test infrastructure</strong>: Full Playwright suite consolidation &mdash; 7 batches reorganized scattered specs into compact domain suites with archived historical coverage (STRK-97 &ndash; STRK-122).</li>
+    <li><strong>v3.34.85 &ndash; Memorial Day release</strong>: Mobile bulk editor, gold-api.com provider, retail accuracy fixes, Goldback premium ticker, Numista tag chips, oklch theme system, and cloud sync reliability (STRK-91, STRK-89, STRK-99, STRK-85, STRK-84, STRK-25, STRK-101).</li>
   `;
 };
 

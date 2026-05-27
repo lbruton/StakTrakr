@@ -37,18 +37,12 @@ A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladiu
 
 ---
 
-## What's New in v3.34.85
+## What's New in v3.35.0
 
-First public release since v3.34.38 (April 30). Highlights from 24 days of fixes and enhancements:
-
-- **Mobile bulk editor** — sticky identity columns and 44px tap targets make bulk operations usable on phones (STRK-91)
-- **Better spot pricing** — gold-api.com added as a first-class provider; the header Spot button no longer fires four redundant syncs per click (STRK-89, STRK-93)
-- **Retail accuracy** — SD Bullion and Bullion Exchanges scrape now lands on the correct 1-unit price instead of bulk-tier values; 90-day Market History "All" view now carries per-vendor data for the full window (STRK-99, STRK-92)
-- **Goldback** — ¼ Goldback (Idaho) added; ticker now shows premium % with three-tier color coding; daily retail charts fixed (STRK-66, STRK-85, STRK-69)
-- **Catalog UX** — Numista tag preview chips, reset hardening for new items, per-side image override, structured Capsule field with notes (STRK-84, STRK-87, STRK-67, STRK-46)
-- **Workflow** — direct Print button, partial-stack disposition with constrained quantity selector, optional payment method dropdown (STRK-49, STRK-44, STRK-53, STRK-50)
-- **Polish** — new metallic dark theme on an oklch token system, CSS polish pass, chart viewport scaling, lot/each unit alignment (STRK-25, STRK-27, STRK-42, STRK-68)
-- **Reliability** — service worker cache recovery, manifest-first sync now preserves item field edits (STRK-56, STRK-101)
+- **Trade linking** — bidirectional links between disposed-traded items and received inventory with editable provenance, spot-derived trade values, undo support, and cloud-sync visibility (STRK-123)
+- **Cloud sync hardening** — tag merge on sync, conflict-loop fix after accepting remote changes, Bullion Exchanges content-quality retry (STRK-106, STRK-107, STRK-108)
+- **Retail & autocomplete fixes** — SDB/BE spot-ticker sidebar leak patched, autocomplete field name casing corrected (STRK-99, STRK-114)
+- **Test infrastructure** — full Playwright suite consolidation from 7 scattered spec tiers into compact domain suites with archived historical coverage (STRK-97 → STRK-122)
 
 Full details in the [Changelog](CHANGELOG.md).
 
