@@ -1493,7 +1493,23 @@ const findInventoryItemByUuid = (uuid) => {
  * @returns {{meltValue: number, spotPrice: number, isCustom: boolean}|null}
  */
 const computeTradeValue = (item, dateStr) => {
-  if (!item || typeof lookupHistoricalSpot !== "function") return null;
+  if (!item) return null;
+  // For today/future trades, prefer the live current spot — the daily
+  // spot-history bundle lags by up to ~24h and would otherwise return
+  // yesterday's snapshot, mismatching the inventory table's melt column.
+  // (STRK-131)
+  const today = new Date().toLocaleDateString("en-CA");
+  if (dateStr && dateStr >= today && typeof spotPrices !== "undefined") {
+    const liveSpot = spotPrices[String(item.metal || "").toLowerCase()];
+    if (liveSpot > 0) {
+      return {
+        meltValue: computeMeltValue(item, liveSpot),
+        spotPrice: liveSpot,
+        isCustom: false,
+      };
+    }
+  }
+  if (typeof lookupHistoricalSpot !== "function") return null;
   const spotPrice = lookupHistoricalSpot(item.metal, dateStr);
   if (spotPrice === null) return null;
   return {
