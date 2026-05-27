@@ -118,6 +118,10 @@ Build a comprehensive title from the version tags:
 vLATEST — [primary change] + [secondary] + [tertiary if notable]
 ```
 
+**Merge strategy: merge commit (NOT squash).** Squash-merging to main severs
+the common ancestor between dev and main, causing massive conflicts on the next
+ship. The Protect Main ruleset allows merge commits for this reason.
+
 Use `mcp__github__create_pull_request` (owner: `lbruton`, repo: `StakTrakr`) with:
 
 - `base`: `main`
@@ -129,6 +133,11 @@ Use `mcp__github__create_pull_request` (owner: `lbruton`, repo: `StakTrakr`) wit
 Include `🤖 Generated with [Claude Code](https://claude.com/claude-code)` footer.
 
 Note the returned PR number for Step 5.
+
+> **Why merge commit?** Feature→dev PRs use squash (clean dev history). But
+> dev→main must use a merge commit to preserve ancestry. Without it, the next
+> ship can't find a merge base and every touched file shows as a conflict.
+> This was the root cause of the v3.34/v3.35 ship conflicts.
 
 ## Step 5: Mark ready + resolve review threads
 
@@ -161,6 +170,19 @@ mcp__plane__update_issue  identifier: "STRK-###"  state: "<Done UUID>"
 > **Legacy:** if any `STAK-###` references appear in commit messages, those are
 > pre-migration archives — no status update needed. Plane is the only live
 > tracker.
+
+## Step 6.5: Merge the PR (merge commit, NOT squash)
+
+Once all checks pass and threads are resolved:
+
+```bash
+gh pr merge PR_NUMBER --merge --subject "vLATEST — [title]"
+```
+
+**Use `--merge`, not `--squash` or `--rebase`.** This preserves the common
+ancestor between dev and main so future ships merge cleanly. If `gh pr merge`
+is blocked by a stuck status check, ask the user to bypass via GitHub UI
+(select "Merge pull request" dropdown → "Create a merge commit").
 
 ## Step 7: After the PR merges to main — GitHub Release (MANDATORY)
 

@@ -91,8 +91,8 @@ Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, 
 
 When applying a `/sketch`, the four sketch documents are cumulative and binding:
 
-1. Read `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md` before coding.
-2. Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code and artifact inventory, `approach.md` as the implementation authority, and `tasks.md` as the execution order.
+1. Read all four spec documents before coding: `<spec>/requirements.md`, `<spec>/discovery.md`, `<spec>/approach.md`, and `<spec>/tasks.md` (located in `DocVault/specflow/StakTrakr/specs/`).
+2. Treat the spec's `requirements.md` as the acceptance contract, `discovery.md` as the live-code and artifact inventory, `approach.md` as the implementation authority, and `tasks.md` as the execution order.
 3. Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
 4. Do not mark a task or AC complete if the implementation only satisfies `tasks.md` text while contradicting requirements, discovery, approach, approved mockups, or project design guidance.
 
@@ -219,8 +219,8 @@ sparingly and intentionally:
   formatting, or tasks that can be answered from DocVault, memory, source files, or standard
   local tooling.
 - Prefer `perplexity_search` to find URLs and source candidates, `perplexity_ask` for quick
-  cited answers, `perplexity_reason` when web-grounded reasoning is needed, and
-  `perplexity_research` for deeper multi-source investigation.
+  cited answers, `perplexity_reason` for questions requiring step-by-step logic with web sources, and
+  `perplexity_research` for deeper multi-source investigation (30s+ latency, use only for `/discover` phases).
 - When Perplexity results influence an architectural choice, dependency selection, or technical
   decision, cite or summarize the relevant sources and make clear what came from live web
   research.
@@ -240,9 +240,7 @@ Node, pipes, logs, and MCP/runtime streams. To avoid `Too many open files
 - Prefer serial review after Playwright runs when the task already launched
   Chromium in the same worktree.
 - Close completed subagents before starting another Playwright batch.
-- If `Too many open files` appears, stop dispatching new agents, close finished
-  agents, let Playwright/Chromium processes exit, and resume with smaller
-  batches after the runtime recovers.
+- On `Too many open files` (EMFILE) error: stop dispatching new agents immediately. Close all finished agents, wait for Playwright/Chromium processes to exit, then resume with batches of 2 or fewer agents.
 
 ### Stale Worktree Lock Guardrail
 

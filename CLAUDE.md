@@ -64,7 +64,10 @@ When creating an epic → set state to **Epic**. Child issues inherit the standa
 - **`/release` is the ONLY valid version-bump path.** `/spec`'s shipping tasks 10–12 say "version bump" → that means _invoke `/release patch`_, not hand-edit. A spec PR that bumps `package.json` but forgets `about.js` What's New / manifest / `version.json` will still pass `check-release-sync` and ship incomplete. If spec workflow appears to do its own bump → it's a bug, invoke `/release`.
 - Version lock: `devops/version.lock` is gitignored (local coordination only).
 - Worktree naming: `.worktrees/<issue>-<slug>/` (via `/start-patch`) or `.worktrees/patch-<version>/` (via `/release`). Pick what the entry skill creates and keep it for the branch lifetime. Create: `git fetch origin dev && git worktree add .worktrees/<name>/ -b <branch> origin/dev`. After: `cp CLAUDE.md .worktrees/<name>/` then `npm install --no-audit --no-fund`.
-- Squash merge only — rebase merge blocked (GitHub can't sign rebase commits). Use squash or local merge with SSH signing.
+- Merge strategy by target branch:
+  - **feature→dev:** squash merge (one commit per feature, clean dev history).
+  - **dev→main (ship):** merge commit via `gh pr merge --merge` (preserves common ancestry so the next ship finds a clean merge base). Never squash to main — it severs ancestry and causes full-tree conflicts on the next ship.
+  - **Rebase merge:** always prohibited — GitHub cannot sign rebase-created commits, which violates the `required_signatures` ruleset on both `dev` and `main`. Alternative: local merge with SSH signing.
 - `stamp-sw-cache` hook auto-stages `sw.js` when JS/CSS/image files commit. Don't add manually.
 - **Run `/update-spot-bundle` before EVERY version-bump PR** (whether targeting `dev` or `main`). Queries sqld and rebuilds `data/spot-history-bundle.js`. Copilot's reminder is correct — not a false positive. **Worktree note:** the script writes to the **main checkout**, not the active worktree — after running, copy to the worktree: `cp ../../data/spot-history-bundle.js data/ && cp ../../data/spot-history-bundle-*.js data/` (run from worktree root).
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
@@ -209,6 +212,7 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
 
 Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skill files). These policies are modeled on real-world failure patterns and their intent is worth honoring:
 
+- **Local linting gate:** After modifying any instruction file (CLAUDE.md, AGENTS.md, GEMINI.md, skill `SKILL.md` files), run `npx agentlinter --local` before committing. Aim for a perfect score; accept deductions only when the flagged pattern is intentional and project-specific (document the reason inline or in this section).
 - When agentlint flags a pattern, evaluate whether the underlying concern is valid for this project. If it is, adjust the instructions to address the concern.
 - Do not weaken project-specific instructions to satisfy a generic policy. Our instructions encode hard-won lessons; agentlint policies encode general best practices. When they conflict, project instructions win — but note the tension.
 - Do not reflexively dismiss every finding as a false positive. If a policy catches a genuine gap, fix it.
