@@ -2053,6 +2053,8 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
   if (!isEditing && window.__tradeAddNewPending && committed?.uuid) {
     window.addPendingTradeLinkUuid?.(committed.uuid);
     window.__tradeAddNewPending = false;
+    const itemModal = document.getElementById("itemModal");
+    if (itemModal) itemModal.style.zIndex = "";
   }
 };
 
@@ -2573,6 +2575,11 @@ const setupItemFormListeners = () => {
     try {
       if (typeof closeModalById === "function") closeModalById("itemModal");
     } catch (closeErr) {}
+    if (window.__tradeAddNewPending) {
+      window.__tradeAddNewPending = false;
+      const itemModal = document.getElementById("itemModal");
+      if (itemModal) itemModal.style.zIndex = "";
+    }
     editingIndex = null;
     editingChangeLogIndex = null;
   };
@@ -4895,7 +4902,10 @@ if (tradeSearch) {
     const removeIdx = parseInt(document.getElementById("removeItemIdx")?.value, 10);
     const sourceUuid = inventory[removeIdx]?.uuid;
     const matches = inventory
-      .filter((item) => !item.disposition && item.uuid !== sourceUuid)
+      .filter(
+        (item, idx) =>
+          !item.disposition && idx !== removeIdx && (!sourceUuid || item.uuid !== sourceUuid)
+      )
       .filter((item) => (item.name || "").toLowerCase().includes(query))
       .slice(0, 8);
     suggestions.innerHTML = matches
@@ -4928,6 +4938,8 @@ const tradeAddNewItemBtn = document.getElementById("tradeAddNewItemBtn");
 if (tradeAddNewItemBtn) {
   tradeAddNewItemBtn.addEventListener("click", () => {
     window.__tradeAddNewPending = true;
+    const itemModal = document.getElementById("itemModal");
+    if (itemModal) itemModal.style.zIndex = "10001";
     document.getElementById("newItemBtn")?.click();
   });
 }

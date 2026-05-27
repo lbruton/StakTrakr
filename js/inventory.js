@@ -748,6 +748,11 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
   if (!item) return;
 
+  if (!item.uuid && typeof generateUUID === "function") {
+    item.uuid = generateUUID();
+    saveInventory();
+  }
+
   const idxInput = safeGetElement("removeItemIdx");
   if (idxInput) idxInput.value = idx;
 
