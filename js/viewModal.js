@@ -844,7 +844,14 @@ function _buildDispositionSection(item) {
     unlinkBtn.type = "button";
     _setUnlinkBtnContent(unlinkBtn);
     unlinkBtn.addEventListener("click", () => {
-      if (source && typeof unlinkTradeItem === "function") unlinkTradeItem(source, item.uuid);
+      if (source && typeof unlinkTradeItem === "function") {
+        unlinkTradeItem(source, item.uuid);
+      } else {
+        // Source item missing (deleted or not imported) — clear the stale back-reference directly.
+        delete item.tradedFromUuid;
+        if (typeof saveInventory === "function") saveInventory();
+        if (typeof renderTable === "function") renderTable();
+      }
       closeViewModal();
     });
     unlinkWrap.appendChild(unlinkBtn);

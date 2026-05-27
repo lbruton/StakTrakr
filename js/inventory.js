@@ -873,11 +873,13 @@ const pushTradeLinkChange = (disposedItem, receivedItem, oldValue, newValue) => 
 
 const removeTradeLinkReference = (disposedItem, receivedUuid, { log = true } = {}) => {
   if (!disposedItem?.disposition) return;
+  const receivedItem = typeof findItemByUuid === "function" ? findItemByUuid(receivedUuid) : null;
   const before = {
     disposedUuid: disposedItem.uuid,
     receivedUuid,
     tradedForUuids: [...(disposedItem.disposition.tradedForUuids || [])],
     tradeValue: disposedItem.disposition.tradeValues?.[receivedUuid] || null,
+    tradedFromUuid: receivedItem?.tradedFromUuid === disposedItem.uuid ? disposedItem.uuid : null,
   };
   disposedItem.disposition.tradedForUuids = (disposedItem.disposition.tradedForUuids || []).filter(
     (uuid) => uuid !== receivedUuid
@@ -891,13 +893,16 @@ const removeTradeLinkReference = (disposedItem, receivedUuid, { log = true } = {
   if (disposedItem.disposition.tradedForUuids.length === 0) {
     delete disposedItem.disposition.tradedForUuids;
   }
-  const receivedItem = typeof findItemByUuid === "function" ? findItemByUuid(receivedUuid) : null;
   if (receivedItem?.tradedFromUuid === disposedItem.uuid) delete receivedItem.tradedFromUuid;
   if (log) {
     pushTradeLinkChange(disposedItem, receivedItem, before, {
       disposedUuid: disposedItem.uuid,
       receivedUuid,
       action: "unlink",
+      tradedForUuids: disposedItem.disposition.tradedForUuids
+        ? [...disposedItem.disposition.tradedForUuids]
+        : [],
+      tradedFromUuid: null,
     });
   }
 };

@@ -39,7 +39,7 @@
  * @property {"auto"|"circle"|"rectangle"} [reverseImageFrame] - Optional reverse image frame override
  * @property {string|null} [obverseSharedImageId] - UUID of source item if obverse image was tagged from the shared library (null for original uploads)
  * @property {string|null} [reverseSharedImageId] - UUID of source item if reverse image was tagged from the shared library (null for original uploads)
- * @property {string} [tradedFromUuid] - UUID of the disposed item that was traded to acquire this item
+ * @property {string|null} [tradedFromUuid] - UUID of the disposed item that was traded to acquire this item
  * @property {boolean} [collectable] - Whether item is marked as collectable
  * @property {AttachmentEntry[]} [attachments] - Per-item file attachments (STRK-45)
  * @property {Object} [disposition] - Disposition details for removed or disposed items

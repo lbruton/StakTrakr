@@ -4839,7 +4839,10 @@ const tradeEls = () => ({
   summary: document.getElementById("tradeValueSummary"),
 });
 
-const getTradeDate = () => document.getElementById("dispositionDate")?.value || "";
+const getTradeDate = () => {
+  const val = document.getElementById("dispositionDate")?.value;
+  return val || new Date().toLocaleDateString("en-CA");
+};
 
 // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
 const renderPendingTradeLinks = () => {
