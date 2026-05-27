@@ -748,6 +748,11 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const item = inventory[idx];
   if (!item) return;
 
+  if (!item.uuid && typeof generateUUID === "function") {
+    item.uuid = generateUUID();
+    saveInventory();
+  }
+
   const idxInput = safeGetElement("removeItemIdx");
   if (idxInput) idxInput.value = idx;
 
@@ -775,7 +780,7 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   const typeSelect = safeGetElement("dispositionType");
   if (typeSelect) typeSelect.value = "sold";
   const dateInput = safeGetElement("dispositionDate");
-  if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
+  if (dateInput) dateInput.value = new Date().toLocaleDateString("en-CA");
   const amountInput = safeGetElement("dispositionAmount");
   if (amountInput) amountInput.value = "";
   const recipientInput = safeGetElement("dispositionRecipient");
@@ -784,6 +789,9 @@ const openRemoveItemModal = (idx, preDispose = false) => {
   if (notesInput) notesInput.value = "";
   const amountGroup = safeGetElement("dispositionAmountGroup");
   if (amountGroup) amountGroup.style.display = "";
+  window.resetPendingTradeLinks?.();
+  const tradeSection = safeGetElement("tradeLinkSection");
+  if (tradeSection) tradeSection.style.display = "none";
 
   // Reset partial-dispose fields
   const qtyInput = safeGetElement("removeItemQty");
@@ -847,6 +855,146 @@ const disposeItem = (idx) => {
   const item = inventory[idx];
   if (!item || isDisposed(item)) return;
   openRemoveItemModal(idx, true);
+};
+
+const pushTradeLinkChange = (disposedItem, receivedItem, oldValue, newValue) => {
+  changeLog.push({
+    timestamp: Date.now(),
+    itemName: disposedItem?.name || receivedItem?.name || "Trade link",
+    field: "tradeLink",
+    oldValue: JSON.stringify(oldValue || null),
+    newValue: JSON.stringify(newValue || null),
+    idx: inventory.indexOf(disposedItem),
+    undone: false,
+    itemKey: disposedItem?.uuid || "",
+    type: "item-edit",
+  });
+};
+
+const removeTradeLinkReference = (disposedItem, receivedUuid, { log = true } = {}) => {
+  if (!disposedItem?.disposition) return;
+  const receivedItem = typeof findItemByUuid === "function" ? findItemByUuid(receivedUuid) : null;
+  const before = {
+    disposedUuid: disposedItem.uuid,
+    receivedUuid,
+    tradedForUuids: [...(disposedItem.disposition.tradedForUuids || [])],
+    tradeValue: disposedItem.disposition.tradeValues?.[receivedUuid] || null,
+    tradedFromUuid: receivedItem?.tradedFromUuid === disposedItem.uuid ? disposedItem.uuid : null,
+  };
+  disposedItem.disposition.tradedForUuids = (disposedItem.disposition.tradedForUuids || []).filter(
+    (uuid) => uuid !== receivedUuid
+  );
+  if (disposedItem.disposition.tradeValues) {
+    delete disposedItem.disposition.tradeValues[receivedUuid];
+    if (Object.keys(disposedItem.disposition.tradeValues).length === 0) {
+      delete disposedItem.disposition.tradeValues;
+    }
+  }
+  if (disposedItem.disposition.tradedForUuids.length === 0) {
+    delete disposedItem.disposition.tradedForUuids;
+  }
+  if (receivedItem?.tradedFromUuid === disposedItem.uuid) delete receivedItem.tradedFromUuid;
+  if (log) {
+    pushTradeLinkChange(disposedItem, receivedItem, before, {
+      disposedUuid: disposedItem.uuid,
+      receivedUuid,
+      action: "unlink",
+      tradedForUuids: disposedItem.disposition.tradedForUuids
+        ? [...disposedItem.disposition.tradedForUuids]
+        : [],
+      tradedFromUuid: null,
+    });
+  }
+};
+
+const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
+  if (!disposedItem?.disposition || !Array.isArray(receivedUuids)) return [];
+  if (!Array.isArray(disposedItem.disposition.tradedForUuids)) {
+    disposedItem.disposition.tradedForUuids = [];
+  }
+  if (!disposedItem.disposition.tradeValues) disposedItem.disposition.tradeValues = {};
+  const linked = [];
+  for (const receivedUuid of receivedUuids.filter(Boolean)) {
+    const receivedItem = typeof findItemByUuid === "function" ? findItemByUuid(receivedUuid) : null;
+    if (!receivedItem || receivedItem.uuid === disposedItem.uuid) continue;
+    if (receivedItem.tradedFromUuid && receivedItem.tradedFromUuid !== disposedItem.uuid) {
+      const proceed =
+        typeof showAppConfirm === "function"
+          ? await showAppConfirm(
+              `"${receivedItem.name}" is already linked to another trade. Reassign it?`,
+              "Reassign Trade Link"
+            )
+          : false;
+      if (!proceed) continue;
+      const oldSource =
+        typeof findItemByUuid === "function" ? findItemByUuid(receivedItem.tradedFromUuid) : null;
+      removeTradeLinkReference(oldSource, receivedUuid);
+    }
+    const before = {
+      disposedUuid: disposedItem.uuid,
+      receivedUuid,
+      tradedForUuids: [...disposedItem.disposition.tradedForUuids],
+      tradedFromUuid: receivedItem.tradedFromUuid || null,
+    };
+    if (!disposedItem.disposition.tradedForUuids.includes(receivedUuid)) {
+      disposedItem.disposition.tradedForUuids.push(receivedUuid);
+    }
+    const tradeValue =
+      typeof computeTradeValue === "function" ? computeTradeValue(receivedItem, tradeDate) : null;
+    if (tradeValue) disposedItem.disposition.tradeValues[receivedUuid] = tradeValue;
+    receivedItem.tradedFromUuid = disposedItem.uuid;
+
+    // STRK-132: cost basis = given-up item's value at trade date (carryover),
+    // NOT the FMV of the received item. Matches the "what did I pay?" mental
+    // model consistent with cash purchases.
+    const givenUpTradeValue =
+      typeof computeTradeValue === "function" ? computeTradeValue(disposedItem, tradeDate) : null;
+    const givenUpValue =
+      givenUpTradeValue?.meltValue || parseFloat(disposedItem.disposition.amount) || 0;
+    if (givenUpValue > 0 && receivedUuids.length > 0) {
+      receivedItem.price = String(givenUpValue / receivedUuids.length);
+      receivedItem.date = tradeDate || disposedItem.disposition.date || "";
+    }
+
+    pushTradeLinkChange(disposedItem, receivedItem, before, {
+      disposedUuid: disposedItem.uuid,
+      receivedUuid,
+      tradedForUuids: [...disposedItem.disposition.tradedForUuids],
+      tradedFromUuid: disposedItem.uuid,
+      tradeValue: disposedItem.disposition.tradeValues[receivedUuid] || null,
+    });
+    linked.push(receivedUuid);
+  }
+  if (Object.keys(disposedItem.disposition.tradeValues).length === 0) {
+    delete disposedItem.disposition.tradeValues;
+  }
+  return linked;
+};
+
+const unlinkTradeItem = (disposedItem, receivedUuid) => {
+  removeTradeLinkReference(disposedItem, receivedUuid);
+  saveInventory();
+  if (typeof renderChangeLog === "function") renderChangeLog();
+};
+
+const updateTradeLinks = async (disposedItem, newUuids) => {
+  if (!disposedItem?.disposition) return;
+  const oldUuids = [...(disposedItem.disposition.tradedForUuids || [])];
+  const removed = oldUuids.filter((u) => !newUuids.includes(u));
+  const added = newUuids.filter((u) => !oldUuids.includes(u));
+  removed.forEach((uuid) => removeTradeLinkReference(disposedItem, uuid));
+  if (added.length > 0) {
+    const tradeDate = disposedItem.disposition.date || "";
+    await linkTradeItems(disposedItem, added, tradeDate);
+  }
+  saveInventory();
+  if (typeof renderChangeLog === "function") renderChangeLog();
+  if (typeof renderTable === "function") renderTable();
+};
+
+const clearTradeLinks = (disposedItem) => {
+  const linked = [...(disposedItem?.disposition?.tradedForUuids || [])];
+  linked.forEach((uuid) => removeTradeLinkReference(disposedItem, uuid));
 };
 
 /**
@@ -937,6 +1085,7 @@ const confirmRemoveItem = async () => {
           currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
           recipient,
           notes,
+          tradedForUuids: window.getPendingTradeLinkUuids?.() || [],
         };
         const result = await splitInventoryItem(idx, disposedQty, dispositionInput);
         if (!result.ok) {
@@ -968,6 +1117,9 @@ const confirmRemoveItem = async () => {
       };
 
       inventory[idx].disposition = disposition;
+      if (type === "traded") {
+        await linkTradeItems(item, window.getPendingTradeLinkUuids?.() || [], date);
+      }
       saveInventory();
       closeModalById("removeItemModal");
       logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
@@ -1023,6 +1175,7 @@ const restoreInPlace = async (idx, { skipConfirm = false } = {}) => {
       : false);
   if (confirmed) {
     const oldDisposition = JSON.stringify(item.disposition);
+    clearTradeLinks(item);
     inventory[idx].disposition = null;
     saveInventory();
     logChange(item.name, "Disposition Undone", oldDisposition, "", idx);
@@ -1059,6 +1212,7 @@ const undoDisposition = async (idx) => {
   const cloneQty = item.qty;
   const cloneName = item.name;
   const cloneUuid = item.uuid;
+  clearTradeLinks(item);
   inventory[originalIdx].qty += cloneQty;
   const mergeAdjustedOriginalIdx = idx < originalIdx ? originalIdx - 1 : originalIdx;
   inventory.splice(idx, 1);
@@ -1174,9 +1328,16 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
     disposedAt,
     splitFromUuid: original.uuid,
   };
+  if (Array.isArray(dispositionInput.tradedForUuids) && dispositionInput.tradedForUuids.length) {
+    clone.disposition.tradedForUuids = [];
+    clone.disposition.tradeValues = {};
+  }
 
   // Insert clone immediately after original
   inventory.splice(originalIdx + 1, 0, clone);
+  if (Array.isArray(dispositionInput.tradedForUuids) && dispositionInput.tradedForUuids.length) {
+    await linkTradeItems(clone, dispositionInput.tradedForUuids, clone.disposition.date);
+  }
 
   // 4. Build changeLog entries in memory
   const transactionId = disposedAt;
@@ -1288,6 +1449,10 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
   return { ok: true, originalIdx, cloneIdx: originalIdx + 1, transactionId };
 };
 window.splitInventoryItem = splitInventoryItem;
+window.linkTradeItems = linkTradeItems;
+window.unlinkTradeItem = unlinkTradeItem;
+window.updateTradeLinks = updateTradeLinks;
+window.clearTradeLinks = clearTradeLinks;
 
 /**
  * Opens modal to view and edit an item's notes

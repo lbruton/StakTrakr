@@ -72,6 +72,7 @@ const DIFF_FIELDS = [
   "reverseImageFrame",
   "obverseSharedImageId",
   "reverseSharedImageId",
+  "tradedFromUuid",
   // Disposition
   "disposition",
   // Metadata
