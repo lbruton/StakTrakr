@@ -2724,8 +2724,12 @@ function _restoreRawStorageValues(priorValues) {
   if (!priorValues || typeof localStorage === "undefined") return;
   var keys = Object.keys(priorValues);
   for (var i = 0; i < keys.length; i++) {
-    if (priorValues[keys[i]] === null) localStorage.removeItem(keys[i]);
-    else localStorage.setItem(keys[i], priorValues[keys[i]]);
+    try {
+      if (priorValues[keys[i]] === null) localStorage.removeItem(keys[i]);
+      else localStorage.setItem(keys[i], priorValues[keys[i]]);
+    } catch (_e) {
+      /* best-effort — swallow quota errors during rollback */
+    }
   }
 }
 
@@ -2894,6 +2898,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     } catch (tagErr) {
       inventory = _prevInventory;
       _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
       console.warn("[CloudSync] Tag merge failed — rolling back pull:", tagErr);
       logCloudSyncActivity(
         "cloud_sync_pull",
@@ -2952,6 +2957,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     if (_failedCount > 0) {
       inventory = _prevInventory;
       _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
       for (var r = 0; r < _appliedKeys.length; r++) {
         try {
           var prior = _priorValues[_appliedKeys[r]];
