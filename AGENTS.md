@@ -87,6 +87,26 @@ Every **runtime code** change requires:
 
 Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, devops config) may commit directly to `dev` without a worktree or PR.
 
+## Sketch Apply Contract
+
+When applying a `/sketch`, the four sketch documents are cumulative and binding:
+
+1. Read `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md` before coding.
+2. Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code and artifact inventory, `approach.md` as the implementation authority, and `tasks.md` as the execution order.
+3. Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
+4. Do not mark a task or AC complete if the implementation only satisfies `tasks.md` text while contradicting requirements, discovery, approach, approved mockups, or project design guidance.
+
+## UI / Mockup Gates
+
+For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
+
+- Read `../DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
+- Check `ui-standards/style.html` for live component and token patterns.
+- Search the issue/sketch and `playground/` for mockups. If a mockup is approved or referenced by the sketch/user, treat it as binding even if the file is untracked.
+- Use existing StakTrakr design tokens and components; do not invent generic token names.
+- Verify every mocked screen/state in a browser and include screenshot/GIF evidence in the PR.
+- For UI-heavy Playwright coverage, tests must exercise the user-visible workflow and assert the interaction contract. Storage-only assertions are insufficient for ACs about layout, labels, visual sections, inline editing, or modal behavior.
+
 ## Release Workflow — Required on Every Code PR
 
 **Canonical reference:** `../DocVault/Projects/StakTrakr/Foundation/coding-standards.md` from the repo root — read the Release Process section before your first release of the session.
