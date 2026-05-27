@@ -2048,6 +2048,29 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       showToast("\u2713 " + addedItem.name + " added to inventory");
     }
   }
+  const committed = isEditing ? inventory[editIdx] : inventory[inventory.length - 1];
+  window.__lastCommittedItemUuid = committed?.uuid;
+  if (!isEditing && window.__tradeAddNewPending && committed?.uuid) {
+    window.addPendingTradeLinkUuid?.(committed.uuid);
+    window.__tradeAddNewPending = false;
+    const itemModal = document.getElementById("itemModal");
+    if (itemModal) itemModal.style.zIndex = "";
+  }
+  if (!isEditing && window.__tradeEditAddNewPending && committed?.uuid) {
+    const editUuids = window.__tradeEditUuids;
+    if (Array.isArray(editUuids) && !editUuids.includes(committed.uuid)) {
+      editUuids.push(committed.uuid);
+    }
+    if (typeof window.__tradeEditRenderChips === "function") {
+      window.__tradeEditRenderChips();
+    }
+    window.__tradeEditAddNewPending = false;
+    window.__tradeEditSourceItem = null;
+    window.__tradeEditUuids = null;
+    window.__tradeEditRenderChips = null;
+    const itemModal = document.getElementById("itemModal");
+    if (itemModal) itemModal.style.zIndex = "";
+  }
 };
 
 /**
@@ -2567,6 +2590,11 @@ const setupItemFormListeners = () => {
     try {
       if (typeof closeModalById === "function") closeModalById("itemModal");
     } catch (closeErr) {}
+    if (window.__tradeAddNewPending) {
+      window.__tradeAddNewPending = false;
+      const itemModal = document.getElementById("itemModal");
+      if (itemModal) itemModal.style.zIndex = "";
+    }
     editingIndex = null;
     editingChangeLogIndex = null;
   };
@@ -4774,9 +4802,11 @@ if (removeItemDisposeCheck) {
     const fields = document.getElementById("removeItemDisposeFields");
     const deleteBtn = document.getElementById("removeItemDeleteBtn");
     const disposeBtn = document.getElementById("removeItemDisposeBtn");
+    const title = document.getElementById("removeItemModalTitle");
     if (fields) fields.style.display = checked ? "" : "none";
     if (deleteBtn) deleteBtn.style.display = checked ? "none" : "";
     if (disposeBtn) disposeBtn.style.display = checked ? "" : "none";
+    if (title) title.textContent = checked ? "Dispose Item" : "Remove Item";
   });
 }
 
@@ -4799,16 +4829,144 @@ if (removeItemDisposeBtn) {
 }
 
 // Disposition type changes show/hide amount field
+let _pendingTradeLinkUuids = [];
+
+const tradeEls = () => ({
+  section: document.getElementById("tradeLinkSection"),
+  search: document.getElementById("tradeItemSearch"),
+  suggestions: document.getElementById("tradeItemSuggestions"),
+  linked: document.getElementById("tradeLinkedItems"),
+  summary: document.getElementById("tradeValueSummary"),
+});
+
+const getTradeDate = () => {
+  const val = document.getElementById("dispositionDate")?.value;
+  return val || new Date().toLocaleDateString("en-CA");
+};
+
+// nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
+const renderPendingTradeLinks = () => {
+  const { linked, summary } = tradeEls();
+  if (!linked) return;
+  let total = 0;
+  // developer-controlled HTML — all values pass through sanitizeHtml()
+  linked.innerHTML = _pendingTradeLinkUuids // duplication-ok
+    .map((uuid) => {
+      const item = typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null;
+      if (!item) return "";
+      const value =
+        typeof computeTradeValue === "function" ? computeTradeValue(item, getTradeDate()) : null;
+      const meltValue = value?.meltValue || 0;
+      total += meltValue;
+      const name = sanitizeHtml(item.name || "Unnamed item");
+      return `<span class="trade-linked-chip" data-uuid="${sanitizeHtml(uuid)}">${name}<button type="button" class="chip-remove" data-remove-trade-uuid="${sanitizeHtml(uuid)}">&times;</button></span>`;
+    })
+    .join("");
+  if (summary) summary.textContent = total > 0 ? formatCurrency(total) : "";
+  const dispositionAmount = document.getElementById("dispositionAmount");
+  if (dispositionAmount && total > 0 && !dispositionAmount.value) {
+    dispositionAmount.value = total.toFixed(2);
+  }
+};
+
+window.getPendingTradeLinkUuids = () => [..._pendingTradeLinkUuids];
+window.addPendingTradeLinkUuid = (uuid) => {
+  if (uuid && !_pendingTradeLinkUuids.includes(uuid)) _pendingTradeLinkUuids.push(uuid);
+  renderPendingTradeLinks();
+};
+window.resetPendingTradeLinks = () => {
+  _pendingTradeLinkUuids = [];
+  const { search, suggestions } = tradeEls();
+  if (search) search.value = "";
+  if (suggestions) suggestions.innerHTML = "";
+  renderPendingTradeLinks();
+};
+
+const updateTradeSectionVisibility = () => {
+  const { section } = tradeEls();
+  if (section) section.style.display = dispositionTypeSelect?.value === "traded" ? "" : "none";
+};
+
 const dispositionTypeSelect = document.getElementById("dispositionType");
 if (dispositionTypeSelect) {
   dispositionTypeSelect.addEventListener("change", () => {
     const typeInfo = DISPOSITION_TYPES[dispositionTypeSelect.value];
     const amountGroup = document.getElementById("dispositionAmountGroup");
     if (amountGroup) amountGroup.style.display = typeInfo?.requiresAmount ? "" : "none";
+    const amountInput = document.getElementById("dispositionAmount");
     if (!typeInfo || !typeInfo.requiresAmount) {
-      const amountInput = document.getElementById("dispositionAmount");
       if (amountInput) amountInput.value = "";
     }
+    if (amountInput) {
+      const placeholders = { traded: "Trade value", sold: "Sale amount" };
+      amountInput.placeholder = placeholders[dispositionTypeSelect.value] || "Amount";
+    }
+    updateTradeSectionVisibility();
+  });
+}
+
+const tradeSearch = document.getElementById("tradeItemSearch");
+if (tradeSearch) {
+  tradeSearch.addEventListener("input", () => {
+    const { suggestions } = tradeEls();
+    if (!suggestions) return;
+    const searchIcon = tradeSearch.parentElement?.querySelector(".trade-search-icon");
+    const query = tradeSearch.value.trim().toLowerCase();
+    if (!query) {
+      suggestions.innerHTML = "";
+      if (searchIcon) searchIcon.style.display = "";
+      return;
+    }
+    const removeIdx = parseInt(document.getElementById("removeItemIdx")?.value, 10);
+    const sourceUuid = inventory[removeIdx]?.uuid;
+    const matches = inventory
+      .filter((item, idx) => idx !== removeIdx && (!sourceUuid || item.uuid !== sourceUuid))
+      .filter((item) => (item.name || "").toLowerCase().includes(query))
+      .slice(0, 8);
+    // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
+    suggestions.innerHTML = matches // developer-controlled HTML — sanitizeHtml on all values
+      .map((item) => {
+        const metaParts = [sanitizeHtml(item.metal || "")];
+        if (item.year) metaParts.push(sanitizeHtml(String(item.year)));
+        if (item.grade) metaParts.push(sanitizeHtml(String(item.grade)));
+        metaParts.push("Qty " + (Number(item.qty) || 1));
+        const meta = metaParts.filter(Boolean).join(" · ");
+        const badge = isDisposed(item)
+          ? ` <span class="disposition-badge disposition-badge--${sanitizeHtml(item.disposition.type)}">${sanitizeHtml(DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type)}</span>`
+          : "";
+        return `<div class="trade-item-suggestion" role="option" tabindex="0" data-trade-uuid="${sanitizeHtml(item.uuid)}"><span class="result-name">${sanitizeHtml(item.name || "Unnamed item")}</span><span class="result-meta">${meta}${badge}</span></div>`;
+      })
+      .join("");
+    if (searchIcon) searchIcon.style.display = suggestions.innerHTML ? "none" : "";
+  });
+}
+
+document.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-trade-uuid]");
+  if (option) {
+    window.addPendingTradeLinkUuid(option.dataset.tradeUuid);
+    const { search, suggestions } = tradeEls();
+    if (search) search.value = "";
+    if (suggestions) suggestions.innerHTML = "";
+    const searchIcon = search?.parentElement?.querySelector(".trade-search-icon");
+    if (searchIcon) searchIcon.style.display = "";
+  }
+  const remove = event.target.closest("[data-remove-trade-uuid]");
+  if (remove) {
+    _pendingTradeLinkUuids = _pendingTradeLinkUuids.filter(
+      (uuid) => uuid !== remove.dataset.removeTradeUuid
+    );
+    renderPendingTradeLinks();
+  }
+});
+
+const tradeAddNewItemBtn = document.getElementById("tradeAddNewItemBtn");
+if (tradeAddNewItemBtn) {
+  tradeAddNewItemBtn.addEventListener("click", () => {
+    window.__tradeAddNewPending = true;
+    const itemModal = document.getElementById("itemModal");
+    if (itemModal) itemModal.style.zIndex = "10001";
+    document.getElementById("newItemBtn")?.click();
   });
 }
 

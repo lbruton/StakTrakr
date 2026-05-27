@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.0] - 2026-05-26
+
+### Changed — STRK-123: Trade linking
+
+- **Trade provenance and value tracking**: Added bidirectional trade links between disposed traded items and received inventory, with editable trade relationships, spot-derived trade values, provenance display, undo support, CSV/ZIP backup coverage, and cloud-sync hash visibility. (STRK-123)
+
+---
+
 ## [3.34.99] - 2026-05-26
 
 ### Changed — STRK-122: Playwright consolidation closeout

@@ -8399,7 +8399,8 @@ async function loadSeedInventory(stateResult) {
   debugLog("Seed inventory: loading sample items for first-time user...");
 
   for (const template of SEED_INVENTORY_ITEMS) {
-    const item = Object.assign({}, template, { serial: getNextSerial() });
+    const uuid = typeof generateUUID === "function" ? generateUUID() : crypto.randomUUID();
+    const item = Object.assign({}, template, { serial: getNextSerial(), uuid });
     inventory.push(item);
   }
 

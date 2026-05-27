@@ -152,6 +152,7 @@ const logItemChanges = (oldItem, newItem) => {
     "reverseImageFrame",
     "obverseSharedImageId",
     "reverseSharedImageId",
+    "tradedFromUuid",
     "disposition",
     "lastModified",
     "capsule",
@@ -469,11 +470,26 @@ const applyLegacyDispositionUndo = (entry) => {
     } catch (e) {
       return;
     }
+    // Re-establish tradedFromUuid back-references on received items
+    const redoUuids = item.disposition?.tradedForUuids;
+    if (Array.isArray(redoUuids)) {
+      redoUuids.forEach((uuid) => {
+        const received = inventory.find((i) => i.uuid === uuid);
+        if (received) received.tradedFromUuid = item.uuid;
+      });
+    }
     saveInventory();
     entry.undone = false;
     if (typeof showToast === "function") showToast(sanitizeHtml(item.name) + " re-disposed.");
   } else {
-    // Undo: clear the disposition
+    // Undo: clean up trade link back-references before clearing disposition
+    const linkedUuids = item.disposition?.tradedForUuids;
+    if (Array.isArray(linkedUuids)) {
+      linkedUuids.forEach((uuid) => {
+        const received = inventory.find((i) => i.uuid === uuid);
+        if (received?.tradedFromUuid === item.uuid) delete received.tradedFromUuid;
+      });
+    }
     item.disposition = null;
     saveInventory();
     entry.undone = true;
@@ -532,6 +548,50 @@ const toggleChange = async (logIdx) => {
     if (typeof saveItemPriceHistory === "function") saveItemPriceHistory();
     if (typeof renderItemPriceHistoryTable === "function") renderItemPriceHistoryTable();
     if (typeof renderItemPriceHistoryModalTable === "function") renderItemPriceHistoryModalTable();
+    renderChangeLog();
+    saveDataSync("changeLog", changeLog);
+    return;
+  }
+
+  if (entry.field === "tradeLink") {
+    const applyTradeSnapshot = (snapshot) => {
+      if (!snapshot || !snapshot.disposedUuid || !snapshot.receivedUuid) return;
+      const disposed = inventory.find((i) => i.uuid === snapshot.disposedUuid);
+      const received = inventory.find((i) => i.uuid === snapshot.receivedUuid);
+      if (disposed?.disposition) {
+        if (Array.isArray(snapshot.tradedForUuids) && snapshot.tradedForUuids.length > 0) {
+          disposed.disposition.tradedForUuids = [...snapshot.tradedForUuids];
+        } else {
+          delete disposed.disposition.tradedForUuids;
+        }
+        if (snapshot.tradeValue) {
+          disposed.disposition.tradeValues = {
+            ...(disposed.disposition.tradeValues || {}),
+            [snapshot.receivedUuid]: snapshot.tradeValue,
+          };
+        } else if (disposed.disposition.tradeValues) {
+          delete disposed.disposition.tradeValues[snapshot.receivedUuid];
+          if (Object.keys(disposed.disposition.tradeValues).length === 0) {
+            delete disposed.disposition.tradeValues;
+          }
+        }
+      }
+      if (received) {
+        if (snapshot.tradedFromUuid) received.tradedFromUuid = snapshot.tradedFromUuid;
+        else delete received.tradedFromUuid;
+      }
+    };
+    const oldSnapshot = entry.oldValue ? JSON.parse(entry.oldValue) : null;
+    const newSnapshot = entry.newValue ? JSON.parse(entry.newValue) : null;
+    if (entry.undone) {
+      applyTradeSnapshot(newSnapshot);
+      entry.undone = false;
+    } else {
+      applyTradeSnapshot(oldSnapshot);
+      entry.undone = true;
+    }
+    saveInventory();
+    renderTable();
     renderChangeLog();
     saveDataSync("changeLog", changeLog);
     return;

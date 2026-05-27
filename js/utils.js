@@ -1071,7 +1071,14 @@ const sanitizeObjectFields = (obj) => {
     if (typeof cleaned[key] === "string" && key !== "notes" && key !== "capsuleNotes") {
       // URL fields must not be sanitized — they contain :, /, . characters
       // UUID fields must not be sanitized — hyphens are part of the format
-      if (key === "obverseImageUrl" || key === "reverseImageUrl" || key === "uuid") continue;
+      if (
+        key === "obverseImageUrl" ||
+        key === "reverseImageUrl" ||
+        key === "uuid" ||
+        key === "tradedFromUuid"
+      ) {
+        continue;
+      }
       const allowHyphen = key === "date";
       cleaned[key] =
         key === "name" ||
@@ -1465,6 +1472,51 @@ const computeMeltValue = (item, spot) => {
         ? weight * SB_TO_OZT
         : weight;
   return weightOz * qty * spot * purity;
+};
+
+/**
+ * Finds an inventory item by UUID.
+ *
+ * @param {string} uuid - Inventory item UUID
+ * @returns {Object|null} Matching item or null
+ */
+const findInventoryItemByUuid = (uuid) => {
+  if (!uuid || typeof inventory === "undefined" || !Array.isArray(inventory)) return null;
+  return inventory.find((item) => item?.uuid === uuid) || null;
+};
+
+/**
+ * Computes a spot-derived trade value snapshot for an item on a date.
+ *
+ * @param {Object} item - Inventory item to value
+ * @param {string} dateStr - Trade date in YYYY-MM-DD format
+ * @returns {{meltValue: number, spotPrice: number, isCustom: boolean}|null}
+ */
+const computeTradeValue = (item, dateStr) => {
+  if (!item) return null;
+  // For today/future trades, prefer the live current spot — the daily
+  // spot-history bundle lags by up to ~24h and would otherwise return
+  // yesterday's snapshot, mismatching the inventory table's melt column.
+  // (STRK-131)
+  const today = new Date().toLocaleDateString("en-CA");
+  if (dateStr && dateStr >= today && typeof spotPrices !== "undefined") {
+    const liveSpot = spotPrices[String(item.metal || "").toLowerCase()];
+    if (liveSpot > 0) {
+      return {
+        meltValue: computeMeltValue(item, liveSpot),
+        spotPrice: liveSpot,
+        isCustom: false,
+      };
+    }
+  }
+  if (typeof lookupHistoricalSpot !== "function") return null;
+  const spotPrice = lookupHistoricalSpot(item.metal, dateStr);
+  if (spotPrice === null) return null;
+  return {
+    meltValue: computeMeltValue(item, spotPrice),
+    spotPrice,
+    isCustom: false,
+  };
 };
 
 /**
@@ -3425,6 +3477,8 @@ if (typeof window !== "undefined") {
   window.openEbaySoldSearch = openEbaySoldSearch;
   window.cleanSearchTerm = cleanSearchTerm;
   window.computeMeltValue = computeMeltValue;
+  window.findItemByUuid = findInventoryItemByUuid;
+  window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
   window.computeItemValuation = computeItemValuation;
   // Multi-currency support (STACK-50)
@@ -3451,6 +3505,8 @@ if (typeof module !== "undefined" && module.exports) {
     sanitizeObjectFields,
     sanitizeImportedItem,
     computeMeltValue,
+    findItemByUuid: findInventoryItemByUuid,
+    computeTradeValue,
     calculateRetailPrice,
     computeItemValuation,
     getContrastColor,

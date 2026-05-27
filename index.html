@@ -8398,7 +8398,13 @@
                   <button type="button" class="chip-sort-btn" data-mode="lot">Lot total</button>
                 </div>
               </div>
-              <input type="number" id="dispositionAmount" min="0" step="0.01" placeholder="0.00" />
+              <input
+                type="number"
+                id="dispositionAmount"
+                min="0"
+                step="0.01"
+                placeholder="Sale amount"
+              />
             </div>
 
             <div class="form-group">
@@ -8410,6 +8416,30 @@
               <label for="dispositionNotes">Notes</label>
               <textarea id="dispositionNotes" rows="3" placeholder="Optional notes..."></textarea>
             </div>
+
+            <section id="tradeLinkSection" class="trade-link-section" style="display: none">
+              <div class="trade-link-section__header">
+                <label for="tradeItemSearch">Link Received Items</label>
+                <span id="tradeValueSummary" class="trade-value-summary"></span>
+              </div>
+              <div id="tradeLinkedItems" class="trade-linked-chips" aria-live="polite"></div>
+              <div class="trade-item-picker">
+                <span class="trade-search-icon">&#x1F50D;</span>
+                <input
+                  type="search"
+                  id="tradeItemSearch"
+                  autocomplete="off"
+                  placeholder="Search active items..."
+                  aria-controls="tradeItemSuggestions"
+                />
+                <div id="tradeItemSuggestions" class="trade-item-suggestions" role="listbox"></div>
+              </div>
+              <button type="button" id="tradeAddNewItemBtn" class="trade-add-new-btn">
+                <span class="add-icon">+</span>
+                <span>Add new item to inventory</span>
+                <span class="add-hint">— opens Add Item form</span>
+              </button>
+            </section>
           </div>
         </div>
         <div class="modal-footer" style="justify-content: space-between">

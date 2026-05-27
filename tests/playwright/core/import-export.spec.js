@@ -24,6 +24,46 @@ const FRAME_ITEM = {
   reverseImageFrame: "circle",
 };
 
+const TRADE_SOURCE_ITEM = {
+  uuid: "strk123-trade-source",
+  serial: 1231,
+  metal: "Silver",
+  composition: "Silver",
+  name: "STRK-123 Trade Source",
+  qty: 1,
+  type: "Round",
+  weight: 1,
+  weightUnit: "oz",
+  purity: 0.999,
+  price: 30,
+  date: "2026-01-01",
+  disposition: {
+    type: "traded",
+    date: "2026-01-15",
+    amount: 65,
+    tradedForUuids: ["strk123-trade-received"],
+    tradeValues: {
+      "strk123-trade-received": { meltValue: 59.94, spotPrice: 30, isCustom: false },
+    },
+  },
+};
+
+const TRADE_RECEIVED_ITEM = {
+  uuid: "strk123-trade-received",
+  serial: 1232,
+  metal: "Silver",
+  composition: "Silver",
+  name: "STRK-123 Trade Received",
+  qty: 2,
+  type: "Round",
+  weight: 1,
+  weightUnit: "oz",
+  purity: 0.999,
+  price: 0,
+  date: "2026-01-15",
+  tradedFromUuid: "strk123-trade-source",
+};
+
 async function seedFrameInventory(page) {
   await page.addInitScript((item) => {
     localStorage.setItem("metalInventory", JSON.stringify([item]));
@@ -174,6 +214,65 @@ test.describe("core/import-export", () => {
 
     expectFrameColumns(await parseCsvRow(page, zipCsv));
     expectFrameColumns(await parseCsvRow(page, standaloneCsv));
+  });
+
+  test("trade-link fields round-trip through standalone CSV and ZIP JSON backup", async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      ({ source, received }) => {
+        localStorage.setItem("metalInventory", JSON.stringify([source, received]));
+        localStorage.setItem("itemTags", JSON.stringify({}));
+        document.addEventListener(
+          "DOMContentLoaded",
+          () => {
+            if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
+          },
+          { once: true }
+        );
+      },
+      { source: TRADE_SOURCE_ITEM, received: TRADE_RECEIVED_ITEM }
+    );
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.exportInventoryCSV === "function" &&
+        typeof window.importCsvFromText === "function" &&
+        typeof window.createBackupZip === "function"
+    );
+
+    const result = await page.evaluate(async () => {
+      const csv = window.exportInventoryCSV();
+      const imported = window.importCsvFromText(csv);
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const backup = JSON.parse(await zip.file("inventory_data.json").async("string"));
+      const csvHeaders = window.Papa.parse(
+        csv
+          .split("\n")
+          .filter((line) => !line.startsWith("# exportOrigin:"))
+          .join("\n"),
+        { header: true, skipEmptyLines: true }
+      ).meta.fields;
+      return {
+        csvHeaders,
+        csvSource: imported.find((item) => item.uuid === "strk123-trade-source"),
+        csvReceived: imported.find((item) => item.uuid === "strk123-trade-received"),
+        backupSource: backup.inventory.find((item) => item.uuid === "strk123-trade-source"),
+        backupReceived: backup.inventory.find((item) => item.uuid === "strk123-trade-received"),
+      };
+    });
+
+    expect(result.csvHeaders).toContain("Traded For UUIDs");
+    expect(result.csvHeaders).toContain("Traded From UUID");
+    expect(result.csvSource.disposition.tradedForUuids).toEqual(["strk123-trade-received"]);
+    expect(result.csvSource.disposition.tradeValues).toBeUndefined();
+    expect(result.csvReceived.tradedFromUuid).toBe("strk123-trade-source");
+    expect(result.backupSource.disposition.tradeValues["strk123-trade-received"]).toMatchObject({
+      spotPrice: 30,
+      isCustom: false,
+    });
+    expect(result.backupReceived.tradedFromUuid).toBe("strk123-trade-source");
   });
 
   test("same-device vault restore shows no duplicate differences", async ({ page }) => {
