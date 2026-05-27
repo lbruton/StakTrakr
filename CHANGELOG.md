@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [3.34.100] - 2026-05-26
+## [3.35.0] - 2026-05-26
 
 ### Changed — STRK-123: Trade linking
 
