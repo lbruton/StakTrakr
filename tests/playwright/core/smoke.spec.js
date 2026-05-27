@@ -21,31 +21,24 @@ async function dismissWhatsNew(page) {
   }
 }
 
-test.describe("01-page-load", () => {
+test.describe("core/smoke — app shell boot", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
 
-  test("1.1 — page loads at local URL", async ({ page }) => {
-    // runbook: 01-page-load.md §1.1
-    // NOTE: Runbook pass criteria references tagline "Your Stack. Your Way." —
-    // this text does not exist in the live HTML (#appLogo is the SVG branding element).
-    // Assertion adapted to check #appLogo visibility as the equivalent branding check.
+  test("page loads at local URL with branding", async ({ page }) => {
     await page.goto("/index.html");
     await expect(page).toHaveTitle(/StakTrakr/);
     await expect(page.locator("#appLogo")).toBeVisible();
   });
 
-  test("1.2 — What's New toast card appears on first load", async ({ page }) => {
-    // runbook: 01-page-load.md §1.2 — STAK-547 replaced modal with toast card
-    // Prevent ackVersion from being set so the toast card appears
+  test("What's New toast card appears on first load", async ({ page }) => {
     await allowWhatsNew(page);
     await page.goto("/index.html");
     await expect(page.locator(".whats-new-toast-card")).toBeVisible({ timeout: 5000 });
   });
 
-  test("1.3 — What's New contains latest patch notes", async ({ page }) => {
-    // runbook: 01-page-load.md §1.3 — STAK-547 replaced modal with toast card
+  test("What's New contains latest patch notes", async ({ page }) => {
     await allowWhatsNew(page);
     await page.goto("/index.html");
     await expect(page.locator(".whats-new-toast-card")).toBeVisible({ timeout: 5000 });
@@ -53,8 +46,7 @@ test.describe("01-page-load", () => {
     await expect(versionEl).not.toBeEmpty();
   });
 
-  test("1.4 — clicking dismiss closes the What's New toast card", async ({ page }) => {
-    // runbook: 01-page-load.md §1.4 — STAK-547 replaced modal with toast card
+  test("clicking dismiss closes the What's New toast card", async ({ page }) => {
     await allowWhatsNew(page);
     await page.goto("/index.html");
     await expect(page.locator(".whats-new-toast-card")).toBeVisible({ timeout: 5000 });
@@ -62,16 +54,14 @@ test.describe("01-page-load", () => {
     await expect(page.locator(".whats-new-toast-card")).toBeHidden();
   });
 
-  test("1.5 — What's New does NOT appear on refresh (session-scoped)", async ({ page }) => {
-    // runbook: 01-page-load.md §1.5
+  test("What's New does NOT appear on refresh (session-scoped)", async ({ page }) => {
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     await page.goto("/index.html");
     await expect(page.locator(".whats-new-toast-card")).toBeHidden();
   });
 
-  test("1.6 — header displays all menu items in correct order", async ({ page }) => {
-    // runbook: 01-page-load.md §1.6
+  test("header displays menu items", async ({ page }) => {
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     const headerBtns = page.locator("#headerBtnContainer button.header-toggle-btn:visible");
@@ -79,8 +69,7 @@ test.describe("01-page-load", () => {
     expect(count).toBeGreaterThanOrEqual(3);
   });
 
-  test("1.7 — version number in header matches deployed patch version", async ({ page }) => {
-    // runbook: 01-page-load.md §1.7
+  test("version number in header matches deployed patch version", async ({ page }) => {
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     const versionBadge = page.locator("#versionBadgeValue");
@@ -91,14 +80,12 @@ test.describe("01-page-load", () => {
     expect(text.trim()).not.toContain("undefined");
   });
 
-  test("1.8 — spot cards render (all 4 metals, non-zero values)", async ({ page }) => {
-    // runbook: 01-page-load.md §1.8
+  test("spot cards render (all 4 metals, non-zero values)", async ({ page }) => {
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     for (const metal of ["Gold", "Silver", "Platinum", "Palladium"]) {
       const el = page.locator(`#spotPriceDisplay${metal}`);
       await expect(el).toBeVisible();
-      // Wait for async spot data to replace placeholder "—"
       await expect(el).not.toHaveText("—", { timeout: 10000 });
       const text = await el.textContent();
       expect(text.trim()).not.toBe("$0.00");
@@ -106,16 +93,12 @@ test.describe("01-page-load", () => {
     }
   });
 
-  test("1.9 — spot API backfills missing spot prices for last 30 days on load", async ({
-    page,
-  }) => {
-    // runbook: 01-page-load.md §1.9
+  test("spot API backfills missing spot prices for last 30 days on load", async ({ page }) => {
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     for (const metal of ["Gold", "Silver", "Platinum", "Palladium"]) {
       const el = page.locator(`#spotPriceDisplay${metal}`);
       await expect(el).toBeVisible();
-      // Wait for async spot data to replace placeholder "—"
       await expect(el).not.toHaveText("—", { timeout: 10000 });
       const text = await el.textContent();
       expect(text.trim()).not.toBe("N/A");
@@ -123,21 +106,16 @@ test.describe("01-page-load", () => {
     }
   });
 
-  test("1.10 — market API backfills daily market prices for last 30 days on load", async ({
-    page,
-  }) => {
-    // runbook: 01-page-load.md §1.10
+  test("market API backfills daily market prices without errors on load", async ({ page }) => {
     await page.goto("/index.html");
     await dismissWhatsNew(page);
-    // Check that no error toasts appear about market data failures
     const errorToast = page.locator(".cloud-toast", {
       hasText: /storage is full|quota|could not be saved/i,
     });
     await expect(errorToast).toHaveCount(0);
   });
 
-  test("1.11 — seed inventory count is accurate on first load", async ({ page }) => {
-    // runbook: 01-page-load.md §1.11
+  test("seed inventory count is accurate on first load", async ({ page }) => {
     await page.goto("/index.html");
     await dismissWhatsNew(page);
     const countEl = page.locator("#totalItemsAll");
@@ -145,9 +123,7 @@ test.describe("01-page-load", () => {
     await expect(countEl).toHaveText("8");
   });
 
-  test("1.12 — fresh startup stays quota-safe and keeps market UI available", async ({ page }) => {
-    // runbook: 01-page-load.md §1.12
-    // Seed shared retail fixture data so the best-price ticker renders.
+  test("fresh startup stays quota-safe and keeps market UI available", async ({ page }) => {
     await page.addInitScript((retailLatest) => {
       window._v2RetailData = {
         prices: retailLatest,
@@ -156,7 +132,6 @@ test.describe("01-page-load", () => {
     }, DEFAULT_RETAIL_LATEST);
     await page.goto("/index.html");
     await dismissWhatsNew(page);
-    // Verify no storage-full/quota toasts appear during cold startup
     const quotaToast = page.locator(".cloud-toast", {
       hasText: /storage is full|quota|spot history|could not be saved/i,
     });

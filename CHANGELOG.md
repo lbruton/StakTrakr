@@ -9,9 +9,196 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.0] - 2026-05-26
+
+### Changed — STRK-123: Trade linking
+
+- **Trade provenance and value tracking**: Added bidirectional trade links between disposed traded items and received inventory, with editable trade relationships, spot-derived trade values, provenance display, undo support, CSV/ZIP backup coverage, and cloud-sync hash visibility. (STRK-123)
+
+---
+
+## [3.34.99] - 2026-05-26
+
+### Changed — STRK-122: Playwright consolidation closeout
+
+- **Settings API closeout and suite audit**: Consolidated the final 3
+  root-level Playwright specs (14 historical tests) into
+  `settings-api.spec.js` (3 compact tests), archived the source specs, and
+  added a consolidation audit documenting the final core, extended, legacy, and
+  root-level test inventory after the STRK-97 through STRK-122 consolidation
+  sequence. (STRK-122)
+
+---
+
+## [3.34.98] - 2026-05-26
+
+### Changed — STRK-121: Playwright consolidation batch
+
+- **Settings, mobile layout, static page, service worker, and config coverage**:
+  Consolidated 17 remaining settings/layout/static/browser-edge Playwright
+  specs (258 historical tests) into compact core, extended, and unit targets:
+  `settings.spec.js` (4 tests), `mobile-and-layout.spec.js` (4 tests),
+  `visual-layout-regressions.spec.js` (4 tests), `service-worker.spec.js` (3
+  tests), and `config-validation.test.js` (94 unit tests), with historical
+  source specs retained in the archive for on-demand legacy verification.
+  (STRK-121)
+
+---
+
+## [3.34.97] - 2026-05-26
+
+### Changed — STRK-120: Playwright consolidation batch
+
+- **Retail market and valuation chart coverage**: Consolidated 6 retail,
+  premium, slug-resolution, valuation, and chart Playwright specs (60
+  historical tests) into `retail-market.spec.js` (6 tests) and
+  `valuation.spec.js` (7 tests), preserving market sorting, premium tiers,
+  display currency, slug quarantine, valuation math, responsive layout, and
+  representative chart behavior with archived source specs retained for
+  on-demand legacy verification. (STRK-120)
+
+---
+
+## [3.34.96] - 2026-05-26
+
+### Changed — STRK-119: Playwright consolidation batch
+
+- **Catalog, Numista, and tag coverage**: Consolidated 6 catalog and tag
+  Playwright specs (64 historical tests) into `numista-catalog.spec.js` (9
+  tests), preserving configured and unconfigured search, picker tag opt-outs,
+  tag delimiters, no-auto-resync behavior, and Numista metadata merge coverage
+  with archived source specs retained for on-demand legacy verification.
+  (STRK-119)
+
+---
+
+## [3.34.95] - 2026-05-26
+
+### Changed — STRK-118: Playwright consolidation batch
+
+- **Attachments, cloud sync, and import/export coverage**: Consolidated 15
+  backup, attachment, cloud sync, vault, and CSV Playwright specs (93 historical
+  tests) into compact core and extended suites — `attachments-cloud.spec.js`
+  (8 tests), `import-export.spec.js` (5 tests), and `attachment-zip.spec.js`
+  (3 tests) — while preserving archived source coverage for on-demand legacy
+  verification. (STRK-118)
+
+---
+
+## [3.34.94] - 2026-05-26
+
+### Changed — STRK-117: Playwright consolidation batch
+
+- **Money and disposition coverage**: Consolidated 6 high-risk Playwright specs
+  (132 historical tests) into 2 compact core suites — `inventory-math.spec.js`
+  (10 tests) and `disposition.spec.js` (13 tests) — while preserving archived
+  source coverage for on-demand legacy verification. (STRK-117)
+
+---
+
+## [3.34.93] - 2026-05-26
+
+### Changed — STRK-116: Playwright suite consolidation batch
+
+- **Test consolidation**: Consolidated 7 scattered Playwright spec files (63 tests)
+  into 2 compact domain suites under `tests/playwright/core/` — `smoke.spec.js`
+  (12 tests) and `inventory-crud.spec.js` (53 tests) — without deleting historical
+  coverage. Original source files removed after verifying all assertions migrated.
+  (STRK-116)
+
+---
+
+## [3.34.92] - 2026-05-26
+
+### Changed — STRK-97: Playwright suite consolidation pilot
+
+- **Test tiers**: Added the `core`, `extended`, and `archive` Playwright tiers,
+  made `npm test` run the new core gate, and kept archived issue acceptance
+  matrices available through `npm run test:legacy`. (STRK-97)
+- **Issue-spec archive pilot**: Folded the first issue-prefixed regression cluster
+  into compact core coverage and moved the original historical specs to
+  `tests/playwright/archive/issue-ac-matrices/` as the rollback reference.
+  (STRK-97)
+
+---
+
+## [3.34.91] - 2026-05-25
+
+### Changed — STRK-111: Sweep cleanup
+
+- **Dead code**: Removed unused `cacheFirst()` strategy function from service worker (STRK-111)
+- **Dependencies**: Bumped `flatted`, `ajv`, and `brace-expansion` to fix 3 npm audit vulnerabilities (1 high, 2 moderate) (STRK-112)
+
+---
+
+## [3.34.90] - 2026-05-25
+
+### Fixed — STRK-114: Autocomplete field name casing
+
+- **Autocomplete**: Purchase Location and Storage Location autocomplete suggestions
+  now pull from the user's actual inventory entries instead of only showing hardcoded
+  defaults — snake_case field keys corrected to camelCase in `extractUniqueValues()`
+  calls. (STRK-114)
+
+---
+
+## [3.34.89] - 2026-05-25
+
+### Fixed — STRK-110: Consistent return cleanup
+
+- **Code quality**: Normalized `updateManualSpot()` and `openRetailViewModal()`
+  to return `undefined` explicitly without leaking helper return values, clearing
+  PMD ConsistentReturn findings while preserving existing UI behavior. (STRK-110)
+
+---
+
+## [3.34.88] - 2026-05-25
+
+### Fixed — STRK-108: Cloud sync tag merge
+
+- **Cloud sync tags**: Selective cloud sync now carries per-item tags,
+  removed-tag opt-outs, and per-UUID tag timestamps through the encrypted sync
+  payload, using last-writer-wins merge semantics and refreshing in-memory tag
+  state after pulls. (STRK-108)
+- **Tag-only pulls**: Manifest-first sync now detects tag-only remote changes
+  and routes version-upgrade tag keys through dedicated merge logic instead of
+  generic settings writes. (STRK-108)
+
+---
+
+## [3.34.87] - 2026-05-25
+
+### Changed — STRK-107: Cloud sync conflict loop after accepting remote changes
+
+- **Cloud sync conflicts**: Accepting remote item changes now neutralizes superseded
+  local changelog entries at the acceptance cutoff, preserving Activity Log history
+  while preventing stale local edits from reappearing in the next sync manifest.
+  (STRK-107)
+- **Regression coverage**: Added cloud sync conflict-loop Playwright coverage for
+  repeated conflicts, `lastModified`, rollback safety, and post-acceptance local
+  edit cutoff behavior. (STRK-107)
+
+---
+
+## [3.34.86] - 2026-05-24
+
+### Fixed — STRK-106: Bullion Exchanges gold scrape failures
+
+- **Byparr content-quality retry**: The cf-clearance sidecar client now inspects
+  Byparr's returned HTML for price-token density and retries up to 3 attempts
+  when the response looks like a pre-hydration shell (BE's React price grid
+  hydrates asynchronously after Playwright's `load` event, causing ~26% of
+  gold-page scrapes to snapshot before the price table renders). Retry threshold,
+  attempt cap, and backoff are tunable via `CF_CLEARANCE_MIN_DOLLARS`,
+  `CF_CLEARANCE_MAX_ATTEMPTS`, and `CF_CLEARANCE_RETRY_DELAY_MS` env vars.
+  Network/HTTP errors are not retried here — the caller's existing fallback
+  chain handles those. (STRK-106)
+
+---
+
 ## [3.34.85] - 2026-05-24
 
-### Changed — STRK-96: Playwright suite failures
+### Fixed — STRK-96: Playwright suite failures
 
 - **Add Item tag entry**: The Add Item modal now wires its tag controls to a
   pending tag buffer and persists those tags to the newly-created item UUID on

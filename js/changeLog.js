@@ -66,6 +66,44 @@ const pushTransactionEntries = (splitEntry, disposedEntry) => {
 };
 window.pushTransactionEntries = pushTransactionEntries;
 
+function neutralizeSupersededChangelog(selectedChanges, cutoffTimestamp) {
+  if (!Array.isArray(selectedChanges) || selectedChanges.length === 0) return 0;
+  const acceptedKeys = new Set();
+  selectedChanges.forEach((change) => {
+    if (!change) return;
+    if (change.itemKey) {
+      acceptedKeys.add(String(change.itemKey));
+      return;
+    }
+    if (change.item) {
+      const itemKey = computeItemKey(change.item);
+      if (itemKey) acceptedKeys.add(String(itemKey));
+    }
+  });
+  if (acceptedKeys.size === 0) return 0;
+
+  const cutoff = Number.isFinite(Number(cutoffTimestamp)) ? Number(cutoffTimestamp) : Date.now();
+  let neutralizedCount = 0;
+  changeLog.forEach((entry) => {
+    if (!entry?.itemKey) return;
+    if (!acceptedKeys.has(String(entry.itemKey))) return;
+    if (Number(entry.timestamp) > cutoff) return;
+    if (entry.neutralized) return;
+    entry.neutralized = true;
+    neutralizedCount++;
+  });
+
+  if (neutralizedCount > 0) {
+    try {
+      saveDataSync("changeLog", changeLog);
+    } catch (e) {
+      console.warn("[ChangeLog] Failed to persist neutralized sync entries", e);
+    }
+  }
+  return neutralizedCount;
+}
+window.neutralizeSupersededChangelog = neutralizeSupersededChangelog;
+
 /**
  * Compares two item objects and logs any differences.
  * Adds scope, itemKey, and type fields to each entry (additive — existing entries
@@ -114,6 +152,7 @@ const logItemChanges = (oldItem, newItem) => {
     "reverseImageFrame",
     "obverseSharedImageId",
     "reverseSharedImageId",
+    "tradedFromUuid",
     "disposition",
     "lastModified",
     "capsule",
@@ -223,6 +262,9 @@ const renderChangeLog = () => {
   // Used for the settings panel compact view and all legacy/standard entries in the modal.
   const renderFlatRow = (entry, globalIndex) => {
     const actionLabel = entry.undone ? "Redo" : "Undo";
+    const actionCell = entry.neutralized
+      ? '<span class="synced-badge" title="Resolved by sync">Synced</span>'
+      : `<button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button>`;
 
     // --- STRK-44: "Restored (merged)" single-row rendering ---
     if (entry.field === "Restored (merged)") {
@@ -318,7 +360,7 @@ const renderChangeLog = () => {
         <td title="${displayField}">${displayField}</td>
         <td title="${displayOld}">${displayOld}</td>
         <td title="${displayNew}">${displayNew}</td>
-        <td class="action-cell"><button class="btn action-btn" style="margin:1px;" onclick="event.stopPropagation(); toggleChange(${globalIndex})">${actionLabel}</button></td>
+        <td class="action-cell">${actionCell}</td>
       </tr>`;
   };
 
@@ -428,11 +470,26 @@ const applyLegacyDispositionUndo = (entry) => {
     } catch (e) {
       return;
     }
+    // Re-establish tradedFromUuid back-references on received items
+    const redoUuids = item.disposition?.tradedForUuids;
+    if (Array.isArray(redoUuids)) {
+      redoUuids.forEach((uuid) => {
+        const received = inventory.find((i) => i.uuid === uuid);
+        if (received) received.tradedFromUuid = item.uuid;
+      });
+    }
     saveInventory();
     entry.undone = false;
     if (typeof showToast === "function") showToast(sanitizeHtml(item.name) + " re-disposed.");
   } else {
-    // Undo: clear the disposition
+    // Undo: clean up trade link back-references before clearing disposition
+    const linkedUuids = item.disposition?.tradedForUuids;
+    if (Array.isArray(linkedUuids)) {
+      linkedUuids.forEach((uuid) => {
+        const received = inventory.find((i) => i.uuid === uuid);
+        if (received?.tradedFromUuid === item.uuid) delete received.tradedFromUuid;
+      });
+    }
     item.disposition = null;
     saveInventory();
     entry.undone = true;
@@ -454,6 +511,18 @@ window.applyLegacyDispositionUndo = applyLegacyDispositionUndo;
 const toggleChange = async (logIdx) => {
   const entry = changeLog[logIdx];
   if (!entry) return;
+  if (entry.neutralized) return;
+
+  // Cascade undo/redo — any transactionId routes here regardless of field (STAK-388)
+  if (entry.transactionId) {
+    if (typeof confirmCascadeUndo === "function") {
+      await confirmCascadeUndo(entry.transactionId, entry);
+    }
+    return;
+  }
+
+  // Attachment changes — no undo supported; prevent fall-through to scalar assignment
+  if (entry.type === "attachment-change") return;
 
   // Cascade undo/redo — any transactionId routes here regardless of field (STAK-388)
   if (entry.transactionId) {
@@ -490,6 +559,50 @@ const toggleChange = async (logIdx) => {
     if (typeof saveItemPriceHistory === "function") saveItemPriceHistory();
     if (typeof renderItemPriceHistoryTable === "function") renderItemPriceHistoryTable();
     if (typeof renderItemPriceHistoryModalTable === "function") renderItemPriceHistoryModalTable();
+    renderChangeLog();
+    saveDataSync("changeLog", changeLog);
+    return;
+  }
+
+  if (entry.field === "tradeLink") {
+    const applyTradeSnapshot = (snapshot) => {
+      if (!snapshot || !snapshot.disposedUuid || !snapshot.receivedUuid) return;
+      const disposed = inventory.find((i) => i.uuid === snapshot.disposedUuid);
+      const received = inventory.find((i) => i.uuid === snapshot.receivedUuid);
+      if (disposed?.disposition) {
+        if (Array.isArray(snapshot.tradedForUuids) && snapshot.tradedForUuids.length > 0) {
+          disposed.disposition.tradedForUuids = [...snapshot.tradedForUuids];
+        } else {
+          delete disposed.disposition.tradedForUuids;
+        }
+        if (snapshot.tradeValue) {
+          disposed.disposition.tradeValues = {
+            ...(disposed.disposition.tradeValues || {}),
+            [snapshot.receivedUuid]: snapshot.tradeValue,
+          };
+        } else if (disposed.disposition.tradeValues) {
+          delete disposed.disposition.tradeValues[snapshot.receivedUuid];
+          if (Object.keys(disposed.disposition.tradeValues).length === 0) {
+            delete disposed.disposition.tradeValues;
+          }
+        }
+      }
+      if (received) {
+        if (snapshot.tradedFromUuid) received.tradedFromUuid = snapshot.tradedFromUuid;
+        else delete received.tradedFromUuid;
+      }
+    };
+    const oldSnapshot = entry.oldValue ? JSON.parse(entry.oldValue) : null;
+    const newSnapshot = entry.newValue ? JSON.parse(entry.newValue) : null;
+    if (entry.undone) {
+      applyTradeSnapshot(newSnapshot);
+      entry.undone = false;
+    } else {
+      applyTradeSnapshot(oldSnapshot);
+      entry.undone = true;
+    }
+    saveInventory();
+    renderTable();
     renderChangeLog();
     saveDataSync("changeLog", changeLog);
     return;
@@ -788,6 +901,7 @@ const logAttachmentChange = (item, action, attachRecord, oldRecord = null) => {
 const getManifestEntries = (sinceTimestamp) => {
   return changeLog
     .filter((entry) => {
+      if (entry.neutralized) return false;
       if (entry.type === "sync-marker") return false;
       if (sinceTimestamp == null) return true;
       return entry.timestamp >= sinceTimestamp;

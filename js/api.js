@@ -1317,7 +1317,7 @@ const startSpotBackgroundSync = () => {
 
   const _runSilentSync = () => {
     syncProviderChain({ showProgress: false, forceSync: false }).catch((err) => {
-      debugWarn(`[spot-bg-sync] Silent sync failed: ${err.message}`);
+      debugLog(`[spot-bg-sync] Silent sync failed: ${err.message}`, "warn");
     });
   };
 
@@ -2094,7 +2094,7 @@ const testApiConnection = async (provider, apiKey) => {
 
     return price && price > 0;
   } catch (error) {
-    debugWarn("API connection test failed:", error);
+    debugLog("API connection test failed:", error, "warn");
     return false;
   }
 };

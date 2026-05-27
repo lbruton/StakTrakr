@@ -37,6 +37,7 @@
   const _postImportCleanup = (newItems, pendingTagsByUuid) => {
     // Apply deferred tags if needed (keyed by DiffEngine.computeItemKey)
     if (pendingTagsByUuid && typeof addItemTag === "function") {
+      const stampedUuids = new Set();
       for (const item of newItems) {
         const itemKey =
           typeof DiffEngine !== "undefined"
@@ -44,8 +45,13 @@
             : item.uuid || item.serial || "";
         const tags = pendingTagsByUuid.get(itemKey);
         if (tags && tags.length) {
-          tags.forEach((tag) => addItemTag(item.uuid, tag, false));
+          tags.forEach((tag) => {
+            if (addItemTag(item.uuid, tag, false)) stampedUuids.add(item.uuid);
+          });
         }
+      }
+      if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+        stampTagTimestamp(Array.from(stampedUuids));
       }
       if (typeof saveItemTags === "function") saveItemTags();
     }
@@ -156,6 +162,7 @@
           const tagEligible = selectedChanges.filter(function (c) {
             return c.type === "add" || c.type === "modify";
           });
+          const stampedUuids = new Set();
           for (const change of tagEligible) {
             if (change.item && change.item.uuid) {
               const tagKey =
@@ -165,10 +172,15 @@
               const tags = options.pendingTagsByUuid.get(tagKey);
               if (tags && tags.length) {
                 tags.forEach(function (tag) {
-                  addItemTag(change.item.uuid, tag, false);
+                  if (addItemTag(change.item.uuid, tag, false)) {
+                    stampedUuids.add(change.item.uuid);
+                  }
                 });
               }
             }
+          }
+          if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+            stampTagTimestamp(Array.from(stampedUuids));
           }
           if (typeof saveItemTags === "function") saveItemTags();
         }
@@ -364,6 +376,14 @@
             const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
             const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
             const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
+            const tradedForUuids = (row["Traded For UUIDs"] || row["tradedForUuids"] || "")
+              .toString()
+              .split(",")
+              .map((uuid) => uuid.trim())
+              .filter(Boolean);
+            const tradedFromUuid = (row["Traded From UUID"] || row["tradedFromUuid"] || "")
+              .toString()
+              .trim();
 
             const attachmentsRaw = (row["Attachments"] || "").trim();
             const csvAttachments = attachmentsRaw
@@ -411,6 +431,7 @@
                 disposedAt: dispositionDisposedAt || undefined,
                 splitFromUuid: dispositionSplitFromUuid,
               };
+              if (tradedForUuids.length > 0) disposition.tradedForUuids = tradedForUuids;
             }
 
             addCompositionOption(composition);
@@ -446,6 +467,7 @@
               obverseImageUrl,
               reverseImageUrl,
               disposition,
+              tradedFromUuid: tradedFromUuid || undefined,
             });
 
             if (csvAttachments.length > 0) item.attachments = csvAttachments;
@@ -551,6 +573,7 @@
             saveInventory();
             // STAK-424: Apply deferred tags after override confirmation
             if (pendingTagsByUuid.size > 0 && typeof addItemTag === "function") {
+              const stampedUuids = new Set();
               for (const item of imported) {
                 const itemKey =
                   typeof DiffEngine !== "undefined"
@@ -558,8 +581,13 @@
                     : item.uuid || item.serial || "";
                 const tags = pendingTagsByUuid.get(itemKey);
                 if (tags && tags.length) {
-                  tags.forEach((tag) => addItemTag(item.uuid, tag, false));
+                  tags.forEach((tag) => {
+                    if (addItemTag(item.uuid, tag, false)) stampedUuids.add(item.uuid);
+                  });
                 }
+              }
+              if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+                stampTagTimestamp(Array.from(stampedUuids));
               }
               if (typeof saveItemTags === "function") saveItemTags();
             }
@@ -1101,6 +1129,8 @@
       "Disposition Currency",
       "Disposition DisposedAt",
       "Disposition Split From UUID",
+      "Traded For UUIDs",
+      "Traded From UUID",
     ];
 
     const sortedInventory = sortInventoryByDateNewestFirst();
@@ -1160,6 +1190,8 @@
         i.disposition?.currency || "",
         i.disposition?.disposedAt || "",
         i.disposition?.splitFromUuid || "",
+        Array.isArray(i.disposition?.tradedForUuids) ? i.disposition.tradedForUuids.join(",") : "",
+        i.tradedFromUuid || "",
       ]);
     }
 
@@ -1438,11 +1470,17 @@
         // ── Override path: skip DiffEngine, import all directly ──
         if (override) {
           if (typeof addItemTag === "function") {
+            const stampedUuids = new Set();
             for (const item of imported) {
               const pendingTags = pendingTagsByUuid.get(item.uuid);
               if (pendingTags && pendingTags.length) {
-                pendingTags.forEach((tag) => addItemTag(item.uuid, tag, false));
+                pendingTags.forEach((tag) => {
+                  if (addItemTag(item.uuid, tag, false)) stampedUuids.add(item.uuid);
+                });
               }
+            }
+            if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
+              stampTagTimestamp(Array.from(stampedUuids));
             }
             if (typeof saveItemTags === "function") saveItemTags();
           }
@@ -1649,6 +1687,14 @@
       const dispositionDisposedAt = (row["Disposition DisposedAt"] || "").trim();
       const dispositionSplitFromUuidRaw = (row["Disposition Split From UUID"] || "").trim();
       const dispositionSplitFromUuid = dispositionSplitFromUuidRaw || undefined;
+      const tradedForUuids = (row["Traded For UUIDs"] || row["tradedForUuids"] || "")
+        .toString()
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      const tradedFromUuid = (row["Traded From UUID"] || row["tradedFromUuid"] || "")
+        .toString()
+        .trim();
 
       let disposition;
       if (dispositionType) {
@@ -1677,6 +1723,7 @@
           disposedAt: dispositionDisposedAt || undefined,
           splitFromUuid: dispositionSplitFromUuid,
         };
+        if (tradedForUuids.length > 0) disposition.tradedForUuids = tradedForUuids;
       }
 
       const item = sanitizeImportedItem({
@@ -1708,6 +1755,7 @@
         serial,
         uuid,
         disposition,
+        tradedFromUuid: tradedFromUuid || undefined,
       });
       parsed.push(item);
     }

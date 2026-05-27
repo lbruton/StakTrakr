@@ -669,7 +669,7 @@ const _buildIntradayChart = (slug) => {
  */
 const openRetailViewModal = (slug) => {
   const meta = RETAIL_COIN_META[slug];
-  if (!meta) return;
+  if (!meta) return undefined;
 
   const titleEl = safeGetElement("retailViewCoinName");
   const subtitleEl = safeGetElement("retailViewModalSubtitle");
@@ -879,6 +879,8 @@ const openRetailViewModal = (slug) => {
         debugLog(`[retail-view-modal] Background refresh failed: ${err.message}`, "warn");
       });
   }
+
+  return undefined;
 };
 
 const closeRetailViewModal = () => {

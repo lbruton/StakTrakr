@@ -464,16 +464,18 @@ const fetchSpotPrice = () => {
  */
 const updateManualSpot = (metalKey) => {
   const metalConfig = Object.values(METALS).find((m) => m.key === metalKey);
-  if (!metalConfig) return;
+  if (!metalConfig) return undefined;
 
   const input = elements.userSpotPriceInput[metalKey];
   const value = input.value;
 
-  if (!value) return;
+  if (!value) return undefined;
 
   const num = parseFloat(value);
-  if (isNaN(num) || num <= 0)
-    return appAlert(`Invalid ${metalConfig.name.toLowerCase()} spot price.`);
+  if (isNaN(num) || num <= 0) {
+    appAlert(`Invalid ${metalConfig.name.toLowerCase()} spot price.`);
+    return undefined;
+  }
 
   localStorage.setItem(metalConfig.localStorageKey, num);
   spotPrices[metalKey] = num;
@@ -507,6 +509,8 @@ const updateManualSpot = (metalKey) => {
   if (typeof hideManualInput === "function") {
     hideManualInput(metalConfig.name);
   }
+
+  return undefined;
 };
 
 /**
@@ -668,7 +672,7 @@ const lookupHistoricalSpot = (metalName, dateStr) => {
   if (!yearMatch) return null;
   const targetYear = parseInt(yearMatch[1], 10);
 
-  const targetDate = new Date(dateStr + "T00:00:00Z");
+  const targetDate = new Date(dateStr + "T00:00:00");
   if (isNaN(targetDate.getTime())) return null;
   const targetMs = targetDate.getTime();
 
@@ -686,12 +690,12 @@ const lookupHistoricalSpot = (metalName, dateStr) => {
     const windowMs = windowDays * MS_PER_DAY;
     const matches = yearEntries
       .filter((e) => {
-        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00Z");
+        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
         if (isNaN(entryDate.getTime())) return false;
         return Math.abs(entryDate.getTime() - targetMs) <= windowMs;
       })
       .map((e) => {
-        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00Z");
+        const entryDate = new Date(e.timestamp.slice(0, 10) + "T00:00:00");
         const dayOffset = Math.abs(entryDate.getTime() - targetMs) / MS_PER_DAY;
         return { spot: e.spot, dayOffset, timestamp: e.timestamp };
       })
