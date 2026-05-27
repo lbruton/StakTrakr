@@ -4909,18 +4909,22 @@ if (tradeSearch) {
     const removeIdx = parseInt(document.getElementById("removeItemIdx")?.value, 10);
     const sourceUuid = inventory[removeIdx]?.uuid;
     const matches = inventory
-      .filter(
-        (item, idx) =>
-          !item.disposition && idx !== removeIdx && (!sourceUuid || item.uuid !== sourceUuid)
-      )
+      .filter((item, idx) => idx !== removeIdx && (!sourceUuid || item.uuid !== sourceUuid))
       .filter((item) => (item.name || "").toLowerCase().includes(query))
       .slice(0, 8);
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
     suggestions.innerHTML = matches // developer-controlled HTML — sanitizeHtml on all values
-      .map(
-        (item) =>
-          `<div class="trade-item-suggestion" role="option" tabindex="0" data-trade-uuid="${sanitizeHtml(item.uuid)}"><span class="result-name">${sanitizeHtml(item.name || "Unnamed item")}</span><span class="result-meta">${sanitizeHtml(item.metal || "")} · Qty ${Number(item.qty) || 1}</span></div>`
-      )
+      .map((item) => {
+        const metaParts = [sanitizeHtml(item.metal || "")];
+        if (item.year) metaParts.push(sanitizeHtml(String(item.year)));
+        if (item.grade) metaParts.push(sanitizeHtml(String(item.grade)));
+        metaParts.push("Qty " + (Number(item.qty) || 1));
+        const meta = metaParts.filter(Boolean).join(" · ");
+        const badge = isDisposed(item)
+          ? ` <span class="disposition-badge disposition-badge--${sanitizeHtml(item.disposition.type)}">${sanitizeHtml(DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type)}</span>`
+          : "";
+        return `<div class="trade-item-suggestion" role="option" tabindex="0" data-trade-uuid="${sanitizeHtml(item.uuid)}"><span class="result-name">${sanitizeHtml(item.name || "Unnamed item")}</span><span class="result-meta">${meta}${badge}</span></div>`;
+      })
       .join("");
   });
 }
