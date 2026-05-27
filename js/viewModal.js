@@ -640,8 +640,24 @@ function _buildValuationSection(item, metrics) {
   const perUnitGainLoss = gainLoss !== null ? gainLoss / qty : null;
 
   const costLabel = item.tradedFromUuid ? "Trade" : "Purchase";
+  // STRK-132: compute FMV at trade date for received items (secondary info shown via ⓘ tooltip)
+  const fmvAtTrade =
+    item.tradedFromUuid && item.date && typeof computeTradeValue === "function"
+      ? computeTradeValue(item, item.date)?.meltValue
+      : null;
   const addRow = (purchaseLabel, pPrice, mMelt, mRetail, mGainLoss, mGlPercent) => {
     _addDetail(valGrid, costLabel, purchaseLabel);
+    if (item.tradedFromUuid && fmvAtTrade > 0) {
+      const lastItem = valGrid.lastElementChild;
+      const lbl = lastItem?.querySelector(".view-detail-label");
+      if (lbl instanceof HTMLElement) {
+        const info = _el("span", "view-detail-info");
+        info.textContent = " ⓘ";
+        info.title = `Fair Market Value at trade: ${formatCurrency(fmvAtTrade)} — IRS reportable value`;
+        info.style.cssText = "margin-left:4px;color:var(--text-muted);cursor:help";
+        lbl.appendChild(info);
+      }
+    }
     _addDetail(
       valGrid,
       "Premium",
@@ -879,6 +895,12 @@ function _buildDispositionSection(item) {
     _addDetail(grid, "Type", typeLabel);
     _addDetail(grid, "Date", dateStr);
     _addDetail(grid, "Amount", formatCurrency(d.amount || 0));
+    // STRK-132: FMV row — trade-time fair-market-value of received items (IRS reportable)
+    const fmvTotal = Object.values(d.tradeValues || {}).reduce(
+      (sum, tv) => sum + (tv?.meltValue || 0),
+      0
+    );
+    _addDetail(grid, "FMV", formatCurrency(fmvTotal || parseFloat(d.amount) || 0));
     section.appendChild(grid);
 
     // Optional fields

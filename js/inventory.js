@@ -939,10 +939,15 @@ const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
     if (tradeValue) disposedItem.disposition.tradeValues[receivedUuid] = tradeValue;
     receivedItem.tradedFromUuid = disposedItem.uuid;
 
-    // Write cost basis: split disposed amount equally across received items (STRK-128)
-    const disposedAmount = parseFloat(disposedItem.disposition.amount) || 0;
-    if (disposedAmount > 0 && receivedUuids.length > 0) {
-      receivedItem.price = String(disposedAmount / receivedUuids.length);
+    // STRK-132: cost basis = given-up item's value at trade date (carryover),
+    // NOT the FMV of the received item. Matches the "what did I pay?" mental
+    // model consistent with cash purchases.
+    const givenUpTradeValue =
+      typeof computeTradeValue === "function" ? computeTradeValue(disposedItem, tradeDate) : null;
+    const givenUpValue =
+      givenUpTradeValue?.meltValue || parseFloat(disposedItem.disposition.amount) || 0;
+    if (givenUpValue > 0 && receivedUuids.length > 0) {
+      receivedItem.price = String(givenUpValue / receivedUuids.length);
       receivedItem.date = tradeDate || disposedItem.disposition.date || "";
     }
 
