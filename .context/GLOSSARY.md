@@ -49,8 +49,8 @@ The current per-troy-ounce market price for a precious metal (gold, silver, plat
 _Avoid_: market price, live price, melt value
 
 **Spot Provider**:
-An external API source for spot prices. One of: STAKTRAKR, METALS*DEV, METALS_API, METAL_PRICE_API, GOLD_API, CUSTOM, or MANUAL. Configured in the `metalApiConfig` store.
-\_Avoid*: API source, price feed, data source
+An external API source for spot prices. One of: `STAKTRAKR`, `METALS_DEV`, `METALS_API`, `METAL_PRICE_API`, `GOLD_API`, `CUSTOM`, or `MANUAL`. Configured in the `metalApiConfig` store.
+_Avoid_: API source, price feed, data source
 
 **Premium**:
 The per-ounce price difference between what was paid for an Item and the spot price at time of purchase. Calculated as `(price / weight) - spotPrice`.
