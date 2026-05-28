@@ -34,9 +34,15 @@ const CF_CLEARANCE_TIMEOUT_MS = process.env.CF_CLEARANCE_TIMEOUT_MS ?? "30000";
 // header tickers). When below threshold, retry the Byparr call. This is
 // vendor-agnostic — other Byparr-protected vendors with the same hydration
 // race benefit too.
-const CF_CLEARANCE_MAX_ATTEMPTS = Number(process.env.CF_CLEARANCE_MAX_ATTEMPTS ?? "3");
-const CF_CLEARANCE_MIN_DOLLARS = Number(process.env.CF_CLEARANCE_MIN_DOLLARS ?? "6");
-const CF_CLEARANCE_RETRY_DELAY_MS = Number(process.env.CF_CLEARANCE_RETRY_DELAY_MS ?? "1000");
+const _rawMaxAttempts = Number(process.env.CF_CLEARANCE_MAX_ATTEMPTS ?? "3");
+const CF_CLEARANCE_MAX_ATTEMPTS =
+  Number.isFinite(_rawMaxAttempts) && _rawMaxAttempts > 0 ? _rawMaxAttempts : 3;
+const _rawMinDollars = Number(process.env.CF_CLEARANCE_MIN_DOLLARS ?? "6");
+const CF_CLEARANCE_MIN_DOLLARS =
+  Number.isFinite(_rawMinDollars) && _rawMinDollars >= 0 ? _rawMinDollars : 6;
+const _rawRetryDelay = Number(process.env.CF_CLEARANCE_RETRY_DELAY_MS ?? "1000");
+const CF_CLEARANCE_RETRY_DELAY_MS =
+  Number.isFinite(_rawRetryDelay) && _rawRetryDelay >= 0 ? _rawRetryDelay : 1000;
 
 // Match $NNN.NN price tokens with optional thousands separators (e.g. $1,234.56).
 // Allows whitespace between `$` and digits to catch inline HTML where currency
@@ -121,7 +127,8 @@ export async function getCFClearanceCookie(url) {
       return null;
     }
 
-    const cfCookie = data.solution.cookies?.find((c) => c.name === "cf_clearance");
+    const cookies = Array.isArray(data.solution?.cookies) ? data.solution.cookies : [];
+    const cfCookie = cookies.find((c) => c.name === "cf_clearance");
     const responseHtml = data.solution.response ?? null;
     const dollarCount = countDollarTokens(responseHtml);
 

@@ -80,7 +80,12 @@ const saveTagTimestampsDirect = (map) => {
       ? ITEM_TAGS_LAST_MODIFIED_KEY
       : "itemTagsLastModified";
   const safeMap = typeof map === "object" && map !== null && !Array.isArray(map) ? map : {};
-  saveDataSync(key, safeMap);
+  try {
+    saveDataSync(key, safeMap);
+  } catch (e) {
+    if (typeof showToast === "function") showToast("Tag save failed — storage full");
+    console.warn("[Tags] saveDataSync quota error:", e);
+  }
 };
 
 /**

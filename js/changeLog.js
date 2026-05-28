@@ -581,14 +581,26 @@ const toggleChange = async (logIdx) => {
         else delete received.tradedFromUuid;
       }
     };
-    const oldSnapshot = entry.oldValue ? JSON.parse(entry.oldValue) : null;
-    const newSnapshot = entry.newValue ? JSON.parse(entry.newValue) : null;
-    if (entry.undone) {
-      applyTradeSnapshot(newSnapshot);
-      entry.undone = false;
-    } else {
-      applyTradeSnapshot(oldSnapshot);
-      entry.undone = true;
+    let oldSnapshot, newSnapshot;
+    try {
+      oldSnapshot = entry.oldValue ? JSON.parse(entry.oldValue) : null;
+      newSnapshot = entry.newValue ? JSON.parse(entry.newValue) : null;
+    } catch {
+      if (typeof showToast === "function") showToast("Undo failed — corrupt trade snapshot.");
+      return;
+    }
+    try {
+      if (entry.undone) {
+        applyTradeSnapshot(newSnapshot);
+        entry.undone = false;
+      } else {
+        applyTradeSnapshot(oldSnapshot);
+        entry.undone = true;
+      }
+    } catch (e) {
+      console.warn("[ChangeLog] applyTradeSnapshot failed:", e);
+      if (typeof showToast === "function") showToast("Trade undo failed — invalid snapshot.");
+      return;
     }
     saveInventory();
     renderTable();
@@ -609,7 +621,7 @@ const toggleChange = async (logIdx) => {
       }
       entry.undone = false;
     } else {
-      if (!entry.oldValue) {
+      if (entry.oldValue == null) {
         if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
         return;
       }
@@ -637,7 +649,7 @@ const toggleChange = async (logIdx) => {
   } else if (entry.field === "Added") {
     if (entry.undone) {
       // Redo: re-add the item
-      if (!entry.newValue) {
+      if (entry.newValue == null) {
         if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
         return;
       }
