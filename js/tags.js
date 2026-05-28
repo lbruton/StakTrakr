@@ -83,8 +83,10 @@ const saveTagTimestampsDirect = (map) => {
   try {
     saveDataSync(key, safeMap);
   } catch (e) {
-    if (typeof showToast === "function") showToast("Tag save failed — storage full");
-    console.warn("[Tags] saveDataSync quota error:", e);
+    const isQuota = e?.name === "QuotaExceededError" || e?.code === 22;
+    if (typeof showToast === "function")
+      showToast(isQuota ? "Tag save failed — storage full" : "Tag save failed");
+    console.warn("[Tags] saveDataSync error:", e);
   }
 };
 

@@ -2590,18 +2590,16 @@ const setupItemFormListeners = () => {
     try {
       if (typeof closeModalById === "function") closeModalById("itemModal");
     } catch (closeErr) {}
-    if (window.__tradeAddNewPending) {
+    if (window.__tradeAddNewPending || window.__tradeEditAddNewPending) {
+      if (window.__tradeEditAddNewPending) {
+        window.__tradeEditSourceItem = null;
+        window.__tradeEditUuids = null;
+        window.__tradeEditRenderChips = null;
+      }
       window.__tradeAddNewPending = false;
-      const itemModal = document.getElementById("itemModal");
-      if (itemModal) itemModal.style.zIndex = "";
-    }
-    if (window.__tradeEditAddNewPending) {
       window.__tradeEditAddNewPending = false;
-      window.__tradeEditSourceItem = null;
-      window.__tradeEditUuids = null;
-      window.__tradeEditRenderChips = null;
-      const itemModal = document.getElementById("itemModal");
-      if (itemModal) itemModal.style.zIndex = "";
+      const modal = safeGetElement("itemModal");
+      if (modal instanceof HTMLElement) modal.style.zIndex = "";
     }
     editingIndex = null;
     editingChangeLogIndex = null;
@@ -4975,18 +4973,22 @@ document.addEventListener("click", (event) => {
   }
 });
 
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  const option = event.target.closest("[data-trade-uuid]");
-  if (!option) return;
-  event.preventDefault();
-  window.addPendingTradeLinkUuid(option.dataset.tradeUuid);
-  const { search, suggestions } = tradeEls();
-  if (search) search.value = "";
-  if (suggestions) suggestions.innerHTML = "";
-  const searchIcon = search?.parentElement?.querySelector(".trade-search-icon");
-  if (searchIcon) searchIcon.style.display = "";
-});
+const tradeSuggestionsEl = document.getElementById("tradeItemSuggestions");
+if (tradeSuggestionsEl) {
+  tradeSuggestionsEl.addEventListener("keydown", (event) => {
+    if (event.repeat) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const option = event.target.closest("[data-trade-uuid]");
+    if (!option) return;
+    event.preventDefault();
+    window.addPendingTradeLinkUuid(option.dataset.tradeUuid);
+    const { search, suggestions } = tradeEls();
+    if (search) search.value = "";
+    if (suggestions) suggestions.innerHTML = "";
+    const searchIcon = search?.parentElement?.querySelector(".trade-search-icon");
+    if (searchIcon) searchIcon.style.display = "";
+  });
+}
 
 const tradeAddNewItemBtn = document.getElementById("tradeAddNewItemBtn");
 if (tradeAddNewItemBtn) {
