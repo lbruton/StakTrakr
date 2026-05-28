@@ -1,290 +1,139 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+StakTrakr (**STRK**, StakTrakr Plane prefix) is a zero-build, vanilla JavaScript single-page app for precious metals inventory tracking. It runs from `file://` or HTTP and stores user data in browser storage.
 
-StakTrakr is a zero-build, vanilla JavaScript single-page app.
+## Required Context Files
 
-- App entry points: `index.html`, `preview.html`, `about.html`
-- Core logic: `js/` (feature modules like `inventory.js`, `market-data.js`, `settings.js`)
-- Styling: `css/styles.css`
-- Static data/assets: `data/`, `images/`, `vendor/`
-- Service worker and app metadata: `sw.js`, `manifest.json`, `version.json`
-- Tests: `tests/playwright/` (automated), `tests/runbook/` (manual test flow docs)
-- Dev tooling and release helpers: `devops/`
+Read these extracted context files instead of duplicating their rules here:
 
-## Build, Test, and Development Commands
+- `.context/git-topology.md` — branch model, worktrees, version locks, release flow, spot bundle, merge strategy, stale branch checks.
+- `.context/implementation-gotchas.md` — module-specific foot-guns, storage behavior, sticky columns, goldback predicates, sketch closing order.
+- `.context/review-and-ci.md` — Codacy CLI behavior, agentlint requirements, reviewer false positives, CI/review triage.
 
-No application build step is required.
+Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, Model Context Protocol (MCP), and protected-branch policy.
 
-- `python3 -m http.server 8000` — run locally, then open `http://localhost:8000`
-- `npm run lint` — run ESLint on `js/*.js` and `sw.js`
-- `npm run lint:md:all` — lint all Markdown files
-- `npm test` — run the core Playwright PR gate (`tests/playwright/core/`)
-- `npm run test:core` — run the core Playwright suite explicitly
-- `npm run test:extended` — run slower extended Playwright coverage (`tests/playwright/extended/`)
-- `npm run test:legacy` — run archived issue acceptance matrices (`tests/playwright/archive/`)
-- `npm run test:all` — run unit + core + extended suites
-- `npm run test:unit` — run Node/unit tests
-- `npm run test:offline` — legacy full-suite command excluding `@network` scenarios
+## Project Structure
 
-## Coding Style & Naming Conventions
+- **Should** treat app entry points as `index.html`, `preview.html`, `about.html`
+- **Should** keep core logic in `js/` feature modules such as `inventory.js`, `market-data.js`, `settings.js`
+- **Should** keep styling in `css/styles.css`
+- **Should** keep static data/assets in `data/`, `images/`, `vendor/`
+- **Should** keep service worker and app metadata in `sw.js`, `manifest.json`, `version.json`
+- **Should** keep automated suites in `tests/playwright/` and manual flows in `tests/runbook/`
+- **Should** keep dev tooling and release helpers in `devops/`
+
+## Commands
+
+- `python3 -m http.server 8000` — run locally at `http://localhost:8000`
+- `npm run lint` — ESLint on `js/*.js` and `sw.js`
+- `npm run lint:md:all` — lint Markdown
+- `npm test` — core Playwright PR gate
+- `npm run test:core` — core Playwright suite
+- `npm run test:extended` — slower extended coverage
+- `npm run test:legacy` — archived issue acceptance matrices
+- `npm run test:all` — unit + core + extended suites
+- `npm run test:unit` — Node/unit tests
+- `npm run test:offline` — legacy full suite excluding `@network` scenarios
+
+## Coding Style
 
 - Use 2-space indentation and semicolons in JavaScript.
-- Keep modules focused by feature (follow existing `js/` patterns).
-- Filenames in `js/` use kebab-case (for example `market-data.js`, `inventory-table.js`).
-- Prefer descriptive function names (`loadInventory`, `renderMarketCards`) and avoid single-letter variables.
-- Run `npm run lint` before committing.
+- Keep modules focused by feature and follow existing `js/` patterns.
+- Name `js/` files in kebab-case, for example `market-data.js`.
+- Prefer descriptive function names such as `loadInventory` and `renderMarketCards`.
+- Before writing JavaScript, read `../DocVault/Projects/StakTrakr/Foundation/coding-standards.md`.
 
-## Testing Guidelines
+## Testing Rules
 
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
-- Default PR gate: `npm test` delegates to `npm run test:core`.
-- Do not treat it as the full historical suite.
-- Put always-run browser coverage in `tests/playwright/core/<domain>.spec.js`, slower
-  or edge coverage in `tests/playwright/extended/`, and archived issue matrices in
-  `tests/playwright/archive/issue-ac-matrices/`.
-- Before adding a new Playwright file, check `tests/playwright/coverage-map.csv`.
+- Default PR gate: `npm test`, which runs only `tests/playwright/core/`.
+- Core browser coverage belongs under `tests/playwright/core/<domain>.spec.js`.
+- Slower or edge coverage belongs under `tests/playwright/extended/`.
+- Archived issue matrices belong under `tests/playwright/archive/issue-ac-matrices/`.
+- Before adding a Playwright file, check `tests/playwright/coverage-map.csv`.
 - Add a new file only when assertions do not fit an existing domain suite.
 - Do not add new issue-prefixed specs at the Playwright root.
-- Temporary issue acceptance-criteria (AC) matrices should be reconciled into
-  core/extended coverage before merge.
-- If reconciliation is not possible, move the matrix to archive.
-- Every PR touching Playwright tests must update `tests/playwright/coverage-map.csv`.
+- Reconcile temporary issue acceptance-criteria (AC) matrices into core/extended coverage before merge, or archive them.
+- When a PR touches Playwright tests, update `tests/playwright/coverage-map.csv`.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
-- Use stable, user-visible assertions and keep fixtures in `tests/fixtures/`.
-- In Codex sandboxed sessions on macOS, Playwright/Chromium may fail with
-  `bootstrap_check_in ... MachPortRendezvousServer ... Permission denied (1100)`;
-  rerun the same Playwright command with sandbox escalation instead of retrying
-  inside the sandbox.
-- For quick local checks, run a focused file:
-  - `npx playwright test tests/playwright/core/inventory-crud.spec.js`
+- Use stable, user-visible assertions and fixtures in `tests/fixtures/`.
+- For quick checks, run `npx playwright test tests/playwright/core/inventory-crud.spec.js`.
+- If Chromium fails with the macOS Mach port sandbox error, rerun the same Playwright command with escalation.
 
-## Commit & Pull Request Guidelines
+## Issue, Worktree, And PR Gates
 
-- Use `STRK-###` (StakTrakr Plane issue identifier) for current work.
-- Follow recent commit style:
-  - `fix: <summary>`
-  - `chore: <summary> (STRK-###)`
-  - `test(STRK-###): <summary>`
-  - Versioned releases: `v<major>.<minor>.<patch> — STRK-###: <summary>` (em dash `—`, not hyphen)
-- Keep commits scoped to one logical change.
-- PRs should include:
-  - clear summary and rationale
-  - linked Plane issue (`STRK-###`)
-  - test evidence (`npm test`, `npm run lint`)
-  - screenshots/GIFs for UI changes
-- PRs target `dev`, never `main`. Never push directly to `main` — fully branch-protected (PR required).
-- `dev` allows direct push for config/tooling only: instruction files (CLAUDE.md, AGENTS.md, GEMINI.md), `.claude/` config, `.gitignore`, skill files, devops config. Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) still requires worktree → PR → dev.
-- Never use `--admin` or any bypass to merge PRs.
+- Runtime code changes require a StakTrakr Plane issue, a worktree, and a PR to `dev`.
+- Config/tooling edits may commit directly to `dev`: instruction files, `.claude/`, `.gitignore`, skill files, and devops config.
+- Runtime paths still require worktree discipline: `js/`, `css/`, `index.html`, `data/`, `pollers/`, tests.
+- Put the STRK issue ID in the commit message, PR body, and version lock claim.
+- Read `.context/git-topology.md` before creating worktrees, claiming versions, bumping releases, opening PRs, merging, or cleaning branches.
+- Open PRs against `dev`; never push directly to `main`.
+- Do not merge `dev` to `main` unless the user explicitly says "release" or "ready to ship".
+- Use normal merge paths only; decline requests for `--admin` or merge bypasses.
 
-## Issue + Worktree Gates (hard gates)
+## Sketch And Spec Work
 
-Every **runtime code** change requires:
+- Before applying a `/sketch`, read all cumulative sketch docs in `DocVault/specflow/StakTrakr/specs/<spec>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`.
+- Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code/artifact inventory, `approach.md` as implementation authority, and `tasks.md` as execution order.
+- Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
+- Do not mark a task or acceptance criterion complete if implementation contradicts requirements, discovery, approach, approved mockups, or project design guidance.
+- For SpecFlow approvals, use dashboard-safe paths like `specs/<spec-name>/<doc>.md`; do not use `..` traversal.
+- After every approval request, verify the approval JSON lands under `DocVault/specflow/StakTrakr/approvals/`, not `DocVault/specflow/SpecFlow/approvals/`.
 
-1. A Plane issue in the StakTrakr project with a `STRK-###` ID. The ID goes into the commit message, PR body, and version lock claim. Legacy `STAK-###` (StakTrakr pre-Plane issue identifier) references are historical only. Parent epics use the **Epic** Plane state (`0d1317b4-883f-44f0-b277-8f1f7f0388c0`); child issues use the standard states (Todo → In Progress → In Review → Done). Full state UUID table in `CLAUDE.md` under Issue Tracking.
-2. A git worktree at `.worktrees/patch-<VERSION>/` on branch `patch/<VERSION>`. All edits/commits happen inside the worktree. Zero edits on `dev`.
-3. A version lock claim in `devops/version.lock` (gitignored — edit directly, never commit). Format and lifecycle in the Release Workflow doc below.
-
-Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, devops config) may commit directly to `dev` without a worktree or PR.
-
-## Sketch Apply Contract
-
-When applying a `/sketch`, the four sketch documents are cumulative and binding:
-
-1. Read all four spec documents before coding: `<spec>/requirements.md`, `<spec>/discovery.md`, `<spec>/approach.md`, and `<spec>/tasks.md` (located in `DocVault/specflow/StakTrakr/specs/`).
-2. Treat the spec's `requirements.md` as the acceptance contract, `discovery.md` as the live-code and artifact inventory, `approach.md` as the implementation authority, and `tasks.md` as the execution order.
-3. Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
-4. Do not mark a task or AC complete if the implementation only satisfies `tasks.md` text while contradicting requirements, discovery, approach, approved mockups, or project design guidance.
-
-## UI / Mockup Gates
+## UI And Design Gates
 
 For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
 
 - Read `../DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
 - Check `ui-standards/style.html` for live component and token patterns.
-- Search the issue/sketch and `playground/` for mockups. If a mockup is approved or referenced by the sketch/user, treat it as binding even if the file is untracked.
-- Use existing StakTrakr design tokens and components; do not invent generic token names.
+- Search the issue/sketch and `playground/` for approved or referenced mockups.
+- Treat approved mockups as binding even if the file is untracked.
+- Use existing StakTrakr design tokens and components.
 - Verify every mocked screen/state in a browser and include screenshot/GIF evidence in the PR.
-- For UI-heavy Playwright coverage, tests must exercise the user-visible workflow and assert the interaction contract. Storage-only assertions are insufficient for ACs about layout, labels, visual sections, inline editing, or modal behavior.
+- For UI-heavy Playwright coverage, exercise the user-visible workflow and assert the interaction contract.
+- Storage-only assertions are insufficient for layout, labels, visual sections, inline editing, or modal behavior acceptance criteria.
 
-## Release Workflow — Required on Every Code PR
+## StakTrakr-Specific Runtime Facts
 
-**Canonical reference:** `../DocVault/Projects/StakTrakr/Foundation/coding-standards.md` from the repo root — read the Release Process section before your first release of the session.
+- Dual config stores: spot providers use `metalApiConfig` via `loadApiConfig()` / `saveApiConfig()`; catalog providers use `catalog_api_config` via `catalogConfig`.
+- After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
+- `showAppConfirm`, `showAppAlert`, and `showAppPrompt` are custom Document Object Model (DOM) modals, not native browser dialogs.
+- `events.js` top-level code cannot call `safeGetElement`; use `document.getElementById` for parse-time event wiring.
+- `state.js` variables declared with `let` need `Object.defineProperty` exposure when tests or modules require `window.X`.
+- Use Canadian English locale formatting with `toLocaleDateString('en-CA')` for local `yyyy-mm-dd` dates; do not use `toISOString().slice(0, 10)`.
+- StakTrakr has four CSS themes: `light`, `dark`, `slate`, and `sepia`.
+- Read `.context/implementation-gotchas.md` before touching named gotcha areas.
 
-The old `../DocVault/Projects/StakTrakr/Depreciated/Release Workflow.md` page is archived and may contain stale Linear/DocVault issue references. The DocVault folder is currently named `Depreciated`; treat it as a pre-Plane archive even though the spelling is unusual.
+## Release And Pre-Commit
 
-Every PR that ships runtime code must bump the version and update the 5 release artifacts below. The `check-release-sync` pre-commit hook fails the commit if any artifact is out of sync.
+- For runtime PRs, use the project `/release` workflow; do not hand-edit release artifacts as a substitute.
+- `sw.js` `CACHE_NAME` is auto-stamped by `devops/hooks/stamp-sw-cache.sh`.
+- `docs/announcements.md` is deprecated; embedded What's New in `js/about.js` is the source of truth.
+- Pre-commit hooks include `gitleaks`, `stamp-sw-cache`, and `check-release-sync`.
+- Do not bypass hooks with `--no-verify`.
+- Read `.context/git-topology.md` before any version bump or release PR.
 
-| #   | File              | What to change                                                                                                                                                     |
-| --- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | `js/constants.js` | `const APP_VERSION = "X.YY.ZZ"` — bump PATCH component                                                                                                             |
-| 2   | `package.json`    | `"version": "X.YY.ZZ"` — match APP_VERSION                                                                                                                         |
-| 3   | `version.json`    | `"version"` + `"releaseDate"` (today, ISO date)                                                                                                                    |
-| 4   | `CHANGELOG.md`    | Prepend `## [X.YY.ZZ] - YYYY-MM-DD` section with `### Changed — STRK-###: <title>` and bullets                                                                     |
-| 5   | `js/about.js`     | Prepend entry to `getEmbeddedWhatsNew()`: `<li><strong>vX.YY.ZZ &ndash; STRK-###: <Title></strong>: <summary></li>` — this is the in-app "What's New" announcement |
+## Review, CI, And Agentlint
 
-Automatic (do NOT edit manually):
+- Read `.context/review-and-ci.md` before Codacy CLI scans, `agentlinter` runs, pre-PR quality checks, or reviewer false-positive triage.
+- After modifying instruction files, run `npx agentlinter --local`.
+- Do not add the `codacy-review` label to PRs.
+- If Codacy CLI changes `.codacy/codacy.yaml` outside the task scope, restore or exclude that churn before committing.
 
-- `sw.js` `CACHE_NAME` — stamped by `devops/hooks/stamp-sw-cache.sh` pre-commit hook.
-- `docs/announcements.md` — deprecated per STAK-513. The embedded `getEmbeddedWhatsNew()` in `js/about.js` is the single source of truth. Do not re-sync the external file.
+## Pre-Flight Triggers
 
-Version lock (`devops/version.lock`) claim lifecycle:
+- Feed, poller, API, or data-path diagnosis: invoke `/api-infrastructure` and `/retail-poller`.
+- Individual dealer scraping failures: invoke `/retail-provider-fix`.
+- Version-bump PRs: run `/update-spot-bundle`.
+- Version-bump PRs: ensure Tailscale is active.
+- `dev → main` shipping: invoke `/staktrakr-ship` only on explicit user approval.
+- Cloud or infrastructure claims: read the matching Foundation doc before speculating.
+- Fly.io or home poller secret claims: verify through Infisical for project `stak-trakr-94m4`, env `dev`.
+- Cron schedule claims: grep `devops/pollers/home-poller/docker-entrypoint.sh`.
 
-1. Read the file. Prune entries whose `expires_at` < now. Find the highest `version` among remaining active claims (or read `APP_VERSION` from `js/constants.js` if none).
-2. Increment PATCH by 1 — that is your claimed version.
-3. Append your claim (`version`, `claimed_by`, `issue`, `claimed_at`, `expires_at` — 30min TTL).
-4. Create the worktree: `git worktree add .worktrees/patch-<VERSION> -b patch/<VERSION>`.
-5. After PR merges, remove your claim entry. Delete file only if the array is empty.
+## Commit And PR Style
 
-Commit message format: `vX.YY.ZZ — STRK-###: <summary>` (em dash).
-
-PR: `gh pr create --base dev --head patch/<VERSION> --draft --title "vX.YY.ZZ — …" --body "…"`.
-
-## Pre-commit Hooks
-
-Install once per clone:
-
-```bash
-pip install pre-commit  # or: pipx install pre-commit
-pre-commit install
-```
-
-Configured hooks (`.pre-commit-config.yaml`):
-
-- `gitleaks` — secret scan (blocks on leaked credentials).
-- `stamp-sw-cache` — auto-stamps `sw.js` `CACHE_NAME` with the current version + build timestamp. May add `sw.js` to your commit automatically.
-- `check-release-sync` — fails if `APP_VERSION` (`js/constants.js`) disagrees with `version.json`, `package.json`, a `## [<version>]` section in `CHANGELOG.md`, or a `v<version>` entry in `js/about.js` `getEmbeddedWhatsNew()`.
-
-If `check-release-sync` fails, fix the listed artifact and re-stage. Do not pass `--no-verify`.
-
-## Spec → Tasks → Draft PR Flow (Codex handoff)
-
-When handed a spec at the Tasks phase, the expected flow is:
-
-1. Read the spec at `DocVault/specflow/StakTrakr/specs/<spec-name>/` — `requirements.md`, `design.md`, `tasks.md`.
-2. Verify the SpecFlow approval postcondition for every approval (see "SpecFlow Approval Guardrail" below).
-3. Claim a version in `devops/version.lock` and create the worktree before editing any file.
-4. Implement each task. After each task, call `mcp__specflow__log-implementation` BEFORE marking the task `[x]` in `tasks.md` — this is a hard gate.
-5. Run `npm run lint` and `npm test` (or `npm run test:offline` when network is unavailable). Fix failures before committing.
-6. Bump the 5 release artifacts above and commit with `vX.YY.ZZ — STRK-###: <summary>`. The pre-commit hooks must all pass.
-7. Push to `patch/<VERSION>` and open a **draft** PR against `dev`. Do not mark ready — leave the PR as draft for user review.
-8. Post a summary comment on the PR listing: version bumped, tasks completed, test results, any spec tasks deferred.
-
-Do not merge. Do not mark ready. Do not delete the worktree — user does final review and ship.
-
-## SpecFlow Approval Path Note
-
-- In this repo, `mcp__specflow__approvals` resolves StakTrakr approval paths from:
-  - `/Volumes/DATA/GitHub/DocVault/specflow/StakTrakr`
-- For StakTrakr specs, use dashboard-safe workflow-root paths with no `..` segments:
-  - `specs/<spec-name>/<doc>.md`
-- Do **not** use:
-  - `../StakTrakr/specs/<spec-name>/<doc>.md` (approval records may be created, but the dashboard approval preview rejects stored paths containing `..` and can render blank)
-  - `../DocVault/specflow/StakTrakr/...` (this resolves to a non-existent nested path and shows blank approval docs in dashboard)
-
-## SpecFlow Approval Guardrail
-
-`mcp__specflow__approvals` currently has a known routing quirk for this repo: even when the
-`filePath` is correct for StakTrakr, the approval JSON may still be written under
-`DocVault/specflow/SpecFlow/approvals/...` instead of `DocVault/specflow/StakTrakr/approvals/...`.
-
-For Codex runs in this repository:
-
-- Always create StakTrakr spec documents under `DocVault/specflow/StakTrakr/specs/...`
-- Always call `mcp__specflow__approvals` with:
-  - `filePath: specs/<spec-name>/<doc>.md`
-- After every approval request, immediately verify where the approval JSON was written
-- Open the approval preview in the dashboard before telling the user to review it; if the preview is blank but the spec document page works, check the stored `filePath` for `..`
-- Expected approval location for StakTrakr:
-  - `DocVault/specflow/StakTrakr/approvals/<spec-name>/...`
-- Suspicious or misrouted approval location:
-  - `DocVault/specflow/SpecFlow/approvals/<spec-name>/...`
-- If the approval record lands under `SpecFlow/approvals/...`, STOP and report it as a routing bug
-- Do not present the approval as correctly filed for StakTrakr if the record lives under `SpecFlow/approvals/...`
-- Do not continue to the next spec phase on a misrouted approval without explicit user confirmation
-
-Approval success from the MCP tool is not sufficient in this repo. The storage location must be
-checked as a postcondition.
-
-## Perplexity MCP Usage
-
-Perplexity MCP is available for live web research, but it is a paid service. Use it
-sparingly and intentionally:
-
-- Use Perplexity when the user explicitly asks for it, asks for web research, or needs
-  current external context that local docs/source cannot answer.
-- Use Perplexity during research/discovery work where citations, recent facts, product
-  changes, library status, or market/news context materially affect the answer.
-- Do not use Perplexity for routine repo navigation, local code questions, simple facts,
-  formatting, or tasks that can be answered from DocVault, memory, source files, or standard
-  local tooling.
-- Prefer `perplexity_search` to find URLs and source candidates, `perplexity_ask` for quick
-  cited answers, `perplexity_reason` for questions requiring step-by-step logic with web sources, and
-  `perplexity_research` for deeper multi-source investigation (30s+ latency, use only for `/discover` phases).
-- When Perplexity results influence an architectural choice, dependency selection, or technical
-  decision, cite or summarize the relevant sources and make clear what came from live web
-  research.
-
-## Session Lessons
-
-### Playwright Agent Concurrency Guardrail
-
-Playwright and browser-heavy tasks open many file descriptors through Chromium,
-Node, pipes, logs, and MCP/runtime streams. To avoid `Too many open files
-(os error 24)` during spec or review work:
-
-- If Chromium launch fails with the macOS Mach port permission error, treat it
-  as a sandbox boundary and rerun the exact Playwright command with escalation.
-- Run no more than 2 subagents in parallel when any active task runs Playwright,
-  starts a browser, inspects browser output, or reviews Playwright artifacts.
-- Prefer serial review after Playwright runs when the task already launched
-  Chromium in the same worktree.
-- Close completed subagents before starting another Playwright batch.
-- On `Too many open files` (EMFILE) error: stop dispatching new agents immediately. Close all finished agents, wait for Playwright/Chromium processes to exit, then resume with batches of 2 or fewer agents.
-
-### Stale Worktree Lock Guardrail
-
-When working in a StakTrakr worktree, `git` operations may fail with a stale lock such as:
-
-- `.git/worktrees/<worktree-name>/index.lock`
-
-Treat this as a coordination artifact first, not an unknown git failure.
-
-- Verify no active git process is still using that worktree
-- If the lock is stale, remove it and continue
-- Re-check `git status` immediately after clearing the lock before staging, committing, or pushing
-
-This is expected to happen occasionally when agents hand off work or a prior git operation exits unexpectedly.
-
-### Commit Hook PR Scope Guardrail
-
-StakTrakr has commit hooks that can modify tracked files during commit. In particular:
-
-- `stamp-sw-cache` may update `sw.js` automatically at commit time
-
-For publish/PR flows in this repo:
-
-- Expect `sw.js` to appear in the final commit even if it was not manually staged
-- When a patch PR is refreshed after another PR merges, `sw.js` cache stamps may be the only conflict. Keep the active patch version's cache name, finish the merge, then let `stamp-sw-cache` restamp `CACHE_NAME` during the merge/review-fix commit.
-- Always inspect `git show --stat HEAD` after commit and before opening the PR
-- Do not assume the staged file list before commit exactly matches the committed PR scope
-
-### Codacy CLI Noise Guardrail
-
-Running Codacy CLI locally can introduce unrelated config churn, especially in:
-
-- `.codacy/codacy.yaml`
-
-For implementation tasks that are not explicitly about Codacy configuration:
-
-- Treat `.codacy/codacy.yaml` changes as out of scope unless the task requires them
-- Restore or exclude Codacy tool-version churn before committing application changes
-
-### Codacy Agentlint
-
-Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skill files). These policies are modeled on real-world failure patterns and their intent is worth honoring:
-
-- When agentlint flags a pattern, evaluate whether the underlying concern is valid for this project. If it is, adjust the instructions to address the concern.
-- Do not weaken project-specific instructions to satisfy a generic policy. Our instructions encode hard-won lessons; agentlint policies encode general best practices. When they conflict, project instructions win — but note the tension.
-- Do not reflexively dismiss every finding as a false positive. If a policy catches a genuine gap, fix it.
-- Do not add the `codacy-review` label to PRs — it triggers review-loop feedback cycles with agentlint.
+- Recent commit patterns: `fix: <summary>`, `chore: <summary> (STRK-###)`, `test(STRK-###): <summary>`.
+- Versioned release commits use `v<major>.<minor>.<patch> — STRK-###: <summary>`.
+- Keep commits scoped to one logical change.
+- PRs should include summary/rationale, linked STRK issue, test evidence, and screenshots/GIFs for UI changes.
