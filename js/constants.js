@@ -1070,6 +1070,7 @@ const ALLOWED_STORAGE_KEYS = [
   // STRK-45: per-item attachments
   "syncAttachments", // boolean string: "true"/"false" — include attachment binaries in cloud sync (default true when missing)
   "syncAttachmentsWarnSeen", // boolean string: "true"/"false" — one-time 100 MB warning has been shown
+  "__sync_recovery_snapshot", // STRK-135: pre-merge tag snapshot for manual recovery after one-sided merge
 ];
 
 /**

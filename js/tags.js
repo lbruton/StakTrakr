@@ -80,7 +80,14 @@ const saveTagTimestampsDirect = (map) => {
       ? ITEM_TAGS_LAST_MODIFIED_KEY
       : "itemTagsLastModified";
   const safeMap = typeof map === "object" && map !== null && !Array.isArray(map) ? map : {};
-  saveDataSync(key, safeMap);
+  try {
+    saveDataSync(key, safeMap);
+  } catch (e) {
+    const isQuota = e?.name === "QuotaExceededError" || e?.code === 22;
+    if (typeof showToast === "function")
+      showToast(isQuota ? "Tag save failed — storage full" : "Tag save failed");
+    console.warn("[Tags] saveDataSync error:", e);
+  }
 };
 
 /**

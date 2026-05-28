@@ -869,6 +869,7 @@ const pushTradeLinkChange = (disposedItem, receivedItem, oldValue, newValue) => 
     itemKey: disposedItem?.uuid || "",
     type: "item-edit",
   });
+  if (typeof tryPersistChangeLog === "function") tryPersistChangeLog();
 };
 
 const removeTradeLinkReference = (disposedItem, receivedUuid, { log = true } = {}) => {
