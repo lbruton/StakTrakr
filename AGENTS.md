@@ -9,6 +9,7 @@ Read these extracted context files instead of duplicating their rules here:
 - `.context/git-topology.md` — branch model, worktrees, version locks, release flow, spot bundle, merge strategy, stale branch checks.
 - `.context/implementation-gotchas.md` — module-specific foot-guns, storage behavior, sticky columns, goldback predicates, sketch closing order.
 - `.context/review-and-ci.md` — Codacy CLI behavior, agentlint requirements, reviewer false positives, CI/review triage.
+- `.context/GLOSSARY.md` — canonical StakTrakr domain terms, avoided aliases, relationships, and naming ambiguities.
 
 Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, Model Context Protocol (MCP), and protected-branch policy.
 
@@ -66,7 +67,6 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - Config/tooling edits may commit directly to `dev`: instruction files, `.claude/`, `.gitignore`, skill files, and devops config.
 - Runtime paths still require worktree discipline: `js/`, `css/`, `index.html`, `data/`, `pollers/`, tests.
 - Put the STRK issue ID in the commit message, PR body, and version lock claim.
-- Read `.context/git-topology.md` before creating worktrees, claiming versions, bumping releases, opening PRs, merging, or cleaning branches.
 - Open PRs against `dev`; never push directly to `main`.
 - Do not merge `dev` to `main` unless the user explicitly says "release" or "ready to ship".
 - Use normal merge paths only; decline requests for `--admin` or merge bypasses.
@@ -102,7 +102,6 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 - `state.js` variables declared with `let` need `Object.defineProperty` exposure when tests or modules require `window.X`.
 - Use Canadian English locale formatting with `toLocaleDateString('en-CA')` for local `yyyy-mm-dd` dates; do not use `toISOString().slice(0, 10)`.
 - StakTrakr has four CSS themes: `light`, `dark`, `slate`, and `sepia`.
-- Read `.context/implementation-gotchas.md` before touching named gotcha areas.
 
 ## Release And Pre-Commit
 
@@ -111,11 +110,9 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 - `docs/announcements.md` is deprecated; embedded What's New in `js/about.js` is the source of truth.
 - Pre-commit hooks include `gitleaks`, `stamp-sw-cache`, and `check-release-sync`.
 - Do not bypass hooks with `--no-verify`.
-- Read `.context/git-topology.md` before any version bump or release PR.
 
 ## Review, CI, And Agentlint
 
-- Read `.context/review-and-ci.md` before Codacy CLI scans, `agentlinter` runs, pre-PR quality checks, or reviewer false-positive triage.
 - After modifying instruction files, run `npx agentlinter --local`.
 - Do not add the `codacy-review` label to PRs.
 - If Codacy CLI changes `.codacy/codacy.yaml` outside the task scope, restore or exclude that churn before committing.
