@@ -307,9 +307,12 @@ async function setupRetailFixture(page, options = {}) {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   });
 
-  // Freeze Date so the market-history 7-day window is deterministic across the
-  // seeded RECENT_DATE fixtures. setFixedTime (not install) keeps timers running
-  // so app boot / chart / exchange-rate logic is unaffected.
+  // Freeze Date for the market-history 7-day window across the seeded
+  // RECENT_DATE fixtures. setFixedTime pins Date.now()/new Date() at FIXED_NOW
+  // permanently (install()/setSystemTime() would let it tick forward from the
+  // seed instead). Playwright still installs faked timers but drives them in
+  // real time, so setTimeout/requestAnimationFrame keep firing and app boot /
+  // chart / exchange-rate logic runs normally — we pin the clock, not pause it.
   await page.clock.setFixedTime(FIXED_NOW);
 
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
