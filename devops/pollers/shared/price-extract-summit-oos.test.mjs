@@ -46,9 +46,9 @@ const OUT_OF_STOCK_PATTERNS = [
 
 const MARKDOWN_CUTOFF_PATTERNS = {
   summitmetals: [
-    /^Description Shipping & Returns\s*$/im,
+    /^\s*Description Shipping & Returns\s*$/im,
     /^#{0,6}\s*What Our Clients/im,
-    /^Faq'?s\s*$/im,
+    /^#{0,6}\s*Faq'?s\s*$/im,
   ],
 };
 
@@ -246,7 +246,9 @@ test("STRUCTURAL: real source has summitmetals cutoff + table-first extraction",
   assert.match(src, /summitmetals:\s*\[/, "MARKDOWN_CUTOFF_PATTERNS.summitmetals missing");
   assert.match(src, /Description Shipping & Returns/, "summit cutoff anchor missing");
   // Summit price branch prefers qty-tier extractors over the bulk cards.
-  const branch = src.slice(src.indexOf('if (providerId === "summitmetals")'));
+  const startIdx = src.indexOf('if (providerId === "summitmetals")');
+  assert.notEqual(startIdx, -1, "summit branch not found in source");
+  const branch = src.slice(startIdx);
   const tblIdx = branch.indexOf("firstTableRowFirstPrice()");
   const tierIdx = branch.indexOf("tierAnchoredPrice()");
   const regIdx = branch.indexOf("regularPricePrices()");

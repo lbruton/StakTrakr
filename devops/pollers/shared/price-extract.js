@@ -205,9 +205,9 @@ const MARKDOWN_CUTOFF_PATTERNS = {
   // & Returns", so price extraction is unaffected. (Same failure class as the
   // monumentmetals review-block fix above.)
   summitmetals: [
-    /^Description Shipping & Returns\s*$/im, // product tab bar — tail begins here
+    /^\s*Description Shipping & Returns\s*$/im, // product tab bar — tail begins here
     /^#{0,6}\s*What Our Clients/im, // reviews section heading (fallback)
-    /^Faq'?s\s*$/im, // FAQ section heading (final guard before "Out of stock")
+    /^#{0,6}\s*Faq'?s\s*$/im, // FAQ section heading (final guard before "Out of stock")
   ],
 };
 
