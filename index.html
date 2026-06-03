@@ -66,6 +66,7 @@
     <script defer src="./vendor/chartjs-plugin-datalabels.min.js"></script>
     <script defer src="./vendor/jszip.min.js"></script>
     <script defer src="./vendor/forge.min.js"></script>
+    <script defer src="./vendor/lz-string.min.js"></script>
     <!-- CDN fallbacks — only execute if the local vendor copy failed to load -->
     <script>
       window.__vendorFallbacks = [
@@ -117,6 +118,12 @@
           src: "https://cdnjs.cloudflare.com/ajax/libs/forge/0.10.0/forge.min.js",
           integrity:
             "sha512-S/UB/AdGt16YP1OyopwfVG1BO93nkwVNY7No5zfALnztixutqOuP3DGvo7G4YqB77uL791jWNjQnT/63CjOZNw==",
+        },
+        {
+          global: "LZString",
+          src: "https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js",
+          integrity:
+            "sha512-qtX0GLM3qX8rxJN1gyDfcnMFFrKvixfoEOwbBib9VafR5vbChV5LeE5wSI/x+IlCkTY5ZFddFDCCfaVJJNnuKQ==",
         },
       ];
       document.addEventListener("DOMContentLoaded", function () {

@@ -274,7 +274,7 @@ function parseVaultFile(fileBytes) {
 
 /**
  * Parse a raw vault/localStorage setting value.
- * Settings may be stored as raw strings, JSON strings, or CMP1-compressed strings.
+ * Settings may be stored as raw strings, JSON strings, or CMP1/CMP2-compressed strings.
  * @param {*} rawValue
  * @returns {*} Parsed JSON value, or the raw/decompressed value when parsing fails
  */
@@ -388,12 +388,13 @@ async function restoreVaultData(payload) {
       try {
         // STAK-421: Compress before writing — raw vault payloads can exceed
         // localStorage quota (e.g. metalSpotHistory at 9 MB uncompressed).
-        // Skip if already CMP1-compressed to avoid double-wrapping.
+        // Skip if already compressed (CMP1 legacy or CMP2 real) to avoid double-wrapping. (STRK-140)
         var value = data[key];
         if (
           typeof value === "string" &&
           typeof __compressIfNeeded === "function" &&
-          !value.startsWith("CMP1:")
+          !value.startsWith("CMP1:") &&
+          !value.startsWith("CMP2:")
         ) {
           value = __compressIfNeeded(value);
         }
@@ -556,7 +557,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
   }
 
   // 3. Extract inventory items from the payload
-  // Vault stores raw localStorage strings which may be CMP1-compressed for large inventories
+  // Vault stores raw localStorage strings which may be CMP1/CMP2-compressed for large inventories
   var backupItems = [];
   try {
     var rawInv = payload.data.metalInventory || "[]";

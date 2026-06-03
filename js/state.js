@@ -277,11 +277,25 @@ let changeLog = (function () {
   try {
     var _raw = localStorage.getItem("changeLog");
     if (!_raw) return [];
-    // saveDataSync may prepend 'CMP1:' for payloads ≥ 4 KB (LZString no-op prefix).
-    // Stripping it here mirrors __decompressIfNeeded in utils.js, which isn't
-    // loaded yet when state.js runs.
-    if (_raw.startsWith("CMP1:")) _raw = _raw.slice(5);
-    return JSON.parse(_raw);
+    // Decompress before parsing: saveDataSync may prefix payloads ≥ 4 KB.
+    // CMP2: = real lz-string (vendored LZString global loads before state.js);
+    // CMP1: = legacy identity-stub (uncompressed body, slice only). Mirrors
+    // __decompressIfNeeded in utils.js, which isn't loaded yet when state.js runs. (STRK-140)
+    if (_raw.startsWith("CMP2:")) {
+      // engine unavailable → cannot read; fall through to the safe [] default rather than
+      // parsing the still-compressed body (which would throw or yield a non-array).
+      _raw =
+        typeof LZString !== "undefined" && LZString.decompressFromUTF16
+          ? LZString.decompressFromUTF16(_raw.slice(5))
+          : null;
+    } else if (_raw.startsWith("CMP1:")) {
+      _raw = _raw.slice(5);
+    }
+    // Validate before parsing: decompressFromUTF16 returns null on malformed/truncated
+    // input, and JSON.parse(null) yields null (a non-array). Always return an array. (STRK-140)
+    if (typeof _raw !== "string" || _raw === "") return [];
+    const parsed = JSON.parse(_raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.warn("[state] changeLog parse failed — resetting to []. Error:", e);
     return [];

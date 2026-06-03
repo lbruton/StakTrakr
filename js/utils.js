@@ -1,10 +1,32 @@
-// Minimal LZString subset placeholder providing UTF16 compression helpers.
-// Original implementation removed due to parse issues; these functions act as no-ops
-// but maintain the same API for compression helpers used elsewhere.
-const LZString = {
-  compressToUTF16: (input) => input,
-  decompressFromUTF16: (input) => input,
-};
+// Real LZString engine is vendored at vendor/lz-string.min.js and loaded before this
+// file in index.html (defer preserves document order). Bind it under a module-private
+// name (__LZ) — NOT `const LZString` — because the vendored script declares a global
+// `var LZString`, and a top-level `const LZString` here would collide ("Identifier
+// already declared") and abort the entire file. Fall back to an identity no-op so a
+// missing vendor file degrades to "no compression" rather than corrupting data. (STRK-140)
+const __LZ_REAL = (() => {
+  try {
+    const lz = (typeof window !== "undefined" && window.LZString) || null;
+    if (
+      !lz ||
+      typeof lz.compressToUTF16 !== "function" ||
+      typeof lz.decompressFromUTF16 !== "function"
+    ) {
+      return false;
+    }
+    // Sentinel round-trip that ALSO proves real compression occurred. An identity-shaped
+    // global (compressToUTF16 = passthrough) would round-trip but not transform, and must
+    // be rejected — otherwise we'd emit CMP2 over an uncompressed body. (STRK-140)
+    const probe = "STRK-140-".repeat(8);
+    const comp = lz.compressToUTF16(probe);
+    return comp !== probe && lz.decompressFromUTF16(comp) === probe;
+  } catch (e) {
+    return false;
+  }
+})();
+const __LZ = __LZ_REAL
+  ? window.LZString
+  : { compressToUTF16: (input) => input, decompressFromUTF16: (input) => input };
 
 // UTILITY FUNCTIONS
 
@@ -1164,8 +1186,28 @@ const parseNumistaMetal = (composition = "") => {
  * @param {any} data - Data to store
  * @param {{quietQuotaToast?: boolean}} [options] - Optional save behavior flags
  */
+// Fail-closed guard (STRK-140): when no real compression engine is available, refuse to
+// overwrite a key whose existing on-disk value is real-compressed (CMP2). We cannot read
+// it, so writing default/empty data would permanently clobber recoverable user data. The
+// on-disk CMP2 value is preserved and becomes readable again once the engine loads.
+const __wouldClobberCompressed = (key) => {
+  if (__LZ_REAL) return false;
+  try {
+    const existing = localStorage.getItem(key);
+    return typeof existing === "string" && existing.startsWith(__ST_COMP_PREFIX);
+  } catch (e) {
+    return false;
+  }
+};
+
 const saveData = async (key, data, options = {}) => {
   try {
+    if (__wouldClobberCompressed(key)) {
+      console.warn(
+        `saveData skipped for ${key}: compression engine unavailable, refusing to overwrite compressed data`
+      );
+      return;
+    }
     const raw = JSON.stringify(data);
     const out = __compressIfNeeded(raw);
     localStorage.setItem(key, out);
@@ -1213,6 +1255,12 @@ const loadData = async (key, defaultValue = []) => {
 // Synchronous versions for backward compatibility where async isn't supported
 const saveDataSync = (key, data, options = {}) => {
   try {
+    if (__wouldClobberCompressed(key)) {
+      console.warn(
+        `saveDataSync skipped for ${key}: compression engine unavailable, refusing to overwrite compressed data`
+      );
+      return;
+    }
     const raw = JSON.stringify(data);
     const out = __compressIfNeeded(raw);
     localStorage.setItem(key, out);
@@ -1259,6 +1307,70 @@ const cleanupStorage = () => {
     }
   }
 };
+
+/**
+ * One-time migration (STRK-140): re-encode legacy CMP1 localStorage values into the real
+ * CMP2 (lz-string) format for immediate quota relief across ALL users — not just those
+ * whose caches happen to rewrite soon.
+ *
+ * Targets ONLY legacy CMP1: entries (prefix + UNCOMPRESSED body, written via the storage
+ * wrappers while LZString was a no-op). These are guaranteed to be read back through
+ * loadData/loadDataSync, so re-encoding to CMP2 is transparent. Raw/unprefixed values are
+ * deliberately left untouched — they may have been written outside the compression pipeline
+ * and could have raw readers; compressing them would risk corruption.
+ *
+ * Operates on RAW strings (no JSON round-trip) so the body is preserved byte-for-byte, and
+ * uses raw setItem (NOT saveData) so it never touches cloud_sync_local_modified / sync.
+ * Idempotent via a one-time flag; no-op without a real engine; best-effort (never blocks boot).
+ */
+const __migrateCompressionV2 = () => {
+  if (typeof localStorage === "undefined" || !__LZ_REAL) return;
+  try {
+    if (localStorage.getItem("migration_cmp2_compression") === "true") return;
+  } catch (e) {
+    return;
+  }
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) keys.push(k);
+    }
+    for (const key of keys) {
+      if (key === "migration_cmp2_compression") continue;
+      let raw;
+      try {
+        raw = localStorage.getItem(key);
+      } catch (e) {
+        continue;
+      }
+      if (typeof raw !== "string") continue;
+      // Only convert legacy CMP1 entries (wrapper-written identity-stub output).
+      if (!raw.startsWith(__ST_LEGACY_PREFIX)) continue;
+      const original = raw.slice(__ST_LEGACY_PREFIX.length); // legacy uncompressed body
+      const recompressed = __compressIfNeeded(original);
+      if (recompressed !== raw) {
+        try {
+          localStorage.setItem(key, recompressed);
+        } catch (e) {
+          // A shrinking rewrite should fit; if it somehow fails, leave the original intact.
+        }
+      }
+    }
+  } catch (e) {
+    // best-effort — never block boot
+  }
+  try {
+    localStorage.setItem("migration_cmp2_compression", "true");
+  } catch (e) {
+    /* ignore */
+  }
+};
+if (typeof document !== "undefined" && document.addEventListener) {
+  // Registered from utils.js (loads before events.js/init.js) so it runs before app
+  // data writes, giving over-quota users relief on the very first post-upgrade boot.
+  document.addEventListener("DOMContentLoaded", __migrateCompressionV2);
+}
 
 /**
  * Sorts inventory by date (newest first)
@@ -3276,13 +3388,23 @@ This archive contains a complete snapshot of your StakTrakr storage data.`;
   return content;
 };
 
-/** Storage compression helpers (Phase 1C) */
-const __ST_COMP_PREFIX = "CMP1:";
+/**
+ * Storage compression helpers.
+ * CMP2: = real lz-string (compressToUTF16), introduced in v3.35.1 (STRK-140).
+ * CMP1: = legacy identity-stub format — prefix + UNCOMPRESSED body (v3.34.85..3.35.0,
+ *         when LZString was a no-op). Its body must be sliced, NOT decompressed:
+ *         lz-string decompressFromUTF16 on never-compressed text returns garbage.
+ */
+const __ST_COMP_PREFIX = "CMP2:";
+const __ST_LEGACY_PREFIX = "CMP1:";
 function __compressIfNeeded(str) {
   try {
     if (!str || str.length < 4096) return str;
-    const comp = LZString.compressToUTF16(str);
-    return __ST_COMP_PREFIX + comp;
+    // Only emit the CMP2 marker when a REAL engine is present. If lz-string failed to
+    // load (__LZ is the identity fallback), store plain/unprefixed so a later read with a
+    // working engine never tries to decompress never-compressed data → corruption. (STRK-140)
+    if (!__LZ_REAL) return str;
+    return __ST_COMP_PREFIX + __LZ.compressToUTF16(str);
   } catch (e) {
     return str;
   }
@@ -3291,8 +3413,10 @@ function __decompressIfNeeded(stored) {
   try {
     if (typeof stored !== "string") return stored;
     if (stored.startsWith(__ST_COMP_PREFIX)) {
-      const raw = LZString.decompressFromUTF16(stored.slice(__ST_COMP_PREFIX.length));
-      return raw;
+      return __LZ.decompressFromUTF16(stored.slice(__ST_COMP_PREFIX.length));
+    }
+    if (stored.startsWith(__ST_LEGACY_PREFIX)) {
+      return stored.slice(__ST_LEGACY_PREFIX.length);
     }
     return stored;
   } catch (e) {

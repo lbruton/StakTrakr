@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.1] - 2026-06-02
+
+### Fixed — STRK-140: localStorage quota relief (compression stop-gap)
+
+- **Storage compression**: Activated real lz-string compression for the large market-history caches (`metalSpotHistory`, `v2RetailHistory`, `item-price-history`), resolving the `QuotaExceededError` ("Failed to save v2 retail history") that affected all users. ~8–9× size reduction. Existing data is read transparently and migrated to the compressed format with no data loss; a versioned `CMP2:` prefix and a fail-closed write-guard protect against engine-load failures (STRK-140).
+
+---
+
 ## [3.35.0] - 2026-05-26
 
 ### Changed — STRK-123: Trade linking

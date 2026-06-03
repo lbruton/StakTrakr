@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.1 &ndash; Storage quota fix</strong>: Market price history is now compressed (lz-string), clearing the &ldquo;storage quota exceeded&rdquo; error and freeing roughly 80&percnt; of its storage footprint &mdash; existing data is upgraded automatically with no loss (STRK-140).</li>
     <li><strong>v3.35.0 &ndash; Trade linking</strong>: Bidirectional trade links between disposed traded items and received inventory, with editable provenance, spot-derived trade values, backup/export coverage, and cloud-sync visibility (STRK-123).</li>
     <li><strong>v3.35.0 &ndash; Cloud sync hardening</strong>: Tag merge on sync, conflict-loop fix after accepting remote changes, Bullion Exchanges content-quality retry (STRK-106, STRK-107, STRK-108).</li>
     <li><strong>v3.35.0 &ndash; Retail &amp; autocomplete fixes</strong>: SDB/BE spot-ticker sidebar leak patched, autocomplete field name casing corrected (STRK-99, STRK-114).</li>
