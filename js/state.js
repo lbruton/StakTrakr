@@ -278,9 +278,11 @@ let changeLog = (function () {
     var _raw = localStorage.getItem("changeLog");
     if (!_raw) return [];
     // Decompress before parsing: saveDataSync may prefix payloads ≥ 4 KB.
-    // CMP2: = real lz-string (vendored LZString global loads before state.js);
-    // CMP1: = legacy identity-stub (uncompressed body, slice only). Mirrors
-    // __decompressIfNeeded in utils.js, which isn't loaded yet when state.js runs. (STRK-140)
+    // CMP2: = real lz-string. The LOCAL vendored LZString loads before state.js via defer
+    // order; if that local file fails to load, the CDN fallback (DOMContentLoaded) is too
+    // late for this boot-time read, so CMP2 values are treated as unreadable and we fall
+    // back to [] safely (no overwrite — guarded by __wouldClobberCompressed in utils.js).
+    // CMP1: = legacy identity-stub (uncompressed body, slice only). (STRK-140)
     if (_raw.startsWith("CMP2:")) {
       // engine unavailable → cannot read; fall through to the safe [] default rather than
       // parsing the still-compressed body (which would throw or yield a non-array).

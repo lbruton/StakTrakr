@@ -1330,6 +1330,7 @@ const __migrateCompressionV2 = () => {
   } catch (e) {
     return;
   }
+  let allRewritesOk = true;
   try {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -1353,24 +1354,25 @@ const __migrateCompressionV2 = () => {
         try {
           localStorage.setItem(key, recompressed);
         } catch (e) {
-          // A shrinking rewrite should fit; if it somehow fails, leave the original intact.
+          // A shrinking rewrite should fit; if it somehow fails (e.g. quota), leave the
+          // original intact and DON'T mark the migration done — retry on the next boot.
+          allRewritesOk = false;
         }
       }
     }
   } catch (e) {
     // best-effort — never block boot
+    allRewritesOk = false;
   }
+  // Only set the one-time flag when every rewrite succeeded; a transient failure must not
+  // lock a user into a partially-migrated state — retry on the next boot instead. (Copilot)
+  if (!allRewritesOk) return;
   try {
     localStorage.setItem("migration_cmp2_compression", "true");
   } catch (e) {
     /* ignore */
   }
 };
-if (typeof document !== "undefined" && document.addEventListener) {
-  // Registered from utils.js (loads before events.js/init.js) so it runs before app
-  // data writes, giving over-quota users relief on the very first post-upgrade boot.
-  document.addEventListener("DOMContentLoaded", __migrateCompressionV2);
-}
 
 /**
  * Sorts inventory by date (newest first)
@@ -3641,4 +3643,16 @@ if (typeof module !== "undefined" && module.exports) {
     setButtonLoading,
     escapeHtml,
   };
+}
+
+// Kick off the one-time CMP1->CMP2 migration. Registered at end-of-file so every helper it
+// depends on (__compressIfNeeded, the prefixes) is already defined. Guard on readyState so
+// it fires whether utils.js loads before DOMContentLoaded (normal defer) OR after the DOM is
+// already parsed (dynamic/late load — DOMContentLoaded would never fire again). (Gemini)
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", __migrateCompressionV2);
+  } else {
+    __migrateCompressionV2();
+  }
 }
