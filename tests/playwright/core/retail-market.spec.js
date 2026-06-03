@@ -6,6 +6,14 @@ const GOLDBACK_G1_RATE = 4.25;
 const GENERATED_AT = "2026-05-26T12:00:00.000Z";
 const RECENT_DATE = "2026-05-24";
 const RECENT_TS = Math.floor(new Date(`${RECENT_DATE}T18:00:00Z`).getTime() / 1000);
+// Pin the browser clock so wall-clock-relative filters (e.g. the market-history
+// 7-day timeframe window in renderVendorPrices) always include the seeded
+// RECENT_DATE rows. Without this the test rots into a time-bomb: once real
+// "today" drifts >7 days past RECENT_DATE, the default history view filters out
+// every seeded row and #retailHistoryTableBody renders the empty placeholder.
+// Anchored just after GENERATED_AT so all seeded data (manifest generated_at,
+// prices lastSync) sits in the past while RECENT_DATE stays inside the window.
+const FIXED_NOW = new Date("2026-05-26T18:00:00.000Z");
 const CURRENCY_DISCLAIMER =
   "Currency conversion is for convenience only — vendors are US-based and may not accept your selected currency at checkout.";
 
@@ -298,6 +306,14 @@ async function setupRetailFixture(page, options = {}) {
   await page.route("https://api2.staktrakr.com/data/v2/**", async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   });
+
+  // Freeze Date for the market-history 7-day window across the seeded
+  // RECENT_DATE fixtures. setFixedTime pins Date.now()/new Date() at FIXED_NOW
+  // permanently (install()/setSystemTime() would let it tick forward from the
+  // seed instead). Playwright still installs faked timers but drives them in
+  // real time, so setTimeout/requestAnimationFrame keep firing and app boot /
+  // chart / exchange-rate logic runs normally — we pin the clock, not pause it.
+  await page.clock.setFixedTime(FIXED_NOW);
 
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
