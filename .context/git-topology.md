@@ -44,9 +44,9 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 
 ## Sketch & Spec Branch Overrides
 
-- **Sketch branch naming** → `/sketch orchestrate` generates sketch-style branch names by default, but StakTrakr requires `patch/<version>` via `/start-patch`.
+- **Sketch branch naming** → `/sketch dispatch` (external-terminal handoff; formerly `orchestrate`) generates sketch-style branch names by default, but StakTrakr requires `patch/<version>` via `/start-patch`.
 - Override generated tasks.md if it uses the sketch convention.
-- **`/sketch orchestrate` closing tasks** → dispatch as a single batched prompt.
+- **`/sketch dispatch` closing tasks** → hand off as a single batched prompt.
 - Closing tasks have no model-routing ambiguity and no parallel hazard.
 
 ## Stale Branch Detection
