@@ -195,6 +195,20 @@ const MARKDOWN_CUTOFF_PATTERNS = {
     /[\d,]+\s+Reviews?\b/i, // Playwright plain-text (innerText has no href)
     /\bSuggested Products\b/i, // "Suggested Products" section after reviews
   ],
+  // Summit Metals (Shopify) embeds an identical static FAQ accordion on every
+  // product page. One answer contains the literal phrase "...or marked as
+  // 'Out of stock.'", which trips OUT_OF_STOCK_PATTERNS in detectStockStatus()
+  // and false-flags EVERY Summit item OOS — even though the real status badge
+  // ("In Stock, Ready to Ship") appears higher up the page. Cut the
+  // description/reviews/FAQ tail before stock + price detection. The product's
+  // own pricing table and "Regular price" cards sit ABOVE "Description Shipping
+  // & Returns", so price extraction is unaffected. (Same failure class as the
+  // monumentmetals review-block fix above.)
+  summitmetals: [
+    /^Description Shipping & Returns\s*$/im, // product tab bar — tail begins here
+    /^#{0,6}\s*What Our Clients/im, // reviews section heading (fallback)
+    /^Faq'?s\s*$/im, // FAQ section heading (final guard before "Out of stock")
+  ],
 };
 
 // Patterns that match the START of the actual product content, used to strip
@@ -708,10 +722,18 @@ function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
   }
 
   if (providerId === "summitmetals") {
-    const reg = regularPricePrices();
+    // Summit's pricing grid lists tiers 1-9 → 100+ with columns Check/Wire |
+    // Card. The 1-9 Check/Wire price is the single-unit comparison point, matching
+    // every other vendor. Firecrawl renders it as a pipe table; phase0 Playwright
+    // innerText flattens it to prose ("1-9 $79.22 $82.55"). Target the FIRST qty
+    // tier on both paths. The "Regular price" mini-cards carry the 100+ BULK price
+    // (≈0.3% lower), so they are the last-resort fallback, never the primary read.
+    const tblFirst = firstTableRowFirstPrice(); // Firecrawl pipe-table path
+    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
+    const tier = tierAnchoredPrice(); // phase0 innerText prose path
+    if (tier !== null) return { price: tier, matchedBy: "tierAnchored" };
+    const reg = regularPricePrices(); // fallback: bulk "Regular price" cards
     if (reg.length > 0) return { price: Math.min(...reg), matchedBy: "regularPrice" };
-    const tbl = tablePrices();
-    if (tbl.length > 0) return { price: Math.min(...tbl), matchedBy: "tablePrices" };
     return null;
   }
 
