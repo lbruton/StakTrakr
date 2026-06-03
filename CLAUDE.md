@@ -71,6 +71,7 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 - `main` is fully protected and requires PR review.
 - `dev` allows direct push for config/tooling only: instruction files, `.claude/`, `.gitignore`, skill files, and devops config.
 - Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) still requires PR discipline.
+- **`EnterWorktree` base-ref caveat:** the harness `EnterWorktree` tool defaults to branching from `origin/main`, but PRs target `dev`. Create the worktree on `origin/dev` first (`git worktree add .claude/worktrees/<branch> -b <branch> origin/dev`) and enter it via `EnterWorktree` `path:`, or `git reset --hard origin/dev` immediately after creating — **before any edits**. Verify `git merge-base origin/dev HEAD` equals `git rev-parse origin/dev` before any PR. Full caveat in `.context/git-topology.md`.
 - **Full rules:** `.context/git-topology.md` — merge strategy, worktree naming, spot bundle, branch staleness, sketch overrides.
 
 ## Model Context Protocol Notes

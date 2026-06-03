@@ -25,6 +25,10 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 - After creation, run `cp CLAUDE.md .worktrees/<name>/`.
 - Then run `npm install --no-audit --no-fund`.
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
+- **`EnterWorktree` caveat (harness tool):** its default base-ref `fresh` branches from `origin/main` (the GitHub default branch), **not** `origin/dev`. A `dev`-targeted PR from such a branch inherits an ancient merge-base, so GitHub's three-dot diff balloons into thousands of lines of false "scope creep" (Copilot/Codacy flag it as unrelated tickets).
+  - Preferred: create on the correct base, then enter by path — `git fetch origin dev && git worktree add .claude/worktrees/<branch> -b <branch> origin/dev`, then call `EnterWorktree` with `path: ".claude/worktrees/<branch>"`.
+  - Fallback: right after `EnterWorktree` with `name:` and **before any edits**, run `git fetch origin && git reset --hard origin/dev`.
+  - Always verify before opening the PR: `git merge-base origin/dev HEAD` must equal `git rev-parse origin/dev`.
 
 ## Merge Strategy
 
