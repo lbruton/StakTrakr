@@ -41,20 +41,32 @@ Check the merge **before** building the PR:
 ```bash
 git fetch origin
 MB=$(git merge-base origin/main origin/dev)
-if git merge-tree --write-tree origin/main origin/dev >/dev/null 2>&1; then
+# Run the probe ONCE. `--write-tree` exits 0=clean, 1=conflicts, >1=error.
+# Redirect stdout only (NOT 2>&1) so a real git failure — e.g. a Git older than
+# 2.38 without `merge-tree --write-tree` — surfaces on stderr instead of being
+# misreported as a merge conflict.
+CONFLICTS=$(git merge-tree --write-tree --name-only origin/main origin/dev); RC=$?
+if [ "$RC" -eq 0 ]; then
   echo "✅ CLEAN — dev→main merges with no conflicts (merge-base=$MB)."
-else
+elif [ "$RC" -eq 1 ]; then
   echo "⚠️ CONFLICTS — dev→main does not merge cleanly. Conflicting files:"
-  git merge-tree --write-tree --name-only origin/main origin/dev | sed '1d'
-  echo "merge-base=$MB"
-  echo "If this is the squash-severance signature (sw.js + many add/add on"
-  echo "archived specs, ancient merge-base), run the -s ours heal below."
+  printf '%s\n' "$CONFLICTS" | sed '1d'
+  echo "merge-base=$MB — see the heal-vs-resolve guidance below."
+else
+  echo "❌ merge-tree errored (RC=$RC). Check git is 2.38+ before proceeding."
 fi
 ```
 
-**If SEVERED, heal first with a zero-content `-s ours` merge** (records the
-histories' shared ancestry without changing `main`'s tree), land it via a chore
-PR to `main` merged with `--merge`, then re-run this check:
+**Heal vs. resolve — pick by signature.** Use the `-s ours` heal **only** for the
+**squash-severance signature**: an _ancient_ merge-base plus many add/add
+conflicts (notably `sw.js` + archived spec files). For **ordinary** content
+conflicts (a recent merge-base, a few genuinely overlapping files), resolve them
+normally — **do NOT** run `-s ours`, which takes `main`'s tree wholesale and
+would silently discard dev's changes to the conflicting files.
+
+When the signature matches, heal with a zero-content `-s ours` merge (records the
+shared ancestry without changing `main`'s tree), landed via a chore PR to `main`
+merged with `--merge`, then re-run this check:
 
 ```bash
 git worktree add .worktrees/heal-ancestry -b chore/heal-dev-main-ancestry origin/main
@@ -70,10 +82,12 @@ gh pr create --base main --head chore/heal-dev-main-ancestry \
 gh pr merge <PR#> --merge   # NEVER --squash (squash re-severs the ancestry)
 ```
 
-> **Why this happens:** GitHub merge methods are repo-wide; you cannot enforce
-> "squash for feature→dev, merge-commit for dev→main" structurally. So the
-> squash button stays available at ship time and a single mis-click re-severs
-> ancestry. This pre-flight + the Step 6.6 post-merge gate are the guard rail.
+> **Why this happens / current guard:** A squash `dev→main` lands an orphan
+> commit that severs ancestry. As of 2026-06-03, squash merge is **disabled
+> repo-wide** and the dev ruleset pins `allowed_merge_methods: ["merge"]`, so a
+> squash-ship is now blocked at the source (the model is merge-commits
+> everywhere). This pre-flight + the Step 6.6 post-merge gate remain as
+> defense-in-depth and to detect a pre-existing severance from older squash-ships.
 
 ## Step 2: Collect version tags on dev since last main merge
 
