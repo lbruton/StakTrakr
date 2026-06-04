@@ -203,7 +203,7 @@ Project uses script-tag globals the auto-config doesn't recognize. Pre-existing 
   - In `/sketch orchestrate`: Run in the same closing-task cohort as the version bump (CLOSE-4).
   - Stage and commit before executing `gh pr create`.
 - **Version lock high-water mark** → the next version must be `max(all entries in version.lock including expired, APP_VERSION on origin/dev)`. Never derive the next version from stale local `APP_VERSION` alone.
-- **Before `dev → main`** → invoke `/staktrakr-ship`, only on explicit user "ready to ship".
+- **Before `dev → main`** → invoke `/ship`, only on explicit user "ready to ship".
 - **Before citing any cron schedule** → grep [devops/pollers/home-poller/docker-entrypoint.sh](file:///Volumes/DATA/GitHub/StakTrakr/devops/pollers/home-poller/docker-entrypoint.sh) for the authoritative value.
 
 ## MCP Server Usage Rules

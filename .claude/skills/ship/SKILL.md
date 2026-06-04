@@ -311,8 +311,14 @@ git fetch origin main
 # Latest version string from the CHANGELOG (tags are created post-release)
 LATEST="v$(grep -m1 -oE '## \[3\.[0-9]+\.[0-9]+\]' "$(git rev-parse --show-toplevel)/CHANGELOG.md" | grep -oE '3\.[0-9]+\.[0-9]+')"
 
-# Extract ONLY this version's CHANGELOG section (bounded — avoids the 125k body limit)
-NOTES=$(sed -n "/^## \[${LATEST#v}\]/,/^## \[/p" "$(git rev-parse --show-toplevel)/CHANGELOG.md" | sed '$d')
+# Extract ONLY this version's CHANGELOG section (bounded — avoids the 125k body limit).
+# awk (not sed range + $d) so the last line isn't truncated when this version is
+# the final section in the file (no subsequent "## [" header to bound the range).
+NOTES=$(awk -v ver="${LATEST#v}" '
+  $0 ~ "^## \\[" ver "\\]" {grab=1; next}
+  grab && /^## \[/ {exit}
+  grab {print}
+' "$(git rev-parse --show-toplevel)/CHANGELOG.md")
 
 gh release create "$LATEST" \
   --target main \

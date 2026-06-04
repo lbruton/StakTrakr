@@ -123,7 +123,7 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 - Individual dealer scraping failures: invoke `/retail-provider-fix`.
 - Version-bump PRs: run `/update-spot-bundle`.
 - Version-bump PRs: ensure Tailscale is active.
-- `dev → main` shipping: invoke `/staktrakr-ship` only on explicit user approval.
+- `dev → main` shipping: invoke `/ship` only on explicit user approval.
 - Cloud or infrastructure claims: read the matching Foundation doc before speculating.
 - Fly.io or home poller secret claims: verify through Infisical for project `stak-trakr-94m4`, env `dev`.
 - Cron schedule claims: grep `devops/pollers/home-poller/docker-entrypoint.sh`.
