@@ -21,6 +21,53 @@ If output is empty — nothing to ship. Stop.
 
 Confirm with user before proceeding if anything looks unexpected.
 
+## Step 1.5: Ancestry pre-flight (MANDATORY — prevents ship conflicts)
+
+**This is the gate that stops the recurring "ship from hell."** A `dev → main`
+merge is only clean when `dev` is a true **ancestor** of `main`. A prior
+**squash** merge of `dev → main` severs that link: the squash lands an orphan
+commit on `main` that shares no history with `dev`, freezing `merge-base` at an
+ancient commit. Every later ship then has to three-way-merge months of
+divergence → the `sw.js` (and eventually whole-tree) conflicts.
+
+Check the ancestry **before** building the PR:
+
+```bash
+git fetch origin
+MB=$(git merge-base origin/main origin/dev)
+MAIN=$(git rev-parse origin/main)
+# Severed when the merge-base is NOT main's tip AND main has commits dev lacks.
+if git merge-base --is-ancestor origin/main origin/dev; then
+  echo "✅ CLEAN — main is an ancestor of dev; dev→main will merge cleanly."
+else
+  echo "⚠️ SEVERED — main has commits not on dev (squash orphans / direct-to-main)."
+  echo "   merge-base=$MB  main=$MAIN  → run the heal below BEFORE shipping."
+fi
+```
+
+**If SEVERED, heal first with a zero-content `-s ours` merge** (records the
+histories' shared ancestry without changing `main`'s tree), land it via a chore
+PR to `main` merged with `--merge`, then re-run this check:
+
+```bash
+git worktree add .worktrees/heal-ancestry -b chore/heal-dev-main-ancestry origin/main
+cd .worktrees/heal-ancestry
+git merge -s ours origin/dev --no-edit \
+  -m "chore: restore dev↔main shared ancestry (-s ours, zero content change)"
+git diff origin/main --stat   # MUST be empty
+git push -u origin chore/heal-dev-main-ancestry
+gh pr create --base main --head chore/heal-dev-main-ancestry \
+  --title "chore: restore dev↔main shared ancestry" \
+  --body "Zero-content -s ours merge. Re-links the histories a prior squash severed so dev→main ships cleanly. **Merge with --merge, never squash.**"
+# After checks pass:
+gh pr merge <PR#> --merge   # NEVER --squash (squash re-severs the ancestry)
+```
+
+> **Why this happens:** GitHub merge methods are repo-wide; you cannot enforce
+> "squash for feature→dev, merge-commit for dev→main" structurally. So the
+> squash button stays available at ship time and a single mis-click re-severs
+> ancestry. This pre-flight + the Step 6.6 post-merge gate are the guard rail.
+
 ## Step 2: Collect version tags on dev since last main merge
 
 Version tags on `dev` are the breadcrumb trail of every patch. They are more
@@ -36,6 +83,11 @@ git tag --sort=-version:refname | while read tag; do
   fi
 done
 ```
+
+> **Note:** StakTrakr creates version tags **post-merge** (the `/release` flow
+> tags `main` after the ship lands), so this list is often empty mid-ship. When
+> it is, build the PR summary from the version-bump commit titles in
+> `git log --oneline main..origin/dev` and the CHANGELOG instead.
 
 For each tag found, get its commit message title:
 
@@ -56,6 +108,10 @@ deployed app ships with current data:
 Run `/update-spot-bundle` (skill). If new data is bundled, the change must land
 on `dev` via worktree + PR before proceeding (see Step 3.5). Direct pushes to
 `dev` are blocked by branch protection.
+
+> **Already satisfied?** If this ship bumped the version via `/release` in the
+> same session, the bundle was refreshed in that release PR and already lives on
+> `dev` — re-running here is a no-op. Verify with the bundle header date.
 
 ## Step 3: Fetch Plane issue titles
 
@@ -109,6 +165,9 @@ gh pr create --base dev --title "chore: refresh about.js for vLATEST ship" --bod
 > **Why here?** Individual patches update announcements incrementally, but the
 > ship step is the last chance to ensure the "What's New" modal shows a coherent
 > release summary — not a stale list from 30 patches ago.
+>
+> **Already satisfied?** If `/release` ran this session, the What's New was
+> rewritten in that release PR — confirm it covers the full release and skip.
 
 ## Step 4: Create the `dev → main` PR
 
@@ -171,7 +230,7 @@ mcp__plane__update_issue  identifier: "STRK-###"  state: "<Done UUID>"
 > pre-migration archives — no status update needed. Plane is the only live
 > tracker.
 
-## Step 6.5: Merge the PR (merge commit, NOT squash)
+## Step 6.5: Merge the PR (merge commit, NOT squash) — CRITICAL
 
 Once all checks pass and threads are resolved:
 
@@ -179,10 +238,46 @@ Once all checks pass and threads are resolved:
 gh pr merge PR_NUMBER --merge --subject "vLATEST — [title]"
 ```
 
-**Use `--merge`, not `--squash` or `--rebase`.** This preserves the common
-ancestor between dev and main so future ships merge cleanly. If `gh pr merge`
-is blocked by a stuck status check, ask the user to bypass via GitHub UI
-(select "Merge pull request" dropdown → "Create a merge commit").
+**Use `--merge`, never `--squash` or `--rebase`.** This preserves the common
+ancestor between dev and main so future ships merge cleanly. A squash here is
+the single mistake that has broken every ship for months — it re-severs the
+ancestry the whole flow depends on.
+
+**If `gh pr merge` is blocked by a required check** (e.g. Codacy complexity gate
+tripping on cumulative release complexity — a known false-positive for batched
+ships), do the merge **yourself via the skill**, do not hand it to a manual UI
+click where the Squash button is one mis-tap away:
+
+```bash
+# With explicit user consent to bypass the gate (admin merge), STILL --merge:
+gh pr merge PR_NUMBER --admin --merge --subject "vLATEST — [title]"
+```
+
+> **NEVER tell the user to "just merge it in the UI" without specifying the
+> method.** If a human must click, the instruction is exactly: open the
+> "Merge pull request" dropdown → choose **"Create a merge commit"** →
+> **never "Squash and merge."** Then run Step 6.6 to confirm it stuck.
+
+## Step 6.6: Post-merge ancestry verification (MANDATORY — catches a squash slip)
+
+Immediately after the merge, verify the ancestry actually held. If a squash
+slipped through (manual UI, wrong flag), catch it **now** — this session —
+instead of discovering it at the next ship.
+
+```bash
+git fetch origin
+if [ "$(git merge-base origin/main origin/dev)" = "$(git rev-parse origin/dev)" ]; then
+  echo "✅ ANCESTRY INTACT — dev is fully an ancestor of main. Next ship will be clean."
+else
+  echo "🚨 SQUASH SLIPPED — ancestry severed by this merge. Heal immediately:"
+  echo "   the merge was NOT a merge commit. Run the Step 1.5 -s ours heal now."
+fi
+# Sanity: main's tip should be a merge commit (2 parents) for a real ship.
+git show --no-patch --format='%h parents: %p' origin/main
+```
+
+If it reports SQUASH SLIPPED, run the Step 1.5 `-s ours` heal before doing
+anything else. Do not proceed to the release with a severed ancestry.
 
 ## Step 7: After the PR merges to main — GitHub Release (MANDATORY)
 
@@ -192,11 +287,11 @@ is blocked by a stuck status check, ask the user to bypass via GitHub UI
 ```bash
 git fetch origin main
 
-# Get the latest version from main
-LATEST=$(git tag --merged origin/main --sort=-version:refname | grep '^v3\.' | head -1)
+# Latest version string from the CHANGELOG (tags are created post-release)
+LATEST="v$(grep -m1 -oE '## \[3\.[0-9]+\.[0-9]+\]' "$(git rev-parse --show-toplevel)/CHANGELOG.md" | grep -oE '3\.[0-9]+\.[0-9]+')"
 
-# Get changelog section for this version
-NOTES=$(awk "/## \[${LATEST#v}\]/,/^---$/" "$(git rev-parse --show-toplevel)/CHANGELOG.md" | head -20)
+# Extract ONLY this version's CHANGELOG section (bounded — avoids the 125k body limit)
+NOTES=$(sed -n "/^## \[${LATEST#v}\]/,/^## \[/p" "$(git rev-parse --show-toplevel)/CHANGELOG.md" | sed '$d')
 
 gh release create "$LATEST" \
   --target main \
@@ -209,13 +304,17 @@ gh release list --limit 3
 # Confirm new version shows as Latest
 ```
 
+> **Body-too-long guard:** GitHub rejects release notes over 125,000 chars. The
+> `sed '/^## [ver]/,/^## [/p'` range extracts a single version section; an
+> unbounded `awk '/ver/,/---/'` can swallow the whole changelog and 422.
+
 ## Step 8: Confirm
 
 ```text
 Ship complete!
 
-Version:  vLATEST
-PR:       #XX merged
-Release:  https://github.com/lbruton/StakTrakr/releases/tag/vLATEST
-Issues:   STRK-XX → Done (Plane)
+Version:   vLATEST
+PR:        #XX merged (merge commit — ancestry verified ✅)
+Release:   https://github.com/lbruton/StakTrakr/releases/tag/vLATEST
+Issues:    STRK-XX → Done (Plane)
 ```
