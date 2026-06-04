@@ -34,6 +34,8 @@ These are hard requirements. Any violation = review fails.
 | Convention       | Correct                                                         | Wrong                                     |
 | ---------------- | --------------------------------------------------------------- | ----------------------------------------- |
 | DOM access       | `safeGetElement(id)`                                            | `document.getElementById(id)`             |
+| safeGetElement load order | Called in factory functions/runtime handlers only       | Top-level `safeGetElement()` in `events.js` (ReferenceError) |
+| safeGetElement null check | `el instanceof HTMLElement`                             | `if (!el)` (truthy dummy passes, DOM methods throw) |
 | Data persistence | `saveData()` / `loadData()`                                     | Direct `localStorage` for structured data |
 | New storage keys | Added to `ALLOWED_STORAGE_KEYS` in `js/constants.js`            | Used without registering                  |
 | HTML injection   | `sanitizeHtml()` before innerHTML                               | Raw user content in innerHTML             |

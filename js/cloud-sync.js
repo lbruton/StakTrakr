@@ -2721,12 +2721,27 @@ function _hasTagChanges(remoteSettings) {
 }
 
 function _restoreRawStorageValues(priorValues) {
-  if (!priorValues || typeof localStorage === "undefined") return;
+  if (!priorValues || typeof localStorage === "undefined") return { failed: 0, total: 0 };
   var keys = Object.keys(priorValues);
+  var failed = 0;
   for (var i = 0; i < keys.length; i++) {
-    if (priorValues[keys[i]] === null) localStorage.removeItem(keys[i]);
-    else localStorage.setItem(keys[i], priorValues[keys[i]]);
+    try {
+      if (priorValues[keys[i]] === null) localStorage.removeItem(keys[i]);
+      else localStorage.setItem(keys[i], priorValues[keys[i]]);
+    } catch (_e) {
+      failed++;
+    }
   }
+  if (failed > 0) {
+    console.warn(
+      "[CloudSync] _restoreRawStorageValues: " +
+        failed +
+        "/" +
+        keys.length +
+        " keys failed to restore"
+    );
+  }
+  return { failed: failed, total: keys.length };
 }
 
 function _mergeTagData(remoteTagData) {
@@ -2894,6 +2909,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     } catch (tagErr) {
       inventory = _prevInventory;
       _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
       console.warn("[CloudSync] Tag merge failed — rolling back pull:", tagErr);
       logCloudSyncActivity(
         "cloud_sync_pull",
@@ -2952,6 +2968,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     if (_failedCount > 0) {
       inventory = _prevInventory;
       _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
       for (var r = 0; r < _appliedKeys.length; r++) {
         try {
           var prior = _priorValues[_appliedKeys[r]];
@@ -3676,6 +3693,20 @@ async function pullWithPreview(remoteMeta) {
             if (_allOneSided) {
               var _appliedCount = 0;
               var _failedCount = 0;
+              var _tagKeys = _tagSyncKeys();
+              var _premergeSnapshot = {};
+              for (var _pk = 0; _pk < _tagKeys.length; _pk++) {
+                try {
+                  _premergeSnapshot[_tagKeys[_pk]] = localStorage.getItem(_tagKeys[_pk]);
+                } catch (_e) {
+                  /* best-effort */
+                }
+              }
+              try {
+                localStorage.setItem("__sync_recovery_snapshot", JSON.stringify(_premergeSnapshot));
+              } catch (_e) {
+                /* best-effort — quota full is not fatal here */
+              }
               try {
                 var _tagMerge = _mergeOneSidedTagSettings(manifest.settings || {});
                 _appliedCount += _tagMerge.tagKeysMerged;

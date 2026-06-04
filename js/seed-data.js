@@ -8333,7 +8333,7 @@ function classifyBootState() {
     let parsed;
     try {
       // STRK-13: Decompress before parsing — large inventories are stored with
-      // a CMP1: prefix by __compressIfNeeded (utils.js:3163). Raw JSON.parse on
+      // a CMP1:/CMP2: prefix by __compressIfNeeded. Raw JSON.parse on
       // a compressed payload throws SyntaxError, which would misclassify real
       // users with valid large inventory as parse-error. Fall back to raw on
       // missing wrapper (file load order, no-op for uncompressed payloads).

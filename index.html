@@ -66,6 +66,7 @@
     <script defer src="./vendor/chartjs-plugin-datalabels.min.js"></script>
     <script defer src="./vendor/jszip.min.js"></script>
     <script defer src="./vendor/forge.min.js"></script>
+    <script defer src="./vendor/lz-string.min.js"></script>
     <!-- CDN fallbacks — only execute if the local vendor copy failed to load -->
     <script>
       window.__vendorFallbacks = [
@@ -117,6 +118,12 @@
           src: "https://cdnjs.cloudflare.com/ajax/libs/forge/0.10.0/forge.min.js",
           integrity:
             "sha512-S/UB/AdGt16YP1OyopwfVG1BO93nkwVNY7No5zfALnztixutqOuP3DGvo7G4YqB77uL791jWNjQnT/63CjOZNw==",
+        },
+        {
+          global: "LZString",
+          src: "https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js",
+          integrity:
+            "sha512-qtX0GLM3qX8rxJN1gyDfcnMFFrKvixfoEOwbBib9VafR5vbChV5LeE5wSI/x+IlCkTY5ZFddFDCCfaVJJNnuKQ==",
         },
       ];
       document.addEventListener("DOMContentLoaded", function () {
@@ -2101,16 +2108,16 @@
                 <select id="itemPuritySelect">
                   <option value="1.0">100% — Pure</option>
                   <option value="0.9999" selected>.9999 — Four Nines</option>
-                  <option value="0.9995">.9995 — Pure Platinum</option>
+                  <option value="0.9995">.9995 — 99.95%</option>
                   <option value="0.999">.999 — Fine</option>
                   <option value="0.925">.925 — Sterling</option>
                   <option value="0.500">.500 — 12K</option>
-                  <option value="0.9167">.9167 — 22K (Krugerrand)</option>
-                  <option value="0.900">.900 — 90% Silver</option>
-                  <option value="0.800">.800 — 80% (European)</option>
+                  <option value="0.9167">.9167 — 22K</option>
+                  <option value="0.900">.900 — 90%</option>
+                  <option value="0.800">.800 — 80%</option>
                   <option value="0.600">.600 — 60%</option>
-                  <option value="0.400">.400 — 40% Silver</option>
-                  <option value="0.350">.350 — War Nickels</option>
+                  <option value="0.400">.400 — 40%</option>
+                  <option value="0.350">.350 — 35%</option>
                   <option value="custom">Custom…</option>
                 </select>
               </div>
