@@ -3442,7 +3442,21 @@ const STORAGE_KEY_LABELS = {
   catalogMap: { label: "Catalog Map", icon: "🗂", category: "Inventory" },
   itemTags: { label: "Item Tags", icon: "🏷", category: "Inventory" },
   changeLog: { label: "Change Log", icon: "📝", category: "Inventory" },
-  metalSpotHistory: { label: "Spot Price History", icon: "📈", category: "Prices" },
+  metalSpotHistory: {
+    label: "Spot Price History (IndexedDB — localStorage fallback)",
+    icon: "📈",
+    category: "Prices",
+  },
+  v2RetailHistory: {
+    label: "Retail Price History (IndexedDB — localStorage fallback)",
+    icon: "📈",
+    category: "Prices",
+  },
+  retailPriceHistory: {
+    label: "Retail Price History (legacy — IndexedDB)",
+    icon: "📈",
+    category: "Prices",
+  },
   "item-price-history": { label: "Item Price History", icon: "💰", category: "Prices" },
   "goldback-prices": { label: "Goldback Prices", icon: "🥇", category: "Prices" },
   "goldback-price-history": { label: "Goldback Price History", icon: "🥇", category: "Prices" },
@@ -3607,8 +3621,20 @@ const renderStorageSection = async (silent = false) => {
     }
   }
 
+  // Spot + retail price history live in the StakTrakrHistory IndexedDB store
+  // (migrated out of localStorage — STRK-141). Surface it like the image stores.
+  let historyStats = null;
+  if (typeof historyStore !== "undefined" && historyStore.isAvailable()) {
+    try {
+      historyStats = await historyStore.getUsage();
+    } catch (e) {
+      /* unavailable */
+    }
+  }
+
   const attachTotalKB = attachStats ? attachStats.totalBytes / 1024 : 0;
-  const idbTotalKB = (idbStats ? idbStats.totalBytes / 1024 : 0) + attachTotalKB;
+  const historyTotalKB = historyStats ? historyStats.bytesEstimate / 1024 : 0;
+  const idbTotalKB = (idbStats ? idbStats.totalBytes / 1024 : 0) + attachTotalKB + historyTotalKB;
   const idbLimitKB = idbStats ? idbStats.limitBytes / 1024 : 50 * 1024;
   const lsLimitKB = 5 * 1024;
   const combinedKB = lsTotalKB + idbTotalKB;
@@ -3642,7 +3668,7 @@ const renderStorageSection = async (silent = false) => {
     "storageStat_idb",
     fmt(idbTotalKB),
     idbTotalKB > 0
-      ? `Images: ~${fmt(idbTotalKB - attachTotalKB)} · Attachments: ${fmt(attachTotalKB)}`
+      ? `Images: ~${fmt(idbTotalKB - attachTotalKB - historyTotalKB)} · Attachments: ${fmt(attachTotalKB)} · History: ${fmt(historyTotalKB)}`
       : "No IndexedDB data",
     "storageStatBar_idb",
     pct(idbTotalKB, idbLimitKB),
@@ -3705,21 +3731,23 @@ const renderStorageSection = async (silent = false) => {
 
   // ── 5. Render IndexedDB table ─────────────────────────────────────────────
   if (idbTable) {
-    if (!idbStats) {
+    if (!idbStats && !attachStats && !historyStats) {
       idbTable.innerHTML = '<p class="settings-subtext">IndexedDB unavailable in this browser.</p>';
     } else {
       const imagesTotalKB = idbStats ? idbStats.totalBytes / 1024 : 0;
-      const idbRows = [
-        { label: "Coin Images", icon: "🖼", count: idbStats.numistaCount, sizeKB: null },
-        { label: "User Images", icon: "📷", count: idbStats.userImageCount, sizeKB: null },
-        {
-          label: "Pattern Images",
-          icon: "🎨",
-          count: idbStats.patternImageCount || 0,
-          sizeKB: null,
-        },
-        { label: "Coin Metadata", icon: "📄", count: idbStats.metadataCount, sizeKB: null },
-      ];
+      const idbRows = idbStats
+        ? [
+            { label: "Coin Images", icon: "🖼", count: idbStats.numistaCount, sizeKB: null },
+            { label: "User Images", icon: "📷", count: idbStats.userImageCount, sizeKB: null },
+            {
+              label: "Pattern Images",
+              icon: "🎨",
+              count: idbStats.patternImageCount || 0,
+              sizeKB: null,
+            },
+            { label: "Coin Metadata", icon: "📄", count: idbStats.metadataCount, sizeKB: null },
+          ]
+        : [];
       // Estimate image row sizes by proportion of images total (exact per-store breakdown unavailable)
       const idbImageCount = idbRows.reduce((s, r) => s + r.count, 0) || 1;
       idbRows.forEach((r) => {
@@ -3735,13 +3763,24 @@ const renderStorageSection = async (silent = false) => {
           exact: true,
         });
       }
+      // Spot + retail history row uses exact bytes from historyStore.getUsage() (STRK-141)
+      if (historyStats !== null) {
+        idbRows.push({
+          label: "Spot/Retail History",
+          icon: "📈",
+          count: historyStats.count,
+          sizeKB: historyTotalKB,
+          dbName: "StakTrakrHistory",
+          exact: true,
+        });
+      }
 
       const idbRowsHtml = idbRows
         .map((r) => {
           const barPct = idbTotalKB > 0 ? Math.min((r.sizeKB / idbTotalKB) * 100, 100) : 0;
           const sizeStr =
             r.sizeKB >= 1024 ? `${(r.sizeKB / 1024).toFixed(1)} MB` : `${r.sizeKB.toFixed(1)} KB`;
-          const dbName = r.exact ? "StakTrakrAttachments" : "StakTrakrImages";
+          const dbName = r.dbName || (r.exact ? "StakTrakrAttachments" : "StakTrakrImages");
           return `<tr class="storage-key-row">
           <td class="storage-key-icon">${r.icon}</td>
           <td class="storage-key-label">${r.label}<span class="storage-key-raw">${dbName}</span></td>

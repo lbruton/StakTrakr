@@ -322,6 +322,15 @@ async function setupRetailFixture(page, options = {}) {
       typeof window.refreshMarketData === "function" &&
       typeof window.showSettingsModal === "function"
   );
+  // STRK-148 de-flake: boot's awaited loadSeedSpotHistory() pushes the seed
+  // bundle's gold spot (~$4456) into spotPrices.gold AFTER the function-existence
+  // wait above, via fetchSpotPrice(). Wait for that boot seed write to land
+  // BEFORE the override below, so the override is the last writer and isn't
+  // clobbered before refreshMarketData() reads it. (Latent race surfaced by
+  // STRK-141's awaited boot-hydration timing; not a product bug — see STRK-148.)
+  await page.waitForFunction(
+    () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
+  );
   await page.evaluate(async () => {
     if (typeof spotPrices !== "undefined") {
       spotPrices.gold = 2000;

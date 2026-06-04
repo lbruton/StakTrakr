@@ -327,6 +327,15 @@ function collectVaultData(scope) {
 
   for (var i = 0; i < keysToCollect.length; i++) {
     var key = keysToCollect[i];
+    // Skip market histories now owned by IndexedDB — never written to a backup (STRK-141, R7.2).
+    // item-price-history is not in this set, so it is still exported (R7.1).
+    if (
+      typeof HISTORY_IDB_KEYS !== "undefined" &&
+      Array.isArray(HISTORY_IDB_KEYS) &&
+      HISTORY_IDB_KEYS.indexOf(key) !== -1
+    ) {
+      continue;
+    }
     // Skip credentials and device-specific state in portable full exports
     if (
       scope === "full" &&
@@ -383,6 +392,15 @@ async function restoreVaultData(payload) {
   var keys = Object.keys(data);
   for (var i = 0; i < keys.length; i++) {
     var key = keys[i];
+    // Ignore market histories from older backups — they are reproducible from the
+    // API and now owned by IndexedDB; write to neither localStorage nor IDB (STRK-141, R7.3).
+    if (
+      typeof HISTORY_IDB_KEYS !== "undefined" &&
+      Array.isArray(HISTORY_IDB_KEYS) &&
+      HISTORY_IDB_KEYS.indexOf(key) !== -1
+    ) {
+      continue;
+    }
     // Only restore recognized keys
     if (ALLOWED_STORAGE_KEYS.indexOf(key) !== -1) {
       try {

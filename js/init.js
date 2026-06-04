@@ -586,7 +586,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     inventory.forEach((i) => addCompositionOption(i.composition || i.metal));
     refreshCompositionOptions();
-    loadSpotHistory();
+
+    // STRK-141: Initialize the market-history IndexedDB store and run the
+    // one-time, idempotent localStorage→IndexedDB migration BEFORE hydrating
+    // the spot/retail globals, so loadSpotHistory()/initRetailPrices() read
+    // from the store (not the localStorage fallback). Both calls swallow their
+    // own failures and return safely if IndexedDB is unavailable — the spot/
+    // retail wrappers then transparently fall back to localStorage. This must
+    // complete before the Phase 13 first render so history-dependent views
+    // (spot table, sparklines, retail charts) render hydrated (R4), and the
+    // migration runs exactly once, awaited (R2). Do NOT wrap in try/catch that
+    // blocks boot — graceful degradation (R3) is handled inside the store.
+    if (typeof historyStore !== "undefined") {
+      await historyStore.init();
+      await historyStore.migrate();
+      debugLog("HistoryStore available:", historyStore.isAvailable());
+    }
+
+    // Hydrate spot history from the store (awaited, before render — R4)
+    await loadSpotHistory();
+
+    // Roll legacy hourly spot source into the loaded history. Previously called
+    // at parse time in spot.js; moved here so it runs AFTER spot history loads
+    // and the store is ready (STRK-141).
+    if (typeof migrateHourlySource === "function") {
+      await migrateHourlySource();
+    }
 
     // Load per-item price history (STACK-43)
     if (typeof loadItemPriceHistory === "function") {
@@ -615,8 +640,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     }
 
-    // Load retail market prices and start background auto-sync
-    if (typeof initRetailPrices === "function") initRetailPrices();
+    // Load retail market prices and start background auto-sync.
+    // STRK-141: initRetailPrices() is async and awaits _loadV2RetailHistory()
+    // internally, so awaiting it here hydrates retailPriceHistory from the
+    // store before the Phase 13 render (R4). Single load path — no double-load.
+    if (typeof initRetailPrices === "function") await initRetailPrices();
     if (typeof startRetailBackgroundSync === "function") startRetailBackgroundSync();
 
     // Load display currency preference and cached exchange rates (STACK-50)
