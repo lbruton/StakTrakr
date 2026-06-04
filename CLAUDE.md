@@ -84,9 +84,6 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
   - Use Brave for routine lookups that Brave can handle. Tool ladder by cost: `perplexity_search` (ranked results) → `perplexity_ask` (quick AI answer) → `perplexity_reason` (chain-of-thought) → `perplexity_research` (deep multi-source, 30s+).
   - Pass `strip_thinking: true` on `perplexity_research`/`perplexity_reason` to save context tokens.
 - StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
-- All `cloud-sync.js` patches require `/sketch-review` peer review before merge.
-- The user may explicitly waive the review requirement.
-- Use Opus or equivalent model for the review.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
 - When claude-context returns thin results for a global, fall back to Code Graph Context structural query before Grep.
