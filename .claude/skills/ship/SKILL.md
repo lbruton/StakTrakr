@@ -24,24 +24,31 @@ Confirm with user before proceeding if anything looks unexpected.
 ## Step 1.5: Ancestry pre-flight (MANDATORY — prevents ship conflicts)
 
 **This is the gate that stops the recurring "ship from hell."** A `dev → main`
-merge is only clean when `dev` is a true **ancestor** of `main`. A prior
-**squash** merge of `dev → main` severs that link: the squash lands an orphan
-commit on `main` that shares no history with `dev`, freezing `merge-base` at an
-ancient commit. Every later ship then has to three-way-merge months of
-divergence → the `sw.js` (and eventually whole-tree) conflicts.
+merge is clean when the histories share a **recent merge-base** (the last
+ship's commit). A prior **squash** merge of `dev → main` severs that: the squash
+lands an orphan commit on `main` that shares no history with `dev`, freezing
+`merge-base` at an ancient commit. Every later ship then has to three-way-merge
+months of divergence → the `sw.js` (and eventually whole-tree) conflicts.
 
-Check the ancestry **before** building the PR:
+> **Do NOT test `git merge-base --is-ancestor origin/main origin/dev`.** That
+> asks "can dev fast-forward onto main," which is the wrong question — after a
+> healthy merge-commit ship, main carries the merge commit dev lacks, so it is
+> _never_ a strict ancestor of dev even though the merge is perfectly clean.
+> The ground-truth signal is the **merge-tree conflict probe** below.
+
+Check the merge **before** building the PR:
 
 ```bash
 git fetch origin
 MB=$(git merge-base origin/main origin/dev)
-MAIN=$(git rev-parse origin/main)
-# Severed when the merge-base is NOT main's tip AND main has commits dev lacks.
-if git merge-base --is-ancestor origin/main origin/dev; then
-  echo "✅ CLEAN — main is an ancestor of dev; dev→main will merge cleanly."
+if git merge-tree --write-tree origin/main origin/dev >/dev/null 2>&1; then
+  echo "✅ CLEAN — dev→main merges with no conflicts (merge-base=$MB)."
 else
-  echo "⚠️ SEVERED — main has commits not on dev (squash orphans / direct-to-main)."
-  echo "   merge-base=$MB  main=$MAIN  → run the heal below BEFORE shipping."
+  echo "⚠️ CONFLICTS — dev→main does not merge cleanly. Conflicting files:"
+  git merge-tree --write-tree --name-only origin/main origin/dev | sed '1d'
+  echo "merge-base=$MB"
+  echo "If this is the squash-severance signature (sw.js + many add/add on"
+  echo "archived specs, ancient merge-base), run the -s ours heal below."
 fi
 ```
 
