@@ -100,7 +100,7 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 | --------------------------------- | ------------------------------------------------------------------- |
 | `/api-infrastructure`             | Feed / poller / API / data-path work                                |
 | `/update-spot-bundle`             | Rebuild `data/spot-history-bundle.js` — run before every release PR |
-| `/staktrakr-ship`                 | Ship `dev → main` (only on explicit "ready to ship")                |
+| `/ship`                           | Ship `dev → main` (only on explicit "ready to ship")                |
 | `/retail-poller`                  | Retail pipeline — scraping, confidence, providers.json              |
 | `/retail-provider-fix`            | Diagnose scraping failures for individual dealers                   |
 | `/deploy-verify`                  | Post-deploy health (Portainer home + Fly.io cloud)                  |
@@ -191,7 +191,7 @@ Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint ru
   - Run `/update-spot-bundle`.
   - Ensure Tailscale is active.
   - Stage and commit before executing `gh pr create`.
-- **Before `dev → main`** → `/staktrakr-ship`, only on explicit user "ready to ship".
+- **Before `dev → main`** → `/ship`, only on explicit user "ready to ship".
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.
 
 ## Design Context
