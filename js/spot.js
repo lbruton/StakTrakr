@@ -1280,7 +1280,8 @@ const renderSpotHistoryTable = () => {
   const table = document.getElementById("settingsSpotHistoryTable");
   if (!table) return;
 
-  loadSpotHistory();
+  // STRK-141: spotHistory is the boot-hydrated, always-current global; the former
+  // sync loadSpotHistory() reload is now async and vestigial — read the global.
   let data = [...spotHistory];
 
   // Sort

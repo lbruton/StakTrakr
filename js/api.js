@@ -1039,7 +1039,9 @@ const renderApiHistoryTable = () => {
 const showApiHistoryModal = () => {
   const modal = document.getElementById("apiHistoryModal");
   if (!modal) return;
-  loadSpotHistory();
+  // STRK-141: spotHistory is the boot-hydrated, always-current in-memory source of
+  // truth (saveSpotHistory assigns it before the async IDB write). The former sync
+  // loadSpotHistory() reload is now async and vestigial — read the global directly.
   apiHistoryEntries = spotHistory.filter(
     (e) =>
       e.source === "api" ||
@@ -2840,7 +2842,8 @@ ${
  * Exports all spot history data as a CSV file
  */
 const exportSpotHistory = () => {
-  loadSpotHistory();
+  // STRK-141: read the always-current in-memory spotHistory global (the former sync
+  // reload is now async; the global is maintained on every save).
   if (!spotHistory.length) {
     appAlert("No spot history to export.");
     return;
@@ -2859,7 +2862,7 @@ const exportSpotHistory = () => {
  */
 const importSpotHistory = (file) => {
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     let entries = [];
     try {
       if (file.name.endsWith(".json")) {
@@ -2888,7 +2891,8 @@ const importSpotHistory = (file) => {
       return;
     }
 
-    loadSpotHistory();
+    // STRK-141: await the now-async reload so recordSpot appends onto a fresh base.
+    await loadSpotHistory();
     let imported = 0;
     entries.forEach((entry) => {
       recordSpot(
@@ -2936,7 +2940,8 @@ const restoreHistoricalSpotData = async () => {
   }
 
   try {
-    loadSpotHistory();
+    // STRK-141: await the now-async reload so the dedup base is fresh.
+    await loadSpotHistory();
     const existing = Array.isArray(spotHistory) ? spotHistory : [];
 
     // Build dedup Set from existing entries — these always win
