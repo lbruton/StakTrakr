@@ -54,6 +54,7 @@
   --info-hover: oklch(0.588 0.139 242);
   --warning: oklch(0.666 0.157 58.3);
   --warning-hover: oklch(0.555 0.146 49);
+  --warning-text: oklch(0.55 0.15 60);
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
 
@@ -470,6 +471,7 @@
   --info-hover: oklch(0.455 0.072 212.2);
   --warning: oklch(0.666 0.157 58.3);
   --warning-hover: oklch(0.555 0.146 49);
+  --warning-text: oklch(0.55 0.15 60);
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
 
@@ -1159,7 +1161,7 @@ section {
 }
 .trade-spot-label.custom {
   background: color-mix(in oklch, var(--warning) 15%, transparent);
-  color: var(--warning);
+  color: var(--warning-text, var(--warning));
 }
 
 /* Spot breakdown table (dispose form) */
@@ -4608,7 +4610,7 @@ input[type="submit"] {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--warning, #f0ad4e);
+  color: var(--warning-text, var(--warning, #f0ad4e));
   border: 1px solid var(--warning, #f0ad4e);
   border-radius: var(--radius-lg);
   padding: 0.1rem 0.5rem;
@@ -4667,7 +4669,7 @@ input[type="submit"] {
   white-space: nowrap;
 }
 .cloud-badge--beta {
-  color: var(--warning, #f0ad4e);
+  color: var(--warning-text, var(--warning, #f0ad4e));
   border: 1px solid var(--warning, #f0ad4e);
 }
 .cloud-badge--coming-soon {
@@ -7942,7 +7944,7 @@ a.about-badge:hover {
 .beta-warning {
   margin-top: var(--spacing-xs);
   font-size: var(--font-size-sm);
-  color: var(--warning);
+  color: var(--warning-text, var(--warning));
   text-align: center;
 }
 

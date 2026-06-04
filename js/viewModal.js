@@ -1159,6 +1159,14 @@ function _buildDispositionSection(item) {
           editSearch.value = "";
           editSuggestions.textContent = "";
         });
+        opt.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          if (!editUuids.includes(inv.uuid)) editUuids.push(inv.uuid);
+          renderEditChips();
+          editSearch.value = "";
+          editSuggestions.textContent = "";
+        });
         editSuggestions.appendChild(opt);
       });
     });

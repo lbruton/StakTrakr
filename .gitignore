@@ -28,7 +28,13 @@
 .specflow/**
 !.specflow/config.json
 .spec-workflow/
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/*/
+.agents/skills/*/*
+!.agents/skills/*/SKILL.md
+!.agents/skills/*/*.py
 .mcp.json
 tui.json
 SPRINT.md

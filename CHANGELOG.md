@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.2] - 2026-06-03
+
+### Fixed — STRK-144: Summit Metals false-OOS + wrong (bulk) price tier
+
+- **Retail accuracy**: Summit Metals items no longer false-flag as Out of Stock. Every Summit product page embeds an identical FAQ accordion containing the literal phrase "Out of stock", which the shared stock detector matched on every page; a `MARKDOWN_CUTOFF_PATTERNS.summitmetals` entry now trims the description/reviews/FAQ tail before stock and price detection. The Summit price branch also now prefers the single-unit (1–9) tier via `firstTableRowFirstPrice()` / `tierAnchoredPrice()` instead of the 100+ bulk "Regular price" card, correcting a ~0.3% low read and a spurious bulk tier (STRK-144).
+
+### Fixed — STRK-145: Metal-neutral purity labels
+
+- **Add/edit item form & bulk editor**: Fineness dropdown labels no longer bake a metal name into the descriptor, so selecting `.900` on a gold item no longer re-renders as ".900 — 90% Silver". Labels are now metal-neutral in both `index.html` and the bulk editor; saved values and melt calculations are unchanged (STRK-145).
+
+### Fixed — STRK-142: Retail-market history test time-bomb
+
+- **Test hardening**: Froze the browser clock in the shared retail-market Playwright fixture (`page.clock.setFixedTime`) so the 7-day market-history assertion no longer fails once the real wall clock drifts past the seeded `RECENT_DATE` window (STRK-142).
+
+---
+
+## [3.35.1] - 2026-06-02
+
+### Fixed — STRK-140: localStorage quota relief (compression stop-gap)
+
+- **Storage compression**: Activated real lz-string compression for the large market-history caches (`metalSpotHistory`, `v2RetailHistory`, `item-price-history`), resolving the `QuotaExceededError` ("Failed to save v2 retail history") that affected all users. ~8–9× size reduction. Existing data is read transparently and migrated to the compressed format with no data loss; a versioned `CMP2:` prefix and a fail-closed write-guard protect against engine-load failures (STRK-140).
+
+---
+
 ## [3.35.0] - 2026-05-26
 
 ### Changed — STRK-123: Trade linking
