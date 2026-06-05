@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.7] - 2026-06-05
+
+### Changed — STRK-154: Cloud Sync Convergence & Auto-Healing
+
+- **Cloud sync**: Fixed a permanent "Review Sync Changes" loop between two devices — per-item tag merges now converge deterministically (commutative union on a timestamp tie) and auto-heal diverged tags on the next sync with no user action (STRK-155).
+- **Cloud sync**: Settings compare by logical content instead of raw storage, so a value compressed on one device and plain on another (or stored in a different key order) no longer triggers an endless sync (STRK-156).
+- **Cloud sync**: Added apply/restore integrity guards and a one-time boot-repair that clears unrecoverable `[object Object]` corruption without touching valid data (STRK-157).
+- **Cloud sync**: The Review Sync Changes modal no longer shows phantom conflicts — timestamps differing only in format and reordered attachments are recognized as unchanged (STRK-158).
+- **Cloud sync**: Audited and hardened every sync compare/merge/hash surface for convergence and documented the invariant (STRK-159).
+
+---
+
 ## [3.35.6] - 2026-06-05
 
 ### Changed — STRK-32: Isolate price extractor Vendor modules
