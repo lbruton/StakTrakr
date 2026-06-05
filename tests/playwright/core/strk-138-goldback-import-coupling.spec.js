@@ -513,6 +513,33 @@ test.describe("core/strk-138-goldback-import-coupling", () => {
     expect(state.unit).toBe("gb");
   });
 
+  test("Goldback import whose source metal forces a coercion clears a stale spot lookup (Copilot import stale-spot fix)", async ({
+    page,
+  }) => {
+    // Copilot review finding: import reconciliation calls handleTypeChange()
+    // DIRECTLY (not via a dispatched change event), so the metal-change listener
+    // that clears #itemSpotPrice (STACK-49) never fires. Importing a Goldback whose
+    // source metal is Silver coerces Metal Silver -> Gold, which must clear a spot
+    // lookup the user already entered for the wrong metal.
+    await seedData(page, { inventory: [] });
+    await gotoApp(page);
+    await openAddForm(page);
+
+    await page.evaluate(() => {
+      const spot = document.getElementById("itemSpotPrice");
+      if (spot instanceof HTMLElement) spot.value = "31.42";
+    });
+
+    await openNumistaPicker(page, GOLDBACK_BAD_METAL_RESULT);
+    await fillFromPicker(page);
+
+    const spotAfter = await page.evaluate(() => {
+      const el = document.getElementById("itemSpotPrice");
+      return el instanceof HTMLElement ? el.value : null;
+    });
+    expect(spotAfter).toBe("");
+  });
+
   test("Silverback Numista import fills Type=Silverback, Metal=Silver, unit=sb (Req 3.4)", async ({
     page,
   }) => {

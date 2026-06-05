@@ -2200,7 +2200,7 @@ const showNumistaResults = (results, directLookup = false, originalQuery = "") =
 /**
  * STRK-138: Parse a Goldback denomination weight from free-form text.
  * Matches Unicode/ASCII fractions and leading decimals, but only returns a value
- * if it exactly equals a canonical GOLDBACK_DENOMINATIONS weight (within 1e-9).
+ * if it exactly equals a canonical GOLDBACK_DENOMINATIONS weight.
  * Uses regex/parseFloat only — never eval()/Function() on the input string.
  * @param {string} text - Raw denomination text (e.g. "1/4 Idaho Goldback").
  * @returns {number|null} Matching weight, or null when no exact match.
@@ -2229,7 +2229,10 @@ const parseGoldbackDenomination = (text) => {
     : typeof GOLDBACK_DENOMINATIONS !== "undefined"
       ? GOLDBACK_DENOMINATIONS
       : [];
-  const match = weights.find((d) => Math.abs(d.weight - value) < 1e-9);
+  // Compare at 6-decimal precision via integer rounding — goldback weights have
+  // ≤2 decimals, so this is exact for all real inputs and avoids a float epsilon.
+  const SCALE = 1000000;
+  const match = weights.find((d) => Math.round(d.weight * SCALE) === Math.round(value * SCALE));
   return match ? match.weight : null;
 };
 
@@ -2515,8 +2518,12 @@ const fillFormFromNumistaResult = () => {
 
   // STRK-138: Reconcile Metal/Type exactly as a manual change would, so the
   // imported form lands identical to a correct manual entry (no re-selection).
-  // Call handleTypeChange/filterTypesByMetal DIRECTLY — dispatching DOM change
-  // events would re-run the metal listener and clear the spot-lookup value.
+  // Call handleTypeChange/filterTypesByMetal DIRECTLY (not via dispatched change
+  // events) to avoid double-filtering / listener re-entrancy. Because we bypass
+  // the metal-change listener, we explicitly mirror its spot-clear (STACK-49) —
+  // but ONLY when handleTypeChange actually moves Metal (e.g. an imported Goldback
+  // whose source metal was Silver -> Gold). When Metal is unchanged we preserve the
+  // spot lookup, while a stale spot for the wrong metal can never persist.
   // Order matters: Type is the source of truth, so handleTypeChange() runs FIRST
   // (Type=Goldback/Silverback authoritatively coerces Metal + weight unit and
   // rebuilds the picker). filterTypesByMetal() runs AFTER, reading the now-updated
@@ -2524,7 +2531,12 @@ const fillFormFromNumistaResult = () => {
   // the just-coerced Type (e.g. an imported Goldback whose source metal was wrong).
   const itemMetal = elements.itemMetal || safeGetElement("itemMetal");
   const itemType = elements.itemType || safeGetElement("itemType");
+  const metalBefore = itemMetal instanceof HTMLElement ? itemMetal.value : null;
   if (typeof handleTypeChange === "function") handleTypeChange();
+  const metalAfter = itemMetal instanceof HTMLElement ? itemMetal.value : null;
+  if (metalAfter !== metalBefore && elements.itemSpotPrice instanceof HTMLElement) {
+    elements.itemSpotPrice.value = "";
+  }
   if (itemMetal instanceof HTMLElement && typeof filterTypesByMetal === "function") {
     filterTypesByMetal(itemMetal.value);
   }
