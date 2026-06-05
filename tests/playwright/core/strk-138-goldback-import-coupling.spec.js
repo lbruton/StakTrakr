@@ -635,4 +635,82 @@ test.describe("core/strk-138-goldback-import-coupling", () => {
     expect(stored.weight).toBe(5);
     expect(stored.weightUnit).toBe("gb");
   });
+
+  // -------------------------------------------------------------------------
+  // STAK-580 cross-consumer guard (Requirement 5 — EVERYWHERE)
+  //
+  // The Add/Edit form un-hides Goldback/Silverback (Req 1), but the bulk-edit
+  // and inline table-edit consumers still rely on TYPE_METAL_FILTER to HIDE
+  // incompatible Type options. This locks in that the shared constant stays
+  // populated so a future "empty the constant" change is caught at the inline
+  // consumer (js/inventory.js T21).
+  // -------------------------------------------------------------------------
+
+  test("Inline table-edit on a Silver item hides Goldback/Silverback Type options (STAK-580 guard)", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [BASE_ITEM] }); // BASE_ITEM.metal === "Silver"
+    await gotoApp(page);
+
+    const opts = await page.evaluate(() => {
+      const idx = window.inventory.findIndex((i) => i.uuid === "strk138-base-item");
+      const td = document.createElement("td");
+      td.dataset.field = "type";
+      document.body.appendChild(td);
+      window.startCellEdit(idx, "type", td);
+      const select = td.querySelector("select.inline-select");
+      const opt = (val) => Array.from(select.options).find((o) => o.value === val);
+      const gb = opt("Goldback");
+      const sb = opt("Silverback");
+      const coin = opt("Coin");
+      return {
+        goldback: { exists: !!gb, hidden: gb?.hidden, disabled: gb?.disabled },
+        silverback: { exists: !!sb, hidden: sb?.hidden, disabled: sb?.disabled },
+        coin: { exists: !!coin, hidden: coin?.hidden, disabled: coin?.disabled },
+      };
+    });
+
+    // Goldback is Gold-only, Silverback is Silver-only. On a Silver row Goldback
+    // must be hidden+disabled while Silverback and Coin remain available.
+    expect(opts.goldback.exists).toBe(true);
+    expect(opts.goldback.hidden).toBe(true);
+    expect(opts.goldback.disabled).toBe(true);
+    expect(opts.silverback.exists).toBe(true);
+    expect(opts.silverback.hidden).toBeFalsy();
+    expect(opts.silverback.disabled).toBeFalsy();
+    expect(opts.coin.exists).toBe(true);
+    expect(opts.coin.hidden).toBeFalsy();
+    expect(opts.coin.disabled).toBeFalsy();
+  });
+
+  test("Inline table-edit on a Gold item hides Silverback Type option (STAK-580 guard)", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [GOLDBACK_ITEM] }); // GOLDBACK_ITEM.metal === "Gold"
+    await gotoApp(page);
+
+    const opts = await page.evaluate(() => {
+      const idx = window.inventory.findIndex((i) => i.uuid === "strk138-goldback-item");
+      const td = document.createElement("td");
+      td.dataset.field = "type";
+      document.body.appendChild(td);
+      window.startCellEdit(idx, "type", td);
+      const select = td.querySelector("select.inline-select");
+      const opt = (val) => Array.from(select.options).find((o) => o.value === val);
+      const gb = opt("Goldback");
+      const sb = opt("Silverback");
+      return {
+        goldback: { exists: !!gb, hidden: gb?.hidden, disabled: gb?.disabled },
+        silverback: { exists: !!sb, hidden: sb?.hidden, disabled: sb?.disabled },
+      };
+    });
+
+    // On a Gold row Goldback stays available while Silverback (Silver-only) is hidden.
+    expect(opts.goldback.exists).toBe(true);
+    expect(opts.goldback.hidden).toBeFalsy();
+    expect(opts.goldback.disabled).toBeFalsy();
+    expect(opts.silverback.exists).toBe(true);
+    expect(opts.silverback.hidden).toBe(true);
+    expect(opts.silverback.disabled).toBe(true);
+  });
 });

@@ -2169,32 +2169,12 @@ const handleTypeChange = () => {
  */
 const filterTypesByMetal = (metalValue) => {
   const typeSelect = safeGetElement("itemType");
-  if (!typeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
+  if (!(typeSelect instanceof HTMLElement)) return;
 
-  Array.from(typeSelect.options).forEach((option) => {
-    // STAK-580: leave the placeholder option's disabled/hidden state alone
-    // so it remains an unselectable prompt, not a re-enabled fallback.
-    if (option.value === "") return;
-    const allowedMetals = TYPE_METAL_FILTER[option.value];
-    const isAllowed = !Array.isArray(allowedMetals) || allowedMetals.includes(metalValue);
-    option.hidden = !isAllowed;
-    option.disabled = !isAllowed;
-  });
-
-  const selectedOption = typeSelect.options[typeSelect.selectedIndex];
-  // STAK-580: don't auto-bump the placeholder to "Coin" — that would defeat
-  // required Type selection the instant the user picks a Metal.
-  if (selectedOption && selectedOption.value !== "" && selectedOption.hidden) {
-    typeSelect.value = "Coin";
-    const fallbackOption = typeSelect.options[typeSelect.selectedIndex];
-    if (!fallbackOption || fallbackOption.hidden) {
-      const firstVisible = Array.from(typeSelect.options).find(
-        (option) => !option.hidden && option.value !== ""
-      );
-      if (firstVisible) typeSelect.value = firstVisible.value;
-    }
-    handleTypeChange();
-  }
+  // STRK-138 (Req 1): the Add/Edit form does NOT hide any Type option based on
+  // metal — Goldback/Silverback stay always selectable. The "no nonsensical
+  // metal×type combination" guarantee (Req 5) is enforced below by RESET, not by
+  // hiding. (Bulk edit + inline table edit still hide via TYPE_METAL_FILTER.)
 
   // STAK-580 (re-expressed for Type-drives-Metal): enforce "no nonsensical
   // combo" by RESET, not by hiding. If a Goldback/Silverback Type is active and
