@@ -15,8 +15,6 @@
  * they are identity keys, not diffable data.
  */
 
-/* eslint-disable no-unused-vars */
-
 "use strict";
 
 // ---------------------------------------------------------------------------
