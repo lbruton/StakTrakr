@@ -159,6 +159,28 @@ async function openAddForm(page) {
   // then open the modal. Matches the reliable openAddModal pattern used across the
   // core suite (inventory-crud).
   await page.waitForSelector("#newItemBtn", { state: "visible" });
+
+  // The #itemType / #itemMetal change listeners are wired by setupEventListeners()
+  // inside init.js's deferred Phase-14 setTimeout. selectOption() fires a *real*
+  // change event, but if it lands before that listener attaches the production
+  // reconciliation never runs (the listener-attach race behind STRK-138 test
+  // flake). Probe deterministically: dispatch a Goldback change on #itemType and
+  // wait until handleTypeChange's observable side-effect (weight unit -> "gb")
+  // takes hold, which is only possible once the listener is live.
+  await page.waitForFunction(
+    () => {
+      const type = document.getElementById("itemType");
+      const unit = document.getElementById("itemWeightUnit");
+      if (!(type instanceof HTMLElement) || !(unit instanceof HTMLElement)) return false;
+      unit.value = "oz";
+      type.value = "Goldback";
+      type.dispatchEvent(new Event("change", { bubbles: true }));
+      return unit.value === "gb";
+    },
+    undefined,
+    { timeout: 10000 }
+  );
+
   await page.evaluate(() => {
     document.getElementById("inventoryForm")?.reset();
     const metal = document.getElementById("itemMetal");
@@ -183,27 +205,16 @@ async function openEditForm(page, index = 0) {
   await expect(page.locator("#itemModal")).toBeVisible();
 }
 
-// Set #itemType via direct value + change dispatch. Using selectOption would
-// throw today because TYPE_METAL_FILTER hides Goldback/Silverback when Metal is
-// empty; we want the assertion to fail on behavior, not on a harness error.
+// Drive #itemType via Playwright selectOption, which auto-waits for
+// actionability and dispatches a real change event — eliminating the race
+// against init.js's deferred Phase-14 listener attach. Goldback/Silverback are
+// always selectable since Task 1, so selectOption no longer throws.
 async function setType(page, value) {
-  await page.evaluate((val) => {
-    const el = document.getElementById("itemType");
-    if (el instanceof HTMLElement) {
-      el.value = val;
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }, value);
+  await page.selectOption("#itemType", value);
 }
 
 async function setMetal(page, value) {
-  await page.evaluate((val) => {
-    const el = document.getElementById("itemMetal");
-    if (el instanceof HTMLElement) {
-      el.value = val;
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }, value);
+  await page.selectOption("#itemMetal", value);
 }
 
 // Open the Numista field picker against a pre-built (normalized) result.
