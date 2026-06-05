@@ -421,6 +421,68 @@ function syncIsEnabled() {
 }
 
 // ---------------------------------------------------------------------------
+// Settings serialization integrity + boot-repair (STRK-157)
+// ---------------------------------------------------------------------------
+
+/**
+ * STRK-157: Corruption sentinel. An object/array written to localStorage via
+ * String()/coercion instead of JSON.stringify becomes the literal "[object Object]"
+ * (or "[object Object],[object Object]" for arrays). No legitimate settings value
+ * contains this substring, so it is a safe marker for un-round-trippable corruption.
+ * @param {*} value
+ * @returns {boolean}
+ */
+function _isCorruptObjectString(value) {
+  return typeof value === "string" && value.indexOf("[object Object]") !== -1;
+}
+
+/**
+ * STRK-157: Compute the string to persist for a synced setting, rejecting values
+ * that cannot round-trip. Returns the clean string to write, or null when the
+ * value is "[object Object]"-corrupt and must be skipped — so a corrupt remote can
+ * never overwrite a good local value or re-stick itself on every pull.
+ * @param {*} remoteVal
+ * @returns {string|null}
+ */
+function _safeSettingWriteValue(remoteVal) {
+  var str = typeof remoteVal === "string" ? remoteVal : JSON.stringify(remoteVal);
+  if (_isCorruptObjectString(str)) return null;
+  return str;
+}
+
+/**
+ * STRK-157: One-time, idempotent boot repair. Scans SYNC_SCOPE_KEYS for values
+ * corrupted into "[object Object]" form (an object written without JSON.stringify).
+ * The load paths parse-fail and fall back to defaults in memory, but the corrupt
+ * string never leaves localStorage, so it perpetually diverges the settings hash —
+ * the one value class that cannot self-heal via convergent compare. Removes each
+ * corrupt key so its load path uses defaults. Idempotent: a second run finds nothing.
+ * @returns {string[]} keys that were repaired
+ */
+function syncBootRepairCorruptSettings() {
+  var repaired = [];
+  try {
+    if (typeof localStorage === "undefined") return repaired;
+    var keys = typeof SYNC_SCOPE_KEYS !== "undefined" ? SYNC_SCOPE_KEYS : [];
+    for (var i = 0; i < keys.length; i++) {
+      var raw = localStorage.getItem(keys[i]);
+      if (raw === null) continue;
+      var decoded = typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      if (_isCorruptObjectString(decoded)) {
+        localStorage.removeItem(keys[i]);
+        repaired.push(keys[i]);
+      }
+    }
+    if (repaired.length > 0) {
+      debugLog("[CloudSync] STRK-157 boot-repair removed corrupt keys:", repaired.join(", "));
+    }
+  } catch (e) {
+    debugLog("[CloudSync] syncBootRepairCorruptSettings failed:", e.message);
+  }
+  return repaired;
+}
+
+// ---------------------------------------------------------------------------
 // Override backup — snapshot local data before a remote pull overwrites it
 // ---------------------------------------------------------------------------
 
@@ -434,7 +496,13 @@ function syncSaveOverrideBackup() {
     var data = {};
     for (var i = 0; i < keys.length; i++) {
       var raw = localStorage.getItem(keys[i]);
-      if (raw !== null) data[keys[i]] = raw;
+      if (raw === null) continue;
+      // STRK-157: never snapshot a corrupt "[object Object]" value — restore would
+      // reintroduce it. Skip it so restore falls back to the load-path default.
+      var decodedSnap =
+        typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      if (_isCorruptObjectString(decodedSnap)) continue;
+      data[keys[i]] = raw;
     }
     var backup = {
       timestamp: Date.now(),
@@ -497,7 +565,14 @@ async function syncRestoreOverrideBackup() {
         typeof ALLOWED_STORAGE_KEYS !== "undefined" &&
         ALLOWED_STORAGE_KEYS.indexOf(bkeys[j]) !== -1
       ) {
-        localStorage.setItem(bkeys[j], backup.data[bkeys[j]]);
+        // STRK-157: don't reintroduce "[object Object]" corruption on restore.
+        var restoreVal = backup.data[bkeys[j]];
+        var restoreDecoded =
+          typeof __decompressIfNeeded === "function"
+            ? __decompressIfNeeded(restoreVal)
+            : restoreVal;
+        if (_isCorruptObjectString(restoreDecoded)) continue;
+        localStorage.setItem(bkeys[j], restoreVal);
       }
     }
     if (typeof loadItemTags === "function") loadItemTags();
@@ -3076,12 +3151,17 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
         sc.remoteVal !== undefined &&
         typeof localStorage !== "undefined"
       ) {
+        // STRK-157: reject "[object Object]" corruption — never persist a value
+        // that cannot round-trip and would re-stick on every pull. Skip it and
+        // leave the good local value intact (not counted as a write failure).
+        var writeVal = _safeSettingWriteValue(sc.remoteVal);
+        if (writeVal === null) {
+          debugLog("[CloudSync] STRK-157: skipped corrupt settings value for key:", sc.key);
+          continue;
+        }
         _priorValues[sc.key] = localStorage.getItem(sc.key);
         try {
-          localStorage.setItem(
-            sc.key,
-            typeof sc.remoteVal === "string" ? sc.remoteVal : JSON.stringify(sc.remoteVal)
-          );
+          localStorage.setItem(sc.key, writeVal);
           _appliedKeys.push(sc.key);
         } catch (_e) {
           _failedCount++;
@@ -4581,6 +4661,12 @@ function initCloudSync() {
     console.warn("[CloudSync] Skipping init — app initialization failed");
     return;
   }
+  // STRK-157: repair any "[object Object]"-corrupt scope keys before sync compares
+  // hashes — this corruption can't self-heal via convergent compare, so clear it
+  // once at boot (idempotent). Runs even when sync is disabled so a later enable
+  // starts clean.
+  syncBootRepairCorruptSettings();
+
   // Initialize multi-tab coordination (Layer 7)
   initSyncTabCoordination();
 
@@ -4746,6 +4832,7 @@ window.getSyncPasswordSilent = getSyncPasswordSilent;
 window.syncIsEnabled = syncIsEnabled;
 window.syncSaveOverrideBackup = syncSaveOverrideBackup;
 window.syncRestoreOverrideBackup = syncRestoreOverrideBackup;
+window.syncBootRepairCorruptSettings = syncBootRepairCorruptSettings;
 window.changeVaultPassword = changeVaultPassword;
 window.syncGetLastPush = syncGetLastPush;
 window._syncRelativeTime = _syncRelativeTime;
