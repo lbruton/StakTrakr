@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.7 &ndash; Cloud sync convergence</strong>: Fixed the permanent &ldquo;Review Sync Changes&rdquo; loop between devices &mdash; tag merges now converge and auto-heal, settings compare by logical content instead of raw storage, and phantom timestamp/attachment conflicts in the review modal are gone (STRK-154).</li>
     <li><strong>v3.35.6 &ndash; Vendor module isolation</strong>: Retail price extraction now routes migrated Vendors through isolated modules, keeps dashboard single-Vendor retry import-safe, and packages the new modules for poller deploys (STRK-32).</li>
     <li><strong>v3.35.5 &ndash; Goldback import &amp; Type-drives-Metal</strong>: Selecting a Goldback/Silverback Numista result now auto-fills Type, Metal, and weight (including fractional denominations), and choosing a Goldback type in the form sets its metal automatically (STRK-138).</li>
     <li><strong>v3.35.3 &ndash; Market history storage</strong>: Spot &amp; retail price history moved to IndexedDB, permanently clearing the storage-quota ceiling; existing history migrates automatically with no loss, and item price history is now capped so it can&rsquo;t refill the quota (STRK-141).</li>
@@ -146,8 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.35.2 &ndash; Metal-neutral purity labels</strong>: Fineness options no longer name a metal, so selecting .900 on a gold item no longer reads &ldquo;90&percnt; Silver&rdquo; (STRK-145).</li>
     <li><strong>v3.35.1 &ndash; Storage quota fix</strong>: Market price history is now compressed (lz-string), clearing the &ldquo;storage quota exceeded&rdquo; error and freeing roughly 80&percnt; of its storage footprint &mdash; existing data is upgraded automatically with no loss (STRK-140).</li>
     <li><strong>v3.35.0 &ndash; Trade linking</strong>: Bidirectional trade links between disposed traded items and received inventory, with editable provenance, spot-derived trade values, backup/export coverage, and cloud-sync visibility (STRK-123).</li>
-    <li><strong>v3.35.0 &ndash; Cloud sync hardening</strong>: Tag merge on sync, conflict-loop fix after accepting remote changes, Bullion Exchanges content-quality retry (STRK-106, STRK-107, STRK-108).</li>
-    <li><strong>v3.35.0 &ndash; Retail &amp; autocomplete fixes</strong>: SDB/BE spot-ticker sidebar leak patched, autocomplete field name casing corrected (STRK-99, STRK-114).</li>
   `;
 };
 
