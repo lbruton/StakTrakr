@@ -1,14 +1,14 @@
 // STRK-141 Phase 2 — Migrate market histories to IndexedDB.
 //
-// TDD RED-PHASE SPEC (Phase 0, task 0.3). These tests are written BEFORE the
-// feature exists and MUST FAIL against the current build:
-//   - window.historyStore (the new HistoryStore singleton) does not exist yet
-//   - the boot localStorage->IndexedDB migration does not exist yet
-//   - the item-price-history retention cap (applyItemPriceRetention) does not exist yet
-//   - the backup export/restore exclusion of spot/retail history does not exist yet
+// REGRESSION SPEC. Originally authored as the TDD red-phase suite (Phase 0,
+// task 0.3) before the feature existed; now that the STRK-141 implementation has
+// landed these tests pass and guard against regressions. Coverage:
+//   - window.historyStore (the HistoryStore singleton) lifecycle
+//   - the boot localStorage->IndexedDB migration (idempotent, decompress-aware)
+//   - the item-price-history retention cap (applyItemPriceRetention)
+//   - the backup export/restore exclusion of spot/retail history
 //
-// They turn green only after the STRK-141 implementation lands. Each test maps to
-// one or more acceptance criteria from
+// Each test maps to one or more acceptance criteria from
 //   DocVault/specflow/StakTrakr/specs/STRK-141-migrate-market-histories-to-indexeddb/
 //   {requirements.md, design.md (Testing Strategy)}.
 //
