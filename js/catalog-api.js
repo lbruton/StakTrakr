@@ -747,7 +747,10 @@ class NumistaProvider extends CatalogProvider {
       weight: numistaData.weight || 0,
       ...parseDimensions(numistaData.size, numistaData.shape || ""),
       thickness: numistaData.thickness || 0,
-      type: this.normalizeType(numistaData.category || ""),
+      type: this.normalizeType(
+        numistaData.category || "",
+        `${numistaData.title || ""} ${denomination}`
+      ),
       mintage: 0, // Mintage is per-issue, not per-type in Numista API
       estimatedValue: numistaData.value?.numeric_value || 0,
       imageUrl: imageUrl,
@@ -801,11 +804,19 @@ class NumistaProvider extends CatalogProvider {
 
   /**
    * Normalize item type from Numista format
-   * @param {string} type - Numista type string
+   * @param {string} category - Numista category/type string
+   * @param {string} [contextText] - Extra context (title + denomination) used to
+   *   detect Goldback/Silverback, which Numista files under generic categories.
    * @returns {string} Standardized type
    */
-  normalizeType(type) {
-    const t = type.toLowerCase();
+  normalizeType(category, contextText = "") {
+    // STRK-138: Goldback/Silverback are not distinct Numista categories — detect
+    // them from the combined category + context text before the keyword checks.
+    const ctx = `${category} ${contextText}`.toLowerCase();
+    if (ctx.includes("goldback")) return "Goldback";
+    if (ctx.includes("silverback")) return "Silverback";
+
+    const t = category.toLowerCase();
     if (t.includes("coin") || t.includes("circulation")) return "Coin";
     if (t.includes("bar") || t.includes("ingot")) return "Bar";
     if (t.includes("round")) return "Round";
@@ -2186,6 +2197,45 @@ const showNumistaResults = (results, directLookup = false, originalQuery = "") =
  * Fill form fields from the editable picker inputs.
  * Reads values from the numistaFieldValue_* text inputs (user may have edited them).
  */
+/**
+ * STRK-138: Parse a Goldback denomination weight from free-form text.
+ * Matches Unicode/ASCII fractions and leading decimals, but only returns a value
+ * if it exactly equals a canonical GOLDBACK_DENOMINATIONS weight.
+ * Uses regex/parseFloat only — never eval()/Function() on the input string.
+ * @param {string} text - Raw denomination text (e.g. "1/4 Idaho Goldback").
+ * @returns {number|null} Matching weight, or null when no exact match.
+ */
+const parseGoldbackDenomination = (text) => {
+  if (typeof text !== "string" || !text.trim()) return null;
+
+  // Normalize the Unicode fractions present in GOLDBACK_DENOMINATIONS labels.
+  const normalized = text.replace(/¼/g, "1/4").replace(/½/g, "1/2").replace(/¾/g, "3/4");
+
+  let value = null;
+  const fraction = normalized.match(/(\d+)\s*\/\s*(\d+)/);
+  if (fraction) {
+    const numerator = parseFloat(fraction[1]);
+    const denominator = parseFloat(fraction[2]);
+    if (denominator !== 0) value = numerator / denominator;
+  } else {
+    const decimal = normalized.match(/(\d+(?:\.\d+)?|\.\d+)/);
+    if (decimal) value = parseFloat(decimal[1]);
+  }
+
+  if (value === null || Number.isNaN(value)) return null;
+
+  const weights = Array.isArray(window.GOLDBACK_DENOMINATIONS)
+    ? window.GOLDBACK_DENOMINATIONS
+    : typeof GOLDBACK_DENOMINATIONS !== "undefined"
+      ? GOLDBACK_DENOMINATIONS
+      : [];
+  // Compare at 6-decimal precision via integer rounding — goldback weights have
+  // ≤2 decimals, so this is exact for all real inputs and avoids a float epsilon.
+  const SCALE = 1000000;
+  const match = weights.find((d) => Math.round(d.weight * SCALE) === Math.round(value * SCALE));
+  return match ? match.weight : null;
+};
+
 const fillFormFromNumistaResult = () => {
   const container = document.getElementById("numistaFieldCheckboxes");
   if (!container) return;
@@ -2465,6 +2515,46 @@ const fillFormFromNumistaResult = () => {
       }
     });
   }
+
+  // STRK-138: Reconcile Metal/Type exactly as a manual change would, so the
+  // imported form lands identical to a correct manual entry (no re-selection).
+  // Call handleTypeChange/filterTypesByMetal DIRECTLY (not via dispatched change
+  // events) to avoid double-filtering / listener re-entrancy. Because we bypass
+  // the metal-change listener, we explicitly mirror its spot-clear (STACK-49) —
+  // but ONLY when handleTypeChange actually moves Metal (e.g. an imported Goldback
+  // whose source metal was Silver -> Gold). When Metal is unchanged we preserve the
+  // spot lookup, while a stale spot for the wrong metal can never persist.
+  // Order matters: Type is the source of truth, so handleTypeChange() runs FIRST
+  // (Type=Goldback/Silverback authoritatively coerces Metal + weight unit and
+  // rebuilds the picker). filterTypesByMetal() runs AFTER, reading the now-updated
+  // itemMetal.value, to mirror the manual sequence without its reset-guard clearing
+  // the just-coerced Type (e.g. an imported Goldback whose source metal was wrong).
+  const itemMetal = elements.itemMetal || safeGetElement("itemMetal");
+  const itemType = elements.itemType || safeGetElement("itemType");
+  const metalBefore = itemMetal instanceof HTMLElement ? itemMetal.value : null;
+  if (typeof handleTypeChange === "function") handleTypeChange();
+  const metalAfter = itemMetal instanceof HTMLElement ? itemMetal.value : null;
+  if (metalAfter !== metalBefore && elements.itemSpotPrice instanceof HTMLElement) {
+    elements.itemSpotPrice.value = "";
+  }
+  if (itemMetal instanceof HTMLElement && typeof filterTypesByMetal === "function") {
+    filterTypesByMetal(itemMetal.value);
+  }
+
+  // STRK-138: For a Goldback, parse the imported denomination and select the
+  // matching picker option. This MUST run after handleTypeChange rebuilt the
+  // picker (updateDenomLabels) or the value would be overwritten. Silverback is
+  // single-denomination — no fraction parse. Only override on an exact match;
+  // an empty/unparseable denomination leaves the safe "1 Goldback" default.
+  if (itemType instanceof HTMLElement && itemType.value === "Goldback") {
+    const denomInput = container.querySelector('input[name="numistaFieldValue_denomination"]');
+    const rawDenom = denomInput instanceof HTMLElement ? denomInput.value : "";
+    const weight = parseGoldbackDenomination(rawDenom);
+    if (weight !== null) {
+      const gbDenomEl = elements.itemGbDenom || safeGetElement("itemGbDenom");
+      if (gbDenomEl instanceof HTMLElement) gbDenomEl.value = String(weight);
+    }
+  }
 };
 
 /**
@@ -2676,6 +2766,7 @@ if (typeof window !== "undefined") {
   window.saveCatalogHistory = saveCatalogHistory;
   window.showNumistaResults = showNumistaResults;
   window.fillFormFromNumistaResult = fillFormFromNumistaResult;
+  window.parseGoldbackDenomination = parseGoldbackDenomination;
   window.closeNumistaResultsModal = closeNumistaResultsModal;
   window.renderNumistaUsageBar = renderNumistaUsageBar;
   window.renderPcgsUsageBar = renderPcgsUsageBar;

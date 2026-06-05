@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.3";
+const APP_VERSION = "3.35.5";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -620,11 +620,17 @@ const GOLDBACK_DENOMINATIONS = [
 
 const SILVERBACK_DENOMINATIONS = [{ weight: 1, label: "1 Silverback", silverOz: 0.001 }];
 
-/** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
-const TYPE_METAL_FILTER = {
-  Goldback: ["Gold"],
-  Silverback: ["Silver"],
-};
+/**
+ * @constant {Object<string, string[]>} TYPE_METAL_FILTER - STAK-580 Type/metal gate.
+ * Gates the Goldback/Silverback Type options in BULK EDIT (js/bulkEdit.js
+ * filterBulkTypesByMetal) and INLINE TABLE EDIT (js/inventory.js, T21) by hiding
+ * options whose metal is incompatible with the selected/row metal.
+ * The Add/Edit form (js/events.js filterTypesByMetal) does NOT use this for hiding —
+ * the form keeps Goldback/Silverback always selectable (STRK-138 Req 1) and enforces
+ * the same "no nonsensical metal×type combination" guarantee (Req 5) via the
+ * Type-drives-Metal coupling (handleTypeChange) plus the incompatible-metal reset-guard.
+ */
+const TYPE_METAL_FILTER = { Goldback: ["Gold"], Silverback: ["Silver"] };
 
 /** @constant {string} ITEM_TAGS_KEY - LocalStorage key for item tags mapping (STAK-126) */
 const ITEM_TAGS_KEY = "itemTags"; // nosemgrep: codacy.javascript.security.hard-coded-password

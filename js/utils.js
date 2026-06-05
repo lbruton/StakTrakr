@@ -308,7 +308,22 @@ const getLastUpdateTime = (metalName, mode = "cache") => {
 
   if (latestEntry.source === "seed") {
     const dateText = latestEntry.timestamp.slice(0, 10);
-    return `Seed \u00b7 ${dateText}<br>Shift+click or long-press to set`;
+    // STRK-153: when the seed bundle includes a today-dated (noon) entry, saveSpotHistory
+    // re-sorts it back to the tail even after a real same-day API sync recorded earlier in
+    // the day. Compare by LOCAL CALENDAR DAY (not raw timestamps \u2014 the seed is noon, a real
+    // sync may be morning): if a real sync occurred on/after the seed's date, prefer the live
+    // label by falling through; otherwise keep the "Seed" label.
+    const syncInfo =
+      loadDataSync(LAST_API_SYNC_KEY, null) || loadDataSync(LAST_CACHE_REFRESH_KEY, null);
+    const syncTs = syncInfo && syncInfo.timestamp;
+    const syncDate =
+      syncTs && !Number.isNaN(new Date(syncTs).getTime())
+        ? new Date(syncTs).toLocaleDateString("en-CA")
+        : null;
+    if (!syncDate || syncDate < dateText) {
+      return `Seed \u00b7 ${dateText}<br>Shift+click or long-press to set`;
+    }
+    // fall through to the api/cache label path below
   }
 
   if (latestEntry.source === "default") return "";
