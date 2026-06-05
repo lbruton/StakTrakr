@@ -21,18 +21,34 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import {
-  openSqldDb,
-  writeSnapshot,
-  windowFloor,
-  startRunLog,
-  finishRunLog,
-  recordFailure,
-  readSpotCurrent,
-} from "./db.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadProviders } from "./provider-db.js";
 import { getCFClearanceCookie } from "./cf-clearance.js";
+import { shouldBypassFirecrawlPreferredForPhase0 } from "./price-extract-vendor-goldback.js";
+import {
+  FIRECRAWL_PREFERRED_PROVIDERS,
+  FIRECRAWL_TABLE_PARSE_PROVIDERS,
+  PLAYWRIGHT_ONLY_PROVIDERS,
+  providerCfg,
+  resolveProxy,
+} from "./price-extract-provider-config.js";
+import { scrapeVendor } from "./price-extract-vendors.js";
+import {
+  JSONLD_OOS_VALUES,
+  JSONLD_ZERO_PRICE,
+  detectStockStatus,
+  extractJsonLdAvailability,
+  extractJsonLdPrice,
+  extractJsonLdScriptsFromHtml,
+  extractMarkdownPrice,
+  firecrawlMarkdownResult,
+  firecrawlOutOfStockResult,
+  htmlToPlainText,
+  isStructuredPriceResult,
+  looksLikeChallengePage,
+  markdownFromScrapeResult,
+  preprocessMarkdown,
+} from "./price-extract-shared.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -66,10 +82,14 @@ const HOME_PROXY_URL = process.env.HOME_PROXY_URL || null;
 // Targets are shuffled so the same vendor is never hit consecutively;
 // per-vendor effective gap ≈ (47/7 vendors) × avg_jitter ≈ ~30s — well within limits.
 // Kept short so each full run completes in <10 min and fits inside the 15-min cron window.
-const SCRAPE_TIMEOUT_MS = 30_000;
-const FIRECRAWL_TIMEOUT_MS = 55_000; // extended timeout for Firecrawl-preferred SPAs (jmbullion needs 12s waitFor + round-trip)
 const RETRY_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 3_000;
+
+let dbHelpersPromise = null;
+function loadDbHelpers() {
+  dbHelpersPromise ??= import("./db.js");
+  return dbHelpersPromise;
+}
 
 // Jitter between requests — randomised anti-pattern fingerprinting.
 // Fly.io (datacenter IP) uses longer delays to avoid rate limits.
@@ -104,9 +124,9 @@ function warn(msg) {
 /** Wrapper around writeSnapshot that catches DB errors so a single failed
  *  write doesn't crash the entire run. Returns true on success. */
 let _dbWriteFailures = 0;
-async function safeWriteSnapshot(db, row) {
+async function safeWriteSnapshot(db, row, writeSnapshotFn) {
   try {
-    await writeSnapshot(db, row);
+    await writeSnapshotFn(db, row);
     return true;
   } catch (err) {
     _dbWriteFailures++;
@@ -118,683 +138,6 @@ async function safeWriteSnapshot(db, row) {
 }
 
 // ---------------------------------------------------------------------------
-// Price extraction from Firecrawl markdown
-// ---------------------------------------------------------------------------
-
-// Per-oz price ranges by metal type.
-// Multiplied by weight_oz to get the expected price range for each coin.
-// Filters out accessories, spot ticker values, and unrelated products.
-const METAL_PRICE_RANGE_PER_OZ = {
-  silver: { min: 40, max: 200 }, // 1oz: $40-200, 10oz bar: $400-2000
-  gold: { min: 1500, max: 15000 }, // 1oz: $1500-15000
-  platinum: { min: 500, max: 6000 },
-  palladium: { min: 300, max: 6000 },
-  goldback: { min: 5, max: 25 }, // G1 ($10 spot equivalent); G50 would be $500 but tracked separately
-};
-
-// Provider IDs that use "As Low As" as their primary price indicator.
-// UPDATE 2026-02-21: Monument Metals DOES have a pricing table (1-24 row with eCheck/Wire column).
-// "As Low As" is bulk discount (500+) — use table-first extraction like all other vendors.
-// Empty set = all vendors now use table-first strategy.
-const USES_AS_LOW_AS = new Set([]);
-
-// Out-of-stock text patterns
-const OUT_OF_STOCK_PATTERNS = [
-  /out of stock/i,
-  /sold out/i,
-  /currently unavailable/i,
-  /notify me when available/i,
-  /email when in stock/i,
-  /temporarily out of stock/i,
-  /back ?order/i,
-  /pre-?order/i,
-  // Hero Bullion (WooCommerce) shows a `<p class="stock out-of-stock">Unavailable</p>`
-  // badge that Firecrawl renders as a bare "Unavailable" line. Anchored to a line
-  // start to avoid matching prose like "Currently unavailable for shipping" elsewhere.
-  /^\s*unavailable\s*$/im,
-];
-
-// Soft 404 patterns — React SPAs return HTTP 200 but render "not found" content.
-// When detected, the scraper should record inStock=false and price=null (STAK-475).
-const SOFT_404_PATTERNS = [
-  /page\s*(not|can['\u2019]?t be|cannot be)\s*found/i,
-  /product\s*(not|no longer)\s*(found|available)/i,
-  /404\s*[-–—]\s*(page|not found)/i,
-  /this\s+page\s+(doesn['\u2019]?t|does not)\s+exist/i,
-  /we\s+couldn['\u2019]?t\s+find/i,
-  /the\s+page\s+you\s+(requested|are looking for)/i,
-  /no\s+longer\s+available/i,
-  /has\s+been\s+(removed|discontinued)/i,
-];
-
-// Providers whose "Pre-Order" / "Presale" items still show live purchasable prices.
-// For these, skip the pre-?order OOS pattern — treat presale as in-stock.
-const PREORDER_TOLERANT_PROVIDERS = new Set(["jmbullion", "monumentmetals"]);
-
-const MARKDOWN_CUTOFF_PATTERNS = {
-  sdbullion: [
-    /^\*\*Add on Items\*\*/im, // Firecrawl markdown bold header
-    /^Add on Items\s*$/im, // Firecrawl plain-text header
-    /^\*\*Customers Also Purchased\*\*/im, // Firecrawl markdown bold header
-    /^Customers Also Purchased\s*$/im, // Firecrawl plain-text header
-    /<[^>]*>\s*Add on Items/i, // Playwright HTML header
-    /<[^>]*>\s*Customers Also Purchased/i, // Playwright HTML header
-  ],
-  // JM pages show "Similar Products You May Like" carousel with fractional coin
-  // "As Low As" prices (1/2 oz, 1/4 oz, 1/10 oz) that fall within the metal
-  // price range and cause Math.min() to pick a fractional price instead of 1oz.
-  jmbullion: [
-    /^Similar Products You May Like/im, // Firecrawl markdown section heading
-    /<[^>]*>\s*Similar Products You May Like/i, // Playwright HTML heading
-  ],
-  // Monument Metals embeds ShopperApproved customer reviews on every product
-  // page. Review prose can contain OOS keywords ("Out Of Stock") that trigger
-  // false positives in detectStockStatus(). Cut before the review block.
-  monumentmetals: [
-    /[\d,]+\s+Reviews?\]\(https:\/\/www\.shopperapproved/i, // Firecrawl markdown (includes href)
-    /[\d,]+\s+Reviews?\b/i, // Playwright plain-text (innerText has no href)
-    /\bSuggested Products\b/i, // "Suggested Products" section after reviews
-  ],
-  // Summit Metals (Shopify) embeds an identical static FAQ accordion on every
-  // product page. One answer contains the literal phrase "...or marked as
-  // 'Out of stock.'", which trips OUT_OF_STOCK_PATTERNS in detectStockStatus()
-  // and false-flags EVERY Summit item OOS — even though the real status badge
-  // ("In Stock, Ready to Ship") appears higher up the page. Cut the
-  // description/reviews/FAQ tail before stock + price detection. The product's
-  // own pricing table and "Regular price" cards sit ABOVE "Description Shipping
-  // & Returns", so price extraction is unaffected. (Same failure class as the
-  // monumentmetals review-block fix above.)
-  summitmetals: [
-    /^\s*Description Shipping & Returns\s*$/im, // product tab bar — tail begins here
-    /^#{0,6}\s*What Our Clients/im, // reviews section heading (fallback)
-    /^#{0,6}\s*Faq'?s\s*$/im, // FAQ section heading (final guard before "Out of stock")
-  ],
-};
-
-// Patterns that match the START of the actual product content, used to strip
-// site-wide header/nav containing spot price tickers that otherwise get mistaken
-// for product prices (e.g. JM Bullion nav shows Gold Ask $5,120.96).
-const MARKDOWN_HEADER_SKIP_PATTERNS = {
-  // JM Bullion header ends with a timestamp like "Feb 21, 2026 at 13:30 EST"
-  // followed by the nav mega-menu. The product area starts after the nav.
-  // We skip past the spot ticker to avoid false gold-price matches.
-  jmbullion:
-    /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[A-Z]{2,4}/,
-  // Monument Metals (React SPA) — nav has spot tickers like "Gold $3,120.50 Silver $32.10".
-  // Skip past the header/nav area to avoid firstInRangeProse grabbing spot prices.
-  // The product title typically follows a breadcrumb containing "Home >" or the product name.
-  monumentmetals: /(?:Home\s*>|Bullion\s*>|Coins?\s*>)/,
-};
-
-function preprocessMarkdown(markdown, providerId) {
-  if (!markdown) return "";
-  let result = markdown;
-
-  // Strip site-wide header/nav (spot price tickers) to prevent false matches
-  const headerPattern = MARKDOWN_HEADER_SKIP_PATTERNS[providerId];
-  if (headerPattern) {
-    const headerMatch = result.search(headerPattern);
-    if (headerMatch !== -1) {
-      // Find end of the matched timestamp line and skip past it
-      const afterMatch = result.indexOf("\n", headerMatch);
-      if (afterMatch !== -1) result = result.slice(afterMatch + 1);
-    }
-  }
-
-  // Trim tail: cut at first "related products" section to avoid carousel noise
-  const patterns = MARKDOWN_CUTOFF_PATTERNS[providerId];
-  if (patterns) {
-    let cutIndex = result.length;
-    for (const pattern of patterns) {
-      const match = result.search(pattern);
-      if (match !== -1 && match < cutIndex) cutIndex = match;
-    }
-    result = result.slice(0, cutIndex);
-  }
-
-  return result;
-}
-
-/**
- * Detect stock status from Firecrawl markdown.
- *
- * @param {string} markdown  Firecrawl-scraped markdown
- * @param {number} expectedWeightOz  Expected product weight (e.g., 1 for 1 oz)
- * @param {string} [providerId]  Provider ID for per-provider OOS exceptions
- * @returns {{inStock: boolean, reason: string, detectedText: string|null}}
- */
-function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "") {
-  if (!markdown) {
-    return { inStock: true, reason: "no_markdown", detectedText: null };
-  }
-
-  // Check for soft 404 pages (React SPAs returning HTTP 200 with "not found" content)
-  for (const pattern of SOFT_404_PATTERNS) {
-    const match = markdown.match(pattern);
-    if (match) {
-      return {
-        inStock: false,
-        reason: "soft_404",
-        detectedText: match[0],
-      };
-    }
-  }
-
-  // Check for out-of-stock text patterns
-  const toleratesPreorder = PREORDER_TOLERANT_PROVIDERS.has(providerId);
-  for (const pattern of OUT_OF_STOCK_PATTERNS) {
-    if (toleratesPreorder && /pre-?order/i.source === pattern.source) continue;
-    const match = markdown.match(pattern);
-    if (match) {
-      return {
-        inStock: false,
-        reason: "out_of_stock",
-        detectedText: match[0],
-      };
-    }
-  }
-
-  // Check for fractional weight mismatch (related product substitution).
-  // Only check the product title area (first H1/H2 or first ~500 chars of main content),
-  // NOT the full page — nav menus on Bullion Exchanges etc. contain "1/2 oz" category
-  // links that cause false positives on every page.
-  // Skipped entirely for FRACTIONAL_EXEMPT_PROVIDERS whose global nav structurally
-  // includes fractional coin links on every product page.
-  if (expectedWeightOz >= 1 && !FRACTIONAL_EXEMPT_PROVIDERS.has(providerId)) {
-    // Extract the product title: first markdown heading (# or ##) or first 500 chars
-    const headingMatch = markdown.match(/^#{1,2}\s+(.+)$/m);
-    const titleArea = headingMatch ? headingMatch[1] : markdown.slice(0, 500);
-
-    const fractionalPatterns = [
-      /\b1\/2\s*oz\b/i,
-      /\b1\/4\s*oz\b/i,
-      /\b1\/10\s*oz\b/i,
-      /\bhalf\s*ounce\b/i,
-      /\bquarter\s*ounce\b/i,
-    ];
-
-    for (const pattern of fractionalPatterns) {
-      const match = titleArea.match(pattern);
-      if (match) {
-        return {
-          inStock: false,
-          reason: "fractional_weight",
-          detectedText: match[0],
-        };
-      }
-    }
-  }
-
-  return { inStock: true, reason: "in_stock", detectedText: null };
-}
-
-/**
- * Extract price from JSON-LD Product schema (`offers.price`).
- *
- * Checks first — before any regex-based extraction — because JSON-LD is
- * the authoritative structured price set by the merchant, and avoids
- * false positives from spot ticker values appearing earlier in innerText.
- *
- * Resolution order per Product/Offer:
- *   1. `priceSpecification` with qty-1 + wire/eCheck `appliesToPaymentMethod` (preferred)
- *   2. Bare `offer.price` in metal range — SKIPPED when providerId is in
- *      UNTRUSTED_OFFER_PRICE_VENDORS (STRK-99); caller then falls through to
- *      markdown-table extraction in `extractPrice()`.
- *   3. `offer.price === 0` → returns JSONLD_ZERO_PRICE sentinel (OOS signal,
- *      STAK-475 P1) — honored for ALL vendors including denied ones.
- *
- * @param {string[]} jsonLdScripts  textContent of each ld+json script tag
- * @param {string}   metal
- * @param {number}   [weightOz=1]
- * @param {string}   [providerId=""]  Used to consult UNTRUSTED_OFFER_PRICE_VENDORS
- *                                    denylist (STRK-99). Empty string keeps the
- *                                    legacy "always honor offer.price" behavior.
- * @returns {number|symbol|null}  Numeric price, JSONLD_ZERO_PRICE sentinel for
- *                                OOS, or null if no usable price was found.
- */
-// Sentinel returned by extractJsonLdPrice when JSON-LD has a valid Product
-// with price=0 — signals "real product page, no price (OOS)". Callers must
-// check for this to avoid falling through to HTML extraction which would
-// grab ticker/carousel prices from a zero-priced product page (STAK-475 P1).
-const JSONLD_ZERO_PRICE = Symbol("jsonld-zero-price");
-
-// Vendors whose JSON-LD `offer.price` is the deepest "As Low As" bulk tier
-// rather than the 1-unit retail price (STRK-99). For these vendors, we still
-// honor a tier-aware `priceSpecification` block if present (qty-1 wire entry),
-// but we skip the bare `offer.price` fallback so extractPrice() can pull the
-// correct 1-unit Check/Wire price from the markdown table instead.
-//
-// Verified 2026-05-23: SDB and BE both publish only `offer.price` (no
-// priceSpecification array, no eligibleQuantity, no appliesToPaymentMethod).
-// Add a vendor here only after confirming via live JSON-LD capture that the
-// bare offer.price is consistently the bulk-tier value.
-const UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"]);
-
-function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerId = "") {
-  if (!jsonLdScripts || jsonLdScripts.length === 0) return null;
-  const perOz = METAL_PRICE_RANGE_PER_OZ[metal];
-  if (!perOz) return null;
-  const min = perOz.min * weightOz;
-  const max = perOz.max * weightOz;
-
-  function inRange(p) {
-    return !isNaN(p) && p >= min && p <= max;
-  }
-
-  const WIRE_METHOD_RE = /bank|wire|check|ach/i;
-  function isBankTransfer(method) {
-    if (!method) return false;
-    if (typeof method === "string")
-      return method.includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method);
-    if (method["@id"])
-      return (
-        method["@id"].includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method["@id"])
-      );
-    if (method.name) return WIRE_METHOD_RE.test(method.name);
-    return false;
-  }
-
-  for (const script of jsonLdScripts) {
-    try {
-      const data = JSON.parse(script);
-      const items = Array.isArray(data) ? data : [data];
-      for (const item of items) {
-        const typeVal = item["@type"];
-        const types = Array.isArray(typeVal) ? typeVal : [typeVal];
-        if (!types.includes("Product")) continue;
-        const offers = item.offers;
-        if (!offers) continue;
-        const offerList = Array.isArray(offers) ? offers : [offers];
-        for (const offer of offerList) {
-          // Prefer wire/eCheck price from priceSpecification (qty-1 tier).
-          // offer.price is often the Card/PayPal tier — ~4% higher than wire.
-          const rawSpecs = offer.priceSpecification;
-          const specs = rawSpecs == null ? [] : Array.isArray(rawSpecs) ? rawSpecs : [rawSpecs];
-          if (specs.length > 0) {
-            let wirePrice = null;
-            for (const spec of specs) {
-              const methods = Array.isArray(spec.appliesToPaymentMethod)
-                ? spec.appliesToPaymentMethod
-                : [spec.appliesToPaymentMethod];
-              if (!methods.some(isBankTransfer)) continue;
-              const qty = spec.eligibleQuantity;
-              const qtyMin = qty ? String(qty.minValue ?? qty.value ?? "") : "";
-              if (qtyMin && qtyMin !== "1") continue;
-              const p = parseFloat(String(spec.price ?? "").replace(/,/g, ""));
-              if (inRange(p)) {
-                wirePrice = p;
-                break;
-              }
-            }
-            if (wirePrice !== null) return wirePrice;
-          }
-
-          const price = parseFloat(String(offer.price ?? "").replace(/,/g, ""));
-          // Always honor the zero-price OOS sentinel — even for denied vendors.
-          // A zero offer.price reliably signals "real product page, no price"
-          // (STAK-475 P1); only the in-range fallback is untrustworthy.
-          if (!isNaN(price) && price === 0) return JSONLD_ZERO_PRICE;
-          // STRK-99: SDB and BE publish offer.price as the deepest bulk tier.
-          // Skip the bare-offer fallback for these vendors so extractPrice()
-          // can read the correct 1-unit Check/Wire price from the markdown table.
-          // Tiered priceSpecification above is still honored if a vendor adds one.
-          if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) continue;
-          if (inRange(price)) return price;
-        }
-      }
-    } catch {
-      /* invalid JSON — skip */
-    }
-  }
-  return null;
-}
-
-/**
- * Extract `availability` from any JSON-LD Product/Offer block.
- *
- * schema.org availability values: InStock, OutOfStock, PreOrder, Discontinued,
- * SoldOut, LimitedAvailability, OnlineOnly, InStoreOnly, BackOrder.
- *
- * Returned as a normalized lowercase short token (e.g. "outofstock") or null
- * when no offer with availability is present. Used by `scrapeUrl` to short-
- * circuit Hero Bullion OOS pages where the JSON-LD price is non-zero but
- * the offer is explicitly OutOfStock (STAK-566).
- *
- * @param {string[]} jsonLdScripts  textContent of each ld+json script tag
- * @returns {string|null}
- */
-function extractJsonLdAvailability(jsonLdScripts) {
-  if (!jsonLdScripts || jsonLdScripts.length === 0) return null;
-
-  function checkProduct(item) {
-    const typeVal = item["@type"];
-    const types = Array.isArray(typeVal) ? typeVal : [typeVal];
-    if (!types.includes("Product")) return null;
-    const offers = item.offers;
-    if (!offers) return null;
-    const offerList = Array.isArray(offers) ? offers : [offers];
-    let nonOos = null;
-    for (const offer of offerList) {
-      const av = offer.availability;
-      if (!av) continue;
-      // schema.org URLs: http://schema.org/OutOfStock/, https://schema.org/InStock, etc.
-      // Also tolerate bare tokens like "OutOfStock". Split by / or # first, then match.
-      const m = String(av)
-        .split(/[\/#]/)
-        .pop()
-        .match(/([A-Za-z]+)/);
-      if (m) {
-        const token = m[1].toLowerCase();
-        if (JSONLD_OOS_VALUES.has(token)) return token;
-        if (!nonOos) nonOos = token;
-      }
-    }
-    return nonOos;
-  }
-
-  for (const script of jsonLdScripts) {
-    try {
-      const data = JSON.parse(script);
-      const items = Array.isArray(data) ? data : [data];
-      for (const item of items) {
-        if (!item) continue;
-        // RankMath/Yoast and many WP themes wrap nodes in @graph.
-        let nodes;
-        if (item["@graph"] != null) {
-          nodes = Array.isArray(item["@graph"]) ? item["@graph"] : [item["@graph"]];
-        } else {
-          nodes = [item];
-        }
-        for (const node of nodes) {
-          const av = checkProduct(node);
-          if (av) return av;
-        }
-      }
-    } catch {
-      /* invalid JSON — skip */
-    }
-  }
-  return null;
-}
-
-const JSONLD_OOS_VALUES = new Set(["outofstock", "soldout", "discontinued"]);
-
-/**
- * Extract the lowest plausible per-coin price from scraped markdown.
- *
- * Strategy order varies by provider to avoid picking up related-product prices:
- *
- *  For APMEX (table-first):
- *    1. Lowest price in the main pricing table — avoids "As Low As" from
- *       related products (e.g. 1/2 oz AGE) that appear later in the page.
- *    2. "As Low As" fallback.
- *
- *  For Monument Metals (as-low-as-first):
- *    1. "As Low As $XX.XX" — Monument shows this but no pricing table.
- *    2. Table fallback (won't find one for Monument).
- *
- * All candidates are filtered by weight-adjusted price range to exclude
- * accessories, spot ticker values, and fractional coin prices.
- */
-function extractPrice(markdown, metal, weightOz = 1, providerId = "") {
-  if (!markdown) return null;
-
-  const perOz = METAL_PRICE_RANGE_PER_OZ[metal] || { min: 5, max: 200_000 };
-  const range = { min: perOz.min * weightOz, max: perOz.max * weightOz };
-
-  function inRange(p) {
-    return p >= range.min && p <= range.max;
-  }
-
-  function tablePrices() {
-    const prices = [];
-    let m;
-    const pat = /\|\s*\*{0,2}\$?([\d,]+\.\d{2})\*{0,2}\s*\|/g;
-    while ((m = pat.exec(markdown)) !== null) {
-      const p = parseFloat(m[1].replace(/,/g, ""));
-      if (inRange(p)) prices.push(p);
-    }
-    return prices;
-  }
-
-  function asLowAsPrices() {
-    const prices = [];
-    let m;
-    const pat = /[Aa]s\s+[Ll]ow\s+[Aa]s[\s\\]*\$?([\d,]+\.\d{2})/g;
-    while ((m = pat.exec(markdown)) !== null) {
-      const p = parseFloat(m[1].replace(/,/g, ""));
-      if (inRange(p)) prices.push(p);
-    }
-    return prices;
-  }
-
-  // Returns the Check/Wire (leftmost) price from the first data row of a markdown
-  // pricing table. Pricing tables list tiers smallest-first (1-unit → bulk) with
-  // columns: Check/Wire | Crypto | Card. Taking prices[0] from the first matching
-  // row gives the 1-unit ACH price — the fairest cross-vendor comparison point.
-  function firstTableRowFirstPrice() {
-    const lines = markdown.split("\n");
-    for (const line of lines) {
-      if (!line.startsWith("|")) continue;
-      if (/^\|\s*[-:]+/.test(line)) continue; // skip separator rows
-      const prices = [];
-      for (const m of line.matchAll(/\|\s*\*{0,2}\$?([\d,]+\.\d{2})\*{0,2}\s*(?:\|)/g)) {
-        const p = parseFloat(m[1].replace(/,/g, ""));
-        if (inRange(p)) prices.push(p);
-      }
-      if (prices.length > 0) return prices[0];
-    }
-    return null;
-  }
-
-  // JM Bullion gold pages render the pricing table as plain text (not pipe tables).
-  // Structure: "(e)Check/Wire" header → "1-9" qty tier → "$X,XXX.XX" (Check/Wire price).
-  // Returns the first in-range price after the Check/Wire header + first qty tier.
-  function jmPriceFromProseTable() {
-    const checkWireIdx = markdown.search(/\(e\)Check\s*\/\s*Wire/i);
-    if (checkWireIdx === -1) return null;
-    // Find the first qty tier label after the header (e.g. "1-9", "1-19", "1+")
-    const afterHeader = markdown.slice(checkWireIdx);
-    const tierMatch = afterHeader.match(/\n\s*(\d+-\d+|\d+\+)\s*\n/);
-    if (!tierMatch) return null;
-    // Search for the first price after the tier label
-    const afterTier = afterHeader.slice(tierMatch.index + tierMatch[0].length);
-    const priceMatch = afterTier.match(/\$\s*([\d,]+\.\d{2})/);
-    if (!priceMatch) return null;
-    const p = parseFloat(priceMatch[1].replace(/,/g, ""));
-    return inRange(p) ? p : null;
-  }
-
-  // JM Bullion pipe-table parser. Firecrawl sometimes renders the JM pricing
-  // grid as a markdown pipe table instead of prose. Columns are payment tiers
-  // (e.g. | Qty | (e)Check/Wire | Crypto | Card |); the (e)Check/Wire column is
-  // the correct ACH/wire price StakTrakr compares. Locate that column by header
-  // label, then return its first in-range data-row price. Column-blind fallback
-  // picks Card/PayPal ~half the time (STAK-565).
-  function jmPriceFromPipeTable() {
-    const lines = markdown.split("\n");
-    const WIRE_RE = /\(?e?\)?\s*Check\s*\/\s*Wire/i;
-    let wireCol = -1;
-    let headerIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      // CRLF-safe: trim before pipe check so \r or leading whitespace don't break startsWith
-      const line = lines[i].trim();
-      if (!line.startsWith("|") || !WIRE_RE.test(line)) continue;
-      // require separator row to avoid prose false-positives (e.g. single-cell note rows)
-      let sepFound = false;
-      for (let j = i + 1; j < lines.length; j++) {
-        const next = lines[j].trim();
-        if (next === "") continue;
-        if (/^\|\s*[-:]+/.test(next)) {
-          sepFound = true;
-        }
-        break;
-      }
-      if (!sepFound) continue;
-      const cells = line.split("|");
-      for (let c = 0; c < cells.length; c++) {
-        if (WIRE_RE.test(cells[c])) {
-          wireCol = c;
-          headerIdx = i;
-          break;
-        }
-      }
-      if (wireCol !== -1) break;
-    }
-    if (wireCol === -1) return null;
-    let seenData = false;
-    for (let i = headerIdx + 1; i < lines.length; i++) {
-      // CRLF-safe: trim before pipe check
-      const line = lines[i].trim();
-      if (!line.startsWith("|")) {
-        // stop at table boundary: blank line or prose after we've entered data rows
-        if (seenData) break;
-        continue;
-      }
-      if (/^\|\s*[-:]+/.test(line)) continue;
-      seenData = true;
-      const cells = line.split("|");
-      if (wireCol >= cells.length) continue;
-      const m = cells[wireCol].match(/\$?\s*([\d,]+\.\d{2})/);
-      if (!m) continue;
-      const p = parseFloat(m[1].replace(/,/g, ""));
-      if (inRange(p)) return p;
-    }
-    return null;
-  }
-
-  // STRK-99 hotfix: tier-anchored prose extractor for vendors whose Byparr-
-  // rendered HTML produces flat plain text (no markdown pipe tables) and whose
-  // pricing grid is structured as
-  //     <qty-range> $<wire> $<crypto> $<card>
-  //     <qty-range> $<wire> $<crypto> $<card>
-  //     ...
-  // (e.g. "1-24 $77.82 $78.61 $80.93   25-99 $77.62 ..." on Bullion Exchanges).
-  //
-  // qty-range patterns we accept:
-  //   "1-24" / "20-99" / "100-499" / "500+"  (multi-tier)
-  //   "1+"   (single-tier — no quantity break advertised)
-  //
-  // The price we return is the FIRST in-range $-value immediately following the
-  // FIRST qty-range marker. This:
-  //   (a) avoids spot tickers (no qty-range precedes them in the chrome-stripped text),
-  //   (b) avoids related-product sidebars (which use "As low as" prose, never qty-range),
-  //   (c) gives the 1-unit Check/Wire price (the smallest qty-range always comes first).
-  //
-  // Returns null when no qty-range pattern is found — the caller should treat
-  // this as "no usable price extracted" rather than fall through to a looser
-  // matcher that would re-introduce the spot-ticker / related-product noise.
-  function tierAnchoredPrice() {
-    // qty-range forms we accept (allowing whitespace around dashes since some
-    // vendors render "1 - 49" rather than "1-49" in their hydrated DOM):
-    //   <1-3 digits> [ws] - [ws] <1-5 digits>    → "1-49" / "1 - 49" / "100-499"
-    //   <1-3 digits> +                            → "50+" / "500+" / "1+"
-    // We cap the LOW side at 3 digits to prevent "2024 - 2025" year ranges
-    // from matching when a description and a price happen to share a line.
-    const pattern = /\b(?:\d{1,3}\s*-\s*\d{1,5}|\d{1,3}\+)\s+\$\s*([\d,]+\.\d{2})/g;
-    for (const m of markdown.matchAll(pattern)) {
-      const p = parseFloat(m[1].replace(/,/g, ""));
-      if (inRange(p)) return p;
-    }
-    return null;
-  }
-
-  // Fallback for SPAs (e.g. Bullion Exchanges) that render prices as prose rather
-  // than markdown pipe tables. Returns the first $XX.XX value in the metal range.
-  function firstInRangePriceProse() {
-    for (const m of markdown.matchAll(/\$\s*([\d,]+\.\d{2})/g)) {
-      const p = parseFloat(m[1].replace(/,/g, ""));
-      if (inRange(p)) return p;
-    }
-    return null;
-  }
-
-  // Summit Metals and similar Shopify stores emit "Regular price $XX.XX" or "Sale price $XX.XX"
-  function regularPricePrices() {
-    const prices = [];
-    let m;
-    const pat = /(?:Regular|Sale)\s+price\s+\$?([\d,]+\.\d{2})/g;
-    while ((m = pat.exec(markdown)) !== null) {
-      const p = parseFloat(m[1].replace(/,/g, ""));
-      if (inRange(p)) prices.push(p);
-    }
-    return prices;
-  }
-
-  if (providerId === "summitmetals") {
-    // Summit's pricing grid lists tiers 1-9 → 100+ with columns Check/Wire |
-    // Card. The 1-9 Check/Wire price is the single-unit comparison point, matching
-    // every other vendor. Firecrawl renders it as a pipe table; phase0 Playwright
-    // innerText flattens it to prose ("1-9 $79.22 $82.55"). Target the FIRST qty
-    // tier on both paths. The "Regular price" mini-cards carry the 100+ BULK price
-    // (≈0.3% lower), so they are the last-resort fallback, never the primary read.
-    const tblFirst = firstTableRowFirstPrice(); // Firecrawl pipe-table path
-    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
-    const tier = tierAnchoredPrice(); // phase0 innerText prose path
-    if (tier !== null) return { price: tier, matchedBy: "tierAnchored" };
-    const reg = regularPricePrices(); // fallback: bulk "Regular price" cards
-    if (reg.length > 0) return { price: Math.min(...reg), matchedBy: "regularPrice" };
-    return null;
-  }
-
-  if (providerId === "jmbullion") {
-    // JM Bullion: prose table → header-aware pipe table. Both anchor to the
-    // "(e)Check/Wire" column label. Column-blind fallbacks are DISALLOWED —
-    // picking the wrong column returns Card/PayPal (~10% higher than wire)
-    // ~half the time depending on which scrape engine rendered the page
-    // (STAK-565 regression; original column-blindness noted in STAK-498 Task 6).
-    // Better to return null (missed window) than record the wrong-tier price.
-    // "As Low As" is a 100+ unit ACH discount, not single-unit retail (STAK-475 P2).
-    const proseTbl = jmPriceFromProseTable();
-    if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
-    const pipeTbl = jmPriceFromPipeTable();
-    if (pipeTbl !== null) return { price: pipeTbl, matchedBy: "jmPipeTable" };
-    return null;
-  } else if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) {
-    // STRK-99 hotfix (v3.34.83): tier-anchored extraction for SDB + BE.
-    // These vendors' Byparr/innerText payloads can contain (in order):
-    //   1. Spot ticker in chrome (silver $75.92 / gold $4,520) — survives if
-    //      htmlToPlainText chrome-strip misses it.
-    //   2. Related-product sidebar entries like "American Eagle ... As low as: $4,566".
-    //   3. The main pricing grid:  "1-24 $77.82 $78.61 $80.93   25-99 $77.62 ..."
-    //
-    // firstInRangePriceProse() picks (1) or (2) when (3) hasn't rendered yet,
-    // which is the regression we observed at v3.34.82. Tier-anchored extraction
-    // skips (1) and (2) entirely because neither is preceded by a "1-24" /
-    // "1+" / "500+" quantity-range marker. Returns null when (3) isn't present
-    // — the caller treats that as "no price extracted" rather than poisoning
-    // the dashboard with a sidebar or spot value.
-    const tblFirst = firstTableRowFirstPrice();
-    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
-    const tier = tierAnchoredPrice();
-    if (tier !== null) return { price: tier, matchedBy: "tierAnchored" };
-    return null;
-  } else if (USES_AS_LOW_AS.has(providerId)) {
-    // Reserved for vendors that have no pricing table, only "As Low As" display.
-    // Currently empty — all vendors now use table-first extraction.
-    const ala = asLowAsPrices();
-    if (ala.length > 0) return { price: Math.min(...ala), matchedBy: "asLowAs" };
-    const tbl = tablePrices();
-    if (tbl.length > 0) return { price: Math.min(...tbl), matchedBy: "tablePrices" };
-  } else {
-    // ALL VENDORS: APMEX, SDB, Monument, Hero Bullion, Bullion Exchanges, Summit, etc.
-    // Tables have columns: Check/Wire | Crypto | Card; rows: 1-unit → bulk.
-    // firstTableRowFirstPrice() returns the 1-unit Check/Wire (ACH) price.
-    // firstInRangePriceProse() handles SPAs (e.g. Bullion Exchanges) that
-    // render the price grid as prose rather than markdown pipe tables.
-    // "As Low As" is last resort (bulk discount fallback if table parsing fails).
-    const tblFirst = firstTableRowFirstPrice();
-    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
-    const prose = firstInRangePriceProse();
-    if (prose !== null) return { price: prose, matchedBy: "firstInRangeProse" };
-    const ala = asLowAsPrices();
-    if (ala.length > 0) return { price: Math.min(...ala), matchedBy: "asLowAs" };
-  }
-
-  return null;
-}
-
-// ---------------------------------------------------------------------------
 // Firecrawl API
 // ---------------------------------------------------------------------------
 
@@ -802,292 +145,8 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// ---------------------------------------------------------------------------
-// Per-Provider Scraping Configuration
-// ---------------------------------------------------------------------------
-// Single source of truth for all vendor-specific scraping behavior.
-// Replaces scattered SLOW_PROVIDERS, FIRECRAWL_PREFERRED_PROVIDERS,
-// FIRECRAWL_TABLE_PARSE_PROVIDERS, FRACTIONAL_EXEMPT_PROVIDERS, and
-// inline if-chains for timeouts/waitFor/waitUntil.
-//
-// proxy.{pollerId}: "fly" = route through Fly.io proxy, "home" = route through
-//   home residential proxy, null = use poller's own IP.
-
-// phase values:
-//   "phase0"             → Phase 0 (Playwright-direct) first, then Firecrawl, then CF-clearance fallback
-//   "firecrawl"          → Skip Phase 0, Firecrawl first, then CF-clearance fallback
-//   "cf-clearance-first" → Byparr/CF-clearance first, then Firecrawl fallback (for CF-protected vendors)
-const PROVIDER_DEFAULTS = {
-  phase: "phase0", // try Phase 0 (Playwright-direct) first
-  waitFor: 0, // Firecrawl waitFor (ms) — 0 = no extra wait
-  waitUntil: "networkidle", // Phase 0 page.goto waitUntil
-  waitAfter: 0, // Phase 0 extra wait after page load (ms)
-  timeout: SCRAPE_TIMEOUT_MS, // Firecrawl abort timeout
-  onlyMainContent: true, // Firecrawl onlyMainContent flag
-  retryOn408: true, // allow retry on Firecrawl 408 timeout
-  fractionalExempt: false, // skip fractional_weight nav false-positive check
-  cf_clearance_fallback: false, // attempt Phase 2 CF-clearance sidecar on 403
-  requestHtml: false, // also request HTML from Firecrawl (for JSON-LD OOS checks)
-  proxy: {}, // per-poller proxy routing
-};
-
-const PROVIDER_CONFIG = {
-  apmex: {
-    phase: "firecrawl", // HTML table → innerText loses pipes → wrong price
-    waitFor: 8000,
-    timeout: FIRECRAWL_TIMEOUT_MS,
-  },
-  monumentmetals: {
-    phase: "firecrawl", // Same table extraction issue as apmex
-    waitFor: 5000,
-    timeout: 35_000,
-    retryOn408: false, // page either renders in time or doesn't
-  },
-  jmbullion: {
-    phase: "phase0", // Playwright-direct first (JSON-LD extracts reliably in ~6s on
-    // residential IP). Byparr reserved as fallback via cf_clearance_fallback.
-    // JM's CF tier upgraded beyond Byparr's 45s window ~2026-04-23; fresh-session
-    // Byparr gets harder challenge than long-lived poller browser (STAK-574; follow-up to STAK-565).
-    waitFor: 10_000,
-    timeout: 40_000,
-    onlyMainContent: false, // React pages return empty with onlyMainContent
-    retryOn408: false, // retrying won't help — skip to save ~40s
-    cf_clearance_fallback: true,
-    fractionalExempt: true, // mega-menu lists fractional coins on every page
-  },
-  bullionexchanges: {
-    phase: "cf-clearance-first", // Byparr first (100% success), Firecrawl fallback
-    waitFor: 15_000, // React pricing grid needs 12-15s to fully hydrate
-    timeout: 70_000, // extended timeout for 15s waitFor + round-trip
-    fractionalExempt: true, // Related Products section lists fractional variants
-    cf_clearance_fallback: true,
-    proxy: {
-      home: null, // home poller is on residential IP — no proxy needed
-      fly: null, // Fly.io uses its own IP (93%+ success rate)
-    },
-  },
-  sdbullion: {
-    waitUntil: "domcontentloaded", // fast — no need for networkidle
-  },
-  herobullion: {
-    phase: "firecrawl", // Phase 0 innerText loses pipe-table structure →
-    // firstTableRowFirstPrice() returns null → firstInRangePriceProse()
-    // grabs "As Low As" bulk price before the 1-unit table price.
-    // Firecrawl markdown has | pipe | tables — extraction works correctly.
-    waitFor: 3_000,
-    // STAK-566: Hero pages keep the price visible even when the product is
-    // sold out (`availability: OutOfStock` in JSON-LD). Pull HTML alongside
-    // markdown so scrapeUrl can short-circuit on the JSON-LD availability
-    // signal before the price extractor runs.
-    requestHtml: true,
-  },
-  gainesvillecoins: {
-    phase: "firecrawl", // Phase 0 Playwright direct always times out (15s wasted per coin).
-    // Firecrawl succeeds reliably — skip Phase 0 entirely.
-    waitFor: 3_000,
-  },
-  summitmetals: {
-    // defaults are fine — phase0 + networkidle
-  },
-  goldback: {
-    // defaults are fine — phase0 + networkidle
-  },
-};
-
-// Merge defaults into each provider config
-for (const [id, cfg] of Object.entries(PROVIDER_CONFIG)) {
-  PROVIDER_CONFIG[id] = {
-    ...PROVIDER_DEFAULTS,
-    ...cfg,
-    proxy: { ...PROVIDER_DEFAULTS.proxy, ...cfg.proxy },
-  };
-}
-
-// Helper: get config for a provider (falls back to defaults for unknown vendors)
-function providerCfg(providerId) {
-  return PROVIDER_CONFIG[providerId] || PROVIDER_DEFAULTS;
-}
-
-// Resolve proxy URL for this provider on the current poller instance
-const FLY_PROXY_URL = process.env.FLY_PROXY_URL || null;
 // Port of the Fly.io-proxied playwright-service (for BEx Cloudflare bypass)
 const FLY_PW_SERVICE_PORT = process.env.FLY_PW_SERVICE_PORT || "3004";
-function resolveProxy(providerId) {
-  const cfg = providerCfg(providerId);
-  const target = cfg.proxy?.[POLLER_ID] || null;
-  if (target === "fly") return FLY_PROXY_URL;
-  if (target === "home") return HOME_PROXY_URL;
-  return null;
-}
-
-// Compatibility shims — used in code that still references the old Sets.
-// TODO: Remove these after all callsites are refactored to use providerCfg().
-const FIRECRAWL_PREFERRED_PROVIDERS = new Set(
-  Object.entries(PROVIDER_CONFIG)
-    .filter(([, c]) => c.phase === "firecrawl")
-    .map(([id]) => id)
-);
-const FIRECRAWL_TABLE_PARSE_PROVIDERS = new Set(["monumentmetals"]);
-const PLAYWRIGHT_ONLY_PROVIDERS = new Set([]); // kept empty — all routing is via PROVIDER_CONFIG.phase
-const FRACTIONAL_EXEMPT_PROVIDERS = new Set(
-  Object.entries(PROVIDER_CONFIG)
-    .filter(([, c]) => c.fractionalExempt)
-    .map(([id]) => id)
-);
-
-function findHtmlTagEnd(html, fromIndex) {
-  let quote = null;
-  for (let i = fromIndex; i < html.length; i++) {
-    const ch = html[i];
-    if (quote) {
-      if (ch === quote) quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      continue;
-    }
-    if (ch === ">") return i;
-  }
-  return -1;
-}
-
-function isHtmlWhitespace(ch) {
-  return ch === " " || ch === "\n" || ch === "\r" || ch === "\t" || ch === "\f";
-}
-
-function findRawTextCloseTag(html, lowerHtml, tagName, fromIndex) {
-  const closeTag = tagName.toLowerCase();
-  let searchFrom = fromIndex;
-  while (searchFrom < html.length) {
-    const lt = html.indexOf("<", searchFrom);
-    if (lt === -1) return -1;
-    let cursor = lt + 1;
-    while (cursor < html.length && isHtmlWhitespace(html[cursor])) cursor++;
-    if (html[cursor] !== "/") {
-      searchFrom = lt + 1;
-      continue;
-    }
-    cursor++;
-    while (cursor < html.length && isHtmlWhitespace(html[cursor])) cursor++;
-    const nameStart = cursor;
-    while (cursor < html.length) {
-      const code = lowerHtml.charCodeAt(cursor);
-      const isNameChar = (code >= 97 && code <= 122) || (code >= 48 && code <= 57);
-      if (!isNameChar) break;
-      cursor++;
-    }
-    if (lowerHtml.slice(nameStart, cursor) !== closeTag) {
-      searchFrom = lt + 1;
-      continue;
-    }
-    while (cursor < html.length && isHtmlWhitespace(html[cursor])) cursor++;
-    if (html[cursor] === ">") return cursor;
-    searchFrom = lt + 1;
-  }
-  return -1;
-}
-
-function collapseWhitespace(text) {
-  let output = "";
-  let pendingSpace = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (isHtmlWhitespace(ch)) {
-      pendingSpace = output.length > 0;
-      continue;
-    }
-    if (pendingSpace) {
-      output += " ";
-      pendingSpace = false;
-    }
-    output += ch;
-  }
-  return output;
-}
-
-// Tags whose entire content is dropped (not just their open/close markers) when
-// converting HTML to plain text via htmlToPlainText():
-//   - script / style: HTML5 raw-text elements; never contain product text.
-//   - nav / header / footer: SPA chrome that contains site-wide spot tickers,
-//     mega-menu category links, and pre-footer ads. Per HTML5, these MUST NOT
-//     contain product (<main>) content, so dropping them is safe across vendors.
-//     (STRK-99 hotfix: bullionexchanges returned spot ticker for every coin
-//     because Byparr captured the React shell before the price grid hydrated;
-//     the only $-values in its plain text were the header ticker.)
-const CHROME_OR_RAWTEXT_TAGS = new Set(["script", "style", "nav", "header", "footer"]);
-
-function htmlToPlainText(html) {
-  if (!html) return "";
-  const lowerHtml = html.toLowerCase();
-  let text = "";
-  let cursor = 0;
-
-  while (cursor < html.length) {
-    const lt = html.indexOf("<", cursor);
-    if (lt === -1) {
-      text += html.slice(cursor);
-      break;
-    }
-
-    text += html.slice(cursor, lt);
-
-    if (lowerHtml.startsWith("<!--", lt)) {
-      const commentEnd = html.indexOf("-->", lt + 4);
-      cursor = commentEnd === -1 ? html.length : commentEnd + 3;
-      text += " ";
-      continue;
-    }
-
-    let nameStart = lt + 1;
-    while (nameStart < html.length && isHtmlWhitespace(html[nameStart])) nameStart++;
-    const isClosingTag = html[nameStart] === "/";
-    if (isClosingTag) nameStart++;
-    while (nameStart < html.length && isHtmlWhitespace(html[nameStart])) nameStart++;
-
-    let nameEnd = nameStart;
-    while (nameEnd < html.length) {
-      const code = lowerHtml.charCodeAt(nameEnd);
-      const isNameChar = (code >= 97 && code <= 122) || (code >= 48 && code <= 57);
-      if (!isNameChar) break;
-      nameEnd++;
-    }
-
-    const tagName = lowerHtml.slice(nameStart, nameEnd);
-    // STRK-99 hotfix: drop entire <script>, <style>, AND SPA chrome blocks
-    // (<nav>, <header>, <footer>) before flattening to plain text. The chrome
-    // tags carry site-wide spot tickers and mega-menu links that otherwise
-    // poison firstInRangePriceProse() on vendors whose product price is JS-
-    // hydrated AFTER Byparr's render window — bullionexchanges was returning
-    // spot silver/gold from the header ticker for every coin because Byparr
-    // captured the React shell before the product price grid rendered.
-    // HTML5 forbids <main>-style product content inside these tags, so this
-    // is safe across all vendors using the cf-clearance HTML path.
-    //
-    // Partial-name guard: `<nav-bar>` stops the name-char loop at `-` and
-    // gives tagName="nav". Without checking the char AFTER the name, a
-    // custom element would trigger the chrome strip; findRawTextCloseTag
-    // would never find a matching `</nav>`, so cursor jumps to html.length
-    // and the rest of the document is dropped. Require the next char to be
-    // HTML whitespace, `>`, or `/` before treating tagName as a real chrome
-    // tag (Gemini review on PR #1148).
-    const nextChar = nameEnd < html.length ? html[nameEnd] : "";
-    const isCompleteTagName = nameEnd >= html.length || /[\s>/]/.test(nextChar);
-    if (!isClosingTag && CHROME_OR_RAWTEXT_TAGS.has(tagName) && isCompleteTagName) {
-      const closeEnd = findRawTextCloseTag(html, lowerHtml, tagName, nameEnd);
-      cursor = closeEnd === -1 ? html.length : closeEnd + 1;
-      text += " ";
-      continue;
-    }
-
-    const tagEnd = findHtmlTagEnd(html, nameEnd);
-    cursor = tagEnd === -1 ? html.length : tagEnd + 1;
-    text += " ";
-  }
-
-  return collapseWhitespace(text).trim();
-}
-
 // Scrape via proxied playwright-service (port 3004) — bypasses Firecrawl entirely.
 // Returns plain text (like Phase 0 innerText), not markdown.
 // Used for vendors behind Cloudflare that need the Fly.io IP.
@@ -1110,57 +169,6 @@ async function scrapeViaProxy(url, waitFor = 15000, timeout = 40000) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function looksLikeChallengePage(html) {
-  if (!html) return true;
-  if (html.length < 5000) return true;
-  const head = html.slice(0, 4096);
-  if (/<title>\s*(Just a moment|Attention Required|Access denied|Please Wait)/i.test(head))
-    return true;
-  if (/cf-browser-verification|cf-challenge-running|__cf_chl_jschl_tk__/i.test(head)) return true;
-  return false;
-}
-
-function firecrawlMarkdownResult(markdown) {
-  return {
-    type: "markdown",
-    markdown: markdown ?? "",
-    price: null,
-    inStock: true,
-    source: "firecrawl",
-  };
-}
-
-function firecrawlOutOfStockResult(source = "firecrawl:jsonld-oos") {
-  return {
-    type: "price-result",
-    markdown: "",
-    price: null,
-    inStock: false,
-    source,
-  };
-}
-
-function isStructuredPriceResult(result) {
-  return result !== null && typeof result === "object" && result.type === "price-result";
-}
-
-function markdownFromScrapeResult(result) {
-  if (result !== null && typeof result === "object") return result.markdown ?? "";
-  return result ?? "";
-}
-
-function extractJsonLdScriptsFromHtml(html) {
-  if (!html) return [];
-  const scripts = [];
-  const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let match;
-  while ((match = re.exec(html)) !== null) {
-    const body = match[1].trim();
-    if (body) scripts.push(body);
-  }
-  return scripts;
 }
 
 async function scrapeViaCFClearance(url, providerId, coin) {
@@ -1231,7 +239,7 @@ async function scrapeViaCFClearance(url, providerId, coin) {
       return { price: jsonLdPrice, inStock: isInStock, source: "cf-clearance:jsonLd" };
     }
 
-    const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
+    const price = extractMarkdownPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (html): ${providerId} price=${price.price}`);
       return {
@@ -1318,7 +326,7 @@ async function scrapeViaCFClearance(url, providerId, coin) {
       log(`[cf-clearance] success via jsonLd: ${providerId} price=${jsonLdPrice}`);
       return { price: jsonLdPrice, inStock: inStock.inStock, source: "cf-clearance:jsonLd" };
     }
-    const price = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
+    const price = extractMarkdownPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     if (price !== null) {
       log(`[cf-clearance] success (playwright): ${providerId} price=${price.price}`);
       return {
@@ -1337,12 +345,12 @@ async function scrapeViaCFClearance(url, providerId, coin) {
   }
 }
 
-async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
+async function scrapeUrl(url, providerId = "", attempt = 1, coin = null, providerConfig = null) {
   const controller = new AbortController();
-  const scrapeTimeout = providerCfg(providerId).timeout;
+  const cfg = providerConfig || providerCfg(providerId);
+  const scrapeTimeout = cfg.timeout;
   const timer = setTimeout(() => controller.abort(), scrapeTimeout);
 
-  const cfg = providerCfg(providerId);
   const formats = cfg.requestHtml ? ["markdown", "html"] : ["markdown"];
   const body = {
     url,
@@ -1354,7 +362,7 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
   // JS-heavy SPAs need time to mount and render prices; 8s covers all slow providers.
   // (Bumped from 6s after jmbullion/bullionexchanges were removed from PLAYWRIGHT_ONLY;
   // their React SPAs need the extra 2s to fully render pricing tables.)
-  const cfgWaitFor = providerCfg(providerId).waitFor;
+  const cfgWaitFor = cfg.waitFor;
   if (cfgWaitFor > 0) body.waitFor = cfgWaitFor;
 
   try {
@@ -1373,7 +381,6 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
       // 403 = bot detection / IP block. Retrying Firecrawl (same IP) won't help;
       // skip retries — terminal failure for this target.
       if (response.status === 403) {
-        const cfg = providerCfg(providerId);
         if (cfg.cf_clearance_fallback && CF_CLEARANCE_ENABLED_FLAG) {
           cfAttempts++;
           const phase2 = await scrapeViaCFClearance(url, providerId, coin);
@@ -1389,7 +396,7 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
       }
       // 408 = Firecrawl scrape timeout. For jmbullion, retrying won't help —
       // the page either renders in time or it doesn't. Skip retries to save ~40s.
-      if (response.status === 408 && !providerCfg(providerId).retryOn408) {
+      if (response.status === 408 && !cfg.retryOn408) {
         throw Object.assign(
           new Error(
             `HTTP 408 (scrape timeout, jmb/monument retry disabled): ${text.slice(0, 200)}`
@@ -1430,7 +437,7 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null) {
     if (!err.skipRetry && attempt < RETRY_ATTEMPTS) {
       warn(`Retry ${attempt}/${RETRY_ATTEMPTS} for ${url}: ${err.message}`);
       await sleep(RETRY_DELAY_MS * attempt);
-      return scrapeUrl(url, providerId, attempt + 1, coin);
+      return scrapeUrl(url, providerId, attempt + 1, coin, cfg);
     }
     throw err;
   } finally {
@@ -1538,7 +545,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
       return { price: jsonLdPrice, inStock: stock.inStock, source: "playwright-direct:jsonLd" };
     }
 
-    const extracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
+    const extracted = extractMarkdownPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
     const price = extracted ? extracted.price : null;
     if (extracted)
       log(
@@ -1571,11 +578,456 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
   }
 }
 
+async function scrapeGenericTarget(context) {
+  const { coinSlug, coin, provider } = context;
+  const urls = context.urls ?? provider.urls ?? (provider.url ? [provider.url] : []);
+  let price = null;
+  let source = "firecrawl";
+  let inStock = true;
+  let finalUrl = urls[0];
+  const retriedUrls = new Set();
+  const cfg = providerCfg(provider.id, context.vendorModule?.config);
+
+  const buildResult = () => {
+    const ok = price !== null || !inStock;
+    return {
+      coinSlug,
+      coin,
+      providerId: provider.id,
+      url: finalUrl,
+      price,
+      source,
+      inStock,
+      ok,
+      error: ok ? null : "price_not_found",
+    };
+  };
+
+  // ── Phase CF-First: Byparr/CF-clearance first (for cf-clearance-first vendors) ─
+  // For CF-gated vendors (BEx), skip the 70s Firecrawl timeout and solve via Byparr
+  // first. If Byparr fails, fall through to Phase 0/1 as safety net.
+  if (cfg.phase === "cf-clearance-first" && CF_CLEARANCE_ENABLED_FLAG) {
+    log(`  [cf-first] ${provider.id}: trying Byparr first`);
+    cfAttempts++;
+    const cfResult = await scrapeViaCFClearance(urls[0], provider.id, coin);
+    if (cfResult != null && cfResult.price != null) {
+      cfSuccess++;
+      price = cfResult.price;
+      source = cfResult.source;
+      inStock = cfResult.inStock;
+      finalUrl = urls[0];
+      log(
+        `  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (cf-first${!inStock ? ", OOS" : ""})`
+      );
+      return buildResult();
+    }
+    // Byparr returned null or no price — OOS with no price is still useful.
+    if (cfResult != null && cfResult.price == null && !cfResult.inStock) {
+      cfSuccess++;
+      source = cfResult.source;
+      inStock = false;
+      finalUrl = urls[0];
+      log(`  ✓ ${coinSlug}/${provider.id}: OOS detected (cf-first, no price)`);
+      return buildResult();
+    }
+    cfFailures++;
+    log(`  ↻ ${coinSlug}/${provider.id}: cf-first failed — falling through to Phase 0/1`);
+  }
+
+  // ── Phase 0: Try Playwright direct (no proxy, 15s timeout) ──────────────
+  // Fast first-pass — succeeds for ~65/88 targets in <5s. If it gets a price,
+  // skip Firecrawl entirely. Skip for PLAYWRIGHT_ONLY_PROVIDERS (they need
+  // Firecrawl's stealth patches) and FIRECRAWL_PREFERRED_PROVIDERS (they need
+  // Firecrawl's markdown pipe-table conversion for correct extraction).
+  // Exception: goldback slugs are individual product detail pages with a single
+  // prominently-displayed price — not HTML pricing tables — so Phase 0 Playwright
+  // extracts prices correctly for table-parse vendors (apmex, monumentmetals).
+  // Bot-detection vendors (jmbullion, bullionexchanges) are NOT bypassed: they
+  // still need Firecrawl stealth even on goldback detail pages (API-14).
+  const fcPreferredForTarget =
+    (cfg.phase === "firecrawl" || FIRECRAWL_PREFERRED_PROVIDERS.has(provider.id)) &&
+    !shouldBypassFirecrawlPreferredForPhase0({
+      coinSlug,
+      providerId: provider.id,
+      tableParseProviderIds: FIRECRAWL_TABLE_PARSE_PROVIDERS,
+    });
+  if (!PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id) && !fcPreferredForTarget && PLAYWRIGHT_LAUNCH) {
+    const directResult = await scrapeWithPlaywrightDirect(urls[0], provider.id, coin);
+    if (directResult !== null) {
+      price = directResult.price;
+      source = directResult.source;
+      inStock = directResult.inStock;
+      finalUrl = urls[0];
+      if (price !== null) {
+        log(
+          `  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (playwright-direct${!inStock ? ", OOS" : ""})`
+        );
+      } else {
+        log(`  ✓ ${coinSlug}/${provider.id}: OOS detected (playwright-direct, no price)`);
+      }
+      return buildResult();
+    }
+  }
+
+  // ── Phase 1: Try all URLs via Firecrawl ──────────────────────────────────
+  // Skip Phase 1 for providers where Firecrawl is structurally unreliable
+  // (bot detection or waitFor-not-supported JS rendering). price/inStock stay
+  // at their defaults (null / true) so the failure path fires below.
+  if (!PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id)) {
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      if (i > 0) log(`  → ${coinSlug}/${provider.id}: fallback URL [${i}]: ${url}`);
+
+      try {
+        // Proxy-first path: if this provider routes through an alternate IP,
+        // try the proxied playwright-service first (e.g., Fly.io IP for BEx).
+        let markdown;
+        const proxyTarget = resolveProxy(provider.id);
+        if (proxyTarget) {
+          try {
+            const proxyText = await scrapeViaProxy(url, cfg.waitFor, cfg.timeout);
+            // scrapeViaProxy returns plain text (like Phase 0), not markdown.
+            // Use it directly for extraction — preprocessMarkdown handles both.
+            const proxyCleaned = preprocessMarkdown(proxyText, provider.id);
+            const proxyStock = detectStockStatus(proxyCleaned, coin.weight_oz || 1, provider.id);
+            const proxyExtracted = extractMarkdownPrice(
+              proxyCleaned,
+              coin.metal,
+              coin.weight_oz || 1,
+              provider.id
+            );
+            if (proxyExtracted) {
+              log(
+                `  extractPrice ${provider.id}: matched=${proxyExtracted.matchedBy} price=$${proxyExtracted.price.toFixed(2)} (fly-proxy)`
+              );
+              price = proxyExtracted.price;
+              source = `fly-proxy:${proxyExtracted.matchedBy}`;
+              inStock = proxyStock.inStock;
+              finalUrl = url;
+              log(
+                `  \u2713 ${coinSlug}/${provider.id}: $${price.toFixed(2)} (fly-proxy)${!inStock ? " OOS" : ""}`
+              );
+              break;
+            }
+            log(
+              `  \u21bb ${coinSlug}/${provider.id}: fly-proxy returned no price, falling back to firecrawl`
+            );
+          } catch (proxyErr) {
+            warn(
+              `  \u2717 ${provider.id} fly-proxy error: ${proxyErr.message.slice(0, 80)}, falling back`
+            );
+          }
+        }
+        const scrapeResult = await scrapeUrl(url, provider.id, 1, coin, cfg);
+        // Structured scrape results can carry JSON-LD OOS without markdown parsing.
+        if (isStructuredPriceResult(scrapeResult)) {
+          price = scrapeResult.price;
+          source = scrapeResult.source;
+          inStock = scrapeResult.inStock;
+          finalUrl = url;
+          // price may be null when cf-clearance detected OOS via JSON-LD
+          // (zero-price sentinel) — guard before toFixed.
+          if (price != null) {
+            log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+          } else {
+            log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
+          }
+          break;
+        }
+        markdown = markdownFromScrapeResult(scrapeResult);
+        const cleaned = preprocessMarkdown(markdown, provider.id);
+        const stock = detectStockStatus(cleaned, coin.weight_oz || 1, provider.id);
+
+        if (!stock.inStock) {
+          log(
+            `  ⚠ ${provider.id} [url${i}]: ${stock.reason} — ${stock.detectedText || "detected"}`
+          );
+          // Still attempt price extraction — OOS pages often show advertised price
+          const oosExtracted = extractMarkdownPrice(
+            cleaned,
+            coin.metal,
+            coin.weight_oz || 1,
+            provider.id
+          );
+          const oosPrice = oosExtracted ? oosExtracted.price : null;
+          if (oosExtracted)
+            log(
+              `  extractPrice ${provider.id}: matched=${oosExtracted.matchedBy} price=$${oosExtracted.price.toFixed(2)} (OOS)`
+            );
+          if (oosPrice !== null) {
+            price = oosPrice;
+            source = `firecrawl:${oosExtracted.matchedBy}`;
+            finalUrl = url;
+            log(`  ✓ ${coinSlug}/${provider.id}: $${oosPrice.toFixed(2)} (firecrawl, OOS)`);
+          }
+          if (i < urls.length - 1 && oosPrice === null) {
+            await jitter();
+            continue;
+          }
+          // Last URL or got a price — exit loop with inStock=false
+          inStock = false;
+          if (!finalUrl || finalUrl !== url) finalUrl = url;
+          break;
+        }
+
+        const extracted = extractMarkdownPrice(
+          cleaned,
+          coin.metal,
+          coin.weight_oz || 1,
+          provider.id
+        );
+        const p = extracted ? extracted.price : null;
+        if (extracted)
+          log(
+            `  extractPrice ${provider.id}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`
+          );
+        if (p !== null) {
+          price = p;
+          source = `firecrawl:${extracted.matchedBy}`;
+          finalUrl = url;
+          log(
+            `  ✓ ${coinSlug}/${provider.id}: $${p.toFixed(2)} (firecrawl)${urls.length > 1 ? ` [url${i}]` : ""}`
+          );
+          break;
+        }
+
+        // Parse failure on this URL — retry once with longer wait for FIRECRAWL_PREFERRED
+        // providers (jmbullion, bullionexchanges) where proxy latency can cause under-render.
+        if (fcPreferredForTarget && !retriedUrls.has(url)) {
+          retriedUrls.add(url);
+          log(`  ↻ ${coinSlug}/${provider.id} [url${i}]: retrying with extended waitFor...`);
+          await jitter();
+          try {
+            const retryRaw = await scrapeUrl(url, provider.id, 1, coin, cfg);
+            // Structured scrape results can carry JSON-LD OOS without markdown parsing.
+            if (isStructuredPriceResult(retryRaw)) {
+              price = retryRaw.price;
+              source = retryRaw.source;
+              inStock = retryRaw.inStock;
+              finalUrl = url;
+              if (price != null) {
+                log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+              } else {
+                log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
+              }
+              break;
+            }
+            const retryMd = markdownFromScrapeResult(retryRaw);
+            const retryCleaned = preprocessMarkdown(retryMd, provider.id);
+            const retryStock = detectStockStatus(retryCleaned, coin.weight_oz || 1, provider.id);
+            const retryExtracted = extractMarkdownPrice(
+              retryCleaned,
+              coin.metal,
+              coin.weight_oz || 1,
+              provider.id
+            );
+            const retryPrice = retryExtracted ? retryExtracted.price : null;
+            if (retryExtracted)
+              log(
+                `  extractPrice ${provider.id}: matched=${retryExtracted.matchedBy} price=$${retryExtracted.price.toFixed(2)} (retry)`
+              );
+            if (retryPrice !== null) {
+              price = retryPrice;
+              source = `firecrawl-retry:${retryExtracted.matchedBy}`;
+              inStock = retryStock.inStock;
+              finalUrl = url;
+              log(
+                `  ✓ ${coinSlug}/${provider.id}: $${retryPrice.toFixed(2)} (firecrawl-retry)${!inStock ? " OOS" : ""}`
+              );
+              break;
+            }
+          } catch (retryErr) {
+            warn(`  ✗ ${provider.id} [url${i}] retry error: ${retryErr.message.slice(0, 100)}`);
+          }
+        }
+
+        warn(`  ? ${coinSlug}/${provider.id} [url${i}]: page loaded, no price — trying next URL`);
+        if (i < urls.length - 1) {
+          await jitter();
+          continue;
+        }
+
+        // Last URL, Firecrawl parse failure — no more fallbacks
+        finalUrl = url;
+      } catch (err) {
+        warn(`  ✗ ${provider.id} [url${i}] firecrawl error: ${err.message.slice(0, 100)}`);
+        if (i < urls.length - 1) {
+          await jitter();
+          continue;
+        }
+        // Last URL threw — no more fallbacks
+        finalUrl = url;
+      }
+    }
+  }
+
+  // ── Phase 2 fallback: CF-clearance for invisible Cloudflare challenges ──────
+  // Cloudflare's JS challenge returns 200 (not 403), so the in-scrapeUrl 403
+  // trigger never fires. If Phase 0+1 both returned no price for a
+  // cf_clearance_fallback vendor, attempt Byparr now as a last resort.
+  // Skip for cf-clearance-first vendors — they already tried Byparr at the top.
+  if (price === null && inStock && cfg.phase !== "cf-clearance-first") {
+    if (cfg.cf_clearance_fallback && CF_CLEARANCE_ENABLED_FLAG) {
+      log(`  [cf-clearance] ${provider.id}: no price from Phase 0/1 — trying Byparr bypass`);
+      cfAttempts++;
+      try {
+        const phase2 = await scrapeViaCFClearance(urls[0], provider.id, coin);
+        if (phase2 !== null) {
+          price = phase2.price;
+          source = phase2.source;
+          inStock = phase2.inStock;
+          finalUrl = urls[0];
+          cfSuccess++;
+          if (price !== null) {
+            log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
+          } else {
+            log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
+          }
+        } else {
+          cfFailures++;
+        }
+      } catch (cfErr) {
+        cfFailures++;
+        warn(`  ✗ ${provider.id} cf-clearance error: ${cfErr.message.slice(0, 100)}`);
+      }
+    }
+  }
+
+  // Log terminal state if not already logged.
+  if (price === null && inStock) {
+    warn(`  ? ${coinSlug}/${provider.id}: all URLs exhausted, no price found`);
+  }
+
+  return buildResult();
+}
+
+function providerUrls(provider, url, urls) {
+  if (Array.isArray(urls) && urls.length > 0) return urls;
+  if (url) return [url];
+  if (Array.isArray(provider?.urls) && provider.urls.length > 0) return provider.urls;
+  if (provider?.url) return [provider.url];
+  return [];
+}
+
+function vendorErrorMessage(error) {
+  return error?.message || String(error || "vendor scrape failed");
+}
+
+function failedVendorResult({ coinSlug, coin, provider, url, error }) {
+  return {
+    coinSlug,
+    coin,
+    providerId: provider.id,
+    url,
+    price: null,
+    source: "vendor-error",
+    inStock: true,
+    ok: false,
+    error: vendorErrorMessage(error),
+  };
+}
+
+function normalizeVendorResult(result, { coinSlug, coin, provider, url }) {
+  if (!result || typeof result !== "object") {
+    return failedVendorResult({
+      coinSlug,
+      coin,
+      provider,
+      url,
+      error: "invalid_vendor_result",
+    });
+  }
+  const price = result.price == null ? null : result.price;
+  const inStock = result.inStock !== false;
+  const ok = typeof result.ok === "boolean" ? result.ok : price !== null || !inStock;
+  return {
+    coinSlug: result.coinSlug || coinSlug,
+    coin: result.coin || coin,
+    providerId: result.providerId || provider.id,
+    url: result.url || url,
+    price,
+    source: result.source || "unknown",
+    inStock,
+    ok,
+    error: result.error || (ok ? null : "price_not_found"),
+  };
+}
+
+async function resolveSingleVendorCoin(coinSlug, options = {}) {
+  if (options.coin) return options.coin;
+  if (options.providersJson?.coins?.[coinSlug]) return options.providersJson.coins[coinSlug];
+
+  const providersJson = await loadProviders(null, options.dataDir || DATA_DIR);
+  const coin = providersJson.coins?.[coinSlug];
+  if (!coin) {
+    throw new Error(`Coin not found for retry: ${coinSlug}`);
+  }
+  return coin;
+}
+
+export async function scrapeSingleVendor({
+  coinSlug,
+  coin,
+  provider,
+  url,
+  urls,
+  scrapeVendor: scrapeVendorFn = scrapeVendor,
+  scrapeGeneric = scrapeGenericTarget,
+  log: logFn = log,
+  warn: warnFn = warn,
+  config,
+} = {}) {
+  if (!coinSlug) throw new Error("coinSlug is required");
+  if (!coin) throw new Error("coin is required");
+  if (!provider?.id) throw new Error("provider.id is required");
+
+  const singleUrls = providerUrls(provider, url, urls);
+  if (singleUrls.length === 0) {
+    throw new Error(`Provider URL is required for ${provider.id}/${coinSlug}`);
+  }
+
+  const providerForRun = {
+    ...provider,
+    url: singleUrls[0],
+    urls: singleUrls,
+  };
+
+  return scrapeVendorFn({
+    coinSlug,
+    coin,
+    provider: providerForRun,
+    urls: singleUrls,
+    url: singleUrls[0],
+    config: config || providerCfg(providerForRun.id),
+    scrapeGeneric,
+    log: logFn,
+    warn: warnFn,
+  });
+}
+
+export async function extractPrice(url, coinSlug, providerId, provider = {}, options = {}) {
+  const providerForRun = {
+    ...provider,
+    id: providerId || provider.id,
+    url: url || provider.url,
+  };
+  const coin = await resolveSingleVendorCoin(coinSlug, options);
+
+  return scrapeSingleVendor({
+    ...options,
+    coinSlug,
+    coin,
+    provider: providerForRun,
+    url: providerForRun.url,
+    urls: providerUrls(providerForRun, providerForRun.url, options.urls),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
-async function main() {
+export async function runFullPoller(options = {}) {
   const isLocal = !FIRECRAWL_BASE_URL.includes("api.firecrawl.dev");
   // PLAYWRIGHT_LAUNCH=1 runs Chromium directly — no Firecrawl needed (home poller mode)
   if (!FIRECRAWL_API_KEY && !isLocal && !PLAYWRIGHT_LAUNCH) {
@@ -1585,12 +1037,27 @@ async function main() {
     process.exit(1);
   }
 
+  const {
+    openSqldDb,
+    writeSnapshot,
+    windowFloor,
+    startRunLog,
+    finishRunLog,
+    recordFailure,
+    readSpotCurrent,
+  } = options.dbHelpers || (await loadDbHelpers());
+  const scrapeVendorFn = options.scrapeVendor || scrapeVendor;
+  const jitterFn = options.jitter || jitter;
+
   // Load providers from sqld (falls back to local file if sqld is down)
   let tursoClient = null;
-  try {
-    tursoClient = (await import("./sqld-client.js")).createSqldClient();
-  } catch {}
-  const providersJson = await loadProviders(tursoClient, DATA_DIR);
+  let providersJson = options.providersJson;
+  if (!providersJson) {
+    try {
+      tursoClient = (await import("./sqld-client.js")).createSqldClient();
+    } catch {}
+    providersJson = await loadProviders(tursoClient, DATA_DIR);
+  }
 
   // Build scrape targets — shuffled to avoid rate-limit fingerprinting
   const targets = [];
@@ -1721,430 +1188,64 @@ async function main() {
       const _baseline = computeBaseline(coinSlug, coin);
       const _skipBounds = provider.skipPriceBounds === true;
 
-      let price = null;
-      let source = "firecrawl";
-      let inStock = true;
-      let finalUrl = urls[0];
-      const _retriedUrls = new Set();
-
-      // ── Phase CF-First: Byparr/CF-clearance first (for cf-clearance-first vendors) ─
-      // For CF-gated vendors (BEx), skip the 70s Firecrawl timeout and solve via Byparr
-      // first. If Byparr fails, fall through to Phase 0/1 as safety net.
-      const cfg = providerCfg(provider.id);
-      if (cfg.phase === "cf-clearance-first" && CF_CLEARANCE_ENABLED_FLAG) {
-        log(`  [cf-first] ${provider.id}: trying Byparr first`);
-        cfAttempts++;
-        const cfResult = await scrapeViaCFClearance(urls[0], provider.id, coin);
-        if (cfResult != null && cfResult.price != null) {
-          cfSuccess++;
-          price = cfResult.price;
-          source = cfResult.source;
-          inStock = cfResult.inStock;
-          finalUrl = urls[0];
-          log(
-            `  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (cf-first${!inStock ? ", OOS" : ""})`
-          );
-          scrapeResults.push({
+      let result;
+      try {
+        result = normalizeVendorResult(
+          await scrapeVendorFn({
             coinSlug,
             coin,
-            providerId: provider.id,
-            url: finalUrl,
-            price,
-            source,
-            inStock,
-            ok: true,
-            error: null,
-          });
-          if (db) {
-            await safeWriteSnapshot(db, {
-              scrapedAt,
-              windowStart: winStart,
-              coinSlug,
-              vendor: provider.id,
-              price,
-              source,
-              isFailed: false,
-              inStock,
-              baseline: _baseline,
-              skipPriceBounds: _skipBounds,
-            });
-          }
-          if (targetIdx < targets.length - 1) {
-            await jitter();
-          }
-          continue;
-        }
-        // Byparr returned null or no price — OOS with no price is still useful
-        if (cfResult != null && cfResult.price == null && !cfResult.inStock) {
-          cfSuccess++;
-          log(`  ✓ ${coinSlug}/${provider.id}: OOS detected (cf-first, no price)`);
-          scrapeResults.push({
-            coinSlug,
-            coin,
-            providerId: provider.id,
-            url: finalUrl,
-            price: null,
-            source: cfResult.source,
-            inStock: false,
-            ok: true,
-            error: null,
-          });
-          if (db) {
-            await safeWriteSnapshot(db, {
-              scrapedAt,
-              windowStart: winStart,
-              coinSlug,
-              vendor: provider.id,
-              price: null,
-              source: cfResult.source,
-              isFailed: false,
-              inStock: false,
-              baseline: _baseline,
-              skipPriceBounds: _skipBounds,
-            });
-          }
-          if (targetIdx < targets.length - 1) {
-            await jitter();
-          }
-          continue;
-        }
-        cfFailures++;
-        log(`  ↻ ${coinSlug}/${provider.id}: cf-first failed — falling through to Phase 0/1`);
+            provider,
+            urls,
+            url: urls[0],
+            config: providerCfg(provider.id),
+            scrapeGeneric: scrapeGenericTarget,
+            log,
+            warn,
+          }),
+          { coinSlug, coin, provider, url: urls[0] }
+        );
+      } catch (err) {
+        warn(
+          `${coinSlug}/${provider.id}: vendor scrape failed: ${vendorErrorMessage(err).slice(0, 120)}`
+        );
+        result = failedVendorResult({
+          coinSlug,
+          coin,
+          provider,
+          url: urls[0],
+          error: err,
+        });
       }
 
-      // ── Phase 0: Try Playwright direct (no proxy, 15s timeout) ──────────────
-      // Fast first-pass — succeeds for ~65/88 targets in <5s. If it gets a price,
-      // skip Firecrawl entirely. Skip for PLAYWRIGHT_ONLY_PROVIDERS (they need
-      // Firecrawl's stealth patches) and FIRECRAWL_PREFERRED_PROVIDERS (they need
-      // Firecrawl's markdown pipe-table conversion for correct extraction).
-      // Exception: goldback slugs are individual product detail pages with a single
-      // prominently-displayed price — not HTML pricing tables — so Phase 0 Playwright
-      // extracts prices correctly for table-parse vendors (apmex, monumentmetals).
-      // Bot-detection vendors (jmbullion, bullionexchanges) are NOT bypassed: they
-      // still need Firecrawl stealth even on goldback detail pages (API-14).
-      const isGoldback = coinSlug.startsWith("goldback");
-      const fcPreferredForTarget =
-        FIRECRAWL_PREFERRED_PROVIDERS.has(provider.id) &&
-        !(isGoldback && FIRECRAWL_TABLE_PARSE_PROVIDERS.has(provider.id));
-      if (
-        !PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id) &&
-        !fcPreferredForTarget &&
-        PLAYWRIGHT_LAUNCH
-      ) {
-        const directResult = await scrapeWithPlaywrightDirect(urls[0], provider.id, coin);
-        if (directResult !== null) {
-          price = directResult.price;
-          source = directResult.source;
-          inStock = directResult.inStock;
-          finalUrl = urls[0];
-          log(
-            `  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (playwright-direct${!inStock ? ", OOS" : ""})`
-          );
-          // Skip Firecrawl — go straight to store result
-          scrapeResults.push({
-            coinSlug,
-            coin,
-            providerId: provider.id,
-            url: finalUrl,
-            price,
-            source,
-            inStock,
-            ok: true,
-            error: null,
-          });
-          if (db) {
-            await safeWriteSnapshot(db, {
-              scrapedAt,
-              windowStart: winStart,
-              coinSlug,
-              vendor: provider.id,
-              price,
-              source,
-              isFailed: false,
-              inStock,
-              baseline: _baseline,
-              skipPriceBounds: _skipBounds,
-            });
-          }
-          if (targetIdx < targets.length - 1) {
-            await jitter();
-          }
-          continue;
-        }
-      }
-
-      // ── Phase 1: Try all URLs via Firecrawl ──────────────────────────────────
-      // Skip Phase 1 for providers where Firecrawl is structurally unreliable
-      // (bot detection or waitFor-not-supported JS rendering). price/inStock stay
-      // at their defaults (null / true) so the failure path fires below.
-      if (!PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id)) {
-        for (let i = 0; i < urls.length; i++) {
-          const url = urls[i];
-          if (i > 0) log(`  → ${coinSlug}/${provider.id}: fallback URL [${i}]: ${url}`);
-
-          try {
-            // Proxy-first path: if this provider routes through an alternate IP,
-            // try the proxied playwright-service first (e.g., Fly.io IP for BEx).
-            let markdown;
-            const proxyTarget = resolveProxy(provider.id);
-            if (proxyTarget) {
-              try {
-                const cfg = providerCfg(provider.id);
-                const proxyText = await scrapeViaProxy(url, cfg.waitFor, cfg.timeout);
-                // scrapeViaProxy returns plain text (like Phase 0), not markdown.
-                // Use it directly for extraction — preprocessMarkdown handles both.
-                const proxyCleaned = preprocessMarkdown(proxyText, provider.id);
-                const proxyStock = detectStockStatus(
-                  proxyCleaned,
-                  coin.weight_oz || 1,
-                  provider.id
-                );
-                const proxyExtracted = extractPrice(
-                  proxyCleaned,
-                  coin.metal,
-                  coin.weight_oz || 1,
-                  provider.id
-                );
-                if (proxyExtracted) {
-                  log(
-                    `  extractPrice ${provider.id}: matched=${proxyExtracted.matchedBy} price=$${proxyExtracted.price.toFixed(2)} (fly-proxy)`
-                  );
-                  price = proxyExtracted.price;
-                  source = `fly-proxy:${proxyExtracted.matchedBy}`;
-                  inStock = proxyStock.inStock;
-                  finalUrl = url;
-                  log(
-                    `  \u2713 ${coinSlug}/${provider.id}: $${price.toFixed(2)} (fly-proxy)${!inStock ? " OOS" : ""}`
-                  );
-                  break;
-                }
-                log(
-                  `  \u21bb ${coinSlug}/${provider.id}: fly-proxy returned no price, falling back to firecrawl`
-                );
-              } catch (proxyErr) {
-                warn(
-                  `  \u2717 ${provider.id} fly-proxy error: ${proxyErr.message.slice(0, 80)}, falling back`
-                );
-              }
-            }
-            const scrapeResult = await scrapeUrl(url, provider.id, 1, coin);
-            // Structured scrape results can carry JSON-LD OOS without markdown parsing.
-            if (isStructuredPriceResult(scrapeResult)) {
-              price = scrapeResult.price;
-              source = scrapeResult.source;
-              inStock = scrapeResult.inStock;
-              finalUrl = url;
-              // price may be null when cf-clearance detected OOS via JSON-LD
-              // (zero-price sentinel) — guard before toFixed.
-              if (price != null) {
-                log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
-              } else {
-                log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
-              }
-              break;
-            }
-            markdown = markdownFromScrapeResult(scrapeResult);
-            const cleaned = preprocessMarkdown(markdown, provider.id);
-            const stock = detectStockStatus(cleaned, coin.weight_oz || 1, provider.id);
-
-            if (!stock.inStock) {
-              log(
-                `  ⚠ ${provider.id} [url${i}]: ${stock.reason} — ${stock.detectedText || "detected"}`
-              );
-              // Still attempt price extraction — OOS pages often show advertised price
-              const oosExtracted = extractPrice(
-                cleaned,
-                coin.metal,
-                coin.weight_oz || 1,
-                provider.id
-              );
-              const oosPrice = oosExtracted ? oosExtracted.price : null;
-              if (oosExtracted)
-                log(
-                  `  extractPrice ${provider.id}: matched=${oosExtracted.matchedBy} price=$${oosExtracted.price.toFixed(2)} (OOS)`
-                );
-              if (oosPrice !== null) {
-                price = oosPrice;
-                source = `firecrawl:${oosExtracted.matchedBy}`;
-                finalUrl = url;
-                log(`  ✓ ${coinSlug}/${provider.id}: $${oosPrice.toFixed(2)} (firecrawl, OOS)`);
-              }
-              if (i < urls.length - 1 && oosPrice === null) {
-                await jitter();
-                continue;
-              }
-              // Last URL or got a price — exit loop with inStock=false
-              inStock = false;
-              if (!finalUrl || finalUrl !== url) finalUrl = url;
-              break;
-            }
-
-            const extracted = extractPrice(cleaned, coin.metal, coin.weight_oz || 1, provider.id);
-            const p = extracted ? extracted.price : null;
-            if (extracted)
-              log(
-                `  extractPrice ${provider.id}: matched=${extracted.matchedBy} price=$${extracted.price.toFixed(2)}`
-              );
-            if (p !== null) {
-              price = p;
-              source = `firecrawl:${extracted.matchedBy}`;
-              finalUrl = url;
-              log(
-                `  ✓ ${coinSlug}/${provider.id}: $${p.toFixed(2)} (firecrawl)${urls.length > 1 ? ` [url${i}]` : ""}`
-              );
-              break;
-            }
-
-            // Parse failure on this URL — retry once with longer wait for FIRECRAWL_PREFERRED
-            // providers (jmbullion, bullionexchanges) where proxy latency can cause under-render.
-            if (FIRECRAWL_PREFERRED_PROVIDERS.has(provider.id) && !_retriedUrls.has(url)) {
-              _retriedUrls.add(url);
-              log(`  ↻ ${coinSlug}/${provider.id} [url${i}]: retrying with extended waitFor...`);
-              await jitter();
-              try {
-                const retryRaw = await scrapeUrl(url, provider.id, 1, coin);
-                // Structured scrape results can carry JSON-LD OOS without markdown parsing.
-                if (isStructuredPriceResult(retryRaw)) {
-                  price = retryRaw.price;
-                  source = retryRaw.source;
-                  inStock = retryRaw.inStock;
-                  finalUrl = url;
-                  if (price != null) {
-                    log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
-                  } else {
-                    log(`  ✓ ${coinSlug}/${provider.id}: OOS, no price (${source})`);
-                  }
-                  break;
-                }
-                const retryMd = markdownFromScrapeResult(retryRaw);
-                const retryCleaned = preprocessMarkdown(retryMd, provider.id);
-                const retryStock = detectStockStatus(
-                  retryCleaned,
-                  coin.weight_oz || 1,
-                  provider.id
-                );
-                const retryExtracted = extractPrice(
-                  retryCleaned,
-                  coin.metal,
-                  coin.weight_oz || 1,
-                  provider.id
-                );
-                const retryPrice = retryExtracted ? retryExtracted.price : null;
-                if (retryExtracted)
-                  log(
-                    `  extractPrice ${provider.id}: matched=${retryExtracted.matchedBy} price=$${retryExtracted.price.toFixed(2)} (retry)`
-                  );
-                if (retryPrice !== null) {
-                  price = retryPrice;
-                  source = `firecrawl-retry:${retryExtracted.matchedBy}`;
-                  inStock = retryStock.inStock;
-                  finalUrl = url;
-                  log(
-                    `  ✓ ${coinSlug}/${provider.id}: $${retryPrice.toFixed(2)} (firecrawl-retry)${!inStock ? " OOS" : ""}`
-                  );
-                  break;
-                }
-              } catch (retryErr) {
-                warn(`  ✗ ${provider.id} [url${i}] retry error: ${retryErr.message.slice(0, 100)}`);
-              }
-            }
-
-            warn(
-              `  ? ${coinSlug}/${provider.id} [url${i}]: page loaded, no price — trying next URL`
-            );
-            if (i < urls.length - 1) {
-              await jitter();
-              continue;
-            }
-
-            // Last URL, Firecrawl parse failure — no more fallbacks
-            finalUrl = url;
-          } catch (err) {
-            warn(`  ✗ ${provider.id} [url${i}] firecrawl error: ${err.message.slice(0, 100)}`);
-            if (i < urls.length - 1) {
-              await jitter();
-              continue;
-            }
-            // Last URL threw — no more fallbacks
-            finalUrl = url;
-          }
-        }
-      }
-
-      // ── Phase 2 fallback: CF-clearance for invisible Cloudflare challenges ──────
-      // Cloudflare's JS challenge returns 200 (not 403), so the in-scrapeUrl 403
-      // trigger never fires. If Phase 0+1 both returned no price for a
-      // cf_clearance_fallback vendor, attempt Byparr now as a last resort.
-      // Skip for cf-clearance-first vendors — they already tried Byparr at the top.
-      if (price === null && inStock && cfg.phase !== "cf-clearance-first") {
-        if (cfg.cf_clearance_fallback && CF_CLEARANCE_ENABLED_FLAG) {
-          log(`  [cf-clearance] ${provider.id}: no price from Phase 0/1 — trying Byparr bypass`);
-          cfAttempts++;
-          try {
-            const phase2 = await scrapeViaCFClearance(urls[0], provider.id, coin);
-            if (phase2 !== null) {
-              price = phase2.price;
-              source = phase2.source;
-              inStock = phase2.inStock;
-              finalUrl = urls[0];
-              cfSuccess++;
-              log(`  ✓ ${coinSlug}/${provider.id}: $${price.toFixed(2)} (${source})`);
-            } else {
-              cfFailures++;
-            }
-          } catch (cfErr) {
-            cfFailures++;
-            warn(`  ✗ ${provider.id} cf-clearance error: ${cfErr.message.slice(0, 100)}`);
-          }
-        }
-      }
-
-      // Log terminal state if not already logged
-      if (price === null && inStock) {
-        warn(`  ? ${coinSlug}/${provider.id}: all URLs exhausted, no price found`);
-      } else if (price === null && !inStock) {
-        // OOS already logged per-URL above
-      }
-
-      // ── Store result ──────────────────────────────────────────────────────────
-      // OOS with a price is a successful scrape — the advertised price is valid data.
-      // Only count as failure if in-stock but no price found (actual scrape failure).
-      const scrapeOk = price !== null || !inStock;
-      scrapeResults.push({
-        coinSlug,
-        coin,
-        providerId: provider.id,
-        url: finalUrl,
-        price,
-        source,
-        inStock,
-        ok: scrapeOk,
-        error: price === null && inStock ? "price_not_found" : null,
-      });
+      scrapeResults.push(result);
 
       // Record to sqld
       if (db) {
-        await safeWriteSnapshot(db, {
-          scrapedAt,
-          windowStart: winStart,
-          coinSlug,
-          vendor: provider.id,
-          price,
-          source,
-          isFailed: price === null && inStock, // Only failed if in stock but no price
-          baseline: _baseline,
-          skipPriceBounds: _skipBounds,
-          inStock,
-        });
+        await safeWriteSnapshot(
+          db,
+          {
+            scrapedAt,
+            windowStart: winStart,
+            coinSlug,
+            vendor: provider.id,
+            price: result.price,
+            source: result.source,
+            isFailed: result.price === null && result.inStock,
+            baseline: _baseline,
+            skipPriceBounds: _skipBounds,
+            inStock: result.inStock,
+          },
+          writeSnapshot
+        );
 
         // Record individual failure for failure queue (R10)
-        if (price === null && inStock) {
+        if (result.price === null && result.inStock) {
           try {
             await recordFailure(db, {
               coinSlug,
               vendorId: provider.id,
-              url: finalUrl || urls[0],
-              error: "price_not_found",
+              url: result.url || urls[0],
+              error: result.error || "price_not_found",
               failedAt: scrapedAt,
             });
           } catch (err) {
@@ -2155,7 +1256,7 @@ async function main() {
 
       // Jitter before next request (skip after last target)
       if (targetIdx < targets.length - 1) {
-        await jitter();
+        await jitterFn();
       }
     }
 
@@ -2197,7 +1298,14 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err);
-  process.exit(1);
-});
+function isDirectCliInvocation() {
+  if (!process.argv[1]) return false;
+  return import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+}
+
+if (isDirectCliInvocation()) {
+  runFullPoller().catch((err) => {
+    console.error("Fatal:", err);
+    process.exit(1);
+  });
+}

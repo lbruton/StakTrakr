@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.6] - 2026-06-05
+
+### Changed — STRK-32: Isolate price extractor Vendor modules
+
+- **Retail poller**: Price extraction now routes migrated Vendors through isolated modules, keeps the orchestrator import-safe for single-Vendor dashboard retry, and packages the new shared modules for poller deploys (STRK-32).
+
+---
+
 ## [3.35.5] - 2026-06-05
 
 ### Fixed — STRK-138: Numista Goldback import + Type-drives-Metal coupling
