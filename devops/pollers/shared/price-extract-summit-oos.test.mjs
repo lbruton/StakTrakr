@@ -15,6 +15,12 @@
  *      which carry the 100+ BULK price ($77.78) instead of the 1-9 single-unit
  *      price ($79.22). Fix: prefer firstTableRowFirstPrice() / tierAnchoredPrice()
  *      (first qty tier) before falling back to the "Regular price" cards.
+ *   3. THE ACTUAL PRODUCTION CAUSE: Summit's Shopify JSON-LD advertises
+ *      offer.price = the 100+ BULK tier (e.g. $71.97). The poller treats JSON-LD as
+ *      authoritative and checks it BEFORE extractMarkdownPrice, so the bulk price
+ *      short-circuits and the table-first strategy (#2) never runs. Fix: the Summit
+ *      module sets untrustedOfferPrice:true so extractJsonLdPrice() skips the
+ *      offer.price and the poller falls through to the qty-tier table extraction.
  *
  * The shared helpers are importable, so this test exercises the real parser and
  * OOS helpers end-to-end (registry → Summit module → shared toolkit). A
@@ -31,6 +37,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   detectStockStatus,
+  extractJsonLdPrice,
   extractMarkdownPrice,
   preprocessMarkdown,
 } from "./price-extract-shared.js";
@@ -177,6 +184,23 @@ test("old behavior would have returned the bulk $77.78 (regression guard)", () =
   assert.equal(bulk, 77.78);
   // The fix must NOT return that value.
   assert.notEqual(extractMarkdownPrice(cleaned, "silver", 1, "summitmetals").price, bulk);
+});
+
+test("THE PRODUCTION FIX: Summit's bulk JSON-LD offer.price is skipped (untrusted)", () => {
+  // Faithful to Summit's real Shopify JSON-LD: a flat offer.price = the 100+ bulk
+  // tier ($71.97), InStock — no priceSpecification for the 1-9 wire price.
+  const summitJsonLd = [
+    JSON.stringify({
+      "@type": "Product",
+      offers: { price: "71.97", availability: "http://schema.org/InStock" },
+    }),
+  ];
+  // Summit (untrustedOfferPrice:true) → the bulk offer.price is skipped → null,
+  // so the poller falls through to the qty-tier markdown extraction ($73.30 live).
+  assert.equal(extractJsonLdPrice(summitJsonLd, "silver", 1, "summitmetals"), null);
+  // Control: a vendor that trusts offer.price WOULD return the bulk number — proving
+  // the untrusted flag is exactly what prevents the short-circuit for Summit.
+  assert.equal(extractJsonLdPrice(summitJsonLd, "silver", 1, "apmex"), 71.97);
 });
 
 test("STRUCTURAL: Summit cutoff + table-first strategy live in the Vendor module", () => {

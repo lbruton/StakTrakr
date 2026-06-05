@@ -34,7 +34,13 @@ export const vendor = {
   ],
   headerSkipPattern: null,
   preorderTolerant: false,
-  untrustedOfferPrice: false,
+  // Summit's Shopify JSON-LD advertises offer.price = the 100+ BULK tier (e.g.
+  // $71.97), not the 1-9 single-unit Check/Wire price. The poller treats JSON-LD
+  // as authoritative and checks it BEFORE extractMarkdownPrice, so a trusted
+  // offer.price short-circuits straight to the bulk price and the table-first
+  // strategy below never runs. Marking offer.price untrusted makes the JSON-LD
+  // path skip it and fall through to the qty-tier table extraction. (STRK-144)
+  untrustedOfferPrice: true,
   usesAsLowAs: false,
 
   // --- Per-vendor price strategy ---

@@ -60,7 +60,9 @@ test("Summit module owns the full Vendor interface (cutoff + strategy)", async (
   );
   assert.equal(summit.headerSkipPattern, null);
   assert.equal(summit.preorderTolerant, false);
-  assert.equal(summit.untrustedOfferPrice, false);
+  // Summit's JSON-LD offer.price is the 100+ bulk tier, so it must be untrusted —
+  // otherwise the poller's authoritative JSON-LD path short-circuits to the bulk price.
+  assert.equal(summit.untrustedOfferPrice, true);
   assert.equal(summit.usesAsLowAs, false);
   assert.equal(typeof summit.extractPrice, "function");
 
