@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.2";
+const APP_VERSION = "3.35.3";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1012,6 +1012,7 @@ const ALLOWED_STORAGE_KEYS = [
   "migration_hourlySource", // one-time migration flag: re-tag StakTrakr hourly entries
   "migration_seedHistoryMerge", // one-time migration flag: skip redundant seed-history merge writes
   "migration_cmp2_compression", // one-time migration flag: re-encode CMP1/large keys to CMP2 (STRK-140)
+  "migration_idb_history_v1", // one-time migration flag: market histories moved to IndexedDB (STRK-141)
   "numistaLookupRules", // custom Numista search lookup rules (JSON array)
   "numistaViewFields", // view modal Numista field visibility config (JSON object)
   TIMEZONE_KEY, // string: "auto" | "UTC" | IANA zone (STACK-63)
@@ -1117,6 +1118,24 @@ const VAULT_SETTINGS_DIFF_SKIP = [
   LAST_CACHE_REFRESH_KEY,
   LAST_API_SYNC_KEY,
 ];
+
+/**
+ * Market-history localStorage keys now owned by IndexedDB (STRK-141).
+ * Skipped by backup/restore so the IDB store remains the single source of
+ * truth for these histories.
+ * @constant {string[]}
+ */
+const HISTORY_IDB_KEYS = [
+  SPOT_HISTORY_KEY,
+  "v2RetailHistory", // nosemgrep: codacy.javascript.security.hard-coded-password
+  RETAIL_PRICE_HISTORY_KEY,
+];
+
+/** @constant {number} ITEM_PRICE_HISTORY_MAX_DAYS - Retention window (days) for per-item price history (STRK-141) */
+const ITEM_PRICE_HISTORY_MAX_DAYS = 365;
+
+/** @constant {number} ITEM_PRICE_HISTORY_MAX_ENTRIES - Max retained entries for per-item price history (STRK-141) */
+const ITEM_PRICE_HISTORY_MAX_ENTRIES = 1000;
 
 // =============================================================================
 // INLINE CHIP CONFIG — controls which chips appear in the Name cell and order
@@ -1937,6 +1956,10 @@ if (typeof window !== "undefined") {
   window.SYNC_SCOPE_KEYS = SYNC_SCOPE_KEYS;
   window.VAULT_EXCLUDE_KEYS = VAULT_EXCLUDE_KEYS;
   window.VAULT_SETTINGS_DIFF_SKIP = VAULT_SETTINGS_DIFF_SKIP;
+  // STRK-141: market histories migrated to IndexedDB
+  window.HISTORY_IDB_KEYS = HISTORY_IDB_KEYS;
+  window.ITEM_PRICE_HISTORY_MAX_DAYS = ITEM_PRICE_HISTORY_MAX_DAYS;
+  window.ITEM_PRICE_HISTORY_MAX_ENTRIES = ITEM_PRICE_HISTORY_MAX_ENTRIES;
   window.CERT_LOOKUP_URLS = CERT_LOOKUP_URLS;
   // Inline chip config
   window.INLINE_CHIP_DEFAULTS = INLINE_CHIP_DEFAULTS;

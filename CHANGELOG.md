@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.3] - 2026-06-04
+
+### Changed — STRK-141: Migrate market histories to IndexedDB
+
+- **Storage**: Spot and retail price history now live in a dedicated IndexedDB store (`StakTrakrHistory`) instead of localStorage, permanently removing the storage-quota ceiling. Existing history migrates automatically and losslessly on first load, with a localStorage fallback when IndexedDB is unavailable (STRK-141).
+- **Item price history**: Now bounded by a silent retention cap (365-day age cutoff plus 1000 entries per item) so the one remaining localStorage history key can no longer re-trigger a quota error (STRK-141).
+- **Backups**: Manual encrypted vault and ZIP backups no longer carry the reproducible spot/retail caches; item price history remains included, and older backups containing spot/retail history restore cleanly by ignoring those entries (STRK-141).
+
+---
+
 ## [3.35.2] - 2026-06-03
 
 ### Fixed — STRK-144: Summit Metals false-OOS + wrong (bulk) price tier
