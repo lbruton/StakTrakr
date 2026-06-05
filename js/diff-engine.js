@@ -94,21 +94,61 @@ const DIFF_FIELDS = [
 // ---------------------------------------------------------------------------
 
 /**
+ * STRK-158: Fields whose values are date-time INSTANTS and must compare by epoch,
+ * not by raw string. lastModified is stored in two ISO serializations of the same
+ * instant (compact "20260603T061930904Z" vs extended "2026-06-03T06:19:30.904Z"),
+ * so a raw === reports a phantom conflict the user can never clear.
+ */
+const INSTANT_FIELDS = new Set(["lastModified"]);
+
+/**
+ * STRK-158: Parse an ISO instant to epoch milliseconds, accepting both the compact
+ * form (YYYYMMDDTHHmmssSSSZ, with optional millis) actually stored by some writers
+ * and the extended form Date.parse handles natively. Returns null when the value
+ * is not a parseable instant (so callers fall back to raw comparison).
+ * @param {*} val
+ * @returns {number|null}
+ */
+function _parseInstant(val) {
+  if (typeof val === "number") return Number.isFinite(val) ? val : null;
+  if (typeof val !== "string") return null;
+  let s = val.trim();
+  const compact = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})?Z?$/.exec(s);
+  if (compact) {
+    s =
+      `${compact[1]}-${compact[2]}-${compact[3]}T${compact[4]}:${compact[5]}:${compact[6]}` +
+      (compact[7] ? `.${compact[7]}` : "") +
+      "Z";
+  }
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
  * Returns true when two values are considered equal for diff purposes.
  * Uses strict equality after normalising undefined, null, and empty strings
  * to null so that a missing field, an explicit null, and an empty string
- * are all treated identically.
+ * are all treated identically. For INSTANT_FIELDS (e.g. lastModified) it compares
+ * by epoch ms so two serializations of the same instant are equal (STRK-158).
  *
  * @param {*} a
  * @param {*} b
+ * @param {string} [field] - the field name being compared (enables instant-aware compare)
  * @returns {boolean}
  */
-function _valuesEqual(a, b) {
+function _valuesEqual(a, b, field) {
   const norm = (v) => (v === undefined || v === "" ? null : v);
   a = norm(a);
   b = norm(b);
   if (a === b) return true;
   if (a === null || b === null) return false;
+  // STRK-158: instant-aware compare for date-time fields. Same instant, different
+  // ISO serialization (compact vs extended) must not be a phantom conflict.
+  if (field && INSTANT_FIELDS.has(field) && typeof a !== "object" && typeof b !== "object") {
+    const ta = _parseInstant(a);
+    const tb = _parseInstant(b);
+    if (ta !== null && tb !== null) return ta === tb;
+  }
   // Deep compare for objects (e.g. disposition) — recursive stable stringify
   if (typeof a === "object" && typeof b === "object") {
     return _stableStringify(a) === _stableStringify(b);
@@ -468,7 +508,24 @@ const DiffEngine = {
       const changes = [];
 
       for (const field of DIFF_FIELDS) {
-        if (!_valuesEqual(local[field], remote[field])) {
+        if (field === "attachments") {
+          // STRK-158: reconcile the count pill with the rendered per-entry rows.
+          // _valuesEqual on the raw arrays is order-sensitive (_stableStringify),
+          // so a pure reorder of the same UUIDs falsely counted as "1 field changed"
+          // while _diffAttachments (UUID/fileName-keyed, order-independent) rendered
+          // zero rows. Use _diffAttachments as the source of truth: no per-entry
+          // diff -> not a changed field.
+          const attDiff = _diffAttachments(local.attachments, remote.attachments);
+          if (attDiff.length > 0) {
+            changes.push({
+              field,
+              localVal: local.attachments !== undefined ? local.attachments : null,
+              remoteVal: remote.attachments !== undefined ? remote.attachments : null,
+            });
+          }
+          continue;
+        }
+        if (!_valuesEqual(local[field], remote[field], field)) {
           changes.push({
             field,
             localVal: local[field] !== undefined ? local[field] : null,
@@ -557,8 +614,9 @@ const DiffEngine = {
       const lookupKey = `${localChange.itemKey}|${localChange.field}`;
       if (remoteIndex.has(lookupKey)) {
         const remoteChange = remoteIndex.get(lookupKey);
-        // Only a conflict if the resolved values differ
-        if (!_valuesEqual(localChange.remoteVal, remoteChange.remoteVal)) {
+        // Only a conflict if the resolved values differ (STRK-158: instant-aware
+        // for lastModified so an ISO-serialization variant isn't a phantom conflict)
+        if (!_valuesEqual(localChange.remoteVal, remoteChange.remoteVal, localChange.field)) {
           conflicts.push({
             itemKey: localChange.itemKey,
             field: localChange.field,
