@@ -435,7 +435,15 @@ function syncIsEnabled() {
  * @returns {boolean}
  */
 function _isCorruptObjectString(value) {
-  return typeof value === "string" && value.indexOf("[object Object]") !== -1;
+  if (typeof value !== "string") return false;
+  // Genuine corruption is the ENTIRE value being the String(obj)/String(arr)
+  // coercion artifact — "[object Object]" for an object, or comma-joined repeats
+  // for an array of objects. Match the whole value EXACTLY, never as a substring:
+  // free-text scope keys (itemTags, tagBlacklist, chipCustomGroups, ...) can
+  // legitimately hold a user-entered tag/label named "[object Object]" embedded in
+  // valid JSON, and a substring match would let boot-repair wipe the entire store
+  // (STRK-157 review finding). A coercion artifact never appears inside valid JSON.
+  return /^\[object Object\](\s*,\s*\[object Object\])*$/.test(value.trim());
 }
 
 /**
@@ -2981,8 +2989,20 @@ function _mergeTagData(remoteTagData) {
       updated++;
     } else if (
       remoteTs === localTs &&
-      Object.prototype.hasOwnProperty.call(remoteTimestamps, uuid) &&
-      Object.prototype.hasOwnProperty.call(localTimestamps, uuid)
+      // Fire the tie-union when both sides agree on the timestamp AND either both
+      // have a timestamp entry, OR the tag/removed CONTENT is present on both sides.
+      // The content-presence arm converges legacy / Numista-batch tags that have no
+      // itemTagsLastModified entry (both coerce to ts=0) — without it those diverged
+      // untimestamped tags never reach the union and re-trigger a silent tag-only
+      // merge every poll (STRK-155 review finding). One-sided uuids are excluded by
+      // requiring presence on BOTH sides, so a remote-only untimestamped tag is not
+      // spuriously adopted here.
+      ((Object.prototype.hasOwnProperty.call(remoteTimestamps, uuid) &&
+        Object.prototype.hasOwnProperty.call(localTimestamps, uuid)) ||
+        (Object.prototype.hasOwnProperty.call(localTags, uuid) &&
+          Object.prototype.hasOwnProperty.call(remoteTags, uuid)) ||
+        (Object.prototype.hasOwnProperty.call(localRemoved, uuid) &&
+          Object.prototype.hasOwnProperty.call(remoteRemoved, uuid)))
     ) {
       // STRK-155: timestamp tie with potentially divergent content. A plain
       // last-write-wins no-op here is non-commutative and freezes two diverged

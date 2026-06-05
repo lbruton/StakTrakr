@@ -9,7 +9,7 @@
 // permanent settings-hash divergence.
 //
 // Fix (this file's unit surface):
-//   _isCorruptObjectString  — corruption sentinel ("[object Object]" substring)
+//   _isCorruptObjectString  — corruption sentinel (EXACT match of the coercion artifact)
 //   _safeSettingWriteValue  — compute the write string, or null to skip corruption
 //   syncBootRepairCorruptSettings — one-time, idempotent removal of corrupt keys
 //
@@ -41,6 +41,8 @@ function makeSandbox(seed, decompressFn) {
     "viewModalSectionConfig",
     "chipCustomGroups",
     "numistaViewFields",
+    "itemTags",
+    "tagBlacklist",
   ];
   const __decompressIfNeeded = decompressFn || ((s) => s);
   const debugLog = () => {};
@@ -121,5 +123,48 @@ describe("STRK-157 boot-repair for corrupt object-valued keys", () => {
     const sb = makeSandbox({ appTheme: "dark", chipCustomGroups: '{"ok":1}' });
     assert.deepEqual(sb.syncBootRepairCorruptSettings(), []);
     assert.equal(sb.map.size, 2);
+  });
+});
+
+// STRK-157 review finding (major): the corruption sentinel must match the ENTIRE
+// value being the String(obj) coercion artifact, NOT merely contain the substring —
+// otherwise a user-entered free-text tag/chip named "[object Object]" (valid JSON,
+// under the 50-char tag limit) would make boot-repair delete the ENTIRE itemTags /
+// chipCustomGroups store, wiping all tags/groups for all items.
+describe("STRK-157 corruption sentinel is exact-match, not substring (free-text safety)", () => {
+  test("a legitimate tag literally named [object Object] does NOT wipe the itemTags store", () => {
+    const legit = JSON.stringify({ u1: ["silver", "[object Object]", "1oz"], u2: ["proof"] });
+    const sb = makeSandbox({
+      appTheme: "dark",
+      itemTags: legit,
+      chipCustomGroups: "[object Object],[object Object]", // genuinely coerced
+    });
+    const repaired = sb.syncBootRepairCorruptSettings();
+    assert.deepEqual(
+      repaired,
+      ["chipCustomGroups"],
+      "only the genuinely-coerced store is repaired"
+    );
+    assert.equal(
+      sb.map.get("itemTags"),
+      legit,
+      "free-text store with embedded substring preserved intact"
+    );
+    assert.equal(sb.map.has("chipCustomGroups"), false, "the bare-artifact store is still removed");
+  });
+
+  test("tagBlacklist containing a [object Object] entry inside valid JSON is preserved", () => {
+    const legit = JSON.stringify(["junk", "[object Object]"]);
+    const sb = makeSandbox({ tagBlacklist: legit });
+    assert.deepEqual(sb.syncBootRepairCorruptSettings(), []);
+    assert.equal(sb.map.get("tagBlacklist"), legit);
+  });
+
+  test("_safeSettingWriteValue persists valid JSON that merely contains the substring", () => {
+    const { _safeSettingWriteValue } = makeSandbox();
+    const legit = '{"u1":["[object Object]"]}';
+    assert.equal(_safeSettingWriteValue(legit), legit, "must not refuse to sync a legit tag");
+    // but the bare artifact is still rejected
+    assert.equal(_safeSettingWriteValue("[object Object]"), null);
   });
 });

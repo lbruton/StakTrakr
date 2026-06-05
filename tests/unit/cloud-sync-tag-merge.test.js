@@ -214,4 +214,81 @@ describe("STRK-155 convergent per-item tag merge", () => {
     assert.deepEqual(r.itemTags.u1, ["alpha", "beta"]);
     assert.equal(r.itemRemovedTags.u1, undefined, "present tag must not remain in removed list");
   });
+
+  // STRK-155 review finding: legacy / Numista-batch tags (applyNumistaTags persist=false,
+  // pre-timestamp installs) have tag content but NO itemTagsLastModified entry, so both
+  // sides coerce to ts=0. The original tie-gate required a timestamp entry on both sides,
+  // leaving these divergent-but-untimestamped tags non-convergent AND re-triggering a
+  // silent tag-only merge every poll. The gate must also fire on equal timestamps when the
+  // tag content is present on BOTH sides.
+  test("untimestamped tags present on both sides still converge to the union", () => {
+    const A = {
+      itemTags: { u1: ["alpha", "beta"] },
+      itemRemovedTags: {},
+      itemTagsLastModified: {},
+    };
+    const B = {
+      itemTags: { u1: ["beta", "gamma"] },
+      itemRemovedTags: {},
+      itemTagsLastModified: {},
+    };
+    const r1 = runMerge(A, {
+      itemTags: B.itemTags,
+      itemRemovedTags: B.itemRemovedTags,
+      itemTagsLastModified: B.itemTagsLastModified,
+    });
+    const r2 = runMerge(B, {
+      itemTags: A.itemTags,
+      itemRemovedTags: A.itemRemovedTags,
+      itemTagsLastModified: A.itemTagsLastModified,
+    });
+    assert.deepEqual(
+      r1.itemTags.u1,
+      ["alpha", "beta", "gamma"],
+      "untimestamped tie converges to union"
+    );
+    assert.deepEqual(r1, r2, "commutative for the untimestamped case too");
+    // content changed -> a timestamp is now stamped, ending the per-poll busy-loop
+    assert.equal(r1.itemTagsLastModified.u1, FIXED_NOW);
+  });
+
+  test("untimestamped union is idempotent: re-merging the converged superset is a no-op", () => {
+    // After convergence the uuid HAS a (bumped) timestamp; a stale untimestamped remote
+    // must not clobber it, and identical content must not re-bump.
+    const r = runMerge(
+      {
+        itemTags: { u1: ["alpha", "beta", "gamma"] },
+        itemRemovedTags: {},
+        itemTagsLastModified: { u1: FIXED_NOW },
+      },
+      {
+        itemTags: { u1: ["alpha", "beta", "gamma"] },
+        itemRemovedTags: {},
+        itemTagsLastModified: {},
+      }
+    );
+    assert.deepEqual(r.itemTags.u1, ["alpha", "beta", "gamma"]);
+    assert.equal(
+      r.itemTagsLastModified.u1,
+      FIXED_NOW,
+      "local stamped value wins over untimestamped remote"
+    );
+  });
+
+  test("one-sided untimestamped uuid is NOT spuriously adopted (no false tie)", () => {
+    // u2 exists only on the remote with no timestamp — must not be force-unioned into local.
+    const r = runMerge(
+      { itemTags: { u1: ["a"] }, itemRemovedTags: {}, itemTagsLastModified: {} },
+      {
+        itemTags: { u1: ["a"], u2: ["remote-only"] },
+        itemRemovedTags: {},
+        itemTagsLastModified: {},
+      }
+    );
+    assert.equal(
+      r.itemTags.u2,
+      undefined,
+      "remote-only untimestamped uuid is not adopted via the tie path"
+    );
+  });
 });

@@ -26,8 +26,20 @@ Two consequences follow, and both are mandatory:
    idempotent once both sides agree).
 
 The fixes are **self-healing**: existing diverged installs reconcile on the next
-sync with no user action. The one exception is data that cannot round-trip
-(`[object Object]` corruption), which a one-time idempotent boot-repair clears.
+sync with no user action — including tags that diverged with **no
+`itemTagsLastModified` entry** (legacy installs, or Numista batch writes via
+`applyNumistaTags(persist=false)`), which the tie-union converges by content
+presence, not just by an equal timestamp. The one exception is data that cannot
+round-trip (`[object Object]` corruption), which a one-time idempotent boot-repair
+clears.
+
+**Corruption sentinel is exact-match.** `_isCorruptObjectString` matches the
+**entire** value being the `String(obj)` coercion artifact (`[object Object]` or
+comma-joined repeats), never a substring. A free-text scope key (`itemTags`,
+`tagBlacklist`, `chipCustomGroups`, …) may legitimately hold a user-entered tag or
+label named `[object Object]` embedded in valid JSON; that must be preserved and
+synced. Detecting the artifact as a substring would let boot-repair delete the
+whole store, wiping every tag/group (STRK-157 review finding).
 
 ## Surface matrix
 
