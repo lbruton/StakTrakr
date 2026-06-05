@@ -10,6 +10,13 @@ export const vendor = {
   id: "apmex",
   displayName: "APMEX",
   config: APMEX_CONFIG,
+  // No vendor-specific markdown shaping — APMEX needs no cutoff/header trimming.
+  cutoffPatterns: [],
+  headerSkipPattern: null,
+  preorderTolerant: false,
+  untrustedOfferPrice: false,
+  usesAsLowAs: false,
+  // No extractPrice override → shared default strategy (Firecrawl pipe table, table-first).
   async scrape(context) {
     return context.scrapeGeneric({
       ...context,

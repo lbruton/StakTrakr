@@ -7,6 +7,7 @@
  */
 
 import { isFractionalExemptProvider } from "./price-extract-provider-config.js";
+import { getVendorModule } from "./price-extract-vendors.js";
 
 // Per-oz price ranges by metal type.
 // Multiplied by weight_oz to get the expected price range for each coin.
@@ -23,7 +24,8 @@ const METAL_PRICE_RANGE_PER_OZ = {
 // UPDATE 2026-02-21: Monument Metals DOES have a pricing table (1-24 row with eCheck/Wire column).
 // "As Low As" is bulk discount (500+) — use table-first extraction like all other vendors.
 // Empty set = all vendors now use table-first strategy.
-const USES_AS_LOW_AS = new Set([]);
+// TRANSITIONAL — see the legacy per-vendor block below.
+const LEGACY_USES_AS_LOW_AS = new Set([]);
 
 const OUT_OF_STOCK_PATTERNS = [
   /out of stock/i,
@@ -53,11 +55,27 @@ const SOFT_404_PATTERNS = [
   /has\s+been\s+(removed|discontinued)/i,
 ];
 
+// ---------------------------------------------------------------------------
+// TRANSITIONAL per-vendor data for NOT-YET-MIGRATED vendors (STRK-32 / STRK-104).
+//
+// Migrated vendors own these on their price-extract-vendor-*.js module:
+//   cutoffPatterns, headerSkipPattern, preorderTolerant, untrustedOfferPrice,
+//   usesAsLowAs.
+// The resolver helpers below read the vendor MODULE first (getVendorModule) and
+// fall back to these maps only for vendors that have not migrated yet. When you
+// migrate a vendor, MOVE its entries out of here and into its module so a change
+// to one vendor's data can never touch another's. Do NOT add new vendors here.
+// ---------------------------------------------------------------------------
+
 // Providers whose "Pre-Order" / "Presale" items still show live purchasable prices.
 // For these, skip the pre-?order OOS pattern — treat presale as in-stock.
-const PREORDER_TOLERANT_PROVIDERS = new Set(["jmbullion", "monumentmetals"]);
+const LEGACY_PREORDER_TOLERANT_PROVIDERS = new Set(["jmbullion", "monumentmetals"]);
 
-const MARKDOWN_CUTOFF_PATTERNS = {
+// Providers whose JSON-LD/offer.price is the CC price (untrusted as the wire price);
+// extract the qty-tier table price instead.
+const LEGACY_UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"]);
+
+const LEGACY_MARKDOWN_CUTOFF_PATTERNS = {
   sdbullion: [
     /^\*\*Add on Items\*\*/im,
     /^Add on Items\s*$/im,
@@ -72,24 +90,53 @@ const MARKDOWN_CUTOFF_PATTERNS = {
     /[\d,]+\s+Reviews?\b/i,
     /\bSuggested Products\b/i,
   ],
-  summitmetals: [
-    /^\s*Description Shipping & Returns\s*$/im,
-    /^#{0,6}\s*What Our Clients/im,
-    /^#{0,6}\s*Faq'?s\s*$/im,
-  ],
+  // summitmetals — MIGRATED to price-extract-vendor-summit.js (cutoffPatterns).
 };
 
-const MARKDOWN_HEADER_SKIP_PATTERNS = {
+const LEGACY_MARKDOWN_HEADER_SKIP_PATTERNS = {
   jmbullion:
     /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[A-Z]{2,4}/,
   monumentmetals: /(?:Home\s*>|Bullion\s*>|Coins?\s*>)/,
 };
 
+// --- Per-vendor flag resolvers: migrated module first, legacy map fallback. ---
+// A migrated vendor declares the flag (even `false`/`null`/`[]`) on its module,
+// which wins; a not-yet-migrated vendor (legacy adapter) returns `undefined` for
+// the flag, so we fall back to the transitional maps above.
+function resolvePreorderTolerant(providerId) {
+  const v = getVendorModule(providerId);
+  return v.preorderTolerant !== undefined
+    ? v.preorderTolerant
+    : LEGACY_PREORDER_TOLERANT_PROVIDERS.has(providerId);
+}
+
+function resolveUntrustedOfferPrice(providerId) {
+  const v = getVendorModule(providerId);
+  return v.untrustedOfferPrice !== undefined
+    ? v.untrustedOfferPrice
+    : LEGACY_UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId);
+}
+
+function resolveUsesAsLowAs(providerId) {
+  const v = getVendorModule(providerId);
+  return v.usesAsLowAs !== undefined ? v.usesAsLowAs : LEGACY_USES_AS_LOW_AS.has(providerId);
+}
+
+function resolveFractionalExempt(providerId) {
+  const fromModule = getVendorModule(providerId).config?.fractionalExempt;
+  return fromModule !== undefined ? fromModule : isFractionalExemptProvider(providerId);
+}
+
 export function preprocessMarkdown(markdown, providerId) {
   if (!markdown) return "";
   let result = markdown;
 
-  const headerPattern = MARKDOWN_HEADER_SKIP_PATTERNS[providerId];
+  const vendorModule = getVendorModule(providerId);
+
+  const headerPattern =
+    vendorModule.headerSkipPattern !== undefined
+      ? vendorModule.headerSkipPattern
+      : LEGACY_MARKDOWN_HEADER_SKIP_PATTERNS[providerId];
   if (headerPattern) {
     const headerMatch = result.search(headerPattern);
     if (headerMatch !== -1) {
@@ -98,8 +145,11 @@ export function preprocessMarkdown(markdown, providerId) {
     }
   }
 
-  const patterns = MARKDOWN_CUTOFF_PATTERNS[providerId];
-  if (patterns) {
+  const patterns =
+    vendorModule.cutoffPatterns !== undefined
+      ? vendorModule.cutoffPatterns
+      : LEGACY_MARKDOWN_CUTOFF_PATTERNS[providerId];
+  if (patterns && patterns.length) {
     let cutIndex = result.length;
     for (const pattern of patterns) {
       const match = result.search(pattern);
@@ -127,7 +177,7 @@ export function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "
     }
   }
 
-  const toleratesPreorder = PREORDER_TOLERANT_PROVIDERS.has(providerId);
+  const toleratesPreorder = resolvePreorderTolerant(providerId);
   for (const pattern of OUT_OF_STOCK_PATTERNS) {
     if (toleratesPreorder && /pre-?order/i.source === pattern.source) continue;
     const match = markdown.match(pattern);
@@ -140,7 +190,7 @@ export function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "
     }
   }
 
-  if (expectedWeightOz >= 1 && !isFractionalExemptProvider(providerId)) {
+  if (expectedWeightOz >= 1 && !resolveFractionalExempt(providerId)) {
     const headingMatch = markdown.match(/^#{1,2}\s+(.+)$/m);
     const titleArea = headingMatch ? headingMatch[1] : markdown.slice(0, 500);
 
@@ -170,8 +220,6 @@ export function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "
 // Sentinel returned by extractJsonLdPrice when JSON-LD has a valid Product
 // with price=0 — signals "real product page, no price (OOS)".
 export const JSONLD_ZERO_PRICE = Symbol("jsonld-zero-price");
-
-const UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"]);
 
 export function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerId = "") {
   if (!jsonLdScripts || jsonLdScripts.length === 0) return null;
@@ -232,7 +280,7 @@ export function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerI
 
           const price = parseFloat(String(offer.price ?? "").replace(/,/g, ""));
           if (!isNaN(price) && price === 0) return JSONLD_ZERO_PRICE;
-          if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) continue;
+          if (resolveUntrustedOfferPrice(providerId)) continue;
           if (inRange(price)) return price;
         }
       }
@@ -432,29 +480,40 @@ export function extractMarkdownPrice(markdown, metal, weightOz = 1, providerId =
     return prices;
   }
 
-  if (providerId === "summitmetals") {
-    const tblFirst = firstTableRowFirstPrice();
-    if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
-    const tier = tierAnchoredPrice();
-    if (tier !== null) return { price: tier, matchedBy: "tierAnchored" };
-    const reg = regularPricePrices();
-    if (reg.length > 0) return { price: Math.min(...reg), matchedBy: "regularPrice" };
-    return null;
+  // Shared, vendor-agnostic extraction toolkit. A migrated vendor's extractPrice
+  // composes these; the default strategy below uses them for legacy vendors.
+  const helpers = {
+    inRange,
+    tablePrices,
+    firstTableRowFirstPrice,
+    tierAnchoredPrice,
+    firstInRangePriceProse,
+    regularPricePrices,
+    asLowAsPrices,
+    jmPriceFromProseTable,
+    jmPriceFromPipeTable,
+  };
+
+  // Migrated vendors own their price strategy on their module (e.g. summitmetals).
+  const vendorModule = getVendorModule(providerId);
+  if (typeof vendorModule.extractPrice === "function") {
+    return vendorModule.extractPrice(helpers, { markdown, metal, weightOz, providerId });
   }
 
+  // Default + transitional per-provider strategies for not-yet-migrated vendors.
   if (providerId === "jmbullion") {
     const proseTbl = jmPriceFromProseTable();
     if (proseTbl !== null) return { price: proseTbl, matchedBy: "jmProseTable" };
     const pipeTbl = jmPriceFromPipeTable();
     if (pipeTbl !== null) return { price: pipeTbl, matchedBy: "jmPipeTable" };
     return null;
-  } else if (UNTRUSTED_OFFER_PRICE_VENDORS.has(providerId)) {
+  } else if (resolveUntrustedOfferPrice(providerId)) {
     const tblFirst = firstTableRowFirstPrice();
     if (tblFirst !== null) return { price: tblFirst, matchedBy: "tableFirstRow" };
     const tier = tierAnchoredPrice();
     if (tier !== null) return { price: tier, matchedBy: "tierAnchored" };
     return null;
-  } else if (USES_AS_LOW_AS.has(providerId)) {
+  } else if (resolveUsesAsLowAs(providerId)) {
     const ala = asLowAsPrices();
     if (ala.length > 0) return { price: Math.min(...ala), matchedBy: "asLowAs" };
     const tbl = tablePrices();

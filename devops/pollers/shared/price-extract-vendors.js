@@ -1,10 +1,12 @@
 import apmexVendor from "./price-extract-vendor-apmex.js";
 import goldbackVendor from "./price-extract-vendor-goldback.js";
+import summitVendor from "./price-extract-vendor-summit.js";
 import legacyVendor from "./price-extract-vendor-legacy.js";
 
 const MIGRATED_VENDOR_MAP = new Map([
   [goldbackVendor.id, goldbackVendor],
   [apmexVendor.id, apmexVendor],
+  [summitVendor.id, summitVendor],
 ]);
 
 export const MIGRATED_VENDOR_IDS = Array.from(MIGRATED_VENDOR_MAP.keys());
