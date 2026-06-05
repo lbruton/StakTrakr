@@ -14,7 +14,6 @@
  * @module diff-modal
  */
 
-/* eslint-disable no-var */
 /* global safeGetElement, sanitizeHtml, openModalById, closeModalById, DiffEngine */
 
 (function () {
