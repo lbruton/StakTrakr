@@ -620,11 +620,15 @@ const GOLDBACK_DENOMINATIONS = [
 
 const SILVERBACK_DENOMINATIONS = [{ weight: 1, label: "1 Silverback", silverOz: 0.001 }];
 
-/** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
-const TYPE_METAL_FILTER = {
-  Goldback: ["Gold"],
-  Silverback: ["Silver"],
-};
+/**
+ * @constant {Object<string, string[]>} TYPE_METAL_FILTER - Retained as the STAK-580 anchor/reference.
+ * As of STRK-138 this no longer hides any Type options: Goldback/Silverback are always selectable.
+ * The "no nonsensical metal×type combination" guarantee is now enforced by the Type-drives-Metal
+ * coupling plus the filterTypesByMetal reset-guard, not by hiding options. The constant and
+ * filterTypesByMetal's lookup are kept so existing callers don't throw; an empty object means
+ * no Type is gated.
+ */
+const TYPE_METAL_FILTER = {};
 
 /** @constant {string} ITEM_TAGS_KEY - LocalStorage key for item tags mapping (STAK-126) */
 const ITEM_TAGS_KEY = "itemTags"; // nosemgrep: codacy.javascript.security.hard-coded-password
