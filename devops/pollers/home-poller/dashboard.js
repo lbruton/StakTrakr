@@ -2255,7 +2255,7 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   let goldbackHtml = '<span style="color:var(--red);">Endpoint 404 — scraper needs deploy</span>';
   if (v2.goldback?.ok) {
     const gb = v2.goldback.data.data;
-    goldbackHtml = `<span style="color:var(--green);font-weight:600;">$${gb.g1_usd}</span> <span style="color:var(--muted);font-size:11px;">(${gb.date})</span>`;
+    goldbackHtml = `<span style="color:var(--green);font-weight:600;">$${gb.g1_usd}</span> <span style="color:var(--muted);font-size:11px;">(${gb.t ? gb.t.slice(0, 16).replace("T", " ") + " UTC" : "—"})</span>`;
   }
 
   return `<!DOCTYPE html>
