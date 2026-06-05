@@ -366,6 +366,28 @@ test.describe("core/strk-138-goldback-import-coupling", () => {
     expect(state.metal).toBe("Silver");
   });
 
+  test("Changing Metal to Gold while Silverback active resets Type — no Gold+Silverback (Req 5.2)", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [] });
+    await gotoApp(page);
+    await openAddForm(page);
+
+    // Establish Type=Silverback (which should set Metal=Silver).
+    await setType(page, "Silverback");
+    let state = await formState(page);
+    expect(state.type).toBe("Silverback");
+    expect(state.metal).toBe("Silver");
+
+    // Now force Metal=Gold — the incompatible combo must reconcile by
+    // resetting Type back to the placeholder (no Gold+Silverback record).
+    await setMetal(page, "Gold");
+
+    state = await formState(page);
+    expect(state.type).toBe("");
+    expect(state.metal).toBe("Gold");
+  });
+
   // -------------------------------------------------------------------------
   // Numista import detection (Requirement 3)
   // -------------------------------------------------------------------------
