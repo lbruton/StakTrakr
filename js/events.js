@@ -2138,6 +2138,14 @@ const handleTypeChange = () => {
   if (isGoldbackType || isSilverbackType) {
     unitSelect.value = isGoldbackType ? "gb" : "sb";
     if (unitGroup) unitGroup.classList.add("hidden");
+    const metalSelect = elements.itemMetal;
+    if (metalSelect instanceof HTMLElement) {
+      const targetMetal = isGoldbackType ? "Gold" : "Silver";
+      const hasMetalOption = Array.from(metalSelect.options || []).some(
+        (option) => option.value === targetMetal
+      );
+      if (hasMetalOption) metalSelect.value = targetMetal;
+    }
     updateDenomLabels(selectedType);
     const puritySelect = document.getElementById("itemPuritySelect");
     if (puritySelect && puritySelect.value !== "custom") {
@@ -2185,6 +2193,19 @@ const filterTypesByMetal = (metalValue) => {
       );
       if (firstVisible) typeSelect.value = firstVisible.value;
     }
+    handleTypeChange();
+  }
+
+  // STAK-580 (re-expressed for Type-drives-Metal): enforce "no nonsensical
+  // combo" by RESET, not by hiding. If a Goldback/Silverback Type is active and
+  // the user changes Metal to an incompatible value, clear Type back to the
+  // placeholder and rebuild dependent UI.
+  const currentType = typeSelect.value;
+  const incompatible =
+    (currentType === "Goldback" && metalValue !== "Gold") ||
+    (currentType === "Silverback" && metalValue !== "Silver");
+  if (incompatible) {
+    typeSelect.value = "";
     handleTypeChange();
   }
 };
