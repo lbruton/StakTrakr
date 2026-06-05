@@ -555,8 +555,10 @@ const _loadV2RetailHistory = async () => {
       // get() returns null for a DEFERRED key — migrate() keeps an unconfirmed
       // or wrong-shape payload in localStorage WITHOUT writing it to IDB, so the
       // LS copy is still the source of truth (R3.1, STRK-149 finding #1).
+      // `??` (not `!== null`) so the fallback also fires if get() ever returns
+      // undefined.
       const idb = await store.get(_V2_RETAIL_HISTORY_KEY);
-      loaded = idb !== null ? idb : loadDataSync(_V2_RETAIL_HISTORY_KEY);
+      loaded = idb ?? loadDataSync(_V2_RETAIL_HISTORY_KEY);
     } else {
       loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
     }

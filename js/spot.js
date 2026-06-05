@@ -139,8 +139,11 @@ const loadSpotHistory = async () => {
       // get() returns null for a DEFERRED key — migrate() keeps an unconfirmed
       // or wrong-shape payload in localStorage WITHOUT writing it to IDB, so the
       // LS copy is still the source of truth (R3.1, STRK-149 finding #1).
-      const idb = await historyStore.get("metalSpotHistory");
-      data = idb !== null ? idb : loadDataSync(SPOT_HISTORY_KEY, []);
+      // `??` (not `!== null`) so the fallback also fires if get() ever returns
+      // undefined; use SPOT_HISTORY_KEY so the IDB read and the LS fallback
+      // resolve the same key.
+      const idb = await historyStore.get(SPOT_HISTORY_KEY);
+      data = idb ?? loadDataSync(SPOT_HISTORY_KEY, []);
     } else {
       data = loadDataSync(SPOT_HISTORY_KEY, []);
     }
