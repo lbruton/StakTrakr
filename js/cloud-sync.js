@@ -2744,6 +2744,37 @@ function _restoreRawStorageValues(priorValues) {
   return { failed: failed, total: keys.length };
 }
 
+/**
+ * STRK-155: Deterministic, commutative union of two tag arrays.
+ * Dedups case-insensitively (matching addItemTag's case-insensitive dedup in
+ * tags.js), picks the lexicographically-smallest original string as the
+ * representative so merge(A,B) and merge(B,A) yield byte-identical output, and
+ * returns the result sorted by lowercased key. Trims and drops blank/non-string
+ * entries. Commutativity is the whole point: it is what lets two diverged
+ * devices converge to the same superset on a timestamp tie.
+ * @param {string[]} a
+ * @param {string[]} b
+ * @returns {string[]}
+ */
+function _unionTags(a, b) {
+  var byLower = {};
+  var all = (Array.isArray(a) ? a : []).concat(Array.isArray(b) ? b : []);
+  for (var i = 0; i < all.length; i++) {
+    if (typeof all[i] !== "string") continue;
+    var trimmed = all[i].trim();
+    if (!trimmed) continue;
+    var key = trimmed.toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(byLower, key) || trimmed < byLower[key]) {
+      byLower[key] = trimmed;
+    }
+  }
+  return Object.keys(byLower)
+    .sort()
+    .map(function (k) {
+      return byLower[k];
+    });
+}
+
 function _mergeTagData(remoteTagData) {
   var keys = _tagSyncKeys();
   remoteTagData = remoteTagData || {};
@@ -2807,6 +2838,35 @@ function _mergeTagData(remoteTagData) {
       }
       mergedTimestamps[uuid] = remoteTs;
       updated++;
+    } else if (
+      remoteTs === localTs &&
+      Object.prototype.hasOwnProperty.call(remoteTimestamps, uuid) &&
+      Object.prototype.hasOwnProperty.call(localTimestamps, uuid)
+    ) {
+      // STRK-155: timestamp tie with potentially divergent content. A plain
+      // last-write-wins no-op here is non-commutative and freezes two diverged
+      // devices in a permanent "Review Sync Changes" loop. Take the deterministic
+      // union of both sides instead — union is commutative, so both devices
+      // converge to the same superset within one round-trip. Only the side(s)
+      // whose content actually changes bump the timestamp, so once both agree the
+      // merge is idempotent. Known trade-off (confirmed): a tag removed on one
+      // device without bumping its timestamp can reappear (data-loss-averse).
+      var unionedTags = _unionTags(localTags[uuid], remoteTags[uuid]);
+      var unionedRemoved = _unionTags(localRemoved[uuid], remoteRemoved[uuid]);
+      var canonicalLocalTags = _unionTags(localTags[uuid], []);
+      var canonicalLocalRemoved = _unionTags(localRemoved[uuid], []);
+      var tagsChanged = unionedTags.join(" ") !== canonicalLocalTags.join(" ");
+      var removedChanged = unionedRemoved.join(" ") !== canonicalLocalRemoved.join(" ");
+
+      if (unionedTags.length > 0) mergedTags[uuid] = unionedTags;
+      else delete mergedTags[uuid];
+      if (unionedRemoved.length > 0) mergedRemoved[uuid] = unionedRemoved;
+      else delete mergedRemoved[uuid];
+
+      if (tagsChanged || removedChanged) {
+        mergedTimestamps[uuid] = Date.now();
+        updated++;
+      }
     }
   });
 
