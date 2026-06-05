@@ -549,10 +549,17 @@ const _saveV2RetailHistory = () => {
 const _loadV2RetailHistory = async () => {
   try {
     const store = typeof historyStore !== "undefined" ? historyStore : window?.historyStore;
-    const loaded =
-      store && store.isAvailable()
-        ? await store.get(_V2_RETAIL_HISTORY_KEY)
-        : loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    let loaded;
+    if (store && store.isAvailable()) {
+      // IDB available: prefer it, but fall back to the localStorage copy when
+      // get() returns null for a DEFERRED key — migrate() keeps an unconfirmed
+      // or wrong-shape payload in localStorage WITHOUT writing it to IDB, so the
+      // LS copy is still the source of truth (R3.1, STRK-149 finding #1).
+      const idb = await store.get(_V2_RETAIL_HISTORY_KEY);
+      loaded = idb !== null ? idb : loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    } else {
+      loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    }
     // Preserve the existing type guard: retail history must be a non-array object.
     retailPriceHistory =
       loaded && !Array.isArray(loaded) && typeof loaded === "object" ? loaded : {};

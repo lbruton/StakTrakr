@@ -133,10 +133,17 @@ const saveSpotHistory = () => {
  */
 const loadSpotHistory = async () => {
   try {
-    const data =
-      typeof historyStore !== "undefined" && historyStore.isAvailable()
-        ? await historyStore.get("metalSpotHistory")
-        : loadDataSync(SPOT_HISTORY_KEY, []);
+    let data;
+    if (typeof historyStore !== "undefined" && historyStore.isAvailable()) {
+      // IDB available: prefer it, but fall back to the localStorage copy when
+      // get() returns null for a DEFERRED key — migrate() keeps an unconfirmed
+      // or wrong-shape payload in localStorage WITHOUT writing it to IDB, so the
+      // LS copy is still the source of truth (R3.1, STRK-149 finding #1).
+      const idb = await historyStore.get("metalSpotHistory");
+      data = idb !== null ? idb : loadDataSync(SPOT_HISTORY_KEY, []);
+    } else {
+      data = loadDataSync(SPOT_HISTORY_KEY, []);
+    }
     const snapshot = getPersistedSpotHistorySnapshot(Array.isArray(data) ? data : []);
     spotHistory = snapshot.entries;
 
