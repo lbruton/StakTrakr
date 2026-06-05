@@ -101,6 +101,15 @@ const GOLDBACK_NO_DENOM_RESULT = {
   denomination: "",
 };
 
+// A Goldback whose source metal is INCOMPATIBLE (Silver) with type Goldback.
+// The reconciliation must let Type drive Metal=Gold, not let the stale metal
+// reset the Type. Exercises the handleTypeChange-before-filterTypesByMetal order.
+const GOLDBACK_BAD_METAL_RESULT = {
+  ...GOLDBACK_RESULT,
+  metal: "Silver",
+  composition: "Silver",
+};
+
 const SILVERBACK_RESULT = {
   name: "1 Silverback",
   catalogId: "999140",
@@ -399,6 +408,48 @@ test.describe("core/strk-138-goldback-import-coupling", () => {
     expect(state.metal).toBe("Gold");
   });
 
+  test("Type-driven Metal change clears a stale spot lookup; a non-metal-changing Type does not (Req 2, data-integrity)", async ({
+    page,
+  }) => {
+    await seedData(page, { inventory: [] });
+    await gotoApp(page);
+    await openAddForm(page);
+
+    // Case 1: Type=Goldback drives Metal -> Gold, which must clear stale spot.
+    await page.evaluate(() => {
+      const spot = document.getElementById("itemSpotPrice");
+      if (spot instanceof HTMLElement) spot.value = "2400.55";
+    });
+    await setType(page, "Goldback");
+
+    let spotAfter = await page.evaluate(() => {
+      const el = document.getElementById("itemSpotPrice");
+      return el instanceof HTMLElement ? el.value : null;
+    });
+    let state = await formState(page);
+    expect(state.metal).toBe("Gold");
+    expect(spotAfter).toBe("");
+
+    // Case 2: changing Type between two metal-compatible coin types must NOT
+    // move Metal, so a spot lookup the user just entered must be preserved.
+    await setMetal(page, "Silver");
+    await setType(page, "Coin");
+    const metalBefore = (await formState(page)).metal;
+    await page.evaluate(() => {
+      const spot = document.getElementById("itemSpotPrice");
+      if (spot instanceof HTMLElement) spot.value = "31.42";
+    });
+    await setType(page, "Round");
+
+    state = await formState(page);
+    expect(state.metal).toBe(metalBefore);
+    spotAfter = await page.evaluate(() => {
+      const el = document.getElementById("itemSpotPrice");
+      return el instanceof HTMLElement ? el.value : null;
+    });
+    expect(spotAfter).toBe("31.42");
+  });
+
   // -------------------------------------------------------------------------
   // Numista import detection (Requirement 3)
   // -------------------------------------------------------------------------
@@ -444,6 +495,24 @@ test.describe("core/strk-138-goldback-import-coupling", () => {
     expect(state.unit).toBe("gb");
   });
 
+  test("Goldback import with incompatible source metal still lands Type=Goldback, Metal=Gold, unit=gb (Req 3.3, 3.5 robustness)", async ({
+    page,
+  }) => {
+    // Regression for the reconciliation-ordering review finding: an imported
+    // Goldback whose source metal field is "Silver" must NOT have its Type reset
+    // by filterTypesByMetal. handleTypeChange runs first and coerces Metal=Gold.
+    await seedData(page, { inventory: [] });
+    await gotoApp(page);
+    await openAddForm(page);
+    await openNumistaPicker(page, GOLDBACK_BAD_METAL_RESULT);
+    await fillFromPicker(page);
+
+    const state = await formState(page);
+    expect(state.type).toBe("Goldback");
+    expect(state.metal).toBe("Gold");
+    expect(state.unit).toBe("gb");
+  });
+
   test("Silverback Numista import fills Type=Silverback, Metal=Silver, unit=sb (Req 3.4)", async ({
     page,
   }) => {
@@ -480,6 +549,8 @@ test.describe("core/strk-138-goldback-import-coupling", () => {
         one: fn("1"),
         third: fn("1/3"),
         empty: fn(""),
+        leadingDecimalHalf: fn(".5"),
+        leadingDecimalQuarter: fn(".25"),
       };
     });
 
@@ -490,6 +561,8 @@ test.describe("core/strk-138-goldback-import-coupling", () => {
     expect(results.one).toBe(1);
     expect(results.third).toBeNull();
     expect(results.empty).toBeNull();
+    expect(results.leadingDecimalHalf).toBe(0.5);
+    expect(results.leadingDecimalQuarter).toBe(0.25);
   });
 
   test("Importing '1/4 Idaho Goldback' sets #itemGbDenom to 0.25 (Req 4.1)", async ({ page }) => {

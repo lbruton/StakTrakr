@@ -3118,7 +3118,17 @@ const setupItemFormListeners = () => {
       elements.itemType,
       "change",
       () => {
+        const itemMetal = elements.itemMetal;
+        const metalBefore = itemMetal instanceof HTMLElement ? itemMetal.value : null;
         handleTypeChange();
+        // STRK-138: handleTypeChange may programmatically drive Metal (e.g.
+        // Type=Goldback -> Metal=Gold), which does NOT fire the metal-change
+        // listener that clears a stale spot lookup (STACK-49). Mirror that
+        // behavior here, but only when the Type change actually moved Metal.
+        const metalAfter = itemMetal instanceof HTMLElement ? itemMetal.value : null;
+        if (metalAfter !== metalBefore && elements.itemSpotPrice instanceof HTMLElement) {
+          elements.itemSpotPrice.value = "";
+        }
       },
       "Type change updates denomination picker"
     );

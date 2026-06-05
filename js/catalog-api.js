@@ -2218,7 +2218,7 @@ const parseGoldbackDenomination = (text) => {
     const denominator = parseFloat(fraction[2]);
     if (denominator !== 0) value = numerator / denominator;
   } else {
-    const decimal = normalized.match(/(\d+(?:\.\d+)?)/);
+    const decimal = normalized.match(/(\d+(?:\.\d+)?|\.\d+)/);
     if (decimal) value = parseFloat(decimal[1]);
   }
 
@@ -2515,14 +2515,19 @@ const fillFormFromNumistaResult = () => {
 
   // STRK-138: Reconcile Metal/Type exactly as a manual change would, so the
   // imported form lands identical to a correct manual entry (no re-selection).
-  // Call filterTypesByMetal/handleTypeChange DIRECTLY — dispatching DOM change
+  // Call handleTypeChange/filterTypesByMetal DIRECTLY — dispatching DOM change
   // events would re-run the metal listener and clear the spot-lookup value.
+  // Order matters: Type is the source of truth, so handleTypeChange() runs FIRST
+  // (Type=Goldback/Silverback authoritatively coerces Metal + weight unit and
+  // rebuilds the picker). filterTypesByMetal() runs AFTER, reading the now-updated
+  // itemMetal.value, to mirror the manual sequence without its reset-guard clearing
+  // the just-coerced Type (e.g. an imported Goldback whose source metal was wrong).
   const itemMetal = elements.itemMetal || safeGetElement("itemMetal");
   const itemType = elements.itemType || safeGetElement("itemType");
+  if (typeof handleTypeChange === "function") handleTypeChange();
   if (itemMetal instanceof HTMLElement && typeof filterTypesByMetal === "function") {
     filterTypesByMetal(itemMetal.value);
   }
-  if (typeof handleTypeChange === "function") handleTypeChange();
 
   // STRK-138: For a Goldback, parse the imported denomination and select the
   // matching picker option. This MUST run after handleTypeChange rebuilt the
