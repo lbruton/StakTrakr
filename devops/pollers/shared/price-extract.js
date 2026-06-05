@@ -586,7 +586,7 @@ async function scrapeGenericTarget(context) {
   let inStock = true;
   let finalUrl = urls[0];
   const retriedUrls = new Set();
-  const cfg = providerCfg(provider.id, context.vendorModule?.config);
+  const cfg = providerCfg(provider.id, context.vendorModule?.config ?? context.config);
 
   const buildResult = () => {
     const ok = price !== null || !inStock;
@@ -641,7 +641,7 @@ async function scrapeGenericTarget(context) {
   // Firecrawl's markdown pipe-table conversion for correct extraction).
   // Exception: goldback slugs are individual product detail pages with a single
   // prominently-displayed price — not HTML pricing tables — so Phase 0 Playwright
-  // extracts prices correctly for table-parse vendors (apmex, monumentmetals).
+  // extracts prices correctly for table-parse vendors (monumentmetals).
   // Bot-detection vendors (jmbullion, bullionexchanges) are NOT bypassed: they
   // still need Firecrawl stealth even on goldback detail pages (API-14).
   const fcPreferredForTarget =
