@@ -133,7 +133,9 @@ async function computeInventoryHash(items) {
         "|" +
         (item.tradedFromUuid || "") +
         "|" +
-        (item.disposition ? JSON.stringify(item.disposition) : "");
+        // STRK-159: canonicalize disposition (sorted keys) so a different key
+        // insertion order of the same object is not a false inventory mismatch.
+        (item.disposition ? _stableCanonicalString(item.disposition) : "");
       keys.push(itemKey + "::" + contentSample);
     }
     keys.sort();
@@ -2820,11 +2822,6 @@ function _isTagSyncKey(key) {
   return _tagSyncKeys().indexOf(key) !== -1;
 }
 
-function _normalizeRawStorageValue(value) {
-  if (value === undefined || value === null) return null;
-  return typeof value === "string" ? value : JSON.stringify(value);
-}
-
 function _parseTagStore(rawValue, fallback) {
   if (rawValue === undefined || rawValue === null) return fallback || {};
   try {
@@ -2852,9 +2849,14 @@ function _hasTagChanges(remoteSettings) {
   if (!remoteSettings) return false;
   var keys = _tagSyncKeys();
   for (var i = 0; i < keys.length; i++) {
-    var localVal = typeof localStorage !== "undefined" ? localStorage.getItem(keys[i]) : null;
-    var remoteVal = _normalizeRawStorageValue(remoteSettings[keys[i]]);
-    if (localVal !== remoteVal) return true;
+    // STRK-159: compare LOGICAL content, not raw serialization. _parseTagStore
+    // decompresses + JSON-parses each tag store and _stableCanonicalString sorts
+    // its keys, so a compressed-vs-plain (or key-order) variant of identical tags
+    // is no longer a false "changed" signal that triggers a needless merge.
+    var localRaw = typeof localStorage !== "undefined" ? localStorage.getItem(keys[i]) : null;
+    var localCanon = _stableCanonicalString(_parseTagStore(localRaw, {}));
+    var remoteCanon = _stableCanonicalString(_parseTagStore(remoteSettings[keys[i]], {}));
+    if (localCanon !== remoteCanon) return true;
   }
   return false;
 }
