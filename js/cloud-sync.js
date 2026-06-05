@@ -179,7 +179,67 @@ function computeTotalWeight(items) {
 }
 
 /**
+ * STRK-156: Recursively stable-stringify a logical value. Sorts plain-object
+ * keys at every depth so key-insertion-order variants collapse to one form;
+ * PRESERVES array element order (array order is meaningful for settings like
+ * headerBtnOrder, so a genuine reorder must remain a real difference); and
+ * normalizes undefined/empty-string to null. The output is a canonical string
+ * suitable for hashing, not a re-parseable JSON document.
+ * @param {*} val
+ * @returns {string}
+ */
+function _stableCanonicalString(val) {
+  if (val === null || val === undefined || val === "") return "null";
+  if (typeof val !== "object") return JSON.stringify(val);
+  if (Array.isArray(val)) {
+    return "[" + val.map(_stableCanonicalString).join(",") + "]";
+  }
+  var keys = Object.keys(val).sort();
+  return (
+    "{" +
+    keys
+      .map(function (k) {
+        return JSON.stringify(k) + ":" + _stableCanonicalString(val[k]);
+      })
+      .join(",") +
+    "}"
+  );
+}
+
+/**
+ * STRK-156: Normalize a raw localStorage settings string into canonical logical
+ * content for hashing. Decompresses CMP2/CMP1 bodies (so a value compressed on
+ * one device hashes the same as its plain twin on another — the STAK-497 hazard
+ * resurfaced through lz-string, STRK-140), then JSON-parses — falling back to the
+ * raw string for scalar prefs stored without quotes (e.g. appTheme "dark") so
+ * they match a JSON-quoted twin — then canonicalizes via _stableCanonicalString.
+ * @param {string} rawValue
+ * @returns {string} canonical string of the logical value
+ */
+function _canonicalizeSettingValue(rawValue) {
+  if (rawValue === null || rawValue === undefined) return "null";
+  var decoded =
+    typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawValue) : rawValue;
+  if (typeof decoded !== "string") decoded = String(decoded);
+  var parsed;
+  try {
+    parsed = JSON.parse(decoded);
+  } catch (_e) {
+    parsed = decoded;
+  }
+  return _stableCanonicalString(parsed);
+}
+
+/**
  * Compute SHA-256 hash of sync-scoped settings (non-inventory localStorage keys).
+ * Hashes NORMALIZED logical content (decompressed, JSON-parsed, key-sorted) via
+ * _canonicalizeSettingValue rather than the raw localStorage strings, so two
+ * devices holding identical logical settings — one CMP2-compressed, one plain;
+ * scalar-as-JSON vs raw; differing object key-order — compute the SAME hash and
+ * stop looping (STRK-156). Both the push (manifest) and poll sides call this one
+ * function, so they stay consistent by construction.
+ * Rollout note: an old-build device (raw hash) and a new-build device (logical
+ * hash) mismatch once; both converge after both update.
  * Returns hex string or null if hashing is unavailable.
  * @returns {Promise<string|null>}
  */
@@ -190,16 +250,20 @@ async function computeSettingsHash() {
     var settings = {};
     for (var i = 0; i < keys.length; i++) {
       if (keys[i] === "metalInventory") continue; // skip inventory — covered by inventoryHash
-      // STAK-497: Use raw localStorage.getItem to match the manifest snapshot
-      // format. loadDataSync JSON-parses the value, which fails for scalar
-      // settings stored as raw strings (e.g. "dark" instead of '"dark"'),
-      // producing a different hash from the manifest and triggering infinite
-      // sync loops.
       var val = localStorage.getItem(keys[i]);
-      if (val !== null) settings[keys[i]] = val;
+      if (val !== null) settings[keys[i]] = _canonicalizeSettingValue(val);
     }
-    var sorted = JSON.stringify(settings, Object.keys(settings).sort());
-    var encoded = new TextEncoder().encode(sorted);
+    var sortedKeys = Object.keys(settings).sort();
+    var canonical =
+      "{" +
+      sortedKeys
+        .map(function (k) {
+          // settings[k] is already a canonical string from _canonicalizeSettingValue
+          return JSON.stringify(k) + ":" + settings[k];
+        })
+        .join(",") +
+      "}";
+    var encoded = new TextEncoder().encode(canonical);
     var hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
     return sha256BufferToHex(hashBuffer);
   } catch (e) {
