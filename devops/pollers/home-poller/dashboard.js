@@ -3458,14 +3458,19 @@ async function handleRequest(req, res) {
               console.error('retry-script createClient failed:', err?.message || err);
               process.exit(1);
             }
-            const { getProvidersByCoin } = await import('./provider-db.js');
+            const { getAllCoins, getProvidersByCoin } = await import('./provider-db.js');
             const slug = process.env.RETRY_COIN_SLUG;
             const vid = process.env.RETRY_VENDOR_ID;
-            const vendors = await getProvidersByCoin(client, slug);
+            const [coins, vendors] = await Promise.all([
+              getAllCoins(client),
+              getProvidersByCoin(client, slug),
+            ]);
+            const coin = coins.find(c => c.slug === slug);
             const vendor = vendors.find(v => v.id === vid);
+            if (!coin) { console.log('Coin not found'); process.exit(1); }
             if (!vendor || !vendor.url) { console.log('Vendor not found or no URL'); process.exit(1); }
             console.log('Retrying: ' + slug + '/' + vid + ' at ' + vendor.url);
-            const result = await m.extractPrice(vendor.url, slug, vid, vendor);
+            const result = await m.extractPrice(vendor.url, slug, vid, vendor, { coin });
             console.log('Result:', JSON.stringify(result));
             await client.close();
           }).catch(e => { console.error(e); process.exit(1); });

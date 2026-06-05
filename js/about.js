@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.6 &ndash; Vendor module isolation</strong>: Retail price extraction now routes migrated Vendors through isolated modules, keeps dashboard single-Vendor retry import-safe, and packages the new modules for poller deploys (STRK-32).</li>
     <li><strong>v3.35.5 &ndash; Goldback import &amp; Type-drives-Metal</strong>: Selecting a Goldback/Silverback Numista result now auto-fills Type, Metal, and weight (including fractional denominations), and choosing a Goldback type in the form sets its metal automatically (STRK-138).</li>
     <li><strong>v3.35.3 &ndash; Market history storage</strong>: Spot &amp; retail price history moved to IndexedDB, permanently clearing the storage-quota ceiling; existing history migrates automatically with no loss, and item price history is now capped so it can&rsquo;t refill the quota (STRK-141).</li>
     <li><strong>v3.35.2 &ndash; Summit Metals accuracy</strong>: Summit Metals listings no longer show a false &ldquo;out of stock&rdquo; badge, and pricing now reflects the single-unit tier instead of the 100&plus; bulk price (STRK-144).</li>
