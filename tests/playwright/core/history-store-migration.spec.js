@@ -466,6 +466,98 @@ test.describe("core/history-store-migration (STRK-141)", () => {
     expect(pageErrors).toEqual([]);
   });
 
+  // -- Deferred-key fallback (R3.1, STRK-149 finding #1) ---------------------
+  // The test above covers IDB *fully* unavailable. This covers the gap migrate()
+  // can leave behind: IndexedDB IS available, but get() returns null for a key
+  // that migrate() *deferred* (corrupt / wrong-shape / write-not-confirmed
+  // payload kept in localStorage, NOT written to IDB). R3.1: "...OR a migration
+  // write cannot be confirmed THEN continue reading from localStorage." The load
+  // path must fall back to the LS copy instead of hydrating empty.
+  test("deferred key (IDB available, get() null) hydrates spot+retail from the localStorage fallback", async ({
+    page,
+  }) => {
+    await suppressWhatsNew(page);
+    await gotoApp(page);
+    await waitForHistoryStore(page);
+    // Gate on the first-time boot's LBMA seed merge having COMPLETED before the
+    // in-evaluate drain. Without this, under full-suite load the drain can observe
+    // a premature "stable empty" store (boot has not written yet), break early,
+    // and a late seed write then lands AFTER our remove() — repopulating the key.
+    // (Same completion gate the R4 test below uses.)
+    await page
+      .waitForFunction(() => localStorage.getItem("migration_seedHistoryMerge") === "1", null, {
+        timeout: 8000,
+      })
+      .catch(() => {});
+    // Then drain + engineer the deferred state in ONE evaluate (no Playwright
+    // gap). Boot also fire-and-forgets saveSpotHistory() IDB writes from its live
+    // spot fetch; under workers:1 (shared browser/IDB) one can land AFTER our
+    // remove() and defeat the null-state the test needs. Poll until the spot
+    // record is STABLE across two reads (same technique as the R4 test) BEFORE
+    // removing it, so get() deterministically returns null for the deferred key.
+    const result = await page.evaluate(
+      async ({ spotKey, retailKey, spotData, retailData }) => {
+        const store = window.historyStore;
+        await store.init();
+
+        // Drain: wait until boot's fire-and-forget writes have flushed (the spot
+        // record stops changing between reads).
+        let prev = JSON.stringify(await store.get(spotKey));
+        for (let i = 0; i < 50; i++) {
+          await new Promise((r) => setTimeout(r, 40));
+          const cur = JSON.stringify(await store.get(spotKey));
+          if (cur === prev) break;
+          prev = cur;
+        }
+
+        // Engineer the deferred state: IDB available, NO record for either key,
+        // but a localStorage copy present — exactly what migrate() leaves when it
+        // defers an unconfirmed payload.
+        await store.remove(spotKey);
+        await store.remove(retailKey);
+        localStorage.setItem(spotKey, JSON.stringify(spotData));
+        localStorage.setItem(retailKey, JSON.stringify(retailData));
+
+        // Self-validation: confirm the precondition the fix hinges on — get()
+        // returns null while the LS copy exists. If a leak made get() non-null,
+        // this fails clearly instead of producing a confusing hydration mismatch.
+        const getSpotNull = (await store.get(spotKey)) === null;
+        const getRetailNull = (await store.get(retailKey)) === null;
+
+        await window.loadSpotHistory();
+        await window.loadRetailPriceHistory();
+
+        return {
+          available: store.isAvailable(),
+          getSpotNull,
+          getRetailNull,
+          spotMem: window.spotHistory,
+          retailMem: window.retailPriceHistory,
+        };
+      },
+      {
+        spotKey: SPOT_KEY,
+        retailKey: RETAIL_KEY,
+        spotData: SPOT_HISTORY,
+        retailData: RETAIL_HISTORY,
+      }
+    );
+
+    // Genuinely the IDB-AVAILABLE path with a null get() (deferred key), NOT the
+    // IDB-unavailable path the test above already covers.
+    expect(result.available).toBe(true);
+    expect(result.getSpotNull).toBe(true);
+    expect(result.getRetailNull).toBe(true);
+    // Spot: every seeded LS entry hydrated the in-memory global via the fallback
+    // (without the fix, get()===null makes spotHistory hydrate as []).
+    expect(Array.isArray(result.spotMem)).toBe(true);
+    for (const entry of SPOT_HISTORY) {
+      expect(result.spotMem).toContainEqual(entry);
+    }
+    // Retail: the LS copy hydrated the global (without the fix it would be {}).
+    expect(result.retailMem).toEqual(RETAIL_HISTORY);
+  });
+
   // -- Cleanup safety (R2/R3, design-review finding 1) ----------------------
   test("cleanupStorage keeps spot/retail history keys and migration flag when IDB is unavailable", async ({
     page,
