@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.5] - 2026-06-05
+
+### Fixed — STRK-138: Numista Goldback import + Type-drives-Metal coupling
+
+- **Goldback import**: Selecting a Goldback/Silverback Numista result now auto-detects the type from the title/denomination and fills Type, Metal (Gold/Silver), and weight unit with no manual re-selection (STRK-138).
+- **Fractional denomination**: A fractional Goldback (e.g. "1/4 Idaho Goldback") now sets the denomination picker to the matching weight; goldbacks without a denomination keep the default (STRK-138).
+- **Type drives Metal**: Goldback/Silverback are always selectable in the Type dropdown; choosing one sets the metal automatically, while nonsensical metal×type combinations stay blocked (STAK-580).
+
+---
+
 ## [3.35.3] - 2026-06-04
 
 ### Changed — STRK-141: Migrate market histories to IndexedDB
