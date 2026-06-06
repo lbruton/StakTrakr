@@ -511,12 +511,18 @@ const DISPOSITION_TYPES = Object.freeze({
 });
 
 /**
- * Check whether an inventory item has been disposed
+ * Check whether an inventory item has been disposed.
+ *
+ * Single source of truth for disposition validity (STRK-83): an item is disposed
+ * only when item.disposition is a non-null, non-array object with at least one own
+ * key. An empty object {}, null, undefined, an array, or a non-object is NOT disposed
+ * — a Disposition records realized value and date, so an empty shell is not one.
  * @param {Object} item - Inventory item object
- * @returns {boolean} True if the item has a disposition record
+ * @returns {boolean} True if the item has a valid disposition record
  */
 function isDisposed(item) {
-  return !!item?.disposition;
+  const d = item?.disposition;
+  return d != null && typeof d === "object" && !Array.isArray(d) && Object.keys(d).length > 0;
 }
 
 /** @constant {string} LS_KEY - LocalStorage key for inventory data */
