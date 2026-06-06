@@ -14,11 +14,12 @@ import { readFileSync } from "node:fs";
 
 const src = readFileSync(new URL("../../js/constants.js", import.meta.url), "utf-8");
 
-// Slice the isDisposed function out of constants.js and evaluate it in isolation.
-const a = src.indexOf("function isDisposed");
-const b = src.indexOf("/** @constant {string} LS_KEY");
-assert.ok(a !== -1 && b !== -1 && b > a, "could not locate isDisposed in js/constants.js");
-const isDisposed = new Function(src.slice(a, b) + "\nreturn isDisposed;")();
+// Slice the isDisposed function block out of constants.js and evaluate it in isolation.
+// Match the whole function up to its own closing brace (column-0 `\n}`) so the extraction
+// stays valid if surrounding definitions are reordered or inserted.
+const match = src.match(/function isDisposed\s*\([\s\S]*?\n\}/);
+assert.ok(match, "could not locate isDisposed in js/constants.js");
+const isDisposed = new Function(match[0] + "\nreturn isDisposed;")();
 
 describe("isDisposed() — canonical disposition predicate (STRK-83 AC-1)", () => {
   test("returns false for an empty disposition object {}", () => {

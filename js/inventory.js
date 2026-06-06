@@ -873,7 +873,7 @@ const pushTradeLinkChange = (disposedItem, receivedItem, oldValue, newValue) => 
 };
 
 const removeTradeLinkReference = (disposedItem, receivedUuid, { log = true } = {}) => {
-  if (!isDisposed(disposedItem)) return;
+  if (!disposedItem?.disposition) return;
   const receivedItem = typeof findItemByUuid === "function" ? findItemByUuid(receivedUuid) : null;
   const before = {
     disposedUuid: disposedItem.uuid,
@@ -909,7 +909,7 @@ const removeTradeLinkReference = (disposedItem, receivedUuid, { log = true } = {
 };
 
 const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
-  if (!isDisposed(disposedItem) || !Array.isArray(receivedUuids)) return [];
+  if (!disposedItem?.disposition || !Array.isArray(receivedUuids)) return [];
   if (!Array.isArray(disposedItem.disposition.tradedForUuids)) {
     disposedItem.disposition.tradedForUuids = [];
   }
@@ -979,7 +979,7 @@ const unlinkTradeItem = (disposedItem, receivedUuid) => {
 };
 
 const updateTradeLinks = async (disposedItem, newUuids) => {
-  if (!isDisposed(disposedItem)) return;
+  if (!disposedItem?.disposition) return;
   const oldUuids = [...(disposedItem.disposition.tradedForUuids || [])];
   const removed = oldUuids.filter((u) => !newUuids.includes(u));
   const added = newUuids.filter((u) => !oldUuids.includes(u));
