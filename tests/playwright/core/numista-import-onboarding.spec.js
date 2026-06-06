@@ -101,8 +101,42 @@ test.describe("STRK-165 Numista import onboarding gate", () => {
     await page.click("#appDialogCancel");
 
     // The importer must not mutate inventory on cancel.
-    await page.waitForTimeout(200);
+    await expect(page.locator("#appDialogModal")).not.toBeVisible();
+    await page.waitForFunction(() => window.inventory.length === 2);
     const names = await page.evaluate(() => window.inventory.map((i) => i.name));
     expect(names).toEqual(["Existing One", "Existing Two"]);
+  });
+
+  test("empty inventory shows a non-destructive setup confirm and populates", async ({ page }) => {
+    await seed(page, EXISTING);
+    await gotoApp(page);
+    // Force an empty inventory deterministically (avoid seed interference).
+    await page.evaluate(() => {
+      window.inventory = [];
+    });
+
+    await triggerImport(page, NUMISTA_CSV);
+    // Empty inventory → benign setup message, NOT the destructive replace warning.
+    await expect(page.locator("#appDialogMessage")).toContainText(/set up your inventory/i);
+    await expect(page.locator("#appDialogMessage")).not.toContainText(/replaces/i);
+    await page.click("#appDialogOk");
+
+    await page.waitForFunction(() => window.inventory.length === 1);
+    expect(await page.evaluate(() => window.inventory[0].numistaId)).toBe("99999");
+  });
+
+  test("override import replaces with no confirmation dialog", async ({ page }) => {
+    await seed(page, EXISTING);
+    await gotoApp(page);
+    await page.waitForFunction(() => window.inventory.length === 2);
+
+    await page.evaluate((csvText) => {
+      const file = new File([csvText], "numista.csv", { type: "text/csv" });
+      window.importNumistaCsv(file, true); // override → no dialog
+    }, NUMISTA_CSV);
+
+    await page.waitForFunction(() => window.inventory.length === 1);
+    await expect(page.locator("#appDialogModal")).not.toBeVisible();
+    expect(await page.evaluate(() => window.inventory[0].numistaId)).toBe("99999");
   });
 });
