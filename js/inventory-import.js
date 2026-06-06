@@ -923,8 +923,8 @@
             return;
           }
 
-          // --- Override path: skip DiffEngine, import all items directly ---
-          if (override) {
+          // Replace the entire inventory with the freshly-imported items.
+          const replaceInventory = () => {
             inventory = imported;
 
             for (const item of imported) {
@@ -938,7 +938,7 @@
             if (typeof debugLog === "function")
               debugLog("inventoryRecovery: cleared by numistaImport");
             saveInventory();
-            // STAK-421: Cancel debounced sync push after override import
+            // STAK-421: Cancel debounced sync push after replace import
             if (
               typeof scheduleSyncPush === "function" &&
               typeof scheduleSyncPush.cancel === "function"
@@ -948,21 +948,38 @@
             renderTable();
             if (typeof renderActiveFilters === "function") renderActiveFilters();
             if (typeof updateStorageStats === "function") updateStorageStats();
-            debugLog("importNumistaCsv override complete", imported.length, "items replaced");
+            debugLog("importNumistaCsv replace complete", imported.length, "items replaced");
+          };
+
+          // --- Override path: replace directly, no confirmation ---
+          if (override) {
+            replaceInventory();
             return;
           }
 
-          // --- Merge path: use shared DiffEngine + DiffModal helper ---
-          showImportDiffReview(imported, { type: "csv", label: file.name }, {}, function (summary) {
-            debugLog(
-              "importNumistaCsv DiffEngine complete",
-              summary.added,
-              "added",
-              summary.modified,
-              "modified",
-              summary.deleted,
-              "deleted"
-            );
+          // --- STRK-165 interim: Numista CSV merge de-duplication is unreliable
+          // (it appends duplicates instead of matching existing items). Until the
+          // proper instance-aware dedup lands, the importer is a one-time
+          // ONBOARDING tool that REPLACES the inventory rather than merging.
+          // Empty inventory is a clean setup; a non-empty inventory gets an
+          // explicit destructive warning that defaults to cancel. ---
+          const existingCount = Array.isArray(inventory) ? inventory.length : 0;
+          const confirmMsg =
+            existingCount === 0
+              ? `Import ${imported.length} item(s) from your Numista collection to set up your inventory?`
+              : `⚠ One-time Numista onboarding import\n\n` +
+                `This REPLACES your entire inventory — all ${existingCount} existing item(s) will be removed — ` +
+                `and does NOT merge. Duplicate detection is temporarily disabled while we rebuild it (STRK-165).\n\n` +
+                `Grades, certificate numbers, and images on existing items will be lost. ` +
+                `Export a backup first if you are unsure.\n\n` +
+                `Replace your inventory with the ${imported.length} imported item(s)?`;
+
+          Promise.resolve(
+            typeof showAppConfirm === "function"
+              ? showAppConfirm(confirmMsg, "Numista Import")
+              : false
+          ).then((proceed) => {
+            if (proceed) replaceInventory();
           });
         } catch (error) {
           endImportProgress();
