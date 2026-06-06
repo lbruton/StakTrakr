@@ -859,13 +859,9 @@ function _buildDispositionSection(item) {
     return section;
   }
 
-  if (
-    item.disposition == null ||
-    typeof item.disposition !== "object" ||
-    Array.isArray(item.disposition) ||
-    Object.keys(item.disposition).length === 0
-  )
-    return null;
+  // STRK-83: derive the guard from the canonical predicate so the renderer and
+  // isDisposed() can never disagree about empty-object dispositions.
+  if (!isDisposed(item)) return null;
 
   const d = item.disposition;
 
@@ -1136,7 +1132,7 @@ function _buildDispositionSection(item) {
       const matches = inventory
         .filter(
           (inv) =>
-            !inv.disposition &&
+            !isDisposed(inv) &&
             inv.uuid !== sourceUuid &&
             !editUuids.includes(inv.uuid) &&
             (inv.name || "").toLowerCase().includes(query)

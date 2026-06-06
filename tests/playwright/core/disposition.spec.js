@@ -634,6 +634,44 @@ test.describe("core/disposition", () => {
     expect(wrapperCount).toBe(0);
   });
 
+  test("empty-disposition items stay active across filter modes, badge, and styling (STRK-83)", async ({
+    page,
+  }) => {
+    // idx 0 = active, idx 1 = empty disposition {}, idx 2 = real disposed.
+    await seedDispositionData(page, {
+      inventory: [NON_DISPOSED_ITEM, EMPTY_DISPOSITION_ITEM, DISPOSED_ITEM],
+    });
+    await gotoApp(page);
+
+    const activeRow = page.locator('tr[data-idx="0"]');
+    const emptyRow = page.locator('tr[data-idx="1"]');
+    const disposedRow = page.locator('tr[data-idx="2"]');
+    const chip = (mode) =>
+      page.locator(`#disposedFilterGroup .chip-sort-btn[data-disposed-mode="${mode}"]`);
+
+    // show-all → every item renders. AC-2: the empty-disposition item carries NO
+    // disposed styling or badge, while the real disposed item still does.
+    await chip("show-all").click();
+    await expect(activeRow).toHaveCount(1);
+    await expect(emptyRow).toHaveCount(1);
+    await expect(emptyRow).not.toHaveClass(/disposed-row/);
+    await expect(emptyRow.locator(".disposition-badge")).toHaveCount(0);
+    await expect(disposedRow).toHaveClass(/disposed-row/);
+    await expect(disposedRow.locator(".disposition-badge")).toHaveCount(1);
+
+    // hide (active) mode → AC-3: empty-disposition item stays VISIBLE; real disposed hidden.
+    await chip("hide").click();
+    await expect(activeRow).toHaveCount(1);
+    await expect(emptyRow).toHaveCount(1);
+    await expect(disposedRow).toHaveCount(0);
+
+    // show-only mode → AC-3: empty-disposition item is EXCLUDED; real disposed shown.
+    await chip("show-only").click();
+    await expect(activeRow).toHaveCount(0);
+    await expect(emptyRow).toHaveCount(0);
+    await expect(disposedRow).toHaveCount(1);
+  });
+
   test("realized gain/loss visibility toggle hides, shows, and persists summary rows", async ({
     page,
   }) => {
