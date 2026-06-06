@@ -60,7 +60,7 @@ const SOFT_404_PATTERNS = [
 //
 // Migrated vendors own these on their price-extract-vendor-*.js module:
 //   cutoffPatterns, headerSkipPattern, preorderTolerant, untrustedOfferPrice,
-//   usesAsLowAs.
+//   usesAsLowAs, and fractionalExempt (via the module's config).
 // The resolver helpers below read the vendor MODULE first (getVendorModule) and
 // fall back to these maps only for vendors that have not migrated yet. When you
 // migrate a vendor, MOVE its entries out of here and into its module so a change
@@ -245,6 +245,9 @@ export function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerI
     return false;
   }
 
+  // Constant for the whole call — resolve once, not per offer in the nested loops.
+  const offerPriceUntrusted = resolveUntrustedOfferPrice(providerId);
+
   for (const script of jsonLdScripts) {
     try {
       const data = JSON.parse(script);
@@ -280,7 +283,7 @@ export function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerI
 
           const price = parseFloat(String(offer.price ?? "").replace(/,/g, ""));
           if (!isNaN(price) && price === 0) return JSONLD_ZERO_PRICE;
-          if (resolveUntrustedOfferPrice(providerId)) continue;
+          if (offerPriceUntrusted) continue;
           if (inRange(price)) return price;
         }
       }
