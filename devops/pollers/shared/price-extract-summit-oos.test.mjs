@@ -2,20 +2,30 @@
 /**
  * Unit tests for STRK-144 — Summit Metals false-OOS + bulk-price-tier fixes.
  *
- * Two bugs, both now owned by devops/pollers/shared/price-extract-shared.js:
+ * As of STRK-32/STRK-160 both fixes are owned by the Summit Vendor module,
+ * devops/pollers/shared/price-extract-vendor-summit.js (cutoffPatterns +
+ * extractPrice), resolved at runtime through the shared parser via the Vendor
+ * registry. The two bugs the fix prevents:
  *   1. Every Summit product page embeds a static FAQ whose answer text contains
  *      the literal "...or marked as 'Out of stock.'". That trips
  *      OUT_OF_STOCK_PATTERNS in detectStockStatus(), false-flagging EVERY Summit
- *      item OOS. Fix: a MARKDOWN_CUTOFF_PATTERNS.summitmetals entry trims the
+ *      item OOS. Fix: the Summit module's cutoffPatterns trim the
  *      description/reviews/FAQ tail before stock + price detection.
- *   2. The summit branch of extractMarkdownPrice() read the "Regular price" mini-cards,
+ *   2. The summit extractPrice strategy used to read the "Regular price" mini-cards,
  *      which carry the 100+ BULK price ($77.78) instead of the 1-9 single-unit
  *      price ($79.22). Fix: prefer firstTableRowFirstPrice() / tierAnchoredPrice()
  *      (first qty tier) before falling back to the "Regular price" cards.
+ *   3. THE ACTUAL PRODUCTION CAUSE: Summit's Shopify JSON-LD advertises
+ *      offer.price = the 100+ BULK tier (e.g. $71.97). The poller treats JSON-LD as
+ *      authoritative and checks it BEFORE extractMarkdownPrice, so the bulk price
+ *      short-circuits and the table-first strategy (#2) never runs. Fix: the Summit
+ *      module sets untrustedOfferPrice:true so extractJsonLdPrice() skips the
+ *      offer.price and the poller falls through to the qty-tier table extraction.
  *
  * The shared helpers are importable, so this test exercises the real parser and
- * OOS helpers. A structural assertion at the end guards the real config against
- * silent removal.
+ * OOS helpers end-to-end (registry → Summit module → shared toolkit). A
+ * structural assertion at the end guards the module config against silent
+ * removal AND that it no longer lives in the shared file.
  *
  * Run with:
  *   node devops/pollers/shared/price-extract-summit-oos.test.mjs
@@ -27,6 +37,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   detectStockStatus,
+  extractJsonLdPrice,
   extractMarkdownPrice,
   preprocessMarkdown,
 } from "./price-extract-shared.js";
@@ -175,20 +186,57 @@ test("old behavior would have returned the bulk $77.78 (regression guard)", () =
   assert.notEqual(extractMarkdownPrice(cleaned, "silver", 1, "summitmetals").price, bulk);
 });
 
-test("STRUCTURAL: real source has summitmetals cutoff + table-first extraction", () => {
-  const src = readFileSync(join(__dirname, "price-extract-shared.js"), "utf8");
-  // Cutoff config present.
-  assert.match(src, /summitmetals:\s*\[/, "MARKDOWN_CUTOFF_PATTERNS.summitmetals missing");
-  assert.match(src, /Description Shipping & Returns/, "summit cutoff anchor missing");
-  // Summit price branch prefers qty-tier extractors over the bulk cards.
-  const startIdx = src.indexOf('if (providerId === "summitmetals")');
-  assert.notEqual(startIdx, -1, "summit branch not found in source");
-  const branch = src.slice(startIdx);
-  const tblIdx = branch.indexOf("firstTableRowFirstPrice()");
-  const tierIdx = branch.indexOf("tierAnchoredPrice()");
-  const regIdx = branch.indexOf("regularPricePrices()");
-  assert.ok(tblIdx !== -1 && tierIdx !== -1 && regIdx !== -1, "expected all three extractors in summit branch");
-  assert.ok(tblIdx < regIdx && tierIdx < regIdx, "qty-tier extractors must precede the bulk regularPricePrices fallback");
+test("THE PRODUCTION FIX: Summit's bulk JSON-LD offer.price is skipped (untrusted)", () => {
+  // Faithful to Summit's real Shopify JSON-LD: a flat offer.price = the 100+ bulk
+  // tier ($71.97), InStock — no priceSpecification for the 1-9 wire price.
+  const summitJsonLd = [
+    JSON.stringify({
+      "@type": "Product",
+      offers: { price: "71.97", availability: "http://schema.org/InStock" },
+    }),
+  ];
+  // Summit (untrustedOfferPrice:true) → the bulk offer.price is skipped → null,
+  // so the poller falls through to the qty-tier markdown extraction ($73.30 live).
+  assert.equal(extractJsonLdPrice(summitJsonLd, "silver", 1, "summitmetals"), null);
+  // Control: a vendor that trusts offer.price WOULD return the bulk number — proving
+  // the untrusted flag is exactly what prevents the short-circuit for Summit.
+  assert.equal(extractJsonLdPrice(summitJsonLd, "silver", 1, "apmex"), 71.97);
+});
+
+test("STRUCTURAL: Summit cutoff + table-first strategy live in the Vendor module", () => {
+  const moduleSrc = readFileSync(join(__dirname, "price-extract-vendor-summit.js"), "utf8");
+  // Cutoff config present in the module.
+  assert.match(moduleSrc, /cutoffPatterns:\s*\[/, "summit module cutoffPatterns missing");
+  assert.match(moduleSrc, /Description Shipping & Returns/, "summit cutoff anchor missing");
+  // extractPrice prefers qty-tier extractors over the bulk "Regular price" cards.
+  const startIdx = moduleSrc.indexOf("extractPrice(");
+  assert.notEqual(startIdx, -1, "summit extractPrice strategy not found in module");
+  const strategy = moduleSrc.slice(startIdx);
+  const tblIdx = strategy.indexOf("firstTableRowFirstPrice()");
+  const tierIdx = strategy.indexOf("tierAnchoredPrice()");
+  const regIdx = strategy.indexOf("regularPricePrices()");
+  assert.ok(
+    tblIdx !== -1 && tierIdx !== -1 && regIdx !== -1,
+    "expected all three extractors in summit extractPrice",
+  );
+  assert.ok(
+    tblIdx < regIdx && tierIdx < regIdx,
+    "qty-tier extractors must precede the bulk regularPricePrices fallback",
+  );
+});
+
+test("STRUCTURAL: shared.js no longer owns Summit-specific data (isolation guarantee)", () => {
+  const sharedSrc = readFileSync(join(__dirname, "price-extract-shared.js"), "utf8");
+  assert.equal(
+    sharedSrc.includes("Description Shipping & Returns"),
+    false,
+    "summit cutoff anchor must not live in shared.js — it belongs to the Vendor module",
+  );
+  assert.equal(
+    sharedSrc.includes('providerId === "summitmetals"'),
+    false,
+    "summit price branch must not live in shared.js — it belongs to the Vendor module",
+  );
 });
 
 let passed = 0;

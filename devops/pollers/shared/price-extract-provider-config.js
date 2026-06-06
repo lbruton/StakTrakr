@@ -78,12 +78,9 @@ const LEGACY_PROVIDER_OVERRIDES = {
     phase: "firecrawl", // Phase 0 Playwright direct always times out
     waitFor: 3_000,
   },
-  summitmetals: {
-    // defaults are fine: phase0 + networkidle
-  },
-  goldback: {
-    // defaults are fine: phase0 + networkidle
-  },
+  // NOTE: apmex, goldback, and summitmetals are MIGRATED — their config lives in
+  // their own price-extract-vendor-*.js modules, not here. Only not-yet-migrated
+  // vendors remain in this transitional map (STRK-32 / STRK-150/151/152).
 };
 
 export function mergeProviderConfig(...configs) {

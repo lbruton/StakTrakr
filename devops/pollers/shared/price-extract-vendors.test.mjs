@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
-const migratedVendorIds = ["goldback", "apmex"];
+const migratedVendorIds = ["goldback", "apmex", "summitmetals"];
 const notYetMigratedVendorIds = ["jmbullion"];
 
 const unwrapVendor = (candidate) => candidate?.vendor ?? candidate?.default ?? candidate;
@@ -44,6 +44,53 @@ test("Goldback module exists and uses the standard interface", async () => {
 
   assertStandardVendorModule(goldbackModule, "goldback");
   assert.equal(goldbackModule.default, goldbackModule.vendor);
+});
+
+test("Summit module owns the full Vendor interface (cutoff + strategy)", async () => {
+  const summitModule = await import(new URL("./price-extract-vendor-summit.js", import.meta.url));
+  const summit = unwrapVendor(summitModule);
+
+  assertStandardVendorModule(summitModule, "summitmetals");
+  assert.equal(summitModule.default, summitModule.vendor);
+
+  // Per-vendor markdown shaping + flags live on the module, not in shared.js.
+  assert.ok(
+    Array.isArray(summit.cutoffPatterns) && summit.cutoffPatterns.length > 0,
+    "summit cutoffPatterns missing"
+  );
+  assert.equal(summit.headerSkipPattern, null);
+  assert.equal(summit.preorderTolerant, false);
+  // Summit's JSON-LD offer.price is the 100+ bulk tier, so it must be untrusted —
+  // otherwise the poller's authoritative JSON-LD path short-circuits to the bulk price.
+  assert.equal(summit.untrustedOfferPrice, true);
+  assert.equal(summit.usesAsLowAs, false);
+  assert.equal(typeof summit.extractPrice, "function");
+
+  // Strategy (tested in isolation via fake helpers): qty-tier first, bulk cards last.
+  assert.deepEqual(
+    summit.extractPrice({
+      firstTableRowFirstPrice: () => 79.22,
+      tierAnchoredPrice: () => 78.83,
+      regularPricePrices: () => [77.78],
+    }),
+    { price: 79.22, matchedBy: "tableFirstRow" }
+  );
+  assert.deepEqual(
+    summit.extractPrice({
+      firstTableRowFirstPrice: () => null,
+      tierAnchoredPrice: () => 79.22,
+      regularPricePrices: () => [77.78],
+    }),
+    { price: 79.22, matchedBy: "tierAnchored" }
+  );
+  assert.deepEqual(
+    summit.extractPrice({
+      firstTableRowFirstPrice: () => null,
+      tierAnchoredPrice: () => null,
+      regularPricePrices: () => [77.78, 79.22],
+    }),
+    { price: 77.78, matchedBy: "regularPrice" }
+  );
 });
 
 test("APMEX module exists and preserves Firecrawl-preferred config", async () => {
