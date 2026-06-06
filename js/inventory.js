@@ -2830,7 +2830,7 @@ function _openThumbPopover(cell, item) {
       revBlob = null;
     }
 
-    await imageCache.cacheUserImage(item.uuid, obvBlob, revBlob);
+    await imageCache.cacheUserImageWithFeedback(item.uuid, obvBlob, revBlob);
     _refreshRowThumbs();
   };
 

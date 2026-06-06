@@ -139,6 +139,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.9 &ndash; Image storage warnings</strong>: Saving an image when device storage is nearly full now shows a clear &ldquo;storage full&rdquo; message instead of silently failing into a broken square, and a heads-up appears as image storage fills up (STRK-146).</li>
     <li><strong>v3.35.8 &ndash; Disposition consistency</strong>: An item with an empty disposition record no longer shows a phantom &ldquo;disposed&rdquo; badge or disappears from the disposed filter &mdash; styling, filters, totals, and the detail section now all agree (STRK-83).</li>
     <li><strong>v3.35.7 &ndash; Cloud sync convergence</strong>: Fixed the permanent &ldquo;Review Sync Changes&rdquo; loop between devices &mdash; tag merges now converge and auto-heal, settings compare by logical content instead of raw storage, and phantom timestamp/attachment conflicts in the review modal are gone (STRK-154).</li>
     <li><strong>v3.35.6 &ndash; Vendor module isolation</strong>: Retail price extraction now routes migrated Vendors through isolated modules, keeps dashboard single-Vendor retry import-safe, and packages the new modules for poller deploys (STRK-32).</li>
@@ -146,7 +147,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.35.3 &ndash; Market history storage</strong>: Spot &amp; retail price history moved to IndexedDB, permanently clearing the storage-quota ceiling; existing history migrates automatically with no loss, and item price history is now capped so it can&rsquo;t refill the quota (STRK-141).</li>
     <li><strong>v3.35.2 &ndash; Summit Metals accuracy</strong>: Summit Metals listings no longer show a false &ldquo;out of stock&rdquo; badge, and pricing now reflects the single-unit tier instead of the 100&plus; bulk price (STRK-144).</li>
     <li><strong>v3.35.2 &ndash; Metal-neutral purity labels</strong>: Fineness options no longer name a metal, so selecting .900 on a gold item no longer reads &ldquo;90&percnt; Silver&rdquo; (STRK-145).</li>
-    <li><strong>v3.35.1 &ndash; Storage quota fix</strong>: Market price history is now compressed (lz-string), clearing the &ldquo;storage quota exceeded&rdquo; error and freeing roughly 80&percnt; of its storage footprint &mdash; existing data is upgraded automatically with no loss (STRK-140).</li>
   `;
 };
 
