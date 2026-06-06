@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.11] - 2026-06-06
+
+### Changed — STRK-165: Numista CSV import safety gate (interim)
+
+- **Numista import**: The Numista CSV importer is now a one-time onboarding action that explicitly warns it **replaces** your inventory rather than silently merging — preventing the duplicate-explosion bug. Importing into a non-empty inventory requires confirming a destructive replace; importing into an empty inventory simply populates it. A proper instance-aware merge follows later (STRK-165).
+
+---
+
 ## [3.35.10] - 2026-06-06
 
 ### Added — STRK-166: Restore bulk Sync Image URLs

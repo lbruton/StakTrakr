@@ -923,8 +923,8 @@
             return;
           }
 
-          // --- Override path: skip DiffEngine, import all items directly ---
-          if (override) {
+          // Replace the entire inventory with the freshly-imported items.
+          const replaceInventory = async () => {
             inventory = imported;
 
             for (const item of imported) {
@@ -937,8 +937,8 @@
             if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
             if (typeof debugLog === "function")
               debugLog("inventoryRecovery: cleared by numistaImport");
-            saveInventory();
-            // STAK-421: Cancel debounced sync push after override import
+            await saveInventory();
+            // STAK-421: Cancel debounced sync push after replace import
             if (
               typeof scheduleSyncPush === "function" &&
               typeof scheduleSyncPush.cancel === "function"
@@ -948,22 +948,64 @@
             renderTable();
             if (typeof renderActiveFilters === "function") renderActiveFilters();
             if (typeof updateStorageStats === "function") updateStorageStats();
-            debugLog("importNumistaCsv override complete", imported.length, "items replaced");
+            if (typeof debugLog === "function")
+              debugLog("importNumistaCsv replace complete", imported.length, "items replaced");
+          };
+          const runReplace = () =>
+            replaceInventory().catch((error) => handleError(error, "Numista CSV import"));
+
+          // --- Override path: replace directly, no confirmation ---
+          if (override) {
+            runReplace();
             return;
           }
 
-          // --- Merge path: use shared DiffEngine + DiffModal helper ---
-          showImportDiffReview(imported, { type: "csv", label: file.name }, {}, function (summary) {
-            debugLog(
-              "importNumistaCsv DiffEngine complete",
-              summary.added,
-              "added",
-              summary.modified,
-              "modified",
-              summary.deleted,
-              "deleted"
-            );
-          });
+          // --- STRK-165 interim: Numista CSV merge de-duplication is unreliable
+          // (it appends duplicates instead of matching existing items). Until the
+          // proper instance-aware dedup lands, the importer is a one-time
+          // ONBOARDING tool that REPLACES the inventory rather than merging.
+          // Empty inventory is a clean setup; a non-empty inventory gets an
+          // explicit destructive warning whose Cancel button is focused. ---
+          const existingCount = Array.isArray(inventory) ? inventory.length : 0;
+
+          if (existingCount === 0) {
+            // Empty inventory: benign first-time setup, nothing to lose.
+            Promise.resolve(
+              typeof showAppConfirm === "function"
+                ? showAppConfirm(
+                    `Import ${imported.length} item(s) from your Numista collection to set up your inventory?`,
+                    "Numista Import"
+                  )
+                : false
+            )
+              .then((proceed) => (proceed ? runReplace() : null))
+              .catch((error) => handleError(error, "Numista CSV import"));
+            return;
+          }
+
+          // Non-empty inventory: destructive replace. An action dialog focuses
+          // Cancel by default, so Enter will not confirm the data loss.
+          const replaceMsg =
+            `⚠ One-time Numista onboarding import\n\n` +
+            `This REPLACES your entire inventory — all ${existingCount} existing item(s) will be removed — ` +
+            `and does NOT merge. Duplicate detection is temporarily disabled while we rebuild it (STRK-165).\n\n` +
+            `Grades, certificate numbers, and images on existing items will be lost. ` +
+            `Export a backup first if you are unsure.\n\n` +
+            `Replace your inventory with the ${imported.length} imported item(s)?`;
+
+          if (typeof showAppActionDialog === "function") {
+            showAppActionDialog({
+              title: "Numista Import",
+              message: replaceMsg,
+              primaryLabel: "Replace inventory",
+              secondaryLabel: "Cancel",
+              primaryAction: runReplace,
+            });
+          } else if (typeof showAppConfirm === "function") {
+            Promise.resolve(showAppConfirm(replaceMsg, "Numista Import"))
+              .then((proceed) => (proceed ? runReplace() : null))
+              .catch((error) => handleError(error, "Numista CSV import"));
+          }
         } catch (error) {
           endImportProgress();
           handleError(error, "Numista CSV import");
