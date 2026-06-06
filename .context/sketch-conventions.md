@@ -24,7 +24,7 @@ StakTrakr uses the full Standard Closing Tasks block from `DocVault/sketch/templ
 | Task                       | Skill (verbatim)                                                                 |
 | -------------------------- | -------------------------------------------------------------------------------- |
 | Full test suite            | `npm test` (core Playwright PR gate)                                             |
-| Security/quality scan      | `codacy-cli`                                                                     |
+| Security/quality scan      | `codacy-analysis analyze --diff` (Gen-3 Codacy CLI)                              |
 | Version bump               | `/release patch` — preceded by `/update-spot-bundle` if the PR bumps the version |
 | Vault update + close issue | `/vault-update` + mark issue Done in Plane                                       |
 | Resolve PR threads         | `/pr-resolve`                                                                    |

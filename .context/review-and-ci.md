@@ -1,23 +1,23 @@
 # Review & CI Context — StakTrakr
 
 PR review, Codacy, agentlint, and known false positives.
-Loaded on demand during `/pr-resolve`, `/codacy-cli`, `/pr-ready`, and code review workflows.
+Loaded on demand during `/pr-resolve`, Codacy local scans (`codacy-analysis`), `/pr-ready`, and code review workflows.
 
-## Pre-PR scan — Codacy CLI project-specific noise
+## Pre-PR scan — Codacy local analysis (Gen-3)
 
-Project uses script-tag globals the auto-config does not recognize.
-Pre-existing browser-global `no-undef` findings are noise.
-Verify findings on changed lines only.
-Global `Action Gates` covers the fresh-worktree empty-diff issue.
+Run the local scan with the official Codacy analysis CLI (installed machine-wide via
+`npm i -g @codacy/analysis-cli`; no per-project bootstrap):
 
-## Codacy CLI mutates `.codacy/codacy.yaml`
+- Scan changed files: `codacy-analysis analyze --diff --output-format sarif --output codacy-findings.sarif`
+- Config: `.codacy/codacy.config.json` — a 1:1 mirror of the Codacy Cloud dashboard,
+  regenerated with `codacy-analysis init --remote gh lbruton StakTrakr`.
+- `analyze` does **not** mutate the config file (verified), so there is no churn to revert.
 
-`/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites `.codacy/codacy.yaml`.
-It adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest.
-This breaks the `config-validation.spec.js` Cypress (CY) assertions CY-2, CY-7, and CY-8 every time.
-**After any close-task Codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.**
-The mutation is a CLI side effect, not a real config change.
-Valid scan invocation: `codacy analyze --tool eslint --format sarif`; `--directory` is not a valid flag.
+Project-specific noise: the app uses script-tag globals. Local ESLint uses the repo's
+`eslint.config.cjs` (which disables `no-undef`), while the dashboard's managed ESLint
+patterns may still flag browser globals — so local and dashboard ESLint can differ on
+`no-undef`. Treat pre-existing browser-global findings as noise; verify findings on
+changed lines only. Global `Action Gates` covers the fresh-worktree empty-diff issue.
 
 ## Codacy Agentlint
 

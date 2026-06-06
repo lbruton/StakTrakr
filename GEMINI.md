@@ -175,13 +175,11 @@ Follow this sequence:
 - Never use broad staging: `git add specs/` or `git add .`
 - Broad staging picks up in-progress sketches as unintended additions.
 
-### Pre-PR scan — Codacy CLI project-specific noise
+### Pre-PR scan — Codacy local analysis (Gen-3)
 
-Project uses script-tag globals the auto-config doesn't recognize. Pre-existing browser-global `no-undef` findings are noise. Verify findings on changed lines only.
+Run `codacy-analysis analyze --diff` (official CLI, installed machine-wide via `npm i -g @codacy/analysis-cli`; no per-project bootstrap). Config is `.codacy/codacy.config.json`, a 1:1 mirror of the Codacy Cloud dashboard regenerated with `codacy-analysis init --remote gh lbruton StakTrakr`. `analyze` does not mutate the config — there is no churn to revert.
 
-### Codacy CLI mutates `.codacy/codacy.yaml`
-
-`/codacy-cli` (or any `.codacy/cli.sh analyze` invocation) rewrites [.codacy/codacy.yaml](file:///Volumes/DATA/GitHub/StakTrakr/.codacy/codacy.yaml) — adds `pmd@`, `python@`, `java@` tool stanzas and bumps `eslint@` to latest. This breaks eslint assertions in tests. **After any CLOSE-2 codacy scan, run `git diff .codacy/codacy.yaml` and revert tool additions before commit.** Valid scan invocation: `codacy analyze --tool eslint --format sarif`.
+Project-specific noise: the app uses script-tag globals. Local ESLint uses the repo's `eslint.config.cjs` (which disables `no-undef`), while the dashboard's managed ESLint patterns may still flag browser globals — so local and dashboard ESLint can differ on `no-undef`. Treat pre-existing browser-global findings as noise; verify findings on changed lines only.
 
 ### Known Reviewer False Positives
 

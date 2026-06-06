@@ -1,4 +1,4 @@
-# Codacy CLI
-tools-configs/
-.gitignore
+# Codacy analysis-cli (Gen-3) — generated tool configs, logs, and temp output
 logs/
+generated/
+tmp/
