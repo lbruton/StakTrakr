@@ -386,13 +386,13 @@
     },
     {
       "toolId": "markdownlint",
-      "localConfigurationFile": "/Volumes/DATA/GitHub/StakTrakr/.claude/worktrees/feature/STRK-163-codacy-gen3-migration/.markdownlint.json",
+      "localConfigurationFile": ".markdownlint.json",
       "useLocalConfigurationFile": true,
       "patterns": []
     },
     {
       "toolId": "ESLint9",
-      "localConfigurationFile": "/Volumes/DATA/GitHub/StakTrakr/.claude/worktrees/feature/STRK-163-codacy-gen3-migration/eslint.config.cjs",
+      "localConfigurationFile": "eslint.config.cjs",
       "patterns": [
         {
           "patternId": "ESLint9_@typescript-eslint_related-getter-setter-pairs"
