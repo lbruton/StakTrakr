@@ -375,10 +375,136 @@ const clearAllCachedData = async () => {
 };
 
 // ---------------------------------------------------------------------------
+// Bulk image-URL backfill (STRK-166 — restores the feature removed in STAK-432)
+// ---------------------------------------------------------------------------
+
+/**
+ * Populates obverse/reverse Numista CDN image URLs on inventory items that have
+ * a Numista catalog ID but are missing one or both image URLs (e.g. CSV imports).
+ *
+ * Routes through catalogAPI.lookupItem, which is cache-first (30-day response
+ * cache) — so items already cached by "Sync Unsynced" resolve instantly with no
+ * API quota. Only genuine API calls are throttled (~650ms) to respect Numista's
+ * 100 req/min limit; the provider throws on overrun, so we save partial progress
+ * and ask the user to re-run. Duplicate catalog IDs are fetched once (donor map).
+ */
+const syncNumistaImageUrls = async () => {
+  if (!window.catalogAPI) {
+    appAlert("Catalog API not available.", "Sync Image URLs");
+    return;
+  }
+  const config =
+    typeof catalogConfig !== "undefined" && typeof catalogConfig.getNumistaConfig === "function"
+      ? catalogConfig.getNumistaConfig()
+      : null;
+  if (!config || !config.apiKey) {
+    appAlert("Numista API key not configured.", "Sync Image URLs");
+    return;
+  }
+
+  const inv = typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
+  const resolveCatId = (item) =>
+    window.BulkImageCache ? BulkImageCache.resolveCatalogId(item) : item.numistaId || "";
+
+  // Eligible: resolvable Numista ID AND missing at least one image URL.
+  const eligible = inv.filter((i) => {
+    const catId = resolveCatId(i);
+    return catId && (!i.obverseImageUrl || !i.reverseImageUrl);
+  });
+
+  if (!eligible.length) {
+    appAlert("All Numista items already have image URLs.", "Sync Image URLs");
+    return;
+  }
+
+  const proceed = await appConfirm(
+    `Populate image URLs for ${eligible.length} item(s) from Numista?\n\n` +
+      "Cached lookups are free; uncached items use your Numista API quota.",
+    "Sync Image URLs"
+  );
+  if (!proceed) return;
+
+  let synced = 0;
+  let failed = 0;
+  let rateLimited = false;
+  const urlByCatId = new Map(); // catId -> {obv, rev} | null (null = failed/no-retry)
+
+  logSyncActivity("Starting image URL sync...", "info");
+
+  try {
+    for (const item of eligible) {
+      const catId = resolveCatId(item);
+      if (!catId) continue;
+
+      let urls = urlByCatId.get(catId);
+      if (urls === undefined) {
+        const wasCached =
+          typeof window.loadNumistaCache === "function" && !!window.loadNumistaCache(catId);
+        try {
+          const result = await catalogAPI.lookupItem(catId);
+          urls = {
+            obv: (result && result.imageUrl) || "",
+            rev: (result && result.reverseImageUrl) || "",
+          };
+          urlByCatId.set(catId, urls);
+          if (!urls.obv && !urls.rev) {
+            logSyncActivity(`${catId}: no images available`, "warn");
+          }
+        } catch (err) {
+          if (/rate limit/i.test((err && err.message) || "")) {
+            rateLimited = true;
+            logSyncActivity(
+              "Paused: Numista rate limit reached. Run again in ~1 minute to continue.",
+              "warn"
+            );
+            break;
+          }
+          urlByCatId.set(catId, null);
+          failed++;
+          logSyncActivity(`${catId}: lookup failed — ${(err && err.message) || err}`, "error");
+          continue;
+        }
+        // Only genuine API calls (cache misses) count against the rate limit.
+        if (!wasCached) {
+          await new Promise((resolve) => setTimeout(resolve, 650));
+        }
+      }
+
+      if (!urls || (!urls.obv && !urls.rev)) continue;
+
+      let updated = false;
+      if (!item.obverseImageUrl && urls.obv) {
+        item.obverseImageUrl = urls.obv;
+        updated = true;
+      }
+      if (!item.reverseImageUrl && urls.rev) {
+        item.reverseImageUrl = urls.rev;
+        updated = true;
+      }
+      if (updated) synced++;
+    }
+  } finally {
+    if (typeof saveInventory === "function") saveInventory();
+    if (typeof renderTable === "function") renderTable();
+    await renderEligibleItemsTable();
+    await renderSyncStats();
+  }
+
+  let msg = `Image URL sync complete.\n${synced} item(s) updated`;
+  if (failed) msg += `, ${failed} failed`;
+  msg += ".";
+  if (rateLimited) {
+    msg += "\n\nStopped early: Numista rate limit reached. Run again in ~1 minute for the rest.";
+  }
+  appAlert(msg, "Sync Image URLs");
+};
+
+// ---------------------------------------------------------------------------
 // Global exports
 // ---------------------------------------------------------------------------
 if (typeof window !== "undefined") {
   window.renderNumistaSyncUI = renderNumistaSyncUI;
   window.startBulkSync = startBulkSync;
   window.clearAllCachedData = clearAllCachedData;
+  window.syncNumistaImageUrls = syncNumistaImageUrls;
 }
