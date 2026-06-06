@@ -494,7 +494,7 @@ class ImageCache {
     let total = 0;
     try {
       await this._iterate("userImages", (rec) => {
-        total += rec.size || 0;
+        total += this._recordSize(rec);
       });
     } catch {
       /* leave 0 on failure */
