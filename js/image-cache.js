@@ -476,6 +476,33 @@ class ImageCache {
   }
 
   /**
+   * Stored byte size of a userImages record, falling back to summing its blob
+   * sizes for legacy records written before the `size` field existed. STRK-146.
+   * @returns {number}
+   */
+  _recordSize(rec) {
+    if (!rec) return 0;
+    return rec.size ?? this._blobSize(rec.obverse) + this._blobSize(rec.reverse);
+  }
+
+  /**
+   * Total bytes used by the `userImages` store only — a single-store cursor scan,
+   * far lighter than getStorageUsage() which walks every store. STRK-146.
+   * @returns {Promise<number>}
+   */
+  async _userImagesBytes() {
+    let total = 0;
+    try {
+      await this._iterate("userImages", (rec) => {
+        total += rec.size || 0;
+      });
+    } catch {
+      /* leave 0 on failure */
+    }
+    return total;
+  }
+
+  /**
    * Store a user-uploaded image for an inventory item, reporting the outcome.
    * Enforces a pre-flight soft-cap check against `_quotaBytes` so a doomed write
    * is refused (and reported) rather than failing silently — works even on
@@ -488,27 +515,28 @@ class ImageCache {
    */
   async cacheUserImageResult(uuid, obverse, reverse = null, sharedImageId = null) {
     if (!uuid || (!obverse && !reverse)) {
-      debugLog("ImageCache.cacheUserImage: missing uuid or at least one image blob");
+      debugLog("ImageCache.cacheUserImageResult: missing uuid or at least one image blob");
       return { ok: false, quotaExceeded: false };
     }
     if (!(await this._ensureUserImagesWritable())) {
-      debugLog("ImageCache.cacheUserImage: userImages store unavailable");
+      debugLog("ImageCache.cacheUserImageResult: userImages store unavailable");
       return { ok: false, quotaExceeded: false };
     }
 
     const size = this._blobSize(obverse) + this._blobSize(reverse);
     // Net delta vs any existing record for this uuid — an in-place replace that
-    // shrinks the record must never trip the cap.
+    // shrinks the record must never trip the cap. _recordSize falls back to blob
+    // sizes for legacy records that predate the `size` field, so a replace is not
+    // mis-counted as entirely new data.
     const existing = await this._get("userImages", uuid);
-    const delta = size - this._blobSize(existing);
-    const usage = await this.getStorageUsage();
-    const used = usage.userImageBytes;
+    const delta = size - this._recordSize(existing);
+    const used = await this._userImagesBytes();
     const limit = this._quotaBytes;
 
     // Pre-flight soft-cap guard: refuse a write that would overflow our quota.
     if (delta > 0 && used + delta > limit) {
       debugLog(
-        `ImageCache.cacheUserImage: pre-flight quota block uuid=${uuid} used=${used} delta=${delta} limit=${limit}`
+        `ImageCache.cacheUserImageResult: pre-flight quota block uuid=${uuid} used=${used} delta=${delta} limit=${limit}`
       );
       return { ok: false, quotaExceeded: true, usageBytes: used, limitBytes: limit };
     }
@@ -526,7 +554,7 @@ class ImageCache {
     const ok = await this._put("userImages", record, (err) => {
       quotaErr = ImageCache._isQuotaError(err);
     });
-    debugLog(`ImageCache.cacheUserImage: uuid=${uuid} size=${size} saved=${ok}`);
+    debugLog(`ImageCache.cacheUserImageResult: uuid=${uuid} size=${size} saved=${ok}`);
     return {
       ok,
       quotaExceeded: !ok && quotaErr,

@@ -119,4 +119,26 @@ test.describe("core/strk-146-image-quota-warning", () => {
 
     await expect(page.locator(".cloud-toast")).toHaveCount(1);
   });
+
+  test("escalates the warning when usage crosses from the warn band into the critical band (REQ-1)", async ({
+    page,
+  }) => {
+    await page.evaluate(async (quota) => {
+      window.imageCache._quotaBytes = quota; // 1 MB
+      window.imageCache._lastWarnedLevel = "ok";
+      // First save → 88% (warn band): one warning toast.
+      await window.imageCache.cacheUserImageWithFeedback(
+        "strk146-escA",
+        new Blob([new Uint8Array(880000)])
+      );
+      // Second save → 98% (critical band): escalation fires a second toast.
+      await window.imageCache.cacheUserImageWithFeedback(
+        "strk146-escB",
+        new Blob([new Uint8Array(100000)])
+      );
+    }, QUOTA_1MB);
+
+    await expect(page.locator(".cloud-toast")).toHaveCount(2);
+    await expect(page.locator(".cloud-toast").last()).toContainText("saves may start failing");
+  });
 });
