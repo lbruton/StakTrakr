@@ -115,7 +115,6 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 
 - After modifying instruction files, run `npx agentlinter --local`.
 - Do not add the `codacy-review` label to PRs.
-- If Codacy CLI changes `.codacy/codacy.yaml` outside the task scope, restore or exclude that churn before committing.
 
 ## Pre-Flight Triggers
 
