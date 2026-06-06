@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.10] - 2026-06-06
+
+### Added — STRK-166: Restore bulk Sync Image URLs
+
+- **Image sync**: A new "Sync Image URLs" button (in the Numista bulk-sync modal) backfills obverse/reverse coin images for items missing them — e.g. CSV imports. It is cache-first to conserve Numista API quota, dedups by catalog ID, and never overwrites images you've already set. Restores the capability removed in STAK-432 (STRK-166).
+
+---
+
 ## [3.35.9] - 2026-06-06
 
 ### Fixed — STRK-146: Image storage quota warning

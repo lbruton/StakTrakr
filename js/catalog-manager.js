@@ -562,6 +562,31 @@ const openBulkSyncModal = (provider) => {
         });
         overviewPanel.appendChild(syncBtn);
       }
+
+      // STRK-166: "Sync Image URLs" — backfill obverse/reverse CDN URLs for
+      // items missing them (e.g. CSV imports). Sibling to "Sync Unsynced".
+      const existingImgBtn = overviewPanel.querySelector(".js-bulk-sync-images");
+      if (!existingImgBtn) {
+        const imgBtn = document.createElement("button");
+        imgBtn.type = "button";
+        imgBtn.className = "btn api-action-btn js-bulk-sync-images";
+        imgBtn.textContent = "Sync Image URLs";
+        imgBtn.title = "Populate obverse/reverse image URLs from Numista for items missing them";
+        imgBtn.style.marginTop = "8px";
+        imgBtn.addEventListener("click", async () => {
+          if (typeof window.syncNumistaImageUrls !== "function") return;
+          imgBtn.disabled = true;
+          const original = imgBtn.textContent;
+          imgBtn.textContent = "Syncing…";
+          try {
+            await window.syncNumistaImageUrls();
+          } finally {
+            imgBtn.disabled = false;
+            imgBtn.textContent = original;
+          }
+        });
+        overviewPanel.appendChild(imgBtn);
+      }
     }
   } else {
     _setBulkSyncPanelPlaceholder(overviewPanel, "PCGS bulk sync — coming soon.");
