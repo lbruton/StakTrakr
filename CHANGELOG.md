@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.8] - 2026-06-05
+
+### Fixed — STRK-83: Disposition predicate alignment
+
+- **Disposition**: An item with an empty disposition object (`{}`) is now treated consistently as not disposed everywhere — no "disposed" badge or styling, present in the active view, excluded from the disposed view, and uncounted in disposed totals. `isDisposed()` is now the single source of truth: the section renderer, disposed filter, summary totals, trade-link guards, and trade autocomplete all route through it, resolving the STRK-73 predicate inconsistency (STRK-83).
+
+---
+
 ## [3.35.7] - 2026-06-05
 
 ### Changed — STRK-154: Cloud Sync Convergence & Auto-Healing
