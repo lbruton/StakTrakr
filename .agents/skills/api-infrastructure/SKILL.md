@@ -22,8 +22,8 @@ All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `a
 
 ## Feed Debugging Gotchas
 
-- **Goldback scrapes DAILY at 16:05 UTC** (cron `05 16 * * *` in `devops/pollers/home-poller/docker-entrypoint.sh`), not hourly. `goldback-scraper.js` has no in-script skip-guard — the daily cron is the dedup.
-- **`api-health.js` reads `generated_at`, not `scraped_at`** — `generated_at` is rewritten each publish cycle by `api-export.js`. For the goldback feed (daily scrape), `scraped_at` can legitimately be ~24h old while the health badge stays green.
+- **Goldback scrapes HOURLY at :05** (cron `5 * * * *` in `devops/pollers/home-poller/docker-entrypoint.sh`) — changed from daily by **STRK-58** (CurrencyLayer-backed rate shifts intraday). `goldback-scraper.js` has no in-script skip-guard — the hourly cron is the dedup. Note: goldback.com's published rate (the `data.t`/`t` field in the v2 envelope) can lag the scrape time by hours, so `g1_usd` may be unchanged across several consecutive hourly publishes.
+- **`api-health.js` reads `generated_at`, not `scraped_at`** — `generated_at` is rewritten each publish cycle by `api-export.js`. The goldback `scraped_at` is now refreshed hourly, but the 25h "info only" threshold is intentionally loose so a multi-hour scrape outage keeps the badge green.
 - **Poller cron source of truth** — always grep `devops/pollers/home-poller/docker-entrypoint.sh` before citing any cron schedule.
 - **API base is `data/v2/`** — set in `js/constants.js`.
 - **For "frontend data is wrong" bugs** — `curl` the exact URL the frontend constructs BEFORE analyzing parse/schema logic. A 404 beats any schema analysis, and stale `localStorage` on a dev browser can mask fresh-browser regressions for months.
