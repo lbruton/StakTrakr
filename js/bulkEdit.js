@@ -2055,7 +2055,7 @@ const _openBulkImagePopover = (imgTd, item) => {
       revBlob = null;
     }
 
-    await imageCache.cacheUserImage(item.uuid, obvBlob, revBlob);
+    await imageCache.cacheUserImageWithFeedback(item.uuid, obvBlob, revBlob);
 
     // Refresh the preview in the popover
     const previewEl = side === "obverse" ? obvPreview : revPreview;

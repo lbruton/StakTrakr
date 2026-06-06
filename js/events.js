@@ -806,7 +806,7 @@ const saveUserImageForItem = async (uuid) => {
     }
   }
 
-  const saved = await window.imageCache.cacheUserImage(uuid, obvBlob, revBlob);
+  const saved = await window.imageCache.cacheUserImageWithFeedback(uuid, obvBlob, revBlob);
   debugLog(`saveUserImageForItem: saved=${saved}`);
   clearUploadState();
   return saved;

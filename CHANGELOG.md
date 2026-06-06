@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.9] - 2026-06-06
+
+### Fixed — STRK-146: Image storage quota warning
+
+- **Image storage**: Saving a coin image when device storage is nearly full now shows an explicit "storage full" message instead of silently failing and rendering a broken colored square. A warning also appears as image storage approaches its limit, so you can free space before saves start failing (STRK-146).
+
+---
+
 ## [3.35.8] - 2026-06-05
 
 ### Fixed — STRK-83: Disposition predicate alignment
