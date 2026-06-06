@@ -1,4 +1,5 @@
 sandbox_mode = "danger-full-access"
 
+approval_policy = "on-failure"
 [features]
 hooks = true
