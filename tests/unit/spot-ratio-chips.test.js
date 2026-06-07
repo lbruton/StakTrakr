@@ -189,17 +189,17 @@ describe("isGoldbackStale — deterministic freshness window", () => {
   });
 
   test("fresh: (now − ts) < staleAfter → not stale", () => {
-    const entry = { ts: FROZEN_NOW - 1000, staleAfter: 90000 };
+    const entry = { ts: Math.floor(FROZEN_NOW / 1000) - 1000, staleAfter: 90000 };
     assert.equal(mod.surface.isGoldbackStale(entry), false);
   });
 
   test("stale: (now − ts) > staleAfter → stale", () => {
-    const entry = { ts: FROZEN_NOW - 90001, staleAfter: 90000 };
+    const entry = { ts: Math.floor(FROZEN_NOW / 1000) - 90001, staleAfter: 90000 };
     assert.equal(mod.surface.isGoldbackStale(entry), true);
   });
 
   test("boundary: (now − ts) === staleAfter → NOT stale (strictly greater)", () => {
-    const entry = { ts: FROZEN_NOW - 90000, staleAfter: 90000 };
+    const entry = { ts: Math.floor(FROZEN_NOW / 1000) - 90000, staleAfter: 90000 };
     assert.equal(mod.surface.isGoldbackStale(entry), false);
   });
 });
@@ -209,8 +209,8 @@ describe("isGoldbackStale — deterministic freshness window", () => {
 // =============================================================================
 describe("resolveGoldbackRate — fresh/stale × mode matrix", () => {
   const FROZEN_NOW = 1_700_000_000_000;
-  const FRESH = { ts: FROZEN_NOW - 1000, staleAfter: 90000 };
-  const STALE = { ts: FROZEN_NOW - 90001, staleAfter: 90000 };
+  const FRESH = { ts: Math.floor(FROZEN_NOW / 1000) - 1000, staleAfter: 90000 };
+  const STALE = { ts: Math.floor(FROZEN_NOW / 1000) - 90001, staleAfter: 90000 };
   let realDateNow;
 
   function build({ mode, entry, g1, goldSpot, estimate }) {

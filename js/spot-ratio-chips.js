@@ -52,7 +52,9 @@ const isGoldbackStale = (entry) => {
   if (!entry || typeof entry.ts !== "number" || typeof entry.staleAfter !== "number") {
     return true;
   }
-  return Date.now() - entry.ts > entry.staleAfter;
+  // entry.ts is a unix timestamp in SECONDS and staleAfter is a seconds budget
+  // (the goldback/latest.json envelope contract) — compare in seconds, not ms.
+  return Math.floor(Date.now() / 1000) - entry.ts > entry.staleAfter;
 };
 
 /**
@@ -120,6 +122,32 @@ const areRatioChipsEnabled = () => {
 const removeRatioChip = (cardEl) => {
   const existing = cardEl.querySelector(".spot-ratio-chip");
   if (existing) existing.remove();
+};
+
+/**
+ * Removes the chip-row spacer from a spot card if one exists.
+ * @param {HTMLElement} cardEl - The .spot-card element
+ */
+const removeRatioChipSpacer = (cardEl) => {
+  const existing = cardEl.querySelector(".spot-ratio-chip-spacer");
+  if (existing) existing.remove();
+};
+
+/**
+ * Inserts an empty, space-reserving placeholder (a chip's vertical footprint) between
+ * .spot-card-change and .spot-card-timestamp, so a card whose chip is hidden keeps its
+ * "Last API Sync" line aligned with the cards that show a chip (master toggle ON only).
+ * @param {HTMLElement} cardEl - The .spot-card element
+ */
+const upsertRatioChipSpacer = (cardEl) => {
+  if (cardEl.querySelector(".spot-ratio-chip-spacer")) return;
+  const spacer = document.createElement("div");
+  spacer.className = "spot-ratio-chip-spacer";
+  spacer.setAttribute("aria-hidden", "true");
+  spacer.textContent = " "; // reserve the chip's text-line height
+  const timestamp = cardEl.querySelector(".spot-card-timestamp");
+  if (timestamp) cardEl.insertBefore(spacer, timestamp);
+  else cardEl.appendChild(spacer);
 };
 
 /**
@@ -226,50 +254,52 @@ const renderRatioChip = (metalKey) => {
   const cardEl = document.querySelector(`.spot-card[data-metal="${metalKey}"]`);
   if (!cardEl) return;
 
+  // Master toggle off → no chip and no spacer (original card layout).
   if (!areRatioChipsEnabled()) {
     removeRatioChip(cardEl);
+    removeRatioChipSpacer(cardEl);
     return;
   }
 
   const spots = typeof spotPrices !== "undefined" && spotPrices ? spotPrices : {};
 
+  // Resolve this card's chip content, or leave null when it should be hidden.
+  let chip = null;
   if (metalKey === "gold") {
     const gb = resolveGoldbackRate();
-    if (!gb) {
-      removeRatioChip(cardEl);
-      return;
+    if (gb) {
+      chip = {
+        accentClass: "metal-gold",
+        glyph: GOLDBACK_CHIP_GLYPH,
+        label: "GB",
+        value: `$${formatRatio(gb.value, 2)}`,
+        est: gb.est,
+      };
     }
-    upsertRatioChip(
-      cardEl,
-      "metal-gold",
-      GOLDBACK_CHIP_GLYPH,
-      "GB",
-      `$${formatRatio(gb.value, 2)}`,
-      gb.est
-    );
-    return;
+  } else {
+    const card = RATIO_CHIP_CARDS.find((c) => c.metal === metalKey);
+    if (card) {
+      const ratio = computeRatio(spots.gold, spots[metalKey]);
+      if (ratio !== null) {
+        chip = {
+          accentClass: card.accentClass,
+          glyph: RATIO_CHIP_GLYPH,
+          label: card.label,
+          value: formatRatio(ratio, card.decimals),
+          est: false,
+        };
+      }
+    }
   }
 
-  const card = RATIO_CHIP_CARDS.find((c) => c.metal === metalKey);
-  if (!card) {
+  if (chip) {
+    removeRatioChipSpacer(cardEl);
+    upsertRatioChip(cardEl, chip.accentClass, chip.glyph, chip.label, chip.value, chip.est);
+  } else {
+    // Master ON but this card has no chip → reserve the row so timestamps stay aligned.
     removeRatioChip(cardEl);
-    return;
+    upsertRatioChipSpacer(cardEl);
   }
-
-  const ratio = computeRatio(spots.gold, spots[metalKey]);
-  if (ratio === null) {
-    removeRatioChip(cardEl);
-    return;
-  }
-
-  upsertRatioChip(
-    cardEl,
-    card.accentClass,
-    RATIO_CHIP_GLYPH,
-    card.label,
-    formatRatio(ratio, card.decimals),
-    false
-  );
 };
 
 /**

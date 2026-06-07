@@ -16102,6 +16102,19 @@ input[type="number"] {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* Reserves a chip's vertical footprint on cards whose chip is hidden, so every
+   card's "Last API Sync" line stays on the same plane (STRK-161 alignment). */
+.spot-ratio-chip-spacer {
+  display: inline-flex;
+  align-items: center;
+  margin: 2px auto 0;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid transparent;
+  font-size: var(--font-size-xs);
+  line-height: 1.25;
+  visibility: hidden;
+}
+
 .spot-ratio-chip .glyph {
   display: inline-flex;
   color: var(--metal, var(--text-muted));

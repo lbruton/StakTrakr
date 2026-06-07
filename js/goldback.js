@@ -473,7 +473,8 @@ const fetchGoldbackApiPrices = async (options = {}) => {
       updatedAt: now,
       source: "api",
       ts: gbData.ts,
-      staleAfter: gbData.stale_after,
+      // stale_after lives at the ENVELOPE top level (envelope.stale_after), not in data.
+      staleAfter: envelope.stale_after,
     };
   }
 

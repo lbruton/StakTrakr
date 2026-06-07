@@ -159,16 +159,38 @@ test.describe("extended/visual-layout-regressions", () => {
       expect(fits).toBe(true);
     }
 
-    // D-9: below 960px the provider span is hidden and the label shows the short "Last Synced" form.
+    // D-9: below 960px the provider + full label are display:none and the short "Last Synced"
+    // label shows. textContent still includes the hidden spans, so assert computed display
+    // (not text content, which would always "contain" the hidden "Last API Sync").
     const timestamp = page.locator(".spot-card .spot-card-timestamp").first();
-    await expect(timestamp).toContainText("Last Synced");
-    await expect(timestamp).not.toContainText("Last API Sync");
-
-    const providerHidden = await timestamp.evaluate((el) => {
-      const provider = el.querySelector(".ts-provider");
-      if (!provider) return false;
-      return getComputedStyle(provider).display === "none";
+    const disp = await timestamp.evaluate((el) => {
+      const d = (sel) => {
+        const n = el.querySelector(sel);
+        return n ? getComputedStyle(n).display : "missing";
+      };
+      return { provider: d(".ts-provider"), full: d(".ts-full"), short: d(".ts-short") };
     });
-    expect(providerHidden).toBe(true);
+    expect(disp.provider).toBe("none"); // provider hidden on mobile
+    expect(disp.full).toBe("none"); // "Last API Sync" hidden on mobile
+    expect(disp.short).not.toBe("none"); // short "Last Synced" shown
+  });
+
+  test("STRK-161 a hidden chip reserves its row so all card timestamps stay aligned", async ({
+    page,
+  }) => {
+    await waitForSpotChips(page);
+    // Hide exactly one card's chip (silver invalid spot); the other three remain.
+    await page.evaluate(() => {
+      if (typeof spotPrices !== "undefined") spotPrices.silver = 0;
+      window.renderRatioChips();
+    });
+    await expect(page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip')).toHaveCount(0);
+
+    // The hidden chip's row is reserved (spacer), so every card's timestamp shares a plane.
+    const tops = await page
+      .locator(".spot-card .spot-card-timestamp")
+      .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+    expect(tops.length).toBe(4);
+    expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
   });
 });
