@@ -577,15 +577,17 @@ class ImageCache {
     const ok = await this._put("userImages", record, (err) => {
       quotaErr = ImageCache._isQuotaError(err);
     });
-    // STRK-162: keep the usage cache warm on the one path that knows the exact
-    // delta. Only on a real write — a pre-flight block returned earlier, and a
-    // failed _put leaves the store (and the cached total) unchanged.
-    if (ok) this._userImagesBytesCache = used + delta;
     debugLog(`ImageCache.cacheUserImageResult: uuid=${uuid} size=${size} saved=${ok}`);
+    // STRK-162: post-write userImages total. On a successful put this is
+    // used + delta; on a failed put the store is unchanged so it stays `used`
+    // (a pre-flight block returned earlier and never reaches here). Reuse this
+    // one value to both keep the usage cache warm and report usageBytes.
+    const usageBytes = ok ? used + delta : used;
+    this._userImagesBytesCache = usageBytes;
     return {
       ok,
       quotaExceeded: !ok && quotaErr,
-      usageBytes: ok ? used + delta : used,
+      usageBytes,
       limitBytes: limit,
     };
   }
