@@ -58,44 +58,52 @@ const isGoldbackStale = (entry) => {
 };
 
 /**
- * Resolves the active goldback G1 rate for the gold card chip.
- * Reads bare globals (goldbackPricingSource, goldbackPrices, spotPrices,
- * getGoldbackDenominationPrice, computeGoldbackEstimatedRate) so the same code
- * resolves in both the unit harness and the browser.
- *   - mode "off"                 → null
- *   - fresh cache                → { value: <cached G1>, est: false }
- *   - stale + "spot"/"manual"    → { value: computeGoldbackEstimatedRate(gold), est: true }
- *   - stale + "api"              → null
+ * Returns the fresh cached G1 price (> 0), or null when the cache entry is
+ * absent/stale or has no positive price. Reads bare goldback globals.
+ * @returns {number|null}
+ */
+const readFreshCachedGoldback = () => {
+  const cacheEntry =
+    typeof goldbackPrices !== "undefined" && goldbackPrices ? goldbackPrices["1"] : null;
+  if (!cacheEntry || isGoldbackStale(cacheEntry)) return null;
+  const cached =
+    typeof getGoldbackDenominationPrice === "function" ? getGoldbackDenominationPrice(1) : null;
+  return typeof cached === "number" && cached > 0 ? cached : null;
+};
+
+/**
+ * Returns the spot-derived goldback estimate (> 0), or null. Reads bare globals.
+ * @returns {number|null}
+ */
+const readGoldbackSpotEstimate = () => {
+  const gold = typeof spotPrices !== "undefined" && spotPrices ? spotPrices.gold : 0;
+  if (typeof computeGoldbackEstimatedRate !== "function" || !Number.isFinite(gold) || gold <= 0) {
+    return null;
+  }
+  const estimate = computeGoldbackEstimatedRate(gold);
+  return typeof estimate === "number" && estimate > 0 ? estimate : null;
+};
+
+/**
+ * Resolves the active goldback G1 rate for the gold card chip. Reads bare globals
+ * so the same code resolves in both the unit harness and the browser.
+ *   - mode "off"              → null
+ *   - fresh cache             → { value: <cached G1>, est: false }
+ *   - stale + "spot"/"manual" → { value: spot estimate, est: true }
+ *   - stale + "api"           → null
  * @returns {{ value: number, est: boolean } | null}
  */
 const resolveGoldbackRate = () => {
   const mode = typeof goldbackPricingSource !== "undefined" ? goldbackPricingSource : "off";
   if (mode === "off") return null;
 
-  const cacheEntry =
-    typeof goldbackPrices !== "undefined" && goldbackPrices ? goldbackPrices["1"] : null;
+  const fresh = readFreshCachedGoldback();
+  if (fresh !== null) return { value: fresh, est: false };
 
-  if (cacheEntry && !isGoldbackStale(cacheEntry)) {
-    const cached =
-      typeof getGoldbackDenominationPrice === "function" ? getGoldbackDenominationPrice(1) : null;
-    if (typeof cached === "number" && cached > 0) {
-      return { value: cached, est: false };
-    }
-  }
-
-  // Stale (or no fresh cache): only spot/manual fall back to a live estimate.
   if (mode === "spot" || mode === "manual") {
-    const gold = typeof spotPrices !== "undefined" && spotPrices ? spotPrices.gold : 0;
-    if (typeof computeGoldbackEstimatedRate === "function" && Number.isFinite(gold) && gold > 0) {
-      const estimate = computeGoldbackEstimatedRate(gold);
-      if (typeof estimate === "number" && estimate > 0) {
-        return { value: estimate, est: true };
-      }
-    }
-    return null;
+    const estimate = readGoldbackSpotEstimate();
+    if (estimate !== null) return { value: estimate, est: true };
   }
-
-  // Stale + api → no valid current rate.
   return null;
 };
 
@@ -246,7 +254,39 @@ const upsertRatioChip = (cardEl, accentClass, glyph, label, value, est) => {
 };
 
 /**
- * Renders (or removes) the ratio chip for a single metal card.
+ * Resolves a card's chip descriptor, or null when the chip should be hidden.
+ * @param {string} metalKey - Spot metal key
+ * @param {object} spots - Current spotPrices
+ * @returns {{accentClass:string, glyph:string, label:string, value:string, est:boolean}|null}
+ */
+const resolveChipContent = (metalKey, spots) => {
+  if (metalKey === "gold") {
+    const gb = resolveGoldbackRate();
+    if (!gb) return null;
+    return {
+      accentClass: "metal-gold",
+      glyph: GOLDBACK_CHIP_GLYPH,
+      label: "GB",
+      value: `$${formatRatio(gb.value, 2)}`,
+      est: gb.est,
+    };
+  }
+  const card = RATIO_CHIP_CARDS.find((c) => c.metal === metalKey);
+  if (!card) return null;
+  const ratio = computeRatio(spots.gold, spots[metalKey]);
+  if (ratio === null) return null;
+  return {
+    accentClass: card.accentClass,
+    glyph: RATIO_CHIP_GLYPH,
+    label: card.label,
+    value: formatRatio(ratio, card.decimals),
+    est: false,
+  };
+};
+
+/**
+ * Renders (or removes) the ratio chip for a single metal card. When the chip is
+ * hidden but the master toggle is on, a spacer reserves the row so timestamps stay aligned.
  * @param {string} metalKey - Spot metal key (e.g. "silver", "gold", "platinum")
  */
 const renderRatioChip = (metalKey) => {
@@ -262,35 +302,7 @@ const renderRatioChip = (metalKey) => {
   }
 
   const spots = typeof spotPrices !== "undefined" && spotPrices ? spotPrices : {};
-
-  // Resolve this card's chip content, or leave null when it should be hidden.
-  let chip = null;
-  if (metalKey === "gold") {
-    const gb = resolveGoldbackRate();
-    if (gb) {
-      chip = {
-        accentClass: "metal-gold",
-        glyph: GOLDBACK_CHIP_GLYPH,
-        label: "GB",
-        value: `$${formatRatio(gb.value, 2)}`,
-        est: gb.est,
-      };
-    }
-  } else {
-    const card = RATIO_CHIP_CARDS.find((c) => c.metal === metalKey);
-    if (card) {
-      const ratio = computeRatio(spots.gold, spots[metalKey]);
-      if (ratio !== null) {
-        chip = {
-          accentClass: card.accentClass,
-          glyph: RATIO_CHIP_GLYPH,
-          label: card.label,
-          value: formatRatio(ratio, card.decimals),
-          est: false,
-        };
-      }
-    }
-  }
+  const chip = resolveChipContent(metalKey, spots);
 
   if (chip) {
     removeRatioChipSpacer(cardEl);
