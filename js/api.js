@@ -1212,6 +1212,7 @@ const refreshFromCache = () => {
       updateAllSparklines();
     }
     if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+    if (typeof renderRatioChips === "function") renderRatioChips();
     return true;
   }
 
@@ -2176,6 +2177,7 @@ const handleProviderSync = async (provider) => {
       if (typeof updateAllSparklines === "function") {
         updateAllSparklines();
       }
+      if (typeof renderRatioChips === "function") renderRatioChips();
       setProviderStatus(provider, "connected");
       updateProviderHistoryTables();
       appAlert(
@@ -2200,6 +2202,7 @@ const handleProviderSync = async (provider) => {
 const syncAllProviders = async () => {
   const { updatedCount } = await syncProviderChain({ showProgress: false, forceSync: true });
   updateProviderHistoryTables();
+  if (typeof renderRatioChips === "function") renderRatioChips();
   return updatedCount;
 };
 
@@ -2339,6 +2342,7 @@ const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}
           }
         }
         if (typeof updateAllSparklines === "function") updateAllSparklines();
+        if (typeof renderRatioChips === "function") renderRatioChips();
       }
     } finally {
       if (showProgress) {
@@ -2650,6 +2654,8 @@ const resetSpotPrice = (metal) => {
 
   // Hide manual input if shown
   hideManualInput(metal);
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 };
 
 /**

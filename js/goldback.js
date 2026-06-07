@@ -406,6 +406,8 @@ const onGoldSpotPriceChanged = () => {
 
   // Refresh settings UI if the Goldback panel is visible
   if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 };
 
 // =============================================================================

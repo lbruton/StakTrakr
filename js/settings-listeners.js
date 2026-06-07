@@ -84,6 +84,14 @@ const bindAppearanceAndHeaderListeners = () => {
     onApply: () => applyHeaderToggleVisibility(),
   });
 
+  // Spot ratio chips visibility (STRK-161)
+  wireStorageToggle("showSpotRatiosToggle", SPOT_RATIOS_KEY, {
+    defaultVal: true,
+    onApply: () => {
+      if (typeof renderRatioChips === "function") renderRatioChips();
+    },
+  });
+
   // Trend cycle header button.
   const headerTrendBtn = safeGetElement("headerTrendBtn");
   if (headerTrendBtn) {
@@ -401,6 +409,8 @@ const bindGoldbackPricingSourceListener = () => {
 
       if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
       if (typeof renderTable === "function") renderTable();
+
+      if (typeof renderRatioChips === "function") renderRatioChips();
     });
   }
 

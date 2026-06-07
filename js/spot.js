@@ -493,6 +493,8 @@ const fetchSpotPrice = () => {
 
   // Goldback estimation hook — fire after all spots loaded (STACK-52)
   if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 };
 
 /**
@@ -547,6 +549,8 @@ const updateManualSpot = (metalKey) => {
   if (typeof hideManualInput === "function") {
     hideManualInput(metalConfig.name);
   }
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 
   return undefined;
 };
@@ -1184,6 +1188,8 @@ const updateSpotChangePercent = (metalKey, precomputedData = null) => {
       priceEl.textContent = `= ${formatted}`;
     }
   }
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 };
 
 /**
@@ -1258,6 +1264,8 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
     // Goldback estimation hook (STACK-52)
     if (metalKey === "gold" && typeof onGoldSpotPriceChanged === "function")
       onGoldSpotPriceChanged();
+
+    if (typeof renderRatioChips === "function") renderRatioChips();
   };
 
   input.addEventListener("keydown", (e) => {
