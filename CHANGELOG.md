@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.13] - 2026-06-07
+
+### Changed — STRK-161: Spot card ratio chips
+
+- **Feature**: Each spot card now shows an at-a-glance precious-metals ratio chip — gold-denominated GSR (Au:Ag), Au:Pt, and Au:Pd on the non-gold cards, and the daily goldback G1 rate on the gold card. A single "Show spot ratios" toggle in Currency & Pricing controls visibility (default on); the goldback chip also respects the goldback pricing mode and a freshness guard (`now − data.ts > stale_after`, read from the envelope top level). Chips read legibly across all four themes with a plain-English tooltip on hover and keyboard focus, and a reserved row keeps every card's sync line aligned when a chip is hidden (STRK-161).
+
+---
+
 ## [3.35.12] - 2026-06-06
 
 ### Changed — STRK-162: Cache user-image storage usage (O(1) pre-flight)
