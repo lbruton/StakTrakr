@@ -95,4 +95,80 @@ test.describe("extended/visual-layout-regressions", () => {
     expect(tokenUsage.length).toBeGreaterThan(5);
     expect(tokenUsage.join("\n")).not.toMatch(/rgba\(15,\s*23,\s*42/i);
   });
+
+  // ── STRK-161 — spot card ratio chips: four-theme legibility + mobile layout ──
+
+  async function waitForSpotChips(page) {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page
+      .locator(".whats-new-toast-card .wntc-close")
+      .click({ timeout: 5000 })
+      .catch(() => {});
+    // The chips render off the spot-price write paths, which populate on boot.
+    await expect(page.locator(".spot-card .spot-ratio-chip").first()).toBeVisible({
+      timeout: 15000,
+    });
+  }
+
+  test("STRK-161 spot ratio chips resolve a legible token color in all four themes", async ({
+    page,
+  }) => {
+    await waitForSpotChips(page);
+
+    for (const theme of THEMES) {
+      await setTheme(page, theme);
+
+      const chips = page.locator(".spot-card .spot-ratio-chip");
+      const count = await chips.count();
+      expect(count).toBeGreaterThan(0);
+
+      for (let i = 0; i < count; i++) {
+        const color = await chips.nth(i).evaluate((el) => getComputedStyle(el).color);
+        // A resolved, token-derived color — never transparent / zero-alpha, never empty.
+        expect(color).toBeTruthy();
+        expect(color).not.toBe("transparent");
+        expect(color).not.toMatch(/rgba?\([^)]*,\s*0\s*\)$/);
+        expect(color).not.toMatch(/\/\s*0\s*\)$/);
+        expect(color).toMatch(/^(rgb|oklch|color)\b/i);
+      }
+    }
+  });
+
+  test("STRK-161 chip stays inside its card and timestamp uses the short Last Synced form on mobile", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await waitForSpotChips(page);
+
+    // Cards reflow to a 2×2 stack below the 960px breakpoint.
+    const cards = page.locator(".spot-card");
+    const cardCount = await cards.count();
+    expect(cardCount).toBe(4);
+
+    for (let i = 0; i < cardCount; i++) {
+      const card = cards.nth(i);
+      const chip = card.locator(".spot-ratio-chip");
+      if ((await chip.count()) === 0) continue;
+
+      const fits = await card.evaluate((cardEl) => {
+        const chipEl = cardEl.querySelector(".spot-ratio-chip");
+        const c = cardEl.getBoundingClientRect();
+        const k = chipEl.getBoundingClientRect();
+        return k.left >= c.left - 0.5 && k.right <= c.right + 0.5;
+      });
+      expect(fits).toBe(true);
+    }
+
+    // D-9: below 960px the provider span is hidden and the label shows the short "Last Synced" form.
+    const timestamp = page.locator(".spot-card .spot-card-timestamp").first();
+    await expect(timestamp).toContainText("Last Synced");
+    await expect(timestamp).not.toContainText("Last API Sync");
+
+    const providerHidden = await timestamp.evaluate((el) => {
+      const provider = el.querySelector(".ts-provider");
+      if (!provider) return false;
+      return getComputedStyle(provider).display === "none";
+    });
+    expect(providerHidden).toBe(true);
+  });
 });
