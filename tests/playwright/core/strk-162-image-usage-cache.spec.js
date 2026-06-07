@@ -63,30 +63,169 @@ async function resetScanCount(page) {
   });
 }
 
-/**
- * Seed one userImages record of an exact obverse byte size via the public API.
- * Returns the boolean save result so callers can assert it landed.
- */
-async function seedUserImage(page, uuid, bytes) {
-  return page.evaluate(
-    async ({ uuid, bytes }) => {
-      const blob = new Blob([new Uint8Array(bytes)]);
-      return window.imageCache.cacheUserImage(uuid, blob);
-    },
-    { uuid, bytes }
-  );
-}
-
 test.describe("core/strk-162-image-usage-cache", () => {
   test.beforeEach(async ({ page }) => {
     await bootImageCache(page);
     await installScanCounter(page);
   });
 
-  // Cohort B (RED) fills these: AC-1 warm-skip, AC-2 lazy-once, AC-3 signed-delta
-  // increment (incl. shrink), AC-4 no-delta-on-non-write, AC-5 invalidation
-  // (delete-then-save / clearAll / import), AC-6 STRK-146 regression contract.
-  test.fixme("STRK-162 coherency assertions — added in Cohort B", () => {
-    expect(true).toBe(true);
+  // AC-1 — WHILE the cache is warm, the pre-flight performs NO userImages scan.
+  test("AC-1: a warm cache serves the pre-flight without re-scanning userImages", async ({
+    page,
+  }) => {
+    // Warm-up save (cold → 1 scan); a subsequent save must perform zero scans.
+    await page.evaluate(async (q) => {
+      window.imageCache._quotaBytes = q;
+      await window.imageCache.cacheUserImageResult("ac1-warmup", new Blob([new Uint8Array(1000)]));
+    }, QUOTA_HUGE);
+    await resetScanCount(page);
+    await page.evaluate(async () => {
+      await window.imageCache.cacheUserImageResult("ac1-second", new Blob([new Uint8Array(2000)]));
+    });
+    expect(await scanCount(page)).toBe(0);
+  });
+
+  // AC-2 — the total is computed once and retained: two cold-start saves scan once.
+  test("AC-2: usage is computed once and retained across needs", async ({ page }) => {
+    await resetScanCount(page);
+    await page.evaluate(async (q) => {
+      window.imageCache._quotaBytes = q;
+      await window.imageCache.cacheUserImageResult("ac2-a", new Blob([new Uint8Array(1000)]));
+      await window.imageCache.cacheUserImageResult("ac2-b", new Blob([new Uint8Array(1000)]));
+    }, QUOTA_HUGE);
+    expect(await scanCount(page)).toBe(1);
+  });
+
+  // AC-3 — WHEN a save succeeds, the cached total moves by the signed delta
+  // (positive for new/grown, negative for a shrinking in-place replace).
+  test("AC-3: the cached total tracks the signed delta, including a shrinking replace", async ({
+    page,
+  }) => {
+    const out = await page.evaluate(async (q) => {
+      const ic = window.imageCache;
+      ic._quotaBytes = q;
+      await ic.cacheUserImageResult("ac3-a", new Blob([new Uint8Array(1000)]));
+      const afterA = ic._userImagesBytesCache;
+      await ic.cacheUserImageResult("ac3-b", new Blob([new Uint8Array(2000)]));
+      const afterB = ic._userImagesBytesCache;
+      // Replace ac3-a with a smaller blob: delta = 500 - 1000 = -500.
+      await ic.cacheUserImageResult("ac3-a", new Blob([new Uint8Array(500)]));
+      const afterShrink = ic._userImagesBytesCache;
+      return { afterA, afterB, afterShrink };
+    }, QUOTA_HUGE);
+    expect(out.afterA).toBe(1000);
+    expect(out.afterB).toBe(3000);
+    expect(out.afterShrink).toBe(2500);
+  });
+
+  // AC-4 — IF a save does not write (pre-flight block or _put failure), THEN the
+  // cached total does not move by delta. Per review: assert "no delta applied",
+  // NOT "field stayed null" (a cold→warm scan is allowed). Here the cache is warm,
+  // so the exact pre-call value must be preserved.
+  test("AC-4: a blocked write and a failed _put leave the cached total unmoved", async ({
+    page,
+  }) => {
+    const out = await page.evaluate(async (q) => {
+      const ic = window.imageCache;
+      ic._quotaBytes = q;
+      await ic.cacheUserImageResult("ac4-base", new Blob([new Uint8Array(1000)]));
+      const base = ic._userImagesBytesCache; // warm = 1000
+
+      // (1) Pre-flight block: tiny quota, oversized save.
+      ic._quotaBytes = 1000;
+      const blocked = await ic.cacheUserImageResult("ac4-big", new Blob([new Uint8Array(50000)]));
+      const afterBlock = ic._userImagesBytesCache;
+
+      // (2) _put failure: restore quota, stub _put to fail, then a fitting save.
+      ic._quotaBytes = q;
+      const origPut = ic._put.bind(ic);
+      ic._put = async () => false;
+      const failed = await ic.cacheUserImageResult("ac4-putfail", new Blob([new Uint8Array(2000)]));
+      const afterFail = ic._userImagesBytesCache;
+      ic._put = origPut;
+
+      return {
+        base,
+        blockedQuota: blocked.quotaExceeded,
+        afterBlock,
+        failOk: failed.ok,
+        afterFail,
+      };
+    }, QUOTA_HUGE);
+    expect(out.base).toBe(1000);
+    expect(out.blockedQuota).toBe(true);
+    expect(out.afterBlock).toBe(1000); // unchanged by the blocked write
+    expect(out.failOk).toBe(false);
+    expect(out.afterFail).toBe(1000); // unchanged by the failed put (no delta applied)
+  });
+
+  // AC-5 — WHEN deleteUserImage / clearAll / importUserImageRecord mutate the
+  // store, the next read recomputes from a fresh scan (load-bearing: delete-then-save).
+  test("AC-5: delete / clearAll / import invalidate the cache so the next read recomputes", async ({
+    page,
+  }) => {
+    const out = await page.evaluate(async (q) => {
+      const ic = window.imageCache;
+      ic._quotaBytes = q;
+
+      // delete-then-save
+      await ic.cacheUserImageResult("ac5-a", new Blob([new Uint8Array(1000)]));
+      await ic.cacheUserImageResult("ac5-b", new Blob([new Uint8Array(2000)])); // warm = 3000
+      await ic.deleteUserImage("ac5-a"); // invalidate
+      await ic.cacheUserImageResult("ac5-c", new Blob([new Uint8Array(500)])); // recompute: 2000 + 500
+      const afterDeleteSave = ic._userImagesBytesCache;
+
+      // clearAll-then-save
+      await ic.clearAll(); // invalidate
+      await ic.cacheUserImageResult("ac5-d", new Blob([new Uint8Array(700)])); // recompute from empty: 700
+      const afterClearSave = ic._userImagesBytesCache;
+
+      // import-then-save
+      await ic.clearAll();
+      await ic.cacheUserImageResult("ac5-e", new Blob([new Uint8Array(400)])); // warm = 400
+      await ic.importUserImageRecord({
+        uuid: "ac5-imp",
+        obverse: new Blob([new Uint8Array(600)]),
+        reverse: null,
+        size: 600,
+        cachedAt: 1,
+      }); // invalidate
+      await ic.cacheUserImageResult("ac5-f", new Blob([new Uint8Array(100)])); // recompute: 400 + 600 + 100
+      const afterImportSave = ic._userImagesBytesCache;
+
+      return { afterDeleteSave, afterClearSave, afterImportSave };
+    }, QUOTA_HUGE);
+    expect(out.afterDeleteSave).toBe(2500); // ac5-a's 1000 excluded
+    expect(out.afterClearSave).toBe(700); // store emptied, then 700
+    expect(out.afterImportSave).toBe(1100); // 400 + 600 (imported) + 100
+  });
+
+  // AC-6 — no STRK-146 regression. This is a GREEN-throughout guard (not a RED
+  // test): it protects the quota contract while C.2 adds the increment/invalidate.
+  test("AC-6: STRK-146 quota contract intact (block report + warn toast)", async ({ page }) => {
+    const out = await page.evaluate(async () => {
+      const ic = window.imageCache;
+      ic._quotaBytes = 1000;
+      const res = await ic.cacheUserImageResult("ac6-block", new Blob([new Uint8Array(50000)]));
+      return {
+        ok: res.ok,
+        quotaExceeded: res.quotaExceeded,
+        usageBytes: res.usageBytes,
+        limitBytes: res.limitBytes,
+      };
+    });
+    expect(out.ok).toBe(false);
+    expect(out.quotaExceeded).toBe(true);
+    expect(out.limitBytes).toBe(1000);
+    expect(typeof out.usageBytes).toBe("number");
+
+    // An accepted near-quota save still fires the pressure-band toast.
+    await page.evaluate(async () => {
+      const ic = window.imageCache;
+      ic._quotaBytes = 1_000_000;
+      ic._lastWarnedLevel = "ok";
+      await ic.cacheUserImageWithFeedback("ac6-warn", new Blob([new Uint8Array(900000)]));
+    });
+    await expect(page.locator(".cloud-toast")).toContainText("full");
   });
 });
