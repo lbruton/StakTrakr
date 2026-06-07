@@ -21,10 +21,10 @@ changed lines only. Global `Action Gates` covers the fresh-worktree empty-diff i
 
 ## Codacy Agentlint
 
-Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skill files). These policies are modeled on real-world failure patterns and their intent is worth honoring:
+Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill files). These policies are modeled on real-world failure patterns and their intent is worth honoring:
 
 - **Local linting gate:** After modifying any instruction file, run `npx agentlinter --local` before committing.
-- Instruction files include CLAUDE.md, AGENTS.md, GEMINI.md, and skill `SKILL.md` files.
+- Instruction files include CLAUDE.md, AGENTS.md, and skill `SKILL.md` files.
 - Aim for a perfect score.
 - Accept deductions only when the flagged pattern is intentional and project-specific.
 - Document accepted deductions inline or in this section.

@@ -6,7 +6,6 @@
 exclude_paths:
   - "AGENTS.md"
   - "CLAUDE.md"
-  - "GEMINI.md"
   # Generated lockfile — Lizard counts its ~1600 NLOC as a complexity finding.
   - "package-lock.json"
   - "**/package-lock.json"
