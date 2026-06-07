@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr — Spot Card Ratio Chips Playground (STRK-161)</title>
+    <style>
+      /* ============================================================
+         PLAYGROUND CHROME (not themed — fixed dark like other STRK playgrounds)
+         ============================================================ */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #0b1020;
+        color: #e2e8f0;
+        display: flex;
+        min-height: 100vh;
+      }
+      .controls {
+        width: 300px;
+        min-width: 300px;
+        background: #131a2e;
+        border-right: 1px solid #28324b;
+        padding: 18px 16px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+      }
+      .controls h1 {
+        font-size: 13px;
+        font-weight: 800;
+        color: #93c5fd;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .controls .sub {
+        font-size: 11px;
+        color: #64748b;
+        line-height: 1.5;
+        margin-top: -10px;
+      }
+      .group h2 {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        margin-bottom: 8px;
+      }
+      .seg {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .seg button {
+        flex: 1 1 auto;
+        min-width: 60px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 7px 8px;
+        border-radius: 7px;
+        border: 1px solid #2c374f;
+        background: #1b2438;
+        color: #cbd5e1;
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .seg button:hover {
+        border-color: #3b82f6;
+      }
+      .seg button.active {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+      }
+      .switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .switch-row label {
+        font-size: 12.5px;
+        color: #cbd5e1;
+      }
+      .toggle {
+        position: relative;
+        width: 42px;
+        height: 24px;
+        border-radius: 999px;
+        background: #334155;
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s;
+        flex: 0 0 auto;
+      }
+      .toggle::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.15s;
+      }
+      .toggle.on {
+        background: #22c55e;
+      }
+      .toggle.on::after {
+        transform: translateX(18px);
+      }
+      .note {
+        font-size: 11px;
+        color: #94a3b8;
+        line-height: 1.5;
+        background: #0e1526;
+        border: 1px solid #233049;
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .note b {
+        color: #cbd5e1;
+      }
+      .ac {
+        font-size: 10px;
+        color: #f59e0b;
+        font-weight: 700;
+      }
+
+      /* ============================================================
+         PREVIEW STAGE
+         ============================================================ */
+      .stage {
+        flex: 1;
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        overflow-y: auto;
+      }
+      .stage-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .stage-head h2 {
+        font-size: 14px;
+        color: #94a3b8;
+        font-weight: 700;
+      }
+      .state-readout {
+        font-size: 12px;
+        color: #64748b;
+        font-family: ui-monospace, monospace;
+      }
+
+      /* The themed app surface — tokens copied verbatim from css/styles.css */
+      .app {
+        --radius-lg: 12px;
+        --radius-sm: 4px;
+        --radius-pill: 999px;
+        --font-size-xs: 0.6875rem;
+        --font-size-sm: 0.75rem;
+        --font-size-base: 0.8125rem;
+        --font-size-2xl: 1.5rem;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border-radius: 16px;
+        padding: 22px;
+        border: 1px solid var(--border);
+        transition: max-width 0.2s ease;
+      }
+      .app.mobile {
+        max-width: 380px;
+      }
+
+      [data-theme="light"] {
+        --bg-primary: oklch(0.929 0.013 255.5);
+        --bg-secondary: oklch(0.96 0.008 253.9);
+        --bg-card: oklch(0.984 0.003 247.9);
+        --border: oklch(0.711 0.035 256.8);
+        --border-hover: oklch(0.554 0.041 257.4);
+        --text-primary: oklch(0.252 0.021 251.6);
+        --text-secondary: oklch(0.376 0.031 246.9);
+        --text-muted: oklch(0.376 0.031 246.9);
+        --chip-text: oklch(0.252 0.021 251.6);
+        --primary: oklch(0.623 0.188 259.8);
+        --gold: oklch(0.507 0.134 48.2);
+        --silver: oklch(0.509 0.022 262.9);
+        --platinum: oklch(0.446 0.026 256.8);
+        --palladium: oklch(0.495 0.22 293);
+        --success: oklch(0.596 0.127 163.2);
+        --danger: oklch(0.577 0.215 27.3);
+        --warning: oklch(0.666 0.157 58.3);
+        --type-goldback-bg: oklch(0.652 0.132 81.6);
+        --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        --focus-ring: oklch(0.623 0.188 259.8 / 0.2);
+      }
+      [data-theme="dark"] {
+        --bg-primary: oklch(0.18 0.008 85);
+        --bg-secondary: oklch(0.22 0.008 85);
+        --bg-card: oklch(0.22 0.01 85);
+        --border: oklch(0.32 0.008 85);
+        --border-hover: oklch(0.4 0.01 85);
+        --text-primary: oklch(0.95 0.005 85);
+        --text-secondary: oklch(0.8 0.008 85);
+        --text-muted: oklch(0.65 0.012 85);
+        --chip-text: oklch(0.95 0.005 85);
+        --primary: oklch(0.72 0.16 75);
+        --gold: oklch(0.811 0.157 79);
+        --silver: oklch(0.851 0.011 248.8);
+        --platinum: oklch(0.961 0.003 264.5);
+        --palladium: oklch(0.794 0.119 305.9);
+        --success: oklch(0.64 0.17 155);
+        --danger: oklch(0.58 0.22 25);
+        --warning: oklch(0.72 0.16 80);
+        --type-goldback-bg: oklch(0.68 0.14 85);
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+        --focus-ring: oklch(0.72 0.16 75 / 0.2);
+      }
+      [data-theme="slate"] {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-card: #1e293b;
+        --border: #334155;
+        --border-hover: #475569;
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --chip-text: #f8fafc;
+        --primary: #3b82f6;
+        --gold: #fbbf24;
+        --silver: #d1d5db;
+        --platinum: #f3f4f6;
+        --palladium: #d8b4fe;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --type-goldback-bg: #d4a017;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+        --focus-ring: rgba(59, 130, 246, 0.25);
+      }
+      [data-theme="sepia"] {
+        --bg-primary: oklch(0.923 0.029 89.6);
+        --bg-secondary: oklch(0.892 0.032 89.1);
+        --bg-card: oklch(0.955 0.018 89.4);
+        --border: oklch(0.786 0.038 86.2);
+        --border-hover: oklch(0.685 0.048 84.5);
+        --text-primary: oklch(0.314 0.039 86.7);
+        --text-secondary: oklch(0.403 0.039 85.2);
+        --text-muted: oklch(0.514 0.033 84.5);
+        --chip-text: oklch(0.314 0.039 86.7);
+        --primary: oklch(0.569 0.133 50.9);
+        --gold: oklch(0.513 0.102 86.8);
+        --silver: oklch(0.531 0.01 67.6);
+        --platinum: oklch(0.468 0 0);
+        --palladium: oklch(0.468 0.043 67.7);
+        --success: oklch(0.603 0.117 130.4);
+        --danger: oklch(0.577 0.215 27.3);
+        --warning: oklch(0.666 0.157 58.3);
+        --type-goldback-bg: oklch(0.581 0.124 73.2);
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.12);
+        --focus-ring: oklch(0.569 0.133 50.9 / 0.2);
+      }
+
+      /* ── Spot cards grid (mirrors css/styles.css:1950) ── */
+      .spot-cards-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: 1fr 1fr;
+      }
+      .app:not(.mobile) .spot-cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .spot-card {
+        position: relative;
+        background: var(--bg-card);
+        border-radius: var(--radius-lg);
+        text-align: center;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden; /* ← the load-bearing constraint: clips inside-card tooltips */
+        height: 100%;
+        min-height: 132px;
+      }
+      .spot-sparkline {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .spot-card-header {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 0.75rem 0;
+        margin-bottom: 0.25rem;
+      }
+      .spot-card-label {
+        font-size: var(--font-size-sm);
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+      }
+      .spot-card-period {
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+      .spot-card-value {
+        position: relative;
+        z-index: 1;
+        font-size: var(--font-size-2xl);
+        font-weight: 700;
+        color: var(--primary);
+        padding: 0 0.75rem;
+      }
+      .spot-card-change {
+        font-size: var(--font-size-base);
+        font-weight: 600;
+        padding: 2px 0;
+        position: relative;
+        z-index: 2;
+        min-height: 1.1em;
+      }
+      .spot-change-up {
+        color: var(--success);
+      }
+      .spot-change-down {
+        color: var(--danger);
+      }
+      .spot-card-timestamp {
+        position: relative;
+        z-index: 1;
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+        padding: 0 0.75rem 0.75rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* D-9: responsive timestamp — mobile sheds the provider + shortens the label */
+      .ts-short {
+        display: none;
+      }
+      .app.mobile .ts-provider,
+      .app.mobile .ts-full {
+        display: none;
+      }
+      .app.mobile .ts-short {
+        display: inline;
+      }
+
+      /* ── THE NEW THING: ratio chip ── */
+      .spot-ratio-chip {
+        position: absolute;
+        z-index: 3;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px 2px 6px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--bg-secondary) 80%, transparent);
+        -webkit-backdrop-filter: blur(2px);
+        backdrop-filter: blur(2px);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        font-family: var(--font-mono);
+        line-height: 1.25;
+        color: var(--text-secondary);
+        cursor: default;
+        white-space: nowrap;
+        max-width: calc(100% - 12px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .spot-ratio-chip:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 1px;
+        box-shadow: 0 0 0 3px var(--focus-ring);
+      }
+      .spot-ratio-chip .glyph {
+        display: inline-flex;
+        color: var(--metal, var(--text-muted));
+      }
+      .spot-ratio-chip .glyph svg {
+        width: 12px;
+        height: 12px;
+        display: block;
+      }
+      .spot-ratio-chip .lab {
+        color: var(--metal, var(--text-secondary));
+        letter-spacing: 0.01em;
+      }
+      .spot-ratio-chip .val {
+        color: var(--text-primary);
+        font-weight: 700;
+      }
+      .spot-ratio-chip .est {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--warning);
+        margin-left: 1px;
+        text-transform: uppercase;
+      }
+      .metal-silver {
+        --metal: var(--silver);
+      }
+      .metal-platinum {
+        --metal: var(--platinum);
+      }
+      .metal-palladium {
+        --metal: var(--palladium);
+      }
+      .metal-gold {
+        --metal: var(--type-goldback-bg);
+      }
+
+      /* corner placements (the deferred design decision — eyeball each) */
+      .corner-bl .spot-ratio-chip {
+        bottom: 6px;
+        left: 6px;
+      }
+      .corner-br .spot-ratio-chip {
+        bottom: 6px;
+        right: 6px;
+      }
+      .corner-tr .spot-ratio-chip {
+        top: 6px;
+        right: 6px;
+      }
+      /* dedicated row: chip is NOT absolute, lives in normal flow above timestamp */
+      .corner-row .spot-card {
+        display: flex;
+        flex-direction: column;
+      }
+      .corner-row .spot-ratio-chip {
+        position: static;
+        align-self: center;
+        margin: 2px auto 0;
+        backdrop-filter: none;
+      }
+      .corner-row .spot-card-timestamp {
+        margin-top: 0.15rem;
+      }
+
+      /* loading skeleton */
+      .skeleton .spot-card-value,
+      .skeleton .spot-card-change {
+        color: transparent !important;
+        position: relative;
+      }
+      .skeleton .spot-card-value::after {
+        content: "";
+        position: absolute;
+        inset: 2px 28% 2px 28%;
+        border-radius: 6px;
+        background: linear-gradient(90deg, var(--bg-secondary), var(--border), var(--bg-secondary));
+        background-size: 200% 100%;
+        animation: shimmer 1.1s linear infinite;
+      }
+      @keyframes shimmer {
+        from {
+          background-position: 200% 0;
+        }
+        to {
+          background-position: -200% 0;
+        }
+      }
+
+      /* tooltip (JS-positioned, fixed → escapes the card's overflow:hidden clip) */
+      #chipTip {
+        position: fixed;
+        z-index: 9999;
+        max-width: 240px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: var(--tip-bg, #0f172a);
+        color: var(--tip-fg, #f8fafc);
+        border: 1px solid var(--tip-border, #334155);
+        font-size: 12px;
+        line-height: 1.45;
+        box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(4px);
+        transition:
+          opacity 0.12s,
+          transform 0.12s;
+      }
+      #chipTip.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      #chipTip b {
+        color: var(--tip-accent, #93c5fd);
+      }
+      /* the ANTI-pattern demo: CSS bubble inside the card → gets clipped */
+      .tipmode-clipped .spot-ratio-chip:hover::after,
+      .tipmode-clipped .spot-ratio-chip:focus-visible::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: 120%;
+        left: 0;
+        width: 180px;
+        white-space: normal;
+        background: #0f172a;
+        color: #f8fafc;
+        font-family: -apple-system, sans-serif;
+        font-weight: 500;
+        font-size: 11px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        z-index: 50;
+      }
+      .legend {
+        font-size: 11px;
+        color: #64748b;
+        line-height: 1.6;
+        max-width: 760px;
+      }
+      .legend code {
+        color: #93c5fd;
+        font-family: ui-monospace, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="controls">
+      <h1>Spot Ratio Chips</h1>
+      <p class="sub">
+        STRK-161 · prototype the corner chip across 4 themes &amp; every AC state before approach.md
+        commits.
+      </p>
+
+      <div class="group">
+        <h2>Theme (4, not 3)</h2>
+        <div class="seg" id="themeSeg">
+          <button data-theme-btn="light">Light</button>
+          <button data-theme-btn="dark" class="active">Dark</button>
+          <button data-theme-btn="slate">Slate</button>
+          <button data-theme-btn="sepia">Sepia</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Chip placement <span class="ac">design call</span></h2>
+        <div class="seg" id="cornerSeg">
+          <button data-corner="bl" class="active">Lower-L</button>
+          <button data-corner="br">Lower-R</button>
+          <button data-corner="tr">Top-R</button>
+          <button data-corner="row">Own row</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="switch-row">
+          <label>"Show spot ratios" master <span class="ac">AC-10/11/12</span></label>
+          <button class="toggle on" id="masterToggle"></button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Goldback pricing mode <span class="ac">AC-4/6/7</span></h2>
+        <div class="seg" id="gbModeSeg">
+          <button data-gb="off">off</button>
+          <button data-gb="api" class="active">api</button>
+          <button data-gb="spot">spot</button>
+          <button data-gb="manual">manual</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="switch-row">
+          <label>Goldback cache fresh? <span class="ac">AC-5/6</span></label>
+          <button class="toggle on" id="freshToggle"></button>
+        </div>
+        <p class="sub" style="margin-top: 8px">
+          stale + <b>api</b> → hide · stale + <b>spot/manual</b> → estimate fallback
+        </p>
+      </div>
+
+      <div class="group">
+        <div class="switch-row">
+          <label>Silver spot ≤ 0 (bad data) <span class="ac">AC-3</span></label>
+          <button class="toggle" id="invalidToggle"></button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="switch-row">
+          <label>Loading skeleton</label>
+          <button class="toggle" id="loadToggle"></button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="switch-row">
+          <label>Mobile width (380px, 2×2)</label>
+          <button class="toggle" id="mobileToggle"></button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Tooltip mechanism <span class="ac">AC-13</span></h2>
+        <div class="seg" id="tipSeg">
+          <button data-tip-mode="fixed" class="active">JS fixed ✓</button>
+          <button data-tip-mode="clipped">CSS inside ✗</button>
+        </div>
+        <p class="sub" style="margin-top: 8px">
+          Hover <b>or Tab-focus</b> a chip. "CSS inside" shows why a card-local bubble gets clipped
+          by <code style="color: #f59e0b">overflow:hidden</code>.
+        </p>
+      </div>
+
+      <div class="note">
+        <b>Sample spot (2026-06-06):</b><br />
+        Au 4328.97 · Ag 67.84 · Pt 1778.07 · Pd 1225.67<br />
+        → Au:Ag <b>63.8</b> · Au:Pt <b>2.43</b> · Au:Pd <b>3.53</b> · GB <b>$8.68</b>
+      </div>
+    </aside>
+
+    <main class="stage">
+      <div class="stage-head">
+        <h2>Live preview — four spot cards</h2>
+        <div class="state-readout" id="readout"></div>
+      </div>
+
+      <div class="app" id="app" data-theme="dark">
+        <div class="spot-cards-grid" id="grid"><!-- cards injected --></div>
+      </div>
+
+      <div class="legend">
+        <p>
+          <strong style="color: #cbd5e1">What to check:</strong> (1) chip legibility &amp; the
+          metal-accent color in <code>light/dark/slate/sepia</code>; (2) collision with the centered
+          "Last API Sync" timestamp in each placement — especially at mobile 2×2; (3) the gold
+          card's <code>GB&nbsp;$</code> chip vs. the three ratio chips; (4) the estimate (<code
+            style="color: #f59e0b"
+            >~EST</code
+          >) marker when stale+spot/manual; (5) tooltip readability on hover and Tab-focus.
+        </p>
+      </div>
+    </main>
+
+    <div id="chipTip" role="tooltip"></div>
+
+    <script>
+      // ── realistic sample data (spot 2026-06-06) ──
+      const SPOT = { gold: 4328.97, silver: 67.84, platinum: 1778.07, palladium: 1225.67 };
+      const G1_CACHE = 8.68; // getGoldbackDenominationPrice(1)
+      const GB_MODIFIER = 1.0; // computeGoldbackEstimatedRate uses 2*(gold/1000)*modifier
+
+      const RATIO_GLYPH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/></svg>`;
+      const GB_GLYPH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M5 9v6M19 9v6"/></svg>`;
+
+      const cards = [
+        {
+          key: "silver",
+          label: "Silver",
+          cls: "metal-silver",
+          num: "Au:Ag",
+          dp: 1,
+          ratioOf: "silver",
+        },
+        { key: "gold", label: "Gold", cls: "metal-gold", goldback: true },
+        {
+          key: "platinum",
+          label: "Platinum",
+          cls: "metal-platinum",
+          num: "Au:Pt",
+          dp: 2,
+          ratioOf: "platinum",
+        },
+        {
+          key: "palladium",
+          label: "Palladium",
+          cls: "metal-palladium",
+          num: "Au:Pd",
+          dp: 2,
+          ratioOf: "palladium",
+        },
+      ];
+
+      const state = {
+        theme: "dark",
+        corner: "bl",
+        master: true,
+        gbMode: "api",
+        fresh: true,
+        invalid: false,
+        loading: false,
+        mobile: false,
+        tipMode: "fixed",
+      };
+
+      const tipText = {
+        silver: () =>
+          `<b>Gold-to-Silver Ratio (GSR)</b><br>It takes ${ratio("silver").toFixed(1)} oz of silver to buy 1 oz of gold. Higher = silver relatively cheaper.`,
+        platinum: () =>
+          `<b>Gold ÷ Platinum</b><br>${ratio("platinum").toFixed(2)} oz of platinum equals 1 oz of gold by spot value.`,
+        palladium: () =>
+          `<b>Gold ÷ Palladium</b><br>${ratio("palladium").toFixed(2)} oz of palladium equals 1 oz of gold by spot value.`,
+        gold: () => {
+          const g = goldback();
+          return `<b>Goldback G1 rate</b><br>Current price of one 1-denomination goldback (1/1000 oz gold): $${g.value.toFixed(2)}${g.est ? " — spot estimate (cache stale)." : " (live cache)."}`;
+        },
+      };
+
+      function ratio(metal) {
+        const m = state.invalid && metal === "silver" ? 0 : SPOT[metal];
+        if (!(SPOT.gold > 0) || !(m > 0)) return Infinity;
+        return SPOT.gold / m;
+      }
+      function goldback() {
+        // returns { show, value, est }
+        if (state.gbMode === "off") return { show: false };
+        if (state.fresh) return { show: true, value: G1_CACHE, est: false };
+        // stale:
+        if (state.gbMode === "api") return { show: false }; // AC-6 hide
+        // spot / manual → estimate fallback (AC-5)
+        return { show: true, value: 2 * (SPOT.gold / 1000) * GB_MODIFIER, est: true };
+      }
+
+      function chipVisible(card) {
+        if (!state.master || state.loading) return false;
+        if (card.goldback) return goldback().show;
+        return Number.isFinite(ratio(card.ratioOf)); // AC-3: hide on ≤0/non-finite
+      }
+
+      function buildChip(card) {
+        if (card.goldback) {
+          const g = goldback();
+          return `<div class="spot-ratio-chip ${card.cls}" tabindex="0" data-card="gold" data-tip="Goldback G1 rate — price of one 1/1000oz gold note.">
+            <span class="glyph">${GB_GLYPH}</span><span class="lab">GB</span><span class="val">$${g.value.toFixed(2)}</span>${g.est ? '<span class="est">~est</span>' : ""}
+          </div>`;
+        }
+        const r = ratio(card.ratioOf);
+        return `<div class="spot-ratio-chip ${card.cls}" tabindex="0" data-card="${card.key}" data-tip="${card.num} ratio from spot.">
+          <span class="glyph">${RATIO_GLYPH}</span><span class="lab">${card.num}</span><span class="val">${r.toFixed(card.dp)}</span>
+        </div>`;
+      }
+
+      function render() {
+        const app = document.getElementById("app");
+        app.dataset.theme = state.theme;
+        app.className =
+          "app corner-" +
+          state.corner +
+          (state.mobile ? " mobile" : "") +
+          (state.loading ? " skeleton" : "") +
+          (state.tipMode === "clipped" ? " tipmode-clipped" : "");
+
+        const grid = document.getElementById("grid");
+        grid.innerHTML = cards
+          .map((c) => {
+            const showChip = chipVisible(c);
+            const accent = c.key === "gold" ? "var(--gold)" : `var(--${c.key})`;
+            const spark = sparkline(accent);
+            const change =
+              c.key === "gold"
+                ? "+0.8%"
+                : c.key === "silver"
+                  ? "-0.4%"
+                  : c.key === "platinum"
+                    ? "+1.2%"
+                    : "-0.2%";
+            const cls = change.startsWith("+") ? "spot-change-up" : "spot-change-down";
+            const price =
+              c.key === "gold"
+                ? "$4,328.97"
+                : c.key === "silver"
+                  ? "$67.84"
+                  : c.key === "platinum"
+                    ? "$1,778.07"
+                    : "$1,225.67";
+            return `<div class="spot-card">
+              ${spark}
+              <div class="spot-card-header"><span class="spot-card-label">${c.label}</span><span class="spot-card-period">1M</span></div>
+              <div class="spot-card-value">${price}</div>
+              <div class="spot-card-change ${cls}">${change}</div>
+              ${showChip ? buildChip(c) : ""}
+              <div class="spot-card-timestamp"><span class="ts-provider" title="Source: StakTrakr">StakTrakr · </span><span class="ts-full">Last API Sync</span><span class="ts-short">Last Synced</span> 2:14 PM</div>
+            </div>`;
+          })
+          .join("");
+
+        wireChips();
+        updateReadout();
+        tuneTip();
+      }
+
+      function sparkline(stroke) {
+        const pts = [];
+        let y = 22;
+        for (let x = 0; x <= 100; x += 8) {
+          y += (Math.sin(x / 9) + Math.cos(x / 5)) * 2.2;
+          pts.push(`${x},${Math.max(6, Math.min(40, y)).toFixed(1)}`);
+        }
+        return `<svg class="spot-sparkline" viewBox="0 0 100 46" preserveAspectRatio="none"><polyline points="${pts.join(" ")}" fill="none" stroke="${stroke}" stroke-width="1.5"/></svg>`;
+      }
+
+      // ── tooltip: fixed-position, escapes overflow:hidden ──
+      const tip = document.getElementById("chipTip");
+      function tuneTip() {
+        // theme-match the tooltip chrome to the app surface
+        const cs = getComputedStyle(document.getElementById("app"));
+        tip.style.setProperty("--tip-bg", cs.getPropertyValue("--bg-card"));
+        tip.style.setProperty("--tip-fg", cs.getPropertyValue("--text-primary"));
+        tip.style.setProperty("--tip-border", cs.getPropertyValue("--border-hover"));
+        tip.style.setProperty("--tip-accent", cs.getPropertyValue("--primary"));
+      }
+      function showTip(el) {
+        if (state.tipMode === "clipped") return; // CSS handles the (clipped) demo
+        const key = el.dataset.card;
+        tip.innerHTML = tipText[key] ? tipText[key]() : el.dataset.tip;
+        tip.classList.add("show");
+        const r = el.getBoundingClientRect();
+        const tr = tip.getBoundingClientRect();
+        let top = r.top - tr.height - 8;
+        if (top < 8) top = r.bottom + 8; // flip below if no room
+        let left = r.left + r.width / 2 - tr.width / 2;
+        left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+        tip.style.top = top + "px";
+        tip.style.left = left + "px";
+      }
+      function hideTip() {
+        tip.classList.remove("show");
+      }
+      function wireChips() {
+        document.querySelectorAll(".spot-ratio-chip").forEach((el) => {
+          el.addEventListener("mouseenter", () => showTip(el));
+          el.addEventListener("mouseleave", hideTip);
+          el.addEventListener("focus", () => showTip(el));
+          el.addEventListener("blur", hideTip);
+        });
+      }
+
+      function updateReadout() {
+        const g = goldback();
+        const vis = cards.filter(chipVisible).map((c) => c.key);
+        document.getElementById("readout").textContent =
+          `theme=${state.theme} · placement=${state.corner} · chips=[${vis.join(",") || "none"}] · gb=${state.gbMode}/${state.fresh ? "fresh" : "stale"}${g.est ? "→est" : ""}`;
+      }
+
+      // ── controls wiring ──
+      function seg(id, attr, key, after) {
+        document.getElementById(id).addEventListener("click", (e) => {
+          const b = e.target.closest("button");
+          if (!b) return;
+          document.querySelectorAll(`#${id} button`).forEach((x) => x.classList.remove("active"));
+          b.classList.add("active");
+          state[key] = b.dataset[attr];
+          if (after) after();
+          render();
+        });
+      }
+      seg("themeSeg", "themeBtn", "theme");
+      seg("cornerSeg", "corner", "corner");
+      seg("gbModeSeg", "gb", "gbMode");
+      seg("tipSeg", "tipMode", "tipMode");
+
+      function toggle(id, key) {
+        const el = document.getElementById(id);
+        el.addEventListener("click", () => {
+          state[key] = !state[key];
+          el.classList.toggle("on", state[key]);
+          render();
+        });
+      }
+      toggle("masterToggle", "master");
+      toggle("freshToggle", "fresh");
+      toggle("invalidToggle", "invalid");
+      toggle("loadToggle", "loading");
+      toggle("mobileToggle", "mobile");
+
+      render();
+    </script>
+  </body>
+</html>
