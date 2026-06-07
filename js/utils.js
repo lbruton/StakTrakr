@@ -332,11 +332,13 @@ const getLastUpdateTime = (metalName, mode = "cache") => {
   if (!info || !info.timestamp) return "";
 
   const label = mode === "api" ? "Last API Sync" : "Last Cache Refresh";
-  const sourceLine = info.provider || "";
-  const timeLine = `${label} ${formatTimestamp(info.timestamp)}`;
+  const provider = info.provider || "";
+  const escapedProvider = escapeHtml(provider);
+  const providerSpan = provider
+    ? `<span class="ts-provider" title="Source: ${escapedProvider}">${escapedProvider} · </span>`
+    : "";
 
-  if (!sourceLine && !timeLine) return "";
-  return `${sourceLine}<br>${timeLine}`;
+  return `${providerSpan}<span class="ts-full">${label}</span><span class="ts-short">Last Synced</span> ${formatTimestamp(info.timestamp)}`;
 };
 
 /**

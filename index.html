@@ -5603,6 +5603,17 @@
                     </select>
                   </div>
                 </div>
+
+                <div class="settings-group">
+                  <div class="settings-group-label">Show spot ratios</div>
+                  <p class="settings-subtext">
+                    Display gold-to-metal ratio and Goldback chips on the spot price cards.
+                  </p>
+                  <div class="chip-sort-toggle" id="showSpotRatiosToggle">
+                    <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+                    <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                  </div>
+                </div>
               </div>
 
               <div class="settings-fieldset">
@@ -8587,6 +8598,12 @@
 
     <!-- Test Scripts (Development) -->
     <script defer src="./js/test-loader.js"></script>
+
+    <!-- STRK-161: spot-card ratio chips — math layer then render layer. Both
+         depend only on state.js/goldback.js (loaded above) and must precede
+         init.js so init.js stays the last bootstrap script. -->
+    <script defer src="./js/spot-ratio-math.js"></script>
+    <script defer src="./js/spot-ratio-chips.js"></script>
 
     <script defer src="./js/init.js"></script>
 

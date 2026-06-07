@@ -112,7 +112,13 @@ const makeRetailIntraday = (rows, generatedAt) => v2(rows || [], generatedAt);
 
 const DEFAULT_GOLDBACK = { g1_usd: 4.25 };
 
-const makeGoldbackLatest = (overrides = {}) => v2({ ...DEFAULT_GOLDBACK, ...overrides });
+// Mirror the real goldback/latest.json envelope: `data` carries a unix-seconds `ts`
+// and `stale_after` (seconds) sits at the TOP level — so the client freshness guard,
+// which reads envelope.stale_after, sees a fresh rate.
+const makeGoldbackLatest = (overrides = {}) => ({
+  ...v2({ ...DEFAULT_GOLDBACK, ts: Math.floor(Date.now() / 1000), ...overrides }),
+  stale_after: 90000,
+});
 
 // ── Providers ───────────────────────────────────────────────────────────────
 

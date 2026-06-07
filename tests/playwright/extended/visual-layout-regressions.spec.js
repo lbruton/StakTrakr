@@ -95,4 +95,102 @@ test.describe("extended/visual-layout-regressions", () => {
     expect(tokenUsage.length).toBeGreaterThan(5);
     expect(tokenUsage.join("\n")).not.toMatch(/rgba\(15,\s*23,\s*42/i);
   });
+
+  // ── STRK-161 — spot card ratio chips: four-theme legibility + mobile layout ──
+
+  async function waitForSpotChips(page) {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page
+      .locator(".whats-new-toast-card .wntc-close")
+      .click({ timeout: 5000 })
+      .catch(() => {});
+    // The chips render off the spot-price write paths, which populate on boot.
+    await expect(page.locator(".spot-card .spot-ratio-chip").first()).toBeVisible({
+      timeout: 15000,
+    });
+  }
+
+  test("STRK-161 spot ratio chips resolve a legible token color in all four themes", async ({
+    page,
+  }) => {
+    await waitForSpotChips(page);
+
+    for (const theme of THEMES) {
+      await setTheme(page, theme);
+
+      const chips = page.locator(".spot-card .spot-ratio-chip");
+      const count = await chips.count();
+      expect(count).toBeGreaterThan(0);
+
+      for (let i = 0; i < count; i++) {
+        const color = await chips.nth(i).evaluate((el) => getComputedStyle(el).color);
+        // A resolved, token-derived color — never transparent / zero-alpha, never empty.
+        expect(color).toBeTruthy();
+        expect(color).not.toBe("transparent");
+        expect(color).not.toMatch(/rgba?\([^)]*,\s*0\s*\)$/);
+        expect(color).not.toMatch(/\/\s*0\s*\)$/);
+        expect(color).toMatch(/^(rgb|oklch|color)\b/i);
+      }
+    }
+  });
+
+  test("STRK-161 chip stays inside its card and timestamp uses the short Last Synced form on mobile", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await waitForSpotChips(page);
+
+    // Cards reflow to a 2×2 stack below the 960px breakpoint.
+    const cards = page.locator(".spot-card");
+    const cardCount = await cards.count();
+    expect(cardCount).toBe(4);
+
+    for (let i = 0; i < cardCount; i++) {
+      const card = cards.nth(i);
+      const chip = card.locator(".spot-ratio-chip");
+      if ((await chip.count()) === 0) continue;
+
+      const fits = await card.evaluate((cardEl) => {
+        const chipEl = cardEl.querySelector(".spot-ratio-chip");
+        const c = cardEl.getBoundingClientRect();
+        const k = chipEl.getBoundingClientRect();
+        return k.left >= c.left - 0.5 && k.right <= c.right + 0.5;
+      });
+      expect(fits).toBe(true);
+    }
+
+    // D-9: below 960px the provider + full label are display:none and the short "Last Synced"
+    // label shows. textContent still includes the hidden spans, so assert computed display
+    // (not text content, which would always "contain" the hidden "Last API Sync").
+    const timestamp = page.locator(".spot-card .spot-card-timestamp").first();
+    const disp = await timestamp.evaluate((el) => {
+      const d = (sel) => {
+        const n = el.querySelector(sel);
+        return n ? getComputedStyle(n).display : "missing";
+      };
+      return { provider: d(".ts-provider"), full: d(".ts-full"), short: d(".ts-short") };
+    });
+    expect(disp.provider).toBe("none"); // provider hidden on mobile
+    expect(disp.full).toBe("none"); // "Last API Sync" hidden on mobile
+    expect(disp.short).not.toBe("none"); // short "Last Synced" shown
+  });
+
+  test("STRK-161 a hidden chip reserves its row so all card timestamps stay aligned", async ({
+    page,
+  }) => {
+    await waitForSpotChips(page);
+    // Hide exactly one card's chip (silver invalid spot); the other three remain.
+    await page.evaluate(() => {
+      if (typeof spotPrices !== "undefined") spotPrices.silver = 0;
+      window.renderRatioChips();
+    });
+    await expect(page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip')).toHaveCount(0);
+
+    // The hidden chip's row is reserved (spacer), so every card's timestamp shares a plane.
+    const tops = await page
+      .locator(".spot-card .spot-card-timestamp")
+      .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+    expect(tops.length).toBe(4);
+    expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
+  });
 });

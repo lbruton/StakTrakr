@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.12";
+const APP_VERSION = "3.35.13";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -593,6 +593,9 @@ const GB_ESTIMATE_MODIFIER_KEY = "goldback-estimate-modifier"; // nosemgrep: cod
 
 /** @constant {string} GOLDBACK_PRICING_SOURCE_KEY - LocalStorage key for the active Goldback pricing source */
 const GOLDBACK_PRICING_SOURCE_KEY = "goldback-pricing-source"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
+/** @constant {string} SPOT_RATIOS_KEY - LocalStorage key for the spot-card ratio chips toggle */
+const SPOT_RATIOS_KEY = "show-spot-ratios"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} GB_TO_OZT - Conversion factor: 1 Goldback = 0.001 troy oz 24K gold */
 const GB_TO_OZT = 0.001;
@@ -914,6 +917,7 @@ const SYNC_SCOPE_KEYS = [
   // ── Feature toggles ──
   "goldback-pricing-source", // GOLDBACK_PRICING_SOURCE_KEY
   "goldback-estimate-modifier", // GB_ESTIMATE_MODIFIER_KEY
+  "show-spot-ratios", // SPOT_RATIOS_KEY
 
   // ── Numista config ──
   "numista_tags_auto", // auto-tag on Numista lookup
@@ -992,6 +996,7 @@ const ALLOWED_STORAGE_KEYS = [
   GOLDBACK_ESTIMATE_ENABLED_KEY,
   GB_ESTIMATE_MODIFIER_KEY,
   GOLDBACK_PRICING_SOURCE_KEY,
+  SPOT_RATIOS_KEY, // STRK-161: persist "Show spot ratios" toggle past cleanupStorage
   DISPLAY_CURRENCY_KEY,
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)

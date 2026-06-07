@@ -406,6 +406,8 @@ const onGoldSpotPriceChanged = () => {
 
   // Refresh settings UI if the Goldback panel is visible
   if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 };
 
 // =============================================================================
@@ -466,7 +468,14 @@ const fetchGoldbackApiPrices = async (options = {}) => {
       gbData.denominations && typeof gbData.denominations[denomKey] === "number"
         ? gbData.denominations[denomKey]
         : Math.round(g1 * d.weight * 100) / 100;
-    goldbackPrices[key] = { price, updatedAt: now, source: "api" };
+    goldbackPrices[key] = {
+      price,
+      updatedAt: now,
+      source: "api",
+      ts: gbData.ts,
+      // stale_after lives at the ENVELOPE top level (envelope.stale_after), not in data.
+      staleAfter: envelope.stale_after,
+    };
   }
 
   if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();

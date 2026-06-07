@@ -139,14 +139,14 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.13 &ndash; Spot card ratio chips</strong>: Every spot card now shows an at-a-glance ratio &mdash; gold-to-silver (GSR), gold-to-platinum, and gold-to-palladium on those cards, plus the daily goldback rate on the gold card &mdash; with a Currency &amp; Pricing toggle and a plain-English tooltip (STRK-161).</li>
     <li><strong>v3.35.12 &ndash; Faster image saves</strong>: Saving coin images stays fast even with a large image library &mdash; the storage check no longer re-scans every stored image on each save, and the storage-full warnings are unchanged (STRK-162).</li>
     <li><strong>v3.35.11 &ndash; Safer Numista import</strong>: The Numista CSV import is now a one-time onboarding tool that clearly warns it replaces your inventory instead of silently creating duplicates, while we rebuild duplicate detection (STRK-165).</li>
     <li><strong>v3.35.10 &ndash; Sync Image URLs</strong>: A new one-button sync backfills Numista coin images for items missing them (like CSV imports) &mdash; it reuses cached lookups to save API quota and never overwrites images you&rsquo;ve already set (STRK-166).</li>
     <li><strong>v3.35.9 &ndash; Image storage warnings</strong>: Saving an image when device storage is nearly full now shows a clear &ldquo;storage full&rdquo; message instead of silently failing into a broken square, and a heads-up appears as image storage fills up (STRK-146).</li>
     <li><strong>v3.35.8 &ndash; Disposition consistency</strong>: An item with an empty disposition record no longer shows a phantom &ldquo;disposed&rdquo; badge or disappears from the disposed filter &mdash; styling, filters, totals, and the detail section now all agree (STRK-83).</li>
     <li><strong>v3.35.7 &ndash; Cloud sync convergence</strong>: Fixed the permanent &ldquo;Review Sync Changes&rdquo; loop between devices &mdash; tag merges now converge and auto-heal, settings compare by logical content instead of raw storage, and phantom timestamp/attachment conflicts in the review modal are gone (STRK-154).</li>
-    <li><strong>v3.35.6 &ndash; Vendor module isolation</strong>: Retail price extraction now routes migrated Vendors through isolated modules, keeps dashboard single-Vendor retry import-safe, and packages the new modules for poller deploys (STRK-32).</li>
-    <li><strong>v3.35.5 &ndash; Goldback import &amp; Type-drives-Metal</strong>: Selecting a Goldback/Silverback Numista result now auto-fills Type, Metal, and weight (including fractional denominations), and choosing a Goldback type in the form sets its metal automatically (STRK-138).</li>  `;
+    <li><strong>v3.35.6 &ndash; Vendor module isolation</strong>: Retail price extraction now routes migrated Vendors through isolated modules, keeps dashboard single-Vendor retry import-safe, and packages the new modules for poller deploys (STRK-32).</li>  `;
 };
 
 const getEmbeddedRoadmap = () => {

@@ -140,3 +140,178 @@ test.describe("core/smoke — app shell boot", () => {
     await expect(ticker).toBeVisible();
   });
 });
+
+// ===========================================================================
+// STRK-161 — Spot card ratio chips
+// Exercises the live renderRatioChips() path: DOM structure + interaction
+// (not bare "text exists" — STRK-123 lesson).
+// ===========================================================================
+test.describe("core/STRK-161 — spot card ratio chips", () => {
+  // Card metals as they appear in the markup (id suffix = TitleCase metal name).
+  const RATIO_CARDS = [
+    { metal: "Silver", label: "Au:Ag" },
+    { metal: "Platinum", label: "Au:Pt" },
+    { metal: "Palladium", label: "Au:Pd" },
+  ];
+
+  const card = (page, metal) => page.locator(`.spot-card[data-metal="${metal.toLowerCase()}"]`);
+  const chip = (page, metal) => card(page, metal).locator(".spot-ratio-chip");
+
+  async function bootDashboard(page) {
+    await injectSeedInventory(page);
+    await page.goto("/index.html");
+    await dismissWhatsNew(page);
+    // Wait until spot prices have settled to real values so the ratio math has inputs.
+    for (const metal of ["Gold", "Silver", "Platinum", "Palladium"]) {
+      const el = page.locator(`#spotPriceDisplay${metal}`);
+      await expect(el).not.toHaveText("—", { timeout: 10000 });
+      await expect(el).not.toHaveText("$0.00", { timeout: 10000 });
+    }
+  }
+
+  test("AC-1: silver/platinum/palladium cards each render a ratio chip with the right label + numeric value", async ({
+    page,
+  }) => {
+    await bootDashboard(page);
+    for (const { metal, label } of RATIO_CARDS) {
+      const c = chip(page, metal);
+      await expect(c).toHaveCount(1);
+      await expect(c.locator(".lab")).toHaveText(label);
+      // Value is a finite number (no Infinity/NaN), to the chip's decimal precision.
+      await expect(c.locator(".val")).toHaveText(/^\d[\d,]*(\.\d+)?$/);
+    }
+  });
+
+  test("AC-1: gold card renders the goldback chip (GB $...) with a currency-formatted value", async ({
+    page,
+  }) => {
+    await bootDashboard(page);
+    const c = chip(page, "Gold");
+    await expect(c).toHaveCount(1);
+    await expect(c.locator(".lab")).toHaveText("GB");
+    await expect(c.locator(".val")).toHaveText(/^\$\d[\d,]*\.\d{2}$/);
+  });
+
+  test("own-row contract: chip is a sibling AFTER .spot-card-change and BEFORE .spot-card-timestamp", async ({
+    page,
+  }) => {
+    await bootDashboard(page);
+    for (const { metal } of [...RATIO_CARDS, { metal: "Gold" }]) {
+      // The chip's order index within the card must fall between the change row and timestamp row.
+      const order = await card(page, metal).evaluate((cardEl) => {
+        const kids = Array.from(cardEl.children);
+        const idx = (sel) => kids.findIndex((k) => k.matches(sel));
+        return {
+          change: idx(".spot-card-change"),
+          chip: idx(".spot-ratio-chip"),
+          timestamp: idx(".spot-card-timestamp"),
+        };
+      });
+      expect(order.chip).toBeGreaterThan(order.change);
+      expect(order.chip).toBeLessThan(order.timestamp);
+    }
+  });
+
+  test("AC-3: ratio chip is absent when that card's spot price is ≤ 0 (never Infinity/NaN)", async ({
+    page,
+  }) => {
+    await bootDashboard(page);
+    // Force silver spot to 0 via the same path the app uses on load, then re-render.
+    await page.evaluate(() => {
+      localStorage.setItem("spotSilver", "0");
+      window.fetchSpotPrice();
+      window.renderRatioChips();
+    });
+    await expect(chip(page, "Silver")).toHaveCount(0);
+    // The other ratio chips remain.
+    await expect(chip(page, "Platinum")).toHaveCount(1);
+    await expect(chip(page, "Palladium")).toHaveCount(1);
+    // And no chip ever leaks Infinity/NaN.
+    await expect(page.locator(".spot-ratio-chip .val", { hasText: /Infinity|NaN/ })).toHaveCount(0);
+  });
+
+  test("AC-8: ratio chip re-renders after a manual (shift+click) spot edit", async ({ page }) => {
+    await bootDashboard(page);
+    const valEl = chip(page, "Silver").locator(".val");
+    const before = await valEl.textContent();
+
+    // Drive the production manual-edit path: open the inline editor via the exposed
+    // startSpotInlineEdit (the shift+click coordinate gesture is flaky under Playwright;
+    // verified in-browser that the shift+click handler calls this same function), then save.
+    await page.evaluate(() => {
+      const el = document.getElementById("spotPriceDisplaySilver");
+      window.startSpotInlineEdit(el, "silver");
+      const input = el.querySelector(".spot-inline-input");
+      input.value = "12.5";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+
+    // The silver ratio chip must reflect the new spot (gold ÷ 12.5 differs from before).
+    await expect(valEl).not.toHaveText(before);
+  });
+
+  test("AC-8: ratio chips re-render after an API sync", async ({ page }) => {
+    await bootDashboard(page);
+    const valEl = chip(page, "Silver").locator(".val");
+    const before = await valEl.textContent();
+
+    // Drive the sync path; the implementation must re-render chips at its tail.
+    await page.evaluate(() => {
+      localStorage.setItem("spotSilver", "40");
+      window.fetchSpotPrice();
+      return window.syncAllProviders && window.syncAllProviders();
+    });
+
+    await expect(valEl).not.toHaveText(before);
+  });
+
+  test("AC-9: gold (goldback) chip re-renders after a goldback refresh", async ({ page }) => {
+    // Goldback "spot" mode derives the G1 rate from gold spot, so a gold-spot change
+    // refreshes the rate. (In "api" mode the chip reflects the hourly scrape cache and
+    // is correctly unaffected by gold spot — the wrong mode to assert a live change in.)
+    await page.addInitScript(() =>
+      localStorage.setItem("goldback-pricing-source", JSON.stringify("spot"))
+    );
+    await bootDashboard(page);
+    const valEl = chip(page, "Gold").locator(".val");
+    await expect(valEl).toHaveCount(1);
+    const before = await valEl.textContent();
+
+    // Refresh the goldback rate by changing gold spot, then firing the refresh hook
+    // (C.3 wires renderRatioChips() into onGoldSpotPriceChanged's spot-mode recompute).
+    await page.evaluate(() => {
+      if (typeof spotPrices !== "undefined") spotPrices.gold = 9999;
+      if (typeof window.onGoldSpotPriceChanged === "function") window.onGoldSpotPriceChanged();
+    });
+
+    await expect(valEl).not.toHaveText(before);
+  });
+
+  test("AC-13: chip is keyboard-focusable and reveals a body-appended fixed tooltip on focus", async ({
+    page,
+  }) => {
+    await bootDashboard(page);
+    const c = chip(page, "Silver");
+    await expect(c).toHaveAttribute("tabindex", "0");
+
+    await c.focus();
+
+    const tip = page.locator("#chipTip");
+    // Tooltip is a singleton appended to <body>, NOT a descendant of any spot card.
+    await expect(tip).toHaveCount(1);
+    await expect(page.locator(".spot-card #chipTip")).toHaveCount(0);
+    await expect(tip).toHaveCSS("position", "fixed");
+    await expect(tip).toBeVisible();
+  });
+
+  test("AC-13: chip reveals the tooltip on pointer hover", async ({ page }) => {
+    await bootDashboard(page);
+    const c = chip(page, "Platinum");
+
+    await c.hover();
+
+    const tip = page.locator("#chipTip");
+    await expect(tip).toHaveCSS("position", "fixed");
+    await expect(tip).toBeVisible();
+  });
+});

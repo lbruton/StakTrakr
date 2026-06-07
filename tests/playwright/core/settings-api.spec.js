@@ -52,6 +52,49 @@ const confirmProviderSwitch = async (page, label) => {
   await expect(dialog).toBeHidden();
 };
 
+// STRK-161 — selectors for the four spot-card ratio chips. The chip lives inside
+// the per-metal spot card; presence/absence is the DOM-level assertion (AC-7/11/12).
+const SPOT_RATIO_CHIP = ".spot-card[data-metal] .spot-ratio-chip";
+const goldChip = (page) => page.locator('.spot-card[data-metal="gold"] .spot-ratio-chip');
+const nonGoldChips = (page) =>
+  page.locator(
+    '.spot-card[data-metal="silver"] .spot-ratio-chip, ' +
+      '.spot-card[data-metal="platinum"] .spot-ratio-chip, ' +
+      '.spot-card[data-metal="palladium"] .spot-ratio-chip'
+  );
+
+// Seed valid spot prices + a fresh goldback G1 rate so all four chips are
+// eligible to render, then drive the idempotent render choke point. Goldback
+// pricing mode defaults to a non-`off` source via gb_source so the gold chip
+// is eligible (AC-4 gating handled by renderRatioChips itself).
+const seedRatioState = async (page, gbSource = "api") => {
+  await page.addInitScript((source) => {
+    localStorage.setItem("goldback-pricing-source", JSON.stringify(source));
+  }, gbSource);
+};
+
+const populateRatioInputs = async (page) => {
+  await page.waitForFunction(() => typeof window.renderRatioChips === "function");
+  await page.evaluate(() => {
+    if (typeof spotPrices !== "undefined") {
+      spotPrices.gold = 4328.97;
+      spotPrices.silver = 67.84;
+      spotPrices.platinum = 1778.07;
+      spotPrices.palladium = 1225.67;
+    }
+    if (typeof goldbackPrices !== "undefined") {
+      goldbackPrices["1"] = {
+        price: 8.68,
+        updatedAt: Date.now(),
+        source: "api",
+        ts: Math.floor(Date.now() / 1000),
+        staleAfter: 90000,
+      };
+    }
+    window.renderRatioChips();
+  });
+};
+
 test.describe("core/settings-api", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
@@ -152,6 +195,116 @@ test.describe("core/settings-api", () => {
 
     await page.locator("#settingsPanel_currency #goldbackHistoryBtn").click();
     await expect(page.locator("#goldbackHistoryModal")).toBeVisible();
+  });
+
+  test('STRK-161: "Show spot ratios" toggle is in the Currency panel, defaults ON, and persists to localStorage (AC-10)', async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openSettingsSection(page, "currency");
+
+    const toggle = page.locator("#settingsPanel_currency #showSpotRatiosToggle");
+    await expect(toggle).toHaveCount(1);
+    // Default ON: the "yes" pill is active with no prior localStorage entry.
+    await expect(toggle.locator('.chip-sort-btn[data-val="yes"]')).toHaveClass(/active/);
+    await expect(toggle.locator('.chip-sort-btn[data-val="no"]')).not.toHaveClass(/active/);
+
+    // Toggling OFF persists 'false' under the new key (AC-10).
+    await toggle.locator('.chip-sort-btn[data-val="no"]').click();
+    await expect(toggle.locator('.chip-sort-btn[data-val="no"]')).toHaveClass(/active/);
+    expect(await page.evaluate(() => localStorage.getItem("show-spot-ratios"))).toBe("false");
+
+    // Regression (PR #1232): the key must be in ALLOWED_STORAGE_KEYS so it survives
+    // cleanupStorage() — that runs on every DOMContentLoaded and deletes any key not
+    // whitelisted. Without the entry the OFF state would silently reset on reload.
+    expect(
+      await page.evaluate(() => {
+        cleanupStorage();
+        return localStorage.getItem("show-spot-ratios");
+      })
+    ).toBe("false");
+
+    // Toggling back ON persists 'true'.
+    await toggle.locator('.chip-sort-btn[data-val="yes"]').click();
+    await expect(toggle.locator('.chip-sort-btn[data-val="yes"]')).toHaveClass(/active/);
+    expect(await page.evaluate(() => localStorage.getItem("show-spot-ratios"))).toBe("true");
+  });
+
+  test("STRK-161: toggling the spot-ratios setting shows/hides all four chips live without reload (AC-11)", async ({
+    page,
+  }) => {
+    await seedRatioState(page, "api");
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await populateRatioInputs(page);
+
+    // Default ON: all four chips are present.
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+
+    await openSettingsSection(page, "currency");
+    const toggle = page.locator("#settingsPanel_currency #showSpotRatiosToggle");
+
+    // OFF → all four chips removed live (no reload).
+    await toggle.locator('.chip-sort-btn[data-val="no"]').click();
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(0);
+
+    // ON → all four chips return live.
+    await toggle.locator('.chip-sort-btn[data-val="yes"]').click();
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+  });
+
+  test("STRK-161: while the toggle is OFF, all chips stay hidden regardless of goldback mode or spot validity (AC-12)", async ({
+    page,
+  }) => {
+    await seedRatioState(page, "api");
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await populateRatioInputs(page);
+
+    // Baseline: master ON + valid spot + fresh goldback → all four chips render.
+    // (Anchors the test to real render behavior so it is RED against the stub.)
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+
+    // Turn the master toggle OFF.
+    await openSettingsSection(page, "currency");
+    await page
+      .locator('#settingsPanel_currency #showSpotRatiosToggle .chip-sort-btn[data-val="no"]')
+      .click();
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(0);
+
+    // Master OFF wins over any goldback mode (spot is a valid, chip-eligible mode).
+    await page.evaluate(() => {
+      if (typeof saveGoldbackPricingSource === "function") saveGoldbackPricingSource("spot");
+      window.renderRatioChips();
+    });
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(0);
+
+    // Master OFF wins over goldback off as well.
+    await page.evaluate(() => {
+      if (typeof saveGoldbackPricingSource === "function") saveGoldbackPricingSource("off");
+      window.renderRatioChips();
+    });
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(0);
+  });
+
+  test('STRK-161: switching goldback pricing mode to "off" hides the gold chip live while the other three remain (AC-7)', async ({
+    page,
+  }) => {
+    await seedRatioState(page, "api");
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await populateRatioInputs(page);
+
+    // Goldback mode non-off + valid G1 → gold chip present, plus three ratio chips.
+    await expect(goldChip(page)).toHaveCount(1);
+    await expect(nonGoldChips(page)).toHaveCount(3);
+
+    await openSettingsSection(page, "currency");
+    // Switch goldback pricing mode to "off" via the source pill.
+    await page
+      .locator('#settingsPanel_currency #settingsGoldbackSource .gb-source-btn[data-val="off"]')
+      .click();
+
+    // Gold chip hides live; the three ratio chips remain (AC-7).
+    await expect(goldChip(page)).toHaveCount(0);
+    await expect(nonGoldChips(page)).toHaveCount(3);
   });
 
   test("System settings keep destructive reset actions isolated from storage settings", async ({
