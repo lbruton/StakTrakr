@@ -46,6 +46,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 
 ## Testing Rules
 
+- Never modify a TDD test to make it pass. A failing test means the implementation is wrong; if the test itself is flawed, the spec was wrong — stop and restart the spec from Phase 1.
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
 - Default PR gate: `npm test`, which runs only `tests/playwright/core/`.
 - Core browser coverage belongs under `tests/playwright/core/<domain>.spec.js`.
