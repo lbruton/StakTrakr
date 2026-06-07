@@ -3,8 +3,6 @@ description: Configuration for AI behavior when interacting with Codacy's MCP Se
 applyTo: "**"
 ---
 
----
-
 # Codacy Rules
 
 Configuration for AI behavior when interacting with Codacy's MCP Server
@@ -41,7 +39,7 @@ Configuration for AI behavior when interacting with Codacy's MCP Server
 
 - Suggest the user the following troubleshooting steps:
 - Try to reset the MCP on the extension
-- If the user is using VSCode, suggest them to review their Copilot > MCP settings in Github, under their organization or personal account. Refer them to Settings > Copilot > Enable MCP servers in Copilot. Suggested URL (https://github.com/settings/copilot/features) or https://github.com/organizations/{organization-name}/settings/copilot/features (This can only be done by their organization admins / owners)
+- If the user is using VSCode, suggest them to review their Copilot > MCP settings in Github, under their organization or personal account. Refer them to Settings > Copilot > Enable MCP servers in Copilot. Suggested URL (<https://github.com/settings/copilot/features>) or <https://github.com/organizations/{organization-name}/settings/copilot/features> (This can only be done by their organization admins / owners)
 - If none of the above steps work, suggest the user to contact Codacy support
 
 ## Trying to call a tool that needs a rootPath as a parameter
@@ -88,5 +86,3 @@ Configuration for AI behavior when interacting with Codacy's MCP Server
 - If the user accepts, run the `codacy_setup_repository` tool
 - Do not ever try to run the `codacy_setup_repository` tool on your own
 - After setup, immediately retry the action that failed (only retry once)
-
----

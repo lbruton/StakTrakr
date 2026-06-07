@@ -4,7 +4,7 @@ Custom review instructions for GitHub Copilot PR reviews.
 
 ## Project Context
 
-StakTrakr is a single-page vanilla JavaScript app (no framework, no build step). It runs on both `file://` protocol and HTTP servers. The runtime artifact is `index.html` plus JS/CSS assets -- no bundler, no transpiler. 63 JS files plus 7 vendor libs and 1 data bundle (71 external scripts total) load in strict dependency order via `<script defer>` tags.
+StakTrakr is a single-page vanilla JavaScript app (no framework, no build step). It runs on both `file://` protocol and HTTP servers. The runtime artifact is `index.html` plus JS/CSS assets -- no bundler, no transpiler. 71 JS files in `js/` (70 loaded via `index.html`) plus 8 vendor libs and 1 data bundle load in strict dependency order via `<script>` tags.
 
 For full codebase context, see `AGENTS.md` in the repository root.
 
@@ -34,7 +34,7 @@ Prefer `saveData()`/`loadData()` (async) or `saveDataSync()`/`loadDataSync()` fr
 
 Scripts load via `<script>` tags in `index.html` in strict dependency order. `file-protocol-fix.js` loads first (no `defer`), `init.js` loads last. If a PR adds a new script file, verify it's placed correctly in `index.html`.
 
-**CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across 63 JS files (71 scripts total). The following globals are defined in other files and are intentionally available throughout the app:
+**CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across 70+ JS files. The following globals are defined in other files and are intentionally available throughout the app:
 
 **From `js/state.js`:**
 
@@ -191,9 +191,9 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 
 - `loadSeedImages()` -- first-run seed image loader
 
-- Plus many others across 63 JS files (71 scripts total)
+- Plus many others across 70+ JS files
 
-**IMPORTANT: Do NOT flag any variable as "not defined" in PR reviews.** This is a vanilla JS app with global scope across 63 JS files (71 scripts total). The `no-undef` ESLint rule is intentionally OFF. Every "X is not defined" comment is a false positive. If you are uncertain whether a variable exists, check the other script files before flagging -- it will be defined in another file loaded earlier in the script order.
+**IMPORTANT: Do NOT flag any variable as "not defined" in PR reviews.** This is a vanilla JS app with global scope across 70+ JS files. The `no-undef` ESLint rule is intentionally OFF. Every "X is not defined" comment is a false positive. If you are uncertain whether a variable exists, check the other script files before flagging -- it will be defined in another file loaded earlier in the script order.
 
 ### 4. Service Worker -- respondWith() Must Always Resolve to a Response
 
@@ -217,21 +217,22 @@ event.respondWith(
 );
 ```
 
-### 5. Version Sync -- 7 Files Must Match
+### 5. Version Sync -- Keep Version-Bearing Files Aligned
 
-When any version-related file changes, verify all 7 are in sync:
+When any version-related file changes, verify every version-bearing file matches:
 
 | File                       | Field                           |
 | -------------------------- | ------------------------------- |
 | `js/constants.js`          | `APP_VERSION`                   |
 | `package.json`             | `"version"` field               |
+| `package-lock.json`        | root + package `"version"`      |
+| `version.json`             | `"version"` field               |
 | `sw.js`                    | `CACHE_NAME` (includes version) |
 | `CHANGELOG.md`             | Latest `## [x.y.z]` heading     |
 | `js/about.js`              | `getEmbeddedWhatsNew()` version |
-| `version.json`             | `"version"` field               |
 | `data/spot-history-*.json` | Seed data should be refreshed   |
 
-If only some files are updated, flag the missing ones.
+If only some files are updated, flag the missing ones. The `check-release-sync` pre-commit hook validates only a **subset** -- `constants.js`, `package.json`, `package-lock.json`, `version.json`, `CHANGELOG.md` -- so a green hook does **not** mean the release is complete (`about.js` and `sw.js` are not hook-checked). `manifest.json` carries no version field; do not flag it for version sync.
 
 **Version Lock**: Multiple AI agents work concurrently on this repo. A `devops/version.lock`
 file (gitignored) is used as a mutual-exclusion token. If you see an orphaned lock file in a
@@ -305,27 +306,9 @@ The project uses `.eslintrc.json` with these settings. Copilot should enforce th
 - Arrow functions preferred for callbacks: `arr.map((x) => x.id)`
 - Template literals preferred over string concatenation
 
-## PMD Rules (ECMAScript)
+## Static Analysis Tooling
 
-The project uses `ruleset.xml` at the project root. PMD analyzes JavaScript for error-prone patterns.
-
-**Active ruleset**: All `category/ecmascript/errorprone.xml` rules **except**:
-
-| Excluded Rule               | Reason                                                                                                                |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `InnaccurateNumericLiteral` | Values like `42.00`, `3400.00`, `0.0005` are exactly representable in IEEE 754 -- false positives for a financial app |
-| `AvoidTrailingComma`        | Trailing commas are standard ES2017+ and used throughout per coding standards                                         |
-
-**Key PMD rules that ARE active** -- flag violations of these:
-
-| Rule                  | What it catches                                                 |
-| --------------------- | --------------------------------------------------------------- |
-| `EqualComparison`     | Using `==` instead of `===`                                     |
-| `UnreachableCode`     | Code after `return`, `throw`, `break`, `continue`               |
-| `ConsistentReturn`    | Functions that sometimes return a value and sometimes don't     |
-| `AssignmentInOperand` | Assignments inside `if`/`while` conditions (usually a typo)     |
-| `ScopeError`          | Variables used outside their declared scope                     |
-| `GlobalVariable`      | Implicit global variable creation (missing `const`/`let`/`var`) |
+ESLint 9 (config in `.eslintrc.json`) is the **authoritative** JavaScript analyzer; enforce the rules in the table above. PMD, PMD7, and Biome were evaluated and **disabled** as redundant JS linters (PMD's `UnnecessaryBlock` false-positives on ES6 blocks). There is **no** `ruleset.xml` in the repo -- do not flag code against PMD or Biome rulesets.
 
 ## Documentation Policy
 
@@ -374,7 +357,7 @@ Already covered in Section 3. Do not re-flag here.
 
 - **Error handling in async code**: Promise chains should have `.catch()` handlers, especially in service worker code and API calls
 - **New localStorage keys**: Must be added to `ALLOWED_STORAGE_KEYS` before use
-- **CSS changes**: The app supports four themes (light, dark, sepia, system). Verify color values use CSS custom properties (`var(--...)`) rather than hardcoded colors
+- **CSS changes**: The app supports four themes (light, dark, slate, sepia). Verify color values use CSS custom properties (`var(--...)`) rather than hardcoded colors
 - **Mobile responsiveness**: The app uses a card view below 1350px breakpoint. Check that new UI elements are responsive
 - **Image system changes**: `image-cache.js` uses IndexedDB -- verify CORS strategy and fallback paths are maintained
 - **Goldback pricing**: Changes to `goldback.js` or `computeMeltValue()` in `utils.js` affect financial calculations -- verify math is correct
