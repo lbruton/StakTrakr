@@ -28,6 +28,13 @@ class ImageCache {
     this._quality = typeof IMAGE_QUALITY !== "undefined" ? IMAGE_QUALITY : 0.75;
     /** @type {'ok'|'warn'|'critical'} Last user-image storage pressure band warned about (STRK-146) */
     this._lastWarnedLevel = "ok";
+    /**
+     * Cached total bytes in the `userImages` store (STRK-162). `null` = cold
+     * (unknown — recompute on next need); a number = warm. Use a strict `=== null`
+     * check to read it: an empty store is a legitimate `0`, not "cold".
+     * @type {number|null}
+     */
+    this._userImagesBytesCache = null;
   }
 
   async _initQuota() {
@@ -244,6 +251,7 @@ class ImageCache {
       const tx = this._db.transaction(stores, "readwrite");
       for (const s of stores) tx.objectStore(s).clear();
       await this._txComplete(tx);
+      this._userImagesBytesCache = null; // STRK-162: invalidate — userImages emptied
       debugLog("ImageCache: cleared all stores");
       return true;
     } catch (err) {
@@ -503,6 +511,21 @@ class ImageCache {
   }
 
   /**
+   * Amortized O(1) accessor for the `userImages` byte total (STRK-162). Returns
+   * the cached value, computing it once via {@link _userImagesBytes} when cold.
+   * The pre-flight quota check reads this instead of scanning on every save;
+   * `cacheUserImageResult` keeps it warm on success and the mutation paths
+   * (`deleteUserImage`/`clearAll`/`importUserImageRecord`) invalidate it to `null`.
+   * @returns {Promise<number>}
+   */
+  async _cachedUserImagesBytes() {
+    if (this._userImagesBytesCache === null) {
+      this._userImagesBytesCache = await this._userImagesBytes();
+    }
+    return this._userImagesBytesCache;
+  }
+
+  /**
    * Store a user-uploaded image for an inventory item, reporting the outcome.
    * Enforces a pre-flight soft-cap check against `_quotaBytes` so a doomed write
    * is refused (and reported) rather than failing silently — works even on
@@ -530,7 +553,7 @@ class ImageCache {
     // mis-counted as entirely new data.
     const existing = await this._get("userImages", uuid);
     const delta = size - this._recordSize(existing);
-    const used = await this._userImagesBytes();
+    const used = await this._cachedUserImagesBytes();
     const limit = this._quotaBytes;
 
     // Pre-flight soft-cap guard: refuse a write that would overflow our quota.
@@ -555,10 +578,16 @@ class ImageCache {
       quotaErr = ImageCache._isQuotaError(err);
     });
     debugLog(`ImageCache.cacheUserImageResult: uuid=${uuid} size=${size} saved=${ok}`);
+    // STRK-162: post-write userImages total. On a successful put this is
+    // used + delta; on a failed put the store is unchanged so it stays `used`
+    // (a pre-flight block returned earlier and never reaches here). Reuse this
+    // one value to both keep the usage cache warm and report usageBytes.
+    const usageBytes = ok ? used + delta : used;
+    this._userImagesBytesCache = usageBytes;
     return {
       ok,
       quotaExceeded: !ok && quotaErr,
-      usageBytes: ok ? used + delta : used,
+      usageBytes,
       limitBytes: limit,
     };
   }
@@ -629,7 +658,9 @@ class ImageCache {
   async deleteUserImage(uuid) {
     if (!uuid || !(await this._ensureDb())) return false;
     if (!this._db.objectStoreNames.contains("userImages")) return false;
-    return this._delete("userImages", uuid);
+    const ok = await this._delete("userImages", uuid);
+    this._userImagesBytesCache = null; // STRK-162: invalidate — userImages mutated
+    return ok;
   }
 
   /**
@@ -650,7 +681,9 @@ class ImageCache {
   async importUserImageRecord(record) {
     if (!record?.uuid || !(await this._ensureDb())) return false;
     if (!this._db.objectStoreNames.contains("userImages")) return false;
-    return this._put("userImages", record);
+    const ok = await this._put("userImages", record);
+    this._userImagesBytesCache = null; // STRK-162: invalidate — userImages mutated
+    return ok;
   }
 
   // ---------------------------------------------------------------------------
