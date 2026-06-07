@@ -24,7 +24,7 @@ repos:
         pass_filenames: false
         files: ^(js/constants\.js|js/about\.js|version\.json|package\.json|CHANGELOG\.md)$
       - id: check-claude-md
-        name: Verify CLAUDE.md exists (gitignored, must be restored manually if missing)
+        name: Verify CLAUDE.md exists (tracked by git; restore with git restore)
         entry: bash devops/hooks/check-claude-md.sh
         language: system
         pass_filenames: false
