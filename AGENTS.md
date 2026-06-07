@@ -119,6 +119,7 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 
 ## Pre-Flight Triggers
 
+- Session start: run the `start` skill (not `start-patch`) for reorientation when user says "lets start a session". Run `start-patch` only when starting a patch worktree for a specific Plane issue.
 - Feed, poller, API, or data-path diagnosis: invoke `/api-infrastructure` and `/retail-poller`.
 - Individual dealer scraping failures: invoke `/retail-provider-fix`.
 - Version-bump PRs: run `/update-spot-bundle`.
