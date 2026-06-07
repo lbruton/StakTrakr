@@ -996,6 +996,7 @@ const ALLOWED_STORAGE_KEYS = [
   GOLDBACK_ESTIMATE_ENABLED_KEY,
   GB_ESTIMATE_MODIFIER_KEY,
   GOLDBACK_PRICING_SOURCE_KEY,
+  SPOT_RATIOS_KEY, // STRK-161: persist "Show spot ratios" toggle past cleanupStorage
   DISPLAY_CURRENCY_KEY,
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)

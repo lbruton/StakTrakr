@@ -16069,8 +16069,10 @@ input[type="number"] {
    ============================================================ */
 
 /* Own-row ratio/goldback chip: normal flow, centered between
-   .spot-card-change and .spot-card-timestamp. Hidden chip is removed
-   from the DOM (row collapses) — never a reserved gap. */
+   .spot-card-change and .spot-card-timestamp. When the master toggle is OFF the
+   chip is removed and the row collapses; when the toggle is ON but a card has no
+   chip, .spot-ratio-chip-spacer (below) reserves the row so every card's
+   "Last Synced" line stays on the same plane. */
 .spot-ratio-chip {
   position: static;
   align-self: center;

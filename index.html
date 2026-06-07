@@ -8599,10 +8599,13 @@
     <!-- Test Scripts (Development) -->
     <script defer src="./js/test-loader.js"></script>
 
-    <script defer src="./js/init.js"></script>
-
+    <!-- STRK-161: spot-card ratio chips — math layer then render layer. Both
+         depend only on state.js/goldback.js (loaded above) and must precede
+         init.js so init.js stays the last bootstrap script. -->
     <script defer src="./js/spot-ratio-math.js"></script>
     <script defer src="./js/spot-ratio-chips.js"></script>
+
+    <script defer src="./js/init.js"></script>
 
     <!-- Back to top floating button -->
     <button id="backToTopBtn" class="back-to-top" title="Back to top" aria-label="Scroll to top">

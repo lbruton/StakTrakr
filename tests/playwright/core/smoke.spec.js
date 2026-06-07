@@ -142,10 +142,9 @@ test.describe("core/smoke — app shell boot", () => {
 });
 
 // ===========================================================================
-// STRK-161 — Spot card ratio chips (RED phase)
-// renderRatioChips() is a no-op stub; every assertion below must FAIL until
-// Cohort C lands the real render path. These exercise DOM structure + live
-// interaction (not bare "text exists" — STRK-123 lesson).
+// STRK-161 — Spot card ratio chips
+// Exercises the live renderRatioChips() path: DOM structure + interaction
+// (not bare "text exists" — STRK-123 lesson).
 // ===========================================================================
 test.describe("core/STRK-161 — spot card ratio chips", () => {
   // Card metals as they appear in the markup (id suffix = TitleCase metal name).

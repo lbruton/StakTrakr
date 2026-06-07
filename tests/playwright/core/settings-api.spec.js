@@ -214,6 +214,16 @@ test.describe("core/settings-api", () => {
     await expect(toggle.locator('.chip-sort-btn[data-val="no"]')).toHaveClass(/active/);
     expect(await page.evaluate(() => localStorage.getItem("show-spot-ratios"))).toBe("false");
 
+    // Regression (PR #1232): the key must be in ALLOWED_STORAGE_KEYS so it survives
+    // cleanupStorage() — that runs on every DOMContentLoaded and deletes any key not
+    // whitelisted. Without the entry the OFF state would silently reset on reload.
+    expect(
+      await page.evaluate(() => {
+        cleanupStorage();
+        return localStorage.getItem("show-spot-ratios");
+      })
+    ).toBe("false");
+
     // Toggling back ON persists 'true'.
     await toggle.locator('.chip-sort-btn[data-val="yes"]').click();
     await expect(toggle.locator('.chip-sort-btn[data-val="yes"]')).toHaveClass(/active/);

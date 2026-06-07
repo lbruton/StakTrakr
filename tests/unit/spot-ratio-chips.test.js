@@ -1,9 +1,8 @@
-// Unit tests for spot-card ratio chips (STRK-161) — TDD RED phase.
+// Unit tests for spot-card ratio chips (STRK-161).
 //
 // These tests ENCODE the sketch acceptance criteria (AC-1..AC-7) for the pure
-// math / freshness / estimate layer of js/spot-ratio-chips.js. They are written
-// to FAIL against the current STUBS (computeRatio/formatRatio/resolveGoldbackRate/
-// isGoldbackStale all return undefined) — that RED state is correct and expected.
+// math / freshness / estimate layer in js/spot-ratio-math.js and verify the
+// implemented computeRatio / formatRatio / resolveGoldbackRate / isGoldbackStale.
 //
 //   AC-1 computeRatio = gold/metal (issue example Au 4328.97 / Ag 67.84 ≈ 63.8)
 //   AC-2 formatRatio: GSR 1dp, Au:Pt & Au:Pd 2dp, goldback 2dp
@@ -14,7 +13,7 @@
 //   AC-7 mode off → null
 //   isGoldbackStale(entry): true iff (now − entry.ts) > entry.staleAfter
 //
-// Harness: js/spot-ratio-chips.js is a script-tag-global module (no ESM/CJS
+// Harness: js/spot-ratio-math.js is a script-tag-global module (no ESM/CJS
 // exports — it assigns onto `window`). Mirroring diff-engine-normalization.test.js,
 // the whole file is evaluated with a mock `window` via new Function("window", src).
 // The module reads goldback collaborators as bare globals, so the same object is
@@ -221,7 +220,7 @@ describe("resolveGoldbackRate — fresh/stale × mode matrix", () => {
       goldbackPricingSource: mode,
       spotPrices: { gold: goldSpot },
       // Cached goldback entry the resolver inspects for freshness + value.
-      goldbackPrices: { 1: entry, 1: entry },
+      goldbackPrices: { 1: entry },
       getGoldbackDenominationPrice: (w) => (String(w) === "1" ? g1 : null),
       computeGoldbackEstimatedRate: () => estimate,
     });
