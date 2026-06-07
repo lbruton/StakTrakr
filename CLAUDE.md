@@ -179,6 +179,8 @@ Read the file `.context/implementation-gotchas.md` before touching: `applyBulkEd
 
 Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives.
 
+**Codacy state is authoritative via the Cloud CLI, not the dashboard UI.** Before claiming a Codacy tool toggle or pattern suppression is done, confirm it with the Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend can diverge, and a UI-only check has been wrong repeatedly in a single session. The Codacy MCP server is retired; use the `codacy-skills` plugin CLIs (`codacy-cloud-cli` for cloud state, `codacy-analysis-cli` for local scans).
+
 ## Pre-flight (StakTrakr-specific)
 
 - **Before writing any JavaScript** → read `Foundation/coding-standards.md` (DocVault).
