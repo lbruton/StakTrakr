@@ -25,7 +25,9 @@ import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const src = readFileSync(new URL("../../js/spot-ratio-chips.js", import.meta.url), "utf-8");
+// Math/freshness/resolve functions live in spot-ratio-math.js (render layer is in
+// spot-ratio-chips.js); this unit file tests the math layer.
+const src = readFileSync(new URL("../../js/spot-ratio-math.js", import.meta.url), "utf-8");
 
 // Build a fresh module surface. The module assigns its functions onto `window`;
 // it also reads goldback collaborators (goldbackPricingSource, spotPrices,

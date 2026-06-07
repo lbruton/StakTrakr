@@ -1,9 +1,10 @@
-// SPOT-CARD RATIO CHIPS (STRK-161)
+// SPOT-CARD RATIO CHIPS — RENDER LAYER (STRK-161)
 // =============================================================================
-// Pure display layer that renders a per-spot-card ratio chip (e.g. Au:Ag) plus
-// a goldback rate chip, with a position:fixed tooltip singleton. Owns the
-// ratio/goldback math, freshness/estimate resolution, and the idempotent
-// renderRatioChips() choke point invoked from every spot/goldback DOM-write path.
+// Renders a per-spot-card ratio chip (e.g. Au:Ag) plus a goldback rate chip, with
+// a position:fixed tooltip singleton, via the idempotent renderRatioChips() choke
+// point invoked from every spot/goldback DOM-write path. The ratio/goldback math
+// and freshness/estimate resolution live in js/spot-ratio-math.js (loaded first);
+// this file reads computeRatio / formatRatio / resolveGoldbackRate as globals.
 // =============================================================================
 
 const SPOT_RATIOS_STORAGE_KEY =
@@ -20,92 +21,9 @@ const RATIO_CHIP_CARDS = [
   { metal: "palladium", label: "Au:Pd", decimals: 2, accentClass: "metal-palladium" },
 ];
 
-/**
- * Computes a spot-price ratio (numerator ÷ denominator).
- * @param {number} numeratorSpot - Numerator spot price (e.g. gold)
- * @param {number} denominatorSpot - Denominator spot price (e.g. silver)
- * @returns {number|null} The ratio, or null when either input is ≤ 0 or non-finite.
- */
-const computeRatio = (numeratorSpot, denominatorSpot) => {
-  if (!Number.isFinite(numeratorSpot) || !Number.isFinite(denominatorSpot)) return null;
-  if (numeratorSpot <= 0 || denominatorSpot <= 0) return null;
-  return numeratorSpot / denominatorSpot;
-};
-
-/**
- * Formats a ratio value to a fixed number of decimals for chip display.
- * @param {number} value - Ratio value to format
- * @param {number} decimals - Number of decimal places
- * @returns {string} Fixed-decimal string (e.g. "63.8", "2.43").
- */
-const formatRatio = (value, decimals) => {
-  return Number(value).toFixed(decimals);
-};
-
-/**
- * Returns whether a cached goldback entry is stale: (now − entry.ts) > entry.staleAfter.
- * The boundary (difference === staleAfter) is NOT stale (strictly greater).
- * @param {object} entry - Cached goldback entry with { ts, staleAfter }
- * @returns {boolean}
- */
-const isGoldbackStale = (entry) => {
-  if (!entry || typeof entry.ts !== "number" || typeof entry.staleAfter !== "number") {
-    return true;
-  }
-  // entry.ts is a unix timestamp in SECONDS and staleAfter is a seconds budget
-  // (the goldback/latest.json envelope contract) — compare in seconds, not ms.
-  return Math.floor(Date.now() / 1000) - entry.ts > entry.staleAfter;
-};
-
-/**
- * Returns the fresh cached G1 price (> 0), or null when the cache entry is
- * absent/stale or has no positive price. Reads bare goldback globals.
- * @returns {number|null}
- */
-const readFreshCachedGoldback = () => {
-  const cacheEntry =
-    typeof goldbackPrices !== "undefined" && goldbackPrices ? goldbackPrices["1"] : null;
-  if (!cacheEntry || isGoldbackStale(cacheEntry)) return null;
-  const cached =
-    typeof getGoldbackDenominationPrice === "function" ? getGoldbackDenominationPrice(1) : null;
-  return typeof cached === "number" && cached > 0 ? cached : null;
-};
-
-/**
- * Returns the spot-derived goldback estimate (> 0), or null. Reads bare globals.
- * @returns {number|null}
- */
-const readGoldbackSpotEstimate = () => {
-  const gold = typeof spotPrices !== "undefined" && spotPrices ? spotPrices.gold : 0;
-  if (typeof computeGoldbackEstimatedRate !== "function" || !Number.isFinite(gold) || gold <= 0) {
-    return null;
-  }
-  const estimate = computeGoldbackEstimatedRate(gold);
-  return typeof estimate === "number" && estimate > 0 ? estimate : null;
-};
-
-/**
- * Resolves the active goldback G1 rate for the gold card chip. Reads bare globals
- * so the same code resolves in both the unit harness and the browser.
- *   - mode "off"              → null
- *   - fresh cache             → { value: <cached G1>, est: false }
- *   - stale + "spot"/"manual" → { value: spot estimate, est: true }
- *   - stale + "api"           → null
- * @returns {{ value: number, est: boolean } | null}
- */
-const resolveGoldbackRate = () => {
-  const mode = typeof goldbackPricingSource !== "undefined" ? goldbackPricingSource : "off";
-  if (mode === "off") return null;
-
-  const fresh = readFreshCachedGoldback();
-  if (fresh !== null) return { value: fresh, est: false };
-
-  if (mode === "spot" || mode === "manual") {
-    const estimate = readGoldbackSpotEstimate();
-    if (estimate !== null) return { value: estimate, est: true };
-  }
-  return null;
-};
+// Ratio/goldback math + freshness/estimate resolution moved to js/spot-ratio-math.js
+// (loaded first). This file reads them as globals: computeRatio, formatRatio,
+// isGoldbackStale, resolveGoldbackRate.
 
 // =============================================================================
 // RENDER LAYER (DOM)
@@ -460,13 +378,9 @@ if (typeof document !== "undefined" && typeof document.addEventListener === "fun
 }
 
 // =============================================================================
-// GLOBAL EXPOSURE
+// GLOBAL EXPOSURE (math globals are exposed by spot-ratio-math.js)
 // =============================================================================
 if (typeof window !== "undefined") {
-  window.computeRatio = computeRatio;
-  window.formatRatio = formatRatio;
-  window.resolveGoldbackRate = resolveGoldbackRate;
-  window.isGoldbackStale = isGoldbackStale;
   window.renderRatioChips = renderRatioChips;
   window.renderRatioChip = renderRatioChip;
 }
