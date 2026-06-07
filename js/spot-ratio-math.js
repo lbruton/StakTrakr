@@ -50,11 +50,11 @@ const isGoldbackStale = (entry) => {
  * @returns {number|null}
  */
 const readFreshCachedGoldback = () => {
-  const cacheEntry =
-    typeof goldbackPrices !== "undefined" && goldbackPrices ? goldbackPrices["1"] : null;
+  // goldbackPrices and getGoldbackDenominationPrice are declared in state.js /
+  // goldback.js, both loaded (deferred) before this file — read them bare.
+  const cacheEntry = goldbackPrices["1"];
   if (!cacheEntry || isGoldbackStale(cacheEntry)) return null;
-  const cached =
-    typeof getGoldbackDenominationPrice === "function" ? getGoldbackDenominationPrice(1) : null;
+  const cached = getGoldbackDenominationPrice(1);
   return typeof cached === "number" && cached > 0 ? cached : null;
 };
 
@@ -63,10 +63,10 @@ const readFreshCachedGoldback = () => {
  * @returns {number|null}
  */
 const readGoldbackSpotEstimate = () => {
-  const gold = typeof spotPrices !== "undefined" && spotPrices ? spotPrices.gold : 0;
-  if (typeof computeGoldbackEstimatedRate !== "function" || !Number.isFinite(gold) || gold <= 0) {
-    return null;
-  }
+  // spotPrices (state.js) and computeGoldbackEstimatedRate (goldback.js) load
+  // before this file — read them bare.
+  const gold = spotPrices.gold;
+  if (!Number.isFinite(gold) || gold <= 0) return null;
   const estimate = computeGoldbackEstimatedRate(gold);
   return typeof estimate === "number" && estimate > 0 ? estimate : null;
 };
@@ -81,7 +81,8 @@ const readGoldbackSpotEstimate = () => {
  * @returns {{ value: number, est: boolean } | null}
  */
 const resolveGoldbackRate = () => {
-  const mode = typeof goldbackPricingSource !== "undefined" ? goldbackPricingSource : "off";
+  // goldbackPricingSource (goldback.js, default "api") loads before this file.
+  const mode = goldbackPricingSource;
   if (mode === "off") return null;
 
   const fresh = readFreshCachedGoldback();

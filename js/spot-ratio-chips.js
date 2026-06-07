@@ -129,8 +129,9 @@ const ratioChipTipText = (metal) => {
       body: `Current price of one 1-denomination goldback (1/1000 oz gold): $${formatRatio(gb.value, 2)}${suffix}`,
     };
   }
-  const gold = typeof spotPrices !== "undefined" && spotPrices ? spotPrices.gold : 0;
-  const r = computeRatio(gold, spotPrices ? spotPrices[metal] : 0);
+  // spotPrices (state.js) loads before this file — read it bare. computeRatio
+  // already returns null for missing/≤0 inputs, so undefined metals are safe.
+  const r = computeRatio(spotPrices.gold, spotPrices[metal]);
   if (metal === "silver") {
     return {
       heading: "Gold-to-Silver Ratio (GSR)",
@@ -219,8 +220,9 @@ const renderRatioChip = (metalKey) => {
     return;
   }
 
-  const spots = typeof spotPrices !== "undefined" && spotPrices ? spotPrices : {};
-  const chip = resolveChipContent(metalKey, spots);
+  // spotPrices (state.js) loads before this file — read it bare; resolveChipContent
+  // tolerates missing keys (computeRatio returns null → chip hidden).
+  const chip = resolveChipContent(metalKey, spotPrices);
 
   if (chip) {
     removeRatioChipSpacer(cardEl);
@@ -325,36 +327,18 @@ const wireRatioChipTooltip = () => {
   const findChip = (target) =>
     target && target.closest ? target.closest(".spot-ratio-chip") : null;
 
-  document.addEventListener(
-    "mouseenter",
-    (e) => {
-      const chipEl = findChip(e.target);
-      if (chipEl) showRatioChipTip(chipEl);
-    },
-    true
-  );
-  document.addEventListener(
-    "mouseleave",
-    (e) => {
-      if (findChip(e.target)) hideRatioChipTip();
-    },
-    true
-  );
-  document.addEventListener(
-    "focus",
-    (e) => {
-      const chipEl = findChip(e.target);
-      if (chipEl) showRatioChipTip(chipEl);
-    },
-    true
-  );
-  document.addEventListener(
-    "blur",
-    (e) => {
-      if (findChip(e.target)) hideRatioChipTip();
-    },
-    true
-  );
+  // Two shared handlers cover both interaction modes: mouseenter/focus reveal,
+  // mouseleave/blur dismiss. showRatioChipTip no-ops on a null chip, so onShow
+  // needs no guard of its own.
+  const onShow = (e) => showRatioChipTip(findChip(e.target));
+  const onHide = (e) => {
+    if (findChip(e.target)) hideRatioChipTip();
+  };
+
+  document.addEventListener("mouseenter", onShow, true);
+  document.addEventListener("focus", onShow, true);
+  document.addEventListener("mouseleave", onHide, true);
+  document.addEventListener("blur", onHide, true);
   window.addEventListener("scroll", hideRatioChipTip, true);
 };
 
