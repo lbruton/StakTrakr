@@ -466,7 +466,13 @@ const fetchGoldbackApiPrices = async (options = {}) => {
       gbData.denominations && typeof gbData.denominations[denomKey] === "number"
         ? gbData.denominations[denomKey]
         : Math.round(g1 * d.weight * 100) / 100;
-    goldbackPrices[key] = { price, updatedAt: now, source: "api" };
+    goldbackPrices[key] = {
+      price,
+      updatedAt: now,
+      source: "api",
+      ts: gbData.ts,
+      staleAfter: gbData.stale_after,
+    };
   }
 
   if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
