@@ -251,6 +251,7 @@ class ImageCache {
       const tx = this._db.transaction(stores, "readwrite");
       for (const s of stores) tx.objectStore(s).clear();
       await this._txComplete(tx);
+      this._userImagesBytesCache = null; // STRK-162: invalidate — userImages emptied
       debugLog("ImageCache: cleared all stores");
       return true;
     } catch (err) {
@@ -576,6 +577,10 @@ class ImageCache {
     const ok = await this._put("userImages", record, (err) => {
       quotaErr = ImageCache._isQuotaError(err);
     });
+    // STRK-162: keep the usage cache warm on the one path that knows the exact
+    // delta. Only on a real write — a pre-flight block returned earlier, and a
+    // failed _put leaves the store (and the cached total) unchanged.
+    if (ok) this._userImagesBytesCache = used + delta;
     debugLog(`ImageCache.cacheUserImageResult: uuid=${uuid} size=${size} saved=${ok}`);
     return {
       ok,
@@ -651,7 +656,9 @@ class ImageCache {
   async deleteUserImage(uuid) {
     if (!uuid || !(await this._ensureDb())) return false;
     if (!this._db.objectStoreNames.contains("userImages")) return false;
-    return this._delete("userImages", uuid);
+    const ok = await this._delete("userImages", uuid);
+    this._userImagesBytesCache = null; // STRK-162: invalidate — userImages mutated
+    return ok;
   }
 
   /**
@@ -672,7 +679,9 @@ class ImageCache {
   async importUserImageRecord(record) {
     if (!record?.uuid || !(await this._ensureDb())) return false;
     if (!this._db.objectStoreNames.contains("userImages")) return false;
-    return this._put("userImages", record);
+    const ok = await this._put("userImages", record);
+    this._userImagesBytesCache = null; // STRK-162: invalidate — userImages mutated
+    return ok;
   }
 
   // ---------------------------------------------------------------------------
