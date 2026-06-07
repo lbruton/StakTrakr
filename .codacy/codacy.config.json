@@ -361,25 +361,25 @@
         {
           "patternId": "Lizard_file-nloc-medium",
           "parameters": {
-            "threshold": "500"
+            "threshold": "1500"
           }
         },
         {
           "patternId": "Lizard_parameter-count-medium",
           "parameters": {
-            "threshold": "8"
+            "threshold": "15"
           }
         },
         {
           "patternId": "Lizard_nloc-medium",
           "parameters": {
-            "threshold": "50"
+            "threshold": "100"
           }
         },
         {
           "patternId": "Lizard_ccn-medium",
           "parameters": {
-            "threshold": "8"
+            "threshold": "10"
           }
         }
       ]
