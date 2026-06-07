@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.12] - 2026-06-06
+
+### Changed — STRK-162: Cache user-image storage usage (O(1) pre-flight)
+
+- **Performance**: The per-save image storage-quota check no longer re-scans the entire IndexedDB user-image store on every save. The total is cached on the `ImageCache` singleton (computed lazily, updated by the signed delta on each successful save, and invalidated on delete/clear/import), keeping saves fast as an image library grows. The STRK-146 storage-full warnings and over-quota blocks are unchanged (STRK-162).
+
+---
+
 ## [3.35.11] - 2026-06-06
 
 ### Changed — STRK-165: Numista CSV import safety gate (interim)
