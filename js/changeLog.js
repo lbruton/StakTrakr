@@ -40,7 +40,7 @@ const _fallbackItemKey = (item) => {
         .trim()
         .toLowerCase();
     const nid = String(item.numistaId == null ? "" : item.numistaId).trim();
-    const year = item.year == null ? "" : String(item.year);
+    const year = String(item.year == null ? "" : item.year).trim();
     return `${nid}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
   }
   return `${item.name || ""}|${item.date || ""}`;

@@ -61,11 +61,10 @@ describe("AC-1 — instance key = numistaId|year|grade|certNumber (normalized)",
     );
   });
 
-  test("numistaId is trimmed so surrounding spaces don't fork the key (PR #1233 follow-up)", () => {
-    assert.equal(
-      DiffEngine.computeItemKey(instance({ numistaId: " 12345 " })),
-      DiffEngine.computeItemKey(instance({ numistaId: "12345" }))
-    );
+  test("numistaId and year are trimmed so surrounding spaces don't fork the key (PR #1233/#1234 follow-up)", () => {
+    const ref = DiffEngine.computeItemKey(instance({ numistaId: "12345", year: 2024 }));
+    assert.equal(DiffEngine.computeItemKey(instance({ numistaId: " 12345 " })), ref);
+    assert.equal(DiffEngine.computeItemKey(instance({ year: " 2024 " })), ref);
   });
 
   test("ungraded item collapses grade+cert to empty segments", () => {
