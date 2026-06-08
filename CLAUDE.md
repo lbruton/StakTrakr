@@ -26,7 +26,7 @@ npm run format:check
 - Before editing or running Playwright tests, read the Playwright policy reference in `AGENTS.md`.
 - Archived issue acceptance-criteria (AC) matrices are located in
   `tests/playwright/archive/issue-ac-matrices/`.
-- Any PR that adds a Playwright spec must add a matching row to `tests/playwright/coverage-map.csv` (an `AGENTS.md` requirement) — neither ESLint nor `check-release-sync` catches a missing row.
+- Any PR that adds, renames, or removes a Playwright spec must update `tests/playwright/coverage-map.csv` (an `AGENTS.md` requirement) — neither ESLint nor `check-release-sync` catches a missing or stale row.
 
 ## Documentation
 
@@ -185,7 +185,7 @@ Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint ru
 
 **Codacy state is authoritative via the Cloud CLI, not the dashboard UI.** Before claiming a Codacy tool toggle or pattern suppression is done, confirm it with the Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend can diverge, and a UI-only check has been wrong repeatedly in a single session. The Codacy MCP server is retired; use the `codacy-skills` plugin CLIs (`codacy-cloud-cli` for cloud state, `codacy-analysis-cli` for local scans).
 
-**Async bot reviewers land after checks go green.** Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass — often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. A `null` or empty result from a `gh api graphql` thread query must be treated as a failed check (a malformed query can silently return `null`), not as "no threads" — confirm the query returns a list before merging.
+**Async bot reviewers land after checks go green.** Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass — often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. Treat a `null` result or `errors` array from a `gh api graphql` query as a failure (a malformed query can silently return `null`); an empty `nodes` array is the valid "no active threads" state — confirm the response is a valid list before merging.
 
 ### Dual ESLint config — `.eslintrc.json` is Codacy-only
 
