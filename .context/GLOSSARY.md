@@ -97,11 +97,11 @@ A Numista catalog **type** identifier (`item.numistaId`) — e.g. the N# for "Am
 _Avoid_: coin id, catalog number (as an instance identifier)
 
 **Item Instance**:
-A single physical copy of a catalog type. Two Items are distinct instances when their Numista ID, issue year, grade, or certNumber differ (e.g. a 2023 vs 2024 coin, or a raw vs a PCGS-graded one); identical ungraded copies of the same N#+year are the same instance and collapse to one Item with summed quantity.
+A single physical copy of a catalog type. Two Items are distinct instances when their Numista ID, issue year, grade, or certNumber differ (e.g. a 2023 vs 2024 coin, or a raw vs a PCGS-graded one). Identical ungraded copies of the same N#+year share an instance key; at **import time** the Numista importer collapses such repeated export rows into one Item with summed quantity (`DiffEngine.collapseByInstanceKey`). This is an import pre-processing step — existing inventory Items each keep their own UUID and are never silently merged.
 _Avoid_: copy, unit, duplicate
 
 **Item Identity Key**:
-The stable string `computeItemKey()` derives to match Items across import, cloud sync, and changelog. Tier ladder: `uuid` → `serial` → `numistaId|year|grade|certNumber` (the instance tier — year is the issue year `item.year`; grade/cert trimmed + lowercased, empty→`""`) → `name|date`. The same rule is mirrored in `diff-engine.js`, `changeLog.js`, and `enrichItemIdentities`.
+The stable string `computeItemKey()` derives to match Items across import, cloud sync, and changelog; it returns the **highest available tier**: `uuid` → `serial` → `numistaId|year|grade|certNumber` (the instance tier — year is `item.year`; grade/cert trimmed + lowercased, empty→`""`) → `name|date`. `computeItemKey` is authoritative in `diff-engine.js`; `changeLog.js` and `diff-modal.js` delegate to it. `enrichItemIdentities` does **not** re-run the full ladder — it backfills the stable `uuid` onto incoming rows (matching serial → instance-key FIFO bucket → name|date) and shares only the `_instanceKey` normalization. That UUID backfill is what keeps an Item's identity stable after it later gains a `numistaId`.
 _Avoid_: item key, dedup key, hash
 
 ## Cloud & Storage
