@@ -109,9 +109,7 @@ const _loadBulkRowImages = async (tr, item) => {
   const hasAny = obvUrl || revUrl;
 
   if (showObv) imgTd.appendChild(obvUrl ? _makeImg(obvUrl, "obverse") : _makePh());
-  if (showRev && (revUrl || (resolved && resolved.source === "user"))) {
-    imgTd.appendChild(revUrl ? _makeImg(revUrl, "reverse") : _makePh());
-  }
+  if (showRev) imgTd.appendChild(revUrl ? _makeImg(revUrl, "reverse") : _makePh());
 
   if (!hasAny) {
     // Nothing resolved — ensure at least one placeholder is visible
