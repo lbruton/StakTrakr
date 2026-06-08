@@ -306,6 +306,30 @@ function _diffAttachments(localArr, remoteArr) {
 
 const DiffEngine = {
   // -------------------------------------------------------------------------
+  // _instanceKey
+  // -------------------------------------------------------------------------
+
+  /**
+   * Instance-aware catalog key (STRK-167): `numistaId|year|grade|certNumber`.
+   * A numistaId identifies a catalog TYPE; grade + certNumber distinguish the
+   * physical INSTANCE, and year keeps distinct issue years separate. grade/cert
+   * are trimmed + lowercased; missing segments collapse to "". Shared by
+   * computeItemKey (tertiary tier) and enrichItemIdentities so the three
+   * historical key copies can never drift again.
+   *
+   * @param {object} item
+   * @returns {string}
+   */
+  _instanceKey(item) {
+    const norm = (v) =>
+      String(v == null ? "" : v)
+        .trim()
+        .toLowerCase();
+    const year = item.year == null ? "" : String(item.year);
+    return `${item.numistaId}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
+  },
+
+  // -------------------------------------------------------------------------
   // computeItemKey
   // -------------------------------------------------------------------------
 
@@ -313,7 +337,7 @@ const DiffEngine = {
    * Derives a stable string key for an item.
    *   – Primary:  item.uuid   (stable across export/import — STAK-380)
    *   – Secondary: item.serial (numeric, legacy items without uuid)
-   *   – Tertiary: `${numistaId}|${name}|${date}` when numistaId is present
+   *   – Tertiary: instance key `numistaId|year|grade|certNumber` (STRK-167)
    *   – Last resort: `name|date` for items without any identifier
    *
    * STAK-187 changeLog.js extension MUST use this same function so that keys
@@ -333,13 +357,52 @@ const DiffEngine = {
       return String(item.serial);
     }
 
-    // Tertiary: numistaId composite key
+    // Tertiary: instance-aware numistaId key (STRK-167)
     if (item.numistaId) {
-      return `${item.numistaId}|${item.name || ""}|${item.date || ""}`;
+      return DiffEngine._instanceKey(item);
     }
 
     // Last resort: name + date
     return `${item.name || ""}|${item.date || ""}`;
+  },
+
+  // -------------------------------------------------------------------------
+  // collapseByInstanceKey
+  // -------------------------------------------------------------------------
+
+  /**
+   * Collapses rows that share an instance key (STRK-167 AC-6), summing qty.
+   * Used by the Numista importer to merge the repeated N# rows the export emits
+   * for identical ungraded copies BEFORE identity stamping. Distinct years or
+   * grades produce distinct keys and stay separate. Rows without a numistaId
+   * pass through untouched (no instance key to group on). Pure — returns a new
+   * array of (shallow-cloned) rows; inputs are not mutated.
+   *
+   * @param {object[]} rows
+   * @returns {object[]}
+   */
+  collapseByInstanceKey(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const byKey = new Map();
+    const out = [];
+    for (const row of list) {
+      if (!row || !row.numistaId) {
+        out.push(row);
+        continue;
+      }
+      const key = DiffEngine._instanceKey(row);
+      const existing = byKey.get(key);
+      if (existing) {
+        const a = Number(existing.qty) || 0;
+        const b = Number(row.qty) || 0;
+        existing.qty = a + b;
+      } else {
+        const clone = { ...row };
+        byKey.set(key, clone);
+        out.push(clone);
+      }
+    }
+    return out;
   },
 
   // -------------------------------------------------------------------------
