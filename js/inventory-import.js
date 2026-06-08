@@ -145,12 +145,40 @@
       );
     }
 
+    // STRK-167 (AC-11, D-4): compute a SIDECAR set of added rows that are likely
+    // duplicates of a graded item the user already owns — an ungraded incoming row
+    // sharing numistaId+year with an existing graded/certified item. This is purely
+    // advisory; the flag is NEVER written onto an item (applySelectedChanges would
+    // persist it). The modal looks rows up by DiffEngine.computeItemKey.
+    const possibleDuplicates = new Set();
+    if (Array.isArray(inventory) && diffResult && Array.isArray(diffResult.added)) {
+      const gradedByNumistaYear = new Set();
+      for (const ex of inventory) {
+        if (
+          ex &&
+          ex.numistaId &&
+          (String(ex.grade || "").trim() || String(ex.certNumber || "").trim())
+        ) {
+          gradedByNumistaYear.add(ex.numistaId + "|" + (ex.year == null ? "" : String(ex.year)));
+        }
+      }
+      for (const add of diffResult.added) {
+        if (!add || !add.numistaId) continue;
+        const isUngraded = !String(add.grade || "").trim() && !String(add.certNumber || "").trim();
+        const ny = add.numistaId + "|" + (add.year == null ? "" : String(add.year));
+        if (isUngraded && gradedByNumistaYear.has(ny)) {
+          possibleDuplicates.add(DiffEngine.computeItemKey(add));
+        }
+      }
+    }
+
     DiffModal.show({
       source: sourceInfo,
       diff: diffResult,
       settingsDiff: settingsDiff,
       backupCount: _backupCount,
       localCount: _localCount,
+      possibleDuplicates: possibleDuplicates,
       onApply: function (selectedChanges) {
         if (!selectedChanges || selectedChanges.length === 0) return;
 
