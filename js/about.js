@@ -27,15 +27,14 @@ const populateAboutTab = () => {
     }
   }
 
-  // Load announcements for latest changes and roadmap
+  // Load announcements for latest changes
   loadAnnouncements();
 };
 
 const loadAnnouncements = async () => {
   const whatsNewTargets = [document.getElementById("aboutChangelogLatest")].filter(Boolean);
-  const roadmapTargets = [document.getElementById("aboutRoadmapList")].filter(Boolean);
 
-  if (!whatsNewTargets.length && !roadmapTargets.length) return;
+  if (!whatsNewTargets.length) return;
 
   // STAK-513: Use embedded content directly. The external docs/announcements.md
   // was deleted but CDN ghost caches serve stale copies indefinitely.
@@ -43,10 +42,6 @@ const loadAnnouncements = async () => {
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
   whatsNewTargets.forEach((el) => {
     el.innerHTML = getEmbeddedWhatsNew();
-  }); // developer-controlled HTML
-  // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  roadmapTargets.forEach((el) => {
-    el.innerHTML = getEmbeddedRoadmap();
   }); // developer-controlled HTML
 };
 
@@ -149,19 +144,11 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.35.7 &ndash; Cloud sync convergence</strong>: Fixed the permanent &ldquo;Review Sync Changes&rdquo; loop between devices &mdash; tag merges now converge and auto-heal, settings compare by logical content instead of raw storage, and phantom timestamp/attachment conflicts in the review modal are gone (STRK-154).</li>  `;
 };
 
-const getEmbeddedRoadmap = () => {
-  return `
-    <li><strong>Market Page Phase 3</strong>: Inventory-to-market linking with auto-update retail prices</li>
-    <li><strong>Cloud Backup Conflict Detection (STAK-150)</strong>: Smarter conflict resolution using item count direction, not just timestamps</li>
-  `;
-};
-
 // Expose globally for access from other modules
 if (typeof window !== "undefined") {
   window.loadAnnouncements = loadAnnouncements;
   window.populateAboutTab = populateAboutTab;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
-  window.getEmbeddedRoadmap = getEmbeddedRoadmap;
   window.showFullChangelog = showFullChangelog;
   window.showWhatsNewPopup = showWhatsNewPopup;
   window.hideWhatsNewPopup = hideWhatsNewPopup;
