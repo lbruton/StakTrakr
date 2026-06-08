@@ -7200,6 +7200,79 @@
       #diffReviewModal .dm-field-value:hover:not(.selected) {
         border-color: var(--text-muted, #6b7094);
       }
+      /* STRK-167 AC-10: 3-way quantity reconciliation control.
+         Each option also carries .dm-field-value, so the selected state
+         reuses #diffReviewModal .dm-field-value.selected above. */
+      #diffReviewModal .dm-field-diff-qty {
+        display: block;
+      }
+      #diffReviewModal .dm-qty-options {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin-top: 0.25rem;
+      }
+      #diffReviewModal .dm-qty-opt {
+        flex: 1 1 8rem;
+        min-height: 44px; /* iOS touch target */
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 2px;
+        padding: 0.45rem 0.6rem;
+        line-height: 1.15;
+        text-align: left;
+      }
+      #diffReviewModal .dm-qty-opt .dm-qty-verb {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        opacity: 0.75;
+      }
+      #diffReviewModal .dm-qty-opt .dm-qty-num {
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+      }
+      #diffReviewModal .dm-qty-opt.sum .dm-qty-verb {
+        color: var(--info);
+        opacity: 1;
+      }
+      /* STRK-167 AC-11: possible-duplicate advisory flag.
+         Badge color recipe pinned for WCAG AA (see implementation-gotchas.md:26-30):
+         raw --warning background fails on small text in light/sepia. */
+      #diffReviewModal .dm-dup-flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0.25rem 0;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.74rem;
+        font-weight: 600;
+        border-radius: 6px;
+        color: var(--warning-text, var(--warning));
+        background: color-mix(in srgb, var(--warning) 15%, var(--bg-secondary));
+        border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+      }
+      #diffReviewModal .dm-dup-flag .dm-dup-icon {
+        font-size: 0.85rem;
+        line-height: 1;
+      }
+      #diffReviewModal .dm-dup-flag .dm-dup-text {
+        line-height: 1.2;
+      }
+      .sr-only {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
       #diffReviewModal .dm-field-arrow {
         color: var(--text-muted, #6b7094);
         font-size: 0.8rem;
