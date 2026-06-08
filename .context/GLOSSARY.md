@@ -92,6 +92,18 @@ _Avoid_: data provider, lookup service, enrichment API
 The nested object on an Item (`item.numistaData`) containing fields pulled from the Numista catalog — year range, composition, shape, images, and catalog ID.
 _Avoid_: catalog data, coin data, enrichment data
 
+**Numista ID**:
+A Numista catalog **type** identifier (`item.numistaId`) — e.g. the N# for "American Silver Eagle". Identifies a coin design, NOT a physical copy: a user may own several distinct Item Instances under one Numista ID.
+_Avoid_: coin id, catalog number (as an instance identifier)
+
+**Item Instance**:
+A single physical copy of a catalog type. Two Items are distinct instances when their Numista ID, issue year, grade, or certNumber differ (e.g. a 2023 vs 2024 coin, or a raw vs a PCGS-graded one). Identical ungraded copies of the same N#+year share an instance key; at **import time** the Numista importer collapses such repeated export rows into one Item with summed quantity (`DiffEngine.collapseByInstanceKey`). This is an import pre-processing step — existing inventory Items each keep their own UUID and are never silently merged.
+_Avoid_: copy, unit, duplicate
+
+**Item Identity Key**:
+The stable string `computeItemKey()` derives to match Items across import, cloud sync, and changelog; it returns the **highest available tier**: `uuid` → `serial` → `numistaId|year|grade|certNumber` (the instance tier — year is `item.year`; grade/cert trimmed + lowercased, empty→`""`) → `name|date`. `computeItemKey` is authoritative in `diff-engine.js`; `changeLog.js` and `diff-modal.js` delegate to it. `enrichItemIdentities` does **not** re-run the full ladder — it backfills the stable `uuid` onto incoming rows (matching serial → instance-key FIFO bucket → name|date) and shares only the `_instanceKey` normalization. That UUID backfill is what keeps an Item's identity stable after it later gains a `numistaId`.
+_Avoid_: item key, dedup key, hash
+
 ## Cloud & Storage
 
 **Cloud Sync**:
@@ -118,6 +130,7 @@ _Avoid_: feature toggle, experiment, beta flag
 - A **Catalog Provider** enriches an **Item** with **Numista Data** (or PCGS data).
 - The **Dual Config Store** separates **Spot Provider** credentials from **Catalog Provider** credentials.
 - The **Change Log** records every field-level mutation on every **Item**.
+- A **Numista ID** identifies a catalog type (spanning years); an **Item Instance** is `Numista ID + year + grade + certNumber`. The **Item Identity Key** encodes that instance identity in its tertiary tier.
 
 ## Flagged Ambiguities
 
@@ -125,3 +138,4 @@ _Avoid_: feature toggle, experiment, beta flag
 - "item" vs "lot" vs "stack" — resolved: use **Item** for the data record. "Stack" is colloquial for a user's collection; never use as a code term for a single record.
 - "disposal" vs "disposition" — resolved: use **Disposition**. "Disposal" implies waste; disposition tracks realized value.
 - `metalApiConfig` vs `catalog_api_config` — resolved: these are the **Dual Config Store**. Always use the correct accessor pair.
+- `numistaId` as type vs instance — resolved: **Numista ID** is a catalog TYPE; physical-copy identity is the **Item Instance** (adds grade + certNumber). Keying dedup on Numista ID alone wrongly merges distinct graded instances (STRK-167).
