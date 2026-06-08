@@ -306,6 +306,30 @@ function _diffAttachments(localArr, remoteArr) {
 
 const DiffEngine = {
   // -------------------------------------------------------------------------
+  // _instanceKey
+  // -------------------------------------------------------------------------
+
+  /**
+   * Instance-aware catalog key (STRK-167): `numistaId|year|grade|certNumber`.
+   * A numistaId identifies a catalog TYPE; grade + certNumber distinguish the
+   * physical INSTANCE, and year keeps distinct issue years separate. grade/cert
+   * are trimmed + lowercased; missing segments collapse to "". Shared by
+   * computeItemKey (tertiary tier) and enrichItemIdentities so the three
+   * historical key copies can never drift again.
+   *
+   * @param {object} item
+   * @returns {string}
+   */
+  _instanceKey(item) {
+    const norm = (v) =>
+      String(v == null ? "" : v)
+        .trim()
+        .toLowerCase();
+    const year = item.year == null ? "" : String(item.year);
+    return `${item.numistaId}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
+  },
+
+  // -------------------------------------------------------------------------
   // computeItemKey
   // -------------------------------------------------------------------------
 
@@ -313,7 +337,7 @@ const DiffEngine = {
    * Derives a stable string key for an item.
    *   – Primary:  item.uuid   (stable across export/import — STAK-380)
    *   – Secondary: item.serial (numeric, legacy items without uuid)
-   *   – Tertiary: `${numistaId}|${name}|${date}` when numistaId is present
+   *   – Tertiary: instance key `numistaId|year|grade|certNumber` (STRK-167)
    *   – Last resort: `name|date` for items without any identifier
    *
    * STAK-187 changeLog.js extension MUST use this same function so that keys
@@ -333,13 +357,52 @@ const DiffEngine = {
       return String(item.serial);
     }
 
-    // Tertiary: numistaId composite key
+    // Tertiary: instance-aware numistaId key (STRK-167)
     if (item.numistaId) {
-      return `${item.numistaId}|${item.name || ""}|${item.date || ""}`;
+      return DiffEngine._instanceKey(item);
     }
 
     // Last resort: name + date
     return `${item.name || ""}|${item.date || ""}`;
+  },
+
+  // -------------------------------------------------------------------------
+  // collapseByInstanceKey
+  // -------------------------------------------------------------------------
+
+  /**
+   * Collapses rows that share an instance key (STRK-167 AC-6), summing qty.
+   * Used by the Numista importer to merge the repeated N# rows the export emits
+   * for identical ungraded copies BEFORE identity stamping. Distinct years or
+   * grades produce distinct keys and stay separate. Rows without a numistaId
+   * pass through untouched (no instance key to group on). Pure — returns a new
+   * array of (shallow-cloned) rows; inputs are not mutated.
+   *
+   * @param {object[]} rows
+   * @returns {object[]}
+   */
+  collapseByInstanceKey(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const byKey = new Map();
+    const out = [];
+    for (const row of list) {
+      if (!row || !row.numistaId) {
+        out.push(row);
+        continue;
+      }
+      const key = DiffEngine._instanceKey(row);
+      const existing = byKey.get(key);
+      if (existing) {
+        const a = Number(existing.qty) || 0;
+        const b = Number(row.qty) || 0;
+        existing.qty = a + b;
+      } else {
+        const clone = { ...row };
+        byKey.set(key, clone);
+        out.push(clone);
+      }
+    }
+    return out;
   },
 
   // -------------------------------------------------------------------------
@@ -361,7 +424,10 @@ const DiffEngine = {
     const incoming = Array.isArray(incomingItems) ? incomingItems : [];
 
     const uuidBySerial = new Map();
-    const uuidByNumista = new Map();
+    // STRK-167 (D-7): numista lookup is a FIFO BUCKET per instance key — multiple
+    // local items can share a key (e.g. two ungraded copies), and a last-write-wins
+    // Map would silently drop all but one UUID. Each incoming match shifts one UUID.
+    const uuidsByInstance = new Map();
     const uuidByNameDate = new Map();
 
     for (let i = 0; i < local.length; i++) {
@@ -371,10 +437,10 @@ const DiffEngine = {
         uuidBySerial.set(String(item.serial), item.uuid);
       }
       if (item.numistaId) {
-        uuidByNumista.set(
-          item.numistaId + "|" + (item.name || "") + "|" + (item.date || ""),
-          item.uuid
-        );
+        const ik = DiffEngine._instanceKey(item);
+        const bucket = uuidsByInstance.get(ik);
+        if (bucket) bucket.push(item.uuid);
+        else uuidsByInstance.set(ik, [item.uuid]);
       }
       const nameKey = (item.name || "") + "|" + (item.date || "");
       if (!uuidByNameDate.has(nameKey)) {
@@ -398,16 +464,22 @@ const DiffEngine = {
         }
       }
 
+      // STRK-167 (D-7): numista-bearing rows match ONLY on the instance key, by
+      // consuming a UUID from the FIFO bucket. They must NOT fall through to the
+      // name|date tier — a graded local UUID reattached to an ungraded incoming
+      // row would turn an advisory add into a destructive modified match.
       if (inc.numistaId) {
-        const byNumista = uuidByNumista.get(
-          inc.numistaId + "|" + (inc.name || "") + "|" + (inc.date || "")
-        );
-        if (byNumista && !usedUUIDs.has(byNumista)) {
-          inc.uuid = byNumista;
-          usedUUIDs.add(byNumista);
-          enriched++;
-          continue;
+        const bucket = uuidsByInstance.get(DiffEngine._instanceKey(inc));
+        while (bucket && bucket.length) {
+          const candidate = bucket.shift();
+          if (!usedUUIDs.has(candidate)) {
+            inc.uuid = candidate;
+            usedUUIDs.add(candidate);
+            enriched++;
+            break;
+          }
         }
+        continue;
       }
 
       const byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));

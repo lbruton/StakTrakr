@@ -1625,6 +1625,24 @@
       if (item.qty != null)
         html += "<span>&#8226;</span><span>Qty: " + _esc(String(item.qty)) + "</span>";
       html += "</div></div>";
+      // STRK-167 (AC-11): advisory possible-duplicate badge for an added row whose
+      // key is in the showImportDiffReview sidecar (an ungraded import sharing
+      // numistaId+year with an existing graded item). Advisory only — never blocks
+      // import; the flag lives in _options.possibleDuplicates, never on the item (D-4).
+      if (
+        isAdded &&
+        _options &&
+        _options.possibleDuplicates &&
+        typeof DiffEngine !== "undefined" &&
+        _options.possibleDuplicates.has(DiffEngine.computeItemKey(item))
+      ) {
+        html +=
+          '<div class="dm-dup-flag" role="note" title="You already have a graded copy of this coin/year. Importing this ungraded row will create a separate item. Skip it if it is the same physical coin.">' +
+          '<span class="dm-dup-icon" aria-hidden="true">&#9888;</span>' +
+          '<span class="dm-dup-text">Possible duplicate of a graded item</span>' +
+          '<span class="sr-only">Possible duplicate: an existing graded item shares this catalog number and year.</span>' +
+          "</div>";
+      }
       // Action buttons — active action gets prominent color, inactive gets muted
       html += '<div class="dm-orphan-actions">';
       if (isAdded) {
@@ -1881,13 +1899,73 @@
         var sel = _fieldSelections[fKey] || "remote";
         var localSelected = sel === "local" ? " selected" : "";
         var remoteSelected = sel === "remote" ? " selected" : "";
-
-        html += '<div class="dm-field-diff">';
-        html += '<div class="dm-field-label">' + _esc(ch.field) + "</div>";
         var localDisplay =
           ch.localVal != null && ch.localVal !== "" ? String(ch.localVal) : "\u2014";
         var remoteDisplay =
           ch.remoteVal != null && ch.remoteVal !== "" ? String(ch.remoteVal) : "\u2014";
+
+        // \u2500\u2500 STRK-167 (AC-10): 3-way quantity reconciliation (Keep / Replace / Add) \u2500\u2500
+        // Numista's "Quantity owned" is authoritative, so REPLACE is the default, but
+        // the user can opt to ADD the imported count to the existing one. The qty field
+        // renders a radiogroup; every other field keeps the 2-cell picker below.
+        if (ch.field === "qty") {
+          var sumSelected = sel === "sum" ? " selected" : "";
+          var sumVal = (Number(ch.localVal) || 0) + (Number(ch.remoteVal) || 0);
+          html += '<div class="dm-field-diff dm-field-diff-qty">';
+          html += '<div class="dm-field-label">Quantity</div>';
+          html +=
+            '<div class="dm-qty-options" role="radiogroup" aria-label="How to reconcile quantity">';
+          html +=
+            '<div class="dm-field-value dm-qty-opt local' +
+            localSelected +
+            '" role="radio" aria-checked="' +
+            (sel === "local") +
+            '" tabindex="0" data-field="qty" data-card="' +
+            i +
+            '" title="Keep your existing quantity (' +
+            _esc(localDisplay) +
+            ')"><span class="dm-qty-verb">Keep</span><span class="dm-qty-num">' +
+            _esc(localDisplay) +
+            "</span></div>";
+          html +=
+            '<div class="dm-field-value dm-qty-opt remote' +
+            remoteSelected +
+            '" role="radio" aria-checked="' +
+            (sel === "remote") +
+            '" tabindex="0" data-field="qty" data-card="' +
+            i +
+            '" title="Replace with the imported quantity (' +
+            _esc(remoteDisplay) +
+            ')"><span class="dm-qty-verb">Replace</span><span class="dm-qty-num">' +
+            _esc(remoteDisplay) +
+            "</span></div>";
+          html +=
+            '<div class="dm-field-value dm-qty-opt sum' +
+            sumSelected +
+            '" role="radio" aria-checked="' +
+            (sel === "sum") +
+            '" tabindex="0" data-field="qty" data-card="' +
+            i +
+            '" title="Add the imported quantity to your existing one (' +
+            _esc(localDisplay) +
+            " + " +
+            _esc(remoteDisplay) +
+            " = " +
+            sumVal +
+            ')"><span class="dm-qty-verb">Add to existing</span><span class="dm-qty-num">' +
+            _esc(localDisplay) +
+            " + " +
+            _esc(remoteDisplay) +
+            " = " +
+            sumVal +
+            "</span></div>";
+          html += "</div>"; // .dm-qty-options
+          html += "</div>"; // .dm-field-diff-qty
+          continue;
+        }
+
+        html += '<div class="dm-field-diff">';
+        html += '<div class="dm-field-label">' + _esc(ch.field) + "</div>";
         html +=
           '<div class="dm-field-value local' +
           localSelected +
@@ -2327,15 +2405,29 @@
       var field = fieldVal.dataset.field;
       var cardIdx = parseInt(fieldVal.dataset.card, 10);
       var fKey = "conflict-" + cardIdx + "-" + field;
-      var side = fieldVal.classList.contains("local") ? "local" : "remote";
+      // STRK-167 (AC-10): qty rows add a third "sum" choice alongside local/remote.
+      var side = fieldVal.classList.contains("local")
+        ? "local"
+        : fieldVal.classList.contains("sum")
+          ? "sum"
+          : "remote";
       _fieldSelections[fKey] = side;
-      // Update visual: remove selected from sibling, add to clicked
+      // Update visual: remove selected from siblings, add to clicked.
       var row = fieldVal.closest(".dm-field-diff");
       if (row) {
         var siblings = row.querySelectorAll(".dm-field-value");
-        for (var si = 0; si < siblings.length; si++) siblings[si].classList.remove("selected");
+        for (var si = 0; si < siblings.length; si++) {
+          siblings[si].classList.remove("selected");
+          // STRK-167 (AC-10) a11y: keep aria-checked in sync on radio-style qty cells.
+          if (siblings[si].getAttribute("role") === "radio") {
+            siblings[si].setAttribute("aria-checked", "false");
+          }
+        }
       }
       fieldVal.classList.add("selected");
+      if (fieldVal.getAttribute("role") === "radio") {
+        fieldVal.setAttribute("aria-checked", "true");
+      }
       _updateApplyCount();
       return;
     }
@@ -2447,6 +2539,20 @@
       _render();
       return;
     }
+  }
+
+  /**
+   * STRK-167 (AC-10) a11y: activate a focused qty radio on Space/Enter. Native
+   * div[role=radio] elements do not synthesize a click for these keys, so without
+   * this the 3-way quantity control cannot be operated by keyboard or screen reader.
+   */
+  function _onModifiedKeydown(e) {
+    if (e.key !== " " && e.key !== "Enter" && e.key !== "Spacebar") return;
+    var target = e.target;
+    if (!target || typeof target.getAttribute !== "function") return;
+    if (target.getAttribute("role") !== "radio") return;
+    e.preventDefault();
+    target.click();
   }
 
   /** Update the modified section's progress bar and status text */
@@ -2813,11 +2919,22 @@
             continue;
           }
           var fSel = _fieldSelections["conflict-" + m + "-" + ch.field] || "remote";
+          // STRK-167 (AC-10, D-5): "sum" computes the merged quantity HERE so the
+          // shared DiffEngine.applySelectedChanges patch (updated[field]=value) is
+          // untouched — no blast radius into cloud sync.
+          var fVal;
+          if (fSel === "local") {
+            fVal = ch.localVal;
+          } else if (fSel === "sum") {
+            fVal = (Number(ch.localVal) || 0) + (Number(ch.remoteVal) || 0);
+          } else {
+            fVal = ch.remoteVal;
+          }
           result.push({
             type: "modify",
             itemKey: mKey,
             field: ch.field,
-            value: fSel === "local" ? ch.localVal : ch.remoteVal,
+            value: fVal,
           });
         }
       } else {
@@ -2970,6 +3087,11 @@
     if (listEl) {
       listEl.removeEventListener("click", _onModifiedClick);
       listEl.addEventListener("click", _onModifiedClick);
+      // STRK-167 (AC-10) a11y: div[role=radio] does not fire click on Space/Enter,
+      // so the 3-way qty control is keyboard-inaccessible without this. Delegate a
+      // keydown that activates the focused radio.
+      listEl.removeEventListener("keydown", _onModifiedKeydown);
+      listEl.addEventListener("keydown", _onModifiedKeydown);
     }
 
     // Pill buttons

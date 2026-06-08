@@ -145,12 +145,40 @@
       );
     }
 
+    // STRK-167 (AC-11, D-4): compute a SIDECAR set of added rows that are likely
+    // duplicates of a graded item the user already owns — an ungraded incoming row
+    // sharing numistaId+year with an existing graded/certified item. This is purely
+    // advisory; the flag is NEVER written onto an item (applySelectedChanges would
+    // persist it). The modal looks rows up by DiffEngine.computeItemKey.
+    const possibleDuplicates = new Set();
+    if (Array.isArray(inventory) && diffResult && Array.isArray(diffResult.added)) {
+      const gradedByNumistaYear = new Set();
+      for (const ex of inventory) {
+        if (
+          ex &&
+          ex.numistaId &&
+          (String(ex.grade || "").trim() || String(ex.certNumber || "").trim())
+        ) {
+          gradedByNumistaYear.add(ex.numistaId + "|" + (ex.year == null ? "" : String(ex.year)));
+        }
+      }
+      for (const add of diffResult.added) {
+        if (!add || !add.numistaId) continue;
+        const isUngraded = !String(add.grade || "").trim() && !String(add.certNumber || "").trim();
+        const ny = add.numistaId + "|" + (add.year == null ? "" : String(add.year));
+        if (isUngraded && gradedByNumistaYear.has(ny)) {
+          possibleDuplicates.add(DiffEngine.computeItemKey(add));
+        }
+      }
+    }
+
     DiffModal.show({
       source: sourceInfo,
       diff: diffResult,
       settingsDiff: settingsDiff,
       backupCount: _backupCount,
       localCount: _localCount,
+      possibleDuplicates: possibleDuplicates,
       onApply: function (selectedChanges) {
         if (!selectedChanges || selectedChanges.length === 0) return;
 
@@ -868,8 +896,11 @@
             const spotPriceAtPurchase = 0;
             const premiumPerOz = 0;
             const totalPremium = 0;
-            const serial = getNextSerial();
-            const uuid = generateUUID();
+            // STRK-167 (D-3): do NOT pre-stamp uuid/serial here. A pre-stamped uuid
+            // makes computeItemKey return it first, masking the instance tier so the
+            // diff never matches existing items (the STRK-165 duplication bug).
+            // Identity is stamped later: enrich backfills matched rows, then any
+            // still-unmatched row is stamped before the diff.
 
             const item = sanitizeImportedItem({
               metal,
@@ -895,8 +926,6 @@
               gradingAuthority: "",
               certNumber: "",
               pcgsNumber: "",
-              serial,
-              uuid,
             });
 
             imported.push(item);
@@ -923,89 +952,77 @@
             return;
           }
 
-          // Replace the entire inventory with the freshly-imported items.
-          const replaceInventory = async () => {
-            inventory = imported;
+          // STRK-167 (AC-6, D-3): collapse the repeated N# rows Numista exports for
+          // identical ungraded copies into one row with summed qty, keyed on the bare
+          // instance key — BEFORE any identity stamping.
+          const collapsed =
+            typeof DiffEngine !== "undefined" &&
+            typeof DiffEngine.collapseByInstanceKey === "function"
+              ? DiffEngine.collapseByInstanceKey(imported)
+              : imported;
 
-            for (const item of imported) {
-              if (typeof registerName === "function") registerName(item.name);
+          // Stamp uuid + serial on rows that still lack identity. Matched rows get a
+          // backfilled uuid from enrichItemIdentities; genuinely-new rows are stamped
+          // here so accepted adds are never saved keyless (D-3).
+          const stampIdentity = (rows) => {
+            for (const it of rows) {
+              if (it.serial == null || it.serial === "") it.serial = getNextSerial();
+              if (!it.uuid) it.uuid = generateUUID();
             }
-
-            if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
-              inventory = catalogManager.syncInventory(inventory);
-            }
-            if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
-            if (typeof debugLog === "function")
-              debugLog("inventoryRecovery: cleared by numistaImport");
-            await saveInventory();
-            // STAK-421: Cancel debounced sync push after replace import
-            if (
-              typeof scheduleSyncPush === "function" &&
-              typeof scheduleSyncPush.cancel === "function"
-            ) {
-              scheduleSyncPush.cancel();
-            }
-            renderTable();
-            if (typeof renderActiveFilters === "function") renderActiveFilters();
-            if (typeof updateStorageStats === "function") updateStorageStats();
-            if (typeof debugLog === "function")
-              debugLog("importNumistaCsv replace complete", imported.length, "items replaced");
           };
-          const runReplace = () =>
-            replaceInventory().catch((error) => handleError(error, "Numista CSV import"));
 
-          // --- Override path: replace directly, no confirmation ---
+          // --- Override path (AC-13): replace the entire inventory, no modal. ---
           if (override) {
-            runReplace();
+            stampIdentity(collapsed);
+            const runReplace = async () => {
+              inventory = collapsed;
+              for (const item of collapsed) {
+                if (typeof registerName === "function") registerName(item.name);
+              }
+              if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
+                inventory = catalogManager.syncInventory(inventory);
+              }
+              if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+              await saveInventory();
+              // STAK-421: cancel debounced sync push after a replace import.
+              if (typeof scheduleSyncPush === "function") scheduleSyncPush.cancel?.();
+              renderTable();
+              if (typeof renderActiveFilters === "function") renderActiveFilters();
+              if (typeof updateStorageStats === "function") updateStorageStats();
+            };
+            runReplace().catch((error) => handleError(error, "Numista CSV import"));
             return;
           }
 
-          // --- STRK-165 interim: Numista CSV merge de-duplication is unreliable
-          // (it appends duplicates instead of matching existing items). Until the
-          // proper instance-aware dedup lands, the importer is a one-time
-          // ONBOARDING tool that REPLACES the inventory rather than merging.
-          // Empty inventory is a clean setup; a non-empty inventory gets an
-          // explicit destructive warning whose Cancel button is focused. ---
-          const existingCount = Array.isArray(inventory) ? inventory.length : 0;
-
-          if (existingCount === 0) {
-            // Empty inventory: benign first-time setup, nothing to lose.
-            Promise.resolve(
-              typeof showAppConfirm === "function"
-                ? showAppConfirm(
-                    `Import ${imported.length} item(s) from your Numista collection to set up your inventory?`,
-                    "Numista Import"
-                  )
-                : false
-            )
-              .then((proceed) => (proceed ? runReplace() : null))
-              .catch((error) => handleError(error, "Numista CSV import"));
-            return;
+          // --- Merge path (AC-7/9/12): route through the shared diff-review modal,
+          // exactly as importCsv does. The STRK-165 interim onboarding/replace gate
+          // is gone — instance-aware dedup makes merging safe again. ---
+          if (
+            typeof DiffEngine !== "undefined" &&
+            typeof DiffEngine.enrichItemIdentities === "function"
+          ) {
+            DiffEngine.enrichItemIdentities(inventory, collapsed); // backfill matched uuids
           }
+          stampIdentity(collapsed); // stamp still-unmatched before the diff
 
-          // Non-empty inventory: destructive replace. An action dialog focuses
-          // Cancel by default, so Enter will not confirm the data loss.
-          const replaceMsg =
-            `⚠ One-time Numista onboarding import\n\n` +
-            `This REPLACES your entire inventory — all ${existingCount} existing item(s) will be removed — ` +
-            `and does NOT merge. Duplicate detection is temporarily disabled while we rebuild it (STRK-165).\n\n` +
-            `Grades, certificate numbers, and images on existing items will be lost. ` +
-            `Export a backup first if you are unsure.\n\n` +
-            `Replace your inventory with the ${imported.length} imported item(s)?`;
-
-          if (typeof showAppActionDialog === "function") {
-            showAppActionDialog({
-              title: "Numista Import",
-              message: replaceMsg,
-              primaryLabel: "Replace inventory",
-              secondaryLabel: "Cancel",
-              primaryAction: runReplace,
-            });
-          } else if (typeof showAppConfirm === "function") {
-            Promise.resolve(showAppConfirm(replaceMsg, "Numista Import"))
-              .then((proceed) => (proceed ? runReplace() : null))
-              .catch((error) => handleError(error, "Numista CSV import"));
-          }
+          showImportDiffReview(
+            collapsed,
+            { type: "csv", label: file.name },
+            {},
+            function (summary) {
+              if (typeof debugLog === "function") {
+                debugLog(
+                  "importNumistaCsv merge complete",
+                  summary.added,
+                  "added",
+                  summary.modified,
+                  "modified",
+                  summary.deleted,
+                  "deleted"
+                );
+              }
+            }
+          );
         } catch (error) {
           endImportProgress();
           handleError(error, "Numista CSV import");
