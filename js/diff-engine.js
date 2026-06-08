@@ -312,10 +312,11 @@ const DiffEngine = {
   /**
    * Instance-aware catalog key (STRK-167): `numistaId|year|grade|certNumber`.
    * A numistaId identifies a catalog TYPE; grade + certNumber distinguish the
-   * physical INSTANCE, and year keeps distinct issue years separate. grade/cert
-   * are trimmed + lowercased; missing segments collapse to "". Shared by
-   * computeItemKey (tertiary tier) and enrichItemIdentities so the three
-   * historical key copies can never drift again.
+   * physical INSTANCE, and year keeps distinct issue years separate. numistaId is
+   * trimmed (sanitizeObjectFields preserves surrounding spaces, so `" 12345 "` and
+   * `"12345"` must key the same); grade/cert are trimmed + lowercased; missing
+   * segments collapse to "". Shared by computeItemKey (tertiary tier) and
+   * enrichItemIdentities so the three historical key copies can never drift again.
    *
    * @param {object} item
    * @returns {string}
@@ -325,8 +326,9 @@ const DiffEngine = {
       String(v == null ? "" : v)
         .trim()
         .toLowerCase();
+    const nid = String(item.numistaId == null ? "" : item.numistaId).trim();
     const year = item.year == null ? "" : String(item.year);
-    return `${item.numistaId}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
+    return `${nid}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
   },
 
   // -------------------------------------------------------------------------
@@ -374,9 +376,10 @@ const DiffEngine = {
    * Collapses rows that share an instance key (STRK-167 AC-6), summing qty.
    * Used by the Numista importer to merge the repeated N# rows the export emits
    * for identical ungraded copies BEFORE identity stamping. Distinct years or
-   * grades produce distinct keys and stay separate. Rows without a numistaId
-   * pass through untouched (no instance key to group on). Pure — returns a new
-   * array of (shallow-cloned) rows; inputs are not mutated.
+   * grades produce distinct keys and stay separate. The returned array is always
+   * new and the input rows are never mutated: numistaId rows are shallow-cloned
+   * before their qty is summed, while rows without a numistaId pass through by
+   * reference (no instance key to group on).
    *
    * @param {object[]} rows
    * @returns {object[]}
