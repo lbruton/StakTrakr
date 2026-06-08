@@ -98,6 +98,30 @@ describe("AC-2 — changeLog and DiffEngine produce identical keys (3-site equiv
       );
     });
   }
+
+  // The DiffEngine-absent fallback (`_fallbackItemKey`) is the safety net that
+  // fires only when window.DiffEngine is missing. Load changeLog.js into a window
+  // WITHOUT DiffEngine so computeItemKey exercises the inline fallback directly.
+  describe("changeLog fallback (DiffEngine absent) mirrors the instance key", () => {
+    const bareWin = {};
+    new Function("window", clSrc)(bareWin);
+    const fallbackKey = bareWin.computeItemKey;
+
+    test("fallback is in use (no DiffEngine on this window)", () => {
+      assert.equal(bareWin.DiffEngine, undefined);
+      assert.equal(typeof fallbackKey, "function");
+    });
+
+    test("fallback builds the instance key for a numista item", () => {
+      assert.equal(fallbackKey(instance({ grade: "", certNumber: "" })), "12345|2024||");
+    });
+
+    test("fallback trims numistaId and year (PR #1234 review)", () => {
+      const ref = fallbackKey(instance({ grade: "", certNumber: "" }));
+      assert.equal(fallbackKey(instance({ numistaId: " 12345 ", grade: "", certNumber: "" })), ref);
+      assert.equal(fallbackKey(instance({ year: " 2024 ", grade: "", certNumber: "" })), ref);
+    });
+  });
 });
 
 describe("AC-3 — same ungraded instance from API vs CSV → identical keys", () => {
