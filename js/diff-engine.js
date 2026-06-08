@@ -424,7 +424,10 @@ const DiffEngine = {
     const incoming = Array.isArray(incomingItems) ? incomingItems : [];
 
     const uuidBySerial = new Map();
-    const uuidByNumista = new Map();
+    // STRK-167 (D-7): numista lookup is a FIFO BUCKET per instance key — multiple
+    // local items can share a key (e.g. two ungraded copies), and a last-write-wins
+    // Map would silently drop all but one UUID. Each incoming match shifts one UUID.
+    const uuidsByInstance = new Map();
     const uuidByNameDate = new Map();
 
     for (let i = 0; i < local.length; i++) {
@@ -434,10 +437,10 @@ const DiffEngine = {
         uuidBySerial.set(String(item.serial), item.uuid);
       }
       if (item.numistaId) {
-        uuidByNumista.set(
-          item.numistaId + "|" + (item.name || "") + "|" + (item.date || ""),
-          item.uuid
-        );
+        const ik = DiffEngine._instanceKey(item);
+        const bucket = uuidsByInstance.get(ik);
+        if (bucket) bucket.push(item.uuid);
+        else uuidsByInstance.set(ik, [item.uuid]);
       }
       const nameKey = (item.name || "") + "|" + (item.date || "");
       if (!uuidByNameDate.has(nameKey)) {
@@ -461,16 +464,22 @@ const DiffEngine = {
         }
       }
 
+      // STRK-167 (D-7): numista-bearing rows match ONLY on the instance key, by
+      // consuming a UUID from the FIFO bucket. They must NOT fall through to the
+      // name|date tier — a graded local UUID reattached to an ungraded incoming
+      // row would turn an advisory add into a destructive modified match.
       if (inc.numistaId) {
-        const byNumista = uuidByNumista.get(
-          inc.numistaId + "|" + (inc.name || "") + "|" + (inc.date || "")
-        );
-        if (byNumista && !usedUUIDs.has(byNumista)) {
-          inc.uuid = byNumista;
-          usedUUIDs.add(byNumista);
-          enriched++;
-          continue;
+        const bucket = uuidsByInstance.get(DiffEngine._instanceKey(inc));
+        while (bucket && bucket.length) {
+          const candidate = bucket.shift();
+          if (!usedUUIDs.has(candidate)) {
+            inc.uuid = candidate;
+            usedUUIDs.add(candidate);
+            enriched++;
+            break;
+          }
         }
+        continue;
       }
 
       const byNameDate = uuidByNameDate.get((inc.name || "") + "|" + (inc.date || ""));
