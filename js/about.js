@@ -31,7 +31,7 @@ const populateAboutTab = () => {
   loadAnnouncements();
 };
 
-const loadAnnouncements = async () => {
+const loadAnnouncements = () => {
   const whatsNewTargets = [document.getElementById("aboutChangelogLatest")].filter(Boolean);
 
   if (!whatsNewTargets.length) return;
