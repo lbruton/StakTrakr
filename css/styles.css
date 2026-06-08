@@ -4893,9 +4893,8 @@ input[type="submit"] {
   border-top: 1px solid var(--border);
 }
 
-/* D) What's New and Roadmap list items */
-#settingsPanel_about #aboutChangelogLatest li,
-#settingsPanel_about #aboutRoadmapList li {
+/* D) What's New list items */
+#settingsPanel_about #aboutChangelogLatest li {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   line-height: 1.5;
@@ -4908,11 +4907,7 @@ input[type="submit"] {
 #settingsPanel_about #aboutChangelogLatest li strong {
   color: var(--text-primary);
 }
-#settingsPanel_about #aboutRoadmapList li strong {
-  color: var(--text-primary);
-}
-#settingsPanel_about #aboutChangelogLatest,
-#settingsPanel_about #aboutRoadmapList {
+#settingsPanel_about #aboutChangelogLatest {
   padding-left: 0;
 }
 
