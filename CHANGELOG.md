@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.14] - 2026-06-07
+
+### Changed — STRK-167: Numista instance-aware de-duplication + safe merge
+
+- **Numista import**: restored a safe merge with instance-aware de-duplication. The identity key is now `numistaId|year|grade|certNumber`, so identical ungraded copies collapse into one row with a summed quantity, distinct graded instances stay separate (cert data preserved), and re-importing the same CSV produces no duplicates. The importer routes through the shared diff-review modal again (the STRK-165 interim onboarding/replace gate is removed; `importNumistaCsv(file, true)` still replaces directly). The review modal gains a 3-way quantity control (Keep / Replace / Add-to-existing, keyboard-accessible) and an advisory "possible duplicate of a graded item" badge — the badge never blocks import and is never persisted onto an item (STRK-167).
+
+---
+
 ## [3.35.13] - 2026-06-07
 
 ### Changed — STRK-161: Spot card ratio chips
