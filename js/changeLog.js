@@ -28,7 +28,9 @@
  * @returns {string} Stable item key
  */
 const _fallbackItemKey = (item) => {
-  // Mirror DiffEngine's authoritative ladder for the rare case DiffEngine is absent.
+  // duplication-ok: intentional safety net that mirrors DiffEngine's authoritative
+  // ladder ONLY when window.DiffEngine is absent (e.g. an isolated unit harness).
+  // computeItemKey delegates to DiffEngine at runtime; this never fires in the app.
   if (!item) return "";
   if (item.uuid) return String(item.uuid);
   if (item.serial != null && item.serial !== "") return String(item.serial);
@@ -37,8 +39,9 @@ const _fallbackItemKey = (item) => {
       String(v == null ? "" : v)
         .trim()
         .toLowerCase();
-    const year = item.year == null ? "" : String(item.year);
-    return `${item.numistaId}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
+    const nid = String(item.numistaId == null ? "" : item.numistaId).trim();
+    const year = String(item.year == null ? "" : item.year).trim();
+    return `${nid}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
   }
   return `${item.name || ""}|${item.date || ""}`;
 };
