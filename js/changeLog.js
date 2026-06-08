@@ -27,11 +27,8 @@
  * @param {Object} item - Inventory item object
  * @returns {string} Stable item key
  */
-const computeItemKey = (item) => {
-  if (typeof window !== "undefined" && window.DiffEngine && window.DiffEngine.computeItemKey) {
-    return window.DiffEngine.computeItemKey(item);
-  }
-  // Fallback (DiffEngine unavailable): mirror the authoritative ladder.
+const _fallbackItemKey = (item) => {
+  // Mirror DiffEngine's authoritative ladder for the rare case DiffEngine is absent.
   if (!item) return "";
   if (item.uuid) return String(item.uuid);
   if (item.serial != null && item.serial !== "") return String(item.serial);
@@ -44,6 +41,13 @@ const computeItemKey = (item) => {
     return `${item.numistaId}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
   }
   return `${item.name || ""}|${item.date || ""}`;
+};
+
+const computeItemKey = (item) => {
+  if (typeof window !== "undefined" && window.DiffEngine && window.DiffEngine.computeItemKey) {
+    return window.DiffEngine.computeItemKey(item);
+  }
+  return _fallbackItemKey(item);
 };
 
 /**

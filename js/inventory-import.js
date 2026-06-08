@@ -985,17 +985,10 @@
               if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
               await saveInventory();
               // STAK-421: cancel debounced sync push after a replace import.
-              if (
-                typeof scheduleSyncPush === "function" &&
-                typeof scheduleSyncPush.cancel === "function"
-              ) {
-                scheduleSyncPush.cancel();
-              }
+              if (typeof scheduleSyncPush === "function") scheduleSyncPush.cancel?.();
               renderTable();
               if (typeof renderActiveFilters === "function") renderActiveFilters();
               if (typeof updateStorageStats === "function") updateStorageStats();
-              if (typeof debugLog === "function")
-                debugLog("importNumistaCsv override replace complete", collapsed.length);
             };
             runReplace().catch((error) => handleError(error, "Numista CSV import"));
             return;
