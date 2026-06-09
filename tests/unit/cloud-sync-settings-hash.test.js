@@ -12,7 +12,7 @@
 // Fix: hash NORMALIZED logical content (decompress, JSON-parse with raw-scalar
 // fallback, sort object keys, preserve array order). These tests load the REAL
 // computeSettingsHash block from js/cloud-sync.js and the REAL compression helpers
-// from js/utils.js (slice-and-eval, mirrors storage-compression.test.js), with the
+// from js/utils-storage.js (slice-and-eval, mirrors storage-compression.test.js), with the
 // real vendored lz-string engine, so compressed-vs-plain is exercised end-to-end.
 
 import { test, describe } from "node:test";
@@ -25,13 +25,13 @@ const _lzModule = { exports: {} };
 new Function("module", "exports", "window", lzCode)(_lzModule, _lzModule.exports, undefined);
 const LZString = _lzModule.exports;
 
-// --- Real __compressIfNeeded / __decompressIfNeeded from utils.js ---
-const utilsSrc = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
+// --- Real __compressIfNeeded / __decompressIfNeeded from utils-storage.js (STRK-177) ---
+const utilsSrc = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
 const cStart = utilsSrc.indexOf("const __ST_COMP_PREFIX");
-const cEnd = utilsSrc.indexOf("function getContrastColor");
+const cEnd = utilsSrc.indexOf("// Kick off the one-time");
 assert.ok(
   cStart !== -1 && cEnd !== -1 && cEnd > cStart,
-  "could not locate compression block in utils.js"
+  "could not locate compression block in utils-storage.js"
 );
 const compFactory = new Function(
   "__LZ",
