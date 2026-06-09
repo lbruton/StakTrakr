@@ -42,13 +42,6 @@ const __LZ = __LZ_REAL
   ? window.LZString
   : { compressToUTF16: (input) => input, decompressFromUTF16: (input) => input };
 
-// UTILITY FUNCTIONS
-
-/**
- * Escape HTML special characters to prevent XSS when interpolating into innerHTML.
- * @param {*} str - Value to escape (coerced to string)
- * @returns {string} Escaped HTML-safe string
- */
 /**
  * Save data to localStorage with optional compression
  * @param {string} key - Storage key

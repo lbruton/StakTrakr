@@ -9,6 +9,13 @@
 // three sibling utils files in index.html.
 // =============================================================================
 
+// UTILITY FUNCTIONS
+
+/**
+ * Escape HTML special characters to prevent XSS when interpolating into innerHTML.
+ * @param {*} str - Value to escape (coerced to string)
+ * @returns {string} Escaped HTML-safe string
+ */
 const escapeHtml = (str) =>
   String(str ?? "")
     .replace(/&/g, "&amp;")
