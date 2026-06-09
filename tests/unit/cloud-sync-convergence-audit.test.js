@@ -19,13 +19,14 @@ const lzCode = readFileSync(new URL("../../vendor/lz-string.min.js", import.meta
 const _lzModule = { exports: {} };
 new Function("module", "exports", "window", lzCode)(_lzModule, _lzModule.exports, undefined);
 const LZString = _lzModule.exports;
-const utilsSrc = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
+// STRK-177: compression codec moved verbatim from js/utils.js to js/utils-storage.js.
+const utilsSrc = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
 const compFactory = new Function(
   "__LZ",
   "__LZ_REAL",
   utilsSrc.slice(
     utilsSrc.indexOf("const __ST_COMP_PREFIX"),
-    utilsSrc.indexOf("function getContrastColor")
+    utilsSrc.indexOf("// Kick off the one-time")
   ) + "\nreturn { __decompressIfNeeded };"
 );
 const { __decompressIfNeeded } = compFactory(LZString, true);
