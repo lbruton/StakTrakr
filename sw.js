@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.14-b1780963916";
+const CACHE_NAME = "staktrakr-v3.35.14-b1780967671";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -85,6 +85,7 @@ const CORE_ASSETS = [
   "./js/csv-export.js",
   "./js/inventory-table.js",
   "./js/inventory.js",
+  "./js/vault-crypto.js",
   "./js/vault.js",
   "./js/cloud-storage.js",
   "./js/cloud-sync.js",
