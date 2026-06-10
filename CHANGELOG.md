@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.15] - 2026-06-10
+
+### Changed — STRK-184: Remove dead storage-report popup renderer
+
+- **Security/cleanup**: Removed the unreachable storage-report popup renderer from `js/utils-storage-report.js` (`openStorageReportPopup`, `generateStorageReportHTML` and its CSS/JS/analysis helpers, `generateStorageReportTar`). Its `#storageReportModal` markup was removed from `index.html` in an earlier release and nothing invoked it, leaving ~1,400 lines of dead code containing an XSS-prone HTML generator (unescaped `innerHTML` interpolation), a hardcoded Chart.js CDN load, a broken `window.close()` button, and a wrong empty-storage fallback. The live footer storage stats (`updateStorageStats`) and the `generateStorageReport` data helper are unchanged (STRK-184).
+
+---
+
 ## [3.35.14] - 2026-06-07
 
 ### Changed — STRK-167: Numista instance-aware de-duplication + safe merge
