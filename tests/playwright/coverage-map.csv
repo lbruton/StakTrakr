@@ -78,3 +78,4 @@ tests/playwright/core/smoke.spec.js,3,smoke-shell,P1 core user workflow,active,t
 tests/playwright/core/settings-api.spec.js,2,settings-api,P1 core user workflow,active,tests/playwright/core/settings-api.spec.js,STRK-161: new metal chip toggle + goldback gating
 tests/playwright/extended/visual-layout-regressions.spec.js,2,mobile-layout,P2 integration edge,active,tests/playwright/extended/visual-layout-regressions.spec.js,STRK-161: new metal chip four-theme rendering + mobile layout
 tests/playwright/core/import-export.spec.js,2,import-export,P0 money-data loss,active,tests/playwright/core/import-export.spec.js,STRK-185: added pattern-image vault roundtrip (wipe + restore) and legacy-payload/hash backward-compat coverage
+tests/playwright/core/retail-market.spec.js,1,retail-market,P1 core user workflow,active,tests/playwright/core/retail-market.spec.js,STRK-188: added api2 failover coverage for market detail modal (primary API down)
