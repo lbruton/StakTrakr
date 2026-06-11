@@ -585,16 +585,17 @@ async function syncRestoreOverrideBackup() {
         localStorage.setItem(bkeys[j], restoreVal);
       }
     }
+    // STRK-186: snapshot restore clears + rewrites catalog_api_config —
+    // rehydrate the constructor-cached catalog singletons first so no later
+    // refresh step can trigger a CatalogConfig.save() against stale state
+    // and clobber the restored API keys.
+    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
     if (typeof updateSummary === "function") updateSummary();
     if (typeof renderTable === "function") renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof loadSpotHistory === "function") loadSpotHistory();
-    // STRK-186: snapshot restore clears + rewrites catalog_api_config —
-    // rehydrate the constructor-cached catalog singletons so a later
-    // CatalogConfig.save() doesn't clobber the restored API keys.
-    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     logCloudSyncActivity("override_restore", "success", "Snapshot from " + ts + " restored");
     if (typeof showCloudToast === "function")
       showCloudToast("Local snapshot restored successfully.");
