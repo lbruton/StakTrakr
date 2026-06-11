@@ -335,14 +335,13 @@ test.describe(".coderabbit.yaml", () => {
     expect(content).toContain("coderabbit.ai/integrations/schema");
   });
 
-  test("CR-3 — minimal config: no dashboard-managed settings in file", () => {
-    expect(content).not.toContain("profile:");
-    expect(content).not.toContain("poem:");
-    expect(content).not.toContain("early_access:");
-    expect(content).not.toContain("language:");
-    expect(content).not.toContain("tone_instructions:");
-    expect(content).not.toContain("knowledge_base:");
-    expect(content).not.toContain("chat:");
+  test("CR-3 — single source of truth: auto_review covers dev base branch", () => {
+    // A repo .coderabbit.yaml REPLACES dashboard repo settings (no merge);
+    // omitted keys fall back to schema defaults. base_branches defaults to
+    // [] (default branch only), so dev must be listed here or PRs targeting
+    // dev silently lose auto-review (the original bug this guards against).
+    expect(content).toContain("auto_review:");
+    expect(content).toMatch(/base_branches:\s*\n\s*- dev/);
   });
 
   test("CR-4 — node_modules path filter is excluded", () => {
