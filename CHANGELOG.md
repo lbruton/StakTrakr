@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.16] - 2026-06-11
+
+### Changed — STRK-185: Encrypted backup now includes pattern-rule images
+
+- **Bug fix**: The encrypted backup image vault (.stvault image companion and cloud-sync photo upload) now exports and restores pattern-rule images from the `patternImages` IndexedDB store alongside user photos. Previously a pattern rule's regex survived backup (localStorage) but its obverse/reverse images did not, so rules silently lost their images after a storage wipe + restore. Old image vaults without pattern records restore unchanged, a pattern-only image library now produces an image companion file, and the image-vault change hash stays identical for users with no pattern images (STRK-185).
+
+---
+
 ## [3.35.15] - 2026-06-10
 
 ### Changed — STRK-184: Remove dead storage-report popup renderer

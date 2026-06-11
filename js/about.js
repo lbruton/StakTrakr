@@ -134,6 +134,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.16 &ndash; STRK-185: Pattern images in backups</strong>: Encrypted backups and cloud photo sync now include the images attached to your custom pattern rules, so they survive a storage wipe and restore instead of leaving rules image-less; older backups still restore normally (STRK-185).</li>
     <li><strong>v3.35.15 &ndash; STRK-184: Storage report cleanup</strong>: Removed an old, unused storage-report generator that could no longer be opened from the app &mdash; eliminating a potential security weak spot and shrinking the codebase; the footer storage meter is unchanged (STRK-184).</li>
     <li><strong>v3.35.14 &ndash; Safer Numista merge</strong>: Importing a Numista CSV now safely merges into your existing inventory instead of replacing it &mdash; identical ungraded copies combine with a summed quantity, graded coins stay separate, re-importing the same file adds no duplicates, and the review screen gains a Keep/Replace/Add quantity choice plus a &ldquo;possible duplicate of a graded item&rdquo; heads-up (STRK-167).</li>
     <li><strong>v3.35.13 &ndash; Spot card ratio chips</strong>: Every spot card now shows an at-a-glance ratio &mdash; gold-to-silver (GSR), gold-to-platinum, and gold-to-palladium on those cards, plus the daily goldback rate on the gold card &mdash; with a Currency &amp; Pricing toggle and a plain-English tooltip (STRK-161).</li>
@@ -141,7 +142,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.35.11 &ndash; Safer Numista import</strong>: The Numista CSV import is now a one-time onboarding tool that clearly warns it replaces your inventory instead of silently creating duplicates, while we rebuild duplicate detection (STRK-165).</li>
     <li><strong>v3.35.10 &ndash; Sync Image URLs</strong>: A new one-button sync backfills Numista coin images for items missing them (like CSV imports) &mdash; it reuses cached lookups to save API quota and never overwrites images you&rsquo;ve already set (STRK-166).</li>
     <li><strong>v3.35.9 &ndash; Image storage warnings</strong>: Saving an image when device storage is nearly full now shows a clear &ldquo;storage full&rdquo; message instead of silently failing into a broken square, and a heads-up appears as image storage fills up (STRK-146).</li>
-    <li><strong>v3.35.8 &ndash; Disposition consistency</strong>: An item with an empty disposition record no longer shows a phantom &ldquo;disposed&rdquo; badge or disappears from the disposed filter &mdash; styling, filters, totals, and the detail section now all agree (STRK-83).</li>
   `;
 };
 
