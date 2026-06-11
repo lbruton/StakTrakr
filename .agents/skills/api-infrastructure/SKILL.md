@@ -32,7 +32,8 @@ All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `a
 
 ## Fly.io Container (`staktrakr`) — Thin Publisher (STAK-478)
 
-- **App:** `staktrakr` — region `iad`, 1024MB RAM, 1 shared CPU
+- **App:** `staktrakr` — region `dfw`, 512MB RAM, 1 shared CPU, 3GB volume (`/data`)
+- **512MB RAM — uncapped git OOMs (signal 9).** Repo config in `/data/staktrakr-api-export` caps pack memory (`pack.threads=1`, `pack.windowMemory=32m`, `gc.auto=0`); re-apply after any re-clone. Self-cleaning publisher work tracked in STRK-187.
 - **Config:** `StakTrakr/devops/pollers/remote-poller/fly.toml` + `Dockerfile`
 - **Runs:** Spot cron (`0,30`), publish cron (`8,23,38,53`), provider export (`*/5`), serve.js. Retail/goldback disabled — handled by home poller.
 - **Deploy:** From StakTrakr repo: `cd devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`
@@ -47,7 +48,9 @@ All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `a
 | Workflow                | Repo           | Schedule                                          | Purpose                                            |
 | ----------------------- | -------------- | ------------------------------------------------- | -------------------------------------------------- |
 | `spot-poller.yml`       | `StakTrakr`    | **RETIRED 2026-02-23** — `workflow_dispatch` only | Was Python→MetalPriceAPI; now Fly.io `run-spot.sh` |
-| `Merge Poller Branches` | `StakTrakrApi` | `*/15 min`                                        | Merges `api` → `main` → triggers GH Pages          |
+| `Merge Poller Branches` | `StakTrakrApi` | **RETIRED** — repo has no workflows               | GH Pages serves the `api` branch directly          |
+
+**StakTrakrApi branch model:** `api` is the default and _only_ branch — there is no `main`. GH Pages (legacy build) serves `api` at `api.staktrakr.com`; each force-push triggers `pages-build-deployment` directly. The `No Delete` ruleset on `refs/heads/api` blocks deletion and non-fast-forward pushes (routine publishes are effective fast-forwards; a history rewrite requires temporarily disabling the ruleset via API).
 
 ---
 
