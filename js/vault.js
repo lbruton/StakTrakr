@@ -649,16 +649,24 @@ function _base64ToBlob(b64, mimeType) {
 }
 
 /**
- * Export user images from IndexedDB, convert Blobs to base64, and compute a
- * stable hash so push can skip upload when images haven't changed.
- * @returns {Promise<{payload: object, hash: string, imageCount: number}|null>}
- *   null when there are no user-uploaded images
+ * Export user images and pattern-rule images from IndexedDB, convert Blobs to
+ * base64, and compute a stable hash so push can skip upload when images
+ * haven't changed. Pattern images (STRK-185) travel in a separate
+ * `patternRecords` array so payloads from older app versions (which lack it)
+ * restore unchanged.
+ * @returns {Promise<{payload: object, hash: string, imageCount: number, patternImageCount: number}|null>}
+ *   null when there are no user-uploaded images and no pattern images.
+ *   imageCount is the combined total (user + pattern).
  */
 async function collectAndHashImageVault() {
   if (typeof imageCache === "undefined" || typeof imageCache.exportAllUserImages !== "function")
     return null;
-  var records = await imageCache.exportAllUserImages();
-  if (!records || records.length === 0) return null;
+  var records = (await imageCache.exportAllUserImages()) || [];
+  var patternSource =
+    typeof imageCache.exportAllPatternImages === "function"
+      ? (await imageCache.exportAllPatternImages()) || []
+      : [];
+  if (records.length === 0 && patternSource.length === 0) return null;
 
   var serialized = [];
   var failedCount = 0;
@@ -682,39 +690,71 @@ async function collectAndHashImageVault() {
     serialized.push(entry);
   }
 
+  var serializedPatterns = [];
+  for (var j = 0; j < patternSource.length; j++) {
+    var p = patternSource[j];
+    var pEntry = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size };
+    try {
+      if (p.obverse instanceof Blob) {
+        pEntry.obverse = await _blobToBase64(p.obverse);
+        pEntry.obverseType = p.obverse.type;
+      }
+      if (p.reverse instanceof Blob) {
+        pEntry.reverse = await _blobToBase64(p.reverse);
+        pEntry.reverseType = p.reverse.type;
+      }
+    } catch (patternBlobErr) {
+      failedCount++;
+      debugLog("[Vault] Image vault: blob conversion failed for ruleId", p.ruleId, patternBlobErr);
+      continue;
+    }
+    serializedPatterns.push(pEntry);
+  }
+
+  var totalRecords = records.length + patternSource.length;
   if (failedCount > 0) {
     debugLog(
-      "[Vault] Image vault: " + failedCount + " of " + records.length + " images failed to export",
+      "[Vault] Image vault: " + failedCount + " of " + totalRecords + " images failed to export",
       "warn"
     );
   }
-  if (serialized.length === 0 && records.length > 0) {
+  if (serialized.length === 0 && serializedPatterns.length === 0) {
     throw new Error(
-      "Image vault export failed — could not read any of " + records.length + " images."
+      "Image vault export failed — could not read any of " + totalRecords + " images."
     );
   }
-
-  if (serialized.length === 0) return null;
 
   var payload = {
     _meta: {
       appVersion: typeof APP_VERSION !== "undefined" ? APP_VERSION : "unknown",
       exportTimestamp: new Date().toISOString(),
       imageCount: serialized.length,
+      patternImageCount: serializedPatterns.length,
     },
     records: serialized,
+    patternRecords: serializedPatterns,
   };
 
   // Hash includes a content sample (first 32 chars of obverse base64) so that
   // replacing an image with one of identical byte size still triggers an upload.
-  var hash = simpleHash(
-    JSON.stringify(
-      serialized.map(function (e) {
-        return e.uuid + ":" + e.size + ":" + (e.obverse ? e.obverse.slice(0, 32) : "");
-      })
-    )
-  );
-  return { payload: payload, hash: hash, imageCount: serialized.length };
+  // Pattern parts are appended after user parts with a "p:" prefix; with zero
+  // pattern images the hash input is byte-identical to the pre-STRK-185 format.
+  var hashParts = serialized.map(function (e) {
+    return e.uuid + ":" + e.size + ":" + (e.obverse ? e.obverse.slice(0, 32) : "");
+  });
+  for (var k = 0; k < serializedPatterns.length; k++) {
+    var pe = serializedPatterns[k];
+    hashParts.push(
+      "p:" + pe.ruleId + ":" + pe.size + ":" + (pe.obverse ? pe.obverse.slice(0, 32) : "")
+    );
+  }
+  var hash = simpleHash(JSON.stringify(hashParts));
+  return {
+    payload: payload,
+    hash: hash,
+    imageCount: serialized.length + serializedPatterns.length,
+    patternImageCount: serializedPatterns.length,
+  };
 }
 
 /**
@@ -734,19 +774,24 @@ async function vaultEncryptImageVault(password, payload) {
 }
 
 /**
- * Restore user images from a decrypted image vault payload.
+ * Restore user images and pattern-rule images from a decrypted image vault
+ * payload. Payloads from app versions before STRK-185 have no `patternRecords`
+ * array — only the user-image loop runs, exactly as before.
  * @param {object} payload
- * @returns {Promise<number>} Number of images imported
+ * @returns {Promise<number>} Number of images imported (user + pattern)
  */
 async function restoreImageVaultData(payload) {
-  if (!payload || !Array.isArray(payload.records)) return 0;
+  if (!payload) return 0;
+  var userRecords = Array.isArray(payload.records) ? payload.records : [];
+  var patternRecords = Array.isArray(payload.patternRecords) ? payload.patternRecords : [];
+  if (userRecords.length === 0 && patternRecords.length === 0) return 0;
   if (typeof imageCache === "undefined" || typeof imageCache.importUserImageRecord !== "function")
     return 0;
 
   var count = 0;
   var failed = 0;
-  for (var i = 0; i < payload.records.length; i++) {
-    var r = payload.records[i];
+  for (var i = 0; i < userRecords.length; i++) {
+    var r = userRecords[i];
     if (!r.uuid) continue;
     try {
       var record = { uuid: r.uuid, cachedAt: r.cachedAt, size: r.size };
@@ -764,12 +809,40 @@ async function restoreImageVaultData(payload) {
       debugLog("[Vault] Image vault: record import error for uuid", r.uuid, recErr);
     }
   }
+  if (typeof imageCache.importPatternImageRecord === "function") {
+    for (var j = 0; j < patternRecords.length; j++) {
+      var p = patternRecords[j];
+      if (!p.ruleId) continue;
+      try {
+        var pRecord = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size };
+        if (p.obverse) pRecord.obverse = _base64ToBlob(p.obverse, p.obverseType);
+        if (p.reverse) pRecord.reverse = _base64ToBlob(p.reverse, p.reverseType);
+        var pOk = await imageCache.importPatternImageRecord(pRecord);
+        if (pOk) {
+          count++;
+        } else {
+          failed++;
+          debugLog(
+            "[Vault] Image vault: importPatternImageRecord returned false for ruleId",
+            p.ruleId
+          );
+        }
+      } catch (patternRecErr) {
+        failed++;
+        debugLog(
+          "[Vault] Image vault: pattern record import error for ruleId",
+          p.ruleId,
+          patternRecErr
+        );
+      }
+    }
+  }
   if (failed > 0) {
     var msg =
       "Image vault restore: " +
       failed +
       " of " +
-      payload.records.length +
+      (userRecords.length + patternRecords.length) +
       " images failed to import.";
     debugLog("[Vault] " + msg, "error");
     throw new Error(msg);
