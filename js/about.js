@@ -134,6 +134,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.17 &ndash; STRK-188: Market data backup API</strong>: Market prices now automatically fall back to the backup API when the primary is unreachable &mdash; the Market tab keeps live data during a primary-feed outage, matching how spot prices already behave (STRK-188).</li>
     <li><strong>v3.35.16 &ndash; STRK-185: Pattern images in backups</strong>: Encrypted backups and cloud photo sync now include the images attached to your custom pattern rules, so they survive a storage wipe and restore instead of leaving rules image-less; older backups still restore normally (STRK-185).</li>
     <li><strong>v3.35.15 &ndash; STRK-184: Storage report cleanup</strong>: Removed an old, unused storage-report generator that could no longer be opened from the app &mdash; eliminating a potential security weak spot and shrinking the codebase; the footer storage meter is unchanged (STRK-184).</li>
     <li><strong>v3.35.14 &ndash; Safer Numista merge</strong>: Importing a Numista CSV now safely merges into your existing inventory instead of replacing it &mdash; identical ungraded copies combine with a summed quantity, graded coins stay separate, re-importing the same file adds no duplicates, and the review screen gains a Keep/Replace/Add quantity choice plus a &ldquo;possible duplicate of a graded item&rdquo; heads-up (STRK-167).</li>
@@ -141,7 +142,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.35.12 &ndash; Faster image saves</strong>: Saving coin images stays fast even with a large image library &mdash; the storage check no longer re-scans every stored image on each save, and the storage-full warnings are unchanged (STRK-162).</li>
     <li><strong>v3.35.11 &ndash; Safer Numista import</strong>: The Numista CSV import is now a one-time onboarding tool that clearly warns it replaces your inventory instead of silently creating duplicates, while we rebuild duplicate detection (STRK-165).</li>
     <li><strong>v3.35.10 &ndash; Sync Image URLs</strong>: A new one-button sync backfills Numista coin images for items missing them (like CSV imports) &mdash; it reuses cached lookups to save API quota and never overwrites images you&rsquo;ve already set (STRK-166).</li>
-    <li><strong>v3.35.9 &ndash; Image storage warnings</strong>: Saving an image when device storage is nearly full now shows a clear &ldquo;storage full&rdquo; message instead of silently failing into a broken square, and a heads-up appears as image storage fills up (STRK-146).</li>
   `;
 };
 

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.17] - 2026-06-11
+
+### Changed — STRK-188: Market data fails over to the backup API
+
+- **Bug fix**: Market data (manifest, coin detail, 30-day history, intraday) now tries `api.staktrakr.com` and falls back to `api2.staktrakr.com` using the same ordered-failover helper as the spot and goldback feeds. Previously `js/market-data.js` hardcoded the primary endpoint, so a GitHub Pages outage blanked the Market tab even while the Fly.io backup API was serving fresh data — defeating the backup's purpose. Surfaced during the 2026-06-11 feed outage (STRK-188).
+
+---
+
 ## [3.35.16] - 2026-06-11
 
 ### Changed — STRK-185: Encrypted backup now includes pattern-rule images

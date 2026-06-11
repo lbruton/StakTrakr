@@ -4,6 +4,24 @@
 let _marketDataInitialized = false;
 const V2_API = "https://api.staktrakr.com/data/v2";
 
+// STRK-188: ordered endpoint failover (api1 → api2), mirroring the spot and
+// goldback fetch paths. _staktrakrFetch is defined in api.js, which executes
+// after this file (both deferred) — it exists by the time any market fetch
+// runs, and the typeof guard degrades to the primary endpoint only if not.
+const _marketV2Fetch = async (path) => {
+  if (
+    typeof _staktrakrFetch === "function" &&
+    typeof V2_API_ENDPOINTS !== "undefined" &&
+    Array.isArray(V2_API_ENDPOINTS) &&
+    V2_API_ENDPOINTS.length
+  ) {
+    return _staktrakrFetch(V2_API_ENDPOINTS, path);
+  }
+  const resp = await fetch(V2_API + path, { signal: AbortSignal.timeout(10000) });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  return resp.json();
+};
+
 const _METAL_TO_ISO = { silver: "xag", gold: "xau", platinum: "xpt", palladium: "xpd" };
 const _ISO_TO_METAL = { xag: "silver", xau: "gold", xpt: "platinum", xpd: "palladium" };
 
@@ -105,9 +123,7 @@ const _ensureManifest = async () => {
     Object.keys(vendorMeta).length >= 5;
   if (hasSufficientMeta) return;
   try {
-    const resp = await fetch(V2_API + "/manifest.json", { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) return;
-    const json = await resp.json();
+    const json = await _marketV2Fetch("/manifest.json");
     const data = json.data || json;
     if (data.coins && Array.isArray(data.coins)) {
       const cm = {};
@@ -524,10 +540,7 @@ const openMarketDetailModal = async (slug) => {
   const metalLower = (coinMeta.metal || "").toLowerCase();
   const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
 
-  const detailPromise = fetch(V2_API + "/retail/" + slug + "/latest.json", {
-    signal: AbortSignal.timeout(10000),
-  })
-    .then((r) => (r.ok ? r.json() : null))
+  const detailPromise = _marketV2Fetch("/retail/" + slug + "/latest.json")
     .then((json) => (json && json.data ? json.data : null))
     .catch((e) => {
       debugLog("[market-data] Detail fetch failed: " + e.message, "warn");
@@ -535,17 +548,11 @@ const openMarketDetailModal = async (slug) => {
     });
 
   // Fetch per-vendor retail history (30d — filter to 7 in chart) and intraday (24h)
-  const historyPromise = fetch(V2_API + "/retail/" + slug + "/history-30d.json", {
-    signal: AbortSignal.timeout(10000),
-  })
-    .then((r) => (r.ok ? r.json() : null))
+  const historyPromise = _marketV2Fetch("/retail/" + slug + "/history-30d.json")
     .then((json) => (json && json.data ? json.data : json))
     .catch(() => null);
 
-  const intradayPromise = fetch(V2_API + "/retail/" + slug + "/intraday.json", {
-    signal: AbortSignal.timeout(10000),
-  })
-    .then((r) => (r.ok ? r.json() : null))
+  const intradayPromise = _marketV2Fetch("/retail/" + slug + "/intraday.json")
     .then((json) => (json && json.data ? json.data : json))
     .catch(() => null);
 
