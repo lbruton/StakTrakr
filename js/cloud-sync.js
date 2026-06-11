@@ -591,6 +591,10 @@ async function syncRestoreOverrideBackup() {
     if (typeof renderTable === "function") renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof loadSpotHistory === "function") loadSpotHistory();
+    // STRK-186: snapshot restore clears + rewrites catalog_api_config —
+    // rehydrate the constructor-cached catalog singletons so a later
+    // CatalogConfig.save() doesn't clobber the restored API keys.
+    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     logCloudSyncActivity("override_restore", "success", "Snapshot from " + ts + " restored");
     if (typeof showCloudToast === "function")
       showCloudToast("Local snapshot restored successfully.");

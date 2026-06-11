@@ -263,6 +263,9 @@ async function restoreVaultData(payload) {
     if (typeof fetchSpotPrice === "function") fetchSpotPrice();
     if (typeof _invalidateMarketFilterCache === "function") _invalidateMarketFilterCache();
     if (typeof renderMarketFilterMatrix === "function") renderMarketFilterMatrix();
+    // STRK-186: rehydrate constructor-cached catalog singletons so a later
+    // CatalogConfig.save() doesn't clobber the freshly-restored API keys.
+    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
   } catch (e) {
     debugLog("Vault: UI refresh error", e);
   }
@@ -558,6 +561,13 @@ async function vaultRestoreWithPreview(fileBytes, password) {
               appliedSettings = true;
             }
           }
+        }
+
+        // STRK-186: settings writes can include catalog_api_config — rehydrate
+        // the constructor-cached catalog singletons so a later
+        // CatalogConfig.save() doesn't clobber the freshly-restored API keys.
+        if (appliedSettings && typeof rehydrateCatalogState === "function") {
+          rehydrateCatalogState();
         }
 
         // Save & render
