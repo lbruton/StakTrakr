@@ -9,17 +9,27 @@ const V2_API = "https://api.staktrakr.com/data/v2";
 // after this file (both deferred) — it exists by the time any market fetch
 // runs, and the typeof guard degrades to the primary endpoint only if not.
 const _marketV2Fetch = async (path) => {
-  if (
-    typeof _staktrakrFetch === "function" &&
+  const endpoints =
     typeof V2_API_ENDPOINTS !== "undefined" &&
     Array.isArray(V2_API_ENDPOINTS) &&
     V2_API_ENDPOINTS.length
-  ) {
-    return _staktrakrFetch(V2_API_ENDPOINTS, path);
+      ? V2_API_ENDPOINTS
+      : [V2_API];
+  if (typeof _staktrakrFetch === "function") {
+    return _staktrakrFetch(endpoints, path);
   }
-  const resp = await fetch(V2_API + path, { signal: AbortSignal.timeout(10000) });
-  if (!resp.ok) throw new Error("HTTP " + resp.status);
-  return resp.json();
+  // Fallback if api.js hasn't executed: same ordered failover with plain fetch.
+  let lastErr;
+  for (const base of endpoints) {
+    try {
+      const resp = await fetch(base + path, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      return await resp.json();
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("All market endpoints failed");
 };
 
 const _METAL_TO_ISO = { silver: "xag", gold: "xau", platinum: "xpt", palladium: "xpd" };
