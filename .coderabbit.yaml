@@ -1,9 +1,11 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 #
-# SINGLE SOURCE OF TRUTH for CodeRabbit. A repo .coderabbit.yaml REPLACES
-# dashboard settings (priority 2 vs 4 — no merge), so settings omitted here
-# fall back to schema DEFAULTS, not dashboard values. Keep everything in
-# this file; treat the dashboard as read-only.
+# Source of truth for REPO-LEVEL CodeRabbit settings. A repo
+# .coderabbit.yaml REPLACES dashboard repo settings (priority 2 vs 4 —
+# no merge), so settings omitted here fall back to schema DEFAULTS, not
+# dashboard values. Keep repo settings in this file; treat the repo
+# dashboard as read-only. `inheritance: true` below still merges in
+# ORGANIZATION-level UI settings (tone, profile) for keys absent here.
 #
 # Root cause this fixes: auto_review.base_branches defaults to [] (default
 # branch only), so PRs targeting dev were silently never auto-reviewed even
