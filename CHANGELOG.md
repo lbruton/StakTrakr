@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.18] - 2026-06-11
+
+### Changed — STRK-186: Restored backups keep catalog API keys
+
+- **Bug fix**: Restoring an encrypted backup (or applying a cloud-sync snapshot) now rehydrates the in-memory catalog configuration after writing `catalog_api_config` to localStorage. Previously the `CatalogConfig` singleton kept the stale defaults it booted with, so the restored Numista API key / PCGS bearer token looked missing, and the next usage-counter save permanently overwrote the restored keys with empty values. All restore paths (legacy full restore, diff-preview apply, cloud-sync pull, snapshot restore) now call a shared `rehydrateCatalogState()` helper that reloads `CatalogConfig`, `CatalogAPI` settings, and reinitializes providers. Reported by a beta user after a browser-storage wipe (STRK-186).
+
+---
+
 ## [3.35.17] - 2026-06-11
 
 ### Changed — STRK-188: Market data fails over to the backup API

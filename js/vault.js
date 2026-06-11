@@ -255,6 +255,10 @@ async function restoreVaultData(payload) {
 
   // Refresh the full UI
   try {
+    // STRK-186: rehydrate constructor-cached catalog singletons first so no
+    // later refresh step can trigger a CatalogConfig.save() against stale
+    // in-memory state and clobber the freshly-restored API keys.
+    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
     if (typeof renderTable === "function") renderTable();
@@ -558,6 +562,13 @@ async function vaultRestoreWithPreview(fileBytes, password) {
               appliedSettings = true;
             }
           }
+        }
+
+        // STRK-186: settings writes can include catalog_api_config — rehydrate
+        // the constructor-cached catalog singletons so a later
+        // CatalogConfig.save() doesn't clobber the freshly-restored API keys.
+        if (appliedSettings && typeof rehydrateCatalogState === "function") {
+          rehydrateCatalogState();
         }
 
         // Save & render

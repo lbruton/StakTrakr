@@ -1380,10 +1380,24 @@ async function testNumistaAPI() {
   }
 }
 
+/**
+ * Re-read catalog config + settings from localStorage and rebuild providers.
+ * Call after any restore flow that writes catalog_api_config /
+ * staktrakr.catalog.settings directly to localStorage (STRK-186) — the
+ * constructor-cached singletons otherwise hold stale state and the next
+ * save() clobbers the restored keys.
+ */
+function rehydrateCatalogState() {
+  catalogConfig.load();
+  catalogAPI.settings = catalogAPI.loadSettings();
+  catalogAPI.initializeProviders();
+}
+
 // Export for use in other modules
 if (typeof window !== "undefined") {
   window.catalogAPI = catalogAPI;
   window.catalogConfig = catalogConfig;
+  window.rehydrateCatalogState = rehydrateCatalogState;
   window.testNumistaAPI = testNumistaAPI;
   window.CatalogAPI = CatalogAPI;
   window.NumistaProvider = NumistaProvider;
