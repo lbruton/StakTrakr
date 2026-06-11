@@ -141,7 +141,8 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.35.12 &ndash; Faster image saves</strong>: Saving coin images stays fast even with a large image library &mdash; the storage check no longer re-scans every stored image on each save, and the storage-full warnings are unchanged (STRK-162).</li>
     <li><strong>v3.35.11 &ndash; Safer Numista import</strong>: The Numista CSV import is now a one-time onboarding tool that clearly warns it replaces your inventory instead of silently creating duplicates, while we rebuild duplicate detection (STRK-165).</li>
     <li><strong>v3.35.10 &ndash; Sync Image URLs</strong>: A new one-button sync backfills Numista coin images for items missing them (like CSV imports) &mdash; it reuses cached lookups to save API quota and never overwrites images you&rsquo;ve already set (STRK-166).</li>
-    <li><strong>v3.35.9 &ndash; Image storage warnings</strong>: Saving an image when device storage is nearly full now shows a clear &ldquo;storage full&rdquo; message instead of silently failing into a broken square, and a heads-up appears as image storage fills up (STRK-146).</li>  `;
+    <li><strong>v3.35.9 &ndash; Image storage warnings</strong>: Saving an image when device storage is nearly full now shows a clear &ldquo;storage full&rdquo; message instead of silently failing into a broken square, and a heads-up appears as image storage fills up (STRK-146).</li>
+  `;
 };
 
 // Expose globally for access from other modules
