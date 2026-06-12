@@ -14,7 +14,7 @@ import { URL } from "node:url";
 const routerCode = readFileSync(new URL("../../sw-router.js", import.meta.url), "utf-8");
 const _module = { exports: {} };
 new Function("module", "exports", routerCode)(_module, _module.exports);
-const { FAMILY_TABLE, classifyEndpoint } = _module.exports;
+const { FAMILY_TABLE, classifyEndpoint, parseGeneratedAtSeconds } = _module.exports;
 
 const API1 = "https://api.staktrakr.com";
 const API2 = "https://api2.staktrakr.com";
@@ -224,5 +224,35 @@ describe("classifyEndpoint — negative cases", () => {
 
   it("returns null for monthly archive retail path (not in FAMILY_TABLE)", () => {
     assert.equal(classifyEndpoint(API1 + "/v2/retail/apmex/2025/11.json", SELF), null);
+  });
+});
+
+describe("parseGeneratedAtSeconds — STRK-189", () => {
+  it("parses an ISO-8601 string (production envelope format) to unix seconds", () => {
+    assert.equal(parseGeneratedAtSeconds({ generated_at: "2026-06-11T22:14:00Z" }), 1781216040);
+  });
+
+  it("parses an ISO string with milliseconds and offset", () => {
+    assert.equal(
+      parseGeneratedAtSeconds({ generated_at: "2026-06-11T17:14:00.000-05:00" }),
+      1781216040
+    );
+  });
+
+  it("passes through a numeric unix-seconds value (backward compat)", () => {
+    assert.equal(parseGeneratedAtSeconds({ generated_at: 1781216040 }), 1781216040);
+  });
+
+  it("returns null when generated_at is absent", () => {
+    assert.equal(parseGeneratedAtSeconds({}), null);
+  });
+
+  it("returns null for a malformed timestamp string", () => {
+    assert.equal(parseGeneratedAtSeconds({ generated_at: "not-a-date" }), null);
+  });
+
+  it("returns null for a null/undefined body", () => {
+    assert.equal(parseGeneratedAtSeconds(null), null);
+    assert.equal(parseGeneratedAtSeconds(undefined), null);
   });
 });

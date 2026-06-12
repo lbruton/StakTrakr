@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.18";
+const APP_VERSION = "3.35.19";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -563,6 +563,12 @@ const V2_API_ENDPOINTS = [
 
 /** @constant {string} V2_API_BASE_URL - Primary v2 endpoint (backward compat) */
 const V2_API_BASE_URL = V2_API_ENDPOINTS[0];
+
+/**
+ * @constant {number} SPOT_MAX_PAYLOAD_AGE_MS - Floor for rejecting stale /spot/latest.json
+ * payloads (STRK-189). Effective threshold = max(envelope stale_after * 6, this floor).
+ */
+const SPOT_MAX_PAYLOAD_AGE_MS = 2 * 60 * 60 * 1000;
 
 /** @constant {string} RETAIL_INTRADAY_KEY - LocalStorage key for 15-min intraday window data */
 const RETAIL_INTRADAY_KEY = "retailIntradayData"; // nosemgrep: codacy.javascript.security.hard-coded-password
@@ -1993,6 +1999,7 @@ if (typeof window !== "undefined") {
   window.RETAIL_PROVIDERS_KEY = RETAIL_PROVIDERS_KEY;
   window.V2_API_ENDPOINTS = V2_API_ENDPOINTS;
   window.V2_API_BASE_URL = V2_API_BASE_URL;
+  window.SPOT_MAX_PAYLOAD_AGE_MS = SPOT_MAX_PAYLOAD_AGE_MS;
   window.RETAIL_INTRADAY_KEY = RETAIL_INTRADAY_KEY;
   window.RETAIL_SYNC_LOG_KEY = RETAIL_SYNC_LOG_KEY;
   window.RETAIL_AVAILABILITY_KEY = RETAIL_AVAILABILITY_KEY;
