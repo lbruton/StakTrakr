@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.20] - 2026-06-12
+
+### Changed — STRK-190: Service worker now classifies production API URLs
+
+- **Bug fix**: The service worker's endpoint classifier now recognizes the production API URL shape (`/data/v2/…`). Every family test in `sw-router.js` expected a bare `/v2/…` path, but the app fetches `https://api{,2}.staktrakr.com/data/v2/…`, so classification always returned null and every API request (spot, retail, goldback, manifest, providers) silently fell through to stale-while-revalidate — serving cached payloads unconditionally with no age check, and leaving the STRK-79 classified TTL cache and the STRK-189 `x-generated-at` header stamping as dead code. The classifier now strips one leading `/data` segment before matching, flipping all API endpoint families to cache-first-with-TTL as originally designed. Unit tests now pin the real production URL shapes on both API hosts, and the two service-worker freshness tests drafted during STRK-189 are restored (fresh publication age → cache hit; stale publication age → never served from cache). Discovered during STRK-189 (STRK-190).
+
+---
+
 ## [3.35.19] - 2026-06-11
 
 ### Changed — STRK-189: Spot sync rejects stale payloads

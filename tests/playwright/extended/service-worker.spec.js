@@ -135,4 +135,76 @@ test.describe("SW classified caching", () => {
       await page.context().setOffline(false);
     }
   });
+
+  // SC-4 / SC-5 — STRK-190: classification of the REAL production URL shape
+  // (https://api.staktrakr.com/data/v2/…, see V2_API_ENDPOINTS in js/constants.js).
+  // These were drafted during STRK-189 and reverted because classifyEndpoint never
+  // matched the /data/v2 prefix — every API request fell through to
+  // staleWhileRevalidate and the seeded classified entries were never consulted.
+  //
+  // Seeding pattern (per SC-2): inject a synthetic classified entry directly into
+  // CacheStorage from the page context. x-generated-at is unix SECONDS (publisher
+  // mint time); x-stale-after is the envelope TTL in seconds (spot-latest: 1200).
+
+  const PROD_SPOT_LATEST = "https://api.staktrakr.com/data/v2/spot/latest.json";
+
+  async function seedClassifiedEntry(page, url, generatedAtSeconds, staleAfterSeconds) {
+    const cacheName = await page.evaluate(async () => {
+      const keys = await caches.keys();
+      return keys.find((k) => k.startsWith("staktrakr-")) || null;
+    });
+    expect(cacheName).not.toBeNull();
+    await page.evaluate(
+      async ({ cn, u, gen, ttl }) => {
+        const cache = await caches.open(cn);
+        await cache.put(
+          u,
+          new Response(JSON.stringify({ data: {}, generated_at: gen, stale_after: ttl }), {
+            headers: {
+              "Content-Type": "application/json",
+              "x-cached-at": String(Date.now()),
+              "x-generated-at": String(gen),
+              "x-stale-after": String(ttl),
+            },
+          })
+        );
+      },
+      { cn: cacheName, u: url, gen: generatedAtSeconds, ttl: staleAfterSeconds }
+    );
+  }
+
+  test("SC-4 — spot-latest /data/v2: fresh publication age → cache-hit", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Publication age ≈ 0 s, TTL 1200 s → matchWithAgeCheck returns the entry
+    // without any network request. Before STRK-190 this asserted "cache-hit" but
+    // got SWR (lastStrategy stayed null) because the URL never classified.
+    await seedClassifiedEntry(page, PROD_SPOT_LATEST, Math.floor(Date.now() / 1000), 1200);
+    await fetchClassified(page, PROD_SPOT_LATEST);
+    expect(await readSwStrategy(page)).toBe("cache-hit");
+  });
+
+  test("SC-5 — spot-latest /data/v2: stale publication age → never cache-hit", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Publication age 3 h ≥ TTL 1200 s → matchWithAgeCheck rejects the entry →
+    // SW goes to network. Offline (CDP) keeps the test hermetic: the real API is
+    // never reached, fetch throws, and classifiedFetch falls back to the stale
+    // entry with lastStrategy = "network-fallback" — anything but "cache-hit".
+    const threeHoursAgoSeconds = Math.floor(Date.now() / 1000) - 3 * 3600;
+    await seedClassifiedEntry(page, PROD_SPOT_LATEST, threeHoursAgoSeconds, 1200);
+    await page.context().setOffline(true);
+    try {
+      await fetchClassified(page, PROD_SPOT_LATEST);
+      const strategy = await readSwStrategy(page);
+      expect(strategy).not.toBe("cache-hit");
+      expect(strategy).toBe("network-fallback");
+    } finally {
+      await page.context().setOffline(false);
+    }
+  });
 });

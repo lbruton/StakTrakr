@@ -134,6 +134,7 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.20 &ndash; STRK-190: Offline cache freshness fixed</strong>: The app's offline cache now correctly recognizes live price endpoints, so cached prices respect their intended shelf life &mdash; previously every API response was served from cache without an age check, which could show old prices after time away (STRK-190).</li>
     <li><strong>v3.35.19 &ndash; STRK-189: Stale spot prices rejected</strong>: Spot sync now checks each payload's publication timestamp &mdash; an hours-old price from a cache or stale server can no longer flash over a fresh one, pollute your price history with wrongly-dated entries, or overwrite a newer price; history entries now carry the price's actual publication time (STRK-189).</li>
     <li><strong>v3.35.18 &ndash; STRK-186: Backups keep catalog API keys</strong>: Restoring an encrypted backup or cloud-sync snapshot now correctly brings back your Numista API key and PCGS token &mdash; previously the restored keys looked missing and could be silently erased by the next lookup (STRK-186).</li>
     <li><strong>v3.35.17 &ndash; STRK-188: Market data backup API</strong>: Market prices now automatically fall back to the backup API when the primary is unreachable &mdash; the Market tab keeps live data during a primary-feed outage, matching how spot prices already behave (STRK-188).</li>
@@ -141,7 +142,6 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.35.15 &ndash; STRK-184: Storage report cleanup</strong>: Removed an old, unused storage-report generator that could no longer be opened from the app &mdash; eliminating a potential security weak spot and shrinking the codebase; the footer storage meter is unchanged (STRK-184).</li>
     <li><strong>v3.35.14 &ndash; Safer Numista merge</strong>: Importing a Numista CSV now safely merges into your existing inventory instead of replacing it &mdash; identical ungraded copies combine with a summed quantity, graded coins stay separate, re-importing the same file adds no duplicates, and the review screen gains a Keep/Replace/Add quantity choice plus a &ldquo;possible duplicate of a graded item&rdquo; heads-up (STRK-167).</li>
     <li><strong>v3.35.13 &ndash; Spot card ratio chips</strong>: Every spot card now shows an at-a-glance ratio &mdash; gold-to-silver (GSR), gold-to-platinum, and gold-to-palladium on those cards, plus the daily goldback rate on the gold card &mdash; with a Currency &amp; Pricing toggle and a plain-English tooltip (STRK-161).</li>
-    <li><strong>v3.35.12 &ndash; Faster image saves</strong>: Saving coin images stays fast even with a large image library &mdash; the storage check no longer re-scans every stored image on each save, and the storage-full warnings are unchanged (STRK-162).</li>
   `;
 };
 
