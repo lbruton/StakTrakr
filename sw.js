@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.18-b1781221034";
+const CACHE_NAME = "staktrakr-v3.35.19-b1781229334";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -315,8 +315,11 @@ function fetchAndCacheClassified(request, family) {
       if (family.hasEnvelope) {
         try {
           const body = JSON.parse(new TextDecoder().decode(buffer));
-          if (typeof body.generated_at === "number") {
-            syntheticHeaders["x-generated-at"] = String(body.generated_at);
+          // v2 envelopes carry generated_at as an ISO-8601 string; the header
+          // contract downstream (matchWithAgeCheck) is unix seconds (STRK-189)
+          const genSeconds = parseGeneratedAtSeconds(body);
+          if (genSeconds !== null) {
+            syntheticHeaders["x-generated-at"] = String(genSeconds);
           }
           if (typeof body.stale_after === "number") {
             syntheticHeaders["x-stale-after"] = String(body.stale_after);

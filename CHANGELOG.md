@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.19] - 2026-06-11
+
+### Changed — STRK-189: Spot sync rejects stale payloads
+
+- **Bug fix**: Spot price sync now validates the `/spot/latest.json` envelope's `generated_at` timestamp. Payloads older than the freshness threshold (`max(stale_after × 6, 2 h)`) are rejected per endpoint and the fetch fails over to the backup API; if every endpoint serves a stale payload the sync fails instead of displaying or recording stale prices. Previously a days-old payload from a service-worker cache fallback or a stale CDN edge was accepted, recorded into spot history with a current timestamp, and could overwrite a fresher price already on screen (the observed fresh→stale flash). Spot history rows from live syncs now carry the payload's publication timestamp instead of the wall-clock fetch time, and a monotonic guard prevents an older payload from ever overwriting a newer accepted one. The service worker also now parses ISO-8601 `generated_at` values when stamping `x-generated-at` cache headers (previously only numeric values were recognized, so the header was never set). Reported after the 2026-06-11 feed outage (STRK-189).
+
+---
+
 ## [3.35.18] - 2026-06-11
 
 ### Changed — STRK-186: Restored backups keep catalog API keys

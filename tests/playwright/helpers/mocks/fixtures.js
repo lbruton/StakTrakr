@@ -228,7 +228,12 @@ const DEFAULT_SPOT_LATEST = {
   xpd: { price: 1000.0 },
 };
 
-const makeSpotLatest = (overrides = {}) => v2({ ...DEFAULT_SPOT_LATEST, ...overrides });
+// generatedAt: optional ISO timestamp for the envelope (STRK-189 freshness tests);
+// stale_after matches the production spot/latest publisher value (1200 s)
+const makeSpotLatest = (overrides = {}, generatedAt) => ({
+  ...v2({ ...DEFAULT_SPOT_LATEST, ...overrides }, generatedAt),
+  stale_after: 1200,
+});
 
 const makeSpotDay = (metal, price, timestamp) =>
   v2([

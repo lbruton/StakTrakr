@@ -29,12 +29,17 @@ const abortSpotProviderSync = () => {
 
 /**
  * Fetch a single JSON file from the first responsive StakTrakr endpoint.
- * Tries each URL in order; moves to the next after a 5-second timeout or error.
+ * Tries each URL in order; moves to the next after a 5-second timeout, error,
+ * or a failed payload validation (STRK-189 freshness gate).
  * @param {string[]} urls - Ordered base URLs (primary first)
  * @param {string} path - Path appended to each base URL
+ * @param {Object} [options]
+ * @param {AbortSignal} [options.signal]
+ * @param {function(any): {ok: boolean, reason?: string}} [options.validate] - Payload
+ *   validator; a falsy verdict rejects this endpoint and advances to the next
  * @returns {Promise<any>} Parsed JSON from the first successful endpoint
  */
-const _staktrakrFetch = async (urls, path, { signal } = {}) => {
+const _staktrakrFetch = async (urls, path, { signal, validate } = {}) => {
   let lastErr;
   for (const base of urls) {
     if (signal?.aborted) throw new DOMException("Spot sync aborted", "AbortError");
@@ -46,7 +51,12 @@ const _staktrakrFetch = async (urls, path, { signal } = {}) => {
       const resp = await fetch(`${base}${path}`, { mode: "cors", signal: ctrl.signal });
       clearTimeout(tid);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      return await resp.json();
+      const json = await resp.json();
+      if (validate) {
+        const verdict = validate(json);
+        if (!verdict.ok) throw new Error(verdict.reason || "Payload validation failed");
+      }
+      return json;
     } catch (err) {
       clearTimeout(tid);
       if (signal) signal.removeEventListener("abort", abortCurrentFetch);
@@ -66,8 +76,40 @@ const _staktrakrFetch = async (urls, path, { signal } = {}) => {
  */
 const _V2_METAL_MAP = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
 
+// Publication timestamp (epoch ms) of the last accepted /spot/latest.json payload.
+// In-memory only: guards against an older payload overwriting a fresher one within
+// a page session (STRK-189); the freshness gate bounds the cross-reload case.
+let _lastAcceptedSpotGeneratedAtMs = null;
+
+/**
+ * Validate a v2 envelope's publication freshness (STRK-189).
+ * Payloads without a parseable generated_at are accepted (legacy envelopes).
+ * Threshold = max(stale_after * 6, SPOT_MAX_PAYLOAD_AGE_MS) so a poller lag
+ * never hard-fails the sync, but days-old SW-cache/CDN payloads are rejected.
+ * @param {any} envelope - Parsed /spot/latest.json response
+ * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator
+ */
+const _checkSpotEnvelopeFreshness = (envelope) => {
+  const gen = Date.parse(envelope?.generated_at);
+  if (isNaN(gen)) return { ok: true };
+  const age = Math.max(0, Date.now() - gen);
+  const maxAge = Math.max(
+    (typeof envelope.stale_after === "number" ? envelope.stale_after : 0) * 6 * 1000,
+    SPOT_MAX_PAYLOAD_AGE_MS
+  );
+  return {
+    ok: age <= maxAge,
+    reason: `Stale spot payload (generated_at ${envelope?.generated_at})`,
+  };
+};
+
 const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
-  const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json", { signal });
+  const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json", {
+    signal,
+    validate: _checkSpotEnvelopeFreshness,
+  });
+  const generatedAtMs = Date.parse(data?.generated_at);
+  const generatedAt = isNaN(generatedAtMs) ? null : generatedAtMs;
   const spotData = data.data || data;
   const results = {};
   Object.entries(spotData).forEach(([isoKey, entry]) => {
@@ -84,7 +126,7 @@ const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
       cfg.usage.STAKTRAKR.used++;
       saveApiConfig(cfg);
     }
-    return results;
+    return { prices: results, generatedAt };
   }
   throw new Error("No spot data available from StakTrakr v2 API");
 };
@@ -1646,7 +1688,9 @@ const fetchBatchSpotPrices = async (
  *
  * @param {string} provider - The unique key of the API provider
  * @param {string} apiKey - The API key for the provider
- * @returns {Promise<Object<string, number>>} Map of metal keys to spot prices
+ * @returns {Promise<{prices: Object<string, number>, generatedAt: number|null}>} Metal
+ *   prices plus the payload's publication timestamp (epoch ms; null for providers
+ *   without an envelope)
  */
 const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
   const providerConfig = API_PROVIDERS[provider];
@@ -1670,7 +1714,7 @@ const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
   }
 
   // Latest-only: no history backfill on regular sync
-  return await fetchLatestPrices(provider, apiKey, selectedMetals);
+  return { prices: await fetchLatestPrices(provider, apiKey, selectedMetals), generatedAt: null };
 };
 
 // =============================================================================
@@ -2057,7 +2101,7 @@ const testApiConnection = async (provider, apiKey) => {
 
     if (provider === "STAKTRAKR") {
       const result = await fetchStaktrakrPrices(["silver"]);
-      return result.silver > 0;
+      return result.prices.silver > 0;
     }
 
     let url = "";
@@ -2150,16 +2194,32 @@ const handleProviderSync = async (provider) => {
   }
 
   try {
-    const data = await fetchSpotPricesFromApi(provider, apiKey);
+    const { prices, generatedAt } = await fetchSpotPricesFromApi(provider, apiKey);
+    if (
+      generatedAt !== null &&
+      _lastAcceptedSpotGeneratedAtMs !== null &&
+      generatedAt < _lastAcceptedSpotGeneratedAtMs
+    ) {
+      // Older payload than the last accepted one — never overwrite newer (STRK-189)
+      appAlert("Received an older spot payload than the one already displayed; sync skipped.");
+      setProviderStatus(provider, "error");
+      return;
+    }
     let updatedCount = 0;
-    Object.entries(data).forEach(([metal, price]) => {
+    Object.entries(prices).forEach(([metal, price]) => {
       const metalConfig = Object.values(METALS).find((m) => m.key === metal);
       if (metalConfig && price > 0) {
         localStorage.setItem(metalConfig.spotKey, price.toString());
         spotPrices[metal] = price;
         elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
         updateSpotCardColor(metal, price);
-        recordSpot(price, "api", metalConfig.name, API_PROVIDERS[provider].name);
+        recordSpot(
+          price,
+          "api",
+          metalConfig.name,
+          API_PROVIDERS[provider].name,
+          generatedAt !== null ? new Date(generatedAt).toISOString() : null
+        );
         const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
         if (ts) {
           updateSpotTimestamp(metalConfig.name);
@@ -2169,7 +2229,8 @@ const handleProviderSync = async (provider) => {
     });
 
     if (updatedCount > 0) {
-      saveApiCache(data, provider);
+      if (generatedAt !== null) _lastAcceptedSpotGeneratedAtMs = generatedAt;
+      saveApiCache(prices, provider);
       updateSummary();
       // Update Goldback denomination prices BEFORE snapshotting item prices (STAK-108)
       if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
@@ -2268,7 +2329,7 @@ const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}
 
       // Single-provider fetch
       try {
-        const data = await fetchSpotPricesFromApi(prov, apiKey, {
+        const { prices, generatedAt } = await fetchSpotPricesFromApi(prov, apiKey, {
           signal: syncAbortController.signal,
         });
         const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
@@ -2279,16 +2340,32 @@ const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}
         ) {
           return { results, updatedCount, anySucceeded };
         }
+        if (
+          generatedAt !== null &&
+          _lastAcceptedSpotGeneratedAtMs !== null &&
+          generatedAt < _lastAcceptedSpotGeneratedAtMs
+        ) {
+          // Older payload than the last accepted one — never overwrite newer (STRK-189)
+          results[prov] = "stale";
+          setProviderStatus(prov, "error");
+          return { results, updatedCount, anySucceeded };
+        }
         let provUpdated = 0;
 
-        Object.entries(data).forEach(([metal, price]) => {
+        Object.entries(prices).forEach(([metal, price]) => {
           const metalConfig = Object.values(METALS).find((m) => m.key === metal);
           if (metalConfig && price > 0) {
             localStorage.setItem(metalConfig.spotKey, price.toString());
             spotPrices[metal] = price;
             elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
             updateSpotCardColor(metal, price);
-            recordSpot(price, "api", metalConfig.name, API_PROVIDERS[prov].name);
+            recordSpot(
+              price,
+              "api",
+              metalConfig.name,
+              API_PROVIDERS[prov].name,
+              generatedAt !== null ? new Date(generatedAt).toISOString() : null
+            );
             const ts = safeGetElement(`spotTimestamp${metalConfig.name}`);
             if (ts) updateSpotTimestamp(metalConfig.name);
             provUpdated++;
@@ -2296,7 +2373,8 @@ const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}
         });
 
         if (provUpdated > 0) {
-          saveApiCache(data, prov);
+          if (generatedAt !== null) _lastAcceptedSpotGeneratedAtMs = generatedAt;
+          saveApiCache(prices, prov);
           updatedCount += provUpdated;
           anySucceeded = true;
           results[prov] = "success";

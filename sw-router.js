@@ -133,7 +133,26 @@ function classifyEndpoint(urlString, selfOrigin) {
   return null;
 }
 
+// parseGeneratedAtSeconds(body) → number | null
+//
+// Extracts a v2 envelope's generated_at as unix SECONDS (the x-generated-at
+// header contract consumed by matchWithAgeCheck in sw.js). Production envelopes
+// carry generated_at as an ISO-8601 string; numeric unix-seconds values are
+// accepted for backward compatibility (STRK-189).
+function parseGeneratedAtSeconds(body) {
+  if (!body) return null;
+  if (typeof body.generated_at === "number") {
+    return body.generated_at;
+  }
+  const ms = Date.parse(body.generated_at);
+  return isNaN(ms) ? null : ms / 1000;
+}
+
 // CJS export guard — allows require() in Node unit tests without breaking importScripts in SW
 if (typeof module !== "undefined") {
-  module.exports = { FAMILY_TABLE: FAMILY_TABLE, classifyEndpoint: classifyEndpoint };
+  module.exports = {
+    FAMILY_TABLE: FAMILY_TABLE,
+    classifyEndpoint: classifyEndpoint,
+    parseGeneratedAtSeconds: parseGeneratedAtSeconds,
+  };
 }
