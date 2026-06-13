@@ -595,6 +595,13 @@ function renderAttentionSidebar(failures) {
     <div style="margin-top:6px;text-align:center;"><a href="/failures" style="font-size:11px;">View all failures &rarr;</a></div></div>`;
 }
 
+/**
+ * Build the compact status-bar HTML — one colored dot + label per subsystem,
+ * including the STRK-187 publish-freshness indicator (api2-fresh-but-published-
+ * stale renders PUSH STALE vs STALE) — from an aggregated health snapshot.
+ * @param {object} data - aggregated health snapshot (flyio/poller/sqld fields)
+ * @returns {string} status-bar HTML
+ */
 function renderStatusBar(data) {
   const { cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats, spotCoverage } =
     data;
@@ -646,6 +653,23 @@ function renderStatusBar(data) {
   }
   items.push(dot(sqldOk ? "green" : sqldOk === false ? "red" : "amber") + `Fly→sqld: ${sqldLabel}`);
 
+  // Publish freshness (api.staktrakr.com manifest generated_at age; STRK-187).
+  // api2 fresh while published stale = push broken; both stale = publish broken.
+  const pubFresh = flyioHealth?.published_fresh_ok;
+  const api2Fresh = flyioHealth?.api2_fresh_ok;
+  let pubLabel;
+  if (pubFresh === true) {
+    pubLabel = `OK (${flyioHealth.published_age_min}m)`;
+  } else if (pubFresh === false) {
+    const pubAge = flyioHealth?.published_age_min ?? "?";
+    pubLabel = api2Fresh ? `PUSH STALE (${pubAge}m)` : `STALE (${pubAge}m)`;
+  } else {
+    pubLabel = "?";
+  }
+  items.push(
+    dot(pubFresh ? "green" : pubFresh === false ? "red" : "amber") + `Publish: ${pubLabel}`
+  );
+
   // Lock
   const anyLocked = (lockStatus || []).some((l) => l.locked);
   items.push(dot(anyLocked ? "amber" : "green") + `Lock: ${anyLocked ? "BUSY" : "free"}`);
@@ -658,6 +682,14 @@ function renderStatusBar(data) {
   </div>`;
 }
 
+/**
+ * Build the infrastructure detail row HTML — per-service label + color,
+ * including the STRK-187 publish-freshness item (PUSH STALE when api2 is fresh
+ * but the published manifest is stale, STALE when both are) — from an
+ * aggregated health snapshot.
+ * @param {object} data - aggregated health snapshot (flyio/poller/sqld fields)
+ * @returns {string} infra-row HTML
+ */
 function renderInfraRow(data) {
   const { cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord } =
     data;
@@ -675,6 +707,19 @@ function renderInfraRow(data) {
   } else {
     sqldLabel = "?";
     sqldColor = "var(--amber)";
+  }
+  const pubFresh = flyioHealth?.published_fresh_ok;
+  let pubLabel, pubColor;
+  if (pubFresh === true) {
+    pubLabel = `OK (${flyioHealth.published_age_min}m)`;
+    pubColor = "var(--green)";
+  } else if (pubFresh === false) {
+    const pubAge = flyioHealth?.published_age_min ?? "?";
+    pubLabel = flyioHealth?.api2_fresh_ok ? `PUSH STALE (${pubAge}m)` : `STALE (${pubAge}m)`;
+    pubColor = "var(--red)";
+  } else {
+    pubLabel = "?";
+    pubColor = "var(--amber)";
   }
   const anyLocked = (lockStatus || []).some((l) => l.locked);
   const containerCount = (dockerContainers || []).filter((c) => c.state === "running").length;
@@ -700,6 +745,7 @@ function renderInfraRow(data) {
     }
     ${item("Fly API", flyOk ? "OK" : flyOk === false ? "DOWN" : "?", flyOk ? "var(--green)" : "var(--red)")}
     ${item("Fly→sqld", sqldLabel, sqldColor)}
+    ${item("Publish", pubLabel, pubColor)}
     ${item("Turso", tursoUp ? "OK" : "DOWN", tursoUp ? "var(--green)" : "var(--red)")}
     ${item("Containers", `${containerCount} up`, "var(--green)")}
     ${item("Services", `${serviceCount} up`, "var(--green)")}

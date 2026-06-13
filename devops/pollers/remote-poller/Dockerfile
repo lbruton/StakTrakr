@@ -50,9 +50,9 @@ RUN npm install --omit=dev
 
 COPY shared/*.js ./
 
-# Remote-specific scripts (spot + publish only)
-COPY remote-poller/run-spot.sh remote-poller/run-publish.sh ./
-RUN chmod +x run-spot.sh run-publish.sh
+# Remote-specific scripts (spot + publish + cleanup)
+COPY remote-poller/run-spot.sh remote-poller/run-publish.sh remote-poller/cleanup-export.sh ./
+RUN chmod +x run-spot.sh run-publish.sh cleanup-export.sh
 
 # Git config for committing to api branch
 RUN git config --global user.name "StakTrakr Poller" \
@@ -61,7 +61,8 @@ RUN git config --global user.name "StakTrakr Poller" \
 # ── Cron jobs (baked-in defaults — entrypoint overwrites) ──
 RUN (echo "0,30 * * * * root . /etc/environment; /app/run-spot.sh >> /var/log/spot-poller.log 2>&1"; \
      echo "8,23,38,53 * * * * root . /etc/environment; /app/run-publish.sh >> /var/log/publish.log 2>&1"; \
-     echo "*/5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1") \
+     echo "*/5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1"; \
+     echo "17 3 * * 0 root . /etc/environment; /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1") \
     > /etc/cron.d/retail-poller \
     && chmod 0644 /etc/cron.d/retail-poller
 
