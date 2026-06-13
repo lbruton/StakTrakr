@@ -137,6 +137,11 @@ export function rowsToEntries(rows) {
   return entries;
 }
 
+/**
+ * Whether a path exists and is accessible (async wrapper over fs.access).
+ * @param {string} filePath
+ * @returns {Promise<boolean>}
+ */
 async function fileExists(filePath) {
   try {
     await access(filePath);
@@ -146,6 +151,13 @@ async function fileExists(filePath) {
   }
 }
 
+/**
+ * CLI entry point: parse args, then for each UTC hour in range read the latest
+ * sqld spot rows and write a byte-compatible hourly JSON file (skipping existing
+ * files unless --overwrite, and only logging under --dry-run). Requires the
+ * DATA_DIR env var; exits non-zero when it is unset.
+ * @returns {Promise<void>}
+ */
 async function main() {
   const dataDir = process.env.DATA_DIR;
   if (!dataDir) {

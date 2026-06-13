@@ -17,6 +17,7 @@ set -e
 REPO_DIR="/data/staktrakr-api-export"
 PUBLISH_LOCK=/tmp/retail-publish.lock
 
+# Emit a UTC-timestamped, [cleanup]-tagged log line. Args: message words.
 log() { echo "[$(date -u +%H:%M:%S)] [cleanup] $*"; }
 
 # Serialize with run-publish.sh unless the caller already holds the lock.

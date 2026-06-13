@@ -595,6 +595,13 @@ function renderAttentionSidebar(failures) {
     <div style="margin-top:6px;text-align:center;"><a href="/failures" style="font-size:11px;">View all failures &rarr;</a></div></div>`;
 }
 
+/**
+ * Build the compact status-bar HTML — one colored dot + label per subsystem,
+ * including the STRK-187 publish-freshness indicator (api2-fresh-but-published-
+ * stale renders PUSH STALE vs STALE) — from an aggregated health snapshot.
+ * @param {object} data - aggregated health snapshot (flyio/poller/sqld fields)
+ * @returns {string} status-bar HTML
+ */
 function renderStatusBar(data) {
   const { cpu, uptime, lockStatus, flyioHealth, tursoUp, failureCount, retailStats, spotCoverage } =
     data;
@@ -675,6 +682,14 @@ function renderStatusBar(data) {
   </div>`;
 }
 
+/**
+ * Build the infrastructure detail row HTML — per-service label + color,
+ * including the STRK-187 publish-freshness item (PUSH STALE when api2 is fresh
+ * but the published manifest is stale, STALE when both are) — from an
+ * aggregated health snapshot.
+ * @param {object} data - aggregated health snapshot (flyio/poller/sqld fields)
+ * @returns {string} infra-row HTML
+ */
 function renderInfraRow(data) {
   const { cpu, uptime, net, lockStatus, flyioHealth, tursoUp, dockerContainers, supervisord } =
     data;
