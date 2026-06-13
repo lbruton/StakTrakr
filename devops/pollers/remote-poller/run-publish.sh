@@ -72,13 +72,6 @@ if ! $HAS_STAGED && ! $HAS_UNPUSHED; then
   exit 0
 fi
 
-if $HAS_STAGED; then
-  # Build a meaningful commit message
-  RETAIL_TS=$(jq -r '.generated_at // "unknown"' data/api/manifest.json 2>/dev/null || echo "unknown")
-  DATE=$(date -u +%Y-%m-%dT%H:%MZ)
-  git commit -m "publish: ${DATE} | retail=${RETAIL_TS}"
-fi
-
 # ── Verify-then-push (STRK-187) ─────────────────────────────────────────
 # api2 (local serve.js) is the primary by design; git/Pages is redundancy.
 # Before pushing, prove serve.js is alive and the manifest on disk is fresh,
@@ -105,6 +98,18 @@ if $HAS_STAGED; then
     echo "[$(date -u +%H:%M:%S)] ERROR: api2 manifest stale (${AGE_MIN}m, generated_at=${GEN_AT}) — SKIPPING push"
     exit 1
   fi
+fi
+
+# Commit only after the freshness gate passes (STRK-187). Committing before the
+# gate left an unpushed local commit on any gate `exit 1`; the next cron run
+# (HAS_STAGED=false / HAS_UNPUSHED=true) skips the freshness check entirely and
+# force-pushes that stale/rejected commit — defeating verify-then-push. Keep the
+# commit here, behind the gate, so a rejected cycle leaves no commit to resurrect.
+if $HAS_STAGED; then
+  # Build a meaningful commit message
+  RETAIL_TS=$(jq -r '.generated_at // "unknown"' data/api/manifest.json 2>/dev/null || echo "unknown")
+  DATE=$(date -u +%Y-%m-%dT%H:%MZ)
+  git commit -m "publish: ${DATE} | retail=${RETAIL_TS}"
 fi
 
 # Force-push to api branch — sole writer, no merge conflicts.
