@@ -115,7 +115,9 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 ## Review, CI, And Agentlint
 
 - After modifying instruction files, run `npx agentlinter --local`.
-- Do not add the `codacy-review` label to PRs.
+- Review routing: **CodeRabbit** auto-reviews every PR to `dev` (primary; throttles ~4–8/hr → 5–10 min lag; `request_changes_workflow: true`, so a `CHANGES_REQUESTED` clears only on a clean re-review). **Copilot** is on-demand. **Codacy AI** (security) is gated by the `codacy-review` label.
+- Do not add the `codacy-review` label by hand — CodeRabbit auto-applies it (`auto_apply_labels: true`) to trigger Codacy's AI security review.
+- CodeRabbit enforces a 75% docstring-coverage pre-merge check: new or modified JS and shell functions need docstrings, or the PR stays `CHANGES_REQUESTED` / `BLOCKED` with every status check green and 0 threads. The failing check shows only in CodeRabbit's "Pre-merge checks" comment panel.
 
 ## Pre-Flight Triggers
 
