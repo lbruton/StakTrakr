@@ -14,6 +14,9 @@
 FLYIO_TAILSCALE_IP="${FLYIO_TAILSCALE_IP:-100.90.171.110}"
 FLYIO_HTTP_URL="${FLYIO_HTTP_URL:-https://api2.staktrakr.com/data/retail/providers.json}"
 SQLD_HEALTH_URL="${SQLD_HEALTH_URL:-https://api2.staktrakr.com/health/sqld-reachable}"
+PUBLISHED_MANIFEST_URL="${PUBLISHED_MANIFEST_URL:-https://api.staktrakr.com/data/api/manifest.json}"
+API2_MANIFEST_URL="${API2_MANIFEST_URL:-https://api2.staktrakr.com/data/api/manifest.json}"
+PUBLISH_FRESH_MAX_MIN="${PUBLISH_FRESH_MAX_MIN:-45}"
 STATUS_FILE="/tmp/flyio-health.json"
 TIMEOUT=10
 SQLD_HEALTH_TIMEOUT=8
@@ -71,15 +74,48 @@ else
   log "WARN: sqld-reachable FAIL (${sqld_error_class:-no_response} ${sqld_latency_ms:-?}ms)"
 fi
 
-# Preserve sqld_reachable_last_success across runs — set to now on OK,
-# carry forward the previous timestamp on FAIL so the dashboard can render
-# "Xm ago" elapsed-time.
+# ── Publish freshness (STRK-187) ──────────────────────────────────────────────
+# The 2026-06-11 outage was invisible for ~7h because nothing watched the
+# published manifest's generated_at. api (GitHub Pages) is the published feed;
+# api2 (serve.js) reads the export dir directly — comparing both distinguishes
+# "push broken" (api2 fresh, published stale) from "publish broken" (both stale).
+manifest_age_min() { # $1 = manifest URL → echoes age in minutes, rc 1 on failure
+  local body gen ts now
+  body=$(curl -s --max-time "$TIMEOUT" "$1" 2>/dev/null | tr -d '\n')
+  gen=$(json_str "$body" "generated_at")
+  [ -z "$gen" ] && return 1
+  ts=$(date -d "$gen" +%s 2>/dev/null) || return 1
+  now=$(date -u +%s)
+  echo $(((now - ts) / 60))
+}
+
+pub_age=$(manifest_age_min "$PUBLISHED_MANIFEST_URL") || pub_age=""
+api2_age=$(manifest_age_min "$API2_MANIFEST_URL") || api2_age=""
+pub_fresh=false
+api2_fresh=false
+[ -n "$pub_age" ] && [ "$pub_age" -le "$PUBLISH_FRESH_MAX_MIN" ] && pub_fresh=true
+[ -n "$api2_age" ] && [ "$api2_age" -le "$PUBLISH_FRESH_MAX_MIN" ] && api2_fresh=true
+if [ "$pub_fresh" = "true" ]; then
+  log "Publish freshness OK (published ${pub_age}m, api2 ${api2_age:-?}m)"
+else
+  log "WARN: publish freshness FAIL (published ${pub_age:-no_data}m, api2 ${api2_age:-no_data}m, max ${PUBLISH_FRESH_MAX_MIN}m)"
+fi
+
+# Preserve sqld_reachable_last_success / publish_fresh_last_success across
+# runs — set to now on OK, carry forward the previous timestamp on FAIL so
+# the dashboard can render "Xm ago" elapsed-time.
 sqld_last_success=""
+publish_fresh_last_success=""
 if [ -f "$STATUS_FILE" ]; then
-  sqld_last_success=$(json_str "$(cat "$STATUS_FILE" 2>/dev/null | tr -d '\n')" "sqld_reachable_last_success")
+  _prev_status=$(cat "$STATUS_FILE" 2>/dev/null | tr -d '\n')
+  sqld_last_success=$(json_str "$_prev_status" "sqld_reachable_last_success")
+  publish_fresh_last_success=$(json_str "$_prev_status" "publish_fresh_last_success")
 fi
 if [ "$sqld_ok" = "true" ]; then
   sqld_last_success=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+fi
+if [ "$pub_fresh" = "true" ]; then
+  publish_fresh_last_success=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 fi
 
 # ── Write status JSON (dashboard reads this) ─────────────────────────────────
@@ -96,6 +132,12 @@ cat > "$STATUS_FILE" << EOF
   "sqld_reachable_ok": ${sqld_ok},
   "sqld_reachable_latency_ms": ${sqld_latency_ms:-null},
   "sqld_reachable_error_class": "${sqld_error_class}",
-  "sqld_reachable_last_success": "${sqld_last_success}"
+  "sqld_reachable_last_success": "${sqld_last_success}",
+  "published_manifest_url": "${PUBLISHED_MANIFEST_URL}",
+  "published_fresh_ok": ${pub_fresh},
+  "published_age_min": ${pub_age:-null},
+  "api2_fresh_ok": ${api2_fresh},
+  "api2_age_min": ${api2_age:-null},
+  "publish_fresh_last_success": "${publish_fresh_last_success}"
 }
 EOF
