@@ -227,6 +227,49 @@ describe("classifyEndpoint — negative cases", () => {
   });
 });
 
+// STRK-190: production requests are built from V2_API_ENDPOINTS
+// (https://api{,2}.staktrakr.com/data/v2), so every real pathname carries a
+// /data prefix. These tests pin classification of the REAL URL shapes.
+describe("classifyEndpoint — production /data/v2 prefix (STRK-190)", () => {
+  const PROD_CASES = [
+    ["/data/v2/manifest.json", "manifest", 1800],
+    ["/data/v2/spot/latest.json", "spot-latest", 1200],
+    ["/data/v2/spot/xau/2026/05/15.json", "spot-history-daily", 3600],
+    ["/data/v2/goldback/latest.json", "goldback-latest", 90000],
+    ["/data/v2/retail/apmex/latest.json", "retail-latest", 1800],
+    ["/data/v2/retail/apmex/intraday.json", "retail-intraday", 1200],
+    ["/data/v2/retail/apmex/history-7d.json", "retail-history-short", 3600],
+    ["/data/v2/retail/apmex/history-30d.json", "retail-history-long", 86400],
+    ["/data/v2/providers.json", "providers", 86400],
+  ];
+
+  for (const [path, family, floor] of PROD_CASES) {
+    it(`classifies ${path} as ${family} on both API hosts`, () => {
+      const { api1, api2 } = classifyOnBothHosts(path);
+      assert.equal(api1.family, family);
+      assert.equal(api1.floor, floor);
+      assert.equal(api1.hasEnvelope, true);
+      assert.equal(api2.family, family);
+    });
+  }
+
+  it("still returns null for unclassified paths under /data/v2", () => {
+    assert.equal(classifyEndpoint(API1 + "/data/v2/unknown/endpoint.json", SELF), null);
+  });
+
+  it("does not strip a non-segment /data prefix (e.g. /database/…)", () => {
+    assert.equal(classifyEndpoint(API1 + "/database/v2/spot/latest.json", SELF), null);
+  });
+
+  it("strips only ONE /data segment (/data/data/v2/… stays unclassified)", () => {
+    assert.equal(classifyEndpoint(API1 + "/data/data/v2/spot/latest.json", SELF), null);
+  });
+
+  it("does not classify envelope families on the local origin even with /data prefix", () => {
+    assert.equal(classifyEndpoint(SELF + "/data/v2/spot/latest.json", SELF), null);
+  });
+});
+
 describe("parseGeneratedAtSeconds — STRK-189", () => {
   it("parses an ISO-8601 string (production envelope format) to unix seconds", () => {
     assert.equal(parseGeneratedAtSeconds({ generated_at: "2026-06-11T22:14:00Z" }), 1781216040);
