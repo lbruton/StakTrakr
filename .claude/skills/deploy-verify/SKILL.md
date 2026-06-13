@@ -178,7 +178,7 @@ Past regression: MetalPriceAPI format change poisoned spot data.
 | Check                     | How                                                                                           |
 | ------------------------- | --------------------------------------------------------------------------------------------- |
 | Correct release deployed  | `fly releases --app staktrakr` — latest matches your deploy                                   |
-| Resource limits unchanged | `fly scale show --app staktrakr` — 1024MB RAM, 1 shared CPU (thin publisher since STAK-478)   |
+| Resource limits unchanged | `fly scale show --app staktrakr` — 512MB RAM, 1 shared CPU (thin publisher since STAK-478)    |
 | Tailscale mesh connected  | Home-poller can reach Fly.io via `100.90.171.110`                                             |
 | Home-poller synced        | Portainer home-poller picks up shared code via GitOps (5 min poll) — verify it redeployed too |
 
@@ -186,7 +186,7 @@ Past regression: MetalPriceAPI format change poisoned spot data.
 
 Output a summary:
 
-```
+```text
 Deploy Verification — <project> on <environment>
 ──────────────────────────────────────────────────
 Container running:     ✓ / ✗

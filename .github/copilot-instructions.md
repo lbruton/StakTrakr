@@ -2,6 +2,8 @@
 
 Custom review instructions for GitHub Copilot PR reviews.
 
+> **Routing (2026-06-13):** Copilot is now an **on-demand** reviewer. CodeRabbit is the automatic primary reviewer on PRs to `dev`, with Codacy AI (gated by the `codacy-review` label) as the security layer. Request a Copilot review explicitly when you want one; it no longer runs on every PR.
+
 ## Project Context
 
 StakTrakr is a single-page vanilla JavaScript app (no framework, no build step). It runs on both `file://` protocol and HTTP servers. The runtime artifact is `index.html` plus JS/CSS assets -- no bundler, no transpiler. 71 JS files in `js/` (70 loaded via `index.html`) plus 8 vendor libs and 1 data bundle load in strict dependency order via `<script>` tags.
