@@ -46,6 +46,15 @@ describe("parseArgs", () => {
   it("rejects unknown arguments", () => {
     assert.throws(() => parseArgs(["--frmo", "2026-06-11T06"]), /Unknown argument/);
   });
+
+  it("rejects impossible calendar dates (no Date.UTC normalization)", () => {
+    assert.throws(() => parseArgs(["--from", "2026-02-31T06"]), /invalid calendar date/);
+    assert.throws(() => parseArgs(["--from", "2026-13-01T06"]), /invalid calendar date/);
+    assert.throws(
+      () => parseArgs(["--from", "2026-06-11T06", "--to", "2026-04-31T06"]),
+      /invalid calendar date/
+    );
+  });
 });
 
 describe("enumerateHours", () => {

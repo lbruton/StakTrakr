@@ -6,13 +6,13 @@
 
 set -e
 
-# Lockfile guard — skip if previous publish is still running
+# Lockfile guard — skip if previous publish is still running.
+# noclobber makes test-and-create atomic (no race with cleanup-export.sh).
 PUBLISH_LOCK=/tmp/retail-publish.lock
-if [ -f "$PUBLISH_LOCK" ]; then
+if ! (set -o noclobber; echo "$$" > "$PUBLISH_LOCK") 2>/dev/null; then
   echo "[$(date -u +%H:%M:%S)] Previous publish still running, skipping"
   exit 0
 fi
-touch "$PUBLISH_LOCK"
 trap 'rm -f "$PUBLISH_LOCK"' EXIT
 
 REPO_DIR="/data/staktrakr-api-export"
@@ -93,8 +93,14 @@ if [ -z "$GEN_AT" ]; then
 fi
 if $HAS_STAGED; then
   # Freshness check only when this cycle exported — a push-only retry cycle
-  # legitimately serves an older manifest.
-  AGE_MIN=$((($(date -u +%s) - $(date -d "$GEN_AT" +%s)) / 60))
+  # legitimately serves an older manifest. Parse the timestamp into a variable
+  # first: an empty command substitution inside $(( )) is a fatal syntax error.
+  GEN_TS=$(date -d "$GEN_AT" +%s 2>/dev/null) || GEN_TS=""
+  if [ -z "$GEN_TS" ]; then
+    echo "[$(date -u +%H:%M:%S)] ERROR: api2 manifest generated_at unparseable (${GEN_AT}) — SKIPPING push"
+    exit 1
+  fi
+  AGE_MIN=$((($(date -u +%s) - GEN_TS) / 60))
   if [ "$AGE_MIN" -gt 30 ]; then
     echo "[$(date -u +%H:%M:%S)] ERROR: api2 manifest stale (${AGE_MIN}m, generated_at=${GEN_AT}) — SKIPPING push"
     exit 1

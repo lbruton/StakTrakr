@@ -20,12 +20,12 @@ PUBLISH_LOCK=/tmp/retail-publish.lock
 log() { echo "[$(date -u +%H:%M:%S)] [cleanup] $*"; }
 
 # Serialize with run-publish.sh unless the caller already holds the lock.
+# noclobber makes test-and-create atomic (no race with the publish cron).
 if [ "${CLEANUP_SKIP_LOCK:-0}" != "1" ]; then
-  if [ -f "$PUBLISH_LOCK" ]; then
+  if ! (set -o noclobber; echo "$$" > "$PUBLISH_LOCK") 2>/dev/null; then
     log "Publish lock held, skipping (will retry next schedule)"
     exit 0
   fi
-  touch "$PUBLISH_LOCK"
   trap 'rm -f "$PUBLISH_LOCK"' EXIT
 fi
 

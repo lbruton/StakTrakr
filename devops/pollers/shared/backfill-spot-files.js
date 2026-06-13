@@ -48,6 +48,13 @@ export function parseArgs(argv) {
     if (!m || Number(m[4]) > 23) {
       throw new Error(`${name} must be YYYY-MM-DDTHH (UTC, hour 00-23), got: ${value}`);
     }
+    // Reject impossible calendar dates (e.g. 2026-02-31) instead of letting
+    // Date.UTC silently normalize them into a different day's files.
+    const [, y, mo, d, hh] = m;
+    const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh)));
+    if (dt.toISOString().slice(0, 13) !== value) {
+      throw new Error(`${name} contains an invalid calendar date: ${value}`);
+    }
   }
   return opts;
 }
@@ -174,7 +181,11 @@ async function main() {
     const rows = await readSpotHourly(client, date, Number(hh));
     const entries = rowsToEntries(rows);
     if (!entries) {
-      console.warn(`SKIP (incomplete sqld data, ${rows.length} rows): ${hour}`);
+      const present = new Set(rows.map((r) => r.metal?.toLowerCase()).filter(Boolean));
+      const missing = METAL_ORDER.filter((name) => !present.has(name.toLowerCase()));
+      console.warn(
+        `SKIP (incomplete sqld data, missing: ${missing.join(", ")}; ${rows.length} rows): ${hour}`
+      );
       skipped++;
       continue;
     }
