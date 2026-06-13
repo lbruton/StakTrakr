@@ -247,9 +247,8 @@ If `sw.js` CACHE_NAME does not match the version in `js/constants.js`, the servi
 
 ### 8. What's New Entry Rotation -- Intentional Limit
 
-`js/about.js` (`getEmbeddedWhatsNew()`) is the **sole source of truth** for What's New content. `docs/announcements.md` was deprecated per STAK-513 and no longer exists -- do not flag it as missing or out of sync. Entries in `getEmbeddedWhatsNew()` are **intentionally capped at 3-5**. When a new release is added, the oldest entry is rotated out. Do not flag removed older entries as missing -- this is by design.
+`js/about.js` (`getEmbeddedWhatsNew()`) is the **sole source of truth** for What's New content. `docs/announcements.md` was deprecated per STAK-513 and no longer exists -- do not flag it as missing or out of sync. Entries in `getEmbeddedWhatsNew()` are **intentionally capped at 5**. When a new release is added, the oldest entry is rotated out. Do not flag removed older entries as missing -- this is by design.
 
-Similarly, `getEmbeddedRoadmap()` in `about.js` is capped at 3-4 items. Completed roadmap items are removed during releases.
 
 ### 9. Seed Data Files -- Auto-Generated, Must Be Included
 
