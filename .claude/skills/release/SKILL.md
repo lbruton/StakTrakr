@@ -67,8 +67,8 @@ Edit `getEmbeddedWhatsNew()` (starts at line ~140):
 
 ```html
 <li>
-  <strong>vNEW_VERSION &ndash; ISSUE-ID: Title</strong>: One-sentence summary of the change
-  (ISSUE-ID).
+  <strong>vNEW_VERSION &ndash; ISSUE-ID: Title</strong>: Detailed 2-3 sentence summary of the change
+  &mdash; what changed, why a user cares, and any visible behavior difference (ISSUE-ID).
 </li>
 ```
 
@@ -77,9 +77,10 @@ Format rules:
 - Use `&ndash;` (en dash entity), not `—` or `–`
 - Wrap version + title in `<strong>` tags
 - End with issue reference in parentheses
-- Match the style of existing entries
+- 2-3 sentences per entry is the target — the 5-entry cap exists so each block can carry
+  real detail (changed from the earlier 8 short entries, 2026-06)
 
-**Trim** the list to keep the **8 most recent entries**. Remove the oldest `<li>` elements from the bottom of the list until only 8 remain.
+**Trim** the list to keep the **5 most recent entries**. Remove the oldest `<li>` elements from the bottom of the list until only 5 remain.
 
 ### Handled Automatically — DO NOT EDIT
 
@@ -97,8 +98,8 @@ grep -l "NEW_VERSION" js/constants.js package.json package-lock.json version.jso
 
 # 2. Exactly 6 files listed (if fewer, one was missed)
 
-# 3. What's New entry count is exactly 8 (versioned entries only)
-grep -c '<li><strong>v' js/about.js  # Should be 8
+# 3. What's New entry count is exactly 5 (versioned entries only)
+grep -c '<li><strong>v' js/about.js  # Should be 5
 
 # 4. No stale version in edited files
 grep -n "OLD_VERSION" js/constants.js package.json version.json
