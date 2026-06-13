@@ -26,6 +26,7 @@ npm run format:check
 - Before editing or running Playwright tests, read the Playwright policy reference in `AGENTS.md`.
 - Archived issue acceptance-criteria (AC) matrices are located in
   `tests/playwright/archive/issue-ac-matrices/`.
+- Any PR that adds, renames, or removes a Playwright spec must update `tests/playwright/coverage-map.csv` (an `AGENTS.md` requirement) — neither ESLint nor `check-release-sync` catches a missing or stale row.
 
 ## Documentation
 
@@ -69,9 +70,11 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 - Branch model: `feature/* → dev → main`.
 - Runtime code changes require worktree → PR → dev.
 - `main` is fully protected and requires PR review.
-- `dev` allows direct push for config/tooling only: instruction files, `.claude/`, `.gitignore`, skill files, and devops config.
-- Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) still requires PR discipline.
+- **Every change to `dev` goes through a PR — no exceptions.** The `Protect Dev` ruleset enforces required status checks (`Codacy Static Code Analysis`), code scanning (CodeQL), and signed commits with **no bypass actors** (`current_user_can_bypass: never`). These are ref-level gates a direct push can never satisfy, so **no file type — instruction files and AI-agent configs included — can be pushed straight to `dev`.** (Verified 2026-06-06: a docs-only push was rejected with "Required status check 'Codacy Static Code Analysis' is expected" / "Code scanning is waiting for results from CodeQL".)
+- Config/tooling edits (`.claude/`, `.Codex/`, `.opencode/`, `.agents/`, `CLAUDE.md`, `AGENTS.md`, `.geminiignore`, `.gitignore`, skill files, devops config) are still **lightweight** — a small chore PR to `dev`, no Plane issue or version lock required.
+- Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the **full discipline**: Plane issue → worktree → PR to `dev`.
 - **`EnterWorktree` base-ref caveat:** the harness `EnterWorktree` tool defaults to branching from `origin/main`, but PRs target `dev`. Create the worktree on `origin/dev` first (`git worktree add .claude/worktrees/<branch> -b <branch> origin/dev`) and enter it via `EnterWorktree` `path:`, or `git reset --hard origin/dev` immediately after creating — **before any edits**. Verify `git merge-base origin/dev HEAD` equals `git rev-parse origin/dev` before any PR. Full caveat in `.context/git-topology.md`.
+- `devops/version.lock` is gitignored — it exists only in the main checkout, never in a worktree. Claim the version lock by writing to `<main-checkout>/devops/version.lock`, not the worktree path.
 - **Full rules:** `.context/git-topology.md` — merge strategy, worktree naming, spot bundle, branch staleness, sketch overrides.
 
 ## Model Context Protocol Notes
@@ -84,9 +87,6 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
   - Use Brave for routine lookups that Brave can handle. Tool ladder by cost: `perplexity_search` (ranked results) → `perplexity_ask` (quick AI answer) → `perplexity_reason` (chain-of-thought) → `perplexity_research` (deep multi-source, 30s+).
   - Pass `strip_thinking: true` on `perplexity_research`/`perplexity_reason` to save context tokens.
 - StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
-- All `cloud-sync.js` patches require `/sketch-review` peer review before merge.
-- The user may explicitly waive the review requirement.
-- Use Opus or equivalent model for the review.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
 - When claude-context returns thin results for a global, fall back to Code Graph Context structural query before Grep.
@@ -112,6 +112,8 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 | `/ui-mockup`                      | New multi-element UI — Playground prototype first                   |
 
 **Skill authoring:** filename must be `SKILL.md` (`.gitignore` silently excludes other `.md` names).
+
+**Skill copies:** every `.claude/skills/<name>/SKILL.md` has a tracked twin under `.agents/skills/<name>/SKILL.md`. When fixing a skill doc, `git grep` the sibling and apply the identical fix to both — Copilot flags stale twins.
 
 ## Required Context
 
@@ -180,6 +182,16 @@ Read the file `.context/implementation-gotchas.md` before touching: `applyBulkEd
 ### Review & CI
 
 Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives.
+
+**Codacy state is authoritative via the Cloud CLI, not the dashboard UI.** Before claiming a Codacy tool toggle or pattern suppression is done, confirm it with the Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend can diverge, and a UI-only check has been wrong repeatedly in a single session. The Codacy MCP server is retired; use the `codacy-skills` plugin CLIs (`codacy-cloud-cli` for cloud state, `codacy-analysis-cli` for local scans).
+
+**Async bot reviewers land after checks go green.** Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass — often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. Treat a `null` result or `errors` array from a `gh api graphql` query as a failure (a malformed query can silently return `null`); an empty `nodes` array is the valid "no active threads" state — confirm the response is a valid list before merging.
+
+### Dual ESLint config — `.eslintrc.json` is Codacy-only
+
+The repo carries two ESLint configs: `eslint.config.cjs` (flat — used by local `npm run lint`) and `.eslintrc.json` (legacy — read only by Codacy's server-side ESLint). With a flat config present, ESLint 9 ignores the legacy file locally.
+The `no-restricted-globals` ban on native `alert`/`confirm`/`prompt` (use `showAppAlert`/`showAppConfirm`/`showAppPrompt`) lives **only** in `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
+Before deleting `.eslintrc.json` or bumping to ESLint 10 (Dependabot PR #1228 is deferred pending Codacy support), migrate that rule into `eslint.config.cjs`.
 
 ## Pre-flight (StakTrakr-specific)
 

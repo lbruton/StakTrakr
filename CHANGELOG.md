@@ -9,6 +9,154 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.20] - 2026-06-12
+
+### Changed — STRK-190: Service worker now classifies production API URLs
+
+- **Bug fix**: The service worker's endpoint classifier now recognizes the production API URL shape (`/data/v2/…`). Every family test in `sw-router.js` expected a bare `/v2/…` path, but the app fetches `https://api{,2}.staktrakr.com/data/v2/…`, so classification always returned null and every API request (spot, retail, goldback, manifest, providers) silently fell through to stale-while-revalidate — serving cached payloads unconditionally with no age check, and leaving the STRK-79 classified TTL cache and the STRK-189 `x-generated-at` header stamping as dead code. The classifier now strips one leading `/data` segment before matching, flipping all API endpoint families to cache-first-with-TTL as originally designed. Unit tests now pin the real production URL shapes on both API hosts, and the two service-worker freshness tests drafted during STRK-189 are restored (fresh publication age → cache hit; stale publication age → never served from cache). Discovered during STRK-189 (STRK-190).
+
+---
+
+## [3.35.19] - 2026-06-11
+
+### Changed — STRK-189: Spot sync rejects stale payloads
+
+- **Bug fix**: Spot price sync now validates the `/spot/latest.json` envelope's `generated_at` timestamp. Payloads older than the freshness threshold (`max(stale_after × 6, 2 h)`) are rejected per endpoint and the fetch fails over to the backup API; if every endpoint serves a stale payload the sync fails instead of displaying or recording stale prices. Previously a days-old payload from a service-worker cache fallback or a stale CDN edge was accepted, recorded into spot history with a current timestamp, and could overwrite a fresher price already on screen (the observed fresh→stale flash). Spot history rows from live syncs now carry the payload's publication timestamp instead of the wall-clock fetch time, and a monotonic guard prevents an older payload from ever overwriting a newer accepted one. The service worker also now parses ISO-8601 `generated_at` values when stamping `x-generated-at` cache headers (previously only numeric values were recognized, so the header was never set). Reported after the 2026-06-11 feed outage (STRK-189).
+
+---
+
+## [3.35.18] - 2026-06-11
+
+### Changed — STRK-186: Restored backups keep catalog API keys
+
+- **Bug fix**: Restoring an encrypted backup (or applying a cloud-sync snapshot) now rehydrates the in-memory catalog configuration after writing `catalog_api_config` to localStorage. Previously the `CatalogConfig` singleton kept the stale defaults it booted with, so the restored Numista API key / PCGS bearer token looked missing, and the next usage-counter save permanently overwrote the restored keys with empty values. All restore paths (legacy full restore, diff-preview apply, cloud-sync pull, snapshot restore) now call a shared `rehydrateCatalogState()` helper that reloads `CatalogConfig`, `CatalogAPI` settings, and reinitializes providers. Reported by a beta user after a browser-storage wipe (STRK-186).
+
+---
+
+## [3.35.17] - 2026-06-11
+
+### Changed — STRK-188: Market data fails over to the backup API
+
+- **Bug fix**: Market data (manifest, coin detail, 30-day history, intraday) now tries `api.staktrakr.com` and falls back to `api2.staktrakr.com` using the same ordered-failover helper as the spot and goldback feeds. Previously `js/market-data.js` hardcoded the primary endpoint, so a GitHub Pages outage blanked the Market tab even while the Fly.io backup API was serving fresh data — defeating the backup's purpose. Surfaced during the 2026-06-11 feed outage (STRK-188).
+
+---
+
+## [3.35.16] - 2026-06-11
+
+### Changed — STRK-185: Encrypted backup now includes pattern-rule images
+
+- **Bug fix**: The encrypted backup image vault (.stvault image companion and cloud-sync photo upload) now exports and restores pattern-rule images from the `patternImages` IndexedDB store alongside user photos. Previously a pattern rule's regex survived backup (localStorage) but its obverse/reverse images did not, so rules silently lost their images after a storage wipe + restore. Old image vaults without pattern records restore unchanged, a pattern-only image library now produces an image companion file, and the image-vault change hash stays identical for users with no pattern images (STRK-185).
+
+---
+
+## [3.35.15] - 2026-06-10
+
+### Changed — STRK-184: Remove dead storage-report popup renderer
+
+- **Security/cleanup**: Removed the unreachable storage-report popup renderer from `js/utils-storage-report.js` (`openStorageReportPopup`, `generateStorageReportHTML` and its CSS/JS/analysis helpers, `generateStorageReportTar`). Its `#storageReportModal` markup was removed from `index.html` in an earlier release and nothing invoked it, leaving ~1,400 lines of dead code containing an XSS-prone HTML generator (unescaped `innerHTML` interpolation), a hardcoded Chart.js CDN load, a broken `window.close()` button, and a wrong empty-storage fallback. The live footer storage stats (`updateStorageStats`) and the `generateStorageReport` data helper are unchanged (STRK-184).
+
+---
+
+## [3.35.14] - 2026-06-07
+
+### Changed — STRK-167: Numista instance-aware de-duplication + safe merge
+
+- **Numista import**: restored a safe merge with instance-aware de-duplication. The identity key is now `numistaId|year|grade|certNumber`, so identical ungraded copies collapse into one row with a summed quantity, distinct graded instances stay separate (cert data preserved), and re-importing the same CSV produces no duplicates. The importer routes through the shared diff-review modal again (the STRK-165 interim onboarding/replace gate is removed; `importNumistaCsv(file, true)` still replaces directly). The review modal gains a 3-way quantity control (Keep / Replace / Add-to-existing, keyboard-accessible) and an advisory "possible duplicate of a graded item" badge — the badge never blocks import and is never persisted onto an item (STRK-167).
+
+---
+
+## [3.35.13] - 2026-06-07
+
+### Changed — STRK-161: Spot card ratio chips
+
+- **Feature**: Each spot card now shows an at-a-glance precious-metals ratio chip — gold-denominated GSR (Au:Ag), Au:Pt, and Au:Pd on the non-gold cards, and the daily goldback G1 rate on the gold card. A single "Show spot ratios" toggle in Currency & Pricing controls visibility (default on); the goldback chip also respects the goldback pricing mode and a freshness guard (`now − data.ts > stale_after`, read from the envelope top level). Chips read legibly across all four themes with a plain-English tooltip on hover and keyboard focus, and a reserved row keeps every card's sync line aligned when a chip is hidden (STRK-161).
+
+---
+
+## [3.35.12] - 2026-06-06
+
+### Changed — STRK-162: Cache user-image storage usage (O(1) pre-flight)
+
+- **Performance**: The per-save image storage-quota check no longer re-scans the entire IndexedDB user-image store on every save. The total is cached on the `ImageCache` singleton (computed lazily, updated by the signed delta on each successful save, and invalidated on delete/clear/import), keeping saves fast as an image library grows. The STRK-146 storage-full warnings and over-quota blocks are unchanged (STRK-162).
+
+---
+
+## [3.35.11] - 2026-06-06
+
+### Changed — STRK-165: Numista CSV import safety gate (interim)
+
+- **Numista import**: The Numista CSV importer is now a one-time onboarding action that explicitly warns it **replaces** your inventory rather than silently merging — preventing the duplicate-explosion bug. Importing into a non-empty inventory requires confirming a destructive replace; importing into an empty inventory simply populates it. A proper instance-aware merge follows later (STRK-165).
+
+---
+
+## [3.35.10] - 2026-06-06
+
+### Added — STRK-166: Restore bulk Sync Image URLs
+
+- **Image sync**: A new "Sync Image URLs" button (in the Numista bulk-sync modal) backfills obverse/reverse coin images for items missing them — e.g. CSV imports. It is cache-first to conserve Numista API quota, dedups by catalog ID, and never overwrites images you've already set. Restores the capability removed in STAK-432 (STRK-166).
+
+---
+
+## [3.35.9] - 2026-06-06
+
+### Fixed — STRK-146: Image storage quota warning
+
+- **Image storage**: Saving a coin image when device storage is nearly full now shows an explicit "storage full" message instead of silently failing and rendering a broken colored square. A warning also appears as image storage approaches its limit, so you can free space before saves start failing (STRK-146).
+
+---
+
+## [3.35.8] - 2026-06-05
+
+### Fixed — STRK-83: Disposition predicate alignment
+
+- **Disposition**: An item with an empty disposition object (`{}`) is now treated consistently as not disposed everywhere — no "disposed" badge or styling, present in the active view, excluded from the disposed view, and uncounted in disposed totals. `isDisposed()` is now the single source of truth: the section renderer, disposed filter, summary totals, trade-link guards, and trade autocomplete all route through it, resolving the STRK-73 predicate inconsistency (STRK-83).
+
+---
+
+## [3.35.7] - 2026-06-05
+
+### Changed — STRK-154: Cloud Sync Convergence & Auto-Healing
+
+- **Cloud sync**: Fixed a permanent "Review Sync Changes" loop between two devices — per-item tag merges now converge deterministically (commutative union on a timestamp tie) and auto-heal diverged tags on the next sync with no user action (STRK-155).
+- **Cloud sync**: Settings compare by logical content instead of raw storage, so a value compressed on one device and plain on another (or stored in a different key order) no longer triggers an endless sync (STRK-156).
+- **Cloud sync**: Added apply/restore integrity guards and a one-time boot-repair that clears unrecoverable `[object Object]` corruption without touching valid data (STRK-157).
+- **Cloud sync**: The Review Sync Changes modal no longer shows phantom conflicts — timestamps differing only in format and reordered attachments are recognized as unchanged (STRK-158).
+- **Cloud sync**: Audited and hardened every sync compare/merge/hash surface for convergence and documented the invariant (STRK-159).
+
+---
+
+## [3.35.6] - 2026-06-05
+
+### Changed — STRK-32: Isolate price extractor Vendor modules
+
+- **Retail poller**: Price extraction now routes migrated Vendors through isolated modules, keeps the orchestrator import-safe for single-Vendor dashboard retry, and packages the new shared modules for poller deploys (STRK-32).
+
+---
+
+## [3.35.5] - 2026-06-05
+
+### Fixed — STRK-138: Numista Goldback import + Type-drives-Metal coupling
+
+- **Goldback import**: Selecting a Goldback/Silverback Numista result now auto-detects the type from the title/denomination and fills Type, Metal (Gold/Silver), and weight unit with no manual re-selection (STRK-138).
+- **Fractional denomination**: A fractional Goldback (e.g. "1/4 Idaho Goldback") now sets the denomination picker to the matching weight; goldbacks without a denomination keep the default (STRK-138).
+- **Type drives Metal**: Goldback/Silverback are always selectable in the Type dropdown; choosing one sets the metal automatically, while nonsensical metal×type combinations stay blocked (STAK-580).
+
+### Fixed — STRK-153: Spot cards lock on "Seed" label with a today-dated seed entry
+
+- **Spot timestamps**: Spot-price cards no longer lock on the "Seed" label when the seed bundle includes the current day; the live API/provider label now wins once a same-day sync runs. The label compares by local calendar day rather than raw timestamps, so a noon-dated seed entry no longer outranks a real morning sync (STRK-153).
+
+---
+
+## [3.35.3] - 2026-06-04
+
+### Changed — STRK-141: Migrate market histories to IndexedDB
+
+- **Storage**: Spot and retail price history now live in a dedicated IndexedDB store (`StakTrakrHistory`) instead of localStorage, permanently removing the storage-quota ceiling. Existing history migrates automatically and losslessly on first load, with a localStorage fallback when IndexedDB is unavailable (STRK-141).
+- **Item price history**: Now bounded by a silent retention cap (365-day age cutoff plus 1000 entries per item) so the one remaining localStorage history key can no longer re-trigger a quota error (STRK-141).
+- **Backups**: Manual encrypted vault and ZIP backups no longer carry the reproducible spot/retail caches; item price history remains included, and older backups containing spot/retail history restore cleanly by ignoring those entries (STRK-141).
+
+---
+
 ## [3.35.2] - 2026-06-03
 
 ### Fixed — STRK-144: Summit Metals false-OOS + wrong (bulk) price tier

@@ -133,7 +133,9 @@ async function computeInventoryHash(items) {
         "|" +
         (item.tradedFromUuid || "") +
         "|" +
-        (item.disposition ? JSON.stringify(item.disposition) : "");
+        // STRK-159: canonicalize disposition (sorted keys) so a different key
+        // insertion order of the same object is not a false inventory mismatch.
+        (item.disposition ? _stableCanonicalString(item.disposition) : "");
       keys.push(itemKey + "::" + contentSample);
     }
     keys.sort();
@@ -179,7 +181,67 @@ function computeTotalWeight(items) {
 }
 
 /**
+ * STRK-156: Recursively stable-stringify a logical value. Sorts plain-object
+ * keys at every depth so key-insertion-order variants collapse to one form;
+ * PRESERVES array element order (array order is meaningful for settings like
+ * headerBtnOrder, so a genuine reorder must remain a real difference); and
+ * normalizes undefined/empty-string to null. The output is a canonical string
+ * suitable for hashing, not a re-parseable JSON document.
+ * @param {*} val
+ * @returns {string}
+ */
+function _stableCanonicalString(val) {
+  if (val === null || val === undefined || val === "") return "null";
+  if (typeof val !== "object") return JSON.stringify(val);
+  if (Array.isArray(val)) {
+    return "[" + val.map(_stableCanonicalString).join(",") + "]";
+  }
+  var keys = Object.keys(val).sort();
+  return (
+    "{" +
+    keys
+      .map(function (k) {
+        return JSON.stringify(k) + ":" + _stableCanonicalString(val[k]);
+      })
+      .join(",") +
+    "}"
+  );
+}
+
+/**
+ * STRK-156: Normalize a raw localStorage settings string into canonical logical
+ * content for hashing. Decompresses CMP2/CMP1 bodies (so a value compressed on
+ * one device hashes the same as its plain twin on another — the STAK-497 hazard
+ * resurfaced through lz-string, STRK-140), then JSON-parses — falling back to the
+ * raw string for scalar prefs stored without quotes (e.g. appTheme "dark") so
+ * they match a JSON-quoted twin — then canonicalizes via _stableCanonicalString.
+ * @param {string} rawValue
+ * @returns {string} canonical string of the logical value
+ */
+function _canonicalizeSettingValue(rawValue) {
+  if (rawValue === null || rawValue === undefined) return "null";
+  var decoded =
+    typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawValue) : rawValue;
+  if (typeof decoded !== "string") decoded = String(decoded);
+  var parsed;
+  try {
+    parsed = JSON.parse(decoded);
+  } catch (_e) {
+    parsed = decoded;
+  }
+  return _stableCanonicalString(parsed);
+}
+
+/**
  * Compute SHA-256 hash of sync-scoped settings (non-inventory localStorage keys).
+ * Hashes NORMALIZED logical content (decompressed, JSON-parsed, key-sorted) via
+ * _canonicalizeSettingValue rather than the raw localStorage strings, so two
+ * devices holding identical logical settings — one CMP2-compressed, one plain;
+ * scalar-as-JSON vs raw; differing object key-order — compute the SAME hash and
+ * stop looping (STRK-156). Both the push (manifest) and poll sides call this one
+ * function, so they stay consistent by construction.
+ * Rollout note: an old-build device (raw hash) and a new-build device (logical
+ * hash) mismatch once; both converge after both update.
  * Returns hex string or null if hashing is unavailable.
  * @returns {Promise<string|null>}
  */
@@ -190,16 +252,20 @@ async function computeSettingsHash() {
     var settings = {};
     for (var i = 0; i < keys.length; i++) {
       if (keys[i] === "metalInventory") continue; // skip inventory — covered by inventoryHash
-      // STAK-497: Use raw localStorage.getItem to match the manifest snapshot
-      // format. loadDataSync JSON-parses the value, which fails for scalar
-      // settings stored as raw strings (e.g. "dark" instead of '"dark"'),
-      // producing a different hash from the manifest and triggering infinite
-      // sync loops.
       var val = localStorage.getItem(keys[i]);
-      if (val !== null) settings[keys[i]] = val;
+      if (val !== null) settings[keys[i]] = _canonicalizeSettingValue(val);
     }
-    var sorted = JSON.stringify(settings, Object.keys(settings).sort());
-    var encoded = new TextEncoder().encode(sorted);
+    var sortedKeys = Object.keys(settings).sort();
+    var canonical =
+      "{" +
+      sortedKeys
+        .map(function (k) {
+          // settings[k] is already a canonical string from _canonicalizeSettingValue
+          return JSON.stringify(k) + ":" + settings[k];
+        })
+        .join(",") +
+      "}";
+    var encoded = new TextEncoder().encode(canonical);
     var hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
     return sha256BufferToHex(hashBuffer);
   } catch (e) {
@@ -357,6 +423,76 @@ function syncIsEnabled() {
 }
 
 // ---------------------------------------------------------------------------
+// Settings serialization integrity + boot-repair (STRK-157)
+// ---------------------------------------------------------------------------
+
+/**
+ * STRK-157: Corruption sentinel. An object/array written to localStorage via
+ * String()/coercion instead of JSON.stringify becomes the literal "[object Object]"
+ * (or "[object Object],[object Object]" for arrays). No legitimate settings value
+ * contains this substring, so it is a safe marker for un-round-trippable corruption.
+ * @param {*} value
+ * @returns {boolean}
+ */
+function _isCorruptObjectString(value) {
+  if (typeof value !== "string") return false;
+  // Genuine corruption is the ENTIRE value being the String(obj)/String(arr)
+  // coercion artifact — "[object Object]" for an object, or comma-joined repeats
+  // for an array of objects. Match the whole value EXACTLY, never as a substring:
+  // free-text scope keys (itemTags, tagBlacklist, chipCustomGroups, ...) can
+  // legitimately hold a user-entered tag/label named "[object Object]" embedded in
+  // valid JSON, and a substring match would let boot-repair wipe the entire store
+  // (STRK-157 review finding). A coercion artifact never appears inside valid JSON.
+  return /^\[object Object\](\s*,\s*\[object Object\])*$/.test(value.trim());
+}
+
+/**
+ * STRK-157: Compute the string to persist for a synced setting, rejecting values
+ * that cannot round-trip. Returns the clean string to write, or null when the
+ * value is "[object Object]"-corrupt and must be skipped — so a corrupt remote can
+ * never overwrite a good local value or re-stick itself on every pull.
+ * @param {*} remoteVal
+ * @returns {string|null}
+ */
+function _safeSettingWriteValue(remoteVal) {
+  var str = typeof remoteVal === "string" ? remoteVal : JSON.stringify(remoteVal);
+  if (_isCorruptObjectString(str)) return null;
+  return str;
+}
+
+/**
+ * STRK-157: One-time, idempotent boot repair. Scans SYNC_SCOPE_KEYS for values
+ * corrupted into "[object Object]" form (an object written without JSON.stringify).
+ * The load paths parse-fail and fall back to defaults in memory, but the corrupt
+ * string never leaves localStorage, so it perpetually diverges the settings hash —
+ * the one value class that cannot self-heal via convergent compare. Removes each
+ * corrupt key so its load path uses defaults. Idempotent: a second run finds nothing.
+ * @returns {string[]} keys that were repaired
+ */
+function syncBootRepairCorruptSettings() {
+  var repaired = [];
+  try {
+    if (typeof localStorage === "undefined") return repaired;
+    var keys = typeof SYNC_SCOPE_KEYS !== "undefined" ? SYNC_SCOPE_KEYS : [];
+    for (var i = 0; i < keys.length; i++) {
+      var raw = localStorage.getItem(keys[i]);
+      if (raw === null) continue;
+      var decoded = typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      if (_isCorruptObjectString(decoded)) {
+        localStorage.removeItem(keys[i]);
+        repaired.push(keys[i]);
+      }
+    }
+    if (repaired.length > 0) {
+      debugLog("[CloudSync] STRK-157 boot-repair removed corrupt keys:", repaired.join(", "));
+    }
+  } catch (e) {
+    debugLog("[CloudSync] syncBootRepairCorruptSettings failed:", e.message);
+  }
+  return repaired;
+}
+
+// ---------------------------------------------------------------------------
 // Override backup — snapshot local data before a remote pull overwrites it
 // ---------------------------------------------------------------------------
 
@@ -370,7 +506,13 @@ function syncSaveOverrideBackup() {
     var data = {};
     for (var i = 0; i < keys.length; i++) {
       var raw = localStorage.getItem(keys[i]);
-      if (raw !== null) data[keys[i]] = raw;
+      if (raw === null) continue;
+      // STRK-157: never snapshot a corrupt "[object Object]" value — restore would
+      // reintroduce it. Skip it so restore falls back to the load-path default.
+      var decodedSnap =
+        typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      if (_isCorruptObjectString(decodedSnap)) continue;
+      data[keys[i]] = raw;
     }
     var backup = {
       timestamp: Date.now(),
@@ -433,9 +575,21 @@ async function syncRestoreOverrideBackup() {
         typeof ALLOWED_STORAGE_KEYS !== "undefined" &&
         ALLOWED_STORAGE_KEYS.indexOf(bkeys[j]) !== -1
       ) {
-        localStorage.setItem(bkeys[j], backup.data[bkeys[j]]);
+        // STRK-157: don't reintroduce "[object Object]" corruption on restore.
+        var restoreVal = backup.data[bkeys[j]];
+        var restoreDecoded =
+          typeof __decompressIfNeeded === "function"
+            ? __decompressIfNeeded(restoreVal)
+            : restoreVal;
+        if (_isCorruptObjectString(restoreDecoded)) continue;
+        localStorage.setItem(bkeys[j], restoreVal);
       }
     }
+    // STRK-186: snapshot restore clears + rewrites catalog_api_config —
+    // rehydrate the constructor-cached catalog singletons first so no later
+    // refresh step can trigger a CatalogConfig.save() against stale state
+    // and clobber the restored API keys.
+    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
     if (typeof updateSummary === "function") updateSummary();
@@ -2681,11 +2835,6 @@ function _isTagSyncKey(key) {
   return _tagSyncKeys().indexOf(key) !== -1;
 }
 
-function _normalizeRawStorageValue(value) {
-  if (value === undefined || value === null) return null;
-  return typeof value === "string" ? value : JSON.stringify(value);
-}
-
 function _parseTagStore(rawValue, fallback) {
   if (rawValue === undefined || rawValue === null) return fallback || {};
   try {
@@ -2713,9 +2862,14 @@ function _hasTagChanges(remoteSettings) {
   if (!remoteSettings) return false;
   var keys = _tagSyncKeys();
   for (var i = 0; i < keys.length; i++) {
-    var localVal = typeof localStorage !== "undefined" ? localStorage.getItem(keys[i]) : null;
-    var remoteVal = _normalizeRawStorageValue(remoteSettings[keys[i]]);
-    if (localVal !== remoteVal) return true;
+    // STRK-159: compare LOGICAL content, not raw serialization. _parseTagStore
+    // decompresses + JSON-parses each tag store and _stableCanonicalString sorts
+    // its keys, so a compressed-vs-plain (or key-order) variant of identical tags
+    // is no longer a false "changed" signal that triggers a needless merge.
+    var localRaw = typeof localStorage !== "undefined" ? localStorage.getItem(keys[i]) : null;
+    var localCanon = _stableCanonicalString(_parseTagStore(localRaw, {}));
+    var remoteCanon = _stableCanonicalString(_parseTagStore(remoteSettings[keys[i]], {}));
+    if (localCanon !== remoteCanon) return true;
   }
   return false;
 }
@@ -2742,6 +2896,37 @@ function _restoreRawStorageValues(priorValues) {
     );
   }
   return { failed: failed, total: keys.length };
+}
+
+/**
+ * STRK-155: Deterministic, commutative union of two tag arrays.
+ * Dedups case-insensitively (matching addItemTag's case-insensitive dedup in
+ * tags.js), picks the lexicographically-smallest original string as the
+ * representative so merge(A,B) and merge(B,A) yield byte-identical output, and
+ * returns the result sorted by lowercased key. Trims and drops blank/non-string
+ * entries. Commutativity is the whole point: it is what lets two diverged
+ * devices converge to the same superset on a timestamp tie.
+ * @param {string[]} a
+ * @param {string[]} b
+ * @returns {string[]}
+ */
+function _unionTags(a, b) {
+  var byLower = {};
+  var all = (Array.isArray(a) ? a : []).concat(Array.isArray(b) ? b : []);
+  for (var i = 0; i < all.length; i++) {
+    if (typeof all[i] !== "string") continue;
+    var trimmed = all[i].trim();
+    if (!trimmed) continue;
+    var key = trimmed.toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(byLower, key) || trimmed < byLower[key]) {
+      byLower[key] = trimmed;
+    }
+  }
+  return Object.keys(byLower)
+    .sort()
+    .map(function (k) {
+      return byLower[k];
+    });
 }
 
 function _mergeTagData(remoteTagData) {
@@ -2807,6 +2992,47 @@ function _mergeTagData(remoteTagData) {
       }
       mergedTimestamps[uuid] = remoteTs;
       updated++;
+    } else if (
+      remoteTs === localTs &&
+      // Fire the tie-union when both sides agree on the timestamp AND either both
+      // have a timestamp entry, OR the tag/removed CONTENT is present on both sides.
+      // The content-presence arm converges legacy / Numista-batch tags that have no
+      // itemTagsLastModified entry (both coerce to ts=0) — without it those diverged
+      // untimestamped tags never reach the union and re-trigger a silent tag-only
+      // merge every poll (STRK-155 review finding). One-sided uuids are excluded by
+      // requiring presence on BOTH sides, so a remote-only untimestamped tag is not
+      // spuriously adopted here.
+      ((Object.prototype.hasOwnProperty.call(remoteTimestamps, uuid) &&
+        Object.prototype.hasOwnProperty.call(localTimestamps, uuid)) ||
+        (Object.prototype.hasOwnProperty.call(localTags, uuid) &&
+          Object.prototype.hasOwnProperty.call(remoteTags, uuid)) ||
+        (Object.prototype.hasOwnProperty.call(localRemoved, uuid) &&
+          Object.prototype.hasOwnProperty.call(remoteRemoved, uuid)))
+    ) {
+      // STRK-155: timestamp tie with potentially divergent content. A plain
+      // last-write-wins no-op here is non-commutative and freezes two diverged
+      // devices in a permanent "Review Sync Changes" loop. Take the deterministic
+      // union of both sides instead — union is commutative, so both devices
+      // converge to the same superset within one round-trip. Only the side(s)
+      // whose content actually changes bump the timestamp, so once both agree the
+      // merge is idempotent. Known trade-off (confirmed): a tag removed on one
+      // device without bumping its timestamp can reappear (data-loss-averse).
+      var unionedTags = _unionTags(localTags[uuid], remoteTags[uuid]);
+      var unionedRemoved = _unionTags(localRemoved[uuid], remoteRemoved[uuid]);
+      var canonicalLocalTags = _unionTags(localTags[uuid], []);
+      var canonicalLocalRemoved = _unionTags(localRemoved[uuid], []);
+      var tagsChanged = unionedTags.join(" ") !== canonicalLocalTags.join(" ");
+      var removedChanged = unionedRemoved.join(" ") !== canonicalLocalRemoved.join(" ");
+
+      if (unionedTags.length > 0) mergedTags[uuid] = unionedTags;
+      else delete mergedTags[uuid];
+      if (unionedRemoved.length > 0) mergedRemoved[uuid] = unionedRemoved;
+      else delete mergedRemoved[uuid];
+
+      if (tagsChanged || removedChanged) {
+        mergedTimestamps[uuid] = Date.now();
+        updated++;
+      }
     }
   });
 
@@ -2952,12 +3178,17 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
         sc.remoteVal !== undefined &&
         typeof localStorage !== "undefined"
       ) {
+        // STRK-157: reject "[object Object]" corruption — never persist a value
+        // that cannot round-trip and would re-stick on every pull. Skip it and
+        // leave the good local value intact (not counted as a write failure).
+        var writeVal = _safeSettingWriteValue(sc.remoteVal);
+        if (writeVal === null) {
+          debugLog("[CloudSync] STRK-157: skipped corrupt settings value for key:", sc.key);
+          continue;
+        }
         _priorValues[sc.key] = localStorage.getItem(sc.key);
         try {
-          localStorage.setItem(
-            sc.key,
-            typeof sc.remoteVal === "string" ? sc.remoteVal : JSON.stringify(sc.remoteVal)
-          );
+          localStorage.setItem(sc.key, writeVal);
           _appliedKeys.push(sc.key);
         } catch (_e) {
           _failedCount++;
@@ -4457,6 +4688,12 @@ function initCloudSync() {
     console.warn("[CloudSync] Skipping init — app initialization failed");
     return;
   }
+  // STRK-157: repair any "[object Object]"-corrupt scope keys before sync compares
+  // hashes — this corruption can't self-heal via convergent compare, so clear it
+  // once at boot (idempotent). Runs even when sync is disabled so a later enable
+  // starts clean.
+  syncBootRepairCorruptSettings();
+
   // Initialize multi-tab coordination (Layer 7)
   initSyncTabCoordination();
 
@@ -4622,6 +4859,7 @@ window.getSyncPasswordSilent = getSyncPasswordSilent;
 window.syncIsEnabled = syncIsEnabled;
 window.syncSaveOverrideBackup = syncSaveOverrideBackup;
 window.syncRestoreOverrideBackup = syncRestoreOverrideBackup;
+window.syncBootRepairCorruptSettings = syncBootRepairCorruptSettings;
 window.changeVaultPassword = changeVaultPassword;
 window.syncGetLastPush = syncGetLastPush;
 window._syncRelativeTime = _syncRelativeTime;

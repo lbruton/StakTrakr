@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.2";
+const APP_VERSION = "3.35.20";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -511,12 +511,18 @@ const DISPOSITION_TYPES = Object.freeze({
 });
 
 /**
- * Check whether an inventory item has been disposed
+ * Check whether an inventory item has been disposed.
+ *
+ * Single source of truth for disposition validity (STRK-83): an item is disposed
+ * only when item.disposition is a non-null, non-array object with at least one own
+ * key. An empty object {}, null, undefined, an array, or a non-object is NOT disposed
+ * — a Disposition records realized value and date, so an empty shell is not one.
  * @param {Object} item - Inventory item object
- * @returns {boolean} True if the item has a disposition record
+ * @returns {boolean} True if the item has a valid disposition record
  */
 function isDisposed(item) {
-  return !!item?.disposition;
+  const d = item?.disposition;
+  return d != null && typeof d === "object" && !Array.isArray(d) && Object.keys(d).length > 0;
 }
 
 /** @constant {string} LS_KEY - LocalStorage key for inventory data */
@@ -558,6 +564,12 @@ const V2_API_ENDPOINTS = [
 /** @constant {string} V2_API_BASE_URL - Primary v2 endpoint (backward compat) */
 const V2_API_BASE_URL = V2_API_ENDPOINTS[0];
 
+/**
+ * @constant {number} SPOT_MAX_PAYLOAD_AGE_MS - Floor for rejecting stale /spot/latest.json
+ * payloads (STRK-189). Effective threshold = max(envelope stale_after * 6, this floor).
+ */
+const SPOT_MAX_PAYLOAD_AGE_MS = 2 * 60 * 60 * 1000;
+
 /** @constant {string} RETAIL_INTRADAY_KEY - LocalStorage key for 15-min intraday window data */
 const RETAIL_INTRADAY_KEY = "retailIntradayData"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -587,6 +599,9 @@ const GB_ESTIMATE_MODIFIER_KEY = "goldback-estimate-modifier"; // nosemgrep: cod
 
 /** @constant {string} GOLDBACK_PRICING_SOURCE_KEY - LocalStorage key for the active Goldback pricing source */
 const GOLDBACK_PRICING_SOURCE_KEY = "goldback-pricing-source"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
+/** @constant {string} SPOT_RATIOS_KEY - LocalStorage key for the spot-card ratio chips toggle */
+const SPOT_RATIOS_KEY = "show-spot-ratios"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} GB_TO_OZT - Conversion factor: 1 Goldback = 0.001 troy oz 24K gold */
 const GB_TO_OZT = 0.001;
@@ -908,6 +923,7 @@ const SYNC_SCOPE_KEYS = [
   // ── Feature toggles ──
   "goldback-pricing-source", // GOLDBACK_PRICING_SOURCE_KEY
   "goldback-estimate-modifier", // GB_ESTIMATE_MODIFIER_KEY
+  "show-spot-ratios", // SPOT_RATIOS_KEY
 
   // ── Numista config ──
   "numista_tags_auto", // auto-tag on Numista lookup
@@ -986,6 +1002,7 @@ const ALLOWED_STORAGE_KEYS = [
   GOLDBACK_ESTIMATE_ENABLED_KEY,
   GB_ESTIMATE_MODIFIER_KEY,
   GOLDBACK_PRICING_SOURCE_KEY,
+  SPOT_RATIOS_KEY, // STRK-161: persist "Show spot ratios" toggle past cleanupStorage
   DISPLAY_CURRENCY_KEY,
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
@@ -1012,6 +1029,7 @@ const ALLOWED_STORAGE_KEYS = [
   "migration_hourlySource", // one-time migration flag: re-tag StakTrakr hourly entries
   "migration_seedHistoryMerge", // one-time migration flag: skip redundant seed-history merge writes
   "migration_cmp2_compression", // one-time migration flag: re-encode CMP1/large keys to CMP2 (STRK-140)
+  "migration_idb_history_v1", // one-time migration flag: market histories moved to IndexedDB (STRK-141)
   "numistaLookupRules", // custom Numista search lookup rules (JSON array)
   "numistaViewFields", // view modal Numista field visibility config (JSON object)
   TIMEZONE_KEY, // string: "auto" | "UTC" | IANA zone (STACK-63)
@@ -1117,6 +1135,24 @@ const VAULT_SETTINGS_DIFF_SKIP = [
   LAST_CACHE_REFRESH_KEY,
   LAST_API_SYNC_KEY,
 ];
+
+/**
+ * Market-history localStorage keys now owned by IndexedDB (STRK-141).
+ * Skipped by backup/restore so the IDB store remains the single source of
+ * truth for these histories.
+ * @constant {string[]}
+ */
+const HISTORY_IDB_KEYS = [
+  SPOT_HISTORY_KEY,
+  "v2RetailHistory", // nosemgrep: codacy.javascript.security.hard-coded-password
+  RETAIL_PRICE_HISTORY_KEY,
+];
+
+/** @constant {number} ITEM_PRICE_HISTORY_MAX_DAYS - Retention window (days) for per-item price history (STRK-141) */
+const ITEM_PRICE_HISTORY_MAX_DAYS = 365;
+
+/** @constant {number} ITEM_PRICE_HISTORY_MAX_ENTRIES - Max retained entries for per-item price history (STRK-141) */
+const ITEM_PRICE_HISTORY_MAX_ENTRIES = 1000;
 
 // =============================================================================
 // INLINE CHIP CONFIG — controls which chips appear in the Name cell and order
@@ -1937,6 +1973,10 @@ if (typeof window !== "undefined") {
   window.SYNC_SCOPE_KEYS = SYNC_SCOPE_KEYS;
   window.VAULT_EXCLUDE_KEYS = VAULT_EXCLUDE_KEYS;
   window.VAULT_SETTINGS_DIFF_SKIP = VAULT_SETTINGS_DIFF_SKIP;
+  // STRK-141: market histories migrated to IndexedDB
+  window.HISTORY_IDB_KEYS = HISTORY_IDB_KEYS;
+  window.ITEM_PRICE_HISTORY_MAX_DAYS = ITEM_PRICE_HISTORY_MAX_DAYS;
+  window.ITEM_PRICE_HISTORY_MAX_ENTRIES = ITEM_PRICE_HISTORY_MAX_ENTRIES;
   window.CERT_LOOKUP_URLS = CERT_LOOKUP_URLS;
   // Inline chip config
   window.INLINE_CHIP_DEFAULTS = INLINE_CHIP_DEFAULTS;
@@ -1959,6 +1999,7 @@ if (typeof window !== "undefined") {
   window.RETAIL_PROVIDERS_KEY = RETAIL_PROVIDERS_KEY;
   window.V2_API_ENDPOINTS = V2_API_ENDPOINTS;
   window.V2_API_BASE_URL = V2_API_BASE_URL;
+  window.SPOT_MAX_PAYLOAD_AGE_MS = SPOT_MAX_PAYLOAD_AGE_MS;
   window.RETAIL_INTRADAY_KEY = RETAIL_INTRADAY_KEY;
   window.RETAIL_SYNC_LOG_KEY = RETAIL_SYNC_LOG_KEY;
   window.RETAIL_AVAILABILITY_KEY = RETAIL_AVAILABILITY_KEY;

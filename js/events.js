@@ -806,7 +806,7 @@ const saveUserImageForItem = async (uuid) => {
     }
   }
 
-  const saved = await window.imageCache.cacheUserImage(uuid, obvBlob, revBlob);
+  const saved = await window.imageCache.cacheUserImageWithFeedback(uuid, obvBlob, revBlob);
   debugLog(`saveUserImageForItem: saved=${saved}`);
   clearUploadState();
   return saved;
@@ -2138,6 +2138,14 @@ const handleTypeChange = () => {
   if (isGoldbackType || isSilverbackType) {
     unitSelect.value = isGoldbackType ? "gb" : "sb";
     if (unitGroup) unitGroup.classList.add("hidden");
+    const metalSelect = elements.itemMetal;
+    if (metalSelect instanceof HTMLElement) {
+      const targetMetal = isGoldbackType ? "Gold" : "Silver";
+      const hasMetalOption = Array.from(metalSelect.options || []).some(
+        (option) => option.value === targetMetal
+      );
+      if (hasMetalOption) metalSelect.value = targetMetal;
+    }
     updateDenomLabels(selectedType);
     const puritySelect = document.getElementById("itemPuritySelect");
     if (puritySelect && puritySelect.value !== "custom") {
@@ -2161,30 +2169,23 @@ const handleTypeChange = () => {
  */
 const filterTypesByMetal = (metalValue) => {
   const typeSelect = safeGetElement("itemType");
-  if (!typeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
+  if (!(typeSelect instanceof HTMLElement)) return;
 
-  Array.from(typeSelect.options).forEach((option) => {
-    // STAK-580: leave the placeholder option's disabled/hidden state alone
-    // so it remains an unselectable prompt, not a re-enabled fallback.
-    if (option.value === "") return;
-    const allowedMetals = TYPE_METAL_FILTER[option.value];
-    const isAllowed = !Array.isArray(allowedMetals) || allowedMetals.includes(metalValue);
-    option.hidden = !isAllowed;
-    option.disabled = !isAllowed;
-  });
+  // STRK-138 (Req 1): the Add/Edit form does NOT hide any Type option based on
+  // metal — Goldback/Silverback stay always selectable. The "no nonsensical
+  // metal×type combination" guarantee (Req 5) is enforced below by RESET, not by
+  // hiding. (Bulk edit + inline table edit still hide via TYPE_METAL_FILTER.)
 
-  const selectedOption = typeSelect.options[typeSelect.selectedIndex];
-  // STAK-580: don't auto-bump the placeholder to "Coin" — that would defeat
-  // required Type selection the instant the user picks a Metal.
-  if (selectedOption && selectedOption.value !== "" && selectedOption.hidden) {
-    typeSelect.value = "Coin";
-    const fallbackOption = typeSelect.options[typeSelect.selectedIndex];
-    if (!fallbackOption || fallbackOption.hidden) {
-      const firstVisible = Array.from(typeSelect.options).find(
-        (option) => !option.hidden && option.value !== ""
-      );
-      if (firstVisible) typeSelect.value = firstVisible.value;
-    }
+  // STAK-580 (re-expressed for Type-drives-Metal): enforce "no nonsensical
+  // combo" by RESET, not by hiding. If a Goldback/Silverback Type is active and
+  // the user changes Metal to an incompatible value, clear Type back to the
+  // placeholder and rebuild dependent UI.
+  const currentType = typeSelect.value;
+  const incompatible =
+    (currentType === "Goldback" && metalValue !== "Gold") ||
+    (currentType === "Silverback" && metalValue !== "Silver");
+  if (incompatible) {
+    typeSelect.value = "";
     handleTypeChange();
   }
 };
@@ -3097,7 +3098,17 @@ const setupItemFormListeners = () => {
       elements.itemType,
       "change",
       () => {
+        const itemMetal = elements.itemMetal;
+        const metalBefore = itemMetal instanceof HTMLElement ? itemMetal.value : null;
         handleTypeChange();
+        // STRK-138: handleTypeChange may programmatically drive Metal (e.g.
+        // Type=Goldback -> Metal=Gold), which does NOT fire the metal-change
+        // listener that clears a stale spot lookup (STACK-49). Mirror that
+        // behavior here, but only when the Type change actually moved Metal.
+        const metalAfter = itemMetal instanceof HTMLElement ? itemMetal.value : null;
+        if (metalAfter !== metalBefore && elements.itemSpotPrice instanceof HTMLElement) {
+          elements.itemSpotPrice.value = "";
+        }
       },
       "Type change updates denomination picker"
     );

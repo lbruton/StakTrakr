@@ -965,7 +965,7 @@ const filterInventoryAdvanced = () => {
     "hide";
   if (disposedMode === "hide") {
     result = result.filter(function (item) {
-      return !item.disposition;
+      return !isDisposed(item);
     });
   } else if (disposedMode === "show-only") {
     result = result.filter(function (item) {

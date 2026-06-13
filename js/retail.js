@@ -362,27 +362,15 @@ const saveRetailPrices = () => {
   }
 };
 
-const loadRetailPriceHistory = () => {
-  try {
-    const loaded = loadDataSync(RETAIL_PRICE_HISTORY_KEY);
-    // Guard: stored value must be a plain object; arrays (corrupt/legacy data) are discarded.
-    retailPriceHistory =
-      loaded && !Array.isArray(loaded) && typeof loaded === "object" ? loaded : {};
-  } catch (err) {
-    console.error("[retail] Failed to load retail price history:", err);
-    retailPriceHistory = {};
-  }
-  // Re-export so window.retailPriceHistory reflects the new reference after reassignment.
-  if (typeof window !== "undefined") window.retailPriceHistory = retailPriceHistory;
-};
+// STRK-141: the legacy `retailPriceHistory` localStorage key is retired.
+// These functions are now thin aliases that route through the canonical v2
+// store (`_loadV2RetailHistory` / `_saveV2RetailHistory`), so the live writer
+// (the retail-view-modal edit) persists to IndexedDB instead of the legacy LS
+// key. No new key is introduced. (NOTE: _loadV2RetailHistory is async; await it
+// at call sites that need the load to complete before reading.)
+const loadRetailPriceHistory = () => _loadV2RetailHistory();
 
-const saveRetailPriceHistory = () => {
-  try {
-    saveDataSync(RETAIL_PRICE_HISTORY_KEY, retailPriceHistory);
-  } catch (err) {
-    _handleSaveError("retail price history", err);
-  }
-};
+const saveRetailPriceHistory = () => _saveV2RetailHistory();
 
 const loadRetailIntradayData = () => {
   try {
@@ -536,23 +524,53 @@ const _loadV2RetailIntraday = () => {
   if (typeof window !== "undefined") window.retailIntradayData = retailIntradayData;
 };
 
+// STRK-141: retail history is IndexedDB-backed via historyStore (with a
+// synchronous localStorage fallback when IndexedDB is unavailable). The
+// in-memory retailPriceHistory global stays the synchronous source of truth
+// for all render/chart reads; storage is async only at boot hydration (awaited)
+// and persistence (fire-and-forget after the global is already updated).
 const _saveV2RetailHistory = () => {
   try {
-    saveDataSync(_V2_RETAIL_HISTORY_KEY, retailPriceHistory);
+    // Update the in-memory global FIRST so synchronous readers/renderers see the
+    // current value immediately, then schedule the durable write.
+    if (typeof window !== "undefined") window.retailPriceHistory = retailPriceHistory;
+    const store = typeof historyStore !== "undefined" ? historyStore : window?.historyStore;
+    if (store && store.isAvailable()) {
+      // Fire-and-forget IDB write — do NOT await. Reads already see the global.
+      void store.put(_V2_RETAIL_HISTORY_KEY, retailPriceHistory);
+    } else {
+      saveDataSync(_V2_RETAIL_HISTORY_KEY, retailPriceHistory);
+    }
   } catch (err) {
     _handleSaveError("v2 retail history", err);
   }
 };
 
-const _loadV2RetailHistory = () => {
+const _loadV2RetailHistory = async () => {
   try {
-    const loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    const store = typeof historyStore !== "undefined" ? historyStore : window?.historyStore;
+    let loaded;
+    if (store && store.isAvailable()) {
+      // IDB available: prefer it, but fall back to the localStorage copy when
+      // get() returns null for a DEFERRED key — migrate() keeps an unconfirmed
+      // or wrong-shape payload in localStorage WITHOUT writing it to IDB, so the
+      // LS copy is still the source of truth (R3.1, STRK-149 finding #1).
+      // `??` (not `!== null`) so the fallback also fires if get() ever returns
+      // undefined.
+      const idb = await store.get(_V2_RETAIL_HISTORY_KEY);
+      loaded = idb ?? loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    } else {
+      loaded = loadDataSync(_V2_RETAIL_HISTORY_KEY);
+    }
+    // Preserve the existing type guard: retail history must be a non-array object.
     retailPriceHistory =
       loaded && !Array.isArray(loaded) && typeof loaded === "object" ? loaded : {};
   } catch (e) {
     retailPriceHistory = {};
     debugLog("Failed to load v2 retail history: " + e.message, "warn");
   }
+  // MANDATORY re-export after the `let` reassignment — without it readers keep a
+  // stale binding (silent data loss).
   if (typeof window !== "undefined") window.retailPriceHistory = retailPriceHistory;
 };
 
@@ -1308,7 +1326,7 @@ const renderRetailHistoryTable = () => {
 // Initializer
 // ---------------------------------------------------------------------------
 
-const initRetailPrices = () => {
+const initRetailPrices = async () => {
   // Restore manifest slug list from localStorage (so we don't fall back to 12-item RETAIL_SLUGS)
   try {
     const cached = localStorage.getItem(RETAIL_MANIFEST_SLUGS_KEY);
@@ -1360,7 +1378,9 @@ const initRetailPrices = () => {
     }
   }
   _loadV2RetailPrices();
-  _loadV2RetailHistory();
+  // STRK-141: history load is async (IndexedDB-backed) — await so the global is
+  // hydrated before first render. init.js (task 7) awaits initRetailPrices().
+  await _loadV2RetailHistory();
   _loadV2RetailIntraday();
   loadRetailProviders();
   loadRetailAvailability();

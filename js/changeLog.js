@@ -17,16 +17,40 @@
 
 /**
  * Computes a stable composite key for an inventory item.
- * Mirrors DiffEngine.computeItemKey() — uuid → serial → numistaId|name|date → name|date.
+ *
+ * STRK-167: delegates to DiffEngine.computeItemKey (the single authoritative key)
+ * at CALL TIME — changeLog.js loads before diff-engine.js, so a load-time reference
+ * would be undefined, but every caller fires post-load. The inline fallback mirrors
+ * the current ladder (uuid → serial → instance key → name|date) only for the rare
+ * case DiffEngine is absent (e.g. an isolated unit harness). Keeping the key in one
+ * place is what closes the three-copy drift that caused STRK-167.
  * @param {Object} item - Inventory item object
  * @returns {string} Stable item key
  */
-const computeItemKey = (item) => {
+const _fallbackItemKey = (item) => {
+  // duplication-ok: intentional safety net that mirrors DiffEngine's authoritative
+  // ladder ONLY when window.DiffEngine is absent (e.g. an isolated unit harness).
+  // computeItemKey delegates to DiffEngine at runtime; this never fires in the app.
   if (!item) return "";
   if (item.uuid) return String(item.uuid);
-  if (item.serial) return String(item.serial);
-  if (item.numistaId) return `${item.numistaId}|${item.name || ""}|${item.date || ""}`;
+  if (item.serial != null && item.serial !== "") return String(item.serial);
+  if (item.numistaId) {
+    const norm = (v) =>
+      String(v == null ? "" : v)
+        .trim()
+        .toLowerCase();
+    const nid = String(item.numistaId == null ? "" : item.numistaId).trim();
+    const year = String(item.year == null ? "" : item.year).trim();
+    return `${nid}|${year}|${norm(item.grade)}|${norm(item.certNumber)}`;
+  }
   return `${item.name || ""}|${item.date || ""}`;
+};
+
+const computeItemKey = (item) => {
+  if (typeof window !== "undefined" && window.DiffEngine && window.DiffEngine.computeItemKey) {
+    return window.DiffEngine.computeItemKey(item);
+  }
+  return _fallbackItemKey(item);
 };
 
 /**

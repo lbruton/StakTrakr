@@ -858,7 +858,13 @@ const openRetailViewModal = (slug) => {
           if (Array.isArray(hist) && typeof retailPriceHistory !== "undefined") {
             anySuccess = true;
             retailPriceHistory[slug] = hist;
-            if (typeof saveRetailPriceHistory === "function") saveRetailPriceHistory();
+            // STRK-141: persist through the canonical v2 store (IndexedDB-backed)
+            // instead of the retired legacy `retailPriceHistory` localStorage key.
+            if (typeof _saveV2RetailHistory === "function") {
+              _saveV2RetailHistory();
+            } else if (typeof saveRetailPriceHistory === "function") {
+              saveRetailPriceHistory();
+            }
           }
         }
         // Show staleness warning if both fetches failed

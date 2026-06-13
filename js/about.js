@@ -27,15 +27,14 @@ const populateAboutTab = () => {
     }
   }
 
-  // Load announcements for latest changes and roadmap
+  // Load announcements for latest changes
   loadAnnouncements();
 };
 
-const loadAnnouncements = async () => {
+const loadAnnouncements = () => {
   const whatsNewTargets = [document.getElementById("aboutChangelogLatest")].filter(Boolean);
-  const roadmapTargets = [document.getElementById("aboutRoadmapList")].filter(Boolean);
 
-  if (!whatsNewTargets.length && !roadmapTargets.length) return;
+  if (!whatsNewTargets.length) return;
 
   // STAK-513: Use embedded content directly. The external docs/announcements.md
   // was deleted but CDN ghost caches serve stale copies indefinitely.
@@ -43,10 +42,6 @@ const loadAnnouncements = async () => {
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
   whatsNewTargets.forEach((el) => {
     el.innerHTML = getEmbeddedWhatsNew();
-  }); // developer-controlled HTML
-  // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  roadmapTargets.forEach((el) => {
-    el.innerHTML = getEmbeddedRoadmap();
   }); // developer-controlled HTML
 };
 
@@ -139,21 +134,14 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
-    <li><strong>v3.35.2 &ndash; Summit Metals accuracy</strong>: Summit Metals listings no longer show a false &ldquo;out of stock&rdquo; badge, and pricing now reflects the single-unit tier instead of the 100&plus; bulk price (STRK-144).</li>
-    <li><strong>v3.35.2 &ndash; Metal-neutral purity labels</strong>: Fineness options no longer name a metal, so selecting .900 on a gold item no longer reads &ldquo;90&percnt; Silver&rdquo; (STRK-145).</li>
-    <li><strong>v3.35.1 &ndash; Storage quota fix</strong>: Market price history is now compressed (lz-string), clearing the &ldquo;storage quota exceeded&rdquo; error and freeing roughly 80&percnt; of its storage footprint &mdash; existing data is upgraded automatically with no loss (STRK-140).</li>
-    <li><strong>v3.35.0 &ndash; Trade linking</strong>: Bidirectional trade links between disposed traded items and received inventory, with editable provenance, spot-derived trade values, backup/export coverage, and cloud-sync visibility (STRK-123).</li>
-    <li><strong>v3.35.0 &ndash; Cloud sync hardening</strong>: Tag merge on sync, conflict-loop fix after accepting remote changes, Bullion Exchanges content-quality retry (STRK-106, STRK-107, STRK-108).</li>
-    <li><strong>v3.35.0 &ndash; Retail &amp; autocomplete fixes</strong>: SDB/BE spot-ticker sidebar leak patched, autocomplete field name casing corrected (STRK-99, STRK-114).</li>
-    <li><strong>v3.35.0 &ndash; Test infrastructure</strong>: Full Playwright suite consolidation &mdash; 7 batches reorganized scattered specs into compact domain suites with archived historical coverage (STRK-97 &ndash; STRK-122).</li>
-    <li><strong>v3.34.85 &ndash; Memorial Day release</strong>: Mobile bulk editor, gold-api.com provider, retail accuracy fixes, Goldback premium ticker, Numista tag chips, oklch theme system, and cloud sync reliability (STRK-91, STRK-89, STRK-99, STRK-85, STRK-84, STRK-25, STRK-101).</li>
-  `;
-};
-
-const getEmbeddedRoadmap = () => {
-  return `
-    <li><strong>Market Page Phase 3</strong>: Inventory-to-market linking with auto-update retail prices</li>
-    <li><strong>Cloud Backup Conflict Detection (STAK-150)</strong>: Smarter conflict resolution using item count direction, not just timestamps</li>
+    <li><strong>v3.35.20 &ndash; STRK-190: Offline cache freshness fixed</strong>: The app's offline cache now correctly recognizes live price endpoints, so cached prices respect their intended shelf life &mdash; previously every API response was served from cache without an age check, which could show old prices after time away (STRK-190).</li>
+    <li><strong>v3.35.19 &ndash; STRK-189: Stale spot prices rejected</strong>: Spot sync now checks each payload's publication timestamp &mdash; an hours-old price from a cache or stale server can no longer flash over a fresh one, pollute your price history with wrongly-dated entries, or overwrite a newer price; history entries now carry the price's actual publication time (STRK-189).</li>
+    <li><strong>v3.35.18 &ndash; STRK-186: Backups keep catalog API keys</strong>: Restoring an encrypted backup or cloud-sync snapshot now correctly brings back your Numista API key and PCGS token &mdash; previously the restored keys looked missing and could be silently erased by the next lookup (STRK-186).</li>
+    <li><strong>v3.35.17 &ndash; STRK-188: Market data backup API</strong>: Market prices now automatically fall back to the backup API when the primary is unreachable &mdash; the Market tab keeps live data during a primary-feed outage, matching how spot prices already behave (STRK-188).</li>
+    <li><strong>v3.35.16 &ndash; STRK-185: Pattern images in backups</strong>: Encrypted backups and cloud photo sync now include the images attached to your custom pattern rules, so they survive a storage wipe and restore instead of leaving rules image-less; older backups still restore normally (STRK-185).</li>
+    <li><strong>v3.35.15 &ndash; STRK-184: Storage report cleanup</strong>: Removed an old, unused storage-report generator that could no longer be opened from the app &mdash; eliminating a potential security weak spot and shrinking the codebase; the footer storage meter is unchanged (STRK-184).</li>
+    <li><strong>v3.35.14 &ndash; Safer Numista merge</strong>: Importing a Numista CSV now safely merges into your existing inventory instead of replacing it &mdash; identical ungraded copies combine with a summed quantity, graded coins stay separate, re-importing the same file adds no duplicates, and the review screen gains a Keep/Replace/Add quantity choice plus a &ldquo;possible duplicate of a graded item&rdquo; heads-up (STRK-167).</li>
+    <li><strong>v3.35.13 &ndash; Spot card ratio chips</strong>: Every spot card now shows an at-a-glance ratio &mdash; gold-to-silver (GSR), gold-to-platinum, and gold-to-palladium on those cards, plus the daily goldback rate on the gold card &mdash; with a Currency &amp; Pricing toggle and a plain-English tooltip (STRK-161).</li>
   `;
 };
 
@@ -162,7 +150,6 @@ if (typeof window !== "undefined") {
   window.loadAnnouncements = loadAnnouncements;
   window.populateAboutTab = populateAboutTab;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
-  window.getEmbeddedRoadmap = getEmbeddedRoadmap;
   window.showFullChangelog = showFullChangelog;
   window.showWhatsNewPopup = showWhatsNewPopup;
   window.hideWhatsNewPopup = hideWhatsNewPopup;

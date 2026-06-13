@@ -107,22 +107,29 @@
       };
       zip.file("settings.json", JSON.stringify(settings, null, 2));
 
-      // 3. Add spot price history
-      const spotHistoryData = {
-        version: APP_VERSION,
-        exportDate: new Date().toISOString(),
-        history: spotHistory,
-      };
-      zip.file("spot_price_history.json", JSON.stringify(spotHistoryData, null, 2));
+      // 3. Add spot price history — skipped when owned by IndexedDB (STRK-141, R7.2).
+      // Spot history is reproducible from the API and is never written to a backup.
+      if (!HISTORY_IDB_KEYS.includes(SPOT_HISTORY_KEY)) {
+        const spotHistoryData = {
+          version: APP_VERSION,
+          exportDate: new Date().toISOString(),
+          history: spotHistory,
+        };
+        zip.file("spot_price_history.json", JSON.stringify(spotHistoryData, null, 2));
+      }
 
-      // 3a-retail. Add retail market prices (STAK-217)
+      // 3a-retail. Add retail market prices (STAK-217).
+      // Retail history is skipped when owned by IndexedDB (STRK-141, R7.2); current
+      // retail prices (a separate, non-history key) are still exported.
       const retailPricesData = loadDataSync(RETAIL_PRICES_KEY) || null;
-      const retailHistoryData = loadDataSync(RETAIL_PRICE_HISTORY_KEY) || {};
       if (retailPricesData) {
         zip.file("retail_prices.json", JSON.stringify(retailPricesData, null, 2));
       }
-      if (Object.keys(retailHistoryData).length > 0) {
-        zip.file("retail_price_history.json", JSON.stringify(retailHistoryData, null, 2));
+      if (!HISTORY_IDB_KEYS.includes(RETAIL_PRICE_HISTORY_KEY)) {
+        const retailHistoryData = loadDataSync(RETAIL_PRICE_HISTORY_KEY) || {};
+        if (Object.keys(retailHistoryData).length > 0) {
+          zip.file("retail_price_history.json", JSON.stringify(retailHistoryData, null, 2));
+        }
       }
 
       // 3b. Add per-item price history (STACK-43)
@@ -482,10 +489,10 @@
         }
       }
 
-      // 1d. Pre-parse ancillary data (applied after user accepts DiffModal)
+      // 1d. Pre-parse ancillary data (applied after user accepts DiffModal).
+      // Spot + retail price history are intentionally not parsed/restored from older
+      // backups — they are reproducible from the API and now owned by IndexedDB (STRK-141, R7.3).
       const ancillary = {};
-      const historyStr = await zip.file("spot_price_history.json")?.async("string");
-      if (historyStr) ancillary.spotHistory = JSON.parse(historyStr).history || [];
 
       const itemHistoryStr = await zip.file("item_price_history.json")?.async("string");
       if (itemHistoryStr) ancillary.itemPriceHistory = JSON.parse(itemHistoryStr).history || {};
@@ -496,15 +503,6 @@
           ancillary.retailPrices = JSON.parse(retailPricesStr);
         } catch (e) {
           debugWarn("restoreBackupZip: retail_prices.json parse error", e);
-        }
-      }
-      const retailHistoryStr = await zip.file("retail_price_history.json")?.async("string");
-      if (retailHistoryStr) {
-        try {
-          const rh = JSON.parse(retailHistoryStr);
-          if (!Array.isArray(rh) && typeof rh === "object") ancillary.retailHistory = rh;
-        } catch (e) {
-          debugWarn("restoreBackupZip: retail_price_history.json parse error", e);
         }
       }
 
@@ -540,10 +538,8 @@
           catalogManager.importMappings(settingsObj.catalogMappings, false);
         }
 
-        if (ancillary.spotHistory) {
-          saveDataSync(SPOT_HISTORY_KEY, ancillary.spotHistory);
-          loadSpotHistory();
-        }
+        // Spot price history from older backups is intentionally NOT restored —
+        // it is reproducible from the API and now owned by IndexedDB (STRK-141, R7.3).
 
         if (ancillary.itemPriceHistory && typeof mergeItemPriceHistory === "function") {
           mergeItemPriceHistory(ancillary.itemPriceHistory);
@@ -555,10 +551,8 @@
           saveDataSync(RETAIL_PRICES_KEY, ancillary.retailPrices);
           if (typeof loadRetailPrices === "function") loadRetailPrices();
         }
-        if (ancillary.retailHistory) {
-          saveDataSync(RETAIL_PRICE_HISTORY_KEY, ancillary.retailHistory);
-          if (typeof loadRetailPriceHistory === "function") loadRetailPriceHistory();
-        }
+        // Retail price history from older backups is intentionally NOT restored —
+        // reproducible from the API and now owned by IndexedDB (STRK-141, R7.3).
 
         // Restore cached coin images (STACK-88)
         if (window.imageCache?.isAvailable()) {

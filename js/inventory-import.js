@@ -145,12 +145,40 @@
       );
     }
 
+    // STRK-167 (AC-11, D-4): compute a SIDECAR set of added rows that are likely
+    // duplicates of a graded item the user already owns — an ungraded incoming row
+    // sharing numistaId+year with an existing graded/certified item. This is purely
+    // advisory; the flag is NEVER written onto an item (applySelectedChanges would
+    // persist it). The modal looks rows up by DiffEngine.computeItemKey.
+    const possibleDuplicates = new Set();
+    if (Array.isArray(inventory) && diffResult && Array.isArray(diffResult.added)) {
+      const gradedByNumistaYear = new Set();
+      for (const ex of inventory) {
+        if (
+          ex &&
+          ex.numistaId &&
+          (String(ex.grade || "").trim() || String(ex.certNumber || "").trim())
+        ) {
+          gradedByNumistaYear.add(ex.numistaId + "|" + (ex.year == null ? "" : String(ex.year)));
+        }
+      }
+      for (const add of diffResult.added) {
+        if (!add || !add.numistaId) continue;
+        const isUngraded = !String(add.grade || "").trim() && !String(add.certNumber || "").trim();
+        const ny = add.numistaId + "|" + (add.year == null ? "" : String(add.year));
+        if (isUngraded && gradedByNumistaYear.has(ny)) {
+          possibleDuplicates.add(DiffEngine.computeItemKey(add));
+        }
+      }
+    }
+
     DiffModal.show({
       source: sourceInfo,
       diff: diffResult,
       settingsDiff: settingsDiff,
       backupCount: _backupCount,
       localCount: _localCount,
+      possibleDuplicates: possibleDuplicates,
       onApply: function (selectedChanges) {
         if (!selectedChanges || selectedChanges.length === 0) return;
 
@@ -868,8 +896,11 @@
             const spotPriceAtPurchase = 0;
             const premiumPerOz = 0;
             const totalPremium = 0;
-            const serial = getNextSerial();
-            const uuid = generateUUID();
+            // STRK-167 (D-3): do NOT pre-stamp uuid/serial here. A pre-stamped uuid
+            // makes computeItemKey return it first, masking the instance tier so the
+            // diff never matches existing items (the STRK-165 duplication bug).
+            // Identity is stamped later: enrich backfills matched rows, then any
+            // still-unmatched row is stamped before the diff.
 
             const item = sanitizeImportedItem({
               metal,
@@ -895,8 +926,6 @@
               gradingAuthority: "",
               certNumber: "",
               pcgsNumber: "",
-              serial,
-              uuid,
             });
 
             imported.push(item);
@@ -923,47 +952,77 @@
             return;
           }
 
-          // --- Override path: skip DiffEngine, import all items directly ---
+          // STRK-167 (AC-6, D-3): collapse the repeated N# rows Numista exports for
+          // identical ungraded copies into one row with summed qty, keyed on the bare
+          // instance key — BEFORE any identity stamping.
+          const collapsed =
+            typeof DiffEngine !== "undefined" &&
+            typeof DiffEngine.collapseByInstanceKey === "function"
+              ? DiffEngine.collapseByInstanceKey(imported)
+              : imported;
+
+          // Stamp uuid + serial on rows that still lack identity. Matched rows get a
+          // backfilled uuid from enrichItemIdentities; genuinely-new rows are stamped
+          // here so accepted adds are never saved keyless (D-3).
+          const stampIdentity = (rows) => {
+            for (const it of rows) {
+              if (it.serial == null || it.serial === "") it.serial = getNextSerial();
+              if (!it.uuid) it.uuid = generateUUID();
+            }
+          };
+
+          // --- Override path (AC-13): replace the entire inventory, no modal. ---
           if (override) {
-            inventory = imported;
-
-            for (const item of imported) {
-              if (typeof registerName === "function") registerName(item.name);
-            }
-
-            if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
-              inventory = catalogManager.syncInventory(inventory);
-            }
-            if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
-            if (typeof debugLog === "function")
-              debugLog("inventoryRecovery: cleared by numistaImport");
-            saveInventory();
-            // STAK-421: Cancel debounced sync push after override import
-            if (
-              typeof scheduleSyncPush === "function" &&
-              typeof scheduleSyncPush.cancel === "function"
-            ) {
-              scheduleSyncPush.cancel();
-            }
-            renderTable();
-            if (typeof renderActiveFilters === "function") renderActiveFilters();
-            if (typeof updateStorageStats === "function") updateStorageStats();
-            debugLog("importNumistaCsv override complete", imported.length, "items replaced");
+            stampIdentity(collapsed);
+            const runReplace = async () => {
+              inventory = collapsed;
+              for (const item of collapsed) {
+                if (typeof registerName === "function") registerName(item.name);
+              }
+              if (typeof catalogManager !== "undefined" && catalogManager.syncInventory) {
+                inventory = catalogManager.syncInventory(inventory);
+              }
+              if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+              await saveInventory();
+              // STAK-421: cancel debounced sync push after a replace import.
+              if (typeof scheduleSyncPush === "function") scheduleSyncPush.cancel?.();
+              renderTable();
+              if (typeof renderActiveFilters === "function") renderActiveFilters();
+              if (typeof updateStorageStats === "function") updateStorageStats();
+            };
+            runReplace().catch((error) => handleError(error, "Numista CSV import"));
             return;
           }
 
-          // --- Merge path: use shared DiffEngine + DiffModal helper ---
-          showImportDiffReview(imported, { type: "csv", label: file.name }, {}, function (summary) {
-            debugLog(
-              "importNumistaCsv DiffEngine complete",
-              summary.added,
-              "added",
-              summary.modified,
-              "modified",
-              summary.deleted,
-              "deleted"
-            );
-          });
+          // --- Merge path (AC-7/9/12): route through the shared diff-review modal,
+          // exactly as importCsv does. The STRK-165 interim onboarding/replace gate
+          // is gone — instance-aware dedup makes merging safe again. ---
+          if (
+            typeof DiffEngine !== "undefined" &&
+            typeof DiffEngine.enrichItemIdentities === "function"
+          ) {
+            DiffEngine.enrichItemIdentities(inventory, collapsed); // backfill matched uuids
+          }
+          stampIdentity(collapsed); // stamp still-unmatched before the diff
+
+          showImportDiffReview(
+            collapsed,
+            { type: "csv", label: file.name },
+            {},
+            function (summary) {
+              if (typeof debugLog === "function") {
+                debugLog(
+                  "importNumistaCsv merge complete",
+                  summary.added,
+                  "added",
+                  summary.modified,
+                  "modified",
+                  summary.deleted,
+                  "deleted"
+                );
+              }
+            }
+          );
         } catch (error) {
           endImportProgress();
           handleError(error, "Numista CSV import");
@@ -978,251 +1037,6 @@
       endImportProgress();
       handleError(error, "Numista CSV import initialization");
     }
-  };
-
-  /**
-   * Exports inventory using Numista-compatible column layout
-   */
-  const exportNumistaCsv = () => {
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const headers = [
-      "N# number",
-      "Title",
-      "Year",
-      "Metal",
-      "Quantity",
-      "Type",
-      "Weight (g)",
-      `Buying price (${displayCurrency})`,
-      "Acquisition place",
-      "Storage location",
-      "Acquisition date",
-      "Note",
-      "Private comment",
-      "Public comment",
-      "Comment",
-    ];
-
-    const sortedInventory = sortInventoryByDateNewestFirst();
-    const rows = [];
-    const fxRate = typeof getExchangeRate === "function" ? getExchangeRate(displayCurrency) : 1;
-    const fracDigits =
-      typeof getCurrencyFractionDigits === "function"
-        ? getCurrencyFractionDigits(displayCurrency)
-        : 2;
-
-    for (const item of sortedInventory) {
-      const year = item.year || item.issuedYear || "";
-      let title = item.name || "";
-      if (year) {
-        const yearRegex = new RegExp(
-          `\\s*${String(year).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`
-        );
-        title = title.replace(yearRegex, "").trim();
-      }
-
-      const weightGrams = parseFloat(item.weight) ? parseFloat(item.weight) * 31.1034768 : 0;
-      const purchasePrice = item.purchasePrice ?? item.price;
-
-      let baseNote = "";
-      let privateComment = "";
-      let publicComment = "";
-      let otherComment = "";
-      if (item.notes) {
-        const lines = String(item.notes).split(/\n/);
-        for (const line of lines) {
-          if (/^\s*Private Comment:/i.test(line)) {
-            privateComment = line.replace(/^\s*Private Comment:\s*/i, "").trim();
-          } else if (/^\s*Public Comment:/i.test(line)) {
-            publicComment = line.replace(/^\s*Public Comment:\s*/i, "").trim();
-          } else if (/^\s*Comment:/i.test(line)) {
-            otherComment = line.replace(/^\s*Comment:\s*/i, "").trim();
-          } else {
-            baseNote = baseNote ? `${baseNote}\n${line}` : line;
-          }
-        }
-      }
-
-      rows.push([
-        item.numistaId || "",
-        title,
-        year,
-        item.metal || "",
-        item.qty || "",
-        item.type || "",
-        weightGrams ? weightGrams.toFixed(2) : "",
-        // STRK-88 (D-6): Convert internal USD price to display currency to match the
-        // column header "Buying price (${displayCurrency})". The importer reads this column
-        // and calls convertToUsd(amount, headerCurrency), so exporting raw USD under a
-        // non-USD header causes round-trip inflation.
-        (() => {
-          if (purchasePrice === null || purchasePrice === undefined) return "";
-          const usdVal = Number(purchasePrice);
-          if (isNaN(usdVal)) return "";
-          return (usdVal * fxRate).toFixed(fracDigits);
-        })(),
-        item.purchaseLocation || "",
-        item.storageLocation || "",
-        item.date || "",
-        baseNote,
-        privateComment,
-        publicComment,
-        otherComment,
-      ]);
-    }
-
-    const csv = Papa.unparse([headers, ...rows]);
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `numista_export_${timestamp}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  /**
-   * Exports current inventory to CSV format
-   */
-  const buildCsvContent = () => {
-    if (typeof Papa === "undefined") return null;
-    const headers = [
-      "Date",
-      "Metal",
-      "Type",
-      "Name",
-      "Year",
-      "Qty",
-      "Weight(oz)",
-      "Weight Unit",
-      "Purity",
-      "Purchase Price",
-      "Melt Value",
-      "Retail Price",
-      "Gain/Loss",
-      "Payment Method",
-      "Purchase Location",
-      "Storage Location",
-      "N#",
-      "PCGS #",
-      "Grade",
-      "Grading Authority",
-      "Cert #",
-      "Serial Number",
-      "Notes",
-      "Tags",
-      "removedTags",
-      "UUID",
-      "Obverse Image URL",
-      "Reverse Image URL",
-      "Obverse Frame",
-      "Reverse Frame",
-      "Disposition Type",
-      "Disposition Date",
-      "Disposition Amount",
-      "Realized Gain/Loss",
-      "Disposition Recipient",
-      "Disposition Notes",
-      "Disposition Currency",
-      "Disposition DisposedAt",
-      "Disposition Split From UUID",
-      "Traded For UUIDs",
-      "Traded From UUID",
-    ];
-
-    const sortedInventory = sortInventoryByDateNewestFirst();
-    const _removedTagsMap =
-      typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
-    const rows = [];
-
-    for (const i of sortedInventory) {
-      const currentSpot = spotPrices[i.metal.toLowerCase()] || 0;
-      const valuation =
-        typeof computeItemValuation === "function" ? computeItemValuation(i, currentSpot) : null;
-      const purchasePrice = valuation
-        ? valuation.purchasePrice
-        : typeof i.price === "number"
-          ? i.price
-          : parseFloat(i.price) || 0;
-      const meltValue = valuation ? valuation.meltValue : computeMeltValue(i, currentSpot);
-      const gainLoss = valuation ? valuation.gainLoss : null;
-
-      rows.push([
-        i.date,
-        i.metal || "Silver",
-        i.type,
-        i.name,
-        i.year || "",
-        i.qty,
-        parseFloat(i.weight).toFixed(4),
-        i.weightUnit || "oz",
-        parseFloat(i.purity) || 1.0,
-        formatCurrency(purchasePrice),
-        currentSpot > 0 ? formatCurrency(meltValue) : "—",
-        formatCurrency(i.marketValue || 0),
-        gainLoss !== null ? formatCurrency(gainLoss) : "—",
-        i.paymentMethod || "",
-        i.purchaseLocation,
-        i.storageLocation || "",
-        i.numistaId || "",
-        i.pcgsNumber || "",
-        i.grade || "",
-        i.gradingAuthority || "",
-        i.certNumber || "",
-        i.serialNumber || "",
-        i.notes || "",
-        typeof getItemTags === "function" ? getItemTags(i.uuid).join("; ") : "",
-        Array.isArray(_removedTagsMap[i.uuid]) ? _removedTagsMap[i.uuid].join("; ") : "",
-        i.uuid || "",
-        i.obverseImageUrl || "",
-        i.reverseImageUrl || "",
-        i.obverseImageFrame || "",
-        i.reverseImageFrame || "",
-        i.disposition ? DISPOSITION_TYPES[i.disposition.type]?.label || i.disposition.type : "",
-        i.disposition?.date || "",
-        i.disposition ? i.disposition.amount || 0 : "",
-        i.disposition ? i.disposition.realizedGainLoss || 0 : "",
-        i.disposition?.recipient || "",
-        i.disposition?.notes || "",
-        i.disposition?.currency || "",
-        i.disposition?.disposedAt || "",
-        i.disposition?.splitFromUuid || "",
-        Array.isArray(i.disposition?.tradedForUuids) ? i.disposition.tradedForUuids.join(",") : "",
-        i.tradedFromUuid || "",
-      ]);
-    }
-
-    const _csvOrigin =
-      typeof window !== "undefined" && window.location ? window.location.origin : "";
-    const _originComment = "# exportOrigin: " + _csvOrigin + "\n";
-    return _originComment + Papa.unparse([headers, ...rows]);
-  };
-
-  const exportCsv = () => {
-    if (typeof Papa === "undefined") {
-      appAlert(
-        "CSV library (PapaParse) failed to load. Please check your internet connection and reload the page."
-      );
-      return;
-    }
-    debugLog("exportCsv start", inventory.length, "items");
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const csv = buildCsvContent();
-    if (!csv) return;
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `metal_inventory_${timestamp}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    debugLog("exportCsv complete");
   };
 
   /**
@@ -1762,9 +1576,6 @@
     return parsed;
   };
   window.importNumistaCsv = importNumistaCsv;
-  window.exportCsv = exportCsv;
-  window.exportInventoryCSV = buildCsvContent;
-  window.exportNumistaCsv = exportNumistaCsv;
   window.showImportDiffReview = showImportDiffReview;
   window.startImportProgress = startImportProgress;
   window.updateImportProgress = updateImportProgress;

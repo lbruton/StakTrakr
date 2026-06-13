@@ -25,182 +25,12 @@ const VAULT_MIN_PASSWORD_LENGTH = 8;
 const VAULT_MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 // =============================================================================
-// CRYPTO ABSTRACTION LAYER
+// CRYPTO ABSTRACTION LAYER → js/vault-crypto.js (STRK-176)
 // =============================================================================
-
-/**
- * Detect available crypto backend.
- * @returns {'native'|'forge'|null}
- */
-function getCryptoBackend() {
-  try {
-    if (
-      typeof crypto !== "undefined" &&
-      crypto.subtle &&
-      typeof crypto.subtle.importKey === "function"
-    ) {
-      return "native";
-    }
-  } catch (err) {
-    debugLog("[Vault] Crypto backend detection failed: " + err.message, "info");
-  }
-  try {
-    if (typeof forge !== "undefined" && forge.cipher && forge.pkcs5) {
-      return "forge";
-    }
-  } catch (err) {
-    debugLog("[Vault] Crypto backend detection failed: " + err.message, "info");
-  }
-  return null;
-}
-
-/**
- * Generate cryptographically random bytes.
- * @param {number} length
- * @returns {Uint8Array}
- */
-function vaultRandomBytes(length) {
-  const backend = getCryptoBackend();
-  if (backend === "native") {
-    return crypto.getRandomValues(new Uint8Array(length));
-  }
-  if (backend === "forge") {
-    const bytes = forge.random.getBytesSync(length);
-    return new Uint8Array(
-      bytes.split("").map(function (c) {
-        return c.charCodeAt(0);
-      })
-    );
-  }
-  throw new Error("No crypto backend available");
-}
-
-/**
- * Derive AES-256 key from password using PBKDF2.
- * @param {string} password
- * @param {Uint8Array} salt - 32-byte salt
- * @param {number} iterations
- * @returns {Promise<CryptoKey|string>} Native CryptoKey or forge key bytes
- */
-async function vaultDeriveKey(password, salt, iterations) {
-  const backend = getCryptoBackend();
-  if (backend === "native") {
-    const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      "raw",
-      enc.encode(password),
-      "PBKDF2",
-      false,
-      ["deriveKey"]
-    );
-    return crypto.subtle.deriveKey(
-      {
-        name: "PBKDF2",
-        salt: salt,
-        iterations: iterations,
-        hash: "SHA-256",
-      },
-      keyMaterial,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["encrypt", "decrypt"]
-    );
-  }
-  if (backend === "forge") {
-    var saltStr = String.fromCharCode.apply(null, salt);
-    var key = forge.pkcs5.pbkdf2(password, saltStr, iterations, 32, "sha256");
-    return key;
-  }
-  throw new Error("No crypto backend available");
-}
-
-/**
- * Encrypt plaintext with AES-256-GCM.
- * @param {Uint8Array} plaintext
- * @param {CryptoKey|string} key
- * @param {Uint8Array} iv - 12-byte nonce
- * @returns {Promise<Uint8Array>} ciphertext + 16-byte auth tag
- */
-async function vaultEncrypt(plaintext, key, iv) {
-  var backend = getCryptoBackend();
-  if (backend === "native") {
-    var result = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, plaintext);
-    return new Uint8Array(result);
-  }
-  if (backend === "forge") {
-    var cipher = forge.cipher.createCipher("AES-GCM", key);
-    var ivStr = String.fromCharCode.apply(null, iv);
-    cipher.start({ iv: ivStr, tagLength: 128 });
-    cipher.update(forge.util.createBuffer(String.fromCharCode.apply(null, plaintext)));
-    cipher.finish();
-
-    var encrypted = cipher.output.getBytes();
-    var tag = cipher.mode.tag.getBytes();
-
-    var combined = new Uint8Array(encrypted.length + tag.length);
-    for (var i = 0; i < encrypted.length; i++) {
-      combined[i] = encrypted.charCodeAt(i);
-    }
-    for (var j = 0; j < tag.length; j++) {
-      combined[encrypted.length + j] = tag.charCodeAt(j);
-    }
-    return combined;
-  }
-  throw new Error("No crypto backend available");
-}
-
-/**
- * Decrypt ciphertext with AES-256-GCM.
- * @param {Uint8Array} ciphertext - ciphertext + 16-byte auth tag
- * @param {CryptoKey|string} key
- * @param {Uint8Array} iv - 12-byte nonce
- * @returns {Promise<Uint8Array>} plaintext
- * @throws {Error} On wrong password or corrupted data (GCM auth tag mismatch)
- */
-async function vaultDecrypt(ciphertext, key, iv) {
-  var backend = getCryptoBackend();
-  if (backend === "native") {
-    try {
-      var result = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ciphertext);
-      return new Uint8Array(result);
-    } catch (_) {
-      throw new Error("Incorrect password or corrupted file.");
-    }
-  }
-  if (backend === "forge") {
-    // Split ciphertext and tag (last 16 bytes)
-    var tagLength = 16;
-    if (ciphertext.length < tagLength) {
-      throw new Error("Incorrect password or corrupted file.");
-    }
-    var encBytes = ciphertext.slice(0, ciphertext.length - tagLength);
-    var tagBytes = ciphertext.slice(ciphertext.length - tagLength);
-
-    var encStr = String.fromCharCode.apply(null, encBytes);
-    var tagStr = String.fromCharCode.apply(null, tagBytes);
-    var ivStr = String.fromCharCode.apply(null, iv);
-
-    var decipher = forge.cipher.createDecipher("AES-GCM", key);
-    decipher.start({
-      iv: ivStr,
-      tagLength: 128,
-      tag: forge.util.createBuffer(tagStr),
-    });
-    decipher.update(forge.util.createBuffer(encStr));
-    var pass = decipher.finish();
-
-    if (!pass) {
-      throw new Error("Incorrect password or corrupted file.");
-    }
-    var output = decipher.output.getBytes();
-    return new Uint8Array(
-      output.split("").map(function (c) {
-        return c.charCodeAt(0);
-      })
-    );
-  }
-  throw new Error("No crypto backend available");
-}
+// getCryptoBackend, vaultRandomBytes, vaultDeriveKey, vaultEncrypt, vaultDecrypt
+// were extracted verbatim to the sibling js/vault-crypto.js (loaded before this
+// file). They remain bare globals, so the call sites below are unchanged.
+// =============================================================================
 
 // =============================================================================
 // BINARY FORMAT
@@ -327,6 +157,15 @@ function collectVaultData(scope) {
 
   for (var i = 0; i < keysToCollect.length; i++) {
     var key = keysToCollect[i];
+    // Skip market histories now owned by IndexedDB — never written to a backup (STRK-141, R7.2).
+    // item-price-history is not in this set, so it is still exported (R7.1).
+    if (
+      typeof HISTORY_IDB_KEYS !== "undefined" &&
+      Array.isArray(HISTORY_IDB_KEYS) &&
+      HISTORY_IDB_KEYS.indexOf(key) !== -1
+    ) {
+      continue;
+    }
     // Skip credentials and device-specific state in portable full exports
     if (
       scope === "full" &&
@@ -383,6 +222,15 @@ async function restoreVaultData(payload) {
   var keys = Object.keys(data);
   for (var i = 0; i < keys.length; i++) {
     var key = keys[i];
+    // Ignore market histories from older backups — they are reproducible from the
+    // API and now owned by IndexedDB; write to neither localStorage nor IDB (STRK-141, R7.3).
+    if (
+      typeof HISTORY_IDB_KEYS !== "undefined" &&
+      Array.isArray(HISTORY_IDB_KEYS) &&
+      HISTORY_IDB_KEYS.indexOf(key) !== -1
+    ) {
+      continue;
+    }
     // Only restore recognized keys
     if (ALLOWED_STORAGE_KEYS.indexOf(key) !== -1) {
       try {
@@ -407,6 +255,10 @@ async function restoreVaultData(payload) {
 
   // Refresh the full UI
   try {
+    // STRK-186: rehydrate constructor-cached catalog singletons first so no
+    // later refresh step can trigger a CatalogConfig.save() against stale
+    // in-memory state and clobber the freshly-restored API keys.
+    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
     if (typeof renderTable === "function") renderTable();
@@ -712,6 +564,13 @@ async function vaultRestoreWithPreview(fileBytes, password) {
           }
         }
 
+        // STRK-186: settings writes can include catalog_api_config — rehydrate
+        // the constructor-cached catalog singletons so a later
+        // CatalogConfig.save() doesn't clobber the freshly-restored API keys.
+        if (appliedSettings && typeof rehydrateCatalogState === "function") {
+          rehydrateCatalogState();
+        }
+
         // Save & render
         if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
         if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by vaultRestore");
@@ -801,16 +660,24 @@ function _base64ToBlob(b64, mimeType) {
 }
 
 /**
- * Export user images from IndexedDB, convert Blobs to base64, and compute a
- * stable hash so push can skip upload when images haven't changed.
- * @returns {Promise<{payload: object, hash: string, imageCount: number}|null>}
- *   null when there are no user-uploaded images
+ * Export user images and pattern-rule images from IndexedDB, convert Blobs to
+ * base64, and compute a stable hash so push can skip upload when images
+ * haven't changed. Pattern images (STRK-185) travel in a separate
+ * `patternRecords` array so payloads from older app versions (which lack it)
+ * restore unchanged.
+ * @returns {Promise<{payload: object, hash: string, imageCount: number, patternImageCount: number}|null>}
+ *   null when there are no user-uploaded images and no pattern images.
+ *   imageCount is the combined total (user + pattern).
  */
 async function collectAndHashImageVault() {
   if (typeof imageCache === "undefined" || typeof imageCache.exportAllUserImages !== "function")
     return null;
-  var records = await imageCache.exportAllUserImages();
-  if (!records || records.length === 0) return null;
+  var records = (await imageCache.exportAllUserImages()) || [];
+  var patternSource =
+    typeof imageCache.exportAllPatternImages === "function"
+      ? (await imageCache.exportAllPatternImages()) || []
+      : [];
+  if (records.length === 0 && patternSource.length === 0) return null;
 
   var serialized = [];
   var failedCount = 0;
@@ -834,39 +701,71 @@ async function collectAndHashImageVault() {
     serialized.push(entry);
   }
 
+  var serializedPatterns = [];
+  for (var j = 0; j < patternSource.length; j++) {
+    var p = patternSource[j];
+    var pEntry = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size };
+    try {
+      if (p.obverse instanceof Blob) {
+        pEntry.obverse = await _blobToBase64(p.obverse);
+        pEntry.obverseType = p.obverse.type;
+      }
+      if (p.reverse instanceof Blob) {
+        pEntry.reverse = await _blobToBase64(p.reverse);
+        pEntry.reverseType = p.reverse.type;
+      }
+    } catch (patternBlobErr) {
+      failedCount++;
+      debugLog("[Vault] Image vault: blob conversion failed for ruleId", p.ruleId, patternBlobErr);
+      continue;
+    }
+    serializedPatterns.push(pEntry);
+  }
+
+  var totalRecords = records.length + patternSource.length;
   if (failedCount > 0) {
     debugLog(
-      "[Vault] Image vault: " + failedCount + " of " + records.length + " images failed to export",
+      "[Vault] Image vault: " + failedCount + " of " + totalRecords + " images failed to export",
       "warn"
     );
   }
-  if (serialized.length === 0 && records.length > 0) {
+  if (serialized.length === 0 && serializedPatterns.length === 0) {
     throw new Error(
-      "Image vault export failed — could not read any of " + records.length + " images."
+      "Image vault export failed — could not read any of " + totalRecords + " images."
     );
   }
-
-  if (serialized.length === 0) return null;
 
   var payload = {
     _meta: {
       appVersion: typeof APP_VERSION !== "undefined" ? APP_VERSION : "unknown",
       exportTimestamp: new Date().toISOString(),
       imageCount: serialized.length,
+      patternImageCount: serializedPatterns.length,
     },
     records: serialized,
+    patternRecords: serializedPatterns,
   };
 
   // Hash includes a content sample (first 32 chars of obverse base64) so that
   // replacing an image with one of identical byte size still triggers an upload.
-  var hash = simpleHash(
-    JSON.stringify(
-      serialized.map(function (e) {
-        return e.uuid + ":" + e.size + ":" + (e.obverse ? e.obverse.slice(0, 32) : "");
-      })
-    )
-  );
-  return { payload: payload, hash: hash, imageCount: serialized.length };
+  // Pattern parts are appended after user parts with a "p:" prefix; with zero
+  // pattern images the hash input is byte-identical to the pre-STRK-185 format.
+  var hashParts = serialized.map(function (e) {
+    return e.uuid + ":" + e.size + ":" + (e.obverse ? e.obverse.slice(0, 32) : "");
+  });
+  for (var k = 0; k < serializedPatterns.length; k++) {
+    var pe = serializedPatterns[k];
+    hashParts.push(
+      "p:" + pe.ruleId + ":" + pe.size + ":" + (pe.obverse ? pe.obverse.slice(0, 32) : "")
+    );
+  }
+  var hash = simpleHash(JSON.stringify(hashParts));
+  return {
+    payload: payload,
+    hash: hash,
+    imageCount: serialized.length + serializedPatterns.length,
+    patternImageCount: serializedPatterns.length,
+  };
 }
 
 /**
@@ -886,19 +785,24 @@ async function vaultEncryptImageVault(password, payload) {
 }
 
 /**
- * Restore user images from a decrypted image vault payload.
+ * Restore user images and pattern-rule images from a decrypted image vault
+ * payload. Payloads from app versions before STRK-185 have no `patternRecords`
+ * array — only the user-image loop runs, exactly as before.
  * @param {object} payload
- * @returns {Promise<number>} Number of images imported
+ * @returns {Promise<number>} Number of images imported (user + pattern)
  */
 async function restoreImageVaultData(payload) {
-  if (!payload || !Array.isArray(payload.records)) return 0;
+  if (!payload) return 0;
+  var userRecords = Array.isArray(payload.records) ? payload.records : [];
+  var patternRecords = Array.isArray(payload.patternRecords) ? payload.patternRecords : [];
+  if (userRecords.length === 0 && patternRecords.length === 0) return 0;
   if (typeof imageCache === "undefined" || typeof imageCache.importUserImageRecord !== "function")
     return 0;
 
   var count = 0;
   var failed = 0;
-  for (var i = 0; i < payload.records.length; i++) {
-    var r = payload.records[i];
+  for (var i = 0; i < userRecords.length; i++) {
+    var r = userRecords[i];
     if (!r.uuid) continue;
     try {
       var record = { uuid: r.uuid, cachedAt: r.cachedAt, size: r.size };
@@ -916,12 +820,40 @@ async function restoreImageVaultData(payload) {
       debugLog("[Vault] Image vault: record import error for uuid", r.uuid, recErr);
     }
   }
+  if (typeof imageCache.importPatternImageRecord === "function") {
+    for (var j = 0; j < patternRecords.length; j++) {
+      var p = patternRecords[j];
+      if (!p.ruleId) continue;
+      try {
+        var pRecord = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size };
+        if (p.obverse) pRecord.obverse = _base64ToBlob(p.obverse, p.obverseType);
+        if (p.reverse) pRecord.reverse = _base64ToBlob(p.reverse, p.reverseType);
+        var pOk = await imageCache.importPatternImageRecord(pRecord);
+        if (pOk) {
+          count++;
+        } else {
+          failed++;
+          debugLog(
+            "[Vault] Image vault: importPatternImageRecord returned false for ruleId",
+            p.ruleId
+          );
+        }
+      } catch (patternRecErr) {
+        failed++;
+        debugLog(
+          "[Vault] Image vault: pattern record import error for ruleId",
+          p.ruleId,
+          patternRecErr
+        );
+      }
+    }
+  }
   if (failed > 0) {
     var msg =
       "Image vault restore: " +
       failed +
       " of " +
-      payload.records.length +
+      (userRecords.length + patternRecords.length) +
       " images failed to import.";
     debugLog("[Vault] " + msg, "error");
     throw new Error(msg);

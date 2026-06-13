@@ -1,11 +1,14 @@
-# Codacy CLOUD PLATFORM config — read by dashboard scans only.
-# The local CLI (codacy-cli-v2) does NOT read this file.
-# Local CLI exclusions live per-tool in .codacy/tools-configs/.
+# Codacy CLOUD PLATFORM config — read by dashboard scans.
+# Also respected by the Gen-3 `codacy-analysis init --remote` when it
+# regenerates the local mirror at .codacy/codacy.config.json.
+# (Gen-2 codacy-cli-v2 / .codacy/tools-configs/ were removed in the Gen-3 migration.)
 ---
 exclude_paths:
   - "AGENTS.md"
   - "CLAUDE.md"
-  - "GEMINI.md"
+  # Generated lockfile — Lizard counts its ~1600 NLOC as a complexity finding.
+  - "package-lock.json"
+  - "**/package-lock.json"
   - ".agents/**"
   - ".Codex/**"
   - ".codacy/**"

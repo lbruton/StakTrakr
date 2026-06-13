@@ -95,7 +95,7 @@ Everything in one place with sidebar navigation:
 
 | Tab            | What's Here                                                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------------- |
-| **About**      | Version info, API status badge, What's New, roadmap, badges, changelog, force refresh                   |
+| **About**      | Version info, API status badge, What's New, badges, changelog, force refresh                            |
 | **Appearance** | Theme (Light / Dark / Slate / Sepia), header button visibility and reorder, layout section toggles      |
 | **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit, data reset |
 | **Filters**    | Category toggles, sort order, grouping rules, blacklist, max chip count, search behavior                |

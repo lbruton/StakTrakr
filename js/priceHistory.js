@@ -6,10 +6,51 @@
 // =============================================================================
 
 /**
+ * Applies the silent item-price retention cap to a history object (STRK-141, R6).
+ * Pure helper — operates on the passed object in place and returns it:
+ *   (a) drops entries older than ITEM_PRICE_HISTORY_MAX_DAYS (reuses
+ *       purgeItemPriceHistory's age-cutoff logic), and
+ *   (b) for any item whose entry array exceeds ITEM_PRICE_HISTORY_MAX_ENTRIES,
+ *       keeps only the newest ITEM_PRICE_HISTORY_MAX_ENTRIES (drops oldest).
+ *
+ * No UI control, setting, or toggle is exposed — the cap is silent (R6.3).
+ *
+ * @param {Object} history - Item price history object keyed by UUID
+ * @returns {Object} The same history object, with retention applied
+ */
+const applyItemPriceRetention = (history) => {
+  if (!history || typeof history !== "object" || Array.isArray(history)) return history;
+
+  const cutoff = Date.now() - ITEM_PRICE_HISTORY_MAX_DAYS * 24 * 60 * 60 * 1000;
+
+  for (const uuid of Object.keys(history)) {
+    let entries = Array.isArray(history[uuid]) ? history[uuid] : [];
+
+    // (a) Age cutoff — drop entries older than the retention window.
+    entries = entries.filter((e) => e && e.ts >= cutoff);
+
+    // (b) Per-item backstop — keep only the newest N entries (drop oldest).
+    if (entries.length > ITEM_PRICE_HISTORY_MAX_ENTRIES) {
+      entries = entries.slice(entries.length - ITEM_PRICE_HISTORY_MAX_ENTRIES);
+    }
+
+    if (entries.length === 0) {
+      delete history[uuid];
+    } else {
+      history[uuid] = entries;
+    }
+  }
+
+  return history;
+};
+
+/**
  * Saves item price history to localStorage.
+ * Enforces the silent retention cap (STRK-141) before every write.
  */
 const saveItemPriceHistory = () => {
   try {
+    applyItemPriceRetention(itemPriceHistory);
     saveDataSync(ITEM_PRICE_HISTORY_KEY, itemPriceHistory);
   } catch (error) {
     console.error("Error saving item price history:", error);
@@ -520,6 +561,7 @@ const deleteItemPriceEntry = (uuid, timestamp) => {
 };
 
 // Ensure global availability
+window.applyItemPriceRetention = applyItemPriceRetention;
 window.renderItemPriceHistoryTable = renderItemPriceHistoryTable;
 window.filterItemPriceHistoryTable = filterItemPriceHistoryTable;
 window.clearItemPriceHistory = clearItemPriceHistory;

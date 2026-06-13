@@ -82,6 +82,12 @@ const getPersistedSpotHistorySnapshot = (entries) => {
   };
 };
 
+// STRK-141: Synchronous facade over an async IndexedDB tail.
+// The in-memory `spotHistory` global is updated FIRST so render/chart reads and
+// every existing synchronous caller stay current, then the durable write is
+// fire-and-forget: historyStore.put when IndexedDB is available (it swallows its
+// own quota failures by returning false — the in-memory copy is already current),
+// otherwise the synchronous localStorage fallback. Callers must NOT await this.
 const saveSpotHistory = () => {
   try {
     const snapshot = getPersistedSpotHistorySnapshot(spotHistory);
@@ -104,24 +110,51 @@ const saveSpotHistory = () => {
           ")"
       );
     }
-    saveDataSync(SPOT_HISTORY_KEY, snapshot.entries, { quietQuotaToast: true });
+    // Assign the in-memory global FIRST so readers/renderers are immediately current.
+    spotHistory = snapshot.entries;
+    if (typeof historyStore !== "undefined" && historyStore.isAvailable()) {
+      // Fire-and-forget: do NOT await. put() returns false on quota without throwing,
+      // and the in-memory copy above is already authoritative for all readers.
+      void historyStore.put("metalSpotHistory", snapshot.entries);
+    } else {
+      saveDataSync(SPOT_HISTORY_KEY, snapshot.entries, { quietQuotaToast: true });
+    }
   } catch (error) {
     console.warn("Spot history save skipped:", error);
   }
 };
 
 /**
- * Loads spot history from localStorage
+ * Loads spot history into the in-memory `spotHistory` global.
+ * STRK-141: reads from IndexedDB (historyStore) when available, otherwise the
+ * synchronous localStorage fallback, then runs the existing trim/dedup snapshot.
+ * Async because the IndexedDB read is async; init.js (task 7) awaits this during
+ * boot before the first render.
  */
-const loadSpotHistory = () => {
+const loadSpotHistory = async () => {
   try {
-    const data = loadDataSync(SPOT_HISTORY_KEY, []);
+    let data;
+    if (typeof historyStore !== "undefined" && historyStore.isAvailable()) {
+      // IDB available: prefer it, but fall back to the localStorage copy when
+      // get() returns null for a DEFERRED key — migrate() keeps an unconfirmed
+      // or wrong-shape payload in localStorage WITHOUT writing it to IDB, so the
+      // LS copy is still the source of truth (R3.1, STRK-149 finding #1).
+      // `??` (not `!== null`) so the fallback also fires if get() ever returns
+      // undefined; use SPOT_HISTORY_KEY so the IDB read and the LS fallback
+      // resolve the same key.
+      const idb = await historyStore.get(SPOT_HISTORY_KEY);
+      data = idb ?? loadDataSync(SPOT_HISTORY_KEY, []);
+    } else {
+      data = loadDataSync(SPOT_HISTORY_KEY, []);
+    }
     const snapshot = getPersistedSpotHistorySnapshot(Array.isArray(data) ? data : []);
     spotHistory = snapshot.entries;
 
     if (snapshot.changed) {
       try {
-        saveDataSync(SPOT_HISTORY_KEY, snapshot.entries, { quietQuotaToast: true });
+        // Re-persist the sanitized snapshot through the sync facade (routes to
+        // IndexedDB or localStorage as appropriate); spotHistory is already set.
+        saveSpotHistory();
         if (typeof debugLog === "function" && snapshot.trimmedSeedEntries > 0) {
           debugLog(
             "Spot history: migrated persisted storage to trimmed runtime snapshot (" +
@@ -148,11 +181,15 @@ const loadSpotHistory = () => {
  * source is "api", and timestamp lands exactly on the hour (:00:00).
  * Regular syncs never produce on-the-hour timestamps.
  */
-const migrateHourlySource = () => {
+// STRK-141: async because it awaits loadSpotHistory (now async). No longer runs
+// at module parse time — init.js (task 7) invokes `await migrateHourlySource()`
+// inside the awaited boot sequence AFTER historyStore.init()/migrate() so spot
+// history loads from the ready store before re-tagging.
+const migrateHourlySource = async () => {
   const FLAG = "migration_hourlySource";
   try {
     if (localStorage.getItem(FLAG)) return;
-    loadSpotHistory();
+    await loadSpotHistory();
     let changed = 0;
     spotHistory.forEach((e) => {
       if (
@@ -175,8 +212,9 @@ const migrateHourlySource = () => {
   }
 };
 
-// Run migration on script load
-migrateHourlySource();
+// STRK-141: NOT called at parse time anymore. Task 7 (init.js boot wiring) calls
+// `await migrateHourlySource()` during the awaited boot, after the history store
+// is initialized/migrated. Exposed on window below for the boot sequence.
 
 /**
  * Removes spot history entries older than the specified number of days
@@ -455,6 +493,8 @@ const fetchSpotPrice = () => {
 
   // Goldback estimation hook — fire after all spots loaded (STACK-52)
   if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 };
 
 /**
@@ -509,6 +549,8 @@ const updateManualSpot = (metalKey) => {
   if (typeof hideManualInput === "function") {
     hideManualInput(metalConfig.name);
   }
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 
   return undefined;
 };
@@ -1146,6 +1188,8 @@ const updateSpotChangePercent = (metalKey, precomputedData = null) => {
       priceEl.textContent = `= ${formatted}`;
     }
   }
+
+  if (typeof renderRatioChips === "function") renderRatioChips();
 };
 
 /**
@@ -1220,6 +1264,8 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
     // Goldback estimation hook (STACK-52)
     if (metalKey === "gold" && typeof onGoldSpotPriceChanged === "function")
       onGoldSpotPriceChanged();
+
+    if (typeof renderRatioChips === "function") renderRatioChips();
   };
 
   input.addEventListener("keydown", (e) => {
@@ -1252,7 +1298,8 @@ const renderSpotHistoryTable = () => {
   const table = document.getElementById("settingsSpotHistoryTable");
   if (!table) return;
 
-  loadSpotHistory();
+  // STRK-141: spotHistory is the boot-hydrated, always-current global; the former
+  // sync loadSpotHistory() reload is now async and vestigial — read the global.
   let data = [...spotHistory];
 
   // Sort
@@ -1604,10 +1651,23 @@ window.renderSpotHistoryTable = renderSpotHistoryTable;
 window.renderLbmaHistoryTable = renderLbmaHistoryTable;
 window.clearSpotHistory = clearSpotHistory;
 window.saveSpotHistory = saveSpotHistory;
+// STRK-141: expose async load + the relocated boot migration so init.js (task 7)
+// can await them in the boot sequence after historyStore.init()/migrate().
+window.loadSpotHistory = loadSpotHistory;
+window.migrateHourlySource = migrateHourlySource;
 window.getHistoricalSparklineData = getHistoricalSparklineData;
 window.getRequiredYears = getRequiredYears;
 window.fetchYearFile = fetchYearFile;
 window.lookupHistoricalSpot = lookupHistoricalSpot;
 window.historicalDataCache = historicalDataCache;
-// STAK-222: Expose spotHistory via getter so window.spotHistory always reflects current array
-Object.defineProperty(window, "spotHistory", { get: () => spotHistory, configurable: true });
+// STAK-222: Expose spotHistory via getter so window.spotHistory always reflects current array.
+// STRK-141: add a setter (mirroring inventory/changeLog in state.js) so window.spotHistory is
+// assignable — required by the quota-safety test and good state-exposure hygiene. The `spotHistory`
+// binding lives in state.js but is a shared script-tag global, so this setter reassigns it.
+Object.defineProperty(window, "spotHistory", {
+  get: () => spotHistory,
+  set: (val) => {
+    spotHistory = val;
+  },
+  configurable: true,
+});

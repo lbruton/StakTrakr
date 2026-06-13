@@ -3082,12 +3082,6 @@
     </div>
 
     <!-- =============================================================================
-       STORAGE REPORT MODAL
-
-       Displays the generated storage report inside an iframe for in-app viewing.
-       ============================================================================= -->
-
-    <!-- =============================================================================
        DETAILS MODAL WITH PIE CHARTS
        
        Advanced analytics modal opened by clicking totals titles.
@@ -3807,12 +3801,6 @@
                     View Full Changelog
                   </button>
                 </div>
-              </div>
-
-              <!-- Roadmap -->
-              <div class="about-section">
-                <div class="about-section-title">ROADMAP</div>
-                <ul id="aboutRoadmapList" class="about-roadmap-list"></ul>
               </div>
 
               <!-- Disclaimer -->
@@ -5603,6 +5591,17 @@
                     </select>
                   </div>
                 </div>
+
+                <div class="settings-group">
+                  <div class="settings-group-label">Show spot ratios</div>
+                  <p class="settings-subtext">
+                    Display gold-to-metal ratio and Goldback chips on the spot price cards.
+                  </p>
+                  <div class="chip-sort-toggle" id="showSpotRatiosToggle">
+                    <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+                    <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                  </div>
+                </div>
               </div>
 
               <div class="settings-fieldset">
@@ -7189,6 +7188,70 @@
       #diffReviewModal .dm-field-value:hover:not(.selected) {
         border-color: var(--text-muted, #6b7094);
       }
+      /* STRK-167 AC-10: 3-way quantity reconciliation control.
+         Each option also carries .dm-field-value, so the selected state
+         reuses #diffReviewModal .dm-field-value.selected above. */
+      #diffReviewModal .dm-field-diff-qty {
+        display: block;
+      }
+      #diffReviewModal .dm-qty-options {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin-top: 0.25rem;
+      }
+      #diffReviewModal .dm-qty-opt {
+        flex: 1 1 8rem;
+        min-height: 44px; /* iOS touch target */
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 2px;
+        padding: 0.45rem 0.6rem;
+        line-height: 1.15;
+        text-align: left;
+      }
+      #diffReviewModal .dm-qty-opt .dm-qty-verb {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        opacity: 0.75;
+      }
+      #diffReviewModal .dm-qty-opt .dm-qty-num {
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+      }
+      #diffReviewModal .dm-qty-opt.sum .dm-qty-verb {
+        color: var(--info);
+        opacity: 1;
+      }
+      /* STRK-167 AC-11: possible-duplicate advisory flag.
+         Badge color recipe pinned for WCAG AA (see implementation-gotchas.md:26-30):
+         raw --warning background fails on small text in light/sepia. */
+      #diffReviewModal .dm-dup-flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0.25rem 0;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.74rem;
+        font-weight: 600;
+        border-radius: 6px;
+        color: var(--warning-text, var(--warning));
+        background: color-mix(in srgb, var(--warning) 15%, var(--bg-secondary));
+        border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+      }
+      #diffReviewModal .dm-dup-flag .dm-dup-icon {
+        font-size: 0.85rem;
+        line-height: 1;
+      }
+      #diffReviewModal .dm-dup-flag .dm-dup-text {
+        line-height: 1.2;
+      }
+      /* .sr-only is defined globally in css/styles.css — the dup-badge sr-only
+         sentence relies on that single definition (STRK-167 PR #1233 follow-up). */
       #diffReviewModal .dm-field-arrow {
         color: var(--text-muted, #6b7094);
         font-size: 0.8rem;
@@ -8506,7 +8569,7 @@
        Modular architecture with proper dependency order:
        1. constants.js - Global configuration and version
        2. state.js - Application state and DOM element caching
-       3. utils.js - Utility functions and formatters
+       3. utils-storage / utils-format / utils-storage-report / utils.js - persistence, formatting, storage stats, core utilities
        4. Feature modules - charts, theme, search, sorting, portal view, etc.
        5. Core modules - spot price management and inventory operations
        6. events.js - Event listener setup (requires all other modules)
@@ -8521,11 +8584,15 @@
     <script defer src="./js/constants.js"></script>
     <script defer src="./js/field-meta.js"></script>
     <script defer src="./js/state.js"></script>
+    <script defer src="./js/utils-storage.js"></script>
+    <script defer src="./js/utils-format.js"></script>
+    <script defer src="./js/utils-storage-report.js"></script>
     <script defer src="./js/utils.js"></script>
     <script defer src="./js/dialogs.js"></script>
     <script defer src="./js/image-processor.js"></script>
     <script defer src="./js/image-cache.js"></script>
     <script defer src="./js/attachment-manager.js"></script>
+    <script defer src="./js/history-store.js"></script>
     <script defer src="./js/attachment-ui.js"></script>
     <script defer src="./js/bulk-image-cache.js"></script>
     <script defer src="./js/image-cache-modal.js"></script>
@@ -8562,15 +8629,18 @@
     <script defer src="./js/retail-view-modal.js"></script>
     <script defer src="./js/api.js"></script>
     <script defer src="./js/catalog-api.js"></script>
+    <script defer src="./js/catalog-numista-modal.js"></script>
     <script defer src="./js/image-frame.js"></script>
     <script defer src="./js/pcgs-api.js"></script>
     <script defer src="./js/catalog-providers.js"></script>
     <script defer src="./js/catalog-manager.js"></script>
     <script defer src="./js/inventory-backup.js"></script>
     <script defer src="./js/inventory-import.js"></script>
+    <script defer src="./js/csv-export.js"></script>
     <script defer src="./js/inventory-table.js"></script>
     <script defer src="./js/inventory.js"></script>
     <script defer src="./js/card-view.js"></script>
+    <script defer src="./js/vault-crypto.js"></script>
     <script defer src="./js/vault.js"></script>
     <script defer src="./js/cloud-storage.js"></script>
     <script defer src="./js/cloud-sync.js"></script>
@@ -8581,11 +8651,18 @@
     <script defer src="./js/settings.js"></script>
     <script defer src="./js/settings-listeners.js"></script>
     <script defer src="./js/bulkEdit.js"></script>
+    <script defer src="./js/bulk-row-images.js"></script>
     <script defer src="./js/clone-picker.js"></script>
     <script defer src="./js/events.js"></script>
 
     <!-- Test Scripts (Development) -->
     <script defer src="./js/test-loader.js"></script>
+
+    <!-- STRK-161: spot-card ratio chips — math layer then render layer. Both
+         depend only on state.js/goldback.js (loaded above) and must precede
+         init.js so init.js stays the last bootstrap script. -->
+    <script defer src="./js/spot-ratio-math.js"></script>
+    <script defer src="./js/spot-ratio-chips.js"></script>
 
     <script defer src="./js/init.js"></script>
 

@@ -115,16 +115,22 @@ function classifyEndpoint(urlString, selfOrigin) {
     return null;
   }
 
+  // Production API endpoints are served under a /data prefix
+  // (V2_API_ENDPOINTS = https://api{,2}.staktrakr.com/data/v2 — STRK-190).
+  // Strip one leading /data segment so family tests match both the production
+  // shape (/data/v2/…) and the bare shape (/v2/…) identically.
+  const pathname = url.pathname.replace(/^\/data(?=\/)/, "");
+
   for (let i = 0; i < FAMILY_TABLE.length; i++) {
     const entry = FAMILY_TABLE[i];
     if (entry.family === "annual-spot-history") {
       // Annual spot-history: valid on API hosts (API-root path) and local origin (/data/ path)
-      if ((isApiHost || isSelfOrigin) && entry.test(url.pathname)) {
+      if ((isApiHost || isSelfOrigin) && entry.test(pathname)) {
         return { family: entry.family, floor: entry.floor, hasEnvelope: entry.hasEnvelope };
       }
     } else {
       // All other families: API hosts only
-      if (isApiHost && entry.test(url.pathname)) {
+      if (isApiHost && entry.test(pathname)) {
         return { family: entry.family, floor: entry.floor, hasEnvelope: entry.hasEnvelope };
       }
     }
@@ -133,7 +139,26 @@ function classifyEndpoint(urlString, selfOrigin) {
   return null;
 }
 
+// parseGeneratedAtSeconds(body) → number | null
+//
+// Extracts a v2 envelope's generated_at as unix SECONDS (the x-generated-at
+// header contract consumed by matchWithAgeCheck in sw.js). Production envelopes
+// carry generated_at as an ISO-8601 string; numeric unix-seconds values are
+// accepted for backward compatibility (STRK-189).
+function parseGeneratedAtSeconds(body) {
+  if (!body) return null;
+  if (typeof body.generated_at === "number") {
+    return body.generated_at;
+  }
+  const ms = Date.parse(body.generated_at);
+  return isNaN(ms) ? null : ms / 1000;
+}
+
 // CJS export guard — allows require() in Node unit tests without breaking importScripts in SW
 if (typeof module !== "undefined") {
-  module.exports = { FAMILY_TABLE: FAMILY_TABLE, classifyEndpoint: classifyEndpoint };
+  module.exports = {
+    FAMILY_TABLE: FAMILY_TABLE,
+    classifyEndpoint: classifyEndpoint,
+    parseGeneratedAtSeconds: parseGeneratedAtSeconds,
+  };
 }

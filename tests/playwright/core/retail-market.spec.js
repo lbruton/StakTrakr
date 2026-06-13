@@ -156,7 +156,13 @@ function latestForSlug(slug) {
 }
 
 async function setupRetailFixture(page, options = {}) {
-  const { savedTab, marketFilter, displayCurrency = "USD", exchangeRates = { EUR: 0.9 } } = options;
+  const {
+    savedTab,
+    marketFilter,
+    displayCurrency = "USD",
+    exchangeRates = { EUR: 0.9 },
+    failPrimary = false,
+  } = options;
 
   await injectSeedInventory(page);
 
@@ -239,7 +245,7 @@ async function setupRetailFixture(page, options = {}) {
     }
   );
 
-  await page.route("https://api.staktrakr.com/data/v2/**", async (route) => {
+  const fulfillV2 = async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/data\/v2\//, "");
     if (path === "manifest.json") {
@@ -301,11 +307,17 @@ async function setupRetailFixture(page, options = {}) {
       contentType: "application/json",
       body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
     });
-  });
+  };
 
-  await page.route("https://api2.staktrakr.com/data/v2/**", async (route) => {
+  const failV2 = async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
-  });
+  };
+
+  // STRK-188: failPrimary simulates an api1 (GitHub Pages) outage — the primary
+  // endpoint returns 503 while api2 (Fly.io) serves the fixtures, exercising the
+  // ordered failover in the market data fetch path.
+  await page.route("https://api.staktrakr.com/data/v2/**", failPrimary ? failV2 : fulfillV2);
+  await page.route("https://api2.staktrakr.com/data/v2/**", failPrimary ? fulfillV2 : failV2);
 
   // Freeze Date for the market-history 7-day window across the seeded
   // RECENT_DATE fixtures. setFixedTime pins Date.now()/new Date() at FIXED_NOW
@@ -321,6 +333,15 @@ async function setupRetailFixture(page, options = {}) {
       typeof window.renderVendorPrices === "function" &&
       typeof window.refreshMarketData === "function" &&
       typeof window.showSettingsModal === "function"
+  );
+  // STRK-148 de-flake: boot's awaited loadSeedSpotHistory() pushes the seed
+  // bundle's gold spot (~$4456) into spotPrices.gold AFTER the function-existence
+  // wait above, via fetchSpotPrice(). Wait for that boot seed write to land
+  // BEFORE the override below, so the override is the last writer and isn't
+  // clobbered before refreshMarketData() reads it. (Latent race surfaced by
+  // STRK-141's awaited boot-hydration timing; not a product bug — see STRK-148.)
+  await page.waitForFunction(
+    () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
   );
   await page.evaluate(async () => {
     if (typeof spotPrices !== "undefined") {
@@ -505,6 +526,32 @@ test.describe("core/retail-market", () => {
 
     await expect(page.locator("#marketDetailModal")).toBeVisible();
     await expect(page.locator("#marketDetailTitle")).toContainText("Alpha Silver Bar");
+    await expect(page.locator("#marketDetailChartArea .tv-lightweight-charts")).toHaveAttribute(
+      "data-point-count",
+      /[1-9]/
+    );
+
+    await page.locator('#marketDetailContent button[data-period="24h"]').click();
+    await expect(page.locator("#marketDetailChartArea .tv-lightweight-charts")).toHaveAttribute(
+      "data-point-count",
+      /[1-9]/
+    );
+  });
+
+  test("market detail modal fails over to api2 when the primary API is down (STRK-188)", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page, { failPrimary: true });
+
+    await page
+      .locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" })
+      .click();
+
+    await expect(page.locator("#marketDetailModal")).toBeVisible();
+    await expect(page.locator("#marketDetailTitle")).toContainText("Alpha Silver Bar");
+    // The modal chart renders only from the fetched history/intraday feeds —
+    // there is no localStorage fallback in this path. With api1 down, a rendered
+    // chart proves the api2 failover delivered the data.
     await expect(page.locator("#marketDetailChartArea .tv-lightweight-charts")).toHaveAttribute(
       "data-point-count",
       /[1-9]/

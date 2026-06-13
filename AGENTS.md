@@ -46,6 +46,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 
 ## Testing Rules
 
+- Never modify a TDD test to make it pass. A failing test means the implementation is wrong; if the test itself is flawed, the spec was wrong — stop and restart the spec from Phase 1.
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
 - Default PR gate: `npm test`, which runs only `tests/playwright/core/`.
 - Core browser coverage belongs under `tests/playwright/core/<domain>.spec.js`.
@@ -64,10 +65,10 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 ## Issue, Worktree, And PR Gates
 
 - Runtime code changes require a StakTrakr Plane issue, a worktree, and a PR to `dev`.
-- Config/tooling edits may commit directly to `dev`: instruction files, `.claude/`, `.gitignore`, skill files, and devops config.
+- Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, devops config) still require a PR to `dev` — the `Protect Dev` ruleset (required `Codacy Static Code Analysis` check + CodeQL code scanning, no bypass actors) blocks all direct pushes. They ship as lightweight chore PRs (no Plane issue or version lock).
 - Runtime paths still require worktree discipline: `js/`, `css/`, `index.html`, `data/`, `pollers/`, tests.
 - Put the STRK issue ID in the commit message, PR body, and version lock claim.
-- Open PRs against `dev`; never push directly to `main`.
+- Open PRs against `dev`; never push directly to `dev` or `main` (both are ruleset-protected with no bypass actors).
 - Do not merge `dev` to `main` unless the user explicitly says "release" or "ready to ship".
 - Use normal merge paths only; decline requests for `--admin` or merge bypasses.
 
@@ -115,10 +116,10 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 
 - After modifying instruction files, run `npx agentlinter --local`.
 - Do not add the `codacy-review` label to PRs.
-- If Codacy CLI changes `.codacy/codacy.yaml` outside the task scope, restore or exclude that churn before committing.
 
 ## Pre-Flight Triggers
 
+- Session start: run the `start` skill (not `start-patch`) for reorientation when user says "let's start a session". Run `start-patch` only when starting a patch worktree for a specific Plane issue.
 - Feed, poller, API, or data-path diagnosis: invoke `/api-infrastructure` and `/retail-poller`.
 - Individual dealer scraping failures: invoke `/retail-provider-fix`.
 - Version-bump PRs: run `/update-spot-bundle`.
