@@ -133,8 +133,8 @@ After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh s
 
 ### `check-release-sync` hook is a SUBSET
 
-Validates `constants.js ↔ package.json ↔ package-lock.json ↔ version.json ↔ CHANGELOG.md`.
-Does not check `js/about.js` What's New, `manifest.json`, README badges, or `sw.js` cache.
+Validates `constants.js ↔ package.json ↔ package-lock.json ↔ version.json ↔ CHANGELOG.md`, plus the `js/about.js` What's New block — it asserts the current-version `<li>` entry is present **and** enforces the 5-entry cap (STRK-194, #1262).
+Does not check `manifest.json`, README badges, or `sw.js` cache.
 **Hook green ≠ release complete.**
 `/release` is the only path that touches all release-bearing files.
 
@@ -183,7 +183,7 @@ Read the file `.context/implementation-gotchas.md` before touching: `applyBulkEd
 
 Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives.
 
-**Review routing (2026-06-13, post-Copilot→CodeRabbit migration).** CodeRabbit is the **automatic primary** reviewer on every PR to `dev` (`.coderabbit.yaml` `auto_review.base_branches: [dev]`, `request_changes_workflow: true`). It throttles past ~4–8 reviews/hour, so expect a 5–10 min lag before a review or re-review posts, and a `CHANGES_REQUESTED` clears only on a clean re-review (a `COMMENTED` re-review does not flip it). **Copilot** is now **on-demand** (no longer automatic). **Codacy AI** (security layer) is gated behind the `codacy-review` label, which CodeRabbit applies automatically via `auto_apply_labels: true` — do not add it by hand.
+**Review routing (updated 2026-06-14 — tag-gated to conserve review credits).** AI reviewers are now **opt-in per PR via labels** — none auto-review an untagged PR. Add labels at PR creation for review-worthy PRs (runtime patches, version bumps); omit them on trivial chores (docs/config) to skip the AI review cycle. The required status checks (`Codacy Static Code Analysis`, CodeQL) run regardless of labels. **CodeRabbit** runs only with the `coderabbit-review` label (auto re-review is **paused after the first review** — follow-up commits don't trigger a fresh pass, so re-trigger manually if you need another; `request_changes_workflow: true`, so a `CHANGES_REQUESTED` clears only on a clean re-review and a `COMMENTED` re-review does not flip it; ~4–8 reviews/hour throttle → 5–10 min lag). **Codacy AI** (security layer) runs only with the `codacy-review` label. **Copilot** is on-demand; label-based triggering is the planned direction but is not yet wired up. **Add both `coderabbit-review` and `codacy-review` at PR creation** for any PR you want reviewed — CodeRabbit no longer auto-applies `codacy-review` for untagged PRs, so add them explicitly rather than relying on the old auto-apply chain. The tag-gate and re-review pause live in the CodeRabbit config (`.coderabbit.yaml` / org settings).
 
 **CodeRabbit 75% docstring-coverage pre-merge gate.** New or modified JS **and shell** functions need docstrings (JSDoc, or a `#` comment line directly above a shell function) or the PR sticks at `reviewDecision: CHANGES_REQUESTED` / `mergeStateStatus: BLOCKED` **with every GitHub status check green and 0 unresolved threads**. The failing check lives only in CodeRabbit's "Pre-merge checks" issue-comment panel — invisible to `statusCheckRollup`, the status API, and the `reviewThreads` GraphQL query. When a PR is `CHANGES_REQUESTED` but threads == 0 and checks are green, read that panel for `❌ Error` rows. Write docstrings pre-emptively. (Gate is org-level via `inheritance: true`, not in the repo yaml.)
 

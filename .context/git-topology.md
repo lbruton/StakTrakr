@@ -10,7 +10,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 - `sw.js` is auto-stamped by the `stamp-sw-cache` pre-commit hook. Don't add manually.
 - **`/release` is the only valid version-bump path.**
 - When `/spec` shipping tasks 10-12 say "version bump", invoke `/release patch`; do not hand-edit release artifacts.
-- A spec PR that bumps `package.json` but forgets `about.js` What's New, manifest data, or `version.json` can pass `check-release-sync` and still ship incomplete.
+- A spec PR that bumps `package.json` but forgets `manifest.json` data, README badges, or the `sw.js` cache can still pass `check-release-sync` and ship incomplete. (The hook _does_ catch a mismatched `version.json` and a missing `about.js` What's New current-version entry, and enforces the 5-entry What's New cap — STRK-194.)
 - If spec workflow appears to do its own bump, treat it as a workflow bug and invoke `/release`.
 - Release recipe: `.claude/skills/release/SKILL.md`.
 - Version lock: `devops/version.lock` is gitignored (local coordination only).
