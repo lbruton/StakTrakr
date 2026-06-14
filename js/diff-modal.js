@@ -161,45 +161,6 @@
     metalOrderConfig: "chip-strip",
   };
 
-  var SLUG_LABELS = {
-    // Seed rule coin slugs — from RETAIL_COIN_META keys
-    ase: "American Silver Eagle",
-    "maple-silver": "Silver Maple Leaf",
-    "britannia-silver": "Silver Britannia",
-    "krugerrand-silver": "Silver Krugerrand",
-    "kangaroo-silver": "Silver Kangaroo",
-    "koala-silver": "Silver Koala",
-    "kookaburra-silver": "Silver Kookaburra",
-    "generic-silver-round": "Generic Silver Round",
-    "generic-silver-bar-10oz": "Generic 10oz Silver Bar",
-    age: "American Gold Eagle",
-    buffalo: "American Gold Buffalo",
-    "maple-gold": "Gold Maple Leaf",
-    "krugerrand-gold": "Gold Krugerrand",
-    ape: "American Platinum Eagle",
-    "goldback-oklahoma-g1": "G1 Oklahoma Goldback",
-    // Header button slugs
-    themeBtn: "Theme",
-    cloudSyncBtn: "Cloud Sync",
-    settingsBtn: "Settings",
-    aboutBtn: "About",
-    backupBtn: "Backup",
-    importBtn: "Import",
-    addItemBtn: "Add Item",
-    sortBtn: "Sort",
-    filterBtn: "Filter",
-    searchBtn: "Search",
-    marketBtn: "Market",
-    vaultBtn: "Vault",
-    trendBtn: "Trend",
-    restoreBtn: "Restore",
-    currencyBtn: "Currency",
-    // Provider slugs
-    STAKTRAKR: "StakTrakr",
-    METALS_DEV: "Metals.dev",
-    GOLDAPI: "GoldAPI",
-  };
-
   // ── JSON parse helper — cloud-sync vault passes settings as raw JSON strings ──
   // Also handles CMP1-compressed localStorage values (loadDataSync decompresses,
   // but raw localStorage.getItem() and vault payloads may not).
@@ -210,504 +171,6 @@
       return JSON.parse(val);
     } catch (e) {
       return val;
-    }
-  }
-
-  // ── Settings sub-renderers (STAK-455) ──
-
-  // Shared output scaffold for all settings sub-renderers.
-  // matchedSection: pre-built HTML string (caller wraps it; may include its own overflow expand).
-  // overflowCount: number → "Show N more…"; null → "Show more…"
-  function _buildDiffSides(
-    key,
-    matchedSection,
-    localHtml,
-    remoteHtml,
-    overflowLocal,
-    overflowRemote,
-    overflowCount
-  ) {
-    var html = matchedSection || "";
-    html += '<div class="dm-setting-sides">';
-    html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary)">Local</div><div class="dm-setting-expanded">' +
-      localHtml;
-    if (overflowLocal) {
-      var lLabel =
-        overflowCount != null ? "Show " + overflowCount + " more\u2026" : "Show more\u2026";
-      html +=
-        '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">' + lLabel + "</span>";
-      html +=
-        '<div class="dm-expandable" id="expand-' +
-        _esc(key) +
-        '-local">' +
-        overflowLocal +
-        "</div>";
-    }
-    html += "</div></div>";
-    html += '<div class="dm-setting-arrow">\u2192</div>';
-    html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info)">Remote</div><div class="dm-setting-expanded">' +
-      remoteHtml;
-    if (overflowRemote) {
-      var rLabel =
-        overflowCount != null ? "Show " + overflowCount + " more\u2026" : "Show more\u2026";
-      html +=
-        '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">' + rLabel + "</span>";
-      html +=
-        '<div class="dm-expandable" id="expand-' +
-        _esc(key) +
-        '-remote">' +
-        overflowRemote +
-        "</div>";
-    }
-    html += "</div></div>";
-    html += "</div>";
-    return html;
-  }
-
-  function _renderChipStrip(key, localArr, remoteArr) {
-    // Guard: if either side is still a string after parsing, bail to inline renderer
-    if (!Array.isArray(localArr) && !Array.isArray(remoteArr)) return null;
-    if (!Array.isArray(localArr)) localArr = [];
-    if (!Array.isArray(remoteArr)) remoteArr = [];
-    var localById = {};
-    var remoteById = {};
-    var i, id;
-    for (i = 0; i < localArr.length; i++) {
-      id = localArr[i].id || localArr[i].label || i;
-      localById[id] = localArr[i];
-    }
-    for (i = 0; i < remoteArr.length; i++) {
-      id = remoteArr[i].id || remoteArr[i].label || i;
-      remoteById[id] = remoteArr[i];
-    }
-    var allIds = {};
-    for (id in localById) allIds[id] = true;
-    for (id in remoteById) allIds[id] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var diffCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-
-    for (id in allIds) {
-      var loc = localById[id];
-      var rem = remoteById[id];
-      var chipLabel = loc ? loc.label || id : rem ? rem.label || id : id;
-      var fieldKey = "setting-" + key + "-" + id;
-      var selSide = _fieldSelections[fieldKey] || "";
-
-      if (loc && rem && loc.enabled === rem.enabled) {
-        var icon = loc.enabled ? "\u2713" : "\u2717";
-        matchedHtml +=
-          '<span class="dm-chip-matched">' + icon + " " + _esc(String(chipLabel)) + "</span> ";
-      } else {
-        diffCount++;
-        var localChip = "";
-        var remoteChip = "";
-        if (loc) {
-          var lIcon = loc.enabled ? "\u2713" : "\u2717";
-          var lCls =
-            "dm-chip-local " +
-            (loc.enabled ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "local" ? " dm-selected" : "");
-          localChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            lIcon +
-            " " +
-            _esc(String(chipLabel)) +
-            "</span> ";
-        }
-        if (rem) {
-          var rIcon = rem.enabled ? "\u2713" : "\u2717";
-          var rCls =
-            "dm-chip-remote " +
-            (rem.enabled ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "remote" ? " dm-selected" : "");
-          remoteChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            rIcon +
-            " " +
-            _esc(String(chipLabel)) +
-            "</span> ";
-        }
-        if (diffCount <= 15) {
-          localHtml += localChip;
-          remoteHtml += remoteChip;
-        } else {
-          overflowLocal += localChip;
-          overflowRemote += remoteChip;
-        }
-      }
-    }
-
-    var matchedSection = matchedHtml
-      ? '<div class="dm-setting-expanded">' + matchedHtml + "</div>"
-      : "";
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      diffCount - 15
-    );
-  }
-
-  function _renderToggleMap(key, localObj, remoteObj) {
-    if (
-      (typeof localObj !== "object" || localObj === null) &&
-      (typeof remoteObj !== "object" || remoteObj === null)
-    )
-      return null;
-    if (typeof localObj !== "object" || localObj === null) localObj = {};
-    if (typeof remoteObj !== "object" || remoteObj === null) remoteObj = {};
-    var allKeys = {};
-    var k;
-    for (k in localObj) allKeys[k] = true;
-    for (k in remoteObj) allKeys[k] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var diffCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-
-    for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
-      var fieldKey = "setting-" + key + "-" + k;
-      var selSide = _fieldSelections[fieldKey] || "";
-      var humanLabel = _titleCase(k);
-
-      if (lv !== undefined && rv !== undefined && lv === rv) {
-        var mIcon = lv ? "\u2713" : "\u2717";
-        matchedHtml +=
-          '<span class="dm-chip-matched">' + mIcon + " " + _esc(humanLabel) + "</span> ";
-      } else {
-        diffCount++;
-        var localChip = "";
-        var remoteChip = "";
-        if (lv !== undefined) {
-          var lIcon = lv ? "\u2713" : "\u2717";
-          var lCls =
-            "dm-chip-local " +
-            (lv ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "local" ? " dm-selected" : "");
-          localChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            lIcon +
-            " " +
-            _esc(humanLabel) +
-            "</span> ";
-        }
-        if (rv !== undefined) {
-          var rIcon = rv ? "\u2713" : "\u2717";
-          var rCls =
-            "dm-chip-remote " +
-            (rv ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "remote" ? " dm-selected" : "");
-          remoteChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            rIcon +
-            " " +
-            _esc(humanLabel) +
-            "</span> ";
-        }
-        if (diffCount <= 15) {
-          localHtml += localChip;
-          remoteHtml += remoteChip;
-        } else {
-          overflowLocal += localChip;
-          overflowRemote += remoteChip;
-        }
-      }
-    }
-
-    var matchedSection = matchedHtml
-      ? '<div class="dm-setting-expanded">' + matchedHtml + "</div>"
-      : "";
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      diffCount - 15
-    );
-  }
-
-  function _renderSlugChips(key, localArr, remoteArr) {
-    if (!Array.isArray(localArr) && !Array.isArray(remoteArr)) return null;
-    if (!Array.isArray(localArr)) localArr = [];
-    if (!Array.isArray(remoteArr)) remoteArr = [];
-    var localSet = {};
-    var remoteSet = {};
-    var i;
-    for (i = 0; i < localArr.length; i++) localSet[localArr[i]] = true;
-    for (i = 0; i < remoteArr.length; i++) remoteSet[remoteArr[i]] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var totalChips = 0;
-    var matchedOverflowCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-    var overflowMatched = "";
-
-    var allSlugs = {};
-    for (i = 0; i < localArr.length; i++) allSlugs[localArr[i]] = true;
-    for (i = 0; i < remoteArr.length; i++) allSlugs[remoteArr[i]] = true;
-
-    for (var slug in allSlugs) {
-      var inLocal = localSet[slug];
-      var inRemote = remoteSet[slug];
-      var humanLabel = SLUG_LABELS[slug] || _titleCase(slug);
-      totalChips++;
-
-      if (inLocal && inRemote) {
-        var mChip = '<span class="dm-chip-matched">' + _esc(humanLabel) + "</span> ";
-        if (totalChips <= 15) {
-          matchedHtml += mChip;
-        } else {
-          overflowMatched += mChip;
-          matchedOverflowCount++;
-        }
-      } else {
-        var fieldKey = "setting-" + key + "-" + slug;
-        var selSide = _fieldSelections[fieldKey] || "";
-        if (inLocal) {
-          var lCls = "dm-chip-local dm-chip-enabled" + (selSide === "local" ? " dm-selected" : "");
-          var lChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            _esc(humanLabel) +
-            "</span> ";
-          if (totalChips <= 15) {
-            localHtml += lChip;
-          } else {
-            overflowLocal += lChip;
-          }
-        }
-        if (inRemote) {
-          var rCls =
-            "dm-chip-remote dm-chip-enabled" + (selSide === "remote" ? " dm-selected" : "");
-          var rChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            _esc(humanLabel) +
-            "</span> ";
-          if (totalChips <= 15) {
-            remoteHtml += rChip;
-          } else {
-            overflowRemote += rChip;
-          }
-        }
-      }
-    }
-
-    var matchedSection = "";
-    if (matchedHtml || overflowMatched) {
-      matchedSection = '<div class="dm-setting-expanded">' + matchedHtml;
-      if (overflowMatched) {
-        matchedSection +=
-          '<span class="dm-show-more" data-expand="' +
-          _esc(key) +
-          '-matched">Show ' +
-          matchedOverflowCount +
-          " more\u2026</span>";
-        matchedSection +=
-          '<div class="dm-expandable" id="expand-' +
-          _esc(key) +
-          '-matched">' +
-          overflowMatched +
-          "</div>";
-      }
-      matchedSection += "</div>";
-    }
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      null
-    );
-  }
-
-  function _renderKvPills(key, localObj, remoteObj) {
-    if (
-      (typeof localObj !== "object" || localObj === null) &&
-      (typeof remoteObj !== "object" || remoteObj === null)
-    )
-      return null;
-    if (typeof localObj !== "object" || localObj === null) localObj = {};
-    if (typeof remoteObj !== "object" || remoteObj === null) remoteObj = {};
-    var allKeys = {};
-    var k;
-    for (k in localObj) allKeys[k] = true;
-    for (k in remoteObj) allKeys[k] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var diffCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-
-    for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
-      var fieldKey = "setting-" + key + "-" + k;
-      var selSide = _fieldSelections[fieldKey] || "";
-      var humanKey = _titleCase(k);
-
-      if (lv !== undefined && rv !== undefined && lv === rv) {
-        matchedHtml +=
-          '<span class="dm-kv-pill matched">' +
-          _esc(humanKey) +
-          ": " +
-          _esc(String(lv)) +
-          "</span> ";
-      } else {
-        diffCount++;
-        var localPill = "";
-        var remotePill = "";
-        if (lv !== undefined) {
-          var lCls = "dm-kv-pill local" + (selSide === "local" ? " dm-selected" : "");
-          localPill =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            _esc(humanKey) +
-            ": " +
-            _esc(String(lv)) +
-            "</span> ";
-        }
-        if (rv !== undefined) {
-          var rCls = "dm-kv-pill remote" + (selSide === "remote" ? " dm-selected" : "");
-          remotePill =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            _esc(humanKey) +
-            ": " +
-            _esc(String(rv)) +
-            "</span> ";
-        }
-        if (diffCount <= 15) {
-          localHtml += localPill;
-          remoteHtml += remotePill;
-        } else {
-          overflowLocal += localPill;
-          overflowRemote += remotePill;
-        }
-      }
-    }
-
-    var matchedSection = matchedHtml
-      ? '<div class="dm-setting-expanded">' + matchedHtml + "</div>"
-      : "";
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      diffCount - 15
-    );
-  }
-
-  function _renderCountSummary(key, localVal, remoteVal) {
-    var resKey = "setting-" + key;
-    var selected = _conflictResolutions[resKey] || "";
-    var localCount = 0;
-    var remoteCount = 0;
-    if (Array.isArray(localVal)) localCount = localVal.length;
-    else if (localVal && typeof localVal === "object") localCount = Object.keys(localVal).length;
-    else if (localVal !== null && localVal !== undefined) localCount = 1;
-    if (Array.isArray(remoteVal)) remoteCount = remoteVal.length;
-    else if (remoteVal && typeof remoteVal === "object")
-      remoteCount = Object.keys(remoteVal).length;
-    else if (remoteVal !== null && remoteVal !== undefined) remoteCount = 1;
-
-    var localBtnCls = "dm-count-btn" + (selected === "local" ? " active" : "");
-    var remoteBtnCls = "dm-count-btn" + (selected === "remote" ? " active" : "");
-
-    var html = '<div class="dm-count-summary">';
-    html += '<span class="dm-count-badge">' + _esc(String(localCount)) + " local</span>";
-    html += '<span class="dm-count-badge">' + _esc(String(remoteCount)) + " remote</span>";
-    html +=
-      '<span class="' +
-      localBtnCls +
-      '" data-setting-resolution="' +
-      _esc(resKey) +
-      '" data-side="local">Keep Local</span>';
-    html +=
-      '<span class="' +
-      remoteBtnCls +
-      '" data-setting-resolution="' +
-      _esc(resKey) +
-      '" data-side="remote">Use Remote</span>';
-    html += "</div>";
-    return html;
-  }
-
-  function _renderSettingRow(key, localVal, remoteVal) {
-    var type = SETTINGS_VALUE_TYPE[key];
-    if (!type) return null;
-    // Cloud-sync vault passes settings as JSON strings — parse before rendering
-    localVal = _parseSetting(localVal);
-    remoteVal = _parseSetting(remoteVal);
-    // Each renderer has its own type guards and returns null if inputs are wrong
-    switch (type) {
-      case "chip-strip":
-        return _renderChipStrip(key, localVal, remoteVal);
-      case "toggle-map":
-        return _renderToggleMap(key, localVal, remoteVal);
-      case "slug-chips":
-        return _renderSlugChips(key, localVal, remoteVal);
-      case "kv-pills":
-        return _renderKvPills(key, localVal, remoteVal);
-      case "count-summary":
-        return _renderCountSummary(key, localVal, remoteVal);
-      default:
-        return null;
     }
   }
 
@@ -734,53 +197,6 @@
       grouped[name].push({ field: c.field, localVal: c.localVal, remoteVal: c.remoteVal, idx: i });
     }
     return grouped;
-  }
-
-  function _formatSettingValue(key, value) {
-    if (key === "metalApiConfig" || key === "catalog_api_config")
-      return value ? "\u2022\u2022\u2022 configured" : "not set";
-    value = _parseSetting(value);
-    if (value === null || value === undefined) return "\u2014";
-    if (typeof value === "boolean") return value ? "On" : "Off";
-    if (value === "true") return "On";
-    if (value === "false") return "Off";
-    if (Array.isArray(value)) {
-      var label = value.length + " items";
-      if (value.length > 0 && typeof value[0] === "string") {
-        var preview = value.slice(0, 2).join(", ");
-        if (value.length > 2) preview += ", \u2026";
-        label += " (" + _esc(preview) + ")";
-      }
-      return label;
-    }
-    if (typeof value === "object") return Object.keys(value).length + " entries";
-    return _esc(String(value));
-  }
-
-  // ── Metal helpers ──
-
-  var _metalRgb = {
-    gold: "255,215,0",
-    silver: "192,192,192",
-    platinum: "229,228,226",
-    palladium: "206,208,206",
-  };
-  var _metalCssVar = {
-    gold: "var(--gold)",
-    silver: "var(--silver)",
-    platinum: "var(--platinum)",
-    palladium: "var(--palladium)",
-  };
-
-  function _metalColor(metal) {
-    var key = (metal || "").toLowerCase();
-    return _metalCssVar[key] || "var(--text-muted)";
-  }
-
-  function _metalBgGradient(metal) {
-    var key = (metal || "").toLowerCase();
-    var rgb = _metalRgb[key] || "128,128,128";
-    return "linear-gradient(135deg, rgba(" + rgb + ",0.15), rgba(" + rgb + ",0.05))";
   }
 
   // ── Internal state ──
@@ -1349,7 +765,13 @@
         var label = SETTINGS_LABELS[entry.key] || _titleCase(entry.key);
 
         // Try rich renderer first
-        var expandedHtml = _renderSettingRow(entry.key, entry.localVal, entry.remoteVal);
+        var expandedHtml = window.DiffModalSettings.renderSettingRow(
+          entry.key,
+          entry.localVal,
+          entry.remoteVal,
+          _fieldSelections,
+          _conflictResolutions
+        );
         if (expandedHtml !== null) {
           html += '<div style="padding:0.4rem 0;border-top:1px solid var(--border)">';
           html +=
@@ -1376,9 +798,9 @@
           '" data-setting-resolution="' +
           _esc(resKey) +
           '" data-side="local" style="cursor:pointer" title="' +
-          _esc(_formatSettingValue(entry.key, entry.localVal)) +
+          _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal)) +
           '">' +
-          _formatSettingValue(entry.key, entry.localVal) +
+          window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal) +
           "</div>";
         html += '<div class="dm-field-arrow">&#10231;</div>';
         html +=
@@ -1387,9 +809,9 @@
           '" data-setting-resolution="' +
           _esc(resKey) +
           '" data-side="remote" style="cursor:pointer" title="' +
-          _esc(_formatSettingValue(entry.key, entry.remoteVal)) +
+          _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal)) +
           '">' +
-          _formatSettingValue(entry.key, entry.remoteVal) +
+          window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal) +
           "</div>";
         html += "</div>";
       }
@@ -1417,7 +839,10 @@
               '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0;opacity:0.45;font-size:0.78rem">';
             html += "<span>\u2713</span>";
             html += '<span style="min-width:120px">' + _esc(mLabel) + "</span>";
-            html += "<span>" + _formatSettingValue(mEntry.key, mEntry.localVal) + "</span>";
+            html +=
+              "<span>" +
+              window.DiffModalSettings.formatSettingValue(mEntry.key, mEntry.localVal) +
+              "</span>";
             html += "</div>";
           }
         }
@@ -1511,8 +936,8 @@
 
   /** Shared card header: dual OBV/REV thumbnails + item identity. Used by orphan and conflict cards. */
   function _renderCardHeader(item, uuid) {
-    var grad = _metalBgGradient(item.metal);
-    var mColor = _metalColor(item.metal);
+    var grad = window.DiffModalSettings.metalBgGradient(item.metal);
+    var mColor = window.DiffModalSettings.metalColor(item.metal);
     var html = "";
     // Dual OBV/REV thumbnails
     html += '<div class="dm-item-thumb-pair">';
@@ -1591,7 +1016,7 @@
       var key = type + "-" + i;
       var action = _orphanActions[key] || (isAdded ? "import" : "keep");
       var isSkipped = (isAdded && action === "skip") || (!isAdded && action === "remove");
-      var mColor = _metalColor(item.metal);
+      var mColor = window.DiffModalSettings.metalColor(item.metal);
       var uuid = item.uuid || "";
 
       html +=
@@ -1763,7 +1188,7 @@
       var mod = modifiedItems[i];
       var item = mod.item;
       var changes = mod.changes || [];
-      var mColor = _metalColor(item.metal);
+      var mColor = window.DiffModalSettings.metalColor(item.metal);
       var uuid = item.uuid || "";
       // Manifest stubs lack uuid/metal — resolve from local inventory by itemKey
       if (
@@ -1777,7 +1202,7 @@
         for (var ri = 0; ri < inventory.length; ri++) {
           if (DiffEngine.computeItemKey(inventory[ri]) === item.itemKey) {
             uuid = inventory[ri].uuid || "";
-            if (!item.metal) mColor = _metalColor(inventory[ri].metal);
+            if (!item.metal) mColor = window.DiffModalSettings.metalColor(inventory[ri].metal);
             break;
           }
         }
