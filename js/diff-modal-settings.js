@@ -162,6 +162,8 @@
   /**
    * Build one local/remote diff chip span. Shared by the chip-strip and
    * toggle-map renderers to keep their per-element markup identical.
+   * @param {string} fieldKey unique field id (e.g. "setting-<key>-<id>")
+   * @param {string} label chip label text (HTML-escaped on output)
    * @param {string} side "local" or "remote"
    * @param {boolean} enabled whether this side's value is on
    * @param {boolean} selected whether this side is the current field selection
@@ -193,6 +195,8 @@
   /**
    * Build one matched (both-sides-equal) chip span. Shared by the chip-strip
    * and toggle-map renderers.
+   * @param {string} label chip label text (HTML-escaped on output)
+   * @param {boolean} enabled whether the agreed value is on
    * @returns {string} chip HTML (trailing space included)
    */
   function _renderMatchedChip(label, enabled) {
