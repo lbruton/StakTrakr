@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.22] - 2026-06-14
+
+### Changed — STRK-193: Remove dead code from the sync diff modal
+
+- **Cleanup**: Removed ~200 lines of unreachable code from `js/diff-modal.js` that was surfaced (and flagged, not deleted) during the STRK-181 split. Gone: the orphaned `_renderProgressTracker` renderer; the self-referential `_renderConflictCards` → `_groupByItem` → `_updateProgress` conflict-card chain (reachable only from its own click handler, never from a live entry point); the write-only `_expandedModified` state; and the unused `sectionType` / `type` parameters on `_swapBtnClass` / `_updateOrphanBtnStyles`. No user-facing behavior change; recovers headroom under the Codacy Lizard file-size gate (diff-modal.js 2702 → 2503 lines) (STRK-193).
+
+---
+
 ## [3.35.21] - 2026-06-14
 
 ### Changed — STRK-169: Oversized-module split campaign complete
