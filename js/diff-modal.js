@@ -174,37 +174,11 @@
     }
   }
 
-  function _groupByItem(conflictsArray) {
-    var grouped = {};
-    if (!conflictsArray || !conflictsArray.length) return grouped;
-    // Build UUID → name lookup from inventory for human-readable headers
-    var nameByKey = {};
-    if (typeof inventory !== "undefined" && Array.isArray(inventory)) {
-      for (var inv = 0; inv < inventory.length; inv++) {
-        var invItem = inventory[inv];
-        var invKey =
-          typeof DiffEngine !== "undefined" && DiffEngine.computeItemKey
-            ? DiffEngine.computeItemKey(invItem)
-            : invItem.uuid || invItem.id || "";
-        if (invKey && invItem.name) nameByKey[invKey] = invItem.name;
-      }
-    }
-    for (var i = 0; i < conflictsArray.length; i++) {
-      var c = conflictsArray[i];
-      var key = c.itemKey || "";
-      var name = c.itemName || nameByKey[key] || key;
-      if (!grouped[name]) grouped[name] = [];
-      grouped[name].push({ field: c.field, localVal: c.localVal, remoteVal: c.remoteVal, idx: i });
-    }
-    return grouped;
-  }
-
   // ── Internal state ──
   var _options = null;
   var _checkedItems = {}; // { 'added-0': true, 'modified-2': false, ... }
   var _conflictResolutions = {}; // { 'c0': 'local'|'remote', ... }
   var _collapsedCategories = {}; // { added: true, ... }
-  var _expandedModified = {}; // { 0: true, 1: false, ... }
   var _expandedSettingsCategories = {}; // { 'Appearance': true, ... }
   var _selectAllState = 0; // 0=none, 1=added+modified, 2=all
 
@@ -420,178 +394,6 @@
         if (el instanceof HTMLElement) el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     };
-  }
-
-  function _renderProgressTracker(container, conflicts, source) {
-    if (!container) return;
-    if (!source || source.type !== "sync") {
-      container.style.display = "none";
-      return;
-    }
-
-    var total = 0;
-    var resolved = 0;
-    for (var key in _conflictResolutions) {
-      if (
-        _conflictResolutions.hasOwnProperty(key) &&
-        key.charAt(0) === "c" &&
-        key.indexOf("setting-") !== 0
-      ) {
-        total++;
-        if (_conflictResolutions[key]) resolved++;
-      }
-    }
-
-    var pct = total > 0 ? Math.round((resolved / total) * 100) : 100;
-    var html =
-      '<div style="height:6px;border-radius:3px;background:var(--border);margin:0.5rem 0">';
-    html +=
-      '<div style="height:100%;border-radius:3px;background:var(--success);width:' +
-      pct +
-      '%;transition:width 0.3s"></div>';
-    html += "</div>";
-    html +=
-      '<div id="diffProgressText" style="font-size:0.75rem;opacity:0.6">' +
-      resolved +
-      " of " +
-      total +
-      " conflicts resolved";
-    if (pct === 100 && total > 0) html += " &#9989;";
-    html += "</div>";
-
-    container.innerHTML = html;
-    container.style.display = "";
-  }
-
-  function _updateProgress() {
-    var container = safeGetElement("diffProgressTracker");
-    if (!container) return;
-
-    var total = 0;
-    var resolved = 0;
-    for (var key in _conflictResolutions) {
-      if (
-        _conflictResolutions.hasOwnProperty(key) &&
-        key.charAt(0) === "c" &&
-        key.indexOf("setting-") !== 0
-      ) {
-        total++;
-        if (_conflictResolutions[key]) resolved++;
-      }
-    }
-
-    var pct = total > 0 ? Math.round((resolved / total) * 100) : 100;
-    var bar = container.querySelector("div > div");
-    if (bar) bar.style.width = pct + "%";
-
-    var textDiv = safeGetElement("diffProgressText");
-    if (!(textDiv instanceof HTMLElement)) textDiv = null;
-    if (textDiv) {
-      var txt = resolved + " of " + total + " conflicts resolved";
-      if (pct === 100 && total > 0) txt += " \u2705";
-      textDiv.textContent = txt;
-    }
-  }
-
-  function _renderConflictCards(container, conflicts) {
-    if (!container) return;
-    if (!conflicts || !conflicts.conflicts || conflicts.conflicts.length === 0) {
-      container.style.display = "none";
-      return;
-    }
-
-    var grouped = _groupByItem(conflicts.conflicts);
-    var html = "";
-
-    for (var itemName in grouped) {
-      if (!grouped.hasOwnProperty(itemName)) continue;
-      var fields = grouped[itemName];
-
-      html +=
-        '<div data-conflict-card="' +
-        _esc(itemName) +
-        '" style="border-radius:8px;border:1px solid var(--border);padding:0.75rem;margin-bottom:0.75rem">';
-
-      // Card header
-      html += "<div>";
-      html += '<span style="font-weight:600;font-size:0.85rem">' + _esc(itemName) + "</span>";
-      html +=
-        '<span style="display:inline-block;background:color-mix(in srgb, var(--warning) 10%, transparent);color:var(--warning);border-radius:12px;padding:0.1rem 0.5rem;font-size:0.7rem;margin-left:0.5rem">' +
-        fields.length +
-        " field" +
-        (fields.length !== 1 ? "s" : "") +
-        "</span>";
-      html += "</div>";
-
-      // Field rows
-      for (var f = 0; f < fields.length; f++) {
-        var conflict = fields[f];
-        var resKey = "c" + conflict.idx + "-" + conflict.field;
-        var selected = _conflictResolutions[resKey] || "";
-        var localStyle =
-          "padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.8rem;";
-        var remoteStyle =
-          "padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.8rem;";
-
-        if (selected === "local") {
-          localStyle +=
-            "border:1px solid var(--success);background:color-mix(in srgb, var(--success) 8%, transparent)";
-          remoteStyle += "border:1px solid transparent";
-        } else if (selected === "remote") {
-          localStyle += "border:1px solid transparent";
-          remoteStyle +=
-            "border:1px solid var(--success);background:color-mix(in srgb, var(--success) 8%, transparent)";
-        } else {
-          localStyle += "border:1px solid transparent";
-          remoteStyle += "border:1px solid transparent";
-        }
-
-        var localDisplay = _esc(String(conflict.localVal != null ? conflict.localVal : "\u2014"));
-        var remoteDisplay = _esc(
-          String(conflict.remoteVal != null ? conflict.remoteVal : "\u2014")
-        );
-
-        html += '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0">';
-        html +=
-          '<span style="min-width:100px;font-size:0.78rem;opacity:0.6">' +
-          _esc(conflict.field) +
-          "</span>";
-        html +=
-          '<span data-resolution="' +
-          _esc(resKey) +
-          '" data-side="local" style="' +
-          localStyle +
-          '">' +
-          localDisplay +
-          "</span>";
-        html += '<span style="opacity:0.3;font-size:0.7rem">\u21C4</span>';
-        html +=
-          '<span data-resolution="' +
-          _esc(resKey) +
-          '" data-side="remote" style="' +
-          remoteStyle +
-          '">' +
-          remoteDisplay +
-          "</span>";
-        html += "</div>";
-      }
-
-      html += "</div>";
-    }
-
-    container.innerHTML = html;
-
-    container.onclick = function (e) {
-      var btn = e.target.closest("[data-resolution]");
-      if (!btn) return;
-      var key = btn.getAttribute("data-resolution");
-      var side = btn.getAttribute("data-side");
-      _conflictResolutions[key] = side;
-      _renderConflictCards(container, conflicts);
-      if (typeof _updateProgress === "function") _updateProgress();
-    };
-
-    container.style.display = "";
   }
 
   function _renderSettingsCards(container, settingsDiff) {
@@ -1710,8 +1512,8 @@
 
   // ── Event delegation (STAK-454 — card-based interactions) ──
 
-  /** Swap a button's style class based on active state and section type */
-  function _swapBtnClass(btn, sectionType, actionName, isActive) {
+  /** Swap a button's style class based on active state */
+  function _swapBtnClass(btn, actionName, isActive) {
     btn.classList.remove(
       "dm-btn-primary",
       "dm-btn-gain",
@@ -1730,11 +1532,11 @@
   }
 
   /** Update both action buttons on an orphan card to reflect the current action */
-  function _updateOrphanBtnStyles(card, type, action) {
+  function _updateOrphanBtnStyles(card, action) {
     var btns = card.querySelectorAll("[data-set-action]");
     for (var bi = 0; bi < btns.length; bi++) {
       var btnAction = btns[bi].dataset.setAction;
-      _swapBtnClass(btns[bi], type, btnAction, btnAction === action);
+      _swapBtnClass(btns[bi], btnAction, btnAction === action);
     }
   }
 
@@ -1760,7 +1562,7 @@
         var isSkipped = action === "skip" || action === "remove";
         card.classList.toggle("skipped", isSkipped);
         card.dataset.action = action;
-        _updateOrphanBtnStyles(card, type, action);
+        _updateOrphanBtnStyles(card, action);
       }
       _updateApplyCount();
       return;
@@ -1784,7 +1586,7 @@
         var bSkipped = bulkAction === "skip" || bulkAction === "remove";
         bCard.classList.toggle("skipped", bSkipped);
         bCard.dataset.action = bulkAction;
-        _updateOrphanBtnStyles(bCard, bulkSection, bulkAction);
+        _updateOrphanBtnStyles(bCard, bulkAction);
       }
       // Update bulk button styles in section header
       var sectionWrapper = bulkBtn.closest(".dm-section-wrapper");
@@ -1793,7 +1595,7 @@
         for (var bbi = 0; bbi < bulkBtns.length; bbi++) {
           var bb = bulkBtns[bbi];
           var isActive = bb.dataset.bulkAction === bulkAction;
-          _swapBtnClass(bb, bulkSection, bb.dataset.bulkAction, isActive);
+          _swapBtnClass(bb, bb.dataset.bulkAction, isActive);
         }
       }
       _updateApplyCount();
@@ -2614,7 +2416,6 @@
       _checkedItems = {};
       _conflictResolutions = {};
       _collapsedCategories = { settings: true };
-      _expandedModified = {};
       _expandedSettingsCategories = {};
       _selectAllState = 0;
       _orphanActions = {};
