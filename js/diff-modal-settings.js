@@ -160,6 +160,52 @@
   }
 
   /**
+   * Build one local/remote diff chip span. Shared by the chip-strip and
+   * toggle-map renderers to keep their per-element markup identical.
+   * @param {string} side "local" or "remote"
+   * @param {boolean} enabled whether this side's value is on
+   * @param {boolean} selected whether this side is the current field selection
+   * @returns {string} chip HTML (trailing space included)
+   */
+  function _renderDiffChip(fieldKey, label, side, enabled, selected) {
+    var icon = enabled ? "✓" : "✗";
+    var cls =
+      "dm-chip-" +
+      side +
+      " " +
+      (enabled ? "dm-chip-enabled" : "dm-chip-disabled") +
+      (selected ? " dm-selected" : "");
+    return (
+      '<span class="' +
+      cls +
+      '" data-field="' +
+      _esc(fieldKey) +
+      '" data-side="' +
+      side +
+      '">' +
+      icon +
+      " " +
+      _esc(label) +
+      "</span> "
+    );
+  }
+
+  /**
+   * Build one matched (both-sides-equal) chip span. Shared by the chip-strip
+   * and toggle-map renderers.
+   * @returns {string} chip HTML (trailing space included)
+   */
+  function _renderMatchedChip(label, enabled) {
+    var icon = enabled ? "✓" : "✗";
+    return '<span class="dm-chip-matched">' + icon + " " + _esc(label) + "</span> ";
+  }
+
+  /** Resolve a chip-strip element's identity key (id → label → index fallback). */
+  function _chipKey(item, idx) {
+    return item.id || item.label || idx;
+  }
+
+  /**
    * Render an enabled/ordered chip-strip setting (e.g. section layout) as a diff.
    * @param {Object} fieldSelections per-element local/remote picks (read-only, for highlight)
    */
@@ -172,11 +218,11 @@
     var remoteById = {};
     var i, id;
     for (i = 0; i < localArr.length; i++) {
-      id = localArr[i].id || localArr[i].label || i;
+      id = _chipKey(localArr[i], i);
       localById[id] = localArr[i];
     }
     for (i = 0; i < remoteArr.length; i++) {
-      id = remoteArr[i].id || remoteArr[i].label || i;
+      id = _chipKey(remoteArr[i], i);
       remoteById[id] = remoteArr[i];
     }
     var allIds = {};
@@ -198,47 +244,21 @@
       var selSide = fieldSelections[fieldKey] || "";
 
       if (loc && rem && loc.enabled === rem.enabled) {
-        var icon = loc.enabled ? "✓" : "✗";
-        matchedHtml +=
-          '<span class="dm-chip-matched">' + icon + " " + _esc(String(chipLabel)) + "</span> ";
+        matchedHtml += _renderMatchedChip(String(chipLabel), loc.enabled);
       } else {
         diffCount++;
-        var localChip = "";
-        var remoteChip = "";
-        if (loc) {
-          var lIcon = loc.enabled ? "✓" : "✗";
-          var lCls =
-            "dm-chip-local " +
-            (loc.enabled ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "local" ? " dm-selected" : "");
-          localChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            lIcon +
-            " " +
-            _esc(String(chipLabel)) +
-            "</span> ";
-        }
-        if (rem) {
-          var rIcon = rem.enabled ? "✓" : "✗";
-          var rCls =
-            "dm-chip-remote " +
-            (rem.enabled ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "remote" ? " dm-selected" : "");
-          remoteChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            rIcon +
-            " " +
-            _esc(String(chipLabel)) +
-            "</span> ";
-        }
+        var localChip = loc
+          ? _renderDiffChip(fieldKey, String(chipLabel), "local", loc.enabled, selSide === "local")
+          : "";
+        var remoteChip = rem
+          ? _renderDiffChip(
+              fieldKey,
+              String(chipLabel),
+              "remote",
+              rem.enabled,
+              selSide === "remote"
+            )
+          : "";
         if (diffCount <= 15) {
           localHtml += localChip;
           remoteHtml += remoteChip;
@@ -295,47 +315,17 @@
       var humanLabel = _titleCase(k);
 
       if (lv !== undefined && rv !== undefined && lv === rv) {
-        var mIcon = lv ? "✓" : "✗";
-        matchedHtml +=
-          '<span class="dm-chip-matched">' + mIcon + " " + _esc(humanLabel) + "</span> ";
+        matchedHtml += _renderMatchedChip(humanLabel, lv);
       } else {
         diffCount++;
-        var localChip = "";
-        var remoteChip = "";
-        if (lv !== undefined) {
-          var lIcon = lv ? "✓" : "✗";
-          var lCls =
-            "dm-chip-local " +
-            (lv ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "local" ? " dm-selected" : "");
-          localChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            lIcon +
-            " " +
-            _esc(humanLabel) +
-            "</span> ";
-        }
-        if (rv !== undefined) {
-          var rIcon = rv ? "✓" : "✗";
-          var rCls =
-            "dm-chip-remote " +
-            (rv ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "remote" ? " dm-selected" : "");
-          remoteChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            rIcon +
-            " " +
-            _esc(humanLabel) +
-            "</span> ";
-        }
+        var localChip =
+          lv !== undefined
+            ? _renderDiffChip(fieldKey, humanLabel, "local", lv, selSide === "local")
+            : "";
+        var remoteChip =
+          rv !== undefined
+            ? _renderDiffChip(fieldKey, humanLabel, "remote", rv, selSide === "remote")
+            : "";
         if (diffCount <= 15) {
           localHtml += localChip;
           remoteHtml += remoteChip;
