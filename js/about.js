@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.35.22 &ndash; STRK-193: Diff-modal cleanup</strong>: Removed roughly 200 lines of unreachable code left behind by the recent diff-modal refactor &mdash; an internal tidy-up with no change to how the sync data-comparison view looks or behaves (STRK-193).</li>
     <li><strong>v3.35.21 &ndash; STRK-169: Codebase modularization complete</strong>: Wrapped up a multi-release cleanup that split StakTrakr's largest source files into smaller, focused modules &mdash; the final and trickiest piece reorganized the sync data-comparison view and removed duplicated rendering code, with no change to how anything looks or behaves. This release also makes the price publisher self-cleaning so a full server disk can no longer stall price updates (STRK-169, STRK-187).</li>
     <li><strong>v3.35.20 &ndash; STRK-190: Offline cache freshness fixed</strong>: The app's offline cache now correctly recognizes live price endpoints, so cached prices respect their intended shelf life &mdash; previously every API response was served from cache without an age check, which could show old prices after time away (STRK-190).</li>
     <li><strong>v3.35.19 &ndash; STRK-189: Stale spot prices rejected</strong>: Spot sync now checks each payload's publication timestamp &mdash; an hours-old price from a cache or stale server can no longer flash over a fresh one, pollute your price history with wrongly-dated entries, or overwrite a newer price; history entries now carry the price's actual publication time (STRK-189).</li>
     <li><strong>v3.35.18 &ndash; STRK-186: Backups keep catalog API keys</strong>: Restoring an encrypted backup or cloud-sync snapshot now correctly brings back your Numista API key and PCGS token &mdash; previously the restored keys looked missing and could be silently erased by the next lookup (STRK-186).</li>
-    <li><strong>v3.35.17 &ndash; STRK-188: Market data backup API</strong>: Market prices now automatically fall back to the backup API when the primary is unreachable &mdash; the Market tab keeps live data during a primary-feed outage, matching how spot prices already behave (STRK-188).</li>
   `;
 };
 
