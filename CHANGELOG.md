@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.21] - 2026-06-14
+
+### Changed — STRK-169: Oversized-module split campaign complete
+
+- **Refactor**: Completed the STRK-169 campaign to break StakTrakr's largest JavaScript modules into focused, single-responsibility files. The final and hardest child, STRK-181, split the IIFE-scoped diff modal — settings-diff rendering moved into `js/diff-modal-settings.js`, the duplicated chip-strip/toggle-map renderers were deduplicated behind shared `_renderDiffChip`/`_renderMatchedChip`/`_chipKey` helpers (cyclomatic complexity 33/29 → 22/22; Codacy −9 complexity / 0 duplication), and a 14-test unit suite now pins the extracted renderers. Earlier children (bulk-row-images, csv-export, vault-crypto, utils, catalog-numista-modal) shipped under prior patch releases. No user-facing behavior change (STRK-169, STRK-181).
+- **Reliability**: The price publisher is now self-cleaning — it prunes its own working files so an exhausted volume / inode table can no longer stall published price updates, the root cause of the 2026-06-11 feed outage (STRK-187).
+
+---
+
 ## [3.35.20] - 2026-06-12
 
 ### Changed — STRK-190: Service worker now classifies production API URLs
