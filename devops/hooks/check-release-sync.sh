@@ -36,4 +36,14 @@ grep -qE "^## \[${ESCAPED_VERSION}\]" CHANGELOG.md \
 grep -qE "<li><strong>v${ESCAPED_VERSION}[[:space:]]" js/about.js \
   || fail "js/about.js getEmbeddedWhatsNew missing '<li><strong>v$APP_VERSION ...' entry"
 
+# Ceiling check: cap getEmbeddedWhatsNew at WN_MAX versioned entries. The list is
+# trimmed manually by /release, so without this it silently drifts (it grew 5 -> 8
+# across 3.35.15-3.35.20 before being reset). Anchored on "v" + a digit to count
+# only real version <li>s. The substitution is guarded with `|| true` so a zero
+# count surfaces through the explicit fail below rather than aborting under set -e.
+WN_MAX=5
+WN_COUNT=$(grep -cE "<li><strong>v[0-9]" js/about.js || true)
+[ "$WN_COUNT" -le "$WN_MAX" ] \
+  || fail "js/about.js getEmbeddedWhatsNew has $WN_COUNT versioned entries (max $WN_MAX) — trim the oldest"
+
 exit 0
