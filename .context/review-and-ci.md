@@ -3,15 +3,17 @@
 PR review, Codacy, agentlint, and known false positives.
 Loaded on demand during `/pr-resolve`, Codacy local scans (`codacy-analysis`), `/pr-ready`, and code review workflows.
 
-## Review routing (2026-06-13)
+## Review routing (updated 2026-06-14 — tag-gated)
 
-Post-Copilot→CodeRabbit migration. Which bot reviews, when, and how:
+AI reviewers are **opt-in per PR via labels** to conserve review credits — none auto-review an untagged PR. Add labels at PR creation for review-worthy PRs (runtime patches, version bumps); omit them on trivial chores (docs/config). The required status checks (`Codacy Static Code Analysis`, CodeQL) run regardless of labels.
 
-| Reviewer       | Trigger                                 | Notes                                                                                                                                                                                                                                                         |
-| -------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CodeRabbit** | **Automatic** on every PR to `dev`      | Primary reviewer. `.coderabbit.yaml`: `auto_review.base_branches: [dev]`, `request_changes_workflow: true`. Throttles past ~4–8 reviews/hr → 5–10 min lag. A `CHANGES_REQUESTED` clears only on a clean re-review (a `COMMENTED` re-review does not flip it). |
-| **Codacy AI**  | On-demand via the `codacy-review` label | Security layer. CodeRabbit auto-applies the label (`auto_apply_labels: true`) — **do not add it by hand.** Steer recurring AI false positives via the root `review.md` (the AI Reviewer has no reply-learning system).                                        |
-| **Copilot**    | On-demand                               | No longer automatic.                                                                                                                                                                                                                                          |
+| Reviewer       | Trigger                                     | Notes                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CodeRabbit** | On-demand via the `coderabbit-review` label | Was automatic on every `dev` PR; tag-gated as of 2026-06-14 (the auto-review was burning credits). Auto re-review is **paused after the first review** (incremental disabled) — follow-up commits don't trigger a fresh review; re-trigger manually. `request_changes_workflow: true` → a `CHANGES_REQUESTED` clears only on a clean re-review (a `COMMENTED` re-review does not flip it). ~4–8 reviews/hr throttle → 5–10 min lag. |
+| **Codacy AI**  | On-demand via the `codacy-review` label     | Security layer. Add the label explicitly at PR creation — for untagged PRs, CodeRabbit's auto-apply of `codacy-review` no longer fires (it runs only when `coderabbit-review` triggered CodeRabbit). The AI Reviewer has no reply-learning system, so recurring false positives must be re-triaged each time — see the "Known Reviewer False Positives" section below.                                                              |
+| **Copilot**    | On-demand                                   | Not automatic. Label-based triggering is the planned direction but is not yet wired up.                                                                                                                                                                                                                                                                                                                                             |
+
+**Add both `coderabbit-review` and `codacy-review` at PR creation** for any PR you want reviewed; the `/release` and PR-creation flows should apply both.
 
 ### 75% docstring-coverage pre-merge gate (the invisible blocker)
 
@@ -51,7 +53,7 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - When they conflict, project instructions win; note the tension.
 - Do not reflexively dismiss every finding as a false positive.
 - If a policy catches a genuine gap, fix it.
-- Do not add the `codacy-review` label by hand — CodeRabbit auto-applies it (`auto_apply_labels: true`), and the label is what triggers Codacy's AI security review. Adding it manually is redundant and can fire a premature or duplicate Codacy review cycle. (See "Review routing" above.)
+- Add `coderabbit-review` and `codacy-review` at PR creation for review-worthy PRs — the labels are what trigger CodeRabbit and Codacy's AI security review respectively. Untagged PRs get no AI review (by design, to conserve credits; required Codacy Static + CodeQL still run). CodeRabbit's auto-apply of `codacy-review` only fires once CodeRabbit itself runs (i.e. when `coderabbit-review` is present), so add both explicitly rather than relying on it. (See "Review routing" above.)
 
 ## Known Reviewer False Positives
 
@@ -61,7 +63,7 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - **CodeRabbit StakTrakr issue prefix** — see global CLAUDE.md "Conventions" rule on post-migration prefix flags; pre-classify as false positive.
 - **Copilot `no-undef` on browser globals** — project uses script-tag globals across vanilla JS files with no bundler. The phrasing "vanilla JS global scope, no module bundler" is sufficient context in PR replies; do not include a file count (it changes).
 - **`gb-*` CSS classes** — goldback-scoped. Do not copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
-- **CodeRabbit reviews dev-targeting PRs** — `.coderabbit.yaml` `auto_review.base_branches: [dev]` makes every dev PR auto-reviewed (this reversed the old "default branch only" behavior). Expect the 5–10 min throttle lag before the review posts; do not assume "no review is coming." (See "Review routing" above.)
+- **CodeRabbit is tag-gated, not automatic (2026-06-14)** — CodeRabbit reviews only a PR carrying the `coderabbit-review` label; an untagged PR gets **no** CodeRabbit review, and that is expected, not a misconfiguration. (This reversed the earlier "auto-review every `dev` PR" behavior, which was burning review credits.) Add `coderabbit-review` (+ `codacy-review`) when you want the AI pass. (See "Review routing" above.)
 - **Retail out-of-stock detection is content-driven** — `detectStockStatus` in `firecrawl-extract.js` regex-matches rendered markdown.
   - Rendered markdown **includes ShopperApproved review blocks**.
   - Customer-review text containing "out of stock", "unavailable", or "page not found" produces systematic false out-of-stock results for entire vendors.

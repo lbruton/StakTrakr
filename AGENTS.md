@@ -115,8 +115,11 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 ## Review, CI, And Agentlint
 
 - After modifying instruction files, run `npx agentlinter --local`.
-- Review routing: **CodeRabbit** auto-reviews every PR to `dev` (primary; throttles ~4–8/hr → 5–10 min lag; `request_changes_workflow: true`, so a `CHANGES_REQUESTED` clears only on a clean re-review). **Copilot** is on-demand. **Codacy AI** (security) is gated by the `codacy-review` label.
-- Do not add the `codacy-review` label by hand — CodeRabbit auto-applies it (`auto_apply_labels: true`) to trigger Codacy's AI security review.
+- Review routing (tag-gated 2026-06-14 to conserve credits): AI reviewers are opt-in per PR via labels — none auto-review an untagged PR.
+  - **CodeRabbit** runs only with the `coderabbit-review` label. Auto re-review is paused after the first review. `request_changes_workflow: true` → a `CHANGES_REQUESTED` clears only on a clean re-review. ~4–8/hr throttle → 5–10 min lag.
+  - **Codacy AI** (security) runs only with the `codacy-review` label.
+  - **Copilot** is on-demand; label trigger planned, not yet wired.
+- Add **both** `coderabbit-review` and `codacy-review` at PR creation for review-worthy PRs (runtime patches, version bumps). Omit them on trivial chores to skip the AI review cycle. Required checks (Codacy Static, CodeQL) run regardless. Untagged PRs no longer get CodeRabbit's auto-apply of `codacy-review`, so add both explicitly.
 - CodeRabbit enforces a 75% docstring-coverage pre-merge check: new or modified JS and shell functions need docstrings, or the PR stays `CHANGES_REQUESTED` / `BLOCKED` with every status check green and 0 threads. The failing check shows only in CodeRabbit's "Pre-merge checks" comment panel.
 
 ## Pre-Flight Triggers
