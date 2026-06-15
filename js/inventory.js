@@ -1605,35 +1605,16 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
  *
  * @param {number} idx - Index of item to edit
  */
-const editItem = (idx, logIdx = null) => {
-  editingIndex = idx;
-  editingChangeLogIndex = logIdx;
-  const item = inventory[idx];
+// STRK-170: editItem field-population helpers (extracted to reduce complexity).
+// Each is module-private and behavior-identical to the inline block it replaced.
 
-  // Ensure legacy/seeded records have a stable UUID before tag/image actions.
-  if (!item.uuid && typeof generateUUID === "function") {
-    item.uuid = generateUUID();
-    if (typeof saveInventory === "function") saveInventory();
-  }
-
-  // Set modal to edit mode
-  if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Edit Inventory Item";
-  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Save Changes";
-
-  // Populate unified form fields
-  elements.itemMetal.value = item.composition || item.metal;
-  elements.itemName.value = item.name;
-  elements.itemQty.value = item.qty;
-  elements.itemType.value = item.type;
-
-  const selectedMetal = item.metal || elements.itemMetal.value;
-  if (typeof filterTypesByMetal === "function") {
-    filterTypesByMetal(selectedMetal);
-  }
-  if (typeof handleTypeChange === "function") {
-    handleTypeChange();
-  }
-
+/**
+ * Populate the weight value + unit <select> for the edit modal, converting the
+ * stored troy-ounce weight back into the item's saved display unit
+ * (goldback / kg / lb / grams / oz). Sub-ounce ounce items fall through to grams.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulateWeightFields = (item) => {
   // Weight: use real <select> instead of dataset.unit (BUG FIX)
   if (item.weightUnit === "gb") {
     const denomSelect = elements.itemGbDenom || safeGetElement("itemGbDenom");
@@ -1659,12 +1640,19 @@ const editItem = (idx, logIdx = null) => {
     elements.itemWeightUnit.value = "oz";
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
   }
+};
 
-  // Convert stored USD values to display currency for the form (STACK-50)
+/**
+ * Convert the stored USD price + market value into the active display currency
+ * and write them into the edit-modal price fields, rounding to the currency's
+ * precision so the inputs never show drifted-float noise (STACK-50, STRK-88).
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulatePriceFields = (item) => {
   // STRK-88: round to active currency precision to prevent drifted-float display
-  // (e.g. 56.66666666666667 → 56.67 in the #itemPrice field).
+  // (e.g. 56.66666666666667 -> 56.67 in the #itemPrice field).
   // Use roundToPricePrecision + toFixed(digits) to preserve trailing zeros
-  // (String() on a number drops them: 1700.00 → "1700"). T2/T14 fix.
+  // (String() on a number drops them: 1700.00 -> "1700"). T2/T14 fix.
   const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
   const _fracDigits =
     typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
@@ -1680,6 +1668,15 @@ const editItem = (idx, logIdx = null) => {
       : "";
   elements.itemPrice.value = displayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = displayMv;
+};
+
+/**
+ * Populate acquisition + provenance fields (payment method, purchase/storage
+ * location, serial, notes, capsule) plus the purchase date, syncing the
+ * date-N/A toggle and the spot-lookup buttons.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulateAcquisitionFields = (item) => {
   if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
   elements.purchaseLocation.value = item.purchaseLocation || "";
   elements.storageLocation.value =
@@ -1700,6 +1697,15 @@ const editItem = (idx, logIdx = null) => {
   if (typeof syncSpotLookupButtons === "function") {
     syncSpotLookupButtons(!!item.date);
   }
+};
+
+/**
+ * Populate Numista/grading catalog metadata fields (catalog id, year, grade,
+ * grading authority, cert + PCGS numbers, image URLs, ignore-pattern flag and
+ * legacy serial) from the item.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulateCatalogFields = (item) => {
   if (elements.itemCatalog) elements.itemCatalog.value = item.numistaId || "";
   if (elements.itemYear) elements.itemYear.value = item.year || item.issuedYear || "";
   if (elements.itemGrade) elements.itemGrade.value = item.grade || "";
@@ -1713,7 +1719,14 @@ const editItem = (idx, logIdx = null) => {
   const ignorePatternEl = safeGetElement("itemIgnorePatternImages");
   if (ignorePatternEl) ignorePatternEl.checked = !!item.ignorePatternImages;
   if (elements.itemSerial) elements.itemSerial.value = item.serial;
+};
 
+/**
+ * Pre-fill the purity control: select a matching preset option, or switch to
+ * the custom input when the item's purity is not one of the presets.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulatePurityField = (item) => {
   // Pre-fill purity: match a preset or show custom input
   const purityVal = parseFloat(item.purity) || 1.0;
   const puritySelect = elements.itemPuritySelect || safeGetElement("itemPuritySelect");
@@ -1733,7 +1746,16 @@ const editItem = (idx, logIdx = null) => {
       if (purityInput) purityInput.value = purityVal;
     }
   }
+};
 
+/**
+ * Apply edit-mode modal chrome: the PCGS-verified icon, the price-history link,
+ * the context-dependent Undo button, currency symbols, and reset/preload of the
+ * obverse/reverse image upload previews.
+ * @param {object} item - The inventory item being edited.
+ * @param {number|null} logIdx - Change-log index; non-null shows the Undo button.
+ */
+const _editApplyEditModeChrome = (item, logIdx) => {
   // Show/hide PCGS verified icon next to Cert# label
   const certVerifiedIcon = safeGetElement("certVerifiedIcon");
   if (certVerifiedIcon) certVerifiedIcon.style.display = item.pcgsVerified ? "inline-flex" : "none";
@@ -1755,7 +1777,15 @@ const editItem = (idx, logIdx = null) => {
   if (typeof setPendingImageFrames === "function") {
     setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
   }
+};
 
+/**
+ * Load and preview the item's obverse/reverse images in the edit modal: prefer
+ * user-uploaded blobs from the image cache, fall back to stored image URLs, then
+ * to pattern-image resolution. No-ops gracefully when IndexedDB is unavailable.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editLoadImages = (item) => {
   /**
    * Show a preview thumbnail for a given side.
    * Works for both blob object-URLs and remote image URLs.
@@ -1849,8 +1879,16 @@ const editItem = (idx, logIdx = null) => {
     showUrlPreviewFallback({ obverse: false, reverse: false });
     if (typeof updateSwapButtonVisibility === "function") updateSwapButtonVisibility();
   }
+};
 
-  // Render attachment section in edit modal (STRK-45 — UI in Cohort D)
+/**
+ * Render the secondary edit-modal sections: the attachment area, the Numista API
+ * status dot, image-URL input visibility, the clone/view/delete action buttons,
+ * and the Numista data fields.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editRenderModalSections = (item) => {
+  // Render attachment section in edit modal (STRK-45 - UI in Cohort D)
   if (typeof renderAttachmentSection === "function") renderAttachmentSection(item);
 
   // Update Numista API status dot (STAK-173)
@@ -1871,43 +1909,16 @@ const editItem = (idx, logIdx = null) => {
 
   // Populate Numista Data fields: item data first, API cache as fallback (STAK-173)
   populateNumistaDataFields(item.numistaId || item.catalog || "", item.numistaData);
+};
 
-  // STAK-528: Normalize shape select value from raw API strings
-  const shapeEl = safeGetElement("numistaShape");
-  if (shapeEl && window.classifyShape) {
-    const rawShape = shapeEl.value || "";
-    // If raw API string doesn't match a select option, normalize it
-    const validOptions = ["Round", "Rectangular", "Square", "Oval", "Other"];
-    if (rawShape && !validOptions.includes(rawShape)) {
-      const category = window.classifyShape(rawShape);
-      const normalized = category.charAt(0).toUpperCase() + category.slice(1);
-      shapeEl.value = validOptions.includes(normalized) ? normalized : "Other";
-    }
-  }
-
-  // STAK-528: Migrate legacy "LxW" diameter values into length/width fields
-  const diamEl = safeGetElement("numistaDiameter");
-  const lenEl = safeGetElement("numistaLength");
-  const widEl = safeGetElement("numistaWidth");
-  if (diamEl && shapeEl) {
-    const diamVal = diamEl.value || "";
-    if (/[xX\u00d7]/.test(diamVal) && window.parseDimensions) {
-      const parsed = window.parseDimensions(diamVal, shapeEl.value);
-      if (parsed.length > 0 && lenEl) lenEl.value = parsed.length;
-      if (parsed.width > 0 && widEl) widEl.value = parsed.width;
-      // Only clear diameter after confirmed valid parse
-      if (parsed.length > 0 || parsed.width > 0) diamEl.value = "";
-    }
-  }
-
-  // Set correct field visibility — use shared toggle if available
-  if (shapeEl && window.toggleDimensionFields) {
-    window.toggleDimensionFields(shapeEl.value);
-  }
-  if (typeof updateCapsuleSuggestion === "function") {
-    updateCapsuleSuggestion(diamEl?.value || item.numistaData?.diameter || "");
-  }
-
+/**
+ * Restore the purchase-price EACH/LOT toggle for the edit modal. For lot-priced
+ * items it recomputes the displayed lot total from the full-precision stored
+ * per-unit price (avoiding double-rounding drift) and seeds the exact-lot cache;
+ * otherwise it resets the toggle (STRK-88).
+ * @param {object} item - The inventory item being edited.
+ */
+const _editRestoreLotPricing = (item) => {
   if (typeof window.restorePurchasePriceToggle === "function") {
     const isLot = window.restorePurchasePriceToggle(item.pricingType, item.qty);
     if (isLot) {
@@ -1915,8 +1926,8 @@ const editItem = (idx, logIdx = null) => {
       if (priceEl) {
         // STRK-88: use item.price (full-precision stored per-unit) rather than the
         // already-rounded display value in #itemPrice to avoid double-rounding drift.
-        // e.g. item.price=56.666... × qty=30 = 1699.999... → rounds to 1700.00 ✓
-        // vs  displayPrice="56.67"   × qty=30 = 1700.10   → would round to 1700.10 ✗
+        // e.g. item.price=56.666... * qty=30 = 1699.999... -> rounds to 1700.00 (correct)
+        // vs  displayPrice="56.67" * qty=30 = 1700.10      -> would round to 1700.10 (wrong)
         const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
         const perUnitFull = item.price > 0 ? item.price * fxRate : 0;
         if (!isNaN(perUnitFull) && perUnitFull > 0) {
@@ -1930,7 +1941,7 @@ const editItem = (idx, logIdx = null) => {
               ? (v) => roundToPricePrecision(v).toFixed(_lotFracDigits)
               : (v) => Number(v).toFixed(2);
           priceEl.value = _fmtLot(lotTotal);
-          // Seed the exact-lot cache so EACH→LOT toggle can restore the original total (STRK-88)
+          // Seed the exact-lot cache so EACH->LOT toggle can restore the original total (STRK-88)
           if (typeof window.purchasePriceSeedLotCache === "function") {
             // Cache the full-precision lot total so toggle can recover it losslessly.
             window.purchasePriceSeedLotCache(lotTotal, item.qty);
@@ -1941,6 +1952,54 @@ const editItem = (idx, logIdx = null) => {
   } else if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
   }
+};
+
+const editItem = (idx, logIdx = null) => {
+  editingIndex = idx;
+  editingChangeLogIndex = logIdx;
+  const item = inventory[idx];
+
+  // Ensure legacy/seeded records have a stable UUID before tag/image actions.
+  if (!item.uuid && typeof generateUUID === "function") {
+    item.uuid = generateUUID();
+    if (typeof saveInventory === "function") saveInventory();
+  }
+
+  // Set modal to edit mode
+  if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Edit Inventory Item";
+  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Save Changes";
+
+  // Populate unified form fields
+  elements.itemMetal.value = item.composition || item.metal;
+  elements.itemName.value = item.name;
+  elements.itemQty.value = item.qty;
+  elements.itemType.value = item.type;
+
+  const selectedMetal = item.metal || elements.itemMetal.value;
+  if (typeof filterTypesByMetal === "function") {
+    filterTypesByMetal(selectedMetal);
+  }
+  if (typeof handleTypeChange === "function") {
+    handleTypeChange();
+  }
+
+  _editPopulateWeightFields(item);
+
+  _editPopulatePriceFields(item);
+  _editPopulateAcquisitionFields(item);
+  _editPopulateCatalogFields(item);
+
+  _editPopulatePurityField(item);
+
+  _editApplyEditModeChrome(item, logIdx);
+
+  _editLoadImages(item);
+
+  _editRenderModalSections(item);
+
+  _editNormalizeNumistaShape(item);
+
+  _editRestoreLotPricing(item);
 
   // STAK-343: Populate tags in edit modal
   if (item.uuid && typeof getItemTags === "function") {
@@ -2911,3 +2970,52 @@ function optimizeStoragePhase1C() {
 if (typeof window !== "undefined") {
   window.optimizeStoragePhase1C = optimizeStoragePhase1C;
 }
+
+/**
+ * Normalize the Numista shape <select> from raw API strings, migrate legacy
+ * "LxW" diameter values into the length/width fields, then apply dimension-field
+ * visibility and refresh the capsule suggestion (STAK-528). Extracted from
+ * editItem for STRK-170.
+ *
+ * NOTE: kept LAST in the file deliberately. It contains a regex literal
+ * (/[xX\xd7]/) and Lizard's tokenizer can desync on a mid-file regex, folding
+ * later functions into a phantom rollup — see the lizard-esc-regex-desync rule.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editNormalizeNumistaShape = (item) => {
+  // STAK-528: Normalize shape select value from raw API strings
+  const shapeEl = safeGetElement("numistaShape");
+  if (shapeEl && window.classifyShape) {
+    const rawShape = shapeEl.value || "";
+    // If raw API string doesn't match a select option, normalize it
+    const validOptions = ["Round", "Rectangular", "Square", "Oval", "Other"];
+    if (rawShape && !validOptions.includes(rawShape)) {
+      const category = window.classifyShape(rawShape);
+      const normalized = category.charAt(0).toUpperCase() + category.slice(1);
+      shapeEl.value = validOptions.includes(normalized) ? normalized : "Other";
+    }
+  }
+
+  // STAK-528: Migrate legacy "LxW" diameter values into length/width fields
+  const diamEl = safeGetElement("numistaDiameter");
+  const lenEl = safeGetElement("numistaLength");
+  const widEl = safeGetElement("numistaWidth");
+  if (diamEl && shapeEl) {
+    const diamVal = diamEl.value || "";
+    if (/[xX\xd7]/.test(diamVal) && window.parseDimensions) {
+      const parsed = window.parseDimensions(diamVal, shapeEl.value);
+      if (parsed.length > 0 && lenEl) lenEl.value = parsed.length;
+      if (parsed.width > 0 && widEl) widEl.value = parsed.width;
+      // Only clear diameter after confirmed valid parse
+      if (parsed.length > 0 || parsed.width > 0) diamEl.value = "";
+    }
+  }
+
+  // Set correct field visibility (use shared toggle if available)
+  if (shapeEl && window.toggleDimensionFields) {
+    window.toggleDimensionFields(shapeEl.value);
+  }
+  if (typeof updateCapsuleSuggestion === "function") {
+    updateCapsuleSuggestion(diamEl?.value || item.numistaData?.diameter || "");
+  }
+};
