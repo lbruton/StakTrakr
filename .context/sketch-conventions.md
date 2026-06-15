@@ -7,8 +7,9 @@ Per-project overrides for the `/sketch-*` family. Pairs with the universal mecha
 ## Worktree & branch
 
 - **StakTrakr requires `patch/<version>` branches via `/start-patch`** — NOT the generic `sketch/{ISSUE-ID}-{slug}` convention. If a generated `tasks.md` uses the sketch-style name, override it.
+- **Exception — no-bump campaigns:** a multi-PR refactor/cleanup campaign that ships its intermediate PRs **unbumped** (one closing `/release patch` bumps once for the whole campaign) does **not** use `patch/<version>` per cohort — `/start-patch` claims a version lock per branch, which is incoherent when 19 cohorts share one bump. Such cohort PRs use descriptive **`chore/<issue>-<file>`** (or `refactor/<issue>-<file>`) branches off `origin/dev`. `patch/<version>` via `/start-patch` applies **only** to the single closing `/release` PR. Precedent: STRK-169 (split PRs on `feature/strk-169-*` / `refactor/strk-176-*`); see STRK-170.
 - Worktree path: `.worktrees/<issue>-<slug>/` (`/start-patch`) or `.worktrees/patch-<version>/` (`/release`).
-- Cohort 0 setup invokes **`/start-patch`**, not `using-git-worktrees`.
+- Cohort 0 setup invokes **`/start-patch`**, not `using-git-worktrees` — except in a no-bump campaign, where Cohort 0 only enables tooling and each cohort creates its own `chore/<issue>-<file>` worktree.
 - Full rules: `.context/git-topology.md` §Worktrees, §Merge Strategy, §Sketch & Spec Branch Overrides.
 
 ## Version & release
