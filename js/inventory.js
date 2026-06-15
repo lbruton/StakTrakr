@@ -1026,14 +1026,6 @@ const clearTradeLinks = (disposedItem) => {
  * Reads checkbox state to decide between plain delete and disposition.
  */
 /**
- * Read and validate the disposition form inputs for confirmRemoveItem. Shows a
- * toast and returns null on any validation failure; otherwise returns the
- * resolved disposition input. Behavior-identical to the inline validation it
- * replaced (each failure path still toasts and aborts).
- * @param {object} item - The inventory item being disposed.
- * @returns {{type:string,date:string,recipient:string,notes:string,disposedQty:number,resolvedAmount:(number|undefined)}|null}
- */
-/**
  * Resolve and validate the disposed quantity from the remove-item modal. Returns
  * the integer quantity, or null after toasting on an invalid value. Hidden/empty
  * qty inputs default to the full stack quantity.
@@ -1080,6 +1072,14 @@ const _resolveDisposedAmount = (disposedQty) => {
   return rawAmount;
 };
 
+/**
+ * Read and validate the disposition form inputs for confirmRemoveItem. Shows a
+ * toast and returns null on any validation failure; otherwise returns the
+ * resolved disposition input. Behavior-identical to the inline validation it
+ * replaced (each failure path still toasts and aborts).
+ * @param {object} item - The inventory item being disposed.
+ * @returns {{type:string,date:string,recipient:string,notes:string,disposedQty:number,resolvedAmount:(number|undefined)}|null}
+ */
 const _resolveDispositionInput = (item) => {
   // Disposition flow — validate fields
   const type = safeGetElement("dispositionType")?.value;
@@ -1100,7 +1100,10 @@ const _resolveDispositionInput = (item) => {
   if (disposedQty === null) return null; // helper already toasted
 
   const resolvedAmount = _resolveDisposedAmount(disposedQty);
-  if (DISPOSITION_TYPES[type].requiresAmount && (resolvedAmount == null || resolvedAmount <= 0)) {
+  if (
+    DISPOSITION_TYPES[type].requiresAmount &&
+    (resolvedAmount === null || resolvedAmount === undefined || resolvedAmount <= 0)
+  ) {
     showToast("Please enter a sale/trade/refund amount.");
     return null;
   }
