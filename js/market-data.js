@@ -49,6 +49,56 @@ const _premiumTierClass = (pct) => {
   return "low";
 };
 
+/**
+ * Open a vendor URL in a standardized detached popup window. Mirrors the
+ * window name and feature string used by the ticker, vendor matrix, and detail
+ * modal so all three open identical popups. Caller validates url via _isSafeUrl.
+ * @param {string} url - The vendor URL to open.
+ * @param {string} vid - Vendor id, used to name the popup window.
+ * @returns {void}
+ */
+const _openVendorPopup = (url, vid) => {
+  const popup = window.open(
+    url,
+    "retail_vendor_" + vid,
+    "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
+  );
+  if (popup) popup.opener = null;
+};
+
+/**
+ * Resolve a vendor's buy URL: prefer the live retailProviders map, then an
+ * optional per-entry URL, then the vendor-meta URL. Shared by the ticker,
+ * detail modal, and vendor matrix.
+ * @param {string} slug - Retail coin slug.
+ * @param {string} vid - Vendor id.
+ * @param {Object} vendorMeta - Vendor-meta map (url fallback by vendor id).
+ * @param {(string|null)} [entryUrl=null] - Optional per-entry URL fallback (detail modal).
+ * @returns {(string|null)} The resolved URL, or null.
+ */
+const _resolveVendorUrl = (slug, vid, vendorMeta, entryUrl = null) => {
+  return (
+    (window.retailProviders && window.retailProviders[slug] && window.retailProviders[slug][vid]) ||
+    entryUrl ||
+    (vendorMeta && vendorMeta[vid] && vendorMeta[vid].url) ||
+    null
+  );
+};
+
+/**
+ * Resolve coin metadata for a slug, preferring the cached manifest map over the
+ * live global lookup. Used by the ticker and detail modal (which favor the map);
+ * the vendor matrix uses _getRetailCoinMetaForSlug, which prefers the live lookup.
+ * @param {string} slug - Retail coin slug.
+ * @param {Object|null} coinMetaMap - Manifest coin-meta map (may be null).
+ * @returns {{name:string, weight:number, metal:string}} Resolved coin meta.
+ */
+const _resolveCoinMetaPreferMap = (slug, coinMetaMap) => {
+  if (coinMetaMap && coinMetaMap[slug]) return coinMetaMap[slug];
+  if (typeof window.getRetailCoinMeta === "function") return window.getRetailCoinMeta(slug);
+  return { name: slug, weight: 0, metal: "unknown" };
+};
+
 let _cachedSlugDetail = {};
 let _goldbackG1Rate = null;
 
@@ -279,159 +329,145 @@ const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0, previou
   });
 };
 
-const renderBestPriceTicker = () => {
-  const container = safeGetElement("bestPriceTickerEl");
-  if (!container) return;
-
-  const coins = _getRetailCoins();
-  const coinMetaMap = _getCoinMeta();
-  const vendorMeta = _getVendorMeta();
-
-  const items = [];
-
-  for (const slug of Object.keys(coins)) {
-    const coin = coins[slug];
-    if (!coin || !coin.vendors) continue;
-
-    let meta;
-    if (coinMetaMap && coinMetaMap[slug]) {
-      meta = coinMetaMap[slug];
-    } else if (typeof window.getRetailCoinMeta === "function") {
-      meta = window.getRetailCoinMeta(slug);
-    } else {
-      meta = { name: slug, weight: 0, metal: "unknown" };
+/**
+ * Find the cheapest in-stock vendor for a coin, preferring fresh v2 detail data
+ * (from _cachedSlugDetail) over the summary price, and skipping filter-disabled
+ * vendors and non-positive prices.
+ * @param {Object} coin - Retail coin summary with a vendors map.
+ * @param {string} slug - Retail coin slug (for the market-filter check).
+ * @returns {{bestVid:(string|null), bestPrice:number}} Cheapest vendor id and price (Infinity if none).
+ */
+const _findCheapestTickerVendor = (coin, slug) => {
+  let bestVid = null;
+  let bestPrice = Infinity;
+  for (const vid in coin.vendors) {
+    const v = coin.vendors[vid];
+    if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
+    if (!v || v.price <= 0) continue;
+    // Cross-reference with fresh v2 detail for accurate stock status
+    const fresh =
+      _cachedSlugDetail[slug] &&
+      _cachedSlugDetail[slug].vendors &&
+      _cachedSlugDetail[slug].vendors[vid];
+    const price = fresh && fresh.price > 0 ? fresh.price : v.price;
+    const inStock = fresh
+      ? fresh.in_stock === true || fresh.inStock === true
+      : v.in_stock === true || v.inStock === true;
+    if (inStock && price < bestPrice) {
+      bestPrice = price;
+      bestVid = vid;
     }
+  }
+  return { bestVid, bestPrice };
+};
 
-    const metalLower = (meta.metal || "").toLowerCase();
+/**
+ * Build a single best-price ticker item descriptor for a coin, or null when no
+ * in-stock vendor exists. Computes premium (spot or Goldback G1 reference) and
+ * resolves the cheapest vendor's display name, color, and buy URL.
+ * @param {string} slug - Retail coin slug.
+ * @param {Object} coin - Retail coin summary with a vendors map.
+ * @param {Object|null} coinMetaMap - Manifest coin-meta map.
+ * @param {Object} vendorMeta - Vendor-meta map (name/color/url by vendor id).
+ * @returns {Object|null} Ticker item descriptor, or null if no qualifying vendor.
+ */
+const _buildTickerItem = (slug, coin, coinMetaMap, vendorMeta) => {
+  const meta = _resolveCoinMetaPreferMap(slug, coinMetaMap);
+  const metalLower = (meta.metal || "").toLowerCase();
 
-    // Find cheapest in-stock vendor — prefer fresh v2 detail data when available
-    let bestVid = null;
-    let bestPrice = Infinity;
-    for (const vid in coin.vendors) {
-      const v = coin.vendors[vid];
-      if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
-      if (!v || v.price <= 0) continue;
-      // Cross-reference with fresh v2 detail for accurate stock status
-      const fresh =
-        _cachedSlugDetail[slug] &&
-        _cachedSlugDetail[slug].vendors &&
-        _cachedSlugDetail[slug].vendors[vid];
-      const price = fresh && fresh.price > 0 ? fresh.price : v.price;
-      const inStock = fresh
-        ? fresh.in_stock === true || fresh.inStock === true
-        : v.in_stock === true || v.inStock === true;
-      if (inStock && price < bestPrice) {
-        bestPrice = price;
-        bestVid = vid;
-      }
-    }
-    if (!bestVid || bestPrice === Infinity) continue;
+  const { bestVid, bestPrice } = _findCheapestTickerVendor(coin, slug);
+  if (!bestVid || bestPrice === Infinity) return null;
 
-    const weightOz = meta.weight || 0;
-    const spot = _getSpotPrice(metalLower);
-    let premium = null;
-    if (spot && spot > 0 && weightOz > 0) {
-      premium = _calcMarketPremium(bestPrice, spot * weightOz);
-    } else if (metalLower === "goldback" && _goldbackG1Rate > 0) {
-      premium = _calcMarketPremium(bestPrice, _goldbackG1Rate);
-    }
+  const weightOz = meta.weight || 0;
+  const spot = _getSpotPrice(metalLower);
+  let premium = null;
+  if (spot && spot > 0 && weightOz > 0) {
+    premium = _calcMarketPremium(bestPrice, spot * weightOz);
+  } else if (metalLower === "goldback" && _goldbackG1Rate > 0) {
+    premium = _calcMarketPremium(bestPrice, _goldbackG1Rate);
+  }
 
-    // Get vendor display info
-    const vendorName = _shortVendor(bestVid);
-    const vendorColor = vendorMeta[bestVid] ? vendorMeta[bestVid].color : null;
-    const vendorUrl =
-      (window.retailProviders &&
-        window.retailProviders[slug] &&
-        window.retailProviders[slug][bestVid]) ||
-      (vendorMeta[bestVid] && vendorMeta[bestVid].url) ||
-      null;
+  const vendorName = _shortVendor(bestVid);
+  const vendorColor = vendorMeta[bestVid] ? vendorMeta[bestVid].color : null;
+  const vendorUrl = _resolveVendorUrl(slug, bestVid, vendorMeta);
 
-    items.push({
-      slug,
-      name: meta.name || slug,
-      metal: metalLower,
-      bestPrice,
-      premium,
-      vendorName,
-      vendorColor,
-      vendorUrl,
-      bestVid,
+  return {
+    slug,
+    name: meta.name || slug,
+    metal: metalLower,
+    bestPrice,
+    premium,
+    vendorName,
+    vendorColor,
+    vendorUrl,
+    bestVid,
+  };
+};
+
+/**
+ * Build the DOM element for one ticker item (metal dot, coin name, vendor,
+ * price, premium badge). Clickable when the vendor URL is safe.
+ * @param {Object} item - Ticker item descriptor from _buildTickerItem.
+ * @returns {HTMLDivElement} The ".ticker-item" element.
+ */
+const _buildTickerItemEl = (item) => {
+  const el = document.createElement("div");
+  el.className = "ticker-item";
+  if (_isSafeUrl(item.vendorUrl)) {
+    el.style.cursor = "pointer";
+    el.addEventListener("click", () => {
+      _openVendorPopup(item.vendorUrl, item.bestVid);
     });
   }
 
-  // Sort alphabetically by coin name so vendors are naturally interleaved
-  items.sort((a, b) => a.name.localeCompare(b.name));
+  const dot = document.createElement("span");
+  const isoCode = _METAL_TO_ISO[item.metal] || "";
+  dot.className = "metal-dot" + (isoCode ? " " + isoCode : "");
+  el.appendChild(dot);
 
-  if (items.length === 0) {
-    container.dataset.tickerSignature = "";
-    container.setAttribute("hidden", "");
-    while (container.firstChild) container.removeChild(container.firstChild);
-    return;
+  const coinSpan = document.createElement("span");
+  coinSpan.className = "coin";
+  const displayName = item.name.length > 30 ? item.name.substring(0, 27) + "…" : item.name;
+  coinSpan.textContent = displayName;
+  el.appendChild(coinSpan);
+
+  const vendorSpan = document.createElement("span");
+  vendorSpan.className = "vendor";
+  vendorSpan.textContent = item.vendorName;
+  if (item.vendorColor) vendorSpan.style.color = item.vendorColor;
+  el.appendChild(vendorSpan);
+
+  const priceSpan = document.createElement("span");
+  priceSpan.className = "price";
+  priceSpan.textContent = formatCurrency(item.bestPrice);
+  el.appendChild(priceSpan);
+
+  const premiumSpan = document.createElement("span");
+  premiumSpan.className = "premium";
+  if (item.premium != null) {
+    premiumSpan.textContent = (item.premium >= 0 ? "+" : "") + item.premium.toFixed(1) + "%";
+    premiumSpan.classList.add(_premiumTierClass(item.premium));
   }
+  el.appendChild(premiumSpan);
 
-  const signature = _buildTickerSignature(items);
-  const previousTrack = container.querySelector(".ticker-track");
-  if (previousTrack && container.dataset.tickerSignature === signature) {
-    container.removeAttribute("hidden");
-    return;
-  }
+  return el;
+};
 
-  const previousPhase = _getTickerLoopPhase(previousTrack);
-
-  container.removeAttribute("hidden");
-  container.dataset.tickerSignature = signature;
-
+/**
+ * Render the scrolling ticker track into the container. Builds two identical
+ * blocks for a seamless loop when there are >=4 items (animated), or a single
+ * static block otherwise. Reuses the prior loop phase for animation continuity.
+ * @param {HTMLElement} container - The ticker container element.
+ * @param {Object[]} items - Ticker item descriptors.
+ * @param {string} signature - Content signature for stale-render guarding.
+ * @param {(HTMLElement|null)} previousTrack - Prior track element, if any.
+ * @param {number} previousPhase - Prior loop phase (0..1) for animation continuity.
+ * @returns {void}
+ */
+const _renderTickerTrack = (container, items, signature, previousTrack, previousPhase) => {
   const track = document.createElement("div");
   track.className = "ticker-track";
   track.dataset.signature = signature;
-
-  const buildTickerItem = (item) => {
-    const el = document.createElement("div");
-    el.className = "ticker-item";
-    if (_isSafeUrl(item.vendorUrl)) {
-      el.style.cursor = "pointer";
-      el.addEventListener("click", () => {
-        const popup = window.open(
-          item.vendorUrl,
-          "retail_vendor_" + item.bestVid,
-          "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
-        );
-        if (popup) popup.opener = null;
-      });
-    }
-
-    const dot = document.createElement("span");
-    const isoCode = _METAL_TO_ISO[item.metal] || "";
-    dot.className = "metal-dot" + (isoCode ? " " + isoCode : "");
-    el.appendChild(dot);
-
-    const coinSpan = document.createElement("span");
-    coinSpan.className = "coin";
-    const displayName = item.name.length > 30 ? item.name.substring(0, 27) + "\u2026" : item.name;
-    coinSpan.textContent = displayName;
-    el.appendChild(coinSpan);
-
-    const vendorSpan = document.createElement("span");
-    vendorSpan.className = "vendor";
-    vendorSpan.textContent = item.vendorName;
-    if (item.vendorColor) vendorSpan.style.color = item.vendorColor;
-    el.appendChild(vendorSpan);
-
-    const priceSpan = document.createElement("span");
-    priceSpan.className = "price";
-    priceSpan.textContent = formatCurrency(item.bestPrice);
-    el.appendChild(priceSpan);
-
-    const premiumSpan = document.createElement("span");
-    premiumSpan.className = "premium";
-    if (item.premium != null) {
-      premiumSpan.textContent = (item.premium >= 0 ? "+" : "") + item.premium.toFixed(1) + "%";
-      premiumSpan.classList.add(_premiumTierClass(item.premium));
-    }
-    el.appendChild(premiumSpan);
-
-    return el;
-  };
 
   // Build TWO identical content blocks for seamless loop
   const block1 = document.createElement("div");
@@ -442,8 +478,8 @@ const renderBestPriceTicker = () => {
   block2.dataset.tickerBlock = "duplicate";
 
   for (const item of items) {
-    block1.appendChild(buildTickerItem(item));
-    block2.appendChild(buildTickerItem(item));
+    block1.appendChild(_buildTickerItemEl(item));
+    block2.appendChild(_buildTickerItemEl(item));
   }
 
   if (items.length >= 4) {
@@ -468,6 +504,49 @@ const renderBestPriceTicker = () => {
     if (previousTrack) previousTrack.remove();
     container.appendChild(track);
   }
+};
+
+const renderBestPriceTicker = () => {
+  const container = safeGetElement("bestPriceTickerEl");
+  if (!container) return;
+
+  const coins = _getRetailCoins();
+  const coinMetaMap = _getCoinMeta();
+  const vendorMeta = _getVendorMeta();
+
+  const items = [];
+
+  for (const slug of Object.keys(coins)) {
+    const coin = coins[slug];
+    if (!coin || !coin.vendors) continue;
+
+    const item = _buildTickerItem(slug, coin, coinMetaMap, vendorMeta);
+    if (item) items.push(item);
+  }
+
+  // Sort alphabetically by coin name so vendors are naturally interleaved
+  items.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (items.length === 0) {
+    container.dataset.tickerSignature = "";
+    container.setAttribute("hidden", "");
+    while (container.firstChild) container.removeChild(container.firstChild);
+    return;
+  }
+
+  const signature = _buildTickerSignature(items);
+  const previousTrack = container.querySelector(".ticker-track");
+  if (previousTrack && container.dataset.tickerSignature === signature) {
+    container.removeAttribute("hidden");
+    return;
+  }
+
+  const previousPhase = _getTickerLoopPhase(previousTrack);
+
+  container.removeAttribute("hidden");
+  container.dataset.tickerSignature = signature;
+
+  _renderTickerTrack(container, items, signature, previousTrack, previousPhase);
 };
 
 // ---------------------------------------------------------------------------
@@ -513,43 +592,13 @@ const closeMarketDetailModal = () => {
   document.removeEventListener("keydown", _modalEscHandler);
 };
 
-const openMarketDetailModal = async (slug) => {
-  const overlay = safeGetElement("marketDetailModal");
-  const content = safeGetElement("marketDetailContent");
-  if (!overlay || !content) return;
-
-  _activeModalSlug = slug;
-  content.textContent = "";
-  overlay.removeAttribute("hidden");
-
-  const closeBtn = safeGetElement("marketDetailCloseBtn");
-  if (closeBtn) closeBtn.onclick = () => closeMarketDetailModal();
-  overlay.onclick = (e) => {
-    if (e.target === overlay) closeMarketDetailModal();
-  };
-  document.addEventListener("keydown", _modalEscHandler);
-
-  const loadingEl = document.createElement("div");
-  loadingEl.style.cssText =
-    "padding:48px;text-align:center;color:var(--text-muted);font-size:13px;";
-  loadingEl.textContent = "Loading coin details\u2026";
-  content.appendChild(loadingEl);
-
-  const coinMetaMap = _getCoinMeta();
-  const vendorMeta = _getVendorMeta();
-
-  let coinMeta;
-  if (coinMetaMap && coinMetaMap[slug]) {
-    coinMeta = coinMetaMap[slug];
-  } else if (typeof window.getRetailCoinMeta === "function") {
-    coinMeta = window.getRetailCoinMeta(slug);
-  } else {
-    coinMeta = { name: slug, weight: 0, metal: "unknown" };
-  }
-
-  const metalLower = (coinMeta.metal || "").toLowerCase();
-  const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
-
+/**
+ * Fetch a slug's retail detail, 30-day history, and intraday series in parallel,
+ * tolerating individual failures (each resolves to null on error).
+ * @param {string} slug - Retail coin slug.
+ * @returns {Promise<{detail:(Object|null), retailHistory:*, retailIntraday:*}>}
+ */
+const _fetchModalData = async (slug) => {
   const detailPromise = _marketV2Fetch("/retail/" + slug + "/latest.json")
     .then((json) => (json && json.data ? json.data : null))
     .catch((e) => {
@@ -571,13 +620,24 @@ const openMarketDetailModal = async (slug) => {
     historyPromise,
     intradayPromise,
   ]);
-  const detail = detailResult.status === "fulfilled" ? detailResult.value : null;
-  const retailHistory = historyResult.status === "fulfilled" ? historyResult.value : null;
-  const retailIntraday = intradayResult.status === "fulfilled" ? intradayResult.value : null;
+  return {
+    detail: detailResult.status === "fulfilled" ? detailResult.value : null,
+    retailHistory: historyResult.status === "fulfilled" ? historyResult.value : null,
+    retailIntraday: intradayResult.status === "fulfilled" ? intradayResult.value : null,
+  };
+};
 
-  content.textContent = "";
-
-  // ── Header ──
+/**
+ * Render the detail-modal header (metal dot, coin name, optional weight line).
+ * @param {HTMLElement} content - Modal content container.
+ * @param {Object} coinMeta - Resolved coin meta.
+ * @param {string} slug - Retail coin slug (name fallback).
+ * @param {string} metalCode - ISO metal code (e.g. "xau") or metal name.
+ * @param {string} metalLower - Lowercased metal name (weight-line fallback label).
+ * @param {number} weightOz - Coin weight in troy ounces (0 hides the weight line).
+ * @returns {void}
+ */
+const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weightOz) => {
   const header = document.createElement("div");
   header.className = "market-detail-header";
 
@@ -590,7 +650,6 @@ const openMarketDetailModal = async (slug) => {
   h2.appendChild(nameText);
   header.appendChild(h2);
 
-  const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
   if (weightOz > 0) {
     const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
     const metalName = metalNames[metalCode] || metalLower;
@@ -601,49 +660,61 @@ const openMarketDetailModal = async (slug) => {
   }
 
   content.appendChild(header);
+};
 
-  // ── Price summary ──
-  if (detail) {
-    const coins = _getRetailCoins();
-    const coinSummary = coins[slug];
-    const median = coinSummary
-      ? coinSummary.median_price != null
-        ? coinSummary.median_price
-        : coinSummary.median != null
-          ? coinSummary.median
-          : null
-      : null;
-    const low = detail.lowest_price || (coinSummary && coinSummary.lowest_price) || null;
-    const high = detail.highest_price || (coinSummary && coinSummary.highest_price) || null;
-    const spread = low != null && high != null ? high - low : null;
+/**
+ * Render the detail-modal price summary row (median/low/high/spread stats).
+ * No-op when detail is absent.
+ * @param {HTMLElement} content - Modal content container.
+ * @param {Object|null} detail - Normalized retail detail.
+ * @param {string} slug - Retail coin slug (for the coins-summary lookup).
+ * @returns {void}
+ */
+const _buildModalPriceSummary = (content, detail, slug) => {
+  if (!detail) return;
+  const coins = _getRetailCoins();
+  const coinSummary = coins[slug];
+  const median = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
+  const low = detail.lowest_price || (coinSummary && coinSummary.lowest_price) || null;
+  const high = detail.highest_price || (coinSummary && coinSummary.highest_price) || null;
+  const spread = low != null && high != null ? high - low : null;
 
-    const priceRow = document.createElement("div");
-    priceRow.style.cssText =
-      "display:flex;gap:24px;flex-wrap:wrap;margin-bottom:1rem;font-size:13px;";
+  const priceRow = document.createElement("div");
+  priceRow.style.cssText =
+    "display:flex;gap:24px;flex-wrap:wrap;margin-bottom:1rem;font-size:13px;";
 
-    const addStat = (label, value) => {
-      const stat = document.createElement("div");
-      const lbl = document.createElement("div");
-      lbl.style.cssText =
-        "color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;";
-      lbl.textContent = label;
-      stat.appendChild(lbl);
-      const val = document.createElement("div");
-      val.classList.add("market-value");
-      val.textContent = value;
-      stat.appendChild(val);
-      priceRow.appendChild(stat);
-    };
+  const addStat = (label, value) => {
+    const stat = document.createElement("div");
+    const lbl = document.createElement("div");
+    lbl.style.cssText =
+      "color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;";
+    lbl.textContent = label;
+    stat.appendChild(lbl);
+    const val = document.createElement("div");
+    val.classList.add("market-value");
+    val.textContent = value;
+    stat.appendChild(val);
+    priceRow.appendChild(stat);
+  };
 
-    if (median != null) addStat("Median", formatCurrency(median));
-    if (low != null) addStat("Low", formatCurrency(low));
-    if (high != null) addStat("High", formatCurrency(high));
-    if (spread != null) addStat("Spread", formatCurrency(spread));
+  if (median != null) addStat("Median", formatCurrency(median));
+  if (low != null) addStat("Low", formatCurrency(low));
+  if (high != null) addStat("High", formatCurrency(high));
+  if (spread != null) addStat("Spread", formatCurrency(spread));
 
-    content.appendChild(priceRow);
-  }
+  content.appendChild(priceRow);
+};
 
-  // ── Chart with period tabs ──
+/**
+ * Render the detail-modal chart section: period tabs (24H/7D) and a chart area
+ * that lazily renders the appropriate vendor history/intraday chart on demand.
+ * @param {HTMLElement} content - Modal content container.
+ * @param {*} retailHistory - 30-day per-vendor history series (or null).
+ * @param {*} retailIntraday - 24-hour intraday series (or null).
+ * @param {Object} vendorMeta - Vendor-meta map (for chart series styling).
+ * @returns {void}
+ */
+const _buildModalChartSection = (content, retailHistory, retailIntraday, vendorMeta) => {
   const chartSection = document.createElement("div");
   chartSection.style.cssText = "margin-bottom:1rem;";
 
@@ -740,8 +811,117 @@ const openMarketDetailModal = async (slug) => {
   const hasIntraday = retailIntraday && Array.isArray(retailIntraday) && retailIntraday.length > 0;
   const hasHistory = retailHistory && Array.isArray(retailHistory) && retailHistory.length > 0;
   setTimeout(() => _switchChartPeriod(hasHistory ? "7d" : hasIntraday ? "24h" : "7d"), 0);
+};
 
-  // ── Vendor comparison table ──
+/**
+ * Build the buy-link cell for a detail-modal vendor row. Renders a "Buy" link
+ * (opening a detached popup) when a safe vendor URL resolves, else a muted dash.
+ * @param {Object} entry - Vendor entry ({vid, url, ...}).
+ * @param {string} slug - Retail coin slug (provider URL lookup).
+ * @param {Object} vendorMeta - Vendor-meta map (url fallback for entry.vid).
+ * @returns {HTMLTableCellElement} The buy cell.
+ */
+const _buildModalBuyCell = (entry, slug, vendorMeta) => {
+  const tdBuy = document.createElement("td");
+  const url = _resolveVendorUrl(slug, entry.vid, vendorMeta, entry.url);
+  if (_isSafeUrl(url)) {
+    const buyBtn = document.createElement("a");
+    buyBtn.textContent = "Buy";
+    buyBtn.href = "#";
+    buyBtn.style.cssText =
+      "color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;";
+    buyBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      _openVendorPopup(url, entry.vid);
+    });
+    tdBuy.appendChild(buyBtn);
+  } else {
+    tdBuy.textContent = "—";
+    tdBuy.style.color = "var(--text-muted)";
+  }
+  return tdBuy;
+};
+
+/**
+ * Build one vendor row for the detail-modal comparison table (name, price,
+ * premium badge, stock status, buy link).
+ * @param {Object} entry - Vendor entry ({vid, price, in_stock, carried, url, ...}).
+ * @param {Object} vendorMeta - Vendor-meta map (name/color/url).
+ * @param {string} slug - Retail coin slug (for provider URL lookup).
+ * @param {string} metalCode - ISO metal code (Goldback premium uses the G1 rate).
+ * @param {number} weightOz - Coin weight in troy ounces (for spot premium).
+ * @param {(number|null)} spotPrice - Spot price for the metal, or null.
+ * @returns {HTMLTableRowElement} The vendor row element.
+ */
+const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spotPrice) => {
+  const tr = document.createElement("tr");
+
+  // Vendor name
+  const tdVendor = document.createElement("td");
+  const vMeta = vendorMeta[entry.vid];
+  tdVendor.textContent = _shortVendor(entry.vid);
+  if (vMeta && vMeta.color) {
+    tdVendor.style.color = vMeta.color;
+  }
+  tr.appendChild(tdVendor);
+
+  // Price
+  const tdPrice = document.createElement("td");
+  tdPrice.classList.add("market-price");
+  tdPrice.textContent = entry.price > 0 ? formatCurrency(entry.price) : "—";
+  tr.appendChild(tdPrice);
+
+  // Premium
+  const tdPrem = document.createElement("td");
+  let _modalPremium = null;
+  if (entry.price > 0 && spotPrice && spotPrice > 0 && weightOz > 0) {
+    _modalPremium = _calcMarketPremium(entry.price, spotPrice * weightOz);
+  } else if (entry.price > 0 && metalCode === "goldback" && _goldbackG1Rate > 0) {
+    _modalPremium = _calcMarketPremium(entry.price, _goldbackG1Rate);
+  }
+  if (_modalPremium != null) {
+    const badge = document.createElement("span");
+    badge.className = "vp-premium " + _premiumTierClass(_modalPremium);
+    badge.textContent = (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%";
+    tdPrem.appendChild(badge);
+  } else {
+    tdPrem.textContent = "—";
+    tdPrem.style.color = "var(--text-muted)";
+  }
+  tr.appendChild(tdPrem);
+
+  // Stock
+  const tdStock = document.createElement("td");
+  if (entry.carried) {
+    tdStock.style.color = "var(--warning)";
+    tdStock.textContent = "Carried";
+    if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
+  } else if (entry.in_stock) {
+    tdStock.style.color = "var(--success)";
+    tdStock.textContent = "In Stock";
+  } else {
+    tdStock.style.color = "var(--danger)";
+    tdStock.textContent = "Out of Stock";
+  }
+  tr.appendChild(tdStock);
+
+  tr.appendChild(_buildModalBuyCell(entry, slug, vendorMeta));
+
+  return tr;
+};
+
+/**
+ * Render the detail-modal vendor comparison table (sorted by price), or a
+ * "vendor data unavailable" placeholder when no vendor data exists.
+ * @param {HTMLElement} content - Modal content container.
+ * @param {Object|null} detail - Normalized retail detail (with vendors map).
+ * @param {string} slug - Retail coin slug.
+ * @param {Object} vendorMeta - Vendor-meta map.
+ * @param {string} metalCode - ISO metal code.
+ * @param {number} weightOz - Coin weight in troy ounces.
+ * @returns {void}
+ */
+const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, weightOz) => {
   if (detail && detail.vendors) {
     const vData = detail.vendors;
     const spotPrice = _getSpotPrice(metalCode);
@@ -781,89 +961,9 @@ const openMarketDetailModal = async (slug) => {
       const tbody = document.createElement("tbody");
 
       for (const entry of vendorEntries) {
-        const tr = document.createElement("tr");
-
-        // Vendor name
-        const tdVendor = document.createElement("td");
-        const vMeta = vendorMeta[entry.vid];
-        tdVendor.textContent = _shortVendor(entry.vid);
-        if (vMeta && vMeta.color) {
-          tdVendor.style.color = vMeta.color;
-        }
-        tr.appendChild(tdVendor);
-
-        // Price
-        const tdPrice = document.createElement("td");
-        tdPrice.classList.add("market-price");
-        tdPrice.textContent = entry.price > 0 ? formatCurrency(entry.price) : "\u2014";
-        tr.appendChild(tdPrice);
-
-        // Premium
-        const tdPrem = document.createElement("td");
-        let _modalPremium = null;
-        if (entry.price > 0 && spotPrice && spotPrice > 0 && weightOz > 0) {
-          _modalPremium = _calcMarketPremium(entry.price, spotPrice * weightOz);
-        } else if (entry.price > 0 && metalCode === "goldback" && _goldbackG1Rate > 0) {
-          _modalPremium = _calcMarketPremium(entry.price, _goldbackG1Rate);
-        }
-        if (_modalPremium != null) {
-          const badge = document.createElement("span");
-          badge.className = "vp-premium " + _premiumTierClass(_modalPremium);
-          badge.textContent = (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%";
-          tdPrem.appendChild(badge);
-        } else {
-          tdPrem.textContent = "\u2014";
-          tdPrem.style.color = "var(--text-muted)";
-        }
-        tr.appendChild(tdPrem);
-
-        // Stock
-        const tdStock = document.createElement("td");
-        if (entry.carried) {
-          tdStock.style.color = "var(--warning)";
-          tdStock.textContent = "Carried";
-          if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
-        } else if (entry.in_stock) {
-          tdStock.style.color = "var(--success)";
-          tdStock.textContent = "In Stock";
-        } else {
-          tdStock.style.color = "var(--danger)";
-          tdStock.textContent = "Out of Stock";
-        }
-        tr.appendChild(tdStock);
-
-        // Buy link
-        const tdBuy = document.createElement("td");
-        const url =
-          (window.retailProviders &&
-            window.retailProviders[slug] &&
-            window.retailProviders[slug][entry.vid]) ||
-          entry.url ||
-          (vMeta && vMeta.url) ||
-          null;
-        if (_isSafeUrl(url)) {
-          const buyBtn = document.createElement("a");
-          buyBtn.textContent = "Buy";
-          buyBtn.href = "#";
-          buyBtn.style.cssText =
-            "color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;";
-          buyBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            const popup = window.open(
-              url,
-              "retail_vendor_" + entry.vid,
-              "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
-            );
-            if (popup) popup.opener = null;
-          });
-          tdBuy.appendChild(buyBtn);
-        } else {
-          tdBuy.textContent = "\u2014";
-          tdBuy.style.color = "var(--text-muted)";
-        }
-        tr.appendChild(tdBuy);
-
-        tbody.appendChild(tr);
+        tbody.appendChild(
+          _buildModalVendorRow(entry, vendorMeta, slug, metalCode, weightOz, spotPrice)
+        );
       }
 
       table.appendChild(tbody);
@@ -876,7 +976,15 @@ const openMarketDetailModal = async (slug) => {
     noData.textContent = "Vendor data unavailable for this coin";
     content.appendChild(noData);
   }
+};
 
+/**
+ * Append the convenience-currency disclaimer to the modal when a non-USD
+ * display currency is active. No-op otherwise.
+ * @param {HTMLElement} content - Modal content container.
+ * @returns {void}
+ */
+const _appendModalDisclaimer = (content) => {
   const currencyDisclaimer = _getRetailCurrencyDisclaimer();
   if (currencyDisclaimer) {
     const disclaimer = document.createElement("div");
@@ -885,16 +993,74 @@ const openMarketDetailModal = async (slug) => {
     disclaimer.textContent = currencyDisclaimer;
     content.appendChild(disclaimer);
   }
+};
+
+const openMarketDetailModal = async (slug) => {
+  const overlay = safeGetElement("marketDetailModal");
+  const content = safeGetElement("marketDetailContent");
+  if (!overlay || !content) return;
+
+  _activeModalSlug = slug;
+  content.textContent = "";
+  overlay.removeAttribute("hidden");
+
+  const closeBtn = safeGetElement("marketDetailCloseBtn");
+  if (closeBtn) closeBtn.onclick = () => closeMarketDetailModal();
+  overlay.onclick = (e) => {
+    if (e.target === overlay) closeMarketDetailModal();
+  };
+  document.addEventListener("keydown", _modalEscHandler);
+
+  const loadingEl = document.createElement("div");
+  loadingEl.style.cssText =
+    "padding:48px;text-align:center;color:var(--text-muted);font-size:13px;";
+  loadingEl.textContent = "Loading coin details\u2026";
+  content.appendChild(loadingEl);
+
+  const coinMetaMap = _getCoinMeta();
+  const vendorMeta = _getVendorMeta();
+
+  const coinMeta = _resolveCoinMetaPreferMap(slug, coinMetaMap);
+
+  const metalLower = (coinMeta.metal || "").toLowerCase();
+  const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
+
+  const { detail, retailHistory, retailIntraday } = await _fetchModalData(slug);
+
+  content.textContent = "";
+
+  const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
+  _buildModalHeader(content, coinMeta, slug, metalCode, metalLower, weightOz);
+
+  _buildModalPriceSummary(content, detail, slug);
+
+  _buildModalChartSection(content, retailHistory, retailIntraday, vendorMeta);
+
+  // ── Vendor comparison table ──
+  _buildModalVendorTable(content, detail, slug, vendorMeta, metalCode, weightOz);
+
+  _appendModalDisclaimer(content);
 
   debugLog("[market-data] Detail modal opened for: " + slug, "info");
 };
 
-const _getCachedRetailDetail = (slug, coins) => {
-  const detail = _cachedSlugDetail[slug] || (coins && coins[slug]);
-  if (!detail || !detail.vendors || typeof detail.vendors !== "object") return null;
+/**
+ * Coalesce two alias fields to the first non-nullish value, else null.
+ * @param {*} a - Preferred value.
+ * @param {*} b - Fallback value.
+ * @returns {*} a if non-nullish, otherwise b if non-nullish, otherwise null.
+ */
+const _coalesce = (a, b) => a ?? b ?? null;
 
+/**
+ * Normalize a detail.vendors map so each vendor carries both in_stock and
+ * inStock booleans (true only when either source flag is strictly true).
+ * @param {Object} detailVendors - Raw per-vendor map from a retail detail payload.
+ * @returns {Object} New map with normalized stock flags (originals spread first).
+ */
+const _normalizeDetailVendors = (detailVendors) => {
   const vendors = {};
-  for (const [vid, vendor] of Object.entries(detail.vendors)) {
+  for (const [vid, vendor] of Object.entries(detailVendors)) {
     const inStock = vendor.in_stock === true || vendor.inStock === true;
     vendors[vid] = {
       ...vendor,
@@ -902,34 +1068,58 @@ const _getCachedRetailDetail = (slug, coins) => {
       inStock,
     };
   }
+  return vendors;
+};
+
+/**
+ * Return a normalized, alias-filled copy of a slug's retail detail from the
+ * in-memory cache (falling back to the coins summary), or null if absent.
+ * Normalizes vendor stock flags and back-fills median/low/high aliases.
+ * @param {string} slug - Retail coin slug.
+ * @param {Object|null} coins - Retail coins summary map (fallback source).
+ * @returns {Object|null} Normalized detail object, or null when unavailable.
+ */
+const _getCachedRetailDetail = (slug, coins) => {
+  const detail = _cachedSlugDetail[slug] || (coins && coins[slug]);
+  if (!detail || !detail.vendors || typeof detail.vendors !== "object") return null;
 
   return {
     ...detail,
-    median: detail.median ?? detail.median_price ?? null,
-    median_price: detail.median_price ?? detail.median ?? null,
-    low: detail.low ?? detail.lowest_price ?? null,
-    lowest_price: detail.lowest_price ?? detail.low ?? null,
-    high: detail.high ?? detail.highest_price ?? null,
-    highest_price: detail.highest_price ?? detail.high ?? null,
-    vendors,
+    median: _coalesce(detail.median, detail.median_price),
+    median_price: _coalesce(detail.median_price, detail.median),
+    low: _coalesce(detail.low, detail.lowest_price),
+    lowest_price: _coalesce(detail.lowest_price, detail.low),
+    high: _coalesce(detail.high, detail.highest_price),
+    highest_price: _coalesce(detail.highest_price, detail.high),
+    vendors: _normalizeDetailVendors(detail.vendors),
   };
 };
 
-const _renderVendorTable = async (metalCode) => {
-  const container = safeGetElement("vendorPricesContainer");
-  if (!container) return;
+/**
+ * Replace the vendor table area with a single centered status message.
+ * @param {HTMLElement} tableWrap - The ".vp-table-area" container.
+ * @param {string} text - Message text.
+ * @returns {void}
+ */
+const _renderVendorTableMessage = (tableWrap, text) => {
+  tableWrap.textContent = "";
+  const msg = document.createElement("div");
+  msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
+  msg.textContent = text;
+  tableWrap.appendChild(msg);
+};
 
-  let tableWrap = container.querySelector(".vp-table-area");
-  if (!tableWrap) {
-    tableWrap = document.createElement("div");
-    tableWrap.className = "vp-table-area";
-    container.appendChild(tableWrap);
-  }
-
-  const coins = _getRetailCoins();
-  const coinMetaMap = _getCoinMeta();
-  const vendorMeta = _getVendorMeta();
-
+/**
+ * Build the ordered list of coin rows for a metal scope. For the "all" scope,
+ * rows are grouped by metal in xau→xag→xpt→xpd→goldback order and sorted by name
+ * within each group; for a single metal, all matching rows are name-sorted.
+ * Slugs whose every vendor is filter-disabled are skipped.
+ * @param {string} metalCode - ISO metal code or "all".
+ * @param {Object} coins - Retail coins summary map.
+ * @param {Object|null} coinMetaMap - Manifest coin-meta map.
+ * @returns {Array<{slug:string, meta:Object, isoCode:string}>} Ordered rows.
+ */
+const _collectVendorTableRows = (metalCode, coins, coinMetaMap) => {
   const rowComparator = (a, b) =>
     String(a.meta.name || a.slug).localeCompare(String(b.meta.name || b.slug), undefined, {
       numeric: true,
@@ -970,23 +1160,18 @@ const _renderVendorTable = async (metalCode) => {
   } else {
     metalSlugs.sort(rowComparator);
   }
+  return metalSlugs;
+};
 
-  if (metalSlugs.length === 0) {
-    tableWrap.textContent = "";
-    const msg = document.createElement("div");
-    msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
-    msg.textContent = "No coins tracked for this metal";
-    tableWrap.appendChild(msg);
-    return;
-  }
-
-  tableWrap.textContent = "";
-  const loadingMsg = document.createElement("div");
-  loadingMsg.style.cssText =
-    "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
-  loadingMsg.textContent = "Loading vendor prices\u2026";
-  tableWrap.appendChild(loadingMsg);
-
+/**
+ * Resolve a normalized retail-detail map for the given rows, using cached detail
+ * where available and fetching the rest in parallel (failures resolve to null).
+ * Also refreshes the in-memory _cachedSlugDetail entries.
+ * @param {Array<{slug:string}>} metalSlugs - Ordered rows (slugs read).
+ * @param {Object} coins - Retail coins summary map (cache fallback).
+ * @returns {Promise<Object>} Map of slug to normalized detail.
+ */
+const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   const detailMap = {};
   const missingSlugs = [];
   for (const { slug } of metalSlugs) {
@@ -1018,7 +1203,17 @@ const _renderVendorTable = async (metalCode) => {
       }
     }
   }
+  return detailMap;
+};
 
+/**
+ * Collect the set of filter-enabled vendor ids present across all rows, sorted
+ * by short vendor name then id.
+ * @param {Array<{slug:string}>} metalSlugs - Ordered rows.
+ * @param {Object} detailMap - Map of slug to normalized detail.
+ * @returns {string[]} Sorted vendor ids.
+ */
+const _collectEnabledVendorIds = (metalSlugs, detailMap) => {
   const allVendorIds = new Set();
   for (const { slug } of metalSlugs) {
     const detail = detailMap[slug];
@@ -1032,26 +1227,19 @@ const _renderVendorTable = async (metalCode) => {
     }
   }
 
-  const vendorIds = Array.from(allVendorIds).sort(
+  return Array.from(allVendorIds).sort(
     (a, b) => String(_shortVendor(a)).localeCompare(String(_shortVendor(b))) || a.localeCompare(b)
   );
+};
 
-  if (vendorIds.length === 0) {
-    tableWrap.textContent = "";
-    const msg = document.createElement("div");
-    msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
-    msg.textContent = "No vendor data available for this metal";
-    tableWrap.appendChild(msg);
-    return;
-  }
-
-  tableWrap.textContent = "";
-  const scrollWrap = document.createElement("div");
-  scrollWrap.style.overflowX = "auto";
-
-  const table = document.createElement("table");
-  table.className = "vendor-prices-table";
-
+/**
+ * Build the vendor matrix table header row (ITEM, one column per vendor, then
+ * MEDIAN and SPREAD).
+ * @param {string[]} vendorIds - Sorted vendor ids.
+ * @param {Object} vendorMeta - Vendor-meta map (for column color).
+ * @returns {HTMLTableSectionElement} The thead element.
+ */
+const _buildVendorTableHead = (vendorIds, vendorMeta) => {
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
   const thCoin = document.createElement("th");
@@ -1074,140 +1262,220 @@ const _renderVendorTable = async (metalCode) => {
   headRow.appendChild(thSpread);
 
   thead.appendChild(headRow);
-  table.appendChild(thead);
+  return thead;
+};
+
+/**
+ * Collect in-stock, non-carried, positive prices for a coin's enabled vendors.
+ * @param {Object} vData - Per-vendor data map for one coin.
+ * @param {string} slug - Retail coin slug (for the market-filter check).
+ * @returns {number[]} In-stock vendor prices.
+ */
+const _computeInStockPrices = (vData, slug) => {
+  const inStockPrices = [];
+  for (const vid in vData) {
+    // STAK-515: Skip disabled vendors in price calculations
+    if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
+    const _vs = vData[vid];
+    if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true) && !_vs.carried) {
+      inStockPrices.push(vData[vid].price);
+    }
+  }
+  return inStockPrices;
+};
+
+/**
+ * Build one vendor price cell for the matrix: a muted dash for disabled vendors
+ * or missing data, an OOS marker when out of stock, otherwise the price (with a
+ * best-price highlight, carried dimming, click-to-vendor link, and premium badge).
+ * @param {string} slug - Retail coin slug.
+ * @param {string} vid - Vendor id.
+ * @param {Object} vData - Per-vendor data map for the coin.
+ * @param {(number|null)} lowestPrice - Lowest in-stock price in the row (for highlight).
+ * @param {(number|null)} spotPrice - Spot price for the metal.
+ * @param {number} weightOz - Coin weight in troy ounces.
+ * @param {string} isoCode - ISO metal code (Goldback premium uses the G1 rate).
+ * @param {Object} vendorMeta - Vendor-meta map (for the URL fallback).
+ * @returns {HTMLTableCellElement} The price cell.
+ */
+const _buildVendorPriceCell = (
+  slug,
+  vid,
+  vData,
+  lowestPrice,
+  spotPrice,
+  weightOz,
+  isoCode,
+  vendorMeta
+) => {
+  // STAK-515: Skip disabled vendor cells
+  if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
+    const skipTd = document.createElement("td");
+    skipTd.textContent = "—";
+    skipTd.className = "vp-muted";
+    return skipTd;
+  }
+  const td = document.createElement("td");
+  const vInfo = vData[vid];
+
+  if (!vInfo) {
+    td.textContent = "—";
+    td.style.color = "var(--text-muted)";
+    return td;
+  }
+
+  if (!vInfo.in_stock && !vInfo.inStock) {
+    td.classList.add("vp-oos");
+    const oosSpan = document.createElement("span");
+    oosSpan.textContent = "OOS";
+    td.appendChild(oosSpan);
+    return td;
+  }
+
+  if (vInfo.carried && vInfo.price != null) {
+    td.style.opacity = "0.5";
+  }
+
+  if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
+
+  const priceSpan = document.createElement("span");
+  priceSpan.className = "vp-price";
+  priceSpan.textContent = formatCurrency(vInfo.price);
+  priceSpan.style.cursor = "pointer";
+  priceSpan.addEventListener("click", () => {
+    const url = _resolveVendorUrl(slug, vid, vendorMeta);
+    if (_isSafeUrl(url)) _openVendorPopup(url, vid);
+  });
+  td.appendChild(priceSpan);
+
+  let premium = null;
+  if (spotPrice && spotPrice > 0 && weightOz > 0) {
+    premium = _calcMarketPremium(vInfo.price, spotPrice * weightOz);
+  } else if (isoCode === "goldback" && _goldbackG1Rate > 0 && vInfo.price > 0) {
+    premium = _calcMarketPremium(vInfo.price, _goldbackG1Rate);
+  }
+  if (premium != null) {
+    const premBadge = document.createElement("span");
+    premBadge.className = "vp-premium " + _premiumTierClass(premium);
+    premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
+    td.appendChild(premBadge);
+  }
+
+  return td;
+};
+
+/**
+ * Build one coin row for the vendor matrix: the clickable coin name, one price
+ * cell per vendor, and the median and spread cells.
+ * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {string[]} vendorIds - Sorted vendor ids (column order).
+ * @param {Object} detailMap - Map of slug to normalized detail.
+ * @param {Object} coins - Retail coins summary map (for median).
+ * @param {Object} vendorMeta - Vendor-meta map.
+ * @returns {(HTMLTableRowElement|null)} The row element, or null if no detail.
+ */
+const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) => {
+  const { slug, meta, isoCode } = rowInfo;
+  const detail = detailMap[slug];
+  if (!detail || !detail.vendors) return null;
+
+  const vData = detail.vendors;
+  const weightOz = detail.weight_oz || meta.weight || 0;
+  const spotPrice = _getSpotPrice(isoCode);
+
+  const inStockPrices = _computeInStockPrices(vData, slug);
+  const lowestPrice = inStockPrices.length > 0 ? Math.min(...inStockPrices) : null;
+
+  const tr = document.createElement("tr");
+
+  const tdName = document.createElement("td");
+
+  const nameSpan = document.createElement("span");
+  const displayName = meta.name || slug;
+  nameSpan.textContent = displayName;
+  nameSpan.className = "vp-coin-link";
+  nameSpan.style.cursor = "pointer";
+  nameSpan.addEventListener("click", () => {
+    openMarketDetailModal(slug);
+  });
+  tdName.appendChild(nameSpan);
+
+  tr.appendChild(tdName);
+
+  for (const vid of vendorIds) {
+    tr.appendChild(
+      _buildVendorPriceCell(slug, vid, vData, lowestPrice, spotPrice, weightOz, isoCode, vendorMeta)
+    );
+  }
+
+  const coinSummary = coins[slug];
+  const tdMedian = document.createElement("td");
+  const medianVal = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
+  tdMedian.textContent = medianVal != null ? formatCurrency(medianVal) : "—";
+  tr.appendChild(tdMedian);
+
+  const tdSpread = document.createElement("td");
+  // Calculate high/low from vendor data since summary may not have these fields
+  const allPrices = inStockPrices.length > 0 ? inStockPrices : [];
+  const calcHigh = allPrices.length > 0 ? Math.max(...allPrices) : null;
+  const calcLow = allPrices.length > 0 ? Math.min(...allPrices) : null;
+  if (calcHigh != null && calcLow != null && calcHigh !== calcLow) {
+    tdSpread.textContent = formatCurrency(calcHigh - calcLow);
+  } else {
+    tdSpread.textContent = "—";
+  }
+  tr.appendChild(tdSpread);
+
+  return tr;
+};
+
+const _renderVendorTable = async (metalCode) => {
+  const container = safeGetElement("vendorPricesContainer");
+  if (!container) return;
+
+  let tableWrap = container.querySelector(".vp-table-area");
+  if (!tableWrap) {
+    tableWrap = document.createElement("div");
+    tableWrap.className = "vp-table-area";
+    container.appendChild(tableWrap);
+  }
+
+  const coins = _getRetailCoins();
+  const coinMetaMap = _getCoinMeta();
+  const vendorMeta = _getVendorMeta();
+
+  const metalSlugs = _collectVendorTableRows(metalCode, coins, coinMetaMap);
+
+  if (metalSlugs.length === 0) {
+    _renderVendorTableMessage(tableWrap, "No coins tracked for this metal");
+    return;
+  }
+
+  _renderVendorTableMessage(tableWrap, "Loading vendor prices\u2026");
+
+  const detailMap = await _resolveVendorDetailMap(metalSlugs, coins);
+
+  const vendorIds = _collectEnabledVendorIds(metalSlugs, detailMap);
+
+  if (vendorIds.length === 0) {
+    _renderVendorTableMessage(tableWrap, "No vendor data available for this metal");
+    return;
+  }
+
+  tableWrap.textContent = "";
+  const scrollWrap = document.createElement("div");
+  scrollWrap.style.overflowX = "auto";
+
+  const table = document.createElement("table");
+  table.className = "vendor-prices-table";
+
+  table.appendChild(_buildVendorTableHead(vendorIds, vendorMeta));
 
   const tbody = document.createElement("tbody");
 
-  for (const { slug, meta, isoCode } of metalSlugs) {
-    const detail = detailMap[slug];
-    if (!detail || !detail.vendors) continue;
-
-    const vData = detail.vendors;
-    const weightOz = detail.weight_oz || meta.weight || 0;
-    const spotPrice = _getSpotPrice(isoCode);
-
-    const inStockPrices = [];
-    for (const vid in vData) {
-      // STAK-515: Skip disabled vendors in price calculations
-      if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
-      const _vs = vData[vid];
-      if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true) && !_vs.carried) {
-        inStockPrices.push(vData[vid].price);
-      }
-    }
-    const lowestPrice = inStockPrices.length > 0 ? Math.min(...inStockPrices) : null;
-
-    const tr = document.createElement("tr");
-
-    const tdName = document.createElement("td");
-
-    const nameSpan = document.createElement("span");
-    const displayName = meta.name || slug;
-    nameSpan.textContent = displayName;
-    nameSpan.className = "vp-coin-link";
-    nameSpan.style.cursor = "pointer";
-    nameSpan.addEventListener("click", () => {
-      openMarketDetailModal(slug);
-    });
-    tdName.appendChild(nameSpan);
-
-    tr.appendChild(tdName);
-
-    for (const vid of vendorIds) {
-      // STAK-515: Skip disabled vendor cells
-      if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
-        const skipTd = document.createElement("td");
-        skipTd.textContent = "\u2014";
-        skipTd.className = "vp-muted";
-        tr.appendChild(skipTd);
-        continue;
-      }
-      const td = document.createElement("td");
-      const vInfo = vData[vid];
-
-      if (!vInfo) {
-        td.textContent = "\u2014";
-        td.style.color = "var(--text-muted)";
-        tr.appendChild(td);
-        continue;
-      }
-
-      if (!vInfo.in_stock && !vInfo.inStock) {
-        td.classList.add("vp-oos");
-        const oosSpan = document.createElement("span");
-        oosSpan.textContent = "OOS";
-        td.appendChild(oosSpan);
-        tr.appendChild(td);
-        continue;
-      }
-
-      if (vInfo.carried && vInfo.price != null) {
-        td.style.opacity = "0.5";
-      }
-
-      if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
-
-      const priceSpan = document.createElement("span");
-      priceSpan.className = "vp-price";
-      priceSpan.textContent = formatCurrency(vInfo.price);
-      priceSpan.style.cursor = "pointer";
-      priceSpan.addEventListener("click", () => {
-        const url =
-          (window.retailProviders &&
-            window.retailProviders[slug] &&
-            window.retailProviders[slug][vid]) ||
-          (vendorMeta[vid] && vendorMeta[vid].url) ||
-          null;
-        if (_isSafeUrl(url)) {
-          const popup = window.open(
-            url,
-            "retail_vendor_" + vid,
-            "width=1250,height=800,scrollbars=yes,resizable=yes,toolbar=no,location=no,menubar=no,status=no"
-          );
-          if (popup) popup.opener = null;
-        }
-      });
-      td.appendChild(priceSpan);
-
-      let premium = null;
-      if (spotPrice && spotPrice > 0 && weightOz > 0) {
-        premium = _calcMarketPremium(vInfo.price, spotPrice * weightOz);
-      } else if (isoCode === "goldback" && _goldbackG1Rate > 0 && vInfo.price > 0) {
-        premium = _calcMarketPremium(vInfo.price, _goldbackG1Rate);
-      }
-      if (premium != null) {
-        const premBadge = document.createElement("span");
-        premBadge.className = "vp-premium " + _premiumTierClass(premium);
-        premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
-        td.appendChild(premBadge);
-      }
-
-      tr.appendChild(td);
-    }
-
-    const coinSummary = coins[slug];
-    const tdMedian = document.createElement("td");
-    const medianVal = coinSummary
-      ? coinSummary.median_price != null
-        ? coinSummary.median_price
-        : coinSummary.median
-      : null;
-    tdMedian.textContent = medianVal != null ? formatCurrency(medianVal) : "\u2014";
-    tr.appendChild(tdMedian);
-
-    const tdSpread = document.createElement("td");
-    // Calculate high/low from vendor data since summary may not have these fields
-    const allPrices = inStockPrices.length > 0 ? inStockPrices : [];
-    const calcHigh = allPrices.length > 0 ? Math.max(...allPrices) : null;
-    const calcLow = allPrices.length > 0 ? Math.min(...allPrices) : null;
-    if (calcHigh != null && calcLow != null && calcHigh !== calcLow) {
-      tdSpread.textContent = formatCurrency(calcHigh - calcLow);
-    } else {
-      tdSpread.textContent = "\u2014";
-    }
-    tr.appendChild(tdSpread);
-
-    tbody.appendChild(tr);
+  for (const rowInfo of metalSlugs) {
+    const tr = _buildVendorTableRow(rowInfo, vendorIds, detailMap, coins, vendorMeta);
+    if (tr) tbody.appendChild(tr);
   }
 
   table.appendChild(tbody);
