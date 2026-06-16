@@ -24,7 +24,7 @@ const ITEM = (over) => ({
   metal: "Silver",
   composition: "Silver",
   type: "Coin",
-  qty: over.qty != null ? over.qty : 1,
+  qty: over.qty ?? 1,
   weight: 1,
   weightUnit: "oz",
   purity: 0.999,
@@ -76,7 +76,19 @@ async function applyDiff(page, options, clicks) {
           }
           el.click();
         }
-        document.getElementById("diffReviewApplyBtn").click();
+        // Guard the Apply click: a missing or disabled button never fires onApply,
+        // which would hang the page.evaluate Promise until the test times out.
+        // Resolve deterministically instead so the failure is debuggable.
+        const applyBtn = document.getElementById("diffReviewApplyBtn");
+        if (!applyBtn) {
+          resolve({ error: "selector not found: #diffReviewApplyBtn" });
+          return;
+        }
+        if (applyBtn.disabled) {
+          resolve({ applyDisabled: true });
+          return;
+        }
+        applyBtn.click();
       }),
     { options, clicks }
   );
