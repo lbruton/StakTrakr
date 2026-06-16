@@ -843,55 +843,6 @@
   };
 
   /**
-   * Parse the heaviest weight/mass column from a Numista row into troy ounces.
-   * @param {object} row - Parsed Numista CSV row
-   * @returns {number} Weight in troy ounces (6dp)
-   */
-  const _parseNumistaWeight = (row) => {
-    const weightCols = Object.keys(row).filter((k) => {
-      const key = k.toLowerCase();
-      return key.includes("weight") || key.includes("mass");
-    });
-    let weightGrams = 0;
-    for (const col of weightCols) {
-      const val = parseFloat(String(row[col]).replace(/[^0-9.]/g, ""));
-      if (!isNaN(val)) weightGrams = Math.max(weightGrams, val);
-    }
-    return parseFloat(gramsToOzt(weightGrams).toFixed(6));
-  };
-
-  /**
-   * Parse purchase + market price from a Numista row, converting to USD and
-   * cross-filling one from the other when only one is present.
-   * @param {object} row - Parsed Numista CSV row
-   * @returns {{purchasePrice: number, marketValue: number}}
-   */
-  const _parseNumistaPrices = (row) => {
-    const priceKey = Object.keys(row).find((k) =>
-      /^(buying price|purchase price|price paid)/i.test(k)
-    );
-    const estimateKey = Object.keys(row).find((k) => /^estimate/i.test(k));
-    const parsePriceField = (key) => {
-      const rawVal = String(row[key] ?? "").trim();
-      const valueCurrency = detectCurrency(rawVal);
-      const headerCurrencyMatch = key.match(/\(([^)]+)\)/);
-      const headerCurrency = headerCurrencyMatch ? headerCurrencyMatch[1] : displayCurrency;
-      const currency = valueCurrency || headerCurrency;
-      const amount = parseFloat(rawVal.replace(/[^0-9.\-]/g, ""));
-      return isNaN(amount) ? 0 : convertToUsd(amount, currency);
-    };
-
-    let purchasePrice = 0;
-    let marketValue = 0;
-    if (priceKey) purchasePrice = parsePriceField(priceKey);
-    if (estimateKey) marketValue = parsePriceField(estimateKey);
-    // Cross-fill: a row with only one price uses it for both.
-    if (marketValue === 0 && purchasePrice > 0) marketValue = purchasePrice;
-    if (purchasePrice === 0 && marketValue > 0) purchasePrice = marketValue;
-    return { purchasePrice, marketValue };
-  };
-
-  /**
    * Assemble the combined notes field for a Numista row: human notes/comments plus
    * a full markdown dump of the original row under a "Numista Import Data" heading.
    * @param {object} row - Parsed Numista CSV row
@@ -1721,4 +1672,62 @@
   window.startImportProgress = startImportProgress;
   window.updateImportProgress = updateImportProgress;
   window.endImportProgress = endImportProgress;
+
+  // ---------------------------------------------------------------------------
+  // Regex-heavy parsers are intentionally defined LAST in this file. Lizard's
+  // tokenizer can desync on certain regex literals (e.g. a ")" inside a "[^)]"
+  // character class) and roll the FOLLOWING function's complexity into the
+  // previous one — a false-positive CCN spike. Keeping these helpers after every
+  // real function (only the IIFE close follows) prevents that rollup. See
+  // STRK-170 cohort 1.2 + the project's lizard regex-desync note.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Parse the heaviest weight/mass column from a Numista row into troy ounces.
+   * @param {object} row - Parsed Numista CSV row
+   * @returns {number} Weight in troy ounces (6dp)
+   */
+  const _parseNumistaWeight = (row) => {
+    const weightCols = Object.keys(row).filter((k) => {
+      const key = k.toLowerCase();
+      return key.includes("weight") || key.includes("mass");
+    });
+    let weightGrams = 0;
+    for (const col of weightCols) {
+      const val = parseFloat(String(row[col]).replace(/[^0-9.]/g, ""));
+      if (!isNaN(val)) weightGrams = Math.max(weightGrams, val);
+    }
+    return parseFloat(gramsToOzt(weightGrams).toFixed(6));
+  };
+
+  /**
+   * Parse purchase + market price from a Numista row, converting to USD and
+   * cross-filling one from the other when only one is present.
+   * @param {object} row - Parsed Numista CSV row
+   * @returns {{purchasePrice: number, marketValue: number}}
+   */
+  const _parseNumistaPrices = (row) => {
+    const priceKey = Object.keys(row).find((k) =>
+      /^(buying price|purchase price|price paid)/i.test(k)
+    );
+    const estimateKey = Object.keys(row).find((k) => /^estimate/i.test(k));
+    const parsePriceField = (key) => {
+      const rawVal = String(row[key] ?? "").trim();
+      const valueCurrency = detectCurrency(rawVal);
+      const headerCurrencyMatch = key.match(/\(([^)]+)\)/);
+      const headerCurrency = headerCurrencyMatch ? headerCurrencyMatch[1] : displayCurrency;
+      const currency = valueCurrency || headerCurrency;
+      const amount = parseFloat(rawVal.replace(/[^0-9.\-]/g, ""));
+      return isNaN(amount) ? 0 : convertToUsd(amount, currency);
+    };
+
+    let purchasePrice = 0;
+    let marketValue = 0;
+    if (priceKey) purchasePrice = parsePriceField(priceKey);
+    if (estimateKey) marketValue = parsePriceField(estimateKey);
+    // Cross-fill: a row with only one price uses it for both.
+    if (marketValue === 0 && purchasePrice > 0) marketValue = purchasePrice;
+    if (purchasePrice === 0 && marketValue > 0) purchasePrice = marketValue;
+    return { purchasePrice, marketValue };
+  };
 })();
