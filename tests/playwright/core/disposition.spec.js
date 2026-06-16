@@ -941,3 +941,249 @@ test.describe("core/disposition", () => {
     });
   });
 });
+
+test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () => {
+  // Pin js/changeLog.js toggleChange (field-dispatch) and confirmCascadeUndo
+  // (two-phase-commit rollback / drift downgrade / fallback) BEFORE the
+  // complexity refactor. Green on current code; goes red only if the refactor
+  // changes observable behavior (inventory/changeLog mutation, undo state,
+  // result contract). Undo-critical — these are the surfaces the helper
+  // extraction most risks.
+
+  test("STRK-170: toggleChange scalar-field undo/redo round-trip", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [{ ...BASE_ITEM, notes: "edited" }] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      window.changeLog = [
+        { idx: 0, field: "notes", oldValue: "original", newValue: "edited", undone: false },
+      ];
+      const out = {};
+      await window.toggleChange(0); // undo → restore oldValue
+      out.afterUndo = window.inventory[0].notes;
+      out.undoneAfterUndo = window.changeLog[0].undone;
+      await window.toggleChange(0); // redo → re-apply newValue
+      out.afterRedo = window.inventory[0].notes;
+      out.undoneAfterRedo = window.changeLog[0].undone;
+      return out;
+    });
+
+    expect(result.afterUndo).toBe("original");
+    expect(result.undoneAfterUndo).toBe(true);
+    expect(result.afterRedo).toBe("edited");
+    expect(result.undoneAfterRedo).toBe(false);
+  });
+
+  test("STRK-170: toggleChange Deleted-undo restores, Added-undo removes", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      // "Deleted" entry, undone=false → undo restores the snapshot at idx
+      const delSnapshot = {
+        uuid: "del-1",
+        metal: "Silver",
+        name: "Deleted Coin",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        weightUnit: "oz",
+        price: 10,
+      };
+      window.inventory = [];
+      window.changeLog = [
+        { field: "Deleted", idx: 0, oldValue: JSON.stringify(delSnapshot), undone: false },
+      ];
+      await window.toggleChange(0);
+      const afterDeletedUndo = {
+        len: window.inventory.length,
+        name: window.inventory[0] ? window.inventory[0].name : null,
+        undone: window.changeLog[0].undone,
+      };
+
+      // "Added" entry, undone=false → undo removes the item and snapshots it for redo
+      const addItem = {
+        uuid: "add-1",
+        metal: "Gold",
+        name: "Added Coin",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        weightUnit: "oz",
+        price: 100,
+      };
+      window.inventory = [addItem];
+      window.changeLog = [{ field: "Added", idx: 0, undone: false }];
+      await window.toggleChange(0);
+      const afterAddedUndo = {
+        len: window.inventory.length,
+        undone: window.changeLog[0].undone,
+        hasRedoSnapshot: typeof window.changeLog[0].newValue === "string",
+      };
+
+      return { afterDeletedUndo, afterAddedUndo };
+    });
+
+    expect(result.afterDeletedUndo).toEqual({ len: 1, name: "Deleted Coin", undone: true });
+    expect(result.afterAddedUndo.len).toBe(0);
+    expect(result.afterAddedUndo.undone).toBe(true);
+    expect(result.afterAddedUndo.hasRedoSnapshot).toBe(true);
+  });
+
+  test("STRK-170: toggleChange guards are no-ops (neutralized / attachment / missing)", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [{ ...BASE_ITEM, notes: "untouched" }] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      const out = {};
+
+      // neutralized entry → early return, no mutation
+      window.inventory[0].notes = "untouched";
+      window.changeLog = [
+        { idx: 0, field: "notes", oldValue: "old", newValue: "untouched", neutralized: true },
+      ];
+      await window.toggleChange(0);
+      out.afterNeutralized = window.inventory[0].notes;
+      out.neutralizedUndoneUntouched = window.changeLog[0].undone === undefined;
+
+      // attachment-change → early return, no scalar fall-through
+      window.changeLog = [{ idx: 0, type: "attachment-change", field: "notes", oldValue: "old" }];
+      await window.toggleChange(0);
+      out.afterAttachment = window.inventory[0].notes;
+
+      // missing entry (index out of range) → early return, no throw
+      window.changeLog = [];
+      let threw = false;
+      try {
+        await window.toggleChange(5);
+      } catch {
+        threw = true;
+      }
+      out.missingThrew = threw;
+
+      return out;
+    });
+
+    expect(result.afterNeutralized).toBe("untouched");
+    expect(result.neutralizedUndoneUntouched).toBe(true);
+    expect(result.afterAttachment).toBe("untouched");
+    expect(result.missingThrew).toBe(false);
+  });
+
+  test("STRK-170: confirmCascadeUndo rolls back on inventory-persist failure", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+    const split = await splitBaseItem(page);
+    expect(split.ok).toBe(true);
+
+    const before = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+
+    await installStorageFailMock(page, "inventory");
+    // The cascade-undo confirm dialog appears before any persist; accept it,
+    // then the inventory write fails and the function must roll back.
+    await page.evaluate((tid) => {
+      window.__ccuResult = null;
+      window.confirmCascadeUndo(tid).then((r) => {
+        window.__ccuResult = r;
+      });
+    }, split.transactionId);
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+    await page.waitForFunction(() => window.__ccuResult !== null, null, { timeout: 5000 });
+    const result = await page.evaluate(() => window.__ccuResult);
+    await restoreStorageMock(page);
+
+    expect(result.ok).toBe(false);
+    expect(result.applied).toBe("none");
+    expect(result.reason).toBe("storage_failed_inventory");
+
+    const after = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+    expect(after).toEqual(before);
+  });
+
+  test("STRK-170: confirmCascadeUndo rolls back both stores on changelog-persist failure", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+    const split = await splitBaseItem(page);
+    expect(split.ok).toBe(true);
+
+    const before = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+
+    await installStorageFailMock(page, "changelog");
+    await page.evaluate((tid) => {
+      window.__ccuResult = null;
+      window.confirmCascadeUndo(tid).then((r) => {
+        window.__ccuResult = r;
+      });
+    }, split.transactionId);
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+    await page.waitForFunction(() => window.__ccuResult !== null, null, { timeout: 5000 });
+    const result = await page.evaluate(() => window.__ccuResult);
+    await restoreStorageMock(page);
+
+    expect(result.ok).toBe(false);
+    expect(result.applied).toBe("none");
+    expect(result.reason).toBe("storage_failed_changelog");
+
+    const after = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+    expect(after).toEqual(before);
+  });
+
+  test("STRK-170: confirmCascadeUndo downgrades to single-entry undo on drift", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+    const split = await splitBaseItem(page);
+    expect(split.ok).toBe(true);
+
+    // Drift one of the four invariants: the surviving original's qty no longer
+    // matches originalQtyAfter → cascade must downgrade to single-entry undo.
+    await page.evaluate(() => {
+      const orig = window.inventory.find((i) => !i.disposition || !i.disposition.splitFromUuid);
+      if (orig) orig.qty += 5;
+    });
+
+    // runCascadeUndo accepts the (drift) confirm dialog → single-entry fallback.
+    const result = await runCascadeUndo(page, split.transactionId);
+    expect(result.ok).toBe(true);
+    expect(result.applied).toBe("single-entry");
+  });
+
+  test("STRK-170: confirmCascadeUndo with no paired entries returns no_paired_entries", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      window.changeLog = [];
+      return await window.confirmCascadeUndo("missing-transaction-id", null);
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.applied).toBe("none");
+    expect(result.reason).toBe("no_paired_entries");
+  });
+});
