@@ -529,6 +529,25 @@ const applyLegacyDispositionUndo = (entry) => {
 window.applyLegacyDispositionUndo = applyLegacyDispositionUndo;
 
 /**
+ * Shared persist + re-render tail for item-level undo helpers. Always saves
+ * inventory + changeLog and re-renders the table and log; when fullRefresh is
+ * set, also refreshes active filters, the summary, and the search cache (item
+ * add/remove change which rows exist, so those views must rebuild).
+ * @param {boolean} fullRefresh - true for item add/remove, false for in-place field edits
+ */
+const _finalizeInventoryUndo = (fullRefresh) => {
+  saveInventory();
+  renderTable();
+  if (fullRefresh) {
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    if (typeof updateSummary === "function") updateSummary();
+    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+  }
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+
+/**
  * Undo/redo a price-history-entry deletion (STAK-109). Undo restores the deleted
  * entry into itemPriceHistory; redo re-removes it. Persists + re-renders.
  * @param {Object} entry - changeLog entry with field "priceHistoryDelete"
@@ -622,10 +641,7 @@ const _undoTradeLink = (entry) => {
     if (typeof showToast === "function") showToast("Trade undo failed — invalid snapshot.");
     return;
   }
-  saveInventory();
-  renderTable();
-  renderChangeLog();
-  saveDataSync("changeLog", changeLog);
+  _finalizeInventoryUndo(false);
 };
 
 /**
@@ -662,13 +678,7 @@ const _undoItemDeleted = (entry) => {
     }
     entry.undone = true;
   }
-  saveInventory();
-  renderTable();
-  if (typeof renderActiveFilters === "function") renderActiveFilters();
-  if (typeof updateSummary === "function") updateSummary();
-  if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
-  renderChangeLog();
-  saveDataSync("changeLog", changeLog);
+  _finalizeInventoryUndo(true);
 };
 
 /**
@@ -708,13 +718,7 @@ const _undoItemAdded = (entry) => {
     }
     entry.undone = true;
   }
-  saveInventory();
-  renderTable();
-  if (typeof renderActiveFilters === "function") renderActiveFilters();
-  if (typeof updateSummary === "function") updateSummary();
-  if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
-  renderChangeLog();
-  saveDataSync("changeLog", changeLog);
+  _finalizeInventoryUndo(true);
 };
 
 /**
@@ -738,10 +742,7 @@ const _undoScalarField = (entry) => {
   if (typeof window.invalidateSearchCache === "function") {
     window.invalidateSearchCache(item);
   }
-  saveInventory();
-  renderTable();
-  renderChangeLog();
-  saveDataSync("changeLog", changeLog);
+  _finalizeInventoryUndo(false);
 };
 
 /**
