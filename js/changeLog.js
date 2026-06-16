@@ -529,7 +529,225 @@ const applyLegacyDispositionUndo = (entry) => {
 window.applyLegacyDispositionUndo = applyLegacyDispositionUndo;
 
 /**
- * Toggles a logged change between undone and redone states
+ * Undo/redo a price-history-entry deletion (STAK-109). Undo restores the deleted
+ * entry into itemPriceHistory; redo re-removes it. Persists + re-renders.
+ * @param {Object} entry - changeLog entry with field "priceHistoryDelete"
+ */
+const _undoPriceHistoryDelete = (entry) => {
+  const deleted = JSON.parse(entry.oldValue);
+  if (entry.undone) {
+    // Redo: re-delete the entry
+    if (itemPriceHistory[deleted.uuid]) {
+      itemPriceHistory[deleted.uuid] = itemPriceHistory[deleted.uuid].filter(
+        (e) => e.ts !== deleted.entry.ts
+      );
+      if (itemPriceHistory[deleted.uuid].length === 0) {
+        delete itemPriceHistory[deleted.uuid];
+      }
+    }
+    entry.undone = false;
+  } else {
+    // Undo: restore the deleted entry
+    if (!itemPriceHistory[deleted.uuid]) itemPriceHistory[deleted.uuid] = [];
+    itemPriceHistory[deleted.uuid].push(deleted.entry);
+    itemPriceHistory[deleted.uuid].sort((a, b) => a.ts - b.ts);
+    entry.undone = true;
+  }
+  if (typeof saveItemPriceHistory === "function") saveItemPriceHistory();
+  if (typeof renderItemPriceHistoryTable === "function") renderItemPriceHistoryTable();
+  if (typeof renderItemPriceHistoryModalTable === "function") renderItemPriceHistoryModalTable();
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+
+/**
+ * Re-applies a trade-link snapshot to inventory: the disposed item's
+ * tradedForUuids / tradeValues and the received item's tradedFromUuid back-ref.
+ * No-op when the snapshot or its required uuids are missing.
+ * @param {Object|null} snapshot - { disposedUuid, receivedUuid, tradedForUuids?, tradeValue?, tradedFromUuid? }
+ */
+const _applyTradeSnapshot = (snapshot) => {
+  if (!snapshot || !snapshot.disposedUuid || !snapshot.receivedUuid) return;
+  const disposed = inventory.find((i) => i.uuid === snapshot.disposedUuid);
+  const received = inventory.find((i) => i.uuid === snapshot.receivedUuid);
+  if (disposed?.disposition) {
+    if (Array.isArray(snapshot.tradedForUuids) && snapshot.tradedForUuids.length > 0) {
+      disposed.disposition.tradedForUuids = [...snapshot.tradedForUuids];
+    } else {
+      delete disposed.disposition.tradedForUuids;
+    }
+    if (snapshot.tradeValue) {
+      disposed.disposition.tradeValues = {
+        ...(disposed.disposition.tradeValues || {}),
+        [snapshot.receivedUuid]: snapshot.tradeValue,
+      };
+    } else if (disposed.disposition.tradeValues) {
+      delete disposed.disposition.tradeValues[snapshot.receivedUuid];
+      if (Object.keys(disposed.disposition.tradeValues).length === 0) {
+        delete disposed.disposition.tradeValues;
+      }
+    }
+  }
+  if (received) {
+    if (snapshot.tradedFromUuid) received.tradedFromUuid = snapshot.tradedFromUuid;
+    else delete received.tradedFromUuid;
+  }
+};
+
+/**
+ * Undo/redo a trade-link change: parse the old/new snapshots and apply the
+ * appropriate one, then persist + re-render. No-op (with a toast) on corrupt or
+ * failing snapshots.
+ * @param {Object} entry - changeLog entry with field "tradeLink"
+ */
+const _undoTradeLink = (entry) => {
+  let oldSnapshot, newSnapshot;
+  try {
+    oldSnapshot = entry.oldValue ? JSON.parse(entry.oldValue) : null;
+    newSnapshot = entry.newValue ? JSON.parse(entry.newValue) : null;
+  } catch {
+    if (typeof showToast === "function") showToast("Undo failed — corrupt trade snapshot.");
+    return;
+  }
+  try {
+    if (entry.undone) {
+      _applyTradeSnapshot(newSnapshot);
+      entry.undone = false;
+    } else {
+      _applyTradeSnapshot(oldSnapshot);
+      entry.undone = true;
+    }
+  } catch (e) {
+    console.warn("[ChangeLog] applyTradeSnapshot failed:", e);
+    if (typeof showToast === "function") showToast("Trade undo failed — invalid snapshot.");
+    return;
+  }
+  saveInventory();
+  renderTable();
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+
+/**
+ * Undo/redo a "Deleted" item change. undone=false restores the snapshot at idx;
+ * undone=true re-removes the item (by itemKey when present). Persists + re-renders.
+ * @param {Object} entry - changeLog entry with field "Deleted"
+ */
+const _undoItemDeleted = (entry) => {
+  if (entry.undone) {
+    const realIdx = entry.itemKey
+      ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
+      : entry.idx;
+    if (realIdx === -1 || realIdx >= inventory.length) return;
+    const removed = inventory.splice(realIdx, 1)[0];
+    if (removed.serial) {
+      delete catalogMap[removed.serial];
+    }
+    entry.undone = false;
+  } else {
+    if (entry.oldValue == null) {
+      if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
+      return;
+    }
+    let restored;
+    try {
+      restored = JSON.parse(entry.oldValue);
+    } catch {
+      if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
+      return;
+    }
+    inventory.splice(entry.idx, 0, restored);
+    if (restored.serial) {
+      catalogMap[restored.serial] = restored.numistaId || "";
+    }
+    entry.undone = true;
+  }
+  saveInventory();
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+
+/**
+ * Undo/redo an "Added" item change. undone=true re-adds the item from newValue;
+ * undone=false removes it (snapshotting into newValue for redo). Persists + re-renders.
+ * @param {Object} entry - changeLog entry with field "Added"
+ */
+const _undoItemAdded = (entry) => {
+  if (entry.undone) {
+    // Redo: re-add the item
+    if (entry.newValue == null) {
+      if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
+      return;
+    }
+    let restored;
+    try {
+      restored = JSON.parse(entry.newValue);
+    } catch {
+      if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
+      return;
+    }
+    inventory.splice(entry.idx, 0, restored);
+    if (restored.serial) {
+      catalogMap[restored.serial] = restored.numistaId || "";
+    }
+    entry.undone = false;
+  } else {
+    // Undo: remove the item — snapshot it into newValue for redo
+    const realIdx = entry.itemKey
+      ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
+      : entry.idx;
+    if (realIdx === -1 || realIdx >= inventory.length) return;
+    const removed = inventory.splice(realIdx, 1)[0];
+    entry.newValue = JSON.stringify(removed);
+    if (removed.serial) {
+      delete catalogMap[removed.serial];
+    }
+    entry.undone = true;
+  }
+  saveInventory();
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+
+/**
+ * Undo/redo a scalar field change on a single inventory item: swap the field
+ * between old/new value, refresh catalog map + search cache, then persist.
+ * @param {Object} entry - changeLog entry with a scalar field name
+ */
+const _undoScalarField = (entry) => {
+  const item = inventory[entry.idx];
+  if (!item) return;
+  if (entry.undone) {
+    item[entry.field] = entry.newValue;
+    entry.undone = false;
+  } else {
+    item[entry.field] = entry.oldValue;
+    entry.undone = true;
+  }
+  if (item.serial) {
+    catalogMap[item.serial] = item.numistaId || "";
+  }
+  if (typeof window.invalidateSearchCache === "function") {
+    window.invalidateSearchCache(item);
+  }
+  saveInventory();
+  renderTable();
+  renderChangeLog();
+  saveDataSync("changeLog", changeLog);
+};
+
+/**
+ * Toggles a logged change between undone and redone states. Thin dispatcher:
+ * routes transaction cascades to confirmCascadeUndo and each field type to its
+ * dedicated undo helper, falling back to the scalar-field handler.
  * @param {number} logIdx - Index of change entry in changeLog array
  */
 const toggleChange = async (logIdx) => {
@@ -549,246 +767,202 @@ const toggleChange = async (logIdx) => {
   if (entry.type === "attachment-change") return;
 
   // Price history delete — undo restores the entry, redo re-deletes it (STAK-109)
-  if (entry.field === "priceHistoryDelete") {
-    const deleted = JSON.parse(entry.oldValue);
-    if (entry.undone) {
-      // Redo: re-delete the entry
-      if (itemPriceHistory[deleted.uuid]) {
-        itemPriceHistory[deleted.uuid] = itemPriceHistory[deleted.uuid].filter(
-          (e) => e.ts !== deleted.entry.ts
-        );
-        if (itemPriceHistory[deleted.uuid].length === 0) {
-          delete itemPriceHistory[deleted.uuid];
-        }
-      }
-      entry.undone = false;
-    } else {
-      // Undo: restore the deleted entry
-      if (!itemPriceHistory[deleted.uuid]) itemPriceHistory[deleted.uuid] = [];
-      itemPriceHistory[deleted.uuid].push(deleted.entry);
-      itemPriceHistory[deleted.uuid].sort((a, b) => a.ts - b.ts);
-      entry.undone = true;
-    }
-    if (typeof saveItemPriceHistory === "function") saveItemPriceHistory();
-    if (typeof renderItemPriceHistoryTable === "function") renderItemPriceHistoryTable();
-    if (typeof renderItemPriceHistoryModalTable === "function") renderItemPriceHistoryModalTable();
-    renderChangeLog();
-    saveDataSync("changeLog", changeLog);
-    return;
-  }
+  if (entry.field === "priceHistoryDelete") return _undoPriceHistoryDelete(entry);
+  if (entry.field === "tradeLink") return _undoTradeLink(entry);
+  if (entry.field === "Deleted") return _undoItemDeleted(entry);
+  if (entry.field === "Added") return _undoItemAdded(entry);
+  // Disposition undo/redo (STAK-388)
+  if (entry.field === "Disposed") return applyLegacyDispositionUndo(entry);
 
-  if (entry.field === "tradeLink") {
-    const applyTradeSnapshot = (snapshot) => {
-      if (!snapshot || !snapshot.disposedUuid || !snapshot.receivedUuid) return;
-      const disposed = inventory.find((i) => i.uuid === snapshot.disposedUuid);
-      const received = inventory.find((i) => i.uuid === snapshot.receivedUuid);
-      if (disposed?.disposition) {
-        if (Array.isArray(snapshot.tradedForUuids) && snapshot.tradedForUuids.length > 0) {
-          disposed.disposition.tradedForUuids = [...snapshot.tradedForUuids];
-        } else {
-          delete disposed.disposition.tradedForUuids;
-        }
-        if (snapshot.tradeValue) {
-          disposed.disposition.tradeValues = {
-            ...(disposed.disposition.tradeValues || {}),
-            [snapshot.receivedUuid]: snapshot.tradeValue,
-          };
-        } else if (disposed.disposition.tradeValues) {
-          delete disposed.disposition.tradeValues[snapshot.receivedUuid];
-          if (Object.keys(disposed.disposition.tradeValues).length === 0) {
-            delete disposed.disposition.tradeValues;
-          }
-        }
-      }
-      if (received) {
-        if (snapshot.tradedFromUuid) received.tradedFromUuid = snapshot.tradedFromUuid;
-        else delete received.tradedFromUuid;
-      }
-    };
-    let oldSnapshot, newSnapshot;
-    try {
-      oldSnapshot = entry.oldValue ? JSON.parse(entry.oldValue) : null;
-      newSnapshot = entry.newValue ? JSON.parse(entry.newValue) : null;
-    } catch {
-      if (typeof showToast === "function") showToast("Undo failed — corrupt trade snapshot.");
-      return;
-    }
-    try {
-      if (entry.undone) {
-        applyTradeSnapshot(newSnapshot);
-        entry.undone = false;
-      } else {
-        applyTradeSnapshot(oldSnapshot);
-        entry.undone = true;
-      }
-    } catch (e) {
-      console.warn("[ChangeLog] applyTradeSnapshot failed:", e);
-      if (typeof showToast === "function") showToast("Trade undo failed — invalid snapshot.");
-      return;
-    }
-    saveInventory();
-    renderTable();
-    renderChangeLog();
-    saveDataSync("changeLog", changeLog);
-    return;
-  }
-
-  if (entry.field === "Deleted") {
-    if (entry.undone) {
-      const realIdx = entry.itemKey
-        ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
-        : entry.idx;
-      if (realIdx === -1 || realIdx >= inventory.length) return;
-      const removed = inventory.splice(realIdx, 1)[0];
-      if (removed.serial) {
-        delete catalogMap[removed.serial];
-      }
-      entry.undone = false;
-    } else {
-      if (entry.oldValue == null) {
-        if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
-        return;
-      }
-      let restored;
-      try {
-        restored = JSON.parse(entry.oldValue);
-      } catch {
-        if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
-        return;
-      }
-      inventory.splice(entry.idx, 0, restored);
-      if (restored.serial) {
-        catalogMap[restored.serial] = restored.numistaId || "";
-      }
-      entry.undone = true;
-    }
-    saveInventory();
-    renderTable();
-    if (typeof renderActiveFilters === "function") renderActiveFilters();
-    if (typeof updateSummary === "function") updateSummary();
-    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
-    renderChangeLog();
-    saveDataSync("changeLog", changeLog);
-    return;
-  } else if (entry.field === "Added") {
-    if (entry.undone) {
-      // Redo: re-add the item
-      if (entry.newValue == null) {
-        if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
-        return;
-      }
-      let restored;
-      try {
-        restored = JSON.parse(entry.newValue);
-      } catch {
-        if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
-        return;
-      }
-      inventory.splice(entry.idx, 0, restored);
-      if (restored.serial) {
-        catalogMap[restored.serial] = restored.numistaId || "";
-      }
-      entry.undone = false;
-    } else {
-      // Undo: remove the item — snapshot it into newValue for redo
-      const realIdx = entry.itemKey
-        ? inventory.findIndex((i) => computeItemKey(i) === entry.itemKey)
-        : entry.idx;
-      if (realIdx === -1 || realIdx >= inventory.length) return;
-      const removed = inventory.splice(realIdx, 1)[0];
-      entry.newValue = JSON.stringify(removed);
-      if (removed.serial) {
-        delete catalogMap[removed.serial];
-      }
-      entry.undone = true;
-    }
-    saveInventory();
-    renderTable();
-    if (typeof renderActiveFilters === "function") renderActiveFilters();
-    if (typeof updateSummary === "function") updateSummary();
-    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
-    renderChangeLog();
-    saveDataSync("changeLog", changeLog);
-    return;
-    // Disposition undo/redo (STAK-388)
-  } else if (entry.field === "Disposed") {
-    applyLegacyDispositionUndo(entry);
-    return;
-  } else {
-    const item = inventory[entry.idx];
-    if (!item) return;
-    if (entry.undone) {
-      item[entry.field] = entry.newValue;
-      entry.undone = false;
-    } else {
-      item[entry.field] = entry.oldValue;
-      entry.undone = true;
-    }
-    if (item.serial) {
-      catalogMap[item.serial] = item.numistaId || "";
-    }
-    if (typeof window.invalidateSearchCache === "function") {
-      window.invalidateSearchCache(item);
-    }
-  }
-  saveInventory();
-  renderTable();
-  renderChangeLog();
-  saveDataSync("changeLog", changeLog);
+  _undoScalarField(entry);
 };
 
 // Re-entrancy guard — prevents double-fire when user clicks "Undo Both" twice rapidly
 const _activeCascadeUndos = new Set();
 
+/**
+ * Resolves the paired split + disposed changeLog entries for a cascade
+ * transaction. On any validation failure, applies the legacy single-entry undo
+ * (when a trigger entry exists) and returns a `result` envelope for the caller.
+ * @param {string} transactionId
+ * @param {Object|undefined} triggerEntry
+ * @returns {{splitEntry:Object, disposedEntry:Object}|{result:Object}}
+ */
+const _cascadeResolvePair = (transactionId, triggerEntry) => {
+  const paired = changeLog.filter((e) => e.transactionId === transactionId && !e.undone);
+  if (paired.length !== 2) {
+    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+    return { result: { ok: false, applied: "none", reason: "no_paired_entries" } };
+  }
+  const splitEntry = paired.find((e) => e.field === "Stack split");
+  const disposedEntry = paired.find((e) => e.field === "Disposed");
+  if (!splitEntry || !disposedEntry || !splitEntry.stackSplit) {
+    if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
+    return { result: { ok: false, applied: "none", reason: "missing_entry_type" } };
+  }
+  return { splitEntry, disposedEntry };
+};
+
+/**
+ * Computes the clone/original indices and the four drift invariants for a
+ * cascade undo. Drift means the original record changed since the split, so a
+ * full cascade is unsafe and must downgrade to single-entry undo.
+ * @param {Object} splitEntry - changeLog "Stack split" entry (carries stackSplit)
+ * @param {string} transactionId
+ * @returns {{drifted:boolean, cloneIdx:number, originalIdx:number, cloneUuid:string, originalQtyBefore:number, disposedQty:number}}
+ */
+const _cascadeComputeDrift = (splitEntry, transactionId) => {
+  const { originalUuid, cloneUuid, originalQtyBefore, originalQtyAfter, disposedQty } =
+    splitEntry.stackSplit;
+  const cloneIdx = inventory.findIndex((item) => item.uuid === cloneUuid);
+  const originalIdx = inventory.findIndex((item) => item.uuid === originalUuid);
+  // Four drift invariants — any failure downgrades to single-entry undo
+  const drifted =
+    cloneIdx === -1 ||
+    originalIdx === -1 ||
+    inventory[originalIdx].qty !== originalQtyAfter ||
+    inventory[cloneIdx].disposition?.splitFromUuid !== originalUuid ||
+    inventory[cloneIdx].disposition?.disposedAt !== transactionId;
+  return { drifted, cloneIdx, originalIdx, cloneUuid, originalQtyBefore, disposedQty };
+};
+
+/**
+ * Drift path: ask the user whether to fall back to a single-entry undo, and
+ * apply it when confirmed. Mirrors the original drift-branch result contract.
+ * @param {Object|undefined} triggerEntry
+ * @param {Object} disposedEntry - fallback entry when no trigger is supplied
+ * @returns {Promise<Object>} cascade-undo result envelope
+ */
+const _cascadeApplyDriftFallback = async (triggerEntry, disposedEntry) => {
+  const proceed =
+    typeof showAppConfirm === "function"
+      ? await showAppConfirm(
+          "Original record has been edited since this split — only this disposition entry can be undone. Continue with single-entry undo?",
+          "Cascade undo unavailable"
+        )
+      : false;
+  if (proceed) {
+    const fallbackEntry = triggerEntry || disposedEntry;
+    if (fallbackEntry) {
+      applyLegacyDispositionUndo(fallbackEntry);
+      return { ok: true, applied: "single-entry" };
+    }
+  }
+  return { ok: true, applied: "none", reason: "user_cancelled" };
+};
+
+/**
+ * Restores inventory + changeLog from pre-mutation snapshots in place (arrays
+ * are mutated, not reassigned, so existing references stay valid).
+ * @param {Array} inventorySnapshot
+ * @param {Array} changeLogSnapshot
+ */
+const _cascadeRestoreSnapshots = (inventorySnapshot, changeLogSnapshot) => {
+  inventory.length = 0;
+  inventorySnapshot.forEach((i) => inventory.push(i));
+  changeLog.length = 0;
+  changeLogSnapshot.forEach((e) => changeLog.push(e));
+};
+
+/**
+ * Best-effort, non-blocking removal of a cascade-undone clone's user image.
+ * Swallows all errors — cleanup must never block or fail the undo.
+ * @param {string} cloneUuid
+ */
+const _cascadeCleanupCloneImage = (cloneUuid) => {
+  try {
+    if (window.imageCache && typeof window.imageCache.deleteUserImage === "function") {
+      window.imageCache.deleteUserImage(cloneUuid).catch(() => {});
+    }
+  } catch (e) {
+    if (typeof debugLog === "function") debugLog("confirmCascadeUndo: image cleanup failed", e);
+  }
+};
+
+/**
+ * Two-phase commit of a cascade undo: snapshot, mutate (restore qty, remove
+ * clone, mark both entries undone), then persist inventory and changeLog,
+ * rolling back to the snapshots on any storage failure. On success, cleans up
+ * the clone image, re-renders, and toasts.
+ * @param {Object} splitEntry
+ * @param {Object} disposedEntry
+ * @param {Object} drift - result of _cascadeComputeDrift
+ * @returns {Object} cascade-undo result envelope
+ */
+const _cascadeCommit = (splitEntry, disposedEntry, drift) => {
+  const { cloneIdx, originalIdx, cloneUuid, originalQtyBefore, disposedQty } = drift;
+
+  // Two-phase commit — snapshot before any mutation
+  const inventorySnapshot = structuredClone(inventory);
+  const changeLogSnapshot = structuredClone(changeLog);
+
+  const originalName = inventory[originalIdx].name;
+  inventory[originalIdx].qty += disposedQty;
+  // Adjust originalIdx if clone was before it in the array
+  const adjustedOriginalIdx = cloneIdx < originalIdx ? originalIdx - 1 : originalIdx;
+  inventory.splice(cloneIdx, 1);
+  splitEntry.undone = true;
+  disposedEntry.undone = true;
+
+  if (!tryPersistInventory()) {
+    _cascadeRestoreSnapshots(inventorySnapshot, changeLogSnapshot);
+    if (typeof showToast === "function")
+      showToast("Couldn't undo — storage failed. Try again.", "error");
+    return { ok: false, applied: "none", reason: "storage_failed_inventory" };
+  }
+
+  if (!tryPersistChangeLog()) {
+    _cascadeRestoreSnapshots(inventorySnapshot, changeLogSnapshot);
+    const revertOk = tryPersistInventory();
+    if (!revertOk) {
+      if (typeof showToast === "function") {
+        showToast("Critical: storage failure left state inconsistent. Reload to recover.", "error");
+      }
+      return { ok: false, applied: "none", reason: "storage_failed_both" };
+    }
+    return { ok: false, applied: "none", reason: "storage_failed_changelog" };
+  }
+
+  _cascadeCleanupCloneImage(cloneUuid);
+
+  renderTable();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
+  if (typeof updateSummary === "function") updateSummary();
+  if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
+  renderChangeLog();
+
+  if (typeof showToast === "function") {
+    showToast(
+      sanitizeHtml(originalName ?? "Item") +
+        " stack split reversed — restored to " +
+        (inventory[adjustedOriginalIdx]?.qty ?? originalQtyBefore)
+    );
+  }
+
+  return { ok: true, applied: "cascade" };
+};
+
+/**
+ * Cascade-undo orchestrator (STAK-388): re-entrancy-guarded two-phase undo of a
+ * paired stack-split + disposition transaction. Resolves the entry pair, checks
+ * drift (downgrading to single-entry undo when the record moved), confirms with
+ * the user, then commits. Returns a `{ ok, applied, reason? }` envelope.
+ * @param {string} transactionId
+ * @param {Object} [triggerEntry] - the entry the user clicked (drives fallback)
+ * @returns {Promise<Object>}
+ */
 const confirmCascadeUndo = async (transactionId, triggerEntry) => {
   if (_activeCascadeUndos.has(transactionId))
     return { ok: false, applied: "none", reason: "already_in_flight" };
   _activeCascadeUndos.add(transactionId);
   try {
-    const paired = changeLog.filter((e) => e.transactionId === transactionId && !e.undone);
+    const pair = _cascadeResolvePair(transactionId, triggerEntry);
+    if (pair.result) return pair.result;
+    const { splitEntry, disposedEntry } = pair;
 
-    if (paired.length !== 2) {
-      if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
-      return { ok: false, applied: "none", reason: "no_paired_entries" };
-    }
-
-    const splitEntry = paired.find((e) => e.field === "Stack split");
-    const disposedEntry = paired.find((e) => e.field === "Disposed");
-    if (!splitEntry || !disposedEntry || !splitEntry.stackSplit) {
-      if (triggerEntry) applyLegacyDispositionUndo(triggerEntry);
-      return { ok: false, applied: "none", reason: "missing_entry_type" };
-    }
-
-    const { originalUuid, cloneUuid, originalQtyBefore, originalQtyAfter, disposedQty } =
-      splitEntry.stackSplit;
-
-    const cloneIdx = inventory.findIndex((item) => item.uuid === cloneUuid);
-    const originalIdx = inventory.findIndex((item) => item.uuid === originalUuid);
-
-    // Four drift invariants — any failure downgrades to single-entry undo
-    const drifted =
-      cloneIdx === -1 ||
-      originalIdx === -1 ||
-      inventory[originalIdx].qty !== originalQtyAfter ||
-      inventory[cloneIdx].disposition?.splitFromUuid !== originalUuid ||
-      inventory[cloneIdx].disposition?.disposedAt !== transactionId;
-
-    if (drifted) {
-      const proceed =
-        typeof showAppConfirm === "function"
-          ? await showAppConfirm(
-              "Original record has been edited since this split — only this disposition entry can be undone. Continue with single-entry undo?",
-              "Cascade undo unavailable"
-            )
-          : false;
-      if (proceed) {
-        const fallbackEntry = triggerEntry || paired.find((e) => e.field === "Disposed");
-        if (fallbackEntry) {
-          applyLegacyDispositionUndo(fallbackEntry);
-          return { ok: true, applied: "single-entry" };
-        }
-      }
-      return { ok: true, applied: "none", reason: "user_cancelled" };
+    const drift = _cascadeComputeDrift(splitEntry, transactionId);
+    if (drift.drifted) {
+      return await _cascadeApplyDriftFallback(triggerEntry, disposedEntry);
     }
 
     const confirmed =
@@ -800,70 +974,7 @@ const confirmCascadeUndo = async (transactionId, triggerEntry) => {
         : false;
     if (!confirmed) return { ok: true, applied: "none", reason: "user_cancelled" };
 
-    // Two-phase commit — snapshot before any mutation
-    const inventorySnapshot = structuredClone(inventory);
-    const changeLogSnapshot = structuredClone(changeLog);
-
-    const originalName = inventory[originalIdx].name;
-    inventory[originalIdx].qty += disposedQty;
-    // Adjust originalIdx if clone was before it in the array
-    const adjustedOriginalIdx = cloneIdx < originalIdx ? originalIdx - 1 : originalIdx;
-    inventory.splice(cloneIdx, 1);
-    splitEntry.undone = true;
-    disposedEntry.undone = true;
-
-    if (!tryPersistInventory()) {
-      inventory.length = 0;
-      inventorySnapshot.forEach((i) => inventory.push(i));
-      changeLog.length = 0;
-      changeLogSnapshot.forEach((e) => changeLog.push(e));
-      if (typeof showToast === "function")
-        showToast("Couldn't undo — storage failed. Try again.", "error");
-      return { ok: false, applied: "none", reason: "storage_failed_inventory" };
-    }
-
-    if (!tryPersistChangeLog()) {
-      inventory.length = 0;
-      inventorySnapshot.forEach((i) => inventory.push(i));
-      changeLog.length = 0;
-      changeLogSnapshot.forEach((e) => changeLog.push(e));
-      const revertOk = tryPersistInventory();
-      if (!revertOk) {
-        if (typeof showToast === "function") {
-          showToast(
-            "Critical: storage failure left state inconsistent. Reload to recover.",
-            "error"
-          );
-        }
-        return { ok: false, applied: "none", reason: "storage_failed_both" };
-      }
-      return { ok: false, applied: "none", reason: "storage_failed_changelog" };
-    }
-
-    // Non-blocking image cleanup
-    try {
-      if (window.imageCache && typeof window.imageCache.deleteUserImage === "function") {
-        window.imageCache.deleteUserImage(cloneUuid).catch(() => {});
-      }
-    } catch (e) {
-      if (typeof debugLog === "function") debugLog("confirmCascadeUndo: image cleanup failed", e);
-    }
-
-    renderTable();
-    if (typeof renderActiveFilters === "function") renderActiveFilters();
-    if (typeof updateSummary === "function") updateSummary();
-    if (typeof window.invalidateSearchCache === "function") window.invalidateSearchCache(null);
-    renderChangeLog();
-
-    if (typeof showToast === "function") {
-      showToast(
-        sanitizeHtml(originalName ?? "Item") +
-          " stack split reversed — restored to " +
-          (inventory[adjustedOriginalIdx]?.qty ?? originalQtyBefore)
-      );
-    }
-
-    return { ok: true, applied: "cascade" };
+    return _cascadeCommit(splitEntry, disposedEntry, drift);
   } finally {
     _activeCascadeUndos.delete(transactionId);
   }
