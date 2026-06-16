@@ -189,26 +189,10 @@
   var _blobUrls = []; // Tracked blob URLs for revocation on re-render/close
 
   // ── Helpers ──
-
-  /** Safe HTML escape — falls back to inline if sanitizeHtml not loaded */
-  function _esc(text) {
-    if (typeof sanitizeHtml === "function") return sanitizeHtml(text);
-    if (!text) return "";
-    return String(text)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function _titleCase(key) {
-    return key
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/[-_]/g, " ")
-      .replace(/\b\w/g, function (c) {
-        return c.toUpperCase();
-      });
-  }
+  // NOTE: _esc / _titleCase (the regex-bearing escape helpers) are defined LAST in
+  // this IIFE, just before the public export. Their regex literals (notably /"/g)
+  // mis-tokenize Lizard's JS lexer and desync forward function detection for
+  // everything after them, so they must sit at the file end. See [[lizard-esc-regex-desync]].
 
   /** Derive a display key for an item */
   function _itemKey(item) {
@@ -1622,130 +1606,28 @@
     }
   }
 
-  /** Handle clicks on modified/conflict cards */
+  /** Handle clicks on modified/conflict cards — dispatch to the matched control. */
   function _onModifiedClick(e) {
     var target = e.target;
 
     // Field value click (click to pick local or remote)
     var fieldVal = target.closest(".dm-field-value");
     if (fieldVal && fieldVal.dataset.field && fieldVal.dataset.card != null) {
-      var field = fieldVal.dataset.field;
-      var cardIdx = parseInt(fieldVal.dataset.card, 10);
-      var fKey = "conflict-" + cardIdx + "-" + field;
-      // STRK-167 (AC-10): qty rows add a third "sum" choice alongside local/remote.
-      var side = fieldVal.classList.contains("local")
-        ? "local"
-        : fieldVal.classList.contains("sum")
-          ? "sum"
-          : "remote";
-      _fieldSelections[fKey] = side;
-      // Update visual: remove selected from siblings, add to clicked.
-      var row = fieldVal.closest(".dm-field-diff");
-      if (row) {
-        var siblings = row.querySelectorAll(".dm-field-value");
-        for (var si = 0; si < siblings.length; si++) {
-          siblings[si].classList.remove("selected");
-          // STRK-167 (AC-10) a11y: keep aria-checked in sync on radio-style qty cells.
-          if (siblings[si].getAttribute("role") === "radio") {
-            siblings[si].setAttribute("aria-checked", "false");
-          }
-        }
-      }
-      fieldVal.classList.add("selected");
-      if (fieldVal.getAttribute("role") === "radio") {
-        fieldVal.setAttribute("aria-checked", "true");
-      }
-      _updateApplyCount();
+      _handleFieldValuePick(fieldVal);
       return;
     }
 
     // Per-card action buttons (Keep All Local, Keep All Remote, Confirm)
     var cardAction = target.closest("[data-card-action]");
     if (cardAction) {
-      var action = cardAction.dataset.cardAction;
-      var ci = parseInt(cardAction.dataset.card, 10);
-      var card = e.currentTarget.querySelector("#dm-conflict-" + ci);
-      if (!card) return;
-
-      if (action === "keep-local" || action === "keep-remote") {
-        var pickSide = action === "keep-local" ? "local" : "remote";
-        var fieldVals = card.querySelectorAll(".dm-field-value." + pickSide);
-        for (var fvi = 0; fvi < fieldVals.length; fvi++) {
-          var fv = fieldVals[fvi];
-          var fRow = fv.closest(".dm-field-diff");
-          if (fRow) {
-            var fSiblings = fRow.querySelectorAll(".dm-field-value");
-            for (var fsi = 0; fsi < fSiblings.length; fsi++)
-              fSiblings[fsi].classList.remove("selected");
-          }
-          fv.classList.add("selected");
-          if (fv.dataset.field) {
-            _fieldSelections["conflict-" + ci + "-" + fv.dataset.field] = pickSide;
-          }
-        }
-        _updateApplyCount();
-        return;
-      }
-
-      if (action === "resolve") {
-        // Validate all fields have a selection
-        var fieldDiffs = card.querySelectorAll(".dm-field-diff");
-        var allResolved = true;
-        for (var fd = 0; fd < fieldDiffs.length; fd++) {
-          if (!fieldDiffs[fd].querySelector(".dm-field-value.selected")) {
-            allResolved = false;
-            // Flash unresolved field
-            fieldDiffs[fd].style.background =
-              `color-mix(in srgb, ${getThemeColor("danger")} 10%, transparent)`;
-            (function (el) {
-              setTimeout(function () {
-                el.style.background = "";
-              }, 600);
-            })(fieldDiffs[fd]);
-          }
-        }
-        if (!allResolved) return;
-
-        // Mark resolved
-        _resolvedConflicts[ci] = true;
-        card.classList.add("resolved");
-        var pill = card.querySelector(".dm-conflict-card-header .dm-pill");
-        if (pill) {
-          pill.className = "dm-pill dm-pill-gain";
-          pill.innerHTML = "&#10003; Resolved";
-        }
-        // Collapse the details
-        var details = card.querySelector(".dm-conflict-details");
-        if (details) details.classList.add("collapsed");
-
-        // Update progress
-        _updateModifiedProgress();
-        _updateApplyCount();
-        return;
-      }
+      _handleCardAction(cardAction, e);
       return;
     }
 
     // Global Keep All Local / Keep All Remote
     var globalAction = target.closest("[data-global-action]");
     if (globalAction) {
-      var gAction = globalAction.dataset.globalAction;
-      var gSide = gAction === "keep-all-local" ? "local" : "remote";
-      var allFieldVals = e.currentTarget.querySelectorAll(".dm-field-value." + gSide);
-      for (var gfi = 0; gfi < allFieldVals.length; gfi++) {
-        var gfv = allFieldVals[gfi];
-        var gRow = gfv.closest(".dm-field-diff");
-        if (gRow) {
-          var gSiblings = gRow.querySelectorAll(".dm-field-value");
-          for (var gsi = 0; gsi < gSiblings.length; gsi++)
-            gSiblings[gsi].classList.remove("selected");
-        }
-        gfv.classList.add("selected");
-        if (gfv.dataset.field && gfv.dataset.card != null) {
-          _fieldSelections["conflict-" + gfv.dataset.card + "-" + gfv.dataset.field] = gSide;
-        }
-      }
-      _updateApplyCount();
+      _handleGlobalAction(globalAction, e);
       return;
     }
 
@@ -1766,6 +1648,156 @@
       _render();
       return;
     }
+  }
+
+  /**
+   * Field-value pick: record the chosen side (local / sum / remote) and sync the
+   * selected/aria-checked visual state across the row's siblings.
+   * @param {HTMLElement} fieldVal - the clicked .dm-field-value cell
+   */
+  function _handleFieldValuePick(fieldVal) {
+    var field = fieldVal.dataset.field;
+    var cardIdx = parseInt(fieldVal.dataset.card, 10);
+    var fKey = "conflict-" + cardIdx + "-" + field;
+    // STRK-167 (AC-10): qty rows add a third "sum" choice alongside local/remote.
+    var side = fieldVal.classList.contains("local")
+      ? "local"
+      : fieldVal.classList.contains("sum")
+        ? "sum"
+        : "remote";
+    _fieldSelections[fKey] = side;
+    // Update visual: remove selected from siblings, add to clicked.
+    var row = fieldVal.closest(".dm-field-diff");
+    if (row) {
+      var siblings = row.querySelectorAll(".dm-field-value");
+      for (var si = 0; si < siblings.length; si++) {
+        siblings[si].classList.remove("selected");
+        // STRK-167 (AC-10) a11y: keep aria-checked in sync on radio-style qty cells.
+        if (siblings[si].getAttribute("role") === "radio") {
+          siblings[si].setAttribute("aria-checked", "false");
+        }
+      }
+    }
+    fieldVal.classList.add("selected");
+    if (fieldVal.getAttribute("role") === "radio") {
+      fieldVal.setAttribute("aria-checked", "true");
+    }
+    _updateApplyCount();
+  }
+
+  /**
+   * Per-card action button: Keep All Local / Keep All Remote bulk-picks one side,
+   * Confirm validates and resolves the card.
+   * @param {HTMLElement} cardAction - the clicked [data-card-action] button
+   * @param {Event} e - the delegated click event (currentTarget = card container)
+   */
+  function _handleCardAction(cardAction, e) {
+    var action = cardAction.dataset.cardAction;
+    var ci = parseInt(cardAction.dataset.card, 10);
+    var card = e.currentTarget.querySelector("#dm-conflict-" + ci);
+    if (!card) return;
+
+    if (action === "keep-local" || action === "keep-remote") {
+      _applyCardSide(card, ci, action === "keep-local" ? "local" : "remote");
+      _updateApplyCount();
+      return;
+    }
+
+    if (action === "resolve") {
+      _resolveConflictCard(card, ci);
+    }
+  }
+
+  /**
+   * Bulk-pick one side for every field in a conflict card, syncing selected state
+   * and the per-field _fieldSelections.
+   * @param {HTMLElement} card - the conflict card element
+   * @param {number} ci - the card index
+   * @param {string} pickSide - "local" or "remote"
+   */
+  function _applyCardSide(card, ci, pickSide) {
+    var fieldVals = card.querySelectorAll(".dm-field-value." + pickSide);
+    for (var fvi = 0; fvi < fieldVals.length; fvi++) {
+      var fv = fieldVals[fvi];
+      var fRow = fv.closest(".dm-field-diff");
+      if (fRow) {
+        var fSiblings = fRow.querySelectorAll(".dm-field-value");
+        for (var fsi = 0; fsi < fSiblings.length; fsi++)
+          fSiblings[fsi].classList.remove("selected");
+      }
+      fv.classList.add("selected");
+      if (fv.dataset.field) {
+        _fieldSelections["conflict-" + ci + "-" + fv.dataset.field] = pickSide;
+      }
+    }
+  }
+
+  /**
+   * Confirm a conflict card: flash any unresolved fields and bail, else mark the
+   * card resolved, collapse it, and refresh the progress + apply count.
+   * @param {HTMLElement} card - the conflict card element
+   * @param {number} ci - the card index
+   */
+  function _resolveConflictCard(card, ci) {
+    // Validate all fields have a selection
+    var fieldDiffs = card.querySelectorAll(".dm-field-diff");
+    var allResolved = true;
+    for (var fd = 0; fd < fieldDiffs.length; fd++) {
+      if (!fieldDiffs[fd].querySelector(".dm-field-value.selected")) {
+        allResolved = false;
+        // Flash unresolved field
+        fieldDiffs[fd].style.background =
+          `color-mix(in srgb, ${getThemeColor("danger")} 10%, transparent)`;
+        (function (el) {
+          setTimeout(function () {
+            el.style.background = "";
+          }, 600);
+        })(fieldDiffs[fd]);
+      }
+    }
+    if (!allResolved) return;
+
+    // Mark resolved
+    _resolvedConflicts[ci] = true;
+    card.classList.add("resolved");
+    var pill = card.querySelector(".dm-conflict-card-header .dm-pill");
+    if (pill) {
+      pill.className = "dm-pill dm-pill-gain";
+      pill.innerHTML = "&#10003; Resolved";
+    }
+    // Collapse the details
+    var details = card.querySelector(".dm-conflict-details");
+    if (details) details.classList.add("collapsed");
+
+    // Update progress
+    _updateModifiedProgress();
+    _updateApplyCount();
+  }
+
+  /**
+   * Global Keep All Local / Keep All Remote: pick one side across every conflict
+   * field in the modal, syncing selected state and _fieldSelections.
+   * @param {HTMLElement} globalAction - the clicked [data-global-action] button
+   * @param {Event} e - the delegated click event (currentTarget = card container)
+   */
+  function _handleGlobalAction(globalAction, e) {
+    var gAction = globalAction.dataset.globalAction;
+    var gSide = gAction === "keep-all-local" ? "local" : "remote";
+    var allFieldVals = e.currentTarget.querySelectorAll(".dm-field-value." + gSide);
+    for (var gfi = 0; gfi < allFieldVals.length; gfi++) {
+      var gfv = allFieldVals[gfi];
+      var gRow = gfv.closest(".dm-field-diff");
+      if (gRow) {
+        var gSiblings = gRow.querySelectorAll(".dm-field-value");
+        for (var gsi = 0; gsi < gSiblings.length; gsi++)
+          gSiblings[gsi].classList.remove("selected");
+      }
+      gfv.classList.add("selected");
+      if (gfv.dataset.field && gfv.dataset.card != null) {
+        _fieldSelections["conflict-" + gfv.dataset.card + "-" + gfv.dataset.field] = gSide;
+      }
+    }
+    _updateApplyCount();
   }
 
   /**
@@ -1861,106 +1893,100 @@
 
   // ── Select All / Deselect All ──
 
-  function _selectAll() {
-    var diff = _options.diff || {};
-    // Card-based: set all orphan actions to include
-    for (var i = 0; i < (diff.added || []).length; i++) {
-      _orphanActions["added-" + i] = "import";
-      _checkedItems["added-" + i] = true;
+  /**
+   * Apply an orphan action + checkbox state to every added item.
+   * @param {object} diff - active diff ({ added, modified, deleted })
+   * @param {string} action - orphan action ("import" or "skip")
+   * @param {boolean} checked - checkbox state mirrored into _checkedItems
+   */
+  function _setAddedItems(diff, action, checked) {
+    var added = diff.added || [];
+    for (var i = 0; i < added.length; i++) {
+      _orphanActions["added-" + i] = action;
+      _checkedItems["added-" + i] = checked;
     }
-    for (var j = 0; j < (diff.modified || []).length; j++) {
-      _checkedItems["modified-" + j] = true;
-      // Select all remote for each modified field
-      var mod = (diff.modified || [])[j];
+  }
+
+  /**
+   * Apply an orphan action + checkbox state to every deleted item.
+   * @param {object} diff - active diff
+   * @param {string} action - orphan action ("keep" or "remove")
+   * @param {boolean} checked - checkbox state mirrored into _checkedItems
+   */
+  function _setDeletedItems(diff, action, checked) {
+    var deleted = diff.deleted || [];
+    for (var k = 0; k < deleted.length; k++) {
+      _orphanActions["deleted-" + k] = action;
+      _checkedItems["deleted-" + k] = checked;
+    }
+  }
+
+  /**
+   * Set every modified item's per-field selections to one side, optionally marking
+   * the item's checkbox. Used by Select All (remote) and Deselect All (local).
+   * @param {object} diff - active diff
+   * @param {string} side - "local" or "remote"
+   * @param {boolean} markChecked - when true, also set _checkedItems["modified-j"]=true
+   */
+  function _setModifiedFields(diff, side, markChecked) {
+    var modified = diff.modified || [];
+    for (var j = 0; j < modified.length; j++) {
+      if (markChecked) _checkedItems["modified-" + j] = true;
+      var mod = modified[j];
       if (mod && mod.changes) {
         for (var c = 0; c < mod.changes.length; c++) {
-          _fieldSelections["conflict-" + j + "-" + mod.changes[c].field] = "remote";
+          _fieldSelections["conflict-" + j + "-" + mod.changes[c].field] = side;
         }
       }
     }
-    for (var k = 0; k < (diff.deleted || []).length; k++) {
-      _orphanActions["deleted-" + k] = "remove";
-      _checkedItems["deleted-" + k] = true;
-    }
-    _render();
   }
 
-  function _deselectAll() {
-    var diff = _options.diff || {};
-    for (var i = 0; i < (diff.added || []).length; i++) {
-      _orphanActions["added-" + i] = "skip";
-      _checkedItems["added-" + i] = false;
-    }
+  /** Clear every currently-tracked item checkbox (set all _checkedItems false). */
+  function _clearCheckedItems() {
     for (var k in _checkedItems) {
       if (_checkedItems.hasOwnProperty(k)) _checkedItems[k] = false;
     }
-    for (var d = 0; d < (diff.deleted || []).length; d++) {
-      _orphanActions["deleted-" + d] = "keep";
-    }
-    // Reset modified field selections to local (deselect = keep local values)
-    for (var m = 0; m < (diff.modified || []).length; m++) {
-      var mod = (diff.modified || [])[m];
-      if (mod && mod.changes) {
-        for (var c = 0; c < mod.changes.length; c++) {
-          _fieldSelections["conflict-" + m + "-" + mod.changes[c].field] = "local";
-        }
-      }
-    }
+  }
+
+  /** Select every importable change: import added, remote-win modified, remove deleted. */
+  function _selectAll() {
+    var diff = _options.diff || {};
+    _setAddedItems(diff, "import", true);
+    _setModifiedFields(diff, "remote", true);
+    _setDeletedItems(diff, "remove", true);
+    _render();
+  }
+
+  /** Deselect everything: skip added, keep deleted, reset modified fields to local. */
+  function _deselectAll() {
+    var diff = _options.diff || {};
+    _setAddedItems(diff, "skip", false);
+    _clearCheckedItems();
+    _setDeletedItems(diff, "keep", false);
+    _setModifiedFields(diff, "local", false);
     _render();
   }
 
   /**
-   * Toggle "Select All / Deselect All" for the backup import flow.
+   * Cycle the backup-import "Select All" control through its three states:
+   *   1 = import added + remote-win modified (deleted left untouched/kept),
+   *   2 = additionally mark deleted for removal,
+   *   0 = deselect everything (added skipped, modified reset to local).
    */
   function _toggleSelectAll() {
     var diff = _options ? _options.diff || {} : {};
     _selectAllState = (_selectAllState + 1) % 3;
     if (_selectAllState === 1) {
-      // First press: import all added, keep deleted untouched
-      for (var i = 0; i < (diff.added || []).length; i++) {
-        _orphanActions["added-" + i] = "import";
-        _checkedItems["added-" + i] = true;
-      }
-      for (var j = 0; j < (diff.modified || []).length; j++) {
-        _checkedItems["modified-" + j] = true;
-        var mod1 = (diff.modified || [])[j];
-        if (mod1 && mod1.changes) {
-          for (var c1 = 0; c1 < mod1.changes.length; c1++) {
-            _fieldSelections["conflict-" + j + "-" + mod1.changes[c1].field] = "remote";
-          }
-        }
-      }
-      for (var k = 0; k < (diff.deleted || []).length; k++) {
-        _orphanActions["deleted-" + k] = "keep";
-        _checkedItems["deleted-" + k] = false;
-      }
+      _setAddedItems(diff, "import", true);
+      _setModifiedFields(diff, "remote", true);
+      _setDeletedItems(diff, "keep", false);
     } else if (_selectAllState === 2) {
-      // Second press: also mark deleted for removal
-      for (var k2 = 0; k2 < (diff.deleted || []).length; k2++) {
-        _orphanActions["deleted-" + k2] = "remove";
-        _checkedItems["deleted-" + k2] = true;
-      }
+      _setDeletedItems(diff, "remove", true);
     } else {
-      // Third press: deselect all
-      for (var a = 0; a < (diff.added || []).length; a++) {
-        _orphanActions["added-" + a] = "skip";
-        _checkedItems["added-" + a] = false;
-      }
-      for (var key in _checkedItems) {
-        if (_checkedItems.hasOwnProperty(key)) _checkedItems[key] = false;
-      }
-      for (var d = 0; d < (diff.deleted || []).length; d++) {
-        _orphanActions["deleted-" + d] = "keep";
-      }
-      // Reset field selections to local
-      for (var m3 = 0; m3 < (diff.modified || []).length; m3++) {
-        var mod3 = (diff.modified || [])[m3];
-        if (mod3 && mod3.changes) {
-          for (var c3 = 0; c3 < mod3.changes.length; c3++) {
-            _fieldSelections["conflict-" + m3 + "-" + mod3.changes[c3].field] = "local";
-          }
-        }
-      }
+      _setAddedItems(diff, "skip", false);
+      _clearCheckedItems();
+      _setDeletedItems(diff, "keep", false);
+      _setModifiedFields(diff, "local", false);
     }
     var toggleBtn = safeGetElement("diffReviewSelectAllToggle");
     if (toggleBtn) {
@@ -1978,130 +2004,170 @@
    */
   function _mergeSettingElements(type, key, localVal, remoteVal) {
     var prefix = "setting-" + key + "-";
-
-    if (type === "chip-strip") {
-      // Array of {id, label, enabled, ...} — merge by id
-      if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
-      var lArr = Array.isArray(localVal) ? localVal : [];
-      var rArr = Array.isArray(remoteVal) ? remoteVal : [];
-      var lById = {};
-      var rById = {};
-      var i, id;
-      for (i = 0; i < lArr.length; i++) {
-        id = lArr[i].id || lArr[i].label || i;
-        lById[id] = lArr[i];
-      }
-      for (i = 0; i < rArr.length; i++) {
-        id = rArr[i].id || rArr[i].label || i;
-        rById[id] = rArr[i];
-      }
-      // Preserve original array order — use remote array as base order (default wins),
-      // then append any local-only items at the end
-      var merged = [];
-      var seen = {};
-      // First pass: iterate remote array in order
-      for (i = 0; i < rArr.length; i++) {
-        id = rArr[i].id || rArr[i].label || i;
-        var sel = _fieldSelections[prefix + id];
-        if (sel === "local" && lById[id]) {
-          merged.push(lById[id]);
-        } else {
-          merged.push(rArr[i]); // default: remote wins
-        }
-        seen[id] = true;
-      }
-      // Second pass: append local-only items (preserving local order)
-      for (i = 0; i < lArr.length; i++) {
-        id = lArr[i].id || lArr[i].label || i;
-        if (!seen[id]) {
-          var lSel = _fieldSelections[prefix + id];
-          if (lSel === "local" || !lSel) {
-            merged.push(lArr[i]); // local-only, user picked local or no selection
-          }
-        }
-      }
-      return merged;
-    }
-
+    if (type === "chip-strip") return _mergeChipStrip(prefix, localVal, remoteVal);
     if (type === "toggle-map" || type === "kv-pills") {
-      // Object merge — key by key
-      if (
-        (typeof localVal !== "object" || localVal === null) &&
-        (typeof remoteVal !== "object" || remoteVal === null)
-      )
-        return null;
-      var lObj = typeof localVal === "object" && localVal !== null ? localVal : {};
-      var rObj = typeof remoteVal === "object" && remoteVal !== null ? remoteVal : {};
-      var result = {};
-      var allKeys = {};
-      var k;
-      for (k in lObj) allKeys[k] = true;
-      for (k in rObj) allKeys[k] = true;
-      for (k in allKeys) {
-        var kSel = _fieldSelections[prefix + k];
-        if (kSel === "local" && lObj.hasOwnProperty(k)) {
-          result[k] = lObj[k];
-        } else if (kSel === "remote" && rObj.hasOwnProperty(k)) {
-          result[k] = rObj[k];
-        } else if (rObj.hasOwnProperty(k)) {
-          result[k] = rObj[k]; // default: remote
-        } else if (lObj.hasOwnProperty(k)) {
-          result[k] = lObj[k]; // only in local
-        }
-      }
-      return result;
+      return _mergeKeyedObject(prefix, localVal, remoteVal);
     }
-
-    if (type === "slug-chips") {
-      // String array — order-preserving set merge
-      if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
-      var lSet = {};
-      var rSet = {};
-      var lList = Array.isArray(localVal) ? localVal : [];
-      var rList = Array.isArray(remoteVal) ? remoteVal : [];
-      for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
-      for (i = 0; i < rList.length; i++) rSet[rList[i]] = true;
-      var mergedArr = [];
-      var slugSeen = {};
-      // First pass: iterate remote array in order (default wins)
-      for (i = 0; i < rList.length; i++) {
-        var rSlug = rList[i];
-        slugSeen[rSlug] = true;
-        if (lSet[rSlug]) {
-          mergedArr.push(rSlug); // common — always include
-        } else {
-          var rSlugSel = _fieldSelections[prefix + rSlug];
-          if (rSlugSel === "remote" || !rSlugSel) {
-            mergedArr.push(rSlug); // remote-only, user picked remote or default
-          }
-        }
-      }
-      // Second pass: append local-only items (preserving local order)
-      for (i = 0; i < lList.length; i++) {
-        var lSlug = lList[i];
-        if (!slugSeen[lSlug]) {
-          var lSlugSel = _fieldSelections[prefix + lSlug];
-          if (lSlugSel === "local") {
-            mergedArr.push(lSlug); // local-only, user picked local
-          }
-        }
-      }
-      return mergedArr;
-    }
-
+    if (type === "slug-chips") return _mergeSlugChips(prefix, localVal, remoteVal);
     return null; // unknown type — fallback
+  }
+
+  /**
+   * Merge a chip-strip array setting by element id. Remote order is the base
+   * (default wins); a local element substitutes where the user picked "local", and
+   * local-only elements append at the end unless explicitly deselected.
+   * @param {string} prefix - _fieldSelections key prefix ("setting-<key>-")
+   * @param {*} localVal - local value (array of {id,label,enabled,...})
+   * @param {*} remoteVal - remote value
+   * @returns {Array|null} merged array, or null when neither side is an array
+   */
+  function _mergeChipStrip(prefix, localVal, remoteVal) {
+    if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+    var lArr = Array.isArray(localVal) ? localVal : [];
+    var rArr = Array.isArray(remoteVal) ? remoteVal : [];
+    var lById = {};
+    var rById = {};
+    var i, id;
+    for (i = 0; i < lArr.length; i++) {
+      id = lArr[i].id || lArr[i].label || i;
+      lById[id] = lArr[i];
+    }
+    for (i = 0; i < rArr.length; i++) {
+      id = rArr[i].id || rArr[i].label || i;
+      rById[id] = rArr[i];
+    }
+    // Preserve original array order — use remote array as base order (default wins),
+    // then append any local-only items at the end
+    var merged = [];
+    var seen = {};
+    // First pass: iterate remote array in order
+    for (i = 0; i < rArr.length; i++) {
+      id = rArr[i].id || rArr[i].label || i;
+      var sel = _fieldSelections[prefix + id];
+      if (sel === "local" && lById[id]) {
+        merged.push(lById[id]);
+      } else {
+        merged.push(rArr[i]); // default: remote wins
+      }
+      seen[id] = true;
+    }
+    // Second pass: append local-only items (preserving local order)
+    for (i = 0; i < lArr.length; i++) {
+      id = lArr[i].id || lArr[i].label || i;
+      if (!seen[id]) {
+        var lSel = _fieldSelections[prefix + id];
+        if (lSel === "local" || !lSel) {
+          merged.push(lArr[i]); // local-only, user picked local or no selection
+        }
+      }
+    }
+    return merged;
+  }
+
+  /**
+   * Merge an object-shaped setting (toggle-map / kv-pills) key by key. Each key
+   * resolves to its picked side, defaulting to remote when present, else local.
+   * @param {string} prefix - _fieldSelections key prefix ("setting-<key>-")
+   * @param {*} localVal - local value (object)
+   * @param {*} remoteVal - remote value (object)
+   * @returns {object|null} merged object, or null when neither side is an object
+   */
+  function _mergeKeyedObject(prefix, localVal, remoteVal) {
+    if (
+      (typeof localVal !== "object" || localVal === null) &&
+      (typeof remoteVal !== "object" || remoteVal === null)
+    )
+      return null;
+    var lObj = typeof localVal === "object" && localVal !== null ? localVal : {};
+    var rObj = typeof remoteVal === "object" && remoteVal !== null ? remoteVal : {};
+    var result = {};
+    var allKeys = {};
+    var k;
+    for (k in lObj) allKeys[k] = true;
+    for (k in rObj) allKeys[k] = true;
+    for (k in allKeys) {
+      var kSel = _fieldSelections[prefix + k];
+      if (kSel === "local" && lObj.hasOwnProperty(k)) {
+        result[k] = lObj[k];
+      } else if (kSel === "remote" && rObj.hasOwnProperty(k)) {
+        result[k] = rObj[k];
+      } else if (rObj.hasOwnProperty(k)) {
+        result[k] = rObj[k]; // default: remote
+      } else if (lObj.hasOwnProperty(k)) {
+        result[k] = lObj[k]; // only in local
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Merge a slug-chips string-array setting as an order-preserving set. Remote
+   * order leads; common slugs always survive; remote-only and local-only slugs are
+   * included per the user's per-slug pick (default remote-keep, local opt-in).
+   * @param {string} prefix - _fieldSelections key prefix ("setting-<key>-")
+   * @param {*} localVal - local value (string array)
+   * @param {*} remoteVal - remote value (string array)
+   * @returns {Array|null} merged slug array, or null when neither side is an array
+   */
+  function _mergeSlugChips(prefix, localVal, remoteVal) {
+    if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+    var lSet = {};
+    var rSet = {};
+    var lList = Array.isArray(localVal) ? localVal : [];
+    var rList = Array.isArray(remoteVal) ? remoteVal : [];
+    var i;
+    for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
+    for (i = 0; i < rList.length; i++) rSet[rList[i]] = true;
+    var mergedArr = [];
+    var slugSeen = {};
+    // First pass: iterate remote array in order (default wins)
+    for (i = 0; i < rList.length; i++) {
+      var rSlug = rList[i];
+      slugSeen[rSlug] = true;
+      if (lSet[rSlug]) {
+        mergedArr.push(rSlug); // common — always include
+      } else {
+        var rSlugSel = _fieldSelections[prefix + rSlug];
+        if (rSlugSel === "remote" || !rSlugSel) {
+          mergedArr.push(rSlug); // remote-only, user picked remote or default
+        }
+      }
+    }
+    // Second pass: append local-only items (preserving local order)
+    for (i = 0; i < lList.length; i++) {
+      var lSlug = lList[i];
+      if (!slugSeen[lSlug]) {
+        var lSlugSel = _fieldSelections[prefix + lSlug];
+        if (lSlugSel === "local") {
+          mergedArr.push(lSlug); // local-only, user picked local
+        }
+      }
+    }
+    return mergedArr;
   }
 
   function _buildSelectedChanges() {
     var diff = _options.diff || {};
     var result = [];
-    var added = diff.added || [];
-    var modified = diff.modified || [];
-    var deleted = diff.deleted || [];
     var hasCardState =
       Object.keys(_orphanActions).length > 0 || Object.keys(_fieldSelections).length > 0;
+    _collectAddedChanges(diff, hasCardState, result);
+    _collectModifiedChanges(diff, hasCardState, result);
+    _collectDeletedChanges(diff, hasCardState, result);
+    _collectConflictChanges(result);
+    _collectSettingsChanges(result);
+    return result;
+  }
 
-    // Added items — card state or legacy fallback
+  /**
+   * Append {type:"add"} records for added orphans the user kept. With card state,
+   * inclusion follows the orphan action (≠ "skip"); legacy mode uses the checkbox.
+   * @param {object} diff - active diff
+   * @param {boolean} hasCardState - whether card-based selections are present
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectAddedChanges(diff, hasCardState, result) {
+    var added = diff.added || [];
     for (var a = 0; a < added.length; a++) {
       var includeAdded = hasCardState
         ? _orphanActions["added-" + a] !== "skip"
@@ -2110,97 +2176,157 @@
         result.push({ type: "add", item: added[a] });
       }
     }
+  }
 
-    // Modified items — per-field selection via _fieldSelections
+  /**
+   * Append modify / attach-entry records for each modified item, routing to the
+   * card-based per-field picker or the legacy all-remote fallback.
+   * @param {object} diff - active diff
+   * @param {boolean} hasCardState - whether card-based selections are present
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectModifiedChanges(diff, hasCardState, result) {
+    var modified = diff.modified || [];
     for (var m = 0; m < modified.length; m++) {
       var mod = modified[m];
       var mKey = _itemKey(mod.item);
       if (hasCardState) {
-        // Card-based: always emit all fields, user picks local vs remote per field
-        for (var c = 0; c < mod.changes.length; c++) {
-          var ch = mod.changes[c];
-          // Attachments: emit per-entry records keyed by UUID
-          if (
-            ch.field === "attachments" &&
-            window.DiffEngine &&
-            typeof DiffEngine.diffAttachments === "function"
-          ) {
-            var attDiffsC = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
-            for (var ace = 0; ace < attDiffsC.length; ace++) {
-              var entryC = attDiffsC[ace];
-              var entryKeyC = "conflict-" + m + "-attachments:" + entryC.attachmentUuid;
-              var entrySelC = _fieldSelections[entryKeyC] || "remote";
-              if (entrySelC === "remote") {
-                // Accept remote side: add/remove/replace as computed
-                result.push({
-                  type: "attach-entry",
-                  itemKey: mKey,
-                  action: entryC.action,
-                  attachmentUuid: entryC.attachmentUuid,
-                  oldAttachmentUuid: entryC.oldAttachmentUuid || null,
-                  value: entryC.remoteVal,
-                });
-              }
-              // entrySel === "local" → no record; local keeps its state unchanged
-            }
-            continue;
-          }
-          var fSel = _fieldSelections["conflict-" + m + "-" + ch.field] || "remote";
-          // STRK-167 (AC-10, D-5): "sum" computes the merged quantity HERE so the
-          // shared DiffEngine.applySelectedChanges patch (updated[field]=value) is
-          // untouched — no blast radius into cloud sync.
-          var fVal;
-          if (fSel === "local") {
-            fVal = ch.localVal;
-          } else if (fSel === "sum") {
-            fVal = (Number(ch.localVal) || 0) + (Number(ch.remoteVal) || 0);
-          } else {
-            fVal = ch.remoteVal;
-          }
-          result.push({
-            type: "modify",
-            itemKey: mKey,
-            field: ch.field,
-            value: fVal,
-          });
-        }
-      } else {
-        // Legacy fallback: emit all fields if item is checked
-        if (_checkedItems["modified-" + m] !== false) {
-          for (var c2 = 0; c2 < mod.changes.length; c2++) {
-            var ch2 = mod.changes[c2];
-            // Attachments: emit per-entry records (all remote)
-            if (
-              ch2.field === "attachments" &&
-              window.DiffEngine &&
-              typeof DiffEngine.diffAttachments === "function"
-            ) {
-              var attDiffsL = DiffEngine.diffAttachments(ch2.localVal, ch2.remoteVal);
-              for (var ale = 0; ale < attDiffsL.length; ale++) {
-                var entryL = attDiffsL[ale];
-                result.push({
-                  type: "attach-entry",
-                  itemKey: mKey,
-                  action: entryL.action,
-                  attachmentUuid: entryL.attachmentUuid,
-                  oldAttachmentUuid: entryL.oldAttachmentUuid || null,
-                  value: entryL.remoteVal,
-                });
-              }
-              continue;
-            }
-            result.push({
-              type: "modify",
-              itemKey: mKey,
-              field: ch2.field,
-              value: ch2.remoteVal,
-            });
-          }
-        }
+        _emitCardModified(m, mod, mKey, result);
+      } else if (_checkedItems["modified-" + m] !== false) {
+        _emitLegacyModified(mod, mKey, result);
       }
     }
+  }
 
-    // Deleted items — card state or legacy fallback
+  /** True when a change is an attachments diff handled per-entry via DiffEngine. */
+  function _isAttachmentChange(ch) {
+    return (
+      ch.field === "attachments" &&
+      window.DiffEngine &&
+      typeof DiffEngine.diffAttachments === "function"
+    );
+  }
+
+  /**
+   * Card-based: emit the per-field winner (local / remote / sum) for one modified
+   * item; attachments fan out to per-entry records.
+   * @param {number} m - modified-item index (conflict key)
+   * @param {object} mod - the modified diff entry ({ item, changes })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitCardModified(m, mod, mKey, result) {
+    for (var c = 0; c < mod.changes.length; c++) {
+      var ch = mod.changes[c];
+      // Attachments: emit per-entry records keyed by UUID
+      if (_isAttachmentChange(ch)) {
+        _emitCardAttachments(m, ch, mKey, result);
+        continue;
+      }
+      var fSel = _fieldSelections["conflict-" + m + "-" + ch.field] || "remote";
+      // STRK-167 (AC-10, D-5): "sum" computes the merged quantity HERE so the
+      // shared DiffEngine.applySelectedChanges patch (updated[field]=value) is
+      // untouched — no blast radius into cloud sync.
+      var fVal;
+      if (fSel === "local") {
+        fVal = ch.localVal;
+      } else if (fSel === "sum") {
+        fVal = (Number(ch.localVal) || 0) + (Number(ch.remoteVal) || 0);
+      } else {
+        fVal = ch.remoteVal;
+      }
+      result.push({
+        type: "modify",
+        itemKey: mKey,
+        field: ch.field,
+        value: fVal,
+      });
+    }
+  }
+
+  /**
+   * Card-based: emit accepted (remote-side) attachment-entry records for one
+   * attachments change; "local" picks leave the item's state unchanged.
+   * @param {number} m - modified-item index (conflict key)
+   * @param {object} ch - the attachments change ({ localVal, remoteVal })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitCardAttachments(m, ch, mKey, result) {
+    var attDiffsC = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
+    for (var ace = 0; ace < attDiffsC.length; ace++) {
+      var entryC = attDiffsC[ace];
+      var entryKeyC = "conflict-" + m + "-attachments:" + entryC.attachmentUuid;
+      var entrySelC = _fieldSelections[entryKeyC] || "remote";
+      if (entrySelC === "remote") {
+        // Accept remote side: add/remove/replace as computed
+        result.push({
+          type: "attach-entry",
+          itemKey: mKey,
+          action: entryC.action,
+          attachmentUuid: entryC.attachmentUuid,
+          oldAttachmentUuid: entryC.oldAttachmentUuid || null,
+          value: entryC.remoteVal,
+        });
+      }
+      // entrySel === "local" → no record; local keeps its state unchanged
+    }
+  }
+
+  /**
+   * Legacy fallback: emit all-remote field winners for one checked modified item;
+   * attachments emit every entry on the remote side.
+   * @param {object} mod - the modified diff entry ({ item, changes })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitLegacyModified(mod, mKey, result) {
+    for (var c2 = 0; c2 < mod.changes.length; c2++) {
+      var ch2 = mod.changes[c2];
+      // Attachments: emit per-entry records (all remote)
+      if (_isAttachmentChange(ch2)) {
+        _emitLegacyAttachments(ch2, mKey, result);
+        continue;
+      }
+      result.push({
+        type: "modify",
+        itemKey: mKey,
+        field: ch2.field,
+        value: ch2.remoteVal,
+      });
+    }
+  }
+
+  /**
+   * Legacy fallback: emit every attachment entry (remote side) for one change.
+   * @param {object} ch2 - the attachments change ({ localVal, remoteVal })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitLegacyAttachments(ch2, mKey, result) {
+    var attDiffsL = DiffEngine.diffAttachments(ch2.localVal, ch2.remoteVal);
+    for (var ale = 0; ale < attDiffsL.length; ale++) {
+      var entryL = attDiffsL[ale];
+      result.push({
+        type: "attach-entry",
+        itemKey: mKey,
+        action: entryL.action,
+        attachmentUuid: entryL.attachmentUuid,
+        oldAttachmentUuid: entryL.oldAttachmentUuid || null,
+        value: entryL.remoteVal,
+      });
+    }
+  }
+
+  /**
+   * Append {type:"delete"} records for deleted orphans the user removed. With card
+   * state, inclusion follows the orphan action ("remove"); legacy uses the checkbox.
+   * @param {object} diff - active diff
+   * @param {boolean} hasCardState - whether card-based selections are present
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectDeletedChanges(diff, hasCardState, result) {
+    var deleted = diff.deleted || [];
     for (var d = 0; d < deleted.length; d++) {
       var includeDeleted = hasCardState
         ? _orphanActions["deleted-" + d] === "remove"
@@ -2209,8 +2335,14 @@
         result.push({ type: "delete", itemKey: _itemKey(deleted[d]) });
       }
     }
+  }
 
-    // Item conflict resolutions (sync-specific conflicts section — separate from modified cards)
+  /**
+   * Append modify records for the sync conflicts section (separate from modified
+   * cards); each conflict defaults to the remote side unless resolved to local.
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectConflictChanges(result) {
     var conflictsArr = (_options.conflicts && _options.conflicts.conflicts) || [];
     for (var ci = 0; ci < conflictsArr.length; ci++) {
       var conf = conflictsArr[ci];
@@ -2224,8 +2356,14 @@
         value: side === "local" ? conf.localVal : conf.remoteVal,
       });
     }
+  }
 
-    // Settings changes — per-element merge for rich renderer types, whole-setting for others
+  /**
+   * Append {type:"setting"} records: a per-element merge for rich renderer types
+   * when the user made element picks, else a whole-setting local/remote resolution.
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectSettingsChanges(result) {
     var settingsDiff = _options.settingsDiff || {};
     var changedSettings = settingsDiff.changed || [];
     for (var s = 0; s < changedSettings.length; s++) {
@@ -2233,18 +2371,9 @@
       var sType = SETTINGS_VALUE_TYPE[setting.key];
       var sPrefix = "setting-" + setting.key + "-";
 
-      // Check for per-element selections (skip count-summary — whole-setting only)
-      var hasElementPicks = false;
-      if (sType && sType !== "count-summary") {
-        for (var fk in _fieldSelections) {
-          if (_fieldSelections.hasOwnProperty(fk) && fk.indexOf(sPrefix) === 0) {
-            hasElementPicks = true;
-            break;
-          }
-        }
-      }
-
-      if (hasElementPicks) {
+      // Per-element merge only for rich types with actual element picks
+      // (count-summary is whole-setting only).
+      if (sType && sType !== "count-summary" && _hasElementPicks(sPrefix)) {
         var mergedVal = _mergeSettingElements(
           sType,
           setting.key,
@@ -2262,8 +2391,16 @@
       var value = resolution === "local" ? setting.localVal : setting.remoteVal;
       result.push({ type: "setting", key: setting.key, value: value });
     }
+  }
 
-    return result;
+  /** True when any _fieldSelections key targets this setting's per-element prefix. */
+  function _hasElementPicks(sPrefix) {
+    for (var fk in _fieldSelections) {
+      if (_fieldSelections.hasOwnProperty(fk) && fk.indexOf(sPrefix) === 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function _onApply() {
@@ -2390,6 +2527,29 @@
     if (dismissX) {
       dismissX.onclick = _onCancel;
     }
+  }
+
+  // ── Regex-bearing escape helpers — defined LAST (see top-of-file note, [[lizard-esc-regex-desync]]) ──
+
+  /** Title-case a setting key for display (humanizes camelCase / kebab / snake). */
+  function _titleCase(key) {
+    return key
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, function (c) {
+        return c.toUpperCase();
+      });
+  }
+
+  /** Safe HTML escape — falls back to inline if sanitizeHtml not loaded */
+  function _esc(text) {
+    if (typeof sanitizeHtml === "function") return sanitizeHtml(text);
+    if (!text) return "";
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   // ── Public API ──
