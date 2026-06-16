@@ -172,3 +172,108 @@ test.describe("STRK-189 — spot payload freshness gate", () => {
     expect(history.some((row) => row.spot === 12.34)).toBe(false);
   });
 });
+
+// STRK-170 cohort 3.1 — characterization guard for fetchLatestPrices (the
+// per-provider individual-endpoint dispatch reached for non-STAKTRAKR sources).
+// Drives the function through window.syncSpotProvider with the METAL_PRICE_API
+// provider configured: routes its per-metal /latest endpoints and asserts the
+// normalized {metal: price} map that lands in localStorage. Behavior-preserving
+// regression guard for the complexity refactor — must stay GREEN before & after.
+const METAL_PRICE_API_LATEST = "https://api.metalpriceapi.com/v1/latest*";
+
+/**
+ * Route METAL_PRICE_API's per-metal /latest endpoint to a fixed rate map.
+ * METAL_PRICE_API.parseResponse returns 1/rate (rate is metal-per-USD), so a
+ * rate of r yields a displayed price of 1/r. A currency absent from the map
+ * fulfills with an empty rates object (exercises the "no price" skip branch).
+ * @param {import('@playwright/test').Page} page
+ * @param {Object<string, number>} ratesByCurrency - e.g. { XAG: 0.04, XAU: 0.0005 }
+ * @returns {Promise<void>}
+ */
+async function routeMetalPriceApi(page, ratesByCurrency) {
+  await page.route(METAL_PRICE_API_LATEST, (route) => {
+    const url = new URL(route.request().url());
+    const currency = url.searchParams.get("currencies");
+    const rate = ratesByCurrency[currency];
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, rates: rate ? { [currency]: rate } : {} }),
+    });
+  });
+}
+
+/**
+ * Configure the in-page API store so syncSpotProvider routes to METAL_PRICE_API
+ * with a key and silver/gold selected. Uses the script-tag globals
+ * loadApiConfig/saveApiConfig (not on window) inside the page realm.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function configureMetalPriceApi(page) {
+  await page.evaluate(() => {
+    window.saveDataSync("spotPricingSource", "METAL_PRICE_API");
+    // loadApiConfig/saveApiConfig are script-tag globals (not on window) — reach
+    // them as bare identifiers within the page realm.
+    /* eslint-disable no-undef */
+    const config = loadApiConfig();
+    config.keys = { ...(config.keys || {}), METAL_PRICE_API: "test-key" };
+    config.metals = {
+      ...(config.metals || {}),
+      METAL_PRICE_API: { silver: true, gold: true, platinum: false, palladium: false },
+    };
+    saveApiConfig(config);
+    /* eslint-enable no-undef */
+  });
+}
+
+test.describe("STRK-170 — fetchLatestPrices per-provider dispatch (characterization)", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("METAL_PRICE_API individual endpoints normalize 1/rate into the spot map", async ({
+    page,
+  }) => {
+    // 1/0.04 = 25 (silver), 1/0.0005 = 2000 (gold)
+    await routeMetalPriceApi(page, { XAG: 0.04, XAU: 0.0005 });
+
+    await gotoApp(page);
+    // loadApiConfig/saveApiConfig are script-tag globals needed by the setup
+    await page.waitForFunction(() => typeof loadApiConfig === "function");
+    await configureMetalPriceApi(page);
+
+    // Platinum is unselected → its boot-hydrated value must survive the sync
+    const platBefore = await page.evaluate(() => localStorage.getItem("spotPlatinum"));
+    const result = await forceSync(page);
+    expect(result.results.METAL_PRICE_API).toBe("success");
+
+    // Normalized prices land in display + storage for both selected metals
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("25");
+    await expect(page.locator("#spotPriceDisplayGold")).toContainText("2,000");
+    expect(await page.evaluate(() => localStorage.getItem("spotSilver"))).toBe("25");
+    expect(await page.evaluate(() => localStorage.getItem("spotGold"))).toBe("2000");
+    // Unselected platinum was never fetched → its value is untouched by this sync
+    expect(await page.evaluate(() => localStorage.getItem("spotPlatinum"))).toBe(platBefore);
+  });
+
+  test("a provider endpoint returning no rate is skipped, the rest still land", async ({
+    page,
+  }) => {
+    // Silver resolves (1/0.05 = 20); gold returns an empty rates object → skipped
+    await routeMetalPriceApi(page, { XAG: 0.05 });
+
+    await gotoApp(page);
+    await page.waitForFunction(() => typeof loadApiConfig === "function");
+    await configureMetalPriceApi(page);
+
+    const goldBefore = await page.evaluate(() => localStorage.getItem("spotGold"));
+    const result = await forceSync(page);
+    expect(result.results.METAL_PRICE_API).toBe("success");
+
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("20");
+    expect(await page.evaluate(() => localStorage.getItem("spotSilver"))).toBe("20");
+    // Gold had no valid rate → untouched (no overwrite, no zero)
+    expect(await page.evaluate(() => localStorage.getItem("spotGold"))).toBe(goldBefore);
+  });
+});
