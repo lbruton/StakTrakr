@@ -1,6 +1,269 @@
 // SEARCH FUNCTIONALITY
 // =============================================================================
 
+// Legacy fallback search-term matching helpers (cohort 2.5). filterInventory()
+// below delegates to filterInventoryAdvanced() when filters.js is loaded; these
+// power its standalone fallback path.
+const _METAL_NAMES = ["gold", "silver", "platinum", "palladium"];
+
+/**
+ * Escapes regex metacharacters so a search word can be matched literally.
+ * @param {string} word
+ * @returns {string}
+ */
+const _escapeSearchRegex = (word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Builds a left-boundary, case-insensitive regex for a word, OR-ing in any
+ * metal-abbreviation expansion (e.g. "ase" → "American Silver Eagle").
+ * @param {string} word
+ * @returns {RegExp}
+ */
+const _buildSearchWordRegex = (word) => {
+  const patterns = [_escapeSearchRegex(word)];
+  const abbrevs = typeof METAL_ABBREVIATIONS !== "undefined" ? METAL_ABBREVIATIONS : {};
+  const expansion = abbrevs[word.toLowerCase()];
+  if (expansion) patterns.push(_escapeSearchRegex(expansion));
+  return new RegExp(`\\b(?:${patterns.join("|")})`, "i");
+};
+
+/**
+ * Whole-word (both boundaries) case-insensitive regex, no abbreviation expansion.
+ * @param {string} word
+ * @returns {RegExp}
+ */
+const _wholeWordRegex = (word) => new RegExp(`\\b${_escapeSearchRegex(word)}\\b`, "i");
+
+/**
+ * Concatenates an item's searchable fields (incl. tags) into one lowercased
+ * string for phrase matching. Field order matches the legacy inline build.
+ * @param {Object} item
+ * @returns {string}
+ */
+const _buildItemSearchText = (item) => {
+  const tags = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
+  return [
+    item.metal,
+    item.composition || "",
+    item.name,
+    item.type,
+    item.purchaseLocation,
+    item.storageLocation || "",
+    item.notes || "",
+    item.capsule || "",
+    item.capsuleNotes || "",
+    String(item.year || ""),
+    item.grade || "",
+    item.gradingAuthority || "",
+    String(item.certNumber || ""),
+    String(item.numistaId || ""),
+    item.serialNumber || "",
+    String(item.pcgsNumber || ""),
+    String(item.purity || ""),
+    tags,
+  ]
+    .join(" ")
+    .toLowerCase();
+};
+
+/**
+ * True when itemText contains "<prefix> <metal> <coinType>" for a metal the
+ * query did not specify — i.e. an unrequested cross-metal match.
+ * @returns {boolean}
+ */
+const _hasMetalBetween = (itemText, prefix, coinType, exactPhrase) =>
+  _METAL_NAMES.some(
+    (metal) => itemText.includes(`${prefix} ${metal} ${coinType}`) && !exactPhrase.includes(metal)
+  );
+
+// Two-word coin-series disambiguation rules (STAK-era): keep "American Eagle"
+// from matching "American Gold Eagle", "Silver Maple" from "Gold Maple", etc.
+// `country` = origin prefix(es) that must not have an unrequested metal between;
+// `metalPhrase` = extra accepted phrase for metal-prefixed queries (maple leaf);
+// `krugerSpecial` = krugerrand's dual-pattern origin check.
+const _COIN_SERIES = {
+  eagle: { country: ["american"], metalPhrase: null },
+  maple: { country: ["canadian"], metalPhrase: (m) => `${m} maple leaf` },
+  britannia: { country: ["british"], metalPhrase: null },
+  krugerrand: { country: ["south", "african"], metalPhrase: null, krugerSpecial: true },
+  buffalo: { country: ["american"], metalPhrase: null },
+  panda: { country: ["chinese"], metalPhrase: null },
+  kangaroo: { country: ["australian"], metalPhrase: null },
+};
+
+/**
+ * Applies the two-word coin-series rule for "<metal|origin> <series>".
+ * @returns {boolean|null} the match decision, or null when (metal, series) is not
+ *   a recognized rule (caller continues with other checks).
+ */
+const _matchCoinSeries = (searchMetal, coinType, itemText, exactPhrase) => {
+  const rule = _COIN_SERIES[coinType];
+  if (!rule) return null;
+  if (_METAL_NAMES.includes(searchMetal)) {
+    if (rule.metalPhrase) {
+      return itemText.includes(exactPhrase) || itemText.includes(rule.metalPhrase(searchMetal));
+    }
+    return itemText.includes(exactPhrase);
+  }
+  if (rule.country.includes(searchMetal)) {
+    if (rule.krugerSpecial) {
+      return !_METAL_NAMES.some(
+        (metal) =>
+          (itemText.includes(`south african ${metal} krugerrand`) ||
+            itemText.includes(`${metal} krugerrand`)) &&
+          !exactPhrase.includes(metal)
+      );
+    }
+    return !_hasMetalBetween(itemText, searchMetal, coinType, exactPhrase);
+  }
+  return null;
+};
+
+/**
+ * Matches a multi-word (>=2) search term against an item: exact/expanded phrase,
+ * custom-group label, word-boundary presence, then coin-series, three-word,
+ * fractional-weight, and broad-origin disambiguation rules.
+ * @returns {boolean}
+ */
+const _matchMultiWordTerm = (q, item, words) => {
+  const abbrevs = typeof METAL_ABBREVIATIONS !== "undefined" ? METAL_ABBREVIATIONS : {};
+  const expandedPhrase = words
+    .map((w) => abbrevs[w.toLowerCase()] || w)
+    .join(" ")
+    .toLowerCase();
+  const exactPhrase = q.toLowerCase();
+  const itemText = _buildItemSearchText(item);
+
+  if (itemText.includes(exactPhrase)) return true;
+  if (expandedPhrase !== exactPhrase && itemText.includes(expandedPhrase)) return true;
+  if (
+    typeof window.itemMatchesCustomGroupLabel === "function" &&
+    window.itemMatchesCustomGroupLabel(item, q)
+  ) {
+    return true;
+  }
+
+  const allWordsPresent = words.every((word) => _wholeWordRegex(word).test(itemText));
+  if (!allWordsPresent) return false;
+
+  if (words.length === 2) {
+    const seriesResult = _matchCoinSeries(words[0], words[1], itemText, exactPhrase);
+    if (seriesResult !== null) return seriesResult;
+  }
+
+  if (words.length === 3) {
+    const [firstWord, middleWord, lastWord] = words;
+    if (
+      ["american", "canadian", "british", "chinese", "australian", "south"].includes(firstWord) &&
+      _METAL_NAMES.includes(middleWord) &&
+      ["eagle", "maple", "britannia", "krugerrand", "buffalo", "panda", "kangaroo"].includes(
+        lastWord
+      )
+    ) {
+      return (
+        itemText.includes(exactPhrase) ||
+        (lastWord === "maple" && itemText.includes(`${firstWord} ${middleWord} maple leaf`))
+      );
+    }
+  }
+
+  const hasFraction = words.some((word) => word.includes("/"));
+  const hasOz = words.some((word) => word === "oz" || word === "ounce");
+  if (hasFraction && hasOz) return itemText.includes(exactPhrase);
+
+  const broadTerms = [
+    "american",
+    "canadian",
+    "australian",
+    "british",
+    "chinese",
+    "south",
+    "mexican",
+  ];
+  if (words.length === 1 && broadTerms.includes(words[0])) return false;
+
+  return true;
+};
+
+/**
+ * Tests whether a single word matches any of an item's fields (word-boundary +
+ * abbreviation expansion for text fields; substring for date/numeric fields).
+ * @returns {boolean}
+ */
+const _wordMatchesItem = (word, item, formattedDate) => {
+  const wordRegex = _buildSearchWordRegex(word);
+  if ([item.metal, item.name, item.type, item.purchaseLocation].some((f) => wordRegex.test(f))) {
+    return true;
+  }
+  const guarded = [
+    item.composition,
+    item.storageLocation,
+    item.notes,
+    item.capsule,
+    item.capsuleNotes,
+    item.year,
+    item.grade,
+    item.gradingAuthority,
+    item.certNumber,
+    item.numistaId,
+    item.serialNumber,
+    item.pcgsNumber,
+  ];
+  if (guarded.some((f) => f && wordRegex.test(String(f)))) return true;
+  if (item.date.includes(word) || formattedDate.includes(word)) return true;
+  if (
+    [item.qty, item.weight, item.price].some((n) =>
+      String(Number.isFinite(Number(n)) ? Number(n) : "").includes(word)
+    )
+  ) {
+    return true;
+  }
+  return typeof getItemTags === "function" && getItemTags(item.uuid).some((t) => wordRegex.test(t));
+};
+
+/**
+ * Matches a single-word search term: field match, then custom-group label, then
+ * (only when no custom-group matcher exists) the fuzzy fallback.
+ * @param {Object} ctx - { formattedDate, fuzzyEnabled, fuzzyOptions }
+ * @returns {boolean}
+ */
+const _matchSingleWordTerm = (q, item, words, ctx) => {
+  const fieldMatch = words.every((word) => _wordMatchesItem(word, item, ctx.formattedDate));
+  if (fieldMatch) return true;
+  if (typeof window.itemMatchesCustomGroupLabel === "function") {
+    return window.itemMatchesCustomGroupLabel(item, q);
+  }
+  if (ctx.fuzzyEnabled) {
+    if (
+      (item.name && fuzzyMatch(q, item.name, ctx.fuzzyOptions) > 0) ||
+      (q.length > 2 &&
+        item.purchaseLocation &&
+        fuzzyMatch(q, item.purchaseLocation, ctx.fuzzyOptions) > 0) ||
+      (q.length > 2 &&
+        item.storageLocation &&
+        fuzzyMatch(q, item.storageLocation, ctx.fuzzyOptions) > 0) ||
+      (q.length > 3 && item.notes && fuzzyMatch(q, item.notes, ctx.fuzzyOptions) > 0) ||
+      (q.length > 2 && item.capsule && fuzzyMatch(q, item.capsule, ctx.fuzzyOptions) > 0) ||
+      (q.length > 3 && item.capsuleNotes && fuzzyMatch(q, item.capsuleNotes, ctx.fuzzyOptions) > 0)
+    ) {
+      if (!window._fuzzyMatchUsed) window._fuzzyMatchUsed = true;
+      return true;
+    }
+  }
+  return false;
+};
+
+/**
+ * Routes a single search term to the multi-word or single-word matcher.
+ * @param {Object} ctx - { formattedDate, fuzzyEnabled, fuzzyOptions }
+ * @returns {boolean}
+ */
+const _termMatchesItem = (q, item, ctx) => {
+  const words = q.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length >= 2) return _matchMultiWordTerm(q, item, words);
+  return _matchSingleWordTerm(q, item, words, ctx);
+};
+
 /**
  * Filters inventory based on the current search query and active column filters.
  * Handles advanced multi-term, phrase, and series-specific logic for coins and metals.
@@ -56,331 +319,14 @@ const filterInventory = () => {
   return result.filter((item) => {
     if (!terms.length) return true;
 
-    const formattedDate = formatDisplayDate(item.date).toLowerCase();
+    const ctx = {
+      formattedDate: formatDisplayDate(item.date).toLowerCase(),
+      fuzzyEnabled,
+      fuzzyOptions,
+    };
 
-    // Handle comma-separated terms (OR logic between comma terms)
-    return terms.some((q) => {
-      // Split each comma term into individual words for AND logic
-      const words = q.split(/\s+/).filter((w) => w.length > 0);
-
-      // Special handling for multi-word searches to prevent partial matches
-      // If searching for "American Eagle", it should only match items that have both words
-      // but NOT match "American Gold Eagle" (which has an extra word in between)
-      if (words.length >= 2) {
-        // Expand abbreviations in the query words for multi-word searches
-        const abbrevs = typeof METAL_ABBREVIATIONS !== "undefined" ? METAL_ABBREVIATIONS : {};
-        const expandedWords = words.map((w) => abbrevs[w.toLowerCase()] || w);
-        const expandedPhrase = expandedWords.join(" ").toLowerCase();
-
-        // For multi-word searches, check if the exact phrase exists or
-        // if all words exist as separate word boundaries without conflicting words
-        const exactPhrase = q.toLowerCase();
-        // STAK-126: include tags in searchable text
-        const _searchTags =
-          typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
-        const itemText = [
-          item.metal,
-          item.composition || "",
-          item.name,
-          item.type,
-          item.purchaseLocation,
-          item.storageLocation || "",
-          item.notes || "",
-          item.capsule || "",
-          item.capsuleNotes || "",
-          String(item.year || ""),
-          item.grade || "",
-          item.gradingAuthority || "",
-          String(item.certNumber || ""),
-          String(item.numistaId || ""),
-          item.serialNumber || "",
-          String(item.pcgsNumber || ""),
-          String(item.purity || ""),
-          _searchTags,
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        // Check for exact phrase match first
-        if (itemText.includes(exactPhrase)) {
-          return true;
-        }
-
-        // Check expanded abbreviation phrase (e.g. "ase 2024" → "american silver eagle 2024")
-        if (expandedPhrase !== exactPhrase && itemText.includes(expandedPhrase)) {
-          return true;
-        }
-
-        // STACK-23: Check custom chip group label matching for multi-word searches
-        if (
-          typeof window.itemMatchesCustomGroupLabel === "function" &&
-          window.itemMatchesCustomGroupLabel(item, q)
-        ) {
-          return true;
-        }
-
-        // For phrase searches like "American Eagle", be more restrictive
-        // Check that all words are present as word boundaries
-        const allWordsPresent = words.every((word) => {
-          const wordRegex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-          return wordRegex.test(itemText);
-        });
-
-        if (!allWordsPresent) {
-          return false;
-        }
-
-        // Additional check: prevent cross-metal matching for common coin series
-        // "Silver Eagle" should not match "American Gold Eagle"
-        // "Gold Maple" should not match "Silver Maple Leaf"
-        // etc.
-        if (words.length === 2) {
-          const searchMetal = words[0];
-          const coinType = words[1];
-
-          // Handle Eagle series
-          if (coinType === "eagle") {
-            if (searchMetal === "american") {
-              // "American Eagle" should not match "American [Metal] Eagle"
-              const metalWords = ["gold", "silver", "platinum", "palladium"];
-              const hasMetalBetween = metalWords.some(
-                (metal) =>
-                  itemText.includes(`american ${metal} eagle`) && !exactPhrase.includes(metal)
-              );
-              return !hasMetalBetween;
-            } else if (["silver", "gold", "platinum", "palladium"].includes(searchMetal)) {
-              // Metal-specific eagle searches must match exact phrase
-              return itemText.includes(exactPhrase);
-            }
-          }
-
-          // Handle Maple series (Canadian Maple Leaf)
-          else if (coinType === "maple") {
-            if (["silver", "gold", "platinum", "palladium"].includes(searchMetal)) {
-              // "Silver Maple" should only match items with "silver maple"
-              return (
-                itemText.includes(exactPhrase) || itemText.includes(`${searchMetal} maple leaf`)
-              );
-            } else if (searchMetal === "canadian") {
-              // "Canadian Maple" should not match specific metal maples unless no metal specified
-              const metalWords = ["gold", "silver", "platinum", "palladium"];
-              const hasMetalBetween = metalWords.some(
-                (metal) =>
-                  itemText.includes(`canadian ${metal} maple`) && !exactPhrase.includes(metal)
-              );
-              return !hasMetalBetween;
-            }
-          }
-
-          // Handle Britannia series (British Britannia)
-          else if (coinType === "britannia") {
-            if (["silver", "gold", "platinum", "palladium"].includes(searchMetal)) {
-              // "Silver Britannia" should only match items with "silver britannia"
-              return itemText.includes(exactPhrase);
-            } else if (searchMetal === "british") {
-              // "British Britannia" should not match specific metal britannias
-              const metalWords = ["gold", "silver", "platinum", "palladium"];
-              const hasMetalBetween = metalWords.some(
-                (metal) =>
-                  itemText.includes(`british ${metal} britannia`) && !exactPhrase.includes(metal)
-              );
-              return !hasMetalBetween;
-            }
-          }
-
-          // Handle Krugerrand series
-          else if (coinType === "krugerrand") {
-            if (["silver", "gold", "platinum", "palladium"].includes(searchMetal)) {
-              // "Gold Krugerrand" should only match gold krugerrands
-              return itemText.includes(exactPhrase);
-            } else if (searchMetal === "south" || searchMetal === "african") {
-              // Handle "South African Krugerrand" - don't match if metal specified
-              const metalWords = ["gold", "silver", "platinum", "palladium"];
-              const hasMetalBetween = metalWords.some(
-                (metal) =>
-                  (itemText.includes(`south african ${metal} krugerrand`) ||
-                    itemText.includes(`${metal} krugerrand`)) &&
-                  !exactPhrase.includes(metal)
-              );
-              return !hasMetalBetween;
-            }
-          }
-
-          // Handle Buffalo series
-          else if (coinType === "buffalo") {
-            if (["silver", "gold", "platinum", "palladium"].includes(searchMetal)) {
-              // "Gold Buffalo" should only match gold buffalos
-              return itemText.includes(exactPhrase);
-            } else if (searchMetal === "american") {
-              // "American Buffalo" should not match if metal specified
-              const metalWords = ["gold", "silver", "platinum", "palladium"];
-              const hasMetalBetween = metalWords.some(
-                (metal) =>
-                  itemText.includes(`american ${metal} buffalo`) && !exactPhrase.includes(metal)
-              );
-              return !hasMetalBetween;
-            }
-          }
-
-          // Handle Panda series
-          else if (coinType === "panda") {
-            if (["silver", "gold", "platinum", "palladium"].includes(searchMetal)) {
-              // "Silver Panda" should only match silver pandas
-              return itemText.includes(exactPhrase);
-            } else if (searchMetal === "chinese") {
-              // "Chinese Panda" should not match if metal specified
-              const metalWords = ["gold", "silver", "platinum", "palladium"];
-              const hasMetalBetween = metalWords.some(
-                (metal) =>
-                  itemText.includes(`chinese ${metal} panda`) && !exactPhrase.includes(metal)
-              );
-              return !hasMetalBetween;
-            }
-          }
-
-          // Handle Kangaroo series
-          else if (coinType === "kangaroo") {
-            if (["silver", "gold", "platinum", "palladium"].includes(searchMetal)) {
-              return itemText.includes(exactPhrase);
-            } else if (searchMetal === "australian") {
-              const metalWords = ["gold", "silver", "platinum", "palladium"];
-              const hasMetalBetween = metalWords.some(
-                (metal) =>
-                  itemText.includes(`australian ${metal} kangaroo`) && !exactPhrase.includes(metal)
-              );
-              return !hasMetalBetween;
-            }
-          }
-        }
-
-        // Handle three-word searches with special patterns
-        if (words.length === 3) {
-          // Handle "American Gold Eagle" type searches - these should be exact
-          const firstWord = words[0];
-          const middleWord = words[1];
-          const lastWord = words[2];
-
-          if (
-            ["american", "canadian", "british", "chinese", "australian", "south"].includes(
-              firstWord
-            ) &&
-            ["gold", "silver", "platinum", "palladium"].includes(middleWord) &&
-            ["eagle", "maple", "britannia", "krugerrand", "buffalo", "panda", "kangaroo"].includes(
-              lastWord
-            )
-          ) {
-            // For "American Gold Eagle" type searches, require exact phrase or very close match
-            return (
-              itemText.includes(exactPhrase) ||
-              (lastWord === "maple" && itemText.includes(`${firstWord} ${middleWord} maple leaf`))
-            );
-          }
-        }
-
-        // Handle fractional weight searches to be more specific
-        // "1/4 oz" should be distinct from "1/2 oz" and "1 oz"
-        if (words.length >= 2) {
-          const hasFraction = words.some((word) => word.includes("/"));
-          const hasOz = words.some((word) => word === "oz" || word === "ounce");
-
-          if (hasFraction && hasOz) {
-            // For fractional searches, require exact phrase match
-            return itemText.includes(exactPhrase);
-          }
-        }
-
-        // Prevent overly broad country/origin searches
-        const broadTerms = [
-          "american",
-          "canadian",
-          "australian",
-          "british",
-          "chinese",
-          "south",
-          "mexican",
-        ];
-        if (words.length === 1 && broadTerms.includes(words[0])) {
-          // Single broad geographic terms should require additional context
-          // Return false to prevent matching everything from that country
-          return false;
-        }
-
-        return true;
-      }
-
-      // For single words, use word boundary matching with abbreviation expansion
-      const fieldMatch = words.every((word) => {
-        // Build regex patterns: original word + any abbreviation expansion
-        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const patterns = [escaped];
-
-        // Expand abbreviation if one exists (e.g. 'ase' → 'American Silver Eagle')
-        const abbrevs = typeof METAL_ABBREVIATIONS !== "undefined" ? METAL_ABBREVIATIONS : {};
-        const expansion = abbrevs[word.toLowerCase()];
-        if (expansion) {
-          patterns.push(expansion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-        }
-
-        // OR together: match original word OR expanded term
-        const combined = patterns.join("|");
-        const wordRegex = new RegExp(`\\b(?:${combined})`, "i");
-
-        return (
-          wordRegex.test(item.metal) ||
-          (item.composition && wordRegex.test(item.composition)) ||
-          wordRegex.test(item.name) ||
-          wordRegex.test(item.type) ||
-          wordRegex.test(item.purchaseLocation) ||
-          (item.storageLocation && wordRegex.test(item.storageLocation)) ||
-          (item.notes && wordRegex.test(item.notes)) ||
-          (item.capsule && wordRegex.test(item.capsule)) ||
-          (item.capsuleNotes && wordRegex.test(item.capsuleNotes)) ||
-          item.date.includes(word) ||
-          formattedDate.includes(word) ||
-          String(Number.isFinite(Number(item.qty)) ? Number(item.qty) : "").includes(word) ||
-          String(Number.isFinite(Number(item.weight)) ? Number(item.weight) : "").includes(word) ||
-          String(Number.isFinite(Number(item.price)) ? Number(item.price) : "").includes(word) ||
-          (item.year && wordRegex.test(String(item.year))) ||
-          (item.grade && wordRegex.test(item.grade)) ||
-          (item.gradingAuthority && wordRegex.test(item.gradingAuthority)) ||
-          (item.certNumber && wordRegex.test(String(item.certNumber))) ||
-          (item.numistaId && wordRegex.test(String(item.numistaId))) ||
-          (item.serialNumber && wordRegex.test(item.serialNumber)) ||
-          (item.pcgsNumber && wordRegex.test(String(item.pcgsNumber))) ||
-          (typeof getItemTags === "function" &&
-            getItemTags(item.uuid).some((t) => wordRegex.test(t)))
-        );
-      });
-      if (fieldMatch) return true;
-
-      // STACK-23: Fall back to custom chip group label matching
-      if (typeof window.itemMatchesCustomGroupLabel === "function") {
-        return window.itemMatchesCustomGroupLabel(item, q);
-      }
-
-      // STACK-62: Fuzzy fallback — score item fields when exact matching fails
-      if (fuzzyEnabled) {
-        // Unrolled loop: avoids array allocation per item; skips secondary fields for short queries
-        if (
-          (item.name && fuzzyMatch(q, item.name, fuzzyOptions) > 0) ||
-          (q.length > 2 &&
-            item.purchaseLocation &&
-            fuzzyMatch(q, item.purchaseLocation, fuzzyOptions) > 0) ||
-          (q.length > 2 &&
-            item.storageLocation &&
-            fuzzyMatch(q, item.storageLocation, fuzzyOptions) > 0) ||
-          (q.length > 3 && item.notes && fuzzyMatch(q, item.notes, fuzzyOptions) > 0) ||
-          (q.length > 2 && item.capsule && fuzzyMatch(q, item.capsule, fuzzyOptions) > 0) ||
-          (q.length > 3 && item.capsuleNotes && fuzzyMatch(q, item.capsuleNotes, fuzzyOptions) > 0)
-        ) {
-          // Mark that fuzzy matching was used (for indicator)
-          if (!window._fuzzyMatchUsed) window._fuzzyMatchUsed = true;
-          return true;
-        }
-      }
-
-      return false;
-    });
+    // Comma-separated terms use OR logic; each term is matched as a whole.
+    return terms.some((q) => _termMatchesItem(q, item, ctx));
   });
 };
 
