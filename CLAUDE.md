@@ -191,11 +191,12 @@ Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint ru
 
 **Async bot reviewers land after checks go green.** Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass — often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. Treat a `null` result or `errors` array from a `gh api graphql` query as a failure (a malformed query can silently return `null`); an empty `nodes` array is the valid "no active threads" state — confirm the response is a valid list before merging.
 
-### Dual ESLint config — `.eslintrc.json` is Codacy-only
+### Dual ESLint config — `.eslintrc.json` is read by Codacy AND CodeRabbit
 
-The repo carries two ESLint configs: `eslint.config.cjs` (flat — used by local `npm run lint`) and `.eslintrc.json` (legacy — read only by Codacy's server-side ESLint). With a flat config present, ESLint 9 ignores the legacy file locally.
+The repo carries two ESLint configs: `eslint.config.cjs` (flat — used by local `npm run lint`) and `.eslintrc.json` (legacy — read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
 The `no-restricted-globals` ban on native `alert`/`confirm`/`prompt` (use `showAppAlert`/`showAppConfirm`/`showAppPrompt`) lives **only** in `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
-Before deleting `.eslintrc.json` or bumping to ESLint 10 (Dependabot PR #1228 is deferred pending Codacy support), migrate that rule into `eslint.config.cjs`.
+The legacy config defaults `sourceType` to `script`, so an `overrides` block sets `sourceType: module` for `tests/**/*.js` — without it CodeRabbit fails to parse ES-module Playwright/unit specs (`'import' and 'export' may appear only with 'sourceType: module'`) on every PR that touches a spec (`npm run lint` never globs `tests/playwright/**`, so it can't catch this).
+Before deleting `.eslintrc.json` or bumping to ESLint 10 (Dependabot PR #1228 is deferred pending Codacy support), migrate the `no-restricted-globals` rule into `eslint.config.cjs`.
 
 ## Pre-flight (StakTrakr-specific)
 
