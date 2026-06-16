@@ -636,4 +636,96 @@ test.describe("core/import-export", () => {
     expect(result.restoredUserCount).toBe(1);
     expect(result.restoredPatternCount).toBe(0);
   });
+
+  // STRK-170 cohort 1.3 characterization — the core suite otherwise never exercises the
+  // restoreBackupZip -> applyAncillaryData path (only an archived legacy spec calls it).
+  // This pins applyAncillaryData's observable ancillary restore (per-metal spot prices,
+  // retail prices, catalog mappings, item price history) so the cohort-1.3 decomposition of
+  // applyAncillaryData (ccn68) cannot silently drift. Stub pattern mirrors the archived
+  // stak-443 restore test: auto-accept the diff modal, signal completion via the success toast.
+  test("ZIP restore applies ancillary spot/retail/catalog/history data (applyAncillaryData)", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.restoreBackupZip === "function");
+
+    const { histTs } = await page.evaluate(async () => {
+      // Use the page clock so the history entry survives applyItemPriceRetention's age cutoff.
+      const histTs = Date.now();
+      // Auto-accept the diff modal and flip a flag when the success toast fires.
+      window.__zipRestoreComplete = false;
+      const originalShowToast = window.showToast;
+      window.showToast = function (message, level) {
+        if (typeof originalShowToast === "function") originalShowToast(message, level);
+        if (String(message || "").includes("ZIP backup restored successfully")) {
+          window.__zipRestoreComplete = true;
+        }
+      };
+      window.showImportDiffReview = function (_items, _meta, options, onDone) {
+        const changes = options?.settingsDiff?.changed || [];
+        for (const change of changes) {
+          localStorage.setItem(
+            change.key,
+            typeof change.remoteVal === "string"
+              ? change.remoteVal
+              : JSON.stringify(change.remoteVal)
+          );
+        }
+        onDone({ added: 0, modified: 0, deleted: 0 });
+      };
+
+      // Build a backup ZIP carrying the ancillary files applyAncillaryData reads.
+      const zip = new window.JSZip();
+      zip.file(
+        "inventory_data.json",
+        JSON.stringify({ version: "test", exportDate: new Date().toISOString(), inventory: [] })
+      );
+      zip.file(
+        "settings.json",
+        JSON.stringify({
+          version: "test",
+          exportDate: new Date().toISOString(),
+          exportOrigin: window.location.origin,
+          spotPrices: { gold: 2500.5, silver: 30.25, platinum: 950, palladium: 1100 },
+          catalogMappings: { "strk170-char-numista": "strk170-char-uuid" },
+        })
+      );
+      zip.file(
+        "retail_prices.json",
+        JSON.stringify({ "american-silver-eagle": { price: 42.5, currency: "USD" } })
+      );
+      zip.file(
+        "item_price_history.json",
+        JSON.stringify({
+          version: "test",
+          exportDate: new Date().toISOString(),
+          history: { "strk170-char-uuid": [{ ts: histTs, price: 41.1 }] },
+        })
+      );
+
+      const file = new File([await zip.generateAsync({ type: "blob" })], "char-restore.zip", {
+        type: "application/zip",
+      });
+      await window.restoreBackupZip(file);
+      return { histTs };
+    });
+
+    await page.waitForFunction(() => window.__zipRestoreComplete === true);
+
+    // NOTE: per-metal spot prices restored from settings.spotPrices are intentionally
+    // NOT asserted — applyAncillaryData ends with fetchSpotPrice()/syncManualSpotStorage(),
+    // which re-derive spot state and overwrite the restored values (transient effect). The
+    // catalog assertion still proves the spot+catalog restore phase executed. Retail prices,
+    // catalog mappings, and item price history are stable (untouched by the trailing steps).
+    const restored = await page.evaluate(() => ({
+      retail: window.loadDataSync(window.RETAIL_PRICES_KEY, null),
+      catalog: window.catalogManager.exportMappings(),
+      history: window.loadDataSync("item-price-history", {})["strk170-char-uuid"] || null,
+    }));
+
+    expect(restored.retail).toEqual({ "american-silver-eagle": { price: 42.5, currency: "USD" } });
+    expect(restored.catalog).toMatchObject({ "strk170-char-numista": "strk170-char-uuid" });
+    expect(restored.history).toEqual([{ ts: histTs, price: 41.1 }]);
+  });
 });
