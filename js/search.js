@@ -1,15 +1,9 @@
 // SEARCH FUNCTIONALITY
 // =============================================================================
 
-/**
- * Filters inventory based on the current search query and active column filters.
- * Handles advanced multi-term, phrase, and series-specific logic for coins and metals.
- *
- * @returns {Array<Object>} Filtered inventory items matching the search query and filters
- *
- * @example
- * filterInventory();
- */
+// Legacy fallback search-term matching helpers (cohort 2.5). filterInventory()
+// below delegates to filterInventoryAdvanced() when filters.js is loaded; these
+// power its standalone fallback path.
 const _METAL_NAMES = ["gold", "silver", "platinum", "palladium"];
 
 /**
@@ -270,6 +264,15 @@ const _termMatchesItem = (q, item, ctx) => {
   return _matchSingleWordTerm(q, item, words, ctx);
 };
 
+/**
+ * Filters inventory based on the current search query and active column filters.
+ * Handles advanced multi-term, phrase, and series-specific logic for coins and metals.
+ *
+ * @returns {Array<Object>} Filtered inventory items matching the search query and filters
+ *
+ * @example
+ * filterInventory();
+ */
 const filterInventory = () => {
   // Use the advanced filtering system if available, otherwise fall back to legacy
   if (typeof filterInventoryAdvanced === "function") {
