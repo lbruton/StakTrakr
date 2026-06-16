@@ -631,14 +631,15 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
 // FIELD PANEL (left side)
 // =============================================================================
 
-const renderBulkFieldPanel = () => {
-  const panel = safeGetElement("bulkEditFieldPanel");
-  if (!panel) return;
-
-  // Clear existing content
-  while (panel.firstChild) panel.removeChild(panel.firstChild);
-
-  // STRK-91 C.4: collapsible mobile field panel.
+/**
+ * Builds the collapsible field-panel scaffold (details/summary/content) and
+ * wires the ARIA-expanded sync (STRK-91 C.4). Appends the scaffold into the
+ * panel and returns the live node references the caller needs.
+ * @param {HTMLElement} panel - The #bulkEditFieldPanel container
+ * @returns {{details: HTMLElement, summary: HTMLElement, content: HTMLElement,
+ *   summaryCount: HTMLElement, syncAria: function, formatCountText: function}}
+ */
+const buildBulkFieldPanelScaffold = (panel) => {
   // Wrap heading + hint + field rows in <details>/<summary>. Wide viewports
   // (>768px) get `open` forced via matchMedia listener; narrow viewports start
   // collapsed so the right-hand item table is reachable without scrolling past
@@ -690,13 +691,20 @@ const renderBulkFieldPanel = () => {
   syncAria();
   details.addEventListener("toggle", syncAria);
 
-  // Breakpoint behavior: force open on wide viewports, collapsed default on
-  // narrow. Re-evaluate when crossing the 768px boundary so a resize from
-  // mobile→desktop reveals the fields automatically.
-  //
-  // Use module-level _bulkMql / _bulkMqlHandler so that re-renders (e.g.
-  // after a field toggle) remove the previous listener before adding a new
-  // one — prevents unbounded listener accumulation across render calls.
+  return { details, summary, content, summaryCount, syncAria, formatCountText };
+};
+
+/**
+ * Wires the responsive breakpoint behavior for the field panel: force-open on
+ * wide viewports, collapsed-by-default on narrow, re-evaluated when crossing the
+ * 768px boundary. Reuses module-level _bulkMql / _bulkMqlHandler so re-renders
+ * swap the listener instead of stacking new ones.
+ * @param {HTMLElement} details - The <details> element to toggle
+ * @param {HTMLElement} summary - The <summary> element (tracks user clicks)
+ * @param {function} syncAria - Callback to mirror open-state into aria-expanded
+ * @returns {void}
+ */
+const wireBulkFieldPanelBreakpoint = (details, summary, syncAria) => {
   if (!_bulkMql && typeof window !== "undefined" && typeof window.matchMedia === "function") {
     _bulkMql = window.matchMedia("(max-width: 768px)");
   }
@@ -736,6 +744,296 @@ const renderBulkFieldPanel = () => {
       mql.addListener(_bulkMqlHandler);
     }
   }
+};
+
+/**
+ * Builds and appends a checkbox/label/input row for a single editable field
+ * into the content wrapper, wiring enable-toggle and value-tracking listeners.
+ * @param {Object} field - Field definition from BULK_EDITABLE_FIELDS
+ * @param {HTMLElement} content - The content wrapper to append the row into
+ * @param {function} updateFieldCount - Callback to refresh the enabled count
+ * @returns {void}
+ */
+const appendBulkFieldRow = (field, content, updateFieldCount) => {
+  const row = document.createElement("div");
+  row.className = "bulk-edit-field-row";
+
+  // Checkbox
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.id = "bulkField_" + field.id;
+  cb.checked = bulkEnabledFields.has(field.id);
+
+  // Label
+  const lbl = document.createElement("label");
+  lbl.setAttribute("for", "bulkField_" + field.id);
+  lbl.textContent = field.label;
+
+  // Input
+  const input = createFieldInput(field);
+  input.disabled = !bulkEnabledFields.has(field.id);
+
+  // Restore persisted value
+  if (bulkFieldValues[field.id] !== undefined) {
+    input.value = bulkFieldValues[field.id];
+  }
+
+  // Checkbox toggle — also re-renders footer to update Apply button disabled state
+  cb.addEventListener("change", () => {
+    if (cb.checked) {
+      bulkEnabledFields.add(field.id);
+      input.disabled = false;
+      input.focus();
+    } else {
+      bulkEnabledFields.delete(field.id);
+      input.disabled = true;
+    }
+    updateFieldCount();
+    renderBulkFooter();
+  });
+
+  // Track value changes
+  input.addEventListener("input", () => {
+    bulkFieldValues[field.id] = input.value;
+  });
+  input.addEventListener("change", () => {
+    bulkFieldValues[field.id] = input.value;
+  });
+
+  row.appendChild(cb);
+  row.appendChild(lbl);
+  row.appendChild(input);
+  content.appendChild(row);
+};
+
+/**
+ * Wires the goldback/silverback denomination picker swap for the bulk weight
+ * field, mirroring the main item modal. Builds a hidden denomination <select>,
+ * swaps it in when goldback mode is active, and keeps type/metal/unit selects in
+ * sync. No-op when prerequisites (weight inputs, GOLDBACK_DENOMINATIONS) are
+ * missing.
+ * @param {HTMLElement} panel - The #bulkEditFieldPanel container (for label lookup)
+ * @returns {void}
+ */
+const wireBulkWeightDenomPicker = (panel) => {
+  const bwInput = safeGetElement("bulkFieldVal_weight");
+  const bwUnitSelect = safeGetElement("bulkFieldVal_weightUnit");
+  const bwLabel = panel.querySelector('label[for="bulkField_weight"]');
+  const bwCheckbox = safeGetElement("bulkField_weight");
+
+  if (!(bwInput && bwUnitSelect && typeof GOLDBACK_DENOMINATIONS !== "undefined")) return;
+
+  // Build hidden denomination select
+  const denomSelect = document.createElement("select");
+  denomSelect.className = "field-input";
+  denomSelect.id = "bulkFieldVal_weightDenom";
+  denomSelect.style.display = "none";
+  denomSelect.disabled = bwInput.disabled;
+
+  GOLDBACK_DENOMINATIONS.forEach((d) => {
+    const opt = document.createElement("option");
+    opt.value = String(d.weight);
+    opt.textContent = d.label;
+    denomSelect.appendChild(opt);
+  });
+
+  // Insert right after weight input in the same row
+  bwInput.parentNode.insertBefore(denomSelect, bwInput.nextSibling);
+
+  // Restore persisted value
+  if (bulkFieldValues["weight"] !== undefined) {
+    denomSelect.value = String(bulkFieldValues["weight"]);
+  }
+
+  // Track denomination changes → update weight field value
+  denomSelect.addEventListener("change", () => {
+    bulkFieldValues["weight"] = denomSelect.value;
+  });
+
+  const bulkTypeSelect = document.getElementById("bulkFieldVal_type");
+  const bulkMetalSelect = safeGetElement("bulkFieldVal_metal");
+
+  // Swap function
+  const toggleBulkGbPicker = () => {
+    const isSb = bwUnitSelect.value === "sb" || bulkTypeSelect?.value === "Silverback";
+    const isGb = bwUnitSelect.value === "gb" && !isSb;
+    bwInput.style.display = isGb ? "none" : "";
+    denomSelect.style.display = isGb ? "" : "none";
+    if (bwLabel) bwLabel.textContent = isGb ? "DENOMINATION" : "Weight";
+    if (isGb) {
+      denomSelect.disabled = bwInput.disabled;
+      bulkFieldValues["weight"] = denomSelect.value;
+    }
+  };
+
+  const updateBulkDenomLabels = () => {
+    while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
+    GOLDBACK_DENOMINATIONS.forEach((d) => {
+      const opt = document.createElement("option");
+      opt.value = String(d.weight);
+      opt.textContent = d.label;
+      if (d.weight === 1) opt.selected = true;
+      denomSelect.appendChild(opt);
+    });
+  };
+
+  const filterBulkTypesByMetal = (metalValue) => {
+    if (!bulkTypeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
+    Array.from(bulkTypeSelect.options).forEach((option) => {
+      const allowedMetals = TYPE_METAL_FILTER[option.value];
+      const isAllowed = !Array.isArray(allowedMetals) || allowedMetals.includes(metalValue);
+      option.hidden = !isAllowed;
+      option.disabled = !isAllowed;
+    });
+
+    const selectedOption = bulkTypeSelect.options[bulkTypeSelect.selectedIndex];
+    if (selectedOption && selectedOption.hidden) {
+      bulkTypeSelect.value = "Coin";
+      handleBulkTypeChange();
+    }
+  };
+
+  const handleBulkTypeChange = () => {
+    if (!bulkTypeSelect) return;
+    const typeValue = bulkTypeSelect.value;
+    const isGoldbackType = typeValue === "Goldback";
+    const isSilverbackType = typeValue === "Silverback";
+
+    if (isGoldbackType) {
+      bwUnitSelect.value = "gb";
+      bulkFieldValues["weightUnit"] = "gb";
+      updateBulkDenomLabels();
+    } else if (isSilverbackType) {
+      bwUnitSelect.value = "sb";
+      bulkFieldValues["weightUnit"] = "sb";
+    } else if (bwUnitSelect.value === "gb" || bwUnitSelect.value === "sb") {
+      bwUnitSelect.value = "oz";
+      bulkFieldValues["weightUnit"] = "oz";
+    }
+
+    toggleBulkGbPicker();
+  };
+
+  // Listen for unit changes
+  bwUnitSelect.addEventListener("change", () => {
+    if (bulkTypeSelect?.value === "Silverback") {
+      bwUnitSelect.value = "sb";
+      bulkFieldValues["weightUnit"] = "sb";
+    }
+    toggleBulkGbPicker();
+  });
+
+  if (bulkMetalSelect) {
+    bulkMetalSelect.addEventListener("change", () => {
+      filterBulkTypesByMetal(bulkMetalSelect.value);
+      handleBulkTypeChange();
+    });
+  }
+
+  if (bulkTypeSelect) {
+    bulkTypeSelect.addEventListener("change", () => {
+      handleBulkTypeChange();
+    });
+  }
+
+  // Sync disabled state when weight checkbox toggles
+  if (bwCheckbox) {
+    bwCheckbox.addEventListener("change", () => {
+      denomSelect.disabled = !bwCheckbox.checked;
+    });
+  }
+
+  // Initialize state (e.g. if weightUnit was persisted as 'gb' or 'sb')
+  if (bulkFieldValues["weightUnit"] === "gb" || bulkFieldValues["weightUnit"] === "sb") {
+    bwUnitSelect.value = bulkFieldValues["weightUnit"];
+    toggleBulkGbPicker();
+  }
+
+  if (bulkMetalSelect) {
+    filterBulkTypesByMetal(bulkMetalSelect.value);
+  }
+  if (bulkTypeSelect) {
+    handleBulkTypeChange();
+  }
+};
+
+/**
+ * Wires the custom-purity input behavior for the bulk purity field, matching the
+ * inventory modal pattern. Inserts a hidden number input that surfaces when the
+ * purity select is "custom", restores persisted custom values, and keeps
+ * bulkFieldValues.purity in sync. No-op when the purity select is absent.
+ * @returns {void}
+ */
+const wireBulkPurityCustom = () => {
+  const puritySelect = safeGetElement("bulkFieldVal_purity");
+  const purityCheckbox = safeGetElement("bulkField_purity");
+  if (!puritySelect) return;
+
+  const purityCustomInput = document.createElement("input");
+  purityCustomInput.type = "number";
+  purityCustomInput.id = "bulkFieldVal_purityCustom";
+  purityCustomInput.className = "field-input";
+  purityCustomInput.min = "0.001";
+  purityCustomInput.max = "1";
+  purityCustomInput.step = "0.0001";
+  purityCustomInput.placeholder = "e.g. 0.9995";
+  purityCustomInput.setAttribute("aria-label", "Custom purity");
+  purityCustomInput.style.display = "none";
+  purityCustomInput.disabled = puritySelect.disabled;
+  puritySelect.parentNode.insertBefore(purityCustomInput, puritySelect.nextSibling);
+
+  const optionValues = new Set(Array.from(puritySelect.options).map((option) => option.value));
+  const savedPurity = bulkFieldValues.purity;
+  if (savedPurity !== undefined) {
+    const savedPurityStr = String(savedPurity);
+    if (optionValues.has(savedPurityStr) && savedPurityStr !== "custom") {
+      puritySelect.value = savedPurityStr;
+    } else {
+      puritySelect.value = "custom";
+      purityCustomInput.value = savedPurityStr;
+    }
+  }
+
+  const syncPurityState = () => {
+    const isCustom = puritySelect.value === "custom";
+    purityCustomInput.style.display = isCustom ? "" : "none";
+    purityCustomInput.disabled = puritySelect.disabled || !isCustom;
+    if (isCustom) {
+      bulkFieldValues.purity = purityCustomInput.value;
+    } else {
+      bulkFieldValues.purity = puritySelect.value;
+    }
+  };
+
+  puritySelect.addEventListener("change", syncPurityState);
+  purityCustomInput.addEventListener("input", () => {
+    bulkFieldValues.purity = purityCustomInput.value;
+  });
+  purityCustomInput.addEventListener("change", () => {
+    bulkFieldValues.purity = purityCustomInput.value;
+  });
+
+  if (purityCheckbox) {
+    purityCheckbox.addEventListener("change", () => {
+      syncPurityState();
+    });
+  }
+
+  syncPurityState();
+};
+
+const renderBulkFieldPanel = () => {
+  const panel = safeGetElement("bulkEditFieldPanel");
+  if (!panel) return;
+
+  // Clear existing content
+  while (panel.firstChild) panel.removeChild(panel.firstChild);
+
+  // STRK-91 C.4: collapsible mobile field panel scaffold + ARIA wiring.
+  const { details, summary, content, summaryCount, syncAria, formatCountText } =
+    buildBulkFieldPanelScaffold(panel);
+
+  wireBulkFieldPanelBreakpoint(details, summary, syncAria);
 
   // Field-count update helper (single text-node mutation per toggle).
   const updateFieldCount = () => {
@@ -744,254 +1042,14 @@ const renderBulkFieldPanel = () => {
 
   // Build field rows (appended into the <details> content wrapper).
   BULK_EDITABLE_FIELDS.forEach((field) => {
-    const row = document.createElement("div");
-    row.className = "bulk-edit-field-row";
-
-    // Checkbox
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.id = "bulkField_" + field.id;
-    cb.checked = bulkEnabledFields.has(field.id);
-
-    // Label
-    const lbl = document.createElement("label");
-    lbl.setAttribute("for", "bulkField_" + field.id);
-    lbl.textContent = field.label;
-
-    // Input
-    const input = createFieldInput(field);
-    input.disabled = !bulkEnabledFields.has(field.id);
-
-    // Restore persisted value
-    if (bulkFieldValues[field.id] !== undefined) {
-      input.value = bulkFieldValues[field.id];
-    }
-
-    // Checkbox toggle — also re-renders footer to update Apply button disabled state
-    cb.addEventListener("change", () => {
-      if (cb.checked) {
-        bulkEnabledFields.add(field.id);
-        input.disabled = false;
-        input.focus();
-      } else {
-        bulkEnabledFields.delete(field.id);
-        input.disabled = true;
-      }
-      updateFieldCount();
-      renderBulkFooter();
-    });
-
-    // Track value changes
-    input.addEventListener("input", () => {
-      bulkFieldValues[field.id] = input.value;
-    });
-    input.addEventListener("change", () => {
-      bulkFieldValues[field.id] = input.value;
-    });
-
-    row.appendChild(cb);
-    row.appendChild(lbl);
-    row.appendChild(input);
-    content.appendChild(row);
+    appendBulkFieldRow(field, content, updateFieldCount);
   });
 
   // Wire up denomination picker swap for weight field (mirrors main modal)
-  const bwInput = safeGetElement("bulkFieldVal_weight");
-  const bwUnitSelect = safeGetElement("bulkFieldVal_weightUnit");
-  const bwLabel = panel.querySelector('label[for="bulkField_weight"]');
-  const bwCheckbox = safeGetElement("bulkField_weight");
-
-  if (bwInput && bwUnitSelect && typeof GOLDBACK_DENOMINATIONS !== "undefined") {
-    // Build hidden denomination select
-    const denomSelect = document.createElement("select");
-    denomSelect.className = "field-input";
-    denomSelect.id = "bulkFieldVal_weightDenom";
-    denomSelect.style.display = "none";
-    denomSelect.disabled = bwInput.disabled;
-
-    GOLDBACK_DENOMINATIONS.forEach((d) => {
-      const opt = document.createElement("option");
-      opt.value = String(d.weight);
-      opt.textContent = d.label;
-      denomSelect.appendChild(opt);
-    });
-
-    // Insert right after weight input in the same row
-    bwInput.parentNode.insertBefore(denomSelect, bwInput.nextSibling);
-
-    // Restore persisted value
-    if (bulkFieldValues["weight"] !== undefined) {
-      denomSelect.value = String(bulkFieldValues["weight"]);
-    }
-
-    // Track denomination changes → update weight field value
-    denomSelect.addEventListener("change", () => {
-      bulkFieldValues["weight"] = denomSelect.value;
-    });
-
-    const bulkTypeSelect = document.getElementById("bulkFieldVal_type");
-    const bulkMetalSelect = safeGetElement("bulkFieldVal_metal");
-
-    // Swap function
-    const toggleBulkGbPicker = () => {
-      const isSb = bwUnitSelect.value === "sb" || bulkTypeSelect?.value === "Silverback";
-      const isGb = bwUnitSelect.value === "gb" && !isSb;
-      bwInput.style.display = isGb ? "none" : "";
-      denomSelect.style.display = isGb ? "" : "none";
-      if (bwLabel) bwLabel.textContent = isGb ? "DENOMINATION" : "Weight";
-      if (isGb) {
-        denomSelect.disabled = bwInput.disabled;
-        bulkFieldValues["weight"] = denomSelect.value;
-      }
-    };
-
-    const updateBulkDenomLabels = () => {
-      while (denomSelect.firstChild) denomSelect.removeChild(denomSelect.firstChild);
-      GOLDBACK_DENOMINATIONS.forEach((d) => {
-        const opt = document.createElement("option");
-        opt.value = String(d.weight);
-        opt.textContent = d.label;
-        if (d.weight === 1) opt.selected = true;
-        denomSelect.appendChild(opt);
-      });
-    };
-
-    const filterBulkTypesByMetal = (metalValue) => {
-      if (!bulkTypeSelect || typeof TYPE_METAL_FILTER === "undefined") return;
-      Array.from(bulkTypeSelect.options).forEach((option) => {
-        const allowedMetals = TYPE_METAL_FILTER[option.value];
-        const isAllowed = !Array.isArray(allowedMetals) || allowedMetals.includes(metalValue);
-        option.hidden = !isAllowed;
-        option.disabled = !isAllowed;
-      });
-
-      const selectedOption = bulkTypeSelect.options[bulkTypeSelect.selectedIndex];
-      if (selectedOption && selectedOption.hidden) {
-        bulkTypeSelect.value = "Coin";
-        handleBulkTypeChange();
-      }
-    };
-
-    const handleBulkTypeChange = () => {
-      if (!bulkTypeSelect) return;
-      const typeValue = bulkTypeSelect.value;
-      const isGoldbackType = typeValue === "Goldback";
-      const isSilverbackType = typeValue === "Silverback";
-
-      if (isGoldbackType) {
-        bwUnitSelect.value = "gb";
-        bulkFieldValues["weightUnit"] = "gb";
-        updateBulkDenomLabels();
-      } else if (isSilverbackType) {
-        bwUnitSelect.value = "sb";
-        bulkFieldValues["weightUnit"] = "sb";
-      } else if (bwUnitSelect.value === "gb" || bwUnitSelect.value === "sb") {
-        bwUnitSelect.value = "oz";
-        bulkFieldValues["weightUnit"] = "oz";
-      }
-
-      toggleBulkGbPicker();
-    };
-
-    // Listen for unit changes
-    bwUnitSelect.addEventListener("change", () => {
-      if (bulkTypeSelect?.value === "Silverback") {
-        bwUnitSelect.value = "sb";
-        bulkFieldValues["weightUnit"] = "sb";
-      }
-      toggleBulkGbPicker();
-    });
-
-    if (bulkMetalSelect) {
-      bulkMetalSelect.addEventListener("change", () => {
-        filterBulkTypesByMetal(bulkMetalSelect.value);
-        handleBulkTypeChange();
-      });
-    }
-
-    if (bulkTypeSelect) {
-      bulkTypeSelect.addEventListener("change", () => {
-        handleBulkTypeChange();
-      });
-    }
-
-    // Sync disabled state when weight checkbox toggles
-    if (bwCheckbox) {
-      bwCheckbox.addEventListener("change", () => {
-        denomSelect.disabled = !bwCheckbox.checked;
-      });
-    }
-
-    // Initialize state (e.g. if weightUnit was persisted as 'gb' or 'sb')
-    if (bulkFieldValues["weightUnit"] === "gb" || bulkFieldValues["weightUnit"] === "sb") {
-      bwUnitSelect.value = bulkFieldValues["weightUnit"];
-      toggleBulkGbPicker();
-    }
-
-    if (bulkMetalSelect) {
-      filterBulkTypesByMetal(bulkMetalSelect.value);
-    }
-    if (bulkTypeSelect) {
-      handleBulkTypeChange();
-    }
-  }
+  wireBulkWeightDenomPicker(panel);
 
   // Wire up custom purity input behavior (matches inventory modal pattern)
-  const puritySelect = safeGetElement("bulkFieldVal_purity");
-  const purityCheckbox = safeGetElement("bulkField_purity");
-  if (puritySelect) {
-    const purityCustomInput = document.createElement("input");
-    purityCustomInput.type = "number";
-    purityCustomInput.id = "bulkFieldVal_purityCustom";
-    purityCustomInput.className = "field-input";
-    purityCustomInput.min = "0.001";
-    purityCustomInput.max = "1";
-    purityCustomInput.step = "0.0001";
-    purityCustomInput.placeholder = "e.g. 0.9995";
-    purityCustomInput.setAttribute("aria-label", "Custom purity");
-    purityCustomInput.style.display = "none";
-    purityCustomInput.disabled = puritySelect.disabled;
-    puritySelect.parentNode.insertBefore(purityCustomInput, puritySelect.nextSibling);
-
-    const optionValues = new Set(Array.from(puritySelect.options).map((option) => option.value));
-    const savedPurity = bulkFieldValues.purity;
-    if (savedPurity !== undefined) {
-      const savedPurityStr = String(savedPurity);
-      if (optionValues.has(savedPurityStr) && savedPurityStr !== "custom") {
-        puritySelect.value = savedPurityStr;
-      } else {
-        puritySelect.value = "custom";
-        purityCustomInput.value = savedPurityStr;
-      }
-    }
-
-    const syncPurityState = () => {
-      const isCustom = puritySelect.value === "custom";
-      purityCustomInput.style.display = isCustom ? "" : "none";
-      purityCustomInput.disabled = puritySelect.disabled || !isCustom;
-      if (isCustom) {
-        bulkFieldValues.purity = purityCustomInput.value;
-      } else {
-        bulkFieldValues.purity = puritySelect.value;
-      }
-    };
-
-    puritySelect.addEventListener("change", syncPurityState);
-    purityCustomInput.addEventListener("input", () => {
-      bulkFieldValues.purity = purityCustomInput.value;
-    });
-    purityCustomInput.addEventListener("change", () => {
-      bulkFieldValues.purity = purityCustomInput.value;
-    });
-
-    if (purityCheckbox) {
-      purityCheckbox.addEventListener("change", () => {
-        syncPurityState();
-      });
-    }
-
-    syncPurityState();
-  }
+  wireBulkPurityCustom();
 };
 
 // =============================================================================
@@ -1390,112 +1448,204 @@ const showBulkConfirm = (message) => {
 // BULK ACTIONS
 // =============================================================================
 
-const applyBulkEdit = async () => {
-  const count = bulkSelection.size;
-  const enabledCount = bulkEnabledFields.size;
-  if (count === 0 || enabledCount === 0) return;
-
-  // Collect current field values from inputs
+/**
+ * Reads the current value of each enabled bulk-edit field input into a plain
+ * { fieldId: rawValue } map. Disabled/missing inputs are skipped.
+ * @returns {Object<string, string>} Raw input values keyed by field id
+ */
+const collectBulkFieldValues = () => {
   const valuesToApply = {};
   bulkEnabledFields.forEach((fieldId) => {
     const input = safeGetElement("bulkFieldVal_" + fieldId);
     if (input) valuesToApply[fieldId] = input.value;
   });
+  return valuesToApply;
+};
 
-  if (bulkEnabledFields.has("purity") && valuesToApply.purity === "custom") {
-    const purityCustomInput = safeGetElement("bulkFieldVal_purityCustom");
-    const rawPurity = purityCustomInput ? purityCustomInput.value.trim() : "";
-    const numericPurity = Number(rawPurity);
+/**
+ * Validates and resolves the custom-purity input when the purity select is set
+ * to "custom". On success the resolved raw purity string is written back into
+ * valuesToApply; on failure a toast is shown.
+ * @param {Object<string, string>} valuesToApply - Collected field values (mutated)
+ * @returns {boolean} true if valid (or not applicable), false to abort the apply
+ */
+const resolveBulkCustomPurity = (valuesToApply) => {
+  if (!(bulkEnabledFields.has("purity") && valuesToApply.purity === "custom")) return true;
 
-    if (
-      !rawPurity ||
-      !Number.isFinite(numericPurity) ||
-      numericPurity < 0.001 ||
-      numericPurity > 1
-    ) {
-      if (typeof showCloudToast === "function")
-        showCloudToast(
-          "Please enter a custom purity between 0.001 and 1 before applying bulk changes."
-        );
-      return;
-    }
+  const purityCustomInput = safeGetElement("bulkFieldVal_purityCustom");
+  const rawPurity = purityCustomInput ? purityCustomInput.value.trim() : "";
+  const numericPurity = Number(rawPurity);
 
-    // Keep the original string; coercion logic will normalize as needed.
-    valuesToApply.purity = rawPurity;
+  if (!rawPurity || !Number.isFinite(numericPurity) || numericPurity < 0.001 || numericPurity > 1) {
+    if (typeof showCloudToast === "function")
+      showCloudToast(
+        "Please enter a custom purity between 0.001 and 1 before applying bulk changes."
+      );
+    return false;
   }
 
-  if (bulkEnabledFields.has("type") && valuesToApply.type === "Silverback") {
-    valuesToApply.weightUnit = "sb";
+  // Keep the original string; coercion logic will normalize as needed.
+  valuesToApply.purity = rawPurity;
+  return true;
+};
+
+/**
+ * Converts a single weight value from its source unit to troy ounces for
+ * storage (matches parseWeight in events.js). Non-numeric inputs are returned
+ * unchanged.
+ * @param {string} rawWeight - Raw weight string from the input
+ * @param {string} effectiveUnit - The source unit (g/kg/lb/etc.)
+ * @returns {string} The weight string, converted to ozt when applicable
+ */
+const convertBulkWeightToOzt = (rawWeight, effectiveUnit) => {
+  const numeric = parseFloat(rawWeight);
+  if (isNaN(numeric)) return rawWeight;
+  if (effectiveUnit === "g") return String(gramsToOzt(numeric));
+  if (effectiveUnit === "kg") return String(kgToOzt(numeric));
+  if (effectiveUnit === "lb") return String(lbToOzt(numeric));
+  return rawWeight;
+};
+
+/**
+ * Normalizes the weight value in valuesToApply: applies unit→ozt conversion and
+ * reads the denomination picker when goldback mode is active. Mutates the map
+ * in place. No-op when the weight field is not enabled.
+ * @param {Object<string, string>} valuesToApply - Collected field values (mutated)
+ * @returns {void}
+ */
+const normalizeBulkWeightValue = (valuesToApply) => {
+  if (!bulkEnabledFields.has("weight")) return;
+
+  const unitSelect = safeGetElement("bulkFieldVal_weightUnit");
+  const selectUnit = unitSelect ? unitSelect.value : null;
+
+  // Convert gram/kg/lb weight to ozt for storage (matches parseWeight).
+  if (valuesToApply.weight !== undefined) {
+    const effectiveUnit = valuesToApply.weightUnit || selectUnit;
+    valuesToApply.weight = convertBulkWeightToOzt(valuesToApply.weight, effectiveUnit);
   }
 
-  // Convert gram weight to ozt for storage (matches parseWeight in events.js)
-  if (bulkEnabledFields.has("weight") && valuesToApply.weight !== undefined) {
-    const unitSelect = safeGetElement("bulkFieldVal_weightUnit");
-    const effectiveUnit = valuesToApply.weightUnit || (unitSelect ? unitSelect.value : null);
-    if (effectiveUnit === "g") {
-      const grams = parseFloat(valuesToApply.weight);
-      if (!isNaN(grams)) {
-        valuesToApply.weight = String(gramsToOzt(grams));
-      }
-    } else if (effectiveUnit === "kg") {
-      const kg = parseFloat(valuesToApply.weight);
-      if (!isNaN(kg)) {
-        valuesToApply.weight = String(kgToOzt(kg));
-      }
-    } else if (effectiveUnit === "lb") {
-      const lb = parseFloat(valuesToApply.weight);
-      if (!isNaN(lb)) {
-        valuesToApply.weight = String(lbToOzt(lb));
-      }
-    }
+  // When gb denomination mode is active, read weight from the denomination
+  // picker (the hidden number input has a stale/empty value). Check both an
+  // explicit weightUnit in the apply set and a visibly-active picker.
+  const denomSelect = safeGetElement("bulkFieldVal_weightDenom");
+  const isSbMode = valuesToApply["weightUnit"] === "sb" || selectUnit === "sb";
+  const isGbMode = !isSbMode && (valuesToApply["weightUnit"] === "gb" || selectUnit === "gb");
+  if (isGbMode && denomSelect && denomSelect.style.display !== "none") {
+    valuesToApply["weight"] = denomSelect.value;
   }
+};
 
-  // When gb denomination mode is active, read weight from the denomination picker
-  // (the hidden number input has stale/empty value).
-  // Check both: explicit weightUnit in apply set, OR denomination picker visibly active.
-  if (bulkEnabledFields.has("weight")) {
-    const denomSelect = safeGetElement("bulkFieldVal_weightDenom");
-    const unitSelect = safeGetElement("bulkFieldVal_weightUnit");
-    const isSbMode =
-      valuesToApply["weightUnit"] === "sb" || (unitSelect && unitSelect.value === "sb");
-    const isGbMode =
-      !isSbMode &&
-      (valuesToApply["weightUnit"] === "gb" || (unitSelect && unitSelect.value === "gb"));
-    if (isGbMode && denomSelect && denomSelect.style.display !== "none") {
-      valuesToApply["weight"] = denomSelect.value;
-    }
-  }
-
-  const fieldNames = [...bulkEnabledFields]
+/**
+ * Builds the human-readable comma-joined label list of all enabled fields,
+ * used in the apply-confirmation prompt.
+ * @returns {string} Comma-separated field labels
+ */
+const getBulkEnabledFieldNames = () =>
+  [...bulkEnabledFields]
     .map((id) => {
       const def = BULK_EDITABLE_FIELDS.find((f) => f.id === id);
       return def ? def.label : id;
     })
     .join(", ");
 
-  if (
-    !(await showBulkConfirm(
-      "Apply " + enabledCount + " field(s) (" + fieldNames + ") to " + count + " item(s)?"
-    ))
-  ) {
-    return;
+/**
+ * Snapshots an item for change logging, deep-copying nested objects we may
+ * mutate (numistaData, fieldMeta) so the snapshot survives in-place edits — a
+ * shallow Object.assign would share references and erase before/after diffs
+ * (STRK-91).
+ * @param {Object} item - The inventory item to snapshot
+ * @returns {Object} A snapshot with deep-copied nested objects
+ */
+const snapshotBulkItem = (item) => {
+  const oldItem = Object.assign({}, item);
+  if (item.numistaData && typeof item.numistaData === "object") {
+    oldItem.numistaData = structuredClone(item.numistaData);
+  }
+  if (item.fieldMeta && typeof item.fieldMeta === "object") {
+    oldItem.fieldMeta = structuredClone(item.fieldMeta);
+  }
+  return oldItem;
+};
+
+/**
+ * Clears incompatible numistaData dimension keys after a shape change, mirroring
+ * the single-item modal's toggleDimensionFields behavior. Intentionally skips
+ * the parseDimensions copy-then-clear step — bulk edit just clears stale keys
+ * cleanly (STRK-91 explicit decision).
+ * @param {Object} item - The inventory item with a freshly-applied shape
+ * @returns {void}
+ */
+const clearIncompatibleShapeDimensions = (item) => {
+  const shapeValue = item.numistaData.shape;
+  const category =
+    typeof window.classifyShape === "function" ? window.classifyShape(shapeValue) : "round";
+  if (category === "rectangular" || category === "square") {
+    delete item.numistaData.diameter;
+  } else {
+    delete item.numistaData.length;
+    delete item.numistaData.width;
+  }
+};
+
+/**
+ * Applies the post-assignment cleanup/side-effects for a single bulk-edited
+ * item: empty-key deletions (paymentMethod/capsule), shape dimension cleanup,
+ * user-modified tracking, capsule autocomplete registration, and search-cache
+ * invalidation.
+ * @param {Object} item - The inventory item after field values were applied
+ * @returns {void}
+ */
+const applyBulkItemSideEffects = (item) => {
+  if (bulkEnabledFields.has("paymentMethod") && !item.paymentMethod) {
+    delete item.paymentMethod;
   }
 
+  // Empty capsule / capsuleNotes → delete key (parity with paymentMethod).
+  if (bulkEnabledFields.has("capsule") && !item.capsule) {
+    delete item.capsule;
+  }
+  if (bulkEnabledFields.has("capsuleNotes") && !item.capsuleNotes) {
+    delete item.capsuleNotes;
+  }
+
+  if (bulkEnabledFields.has("shape") && item.numistaData) {
+    clearIncompatibleShapeDimensions(item);
+  }
+
+  // Track user-overridden shape for parity with single-item modal
+  // (events.js:1830-1869).
+  if (bulkEnabledFields.has("shape") && typeof window.markUserModified === "function") {
+    window.markUserModified(item, "shape");
+  }
+
+  // Register non-empty capsule for autocomplete (capsuleNotes is NOT registered).
+  if (
+    bulkEnabledFields.has("capsule") &&
+    item.capsule &&
+    typeof window.registerCapsule === "function"
+  ) {
+    window.registerCapsule(item.capsule);
+  }
+
+  // STACK-62: Invalidate search cache for modified item
+  if (typeof window.invalidateSearchCache === "function") {
+    window.invalidateSearchCache(item);
+  }
+};
+
+/**
+ * Applies the collected field values (plus cleanup side-effects and change
+ * logging) to every selected inventory item.
+ * @param {Object<string, string>} valuesToApply - Resolved field values
+ * @returns {number} The count of items updated
+ */
+const applyBulkValuesToSelection = (valuesToApply) => {
   let updated = 0;
   inventory.forEach((item) => {
     if (!bulkSelection.has(String(item.serial))) return;
 
-    // Snapshot old item for change logging. Deep-copy nested objects we may
-    // mutate (numistaData, fieldMeta) so the snapshot survives in-place edits
-    // — shallow Object.assign would share references and erase before/after
-    // diffs (STRK-91).
-    const oldItem = Object.assign({}, item);
-    if (item.numistaData && typeof item.numistaData === "object") {
-      oldItem.numistaData = structuredClone(item.numistaData);
-    }
-    if (item.fieldMeta && typeof item.fieldMeta === "object") {
-      oldItem.fieldMeta = structuredClone(item.fieldMeta);
-    }
+    const oldItem = snapshotBulkItem(item);
 
     // Apply each enabled field — honor BULK_FIELD_STORAGE_MAP for nested paths.
     Object.keys(valuesToApply).forEach((fieldId) => {
@@ -1503,53 +1653,7 @@ const applyBulkEdit = async () => {
       applyBulkFieldToItem(item, fieldId, coerced);
     });
 
-    if (bulkEnabledFields.has("paymentMethod") && !item.paymentMethod) {
-      delete item.paymentMethod;
-    }
-
-    // Empty capsule / capsuleNotes → delete key (parity with paymentMethod).
-    if (bulkEnabledFields.has("capsule") && !item.capsule) {
-      delete item.capsule;
-    }
-    if (bulkEnabledFields.has("capsuleNotes") && !item.capsuleNotes) {
-      delete item.capsuleNotes;
-    }
-
-    // Shape overrides: clear incompatible dimension keys on numistaData.
-    // Mirrors the single-item modal's toggleDimensionFields behavior, but
-    // intentionally skips the parseDimensions copy-then-clear step — bulk
-    // edit just clears stale keys cleanly (STRK-91 explicit decision).
-    if (bulkEnabledFields.has("shape") && item.numistaData) {
-      const shapeValue = item.numistaData.shape;
-      const category =
-        typeof window.classifyShape === "function" ? window.classifyShape(shapeValue) : "round";
-      if (category === "rectangular" || category === "square") {
-        delete item.numistaData.diameter;
-      } else {
-        delete item.numistaData.length;
-        delete item.numistaData.width;
-      }
-    }
-
-    // Track user-overridden shape for parity with single-item modal
-    // (events.js:1830-1869).
-    if (bulkEnabledFields.has("shape") && typeof window.markUserModified === "function") {
-      window.markUserModified(item, "shape");
-    }
-
-    // Register non-empty capsule for autocomplete (capsuleNotes is NOT registered).
-    if (
-      bulkEnabledFields.has("capsule") &&
-      item.capsule &&
-      typeof window.registerCapsule === "function"
-    ) {
-      window.registerCapsule(item.capsule);
-    }
-
-    // STACK-62: Invalidate search cache for modified item
-    if (typeof window.invalidateSearchCache === "function") {
-      window.invalidateSearchCache(item);
-    }
+    applyBulkItemSideEffects(item);
 
     // Log changes for undo support
     if (typeof logItemChanges === "function") {
@@ -1558,17 +1662,51 @@ const applyBulkEdit = async () => {
 
     updated++;
   });
+  return updated;
+};
 
-  // Record price data points for bulk-edited items with price-related changes (STACK-43)
-  if (typeof recordItemPrice === "function") {
-    const priceFields = ["price", "marketValue", "weight", "weightUnit", "qty", "metal", "purity"];
-    if ([...bulkEnabledFields].some((id) => priceFields.includes(id))) {
-      inventory.forEach((item) => {
-        if (bulkSelection.has(String(item.serial))) recordItemPrice(item, "bulk");
-      });
-      saveItemPriceHistory();
-    }
+/**
+ * Records price data points for selected items when any price-relevant field
+ * was edited (STACK-43), then persists price history.
+ * @returns {void}
+ */
+const recordBulkPriceHistory = () => {
+  if (typeof recordItemPrice !== "function") return;
+  const priceFields = ["price", "marketValue", "weight", "weightUnit", "qty", "metal", "purity"];
+  if (![...bulkEnabledFields].some((id) => priceFields.includes(id))) return;
+  inventory.forEach((item) => {
+    if (bulkSelection.has(String(item.serial))) recordItemPrice(item, "bulk");
+  });
+  saveItemPriceHistory();
+};
+
+const applyBulkEdit = async () => {
+  const count = bulkSelection.size;
+  const enabledCount = bulkEnabledFields.size;
+  if (count === 0 || enabledCount === 0) return;
+
+  const valuesToApply = collectBulkFieldValues();
+
+  if (!resolveBulkCustomPurity(valuesToApply)) return;
+
+  if (bulkEnabledFields.has("type") && valuesToApply.type === "Silverback") {
+    valuesToApply.weightUnit = "sb";
   }
+
+  normalizeBulkWeightValue(valuesToApply);
+
+  const fieldNames = getBulkEnabledFieldNames();
+  if (
+    !(await showBulkConfirm(
+      "Apply " + enabledCount + " field(s) (" + fieldNames + ") to " + count + " item(s)?"
+    ))
+  ) {
+    return;
+  }
+
+  const updated = applyBulkValuesToSelection(valuesToApply);
+
+  recordBulkPriceHistory();
 
   // Persist and re-render
   if (typeof saveInventory === "function") saveInventory();
