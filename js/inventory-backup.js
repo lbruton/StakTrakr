@@ -1101,11 +1101,12 @@ Store this archive in a secure location for data protection.
   };
 
   // ---------------------------------------------------------------------------
-  // Regex-bearing restore helpers — kept LAST in the file. Lizard's JS lexer can
-  // desync on regex literals; defining the `/^(.+)_(obverse|reverse)\.jpg$/`-bearing
-  // helpers after every other function keeps per-function metrics accurate
-  // (see [[lizard-esc-regex-desync]]). Runtime order is unaffected — these consts
-  // are only invoked at restore time, long after module init completes.
+  // Image-restore fallbacks + their shared filename collector. The single
+  // `/^(.+)_(obverse|reverse)\.jpg$/`-bearing helper (_collectSidedImagesFromFolder)
+  // is defined LAST in the file — Lizard's JS lexer can desync on regex literals, so
+  // keeping the sole regex site after every other function keeps per-function metrics
+  // accurate (see [[lizard-esc-regex-desync]]). Runtime order is unaffected — these
+  // consts are only invoked at restore time, long after module init completes.
   // ---------------------------------------------------------------------------
 
   /**
@@ -1138,15 +1139,7 @@ Store this archive in a secure location for data protection.
       return;
     }
 
-    const userEntries = [];
-    userImgFolder.forEach((path, zipFile) => userEntries.push({ path, file: zipFile }));
-    const userImageMap = new Map();
-    for (const { path, file: zipFile } of userEntries) {
-      const m = path.match(/^(.+)_(obverse|reverse)\.jpg$/);
-      if (!m) continue;
-      if (!userImageMap.has(m[1])) userImageMap.set(m[1], {});
-      userImageMap.get(m[1])[m[2]] = await zipFile.async("blob");
-    }
+    const userImageMap = await _collectSidedImagesFromFolder(userImgFolder);
     for (const [uuid, sides] of userImageMap) {
       await imageCache.importUserImageRecord({
         uuid,
@@ -1169,15 +1162,7 @@ Store this archive in a secure location for data protection.
     const patternImgFolder = zip.folder("pattern_images");
     if (!patternImgFolder) return;
 
-    const patternEntries = [];
-    patternImgFolder.forEach((path, zipFile) => patternEntries.push({ path, file: zipFile }));
-    const patternImageMap = new Map();
-    for (const { path, file: zipFile } of patternEntries) {
-      const m = path.match(/^(.+)_(obverse|reverse)\.jpg$/);
-      if (!m) continue;
-      if (!patternImageMap.has(m[1])) patternImageMap.set(m[1], {});
-      patternImageMap.get(m[1])[m[2]] = await zipFile.async("blob");
-    }
+    const patternImageMap = await _collectSidedImagesFromFolder(patternImgFolder);
     for (const [ruleId, sides] of patternImageMap) {
       await imageCache.importPatternImageRecord({
         ruleId,
@@ -1187,6 +1172,28 @@ Store this archive in a secure location for data protection.
         size: (sides.obverse?.size || 0) + (sides.reverse?.size || 0),
       });
     }
+  };
+
+  /**
+   * Collects obverse/reverse image blobs from a ZIP folder by filename, keyed by
+   * the leading id segment of `{id}_{side}.jpg`. Shared by the user-image and
+   * pattern-image restore fallbacks so the sole `/^(.+)_(obverse|reverse)\.jpg$/`
+   * parse site lives in one place. Defined LAST in the file (lexer desync rule).
+   *
+   * @param {JSZip} folder - The ZIP subfolder (user_images or pattern_images).
+   * @returns {Promise<Map<string, {obverse?: Blob, reverse?: Blob}>>} id -> sides.
+   */
+  const _collectSidedImagesFromFolder = async (folder) => {
+    const entries = [];
+    folder.forEach((path, zipFile) => entries.push({ path, file: zipFile }));
+    const sidedById = new Map();
+    for (const { path, file: zipFile } of entries) {
+      const m = path.match(/^(.+)_(obverse|reverse)\.jpg$/);
+      if (!m) continue;
+      if (!sidedById.has(m[1])) sidedById.set(m[1], {});
+      sidedById.get(m[1])[m[2]] = await zipFile.async("blob");
+    }
+    return sidedById;
   };
 
   window.createBackupZip = createBackupZip;
