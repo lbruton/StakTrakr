@@ -67,6 +67,25 @@ const _openVendorPopup = (url, vid) => {
 };
 
 /**
+ * Resolve a vendor's buy URL: prefer the live retailProviders map, then an
+ * optional per-entry URL, then the vendor-meta URL. Shared by the ticker,
+ * detail modal, and vendor matrix.
+ * @param {string} slug - Retail coin slug.
+ * @param {string} vid - Vendor id.
+ * @param {Object} vendorMeta - Vendor-meta map (url fallback by vendor id).
+ * @param {(string|null)} [entryUrl=null] - Optional per-entry URL fallback (detail modal).
+ * @returns {(string|null)} The resolved URL, or null.
+ */
+const _resolveVendorUrl = (slug, vid, vendorMeta, entryUrl = null) => {
+  return (
+    (window.retailProviders && window.retailProviders[slug] && window.retailProviders[slug][vid]) ||
+    entryUrl ||
+    (vendorMeta && vendorMeta[vid] && vendorMeta[vid].url) ||
+    null
+  );
+};
+
+/**
  * Resolve coin metadata for a slug, preferring the cached manifest map over the
  * live global lookup. Used by the ticker and detail modal (which favor the map);
  * the vendor matrix uses _getRetailCoinMetaForSlug, which prefers the live lookup.
@@ -370,12 +389,7 @@ const _buildTickerItem = (slug, coin, coinMetaMap, vendorMeta) => {
 
   const vendorName = _shortVendor(bestVid);
   const vendorColor = vendorMeta[bestVid] ? vendorMeta[bestVid].color : null;
-  const vendorUrl =
-    (window.retailProviders &&
-      window.retailProviders[slug] &&
-      window.retailProviders[slug][bestVid]) ||
-    (vendorMeta[bestVid] && vendorMeta[bestVid].url) ||
-    null;
+  const vendorUrl = _resolveVendorUrl(slug, bestVid, vendorMeta);
 
   return {
     slug,
@@ -660,13 +674,7 @@ const _buildModalPriceSummary = (content, detail, slug) => {
   if (!detail) return;
   const coins = _getRetailCoins();
   const coinSummary = coins[slug];
-  const median = coinSummary
-    ? coinSummary.median_price != null
-      ? coinSummary.median_price
-      : coinSummary.median != null
-        ? coinSummary.median
-        : null
-    : null;
+  const median = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
   const low = detail.lowest_price || (coinSummary && coinSummary.lowest_price) || null;
   const high = detail.highest_price || (coinSummary && coinSummary.highest_price) || null;
   const spread = low != null && high != null ? high - low : null;
@@ -810,18 +818,12 @@ const _buildModalChartSection = (content, retailHistory, retailIntraday, vendorM
  * (opening a detached popup) when a safe vendor URL resolves, else a muted dash.
  * @param {Object} entry - Vendor entry ({vid, url, ...}).
  * @param {string} slug - Retail coin slug (provider URL lookup).
- * @param {(Object|undefined)} vMeta - Resolved vendor meta for entry.vid (url fallback).
+ * @param {Object} vendorMeta - Vendor-meta map (url fallback for entry.vid).
  * @returns {HTMLTableCellElement} The buy cell.
  */
-const _buildModalBuyCell = (entry, slug, vMeta) => {
+const _buildModalBuyCell = (entry, slug, vendorMeta) => {
   const tdBuy = document.createElement("td");
-  const url =
-    (window.retailProviders &&
-      window.retailProviders[slug] &&
-      window.retailProviders[slug][entry.vid]) ||
-    entry.url ||
-    (vMeta && vMeta.url) ||
-    null;
+  const url = _resolveVendorUrl(slug, entry.vid, vendorMeta, entry.url);
   if (_isSafeUrl(url)) {
     const buyBtn = document.createElement("a");
     buyBtn.textContent = "Buy";
@@ -903,7 +905,7 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   }
   tr.appendChild(tdStock);
 
-  tr.appendChild(_buildModalBuyCell(entry, slug, vMeta));
+  tr.appendChild(_buildModalBuyCell(entry, slug, vendorMeta));
 
   return tr;
 };
@@ -1341,12 +1343,7 @@ const _buildVendorPriceCell = (
   priceSpan.textContent = formatCurrency(vInfo.price);
   priceSpan.style.cursor = "pointer";
   priceSpan.addEventListener("click", () => {
-    const url =
-      (window.retailProviders &&
-        window.retailProviders[slug] &&
-        window.retailProviders[slug][vid]) ||
-      (vendorMeta[vid] && vendorMeta[vid].url) ||
-      null;
+    const url = _resolveVendorUrl(slug, vid, vendorMeta);
     if (_isSafeUrl(url)) _openVendorPopup(url, vid);
   });
   td.appendChild(priceSpan);
@@ -1413,11 +1410,7 @@ const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) 
 
   const coinSummary = coins[slug];
   const tdMedian = document.createElement("td");
-  const medianVal = coinSummary
-    ? coinSummary.median_price != null
-      ? coinSummary.median_price
-      : coinSummary.median
-    : null;
+  const medianVal = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
   tdMedian.textContent = medianVal != null ? formatCurrency(medianVal) : "—";
   tr.appendChild(tdMedian);
 
