@@ -741,6 +741,172 @@ test.describe("payment-method", () => {
       return stored.length === 1 && stored[0].paymentMethod === "Wire";
     });
   });
+
+  // ── STRK-170 characterization: pin editItem() field-population mapping ───────
+  // Behavior-preserving guard for the editItem complexity refactor (cohort 1.1).
+  // It pins the surfaces the helper extraction most risks: the weight-unit branch
+  // chain (gb/kg/lb/g/oz + the sub-ounce→grams fallthrough), the FX/precision
+  // price display, the metadata field→input mapping, purity preset/custom
+  // selection, the storageLocation "Unknown" sentinel→blank, and the date-N/A
+  // toggle. MUST pass on current code BEFORE the refactor and stay green after —
+  // it goes red only if the refactor changes observable behavior.
+  test("STRK-170: editItem populates form fields from item (characterization)", async ({
+    page,
+  }) => {
+    await seedData(page, [
+      // 0 — kitchen-sink oz item: full metadata + preset purity + present date
+      makeItem({
+        serial: 1,
+        uuid: "strk170-oz",
+        name: "STRK-170 Oz Eagle",
+        metal: "Silver",
+        composition: "Silver",
+        type: "Coin",
+        qty: 3,
+        weight: 1,
+        weightUnit: "oz",
+        price: 30,
+        marketValue: 35,
+        purity: 0.999,
+        paymentMethod: "Zelle",
+        purchaseLocation: "Local coin shop",
+        storageLocation: "Safe",
+        serialNumber: "SN-123",
+        notes: "char-test notes",
+        capsule: "A-32",
+        capsuleNotes: "snug",
+        date: "2026-05-13",
+        year: "2026",
+        grade: "MS-70",
+        gradingAuthority: "PCGS",
+        certNumber: "C-987",
+        pcgsNumber: "786060",
+        numistaId: "12345",
+        obverseImageUrl: "https://example.com/obv.png",
+        reverseImageUrl: "https://example.com/rev.png",
+        ignorePatternImages: true,
+      }),
+      // 1 — sub-ounce oz item: weight < 1 routes to the grams branch
+      makeItem({
+        serial: 2,
+        uuid: "strk170-sub",
+        name: "Sub-ounce",
+        weight: 0.5,
+        weightUnit: "oz",
+      }),
+      // 2 — kg item
+      makeItem({
+        serial: 3,
+        uuid: "strk170-kg",
+        name: "Kg bar",
+        weight: 32.1507466,
+        weightUnit: "kg",
+      }),
+      // 3 — lb item
+      makeItem({
+        serial: 4,
+        uuid: "strk170-lb",
+        name: "Lb bar",
+        weight: 14.5833,
+        weightUnit: "lb",
+      }),
+      // 4 — goldback (gb) item
+      makeItem({
+        serial: 5,
+        uuid: "strk170-gb",
+        name: "Goldback",
+        metal: "Gold",
+        composition: "Gold",
+        weight: 1,
+        weightUnit: "gb",
+      }),
+      // 5 — custom (non-preset) purity
+      makeItem({ serial: 6, uuid: "strk170-custom", name: "Custom purity", purity: 0.835 }),
+      // 6 — storageLocation "Unknown" sentinel → blank field
+      makeItem({
+        serial: 7,
+        uuid: "strk170-unknown",
+        name: "Unknown storage",
+        storageLocation: "Unknown",
+      }),
+      // 7 — no purchase date → date N/A toggle active + date input disabled
+      makeItem({ serial: 8, uuid: "strk170-nodate", name: "No date", date: "" }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    const openEdit = async (idx) => {
+      await page.evaluate((i) => window.editItem(i), idx);
+      await expect(page.locator("#itemModal")).toBeVisible();
+    };
+
+    // ── 0: kitchen-sink field mapping ──
+    await openEdit(0);
+    await expect(page.locator("#itemMetal")).toHaveValue("Silver");
+    await expect(page.locator("#itemName")).toHaveValue("STRK-170 Oz Eagle");
+    await expect(page.locator("#itemQty")).toHaveValue("3");
+    await expect(page.locator("#itemType")).toHaveValue("Coin");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("oz");
+    await expect(page.locator("#itemWeight")).toHaveValue("1.00");
+    await expect(page.locator("#itemPrice")).toHaveValue("30.00");
+    await expect(page.locator("#itemMarketValue")).toHaveValue("35.00");
+    await expect(page.locator("#itemPaymentMethod")).toHaveValue("Zelle");
+    await expect(page.locator("#purchaseLocation")).toHaveValue("Local coin shop");
+    await expect(page.locator("#storageLocation")).toHaveValue("Safe");
+    await expect(page.locator("#itemSerialNumber")).toHaveValue("SN-123");
+    await expect(page.locator("#itemNotes")).toHaveValue("char-test notes");
+    await expect(page.locator("#itemCapsule")).toHaveValue("A-32");
+    await expect(page.locator("#itemCapsuleNotes")).toHaveValue("snug");
+    await expect(page.locator("#itemDate")).toHaveValue("2026-05-13");
+    await expect(page.locator("#itemYear")).toHaveValue("2026");
+    await expect(page.locator("#itemGrade")).toHaveValue("MS-70");
+    await expect(page.locator("#itemGradingAuthority")).toHaveValue("PCGS");
+    await expect(page.locator("#itemCertNumber")).toHaveValue("C-987");
+    await expect(page.locator("#itemPcgsNumber")).toHaveValue("786060");
+    await expect(page.locator("#itemCatalog")).toHaveValue("12345");
+    await expect(page.locator("#itemObverseImageUrl")).toHaveValue("https://example.com/obv.png");
+    await expect(page.locator("#itemReverseImageUrl")).toHaveValue("https://example.com/rev.png");
+    await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
+    // preset purity → select set, custom wrapper hidden, custom input cleared
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("0.999");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+    await expect(page.locator("#itemPurity")).toHaveValue("");
+    // present date → N/A toggle inactive, date input enabled
+    await expect(page.locator("#itemDateNABtn")).not.toHaveClass(/\bactive\b/);
+    await expect(page.locator("#itemDate")).toBeEnabled();
+
+    // ── 1: sub-ounce oz weight routes to the grams branch ──
+    await openEdit(1);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
+
+    // ── 2: kg branch ──
+    await openEdit(2);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("kg");
+
+    // ── 3: lb branch ──
+    await openEdit(3);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("lb");
+
+    // ── 4: goldback branch ──
+    await openEdit(4);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("gb");
+    await expect(page.locator("#itemWeight")).toHaveValue("1");
+
+    // ── 5: custom (non-preset) purity → select=custom, wrapper shown, input set ──
+    await openEdit(5);
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("custom");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.835");
+
+    // ── 6: storageLocation "Unknown" sentinel → blank field ──
+    await openEdit(6);
+    await expect(page.locator("#storageLocation")).toHaveValue("");
+
+    // ── 7: no date → N/A toggle active + date input disabled ──
+    await openEdit(7);
+    await expect(page.locator("#itemDateNABtn")).toHaveClass(/\bactive\b/);
+    await expect(page.locator("#itemDate")).toBeDisabled();
+  });
 });
 
 // ─── Virtual sort options (from virtual-sort-options.spec.js) ────────────────

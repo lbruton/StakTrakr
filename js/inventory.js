@@ -908,6 +908,67 @@ const removeTradeLinkReference = (disposedItem, receivedUuid, { log = true } = {
   }
 };
 
+/**
+ * Prompt the user to reassign a received item that is already linked to another
+ * trade. Returns true to proceed with the relink, false to skip it.
+ * @param {object} receivedItem - The received item whose link would be reassigned.
+ * @returns {Promise<boolean>} Whether the caller should proceed with relinking.
+ */
+const _confirmTradeReassign = async (receivedItem) =>
+  typeof showAppConfirm === "function"
+    ? await showAppConfirm(
+        `"${receivedItem.name}" is already linked to another trade. Reassign it?`,
+        "Reassign Trade Link"
+      )
+    : false;
+
+/**
+ * Apply a single disposed -> received trade link: record the change-log "before"
+ * snapshot, add the received uuid to the disposition, compute/store the received
+ * trade value, set the received item's cost basis to the given-up item's
+ * carryover value (STRK-132), and push the bidirectional change-log entry.
+ * @param {object} disposedItem - The item being disposed (trade source).
+ * @param {object} receivedItem - The item received in trade.
+ * @param {string} receivedUuid - The received item's uuid.
+ * @param {string} tradeDate - Effective trade date.
+ * @param {number} receivedCount - Total received items (cost-basis divisor).
+ */
+const _applyTradeLink = (disposedItem, receivedItem, receivedUuid, tradeDate, receivedCount) => {
+  const before = {
+    disposedUuid: disposedItem.uuid,
+    receivedUuid,
+    tradedForUuids: [...disposedItem.disposition.tradedForUuids],
+    tradedFromUuid: receivedItem.tradedFromUuid || null,
+  };
+  if (!disposedItem.disposition.tradedForUuids.includes(receivedUuid)) {
+    disposedItem.disposition.tradedForUuids.push(receivedUuid);
+  }
+  const tradeValue =
+    typeof computeTradeValue === "function" ? computeTradeValue(receivedItem, tradeDate) : null;
+  if (tradeValue) disposedItem.disposition.tradeValues[receivedUuid] = tradeValue;
+  receivedItem.tradedFromUuid = disposedItem.uuid;
+
+  // STRK-132: cost basis = given-up item's value at trade date (carryover),
+  // NOT the FMV of the received item. Matches the "what did I pay?" mental
+  // model consistent with cash purchases.
+  const givenUpTradeValue =
+    typeof computeTradeValue === "function" ? computeTradeValue(disposedItem, tradeDate) : null;
+  const givenUpValue =
+    givenUpTradeValue?.meltValue || parseFloat(disposedItem.disposition.amount) || 0;
+  if (givenUpValue > 0 && receivedCount > 0) {
+    receivedItem.price = String(givenUpValue / receivedCount);
+    receivedItem.date = tradeDate || disposedItem.disposition.date || "";
+  }
+
+  pushTradeLinkChange(disposedItem, receivedItem, before, {
+    disposedUuid: disposedItem.uuid,
+    receivedUuid,
+    tradedForUuids: [...disposedItem.disposition.tradedForUuids],
+    tradedFromUuid: disposedItem.uuid,
+    tradeValue: disposedItem.disposition.tradeValues[receivedUuid] || null,
+  });
+};
+
 const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
   if (!disposedItem?.disposition || !Array.isArray(receivedUuids)) return [];
   if (!Array.isArray(disposedItem.disposition.tradedForUuids)) {
@@ -919,51 +980,13 @@ const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
     const receivedItem = typeof findItemByUuid === "function" ? findItemByUuid(receivedUuid) : null;
     if (!receivedItem || receivedItem.uuid === disposedItem.uuid) continue;
     if (receivedItem.tradedFromUuid && receivedItem.tradedFromUuid !== disposedItem.uuid) {
-      const proceed =
-        typeof showAppConfirm === "function"
-          ? await showAppConfirm(
-              `"${receivedItem.name}" is already linked to another trade. Reassign it?`,
-              "Reassign Trade Link"
-            )
-          : false;
+      const proceed = await _confirmTradeReassign(receivedItem);
       if (!proceed) continue;
       const oldSource =
         typeof findItemByUuid === "function" ? findItemByUuid(receivedItem.tradedFromUuid) : null;
       removeTradeLinkReference(oldSource, receivedUuid);
     }
-    const before = {
-      disposedUuid: disposedItem.uuid,
-      receivedUuid,
-      tradedForUuids: [...disposedItem.disposition.tradedForUuids],
-      tradedFromUuid: receivedItem.tradedFromUuid || null,
-    };
-    if (!disposedItem.disposition.tradedForUuids.includes(receivedUuid)) {
-      disposedItem.disposition.tradedForUuids.push(receivedUuid);
-    }
-    const tradeValue =
-      typeof computeTradeValue === "function" ? computeTradeValue(receivedItem, tradeDate) : null;
-    if (tradeValue) disposedItem.disposition.tradeValues[receivedUuid] = tradeValue;
-    receivedItem.tradedFromUuid = disposedItem.uuid;
-
-    // STRK-132: cost basis = given-up item's value at trade date (carryover),
-    // NOT the FMV of the received item. Matches the "what did I pay?" mental
-    // model consistent with cash purchases.
-    const givenUpTradeValue =
-      typeof computeTradeValue === "function" ? computeTradeValue(disposedItem, tradeDate) : null;
-    const givenUpValue =
-      givenUpTradeValue?.meltValue || parseFloat(disposedItem.disposition.amount) || 0;
-    if (givenUpValue > 0 && receivedUuids.length > 0) {
-      receivedItem.price = String(givenUpValue / receivedUuids.length);
-      receivedItem.date = tradeDate || disposedItem.disposition.date || "";
-    }
-
-    pushTradeLinkChange(disposedItem, receivedItem, before, {
-      disposedUuid: disposedItem.uuid,
-      receivedUuid,
-      tradedForUuids: [...disposedItem.disposition.tradedForUuids],
-      tradedFromUuid: disposedItem.uuid,
-      tradeValue: disposedItem.disposition.tradeValues[receivedUuid] || null,
-    });
+    _applyTradeLink(disposedItem, receivedItem, receivedUuid, tradeDate, receivedUuids.length);
     linked.push(receivedUuid);
   }
   if (Object.keys(disposedItem.disposition.tradeValues).length === 0) {
@@ -1002,6 +1025,186 @@ const clearTradeLinks = (disposedItem) => {
  * Confirms removal from the combined Remove Item modal (STAK-72).
  * Reads checkbox state to decide between plain delete and disposition.
  */
+/**
+ * Resolve and validate the disposed quantity from the remove-item modal. Returns
+ * the integer quantity, or null after toasting on an invalid value. Hidden/empty
+ * qty inputs default to the full stack quantity.
+ * @param {object} item - The inventory item being disposed.
+ * @returns {number|null} Disposed quantity, or null if invalid.
+ */
+const _resolveDisposedQty = (item) => {
+  const qtyInputEl = safeGetElement("removeItemQty");
+  const qtyHidden = !qtyInputEl || qtyInputEl.closest(".form-group")?.style.display === "none";
+  let disposedQty;
+  if (qtyHidden || qtyInputEl.value === "") {
+    disposedQty = Number(item.qty) || 1;
+  } else {
+    disposedQty = Number(qtyInputEl.value);
+    // STRK-53: defense-in-depth. The chip/<select> UI does not expose a path to a non-integer
+    // value. This branch is reachable only via programmatic DOM access -- keep as a safety net.
+    if (!Number.isInteger(disposedQty)) {
+      showToast("Please enter a whole number quantity to dispose.");
+      return null;
+    }
+  }
+
+  // STRK-53: defense-in-depth. Same reasoning as above -- out-of-range values are not
+  // selectable through the UI.
+  if (!Number.isFinite(disposedQty) || disposedQty < 1 || disposedQty > (Number(item.qty) || 1)) {
+    showToast("Please enter a valid quantity to dispose.");
+    return null;
+  }
+  return disposedQty;
+};
+
+/**
+ * Resolve the disposition amount from the modal, applying the each/lot toggle.
+ * Returns undefined when no finite amount was entered (required-amount checks are
+ * the caller's responsibility).
+ * @param {number} disposedQty - The resolved disposed quantity (each-mode multiplier).
+ * @returns {number|undefined} The resolved amount, or undefined when unset.
+ */
+const _resolveDisposedAmount = (disposedQty) => {
+  const amountMode = window.disposeAmountToggle?.getMode() ?? "each";
+  const rawAmount = parseFloat(safeGetElement("dispositionAmount")?.value ?? "");
+  if (!Number.isFinite(rawAmount)) return undefined;
+  if (amountMode === "each") return rawAmount * disposedQty;
+  return rawAmount;
+};
+
+/**
+ * Read and validate the disposition form inputs for confirmRemoveItem. Shows a
+ * toast and returns null on any validation failure; otherwise returns the
+ * resolved disposition input. Behavior-identical to the inline validation it
+ * replaced (each failure path still toasts and aborts).
+ * @param {object} item - The inventory item being disposed.
+ * @returns {{type:string,date:string,recipient:string,notes:string,disposedQty:number,resolvedAmount:(number|undefined)}|null}
+ */
+const _resolveDispositionInput = (item) => {
+  // Disposition flow — validate fields
+  const type = safeGetElement("dispositionType")?.value;
+  const date = safeGetElement("dispositionDate")?.value;
+  const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
+  const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
+
+  if (!type || !DISPOSITION_TYPES[type]) {
+    showToast("Please select a disposition type.");
+    return null;
+  }
+  if (!date) {
+    showToast("Please enter a disposition date.");
+    return null;
+  }
+
+  const disposedQty = _resolveDisposedQty(item);
+  if (disposedQty === null) return null; // helper already toasted
+
+  const resolvedAmount = _resolveDisposedAmount(disposedQty);
+  if (
+    DISPOSITION_TYPES[type].requiresAmount &&
+    (resolvedAmount === null || resolvedAmount === undefined || resolvedAmount <= 0)
+  ) {
+    showToast("Please enter a sale/trade/refund amount.");
+    return null;
+  }
+
+  return { type, date, recipient, notes, disposedQty, resolvedAmount };
+};
+
+/**
+ * Partial-dispose path: split the stack into a disposed clone, then re-render.
+ * Shows a toast and aborts if the split fails. Performs its own renders, so the
+ * caller returns without falling through to the shared render block.
+ * @param {number} idx - Inventory index of the stack being split.
+ * @param {object} input - Resolved disposition input from _resolveDispositionInput.
+ */
+const _disposePartialStack = async (idx, input) => {
+  const dispositionInput = {
+    type: input.type,
+    date: input.date,
+    amount: input.resolvedAmount,
+    currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+    recipient: input.recipient,
+    notes: input.notes,
+    tradedForUuids: window.getPendingTradeLinkUuids?.() || [],
+  };
+  const result = await splitInventoryItem(idx, input.disposedQty, dispositionInput);
+  if (!result.ok) {
+    showToast(`Could not split stack: ${result.error}`);
+    return;
+  }
+  renderTable();
+  if (typeof renderChangeLog === "function") renderChangeLog();
+  closeModalById("removeItemModal");
+  renderActiveFilters();
+  updateSummary();
+};
+
+/**
+ * Full-stack dispose path: build the disposition record, link trades when the
+ * type is "traded", persist, close the modal, log, and toast.
+ * @param {number} idx - Inventory index of the item being disposed.
+ * @param {object} item - The inventory item being disposed.
+ * @param {object} input - Resolved disposition input from _resolveDispositionInput.
+ */
+const _disposeFullStack = async (idx, item, input) => {
+  const amount = input.resolvedAmount ?? 0;
+  const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
+  const realizedGainLoss = amount - purchaseTotal;
+
+  const disposition = {
+    type: input.type,
+    date: input.date,
+    amount,
+    currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
+    recipient: input.recipient,
+    notes: input.notes,
+    realizedGainLoss,
+    disposedAt: new Date().toISOString(),
+  };
+
+  inventory[idx].disposition = disposition;
+  if (input.type === "traded") {
+    await linkTradeItems(item, window.getPendingTradeLinkUuids?.() || [], input.date);
+  }
+  saveInventory();
+  closeModalById("removeItemModal");
+  logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
+  showToast(`${item.name} marked as ${DISPOSITION_TYPES[input.type].label.toLowerCase()}.`);
+};
+
+/**
+ * Plain-delete path: remove the item from inventory, persist, log, and clean up
+ * its user images, attachments, and tags from IndexedDB.
+ * @param {object} item - The inventory item being deleted.
+ * @param {number} idx - Inventory index of the item being deleted.
+ */
+const _deleteInventoryItem = (item, idx) => {
+  inventory.splice(idx, 1);
+  saveInventory();
+  closeModalById("removeItemModal");
+  logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
+
+  // Clean up user images from IndexedDB (STAK-120)
+  if (item?.uuid && window.imageCache?.isAvailable()) {
+    window.imageCache.deleteUserImage(item.uuid).catch((err) => {
+      debugLog(`Failed to delete user images for deleted item: ${err}`);
+    });
+  }
+
+  // Clean up attachments from IndexedDB (STRK-45)
+  if (item?.uuid && window.attachmentManager?.isAvailable()) {
+    attachmentManager.deleteAttachmentsForItem(item.uuid).catch((err) => {
+      debugLog(`Failed to delete attachments for deleted item: ${err}`);
+    });
+  }
+
+  // Clean up item tags (STAK-126)
+  if (item?.uuid && typeof deleteItemTags === "function") {
+    deleteItemTags(item.uuid);
+  }
+};
+
 const confirmRemoveItem = async () => {
   if (_confirmRemoveItemInFlight) return;
   _confirmRemoveItemInFlight = true;
@@ -1015,141 +1218,17 @@ const confirmRemoveItem = async () => {
     const isDispose = checkbox?.checked;
 
     if (isDispose) {
-      // Disposition flow — validate fields
-      const type = safeGetElement("dispositionType")?.value;
-      const date = safeGetElement("dispositionDate")?.value;
-      const recipient = safeGetElement("dispositionRecipient")?.value?.trim() || "";
-      const notes = safeGetElement("dispositionNotes")?.value?.trim() || "";
+      const input = _resolveDispositionInput(item);
+      if (!input) return; // validation failed — helper already toasted
 
-      if (!type || !DISPOSITION_TYPES[type]) {
-        showToast("Please select a disposition type.");
+      // Partial-dispose path renders + returns; full path falls through below.
+      if (input.disposedQty < (Number(item.qty) || 1)) {
+        await _disposePartialStack(idx, input);
         return;
       }
-      if (!date) {
-        showToast("Please enter a disposition date.");
-        return;
-      }
-
-      // Determine disposed quantity
-      const qtyInputEl = safeGetElement("removeItemQty");
-      const qtyHidden = !qtyInputEl || qtyInputEl.closest(".form-group")?.style.display === "none";
-      let disposedQty;
-      if (qtyHidden || qtyInputEl.value === "") {
-        disposedQty = Number(item.qty) || 1;
-      } else {
-        disposedQty = Number(qtyInputEl.value);
-        // STRK-53: defense-in-depth. The chip/<select> UI does not expose a path to a non-integer
-        // value. This branch is reachable only via programmatic DOM access — keep as a safety net.
-        if (!Number.isInteger(disposedQty)) {
-          showToast("Please enter a whole number quantity to dispose.");
-          return;
-        }
-      }
-
-      // STRK-53: defense-in-depth. Same reasoning as above — out-of-range values are not
-      // selectable through the UI.
-      if (
-        !Number.isFinite(disposedQty) ||
-        disposedQty < 1 ||
-        disposedQty > (Number(item.qty) || 1)
-      ) {
-        showToast("Please enter a valid quantity to dispose.");
-        return;
-      }
-
-      // Read amount — resolve lot/each
-      const amountMode = window.disposeAmountToggle?.getMode() ?? "each";
-      const rawAmount = parseFloat(safeGetElement("dispositionAmount")?.value ?? "");
-      let resolvedAmount;
-      if (!Number.isFinite(rawAmount)) {
-        resolvedAmount = undefined;
-      } else if (amountMode === "each") {
-        resolvedAmount = rawAmount * disposedQty;
-      } else {
-        resolvedAmount = rawAmount;
-      }
-
-      if (
-        DISPOSITION_TYPES[type].requiresAmount &&
-        (resolvedAmount == null || resolvedAmount <= 0)
-      ) {
-        showToast("Please enter a sale/trade/refund amount.");
-        return;
-      }
-
-      // Partial-dispose path
-      if (disposedQty < (Number(item.qty) || 1)) {
-        const dispositionInput = {
-          type,
-          date,
-          amount: resolvedAmount,
-          currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
-          recipient,
-          notes,
-          tradedForUuids: window.getPendingTradeLinkUuids?.() || [],
-        };
-        const result = await splitInventoryItem(idx, disposedQty, dispositionInput);
-        if (!result.ok) {
-          showToast(`Could not split stack: ${result.error}`);
-          return;
-        }
-        renderTable();
-        if (typeof renderChangeLog === "function") renderChangeLog();
-        closeModalById("removeItemModal");
-        renderActiveFilters();
-        updateSummary();
-        return;
-      }
-
-      // Full-stack path (unchanged)
-      const amount = resolvedAmount ?? 0;
-      const purchaseTotal = (parseFloat(item.price) || 0) * (Number(item.qty) || 1);
-      const realizedGainLoss = amount - purchaseTotal;
-
-      const disposition = {
-        type,
-        date,
-        amount,
-        currency: typeof displayCurrency !== "undefined" ? displayCurrency : "USD",
-        recipient,
-        notes,
-        realizedGainLoss,
-        disposedAt: new Date().toISOString(),
-      };
-
-      inventory[idx].disposition = disposition;
-      if (type === "traded") {
-        await linkTradeItems(item, window.getPendingTradeLinkUuids?.() || [], date);
-      }
-      saveInventory();
-      closeModalById("removeItemModal");
-      logChange(item.name, "Disposed", "", JSON.stringify(disposition), idx);
-      showToast(`${item.name} marked as ${DISPOSITION_TYPES[type].label.toLowerCase()}.`);
+      await _disposeFullStack(idx, item, input);
     } else {
-      // Plain delete flow
-      inventory.splice(idx, 1);
-      saveInventory();
-      closeModalById("removeItemModal");
-      logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
-
-      // Clean up user images from IndexedDB (STAK-120)
-      if (item?.uuid && window.imageCache?.isAvailable()) {
-        window.imageCache.deleteUserImage(item.uuid).catch((err) => {
-          debugLog(`Failed to delete user images for deleted item: ${err}`);
-        });
-      }
-
-      // Clean up attachments from IndexedDB (STRK-45)
-      if (item?.uuid && window.attachmentManager?.isAvailable()) {
-        attachmentManager.deleteAttachmentsForItem(item.uuid).catch((err) => {
-          debugLog(`Failed to delete attachments for deleted item: ${err}`);
-        });
-      }
-
-      // Clean up item tags (STAK-126)
-      if (item?.uuid && typeof deleteItemTags === "function") {
-        deleteItemTags(item.uuid);
-      }
+      _deleteInventoryItem(item, idx);
     }
 
     renderTable();
@@ -1605,35 +1684,16 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
  *
  * @param {number} idx - Index of item to edit
  */
-const editItem = (idx, logIdx = null) => {
-  editingIndex = idx;
-  editingChangeLogIndex = logIdx;
-  const item = inventory[idx];
+// STRK-170: editItem field-population helpers (extracted to reduce complexity).
+// Each is module-private and behavior-identical to the inline block it replaced.
 
-  // Ensure legacy/seeded records have a stable UUID before tag/image actions.
-  if (!item.uuid && typeof generateUUID === "function") {
-    item.uuid = generateUUID();
-    if (typeof saveInventory === "function") saveInventory();
-  }
-
-  // Set modal to edit mode
-  if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Edit Inventory Item";
-  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Save Changes";
-
-  // Populate unified form fields
-  elements.itemMetal.value = item.composition || item.metal;
-  elements.itemName.value = item.name;
-  elements.itemQty.value = item.qty;
-  elements.itemType.value = item.type;
-
-  const selectedMetal = item.metal || elements.itemMetal.value;
-  if (typeof filterTypesByMetal === "function") {
-    filterTypesByMetal(selectedMetal);
-  }
-  if (typeof handleTypeChange === "function") {
-    handleTypeChange();
-  }
-
+/**
+ * Populate the weight value + unit <select> for the edit modal, converting the
+ * stored troy-ounce weight back into the item's saved display unit
+ * (goldback / kg / lb / grams / oz). Sub-ounce ounce items fall through to grams.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulateWeightFields = (item) => {
   // Weight: use real <select> instead of dataset.unit (BUG FIX)
   if (item.weightUnit === "gb") {
     const denomSelect = elements.itemGbDenom || safeGetElement("itemGbDenom");
@@ -1659,12 +1719,19 @@ const editItem = (idx, logIdx = null) => {
     elements.itemWeightUnit.value = "oz";
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
   }
+};
 
-  // Convert stored USD values to display currency for the form (STACK-50)
+/**
+ * Convert the stored USD price + market value into the active display currency
+ * and write them into the edit-modal price fields, rounding to the currency's
+ * precision so the inputs never show drifted-float noise (STACK-50, STRK-88).
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulatePriceFields = (item) => {
   // STRK-88: round to active currency precision to prevent drifted-float display
-  // (e.g. 56.66666666666667 → 56.67 in the #itemPrice field).
+  // (e.g. 56.66666666666667 -> 56.67 in the #itemPrice field).
   // Use roundToPricePrecision + toFixed(digits) to preserve trailing zeros
-  // (String() on a number drops them: 1700.00 → "1700"). T2/T14 fix.
+  // (String() on a number drops them: 1700.00 -> "1700"). T2/T14 fix.
   const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
   const _fracDigits =
     typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
@@ -1680,6 +1747,15 @@ const editItem = (idx, logIdx = null) => {
       : "";
   elements.itemPrice.value = displayPrice;
   if (elements.itemMarketValue) elements.itemMarketValue.value = displayMv;
+};
+
+/**
+ * Populate acquisition + provenance fields (payment method, purchase/storage
+ * location, serial, notes, capsule) plus the purchase date, syncing the
+ * date-N/A toggle and the spot-lookup buttons.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulateAcquisitionFields = (item) => {
   if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
   elements.purchaseLocation.value = item.purchaseLocation || "";
   elements.storageLocation.value =
@@ -1700,6 +1776,15 @@ const editItem = (idx, logIdx = null) => {
   if (typeof syncSpotLookupButtons === "function") {
     syncSpotLookupButtons(!!item.date);
   }
+};
+
+/**
+ * Populate Numista/grading catalog metadata fields (catalog id, year, grade,
+ * grading authority, cert + PCGS numbers, image URLs, ignore-pattern flag and
+ * legacy serial) from the item.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulateCatalogFields = (item) => {
   if (elements.itemCatalog) elements.itemCatalog.value = item.numistaId || "";
   if (elements.itemYear) elements.itemYear.value = item.year || item.issuedYear || "";
   if (elements.itemGrade) elements.itemGrade.value = item.grade || "";
@@ -1713,7 +1798,14 @@ const editItem = (idx, logIdx = null) => {
   const ignorePatternEl = safeGetElement("itemIgnorePatternImages");
   if (ignorePatternEl) ignorePatternEl.checked = !!item.ignorePatternImages;
   if (elements.itemSerial) elements.itemSerial.value = item.serial;
+};
 
+/**
+ * Pre-fill the purity control: select a matching preset option, or switch to
+ * the custom input when the item's purity is not one of the presets.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editPopulatePurityField = (item) => {
   // Pre-fill purity: match a preset or show custom input
   const purityVal = parseFloat(item.purity) || 1.0;
   const puritySelect = elements.itemPuritySelect || safeGetElement("itemPuritySelect");
@@ -1733,7 +1825,16 @@ const editItem = (idx, logIdx = null) => {
       if (purityInput) purityInput.value = purityVal;
     }
   }
+};
 
+/**
+ * Apply edit-mode modal chrome: the PCGS-verified icon, the price-history link,
+ * the context-dependent Undo button, currency symbols, and reset/preload of the
+ * obverse/reverse image upload previews.
+ * @param {object} item - The inventory item being edited.
+ * @param {number|null} logIdx - Change-log index; non-null shows the Undo button.
+ */
+const _editApplyEditModeChrome = (item, logIdx) => {
   // Show/hide PCGS verified icon next to Cert# label
   const certVerifiedIcon = safeGetElement("certVerifiedIcon");
   if (certVerifiedIcon) certVerifiedIcon.style.display = item.pcgsVerified ? "inline-flex" : "none";
@@ -1755,7 +1856,15 @@ const editItem = (idx, logIdx = null) => {
   if (typeof setPendingImageFrames === "function") {
     setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
   }
+};
 
+/**
+ * Load and preview the item's obverse/reverse images in the edit modal: prefer
+ * user-uploaded blobs from the image cache, fall back to stored image URLs, then
+ * to pattern-image resolution. No-ops gracefully when IndexedDB is unavailable.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editLoadImages = (item) => {
   /**
    * Show a preview thumbnail for a given side.
    * Works for both blob object-URLs and remote image URLs.
@@ -1849,8 +1958,16 @@ const editItem = (idx, logIdx = null) => {
     showUrlPreviewFallback({ obverse: false, reverse: false });
     if (typeof updateSwapButtonVisibility === "function") updateSwapButtonVisibility();
   }
+};
 
-  // Render attachment section in edit modal (STRK-45 — UI in Cohort D)
+/**
+ * Render the secondary edit-modal sections: the attachment area, the Numista API
+ * status dot, image-URL input visibility, the clone/view/delete action buttons,
+ * and the Numista data fields.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editRenderModalSections = (item) => {
+  // Render attachment section in edit modal (STRK-45 - UI in Cohort D)
   if (typeof renderAttachmentSection === "function") renderAttachmentSection(item);
 
   // Update Numista API status dot (STAK-173)
@@ -1871,43 +1988,16 @@ const editItem = (idx, logIdx = null) => {
 
   // Populate Numista Data fields: item data first, API cache as fallback (STAK-173)
   populateNumistaDataFields(item.numistaId || item.catalog || "", item.numistaData);
+};
 
-  // STAK-528: Normalize shape select value from raw API strings
-  const shapeEl = safeGetElement("numistaShape");
-  if (shapeEl && window.classifyShape) {
-    const rawShape = shapeEl.value || "";
-    // If raw API string doesn't match a select option, normalize it
-    const validOptions = ["Round", "Rectangular", "Square", "Oval", "Other"];
-    if (rawShape && !validOptions.includes(rawShape)) {
-      const category = window.classifyShape(rawShape);
-      const normalized = category.charAt(0).toUpperCase() + category.slice(1);
-      shapeEl.value = validOptions.includes(normalized) ? normalized : "Other";
-    }
-  }
-
-  // STAK-528: Migrate legacy "LxW" diameter values into length/width fields
-  const diamEl = safeGetElement("numistaDiameter");
-  const lenEl = safeGetElement("numistaLength");
-  const widEl = safeGetElement("numistaWidth");
-  if (diamEl && shapeEl) {
-    const diamVal = diamEl.value || "";
-    if (/[xX\u00d7]/.test(diamVal) && window.parseDimensions) {
-      const parsed = window.parseDimensions(diamVal, shapeEl.value);
-      if (parsed.length > 0 && lenEl) lenEl.value = parsed.length;
-      if (parsed.width > 0 && widEl) widEl.value = parsed.width;
-      // Only clear diameter after confirmed valid parse
-      if (parsed.length > 0 || parsed.width > 0) diamEl.value = "";
-    }
-  }
-
-  // Set correct field visibility — use shared toggle if available
-  if (shapeEl && window.toggleDimensionFields) {
-    window.toggleDimensionFields(shapeEl.value);
-  }
-  if (typeof updateCapsuleSuggestion === "function") {
-    updateCapsuleSuggestion(diamEl?.value || item.numistaData?.diameter || "");
-  }
-
+/**
+ * Restore the purchase-price EACH/LOT toggle for the edit modal. For lot-priced
+ * items it recomputes the displayed lot total from the full-precision stored
+ * per-unit price (avoiding double-rounding drift) and seeds the exact-lot cache;
+ * otherwise it resets the toggle (STRK-88).
+ * @param {object} item - The inventory item being edited.
+ */
+const _editRestoreLotPricing = (item) => {
   if (typeof window.restorePurchasePriceToggle === "function") {
     const isLot = window.restorePurchasePriceToggle(item.pricingType, item.qty);
     if (isLot) {
@@ -1915,8 +2005,8 @@ const editItem = (idx, logIdx = null) => {
       if (priceEl) {
         // STRK-88: use item.price (full-precision stored per-unit) rather than the
         // already-rounded display value in #itemPrice to avoid double-rounding drift.
-        // e.g. item.price=56.666... × qty=30 = 1699.999... → rounds to 1700.00 ✓
-        // vs  displayPrice="56.67"   × qty=30 = 1700.10   → would round to 1700.10 ✗
+        // e.g. item.price=56.666... * qty=30 = 1699.999... -> rounds to 1700.00 (correct)
+        // vs  displayPrice="56.67" * qty=30 = 1700.10      -> would round to 1700.10 (wrong)
         const fxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
         const perUnitFull = item.price > 0 ? item.price * fxRate : 0;
         if (!isNaN(perUnitFull) && perUnitFull > 0) {
@@ -1930,7 +2020,7 @@ const editItem = (idx, logIdx = null) => {
               ? (v) => roundToPricePrecision(v).toFixed(_lotFracDigits)
               : (v) => Number(v).toFixed(2);
           priceEl.value = _fmtLot(lotTotal);
-          // Seed the exact-lot cache so EACH→LOT toggle can restore the original total (STRK-88)
+          // Seed the exact-lot cache so EACH->LOT toggle can restore the original total (STRK-88)
           if (typeof window.purchasePriceSeedLotCache === "function") {
             // Cache the full-precision lot total so toggle can recover it losslessly.
             window.purchasePriceSeedLotCache(lotTotal, item.qty);
@@ -1941,6 +2031,54 @@ const editItem = (idx, logIdx = null) => {
   } else if (typeof window.resetPurchasePriceToggle === "function") {
     window.resetPurchasePriceToggle();
   }
+};
+
+const editItem = (idx, logIdx = null) => {
+  editingIndex = idx;
+  editingChangeLogIndex = logIdx;
+  const item = inventory[idx];
+
+  // Ensure legacy/seeded records have a stable UUID before tag/image actions.
+  if (!item.uuid && typeof generateUUID === "function") {
+    item.uuid = generateUUID();
+    if (typeof saveInventory === "function") saveInventory();
+  }
+
+  // Set modal to edit mode
+  if (elements.itemModalTitle) elements.itemModalTitle.textContent = "Edit Inventory Item";
+  if (elements.itemModalSubmit) elements.itemModalSubmit.textContent = "Save Changes";
+
+  // Populate unified form fields
+  elements.itemMetal.value = item.composition || item.metal;
+  elements.itemName.value = item.name;
+  elements.itemQty.value = item.qty;
+  elements.itemType.value = item.type;
+
+  const selectedMetal = item.metal || elements.itemMetal.value;
+  if (typeof filterTypesByMetal === "function") {
+    filterTypesByMetal(selectedMetal);
+  }
+  if (typeof handleTypeChange === "function") {
+    handleTypeChange();
+  }
+
+  _editPopulateWeightFields(item);
+
+  _editPopulatePriceFields(item);
+  _editPopulateAcquisitionFields(item);
+  _editPopulateCatalogFields(item);
+
+  _editPopulatePurityField(item);
+
+  _editApplyEditModeChrome(item, logIdx);
+
+  _editLoadImages(item);
+
+  _editRenderModalSections(item);
+
+  _editNormalizeNumistaShape(item);
+
+  _editRestoreLotPricing(item);
 
   // STAK-343: Populate tags in edit modal
   if (item.uuid && typeof getItemTags === "function") {
@@ -2029,6 +2167,75 @@ const cloneItem = (idx) => {
  *
  * @param {number} idx - Index of item to duplicate
  */
+/**
+ * Populate acquisition fields for the Duplicate modal. Mirrors the edit-mode
+ * acquisition fields but defaults the date to today (a clone is a new purchase)
+ * and omits the date-N/A toggle + spot-lookup sync.
+ * @param {object} item - The source item being duplicated.
+ */
+const _dupPopulateAcquisitionFields = (item) => {
+  if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
+  elements.purchaseLocation.value = item.purchaseLocation || "";
+  elements.storageLocation.value =
+    item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
+  if (elements.itemSerialNumber) elements.itemSerialNumber.value = item.serialNumber || "";
+  if (elements.itemNotes) elements.itemNotes.value = item.notes || "";
+  if (elements.itemCapsule) elements.itemCapsule.value = item.capsule || "";
+  if (elements.itemCapsuleNotes) elements.itemCapsuleNotes.value = item.capsuleNotes || "";
+  elements.itemDate.value = item.date || todayStr();
+};
+
+/**
+ * Populate catalog/grading fields for the Duplicate modal. Mirrors the edit-mode
+ * catalog fields but clears the serial (a clone must have a unique serial) and
+ * omits the image-URL + ignore-pattern fields.
+ * @param {object} item - The source item being duplicated.
+ */
+const _dupPopulateCatalogFields = (item) => {
+  if (elements.itemCatalog) elements.itemCatalog.value = item.numistaId || "";
+  if (elements.itemYear) elements.itemYear.value = item.year || item.issuedYear || "";
+  if (elements.itemGrade) elements.itemGrade.value = item.grade || "";
+  if (elements.itemGradingAuthority)
+    elements.itemGradingAuthority.value = item.gradingAuthority || "";
+  if (elements.itemCertNumber) elements.itemCertNumber.value = item.certNumber || "";
+  if (elements.itemPcgsNumber) elements.itemPcgsNumber.value = item.pcgsNumber || "";
+  if (elements.itemSerial) elements.itemSerial.value = ""; // Serial should be unique per item
+};
+
+/**
+ * Restore the purchase-price EACH/LOT toggle for the Duplicate modal (STRK-88
+ * D-5): EACH-mode duplicates keep the per-unit price; LOT-mode duplicates
+ * preserve qty/mode and re-show the rounded lot total instead of a per-unit
+ * value. Recomputes the display formatter locally (deterministic).
+ * @param {object} item - The source item being duplicated.
+ */
+const _dupRestoreLotPricing = (item) => {
+  const dupFxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
+  const _dupFracDigits =
+    typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
+  const _dupFmtDisplay =
+    typeof roundToPricePrecision === "function"
+      ? (v) => roundToPricePrecision(v).toFixed(_dupFracDigits)
+      : (v) => Number(v).toFixed(2);
+  if (typeof window.restorePurchasePriceToggle === "function") {
+    const isLot = window.restorePurchasePriceToggle(
+      item.pricingType,
+      Number(elements.itemQty.value)
+    );
+    if (isLot && elements.itemPrice) {
+      const lotTotal = (item.price > 0 ? item.price * dupFxRate : 0) * Number(item.qty || 0);
+      if (Number.isFinite(lotTotal) && lotTotal > 0) {
+        elements.itemPrice.value = _dupFmtDisplay(lotTotal);
+        if (typeof window.purchasePriceSeedLotCache === "function") {
+          window.purchasePriceSeedLotCache(lotTotal, Number(item.qty));
+        }
+      }
+    }
+  } else if (typeof window.resetPurchasePriceToggle === "function") {
+    window.resetPurchasePriceToggle();
+  }
+};
+
 const duplicateItem = (idx) => {
   const item = inventory[idx];
 
@@ -2048,87 +2255,12 @@ const duplicateItem = (idx) => {
   elements.itemQty.value = duplicatePreservesLot ? item.qty : 1;
   elements.itemType.value = item.type;
 
-  // Weight: same conversion logic as editItem
-  if (item.weightUnit === "gb") {
-    const denomSelect = elements.itemGbDenom || safeGetElement("itemGbDenom");
-    elements.itemWeight.value = parseFloat(item.weight);
-    elements.itemWeightUnit.value = "gb";
-    if (denomSelect) denomSelect.value = String(parseFloat(item.weight));
-    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
-  } else if (item.weightUnit === "kg") {
-    elements.itemWeight.value = parseFloat(oztToKg(item.weight).toFixed(4));
-    elements.itemWeightUnit.value = "kg";
-    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
-  } else if (item.weightUnit === "lb") {
-    elements.itemWeight.value = parseFloat(oztToLb(item.weight).toFixed(4));
-    elements.itemWeightUnit.value = "lb";
-    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
-  } else if (item.weightUnit === "g" || item.weight < 1) {
-    const grams = oztToGrams(item.weight);
-    elements.itemWeight.value = parseFloat(grams.toFixed(4));
-    elements.itemWeightUnit.value = "g";
-    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
-  } else {
-    elements.itemWeight.value = parseFloat(item.weight).toFixed(2);
-    elements.itemWeightUnit.value = "oz";
-    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
-  }
-
-  // Convert stored USD values to display currency for the form (STACK-50)
-  // STRK-88: round to active currency precision to prevent drifted-float display.
-  // Use toFixed(digits) to preserve trailing zeros (String() drops them). T2/T14 fix.
-  const dupFxRate = typeof getExchangeRate === "function" ? getExchangeRate() : 1;
-  const _dupFracDigits =
-    typeof getCurrencyFractionDigits === "function" ? getCurrencyFractionDigits() : 2;
-  const _dupFmtDisplay =
-    typeof roundToPricePrecision === "function"
-      ? (v) => roundToPricePrecision(v).toFixed(_dupFracDigits)
-      : (v) => Number(v).toFixed(2);
-  let dupDisplayPrice =
-    item.price > 0 ? _dupFmtDisplay(dupFxRate !== 1 ? item.price * dupFxRate : item.price) : "";
-  const dupDisplayMv =
-    item.marketValue > 0
-      ? _dupFmtDisplay(dupFxRate !== 1 ? item.marketValue * dupFxRate : item.marketValue)
-      : "";
-  elements.itemPrice.value = dupDisplayPrice;
-  if (elements.itemMarketValue) elements.itemMarketValue.value = dupDisplayMv;
-  if (elements.itemPaymentMethod) elements.itemPaymentMethod.value = item.paymentMethod || "";
-  elements.purchaseLocation.value = item.purchaseLocation || "";
-  elements.storageLocation.value =
-    item.storageLocation && item.storageLocation !== "Unknown" ? item.storageLocation : "";
-  if (elements.itemSerialNumber) elements.itemSerialNumber.value = item.serialNumber || "";
-  if (elements.itemNotes) elements.itemNotes.value = item.notes || "";
-  if (elements.itemCapsule) elements.itemCapsule.value = item.capsule || "";
-  if (elements.itemCapsuleNotes) elements.itemCapsuleNotes.value = item.capsuleNotes || "";
-  elements.itemDate.value = item.date || todayStr();
-  if (elements.itemCatalog) elements.itemCatalog.value = item.numistaId || "";
-  if (elements.itemYear) elements.itemYear.value = item.year || item.issuedYear || "";
-  if (elements.itemGrade) elements.itemGrade.value = item.grade || "";
-  if (elements.itemGradingAuthority)
-    elements.itemGradingAuthority.value = item.gradingAuthority || "";
-  if (elements.itemCertNumber) elements.itemCertNumber.value = item.certNumber || "";
-  if (elements.itemPcgsNumber) elements.itemPcgsNumber.value = item.pcgsNumber || "";
-  if (elements.itemSerial) elements.itemSerial.value = ""; // Serial should be unique per item
-
-  // Pre-fill purity (same logic as editItem)
-  const dupPurity = parseFloat(item.purity) || 1.0;
-  const dupPuritySelect = elements.itemPuritySelect || safeGetElement("itemPuritySelect");
-  const dupPurityCustom = elements.purityCustomWrapper || safeGetElement("purityCustomWrapper");
-  const dupPurityInput = elements.itemPurity || safeGetElement("itemPurity");
-  if (dupPuritySelect) {
-    const presetOpt = Array.from(dupPuritySelect.options).find(
-      (o) => o.value !== "custom" && parseFloat(o.value) === dupPurity
-    );
-    if (presetOpt) {
-      dupPuritySelect.value = presetOpt.value;
-      if (dupPurityCustom) dupPurityCustom.style.display = "none";
-      if (dupPurityInput) dupPurityInput.value = "";
-    } else {
-      dupPuritySelect.value = "custom";
-      if (dupPurityCustom) dupPurityCustom.style.display = "";
-      if (dupPurityInput) dupPurityInput.value = dupPurity;
-    }
-  }
+  // Weight / price / purity reuse the editItem helpers (behavior-identical).
+  _editPopulateWeightFields(item);
+  _editPopulatePriceFields(item);
+  _dupPopulateAcquisitionFields(item);
+  _dupPopulateCatalogFields(item);
+  _editPopulatePurityField(item);
 
   // Hide PCGS verified icon — duplicate is a new unverified item
   const certVerifiedIcon = safeGetElement("certVerifiedIcon");
@@ -2137,27 +2269,7 @@ const duplicateItem = (idx) => {
   // Update currency symbols in modal (STACK-50)
   if (typeof updateModalCurrencyUI === "function") updateModalCurrencyUI();
 
-  // STRK-88 (D-5): Preserve source item's pricing mode rather than unconditionally resetting.
-  // EACH-mode duplicates still reset qty to 1; LOT-mode duplicates preserve qty/mode so
-  // the visible price remains the rounded lot total instead of a rounded per-unit value.
-  if (typeof window.restorePurchasePriceToggle === "function") {
-    const isLot = window.restorePurchasePriceToggle(
-      item.pricingType,
-      Number(elements.itemQty.value)
-    );
-    if (isLot && elements.itemPrice) {
-      const lotTotal = (item.price > 0 ? item.price * dupFxRate : 0) * Number(item.qty || 0);
-      if (Number.isFinite(lotTotal) && lotTotal > 0) {
-        dupDisplayPrice = _dupFmtDisplay(lotTotal);
-        elements.itemPrice.value = dupDisplayPrice;
-        if (typeof window.purchasePriceSeedLotCache === "function") {
-          window.purchasePriceSeedLotCache(lotTotal, Number(item.qty));
-        }
-      }
-    }
-  } else if (typeof window.resetPurchasePriceToggle === "function") {
-    window.resetPurchasePriceToggle();
-  }
+  _dupRestoreLotPricing(item);
 
   if (typeof updateCapsuleSuggestion === "function") {
     updateCapsuleSuggestion(item.numistaData?.diameter || "");
@@ -2911,3 +3023,52 @@ function optimizeStoragePhase1C() {
 if (typeof window !== "undefined") {
   window.optimizeStoragePhase1C = optimizeStoragePhase1C;
 }
+
+/**
+ * Normalize the Numista shape <select> from raw API strings, migrate legacy
+ * "LxW" diameter values into the length/width fields, then apply dimension-field
+ * visibility and refresh the capsule suggestion (STAK-528). Extracted from
+ * editItem for STRK-170.
+ *
+ * NOTE: kept LAST in the file deliberately. It contains a regex literal
+ * (/[xX\xd7]/) and Lizard's tokenizer can desync on a mid-file regex, folding
+ * later functions into a phantom rollup — see the lizard-esc-regex-desync rule.
+ * @param {object} item - The inventory item being edited.
+ */
+const _editNormalizeNumistaShape = (item) => {
+  // STAK-528: Normalize shape select value from raw API strings
+  const shapeEl = safeGetElement("numistaShape");
+  if (shapeEl && window.classifyShape) {
+    const rawShape = shapeEl.value || "";
+    // If raw API string doesn't match a select option, normalize it
+    const validOptions = ["Round", "Rectangular", "Square", "Oval", "Other"];
+    if (rawShape && !validOptions.includes(rawShape)) {
+      const category = window.classifyShape(rawShape);
+      const normalized = category.charAt(0).toUpperCase() + category.slice(1);
+      shapeEl.value = validOptions.includes(normalized) ? normalized : "Other";
+    }
+  }
+
+  // STAK-528: Migrate legacy "LxW" diameter values into length/width fields
+  const diamEl = safeGetElement("numistaDiameter");
+  const lenEl = safeGetElement("numistaLength");
+  const widEl = safeGetElement("numistaWidth");
+  if (diamEl && shapeEl) {
+    const diamVal = diamEl.value || "";
+    if (/[xX\xd7]/.test(diamVal) && window.parseDimensions) {
+      const parsed = window.parseDimensions(diamVal, shapeEl.value);
+      if (parsed.length > 0 && lenEl) lenEl.value = parsed.length;
+      if (parsed.width > 0 && widEl) widEl.value = parsed.width;
+      // Only clear diameter after confirmed valid parse
+      if (parsed.length > 0 || parsed.width > 0) diamEl.value = "";
+    }
+  }
+
+  // Set correct field visibility (use shared toggle if available)
+  if (shapeEl && window.toggleDimensionFields) {
+    window.toggleDimensionFields(shapeEl.value);
+  }
+  if (typeof updateCapsuleSuggestion === "function") {
+    updateCapsuleSuggestion(diamEl?.value || item.numistaData?.diameter || "");
+  }
+};

@@ -294,6 +294,83 @@ function sectionHeadings(page) {
 }
 
 test.describe("core/disposition", () => {
+  // STRK-170 characterization: pin confirmRemoveItem's three observable paths
+  // (plain delete, full disposition, validation reject) before the complexity
+  // refactor. Green on current code; goes red only if the refactor changes
+  // observable behavior (inventory mutation, changelog, modal state).
+  test("STRK-170: confirmRemoveItem path characterization (delete / dispose / reject)", async ({
+    page,
+  }) => {
+    const baseCoin = (over) => ({
+      metal: "Silver",
+      composition: "Silver",
+      qty: 1,
+      type: "Coin",
+      weight: 1,
+      weightUnit: "oz",
+      price: 30,
+      purity: 0.999,
+      ...over,
+    });
+    await seedDispositionData(page, {
+      inventory: [
+        baseCoin({ uuid: "strk170-del", name: "STRK-170 Delete Me" }),
+        baseCoin({ uuid: "strk170-sell", name: "STRK-170 Sell Me" }),
+        baseCoin({ uuid: "strk170-reject", name: "STRK-170 Reject Me" }),
+      ],
+    });
+    await gotoApp(page);
+
+    // (a) Plain delete: open the remove modal with dispose unchecked, click Delete.
+    await page.evaluate(() => window.openRemoveItemModal(0, false));
+    await expect(page.locator("#removeItemModal")).toBeVisible();
+    await page.locator("#removeItemDeleteBtn").click();
+    await expect(page.locator("#removeItemModal")).toBeHidden();
+    const afterDelete = await page.evaluate(() => ({
+      names: window.inventory.map((i) => i.name),
+      storedLen: JSON.parse(localStorage.getItem("metalInventory")).length,
+      fields: JSON.parse(localStorage.getItem("changeLog") || "[]").map((e) => e.field),
+    }));
+    expect(afterDelete.names).not.toContain("STRK-170 Delete Me");
+    expect(afterDelete.storedLen).toBe(2);
+    expect(afterDelete.fields).toContain("Deleted");
+
+    // (b) Full disposition (sold): full qty disposed -> item retained + disposition set.
+    const sellIdx = await page.evaluate(() =>
+      window.inventory.findIndex((i) => i.uuid === "strk170-sell")
+    );
+    await openDisposeModal(page, sellIdx);
+    await fillDisposeFields(page, { type: "sold", date: "2026-05-01", amount: "90" });
+    await confirmDispose(page);
+    const afterDispose = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.uuid === "strk170-sell");
+      return {
+        present: !!it,
+        type: it?.disposition?.type,
+        hasAmount: typeof it?.disposition?.amount === "number",
+        fields: JSON.parse(localStorage.getItem("changeLog") || "[]").map((e) => e.field),
+      };
+    });
+    expect(afterDispose.present).toBe(true);
+    expect(afterDispose.type).toBe("sold");
+    expect(afterDispose.hasAmount).toBe(true);
+    expect(afterDispose.fields).toContain("Disposed");
+
+    // (c) Validation reject: dispose with a cleared date -> early return, no mutation.
+    const rejectIdx = await page.evaluate(() =>
+      window.inventory.findIndex((i) => i.uuid === "strk170-reject")
+    );
+    await openDisposeModal(page, rejectIdx);
+    await page.selectOption("#dispositionType", "sold");
+    await page.fill("#dispositionDate", "");
+    await page.locator("#removeItemDisposeBtn").click();
+    await expect(page.locator("#removeItemModal")).toBeVisible();
+    const stillUndisposed = await page.evaluate(
+      () => !window.inventory.find((i) => i.uuid === "strk170-reject")?.disposition
+    );
+    expect(stillUndisposed).toBe(true);
+  });
+
   test("partial dispose creates an adjacent split clone with inherited cost metadata", async ({
     page,
   }) => {
