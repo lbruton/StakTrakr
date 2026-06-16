@@ -79,8 +79,10 @@ async function applyDiff(page, options, clicks) {
         // Guard the Apply click: a missing or disabled button never fires onApply,
         // which would hang the page.evaluate Promise until the test times out.
         // Resolve deterministically instead so the failure is debuggable.
-        const applyBtn = document.getElementById("diffReviewApplyBtn");
-        if (!applyBtn) {
+        // safeGetElement returns a truthy dummy (not null) for a missing id, so
+        // discriminate on the concrete type rather than falsiness.
+        const applyBtn = window.safeGetElement("diffReviewApplyBtn");
+        if (!(applyBtn instanceof HTMLElement)) {
           resolve({ error: "selector not found: #diffReviewApplyBtn" });
           return;
         }
