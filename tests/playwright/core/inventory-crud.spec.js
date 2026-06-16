@@ -2278,3 +2278,122 @@ test.describe("filter-chip-and-logic — AND semantics", () => {
     expect(await dataRowCount(page)).toBe(1);
   });
 });
+
+// ─── Coin-series cross-metal disambiguation (STRK-170 cohort 2.4 char tests) ──
+// Pins filterInventoryAdvanced's two-word coin-series matching — the live,
+// testable twin of search.js's _COIN_SERIES fallback (which is shadowed by the
+// filterInventory→filterInventoryAdvanced delegation and could not be covered in
+// cohort 2.5). These guard the behavior-preserving conversion of `matchCoinSeries`
+// to a `_COIN_SERIES` table-dispatch: they pass on the pre-refactor if-cascade and
+// must stay green after the table replaces it.
+
+const COIN_SERIES_UUIDS = {
+  AGE: "strk170-american-gold-eagle",
+  ASE: "strk170-american-silver-eagle",
+  AE: "strk170-american-eagle-bare",
+  SML: "strk170-silver-maple-leaf",
+  GML: "strk170-gold-maple-leaf",
+};
+
+const coinSeriesItem = (uuid, name, metal) => ({
+  uuid,
+  metal,
+  composition: metal,
+  name,
+  qty: 1,
+  type: "Coin",
+  weight: 1,
+  price: 50,
+  marketValue: 0,
+  date: "2025-01-01",
+  purchaseLocation: "staktrakr.com",
+  storageLocation: "",
+  serialNumber: "",
+  notes: "",
+  year: "2025",
+  grade: "",
+  gradingAuthority: "",
+  certNumber: "",
+  pcgsNumber: "",
+  pcgsVerified: false,
+  spotPriceAtPurchase: 45,
+  premiumPerOz: 0,
+  totalPremium: 0,
+  purity: 0.999,
+  numistaId: "",
+});
+
+const COIN_SERIES_INVENTORY = [
+  coinSeriesItem(COIN_SERIES_UUIDS.AGE, "American Gold Eagle", "Gold"),
+  coinSeriesItem(COIN_SERIES_UUIDS.ASE, "American Silver Eagle", "Silver"),
+  coinSeriesItem(COIN_SERIES_UUIDS.AE, "American Eagle", "Silver"),
+  coinSeriesItem(COIN_SERIES_UUIDS.SML, "Silver Maple Leaf", "Silver"),
+  coinSeriesItem(COIN_SERIES_UUIDS.GML, "Gold Maple Leaf", "Gold"),
+];
+
+test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript((inv) => {
+      localStorage.setItem("metalInventory", JSON.stringify(inv));
+    }, COIN_SERIES_INVENTORY);
+    await page.addInitScript(() => {
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") {
+            localStorage.setItem("ackVersion", APP_VERSION);
+          }
+        },
+        { once: true }
+      );
+    });
+    await page.goto("/index.html");
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventory === "function" &&
+        typeof window.filterInventoryAdvanced === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length === 5;
+      } catch (e) {
+        return false;
+      }
+    });
+  });
+
+  // Fill the search box and resolve once the live filter settles to expectedLen.
+  const searchUuids = async (page, term, expectedLen) => {
+    await page.fill("#searchInput", term);
+    await page.waitForFunction((len) => {
+      try {
+        return window.filterInventory().length === len;
+      } catch (e) {
+        return false;
+      }
+    }, expectedLen);
+    return page.evaluate(() => window.filterInventory().map((item) => item.uuid));
+  };
+
+  test('"silver eagle" matches the silver eagle only (not the gold eagle)', async ({ page }) => {
+    const uuids = await searchUuids(page, "silver eagle", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.ASE]);
+  });
+
+  test('"gold eagle" matches the gold eagle only (not the silver eagle)', async ({ page }) => {
+    const uuids = await searchUuids(page, "gold eagle", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.AGE]);
+  });
+
+  test('"american eagle" matches the bare American Eagle, not the metal-prefixed eagles', async ({
+    page,
+  }) => {
+    const uuids = await searchUuids(page, "american eagle", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.AE]);
+  });
+
+  test('"silver maple" matches the silver maple leaf only (metalPhrase rule)', async ({ page }) => {
+    const uuids = await searchUuids(page, "silver maple", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.SML]);
+  });
+});
