@@ -390,6 +390,228 @@ async function vaultDecryptToData(fileBytes, password) {
  * @param {string} password
  * @returns {Promise<void>}
  */
+/**
+ * Build the settings diff for a restore preview by comparing the recognized,
+ * non-volatile localStorage keys in the decrypted payload against their current
+ * local values. Mirrors the local/remote parse so raw strings compare equal
+ * instead of producing false-positive diffs (STAK-374).
+ * @param {{data: Object<string,string>}} payload Decrypted vault payload.
+ * @returns {Object|null} A DiffEngine settings diff, or null when there are no
+ *   changes or DiffEngine.compareSettings is unavailable.
+ */
+function _vaultBuildSettingsDiff(payload) {
+  if (typeof DiffEngine.compareSettings !== "function") return null;
+
+  var settingsKeys =
+    typeof ALLOWED_STORAGE_KEYS !== "undefined" && Array.isArray(ALLOWED_STORAGE_KEYS)
+      ? ALLOWED_STORAGE_KEYS
+      : [];
+  var localSettings = {};
+  var remoteSettings = {};
+  var payloadKeys = Object.keys(payload.data);
+
+  for (var i = 0; i < payloadKeys.length; i++) {
+    var k = payloadKeys[i];
+    // Skip inventory — handled separately via DiffEngine.compareItems
+    if (k === "metalInventory") continue;
+    // Only include recognized storage keys
+    if (settingsKeys.indexOf(k) === -1) continue;
+    // Skip volatile cache keys (spot prices, timestamps) — async init updates
+    // these between export and restore, producing false-positive diffs
+    if (
+      typeof VAULT_SETTINGS_DIFF_SKIP !== "undefined" &&
+      VAULT_SETTINGS_DIFF_SKIP.indexOf(k) !== -1
+    )
+      continue;
+
+    // Parse the remote value (vault stores raw localStorage strings, possibly CMP1-compressed)
+    remoteSettings[k] = parseVaultSettingValue(payload.data[k]);
+
+    // Load matching local value — mirror the remote parse logic so raw strings
+    // compare equal instead of producing false-positive diffs.
+    var localRaw = localStorage.getItem(k);
+    if (localRaw !== null) {
+      localSettings[k] = parseVaultSettingValue(localRaw);
+    }
+  }
+
+  if (Object.keys(remoteSettings).length === 0) return null;
+  var settingsDiff = DiffEngine.compareSettings(localSettings, remoteSettings);
+  // Omit if no changes
+  if (settingsDiff && settingsDiff.changed && settingsDiff.changed.length === 0) {
+    return null;
+  }
+  return settingsDiff;
+}
+
+/**
+ * Cross-domain origin warning (STAK-374): toast when a vault was exported from
+ * a different origin than the current one — counts may surprise the user.
+ * @param {Object} payloadMeta The payload `_meta` object (may be empty).
+ */
+function _vaultWarnCrossOrigin(payloadMeta) {
+  var _vaultOrigin = payloadMeta.exportOrigin || null;
+  var _currentOriginVault =
+    typeof window !== "undefined" && window.location ? window.location.origin : null;
+  if (
+    _vaultOrigin &&
+    _currentOriginVault &&
+    _vaultOrigin !== _currentOriginVault &&
+    typeof showToast === "function"
+  ) {
+    var _safeVaultFrom =
+      typeof sanitizeHtml === "function" ? sanitizeHtml(_vaultOrigin) : _vaultOrigin;
+    showToast(
+      "⚠ This vault was exported from a different domain (" +
+        _safeVaultFrom +
+        "). Check item counts carefully."
+    );
+  }
+}
+
+/**
+ * Compute the backup/local item counts shown in the DiffModal header (STAK-374).
+ * @param {Array} backupItems Items parsed from the backup.
+ * @param {Object} payloadMeta The payload `_meta` object (may be empty).
+ * @returns {{backupCount: number, localCount: number}}
+ */
+function _vaultModalCountHeaders(backupItems, payloadMeta) {
+  var backupCount =
+    typeof backupItems !== "undefined" && Array.isArray(backupItems)
+      ? backupItems.length
+      : payloadMeta.itemCount
+        ? payloadMeta.itemCount
+        : 0;
+  var localCount =
+    typeof inventory !== "undefined" && Array.isArray(inventory)
+      ? inventory.length
+      : typeof loadDataSync === "function"
+        ? loadDataSync(LS_KEY, []).length
+        : 0;
+  return { backupCount: backupCount, localCount: localCount };
+}
+
+/**
+ * Apply the user-selected item changes from a restore preview to the global
+ * `inventory`. No-op when nothing was selected.
+ * @param {Array} selectedChanges DiffModal-selected item change descriptors.
+ * @returns {boolean} Whether any item changes were applied.
+ */
+function _vaultApplyItemSelection(selectedChanges) {
+  var hasItemChanges = Array.isArray(selectedChanges) && selectedChanges.length > 0;
+  if (hasItemChanges) {
+    var currentInv = typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
+    var newInv = DiffEngine.applySelectedChanges(currentInv, selectedChanges);
+    inventory = newInv;
+  }
+  return hasItemChanges;
+}
+
+/**
+ * Apply restore-preview settings changes (all-or-nothing until DiffModal adds
+ * per-setting checkboxes — intentional).
+ * @param {Object|null} settingsDiff A DiffEngine settings diff.
+ * @returns {boolean} Whether any settings were written.
+ */
+function _vaultApplyRestoreSettings(settingsDiff) {
+  var appliedSettings = false;
+  if (settingsDiff && settingsDiff.changed) {
+    for (var si = 0; si < settingsDiff.changed.length; si++) {
+      if (typeof saveDataSync === "function") {
+        saveDataSync(settingsDiff.changed[si].key, settingsDiff.changed[si].remoteVal);
+        appliedSettings = true;
+      }
+    }
+  }
+  return appliedSettings;
+}
+
+/**
+ * Show the post-restore summary toast (counts of added/updated/removed items,
+ * plus a settings note when only settings changed).
+ * @param {Array} selectedChanges DiffModal-selected item change descriptors.
+ * @param {boolean} hasItemChanges Whether item changes were applied.
+ * @param {boolean} appliedSettings Whether settings were written.
+ */
+function _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSettings) {
+  var addCount = 0,
+    modCount = 0,
+    delCount = 0;
+  if (hasItemChanges) {
+    for (var j = 0; j < selectedChanges.length; j++) {
+      if (selectedChanges[j].type === "add") addCount++;
+      else if (selectedChanges[j].type === "modify") modCount++;
+      else if (selectedChanges[j].type === "delete") delCount++;
+    }
+  }
+  var parts = [];
+  if (addCount > 0) parts.push(addCount + " added");
+  if (modCount > 0) parts.push(modCount + " updated");
+  if (delCount > 0) parts.push(delCount + " removed");
+  if (appliedSettings && !hasItemChanges) parts.push("settings updated");
+  if (typeof showToast === "function") {
+    showToast("Backup restored: " + (parts.length > 0 ? parts.join(", ") : "no changes applied"));
+  }
+}
+
+/**
+ * Restore the companion photo vault (if one was captured before the modal
+ * closed). Fire-and-forget — failures are logged, not surfaced.
+ * @param {Uint8Array|null} capturedImageFile The companion image vault bytes.
+ * @param {string} password Vault password.
+ */
+function _vaultRestoreCompanionImages(capturedImageFile, password) {
+  if (capturedImageFile && typeof vaultDecryptAndRestoreImages === "function") {
+    vaultDecryptAndRestoreImages(capturedImageFile, password)
+      .then(function (imgCount) {
+        debugLog("[Vault] Restored " + imgCount + " photo(s) from companion image vault");
+      })
+      .catch(function (imgErr) {
+        debugLog("[Vault] Image restore failed:", imgErr);
+      });
+  }
+}
+
+/**
+ * Apply a confirmed restore-preview selection: items + settings, rehydrate the
+ * catalog singletons (STRK-186), save/render, toast a summary, and restore the
+ * companion photo vault. All wrapped so a partial failure surfaces a toast
+ * rather than throwing into DiffModal.
+ * @param {Array} selectedChanges DiffModal-selected item change descriptors.
+ * @param {Object|null} settingsDiff A DiffEngine settings diff.
+ * @param {Uint8Array|null} capturedImageFile The companion image vault bytes.
+ * @param {string} password Vault password.
+ */
+function _vaultApplyRestoreSelection(selectedChanges, settingsDiff, capturedImageFile, password) {
+  try {
+    var hasItemChanges = _vaultApplyItemSelection(selectedChanges);
+    var appliedSettings = _vaultApplyRestoreSettings(settingsDiff);
+
+    // STRK-186: settings writes can include catalog_api_config — rehydrate the
+    // constructor-cached catalog singletons so a later CatalogConfig.save()
+    // doesn't clobber the freshly-restored API keys.
+    if (appliedSettings && typeof rehydrateCatalogState === "function") {
+      rehydrateCatalogState();
+    }
+
+    // Save & render
+    if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
+    if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by vaultRestore");
+    if (typeof saveInventory === "function") saveInventory();
+    if (typeof renderTable === "function") renderTable();
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    if (typeof updateStorageStats === "function") updateStorageStats();
+
+    _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSettings);
+    _vaultRestoreCompanionImages(capturedImageFile, password);
+  } catch (applyErr) {
+    debugLog("[Vault] Restore apply failed:", applyErr);
+    if (typeof showToast === "function") {
+      showToast("Restore failed: " + (applyErr.message || "Unknown error"));
+    }
+  }
+}
+
 async function vaultRestoreWithPreview(fileBytes, password) {
   // Capture image vault file before closeVaultModal() can nullify it —
   // the onApply callback fires later, after the vault modal is closed
@@ -437,50 +659,7 @@ async function vaultRestoreWithPreview(fileBytes, password) {
   var diffResult = DiffEngine.compareItems(localItems, backupItems);
 
   // 6. Compute settings diff
-  var settingsDiff = null;
-  if (typeof DiffEngine.compareSettings === "function") {
-    var settingsKeys =
-      typeof ALLOWED_STORAGE_KEYS !== "undefined" && Array.isArray(ALLOWED_STORAGE_KEYS)
-        ? ALLOWED_STORAGE_KEYS
-        : [];
-    var localSettings = {};
-    var remoteSettings = {};
-    var payloadKeys = Object.keys(payload.data);
-
-    for (var i = 0; i < payloadKeys.length; i++) {
-      var k = payloadKeys[i];
-      // Skip inventory — handled separately via DiffEngine.compareItems
-      if (k === "metalInventory") continue;
-      // Only include recognized storage keys
-      if (settingsKeys.indexOf(k) === -1) continue;
-      // Skip volatile cache keys (spot prices, timestamps) — async init updates
-      // these between export and restore, producing false-positive diffs
-      if (
-        typeof VAULT_SETTINGS_DIFF_SKIP !== "undefined" &&
-        VAULT_SETTINGS_DIFF_SKIP.indexOf(k) !== -1
-      )
-        continue;
-
-      // Parse the remote value (vault stores raw localStorage strings, possibly CMP1-compressed)
-      remoteSettings[k] = parseVaultSettingValue(payload.data[k]);
-
-      // Load matching local value — mirror the remote parse logic so raw
-      // strings (e.g. "3.34.35" stored by setItem instead of saveData)
-      // compare equal instead of producing false-positive diffs.
-      var localRaw = localStorage.getItem(k);
-      if (localRaw !== null) {
-        localSettings[k] = parseVaultSettingValue(localRaw);
-      }
-    }
-
-    if (Object.keys(remoteSettings).length > 0) {
-      settingsDiff = DiffEngine.compareSettings(localSettings, remoteSettings);
-      // Omit if no changes
-      if (settingsDiff && settingsDiff.changed && settingsDiff.changed.length === 0) {
-        settingsDiff = null;
-      }
-    }
-  }
+  var settingsDiff = _vaultBuildSettingsDiff(payload);
 
   // 7. Check for zero changes
   var totalChanges =
@@ -494,129 +673,25 @@ async function vaultRestoreWithPreview(fileBytes, password) {
 
   // 8. Build metadata from payload._meta
   var payloadMeta = payload._meta || {};
-
-  // Cross-domain origin warning (STAK-374): warn when restoring from a different domain
-  var _vaultOrigin = payloadMeta.exportOrigin || null;
-  var _currentOriginVault =
-    typeof window !== "undefined" && window.location ? window.location.origin : null;
-  if (
-    _vaultOrigin &&
-    _currentOriginVault &&
-    _vaultOrigin !== _currentOriginVault &&
-    typeof showToast === "function"
-  ) {
-    var _safeVaultFrom =
-      typeof sanitizeHtml === "function" ? sanitizeHtml(_vaultOrigin) : _vaultOrigin;
-    showToast(
-      "\u26A0 This vault was exported from a different domain (" +
-        _safeVaultFrom +
-        "). Check item counts carefully."
-    );
-  }
+  _vaultWarnCrossOrigin(payloadMeta);
 
   // Compute count header values for DiffModal (STAK-374)
-  var _vaultBackupCount =
-    typeof backupItems !== "undefined" && Array.isArray(backupItems)
-      ? backupItems.length
-      : payloadMeta.itemCount
-        ? payloadMeta.itemCount
-        : 0;
-  var _vaultLocalCount =
-    typeof inventory !== "undefined" && Array.isArray(inventory)
-      ? inventory.length
-      : typeof loadDataSync === "function"
-        ? loadDataSync(LS_KEY, []).length
-        : 0;
+  var _vaultCounts = _vaultModalCountHeaders(backupItems, payloadMeta);
 
   // 9. Show DiffModal
   DiffModal.show({
     source: { type: "vault", label: "Encrypted Backup" },
     diff: diffResult,
     settingsDiff: settingsDiff,
-    backupCount: _vaultBackupCount,
-    localCount: _vaultLocalCount,
+    backupCount: _vaultCounts.backupCount,
+    localCount: _vaultCounts.localCount,
     meta: {
       timestamp: payloadMeta.exportTimestamp || null,
       itemCount: backupItems.length,
       appVersion: payloadMeta.appVersion || null,
     },
     onApply: function (selectedChanges) {
-      try {
-        var hasItemChanges = Array.isArray(selectedChanges) && selectedChanges.length > 0;
-
-        // Apply items selectively when item changes were selected
-        if (hasItemChanges) {
-          var currentInv =
-            typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
-          var newInv = DiffEngine.applySelectedChanges(currentInv, selectedChanges);
-          inventory = newInv;
-        }
-
-        // Apply settings changes (settings are all-or-nothing until DiffModal adds
-        // per-setting checkboxes — intentional, not a bug)
-        var appliedSettings = false;
-        if (settingsDiff && settingsDiff.changed) {
-          for (var si = 0; si < settingsDiff.changed.length; si++) {
-            if (typeof saveDataSync === "function") {
-              saveDataSync(settingsDiff.changed[si].key, settingsDiff.changed[si].remoteVal);
-              appliedSettings = true;
-            }
-          }
-        }
-
-        // STRK-186: settings writes can include catalog_api_config — rehydrate
-        // the constructor-cached catalog singletons so a later
-        // CatalogConfig.save() doesn't clobber the freshly-restored API keys.
-        if (appliedSettings && typeof rehydrateCatalogState === "function") {
-          rehydrateCatalogState();
-        }
-
-        // Save & render
-        if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
-        if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by vaultRestore");
-        if (typeof saveInventory === "function") saveInventory();
-        if (typeof renderTable === "function") renderTable();
-        if (typeof renderActiveFilters === "function") renderActiveFilters();
-        if (typeof updateStorageStats === "function") updateStorageStats();
-
-        // Toast summary
-        var addCount = 0,
-          modCount = 0,
-          delCount = 0;
-        if (hasItemChanges) {
-          for (var j = 0; j < selectedChanges.length; j++) {
-            if (selectedChanges[j].type === "add") addCount++;
-            else if (selectedChanges[j].type === "modify") modCount++;
-            else if (selectedChanges[j].type === "delete") delCount++;
-          }
-        }
-        var parts = [];
-        if (addCount > 0) parts.push(addCount + " added");
-        if (modCount > 0) parts.push(modCount + " updated");
-        if (delCount > 0) parts.push(delCount + " removed");
-        if (appliedSettings && !hasItemChanges) parts.push("settings updated");
-        if (typeof showToast === "function") {
-          showToast(
-            "Backup restored: " + (parts.length > 0 ? parts.join(", ") : "no changes applied")
-          );
-        }
-
-        // Restore companion photo vault if present
-        if (capturedImageFile && typeof vaultDecryptAndRestoreImages === "function") {
-          vaultDecryptAndRestoreImages(capturedImageFile, password)
-            .then(function (imgCount) {
-              debugLog("[Vault] Restored " + imgCount + " photo(s) from companion image vault");
-            })
-            .catch(function (imgErr) {
-              debugLog("[Vault] Image restore failed:", imgErr);
-            });
-        }
-      } catch (applyErr) {
-        debugLog("[Vault] Restore apply failed:", applyErr);
-        if (typeof showToast === "function") {
-          showToast("Restore failed: " + (applyErr.message || "Unknown error"));
-        }
-      }
+      _vaultApplyRestoreSelection(selectedChanges, settingsDiff, capturedImageFile, password);
     },
     onCancel: function () {
       debugLog("[Vault] Restore preview cancelled");
@@ -1218,21 +1293,14 @@ var _cloudContext = null;
  * @param {'export'|'import'|'cloud-export'|'cloud-import'} mode
  * @param {File|object} [fileOrOpts] - File for import, or { provider, fileBytes, filename, size } for cloud-import
  */
-function openVaultModal(mode, fileOrOpts) {
-  var file = null;
-  var modal = safeGetElement("vaultModal");
-  if (!modal) return;
-
-  var titleEl = safeGetElement("vaultModalTitle");
-  var passwordEl = safeGetElement("vaultPassword");
-  var confirmRow = safeGetElement("vaultConfirmRow");
-  var confirmEl = safeGetElement("vaultConfirmPassword");
-  var strengthRow = safeGetElement("vaultStrengthRow");
-  var fileInfoEl = safeGetElement("vaultFileInfo");
-  var statusEl = safeGetElement("vaultStatus");
-  var actionBtn = safeGetElement("vaultActionBtn");
-
-  // Reset state
+/**
+ * Reset the editable vault-modal fields (passwords + status) and the strength
+ * and match indicators to their empty state.
+ * @param {HTMLElement} passwordEl
+ * @param {HTMLElement} confirmEl
+ * @param {HTMLElement} statusEl
+ */
+function _vaultResetModalFields(passwordEl, confirmEl, statusEl) {
   if (passwordEl) passwordEl.value = "";
   if (confirmEl) confirmEl.value = "";
   if (statusEl) {
@@ -1240,15 +1308,22 @@ function openVaultModal(mode, fileOrOpts) {
     statusEl.className = "encryption-status";
     statusEl.innerHTML = "";
   }
-
-  // Update strength bar
   updateStrengthBar("");
-
-  // Update match indicator
   updateMatchIndicator("", "");
+}
 
-  // Resolve effective mode for UI layout
+/**
+ * Resolve the requested vault-modal mode to the effective UI layout mode and
+ * configure the module-level cloud context / pending file. Returns the layout
+ * mode plus any local File to read.
+ * @param {string} mode One of "export" | "import" | "cloud-export" | "cloud-import".
+ * @param {File|Object|null} fileOrOpts A File (local import) or an options object
+ *   (cloud flows carry provider / fileBytes / filename / size).
+ * @returns {{effectiveMode: string, file: File|null}}
+ */
+function _vaultResolveModalMode(mode, fileOrOpts) {
   var effectiveMode = mode;
+  var file = null;
   _cloudContext = null;
 
   if (mode === "cloud-export") {
@@ -1273,164 +1348,210 @@ function openVaultModal(mode, fileOrOpts) {
   } else if (mode === "import") {
     file = fileOrOpts;
   }
+  return { effectiveMode: effectiveMode, file: file };
+}
 
+/**
+ * Inject an async "Include <content>" checkbox into the export modal when the
+ * given IndexedDB store has records. DRYs the near-identical attachment and
+ * photo checkbox blocks; the caller clears any stale row first and only calls
+ * this for a manual cloud backup.
+ * @param {{dbName: string, storeName: string, rowId: string, inputId: string,
+ *   labelPrefix: string, unit: string, actionBtn: HTMLElement|null}} opts
+ */
+function _vaultInjectBackupContentCheckbox(opts) {
+  try {
+    var req = indexedDB.open(opts.dbName, 1);
+    req.onsuccess = function (ev) {
+      var db = ev.target.result;
+      if (!db.objectStoreNames.contains(opts.storeName)) {
+        db.close();
+        return;
+      }
+      var tx = db.transaction(opts.storeName, "readonly");
+      var countReq = tx.objectStore(opts.storeName).count();
+      countReq.onsuccess = function () {
+        db.close();
+        if (countReq.result > 0) {
+          var row = document.createElement("div");
+          row.id = opts.rowId;
+          row.style.cssText = "margin:8px 0;display:flex;align-items:center;gap:8px;";
+          row.innerHTML =
+            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">' +
+            '<input type="checkbox" id="' +
+            opts.inputId +
+            '"> ' +
+            opts.labelPrefix +
+            " (" +
+            countReq.result +
+            " " +
+            opts.unit +
+            (countReq.result === 1 ? "" : "s") +
+            ")</label>";
+          var actionsEl = opts.actionBtn ? opts.actionBtn.parentElement : null;
+          if (actionsEl && actionsEl.parentElement) {
+            actionsEl.parentElement.insertBefore(row, actionsEl);
+          }
+        }
+      };
+    };
+    req.onerror = function () {}; // IDB unavailable — skip checkbox
+  } catch (_) {}
+}
+
+/**
+ * Render the export-mode vault modal layout (local or cloud). Always clears the
+ * stale dynamic content-checkbox rows; (re)injects the attachment + photo
+ * checkboxes only for a manual cloud backup.
+ * @param {Object} els Cached vault-modal elements.
+ */
+function _vaultRenderExportMode(els) {
+  var exportTitle = _cloudContext ? "Cloud Backup — Enter Password" : "Export Encrypted Backup";
+  if (els.titleEl) els.titleEl.textContent = exportTitle;
+  if (els.confirmRow) els.confirmRow.style.display = "";
+  if (els.strengthRow) els.strengthRow.style.display = "";
+  if (els.fileInfoEl) els.fileInfoEl.style.display = "none";
+  if (els.imageFileRowEl) els.imageFileRowEl.style.display = "none";
+  if (els.descExportEl) els.descExportEl.style.display = "";
+  if (els.descImportEl) els.descImportEl.style.display = "none";
+  if (els.actionBtn) {
+    els.actionBtn.textContent = _cloudContext ? "Encrypt & Upload" : "Export";
+    els.actionBtn.className = "btn";
+  }
+  _vaultPendingFile = null;
+
+  // Stale dynamic rows are always cleared; the checkboxes are (re)injected only
+  // for a manual cloud backup ("Include attachments" + STAK-427 "Include photos").
+  var existingAttachRow = document.getElementById("vaultIncludeAttachmentsRow");
+  if (existingAttachRow instanceof HTMLElement) existingAttachRow.remove();
+  var existingPhotoRow = document.getElementById("vaultIncludePhotosRow");
+  if (existingPhotoRow instanceof HTMLElement) existingPhotoRow.remove();
+
+  if (_cloudContext && _cloudContext.isManualBackup) {
+    _vaultInjectBackupContentCheckbox({
+      dbName: "StakTrakrAttachments",
+      storeName: "userAttachments",
+      rowId: "vaultIncludeAttachmentsRow",
+      inputId: "vaultIncludeAttachments",
+      labelPrefix: "Include attachments",
+      unit: "file",
+      actionBtn: els.actionBtn,
+    });
+    _vaultInjectBackupContentCheckbox({
+      dbName: "StakTrakrImages",
+      storeName: "userImages",
+      rowId: "vaultIncludePhotosRow",
+      inputId: "vaultIncludePhotos",
+      labelPrefix: "Include photos",
+      unit: "image",
+      actionBtn: els.actionBtn,
+    });
+  }
+}
+
+/**
+ * Reset the photo and attachment companion-file picker state when the import
+ * modal opens: clear the pending files, reset the file inputs, hide the file
+ * info rows, show the picker rows, and hide the attachment row for cloud import.
+ */
+function _vaultResetImportCompanionPickers() {
+  // Reset image file state when modal opens
+  _vaultPendingImageFile = null;
+  var imgInputEl = safeGetElement("vaultImageImportFile");
+  if (imgInputEl) imgInputEl.value = "";
+  var imgFileInfoEl = safeGetElement("vaultImageFileInfo");
+  var imgPickerRowEl = safeGetElement("vaultImagePickerRow");
+  if (imgFileInfoEl) imgFileInfoEl.style.display = "none";
+  if (imgPickerRowEl) imgPickerRowEl.style.display = "";
+
+  // Reset attachment file state when modal opens
+  _vaultPendingAttachmentFile = null;
+  var attachInputEl = safeGetElement("vaultAttachmentImportFile");
+  if (attachInputEl) attachInputEl.value = "";
+  var attachFileInfoEl = safeGetElement("vaultAttachmentFileInfo");
+  var attachPickerRowEl = safeGetElement("vaultAttachmentPickerRow");
+  var attachFileRowEl = safeGetElement("vaultAttachmentFileRow");
+  if (attachFileInfoEl) attachFileInfoEl.style.display = "none";
+  if (attachPickerRowEl) attachPickerRowEl.style.display = "";
+  if (attachFileRowEl) attachFileRowEl.style.display = _cloudContext ? "none" : "";
+}
+
+/**
+ * Render the import-mode vault modal layout (local or cloud). Resets the photo
+ * and attachment companion-file pickers and reads the local file bytes when a
+ * non-cloud File is provided.
+ * @param {Object} els Cached vault-modal elements.
+ * @param {File|null} file The local import File (null for cloud import).
+ */
+function _vaultRenderImportMode(els, file) {
+  var importTitle = _cloudContext ? "Cloud Restore — Enter Password" : "Import Encrypted Backup";
+  if (els.titleEl) els.titleEl.textContent = importTitle;
+  if (els.confirmRow) els.confirmRow.style.display = "none";
+  if (els.strengthRow) els.strengthRow.style.display = "none";
+  if (els.fileInfoEl) {
+    els.fileInfoEl.style.display = "";
+    var nameSpan = safeGetElement("vaultFileName");
+    var sizeSpan = safeGetElement("vaultFileSize");
+    if (_cloudContext) {
+      if (nameSpan) nameSpan.textContent = _cloudContext.filename;
+      if (sizeSpan) sizeSpan.textContent = formatFileSize(_cloudContext.size || 0);
+    } else if (file) {
+      if (nameSpan) nameSpan.textContent = file.name;
+      if (sizeSpan) sizeSpan.textContent = formatFileSize(file.size);
+    }
+  }
+  if (els.descExportEl) els.descExportEl.style.display = "none";
+  if (els.descImportEl) els.descImportEl.style.display = "";
+  // Show image file picker only for local import (not cloud import)
+  if (els.imageFileRowEl) {
+    els.imageFileRowEl.style.display = _cloudContext ? "none" : "";
+  }
+  // Reset photo + attachment companion-file pickers
+  _vaultResetImportCompanionPickers();
+
+  if (els.actionBtn) {
+    els.actionBtn.textContent = _cloudContext ? "Decrypt & Restore" : "Import";
+    els.actionBtn.className = "btn info";
+  }
+
+  // Read file bytes (local file import only — cloud sets _vaultPendingFile above)
+  if (file && !_cloudContext) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      _vaultPendingFile = new Uint8Array(e.target.result);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function openVaultModal(mode, fileOrOpts) {
+  var modal = safeGetElement("vaultModal");
+  if (!modal) return;
+
+  var els = {
+    titleEl: safeGetElement("vaultModalTitle"),
+    confirmRow: safeGetElement("vaultConfirmRow"),
+    strengthRow: safeGetElement("vaultStrengthRow"),
+    fileInfoEl: safeGetElement("vaultFileInfo"),
+    actionBtn: safeGetElement("vaultActionBtn"),
+    imageFileRowEl: safeGetElement("vaultImageFileRow"),
+    descExportEl: safeGetElement("vaultDescExport"),
+    descImportEl: safeGetElement("vaultDescImport"),
+  };
+
+  _vaultResetModalFields(
+    safeGetElement("vaultPassword"),
+    safeGetElement("vaultConfirmPassword"),
+    safeGetElement("vaultStatus")
+  );
+
+  var resolved = _vaultResolveModalMode(mode, fileOrOpts);
   modal.setAttribute("data-vault-mode", mode);
 
-  var imageFileRowEl = safeGetElement("vaultImageFileRow");
-  var descExportEl = safeGetElement("vaultDescExport");
-  var descImportEl = safeGetElement("vaultDescImport");
-
-  if (effectiveMode === "export") {
-    var exportTitle = _cloudContext ? "Cloud Backup — Enter Password" : "Export Encrypted Backup";
-    if (titleEl) titleEl.textContent = exportTitle;
-    if (confirmRow) confirmRow.style.display = "";
-    if (strengthRow) strengthRow.style.display = "";
-    if (fileInfoEl) fileInfoEl.style.display = "none";
-    if (imageFileRowEl) imageFileRowEl.style.display = "none";
-    if (descExportEl) descExportEl.style.display = "";
-    if (descImportEl) descImportEl.style.display = "none";
-    if (actionBtn) {
-      actionBtn.textContent = _cloudContext ? "Encrypt & Upload" : "Export";
-      actionBtn.className = "btn";
-    }
-    _vaultPendingFile = null;
-
-    // "Include attachments" checkbox for manual cloud backup
-    var existingAttachRow = document.getElementById("vaultIncludeAttachmentsRow");
-    if (existingAttachRow instanceof HTMLElement) existingAttachRow.remove();
-    if (_cloudContext && _cloudContext.isManualBackup) {
-      (function () {
-        try {
-          var req = indexedDB.open("StakTrakrAttachments", 1);
-          req.onsuccess = function (ev) {
-            var db = ev.target.result;
-            if (!db.objectStoreNames.contains("userAttachments")) {
-              db.close();
-              return;
-            }
-            var tx = db.transaction("userAttachments", "readonly");
-            var countReq = tx.objectStore("userAttachments").count();
-            countReq.onsuccess = function () {
-              db.close();
-              if (countReq.result > 0) {
-                var row = document.createElement("div");
-                row.id = "vaultIncludeAttachmentsRow";
-                row.style.cssText = "margin:8px 0;display:flex;align-items:center;gap:8px;";
-                row.innerHTML =
-                  '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">' +
-                  '<input type="checkbox" id="vaultIncludeAttachments"> Include attachments (' +
-                  countReq.result +
-                  " file" +
-                  (countReq.result === 1 ? "" : "s") +
-                  ")</label>";
-                var actionsEl = actionBtn ? actionBtn.parentElement : null;
-                if (actionsEl && actionsEl.parentElement) {
-                  actionsEl.parentElement.insertBefore(row, actionsEl);
-                }
-              }
-            };
-          };
-          req.onerror = function () {};
-        } catch (_) {}
-      })();
-    }
-
-    // STAK-427: "Include photos" checkbox for manual cloud backup
-    var existingPhotoRow = safeGetElement("vaultIncludePhotosRow");
-    if (existingPhotoRow instanceof HTMLElement) existingPhotoRow.remove();
-    if (_cloudContext && _cloudContext.isManualBackup) {
-      // Async check for user photos — inject checkbox if any exist
-      (function () {
-        try {
-          var req = indexedDB.open("StakTrakrImages", 1);
-          req.onsuccess = function (ev) {
-            var db = ev.target.result;
-            if (!db.objectStoreNames.contains("userImages")) {
-              db.close();
-              return;
-            }
-            var tx = db.transaction("userImages", "readonly");
-            var countReq = tx.objectStore("userImages").count();
-            countReq.onsuccess = function () {
-              db.close();
-              if (countReq.result > 0) {
-                var row = document.createElement("div");
-                row.id = "vaultIncludePhotosRow";
-                row.style.cssText = "margin:8px 0;display:flex;align-items:center;gap:8px;";
-                row.innerHTML =
-                  '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9em;">' +
-                  '<input type="checkbox" id="vaultIncludePhotos"> Include photos (' +
-                  countReq.result +
-                  " image" +
-                  (countReq.result === 1 ? "" : "s") +
-                  ")</label>";
-                // Insert before action button row
-                var actionsEl = actionBtn ? actionBtn.parentElement : null;
-                if (actionsEl && actionsEl.parentElement) {
-                  actionsEl.parentElement.insertBefore(row, actionsEl);
-                }
-              }
-            };
-          };
-          req.onerror = function () {}; // IDB unavailable — skip checkbox
-        } catch (_) {}
-      })();
-    }
+  if (resolved.effectiveMode === "export") {
+    _vaultRenderExportMode(els);
   } else {
-    var importTitle = _cloudContext ? "Cloud Restore — Enter Password" : "Import Encrypted Backup";
-    if (titleEl) titleEl.textContent = importTitle;
-    if (confirmRow) confirmRow.style.display = "none";
-    if (strengthRow) strengthRow.style.display = "none";
-    if (fileInfoEl) {
-      fileInfoEl.style.display = "";
-      var nameSpan = safeGetElement("vaultFileName");
-      var sizeSpan = safeGetElement("vaultFileSize");
-      if (_cloudContext) {
-        if (nameSpan) nameSpan.textContent = _cloudContext.filename;
-        if (sizeSpan) sizeSpan.textContent = formatFileSize(_cloudContext.size || 0);
-      } else if (file) {
-        if (nameSpan) nameSpan.textContent = file.name;
-        if (sizeSpan) sizeSpan.textContent = formatFileSize(file.size);
-      }
-    }
-    if (descExportEl) descExportEl.style.display = "none";
-    if (descImportEl) descImportEl.style.display = "";
-    // Show image file picker only for local import (not cloud import)
-    if (imageFileRowEl) {
-      imageFileRowEl.style.display = _cloudContext ? "none" : "";
-    }
-    // Reset image file state when modal opens
-    _vaultPendingImageFile = null;
-    var imgInputEl = safeGetElement("vaultImageImportFile");
-    if (imgInputEl) imgInputEl.value = "";
-    var imgFileInfoEl = safeGetElement("vaultImageFileInfo");
-    var imgPickerRowEl = safeGetElement("vaultImagePickerRow");
-    if (imgFileInfoEl) imgFileInfoEl.style.display = "none";
-    if (imgPickerRowEl) imgPickerRowEl.style.display = "";
-
-    // Reset attachment file state when modal opens
-    _vaultPendingAttachmentFile = null;
-    var attachInputEl = safeGetElement("vaultAttachmentImportFile");
-    if (attachInputEl) attachInputEl.value = "";
-    var attachFileInfoEl = safeGetElement("vaultAttachmentFileInfo");
-    var attachPickerRowEl = safeGetElement("vaultAttachmentPickerRow");
-    var attachFileRowEl = safeGetElement("vaultAttachmentFileRow");
-    if (attachFileInfoEl) attachFileInfoEl.style.display = "none";
-    if (attachPickerRowEl) attachPickerRowEl.style.display = "";
-    if (attachFileRowEl) attachFileRowEl.style.display = _cloudContext ? "none" : "";
-    if (actionBtn) {
-      actionBtn.textContent = _cloudContext ? "Decrypt & Restore" : "Import";
-      actionBtn.className = "btn info";
-    }
-
-    // Read file bytes (local file import only — cloud sets _vaultPendingFile above)
-    if (file && !_cloudContext) {
-      var reader = new FileReader();
-      reader.onload = function (e) {
-        _vaultPendingFile = new Uint8Array(e.target.result);
-      };
-      reader.readAsArrayBuffer(file);
-    }
+    _vaultRenderImportMode(els, resolved.file);
   }
 
   openModalById("vaultModal");
@@ -1455,6 +1576,331 @@ function closeVaultModal() {
 /**
  * Handle the vault modal action button (export or import).
  */
+/**
+ * Upload raw bytes to a Dropbox path via the content upload endpoint
+ * (overwrite, no autorename). Throws when the response is not ok.
+ * @param {string} token Dropbox bearer token.
+ * @param {string} path Destination Dropbox path.
+ * @param {Uint8Array} bytes Encrypted payload bytes.
+ * @param {string} label Human label for the error message ("Attachment" | "Image").
+ * @returns {Promise<Response>}
+ */
+async function _vaultDropboxUploadBytes(token, path, bytes, label) {
+  var arg = JSON.stringify({ path: path, mode: "overwrite", autorename: false, mute: true });
+  var resp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": "application/octet-stream",
+      "Dropbox-API-Arg": arg,
+    },
+    body: bytes,
+  });
+  if (!resp.ok) {
+    throw new Error(label + " upload returned " + resp.status);
+  }
+  return resp;
+}
+
+/**
+ * Encrypt and upload the attachment companion vault during a cloud export when
+ * the "Include attachments" checkbox is checked. Non-fatal: warns via toast and
+ * does not interrupt the main backup on failure.
+ * @param {string} password Vault password.
+ * @param {string} provider Cloud provider id.
+ * @returns {Promise<void>}
+ */
+async function _vaultUploadAttachmentCompanion(password, provider) {
+  var attachCheckbox = document.getElementById("vaultIncludeAttachments");
+  if (!(attachCheckbox && attachCheckbox.checked)) return;
+  try {
+    showVaultStatus("info", "Uploading attachments…");
+    var attachData =
+      typeof collectAndHashAttachmentVault === "function"
+        ? await collectAndHashAttachmentVault()
+        : null;
+    if (attachData && attachData.payload) {
+      var attachmentBytes = await vaultEncryptAttachmentVault(password, attachData.payload);
+      var attachToken = typeof cloudGetToken === "function" ? await cloudGetToken(provider) : null;
+      if (attachToken && typeof SYNC_ATTACHMENTS_PATH !== "undefined") {
+        await _vaultDropboxUploadBytes(
+          attachToken,
+          SYNC_ATTACHMENTS_PATH,
+          attachmentBytes,
+          "Attachment"
+        );
+      }
+    }
+  } catch (attachErr) {
+    console.warn(
+      "[Vault] Attachment vault upload failed (non-fatal):",
+      attachErr.message || attachErr
+    );
+    if (typeof showToast === "function") {
+      showToast(
+        "Backup saved, but attachments could not be uploaded. Use ZIP backup for full coverage.",
+        "warning"
+      );
+    }
+  }
+}
+
+/**
+ * Encrypt and upload the photo companion image vault during a cloud export when
+ * the "Include photos" checkbox is checked (STAK-427). Non-fatal: warns via
+ * toast on failure. Returns the success suffix for the status message.
+ * @param {string} password Vault password.
+ * @param {string} provider Cloud provider id.
+ * @returns {Promise<string>} A " (with N photos)" suffix, or "" on skip/failure.
+ */
+async function _vaultUploadPhotoCompanion(password, provider) {
+  var photoCheckbox = document.getElementById("vaultIncludePhotos");
+  if (!(photoCheckbox && photoCheckbox.checked)) return "";
+  var photoMsg = "";
+  try {
+    showVaultStatus("info", "Uploading photos…");
+    var imgData =
+      typeof collectAndHashImageVault === "function" ? await collectAndHashImageVault() : null;
+    if (imgData && imgData.payload) {
+      var imageBytes = await vaultEncryptImageVault(password, imgData.payload);
+      var token = typeof cloudGetToken === "function" ? await cloudGetToken(provider) : null;
+      if (token && typeof SYNC_IMAGES_PATH !== "undefined") {
+        await _vaultDropboxUploadBytes(token, SYNC_IMAGES_PATH, imageBytes, "Image");
+        photoMsg =
+          " (with " + imgData.imageCount + " photo" + (imgData.imageCount === 1 ? "" : "s") + ")";
+      }
+    }
+  } catch (imgErr) {
+    console.warn("[Vault] Image vault upload failed (non-fatal):", imgErr.message || imgErr);
+    photoMsg = "";
+    if (typeof showToast === "function") {
+      showToast(
+        "Backup saved, but photos could not be uploaded. Use ZIP backup for full photo coverage.",
+        "warning"
+      );
+    }
+  }
+  return photoMsg;
+}
+
+/**
+ * Perform a cloud export: encrypt + upload the sync vault, then the optional
+ * attachment and photo companion vaults, then report success and cache the
+ * password (non-manual backups only).
+ * @param {string} password Vault password.
+ * @returns {Promise<void>}
+ */
+async function _vaultCloudExport(password) {
+  var provider = _cloudContext.provider;
+  var fileBytes = await vaultEncryptToBytes(password);
+  showVaultStatus("info", "Uploading…");
+  await cloudUploadVault(
+    provider,
+    fileBytes,
+    _cloudContext.isManualBackup ? { skipLatestUpdate: true } : undefined
+  );
+
+  await _vaultUploadAttachmentCompanion(password, provider);
+  var photoMsg = await _vaultUploadPhotoCompanion(password, provider);
+
+  showVaultStatus("success", "Backup uploaded successfully" + photoMsg + ".");
+  // Cache password for this browser session
+  if (
+    typeof cloudCachePassword === "function" &&
+    !(_cloudContext && _cloudContext.isManualBackup)
+  ) {
+    cloudCachePassword(provider, password);
+  }
+  if (typeof showKrakenToastIfFirst === "function") showKrakenToastIfFirst();
+}
+
+/**
+ * Translate a local (download) export result into the appropriate vault-modal
+ * status message — partial-failure warnings or a multi-file success summary.
+ * @param {Object} exportResult The result from exportEncryptedBackup().
+ */
+function _vaultExportResultStatus(exportResult) {
+  if (exportResult && exportResult.imageExportFailed) {
+    showVaultStatus(
+      "warning",
+      "Inventory exported. Photo backup failed — try again or use Settings → Export Images."
+    );
+  } else if (exportResult && exportResult.attachmentExportFailed) {
+    showVaultStatus(
+      "warning",
+      "Inventory" +
+        (exportResult.imageCount > 0 ? " + photos" : "") +
+        " exported. Attachment backup failed — try again or use ZIP backup."
+    );
+  } else {
+    var _extraFiles =
+      (exportResult && exportResult.imageCount > 0 ? 1 : 0) +
+      (exportResult && exportResult.attachmentCount > 0 ? 1 : 0);
+    if (_extraFiles > 0) {
+      showVaultStatus(
+        "success",
+        "Backup exported — " +
+          (1 + _extraFiles) +
+          " files downloaded (inventory" +
+          (exportResult.imageCount > 0
+            ? " + " +
+              exportResult.imageCount +
+              " photo" +
+              (exportResult.imageCount === 1 ? "" : "s")
+            : "") +
+          (exportResult.attachmentCount > 0
+            ? " + " +
+              exportResult.attachmentCount +
+              " attachment" +
+              (exportResult.attachmentCount === 1 ? "" : "s")
+            : "") +
+          ")."
+      );
+    } else {
+      showVaultStatus("success", "Backup exported successfully.");
+    }
+  }
+}
+
+/**
+ * Handle the export-mode vault action: validate the confirm password and crypto
+ * backend, then run the cloud or local export inside a disable/restore +
+ * try/catch envelope.
+ * @param {string} password Vault password.
+ * @param {boolean} isCloudExport Whether this is a cloud export.
+ * @param {HTMLElement} confirmEl The confirm-password input.
+ * @param {HTMLElement} actionBtn The modal action button.
+ * @returns {Promise<void>}
+ */
+async function _vaultPerformExport(password, isCloudExport, confirmEl, actionBtn) {
+  var confirm = confirmEl ? confirmEl.value : "";
+  if (password !== confirm) {
+    showVaultStatus("error", "Passwords do not match.");
+    return;
+  }
+
+  if (!getCryptoBackend()) {
+    showVaultStatus("error", "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.");
+    return;
+  }
+
+  if (actionBtn) actionBtn.disabled = true;
+  showVaultStatus("info", "Encrypting…");
+
+  try {
+    if (isCloudExport && _cloudContext) {
+      await _vaultCloudExport(password);
+    } else {
+      var exportResult = await exportEncryptedBackup(password);
+      _vaultExportResultStatus(exportResult);
+    }
+  } catch (err) {
+    showVaultStatus("error", err.message || "Export failed.");
+  } finally {
+    if (actionBtn) actionBtn.disabled = false;
+  }
+}
+
+/**
+ * Fallback import path (DiffEngine/DiffModal unavailable): the full overwrite
+ * already happened, so restore the optional photo + attachment companion vaults,
+ * report a status summary, and reload after a short delay.
+ * @param {string} password Vault password.
+ * @returns {Promise<void>}
+ */
+async function _vaultRestoreCompanionsAndReload(password) {
+  var _imgRestoreCount = 0;
+  var _attachRestoreCount = 0;
+  var _restoreWarning = null;
+  if (_vaultPendingImageFile) {
+    showVaultStatus("info", "Restoring photos…");
+    try {
+      _imgRestoreCount = await vaultDecryptAndRestoreImages(_vaultPendingImageFile, password);
+    } catch (imgErr) {
+      _restoreWarning = "photo file failed: " + (imgErr.message || "decryption error");
+    }
+  }
+  if (_vaultPendingAttachmentFile) {
+    showVaultStatus("info", "Restoring attachments…");
+    try {
+      _attachRestoreCount = await vaultDecryptAndRestoreAttachments(
+        _vaultPendingAttachmentFile,
+        password
+      );
+    } catch (attachErr) {
+      _restoreWarning =
+        (_restoreWarning ? _restoreWarning + "; " : "") +
+        "attachment file failed: " +
+        (attachErr.message || "decryption error");
+    }
+  }
+  if (_restoreWarning) {
+    showVaultStatus("error", "Inventory restored, but " + _restoreWarning + ". Reloading…");
+  } else if (_imgRestoreCount > 0 || _attachRestoreCount > 0) {
+    var _restoredParts = [];
+    if (_imgRestoreCount > 0)
+      _restoredParts.push(_imgRestoreCount + " photo" + (_imgRestoreCount === 1 ? "" : "s"));
+    if (_attachRestoreCount > 0)
+      _restoredParts.push(
+        _attachRestoreCount + " attachment" + (_attachRestoreCount === 1 ? "" : "s")
+      );
+    showVaultStatus("success", "Data and " + _restoredParts.join(" + ") + " restored. Reloading…");
+  } else {
+    showVaultStatus("success", "Data restored successfully. Reloading…");
+  }
+  setTimeout(function () {
+    location.reload();
+  }, 1200);
+}
+
+/**
+ * Handle the import-mode vault action: validate a pending file and the crypto
+ * backend, run importEncryptedBackup, then either close the modal (diff-preview
+ * path) or restore companions + reload (fallback path).
+ * @param {string} password Vault password.
+ * @param {boolean} isCloudImport Whether this is a cloud import.
+ * @param {HTMLElement} actionBtn The modal action button.
+ * @returns {Promise<void>}
+ */
+async function _vaultPerformImport(password, isCloudImport, actionBtn) {
+  if (!_vaultPendingFile) {
+    showVaultStatus("error", "No file loaded.");
+    return;
+  }
+
+  if (!getCryptoBackend()) {
+    showVaultStatus("error", "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP.");
+    return;
+  }
+
+  if (actionBtn) actionBtn.disabled = true;
+  showVaultStatus("info", "Decrypting…");
+
+  try {
+    // Determine whether the diff preview path is available
+    var hasDiffPreview = typeof DiffEngine !== "undefined" && typeof DiffModal !== "undefined";
+
+    await importEncryptedBackup(_vaultPendingFile, password);
+    // Cache password for this browser session
+    if (isCloudImport && _cloudContext && typeof cloudCachePassword === "function") {
+      cloudCachePassword(_cloudContext.provider, password);
+    }
+
+    if (hasDiffPreview) {
+      // DiffModal is now showing the preview — close the vault modal so the user
+      // can interact with the diff review. No reload needed; the onApply callback
+      // inside vaultRestoreWithPreview handles save/render.
+      closeVaultModal();
+    } else {
+      await _vaultRestoreCompanionsAndReload(password);
+    }
+  } catch (err) {
+    showVaultStatus("error", err.message || "Import failed.");
+  } finally {
+    if (actionBtn) actionBtn.disabled = false;
+  }
+}
+
 async function handleVaultAction() {
   var modal = safeGetElement("vaultModal");
   if (!modal) return;
@@ -1462,7 +1908,6 @@ async function handleVaultAction() {
   var mode = modal.getAttribute("data-vault-mode");
   var passwordEl = safeGetElement("vaultPassword");
   var confirmEl = safeGetElement("vaultConfirmPassword");
-  var statusEl = safeGetElement("vaultStatus");
   var actionBtn = safeGetElement("vaultActionBtn");
 
   var password = passwordEl ? passwordEl.value : "";
@@ -1482,293 +1927,9 @@ async function handleVaultAction() {
   var effectiveMode = isCloudExport ? "export" : isCloudImport ? "import" : mode;
 
   if (effectiveMode === "export") {
-    var confirm = confirmEl ? confirmEl.value : "";
-    if (password !== confirm) {
-      showVaultStatus("error", "Passwords do not match.");
-      return;
-    }
-
-    if (!getCryptoBackend()) {
-      showVaultStatus(
-        "error",
-        "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP."
-      );
-      return;
-    }
-
-    if (actionBtn) actionBtn.disabled = true;
-    showVaultStatus("info", "Encrypting\u2026");
-
-    try {
-      if (isCloudExport && _cloudContext) {
-        // Cloud export: encrypt then upload
-        var fileBytes = await vaultEncryptToBytes(password);
-        showVaultStatus("info", "Uploading\u2026");
-        await cloudUploadVault(
-          _cloudContext.provider,
-          fileBytes,
-          _cloudContext.isManualBackup ? { skipLatestUpdate: true } : undefined
-        );
-
-        // Upload attachment vault if "Include attachments" checkbox is checked
-        var includeAttachments = false;
-        var attachCheckbox = document.getElementById("vaultIncludeAttachments");
-        if (attachCheckbox && attachCheckbox.checked) includeAttachments = true;
-        if (includeAttachments) {
-          try {
-            showVaultStatus("info", "Uploading attachments…");
-            var attachData =
-              typeof collectAndHashAttachmentVault === "function"
-                ? await collectAndHashAttachmentVault()
-                : null;
-            if (attachData && attachData.payload) {
-              var attachmentBytes = await vaultEncryptAttachmentVault(password, attachData.payload);
-              var attachToken =
-                typeof cloudGetToken === "function"
-                  ? await cloudGetToken(_cloudContext.provider)
-                  : null;
-              if (attachToken && typeof SYNC_ATTACHMENTS_PATH !== "undefined") {
-                var attachArg = JSON.stringify({
-                  path: SYNC_ATTACHMENTS_PATH,
-                  mode: "overwrite",
-                  autorename: false,
-                  mute: true,
-                });
-                var attachResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
-                  method: "POST",
-                  headers: {
-                    Authorization: "Bearer " + attachToken,
-                    "Content-Type": "application/octet-stream",
-                    "Dropbox-API-Arg": attachArg,
-                  },
-                  body: attachmentBytes,
-                });
-                if (!attachResp.ok) {
-                  throw new Error("Attachment upload returned " + attachResp.status);
-                }
-              }
-            }
-          } catch (attachErr) {
-            console.warn(
-              "[Vault] Attachment vault upload failed (non-fatal):",
-              attachErr.message || attachErr
-            );
-            if (typeof showToast === "function") {
-              showToast(
-                "Backup saved, but attachments could not be uploaded. Use ZIP backup for full coverage.",
-                "warning"
-              );
-            }
-          }
-        }
-
-        // STAK-427: Upload image vault if "Include photos" checkbox is checked
-        var includePhotos = false;
-        var photoCheckbox = document.getElementById("vaultIncludePhotos");
-        if (photoCheckbox && photoCheckbox.checked) includePhotos = true;
-        var photoMsg = "";
-        if (includePhotos) {
-          try {
-            showVaultStatus("info", "Uploading photos\u2026");
-            var imgData =
-              typeof collectAndHashImageVault === "function"
-                ? await collectAndHashImageVault()
-                : null;
-            if (imgData && imgData.payload) {
-              var imageBytes = await vaultEncryptImageVault(password, imgData.payload);
-              var token =
-                typeof cloudGetToken === "function"
-                  ? await cloudGetToken(_cloudContext.provider)
-                  : null;
-              if (token && typeof SYNC_IMAGES_PATH !== "undefined") {
-                var imgArg = JSON.stringify({
-                  path: SYNC_IMAGES_PATH,
-                  mode: "overwrite",
-                  autorename: false,
-                  mute: true,
-                });
-                var imgResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
-                  method: "POST",
-                  headers: {
-                    Authorization: "Bearer " + token,
-                    "Content-Type": "application/octet-stream",
-                    "Dropbox-API-Arg": imgArg,
-                  },
-                  body: imageBytes,
-                });
-                if (imgResp.ok) {
-                  photoMsg =
-                    " (with " +
-                    imgData.imageCount +
-                    " photo" +
-                    (imgData.imageCount === 1 ? "" : "s") +
-                    ")";
-                } else {
-                  throw new Error("Image upload returned " + imgResp.status);
-                }
-              }
-            }
-          } catch (imgErr) {
-            console.warn(
-              "[Vault] Image vault upload failed (non-fatal):",
-              imgErr.message || imgErr
-            );
-            photoMsg = "";
-            if (typeof showToast === "function") {
-              showToast(
-                "Backup saved, but photos could not be uploaded. Use ZIP backup for full photo coverage.",
-                "warning"
-              );
-            }
-          }
-        }
-
-        showVaultStatus("success", "Backup uploaded successfully" + photoMsg + ".");
-        // Cache password for this browser session
-        if (
-          typeof cloudCachePassword === "function" &&
-          !(_cloudContext && _cloudContext.isManualBackup)
-        ) {
-          cloudCachePassword(_cloudContext.provider, password);
-        }
-        if (typeof showKrakenToastIfFirst === "function") showKrakenToastIfFirst();
-      } else {
-        var exportResult = await exportEncryptedBackup(password);
-        if (exportResult && exportResult.imageExportFailed) {
-          showVaultStatus(
-            "warning",
-            "Inventory exported. Photo backup failed \u2014 try again or use Settings \u2192 Export Images."
-          );
-        } else if (exportResult && exportResult.attachmentExportFailed) {
-          showVaultStatus(
-            "warning",
-            "Inventory" +
-              (exportResult.imageCount > 0 ? " + photos" : "") +
-              " exported. Attachment backup failed \u2014 try again or use ZIP backup."
-          );
-        } else {
-          var _extraFiles =
-            (exportResult && exportResult.imageCount > 0 ? 1 : 0) +
-            (exportResult && exportResult.attachmentCount > 0 ? 1 : 0);
-          if (_extraFiles > 0) {
-            showVaultStatus(
-              "success",
-              "Backup exported \u2014 " +
-                (1 + _extraFiles) +
-                " files downloaded (inventory" +
-                (exportResult.imageCount > 0
-                  ? " + " +
-                    exportResult.imageCount +
-                    " photo" +
-                    (exportResult.imageCount === 1 ? "" : "s")
-                  : "") +
-                (exportResult.attachmentCount > 0
-                  ? " + " +
-                    exportResult.attachmentCount +
-                    " attachment" +
-                    (exportResult.attachmentCount === 1 ? "" : "s")
-                  : "") +
-                ")."
-            );
-          } else {
-            showVaultStatus("success", "Backup exported successfully.");
-          }
-        }
-      }
-    } catch (err) {
-      showVaultStatus("error", err.message || "Export failed.");
-    } finally {
-      if (actionBtn) actionBtn.disabled = false;
-    }
+    await _vaultPerformExport(password, isCloudExport, confirmEl, actionBtn);
   } else {
-    // Import mode
-    if (!_vaultPendingFile) {
-      showVaultStatus("error", "No file loaded.");
-      return;
-    }
-
-    if (!getCryptoBackend()) {
-      showVaultStatus(
-        "error",
-        "Encryption not available. Use Chrome/Safari/Edge or serve via HTTP."
-      );
-      return;
-    }
-
-    if (actionBtn) actionBtn.disabled = true;
-    showVaultStatus("info", "Decrypting\u2026");
-
-    try {
-      // Determine whether the diff preview path is available
-      var hasDiffPreview = typeof DiffEngine !== "undefined" && typeof DiffModal !== "undefined";
-
-      await importEncryptedBackup(_vaultPendingFile, password);
-      // Cache password for this browser session
-      if (isCloudImport && _cloudContext && typeof cloudCachePassword === "function") {
-        cloudCachePassword(_cloudContext.provider, password);
-      }
-
-      if (hasDiffPreview) {
-        // DiffModal is now showing the preview — close the vault modal so
-        // the user can interact with the diff review.  No reload needed;
-        // the onApply callback inside vaultRestoreWithPreview handles save/render.
-        closeVaultModal();
-      } else {
-        // Fallback: full overwrite already happened, handle image vault + reload
-        var _imgRestoreCount = 0;
-        var _attachRestoreCount = 0;
-        var _restoreWarning = null;
-        if (_vaultPendingImageFile) {
-          showVaultStatus("info", "Restoring photos\u2026");
-          try {
-            _imgRestoreCount = await vaultDecryptAndRestoreImages(_vaultPendingImageFile, password);
-          } catch (imgErr) {
-            _restoreWarning = "photo file failed: " + (imgErr.message || "decryption error");
-          }
-        }
-        if (_vaultPendingAttachmentFile) {
-          showVaultStatus("info", "Restoring attachments\u2026");
-          try {
-            _attachRestoreCount = await vaultDecryptAndRestoreAttachments(
-              _vaultPendingAttachmentFile,
-              password
-            );
-          } catch (attachErr) {
-            _restoreWarning =
-              (_restoreWarning ? _restoreWarning + "; " : "") +
-              "attachment file failed: " +
-              (attachErr.message || "decryption error");
-          }
-        }
-        if (_restoreWarning) {
-          showVaultStatus(
-            "error",
-            "Inventory restored, but " + _restoreWarning + ". Reloading\u2026"
-          );
-        } else if (_imgRestoreCount > 0 || _attachRestoreCount > 0) {
-          var _restoredParts = [];
-          if (_imgRestoreCount > 0)
-            _restoredParts.push(_imgRestoreCount + " photo" + (_imgRestoreCount === 1 ? "" : "s"));
-          if (_attachRestoreCount > 0)
-            _restoredParts.push(
-              _attachRestoreCount + " attachment" + (_attachRestoreCount === 1 ? "" : "s")
-            );
-          showVaultStatus(
-            "success",
-            "Data and " + _restoredParts.join(" + ") + " restored. Reloading\u2026"
-          );
-        } else {
-          showVaultStatus("success", "Data restored successfully. Reloading\u2026");
-        }
-        setTimeout(function () {
-          location.reload();
-        }, 1200);
-      }
-    } catch (err) {
-      showVaultStatus("error", err.message || "Import failed.");
-    } finally {
-      if (actionBtn) actionBtn.disabled = false;
-    }
+    await _vaultPerformImport(password, isCloudImport, actionBtn);
   }
 }
 
