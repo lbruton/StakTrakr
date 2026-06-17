@@ -127,11 +127,16 @@ function loadHelpers(seedHistory) {
 // (except the dedicated AC-10 age-cutoff test).
 const RECENT = FIXED_NOW - 24 * 60 * 60 * 1000; // 1 day ago
 
+// Compact entry factory — collapses the repeated { ts, itemName, retail, spot,
+// melt } fixture literal. spot/melt default to the common 9/8 pair; pass them
+// explicitly only when a test asserts on a different value.
+const e = (ts, itemName, retail, spot = 9, melt = 8) => ({ ts, itemName, retail, spot, melt });
+
 describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
   test("AC-1: cross-device union — different entries for the same UUID merge to the union", () => {
     const { mergeItemPriceHistories } = loadHelpers();
-    const deviceA = { [U1]: [{ ts: RECENT, itemName: "A", retail: 10, spot: 9, melt: 8 }] };
-    const deviceB = { [U1]: [{ ts: RECENT + 1, itemName: "A", retail: 11, spot: 9, melt: 8 }] };
+    const deviceA = { [U1]: [e(RECENT, "A", 10)] };
+    const deviceB = { [U1]: [e(RECENT + 1, "A", 11)] };
 
     const merged = mergeItemPriceHistories(deviceA, deviceB);
 
@@ -146,11 +151,8 @@ describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
   test("AC-2: idempotent re-merge — merge(X, X) deep-equals canonicalize(X)", () => {
     const { mergeItemPriceHistories, canonicalizeItemPriceHistory } = loadHelpers();
     const X = {
-      [U2]: [{ ts: RECENT + 5, itemName: "Z", retail: 2, spot: 1, melt: 1 }],
-      [U1]: [
-        { ts: RECENT + 1, itemName: "A", retail: 10, spot: 9, melt: 8 },
-        { ts: RECENT, itemName: "A", retail: 7, spot: 6, melt: 5 },
-      ],
+      [U2]: [e(RECENT + 5, "Z", 2, 1, 1)],
+      [U1]: [e(RECENT + 1, "A", 10), e(RECENT, "A", 7, 6, 5)],
     };
 
     const merged = mergeItemPriceHistories(X, X);
@@ -172,14 +174,14 @@ describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
     const sameTs = RECENT + 42;
     const local = {
       [U1]: [
-        { ts: sameTs, itemName: "A", retail: 10, spot: 9, melt: 8 }, // distinct by retail
-        { ts: sameTs, itemName: "A", retail: 99, spot: 9, melt: 8 }, // exact dup also on remote
+        e(sameTs, "A", 10), // distinct by retail
+        e(sameTs, "A", 99), // exact dup also on remote
       ],
     };
     const remote = {
       [U1]: [
-        { ts: sameTs, itemName: "A", retail: 99, spot: 9, melt: 8 }, // exact duplicate -> collapses
-        { ts: sameTs, itemName: "B", retail: 10, spot: 9, melt: 8 }, // distinct by itemName
+        e(sameTs, "A", 99), // exact duplicate -> collapses
+        e(sameTs, "B", 10), // distinct by itemName
       ],
     };
 
@@ -199,15 +201,15 @@ describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
   test("AC-9: merge is commutative including tie order — merge(A,B) deep-equals merge(B,A)", () => {
     const A = {
       [U1]: [
-        { ts: RECENT, itemName: "A", retail: 10, spot: 9, melt: 8 },
-        { ts: RECENT, itemName: "Z", retail: 10, spot: 9, melt: 8 }, // same ts, differs by name
+        e(RECENT, "A", 10),
+        e(RECENT, "Z", 10), // same ts, differs by name
       ],
     };
     const B = {
       [U1]: [
-        { ts: RECENT, itemName: "M", retail: 10, spot: 9, melt: 8 }, // same ts, between A and Z
+        e(RECENT, "M", 10), // same ts, between A and Z
       ],
-      [U2]: [{ ts: RECENT + 3, itemName: "Q", retail: 1, spot: 1, melt: 1 }],
+      [U2]: [e(RECENT + 3, "Q", 1, 1, 1)],
     };
 
     const ab = loadHelpers().mergeItemPriceHistories(A, B);
@@ -218,11 +220,8 @@ describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
 
   test("AC-9: compressed-vs-plain hash equality — collectAndHashItemPriceHistory is input-form-independent", () => {
     const history = {
-      [U2]: [{ ts: RECENT + 2, itemName: "Z", retail: 5, spot: 4, melt: 3 }],
-      [U1]: [
-        { ts: RECENT + 1, itemName: "A", retail: 10, spot: 9, melt: 8 },
-        { ts: RECENT, itemName: "A", retail: 7, spot: 6, melt: 5 },
-      ],
+      [U2]: [e(RECENT + 2, "Z", 5, 4, 3)],
+      [U1]: [e(RECENT + 1, "A", 10), e(RECENT, "A", 7, 6, 5)],
     };
 
     // Plain-object form: seed itemPriceHistory as the object.
@@ -250,13 +249,13 @@ describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
   test("AC-10: retention cap is applied AFTER merge (age cutoff + per-UUID limit)", () => {
     const { mergeItemPriceHistories } = loadHelpers();
     const day = 24 * 60 * 60 * 1000;
-    const ancient = { ts: FIXED_NOW - 400 * day, itemName: "A", retail: 1, spot: 1, melt: 1 };
-    const recent = { ts: FIXED_NOW - 10 * day, itemName: "A", retail: 2, spot: 2, melt: 2 };
+    const ancient = e(FIXED_NOW - 400 * day, "A", 1, 1, 1);
+    const recent = e(FIXED_NOW - 10 * day, "A", 2, 2, 2);
 
     // Per-UUID limit: 1200 entries on U2 must cap to the newest 1000.
     const many = [];
     for (let i = 0; i < 1200; i++) {
-      many.push({ ts: FIXED_NOW - (1200 - i) * 1000, itemName: "B", retail: i, spot: i, melt: i });
+      many.push(e(FIXED_NOW - (1200 - i) * 1000, "B", i, i, i));
     }
 
     const merged = mergeItemPriceHistories(
@@ -280,10 +279,10 @@ describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
 
   test("AC-6: acceptedUuids filter drops remote-only orphan UUIDs; local is never filtered", () => {
     const { mergeItemPriceHistories } = loadHelpers();
-    const local = { [U1]: [{ ts: RECENT, itemName: "A", retail: 10, spot: 9, melt: 8 }] };
+    const local = { [U1]: [e(RECENT, "A", 10)] };
     const remote = {
-      [U1]: [{ ts: RECENT + 1, itemName: "A", retail: 11, spot: 9, melt: 8 }],
-      [U2]: [{ ts: RECENT + 2, itemName: "ORPHAN", retail: 5, spot: 4, melt: 3 }],
+      [U1]: [e(RECENT + 1, "A", 11)],
+      [U2]: [e(RECENT + 2, "ORPHAN", 5, 4, 3)],
     };
 
     // Boundary accepts only U1 — the rejected remote Item U2 must not import history.

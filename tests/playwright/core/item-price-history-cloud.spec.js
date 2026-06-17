@@ -288,6 +288,84 @@ async function canonicalHash(page, history) {
   }, history);
 }
 
+/** Computes the current local inventory + settings hashes (for companion-only metas). */
+async function computeLocalHashes(page) {
+  return page.evaluate(async () => {
+    const inv = typeof inventory !== "undefined" ? inventory : [];
+    return {
+      invHash: await window.computeInventoryHash(inv),
+      setHash: await window.computeSettingsHash(),
+    };
+  });
+}
+
+/** Replaces DiffModal.show with a resolved no-op so companion merges stay silent. */
+async function suppressDiffModal(page) {
+  await page.evaluate(() => {
+    if (window.DiffModal) window.DiffModal.show = () => Promise.resolve();
+  });
+}
+
+/**
+ * Builds an encrypted remote sync-metadata file carrying a companion pointer.
+ * Defaults supply the common manifest-v2 + companion-vault shape; `overrides`
+ * shallow-merge on top (e.g. syncId, inventoryHash, settingsHash, itemCount).
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {object} [opts]
+ * @param {string} [opts.companionHash] - companion-vault hash for the pointer
+ * @param {object} [opts.pointer] - companion pointer override ({hash,uuidCount,entryCount})
+ * @param {object} [opts.overrides] - additional/overriding top-level meta fields
+ * @returns {Promise<number[]>} encrypted metadata file bytes
+ */
+async function buildRemoteMeta(page, opts = {}) {
+  const pointer = opts.pointer || {
+    hash: opts.companionHash,
+    uuidCount: 1,
+    entryCount: 1,
+  };
+  return encryptVaultFile(page, {
+    syncId: "remote-sync",
+    timestamp: BASE_TS + 5000,
+    rev: "remote-rev",
+    deviceId: "remote-device",
+    itemCount: LOCAL_INVENTORY.length,
+    manifestVersion: 2,
+    itemPriceHistoryVault: pointer,
+    ...(opts.overrides || {}),
+  });
+}
+
+/**
+ * Seeds the remote companion: computes the companion hash for `history`, builds
+ * the remote metadata (companion pointer + any `metaOverrides`), encrypts the
+ * companion vault, wires routeDropbox, and (unless `keepDiffModal`) suppresses
+ * the diff modal. Replaces the per-test push/meta/historyVault/route/suppress
+ * boilerplate (STRK-147 Codacy duplication gate).
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {object} [opts]
+ * @param {object} [opts.history] - remote companion history (default REMOTE_HISTORY)
+ * @param {object} [opts.pointer] - explicit companion pointer override
+ * @param {object} [opts.metaOverrides] - extra/overriding meta fields
+ * @param {object} [opts.routeOptions] - extra routeDropbox options (e.g. onUpload)
+ * @param {boolean} [opts.keepDiffModal] - skip the DiffModal suppression
+ * @returns {Promise<{remoteHash:string}>} the computed companion hash
+ */
+async function seedRemoteCompanion(page, opts = {}) {
+  const history = opts.history || REMOTE_HISTORY;
+  const remoteHash = await canonicalHash(page, history);
+  const metaBytes = await buildRemoteMeta(page, {
+    companionHash: remoteHash,
+    pointer: opts.pointer,
+    overrides: opts.metaOverrides,
+  });
+  const historyVaultBytes = await encryptVaultFile(page, history);
+  await routeDropbox(page, { metaBytes, historyVaultBytes, ...(opts.routeOptions || {}) });
+  if (!opts.keepDiffModal) await suppressDiffModal(page);
+  return { remoteHash };
+}
+
 test.describe("core/item-price-history-cloud (STRK-147)", () => {
   test("two devices converge on the union of item-price-history entries and a re-sync is idempotent", async ({
     page,
@@ -299,23 +377,10 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
     await gotoCloudReady(page);
 
-    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
-    const metaBytes = await encryptVaultFile(page, {
-      syncId: "remote-sync-1",
-      timestamp: BASE_TS + 5000,
-      rev: "remote-rev-1",
-      deviceId: "remote-device",
-      itemCount: LOCAL_INVENTORY.length,
-      manifestVersion: 2,
-      // Inventory + settings unchanged remotely; ONLY the companion differs.
-      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 1, entryCount: 1 },
-    });
-    const historyVaultBytes = await encryptVaultFile(page, REMOTE_HISTORY);
-    await routeDropbox(page, { metaBytes, historyVaultBytes });
-
-    // Suppress any diff modal — companion-only merges must be silent (AC-5).
-    await page.evaluate(() => {
-      if (window.DiffModal) window.DiffModal.show = () => Promise.resolve();
+    // Inventory + settings unchanged remotely; ONLY the companion differs. The
+    // diff modal is suppressed so the companion-only merge stays silent (AC-5).
+    await seedRemoteCompanion(page, {
+      metaOverrides: { syncId: "remote-sync-1", rev: "remote-rev-1" },
     });
 
     await page.evaluate(() => window.pollForRemoteChanges());
@@ -379,29 +444,14 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
 
     // Build remote meta whose inventory + settings hashes MATCH local, but whose
     // companion hash differs.
-    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
-    const { invHash, setHash } = await page.evaluate(async () => {
-      const inv = typeof inventory !== "undefined" ? inventory : [];
-      return {
-        invHash: await window.computeInventoryHash(inv),
-        setHash: await window.computeSettingsHash(),
-      };
-    });
-    const metaBytes = await encryptVaultFile(page, {
-      syncId: "remote-sync-companion-only",
-      timestamp: BASE_TS + 6000,
-      rev: "remote-rev-companion",
-      deviceId: "remote-device",
-      itemCount: LOCAL_INVENTORY.length,
-      manifestVersion: 2,
-      inventoryHash: invHash,
-      settingsHash: setHash,
-      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 1, entryCount: 1 },
-    });
-    const historyVaultBytes = await encryptVaultFile(page, REMOTE_HISTORY);
-    await routeDropbox(page, { metaBytes, historyVaultBytes });
-    await page.evaluate(() => {
-      if (window.DiffModal) window.DiffModal.show = () => Promise.resolve();
+    const { invHash, setHash } = await computeLocalHashes(page);
+    await seedRemoteCompanion(page, {
+      metaOverrides: {
+        syncId: "remote-sync-companion-only",
+        rev: "remote-rev-companion",
+        inventoryHash: invHash,
+        settingsHash: setHash,
+      },
     });
 
     await page.evaluate(() => window.pollForRemoteChanges());
@@ -427,27 +477,18 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
     await gotoCloudReady(page);
 
-    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
-    const { invHash, setHash } = await page.evaluate(async () => {
-      const inv = typeof inventory !== "undefined" ? inventory : [];
-      return {
-        invHash: await window.computeInventoryHash(inv),
-        setHash: await window.computeSettingsHash(),
-      };
+    const { invHash, setHash } = await computeLocalHashes(page);
+    // keepDiffModal: this test installs its OWN DiffModal.show spy below to prove
+    // the modal is never shown, so the default suppression must be skipped.
+    await seedRemoteCompanion(page, {
+      keepDiffModal: true,
+      metaOverrides: {
+        syncId: "remote-sync-silent",
+        rev: "remote-rev-silent",
+        inventoryHash: invHash,
+        settingsHash: setHash,
+      },
     });
-    const metaBytes = await encryptVaultFile(page, {
-      syncId: "remote-sync-silent",
-      timestamp: BASE_TS + 7000,
-      rev: "remote-rev-silent",
-      deviceId: "remote-device",
-      itemCount: LOCAL_INVENTORY.length,
-      manifestVersion: 2,
-      inventoryHash: invHash,
-      settingsHash: setHash,
-      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 1, entryCount: 1 },
-    });
-    const historyVaultBytes = await encryptVaultFile(page, REMOTE_HISTORY);
-    await routeDropbox(page, { metaBytes, historyVaultBytes });
 
     const diffShown = await page.evaluate(async () => {
       let shown = false;
@@ -479,20 +520,12 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
       [ITEM_A]: [entry(REMOTE_TS, { retail: 35 })],
       [ITEM_B]: [entry(ORPHAN_TS, { itemName: "STRK-147 Rejected B", retail: 99 })],
     };
-    const remoteHash = await canonicalHash(page, remoteHistory);
-    const metaBytes = await encryptVaultFile(page, {
-      syncId: "remote-sync-orphan",
-      timestamp: BASE_TS + 8000,
-      rev: "remote-rev-orphan",
-      deviceId: "remote-device",
-      itemCount: LOCAL_INVENTORY.length,
-      manifestVersion: 2,
-      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 2, entryCount: 2 },
-    });
-    const historyVaultBytes = await encryptVaultFile(page, remoteHistory);
-    await routeDropbox(page, { metaBytes, historyVaultBytes });
-    await page.evaluate(() => {
-      if (window.DiffModal) window.DiffModal.show = () => Promise.resolve();
+    const orphanHash = await canonicalHash(page, remoteHistory);
+    await seedRemoteCompanion(page, {
+      history: remoteHistory,
+      metaOverrides: { syncId: "remote-sync-orphan", rev: "remote-rev-orphan" },
+      // The companion holds two UUIDs (ITEM_A accepted, ITEM_B rejected).
+      pointer: { hash: orphanHash, uuidCount: 2, entryCount: 2 },
     });
 
     await page.evaluate(() => window.pollForRemoteChanges());
@@ -515,27 +548,15 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
 
     // Companion-only remote change (inv + settings hashes MATCH) so the silent
     // companion merge path is the one that must run — and fail on the write.
-    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
-    const { invHash, setHash } = await page.evaluate(async () => {
-      const inv = typeof inventory !== "undefined" ? inventory : [];
-      return {
-        invHash: await window.computeInventoryHash(inv),
-        setHash: await window.computeSettingsHash(),
-      };
+    const { invHash, setHash } = await computeLocalHashes(page);
+    await seedRemoteCompanion(page, {
+      metaOverrides: {
+        syncId: "remote-sync-quota",
+        rev: "remote-rev-quota",
+        inventoryHash: invHash,
+        settingsHash: setHash,
+      },
     });
-    const metaBytes = await encryptVaultFile(page, {
-      syncId: "remote-sync-quota",
-      timestamp: BASE_TS + 9000,
-      rev: "remote-rev-quota",
-      deviceId: "remote-device",
-      itemCount: LOCAL_INVENTORY.length,
-      manifestVersion: 2,
-      inventoryHash: invHash,
-      settingsHash: setHash,
-      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 1, entryCount: 1 },
-    });
-    const historyVaultBytes = await encryptVaultFile(page, REMOTE_HISTORY);
-    await routeDropbox(page, { metaBytes, historyVaultBytes });
 
     const lastPullBefore = await page.evaluate(
       () => JSON.parse(localStorage.getItem("cloud_sync_last_pull") || "{}").syncId
