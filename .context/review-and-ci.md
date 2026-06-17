@@ -30,6 +30,11 @@ Run the local scan with the official Codacy analysis CLI (installed machine-wide
 - Config: `.codacy/codacy.config.json` — a 1:1 mirror of the Codacy Cloud dashboard,
   regenerated with `codacy-analysis init --remote gh lbruton StakTrakr`.
 - `analyze` does **not** mutate the config file (verified), so there is no churn to revert.
+- **Refresh before trusting it:** the tracked copy can lag the cloud "StakTrakr"
+  standard. Run `codacy-analysis init --remote gh lbruton StakTrakr` to pull the
+  latest before relying on local analysis. Git tracking does NOT affect `init`'s
+  output — it overwrites from cloud regardless — so the file is tracked purely so
+  it's present in every worktree, not as a source of truth.
 
 Project-specific noise: the app uses script-tag globals. Local ESLint uses the repo's
 `eslint.config.cjs` (which disables `no-undef`), while the dashboard's managed ESLint
