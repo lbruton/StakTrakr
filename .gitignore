@@ -41,6 +41,10 @@ devops/cgc/
 devops/claude-backup/
 devops/firecrawl-docker/
 
+# Version lock — main-checkout-only mutex for version claims.
+# Must NOT follow worktrees: copies would conflict every bump and break the claim.
+devops/version.lock
+
 # Playwright test artifacts
 test-results/
 playwright-report/
@@ -54,3 +58,7 @@ playwright-report/
 
 # Claude read tracker — session-scoped UUID-named read history, not project history
 claude-read-tracker/
+
+# Specflow transient run state — only config.json is tracked.
+.specflow/**
+!.specflow/config.json
