@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.26] - 2026-06-17
+
+### Changed — STRK-147: Cloud-sync item-price-history with UUID-aware merge
+
+- **Cloud Sync**: Per-Item price history now syncs across devices through a dedicated, always-on encrypted companion vault with a UUID-aware union merge. Entries recorded on different devices merge by union rather than last-write-wins, so history added on a second device is never silently dropped; the change-detection manifest stays lightweight (only a `{hash, count}` pointer, never the full history JSON); companion-only changes merge silently with no review prompt; a remote Item rejected in the diff modal imports no orphan history; and the existing retention cap (365 days / 1000 entries per item) is applied after merging. Spot/retail market histories remain out of cloud auto-sync scope (STRK-147).
+
+---
+
 ## [3.35.24] - 2026-06-17
 
 ### Changed — STRK-214: Bulk image cache startup failures now complete cleanly
