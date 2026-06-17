@@ -2518,56 +2518,17 @@ async function pollForRemoteChanges() {
       return;
     }
 
-    // STRK-147 (D-11): item-price-history companion-vault hash check.
-    // Runs BEFORE the inventory/settings hash shortcut so a remote change that
-    // touches ONLY the companion vault is still detected and merged — the
-    // shortcut would otherwise record the pull and return without merging. The
-    // merge is silent (no diff modal) and idempotent. A write failure (quota)
-    // leaves lastPull stale for retry (C.4/AC-7); the merged hash is carried to
-    // whichever record-pull branch runs next.
-    var _pollCompanionHash =
-      lastPull && lastPull.itemPriceHistoryHash ? lastPull.itemPriceHistoryHash : null;
-    var _pollRemoteCompanionHash =
-      remoteMeta.itemPriceHistoryVault && remoteMeta.itemPriceHistoryVault.hash
-        ? remoteMeta.itemPriceHistoryVault.hash
-        : null;
-    if (_pollRemoteCompanionHash && _pollRemoteCompanionHash !== _pollCompanionHash) {
-      try {
-        var _pollCompanionResult = await _pullItemPriceHistoryVault(
-          remoteMeta,
-          token,
-          getSyncPasswordSilent(),
-          "poll-shortcut",
-          _currentInventoryUuids()
-        );
-        if (_pollCompanionResult.hash) {
-          _pollCompanionHash = _pollCompanionResult.hash;
-          // Record the merged hash onto lastPull immediately. The companion
-          // merge is independent of the inventory/settings pull, so even when
-          // the poll proceeds to a full pull (e.g. settings differ) the merged
-          // history is already persisted and must not be re-merged next poll.
-          var _pollMergedPull = syncGetLastPull() || {};
-          _pollMergedPull.itemPriceHistoryHash = _pollCompanionHash;
-          syncSetLastPull(_pollMergedPull);
-        }
-      } catch (_pollCompanionErr) {
-        // C.4/AC-7: companion merge write failed (e.g. quota). Do NOT advance
-        // lastPull — leave it stale so the next poll retries — and record a
-        // partial/error state.
-        console.warn(
-          "[CloudSync] Poll: item-price-history merge write failed — keeping lastPull stale:",
-          String(_pollCompanionErr.message || _pollCompanionErr)
-        );
-        logCloudSyncActivity(
-          "item_price_history_vault_pull",
-          "fail",
-          "poll write failed (lastPull held): " +
-            String(_pollCompanionErr.message || _pollCompanionErr)
-        );
-        updateSyncStatusIndicator("error", "Sync incomplete");
-        return;
-      }
+    // STRK-147 (D-11): item-price-history companion-vault hash check. Extracted
+    // to _pollCompanionItemPriceHistory so this hot poll loop carries only a thin
+    // call. It runs BEFORE the inventory/settings hash shortcut so a companion-only
+    // remote change is still detected and silently merged, updates lastPull with
+    // the merged hash immediately, and signals a write failure (C.4/AC-7) via
+    // `.failed` so we hold lastPull stale and bail for retry.
+    var _pollCompanion = await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
+    if (_pollCompanion.failed) {
+      return;
     }
+    var _pollCompanionHash = _pollCompanion.hash;
 
     // Layer 4 — Hash-based change detection (REQ-4)
     // Skip notification if BOTH inventory AND settings hashes match.
@@ -2671,6 +2632,71 @@ async function pollForRemoteChanges() {
   } catch (err) {
     debugLog("[CloudSync] Poll error:", err);
   }
+}
+
+/**
+ * Companion item-price-history hash check + silent merge for the poll loop
+ * (STRK-147 D-11). Extracted from pollForRemoteChanges to keep that hot loop
+ * sub-threshold. When the remote companion hash differs from the recorded
+ * lastPull hash, it fetches and merges via _pullItemPriceHistoryVault, then
+ * records the merged hash onto lastPull immediately (the companion merge is
+ * independent of the inventory/settings pull, so even a subsequent full pull
+ * must not re-merge it). A write failure (e.g. quota) is reported via
+ * `failed:true` so the caller holds lastPull stale and bails for retry
+ * (C.4/AC-7) — it is NOT swallowed.
+ *
+ * @param {object} remoteMeta - Remote sync metadata (carries itemPriceHistoryVault)
+ * @param {string} token - Dropbox OAuth bearer token
+ * @param {object|null} lastPull - The current recorded lastPull (for the local hash)
+ * @returns {Promise<{hash:(string|null),failed:boolean}>} `hash` is the companion
+ *          hash to carry onto the recorded pull; `failed` is true when the merge
+ *          write failed and the caller must bail without advancing lastPull.
+ */
+async function _pollCompanionItemPriceHistory(remoteMeta, token, lastPull) {
+  var companionHash =
+    lastPull && lastPull.itemPriceHistoryHash ? lastPull.itemPriceHistoryHash : null;
+  var remoteCompanionHash =
+    remoteMeta.itemPriceHistoryVault && remoteMeta.itemPriceHistoryVault.hash
+      ? remoteMeta.itemPriceHistoryVault.hash
+      : null;
+  if (!remoteCompanionHash || remoteCompanionHash === companionHash) {
+    return { hash: companionHash, failed: false };
+  }
+
+  try {
+    var result = await _pullItemPriceHistoryVault(
+      remoteMeta,
+      token,
+      getSyncPasswordSilent(),
+      "poll-shortcut",
+      _currentInventoryUuids()
+    );
+    if (result.hash) {
+      companionHash = result.hash;
+      // Record the merged hash onto lastPull immediately so a subsequent full
+      // pull (e.g. settings differ) does not re-merge already-persisted history.
+      var mergedPull = syncGetLastPull() || {};
+      mergedPull.itemPriceHistoryHash = companionHash;
+      syncSetLastPull(mergedPull);
+    }
+  } catch (companionErr) {
+    // C.4/AC-7: companion merge write failed (e.g. quota). Do NOT advance
+    // lastPull — leave it stale so the next poll retries — and record a
+    // partial/error state.
+    console.warn(
+      "[CloudSync] Poll: item-price-history merge write failed — keeping lastPull stale:",
+      String(companionErr.message || companionErr)
+    );
+    logCloudSyncActivity(
+      "item_price_history_vault_pull",
+      "fail",
+      "poll write failed (lastPull held): " + String(companionErr.message || companionErr)
+    );
+    updateSyncStatusIndicator("error", "Sync incomplete");
+    return { hash: companionHash, failed: true };
+  }
+
+  return { hash: companionHash, failed: false };
 }
 
 // ---------------------------------------------------------------------------
