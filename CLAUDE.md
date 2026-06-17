@@ -70,10 +70,10 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 - Branch model: `feature/* → dev → main`.
 - Runtime code changes require worktree → PR → dev.
 - `main` is fully protected and requires PR review.
-- **Every change to `dev` goes through a PR — no exceptions.** The `Protect Dev` ruleset enforces required status checks (`Codacy Static Code Analysis`), code scanning (CodeQL), and signed commits with **no bypass actors** (`current_user_can_bypass: never`). These are ref-level gates a direct push can never satisfy, so **no file type — instruction files and AI-agent configs included — can be pushed straight to `dev`.** (Verified 2026-06-06: a docs-only push was rejected with "Required status check 'Codacy Static Code Analysis' is expected" / "Code scanning is waiting for results from CodeQL".)
+- **Every change to `dev` needs a PR — no exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` + CodeQL checks, signed commits, no bypass actors) blocks direct pushes of any file type, instruction files included.
 - Config/tooling edits (`.claude/`, `.Codex/`, `.opencode/`, `.agents/`, `CLAUDE.md`, `AGENTS.md`, `.geminiignore`, `.gitignore`, skill files, devops config) are still **lightweight** — a small chore PR to `dev`, no Plane issue or version lock required.
 - Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the **full discipline**: Plane issue → worktree → PR to `dev`.
-- **`EnterWorktree` base-ref caveat:** the harness `EnterWorktree` tool defaults to branching from `origin/main`, but PRs target `dev`. Create the worktree on `origin/dev` first (`git worktree add .claude/worktrees/<branch> -b <branch> origin/dev`) and enter it via `EnterWorktree` `path:`, or `git reset --hard origin/dev` immediately after creating — **before any edits**. Verify `git merge-base origin/dev HEAD` equals `git rev-parse origin/dev` before any PR. Full caveat in `.context/git-topology.md`.
+- **`EnterWorktree` base-ref caveat:** it branches from `origin/main`, but PRs target `dev` — create the worktree on `origin/dev` first. Full caveat (commands + merge-base verification) in `.context/git-topology.md`.
 - `devops/version.lock` is gitignored — it exists only in the main checkout, never in a worktree. Claim the version lock by writing to `<main-checkout>/devops/version.lock`, not the worktree path.
 - **Full rules:** `.context/git-topology.md` — merge strategy, worktree naming, spot bundle, branch staleness, sketch overrides.
 
@@ -181,22 +181,14 @@ Read the file `.context/implementation-gotchas.md` before touching: `applyBulkEd
 
 ### Review & CI
 
-Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives.
+Read `.context/review-and-ci.md` before Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives. Key rules it covers:
 
-**Review routing (updated 2026-06-14 — tag-gated to conserve review credits).** AI reviewers are now **opt-in per PR via labels** — none auto-review an untagged PR. Add labels at PR creation for review-worthy PRs (runtime patches, version bumps); omit them on trivial chores (docs/config) to skip the AI review cycle. The required status checks (`Codacy Static Code Analysis`, CodeQL) run regardless of labels. **CodeRabbit** runs only with the `coderabbit-review` label (auto re-review is **paused after the first review** — follow-up commits don't trigger a fresh pass, so re-trigger manually if you need another; `request_changes_workflow: true`, so a `CHANGES_REQUESTED` clears only on a clean re-review and a `COMMENTED` re-review does not flip it; ~4–8 reviews/hour throttle → 5–10 min lag). **Codacy AI** (security layer) runs only with the `codacy-review` label. **Copilot** is on-demand; label-based triggering is the planned direction but is not yet wired up. **Add both `coderabbit-review` and `codacy-review` at PR creation** for any PR you want reviewed — CodeRabbit no longer auto-applies `codacy-review` for untagged PRs, so add them explicitly rather than relying on the old auto-apply chain. The tag-gate and re-review pause are managed in CodeRabbit's **cloud** config (org/dashboard) — there is nothing to edit in the repo `.coderabbit.yaml` for this.
-
-**CodeRabbit 75% docstring-coverage pre-merge gate.** New or modified JS **and shell** functions need docstrings (JSDoc, or a `#` comment line directly above a shell function) or the PR sticks at `reviewDecision: CHANGES_REQUESTED` / `mergeStateStatus: BLOCKED` **with every GitHub status check green and 0 unresolved threads**. The failing check lives only in CodeRabbit's "Pre-merge checks" issue-comment panel — invisible to `statusCheckRollup`, the status API, and the `reviewThreads` GraphQL query. When a PR is `CHANGES_REQUESTED` but threads == 0 and checks are green, read that panel for `❌ Error` rows. Write docstrings pre-emptively. (Gate is org-level via `inheritance: true`, not in the repo yaml.)
-
-**Codacy state is authoritative via the Cloud CLI, not the dashboard UI.** Before claiming a Codacy tool toggle or pattern suppression is done, confirm it with the Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend can diverge, and a UI-only check has been wrong repeatedly in a single session. The Codacy MCP server is retired; use the `codacy-skills` plugin CLIs (`codacy-cloud-cli` for cloud state, `codacy-analysis-cli` for local scans).
-
-**Async bot reviewers land after checks go green.** Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass — often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. Treat a `null` result or `errors` array from a `gh api graphql` query as a failure (a malformed query can silently return `null`); an empty `nodes` array is the valid "no active threads" state — confirm the response is a valid list before merging.
-
-### Dual ESLint config — `.eslintrc.json` is read by Codacy AND CodeRabbit
-
-The repo carries two ESLint configs: `eslint.config.cjs` (flat — used by local `npm run lint`) and `.eslintrc.json` (legacy — read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
-The `no-restricted-globals` ban on native `alert`/`confirm`/`prompt` (use `showAppAlert`/`showAppConfirm`/`showAppPrompt`) lives **only** in `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
-The legacy config defaults `sourceType` to `script`, so an `overrides` block sets `sourceType: module` for `tests/**/*.js` — without it CodeRabbit fails to parse ES-module Playwright/unit specs (`'import' and 'export' may appear only with 'sourceType: module'`) on every PR that touches a spec (`npm run lint` never globs `tests/playwright/**`, so it can't catch this).
-Before deleting `.eslintrc.json` or bumping to ESLint 10 (Dependabot PR #1228 is deferred pending Codacy support), migrate the `no-restricted-globals` rule into `eslint.config.cjs`.
+- **Review is label-gated** (2026-06-14): apply the `coderabbit-review` + `codacy-review` labels at PR creation for review-worthy PRs; skip on trivial chores.
+- Required checks (`Codacy Static Code Analysis`, CodeQL) run regardless of labels.
+- **75% docstring-coverage gate** blocks merge invisibly — `CHANGES_REQUESTED` with green checks and 0 threads. Write JSDoc / shell docstrings pre-emptively.
+- **Async bot reviewers** (Copilot, Codacy AI) post threads 1–3 min after checks go green. Re-query threads before merging.
+- **Codacy state** is authoritative via the Cloud CLI, not the dashboard UI.
+- **Dual ESLint config:** `no-restricted-globals` (native `alert`/`confirm`/`prompt` ban) lives only in legacy `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
 
 ## Pre-flight (StakTrakr-specific)
 
