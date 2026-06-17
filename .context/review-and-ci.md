@@ -21,6 +21,10 @@ CodeRabbit enforces a 75% docstring-coverage **pre-merge check** (org-level via 
 
 When a PR is `CHANGES_REQUESTED` but threads == 0 and checks are green → fetch the latest `coderabbitai[bot]` issue comment and read its "Pre-merge checks" panel for `❌ Error` rows. Write docstrings pre-emptively on new functions. (This cost three round-trips on PR #1255 before it was spotted.)
 
+### Async bot reviewers land after checks go green
+
+Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass — often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. Treat a `null` result or `errors` array from a `gh api graphql` query as a failure (a malformed query can silently return `null`); an empty `nodes` array is the valid "no active threads" state — confirm the response is a valid list before merging.
+
 ## Pre-PR scan — Codacy local analysis (Gen-3)
 
 Run the local scan with the official Codacy analysis CLI (installed machine-wide via
@@ -35,6 +39,20 @@ Run the local scan with the official Codacy analysis CLI (installed machine-wide
   latest before relying on local analysis. Git tracking does NOT affect `init`'s
   output — it overwrites from cloud regardless — so the file is tracked purely so
   it's present in every worktree, not as a source of truth.
+- **Cloud state is authoritative via the Cloud CLI, not the dashboard UI.** Before
+  claiming a Codacy tool toggle or pattern suppression is done, confirm it with the
+  Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend
+  can diverge, and a UI-only check has been wrong repeatedly in a single session. The
+  Codacy MCP server is retired; use the `codacy-skills` plugin CLIs (`codacy-cloud-cli`
+  for cloud state, `codacy-analysis-cli` for local scans).
+
+## Dual ESLint config — `.eslintrc.json` is read by Codacy and CodeRabbit
+
+The repo carries two ESLint configs: `eslint.config.cjs` (flat — used by local `npm run lint`) and `.eslintrc.json` (legacy — read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
+
+- The `no-restricted-globals` ban on native `alert`/`confirm`/`prompt` (use `showAppAlert`/`showAppConfirm`/`showAppPrompt`) lives **only** in `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
+- The legacy config defaults `sourceType` to `script`, so an `overrides` block sets `sourceType: module` for `tests/**/*.js`. Without it, CodeRabbit fails to parse ES-module Playwright/unit specs (`'import' and 'export' may appear only with 'sourceType: module'`) on every PR that touches a spec. `npm run lint` never globs `tests/playwright/**`, so it can't catch this.
+- Before deleting `.eslintrc.json` or bumping to ESLint 10 (Dependabot PR #1228 is deferred pending Codacy support), migrate the `no-restricted-globals` rule into `eslint.config.cjs`.
 
 Project-specific noise: the app uses script-tag globals. Local ESLint uses the repo's
 `eslint.config.cjs` (which disables `no-undef`), while the dashboard's managed ESLint

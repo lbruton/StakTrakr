@@ -46,7 +46,9 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 
 ## Testing Rules
 
-- Never modify a TDD test to make it pass. A failing test means the implementation is wrong; if the test itself is flawed, the spec was wrong — stop and restart the spec from Phase 1.
+- Never modify a TDD test to make it pass.
+- A failing test means the implementation is wrong — fix the implementation.
+- If the test itself is flawed, the spec was wrong — stop and restart the spec from Phase 1.
 - Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
 - Default PR gate: `npm test`, which runs only `tests/playwright/core/`.
 - Core browser coverage belongs under `tests/playwright/core/<domain>.spec.js`.
@@ -65,7 +67,8 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 ## Issue, Worktree, And PR Gates
 
 - Runtime code changes require a StakTrakr Plane issue, a worktree, and a PR to `dev`.
-- Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, devops config) still require a PR to `dev` — the `Protect Dev` ruleset (required `Codacy Static Code Analysis` check + CodeQL code scanning, no bypass actors) blocks all direct pushes. They ship as lightweight chore PRs (no Plane issue or version lock).
+- Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, devops config) still require a PR to `dev` — the `Protect Dev` ruleset blocks all direct pushes.
+- Config/tooling PRs ship as lightweight chores: no Plane issue, no version lock.
 - Runtime paths still require worktree discipline: `js/`, `css/`, `index.html`, `data/`, `pollers/`, tests.
 - Put the STRK issue ID in the commit message, PR body, and version lock claim.
 - Open PRs against `dev`; never push directly to `dev` or `main` (both are ruleset-protected with no bypass actors).
@@ -114,17 +117,17 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 
 ## Review, CI, And Agentlint
 
+Full detail (routing table, throttle, false positives) in `.context/review-and-ci.md`.
+
 - After modifying instruction files, run `npx agentlinter --local`.
-- Review routing (tag-gated 2026-06-14 to conserve credits): AI reviewers are opt-in per PR via labels — none auto-review an untagged PR.
-  - **CodeRabbit** runs only with the `coderabbit-review` label. Auto re-review is paused after the first review. `request_changes_workflow: true` → a `CHANGES_REQUESTED` clears only on a clean re-review. ~4–8/hr throttle → 5–10 min lag.
-  - **Codacy AI** (security) runs only with the `codacy-review` label.
-  - **Copilot** is on-demand; label trigger planned, not yet wired.
-- Add **both** `coderabbit-review` and `codacy-review` at PR creation for review-worthy PRs (runtime patches, version bumps). Omit them on trivial chores to skip the AI review cycle. Required checks (Codacy Static, CodeQL) run regardless. Untagged PRs no longer get CodeRabbit's auto-apply of `codacy-review`, so add both explicitly.
-- CodeRabbit enforces a 75% docstring-coverage pre-merge check: new or modified JS and shell functions need docstrings, or the PR stays `CHANGES_REQUESTED` / `BLOCKED` with every status check green and 0 threads. The failing check shows only in CodeRabbit's "Pre-merge checks" comment panel.
+- Review is label-gated (2026-06-14): apply the `coderabbit-review` + `codacy-review` labels at PR creation for review-worthy PRs; skip on trivial chores.
+- Required checks (Codacy Static, CodeQL) run regardless of labels.
+- CodeRabbit's 75% docstring-coverage pre-merge check blocks merge invisibly (green checks + 0 threads but `CHANGES_REQUESTED`). Write JSDoc / shell docstrings pre-emptively.
 
 ## Pre-Flight Triggers
 
-- Session start: run the `start` skill (not `start-patch`) for reorientation when user says "let's start a session". Run `start-patch` only when starting a patch worktree for a specific Plane issue.
+- Session reorientation ("let's start a session"): run the `start` skill, not `start-patch`.
+- Patch worktree for a specific Plane issue: run `start-patch`.
 - Feed, poller, API, or data-path diagnosis: invoke `/api-infrastructure` and `/retail-poller`.
 - Individual dealer scraping failures: invoke `/retail-provider-fix`.
 - Version-bump PRs: run `/update-spot-bundle`.
