@@ -15,6 +15,7 @@
 const BulkImageCache = (() => {
   let _aborted = false;
   let _running = false;
+  let _starting = false;
 
   /**
    * Resolves catalog ID for an inventory item.
@@ -75,23 +76,40 @@ const BulkImageCache = (() => {
    * @returns {Promise<{ok:boolean, error:string}>} Availability status for cacheAll.
    */
   async function ensureImageCacheReady() {
-    if (!window.imageCache) {
+    const cache = typeof window !== "undefined" ? window.imageCache : null;
+    if (!cache || typeof cache.isAvailable !== "function") {
       return { ok: false, error: "Image cache is not available" };
     }
-    if (!imageCache.isAvailable()) {
+    if (!cache.isAvailable()) {
       try {
-        await imageCache.init();
+        if (typeof cache.init !== "function") {
+          return { ok: false, error: "Image cache is not available" };
+        }
+        await cache.init();
       } catch (err) {
         return {
           ok: false,
           error: `Image cache initialization failed: ${err?.message || err}`,
         };
       }
-      if (!imageCache.isAvailable()) {
+      if (!cache.isAvailable()) {
         return { ok: false, error: "Image cache is not available" };
       }
     }
     return { ok: true, error: "" };
+  }
+
+  /**
+   * Build a completion summary using the current elapsed time.
+   * @param {{synced:number, skipped:number, failed:number, apiLookups:number}} totals
+   * @param {number} startTime
+   * @param {string} [error]
+   * @returns {{synced:number, skipped:number, failed:number, apiLookups:number, elapsed:number, error?:string}}
+   */
+  function buildCompletion(totals, startTime, error) {
+    const completion = { ...totals, elapsed: Date.now() - startTime };
+    if (error) completion.error = error;
+    return completion;
   }
 
   /**
@@ -360,58 +378,64 @@ const BulkImageCache = (() => {
     delay = 200,
     respectEdits = false,
   } = {}) {
-    if (_running) return;
-    const startTime = Date.now();
-    const readiness = await ensureImageCacheReady();
-    if (!readiness.ok) {
-      if (onComplete) {
-        onComplete({
-          synced: 0,
-          skipped: 0,
-          failed: 1,
-          apiLookups: 0,
-          elapsed: Date.now() - startTime,
-          error: readiness.error,
-        });
-      }
-      return;
-    }
-
-    _running = true;
+    if (_starting || _running) return;
+    _starting = true;
     _aborted = false;
 
+    const startTime = Date.now();
     const totals = { synced: 0, skipped: 0, failed: 0, apiLookups: 0 };
+    let completion = null;
 
-    const entries = buildEligibleList();
-    const total = entries.length;
-    const catalogIdToUuids = buildCatalogIdToUuids();
-
-    for (let i = 0; i < entries.length; i++) {
-      if (_aborted) break;
-
-      if (onProgress) {
-        onProgress({ current: i + 1, total, catalogId: entries[i].catalogId });
+    try {
+      const readiness = await ensureImageCacheReady();
+      if (!readiness.ok) {
+        completion = buildCompletion(
+          { synced: 0, skipped: 0, failed: 1, apiLookups: 0 },
+          startTime,
+          readiness.error
+        );
+        return;
       }
 
-      const delta = await processEntry(entries[i], catalogIdToUuids, respectEdits, onLog);
-      totals.synced += delta.synced;
-      totals.skipped += delta.skipped;
-      totals.failed += delta.failed;
-      totals.apiLookups += delta.apiLookups;
+      _running = true;
 
-      // Delay between requests to avoid rate-limiting
-      if (i < entries.length - 1 && !_aborted) {
-        await new Promise((r) => setTimeout(r, delay));
+      const entries = buildEligibleList();
+      const total = entries.length;
+      const catalogIdToUuids = buildCatalogIdToUuids();
+
+      for (let i = 0; i < entries.length; i++) {
+        if (_aborted) break;
+
+        if (onProgress) {
+          onProgress({ current: i + 1, total, catalogId: entries[i].catalogId });
+        }
+
+        const delta = await processEntry(entries[i], catalogIdToUuids, respectEdits, onLog);
+        totals.synced += delta.synced;
+        totals.skipped += delta.skipped;
+        totals.failed += delta.failed;
+        totals.apiLookups += delta.apiLookups;
+
+        // Delay between requests to avoid rate-limiting
+        if (i < entries.length - 1 && !_aborted) {
+          await new Promise((r) => setTimeout(r, delay));
+        }
       }
-    }
 
-    _running = false;
-
-    persistLoopResults(totals);
-
-    const elapsed = Date.now() - startTime;
-    if (onComplete) {
-      onComplete({ ...totals, elapsed });
+      persistLoopResults(totals);
+      completion = buildCompletion(totals, startTime);
+    } catch (err) {
+      totals.failed++;
+      completion = buildCompletion(totals, startTime, err?.message || String(err));
+    } finally {
+      _running = false;
+      try {
+        if (completion && onComplete) {
+          await onComplete(completion);
+        }
+      } finally {
+        _starting = false;
+      }
     }
   }
 
