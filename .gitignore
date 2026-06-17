@@ -55,6 +55,7 @@ playwright-report/
 
 # Git worktrees for isolated agent work — content dirs are transient, not project history
 .worktrees/
+.claude/worktrees/
 
 # Claude read tracker — session-scoped UUID-named read history, not project history
 claude-read-tracker/
