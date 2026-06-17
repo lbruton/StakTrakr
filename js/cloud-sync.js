@@ -2556,11 +2556,54 @@ async function pollForRemoteChanges() {
           console.warn(
             "[CloudSync] Poll: inventory + settings hashes MATCH — silently recording pull"
           );
-          syncSetLastPull({
+          // STRK-147 (D-11): The fast-path returns BEFORE pullWithPreview(), so a
+          // remote change that touches ONLY the item-price-history companion
+          // vault would otherwise be marked pulled without merging. Compare the
+          // companion hash here and route into the silent merge BEFORE recording
+          // the pull. The merged hash is written onto lastPull so the next poll
+          // short-circuits.
+          var _pollLastPull = syncGetLastPull();
+          var _pollLocalIphHash = _pollLastPull ? _pollLastPull.itemPriceHistoryHash : null;
+          var _pollRemoteIphHash =
+            remoteMeta.itemPriceHistoryVault && remoteMeta.itemPriceHistoryVault.hash
+              ? remoteMeta.itemPriceHistoryVault.hash
+              : null;
+          var _pollPullMeta = {
             syncId: remoteMeta.syncId,
             timestamp: remoteMeta.timestamp,
             rev: remoteMeta.rev,
-          });
+          };
+          if (_pollLocalIphHash) _pollPullMeta.itemPriceHistoryHash = _pollLocalIphHash;
+          if (_pollRemoteIphHash && _pollRemoteIphHash !== _pollLocalIphHash) {
+            var _pollPw = getSyncPasswordSilent();
+            try {
+              var _pollIph = await _pullItemPriceHistoryVault(
+                remoteMeta,
+                token,
+                _pollPw,
+                "poll-shortcut",
+                _currentInventoryUuids()
+              );
+              if (_pollIph.hash) _pollPullMeta.itemPriceHistoryHash = _pollIph.hash;
+            } catch (_pollIphErr) {
+              // STRK-147 (C.4/AC-7): the companion merge write failed (e.g.
+              // quota). Do NOT advance lastPull — leave it stale so the next
+              // poll retries — and record a partial/error state.
+              console.warn(
+                "[CloudSync] Poll-shortcut: item-price-history merge write failed — keeping lastPull stale:",
+                String(_pollIphErr.message || _pollIphErr)
+              );
+              logCloudSyncActivity(
+                "item_price_history_vault_pull",
+                "fail",
+                "poll-shortcut write failed (lastPull held): " +
+                  String(_pollIphErr.message || _pollIphErr)
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+          }
+          syncSetLastPull(_pollPullMeta);
           return;
         }
         if (invMatch && !settingsMatch) {
