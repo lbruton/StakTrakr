@@ -492,8 +492,12 @@ const mergeItemPriceHistories = (local, remote, acceptedUuids) => {
  * form, a compressed input and a plain input with identical logical content
  * yield the same hash — the change-detection pointer is input-form-independent.
  *
- * @returns {{payload:string,hash:string,uuidCount:number,entryCount:number}}
- *          Canonical JSON payload, its hash, and UUID/entry counts.
+ * @returns {{canonical:Object,payload:string,hash:string,uuidCount:number,entryCount:number}}
+ *          The canonical history OBJECT, its canonical JSON string, the hash
+ *          (computed over the string), and UUID/entry counts. Callers that
+ *          encrypt the companion vault should pass `canonical` (the object) so
+ *          the vault is not double-stringified (STRK-147, D); the pointer hash
+ *          must stay computed over `payload`.
  */
 const collectAndHashItemPriceHistory = () => {
   const source =
@@ -506,7 +510,13 @@ const collectAndHashItemPriceHistory = () => {
   let entryCount = 0;
   for (const uuid of Object.keys(canonical)) entryCount += canonical[uuid].length;
 
-  return { payload: payload, hash: hash, uuidCount: uuidCount, entryCount: entryCount };
+  return {
+    canonical: canonical,
+    payload: payload,
+    hash: hash,
+    uuidCount: uuidCount,
+    entryCount: entryCount,
+  };
 };
 
 /**
