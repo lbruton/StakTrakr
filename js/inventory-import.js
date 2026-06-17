@@ -29,6 +29,106 @@
     elements.importProgressText.style.display = "none";
   };
 
+  const CSV_IMPORT_KEY_PROP = "__csvImportKey";
+
+  /**
+   * Computes the import-time lookup key used for deferred per-item tag data.
+   * @param {object} item - Imported inventory item.
+   * @returns {string} Import lookup key, or empty string when no key is available.
+   */
+  const _computeImportTagLookupKey = (item) => {
+    if (!item) return "";
+    return typeof DiffEngine !== "undefined"
+      ? DiffEngine.computeItemKey(item)
+      : item.uuid || item.serial || "";
+  };
+
+  /**
+   * Stores the import-time key on a non-enumerable sidecar so later UUID stamping
+   * does not break pending CSV tag lookups.
+   * @param {object} item - Imported CSV item.
+   * @returns {string} Stored import lookup key.
+   */
+  const _rememberCsvImportKey = (item) => {
+    const key = _computeImportTagLookupKey(item);
+    if (item && key) {
+      Object.defineProperty(item, CSV_IMPORT_KEY_PROP, {
+        value: key,
+        enumerable: false,
+        configurable: true,
+      });
+    }
+    return key;
+  };
+
+  /**
+   * Gets the deferred-tag lookup key, preferring the preserved CSV import key.
+   * @param {object} item - Imported inventory item.
+   * @returns {string} Deferred-tag lookup key.
+   */
+  const _getImportTagLookupKey = (item) => {
+    return item && item[CSV_IMPORT_KEY_PROP]
+      ? item[CSV_IMPORT_KEY_PROP]
+      : _computeImportTagLookupKey(item);
+  };
+
+  /**
+   * Removes the transient CSV import key from an item after tag data is applied.
+   * @param {object} item - Imported inventory item.
+   */
+  const _clearCsvImportKey = (item) => {
+    if (item && Object.prototype.hasOwnProperty.call(item, CSV_IMPORT_KEY_PROP)) {
+      delete item[CSV_IMPORT_KEY_PROP];
+    }
+  };
+
+  /**
+   * Ensures a CSV-imported item has stable identity before it is persisted.
+   * @param {object} item - Imported CSV item.
+   */
+  const _stampCsvItemIdentity = (item) => {
+    if (!item) return;
+    if (item.serial == null || item.serial === "") item.serial = getNextSerial();
+    if (!item.uuid) item.uuid = generateUUID();
+  };
+
+  /**
+   * Stamps missing identities on a collection of imported CSV items.
+   * @param {Array<object>} items - Imported CSV items.
+   */
+  const _stampCsvItemIdentities = (items) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      _stampCsvItemIdentity(item);
+    }
+  };
+
+  /**
+   * Stamps identity on accepted CSV additions before DiffEngine appends them.
+   * @param {Array<object>} selectedChanges - Accepted DiffModal changes.
+   */
+  const _stampCsvSelectedAdditions = (selectedChanges) => {
+    if (!Array.isArray(selectedChanges)) return;
+    for (const change of selectedChanges) {
+      if (change && change.type === "add") {
+        _stampCsvItemIdentity(change.item);
+      }
+    }
+  };
+
+  /**
+   * Clears transient CSV import keys from accepted add/modify changes.
+   * @param {Array<object>} selectedChanges - Accepted DiffModal changes.
+   */
+  const _clearCsvImportKeysForChanges = (selectedChanges) => {
+    if (!Array.isArray(selectedChanges)) return;
+    for (const change of selectedChanges) {
+      if (change && (change.type === "add" || change.type === "modify")) {
+        _clearCsvImportKey(change.item);
+      }
+    }
+  };
+
   /**
    * Post-import cleanup — registers names, syncs catalog, saves, and re-renders.
    * @param {Array} newItems - Items that were added during import
@@ -39,10 +139,7 @@
     if (pendingTagsByUuid && typeof addItemTag === "function") {
       const stampedUuids = new Set();
       for (const item of newItems) {
-        const itemKey =
-          typeof DiffEngine !== "undefined"
-            ? DiffEngine.computeItemKey(item)
-            : item.uuid || item.serial || "";
+        const itemKey = _getImportTagLookupKey(item);
         const tags = pendingTagsByUuid.get(itemKey);
         if (tags && tags.length) {
           tags.forEach((tag) => {
@@ -146,10 +243,7 @@
     const stampedUuids = new Set();
     for (const change of tagEligible) {
       if (change.item && change.item.uuid) {
-        const tagKey =
-          typeof DiffEngine !== "undefined"
-            ? DiffEngine.computeItemKey(change.item)
-            : change.item.uuid || change.item.serial || "";
+        const tagKey = _getImportTagLookupKey(change.item);
         const tags = pendingTagsByUuid.get(tagKey);
         if (tags && tags.length) {
           tags.forEach(function (tag) {
@@ -164,6 +258,31 @@
       stampTagTimestamp(Array.from(stampedUuids));
     }
     if (typeof saveItemTags === "function") saveItemTags();
+  };
+
+  /**
+   * Persist accepted CSV removed-tags using stamped item UUIDs.
+   * @param {Array<object>} selectedChanges - Accepted DiffModal changes.
+   * @param {Map<string,string[]>|undefined} pendingRemovedTagsByUuid - itemKey -> remove list
+   */
+  const _applyImportPendingRemovedTags = (selectedChanges, pendingRemovedTagsByUuid) => {
+    if (!pendingRemovedTagsByUuid || typeof saveDataSync !== "function") return;
+    const removedMap =
+      typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
+    let changed = false;
+    const tagEligible = selectedChanges.filter(function (c) {
+      return c.type === "add" || c.type === "modify";
+    });
+    for (const change of tagEligible) {
+      if (!change.item || !change.item.uuid) continue;
+      const key = _getImportTagLookupKey(change.item);
+      const removedTags = pendingRemovedTagsByUuid.get(key);
+      if (removedTags && removedTags.length) {
+        removedMap[change.item.uuid] = removedTags;
+        changed = true;
+      }
+    }
+    if (changed) saveDataSync("itemRemovedTags", removedMap);
   };
 
   /**
@@ -242,8 +361,13 @@
     // Guard: if DiffEngine or DiffModal unavailable, fall back to concat-all
     if (typeof DiffEngine === "undefined" || typeof DiffModal === "undefined") {
       debugLog("showImportDiffReview fallback", "DiffEngine/DiffModal unavailable");
+      if (options.stampCsvIdentity) _stampCsvItemIdentities(parsedItems);
       inventory = inventory.concat(parsedItems);
+      _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
       _postImportCleanup(parsedItems, options.pendingTagsByUuid);
+      if (options.stampCsvIdentity) {
+        parsedItems.forEach(_clearCsvImportKey);
+      }
       if (typeof showToast === "function")
         showToast("Import complete: " + parsedItems.length + " added");
       if (onComplete) onComplete({ added: parsedItems.length, modified: 0, deleted: 0 });
@@ -287,12 +411,15 @@
       onApply: function (selectedChanges) {
         if (!selectedChanges || selectedChanges.length === 0) return;
 
+        if (options.stampCsvIdentity) _stampCsvSelectedAdditions(selectedChanges);
         inventory = DiffEngine.applySelectedChanges(inventory, selectedChanges);
 
         _applyImportPendingTags(selectedChanges, options.pendingTagsByUuid);
+        _applyImportPendingRemovedTags(selectedChanges, options.pendingRemovedTagsByUuid);
 
         _applyImportSettingsChanges(settingsDiff);
 
+        if (options.stampCsvIdentity) _clearCsvImportKeysForChanges(selectedChanges);
         _postImportCleanup(
           selectedChanges
             .filter(function (c) {
@@ -529,17 +656,14 @@
     pendingTagsByUuid,
     pendingRemovedTagsByUuid
   ) => {
+    const importKey = _rememberCsvImportKey(item);
     if (csvTags) {
       const tagList = csvTags
         .split(";")
         .map((t) => t.trim())
         .filter(Boolean);
       if (tagList.length) {
-        const tagKey =
-          typeof DiffEngine !== "undefined"
-            ? DiffEngine.computeItemKey(item)
-            : item.uuid || item.serial || "";
-        if (tagKey) pendingTagsByUuid.set(tagKey, tagList);
+        if (importKey) pendingTagsByUuid.set(importKey, tagList);
       }
     }
 
@@ -549,11 +673,7 @@
         .map((t) => t.trim())
         .filter(Boolean);
       if (removedList.length) {
-        const removedKey =
-          typeof DiffEngine !== "undefined"
-            ? DiffEngine.computeItemKey(item)
-            : item.uuid || item.serial || "";
-        if (removedKey) pendingRemovedTagsByUuid.set(removedKey, removedList);
+        if (importKey) pendingRemovedTagsByUuid.set(importKey, removedList);
       }
     }
   };
@@ -567,10 +687,7 @@
     if (pendingTagsByUuid.size === 0 || typeof addItemTag !== "function") return;
     const stampedUuids = new Set();
     for (const item of items) {
-      const itemKey =
-        typeof DiffEngine !== "undefined"
-          ? DiffEngine.computeItemKey(item)
-          : item.uuid || item.serial || "";
+      const itemKey = _getImportTagLookupKey(item);
       const tags = pendingTagsByUuid.get(itemKey);
       if (tags && tags.length) {
         tags.forEach((tag) => {
@@ -595,12 +712,9 @@
     const removedMap =
       typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
     for (const item of items) {
-      const key =
-        typeof DiffEngine !== "undefined"
-          ? DiffEngine.computeItemKey(item)
-          : item.uuid || item.serial || "";
+      const key = _getImportTagLookupKey(item);
       const removedTags = pendingRemovedTagsByUuid.get(key);
-      if (removedTags && removedTags.length) {
+      if (item.uuid && removedTags && removedTags.length) {
         removedMap[item.uuid] = removedTags;
       }
     }
@@ -636,6 +750,7 @@
     if (typeof migrateLegacySilverbackWeightUnit === "function") {
       migrateLegacySilverbackWeightUnit(imported);
     }
+    _stampCsvItemIdentities(imported);
     inventory = imported;
 
     // Synchronize all items with catalog manager
@@ -654,6 +769,7 @@
     saveInventory();
     _applyCsvOverrideTags(imported, pendingTagsByUuid);
     _applyCsvRemovedTags(imported, pendingRemovedTagsByUuid);
+    imported.forEach(_clearCsvImportKey);
     // STAK-421: Cancel the debounced sync push that saveInventory() just scheduled —
     // override imports replace all local data, so pushing immediately would overwrite
     // the remote vault before the user can review.
@@ -696,10 +812,11 @@
       {
         validationResult: validationResult,
         pendingTagsByUuid: pendingTagsByUuid,
+        pendingRemovedTagsByUuid: pendingRemovedTagsByUuid,
+        stampCsvIdentity: true,
       },
       function (summary) {
         _warnCsvAttachmentsMetadataOnly(imported);
-        _applyCsvRemovedTags(imported, pendingRemovedTagsByUuid);
         debugLog(
           "importCsv DiffEngine complete",
           summary.added,

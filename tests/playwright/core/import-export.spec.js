@@ -99,7 +99,190 @@ function expectFrameColumns(row) {
   expect(row["Reverse Frame"]).toBe("circle");
 }
 
+const STRK198_UUIDLESS_CSV = [
+  "Date,Metal,Type,Name,Year,Qty,Weight(oz),Weight Unit,Purity,Purchase Price,Tags,removedTags",
+  "2026-06-16,Silver,Coin,STRK-198 UUID-less Tag Eagle,2024,1,1,oz,0.999,30,Bullion; Test Tag,Eagle",
+].join("\n");
+
+/**
+ * Resets all import-related localStorage and in-memory state to an empty baseline.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function resetEmptyImportState(page) {
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem("metalInventory", JSON.stringify([]));
+    localStorage.setItem("itemTags", JSON.stringify({}));
+    localStorage.setItem("itemRemovedTags", JSON.stringify({}));
+    if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
+    window.inventory = [];
+    window.itemTags = {};
+    if (typeof window.renderTable === "function") window.renderTable();
+  });
+}
+
+/**
+ * Navigates to the app and waits until all import-export globals are ready.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function gotoImportExportApp(page) {
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () =>
+      typeof window.importCsv === "function" &&
+      typeof window.getItemTags === "function" &&
+      typeof window.loadDataSync === "function" &&
+      typeof window.restoreVaultData === "function" &&
+      window.DiffModal &&
+      Array.isArray(window.inventory)
+  );
+}
+
+/**
+ * Captures the current STRK-198 tag state from the page (inventory item, itemTags, removedTags).
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
+async function captureStrk198TagState(page) {
+  return page.evaluate(() => {
+    const item = window.inventory[0] || {};
+    const itemTags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+    const removedTags = JSON.parse(localStorage.getItem("itemRemovedTags") || "{}");
+    const persisted = window.loadDataSync("metalInventory", []);
+    return {
+      item: {
+        uuid: item.uuid || "",
+        serial: item.serial,
+        name: item.name || "",
+        tags: item.uuid ? window.getItemTags(item.uuid) : [],
+      },
+      persistedUuid: persisted[0] ? persisted[0].uuid || "" : "",
+      itemTags,
+      removedTags,
+    };
+  });
+}
+
+/**
+ * Imports the STRK-198 UUID-less CSV fixture into the app and returns the resulting tag state.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @param {{override: boolean}} options - When override is true, uses the CSV override path; otherwise stubs DiffModal.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
+async function importStrk198Csv(page, { override }) {
+  await page.evaluate(
+    ({ csvText, shouldOverride }) => {
+      const file = new File([csvText], "strk-198-uuidless-tags.csv", { type: "text/csv" });
+      if (!shouldOverride) {
+        const originalShow = window.DiffModal.show;
+        window.DiffModal.show = (options) => {
+          try {
+            const selected = (options.diff.added || []).map((item) => ({ type: "add", item }));
+            options.onApply(selected);
+          } finally {
+            window.DiffModal.show = originalShow;
+          }
+        };
+      }
+      window.importCsv(file, shouldOverride);
+    },
+    { csvText: STRK198_UUIDLESS_CSV, shouldOverride: override }
+  );
+  await page.waitForFunction(
+    () =>
+      window.inventory.length === 1 &&
+      window.inventory[0].name === "STRK-198 UUID-less Tag Eagle" &&
+      Boolean(window.inventory[0].uuid)
+  );
+  return captureStrk198TagState(page);
+}
+
+/**
+ * Waits for the page to be ready after a reload with the STRK-198 fixture item loaded.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function waitForStrk198Reload(page) {
+  await page.waitForFunction(
+    () =>
+      typeof window.getItemTags === "function" &&
+      window.inventory.length === 1 &&
+      window.inventory[0].name === "STRK-198 UUID-less Tag Eagle" &&
+      Boolean(window.inventory[0].uuid)
+  );
+}
+
+/**
+ * Asserts that the STRK-198 tag state is correct — UUID stamped, tags applied, removedTags written, no empty-key collision.
+ * @param {{item: object, persistedUuid: string, itemTags: object, removedTags: object}} state - Captured tag state.
+ * @returns {void}
+ */
+function expectStrk198Tags(state) {
+  expect(state.item.uuid).toBeTruthy();
+  expect(state.item.uuid).not.toBe("");
+  expect(state.persistedUuid).toBe(state.item.uuid);
+  expect(state.item.tags).toEqual(["Bullion", "Test Tag"]);
+  expect(state.itemTags[state.item.uuid]).toEqual(["Bullion", "Test Tag"]);
+  expect(state.removedTags[state.item.uuid]).toEqual(["Eagle"]);
+  expect(state.removedTags[""]).toBeUndefined();
+}
+
+/**
+ * Collects vault data, clears localStorage, restores via restoreVaultData, and returns the resulting tag state.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
+async function roundTripStrk198VaultData(page) {
+  return page.evaluate(async () => {
+    const payload = window.collectVaultData("full");
+    localStorage.clear();
+    await window.restoreVaultData(payload);
+    const item = window.inventory[0] || {};
+    return {
+      item: {
+        uuid: item.uuid || "",
+        serial: item.serial,
+        name: item.name || "",
+        tags: item.uuid ? window.getItemTags(item.uuid) : [],
+      },
+      persistedUuid: window.loadDataSync("metalInventory", [])[0]?.uuid || "",
+      itemTags: JSON.parse(localStorage.getItem("itemTags") || "{}"),
+      removedTags: JSON.parse(localStorage.getItem("itemRemovedTags") || "{}"),
+    };
+  });
+}
+
 test.describe("core/import-export", () => {
+  test("UUID-less CSV merge import stamps identity before tag stores and vault restore", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await resetEmptyImportState(page);
+
+    const imported = await importStrk198Csv(page, { override: false });
+    expectStrk198Tags(imported);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForStrk198Reload(page);
+    expectStrk198Tags(await captureStrk198TagState(page));
+
+    expectStrk198Tags(await roundTripStrk198VaultData(page));
+  });
+
+  test("UUID-less CSV override import stamps identity before tag stores", async ({ page }) => {
+    await gotoImportExportApp(page);
+    await resetEmptyImportState(page);
+
+    const imported = await importStrk198Csv(page, { override: true });
+    expectStrk198Tags(imported);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForStrk198Reload(page);
+    expectStrk198Tags(await captureStrk198TagState(page));
+  });
+
   test("backup ZIP preserves attachments manifest paths, item metadata, and full diff fields", async ({
     page,
   }) => {
