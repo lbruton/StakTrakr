@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.24] - 2026-06-17
+
+### Changed — STRK-214: Bulk image cache startup failures now complete cleanly
+
+- **Bulk image cache**: Bulk image caching now catches image cache initialization failures and routes them through the normal completion callback with one failed startup result, so the image cache modal can reset controls and show a clear failure instead of leaving Sync All stuck (STRK-214).
+
+---
+
 ## [3.35.23] - 2026-06-16
 
 ### Changed — STRK-170: Tier-1 complexity refactor (cohorts 1.1–3.9)

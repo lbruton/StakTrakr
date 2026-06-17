@@ -111,11 +111,49 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
     };
   }
 
-  test("no-op (no result) when window.imageCache is absent", async () => {
+  test("cache readiness failure reports a completion error when imageCache is absent", async () => {
     const mod = loadModule(baseEnv({ imageCache: undefined, inventory: [] }));
-    let completed = false;
-    await mod.cacheAll(opts({ onComplete: () => (completed = true) }));
-    assert.equal(completed, false, "onComplete must not fire with no imageCache");
+    let summary = null;
+    await mod.cacheAll(opts({ onComplete: (s) => (summary = s) }));
+    assert.ok(summary, "onComplete fired");
+    assert.equal(summary.synced, 0);
+    assert.equal(summary.skipped, 0);
+    assert.equal(summary.failed, 1);
+    assert.equal(summary.apiLookups, 0);
+    assert.match(summary.error, /image cache/i);
+    assert.equal(progress.length, 0, "no progress before cache readiness");
+    assert.equal(saveItemTagsCalls, 0, "saveItemTags not called");
+    assert.equal(saveInventoryCalls, 0, "saveInventory not called");
+  });
+
+  test("rejected imageCache.init resolves cacheAll and reports one completion error", async () => {
+    const imageCache = {
+      isAvailable: () => false,
+      init: async () => {
+        throw new Error("init boom");
+      },
+      getMetadata: async () => null,
+      cacheMetadata: async () => {},
+    };
+    const mod = loadModule(baseEnv({ imageCache, inventory: [{ uuid: "u1", numistaId: "100" }] }));
+    let summary = null;
+    let rejected = null;
+    try {
+      await mod.cacheAll(opts({ onComplete: (s) => (summary = s) }));
+    } catch (err) {
+      rejected = err;
+    }
+    assert.equal(rejected, null, "cacheAll resolves instead of rejecting");
+    assert.ok(summary, "onComplete fired");
+    assert.equal(summary.synced, 0);
+    assert.equal(summary.skipped, 0);
+    assert.equal(summary.failed, 1);
+    assert.equal(summary.apiLookups, 0);
+    assert.match(summary.error, /init boom/);
+    assert.equal(progress.length, 0, "no progress before cache readiness");
+    assert.equal(saveItemTagsCalls, 0, "saveItemTags not called");
+    assert.equal(saveInventoryCalls, 0, "saveInventory not called");
+    assert.equal(mod.isRunning(), false, "running flag never sticks after readiness failure");
   });
 
   test("empty inventory reports an all-zero summary", async () => {

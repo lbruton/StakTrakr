@@ -72,15 +72,26 @@ const BulkImageCache = (() => {
   /**
    * Ensure the IndexedDB image cache is available, re-opening it if the browser
    * closed the connection (storage pressure, backgrounding).
-   * @returns {Promise<boolean>} true when the cache can be used.
+   * @returns {Promise<{ok:boolean, error:string}>} Availability status for cacheAll.
    */
   async function ensureImageCacheReady() {
-    if (!window.imageCache) return false;
-    if (!imageCache.isAvailable()) {
-      await imageCache.init();
-      if (!imageCache.isAvailable()) return false;
+    if (!window.imageCache) {
+      return { ok: false, error: "Image cache is not available" };
     }
-    return true;
+    if (!imageCache.isAvailable()) {
+      try {
+        await imageCache.init();
+      } catch (err) {
+        return {
+          ok: false,
+          error: `Image cache initialization failed: ${err?.message || err}`,
+        };
+      }
+      if (!imageCache.isAvailable()) {
+        return { ok: false, error: "Image cache is not available" };
+      }
+    }
+    return { ok: true, error: "" };
   }
 
   /**
@@ -337,7 +348,7 @@ const BulkImageCache = (() => {
    * loaded on-demand when the user opens the view modal.
    * @param {Object} opts
    * @param {function({current:number, total:number, catalogId:string}):void} [opts.onProgress]
-   * @param {function({synced:number, skipped:number, failed:number, apiLookups:number, elapsed:number}):void} [opts.onComplete]
+   * @param {function({synced:number, skipped:number, failed:number, apiLookups:number, elapsed:number, error?:string}):void} [opts.onComplete]
    * @param {function({catalogId:string, status:string, message:string}):void} [opts.onLog]
    * @param {number} [opts.delay=200] - Delay (ms) between network requests
    * @returns {Promise<void>}
@@ -350,12 +361,25 @@ const BulkImageCache = (() => {
     respectEdits = false,
   } = {}) {
     if (_running) return;
-    if (!(await ensureImageCacheReady())) return;
+    const startTime = Date.now();
+    const readiness = await ensureImageCacheReady();
+    if (!readiness.ok) {
+      if (onComplete) {
+        onComplete({
+          synced: 0,
+          skipped: 0,
+          failed: 1,
+          apiLookups: 0,
+          elapsed: Date.now() - startTime,
+          error: readiness.error,
+        });
+      }
+      return;
+    }
 
     _running = true;
     _aborted = false;
 
-    const startTime = Date.now();
     const totals = { synced: 0, skipped: 0, failed: 0, apiLookups: 0 };
 
     const entries = buildEligibleList();
