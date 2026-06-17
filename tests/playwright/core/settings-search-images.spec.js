@@ -81,4 +81,79 @@ test.describe("core/settings-search-images", () => {
     await expect(page.locator("#patternRuleReverseUploadBtn")).toHaveCount(1);
     await expect(page.locator("#patternRuleSwapBtn")).toHaveCount(1);
   });
+
+  // Characterization lock for STRK-195: pins the #addPatternRuleBtn handler's
+  // observable behavior (keyword→regex compile, image requirement, rule add,
+  // form reset/collapse, persistence) before it is decomposed into helpers.
+  test("Image pattern rule (keywords + image) adds rule, resets form, and persists", async ({
+    page,
+  }) => {
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const before = await page.evaluate(() => window.NumistaLookup.getCustomRules().length);
+
+    const toggleBtn = page.locator("#newPatternRuleBtn");
+    await toggleBtn.click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+
+    await page.locator("#patternRulePattern").fill("morgan, peace");
+    await page
+      .locator("#patternRuleObverse")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await expect(page.locator("#patternRuleObverseName")).toHaveText("test-obverse.png");
+
+    await page.locator("#addPatternRuleBtn").click();
+
+    // Keywords mode compiles comma-separated terms into an alternation regex,
+    // stores the raw input as the replacement, and tags an image-rule seed id.
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.NumistaLookup.getCustomRules().some((r) => r.pattern === "morgan|peace")
+        )
+      )
+      .toBe(true);
+    expect(await page.evaluate(() => window.NumistaLookup.getCustomRules().length)).toBe(
+      before + 1
+    );
+    const added = await page.evaluate(() =>
+      window.NumistaLookup.getCustomRules().find((r) => r.pattern === "morgan|peace")
+    );
+    expect(added.replacement).toBe("morgan, peace");
+    expect(String(added.seedImageId)).toMatch(/^custom-img-/);
+
+    // Form auto-collapses and clears its inputs after a successful add.
+    await expect(page.locator("#patternRuleFormContainer")).not.toBeVisible();
+    await expect(toggleBtn).toContainText("New Rule");
+    await toggleBtn.click();
+    await expect(page.locator("#patternRulePattern")).toHaveValue("");
+    await expect(page.locator("#patternRuleObverseName")).toHaveText("");
+
+    // Rule survives a reload (persisted to localStorage).
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.NumistaLookup?.getCustomRules === "function");
+    expect(
+      await page.evaluate(() =>
+        window.NumistaLookup.getCustomRules().some((r) => r.pattern === "morgan|peace")
+      )
+    ).toBe(true);
+  });
+
+  test("Image pattern rule is rejected when no image is selected", async ({ page }) => {
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const before = await page.evaluate(() => window.NumistaLookup.getCustomRules().length);
+
+    await page.locator("#newPatternRuleBtn").click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+    await page.locator("#patternRulePattern").fill("no-image-rule");
+    await page.locator("#addPatternRuleBtn").click();
+
+    // The image-requirement guard fires before addRule: no rule is created and
+    // the form stays open (no auto-collapse).
+    expect(await page.evaluate(() => window.NumistaLookup.getCustomRules().length)).toBe(before);
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+  });
 });
