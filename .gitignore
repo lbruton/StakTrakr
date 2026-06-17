@@ -3,59 +3,6 @@
 .AppleDouble
 .LSOverride
 
-# AI tooling & personal config
-# Keep local runtime state ignored while tracking project instruction/config sources
-# needed by Agentlinter and cross-agent workflows.
-.claude/*
-!.claude/project.json
-!.claude/settings.json
-!.claude/agents/
-!.claude/hooks/
-!.claude/skills/
-.claude/agents/*
-!.claude/agents/*.md
-.claude/hooks/*
-!.claude/hooks/*.py
-!.claude/hooks/*.json
-.claude/skills/*
-!.claude/skills/*/
-.claude/skills/*/*
-!.claude/skills/*/SKILL.md
-!.claude/skills/*/*.py
-.opencode/**
-!.opencode/commands/
-!.opencode/commands/*.md
-.specflow/**
-!.specflow/config.json
-.spec-workflow/
-.agents/*
-!.agents/skills/
-.agents/skills/*
-!.agents/skills/*/
-.agents/skills/*/*
-!.agents/skills/*/SKILL.md
-!.agents/skills/*/*.py
-.mcp.json
-tui.json
-SPRINT.md
-
-# Internal dev docs (not for public repo)
-docs/CLOUD-SYNC-DESIGN.md
-docs/UI-WIREFRAME.md
-
-# Internal dev scripts
-versionbump.py
-generate-seed-data.py
-
-# Jules AI agent artifacts — journals (.md) are tracked, scripts/screenshots are not
-.jules/*
-!.jules/*.md
-.Jules/*
-!.Jules/*.md
-verification/
-modify_*.py
-verify_*.py
-
 # Node modules (if added in future)
 node_modules/
 npm-debug.log*
@@ -100,22 +47,10 @@ playwright-report/
 
 # AI/MCP configuration files are tracked for project consistency
 .firecrawl/
-
-# Version lock — transient runtime file, not project history
-devops/version.lock
-
-# Local DevOps hub — machine-specific links and report archive, not tracked
-devops/hub/
+.antigravitycli/
 
 # Git worktrees for isolated agent work — content dirs are transient, not project history
 .worktrees/
-
-# Wiki nightwatch — local rotation state, not project history
-wiki/.nightwatch-log.json
-.playwright-mcp/
-
-# Antigravity CLI — symlinks to user's home ~/.gemini/config/projects/, per-user state
-.antigravitycli/
 
 # Claude read tracker — session-scoped UUID-named read history, not project history
 claude-read-tracker/

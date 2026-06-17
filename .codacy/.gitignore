@@ -3,8 +3,3 @@ logs/
 generated/
 tmp/
 
-# Local-analysis mirror — regenerable from cloud, NOT cloud-read. Untracked to
-# avoid threshold drift (the committed copy went stale: ccn 10 vs cloud 25).
-# Cloud is authoritative (org "StakTrakr" coding standard). For local analysis,
-# regenerate with: codacy-analysis init --remote gh lbruton StakTrakr
-codacy.config.json
