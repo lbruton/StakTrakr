@@ -1417,6 +1417,7 @@ async function pushSyncVault() {
   var pushStart = Date.now();
   var _remoteImageVaultMeta = null; // Preserve remote image vault reference across pushes
   var _remoteAttachmentVaultMeta = null; // Preserve remote attachment vault reference across pushes
+  var _remoteItemPriceHistoryMeta = null; // Preserve remote item-price-history vault ref (STRK-147)
 
   try {
     // -----------------------------------------------------------------------
@@ -1692,6 +1693,15 @@ async function pushSyncVault() {
         _remoteAttachmentVaultMeta.attachmentCount,
         "attachments, hash:",
         _remoteAttachmentVaultMeta.hash
+      );
+    }
+    // STRK-147: Capture remote item-price-history vault metadata so we can
+    // preserve it when this device has no local history (mirror image vault).
+    if (typeof prePushMeta !== "undefined" && prePushMeta && prePushMeta.itemPriceHistoryVault) {
+      _remoteItemPriceHistoryMeta = prePushMeta.itemPriceHistoryVault;
+      debugLog(
+        "[CloudSync] Pre-push: remote has item-price-history vault — hash:",
+        _remoteItemPriceHistoryMeta.hash
       );
     }
 
@@ -2164,6 +2174,76 @@ async function pushSyncVault() {
       logCloudSyncActivity("attachment_vault_push", "fail", attachPushErrMsg);
     }
 
+    // STRK-147: Upload the item-price-history companion vault when its canonical
+    // hash differs from what's remote (or remote has none). Modeled on the
+    // always-on image vault: history rides a dedicated encrypted .stvault file
+    // and only a {hash, uuidCount, entryCount} pointer goes on metaPayload, so
+    // the full history JSON never enters the change-detection manifest (AC-8).
+    var itemPriceHistoryVaultMeta = null;
+    try {
+      if (typeof collectAndHashItemPriceHistory === "function") {
+        var iphData = collectAndHashItemPriceHistory();
+        var _remoteIphHash = _remoteItemPriceHistoryMeta ? _remoteItemPriceHistoryMeta.hash : null;
+        if (iphData && iphData.entryCount > 0) {
+          // Upload if the hash changed OR remote metadata is missing the vault.
+          if (iphData.hash !== _remoteIphHash || !_remoteItemPriceHistoryMeta) {
+            debugLog(
+              "[CloudSync] Item-price-history vault changed — uploading",
+              iphData.uuidCount,
+              "UUIDs,",
+              iphData.entryCount,
+              "entries"
+            );
+            var iphBytes = await vaultEncryptItemPriceHistory(password, iphData.payload);
+            var iphArg = JSON.stringify({
+              path: SYNC_ITEM_PRICE_HISTORY_PATH,
+              mode: "overwrite",
+              autorename: false,
+              mute: true,
+            });
+            var iphResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+              method: "POST",
+              headers: {
+                Authorization: "Bearer " + token,
+                "Content-Type": "application/octet-stream",
+                "Dropbox-API-Arg": iphArg,
+              },
+              body: iphBytes,
+            });
+            if (!iphResp.ok)
+              throw new Error("Item-price-history vault upload failed: " + iphResp.status);
+            itemPriceHistoryVaultMeta = {
+              hash: iphData.hash,
+              uuidCount: iphData.uuidCount,
+              entryCount: iphData.entryCount,
+            };
+            logCloudSyncActivity(
+              "item_price_history_vault_push",
+              "success",
+              iphData.uuidCount + " UUIDs, " + iphData.entryCount + " entries"
+            );
+          } else {
+            // Hash unchanged — carry forward the pointer so other devices detect it.
+            itemPriceHistoryVaultMeta = {
+              hash: iphData.hash,
+              uuidCount: iphData.uuidCount,
+              entryCount: iphData.entryCount,
+            };
+            debugLog("[CloudSync] Item-price-history vault unchanged — skipping upload");
+          }
+        } else if (_remoteItemPriceHistoryMeta) {
+          // No local history but remote has a vault from another device.
+          // Preserve the reference so pulling devices still find it (mirror image vault).
+          itemPriceHistoryVaultMeta = _remoteItemPriceHistoryMeta;
+          debugLog("[CloudSync] No local item-price-history — preserving remote vault reference");
+        }
+      }
+    } catch (iphPushErr) {
+      var iphPushErrMsg = String(iphPushErr.message || iphPushErr);
+      console.warn("[CloudSync] Item-price-history vault push error (non-fatal):", iphPushErrMsg);
+      logCloudSyncActivity("item_price_history_vault_push", "fail", iphPushErrMsg);
+    }
+
     // Upload the metadata pointer JSON
     var metaPayload = {
       rev: rev,
@@ -2175,6 +2255,7 @@ async function pushSyncVault() {
     };
     if (imageVaultMeta) metaPayload.imageVault = imageVaultMeta;
     if (attachmentVaultMeta) metaPayload.attachmentVault = attachmentVaultMeta;
+    if (itemPriceHistoryVaultMeta) metaPayload.itemPriceHistoryVault = itemPriceHistoryVaultMeta;
 
     // Layer 4 — Manifest schema v2 enrichment (REQ-4)
     metaPayload.manifestVersion = 2;
