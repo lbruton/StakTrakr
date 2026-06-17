@@ -4,9 +4,6 @@
 # (Gen-2 codacy-cli-v2 / .codacy/tools-configs/ were removed in the Gen-3 migration.)
 ---
 exclude_paths:
-  - "AGENTS.md"
-  - "CLAUDE.md"
-  # Generated lockfile — Lizard counts its ~1600 NLOC as a complexity finding.
   - "package-lock.json"
   - "**/package-lock.json"
   - ".agents/**"
@@ -18,11 +15,6 @@ exclude_paths:
   - ".spec-workflow/**"
   - ".jules/**"
   - "deprecated/**"
-  - "devops/**"
-  - "docs/**"
-  - "about/**"
-  - "tests/**"
   - "vendor/**"
   - "playground/**"
-  - "screenshots/**"
   - "ui-standards/**"
