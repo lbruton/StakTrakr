@@ -58,7 +58,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - Reconcile temporary issue acceptance-criteria (AC) matrices into core/extended coverage before merge, or archive them.
 - When a PR touches Playwright tests, update `tests/playwright/coverage-map.csv`.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
-- Use stable, user-visible assertions and fixtures in `tests/fixtures/`.
+- Use stable, user-visible assertions. Keep data fixtures in `tests/fixtures/` and shared binary/image fixtures (e.g. `test-obverse.png`) in `tests/playwright/helpers/`.
 - For quick checks, run `npx playwright test tests/playwright/core/inventory-crud.spec.js`.
 - If Chromium fails with the macOS Mach port sandbox error, rerun the same Playwright command with escalation.
 
