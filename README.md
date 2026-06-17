@@ -83,7 +83,7 @@ Four card styles (sparkline header, full-bleed image, split layout, accessible t
 
 ### Cloud Sync — Encrypted, Zero-Knowledge
 
-Connect Dropbox via OAuth PKCE and sync an encrypted `.stvault` across devices. AES-256-GCM + PBKDF2-SHA256 (100,000 iterations) via the Web Crypto API — the cloud provider only ever receives ciphertext. Bi-directional sync with conflict detection; a **DiffModal** for visual item-level and settings-level review with click-to-pick field selection; encrypted image vault for photo sync; BroadcastChannel leader election prevents concurrent multi-tab races; multi-account switching; backup-before-overwrite with configurable history depth. Google Drive, OneDrive, pCloud, and Box are coming (same encryption, all client-side).
+Connect Dropbox via OAuth PKCE and sync an encrypted `.stvault` across devices. AES-256-GCM + PBKDF2-SHA256 (600,000 iterations) via the Web Crypto API — the cloud provider only ever receives ciphertext. Bi-directional sync with conflict detection; a **DiffModal** for visual item-level and settings-level review with click-to-pick field selection; encrypted image vault for photo sync; BroadcastChannel leader election prevents concurrent multi-tab races; multi-account switching; backup-before-overwrite with configurable history depth. Google Drive, OneDrive, pCloud, and Box are coming (same encryption, all client-side).
 
 ### Data Tools — Import, Export, Backup, Bulk Edit
 
@@ -124,7 +124,7 @@ Two optional integrations enhance the experience: a free [Numista API](https://e
 
 - **No server-side component** — the developer has no technical means to access your data.
 - **No cookies, no tracking SDKs, no advertising** — only localStorage and IndexedDB are used for your data.
-- **Cloud backup is zero-knowledge** — AES-256-GCM + PBKDF2-SHA256 (100,000 iterations); the cloud provider receives only ciphertext.
+- **Cloud backup is zero-knowledge** — AES-256-GCM + PBKDF2-SHA256 (600,000 iterations); the cloud provider receives only ciphertext.
 - **localStorage caveat** — browser storage can be cleared. Export ZIP or vault backups regularly, especially on iOS Safari.
 - Cloudflare Web Analytics runs on the hosted site (aggregated, anonymous page-views only — not present when running locally).
 
