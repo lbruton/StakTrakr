@@ -816,6 +816,8 @@ const deleteItemPriceEntry = (uuid, timestamp) => {
 };
 
 // Ensure global availability
+window.saveItemPriceHistory = saveItemPriceHistory;
+window.loadItemPriceHistory = loadItemPriceHistory;
 window.applyItemPriceRetention = applyItemPriceRetention;
 window.canonicalizeItemPriceHistory = canonicalizeItemPriceHistory;
 window.mergeItemPriceHistories = mergeItemPriceHistories;
