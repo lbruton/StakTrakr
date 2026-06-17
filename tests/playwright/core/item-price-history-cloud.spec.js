@@ -42,8 +42,12 @@ const VAULT_PASSWORD = "strk147-test-password";
 const SYNC_KEY = `${VAULT_PASSWORD}:${ACCOUNT_ID}`;
 const BASE_TS = 1_700_000_000_000;
 
-const ITEM_A = "strk147-item-a";
-const ITEM_B = "strk147-item-b";
+// Item-price-history is keyed by inventory item UUID (item.uuid is always a
+// canonical RFC 4122 v4 UUID — see generateUUID in js/utils.js). The companion
+// merge's canonicalizeItemPriceHistory() drops malformed-UUID keys by design
+// (approach D-8), so these fixture keys MUST be canonical UUIDs, not slugs.
+const ITEM_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const ITEM_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 // Use timestamps anchored to "now" so they survive the 365-day retention cap.
 // LOCAL is 2h old, REMOTE is 1h old — both recent, both inside the window.
@@ -348,7 +352,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
       if (hasSaveFn) {
         // Mutate ONLY history, not inventory, then persist via the app path.
         const hist = window.loadDataSync("item-price-history", {});
-        hist["strk147-item-a"] = [
+        hist["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"] = [
           { ts: Date.now(), itemName: "STRK-147 Local A", retail: 40, spot: 31, melt: 30 },
         ];
         window.saveDataSync("item-price-history", hist);
