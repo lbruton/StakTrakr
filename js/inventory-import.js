@@ -363,8 +363,8 @@
       debugLog("showImportDiffReview fallback", "DiffEngine/DiffModal unavailable");
       if (options.stampCsvIdentity) _stampCsvItemIdentities(parsedItems);
       inventory = inventory.concat(parsedItems);
-      _postImportCleanup(parsedItems, options.pendingTagsByUuid);
       _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
+      _postImportCleanup(parsedItems, options.pendingTagsByUuid);
       if (options.stampCsvIdentity) {
         parsedItems.forEach(_clearCsvImportKey);
       }

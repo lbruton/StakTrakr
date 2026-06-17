@@ -104,6 +104,11 @@ const STRK198_UUIDLESS_CSV = [
   "2026-06-16,Silver,Coin,STRK-198 UUID-less Tag Eagle,2024,1,1,oz,0.999,30,Bullion; Test Tag,Eagle",
 ].join("\n");
 
+/**
+ * Resets all import-related localStorage and in-memory state to an empty baseline.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
 async function resetEmptyImportState(page) {
   await page.evaluate(() => {
     localStorage.clear();
@@ -117,6 +122,11 @@ async function resetEmptyImportState(page) {
   });
 }
 
+/**
+ * Navigates to the app and waits until all import-export globals are ready.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
 async function gotoImportExportApp(page) {
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
@@ -130,6 +140,11 @@ async function gotoImportExportApp(page) {
   );
 }
 
+/**
+ * Captures the current STRK-198 tag state from the page (inventory item, itemTags, removedTags).
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
 async function captureStrk198TagState(page) {
   return page.evaluate(() => {
     const item = window.inventory[0] || {};
@@ -150,6 +165,12 @@ async function captureStrk198TagState(page) {
   });
 }
 
+/**
+ * Imports the STRK-198 UUID-less CSV fixture into the app and returns the resulting tag state.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @param {{override: boolean}} options - When override is true, uses the CSV override path; otherwise stubs DiffModal.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
 async function importStrk198Csv(page, { override }) {
   await page.evaluate(
     ({ csvText, shouldOverride }) => {
@@ -178,6 +199,11 @@ async function importStrk198Csv(page, { override }) {
   return captureStrk198TagState(page);
 }
 
+/**
+ * Waits for the page to be ready after a reload with the STRK-198 fixture item loaded.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
 async function waitForStrk198Reload(page) {
   await page.waitForFunction(
     () =>
@@ -188,6 +214,11 @@ async function waitForStrk198Reload(page) {
   );
 }
 
+/**
+ * Asserts that the STRK-198 tag state is correct — UUID stamped, tags applied, removedTags written, no empty-key collision.
+ * @param {{item: object, persistedUuid: string, itemTags: object, removedTags: object}} state - Captured tag state.
+ * @returns {void}
+ */
 function expectStrk198Tags(state) {
   expect(state.item.uuid).toBeTruthy();
   expect(state.item.uuid).not.toBe("");
@@ -198,6 +229,11 @@ function expectStrk198Tags(state) {
   expect(state.removedTags[""]).toBeUndefined();
 }
 
+/**
+ * Collects vault data, clears localStorage, restores via restoreVaultData, and returns the resulting tag state.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
 async function roundTripStrk198VaultData(page) {
   return page.evaluate(async () => {
     const payload = window.collectVaultData("full");
