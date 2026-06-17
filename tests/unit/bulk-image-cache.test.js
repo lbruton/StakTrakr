@@ -30,15 +30,21 @@ function loadModule(env) {
   // window.catalogAPI, window.catalogManager). Mirror the doubles onto both the
   // bare scope and the fake window so every access path resolves.
   const inventory = env.inventory ?? [];
+  const windowImageCache = Object.prototype.hasOwnProperty.call(env, "windowImageCache")
+    ? env.windowImageCache
+    : env.imageCache;
+  const bareImageCache = Object.prototype.hasOwnProperty.call(env, "bareImageCache")
+    ? env.bareImageCache
+    : env.imageCache;
   const win = {
-    imageCache: env.imageCache,
+    imageCache: windowImageCache,
     catalogAPI: env.catalogAPI,
     catalogManager: env.catalogManager,
   };
   const scope = {
     window: win,
     inventory,
-    imageCache: env.imageCache,
+    imageCache: bareImageCache,
     catalogManager: env.catalogManager,
     catalogAPI: env.catalogAPI,
     applyNumistaTags: env.applyNumistaTags,
@@ -67,6 +73,20 @@ function makeImageCache(seedMeta = {}) {
       store.set(id, data);
     },
   };
+}
+
+/**
+ * Create a manually controlled Promise for async lifecycle assertions.
+ * @returns {{promise: Promise<void>, resolve: function():void, reject: function(Error):void}}
+ */
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
 }
 
 describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2)", () => {
@@ -111,11 +131,104 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
     };
   }
 
-  test("no-op (no result) when window.imageCache is absent", async () => {
-    const mod = loadModule(baseEnv({ imageCache: undefined, inventory: [] }));
-    let completed = false;
-    await mod.cacheAll(opts({ onComplete: () => (completed = true) }));
-    assert.equal(completed, false, "onComplete must not fire with no imageCache");
+  test("cache readiness failure reports a completion error when imageCache is absent", async () => {
+    let lookups = 0;
+    const catalogAPI = {
+      lookupItem: async () => {
+        lookups++;
+        return null;
+      },
+    };
+    const mod = loadModule(
+      baseEnv({ imageCache: undefined, inventory: [{ uuid: "u1", numistaId: "100" }], catalogAPI })
+    );
+    let summary = null;
+    let completions = 0;
+    await mod.cacheAll(
+      opts({
+        onComplete: (s) => {
+          completions++;
+          summary = s;
+        },
+      })
+    );
+    assert.ok(summary, "onComplete fired");
+    assert.equal(completions, 1, "onComplete fired exactly once");
+    assert.equal(summary.synced, 0);
+    assert.equal(summary.skipped, 0);
+    assert.equal(summary.failed, 1);
+    assert.equal(summary.apiLookups, 0);
+    assert.match(summary.error, /image cache/i);
+    assert.equal(progress.length, 0, "no progress before cache readiness");
+    assert.equal(lookups, 0, "catalog lookup not called before cache readiness");
+    assert.equal(saveItemTagsCalls, 0, "saveItemTags not called");
+    assert.equal(saveInventoryCalls, 0, "saveInventory not called");
+    assert.equal(mod.isRunning(), false, "running flag never sticks after readiness failure");
+  });
+
+  test("rejected imageCache.init resolves cacheAll and reports one completion error", async () => {
+    let lookups = 0;
+    const imageCache = {
+      isAvailable: () => false,
+      init: async () => {
+        throw new Error("init boom");
+      },
+      getMetadata: async () => null,
+      cacheMetadata: async () => {},
+    };
+    const catalogAPI = {
+      lookupItem: async () => {
+        lookups++;
+        return null;
+      },
+    };
+    const mod = loadModule(
+      baseEnv({ imageCache, inventory: [{ uuid: "u1", numistaId: "100" }], catalogAPI })
+    );
+    let summary = null;
+    let completions = 0;
+    let rejected = null;
+    try {
+      await mod.cacheAll(
+        opts({
+          onComplete: (s) => {
+            completions++;
+            summary = s;
+          },
+        })
+      );
+    } catch (err) {
+      rejected = err;
+    }
+    assert.equal(rejected, null, "cacheAll resolves instead of rejecting");
+    assert.ok(summary, "onComplete fired");
+    assert.equal(completions, 1, "onComplete fired exactly once");
+    assert.equal(summary.synced, 0);
+    assert.equal(summary.skipped, 0);
+    assert.equal(summary.failed, 1);
+    assert.equal(summary.apiLookups, 0);
+    assert.match(summary.error, /init boom/);
+    assert.equal(progress.length, 0, "no progress before cache readiness");
+    assert.equal(lookups, 0, "catalog lookup not called before cache readiness");
+    assert.equal(saveItemTagsCalls, 0, "saveItemTags not called");
+    assert.equal(saveInventoryCalls, 0, "saveInventory not called");
+    assert.equal(mod.isRunning(), false, "running flag never sticks after readiness failure");
+  });
+
+  test("cache readiness uses the guarded window.imageCache reference", async () => {
+    const imageCache = makeImageCache();
+    const mod = loadModule(
+      baseEnv({
+        windowImageCache: imageCache,
+        bareImageCache: undefined,
+        inventory: [],
+      })
+    );
+    let summary = null;
+    await mod.cacheAll(opts({ onComplete: (s) => (summary = s) }));
+    assert.ok(summary, "onComplete fired");
+    assert.equal(summary.failed, 0);
+    assert.equal(summary.error, undefined);
   });
 
   test("empty inventory reports an all-zero summary", async () => {
@@ -239,6 +352,108 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
     assert.equal(mod.isRunning(), false);
     await mod.cacheAll(opts());
     assert.equal(mod.isRunning(), false, "running flag reset after completion");
+  });
+
+  test("concurrent starts while cache readiness is pending do not run two syncs", async () => {
+    const initStarted = deferred();
+    const initGate = deferred();
+    let available = false;
+    let initCalls = 0;
+    let lookups = 0;
+    const imageCache = {
+      isAvailable: () => available,
+      init: async () => {
+        initCalls++;
+        initStarted.resolve();
+        await initGate.promise;
+        available = true;
+      },
+      getMetadata: async () => null,
+      cacheMetadata: async () => {},
+    };
+    const catalogAPI = {
+      lookupItem: async (id) => {
+        lookups++;
+        return { id, tags: [] };
+      },
+    };
+    const mod = loadModule(
+      baseEnv({ imageCache, inventory: [{ uuid: "u1", numistaId: "100" }], catalogAPI })
+    );
+    const completions = [];
+
+    const first = mod.cacheAll(
+      opts({ onComplete: (s) => completions.push({ run: "first", summary: s }) })
+    );
+    await initStarted.promise;
+    assert.equal(mod.isRunning(), false, "readiness guard does not expose a running sync");
+
+    await mod.cacheAll(
+      opts({ onComplete: (s) => completions.push({ run: "second", summary: s }) })
+    );
+    assert.equal(initCalls, 1, "second call did not start another readiness init");
+    assert.equal(lookups, 0, "sync loop waits for the first readiness pass");
+
+    initGate.resolve();
+    await first;
+    assert.equal(lookups, 1, "only one sync loop ran");
+    assert.equal(completions.length, 1, "only the accepted run completed");
+    assert.equal(completions[0].run, "first");
+    assert.equal(completions[0].summary.synced, 1);
+    assert.equal(mod.isRunning(), false, "running flag reset after the accepted run");
+  });
+
+  test("unexpected processing errors reset running and report a completion failure", async () => {
+    const imageCache = {
+      isAvailable: () => true,
+      init: async () => {},
+      getMetadata: async () => {
+        throw new Error("metadata boom");
+      },
+      cacheMetadata: async () => {},
+    };
+    const catalogAPI = {
+      lookupItem: async () => ({ tags: [] }),
+    };
+    const mod = loadModule(
+      baseEnv({ imageCache, inventory: [{ uuid: "u1", numistaId: "100" }], catalogAPI })
+    );
+    const completeStarted = deferred();
+    const completeGate = deferred();
+    let summary = null;
+    let callbackFinished = false;
+    let settled = false;
+
+    const run = mod.cacheAll(
+      opts({
+        onComplete: async (s) => {
+          summary = s;
+          assert.equal(mod.isRunning(), false, "running is reset before onComplete");
+          completeStarted.resolve();
+          await completeGate.promise;
+          callbackFinished = true;
+        },
+      })
+    );
+    run.then(() => {
+      settled = true;
+    });
+
+    await completeStarted.promise;
+    assert.equal(settled, false, "cacheAll awaits async onComplete");
+    completeGate.resolve();
+    await run;
+
+    assert.equal(callbackFinished, true, "async onComplete finished before cacheAll resolved");
+    assert.ok(summary, "onComplete fired");
+    assert.equal(summary.synced, 0);
+    assert.equal(summary.skipped, 0);
+    assert.equal(summary.failed, 1);
+    assert.equal(summary.apiLookups, 0);
+    assert.match(summary.error, /metadata boom/);
+    assert.equal(saveItemTagsCalls, 0, "saveItemTags not called after processing error");
+    assert.equal(saveInventoryCalls, 0, "saveInventory not called after processing error");
+    assert.equal(mod.isRunning(), false, "running flag reset after processing error");
   });
 
   test("abort stops the loop early (second item not processed)", async () => {

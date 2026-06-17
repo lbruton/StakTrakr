@@ -319,14 +319,16 @@ const startBulkSync = async () => {
       };
       logSyncActivity(`${catalogId}: ${message}`, logTypeMap[status] || "info");
     },
-    onComplete: async ({ synced, skipped, failed, apiLookups, elapsed }) => {
+    onComplete: async ({ synced, skipped, failed, apiLookups, elapsed, error }) => {
       if (startBtn) startBtn.disabled = false;
       if (cancelBtn) cancelBtn.style.display = "none";
       if (progressBar) progressBar.style.display = "none";
 
       const secs = (elapsed / 1000).toFixed(1);
-      let msg = `Complete in ${secs}s: ${synced} synced, ${skipped} skipped, ${failed} failed`;
-      if (apiLookups > 0) msg += `, ${apiLookups} API calls`;
+      let msg = error
+        ? `Failed in ${secs}s: ${error}`
+        : `Complete in ${secs}s: ${synced} synced, ${skipped} skipped, ${failed} failed`;
+      if (!error && apiLookups > 0) msg += `, ${apiLookups} API calls`;
       msg += ".";
       logSyncActivity(msg, failed > 0 ? "warn" : "success");
 
