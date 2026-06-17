@@ -234,7 +234,7 @@ When any version-related file changes, verify every version-bearing file matches
 | `js/about.js`              | `getEmbeddedWhatsNew()` version |
 | `data/spot-history-*.json` | Seed data should be refreshed   |
 
-If only some files are updated, flag the missing ones. The `check-release-sync` pre-commit hook validates only a **subset** -- `constants.js`, `package.json`, `version.json`, `CHANGELOG.md`, and the `js/about.js` What's New entry -- so a green hook does **not** mean the release is complete (`sw.js` cache is not hook-checked). `manifest.json` carries no version field; do not flag it for version sync.
+If only some files are updated, flag the missing ones. The `check-release-sync` pre-commit hook validates only a **subset** -- `constants.js`, `package.json`, `version.json`, `CHANGELOG.md`, and the `js/about.js` What's New entry (asserting the current-version <li> is present and enforcing the 5-entry cap; STRK-194, #1262) -- so a green hook does **not** mean the release is complete (`sw.js` cache and README badges are not hook-checked). `manifest.json` carries no version field; do not flag it for version sync.
 
 **Version Lock**: Multiple AI agents work concurrently on this repo. A `devops/version.lock`
 file (gitignored) is used as a mutual-exclusion token. If you see an orphaned lock file in a
