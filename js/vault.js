@@ -1122,6 +1122,57 @@ async function vaultDecryptAndRestoreAttachments(fileBytes, password) {
   }
 }
 
+/**
+ * Encrypt an item-price-history companion vault payload into raw bytes for
+ * cloud upload. Mirrors vaultEncryptImageVault / vaultEncryptAttachmentVault
+ * exactly — same AES-256-GCM crypto layer (random 32-byte salt, random 12-byte
+ * IV, PBKDF2 key derivation at VAULT_PBKDF2_ITERATIONS, serializeVaultFile
+ * header/format) — so the output is byte-format compatible with the other
+ * companion vaults.
+ * @param {string} password
+ * @param {object} payload - Canonicalized item-price-history payload
+ * @returns {Promise<Uint8Array>}
+ */
+async function vaultEncryptItemPriceHistory(password, payload) {
+  if (!password)
+    throw new Error("Item-price-history vault encryption requires a non-empty password.");
+  var plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  var salt = vaultRandomBytes(32);
+  var iv = vaultRandomBytes(12);
+  var key = await vaultDeriveKey(password, salt, VAULT_PBKDF2_ITERATIONS);
+  var ciphertext = await vaultEncrypt(plaintext, key, iv);
+  return serializeVaultFile(salt, iv, VAULT_PBKDF2_ITERATIONS, ciphertext);
+}
+
+/**
+ * Decrypt item-price-history companion vault bytes and return the parsed
+ * payload. Mirrors the image/attachment vault decrypt crypto path
+ * (parseVaultFile → vaultDeriveKey → vaultDecrypt → JSON.parse); unlike those
+ * helpers it returns the payload to the caller rather than restoring into
+ * IndexedDB, because the merge is owned by priceHistory.js (D-2/D-7). A
+ * round-trip with vaultEncryptItemPriceHistory under the same password returns
+ * the input payload.
+ * @param {Uint8Array|ArrayBuffer} fileBytes
+ * @param {string} password
+ * @returns {Promise<object>} Parsed item-price-history payload
+ */
+async function vaultDecryptItemPriceHistory(fileBytes, password) {
+  try {
+    var parsed = parseVaultFile(new Uint8Array(fileBytes));
+    var key = await vaultDeriveKey(password, parsed.salt, parsed.iterations);
+    var plainBytes = await vaultDecrypt(parsed.ciphertext, key, parsed.iv);
+    return JSON.parse(new TextDecoder().decode(plainBytes));
+  } catch (err) {
+    var msg = String(err.message || err);
+    var isPasswordErr = msg.indexOf("Incorrect password") !== -1 || msg.indexOf("corrupted") !== -1;
+    throw new Error(
+      isPasswordErr
+        ? "Item-price-history vault decryption failed — check your sync password."
+        : "Item-price-history vault restore failed: " + msg
+    );
+  }
+}
+
 // =============================================================================
 // EXPORT FLOW
 // =============================================================================
@@ -2183,6 +2234,8 @@ window.restoreVaultData = restoreVaultData;
 window.collectAndHashImageVault = collectAndHashImageVault;
 window.vaultEncryptImageVault = vaultEncryptImageVault;
 window.vaultDecryptAndRestoreImages = vaultDecryptAndRestoreImages;
+window.vaultEncryptItemPriceHistory = vaultEncryptItemPriceHistory;
+window.vaultDecryptItemPriceHistory = vaultDecryptItemPriceHistory;
 window.encryptManifest = encryptManifest;
 window.decryptManifest = decryptManifest;
 window.setVaultPendingImageFile = function (bytes) {

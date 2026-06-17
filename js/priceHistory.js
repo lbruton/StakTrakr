@@ -47,6 +47,13 @@ const applyItemPriceRetention = (history) => {
 /**
  * Saves item price history to localStorage.
  * Enforces the silent retention cap (STRK-141) before every write.
+ *
+ * STRK-147 (D-5): after a successful save, schedules a debounced Cloud Sync push
+ * when Cloud Sync is available, so a history-only change (inventory unchanged)
+ * still propagates to the companion vault (AC-4). The trigger is guarded on
+ * scheduleSyncPush being defined and is best-effort — a missing/throwing trigger
+ * never breaks the local save. The error-swallowing save contract is otherwise
+ * unchanged (the throwing path is writeItemPriceHistoryStrict, D-7).
  */
 const saveItemPriceHistory = () => {
   try {
@@ -54,6 +61,12 @@ const saveItemPriceHistory = () => {
     saveDataSync(ITEM_PRICE_HISTORY_KEY, itemPriceHistory);
   } catch (error) {
     console.error("Error saving item price history:", error);
+    return;
+  }
+  try {
+    if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+  } catch (pushError) {
+    console.error("Error scheduling sync push after item price history save:", pushError);
   }
 };
 
@@ -275,6 +288,258 @@ const cleanOrphanedItemPriceHistory = () => {
 
   if (removed > 0) saveItemPriceHistory();
   return removed;
+};
+
+// =============================================================================
+// ITEM PRICE HISTORY — CLOUD-SYNC COMPANION MERGE (STRK-147)
+// =============================================================================
+// Pure, deterministic helpers for the dedicated item-price-history companion
+// vault. These mirror the convergence model of the tag merge (_mergeTagData):
+// a logical (decompressed/parsed/sorted) compare+hash that is commutative on
+// ties and idempotent. They are intentionally separate from the ts-only ZIP
+// `mergeItemPriceHistory()` above, which is left UNCHANGED this sketch (D-2).
+// =============================================================================
+
+/** Canonical UUID v4-ish shape: 8-4-4-4-12 lowercase hex (no embedded quotes). */
+const _ITEM_PRICE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Tests whether a key is a well-formed history UUID.
+ * Malformed keys are dropped during canonicalization so they never poison the hash.
+ *
+ * @param {*} uuid - Candidate UUID key
+ * @returns {boolean} True if the key matches the canonical UUID shape
+ */
+const _isValidItemPriceUuid = (uuid) => typeof uuid === "string" && _ITEM_PRICE_UUID_RE.test(uuid);
+
+/**
+ * Coerces a single history entry to a normalized numeric/string shape.
+ * Snapshot name reuses getSnapshotItemName (supports legacy `name`).
+ *
+ * @param {Object} entry - Raw history entry
+ * @returns {{ts:number,itemName:string,retail:number,spot:number,melt:number}|null}
+ *          Normalized entry, or null when the entry has no usable timestamp.
+ */
+const _normalizeItemPriceEntry = (entry) => {
+  if (!entry || typeof entry !== "object") return null;
+  const ts = Number(entry.ts);
+  if (!Number.isFinite(ts)) return null;
+  return {
+    ts: ts,
+    itemName: getSnapshotItemName(entry),
+    retail: Number(entry.retail) || 0,
+    spot: Number(entry.spot) || 0,
+    melt: Number(entry.melt) || 0,
+  };
+};
+
+/**
+ * Stable full-entry fingerprint used as both the dedupe key and the comparator
+ * tie-breaker. Order: ts, itemName, retail, spot, melt (D-8). Two snapshots that
+ * share a ts but differ in any field are distinct and BOTH survive (AC-3).
+ *
+ * @param {Object} entry - Normalized history entry
+ * @returns {string} Deterministic fingerprint string
+ */
+const _itemPriceEntryFingerprint = (entry) =>
+  [entry.ts, entry.itemName, entry.retail, entry.spot, entry.melt].join(" ");
+
+/**
+ * Full-fingerprint comparator: sorts by ts, then itemName, retail, spot, melt.
+ * A pure ts comparator leaves equal-ts distinct entries in input order, making
+ * merge(A,B) and merge(B,A) diverge — this restores total determinism (D-8).
+ *
+ * @param {Object} a - Normalized history entry
+ * @param {Object} b - Normalized history entry
+ * @returns {number} Negative, zero, or positive per standard comparator contract
+ */
+const _compareItemPriceEntries = (a, b) => {
+  if (a.ts !== b.ts) return a.ts - b.ts;
+  if (a.itemName !== b.itemName) return a.itemName < b.itemName ? -1 : 1;
+  if (a.retail !== b.retail) return a.retail - b.retail;
+  if (a.spot !== b.spot) return a.spot - b.spot;
+  if (a.melt !== b.melt) return a.melt - b.melt;
+  return 0;
+};
+
+/**
+ * Decompresses (CMP-aware) and parses an item-price-history input into an object.
+ * Accepts a plain object, a JSON string, or a CMP-compressed string, so the same
+ * logical content yields an equal canonical form regardless of input form (D-8).
+ *
+ * @param {Object|string} input - History object or its (possibly compressed) JSON
+ * @returns {Object} Parsed history object keyed by UUID (empty object on failure)
+ */
+const _parseItemPriceHistoryInput = (input) => {
+  if (input && typeof input === "object" && !Array.isArray(input)) return input;
+  if (typeof input !== "string" || !input) return {};
+  let str = input;
+  if (typeof __decompressIfNeeded === "function") {
+    try {
+      str = __decompressIfNeeded(input);
+    } catch (_e) {
+      str = input;
+    }
+  }
+  try {
+    const parsed = JSON.parse(str);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_e) {
+    return {};
+  }
+};
+
+/**
+ * Produces a canonical, deterministic item-price-history object (D-8):
+ *   decompress/parse → drop malformed-UUID keys → drop unusable entries →
+ *   sort UUID keys → sort each entry array by the full-fingerprint comparator.
+ * Equal logical content (compressed or plain) canonicalizes identically, so its
+ * stable-stringification and hash are input-form-independent.
+ *
+ * @param {Object|string} history - History object or its (possibly compressed) JSON
+ * @returns {Object} A new canonical history object (input is not mutated)
+ */
+const canonicalizeItemPriceHistory = (history) => {
+  const parsed = _parseItemPriceHistoryInput(history);
+  const canonical = {};
+
+  const uuids = Object.keys(parsed).filter(_isValidItemPriceUuid).sort();
+
+  for (const uuid of uuids) {
+    const raw = Array.isArray(parsed[uuid]) ? parsed[uuid] : [];
+    const entries = raw.map(_normalizeItemPriceEntry).filter(Boolean);
+    entries.sort(_compareItemPriceEntries);
+    if (entries.length > 0) canonical[uuid] = entries;
+  }
+
+  return canonical;
+};
+
+/**
+ * Stable-stringifies a canonical history object. Keys are already sorted and
+ * entry arrays already comparator-ordered, so JSON.stringify over the canonical
+ * shape is itself deterministic.
+ *
+ * @param {Object} canonical - Output of canonicalizeItemPriceHistory
+ * @returns {string} Deterministic JSON string
+ */
+const _stringifyCanonicalItemPriceHistory = (canonical) => JSON.stringify(canonical);
+
+/**
+ * Commutative, idempotent fingerprint-union merge of two item-price histories
+ * (D-2, D-6). UUID-keyed union; remote is filtered to `acceptedUuids` so a
+ * rejected remote Item never imports orphan history (AC-6). Entries dedupe by
+ * the FULL-ENTRY fingerprint (not ts alone), so equal-ts distinct snapshots are
+ * preserved (AC-3) while exact duplicates collapse. Retention is applied AFTER
+ * the union so the merged result honors the silent cap (STRK-141). The output is
+ * canonical, guaranteeing merge(A,B) deep-equals merge(B,A) (commutative,
+ * including tie order) and merge(X,X) === canonical X (idempotent), per AC-10.
+ *
+ * @param {Object|string} local - Local history (object or compressed/plain JSON)
+ * @param {Object|string} remote - Remote history (object or compressed/plain JSON)
+ * @param {Set<string>|Array<string>} [acceptedUuids] - UUID boundary for remote
+ *        entries; when omitted/null, remote is NOT filtered (all UUIDs accepted)
+ * @returns {Object} A new canonical, retention-capped merged history object
+ */
+const mergeItemPriceHistories = (local, remote, acceptedUuids) => {
+  const localCanon = canonicalizeItemPriceHistory(local);
+  const remoteCanon = canonicalizeItemPriceHistory(remote);
+
+  const accept =
+    acceptedUuids == null
+      ? null
+      : acceptedUuids instanceof Set
+        ? acceptedUuids
+        : new Set(acceptedUuids);
+
+  const merged = {};
+
+  // Seed with local entries (local is the trusted side — never boundary-filtered).
+  for (const uuid of Object.keys(localCanon)) {
+    merged[uuid] = localCanon[uuid].slice();
+  }
+
+  // Union in remote entries, filtered to the accepted inventory boundary.
+  for (const uuid of Object.keys(remoteCanon)) {
+    if (accept && !accept.has(uuid)) continue;
+    if (!merged[uuid]) merged[uuid] = [];
+    merged[uuid].push(...remoteCanon[uuid]);
+  }
+
+  // Dedupe each UUID's entries by full-entry fingerprint.
+  for (const uuid of Object.keys(merged)) {
+    const seen = new Set();
+    const deduped = [];
+    for (const entry of merged[uuid]) {
+      const fp = _itemPriceEntryFingerprint(entry);
+      if (seen.has(fp)) continue;
+      seen.add(fp);
+      deduped.push(entry);
+    }
+    merged[uuid] = deduped;
+  }
+
+  // Apply retention AFTER the union (post-merge), then re-canonicalize so the
+  // result is order-deterministic regardless of which side contributed an entry.
+  if (typeof applyItemPriceRetention === "function") applyItemPriceRetention(merged);
+
+  return canonicalizeItemPriceHistory(merged);
+};
+
+/**
+ * Collects the in-memory item-price-history, canonicalizes it, and hashes the
+ * canonical content (D-8, AC-9). Because the hash is computed over the canonical
+ * form, a compressed input and a plain input with identical logical content
+ * yield the same hash — the change-detection pointer is input-form-independent.
+ *
+ * @returns {{canonical:Object,payload:string,hash:string,uuidCount:number,entryCount:number}}
+ *          The canonical history OBJECT, its canonical JSON string, the hash
+ *          (computed over the string), and UUID/entry counts. Callers that
+ *          encrypt the companion vault should pass `canonical` (the object) so
+ *          the vault is not double-stringified (STRK-147, D); the pointer hash
+ *          must stay computed over `payload`.
+ */
+const collectAndHashItemPriceHistory = () => {
+  const source =
+    typeof itemPriceHistory !== "undefined" && itemPriceHistory ? itemPriceHistory : {};
+  const canonical = canonicalizeItemPriceHistory(source);
+  const payload = _stringifyCanonicalItemPriceHistory(canonical);
+  const hash = typeof simpleHash === "function" ? simpleHash(payload) : payload;
+
+  const uuidCount = Object.keys(canonical).length;
+  let entryCount = 0;
+  for (const uuid of Object.keys(canonical)) entryCount += canonical[uuid].length;
+
+  return {
+    canonical: canonical,
+    payload: payload,
+    hash: hash,
+    uuidCount: uuidCount,
+    entryCount: entryCount,
+  };
+};
+
+/**
+ * Throwing/reporting write path for companion-history merges (D-7, enables AC-7).
+ * Unlike saveItemPriceHistory(), which swallows and logs saveDataSync() errors
+ * (priceHistory.js:51-58) and would mask a quota failure, this RETHROWS so the
+ * cloud-sync caller can detect the failure and keep `lastPull` stale for retry.
+ * Retention is applied before the write to match the normal save contract.
+ *
+ * @param {Object} [history] - History object to persist (defaults to the global)
+ * @returns {Object} The history object that was written
+ * @throws Rethrows any saveDataSync error (e.g. quota exceeded)
+ */
+const writeItemPriceHistoryStrict = (history) => {
+  const target =
+    history && typeof history === "object" && !Array.isArray(history)
+      ? history
+      : typeof itemPriceHistory !== "undefined"
+        ? itemPriceHistory
+        : {};
+  if (typeof applyItemPriceRetention === "function") applyItemPriceRetention(target);
+  saveDataSync(ITEM_PRICE_HISTORY_KEY, target);
+  return target;
 };
 
 // =============================================================================
@@ -561,7 +826,13 @@ const deleteItemPriceEntry = (uuid, timestamp) => {
 };
 
 // Ensure global availability
+window.saveItemPriceHistory = saveItemPriceHistory;
+window.loadItemPriceHistory = loadItemPriceHistory;
 window.applyItemPriceRetention = applyItemPriceRetention;
+window.canonicalizeItemPriceHistory = canonicalizeItemPriceHistory;
+window.mergeItemPriceHistories = mergeItemPriceHistories;
+window.collectAndHashItemPriceHistory = collectAndHashItemPriceHistory;
+window.writeItemPriceHistoryStrict = writeItemPriceHistoryStrict;
 window.renderItemPriceHistoryTable = renderItemPriceHistoryTable;
 window.filterItemPriceHistoryTable = filterItemPriceHistoryTable;
 window.clearItemPriceHistory = clearItemPriceHistory;
