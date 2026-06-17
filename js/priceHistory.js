@@ -47,6 +47,13 @@ const applyItemPriceRetention = (history) => {
 /**
  * Saves item price history to localStorage.
  * Enforces the silent retention cap (STRK-141) before every write.
+ *
+ * STRK-147 (D-5): after a successful save, schedules a debounced Cloud Sync push
+ * when Cloud Sync is available, so a history-only change (inventory unchanged)
+ * still propagates to the companion vault (AC-4). The trigger is guarded on
+ * scheduleSyncPush being defined and is best-effort — a missing/throwing trigger
+ * never breaks the local save. The error-swallowing save contract is otherwise
+ * unchanged (the throwing path is writeItemPriceHistoryStrict, D-7).
  */
 const saveItemPriceHistory = () => {
   try {
@@ -54,6 +61,12 @@ const saveItemPriceHistory = () => {
     saveDataSync(ITEM_PRICE_HISTORY_KEY, itemPriceHistory);
   } catch (error) {
     console.error("Error saving item price history:", error);
+    return;
+  }
+  try {
+    if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+  } catch (pushError) {
+    console.error("Error scheduling sync push after item price history save:", pushError);
   }
 };
 
