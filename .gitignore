@@ -62,3 +62,7 @@ claude-read-tracker/
 # Specflow transient run state — only config.json is tracked.
 .specflow/**
 !.specflow/config.json
+
+# Local agent overrides — *.local.* files are per-machine, never shared
+# (e.g. settings.local.json, hookify *.local.md). Shared config has no .local. infix.
+.claude/**/*.local.*
