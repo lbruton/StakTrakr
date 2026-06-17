@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.23] - 2026-06-16
+
+### Changed — STRK-170: Tier-1 complexity refactor (cohorts 1.1–3.9)
+
+- **Code health**: Behavior-preserving decomposition of 38 high-complexity functions across 19 core modules (`inventory.js`, `inventory-import.js`, `inventory-backup.js`, `vault.js`, `market-data.js`, `changeLog.js`, `diff-modal.js`, `filters.js`, `search.js`, `inventory-table.js`, `api.js`, `bulk-image-cache.js`, `bulkEdit.js`, `catalog-api.js`, `csv-export.js`, `chip-grouping.js`, `image-cache-modal.js`, `retail.js`, `viewModal.js`) to under the Codacy Lizard ccn-25 / nloc-150 gate. Hundreds of JSDoc'd module-private helpers added; every `window.*` export byte-identical; characterization tests added for the correctness-critical paths (undo, history-merge, crypto restore, field edits). No user-facing change (STRK-170).
+
+---
+
 ## [3.35.22] - 2026-06-14
 
 ### Changed — STRK-193: Remove dead code from the sync diff modal
