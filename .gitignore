@@ -67,3 +67,9 @@ claude-read-tracker/
 # Local agent overrides — *.local.* files are per-machine, never shared
 # (e.g. settings.local.json, hookify *.local.md). Shared config has no .local. infix.
 .claude/**/*.local.*
+
+# MCP config — per-user server commands/env may carry credentials
+# (Plane/GitHub/Infisical tokens); never tracked. .playwright-mcp/ is a transient
+# browser-session dir, not project history.
+.mcp.json
+.playwright-mcp/
