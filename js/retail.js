@@ -690,6 +690,429 @@ async function _fetchV2Json(base, path) {
 }
 
 /**
+ * Null-aware weighted average of two values.
+ * Returns the non-null operand when the other is null/undefined.
+ * @param {number|null|undefined} a
+ * @param {number} aWeight
+ * @param {number|null|undefined} b
+ * @param {number} bWeight
+ * @returns {number|null|undefined}
+ */
+const _weightedHistoryAverage = (a, aWeight, b, bWeight) => {
+  if (a == null) return b;
+  if (b == null) return a;
+  return (a * aWeight + b * bWeight) / (aWeight + bWeight);
+};
+
+/**
+ * Merges two same-granularity history entries for one date: weighted-averages the
+ * aggregates by sample count (`n`), keeps the newest `close` by timestamp, and
+ * takes the widest high/low range. Mutates and returns `merged`.
+ * @param {object} merged - The shallow-clone target (starts as {...finer}).
+ * @param {object} existing - The entry already stored for this date.
+ * @param {object} e - The incoming entry colliding on this date.
+ * @returns {object} The merged entry.
+ */
+const _mergeSameRankHistory = (merged, existing, e) => {
+  const existingWeight = existing.n > 0 ? existing.n : 1;
+  const eWeight = e.n > 0 ? e.n : 1;
+  const totalWeight = existingWeight + eWeight;
+  merged.open = existing.open ?? e.open;
+  if (existing.high != null && e.high != null) merged.high = Math.max(existing.high, e.high);
+  else merged.high = existing.high ?? e.high;
+  if (existing.low != null && e.low != null) merged.low = Math.min(existing.low, e.low);
+  else merged.low = existing.low ?? e.low;
+  merged.close = (e.ts ?? 0) >= (existing.ts ?? 0) ? e.close : existing.close;
+  merged.avg_median = _weightedHistoryAverage(
+    existing.avg_median,
+    existingWeight,
+    e.avg_median,
+    eWeight
+  );
+  merged.avg_low = _weightedHistoryAverage(existing.avg_low, existingWeight, e.avg_low, eWeight);
+  merged.n = totalWeight;
+  return merged;
+};
+
+/**
+ * Merges two different-granularity history entries for one date: the finer
+ * (higher `_sourceRank`) entry wins each field, falling back to the coarser
+ * entry only where the finer value is null/undefined. Mutates and returns `merged`.
+ * @param {object} merged - The shallow-clone target (starts as {...finer}).
+ * @param {object} finer - The higher-granularity entry.
+ * @param {object} coarser - The lower-granularity entry.
+ * @returns {object} The merged entry.
+ */
+const _mergeCrossRankHistory = (merged, finer, coarser) => {
+  merged._sourceRank = finer._sourceRank;
+  merged.open = finer.open ?? coarser.open;
+  merged.high = finer.high ?? coarser.high;
+  merged.low = finer.low ?? coarser.low;
+  merged.close = finer.close ?? coarser.close;
+  merged.avg_median = finer.avg_median ?? coarser.avg_median;
+  merged.avg_low = finer.avg_low ?? coarser.avg_low;
+  merged.n = finer.n ?? coarser.n;
+  return merged;
+};
+
+/**
+ * Resolves the colliding pair for a date into one merged entry, dispatching to the
+ * same-rank or cross-rank merge and union-merging vendors (finer/incoming wins per key).
+ * @param {object} existing - The entry already stored for this date.
+ * @param {object} e - The incoming entry colliding on this date.
+ * @returns {object} The merged entry.
+ */
+const _mergeHistoryCollision = (existing, e) => {
+  const eRank = e._sourceRank ?? 0;
+  const existingRank = existing._sourceRank ?? 0;
+  const finer = eRank > existingRank ? e : existing;
+  const coarser = eRank > existingRank ? existing : e;
+  const sameRank = eRank === existingRank;
+  const merged = sameRank
+    ? _mergeSameRankHistory({ ...finer }, existing, e)
+    : _mergeCrossRankHistory({ ...finer }, finer, coarser);
+
+  const primaryVendors = sameRank ? e.vendors : finer.vendors;
+  const fallbackVendors = sameRank ? existing.vendors : coarser.vendors;
+  if (primaryVendors || fallbackVendors) {
+    merged.vendors = { ...(fallbackVendors || {}), ...(primaryVendors || {}) };
+  }
+  return merged;
+};
+
+/**
+ * Deduplicates collected history entries by date, preferring finest-granularity
+ * aggregates and union-merging vendors, then returns the series sorted ascending
+ * by date with the internal `_sourceRank` field stripped.
+ *
+ * HIGH-RISK: this preserves the exact JSON-LD → history merge order. Callers must
+ * pass entries coarsest-first (90d, then 30d, then 7d) so finer entries overwrite
+ * coarser ones on a date collision.
+ * @param {Array<object>} historyEntries - Collected entries tagged with `_sourceRank`.
+ * @returns {Array<object>} Deduped, date-sorted history series.
+ */
+const _mergeRetailHistory = (historyEntries) => {
+  const byDate = new Map();
+  for (const e of historyEntries) {
+    if (!e.date) continue;
+    const existing = byDate.get(e.date);
+    if (!existing) {
+      byDate.set(e.date, e);
+    } else {
+      byDate.set(e.date, _mergeHistoryCollision(existing, e));
+    }
+  }
+  return [...byDate.values()]
+    .map(({ _sourceRank, ...entry }) => entry)
+    .sort((a, b) => (a.date > b.date ? 1 : -1));
+};
+
+/**
+ * Builds the per-vendor price map for a slug's `latest` feed, preserving the
+ * carried/carried_from flags. Returns an empty object when there are no vendors.
+ * @param {object} latest - The slug's latest.json payload.
+ * @returns {Object.<string, object>} vendorId → { price, inStock, confidence, carried, carried_from }.
+ */
+const _buildV2VendorMap = (latest) => {
+  const vendorMap = {};
+  if (latest.vendors) {
+    for (const [vid, vdata] of Object.entries(latest.vendors)) {
+      vendorMap[vid] = {
+        price: vdata.price,
+        inStock: vdata.in_stock !== false,
+        confidence: vdata.confidence || null,
+        carried: vdata.carried || false,
+        carried_from: vdata.carried_from || null,
+      };
+    }
+  }
+  return vendorMap;
+};
+
+/**
+ * Updates the module's availability and last-known-price globals from a slug's
+ * `latest` vendor data. Mutates retailAvailability and retailLastKnownPrices in place.
+ * @param {string} slug
+ * @param {object} latest - The slug's latest.json payload.
+ */
+const _applyV2SlugAvailability = (slug, latest) => {
+  if (!latest.vendors) return;
+  if (!retailAvailability[slug]) retailAvailability[slug] = {};
+  if (!retailLastKnownPrices[slug]) retailLastKnownPrices[slug] = {};
+  for (const [vid, vdata] of Object.entries(latest.vendors)) {
+    retailAvailability[slug][vid] = vdata.in_stock !== false;
+    if (vdata.price != null && vdata.price > 0) {
+      retailLastKnownPrices[slug][vid] = vdata.price;
+    }
+  }
+};
+
+/**
+ * Maps a slug's `intraday` feed array into the stored intraday entry shape
+ * ({ window_start, windows_24h }).
+ * @param {Array<object>} intraday - The slug's intraday.json payload (array of windows).
+ * @returns {{ window_start: string|null, windows_24h: Array<object> }}
+ */
+const _buildV2IntradayEntry = (intraday) => ({
+  window_start: intraday.length ? intraday[0].t : null,
+  windows_24h: intraday.map((w) => ({
+    window: w.t,
+    t: w.t,
+    ts: w.ts,
+    median: w.median,
+    low: w.low,
+    vendors: w.vendors || {},
+  })),
+});
+
+/**
+ * Collects the 7d/30d/90d history feeds into one flat, `_sourceRank`-tagged list
+ * ready for _mergeRetailHistory. Coarsest-first (90d rank 0, 30d rank 1, 7d rank 2)
+ * so the dedup lets finer entries overwrite coarser ones on a date collision.
+ * @param {Array<object>|null} hist7 - 7-day hourly feed.
+ * @param {Array<object>|null} hist30 - 30-day daily feed.
+ * @param {Array<object>|null} hist90 - 90-day daily feed.
+ * @returns {Array<object>} Tagged history entries.
+ */
+const _collectV2HistoryEntries = (hist7, hist30, hist90) => {
+  const historyEntries = [];
+  const addHistory = (data, sourceRank) => {
+    if (!Array.isArray(data)) return;
+    for (const entry of data) {
+      historyEntries.push({
+        _sourceRank: sourceRank,
+        date: entry.t ? entry.t.slice(0, 10) : null,
+        t: entry.t,
+        ts: entry.ts,
+        open: entry.open,
+        high: entry.high,
+        low: entry.low,
+        close: entry.close,
+        avg_median: entry.avg ?? entry.close,
+        avg_low: entry.low,
+        n: entry.n,
+        vendors: entry.vendors || null,
+      });
+    }
+  };
+  // Coarsest-first: union spread in dedup relies on finer entries overwriting coarser
+  addHistory(hist90, 0);
+  addHistory(hist30, 1);
+  addHistory(hist7, 2);
+  return historyEntries;
+};
+
+/**
+ * Processes one settled per-slug fetch result: on a fulfilled value it records the
+ * price entry into `newPrices`, updates availability/intraday/history globals, and
+ * returns 1 when a `latest` price landed (else 0). Rejected results are logged and
+ * contribute 0. Preserves the exact JSON-LD → history merge ordering.
+ * @param {PromiseSettledResult<object>} r - One Promise.allSettled result.
+ * @param {Object.<string, object>} newPrices - Accumulator for current-snapshot prices.
+ * @returns {number} 1 if a latest price was recorded, else 0.
+ */
+const _processV2SlugResult = (r, newPrices) => {
+  if (r.status !== "fulfilled") {
+    debugLog(`[retail-v2] Slug fetch failed: ${r.reason?.message || r.reason}`, "warn");
+    return 0;
+  }
+  const { slug, latest, intraday, hist7, hist30, hist90 } = r.value;
+
+  let recorded = 0;
+  if (latest) {
+    newPrices[slug] = {
+      median_price: latest.median ?? null,
+      lowest_price: latest.low ?? null,
+      highest_price: latest.high ?? null,
+      vendors: _buildV2VendorMap(latest),
+    };
+    _applyV2SlugAvailability(slug, latest);
+    recorded = 1;
+  }
+
+  if (Array.isArray(intraday)) {
+    retailIntradayData[slug] = _buildV2IntradayEntry(intraday);
+  }
+
+  const historyEntries = _collectV2HistoryEntries(hist7, hist30, hist90);
+  if (historyEntries.length) {
+    retailPriceHistory[slug] = _mergeRetailHistory(historyEntries);
+  }
+  return recorded;
+};
+
+/**
+ * Maps a v2 manifest metal code to the display metal name.
+ * @param {string} code - Manifest metal code (xag/xau/xpt/xpd) or a passthrough value.
+ * @returns {string} silver/gold/platinum/palladium, the raw code, or "unknown".
+ */
+const _v2MetalFromCode = (code) => {
+  if (code === "xag") return "silver";
+  if (code === "xau") return "gold";
+  if (code === "xpt") return "platinum";
+  if (code === "xpd") return "palladium";
+  return code || "unknown";
+};
+
+/**
+ * Persists a string to localStorage, ignoring quota/availability errors.
+ * @param {string} key
+ * @param {string} value
+ */
+const _safeLocalStorageSet = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+};
+
+/**
+ * Populates the manifest resolver globals (_manifestSlugs, _manifestCoinMeta,
+ * _manifestVendorMeta) from a v2 manifest's coin/vendor arrays and caches them to
+ * localStorage. Mutates module state in place.
+ * @param {Array<object>} coins - Manifest coin descriptors.
+ * @param {Array<object>} vendors - Manifest vendor descriptors.
+ */
+const _populateManifestState = (coins, vendors) => {
+  _manifestSlugs = coins.map((c) => c.slug);
+  _manifestCoinMeta = {};
+  for (const c of coins) {
+    _manifestCoinMeta[c.slug] = {
+      name: c.name,
+      weight: c.weight_oz || 0,
+      metal: _v2MetalFromCode(c.metal),
+    };
+  }
+  if (_manifestSlugs.length) {
+    _safeLocalStorageSet(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs));
+  }
+  if (_manifestCoinMeta) {
+    _safeLocalStorageSet(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta));
+  }
+
+  if (vendors.length) {
+    _manifestVendorMeta = {};
+    for (const v of vendors) {
+      _manifestVendorMeta[v.id] = { name: v.name, color: v.color, url: v.url || null };
+    }
+    _safeLocalStorageSet(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta));
+  }
+};
+
+/**
+ * Flattens the STAK-348 providers.json shape
+ * ({ coins: { slug: { providers: [{ id, url, enabled }] } } }) into the legacy
+ * { slug: { vendorId: url } } map all render call sites expect. Uses prototype-less
+ * objects to defend against prototype-pollution via malicious __proto__/constructor keys.
+ * @param {object} raw - Parsed providers.json (envelope or bare { coins } shape).
+ * @returns {Object.<string, Object.<string, string>>} Flattened provider map.
+ */
+const _flattenV2Providers = (raw) => {
+  const flattened = Object.create(null);
+  // v2 endpoints use a self-describing envelope { v, generated_at, stale_after, data }.
+  // Defensive fallback to bare { coins } shape handles the brief deploy window where
+  // the poller hasn't redeployed yet and the old non-envelope shape is still served.
+  const coinsObj = (raw && raw.data && raw.data.coins) || (raw && raw.coins) || {};
+  for (const [slug, coin] of Object.entries(coinsObj)) {
+    if (!coin || !Array.isArray(coin.providers)) continue;
+    const vendorMap = Object.create(null);
+    for (const p of coin.providers) {
+      if (p && p.id && p.enabled !== false && p.url) {
+        vendorMap[p.id] = p.url;
+      }
+    }
+    if (Object.keys(vendorMap).length) flattened[slug] = vendorMap;
+  }
+  return flattened;
+};
+
+/**
+ * Applies a freshly flattened providers map to module state, with a resilience guard:
+ * an empty flatten (poller hiccup / malformed body) keeps the existing cached map
+ * rather than wiping previously-working product links.
+ * @param {Object.<string, Object.<string, string>>} flattened - Flattened provider map.
+ */
+const _applyV2Providers = (flattened) => {
+  if (Object.keys(flattened).length === 0) {
+    const existingCount = Object.keys(retailProviders || {}).length;
+    debugLog(
+      `[retail-v2] providers.json parsed but produced empty map — keeping ${existingCount} existing cached mappings`,
+      "warn"
+    );
+    return;
+  }
+  retailProviders = flattened;
+  if (typeof window !== "undefined") window.retailProviders = retailProviders;
+  saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
+  debugLog(
+    `[retail-v2] Loaded ${Object.keys(retailProviders).length} coin provider mappings`,
+    "info"
+  );
+};
+
+/**
+ * Fetches providers.json for the given API base, flattens it to the legacy shape,
+ * and applies it to module state. Failures are surfaced via debugLog (the historical
+ * silent catch masked the STAK-348 schema drift for months) and never throw.
+ * @param {string} apiBase - The resolved v2 API base URL.
+ * @returns {Promise<void>}
+ */
+const _fetchAndApplyV2Providers = async (apiBase) => {
+  try {
+    const providersResp = await fetch(`${apiBase}/providers.json`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (providersResp.ok) {
+      _applyV2Providers(_flattenV2Providers(await providersResp.json()));
+    } else {
+      debugLog(`[retail-v2] providers.json fetch non-OK: ${providersResp.status}`, "warn");
+    }
+  } catch (err) {
+    debugLog(`[retail-v2] providers.json fetch failed: ${err.message}`, "warn");
+  }
+};
+
+/**
+ * Persists all v2 sync outputs (prices, history, intraday, availability) after a
+ * successful sync.
+ */
+const _persistV2SyncResults = () => {
+  _saveV2RetailPrices();
+  _saveV2RetailHistory();
+  _saveV2RetailIntraday();
+  saveRetailAvailability();
+};
+
+/**
+ * Reports a successful v2 sync: sets the optional UI status text, logs the sync,
+ * appends a success sync-log entry, and refreshes the market health dot.
+ * @param {number} successCount - Number of coins synced.
+ * @param {string|null} generatedAt - Manifest generated_at timestamp.
+ * @param {boolean} ui - Whether UI elements should be updated.
+ * @param {Element} [syncStatus] - Optional status text element.
+ */
+const _reportV2SyncSuccess = (successCount, generatedAt, ui, syncStatus) => {
+  const tz =
+    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+  const tzOpts =
+    tz && tz !== "auto"
+      ? { timeZone: tz, hour: "numeric", minute: "2-digit" }
+      : { hour: "numeric", minute: "2-digit" };
+  const syncTime = new Date().toLocaleTimeString(undefined, tzOpts);
+  const statusMsg = `Synced ${successCount} coin(s) · ${syncTime}`;
+  if (ui && syncStatus) syncStatus.textContent = statusMsg;
+  debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
+  _appendSyncLogEntry({
+    success: true,
+    coins: successCount,
+    window: generatedAt || null,
+    error: null,
+  });
+  if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+};
+
+/**
  * Synchronizes retail price, provider, intraday, and history data from a v2 API manifest and updates the module's in-memory and persisted retail state.
  *
  * Performs a full v2 sync: picks a fresh endpoint, loads manifest coin/vendor metadata, fetches providers.json (flattening to legacy shape), and concurrently fetches per-slug latest, intraday, and history feeds. On success it updates in-memory maps (retailPrices, retailPriceHistory, retailIntradayData, retailProviders, retailAvailability, retailLastKnownPrices), persists v2 and legacy keys to storage, appends a sync log entry, and optionally updates UI status and the market health indicator.
@@ -714,122 +1137,21 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
   window._lastSuccessfulApiBase = _lastSuccessfulApiBase;
 
   if (generatedAt) {
-    try {
-      localStorage.setItem(RETAIL_MANIFEST_TS_KEY, generatedAt);
-    } catch {
-      /* ignore */
-    }
+    _safeLocalStorageSet(RETAIL_MANIFEST_TS_KEY, generatedAt);
   }
   debugLog(`[retail-v2] Using ${apiBase} (generated: ${generatedAt})`, "info");
 
-  // Extract slug list and metadata from v2 manifest
+  // Extract slug list and metadata from v2 manifest, then populate resolver state.
   const coins = Array.isArray(manifest.coins) ? manifest.coins : [];
   const vendors = Array.isArray(manifest.vendors) ? manifest.vendors : [];
-
-  // Populate manifest resolver state from v2 manifest
-  _manifestSlugs = coins.map((c) => c.slug);
-  _manifestCoinMeta = {};
-  for (const c of coins) {
-    _manifestCoinMeta[c.slug] = {
-      name: c.name,
-      weight: c.weight_oz || 0,
-      metal:
-        c.metal === "xag"
-          ? "silver"
-          : c.metal === "xau"
-            ? "gold"
-            : c.metal === "xpt"
-              ? "platinum"
-              : c.metal === "xpd"
-                ? "palladium"
-                : c.metal || "unknown",
-    };
-  }
-  if (_manifestSlugs.length) {
-    try {
-      localStorage.setItem(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs));
-    } catch {
-      /* ignore */
-    }
-  }
-  if (_manifestCoinMeta) {
-    try {
-      localStorage.setItem(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta));
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // Populate vendor metadata from manifest
-  if (vendors.length) {
-    _manifestVendorMeta = {};
-    for (const v of vendors) {
-      _manifestVendorMeta[v.id] = { name: v.name, color: v.color, url: v.url || null };
-    }
-    try {
-      localStorage.setItem(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta));
-    } catch {
-      /* ignore */
-    }
-  }
+  _populateManifestState(coins, vendors);
 
   // Fetch providers.json for vendor product page URLs.
   // STAK-348 migrated the shape to { coins: { slug: { name, providers: [{ id, url, enabled }] } } }.
   // Flatten back to the legacy { slug: { vid: url } } map that all render call sites expect
-  // (js/market-data.js:229/649/879, js/retail-view-modal.js:111, js/retail.js:934).
-  // Without this transform every lookup returns undefined and clicks silently fall back to vendor homepages.
-  try {
-    const providersUrl = `${apiBase}/providers.json`;
-    const providersResp = await fetch(providersUrl, { signal: AbortSignal.timeout(5000) });
-    if (providersResp.ok) {
-      const raw = await providersResp.json();
-      // Use prototype-less objects to defend against prototype pollution via
-      // malicious __proto__ / constructor keys in parsed JSON. Bracket access at
-      // all 5 consumer call sites continues to work unchanged — this is a drop-in
-      // safer-object pattern that avoids the Map API rewrite that would otherwise
-      // cascade across market-data.js, retail-view-modal.js, and retail.js.
-      const flattened = Object.create(null);
-      // v2 endpoints use a self-describing envelope { v, generated_at, stale_after, data }.
-      // Defensive fallback to bare { coins } shape handles the brief deploy window where
-      // the poller hasn't redeployed yet and the old non-envelope shape is still served.
-      const coinsObj = (raw && raw.data && raw.data.coins) || (raw && raw.coins) || {};
-      for (const [slug, coin] of Object.entries(coinsObj)) {
-        if (!coin || !Array.isArray(coin.providers)) continue;
-        const vendorMap = Object.create(null);
-        for (const p of coin.providers) {
-          if (p && p.id && p.enabled !== false && p.url) {
-            vendorMap[p.id] = p.url;
-          }
-        }
-        if (Object.keys(vendorMap).length) flattened[slug] = vendorMap;
-      }
-      // Resilience guard: on poller hiccups the endpoint may return HTTP 200 with
-      // an empty/malformed body (no coins, empty coins object, wrong schema). If
-      // the flatten produces no slugs, keep the existing cached map instead of
-      // wiping it — overwriting with an empty map regresses previously-working
-      // product links until the next successful fetch.
-      if (Object.keys(flattened).length === 0) {
-        const existingCount = Object.keys(retailProviders || {}).length;
-        debugLog(
-          `[retail-v2] providers.json parsed but produced empty map — keeping ${existingCount} existing cached mappings`,
-          "warn"
-        );
-      } else {
-        retailProviders = flattened;
-        if (typeof window !== "undefined") window.retailProviders = retailProviders;
-        saveDataSync(RETAIL_PROVIDERS_KEY, retailProviders);
-        debugLog(
-          `[retail-v2] Loaded ${Object.keys(retailProviders).length} coin provider mappings`,
-          "info"
-        );
-      }
-    } else {
-      debugLog(`[retail-v2] providers.json fetch non-OK: ${providersResp.status}`, "warn");
-    }
-  } catch (err) {
-    // Surface fetch failures — the historical silent catch here masked the STAK-348 schema drift for months.
-    debugLog(`[retail-v2] providers.json fetch failed: ${err.message}`, "warn");
-  }
+  // (js/market-data.js:229/649/879, js/retail-view-modal.js:111). Without this transform
+  // every lookup returns undefined and clicks silently fall back to vendor homepages.
+  await _fetchAndApplyV2Providers(apiBase);
 
   const slugs = _manifestSlugs.length ? _manifestSlugs : RETAIL_SLUGS;
 
@@ -851,153 +1173,7 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
   const newPrices = {};
 
   results.forEach((r) => {
-    if (r.status !== "fulfilled") {
-      debugLog(`[retail-v2] Slug fetch failed: ${r.reason?.message || r.reason}`, "warn");
-      return;
-    }
-    const { slug, latest, intraday, hist7, hist30, hist90 } = r.value;
-
-    if (latest) {
-      // Build price entry preserving carried/carried_from flags
-      const vendorMap = {};
-      if (latest.vendors) {
-        for (const [vid, vdata] of Object.entries(latest.vendors)) {
-          vendorMap[vid] = {
-            price: vdata.price,
-            inStock: vdata.in_stock !== false,
-            confidence: vdata.confidence || null,
-            carried: vdata.carried || false,
-            carried_from: vdata.carried_from || null,
-          };
-        }
-      }
-
-      newPrices[slug] = {
-        median_price: latest.median ?? null,
-        lowest_price: latest.low ?? null,
-        highest_price: latest.high ?? null,
-        vendors: vendorMap,
-      };
-
-      // Update availability from v2 vendor data
-      if (latest.vendors) {
-        if (!retailAvailability[slug]) retailAvailability[slug] = {};
-        if (!retailLastKnownPrices[slug]) retailLastKnownPrices[slug] = {};
-        for (const [vid, vdata] of Object.entries(latest.vendors)) {
-          retailAvailability[slug][vid] = vdata.in_stock !== false;
-          if (vdata.price != null && vdata.price > 0) {
-            retailLastKnownPrices[slug][vid] = vdata.price;
-          }
-        }
-      }
-
-      successCount++;
-    }
-
-    // Store standalone intraday data
-    if (Array.isArray(intraday)) {
-      retailIntradayData[slug] = {
-        window_start: intraday.length ? intraday[0].t : null,
-        windows_24h: intraday.map((w) => ({
-          window: w.t,
-          t: w.t,
-          ts: w.ts,
-          median: w.median,
-          low: w.low,
-          vendors: w.vendors || {},
-        })),
-      };
-    }
-
-    // Merge history data (7d hourly, 30d daily, 90d daily)
-    const historyEntries = [];
-    const addHistory = (data, sourceRank) => {
-      if (!Array.isArray(data)) return;
-      for (const entry of data) {
-        historyEntries.push({
-          _sourceRank: sourceRank,
-          date: entry.t ? entry.t.slice(0, 10) : null,
-          t: entry.t,
-          ts: entry.ts,
-          open: entry.open,
-          high: entry.high,
-          low: entry.low,
-          close: entry.close,
-          avg_median: entry.avg ?? entry.close,
-          avg_low: entry.low,
-          n: entry.n,
-          vendors: entry.vendors || null,
-        });
-      }
-    };
-    // Coarsest-first: union spread in dedup relies on finer entries overwriting coarser
-    addHistory(hist90, 0);
-    addHistory(hist30, 1);
-    addHistory(hist7, 2);
-
-    // Deduplicate by date, preferring finest-granularity aggregates; union-merge vendors
-    if (historyEntries.length) {
-      const byDate = new Map();
-      const weightedAverage = (a, aWeight, b, bWeight) => {
-        if (a == null) return b;
-        if (b == null) return a;
-        return (a * aWeight + b * bWeight) / (aWeight + bWeight);
-      };
-      for (const e of historyEntries) {
-        if (!e.date) continue;
-        const existing = byDate.get(e.date);
-        if (!existing) {
-          byDate.set(e.date, e);
-        } else {
-          const eRank = e._sourceRank ?? 0;
-          const existingRank = existing._sourceRank ?? 0;
-          const finer = eRank > existingRank ? e : existing;
-          const coarser = eRank > existingRank ? existing : e;
-          const sameRank = eRank === existingRank;
-          const merged = { ...finer };
-
-          if (sameRank) {
-            const existingWeight = existing.n > 0 ? existing.n : 1;
-            const eWeight = e.n > 0 ? e.n : 1;
-            const totalWeight = existingWeight + eWeight;
-            merged.open = existing.open ?? e.open;
-            if (existing.high != null && e.high != null)
-              merged.high = Math.max(existing.high, e.high);
-            else merged.high = existing.high ?? e.high;
-            if (existing.low != null && e.low != null) merged.low = Math.min(existing.low, e.low);
-            else merged.low = existing.low ?? e.low;
-            merged.close = (e.ts ?? 0) >= (existing.ts ?? 0) ? e.close : existing.close;
-            merged.avg_median = weightedAverage(
-              existing.avg_median,
-              existingWeight,
-              e.avg_median,
-              eWeight
-            );
-            merged.avg_low = weightedAverage(existing.avg_low, existingWeight, e.avg_low, eWeight);
-            merged.n = totalWeight;
-          } else {
-            merged._sourceRank = finer._sourceRank;
-            merged.open = finer.open ?? coarser.open;
-            merged.high = finer.high ?? coarser.high;
-            merged.low = finer.low ?? coarser.low;
-            merged.close = finer.close ?? coarser.close;
-            merged.avg_median = finer.avg_median ?? coarser.avg_median;
-            merged.avg_low = finer.avg_low ?? coarser.avg_low;
-            merged.n = finer.n ?? coarser.n;
-          }
-
-          const primaryVendors = sameRank ? e.vendors : finer.vendors;
-          const fallbackVendors = sameRank ? existing.vendors : coarser.vendors;
-          if (primaryVendors || fallbackVendors) {
-            merged.vendors = { ...(fallbackVendors || {}), ...(primaryVendors || {}) };
-          }
-          byDate.set(e.date, merged);
-        }
-      }
-      retailPriceHistory[slug] = [...byDate.values()]
-        .map(({ _sourceRank, ...entry }) => entry)
-        .sort((a, b) => (a.date > b.date ? 1 : -1));
-    }
+    successCount += _processV2SlugResult(r, newPrices);
   });
 
   if (successCount > 0) {
@@ -1017,29 +1193,10 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
   }
 
   if (successCount > 0) {
-    _saveV2RetailPrices();
-    _saveV2RetailHistory();
-    _saveV2RetailIntraday();
-    saveRetailAvailability();
+    _persistV2SyncResults();
   }
 
-  const tz =
-    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-  const tzOpts =
-    tz && tz !== "auto"
-      ? { timeZone: tz, hour: "numeric", minute: "2-digit" }
-      : { hour: "numeric", minute: "2-digit" };
-  const syncTime = new Date().toLocaleTimeString(undefined, tzOpts);
-  const statusMsg = `Synced ${successCount} coin(s) · ${syncTime}`;
-  if (ui && syncStatus) syncStatus.textContent = statusMsg;
-  debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
-  _appendSyncLogEntry({
-    success: true,
-    coins: successCount,
-    window: generatedAt || null,
-    error: null,
-  });
-  if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+  _reportV2SyncSuccess(successCount, generatedAt, ui, syncStatus);
 }
 
 // ---------------------------------------------------------------------------

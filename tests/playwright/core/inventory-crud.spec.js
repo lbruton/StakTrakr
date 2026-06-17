@@ -685,6 +685,58 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemPaymentMethod")).toHaveValue("PayPal");
   });
 
+  test("STRK-170: applyBulkEdit field-application across types (characterization)", async ({
+    page,
+  }) => {
+    // Pins applyBulkEdit's per-field application semantics before the cohort-3.3
+    // complexity refactor: plain text passthrough, numeric clamp coercion,
+    // custom-purity acceptance, and gram→ozt weight-unit conversion. The
+    // produced per-item values must be identical before and after the refactor.
+    await seedData(page, [
+      makeItem({ serial: 1, name: "STRK-170 Bulk A", weight: 1, weightUnit: "oz" }),
+      makeItem({ serial: 2, name: "STRK-170 Bulk B", weight: 1, weightUnit: "oz" }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+    await page.getByRole("button", { name: "Select All" }).click();
+
+    // Plain text field: name passes through verbatim.
+    await page.click("#bulkField_name");
+    await page.fill("#bulkFieldVal_name", "Renamed Eagle");
+
+    // Numeric coercion: negative price clamps to 0.
+    await page.click("#bulkField_price");
+    await page.fill("#bulkFieldVal_price", "-5");
+
+    // Custom purity path: a non-preset value flows through the custom input.
+    await page.click("#bulkField_purity");
+    await page.selectOption("#bulkFieldVal_purity", "custom");
+    await page.fill("#bulkFieldVal_purityCustom", "0.835");
+
+    // Weight + gram unit: 31.1034768 g → 1 ozt (gramsToOzt conversion).
+    await page.click("#bulkField_weight");
+    await page.click("#bulkField_weightUnit");
+    await page.selectOption("#bulkFieldVal_weightUnit", "g");
+    await page.fill("#bulkFieldVal_weight", "31.1034768");
+
+    await page.getByRole("button", { name: /Apply Changes/ }).click();
+    await page.click("#bulkConfirmOkBtn");
+    await expect(page.locator("#bulkConfirmModal")).toBeHidden();
+
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+    expect(stored.length).toBe(2);
+    stored.forEach((item) => {
+      expect(item.name).toBe("Renamed Eagle");
+      expect(item.price).toBe(0);
+      expect(Number(item.purity)).toBeCloseTo(0.835, 4);
+      // gram→ozt conversion: 31.1034768 g is exactly 1 troy ounce.
+      expect(Number(item.weight)).toBeCloseTo(1, 4);
+    });
+  });
+
   test("CSV/JSON export and JSON import round-trip paymentMethod", async ({ page }) => {
     await seedData(page, [
       makeItem({ serial: 1, name: "STRK-50 Export", paymentMethod: "Crypto" }),

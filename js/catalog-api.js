@@ -584,24 +584,8 @@ class NumistaProvider extends CatalogProvider {
    * @returns {Promise<Array>} Array of standardized item data
    */
   async searchItems(query, filters = {}) {
-    if (!query || typeof query !== "string") return [];
-    // STAK-494: Strip characters the Numista API interprets as search operators
-    // - hyphens are negation, parentheses are grouping, plus is required-term
-    const sanitized = query
-      .replace(/[-()+"]/g, " ")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-    if (!sanitized) return [];
-    const params = new URLSearchParams({
-      q: sanitized,
-      count: Math.min(filters.limit || 20, 50),
-      lang: "en",
-    });
-
-    if (filters.page) params.append("page", filters.page);
-    if (filters.country) params.append("issuer", filters.country);
-    if (filters.category) params.append("category", filters.category);
-    if (filters.year) params.append("year", filters.year);
+    const params = buildNumistaSearchParams(query, filters);
+    if (!params) return [];
 
     const url = `${this.baseUrl}/types?${params.toString()}`;
 
@@ -641,96 +625,31 @@ class NumistaProvider extends CatalogProvider {
    * @returns {Object} Standardized item data
    */
   normalizeItemData(numistaData) {
-    // Compose year from min_year / max_year range
-    const minY = numistaData.min_year;
-    const maxY = numistaData.max_year;
-    const year = minY && maxY && minY !== maxY ? `${minY}-${maxY}` : minY || maxY || "";
-
-    // Handle composition — can be a string or object with .text
-    const rawComp = numistaData.composition;
-    const composition =
-      typeof rawComp === "object" && rawComp !== null ? rawComp.text || "" : rawComp || "";
-
-    // Image: prefer obverse_thumbnail with nested fallback
-    const imageUrl =
-      numistaData.obverse_thumbnail ||
-      numistaData.obverse?.thumbnail ||
-      numistaData.reverse_thumbnail ||
-      "";
-
-    // Reverse image: separate field for showing both sides
-    const reverseImageUrl = numistaData.reverse_thumbnail || numistaData.reverse?.thumbnail || "";
+    const composition = numistaExtractComposition(numistaData);
+    const images = numistaExtractImages(numistaData);
+    const imageUrl = images.imageUrl;
+    const reverseImageUrl = images.reverseImageUrl;
 
     debugLog(
       `  imageUrl: ${imageUrl || "(empty)"}, reverseImageUrl: ${reverseImageUrl || "(empty)"}`
     );
 
-    // Extract catalog references (KM#, Schon#, etc.)
-    const kmReferences = [];
-    if (Array.isArray(numistaData.references)) {
-      numistaData.references.forEach((ref) => {
-        if (ref.catalogue?.code && ref.number) {
-          kmReferences.push(`${ref.catalogue.code}# ${ref.number}`);
-        }
-      });
-    }
-
-    // Extract mintage data by year
-    const mintageByYear = [];
-    if (Array.isArray(numistaData.years)) {
-      numistaData.years.forEach((y) => {
-        if (y.year) {
-          mintageByYear.push({
-            year: y.year,
-            mintage: y.mintage || 0,
-            remark: y.remark || "",
-          });
-        }
-      });
-    }
-
-    // Denomination / face value
     const denomination = numistaData.value?.text || "";
+    const contextText = `${numistaData.title || ""} ${denomination}`;
 
-    const result = {
-      catalogId: numistaData.id?.toString() || "",
-      name: numistaData.title || "",
-      year: year.toString(),
-      country: numistaData.issuer?.name || "",
+    const derived = {
+      year: numistaComposeYear(numistaData),
+      composition,
+      imageUrl,
+      reverseImageUrl,
+      denomination,
       metal: this.normalizeMetal(composition),
-      weight: numistaData.weight || 0,
-      ...parseDimensions(numistaData.size, numistaData.shape || ""),
-      thickness: numistaData.thickness || 0,
-      type: this.normalizeType(
-        numistaData.category || "",
-        `${numistaData.title || ""} ${denomination}`
-      ),
-      mintage: 0, // Mintage is per-issue, not per-type in Numista API
-      estimatedValue: numistaData.value?.numeric_value || 0,
-      imageUrl: imageUrl,
-      reverseImageUrl: reverseImageUrl,
-      description: numistaData.comments || "",
-      provider: "Numista",
-      lastUpdated: new Date().toISOString(),
-      // Enriched fields for view modal
-      denomination: denomination,
-      shape: numistaData.shape || "",
-      composition: composition,
-      orientation: numistaData.orientation || "",
-      commemorative: !!numistaData.is_commemorative,
-      commemorativeDesc: numistaData.commemorative_description || "",
-      rarityIndex: numistaData.rarity_index || 0,
-      kmReferences: kmReferences,
-      mintageByYear: mintageByYear,
-      tags: Array.isArray(numistaData.tags) ? numistaData.tags : [],
-      technique:
-        typeof numistaData.technique === "object"
-          ? numistaData.technique?.text || ""
-          : numistaData.technique || "",
-      obverseDesc: numistaData.obverse?.description || "",
-      reverseDesc: numistaData.reverse?.description || "",
-      edgeDesc: numistaData.edge?.description || "",
+      type: this.normalizeType(numistaData.category || "", contextText),
+      kmReferences: numistaExtractReferences(numistaData),
+      mintageByYear: numistaExtractMintageByYear(numistaData),
     };
+
+    const result = numistaBuildResultObject(numistaData, derived);
 
     // Attach field-level origin tracking (fieldMeta) for re-sync picker
     if (typeof window.initFieldMeta === "function") {
@@ -779,7 +698,6 @@ class NumistaProvider extends CatalogProvider {
   }
 }
 
-/**
 /**
  * Local Provider (Fallback)
  * Uses local data when external APIs are unavailable
@@ -1600,3 +1518,183 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 });
+
+// =============================================================================
+// NumistaProvider.normalizeItemData field-derivation helpers (STRK-170).
+// Pure functions extracted to keep normalizeItemData a low-complexity
+// orchestrator. Each owns one cluster of the raw → standardized mapping.
+// =============================================================================
+
+/**
+ * Compose a display year from a Numista min_year / max_year range.
+ * @param {Object} numistaData - Raw Numista API response
+ * @returns {string} A "min-max" range, a single year, or "" when absent
+ */
+function numistaComposeYear(numistaData) {
+  const minY = numistaData.min_year;
+  const maxY = numistaData.max_year;
+  const year = minY && maxY && minY !== maxY ? `${minY}-${maxY}` : minY || maxY || "";
+  return year.toString();
+}
+
+/**
+ * Resolve the composition string from Numista data, which may be a plain
+ * string or an object with a `.text` field.
+ * @param {Object} numistaData - Raw Numista API response
+ * @returns {string} Composition text, or "" when absent
+ */
+function numistaExtractComposition(numistaData) {
+  const rawComp = numistaData.composition;
+  return typeof rawComp === "object" && rawComp !== null ? rawComp.text || "" : rawComp || "";
+}
+
+/**
+ * Resolve obverse/reverse thumbnail image URLs with nested fallbacks.
+ * @param {Object} numistaData - Raw Numista API response
+ * @returns {{imageUrl: string, reverseImageUrl: string}} Image URLs (each "" when absent)
+ */
+function numistaExtractImages(numistaData) {
+  // Image: prefer obverse_thumbnail with nested fallback
+  const imageUrl =
+    numistaData.obverse_thumbnail ||
+    numistaData.obverse?.thumbnail ||
+    numistaData.reverse_thumbnail ||
+    "";
+  // Reverse image: separate field for showing both sides
+  const reverseImageUrl = numistaData.reverse_thumbnail || numistaData.reverse?.thumbnail || "";
+  return { imageUrl, reverseImageUrl };
+}
+
+/**
+ * Extract catalog references (KM#, Schon#, etc.) from Numista data.
+ * @param {Object} numistaData - Raw Numista API response
+ * @returns {string[]} Formatted reference strings ("CODE# NUMBER")
+ */
+function numistaExtractReferences(numistaData) {
+  const kmReferences = [];
+  if (Array.isArray(numistaData.references)) {
+    numistaData.references.forEach((ref) => {
+      if (ref.catalogue?.code && ref.number) {
+        kmReferences.push(`${ref.catalogue.code}# ${ref.number}`);
+      }
+    });
+  }
+  return kmReferences;
+}
+
+/**
+ * Extract per-year mintage data from Numista data.
+ * @param {Object} numistaData - Raw Numista API response
+ * @returns {Array<{year: *, mintage: number, remark: string}>} Mintage rows
+ */
+function numistaExtractMintageByYear(numistaData) {
+  const mintageByYear = [];
+  if (Array.isArray(numistaData.years)) {
+    numistaData.years.forEach((y) => {
+      if (y.year) {
+        mintageByYear.push({
+          year: y.year,
+          mintage: y.mintage || 0,
+          remark: y.remark || "",
+        });
+      }
+    });
+  }
+  return mintageByYear;
+}
+
+/**
+ * Assemble the standardized item object from raw Numista data plus the
+ * pre-computed derived fields.
+ * @param {Object} numistaData - Raw Numista API response
+ * @param {Object} derived - Pre-computed fields
+ * @param {string} derived.year - Composed display year
+ * @param {string} derived.composition - Composition text
+ * @param {string} derived.imageUrl - Obverse image URL
+ * @param {string} derived.reverseImageUrl - Reverse image URL
+ * @param {string} derived.denomination - Face value text
+ * @param {string} derived.metal - Normalized metal name
+ * @param {string} derived.type - Normalized item type
+ * @param {string[]} derived.kmReferences - Catalog references
+ * @param {Array} derived.mintageByYear - Per-year mintage rows
+ * @returns {Object} Standardized item data
+ */
+function numistaBuildResultObject(numistaData, derived) {
+  return {
+    catalogId: numistaData.id?.toString() || "",
+    name: numistaData.title || "",
+    year: derived.year,
+    country: numistaData.issuer?.name || "",
+    metal: derived.metal,
+    weight: numistaData.weight || 0,
+    ...parseDimensions(numistaData.size, numistaData.shape || ""),
+    thickness: numistaData.thickness || 0,
+    type: derived.type,
+    mintage: 0, // Mintage is per-issue, not per-type in Numista API
+    estimatedValue: numistaData.value?.numeric_value || 0,
+    imageUrl: derived.imageUrl,
+    reverseImageUrl: derived.reverseImageUrl,
+    description: numistaData.comments || "",
+    provider: "Numista",
+    lastUpdated: new Date().toISOString(),
+    // Enriched fields for view modal
+    denomination: derived.denomination,
+    shape: numistaData.shape || "",
+    composition: derived.composition,
+    orientation: numistaData.orientation || "",
+    commemorative: !!numistaData.is_commemorative,
+    commemorativeDesc: numistaData.commemorative_description || "",
+    rarityIndex: numistaData.rarity_index || 0,
+    kmReferences: derived.kmReferences,
+    mintageByYear: derived.mintageByYear,
+    tags: Array.isArray(numistaData.tags) ? numistaData.tags : [],
+    technique:
+      typeof numistaData.technique === "object"
+        ? numistaData.technique?.text || ""
+        : numistaData.technique || "",
+    obverseDesc: numistaData.obverse?.description || "",
+    reverseDesc: numistaData.reverse?.description || "",
+    edgeDesc: numistaData.edge?.description || "",
+  };
+}
+
+// =============================================================================
+// Regex-heavy helpers — kept LAST in the file. Lizard's tokenizer desyncs on a
+// regex literal that contains a double-quote (here: /[-()+"]/g), rolling the
+// remainder of the file into a phantom high-NLOC function. Keeping these at the
+// file end means any residual desync rolls up only trailing whitespace.
+// =============================================================================
+
+/**
+ * Build the Numista /types query string from a search term and filters.
+ * Sanitizes the query (STAK-494: strips characters the Numista API treats as
+ * search operators) and assembles the URLSearchParams. Returns null when the
+ * query is missing, non-string, or empty after sanitization so callers can
+ * short-circuit to an empty result set.
+ * @param {string} query - Raw search term
+ * @param {Object} [filters] - Search filters (limit, page, country, category, year)
+ * @returns {URLSearchParams|null} Query params, or null when there is nothing to search
+ */
+function buildNumistaSearchParams(query, filters = {}) {
+  if (!query || typeof query !== "string") return null;
+  // STAK-494: Strip characters the Numista API interprets as search operators
+  // - hyphens are negation, parentheses are grouping, plus is required-term
+  const sanitized = query
+    .replace(/[-()+"]/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (!sanitized) return null;
+
+  const params = new URLSearchParams({
+    q: sanitized,
+    count: Math.min(filters.limit || 20, 50),
+    lang: "en",
+  });
+
+  if (filters.page) params.append("page", filters.page);
+  if (filters.country) params.append("issuer", filters.country);
+  if (filters.category) params.append("category", filters.category);
+  if (filters.year) params.append("year", filters.year);
+
+  return params;
+}

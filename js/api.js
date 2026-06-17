@@ -1457,27 +1457,7 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
 
   // metals.dev supports a batch /latest endpoint returning all metals in one call
   if (provider === "METALS_DEV" && providerConfig.latestBatchEndpoint) {
-    try {
-      const url =
-        providerConfig.baseUrl + providerConfig.latestBatchEndpoint.replace("{API_KEY}", apiKey);
-      const headers = { "Content-Type": "application/json" };
-      if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-
-      // Safe: URL constructed from hardcoded API_PROVIDERS config (latestBatchEndpoint)
-      const response = await fetch(url, { method: "GET", headers, mode: "cors" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-
-      const data = await response.json();
-      usage.used++;
-
-      const parsed = providerConfig.parseLatestBatchResponse(data);
-      selectedMetals.forEach((metal) => {
-        if (parsed[metal] && parsed[metal] > 0) results[metal] = parsed[metal];
-      });
-    } catch (err) {
-      console.warn("Batch latest failed for METALS_DEV, falling back to individual:", err.message);
-      // Fall through to individual requests below
-    }
+    await _fetchMetalsDevLatestBatch(providerConfig, apiKey, selectedMetals, results, usage);
   }
 
   // Individual requests for remaining metals (or all metals for non-batch providers)
@@ -1485,67 +1465,17 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
     const remaining = selectedMetals.filter((m) => !results[m]);
 
     if (provider === "CUSTOM") {
-      const custom = config.customConfig || {};
-      const base = custom.baseUrl || "";
-      const pattern = custom.endpoint || "";
-      const format = custom.format || "symbol";
-
-      // Validate custom API base URL before use
-      try {
-        const validated = new URL(base);
-        if (validated.protocol !== "https:") {
-          throw new Error("Custom API base must use HTTPS");
-        }
-      } catch (urlErr) {
-        console.warn("Invalid custom API base URL:", base, urlErr.message);
-        return results;
-      }
-      const metalCodes = {
-        silver: format === "symbol" ? "XAG" : "silver",
-        gold: format === "symbol" ? "XAU" : "gold",
-        platinum: format === "symbol" ? "XPT" : "platinum",
-        palladium: format === "symbol" ? "XPD" : "palladium",
-      };
-      for (const metal of remaining) {
-        try {
-          const endpoint = pattern
-            .replace("{API_KEY}", apiKey)
-            .replace("{METAL}", metalCodes[metal]);
-          const url = `${base}${endpoint}`;
-          const response = await fetch(url, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            mode: "cors",
-          });
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          const data = await response.json();
-          usage.used++;
-          const price = providerConfig.parseResponse(data, metal);
-          if (price && price > 0) results[metal] = price;
-        } catch (err) {
-          console.warn(`Latest fetch failed for ${metal}:`, err.message);
-        }
-      }
+      const aborted = await _fetchCustomLatest(
+        config,
+        providerConfig,
+        apiKey,
+        remaining,
+        results,
+        usage
+      );
+      if (aborted) return results;
     } else {
-      for (const metal of remaining) {
-        const endpoint = providerConfig.endpoints[metal];
-        if (!endpoint) continue;
-        try {
-          // Safe: URL constructed from hardcoded API_PROVIDERS config (baseUrl + endpoints)
-          const url = `${providerConfig.baseUrl}${endpoint.replace("{API_KEY}", apiKey)}`;
-          const headers = { "Content-Type": "application/json" };
-          if (provider === "METALS_DEV" && apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-          if (provider === "GOLD_API" && apiKey) headers["x-api-key"] = apiKey;
-          const response = await fetch(url, { method: "GET", headers, mode: "cors" });
-          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          const data = await response.json();
-          usage.used++;
-          const price = providerConfig.parseResponse(data, metal);
-          if (price && price > 0) results[metal] = price;
-        } catch (err) {
-          console.warn(`Latest fetch failed for ${metal}:`, err.message);
-        }
-      }
+      await _fetchIndividualLatest(provider, providerConfig, apiKey, remaining, results, usage);
     }
   }
 
@@ -1556,6 +1486,149 @@ const fetchLatestPrices = async (provider, apiKey, selectedMetals) => {
   config.usage[provider] = usage;
   saveApiConfig(config);
   return results;
+};
+
+/**
+ * METALS_DEV batch /latest fetch: one call returns all metals. Mutates `results`
+ * with any selected metal whose parsed price is positive and increments
+ * `usage.used` on a successful response. Failures are swallowed (logged) so the
+ * caller falls through to individual per-metal requests.
+ *
+ * @param {Object} providerConfig - The METALS_DEV entry from API_PROVIDERS
+ * @param {string} apiKey - The API key for the provider
+ * @param {string[]} selectedMetals - Metals to extract from the batch payload
+ * @param {Object<string, number>} results - Accumulator mutated in place
+ * @param {{used: number}} usage - Usage counter incremented on success
+ * @returns {Promise<void>}
+ */
+const _fetchMetalsDevLatestBatch = async (
+  providerConfig,
+  apiKey,
+  selectedMetals,
+  results,
+  usage
+) => {
+  try {
+    const url =
+      providerConfig.baseUrl + providerConfig.latestBatchEndpoint.replace("{API_KEY}", apiKey);
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
+    // Safe: URL constructed from hardcoded API_PROVIDERS config (latestBatchEndpoint)
+    const response = await fetch(url, { method: "GET", headers, mode: "cors" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+    const data = await response.json();
+    usage.used++;
+
+    const parsed = providerConfig.parseLatestBatchResponse(data);
+    selectedMetals.forEach((metal) => {
+      if (parsed[metal] && parsed[metal] > 0) results[metal] = parsed[metal];
+    });
+  } catch (err) {
+    console.warn("Batch latest failed for METALS_DEV, falling back to individual:", err.message);
+    // Fall through to individual requests below
+  }
+};
+
+/**
+ * CUSTOM provider per-metal latest fetch. Validates the configured base URL
+ * (HTTPS required) and requests each remaining metal individually, mutating
+ * `results`/`usage` in place. Each per-metal failure is logged and skipped.
+ *
+ * @param {Object} config - Loaded API config (provides customConfig)
+ * @param {Object} providerConfig - The CUSTOM entry from API_PROVIDERS
+ * @param {string} apiKey - The API key for the provider
+ * @param {string[]} remaining - Metals still missing a price
+ * @param {Object<string, number>} results - Accumulator mutated in place
+ * @param {{used: number}} usage - Usage counter incremented per successful call
+ * @returns {Promise<boolean>} True if the base URL is invalid and the caller
+ *   should abort and return the current results without saving config
+ */
+const _fetchCustomLatest = async (config, providerConfig, apiKey, remaining, results, usage) => {
+  const custom = config.customConfig || {};
+  const base = custom.baseUrl || "";
+  const pattern = custom.endpoint || "";
+  const format = custom.format || "symbol";
+
+  // Validate custom API base URL before use
+  try {
+    const validated = new URL(base);
+    if (validated.protocol !== "https:") {
+      throw new Error("Custom API base must use HTTPS");
+    }
+  } catch (urlErr) {
+    console.warn("Invalid custom API base URL:", base, urlErr.message);
+    return true;
+  }
+  const metalCodes = {
+    silver: format === "symbol" ? "XAG" : "silver",
+    gold: format === "symbol" ? "XAU" : "gold",
+    platinum: format === "symbol" ? "XPT" : "platinum",
+    palladium: format === "symbol" ? "XPD" : "palladium",
+  };
+  for (const metal of remaining) {
+    try {
+      const endpoint = pattern.replace("{API_KEY}", apiKey).replace("{METAL}", metalCodes[metal]);
+      const url = `${base}${endpoint}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        mode: "cors",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const data = await response.json();
+      usage.used++;
+      const price = providerConfig.parseResponse(data, metal);
+      if (price && price > 0) results[metal] = price;
+    } catch (err) {
+      console.warn(`Latest fetch failed for ${metal}:`, err.message);
+    }
+  }
+  return false;
+};
+
+/**
+ * Per-metal latest fetch for standard (non-CUSTOM) providers. Requests each
+ * remaining metal's configured endpoint, applying provider-specific auth
+ * headers, and mutates `results`/`usage` in place. Metals without an endpoint
+ * are skipped; each per-metal failure is logged and skipped.
+ *
+ * @param {string} provider - The provider key (drives auth-header selection)
+ * @param {Object} providerConfig - The provider entry from API_PROVIDERS
+ * @param {string} apiKey - The API key for the provider
+ * @param {string[]} remaining - Metals still missing a price
+ * @param {Object<string, number>} results - Accumulator mutated in place
+ * @param {{used: number}} usage - Usage counter incremented per successful call
+ * @returns {Promise<void>}
+ */
+const _fetchIndividualLatest = async (
+  provider,
+  providerConfig,
+  apiKey,
+  remaining,
+  results,
+  usage
+) => {
+  for (const metal of remaining) {
+    const endpoint = providerConfig.endpoints[metal];
+    if (!endpoint) continue;
+    try {
+      // Safe: URL constructed from hardcoded API_PROVIDERS config (baseUrl + endpoints)
+      const url = `${providerConfig.baseUrl}${endpoint.replace("{API_KEY}", apiKey)}`;
+      const headers = { "Content-Type": "application/json" };
+      if (provider === "METALS_DEV" && apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+      if (provider === "GOLD_API" && apiKey) headers["x-api-key"] = apiKey;
+      const response = await fetch(url, { method: "GET", headers, mode: "cors" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const data = await response.json();
+      usage.used++;
+      const price = providerConfig.parseResponse(data, metal);
+      if (price && price > 0) results[metal] = price;
+    } catch (err) {
+      console.warn(`Latest fetch failed for ${metal}:`, err.message);
+    }
+  }
 };
 
 /**
@@ -2310,117 +2383,27 @@ const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}
     }
 
     try {
-      if (!apiKey && providerRequiresKey(prov)) {
-        results[prov] = "no key";
-        setProviderStatus(prov, "error");
-        return { results, updatedCount, anySucceeded };
-      }
-
-      // Check per-provider cache unless forcing
-      if (!forceSync) {
-        const provDuration = getCacheDurationMs(prov);
-        const lastSync = getLastProviderSyncTime(prov);
-        if (lastSync && Date.now() - lastSync < provDuration) {
-          results[prov] = "cached";
-          anySucceeded = true;
-          return { results, updatedCount, anySucceeded };
-        }
+      const guard = _evaluateSpotSyncGuards(prov, apiKey, forceSync, results);
+      if (guard) {
+        return { results, updatedCount: guard.updatedCount, anySucceeded: guard.anySucceeded };
       }
 
       // Single-provider fetch
-      try {
-        const { prices, generatedAt } = await fetchSpotPricesFromApi(prov, apiKey, {
-          signal: syncAbortController.signal,
-        });
-        const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
-        if (
-          syncAbortController.signal.aborted ||
-          syncGeneration !== _spotProviderSyncGeneration ||
-          currentSource !== source
-        ) {
-          return { results, updatedCount, anySucceeded };
-        }
-        if (
-          generatedAt !== null &&
-          _lastAcceptedSpotGeneratedAtMs !== null &&
-          generatedAt < _lastAcceptedSpotGeneratedAtMs
-        ) {
-          // Older payload than the last accepted one — never overwrite newer (STRK-189)
-          results[prov] = "stale";
-          setProviderStatus(prov, "error");
-          return { results, updatedCount, anySucceeded };
-        }
-        let provUpdated = 0;
-
-        Object.entries(prices).forEach(([metal, price]) => {
-          const metalConfig = Object.values(METALS).find((m) => m.key === metal);
-          if (metalConfig && price > 0) {
-            localStorage.setItem(metalConfig.spotKey, price.toString());
-            spotPrices[metal] = price;
-            elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
-            updateSpotCardColor(metal, price);
-            recordSpot(
-              price,
-              "api",
-              metalConfig.name,
-              API_PROVIDERS[prov].name,
-              generatedAt !== null ? new Date(generatedAt).toISOString() : null
-            );
-            const ts = safeGetElement(`spotTimestamp${metalConfig.name}`);
-            if (ts) updateSpotTimestamp(metalConfig.name);
-            provUpdated++;
-          }
-        });
-
-        if (provUpdated > 0) {
-          if (generatedAt !== null) _lastAcceptedSpotGeneratedAtMs = generatedAt;
-          saveApiCache(prices, prov);
-          updatedCount += provUpdated;
-          anySucceeded = true;
-          results[prov] = "success";
-          setProviderStatus(prov, "connected");
-        } else {
-          results[prov] = "no data";
-          setProviderStatus(prov, "error");
-        }
-      } catch (err) {
-        if (syncAbortController.signal.aborted) {
-          return { results, updatedCount, anySucceeded };
-        }
-        console.warn(`Spot sync failed for ${prov}:`, err.message);
-        results[prov] = "error";
-        setProviderStatus(prov, "error");
-      }
+      const fetched = await _performSingleProviderFetch(prov, apiKey, results, {
+        source,
+        syncGeneration,
+        syncAbortController,
+      });
+      updatedCount += fetched.updatedCount;
+      anySucceeded = anySucceeded || fetched.anySucceeded;
 
       // Post-sync updates if anything changed
       if (updatedCount > 0) {
-        // Refresh exchange rates alongside spot prices (STACK-50)
-        if (typeof fetchExchangeRates === "function") {
-          fetchExchangeRates().catch(() => {});
-        }
-        updateSummary();
-        // Update Goldback denomination prices BEFORE snapshotting item prices,
-        // so the retail hierarchy reflects the new gold spot (STAK-108)
-        if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
-        if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
-        if (typeof updateStorageStats === "function") updateStorageStats();
-        // Backfill hourly data when StakTrakr is the active source and sync was fresh
-        if (prov === "STAKTRAKR" && results.STAKTRAKR === "success") {
-          try {
-            const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
-            if (
-              !syncAbortController.signal.aborted &&
-              syncGeneration === _spotProviderSyncGeneration &&
-              currentSource === source
-            ) {
-              await backfillStaktrakrHourly({ signal: syncAbortController.signal });
-            }
-          } catch (err) {
-            console.warn("Hourly backfill failed:", err.message);
-          }
-        }
-        if (typeof updateAllSparklines === "function") updateAllSparklines();
-        if (typeof renderRatioChips === "function") renderRatioChips();
+        await _runPostSpotSyncUpdates(prov, results, {
+          source,
+          syncGeneration,
+          syncAbortController,
+        });
       }
     } finally {
       if (showProgress) {
@@ -2452,6 +2435,178 @@ const syncSpotProvider = async ({ showProgress = false, forceSync = false } = {}
  * @deprecated Use `syncSpotProvider` instead.
  */
 const syncProviderChain = (options) => syncSpotProvider(options);
+
+/**
+ * Pre-fetch guards for a single-provider sync. Sets `results[prov]` and returns
+ * an early-exit summary when the provider has no required key or its cache is
+ * still warm; returns null to signal the caller should proceed with the fetch.
+ *
+ * @param {string} prov - The resolved provider key
+ * @param {string} apiKey - The provider's API key (may be undefined)
+ * @param {boolean} forceSync - When true, bypasses the per-provider cache check
+ * @param {Object<string, string>} results - Status accumulator mutated in place
+ * @returns {{updatedCount: number, anySucceeded: boolean}|null} Early-exit
+ *   summary, or null to continue to the fetch
+ */
+const _evaluateSpotSyncGuards = (prov, apiKey, forceSync, results) => {
+  if (!apiKey && providerRequiresKey(prov)) {
+    results[prov] = "no key";
+    setProviderStatus(prov, "error");
+    return { updatedCount: 0, anySucceeded: false };
+  }
+
+  // Check per-provider cache unless forcing
+  if (!forceSync) {
+    const provDuration = getCacheDurationMs(prov);
+    const lastSync = getLastProviderSyncTime(prov);
+    if (lastSync && Date.now() - lastSync < provDuration) {
+      results[prov] = "cached";
+      return { updatedCount: 0, anySucceeded: true };
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Writes a fetched price map to storage, in-memory state, the spot displays, and
+ * spot history. Skips non-positive prices and metals not in the METALS registry.
+ *
+ * @param {Object<string, number>} prices - Map of metal key to price
+ * @param {string} prov - The provider key (for history attribution)
+ * @param {number|null} generatedAt - Payload publication epoch ms (or null)
+ * @returns {number} Count of metals actually updated
+ */
+const _applyFetchedSpotPrices = (prices, prov, generatedAt) => {
+  let provUpdated = 0;
+  Object.entries(prices).forEach(([metal, price]) => {
+    const metalConfig = Object.values(METALS).find((m) => m.key === metal);
+    if (metalConfig && price > 0) {
+      localStorage.setItem(metalConfig.spotKey, price.toString());
+      spotPrices[metal] = price;
+      elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
+      updateSpotCardColor(metal, price);
+      recordSpot(
+        price,
+        "api",
+        metalConfig.name,
+        API_PROVIDERS[prov].name,
+        generatedAt !== null ? new Date(generatedAt).toISOString() : null
+      );
+      const ts = safeGetElement(`spotTimestamp${metalConfig.name}`);
+      if (ts) updateSpotTimestamp(metalConfig.name);
+      provUpdated++;
+    }
+  });
+  return provUpdated;
+};
+
+/**
+ * Fetches spot prices from a single provider and applies them, enforcing the
+ * abort/generation/source-switch guards and the STRK-189 monotonic freshness
+ * gate. Sets `results[prov]` to the outcome and returns the update summary.
+ *
+ * @param {string} prov - The resolved provider key
+ * @param {string} apiKey - The provider's API key
+ * @param {Object<string, string>} results - Status accumulator mutated in place
+ * @param {Object} ctx - Sync context captured by the caller
+ * @param {string} ctx.source - The active spot pricing source at sync start
+ * @param {number} ctx.syncGeneration - The sync generation snapshot
+ * @param {AbortController} ctx.syncAbortController - The per-sync abort controller
+ * @returns {Promise<{updatedCount: number, anySucceeded: boolean}>} Update summary
+ */
+const _performSingleProviderFetch = async (prov, apiKey, results, ctx) => {
+  const { source, syncGeneration, syncAbortController } = ctx;
+  try {
+    const { prices, generatedAt } = await fetchSpotPricesFromApi(prov, apiKey, {
+      signal: syncAbortController.signal,
+    });
+    const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+    if (
+      syncAbortController.signal.aborted ||
+      syncGeneration !== _spotProviderSyncGeneration ||
+      currentSource !== source
+    ) {
+      return { updatedCount: 0, anySucceeded: false };
+    }
+    if (
+      generatedAt !== null &&
+      _lastAcceptedSpotGeneratedAtMs !== null &&
+      generatedAt < _lastAcceptedSpotGeneratedAtMs
+    ) {
+      // Older payload than the last accepted one — never overwrite newer (STRK-189)
+      results[prov] = "stale";
+      setProviderStatus(prov, "error");
+      return { updatedCount: 0, anySucceeded: false };
+    }
+
+    const provUpdated = _applyFetchedSpotPrices(prices, prov, generatedAt);
+
+    if (provUpdated > 0) {
+      if (generatedAt !== null) _lastAcceptedSpotGeneratedAtMs = generatedAt;
+      saveApiCache(prices, prov);
+      results[prov] = "success";
+      setProviderStatus(prov, "connected");
+      return { updatedCount: provUpdated, anySucceeded: true };
+    }
+    results[prov] = "no data";
+    setProviderStatus(prov, "error");
+    return { updatedCount: 0, anySucceeded: false };
+  } catch (err) {
+    if (syncAbortController.signal.aborted) {
+      return { updatedCount: 0, anySucceeded: false };
+    }
+    console.warn(`Spot sync failed for ${prov}:`, err.message);
+    results[prov] = "error";
+    setProviderStatus(prov, "error");
+    return { updatedCount: 0, anySucceeded: false };
+  }
+};
+
+/**
+ * Runs the post-sync side effects after at least one price updated: summary
+ * refresh, exchange rates, goldback pricing, snapshots, storage stats, the
+ * StakTrakr hourly backfill (when fresh and still the active source), and chart
+ * refreshes. Mirrors the original inline ordering exactly.
+ *
+ * @param {string} prov - The resolved provider key
+ * @param {Object<string, string>} results - Status accumulator (read-only here)
+ * @param {Object} ctx - Sync context captured by the caller
+ * @param {string} ctx.source - The active spot pricing source at sync start
+ * @param {number} ctx.syncGeneration - The sync generation snapshot
+ * @param {AbortController} ctx.syncAbortController - The per-sync abort controller
+ * @returns {Promise<void>}
+ */
+const _runPostSpotSyncUpdates = async (prov, results, ctx) => {
+  const { source, syncGeneration, syncAbortController } = ctx;
+  // Refresh exchange rates alongside spot prices (STACK-50)
+  if (typeof fetchExchangeRates === "function") {
+    fetchExchangeRates().catch(() => {});
+  }
+  updateSummary();
+  // Update Goldback denomination prices BEFORE snapshotting item prices,
+  // so the retail hierarchy reflects the new gold spot (STAK-108)
+  if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
+  if (typeof recordAllItemPriceSnapshots === "function") recordAllItemPriceSnapshots();
+  if (typeof updateStorageStats === "function") updateStorageStats();
+  // Backfill hourly data when StakTrakr is the active source and sync was fresh
+  if (prov === "STAKTRAKR" && results.STAKTRAKR === "success") {
+    try {
+      const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
+      if (
+        !syncAbortController.signal.aborted &&
+        syncGeneration === _spotProviderSyncGeneration &&
+        currentSource === source
+      ) {
+        await backfillStaktrakrHourly({ signal: syncAbortController.signal });
+      }
+    } catch (err) {
+      console.warn("Hourly backfill failed:", err.message);
+    }
+  }
+  if (typeof updateAllSparklines === "function") updateAllSparklines();
+  if (typeof renderRatioChips === "function") renderRatioChips();
+};
 
 /**
  * Updates sync button states based on API availability
