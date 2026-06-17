@@ -839,6 +839,9 @@ const SYNC_IMAGES_PATH = "/StakTrakr/sync/staktrakr-images.stvault";
 /** Dropbox path for the encrypted attachment vault (v2 — /sync/ subfolder) */
 const SYNC_ATTACHMENTS_PATH = "/StakTrakr/sync/staktrakr-attachments.stvault";
 
+/** Dropbox path for the encrypted item-price-history companion vault (v2 — /sync/ subfolder) */
+const SYNC_ITEM_PRICE_HISTORY_PATH = "/StakTrakr/sync/staktrakr-item-price-history.stvault";
+
 /** Attachment total-size threshold in bytes above which the user sees a one-time sync warning */
 const SYNC_ATTACHMENT_SIZE_WARN_BYTES = 100 * 1024 * 1024; // 100 MB
 
@@ -1956,6 +1959,7 @@ if (typeof window !== "undefined") {
   window.SYNC_META_PATH = SYNC_META_PATH;
   window.SYNC_IMAGES_PATH = SYNC_IMAGES_PATH;
   window.SYNC_ATTACHMENTS_PATH = SYNC_ATTACHMENTS_PATH;
+  window.SYNC_ITEM_PRICE_HISTORY_PATH = SYNC_ITEM_PRICE_HISTORY_PATH;
   window.SYNC_ATTACHMENT_SIZE_WARN_BYTES = SYNC_ATTACHMENT_SIZE_WARN_BYTES;
   window.VAULT_ATTACHMENT_FILE_SUFFIX = VAULT_ATTACHMENT_FILE_SUFFIX;
   window.SYNC_FILE_PATH_LEGACY = SYNC_FILE_PATH_LEGACY;
