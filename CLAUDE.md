@@ -133,7 +133,7 @@ After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh s
 
 ### `check-release-sync` hook is a SUBSET
 
-Validates `constants.js ↔ package.json ↔ package-lock.json ↔ version.json ↔ CHANGELOG.md`, plus the `js/about.js` What's New block — it asserts the current-version `<li>` entry is present **and** enforces the 5-entry cap (STRK-194, #1262).
+Validates `constants.js ↔ package.json ↔ version.json ↔ CHANGELOG.md`, plus the `js/about.js` What's New block — it asserts the current-version `<li>` entry is present **and** enforces the 5-entry cap (STRK-194, #1262).
 Does not check `manifest.json`, README badges, or `sw.js` cache.
 **Hook green ≠ release complete.**
 `/release` is the only path that touches all release-bearing files.
