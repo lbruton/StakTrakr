@@ -876,9 +876,19 @@ async function restoreImageVaultData(payload) {
 
   var count = 0;
   var failed = 0;
+  // STRK-200: skip photos whose item UUID isn't in the accepted inventory, so an
+  // encrypted/cloud restore can't leave orphaned user images in IndexedDB.
+  var acceptedUuids = new Set(
+    typeof inventory !== "undefined" && Array.isArray(inventory)
+      ? inventory.map(function (it) {
+          return it.uuid;
+        })
+      : []
+  );
   for (var i = 0; i < userRecords.length; i++) {
     var r = userRecords[i];
     if (!r.uuid) continue;
+    if (!acceptedUuids.has(r.uuid)) continue;
     try {
       var record = { uuid: r.uuid, cachedAt: r.cachedAt, size: r.size };
       if (r.obverse) record.obverse = _base64ToBlob(r.obverse, r.obverseType);
