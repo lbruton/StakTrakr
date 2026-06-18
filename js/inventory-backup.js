@@ -154,6 +154,10 @@
     goldbackEstimateModifier: goldbackEstimateModifier,
     tableImageSides: localStorage.getItem("tableImageSides") || "both",
     tableImagesEnabled: localStorage.getItem("tableImagesEnabled") !== "false",
+    // Custom Numista lookup rules — raw JSON string. Without these in the backup,
+    // a restore reinstates pattern images (keyed by seedImageId) with no rule
+    // pointing at them, orphaning every one (STRK-202).
+    numistaLookupRules: localStorage.getItem("numistaLookupRules"),
   });
 
   /**
@@ -731,6 +735,31 @@
   };
 
   /**
+   * Restores custom Numista lookup rules from the parsed settings (STRK-202).
+   * Without this, a ZIP restore reinstates pattern images (keyed by seedImageId)
+   * but leaves no rule referencing them, so every restored pattern image is
+   * orphaned and invisible. Rules MERGE (existing local rules are kept) and
+   * preserve their id + seedImageId so the companion pattern images re-bind.
+   * Older backups without the field are a no-op.
+   *
+   * @param {(Object|null)} settingsObj - Parsed settings.json object.
+   * @returns {void}
+   */
+  const _restoreNumistaRules = (settingsObj) => {
+    if (!settingsObj || settingsObj.numistaLookupRules == null) return;
+    if (typeof NumistaLookup === "undefined" || typeof NumistaLookup.importRules !== "function") {
+      return;
+    }
+    try {
+      const raw = settingsObj.numistaLookupRules;
+      const rules = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (Array.isArray(rules)) NumistaLookup.importRules(rules, true);
+    } catch (e) {
+      debugWarn("restoreBackupZip: numistaLookupRules parse error", e);
+    }
+  };
+
+  /**
    * Merges (or reloads) per-item price history from the ancillary payload.
    *
    * @param {Object} ancillary - Parsed ancillary payload.
@@ -904,6 +933,7 @@
       // -- Phase 3: Ancillary data applicator (runs after user accepts DiffModal) --
       const applyAncillaryData = async () => {
         _restoreSpotAndCatalog(settingsObj);
+        _restoreNumistaRules(settingsObj);
         _restoreItemPriceHistory(ancillary);
         _restoreRetailPrices(ancillary);
         await _restoreCachedMedia(zip);

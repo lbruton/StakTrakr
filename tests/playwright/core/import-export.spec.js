@@ -911,4 +911,115 @@ test.describe("core/import-export", () => {
     expect(restored.catalog).toMatchObject({ "strk170-char-numista": "strk170-char-uuid" });
     expect(restored.history).toEqual([{ ts: histTs, price: 41.1 }]);
   });
+
+  // STRK-202: the ZIP backup now carries numistaLookupRules, so a restore brings
+  // the rules back alongside their pattern images. Before this, settings.json
+  // omitted the rules — a restore reinstated the images but left no rule pointing
+  // at them, orphaning every one.
+  test("backup ZIP round-trips custom rules so restored pattern images are not orphaned", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    // Suppress demo seed rules/images so patternImages holds only our fixture.
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.createBackupZip === "function" &&
+        typeof window.restoreBackupZip === "function" &&
+        typeof window.imageCache !== "undefined" &&
+        window.NumistaLookup &&
+        typeof window.JSZip !== "undefined"
+    );
+
+    const RULE_ID = "custom-strk202-roundtrip";
+    const RULE = {
+      id: RULE_ID,
+      pattern: "\\bMorgan Dollar\\b",
+      replacement: "Morgan Dollar",
+      numistaId: null,
+      seedImageId: RULE_ID,
+    };
+
+    // Phase 1: seed a rule + its pattern image, export a backup ZIP, and confirm
+    // the rule rides in settings.json (the export half of the fix).
+    const exported = await page.evaluate(
+      async ({ rule }) => {
+        localStorage.setItem("numistaLookupRules", JSON.stringify([rule]));
+        window.NumistaLookup.loadCustomRules();
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+        await window.imageCache.cachePatternImage(
+          rule.seedImageId,
+          new Blob(["strk202-obverse"], { type: "image/png" }),
+          new Blob(["strk202-reverse"], { type: "image/png" })
+        );
+        const blob = await window.createBackupZip();
+        const buf = await blob.arrayBuffer();
+        const zip = await window.JSZip.loadAsync(buf);
+        const settings = JSON.parse(await zip.file("settings.json").async("string"));
+        return {
+          settingsRules: settings.numistaLookupRules,
+          zipBytes: Array.from(new Uint8Array(buf)),
+        };
+      },
+      { rule: RULE }
+    );
+
+    expect(typeof exported.settingsRules).toBe("string");
+    expect(JSON.parse(exported.settingsRules)).toEqual([RULE]);
+
+    // Phase 2: simulate the post-restore-without-rules state — drop the rule but
+    // keep its image in IndexedDB, so the image is now orphaned (the bug).
+    const orphanedBefore = await page.evaluate(async () => {
+      localStorage.removeItem("numistaLookupRules");
+      window.NumistaLookup.importRules([], false); // empty the in-memory rules
+      const records = await window.imageCache.exportAllPatternImages();
+      const referenced = new Set(
+        window.NumistaLookup.getCustomRules()
+          .map((r) => r.seedImageId)
+          .filter(Boolean)
+      );
+      return records.filter((rec) => !referenced.has(rec.ruleId)).map((rec) => rec.ruleId);
+    });
+    expect(orphanedBefore).toContain(RULE_ID);
+
+    // Phase 3: restore the ZIP. Stub the diff modal to auto-complete so
+    // applyAncillaryData (which runs _restoreNumistaRules) fires.
+    await page.evaluate(async (zipBytes) => {
+      window.__zipRestoreComplete = false;
+      const origToast = window.showToast;
+      window.showToast = (msg, level) => {
+        if (typeof origToast === "function") origToast(msg, level);
+        if (String(msg || "").includes("ZIP backup restored successfully")) {
+          window.__zipRestoreComplete = true;
+        }
+      };
+      window.showImportDiffReview = (_items, _meta, _opts, onDone) =>
+        onDone({ added: 0, modified: 0, deleted: 0 });
+      const file = new File([new Uint8Array(zipBytes)], "strk202-restore.zip", {
+        type: "application/zip",
+      });
+      await window.restoreBackupZip(file);
+    }, exported.zipBytes);
+    await page.waitForFunction(() => window.__zipRestoreComplete === true);
+
+    // Phase 4: the rule is back (with its seedImageId) and nothing is orphaned —
+    // the restored image re-binds to the restored rule.
+    const after = await page.evaluate(async (ruleId) => {
+      const rules = window.NumistaLookup.getCustomRules();
+      const records = await window.imageCache.exportAllPatternImages();
+      const referenced = new Set(rules.map((r) => r.seedImageId).filter(Boolean));
+      const url = await window.imageCache.getPatternImageUrl(ruleId, "obverse");
+      return {
+        ruleRestored: rules.some((r) => r.id === ruleId && r.seedImageId === ruleId),
+        orphanCount: records.filter((rec) => !referenced.has(rec.ruleId)).length,
+        imageResolves: typeof url === "string" && url.startsWith("blob:"),
+      };
+    }, RULE_ID);
+
+    expect(after.ruleRestored).toBe(true);
+    expect(after.orphanCount).toBe(0);
+    expect(after.imageResolves).toBe(true);
+  });
 });
