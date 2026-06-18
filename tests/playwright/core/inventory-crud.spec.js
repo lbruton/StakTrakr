@@ -2449,3 +2449,65 @@ test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", ()
     expect(uuids).toEqual([COIN_SERIES_UUIDS.SML]);
   });
 });
+
+// ─── STRK-208: year/purity inline-tag click-to-filter (onclick escaping) ─────
+
+test.describe("year-purity-filter-tags — STRK-208", () => {
+  // The year chip ships enabled by default but purity ships disabled
+  // (js/constants.js INLINE_CHIP_DEFAULTS); enable both so each builder's
+  // onclick handler is exercised in the rendered table.
+  const ENABLED_CHIPS = [
+    { id: "year", label: "Year", enabled: true },
+    { id: "purity", label: "Purity", enabled: true },
+  ];
+
+  async function seedTagsAndGoto(page, items) {
+    await page.addInitScript(
+      ({ seededInventory, chipConfig }) => {
+        localStorage.setItem("metalInventory", JSON.stringify(seededInventory));
+        localStorage.setItem("itemTags", JSON.stringify({}));
+        localStorage.setItem("inlineChipConfig", JSON.stringify(chipConfig));
+        localStorage.setItem("cardViewStyle", "D");
+        document.addEventListener(
+          "DOMContentLoaded",
+          () => {
+            if (typeof APP_VERSION !== "undefined") {
+              localStorage.setItem("ackVersion", APP_VERSION);
+            }
+          },
+          { once: true }
+        );
+      },
+      { seededInventory: items, chipConfig: ENABLED_CHIPS }
+    );
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await page.waitForFunction(() => Array.isArray(window.inventory));
+  }
+
+  test("year/purity tag onclick is well-formed (not truncated) and click filters the table", async ({
+    page,
+  }) => {
+    await seedTagsAndGoto(page, [
+      { ...SEED_ITEM, uuid: "strk-208-a", name: "STRK-208 Item A", year: "2026", purity: 0.999 },
+      { ...SEED_ITEM, uuid: "strk-208-b", name: "STRK-208 Item B", year: "2020", purity: 0.5 },
+    ]);
+
+    // Attribute-shape: the rendered onclick must be the complete call. With the
+    // bug, the unescaped JSON.stringify quote truncates it to
+    // `applyColumnFilter('year', ` (no closing paren), so getAttribute returns
+    // the truncated value and this regex fails.
+    const yearOnclick = await page.locator(".year-tag").first().getAttribute("onclick");
+    expect(yearOnclick).toMatch(/^applyColumnFilter\('year', ".+"\)$/);
+
+    const purityOnclick = await page.locator(".purity-tag").first().getAttribute("onclick");
+    expect(purityOnclick).toMatch(/^applyColumnFilter\('purity', ".+"\)$/);
+
+    // Behavioral: clicking a year tag applies the column filter and narrows the
+    // two-item table to the single matching row. A truncated handler throws and
+    // never filters, leaving both rows.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".year-tag").first().click();
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+});
