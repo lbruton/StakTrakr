@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.32] - 2026-06-18
+
+### Changed — STRK-203: Harden cross-origin warning toasts
+
+- **Security**: The "exported from a different domain" warnings shown during vault restore and CSV import now escape the originating domain with `escapeHtml` in the rare case the core HTML sanitizer is unavailable, replacing a raw, unescaped fallback. Defense-in-depth only — the warning text is unchanged in normal use (STRK-203).
+
+---
+
 ## [3.35.31] - 2026-06-18
 
 ### Changed — STRK-228: Faster Settings User Images grid for large inventories
