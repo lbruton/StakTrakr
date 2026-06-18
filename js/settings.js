@@ -2973,8 +2973,12 @@ const _buildOrphanImageRow = async (rec, onDelete) => {
   deleteBtn.className = "btn img-btn img-btn-remove";
   deleteBtn.textContent = "Delete";
   deleteBtn.addEventListener("click", async () => {
-    await imageCache.deletePatternImage(rec.ruleId);
-    onDelete();
+    try {
+      await imageCache.deletePatternImage(rec.ruleId);
+    } catch (err) {
+      console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
+    }
+    onDelete(); // re-scan reflects reality whether or not the delete succeeded
   });
   actions.appendChild(deleteBtn);
   row.appendChild(actions);
@@ -2989,8 +2993,8 @@ const _buildOrphanImageRow = async (rec, onDelete) => {
  * user reclaim the space; it hides itself when there is nothing orphaned.
  */
 const renderOrphanedPatternImages = async () => {
-  const container = document.getElementById("orphanedPatternImages");
-  if (!container) return;
+  const container = safeGetElement("orphanedPatternImages");
+  if (!(container instanceof HTMLElement)) return;
 
   const emptyMsg =
     '<p style="font-size:0.85em;color:var(--text-secondary)">No orphaned pattern images.</p>';
@@ -3042,7 +3046,11 @@ const renderOrphanedPatternImages = async () => {
     );
     if (!ok) return;
     for (const rec of orphans) {
-      await imageCache.deletePatternImage(rec.ruleId);
+      try {
+        await imageCache.deletePatternImage(rec.ruleId);
+      } catch (err) {
+        console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
+      }
     }
     renderOrphanedPatternImages();
     renderImageStorageStats();
