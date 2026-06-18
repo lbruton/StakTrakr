@@ -399,6 +399,56 @@ test.describe("core/import-export", () => {
     expectFrameColumns(await parseCsvRow(page, standaloneCsv));
   });
 
+  test("CSV and ZIP exports survive items missing metal/weight (STRK-211, STRK-212)", async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.exportInventoryCSV === "function" &&
+        typeof window.createBackupZip === "function" &&
+        typeof window.JSZip !== "undefined" &&
+        typeof window.Papa !== "undefined"
+    );
+
+    // Degenerate legacy item: no `metal` (STRK-212) and a non-numeric `weight` (STRK-211).
+    // Assign window.inventory directly so both exporters see the raw shape; before the guards
+    // this throws (i.metal.toLowerCase() / NaN.toFixed(4)) and aborts the entire export.
+    const { standaloneCsv, zipCsv } = await page.evaluate(async () => {
+      window.inventory = [
+        {
+          uuid: "strk211-212-degenerate",
+          serial: 211212,
+          name: "STRK-211/212 Degenerate Export",
+          qty: 1,
+          type: "Coin",
+          weight: "",
+          weightUnit: "oz",
+          purity: 0.999,
+          price: 30,
+          date: "2026-06-17",
+          purchaseLocation: "Desk",
+          storageLocation: "Safe",
+        },
+      ];
+      const standalone = window.exportInventoryCSV();
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const zipExport = await zip.file("inventory_export.csv").async("string");
+      return { standaloneCsv: standalone, zipCsv: zipExport };
+    });
+
+    const standaloneRow = await parseCsvRow(page, standaloneCsv);
+    const zipRow = await parseCsvRow(page, zipCsv);
+
+    // STRK-212: metal-less item falls back to the "Silver" display default instead of throwing.
+    expect(standaloneRow["Metal"]).toBe("Silver");
+    expect(zipRow["Metal"]).toBe("Silver");
+    // STRK-211: non-numeric weight serializes as 0.0000 instead of crashing on NaN.toFixed(4).
+    expect(standaloneRow["Weight(oz)"]).toBe("0.0000");
+    expect(zipRow["Weight(oz)"]).toBe("0.0000");
+  });
+
   test("trade-link fields round-trip through standalone CSV and ZIP JSON backup", async ({
     page,
   }) => {

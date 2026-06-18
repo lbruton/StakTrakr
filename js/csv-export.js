@@ -148,7 +148,7 @@
    * @returns {Array<string|number>} The Date-through-Gain/Loss cells.
    */
   const buildCsvValueColumns = (i) => {
-    const currentSpot = spotPrices[i.metal.toLowerCase()] || 0;
+    const currentSpot = spotPrices[(i.metal || "Silver").toLowerCase()] || 0;
     const valuation =
       typeof computeItemValuation === "function" ? computeItemValuation(i, currentSpot) : null;
     const purchasePrice = valuation
@@ -166,7 +166,7 @@
       i.name,
       i.year || "",
       i.qty,
-      parseFloat(i.weight).toFixed(4),
+      (parseFloat(i.weight) || 0).toFixed(4),
       i.weightUnit || "oz",
       parseFloat(i.purity) || 1.0,
       formatCurrency(purchasePrice),
