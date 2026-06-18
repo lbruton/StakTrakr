@@ -58,7 +58,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - Add a new file only when assertions do not fit an existing domain suite.
 - Do not add new issue-prefixed specs at the Playwright root.
 - Reconcile temporary issue acceptance-criteria (AC) matrices into core/extended coverage before merge, or archive them.
-- When a PR touches Playwright tests, update `tests/playwright/coverage-map.csv`.
+- Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test inventory (adds, renames, removes, or re-counts tests); non-functional edits that leave it unchanged don't need a row.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 - Use stable, user-visible assertions. Keep data fixtures in `tests/fixtures/` and shared binary/image fixtures (e.g. `test-obverse.png`) in `tests/playwright/helpers/`.
 - For quick checks, run `npx playwright test tests/playwright/core/inventory-crud.spec.js`.
