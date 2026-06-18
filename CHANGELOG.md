@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.27] - 2026-06-17
+
+### Fixed — STRK-202: Custom pattern-rule images survive backup restore
+
+- **Backup round-trip**: ZIP backups now include your custom Numista lookup rules, so restoring a backup brings the rules back alongside their pattern images instead of leaving the images orphaned with no rule to display them. Restored rules keep their original identity, so previously cached pattern images re-bind automatically (STRK-202).
+- **Orphan cleanup**: A new Settings → Images "Orphaned Pattern Images" panel lists pattern images whose rule no longer exists and clears them individually or all at once, reclaiming storage (STRK-202).
+- **Rule identity**: Custom rules saved without an id now receive a stable, content-derived id instead of a fresh timestamp on every load, preventing rare id collisions between rules (STRK-202).
+
+---
+
 ## [3.35.26] - 2026-06-17
 
 ### Changed — STRK-147: Cloud-sync item-price-history with UUID-aware merge
