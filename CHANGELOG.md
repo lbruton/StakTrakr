@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.34] - 2026-06-18
+
+### Changed — STRK-204: Safer undo for corrupt price-history Change Log entries
+
+- **Change Log undo**: Undoing a price-history deletion now fails safely when the stored snapshot is corrupt — it shows a toast and leaves your data untouched instead of throwing an unhandled error. This matches the guards already on the other undo actions and only affects Change Log entries that have been altered outside the app (STRK-204).
+
+---
+
 ## [3.35.31] - 2026-06-18
 
 ### Changed — STRK-228: Faster Settings User Images grid for large inventories

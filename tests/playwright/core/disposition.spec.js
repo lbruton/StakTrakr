@@ -1186,4 +1186,34 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(result.applied).toBe("none");
     expect(result.reason).toBe("no_paired_entries");
   });
+
+  // STRK-204: _undoPriceHistoryDelete must guard a corrupt oldValue snapshot the
+  // same way its sibling undo helpers do — a user-facing toast + no-op return
+  // instead of an unhandled SyntaxError. Pins the throw → graceful-toast behavior
+  // change deferred out of the behavior-preserving cohort 2.2 refactor (PR #1272).
+  test("STRK-204: priceHistoryDelete undo fails safe on corrupt snapshot", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      // The helper calls the global showToast (utils.js); stub it to capture calls.
+      const toasts = [];
+      window.showToast = (msg) => toasts.push(msg);
+
+      // A corrupt persisted entry routes through toggleChange → _undoPriceHistoryDelete.
+      window.changeLog = [{ field: "priceHistoryDelete", oldValue: "{not-json", undone: false }];
+
+      let threw = false;
+      try {
+        await window.toggleChange(0);
+      } catch {
+        threw = true;
+      }
+      return { threw, undone: window.changeLog[0].undone, toasts };
+    });
+
+    expect(result.threw).toBe(false);
+    expect(result.undone).toBe(false); // unchanged — no mutation on a corrupt snapshot
+    expect(result.toasts).toEqual(["Undo failed — corrupt price-history snapshot."]);
+  });
 });

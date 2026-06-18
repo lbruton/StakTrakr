@@ -553,7 +553,13 @@ const _finalizeInventoryUndo = (fullRefresh) => {
  * @param {Object} entry - changeLog entry with field "priceHistoryDelete"
  */
 const _undoPriceHistoryDelete = (entry) => {
-  const deleted = JSON.parse(entry.oldValue);
+  let deleted;
+  try {
+    deleted = JSON.parse(entry.oldValue);
+  } catch {
+    if (typeof showToast === "function") showToast("Undo failed — corrupt price-history snapshot.");
+    return;
+  }
   if (entry.undone) {
     // Redo: re-delete the entry
     if (itemPriceHistory[deleted.uuid]) {
