@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.28] - 2026-06-17
+
+### Fixed — STRK-200: User-image restore orphan guard
+
+- **Backup restore**: Restoring a backup no longer imports per-Item photos for items that are not in your inventory. Both the unencrypted ZIP path and the encrypted `.stvault` companion / cloud-sync path now skip photos whose item was removed or de-duplicated away, matching the guard attachments already had. This prevents orphaned images that silently bloated storage and appeared as un-editable entries in the Settings Per-Item User Images list (STRK-200).
+
+---
+
 ## [3.35.27] - 2026-06-17
 
 ### Fixed — STRK-202: Custom pattern-rule images survive backup restore

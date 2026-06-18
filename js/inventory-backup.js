@@ -1155,10 +1155,21 @@ Store this archive in a secure location for data protection.
     const userImgFolder = zip.folder("user_images");
     if (!userImgFolder) return;
 
+    // STRK-200: skip photos whose item UUID isn't in the accepted inventory, so a
+    // restore can't leave orphaned user images in IndexedDB. Array.isArray guards a
+    // null/undefined inventory (the window setter permits null) and keeps this
+    // consistent with the restoreImageVaultData guard in js/vault.js.
+    const acceptedUuids = new Set(
+      typeof inventory !== "undefined" && Array.isArray(inventory)
+        ? inventory.map((i) => i.uuid)
+        : []
+    );
+
     const manifestFile = zip.file("user_image_manifest.json");
     if (manifestFile) {
       const manifestData = JSON.parse(await manifestFile.async("string"));
       for (const entry of manifestData.entries || []) {
+        if (!acceptedUuids.has(entry.uuid)) continue;
         const obverseFile = entry.obverseFile ? zip.file(entry.obverseFile) : null;
         const reverseFile = entry.reverseFile ? zip.file(entry.reverseFile) : null;
         const obverse = obverseFile ? await obverseFile.async("blob") : null;
@@ -1176,6 +1187,7 @@ Store this archive in a secure location for data protection.
 
     const userImageMap = await _collectSidedImagesFromFolder(userImgFolder);
     for (const [uuid, sides] of userImageMap) {
+      if (!acceptedUuids.has(uuid)) continue;
       await imageCache.importUserImageRecord({
         uuid,
         obverse: sides.obverse || null,

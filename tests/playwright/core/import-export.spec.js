@@ -794,6 +794,13 @@ test.describe("core/import-export", () => {
       };
       const legacyBytes = await window.vaultEncryptImageVault(password, legacyPayload);
       await window.imageCache.clearAll();
+      // STRK-200: restoreImageVaultData now skips records whose item UUID isn't in
+      // the inventory (orphan guard). The real .stvault flow commits inventory before
+      // images restore, so admit this record's item to mirror that precondition.
+      window.inventory = [
+        ...(Array.isArray(window.inventory) ? window.inventory : []),
+        { uuid: "strk185-user-uuid" },
+      ];
       const legacyCount = await window.vaultDecryptAndRestoreImages(legacyBytes, password);
       const restoredUsers = await window.imageCache.exportAllUserImages();
       const restoredPatterns = await window.imageCache.exportAllPatternImages();
@@ -1116,5 +1123,182 @@ test.describe("core/import-export", () => {
 
     expect(after.ruleRestored).toBe(true);
     expect(after.imageRestored).toBe(true);
+  });
+
+  // STRK-200: _restoreUserImages now guards every import against the committed
+  // inventory (mirroring _restoreAttachments). A backup whose user_image_manifest
+  // lists a photo for an item that was de-duplicated away — so its UUID is absent
+  // from the restored inventory — must NOT import that photo, or it lingers in
+  // IndexedDB forever as an un-editable orphan row in Settings (field-reported).
+  test("ZIP user-image restore skips photos whose item UUID is not in the inventory (STRK-200)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.restoreBackupZip === "function" &&
+        typeof window.imageCache !== "undefined" &&
+        typeof window.JSZip !== "undefined" &&
+        typeof window.DiffEngine !== "undefined"
+    );
+
+    const KEEP = "strk200-zip-keep";
+    const ORPHAN = "strk200-zip-orphan";
+
+    await page.evaluate(
+      async ({ keep, orphan }) => {
+        // Committed inventory holds ONLY the kept item; the orphan's item is gone.
+        const keepItem = {
+          uuid: keep,
+          serial: 2001,
+          name: "STRK-200 Keep",
+          metal: "Silver",
+          composition: "Silver",
+          qty: 1,
+          type: "Coin",
+          weight: 1,
+          weightUnit: "oz",
+          purity: 0.999,
+          price: 30,
+          date: "2026-06-17",
+        };
+        localStorage.setItem("metalInventory", JSON.stringify([keepItem]));
+        window.inventory = [keepItem];
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+
+        window.__strk200ZipDone = false;
+        const origToast = window.showToast;
+        window.showToast = (msg, level) => {
+          if (typeof origToast === "function") origToast(msg, level);
+          if (String(msg || "").includes("ZIP backup restored successfully")) {
+            window.__strk200ZipDone = true;
+          }
+        };
+        // Auto-accept the diff so applyAncillaryData (→ _restoreUserImages) fires.
+        window.showImportDiffReview = (_items, _meta, _opts, onDone) =>
+          onDone({ added: 0, modified: 0, deleted: 0 });
+
+        const zip = new window.JSZip();
+        zip.file(
+          "inventory_data.json",
+          JSON.stringify({
+            version: "test",
+            exportDate: new Date().toISOString(),
+            inventory: [keepItem],
+          })
+        );
+        zip.file(
+          "settings.json",
+          JSON.stringify({
+            version: "test",
+            exportDate: new Date().toISOString(),
+            exportOrigin: window.location.origin,
+          })
+        );
+        const imgFolder = zip.folder("user_images");
+        imgFolder.file(`${keep}_obverse.png`, new Blob(["keep-obv"], { type: "image/png" }));
+        imgFolder.file(`${orphan}_obverse.png`, new Blob(["orphan-obv"], { type: "image/png" }));
+        zip.file(
+          "user_image_manifest.json",
+          JSON.stringify({
+            entries: [
+              {
+                uuid: keep,
+                obverseFile: `user_images/${keep}_obverse.png`,
+                reverseFile: null,
+                cachedAt: Date.now(),
+                size: 8,
+              },
+              {
+                uuid: orphan,
+                obverseFile: `user_images/${orphan}_obverse.png`,
+                reverseFile: null,
+                cachedAt: Date.now(),
+                size: 10,
+              },
+            ],
+          })
+        );
+
+        const file = new File([await zip.generateAsync({ type: "blob" })], "strk200.zip", {
+          type: "application/zip",
+        });
+        await window.restoreBackupZip(file);
+      },
+      { keep: KEEP, orphan: ORPHAN }
+    );
+
+    await page.waitForFunction(() => window.__strk200ZipDone === true);
+
+    const stored = await page.evaluate(async () => {
+      const recs = await window.imageCache.exportAllUserImages();
+      return recs.map((r) => r.uuid);
+    });
+    expect(stored).toContain(KEEP); // accepted item's photo restored
+    expect(stored).not.toContain(ORPHAN); // orphan photo skipped — no IndexedDB bloat
+  });
+
+  // STRK-200: restoreImageVaultData (the .stvault companion + cloud-sync image
+  // sink) gets the same guard. A decrypted payload can carry photo records for
+  // items no longer in the inventory; importing them is what produced the field
+  // orphans. The guard skips them while still importing live records.
+  test(".stvault image restore skips photos whose item UUID is not in the inventory (STRK-200)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.restoreImageVaultData === "function" &&
+        typeof window.imageCache !== "undefined"
+    );
+
+    const KEEP = "strk200-vault-keep";
+    const ORPHAN = "strk200-vault-orphan";
+
+    const stored = await page.evaluate(
+      async ({ keep, orphan }) => {
+        window.inventory = [
+          {
+            uuid: keep,
+            serial: 2002,
+            name: "STRK-200 Vault Keep",
+            metal: "Silver",
+            composition: "Silver",
+            qty: 1,
+            type: "Coin",
+            weight: 1,
+            weightUnit: "oz",
+            purity: 0.999,
+            price: 30,
+            date: "2026-06-17",
+          },
+        ];
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+        const b64 = btoa("strk200-img");
+        const imported = await window.restoreImageVaultData({
+          records: [
+            { uuid: keep, obverse: b64, obverseType: "image/png", cachedAt: Date.now(), size: 11 },
+            {
+              uuid: orphan,
+              obverse: b64,
+              obverseType: "image/png",
+              cachedAt: Date.now(),
+              size: 11,
+            },
+          ],
+        });
+        const recs = await window.imageCache.exportAllUserImages();
+        return { uuids: recs.map((r) => r.uuid), imported };
+      },
+      { keep: KEEP, orphan: ORPHAN }
+    );
+
+    expect(stored.uuids).toContain(KEEP);
+    expect(stored.uuids).not.toContain(ORPHAN);
+    expect(stored.imported).toBe(1); // only the live record counted as imported
   });
 });
