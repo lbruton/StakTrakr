@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.30] - 2026-06-18
+
+### Changed — STRK-201: Faster backup export for large inventories
+
+- **Backup export**: Creating a backup ZIP is now faster for large collections. The step that matches each saved per-Item photo to its inventory item uses an indexed lookup instead of re-scanning the entire inventory for every photo, so export time no longer grows disproportionately as your inventory and photo count increase. Backup contents are unchanged (STRK-201).
+
+---
+
 ## [3.35.29] - 2026-06-17
 
 ### Fixed — STRK-211, STRK-212: CSV and backup export no longer crash on incomplete items
