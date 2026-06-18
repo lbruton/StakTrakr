@@ -366,11 +366,17 @@
       exportDate: new Date().toISOString(),
       entries: [],
     };
+    // Pre-index inventory by UUID for O(1) name lookups (STRK-201)
+    const inventoryByUuid = new Map();
+    if (typeof inventory !== "undefined" && Array.isArray(inventory)) {
+      for (const item of inventory) {
+        if (item?.uuid) inventoryByUuid.set(item.uuid, item);
+      }
+    }
     for (const rec of allUserImages) {
       if (rec.obverse) userImgFolder.file(`${rec.uuid}_obverse.jpg`, rec.obverse);
       if (rec.reverse) userImgFolder.file(`${rec.uuid}_reverse.jpg`, rec.reverse);
-      const item =
-        typeof inventory !== "undefined" ? inventory.find((i) => i.uuid === rec.uuid) : null;
+      const item = inventoryByUuid.get(rec.uuid) || null;
       userImageManifest.entries.push({
         uuid: rec.uuid,
         itemName: item?.name || "",
