@@ -2026,15 +2026,10 @@
     var lArr = Array.isArray(localVal) ? localVal : [];
     var rArr = Array.isArray(remoteVal) ? remoteVal : [];
     var lById = {};
-    var rById = {};
     var i, id;
     for (i = 0; i < lArr.length; i++) {
       id = lArr[i].id || lArr[i].label || i;
       lById[id] = lArr[i];
-    }
-    for (i = 0; i < rArr.length; i++) {
-      id = rArr[i].id || rArr[i].label || i;
-      rById[id] = rArr[i];
     }
     // Preserve original array order — use remote array as base order (default wins),
     // then append any local-only items at the end
@@ -2112,12 +2107,10 @@
   function _mergeSlugChips(prefix, localVal, remoteVal) {
     if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
     var lSet = {};
-    var rSet = {};
     var lList = Array.isArray(localVal) ? localVal : [];
     var rList = Array.isArray(remoteVal) ? remoteVal : [];
     var i;
     for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
-    for (i = 0; i < rList.length; i++) rSet[rList[i]] = true;
     var mergedArr = [];
     var slugSeen = {};
     // First pass: iterate remote array in order (default wins)
