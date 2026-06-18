@@ -1022,4 +1022,99 @@ test.describe("core/import-export", () => {
     expect(after.orphanCount).toBe(0);
     expect(after.imageResolves).toBe(true);
   });
+
+  // STRK-202: showImportDiffReview early-returns when inventory + mapped settings
+  // match and there is no settings diff. Since numistaLookupRules is intentionally
+  // NOT in the flat settings diff, a rules/images-only restore would otherwise skip
+  // the ancillary path entirely and leave the images orphaned. restoreBackupZip
+  // passes alwaysApplyAncillary so the ancillary restore runs anyway. Uses the REAL
+  // showImportDiffReview (no stub) to exercise the no-change branch.
+  test("ZIP restore applies rules + images even when inventory is unchanged", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.restoreBackupZip === "function" &&
+        typeof window.imageCache !== "undefined" &&
+        window.NumistaLookup &&
+        typeof window.JSZip !== "undefined" &&
+        typeof window.DiffEngine !== "undefined" &&
+        typeof window.DiffModal !== "undefined"
+    );
+
+    const RULE_ID = "custom-strk202-nochange";
+    const RULE = {
+      id: RULE_ID,
+      pattern: "\\bPeace Dollar\\b",
+      replacement: "Peace Dollar",
+      numistaId: null,
+      seedImageId: RULE_ID,
+    };
+
+    await page.evaluate(
+      async ({ rule }) => {
+        // Empty inventory + no rules locally → a restore otherwise sees "no changes".
+        localStorage.setItem("metalInventory", JSON.stringify([]));
+        localStorage.removeItem("numistaLookupRules");
+        window.inventory = [];
+        window.NumistaLookup.importRules([], false);
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+
+        // Signal completion via the success toast; do NOT stub showImportDiffReview —
+        // the real no-change branch must run.
+        window.__nochangeDone = false;
+        const origToast = window.showToast;
+        window.showToast = (msg, level) => {
+          if (typeof origToast === "function") origToast(msg, level);
+          if (String(msg || "").includes("ZIP backup restored successfully")) {
+            window.__nochangeDone = true;
+          }
+        };
+
+        const zip = new window.JSZip();
+        zip.file(
+          "inventory_data.json",
+          JSON.stringify({ version: "test", exportDate: new Date().toISOString(), inventory: [] })
+        );
+        // settings.json carries ONLY the rules key — nothing in the flat settings
+        // allowlist — so settingsDiff stays null and the no-change branch is hit.
+        zip.file(
+          "settings.json",
+          JSON.stringify({
+            version: "test",
+            exportDate: new Date().toISOString(),
+            exportOrigin: window.location.origin,
+            numistaLookupRules: JSON.stringify([rule]),
+          })
+        );
+        zip
+          .folder("pattern_images")
+          .file(
+            `${rule.seedImageId}_obverse.jpg`,
+            new Blob(["nochange-obv"], { type: "image/jpeg" })
+          );
+
+        const file = new File([await zip.generateAsync({ type: "blob" })], "nochange.zip", {
+          type: "application/zip",
+        });
+        await window.restoreBackupZip(file);
+      },
+      { rule: RULE }
+    );
+
+    await page.waitForFunction(() => window.__nochangeDone === true);
+
+    const after = await page.evaluate(async (ruleId) => {
+      const rules = window.NumistaLookup.getCustomRules();
+      const rec = await window.imageCache.getPatternImage(ruleId);
+      return {
+        ruleRestored: rules.some((r) => r.id === ruleId && r.seedImageId === ruleId),
+        imageRestored: Boolean(rec && rec.obverse),
+      };
+    }, RULE_ID);
+
+    expect(after.ruleRestored).toBe(true);
+    expect(after.imageRestored).toBe(true);
+  });
 });

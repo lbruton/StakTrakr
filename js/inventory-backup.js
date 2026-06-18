@@ -946,6 +946,11 @@
         parsedItems,
         { type: "zip", label: file.name },
         {
+          // A ZIP restore carries ancillary data (custom rules, cached pattern/
+          // user images, attachments) that can be missing locally even when
+          // inventory and mapped settings already match — so always run the
+          // ancillary restore, never short-circuit on "no changes" (STRK-202).
+          alwaysApplyAncillary: true,
           settingsDiff: settingsDiff,
           pendingTagsByUuid: pendingTagsByUuid,
           exportMeta: settingsObj
