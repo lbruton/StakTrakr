@@ -2900,6 +2900,7 @@ const closeCurrencyDropdownOnOutside = (e) => {
 const populateImagesSection = () => {
   renderImageStorageStats();
   renderCustomPatternRules();
+  renderOrphanedPatternImages();
   renderUserImageGrid();
 };
 
@@ -2921,6 +2922,150 @@ const createThumbEl = (src, alt) => {
   placeholder.className = "pattern-rule-thumb pattern-rule-thumb-empty";
   placeholder.textContent = "No img";
   return placeholder;
+};
+
+/**
+ * Builds one orphaned-image row (dual thumbnails, key + size, delete button).
+ * Extracted so renderOrphanedPatternImages stays under the complexity gate.
+ * @param {{ruleId: string, size: number}} rec - patternImages record.
+ * @param {Function} onDelete - Called after the record is deleted (re-render).
+ * @returns {Promise<HTMLElement>}
+ */
+const _buildOrphanImageRow = async (rec, onDelete) => {
+  const row = document.createElement("div");
+  row.className = "pattern-rule-row";
+
+  const thumbs = document.createElement("div");
+  thumbs.className = "pattern-rule-thumbs";
+  let obverseSrc = null;
+  let reverseSrc = null;
+  try {
+    obverseSrc = await imageCache.getPatternImageUrl(rec.ruleId, "obverse");
+  } catch {
+    /* ignore */
+  }
+  try {
+    reverseSrc = await imageCache.getPatternImageUrl(rec.ruleId, "reverse");
+  } catch {
+    /* ignore */
+  }
+  thumbs.appendChild(createThumbEl(obverseSrc, "orphaned obverse"));
+  thumbs.appendChild(createThumbEl(reverseSrc, "orphaned reverse"));
+  row.appendChild(thumbs);
+
+  const info = document.createElement("div");
+  info.className = "pattern-rule-info";
+  const sizeKB = Math.round((rec.size || 0) / 1024);
+  // Built via textContent (not innerHTML) — XSS-safe by construction.
+  const keyEl = document.createElement("div");
+  keyEl.className = "rule-pattern";
+  keyEl.textContent = rec.ruleId;
+  const sizeEl = document.createElement("div");
+  sizeEl.className = "rule-replacement";
+  sizeEl.textContent = `${sizeKB} KB · orphaned`;
+  info.appendChild(keyEl);
+  info.appendChild(sizeEl);
+  row.appendChild(info);
+
+  const actions = document.createElement("div");
+  actions.className = "pattern-rule-actions";
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "btn img-btn img-btn-remove";
+  deleteBtn.textContent = "Delete";
+  deleteBtn.addEventListener("click", async () => {
+    try {
+      await imageCache.deletePatternImage(rec.ruleId);
+    } catch (err) {
+      console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
+    }
+    onDelete(); // re-scan reflects reality whether or not the delete succeeded
+  });
+  actions.appendChild(deleteBtn);
+  row.appendChild(actions);
+  return row;
+};
+
+/**
+ * Render orphaned pattern images — records in the patternImages store whose key
+ * (seedImageId) is no longer referenced by any custom rule (STRK-202). These
+ * accumulate when a pre-fix ZIP backup is restored (images came back but the
+ * rules did not) or when a rule is removed without its image. The list lets the
+ * user reclaim the space; it hides itself when there is nothing orphaned.
+ */
+const renderOrphanedPatternImages = async () => {
+  const container = safeGetElement("orphanedPatternImages");
+  if (!(container instanceof HTMLElement)) return;
+
+  const emptyMsg =
+    '<p style="font-size:0.85em;color:var(--text-secondary)">No orphaned pattern images.</p>';
+
+  if (typeof NumistaLookup === "undefined" || !window.imageCache?.isAvailable()) {
+    container.innerHTML = emptyMsg;
+    return;
+  }
+
+  let records = [];
+  try {
+    records = await imageCache.exportAllPatternImages();
+  } catch {
+    container.innerHTML = emptyMsg;
+    return;
+  }
+
+  const referenced = new Set(
+    NumistaLookup.getCustomRules()
+      .map((r) => r.seedImageId)
+      .filter(Boolean)
+  );
+  const orphans = records.filter((rec) => rec && rec.ruleId && !referenced.has(rec.ruleId));
+
+  if (!orphans.length) {
+    container.innerHTML = emptyMsg;
+    return;
+  }
+
+  container.textContent = "";
+
+  const header = document.createElement("div");
+  header.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem";
+  const label = document.createElement("span");
+  label.style.cssText = "font-size:0.85em;color:var(--text-secondary)";
+  label.textContent = `${orphans.length} orphaned image${
+    orphans.length === 1 ? "" : "s"
+  } — no matching rule, safe to delete.`;
+  const deleteAllBtn = document.createElement("button");
+  deleteAllBtn.className = "btn img-btn img-btn-remove";
+  deleteAllBtn.textContent = "Delete all";
+  deleteAllBtn.addEventListener("click", async () => {
+    const ok = await showAppConfirm(
+      `Delete all ${orphans.length} orphaned pattern image${
+        orphans.length === 1 ? "" : "s"
+      }? This cannot be undone.`,
+      "Delete Orphaned Images"
+    );
+    if (!ok) return;
+    for (const rec of orphans) {
+      try {
+        await imageCache.deletePatternImage(rec.ruleId);
+      } catch (err) {
+        console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
+      }
+    }
+    renderOrphanedPatternImages();
+    renderImageStorageStats();
+  });
+  header.appendChild(label);
+  header.appendChild(deleteAllBtn);
+  container.appendChild(header);
+
+  const onDelete = () => {
+    renderOrphanedPatternImages();
+    renderImageStorageStats();
+  };
+  // Build rows concurrently (each does IndexedDB lookups), then append in order.
+  const rows = await Promise.all(orphans.map((rec) => _buildOrphanImageRow(rec, onDelete)));
+  for (const row of rows) container.appendChild(row);
 };
 
 /**

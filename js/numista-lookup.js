@@ -12,7 +12,7 @@ const NumistaLookup = (() => {
   // CUSTOM RULES — user-created, persisted to localStorage
   // =========================================================================
 
-  /** @type {Array<{id: string, pattern: string, replacement: string, numistaId: string|null, builtIn: boolean}>} */
+  /** @type {Array<{id: string, pattern: string, replacement: string, numistaId: string|null, seedImageId: string|null, builtIn: boolean}>} */
   let customRules = [];
 
   /** Compiled regex cache: id → RegExp */
@@ -34,6 +34,23 @@ const NumistaLookup = (() => {
       return null;
     }
   };
+
+  /**
+   * Derives a stable, content-based id for a rule persisted without one
+   * (legacy / imported / malformed data). Reuses the global simpleHash so the id
+   * is deterministic across reloads — id-less rules no longer collide on a shared
+   * Date.now() millisecond or churn their identity on every load (STRK-202). The
+   * image binding keys on seedImageId, not this id, so a derived id never changes
+   * which pattern image renders.
+   * @param {{pattern?: string, replacement?: string}} r - Rule-like object
+   * @param {number} [index=0] - Position in the source list; disambiguates the
+   *   fallback id when the global hash util is unavailable (isolated harnesses).
+   * @returns {string} Deterministic id, e.g. "custom-sh:1a2b3c"
+   */
+  const _deriveStableRuleId = (r, index = 0) =>
+    typeof simpleHash === "function"
+      ? "custom-" + simpleHash((r.pattern || "") + "|" + (r.replacement || ""))
+      : "custom-idless-" + index;
 
   // =========================================================================
   // PUBLIC API
@@ -170,6 +187,25 @@ const NumistaLookup = (() => {
   };
 
   /**
+   * Normalizes a raw persisted/imported rule into the in-memory shape, deriving a
+   * stable content id when one is missing (STRK-202). Shared by loadCustomRules and
+   * importRules so the two hydration paths never drift. builtIn is forced to false —
+   * these are user-created rules, and trusting an imported builtIn flag would let
+   * backup data inject a "built-in" rule.
+   * @param {Object} r - Raw rule-like object.
+   * @param {number} index - Position in the source list (fallback id disambiguator).
+   * @returns {{id: string, pattern: string, replacement: string, numistaId: (string|null), seedImageId: (string|null), builtIn: boolean}}
+   */
+  const _normalizeRule = (r, index) => ({
+    id: r.id || _deriveStableRuleId(r, index),
+    pattern: r.pattern || "",
+    replacement: r.replacement || "",
+    numistaId: r.numistaId || null,
+    seedImageId: r.seedImageId || null,
+    builtIn: false,
+  });
+
+  /**
    * Loads custom rules from localStorage. Called during app init.
    */
   const loadCustomRules = () => {
@@ -179,14 +215,7 @@ const NumistaLookup = (() => {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          customRules = parsed.map((r) => ({
-            id: r.id || "custom-" + Date.now(),
-            pattern: r.pattern || "",
-            replacement: r.replacement || "",
-            numistaId: r.numistaId || null,
-            seedImageId: r.seedImageId || null,
-            builtIn: false,
-          }));
+          customRules = parsed.map((r, i) => _normalizeRule(r, i));
           // Compile custom rule regexes
           for (const rule of customRules) {
             getRegex(rule);
@@ -199,6 +228,43 @@ const NumistaLookup = (() => {
     }
   };
 
+  /**
+   * Imports custom rules from an external source (e.g. a backup restore),
+   * preserving each rule's id AND seedImageId so previously-cached pattern images
+   * stay bound (STRK-202). Routing through addRule would mint fresh ids/seedImageIds
+   * and orphan the images, so this is a dedicated path. Id-less rules get a stable
+   * content-derived id; rules missing a pattern or replacement are skipped.
+   *
+   * @param {Array<Object>} rules - Rule objects to import.
+   * @param {boolean} [merge=true] - When true, keep existing rules and add only
+   *   ones whose id isn't already present; when false, replace all custom rules.
+   * @returns {{ success: boolean, imported: number, error: (string|undefined) }}
+   */
+  const importRules = (rules, merge = true) => {
+    if (!Array.isArray(rules)) {
+      return { success: false, imported: 0, error: "Rules must be an array." };
+    }
+    const incoming = rules
+      .map((r, i) => _normalizeRule(r, i))
+      .filter((r) => r.pattern && r.replacement);
+
+    const merged = merge ? customRules.slice() : [];
+    const seen = new Set(merged.map((r) => r.id));
+    let imported = 0;
+    for (const rule of incoming) {
+      if (seen.has(rule.id)) continue; // existing rule wins on an id collision
+      merged.push(rule);
+      seen.add(rule.id);
+      imported++;
+    }
+
+    customRules = merged;
+    compiledRegex.clear();
+    for (const rule of customRules) getRegex(rule);
+    saveCustomRules();
+    return { success: true, imported };
+  };
+
   return {
     matchQuery,
     addRule,
@@ -206,6 +272,7 @@ const NumistaLookup = (() => {
     removeRule,
     getCustomRules,
     loadCustomRules,
+    importRules,
   };
 })();
 

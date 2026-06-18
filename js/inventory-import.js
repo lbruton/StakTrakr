@@ -385,6 +385,14 @@
     const totalChanges =
       diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
     if (totalChanges === 0 && !settingsDiff) {
+      // A ZIP restore still carries ancillary data (custom lookup rules, cached
+      // pattern/user images, attachments) that may be missing locally even when
+      // inventory and mapped settings already match \u2014 run the ancillary restore
+      // rather than bailing, or those images stay orphaned (STRK-202).
+      if (options.alwaysApplyAncillary && onComplete) {
+        onComplete({ added: 0, modified: 0, deleted: 0 });
+        return;
+      }
       if (typeof showToast === "function")
         showToast("No changes detected \u2014 inventory is up to date");
       return;

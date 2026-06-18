@@ -156,4 +156,60 @@ test.describe("core/settings-search-images", () => {
     expect(await page.evaluate(() => window.NumistaLookup.getCustomRules().length)).toBe(before);
     await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
   });
+
+  // STRK-202: Settings ▸ Images surfaces pattern images whose rule no longer
+  // exists (orphans) and lets the user reclaim the space. "Delete all" routes
+  // through the custom showAppConfirm modal, not a native dialog.
+  test("Orphaned pattern images are listed and can be cleared", async ({ page }) => {
+    // Suppress the async demo seed (seed-images.js caches pattern rules+images on
+    // boot); otherwise its writes can race our clearAll() and leave referenced
+    // images behind. Re-boot with the seed gated off for a deterministic store.
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.imageCache !== "undefined" &&
+        Boolean(window.NumistaLookup) &&
+        typeof window.showSettingsModal === "function"
+    );
+
+    // Clean slate: no rules, two orphaned pattern-image records in IndexedDB.
+    await page.evaluate(async () => {
+      await window.imageCache.init();
+      await window.imageCache.clearAll();
+      localStorage.setItem("numistaLookupRules", JSON.stringify([]));
+      window.NumistaLookup.importRules([], false);
+      await window.imageCache.cachePatternImage(
+        "orphan-strk202-a",
+        new Blob(["a-obv"], { type: "image/png" }),
+        new Blob(["a-rev"], { type: "image/png" })
+      );
+      await window.imageCache.cachePatternImage(
+        "orphan-strk202-b",
+        new Blob(["b-obv"], { type: "image/png" }),
+        null
+      );
+    });
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("orphan-strk202-a");
+    await expect(container).toContainText("orphan-strk202-b");
+
+    const deleteAll = container.getByRole("button", { name: "Delete all", exact: true });
+    await expect(deleteAll).toBeVisible();
+    await deleteAll.click();
+
+    // Drive the custom confirm modal (#appDialogModal), not a native dialog.
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+
+    await expect(container).toContainText("No orphaned pattern images");
+    const remaining = await page.evaluate(
+      async () => (await window.imageCache.exportAllPatternImages()).length
+    );
+    expect(remaining).toBe(0);
+  });
 });
