@@ -3055,9 +3055,9 @@ const renderOrphanedPatternImages = async () => {
     renderOrphanedPatternImages();
     renderImageStorageStats();
   };
-  for (const rec of orphans) {
-    container.appendChild(await _buildOrphanImageRow(rec, onDelete));
-  }
+  // Build rows concurrently (each does IndexedDB lookups), then append in order.
+  const rows = await Promise.all(orphans.map((rec) => _buildOrphanImageRow(rec, onDelete)));
+  for (const row of rows) container.appendChild(row);
 };
 
 /**

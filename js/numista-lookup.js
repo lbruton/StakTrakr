@@ -187,6 +187,25 @@ const NumistaLookup = (() => {
   };
 
   /**
+   * Normalizes a raw persisted/imported rule into the in-memory shape, deriving a
+   * stable content id when one is missing (STRK-202). Shared by loadCustomRules and
+   * importRules so the two hydration paths never drift. builtIn is forced to false —
+   * these are user-created rules, and trusting an imported builtIn flag would let
+   * backup data inject a "built-in" rule.
+   * @param {Object} r - Raw rule-like object.
+   * @param {number} index - Position in the source list (fallback id disambiguator).
+   * @returns {{id: string, pattern: string, replacement: string, numistaId: (string|null), seedImageId: (string|null), builtIn: boolean}}
+   */
+  const _normalizeRule = (r, index) => ({
+    id: r.id || _deriveStableRuleId(r, index),
+    pattern: r.pattern || "",
+    replacement: r.replacement || "",
+    numistaId: r.numistaId || null,
+    seedImageId: r.seedImageId || null,
+    builtIn: false,
+  });
+
+  /**
    * Loads custom rules from localStorage. Called during app init.
    */
   const loadCustomRules = () => {
@@ -196,14 +215,7 @@ const NumistaLookup = (() => {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          customRules = parsed.map((r, i) => ({
-            id: r.id || _deriveStableRuleId(r, i),
-            pattern: r.pattern || "",
-            replacement: r.replacement || "",
-            numistaId: r.numistaId || null,
-            seedImageId: r.seedImageId || null,
-            builtIn: false,
-          }));
+          customRules = parsed.map((r, i) => _normalizeRule(r, i));
           // Compile custom rule regexes
           for (const rule of customRules) {
             getRegex(rule);
@@ -233,14 +245,7 @@ const NumistaLookup = (() => {
       return { success: false, imported: 0, error: "Rules must be an array." };
     }
     const incoming = rules
-      .map((r, i) => ({
-        id: r.id || _deriveStableRuleId(r, i),
-        pattern: r.pattern || "",
-        replacement: r.replacement || "",
-        numistaId: r.numistaId || null,
-        seedImageId: r.seedImageId || null,
-        builtIn: false,
-      }))
+      .map((r, i) => _normalizeRule(r, i))
       .filter((r) => r.pattern && r.replacement);
 
     const merged = merge ? customRules.slice() : [];
