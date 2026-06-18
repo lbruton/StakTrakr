@@ -26,8 +26,9 @@ npm run format:check
 - Before editing or running Playwright tests, read the Playwright policy reference in `AGENTS.md`.
 - Archived issue acceptance-criteria (AC) matrices are located in
   `tests/playwright/archive/issue-ac-matrices/`.
-- Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test inventory — adding, renaming, removing, or re-counting tests (`AGENTS.md` requirement; only review catches a missing or stale row).
-  - Exception: non-functional edits (comments, formatting, refactors) that leave the inventory unchanged don't need a row.
+- Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test inventory.
+  - This is an `AGENTS.md` requirement; a missing or stale row is caught only by review, not by any local gate.
+  - Exception: non-functional edits (comments, formatting, refactors) that leave the inventory unchanged do not require a coverage-map entry.
 
 ## Documentation
 
