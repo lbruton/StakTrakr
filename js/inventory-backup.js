@@ -1156,9 +1156,13 @@ Store this archive in a secure location for data protection.
     if (!userImgFolder) return;
 
     // STRK-200: skip photos whose item UUID isn't in the accepted inventory, so a
-    // restore can't leave orphaned user images in IndexedDB (mirrors _restoreAttachments).
+    // restore can't leave orphaned user images in IndexedDB. Array.isArray guards a
+    // null/undefined inventory (the window setter permits null) and keeps this
+    // consistent with the restoreImageVaultData guard in js/vault.js.
     const acceptedUuids = new Set(
-      typeof inventory !== "undefined" ? inventory.map((i) => i.uuid) : []
+      typeof inventory !== "undefined" && Array.isArray(inventory)
+        ? inventory.map((i) => i.uuid)
+        : []
     );
 
     const manifestFile = zip.file("user_image_manifest.json");
