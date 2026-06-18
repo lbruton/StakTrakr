@@ -26,7 +26,8 @@ npm run format:check
 - Before editing or running Playwright tests, read the Playwright policy reference in `AGENTS.md`.
 - Archived issue acceptance-criteria (AC) matrices are located in
   `tests/playwright/archive/issue-ac-matrices/`.
-- Any PR that touches Playwright tests — adding, renaming, or removing a spec, **or adding/removing test cases in an existing spec** — must update `tests/playwright/coverage-map.csv` (an `AGENTS.md` requirement, broader than "new spec"). Neither ESLint nor `check-release-sync` catches a missing or stale row; only review does.
+- A PR that touches Playwright tests must update `tests/playwright/coverage-map.csv` (`AGENTS.md` requirement). No local gate catches a missing row — only review does.
+  - "Touches" covers test-case changes inside an existing spec, not just spec-file additions, renames, or removals.
 
 ## Documentation
 
