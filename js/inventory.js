@@ -969,14 +969,24 @@ const _applyTradeLink = (disposedItem, receivedItem, receivedUuid, tradeDate, re
   });
 };
 
-const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
-  if (!disposedItem?.disposition || !Array.isArray(receivedUuids)) return [];
-  if (!Array.isArray(disposedItem.disposition.tradedForUuids)) {
-    disposedItem.disposition.tradedForUuids = [];
-  }
-  if (!disposedItem.disposition.tradeValues) disposedItem.disposition.tradeValues = {};
-  const linked = [];
+/**
+ * Resolve a raw received-uuid list into the ordered set of items that will
+ * actually be linked. Filters out falsy, duplicate, self, and unresolvable
+ * uuids, and resolves any "already linked elsewhere" reassignment prompts up
+ * front (removing the prior source on accept, dropping the candidate on
+ * decline). Resolving the full set before any link is applied lets
+ * {@link linkTradeItems} use the accepted count as the cost-basis divisor, so
+ * the divisor matches the number of items actually linked (STRK-196).
+ * @param {object} disposedItem - The item being disposed (trade source).
+ * @param {string[]} receivedUuids - Raw received-item uuids from the caller.
+ * @returns {Promise<Array<{receivedUuid: string, receivedItem: object}>>} Accepted candidates in first-occurrence order.
+ */
+const _resolveTradeCandidates = async (disposedItem, receivedUuids) => {
+  const accepted = [];
+  const seen = new Set();
   for (const receivedUuid of receivedUuids.filter(Boolean)) {
+    if (seen.has(receivedUuid)) continue;
+    seen.add(receivedUuid);
     const receivedItem = typeof findItemByUuid === "function" ? findItemByUuid(receivedUuid) : null;
     if (!receivedItem || receivedItem.uuid === disposedItem.uuid) continue;
     if (receivedItem.tradedFromUuid && receivedItem.tradedFromUuid !== disposedItem.uuid) {
@@ -986,7 +996,25 @@ const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
         typeof findItemByUuid === "function" ? findItemByUuid(receivedItem.tradedFromUuid) : null;
       removeTradeLinkReference(oldSource, receivedUuid);
     }
-    _applyTradeLink(disposedItem, receivedItem, receivedUuid, tradeDate, receivedUuids.length);
+    accepted.push({ receivedUuid, receivedItem });
+  }
+  return accepted;
+};
+
+const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
+  if (!disposedItem?.disposition || !Array.isArray(receivedUuids)) return [];
+  if (!Array.isArray(disposedItem.disposition.tradedForUuids)) {
+    disposedItem.disposition.tradedForUuids = [];
+  }
+  if (!disposedItem.disposition.tradeValues) disposedItem.disposition.tradeValues = {};
+  // STRK-196: resolve the final accepted set first so the cost-basis divisor
+  // equals the number of items actually linked. Duplicate/falsy/self/missing/
+  // declined entries must not dilute per-item price or duplicate change-log rows.
+  const accepted = await _resolveTradeCandidates(disposedItem, receivedUuids);
+  const receivedCount = accepted.length;
+  const linked = [];
+  for (const { receivedUuid, receivedItem } of accepted) {
+    _applyTradeLink(disposedItem, receivedItem, receivedUuid, tradeDate, receivedCount);
     linked.push(receivedUuid);
   }
   if (Object.keys(disposedItem.disposition.tradeValues).length === 0) {

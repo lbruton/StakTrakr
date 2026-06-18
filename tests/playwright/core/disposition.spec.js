@@ -939,6 +939,96 @@ test.describe("core/disposition", () => {
       await expect(page.locator("#viewItemModal")).toContainText("Missing item");
       await expect(page.locator("#viewItemModal")).toContainText("Trade Re-disposed");
     });
+
+    test("cost basis divides by actually-linked count, not raw input length (STRK-196)", async ({
+      page,
+    }) => {
+      // Source is Rhodium (no seeded spot) so computeTradeValue() returns null,
+      // pinning givenUpValue to disposition.amount for a deterministic divisor.
+      const TRADE_SOURCE = {
+        ...BASE_ITEM,
+        uuid: "strk196-source",
+        name: "STRK-196 Trade Source",
+        metal: "Rhodium",
+        composition: "Rhodium",
+        qty: 1,
+        serial: 7,
+        disposition: {
+          type: "traded",
+          date: "2026-01-01",
+          amount: 100,
+          realizedGainLoss: 0,
+          tradedForUuids: [],
+        },
+      };
+      const RECEIVED_ONE = {
+        ...BASE_ITEM,
+        uuid: "strk196-received-one",
+        name: "STRK-196 Received One",
+        qty: 1,
+        serial: 8,
+      };
+      const RECEIVED_TWO = {
+        ...BASE_ITEM,
+        uuid: "strk196-received-two",
+        name: "STRK-196 Received Two",
+        qty: 1,
+        serial: 9,
+      };
+
+      await seedDispositionData(page, {
+        inventory: [TRADE_SOURCE, RECEIVED_ONE, RECEIVED_TWO],
+      });
+      await gotoApp(page);
+
+      const result = await page.evaluate(async () => {
+        const source = window.inventory.find((i) => i.uuid === "strk196-source");
+        // Polluted input: a duplicate, a falsy entry, the source's own (self)
+        // uuid, and a missing uuid surround the two real received items. Only
+        // two items can actually be linked.
+        const linked = await window.linkTradeItems(
+          source,
+          [
+            "strk196-received-one",
+            "strk196-received-one",
+            "",
+            "strk196-source",
+            "strk196-missing",
+            "strk196-received-two",
+          ],
+          "2026-01-01"
+        );
+        const gutv = window.computeTradeValue(source, "2026-01-01");
+        const givenUpValue = gutv?.meltValue || parseFloat(source.disposition.amount) || 0;
+        const one = window.inventory.find((i) => i.uuid === "strk196-received-one");
+        const two = window.inventory.find((i) => i.uuid === "strk196-received-two");
+        return {
+          linked,
+          tradedForUuids: source.disposition.tradedForUuids,
+          givenUpValue,
+          priceOne: one.price,
+          priceTwo: two.price,
+          tradeLinkEntries: window.changeLog.filter(
+            (entry) => entry.field === "tradeLink" && entry.itemKey === "strk196-source"
+          ).length,
+        };
+      });
+
+      // Only the two unique, resolvable, non-self received items are linked.
+      expect(result.linked).toEqual(["strk196-received-one", "strk196-received-two"]);
+      expect(result.tradedForUuids).toEqual(["strk196-received-one", "strk196-received-two"]);
+
+      // Cost basis splits the given-up value by the 2 actually-linked items —
+      // each received item carries half — NOT by the raw 6-entry input length
+      // (which would dilute each to a sixth). Relational assertion is immune to
+      // the exact melt-value formula: price * linkedCount must equal givenUpValue.
+      expect(result.givenUpValue).toBeGreaterThan(0);
+      expect(result.priceOne).toBe(result.priceTwo);
+      expect(parseFloat(result.priceOne) * 2).toBeCloseTo(result.givenUpValue, 5);
+
+      // The duplicated input uuid must not emit a redundant trade-link row.
+      expect(result.tradeLinkEntries).toBe(2);
+    });
   });
 });
 
