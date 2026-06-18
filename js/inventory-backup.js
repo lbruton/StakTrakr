@@ -221,7 +221,7 @@
    * @returns {Array} 13 leading cells matching BACKUP_CSV_HEADERS[0..12].
    */
   const _backupCsvValueCells = (item) => {
-    const currentSpot = spotPrices[item.metal.toLowerCase()] || 0;
+    const currentSpot = spotPrices[(item.metal || "").toLowerCase()] || 0;
     const valuation =
       typeof computeItemValuation === "function" ? computeItemValuation(item, currentSpot) : null;
     const purchasePrice = valuation
@@ -239,7 +239,7 @@
       item.name,
       item.year || "",
       item.qty,
-      parseFloat(item.weight).toFixed(4),
+      (parseFloat(item.weight) || 0).toFixed(4),
       item.weightUnit || "oz",
       parseFloat(item.purity) || 1.0,
       formatCurrency(purchasePrice),

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.29] - 2026-06-17
+
+### Fixed — STRK-211, STRK-212: CSV and backup export no longer crash on incomplete items
+
+- **CSV export & backup**: Exporting CSV or creating a backup ZIP no longer throws and aborts when an inventory item is missing its metal or has a non-numeric weight. Such items fall back to the existing "Silver" metal default and a `0.0000` weight in the output instead of crashing the entire export (STRK-211, STRK-212).
+
+---
+
 ## [3.35.28] - 2026-06-17
 
 ### Fixed — STRK-200: User-image restore orphan guard
