@@ -74,12 +74,12 @@ test.describe("SW classified caching", () => {
     // freshness headers (x-cached-at / x-generated-at). matchWithAgeCheck treats this as
     // a legacy entry and returns null → SW goes to network.
     // fetchAndCacheClassified fetches from the Python dev server → 200 → writes x-cached-at.
-    await fetchClassified(page, "http://localhost:3000/data/spot-history-2025.json");
+    await fetchClassified(page, "/data/spot-history-2025.json");
     expect(await readSwStrategy(page)).toBe("network");
 
     // Second fetch — classified entry now has x-cached-at ≈ now; floor = 86400 s.
     // ageSeconds (≈ 0) < 86400 → fresh → cache-hit.
-    await fetchClassified(page, "http://localhost:3000/data/spot-history-2025.json");
+    await fetchClassified(page, "/data/spot-history-2025.json");
     expect(await readSwStrategy(page)).toBe("cache-hit");
   });
 
@@ -109,12 +109,12 @@ test.describe("SW classified caching", () => {
           })
         );
       },
-      { cn: cacheName, url: "http://localhost:3000/data/spot-history-2025.json", ts: staleCachedAt }
+      { cn: cacheName, url: "/data/spot-history-2025.json", ts: staleCachedAt }
     );
 
     // matchWithAgeCheck → stale (ageSeconds ≈ 90000 ≥ 86400) → null
     // → fetchAndCacheClassified → Python server → 200 → "network"
-    await fetchClassified(page, "http://localhost:3000/data/spot-history-2025.json");
+    await fetchClassified(page, "/data/spot-history-2025.json");
     expect(await readSwStrategy(page)).toBe("network");
   });
 
@@ -129,7 +129,7 @@ test.describe("SW classified caching", () => {
     // → catch → caches.match → pre-cached entry returned → lastStrategy = "network-fallback"
     await page.context().setOffline(true);
     try {
-      await fetchClassified(page, "http://localhost:3000/data/spot-history-2025.json");
+      await fetchClassified(page, "/data/spot-history-2025.json");
       expect(await readSwStrategy(page)).toBe("network-fallback");
     } finally {
       await page.context().setOffline(false);

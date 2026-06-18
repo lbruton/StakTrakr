@@ -30,7 +30,10 @@ export default defineConfig({
   webServer: {
     command: `python3 -m http.server ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: false,
+    // Safe to reuse this worktree's own server across local runs (faster iteration);
+    // the per-worktree port means an "existing" server can only ever be our own, never
+    // another session's, so the cross-session reuse footgun stays closed. CI starts fresh.
+    reuseExistingServer: !process.env.CI,
     stderr: "ignore",
   },
 });
