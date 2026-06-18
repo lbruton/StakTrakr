@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.31] - 2026-06-18
+
+### Changed — STRK-228: Faster Settings User Images grid for large inventories
+
+- **Settings → User Images**: Rendering the per-Item User Images grid is faster for large collections. Each photo's lookup to its inventory item (for the display name and Edit button) uses an indexed lookup instead of two linear scans per photo, so the grid no longer slows down as your inventory and photo count grow. Grid contents and Edit/Delete actions are unchanged (STRK-228).
+
+---
+
 ## [3.35.30] - 2026-06-18
 
 ### Changed — STRK-201: Faster backup export for large inventories

@@ -3505,6 +3505,16 @@ const renderUserImageGrid = async () => {
 
   container.textContent = "";
 
+  // Pre-index inventory by UUID → array index for O(1) lookups (STRK-228)
+  const idxByUuid = new Map();
+  if (typeof inventory !== "undefined" && Array.isArray(inventory)) {
+    for (let i = 0; i < inventory.length; i++) {
+      const inv = inventory[i];
+      // First-match parity with the original inventory.find() (keep earliest index)
+      if (inv?.uuid && !idxByUuid.has(inv.uuid)) idxByUuid.set(inv.uuid, i);
+    }
+  }
+
   for (const rec of userImages) {
     const row = document.createElement("div");
     row.className = "pattern-rule-row";
@@ -3533,9 +3543,8 @@ const renderUserImageGrid = async () => {
     row.appendChild(thumbs);
 
     // Item name
-    const item =
-      typeof inventory !== "undefined" ? inventory.find((i) => i.uuid === rec.uuid) : null;
-    const itemIndex = item && typeof inventory !== "undefined" ? inventory.indexOf(item) : -1;
+    const itemIndex = idxByUuid.get(rec.uuid) ?? -1;
+    const item = itemIndex >= 0 ? inventory[itemIndex] : null;
     const name = item ? item.name : rec.uuid.slice(0, 8) + "...";
 
     const info = document.createElement("div");
