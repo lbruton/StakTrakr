@@ -627,7 +627,9 @@
   function _buildPurityTag(item) {
     const purityVal = parseFloat(item.purity);
     return !isNaN(purityVal) && purityVal > 0 && purityVal < 1.0
-      ? `<span class="purity-tag" title="Purity: ${purityVal}" onclick="${escapeAttribute(`applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})`)}" tabindex="0" role="button" style="cursor:pointer;">${purityVal}</span>`
+      ? `<span class="purity-tag" title="Purity: ${escapeAttribute(String(purityVal))}"
+                 onclick="${escapeAttribute(`applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})`)}"
+                 tabindex="0" role="button" style="cursor:pointer;">${purityVal}</span>`
       : "";
   }
 
