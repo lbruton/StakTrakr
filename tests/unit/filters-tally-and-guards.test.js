@@ -58,6 +58,11 @@ describe("filters.js _tallyLocation — STRK-206 Numista-Import normalization", 
 });
 
 describe("filters.js _tallyTags — STRK-207 getItemTags null guard", () => {
+  /**
+   * Builds an isolated _tallyTags with the given getItemTags collaborator injected.
+   * @param {(uuid: string) => (string[]|null|undefined)} getItemTags - Tag-lookup stub
+   * @returns {(tags: object, item: object) => void} The isolated _tallyTags
+   */
   function build(getItemTags) {
     return new Function("getItemTags", sliceConst("_tallyTags") + "\nreturn _tallyTags;")(
       getItemTags
@@ -81,6 +86,11 @@ describe("filters.js _tallyTags — STRK-207 getItemTags null guard", () => {
 });
 
 describe("filters.js _filterFieldMatchesWord — STRK-207 getItemTags null guard (audit site)", () => {
+  /**
+   * Builds an isolated _filterFieldMatchesWord with getItemTags injected.
+   * @param {(uuid: string) => (string[]|null|undefined)} getItemTags - Tag-lookup stub
+   * @returns {(item: object, wordRegex: RegExp, word: string, formattedDate: string, catalogText: string) => boolean}
+   */
   function build(getItemTags) {
     return new Function(
       "getItemTags",
@@ -98,6 +108,46 @@ describe("filters.js _filterFieldMatchesWord — STRK-207 getItemTags null guard
   });
 });
 
+describe("filters.js _filterResolveSearchCache — STRK-207 getItemTags null guard (audit site)", () => {
+  /**
+   * Builds an isolated _filterResolveSearchCache with all collaborators injected.
+   * Only getItemTags varies per test; the rest are inert doubles so evaluation never throws.
+   * @param {(uuid: string) => (string[]|null|undefined)} getItemTags - Tag-lookup stub
+   * @returns {(item: object) => {text: string, formattedDate: string, catalogText: string}}
+   */
+  function build(getItemTags) {
+    const searchCache = new Map();
+    const formatDisplayDate = () => "";
+    const getItemSearchHaystack = (_item, searchTags) => searchTags;
+    const collectNumistaStrings = () => [];
+    return new Function(
+      "searchCache",
+      "getItemTags",
+      "formatDisplayDate",
+      "getItemSearchHaystack",
+      "collectNumistaStrings",
+      sliceConst("_filterResolveSearchCache") + "\nreturn _filterResolveSearchCache;"
+    )(searchCache, getItemTags, formatDisplayDate, getItemSearchHaystack, collectNumistaStrings);
+  }
+
+  test("does not throw and yields empty tag text when getItemTags returns null", () => {
+    const fn = build(() => null);
+    const item = { uuid: "x", date: "" };
+    let cached;
+    assert.doesNotThrow(() => {
+      cached = fn(item);
+    });
+    // getItemSearchHaystack echoes the resolved search-tags string, so empty tags → "".
+    assert.equal(cached.text, "");
+  });
+
+  test("joins tags into the haystack when getItemTags returns an array", () => {
+    const fn = build(() => ["gold", "key-date"]);
+    const cached = fn({ uuid: "x", date: "" });
+    assert.equal(cached.text, "gold key-date");
+  });
+});
+
 describe("filters.js _resetDisposedFilter — STRK-207 disposedFilterGroup guard", () => {
   before(() => {
     // The fix guards with `instanceof HTMLElement`; provide the type in the Node context.
@@ -106,6 +156,12 @@ describe("filters.js _resetDisposedFilter — STRK-207 disposedFilterGroup guard
     }
   });
 
+  /**
+   * Builds an isolated _resetDisposedFilter with DOM + persistence collaborators injected.
+   * @param {*} dfg - The value safeGetElement returns (real element, truthy dummy, etc.)
+   * @param {Array<Array>} calls - Accumulator recording (name, ...args) of each side effect
+   * @returns {() => void} The isolated _resetDisposedFilter
+   */
   function build(dfg, calls) {
     const safeGetElement = () => dfg;
     const saveData = (k, v) => calls.push(["saveData", k, v]);

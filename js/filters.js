@@ -1274,7 +1274,9 @@ const _filterResolveSearchCache = (item) => {
   let cached = searchCache.get(item);
   if (!cached || typeof cached === "string") {
     const _searchTags =
-      typeof getItemTags === "function" ? (getItemTags(item.uuid) || []).join(" ") : "";
+      typeof getItemTags === "function" && item.uuid
+        ? (getItemTags(item.uuid) || []).join(" ")
+        : "";
     const _formattedDate = formatDisplayDate(item.date).toLowerCase();
 
     // STRK-86: Delegate haystack assembly to getItemSearchHaystack so that
@@ -1340,6 +1342,7 @@ const _filterFieldMatchesWord = (item, wordRegex, word, formattedDate, catalogTe
   // Tags (word-boundary match against each tag).
   return (
     typeof getItemTags === "function" &&
+    item.uuid &&
     (getItemTags(item.uuid) || []).some((t) => wordRegex.test(t))
   );
 };
