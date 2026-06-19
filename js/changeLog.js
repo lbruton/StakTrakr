@@ -557,6 +557,18 @@ const _undoPriceHistoryDelete = (entry) => {
   try {
     deleted = JSON.parse(entry.oldValue);
   } catch {
+    deleted = null;
+  }
+  // Guard both unparseable JSON and parseable-but-corrupt snapshots (null, {},
+  // or missing uuid/entry) before mutating itemPriceHistory or entry.undone.
+  const isValidSnapshot =
+    deleted &&
+    typeof deleted === "object" &&
+    typeof deleted.uuid === "string" &&
+    deleted.entry &&
+    typeof deleted.entry === "object" &&
+    typeof deleted.entry.ts === "number";
+  if (!isValidSnapshot) {
     if (typeof showToast === "function") showToast("Undo failed — corrupt price-history snapshot.");
     return;
   }

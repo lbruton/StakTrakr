@@ -1290,20 +1290,36 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
       const toasts = [];
       window.showToast = (msg) => toasts.push(msg);
 
-      // A corrupt persisted entry routes through toggleChange → _undoPriceHistoryDelete.
-      window.changeLog = [{ field: "priceHistoryDelete", oldValue: "{not-json", undone: false }];
-
-      let threw = false;
-      try {
-        await window.toggleChange(0);
-      } catch {
-        threw = true;
+      // Every corrupt shape must fail safe: unparseable JSON, parseable-but-null,
+      // an empty object, and a structurally-incomplete snapshot (missing entry).
+      // Each routes through toggleChange → _undoPriceHistoryDelete.
+      const corruptPayloads = [
+        "{not-json",
+        "null",
+        "{}",
+        JSON.stringify({ uuid: "missing-entry" }),
+      ];
+      const out = [];
+      for (const oldValue of corruptPayloads) {
+        window.changeLog = [{ field: "priceHistoryDelete", oldValue, undone: false }];
+        let threw = false;
+        try {
+          await window.toggleChange(0);
+        } catch {
+          threw = true;
+        }
+        out.push({ oldValue, threw, undone: window.changeLog[0].undone });
       }
-      return { threw, undone: window.changeLog[0].undone, toasts };
+      return { out, toasts };
     });
 
-    expect(result.threw).toBe(false);
-    expect(result.undone).toBe(false); // unchanged — no mutation on a corrupt snapshot
-    expect(result.toasts).toEqual(["Undo failed — corrupt price-history snapshot."]);
+    for (const r of result.out) {
+      expect(r.threw, `payload ${r.oldValue} must not throw`).toBe(false);
+      expect(r.undone, `payload ${r.oldValue} must not flip undone`).toBe(false);
+    }
+    // One toast per corrupt payload, none mutated.
+    expect(result.toasts).toEqual(
+      result.out.map(() => "Undo failed — corrupt price-history snapshot.")
+    );
   });
 });
