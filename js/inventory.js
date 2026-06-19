@@ -1011,7 +1011,18 @@ const linkTradeItems = async (disposedItem, receivedUuids, tradeDate) => {
   // equals the number of items actually linked. Duplicate/falsy/self/missing/
   // declined entries must not dilute per-item price or duplicate change-log rows.
   const accepted = await _resolveTradeCandidates(disposedItem, receivedUuids);
-  const receivedCount = accepted.length;
+  // STRK-229: divisor = total items linked to the trade AFTER this call, not just
+  // this batch. Items already linked (and still resolvable) that aren't being
+  // re-added still share the given-up value, so newly-added items are priced by
+  // the final total. Fresh dispose starts with an empty set, so total === batch.
+  const acceptedUuids = new Set(accepted.map((c) => c.receivedUuid));
+  const existingLinked = (disposedItem.disposition.tradedForUuids || []).filter(
+    (uuid) =>
+      !acceptedUuids.has(uuid) &&
+      typeof findItemByUuid === "function" &&
+      Boolean(findItemByUuid(uuid))
+  );
+  const receivedCount = existingLinked.length + accepted.length;
   const linked = [];
   for (const { receivedUuid, receivedItem } of accepted) {
     _applyTradeLink(disposedItem, receivedItem, receivedUuid, tradeDate, receivedCount);
@@ -1029,16 +1040,62 @@ const unlinkTradeItem = (disposedItem, receivedUuid) => {
   if (typeof renderChangeLog === "function") renderChangeLog();
 };
 
+/**
+ * STRK-229: Re-balance every still-resolvable item linked to a trade so each
+ * carries an equal share of the given-up value (givenUpValue / totalLinkedCount),
+ * keeping the allocation summed to the given-up value after an edit adds or
+ * removes received items. Preserves STRK-132 carryover semantics (basis derives
+ * from the given-up item's trade-date value, not the received item's FMV).
+ * Emits one scalar "price" change-log row per item whose price actually changes,
+ * so each re-balance is independently auditable and undoable via the standard
+ * scalar-field undo path; items already at the correct share (e.g. one just
+ * linked this operation with the final divisor) are skipped to avoid redundant
+ * rows.
+ * @param {object} disposedItem - The disposed (trade-source) item.
+ * @param {string} tradeDate - Effective trade date.
+ */
+const _repriceTradeLinks = (disposedItem, tradeDate) => {
+  const disposition = disposedItem?.disposition;
+  if (!disposition || !Array.isArray(disposition.tradedForUuids)) return;
+  const linked = disposition.tradedForUuids
+    .map((uuid) => (typeof findItemByUuid === "function" ? findItemByUuid(uuid) : null))
+    .filter(Boolean);
+  const totalCount = linked.length;
+  if (totalCount === 0) return;
+  const givenUpTradeValue =
+    typeof computeTradeValue === "function" ? computeTradeValue(disposedItem, tradeDate) : null;
+  const givenUpValue = givenUpTradeValue?.meltValue || parseFloat(disposition.amount) || 0;
+  if (givenUpValue <= 0) return;
+  const perItem = String(givenUpValue / totalCount);
+  for (const receivedItem of linked) {
+    if (receivedItem.price === perItem) continue;
+    const oldPrice = receivedItem.price;
+    receivedItem.price = perItem;
+    if (typeof logChange === "function") {
+      logChange(
+        receivedItem.name || "Trade item",
+        "price",
+        oldPrice,
+        perItem,
+        inventory.indexOf(receivedItem)
+      );
+    }
+  }
+};
+
 const updateTradeLinks = async (disposedItem, newUuids) => {
   if (!disposedItem?.disposition) return;
   const oldUuids = [...(disposedItem.disposition.tradedForUuids || [])];
   const removed = oldUuids.filter((u) => !newUuids.includes(u));
   const added = newUuids.filter((u) => !oldUuids.includes(u));
+  const tradeDate = disposedItem.disposition.date || "";
   removed.forEach((uuid) => removeTradeLinkReference(disposedItem, uuid));
   if (added.length > 0) {
-    const tradeDate = disposedItem.disposition.date || "";
     await linkTradeItems(disposedItem, added, tradeDate);
   }
+  // STRK-229: after adds/removes settle, re-balance the full linked set so every
+  // item carries an equal share of the given-up value (allocation sum invariant).
+  _repriceTradeLinks(disposedItem, tradeDate);
   saveInventory();
   if (typeof renderChangeLog === "function") renderChangeLog();
   if (typeof renderTable === "function") renderTable();

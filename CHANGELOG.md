@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.35] - 2026-06-19
+
+### Changed — STRK-229: Correct trade cost basis when editing a trade's linked items
+
+- **Trade cost basis**: Editing an existing trade to add or remove received items now re-balances every linked item so each carries an equal share of the given-up value (given-up value ÷ total linked count), keeping the trade's total cost basis equal to what you traded away. Previously, adding items to a trade priced the new items by the size of that edit alone — inflating the total basis — and never re-priced the originally-linked items. Each re-balanced item records its own Change Log entry you can undo (STRK-229).
+
+---
+
 ## [3.35.34] - 2026-06-18
 
 ### Changed — STRK-204: Safer undo for corrupt price-history Change Log entries

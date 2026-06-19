@@ -1029,6 +1029,141 @@ test.describe("core/disposition", () => {
       // The duplicated input uuid must not emit a redundant trade-link row.
       expect(result.tradeLinkEntries).toBe(2);
     });
+
+    test("edit-add re-balances the whole trade so basis sums to given-up value (STRK-229)", async ({
+      page,
+    }) => {
+      // Rhodium source has no seeded spot, so computeTradeValue() returns null and
+      // givenUpValue pins to disposition.amount ($100) for a deterministic divisor.
+      const TRADE_SOURCE = {
+        ...BASE_ITEM,
+        uuid: "strk229-add-source",
+        name: "STRK-229 Add Source",
+        metal: "Rhodium",
+        composition: "Rhodium",
+        qty: 1,
+        serial: 21,
+        disposition: {
+          type: "traded",
+          date: "2026-01-01",
+          amount: 100,
+          realizedGainLoss: 0,
+          tradedForUuids: [],
+        },
+      };
+      const mkReceived = (n) => ({
+        ...BASE_ITEM,
+        uuid: `strk229-add-${n}`,
+        name: `STRK-229 Add ${n}`,
+        qty: 1,
+        serial: 21 + n,
+      });
+
+      await seedDispositionData(page, {
+        inventory: [TRADE_SOURCE, mkReceived(1), mkReceived(2), mkReceived(3)],
+      });
+      await gotoApp(page);
+
+      const result = await page.evaluate(async () => {
+        const source = window.inventory.find((i) => i.uuid === "strk229-add-source");
+        // Establish the initial 2-item trade: A and B each carry half.
+        await window.linkTradeItems(source, ["strk229-add-1", "strk229-add-2"], "2026-01-01");
+        const priceRowsBefore = window.changeLog.filter((e) => e.field === "price").length;
+        // Edit the trade to add a third received item.
+        await window.updateTradeLinks(source, ["strk229-add-1", "strk229-add-2", "strk229-add-3"]);
+        const find = (u) => window.inventory.find((i) => i.uuid === u);
+        const gutv = window.computeTradeValue(source, "2026-01-01");
+        const givenUpValue = gutv?.meltValue || parseFloat(source.disposition.amount) || 0;
+        return {
+          tradedForUuids: source.disposition.tradedForUuids,
+          givenUpValue,
+          priceA: find("strk229-add-1").price,
+          priceB: find("strk229-add-2").price,
+          priceC: find("strk229-add-3").price,
+          priceRowsAdded:
+            window.changeLog.filter((e) => e.field === "price").length - priceRowsBefore,
+        };
+      });
+
+      expect(result.tradedForUuids).toEqual(["strk229-add-1", "strk229-add-2", "strk229-add-3"]);
+      // Every linked item carries an equal third of the given-up value...
+      expect(result.priceA).toBe(result.priceB);
+      expect(result.priceB).toBe(result.priceC);
+      // ...and the allocation sums back to the given-up value (no inflation).
+      expect(result.givenUpValue).toBeCloseTo(100, 5);
+      expect(parseFloat(result.priceA) * 3).toBeCloseTo(result.givenUpValue, 5);
+      // Exactly the two originals are re-priced (one row each); the newly-added
+      // item is priced in its own trade-link row, not a redundant price row.
+      expect(result.priceRowsAdded).toBe(2);
+    });
+
+    test("edit-remove re-inflates the remaining trade items to the given-up value (STRK-229)", async ({
+      page,
+    }) => {
+      const TRADE_SOURCE = {
+        ...BASE_ITEM,
+        uuid: "strk229-rm-source",
+        name: "STRK-229 Remove Source",
+        metal: "Rhodium",
+        composition: "Rhodium",
+        qty: 1,
+        serial: 31,
+        disposition: {
+          type: "traded",
+          date: "2026-01-01",
+          amount: 100,
+          realizedGainLoss: 0,
+          tradedForUuids: [],
+        },
+      };
+      const mkReceived = (n) => ({
+        ...BASE_ITEM,
+        uuid: `strk229-rm-${n}`,
+        name: `STRK-229 Remove ${n}`,
+        qty: 1,
+        serial: 31 + n,
+      });
+
+      await seedDispositionData(page, {
+        inventory: [TRADE_SOURCE, mkReceived(1), mkReceived(2), mkReceived(3)],
+      });
+      await gotoApp(page);
+
+      const result = await page.evaluate(async () => {
+        const source = window.inventory.find((i) => i.uuid === "strk229-rm-source");
+        // Establish a 3-item trade: each carries a third.
+        await window.linkTradeItems(
+          source,
+          ["strk229-rm-1", "strk229-rm-2", "strk229-rm-3"],
+          "2026-01-01"
+        );
+        const priceRowsBefore = window.changeLog.filter((e) => e.field === "price").length;
+        // Edit the trade to drop the third received item.
+        await window.updateTradeLinks(source, ["strk229-rm-1", "strk229-rm-2"]);
+        const find = (u) => window.inventory.find((i) => i.uuid === u);
+        const gutv = window.computeTradeValue(source, "2026-01-01");
+        const givenUpValue = gutv?.meltValue || parseFloat(source.disposition.amount) || 0;
+        return {
+          tradedForUuids: source.disposition.tradedForUuids,
+          givenUpValue,
+          priceA: find("strk229-rm-1").price,
+          priceB: find("strk229-rm-2").price,
+          droppedBackRef: find("strk229-rm-3").tradedFromUuid || null,
+          priceRowsAdded:
+            window.changeLog.filter((e) => e.field === "price").length - priceRowsBefore,
+        };
+      });
+
+      // The dropped item is fully unlinked from the trade.
+      expect(result.tradedForUuids).toEqual(["strk229-rm-1", "strk229-rm-2"]);
+      expect(result.droppedBackRef).toBeNull();
+      // The two survivors split the given-up value evenly and sum back to it.
+      expect(result.priceA).toBe(result.priceB);
+      expect(result.givenUpValue).toBeCloseTo(100, 5);
+      expect(parseFloat(result.priceA) * 2).toBeCloseTo(result.givenUpValue, 5);
+      // Both survivors are re-priced — one row each.
+      expect(result.priceRowsAdded).toBe(2);
+    });
   });
 });
 
