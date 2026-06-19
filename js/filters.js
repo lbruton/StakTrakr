@@ -150,14 +150,18 @@ const _tallyPaymentMethod = (paymentMethods, item) => {
 };
 
 /**
- * Tallies a location value into a location bucket, skipping empty / "Unknown".
- * The bucket key is the original (untrimmed) value to match legacy chip output.
+ * Tallies a location value into a location bucket, skipping empty / "Unknown" /
+ * "Numista Import". The bucket key is the original (untrimmed) value to match
+ * legacy chip output. "Numista Import" is a synthetic non-location: the filter
+ * predicate (_filterByLocationField) and the table display layer both normalize
+ * it to the "—" placeholder, so tallying it would render a location chip that can
+ * never match the predicate — clicking it would filter the table to zero (STRK-206).
  * @param {Object.<string, number>} map - Location → count map (mutated)
  * @param {string} rawLoc - The raw location value (purchase or storage)
  */
 const _tallyLocation = (map, rawLoc) => {
-  const loc = (rawLoc || "").trim();
-  if (loc && loc.toLowerCase() !== "unknown") {
+  const loc = (rawLoc || "").trim().toLowerCase();
+  if (loc && loc !== "unknown" && loc !== "numista import") {
     map[rawLoc] = (map[rawLoc] || 0) + 1;
   }
 };
@@ -212,7 +216,7 @@ const _tallyPurity = (purities, item) => {
  */
 const _tallyTags = (tags, item) => {
   if (typeof getItemTags === "function" && item.uuid) {
-    const itemTags = getItemTags(item.uuid);
+    const itemTags = getItemTags(item.uuid) || [];
     itemTags.forEach((tag) => {
       tags[tag] = (tags[tag] || 0) + 1;
     });
@@ -353,10 +357,15 @@ const generateCategorySummary = (inventory) => {
  * disposed-mode chip's click handler and its close (×) action.
  */
 const _resetDisposedFilter = () => {
+  // safeGetElement returns a truthy DUMMY (not null) when the element is absent,
+  // so `if (!dfg)` would not guard it — assert a real element before touching the
+  // DOM, while still persisting + re-rendering regardless (STRK-207).
   const dfg = safeGetElement("disposedFilterGroup");
-  dfg.querySelectorAll(".chip-sort-btn").forEach(function (b) {
-    b.classList.toggle("active", b.dataset.disposedMode === "hide");
-  });
+  if (dfg instanceof HTMLElement) {
+    dfg.querySelectorAll(".chip-sort-btn").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.disposedMode === "hide");
+    });
+  }
   if (typeof saveData === "function") saveData("disposedFilterMode", "hide");
   if (typeof renderTable === "function") renderTable();
   renderActiveFilters();
@@ -1264,7 +1273,8 @@ const _applyScalarFilter = (result, field, value) => {
 const _filterResolveSearchCache = (item) => {
   let cached = searchCache.get(item);
   if (!cached || typeof cached === "string") {
-    const _searchTags = typeof getItemTags === "function" ? getItemTags(item.uuid).join(" ") : "";
+    const _searchTags =
+      typeof getItemTags === "function" ? (getItemTags(item.uuid) || []).join(" ") : "";
     const _formattedDate = formatDisplayDate(item.date).toLowerCase();
 
     // STRK-86: Delegate haystack assembly to getItemSearchHaystack so that
@@ -1328,7 +1338,10 @@ const _filterFieldMatchesWord = (item, wordRegex, word, formattedDate, catalogTe
   if (numericIncludes.some((f) => f.includes(word))) return true;
 
   // Tags (word-boundary match against each tag).
-  return typeof getItemTags === "function" && getItemTags(item.uuid).some((t) => wordRegex.test(t));
+  return (
+    typeof getItemTags === "function" &&
+    (getItemTags(item.uuid) || []).some((t) => wordRegex.test(t))
+  );
 };
 
 /**

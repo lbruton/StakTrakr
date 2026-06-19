@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.36] - 2026-06-19
+
+### Changed — STRK-206/207: filters.js robustness (Numista-Import chip + defensive guards)
+
+- **Location filters**: Clicking a "Numista Import" purchase/storage-location chip no longer filters your inventory to zero items. Items imported from Numista have no real location, so they now group under the "—" placeholder — consistent with how they already display in the table — instead of producing a separate location chip that the filter could never match (STRK-206).
+- **Defensive hardening**: The filtering code's tag lookups (`getItemTags` readers) and the disposed-items filter reset now tolerate missing tag data and a missing filter container without throwing. Internal hardening only; no visible change in normal use (STRK-207).
+
+---
+
 ## [3.35.35] - 2026-06-19
 
 ### Changed — STRK-229: Correct trade cost basis when editing a trade's linked items
