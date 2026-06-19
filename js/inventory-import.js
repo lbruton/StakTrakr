@@ -189,7 +189,9 @@
       typeof showToast === "function"
     ) {
       const _safeFrom =
-        typeof sanitizeHtml === "function" ? sanitizeHtml(_parsedOrigin) : _parsedOrigin;
+        typeof sanitizeHtml === "function"
+          ? sanitizeHtml(_parsedOrigin)
+          : escapeHtml(_parsedOrigin);
       showToast(
         "⚠ This backup is from a different domain (" + _safeFrom + "). Check item counts carefully."
       );

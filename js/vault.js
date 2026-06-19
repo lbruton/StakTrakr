@@ -460,7 +460,7 @@ function _vaultWarnCrossOrigin(payloadMeta) {
     typeof showToast === "function"
   ) {
     var _safeVaultFrom =
-      typeof sanitizeHtml === "function" ? sanitizeHtml(_vaultOrigin) : _vaultOrigin;
+      typeof sanitizeHtml === "function" ? sanitizeHtml(_vaultOrigin) : escapeHtml(_vaultOrigin);
     showToast(
       "⚠ This vault was exported from a different domain (" +
         _safeVaultFrom +
