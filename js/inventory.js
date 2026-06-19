@@ -994,7 +994,7 @@ const _resolveTradeCandidates = async (disposedItem, receivedUuids) => {
       if (!proceed) continue;
       const oldSource =
         typeof findItemByUuid === "function" ? findItemByUuid(receivedItem.tradedFromUuid) : null;
-      removeTradeLinkReference(oldSource, receivedUuid);
+      if (oldSource) removeTradeLinkReference(oldSource, receivedUuid);
     }
     accepted.push({ receivedUuid, receivedItem });
   }
