@@ -1276,4 +1276,50 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(result.applied).toBe("none");
     expect(result.reason).toBe("no_paired_entries");
   });
+
+  // STRK-204: _undoPriceHistoryDelete must guard a corrupt oldValue snapshot the
+  // same way its sibling undo helpers do — a user-facing toast + no-op return
+  // instead of an unhandled SyntaxError. Pins the throw → graceful-toast behavior
+  // change deferred out of the behavior-preserving cohort 2.2 refactor (PR #1272).
+  test("STRK-204: priceHistoryDelete undo fails safe on corrupt snapshot", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      // The helper calls the global showToast (utils.js); stub it to capture calls.
+      const toasts = [];
+      window.showToast = (msg) => toasts.push(msg);
+
+      // Every corrupt shape must fail safe: unparseable JSON, parseable-but-null,
+      // an empty object, and a structurally-incomplete snapshot (missing entry).
+      // Each routes through toggleChange → _undoPriceHistoryDelete.
+      const corruptPayloads = [
+        "{not-json",
+        "null",
+        "{}",
+        JSON.stringify({ uuid: "missing-entry" }),
+      ];
+      const out = [];
+      for (const oldValue of corruptPayloads) {
+        window.changeLog = [{ field: "priceHistoryDelete", oldValue, undone: false }];
+        let threw = false;
+        try {
+          await window.toggleChange(0);
+        } catch {
+          threw = true;
+        }
+        out.push({ oldValue, threw, undone: window.changeLog[0].undone });
+      }
+      return { out, toasts };
+    });
+
+    for (const r of result.out) {
+      expect(r.threw, `payload ${r.oldValue} must not throw`).toBe(false);
+      expect(r.undone, `payload ${r.oldValue} must not flip undone`).toBe(false);
+    }
+    // One toast per corrupt payload, none mutated.
+    expect(result.toasts).toEqual(
+      result.out.map(() => "Undo failed — corrupt price-history snapshot.")
+    );
+  });
 });

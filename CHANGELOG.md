@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.34] - 2026-06-18
+
+### Changed — STRK-204: Safer undo for corrupt price-history Change Log entries
+
+- **Change Log undo**: Undoing a price-history deletion now fails safely when the stored snapshot is corrupt — it shows a toast and leaves your data untouched instead of throwing an unhandled error. This matches the guards already on the other undo actions and only affects Change Log entries that have been altered outside the app (STRK-204).
+
+---
+
+## [3.35.33] - 2026-06-18
+
+### Changed — STRK-196: Accurate trade cost basis for multi-item trades
+
+- **Disposition → Trade links**: When trading one item for multiple received items, the given-up cost basis is now divided by the number of items actually linked, not the raw input length. Duplicate, empty, self-referential, or unresolvable entries no longer dilute each received item's cost basis or emit redundant trade-link change-log rows. Everyday trades are unchanged; this corrects an edge case in cost-basis allocation (STRK-196).
+
+---
+
 ## [3.35.32] - 2026-06-18
 
 ### Changed — STRK-203: Harden cross-origin warning toasts
