@@ -36,6 +36,7 @@
  */
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
+import { encryptVaultPayload } from "../helpers/vault-fixtures.js";
 
 const ACCOUNT_ID = "dbid:strk147-test-account";
 const VAULT_PASSWORD = "strk147-test-password";
@@ -243,35 +244,6 @@ async function routeDropbox(page, options = {}) {
   });
 }
 
-/**
- * Encrypts a plain object as a StakTrakr vault file (salt|iv|iter|ciphertext)
- * decryptable by the in-app composite-key path (_tryDecryptMetadata / the
- * companion vault decrypt). Runs in-page so it uses the app's exact crypto.
- */
-async function encryptVaultFile(page, payload) {
-  return page.evaluate(
-    async ({ data, key, iterations }) => {
-      const salt = window.vaultRandomBytes(32);
-      const iv = window.vaultRandomBytes(12);
-      const derived = await window.vaultDeriveKey(key, salt, iterations);
-      const plaintext = new TextEncoder().encode(JSON.stringify(data));
-      const ciphertext = await window.vaultEncrypt(plaintext, derived, iv);
-      const bytes = window.serializeVaultFile(salt, iv, iterations, ciphertext);
-      return Array.from(new Uint8Array(bytes));
-    },
-    {
-      data: payload,
-      key: SYNC_KEY,
-      iterations:
-        (await page.evaluate(() =>
-          typeof window.VAULT_PBKDF2_ITERATIONS !== "undefined"
-            ? window.VAULT_PBKDF2_ITERATIONS
-            : 600000
-        )) || 600000,
-    }
-  );
-}
-
 /** Reads the persisted item-price-history from localStorage (decompressed/parsed). */
 async function readPersistedHistory(page) {
   return page.evaluate(() => {
@@ -324,16 +296,20 @@ async function buildRemoteMeta(page, opts = {}) {
     uuidCount: 1,
     entryCount: 1,
   };
-  return encryptVaultFile(page, {
-    syncId: "remote-sync",
-    timestamp: BASE_TS + 5000,
-    rev: "remote-rev",
-    deviceId: "remote-device",
-    itemCount: LOCAL_INVENTORY.length,
-    manifestVersion: 2,
-    itemPriceHistoryVault: pointer,
-    ...(opts.overrides || {}),
-  });
+  return encryptVaultPayload(
+    page,
+    {
+      syncId: "remote-sync",
+      timestamp: BASE_TS + 5000,
+      rev: "remote-rev",
+      deviceId: "remote-device",
+      itemCount: LOCAL_INVENTORY.length,
+      manifestVersion: 2,
+      itemPriceHistoryVault: pointer,
+      ...(opts.overrides || {}),
+    },
+    SYNC_KEY
+  );
 }
 
 /**
@@ -360,7 +336,7 @@ async function seedRemoteCompanion(page, opts = {}) {
     pointer: opts.pointer,
     overrides: opts.metaOverrides,
   });
-  const historyVaultBytes = await encryptVaultFile(page, history);
+  const historyVaultBytes = await encryptVaultPayload(page, history, SYNC_KEY);
   await routeDropbox(page, { metaBytes, historyVaultBytes, ...(opts.routeOptions || {}) });
   if (!opts.keepDiffModal) await suppressDiffModal(page);
   return { remoteHash };
