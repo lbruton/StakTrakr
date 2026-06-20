@@ -3358,6 +3358,35 @@ const renderCustomPatternRules = async () => {
         return;
       }
 
+      // STRK-221: resolve any new image uploads to blobs BEFORE mutating the
+      // rule, so a processing failure aborts the whole edit (matching the create
+      // path) rather than leaving the pattern changed while the image is rejected.
+      const obvFile = editForm.querySelector(".edit-obverse").files[0];
+      const revFile = editForm.querySelector(".edit-reverse").files[0];
+      const hasImageUpload = (obvFile || revFile) && window.imageCache?.isAvailable();
+      let obvBlob = null;
+      let revBlob = null;
+      if (hasImageUpload) {
+        const processor = typeof imageProcessor !== "undefined" ? imageProcessor : null;
+        const toBlob = async (file) => {
+          if (!processor) return file;
+          const processed = await processor.processFile(file);
+          if (!processed?.blob) {
+            throw new Error("the selected image could not be processed");
+          }
+          return processed.blob;
+        };
+
+        try {
+          if (obvFile) obvBlob = await toBlob(obvFile);
+          if (revFile) revBlob = await toBlob(revFile);
+        } catch (err) {
+          console.error("Image processing failed:", err);
+          appAlert("Failed to process image: " + err.message);
+          return;
+        }
+      }
+
       const result = NumistaLookup.updateRule(rule.id, {
         pattern: newPattern,
         replacement: newReplacement,
@@ -3369,28 +3398,9 @@ const renderCustomPatternRules = async () => {
         return;
       }
 
-      // Handle new image uploads
-      const obvFile = editForm.querySelector(".edit-obverse").files[0];
-      const revFile = editForm.querySelector(".edit-reverse").files[0];
-      if ((obvFile || revFile) && window.imageCache?.isAvailable()) {
+      // Cache the already-resolved image blobs now that the rule text is saved.
+      if (hasImageUpload) {
         const ruleId = rule.seedImageId || rule.id;
-        const processor = typeof imageProcessor !== "undefined" ? imageProcessor : null;
-        let obvBlob = null;
-        let revBlob = null;
-
-        try {
-          if (obvFile) {
-            obvBlob = processor ? (await processor.processFile(obvFile))?.blob || null : obvFile;
-          }
-          if (revFile) {
-            revBlob = processor ? (await processor.processFile(revFile))?.blob || null : revFile;
-          }
-        } catch (err) {
-          console.error("Image processing failed:", err);
-          appAlert("Failed to process image: " + err.message);
-          return;
-        }
-
         // Preserve existing side when only one side is uploaded
         if (rule.seedImageId && !(obvFile && revFile)) {
           const existing = await imageCache.getPatternImage(rule.seedImageId);

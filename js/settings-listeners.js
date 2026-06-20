@@ -512,7 +512,8 @@ const _compilePatternRuleRegex = (rawPattern, mode) => {
 /**
  * Resolves the obverse/reverse file inputs of a pattern rule into processed
  * image blobs. Uses the global imageProcessor when present, otherwise passes
- * the raw File through. Returns an error message if processing throws.
+ * the raw File through. Returns an error message if processing throws or a
+ * provided image yields no usable blob.
  * @param {HTMLInputElement|null} obverseInput - Obverse image file input.
  * @param {HTMLInputElement|null} reverseInput - Reverse image file input.
  * @returns {Promise<{ obverseBlob: (Blob|null), reverseBlob: (Blob|null) }|{ error: string }>}
@@ -524,7 +525,13 @@ const _processPatternRuleImages = async (obverseInput, reverseInput) => {
     if (!file) return null;
     if (!processor) return file;
     const result = await processor.processFile(file);
-    return result?.blob || null;
+    // STRK-221: a provided file that yields no blob is a processing failure,
+    // not an empty side — throw so the catch returns images.error (the caller
+    // alerts on it and aborts) instead of silently dropping the image.
+    if (!result?.blob) {
+      throw new Error("the selected image could not be processed");
+    }
+    return result.blob;
   };
 
   try {

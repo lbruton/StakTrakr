@@ -157,6 +157,103 @@ test.describe("core/settings-search-images", () => {
     await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
   });
 
+  // STRK-221: when the image processor returns no blob for a file the user
+  // actually selected, the add must surface an error and abort — not silently
+  // persist a rule with no cached image. (The no-processor branch falls back to
+  // the raw File; the processor-present-but-failed branch must not drop it.)
+  test("Image pattern rule is rejected when image processing yields no blob", async ({ page }) => {
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const before = await page.evaluate(() => window.NumistaLookup.getCustomRules().length);
+
+    // Force the processor to fail (return null) for any file — mirrors a
+    // transient decode/canvas failure, which processFile swallows as null.
+    await page.waitForFunction(() => Boolean(window.imageProcessor));
+    await page.evaluate(() => {
+      window.imageProcessor.processFile = async () => null;
+    });
+
+    await page.locator("#newPatternRuleBtn").click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+    await page.locator("#patternRulePattern").fill("processor-fail-rule");
+    await page
+      .locator("#patternRuleObverse")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await expect(page.locator("#patternRuleObverseName")).toHaveText("test-obverse.png");
+
+    await page.locator("#addPatternRuleBtn").click();
+
+    // A user-visible error is surfaced via the custom #appDialogModal (not a
+    // native dialog), and no rule is created (abort before addRule).
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await expect(page.locator("#appDialogModal")).toContainText("Failed to process image");
+    expect(await page.evaluate(() => window.NumistaLookup.getCustomRules().length)).toBe(before);
+
+    // Form stays open (no success-path reset/collapse).
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+  });
+
+  // STRK-221 (twin): the rule-EDIT path (js/settings.js) carried the same
+  // silent-drop bug. A new upload whose processing yields no blob must error +
+  // abort exactly like the create path — not quietly cache a null image.
+  test("Editing a pattern rule is rejected when image processing yields no blob", async ({
+    page,
+  }) => {
+    // Deterministic store: suppress the demo seed, one known rule, no images.
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.imageCache !== "undefined" &&
+        Boolean(window.NumistaLookup) &&
+        typeof window.showSettingsModal === "function"
+    );
+    await page.evaluate(async () => {
+      await window.imageCache.init();
+      await window.imageCache.clearAll();
+      localStorage.setItem("numistaLookupRules", JSON.stringify([]));
+      window.NumistaLookup.importRules([], false);
+      window.NumistaLookup.addRule("edittwinrule", "edittwinrule", null, "custom-img-edittwin");
+    });
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const rules = page.locator("#customPatternImageRules");
+    await expect(rules).toContainText("edittwinrule");
+
+    // Open the row's inline edit form.
+    await rules.getByRole("button", { name: "Edit", exact: true }).click();
+    const editForm = rules.locator(".pattern-rule-edit-form").first();
+    await expect(editForm).toBeVisible();
+
+    // Force the processor to fail, change the pattern too, upload a new obverse,
+    // then save — both edits should be rejected together.
+    await page.evaluate(() => {
+      window.imageProcessor.processFile = async () => null;
+    });
+    await editForm.locator(".edit-pattern").fill("changedtwinrule");
+    await editForm
+      .locator(".edit-obverse")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await editForm.locator(".edit-save-btn").click();
+
+    // Same contract as the create path: a user-visible error via #appDialogModal.
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await expect(page.locator("#appDialogModal")).toContainText("Failed to process image");
+    await page.locator("#appDialogOk").click();
+
+    // The edit aborts wholesale: image resolution runs before the rule is
+    // mutated, so the pattern change is NOT applied and the original survives.
+    const patterns = await page.evaluate(() =>
+      window.NumistaLookup.getCustomRules().map((r) => r.pattern)
+    );
+    expect(patterns).toContain("edittwinrule");
+    expect(patterns).not.toContain("changedtwinrule");
+  });
+
   // STRK-202: Settings ▸ Images surfaces pattern images whose rule no longer
   // exists (orphans) and lets the user reclaim the space. "Delete all" routes
   // through the custom showAppConfirm modal, not a native dialog.
