@@ -40,6 +40,13 @@ services:
       - CF_CLEARANCE_SCRAPER_URL=${CF_CLEARANCE_SCRAPER_URL:-http://byparr:8191}
       - CF_CLEARANCE_ENABLED=${CF_CLEARANCE_ENABLED:-1}
       - CF_CLEARANCE_TIMEOUT_MS=${CF_CLEARANCE_TIMEOUT_MS:-30000}
+      # Webscale Protection Mode bypass — per-host wspc cookie + base64 UA (STRK-230).
+      # Values supplied by the Portainer stack env; re-solve ~weekly via webscale-solve.mjs.
+      # MUST be listed here or compose drops them (the stack env array alone is not enough).
+      - WEBSCALE_WSPC_WWW_JMBULLION_COM=${WEBSCALE_WSPC_WWW_JMBULLION_COM:-}
+      - WEBSCALE_UA_WWW_JMBULLION_COM=${WEBSCALE_UA_WWW_JMBULLION_COM:-}
+      - WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM=${WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM:-}
+      - WEBSCALE_UA_WWW_PROVIDENTMETALS_COM=${WEBSCALE_UA_WWW_PROVIDENTMETALS_COM:-}
     ports:
       - "3010:3010" # Dashboard (HTTP)
       - "3011:3011" # Dashboard (HTTPS for iframe embed)
