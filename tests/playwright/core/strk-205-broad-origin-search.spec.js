@@ -8,8 +8,10 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 // future change that "fixes" the guard into the single-word path is caught as a
 // deliberate behavior change, not slipped in silently.
 //
-// Fuzzy autocomplete is disabled here so the assertion isolates the exact field-match
-// path the issue governs (the fuzzy fallback only runs when field matching fails).
+// Assertions are on the rendered inventory table (the user-visible search contract),
+// not on internal filter state. Fuzzy autocomplete is disabled here so the rendered
+// rows isolate the exact field-match path the issue governs (the fuzzy fallback only
+// runs when field matching fails).
 
 const ITEM_DEFAULTS = {
   metal: "Silver",
@@ -74,26 +76,33 @@ async function seedAndGoto(page, items) {
   }, items);
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#newItemBtn", { state: "visible" });
+  // Confirm fuzzy is disabled and every seeded item has rendered into the table
+  // before any search runs.
   await page.waitForFunction(
-    () =>
-      Array.isArray(window.inventory) &&
-      typeof window.filterInventory === "function" &&
+    (expectedRows) =>
       window.featureFlags &&
-      window.featureFlags.isEnabled("FUZZY_AUTOCOMPLETE") === false
+      window.featureFlags.isEnabled("FUZZY_AUTOCOMPLETE") === false &&
+      document.querySelectorAll("#inventoryTable tbody tr [data-column='name']").length ===
+        expectedRows,
+    items.length
   );
 }
 
-async function searchUuids(page, term, expectedCount) {
+const NAME_CELL = "#inventoryTable tbody tr [data-column='name']";
+
+// Drives the real search box and asserts on the rendered table rows. Waits out the
+// input debounce by polling the rendered name-cell count, then verifies each expected
+// item name is visible exactly once.
+async function expectSearchRows(page, term, expectedNames) {
   await page.fill("#searchInput", term);
-  await page.waitForFunction(({ count }) => window.filterInventory().length === count, {
-    count: expectedCount,
-  });
-  return page.evaluate(() =>
-    window
-      .filterInventory()
-      .map((item) => item.uuid)
-      .sort()
+  await page.waitForFunction(
+    (count) =>
+      document.querySelectorAll("#inventoryTable tbody tr [data-column='name']").length === count,
+    expectedNames.length
   );
+  for (const name of expectedNames) {
+    await expect(page.locator(NAME_CELL).filter({ hasText: name })).toHaveCount(1);
+  }
 }
 
 test.describe("STRK-205 broad-origin single-word search", () => {
@@ -102,17 +111,25 @@ test.describe("STRK-205 broad-origin single-word search", () => {
   }) => {
     await seedAndGoto(page, SEED);
 
-    // "american" matches BOTH American items — broad origin match, not suppressed to zero.
-    expect(await searchUuids(page, "american", 2)).toEqual(["us-buffalo", "us-eagle"]);
+    // "american" renders BOTH American rows — broad origin match, not suppressed to zero.
+    await expectSearchRows(page, "american", ["American Silver Eagle", "American Gold Buffalo"]);
+    // The Canadian and control rows must not appear for an "american" search.
+    await expect(page.locator(NAME_CELL)).toHaveCount(2);
 
-    // A different origin word matches only its own origin item.
-    expect(await searchUuids(page, "canadian", 1)).toEqual(["ca-maple"]);
+    // A different origin word renders only its own origin row.
+    await expectSearchRows(page, "canadian", ["Canadian Silver Maple Leaf"]);
+    await expect(page.locator(NAME_CELL)).toHaveCount(1);
   });
 
-  test("an origin word with no matching items still returns zero (no crash)", async ({ page }) => {
+  test("an origin word with no matching items shows the empty state (no crash)", async ({
+    page,
+  }) => {
     await seedAndGoto(page, SEED);
 
-    // "mexican" is a broad term but no item carries it — empty result, not an error.
-    expect(await searchUuids(page, "mexican", 0)).toEqual([]);
+    // "mexican" is a broad term but no item carries it — empty-state row, not an error.
+    await page.fill("#searchInput", "mexican");
+    await expect(page.locator("#inventoryTable tbody tr.empty-state-row")).toBeVisible();
+    await expect(page.locator(NAME_CELL)).toHaveCount(0);
+    await expect(page.locator(".empty-state-row")).toContainText("No matching items found");
   });
 });
