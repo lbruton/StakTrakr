@@ -901,6 +901,47 @@ const computeItemValuation = (item, currentSpot) => {
 };
 
 /**
+ * Builds the 13 leading value cells (Date..Gain/Loss) of a CSV row for one item.
+ *
+ * Single source of truth shared by the full inventory CSV export (csv-export.js) and
+ * the backup ZIP CSV (inventory-backup.js); both column orders begin with this identical
+ * group. Applies the valuation helper when available and falls back to legacy fields,
+ * guarding a missing metal / non-numeric weight so a degenerate item serializes as
+ * Silver/0.0000 instead of crashing the export (STRK-211/212).
+ *
+ * @param {Object} item - Inventory item.
+ * @returns {Array<string|number>} The 13 Date-through-Gain/Loss cells.
+ */
+const buildCsvValueCells = (item) => {
+  const currentSpot = spotPrices[(item.metal || "Silver").toLowerCase()] || 0;
+  const valuation =
+    typeof computeItemValuation === "function" ? computeItemValuation(item, currentSpot) : null;
+  const purchasePrice = valuation
+    ? valuation.purchasePrice
+    : typeof item.price === "number"
+      ? item.price
+      : parseFloat(item.price) || 0;
+  const meltValue = valuation ? valuation.meltValue : computeMeltValue(item, currentSpot);
+  const gainLoss = valuation ? valuation.gainLoss : null;
+
+  return [
+    item.date,
+    item.metal || "Silver",
+    item.type,
+    item.name,
+    item.year || "",
+    item.qty,
+    (parseFloat(item.weight) || 0).toFixed(4),
+    item.weightUnit || "oz",
+    parseFloat(item.purity) || 1.0,
+    formatCurrency(purchasePrice),
+    currentSpot > 0 ? formatCurrency(meltValue) : "—",
+    formatCurrency(item.marketValue || 0),
+    gainLoss !== null ? formatCurrency(gainLoss) : "—",
+  ];
+};
+
+/**
  * Handles errors with user-friendly messaging
  *
  * @param {Error|string} error - Error to handle
@@ -1246,6 +1287,7 @@ if (typeof window !== "undefined") {
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
   window.computeItemValuation = computeItemValuation;
+  window.buildCsvValueCells = buildCsvValueCells;
   window.setButtonLoading = setButtonLoading;
   window.escapeHtml = escapeHtml;
 }
@@ -1260,6 +1302,7 @@ if (typeof module !== "undefined" && module.exports) {
     computeTradeValue,
     calculateRetailPrice,
     computeItemValuation,
+    buildCsvValueCells,
     getContrastColor,
     debounce,
     generateUUID,

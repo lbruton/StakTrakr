@@ -142,41 +142,6 @@
   ];
 
   /**
-   * Builds the leading value columns (Date … Gain/Loss) for one item, applying
-   * the valuation helper when available and falling back to legacy fields.
-   * @param {object} i - Inventory item.
-   * @returns {Array<string|number>} The Date-through-Gain/Loss cells.
-   */
-  const buildCsvValueColumns = (i) => {
-    const currentSpot = spotPrices[(i.metal || "Silver").toLowerCase()] || 0;
-    const valuation =
-      typeof computeItemValuation === "function" ? computeItemValuation(i, currentSpot) : null;
-    const purchasePrice = valuation
-      ? valuation.purchasePrice
-      : typeof i.price === "number"
-        ? i.price
-        : parseFloat(i.price) || 0;
-    const meltValue = valuation ? valuation.meltValue : computeMeltValue(i, currentSpot);
-    const gainLoss = valuation ? valuation.gainLoss : null;
-
-    return [
-      i.date,
-      i.metal || "Silver",
-      i.type,
-      i.name,
-      i.year || "",
-      i.qty,
-      (parseFloat(i.weight) || 0).toFixed(4),
-      i.weightUnit || "oz",
-      parseFloat(i.purity) || 1.0,
-      formatCurrency(purchasePrice),
-      currentSpot > 0 ? formatCurrency(meltValue) : "—",
-      formatCurrency(i.marketValue || 0),
-      gainLoss !== null ? formatCurrency(gainLoss) : "—",
-    ];
-  };
-
-  /**
    * Builds the catalog/identity columns (Payment Method … Reverse Frame).
    * @param {object} i - Inventory item.
    * @param {object} removedTagsMap - Map of uuid → removed-tag arrays.
@@ -228,7 +193,7 @@
    * @returns {Array<string|number>} The complete ordered cell array.
    */
   const buildCsvRow = (i, removedTagsMap) => [
-    ...buildCsvValueColumns(i),
+    ...buildCsvValueCells(i),
     ...buildCsvCatalogColumns(i, removedTagsMap),
     ...buildCsvDispositionColumns(i),
   ];

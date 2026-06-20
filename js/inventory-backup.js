@@ -210,44 +210,10 @@
   };
 
   // ---------------------------------------------------------------------------
-  // createBackupZip — CSV row (split into 3 cell groups to stay under the gate;
-  // concatenating the slices reproduces the BACKUP_CSV_HEADERS column order).
+  // createBackupZip — CSV row. The leading value cells come from the shared
+  // buildCsvValueCells helper (utils.js); identity + disposition cells are local.
+  // Concatenating the groups reproduces the BACKUP_CSV_HEADERS column order.
   // ---------------------------------------------------------------------------
-
-  /**
-   * Builds the valuation cells of a CSV backup row (Date..Gain/Loss).
-   *
-   * @param {Object} item - Inventory item.
-   * @returns {Array} 13 leading cells matching BACKUP_CSV_HEADERS[0..12].
-   */
-  const _backupCsvValueCells = (item) => {
-    const currentSpot = spotPrices[(item.metal || "Silver").toLowerCase()] || 0;
-    const valuation =
-      typeof computeItemValuation === "function" ? computeItemValuation(item, currentSpot) : null;
-    const purchasePrice = valuation
-      ? valuation.purchasePrice
-      : typeof item.price === "number"
-        ? item.price
-        : parseFloat(item.price) || 0;
-    const meltValue = valuation ? valuation.meltValue : computeMeltValue(item, currentSpot);
-    const gainLoss = valuation ? valuation.gainLoss : null;
-
-    return [
-      item.date,
-      item.metal || "Silver",
-      item.type,
-      item.name,
-      item.year || "",
-      item.qty,
-      (parseFloat(item.weight) || 0).toFixed(4),
-      item.weightUnit || "oz",
-      parseFloat(item.purity) || 1.0,
-      formatCurrency(purchasePrice),
-      currentSpot > 0 ? formatCurrency(meltValue) : "—",
-      formatCurrency(item.marketValue || 0),
-      gainLoss !== null ? formatCurrency(gainLoss) : "—",
-    ];
-  };
 
   /**
    * Builds the identity/location/catalog/image cells of a CSV backup row.
@@ -494,7 +460,7 @@
       // 4. CSV export (portfolio format -- synced with exportCsv())
       const sortedInventory = sortInventoryByDateNewestFirst();
       const csvRows = sortedInventory.map((item) => [
-        ..._backupCsvValueCells(item),
+        ...buildCsvValueCells(item),
         ..._backupCsvIdentityCells(item),
         ..._backupCsvDispositionCells(item),
       ]);
