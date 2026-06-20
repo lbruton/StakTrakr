@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.37] - 2026-06-19
+
+### Changed — STRK-226/227: backup/CSV-export cleanup
+
+- **Dead code removed**: Deleted the unused legacy `downloadCompleteBackup()` path from `js/api.js` — it had zero callers repo-wide and was superseded by the single-ZIP backup. No user-visible change (STRK-226).
+- **CSV serialization deduplicated**: The inventory CSV export and the backup ZIP CSV now share a single `buildCsvValueCells` helper for the 13 value columns instead of two near-identical copies, removing a drift risk where a fix to one exporter could silently miss the other. Exports are byte-for-byte unchanged (STRK-227).
+
+---
+
 ## [3.35.36] - 2026-06-19
 
 ### Changed — STRK-206/207: filters.js robustness (Numista-Import chip + defensive guards)
