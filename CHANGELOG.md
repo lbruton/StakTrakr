@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.39] - 2026-06-20
+
+### Changed — STRK-225: Cloud-sync vault-first cancel no longer advances the image/attachment hash
+
+- **Cloud sync**: Cancelling a vault-first restore preview no longer pulls the image or attachment companion vaults or advances their stored sync hashes. Previously a cancel advanced `lastPull.imageHash` / `lastPull.attachmentHash` to the remote value even though STRK-200's guard skipped the photos, so later accepting the same remote items would not re-download their images/attachments until the remote hash next changed. Both companion pulls are now gated on apply, mirroring the item-price-history block (STRK-225).
+
+---
+
 ## [3.35.38] - 2026-06-20
 
 ### Changed — STRK-221: Pattern-rule image processing no longer silently drops images

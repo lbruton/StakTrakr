@@ -4824,60 +4824,88 @@ async function pullWithPreview(remoteMeta) {
         _vfApplied = (await shownPromise) === true;
       }
 
-      // STAK-497: Pull image vault after vault-first DiffModal or fallback restore.
-      // showRestorePreviewModal's onApply only handles items + settings — not images.
-      try {
-        if (
-          remoteMeta &&
-          remoteMeta.imageVault &&
-          typeof vaultDecryptAndRestoreImages === "function"
-        ) {
-          var _vfLastPull = syncGetLastPull();
-          var _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
-          if (remoteMeta.imageVault.hash !== _vfLocalHash) {
-            debugLog("[CloudSync] Vault-first path: pulling image vault");
-            var _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-            var _vfImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-              method: "POST",
-              headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _vfImgArg },
-            });
-            if (_vfImgResp.ok) {
-              var _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
-              var _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
-              debugLog(
-                "[CloudSync] Vault-first path: image vault restored:",
-                _vfRestored,
-                "photos"
-              );
-              logCloudSyncActivity(
-                "image_vault_pull",
-                "success",
-                (_vfRestored || "?") + " photos restored (vault-first path)"
-              );
-              // Update pull meta with image hash
-              var _vfPullMeta = syncGetLastPull();
-              if (_vfPullMeta) {
-                _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
-                syncSetLastPull(_vfPullMeta);
+      // STAK-497 / STRK-225: Pull image vault after vault-first DiffModal or
+      // fallback restore — ONLY on apply. showRestorePreviewModal's onApply
+      // handles items + settings, not images. Gating on _vfApplied mirrors the
+      // companion item-price-history block below: on a CANCEL, advancing
+      // lastPull.imageHash would block a later accept from re-pulling the photos
+      // (STRK-200's guard skips them, but the stale hash persists).
+      if (_vfApplied) {
+        try {
+          if (
+            remoteMeta &&
+            remoteMeta.imageVault &&
+            typeof vaultDecryptAndRestoreImages === "function"
+          ) {
+            const _vfLastPull = syncGetLastPull();
+            const _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
+            if (remoteMeta.imageVault.hash !== _vfLocalHash) {
+              debugLog("[CloudSync] Vault-first path: pulling image vault");
+              const _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+              const _vfImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
+                method: "POST",
+                headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _vfImgArg },
+              });
+              if (_vfImgResp.ok) {
+                const _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
+                const _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
+                debugLog(
+                  "[CloudSync] Vault-first path: image vault restored:",
+                  _vfRestored,
+                  "photos"
+                );
+                logCloudSyncActivity(
+                  "image_vault_pull",
+                  "success",
+                  (_vfRestored || "?") + " photos restored (vault-first path)"
+                );
+                // Update pull meta with image hash
+                const _vfPullMeta = syncGetLastPull();
+                if (_vfPullMeta) {
+                  _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
+                  syncSetLastPull(_vfPullMeta);
+                }
               }
             }
           }
+        } catch (_vfImgErr) {
+          debugLog(
+            "[CloudSync] Vault-first path: image vault failed (non-blocking):",
+            _vfImgErr.message
+          );
+          logCloudSyncActivity(
+            "image_vault_pull",
+            "fail",
+            "Vault-first path: " + _vfImgErr.message
+          );
         }
-      } catch (_vfImgErr) {
+      } else {
         debugLog(
-          "[CloudSync] Vault-first path: image vault failed (non-blocking):",
-          _vfImgErr.message
+          "[CloudSync] Vault-first path: diff cancelled — skipping image vault pull (STRK-225)"
         );
-        logCloudSyncActivity("image_vault_pull", "fail", "Vault-first path: " + _vfImgErr.message);
       }
-      // STRK-45/STRK-65: Vault-first DiffModal post-restore — attachment vault
-      var _vfAttachResult = await _pullAttachmentVault(remoteMeta, token, password, "vault-first");
-      if (_vfAttachResult.hash) {
-        var _vfAttachPullMeta = syncGetLastPull();
-        if (_vfAttachPullMeta) {
-          _vfAttachPullMeta.attachmentHash = _vfAttachResult.hash;
-          syncSetLastPull(_vfAttachPullMeta);
+      // STRK-45/STRK-65: Vault-first DiffModal post-restore — attachment vault.
+      // STRK-225: gated on apply for the same reason as the image vault above —
+      // a CANCEL must not pull attachments or advance lastPull.attachmentHash
+      // (a stale hash would block a later accept from re-pulling them).
+      if (_vfApplied) {
+        const _vfAttachResult = await _pullAttachmentVault(
+          remoteMeta,
+          token,
+          password,
+          "vault-first"
+        );
+        if (_vfAttachResult.hash) {
+          const _vfAttachPullMeta = syncGetLastPull();
+          if (_vfAttachPullMeta) {
+            _vfAttachPullMeta.attachmentHash = _vfAttachResult.hash;
+            syncSetLastPull(_vfAttachPullMeta);
+          }
         }
+      } else {
+        debugLog(
+          "[CloudSync] Vault-first path: diff cancelled — skipping attachment vault pull (STRK-225)"
+        );
       }
       // STRK-147: Vault-first DiffModal post-restore — item-price-history vault.
       // The DiffModal apply has already mutated local inventory, so the
