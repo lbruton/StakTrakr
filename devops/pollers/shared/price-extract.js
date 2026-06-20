@@ -24,6 +24,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadProviders } from "./provider-db.js";
 import { getCFClearanceCookie } from "./cf-clearance.js";
+import { loadWebscaleCookie, looksLikeWebscaleChallenge } from "./webscale-cookies.js";
 import { shouldBypassFirecrawlPreferredForPhase0 } from "./price-extract-vendor-goldback.js";
 import {
   FIRECRAWL_PREFERRED_PROVIDERS,
@@ -473,11 +474,34 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     });
 
+    // Webscale-protected vendors (jmbullion, providentmetals): if an operator
+    // has stashed a solved wspc cookie for this host, inject it with the UA it
+    // was solved under. Webscale binds clearance to IP + Chrome-class UA + wspc,
+    // and the poller shares the operator's public IP (STRK-230). No cookie → we
+    // proceed bare and the challenge detector below flags the need to re-solve.
+    const urlObj = new URL(url);
+    const webscaleCookie = loadWebscaleCookie(urlObj.hostname);
+    const DEFAULT_UA =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
     const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      userAgent: webscaleCookie?.userAgent || DEFAULT_UA,
       viewport: { width: 1920, height: 1080 },
     });
+    if (webscaleCookie) {
+      await context.addCookies([
+        {
+          name: "wspc",
+          value: webscaleCookie.wspc,
+          domain: urlObj.hostname,
+          path: "/",
+          httpOnly: false,
+          secure: true,
+        },
+      ]);
+      log(
+        `  (playwright-direct) injected Webscale wspc for ${providerId} (UA ${webscaleCookie.userAgent ? "matched" : "default"}, updated ${webscaleCookie.updatedAt || "?"})`
+      );
+    }
     const page = await context.newPage();
 
     // Block non-essential resource types to reduce bandwidth ~60-80%
@@ -515,16 +539,29 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     // removing those elements first would return empty scripts. After capturing, strip
     // nav/header/footer to prevent spot tickers from polluting innerText and causing
     // firstInRangePriceProse() to match the spot price instead of the product price.
-    const [text, jsonLdScripts] = await page.evaluate(() => {
+    const [text, jsonLdScripts, pageHtmlHead] = await page.evaluate(() => {
       const scripts = Array.from(
         document.querySelectorAll('script[type="application/ld+json"]'),
         (s) => s.textContent
       );
+      // Capture a small HTML slice BEFORE stripping nav: the Webscale challenge
+      // markers live in <head>/<script> (errorpage.css, i-am-a-human), which
+      // innerText drops. The interstitial is tiny so the head + visible text fit.
+      const htmlHead = document.documentElement.outerHTML.slice(0, 8192);
       document
         .querySelectorAll("nav, header, footer, [role='navigation'], [role='banner']")
         .forEach((el) => el.remove());
-      return [document.body.innerText, scripts];
+      return [document.body.innerText, scripts, htmlHead];
     });
+    // Stale/missing wspc → Webscale serves a reCAPTCHA interstitial instead of
+    // the product. Surface it loudly so the operator knows to re-solve, and bail
+    // so Firecrawl/FBP can take over rather than extracting garbage (STRK-230).
+    if (looksLikeWebscaleChallenge(pageHtmlHead) || looksLikeWebscaleChallenge(text)) {
+      warn(
+        `  (playwright-direct) ⚠️ WEBSCALE CHALLENGE for ${providerId} (${urlObj.hostname}) — wspc cookie missing/stale, RE-SOLVE NEEDED: run webscale-solve.mjs (or webscale-cookies.js set ${urlObj.hostname} <wspc> "<UA>")`
+      );
+      return null;
+    }
     const cleaned = preprocessMarkdown(text, providerId);
     const stock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
 

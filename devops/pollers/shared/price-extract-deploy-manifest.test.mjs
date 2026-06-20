@@ -24,6 +24,7 @@ const expectedRuntimeModules = [
   "price-extract-vendor-legacy.js",
   "price-extract-vendor-goldback.js",
   "price-extract-vendor-apmex.js",
+  "webscale-cookies.js",
 ];
 
 const readRepoFile = (relativePath) => readFileSync(join(repoRoot, relativePath), "utf8");

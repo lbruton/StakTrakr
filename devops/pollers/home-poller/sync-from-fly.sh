@@ -25,6 +25,7 @@ SHARED_FILES=(
   price-extract-vendor-legacy.js
   price-extract-vendor-goldback.js
   price-extract-vendor-apmex.js
+  webscale-cookies.js
   api-export.js
   capture.js
   extract-vision.js

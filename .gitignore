@@ -45,6 +45,11 @@ devops/firecrawl-docker/
 # Must NOT follow worktrees: copies would conflict every bump and break the claim.
 devops/version.lock
 
+# Webscale wspc cookie store (STRK-230) — holds live bot-clearance cookies.
+# Never commit. On the home poller WEBSCALE_COOKIE_FILE points outside the repo;
+# this guard catches the module-local default too.
+webscale-cookies.json
+
 # Playwright test artifacts
 test-results/
 playwright-report/
