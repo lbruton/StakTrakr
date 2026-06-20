@@ -1399,9 +1399,8 @@ const _filterMatchSingleWordTerm = (termData, item, formattedDate, catalogText) 
 
 /**
  * Matches a multi-word (>=2) term: exact/expanded phrase, custom-group label,
- * word-boundary presence, then coin-series, three-word, fractional-weight, and
- * broad-origin disambiguation rules. Behavior preserved verbatim — including the
- * unreachable single-word broad-origin guard (dead code; tracked in STRK-205).
+ * word-boundary presence, then coin-series, three-word, and fractional-weight
+ * disambiguation rules.
  * @param {Object} termData - Parsed term (q, words, exactPhrase, expandedPhrase, compiledWordRegexes)
  * @param {InventoryItem} item - The inventory item
  * @param {string} itemText - The lowercase item haystack
@@ -1474,22 +1473,6 @@ const _filterMatchMultiWordTerm = (termData, item, itemText) => {
       // For fractional searches, require exact phrase match
       return itemText.includes(exactPhrase);
     }
-  }
-
-  // Prevent overly broad country/origin searches
-  const broadTerms = [
-    "american",
-    "canadian",
-    "australian",
-    "british",
-    "chinese",
-    "south",
-    "mexican",
-  ];
-  if (words.length === 1 && broadTerms.includes(words[0])) {
-    // Single broad geographic terms should require additional context
-    // Return false to prevent matching everything from that country
-    return false;
   }
 
   return true;

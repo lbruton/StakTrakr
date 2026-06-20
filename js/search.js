@@ -121,8 +121,8 @@ const _matchCoinSeries = (searchMetal, coinType, itemText, exactPhrase) => {
 
 /**
  * Matches a multi-word (>=2) search term against an item: exact/expanded phrase,
- * custom-group label, word-boundary presence, then coin-series, three-word,
- * fractional-weight, and broad-origin disambiguation rules.
+ * custom-group label, word-boundary presence, then coin-series, three-word, and
+ * fractional-weight disambiguation rules.
  * @returns {boolean}
  */
 const _matchMultiWordTerm = (q, item, words) => {
@@ -170,17 +170,6 @@ const _matchMultiWordTerm = (q, item, words) => {
   const hasFraction = words.some((word) => word.includes("/"));
   const hasOz = words.some((word) => word === "oz" || word === "ounce");
   if (hasFraction && hasOz) return itemText.includes(exactPhrase);
-
-  const broadTerms = [
-    "american",
-    "canadian",
-    "australian",
-    "british",
-    "chinese",
-    "south",
-    "mexican",
-  ];
-  if (words.length === 1 && broadTerms.includes(words[0])) return false;
 
   return true;
 };
