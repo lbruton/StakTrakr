@@ -3378,13 +3378,21 @@ const renderCustomPatternRules = async () => {
         let obvBlob = null;
         let revBlob = null;
 
+        // STRK-221: mirror the create path — a provided file that yields no
+        // blob is a processing failure, so throw (caught below → alert + abort)
+        // instead of caching a null image and silently dropping the upload.
+        const toBlob = async (file) => {
+          if (!processor) return file;
+          const result = await processor.processFile(file);
+          if (!result?.blob) {
+            throw new Error("the selected image could not be processed");
+          }
+          return result.blob;
+        };
+
         try {
-          if (obvFile) {
-            obvBlob = processor ? (await processor.processFile(obvFile))?.blob || null : obvFile;
-          }
-          if (revFile) {
-            revBlob = processor ? (await processor.processFile(revFile))?.blob || null : revFile;
-          }
+          if (obvFile) obvBlob = await toBlob(obvFile);
+          if (revFile) revBlob = await toBlob(revFile);
         } catch (err) {
           console.error("Image processing failed:", err);
           appAlert("Failed to process image: " + err.message);

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.38] - 2026-06-20
+
+### Changed — STRK-221: Pattern-rule image processing no longer silently drops images
+
+- **Pattern rules**: Creating or editing a custom image pattern rule now surfaces an error and aborts when the selected image can't be processed, instead of silently saving a rule with no cached image — covers both the create (`settings-listeners.js`) and edit (`settings.js`) paths (STRK-221).
+
+---
+
 ## [3.35.37] - 2026-06-19
 
 ### Changed — STRK-226/227: backup/CSV-export cleanup
