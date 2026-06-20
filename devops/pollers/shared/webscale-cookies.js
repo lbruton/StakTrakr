@@ -117,9 +117,16 @@ export function setWebscaleCookie(hostname, wspc, userAgent, env = process.env, 
     updatedAt: now.toISOString(),
   };
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  // mode 0600: the file holds live bot-clearance credentials.
+  writeFileSync(file, `${JSON.stringify(store, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   return store[hostname];
 }
+
+// Markers of the Webscale "Protection Mode" reCAPTCHA interstitial. Kept free of
+// escaped forward slashes (i-am-a-human, not /.webscale/i-am-a-human) so static
+// analyzers don't mis-tokenize the literal.
+const WEBSCALE_CHALLENGE_RE =
+  /confirm your humanity|i-am-a-human|resources\.webscale\.com|protection-mode-captcha/i;
 
 /**
  * True when page content (raw HTML or innerText) is a Webscale "Protection Mode"
@@ -129,9 +136,7 @@ export function setWebscaleCookie(hostname, wspc, userAgent, env = process.env, 
  */
 export function looksLikeWebscaleChallenge(content) {
   if (!content) return false;
-  return /confirm your humanity|\/\.webscale\/i-am-a-human|resources\.webscale\.com|protection-mode-captcha/i.test(
-    content
-  );
+  return WEBSCALE_CHALLENGE_RE.test(content);
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────
@@ -157,9 +162,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       console.log(`(empty) ${webscaleCookieFilePath()}`);
     } else {
       for (const h of hosts) {
-        const e = store[h];
+        const raw = store[h];
+        const e = raw && typeof raw === "object" ? raw : {};
+        const wspcPrefix = typeof e.wspc === "string" ? e.wspc.slice(0, 8) : "";
         console.log(
-          `${h}\twspc=${(e.wspc || "").slice(0, 8)}…\tUA=${e.userAgent ? "set" : "MISSING"}\tupdated=${e.updatedAt || "?"}`
+          `${h}\twspc=${wspcPrefix}…\tUA=${e.userAgent ? "set" : "MISSING"}\tupdated=${e.updatedAt || "?"}`
         );
       }
     }

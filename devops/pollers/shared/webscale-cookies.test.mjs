@@ -5,7 +5,7 @@
 // Covers the per-hostname wspc cookie store (load/set round-trip, robustness)
 // and the Webscale "Protection Mode" challenge detector used to flag a stale or
 // missing cookie (STRK-230).
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -110,6 +110,11 @@ test("missing userAgent → wspc still returned, userAgent null", () => {
   const got = loadWebscaleCookie("www.jmbullion.com", env);
   eq(got.wspc, "X");
   eq(got.userAgent, null);
+});
+test("set writes the cookie file with 0600 perms (credentials)", () => {
+  const { env } = tmpEnv();
+  setWebscaleCookie("www.jmbullion.com", "X", "UA", env);
+  eq(statSync(env.WEBSCALE_COOKIE_FILE).mode & 0o777, 0o600);
 });
 test("set requires hostname and wspc", () => {
   const { env } = tmpEnv();
