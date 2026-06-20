@@ -12,15 +12,23 @@
  * This is a deliberately temporary stopgap that needs a manual re-solve roughly
  * weekly per site. See the issue for the durable plan (proxy / solver / FBP).
  *
- * Storage: a JSON map keyed by hostname:
- *   { "www.jmbullion.com": { "wspc": "...", "userAgent": "...", "updatedAt": "..." } }
+ * Two storage backends, env wins over file:
  *
- * The file path comes from WEBSCALE_COOKIE_FILE. On the home poller set it to a
- * path OUTSIDE any git checkout (e.g. /data/webscale-cookies.json) so live
- * cookies are never committed to the data branch. The default is module-local
- * for dev/tests; `.gitignore` also guards the filename as defense-in-depth.
+ *   1. Environment variables (recommended for the home poller — Portainer path).
+ *      Per host: WEBSCALE_WSPC_<HOST> and WEBSCALE_UA_<HOST>, where <HOST> is the
+ *      hostname upper-cased with non-alphanumerics → "_" (see webscaleEnvKeys).
+ *      e.g. WEBSCALE_WSPC_WWW_JMBULLION_COM / WEBSCALE_UA_WWW_JMBULLION_COM.
+ *      The entrypoint dumps Docker env into /etc/environment and the scrape cron
+ *      sources it, so a pasted var reaches the poller after a container recreate.
  *
- * CLI:
+ *   2. JSON file keyed by hostname (dev / file-based deploys):
+ *      { "www.jmbullion.com": { "wspc": "...", "userAgent": "...", "updatedAt": "..." } }
+ *      Path from WEBSCALE_COOKIE_FILE (default module-local). Point it OUTSIDE any
+ *      git checkout on the poller; `.gitignore` also guards the filename.
+ *
+ * Re-solving (weekly): run the interactive helper on a machine sharing the
+ * poller's public IP — `node webscale-solve.mjs` — solve each captcha once, and
+ * it prints the env lines to paste into Portainer. Manual CLI alternatives:
  *   node webscale-cookies.js set <hostname> <wspc> "<userAgent>"
  *   node webscale-cookies.js list
  */
@@ -50,12 +58,43 @@ export function loadWebscaleStore(env = process.env) {
 }
 
 /**
- * Load the injectable cookie for a hostname.
- * @returns {{ wspc: string, userAgent: string|null, updatedAt: string|null } | null}
- *   null when the host is absent or its wspc value is missing/empty.
+ * Per-host environment variable names. Derived from the hostname so there is no
+ * mapping table to keep in sync — e.g. www.jmbullion.com →
+ * { wspcKey: "WEBSCALE_WSPC_WWW_JMBULLION_COM", uaKey: "WEBSCALE_UA_WWW_JMBULLION_COM" }.
+ * The solve helper prints these so they can be pasted straight into Portainer.
+ */
+export function webscaleEnvKeys(hostname) {
+  const suffix = String(hostname || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_");
+  return { wspcKey: `WEBSCALE_WSPC_${suffix}`, uaKey: `WEBSCALE_UA_${suffix}` };
+}
+
+/**
+ * Load the injectable cookie for a hostname. Environment variables win over the
+ * file store so the operator can paste a fresh cookie into Portainer and
+ * recreate the container without touching a file inside it (the entrypoint dumps
+ * the Docker env into /etc/environment, which the scrape cron sources).
+ * @returns {{ wspc: string, userAgent: string|null, updatedAt: string|null, source: string } | null}
+ *   null when neither env nor file provides a non-empty wspc.
  */
 export function loadWebscaleCookie(hostname, env = process.env) {
   if (!hostname) return null;
+
+  // 1) Environment variables (Portainer-friendly path).
+  const { wspcKey, uaKey } = webscaleEnvKeys(hostname);
+  const envWspc = env[wspcKey];
+  if (typeof envWspc === "string" && envWspc.length > 0) {
+    const envUa = env[uaKey];
+    return {
+      wspc: envWspc,
+      userAgent: typeof envUa === "string" && envUa.length > 0 ? envUa : null,
+      updatedAt: "env",
+      source: "env",
+    };
+  }
+
+  // 2) File store fallback (dev / file-based deploys).
   const entry = loadWebscaleStore(env)[hostname];
   if (!entry || typeof entry.wspc !== "string" || entry.wspc.length === 0) return null;
   return {
@@ -63,6 +102,7 @@ export function loadWebscaleCookie(hostname, env = process.env) {
     userAgent:
       typeof entry.userAgent === "string" && entry.userAgent.length > 0 ? entry.userAgent : null,
     updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : null,
+    source: "file",
   };
 }
 

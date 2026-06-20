@@ -12,6 +12,7 @@ import {
   loadWebscaleCookie,
   setWebscaleCookie,
   webscaleCookieFilePath,
+  webscaleEnvKeys,
   looksLikeWebscaleChallenge,
 } from "./webscale-cookies.js";
 
@@ -116,6 +117,45 @@ test("set requires hostname and wspc", () => {
   try { setWebscaleCookie("", "x", "UA", env); } catch { threw++; }
   try { setWebscaleCookie("h", "", "UA", env); } catch { threw++; }
   eq(threw, 2);
+});
+
+console.log("\n--- webscaleEnvKeys ---");
+test("derives per-host env var names from hostname", () => {
+  eq(webscaleEnvKeys("www.jmbullion.com"), {
+    wspcKey: "WEBSCALE_WSPC_WWW_JMBULLION_COM",
+    uaKey: "WEBSCALE_UA_WWW_JMBULLION_COM",
+  });
+});
+
+console.log("\n--- env-var source (Portainer path) ---");
+test("env var wspc + UA wins and reports source=env", () => {
+  const got = loadWebscaleCookie("www.jmbullion.com", {
+    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
+    WEBSCALE_UA_WWW_JMBULLION_COM: "ENV/UA",
+  });
+  eq(got.wspc, "ENVWSPC");
+  eq(got.userAgent, "ENV/UA");
+  eq(got.source, "env");
+});
+test("env var wspc overrides the file store", () => {
+  const { env } = tmpEnv();
+  setWebscaleCookie("www.jmbullion.com", "FILEWSPC", "FILE/UA", env);
+  const got = loadWebscaleCookie("www.jmbullion.com", {
+    ...env,
+    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
+  });
+  eq(got.wspc, "ENVWSPC");
+  eq(got.source, "env");
+});
+test("empty env var falls through to file store", () => {
+  const { env } = tmpEnv();
+  setWebscaleCookie("www.jmbullion.com", "FILEWSPC", "FILE/UA", env);
+  const got = loadWebscaleCookie("www.jmbullion.com", {
+    ...env,
+    WEBSCALE_WSPC_WWW_JMBULLION_COM: "",
+  });
+  eq(got.wspc, "FILEWSPC");
+  eq(got.source, "file");
 });
 
 console.log("\n--- looksLikeWebscaleChallenge ---");

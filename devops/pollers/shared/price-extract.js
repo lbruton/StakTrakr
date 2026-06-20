@@ -554,7 +554,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     // so Firecrawl/FBP can take over rather than extracting garbage (STRK-230).
     if (looksLikeWebscaleChallenge(text)) {
       warn(
-        `  (playwright-direct) ⚠️ WEBSCALE CHALLENGE for ${providerId} (${urlObj.hostname}) — wspc cookie missing/stale, RE-SOLVE NEEDED: node webscale-cookies.js set ${urlObj.hostname} <wspc> "<UA>"`
+        `  (playwright-direct) ⚠️ WEBSCALE CHALLENGE for ${providerId} (${urlObj.hostname}) — wspc cookie missing/stale, RE-SOLVE NEEDED: run webscale-solve.mjs (or webscale-cookies.js set ${urlObj.hostname} <wspc> "<UA>")`
       );
       return null;
     }
