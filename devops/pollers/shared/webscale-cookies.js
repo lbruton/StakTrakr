@@ -19,7 +19,9 @@
  *      hostname upper-cased with non-alphanumerics → "_" (see webscaleEnvKeys).
  *      e.g. WEBSCALE_WSPC_WWW_JMBULLION_COM / WEBSCALE_UA_WWW_JMBULLION_COM.
  *      The entrypoint dumps Docker env into /etc/environment and the scrape cron
- *      sources it, so a pasted var reaches the poller after a container recreate.
+ *      sources it as shell, so a pasted var reaches the poller after a container
+ *      recreate. The UA value is **base64** (see encodeUaForEnv) — a raw UA's
+ *      spaces/parens/semicolons would be a shell syntax error when sourced.
  *
  *   2. JSON file keyed by hostname (dev / file-based deploys):
  *      { "www.jmbullion.com": { "wspc": "...", "userAgent": "...", "updatedAt": "..." } }
@@ -71,6 +73,29 @@ export function webscaleEnvKeys(hostname) {
 }
 
 /**
+ * The UA env value MUST be base64 — the home-poller entrypoint writes Docker env
+ * to /etc/environment and the cron jobs `. ` (source) that file as shell. A raw
+ * UA ("Mozilla/5.0 (Windows NT 10.0; ...)") has spaces, parens and semicolons,
+ * which is a shell syntax error that breaks env for the whole scrape job. wspc
+ * tokens are already shell-safe, so only the UA is encoded.
+ */
+export function encodeUaForEnv(ua) {
+  return ua ? Buffer.from(ua, "utf8").toString("base64") : "";
+}
+
+/** Decode a UA env value. Falls back to the raw string if it is not base64
+ *  (e.g. a hand-set plain UA), detected via a round-trip re-encode. */
+function decodeUaFromEnv(value) {
+  if (typeof value !== "string" || value.length === 0) return null;
+  const decoded = Buffer.from(value, "base64").toString("utf8");
+  const strip = (s) => s.replace(/=+$/, "");
+  if (decoded && strip(Buffer.from(decoded, "utf8").toString("base64")) === strip(value)) {
+    return decoded;
+  }
+  return value;
+}
+
+/**
  * Load the injectable cookie for a hostname. Environment variables win over the
  * file store so the operator can paste a fresh cookie into Portainer and
  * recreate the container without touching a file inside it (the entrypoint dumps
@@ -85,10 +110,9 @@ export function loadWebscaleCookie(hostname, env = process.env) {
   const { wspcKey, uaKey } = webscaleEnvKeys(hostname);
   const envWspc = env[wspcKey];
   if (typeof envWspc === "string" && envWspc.length > 0) {
-    const envUa = env[uaKey];
     return {
       wspc: envWspc,
-      userAgent: typeof envUa === "string" && envUa.length > 0 ? envUa : null,
+      userAgent: decodeUaFromEnv(env[uaKey]),
       updatedAt: "env",
       source: "env",
     };

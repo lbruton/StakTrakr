@@ -22,6 +22,7 @@ import { chromium } from "playwright";
 import {
   setWebscaleCookie,
   webscaleEnvKeys,
+  encodeUaForEnv,
   looksLikeWebscaleChallenge,
 } from "./webscale-cookies.js";
 
@@ -79,8 +80,10 @@ for (const { host, start } of targets) {
     continue;
   }
   const { wspcKey, uaKey } = webscaleEnvKeys(host);
-  envLines.push(`${wspcKey}=${wspc}`, `${uaKey}=${ua || ""}`);
-  console.log(`  ✅ captured wspc (${wspc.slice(0, 10)}…) + UA ${ua ? "✓" : "MISSING"}`);
+  // UA is base64 in env transport — /etc/environment is sourced as shell and a
+  // raw UA's spaces/parens/semicolons would be a syntax error.
+  envLines.push(`${wspcKey}=${wspc}`, `${uaKey}=${encodeUaForEnv(ua)}`);
+  console.log(`  ✅ captured wspc (${wspc.slice(0, 10)}…) + UA ${ua ? "✓ (base64)" : "MISSING"}`);
   if (writeFile) {
     setWebscaleCookie(host, wspc, ua);
     console.log("  ✅ also written to the file store");

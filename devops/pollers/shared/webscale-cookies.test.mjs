@@ -13,6 +13,7 @@ import {
   setWebscaleCookie,
   webscaleCookieFilePath,
   webscaleEnvKeys,
+  encodeUaForEnv,
   looksLikeWebscaleChallenge,
 } from "./webscale-cookies.js";
 
@@ -133,13 +134,34 @@ test("derives per-host env var names from hostname", () => {
 });
 
 console.log("\n--- env-var source (Portainer path) ---");
-test("env var wspc + UA wins and reports source=env", () => {
+const REAL_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+test("env UA is base64 and round-trips through encodeUaForEnv", () => {
   const got = loadWebscaleCookie("www.jmbullion.com", {
     WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
-    WEBSCALE_UA_WWW_JMBULLION_COM: "ENV/UA",
+    WEBSCALE_UA_WWW_JMBULLION_COM: encodeUaForEnv(REAL_UA),
   });
   eq(got.wspc, "ENVWSPC");
-  eq(got.userAgent, "ENV/UA");
+  eq(got.userAgent, REAL_UA);
+  eq(got.source, "env");
+});
+test("encoded UA env value contains no shell-unsafe chars (sourceable)", () => {
+  const encoded = encodeUaForEnv(REAL_UA);
+  eq(/[\s();$`&|<>'"]/.test(encoded), false);
+});
+test("raw (non-base64) UA env value falls back to the literal string", () => {
+  const got = loadWebscaleCookie("www.jmbullion.com", {
+    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
+    WEBSCALE_UA_WWW_JMBULLION_COM: "Mozilla/5.0 (raw)",
+  });
+  eq(got.userAgent, "Mozilla/5.0 (raw)");
+});
+test("wspc-only env (no UA) → userAgent null, source env", () => {
+  const got = loadWebscaleCookie("www.jmbullion.com", {
+    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
+  });
+  eq(got.wspc, "ENVWSPC");
+  eq(got.userAgent, null);
   eq(got.source, "env");
 });
 test("env var wspc overrides the file store", () => {
