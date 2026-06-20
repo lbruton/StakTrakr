@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { encryptVaultPayload } from "../helpers/vault-fixtures.js";
 
 const ACCOUNT_ID = "dbid:strk118-test-account";
 const VAULT_PASSWORD = "strk118-test-password";
@@ -169,33 +170,6 @@ async function encryptedManifest(page, manifest) {
     async ({ payload, key }) =>
       Array.from(new Uint8Array(await window.encryptManifest(payload, key))),
     { payload: manifest, key: SYNC_KEY }
-  );
-}
-
-/**
- * Encrypts an arbitrary object as a StakTrakr .stvault file (salt|iv|iter|
- * ciphertext) under the composite sync key, runnable in-page so it uses the
- * app's exact crypto. Used by the STRK-225 vault-first test to serve a remote
- * main sync vault (`{ data: { metalInventory } }`) and image companion vault
- * (`{ records, patternRecords }`) that the in-app decrypt paths accept.
- */
-async function encryptVaultPayload(page, payload) {
-  return page.evaluate(
-    async ({ data, key }) => {
-      const iterations =
-        typeof window.VAULT_PBKDF2_ITERATIONS !== "undefined"
-          ? window.VAULT_PBKDF2_ITERATIONS
-          : 600000;
-      const salt = window.vaultRandomBytes(32);
-      const iv = window.vaultRandomBytes(12);
-      const derived = await window.vaultDeriveKey(key, salt, iterations);
-      const plaintext = new TextEncoder().encode(JSON.stringify(data));
-      const ciphertext = await window.vaultEncrypt(plaintext, derived, iv);
-      return Array.from(
-        new Uint8Array(window.serializeVaultFile(salt, iv, iterations, ciphertext))
-      );
-    },
-    { data: payload, key: SYNC_KEY }
   );
 }
 
@@ -709,12 +683,18 @@ test.describe("core/attachments-cloud", () => {
 
     // Remote main vault differs from local (name) → non-empty diff → execution
     // reaches the preview modal rather than the silent-pull early return.
-    const vaultBytes = await encryptVaultPayload(page, {
-      data: { metalInventory: JSON.stringify([REMOTE_ITEM]) },
-    });
+    const vaultBytes = await encryptVaultPayload(
+      page,
+      { data: { metalInventory: JSON.stringify([REMOTE_ITEM]) } },
+      SYNC_KEY
+    );
     // A valid (decryptable) image vault so the BUGGY code restores + advances the
     // hash; empty records keep the restore a no-op while still exercising the path.
-    const imageVaultBytes = await encryptVaultPayload(page, { records: [], patternRecords: [] });
+    const imageVaultBytes = await encryptVaultPayload(
+      page,
+      { records: [], patternRecords: [] },
+      SYNC_KEY
+    );
     // attachmentNotFound: the attachment vault 404s, which still advances
     // attachmentHash (not-found branch) without needing a valid payload.
     await routeDropbox(page, { vaultBytes, imageVaultBytes, attachmentNotFound: true });
