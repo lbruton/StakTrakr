@@ -120,6 +120,30 @@ async function routeDropbox(page, options = {}) {
       });
       return;
     }
+    // STRK-225: serve the image companion vault (checked before the sync vault —
+    // both live under /sync/ but carry distinct ...-images / ...-sync suffixes).
+    if (path.endsWith("staktrakr-images.stvault") && options.imageVaultBytes) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/octet-stream",
+        body: Buffer.from(options.imageVaultBytes),
+      });
+      return;
+    }
+    if (path.endsWith("staktrakr-sync.stvault") && options.vaultBytes) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/octet-stream",
+        body: Buffer.from(options.vaultBytes),
+      });
+      return;
+    }
+    // STRK-225: a 404 on the attachment vault still advances attachmentHash via
+    // _pullAttachmentVault's not-found branch — a payload-free positive control.
+    if (path.endsWith("staktrakr-attachments.stvault") && options.attachmentNotFound) {
+      await route.fulfill({ status: 404, body: "{}" });
+      return;
+    }
     await route.fulfill({ status: 409, body: "{}" });
   });
 
@@ -145,6 +169,33 @@ async function encryptedManifest(page, manifest) {
     async ({ payload, key }) =>
       Array.from(new Uint8Array(await window.encryptManifest(payload, key))),
     { payload: manifest, key: SYNC_KEY }
+  );
+}
+
+/**
+ * Encrypts an arbitrary object as a StakTrakr .stvault file (salt|iv|iter|
+ * ciphertext) under the composite sync key, runnable in-page so it uses the
+ * app's exact crypto. Used by the STRK-225 vault-first test to serve a remote
+ * main sync vault (`{ data: { metalInventory } }`) and image companion vault
+ * (`{ records, patternRecords }`) that the in-app decrypt paths accept.
+ */
+async function encryptVaultPayload(page, payload) {
+  return page.evaluate(
+    async ({ data, key }) => {
+      const iterations =
+        typeof window.VAULT_PBKDF2_ITERATIONS !== "undefined"
+          ? window.VAULT_PBKDF2_ITERATIONS
+          : 600000;
+      const salt = window.vaultRandomBytes(32);
+      const iv = window.vaultRandomBytes(12);
+      const derived = await window.vaultDeriveKey(key, salt, iterations);
+      const plaintext = new TextEncoder().encode(JSON.stringify(data));
+      const ciphertext = await window.vaultEncrypt(plaintext, derived, iv);
+      return Array.from(
+        new Uint8Array(window.serializeVaultFile(salt, iv, iterations, ciphertext))
+      );
+    },
+    { data: payload, key: SYNC_KEY }
   );
 }
 
@@ -629,5 +680,80 @@ test.describe("core/attachments-cloud", () => {
       { bytes: uploadedManifestBytes, key: SYNC_KEY }
     );
     expect(manifest.changes.map((change) => change.itemKey)).not.toContain(ITEM_KEY);
+  });
+
+  test("vault-first cancel does not advance the image/attachment hash, so a later accept still re-pulls (STRK-225)", async ({
+    page,
+  }) => {
+    // STRK-225. The vault-first image-vault AND attachment-vault pulls
+    // (cloud-sync.js) advanced lastPull.imageHash / lastPull.attachmentHash
+    // regardless of whether the user APPLIED or CANCELLED the restore preview —
+    // unlike the sibling item-price-history block, which STRK-147 already gated
+    // on apply. On a cancel, STRK-200's membership guard skips the remote photos,
+    // but the stale hash then blocks a later accept from re-pulling them. The fix
+    // gates both companion pulls on apply.
+    const REMOTE_IMG_HASH = "strk225-remote-image-hash";
+    const REMOTE_ATTACH_HASH = "strk225-remote-attachment-hash";
+
+    await seedCloudState(page);
+    // Seed a prior pull WITHOUT an imageHash. The advance is guarded by
+    // `if (_vfPullMeta)` (syncGetLastPull), so an ABSENT lastPull would short the
+    // advance and give a false green — the object must exist, just lack imageHash.
+    await page.addInitScript((baseTs) => {
+      localStorage.setItem(
+        "cloud_sync_last_pull",
+        JSON.stringify({ syncId: "local-before-acceptance", timestamp: baseTs, rev: "rev-local" })
+      );
+    }, BASE_TS);
+    await gotoCloudReady(page);
+
+    // Remote main vault differs from local (name) → non-empty diff → execution
+    // reaches the preview modal rather than the silent-pull early return.
+    const vaultBytes = await encryptVaultPayload(page, {
+      data: { metalInventory: JSON.stringify([REMOTE_ITEM]) },
+    });
+    // A valid (decryptable) image vault so the BUGGY code restores + advances the
+    // hash; empty records keep the restore a no-op while still exercising the path.
+    const imageVaultBytes = await encryptVaultPayload(page, { records: [], patternRecords: [] });
+    // attachmentNotFound: the attachment vault 404s, which still advances
+    // attachmentHash (not-found branch) without needing a valid payload.
+    await routeDropbox(page, { vaultBytes, imageVaultBytes, attachmentNotFound: true });
+
+    const remoteMeta = {
+      syncId: "remote-sync-strk225",
+      timestamp: BASE_TS + 5000,
+      rev: "remote-rev-strk225",
+      itemCount: 1,
+      imageVault: { hash: REMOTE_IMG_HASH, imageCount: 0 },
+      attachmentVault: { hash: REMOTE_ATTACH_HASH, attachmentCount: 0 },
+    };
+
+    const readHashes = () =>
+      page.evaluate(() => {
+        const lp = JSON.parse(localStorage.getItem("cloud_sync_last_pull") || "{}");
+        return { imageHash: lp.imageHash || null, attachmentHash: lp.attachmentHash || null };
+      });
+
+    // CANCEL: the vault-first preview resolves false. Neither companion vault may
+    // be pulled and neither watermark may advance.
+    await page.evaluate((meta) => {
+      window.showRestorePreviewModal = () => Promise.resolve(false);
+      return window.pullWithPreview(meta);
+    }, remoteMeta);
+
+    const afterCancel = await readHashes();
+    expect(afterCancel.imageHash).not.toBe(REMOTE_IMG_HASH);
+    expect(afterCancel.attachmentHash).not.toBe(REMOTE_ATTACH_HASH);
+
+    // ACCEPT (positive control): the same pull, now applied, DOES advance both
+    // hashes — proving the gate doesn't break the normal re-pull path.
+    await page.evaluate((meta) => {
+      window.showRestorePreviewModal = () => Promise.resolve(true);
+      return window.pullWithPreview(meta);
+    }, remoteMeta);
+
+    const afterAccept = await readHashes();
+    expect(afterAccept.imageHash).toBe(REMOTE_IMG_HASH);
+    expect(afterAccept.attachmentHash).toBe(REMOTE_ATTACH_HASH);
   });
 });
