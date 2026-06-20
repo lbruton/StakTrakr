@@ -42,14 +42,26 @@ const LEGACY_PROVIDER_OVERRIDES = {
     retryOn408: false, // page either renders in time or does not
   },
   jmbullion: {
-    phase: "phase0", // Playwright-direct first; Byparr reserved as fallback
-    // JM's CF tier upgraded beyond Byparr's 45s window around 2026-04-23;
-    // fresh-session Byparr gets a harder challenge than a long-lived poller browser.
+    phase: "phase0", // Playwright-direct with an injected wspc cookie (STRK-230)
+    // NOT Cloudflare: JM Bullion + Provident (shared A-Mark/JMB front end) sit
+    // behind Webscale "Protection Mode" — Google reCAPTCHA v2 on product pages.
+    // Byparr/cf_clearance cannot solve it. The bypass is a cloned ~7-day `wspc`
+    // cookie injected in scrapeWithPlaywrightDirect (see webscale-cookies.js).
+    // The old "JM CF tier upgraded 2026-04-23" note was a misdiagnosis.
     waitFor: 10_000,
     timeout: 40_000,
     onlyMainContent: false, // React pages return empty with onlyMainContent
     retryOn408: false, // retrying will not help; skip to save about 40s
-    cf_clearance_fallback: true,
+    cf_clearance_fallback: false, // Byparr is the wrong tool for Webscale reCAPTCHA
+    fractionalExempt: true, // mega-menu lists fractional coins on every page
+  },
+  providentmetals: {
+    phase: "phase0", // Same Webscale reCAPTCHA as jmbullion — wspc cookie bypass (STRK-230)
+    waitFor: 10_000,
+    timeout: 40_000,
+    onlyMainContent: false, // React pages return empty with onlyMainContent
+    retryOn408: false,
+    cf_clearance_fallback: false, // Byparr cannot solve Webscale reCAPTCHA
     fractionalExempt: true, // mega-menu lists fractional coins on every page
   },
   bullionexchanges: {
