@@ -4837,18 +4837,18 @@ async function pullWithPreview(remoteMeta) {
             remoteMeta.imageVault &&
             typeof vaultDecryptAndRestoreImages === "function"
           ) {
-            var _vfLastPull = syncGetLastPull();
-            var _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
+            const _vfLastPull = syncGetLastPull();
+            const _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
             if (remoteMeta.imageVault.hash !== _vfLocalHash) {
               debugLog("[CloudSync] Vault-first path: pulling image vault");
-              var _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-              var _vfImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
+              const _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+              const _vfImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
                 method: "POST",
                 headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _vfImgArg },
               });
               if (_vfImgResp.ok) {
-                var _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
-                var _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
+                const _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
+                const _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
                 debugLog(
                   "[CloudSync] Vault-first path: image vault restored:",
                   _vfRestored,
@@ -4860,7 +4860,7 @@ async function pullWithPreview(remoteMeta) {
                   (_vfRestored || "?") + " photos restored (vault-first path)"
                 );
                 // Update pull meta with image hash
-                var _vfPullMeta = syncGetLastPull();
+                const _vfPullMeta = syncGetLastPull();
                 if (_vfPullMeta) {
                   _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
                   syncSetLastPull(_vfPullMeta);
@@ -4889,14 +4889,14 @@ async function pullWithPreview(remoteMeta) {
       // a CANCEL must not pull attachments or advance lastPull.attachmentHash
       // (a stale hash would block a later accept from re-pulling them).
       if (_vfApplied) {
-        var _vfAttachResult = await _pullAttachmentVault(
+        const _vfAttachResult = await _pullAttachmentVault(
           remoteMeta,
           token,
           password,
           "vault-first"
         );
         if (_vfAttachResult.hash) {
-          var _vfAttachPullMeta = syncGetLastPull();
+          const _vfAttachPullMeta = syncGetLastPull();
           if (_vfAttachPullMeta) {
             _vfAttachPullMeta.attachmentHash = _vfAttachResult.hash;
             syncSetLastPull(_vfAttachPullMeta);
