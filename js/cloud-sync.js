@@ -4576,7 +4576,12 @@ async function pullWithPreview(remoteMeta) {
             return;
           }
 
-          if (_mNoChanges && _mNoSettingsChanges && _mHasTagChanges) {
+          // STRK-223 (Codex review, PR #1313): a watermark-only change (no item /
+          // settings / tag diff) must ALSO use this no-modal silent-apply path —
+          // otherwise it falls through to an empty DiffModal whose Apply is disabled,
+          // so the watermark never applies. `_applyAndFinalize` already reconciles it
+          // via the `remoteRawSettings` below; we only needed to widen the entry guard.
+          if (_mNoChanges && _mNoSettingsChanges && (_mHasTagChanges || _mHasIphClear)) {
             // STRK-224 (Edge 3, D-5): snapshot before _applyAndFinalize advances syncId.
             var _mtPriorLastPull = syncGetLastPull();
             _applyAndFinalize(inventory, [], null, remoteMeta, {
@@ -4631,7 +4636,7 @@ async function pullWithPreview(remoteMeta) {
             logCloudSyncActivity(
               "auto_sync_pull",
               "success",
-              "Tag-only changes merged silently (manifest)"
+              "Tag/clear-watermark-only changes merged silently (manifest)"
             );
             return;
           }
