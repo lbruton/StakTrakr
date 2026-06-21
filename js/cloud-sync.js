@@ -3239,6 +3239,21 @@ async function pullSyncVault(remoteMeta) {
       return;
     }
 
+    // STRK-223: the full vault restore wrote the remote clear watermark to
+    // localStorage (it is in ALLOWED_STORAGE_KEYS), but the old local history is
+    // not dropped until a retention pass runs. Enforce it now so a restored
+    // "clear all" takes effect immediately on this DiffEngine-fallback path too.
+    if (typeof applyItemPriceClearWatermark === "function") {
+      try {
+        applyItemPriceClearWatermark();
+      } catch (_psWmErr) {
+        console.warn(
+          "[CloudSync] Full-overwrite: clear-watermark apply failed (non-fatal):",
+          String(_psWmErr.message || _psWmErr)
+        );
+      }
+    }
+
     // Record the pull
     var pullMeta = {
       syncId: remoteMeta ? remoteMeta.syncId : null,
