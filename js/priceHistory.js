@@ -23,11 +23,18 @@ const applyItemPriceRetention = (history) => {
 
   const cutoff = Date.now() - ITEM_PRICE_HISTORY_MAX_DAYS * 24 * 60 * 60 * 1000;
 
+  // STRK-223: an intentional "clear all" records a synced watermark; entries at
+  // or older than it are dropped on every retention pass (save / merge / strict
+  // write), so the clear converges across devices through the existing commutative
+  // merge. clearedAt = 0 (never cleared) makes `ts > 0` a no-op for fresh devices.
+  const clearedAt = typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+
   for (const uuid of Object.keys(history)) {
     let entries = Array.isArray(history[uuid]) ? history[uuid] : [];
 
-    // (a) Age cutoff — drop entries older than the retention window.
-    entries = entries.filter((e) => e && e.ts >= cutoff);
+    // (a) Age cutoff + clear watermark — drop entries older than the retention
+    // window OR at/older than the last intentional clear.
+    entries = entries.filter((e) => e && e.ts >= cutoff && e.ts > clearedAt);
 
     // (b) Per-item backstop — keep only the newest N entries (drop oldest).
     if (entries.length > ITEM_PRICE_HISTORY_MAX_ENTRIES) {
@@ -111,6 +118,22 @@ const saveItemPriceClearedAt = (ts) => {
     saveDataSync(ITEM_PRICE_HISTORY_CLEARED_AT_KEY, Number(ts) || 0);
   } catch (error) {
     console.error("Error saving item-price clear watermark:", error);
+  }
+};
+
+/**
+ * STRK-223: immediately enforces the current clear watermark against local
+ * history. Used by the cloud-sync receive-side hook when an incoming watermark
+ * advances past the local one — the companion vault may be absent or unchanged,
+ * so the merge path alone would not run the drop-filter. Re-runs retention (which
+ * now enforces the watermark) and persists through the throwing strict-write path
+ * so a quota failure surfaces to the caller. No-op when history is empty.
+ */
+const applyItemPriceClearWatermark = () => {
+  if (typeof itemPriceHistory === "undefined" || !itemPriceHistory) return;
+  applyItemPriceRetention(itemPriceHistory);
+  if (typeof writeItemPriceHistoryStrict === "function") {
+    writeItemPriceHistoryStrict(itemPriceHistory);
   }
 };
 
@@ -714,6 +737,10 @@ const clearItemPriceHistory = async () => {
         )
       : false;
   if (!confirmed) return;
+  // STRK-223: stamp the synced clear watermark BEFORE wiping, so this device's
+  // retention/merge already drops the cleared entries and other devices receive
+  // the watermark on the next sync (saveItemPriceHistory schedules the push).
+  saveItemPriceClearedAt(Date.now());
   itemPriceHistory = {};
   saveItemPriceHistory();
   const panel = document.getElementById("logPanel_pricehistory");
@@ -862,6 +889,7 @@ window.loadItemPriceHistory = loadItemPriceHistory;
 window.applyItemPriceRetention = applyItemPriceRetention;
 window.loadItemPriceClearedAt = loadItemPriceClearedAt;
 window.saveItemPriceClearedAt = saveItemPriceClearedAt;
+window.applyItemPriceClearWatermark = applyItemPriceClearWatermark;
 window.canonicalizeItemPriceHistory = canonicalizeItemPriceHistory;
 window.mergeItemPriceHistories = mergeItemPriceHistories;
 window.collectAndHashItemPriceHistory = collectAndHashItemPriceHistory;
