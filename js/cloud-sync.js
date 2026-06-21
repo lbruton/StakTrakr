@@ -4092,7 +4092,9 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
                 String(_dvIphErr.message || _dvIphErr)
             );
             updateSyncStatusIndicator("error", "Sync incomplete");
-            return;
+            // STRK-224: signal the failure so the manifest wrapper skips its idle
+            // status update (which would otherwise mask "Sync incomplete").
+            return { companionFailed: true };
           }
           if (_dvIph.failed) {
             // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
@@ -4104,7 +4106,8 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
               "manifest-path transient failure (lastPull restored)"
             );
             updateSyncStatusIndicator("error", "Sync incomplete");
-            return;
+            // STRK-224: signal failure so the manifest wrapper skips its idle update.
+            return { companionFailed: true };
           }
           if (_dvIph.hash) {
             var _dvIphPullMeta = syncGetLastPull() || {};
@@ -4742,6 +4745,10 @@ async function pullWithPreview(remoteMeta) {
           // This keeps _syncRemoteChangeActive=true (set by handleRemoteChange)
           // until the full pull is applied, preventing a concurrent push from
           // racing and overwriting the remote vault with stale local data.
+          // STRK-224: capture the deferred-restore result so a post-apply companion
+          // failure (which already set "Sync incomplete" and restored lastPull for
+          // retry) is not masked by the idle status update below.
+          var _dvManifestResult;
           await new Promise(function (resolveModal) {
             DiffModal.show({
               source: { type: "sync", label: _syncProvider || "Cloud" },
@@ -4758,9 +4765,11 @@ async function pullWithPreview(remoteMeta) {
                 // Deferred: download full vault, decrypt, selective apply.
                 // Resolve after _deferredVaultRestore completes so the caller
                 // keeps _syncRemoteChangeActive=true until pull is fully applied.
-                _deferredVaultRestore(token, password, remoteMeta, selectedChanges).finally(
-                  resolveModal
-                );
+                _deferredVaultRestore(token, password, remoteMeta, selectedChanges)
+                  .then(function (r) {
+                    _dvManifestResult = r;
+                  })
+                  .finally(resolveModal);
               },
               onCancel: function () {
                 debugLog("[CloudSync] Manifest preview cancelled — no vault download");
@@ -4768,7 +4777,9 @@ async function pullWithPreview(remoteMeta) {
               },
             });
           });
-          updateSyncStatusIndicator("idle", "just now");
+          if (!(_dvManifestResult && _dvManifestResult.companionFailed)) {
+            updateSyncStatusIndicator("idle", "just now");
+          }
           return; // manifest path succeeded — skip vault-first path
         }
       }

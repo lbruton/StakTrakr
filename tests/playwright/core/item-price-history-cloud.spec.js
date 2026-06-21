@@ -463,7 +463,16 @@ async function expectWriteThrowRetries(page, { manifest, syncId } = {}) {
   };
 
   // Apply with a throwing post-apply companion write → prior lastPull intact.
+  const logs = [];
+  page.on("console", (m) => logs.push(m.text()));
   expect(await pullApplying(page, remoteMeta, { throwWrite: true })).toBeGreaterThan(0);
+  // Prove the INTENDED apply path actually ran — an item-add manifest silently
+  // falls through to vault-first (Codex P2), so assert the path-specific failure log.
+  const expectedPath = manifest ? "Manifest-path:" : "Vault-first path:";
+  expect(
+    logs.some((l) => l.includes(expectedPath) && l.includes("write failed")),
+    `expected the ${expectedPath} companion-write-failed log to prove the apply path`
+  ).toBe(true);
   const afterFail = await readLastPull(page);
   expect(afterFail.syncId).toBe("local-before-acceptance");
   expect(afterFail.itemPriceHistoryHash || null).toBeNull();
@@ -902,12 +911,21 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     // remain intact so the next poll retries.
     await expectWriteThrowRetries(page, {
       syncId: "remote-sync-manifest",
+      // An item-EDIT (count-preserving) manifest so the completeness guard passes
+      // (local 1 + 0 added - 0 deleted === remote itemCount 1) and the pull actually
+      // routes through the manifest-first _deferredVaultRestore path instead of
+      // falling through to vault-first (Codex P2 — an item-add would mismatch the count).
       manifest: {
         version: 1,
         changes: [
-          { itemKey: "strk224-add", itemName: "STRK-224 Added", type: "item-add", fields: [] },
+          {
+            itemKey: "strk224-edit",
+            itemName: "STRK-224 Edited",
+            type: "item-edit",
+            fields: [{ field: "Name", oldValue: "STRK-147 Local A", newValue: "STRK-224 Edited" }],
+          },
         ],
-        summary: { itemsAdded: 1, itemsEdited: 0, itemsDeleted: 0, settingsChanged: 0 },
+        summary: { itemsAdded: 0, itemsEdited: 1, itemsDeleted: 0, settingsChanged: 0 },
       },
     });
   });
