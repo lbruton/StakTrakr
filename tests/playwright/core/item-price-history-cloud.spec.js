@@ -1012,4 +1012,40 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     await pullApplying(page, remoteMeta, { throwWrite: false });
     expect(await historyTsForItemA(page)).toContain(REMOTE_TS);
   });
+
+  test("Edge (full-overwrite): pullSyncVault pulls the companion and records its hash (STRK-224)", async ({
+    page,
+  }) => {
+    // Finding 1 (Codex). The full-overwrite restore path (pullSyncVault) advanced
+    // lastPull.syncId without pulling the item-price-history companion, so the
+    // same-syncId shortcut then skipped it. It must pull the companion too (like the
+    // image/attachment companions it already restores).
+    await bootSynced(page);
+    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
+    const vaultBytes = await encryptVaultPayload(
+      page,
+      { data: { metalInventory: JSON.stringify(LOCAL_INVENTORY) } },
+      SYNC_KEY
+    );
+    const historyVaultBytes = await encryptVaultPayload(page, REMOTE_HISTORY, SYNC_KEY);
+    await routeDropbox(page, { vaultBytes, historyVaultBytes });
+    const remoteMeta = {
+      syncId: "remote-sync-overwrite",
+      timestamp: BASE_TS + 5000,
+      rev: "remote-rev-overwrite",
+      deviceId: "remote-device",
+      itemCount: LOCAL_INVENTORY.length,
+      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 1, entryCount: 1 },
+    };
+
+    await page.evaluate((meta) => window.pullSyncVault(meta), remoteMeta);
+
+    // The companion must be merged AND its hash recorded alongside the advanced syncId.
+    const ts = await historyTsForItemA(page);
+    expect(ts).toContain(LOCAL_TS);
+    expect(ts).toContain(REMOTE_TS);
+    const lastPull = await readLastPull(page);
+    expect(lastPull.syncId).toBe("remote-sync-overwrite");
+    expect(lastPull.itemPriceHistoryHash || null).not.toBeNull();
+  });
 });

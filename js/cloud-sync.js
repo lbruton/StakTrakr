@@ -3151,6 +3151,45 @@ async function pullSyncVault(remoteMeta) {
     var _attachResult = await _pullAttachmentVault(remoteMeta, token, password, "auto-sync");
     var pulledAttachmentHash = _attachResult.hash;
 
+    // STRK-224: pull the item-price-history companion on the full-overwrite path too
+    // (it previously relied on the poll pre-merge removed by the Edge-1 reorder, so a
+    // sync routed to this fallback would advance lastPull.syncId without the companion
+    // and the same-syncId shortcut would then skip it). Mirrors the image/attachment
+    // companion pulls above; acceptedUuids = the just-restored (remote) inventory. On a
+    // transient failure OR a write throw, hold lastPull stale (skip the record below)
+    // so the next poll retries.
+    var _psIph;
+    try {
+      _psIph = await _pullItemPriceHistoryVault(
+        remoteMeta,
+        token,
+        password,
+        "full-overwrite",
+        _currentInventoryUuids()
+      );
+    } catch (_psIphErr) {
+      console.warn(
+        "[CloudSync] Full-overwrite: item-price-history write failed — holding lastPull stale:",
+        String(_psIphErr.message || _psIphErr)
+      );
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "full-overwrite write failed (lastPull held): " + String(_psIphErr.message || _psIphErr)
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return;
+    }
+    if (_psIph.failed) {
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "full-overwrite transient failure (lastPull held)"
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return;
+    }
+
     // Record the pull
     var pullMeta = {
       syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -3159,6 +3198,7 @@ async function pullSyncVault(remoteMeta) {
     };
     if (pulledImageHash) pullMeta.imageHash = pulledImageHash;
     if (pulledAttachmentHash) pullMeta.attachmentHash = pulledAttachmentHash;
+    if (_psIph.hash) pullMeta.itemPriceHistoryHash = _psIph.hash;
     syncSetLastPull(pullMeta);
 
     var duration = Date.now() - pullStart;
@@ -4128,7 +4168,43 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
     await restoreVaultData(fbPayload);
     debugLog("[CloudSync] Deferred vault restore complete (full overwrite)");
 
+    // STRK-224: pull the companion on this manifest full-overwrite fallback too (same
+    // reason as pullSyncVault). On failure, hold lastPull stale (skip the record) and
+    // signal the wrapper so its idle status update does not mask "Sync incomplete".
+    var _dvFoIph;
+    try {
+      _dvFoIph = await _pullItemPriceHistoryVault(
+        remoteMeta,
+        token,
+        password,
+        "manifest-overwrite",
+        _currentInventoryUuids()
+      );
+    } catch (_dvFoErr) {
+      console.warn(
+        "[CloudSync] Manifest overwrite: item-price-history write failed — holding lastPull stale:",
+        String(_dvFoErr.message || _dvFoErr)
+      );
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "manifest-overwrite write failed (lastPull held): " + String(_dvFoErr.message || _dvFoErr)
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return { companionFailed: true };
+    }
+    if (_dvFoIph.failed) {
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "manifest-overwrite transient failure (lastPull held)"
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return { companionFailed: true };
+    }
+
     if (_previewPullMeta) {
+      if (_dvFoIph.hash) _previewPullMeta.itemPriceHistoryHash = _dvFoIph.hash;
       syncSetLastPull(_previewPullMeta);
       _previewPullMeta = null;
     }
@@ -4306,13 +4382,34 @@ async function pullWithPreview(remoteMeta) {
             // acceptedUuids = current local inventory UUIDs (NEVER empty — that
             // would drop all history); a write failure rethrows so lastPull
             // stays stale (AC-7).
-            var _spIph = await _pullItemPriceHistoryVault(
-              remoteMeta,
-              token,
-              password,
-              "silent-pull",
-              _currentInventoryUuids()
-            );
+            var _spIph;
+            try {
+              _spIph = await _pullItemPriceHistoryVault(
+                remoteMeta,
+                token,
+                password,
+                "silent-pull",
+                _currentInventoryUuids()
+              );
+            } catch (_spIphErr) {
+              // STRK-224 (Edge 3): a strict-write throw (e.g. quota) on this no-diff
+              // silent path must NOT escape into the manifest/vault-first fallback
+              // (which could record syncId without the companion hash). The pull-meta
+              // record below has not run yet, so the watermark is already held stale —
+              // bail cleanly so the next poll retries.
+              console.warn(
+                "[CloudSync] Silent-pull path: item-price-history write failed — holding lastPull stale:",
+                String(_spIphErr.message || _spIphErr)
+              );
+              logCloudSyncActivity(
+                "auto_sync_pull",
+                "fail",
+                "item-price-history write failed — pull held for retry (manifest silent): " +
+                  String(_spIphErr.message || _spIphErr)
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
             if (_spIph.failed) {
               // STRK-224 (Edge 2/AC-5): transient companion failure on the silent
               // path — hold lastPull stale (do NOT record) so the next poll retries.
@@ -4983,13 +5080,34 @@ async function pullWithPreview(remoteMeta) {
         if (_vfSpAttachResult.hash) _previewPullMeta.attachmentHash = _vfSpAttachResult.hash;
         // STRK-147: Vault-first silent-pull — item-price-history companion vault.
         // No item diff, so acceptedUuids = current local inventory UUIDs.
-        var _vfSpIph = await _pullItemPriceHistoryVault(
-          remoteMeta,
-          token,
-          password,
-          "vault-first silent",
-          _currentInventoryUuids()
-        );
+        var _vfSpIph;
+        try {
+          _vfSpIph = await _pullItemPriceHistoryVault(
+            remoteMeta,
+            token,
+            password,
+            "vault-first silent",
+            _currentInventoryUuids()
+          );
+        } catch (_vfSpIphErr) {
+          // STRK-224 (Edge 3): a strict-write throw on this no-diff vault-first silent
+          // path must NOT escape into the outer fallback (which could record syncId
+          // without the companion hash). The record below has not run yet, so the
+          // watermark is held stale — bail cleanly so the next poll retries.
+          console.warn(
+            "[CloudSync] Vault-first silent-pull: item-price-history write failed — holding lastPull stale:",
+            String(_vfSpIphErr.message || _vfSpIphErr)
+          );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "item-price-history write failed — pull held for retry (vault-first silent): " +
+              String(_vfSpIphErr.message || _vfSpIphErr)
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
         if (_vfSpIph.failed) {
           // STRK-224 (Edge 2/AC-5): transient companion failure on the vault-first
           // silent path — hold lastPull stale (do NOT record) so the next poll
