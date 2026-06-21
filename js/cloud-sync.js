@@ -2240,10 +2240,59 @@ async function pushSyncVault() {
             debugLog("[CloudSync] Item-price-history vault unchanged — skipping upload");
           }
         } else if (_remoteItemPriceHistoryMeta) {
-          // No local history but remote has a vault from another device.
-          // Preserve the reference so pulling devices still find it (mirror image vault).
-          itemPriceHistoryVaultMeta = _remoteItemPriceHistoryMeta;
-          debugLog("[CloudSync] No local item-price-history — preserving remote vault reference");
+          // No local history. STRK-223: distinguish an intentional "clear all"
+          // from a fresh/empty device. An intentional clear stamps a synced
+          // watermark; when it post-dates the remote companion's last write,
+          // delete the companion and drop the pointer so other devices stop
+          // pulling the cleared history. Otherwise (fresh device, or a stale
+          // clear older than newer remote data) preserve, exactly as before.
+          var _iphClearedAt =
+            typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+          var _remoteIphTs =
+            typeof prePushMeta !== "undefined" && prePushMeta && prePushMeta.timestamp
+              ? Number(prePushMeta.timestamp) || 0
+              : 0;
+          if (_iphClearedAt > 0 && _iphClearedAt > _remoteIphTs) {
+            try {
+              var iphDelArg = JSON.stringify({ path: SYNC_ITEM_PRICE_HISTORY_PATH });
+              var iphDelResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/json",
+                },
+                body: iphDelArg,
+              });
+              if (iphDelResp.ok || iphDelResp.status === 409) {
+                debugLog(
+                  "[CloudSync] Item-price-history cleared — remote companion deleted (intentional clear)"
+                );
+                logCloudSyncActivity(
+                  "item_price_history_vault_push",
+                  "success",
+                  "Cleared — remote companion deleted"
+                );
+              } else {
+                debugLog(
+                  "[CloudSync] Item-price-history companion delete returned status:",
+                  iphDelResp.status
+                );
+              }
+            } catch (iphDelErr) {
+              // Non-fatal: the clear watermark still rides the main vault, so other
+              // devices drop the cleared entries on merge even if the delete failed.
+              console.warn(
+                "[CloudSync] Item-price-history companion delete error (non-fatal):",
+                String(iphDelErr.message || iphDelErr)
+              );
+            }
+            // Drop the pointer so the pushed metadata no longer advertises it.
+            itemPriceHistoryVaultMeta = null;
+          } else {
+            // Fresh/empty device (or a stale clear): preserve another device's vault.
+            itemPriceHistoryVaultMeta = _remoteItemPriceHistoryMeta;
+            debugLog("[CloudSync] No local item-price-history — preserving remote vault reference");
+          }
         }
       }
     } catch (iphPushErr) {
@@ -3251,6 +3300,22 @@ function _isTagSyncKey(key) {
   return _tagSyncKeys().indexOf(key) !== -1;
 }
 
+// STRK-223: the item-price clear-watermark key. Like the tag-sync keys it carries
+// its own merge semantics and must be EXCLUDED from the blind settings-overwrite
+// on pull (an older remote would un-clear); it is reconciled by
+// _mergeItemPriceClearWatermark instead.
+function _itemPriceClearKey() {
+  return typeof ITEM_PRICE_HISTORY_CLEARED_AT_KEY !== "undefined"
+    ? ITEM_PRICE_HISTORY_CLEARED_AT_KEY
+    : "itemPriceHistoryClearedAt";
+}
+
+// Keys that are NOT blindly overwritten on pull — used at every settings-apply
+// skip site (tag stores + the item-price clear watermark).
+function _isManagedSyncKey(key) {
+  return _isTagSyncKey(key) || key === _itemPriceClearKey();
+}
+
 function _parseTagStore(rawValue, fallback) {
   if (rawValue === undefined || rawValue === null) return fallback || {};
   try {
@@ -3497,6 +3562,41 @@ function _mergeOneSidedTagSettings(remoteSettings) {
 }
 
 /**
+ * STRK-223: receive-side reconciliation of the item-price-history clear watermark.
+ * The watermark is a synced scalar (it rides the main vault like itemTagsLastModified)
+ * that must NOT be blindly overwritten — an older remote would un-clear — but
+ * max-arbitrated. On an advance past the local value it persists the new watermark
+ * and immediately enforces the clear against local history (applyItemPriceClearWatermark),
+ * so the cleared entries drop even when no companion vault is pulled. Mirrors
+ * _mergeTagData's role for tag timestamps and runs only on apply paths (never on a
+ * cancelled preview — the _vfApplied gate), preserving cancel-safety (AC-7).
+ *
+ * @param {object} remoteSettings - Remote settings (may carry the watermark, as a
+ *        raw number or a JSON-encoded string).
+ * @returns {number} The reconciled (max) watermark timestamp.
+ */
+function _mergeItemPriceClearWatermark(remoteSettings) {
+  if (typeof loadItemPriceClearedAt !== "function") return 0;
+  var localTs = loadItemPriceClearedAt();
+  var key = _itemPriceClearKey();
+  var raw = remoteSettings && remoteSettings[key] !== undefined ? remoteSettings[key] : 0;
+  var remoteTs = Number(raw) || 0;
+  if (!(remoteTs > localTs)) return localTs; // older / equal / absent — never un-clear
+  if (typeof saveItemPriceClearedAt === "function") saveItemPriceClearedAt(remoteTs);
+  // Apply immediately. Non-fatal on a write error — the persisted watermark drops
+  // the entries on the next save/merge regardless.
+  try {
+    if (typeof applyItemPriceClearWatermark === "function") applyItemPriceClearWatermark();
+  } catch (iphWmErr) {
+    console.warn(
+      "[CloudSync] Item-price clear-watermark apply failed (non-fatal):",
+      String(iphWmErr.message || iphWmErr)
+    );
+  }
+  return remoteTs;
+}
+
+/**
  * Consolidated post-apply sequence for sync and vault restore paths.
  * Handles backup, inventory assignment, settings application, save/render,
  * pull metadata recording, toast summary, status indicator, UI refresh,
@@ -3565,6 +3665,14 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
       if (typeof refreshSyncUI === "function") refreshSyncUI();
       return;
     }
+  }
+
+  // STRK-223: reconcile the item-price clear watermark (max-arbitrate + apply).
+  // Excluded from the generic settings application below; reconciling it here keeps
+  // an older remote from un-clearing and enforces the drop immediately even when no
+  // companion vault is pulled. Idempotent — safe if another path also reconciles it.
+  if (opts.remoteRawSettings) {
+    _mergeItemPriceClearWatermark(opts.remoteRawSettings);
   }
 
   // 3. Apply settings changes.
@@ -3818,6 +3926,7 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
                 remotePayload && remotePayload.data
                   ? _extractRemoteTagData(remotePayload.data)
                   : null,
+              remoteRawSettings: remotePayload && remotePayload.data ? remotePayload.data : null,
             });
             debugLog("[CloudSync] Restore preview: applied selected changes via DiffEngine");
             p = Promise.resolve();
@@ -4013,7 +4122,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             for (var _dvs = 0; _dvs < SYNC_SCOPE_KEYS.length; _dvs++) {
               if (
                 SYNC_SCOPE_KEYS[_dvs] === "metalInventory" ||
-                _isTagSyncKey(SYNC_SCOPE_KEYS[_dvs])
+                _isManagedSyncKey(SYNC_SCOPE_KEYS[_dvs])
               )
                 continue;
               var _dvlv =
@@ -4038,6 +4147,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           _applyAndFinalize(newInv, selectedChanges, _dvSettingsChanges, remoteMeta, {
             source: "sync",
             remoteTagData: _extractRemoteTagData(payload.data),
+            remoteRawSettings: payload.data,
           });
           debugLog(
             "[CloudSync] Deferred vault restore complete (selective apply, settings:",
@@ -4299,7 +4409,10 @@ async function pullWithPreview(remoteMeta) {
             var _mLocalSettings = {};
             if (typeof SYNC_SCOPE_KEYS !== "undefined" && typeof localStorage !== "undefined") {
               for (var ms = 0; ms < SYNC_SCOPE_KEYS.length; ms++) {
-                if (SYNC_SCOPE_KEYS[ms] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[ms]))
+                if (
+                  SYNC_SCOPE_KEYS[ms] === "metalInventory" ||
+                  _isManagedSyncKey(SYNC_SCOPE_KEYS[ms])
+                )
                   continue;
                 var msv = localStorage.getItem(SYNC_SCOPE_KEYS[ms]);
                 if (msv !== null) _mLocalSettings[SYNC_SCOPE_KEYS[ms]] = msv;
@@ -4439,6 +4552,7 @@ async function pullWithPreview(remoteMeta) {
               source: "sync",
               showToast: false,
               remoteTagData: _extractRemoteTagData(manifest.settings),
+              remoteRawSettings: manifest.settings,
             });
             // STRK-224 (Edge 1 fallout / D-5): this no-modal tag-only apply path also
             // relied on the removed poll pre-merge for its companion history. Pull it
@@ -4556,9 +4670,12 @@ async function pullWithPreview(remoteMeta) {
               } catch (_tagMergeErr) {
                 _failedCount++;
               }
+              // STRK-223: reconcile the clear watermark on the manifest apply path
+              // (idempotent — also covered via _applyAndFinalize's remoteRawSettings).
+              _mergeItemPriceClearWatermark(manifest.settings || {});
               for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
                 var _sc = manifestSettingsDiff.changed[_si];
-                if (_isTagSyncKey(_sc.key)) {
+                if (_isManagedSyncKey(_sc.key)) {
                   continue;
                 }
                 // Guard: only apply keys in the ALLOWED_STORAGE_KEYS allowlist
@@ -4936,14 +5053,14 @@ async function pullWithPreview(remoteMeta) {
       if (remotePayload.data) {
         var _rsKeys = Object.keys(remotePayload.data);
         for (var rs = 0; rs < _rsKeys.length; rs++) {
-          if (_rsKeys[rs] !== "metalInventory" && !_isTagSyncKey(_rsKeys[rs])) {
+          if (_rsKeys[rs] !== "metalInventory" && !_isManagedSyncKey(_rsKeys[rs])) {
             remoteSettings[_rsKeys[rs]] = remotePayload.data[_rsKeys[rs]];
           }
         }
       }
       if (typeof SYNC_SCOPE_KEYS !== "undefined") {
         for (var i = 0; i < SYNC_SCOPE_KEYS.length; i++) {
-          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[i]))
+          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || _isManagedSyncKey(SYNC_SCOPE_KEYS[i]))
             continue;
           // STAK-497: Use raw localStorage.getItem to match vault payload format.
           // loadDataSync JSON-parses values, which fails for scalar settings
@@ -5685,4 +5802,5 @@ if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostnam
   window.CloudSyncTest.hasTagChanges = _hasTagChanges;
   window.CloudSyncTest.mergeTagData = _mergeTagData;
   window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
+  window.CloudSyncTest.mergeItemPriceClearWatermark = _mergeItemPriceClearWatermark;
 }

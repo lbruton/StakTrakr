@@ -1125,12 +1125,24 @@ test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => 
       ts: CLEARED_AT,
     });
     await gotoCloudReady(page);
-    await seedRemoteCompanion(page, { metaOverrides: { timestamp: BASE_TS + 5000 } });
+    // syncId matches the seeded lastPull so the pre-push guard treats the remote
+    // as already-pulled (not an unpulled change) and proceeds to the push branch.
+    await seedRemoteCompanion(page, {
+      metaOverrides: { syncId: "local-before-acceptance", timestamp: BASE_TS + 5000 },
+    });
     const deleted = await captureDeletes(page);
+    // Force genuinely-empty local history at push time. The app auto-records a
+    // boot snapshot; a real just-cleared device pushes with empty history, which
+    // is the precondition for the preserve/delete branch (watermark drop-semantics
+    // are covered by B.1 + AC-3).
+    await page.evaluate(() => {
+      localStorage.setItem("item-price-history", JSON.stringify({}));
+      if (window.loadItemPriceHistory) window.loadItemPriceHistory();
+    });
 
     await page.evaluate(() => window.pushSyncVault());
 
-    expect(deleted.some((p) => p.endsWith(COMPANION_PATH_SUFFIX))).toBe(true); // RED until C.3
+    expect(deleted.some((p) => p.endsWith(COMPANION_PATH_SUFFIX))).toBe(true); // intentional clear → delete
   });
 
   test("AC-4 (GUARD): a fresh device with no watermark preserves the remote companion", async ({
@@ -1140,8 +1152,18 @@ test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => 
     // must NEVER delete another device's companion. Holds before and after C.
     await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: {} });
     await gotoCloudReady(page);
-    await seedRemoteCompanion(page, { metaOverrides: { timestamp: BASE_TS + 5000 } });
+    // syncId matches lastPull so the push reaches the companion branch (not the
+    // unpulled-change block) — proving preserve, not a trivial early-return.
+    await seedRemoteCompanion(page, {
+      metaOverrides: { syncId: "local-before-acceptance", timestamp: BASE_TS + 5000 },
+    });
     const deleted = await captureDeletes(page);
+    // Force genuinely-empty local history (no watermark) → the fresh-device
+    // precondition for the preserve branch.
+    await page.evaluate(() => {
+      localStorage.setItem("item-price-history", JSON.stringify({}));
+      if (window.loadItemPriceHistory) window.loadItemPriceHistory();
+    });
 
     await page.evaluate(() => window.pushSyncVault());
 
