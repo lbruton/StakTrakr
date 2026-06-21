@@ -92,6 +92,13 @@
 
   const escapeAttribute = escapeHtml;
 
+  // Shared inline keydown handler for click-activatable elements (role=button):
+  // Enter/Space trigger the element's own onclick via this.click() and suppress
+  // the default Space-scroll. One constant keeps every chip/link consistent and
+  // avoids duplicating per-element activation logic in each attribute (STRK-209).
+  const ACTIVATE_ON_KEY =
+    "if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}";
+
   const filterLink = (field, value, color, displayValue = value, title, allowHtml = false) => {
     const handler = `applyColumnFilter('${field}', ${JSON.stringify(value)})`;
     const escaped = escapeAttribute(handler);
@@ -106,7 +113,7 @@
       displayStr === "—";
     const classNames = `filter-text${isNA ? " na-value" : ""}`;
     const styleAttr = isNA ? "" : ` style="color: ${color};"`;
-    return `<span class="${classNames}"${styleAttr} onclick="${escaped}" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ')${escaped}" title="${safeTitle}">${safe}</span>`;
+    return `<span class="${classNames}"${styleAttr} onclick="${escaped}" tabindex="0" role="button" onkeydown="${ACTIVATE_ON_KEY}" title="${safeTitle}">${safe}</span>`;
   };
 
   const getTypeColor = (type) => typeColors[type] || "var(--type-other-bg)";
@@ -582,6 +589,7 @@
     return item.year
       ? `<span class="year-tag" title="Filter by year: ${escapeAttribute(String(item.year))}"
                  onclick="${escapeAttribute(`applyColumnFilter('year', ${JSON.stringify(String(item.year))})`)}"
+                 onkeydown="${ACTIVATE_ON_KEY}"
                  tabindex="0" role="button" style="cursor:pointer;">${sanitizeHtml(String(item.year))}</span>`
       : "";
   }
@@ -629,6 +637,7 @@
     return !isNaN(purityVal) && purityVal > 0 && purityVal < 1.0
       ? `<span class="purity-tag" title="Purity: ${escapeAttribute(String(purityVal))}"
                  onclick="${escapeAttribute(`applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})`)}"
+                 onkeydown="${ACTIVATE_ON_KEY}"
                  tabindex="0" role="button" style="cursor:pointer;">${purityVal}</span>`
       : "";
   }
@@ -687,7 +696,7 @@
    */
   function _buildNameCellMain(item, originalIdx) {
     return featureFlags.isEnabled("COIN_IMAGES")
-      ? `<span class="filter-text" style="color: var(--text-primary); cursor: pointer;" onclick="showViewModal(${originalIdx})" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ')showViewModal(${originalIdx})" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
+      ? `<span class="filter-text" style="color: var(--text-primary); cursor: pointer;" onclick="${escapeAttribute(`showViewModal(${originalIdx})`)}" tabindex="0" role="button" onkeydown="${ACTIVATE_ON_KEY}" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
       : filterLink("name", item.name, "var(--text-primary)", undefined, item.name);
   }
 

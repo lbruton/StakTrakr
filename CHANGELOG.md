@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.43] - 2026-06-21
+
+### Fixed — STRK-209: Keyboard activation for inventory-table filter tags
+
+- **Year & purity chips are keyboard-operable**: The year and purity filter chips in the inventory table now respond to Enter and Space, so keyboard and screen-reader users can apply the column filter without a mouse — previously they were focusable but inert (STRK-209).
+- **Space no longer scrolls the page**: Activating a filter chip, the shared column-filter link, or the name-cell view link with Space now calls preventDefault, matching expected button behavior instead of scrolling the page (STRK-209).
+
 ---
 
 ## [3.35.42] - 2026-06-21

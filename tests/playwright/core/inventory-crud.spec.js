@@ -2450,48 +2450,58 @@ test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", ()
   });
 });
 
+// ─── Shared seed helper for the year/purity filter-tag describes (STRK-208/209) ─
+
+// The year chip ships enabled by default but purity ships disabled
+// (js/constants.js INLINE_CHIP_DEFAULTS); enable both so each builder's
+// onclick/onkeydown handler is exercised in the rendered table.
+const YEAR_PURITY_CHIPS = [
+  { id: "year", label: "Year", enabled: true },
+  { id: "purity", label: "Purity", enabled: true },
+];
+
+// Seed inventory + chip config (+ optional feature-flag overrides) into
+// localStorage, then load the app and wait for the inventory table to render.
+async function seedInventoryTableAndGoto(page, { items, chipConfig, flags } = {}) {
+  await page.addInitScript(
+    ({ seededInventory, chips, featureFlagOverride }) => {
+      localStorage.setItem("metalInventory", JSON.stringify(seededInventory));
+      localStorage.setItem("itemTags", JSON.stringify({}));
+      localStorage.setItem("inlineChipConfig", JSON.stringify(chips));
+      localStorage.setItem("cardViewStyle", "D");
+      if (featureFlagOverride) {
+        localStorage.setItem("featureFlags", JSON.stringify(featureFlagOverride));
+      }
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") {
+            localStorage.setItem("ackVersion", APP_VERSION);
+          }
+        },
+        { once: true }
+      );
+    },
+    { seededInventory: items, chips: chipConfig, featureFlagOverride: flags || null }
+  );
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+  await page.waitForFunction(() => Array.isArray(window.inventory));
+}
+
 // ─── STRK-208: year/purity inline-tag click-to-filter (onclick escaping) ─────
 
 test.describe("year-purity-filter-tags — STRK-208", () => {
-  // The year chip ships enabled by default but purity ships disabled
-  // (js/constants.js INLINE_CHIP_DEFAULTS); enable both so each builder's
-  // onclick handler is exercised in the rendered table.
-  const ENABLED_CHIPS = [
-    { id: "year", label: "Year", enabled: true },
-    { id: "purity", label: "Purity", enabled: true },
-  ];
-
-  async function seedTagsAndGoto(page, items) {
-    await page.addInitScript(
-      ({ seededInventory, chipConfig }) => {
-        localStorage.setItem("metalInventory", JSON.stringify(seededInventory));
-        localStorage.setItem("itemTags", JSON.stringify({}));
-        localStorage.setItem("inlineChipConfig", JSON.stringify(chipConfig));
-        localStorage.setItem("cardViewStyle", "D");
-        document.addEventListener(
-          "DOMContentLoaded",
-          () => {
-            if (typeof APP_VERSION !== "undefined") {
-              localStorage.setItem("ackVersion", APP_VERSION);
-            }
-          },
-          { once: true }
-        );
-      },
-      { seededInventory: items, chipConfig: ENABLED_CHIPS }
-    );
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
-    await page.waitForFunction(() => Array.isArray(window.inventory));
-  }
-
   test("year/purity tag onclick is well-formed (not truncated) and click filters the table", async ({
     page,
   }) => {
-    await seedTagsAndGoto(page, [
-      { ...SEED_ITEM, uuid: "strk-208-a", name: "STRK-208 Item A", year: "2026", purity: 0.999 },
-      { ...SEED_ITEM, uuid: "strk-208-b", name: "STRK-208 Item B", year: "2020", purity: 0.5 },
-    ]);
+    await seedInventoryTableAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, uuid: "strk-208-a", name: "STRK-208 Item A", year: "2026", purity: 0.999 },
+        { ...SEED_ITEM, uuid: "strk-208-b", name: "STRK-208 Item B", year: "2020", purity: 0.5 },
+      ],
+      chipConfig: YEAR_PURITY_CHIPS,
+    });
 
     // Attribute-shape: the rendered onclick must be the complete call. With the
     // bug, the unescaped JSON.stringify quote truncates it to
@@ -2509,5 +2519,90 @@ test.describe("year-purity-filter-tags — STRK-208", () => {
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
     await page.locator(".year-tag").first().click();
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+});
+
+// ─── STRK-209: keyboard activation a11y for filter tags + name cell ──────────
+
+test.describe("keyboard-a11y-activation — STRK-209", () => {
+  const TWO_ITEMS = [
+    { ...SEED_ITEM, uuid: "strk-209-a", name: "STRK-209 Item A", year: "2026", purity: 0.999 },
+    { ...SEED_ITEM, uuid: "strk-209-b", name: "STRK-209 Item B", year: "2020", purity: 0.5 },
+  ];
+
+  // Thin wrapper over the shared seed helper — fixes the two-item fixture and
+  // the year/purity chip config, forwarding optional feature-flag overrides.
+  const seedAndGoto = (page, opts = {}) =>
+    seedInventoryTableAndGoto(page, {
+      items: TWO_ITEMS,
+      chipConfig: YEAR_PURITY_CHIPS,
+      flags: opts.flags,
+    });
+
+  // Observe whether the focused element's inline keydown handler called
+  // preventDefault() on Space — read from a document-level (bubble-phase)
+  // listener that fires AFTER the target span's attribute handler. Deterministic,
+  // unlike asserting window.scrollY (flaky on a short page with nothing to scroll).
+  async function trackSpaceDefault(page) {
+    await page.evaluate(() => {
+      window.__spaceDefaultPrevented = null;
+      document.addEventListener("keydown", (e) => {
+        if (e.key === " ") window.__spaceDefaultPrevented = e.defaultPrevented;
+      });
+    });
+  }
+
+  test("Enter on a year tag activates the column filter (keyboard parity with click)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".year-tag").first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+
+  test("Space on a year tag activates the filter and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await trackSpaceDefault(page);
+    await page.locator(".year-tag").first().focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  test("Enter on a purity tag activates the column filter", async ({ page }) => {
+    await seedAndGoto(page);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".purity-tag").first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+
+  test("Space on the name-cell view link opens the modal and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    // COIN_IMAGES is enabled by default → the name cell renders as the
+    // showViewModal span (title="View …"), distinct from filterLink chips.
+    await seedAndGoto(page);
+    await trackSpaceDefault(page);
+    await page.locator('#inventoryTable tbody .filter-text[title^="View "]').first().focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  test("Space on a filterLink column cell suppresses the page-scroll default (shared helper)", async ({
+    page,
+  }) => {
+    // Disable COIN_IMAGES so the name cell falls back to filterLink, exercising
+    // the shared helper's keydown handler directly.
+    await seedAndGoto(page, { flags: { COIN_IMAGES: false } });
+    await trackSpaceDefault(page);
+    await page.locator("#inventoryTable tbody .filter-text").first().focus();
+    await page.keyboard.press("Space");
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
   });
 });
