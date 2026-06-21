@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.42] - 2026-06-21
+
+### Fixed — STRK-215/218: bulk-image-cache failure count and resolver robustness
+
+- **Failure count no longer doubles**: A catalog lookup that throws for an uncached item is now counted as a single failure in the bulk image-cache completion summary, instead of being incremented twice — once in the fetch catch path and again in the trailing no-result branch (STRK-215).
+- **Tag map uses the in-scope resolver**: `buildCatalogIdToUuids()` now calls the closure-local `resolveCatalogId` rather than the module's global self-reference, so tag application stays consistent if the export is shadowed or reassigned (STRK-218).
+
+---
+
 ## [3.35.41] - 2026-06-21
 
 ### Fixed — STRK-223: Cloud-sync item-price-history clear propagation

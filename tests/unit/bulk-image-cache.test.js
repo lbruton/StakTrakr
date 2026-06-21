@@ -293,10 +293,10 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
     assert.ok(logs.some((l) => l.status === "metadata" && l.message === "Synced"));
   });
 
-  test("API failure on an uncached item increments failed (double-counts), not synced", async () => {
-    // Characterizes CURRENT behavior: a thrown lookup increments `failed` twice —
-    // once in the catch block, once in the trailing `else if (!hasMetaCached)`
-    // branch (apiResult stays null). The refactor must preserve this exactly.
+  test("API failure on an uncached item increments failed exactly once, not synced", async () => {
+    // STRK-215: a thrown lookup is counted once — inside fetchFromApi's catch.
+    // The trailing `else if (!hasMetaCached)` branch is now gated on
+    // !apiReportedFailure so it no longer double-counts the same miss.
     const item = { uuid: "u3", numistaId: "300" };
     const imageCache = makeImageCache();
     const catalogAPI = {
@@ -307,9 +307,28 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
     const mod = loadModule(baseEnv({ imageCache, inventory: [item], catalogAPI }));
     let summary = null;
     await mod.cacheAll(opts({ onComplete: (s) => (summary = s) }));
-    assert.equal(summary.failed, 2);
+    assert.equal(summary.failed, 1);
     assert.equal(summary.synced, 0);
+    // The catch path still emits its own meta-failed log carrying the error.
     assert.ok(logs.some((l) => l.status === "meta-failed"));
+  });
+
+  test("uncached lookup returning null still counts failed once via the trailing branch", async () => {
+    // STRK-215 guard: the fix must NOT suppress the legitimate single count when
+    // the API path reports no failure (lookupItem resolves null, fetched.failed=0).
+    const item = { uuid: "u3b", numistaId: "301" };
+    const imageCache = makeImageCache();
+    const catalogAPI = { lookupItem: async () => null };
+    const mod = loadModule(baseEnv({ imageCache, inventory: [item], catalogAPI }));
+    let summary = null;
+    await mod.cacheAll(opts({ onComplete: (s) => (summary = s) }));
+    assert.equal(summary.failed, 1, "a null lookup is a single failure");
+    assert.equal(summary.synced, 0);
+    assert.equal(summary.apiLookups, 1, "the lookup still counted as an API call");
+    assert.ok(
+      logs.some((l) => l.status === "meta-failed" && l.message === "Catalog API not available"),
+      "trailing branch emits the not-available log"
+    );
   });
 
   test("malformed image URL on the item is cleared and a url-repair log is emitted", async () => {
@@ -504,5 +523,25 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
       progress.map((p) => p.catalogId),
       ["701", "702", "703"]
     );
+  });
+
+  test("tag map ignores a reassigned exported resolveCatalogId (STRK-218)", async () => {
+    // buildCatalogIdToUuids() must use the closure-local resolveCatalogId, not the
+    // module export. Reassigning the export mimics a shadow/monkeypatch: before the
+    // fix the UUID map keyed off the mutated export and diverged from the eligible
+    // list, so the synced item's tags were never applied.
+    const item = { uuid: "u9", numistaId: "900" };
+    const imageCache = makeImageCache();
+    const catalogAPI = {
+      lookupItem: async (id) => ({ id, tags: ["gold"], imageUrl: "https://cdn/x.jpg" }),
+    };
+    const mod = loadModule(baseEnv({ imageCache, inventory: [item], catalogAPI }));
+    // Corrupt the exported helper after load — the closure-local must be immune.
+    mod.resolveCatalogId = () => "999-wrong";
+    let summary = null;
+    await mod.cacheAll(opts({ onComplete: (s) => (summary = s) }));
+    assert.equal(summary.synced, 1, "eligible list (closure-local) still finds the item");
+    assert.equal(appliedTags.length, 1, "tags applied despite the reassigned export");
+    assert.equal(appliedTags[0][0], "u9", "tags applied to the correct uuid");
   });
 });
