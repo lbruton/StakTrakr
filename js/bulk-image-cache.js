@@ -340,10 +340,12 @@ const BulkImageCache = (() => {
       delta.synced++;
     } else if (!hasMetaCached && !apiReportedFailure) {
       // Count an uncached miss only when the API path didn't already record a
-      // failure (e.g. catalogAPI absent, or a lookup that returned null). A
-      // thrown lookup is already counted inside fetchFromApi — don't double it.
+      // failure (a thrown lookup is already counted inside fetchFromApi — don't
+      // double it). Differentiate the two no-result reasons for the UI log: the
+      // catalog API was unavailable vs. it was queried but returned no metadata.
       delta.failed++;
-      if (onLog) onLog({ catalogId, status: "meta-failed", message: "Catalog API not available" });
+      const message = window.catalogAPI ? "No catalog metadata found" : "Catalog API not available";
+      if (onLog) onLog({ catalogId, status: "meta-failed", message });
     }
 
     return delta;

@@ -326,8 +326,8 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
     assert.equal(summary.synced, 0);
     assert.equal(summary.apiLookups, 1, "the lookup still counted as an API call");
     assert.ok(
-      logs.some((l) => l.status === "meta-failed" && l.message === "Catalog API not available"),
-      "trailing branch emits the not-available log"
+      logs.some((l) => l.status === "meta-failed" && l.message === "No catalog metadata found"),
+      "a present-but-empty API logs 'no metadata', not 'API not available'"
     );
   });
 
