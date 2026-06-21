@@ -1255,4 +1255,23 @@ test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => 
     expect(before).toBeGreaterThan(0); // RED until C.1 (clear must stamp)
     expect(after).toBe(before); // survives reload + cleanupStorage (AC-8 dual-registration)
   });
+
+  test("AC-3 (manifest fast-path guard): a watermark-only change forces the apply path", async ({
+    page,
+  }) => {
+    // STRK-223 (Copilot review on PR #1313): the manifest-first "no changes"
+    // fast-path excludes the watermark from its per-key settings diff, so without
+    // _hasItemPriceClearChange a watermark-only remote change would silently no-op
+    // and never reach the apply path where _mergeItemPriceClearWatermark runs.
+    await bootSynced(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await page.evaluate(() => window.saveItemPriceClearedAt(5000)); // local watermark = 5000
+    const result = await page.evaluate(() => ({
+      newer: window.CloudSyncTest.hasItemPriceClearChange({ itemPriceHistoryClearedAt: 9000 }),
+      older: window.CloudSyncTest.hasItemPriceClearChange({ itemPriceHistoryClearedAt: 1000 }),
+      equal: window.CloudSyncTest.hasItemPriceClearChange({ itemPriceHistoryClearedAt: 5000 }),
+      absent: window.CloudSyncTest.hasItemPriceClearChange({}),
+    }));
+    // Only a NEWER remote watermark forces the manifest path off its silent no-op.
+    expect(result).toEqual({ newer: true, older: false, equal: false, absent: false });
+  });
 });

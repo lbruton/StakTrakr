@@ -3355,6 +3355,22 @@ function _hasTagChanges(remoteSettings) {
   return false;
 }
 
+// STRK-223: true when the remote carries an item-price clear watermark NEWER than
+// the local one — an intentional clear this device must still apply. Mirrors
+// _hasTagChanges so a watermark-only remote change is not swallowed by the
+// manifest-first silent-return fast-path (the watermark is excluded from the
+// per-key settings diff via _isManagedSyncKey, so without this it would look like
+// "no settings changed"). The poll / vault-first paths are unaffected — their
+// settingsHash already covers the watermark.
+function _hasItemPriceClearChange(remoteSettings) {
+  if (!remoteSettings) return false;
+  var key = _itemPriceClearKey();
+  var remoteTs = Number(remoteSettings[key]) || 0;
+  if (remoteTs <= 0) return false;
+  var localTs = typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+  return remoteTs > localTs;
+}
+
 function _restoreRawStorageValues(priorValues) {
   if (!priorValues || typeof localStorage === "undefined") return { failed: 0, total: 0 };
   var keys = Object.keys(priorValues);
@@ -4432,7 +4448,11 @@ async function pullWithPreview(remoteMeta) {
             !manifestSettingsDiff.changed ||
             manifestSettingsDiff.changed.length === 0;
           var _mHasTagChanges = _hasTagChanges(manifest.settings);
-          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges) {
+          // STRK-223: a watermark-only change is excluded from the settings diff
+          // (_isManagedSyncKey), so without this it would silently no-op here and
+          // never reach the apply path where _mergeItemPriceClearWatermark runs.
+          var _mHasIphClear = _hasItemPriceClearChange(manifest.settings);
+          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges && !_mHasIphClear) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
             var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -5803,4 +5823,5 @@ if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostnam
   window.CloudSyncTest.mergeTagData = _mergeTagData;
   window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
   window.CloudSyncTest.mergeItemPriceClearWatermark = _mergeItemPriceClearWatermark;
+  window.CloudSyncTest.hasItemPriceClearChange = _hasItemPriceClearChange;
 }
