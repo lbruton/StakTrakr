@@ -2536,17 +2536,13 @@ async function pollForRemoteChanges() {
       return;
     }
 
-    // STRK-147 (D-11): item-price-history companion-vault hash check. Extracted
-    // to _pollCompanionItemPriceHistory so this hot poll loop carries only a thin
-    // call. It runs BEFORE the inventory/settings hash shortcut so a companion-only
-    // remote change is still detected and silently merged, updates lastPull with
-    // the merged hash immediately, and signals a write failure (C.4/AC-7) via
-    // `.failed` so we hold lastPull stale and bail for retry.
-    var _pollCompanion = await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
-    if (_pollCompanion.failed) {
-      return;
-    }
-    var _pollCompanionHash = _pollCompanion.hash;
+    // STRK-224 (Edge 1, D-1): the item-price-history companion merge was
+    // previously pre-merged here UNCONDITIONALLY — ahead of the inv/settings
+    // shortcut AND ahead of handleRemoteChange — so a Cancel on the DiffModal
+    // could not undo it. The pre-merge now runs ONLY on the no-modal exits: the
+    // silent fast-path and the STAK-414 local-newer branch below. The DiffModal
+    // route relies on pullWithPreview's STRK-225 `_vfApplied`-gated companion pull
+    // to merge on Apply / skip on Cancel.
 
     // Layer 4 — Hash-based change detection (REQ-4)
     // Skip notification if BOTH inventory AND settings hashes match.
@@ -2586,17 +2582,20 @@ async function pollForRemoteChanges() {
           console.warn(
             "[CloudSync] Poll: inventory + settings hashes MATCH — silently recording pull"
           );
-          // STRK-147 (D-11): the early companion-hash step (above) already merged
-          // any companion-only remote change and returned _pollCompanionHash, so
-          // carry it onto the recorded pull. Without this the fast-path would
-          // record the pull while dropping the just-merged companion hash, and
-          // the next poll would needlessly re-merge.
+          // STRK-224 (Edge 1, D-1): merge any companion-only remote change on this
+          // no-modal exit, then carry the merged hash onto the recorded pull
+          // (preserves the STRK-147 D-11 silent fast-path; AC-3). A transient
+          // companion failure (Edge 2) holds lastPull stale and bails for retry.
+          var _pollCompanion = await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
+          if (_pollCompanion.failed) {
+            return;
+          }
           var _pollPullMeta = {
             syncId: remoteMeta.syncId,
             timestamp: remoteMeta.timestamp,
             rev: remoteMeta.rev,
           };
-          if (_pollCompanionHash) _pollPullMeta.itemPriceHistoryHash = _pollCompanionHash;
+          if (_pollCompanion.hash) _pollPullMeta.itemPriceHistoryHash = _pollCompanion.hash;
           syncSetLastPull(_pollPullMeta);
           return;
         }
@@ -2630,6 +2629,12 @@ async function pollForRemoteChanges() {
             ") — triggering push instead of pull"
         );
         logCloudSyncActivity("auto_sync_poll", "success", "Local newer than remote — pushing");
+        // STRK-224 (Edge 1, D-4): this no-modal local-newer exit still accepts a
+        // remote companion change (idempotent, append-only over owned UUIDs, and
+        // records only itemPriceHistoryHash — never syncId — so there is no false
+        // watermark advance). A transient failure is non-fatal here; the push
+        // proceeds and the companion retries on the next poll.
+        await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
         if (typeof scheduleSyncPush === "function") scheduleSyncPush();
         return;
       }
@@ -2689,6 +2694,21 @@ async function _pollCompanionItemPriceHistory(remoteMeta, token, lastPull) {
       "poll-shortcut",
       _currentInventoryUuids()
     );
+    if (result.failed) {
+      // STRK-224 (Edge 2): a transient (non-throwing) companion download/decrypt
+      // failure must NOT advance lastPull — propagate `failed` so the poll holds
+      // the watermark stale and retries on the next cycle (AC-4/AC-6).
+      console.warn(
+        "[CloudSync] Poll: item-price-history transient pull failure — keeping lastPull stale"
+      );
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "poll transient failure (lastPull held)"
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return { hash: companionHash, failed: true };
+    }
     if (result.hash) {
       companionHash = result.hash;
       // Record the merged hash onto lastPull immediately so a subsequent full
@@ -2889,21 +2909,28 @@ function _currentInventoryUuids(items) {
  * imports orphan history (D-6, AC-6). The merged result is persisted through
  * the throwing `writeItemPriceHistoryStrict()` write path (D-7); a write
  * failure (e.g. quota) RETHROWS so the caller can keep `lastPull` stale and
- * retry (AC-7) — it is NOT swallowed. Network/decrypt failures are non-fatal
- * and leave the companion hash unrecorded so the next pull retries.
+ * retry (AC-7) — it is NOT swallowed.
+ *
+ * STRK-224 (Edge 2): a TRANSIENT download/decrypt failure is non-throwing but
+ * returns `failed:true` so callers can tell it apart from a benign no-op (the
+ * precondition-miss and transient-failure paths otherwise share the exact
+ * `{hash:null, skipped:false}` shape). Callers MUST NOT advance `lastPull` when
+ * `failed` is set — leave the watermark stale so the next poll retries (AC-4/6).
  *
  * @param {object} remoteMeta - Remote sync metadata (carries itemPriceHistoryVault)
  * @param {string} token - Dropbox OAuth bearer token
  * @param {string} password - Vault decryption key (composite password:accountId)
  * @param {string} pathLabel - Pull-path label for diagnostics/logging
  * @param {Set<string>|Array<string>} acceptedUuids - Accepted inventory boundary
- * @returns {Promise<{hash:(string|null),skipped:boolean}>} The merged companion
- *          hash to record on lastPull (null when nothing changed/applied).
+ * @returns {Promise<{hash:(string|null),skipped:boolean,failed:boolean}>} `hash`
+ *          is the merged companion hash to record on lastPull (null when nothing
+ *          changed/applied); `failed` is true ONLY on a transient download/decrypt
+ *          failure (the caller must hold lastPull stale and retry).
  * @throws Rethrows a writeItemPriceHistoryStrict failure (e.g. quota) so the
  *         caller does not advance lastPull (AC-7).
  */
 async function _pullItemPriceHistoryVault(remoteMeta, token, password, pathLabel, acceptedUuids) {
-  var result = { hash: null, skipped: false };
+  var result = { hash: null, skipped: false, failed: false };
   if (
     !remoteMeta ||
     !remoteMeta.itemPriceHistoryVault ||
@@ -2950,6 +2977,9 @@ async function _pullItemPriceHistoryVault(remoteMeta, token, password, pathLabel
         resp.status
       );
       logCloudSyncActivity("item_price_history_vault_pull", "fail", "HTTP " + resp.status);
+      // STRK-224 (Edge 2): transient download failure — signal so the caller
+      // holds lastPull stale and retries on the next poll (AC-4/AC-6).
+      result.failed = true;
       return result;
     }
     var bytes = new Uint8Array(await resp.arrayBuffer());
@@ -2961,6 +2991,8 @@ async function _pullItemPriceHistoryVault(remoteMeta, token, password, pathLabel
       msg
     );
     logCloudSyncActivity("item_price_history_vault_pull", "fail", pathLabel + ": " + msg);
+    // STRK-224 (Edge 2): transient decrypt failure — same retry signal as above.
+    result.failed = true;
     return result;
   }
 
@@ -3953,6 +3985,11 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
               _dvSettingsChanges = _dvsDiff.changed;
             }
           }
+          // STRK-224 (Edge 3, D-3): snapshot the FULL prior lastPull before
+          // _applyAndFinalize advances syncId, so a companion failure/throw below
+          // can restore it (the manifest-first apply records syncId before the
+          // strict companion write).
+          var _dvPriorLastPull = syncGetLastPull();
           _applyAndFinalize(newInv, selectedChanges, _dvSettingsChanges, remoteMeta, {
             source: "sync",
             remoteTagData: _extractRemoteTagData(payload.data),
@@ -4023,13 +4060,43 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           // acceptedUuids = the post-apply `newInv` DiffEngine computed above
           // (D-6) so history follows the accepted-Item boundary, not the stale
           // pre-apply local inventory.
-          var _dvIph = await _pullItemPriceHistoryVault(
-            remoteMeta,
-            token,
-            password,
-            "manifest-path",
-            _currentInventoryUuids(newInv)
-          );
+          // STRK-224 (Edge 3, D-3): on a transient failure OR a write throw,
+          // restore the full prior lastPull so syncId is not left advanced past
+          // the unmerged companion (AC-7/AC-8 manifest-first).
+          var _dvIph;
+          try {
+            _dvIph = await _pullItemPriceHistoryVault(
+              remoteMeta,
+              token,
+              password,
+              "manifest-path",
+              _currentInventoryUuids(newInv)
+            );
+          } catch (_dvIphErr) {
+            if (_dvPriorLastPull) syncSetLastPull(_dvPriorLastPull);
+            console.warn(
+              "[CloudSync] Manifest-path: item-price-history merge write failed — restoring prior lastPull:",
+              String(_dvIphErr.message || _dvIphErr)
+            );
+            logCloudSyncActivity(
+              "item_price_history_vault_pull",
+              "fail",
+              "manifest-path write failed (lastPull restored): " +
+                String(_dvIphErr.message || _dvIphErr)
+            );
+            updateSyncStatusIndicator("error", "Sync incomplete");
+            return;
+          }
+          if (_dvIph.failed) {
+            if (_dvPriorLastPull) syncSetLastPull(_dvPriorLastPull);
+            logCloudSyncActivity(
+              "item_price_history_vault_pull",
+              "fail",
+              "manifest-path transient failure (lastPull restored)"
+            );
+            updateSyncStatusIndicator("error", "Sync incomplete");
+            return;
+          }
           if (_dvIph.hash) {
             var _dvIphPullMeta = syncGetLastPull() || {};
             _dvIphPullMeta.itemPriceHistoryHash = _dvIph.hash;
@@ -4234,6 +4301,17 @@ async function pullWithPreview(remoteMeta) {
               "silent-pull",
               _currentInventoryUuids()
             );
+            if (_spIph.failed) {
+              // STRK-224 (Edge 2/AC-5): transient companion failure on the silent
+              // path — hold lastPull stale (do NOT record) so the next poll retries.
+              logCloudSyncActivity(
+                "auto_sync_pull",
+                "fail",
+                "item-price-history transient failure — pull held for retry (manifest silent)"
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
             if (_spIph.hash) _silentPullMeta.itemPriceHistoryHash = _spIph.hash;
             syncSetLastPull(_silentPullMeta);
             logCloudSyncActivity(
@@ -4300,6 +4378,10 @@ async function pullWithPreview(remoteMeta) {
             if (_allOneSided) {
               var _appliedCount = 0;
               var _failedCount = 0;
+              // STRK-224 (Edge 1 fallout / D-5): capture the prior lastPull before
+              // this branch advances syncId, so a companion failure below can
+              // restore it (Edge 3 on this no-modal auto-merge path).
+              var _amPriorLastPull = syncGetLastPull();
               var _tagKeys = _tagSyncKeys();
               var _premergeSnapshot = {};
               for (var _pk = 0; _pk < _tagKeys.length; _pk++) {
@@ -4469,6 +4551,54 @@ async function pullWithPreview(remoteMeta) {
                     attachmentHash: _amAttachResult.hash,
                   })
                 );
+              }
+              // STRK-224 (D-5): item-price-history companion vault on the STAK-470
+              // auto-merge path. This no-modal version-upgrade branch previously
+              // relied on the poll pre-merge (removed by the Edge-1 reorder), so
+              // pull the companion here with the STRK-147 D-6 accepted-UUIDs
+              // boundary (current inventory). On a transient failure OR a write
+              // throw, restore the prior lastPull so syncId is not left advanced
+              // past the unmerged companion (Edge 3; AC-7/AC-8).
+              if (_failedCount === 0) {
+                var _amIph;
+                try {
+                  _amIph = await _pullItemPriceHistoryVault(
+                    remoteMeta,
+                    token,
+                    password,
+                    "auto-merge",
+                    _currentInventoryUuids()
+                  );
+                } catch (_amIphErr) {
+                  if (_amPriorLastPull) syncSetLastPull(_amPriorLastPull);
+                  console.warn(
+                    "[CloudSync] STAK-470 path: item-price-history merge write failed — restoring prior lastPull:",
+                    String(_amIphErr.message || _amIphErr)
+                  );
+                  logCloudSyncActivity(
+                    "item_price_history_vault_pull",
+                    "fail",
+                    "auto-merge write failed (lastPull restored): " +
+                      String(_amIphErr.message || _amIphErr)
+                  );
+                  updateSyncStatusIndicator("error", "Sync incomplete");
+                  return;
+                }
+                if (_amIph.failed) {
+                  if (_amPriorLastPull) syncSetLastPull(_amPriorLastPull);
+                  logCloudSyncActivity(
+                    "item_price_history_vault_pull",
+                    "fail",
+                    "auto-merge transient failure (lastPull restored)"
+                  );
+                  updateSyncStatusIndicator("error", "Sync incomplete");
+                  return;
+                }
+                if (_amIph.hash) {
+                  var _amIphPrevPull = syncGetLastPull() || {};
+                  _amIphPrevPull.itemPriceHistoryHash = _amIph.hash;
+                  syncSetLastPull(_amIphPrevPull);
+                }
               }
               // Push to update remote manifest with local-only keys
               if (
@@ -4791,6 +4921,19 @@ async function pullWithPreview(remoteMeta) {
           "vault-first silent",
           _currentInventoryUuids()
         );
+        if (_vfSpIph.failed) {
+          // STRK-224 (Edge 2/AC-5): transient companion failure on the vault-first
+          // silent path — hold lastPull stale (do NOT record) so the next poll
+          // retries. _previewPullMeta is left for the next pull cycle to overwrite.
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "item-price-history transient failure — pull held for retry (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
         if (_vfSpIph.hash) _previewPullMeta.itemPriceHistoryHash = _vfSpIph.hash;
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
@@ -4799,6 +4942,12 @@ async function pullWithPreview(remoteMeta) {
         return;
       }
 
+      // STRK-224 (Edge 3, D-3): capture the FULL prior lastPull BEFORE the modal,
+      // i.e. before showRestorePreviewModal.onApply runs _applyAndFinalize (which
+      // advances syncId) and before the `!shownPromise` direct-restore fallback.
+      // The post-apply companion block below restores it on a failure/throw — a
+      // snapshot taken at that block would already be after the syncId advance.
+      var _vfPriorLastPull = syncGetLastPull();
       // STAK-406: shownPromise resolves only after user completes Apply/Cancel,
       // keeping _syncRemoteChangeActive=true until the pull is fully applied.
       var shownPromise = showRestorePreviewModal(
@@ -4914,14 +5063,42 @@ async function pullWithPreview(remoteMeta) {
       // history (and advancing lastPull.itemPriceHistoryHash) after a cancel would
       // import remote history the user explicitly declined (Codex P2).
       if (_vfApplied) {
-        var _vfIph = await _pullItemPriceHistoryVault(
-          remoteMeta,
-          token,
-          password,
-          "vault-first",
-          _currentInventoryUuids()
-        );
-        if (_vfIph.hash) {
+        // STRK-224 (Edge 3, D-3): on a transient failure OR a write throw, restore
+        // the pre-apply lastPull (_applyAndFinalize already advanced syncId at the
+        // onApply step) so the next poll retries (AC-7/AC-8 vault-first).
+        var _vfIph;
+        try {
+          _vfIph = await _pullItemPriceHistoryVault(
+            remoteMeta,
+            token,
+            password,
+            "vault-first",
+            _currentInventoryUuids()
+          );
+        } catch (_vfIphErr) {
+          if (_vfPriorLastPull) syncSetLastPull(_vfPriorLastPull);
+          console.warn(
+            "[CloudSync] Vault-first path: item-price-history merge write failed — restoring prior lastPull:",
+            String(_vfIphErr.message || _vfIphErr)
+          );
+          logCloudSyncActivity(
+            "item_price_history_vault_pull",
+            "fail",
+            "vault-first write failed (lastPull restored): " +
+              String(_vfIphErr.message || _vfIphErr)
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _vfIph = null;
+        }
+        if (_vfIph && _vfIph.failed) {
+          if (_vfPriorLastPull) syncSetLastPull(_vfPriorLastPull);
+          logCloudSyncActivity(
+            "item_price_history_vault_pull",
+            "fail",
+            "vault-first transient failure (lastPull restored)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+        } else if (_vfIph && _vfIph.hash) {
           var _vfIphPullMeta = syncGetLastPull();
           if (_vfIphPullMeta) {
             _vfIphPullMeta.itemPriceHistoryHash = _vfIph.hash;

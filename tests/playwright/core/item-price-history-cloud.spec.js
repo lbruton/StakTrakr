@@ -397,8 +397,12 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
 
     // Inventory + settings unchanged remotely; ONLY the companion differs. The
     // diff modal is suppressed so the companion-only merge stays silent (AC-5).
+    // STRK-224: a matching inventoryHash (and no settingsHash → settingsMatch
+    // defaults true) drives the poll's silent fast-path, where the companion
+    // merge now lives after the Edge-1 reorder removed the unconditional pre-merge.
+    const { invHash } = await computeLocalHashes(page);
     await seedRemoteCompanion(page, {
-      metaOverrides: { syncId: "remote-sync-1", rev: "remote-rev-1" },
+      metaOverrides: { syncId: "remote-sync-1", rev: "remote-rev-1", inventoryHash: invHash },
     });
 
     await page.evaluate(() => window.pollForRemoteChanges());
@@ -460,15 +464,15 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
     await gotoCloudReady(page);
 
-    // Build remote meta whose inventory + settings hashes MATCH local, but whose
-    // companion hash differs.
-    const { invHash, setHash } = await computeLocalHashes(page);
+    // Build remote meta whose inventory hash MATCHES local. STRK-224: omit
+    // settingsHash so settingsMatch defaults true (the companion merge now lives
+    // on the silent fast-path after the Edge-1 reorder).
+    const { invHash } = await computeLocalHashes(page);
     await seedRemoteCompanion(page, {
       metaOverrides: {
         syncId: "remote-sync-companion-only",
         rev: "remote-rev-companion",
         inventoryHash: invHash,
-        settingsHash: setHash,
       },
     });
 
@@ -495,7 +499,9 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
     await gotoCloudReady(page);
 
-    const { invHash, setHash } = await computeLocalHashes(page);
+    // STRK-224: matching inventoryHash, no settingsHash → settingsMatch defaults
+    // true so the poll takes the silent fast-path (no DiffModal).
+    const { invHash } = await computeLocalHashes(page);
     // keepDiffModal: this test installs its OWN DiffModal.show spy below to prove
     // the modal is never shown, so the default suppression must be skipped.
     await seedRemoteCompanion(page, {
@@ -504,7 +510,6 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
         syncId: "remote-sync-silent",
         rev: "remote-rev-silent",
         inventoryHash: invHash,
-        settingsHash: setHash,
       },
     });
 
@@ -539,9 +544,16 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
       [ITEM_B]: [entry(ORPHAN_TS, { itemName: "STRK-147 Rejected B", retail: 99 })],
     };
     const orphanHash = await canonicalHash(page, remoteHistory);
+    // STRK-224: matching inventoryHash (no settingsHash) routes the poll through
+    // the silent fast-path where the companion merge lives after the Edge-1 reorder.
+    const { invHash } = await computeLocalHashes(page);
     await seedRemoteCompanion(page, {
       history: remoteHistory,
-      metaOverrides: { syncId: "remote-sync-orphan", rev: "remote-rev-orphan" },
+      metaOverrides: {
+        syncId: "remote-sync-orphan",
+        rev: "remote-rev-orphan",
+        inventoryHash: invHash,
+      },
       // The companion holds two UUIDs (ITEM_A accepted, ITEM_B rejected).
       pointer: { hash: orphanHash, uuidCount: 2, entryCount: 2 },
     });
@@ -564,15 +576,15 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
     await gotoCloudReady(page);
 
-    // Companion-only remote change (inv + settings hashes MATCH) so the silent
-    // companion merge path is the one that must run — and fail on the write.
-    const { invHash, setHash } = await computeLocalHashes(page);
+    // Companion-only remote change (matching inventoryHash; STRK-224: no
+    // settingsHash → settingsMatch defaults true) so the silent companion merge
+    // path is the one that must run — and fail on the write.
+    const { invHash } = await computeLocalHashes(page);
     await seedRemoteCompanion(page, {
       metaOverrides: {
         syncId: "remote-sync-quota",
         rev: "remote-rev-quota",
         inventoryHash: invHash,
-        settingsHash: setHash,
       },
     });
 
