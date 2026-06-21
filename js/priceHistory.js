@@ -116,21 +116,40 @@ const loadItemPriceClearedAt = () => {
 const saveItemPriceClearedAt = (ts) => {
   try {
     saveDataSync(ITEM_PRICE_HISTORY_CLEARED_AT_KEY, Number(ts) || 0);
+    return true;
   } catch (error) {
     console.error("Error saving item-price clear watermark:", error);
+    return false;
   }
 };
 
 /**
- * STRK-223: immediately enforces the current clear watermark against local
- * history. Used by the cloud-sync receive-side hook when an incoming watermark
- * advances past the local one — the companion vault may be absent or unchanged,
- * so the merge path alone would not run the drop-filter. Re-runs retention (which
- * now enforces the watermark) and persists through the throwing strict-write path
- * so a quota failure surfaces to the caller. No-op when history is empty.
+ * STRK-223: immediately enforces the clear watermark against local history. Used
+ * by the cloud-sync receive-side hook when an incoming watermark advances past the
+ * local one — the companion vault may be absent or unchanged, so the merge path
+ * alone would not run the drop-filter.
+ *
+ * When an `explicitClearedAt` is supplied (the incoming watermark), entries at/older
+ * than it are dropped DIRECTLY — so the clear still takes effect even if the scalar
+ * watermark persist failed (e.g. quota) and `applyItemPriceRetention` would otherwise
+ * reload the stale persisted value (Codex review, PR #1313). Retention then runs as a
+ * belt-and-suspenders pass; the persisted-watermark drop is idempotent with the
+ * explicit one. Persists through the throwing strict-write path so a history write
+ * failure still surfaces. No-op when history is empty.
+ *
+ * @param {number} [explicitClearedAt] - Incoming watermark to apply regardless of persist.
  */
-const applyItemPriceClearWatermark = () => {
+const applyItemPriceClearWatermark = (explicitClearedAt) => {
   if (typeof itemPriceHistory === "undefined" || !itemPriceHistory) return;
+  const floor = Number(explicitClearedAt) || 0;
+  if (floor > 0) {
+    for (const uuid of Object.keys(itemPriceHistory)) {
+      const arr = Array.isArray(itemPriceHistory[uuid]) ? itemPriceHistory[uuid] : [];
+      const kept = arr.filter((e) => e && e.ts > floor);
+      if (kept.length) itemPriceHistory[uuid] = kept;
+      else delete itemPriceHistory[uuid];
+    }
+  }
   applyItemPriceRetention(itemPriceHistory);
   if (typeof writeItemPriceHistoryStrict === "function") {
     writeItemPriceHistoryStrict(itemPriceHistory);

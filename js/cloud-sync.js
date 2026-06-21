@@ -3598,15 +3598,26 @@ function _mergeItemPriceClearWatermark(remoteSettings) {
   var raw = remoteSettings && remoteSettings[key] !== undefined ? remoteSettings[key] : 0;
   var remoteTs = Number(raw) || 0;
   if (!(remoteTs > localTs)) return localTs; // older / equal / absent — never un-clear
-  if (typeof saveItemPriceClearedAt === "function") saveItemPriceClearedAt(remoteTs);
-  // Apply immediately. Non-fatal on a write error — the persisted watermark drops
-  // the entries on the next save/merge regardless.
+  var _wmSaved =
+    typeof saveItemPriceClearedAt === "function" ? saveItemPriceClearedAt(remoteTs) : false;
+  // Apply with the INCOMING watermark directly (Codex review, PR #1313) so the drop
+  // takes effect even if the scalar persist above failed (e.g. quota); otherwise the
+  // retention pass would reload the stale persisted value and keep the cleared entries.
+  // Non-fatal on a history write error.
   try {
-    if (typeof applyItemPriceClearWatermark === "function") applyItemPriceClearWatermark();
+    if (typeof applyItemPriceClearWatermark === "function") applyItemPriceClearWatermark(remoteTs);
   } catch (iphWmErr) {
     console.warn(
       "[CloudSync] Item-price clear-watermark apply failed (non-fatal):",
       String(iphWmErr.message || iphWmErr)
+    );
+  }
+  if (!_wmSaved) {
+    // Surface the scalar persist failure (Codex review): the entries were dropped
+    // with the incoming value above, but the watermark itself may not survive a
+    // reload until a later successful write.
+    console.warn(
+      "[CloudSync] Item-price clear-watermark scalar persist failed — clear applied locally but may not survive a reload"
     );
   }
   return remoteTs;

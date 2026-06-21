@@ -1053,19 +1053,17 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
 // =============================================================================
 // STRK-223 — propagate an intentional "clear all" via a synced clear watermark.
 //
-// Cohorts B.2 / B.3 — RED (TDD): the watermark is stamped on clear (C.1), honored
-// by applyItemPriceRetention (C.2), propagated by the push delete branch (C.3),
-// and applied receive-side by _mergeItemPriceClearWatermark at the tag-merge
-// chokepoints (C.4). Tests here encode the intended post-Cohort-C behavior and
-// MUST fail against current code (except the explicitly-labelled preserve / cancel
-// GUARDS, which protect AC-4/AC-7 invariants that hold both before and after C).
+// Cohorts B.2 / B.3 coverage: the watermark is stamped on clear (C.1), honored by
+// applyItemPriceRetention (C.2), propagated by the push delete branch (C.3), and
+// applied receive-side by _mergeItemPriceClearWatermark at the tag-merge chokepoints
+// (C.4). The preserve / cancel cases are GUARDS protecting AC-4/AC-7 invariants.
 //
-//   AC-1 clear stamps watermark                         (RED until C.1)
-//   AC-2 cleared device's push deletes the companion    (RED until C.3)
+//   AC-1 clear stamps watermark
+//   AC-2 cleared device's push deletes the companion
 //   AC-4 fresh device preserves the companion           (GUARD — preserve invariant)
-//   AC-3 receiving a newer watermark drops old entries  (RED until C.4)
+//   AC-3 receiving a newer watermark drops old entries
 //   AC-7 cancelled preview does not advance the watermark(GUARD — cancel invariant)
-//   AC-8 watermark survives reload + cleanupStorage      (RED until C.1)
+//   AC-8 watermark survives reload + cleanupStorage
 // =============================================================================
 
 const CLEAR_WATERMARK_KEY = "itemPriceHistoryClearedAt";
@@ -1109,7 +1107,7 @@ test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => 
     await confirmClearAll(page);
 
     const cleared = await page.evaluate(() => window.loadItemPriceClearedAt());
-    expect(cleared).toBeGreaterThan(0); // RED until C.1 stamps the watermark
+    expect(cleared).toBeGreaterThan(0); // the clear stamps a watermark
     // The seeded entry is gone. (An unrelated app-recorded snapshot may appear,
     // so assert the cleared entry's absence rather than a strictly-empty object.)
     expect(await historyTsForItemA(page)).not.toContain(LOCAL_TS);
@@ -1189,7 +1187,7 @@ test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => 
     );
 
     const ts3 = await historyTsForItemA(page);
-    expect(ts3).not.toContain(OLD_TS); // entry at/older than the watermark is dropped (RED until C.4)
+    expect(ts3).not.toContain(OLD_TS); // entry at/older than the watermark is dropped
     expect(ts3).toContain(NEW_TS); // a snapshot strictly newer than the watermark survives
     expect(await page.evaluate(() => window.loadItemPriceClearedAt())).toBe(WATERMARK);
   });
@@ -1252,7 +1250,7 @@ test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => 
     await page.evaluate(() => window.cleanupStorage());
     const after = await page.evaluate(() => window.loadItemPriceClearedAt());
 
-    expect(before).toBeGreaterThan(0); // RED until C.1 (clear must stamp)
+    expect(before).toBeGreaterThan(0); // the clear stamps a watermark
     expect(after).toBe(before); // survives reload + cleanupStorage (AC-8 dual-registration)
   });
 
