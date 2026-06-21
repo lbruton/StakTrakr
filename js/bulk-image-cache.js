@@ -62,7 +62,7 @@ const BulkImageCache = (() => {
     const catalogIdToUuids = new Map();
     for (const invItem of typeof inventory !== "undefined" ? inventory : []) {
       if (!invItem.uuid) continue;
-      const cid = BulkImageCache.resolveCatalogId(invItem);
+      const cid = resolveCatalogId(invItem);
       if (!cid) continue;
       if (!catalogIdToUuids.has(cid)) catalogIdToUuids.set(cid, []);
       catalogIdToUuids.get(cid).push(invItem.uuid);
@@ -316,6 +316,7 @@ const BulkImageCache = (() => {
     // Either metadata is missing or item needs CDN URLs.
     // Use Local provider cache first (no API call), then fall back to API.
     let apiResult = tryLocalProvider(catalogId, obverseUrl, onLog);
+    let apiReportedFailure = false;
 
     // Fall back to API if local cache didn't have URLs or metadata needs syncing
     if (!apiResult) {
@@ -323,6 +324,7 @@ const BulkImageCache = (() => {
       apiResult = fetched.apiResult;
       delta.apiLookups += fetched.lookups;
       delta.failed += fetched.failed;
+      apiReportedFailure = fetched.failed > 0;
     }
 
     if (apiResult) {
@@ -336,9 +338,14 @@ const BulkImageCache = (() => {
         onLog
       );
       delta.synced++;
-    } else if (!hasMetaCached) {
+    } else if (!hasMetaCached && !apiReportedFailure) {
+      // Count an uncached miss only when the API path didn't already record a
+      // failure (a thrown lookup is already counted inside fetchFromApi — don't
+      // double it). Differentiate the two no-result reasons for the UI log: the
+      // catalog API was unavailable vs. it was queried but returned no metadata.
       delta.failed++;
-      if (onLog) onLog({ catalogId, status: "meta-failed", message: "Catalog API not available" });
+      const message = window.catalogAPI ? "No catalog metadata found" : "Catalog API not available";
+      if (onLog) onLog({ catalogId, status: "meta-failed", message });
     }
 
     return delta;
