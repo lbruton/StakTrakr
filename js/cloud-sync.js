@@ -3615,26 +3615,18 @@ function _mergeItemPriceClearWatermark(remoteSettings) {
   if (!(remoteTs > localTs)) return localTs; // older / equal / absent — never un-clear
   var _wmSaved =
     typeof saveItemPriceClearedAt === "function" ? saveItemPriceClearedAt(remoteTs) : false;
-  // Apply with the INCOMING watermark directly (Codex review, PR #1313) so the drop
-  // takes effect even if the scalar persist above failed (e.g. quota); otherwise the
-  // retention pass would reload the stale persisted value and keep the cleared entries.
-  // Non-fatal on a history write error.
-  try {
-    if (typeof applyItemPriceClearWatermark === "function") applyItemPriceClearWatermark(remoteTs);
-  } catch (iphWmErr) {
-    console.warn(
-      "[CloudSync] Item-price clear-watermark apply failed (non-fatal):",
-      String(iphWmErr.message || iphWmErr)
-    );
-  }
   if (!_wmSaved) {
-    // Surface the scalar persist failure (Codex review): the entries were dropped
-    // with the incoming value above, but the watermark itself may not survive a
-    // reload until a later successful write.
+    // Scalar persist failed (e.g. quota). Still apply with the incoming value below so
+    // the drop happens; the watermark may not survive a reload until a later write.
     console.warn(
-      "[CloudSync] Item-price clear-watermark scalar persist failed — clear applied locally but may not survive a reload"
+      "[CloudSync] Item-price clear-watermark scalar persist failed — applying with the incoming value"
     );
   }
+  // Apply with the INCOMING watermark directly so the drop takes effect even if the
+  // scalar persist failed. A history WRITE failure (e.g. quota) RETHROWS — STRK-224
+  // parity (Codex review, PR #1313): the caller rolls back and holds lastPull so the
+  // next poll retries, instead of marking the clear pulled while the entries remain.
+  if (typeof applyItemPriceClearWatermark === "function") applyItemPriceClearWatermark(remoteTs);
   return remoteTs;
 }
 
@@ -3714,7 +3706,29 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   // an older remote from un-clearing and enforces the drop immediately even when no
   // companion vault is pulled. Idempotent — safe if another path also reconciles it.
   if (opts.remoteRawSettings) {
-    _mergeItemPriceClearWatermark(opts.remoteRawSettings);
+    try {
+      _mergeItemPriceClearWatermark(opts.remoteRawSettings);
+    } catch (iphWmErr) {
+      // STRK-223 (Codex review, PR #1313): a clear-watermark history-write failure
+      // (e.g. quota) rolls back + returns exactly like a tag-merge failure above, so
+      // the pull is NOT finalized/recorded (held for retry) — never mark the clear
+      // pulled while the cleared entries still persist locally.
+      inventory = _prevInventory;
+      if (tagPriorValues) _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
+      console.warn("[CloudSync] Clear-watermark apply failed — rolling back pull:", iphWmErr);
+      logCloudSyncActivity(
+        "cloud_sync_pull",
+        "partial",
+        { failedCount: 1, failedKeys: ["item-price-history"] },
+        null
+      );
+      if (typeof updateSyncStatusIndicator === "function") {
+        updateSyncStatusIndicator("error", "rollback");
+      }
+      if (typeof refreshSyncUI === "function") refreshSyncUI();
+      return;
+    }
   }
 
   // 3. Apply settings changes.
@@ -4723,7 +4737,17 @@ async function pullWithPreview(remoteMeta) {
               }
               // STRK-223: reconcile the clear watermark on the manifest apply path
               // (idempotent — also covered via _applyAndFinalize's remoteRawSettings).
-              _mergeItemPriceClearWatermark(manifest.settings || {});
+              // A write failure increments _failedCount so the pull is NOT recorded
+              // (held for retry), mirroring the tag merge above (Codex review, PR #1313).
+              try {
+                _mergeItemPriceClearWatermark(manifest.settings || {});
+              } catch (_iphWmErr) {
+                _failedCount++;
+                console.warn(
+                  "[CloudSync] Manifest auto-merge: clear-watermark apply failed — holding pull:",
+                  String(_iphWmErr.message || _iphWmErr)
+                );
+              }
               for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
                 var _sc = manifestSettingsDiff.changed[_si];
                 if (_isManagedSyncKey(_sc.key)) {
@@ -5294,7 +5318,24 @@ async function pullWithPreview(remoteMeta) {
         // and an excluded settings diff, so it reaches this silent branch with an
         // empty diff. Reconcile the watermark BEFORE recording the pull — otherwise
         // the cleared entries survive locally and the recorded syncId blocks retry.
-        _mergeItemPriceClearWatermark(remotePayload.data);
+        try {
+          _mergeItemPriceClearWatermark(remotePayload.data);
+        } catch (_vfWmErr) {
+          // STRK-223 (Codex review): a clear-watermark write failure (e.g. quota) holds
+          // lastPull so the next poll retries — do not record this silent pull.
+          console.warn(
+            "[CloudSync] Vault-first silent: clear-watermark apply failed — holding lastPull:",
+            String(_vfWmErr.message || _vfWmErr)
+          );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "clear-watermark write failed — pull held (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
