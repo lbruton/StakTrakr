@@ -2631,10 +2631,15 @@ async function pollForRemoteChanges() {
         logCloudSyncActivity("auto_sync_poll", "success", "Local newer than remote — pushing");
         // STRK-224 (Edge 1, D-4): this no-modal local-newer exit still accepts a
         // remote companion change (idempotent, append-only over owned UUIDs, and
-        // records only itemPriceHistoryHash — never syncId — so there is no false
-        // watermark advance). A transient failure is non-fatal here; the push
-        // proceeds and the companion retries on the next poll.
-        await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
+        // records only itemPriceHistoryHash — never syncId). But on a transient
+        // companion FAILURE (Edge 2) we must NOT push: scheduleSyncPush() would
+        // overwrite the remote companion with the un-merged local copy and advance
+        // the remote syncId, so the retry would never fire. Bail and hold for the
+        // next poll instead.
+        var _lnCompanion = await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
+        if (_lnCompanion.failed) {
+          return;
+        }
         if (typeof scheduleSyncPush === "function") scheduleSyncPush();
         return;
       }
@@ -4073,7 +4078,9 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
               _currentInventoryUuids(newInv)
             );
           } catch (_dvIphErr) {
-            if (_dvPriorLastPull) syncSetLastPull(_dvPriorLastPull);
+            // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+            // is a valid reset that re-enables the retry via the syncId-mismatch path.
+            syncSetLastPull(_dvPriorLastPull);
             console.warn(
               "[CloudSync] Manifest-path: item-price-history merge write failed — restoring prior lastPull:",
               String(_dvIphErr.message || _dvIphErr)
@@ -4088,7 +4095,9 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             return;
           }
           if (_dvIph.failed) {
-            if (_dvPriorLastPull) syncSetLastPull(_dvPriorLastPull);
+            // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+            // is a valid reset that re-enables the retry via the syncId-mismatch path.
+            syncSetLastPull(_dvPriorLastPull);
             logCloudSyncActivity(
               "item_price_history_vault_pull",
               "fail",
@@ -4324,11 +4333,56 @@ async function pullWithPreview(remoteMeta) {
           }
 
           if (_mNoChanges && _mNoSettingsChanges && _mHasTagChanges) {
+            // STRK-224 (Edge 3, D-5): snapshot before _applyAndFinalize advances syncId.
+            var _mtPriorLastPull = syncGetLastPull();
             _applyAndFinalize(inventory, [], null, remoteMeta, {
               source: "sync",
               showToast: false,
               remoteTagData: _extractRemoteTagData(manifest.settings),
             });
+            // STRK-224 (Edge 1 fallout / D-5): this no-modal tag-only apply path also
+            // relied on the removed poll pre-merge for its companion history. Pull it
+            // here with the current-inventory accepted-UUIDs boundary; on a transient
+            // failure OR write throw, restore the prior lastPull so the next poll retries.
+            var _mtIph;
+            try {
+              _mtIph = await _pullItemPriceHistoryVault(
+                remoteMeta,
+                token,
+                password,
+                "manifest-tag-only",
+                _currentInventoryUuids()
+              );
+            } catch (_mtIphErr) {
+              syncSetLastPull(_mtPriorLastPull);
+              console.warn(
+                "[CloudSync] Manifest tag-only path: item-price-history merge write failed — restoring prior lastPull:",
+                String(_mtIphErr.message || _mtIphErr)
+              );
+              logCloudSyncActivity(
+                "item_price_history_vault_pull",
+                "fail",
+                "manifest-tag-only write failed (lastPull restored): " +
+                  String(_mtIphErr.message || _mtIphErr)
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+            if (_mtIph.failed) {
+              syncSetLastPull(_mtPriorLastPull);
+              logCloudSyncActivity(
+                "item_price_history_vault_pull",
+                "fail",
+                "manifest-tag-only transient failure (lastPull restored)"
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+            if (_mtIph.hash) {
+              var _mtIphPullMeta = syncGetLastPull() || {};
+              _mtIphPullMeta.itemPriceHistoryHash = _mtIph.hash;
+              syncSetLastPull(_mtIphPullMeta);
+            }
             logCloudSyncActivity(
               "auto_sync_pull",
               "success",
@@ -4570,7 +4624,9 @@ async function pullWithPreview(remoteMeta) {
                     _currentInventoryUuids()
                   );
                 } catch (_amIphErr) {
-                  if (_amPriorLastPull) syncSetLastPull(_amPriorLastPull);
+                  // STRK-224: restore unconditionally — a null snapshot (first-ever
+                  // pull) is a valid reset that re-enables the retry path.
+                  syncSetLastPull(_amPriorLastPull);
                   console.warn(
                     "[CloudSync] STAK-470 path: item-price-history merge write failed — restoring prior lastPull:",
                     String(_amIphErr.message || _amIphErr)
@@ -4585,7 +4641,9 @@ async function pullWithPreview(remoteMeta) {
                   return;
                 }
                 if (_amIph.failed) {
-                  if (_amPriorLastPull) syncSetLastPull(_amPriorLastPull);
+                  // STRK-224: restore unconditionally — a null snapshot (first-ever
+                  // pull) is a valid reset that re-enables the retry path.
+                  syncSetLastPull(_amPriorLastPull);
                   logCloudSyncActivity(
                     "item_price_history_vault_pull",
                     "fail",
@@ -5076,7 +5134,9 @@ async function pullWithPreview(remoteMeta) {
             _currentInventoryUuids()
           );
         } catch (_vfIphErr) {
-          if (_vfPriorLastPull) syncSetLastPull(_vfPriorLastPull);
+          // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+          // is a valid reset that re-enables the retry path.
+          syncSetLastPull(_vfPriorLastPull);
           console.warn(
             "[CloudSync] Vault-first path: item-price-history merge write failed — restoring prior lastPull:",
             String(_vfIphErr.message || _vfIphErr)
@@ -5088,16 +5148,23 @@ async function pullWithPreview(remoteMeta) {
               String(_vfIphErr.message || _vfIphErr)
           );
           updateSyncStatusIndicator("error", "Sync incomplete");
-          _vfIph = null;
+          // STRK-224: return so the trailing idle-status (end of pullWithPreview)
+          // does not overwrite "Sync incomplete" — mirrors the manifest-first and
+          // auto-merge failure paths, which also return early.
+          return;
         }
         if (_vfIph && _vfIph.failed) {
-          if (_vfPriorLastPull) syncSetLastPull(_vfPriorLastPull);
+          // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+          // is a valid reset that re-enables the retry path.
+          syncSetLastPull(_vfPriorLastPull);
           logCloudSyncActivity(
             "item_price_history_vault_pull",
             "fail",
             "vault-first transient failure (lastPull restored)"
           );
           updateSyncStatusIndicator("error", "Sync incomplete");
+          // STRK-224: return to preserve the error status (see catch above).
+          return;
         } else if (_vfIph && _vfIph.hash) {
           var _vfIphPullMeta = syncGetLastPull();
           if (_vfIphPullMeta) {
