@@ -540,6 +540,9 @@ const SPOT_HISTORY_KEY = "metalSpotHistory"; // nosemgrep: codacy.javascript.sec
 /** @constant {string} ITEM_PRICE_HISTORY_KEY - LocalStorage key for per-item price history (STACK-43) */
 const ITEM_PRICE_HISTORY_KEY = "item-price-history"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/** @constant {string} ITEM_PRICE_HISTORY_CLEARED_AT_KEY - Synced watermark: ms timestamp of the last intentional "clear all" of item price history (STRK-223). Absent ⇒ 0 ⇒ never cleared. Entries with `ts <= clearedAt` are dropped on merge/retention. */
+const ITEM_PRICE_HISTORY_CLEARED_AT_KEY = "itemPriceHistoryClearedAt"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {string} GOLDBACK_PRICES_KEY - LocalStorage key for Goldback denomination prices (STACK-45) */
 const GOLDBACK_PRICES_KEY = "goldback-prices"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -879,6 +882,7 @@ const SYNC_SCOPE_KEYS = [
   "itemTags", // ITEM_TAGS_KEY — per-item tags
   "itemRemovedTags", // ITEM_REMOVED_TAGS_KEY — removed per-item tags
   "itemTagsLastModified", // ITEM_TAGS_LAST_MODIFIED_KEY — per-item tag timestamps
+  "itemPriceHistoryClearedAt", // ITEM_PRICE_HISTORY_CLEARED_AT_KEY — synced clear-all watermark (STRK-223)
 
   // ── Display preferences ──
   "displayCurrency", // DISPLAY_CURRENCY_KEY — active display currency
@@ -955,6 +959,7 @@ const ALLOWED_STORAGE_KEYS = [
   CATALOG_MAP_KEY,
   SPOT_HISTORY_KEY,
   ITEM_PRICE_HISTORY_KEY,
+  ITEM_PRICE_HISTORY_CLEARED_AT_KEY,
   THEME_KEY,
   API_KEY_STORAGE_KEY,
   API_CACHE_KEY,
@@ -1981,6 +1986,7 @@ if (typeof window !== "undefined") {
   window.HISTORY_IDB_KEYS = HISTORY_IDB_KEYS;
   window.ITEM_PRICE_HISTORY_MAX_DAYS = ITEM_PRICE_HISTORY_MAX_DAYS;
   window.ITEM_PRICE_HISTORY_MAX_ENTRIES = ITEM_PRICE_HISTORY_MAX_ENTRIES;
+  window.ITEM_PRICE_HISTORY_CLEARED_AT_KEY = ITEM_PRICE_HISTORY_CLEARED_AT_KEY;
   window.CERT_LOOKUP_URLS = CERT_LOOKUP_URLS;
   // Inline chip config
   window.INLINE_CHIP_DEFAULTS = INLINE_CHIP_DEFAULTS;

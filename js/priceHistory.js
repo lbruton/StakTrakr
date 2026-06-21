@@ -84,6 +84,37 @@ const loadItemPriceHistory = () => {
 };
 
 /**
+ * Reads the synced "clear all" watermark (STRK-223) — the ms timestamp of the
+ * most recent intentional clear. Absent / non-numeric ⇒ 0 (never cleared), so a
+ * fresh device drops nothing. Pure accessor — no filtering side effects.
+ *
+ * @returns {number} The watermark timestamp, or 0 when unset.
+ */
+const loadItemPriceClearedAt = () => {
+  try {
+    const n = Number(loadDataSync(ITEM_PRICE_HISTORY_CLEARED_AT_KEY, 0));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch (error) {
+    console.error("Error loading item-price clear watermark:", error);
+    return 0;
+  }
+};
+
+/**
+ * Writes the synced "clear all" watermark (STRK-223). Stored in cloud-sync scope
+ * so it rides the main vault to other devices (mirrors itemTagsLastModified).
+ *
+ * @param {number} ts - Watermark timestamp (ms).
+ */
+const saveItemPriceClearedAt = (ts) => {
+  try {
+    saveDataSync(ITEM_PRICE_HISTORY_CLEARED_AT_KEY, Number(ts) || 0);
+  } catch (error) {
+    console.error("Error saving item-price clear watermark:", error);
+  }
+};
+
+/**
  * Removes item price history entries older than the specified number of days.
  * Not called automatically — available for future settings UI.
  *
@@ -829,6 +860,8 @@ const deleteItemPriceEntry = (uuid, timestamp) => {
 window.saveItemPriceHistory = saveItemPriceHistory;
 window.loadItemPriceHistory = loadItemPriceHistory;
 window.applyItemPriceRetention = applyItemPriceRetention;
+window.loadItemPriceClearedAt = loadItemPriceClearedAt;
+window.saveItemPriceClearedAt = saveItemPriceClearedAt;
 window.canonicalizeItemPriceHistory = canonicalizeItemPriceHistory;
 window.mergeItemPriceHistories = mergeItemPriceHistories;
 window.collectAndHashItemPriceHistory = collectAndHashItemPriceHistory;
