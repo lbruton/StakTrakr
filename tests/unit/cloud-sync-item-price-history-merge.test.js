@@ -297,3 +297,63 @@ describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
     assert.equal(localOnly[U1].length, 1, "empty acceptedUuids never drops trusted local history");
   });
 });
+
+// ---------------------------------------------------------------------------
+// STRK-223 — clear-watermark drop-filter
+//
+// Loads the REAL applyItemPriceRetention via slice-and-eval (NOT the faithful
+// copy above) so the new `ts > clearedAt` watermark term is verified against
+// shipped code. Before C.2 the real function has only the age cutoff, so the
+// AC-5 case below FAILS (RED); C.2 adds the watermark term to turn it green.
+// `loadItemPriceClearedAt` is injected as a settable stub (unused by the real
+// function until C.2 references it).
+// ---------------------------------------------------------------------------
+function loadRealRetention(clearedAt = 0) {
+  const rStart = src.indexOf("const applyItemPriceRetention");
+  const rEnd = src.indexOf("};", rStart) + 2;
+  assert.ok(rStart !== -1 && rEnd > rStart, "could not locate applyItemPriceRetention");
+  const rBlock = src.slice(rStart, rEnd);
+  const factory = new Function(
+    "ITEM_PRICE_HISTORY_MAX_DAYS",
+    "ITEM_PRICE_HISTORY_MAX_ENTRIES",
+    "loadItemPriceClearedAt",
+    rBlock + "\nreturn applyItemPriceRetention;"
+  );
+  return factory(ITEM_PRICE_HISTORY_MAX_DAYS, ITEM_PRICE_HISTORY_MAX_ENTRIES, () => clearedAt);
+}
+
+describe("STRK-223 item-price clear-watermark drop-filter", () => {
+  test("AC-5: drops entries at/older than the watermark, keeps strictly newer", () => {
+    const applyRet = loadRealRetention(RECENT); // watermark = RECENT (1 day ago, in-window)
+    const h = {
+      [U1]: [e(RECENT - 1000, "old", 1), e(RECENT, "at", 2), e(RECENT + 1000, "new", 3)],
+    };
+    applyRet(h);
+    assert.deepEqual(
+      (h[U1] || []).map((x) => x.itemName),
+      ["new"],
+      "only entries with ts > clearedAt survive the watermark"
+    );
+  });
+
+  test("AC-4: a zero watermark (fresh / never-cleared device) drops nothing", () => {
+    const applyRet = loadRealRetention(0);
+    const h = { [U1]: [e(RECENT, "a", 1), e(RECENT + 1, "b", 2)] };
+    applyRet(h);
+    assert.equal(h[U1].length, 2, "clearedAt=0 leaves all in-window entries intact");
+  });
+
+  test("AC-6: the watermark filter is order-independent (deterministic survivor set)", () => {
+    const fwd = loadRealRetention(RECENT);
+    const rev = loadRealRetention(RECENT);
+    const a = { [U1]: [e(RECENT - 5, "x", 1), e(RECENT + 5, "y", 2), e(RECENT + 9, "z", 3)] };
+    const b = { [U1]: [e(RECENT + 9, "z", 3), e(RECENT + 5, "y", 2), e(RECENT - 5, "x", 1)] };
+    fwd(a);
+    rev(b);
+    assert.deepEqual(
+      (a[U1] || []).map((x) => x.ts).sort((m, n) => m - n),
+      (b[U1] || []).map((x) => x.ts).sort((m, n) => m - n),
+      "survivor set is independent of input order (composes commutatively with the union)"
+    );
+  });
+});

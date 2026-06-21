@@ -1049,3 +1049,227 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     expect(lastPull.itemPriceHistoryHash || null).not.toBeNull();
   });
 });
+
+// =============================================================================
+// STRK-223 — propagate an intentional "clear all" via a synced clear watermark.
+//
+// Cohorts B.2 / B.3 coverage: the watermark is stamped on clear (C.1), honored by
+// applyItemPriceRetention (C.2), propagated by the push delete branch (C.3), and
+// applied receive-side by _mergeItemPriceClearWatermark at the tag-merge chokepoints
+// (C.4). The preserve / cancel cases are GUARDS protecting AC-4/AC-7 invariants.
+//
+//   AC-1 clear stamps watermark
+//   AC-2 cleared device's push deletes the companion
+//   AC-4 fresh device preserves the companion           (GUARD — preserve invariant)
+//   AC-3 receiving a newer watermark drops old entries
+//   AC-7 cancelled preview does not advance the watermark(GUARD — cancel invariant)
+//   AC-8 watermark survives reload + cleanupStorage
+// =============================================================================
+
+const CLEAR_WATERMARK_KEY = "itemPriceHistoryClearedAt";
+const COMPANION_PATH_SUFFIX = "staktrakr-item-price-history.stvault";
+
+/** Confirms the "Clear all item price history" dialog (showAppConfirm modal). */
+async function confirmClearAll(page) {
+  // clearItemPriceHistory() awaits showAppConfirm (#appDialogModal). Start it
+  // without awaiting (CLAUDE.md dialog pattern), then accept.
+  await page.evaluate(() => {
+    window.clearItemPriceHistory();
+  });
+  await page.waitForSelector("#appDialogModal", { state: "visible" });
+  await page.click("#appDialogOk");
+  // The wipe itself runs pre- and post-Cohort-C, so waiting on it is a safe sync point.
+  await page.waitForFunction(
+    () => Object.keys(window.loadDataSync("item-price-history", {})).length === 0
+  );
+}
+
+/** Records every Dropbox delete_v2 path (overrides routeDropbox's api catch-all). */
+async function captureDeletes(page) {
+  const deleted = [];
+  await page.route("https://api.dropboxapi.com/2/files/delete_v2", async (route) => {
+    try {
+      deleted.push(JSON.parse(route.request().postData() || "{}").path || "");
+    } catch {
+      /* ignore malformed */
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+  return deleted;
+}
+
+test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => {
+  test("AC-1: confirming 'Clear all' stamps the clear watermark and wipes local history", async ({
+    page,
+  }) => {
+    await bootSynced(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+
+    await confirmClearAll(page);
+
+    const cleared = await page.evaluate(() => window.loadItemPriceClearedAt());
+    expect(cleared).toBeGreaterThan(0); // the clear stamps a watermark
+    // The seeded entry is gone. (An unrelated app-recorded snapshot may appear,
+    // so assert the cleared entry's absence rather than a strictly-empty object.)
+    expect(await historyTsForItemA(page)).not.toContain(LOCAL_TS);
+  });
+
+  test("AC-2: a cleared device's push deletes the remote companion vault", async ({ page }) => {
+    // Local history is empty AND the clear watermark post-dates the remote meta
+    // (timestamp BASE_TS+5000) → an INTENTIONAL clear, so the push must delete.
+    const CLEARED_AT = BASE_TS + 9_000_000;
+    await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: {} });
+    await page.addInitScript(({ key, ts }) => localStorage.setItem(key, JSON.stringify(ts)), {
+      key: CLEAR_WATERMARK_KEY,
+      ts: CLEARED_AT,
+    });
+    await gotoCloudReady(page);
+    // syncId matches the seeded lastPull so the pre-push guard treats the remote
+    // as already-pulled (not an unpulled change) and proceeds to the push branch.
+    await seedRemoteCompanion(page, {
+      metaOverrides: { syncId: "local-before-acceptance", timestamp: BASE_TS + 5000 },
+    });
+    const deleted = await captureDeletes(page);
+    // Force genuinely-empty local history at push time. The app auto-records a
+    // boot snapshot; a real just-cleared device pushes with empty history, which
+    // is the precondition for the preserve/delete branch (watermark drop-semantics
+    // are covered by B.1 + AC-3).
+    await page.evaluate(() => {
+      localStorage.setItem("item-price-history", JSON.stringify({}));
+      if (window.loadItemPriceHistory) window.loadItemPriceHistory();
+    });
+
+    await page.evaluate(() => window.pushSyncVault());
+
+    expect(deleted.some((p) => p.endsWith(COMPANION_PATH_SUFFIX))).toBe(true); // intentional clear → delete
+  });
+
+  test("AC-4 (GUARD): a fresh device with no watermark preserves the remote companion", async ({
+    page,
+  }) => {
+    // Empty local history but NO clear watermark (clearedAt = 0) → fresh device,
+    // must NEVER delete another device's companion. Holds before and after C.
+    await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: {} });
+    await gotoCloudReady(page);
+    // syncId matches lastPull so the push reaches the companion branch (not the
+    // unpulled-change block) — proving preserve, not a trivial early-return.
+    await seedRemoteCompanion(page, {
+      metaOverrides: { syncId: "local-before-acceptance", timestamp: BASE_TS + 5000 },
+    });
+    const deleted = await captureDeletes(page);
+    // Force genuinely-empty local history (no watermark) → the fresh-device
+    // precondition for the preserve branch.
+    await page.evaluate(() => {
+      localStorage.setItem("item-price-history", JSON.stringify({}));
+      if (window.loadItemPriceHistory) window.loadItemPriceHistory();
+    });
+
+    await page.evaluate(() => window.pushSyncVault());
+
+    expect(deleted.some((p) => p.endsWith(COMPANION_PATH_SUFFIX))).toBe(false);
+  });
+
+  test("AC-3: receiving a newer clear watermark drops local entries at/older than it", async ({
+    page,
+  }) => {
+    const OLD_TS = NOW - 3 * 60 * 60 * 1000; // <= incoming watermark → dropped
+    const NEW_TS = NOW - 30 * 60 * 1000; // > incoming watermark → survives
+    const WATERMARK = NOW - 60 * 60 * 1000; // between OLD and NEW
+    await bootSynced(page, {
+      inventory: LOCAL_INVENTORY,
+      history: { [ITEM_A]: [entry(OLD_TS, { retail: 1 }), entry(NEW_TS, { retail: 2 })] },
+    });
+
+    // The receive-side hook (C.4), invoked at the tag-merge chokepoint with the
+    // remote settings carrying the watermark.
+    await page.evaluate(
+      (wm) => window.CloudSyncTest.mergeItemPriceClearWatermark({ itemPriceHistoryClearedAt: wm }),
+      WATERMARK
+    );
+
+    const ts3 = await historyTsForItemA(page);
+    expect(ts3).not.toContain(OLD_TS); // entry at/older than the watermark is dropped
+    expect(ts3).toContain(NEW_TS); // a snapshot strictly newer than the watermark survives
+    expect(await page.evaluate(() => window.loadItemPriceClearedAt())).toBe(WATERMARK);
+  });
+
+  test("AC-7 (GUARD): cancelling the restore preview leaves the watermark and history untouched", async ({
+    page,
+  }) => {
+    const OLD_TS = NOW - 3 * 60 * 60 * 1000;
+    await bootSynced(page, {
+      inventory: LOCAL_INVENTORY,
+      history: { [ITEM_A]: [entry(OLD_TS, { retail: 1 })] },
+    });
+    // Remote main vault carries a newer watermark in settings + a differing item
+    // so the apply path would reach the DiffModal — but we CANCEL.
+    const vaultBytes = await encryptVaultPayload(
+      page,
+      {
+        data: {
+          metalInventory: JSON.stringify([REMOTE_ITEM_DIFF]),
+          [CLEAR_WATERMARK_KEY]: JSON.stringify(NOW),
+        },
+      },
+      SYNC_KEY
+    );
+    await routeDropbox(page, { vaultBytes });
+    const remoteMeta = {
+      syncId: "remote-cancel",
+      timestamp: BASE_TS + 5000,
+      rev: "remote-cancel-rev",
+      deviceId: "remote-device",
+      itemCount: 1,
+    };
+
+    await page.evaluate((m) => {
+      // Cancel: resolve false and never invoke onApply (so _applyAndFinalize, and
+      // with it the watermark merge, never runs — the _vfApplied gate).
+      window.DiffModal.show = (options) => {
+        if (options && typeof options.onCancel === "function") options.onCancel();
+        return Promise.resolve(false);
+      };
+      return window.pullWithPreview(m);
+    }, remoteMeta);
+
+    expect(await page.evaluate(() => window.loadItemPriceClearedAt())).toBe(0);
+    expect(await historyTsForItemA(page)).toContain(OLD_TS); // cancel must not drop the pre-existing entry
+  });
+
+  test("AC-8: the clear watermark survives a reload and cleanupStorage", async ({ page }) => {
+    await bootSynced(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await confirmClearAll(page);
+
+    const before = await page.evaluate(() => window.loadItemPriceClearedAt());
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.cleanupStorage === "function" &&
+        typeof window.loadItemPriceClearedAt === "function"
+    );
+    await page.evaluate(() => window.cleanupStorage());
+    const after = await page.evaluate(() => window.loadItemPriceClearedAt());
+
+    expect(before).toBeGreaterThan(0); // the clear stamps a watermark
+    expect(after).toBe(before); // survives reload + cleanupStorage (AC-8 dual-registration)
+  });
+
+  test("AC-3 (manifest fast-path guard): a watermark-only change forces the apply path", async ({
+    page,
+  }) => {
+    // STRK-223 (Copilot review on PR #1313): the manifest-first "no changes"
+    // fast-path excludes the watermark from its per-key settings diff, so without
+    // _hasItemPriceClearChange a watermark-only remote change would silently no-op
+    // and never reach the apply path where _mergeItemPriceClearWatermark runs.
+    await bootSynced(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await page.evaluate(() => window.saveItemPriceClearedAt(5000)); // local watermark = 5000
+    const result = await page.evaluate(() => ({
+      newer: window.CloudSyncTest.hasItemPriceClearChange({ itemPriceHistoryClearedAt: 9000 }),
+      older: window.CloudSyncTest.hasItemPriceClearChange({ itemPriceHistoryClearedAt: 1000 }),
+      equal: window.CloudSyncTest.hasItemPriceClearChange({ itemPriceHistoryClearedAt: 5000 }),
+      absent: window.CloudSyncTest.hasItemPriceClearChange({}),
+    }));
+    // Only a NEWER remote watermark forces the manifest path off its silent no-op.
+    expect(result).toEqual({ newer: true, older: false, equal: false, absent: false });
+  });
+});

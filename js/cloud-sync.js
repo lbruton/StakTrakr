@@ -2240,10 +2240,59 @@ async function pushSyncVault() {
             debugLog("[CloudSync] Item-price-history vault unchanged — skipping upload");
           }
         } else if (_remoteItemPriceHistoryMeta) {
-          // No local history but remote has a vault from another device.
-          // Preserve the reference so pulling devices still find it (mirror image vault).
-          itemPriceHistoryVaultMeta = _remoteItemPriceHistoryMeta;
-          debugLog("[CloudSync] No local item-price-history — preserving remote vault reference");
+          // No local history. STRK-223: distinguish an intentional "clear all"
+          // from a fresh/empty device. An intentional clear stamps a synced
+          // watermark; when it post-dates the remote companion's last write,
+          // delete the companion and drop the pointer so other devices stop
+          // pulling the cleared history. Otherwise (fresh device, or a stale
+          // clear older than newer remote data) preserve, exactly as before.
+          var _iphClearedAt =
+            typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+          var _remoteIphTs =
+            typeof prePushMeta !== "undefined" && prePushMeta && prePushMeta.timestamp
+              ? Number(prePushMeta.timestamp) || 0
+              : 0;
+          if (_iphClearedAt > 0 && _iphClearedAt > _remoteIphTs) {
+            try {
+              var iphDelArg = JSON.stringify({ path: SYNC_ITEM_PRICE_HISTORY_PATH });
+              var iphDelResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/json",
+                },
+                body: iphDelArg,
+              });
+              if (iphDelResp.ok || iphDelResp.status === 409) {
+                debugLog(
+                  "[CloudSync] Item-price-history cleared — remote companion deleted (intentional clear)"
+                );
+                logCloudSyncActivity(
+                  "item_price_history_vault_push",
+                  "success",
+                  "Cleared — remote companion deleted"
+                );
+              } else {
+                debugLog(
+                  "[CloudSync] Item-price-history companion delete returned status:",
+                  iphDelResp.status
+                );
+              }
+            } catch (iphDelErr) {
+              // Non-fatal: the clear watermark still rides the main vault, so other
+              // devices drop the cleared entries on merge even if the delete failed.
+              console.warn(
+                "[CloudSync] Item-price-history companion delete error (non-fatal):",
+                String(iphDelErr.message || iphDelErr)
+              );
+            }
+            // Drop the pointer so the pushed metadata no longer advertises it.
+            itemPriceHistoryVaultMeta = null;
+          } else {
+            // Fresh/empty device (or a stale clear): preserve another device's vault.
+            itemPriceHistoryVaultMeta = _remoteItemPriceHistoryMeta;
+            debugLog("[CloudSync] No local item-price-history — preserving remote vault reference");
+          }
         }
       }
     } catch (iphPushErr) {
@@ -3077,6 +3126,12 @@ async function pullSyncVault(remoteMeta) {
 
     var bytes = new Uint8Array(await resp.arrayBuffer());
 
+    // STRK-223 (Codex review, PR #1313): capture the local clear watermark before the
+    // blind full restore overwrites it with the (possibly older) remote scalar — a
+    // clear is a tombstone and must max-arbitrate, never regress on a full overwrite.
+    var _preRestoreClearedAt =
+      typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+
     syncSaveOverrideBackup();
 
     if (typeof vaultDecryptAndRestore === "function") {
@@ -3190,6 +3245,32 @@ async function pullSyncVault(remoteMeta) {
       return;
     }
 
+    // STRK-223 (Codex review, PR #1313): max-arbitrate the clear watermark across the
+    // full restore. The blind restore may have written an OLDER remote scalar over a
+    // NEWER local clear, which would re-import entries the user had already cleared.
+    // Restore the newer pre-restore value first so the local clear is preserved.
+    if (
+      typeof loadItemPriceClearedAt === "function" &&
+      typeof saveItemPriceClearedAt === "function" &&
+      _preRestoreClearedAt > loadItemPriceClearedAt()
+    ) {
+      saveItemPriceClearedAt(_preRestoreClearedAt);
+    }
+    // STRK-223: the full vault restore wrote the remote clear watermark to
+    // localStorage (it is in ALLOWED_STORAGE_KEYS), but the old local history is
+    // not dropped until a retention pass runs. Enforce it now so a restored
+    // "clear all" takes effect immediately on this DiffEngine-fallback path too.
+    if (typeof applyItemPriceClearWatermark === "function") {
+      try {
+        applyItemPriceClearWatermark();
+      } catch (_psWmErr) {
+        console.warn(
+          "[CloudSync] Full-overwrite: clear-watermark apply failed (non-fatal):",
+          String(_psWmErr.message || _psWmErr)
+        );
+      }
+    }
+
     // Record the pull
     var pullMeta = {
       syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -3251,6 +3332,22 @@ function _isTagSyncKey(key) {
   return _tagSyncKeys().indexOf(key) !== -1;
 }
 
+// STRK-223: the item-price clear-watermark key. Like the tag-sync keys it carries
+// its own merge semantics and must be EXCLUDED from the blind settings-overwrite
+// on pull (an older remote would un-clear); it is reconciled by
+// _mergeItemPriceClearWatermark instead.
+function _itemPriceClearKey() {
+  return typeof ITEM_PRICE_HISTORY_CLEARED_AT_KEY !== "undefined"
+    ? ITEM_PRICE_HISTORY_CLEARED_AT_KEY
+    : "itemPriceHistoryClearedAt";
+}
+
+// Keys that are NOT blindly overwritten on pull — used at every settings-apply
+// skip site (tag stores + the item-price clear watermark).
+function _isManagedSyncKey(key) {
+  return _isTagSyncKey(key) || key === _itemPriceClearKey();
+}
+
 function _parseTagStore(rawValue, fallback) {
   if (rawValue === undefined || rawValue === null) return fallback || {};
   try {
@@ -3288,6 +3385,22 @@ function _hasTagChanges(remoteSettings) {
     if (localCanon !== remoteCanon) return true;
   }
   return false;
+}
+
+// STRK-223: true when the remote carries an item-price clear watermark NEWER than
+// the local one — an intentional clear this device must still apply. Mirrors
+// _hasTagChanges so a watermark-only remote change is not swallowed by the
+// manifest-first silent-return fast-path (the watermark is excluded from the
+// per-key settings diff via _isManagedSyncKey, so without this it would look like
+// "no settings changed"). The poll / vault-first paths are unaffected — their
+// settingsHash already covers the watermark.
+function _hasItemPriceClearChange(remoteSettings) {
+  if (!remoteSettings) return false;
+  var key = _itemPriceClearKey();
+  var remoteTs = Number(remoteSettings[key]) || 0;
+  if (remoteTs <= 0) return false;
+  var localTs = typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+  return remoteTs > localTs;
 }
 
 function _restoreRawStorageValues(priorValues) {
@@ -3497,6 +3610,44 @@ function _mergeOneSidedTagSettings(remoteSettings) {
 }
 
 /**
+ * STRK-223: receive-side reconciliation of the item-price-history clear watermark.
+ * The watermark is a synced scalar (it rides the main vault like itemTagsLastModified)
+ * that must NOT be blindly overwritten — an older remote would un-clear — but
+ * max-arbitrated. On an advance past the local value it persists the new watermark
+ * and immediately enforces the clear against local history (applyItemPriceClearWatermark),
+ * so the cleared entries drop even when no companion vault is pulled. Mirrors
+ * _mergeTagData's role for tag timestamps and runs only on apply paths (never on a
+ * cancelled preview — the _vfApplied gate), preserving cancel-safety (AC-7).
+ *
+ * @param {object} remoteSettings - Remote settings (may carry the watermark, as a
+ *        raw number or a JSON-encoded string).
+ * @returns {number} The reconciled (max) watermark timestamp.
+ */
+function _mergeItemPriceClearWatermark(remoteSettings) {
+  if (typeof loadItemPriceClearedAt !== "function") return 0;
+  var localTs = loadItemPriceClearedAt();
+  var key = _itemPriceClearKey();
+  var raw = remoteSettings && remoteSettings[key] !== undefined ? remoteSettings[key] : 0;
+  var remoteTs = Number(raw) || 0;
+  if (!(remoteTs > localTs)) return localTs; // older / equal / absent — never un-clear
+  var _wmSaved =
+    typeof saveItemPriceClearedAt === "function" ? saveItemPriceClearedAt(remoteTs) : false;
+  if (!_wmSaved) {
+    // Scalar persist failed (e.g. quota). Still apply with the incoming value below so
+    // the drop happens; the watermark may not survive a reload until a later write.
+    console.warn(
+      "[CloudSync] Item-price clear-watermark scalar persist failed — applying with the incoming value"
+    );
+  }
+  // Apply with the INCOMING watermark directly so the drop takes effect even if the
+  // scalar persist failed. A history WRITE failure (e.g. quota) RETHROWS — STRK-224
+  // parity (Codex review, PR #1313): the caller rolls back and holds lastPull so the
+  // next poll retries, instead of marking the clear pulled while the entries remain.
+  if (typeof applyItemPriceClearWatermark === "function") applyItemPriceClearWatermark(remoteTs);
+  return remoteTs;
+}
+
+/**
  * Consolidated post-apply sequence for sync and vault restore paths.
  * Handles backup, inventory assignment, settings application, save/render,
  * pull metadata recording, toast summary, status indicator, UI refresh,
@@ -3557,6 +3708,36 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
         "cloud_sync_pull",
         "partial",
         { failedCount: 1, failedKeys: tagKeys },
+        null
+      );
+      if (typeof updateSyncStatusIndicator === "function") {
+        updateSyncStatusIndicator("error", "rollback");
+      }
+      if (typeof refreshSyncUI === "function") refreshSyncUI();
+      return;
+    }
+  }
+
+  // STRK-223: reconcile the item-price clear watermark (max-arbitrate + apply).
+  // Excluded from the generic settings application below; reconciling it here keeps
+  // an older remote from un-clearing and enforces the drop immediately even when no
+  // companion vault is pulled. Idempotent — safe if another path also reconciles it.
+  if (opts.remoteRawSettings) {
+    try {
+      _mergeItemPriceClearWatermark(opts.remoteRawSettings);
+    } catch (iphWmErr) {
+      // STRK-223 (Codex review, PR #1313): a clear-watermark history-write failure
+      // (e.g. quota) rolls back + returns exactly like a tag-merge failure above, so
+      // the pull is NOT finalized/recorded (held for retry) — never mark the clear
+      // pulled while the cleared entries still persist locally.
+      inventory = _prevInventory;
+      if (tagPriorValues) _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
+      console.warn("[CloudSync] Clear-watermark apply failed — rolling back pull:", iphWmErr);
+      logCloudSyncActivity(
+        "cloud_sync_pull",
+        "partial",
+        { failedCount: 1, failedKeys: ["item-price-history"] },
         null
       );
       if (typeof updateSyncStatusIndicator === "function") {
@@ -3818,6 +3999,7 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
                 remotePayload && remotePayload.data
                   ? _extractRemoteTagData(remotePayload.data)
                   : null,
+              remoteRawSettings: remotePayload && remotePayload.data ? remotePayload.data : null,
             });
             debugLog("[CloudSync] Restore preview: applied selected changes via DiffEngine");
             p = Promise.resolve();
@@ -4013,7 +4195,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             for (var _dvs = 0; _dvs < SYNC_SCOPE_KEYS.length; _dvs++) {
               if (
                 SYNC_SCOPE_KEYS[_dvs] === "metalInventory" ||
-                _isTagSyncKey(SYNC_SCOPE_KEYS[_dvs])
+                _isManagedSyncKey(SYNC_SCOPE_KEYS[_dvs])
               )
                 continue;
               var _dvlv =
@@ -4038,6 +4220,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           _applyAndFinalize(newInv, selectedChanges, _dvSettingsChanges, remoteMeta, {
             source: "sync",
             remoteTagData: _extractRemoteTagData(payload.data),
+            remoteRawSettings: payload.data,
           });
           debugLog(
             "[CloudSync] Deferred vault restore complete (selective apply, settings:",
@@ -4299,7 +4482,10 @@ async function pullWithPreview(remoteMeta) {
             var _mLocalSettings = {};
             if (typeof SYNC_SCOPE_KEYS !== "undefined" && typeof localStorage !== "undefined") {
               for (var ms = 0; ms < SYNC_SCOPE_KEYS.length; ms++) {
-                if (SYNC_SCOPE_KEYS[ms] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[ms]))
+                if (
+                  SYNC_SCOPE_KEYS[ms] === "metalInventory" ||
+                  _isManagedSyncKey(SYNC_SCOPE_KEYS[ms])
+                )
                   continue;
                 var msv = localStorage.getItem(SYNC_SCOPE_KEYS[ms]);
                 if (msv !== null) _mLocalSettings[SYNC_SCOPE_KEYS[ms]] = msv;
@@ -4319,7 +4505,11 @@ async function pullWithPreview(remoteMeta) {
             !manifestSettingsDiff.changed ||
             manifestSettingsDiff.changed.length === 0;
           var _mHasTagChanges = _hasTagChanges(manifest.settings);
-          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges) {
+          // STRK-223: a watermark-only change is excluded from the settings diff
+          // (_isManagedSyncKey), so without this it would silently no-op here and
+          // never reach the apply path where _mergeItemPriceClearWatermark runs.
+          var _mHasIphClear = _hasItemPriceClearChange(manifest.settings);
+          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges && !_mHasIphClear) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
             var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -4432,13 +4622,19 @@ async function pullWithPreview(remoteMeta) {
             return;
           }
 
-          if (_mNoChanges && _mNoSettingsChanges && _mHasTagChanges) {
+          // STRK-223 (Codex review, PR #1313): a watermark-only change (no item /
+          // settings / tag diff) must ALSO use this no-modal silent-apply path —
+          // otherwise it falls through to an empty DiffModal whose Apply is disabled,
+          // so the watermark never applies. `_applyAndFinalize` already reconciles it
+          // via the `remoteRawSettings` below; we only needed to widen the entry guard.
+          if (_mNoChanges && _mNoSettingsChanges && (_mHasTagChanges || _mHasIphClear)) {
             // STRK-224 (Edge 3, D-5): snapshot before _applyAndFinalize advances syncId.
             var _mtPriorLastPull = syncGetLastPull();
             _applyAndFinalize(inventory, [], null, remoteMeta, {
               source: "sync",
               showToast: false,
               remoteTagData: _extractRemoteTagData(manifest.settings),
+              remoteRawSettings: manifest.settings,
             });
             // STRK-224 (Edge 1 fallout / D-5): this no-modal tag-only apply path also
             // relied on the removed poll pre-merge for its companion history. Pull it
@@ -4486,7 +4682,7 @@ async function pullWithPreview(remoteMeta) {
             logCloudSyncActivity(
               "auto_sync_pull",
               "success",
-              "Tag-only changes merged silently (manifest)"
+              "Tag/clear-watermark-only changes merged silently (manifest)"
             );
             return;
           }
@@ -4556,9 +4752,22 @@ async function pullWithPreview(remoteMeta) {
               } catch (_tagMergeErr) {
                 _failedCount++;
               }
+              // STRK-223: reconcile the clear watermark on the manifest apply path
+              // (idempotent — also covered via _applyAndFinalize's remoteRawSettings).
+              // A write failure increments _failedCount so the pull is NOT recorded
+              // (held for retry), mirroring the tag merge above (Codex review, PR #1313).
+              try {
+                _mergeItemPriceClearWatermark(manifest.settings || {});
+              } catch (_iphWmErr) {
+                _failedCount++;
+                console.warn(
+                  "[CloudSync] Manifest auto-merge: clear-watermark apply failed — holding pull:",
+                  String(_iphWmErr.message || _iphWmErr)
+                );
+              }
               for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
                 var _sc = manifestSettingsDiff.changed[_si];
-                if (_isTagSyncKey(_sc.key)) {
+                if (_isManagedSyncKey(_sc.key)) {
                   continue;
                 }
                 // Guard: only apply keys in the ALLOWED_STORAGE_KEYS allowlist
@@ -4936,14 +5145,14 @@ async function pullWithPreview(remoteMeta) {
       if (remotePayload.data) {
         var _rsKeys = Object.keys(remotePayload.data);
         for (var rs = 0; rs < _rsKeys.length; rs++) {
-          if (_rsKeys[rs] !== "metalInventory" && !_isTagSyncKey(_rsKeys[rs])) {
+          if (_rsKeys[rs] !== "metalInventory" && !_isManagedSyncKey(_rsKeys[rs])) {
             remoteSettings[_rsKeys[rs]] = remotePayload.data[_rsKeys[rs]];
           }
         }
       }
       if (typeof SYNC_SCOPE_KEYS !== "undefined") {
         for (var i = 0; i < SYNC_SCOPE_KEYS.length; i++) {
-          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[i]))
+          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || _isManagedSyncKey(SYNC_SCOPE_KEYS[i]))
             continue;
           // STAK-497: Use raw localStorage.getItem to match vault payload format.
           // loadDataSync JSON-parses values, which fails for scalar settings
@@ -5122,6 +5331,28 @@ async function pullWithPreview(remoteMeta) {
           return;
         }
         if (_vfSpIph.hash) _previewPullMeta.itemPriceHistoryHash = _vfSpIph.hash;
+        // STRK-223 (Codex review, PR #1313): a clear-only change has no companion
+        // and an excluded settings diff, so it reaches this silent branch with an
+        // empty diff. Reconcile the watermark BEFORE recording the pull — otherwise
+        // the cleared entries survive locally and the recorded syncId blocks retry.
+        try {
+          _mergeItemPriceClearWatermark(remotePayload.data);
+        } catch (_vfWmErr) {
+          // STRK-223 (Codex review): a clear-watermark write failure (e.g. quota) holds
+          // lastPull so the next poll retries — do not record this silent pull.
+          console.warn(
+            "[CloudSync] Vault-first silent: clear-watermark apply failed — holding lastPull:",
+            String(_vfWmErr.message || _vfWmErr)
+          );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "clear-watermark write failed — pull held (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
@@ -5685,4 +5916,6 @@ if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostnam
   window.CloudSyncTest.hasTagChanges = _hasTagChanges;
   window.CloudSyncTest.mergeTagData = _mergeTagData;
   window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
+  window.CloudSyncTest.mergeItemPriceClearWatermark = _mergeItemPriceClearWatermark;
+  window.CloudSyncTest.hasItemPriceClearChange = _hasItemPriceClearChange;
 }

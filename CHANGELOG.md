@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.41] - 2026-06-21
+
+### Fixed — STRK-223: Cloud-sync item-price-history clear propagation
+
+- **Clear all propagates across devices**: Clearing all item price history on one device now propagates to other devices on the next sync via a synced clear watermark, and removes the stale remote companion vault — instead of silently leaving other devices' history in place. A fresh device with empty history still preserves a populated remote companion (STRK-223).
+
+---
+
 ## [3.35.40] - 2026-06-21
 
 ### Fixed — STRK-224: Cloud-sync item-price-history companion failure/cancel/retry edges

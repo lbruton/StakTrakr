@@ -1,7 +1,7 @@
 {
   "name": "staktrakr",
   "private": true,
-  "version": "3.35.40",
+  "version": "3.35.41",
   "license": "MIT",
   "type": "module",
   "description": "Precious metals inventory tracker",
