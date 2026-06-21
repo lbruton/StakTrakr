@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.40] - 2026-06-21
+
+### Fixed — STRK-224: Cloud-sync item-price-history companion failure/cancel/retry edges
+
+- **Cancel now cancels**: Cancelling a sync review (DiffModal) that also carried item-price-history changes no longer silently merges that history or advances the sync watermark. The poll's companion pre-merge ran before the modal was shown, so a cancel could not undo it; the merge now runs only on the no-modal poll exits, and the DiffModal route relies on the existing apply-gated companion pull (Edge 1, STRK-224).
+- **Transient failures retry**: A transient companion download/decrypt failure now leaves `lastPull` stale so the next poll retries, instead of being treated as a benign no-op that advanced the watermark and blocked the retry. An explicit `failed` signal disambiguates a true failure from the benign "nothing changed" no-op across all six companion-pull call sites (Edge 2, STRK-224).
+- **Post-apply write safety**: A failed post-apply companion `writeItemPriceHistoryStrict()` no longer advances `lastPull.syncId` past the unmerged history. The manifest-first and vault-first apply paths now snapshot `lastPull` before the apply and restore it if the companion write throws or fails, so the next poll retries (Edge 3, STRK-224).
+
 ## [3.35.39] - 2026-06-20
 
 ### Changed — STRK-225: Cloud-sync vault-first cancel no longer advances the image/attachment hash
