@@ -3126,6 +3126,12 @@ async function pullSyncVault(remoteMeta) {
 
     var bytes = new Uint8Array(await resp.arrayBuffer());
 
+    // STRK-223 (Codex review, PR #1313): capture the local clear watermark before the
+    // blind full restore overwrites it with the (possibly older) remote scalar — a
+    // clear is a tombstone and must max-arbitrate, never regress on a full overwrite.
+    var _preRestoreClearedAt =
+      typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+
     syncSaveOverrideBackup();
 
     if (typeof vaultDecryptAndRestore === "function") {
@@ -3239,6 +3245,17 @@ async function pullSyncVault(remoteMeta) {
       return;
     }
 
+    // STRK-223 (Codex review, PR #1313): max-arbitrate the clear watermark across the
+    // full restore. The blind restore may have written an OLDER remote scalar over a
+    // NEWER local clear, which would re-import entries the user had already cleared.
+    // Restore the newer pre-restore value first so the local clear is preserved.
+    if (
+      typeof loadItemPriceClearedAt === "function" &&
+      typeof saveItemPriceClearedAt === "function" &&
+      _preRestoreClearedAt > loadItemPriceClearedAt()
+    ) {
+      saveItemPriceClearedAt(_preRestoreClearedAt);
+    }
     // STRK-223: the full vault restore wrote the remote clear watermark to
     // localStorage (it is in ALLOWED_STORAGE_KEYS), but the old local history is
     // not dropped until a retention pass runs. Enforce it now so a restored

@@ -759,9 +759,24 @@ const clearItemPriceHistory = async () => {
   // STRK-223: stamp the synced clear watermark BEFORE wiping, so this device's
   // retention/merge already drops the cleared entries and other devices receive
   // the watermark on the next sync (saveItemPriceHistory schedules the push).
-  saveItemPriceClearedAt(Date.now());
+  const _clearTs = Date.now();
+  saveItemPriceClearedAt(_clearTs);
   itemPriceHistory = {};
   saveItemPriceHistory();
+  // STRK-223 (Codex review, PR #1313): if the watermark write failed above (e.g.
+  // quota while the large history was still present), retry now that the history is
+  // wiped and space is freed — otherwise the scheduled push sees clearedAt=0, treats
+  // this as a fresh/empty device, and never propagates the clear.
+  if (loadItemPriceClearedAt() < _clearTs) {
+    saveItemPriceClearedAt(_clearTs);
+    if (typeof scheduleSyncPush === "function") {
+      try {
+        scheduleSyncPush();
+      } catch (_pushErr) {
+        console.error("Error scheduling sync push after clear-watermark retry:", _pushErr);
+      }
+    }
+  }
   const panel = document.getElementById("logPanel_pricehistory");
   if (panel) delete panel.dataset.rendered;
   renderItemPriceHistoryTable();
