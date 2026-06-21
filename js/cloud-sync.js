@@ -5259,6 +5259,11 @@ async function pullWithPreview(remoteMeta) {
           return;
         }
         if (_vfSpIph.hash) _previewPullMeta.itemPriceHistoryHash = _vfSpIph.hash;
+        // STRK-223 (Codex review, PR #1313): a clear-only change has no companion
+        // and an excluded settings diff, so it reaches this silent branch with an
+        // empty diff. Reconcile the watermark BEFORE recording the pull — otherwise
+        // the cleared entries survive locally and the recorded syncId blocks retry.
+        _mergeItemPriceClearWatermark(remotePayload.data);
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
