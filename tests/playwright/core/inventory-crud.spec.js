@@ -2511,3 +2511,117 @@ test.describe("year-purity-filter-tags — STRK-208", () => {
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
   });
 });
+
+// ─── STRK-209: keyboard activation a11y for filter tags + name cell ──────────
+
+test.describe("keyboard-a11y-activation — STRK-209", () => {
+  // Year ships enabled by default; purity ships disabled (INLINE_CHIP_DEFAULTS)
+  // — enable both so each builder's keydown handler renders in the table.
+  const ENABLED_CHIPS = [
+    { id: "year", label: "Year", enabled: true },
+    { id: "purity", label: "Purity", enabled: true },
+  ];
+
+  const TWO_ITEMS = [
+    { ...SEED_ITEM, uuid: "strk-209-a", name: "STRK-209 Item A", year: "2026", purity: 0.999 },
+    { ...SEED_ITEM, uuid: "strk-209-b", name: "STRK-209 Item B", year: "2020", purity: 0.5 },
+  ];
+
+  async function seedAndGoto(page, { flags } = {}) {
+    await page.addInitScript(
+      ({ seededInventory, chipConfig, featureFlagOverride }) => {
+        localStorage.setItem("metalInventory", JSON.stringify(seededInventory));
+        localStorage.setItem("itemTags", JSON.stringify({}));
+        localStorage.setItem("inlineChipConfig", JSON.stringify(chipConfig));
+        localStorage.setItem("cardViewStyle", "D");
+        if (featureFlagOverride) {
+          localStorage.setItem("featureFlags", JSON.stringify(featureFlagOverride));
+        }
+        document.addEventListener(
+          "DOMContentLoaded",
+          () => {
+            if (typeof APP_VERSION !== "undefined") {
+              localStorage.setItem("ackVersion", APP_VERSION);
+            }
+          },
+          { once: true }
+        );
+      },
+      {
+        seededInventory: TWO_ITEMS,
+        chipConfig: ENABLED_CHIPS,
+        featureFlagOverride: flags || null,
+      }
+    );
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await page.waitForFunction(() => Array.isArray(window.inventory));
+  }
+
+  // Observe whether the focused element's inline keydown handler called
+  // preventDefault() on Space — read from a document-level (bubble-phase)
+  // listener that fires AFTER the target span's attribute handler. Deterministic,
+  // unlike asserting window.scrollY (flaky on a short page with nothing to scroll).
+  async function trackSpaceDefault(page) {
+    await page.evaluate(() => {
+      window.__spaceDefaultPrevented = null;
+      document.addEventListener("keydown", (e) => {
+        if (e.key === " ") window.__spaceDefaultPrevented = e.defaultPrevented;
+      });
+    });
+  }
+
+  test("Enter on a year tag activates the column filter (keyboard parity with click)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".year-tag").first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+
+  test("Space on a year tag activates the filter and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await trackSpaceDefault(page);
+    await page.locator(".year-tag").first().focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  test("Enter on a purity tag activates the column filter", async ({ page }) => {
+    await seedAndGoto(page);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".purity-tag").first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+
+  test("Space on the name-cell view link opens the modal and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    // COIN_IMAGES is enabled by default → the name cell renders as the
+    // showViewModal span (title="View …"), distinct from filterLink chips.
+    await seedAndGoto(page);
+    await trackSpaceDefault(page);
+    await page.locator('#inventoryTable tbody .filter-text[title^="View "]').first().focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  test("Space on a filterLink column cell suppresses the page-scroll default (shared helper)", async ({
+    page,
+  }) => {
+    // Disable COIN_IMAGES so the name cell falls back to filterLink, exercising
+    // the shared helper's keydown handler directly.
+    await seedAndGoto(page, { flags: { COIN_IMAGES: false } });
+    await trackSpaceDefault(page);
+    await page.locator("#inventoryTable tbody .filter-text").first().focus();
+    await page.keyboard.press("Space");
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+});

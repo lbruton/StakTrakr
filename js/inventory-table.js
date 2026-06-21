@@ -106,7 +106,7 @@
       displayStr === "—";
     const classNames = `filter-text${isNA ? " na-value" : ""}`;
     const styleAttr = isNA ? "" : ` style="color: ${color};"`;
-    return `<span class="${classNames}"${styleAttr} onclick="${escaped}" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ')${escaped}" title="${safeTitle}">${safe}</span>`;
+    return `<span class="${classNames}"${styleAttr} onclick="${escaped}" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${escaped}}" title="${safeTitle}">${safe}</span>`;
   };
 
   const getTypeColor = (type) => typeColors[type] || "var(--type-other-bg)";
@@ -582,6 +582,7 @@
     return item.year
       ? `<span class="year-tag" title="Filter by year: ${escapeAttribute(String(item.year))}"
                  onclick="${escapeAttribute(`applyColumnFilter('year', ${JSON.stringify(String(item.year))})`)}"
+                 onkeydown="${escapeAttribute(`if(event.key==='Enter'||event.key===' '){event.preventDefault();applyColumnFilter('year', ${JSON.stringify(String(item.year))})}`)}"
                  tabindex="0" role="button" style="cursor:pointer;">${sanitizeHtml(String(item.year))}</span>`
       : "";
   }
@@ -629,6 +630,7 @@
     return !isNaN(purityVal) && purityVal > 0 && purityVal < 1.0
       ? `<span class="purity-tag" title="Purity: ${escapeAttribute(String(purityVal))}"
                  onclick="${escapeAttribute(`applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})`)}"
+                 onkeydown="${escapeAttribute(`if(event.key==='Enter'||event.key===' '){event.preventDefault();applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})}`)}"
                  tabindex="0" role="button" style="cursor:pointer;">${purityVal}</span>`
       : "";
   }
@@ -687,7 +689,7 @@
    */
   function _buildNameCellMain(item, originalIdx) {
     return featureFlags.isEnabled("COIN_IMAGES")
-      ? `<span class="filter-text" style="color: var(--text-primary); cursor: pointer;" onclick="showViewModal(${originalIdx})" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ')showViewModal(${originalIdx})" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
+      ? `<span class="filter-text" style="color: var(--text-primary); cursor: pointer;" onclick="showViewModal(${originalIdx})" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showViewModal(${originalIdx})}" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
       : filterLink("name", item.name, "var(--text-primary)", undefined, item.name);
   }
 

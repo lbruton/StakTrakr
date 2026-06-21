@@ -3,5 +3,6 @@
   "tag": "staktrakr",
   "issuePrefix": "STRK",
   "issueTag": "staktrakr",
-  "cachePrefix": "staktrakr"
+  "cachePrefix": "staktrakr",
+  "planeProjectId": "026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb"
 }
