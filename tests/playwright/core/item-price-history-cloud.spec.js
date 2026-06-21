@@ -212,11 +212,39 @@ async function routeDropbox(page, options = {}) {
       });
       return;
     }
-    if (path.endsWith("staktrakr-item-price-history.stvault") && options.historyVaultBytes) {
+    // STRK-224: manifest-first path fixture (.stmanifest routes pullWithPreview
+    // through _deferredVaultRestore — the Edge-3 manifest-first site).
+    if (path.endsWith(".stmanifest") && options.manifestBytes) {
       await route.fulfill({
         status: 200,
         contentType: "application/octet-stream",
-        body: Buffer.from(options.historyVaultBytes),
+        body: Buffer.from(options.manifestBytes),
+      });
+      return;
+    }
+    if (path.endsWith("staktrakr-item-price-history.stvault")) {
+      // STRK-224 (Edge 2): force a transient companion download failure so the
+      // pull returns the non-throwing {hash:null} shape.
+      if (options.historyDownloadStatus) {
+        await route.fulfill({ status: options.historyDownloadStatus, body: "{}" });
+        return;
+      }
+      if (options.historyVaultBytes) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/octet-stream",
+          body: Buffer.from(options.historyVaultBytes),
+        });
+        return;
+      }
+    }
+    // STRK-224: main sync vault fixture (.stvault) so the vault-first /
+    // manifest-first apply paths can decrypt + diff and reach the DiffModal.
+    if (path.endsWith("staktrakr-sync.stvault") && options.vaultBytes) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/octet-stream",
+        body: Buffer.from(options.vaultBytes),
       });
       return;
     }
@@ -341,6 +369,20 @@ async function seedRemoteCompanion(page, opts = {}) {
   if (!opts.keepDiffModal) await suppressDiffModal(page);
   return { remoteHash };
 }
+
+/** Encrypts a manifest payload for the manifest-first pull fixture (STRK-224). */
+async function encryptedManifest(page, manifest) {
+  return page.evaluate(
+    async ({ payload, key }) =>
+      Array.from(new Uint8Array(await window.encryptManifest(payload, key))),
+    { payload: manifest, key: SYNC_KEY }
+  );
+}
+
+// A remote main-vault inventory that DIFFERS from local (name) so the apply
+// paths compute a non-empty diff and reach the DiffModal rather than the
+// silent-pull early return (STRK-224 Edge-1/Edge-3 fixtures).
+const REMOTE_ITEM_DIFF = inventoryItem(ITEM_A, "STRK-224 Remote A", 147);
 
 test.describe("core/item-price-history-cloud (STRK-147)", () => {
   test("two devices converge on the union of item-price-history entries and a re-sync is idempotent", async ({
@@ -613,5 +655,295 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
       u.path.endsWith("staktrakr-item-price-history.stvault")
     );
     expect(companionUpload, "a companion item-price-history vault must be uploaded").toBeTruthy();
+  });
+
+  // ===========================================================================
+  // STRK-224 — companion failure/cancel/retry edges (deferred from STRK-147)
+  // ===========================================================================
+
+  test("Edge 1: cancelling a DiffModal that also carries a companion change does not merge or record it (STRK-224)", async ({
+    page,
+  }) => {
+    // AC-1 / AC-2 / AC-9(a). A poll detects a remote sync with BOTH an inventory
+    // change (forces the DiffModal) AND an item-price-history companion change.
+    // Cancelling the modal must NOT merge the companion history nor advance
+    // lastPull.itemPriceHistoryHash / syncId. FAILS today because the poll
+    // pre-merges the companion (cloud-sync.js:2545) before the modal is shown.
+    await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await gotoCloudReady(page);
+
+    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
+    // inventoryHash is deliberately NON-matching so the poll skips the silent
+    // fast-path and routes to handleRemoteChange → pullWithPreview (the modal).
+    const metaBytes = await buildRemoteMeta(page, {
+      companionHash: remoteHash,
+      overrides: {
+        syncId: "remote-sync-cancel",
+        rev: "remote-rev-cancel",
+        inventoryHash: "strk224-nonmatching-inventory-hash",
+      },
+    });
+    const vaultBytes = await encryptVaultPayload(
+      page,
+      { data: { metalInventory: JSON.stringify([REMOTE_ITEM_DIFF]) } },
+      SYNC_KEY
+    );
+    const historyVaultBytes = await encryptVaultPayload(page, REMOTE_HISTORY, SYNC_KEY);
+    await routeDropbox(page, { metaBytes, vaultBytes, historyVaultBytes });
+
+    // CANCEL the restore preview (vault-first resolves false on cancel).
+    await page.evaluate(async () => {
+      window.showRestorePreviewModal = () => Promise.resolve(false);
+      await window.pollForRemoteChanges();
+    });
+
+    // The remote companion entry must NOT be merged...
+    const after = await readPersistedHistory(page);
+    const ts = (after[ITEM_A] || []).map((e) => e.ts);
+    expect(ts).toContain(LOCAL_TS);
+    expect(ts).not.toContain(REMOTE_TS);
+    // ...and neither the companion hash nor the syncId may advance.
+    const lastPull = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("cloud_sync_last_pull") || "{}")
+    );
+    expect(lastPull.itemPriceHistoryHash || null).toBeNull();
+    expect(lastPull.syncId).toBe("local-before-acceptance");
+  });
+
+  test("Edge 1 guard: a companion-only change still merges silently and records its hash (STRK-224 non-regression)", async ({
+    page,
+  }) => {
+    // AC-3 / AC-9. Non-regression guard for the STRK-147 D-11 silent fast-path: a
+    // remote sync carrying ONLY a companion change (inventory + settings hashes
+    // match → no DiffModal) must still merge silently and advance
+    // lastPull.itemPriceHistoryHash. Expected GREEN before AND after Cohort C — it
+    // goes RED only if C.3's reorder regresses the silent merge.
+    await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await gotoCloudReady(page);
+
+    const { invHash } = await computeLocalHashes(page);
+    // Companion-only: matching inventoryHash, no settingsHash → settingsMatch
+    // defaults true so the silent fast-path is taken (the path the companion
+    // merge lives on after C.3) without coupling to settings-hash timing.
+    await seedRemoteCompanion(page, {
+      metaOverrides: {
+        syncId: "remote-sync-companion-guard",
+        rev: "remote-rev-companion-guard",
+        inventoryHash: invHash,
+      },
+    });
+
+    await page.evaluate(() => window.pollForRemoteChanges());
+
+    const merged = await readPersistedHistory(page);
+    const ts = (merged[ITEM_A] || []).map((e) => e.ts);
+    expect(ts).toContain(LOCAL_TS);
+    expect(ts).toContain(REMOTE_TS);
+    const lastPullHash = await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("cloud_sync_last_pull") || "{}").itemPriceHistoryHash ||
+        null
+    );
+    expect(lastPullHash).toBe(await canonicalHash(page, merged));
+  });
+
+  test("Edge 2: a transient companion download failure holds lastPull stale and retries on the next poll (STRK-224)", async ({
+    page,
+  }) => {
+    // AC-4 / AC-6 / AC-9(b). A companion-only remote change (matching inv +
+    // settings hashes) whose companion download transiently fails returns the
+    // non-throwing {hash:null} shape. The poll must NOT advance lastPull.syncId or
+    // itemPriceHistoryHash, and a later healthy poll must merge. FAILS today
+    // because the null-hash return is treated as non-failed and the watermark
+    // advances, tripping the same-syncId shortcut on the retry.
+    await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await gotoCloudReady(page);
+
+    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
+    const { invHash } = await computeLocalHashes(page);
+    // Companion-only change: matching inventoryHash, and NO settingsHash so the
+    // poll's settingsMatch defaults true (backward-compat) → the silent fast-path
+    // is reached deterministically without coupling to settings-hash timing.
+    const metaBytes = await buildRemoteMeta(page, {
+      companionHash: remoteHash,
+      overrides: {
+        syncId: "remote-sync-transient",
+        rev: "remote-rev-transient",
+        inventoryHash: invHash,
+      },
+    });
+    // First poll: companion download fails (HTTP 500) → null-hash transient.
+    await routeDropbox(page, { metaBytes, historyDownloadStatus: 500 });
+    await suppressDiffModal(page);
+    await page.evaluate(() => window.pollForRemoteChanges());
+
+    const afterFail = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("cloud_sync_last_pull") || "{}")
+    );
+    expect(afterFail.syncId).toBe("local-before-acceptance");
+    expect(afterFail.itemPriceHistoryHash || null).toBeNull();
+    const afterFailHist = await readPersistedHistory(page);
+    expect((afterFailHist[ITEM_A] || []).map((e) => e.ts)).not.toContain(REMOTE_TS);
+
+    // Healthy retry: serve the companion vault and re-poll → merge succeeds and
+    // the stale syncId did not trip the same-syncId shortcut into skipping.
+    await page.unrouteAll();
+    const historyVaultBytes = await encryptVaultPayload(page, REMOTE_HISTORY, SYNC_KEY);
+    await routeDropbox(page, { metaBytes, historyVaultBytes });
+    await suppressDiffModal(page);
+    await page.evaluate(() => window.pollForRemoteChanges());
+
+    const merged = await readPersistedHistory(page);
+    const ts = (merged[ITEM_A] || []).map((e) => e.ts);
+    expect(ts).toContain(LOCAL_TS);
+    expect(ts).toContain(REMOTE_TS);
+  });
+
+  test("Edge 3 (manifest-first): a post-apply companion write-throw does not advance lastPull, and retries (STRK-224)", async ({
+    page,
+  }) => {
+    // AC-7 / AC-8 / AC-9(c-manifest-first). The manifest-first deferred apply
+    // (_deferredVaultRestore → _applyAndFinalize → companion pull) records syncId
+    // before the strict companion write. If that write throws, the FULL prior
+    // lastPull must remain intact so the next poll retries. FAILS today because
+    // _applyAndFinalize advances syncId (cloud-sync.js:3598) before the throw.
+    await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await gotoCloudReady(page);
+
+    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
+    const manifestBytes = await encryptedManifest(page, {
+      version: 1,
+      changes: [
+        { itemKey: "strk224-add", itemName: "STRK-224 Added", type: "item-add", fields: [] },
+      ],
+      summary: { itemsAdded: 1, itemsEdited: 0, itemsDeleted: 0, settingsChanged: 0 },
+    });
+    const vaultBytes = await encryptVaultPayload(
+      page,
+      { data: { metalInventory: JSON.stringify(LOCAL_INVENTORY) } },
+      SYNC_KEY
+    );
+    const historyVaultBytes = await encryptVaultPayload(page, REMOTE_HISTORY, SYNC_KEY);
+    await routeDropbox(page, { manifestBytes, vaultBytes, historyVaultBytes });
+
+    const remoteMeta = {
+      syncId: "remote-sync-manifest",
+      timestamp: BASE_TS + 5000,
+      rev: "remote-rev-manifest",
+      deviceId: "remote-device",
+      itemCount: LOCAL_INVENTORY.length,
+      manifestVersion: 2,
+      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 1, entryCount: 1 },
+    };
+
+    const writeAttempted = await page.evaluate(async (meta) => {
+      let attempts = 0;
+      window.__realWrite = window.writeItemPriceHistoryStrict;
+      window.writeItemPriceHistoryStrict = () => {
+        attempts += 1;
+        throw new Error("QuotaExceededError");
+      };
+      // DiffModal stub APPLIES via onApply([]) → triggers _deferredVaultRestore.
+      window.DiffModal.show = (options) => {
+        options.onApply([]);
+        return Promise.resolve();
+      };
+      await window.pullWithPreview(meta);
+      return attempts;
+    }, remoteMeta);
+
+    expect(writeAttempted).toBeGreaterThan(0);
+    // The FULL prior lastPull must be intact (syncId not advanced, no hash).
+    const afterFail = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("cloud_sync_last_pull") || "{}")
+    );
+    expect(afterFail.syncId).toBe("local-before-acceptance");
+    expect(afterFail.itemPriceHistoryHash || null).toBeNull();
+
+    // Retry with the real (healthy) write restored → companion merges.
+    await page.evaluate(async (meta) => {
+      window.writeItemPriceHistoryStrict = window.__realWrite;
+      window.DiffModal.show = (options) => {
+        options.onApply([]);
+        return Promise.resolve();
+      };
+      await window.pullWithPreview(meta);
+    }, remoteMeta);
+
+    const merged = await readPersistedHistory(page);
+    const ts = (merged[ITEM_A] || []).map((e) => e.ts);
+    expect(ts).toContain(LOCAL_TS);
+    expect(ts).toContain(REMOTE_TS);
+  });
+
+  test("Edge 3 (vault-first): a post-apply companion write-throw restores the prior lastPull, and retries (STRK-224)", async ({
+    page,
+  }) => {
+    // AC-7 / AC-8 / AC-9(c-vault-first). The vault-first apply records syncId
+    // inside showRestorePreviewModal.onApply (_applyAndFinalize, cloud-sync.js:3598)
+    // BEFORE the post-apply companion write at :4917. If that write throws, the
+    // pre-apply lastPull must be restored. The snapshot MUST be captured before the
+    // apply — a post-apply snapshot is a defect, so this case FAILS today.
+    await seedCloudState(page, { inventory: LOCAL_INVENTORY, history: LOCAL_HISTORY });
+    await gotoCloudReady(page);
+
+    const remoteHash = await canonicalHash(page, REMOTE_HISTORY);
+    // Main vault differs from local (name) → non-empty diff → reaches the modal.
+    const vaultBytes = await encryptVaultPayload(
+      page,
+      { data: { metalInventory: JSON.stringify([REMOTE_ITEM_DIFF]) } },
+      SYNC_KEY
+    );
+    const historyVaultBytes = await encryptVaultPayload(page, REMOTE_HISTORY, SYNC_KEY);
+    // No manifest → pullWithPreview falls through to the vault-first path.
+    await routeDropbox(page, { vaultBytes, historyVaultBytes });
+
+    const remoteMeta = {
+      syncId: "remote-sync-vaultfirst",
+      timestamp: BASE_TS + 5000,
+      rev: "remote-rev-vaultfirst",
+      deviceId: "remote-device",
+      itemCount: LOCAL_INVENTORY.length,
+      itemPriceHistoryVault: { hash: remoteHash, uuidCount: 1, entryCount: 1 },
+    };
+
+    const writeAttempted = await page.evaluate(async (meta) => {
+      let attempts = 0;
+      window.__realWrite = window.writeItemPriceHistoryStrict;
+      window.writeItemPriceHistoryStrict = () => {
+        attempts += 1;
+        throw new Error("QuotaExceededError");
+      };
+      // Stub DiffModal.show to APPLY via the REAL showRestorePreviewModal.onApply,
+      // so _applyAndFinalize advances syncId before the post-apply companion write.
+      window.DiffModal.show = (options) => {
+        options.onApply([]);
+        return Promise.resolve();
+      };
+      await window.pullWithPreview(meta);
+      return attempts;
+    }, remoteMeta);
+
+    expect(writeAttempted).toBeGreaterThan(0);
+    const afterFail = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("cloud_sync_last_pull") || "{}")
+    );
+    expect(afterFail.syncId).toBe("local-before-acceptance");
+    expect(afterFail.itemPriceHistoryHash || null).toBeNull();
+
+    // Retry with the real (healthy) write restored → companion merges.
+    await page.evaluate(async (meta) => {
+      window.writeItemPriceHistoryStrict = window.__realWrite;
+      window.DiffModal.show = (options) => {
+        options.onApply([]);
+        return Promise.resolve();
+      };
+      await window.pullWithPreview(meta);
+    }, remoteMeta);
+
+    const merged = await readPersistedHistory(page);
+    const ts = (merged[ITEM_A] || []).map((e) => e.ts);
+    expect(ts).toContain(LOCAL_TS);
+    expect(ts).toContain(REMOTE_TS);
   });
 });
