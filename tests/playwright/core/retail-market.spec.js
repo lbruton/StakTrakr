@@ -382,6 +382,72 @@ async function getVendorCellText(page, rowName, vendorHeader) {
 }
 
 test.describe("core/retail-market", () => {
+  // STRK-213: the providers.json refresh must not hard-depend on AbortSignal.timeout,
+  // which is absent on older runtimes. Its sibling v2 fetch helpers
+  // (_pickFreshestV2Endpoint, _fetchV2Json) already use the AbortController + setTimeout
+  // pattern; _fetchAndApplyV2Providers previously passed `signal: AbortSignal.timeout(5000)`,
+  // which is evaluated synchronously as an argument — so on a runtime lacking that static
+  // method the providers fetch threw before the request and was swallowed by the catch.
+  // The result was silent provider staleness: price sync reported success while
+  // retailProviders never refreshed. This test deletes AbortSignal.timeout, runs one sync,
+  // and asserts the flattened provider map is still fetched and persisted.
+  test("refreshes retail providers when AbortSignal.timeout is unavailable (STRK-213)", async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+
+    // Boot's background sync populates providers from the default mock. Wait for it so the
+    // harness is proven working and the in-progress guard has cleared before our probe.
+    await page.waitForFunction(
+      () =>
+        typeof window.syncRetailPrices === "function" &&
+        window.retailProviders &&
+        Object.keys(window.retailProviders).length > 0
+    );
+
+    const result = await page.evaluate(async () => {
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      // Reset both observable sinks so a swallowed providers fetch leaves them empty.
+      window.retailProviders = {};
+      localStorage.removeItem("retailProviders");
+
+      // Simulate an older runtime where the AbortSignal.timeout static method is absent.
+      const realTimeout = AbortSignal.timeout;
+      delete AbortSignal.timeout;
+      try {
+        // Ride past any still-in-flight boot sync: the _retailSyncInProgress guard turns a
+        // colliding call into a silent no-op, so retry until a call actually runs the v2
+        // sync. Once it does, the providers refresh either repopulates the map (fixed) or
+        // stays empty (regressed) — never an infinite wait, since the deadline bounds it.
+        const deadline = Date.now() + 8000;
+        while (Date.now() < deadline) {
+          await window.syncRetailPrices({ ui: false });
+          if (window.retailProviders && Object.keys(window.retailProviders).length > 0) break;
+          await sleep(150);
+        }
+      } finally {
+        AbortSignal.timeout = realTimeout;
+      }
+
+      const stored = localStorage.getItem("retailProviders");
+      return {
+        windowProviders: window.retailProviders,
+        stored: stored ? JSON.parse(stored) : null,
+      };
+    });
+
+    // The providers refresh must have run and persisted the flattened legacy
+    // { slug: { vendorId: url } } map even with AbortSignal.timeout removed.
+    expect(result.stored).toBeTruthy();
+    expect(Object.keys(result.stored || {}).length).toBeGreaterThan(0);
+    expect(result.stored["1oz-silver-eagle"]).toMatchObject({
+      apmex: "https://www.apmex.com/product/1oz-silver-eagle",
+      jmbullion: "https://www.jmbullion.com/product/1oz-silver-eagle",
+    });
+    expect(Object.keys(result.windowProviders || {}).length).toBeGreaterThan(0);
+  });
+
   test("matrix defaults to All, sorts rows and vendor columns, and uses per-metal premium math", async ({
     page,
   }) => {

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.44] - 2026-06-21
+
+### Fixed — STRK-213: Retail provider refresh compatible with older runtimes
+
+- **providers.json refresh no longer depends on `AbortSignal.timeout`**: `_fetchAndApplyV2Providers` now uses the `AbortController` + `setTimeout` + `clearTimeout` timeout pattern (matching `_pickFreshestV2Endpoint` and `_fetchV2Json`). On a runtime lacking the `AbortSignal.timeout` static method the providers fetch previously threw synchronously and was swallowed by the catch, leaving retail provider links stale even though price sync reported success (STRK-213).
+
+---
+
 ## [3.35.43] - 2026-06-21
 
 ### Fixed — STRK-209: Keyboard activation for inventory-table filter tags

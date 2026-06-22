@@ -1059,9 +1059,18 @@ const _applyV2Providers = (flattened) => {
  * @returns {Promise<void>}
  */
 const _fetchAndApplyV2Providers = async (apiBase) => {
+  // Use the AbortController + setTimeout pattern rather than AbortSignal.timeout, which is
+  // evaluated synchronously as a fetch argument — on a runtime lacking that static method
+  // the fetch throws before the request and the catch silently swallows it, leaving
+  // retailProviders stale even though price sync still succeeds (STRK-213).
+  // Clear the timer in an outer finally (not on fetch resolution) so the 5s abort stays
+  // active through the body read too: a stalled/slow providers.json body would otherwise
+  // hang here and leave the whole retail sync wedged with _retailSyncInProgress set.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
     const providersResp = await fetch(`${apiBase}/providers.json`, {
-      signal: AbortSignal.timeout(5000),
+      signal: controller.signal,
     });
     if (providersResp.ok) {
       _applyV2Providers(_flattenV2Providers(await providersResp.json()));
@@ -1070,6 +1079,8 @@ const _fetchAndApplyV2Providers = async (apiBase) => {
     }
   } catch (err) {
     debugLog(`[retail-v2] providers.json fetch failed: ${err.message}`, "warn");
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
