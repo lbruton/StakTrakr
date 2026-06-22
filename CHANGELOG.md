@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.45] - 2026-06-21
+
+### Changed — STRK-216: bulkEdit uses safeGetElement for the type-field lookup
+
+- **`bulkFieldVal_type` lookup routed through `safeGetElement`**: `wireBulkWeightDenomPicker` now resolves the bulk-edit Type select via the project-standard `safeGetElement` helper (matching its sibling field lookups) instead of a raw `document.getElementById`. The helper's truthy-dummy return is normalized back to `null` with an `instanceof HTMLElement` guard, so all downstream null checks keep their exact prior behavior — a consistency/robustness change with no visible difference (STRK-216).
+
+---
+
 ## [3.35.44] - 2026-06-21
 
 ### Fixed — STRK-213: Retail provider refresh compatible with older runtimes
