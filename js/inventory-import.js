@@ -314,6 +314,8 @@
         _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
         parsedItems.forEach(_clearCsvImportKey);
         if (typeof renderTable === "function") renderTable();
+        if (typeof renderActiveFilters === "function") renderActiveFilters();
+        if (typeof updateStorageStats === "function") updateStorageStats();
         if (typeof showToast === "function") showToast("Import complete: tags updated");
         if (onComplete) onComplete({ added: 0, modified: 0, deleted: 0 });
         return;
@@ -646,10 +648,12 @@
         });
       }
     }
-    if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
-      stampTagTimestamp(Array.from(stampedUuids));
+    // STRK-220: only stamp + save when a tag was actually added — a no-op batch
+    // (all duplicates / deselected) must not trigger a write or a sync push.
+    if (stampedUuids.size > 0) {
+      if (typeof stampTagTimestamp === "function") stampTagTimestamp(Array.from(stampedUuids));
+      if (typeof saveItemTags === "function") saveItemTags();
     }
-    if (typeof saveItemTags === "function") saveItemTags();
   };
 
   /**
