@@ -2831,9 +2831,15 @@ document.addEventListener("click", (e) => {
  * (the year/purity chips use an inline onkeydown instead — STRK-209). On
  * Enter/Space we preventDefault (suppressing the Space page-scroll) and
  * synthesize a click, reusing the existing click logic for all three tag types.
+ * `e.repeat` is ignored so a held key cannot fire repeated activations, and
+ * legacy runtimes that report Space as "Spacebar" are handled (matching
+ * diff-modal.js). The chip selectors are spans, never form fields, so this
+ * never interferes with typing.
  */
 document.addEventListener("keydown", (e) => {
-  if (e.key !== "Enter" && e.key !== " ") return;
+  if (e.repeat) return;
+  if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+  if (!(e.target instanceof Element)) return;
   const tag = e.target.closest('.numista-tag, .pcgs-tag, .grade-tag[data-clickable="true"]');
   if (!tag) return;
   e.preventDefault();

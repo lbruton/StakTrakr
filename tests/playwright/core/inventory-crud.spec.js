@@ -2489,6 +2489,20 @@ async function seedInventoryTableAndGoto(page, { items, chipConfig, flags } = {}
   await page.waitForFunction(() => Array.isArray(window.inventory));
 }
 
+// Observe whether a keydown handler called preventDefault() on Space — read from
+// a document-level (bubble-phase) listener registered AFTER the page's own
+// handlers, so it sees the already-set defaultPrevented flag. Deterministic,
+// unlike asserting window.scrollY on a short page. Shared by the STRK-209 and
+// STRK-232 keyboard-a11y suites.
+async function trackSpaceDefault(page) {
+  await page.evaluate(() => {
+    window.__spaceDefaultPrevented = null;
+    document.addEventListener("keydown", (e) => {
+      if (e.key === " ") window.__spaceDefaultPrevented = e.defaultPrevented;
+    });
+  });
+}
+
 // ─── STRK-208: year/purity inline-tag click-to-filter (onclick escaping) ─────
 
 test.describe("year-purity-filter-tags — STRK-208", () => {
@@ -2538,19 +2552,6 @@ test.describe("keyboard-a11y-activation — STRK-209", () => {
       chipConfig: YEAR_PURITY_CHIPS,
       flags: opts.flags,
     });
-
-  // Observe whether the focused element's inline keydown handler called
-  // preventDefault() on Space — read from a document-level (bubble-phase)
-  // listener that fires AFTER the target span's attribute handler. Deterministic,
-  // unlike asserting window.scrollY (flaky on a short page with nothing to scroll).
-  async function trackSpaceDefault(page) {
-    await page.evaluate(() => {
-      window.__spaceDefaultPrevented = null;
-      document.addEventListener("keydown", (e) => {
-        if (e.key === " ") window.__spaceDefaultPrevented = e.defaultPrevented;
-      });
-    });
-  }
 
   test("Enter on a year tag activates the column filter (keyboard parity with click)", async ({
     page,
@@ -2635,19 +2636,6 @@ test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
     });
   }
 
-  // Observe whether the delegated keydown handler called preventDefault() on
-  // Space — read from a document-level (bubble-phase) listener registered AFTER
-  // the handler, so it sees the already-set defaultPrevented flag. Deterministic,
-  // unlike asserting window.scrollY on a short page.
-  async function trackSpaceDefault(page) {
-    await page.evaluate(() => {
-      window.__spaceDefaultPrevented = null;
-      document.addEventListener("keydown", (e) => {
-        if (e.key === " ") window.__spaceDefaultPrevented = e.defaultPrevented;
-      });
-    });
-  }
-
   const EXPECTED_CALL = [{ id: "12345", name: "STRK-232 Numista Item" }];
 
   test("Enter on a Numista (N#) reference tag activates the same action as a click", async ({
@@ -2670,5 +2658,60 @@ test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
     await page.keyboard.press("Space");
     expect(await page.evaluate(() => window.__numistaCalls)).toEqual(EXPECTED_CALL);
     expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  // PCGS and grade chips activate via window.open (popup). Stub it so we can
+  // assert the delegated keydown handler reaches the same click action without
+  // opening a real window. Returns a truthy fake so the handler's popup-blocked
+  // branch (appAlert) is not taken.
+  async function spyWindowOpen(page) {
+    await page.evaluate(() => {
+      window.__openCalls = [];
+      window.open = (url) => {
+        window.__openCalls.push(url);
+        return { opener: null, focus() {} };
+      };
+    });
+  }
+
+  test("Enter on a PCGS (PCGS#) reference tag opens the CoinFacts lookup (parity with click)", async ({
+    page,
+  }) => {
+    await seedInventoryTableAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, uuid: "strk-232-pcgs", name: "STRK-232 PCGS Item", pcgsNumber: "987654" },
+      ],
+      chipConfig: [{ id: "pcgs", label: "PCGS", enabled: true }],
+    });
+    await spyWindowOpen(page);
+    await page.locator(".pcgs-tag").first().focus();
+    await page.keyboard.press("Enter");
+    const calls = await page.evaluate(() => window.__openCalls);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("987654");
+  });
+
+  test("Enter on a clickable grade tag opens the cert lookup (parity with click)", async ({
+    page,
+  }) => {
+    await seedInventoryTableAndGoto(page, {
+      items: [
+        {
+          ...SEED_ITEM,
+          uuid: "strk-232-grade",
+          name: "STRK-232 Grade Item",
+          grade: "MS65",
+          gradingAuthority: "NGC",
+          certNumber: "1234567-001",
+        },
+      ],
+      chipConfig: [{ id: "grade", label: "Grade", enabled: true }],
+    });
+    await spyWindowOpen(page);
+    await page.locator('.grade-tag[data-clickable="true"]').first().focus();
+    await page.keyboard.press("Enter");
+    const calls = await page.evaluate(() => window.__openCalls);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("1234567-001");
   });
 });
