@@ -92,6 +92,45 @@ const bindAppearanceAndHeaderListeners = () => {
     },
   });
 
+  // STRK-235: constitutional / junk silver worn-vs-fresh valuation basis. This is a
+  // STRING-valued toggle ("worn" | "fresh"), so it uses a dedicated handler rather
+  // than the boolean wireStorageToggle. Changing it reprices the table immediately
+  // (getConstitutionalWearFactor is read at compute time) and syncs to the cloud.
+  (() => {
+    const toggle = safeGetElement("settings-constitutional-basis");
+    if (!toggle) return;
+    const buttons = Array.from(toggle.querySelectorAll("[data-val]"));
+    if (!buttons.length) return;
+    const syncActive = () => {
+      const stored =
+        typeof loadDataSync === "function"
+          ? loadDataSync(CONSTITUTIONAL_BASIS_KEY, "worn")
+          : "worn";
+      const basis = stored === "fresh" ? "fresh" : "worn";
+      buttons.forEach((btn) => {
+        const isActive = btn.dataset.val === basis;
+        btn.classList.toggle("active", isActive);
+        btn.setAttribute("aria-pressed", String(isActive));
+      });
+    };
+    syncActive();
+    buttons.forEach((btn) => {
+      safeAttachListener(
+        btn,
+        "click",
+        () => {
+          const val = btn.dataset.val === "fresh" ? "fresh" : "worn";
+          if (typeof saveData === "function") saveData(CONSTITUTIONAL_BASIS_KEY, val);
+          syncActive();
+          if (typeof renderTable === "function") renderTable();
+          if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+        },
+        `Constitutional basis ${btn.dataset.val}`
+      );
+    });
+    window.syncConstitutionalBasis = syncActive;
+  })();
+
   // Trend cycle header button.
   const headerTrendBtn = safeGetElement("headerTrendBtn");
   if (headerTrendBtn) {

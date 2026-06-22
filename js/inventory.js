@@ -1779,6 +1779,32 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
  * @param {object} item - The inventory item being edited.
  */
 const _editPopulateWeightFields = (item) => {
+  // STRK-235: constitutional items have no raw weight input — restore the dedicated
+  // control group (entry mode, variant/face, coin count) instead. Must run after
+  // handleTypeChange (which forced the cu unit + default denom mode) so the stored
+  // mode/variant win. Returns early; the gb/kg/lb/g/oz logic below does not apply.
+  if (item.weightUnit === "cu") {
+    elements.itemWeightUnit.value = "cu";
+    const mode = item.constitutionalEntryMode === "face" ? "face" : "denom";
+    if (mode === "denom") {
+      const variantSel = safeGetElement("item-constitutional-variant");
+      if (variantSel instanceof HTMLElement) {
+        variantSel.value = item.constitutionalVariant || "con-90-quarter";
+      }
+      const countEl = safeGetElement("item-constitutional-count");
+      if (countEl instanceof HTMLElement) countEl.value = String(Number(item.qty) || 1);
+    } else {
+      const faceEl = safeGetElement("item-constitutional-face");
+      if (faceEl instanceof HTMLElement) faceEl.value = String(parseFloat(item.weight) || 0);
+    }
+    if (typeof window.constitutionalSetEntryMode === "function") {
+      window.constitutionalSetEntryMode(mode);
+    }
+    if (typeof window.toggleConstitutionalGroup === "function") {
+      window.toggleConstitutionalGroup();
+    }
+    return;
+  }
   // Weight: use real <select> instead of dataset.unit (BUG FIX)
   if (item.weightUnit === "gb") {
     const denomSelect = elements.itemGbDenom || safeGetElement("itemGbDenom");

@@ -115,6 +115,16 @@ const switchSettingsSection = (name) => {
         // Total weight — sum all items in troy oz (convert Goldback denominations)
         if (weightEl) {
           const totalOz = items.reduce((sum, it) => {
+            // STRK-235: constitutional silver oz is derived (variant table + wear) and
+            // already includes the coin count — add it directly, do NOT × qty.
+            if (it.weightUnit === "cu") {
+              return (
+                sum +
+                (typeof getConstitutionalSilverOz === "function"
+                  ? getConstitutionalSilverOz(it)
+                  : 0)
+              );
+            }
             const w = parseFloat(it.weight) || 0;
             const qty = Number(it.qty) || 1;
             const oz =
