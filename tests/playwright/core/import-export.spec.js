@@ -1352,3 +1352,214 @@ test.describe("core/import-export", () => {
     expect(stored.imported).toBe(1); // only the live record counted as imported
   });
 });
+
+// ---------------------------------------------------------------------------
+// STRK-220 — CSV merge honors Tags/removedTags for EXISTING items.
+// Before the fix, the merge path's tag appliers filtered for add||modify changes
+// and read change.item.uuid, but modify changes carry no .item, so tags for
+// existing (modify / unchanged) items were silently dropped. The fix applies tags
+// over the parsed items that landed in inventory (matched + selected adds),
+// mirroring the override/fallback paths, plus a CSV-gated tag-only branch for rows
+// that produce zero diffed-field changes.
+// ---------------------------------------------------------------------------
+
+const STRK220_UUID = "strk220-existing-uuid-aaaa";
+
+const STRK220_EXISTING_ITEM = {
+  uuid: STRK220_UUID,
+  serial: 7220,
+  metal: "Silver",
+  composition: "Silver",
+  type: "Coin",
+  name: "STRK-220 Existing Eagle",
+  year: 2024,
+  qty: 1,
+  weight: 1,
+  weightUnit: "oz",
+  purity: 0.999,
+  price: 30,
+  date: "2026-06-20",
+};
+
+// UUID + Serial columns let a row match an existing item by identity.
+const STRK220_CSV_HEADER =
+  "UUID,Serial,Date,Metal,Type,Name,Year,Qty,Weight(oz),Weight Unit,Purity,Purchase Price,Tags,removedTags";
+
+// Matches by UUID, changes Qty (a diffed field) -> surfaces as a `modify`.
+const STRK220_MODIFY_CSV = [
+  STRK220_CSV_HEADER,
+  `${STRK220_UUID},7220,2026-06-20,Silver,Coin,STRK-220 Existing Eagle,2024,2,1,oz,0.999,30,Bullion; Imported,OldGrade`,
+].join("\n");
+
+// UUID column blank -> matched by Serial only. The parse-time import key (the
+// serial) differs from the post-enrichment modify itemKey (the uuid), exercising
+// the __csvImportKey sidecar lookup. Qty changes -> modify.
+const STRK220_SERIAL_MATCH_CSV = [
+  STRK220_CSV_HEADER,
+  `,7220,2026-06-20,Silver,Coin,STRK-220 Existing Eagle,2024,4,1,oz,0.999,30,Stacker,OldGrade`,
+].join("\n");
+
+/**
+ * Seeds a single existing inventory item plus empty tag stores, then renders.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function seedStrk220Existing(page) {
+  await page.evaluate((item) => {
+    localStorage.clear();
+    localStorage.setItem("metalInventory", JSON.stringify([item]));
+    localStorage.setItem("itemTags", JSON.stringify({}));
+    localStorage.setItem("itemRemovedTags", JSON.stringify({}));
+    if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
+    window.inventory = [item];
+    window.itemTags = {};
+    if (typeof window.renderTable === "function") window.renderTable();
+  }, STRK220_EXISTING_ITEM);
+}
+
+/**
+ * Runs a CSV merge import, stubbing DiffModal.show to auto-accept all added and
+ * modified changes from the real diff (mirrors _emitLegacyModified — remote wins).
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @param {string} csvText - CSV file contents.
+ * @returns {Promise<void>}
+ */
+async function importStrk220Merge(page, csvText) {
+  await page.evaluate((text) => {
+    const file = new File([text], "strk-220-merge.csv", { type: "text/csv" });
+    const originalShow = window.DiffModal.show;
+    window.DiffModal.show = (options) => {
+      try {
+        const selected = [];
+        (options.diff.added || []).forEach((item) => selected.push({ type: "add", item }));
+        (options.diff.modified || []).forEach((mod) => {
+          const itemKey = window.DiffEngine.computeItemKey(mod.item);
+          (mod.changes || []).forEach((ch) => {
+            selected.push({ type: "modify", itemKey, field: ch.field, value: ch.remoteVal });
+          });
+        });
+        options.onApply(selected);
+      } finally {
+        window.DiffModal.show = originalShow;
+      }
+    };
+    window.importCsv(file, false);
+  }, csvText);
+}
+
+/**
+ * Reads the tag/removed-tag stores and the item's qty for a given uuid.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @param {string} uuid - Item UUID to inspect.
+ * @returns {Promise<{qty: *, tags: string[], itemTags: object, removedTags: object, persistedQty: *}>}
+ */
+async function captureStrk220State(page, uuid) {
+  return page.evaluate((u) => {
+    const item = (window.inventory || []).find((it) => it.uuid === u) || {};
+    const persisted = window.loadDataSync("metalInventory", []).find((it) => it.uuid === u) || {};
+    return {
+      qty: item.qty,
+      tags: window.getItemTags(u),
+      itemTags: JSON.parse(localStorage.getItem("itemTags") || "{}"),
+      removedTags: JSON.parse(localStorage.getItem("itemRemovedTags") || "{}"),
+      persistedQty: persisted.qty,
+    };
+  }, uuid);
+}
+
+test.describe("core/import-export — STRK-220 merge tags on existing items", () => {
+  test("merge modify (UUID match) persists Tags and removedTags for the existing item", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await seedStrk220Existing(page);
+
+    await importStrk220Merge(page, STRK220_MODIFY_CSV);
+    await page.waitForFunction((u) => {
+      const it = (window.inventory || []).find((x) => x.uuid === u);
+      return it && Number(it.qty) === 2;
+    }, STRK220_UUID);
+
+    const state = await captureStrk220State(page, STRK220_UUID);
+    expect(Number(state.qty)).toBe(2); // modify applied
+    expect(state.itemTags[STRK220_UUID]).toEqual(["Bullion", "Imported"]);
+    expect(state.tags).toEqual(["Bullion", "Imported"]);
+    expect(state.removedTags[STRK220_UUID]).toEqual(["OldGrade"]); // the bug: was dropped
+
+    // Persistence across reload
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      (u) =>
+        typeof window.getItemTags === "function" &&
+        (window.inventory || []).some((x) => x.uuid === u),
+      STRK220_UUID
+    );
+    const reloaded = await captureStrk220State(page, STRK220_UUID);
+    expect(reloaded.itemTags[STRK220_UUID]).toEqual(["Bullion", "Imported"]);
+    expect(reloaded.removedTags[STRK220_UUID]).toEqual(["OldGrade"]);
+  });
+
+  test("merge modify (Serial match, UUID-less row) resolves tags via the import-key sidecar", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await seedStrk220Existing(page);
+
+    await importStrk220Merge(page, STRK220_SERIAL_MATCH_CSV);
+    await page.waitForFunction((u) => {
+      const it = (window.inventory || []).find((x) => x.uuid === u);
+      return it && Number(it.qty) === 4;
+    }, STRK220_UUID);
+
+    const state = await captureStrk220State(page, STRK220_UUID);
+    expect(Number(state.qty)).toBe(4);
+    // Removed/added tags land on the enriched uuid even though the map key was the
+    // parse-time serial — the sidecar (__csvImportKey) bridges the divergence.
+    expect(state.removedTags[STRK220_UUID]).toEqual(["OldGrade"]);
+    expect(state.itemTags[STRK220_UUID]).toEqual(["Stacker"]);
+  });
+
+  test("merge with only a removedTags column edit (zero diffed-field change) still applies", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await resetEmptyImportState(page);
+
+    // Establish the canonical item via a first merge (an `add`), so the second
+    // import is byte-identical on every diffed field and DiffEngine sees 0 changes.
+    const TAGONLY_UUID = "strk220-tagonly-uuid-cccc";
+    const baseRow = `${TAGONLY_UUID},7230,2026-06-20,Silver,Coin,STRK-220 TagOnly Maple,2024,1,1,oz,0.999,30,Bullion,`;
+    await importStrk220Merge(page, [STRK220_CSV_HEADER, baseRow].join("\n"));
+    await page.waitForFunction(
+      (u) => (window.inventory || []).some((x) => x.uuid === u),
+      TAGONLY_UUID
+    );
+
+    // Re-import the identical row + a removedTags value. No diffed field changes, so
+    // the modal never opens; the CSV-gated tag-only branch must still apply it.
+    await page.evaluate(() => {
+      window.__strk220ShowCalled = false;
+      const orig = window.DiffModal.show;
+      window.DiffModal.show = () => {
+        window.__strk220ShowCalled = true; // swallow — must NOT be reached
+        window.DiffModal.show = orig;
+      };
+    });
+    const tagOnlyRow = `${TAGONLY_UUID},7230,2026-06-20,Silver,Coin,STRK-220 TagOnly Maple,2024,1,1,oz,0.999,30,Bullion,OldGrade`;
+    await page.evaluate((text) => {
+      const file = new File([text], "strk-220-tagonly.csv", { type: "text/csv" });
+      window.importCsv(file, false);
+    }, [STRK220_CSV_HEADER, tagOnlyRow].join("\n"));
+
+    await page.waitForFunction((u) => {
+      const m = JSON.parse(localStorage.getItem("itemRemovedTags") || "{}");
+      return Array.isArray(m[u]) && m[u].includes("OldGrade");
+    }, TAGONLY_UUID);
+
+    const state = await captureStrk220State(page, TAGONLY_UUID);
+    expect(await page.evaluate(() => window.__strk220ShowCalled)).toBe(false); // no modal
+    expect(state.removedTags[TAGONLY_UUID]).toEqual(["OldGrade"]);
+    expect(state.itemTags[TAGONLY_UUID]).toEqual(["Bullion"]);
+    expect(Number(state.qty)).toBe(1); // unchanged
+  });
+});
