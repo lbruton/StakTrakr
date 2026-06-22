@@ -2825,6 +2825,22 @@ document.addEventListener("click", (e) => {
 });
 
 /**
+ * STRK-232: Keyboard activation for delegated reference chips (N#, PCGS#,
+ * grade). These render with tabindex=0 role=button but rely on the delegated
+ * click handler above, so a keyboard user could focus but not activate them
+ * (the year/purity chips use an inline onkeydown instead — STRK-209). On
+ * Enter/Space we preventDefault (suppressing the Space page-scroll) and
+ * synthesize a click, reusing the existing click logic for all three tag types.
+ */
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const tag = e.target.closest('.numista-tag, .pcgs-tag, .grade-tag[data-clickable="true"]');
+  if (!tag) return;
+  e.preventDefault();
+  tag.click();
+});
+
+/**
  * Shift+click inline editing — power user shortcut for editable cells.
  * Capture-phase listener intercepts shift+clicks before inline onclick
  * handlers (filterLink) and bubble-phase eBay handlers can fire.

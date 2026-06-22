@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.48] - 2026-06-21
+
+### Changed — STRK-232: keyboard activation for delegated reference chips
+
+- **N#/PCGS#/grade reference chips are now keyboard-activatable**: The Numista (`N#`), PCGS (`PCGS#`), and grade reference chips in the inventory table render with `tabindex=0 role=button` but activate through a delegated document `click` handler (unlike the year/purity chips, which use an inline `onkeydown` from STRK-209). A keyboard user could focus them but Enter/Space did nothing. A delegated `keydown` handler now mirrors that click handler: on Enter or Space over one of these chips it calls `preventDefault()` (so Space no longer scrolls the page) and synthesizes a click, reusing the existing per-tag action for all three chip types (STRK-232).
+
+---
+
 ## [3.35.47] - 2026-06-21
 
 ### Fixed — STRK-220: CSV merge import applies Tags/removedTags to existing items

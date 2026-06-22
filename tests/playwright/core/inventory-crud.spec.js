@@ -2606,3 +2606,69 @@ test.describe("keyboard-a11y-activation — STRK-209", () => {
     expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
   });
 });
+
+// ─── STRK-232: keyboard activation a11y for delegated reference tags ──────────
+
+test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
+  // The N#/PCGS#/grade chips activate via a delegated document click handler
+  // (not inline onclick like the year/purity chips), so STRK-209's inline
+  // onkeydown did not reach them. This block exercises the delegated keydown
+  // handler that mirrors that click handler. The Numista chip is the most
+  // directly observable case: its action is the openNumistaModal() global,
+  // which we stub so no real popup window opens.
+  const NUMISTA_CHIP = [{ id: "numista", label: "Numista", enabled: true }];
+
+  const seedWithNumistaChip = (page) =>
+    seedInventoryTableAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, uuid: "strk-232-a", name: "STRK-232 Numista Item", numistaId: "12345" },
+      ],
+      chipConfig: NUMISTA_CHIP,
+    });
+
+  // Replace the popup-opening action with a spy so we can assert keyboard
+  // activation triggers the same action a mouse click would.
+  async function spyNumista(page) {
+    await page.evaluate(() => {
+      window.__numistaCalls = [];
+      window.openNumistaModal = (id, name) => window.__numistaCalls.push({ id, name });
+    });
+  }
+
+  // Observe whether the delegated keydown handler called preventDefault() on
+  // Space — read from a document-level (bubble-phase) listener registered AFTER
+  // the handler, so it sees the already-set defaultPrevented flag. Deterministic,
+  // unlike asserting window.scrollY on a short page.
+  async function trackSpaceDefault(page) {
+    await page.evaluate(() => {
+      window.__spaceDefaultPrevented = null;
+      document.addEventListener("keydown", (e) => {
+        if (e.key === " ") window.__spaceDefaultPrevented = e.defaultPrevented;
+      });
+    });
+  }
+
+  const EXPECTED_CALL = [{ id: "12345", name: "STRK-232 Numista Item" }];
+
+  test("Enter on a Numista (N#) reference tag activates the same action as a click", async ({
+    page,
+  }) => {
+    await seedWithNumistaChip(page);
+    await spyNumista(page);
+    await page.locator(".numista-tag").first().focus();
+    await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => window.__numistaCalls)).toEqual(EXPECTED_CALL);
+  });
+
+  test("Space on a Numista (N#) reference tag activates and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    await seedWithNumistaChip(page);
+    await spyNumista(page);
+    await trackSpaceDefault(page);
+    await page.locator(".numista-tag").first().focus();
+    await page.keyboard.press("Space");
+    expect(await page.evaluate(() => window.__numistaCalls)).toEqual(EXPECTED_CALL);
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+});
