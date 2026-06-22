@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.46] - 2026-06-21
+
+### Changed — STRK-217: viewModal value chart uses ES2020-compatible last-element lookup
+
+- **`.at(-1)` replaced with index-based access in `_resolveViewChartLeadingRetail`**: The leading-retail resolver in the item value chart used `Array.prototype.at(-1)` (ES2022), but `.eslintrc.json` targets `ecmaVersion: 2020` for non-test code to keep StakTrakr running on older `file://` browsers. The call is now `priorRetailEntries[priorRetailEntries.length - 1]`, which is behavior-identical (same last element, same `undefined` on an empty array) and honors the declared runtime target. No user-visible change (STRK-217).
+
+---
+
 ## [3.35.45] - 2026-06-21
 
 ### Changed — STRK-216: bulkEdit uses safeGetElement for the type-field lookup
