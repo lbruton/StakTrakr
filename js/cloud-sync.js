@@ -4435,36 +4435,39 @@ async function pullWithPreview(remoteMeta) {
   // Defer if a pull is already in flight — the poll loop re-detects the remote
   // change and retries on its next cycle, so nothing is lost. Mirrors the
   // _syncPasswordPromptActive defer in handleRemoteChange.
+  //
+  // The check-and-set MUST be atomic — no await may run between them. Claiming
+  // the guard after the password/token awaits below would let two concurrent
+  // calls both pass the check, both await, then both claim it — re-introducing
+  // the very interleaving this guards against. The outer try/finally releases
+  // the flag on every exit path, including the no-password / no-token returns.
   if (_previewPullInFlight) {
     console.warn("[CloudSync] pullWithPreview: a pull is already in flight — deferring");
     return;
   }
-
-  var password = getSyncPasswordSilent();
-  if (!password) {
-    password = await getSyncPassword();
-  }
-  if (!password) {
-    debugLog("[CloudSync] Pull preview cancelled — no password");
-    return;
-  }
-
-  if (!_assertSyncAccountId("pullWithPreview")) return;
-
-  var token = typeof cloudGetToken === "function" ? await cloudGetToken(_syncProvider) : null;
-  if (!token) {
-    debugLog("[CloudSync] Pull preview — no token");
-    updateSyncStatusIndicator("error", "Not connected");
-    return;
-  }
-
-  updateSyncStatusIndicator("syncing");
-
-  // STRK-234: claim the in-flight guard only after the cheap early-return checks
-  // above (no password / no token), so a deferred or cancelled pull never holds
-  // it. The outer try's finally always releases it.
   _previewPullInFlight = true;
+
   try {
+    var password = getSyncPasswordSilent();
+    if (!password) {
+      password = await getSyncPassword();
+    }
+    if (!password) {
+      debugLog("[CloudSync] Pull preview cancelled — no password");
+      return;
+    }
+
+    if (!_assertSyncAccountId("pullWithPreview")) return;
+
+    var token = typeof cloudGetToken === "function" ? await cloudGetToken(_syncProvider) : null;
+    if (!token) {
+      debugLog("[CloudSync] Pull preview — no token");
+      updateSyncStatusIndicator("error", "Not connected");
+      return;
+    }
+
+    updateSyncStatusIndicator("syncing");
+
     // ── Manifest-first pull attempt ──
     // Try downloading the lightweight .stmanifest first so we can show a
     // diff preview without fetching the full vault. If the manifest is

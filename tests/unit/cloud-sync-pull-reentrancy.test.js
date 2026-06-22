@@ -188,47 +188,111 @@ describe("STRK-234 — empty-diff silent pull survives a concurrent _previewPull
 });
 
 describe("STRK-234 — pullWithPreview re-entrancy guard serializes overlapping pulls (AC-3)", () => {
-  test("a second pull defers while one is in flight; the flag resets so a later pull proceeds", async () => {
-    // Mirrors the `_previewPullInFlight` guard added to pullWithPreview:
-    //   if (_previewPullInFlight) { return; }          // defer
-    //   _previewPullInFlight = true;
-    //   try { ...await work... } finally { _previewPullInFlight = false; }
-    let inFlight = false;
-    const log = [];
-    let release;
-    const gate = new Promise((r) => {
-      release = r;
-    });
+  // pullWithPreview awaits getSyncPassword()/cloudGetToken() near its top, BEFORE
+  // it reaches the shared-global work. The guard is therefore only sound if the
+  // check-and-set is atomic — claimed BEFORE that password await. These models
+  // exercise the realistic timing: a pull parks at the password await, and a
+  // second pull arrives during that window. The "correct" model mirrors the
+  // shipped order (claim, then await); the "broken" model is the order the
+  // reviewers (Codex P2 / Codacy HIGH) caught in the first patch (await, then
+  // claim) — included as a negative control so this test is provably sensitive
+  // to the ordering, not a rubber stamp.
 
-    async function guardedPull(label, work) {
-      if (inFlight) {
-        log.push(label + ":deferred");
-        return "deferred";
-      }
-      inFlight = true;
+  // Drive two pulls so the second arrives while the first is parked at its
+  // password await. Returns the run/deferred outcome of each.
+  async function runOverlap(makeGuardedPull) {
+    let inFlight = false;
+    let releasePassword;
+    const passwordGate = new Promise((r) => {
+      releasePassword = r;
+    });
+    const ran = [];
+    const guardedPull = makeGuardedPull(
+      () => inFlight,
+      (v) => {
+        inFlight = v;
+      },
+      passwordGate,
+      ran
+    );
+
+    const first = guardedPull("A"); // claims (correct) or parks (broken) at the await
+    await Promise.resolve(); // let A advance to its await
+    const secondP = guardedPull("B"); // arrives during A's password window
+    await Promise.resolve(); // let B reach its check/await
+    releasePassword(); // now drain both — avoids deadlocking on a parked B
+    const firstOutcome = await first;
+    const second = await secondP;
+    return { firstOutcome, second, ran };
+  }
+
+  // Correct: claim the guard, THEN await the password — atomic check-and-set.
+  const correctPull = (getFlag, setFlag, passwordGate, ran) =>
+    async function (label) {
+      if (getFlag()) return "deferred";
+      setFlag(true);
       try {
-        log.push(label + ":start");
-        await work;
-        log.push(label + ":done");
+        await passwordGate; // password prompt
+        ran.push(label);
         return "ran";
       } finally {
-        inFlight = false;
+        setFlag(false);
       }
-    }
+    };
 
-    const first = guardedPull("A", gate); // holds the guard until gate resolves
-    const second = await guardedPull("B", Promise.resolve()); // overlaps A
-    assert.equal(second, "deferred", "an overlapping pull cleanly defers");
+  // Broken: await the password BEFORE claiming — the bug the reviewers flagged.
+  const brokenPull = (getFlag, setFlag, passwordGate, ran) =>
+    async function (label) {
+      if (getFlag()) return "deferred";
+      await passwordGate; // both calls pass the check, then both await here
+      setFlag(true); // ...and both claim it — no serialization
+      try {
+        ran.push(label);
+        return "ran";
+      } finally {
+        setFlag(false);
+      }
+    };
 
-    release();
-    assert.equal(await first, "ran", "the in-flight pull runs to completion");
-
-    const third = await guardedPull("C", Promise.resolve()); // after A finished
-    assert.equal(third, "ran", "the flag reset, so a later pull proceeds");
-    assert.deepEqual(
-      log,
-      ["A:start", "B:deferred", "A:done", "C:start", "C:done"],
-      "exactly one pull runs at a time; the overlapping one defers"
+  test("claim-before-await serializes: a pull arriving during the password window defers", async () => {
+    const { firstOutcome, second, ran } = await runOverlap(correctPull);
+    assert.equal(firstOutcome, "ran", "the in-flight pull runs to completion");
+    assert.equal(
+      second,
+      "deferred",
+      "the overlapping pull defers (guard claimed before the await)"
     );
+    assert.deepEqual(ran, ["A"], "exactly one pull executed");
+  });
+
+  test("negative control: claim-after-await fails to serialize (both pulls run) — the bug this guards against", async () => {
+    const { firstOutcome, second, ran } = await runOverlap(brokenPull);
+    assert.equal(firstOutcome, "ran");
+    assert.equal(
+      second,
+      "ran",
+      "with the await before the claim, the second pull is NOT deferred — proving the test detects the ordering bug"
+    );
+    assert.deepEqual(ran.sort(), ["A", "B"], "both pulls executed concurrently (the race)");
+  });
+
+  test("the flag resets so a later, non-overlapping pull proceeds", async () => {
+    let inFlight = false;
+    const ran = [];
+    const pull = correctPull(
+      () => inFlight,
+      (v) => {
+        inFlight = v;
+      },
+      Promise.resolve(),
+      ran
+    );
+    assert.equal(await pull("A"), "ran");
+    assert.equal(
+      await pull("B"),
+      "ran",
+      "after the first released the flag, the next pull proceeds"
+    );
+    assert.deepEqual(ran, ["A", "B"]);
   });
 });
