@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.47] - 2026-06-21
+
+### Fixed — STRK-220: CSV merge import applies Tags/removedTags to existing items
+
+- **CSV merge now persists `Tags`/`removedTags` for existing items**: On a CSV merge import, an item already in your inventory surfaces as a `modify` (or `unchanged`) change, which carries no item object — so the deferred tag appliers silently dropped its `Tags` and `removedTags` columns and only brand-new items were covered. The merge path now applies the CSV tag columns over every imported and matched item (keyed by the preserved import key), mirroring the override and full-restore import paths, and a tag-only row whose other fields are unchanged is honored too. The dead `add`/`modify` branch in the old appliers is removed (STRK-220).
+
+---
+
 ## [3.35.46] - 2026-06-21
 
 ### Changed — STRK-217: viewModal value chart uses ES2020-compatible last-element lookup

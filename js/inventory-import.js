@@ -117,19 +117,6 @@
   };
 
   /**
-   * Clears transient CSV import keys from accepted add/modify changes.
-   * @param {Array<object>} selectedChanges - Accepted DiffModal changes.
-   */
-  const _clearCsvImportKeysForChanges = (selectedChanges) => {
-    if (!Array.isArray(selectedChanges)) return;
-    for (const change of selectedChanges) {
-      if (change && (change.type === "add" || change.type === "modify")) {
-        _clearCsvImportKey(change.item);
-      }
-    }
-  };
-
-  /**
    * Post-import cleanup — registers names, syncs catalog, saves, and re-renders.
    * @param {Array} newItems - Items that were added during import
    * @param {Map|null} pendingTagsByUuid - Optional map of itemKey -> tag[] for deferred tag application
@@ -232,62 +219,6 @@
   };
 
   /**
-   * Apply deferred per-item tags for accepted add/modify changes during an import.
-   * Keys tags by DiffEngine.computeItemKey to match the build-time key. (STAK-126/424)
-   * @param {Array} selectedChanges - Changes the user accepted in the diff modal
-   * @param {Map<string,string[]>|undefined} pendingTagsByUuid - itemKey -> tag list
-   */
-  const _applyImportPendingTags = (selectedChanges, pendingTagsByUuid) => {
-    if (!pendingTagsByUuid || typeof addItemTag !== "function") return;
-    const tagEligible = selectedChanges.filter(function (c) {
-      return c.type === "add" || c.type === "modify";
-    });
-    const stampedUuids = new Set();
-    for (const change of tagEligible) {
-      if (change.item && change.item.uuid) {
-        const tagKey = _getImportTagLookupKey(change.item);
-        const tags = pendingTagsByUuid.get(tagKey);
-        if (tags && tags.length) {
-          tags.forEach(function (tag) {
-            if (addItemTag(change.item.uuid, tag, false)) {
-              stampedUuids.add(change.item.uuid);
-            }
-          });
-        }
-      }
-    }
-    if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
-      stampTagTimestamp(Array.from(stampedUuids));
-    }
-    if (typeof saveItemTags === "function") saveItemTags();
-  };
-
-  /**
-   * Persist accepted CSV removed-tags using stamped item UUIDs.
-   * @param {Array<object>} selectedChanges - Accepted DiffModal changes.
-   * @param {Map<string,string[]>|undefined} pendingRemovedTagsByUuid - itemKey -> remove list
-   */
-  const _applyImportPendingRemovedTags = (selectedChanges, pendingRemovedTagsByUuid) => {
-    if (!pendingRemovedTagsByUuid || typeof saveDataSync !== "function") return;
-    const removedMap =
-      typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
-    let changed = false;
-    const tagEligible = selectedChanges.filter(function (c) {
-      return c.type === "add" || c.type === "modify";
-    });
-    for (const change of tagEligible) {
-      if (!change.item || !change.item.uuid) continue;
-      const key = _getImportTagLookupKey(change.item);
-      const removedTags = pendingRemovedTagsByUuid.get(key);
-      if (removedTags && removedTags.length) {
-        removedMap[change.item.uuid] = removedTags;
-        changed = true;
-      }
-    }
-    if (changed) saveDataSync("itemRemovedTags", removedMap);
-  };
-
-  /**
    * Persist accepted settings changes from a JSON import diff. Raw-string keys go to
    * localStorage verbatim; the rest via saveDataSync. (STAK-374)
    * @param {object|null} settingsDiff - DiffEngine.compareSettings result or null
@@ -387,6 +318,22 @@
     const totalChanges =
       diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
     if (totalChanges === 0 && !settingsDiff) {
+      // STRK-220: a CSV merge may carry only Tags/removedTags column edits, which are not
+      // diffed inventory fields, so the row matches and yields zero changes. Honor the tag
+      // columns anyway (CSV-gated, so JSON/ZIP/Numista are untouched), then re-render.
+      const _csvPendingTagEdits =
+        options.stampCsvIdentity &&
+        ((options.pendingTagsByUuid && options.pendingTagsByUuid.size) ||
+          (options.pendingRemovedTagsByUuid && options.pendingRemovedTagsByUuid.size));
+      if (_csvPendingTagEdits) {
+        _applyCsvAddedTags(parsedItems, options.pendingTagsByUuid || new Map());
+        _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
+        parsedItems.forEach(_clearCsvImportKey);
+        if (typeof renderTable === "function") renderTable();
+        if (typeof showToast === "function") showToast("Import complete: tags updated");
+        if (onComplete) onComplete({ added: 0, modified: 0, deleted: 0 });
+        return;
+      }
       // A ZIP restore still carries ancillary data (custom lookup rules, cached
       // pattern/user images, attachments) that may be missing locally even when
       // inventory and mapped settings already match \u2014 run the ancillary restore
@@ -424,12 +371,21 @@
         if (options.stampCsvIdentity) _stampCsvSelectedAdditions(selectedChanges);
         inventory = DiffEngine.applySelectedChanges(inventory, selectedChanges);
 
-        _applyImportPendingTags(selectedChanges, options.pendingTagsByUuid);
-        _applyImportPendingRemovedTags(selectedChanges, options.pendingRemovedTagsByUuid);
+        // STRK-220: Tags/removedTags are side-channel CSV columns, not diffed fields, so
+        // existing items surface as a `modify` change (which carries no .item) or as
+        // `unchanged`. Apply tags over the parsed items that landed in inventory (matched
+        // plus selected adds), keyed by the preserved __csvImportKey. Mirrors the override
+        // and fallback paths and reconciles the old dead add/modify branch.
+        const _inventoryKeys = new Set(inventory.map((it) => DiffEngine.computeItemKey(it)));
+        const _importedItems = parsedItems.filter((p) =>
+          _inventoryKeys.has(DiffEngine.computeItemKey(p))
+        );
+        _applyCsvAddedTags(_importedItems, options.pendingTagsByUuid || new Map());
+        _applyCsvRemovedTags(_importedItems, options.pendingRemovedTagsByUuid || new Map());
 
         _applyImportSettingsChanges(settingsDiff);
 
-        if (options.stampCsvIdentity) _clearCsvImportKeysForChanges(selectedChanges);
+        if (options.stampCsvIdentity) parsedItems.forEach(_clearCsvImportKey);
         _postImportCleanup(
           selectedChanges
             .filter(function (c) {
@@ -689,14 +645,16 @@
   };
 
   /**
-   * Apply deferred add-tags after a CSV override import (no diff modal). (STAK-424)
+   * Apply deferred add-tags from a CSV import into the itemTags store.
+   * Shared by the override and merge paths. (STAK-424, STRK-220)
    * @param {Array} items - Imported items
    * @param {Map<string,string[]>} pendingTagsByUuid - itemKey -> add list
    */
-  const _applyCsvOverrideTags = (items, pendingTagsByUuid) => {
+  const _applyCsvAddedTags = (items, pendingTagsByUuid) => {
     if (pendingTagsByUuid.size === 0 || typeof addItemTag !== "function") return;
     const stampedUuids = new Set();
     for (const item of items) {
+      if (!item.uuid) continue; // STRK-220: skip deselected/uuid-less imports
       const itemKey = _getImportTagLookupKey(item);
       const tags = pendingTagsByUuid.get(itemKey);
       if (tags && tags.length) {
@@ -777,7 +735,7 @@
     if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
     if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by csvImport");
     saveInventory();
-    _applyCsvOverrideTags(imported, pendingTagsByUuid);
+    _applyCsvAddedTags(imported, pendingTagsByUuid);
     _applyCsvRemovedTags(imported, pendingRemovedTagsByUuid);
     imported.forEach(_clearCsvImportKey);
     // STAK-421: Cancel the debounced sync push that saveInventory() just scheduled —
