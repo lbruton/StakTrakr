@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.49] - 2026-06-22
+
+### Fixed — STRK-234: cloud-sync re-entrancy race nulled \_previewPullMeta on empty-diff silent pull
+
+- **Concurrent two-session cloud sync no longer errors with "Could not decrypt vault for preview"**: `_previewPullMeta` is a module-level mutable global that `pullWithPreview`'s empty-diff "silently record pull" branch set, then dereferenced after three network `await`s (image / attachment / item-price-history companion vaults). When two browsers synced at once, a second pull flow nulled the global mid-`await`, so the first flow crashed with `TypeError: ... _previewPullMeta is null` — surfaced in the Restore Preview modal. Two layers fix it: the silent branch now snapshots the global into a local before the awaits and records onto that snapshot (mirrors the existing guard in `_deferredVaultRestore`), and a new `_previewPullInFlight` re-entrancy guard serializes overlapping `pullWithPreview` invocations across all three entry routes so two pull cycles can't interleave on the shared global (the deferred pull is re-detected by the next poll). STRK-147 widened the race window (a new companion-vault fetch) which is why the symptom surfaced now on `itemPriceHistoryHash`; the image/attachment siblings shared the same latent flaw (STRK-234).
+
+---
+
 ## [3.35.48] - 2026-06-21
 
 ### Changed — STRK-232: keyboard activation for delegated reference chips
