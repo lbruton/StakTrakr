@@ -2,7 +2,7 @@
 name: start-patch
 description: Use when starting a new patch session and needing to pick a Plane issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
-allowed-tools: Bash, Read, mcp__mem0__search_memories, mcp__plane__list_issues
+allowed-tools: Bash, Read, mcp__mem0__search_memories, mcp__plane__list_project_issues, mcp__plane__list_states
 ---
 
 # Start Patch
@@ -52,16 +52,23 @@ git status --short
 
 ### Plane query
 
-Use the Plane MCP project ID from `.specflow/config.json` and fetch non-completed issues
-from the StakTrakr project. Do not query Linear and do not read DocVault issue files for
-active work.
+Use the Plane MCP project ID from `.specflow/config.json`. This needs **two** calls —
+`list_project_issues` returns each issue's state as a bare UUID with `name: null` (the
+MCP never populates the state name in either list or single-issue responses), so the
+human-readable state name has to come from a separate `list_states` join.
 
 ```text
-mcp__plane__list_issues(project_id: "<plane_project_id>")
+mcp__plane__list_states(project_id: "<plane_project_id>")
+mcp__plane__list_project_issues(project_id: "<plane_project_id>")
 ```
 
+Build a `{state_id → state_name}` map from `list_states` once, then resolve each issue's
+`state.id` against it to recover the readable state (`In Progress`, `Todo`, `Backlog`, …).
+Priority needs no such join — it already comes back readable on `priority.id` (`urgent`,
+`high`, `medium`, `low`, `none`).
+
 Filter out completed and canceled states, then keep In Progress, Todo, and Backlog items.
-Plane priorities are strings such as `urgent`, `high`, `medium`, `low`, or `none`.
+Do not query Linear and do not read DocVault issue files for active work.
 
 ### mem0 — session continuity
 
