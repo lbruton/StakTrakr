@@ -854,7 +854,7 @@ const wireBulkWeightDenomPicker = (panel) => {
   // safeGetElement returns a truthy dummy on a DOM miss; collapse it back to null so the
   // downstream guards (`!bulkTypeSelect`, `bulkTypeSelect?.value`, `if (bulkTypeSelect)`)
   // keep the same behavior they had with the original getElementById lookup (STRK-216).
-  const bulkTypeSelect = bulkTypeSelectEl instanceof HTMLElement ? bulkTypeSelectEl : null;
+  const bulkTypeSelect = bulkTypeSelectEl instanceof HTMLSelectElement ? bulkTypeSelectEl : null;
   const bulkMetalSelect = safeGetElement("bulkFieldVal_metal");
 
   // Swap function
