@@ -59,6 +59,14 @@ var _syncLeaderHiddenTimer = null;
 /** @type {object|null} Pull metadata stashed for deferred recording after preview apply */
 var _previewPullMeta = null;
 
+/**
+ * @type {boolean} STRK-234: true while pullWithPreview is executing. Guards
+ * against re-entrant pulls — _previewPullMeta and other sync globals are
+ * read/written across await points, so two interleaved pull cycles corrupt
+ * them. Overlapping pulls defer (the poll loop re-detects on the next cycle).
+ */
+var _previewPullInFlight = false;
+
 // ---------------------------------------------------------------------------
 // Device identity
 // ---------------------------------------------------------------------------
@@ -4421,6 +4429,17 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
  * @param {object} remoteMeta - Remote sync metadata
  */
 async function pullWithPreview(remoteMeta) {
+  // STRK-234: serialize pulls. pullWithPreview reads/writes shared sync globals
+  // (_previewPullMeta and friends) across many await points; two interleaved
+  // cycles corrupt them (null deref → "Could not decrypt vault for preview").
+  // Defer if a pull is already in flight — the poll loop re-detects the remote
+  // change and retries on its next cycle, so nothing is lost. Mirrors the
+  // _syncPasswordPromptActive defer in handleRemoteChange.
+  if (_previewPullInFlight) {
+    console.warn("[CloudSync] pullWithPreview: a pull is already in flight — deferring");
+    return;
+  }
+
   var password = getSyncPasswordSilent();
   if (!password) {
     password = await getSyncPassword();
@@ -4441,6 +4460,10 @@ async function pullWithPreview(remoteMeta) {
 
   updateSyncStatusIndicator("syncing");
 
+  // STRK-234: claim the in-flight guard only after the cheap early-return checks
+  // above (no password / no token), so a deferred or cancelled pull never holds
+  // it. The outer try's finally always releases it.
+  _previewPullInFlight = true;
   try {
     // ── Manifest-first pull attempt ──
     // Try downloading the lightweight .stmanifest first so we can show a
@@ -5245,6 +5268,13 @@ async function pullWithPreview(remoteMeta) {
         console.warn(
           "[CloudSync] Pull preview: diff is EMPTY (no item or settings changes) — silently recording pull"
         );
+        // STRK-234: snapshot _previewPullMeta into a local BEFORE the companion
+        // awaits below. A concurrent pull flow can null the shared global during
+        // any of those awaits; recording onto this local snapshot (not the live
+        // global) keeps the post-await derefs crash-proof. Mirrors the guard in
+        // _deferredVaultRestore. The global is still cleared on the exit paths so
+        // the next pull cycle starts clean.
+        var meta = _previewPullMeta;
         // STAK-497: Pull image vault even when items/settings are unchanged
         try {
           if (
@@ -5264,7 +5294,7 @@ async function pullWithPreview(remoteMeta) {
               if (_vfSpImgResp.ok) {
                 var _vfSpImgBytes = new Uint8Array(await _vfSpImgResp.arrayBuffer());
                 var _vfSpRestored = await vaultDecryptAndRestoreImages(_vfSpImgBytes, password);
-                _previewPullMeta.imageHash = remoteMeta.imageVault.hash;
+                if (meta) meta.imageHash = remoteMeta.imageVault.hash;
                 logCloudSyncActivity(
                   "image_vault_pull",
                   "success",
@@ -5286,7 +5316,7 @@ async function pullWithPreview(remoteMeta) {
           password,
           "vault-first silent"
         );
-        if (_vfSpAttachResult.hash) _previewPullMeta.attachmentHash = _vfSpAttachResult.hash;
+        if (_vfSpAttachResult.hash && meta) meta.attachmentHash = _vfSpAttachResult.hash;
         // STRK-147: Vault-first silent-pull — item-price-history companion vault.
         // No item diff, so acceptedUuids = current local inventory UUIDs.
         var _vfSpIph;
@@ -5330,7 +5360,7 @@ async function pullWithPreview(remoteMeta) {
           _previewPullMeta = null;
           return;
         }
-        if (_vfSpIph.hash) _previewPullMeta.itemPriceHistoryHash = _vfSpIph.hash;
+        if (_vfSpIph.hash && meta) meta.itemPriceHistoryHash = _vfSpIph.hash;
         // STRK-223 (Codex review, PR #1313): a clear-only change has no companion
         // and an excluded settings diff, so it reaches this silent branch with an
         // empty diff. Reconcile the watermark BEFORE recording the pull — otherwise
@@ -5353,7 +5383,7 @@ async function pullWithPreview(remoteMeta) {
           _previewPullMeta = null;
           return;
         }
-        syncSetLastPull(_previewPullMeta);
+        if (meta) syncSetLastPull(meta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
         updateSyncStatusIndicator("idle", "just now");
@@ -5583,6 +5613,9 @@ async function pullWithPreview(remoteMeta) {
     updateSyncStatusIndicator("error", errMsg.slice(0, 60));
     // Fall back to direct pull
     await pullSyncVault(remoteMeta);
+  } finally {
+    // STRK-234: always release the re-entrancy guard, on every exit path.
+    _previewPullInFlight = false;
   }
 }
 
