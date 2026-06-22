@@ -118,28 +118,11 @@
 
   /**
    * Post-import cleanup — registers names, syncs catalog, saves, and re-renders.
+   * Tag application is handled by the callers via _applyCsvAddedTags /
+   * _applyCsvRemovedTags (STRK-220), so every import path shares one tag code path.
    * @param {Array} newItems - Items that were added during import
-   * @param {Map|null} pendingTagsByUuid - Optional map of itemKey -> tag[] for deferred tag application
    */
-  const _postImportCleanup = (newItems, pendingTagsByUuid) => {
-    // Apply deferred tags if needed (keyed by DiffEngine.computeItemKey)
-    if (pendingTagsByUuid && typeof addItemTag === "function") {
-      const stampedUuids = new Set();
-      for (const item of newItems) {
-        const itemKey = _getImportTagLookupKey(item);
-        const tags = pendingTagsByUuid.get(itemKey);
-        if (tags && tags.length) {
-          tags.forEach((tag) => {
-            if (addItemTag(item.uuid, tag, false)) stampedUuids.add(item.uuid);
-          });
-        }
-      }
-      if (stampedUuids.size > 0 && typeof stampTagTimestamp === "function") {
-        stampTagTimestamp(Array.from(stampedUuids));
-      }
-      if (typeof saveItemTags === "function") saveItemTags();
-    }
-
+  const _postImportCleanup = (newItems) => {
     // Register names
     for (const item of newItems) {
       if (typeof registerName === "function") registerName(item.name);
@@ -296,8 +279,9 @@
       debugLog("showImportDiffReview fallback", "DiffEngine/DiffModal unavailable");
       if (options.stampCsvIdentity) _stampCsvItemIdentities(parsedItems);
       inventory = inventory.concat(parsedItems);
+      _applyCsvAddedTags(parsedItems, options.pendingTagsByUuid || new Map());
       _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
-      _postImportCleanup(parsedItems, options.pendingTagsByUuid);
+      _postImportCleanup(parsedItems);
       if (options.stampCsvIdentity) {
         parsedItems.forEach(_clearCsvImportKey);
       }
@@ -394,8 +378,7 @@
             .map(function (c) {
               return c.item;
             })
-            .filter(Boolean),
-          null // tags already handled above
+            .filter(Boolean)
         );
 
         _announceImportApplySummary(selectedChanges, onComplete);
@@ -676,9 +659,16 @@
    * @param {Map<string,string[]>} pendingRemovedTagsByUuid - itemKey -> remove list
    */
   const _applyCsvRemovedTags = (items, pendingRemovedTagsByUuid) => {
-    if (pendingRemovedTagsByUuid.size === 0 || typeof saveDataSync !== "function") return;
-    const removedMap =
-      typeof loadDataSync === "function" ? loadDataSync("itemRemovedTags", {}) : {};
+    if (
+      pendingRemovedTagsByUuid.size === 0 ||
+      typeof saveDataSync !== "function" ||
+      typeof loadDataSync !== "function"
+    ) {
+      // STRK-220: bail if we cannot read the existing store rather than
+      // blind-overwriting itemRemovedTags with an empty map (data-loss guard).
+      return;
+    }
+    const removedMap = loadDataSync("itemRemovedTags", {});
     for (const item of items) {
       const key = _getImportTagLookupKey(item);
       const removedTags = pendingRemovedTagsByUuid.get(key);
