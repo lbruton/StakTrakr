@@ -2052,6 +2052,7 @@
                   <option value="Aurum">Aurum</option>
                   <option value="Goldback">Goldback</option>
                   <option value="Silverback">Silverback</option>
+                  <option value="Constitutional">Constitutional</option>
                   <option value="Set">Set</option>
                   <option value="Other">Other</option>
                 </select>
@@ -2169,6 +2170,60 @@
                   step="0.0001"
                   placeholder="e.g. 0.9995"
                 />
+              </div>
+            </div>
+            <!-- Constitutional / junk silver controls (STRK-235) — shown only when type=Constitutional -->
+            <div id="item-constitutional-group" class="constitutional-group" style="display: none">
+              <div class="ccg-header">
+                <span class="ccg-title">Constitutional silver</span>
+                <div
+                  class="chip-sort-toggle"
+                  id="constitutional-entry-mode-toggle"
+                  role="group"
+                  aria-label="Constitutional entry method"
+                >
+                  <button type="button" class="chip-sort-btn active" data-mode="denom">
+                    By denomination
+                  </button>
+                  <button type="button" class="chip-sort-btn" data-mode="face">
+                    By face value
+                  </button>
+                </div>
+              </div>
+
+              <!-- Denomination mode: variant + coin count -->
+              <div id="ccg-denom-fields" class="grid grid-2">
+                <div>
+                  <label for="item-constitutional-variant">Denomination</label>
+                  <select id="item-constitutional-variant"></select>
+                </div>
+                <div>
+                  <label for="item-constitutional-count">Coin count</label>
+                  <input id="item-constitutional-count" type="number" min="1" step="1" value="1" />
+                </div>
+              </div>
+
+              <!-- Face-value mode: total face value, assumed 90% subsidiary -->
+              <div id="ccg-face-fields" style="display: none">
+                <label for="item-constitutional-face">Total face value (USD)</label>
+                <input
+                  id="item-constitutional-face"
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  placeholder="e.g. 50.00"
+                />
+                <p class="ccg-hint settings-subtext">
+                  Assumes 90% silver subsidiary coin (dimes / quarters / halves) &mdash; the
+                  standard junk-silver bag basis.
+                </p>
+              </div>
+
+              <!-- Live silver-content preview (populated by events.js) -->
+              <div id="constitutional-silver-preview" class="ccg-preview" aria-live="polite">
+                <span class="oz">0.0000 ozt</span> silver &middot; melt
+                <span class="melt">$0.00</span>
+                <span id="ccg-basis-note" class="ccg-hint"></span>
               </div>
             </div>
             <!-- Row: Purchase Date, Purchase Price & Payment Method -->
@@ -5606,6 +5661,18 @@
                   <div class="chip-sort-toggle" id="showSpotRatiosToggle">
                     <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
                     <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                  </div>
+                </div>
+
+                <div class="settings-group">
+                  <div class="settings-group-label">Constitutional silver valuation basis</div>
+                  <p class="settings-subtext">
+                    Worn = ~0.715 ozt per $1 face (circulated, default). Fresh = ~0.7234 ozt per $1
+                    face (uncirculated mint spec). Applies to all constitutional silver items.
+                  </p>
+                  <div class="chip-sort-toggle" id="settings-constitutional-basis">
+                    <button type="button" class="chip-sort-btn active" data-val="worn">Worn</button>
+                    <button type="button" class="chip-sort-btn" data-val="fresh">Fresh</button>
                   </div>
                 </div>
               </div>

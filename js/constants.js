@@ -638,10 +638,49 @@ const GOLDBACK_DENOMINATIONS = [
 
 const SILVERBACK_DENOMINATIONS = [{ weight: 1, label: "1 Silverback", silverOz: 0.001 }];
 
+/**
+ * @constant {Array<{id:string,label:string,facePerCoin:number,silverOzFresh:number}>} CONSTITUTIONAL_VARIANTS
+ * U.S. constitutional / "junk" silver variants (STRK-235). `silverOzFresh` is the pure-silver
+ * troy oz per coin at mint spec (fresh ASW). Silver dollars were struck at the old 412.5-grain
+ * standard → 0.77344 oz each, ~7% more silver per face-dollar than subsidiary 90% coinage, so
+ * they carry their own row (a generic 0.7234/$ branch would undervalue every silver dollar).
+ * The face-value entry path uses the "con-90-subsidiary" sentinel (NOT listed here) and derives
+ * silver from CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR × face value.
+ */
+const CONSTITUTIONAL_VARIANTS = [
+  { id: "con-90-dime", label: "90% Dime", facePerCoin: 0.1, silverOzFresh: 0.07234 },
+  { id: "con-90-quarter", label: "90% Quarter", facePerCoin: 0.25, silverOzFresh: 0.18084 },
+  { id: "con-90-half", label: "90% Half Dollar", facePerCoin: 0.5, silverOzFresh: 0.36169 },
+  {
+    id: "con-90-dollar",
+    label: "90% Dollar (Morgan/Peace)",
+    facePerCoin: 1,
+    silverOzFresh: 0.77344,
+  },
+  { id: "con-40-half", label: "40% Half (1965–70)", facePerCoin: 0.5, silverOzFresh: 0.1479 },
+  { id: "con-40-ike", label: "40% Eisenhower Dollar", facePerCoin: 1, silverOzFresh: 0.31625 },
+  {
+    id: "con-35-nickel",
+    label: "35% War Nickel (1942–45)",
+    facePerCoin: 0.05,
+    silverOzFresh: 0.05626,
+  },
+];
+
+/** @constant {number} CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR - Fresh ASW silver troy oz per $1 face for 90% subsidiary coinage (dimes/quarters/halves); used by the face-value entry path (STRK-235). */
+const CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR = 0.7234;
+
+/** @constant {number} CONSTITUTIONAL_WORN_SCALAR - Worn/fresh multiplier (0.715 ÷ 0.7234) applied uniformly to every variant's fresh ASW; fresh basis = 1.0 (STRK-235). */
+const CONSTITUTIONAL_WORN_SCALAR = 0.98839;
+
+/** @constant {string} CONSTITUTIONAL_BASIS_KEY - LocalStorage key for the global worn/fresh valuation basis; values "worn" (default) | "fresh" (STRK-235). */
+const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis";
+
 /** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
 const TYPE_METAL_FILTER = {
   Goldback: ["Gold"],
   Silverback: ["Silver"],
+  Constitutional: ["Silver"],
 };
 
 /** @constant {string} ITEM_TAGS_KEY - LocalStorage key for item tags mapping (STAK-126) */
@@ -886,6 +925,7 @@ const SYNC_SCOPE_KEYS = [
 
   // ── Display preferences ──
   "displayCurrency", // DISPLAY_CURRENCY_KEY — active display currency
+  "constitutionalValuationBasis", // CONSTITUTIONAL_BASIS_KEY — global worn/fresh junk-silver basis (STRK-235)
   "appTheme", // THEME_KEY — light/dark/sepia/system theme
   "cardViewStyle", // CARD_STYLE_KEY
   "desktopCardView", // DESKTOP_CARD_VIEW_KEY
@@ -968,6 +1008,7 @@ const ALLOWED_STORAGE_KEYS = [
   APP_VERSION_KEY,
   VERSION_ACK_KEY,
   FEATURE_FLAGS_KEY,
+  CONSTITUTIONAL_BASIS_KEY, // STRK-235 — global worn/fresh junk-silver valuation basis
   "spotSilver",
   "spotGold",
   "spotPlatinum",
@@ -2017,6 +2058,11 @@ if (typeof window !== "undefined") {
   window.GB_TO_OZT = GB_TO_OZT;
   window.SB_TO_OZT = SB_TO_OZT;
   window.GOLDBACK_DENOMINATIONS = GOLDBACK_DENOMINATIONS;
+  // STRK-235: constitutional / junk silver
+  window.CONSTITUTIONAL_VARIANTS = CONSTITUTIONAL_VARIANTS;
+  window.CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR = CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR;
+  window.CONSTITUTIONAL_WORN_SCALAR = CONSTITUTIONAL_WORN_SCALAR;
+  window.CONSTITUTIONAL_BASIS_KEY = CONSTITUTIONAL_BASIS_KEY;
   window.GOLDBACK_ESTIMATE_ENABLED_KEY = GOLDBACK_ESTIMATE_ENABLED_KEY;
   window.GB_ESTIMATE_PREMIUM = GB_ESTIMATE_PREMIUM;
   window.GB_ESTIMATE_MODIFIER_KEY = GB_ESTIMATE_MODIFIER_KEY;

@@ -499,6 +499,7 @@ const VALID_TYPES = [
   "Aurum",
   "Goldback",
   "Silverback",
+  "Constitutional",
   "Set",
   "Other",
 ];
@@ -743,14 +744,59 @@ const sanitizeImportedItem = (item) => {
 };
 
 /**
+ * Returns the active constitutional-silver wear factor.
+ * Reads the global worn/fresh basis (CONSTITUTIONAL_BASIS_KEY): "fresh" → 1.0,
+ * "worn" (default) → CONSTITUTIONAL_WORN_SCALAR. Read at compute time so a basis
+ * change reprices every item without a per-item edit (STRK-235).
+ *
+ * @returns {number} 1.0 for fresh ASW, CONSTITUTIONAL_WORN_SCALAR for worn
+ */
+const getConstitutionalWearFactor = () => {
+  const basis =
+    typeof loadDataSync === "function" ? loadDataSync(CONSTITUTIONAL_BASIS_KEY, "worn") : "worn";
+  return basis === "fresh" ? 1 : CONSTITUTIONAL_WORN_SCALAR;
+};
+
+/**
+ * Computes the total pure silver troy oz for a constitutional ("cu") item.
+ * Deferred conversion: the item stores inputs (variant + count, or face value) and
+ * the troy-oz figure is derived on demand. Face mode treats the stored weight as a
+ * 90% subsidiary face value; denomination mode multiplies the variant's mint silver
+ * weight by the coin count. The variant figures are ALREADY pure silver, so callers
+ * must NOT re-apply item purity (that would double-discount). Unknown/missing variant
+ * → 0 (corrupt or legacy import) rather than throwing (STRK-235).
+ *
+ * @param {Object} item - A weightUnit "cu" inventory item
+ * @returns {number} Total pure silver troy oz (0 for an unknown variant)
+ */
+const getConstitutionalSilverOz = (item) => {
+  if (!item) return 0;
+  const wear = getConstitutionalWearFactor();
+  if (item.constitutionalEntryMode === "face") {
+    return (Number(item.weight) || 0) * CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR * wear;
+  }
+  const variant =
+    typeof CONSTITUTIONAL_VARIANTS !== "undefined"
+      ? CONSTITUTIONAL_VARIANTS.find((v) => v.id === item.constitutionalVariant)
+      : null;
+  if (!variant) return 0;
+  return variant.silverOzFresh * wear * (Number(item.qty) || 1);
+};
+
+/**
  * Computes the melt value for an inventory item.
  * Centralises the formula: weight × qty × spot × purity.
+ * Constitutional ("cu") items return early via getConstitutionalSilverOz × spot —
+ * their silver weight is already pure, so purity is NOT applied again (STRK-235).
  *
  * @param {Object} item  - Inventory item (needs weight, qty, purity)
  * @param {number} spot  - Current spot price for the item's metal
  * @returns {number} Qty-adjusted melt value
  */
 const computeMeltValue = (item, spot) => {
+  if (item.weightUnit === "cu") {
+    return getConstitutionalSilverOz(item) * spot;
+  }
   const weight = parseFloat(item.weight) || 0;
   const qty = Number(item.qty) || 1;
   const purity = parseFloat(item.purity) || 1.0;
@@ -1283,6 +1329,8 @@ if (typeof window !== "undefined") {
   window.openEbaySoldSearch = openEbaySoldSearch;
   window.cleanSearchTerm = cleanSearchTerm;
   window.computeMeltValue = computeMeltValue;
+  window.getConstitutionalWearFactor = getConstitutionalWearFactor;
+  window.getConstitutionalSilverOz = getConstitutionalSilverOz;
   window.findItemByUuid = findInventoryItemByUuid;
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
