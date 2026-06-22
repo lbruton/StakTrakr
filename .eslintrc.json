@@ -24,5 +24,14 @@
   "plugins": [],
   "parserOptions": {
     "ecmaVersion": 2020
-  }
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.js"],
+      "parserOptions": {
+        "ecmaVersion": 2022,
+        "sourceType": "module"
+      }
+    }
+  ]
 }

@@ -1,6 +1,6 @@
 // Unit tests for the localStorage compression layer (STRK-140).
 //
-// Verifies the real __compressIfNeeded / __decompressIfNeeded helpers from js/utils.js
+// Verifies the real __compressIfNeeded / __decompressIfNeeded helpers from js/utils-storage.js
 // against the real vendored lz-string engine, and — critically — the dual-format read
 // that prevents data loss on upgrade:
 //   CMP2: = real lz-string-compressed body (decompress on read)
@@ -21,14 +21,15 @@ new Function("module", "exports", "window", lzCode)(_lzModule, _lzModule.exports
 const LZString = _lzModule.exports;
 
 // Load the REAL compression helpers from source (not a reimplementation) by slicing the
-// block between the prefix constants and the next unrelated function, then evaluating it
+// block between the prefix constants and the boot-migration marker, then evaluating it
 // with the real LZString injected — mirrors the sw-router.test.js eval pattern.
-const src = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
+// STRK-177: the compression codec moved verbatim from js/utils.js to js/utils-storage.js.
+const src = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
 const start = src.indexOf("const __ST_COMP_PREFIX");
-const end = src.indexOf("function getContrastColor");
+const end = src.indexOf("// Kick off the one-time");
 assert.ok(
   start !== -1 && end !== -1 && end > start,
-  "could not locate compression block in utils.js"
+  "could not locate compression block in utils-storage.js"
 );
 const block = src.slice(start, end);
 const factory = new Function(

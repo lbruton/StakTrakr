@@ -133,7 +133,9 @@ async function computeInventoryHash(items) {
         "|" +
         (item.tradedFromUuid || "") +
         "|" +
-        (item.disposition ? JSON.stringify(item.disposition) : "");
+        // STRK-159: canonicalize disposition (sorted keys) so a different key
+        // insertion order of the same object is not a false inventory mismatch.
+        (item.disposition ? _stableCanonicalString(item.disposition) : "");
       keys.push(itemKey + "::" + contentSample);
     }
     keys.sort();
@@ -179,7 +181,67 @@ function computeTotalWeight(items) {
 }
 
 /**
+ * STRK-156: Recursively stable-stringify a logical value. Sorts plain-object
+ * keys at every depth so key-insertion-order variants collapse to one form;
+ * PRESERVES array element order (array order is meaningful for settings like
+ * headerBtnOrder, so a genuine reorder must remain a real difference); and
+ * normalizes undefined/empty-string to null. The output is a canonical string
+ * suitable for hashing, not a re-parseable JSON document.
+ * @param {*} val
+ * @returns {string}
+ */
+function _stableCanonicalString(val) {
+  if (val === null || val === undefined || val === "") return "null";
+  if (typeof val !== "object") return JSON.stringify(val);
+  if (Array.isArray(val)) {
+    return "[" + val.map(_stableCanonicalString).join(",") + "]";
+  }
+  var keys = Object.keys(val).sort();
+  return (
+    "{" +
+    keys
+      .map(function (k) {
+        return JSON.stringify(k) + ":" + _stableCanonicalString(val[k]);
+      })
+      .join(",") +
+    "}"
+  );
+}
+
+/**
+ * STRK-156: Normalize a raw localStorage settings string into canonical logical
+ * content for hashing. Decompresses CMP2/CMP1 bodies (so a value compressed on
+ * one device hashes the same as its plain twin on another — the STAK-497 hazard
+ * resurfaced through lz-string, STRK-140), then JSON-parses — falling back to the
+ * raw string for scalar prefs stored without quotes (e.g. appTheme "dark") so
+ * they match a JSON-quoted twin — then canonicalizes via _stableCanonicalString.
+ * @param {string} rawValue
+ * @returns {string} canonical string of the logical value
+ */
+function _canonicalizeSettingValue(rawValue) {
+  if (rawValue === null || rawValue === undefined) return "null";
+  var decoded =
+    typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawValue) : rawValue;
+  if (typeof decoded !== "string") decoded = String(decoded);
+  var parsed;
+  try {
+    parsed = JSON.parse(decoded);
+  } catch (_e) {
+    parsed = decoded;
+  }
+  return _stableCanonicalString(parsed);
+}
+
+/**
  * Compute SHA-256 hash of sync-scoped settings (non-inventory localStorage keys).
+ * Hashes NORMALIZED logical content (decompressed, JSON-parsed, key-sorted) via
+ * _canonicalizeSettingValue rather than the raw localStorage strings, so two
+ * devices holding identical logical settings — one CMP2-compressed, one plain;
+ * scalar-as-JSON vs raw; differing object key-order — compute the SAME hash and
+ * stop looping (STRK-156). Both the push (manifest) and poll sides call this one
+ * function, so they stay consistent by construction.
+ * Rollout note: an old-build device (raw hash) and a new-build device (logical
+ * hash) mismatch once; both converge after both update.
  * Returns hex string or null if hashing is unavailable.
  * @returns {Promise<string|null>}
  */
@@ -190,16 +252,20 @@ async function computeSettingsHash() {
     var settings = {};
     for (var i = 0; i < keys.length; i++) {
       if (keys[i] === "metalInventory") continue; // skip inventory — covered by inventoryHash
-      // STAK-497: Use raw localStorage.getItem to match the manifest snapshot
-      // format. loadDataSync JSON-parses the value, which fails for scalar
-      // settings stored as raw strings (e.g. "dark" instead of '"dark"'),
-      // producing a different hash from the manifest and triggering infinite
-      // sync loops.
       var val = localStorage.getItem(keys[i]);
-      if (val !== null) settings[keys[i]] = val;
+      if (val !== null) settings[keys[i]] = _canonicalizeSettingValue(val);
     }
-    var sorted = JSON.stringify(settings, Object.keys(settings).sort());
-    var encoded = new TextEncoder().encode(sorted);
+    var sortedKeys = Object.keys(settings).sort();
+    var canonical =
+      "{" +
+      sortedKeys
+        .map(function (k) {
+          // settings[k] is already a canonical string from _canonicalizeSettingValue
+          return JSON.stringify(k) + ":" + settings[k];
+        })
+        .join(",") +
+      "}";
+    var encoded = new TextEncoder().encode(canonical);
     var hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
     return sha256BufferToHex(hashBuffer);
   } catch (e) {
@@ -357,6 +423,76 @@ function syncIsEnabled() {
 }
 
 // ---------------------------------------------------------------------------
+// Settings serialization integrity + boot-repair (STRK-157)
+// ---------------------------------------------------------------------------
+
+/**
+ * STRK-157: Corruption sentinel. An object/array written to localStorage via
+ * String()/coercion instead of JSON.stringify becomes the literal "[object Object]"
+ * (or "[object Object],[object Object]" for arrays). No legitimate settings value
+ * contains this substring, so it is a safe marker for un-round-trippable corruption.
+ * @param {*} value
+ * @returns {boolean}
+ */
+function _isCorruptObjectString(value) {
+  if (typeof value !== "string") return false;
+  // Genuine corruption is the ENTIRE value being the String(obj)/String(arr)
+  // coercion artifact — "[object Object]" for an object, or comma-joined repeats
+  // for an array of objects. Match the whole value EXACTLY, never as a substring:
+  // free-text scope keys (itemTags, tagBlacklist, chipCustomGroups, ...) can
+  // legitimately hold a user-entered tag/label named "[object Object]" embedded in
+  // valid JSON, and a substring match would let boot-repair wipe the entire store
+  // (STRK-157 review finding). A coercion artifact never appears inside valid JSON.
+  return /^\[object Object\](\s*,\s*\[object Object\])*$/.test(value.trim());
+}
+
+/**
+ * STRK-157: Compute the string to persist for a synced setting, rejecting values
+ * that cannot round-trip. Returns the clean string to write, or null when the
+ * value is "[object Object]"-corrupt and must be skipped — so a corrupt remote can
+ * never overwrite a good local value or re-stick itself on every pull.
+ * @param {*} remoteVal
+ * @returns {string|null}
+ */
+function _safeSettingWriteValue(remoteVal) {
+  var str = typeof remoteVal === "string" ? remoteVal : JSON.stringify(remoteVal);
+  if (_isCorruptObjectString(str)) return null;
+  return str;
+}
+
+/**
+ * STRK-157: One-time, idempotent boot repair. Scans SYNC_SCOPE_KEYS for values
+ * corrupted into "[object Object]" form (an object written without JSON.stringify).
+ * The load paths parse-fail and fall back to defaults in memory, but the corrupt
+ * string never leaves localStorage, so it perpetually diverges the settings hash —
+ * the one value class that cannot self-heal via convergent compare. Removes each
+ * corrupt key so its load path uses defaults. Idempotent: a second run finds nothing.
+ * @returns {string[]} keys that were repaired
+ */
+function syncBootRepairCorruptSettings() {
+  var repaired = [];
+  try {
+    if (typeof localStorage === "undefined") return repaired;
+    var keys = typeof SYNC_SCOPE_KEYS !== "undefined" ? SYNC_SCOPE_KEYS : [];
+    for (var i = 0; i < keys.length; i++) {
+      var raw = localStorage.getItem(keys[i]);
+      if (raw === null) continue;
+      var decoded = typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      if (_isCorruptObjectString(decoded)) {
+        localStorage.removeItem(keys[i]);
+        repaired.push(keys[i]);
+      }
+    }
+    if (repaired.length > 0) {
+      debugLog("[CloudSync] STRK-157 boot-repair removed corrupt keys:", repaired.join(", "));
+    }
+  } catch (e) {
+    debugLog("[CloudSync] syncBootRepairCorruptSettings failed:", e.message);
+  }
+  return repaired;
+}
+
+// ---------------------------------------------------------------------------
 // Override backup — snapshot local data before a remote pull overwrites it
 // ---------------------------------------------------------------------------
 
@@ -370,7 +506,13 @@ function syncSaveOverrideBackup() {
     var data = {};
     for (var i = 0; i < keys.length; i++) {
       var raw = localStorage.getItem(keys[i]);
-      if (raw !== null) data[keys[i]] = raw;
+      if (raw === null) continue;
+      // STRK-157: never snapshot a corrupt "[object Object]" value — restore would
+      // reintroduce it. Skip it so restore falls back to the load-path default.
+      var decodedSnap =
+        typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(raw) : raw;
+      if (_isCorruptObjectString(decodedSnap)) continue;
+      data[keys[i]] = raw;
     }
     var backup = {
       timestamp: Date.now(),
@@ -433,9 +575,21 @@ async function syncRestoreOverrideBackup() {
         typeof ALLOWED_STORAGE_KEYS !== "undefined" &&
         ALLOWED_STORAGE_KEYS.indexOf(bkeys[j]) !== -1
       ) {
-        localStorage.setItem(bkeys[j], backup.data[bkeys[j]]);
+        // STRK-157: don't reintroduce "[object Object]" corruption on restore.
+        var restoreVal = backup.data[bkeys[j]];
+        var restoreDecoded =
+          typeof __decompressIfNeeded === "function"
+            ? __decompressIfNeeded(restoreVal)
+            : restoreVal;
+        if (_isCorruptObjectString(restoreDecoded)) continue;
+        localStorage.setItem(bkeys[j], restoreVal);
       }
     }
+    // STRK-186: snapshot restore clears + rewrites catalog_api_config —
+    // rehydrate the constructor-cached catalog singletons first so no later
+    // refresh step can trigger a CatalogConfig.save() against stale state
+    // and clobber the restored API keys.
+    if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
     if (typeof updateSummary === "function") updateSummary();
@@ -1263,6 +1417,7 @@ async function pushSyncVault() {
   var pushStart = Date.now();
   var _remoteImageVaultMeta = null; // Preserve remote image vault reference across pushes
   var _remoteAttachmentVaultMeta = null; // Preserve remote attachment vault reference across pushes
+  var _remoteItemPriceHistoryMeta = null; // Preserve remote item-price-history vault ref (STRK-147)
 
   try {
     // -----------------------------------------------------------------------
@@ -1539,6 +1694,19 @@ async function pushSyncVault() {
         "attachments, hash:",
         _remoteAttachmentVaultMeta.hash
       );
+    }
+    // STRK-147: Capture remote item-price-history vault metadata so we can
+    // preserve it when this device has no local history (mirror image vault).
+    if (typeof prePushMeta !== "undefined" && prePushMeta && prePushMeta.itemPriceHistoryVault) {
+      _remoteItemPriceHistoryMeta = _normalizeItemPriceHistoryVaultMeta(
+        prePushMeta.itemPriceHistoryVault
+      );
+      if (_remoteItemPriceHistoryMeta) {
+        debugLog(
+          "[CloudSync] Pre-push: remote has item-price-history vault — hash:",
+          _remoteItemPriceHistoryMeta.hash
+        );
+      }
     }
 
     // -----------------------------------------------------------------------
@@ -2010,6 +2178,138 @@ async function pushSyncVault() {
       logCloudSyncActivity("attachment_vault_push", "fail", attachPushErrMsg);
     }
 
+    // STRK-147: Upload the item-price-history companion vault when its canonical
+    // hash differs from what's remote (or remote has none). Modeled on the
+    // always-on image vault: history rides a dedicated encrypted .stvault file
+    // and only a {hash, uuidCount, entryCount} pointer goes on metaPayload, so
+    // the full history JSON never enters the change-detection manifest (AC-8).
+    var itemPriceHistoryVaultMeta = null;
+    try {
+      if (typeof collectAndHashItemPriceHistory === "function") {
+        var iphData = collectAndHashItemPriceHistory();
+        var _remoteIphHash = _remoteItemPriceHistoryMeta ? _remoteItemPriceHistoryMeta.hash : null;
+        if (iphData && iphData.entryCount > 0) {
+          // Upload if the hash changed OR remote metadata is missing the vault.
+          if (iphData.hash !== _remoteIphHash || !_remoteItemPriceHistoryMeta) {
+            debugLog(
+              "[CloudSync] Item-price-history vault changed — uploading",
+              iphData.uuidCount,
+              "UUIDs,",
+              iphData.entryCount,
+              "entries"
+            );
+            // STRK-147 (D): pass the canonical OBJECT, not the canonical STRING —
+            // vaultEncryptItemPriceHistory JSON.stringifies its input, so passing
+            // iphData.payload (already a string) double-encodes the vault. The
+            // pointer hash still rides iphData.hash (computed over the string).
+            var iphBytes = await vaultEncryptItemPriceHistory(password, iphData.canonical);
+            var iphArg = JSON.stringify({
+              path: SYNC_ITEM_PRICE_HISTORY_PATH,
+              mode: "overwrite",
+              autorename: false,
+              mute: true,
+            });
+            var iphResp = await fetch("https://content.dropboxapi.com/2/files/upload", {
+              method: "POST",
+              headers: {
+                Authorization: "Bearer " + token,
+                "Content-Type": "application/octet-stream",
+                "Dropbox-API-Arg": iphArg,
+              },
+              body: iphBytes,
+            });
+            if (!iphResp.ok)
+              throw new Error("Item-price-history vault upload failed: " + iphResp.status);
+            itemPriceHistoryVaultMeta = {
+              hash: iphData.hash,
+              uuidCount: iphData.uuidCount,
+              entryCount: iphData.entryCount,
+            };
+            logCloudSyncActivity(
+              "item_price_history_vault_push",
+              "success",
+              iphData.uuidCount + " UUIDs, " + iphData.entryCount + " entries"
+            );
+          } else {
+            // Hash unchanged — carry forward the pointer so other devices detect it.
+            itemPriceHistoryVaultMeta = {
+              hash: iphData.hash,
+              uuidCount: iphData.uuidCount,
+              entryCount: iphData.entryCount,
+            };
+            debugLog("[CloudSync] Item-price-history vault unchanged — skipping upload");
+          }
+        } else if (_remoteItemPriceHistoryMeta) {
+          // No local history. STRK-223: distinguish an intentional "clear all"
+          // from a fresh/empty device. An intentional clear stamps a synced
+          // watermark; when it post-dates the remote companion's last write,
+          // delete the companion and drop the pointer so other devices stop
+          // pulling the cleared history. Otherwise (fresh device, or a stale
+          // clear older than newer remote data) preserve, exactly as before.
+          var _iphClearedAt =
+            typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+          var _remoteIphTs =
+            typeof prePushMeta !== "undefined" && prePushMeta && prePushMeta.timestamp
+              ? Number(prePushMeta.timestamp) || 0
+              : 0;
+          if (_iphClearedAt > 0 && _iphClearedAt > _remoteIphTs) {
+            try {
+              var iphDelArg = JSON.stringify({ path: SYNC_ITEM_PRICE_HISTORY_PATH });
+              var iphDelResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + token,
+                  "Content-Type": "application/json",
+                },
+                body: iphDelArg,
+              });
+              if (iphDelResp.ok || iphDelResp.status === 409) {
+                debugLog(
+                  "[CloudSync] Item-price-history cleared — remote companion deleted (intentional clear)"
+                );
+                logCloudSyncActivity(
+                  "item_price_history_vault_push",
+                  "success",
+                  "Cleared — remote companion deleted"
+                );
+              } else {
+                debugLog(
+                  "[CloudSync] Item-price-history companion delete returned status:",
+                  iphDelResp.status
+                );
+              }
+            } catch (iphDelErr) {
+              // Non-fatal: the clear watermark still rides the main vault, so other
+              // devices drop the cleared entries on merge even if the delete failed.
+              console.warn(
+                "[CloudSync] Item-price-history companion delete error (non-fatal):",
+                String(iphDelErr.message || iphDelErr)
+              );
+            }
+            // Drop the pointer so the pushed metadata no longer advertises it.
+            itemPriceHistoryVaultMeta = null;
+          } else {
+            // Fresh/empty device (or a stale clear): preserve another device's vault.
+            itemPriceHistoryVaultMeta = _remoteItemPriceHistoryMeta;
+            debugLog("[CloudSync] No local item-price-history — preserving remote vault reference");
+          }
+        }
+      }
+    } catch (iphPushErr) {
+      var iphPushErrMsg = String(iphPushErr.message || iphPushErr);
+      console.warn("[CloudSync] Item-price-history vault push error (non-fatal):", iphPushErrMsg);
+      logCloudSyncActivity("item_price_history_vault_push", "fail", iphPushErrMsg);
+      // STRK-147: a failed upload must NOT drop the pointer — otherwise the
+      // metaPayload omits itemPriceHistoryVault and other devices treat the
+      // history as deleted. Fall back to the prior remote pointer so it rides
+      // forward unchanged until a later push succeeds.
+      if (_remoteItemPriceHistoryMeta) {
+        itemPriceHistoryVaultMeta = _normalizeItemPriceHistoryVaultMeta(
+          _remoteItemPriceHistoryMeta
+        );
+      }
+    }
+
     // Upload the metadata pointer JSON
     var metaPayload = {
       rev: rev,
@@ -2021,6 +2321,8 @@ async function pushSyncVault() {
     };
     if (imageVaultMeta) metaPayload.imageVault = imageVaultMeta;
     if (attachmentVaultMeta) metaPayload.attachmentVault = attachmentVaultMeta;
+    var _normalizedIphMeta = _normalizeItemPriceHistoryVaultMeta(itemPriceHistoryVaultMeta);
+    if (_normalizedIphMeta) metaPayload.itemPriceHistoryVault = _normalizedIphMeta;
 
     // Layer 4 — Manifest schema v2 enrichment (REQ-4)
     metaPayload.manifestVersion = 2;
@@ -2283,6 +2585,14 @@ async function pollForRemoteChanges() {
       return;
     }
 
+    // STRK-224 (Edge 1, D-1): the item-price-history companion merge was
+    // previously pre-merged here UNCONDITIONALLY — ahead of the inv/settings
+    // shortcut AND ahead of handleRemoteChange — so a Cancel on the DiffModal
+    // could not undo it. The pre-merge now runs ONLY on the no-modal exits: the
+    // silent fast-path and the STAK-414 local-newer branch below. The DiffModal
+    // route relies on pullWithPreview's STRK-225 `_vfApplied`-gated companion pull
+    // to merge on Apply / skip on Cancel.
+
     // Layer 4 — Hash-based change detection (REQ-4)
     // Skip notification if BOTH inventory AND settings hashes match.
     // STAK-416: Previously only checked inventoryHash — settings-only changes
@@ -2321,11 +2631,21 @@ async function pollForRemoteChanges() {
           console.warn(
             "[CloudSync] Poll: inventory + settings hashes MATCH — silently recording pull"
           );
-          syncSetLastPull({
+          // STRK-224 (Edge 1, D-1): merge any companion-only remote change on this
+          // no-modal exit, then carry the merged hash onto the recorded pull
+          // (preserves the STRK-147 D-11 silent fast-path; AC-3). A transient
+          // companion failure (Edge 2) holds lastPull stale and bails for retry.
+          var _pollCompanion = await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
+          if (_pollCompanion.failed) {
+            return;
+          }
+          var _pollPullMeta = {
             syncId: remoteMeta.syncId,
             timestamp: remoteMeta.timestamp,
             rev: remoteMeta.rev,
-          });
+          };
+          if (_pollCompanion.hash) _pollPullMeta.itemPriceHistoryHash = _pollCompanion.hash;
+          syncSetLastPull(_pollPullMeta);
           return;
         }
         if (invMatch && !settingsMatch) {
@@ -2358,6 +2678,17 @@ async function pollForRemoteChanges() {
             ") — triggering push instead of pull"
         );
         logCloudSyncActivity("auto_sync_poll", "success", "Local newer than remote — pushing");
+        // STRK-224 (Edge 1, D-4): this no-modal local-newer exit still accepts a
+        // remote companion change (idempotent, append-only over owned UUIDs, and
+        // records only itemPriceHistoryHash — never syncId). But on a transient
+        // companion FAILURE (Edge 2) we must NOT push: scheduleSyncPush() would
+        // overwrite the remote companion with the un-merged local copy and advance
+        // the remote syncId, so the retry would never fire. Bail and hold for the
+        // next poll instead.
+        var _lnCompanion = await _pollCompanionItemPriceHistory(remoteMeta, token, lastPull);
+        if (_lnCompanion.failed) {
+          return;
+        }
         if (typeof scheduleSyncPush === "function") scheduleSyncPush();
         return;
       }
@@ -2378,6 +2709,86 @@ async function pollForRemoteChanges() {
   } catch (err) {
     debugLog("[CloudSync] Poll error:", err);
   }
+}
+
+/**
+ * Companion item-price-history hash check + silent merge for the poll loop
+ * (STRK-147 D-11). Extracted from pollForRemoteChanges to keep that hot loop
+ * sub-threshold. When the remote companion hash differs from the recorded
+ * lastPull hash, it fetches and merges via _pullItemPriceHistoryVault, then
+ * records the merged hash onto lastPull immediately (the companion merge is
+ * independent of the inventory/settings pull, so even a subsequent full pull
+ * must not re-merge it). A write failure (e.g. quota) is reported via
+ * `failed:true` so the caller holds lastPull stale and bails for retry
+ * (C.4/AC-7) — it is NOT swallowed.
+ *
+ * @param {object} remoteMeta - Remote sync metadata (carries itemPriceHistoryVault)
+ * @param {string} token - Dropbox OAuth bearer token
+ * @param {object|null} lastPull - The current recorded lastPull (for the local hash)
+ * @returns {Promise<{hash:(string|null),failed:boolean}>} `hash` is the companion
+ *          hash to carry onto the recorded pull; `failed` is true when the merge
+ *          write failed and the caller must bail without advancing lastPull.
+ */
+async function _pollCompanionItemPriceHistory(remoteMeta, token, lastPull) {
+  var companionHash =
+    lastPull && lastPull.itemPriceHistoryHash ? lastPull.itemPriceHistoryHash : null;
+  var remoteCompanionHash =
+    remoteMeta.itemPriceHistoryVault && remoteMeta.itemPriceHistoryVault.hash
+      ? remoteMeta.itemPriceHistoryVault.hash
+      : null;
+  if (!remoteCompanionHash || remoteCompanionHash === companionHash) {
+    return { hash: companionHash, failed: false };
+  }
+
+  try {
+    var result = await _pullItemPriceHistoryVault(
+      remoteMeta,
+      token,
+      getSyncPasswordSilent(),
+      "poll-shortcut",
+      _currentInventoryUuids()
+    );
+    if (result.failed) {
+      // STRK-224 (Edge 2): a transient (non-throwing) companion download/decrypt
+      // failure must NOT advance lastPull — propagate `failed` so the poll holds
+      // the watermark stale and retries on the next cycle (AC-4/AC-6).
+      console.warn(
+        "[CloudSync] Poll: item-price-history transient pull failure — keeping lastPull stale"
+      );
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "poll transient failure (lastPull held)"
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return { hash: companionHash, failed: true };
+    }
+    if (result.hash) {
+      companionHash = result.hash;
+      // Record the merged hash onto lastPull immediately so a subsequent full
+      // pull (e.g. settings differ) does not re-merge already-persisted history.
+      var mergedPull = syncGetLastPull() || {};
+      mergedPull.itemPriceHistoryHash = companionHash;
+      syncSetLastPull(mergedPull);
+    }
+  } catch (companionErr) {
+    // C.4/AC-7: companion merge write failed (e.g. quota). Do NOT advance
+    // lastPull — leave it stale so the next poll retries — and record a
+    // partial/error state.
+    console.warn(
+      "[CloudSync] Poll: item-price-history merge write failed — keeping lastPull stale:",
+      String(companionErr.message || companionErr)
+    );
+    logCloudSyncActivity(
+      "item_price_history_vault_pull",
+      "fail",
+      "poll write failed (lastPull held): " + String(companionErr.message || companionErr)
+    );
+    updateSyncStatusIndicator("error", "Sync incomplete");
+    return { hash: companionHash, failed: true };
+  }
+
+  return { hash: companionHash, failed: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -2505,6 +2916,174 @@ async function _pullAttachmentVault(remoteMeta, token, password, pathLabel) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared item-price-history companion vault pull helper (STRK-147)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whitelist a companion-vault pointer to the {hash, uuidCount, entryCount}
+ * contract (STRK-147). Strips any extra fields a remote device may have attached
+ * so only the three pointer fields ever ride the sync metadata payload.
+ *
+ * @param {object} meta - Candidate item-price-history vault pointer
+ * @returns {{hash:string,uuidCount:number,entryCount:number}|null} Normalized
+ *   pointer, or null when `meta` is missing or lacks a string `hash`.
+ */
+function _normalizeItemPriceHistoryVaultMeta(meta) {
+  if (!meta || typeof meta.hash !== "string") return null;
+  return {
+    hash: meta.hash,
+    uuidCount: Number(meta.uuidCount) || 0,
+    entryCount: Number(meta.entryCount) || 0,
+  };
+}
+
+/**
+ * Returns the set of current local inventory item UUIDs — the accepted-history
+ * boundary for the silent/no-diff pull paths (D-6). Never returns an empty set
+ * when inventory has items, so accepted-Item history is not dropped (AC-6).
+ *
+ * @param {Array} [items] - Inventory array (defaults to the global `inventory`)
+ * @returns {Set<string>} Set of UUIDs present in the inventory
+ */
+function _currentInventoryUuids(items) {
+  var list = items || (typeof inventory !== "undefined" && inventory ? inventory : []);
+  var set = new Set();
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].uuid) set.add(list[i].uuid);
+  }
+  return set;
+}
+
+/**
+ * Fetches and merges the item-price-history companion vault (STRK-147). The
+ * companion is downloaded ONLY when its remote metadata hash differs from the
+ * locally-recorded `lastPull.itemPriceHistoryHash`, then merged into local
+ * history via the pure, commutative `mergeItemPriceHistories()` (D-2). Remote
+ * entries are filtered to `acceptedUuids` so a rejected remote Item never
+ * imports orphan history (D-6, AC-6). The merged result is persisted through
+ * the throwing `writeItemPriceHistoryStrict()` write path (D-7); a write
+ * failure (e.g. quota) RETHROWS so the caller can keep `lastPull` stale and
+ * retry (AC-7) — it is NOT swallowed.
+ *
+ * STRK-224 (Edge 2): a TRANSIENT download/decrypt failure is non-throwing but
+ * returns `failed:true` so callers can tell it apart from a benign no-op (the
+ * precondition-miss and transient-failure paths otherwise share the exact
+ * `{hash:null, skipped:false}` shape). Callers MUST NOT advance `lastPull` when
+ * `failed` is set — leave the watermark stale so the next poll retries (AC-4/6).
+ *
+ * @param {object} remoteMeta - Remote sync metadata (carries itemPriceHistoryVault)
+ * @param {string} token - Dropbox OAuth bearer token
+ * @param {string} password - Vault decryption key (composite password:accountId)
+ * @param {string} pathLabel - Pull-path label for diagnostics/logging
+ * @param {Set<string>|Array<string>} acceptedUuids - Accepted inventory boundary
+ * @returns {Promise<{hash:(string|null),skipped:boolean,failed:boolean}>} `hash`
+ *          is the merged companion hash to record on lastPull (null when nothing
+ *          changed/applied); `failed` is true ONLY on a transient download/decrypt
+ *          failure (the caller must hold lastPull stale and retry).
+ * @throws Rethrows a writeItemPriceHistoryStrict failure (e.g. quota) so the
+ *         caller does not advance lastPull (AC-7).
+ */
+async function _pullItemPriceHistoryVault(remoteMeta, token, password, pathLabel, acceptedUuids) {
+  var result = { hash: null, skipped: false, failed: false };
+  if (
+    !remoteMeta ||
+    !remoteMeta.itemPriceHistoryVault ||
+    typeof vaultDecryptItemPriceHistory !== "function" ||
+    typeof mergeItemPriceHistories !== "function"
+  ) {
+    return result;
+  }
+
+  var remoteHash = remoteMeta.itemPriceHistoryVault.hash || null;
+  var lastPull = syncGetLastPull();
+  var localHash = lastPull ? lastPull.itemPriceHistoryHash : null;
+  if (remoteHash && remoteHash === localHash) {
+    debugLog("[CloudSync] " + pathLabel + ": item-price-history vault hash matches — skipping");
+    result.hash = localHash;
+    result.skipped = true;
+    return result;
+  }
+
+  // Download phase — network/decrypt failures here are non-fatal (don't throw).
+  var remoteHistory = null;
+  try {
+    debugLog(
+      "[CloudSync] " + pathLabel + ": item-price-history vault changed — pulling",
+      remoteMeta.itemPriceHistoryVault.uuidCount,
+      "UUIDs"
+    );
+    var apiArg = JSON.stringify({ path: SYNC_ITEM_PRICE_HISTORY_PATH });
+    var resp = await fetch("https://content.dropboxapi.com/2/files/download", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": apiArg },
+    });
+    if (resp.status === 404) {
+      debugLog(
+        "[CloudSync] " + pathLabel + ": item-price-history vault not found (404) — skipping"
+      );
+      result.hash = remoteHash;
+      result.skipped = true;
+      return result;
+    }
+    if (!resp.ok) {
+      console.warn(
+        "[CloudSync] " + pathLabel + ": item-price-history vault download failed:",
+        resp.status
+      );
+      logCloudSyncActivity("item_price_history_vault_pull", "fail", "HTTP " + resp.status);
+      // STRK-224 (Edge 2): transient download failure — signal so the caller
+      // holds lastPull stale and retries on the next poll (AC-4/AC-6).
+      result.failed = true;
+      return result;
+    }
+    var bytes = new Uint8Array(await resp.arrayBuffer());
+    remoteHistory = await vaultDecryptItemPriceHistory(bytes, password);
+  } catch (err) {
+    var msg = String(err.message || err);
+    console.warn(
+      "[CloudSync] " + pathLabel + ": item-price-history vault pull error (non-fatal):",
+      msg
+    );
+    logCloudSyncActivity("item_price_history_vault_pull", "fail", pathLabel + ": " + msg);
+    // STRK-224 (Edge 2): transient decrypt failure — same retry signal as above.
+    result.failed = true;
+    return result;
+  }
+
+  // Merge + write phase — a write failure RETHROWS so the caller keeps lastPull
+  // stale and retries (AC-7). The merge itself is pure (D-2).
+  var localHistory =
+    typeof loadDataSync === "function" ? loadDataSync(ITEM_PRICE_HISTORY_KEY, {}) : {};
+  var accept = acceptedUuids instanceof Set ? acceptedUuids : new Set(acceptedUuids || []);
+  var merged = mergeItemPriceHistories(localHistory, remoteHistory, accept);
+
+  // window.* so the AC-7 test spy on writeItemPriceHistoryStrict is exercised.
+  if (typeof window !== "undefined" && typeof window.writeItemPriceHistoryStrict === "function") {
+    window.writeItemPriceHistoryStrict(merged);
+  } else if (typeof writeItemPriceHistoryStrict === "function") {
+    writeItemPriceHistoryStrict(merged);
+  } else {
+    saveDataSync(ITEM_PRICE_HISTORY_KEY, merged);
+  }
+
+  // Refresh the in-memory global so the UI and subsequent reads see the merge.
+  if (typeof loadItemPriceHistory === "function") loadItemPriceHistory();
+
+  // Record the hash of the MERGED result (not the remote hash) — convergent
+  // devices will then short-circuit on the next poll.
+  result.hash =
+    typeof collectAndHashItemPriceHistory === "function"
+      ? collectAndHashItemPriceHistory().hash
+      : remoteHash;
+  logCloudSyncActivity(
+    "item_price_history_vault_pull",
+    "success",
+    Object.keys(merged).length + " UUIDs merged (" + pathLabel + ")"
+  );
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Pull (download and restore remote vault)
 // ---------------------------------------------------------------------------
 
@@ -2546,6 +3125,12 @@ async function pullSyncVault(remoteMeta) {
     if (!resp.ok) throw new Error("Vault download failed: " + resp.status);
 
     var bytes = new Uint8Array(await resp.arrayBuffer());
+
+    // STRK-223 (Codex review, PR #1313): capture the local clear watermark before the
+    // blind full restore overwrites it with the (possibly older) remote scalar — a
+    // clear is a tombstone and must max-arbitrate, never regress on a full overwrite.
+    var _preRestoreClearedAt =
+      typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
 
     syncSaveOverrideBackup();
 
@@ -2621,6 +3206,71 @@ async function pullSyncVault(remoteMeta) {
     var _attachResult = await _pullAttachmentVault(remoteMeta, token, password, "auto-sync");
     var pulledAttachmentHash = _attachResult.hash;
 
+    // STRK-224: pull the item-price-history companion on the full-overwrite path too
+    // (it previously relied on the poll pre-merge removed by the Edge-1 reorder, so a
+    // sync routed to this fallback would advance lastPull.syncId without the companion
+    // and the same-syncId shortcut would then skip it). Mirrors the image/attachment
+    // companion pulls above; acceptedUuids = the just-restored (remote) inventory. On a
+    // transient failure OR a write throw, hold lastPull stale (skip the record below)
+    // so the next poll retries.
+    var _psIph;
+    try {
+      _psIph = await _pullItemPriceHistoryVault(
+        remoteMeta,
+        token,
+        password,
+        "full-overwrite",
+        _currentInventoryUuids()
+      );
+    } catch (_psIphErr) {
+      console.warn(
+        "[CloudSync] Full-overwrite: item-price-history write failed — holding lastPull stale:",
+        String(_psIphErr.message || _psIphErr)
+      );
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "full-overwrite write failed (lastPull held): " + String(_psIphErr.message || _psIphErr)
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return;
+    }
+    if (_psIph.failed) {
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "full-overwrite transient failure (lastPull held)"
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return;
+    }
+
+    // STRK-223 (Codex review, PR #1313): max-arbitrate the clear watermark across the
+    // full restore. The blind restore may have written an OLDER remote scalar over a
+    // NEWER local clear, which would re-import entries the user had already cleared.
+    // Restore the newer pre-restore value first so the local clear is preserved.
+    if (
+      typeof loadItemPriceClearedAt === "function" &&
+      typeof saveItemPriceClearedAt === "function" &&
+      _preRestoreClearedAt > loadItemPriceClearedAt()
+    ) {
+      saveItemPriceClearedAt(_preRestoreClearedAt);
+    }
+    // STRK-223: the full vault restore wrote the remote clear watermark to
+    // localStorage (it is in ALLOWED_STORAGE_KEYS), but the old local history is
+    // not dropped until a retention pass runs. Enforce it now so a restored
+    // "clear all" takes effect immediately on this DiffEngine-fallback path too.
+    if (typeof applyItemPriceClearWatermark === "function") {
+      try {
+        applyItemPriceClearWatermark();
+      } catch (_psWmErr) {
+        console.warn(
+          "[CloudSync] Full-overwrite: clear-watermark apply failed (non-fatal):",
+          String(_psWmErr.message || _psWmErr)
+        );
+      }
+    }
+
     // Record the pull
     var pullMeta = {
       syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -2629,6 +3279,7 @@ async function pullSyncVault(remoteMeta) {
     };
     if (pulledImageHash) pullMeta.imageHash = pulledImageHash;
     if (pulledAttachmentHash) pullMeta.attachmentHash = pulledAttachmentHash;
+    if (_psIph.hash) pullMeta.itemPriceHistoryHash = _psIph.hash;
     syncSetLastPull(pullMeta);
 
     var duration = Date.now() - pullStart;
@@ -2681,9 +3332,20 @@ function _isTagSyncKey(key) {
   return _tagSyncKeys().indexOf(key) !== -1;
 }
 
-function _normalizeRawStorageValue(value) {
-  if (value === undefined || value === null) return null;
-  return typeof value === "string" ? value : JSON.stringify(value);
+// STRK-223: the item-price clear-watermark key. Like the tag-sync keys it carries
+// its own merge semantics and must be EXCLUDED from the blind settings-overwrite
+// on pull (an older remote would un-clear); it is reconciled by
+// _mergeItemPriceClearWatermark instead.
+function _itemPriceClearKey() {
+  return typeof ITEM_PRICE_HISTORY_CLEARED_AT_KEY !== "undefined"
+    ? ITEM_PRICE_HISTORY_CLEARED_AT_KEY
+    : "itemPriceHistoryClearedAt";
+}
+
+// Keys that are NOT blindly overwritten on pull — used at every settings-apply
+// skip site (tag stores + the item-price clear watermark).
+function _isManagedSyncKey(key) {
+  return _isTagSyncKey(key) || key === _itemPriceClearKey();
 }
 
 function _parseTagStore(rawValue, fallback) {
@@ -2713,11 +3375,32 @@ function _hasTagChanges(remoteSettings) {
   if (!remoteSettings) return false;
   var keys = _tagSyncKeys();
   for (var i = 0; i < keys.length; i++) {
-    var localVal = typeof localStorage !== "undefined" ? localStorage.getItem(keys[i]) : null;
-    var remoteVal = _normalizeRawStorageValue(remoteSettings[keys[i]]);
-    if (localVal !== remoteVal) return true;
+    // STRK-159: compare LOGICAL content, not raw serialization. _parseTagStore
+    // decompresses + JSON-parses each tag store and _stableCanonicalString sorts
+    // its keys, so a compressed-vs-plain (or key-order) variant of identical tags
+    // is no longer a false "changed" signal that triggers a needless merge.
+    var localRaw = typeof localStorage !== "undefined" ? localStorage.getItem(keys[i]) : null;
+    var localCanon = _stableCanonicalString(_parseTagStore(localRaw, {}));
+    var remoteCanon = _stableCanonicalString(_parseTagStore(remoteSettings[keys[i]], {}));
+    if (localCanon !== remoteCanon) return true;
   }
   return false;
+}
+
+// STRK-223: true when the remote carries an item-price clear watermark NEWER than
+// the local one — an intentional clear this device must still apply. Mirrors
+// _hasTagChanges so a watermark-only remote change is not swallowed by the
+// manifest-first silent-return fast-path (the watermark is excluded from the
+// per-key settings diff via _isManagedSyncKey, so without this it would look like
+// "no settings changed"). The poll / vault-first paths are unaffected — their
+// settingsHash already covers the watermark.
+function _hasItemPriceClearChange(remoteSettings) {
+  if (!remoteSettings) return false;
+  var key = _itemPriceClearKey();
+  var remoteTs = Number(remoteSettings[key]) || 0;
+  if (remoteTs <= 0) return false;
+  var localTs = typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
+  return remoteTs > localTs;
 }
 
 function _restoreRawStorageValues(priorValues) {
@@ -2742,6 +3425,37 @@ function _restoreRawStorageValues(priorValues) {
     );
   }
   return { failed: failed, total: keys.length };
+}
+
+/**
+ * STRK-155: Deterministic, commutative union of two tag arrays.
+ * Dedups case-insensitively (matching addItemTag's case-insensitive dedup in
+ * tags.js), picks the lexicographically-smallest original string as the
+ * representative so merge(A,B) and merge(B,A) yield byte-identical output, and
+ * returns the result sorted by lowercased key. Trims and drops blank/non-string
+ * entries. Commutativity is the whole point: it is what lets two diverged
+ * devices converge to the same superset on a timestamp tie.
+ * @param {string[]} a
+ * @param {string[]} b
+ * @returns {string[]}
+ */
+function _unionTags(a, b) {
+  var byLower = {};
+  var all = (Array.isArray(a) ? a : []).concat(Array.isArray(b) ? b : []);
+  for (var i = 0; i < all.length; i++) {
+    if (typeof all[i] !== "string") continue;
+    var trimmed = all[i].trim();
+    if (!trimmed) continue;
+    var key = trimmed.toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(byLower, key) || trimmed < byLower[key]) {
+      byLower[key] = trimmed;
+    }
+  }
+  return Object.keys(byLower)
+    .sort()
+    .map(function (k) {
+      return byLower[k];
+    });
 }
 
 function _mergeTagData(remoteTagData) {
@@ -2807,6 +3521,47 @@ function _mergeTagData(remoteTagData) {
       }
       mergedTimestamps[uuid] = remoteTs;
       updated++;
+    } else if (
+      remoteTs === localTs &&
+      // Fire the tie-union when both sides agree on the timestamp AND either both
+      // have a timestamp entry, OR the tag/removed CONTENT is present on both sides.
+      // The content-presence arm converges legacy / Numista-batch tags that have no
+      // itemTagsLastModified entry (both coerce to ts=0) — without it those diverged
+      // untimestamped tags never reach the union and re-trigger a silent tag-only
+      // merge every poll (STRK-155 review finding). One-sided uuids are excluded by
+      // requiring presence on BOTH sides, so a remote-only untimestamped tag is not
+      // spuriously adopted here.
+      ((Object.prototype.hasOwnProperty.call(remoteTimestamps, uuid) &&
+        Object.prototype.hasOwnProperty.call(localTimestamps, uuid)) ||
+        (Object.prototype.hasOwnProperty.call(localTags, uuid) &&
+          Object.prototype.hasOwnProperty.call(remoteTags, uuid)) ||
+        (Object.prototype.hasOwnProperty.call(localRemoved, uuid) &&
+          Object.prototype.hasOwnProperty.call(remoteRemoved, uuid)))
+    ) {
+      // STRK-155: timestamp tie with potentially divergent content. A plain
+      // last-write-wins no-op here is non-commutative and freezes two diverged
+      // devices in a permanent "Review Sync Changes" loop. Take the deterministic
+      // union of both sides instead — union is commutative, so both devices
+      // converge to the same superset within one round-trip. Only the side(s)
+      // whose content actually changes bump the timestamp, so once both agree the
+      // merge is idempotent. Known trade-off (confirmed): a tag removed on one
+      // device without bumping its timestamp can reappear (data-loss-averse).
+      var unionedTags = _unionTags(localTags[uuid], remoteTags[uuid]);
+      var unionedRemoved = _unionTags(localRemoved[uuid], remoteRemoved[uuid]);
+      var canonicalLocalTags = _unionTags(localTags[uuid], []);
+      var canonicalLocalRemoved = _unionTags(localRemoved[uuid], []);
+      var tagsChanged = unionedTags.join(" ") !== canonicalLocalTags.join(" ");
+      var removedChanged = unionedRemoved.join(" ") !== canonicalLocalRemoved.join(" ");
+
+      if (unionedTags.length > 0) mergedTags[uuid] = unionedTags;
+      else delete mergedTags[uuid];
+      if (unionedRemoved.length > 0) mergedRemoved[uuid] = unionedRemoved;
+      else delete mergedRemoved[uuid];
+
+      if (tagsChanged || removedChanged) {
+        mergedTimestamps[uuid] = Date.now();
+        updated++;
+      }
     }
   });
 
@@ -2852,6 +3607,44 @@ function _mergeOneSidedTagSettings(remoteSettings) {
     tagKeysMerged: tagKeysMerged,
     mergeResult: _mergeTagData(tagData),
   };
+}
+
+/**
+ * STRK-223: receive-side reconciliation of the item-price-history clear watermark.
+ * The watermark is a synced scalar (it rides the main vault like itemTagsLastModified)
+ * that must NOT be blindly overwritten — an older remote would un-clear — but
+ * max-arbitrated. On an advance past the local value it persists the new watermark
+ * and immediately enforces the clear against local history (applyItemPriceClearWatermark),
+ * so the cleared entries drop even when no companion vault is pulled. Mirrors
+ * _mergeTagData's role for tag timestamps and runs only on apply paths (never on a
+ * cancelled preview — the _vfApplied gate), preserving cancel-safety (AC-7).
+ *
+ * @param {object} remoteSettings - Remote settings (may carry the watermark, as a
+ *        raw number or a JSON-encoded string).
+ * @returns {number} The reconciled (max) watermark timestamp.
+ */
+function _mergeItemPriceClearWatermark(remoteSettings) {
+  if (typeof loadItemPriceClearedAt !== "function") return 0;
+  var localTs = loadItemPriceClearedAt();
+  var key = _itemPriceClearKey();
+  var raw = remoteSettings && remoteSettings[key] !== undefined ? remoteSettings[key] : 0;
+  var remoteTs = Number(raw) || 0;
+  if (!(remoteTs > localTs)) return localTs; // older / equal / absent — never un-clear
+  var _wmSaved =
+    typeof saveItemPriceClearedAt === "function" ? saveItemPriceClearedAt(remoteTs) : false;
+  if (!_wmSaved) {
+    // Scalar persist failed (e.g. quota). Still apply with the incoming value below so
+    // the drop happens; the watermark may not survive a reload until a later write.
+    console.warn(
+      "[CloudSync] Item-price clear-watermark scalar persist failed — applying with the incoming value"
+    );
+  }
+  // Apply with the INCOMING watermark directly so the drop takes effect even if the
+  // scalar persist failed. A history WRITE failure (e.g. quota) RETHROWS — STRK-224
+  // parity (Codex review, PR #1313): the caller rolls back and holds lastPull so the
+  // next poll retries, instead of marking the clear pulled while the entries remain.
+  if (typeof applyItemPriceClearWatermark === "function") applyItemPriceClearWatermark(remoteTs);
+  return remoteTs;
 }
 
 /**
@@ -2925,6 +3718,36 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     }
   }
 
+  // STRK-223: reconcile the item-price clear watermark (max-arbitrate + apply).
+  // Excluded from the generic settings application below; reconciling it here keeps
+  // an older remote from un-clearing and enforces the drop immediately even when no
+  // companion vault is pulled. Idempotent — safe if another path also reconciles it.
+  if (opts.remoteRawSettings) {
+    try {
+      _mergeItemPriceClearWatermark(opts.remoteRawSettings);
+    } catch (iphWmErr) {
+      // STRK-223 (Codex review, PR #1313): a clear-watermark history-write failure
+      // (e.g. quota) rolls back + returns exactly like a tag-merge failure above, so
+      // the pull is NOT finalized/recorded (held for retry) — never mark the clear
+      // pulled while the cleared entries still persist locally.
+      inventory = _prevInventory;
+      if (tagPriorValues) _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
+      console.warn("[CloudSync] Clear-watermark apply failed — rolling back pull:", iphWmErr);
+      logCloudSyncActivity(
+        "cloud_sync_pull",
+        "partial",
+        { failedCount: 1, failedKeys: ["item-price-history"] },
+        null
+      );
+      if (typeof updateSyncStatusIndicator === "function") {
+        updateSyncStatusIndicator("error", "rollback");
+      }
+      if (typeof refreshSyncUI === "function") refreshSyncUI();
+      return;
+    }
+  }
+
   // 3. Apply settings changes.
   // remoteVal is typically a raw localStorage string (from vault payload.data or
   // manifest.settings snapshot), but DiffModal may pass non-string values for
@@ -2952,12 +3775,17 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
         sc.remoteVal !== undefined &&
         typeof localStorage !== "undefined"
       ) {
+        // STRK-157: reject "[object Object]" corruption — never persist a value
+        // that cannot round-trip and would re-stick on every pull. Skip it and
+        // leave the good local value intact (not counted as a write failure).
+        var writeVal = _safeSettingWriteValue(sc.remoteVal);
+        if (writeVal === null) {
+          debugLog("[CloudSync] STRK-157: skipped corrupt settings value for key:", sc.key);
+          continue;
+        }
         _priorValues[sc.key] = localStorage.getItem(sc.key);
         try {
-          localStorage.setItem(
-            sc.key,
-            typeof sc.remoteVal === "string" ? sc.remoteVal : JSON.stringify(sc.remoteVal)
-          );
+          localStorage.setItem(sc.key, writeVal);
           _appliedKeys.push(sc.key);
         } catch (_e) {
           _failedCount++;
@@ -3090,9 +3918,11 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
  */
 function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remoteMeta, conflicts) {
   // Delegate to DiffModal (STAK-184) — falls back to null if unavailable.
-  // Returns a Promise that resolves when the user completes their modal action
-  // (Apply or Cancel), so callers can await the full pull before clearing
-  // _syncRemoteChangeActive. Returns null when DiffModal is unavailable.
+  // Returns a Promise that resolves when the user completes their modal action.
+  // STRK-147: the promise resolves with `true` when the user APPLIED changes and
+  // `false` when they CANCELLED, so callers can gate post-apply work (e.g. the
+  // companion item-price-history merge) on the user's decision. Returns null when
+  // DiffModal is unavailable.
   if (typeof DiffModal === "undefined" || !DiffModal.show) {
     debugLog("[CloudSync] DiffModal not available — falling back");
     return null;
@@ -3169,6 +3999,7 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
                 remotePayload && remotePayload.data
                   ? _extractRemoteTagData(remotePayload.data)
                   : null,
+              remoteRawSettings: remotePayload && remotePayload.data ? remotePayload.data : null,
             });
             debugLog("[CloudSync] Restore preview: applied selected changes via DiffEngine");
             p = Promise.resolve();
@@ -3180,10 +4011,16 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
             showCloudToast("Restore failed: " + applyErr.message);
           p = Promise.resolve();
         }
-        p.then(resolve).catch(resolve);
+        // Resolve `true` so callers know the user applied changes (STRK-147).
+        p.then(function () {
+          resolve(true);
+        }).catch(function () {
+          resolve(true);
+        });
       },
       onCancel: function () {
-        resolve();
+        // Resolve `false` so callers skip post-apply merges (STRK-147).
+        resolve(false);
       },
     });
   });
@@ -3358,7 +4195,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             for (var _dvs = 0; _dvs < SYNC_SCOPE_KEYS.length; _dvs++) {
               if (
                 SYNC_SCOPE_KEYS[_dvs] === "metalInventory" ||
-                _isTagSyncKey(SYNC_SCOPE_KEYS[_dvs])
+                _isManagedSyncKey(SYNC_SCOPE_KEYS[_dvs])
               )
                 continue;
               var _dvlv =
@@ -3375,9 +4212,15 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
               _dvSettingsChanges = _dvsDiff.changed;
             }
           }
+          // STRK-224 (Edge 3, D-3): snapshot the FULL prior lastPull before
+          // _applyAndFinalize advances syncId, so a companion failure/throw below
+          // can restore it (the manifest-first apply records syncId before the
+          // strict companion write).
+          var _dvPriorLastPull = syncGetLastPull();
           _applyAndFinalize(newInv, selectedChanges, _dvSettingsChanges, remoteMeta, {
             source: "sync",
             remoteTagData: _extractRemoteTagData(payload.data),
+            remoteRawSettings: payload.data,
           });
           debugLog(
             "[CloudSync] Deferred vault restore complete (selective apply, settings:",
@@ -3441,6 +4284,60 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
             syncSetLastPull(_dvPullMeta);
           }
 
+          // STRK-147: Manifest-first deferred path — item-price-history vault.
+          // acceptedUuids = the post-apply `newInv` DiffEngine computed above
+          // (D-6) so history follows the accepted-Item boundary, not the stale
+          // pre-apply local inventory.
+          // STRK-224 (Edge 3, D-3): on a transient failure OR a write throw,
+          // restore the full prior lastPull so syncId is not left advanced past
+          // the unmerged companion (AC-7/AC-8 manifest-first).
+          var _dvIph;
+          try {
+            _dvIph = await _pullItemPriceHistoryVault(
+              remoteMeta,
+              token,
+              password,
+              "manifest-path",
+              _currentInventoryUuids(newInv)
+            );
+          } catch (_dvIphErr) {
+            // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+            // is a valid reset that re-enables the retry via the syncId-mismatch path.
+            syncSetLastPull(_dvPriorLastPull);
+            console.warn(
+              "[CloudSync] Manifest-path: item-price-history merge write failed — restoring prior lastPull:",
+              String(_dvIphErr.message || _dvIphErr)
+            );
+            logCloudSyncActivity(
+              "item_price_history_vault_pull",
+              "fail",
+              "manifest-path write failed (lastPull restored): " +
+                String(_dvIphErr.message || _dvIphErr)
+            );
+            updateSyncStatusIndicator("error", "Sync incomplete");
+            // STRK-224: signal the failure so the manifest wrapper skips its idle
+            // status update (which would otherwise mask "Sync incomplete").
+            return { companionFailed: true };
+          }
+          if (_dvIph.failed) {
+            // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+            // is a valid reset that re-enables the retry via the syncId-mismatch path.
+            syncSetLastPull(_dvPriorLastPull);
+            logCloudSyncActivity(
+              "item_price_history_vault_pull",
+              "fail",
+              "manifest-path transient failure (lastPull restored)"
+            );
+            updateSyncStatusIndicator("error", "Sync incomplete");
+            // STRK-224: signal failure so the manifest wrapper skips its idle update.
+            return { companionFailed: true };
+          }
+          if (_dvIph.hash) {
+            var _dvIphPullMeta = syncGetLastPull() || {};
+            _dvIphPullMeta.itemPriceHistoryHash = _dvIph.hash;
+            syncSetLastPull(_dvIphPullMeta);
+          }
+
           return;
         }
       }
@@ -3454,7 +4351,43 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
     await restoreVaultData(fbPayload);
     debugLog("[CloudSync] Deferred vault restore complete (full overwrite)");
 
+    // STRK-224: pull the companion on this manifest full-overwrite fallback too (same
+    // reason as pullSyncVault). On failure, hold lastPull stale (skip the record) and
+    // signal the wrapper so its idle status update does not mask "Sync incomplete".
+    var _dvFoIph;
+    try {
+      _dvFoIph = await _pullItemPriceHistoryVault(
+        remoteMeta,
+        token,
+        password,
+        "manifest-overwrite",
+        _currentInventoryUuids()
+      );
+    } catch (_dvFoErr) {
+      console.warn(
+        "[CloudSync] Manifest overwrite: item-price-history write failed — holding lastPull stale:",
+        String(_dvFoErr.message || _dvFoErr)
+      );
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "manifest-overwrite write failed (lastPull held): " + String(_dvFoErr.message || _dvFoErr)
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return { companionFailed: true };
+    }
+    if (_dvFoIph.failed) {
+      logCloudSyncActivity(
+        "item_price_history_vault_pull",
+        "fail",
+        "manifest-overwrite transient failure (lastPull held)"
+      );
+      updateSyncStatusIndicator("error", "Sync incomplete");
+      return { companionFailed: true };
+    }
+
     if (_previewPullMeta) {
+      if (_dvFoIph.hash) _previewPullMeta.itemPriceHistoryHash = _dvFoIph.hash;
       syncSetLastPull(_previewPullMeta);
       _previewPullMeta = null;
     }
@@ -3549,7 +4482,10 @@ async function pullWithPreview(remoteMeta) {
             var _mLocalSettings = {};
             if (typeof SYNC_SCOPE_KEYS !== "undefined" && typeof localStorage !== "undefined") {
               for (var ms = 0; ms < SYNC_SCOPE_KEYS.length; ms++) {
-                if (SYNC_SCOPE_KEYS[ms] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[ms]))
+                if (
+                  SYNC_SCOPE_KEYS[ms] === "metalInventory" ||
+                  _isManagedSyncKey(SYNC_SCOPE_KEYS[ms])
+                )
                   continue;
                 var msv = localStorage.getItem(SYNC_SCOPE_KEYS[ms]);
                 if (msv !== null) _mLocalSettings[SYNC_SCOPE_KEYS[ms]] = msv;
@@ -3569,7 +4505,11 @@ async function pullWithPreview(remoteMeta) {
             !manifestSettingsDiff.changed ||
             manifestSettingsDiff.changed.length === 0;
           var _mHasTagChanges = _hasTagChanges(manifest.settings);
-          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges) {
+          // STRK-223: a watermark-only change is excluded from the settings diff
+          // (_isManagedSyncKey), so without this it would silently no-op here and
+          // never reach the apply path where _mergeItemPriceClearWatermark runs.
+          var _mHasIphClear = _hasItemPriceClearChange(manifest.settings);
+          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges && !_mHasIphClear) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
             var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -3628,6 +4568,50 @@ async function pullWithPreview(remoteMeta) {
               "silent-pull"
             );
             if (_spAttachResult.hash) _silentPullMeta.attachmentHash = _spAttachResult.hash;
+            // STRK-147: Silent-pull path — item-price-history companion vault.
+            // acceptedUuids = current local inventory UUIDs (NEVER empty — that
+            // would drop all history); a write failure rethrows so lastPull
+            // stays stale (AC-7).
+            var _spIph;
+            try {
+              _spIph = await _pullItemPriceHistoryVault(
+                remoteMeta,
+                token,
+                password,
+                "silent-pull",
+                _currentInventoryUuids()
+              );
+            } catch (_spIphErr) {
+              // STRK-224 (Edge 3): a strict-write throw (e.g. quota) on this no-diff
+              // silent path must NOT escape into the manifest/vault-first fallback
+              // (which could record syncId without the companion hash). The pull-meta
+              // record below has not run yet, so the watermark is already held stale —
+              // bail cleanly so the next poll retries.
+              console.warn(
+                "[CloudSync] Silent-pull path: item-price-history write failed — holding lastPull stale:",
+                String(_spIphErr.message || _spIphErr)
+              );
+              logCloudSyncActivity(
+                "auto_sync_pull",
+                "fail",
+                "item-price-history write failed — pull held for retry (manifest silent): " +
+                  String(_spIphErr.message || _spIphErr)
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+            if (_spIph.failed) {
+              // STRK-224 (Edge 2/AC-5): transient companion failure on the silent
+              // path — hold lastPull stale (do NOT record) so the next poll retries.
+              logCloudSyncActivity(
+                "auto_sync_pull",
+                "fail",
+                "item-price-history transient failure — pull held for retry (manifest silent)"
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+            if (_spIph.hash) _silentPullMeta.itemPriceHistoryHash = _spIph.hash;
             syncSetLastPull(_silentPullMeta);
             logCloudSyncActivity(
               "auto_sync_pull",
@@ -3638,16 +4622,67 @@ async function pullWithPreview(remoteMeta) {
             return;
           }
 
-          if (_mNoChanges && _mNoSettingsChanges && _mHasTagChanges) {
+          // STRK-223 (Codex review, PR #1313): a watermark-only change (no item /
+          // settings / tag diff) must ALSO use this no-modal silent-apply path —
+          // otherwise it falls through to an empty DiffModal whose Apply is disabled,
+          // so the watermark never applies. `_applyAndFinalize` already reconciles it
+          // via the `remoteRawSettings` below; we only needed to widen the entry guard.
+          if (_mNoChanges && _mNoSettingsChanges && (_mHasTagChanges || _mHasIphClear)) {
+            // STRK-224 (Edge 3, D-5): snapshot before _applyAndFinalize advances syncId.
+            var _mtPriorLastPull = syncGetLastPull();
             _applyAndFinalize(inventory, [], null, remoteMeta, {
               source: "sync",
               showToast: false,
               remoteTagData: _extractRemoteTagData(manifest.settings),
+              remoteRawSettings: manifest.settings,
             });
+            // STRK-224 (Edge 1 fallout / D-5): this no-modal tag-only apply path also
+            // relied on the removed poll pre-merge for its companion history. Pull it
+            // here with the current-inventory accepted-UUIDs boundary; on a transient
+            // failure OR write throw, restore the prior lastPull so the next poll retries.
+            var _mtIph;
+            try {
+              _mtIph = await _pullItemPriceHistoryVault(
+                remoteMeta,
+                token,
+                password,
+                "manifest-tag-only",
+                _currentInventoryUuids()
+              );
+            } catch (_mtIphErr) {
+              syncSetLastPull(_mtPriorLastPull);
+              console.warn(
+                "[CloudSync] Manifest tag-only path: item-price-history merge write failed — restoring prior lastPull:",
+                String(_mtIphErr.message || _mtIphErr)
+              );
+              logCloudSyncActivity(
+                "item_price_history_vault_pull",
+                "fail",
+                "manifest-tag-only write failed (lastPull restored): " +
+                  String(_mtIphErr.message || _mtIphErr)
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+            if (_mtIph.failed) {
+              syncSetLastPull(_mtPriorLastPull);
+              logCloudSyncActivity(
+                "item_price_history_vault_pull",
+                "fail",
+                "manifest-tag-only transient failure (lastPull restored)"
+              );
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+            if (_mtIph.hash) {
+              var _mtIphPullMeta = syncGetLastPull() || {};
+              _mtIphPullMeta.itemPriceHistoryHash = _mtIph.hash;
+              syncSetLastPull(_mtIphPullMeta);
+            }
             logCloudSyncActivity(
               "auto_sync_pull",
               "success",
-              "Tag-only changes merged silently (manifest)"
+              "Tag/clear-watermark-only changes merged silently (manifest)"
             );
             return;
           }
@@ -3693,6 +4728,10 @@ async function pullWithPreview(remoteMeta) {
             if (_allOneSided) {
               var _appliedCount = 0;
               var _failedCount = 0;
+              // STRK-224 (Edge 1 fallout / D-5): capture the prior lastPull before
+              // this branch advances syncId, so a companion failure below can
+              // restore it (Edge 3 on this no-modal auto-merge path).
+              var _amPriorLastPull = syncGetLastPull();
               var _tagKeys = _tagSyncKeys();
               var _premergeSnapshot = {};
               for (var _pk = 0; _pk < _tagKeys.length; _pk++) {
@@ -3713,9 +4752,22 @@ async function pullWithPreview(remoteMeta) {
               } catch (_tagMergeErr) {
                 _failedCount++;
               }
+              // STRK-223: reconcile the clear watermark on the manifest apply path
+              // (idempotent — also covered via _applyAndFinalize's remoteRawSettings).
+              // A write failure increments _failedCount so the pull is NOT recorded
+              // (held for retry), mirroring the tag merge above (Codex review, PR #1313).
+              try {
+                _mergeItemPriceClearWatermark(manifest.settings || {});
+              } catch (_iphWmErr) {
+                _failedCount++;
+                console.warn(
+                  "[CloudSync] Manifest auto-merge: clear-watermark apply failed — holding pull:",
+                  String(_iphWmErr.message || _iphWmErr)
+                );
+              }
               for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
                 var _sc = manifestSettingsDiff.changed[_si];
-                if (_isTagSyncKey(_sc.key)) {
+                if (_isManagedSyncKey(_sc.key)) {
                   continue;
                 }
                 // Guard: only apply keys in the ALLOWED_STORAGE_KEYS allowlist
@@ -3863,6 +4915,58 @@ async function pullWithPreview(remoteMeta) {
                   })
                 );
               }
+              // STRK-224 (D-5): item-price-history companion vault on the STAK-470
+              // auto-merge path. This no-modal version-upgrade branch previously
+              // relied on the poll pre-merge (removed by the Edge-1 reorder), so
+              // pull the companion here with the STRK-147 D-6 accepted-UUIDs
+              // boundary (current inventory). On a transient failure OR a write
+              // throw, restore the prior lastPull so syncId is not left advanced
+              // past the unmerged companion (Edge 3; AC-7/AC-8).
+              if (_failedCount === 0) {
+                var _amIph;
+                try {
+                  _amIph = await _pullItemPriceHistoryVault(
+                    remoteMeta,
+                    token,
+                    password,
+                    "auto-merge",
+                    _currentInventoryUuids()
+                  );
+                } catch (_amIphErr) {
+                  // STRK-224: restore unconditionally — a null snapshot (first-ever
+                  // pull) is a valid reset that re-enables the retry path.
+                  syncSetLastPull(_amPriorLastPull);
+                  console.warn(
+                    "[CloudSync] STAK-470 path: item-price-history merge write failed — restoring prior lastPull:",
+                    String(_amIphErr.message || _amIphErr)
+                  );
+                  logCloudSyncActivity(
+                    "item_price_history_vault_pull",
+                    "fail",
+                    "auto-merge write failed (lastPull restored): " +
+                      String(_amIphErr.message || _amIphErr)
+                  );
+                  updateSyncStatusIndicator("error", "Sync incomplete");
+                  return;
+                }
+                if (_amIph.failed) {
+                  // STRK-224: restore unconditionally — a null snapshot (first-ever
+                  // pull) is a valid reset that re-enables the retry path.
+                  syncSetLastPull(_amPriorLastPull);
+                  logCloudSyncActivity(
+                    "item_price_history_vault_pull",
+                    "fail",
+                    "auto-merge transient failure (lastPull restored)"
+                  );
+                  updateSyncStatusIndicator("error", "Sync incomplete");
+                  return;
+                }
+                if (_amIph.hash) {
+                  var _amIphPrevPull = syncGetLastPull() || {};
+                  _amIphPrevPull.itemPriceHistoryHash = _amIph.hash;
+                  syncSetLastPull(_amIphPrevPull);
+                }
+              }
               // Push to update remote manifest with local-only keys
               if (
                 _appliedCount < manifestSettingsDiff.changed.length &&
@@ -3947,6 +5051,10 @@ async function pullWithPreview(remoteMeta) {
           // This keeps _syncRemoteChangeActive=true (set by handleRemoteChange)
           // until the full pull is applied, preventing a concurrent push from
           // racing and overwriting the remote vault with stale local data.
+          // STRK-224: capture the deferred-restore result so a post-apply companion
+          // failure (which already set "Sync incomplete" and restored lastPull for
+          // retry) is not masked by the idle status update below.
+          var _dvManifestResult;
           await new Promise(function (resolveModal) {
             DiffModal.show({
               source: { type: "sync", label: _syncProvider || "Cloud" },
@@ -3963,9 +5071,11 @@ async function pullWithPreview(remoteMeta) {
                 // Deferred: download full vault, decrypt, selective apply.
                 // Resolve after _deferredVaultRestore completes so the caller
                 // keeps _syncRemoteChangeActive=true until pull is fully applied.
-                _deferredVaultRestore(token, password, remoteMeta, selectedChanges).finally(
-                  resolveModal
-                );
+                _deferredVaultRestore(token, password, remoteMeta, selectedChanges)
+                  .then(function (r) {
+                    _dvManifestResult = r;
+                  })
+                  .finally(resolveModal);
               },
               onCancel: function () {
                 debugLog("[CloudSync] Manifest preview cancelled — no vault download");
@@ -3973,7 +5083,9 @@ async function pullWithPreview(remoteMeta) {
               },
             });
           });
-          updateSyncStatusIndicator("idle", "just now");
+          if (!(_dvManifestResult && _dvManifestResult.companionFailed)) {
+            updateSyncStatusIndicator("idle", "just now");
+          }
           return; // manifest path succeeded — skip vault-first path
         }
       }
@@ -4033,14 +5145,14 @@ async function pullWithPreview(remoteMeta) {
       if (remotePayload.data) {
         var _rsKeys = Object.keys(remotePayload.data);
         for (var rs = 0; rs < _rsKeys.length; rs++) {
-          if (_rsKeys[rs] !== "metalInventory" && !_isTagSyncKey(_rsKeys[rs])) {
+          if (_rsKeys[rs] !== "metalInventory" && !_isManagedSyncKey(_rsKeys[rs])) {
             remoteSettings[_rsKeys[rs]] = remotePayload.data[_rsKeys[rs]];
           }
         }
       }
       if (typeof SYNC_SCOPE_KEYS !== "undefined") {
         for (var i = 0; i < SYNC_SCOPE_KEYS.length; i++) {
-          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || _isTagSyncKey(SYNC_SCOPE_KEYS[i]))
+          if (SYNC_SCOPE_KEYS[i] === "metalInventory" || _isManagedSyncKey(SYNC_SCOPE_KEYS[i]))
             continue;
           // STAK-497: Use raw localStorage.getItem to match vault payload format.
           // loadDataSync JSON-parses values, which fails for scalar settings
@@ -4175,6 +5287,72 @@ async function pullWithPreview(remoteMeta) {
           "vault-first silent"
         );
         if (_vfSpAttachResult.hash) _previewPullMeta.attachmentHash = _vfSpAttachResult.hash;
+        // STRK-147: Vault-first silent-pull — item-price-history companion vault.
+        // No item diff, so acceptedUuids = current local inventory UUIDs.
+        var _vfSpIph;
+        try {
+          _vfSpIph = await _pullItemPriceHistoryVault(
+            remoteMeta,
+            token,
+            password,
+            "vault-first silent",
+            _currentInventoryUuids()
+          );
+        } catch (_vfSpIphErr) {
+          // STRK-224 (Edge 3): a strict-write throw on this no-diff vault-first silent
+          // path must NOT escape into the outer fallback (which could record syncId
+          // without the companion hash). The record below has not run yet, so the
+          // watermark is held stale — bail cleanly so the next poll retries.
+          console.warn(
+            "[CloudSync] Vault-first silent-pull: item-price-history write failed — holding lastPull stale:",
+            String(_vfSpIphErr.message || _vfSpIphErr)
+          );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "item-price-history write failed — pull held for retry (vault-first silent): " +
+              String(_vfSpIphErr.message || _vfSpIphErr)
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
+        if (_vfSpIph.failed) {
+          // STRK-224 (Edge 2/AC-5): transient companion failure on the vault-first
+          // silent path — hold lastPull stale (do NOT record) so the next poll
+          // retries. _previewPullMeta is left for the next pull cycle to overwrite.
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "item-price-history transient failure — pull held for retry (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
+        if (_vfSpIph.hash) _previewPullMeta.itemPriceHistoryHash = _vfSpIph.hash;
+        // STRK-223 (Codex review, PR #1313): a clear-only change has no companion
+        // and an excluded settings diff, so it reaches this silent branch with an
+        // empty diff. Reconcile the watermark BEFORE recording the pull — otherwise
+        // the cleared entries survive locally and the recorded syncId blocks retry.
+        try {
+          _mergeItemPriceClearWatermark(remotePayload.data);
+        } catch (_vfWmErr) {
+          // STRK-223 (Codex review): a clear-watermark write failure (e.g. quota) holds
+          // lastPull so the next poll retries — do not record this silent pull.
+          console.warn(
+            "[CloudSync] Vault-first silent: clear-watermark apply failed — holding lastPull:",
+            String(_vfWmErr.message || _vfWmErr)
+          );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "clear-watermark write failed — pull held (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
@@ -4182,6 +5360,12 @@ async function pullWithPreview(remoteMeta) {
         return;
       }
 
+      // STRK-224 (Edge 3, D-3): capture the FULL prior lastPull BEFORE the modal,
+      // i.e. before showRestorePreviewModal.onApply runs _applyAndFinalize (which
+      // advances syncId) and before the `!shownPromise` direct-restore fallback.
+      // The post-apply companion block below restores it on a failure/throw — a
+      // snapshot taken at that block would already be after the syncId advance.
+      var _vfPriorLastPull = syncGetLastPull();
       // STAK-406: shownPromise resolves only after user completes Apply/Cancel,
       // keeping _syncRemoteChangeActive=true until the pull is fully applied.
       var shownPromise = showRestorePreviewModal(
@@ -4191,6 +5375,9 @@ async function pullWithPreview(remoteMeta) {
         remoteMeta,
         conflicts
       );
+      // STRK-147: track whether the user applied (vs cancelled) the diff so the
+      // companion item-price-history merge below runs only on apply.
+      var _vfApplied = false;
       if (!shownPromise) {
         // Modal not in DOM — fall back to direct restore (try all key variants)
         debugLog("[CloudSync] Preview modal unavailable — falling back to direct restore");
@@ -4199,64 +5386,156 @@ async function pullWithPreview(remoteMeta) {
         await restoreVaultData(fbPayload2);
         syncSetLastPull(_previewPullMeta);
         _previewPullMeta = null;
+        _vfApplied = true; // Direct fallback restore is an unconditional apply.
       } else {
-        await shownPromise;
+        _vfApplied = (await shownPromise) === true;
       }
 
-      // STAK-497: Pull image vault after vault-first DiffModal or fallback restore.
-      // showRestorePreviewModal's onApply only handles items + settings — not images.
-      try {
-        if (
-          remoteMeta &&
-          remoteMeta.imageVault &&
-          typeof vaultDecryptAndRestoreImages === "function"
-        ) {
-          var _vfLastPull = syncGetLastPull();
-          var _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
-          if (remoteMeta.imageVault.hash !== _vfLocalHash) {
-            debugLog("[CloudSync] Vault-first path: pulling image vault");
-            var _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-            var _vfImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-              method: "POST",
-              headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _vfImgArg },
-            });
-            if (_vfImgResp.ok) {
-              var _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
-              var _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
-              debugLog(
-                "[CloudSync] Vault-first path: image vault restored:",
-                _vfRestored,
-                "photos"
-              );
-              logCloudSyncActivity(
-                "image_vault_pull",
-                "success",
-                (_vfRestored || "?") + " photos restored (vault-first path)"
-              );
-              // Update pull meta with image hash
-              var _vfPullMeta = syncGetLastPull();
-              if (_vfPullMeta) {
-                _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
-                syncSetLastPull(_vfPullMeta);
+      // STAK-497 / STRK-225: Pull image vault after vault-first DiffModal or
+      // fallback restore — ONLY on apply. showRestorePreviewModal's onApply
+      // handles items + settings, not images. Gating on _vfApplied mirrors the
+      // companion item-price-history block below: on a CANCEL, advancing
+      // lastPull.imageHash would block a later accept from re-pulling the photos
+      // (STRK-200's guard skips them, but the stale hash persists).
+      if (_vfApplied) {
+        try {
+          if (
+            remoteMeta &&
+            remoteMeta.imageVault &&
+            typeof vaultDecryptAndRestoreImages === "function"
+          ) {
+            const _vfLastPull = syncGetLastPull();
+            const _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
+            if (remoteMeta.imageVault.hash !== _vfLocalHash) {
+              debugLog("[CloudSync] Vault-first path: pulling image vault");
+              const _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+              const _vfImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
+                method: "POST",
+                headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _vfImgArg },
+              });
+              if (_vfImgResp.ok) {
+                const _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
+                const _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
+                debugLog(
+                  "[CloudSync] Vault-first path: image vault restored:",
+                  _vfRestored,
+                  "photos"
+                );
+                logCloudSyncActivity(
+                  "image_vault_pull",
+                  "success",
+                  (_vfRestored || "?") + " photos restored (vault-first path)"
+                );
+                // Update pull meta with image hash
+                const _vfPullMeta = syncGetLastPull();
+                if (_vfPullMeta) {
+                  _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
+                  syncSetLastPull(_vfPullMeta);
+                }
               }
             }
           }
+        } catch (_vfImgErr) {
+          debugLog(
+            "[CloudSync] Vault-first path: image vault failed (non-blocking):",
+            _vfImgErr.message
+          );
+          logCloudSyncActivity(
+            "image_vault_pull",
+            "fail",
+            "Vault-first path: " + _vfImgErr.message
+          );
         }
-      } catch (_vfImgErr) {
+      } else {
         debugLog(
-          "[CloudSync] Vault-first path: image vault failed (non-blocking):",
-          _vfImgErr.message
+          "[CloudSync] Vault-first path: diff cancelled — skipping image vault pull (STRK-225)"
         );
-        logCloudSyncActivity("image_vault_pull", "fail", "Vault-first path: " + _vfImgErr.message);
       }
-      // STRK-45/STRK-65: Vault-first DiffModal post-restore — attachment vault
-      var _vfAttachResult = await _pullAttachmentVault(remoteMeta, token, password, "vault-first");
-      if (_vfAttachResult.hash) {
-        var _vfAttachPullMeta = syncGetLastPull();
-        if (_vfAttachPullMeta) {
-          _vfAttachPullMeta.attachmentHash = _vfAttachResult.hash;
-          syncSetLastPull(_vfAttachPullMeta);
+      // STRK-45/STRK-65: Vault-first DiffModal post-restore — attachment vault.
+      // STRK-225: gated on apply for the same reason as the image vault above —
+      // a CANCEL must not pull attachments or advance lastPull.attachmentHash
+      // (a stale hash would block a later accept from re-pulling them).
+      if (_vfApplied) {
+        const _vfAttachResult = await _pullAttachmentVault(
+          remoteMeta,
+          token,
+          password,
+          "vault-first"
+        );
+        if (_vfAttachResult.hash) {
+          const _vfAttachPullMeta = syncGetLastPull();
+          if (_vfAttachPullMeta) {
+            _vfAttachPullMeta.attachmentHash = _vfAttachResult.hash;
+            syncSetLastPull(_vfAttachPullMeta);
+          }
         }
+      } else {
+        debugLog(
+          "[CloudSync] Vault-first path: diff cancelled — skipping attachment vault pull (STRK-225)"
+        );
+      }
+      // STRK-147: Vault-first DiffModal post-restore — item-price-history vault.
+      // The DiffModal apply has already mutated local inventory, so the
+      // post-apply inventory UUIDs are the accepted-Item boundary (D-6). Skip the
+      // merge entirely when the user CANCELLED the diff — merging companion
+      // history (and advancing lastPull.itemPriceHistoryHash) after a cancel would
+      // import remote history the user explicitly declined (Codex P2).
+      if (_vfApplied) {
+        // STRK-224 (Edge 3, D-3): on a transient failure OR a write throw, restore
+        // the pre-apply lastPull (_applyAndFinalize already advanced syncId at the
+        // onApply step) so the next poll retries (AC-7/AC-8 vault-first).
+        var _vfIph;
+        try {
+          _vfIph = await _pullItemPriceHistoryVault(
+            remoteMeta,
+            token,
+            password,
+            "vault-first",
+            _currentInventoryUuids()
+          );
+        } catch (_vfIphErr) {
+          // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+          // is a valid reset that re-enables the retry path.
+          syncSetLastPull(_vfPriorLastPull);
+          console.warn(
+            "[CloudSync] Vault-first path: item-price-history merge write failed — restoring prior lastPull:",
+            String(_vfIphErr.message || _vfIphErr)
+          );
+          logCloudSyncActivity(
+            "item_price_history_vault_pull",
+            "fail",
+            "vault-first write failed (lastPull restored): " +
+              String(_vfIphErr.message || _vfIphErr)
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          // STRK-224: return so the trailing idle-status (end of pullWithPreview)
+          // does not overwrite "Sync incomplete" — mirrors the manifest-first and
+          // auto-merge failure paths, which also return early.
+          return;
+        }
+        if (_vfIph && _vfIph.failed) {
+          // STRK-224: restore unconditionally — a null snapshot (first-ever pull)
+          // is a valid reset that re-enables the retry path.
+          syncSetLastPull(_vfPriorLastPull);
+          logCloudSyncActivity(
+            "item_price_history_vault_pull",
+            "fail",
+            "vault-first transient failure (lastPull restored)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          // STRK-224: return to preserve the error status (see catch above).
+          return;
+        } else if (_vfIph && _vfIph.hash) {
+          var _vfIphPullMeta = syncGetLastPull();
+          if (_vfIphPullMeta) {
+            _vfIphPullMeta.itemPriceHistoryHash = _vfIph.hash;
+            syncSetLastPull(_vfIphPullMeta);
+          }
+        }
+      } else {
+        debugLog(
+          "[CloudSync] Vault-first path: diff cancelled — skipping item-price-history merge"
+        );
       }
     } catch (decryptErr) {
       // Decryption or diff failed — offer fallback
@@ -4457,6 +5736,12 @@ function initCloudSync() {
     console.warn("[CloudSync] Skipping init — app initialization failed");
     return;
   }
+  // STRK-157: repair any "[object Object]"-corrupt scope keys before sync compares
+  // hashes — this corruption can't self-heal via convergent compare, so clear it
+  // once at boot (idempotent). Runs even when sync is disabled so a later enable
+  // starts clean.
+  syncBootRepairCorruptSettings();
+
   // Initialize multi-tab coordination (Layer 7)
   initSyncTabCoordination();
 
@@ -4622,6 +5907,7 @@ window.getSyncPasswordSilent = getSyncPasswordSilent;
 window.syncIsEnabled = syncIsEnabled;
 window.syncSaveOverrideBackup = syncSaveOverrideBackup;
 window.syncRestoreOverrideBackup = syncRestoreOverrideBackup;
+window.syncBootRepairCorruptSettings = syncBootRepairCorruptSettings;
 window.changeVaultPassword = changeVaultPassword;
 window.syncGetLastPush = syncGetLastPush;
 window._syncRelativeTime = _syncRelativeTime;
@@ -4630,4 +5916,6 @@ if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostnam
   window.CloudSyncTest.hasTagChanges = _hasTagChanges;
   window.CloudSyncTest.mergeTagData = _mergeTagData;
   window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
+  window.CloudSyncTest.mergeItemPriceClearWatermark = _mergeItemPriceClearWatermark;
+  window.CloudSyncTest.hasItemPriceClearChange = _hasItemPriceClearChange;
 }

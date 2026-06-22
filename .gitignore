@@ -3,59 +3,6 @@
 .AppleDouble
 .LSOverride
 
-# AI tooling & personal config
-# Keep local runtime state ignored while tracking project instruction/config sources
-# needed by Agentlinter and cross-agent workflows.
-.claude/*
-!.claude/project.json
-!.claude/settings.json
-!.claude/agents/
-!.claude/hooks/
-!.claude/skills/
-.claude/agents/*
-!.claude/agents/*.md
-.claude/hooks/*
-!.claude/hooks/*.py
-!.claude/hooks/*.json
-.claude/skills/*
-!.claude/skills/*/
-.claude/skills/*/*
-!.claude/skills/*/SKILL.md
-!.claude/skills/*/*.py
-.opencode/**
-!.opencode/commands/
-!.opencode/commands/*.md
-.specflow/**
-!.specflow/config.json
-.spec-workflow/
-.agents/*
-!.agents/skills/
-.agents/skills/*
-!.agents/skills/*/
-.agents/skills/*/*
-!.agents/skills/*/SKILL.md
-!.agents/skills/*/*.py
-.mcp.json
-tui.json
-SPRINT.md
-
-# Internal dev docs (not for public repo)
-docs/CLOUD-SYNC-DESIGN.md
-docs/UI-WIREFRAME.md
-
-# Internal dev scripts
-versionbump.py
-generate-seed-data.py
-
-# Jules AI agent artifacts — journals (.md) are tracked, scripts/screenshots are not
-.jules/*
-!.jules/*.md
-.Jules/*
-!.Jules/*.md
-verification/
-modify_*.py
-verify_*.py
-
 # Node modules (if added in future)
 node_modules/
 npm-debug.log*
@@ -94,28 +41,40 @@ devops/cgc/
 devops/claude-backup/
 devops/firecrawl-docker/
 
+# Version lock — main-checkout-only mutex for version claims.
+# Must NOT follow worktrees: copies would conflict every bump and break the claim.
+devops/version.lock
+
+# Webscale wspc cookie store (STRK-230) — holds live bot-clearance cookies.
+# Never commit. On the home poller WEBSCALE_COOKIE_FILE points outside the repo;
+# this guard catches the module-local default too.
+webscale-cookies.json
+
 # Playwright test artifacts
 test-results/
 playwright-report/
 
 # AI/MCP configuration files are tracked for project consistency
 .firecrawl/
-
-# Version lock — transient runtime file, not project history
-devops/version.lock
-
-# Local DevOps hub — machine-specific links and report archive, not tracked
-devops/hub/
+.antigravitycli/
 
 # Git worktrees for isolated agent work — content dirs are transient, not project history
 .worktrees/
-
-# Wiki nightwatch — local rotation state, not project history
-wiki/.nightwatch-log.json
-.playwright-mcp/
-
-# Antigravity CLI — symlinks to user's home ~/.gemini/config/projects/, per-user state
-.antigravitycli/
+.claude/worktrees/
 
 # Claude read tracker — session-scoped UUID-named read history, not project history
 claude-read-tracker/
+
+# Specflow transient run state — only config.json is tracked.
+.specflow/**
+!.specflow/config.json
+
+# Local agent overrides — *.local.* files are per-machine, never shared
+# (e.g. settings.local.json, hookify *.local.md). Shared config has no .local. infix.
+.claude/**/*.local.*
+
+# MCP config — per-user server commands/env may carry credentials
+# (Plane/GitHub/Infisical tokens); never tracked. .playwright-mcp/ is a transient
+# browser-session dir, not project history.
+.mcp.json
+.playwright-mcp/

@@ -294,6 +294,83 @@ function sectionHeadings(page) {
 }
 
 test.describe("core/disposition", () => {
+  // STRK-170 characterization: pin confirmRemoveItem's three observable paths
+  // (plain delete, full disposition, validation reject) before the complexity
+  // refactor. Green on current code; goes red only if the refactor changes
+  // observable behavior (inventory mutation, changelog, modal state).
+  test("STRK-170: confirmRemoveItem path characterization (delete / dispose / reject)", async ({
+    page,
+  }) => {
+    const baseCoin = (over) => ({
+      metal: "Silver",
+      composition: "Silver",
+      qty: 1,
+      type: "Coin",
+      weight: 1,
+      weightUnit: "oz",
+      price: 30,
+      purity: 0.999,
+      ...over,
+    });
+    await seedDispositionData(page, {
+      inventory: [
+        baseCoin({ uuid: "strk170-del", name: "STRK-170 Delete Me" }),
+        baseCoin({ uuid: "strk170-sell", name: "STRK-170 Sell Me" }),
+        baseCoin({ uuid: "strk170-reject", name: "STRK-170 Reject Me" }),
+      ],
+    });
+    await gotoApp(page);
+
+    // (a) Plain delete: open the remove modal with dispose unchecked, click Delete.
+    await page.evaluate(() => window.openRemoveItemModal(0, false));
+    await expect(page.locator("#removeItemModal")).toBeVisible();
+    await page.locator("#removeItemDeleteBtn").click();
+    await expect(page.locator("#removeItemModal")).toBeHidden();
+    const afterDelete = await page.evaluate(() => ({
+      names: window.inventory.map((i) => i.name),
+      storedLen: JSON.parse(localStorage.getItem("metalInventory")).length,
+      fields: JSON.parse(localStorage.getItem("changeLog") || "[]").map((e) => e.field),
+    }));
+    expect(afterDelete.names).not.toContain("STRK-170 Delete Me");
+    expect(afterDelete.storedLen).toBe(2);
+    expect(afterDelete.fields).toContain("Deleted");
+
+    // (b) Full disposition (sold): full qty disposed -> item retained + disposition set.
+    const sellIdx = await page.evaluate(() =>
+      window.inventory.findIndex((i) => i.uuid === "strk170-sell")
+    );
+    await openDisposeModal(page, sellIdx);
+    await fillDisposeFields(page, { type: "sold", date: "2026-05-01", amount: "90" });
+    await confirmDispose(page);
+    const afterDispose = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.uuid === "strk170-sell");
+      return {
+        present: !!it,
+        type: it?.disposition?.type,
+        hasAmount: typeof it?.disposition?.amount === "number",
+        fields: JSON.parse(localStorage.getItem("changeLog") || "[]").map((e) => e.field),
+      };
+    });
+    expect(afterDispose.present).toBe(true);
+    expect(afterDispose.type).toBe("sold");
+    expect(afterDispose.hasAmount).toBe(true);
+    expect(afterDispose.fields).toContain("Disposed");
+
+    // (c) Validation reject: dispose with a cleared date -> early return, no mutation.
+    const rejectIdx = await page.evaluate(() =>
+      window.inventory.findIndex((i) => i.uuid === "strk170-reject")
+    );
+    await openDisposeModal(page, rejectIdx);
+    await page.selectOption("#dispositionType", "sold");
+    await page.fill("#dispositionDate", "");
+    await page.locator("#removeItemDisposeBtn").click();
+    await expect(page.locator("#removeItemModal")).toBeVisible();
+    const stillUndisposed = await page.evaluate(
+      () => !window.inventory.find((i) => i.uuid === "strk170-reject")?.disposition
+    );
+    expect(stillUndisposed).toBe(true);
+  });
+
   test("partial dispose creates an adjacent split clone with inherited cost metadata", async ({
     page,
   }) => {
@@ -634,6 +711,44 @@ test.describe("core/disposition", () => {
     expect(wrapperCount).toBe(0);
   });
 
+  test("empty-disposition items stay active across filter modes, badge, and styling (STRK-83)", async ({
+    page,
+  }) => {
+    // idx 0 = active, idx 1 = empty disposition {}, idx 2 = real disposed.
+    await seedDispositionData(page, {
+      inventory: [NON_DISPOSED_ITEM, EMPTY_DISPOSITION_ITEM, DISPOSED_ITEM],
+    });
+    await gotoApp(page);
+
+    const activeRow = page.locator('tr[data-idx="0"]');
+    const emptyRow = page.locator('tr[data-idx="1"]');
+    const disposedRow = page.locator('tr[data-idx="2"]');
+    const chip = (mode) =>
+      page.locator(`#disposedFilterGroup .chip-sort-btn[data-disposed-mode="${mode}"]`);
+
+    // show-all → every item renders. AC-2: the empty-disposition item carries NO
+    // disposed styling or badge, while the real disposed item still does.
+    await chip("show-all").click();
+    await expect(activeRow).toHaveCount(1);
+    await expect(emptyRow).toHaveCount(1);
+    await expect(emptyRow).not.toHaveClass(/disposed-row/);
+    await expect(emptyRow.locator(".disposition-badge")).toHaveCount(0);
+    await expect(disposedRow).toHaveClass(/disposed-row/);
+    await expect(disposedRow.locator(".disposition-badge")).toHaveCount(1);
+
+    // hide (active) mode → AC-3: empty-disposition item stays VISIBLE; real disposed hidden.
+    await chip("hide").click();
+    await expect(activeRow).toHaveCount(1);
+    await expect(emptyRow).toHaveCount(1);
+    await expect(disposedRow).toHaveCount(0);
+
+    // show-only mode → AC-3: empty-disposition item is EXCLUDED; real disposed shown.
+    await chip("show-only").click();
+    await expect(activeRow).toHaveCount(0);
+    await expect(emptyRow).toHaveCount(0);
+    await expect(disposedRow).toHaveCount(1);
+  });
+
   test("realized gain/loss visibility toggle hides, shows, and persists summary rows", async ({
     page,
   }) => {
@@ -824,5 +939,522 @@ test.describe("core/disposition", () => {
       await expect(page.locator("#viewItemModal")).toContainText("Missing item");
       await expect(page.locator("#viewItemModal")).toContainText("Trade Re-disposed");
     });
+
+    test("cost basis divides by actually-linked count, not raw input length (STRK-196)", async ({
+      page,
+    }) => {
+      // Source is Rhodium (no seeded spot) so computeTradeValue() returns null,
+      // pinning givenUpValue to disposition.amount for a deterministic divisor.
+      const TRADE_SOURCE = {
+        ...BASE_ITEM,
+        uuid: "strk196-source",
+        name: "STRK-196 Trade Source",
+        metal: "Rhodium",
+        composition: "Rhodium",
+        qty: 1,
+        serial: 7,
+        disposition: {
+          type: "traded",
+          date: "2026-01-01",
+          amount: 100,
+          realizedGainLoss: 0,
+          tradedForUuids: [],
+        },
+      };
+      const RECEIVED_ONE = {
+        ...BASE_ITEM,
+        uuid: "strk196-received-one",
+        name: "STRK-196 Received One",
+        qty: 1,
+        serial: 8,
+      };
+      const RECEIVED_TWO = {
+        ...BASE_ITEM,
+        uuid: "strk196-received-two",
+        name: "STRK-196 Received Two",
+        qty: 1,
+        serial: 9,
+      };
+
+      await seedDispositionData(page, {
+        inventory: [TRADE_SOURCE, RECEIVED_ONE, RECEIVED_TWO],
+      });
+      await gotoApp(page);
+
+      const result = await page.evaluate(async () => {
+        const source = window.inventory.find((i) => i.uuid === "strk196-source");
+        // Polluted input: a duplicate, a falsy entry, the source's own (self)
+        // uuid, and a missing uuid surround the two real received items. Only
+        // two items can actually be linked.
+        const linked = await window.linkTradeItems(
+          source,
+          [
+            "strk196-received-one",
+            "strk196-received-one",
+            "",
+            "strk196-source",
+            "strk196-missing",
+            "strk196-received-two",
+          ],
+          "2026-01-01"
+        );
+        const gutv = window.computeTradeValue(source, "2026-01-01");
+        const givenUpValue = gutv?.meltValue || parseFloat(source.disposition.amount) || 0;
+        const one = window.inventory.find((i) => i.uuid === "strk196-received-one");
+        const two = window.inventory.find((i) => i.uuid === "strk196-received-two");
+        return {
+          linked,
+          tradedForUuids: source.disposition.tradedForUuids,
+          givenUpValue,
+          priceOne: one.price,
+          priceTwo: two.price,
+          tradeLinkEntries: window.changeLog.filter(
+            (entry) => entry.field === "tradeLink" && entry.itemKey === "strk196-source"
+          ).length,
+        };
+      });
+
+      // Only the two unique, resolvable, non-self received items are linked.
+      expect(result.linked).toEqual(["strk196-received-one", "strk196-received-two"]);
+      expect(result.tradedForUuids).toEqual(["strk196-received-one", "strk196-received-two"]);
+
+      // Cost basis splits the given-up value by the 2 actually-linked items —
+      // each received item carries half — NOT by the raw 6-entry input length
+      // (which would dilute each to a sixth). Relational assertion is immune to
+      // the exact melt-value formula: price * linkedCount must equal givenUpValue.
+      expect(result.givenUpValue).toBeGreaterThan(0);
+      expect(result.priceOne).toBe(result.priceTwo);
+      expect(parseFloat(result.priceOne) * 2).toBeCloseTo(result.givenUpValue, 5);
+
+      // The duplicated input uuid must not emit a redundant trade-link row.
+      expect(result.tradeLinkEntries).toBe(2);
+    });
+
+    test("edit-add re-balances the whole trade so basis sums to given-up value (STRK-229)", async ({
+      page,
+    }) => {
+      // Rhodium source has no seeded spot, so computeTradeValue() returns null and
+      // givenUpValue pins to disposition.amount ($100) for a deterministic divisor.
+      const TRADE_SOURCE = {
+        ...BASE_ITEM,
+        uuid: "strk229-add-source",
+        name: "STRK-229 Add Source",
+        metal: "Rhodium",
+        composition: "Rhodium",
+        qty: 1,
+        serial: 21,
+        disposition: {
+          type: "traded",
+          date: "2026-01-01",
+          amount: 100,
+          realizedGainLoss: 0,
+          tradedForUuids: [],
+        },
+      };
+      const mkReceived = (n) => ({
+        ...BASE_ITEM,
+        uuid: `strk229-add-${n}`,
+        name: `STRK-229 Add ${n}`,
+        qty: 1,
+        serial: 21 + n,
+      });
+
+      await seedDispositionData(page, {
+        inventory: [TRADE_SOURCE, mkReceived(1), mkReceived(2), mkReceived(3)],
+      });
+      await gotoApp(page);
+
+      const result = await page.evaluate(async () => {
+        const source = window.inventory.find((i) => i.uuid === "strk229-add-source");
+        // Establish the initial 2-item trade: A and B each carry half.
+        await window.linkTradeItems(source, ["strk229-add-1", "strk229-add-2"], "2026-01-01");
+        const priceRowsBefore = window.changeLog.filter((e) => e.field === "price").length;
+        // Edit the trade to add a third received item.
+        await window.updateTradeLinks(source, ["strk229-add-1", "strk229-add-2", "strk229-add-3"]);
+        const find = (u) => window.inventory.find((i) => i.uuid === u);
+        const gutv = window.computeTradeValue(source, "2026-01-01");
+        const givenUpValue = gutv?.meltValue || parseFloat(source.disposition.amount) || 0;
+        return {
+          tradedForUuids: source.disposition.tradedForUuids,
+          givenUpValue,
+          priceA: find("strk229-add-1").price,
+          priceB: find("strk229-add-2").price,
+          priceC: find("strk229-add-3").price,
+          priceRowsAdded:
+            window.changeLog.filter((e) => e.field === "price").length - priceRowsBefore,
+        };
+      });
+
+      expect(result.tradedForUuids).toEqual(["strk229-add-1", "strk229-add-2", "strk229-add-3"]);
+      // Every linked item carries an equal third of the given-up value...
+      expect(result.priceA).toBe(result.priceB);
+      expect(result.priceB).toBe(result.priceC);
+      // ...and the allocation sums back to the given-up value (no inflation).
+      expect(result.givenUpValue).toBeCloseTo(100, 5);
+      expect(parseFloat(result.priceA) * 3).toBeCloseTo(result.givenUpValue, 5);
+      // Exactly the two originals are re-priced (one row each); the newly-added
+      // item is priced in its own trade-link row, not a redundant price row.
+      expect(result.priceRowsAdded).toBe(2);
+    });
+
+    test("edit-remove re-inflates the remaining trade items to the given-up value (STRK-229)", async ({
+      page,
+    }) => {
+      const TRADE_SOURCE = {
+        ...BASE_ITEM,
+        uuid: "strk229-rm-source",
+        name: "STRK-229 Remove Source",
+        metal: "Rhodium",
+        composition: "Rhodium",
+        qty: 1,
+        serial: 31,
+        disposition: {
+          type: "traded",
+          date: "2026-01-01",
+          amount: 100,
+          realizedGainLoss: 0,
+          tradedForUuids: [],
+        },
+      };
+      const mkReceived = (n) => ({
+        ...BASE_ITEM,
+        uuid: `strk229-rm-${n}`,
+        name: `STRK-229 Remove ${n}`,
+        qty: 1,
+        serial: 31 + n,
+      });
+
+      await seedDispositionData(page, {
+        inventory: [TRADE_SOURCE, mkReceived(1), mkReceived(2), mkReceived(3)],
+      });
+      await gotoApp(page);
+
+      const result = await page.evaluate(async () => {
+        const source = window.inventory.find((i) => i.uuid === "strk229-rm-source");
+        // Establish a 3-item trade: each carries a third.
+        await window.linkTradeItems(
+          source,
+          ["strk229-rm-1", "strk229-rm-2", "strk229-rm-3"],
+          "2026-01-01"
+        );
+        const priceRowsBefore = window.changeLog.filter((e) => e.field === "price").length;
+        // Edit the trade to drop the third received item.
+        await window.updateTradeLinks(source, ["strk229-rm-1", "strk229-rm-2"]);
+        const find = (u) => window.inventory.find((i) => i.uuid === u);
+        const gutv = window.computeTradeValue(source, "2026-01-01");
+        const givenUpValue = gutv?.meltValue || parseFloat(source.disposition.amount) || 0;
+        return {
+          tradedForUuids: source.disposition.tradedForUuids,
+          givenUpValue,
+          priceA: find("strk229-rm-1").price,
+          priceB: find("strk229-rm-2").price,
+          droppedBackRef: find("strk229-rm-3").tradedFromUuid || null,
+          priceRowsAdded:
+            window.changeLog.filter((e) => e.field === "price").length - priceRowsBefore,
+        };
+      });
+
+      // The dropped item is fully unlinked from the trade.
+      expect(result.tradedForUuids).toEqual(["strk229-rm-1", "strk229-rm-2"]);
+      expect(result.droppedBackRef).toBeNull();
+      // The two survivors split the given-up value evenly and sum back to it.
+      expect(result.priceA).toBe(result.priceB);
+      expect(result.givenUpValue).toBeCloseTo(100, 5);
+      expect(parseFloat(result.priceA) * 2).toBeCloseTo(result.givenUpValue, 5);
+      // Both survivors are re-priced — one row each.
+      expect(result.priceRowsAdded).toBe(2);
+    });
+  });
+});
+
+test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () => {
+  // Pin js/changeLog.js toggleChange (field-dispatch) and confirmCascadeUndo
+  // (two-phase-commit rollback / drift downgrade / fallback) BEFORE the
+  // complexity refactor. Green on current code; goes red only if the refactor
+  // changes observable behavior (inventory/changeLog mutation, undo state,
+  // result contract). Undo-critical — these are the surfaces the helper
+  // extraction most risks.
+
+  test("STRK-170: toggleChange scalar-field undo/redo round-trip", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [{ ...BASE_ITEM, notes: "edited" }] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      window.changeLog = [
+        { idx: 0, field: "notes", oldValue: "original", newValue: "edited", undone: false },
+      ];
+      const out = {};
+      await window.toggleChange(0); // undo → restore oldValue
+      out.afterUndo = window.inventory[0].notes;
+      out.undoneAfterUndo = window.changeLog[0].undone;
+      await window.toggleChange(0); // redo → re-apply newValue
+      out.afterRedo = window.inventory[0].notes;
+      out.undoneAfterRedo = window.changeLog[0].undone;
+      return out;
+    });
+
+    expect(result.afterUndo).toBe("original");
+    expect(result.undoneAfterUndo).toBe(true);
+    expect(result.afterRedo).toBe("edited");
+    expect(result.undoneAfterRedo).toBe(false);
+  });
+
+  test("STRK-170: toggleChange Deleted-undo restores, Added-undo removes", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      // "Deleted" entry, undone=false → undo restores the snapshot at idx
+      const delSnapshot = {
+        uuid: "del-1",
+        metal: "Silver",
+        name: "Deleted Coin",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        weightUnit: "oz",
+        price: 10,
+      };
+      window.inventory = [];
+      window.changeLog = [
+        { field: "Deleted", idx: 0, oldValue: JSON.stringify(delSnapshot), undone: false },
+      ];
+      await window.toggleChange(0);
+      const afterDeletedUndo = {
+        len: window.inventory.length,
+        name: window.inventory[0] ? window.inventory[0].name : null,
+        undone: window.changeLog[0].undone,
+      };
+
+      // "Added" entry, undone=false → undo removes the item and snapshots it for redo
+      const addItem = {
+        uuid: "add-1",
+        metal: "Gold",
+        name: "Added Coin",
+        qty: 1,
+        type: "Coin",
+        weight: 1,
+        weightUnit: "oz",
+        price: 100,
+      };
+      window.inventory = [addItem];
+      window.changeLog = [{ field: "Added", idx: 0, undone: false }];
+      await window.toggleChange(0);
+      const afterAddedUndo = {
+        len: window.inventory.length,
+        undone: window.changeLog[0].undone,
+        hasRedoSnapshot: typeof window.changeLog[0].newValue === "string",
+      };
+
+      return { afterDeletedUndo, afterAddedUndo };
+    });
+
+    expect(result.afterDeletedUndo).toEqual({ len: 1, name: "Deleted Coin", undone: true });
+    expect(result.afterAddedUndo.len).toBe(0);
+    expect(result.afterAddedUndo.undone).toBe(true);
+    expect(result.afterAddedUndo.hasRedoSnapshot).toBe(true);
+  });
+
+  test("STRK-170: toggleChange guards are no-ops (neutralized / attachment / missing)", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [{ ...BASE_ITEM, notes: "untouched" }] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      const out = {};
+
+      // neutralized entry → early return, no mutation
+      window.inventory[0].notes = "untouched";
+      window.changeLog = [
+        { idx: 0, field: "notes", oldValue: "old", newValue: "untouched", neutralized: true },
+      ];
+      await window.toggleChange(0);
+      out.afterNeutralized = window.inventory[0].notes;
+      out.neutralizedUndoneUntouched = window.changeLog[0].undone === undefined;
+
+      // attachment-change → early return, no scalar fall-through
+      window.changeLog = [{ idx: 0, type: "attachment-change", field: "notes", oldValue: "old" }];
+      await window.toggleChange(0);
+      out.afterAttachment = window.inventory[0].notes;
+
+      // missing entry (index out of range) → early return, no throw
+      window.changeLog = [];
+      let threw = false;
+      try {
+        await window.toggleChange(5);
+      } catch {
+        threw = true;
+      }
+      out.missingThrew = threw;
+
+      return out;
+    });
+
+    expect(result.afterNeutralized).toBe("untouched");
+    expect(result.neutralizedUndoneUntouched).toBe(true);
+    expect(result.afterAttachment).toBe("untouched");
+    expect(result.missingThrew).toBe(false);
+  });
+
+  test("STRK-170: confirmCascadeUndo rolls back on inventory-persist failure", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+    const split = await splitBaseItem(page);
+    expect(split.ok).toBe(true);
+
+    const before = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+
+    await installStorageFailMock(page, "inventory");
+    // The cascade-undo confirm dialog appears before any persist; accept it,
+    // then the inventory write fails and the function must roll back.
+    await page.evaluate((tid) => {
+      window.__ccuResult = null;
+      window.confirmCascadeUndo(tid).then((r) => {
+        window.__ccuResult = r;
+      });
+    }, split.transactionId);
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+    await page.waitForFunction(() => window.__ccuResult !== null, null, { timeout: 5000 });
+    const result = await page.evaluate(() => window.__ccuResult);
+    await restoreStorageMock(page);
+
+    expect(result.ok).toBe(false);
+    expect(result.applied).toBe("none");
+    expect(result.reason).toBe("storage_failed_inventory");
+
+    const after = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+    expect(after).toEqual(before);
+  });
+
+  test("STRK-170: confirmCascadeUndo rolls back both stores on changelog-persist failure", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+    const split = await splitBaseItem(page);
+    expect(split.ok).toBe(true);
+
+    const before = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+
+    await installStorageFailMock(page, "changelog");
+    await page.evaluate((tid) => {
+      window.__ccuResult = null;
+      window.confirmCascadeUndo(tid).then((r) => {
+        window.__ccuResult = r;
+      });
+    }, split.transactionId);
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+    await page.waitForFunction(() => window.__ccuResult !== null, null, { timeout: 5000 });
+    const result = await page.evaluate(() => window.__ccuResult);
+    await restoreStorageMock(page);
+
+    expect(result.ok).toBe(false);
+    expect(result.applied).toBe("none");
+    expect(result.reason).toBe("storage_failed_changelog");
+
+    const after = await page.evaluate(() => ({
+      invLen: window.inventory.length,
+      qtys: window.inventory.map((i) => i.qty),
+      undoneFlags: window.changeLog.map((e) => !!e.undone),
+    }));
+    expect(after).toEqual(before);
+  });
+
+  test("STRK-170: confirmCascadeUndo downgrades to single-entry undo on drift", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+    const split = await splitBaseItem(page);
+    expect(split.ok).toBe(true);
+
+    // Drift one of the four invariants: the surviving original's qty no longer
+    // matches originalQtyAfter → cascade must downgrade to single-entry undo.
+    await page.evaluate(() => {
+      const orig = window.inventory.find((i) => !i.disposition || !i.disposition.splitFromUuid);
+      if (orig) orig.qty += 5;
+    });
+
+    // runCascadeUndo accepts the (drift) confirm dialog → single-entry fallback.
+    const result = await runCascadeUndo(page, split.transactionId);
+    expect(result.ok).toBe(true);
+    expect(result.applied).toBe("single-entry");
+  });
+
+  test("STRK-170: confirmCascadeUndo with no paired entries returns no_paired_entries", async ({
+    page,
+  }) => {
+    await seedDispositionData(page, { inventory: [BASE_ITEM] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      window.changeLog = [];
+      return await window.confirmCascadeUndo("missing-transaction-id", null);
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.applied).toBe("none");
+    expect(result.reason).toBe("no_paired_entries");
+  });
+
+  // STRK-204: _undoPriceHistoryDelete must guard a corrupt oldValue snapshot the
+  // same way its sibling undo helpers do — a user-facing toast + no-op return
+  // instead of an unhandled SyntaxError. Pins the throw → graceful-toast behavior
+  // change deferred out of the behavior-preserving cohort 2.2 refactor (PR #1272).
+  test("STRK-204: priceHistoryDelete undo fails safe on corrupt snapshot", async ({ page }) => {
+    await seedDispositionData(page, { inventory: [] });
+    await gotoApp(page);
+
+    const result = await page.evaluate(async () => {
+      // The helper calls the global showToast (utils.js); stub it to capture calls.
+      const toasts = [];
+      window.showToast = (msg) => toasts.push(msg);
+
+      // Every corrupt shape must fail safe: unparseable JSON, parseable-but-null,
+      // an empty object, and a structurally-incomplete snapshot (missing entry).
+      // Each routes through toggleChange → _undoPriceHistoryDelete.
+      const corruptPayloads = [
+        "{not-json",
+        "null",
+        "{}",
+        JSON.stringify({ uuid: "missing-entry" }),
+      ];
+      const out = [];
+      for (const oldValue of corruptPayloads) {
+        window.changeLog = [{ field: "priceHistoryDelete", oldValue, undone: false }];
+        let threw = false;
+        try {
+          await window.toggleChange(0);
+        } catch {
+          threw = true;
+        }
+        out.push({ oldValue, threw, undone: window.changeLog[0].undone });
+      }
+      return { out, toasts };
+    });
+
+    for (const r of result.out) {
+      expect(r.threw, `payload ${r.oldValue} must not throw`).toBe(false);
+      expect(r.undone, `payload ${r.oldValue} must not flip undone`).toBe(false);
+    }
+    // One toast per corrupt payload, none mutated.
+    expect(result.toasts).toEqual(
+      result.out.map(() => "Undo failed — corrupt price-history snapshot.")
+    );
   });
 });

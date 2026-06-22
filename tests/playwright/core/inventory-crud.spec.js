@@ -685,6 +685,58 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemPaymentMethod")).toHaveValue("PayPal");
   });
 
+  test("STRK-170: applyBulkEdit field-application across types (characterization)", async ({
+    page,
+  }) => {
+    // Pins applyBulkEdit's per-field application semantics before the cohort-3.3
+    // complexity refactor: plain text passthrough, numeric clamp coercion,
+    // custom-purity acceptance, and gram→ozt weight-unit conversion. The
+    // produced per-item values must be identical before and after the refactor.
+    await seedData(page, [
+      makeItem({ serial: 1, name: "STRK-170 Bulk A", weight: 1, weightUnit: "oz" }),
+      makeItem({ serial: 2, name: "STRK-170 Bulk B", weight: 1, weightUnit: "oz" }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+    await page.getByRole("button", { name: "Select All" }).click();
+
+    // Plain text field: name passes through verbatim.
+    await page.click("#bulkField_name");
+    await page.fill("#bulkFieldVal_name", "Renamed Eagle");
+
+    // Numeric coercion: negative price clamps to 0.
+    await page.click("#bulkField_price");
+    await page.fill("#bulkFieldVal_price", "-5");
+
+    // Custom purity path: a non-preset value flows through the custom input.
+    await page.click("#bulkField_purity");
+    await page.selectOption("#bulkFieldVal_purity", "custom");
+    await page.fill("#bulkFieldVal_purityCustom", "0.835");
+
+    // Weight + gram unit: 31.1034768 g → 1 ozt (gramsToOzt conversion).
+    await page.click("#bulkField_weight");
+    await page.click("#bulkField_weightUnit");
+    await page.selectOption("#bulkFieldVal_weightUnit", "g");
+    await page.fill("#bulkFieldVal_weight", "31.1034768");
+
+    await page.getByRole("button", { name: /Apply Changes/ }).click();
+    await page.click("#bulkConfirmOkBtn");
+    await expect(page.locator("#bulkConfirmModal")).toBeHidden();
+
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+    expect(stored.length).toBe(2);
+    stored.forEach((item) => {
+      expect(item.name).toBe("Renamed Eagle");
+      expect(item.price).toBe(0);
+      expect(Number(item.purity)).toBeCloseTo(0.835, 4);
+      // gram→ozt conversion: 31.1034768 g is exactly 1 troy ounce.
+      expect(Number(item.weight)).toBeCloseTo(1, 4);
+    });
+  });
+
   test("CSV/JSON export and JSON import round-trip paymentMethod", async ({ page }) => {
     await seedData(page, [
       makeItem({ serial: 1, name: "STRK-50 Export", paymentMethod: "Crypto" }),
@@ -740,6 +792,172 @@ test.describe("payment-method", () => {
       const stored = JSON.parse(localStorage.getItem("metalInventory") || "[]");
       return stored.length === 1 && stored[0].paymentMethod === "Wire";
     });
+  });
+
+  // ── STRK-170 characterization: pin editItem() field-population mapping ───────
+  // Behavior-preserving guard for the editItem complexity refactor (cohort 1.1).
+  // It pins the surfaces the helper extraction most risks: the weight-unit branch
+  // chain (gb/kg/lb/g/oz + the sub-ounce→grams fallthrough), the FX/precision
+  // price display, the metadata field→input mapping, purity preset/custom
+  // selection, the storageLocation "Unknown" sentinel→blank, and the date-N/A
+  // toggle. MUST pass on current code BEFORE the refactor and stay green after —
+  // it goes red only if the refactor changes observable behavior.
+  test("STRK-170: editItem populates form fields from item (characterization)", async ({
+    page,
+  }) => {
+    await seedData(page, [
+      // 0 — kitchen-sink oz item: full metadata + preset purity + present date
+      makeItem({
+        serial: 1,
+        uuid: "strk170-oz",
+        name: "STRK-170 Oz Eagle",
+        metal: "Silver",
+        composition: "Silver",
+        type: "Coin",
+        qty: 3,
+        weight: 1,
+        weightUnit: "oz",
+        price: 30,
+        marketValue: 35,
+        purity: 0.999,
+        paymentMethod: "Zelle",
+        purchaseLocation: "Local coin shop",
+        storageLocation: "Safe",
+        serialNumber: "SN-123",
+        notes: "char-test notes",
+        capsule: "A-32",
+        capsuleNotes: "snug",
+        date: "2026-05-13",
+        year: "2026",
+        grade: "MS-70",
+        gradingAuthority: "PCGS",
+        certNumber: "C-987",
+        pcgsNumber: "786060",
+        numistaId: "12345",
+        obverseImageUrl: "https://example.com/obv.png",
+        reverseImageUrl: "https://example.com/rev.png",
+        ignorePatternImages: true,
+      }),
+      // 1 — sub-ounce oz item: weight < 1 routes to the grams branch
+      makeItem({
+        serial: 2,
+        uuid: "strk170-sub",
+        name: "Sub-ounce",
+        weight: 0.5,
+        weightUnit: "oz",
+      }),
+      // 2 — kg item
+      makeItem({
+        serial: 3,
+        uuid: "strk170-kg",
+        name: "Kg bar",
+        weight: 32.1507466,
+        weightUnit: "kg",
+      }),
+      // 3 — lb item
+      makeItem({
+        serial: 4,
+        uuid: "strk170-lb",
+        name: "Lb bar",
+        weight: 14.5833,
+        weightUnit: "lb",
+      }),
+      // 4 — goldback (gb) item
+      makeItem({
+        serial: 5,
+        uuid: "strk170-gb",
+        name: "Goldback",
+        metal: "Gold",
+        composition: "Gold",
+        weight: 1,
+        weightUnit: "gb",
+      }),
+      // 5 — custom (non-preset) purity
+      makeItem({ serial: 6, uuid: "strk170-custom", name: "Custom purity", purity: 0.835 }),
+      // 6 — storageLocation "Unknown" sentinel → blank field
+      makeItem({
+        serial: 7,
+        uuid: "strk170-unknown",
+        name: "Unknown storage",
+        storageLocation: "Unknown",
+      }),
+      // 7 — no purchase date → date N/A toggle active + date input disabled
+      makeItem({ serial: 8, uuid: "strk170-nodate", name: "No date", date: "" }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    const openEdit = async (idx) => {
+      await page.evaluate((i) => window.editItem(i), idx);
+      await expect(page.locator("#itemModal")).toBeVisible();
+    };
+
+    // ── 0: kitchen-sink field mapping ──
+    await openEdit(0);
+    await expect(page.locator("#itemMetal")).toHaveValue("Silver");
+    await expect(page.locator("#itemName")).toHaveValue("STRK-170 Oz Eagle");
+    await expect(page.locator("#itemQty")).toHaveValue("3");
+    await expect(page.locator("#itemType")).toHaveValue("Coin");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("oz");
+    await expect(page.locator("#itemWeight")).toHaveValue("1.00");
+    await expect(page.locator("#itemPrice")).toHaveValue("30.00");
+    await expect(page.locator("#itemMarketValue")).toHaveValue("35.00");
+    await expect(page.locator("#itemPaymentMethod")).toHaveValue("Zelle");
+    await expect(page.locator("#purchaseLocation")).toHaveValue("Local coin shop");
+    await expect(page.locator("#storageLocation")).toHaveValue("Safe");
+    await expect(page.locator("#itemSerialNumber")).toHaveValue("SN-123");
+    await expect(page.locator("#itemNotes")).toHaveValue("char-test notes");
+    await expect(page.locator("#itemCapsule")).toHaveValue("A-32");
+    await expect(page.locator("#itemCapsuleNotes")).toHaveValue("snug");
+    await expect(page.locator("#itemDate")).toHaveValue("2026-05-13");
+    await expect(page.locator("#itemYear")).toHaveValue("2026");
+    await expect(page.locator("#itemGrade")).toHaveValue("MS-70");
+    await expect(page.locator("#itemGradingAuthority")).toHaveValue("PCGS");
+    await expect(page.locator("#itemCertNumber")).toHaveValue("C-987");
+    await expect(page.locator("#itemPcgsNumber")).toHaveValue("786060");
+    await expect(page.locator("#itemCatalog")).toHaveValue("12345");
+    await expect(page.locator("#itemObverseImageUrl")).toHaveValue("https://example.com/obv.png");
+    await expect(page.locator("#itemReverseImageUrl")).toHaveValue("https://example.com/rev.png");
+    await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
+    // preset purity → select set, custom wrapper hidden, custom input cleared
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("0.999");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+    await expect(page.locator("#itemPurity")).toHaveValue("");
+    // present date → N/A toggle inactive, date input enabled
+    await expect(page.locator("#itemDateNABtn")).not.toHaveClass(/\bactive\b/);
+    await expect(page.locator("#itemDate")).toBeEnabled();
+
+    // ── 1: sub-ounce oz weight routes to the grams branch ──
+    await openEdit(1);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
+
+    // ── 2: kg branch ──
+    await openEdit(2);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("kg");
+
+    // ── 3: lb branch ──
+    await openEdit(3);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("lb");
+
+    // ── 4: goldback branch ──
+    await openEdit(4);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("gb");
+    await expect(page.locator("#itemWeight")).toHaveValue("1");
+
+    // ── 5: custom (non-preset) purity → select=custom, wrapper shown, input set ──
+    await openEdit(5);
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("custom");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.835");
+
+    // ── 6: storageLocation "Unknown" sentinel → blank field ──
+    await openEdit(6);
+    await expect(page.locator("#storageLocation")).toHaveValue("");
+
+    // ── 7: no date → N/A toggle active + date input disabled ──
+    await openEdit(7);
+    await expect(page.locator("#itemDateNABtn")).toHaveClass(/\bactive\b/);
+    await expect(page.locator("#itemDate")).toBeDisabled();
   });
 });
 
@@ -2110,5 +2328,390 @@ test.describe("filter-chip-and-logic — AND semantics", () => {
     expect(uuids).toEqual(["stak551-fixture-a"]);
     expect(uuids).toHaveLength(1);
     expect(await dataRowCount(page)).toBe(1);
+  });
+});
+
+// ─── Coin-series cross-metal disambiguation (STRK-170 cohort 2.4 char tests) ──
+// Pins filterInventoryAdvanced's two-word coin-series matching — the live,
+// testable twin of search.js's _COIN_SERIES fallback (which is shadowed by the
+// filterInventory→filterInventoryAdvanced delegation and could not be covered in
+// cohort 2.5). These guard the behavior-preserving conversion of `matchCoinSeries`
+// to a `_COIN_SERIES` table-dispatch: they pass on the pre-refactor if-cascade and
+// must stay green after the table replaces it.
+
+const COIN_SERIES_UUIDS = {
+  AGE: "strk170-american-gold-eagle",
+  ASE: "strk170-american-silver-eagle",
+  AE: "strk170-american-eagle-bare",
+  SML: "strk170-silver-maple-leaf",
+  GML: "strk170-gold-maple-leaf",
+};
+
+const coinSeriesItem = (uuid, name, metal) => ({
+  uuid,
+  metal,
+  composition: metal,
+  name,
+  qty: 1,
+  type: "Coin",
+  weight: 1,
+  price: 50,
+  marketValue: 0,
+  date: "2025-01-01",
+  purchaseLocation: "staktrakr.com",
+  storageLocation: "",
+  serialNumber: "",
+  notes: "",
+  year: "2025",
+  grade: "",
+  gradingAuthority: "",
+  certNumber: "",
+  pcgsNumber: "",
+  pcgsVerified: false,
+  spotPriceAtPurchase: 45,
+  premiumPerOz: 0,
+  totalPremium: 0,
+  purity: 0.999,
+  numistaId: "",
+});
+
+const COIN_SERIES_INVENTORY = [
+  coinSeriesItem(COIN_SERIES_UUIDS.AGE, "American Gold Eagle", "Gold"),
+  coinSeriesItem(COIN_SERIES_UUIDS.ASE, "American Silver Eagle", "Silver"),
+  coinSeriesItem(COIN_SERIES_UUIDS.AE, "American Eagle", "Silver"),
+  coinSeriesItem(COIN_SERIES_UUIDS.SML, "Silver Maple Leaf", "Silver"),
+  coinSeriesItem(COIN_SERIES_UUIDS.GML, "Gold Maple Leaf", "Gold"),
+];
+
+test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript((inv) => {
+      localStorage.setItem("metalInventory", JSON.stringify(inv));
+    }, COIN_SERIES_INVENTORY);
+    await page.addInitScript(() => {
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") {
+            localStorage.setItem("ackVersion", APP_VERSION);
+          }
+        },
+        { once: true }
+      );
+    });
+    await page.goto("/index.html");
+    await page.waitForFunction(
+      () =>
+        typeof window.filterInventory === "function" &&
+        typeof window.filterInventoryAdvanced === "function"
+    );
+    await page.waitForFunction(() => {
+      try {
+        return window.filterInventoryAdvanced().length === 5;
+      } catch (e) {
+        return false;
+      }
+    });
+  });
+
+  // Fill the search box and resolve once the live filter settles to expectedLen.
+  const searchUuids = async (page, term, expectedLen) => {
+    await page.fill("#searchInput", term);
+    await page.waitForFunction((len) => {
+      try {
+        return window.filterInventory().length === len;
+      } catch (e) {
+        return false;
+      }
+    }, expectedLen);
+    return page.evaluate(() => window.filterInventory().map((item) => item.uuid));
+  };
+
+  test('"silver eagle" matches the silver eagle only (not the gold eagle)', async ({ page }) => {
+    const uuids = await searchUuids(page, "silver eagle", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.ASE]);
+  });
+
+  test('"gold eagle" matches the gold eagle only (not the silver eagle)', async ({ page }) => {
+    const uuids = await searchUuids(page, "gold eagle", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.AGE]);
+  });
+
+  test('"american eagle" matches the bare American Eagle, not the metal-prefixed eagles', async ({
+    page,
+  }) => {
+    const uuids = await searchUuids(page, "american eagle", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.AE]);
+  });
+
+  test('"silver maple" matches the silver maple leaf only (metalPhrase rule)', async ({ page }) => {
+    const uuids = await searchUuids(page, "silver maple", 1);
+    expect(uuids).toEqual([COIN_SERIES_UUIDS.SML]);
+  });
+});
+
+// ─── Shared seed helper for the year/purity filter-tag describes (STRK-208/209) ─
+
+// The year chip ships enabled by default but purity ships disabled
+// (js/constants.js INLINE_CHIP_DEFAULTS); enable both so each builder's
+// onclick/onkeydown handler is exercised in the rendered table.
+const YEAR_PURITY_CHIPS = [
+  { id: "year", label: "Year", enabled: true },
+  { id: "purity", label: "Purity", enabled: true },
+];
+
+// Seed inventory + chip config (+ optional feature-flag overrides) into
+// localStorage, then load the app and wait for the inventory table to render.
+async function seedInventoryTableAndGoto(page, { items, chipConfig, flags } = {}) {
+  await page.addInitScript(
+    ({ seededInventory, chips, featureFlagOverride }) => {
+      localStorage.setItem("metalInventory", JSON.stringify(seededInventory));
+      localStorage.setItem("itemTags", JSON.stringify({}));
+      localStorage.setItem("inlineChipConfig", JSON.stringify(chips));
+      localStorage.setItem("cardViewStyle", "D");
+      if (featureFlagOverride) {
+        localStorage.setItem("featureFlags", JSON.stringify(featureFlagOverride));
+      }
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") {
+            localStorage.setItem("ackVersion", APP_VERSION);
+          }
+        },
+        { once: true }
+      );
+    },
+    { seededInventory: items, chips: chipConfig, featureFlagOverride: flags || null }
+  );
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+  await page.waitForFunction(() => Array.isArray(window.inventory));
+}
+
+// Observe whether a keydown handler called preventDefault() on Space — read from
+// a document-level (bubble-phase) listener registered AFTER the page's own
+// handlers, so it sees the already-set defaultPrevented flag. Deterministic,
+// unlike asserting window.scrollY on a short page. Shared by the STRK-209 and
+// STRK-232 keyboard-a11y suites.
+async function trackSpaceDefault(page) {
+  await page.evaluate(() => {
+    window.__spaceDefaultPrevented = null;
+    document.addEventListener("keydown", (e) => {
+      if (e.key === " ") window.__spaceDefaultPrevented = e.defaultPrevented;
+    });
+  });
+}
+
+// ─── STRK-208: year/purity inline-tag click-to-filter (onclick escaping) ─────
+
+test.describe("year-purity-filter-tags — STRK-208", () => {
+  test("year/purity tag onclick is well-formed (not truncated) and click filters the table", async ({
+    page,
+  }) => {
+    await seedInventoryTableAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, uuid: "strk-208-a", name: "STRK-208 Item A", year: "2026", purity: 0.999 },
+        { ...SEED_ITEM, uuid: "strk-208-b", name: "STRK-208 Item B", year: "2020", purity: 0.5 },
+      ],
+      chipConfig: YEAR_PURITY_CHIPS,
+    });
+
+    // Attribute-shape: the rendered onclick must be the complete call. With the
+    // bug, the unescaped JSON.stringify quote truncates it to
+    // `applyColumnFilter('year', ` (no closing paren), so getAttribute returns
+    // the truncated value and this regex fails.
+    const yearOnclick = await page.locator(".year-tag").first().getAttribute("onclick");
+    expect(yearOnclick).toMatch(/^applyColumnFilter\('year', ".+"\)$/);
+
+    const purityOnclick = await page.locator(".purity-tag").first().getAttribute("onclick");
+    expect(purityOnclick).toMatch(/^applyColumnFilter\('purity', ".+"\)$/);
+
+    // Behavioral: clicking a year tag applies the column filter and narrows the
+    // two-item table to the single matching row. A truncated handler throws and
+    // never filters, leaving both rows.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".year-tag").first().click();
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+});
+
+// ─── STRK-209: keyboard activation a11y for filter tags + name cell ──────────
+
+test.describe("keyboard-a11y-activation — STRK-209", () => {
+  const TWO_ITEMS = [
+    { ...SEED_ITEM, uuid: "strk-209-a", name: "STRK-209 Item A", year: "2026", purity: 0.999 },
+    { ...SEED_ITEM, uuid: "strk-209-b", name: "STRK-209 Item B", year: "2020", purity: 0.5 },
+  ];
+
+  // Thin wrapper over the shared seed helper — fixes the two-item fixture and
+  // the year/purity chip config, forwarding optional feature-flag overrides.
+  const seedAndGoto = (page, opts = {}) =>
+    seedInventoryTableAndGoto(page, {
+      items: TWO_ITEMS,
+      chipConfig: YEAR_PURITY_CHIPS,
+      flags: opts.flags,
+    });
+
+  test("Enter on a year tag activates the column filter (keyboard parity with click)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".year-tag").first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+
+  test("Space on a year tag activates the filter and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await trackSpaceDefault(page);
+    await page.locator(".year-tag").first().focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  test("Enter on a purity tag activates the column filter", async ({ page }) => {
+    await seedAndGoto(page);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await page.locator(".purity-tag").first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+  });
+
+  test("Space on the name-cell view link opens the modal and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    // COIN_IMAGES is enabled by default → the name cell renders as the
+    // showViewModal span (title="View …"), distinct from filterLink chips.
+    await seedAndGoto(page);
+    await trackSpaceDefault(page);
+    await page.locator('#inventoryTable tbody .filter-text[title^="View "]').first().focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  test("Space on a filterLink column cell suppresses the page-scroll default (shared helper)", async ({
+    page,
+  }) => {
+    // Disable COIN_IMAGES so the name cell falls back to filterLink, exercising
+    // the shared helper's keydown handler directly.
+    await seedAndGoto(page, { flags: { COIN_IMAGES: false } });
+    await trackSpaceDefault(page);
+    await page.locator("#inventoryTable tbody .filter-text").first().focus();
+    await page.keyboard.press("Space");
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+});
+
+// ─── STRK-232: keyboard activation a11y for delegated reference tags ──────────
+
+test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
+  // The N#/PCGS#/grade chips activate via a delegated document click handler
+  // (not inline onclick like the year/purity chips), so STRK-209's inline
+  // onkeydown did not reach them. This block exercises the delegated keydown
+  // handler that mirrors that click handler. The Numista chip is the most
+  // directly observable case: its action is the openNumistaModal() global,
+  // which we stub so no real popup window opens.
+  const NUMISTA_CHIP = [{ id: "numista", label: "Numista", enabled: true }];
+
+  const seedWithNumistaChip = (page) =>
+    seedInventoryTableAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, uuid: "strk-232-a", name: "STRK-232 Numista Item", numistaId: "12345" },
+      ],
+      chipConfig: NUMISTA_CHIP,
+    });
+
+  // Replace the popup-opening action with a spy so we can assert keyboard
+  // activation triggers the same action a mouse click would.
+  async function spyNumista(page) {
+    await page.evaluate(() => {
+      window.__numistaCalls = [];
+      window.openNumistaModal = (id, name) => window.__numistaCalls.push({ id, name });
+    });
+  }
+
+  const EXPECTED_CALL = [{ id: "12345", name: "STRK-232 Numista Item" }];
+
+  test("Enter on a Numista (N#) reference tag activates the same action as a click", async ({
+    page,
+  }) => {
+    await seedWithNumistaChip(page);
+    await spyNumista(page);
+    await page.locator(".numista-tag").first().focus();
+    await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => window.__numistaCalls)).toEqual(EXPECTED_CALL);
+  });
+
+  test("Space on a Numista (N#) reference tag activates and suppresses the page-scroll default", async ({
+    page,
+  }) => {
+    await seedWithNumistaChip(page);
+    await spyNumista(page);
+    await trackSpaceDefault(page);
+    await page.locator(".numista-tag").first().focus();
+    await page.keyboard.press("Space");
+    expect(await page.evaluate(() => window.__numistaCalls)).toEqual(EXPECTED_CALL);
+    expect(await page.evaluate(() => window.__spaceDefaultPrevented)).toBe(true);
+  });
+
+  // PCGS and grade chips activate via window.open (popup). Stub it so we can
+  // assert the delegated keydown handler reaches the same click action without
+  // opening a real window. Returns a truthy fake so the handler's popup-blocked
+  // branch (appAlert) is not taken.
+  async function spyWindowOpen(page) {
+    await page.evaluate(() => {
+      window.__openCalls = [];
+      window.open = (url) => {
+        window.__openCalls.push(url);
+        return { opener: null, focus() {} };
+      };
+    });
+  }
+
+  test("Enter on a PCGS (PCGS#) reference tag opens the CoinFacts lookup (parity with click)", async ({
+    page,
+  }) => {
+    await seedInventoryTableAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, uuid: "strk-232-pcgs", name: "STRK-232 PCGS Item", pcgsNumber: "987654" },
+      ],
+      chipConfig: [{ id: "pcgs", label: "PCGS", enabled: true }],
+    });
+    await spyWindowOpen(page);
+    await page.locator(".pcgs-tag").first().focus();
+    await page.keyboard.press("Enter");
+    const calls = await page.evaluate(() => window.__openCalls);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("987654");
+  });
+
+  test("Enter on a clickable grade tag opens the cert lookup (parity with click)", async ({
+    page,
+  }) => {
+    await seedInventoryTableAndGoto(page, {
+      items: [
+        {
+          ...SEED_ITEM,
+          uuid: "strk-232-grade",
+          name: "STRK-232 Grade Item",
+          grade: "MS65",
+          gradingAuthority: "NGC",
+          certNumber: "1234567-001",
+        },
+      ],
+      chipConfig: [{ id: "grade", label: "Grade", enabled: true }],
+    });
+    await spyWindowOpen(page);
+    await page.locator('.grade-tag[data-clickable="true"]').first().focus();
+    await page.keyboard.press("Enter");
+    const calls = await page.evaluate(() => window.__openCalls);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("1234567-001");
   });
 });

@@ -84,6 +84,14 @@ const bindAppearanceAndHeaderListeners = () => {
     onApply: () => applyHeaderToggleVisibility(),
   });
 
+  // Spot ratio chips visibility (STRK-161)
+  wireStorageToggle("showSpotRatiosToggle", SPOT_RATIOS_KEY, {
+    defaultVal: true,
+    onApply: () => {
+      if (typeof renderRatioChips === "function") renderRatioChips();
+    },
+  });
+
   // Trend cycle header button.
   const headerTrendBtn = safeGetElement("headerTrendBtn");
   if (headerTrendBtn) {
@@ -401,6 +409,8 @@ const bindGoldbackPricingSourceListener = () => {
 
       if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
       if (typeof renderTable === "function") renderTable();
+
+      if (typeof renderRatioChips === "function") renderRatioChips();
     });
   }
 
@@ -466,6 +476,113 @@ const bindGoldbackPricingSourceListener = () => {
     gbExportBtn.addEventListener("click", () => {
       if (typeof exportGoldbackHistory === "function") exportGoldbackHistory();
     });
+  }
+};
+
+/**
+ * Builds the regex source for a custom image pattern rule from raw user input.
+ * Keyword mode splits on commas/semicolons and escapes each term into an
+ * alternation; regex mode uses the input verbatim. Returns an error message
+ * when the input is empty, has no usable keywords, or is an invalid RegExp.
+ * @param {string} rawPattern - Trimmed user input from the pattern field.
+ * @param {string} mode - Active pattern mode, "keywords" or "regex".
+ * @returns {{ pattern: string }|{ error: string }}
+ */
+const _compilePatternRuleRegex = (rawPattern, mode) => {
+  if (!rawPattern) return { error: "Pattern is required." };
+
+  let pattern = rawPattern;
+  if (mode === "keywords") {
+    const terms = rawPattern
+      .split(/[,;]/)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    if (terms.length === 0) return { error: "Enter at least one keyword." };
+    pattern = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  }
+
+  try {
+    new RegExp(pattern, "i");
+  } catch (e) {
+    return { error: "Invalid pattern: " + e.message };
+  }
+  return { pattern };
+};
+
+/**
+ * Resolves the obverse/reverse file inputs of a pattern rule into processed
+ * image blobs. Uses the global imageProcessor when present, otherwise passes
+ * the raw File through. Returns an error message if processing throws or a
+ * provided image yields no usable blob.
+ * @param {HTMLInputElement|null} obverseInput - Obverse image file input.
+ * @param {HTMLInputElement|null} reverseInput - Reverse image file input.
+ * @returns {Promise<{ obverseBlob: (Blob|null), reverseBlob: (Blob|null) }|{ error: string }>}
+ */
+const _processPatternRuleImages = async (obverseInput, reverseInput) => {
+  const processor = typeof imageProcessor !== "undefined" ? imageProcessor : null;
+  const toBlob = async (input) => {
+    const file = input?.files?.[0];
+    if (!file) return null;
+    if (!processor) return file;
+    const result = await processor.processFile(file);
+    // STRK-221: a provided file that yields no blob is a processing failure,
+    // not an empty side — throw so the catch returns images.error (the caller
+    // alerts on it and aborts) instead of silently dropping the image.
+    if (!result?.blob) {
+      throw new Error("the selected image could not be processed");
+    }
+    return result.blob;
+  };
+
+  try {
+    return {
+      obverseBlob: await toBlob(obverseInput),
+      reverseBlob: await toBlob(reverseInput),
+    };
+  } catch (err) {
+    console.error("Image processing failed:", err);
+    return { error: "Failed to process image: " + err.message };
+  }
+};
+
+/**
+ * Clears the pattern rule form inputs, filename labels, and previews, then
+ * collapses the form back to the "+ New Rule" affordance. Called after a
+ * successful rule add.
+ * @returns {void}
+ */
+const _resetPatternRuleForm = () => {
+  const setText = (id, text) => {
+    const el = getExistingElement(id);
+    if (el) el.textContent = text;
+  };
+  const setValue = (id, value) => {
+    const el = getExistingElement(id);
+    if (el) el.value = value;
+  };
+  const clearPreview = (id) => {
+    const el = getExistingElement(id);
+    if (el) {
+      el.src = "";
+      el.parentElement.style.display = "none";
+    }
+  };
+
+  setValue("patternRulePattern", "");
+  setValue("patternRuleObverse", "");
+  setValue("patternRuleReverse", "");
+  setText("patternRuleObverseName", "");
+  setText("patternRuleReverseName", "");
+  clearPreview("patternRuleObversePreview");
+  clearPreview("patternRuleReversePreview");
+
+  const formContainer = getExistingElement("patternRuleFormContainer");
+  const toggleBtn = getExistingElement("newPatternRuleBtn");
+  if (formContainer) formContainer.style.display = "none";
+  if (toggleBtn) {
+    toggleBtn.textContent = "+ New Rule";
+    toggleBtn.classList.remove("img-btn-remove");
+    toggleBtn.classList.add("img-btn-upload");
   }
 };
 
@@ -650,61 +767,21 @@ const bindPatternRuleModeListeners = () => {
       const rawPattern = patternInput?.value?.trim();
       const replacement = rawPattern || "";
 
-      if (!rawPattern) {
-        appAlert("Pattern is required.");
+      const compiled = _compilePatternRuleRegex(rawPattern, _patternMode);
+      if (compiled.error) {
+        appAlert(compiled.error);
         return;
       }
-
-      let pattern = rawPattern;
-      if (_patternMode === "keywords") {
-        const terms = rawPattern
-          .split(/[,;]/)
-          .map((t) => t.trim())
-          .filter((t) => t.length > 0);
-        if (terms.length === 0) {
-          appAlert("Enter at least one keyword.");
-          return;
-        }
-        pattern = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-      }
-
-      try {
-        new RegExp(pattern, "i");
-      } catch (e) {
-        appAlert("Invalid pattern: " + e.message);
-        return;
-      }
+      const { pattern } = compiled;
 
       if (!obverseInput?.files?.[0] && !reverseInput?.files?.[0]) {
         appAlert("Please select at least one image (obverse or reverse).");
         return;
       }
 
-      let obverseBlob = null;
-      let reverseBlob = null;
-      const processor = typeof imageProcessor !== "undefined" ? imageProcessor : null;
-
-      try {
-        if (obverseInput?.files?.[0]) {
-          if (processor) {
-            const result = await processor.processFile(obverseInput.files[0]);
-            obverseBlob = result?.blob || null;
-          } else {
-            obverseBlob = obverseInput.files[0];
-          }
-        }
-
-        if (reverseInput?.files?.[0]) {
-          if (processor) {
-            const result = await processor.processFile(reverseInput.files[0]);
-            reverseBlob = result?.blob || null;
-          } else {
-            reverseBlob = reverseInput.files[0];
-          }
-        }
-      } catch (err) {
-        console.error("Image processing failed:", err);
-        appAlert("Failed to process image: " + err.message);
+      const images = await _processPatternRuleImages(obverseInput, reverseInput);
+      if (images.error) {
+        appAlert(images.error);
         return;
       }
 
@@ -715,38 +792,12 @@ const bindPatternRuleModeListeners = () => {
         return;
       }
 
-      if ((obverseBlob || reverseBlob) && window.imageCache?.isAvailable()) {
-        await imageCache.cachePatternImage(ruleId, obverseBlob, reverseBlob);
+      if ((images.obverseBlob || images.reverseBlob) && window.imageCache?.isAvailable()) {
+        await imageCache.cachePatternImage(ruleId, images.obverseBlob, images.reverseBlob);
       }
 
-      if (patternInput) patternInput.value = "";
-      if (obverseInput) obverseInput.value = "";
-      if (reverseInput) reverseInput.value = "";
-      const obvName = getExistingElement("patternRuleObverseName");
-      const revName = getExistingElement("patternRuleReverseName");
-      if (obvName) obvName.textContent = "";
-      if (revName) revName.textContent = "";
-      const obvPreview = getExistingElement("patternRuleObversePreview");
-      const revPreview = getExistingElement("patternRuleReversePreview");
-      if (obvPreview) {
-        obvPreview.src = "";
-        obvPreview.parentElement.style.display = "none";
-      }
-      if (revPreview) {
-        revPreview.src = "";
-        revPreview.parentElement.style.display = "none";
-      }
-
-      // Auto-collapse form after successful add (STAK-439)
-      const formContainer = getExistingElement("patternRuleFormContainer");
-      const toggleBtn = getExistingElement("newPatternRuleBtn");
-      if (formContainer) formContainer.style.display = "none";
-      if (toggleBtn) {
-        toggleBtn.textContent = "+ New Rule";
-        toggleBtn.classList.remove("img-btn-remove");
-        toggleBtn.classList.add("img-btn-upload");
-      }
-
+      // Auto-collapse + reset form after successful add (STAK-439)
+      _resetPatternRuleForm();
       renderCustomPatternRules();
       renderImageStorageStats();
     });

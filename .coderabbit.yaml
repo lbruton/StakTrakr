@@ -1,10 +1,38 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 #
-# Minimal config — profile, poem, early_access, tone, and other settings
-# live in the CodeRabbit dashboard (source of truth). This file provides
-# only path_filters and path_instructions that the dashboard cannot set.
+# Source of truth for REPO-LEVEL CodeRabbit settings. A repo
+# .coderabbit.yaml REPLACES dashboard repo settings (priority 2 vs 4 —
+# no merge), so settings omitted here fall back to schema DEFAULTS, not
+# dashboard values. Keep repo settings in this file; treat the repo
+# dashboard as read-only. `inheritance: true` below still merges in
+# ORGANIZATION-level UI settings (tone, profile) for keys absent here.
+#
+# Root cause this fixes: auto_review.base_branches defaults to [] (default
+# branch only), so PRs targeting dev were silently never auto-reviewed even
+# though the dashboard listed dev.
+
+early_access: true
+
+inheritance: true
 
 reviews:
+  request_changes_workflow: true
+  high_level_summary_in_walkthrough: true
+  collapse_walkthrough: false
+  auto_apply_labels: true
+  auto_review:
+    drafts: true
+    base_branches:
+      - dev
+  finishing_touches:
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: true
+  tools:
+    fbinfer:
+      enabled: true
+
   path_filters:
     # Global
     - "!**/node_modules/**"
@@ -62,3 +90,24 @@ reviews:
         - For Playwright tests on vanilla JS: internal state must be injected
           via `localStorage` (`page.addInitScript`), not by patching
           `window.X` post-load.
+
+chat:
+  integrations:
+    jira:
+      usage: disabled
+    linear:
+      usage: disabled
+
+knowledge_base:
+  jira:
+    usage: disabled
+  linear:
+    usage: disabled
+  mcp:
+    usage: enabled
+
+issue_enrichment:
+  auto_enrich:
+    enabled: true
+  labeling:
+    auto_apply_labels: true

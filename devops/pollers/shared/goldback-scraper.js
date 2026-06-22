@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * StakTrakr Goldback Daily Rate Scraper
+ * StakTrakr Goldback Rate Scraper
  * =======================================
  * Fetches the G1 USD exchange rate from goldback.com's JSON API.
- * Runs once daily at 11:05 AM EST (16:05 UTC) — goldback.com updates once/day.
+ * Runs hourly at :05 — the rate is CurrencyLayer-backed and shifts intraday (STRK-58).
  *
  * Primary source:  GET https://www.goldback.com/gb-proxy.php
  *   → { success: true, quotes: { USDUSD: 8.89 } }
@@ -15,8 +15,8 @@
  *
  * Writes:
  *   sqld price_snapshots table        -- coin_slug="goldback-g1", vendor="goldback"
- *   DATA_DIR/api/goldback-spot.json   -- latest rate (local backup, overwritten each day)
- *   DATA_DIR/goldback-{YYYY}.json     -- rolling daily log (local backup, appended)
+ *   DATA_DIR/api/goldback-spot.json   -- latest rate (local backup, overwritten each run)
+ *   DATA_DIR/goldback-{YYYY}.json     -- rolling log, one entry per day (last run of the day wins)
  *
  * Usage:
  *   DATA_DIR=/path/to/data node goldback-scraper.js

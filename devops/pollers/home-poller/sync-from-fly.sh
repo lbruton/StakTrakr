@@ -19,6 +19,13 @@ STAKSCRAPR_DIR="${STAKSCRAPR_DIR:-/Volumes/DATA/GitHub/stakscrapr/devops/retail-
 # Shared files — these must be identical between fly-poller and home VM
 SHARED_FILES=(
   price-extract.js
+  price-extract-shared.js
+  price-extract-provider-config.js
+  price-extract-vendors.js
+  price-extract-vendor-legacy.js
+  price-extract-vendor-goldback.js
+  price-extract-vendor-apmex.js
+  webscale-cookies.js
   api-export.js
   capture.js
   extract-vision.js

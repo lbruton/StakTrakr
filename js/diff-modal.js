@@ -14,7 +14,6 @@
  * @module diff-modal
  */
 
-/* eslint-disable no-var */
 /* global safeGetElement, sanitizeHtml, openModalById, closeModalById, DiffEngine */
 
 (function () {
@@ -162,45 +161,6 @@
     metalOrderConfig: "chip-strip",
   };
 
-  var SLUG_LABELS = {
-    // Seed rule coin slugs — from RETAIL_COIN_META keys
-    ase: "American Silver Eagle",
-    "maple-silver": "Silver Maple Leaf",
-    "britannia-silver": "Silver Britannia",
-    "krugerrand-silver": "Silver Krugerrand",
-    "kangaroo-silver": "Silver Kangaroo",
-    "koala-silver": "Silver Koala",
-    "kookaburra-silver": "Silver Kookaburra",
-    "generic-silver-round": "Generic Silver Round",
-    "generic-silver-bar-10oz": "Generic 10oz Silver Bar",
-    age: "American Gold Eagle",
-    buffalo: "American Gold Buffalo",
-    "maple-gold": "Gold Maple Leaf",
-    "krugerrand-gold": "Gold Krugerrand",
-    ape: "American Platinum Eagle",
-    "goldback-oklahoma-g1": "G1 Oklahoma Goldback",
-    // Header button slugs
-    themeBtn: "Theme",
-    cloudSyncBtn: "Cloud Sync",
-    settingsBtn: "Settings",
-    aboutBtn: "About",
-    backupBtn: "Backup",
-    importBtn: "Import",
-    addItemBtn: "Add Item",
-    sortBtn: "Sort",
-    filterBtn: "Filter",
-    searchBtn: "Search",
-    marketBtn: "Market",
-    vaultBtn: "Vault",
-    trendBtn: "Trend",
-    restoreBtn: "Restore",
-    currencyBtn: "Currency",
-    // Provider slugs
-    STAKTRAKR: "StakTrakr",
-    METALS_DEV: "Metals.dev",
-    GOLDAPI: "GoldAPI",
-  };
-
   // ── JSON parse helper — cloud-sync vault passes settings as raw JSON strings ──
   // Also handles CMP1-compressed localStorage values (loadDataSync decompresses,
   // but raw localStorage.getItem() and vault payloads may not).
@@ -214,582 +174,11 @@
     }
   }
 
-  // ── Settings sub-renderers (STAK-455) ──
-
-  // Shared output scaffold for all settings sub-renderers.
-  // matchedSection: pre-built HTML string (caller wraps it; may include its own overflow expand).
-  // overflowCount: number → "Show N more…"; null → "Show more…"
-  function _buildDiffSides(
-    key,
-    matchedSection,
-    localHtml,
-    remoteHtml,
-    overflowLocal,
-    overflowRemote,
-    overflowCount
-  ) {
-    var html = matchedSection || "";
-    html += '<div class="dm-setting-sides">';
-    html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary)">Local</div><div class="dm-setting-expanded">' +
-      localHtml;
-    if (overflowLocal) {
-      var lLabel =
-        overflowCount != null ? "Show " + overflowCount + " more\u2026" : "Show more\u2026";
-      html +=
-        '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">' + lLabel + "</span>";
-      html +=
-        '<div class="dm-expandable" id="expand-' +
-        _esc(key) +
-        '-local">' +
-        overflowLocal +
-        "</div>";
-    }
-    html += "</div></div>";
-    html += '<div class="dm-setting-arrow">\u2192</div>';
-    html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info)">Remote</div><div class="dm-setting-expanded">' +
-      remoteHtml;
-    if (overflowRemote) {
-      var rLabel =
-        overflowCount != null ? "Show " + overflowCount + " more\u2026" : "Show more\u2026";
-      html +=
-        '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">' + rLabel + "</span>";
-      html +=
-        '<div class="dm-expandable" id="expand-' +
-        _esc(key) +
-        '-remote">' +
-        overflowRemote +
-        "</div>";
-    }
-    html += "</div></div>";
-    html += "</div>";
-    return html;
-  }
-
-  function _renderChipStrip(key, localArr, remoteArr) {
-    // Guard: if either side is still a string after parsing, bail to inline renderer
-    if (!Array.isArray(localArr) && !Array.isArray(remoteArr)) return null;
-    if (!Array.isArray(localArr)) localArr = [];
-    if (!Array.isArray(remoteArr)) remoteArr = [];
-    var localById = {};
-    var remoteById = {};
-    var i, id;
-    for (i = 0; i < localArr.length; i++) {
-      id = localArr[i].id || localArr[i].label || i;
-      localById[id] = localArr[i];
-    }
-    for (i = 0; i < remoteArr.length; i++) {
-      id = remoteArr[i].id || remoteArr[i].label || i;
-      remoteById[id] = remoteArr[i];
-    }
-    var allIds = {};
-    for (id in localById) allIds[id] = true;
-    for (id in remoteById) allIds[id] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var diffCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-
-    for (id in allIds) {
-      var loc = localById[id];
-      var rem = remoteById[id];
-      var chipLabel = loc ? loc.label || id : rem ? rem.label || id : id;
-      var fieldKey = "setting-" + key + "-" + id;
-      var selSide = _fieldSelections[fieldKey] || "";
-
-      if (loc && rem && loc.enabled === rem.enabled) {
-        var icon = loc.enabled ? "\u2713" : "\u2717";
-        matchedHtml +=
-          '<span class="dm-chip-matched">' + icon + " " + _esc(String(chipLabel)) + "</span> ";
-      } else {
-        diffCount++;
-        var localChip = "";
-        var remoteChip = "";
-        if (loc) {
-          var lIcon = loc.enabled ? "\u2713" : "\u2717";
-          var lCls =
-            "dm-chip-local " +
-            (loc.enabled ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "local" ? " dm-selected" : "");
-          localChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            lIcon +
-            " " +
-            _esc(String(chipLabel)) +
-            "</span> ";
-        }
-        if (rem) {
-          var rIcon = rem.enabled ? "\u2713" : "\u2717";
-          var rCls =
-            "dm-chip-remote " +
-            (rem.enabled ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "remote" ? " dm-selected" : "");
-          remoteChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            rIcon +
-            " " +
-            _esc(String(chipLabel)) +
-            "</span> ";
-        }
-        if (diffCount <= 15) {
-          localHtml += localChip;
-          remoteHtml += remoteChip;
-        } else {
-          overflowLocal += localChip;
-          overflowRemote += remoteChip;
-        }
-      }
-    }
-
-    var matchedSection = matchedHtml
-      ? '<div class="dm-setting-expanded">' + matchedHtml + "</div>"
-      : "";
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      diffCount - 15
-    );
-  }
-
-  function _renderToggleMap(key, localObj, remoteObj) {
-    if (
-      (typeof localObj !== "object" || localObj === null) &&
-      (typeof remoteObj !== "object" || remoteObj === null)
-    )
-      return null;
-    if (typeof localObj !== "object" || localObj === null) localObj = {};
-    if (typeof remoteObj !== "object" || remoteObj === null) remoteObj = {};
-    var allKeys = {};
-    var k;
-    for (k in localObj) allKeys[k] = true;
-    for (k in remoteObj) allKeys[k] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var diffCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-
-    for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
-      var fieldKey = "setting-" + key + "-" + k;
-      var selSide = _fieldSelections[fieldKey] || "";
-      var humanLabel = _titleCase(k);
-
-      if (lv !== undefined && rv !== undefined && lv === rv) {
-        var mIcon = lv ? "\u2713" : "\u2717";
-        matchedHtml +=
-          '<span class="dm-chip-matched">' + mIcon + " " + _esc(humanLabel) + "</span> ";
-      } else {
-        diffCount++;
-        var localChip = "";
-        var remoteChip = "";
-        if (lv !== undefined) {
-          var lIcon = lv ? "\u2713" : "\u2717";
-          var lCls =
-            "dm-chip-local " +
-            (lv ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "local" ? " dm-selected" : "");
-          localChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            lIcon +
-            " " +
-            _esc(humanLabel) +
-            "</span> ";
-        }
-        if (rv !== undefined) {
-          var rIcon = rv ? "\u2713" : "\u2717";
-          var rCls =
-            "dm-chip-remote " +
-            (rv ? "dm-chip-enabled" : "dm-chip-disabled") +
-            (selSide === "remote" ? " dm-selected" : "");
-          remoteChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            rIcon +
-            " " +
-            _esc(humanLabel) +
-            "</span> ";
-        }
-        if (diffCount <= 15) {
-          localHtml += localChip;
-          remoteHtml += remoteChip;
-        } else {
-          overflowLocal += localChip;
-          overflowRemote += remoteChip;
-        }
-      }
-    }
-
-    var matchedSection = matchedHtml
-      ? '<div class="dm-setting-expanded">' + matchedHtml + "</div>"
-      : "";
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      diffCount - 15
-    );
-  }
-
-  function _renderSlugChips(key, localArr, remoteArr) {
-    if (!Array.isArray(localArr) && !Array.isArray(remoteArr)) return null;
-    if (!Array.isArray(localArr)) localArr = [];
-    if (!Array.isArray(remoteArr)) remoteArr = [];
-    var localSet = {};
-    var remoteSet = {};
-    var i;
-    for (i = 0; i < localArr.length; i++) localSet[localArr[i]] = true;
-    for (i = 0; i < remoteArr.length; i++) remoteSet[remoteArr[i]] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var totalChips = 0;
-    var matchedOverflowCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-    var overflowMatched = "";
-
-    var allSlugs = {};
-    for (i = 0; i < localArr.length; i++) allSlugs[localArr[i]] = true;
-    for (i = 0; i < remoteArr.length; i++) allSlugs[remoteArr[i]] = true;
-
-    for (var slug in allSlugs) {
-      var inLocal = localSet[slug];
-      var inRemote = remoteSet[slug];
-      var humanLabel = SLUG_LABELS[slug] || _titleCase(slug);
-      totalChips++;
-
-      if (inLocal && inRemote) {
-        var mChip = '<span class="dm-chip-matched">' + _esc(humanLabel) + "</span> ";
-        if (totalChips <= 15) {
-          matchedHtml += mChip;
-        } else {
-          overflowMatched += mChip;
-          matchedOverflowCount++;
-        }
-      } else {
-        var fieldKey = "setting-" + key + "-" + slug;
-        var selSide = _fieldSelections[fieldKey] || "";
-        if (inLocal) {
-          var lCls = "dm-chip-local dm-chip-enabled" + (selSide === "local" ? " dm-selected" : "");
-          var lChip =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            _esc(humanLabel) +
-            "</span> ";
-          if (totalChips <= 15) {
-            localHtml += lChip;
-          } else {
-            overflowLocal += lChip;
-          }
-        }
-        if (inRemote) {
-          var rCls =
-            "dm-chip-remote dm-chip-enabled" + (selSide === "remote" ? " dm-selected" : "");
-          var rChip =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            _esc(humanLabel) +
-            "</span> ";
-          if (totalChips <= 15) {
-            remoteHtml += rChip;
-          } else {
-            overflowRemote += rChip;
-          }
-        }
-      }
-    }
-
-    var matchedSection = "";
-    if (matchedHtml || overflowMatched) {
-      matchedSection = '<div class="dm-setting-expanded">' + matchedHtml;
-      if (overflowMatched) {
-        matchedSection +=
-          '<span class="dm-show-more" data-expand="' +
-          _esc(key) +
-          '-matched">Show ' +
-          matchedOverflowCount +
-          " more\u2026</span>";
-        matchedSection +=
-          '<div class="dm-expandable" id="expand-' +
-          _esc(key) +
-          '-matched">' +
-          overflowMatched +
-          "</div>";
-      }
-      matchedSection += "</div>";
-    }
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      null
-    );
-  }
-
-  function _renderKvPills(key, localObj, remoteObj) {
-    if (
-      (typeof localObj !== "object" || localObj === null) &&
-      (typeof remoteObj !== "object" || remoteObj === null)
-    )
-      return null;
-    if (typeof localObj !== "object" || localObj === null) localObj = {};
-    if (typeof remoteObj !== "object" || remoteObj === null) remoteObj = {};
-    var allKeys = {};
-    var k;
-    for (k in localObj) allKeys[k] = true;
-    for (k in remoteObj) allKeys[k] = true;
-
-    var matchedHtml = "";
-    var localHtml = "";
-    var remoteHtml = "";
-    var diffCount = 0;
-    var overflowLocal = "";
-    var overflowRemote = "";
-
-    for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
-      var fieldKey = "setting-" + key + "-" + k;
-      var selSide = _fieldSelections[fieldKey] || "";
-      var humanKey = _titleCase(k);
-
-      if (lv !== undefined && rv !== undefined && lv === rv) {
-        matchedHtml +=
-          '<span class="dm-kv-pill matched">' +
-          _esc(humanKey) +
-          ": " +
-          _esc(String(lv)) +
-          "</span> ";
-      } else {
-        diffCount++;
-        var localPill = "";
-        var remotePill = "";
-        if (lv !== undefined) {
-          var lCls = "dm-kv-pill local" + (selSide === "local" ? " dm-selected" : "");
-          localPill =
-            '<span class="' +
-            lCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="local">' +
-            _esc(humanKey) +
-            ": " +
-            _esc(String(lv)) +
-            "</span> ";
-        }
-        if (rv !== undefined) {
-          var rCls = "dm-kv-pill remote" + (selSide === "remote" ? " dm-selected" : "");
-          remotePill =
-            '<span class="' +
-            rCls +
-            '" data-field="' +
-            _esc(fieldKey) +
-            '" data-side="remote">' +
-            _esc(humanKey) +
-            ": " +
-            _esc(String(rv)) +
-            "</span> ";
-        }
-        if (diffCount <= 15) {
-          localHtml += localPill;
-          remoteHtml += remotePill;
-        } else {
-          overflowLocal += localPill;
-          overflowRemote += remotePill;
-        }
-      }
-    }
-
-    var matchedSection = matchedHtml
-      ? '<div class="dm-setting-expanded">' + matchedHtml + "</div>"
-      : "";
-    return _buildDiffSides(
-      key,
-      matchedSection,
-      localHtml,
-      remoteHtml,
-      overflowLocal,
-      overflowRemote,
-      diffCount - 15
-    );
-  }
-
-  function _renderCountSummary(key, localVal, remoteVal) {
-    var resKey = "setting-" + key;
-    var selected = _conflictResolutions[resKey] || "";
-    var localCount = 0;
-    var remoteCount = 0;
-    if (Array.isArray(localVal)) localCount = localVal.length;
-    else if (localVal && typeof localVal === "object") localCount = Object.keys(localVal).length;
-    else if (localVal !== null && localVal !== undefined) localCount = 1;
-    if (Array.isArray(remoteVal)) remoteCount = remoteVal.length;
-    else if (remoteVal && typeof remoteVal === "object")
-      remoteCount = Object.keys(remoteVal).length;
-    else if (remoteVal !== null && remoteVal !== undefined) remoteCount = 1;
-
-    var localBtnCls = "dm-count-btn" + (selected === "local" ? " active" : "");
-    var remoteBtnCls = "dm-count-btn" + (selected === "remote" ? " active" : "");
-
-    var html = '<div class="dm-count-summary">';
-    html += '<span class="dm-count-badge">' + _esc(String(localCount)) + " local</span>";
-    html += '<span class="dm-count-badge">' + _esc(String(remoteCount)) + " remote</span>";
-    html +=
-      '<span class="' +
-      localBtnCls +
-      '" data-setting-resolution="' +
-      _esc(resKey) +
-      '" data-side="local">Keep Local</span>';
-    html +=
-      '<span class="' +
-      remoteBtnCls +
-      '" data-setting-resolution="' +
-      _esc(resKey) +
-      '" data-side="remote">Use Remote</span>';
-    html += "</div>";
-    return html;
-  }
-
-  function _renderSettingRow(key, localVal, remoteVal) {
-    var type = SETTINGS_VALUE_TYPE[key];
-    if (!type) return null;
-    // Cloud-sync vault passes settings as JSON strings — parse before rendering
-    localVal = _parseSetting(localVal);
-    remoteVal = _parseSetting(remoteVal);
-    // Each renderer has its own type guards and returns null if inputs are wrong
-    switch (type) {
-      case "chip-strip":
-        return _renderChipStrip(key, localVal, remoteVal);
-      case "toggle-map":
-        return _renderToggleMap(key, localVal, remoteVal);
-      case "slug-chips":
-        return _renderSlugChips(key, localVal, remoteVal);
-      case "kv-pills":
-        return _renderKvPills(key, localVal, remoteVal);
-      case "count-summary":
-        return _renderCountSummary(key, localVal, remoteVal);
-      default:
-        return null;
-    }
-  }
-
-  function _groupByItem(conflictsArray) {
-    var grouped = {};
-    if (!conflictsArray || !conflictsArray.length) return grouped;
-    // Build UUID → name lookup from inventory for human-readable headers
-    var nameByKey = {};
-    if (typeof inventory !== "undefined" && Array.isArray(inventory)) {
-      for (var inv = 0; inv < inventory.length; inv++) {
-        var invItem = inventory[inv];
-        var invKey =
-          typeof DiffEngine !== "undefined" && DiffEngine.computeItemKey
-            ? DiffEngine.computeItemKey(invItem)
-            : invItem.uuid || invItem.id || "";
-        if (invKey && invItem.name) nameByKey[invKey] = invItem.name;
-      }
-    }
-    for (var i = 0; i < conflictsArray.length; i++) {
-      var c = conflictsArray[i];
-      var key = c.itemKey || "";
-      var name = c.itemName || nameByKey[key] || key;
-      if (!grouped[name]) grouped[name] = [];
-      grouped[name].push({ field: c.field, localVal: c.localVal, remoteVal: c.remoteVal, idx: i });
-    }
-    return grouped;
-  }
-
-  function _formatSettingValue(key, value) {
-    if (key === "metalApiConfig" || key === "catalog_api_config")
-      return value ? "\u2022\u2022\u2022 configured" : "not set";
-    value = _parseSetting(value);
-    if (value === null || value === undefined) return "\u2014";
-    if (typeof value === "boolean") return value ? "On" : "Off";
-    if (value === "true") return "On";
-    if (value === "false") return "Off";
-    if (Array.isArray(value)) {
-      var label = value.length + " items";
-      if (value.length > 0 && typeof value[0] === "string") {
-        var preview = value.slice(0, 2).join(", ");
-        if (value.length > 2) preview += ", \u2026";
-        label += " (" + _esc(preview) + ")";
-      }
-      return label;
-    }
-    if (typeof value === "object") return Object.keys(value).length + " entries";
-    return _esc(String(value));
-  }
-
-  // ── Metal helpers ──
-
-  var _metalRgb = {
-    gold: "255,215,0",
-    silver: "192,192,192",
-    platinum: "229,228,226",
-    palladium: "206,208,206",
-  };
-  var _metalCssVar = {
-    gold: "var(--gold)",
-    silver: "var(--silver)",
-    platinum: "var(--platinum)",
-    palladium: "var(--palladium)",
-  };
-
-  function _metalColor(metal) {
-    var key = (metal || "").toLowerCase();
-    return _metalCssVar[key] || "var(--text-muted)";
-  }
-
-  function _metalBgGradient(metal) {
-    var key = (metal || "").toLowerCase();
-    var rgb = _metalRgb[key] || "128,128,128";
-    return "linear-gradient(135deg, rgba(" + rgb + ",0.15), rgba(" + rgb + ",0.05))";
-  }
-
   // ── Internal state ──
   var _options = null;
   var _checkedItems = {}; // { 'added-0': true, 'modified-2': false, ... }
   var _conflictResolutions = {}; // { 'c0': 'local'|'remote', ... }
   var _collapsedCategories = {}; // { added: true, ... }
-  var _expandedModified = {}; // { 0: true, 1: false, ... }
   var _expandedSettingsCategories = {}; // { 'Appearance': true, ... }
   var _selectAllState = 0; // 0=none, 1=added+modified, 2=all
 
@@ -800,26 +189,10 @@
   var _blobUrls = []; // Tracked blob URLs for revocation on re-render/close
 
   // ── Helpers ──
-
-  /** Safe HTML escape — falls back to inline if sanitizeHtml not loaded */
-  function _esc(text) {
-    if (typeof sanitizeHtml === "function") return sanitizeHtml(text);
-    if (!text) return "";
-    return String(text)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function _titleCase(key) {
-    return key
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/[-_]/g, " ")
-      .replace(/\b\w/g, function (c) {
-        return c.toUpperCase();
-      });
-  }
+  // NOTE: _esc / _titleCase (the regex-bearing escape helpers) are defined LAST in
+  // this IIFE, just before the public export. Their regex literals (notably /"/g)
+  // mis-tokenize Lizard's JS lexer and desync forward function detection for
+  // everything after them, so they must sit at the file end. See [[lizard-esc-regex-desync]].
 
   /** Derive a display key for an item */
   function _itemKey(item) {
@@ -1007,178 +380,6 @@
     };
   }
 
-  function _renderProgressTracker(container, conflicts, source) {
-    if (!container) return;
-    if (!source || source.type !== "sync") {
-      container.style.display = "none";
-      return;
-    }
-
-    var total = 0;
-    var resolved = 0;
-    for (var key in _conflictResolutions) {
-      if (
-        _conflictResolutions.hasOwnProperty(key) &&
-        key.charAt(0) === "c" &&
-        key.indexOf("setting-") !== 0
-      ) {
-        total++;
-        if (_conflictResolutions[key]) resolved++;
-      }
-    }
-
-    var pct = total > 0 ? Math.round((resolved / total) * 100) : 100;
-    var html =
-      '<div style="height:6px;border-radius:3px;background:var(--border);margin:0.5rem 0">';
-    html +=
-      '<div style="height:100%;border-radius:3px;background:var(--success);width:' +
-      pct +
-      '%;transition:width 0.3s"></div>';
-    html += "</div>";
-    html +=
-      '<div id="diffProgressText" style="font-size:0.75rem;opacity:0.6">' +
-      resolved +
-      " of " +
-      total +
-      " conflicts resolved";
-    if (pct === 100 && total > 0) html += " &#9989;";
-    html += "</div>";
-
-    container.innerHTML = html;
-    container.style.display = "";
-  }
-
-  function _updateProgress() {
-    var container = safeGetElement("diffProgressTracker");
-    if (!container) return;
-
-    var total = 0;
-    var resolved = 0;
-    for (var key in _conflictResolutions) {
-      if (
-        _conflictResolutions.hasOwnProperty(key) &&
-        key.charAt(0) === "c" &&
-        key.indexOf("setting-") !== 0
-      ) {
-        total++;
-        if (_conflictResolutions[key]) resolved++;
-      }
-    }
-
-    var pct = total > 0 ? Math.round((resolved / total) * 100) : 100;
-    var bar = container.querySelector("div > div");
-    if (bar) bar.style.width = pct + "%";
-
-    var textDiv = safeGetElement("diffProgressText");
-    if (!(textDiv instanceof HTMLElement)) textDiv = null;
-    if (textDiv) {
-      var txt = resolved + " of " + total + " conflicts resolved";
-      if (pct === 100 && total > 0) txt += " \u2705";
-      textDiv.textContent = txt;
-    }
-  }
-
-  function _renderConflictCards(container, conflicts) {
-    if (!container) return;
-    if (!conflicts || !conflicts.conflicts || conflicts.conflicts.length === 0) {
-      container.style.display = "none";
-      return;
-    }
-
-    var grouped = _groupByItem(conflicts.conflicts);
-    var html = "";
-
-    for (var itemName in grouped) {
-      if (!grouped.hasOwnProperty(itemName)) continue;
-      var fields = grouped[itemName];
-
-      html +=
-        '<div data-conflict-card="' +
-        _esc(itemName) +
-        '" style="border-radius:8px;border:1px solid var(--border);padding:0.75rem;margin-bottom:0.75rem">';
-
-      // Card header
-      html += "<div>";
-      html += '<span style="font-weight:600;font-size:0.85rem">' + _esc(itemName) + "</span>";
-      html +=
-        '<span style="display:inline-block;background:color-mix(in srgb, var(--warning) 10%, transparent);color:var(--warning);border-radius:12px;padding:0.1rem 0.5rem;font-size:0.7rem;margin-left:0.5rem">' +
-        fields.length +
-        " field" +
-        (fields.length !== 1 ? "s" : "") +
-        "</span>";
-      html += "</div>";
-
-      // Field rows
-      for (var f = 0; f < fields.length; f++) {
-        var conflict = fields[f];
-        var resKey = "c" + conflict.idx + "-" + conflict.field;
-        var selected = _conflictResolutions[resKey] || "";
-        var localStyle =
-          "padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.8rem;";
-        var remoteStyle =
-          "padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.8rem;";
-
-        if (selected === "local") {
-          localStyle +=
-            "border:1px solid var(--success);background:color-mix(in srgb, var(--success) 8%, transparent)";
-          remoteStyle += "border:1px solid transparent";
-        } else if (selected === "remote") {
-          localStyle += "border:1px solid transparent";
-          remoteStyle +=
-            "border:1px solid var(--success);background:color-mix(in srgb, var(--success) 8%, transparent)";
-        } else {
-          localStyle += "border:1px solid transparent";
-          remoteStyle += "border:1px solid transparent";
-        }
-
-        var localDisplay = _esc(String(conflict.localVal != null ? conflict.localVal : "\u2014"));
-        var remoteDisplay = _esc(
-          String(conflict.remoteVal != null ? conflict.remoteVal : "\u2014")
-        );
-
-        html += '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0">';
-        html +=
-          '<span style="min-width:100px;font-size:0.78rem;opacity:0.6">' +
-          _esc(conflict.field) +
-          "</span>";
-        html +=
-          '<span data-resolution="' +
-          _esc(resKey) +
-          '" data-side="local" style="' +
-          localStyle +
-          '">' +
-          localDisplay +
-          "</span>";
-        html += '<span style="opacity:0.3;font-size:0.7rem">\u21C4</span>';
-        html +=
-          '<span data-resolution="' +
-          _esc(resKey) +
-          '" data-side="remote" style="' +
-          remoteStyle +
-          '">' +
-          remoteDisplay +
-          "</span>";
-        html += "</div>";
-      }
-
-      html += "</div>";
-    }
-
-    container.innerHTML = html;
-
-    container.onclick = function (e) {
-      var btn = e.target.closest("[data-resolution]");
-      if (!btn) return;
-      var key = btn.getAttribute("data-resolution");
-      var side = btn.getAttribute("data-side");
-      _conflictResolutions[key] = side;
-      _renderConflictCards(container, conflicts);
-      if (typeof _updateProgress === "function") _updateProgress();
-    };
-
-    container.style.display = "";
-  }
-
   function _renderSettingsCards(container, settingsDiff) {
     if (!container) return;
     var changed = settingsDiff && settingsDiff.changed ? settingsDiff.changed : [];
@@ -1350,7 +551,13 @@
         var label = SETTINGS_LABELS[entry.key] || _titleCase(entry.key);
 
         // Try rich renderer first
-        var expandedHtml = _renderSettingRow(entry.key, entry.localVal, entry.remoteVal);
+        var expandedHtml = window.DiffModalSettings.renderSettingRow(
+          entry.key,
+          entry.localVal,
+          entry.remoteVal,
+          _fieldSelections,
+          _conflictResolutions
+        );
         if (expandedHtml !== null) {
           html += '<div style="padding:0.4rem 0;border-top:1px solid var(--border)">';
           html +=
@@ -1377,9 +584,9 @@
           '" data-setting-resolution="' +
           _esc(resKey) +
           '" data-side="local" style="cursor:pointer" title="' +
-          _esc(_formatSettingValue(entry.key, entry.localVal)) +
+          _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal)) +
           '">' +
-          _formatSettingValue(entry.key, entry.localVal) +
+          window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal) +
           "</div>";
         html += '<div class="dm-field-arrow">&#10231;</div>';
         html +=
@@ -1388,9 +595,9 @@
           '" data-setting-resolution="' +
           _esc(resKey) +
           '" data-side="remote" style="cursor:pointer" title="' +
-          _esc(_formatSettingValue(entry.key, entry.remoteVal)) +
+          _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal)) +
           '">' +
-          _formatSettingValue(entry.key, entry.remoteVal) +
+          window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal) +
           "</div>";
         html += "</div>";
       }
@@ -1418,7 +625,10 @@
               '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0;opacity:0.45;font-size:0.78rem">';
             html += "<span>\u2713</span>";
             html += '<span style="min-width:120px">' + _esc(mLabel) + "</span>";
-            html += "<span>" + _formatSettingValue(mEntry.key, mEntry.localVal) + "</span>";
+            html +=
+              "<span>" +
+              window.DiffModalSettings.formatSettingValue(mEntry.key, mEntry.localVal) +
+              "</span>";
             html += "</div>";
           }
         }
@@ -1512,8 +722,8 @@
 
   /** Shared card header: dual OBV/REV thumbnails + item identity. Used by orphan and conflict cards. */
   function _renderCardHeader(item, uuid) {
-    var grad = _metalBgGradient(item.metal);
-    var mColor = _metalColor(item.metal);
+    var grad = window.DiffModalSettings.metalBgGradient(item.metal);
+    var mColor = window.DiffModalSettings.metalColor(item.metal);
     var html = "";
     // Dual OBV/REV thumbnails
     html += '<div class="dm-item-thumb-pair">';
@@ -1592,7 +802,7 @@
       var key = type + "-" + i;
       var action = _orphanActions[key] || (isAdded ? "import" : "keep");
       var isSkipped = (isAdded && action === "skip") || (!isAdded && action === "remove");
-      var mColor = _metalColor(item.metal);
+      var mColor = window.DiffModalSettings.metalColor(item.metal);
       var uuid = item.uuid || "";
 
       html +=
@@ -1626,6 +836,24 @@
       if (item.qty != null)
         html += "<span>&#8226;</span><span>Qty: " + _esc(String(item.qty)) + "</span>";
       html += "</div></div>";
+      // STRK-167 (AC-11): advisory possible-duplicate badge for an added row whose
+      // key is in the showImportDiffReview sidecar (an ungraded import sharing
+      // numistaId+year with an existing graded item). Advisory only — never blocks
+      // import; the flag lives in _options.possibleDuplicates, never on the item (D-4).
+      if (
+        isAdded &&
+        _options &&
+        _options.possibleDuplicates &&
+        typeof DiffEngine !== "undefined" &&
+        _options.possibleDuplicates.has(DiffEngine.computeItemKey(item))
+      ) {
+        html +=
+          '<div class="dm-dup-flag" role="note" title="You already have a graded copy of this coin/year. Importing this ungraded row will create a separate item. Skip it if it is the same physical coin.">' +
+          '<span class="dm-dup-icon" aria-hidden="true">&#9888;</span>' +
+          '<span class="dm-dup-text">Possible duplicate of a graded item</span>' +
+          '<span class="sr-only">Possible duplicate: an existing graded item shares this catalog number and year.</span>' +
+          "</div>";
+      }
       // Action buttons — active action gets prominent color, inactive gets muted
       html += '<div class="dm-orphan-actions">';
       if (isAdded) {
@@ -1746,7 +974,7 @@
       var mod = modifiedItems[i];
       var item = mod.item;
       var changes = mod.changes || [];
-      var mColor = _metalColor(item.metal);
+      var mColor = window.DiffModalSettings.metalColor(item.metal);
       var uuid = item.uuid || "";
       // Manifest stubs lack uuid/metal — resolve from local inventory by itemKey
       if (
@@ -1760,7 +988,7 @@
         for (var ri = 0; ri < inventory.length; ri++) {
           if (DiffEngine.computeItemKey(inventory[ri]) === item.itemKey) {
             uuid = inventory[ri].uuid || "";
-            if (!item.metal) mColor = _metalColor(inventory[ri].metal);
+            if (!item.metal) mColor = window.DiffModalSettings.metalColor(inventory[ri].metal);
             break;
           }
         }
@@ -1882,13 +1110,73 @@
         var sel = _fieldSelections[fKey] || "remote";
         var localSelected = sel === "local" ? " selected" : "";
         var remoteSelected = sel === "remote" ? " selected" : "";
-
-        html += '<div class="dm-field-diff">';
-        html += '<div class="dm-field-label">' + _esc(ch.field) + "</div>";
         var localDisplay =
           ch.localVal != null && ch.localVal !== "" ? String(ch.localVal) : "\u2014";
         var remoteDisplay =
           ch.remoteVal != null && ch.remoteVal !== "" ? String(ch.remoteVal) : "\u2014";
+
+        // \u2500\u2500 STRK-167 (AC-10): 3-way quantity reconciliation (Keep / Replace / Add) \u2500\u2500
+        // Numista's "Quantity owned" is authoritative, so REPLACE is the default, but
+        // the user can opt to ADD the imported count to the existing one. The qty field
+        // renders a radiogroup; every other field keeps the 2-cell picker below.
+        if (ch.field === "qty") {
+          var sumSelected = sel === "sum" ? " selected" : "";
+          var sumVal = (Number(ch.localVal) || 0) + (Number(ch.remoteVal) || 0);
+          html += '<div class="dm-field-diff dm-field-diff-qty">';
+          html += '<div class="dm-field-label">Quantity</div>';
+          html +=
+            '<div class="dm-qty-options" role="radiogroup" aria-label="How to reconcile quantity">';
+          html +=
+            '<div class="dm-field-value dm-qty-opt local' +
+            localSelected +
+            '" role="radio" aria-checked="' +
+            (sel === "local") +
+            '" tabindex="0" data-field="qty" data-card="' +
+            i +
+            '" title="Keep your existing quantity (' +
+            _esc(localDisplay) +
+            ')"><span class="dm-qty-verb">Keep</span><span class="dm-qty-num">' +
+            _esc(localDisplay) +
+            "</span></div>";
+          html +=
+            '<div class="dm-field-value dm-qty-opt remote' +
+            remoteSelected +
+            '" role="radio" aria-checked="' +
+            (sel === "remote") +
+            '" tabindex="0" data-field="qty" data-card="' +
+            i +
+            '" title="Replace with the imported quantity (' +
+            _esc(remoteDisplay) +
+            ')"><span class="dm-qty-verb">Replace</span><span class="dm-qty-num">' +
+            _esc(remoteDisplay) +
+            "</span></div>";
+          html +=
+            '<div class="dm-field-value dm-qty-opt sum' +
+            sumSelected +
+            '" role="radio" aria-checked="' +
+            (sel === "sum") +
+            '" tabindex="0" data-field="qty" data-card="' +
+            i +
+            '" title="Add the imported quantity to your existing one (' +
+            _esc(localDisplay) +
+            " + " +
+            _esc(remoteDisplay) +
+            " = " +
+            sumVal +
+            ')"><span class="dm-qty-verb">Add to existing</span><span class="dm-qty-num">' +
+            _esc(localDisplay) +
+            " + " +
+            _esc(remoteDisplay) +
+            " = " +
+            sumVal +
+            "</span></div>";
+          html += "</div>"; // .dm-qty-options
+          html += "</div>"; // .dm-field-diff-qty
+          continue;
+        }
+
+        html += '<div class="dm-field-diff">';
+        html += '<div class="dm-field-label">' + _esc(ch.field) + "</div>";
         html +=
           '<div class="dm-field-value local' +
           localSelected +
@@ -2208,8 +1496,8 @@
 
   // ── Event delegation (STAK-454 — card-based interactions) ──
 
-  /** Swap a button's style class based on active state and section type */
-  function _swapBtnClass(btn, sectionType, actionName, isActive) {
+  /** Swap a button's style class based on active state */
+  function _swapBtnClass(btn, actionName, isActive) {
     btn.classList.remove(
       "dm-btn-primary",
       "dm-btn-gain",
@@ -2228,11 +1516,11 @@
   }
 
   /** Update both action buttons on an orphan card to reflect the current action */
-  function _updateOrphanBtnStyles(card, type, action) {
+  function _updateOrphanBtnStyles(card, action) {
     var btns = card.querySelectorAll("[data-set-action]");
     for (var bi = 0; bi < btns.length; bi++) {
       var btnAction = btns[bi].dataset.setAction;
-      _swapBtnClass(btns[bi], type, btnAction, btnAction === action);
+      _swapBtnClass(btns[bi], btnAction, btnAction === action);
     }
   }
 
@@ -2258,7 +1546,7 @@
         var isSkipped = action === "skip" || action === "remove";
         card.classList.toggle("skipped", isSkipped);
         card.dataset.action = action;
-        _updateOrphanBtnStyles(card, type, action);
+        _updateOrphanBtnStyles(card, action);
       }
       _updateApplyCount();
       return;
@@ -2282,7 +1570,7 @@
         var bSkipped = bulkAction === "skip" || bulkAction === "remove";
         bCard.classList.toggle("skipped", bSkipped);
         bCard.dataset.action = bulkAction;
-        _updateOrphanBtnStyles(bCard, bulkSection, bulkAction);
+        _updateOrphanBtnStyles(bCard, bulkAction);
       }
       // Update bulk button styles in section header
       var sectionWrapper = bulkBtn.closest(".dm-section-wrapper");
@@ -2291,7 +1579,7 @@
         for (var bbi = 0; bbi < bulkBtns.length; bbi++) {
           var bb = bulkBtns[bbi];
           var isActive = bb.dataset.bulkAction === bulkAction;
-          _swapBtnClass(bb, bulkSection, bb.dataset.bulkAction, isActive);
+          _swapBtnClass(bb, bb.dataset.bulkAction, isActive);
         }
       }
       _updateApplyCount();
@@ -2318,116 +1606,28 @@
     }
   }
 
-  /** Handle clicks on modified/conflict cards */
+  /** Handle clicks on modified/conflict cards — dispatch to the matched control. */
   function _onModifiedClick(e) {
     var target = e.target;
 
     // Field value click (click to pick local or remote)
     var fieldVal = target.closest(".dm-field-value");
     if (fieldVal && fieldVal.dataset.field && fieldVal.dataset.card != null) {
-      var field = fieldVal.dataset.field;
-      var cardIdx = parseInt(fieldVal.dataset.card, 10);
-      var fKey = "conflict-" + cardIdx + "-" + field;
-      var side = fieldVal.classList.contains("local") ? "local" : "remote";
-      _fieldSelections[fKey] = side;
-      // Update visual: remove selected from sibling, add to clicked
-      var row = fieldVal.closest(".dm-field-diff");
-      if (row) {
-        var siblings = row.querySelectorAll(".dm-field-value");
-        for (var si = 0; si < siblings.length; si++) siblings[si].classList.remove("selected");
-      }
-      fieldVal.classList.add("selected");
-      _updateApplyCount();
+      _handleFieldValuePick(fieldVal);
       return;
     }
 
     // Per-card action buttons (Keep All Local, Keep All Remote, Confirm)
     var cardAction = target.closest("[data-card-action]");
     if (cardAction) {
-      var action = cardAction.dataset.cardAction;
-      var ci = parseInt(cardAction.dataset.card, 10);
-      var card = e.currentTarget.querySelector("#dm-conflict-" + ci);
-      if (!card) return;
-
-      if (action === "keep-local" || action === "keep-remote") {
-        var pickSide = action === "keep-local" ? "local" : "remote";
-        var fieldVals = card.querySelectorAll(".dm-field-value." + pickSide);
-        for (var fvi = 0; fvi < fieldVals.length; fvi++) {
-          var fv = fieldVals[fvi];
-          var fRow = fv.closest(".dm-field-diff");
-          if (fRow) {
-            var fSiblings = fRow.querySelectorAll(".dm-field-value");
-            for (var fsi = 0; fsi < fSiblings.length; fsi++)
-              fSiblings[fsi].classList.remove("selected");
-          }
-          fv.classList.add("selected");
-          if (fv.dataset.field) {
-            _fieldSelections["conflict-" + ci + "-" + fv.dataset.field] = pickSide;
-          }
-        }
-        _updateApplyCount();
-        return;
-      }
-
-      if (action === "resolve") {
-        // Validate all fields have a selection
-        var fieldDiffs = card.querySelectorAll(".dm-field-diff");
-        var allResolved = true;
-        for (var fd = 0; fd < fieldDiffs.length; fd++) {
-          if (!fieldDiffs[fd].querySelector(".dm-field-value.selected")) {
-            allResolved = false;
-            // Flash unresolved field
-            fieldDiffs[fd].style.background =
-              `color-mix(in srgb, ${getThemeColor("danger")} 10%, transparent)`;
-            (function (el) {
-              setTimeout(function () {
-                el.style.background = "";
-              }, 600);
-            })(fieldDiffs[fd]);
-          }
-        }
-        if (!allResolved) return;
-
-        // Mark resolved
-        _resolvedConflicts[ci] = true;
-        card.classList.add("resolved");
-        var pill = card.querySelector(".dm-conflict-card-header .dm-pill");
-        if (pill) {
-          pill.className = "dm-pill dm-pill-gain";
-          pill.innerHTML = "&#10003; Resolved";
-        }
-        // Collapse the details
-        var details = card.querySelector(".dm-conflict-details");
-        if (details) details.classList.add("collapsed");
-
-        // Update progress
-        _updateModifiedProgress();
-        _updateApplyCount();
-        return;
-      }
+      _handleCardAction(cardAction, e);
       return;
     }
 
     // Global Keep All Local / Keep All Remote
     var globalAction = target.closest("[data-global-action]");
     if (globalAction) {
-      var gAction = globalAction.dataset.globalAction;
-      var gSide = gAction === "keep-all-local" ? "local" : "remote";
-      var allFieldVals = e.currentTarget.querySelectorAll(".dm-field-value." + gSide);
-      for (var gfi = 0; gfi < allFieldVals.length; gfi++) {
-        var gfv = allFieldVals[gfi];
-        var gRow = gfv.closest(".dm-field-diff");
-        if (gRow) {
-          var gSiblings = gRow.querySelectorAll(".dm-field-value");
-          for (var gsi = 0; gsi < gSiblings.length; gsi++)
-            gSiblings[gsi].classList.remove("selected");
-        }
-        gfv.classList.add("selected");
-        if (gfv.dataset.field && gfv.dataset.card != null) {
-          _fieldSelections["conflict-" + gfv.dataset.card + "-" + gfv.dataset.field] = gSide;
-        }
-      }
-      _updateApplyCount();
+      _handleGlobalAction(globalAction, e);
       return;
     }
 
@@ -2448,6 +1648,170 @@
       _render();
       return;
     }
+  }
+
+  /**
+   * Field-value pick: record the chosen side (local / sum / remote) and sync the
+   * selected/aria-checked visual state across the row's siblings.
+   * @param {HTMLElement} fieldVal - the clicked .dm-field-value cell
+   */
+  function _handleFieldValuePick(fieldVal) {
+    var field = fieldVal.dataset.field;
+    var cardIdx = parseInt(fieldVal.dataset.card, 10);
+    var fKey = "conflict-" + cardIdx + "-" + field;
+    // STRK-167 (AC-10): qty rows add a third "sum" choice alongside local/remote.
+    var side = fieldVal.classList.contains("local")
+      ? "local"
+      : fieldVal.classList.contains("sum")
+        ? "sum"
+        : "remote";
+    _fieldSelections[fKey] = side;
+    // Update visual: remove selected from siblings, add to clicked.
+    var row = fieldVal.closest(".dm-field-diff");
+    if (row) {
+      var siblings = row.querySelectorAll(".dm-field-value");
+      for (var si = 0; si < siblings.length; si++) {
+        siblings[si].classList.remove("selected");
+        // STRK-167 (AC-10) a11y: keep aria-checked in sync on radio-style qty cells.
+        if (siblings[si].getAttribute("role") === "radio") {
+          siblings[si].setAttribute("aria-checked", "false");
+        }
+      }
+    }
+    fieldVal.classList.add("selected");
+    if (fieldVal.getAttribute("role") === "radio") {
+      fieldVal.setAttribute("aria-checked", "true");
+    }
+    _updateApplyCount();
+  }
+
+  /**
+   * Per-card action button: Keep All Local / Keep All Remote bulk-picks one side,
+   * Confirm validates and resolves the card.
+   * @param {HTMLElement} cardAction - the clicked [data-card-action] button
+   * @param {Event} e - the delegated click event (currentTarget = card container)
+   */
+  function _handleCardAction(cardAction, e) {
+    var action = cardAction.dataset.cardAction;
+    var ci = parseInt(cardAction.dataset.card, 10);
+    var card = e.currentTarget.querySelector("#dm-conflict-" + ci);
+    if (!card) return;
+
+    if (action === "keep-local" || action === "keep-remote") {
+      _applyCardSide(card, ci, action === "keep-local" ? "local" : "remote");
+      _updateApplyCount();
+      return;
+    }
+
+    if (action === "resolve") {
+      _resolveConflictCard(card, ci);
+    }
+  }
+
+  /**
+   * Bulk-pick one side for every field in a conflict card, syncing selected state
+   * and the per-field _fieldSelections.
+   * @param {HTMLElement} card - the conflict card element
+   * @param {number} ci - the card index
+   * @param {string} pickSide - "local" or "remote"
+   */
+  function _applyCardSide(card, ci, pickSide) {
+    var fieldVals = card.querySelectorAll(".dm-field-value." + pickSide);
+    for (var fvi = 0; fvi < fieldVals.length; fvi++) {
+      var fv = fieldVals[fvi];
+      var fRow = fv.closest(".dm-field-diff");
+      if (fRow) {
+        var fSiblings = fRow.querySelectorAll(".dm-field-value");
+        for (var fsi = 0; fsi < fSiblings.length; fsi++)
+          fSiblings[fsi].classList.remove("selected");
+      }
+      fv.classList.add("selected");
+      if (fv.dataset.field) {
+        _fieldSelections["conflict-" + ci + "-" + fv.dataset.field] = pickSide;
+      }
+    }
+  }
+
+  /**
+   * Confirm a conflict card: flash any unresolved fields and bail, else mark the
+   * card resolved, collapse it, and refresh the progress + apply count.
+   * @param {HTMLElement} card - the conflict card element
+   * @param {number} ci - the card index
+   */
+  function _resolveConflictCard(card, ci) {
+    // Validate all fields have a selection
+    var fieldDiffs = card.querySelectorAll(".dm-field-diff");
+    var allResolved = true;
+    for (var fd = 0; fd < fieldDiffs.length; fd++) {
+      if (!fieldDiffs[fd].querySelector(".dm-field-value.selected")) {
+        allResolved = false;
+        // Flash unresolved field
+        fieldDiffs[fd].style.background =
+          `color-mix(in srgb, ${getThemeColor("danger")} 10%, transparent)`;
+        (function (el) {
+          setTimeout(function () {
+            el.style.background = "";
+          }, 600);
+        })(fieldDiffs[fd]);
+      }
+    }
+    if (!allResolved) return;
+
+    // Mark resolved
+    _resolvedConflicts[ci] = true;
+    card.classList.add("resolved");
+    var pill = card.querySelector(".dm-conflict-card-header .dm-pill");
+    if (pill) {
+      pill.className = "dm-pill dm-pill-gain";
+      pill.innerHTML = "&#10003; Resolved";
+    }
+    // Collapse the details
+    var details = card.querySelector(".dm-conflict-details");
+    if (details) details.classList.add("collapsed");
+
+    // Update progress
+    _updateModifiedProgress();
+    _updateApplyCount();
+  }
+
+  /**
+   * Global Keep All Local / Keep All Remote: pick one side across every conflict
+   * field in the modal, syncing selected state and _fieldSelections.
+   * @param {HTMLElement} globalAction - the clicked [data-global-action] button
+   * @param {Event} e - the delegated click event (currentTarget = card container)
+   */
+  function _handleGlobalAction(globalAction, e) {
+    var gAction = globalAction.dataset.globalAction;
+    var gSide = gAction === "keep-all-local" ? "local" : "remote";
+    var allFieldVals = e.currentTarget.querySelectorAll(".dm-field-value." + gSide);
+    for (var gfi = 0; gfi < allFieldVals.length; gfi++) {
+      var gfv = allFieldVals[gfi];
+      var gRow = gfv.closest(".dm-field-diff");
+      if (gRow) {
+        var gSiblings = gRow.querySelectorAll(".dm-field-value");
+        for (var gsi = 0; gsi < gSiblings.length; gsi++)
+          gSiblings[gsi].classList.remove("selected");
+      }
+      gfv.classList.add("selected");
+      if (gfv.dataset.field && gfv.dataset.card != null) {
+        _fieldSelections["conflict-" + gfv.dataset.card + "-" + gfv.dataset.field] = gSide;
+      }
+    }
+    _updateApplyCount();
+  }
+
+  /**
+   * STRK-167 (AC-10) a11y: activate a focused qty radio on Space/Enter. Native
+   * div[role=radio] elements do not synthesize a click for these keys, so without
+   * this the 3-way quantity control cannot be operated by keyboard or screen reader.
+   */
+  function _onModifiedKeydown(e) {
+    if (e.key !== " " && e.key !== "Enter" && e.key !== "Spacebar") return;
+    var target = e.target;
+    if (!target || typeof target.getAttribute !== "function") return;
+    if (target.getAttribute("role") !== "radio") return;
+    e.preventDefault();
+    target.click();
   }
 
   /** Update the modified section's progress bar and status text */
@@ -2529,106 +1893,100 @@
 
   // ── Select All / Deselect All ──
 
-  function _selectAll() {
-    var diff = _options.diff || {};
-    // Card-based: set all orphan actions to include
-    for (var i = 0; i < (diff.added || []).length; i++) {
-      _orphanActions["added-" + i] = "import";
-      _checkedItems["added-" + i] = true;
+  /**
+   * Apply an orphan action + checkbox state to every added item.
+   * @param {object} diff - active diff ({ added, modified, deleted })
+   * @param {string} action - orphan action ("import" or "skip")
+   * @param {boolean} checked - checkbox state mirrored into _checkedItems
+   */
+  function _setAddedItems(diff, action, checked) {
+    var added = diff.added || [];
+    for (var i = 0; i < added.length; i++) {
+      _orphanActions["added-" + i] = action;
+      _checkedItems["added-" + i] = checked;
     }
-    for (var j = 0; j < (diff.modified || []).length; j++) {
-      _checkedItems["modified-" + j] = true;
-      // Select all remote for each modified field
-      var mod = (diff.modified || [])[j];
+  }
+
+  /**
+   * Apply an orphan action + checkbox state to every deleted item.
+   * @param {object} diff - active diff
+   * @param {string} action - orphan action ("keep" or "remove")
+   * @param {boolean} checked - checkbox state mirrored into _checkedItems
+   */
+  function _setDeletedItems(diff, action, checked) {
+    var deleted = diff.deleted || [];
+    for (var k = 0; k < deleted.length; k++) {
+      _orphanActions["deleted-" + k] = action;
+      _checkedItems["deleted-" + k] = checked;
+    }
+  }
+
+  /**
+   * Set every modified item's per-field selections to one side, optionally marking
+   * the item's checkbox. Used by Select All (remote) and Deselect All (local).
+   * @param {object} diff - active diff
+   * @param {string} side - "local" or "remote"
+   * @param {boolean} markChecked - when true, also set _checkedItems["modified-j"]=true
+   */
+  function _setModifiedFields(diff, side, markChecked) {
+    var modified = diff.modified || [];
+    for (var j = 0; j < modified.length; j++) {
+      if (markChecked) _checkedItems["modified-" + j] = true;
+      var mod = modified[j];
       if (mod && mod.changes) {
         for (var c = 0; c < mod.changes.length; c++) {
-          _fieldSelections["conflict-" + j + "-" + mod.changes[c].field] = "remote";
+          _fieldSelections["conflict-" + j + "-" + mod.changes[c].field] = side;
         }
       }
     }
-    for (var k = 0; k < (diff.deleted || []).length; k++) {
-      _orphanActions["deleted-" + k] = "remove";
-      _checkedItems["deleted-" + k] = true;
-    }
-    _render();
   }
 
-  function _deselectAll() {
-    var diff = _options.diff || {};
-    for (var i = 0; i < (diff.added || []).length; i++) {
-      _orphanActions["added-" + i] = "skip";
-      _checkedItems["added-" + i] = false;
-    }
+  /** Clear every currently-tracked item checkbox (set all _checkedItems false). */
+  function _clearCheckedItems() {
     for (var k in _checkedItems) {
       if (_checkedItems.hasOwnProperty(k)) _checkedItems[k] = false;
     }
-    for (var d = 0; d < (diff.deleted || []).length; d++) {
-      _orphanActions["deleted-" + d] = "keep";
-    }
-    // Reset modified field selections to local (deselect = keep local values)
-    for (var m = 0; m < (diff.modified || []).length; m++) {
-      var mod = (diff.modified || [])[m];
-      if (mod && mod.changes) {
-        for (var c = 0; c < mod.changes.length; c++) {
-          _fieldSelections["conflict-" + m + "-" + mod.changes[c].field] = "local";
-        }
-      }
-    }
+  }
+
+  /** Select every importable change: import added, remote-win modified, remove deleted. */
+  function _selectAll() {
+    var diff = _options.diff || {};
+    _setAddedItems(diff, "import", true);
+    _setModifiedFields(diff, "remote", true);
+    _setDeletedItems(diff, "remove", true);
+    _render();
+  }
+
+  /** Deselect everything: skip added, keep deleted, reset modified fields to local. */
+  function _deselectAll() {
+    var diff = _options.diff || {};
+    _setAddedItems(diff, "skip", false);
+    _clearCheckedItems();
+    _setDeletedItems(diff, "keep", false);
+    _setModifiedFields(diff, "local", false);
     _render();
   }
 
   /**
-   * Toggle "Select All / Deselect All" for the backup import flow.
+   * Cycle the backup-import "Select All" control through its three states:
+   *   1 = import added + remote-win modified (deleted left untouched/kept),
+   *   2 = additionally mark deleted for removal,
+   *   0 = deselect everything (added skipped, modified reset to local).
    */
   function _toggleSelectAll() {
     var diff = _options ? _options.diff || {} : {};
     _selectAllState = (_selectAllState + 1) % 3;
     if (_selectAllState === 1) {
-      // First press: import all added, keep deleted untouched
-      for (var i = 0; i < (diff.added || []).length; i++) {
-        _orphanActions["added-" + i] = "import";
-        _checkedItems["added-" + i] = true;
-      }
-      for (var j = 0; j < (diff.modified || []).length; j++) {
-        _checkedItems["modified-" + j] = true;
-        var mod1 = (diff.modified || [])[j];
-        if (mod1 && mod1.changes) {
-          for (var c1 = 0; c1 < mod1.changes.length; c1++) {
-            _fieldSelections["conflict-" + j + "-" + mod1.changes[c1].field] = "remote";
-          }
-        }
-      }
-      for (var k = 0; k < (diff.deleted || []).length; k++) {
-        _orphanActions["deleted-" + k] = "keep";
-        _checkedItems["deleted-" + k] = false;
-      }
+      _setAddedItems(diff, "import", true);
+      _setModifiedFields(diff, "remote", true);
+      _setDeletedItems(diff, "keep", false);
     } else if (_selectAllState === 2) {
-      // Second press: also mark deleted for removal
-      for (var k2 = 0; k2 < (diff.deleted || []).length; k2++) {
-        _orphanActions["deleted-" + k2] = "remove";
-        _checkedItems["deleted-" + k2] = true;
-      }
+      _setDeletedItems(diff, "remove", true);
     } else {
-      // Third press: deselect all
-      for (var a = 0; a < (diff.added || []).length; a++) {
-        _orphanActions["added-" + a] = "skip";
-        _checkedItems["added-" + a] = false;
-      }
-      for (var key in _checkedItems) {
-        if (_checkedItems.hasOwnProperty(key)) _checkedItems[key] = false;
-      }
-      for (var d = 0; d < (diff.deleted || []).length; d++) {
-        _orphanActions["deleted-" + d] = "keep";
-      }
-      // Reset field selections to local
-      for (var m3 = 0; m3 < (diff.modified || []).length; m3++) {
-        var mod3 = (diff.modified || [])[m3];
-        if (mod3 && mod3.changes) {
-          for (var c3 = 0; c3 < mod3.changes.length; c3++) {
-            _fieldSelections["conflict-" + m3 + "-" + mod3.changes[c3].field] = "local";
-          }
-        }
-      }
+      _setAddedItems(diff, "skip", false);
+      _clearCheckedItems();
+      _setDeletedItems(diff, "keep", false);
+      _setModifiedFields(diff, "local", false);
     }
     var toggleBtn = safeGetElement("diffReviewSelectAllToggle");
     if (toggleBtn) {
@@ -2646,130 +2004,163 @@
    */
   function _mergeSettingElements(type, key, localVal, remoteVal) {
     var prefix = "setting-" + key + "-";
-
-    if (type === "chip-strip") {
-      // Array of {id, label, enabled, ...} — merge by id
-      if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
-      var lArr = Array.isArray(localVal) ? localVal : [];
-      var rArr = Array.isArray(remoteVal) ? remoteVal : [];
-      var lById = {};
-      var rById = {};
-      var i, id;
-      for (i = 0; i < lArr.length; i++) {
-        id = lArr[i].id || lArr[i].label || i;
-        lById[id] = lArr[i];
-      }
-      for (i = 0; i < rArr.length; i++) {
-        id = rArr[i].id || rArr[i].label || i;
-        rById[id] = rArr[i];
-      }
-      // Preserve original array order — use remote array as base order (default wins),
-      // then append any local-only items at the end
-      var merged = [];
-      var seen = {};
-      // First pass: iterate remote array in order
-      for (i = 0; i < rArr.length; i++) {
-        id = rArr[i].id || rArr[i].label || i;
-        var sel = _fieldSelections[prefix + id];
-        if (sel === "local" && lById[id]) {
-          merged.push(lById[id]);
-        } else {
-          merged.push(rArr[i]); // default: remote wins
-        }
-        seen[id] = true;
-      }
-      // Second pass: append local-only items (preserving local order)
-      for (i = 0; i < lArr.length; i++) {
-        id = lArr[i].id || lArr[i].label || i;
-        if (!seen[id]) {
-          var lSel = _fieldSelections[prefix + id];
-          if (lSel === "local" || !lSel) {
-            merged.push(lArr[i]); // local-only, user picked local or no selection
-          }
-        }
-      }
-      return merged;
-    }
-
+    if (type === "chip-strip") return _mergeChipStrip(prefix, localVal, remoteVal);
     if (type === "toggle-map" || type === "kv-pills") {
-      // Object merge — key by key
-      if (
-        (typeof localVal !== "object" || localVal === null) &&
-        (typeof remoteVal !== "object" || remoteVal === null)
-      )
-        return null;
-      var lObj = typeof localVal === "object" && localVal !== null ? localVal : {};
-      var rObj = typeof remoteVal === "object" && remoteVal !== null ? remoteVal : {};
-      var result = {};
-      var allKeys = {};
-      var k;
-      for (k in lObj) allKeys[k] = true;
-      for (k in rObj) allKeys[k] = true;
-      for (k in allKeys) {
-        var kSel = _fieldSelections[prefix + k];
-        if (kSel === "local" && lObj.hasOwnProperty(k)) {
-          result[k] = lObj[k];
-        } else if (kSel === "remote" && rObj.hasOwnProperty(k)) {
-          result[k] = rObj[k];
-        } else if (rObj.hasOwnProperty(k)) {
-          result[k] = rObj[k]; // default: remote
-        } else if (lObj.hasOwnProperty(k)) {
-          result[k] = lObj[k]; // only in local
-        }
-      }
-      return result;
+      return _mergeKeyedObject(prefix, localVal, remoteVal);
     }
-
-    if (type === "slug-chips") {
-      // String array — order-preserving set merge
-      if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
-      var lSet = {};
-      var rSet = {};
-      var lList = Array.isArray(localVal) ? localVal : [];
-      var rList = Array.isArray(remoteVal) ? remoteVal : [];
-      for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
-      for (i = 0; i < rList.length; i++) rSet[rList[i]] = true;
-      var mergedArr = [];
-      var slugSeen = {};
-      // First pass: iterate remote array in order (default wins)
-      for (i = 0; i < rList.length; i++) {
-        var rSlug = rList[i];
-        slugSeen[rSlug] = true;
-        if (lSet[rSlug]) {
-          mergedArr.push(rSlug); // common — always include
-        } else {
-          var rSlugSel = _fieldSelections[prefix + rSlug];
-          if (rSlugSel === "remote" || !rSlugSel) {
-            mergedArr.push(rSlug); // remote-only, user picked remote or default
-          }
-        }
-      }
-      // Second pass: append local-only items (preserving local order)
-      for (i = 0; i < lList.length; i++) {
-        var lSlug = lList[i];
-        if (!slugSeen[lSlug]) {
-          var lSlugSel = _fieldSelections[prefix + lSlug];
-          if (lSlugSel === "local") {
-            mergedArr.push(lSlug); // local-only, user picked local
-          }
-        }
-      }
-      return mergedArr;
-    }
-
+    if (type === "slug-chips") return _mergeSlugChips(prefix, localVal, remoteVal);
     return null; // unknown type — fallback
+  }
+
+  /**
+   * Merge a chip-strip array setting by element id. Remote order is the base
+   * (default wins); a local element substitutes where the user picked "local", and
+   * local-only elements append at the end unless explicitly deselected.
+   * @param {string} prefix - _fieldSelections key prefix ("setting-<key>-")
+   * @param {*} localVal - local value (array of {id,label,enabled,...})
+   * @param {*} remoteVal - remote value
+   * @returns {Array|null} merged array, or null when neither side is an array
+   */
+  function _mergeChipStrip(prefix, localVal, remoteVal) {
+    if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+    var lArr = Array.isArray(localVal) ? localVal : [];
+    var rArr = Array.isArray(remoteVal) ? remoteVal : [];
+    var lById = {};
+    var i, id;
+    for (i = 0; i < lArr.length; i++) {
+      id = lArr[i].id || lArr[i].label || i;
+      lById[id] = lArr[i];
+    }
+    // Preserve original array order — use remote array as base order (default wins),
+    // then append any local-only items at the end
+    var merged = [];
+    var seen = {};
+    // First pass: iterate remote array in order
+    for (i = 0; i < rArr.length; i++) {
+      id = rArr[i].id || rArr[i].label || i;
+      var sel = _fieldSelections[prefix + id];
+      if (sel === "local" && lById[id]) {
+        merged.push(lById[id]);
+      } else {
+        merged.push(rArr[i]); // default: remote wins
+      }
+      seen[id] = true;
+    }
+    // Second pass: append local-only items (preserving local order)
+    for (i = 0; i < lArr.length; i++) {
+      id = lArr[i].id || lArr[i].label || i;
+      if (!seen[id]) {
+        var lSel = _fieldSelections[prefix + id];
+        if (lSel === "local" || !lSel) {
+          merged.push(lArr[i]); // local-only, user picked local or no selection
+        }
+      }
+    }
+    return merged;
+  }
+
+  /**
+   * Merge an object-shaped setting (toggle-map / kv-pills) key by key. Each key
+   * resolves to its picked side, defaulting to remote when present, else local.
+   * @param {string} prefix - _fieldSelections key prefix ("setting-<key>-")
+   * @param {*} localVal - local value (object)
+   * @param {*} remoteVal - remote value (object)
+   * @returns {object|null} merged object, or null when neither side is an object
+   */
+  function _mergeKeyedObject(prefix, localVal, remoteVal) {
+    if (
+      (typeof localVal !== "object" || localVal === null) &&
+      (typeof remoteVal !== "object" || remoteVal === null)
+    )
+      return null;
+    var lObj = typeof localVal === "object" && localVal !== null ? localVal : {};
+    var rObj = typeof remoteVal === "object" && remoteVal !== null ? remoteVal : {};
+    var result = {};
+    var allKeys = {};
+    var k;
+    for (k in lObj) allKeys[k] = true;
+    for (k in rObj) allKeys[k] = true;
+    for (k in allKeys) {
+      var kSel = _fieldSelections[prefix + k];
+      if (kSel === "local" && lObj.hasOwnProperty(k)) {
+        result[k] = lObj[k];
+      } else if (kSel === "remote" && rObj.hasOwnProperty(k)) {
+        result[k] = rObj[k];
+      } else if (rObj.hasOwnProperty(k)) {
+        result[k] = rObj[k]; // default: remote
+      } else if (lObj.hasOwnProperty(k)) {
+        result[k] = lObj[k]; // only in local
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Merge a slug-chips string-array setting as an order-preserving set. Remote
+   * order leads; common slugs always survive; remote-only and local-only slugs are
+   * included per the user's per-slug pick (default remote-keep, local opt-in).
+   * @param {string} prefix - _fieldSelections key prefix ("setting-<key>-")
+   * @param {*} localVal - local value (string array)
+   * @param {*} remoteVal - remote value (string array)
+   * @returns {Array|null} merged slug array, or null when neither side is an array
+   */
+  function _mergeSlugChips(prefix, localVal, remoteVal) {
+    if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
+    var lSet = {};
+    var lList = Array.isArray(localVal) ? localVal : [];
+    var rList = Array.isArray(remoteVal) ? remoteVal : [];
+    var i;
+    for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
+    var mergedArr = [];
+    var slugSeen = {};
+    // First pass: iterate remote array in order (default wins)
+    for (i = 0; i < rList.length; i++) {
+      var rSlug = rList[i];
+      slugSeen[rSlug] = true;
+      if (lSet[rSlug]) {
+        mergedArr.push(rSlug); // common — always include
+      } else {
+        var rSlugSel = _fieldSelections[prefix + rSlug];
+        if (rSlugSel === "remote" || !rSlugSel) {
+          mergedArr.push(rSlug); // remote-only, user picked remote or default
+        }
+      }
+    }
+    // Second pass: append local-only items (preserving local order)
+    for (i = 0; i < lList.length; i++) {
+      var lSlug = lList[i];
+      if (!slugSeen[lSlug]) {
+        var lSlugSel = _fieldSelections[prefix + lSlug];
+        if (lSlugSel === "local") {
+          mergedArr.push(lSlug); // local-only, user picked local
+        }
+      }
+    }
+    return mergedArr;
   }
 
   function _buildSelectedChanges() {
     var diff = _options.diff || {};
     var result = [];
-    var added = diff.added || [];
-    var modified = diff.modified || [];
-    var deleted = diff.deleted || [];
     var hasCardState =
       Object.keys(_orphanActions).length > 0 || Object.keys(_fieldSelections).length > 0;
+    _collectAddedChanges(diff, hasCardState, result);
+    _collectModifiedChanges(diff, hasCardState, result);
+    _collectDeletedChanges(diff, hasCardState, result);
+    _collectConflictChanges(result);
+    _collectSettingsChanges(result);
+    return result;
+  }
 
-    // Added items — card state or legacy fallback
+  /**
+   * Append {type:"add"} records for added orphans the user kept. With card state,
+   * inclusion follows the orphan action (≠ "skip"); legacy mode uses the checkbox.
+   * @param {object} diff - active diff
+   * @param {boolean} hasCardState - whether card-based selections are present
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectAddedChanges(diff, hasCardState, result) {
+    var added = diff.added || [];
     for (var a = 0; a < added.length; a++) {
       var includeAdded = hasCardState
         ? _orphanActions["added-" + a] !== "skip"
@@ -2778,86 +2169,157 @@
         result.push({ type: "add", item: added[a] });
       }
     }
+  }
 
-    // Modified items — per-field selection via _fieldSelections
+  /**
+   * Append modify / attach-entry records for each modified item, routing to the
+   * card-based per-field picker or the legacy all-remote fallback.
+   * @param {object} diff - active diff
+   * @param {boolean} hasCardState - whether card-based selections are present
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectModifiedChanges(diff, hasCardState, result) {
+    var modified = diff.modified || [];
     for (var m = 0; m < modified.length; m++) {
       var mod = modified[m];
       var mKey = _itemKey(mod.item);
       if (hasCardState) {
-        // Card-based: always emit all fields, user picks local vs remote per field
-        for (var c = 0; c < mod.changes.length; c++) {
-          var ch = mod.changes[c];
-          // Attachments: emit per-entry records keyed by UUID
-          if (
-            ch.field === "attachments" &&
-            window.DiffEngine &&
-            typeof DiffEngine.diffAttachments === "function"
-          ) {
-            var attDiffsC = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
-            for (var ace = 0; ace < attDiffsC.length; ace++) {
-              var entryC = attDiffsC[ace];
-              var entryKeyC = "conflict-" + m + "-attachments:" + entryC.attachmentUuid;
-              var entrySelC = _fieldSelections[entryKeyC] || "remote";
-              if (entrySelC === "remote") {
-                // Accept remote side: add/remove/replace as computed
-                result.push({
-                  type: "attach-entry",
-                  itemKey: mKey,
-                  action: entryC.action,
-                  attachmentUuid: entryC.attachmentUuid,
-                  oldAttachmentUuid: entryC.oldAttachmentUuid || null,
-                  value: entryC.remoteVal,
-                });
-              }
-              // entrySel === "local" → no record; local keeps its state unchanged
-            }
-            continue;
-          }
-          var fSel = _fieldSelections["conflict-" + m + "-" + ch.field] || "remote";
-          result.push({
-            type: "modify",
-            itemKey: mKey,
-            field: ch.field,
-            value: fSel === "local" ? ch.localVal : ch.remoteVal,
-          });
-        }
-      } else {
-        // Legacy fallback: emit all fields if item is checked
-        if (_checkedItems["modified-" + m] !== false) {
-          for (var c2 = 0; c2 < mod.changes.length; c2++) {
-            var ch2 = mod.changes[c2];
-            // Attachments: emit per-entry records (all remote)
-            if (
-              ch2.field === "attachments" &&
-              window.DiffEngine &&
-              typeof DiffEngine.diffAttachments === "function"
-            ) {
-              var attDiffsL = DiffEngine.diffAttachments(ch2.localVal, ch2.remoteVal);
-              for (var ale = 0; ale < attDiffsL.length; ale++) {
-                var entryL = attDiffsL[ale];
-                result.push({
-                  type: "attach-entry",
-                  itemKey: mKey,
-                  action: entryL.action,
-                  attachmentUuid: entryL.attachmentUuid,
-                  oldAttachmentUuid: entryL.oldAttachmentUuid || null,
-                  value: entryL.remoteVal,
-                });
-              }
-              continue;
-            }
-            result.push({
-              type: "modify",
-              itemKey: mKey,
-              field: ch2.field,
-              value: ch2.remoteVal,
-            });
-          }
-        }
+        _emitCardModified(m, mod, mKey, result);
+      } else if (_checkedItems["modified-" + m] !== false) {
+        _emitLegacyModified(mod, mKey, result);
       }
     }
+  }
 
-    // Deleted items — card state or legacy fallback
+  /** True when a change is an attachments diff handled per-entry via DiffEngine. */
+  function _isAttachmentChange(ch) {
+    return (
+      ch.field === "attachments" &&
+      window.DiffEngine &&
+      typeof DiffEngine.diffAttachments === "function"
+    );
+  }
+
+  /**
+   * Card-based: emit the per-field winner (local / remote / sum) for one modified
+   * item; attachments fan out to per-entry records.
+   * @param {number} m - modified-item index (conflict key)
+   * @param {object} mod - the modified diff entry ({ item, changes })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitCardModified(m, mod, mKey, result) {
+    for (var c = 0; c < mod.changes.length; c++) {
+      var ch = mod.changes[c];
+      // Attachments: emit per-entry records keyed by UUID
+      if (_isAttachmentChange(ch)) {
+        _emitCardAttachments(m, ch, mKey, result);
+        continue;
+      }
+      var fSel = _fieldSelections["conflict-" + m + "-" + ch.field] || "remote";
+      // STRK-167 (AC-10, D-5): "sum" computes the merged quantity HERE so the
+      // shared DiffEngine.applySelectedChanges patch (updated[field]=value) is
+      // untouched — no blast radius into cloud sync.
+      var fVal;
+      if (fSel === "local") {
+        fVal = ch.localVal;
+      } else if (fSel === "sum") {
+        fVal = (Number(ch.localVal) || 0) + (Number(ch.remoteVal) || 0);
+      } else {
+        fVal = ch.remoteVal;
+      }
+      result.push({
+        type: "modify",
+        itemKey: mKey,
+        field: ch.field,
+        value: fVal,
+      });
+    }
+  }
+
+  /**
+   * Card-based: emit accepted (remote-side) attachment-entry records for one
+   * attachments change; "local" picks leave the item's state unchanged.
+   * @param {number} m - modified-item index (conflict key)
+   * @param {object} ch - the attachments change ({ localVal, remoteVal })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitCardAttachments(m, ch, mKey, result) {
+    var attDiffsC = DiffEngine.diffAttachments(ch.localVal, ch.remoteVal);
+    for (var ace = 0; ace < attDiffsC.length; ace++) {
+      var entryC = attDiffsC[ace];
+      var entryKeyC = "conflict-" + m + "-attachments:" + entryC.attachmentUuid;
+      var entrySelC = _fieldSelections[entryKeyC] || "remote";
+      if (entrySelC === "remote") {
+        // Accept remote side: add/remove/replace as computed
+        result.push({
+          type: "attach-entry",
+          itemKey: mKey,
+          action: entryC.action,
+          attachmentUuid: entryC.attachmentUuid,
+          oldAttachmentUuid: entryC.oldAttachmentUuid || null,
+          value: entryC.remoteVal,
+        });
+      }
+      // entrySel === "local" → no record; local keeps its state unchanged
+    }
+  }
+
+  /**
+   * Legacy fallback: emit all-remote field winners for one checked modified item;
+   * attachments emit every entry on the remote side.
+   * @param {object} mod - the modified diff entry ({ item, changes })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitLegacyModified(mod, mKey, result) {
+    for (var c2 = 0; c2 < mod.changes.length; c2++) {
+      var ch2 = mod.changes[c2];
+      // Attachments: emit per-entry records (all remote)
+      if (_isAttachmentChange(ch2)) {
+        _emitLegacyAttachments(ch2, mKey, result);
+        continue;
+      }
+      result.push({
+        type: "modify",
+        itemKey: mKey,
+        field: ch2.field,
+        value: ch2.remoteVal,
+      });
+    }
+  }
+
+  /**
+   * Legacy fallback: emit every attachment entry (remote side) for one change.
+   * @param {object} ch2 - the attachments change ({ localVal, remoteVal })
+   * @param {string} mKey - item key for the emitted records
+   * @param {Array} result - accumulator pushed into
+   */
+  function _emitLegacyAttachments(ch2, mKey, result) {
+    var attDiffsL = DiffEngine.diffAttachments(ch2.localVal, ch2.remoteVal);
+    for (var ale = 0; ale < attDiffsL.length; ale++) {
+      var entryL = attDiffsL[ale];
+      result.push({
+        type: "attach-entry",
+        itemKey: mKey,
+        action: entryL.action,
+        attachmentUuid: entryL.attachmentUuid,
+        oldAttachmentUuid: entryL.oldAttachmentUuid || null,
+        value: entryL.remoteVal,
+      });
+    }
+  }
+
+  /**
+   * Append {type:"delete"} records for deleted orphans the user removed. With card
+   * state, inclusion follows the orphan action ("remove"); legacy uses the checkbox.
+   * @param {object} diff - active diff
+   * @param {boolean} hasCardState - whether card-based selections are present
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectDeletedChanges(diff, hasCardState, result) {
+    var deleted = diff.deleted || [];
     for (var d = 0; d < deleted.length; d++) {
       var includeDeleted = hasCardState
         ? _orphanActions["deleted-" + d] === "remove"
@@ -2866,8 +2328,14 @@
         result.push({ type: "delete", itemKey: _itemKey(deleted[d]) });
       }
     }
+  }
 
-    // Item conflict resolutions (sync-specific conflicts section — separate from modified cards)
+  /**
+   * Append modify records for the sync conflicts section (separate from modified
+   * cards); each conflict defaults to the remote side unless resolved to local.
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectConflictChanges(result) {
     var conflictsArr = (_options.conflicts && _options.conflicts.conflicts) || [];
     for (var ci = 0; ci < conflictsArr.length; ci++) {
       var conf = conflictsArr[ci];
@@ -2881,8 +2349,14 @@
         value: side === "local" ? conf.localVal : conf.remoteVal,
       });
     }
+  }
 
-    // Settings changes — per-element merge for rich renderer types, whole-setting for others
+  /**
+   * Append {type:"setting"} records: a per-element merge for rich renderer types
+   * when the user made element picks, else a whole-setting local/remote resolution.
+   * @param {Array} result - accumulator pushed into
+   */
+  function _collectSettingsChanges(result) {
     var settingsDiff = _options.settingsDiff || {};
     var changedSettings = settingsDiff.changed || [];
     for (var s = 0; s < changedSettings.length; s++) {
@@ -2890,18 +2364,9 @@
       var sType = SETTINGS_VALUE_TYPE[setting.key];
       var sPrefix = "setting-" + setting.key + "-";
 
-      // Check for per-element selections (skip count-summary — whole-setting only)
-      var hasElementPicks = false;
-      if (sType && sType !== "count-summary") {
-        for (var fk in _fieldSelections) {
-          if (_fieldSelections.hasOwnProperty(fk) && fk.indexOf(sPrefix) === 0) {
-            hasElementPicks = true;
-            break;
-          }
-        }
-      }
-
-      if (hasElementPicks) {
+      // Per-element merge only for rich types with actual element picks
+      // (count-summary is whole-setting only).
+      if (sType && sType !== "count-summary" && _hasElementPicks(sPrefix)) {
         var mergedVal = _mergeSettingElements(
           sType,
           setting.key,
@@ -2919,8 +2384,16 @@
       var value = resolution === "local" ? setting.localVal : setting.remoteVal;
       result.push({ type: "setting", key: setting.key, value: value });
     }
+  }
 
-    return result;
+  /** True when any _fieldSelections key targets this setting's per-element prefix. */
+  function _hasElementPicks(sPrefix) {
+    for (var fk in _fieldSelections) {
+      if (_fieldSelections.hasOwnProperty(fk) && fk.indexOf(sPrefix) === 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function _onApply() {
@@ -2971,6 +2444,11 @@
     if (listEl) {
       listEl.removeEventListener("click", _onModifiedClick);
       listEl.addEventListener("click", _onModifiedClick);
+      // STRK-167 (AC-10) a11y: div[role=radio] does not fire click on Space/Enter,
+      // so the 3-way qty control is keyboard-inaccessible without this. Delegate a
+      // keydown that activates the focused radio.
+      listEl.removeEventListener("keydown", _onModifiedKeydown);
+      listEl.addEventListener("keydown", _onModifiedKeydown);
     }
 
     // Pill buttons
@@ -3044,6 +2522,29 @@
     }
   }
 
+  // ── Regex-bearing escape helpers — defined LAST (see top-of-file note, [[lizard-esc-regex-desync]]) ──
+
+  /** Title-case a setting key for display (humanizes camelCase / kebab / snake). */
+  function _titleCase(key) {
+    return key
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, function (c) {
+        return c.toUpperCase();
+      });
+  }
+
+  /** Safe HTML escape — falls back to inline if sanitizeHtml not loaded */
+  function _esc(text) {
+    if (typeof sanitizeHtml === "function") return sanitizeHtml(text);
+    if (!text) return "";
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   // ── Public API ──
 
   var DiffModal = {
@@ -3068,7 +2569,6 @@
       _checkedItems = {};
       _conflictResolutions = {};
       _collapsedCategories = { settings: true };
-      _expandedModified = {};
       _expandedSettingsCategories = {};
       _selectAllState = 0;
       _orphanActions = {};

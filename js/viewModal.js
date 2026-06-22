@@ -859,13 +859,9 @@ function _buildDispositionSection(item) {
     return section;
   }
 
-  if (
-    item.disposition == null ||
-    typeof item.disposition !== "object" ||
-    Array.isArray(item.disposition) ||
-    Object.keys(item.disposition).length === 0
-  )
-    return null;
+  // STRK-83: derive the guard from the canonical predicate so the renderer and
+  // isDisposed() can never disagree about empty-object dispositions.
+  if (!isDisposed(item)) return null;
 
   const d = item.disposition;
 
@@ -1136,7 +1132,7 @@ function _buildDispositionSection(item) {
       const matches = inventory
         .filter(
           (inv) =>
-            !inv.disposition &&
+            !isDisposed(inv) &&
             inv.uuid !== sourceUuid &&
             !editUuids.includes(inv.uuid) &&
             (inv.name || "").toLowerCase().includes(query)
@@ -1183,11 +1179,11 @@ function _buildDispositionSection(item) {
     });
 
     // Save: persist the updated trade links
-    saveBtn.addEventListener("click", async () => {
+    saveBtn.addEventListener("click", () => {
       const sourceIdx = inventory.findIndex((c) => c.uuid === item.uuid);
       if (sourceIdx < 0) return;
       if (typeof updateTradeLinks === "function") {
-        await updateTradeLinks(item, editUuids);
+        updateTradeLinks(item, editUuids);
       }
       closeViewModal();
       if (typeof showViewModal === "function") showViewModal(sourceIdx);
@@ -2392,38 +2388,21 @@ function _createPriceHistoryChart(
     _viewModalChartInstance = null;
   }
 
-  // Filter spot entries by time range
   fromTs = fromTs || 0;
   toTs = toTs || 0;
   const cutoff = _getViewChartRangeCutoff(days);
-  let spotEntries;
-  if (fromTs > 0 || toTs > 0) {
-    // Custom date range mode
-    spotEntries = allSpotEntries.filter(
-      (e) => (fromTs <= 0 || e.ts >= fromTs) && (toTs <= 0 || e.ts <= toTs)
-    );
-  } else {
-    spotEntries = cutoff > 0 ? allSpotEntries.filter((e) => e.ts >= cutoff) : [...allSpotEntries];
-  }
 
-  // If "All" range or custom range and purchase date is before earliest spot data,
-  // prepend a synthetic entry so the chart extends back to purchase date. Long
-  // bounded ranges keep their sparse-data viewport anchor; short ranges show
-  // only actual days so a 7d chart cannot invent an extra left-edge point.
-  const isAllOrCustom = days === 0 || fromTs > 0 || toTs > 0;
-  const boundedAnchorTs =
-    !isAllOrCustom &&
-    days > 180 &&
-    cutoff > 0 &&
-    spotEntries.length > 0 &&
-    spotEntries[0].ts > cutoff
-      ? cutoff
-      : 0;
-  const purchaseAnchorTs =
-    isAllOrCustom && purchaseDate > 0 && spotEntries.length > 0 && purchaseDate < spotEntries[0].ts
-      ? purchaseDate
-      : 0;
-  const syntheticAnchorTs = boundedAnchorTs || purchaseAnchorTs;
+  // Filter spot entries by selected range, then optionally prepend a synthetic
+  // anchor so "All"/custom/long-bounded ranges extend back to purchase/cutoff.
+  const spotEntries = _selectViewChartSpotEntries(allSpotEntries, cutoff, fromTs, toTs);
+  const syntheticAnchorTs = _computeViewChartSyntheticAnchor(
+    spotEntries,
+    days,
+    cutoff,
+    fromTs,
+    toTs,
+    purchaseDate
+  );
   if (syntheticAnchorTs > 0) {
     spotEntries.unshift({ ts: syntheticAnchorTs, spot: spotEntries[0].spot });
   }
@@ -2442,13 +2421,141 @@ function _createPriceHistoryChart(
     return;
   }
 
-  // Build labels + melt data from spot entries
-  // Adaptive formatting: decade spans → year only, multi-year → two-line [month, year],
-  // single-year → month + day
+  // Build labels + melt data + flat purchase reference line from spot entries
+  const labels = _buildViewChartLabels(spotEntries);
+  const meltData = spotEntries.map((e) => parseFloat((e.spot * meltFactor).toFixed(2)));
+  const purchaseLine = spotEntries.map(() => purchasePerUnit);
+
+  // Build retail data series: anchored from purchase date to present with sparse midpoints
+  const { retailData, hasRetail } = _buildViewChartRetailData(
+    spotEntries,
+    allRetailEntries,
+    currentRetail,
+    purchaseDate,
+    cutoff,
+    fromTs,
+    toTs
+  );
+
+  const showPoints = spotEntries.length <= 30;
+
+  const textColor =
+    typeof getChartTextColor === "function"
+      ? getChartTextColor()
+      : getThemeColorRGB("text-primary");
+  const bgColor =
+    typeof getChartBackgroundColor === "function"
+      ? getChartBackgroundColor()
+      : getThemeColorRGB("bg-primary");
+
+  const datasets = _buildViewChartDatasets({
+    purchaseLine,
+    meltData,
+    retailData,
+    showPoints,
+    hasRetail,
+  });
+
+  _viewModalChartInstance = createTimeSeriesChart(canvas, labels, datasets, {
+    animation: false,
+    showLegend: true,
+    xTicks: {
+      color: textColor,
+      maxTicksLimit: 6,
+      autoSkip: true,
+      font: { size: 10 },
+    },
+    yTicks: {
+      color: textColor,
+      font: { size: 10 },
+      callback: function (value) {
+        return typeof formatCurrency === "function" ? formatCurrency(value) : "$" + value;
+      },
+    },
+    tooltipCallbacks: {
+      label: function (ctx) {
+        if (ctx.parsed.y === null) return null;
+        const val =
+          typeof formatCurrency === "function" ? formatCurrency(ctx.parsed.y) : "$" + ctx.parsed.y;
+        return `${ctx.dataset.label}: ${val}`;
+      },
+    },
+  });
+
+  // Apply chart-specific overrides not covered by createTimeSeriesChart
+  if (_viewModalChartInstance) {
+    _applyViewChartOverrides(_viewModalChartInstance, textColor, bgColor);
+    _applyPriceHistoryYAxisBounds(_viewModalChartInstance);
+    _viewModalChartInstance.update("none");
+  }
+}
+
+/**
+ * Filter spot entries to the selected chart range.
+ * In custom-range mode (fromTs/toTs > 0) it keeps entries within the bounds;
+ * otherwise it applies the day-count cutoff (0 = all).
+ *
+ * @param {Array<{ts:number, spot:number}>} allSpotEntries - Daily spot prices
+ * @param {number} cutoff - Day-count cutoff timestamp (<=0 = no cutoff)
+ * @param {number} fromTs - Custom range start (0 = unbounded)
+ * @param {number} toTs - Custom range end (0 = unbounded)
+ * @returns {Array<{ts:number, spot:number}>} New filtered array
+ */
+function _selectViewChartSpotEntries(allSpotEntries, cutoff, fromTs, toTs) {
+  if (fromTs > 0 || toTs > 0) {
+    return allSpotEntries.filter(
+      (e) => (fromTs <= 0 || e.ts >= fromTs) && (toTs <= 0 || e.ts <= toTs)
+    );
+  }
+  return cutoff > 0 ? allSpotEntries.filter((e) => e.ts >= cutoff) : [...allSpotEntries];
+}
+
+/**
+ * Compute the synthetic left-edge anchor timestamp for the chart, or 0 if none.
+ * If "All"/custom range and the purchase date precedes the earliest spot data,
+ * anchor to purchase date. Long bounded ranges (>180d) keep their sparse-data
+ * viewport anchor at the cutoff; short ranges show only actual days so a 7d
+ * chart cannot invent an extra left-edge point.
+ *
+ * @param {Array<{ts:number, spot:number}>} spotEntries - Filtered spot entries
+ * @param {number} days - Day-count range (0 = all)
+ * @param {number} cutoff - Day-count cutoff timestamp
+ * @param {number} fromTs - Custom range start (0 = unbounded)
+ * @param {number} toTs - Custom range end (0 = unbounded)
+ * @param {number} purchaseDate - Purchase date timestamp
+ * @returns {number} Anchor timestamp, or 0 when no synthetic anchor is needed
+ */
+function _computeViewChartSyntheticAnchor(spotEntries, days, cutoff, fromTs, toTs, purchaseDate) {
+  const isAllOrCustom = days === 0 || fromTs > 0 || toTs > 0;
+  const boundedAnchorTs =
+    !isAllOrCustom &&
+    days > 180 &&
+    cutoff > 0 &&
+    spotEntries.length > 0 &&
+    spotEntries[0].ts > cutoff
+      ? cutoff
+      : 0;
+  const purchaseAnchorTs =
+    isAllOrCustom && purchaseDate > 0 && spotEntries.length > 0 && purchaseDate < spotEntries[0].ts
+      ? purchaseDate
+      : 0;
+  return boundedAnchorTs || purchaseAnchorTs;
+}
+
+/**
+ * Build adaptive x-axis labels from spot entries.
+ * Formatting adapts to the spanned year range: decade spans → compact
+ * "month '24", multi-year → two-line [month day, year], single year →
+ * month + day.
+ *
+ * @param {Array<{ts:number, spot:number}>} spotEntries - Filtered spot entries
+ * @returns {Array<string|string[]>} Chart.js x-axis labels
+ */
+function _buildViewChartLabels(spotEntries) {
   const firstYear = new Date(spotEntries[0].ts).getFullYear();
   const lastYear = new Date(spotEntries[spotEntries.length - 1].ts).getFullYear();
   const yearSpan = lastYear - firstYear;
-  const labels = spotEntries.map((e) => {
+  return spotEntries.map((e) => {
     const d = new Date(e.ts);
     if (yearSpan > 10) {
       // Decade+ ranges: compact "Jan '24" or just "'24"
@@ -2463,36 +2570,94 @@ function _createPriceHistoryChart(
     }
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   });
-  const meltData = spotEntries.map((e) => parseFloat((e.spot * meltFactor).toFixed(2)));
-  const purchaseLine = spotEntries.map(() => purchasePerUnit);
+}
 
-  // Build retail data: anchored from purchase date to present, with sparse midpoints.
-  // Uses index-based snapping to find the nearest spot entry for each retail point,
-  // since anchor dates may not have an exact-match spot entry on that calendar day.
+/**
+ * Find the index of the spot entry whose timestamp is nearest to `ts`.
+ *
+ * @param {Array<{ts:number}>} spotEntries - Filtered spot entries (non-empty)
+ * @param {number} ts - Target timestamp
+ * @returns {number} Index of the nearest entry
+ */
+function _nearestViewChartSpotIdx(spotEntries, ts) {
+  let best = 0;
+  let bestDist = Math.abs(spotEntries[0].ts - ts);
+  for (let i = 1; i < spotEntries.length; i++) {
+    const dist = Math.abs(spotEntries[i].ts - ts);
+    if (dist < bestDist) {
+      best = i;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+/**
+ * Resolve the leading (left-edge) retail value when the first in-range retail
+ * snapshot is not at index 0. Prefers the most recent prior out-of-range
+ * snapshot; otherwise falls back to current retail when the purchase date is
+ * within range.
+ *
+ * @param {Array<*>} retailData - Retail series being built (mutated by caller)
+ * @param {Array<{ts:number, retail:number}>} allRetailEntries - All snapshots
+ * @param {number} firstSpotTs - Timestamp of the first spot entry
+ * @param {number} purchaseDate - Purchase date timestamp
+ * @param {number} currentRetail - Current total market/retail value
+ * @returns {number|null} Leading retail value, or null when none applies
+ */
+function _resolveViewChartLeadingRetail(
+  retailData,
+  allRetailEntries,
+  firstSpotTs,
+  purchaseDate,
+  currentRetail
+) {
+  const priorRetailEntries = [...allRetailEntries]
+    .filter((entry) => Number(entry.retail) > 0 && entry.ts < firstSpotTs)
+    .sort((a, b) => a.ts - b.ts);
+  const previousRetail = priorRetailEntries[priorRetailEntries.length - 1];
+  if (previousRetail) {
+    return previousRetail.retail;
+  }
+  if (purchaseDate >= firstSpotTs && currentRetail > 0) {
+    return currentRetail;
+  }
+  return null;
+}
+
+/**
+ * Build the retail value series anchored from purchase date to present, with
+ * sparse itemPriceHistory snapshots in between. Uses index-based snapping to
+ * the nearest spot entry since anchor dates may lack an exact-match spot day.
+ *
+ * @param {Array<{ts:number, spot:number}>} spotEntries - Filtered spot entries
+ * @param {Array<{ts:number, retail:number}>} allRetailEntries - Snapshots
+ * @param {number} currentRetail - Current total market/retail value (end anchor)
+ * @param {number} purchaseDate - Purchase date timestamp
+ * @param {number} cutoff - Day-count cutoff timestamp
+ * @param {number} fromTs - Custom range start (0 = unbounded)
+ * @param {number} toTs - Custom range end (0 = unbounded)
+ * @returns {{retailData: Array<number|null>, hasRetail: boolean}} Series + flag
+ */
+function _buildViewChartRetailData(
+  spotEntries,
+  allRetailEntries,
+  currentRetail,
+  purchaseDate,
+  cutoff,
+  fromTs,
+  toTs
+) {
   const retailData = new Array(spotEntries.length).fill(null);
   const hasRetailSeries =
     currentRetail > 0 || allRetailEntries.some((entry) => Number(entry.retail) > 0);
-
-  // Helper: find the index of the spot entry nearest to a given timestamp
-  const _nearestSpotIdx = (ts) => {
-    let best = 0;
-    let bestDist = Math.abs(spotEntries[0].ts - ts);
-    for (let i = 1; i < spotEntries.length; i++) {
-      const dist = Math.abs(spotEntries[i].ts - ts);
-      if (dist < bestDist) {
-        best = i;
-        bestDist = dist;
-      }
-    }
-    return best;
-  };
 
   // Middle: sparse itemPriceHistory retail values snapped to nearest spot day
   for (const re of allRetailEntries) {
     if (cutoff > 0 && re.ts < cutoff) continue;
     if (fromTs > 0 && re.ts < fromTs) continue;
     if (toTs > 0 && re.ts > toTs) continue;
-    const idx = _nearestSpotIdx(re.ts);
+    const idx = _nearestViewChartSpotIdx(spotEntries, re.ts);
     retailData[idx] = re.retail;
   }
 
@@ -2505,14 +2670,15 @@ function _createPriceHistoryChart(
     const firstRetailIdx = retailData.findIndex((value) => value !== null);
     const firstSpotTs = spotEntries[0].ts;
     if (firstRetailIdx > 0) {
-      const previousRetail = [...allRetailEntries]
-        .filter((entry) => Number(entry.retail) > 0 && entry.ts < firstSpotTs)
-        .sort((a, b) => a.ts - b.ts)
-        .at(-1);
-      if (previousRetail) {
-        retailData[0] = previousRetail.retail;
-      } else if (purchaseDate >= firstSpotTs && currentRetail > 0) {
-        retailData[0] = currentRetail;
+      const leadingRetail = _resolveViewChartLeadingRetail(
+        retailData,
+        allRetailEntries,
+        firstSpotTs,
+        purchaseDate,
+        currentRetail
+      );
+      if (leadingRetail !== null) {
+        retailData[0] = leadingRetail;
       }
     } else if (firstRetailIdx === -1 && currentRetail > 0) {
       retailData[0] = currentRetail;
@@ -2521,23 +2687,26 @@ function _createPriceHistoryChart(
   }
 
   const hasRetail = hasRetailSeries && retailData.some((v) => v !== null);
+  return { retailData, hasRetail };
+}
 
-  const showPoints = spotEntries.length <= 30;
-
-  const textColor =
-    typeof getChartTextColor === "function"
-      ? getChartTextColor()
-      : getThemeColorRGB("text-primary");
-  const bgColor =
-    typeof getChartBackgroundColor === "function"
-      ? getChartBackgroundColor()
-      : getThemeColorRGB("bg-primary");
-
+/**
+ * Build the three Chart.js datasets (purchase reference line, melt value,
+ * retail value) for the price-history chart.
+ *
+ * @param {Object} args
+ * @param {Array<number>} args.purchaseLine - Flat purchase-price series
+ * @param {Array<number>} args.meltData - Melt-value series
+ * @param {Array<number|null>} args.retailData - Retail-value series
+ * @param {boolean} args.showPoints - Whether to render point markers
+ * @param {boolean} args.hasRetail - Whether the retail dataset has data
+ * @returns {Array<Object>} Chart.js dataset configs
+ */
+function _buildViewChartDatasets({ purchaseLine, meltData, retailData, showPoints, hasRetail }) {
   const dangerColor = getThemeColorRGB("danger");
   const successColor = getThemeColorRGB("success");
   const primaryColor = getThemeColorRGB("primary");
-
-  const datasets = [
+  return [
     {
       label: "Purchase Price",
       data: purchaseLine,
@@ -2578,67 +2747,46 @@ function _createPriceHistoryChart(
       order: 1,
     },
   ];
+}
 
-  _viewModalChartInstance = createTimeSeriesChart(canvas, labels, datasets, {
-    animation: false,
-    showLegend: true,
-    xTicks: {
+/**
+ * Apply price-history chart overrides not covered by createTimeSeriesChart:
+ * axis grid styling, bottom legend with y-axis-bounds recompute on toggle, and
+ * themed tooltip colors.
+ *
+ * @param {Chart} chart - The created Chart.js instance
+ * @param {string} textColor - Resolved theme text color
+ * @param {string} bgColor - Resolved theme background color
+ * @returns {void}
+ */
+function _applyViewChartOverrides(chart, textColor, bgColor) {
+  const chartOpts = chart.options;
+  chartOpts.scales.x.grid = { display: false };
+  chartOpts.scales.y.grid = {
+    color: resolveColor(`color-mix(in srgb, ${getThemeColorRGB("border")} 40%, transparent)`),
+  };
+  Object.assign(chartOpts.plugins.legend, {
+    position: "bottom",
+    labels: {
       color: textColor,
-      maxTicksLimit: 6,
-      autoSkip: true,
+      usePointStyle: true,
+      pointStyle: "line",
+      padding: 12,
       font: { size: 10 },
     },
-    yTicks: {
-      color: textColor,
-      font: { size: 10 },
-      callback: function (value) {
-        return typeof formatCurrency === "function" ? formatCurrency(value) : "$" + value;
-      },
-    },
-    tooltipCallbacks: {
-      label: function (ctx) {
-        if (ctx.parsed.y === null) return null;
-        const val =
-          typeof formatCurrency === "function" ? formatCurrency(ctx.parsed.y) : "$" + ctx.parsed.y;
-        return `${ctx.dataset.label}: ${val}`;
-      },
+    onClick: function (event, legendItem, legend) {
+      Chart.defaults.plugins.legend.onClick?.call(this, event, legendItem, legend);
+      _applyPriceHistoryYAxisBounds(legend.chart);
+      legend.chart.update();
     },
   });
-
-  // Apply chart-specific overrides not covered by createTimeSeriesChart
-  if (_viewModalChartInstance) {
-    const chartOpts = _viewModalChartInstance.options;
-    chartOpts.scales.x.grid = { display: false };
-    chartOpts.scales.y.grid = {
-      color: resolveColor(`color-mix(in srgb, ${getThemeColorRGB("border")} 40%, transparent)`),
-    };
-    Object.assign(chartOpts.plugins.legend, {
-      position: "bottom",
-      labels: {
-        color: textColor,
-        usePointStyle: true,
-        pointStyle: "line",
-        padding: 12,
-        font: { size: 10 },
-      },
-      onClick: function (event, legendItem, legend) {
-        Chart.defaults.plugins.legend.onClick?.call(this, event, legendItem, legend);
-        _applyPriceHistoryYAxisBounds(legend.chart);
-        legend.chart.update();
-      },
-    });
-    Object.assign(chartOpts.plugins.tooltip, {
-      backgroundColor: bgColor,
-      titleColor: textColor,
-      bodyColor: textColor,
-      borderColor: textColor,
-      borderWidth: 1,
-    });
-
-    _applyPriceHistoryYAxisBounds(_viewModalChartInstance);
-
-    _viewModalChartInstance.update("none");
-  }
+  Object.assign(chartOpts.plugins.tooltip, {
+    backgroundColor: bgColor,
+    titleColor: textColor,
+    bodyColor: textColor,
+    borderColor: textColor,
+    borderWidth: 1,
+  });
 }
 
 function _applyPriceHistoryYAxisBounds(chart) {

@@ -171,30 +171,9 @@
       if (!name) return;
 
       const seen = new Set(); // avoid counting same text twice per item
-
-      // Extract text inside parentheses: (text)
-      const parenMatches = name.match(/\(([^)]+)\)/g);
-      if (parenMatches) {
-        parenMatches.forEach((m) => {
-          const text = m.slice(1, -1).trim();
-          if (text.length >= 3 && !GRADE_PATTERN.test(text) && !seen.has(text.toLowerCase())) {
-            seen.add(text.toLowerCase());
-            counts[text] = (counts[text] || 0) + 1;
-          }
-        });
-      }
-
-      // Extract text inside double quotes: "text"
-      const quoteMatches = name.match(/"([^"]+)"/g);
-      if (quoteMatches) {
-        quoteMatches.forEach((m) => {
-          const text = m.slice(1, -1).trim();
-          if (text.length >= 3 && !GRADE_PATTERN.test(text) && !seen.has(text.toLowerCase())) {
-            seen.add(text.toLowerCase());
-            counts[text] = (counts[text] || 0) + 1;
-          }
-        });
-      }
+      // Extract text inside parentheses (text) then double quotes "text".
+      _collectBracketedText(name, CHIP_PAREN_PATTERN, seen, counts);
+      _collectBracketedText(name, CHIP_QUOTE_PATTERN, seen, counts);
     });
 
     return counts;
@@ -765,6 +744,41 @@
 
   const _escAttr = (str) => {
     return str.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  };
+
+  // ---------------------------------------------------------------------------
+  // Dynamic-chip text extraction (regex helpers — kept LAST: the quote pattern
+  // embeds a double-quote, which desyncs Lizard's tokenizer; keeping it at the
+  // file end confines the desync to the file boundary).
+  // ---------------------------------------------------------------------------
+
+  // Matches text inside parentheses: (text)
+  const CHIP_PAREN_PATTERN = /\(([^)]+)\)/g;
+  // Matches text inside double quotes: "text"
+  const CHIP_QUOTE_PATTERN = /"([^"]+)"/g;
+
+  /**
+   * Collect bracketed/quoted substrings from a single item name into a counts
+   * map, applying the dynamic-chip filters (length >= 3, not a grade string,
+   * per-item case-insensitive dedup via the shared `seen` set).
+   *
+   * @param {string} name - Trimmed item name to scan
+   * @param {RegExp} pattern - Global regex whose group 1 wraps the chip text
+   *   (the literal match's first and last chars are stripped to get the text)
+   * @param {Set<string>} seen - Lowercased texts already counted for this item
+   * @param {Object<string, number>} counts - Accumulator map (mutated in place)
+   * @returns {void}
+   */
+  const _collectBracketedText = (name, pattern, seen, counts) => {
+    const matches = name.match(pattern);
+    if (!matches) return;
+    matches.forEach((m) => {
+      const text = m.slice(1, -1).trim();
+      if (text.length >= 3 && !GRADE_PATTERN.test(text) && !seen.has(text.toLowerCase())) {
+        seen.add(text.toLowerCase());
+        counts[text] = (counts[text] || 0) + 1;
+      }
+    });
   };
 
   // ---------------------------------------------------------------------------

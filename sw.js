@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.2-b1780534784";
+const CACHE_NAME = "staktrakr-v3.35.48-b1782098598";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -32,6 +32,9 @@ const CORE_ASSETS = [
   "./js/constants.js",
   "./js/field-meta.js",
   "./js/state.js",
+  "./js/utils-storage.js",
+  "./js/utils-format.js",
+  "./js/utils-storage-report.js",
   "./js/utils.js",
   "./js/dialogs.js",
   "./js/image-cache.js",
@@ -39,6 +42,7 @@ const CORE_ASSETS = [
   "./js/bulk-image-cache.js",
   "./js/image-cache-modal.js",
   "./js/attachment-manager.js",
+  "./js/history-store.js",
   "./js/attachment-ui.js",
   "./js/fuzzy-search.js",
   "./js/autocomplete.js",
@@ -47,6 +51,7 @@ const CORE_ASSETS = [
   "./js/versionCheck.js",
   "./js/changeLog.js",
   "./js/diff-engine.js",
+  "./js/diff-modal-settings.js",
   "./js/diff-modal.js",
   "./js/chart-utils.js",
   "./js/market-charts.js",
@@ -65,6 +70,8 @@ const CORE_ASSETS = [
   "./js/debugModal.js",
   "./js/numista-modal.js",
   "./js/spot.js",
+  "./js/spot-ratio-math.js",
+  "./js/spot-ratio-chips.js",
   "./js/card-view.js",
   "./js/seed-data.js",
   "./js/priceHistory.js",
@@ -74,13 +81,16 @@ const CORE_ASSETS = [
   "./js/retail-view-modal.js",
   "./js/api.js",
   "./js/catalog-api.js",
+  "./js/catalog-numista-modal.js",
   "./js/pcgs-api.js",
   "./js/catalog-providers.js",
   "./js/catalog-manager.js",
   "./js/inventory-backup.js",
   "./js/inventory-import.js",
+  "./js/csv-export.js",
   "./js/inventory-table.js",
   "./js/inventory.js",
+  "./js/vault-crypto.js",
   "./js/vault.js",
   "./js/cloud-storage.js",
   "./js/cloud-sync.js",
@@ -92,6 +102,7 @@ const CORE_ASSETS = [
   "./js/settings.js",
   "./js/settings-listeners.js",
   "./js/bulkEdit.js",
+  "./js/bulk-row-images.js",
   "./js/clone-picker.js",
   "./js/events.js",
   "./js/init.js",
@@ -305,8 +316,11 @@ function fetchAndCacheClassified(request, family) {
       if (family.hasEnvelope) {
         try {
           const body = JSON.parse(new TextDecoder().decode(buffer));
-          if (typeof body.generated_at === "number") {
-            syntheticHeaders["x-generated-at"] = String(body.generated_at);
+          // v2 envelopes carry generated_at as an ISO-8601 string; the header
+          // contract downstream (matchWithAgeCheck) is unix seconds (STRK-189)
+          const genSeconds = parseGeneratedAtSeconds(body);
+          if (genSeconds !== null) {
+            syntheticHeaders["x-generated-at"] = String(genSeconds);
           }
           if (typeof body.stale_after === "number") {
             syntheticHeaders["x-stale-after"] = String(body.stale_after);

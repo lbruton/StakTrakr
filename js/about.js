@@ -27,15 +27,14 @@ const populateAboutTab = () => {
     }
   }
 
-  // Load announcements for latest changes and roadmap
+  // Load announcements for latest changes
   loadAnnouncements();
 };
 
-const loadAnnouncements = async () => {
+const loadAnnouncements = () => {
   const whatsNewTargets = [document.getElementById("aboutChangelogLatest")].filter(Boolean);
-  const roadmapTargets = [document.getElementById("aboutRoadmapList")].filter(Boolean);
 
-  if (!whatsNewTargets.length && !roadmapTargets.length) return;
+  if (!whatsNewTargets.length) return;
 
   // STAK-513: Use embedded content directly. The external docs/announcements.md
   // was deleted but CDN ghost caches serve stale copies indefinitely.
@@ -43,10 +42,6 @@ const loadAnnouncements = async () => {
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
   whatsNewTargets.forEach((el) => {
     el.innerHTML = getEmbeddedWhatsNew();
-  }); // developer-controlled HTML
-  // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-  roadmapTargets.forEach((el) => {
-    el.innerHTML = getEmbeddedRoadmap();
   }); // developer-controlled HTML
 };
 
@@ -139,22 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
-    <li><strong>v3.35.2 &ndash; Summit Metals accuracy</strong>: Summit Metals listings no longer show a false &ldquo;out of stock&rdquo; badge, and pricing now reflects the single-unit tier instead of the 100&plus; bulk price (STRK-144).</li>
-    <li><strong>v3.35.2 &ndash; Metal-neutral purity labels</strong>: Fineness options no longer name a metal, so selecting .900 on a gold item no longer reads &ldquo;90&percnt; Silver&rdquo; (STRK-145).</li>
-    <li><strong>v3.35.1 &ndash; Storage quota fix</strong>: Market price history is now compressed (lz-string), clearing the &ldquo;storage quota exceeded&rdquo; error and freeing roughly 80&percnt; of its storage footprint &mdash; existing data is upgraded automatically with no loss (STRK-140).</li>
-    <li><strong>v3.35.0 &ndash; Trade linking</strong>: Bidirectional trade links between disposed traded items and received inventory, with editable provenance, spot-derived trade values, backup/export coverage, and cloud-sync visibility (STRK-123).</li>
-    <li><strong>v3.35.0 &ndash; Cloud sync hardening</strong>: Tag merge on sync, conflict-loop fix after accepting remote changes, Bullion Exchanges content-quality retry (STRK-106, STRK-107, STRK-108).</li>
-    <li><strong>v3.35.0 &ndash; Retail &amp; autocomplete fixes</strong>: SDB/BE spot-ticker sidebar leak patched, autocomplete field name casing corrected (STRK-99, STRK-114).</li>
-    <li><strong>v3.35.0 &ndash; Test infrastructure</strong>: Full Playwright suite consolidation &mdash; 7 batches reorganized scattered specs into compact domain suites with archived historical coverage (STRK-97 &ndash; STRK-122).</li>
-    <li><strong>v3.34.85 &ndash; Memorial Day release</strong>: Mobile bulk editor, gold-api.com provider, retail accuracy fixes, Goldback premium ticker, Numista tag chips, oklch theme system, and cloud sync reliability (STRK-91, STRK-89, STRK-99, STRK-85, STRK-84, STRK-25, STRK-101).</li>
-  `;
-};
-
-const getEmbeddedRoadmap = () => {
-  return `
-    <li><strong>Market Page Phase 3</strong>: Inventory-to-market linking with auto-update retail prices</li>
-    <li><strong>Cloud Backup Conflict Detection (STAK-150)</strong>: Smarter conflict resolution using item count direction, not just timestamps</li>
-  `;
+    <li><strong>v3.35.48 &ndash; STRK-232: Keyboard-friendly catalog &amp; grade chips</strong>: The N#, PCGS#, and grade reference chips in the inventory table can now be activated with Enter or Space when focused, so you can open a coin's Numista or PCGS page (or its grade lookup) without reaching for the mouse. Pressing Space on a chip no longer scrolls the page. Mouse clicks behave exactly as before &mdash; this only adds keyboard access (STRK-232).</li>
+    <li><strong>v3.35.47 &ndash; STRK-220: CSV imports keep tag edits on existing items</strong>: When you merge a CSV that adds or removes tags on items already in your collection, those tag changes now stick instead of being silently skipped. Previously only brand-new rows had their Tags and removedTags columns applied &mdash; existing items, and rows that only changed tags, were dropped during a merge import. Override and full-restore imports were unaffected and behave exactly as before (STRK-220).</li>
+    <li><strong>v3.35.46 &ndash; STRK-217: Value chart stays compatible with older browsers</strong>: An internal cleanup to how the item value chart finds the most recent retail snapshot before your purchase date, swapping a newer JavaScript shortcut for one that works on older browsers and devices StakTrakr still supports. The chart looks and behaves exactly as before &mdash; this only broadens where it renders correctly (STRK-217).</li>
+    <li><strong>v3.35.45 &ndash; STRK-216: Sturdier bulk-edit Type field wiring</strong>: An internal cleanup to how the Bulk Edit panel finds its Type dropdown, bringing it in line with how every other bulk field is resolved and adding a guard so a missing element can never crash the picker. This is a robustness and consistency improvement only &mdash; the Bulk Edit screen looks and behaves exactly as before (STRK-216).</li>
+    <li><strong>v3.35.44 &ndash; STRK-213: Retail dealer links stay current on older browsers</strong>: On browsers or devices that lack the newer <code>AbortSignal.timeout</code> timer, StakTrakr could quietly skip refreshing its retail dealer links while still updating prices, leaving "Buy" links pointing at stale or generic pages. The provider refresh now uses the same broadly-compatible timeout method as the rest of the market sync, so your dealer product links stay accurate everywhere. Modern browsers behave exactly as before (STRK-213).</li>  `;
 };
 
 // Expose globally for access from other modules
@@ -162,7 +146,6 @@ if (typeof window !== "undefined") {
   window.loadAnnouncements = loadAnnouncements;
   window.populateAboutTab = populateAboutTab;
   window.getEmbeddedWhatsNew = getEmbeddedWhatsNew;
-  window.getEmbeddedRoadmap = getEmbeddedRoadmap;
   window.showFullChangelog = showFullChangelog;
   window.showWhatsNewPopup = showWhatsNewPopup;
   window.hideWhatsNewPopup = hideWhatsNewPopup;

@@ -26,6 +26,9 @@ npm run format:check
 - Before editing or running Playwright tests, read the Playwright policy reference in `AGENTS.md`.
 - Archived issue acceptance-criteria (AC) matrices are located in
   `tests/playwright/archive/issue-ac-matrices/`.
+- Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test inventory.
+  - This is an `AGENTS.md` requirement; a missing or stale row is caught only by review, not by any local gate.
+  - Exception: non-functional edits (comments, formatting, refactors) that leave the inventory unchanged do not require a coverage-map entry.
 
 ## Documentation
 
@@ -69,9 +72,11 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 - Branch model: `feature/* → dev → main`.
 - Runtime code changes require worktree → PR → dev.
 - `main` is fully protected and requires PR review.
-- `dev` allows direct push for config/tooling only: instruction files, `.claude/`, `.gitignore`, skill files, and devops config.
-- Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) still requires PR discipline.
-- **`EnterWorktree` base-ref caveat:** the harness `EnterWorktree` tool defaults to branching from `origin/main`, but PRs target `dev`. Create the worktree on `origin/dev` first (`git worktree add .claude/worktrees/<branch> -b <branch> origin/dev`) and enter it via `EnterWorktree` `path:`, or `git reset --hard origin/dev` immediately after creating — **before any edits**. Verify `git merge-base origin/dev HEAD` equals `git rev-parse origin/dev` before any PR. Full caveat in `.context/git-topology.md`.
+- **Every change to `dev` needs a PR — no exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` + CodeQL checks, signed commits, no bypass actors) blocks direct pushes of any file type, instruction files included.
+- Config/tooling edits (`.claude/`, `.Codex/`, `.opencode/`, `.agents/`, `CLAUDE.md`, `AGENTS.md`, `.geminiignore`, `.gitignore`, skill files, devops config) are still **lightweight** — a small chore PR to `dev`, no Plane issue or version lock required.
+- Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the **full discipline**: Plane issue → worktree → PR to `dev`.
+- **`EnterWorktree` base-ref caveat:** it branches from `origin/main`, but PRs target `dev` — create the worktree on `origin/dev` first. Full caveat (commands + merge-base verification) in `.context/git-topology.md`.
+- `devops/version.lock` is gitignored — it exists only in the main checkout, never in a worktree. Claim the version lock by writing to `<main-checkout>/devops/version.lock`, not the worktree path.
 - **Full rules:** `.context/git-topology.md` — merge strategy, worktree naming, spot bundle, branch staleness, sketch overrides.
 
 ## Model Context Protocol Notes
@@ -84,9 +89,6 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
   - Use Brave for routine lookups that Brave can handle. Tool ladder by cost: `perplexity_search` (ranked results) → `perplexity_ask` (quick AI answer) → `perplexity_reason` (chain-of-thought) → `perplexity_research` (deep multi-source, 30s+).
   - Pass `strip_thinking: true` on `perplexity_research`/`perplexity_reason` to save context tokens.
 - StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
-- All `cloud-sync.js` patches require `/sketch-review` peer review before merge.
-- The user may explicitly waive the review requirement.
-- Use Opus or equivalent model for the review.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
 - When claude-context returns thin results for a global, fall back to Code Graph Context structural query before Grep.
@@ -113,6 +115,8 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 
 **Skill authoring:** filename must be `SKILL.md` (`.gitignore` silently excludes other `.md` names).
 
+**Skill copies:** every `.claude/skills/<name>/SKILL.md` has a tracked twin under `.agents/skills/<name>/SKILL.md`. When fixing a skill doc, `git grep` the sibling and apply the identical fix to both — Copilot flags stale twins.
+
 ## Required Context
 
 ### Dual Config Store — CRITICAL
@@ -131,8 +135,8 @@ After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh s
 
 ### `check-release-sync` hook is a SUBSET
 
-Validates `constants.js ↔ package.json ↔ package-lock.json ↔ version.json ↔ CHANGELOG.md`.
-Does not check `js/about.js` What's New, `manifest.json`, README badges, or `sw.js` cache.
+Validates `constants.js ↔ package.json ↔ version.json ↔ CHANGELOG.md`, plus the `js/about.js` What's New block — it asserts the current-version `<li>` entry is present **and** enforces the 5-entry cap (STRK-194, #1262).
+Does not check `manifest.json`, README badges, or `sw.js` cache.
 **Hook green ≠ release complete.**
 `/release` is the only path that touches all release-bearing files.
 
@@ -179,7 +183,14 @@ Read the file `.context/implementation-gotchas.md` before touching: `applyBulkEd
 
 ### Review & CI
 
-Read the file `.context/review-and-ci.md` before: Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives.
+Read `.context/review-and-ci.md` before Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives. Key rules it covers:
+
+- **Review is label-gated** (2026-06-14): apply the `coderabbit-review` + `codacy-review` labels at PR creation for review-worthy PRs; skip on trivial chores.
+- Required checks (`Codacy Static Code Analysis`, CodeQL) run regardless of labels.
+- **75% docstring-coverage gate** blocks merge invisibly — `CHANGES_REQUESTED` with green checks and 0 threads. Write JSDoc / shell docstrings pre-emptively.
+- **Async bot reviewers** (Copilot, Codacy AI) post threads 1–3 min after checks go green. Re-query threads before merging.
+- **Codacy state** is authoritative via the Cloud CLI, not the dashboard UI.
+- **Dual ESLint config:** `no-restricted-globals` (native `alert`/`confirm`/`prompt` ban) lives only in legacy `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
 
 ## Pre-flight (StakTrakr-specific)
 

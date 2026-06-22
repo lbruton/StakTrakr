@@ -165,7 +165,6 @@ const addItemTag = (uuid, tag, persist = true) => {
     if (item) window.invalidateSearchCache(item);
   }
 
-  if (persist) clearRemovedTag(uuid, trimmed);
   return true;
 };
 

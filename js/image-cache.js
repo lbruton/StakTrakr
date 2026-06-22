@@ -26,6 +26,15 @@ class ImageCache {
     this._maxDim = typeof IMAGE_MAX_DIM !== "undefined" ? IMAGE_MAX_DIM : 600;
     /** @type {number} Compression quality (0-1) */
     this._quality = typeof IMAGE_QUALITY !== "undefined" ? IMAGE_QUALITY : 0.75;
+    /** @type {'ok'|'warn'|'critical'} Last user-image storage pressure band warned about (STRK-146) */
+    this._lastWarnedLevel = "ok";
+    /**
+     * Cached total bytes in the `userImages` store (STRK-162). `null` = cold
+     * (unknown — recompute on next need); a number = warm. Use a strict `=== null`
+     * check to read it: an empty store is a legitimate `0`, not "cold".
+     * @type {number|null}
+     */
+    this._userImagesBytesCache = null;
   }
 
   async _initQuota() {
@@ -242,6 +251,7 @@ class ImageCache {
       const tx = this._db.transaction(stores, "readwrite");
       for (const s of stores) tx.objectStore(s).clear();
       await this._txComplete(tx);
+      this._userImagesBytesCache = null; // STRK-162: invalidate — userImages emptied
       debugLog("ImageCache: cleared all stores");
       return true;
     } catch (err) {
@@ -424,34 +434,136 @@ class ImageCache {
   // ---------------------------------------------------------------------------
 
   /**
-   * Store a user-uploaded image for an inventory item.
-   * @param {string} uuid - Item UUID
-   * @param {Blob} obverse - Processed obverse image blob
-   * @param {Blob} [reverse] - Optional reverse image blob
-   * @param {string|null} [sharedImageId] - Source item UUID if this image was copied from another item's upload; null for original uploads
+   * Pressure band for current user-image storage usage (STRK-146).
+   * @param {number} used - bytes used by user images
+   * @param {number} limit - soft quota in bytes (`_quotaBytes`)
+   * @returns {'ok'|'warn'|'critical'}
+   */
+  _pressureLevel(used, limit) {
+    if (!limit || limit <= 0) return "ok";
+    const p = used / limit;
+    if (p >= 0.95) return "critical";
+    if (p >= 0.85) return "warn";
+    return "ok";
+  }
+
+  /**
+   * Surface a storage message to the user via the global toast, falling back to
+   * the console when toast UI is unavailable (e.g. headless contexts). STRK-146.
+   * @param {string} message
+   * @param {number} [duration=6000]
+   */
+  _emitStorageToast(message, duration = 6000) {
+    if (typeof showToast === "function") showToast(message, duration);
+    else console.warn("ImageCache:", message);
+  }
+
+  /** @returns {boolean} true if the error is an IndexedDB quota-exceeded error (STRK-146) */
+  static _isQuotaError(err) {
+    return err?.name === "QuotaExceededError" || err?.name === "NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR";
+  }
+
+  /** @returns {number} byte size of a blob or sized record, 0 when absent (STRK-146) */
+  _blobSize(blob) {
+    return blob?.size || 0;
+  }
+
+  /**
+   * Ensure the DB is open and the `userImages` store exists, with one defensive
+   * re-init in case the v2 upgrade didn't complete. STRK-146.
    * @returns {Promise<boolean>}
    */
-  async cacheUserImage(uuid, obverse, reverse = null, sharedImageId = null) {
-    if (!uuid || (!obverse && !reverse)) {
-      debugLog("ImageCache.cacheUserImage: missing uuid or at least one image blob");
-      return false;
-    }
+  async _ensureUserImagesWritable() {
     if (!(await this._ensureDb())) {
-      debugLog("ImageCache.cacheUserImage: DB not available, attempting re-init");
       // Defensive retry: re-open DB in case v2 upgrade didn't complete
       this._db = null;
       this._available = false;
-      if (!(await this.init())) {
-        debugLog("ImageCache.cacheUserImage: re-init failed");
-        return false;
-      }
+      if (!(await this.init())) return false;
     }
-    if (!this._db.objectStoreNames.contains("userImages")) {
-      debugLog("ImageCache.cacheUserImage: userImages store missing — DB may need upgrade");
-      return false;
+    return this._db.objectStoreNames.contains("userImages");
+  }
+
+  /**
+   * Stored byte size of a userImages record, falling back to summing its blob
+   * sizes for legacy records written before the `size` field existed. STRK-146.
+   * @returns {number}
+   */
+  _recordSize(rec) {
+    if (!rec) return 0;
+    return rec.size ?? this._blobSize(rec.obverse) + this._blobSize(rec.reverse);
+  }
+
+  /**
+   * Total bytes used by the `userImages` store only — a single-store cursor scan,
+   * far lighter than getStorageUsage() which walks every store. STRK-146.
+   * @returns {Promise<number>}
+   */
+  async _userImagesBytes() {
+    let total = 0;
+    try {
+      await this._iterate("userImages", (rec) => {
+        total += this._recordSize(rec);
+      });
+    } catch {
+      /* leave 0 on failure */
+    }
+    return total;
+  }
+
+  /**
+   * Amortized O(1) accessor for the `userImages` byte total (STRK-162). Returns
+   * the cached value, computing it once via {@link _userImagesBytes} when cold.
+   * The pre-flight quota check reads this instead of scanning on every save;
+   * `cacheUserImageResult` keeps it warm on success and the mutation paths
+   * (`deleteUserImage`/`clearAll`/`importUserImageRecord`) invalidate it to `null`.
+   * @returns {Promise<number>}
+   */
+  async _cachedUserImagesBytes() {
+    if (this._userImagesBytesCache === null) {
+      this._userImagesBytesCache = await this._userImagesBytes();
+    }
+    return this._userImagesBytesCache;
+  }
+
+  /**
+   * Store a user-uploaded image for an inventory item, reporting the outcome.
+   * Enforces a pre-flight soft-cap check against `_quotaBytes` so a doomed write
+   * is refused (and reported) rather than failing silently — works even on
+   * `file://`, where the browser storage estimate is unavailable (STRK-146).
+   * @param {string} uuid - Item UUID
+   * @param {Blob} obverse - Processed obverse image blob
+   * @param {Blob} [reverse] - Optional reverse image blob
+   * @param {string|null} [sharedImageId] - Source item UUID if copied; null for originals
+   * @returns {Promise<{ok: boolean, quotaExceeded: boolean, usageBytes?: number, limitBytes?: number}>}
+   */
+  async cacheUserImageResult(uuid, obverse, reverse = null, sharedImageId = null) {
+    if (!uuid || (!obverse && !reverse)) {
+      debugLog("ImageCache.cacheUserImageResult: missing uuid or at least one image blob");
+      return { ok: false, quotaExceeded: false };
+    }
+    if (!(await this._ensureUserImagesWritable())) {
+      debugLog("ImageCache.cacheUserImageResult: userImages store unavailable");
+      return { ok: false, quotaExceeded: false };
     }
 
-    const size = (obverse?.size || 0) + (reverse?.size || 0);
+    const size = this._blobSize(obverse) + this._blobSize(reverse);
+    // Net delta vs any existing record for this uuid — an in-place replace that
+    // shrinks the record must never trip the cap. _recordSize falls back to blob
+    // sizes for legacy records that predate the `size` field, so a replace is not
+    // mis-counted as entirely new data.
+    const existing = await this._get("userImages", uuid);
+    const delta = size - this._recordSize(existing);
+    const used = await this._cachedUserImagesBytes();
+    const limit = this._quotaBytes;
+
+    // Pre-flight soft-cap guard: refuse a write that would overflow our quota.
+    if (delta > 0 && used + delta > limit) {
+      debugLog(
+        `ImageCache.cacheUserImageResult: pre-flight quota block uuid=${uuid} used=${used} delta=${delta} limit=${limit}`
+      );
+      return { ok: false, quotaExceeded: true, usageBytes: used, limitBytes: limit };
+    }
+
     const record = {
       uuid,
       obverse,
@@ -461,9 +573,70 @@ class ImageCache {
       size,
     };
 
-    const result = await this._put("userImages", record);
-    debugLog(`ImageCache.cacheUserImage: uuid=${uuid} size=${size} saved=${result}`);
-    return result;
+    let quotaErr = false;
+    const ok = await this._put("userImages", record, (err) => {
+      quotaErr = ImageCache._isQuotaError(err);
+    });
+    debugLog(`ImageCache.cacheUserImageResult: uuid=${uuid} size=${size} saved=${ok}`);
+    // STRK-162: post-write userImages total. On a successful put this is
+    // used + delta; on a failed put the store is unchanged so it stays `used`
+    // (a pre-flight block returned earlier and never reaches here). Reuse this
+    // one value to both keep the usage cache warm and report usageBytes.
+    const usageBytes = ok ? used + delta : used;
+    this._userImagesBytesCache = usageBytes;
+    return {
+      ok,
+      quotaExceeded: !ok && quotaErr,
+      usageBytes,
+      limitBytes: limit,
+    };
+  }
+
+  /**
+   * Backward-compatible boolean wrapper around {@link cacheUserImageResult}.
+   * Silent — used by background/non-interactive callers (split-clone copy,
+   * shrinking re-saves). Interactive upload paths should call
+   * {@link cacheUserImageWithFeedback}. STRK-146.
+   * @returns {Promise<boolean>}
+   */
+  async cacheUserImage(uuid, obverse, reverse = null, sharedImageId = null) {
+    return (await this.cacheUserImageResult(uuid, obverse, reverse, sharedImageId)).ok;
+  }
+
+  /**
+   * Store a user image for an INTERACTIVE upload and surface the outcome: an
+   * explicit error toast when the save is refused/fails, and a throttled warning
+   * toast when an accepted save crosses a storage pressure band. STRK-146.
+   * @param {string} uuid
+   * @param {Blob} obverse
+   * @param {Blob} [reverse]
+   * @param {string|null} [sharedImageId]
+   * @returns {Promise<boolean>} true if the image was saved
+   */
+  async cacheUserImageWithFeedback(uuid, obverse, reverse = null, sharedImageId = null) {
+    const res = await this.cacheUserImageResult(uuid, obverse, reverse, sharedImageId);
+    if (!res.ok) {
+      this._emitStorageToast(
+        res.quotaExceeded
+          ? "Storage full — image not saved. Free up space (remove unused images) and try again."
+          : "Couldn't save image. Please try again."
+      );
+      return false;
+    }
+    // Escalation-only warning: toast only when the band rises. Storing the
+    // current band means dropping back down re-arms a future warning.
+    const level = this._pressureLevel(res.usageBytes, res.limitBytes);
+    const bands = { ok: 0, warn: 1, critical: 2 };
+    if (bands[level] > bands[this._lastWarnedLevel || "ok"]) {
+      const pct = Math.round((res.usageBytes / res.limitBytes) * 100);
+      this._emitStorageToast(
+        level === "critical"
+          ? `Image storage ${pct}% full — saves may start failing. Remove unused images soon.`
+          : `Image storage ${pct}% full — consider removing unused images.`
+      );
+    }
+    this._lastWarnedLevel = level;
+    return true;
   }
 
   /**
@@ -485,7 +658,9 @@ class ImageCache {
   async deleteUserImage(uuid) {
     if (!uuid || !(await this._ensureDb())) return false;
     if (!this._db.objectStoreNames.contains("userImages")) return false;
-    return this._delete("userImages", uuid);
+    const ok = await this._delete("userImages", uuid);
+    this._userImagesBytesCache = null; // STRK-162: invalidate — userImages mutated
+    return ok;
   }
 
   /**
@@ -506,7 +681,9 @@ class ImageCache {
   async importUserImageRecord(record) {
     if (!record?.uuid || !(await this._ensureDb())) return false;
     if (!this._db.objectStoreNames.contains("userImages")) return false;
-    return this._put("userImages", record);
+    const ok = await this._put("userImages", record);
+    this._userImagesBytesCache = null; // STRK-162: invalidate — userImages mutated
+    return ok;
   }
 
   // ---------------------------------------------------------------------------
@@ -717,15 +894,25 @@ class ImageCache {
   // IndexedDB helpers (private)
   // ---------------------------------------------------------------------------
 
-  /** @returns {Promise<boolean>} */
-  async _put(storeName, record) {
+  /**
+   * @param {string} storeName
+   * @param {Object} record
+   * @param {(err: any) => void} [onError] - Invoked with the raw error on failure (STRK-146)
+   * @returns {Promise<boolean>}
+   */
+  async _put(storeName, record, onError) {
     try {
       const tx = this._db.transaction(storeName, "readwrite");
       tx.objectStore(storeName).put(record);
       await this._txComplete(tx);
       return true;
     } catch (err) {
-      console.warn(`ImageCache: put to ${storeName} failed`, err);
+      const isQuota = ImageCache._isQuotaError(err);
+      console.warn(
+        `ImageCache: put to ${storeName} failed${isQuota ? " (quota exceeded)" : ""}`,
+        err
+      );
+      if (typeof onError === "function") onError(err);
       return false;
     }
   }

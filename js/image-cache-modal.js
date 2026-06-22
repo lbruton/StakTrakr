@@ -319,14 +319,16 @@ const startBulkSync = async () => {
       };
       logSyncActivity(`${catalogId}: ${message}`, logTypeMap[status] || "info");
     },
-    onComplete: async ({ synced, skipped, failed, apiLookups, elapsed }) => {
+    onComplete: async ({ synced, skipped, failed, apiLookups, elapsed, error }) => {
       if (startBtn) startBtn.disabled = false;
       if (cancelBtn) cancelBtn.style.display = "none";
       if (progressBar) progressBar.style.display = "none";
 
       const secs = (elapsed / 1000).toFixed(1);
-      let msg = `Complete in ${secs}s: ${synced} synced, ${skipped} skipped, ${failed} failed`;
-      if (apiLookups > 0) msg += `, ${apiLookups} API calls`;
+      let msg = error
+        ? `Failed in ${secs}s: ${error}`
+        : `Complete in ${secs}s: ${synced} synced, ${skipped} skipped, ${failed} failed`;
+      if (!error && apiLookups > 0) msg += `, ${apiLookups} API calls`;
       msg += ".";
       logSyncActivity(msg, failed > 0 ? "warn" : "success");
 
@@ -375,10 +377,198 @@ const clearAllCachedData = async () => {
 };
 
 // ---------------------------------------------------------------------------
+// Bulk image-URL backfill (STRK-166 — restores the feature removed in STAK-432)
+// ---------------------------------------------------------------------------
+
+/**
+ * Populates obverse/reverse Numista CDN image URLs on inventory items that have
+ * a Numista catalog ID but are missing one or both image URLs (e.g. CSV imports).
+ *
+ * Routes through catalogAPI.lookupItem, which is cache-first (30-day response
+ * cache) — so items already cached by "Sync Unsynced" resolve instantly with no
+ * API quota. Only genuine API calls are throttled (~650ms) to respect Numista's
+ * 100 req/min limit; the provider throws on overrun, so we save partial progress
+ * and ask the user to re-run. Duplicate catalog IDs are fetched once (donor map).
+ */
+const syncNumistaImageUrls = async () => {
+  if (!_imageUrlSyncReady()) return;
+
+  const inv = typeof inventory !== "undefined" && Array.isArray(inventory) ? inventory : [];
+  const eligible = _collectImageUrlEligible(inv);
+
+  if (!eligible.length) {
+    appAlert("All Numista items already have image URLs.", "Sync Image URLs");
+    return;
+  }
+
+  const proceed = await appConfirm(
+    `Populate image URLs for ${eligible.length} item(s) from Numista?\n\n` +
+      "Cached lookups are free; uncached items use your Numista API quota.",
+    "Sync Image URLs"
+  );
+  if (!proceed) return;
+
+  const totals = { synced: 0, failed: 0, rateLimited: false };
+  const urlByCatId = new Map(); // catId -> {obv, rev} | null (null = failed/no-retry)
+
+  logSyncActivity("Starting image URL sync...", "info");
+
+  try {
+    for (const item of eligible) {
+      const catId = _resolveImageUrlCatId(item);
+      if (!catId) continue;
+
+      const urls = await _fetchImageUrlsForCatId(catId, urlByCatId, totals);
+      if (totals.rateLimited) break;
+      if (!urls || (!urls.obv && !urls.rev)) continue;
+
+      if (_applyImageUrls(item, urls)) totals.synced++;
+    }
+  } finally {
+    if (typeof saveInventory === "function") saveInventory();
+    if (typeof renderTable === "function") renderTable();
+    await renderEligibleItemsTable();
+    await renderSyncStats();
+  }
+
+  appAlert(_buildImageUrlSummary(totals), "Sync Image URLs");
+};
+
+/**
+ * Verifies the catalog API and a configured Numista key are present before an
+ * image-URL sync. Emits the matching alert and returns false when not ready.
+ * @returns {boolean} True if the sync may proceed.
+ */
+const _imageUrlSyncReady = () => {
+  if (!window.catalogAPI) {
+    appAlert("Catalog API not available.", "Sync Image URLs");
+    return false;
+  }
+  const config =
+    typeof catalogConfig !== "undefined" && typeof catalogConfig.getNumistaConfig === "function"
+      ? catalogConfig.getNumistaConfig()
+      : null;
+  if (!config || !config.apiKey) {
+    appAlert("Numista API key not configured.", "Sync Image URLs");
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Resolves the Numista catalog ID for an inventory item, preferring the
+ * catalogManager mapping (via BulkImageCache) and falling back to numistaId.
+ * @param {object} item Inventory item.
+ * @returns {string} Resolved catalog ID, or "" when none.
+ */
+const _resolveImageUrlCatId = (item) =>
+  window.BulkImageCache ? BulkImageCache.resolveCatalogId(item) : item.numistaId || "";
+
+/**
+ * Filters inventory to items that have a resolvable Numista catalog ID AND are
+ * missing at least one (obverse/reverse) image URL.
+ * @param {object[]} inv Inventory array.
+ * @returns {object[]} Items eligible for image-URL backfill.
+ */
+const _collectImageUrlEligible = (inv) =>
+  inv.filter((i) => {
+    const catId = _resolveImageUrlCatId(i);
+    return catId && (!i.obverseImageUrl || !i.reverseImageUrl);
+  });
+
+/**
+ * Fills any missing obverse/reverse image URL on an item from the donor URLs,
+ * never overwriting an existing value.
+ * @param {object} item Inventory item to mutate.
+ * @param {{obv: string, rev: string}} urls Donor image URLs.
+ * @returns {boolean} True if at least one URL was applied.
+ */
+const _applyImageUrls = (item, urls) => {
+  let updated = false;
+  if (!item.obverseImageUrl && urls.obv) {
+    item.obverseImageUrl = urls.obv;
+    updated = true;
+  }
+  if (!item.reverseImageUrl && urls.rev) {
+    item.reverseImageUrl = urls.rev;
+    updated = true;
+  }
+  return updated;
+};
+
+/**
+ * Builds the completion summary message for the image-URL sync.
+ * @param {{synced: number, failed: number, rateLimited: boolean}} totals Run tallies.
+ * @returns {string} Human-readable summary.
+ */
+const _buildImageUrlSummary = ({ synced, failed, rateLimited }) => {
+  let msg = `Image URL sync complete.\n${synced} item(s) updated`;
+  if (failed) msg += `, ${failed} failed`;
+  msg += ".";
+  if (rateLimited) {
+    msg += "\n\nStopped early: Numista rate limit reached. Run again in ~1 minute for the rest.";
+  }
+  return msg;
+};
+
+// ---------------------------------------------------------------------------
+// Regex-bearing helper kept LAST: a regex literal upstream desyncs Lizard's
+// tokenizer and inflates the ccn of the following function (STRK-170 note).
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns donor image URLs for a catalog ID, fetching once via the cache-first
+ * catalogAPI.lookupItem and memoizing in urlByCatId (null = failed/no-retry).
+ * Detects a Numista rate-limit error (sets totals.rateLimited and stops), counts
+ * other failures (totals.failed), and throttles ~650ms after a genuine API call.
+ * @param {string} catId Numista catalog ID.
+ * @param {Map<string, ({obv: string, rev: string}|null)>} urlByCatId Donor cache.
+ * @param {{failed: number, rateLimited: boolean}} totals Run tallies (mutated).
+ * @returns {Promise<{obv: string, rev: string}|null|undefined>} Donor URLs, or null on failure.
+ */
+const _fetchImageUrlsForCatId = async (catId, urlByCatId, totals) => {
+  let urls = urlByCatId.get(catId);
+  if (urls !== undefined) return urls;
+
+  const wasCached =
+    typeof window.loadNumistaCache === "function" && !!window.loadNumistaCache(catId);
+  try {
+    const result = await catalogAPI.lookupItem(catId);
+    urls = {
+      obv: (result && result.imageUrl) || "",
+      rev: (result && result.reverseImageUrl) || "",
+    };
+    urlByCatId.set(catId, urls);
+    if (!urls.obv && !urls.rev) {
+      logSyncActivity(`${catId}: no images available`, "warn");
+    }
+  } catch (err) {
+    if (/rate limit/i.test((err && err.message) || "")) {
+      totals.rateLimited = true;
+      logSyncActivity(
+        "Paused: Numista rate limit reached. Run again in ~1 minute to continue.",
+        "warn"
+      );
+      return null;
+    }
+    urlByCatId.set(catId, null);
+    totals.failed++;
+    logSyncActivity(`${catId}: lookup failed — ${(err && err.message) || err}`, "error");
+    return null;
+  }
+  // Only genuine API calls (cache misses) count against the rate limit.
+  if (!wasCached) {
+    await new Promise((resolve) => setTimeout(resolve, 650));
+  }
+  return urls;
+};
+
+// ---------------------------------------------------------------------------
 // Global exports
 // ---------------------------------------------------------------------------
 if (typeof window !== "undefined") {
   window.renderNumistaSyncUI = renderNumistaSyncUI;
   window.startBulkSync = startBulkSync;
   window.clearAllCachedData = clearAllCachedData;
+  window.syncNumistaImageUrls = syncNumistaImageUrls;
 }

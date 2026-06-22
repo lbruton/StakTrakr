@@ -24,6 +24,19 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
   set +a
 fi
 
+# STRK-230: cron runs `. /etc/environment` before this script, but plain
+# assignments sourced that way are NOT exported, so this child script (→ node)
+# never sees them. Re-export ONLY the WEBSCALE_* cookie vars from the container
+# env so price-extract.js can inject the wspc cookie for JM/Provident. Scoped to
+# WEBSCALE_* deliberately, to leave every other var's behavior untouched.
+if [ -f /etc/environment ]; then
+  while IFS= read -r _line; do
+    case "$_line" in
+      WEBSCALE_*=*) export "${_line}" ;;
+    esac
+  done < /etc/environment
+fi
+
 DATE=$(date -u +%Y-%m-%d)
 echo "[$(date -u +%H:%M:%S)] Starting home retail price run for $DATE"
 

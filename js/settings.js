@@ -2900,6 +2900,7 @@ const closeCurrencyDropdownOnOutside = (e) => {
 const populateImagesSection = () => {
   renderImageStorageStats();
   renderCustomPatternRules();
+  renderOrphanedPatternImages();
   renderUserImageGrid();
 };
 
@@ -2921,6 +2922,150 @@ const createThumbEl = (src, alt) => {
   placeholder.className = "pattern-rule-thumb pattern-rule-thumb-empty";
   placeholder.textContent = "No img";
   return placeholder;
+};
+
+/**
+ * Builds one orphaned-image row (dual thumbnails, key + size, delete button).
+ * Extracted so renderOrphanedPatternImages stays under the complexity gate.
+ * @param {{ruleId: string, size: number}} rec - patternImages record.
+ * @param {Function} onDelete - Called after the record is deleted (re-render).
+ * @returns {Promise<HTMLElement>}
+ */
+const _buildOrphanImageRow = async (rec, onDelete) => {
+  const row = document.createElement("div");
+  row.className = "pattern-rule-row";
+
+  const thumbs = document.createElement("div");
+  thumbs.className = "pattern-rule-thumbs";
+  let obverseSrc = null;
+  let reverseSrc = null;
+  try {
+    obverseSrc = await imageCache.getPatternImageUrl(rec.ruleId, "obverse");
+  } catch {
+    /* ignore */
+  }
+  try {
+    reverseSrc = await imageCache.getPatternImageUrl(rec.ruleId, "reverse");
+  } catch {
+    /* ignore */
+  }
+  thumbs.appendChild(createThumbEl(obverseSrc, "orphaned obverse"));
+  thumbs.appendChild(createThumbEl(reverseSrc, "orphaned reverse"));
+  row.appendChild(thumbs);
+
+  const info = document.createElement("div");
+  info.className = "pattern-rule-info";
+  const sizeKB = Math.round((rec.size || 0) / 1024);
+  // Built via textContent (not innerHTML) — XSS-safe by construction.
+  const keyEl = document.createElement("div");
+  keyEl.className = "rule-pattern";
+  keyEl.textContent = rec.ruleId;
+  const sizeEl = document.createElement("div");
+  sizeEl.className = "rule-replacement";
+  sizeEl.textContent = `${sizeKB} KB · orphaned`;
+  info.appendChild(keyEl);
+  info.appendChild(sizeEl);
+  row.appendChild(info);
+
+  const actions = document.createElement("div");
+  actions.className = "pattern-rule-actions";
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "btn img-btn img-btn-remove";
+  deleteBtn.textContent = "Delete";
+  deleteBtn.addEventListener("click", async () => {
+    try {
+      await imageCache.deletePatternImage(rec.ruleId);
+    } catch (err) {
+      console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
+    }
+    onDelete(); // re-scan reflects reality whether or not the delete succeeded
+  });
+  actions.appendChild(deleteBtn);
+  row.appendChild(actions);
+  return row;
+};
+
+/**
+ * Render orphaned pattern images — records in the patternImages store whose key
+ * (seedImageId) is no longer referenced by any custom rule (STRK-202). These
+ * accumulate when a pre-fix ZIP backup is restored (images came back but the
+ * rules did not) or when a rule is removed without its image. The list lets the
+ * user reclaim the space; it hides itself when there is nothing orphaned.
+ */
+const renderOrphanedPatternImages = async () => {
+  const container = safeGetElement("orphanedPatternImages");
+  if (!(container instanceof HTMLElement)) return;
+
+  const emptyMsg =
+    '<p style="font-size:0.85em;color:var(--text-secondary)">No orphaned pattern images.</p>';
+
+  if (typeof NumistaLookup === "undefined" || !window.imageCache?.isAvailable()) {
+    container.innerHTML = emptyMsg;
+    return;
+  }
+
+  let records = [];
+  try {
+    records = await imageCache.exportAllPatternImages();
+  } catch {
+    container.innerHTML = emptyMsg;
+    return;
+  }
+
+  const referenced = new Set(
+    NumistaLookup.getCustomRules()
+      .map((r) => r.seedImageId)
+      .filter(Boolean)
+  );
+  const orphans = records.filter((rec) => rec && rec.ruleId && !referenced.has(rec.ruleId));
+
+  if (!orphans.length) {
+    container.innerHTML = emptyMsg;
+    return;
+  }
+
+  container.textContent = "";
+
+  const header = document.createElement("div");
+  header.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem";
+  const label = document.createElement("span");
+  label.style.cssText = "font-size:0.85em;color:var(--text-secondary)";
+  label.textContent = `${orphans.length} orphaned image${
+    orphans.length === 1 ? "" : "s"
+  } — no matching rule, safe to delete.`;
+  const deleteAllBtn = document.createElement("button");
+  deleteAllBtn.className = "btn img-btn img-btn-remove";
+  deleteAllBtn.textContent = "Delete all";
+  deleteAllBtn.addEventListener("click", async () => {
+    const ok = await showAppConfirm(
+      `Delete all ${orphans.length} orphaned pattern image${
+        orphans.length === 1 ? "" : "s"
+      }? This cannot be undone.`,
+      "Delete Orphaned Images"
+    );
+    if (!ok) return;
+    for (const rec of orphans) {
+      try {
+        await imageCache.deletePatternImage(rec.ruleId);
+      } catch (err) {
+        console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
+      }
+    }
+    renderOrphanedPatternImages();
+    renderImageStorageStats();
+  });
+  header.appendChild(label);
+  header.appendChild(deleteAllBtn);
+  container.appendChild(header);
+
+  const onDelete = () => {
+    renderOrphanedPatternImages();
+    renderImageStorageStats();
+  };
+  // Build rows concurrently (each does IndexedDB lookups), then append in order.
+  const rows = await Promise.all(orphans.map((rec) => _buildOrphanImageRow(rec, onDelete)));
+  for (const row of rows) container.appendChild(row);
 };
 
 /**
@@ -3213,6 +3358,35 @@ const renderCustomPatternRules = async () => {
         return;
       }
 
+      // STRK-221: resolve any new image uploads to blobs BEFORE mutating the
+      // rule, so a processing failure aborts the whole edit (matching the create
+      // path) rather than leaving the pattern changed while the image is rejected.
+      const obvFile = editForm.querySelector(".edit-obverse").files[0];
+      const revFile = editForm.querySelector(".edit-reverse").files[0];
+      const hasImageUpload = (obvFile || revFile) && window.imageCache?.isAvailable();
+      let obvBlob = null;
+      let revBlob = null;
+      if (hasImageUpload) {
+        const processor = typeof imageProcessor !== "undefined" ? imageProcessor : null;
+        const toBlob = async (file) => {
+          if (!processor) return file;
+          const processed = await processor.processFile(file);
+          if (!processed?.blob) {
+            throw new Error("the selected image could not be processed");
+          }
+          return processed.blob;
+        };
+
+        try {
+          if (obvFile) obvBlob = await toBlob(obvFile);
+          if (revFile) revBlob = await toBlob(revFile);
+        } catch (err) {
+          console.error("Image processing failed:", err);
+          appAlert("Failed to process image: " + err.message);
+          return;
+        }
+      }
+
       const result = NumistaLookup.updateRule(rule.id, {
         pattern: newPattern,
         replacement: newReplacement,
@@ -3224,28 +3398,9 @@ const renderCustomPatternRules = async () => {
         return;
       }
 
-      // Handle new image uploads
-      const obvFile = editForm.querySelector(".edit-obverse").files[0];
-      const revFile = editForm.querySelector(".edit-reverse").files[0];
-      if ((obvFile || revFile) && window.imageCache?.isAvailable()) {
+      // Cache the already-resolved image blobs now that the rule text is saved.
+      if (hasImageUpload) {
         const ruleId = rule.seedImageId || rule.id;
-        const processor = typeof imageProcessor !== "undefined" ? imageProcessor : null;
-        let obvBlob = null;
-        let revBlob = null;
-
-        try {
-          if (obvFile) {
-            obvBlob = processor ? (await processor.processFile(obvFile))?.blob || null : obvFile;
-          }
-          if (revFile) {
-            revBlob = processor ? (await processor.processFile(revFile))?.blob || null : revFile;
-          }
-        } catch (err) {
-          console.error("Image processing failed:", err);
-          appAlert("Failed to process image: " + err.message);
-          return;
-        }
-
         // Preserve existing side when only one side is uploaded
         if (rule.seedImageId && !(obvFile && revFile)) {
           const existing = await imageCache.getPatternImage(rule.seedImageId);
@@ -3360,6 +3515,16 @@ const renderUserImageGrid = async () => {
 
   container.textContent = "";
 
+  // Pre-index inventory by UUID → array index for O(1) lookups (STRK-228)
+  const idxByUuid = new Map();
+  if (typeof inventory !== "undefined" && Array.isArray(inventory)) {
+    for (let i = 0; i < inventory.length; i++) {
+      const inv = inventory[i];
+      // First-match parity with the original inventory.find() (keep earliest index)
+      if (inv?.uuid && !idxByUuid.has(inv.uuid)) idxByUuid.set(inv.uuid, i);
+    }
+  }
+
   for (const rec of userImages) {
     const row = document.createElement("div");
     row.className = "pattern-rule-row";
@@ -3388,9 +3553,8 @@ const renderUserImageGrid = async () => {
     row.appendChild(thumbs);
 
     // Item name
-    const item =
-      typeof inventory !== "undefined" ? inventory.find((i) => i.uuid === rec.uuid) : null;
-    const itemIndex = item && typeof inventory !== "undefined" ? inventory.indexOf(item) : -1;
+    const itemIndex = idxByUuid.get(rec.uuid) ?? -1;
+    const item = itemIndex >= 0 ? inventory[itemIndex] : null;
     const name = item ? item.name : rec.uuid.slice(0, 8) + "...";
 
     const info = document.createElement("div");
@@ -3442,7 +3606,21 @@ const STORAGE_KEY_LABELS = {
   catalogMap: { label: "Catalog Map", icon: "🗂", category: "Inventory" },
   itemTags: { label: "Item Tags", icon: "🏷", category: "Inventory" },
   changeLog: { label: "Change Log", icon: "📝", category: "Inventory" },
-  metalSpotHistory: { label: "Spot Price History", icon: "📈", category: "Prices" },
+  metalSpotHistory: {
+    label: "Spot Price History (IndexedDB — localStorage fallback)",
+    icon: "📈",
+    category: "Prices",
+  },
+  v2RetailHistory: {
+    label: "Retail Price History (IndexedDB — localStorage fallback)",
+    icon: "📈",
+    category: "Prices",
+  },
+  retailPriceHistory: {
+    label: "Retail Price History (legacy — IndexedDB)",
+    icon: "📈",
+    category: "Prices",
+  },
   "item-price-history": { label: "Item Price History", icon: "💰", category: "Prices" },
   "goldback-prices": { label: "Goldback Prices", icon: "🥇", category: "Prices" },
   "goldback-price-history": { label: "Goldback Price History", icon: "🥇", category: "Prices" },
@@ -3607,8 +3785,20 @@ const renderStorageSection = async (silent = false) => {
     }
   }
 
+  // Spot + retail price history live in the StakTrakrHistory IndexedDB store
+  // (migrated out of localStorage — STRK-141). Surface it like the image stores.
+  let historyStats = null;
+  if (typeof historyStore !== "undefined" && historyStore.isAvailable()) {
+    try {
+      historyStats = await historyStore.getUsage();
+    } catch (e) {
+      /* unavailable */
+    }
+  }
+
   const attachTotalKB = attachStats ? attachStats.totalBytes / 1024 : 0;
-  const idbTotalKB = (idbStats ? idbStats.totalBytes / 1024 : 0) + attachTotalKB;
+  const historyTotalKB = historyStats ? historyStats.bytesEstimate / 1024 : 0;
+  const idbTotalKB = (idbStats ? idbStats.totalBytes / 1024 : 0) + attachTotalKB + historyTotalKB;
   const idbLimitKB = idbStats ? idbStats.limitBytes / 1024 : 50 * 1024;
   const lsLimitKB = 5 * 1024;
   const combinedKB = lsTotalKB + idbTotalKB;
@@ -3642,7 +3832,7 @@ const renderStorageSection = async (silent = false) => {
     "storageStat_idb",
     fmt(idbTotalKB),
     idbTotalKB > 0
-      ? `Images: ~${fmt(idbTotalKB - attachTotalKB)} · Attachments: ${fmt(attachTotalKB)}`
+      ? `Images: ~${fmt(idbTotalKB - attachTotalKB - historyTotalKB)} · Attachments: ${fmt(attachTotalKB)} · History: ${fmt(historyTotalKB)}`
       : "No IndexedDB data",
     "storageStatBar_idb",
     pct(idbTotalKB, idbLimitKB),
@@ -3705,21 +3895,23 @@ const renderStorageSection = async (silent = false) => {
 
   // ── 5. Render IndexedDB table ─────────────────────────────────────────────
   if (idbTable) {
-    if (!idbStats) {
+    if (!idbStats && !attachStats && !historyStats) {
       idbTable.innerHTML = '<p class="settings-subtext">IndexedDB unavailable in this browser.</p>';
     } else {
       const imagesTotalKB = idbStats ? idbStats.totalBytes / 1024 : 0;
-      const idbRows = [
-        { label: "Coin Images", icon: "🖼", count: idbStats.numistaCount, sizeKB: null },
-        { label: "User Images", icon: "📷", count: idbStats.userImageCount, sizeKB: null },
-        {
-          label: "Pattern Images",
-          icon: "🎨",
-          count: idbStats.patternImageCount || 0,
-          sizeKB: null,
-        },
-        { label: "Coin Metadata", icon: "📄", count: idbStats.metadataCount, sizeKB: null },
-      ];
+      const idbRows = idbStats
+        ? [
+            { label: "Coin Images", icon: "🖼", count: idbStats.numistaCount, sizeKB: null },
+            { label: "User Images", icon: "📷", count: idbStats.userImageCount, sizeKB: null },
+            {
+              label: "Pattern Images",
+              icon: "🎨",
+              count: idbStats.patternImageCount || 0,
+              sizeKB: null,
+            },
+            { label: "Coin Metadata", icon: "📄", count: idbStats.metadataCount, sizeKB: null },
+          ]
+        : [];
       // Estimate image row sizes by proportion of images total (exact per-store breakdown unavailable)
       const idbImageCount = idbRows.reduce((s, r) => s + r.count, 0) || 1;
       idbRows.forEach((r) => {
@@ -3735,13 +3927,24 @@ const renderStorageSection = async (silent = false) => {
           exact: true,
         });
       }
+      // Spot + retail history row uses exact bytes from historyStore.getUsage() (STRK-141)
+      if (historyStats !== null) {
+        idbRows.push({
+          label: "Spot/Retail History",
+          icon: "📈",
+          count: historyStats.count,
+          sizeKB: historyTotalKB,
+          dbName: "StakTrakrHistory",
+          exact: true,
+        });
+      }
 
       const idbRowsHtml = idbRows
         .map((r) => {
           const barPct = idbTotalKB > 0 ? Math.min((r.sizeKB / idbTotalKB) * 100, 100) : 0;
           const sizeStr =
             r.sizeKB >= 1024 ? `${(r.sizeKB / 1024).toFixed(1)} MB` : `${r.sizeKB.toFixed(1)} KB`;
-          const dbName = r.exact ? "StakTrakrAttachments" : "StakTrakrImages";
+          const dbName = r.dbName || (r.exact ? "StakTrakrAttachments" : "StakTrakrImages");
           return `<tr class="storage-key-row">
           <td class="storage-key-icon">${r.icon}</td>
           <td class="storage-key-label">${r.label}<span class="storage-key-raw">${dbName}</span></td>

@@ -99,7 +99,190 @@ function expectFrameColumns(row) {
   expect(row["Reverse Frame"]).toBe("circle");
 }
 
+const STRK198_UUIDLESS_CSV = [
+  "Date,Metal,Type,Name,Year,Qty,Weight(oz),Weight Unit,Purity,Purchase Price,Tags,removedTags",
+  "2026-06-16,Silver,Coin,STRK-198 UUID-less Tag Eagle,2024,1,1,oz,0.999,30,Bullion; Test Tag,Eagle",
+].join("\n");
+
+/**
+ * Resets all import-related localStorage and in-memory state to an empty baseline.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function resetEmptyImportState(page) {
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem("metalInventory", JSON.stringify([]));
+    localStorage.setItem("itemTags", JSON.stringify({}));
+    localStorage.setItem("itemRemovedTags", JSON.stringify({}));
+    if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
+    window.inventory = [];
+    window.itemTags = {};
+    if (typeof window.renderTable === "function") window.renderTable();
+  });
+}
+
+/**
+ * Navigates to the app and waits until all import-export globals are ready.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function gotoImportExportApp(page) {
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () =>
+      typeof window.importCsv === "function" &&
+      typeof window.getItemTags === "function" &&
+      typeof window.loadDataSync === "function" &&
+      typeof window.restoreVaultData === "function" &&
+      window.DiffModal &&
+      Array.isArray(window.inventory)
+  );
+}
+
+/**
+ * Captures the current STRK-198 tag state from the page (inventory item, itemTags, removedTags).
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
+async function captureStrk198TagState(page) {
+  return page.evaluate(() => {
+    const item = window.inventory[0] || {};
+    const itemTags = JSON.parse(localStorage.getItem("itemTags") || "{}");
+    const removedTags = JSON.parse(localStorage.getItem("itemRemovedTags") || "{}");
+    const persisted = window.loadDataSync("metalInventory", []);
+    return {
+      item: {
+        uuid: item.uuid || "",
+        serial: item.serial,
+        name: item.name || "",
+        tags: item.uuid ? window.getItemTags(item.uuid) : [],
+      },
+      persistedUuid: persisted[0] ? persisted[0].uuid || "" : "",
+      itemTags,
+      removedTags,
+    };
+  });
+}
+
+/**
+ * Imports the STRK-198 UUID-less CSV fixture into the app and returns the resulting tag state.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @param {{override: boolean}} options - When override is true, uses the CSV override path; otherwise stubs DiffModal.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
+async function importStrk198Csv(page, { override }) {
+  await page.evaluate(
+    ({ csvText, shouldOverride }) => {
+      const file = new File([csvText], "strk-198-uuidless-tags.csv", { type: "text/csv" });
+      if (!shouldOverride) {
+        const originalShow = window.DiffModal.show;
+        window.DiffModal.show = (options) => {
+          try {
+            const selected = (options.diff.added || []).map((item) => ({ type: "add", item }));
+            options.onApply(selected);
+          } finally {
+            window.DiffModal.show = originalShow;
+          }
+        };
+      }
+      window.importCsv(file, shouldOverride);
+    },
+    { csvText: STRK198_UUIDLESS_CSV, shouldOverride: override }
+  );
+  await page.waitForFunction(
+    () =>
+      window.inventory.length === 1 &&
+      window.inventory[0].name === "STRK-198 UUID-less Tag Eagle" &&
+      Boolean(window.inventory[0].uuid)
+  );
+  return captureStrk198TagState(page);
+}
+
+/**
+ * Waits for the page to be ready after a reload with the STRK-198 fixture item loaded.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function waitForStrk198Reload(page) {
+  await page.waitForFunction(
+    () =>
+      typeof window.getItemTags === "function" &&
+      window.inventory.length === 1 &&
+      window.inventory[0].name === "STRK-198 UUID-less Tag Eagle" &&
+      Boolean(window.inventory[0].uuid)
+  );
+}
+
+/**
+ * Asserts that the STRK-198 tag state is correct — UUID stamped, tags applied, removedTags written, no empty-key collision.
+ * @param {{item: object, persistedUuid: string, itemTags: object, removedTags: object}} state - Captured tag state.
+ * @returns {void}
+ */
+function expectStrk198Tags(state) {
+  expect(state.item.uuid).toBeTruthy();
+  expect(state.item.uuid).not.toBe("");
+  expect(state.persistedUuid).toBe(state.item.uuid);
+  expect(state.item.tags).toEqual(["Bullion", "Test Tag"]);
+  expect(state.itemTags[state.item.uuid]).toEqual(["Bullion", "Test Tag"]);
+  expect(state.removedTags[state.item.uuid]).toEqual(["Eagle"]);
+  expect(state.removedTags[""]).toBeUndefined();
+}
+
+/**
+ * Collects vault data, clears localStorage, restores via restoreVaultData, and returns the resulting tag state.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<{item: object, persistedUuid: string, itemTags: object, removedTags: object}>}
+ */
+async function roundTripStrk198VaultData(page) {
+  return page.evaluate(async () => {
+    const payload = window.collectVaultData("full");
+    localStorage.clear();
+    await window.restoreVaultData(payload);
+    const item = window.inventory[0] || {};
+    return {
+      item: {
+        uuid: item.uuid || "",
+        serial: item.serial,
+        name: item.name || "",
+        tags: item.uuid ? window.getItemTags(item.uuid) : [],
+      },
+      persistedUuid: window.loadDataSync("metalInventory", [])[0]?.uuid || "",
+      itemTags: JSON.parse(localStorage.getItem("itemTags") || "{}"),
+      removedTags: JSON.parse(localStorage.getItem("itemRemovedTags") || "{}"),
+    };
+  });
+}
+
 test.describe("core/import-export", () => {
+  test("UUID-less CSV merge import stamps identity before tag stores and vault restore", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await resetEmptyImportState(page);
+
+    const imported = await importStrk198Csv(page, { override: false });
+    expectStrk198Tags(imported);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForStrk198Reload(page);
+    expectStrk198Tags(await captureStrk198TagState(page));
+
+    expectStrk198Tags(await roundTripStrk198VaultData(page));
+  });
+
+  test("UUID-less CSV override import stamps identity before tag stores", async ({ page }) => {
+    await gotoImportExportApp(page);
+    await resetEmptyImportState(page);
+
+    const imported = await importStrk198Csv(page, { override: true });
+    expectStrk198Tags(imported);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForStrk198Reload(page);
+    expectStrk198Tags(await captureStrk198TagState(page));
+  });
+
   test("backup ZIP preserves attachments manifest paths, item metadata, and full diff fields", async ({
     page,
   }) => {
@@ -214,6 +397,56 @@ test.describe("core/import-export", () => {
 
     expectFrameColumns(await parseCsvRow(page, zipCsv));
     expectFrameColumns(await parseCsvRow(page, standaloneCsv));
+  });
+
+  test("CSV and ZIP exports survive items missing metal/weight (STRK-211, STRK-212)", async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.exportInventoryCSV === "function" &&
+        typeof window.createBackupZip === "function" &&
+        typeof window.JSZip !== "undefined" &&
+        typeof window.Papa !== "undefined"
+    );
+
+    // Degenerate legacy item: no `metal` (STRK-212) and a non-numeric `weight` (STRK-211).
+    // Assign window.inventory directly so both exporters see the raw shape; before the guards
+    // this throws (i.metal.toLowerCase() / NaN.toFixed(4)) and aborts the entire export.
+    const { standaloneCsv, zipCsv } = await page.evaluate(async () => {
+      window.inventory = [
+        {
+          uuid: "strk211-212-degenerate",
+          serial: 211212,
+          name: "STRK-211/212 Degenerate Export",
+          qty: 1,
+          type: "Coin",
+          weight: "",
+          weightUnit: "oz",
+          purity: 0.999,
+          price: 30,
+          date: "2026-06-17",
+          purchaseLocation: "Desk",
+          storageLocation: "Safe",
+        },
+      ];
+      const standalone = window.exportInventoryCSV();
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const zipExport = await zip.file("inventory_export.csv").async("string");
+      return { standaloneCsv: standalone, zipCsv: zipExport };
+    });
+
+    const standaloneRow = await parseCsvRow(page, standaloneCsv);
+    const zipRow = await parseCsvRow(page, zipCsv);
+
+    // STRK-212: metal-less item falls back to the "Silver" display default instead of throwing.
+    expect(standaloneRow["Metal"]).toBe("Silver");
+    expect(zipRow["Metal"]).toBe("Silver");
+    // STRK-211: non-numeric weight serializes as 0.0000 instead of crashing on NaN.toFixed(4).
+    expect(standaloneRow["Weight(oz)"]).toBe("0.0000");
+    expect(zipRow["Weight(oz)"]).toBe("0.0000");
   });
 
   test("trade-link fields round-trip through standalone CSV and ZIP JSON backup", async ({
@@ -433,5 +666,900 @@ test.describe("core/import-export", () => {
       suffix: "-attachments",
       hasEncrypt: true,
     });
+  });
+
+  test("encrypted image vault round-trips pattern rule images through wipe and restore", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    // Suppress demo seed pattern rules so the patternImages store holds only
+    // what this test caches (seed-images.js gates on seedImagesVer).
+    await page.addInitScript(() => {
+      localStorage.setItem("seedImagesVer", "1");
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.imageCache !== "undefined" &&
+        typeof window.collectAndHashImageVault === "function" &&
+        typeof window.vaultEncryptImageVault === "function" &&
+        typeof window.vaultDecryptAndRestoreImages === "function"
+    );
+
+    const RULE_ID = "custom-strk185-roundtrip";
+    const RULE = {
+      id: RULE_ID,
+      pattern: "\\bGeneric Silver Round\\b",
+      replacement: "Generic Silver Round",
+      numistaId: null,
+      seedImageId: RULE_ID,
+    };
+
+    // Phase 1: seed a pattern rule + images, export the encrypted image vault.
+    const exported = await page.evaluate(
+      async ({ password, rule }) => {
+        localStorage.setItem("numistaLookupRules", JSON.stringify([rule]));
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+        const cached = await window.imageCache.cachePatternImage(
+          rule.id,
+          new Blob(["strk185-obverse-bytes"], { type: "image/png" }),
+          new Blob(["strk185-reverse-bytes"], { type: "image/png" })
+        );
+        const collected = await window.collectAndHashImageVault();
+        const bytes = await window.vaultEncryptImageVault(password, collected.payload);
+        return {
+          cached,
+          exportedPatternCount: collected.patternImageCount,
+          exportedTotalCount: collected.imageCount,
+          payloadPatternRecords: (collected.payload.patternRecords || []).length,
+          vaultBytes: Array.from(bytes),
+        };
+      },
+      { password: VAULT_PASSWORD, rule: RULE }
+    );
+
+    // Phase 2: wipe storage from a neutral same-origin page where the app is
+    // not running — deleting the IDB database from the live app deadlocks
+    // against its open connections. This mirrors the STRK-185 report's
+    // Windows-update wipe: the database itself is gone, not just emptied.
+    await page.goto("/strk185-neutral-404", { waitUntil: "domcontentloaded" });
+    await page.evaluate(async () => {
+      localStorage.clear();
+      await new Promise((resolve) => {
+        const req = indexedDB.deleteDatabase("StakTrakrImages");
+        req.onsuccess = req.onerror = req.onblocked = () => resolve();
+      });
+    });
+
+    // Phase 3: boot the app fresh (schema gets recreated), restore, verify.
+    // The rule definition itself returns via the data vault (numistaLookupRules
+    // is in SYNC_SCOPE_KEYS) — simulate that half of the restore directly.
+    await page.addInitScript((rule) => {
+      localStorage.setItem("numistaLookupRules", JSON.stringify([rule]));
+      localStorage.setItem("seedImagesVer", "1");
+    }, RULE);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.imageCache !== "undefined" &&
+        typeof window.vaultDecryptAndRestoreImages === "function"
+    );
+
+    const result = await page.evaluate(
+      async ({ password, ruleId, vaultBytes }) => {
+        const wipedRecord = await window.imageCache.getPatternImage(ruleId);
+        const restoredCount = await window.vaultDecryptAndRestoreImages(
+          new Uint8Array(vaultBytes),
+          password
+        );
+        const record = await window.imageCache.getPatternImage(ruleId);
+        const url = await window.imageCache.getPatternImageUrl(ruleId, "obverse");
+        const rules = JSON.parse(localStorage.getItem("numistaLookupRules") || "[]");
+        return {
+          wipedRecordGone: !wipedRecord,
+          restoredCount,
+          obverseText: record && record.obverse ? await record.obverse.text() : null,
+          reverseText: record && record.reverse ? await record.reverse.text() : null,
+          urlResolved: typeof url === "string" && url.startsWith("blob:"),
+          ruleSurvived: rules.some((r) => r.id === ruleId && r.seedImageId === ruleId),
+        };
+      },
+      { password: VAULT_PASSWORD, ruleId: RULE_ID, vaultBytes: exported.vaultBytes }
+    );
+
+    expect(exported.cached).toBe(true);
+    // Pattern-only export must proceed (no user images cached at all).
+    expect(exported.exportedPatternCount).toBe(1);
+    expect(exported.exportedTotalCount).toBe(1);
+    expect(exported.payloadPatternRecords).toBe(1);
+    expect(result.wipedRecordGone).toBe(true);
+    expect(result.restoredCount).toBe(1);
+    expect(result.obverseText).toBe("strk185-obverse-bytes");
+    expect(result.reverseText).toBe("strk185-reverse-bytes");
+    expect(result.urlResolved).toBe(true);
+    expect(result.ruleSurvived).toBe(true);
+  });
+
+  test("image vault hash stays legacy-stable and legacy payloads restore without pattern records", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("seedImagesVer", "1");
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.imageCache !== "undefined" &&
+        typeof window.collectAndHashImageVault === "function" &&
+        typeof window.vaultDecryptAndRestoreImages === "function"
+    );
+
+    const result = await page.evaluate(async (password) => {
+      // Independent copy of vault.js simpleHash — asserts the exact legacy formula.
+      const legacySimpleHash = (str) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+        }
+        return "sh:" + (hash >>> 0).toString(16);
+      };
+
+      await window.imageCache.init();
+      await window.imageCache.clearAll();
+      await window.imageCache.importUserImageRecord({
+        uuid: "strk185-user-uuid",
+        obverse: new Blob(["strk185-user-obverse"], { type: "image/png" }),
+        reverse: null,
+        cachedAt: 1717286400000,
+        size: 19,
+      });
+
+      const before = await window.collectAndHashImageVault();
+      // Pre-STRK-185 hash input: user-image parts only, no "p:" entries.
+      const legacyHash = legacySimpleHash(
+        JSON.stringify(
+          before.payload.records.map(
+            (e) => e.uuid + ":" + e.size + ":" + (e.obverse ? e.obverse.slice(0, 32) : "")
+          )
+        )
+      );
+
+      await window.imageCache.cachePatternImage(
+        "strk185-hash-rule",
+        new Blob(["strk185-pattern-obverse"], { type: "image/png" }),
+        null
+      );
+      const after = await window.collectAndHashImageVault();
+
+      // Legacy payload (no patternRecords key at all) must restore cleanly.
+      const legacyPayload = {
+        _meta: {
+          appVersion: "3.35.15",
+          exportTimestamp: "2026-01-01T00:00:00.000Z",
+          imageCount: before.payload.records.length,
+        },
+        records: before.payload.records,
+      };
+      const legacyBytes = await window.vaultEncryptImageVault(password, legacyPayload);
+      await window.imageCache.clearAll();
+      // STRK-200: restoreImageVaultData now skips records whose item UUID isn't in
+      // the inventory (orphan guard). The real .stvault flow commits inventory before
+      // images restore, so admit this record's item to mirror that precondition.
+      window.inventory = [
+        ...(Array.isArray(window.inventory) ? window.inventory : []),
+        { uuid: "strk185-user-uuid" },
+      ];
+      const legacyCount = await window.vaultDecryptAndRestoreImages(legacyBytes, password);
+      const restoredUsers = await window.imageCache.exportAllUserImages();
+      const restoredPatterns = await window.imageCache.exportAllPatternImages();
+
+      return {
+        zeroPatternHashMatchesLegacy: before.hash === legacyHash,
+        beforePatternCount: before.patternImageCount,
+        hashChangedWithPattern: after.hash !== before.hash,
+        afterPatternCount: after.patternImageCount,
+        afterTotalCount: after.imageCount,
+        legacyCount,
+        restoredUserCount: restoredUsers.length,
+        restoredPatternCount: restoredPatterns.length,
+      };
+    }, VAULT_PASSWORD);
+
+    expect(result.zeroPatternHashMatchesLegacy).toBe(true);
+    expect(result.beforePatternCount).toBe(0);
+    expect(result.hashChangedWithPattern).toBe(true);
+    expect(result.afterPatternCount).toBe(1);
+    expect(result.afterTotalCount).toBe(2);
+    expect(result.legacyCount).toBe(1);
+    expect(result.restoredUserCount).toBe(1);
+    expect(result.restoredPatternCount).toBe(0);
+  });
+
+  // STRK-170 cohort 1.3 characterization — the core suite otherwise never exercises the
+  // restoreBackupZip -> applyAncillaryData path (only an archived legacy spec calls it).
+  // This pins applyAncillaryData's observable ancillary restore (per-metal spot prices,
+  // retail prices, catalog mappings, item price history) so the cohort-1.3 decomposition of
+  // applyAncillaryData (ccn68) cannot silently drift. Stub pattern mirrors the archived
+  // stak-443 restore test: auto-accept the diff modal, signal completion via the success toast.
+  test("ZIP restore applies ancillary spot/retail/catalog/history data (applyAncillaryData)", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.restoreBackupZip === "function");
+
+    const { histTs } = await page.evaluate(async () => {
+      // Use the page clock so the history entry survives applyItemPriceRetention's age cutoff.
+      const histTs = Date.now();
+      // Auto-accept the diff modal and flip a flag when the success toast fires.
+      window.__zipRestoreComplete = false;
+      const originalShowToast = window.showToast;
+      window.showToast = function (message, level) {
+        if (typeof originalShowToast === "function") originalShowToast(message, level);
+        if (String(message || "").includes("ZIP backup restored successfully")) {
+          window.__zipRestoreComplete = true;
+        }
+      };
+      window.showImportDiffReview = function (_items, _meta, options, onDone) {
+        const changes = options?.settingsDiff?.changed || [];
+        for (const change of changes) {
+          localStorage.setItem(
+            change.key,
+            typeof change.remoteVal === "string"
+              ? change.remoteVal
+              : JSON.stringify(change.remoteVal)
+          );
+        }
+        onDone({ added: 0, modified: 0, deleted: 0 });
+      };
+
+      // Build a backup ZIP carrying the ancillary files applyAncillaryData reads.
+      const zip = new window.JSZip();
+      zip.file(
+        "inventory_data.json",
+        JSON.stringify({ version: "test", exportDate: new Date().toISOString(), inventory: [] })
+      );
+      zip.file(
+        "settings.json",
+        JSON.stringify({
+          version: "test",
+          exportDate: new Date().toISOString(),
+          exportOrigin: window.location.origin,
+          spotPrices: { gold: 2500.5, silver: 30.25, platinum: 950, palladium: 1100 },
+          catalogMappings: { "strk170-char-numista": "strk170-char-uuid" },
+        })
+      );
+      zip.file(
+        "retail_prices.json",
+        JSON.stringify({ "american-silver-eagle": { price: 42.5, currency: "USD" } })
+      );
+      zip.file(
+        "item_price_history.json",
+        JSON.stringify({
+          version: "test",
+          exportDate: new Date().toISOString(),
+          history: { "strk170-char-uuid": [{ ts: histTs, price: 41.1 }] },
+        })
+      );
+
+      const file = new File([await zip.generateAsync({ type: "blob" })], "char-restore.zip", {
+        type: "application/zip",
+      });
+      await window.restoreBackupZip(file);
+      return { histTs };
+    });
+
+    await page.waitForFunction(() => window.__zipRestoreComplete === true);
+
+    // NOTE: per-metal spot prices restored from settings.spotPrices are intentionally
+    // NOT asserted — applyAncillaryData ends with fetchSpotPrice()/syncManualSpotStorage(),
+    // which re-derive spot state and overwrite the restored values (transient effect). The
+    // catalog assertion still proves the spot+catalog restore phase executed. Retail prices,
+    // catalog mappings, and item price history are stable (untouched by the trailing steps).
+    const restored = await page.evaluate(() => ({
+      retail: window.loadDataSync(window.RETAIL_PRICES_KEY, null),
+      catalog: window.catalogManager.exportMappings(),
+      history: window.loadDataSync("item-price-history", {})["strk170-char-uuid"] || null,
+    }));
+
+    expect(restored.retail).toEqual({ "american-silver-eagle": { price: 42.5, currency: "USD" } });
+    expect(restored.catalog).toMatchObject({ "strk170-char-numista": "strk170-char-uuid" });
+    expect(restored.history).toEqual([{ ts: histTs, price: 41.1 }]);
+  });
+
+  // STRK-202: the ZIP backup now carries numistaLookupRules, so a restore brings
+  // the rules back alongside their pattern images. Before this, settings.json
+  // omitted the rules — a restore reinstated the images but left no rule pointing
+  // at them, orphaning every one.
+  test("backup ZIP round-trips custom rules so restored pattern images are not orphaned", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    // Suppress demo seed rules/images so patternImages holds only our fixture.
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.createBackupZip === "function" &&
+        typeof window.restoreBackupZip === "function" &&
+        typeof window.imageCache !== "undefined" &&
+        window.NumistaLookup &&
+        typeof window.JSZip !== "undefined"
+    );
+
+    const RULE_ID = "custom-strk202-roundtrip";
+    const RULE = {
+      id: RULE_ID,
+      pattern: "\\bMorgan Dollar\\b",
+      replacement: "Morgan Dollar",
+      numistaId: null,
+      seedImageId: RULE_ID,
+    };
+
+    // Phase 1: seed a rule + its pattern image, export a backup ZIP, and confirm
+    // the rule rides in settings.json (the export half of the fix).
+    const exported = await page.evaluate(
+      async ({ rule }) => {
+        localStorage.setItem("numistaLookupRules", JSON.stringify([rule]));
+        window.NumistaLookup.loadCustomRules();
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+        await window.imageCache.cachePatternImage(
+          rule.seedImageId,
+          new Blob(["strk202-obverse"], { type: "image/png" }),
+          new Blob(["strk202-reverse"], { type: "image/png" })
+        );
+        const blob = await window.createBackupZip();
+        const buf = await blob.arrayBuffer();
+        const zip = await window.JSZip.loadAsync(buf);
+        const settings = JSON.parse(await zip.file("settings.json").async("string"));
+        return {
+          settingsRules: settings.numistaLookupRules,
+          zipBytes: Array.from(new Uint8Array(buf)),
+        };
+      },
+      { rule: RULE }
+    );
+
+    expect(typeof exported.settingsRules).toBe("string");
+    expect(JSON.parse(exported.settingsRules)).toEqual([RULE]);
+
+    // Phase 2: simulate the post-restore-without-rules state — drop the rule but
+    // keep its image in IndexedDB, so the image is now orphaned (the bug).
+    const orphanedBefore = await page.evaluate(async () => {
+      localStorage.removeItem("numistaLookupRules");
+      window.NumistaLookup.importRules([], false); // empty the in-memory rules
+      const records = await window.imageCache.exportAllPatternImages();
+      const referenced = new Set(
+        window.NumistaLookup.getCustomRules()
+          .map((r) => r.seedImageId)
+          .filter(Boolean)
+      );
+      return records.filter((rec) => !referenced.has(rec.ruleId)).map((rec) => rec.ruleId);
+    });
+    expect(orphanedBefore).toContain(RULE_ID);
+
+    // Phase 3: restore the ZIP. Stub the diff modal to auto-complete so
+    // applyAncillaryData (which runs _restoreNumistaRules) fires.
+    await page.evaluate(async (zipBytes) => {
+      window.__zipRestoreComplete = false;
+      const origToast = window.showToast;
+      window.showToast = (msg, level) => {
+        if (typeof origToast === "function") origToast(msg, level);
+        if (String(msg || "").includes("ZIP backup restored successfully")) {
+          window.__zipRestoreComplete = true;
+        }
+      };
+      window.showImportDiffReview = (_items, _meta, _opts, onDone) =>
+        onDone({ added: 0, modified: 0, deleted: 0 });
+      const file = new File([new Uint8Array(zipBytes)], "strk202-restore.zip", {
+        type: "application/zip",
+      });
+      await window.restoreBackupZip(file);
+    }, exported.zipBytes);
+    await page.waitForFunction(() => window.__zipRestoreComplete === true);
+
+    // Phase 4: the rule is back (with its seedImageId) and nothing is orphaned —
+    // the restored image re-binds to the restored rule.
+    const after = await page.evaluate(async (ruleId) => {
+      const rules = window.NumistaLookup.getCustomRules();
+      const records = await window.imageCache.exportAllPatternImages();
+      const referenced = new Set(rules.map((r) => r.seedImageId).filter(Boolean));
+      const url = await window.imageCache.getPatternImageUrl(ruleId, "obverse");
+      return {
+        ruleRestored: rules.some((r) => r.id === ruleId && r.seedImageId === ruleId),
+        orphanCount: records.filter((rec) => !referenced.has(rec.ruleId)).length,
+        imageResolves: typeof url === "string" && url.startsWith("blob:"),
+      };
+    }, RULE_ID);
+
+    expect(after.ruleRestored).toBe(true);
+    expect(after.orphanCount).toBe(0);
+    expect(after.imageResolves).toBe(true);
+  });
+
+  // STRK-202: showImportDiffReview early-returns when inventory + mapped settings
+  // match and there is no settings diff. Since numistaLookupRules is intentionally
+  // NOT in the flat settings diff, a rules/images-only restore would otherwise skip
+  // the ancillary path entirely and leave the images orphaned. restoreBackupZip
+  // passes alwaysApplyAncillary so the ancillary restore runs anyway. Uses the REAL
+  // showImportDiffReview (no stub) to exercise the no-change branch.
+  test("ZIP restore applies rules + images even when inventory is unchanged", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.restoreBackupZip === "function" &&
+        typeof window.imageCache !== "undefined" &&
+        window.NumistaLookup &&
+        typeof window.JSZip !== "undefined" &&
+        typeof window.DiffEngine !== "undefined" &&
+        typeof window.DiffModal !== "undefined"
+    );
+
+    const RULE_ID = "custom-strk202-nochange";
+    const RULE = {
+      id: RULE_ID,
+      pattern: "\\bPeace Dollar\\b",
+      replacement: "Peace Dollar",
+      numistaId: null,
+      seedImageId: RULE_ID,
+    };
+
+    await page.evaluate(
+      async ({ rule }) => {
+        // Empty inventory + no rules locally → a restore otherwise sees "no changes".
+        localStorage.setItem("metalInventory", JSON.stringify([]));
+        localStorage.removeItem("numistaLookupRules");
+        window.inventory = [];
+        window.NumistaLookup.importRules([], false);
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+
+        // Signal completion via the success toast; do NOT stub showImportDiffReview —
+        // the real no-change branch must run.
+        window.__nochangeDone = false;
+        const origToast = window.showToast;
+        window.showToast = (msg, level) => {
+          if (typeof origToast === "function") origToast(msg, level);
+          if (String(msg || "").includes("ZIP backup restored successfully")) {
+            window.__nochangeDone = true;
+          }
+        };
+
+        const zip = new window.JSZip();
+        zip.file(
+          "inventory_data.json",
+          JSON.stringify({ version: "test", exportDate: new Date().toISOString(), inventory: [] })
+        );
+        // settings.json carries ONLY the rules key — nothing in the flat settings
+        // allowlist — so settingsDiff stays null and the no-change branch is hit.
+        zip.file(
+          "settings.json",
+          JSON.stringify({
+            version: "test",
+            exportDate: new Date().toISOString(),
+            exportOrigin: window.location.origin,
+            numistaLookupRules: JSON.stringify([rule]),
+          })
+        );
+        zip
+          .folder("pattern_images")
+          .file(
+            `${rule.seedImageId}_obverse.jpg`,
+            new Blob(["nochange-obv"], { type: "image/jpeg" })
+          );
+
+        const file = new File([await zip.generateAsync({ type: "blob" })], "nochange.zip", {
+          type: "application/zip",
+        });
+        await window.restoreBackupZip(file);
+      },
+      { rule: RULE }
+    );
+
+    await page.waitForFunction(() => window.__nochangeDone === true);
+
+    const after = await page.evaluate(async (ruleId) => {
+      const rules = window.NumistaLookup.getCustomRules();
+      const rec = await window.imageCache.getPatternImage(ruleId);
+      return {
+        ruleRestored: rules.some((r) => r.id === ruleId && r.seedImageId === ruleId),
+        imageRestored: Boolean(rec && rec.obverse),
+      };
+    }, RULE_ID);
+
+    expect(after.ruleRestored).toBe(true);
+    expect(after.imageRestored).toBe(true);
+  });
+
+  // STRK-200: _restoreUserImages now guards every import against the committed
+  // inventory (mirroring _restoreAttachments). A backup whose user_image_manifest
+  // lists a photo for an item that was de-duplicated away — so its UUID is absent
+  // from the restored inventory — must NOT import that photo, or it lingers in
+  // IndexedDB forever as an un-editable orphan row in Settings (field-reported).
+  test("ZIP user-image restore skips photos whose item UUID is not in the inventory (STRK-200)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.restoreBackupZip === "function" &&
+        typeof window.imageCache !== "undefined" &&
+        typeof window.JSZip !== "undefined" &&
+        typeof window.DiffEngine !== "undefined"
+    );
+
+    const KEEP = "strk200-zip-keep";
+    const ORPHAN = "strk200-zip-orphan";
+
+    await page.evaluate(
+      async ({ keep, orphan }) => {
+        // Committed inventory holds ONLY the kept item; the orphan's item is gone.
+        const keepItem = {
+          uuid: keep,
+          serial: 2001,
+          name: "STRK-200 Keep",
+          metal: "Silver",
+          composition: "Silver",
+          qty: 1,
+          type: "Coin",
+          weight: 1,
+          weightUnit: "oz",
+          purity: 0.999,
+          price: 30,
+          date: "2026-06-17",
+        };
+        localStorage.setItem("metalInventory", JSON.stringify([keepItem]));
+        window.inventory = [keepItem];
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+
+        window.__strk200ZipDone = false;
+        const origToast = window.showToast;
+        window.showToast = (msg, level) => {
+          if (typeof origToast === "function") origToast(msg, level);
+          if (String(msg || "").includes("ZIP backup restored successfully")) {
+            window.__strk200ZipDone = true;
+          }
+        };
+        // Auto-accept the diff so applyAncillaryData (→ _restoreUserImages) fires.
+        window.showImportDiffReview = (_items, _meta, _opts, onDone) =>
+          onDone({ added: 0, modified: 0, deleted: 0 });
+
+        const zip = new window.JSZip();
+        zip.file(
+          "inventory_data.json",
+          JSON.stringify({
+            version: "test",
+            exportDate: new Date().toISOString(),
+            inventory: [keepItem],
+          })
+        );
+        zip.file(
+          "settings.json",
+          JSON.stringify({
+            version: "test",
+            exportDate: new Date().toISOString(),
+            exportOrigin: window.location.origin,
+          })
+        );
+        const imgFolder = zip.folder("user_images");
+        imgFolder.file(`${keep}_obverse.png`, new Blob(["keep-obv"], { type: "image/png" }));
+        imgFolder.file(`${orphan}_obverse.png`, new Blob(["orphan-obv"], { type: "image/png" }));
+        zip.file(
+          "user_image_manifest.json",
+          JSON.stringify({
+            entries: [
+              {
+                uuid: keep,
+                obverseFile: `user_images/${keep}_obverse.png`,
+                reverseFile: null,
+                cachedAt: Date.now(),
+                size: 8,
+              },
+              {
+                uuid: orphan,
+                obverseFile: `user_images/${orphan}_obverse.png`,
+                reverseFile: null,
+                cachedAt: Date.now(),
+                size: 10,
+              },
+            ],
+          })
+        );
+
+        const file = new File([await zip.generateAsync({ type: "blob" })], "strk200.zip", {
+          type: "application/zip",
+        });
+        await window.restoreBackupZip(file);
+      },
+      { keep: KEEP, orphan: ORPHAN }
+    );
+
+    await page.waitForFunction(() => window.__strk200ZipDone === true);
+
+    const stored = await page.evaluate(async () => {
+      const recs = await window.imageCache.exportAllUserImages();
+      return recs.map((r) => r.uuid);
+    });
+    expect(stored).toContain(KEEP); // accepted item's photo restored
+    expect(stored).not.toContain(ORPHAN); // orphan photo skipped — no IndexedDB bloat
+  });
+
+  // STRK-200: restoreImageVaultData (the .stvault companion + cloud-sync image
+  // sink) gets the same guard. A decrypted payload can carry photo records for
+  // items no longer in the inventory; importing them is what produced the field
+  // orphans. The guard skips them while still importing live records.
+  test(".stvault image restore skips photos whose item UUID is not in the inventory (STRK-200)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.restoreImageVaultData === "function" &&
+        typeof window.imageCache !== "undefined"
+    );
+
+    const KEEP = "strk200-vault-keep";
+    const ORPHAN = "strk200-vault-orphan";
+
+    const stored = await page.evaluate(
+      async ({ keep, orphan }) => {
+        window.inventory = [
+          {
+            uuid: keep,
+            serial: 2002,
+            name: "STRK-200 Vault Keep",
+            metal: "Silver",
+            composition: "Silver",
+            qty: 1,
+            type: "Coin",
+            weight: 1,
+            weightUnit: "oz",
+            purity: 0.999,
+            price: 30,
+            date: "2026-06-17",
+          },
+        ];
+        await window.imageCache.init();
+        await window.imageCache.clearAll();
+        const b64 = btoa("strk200-img");
+        const imported = await window.restoreImageVaultData({
+          records: [
+            { uuid: keep, obverse: b64, obverseType: "image/png", cachedAt: Date.now(), size: 11 },
+            {
+              uuid: orphan,
+              obverse: b64,
+              obverseType: "image/png",
+              cachedAt: Date.now(),
+              size: 11,
+            },
+          ],
+        });
+        const recs = await window.imageCache.exportAllUserImages();
+        return { uuids: recs.map((r) => r.uuid), imported };
+      },
+      { keep: KEEP, orphan: ORPHAN }
+    );
+
+    expect(stored.uuids).toContain(KEEP);
+    expect(stored.uuids).not.toContain(ORPHAN);
+    expect(stored.imported).toBe(1); // only the live record counted as imported
+  });
+});
+
+// ---------------------------------------------------------------------------
+// STRK-220 — CSV merge honors Tags/removedTags for EXISTING items.
+// Before the fix, the merge path's tag appliers filtered for add||modify changes
+// and read change.item.uuid, but modify changes carry no .item, so tags for
+// existing (modify / unchanged) items were silently dropped. The fix applies tags
+// over the parsed items that landed in inventory (matched + selected adds),
+// mirroring the override/fallback paths, plus a CSV-gated tag-only branch for rows
+// that produce zero diffed-field changes.
+// ---------------------------------------------------------------------------
+
+const STRK220_UUID = "strk220-existing-uuid-aaaa";
+
+const STRK220_EXISTING_ITEM = {
+  uuid: STRK220_UUID,
+  serial: 7220,
+  metal: "Silver",
+  composition: "Silver",
+  type: "Coin",
+  name: "STRK-220 Existing Eagle",
+  year: 2024,
+  qty: 1,
+  weight: 1,
+  weightUnit: "oz",
+  purity: 0.999,
+  price: 30,
+  date: "2026-06-20",
+};
+
+// UUID + Serial columns let a row match an existing item by identity.
+const STRK220_CSV_HEADER =
+  "UUID,Serial,Date,Metal,Type,Name,Year,Qty,Weight(oz),Weight Unit,Purity,Purchase Price,Tags,removedTags";
+
+// Matches by UUID, changes Qty (a diffed field) -> surfaces as a `modify`.
+const STRK220_MODIFY_CSV = [
+  STRK220_CSV_HEADER,
+  `${STRK220_UUID},7220,2026-06-20,Silver,Coin,STRK-220 Existing Eagle,2024,2,1,oz,0.999,30,Bullion; Imported,OldGrade`,
+].join("\n");
+
+// UUID column blank -> matched by Serial only. The parse-time import key (the
+// serial) differs from the post-enrichment modify itemKey (the uuid), exercising
+// the __csvImportKey sidecar lookup. Qty changes -> modify.
+const STRK220_SERIAL_MATCH_CSV = [
+  STRK220_CSV_HEADER,
+  `,7220,2026-06-20,Silver,Coin,STRK-220 Existing Eagle,2024,4,1,oz,0.999,30,Stacker,OldGrade`,
+].join("\n");
+
+/**
+ * Seeds a single existing inventory item plus empty tag stores, then renders.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @returns {Promise<void>}
+ */
+async function seedStrk220Existing(page) {
+  await page.evaluate((item) => {
+    localStorage.clear();
+    localStorage.setItem("metalInventory", JSON.stringify([item]));
+    localStorage.setItem("itemTags", JSON.stringify({}));
+    localStorage.setItem("itemRemovedTags", JSON.stringify({}));
+    if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
+    window.inventory = [item];
+    window.itemTags = {};
+    if (typeof window.renderTable === "function") window.renderTable();
+  }, STRK220_EXISTING_ITEM);
+}
+
+/**
+ * Runs a CSV merge import, stubbing DiffModal.show to auto-accept all added and
+ * modified changes from the real diff (mirrors _emitLegacyModified — remote wins).
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @param {string} csvText - CSV file contents.
+ * @returns {Promise<void>}
+ */
+async function importStrk220Merge(page, csvText) {
+  await page.evaluate((text) => {
+    const file = new File([text], "strk-220-merge.csv", { type: "text/csv" });
+    const originalShow = window.DiffModal.show;
+    window.DiffModal.show = (options) => {
+      try {
+        const selected = [];
+        (options.diff.added || []).forEach((item) => selected.push({ type: "add", item }));
+        (options.diff.modified || []).forEach((mod) => {
+          const itemKey = window.DiffEngine.computeItemKey(mod.item);
+          (mod.changes || []).forEach((ch) => {
+            selected.push({ type: "modify", itemKey, field: ch.field, value: ch.remoteVal });
+          });
+        });
+        options.onApply(selected);
+      } finally {
+        window.DiffModal.show = originalShow;
+      }
+    };
+    window.importCsv(file, false);
+  }, csvText);
+}
+
+/**
+ * Reads the tag/removed-tag stores and the item's qty for a given uuid.
+ * @param {import('@playwright/test').Page} page - Playwright page instance.
+ * @param {string} uuid - Item UUID to inspect.
+ * @returns {Promise<{qty: *, tags: string[], itemTags: object, removedTags: object, persistedQty: *}>}
+ */
+async function captureStrk220State(page, uuid) {
+  return page.evaluate((u) => {
+    const item = (window.inventory || []).find((it) => it.uuid === u) || {};
+    const persisted = window.loadDataSync("metalInventory", []).find((it) => it.uuid === u) || {};
+    return {
+      qty: item.qty,
+      tags: window.getItemTags(u),
+      itemTags: JSON.parse(localStorage.getItem("itemTags") || "{}"),
+      removedTags: JSON.parse(localStorage.getItem("itemRemovedTags") || "{}"),
+      persistedQty: persisted.qty,
+    };
+  }, uuid);
+}
+
+test.describe("core/import-export — STRK-220 merge tags on existing items", () => {
+  test("merge modify (UUID match) persists Tags and removedTags for the existing item", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await seedStrk220Existing(page);
+
+    await importStrk220Merge(page, STRK220_MODIFY_CSV);
+    await page.waitForFunction((u) => {
+      const it = (window.inventory || []).find((x) => x.uuid === u);
+      return it && Number(it.qty) === 2;
+    }, STRK220_UUID);
+
+    const state = await captureStrk220State(page, STRK220_UUID);
+    expect(Number(state.qty)).toBe(2); // modify applied
+    expect(state.itemTags[STRK220_UUID]).toEqual(["Bullion", "Imported"]);
+    expect(state.tags).toEqual(["Bullion", "Imported"]);
+    expect(state.removedTags[STRK220_UUID]).toEqual(["OldGrade"]); // the bug: was dropped
+
+    // Persistence across reload
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      (u) =>
+        typeof window.getItemTags === "function" &&
+        (window.inventory || []).some((x) => x.uuid === u),
+      STRK220_UUID
+    );
+    const reloaded = await captureStrk220State(page, STRK220_UUID);
+    expect(reloaded.itemTags[STRK220_UUID]).toEqual(["Bullion", "Imported"]);
+    expect(reloaded.removedTags[STRK220_UUID]).toEqual(["OldGrade"]);
+  });
+
+  test("merge modify (Serial match, UUID-less row) resolves tags via the import-key sidecar", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await seedStrk220Existing(page);
+
+    await importStrk220Merge(page, STRK220_SERIAL_MATCH_CSV);
+    await page.waitForFunction((u) => {
+      const it = (window.inventory || []).find((x) => x.uuid === u);
+      return it && Number(it.qty) === 4;
+    }, STRK220_UUID);
+
+    const state = await captureStrk220State(page, STRK220_UUID);
+    expect(Number(state.qty)).toBe(4);
+    // Removed/added tags land on the enriched uuid even though the map key was the
+    // parse-time serial — the sidecar (__csvImportKey) bridges the divergence.
+    expect(state.removedTags[STRK220_UUID]).toEqual(["OldGrade"]);
+    expect(state.itemTags[STRK220_UUID]).toEqual(["Stacker"]);
+  });
+
+  test("merge with only a removedTags column edit (zero diffed-field change) still applies", async ({
+    page,
+  }) => {
+    await gotoImportExportApp(page);
+    await resetEmptyImportState(page);
+
+    // Establish the canonical item via a first merge (an `add`), so the second
+    // import is byte-identical on every diffed field and DiffEngine sees 0 changes.
+    const TAGONLY_UUID = "strk220-tagonly-uuid-cccc";
+    const baseRow = `${TAGONLY_UUID},7230,2026-06-20,Silver,Coin,STRK-220 TagOnly Maple,2024,1,1,oz,0.999,30,Bullion,`;
+    await importStrk220Merge(page, [STRK220_CSV_HEADER, baseRow].join("\n"));
+    await page.waitForFunction(
+      (u) => (window.inventory || []).some((x) => x.uuid === u),
+      TAGONLY_UUID
+    );
+
+    // Re-import the identical row + a removedTags value. No diffed field changes, so
+    // the modal never opens; the CSV-gated tag-only branch must still apply it.
+    await page.evaluate(() => {
+      window.__strk220ShowCalled = false;
+      const orig = window.DiffModal.show;
+      window.DiffModal.show = () => {
+        window.__strk220ShowCalled = true; // swallow — must NOT be reached
+        window.DiffModal.show = orig;
+      };
+    });
+    const tagOnlyRow = `${TAGONLY_UUID},7230,2026-06-20,Silver,Coin,STRK-220 TagOnly Maple,2024,1,1,oz,0.999,30,Bullion,OldGrade`;
+    await page.evaluate((text) => {
+      const file = new File([text], "strk-220-tagonly.csv", { type: "text/csv" });
+      window.importCsv(file, false);
+    }, [STRK220_CSV_HEADER, tagOnlyRow].join("\n"));
+
+    await page.waitForFunction((u) => {
+      const m = JSON.parse(localStorage.getItem("itemRemovedTags") || "{}");
+      return Array.isArray(m[u]) && m[u].includes("OldGrade");
+    }, TAGONLY_UUID);
+
+    const state = await captureStrk220State(page, TAGONLY_UUID);
+    expect(await page.evaluate(() => window.__strk220ShowCalled)).toBe(false); // no modal
+    expect(state.removedTags[TAGONLY_UUID]).toEqual(["OldGrade"]);
+    expect(state.itemTags[TAGONLY_UUID]).toEqual(["Bullion"]);
+    expect(Number(state.qty)).toBe(1); // unchanged
   });
 });
