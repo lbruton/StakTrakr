@@ -1459,6 +1459,23 @@ const setupTableSortListeners = () => {
       weightLabel.setAttribute("for", isGb ? "itemGbDenom" : "itemWeight");
     }
   };
+
+  // CONSTITUTIONAL / JUNK SILVER GROUP TOGGLE (STRK-235)
+  // When the unit is 'cu', hide the raw Purity/Quantity/Weight cells and reveal the
+  // constitutional control group (denomination↔face). Runs AFTER toggleGbDenomPicker
+  // in handleTypeChange so it owns the weight-cell visibility for the 'cu' case.
+  window.toggleConstitutionalGroup = () => {
+    const isCu = elements.itemWeightUnit?.value === "cu";
+    showEl(document.getElementById("item-constitutional-group"), isCu);
+    [
+      elements.itemWeight?.closest("div"),
+      document.getElementById("itemPuritySelect")?.closest("div"),
+      document.getElementById("itemQty")?.closest("div"),
+    ].forEach((cell) => showEl(cell, !isCu));
+    if (isCu && typeof window.constitutionalUpdatePreview === "function") {
+      window.constitutionalUpdatePreview();
+    }
+  };
 };
 
 // FORM SUBMIT HELPERS (STACK-61)
@@ -1524,6 +1541,44 @@ const parsePurity = (isEditing, existingItem) => {
 };
 
 /**
+ * STRK-235: Reads the constitutional/junk-silver entry controls and returns the
+ * stored item shape (inputs only — never derived ounces). Denomination mode stores
+ * the variant id + per-coin face in `weight` + coin count in `qty`; face mode stores
+ * the total face value in `weight`, qty 1, and the "con-90-subsidiary" sentinel.
+ * @returns {{mode:string, variant:string, weight:number, qty:number}}
+ */
+const parseConstitutionalFields = () => {
+  const mode =
+    typeof window.constitutionalGetEntryMode === "function"
+      ? window.constitutionalGetEntryMode()
+      : "denom";
+  if (mode === "face") {
+    const faceEl = safeGetElement("item-constitutional-face");
+    const face = faceEl ? parseFloat(faceEl.value) : NaN;
+    return {
+      mode: "face",
+      variant: "con-90-subsidiary",
+      weight: Number.isFinite(face) && face >= 0 ? parseFloat(face.toFixed(6)) : 0,
+      qty: 1,
+    };
+  }
+  const variantEl = safeGetElement("item-constitutional-variant");
+  const variantId = variantEl?.value || "";
+  const variant =
+    typeof CONSTITUTIONAL_VARIANTS !== "undefined"
+      ? CONSTITUTIONAL_VARIANTS.find((v) => v.id === variantId)
+      : null;
+  const countEl = safeGetElement("item-constitutional-count");
+  const count = countEl ? parseInt(countEl.value, 10) : NaN;
+  return {
+    mode: "denom",
+    variant: variantId,
+    weight: variant ? variant.facePerCoin : 0,
+    qty: Number.isFinite(count) && count > 0 ? count : 1,
+  };
+};
+
+/**
  * Reads all form fields and returns a parsed fields object.
  * @param {boolean} isEditing - Whether in edit mode
  * @param {Object} existingItem - Existing item (edit mode)
@@ -1562,6 +1617,9 @@ const parseItemFormFields = (isEditing, existingItem) => {
     weightUnit === "gb" && elements.itemGbDenom
       ? elements.itemGbDenom.value
       : elements.itemWeight.value;
+  // STRK-235: constitutional items derive weight/qty/variant from the dedicated
+  // control group rather than the raw weight/qty inputs (which are hidden).
+  const cu = weightUnit === "cu" ? parseConstitutionalFields() : null;
 
   const marketValueInput = elements.itemMarketValue ? elements.itemMarketValue.value.trim() : "";
   let marketValue;
@@ -1582,10 +1640,13 @@ const parseItemFormFields = (isEditing, existingItem) => {
     _rawQty: qtyInput,
     _isEditing: isEditing,
     name: isEditing ? nameInput || existingItem.name || "" : nameInput,
-    qty: parsedQty,
+    qty: cu ? cu.qty : parsedQty,
     type: elements.itemType.value || (isEditing ? existingItem.type : ""),
-    weight: parseWeight(weightRaw, weightUnit, isEditing, existingItem),
+    weight: cu ? cu.weight : parseWeight(weightRaw, weightUnit, isEditing, existingItem),
     weightUnit,
+    // STRK-235: present only for constitutional ("cu") items.
+    constitutionalEntryMode: cu ? cu.mode : undefined,
+    constitutionalVariant: cu ? cu.variant : undefined,
     price: parsePriceToUSD(priceInput, fxRate, isEditing, existingItem.price),
     paymentMethod: elements.itemPaymentMethod?.value?.trim() ?? "",
     purchaseLocation: elements.purchaseLocation.value.trim(),
@@ -1755,6 +1816,11 @@ const buildItemFields = (f) => {
 
   if (f.pricingType !== undefined) {
     fields.pricingType = f.pricingType;
+  }
+  // STRK-235: persist constitutional entry mode + variant for cu items.
+  if (f.weightUnit === "cu") {
+    fields.constitutionalEntryMode = f.constitutionalEntryMode || "denom";
+    fields.constitutionalVariant = f.constitutionalVariant || "con-90-subsidiary";
   }
   if (f.obverseImageFrame && f.obverseImageFrame !== "auto") {
     fields.obverseImageFrame = f.obverseImageFrame;
@@ -2123,6 +2189,146 @@ const updateDenomLabels = (typeValue = "") => {
   });
 };
 
+// STRK-235 — Constitutional / junk silver entry-mode + live preview wiring.
+// Module-scoped current entry mode ("denom" | "face"); read by parseConstitutionalFields.
+let _constitutionalEntryMode = "denom";
+
+/**
+ * Builds a transient constitutional item from the current modal inputs, for the
+ * live silver-content preview only (not persisted).
+ * @returns {Object} A weightUnit "cu" item shape.
+ */
+const constitutionalReadFormItem = () => {
+  if (_constitutionalEntryMode === "face") {
+    const faceEl = safeGetElement("item-constitutional-face");
+    const face = faceEl ? parseFloat(faceEl.value) : NaN;
+    return {
+      weightUnit: "cu",
+      constitutionalEntryMode: "face",
+      constitutionalVariant: "con-90-subsidiary",
+      weight: Number.isFinite(face) && face > 0 ? face : 0,
+      qty: 1,
+    };
+  }
+  const variantEl = safeGetElement("item-constitutional-variant");
+  const countEl = safeGetElement("item-constitutional-count");
+  const count = countEl ? parseInt(countEl.value, 10) : NaN;
+  return {
+    weightUnit: "cu",
+    constitutionalEntryMode: "denom",
+    constitutionalVariant: variantEl?.value || "",
+    weight: 0,
+    qty: Number.isFinite(count) && count > 0 ? count : 0,
+  };
+};
+
+/**
+ * Refreshes the "≈ X ozt silver · melt $Y" preview from current inputs + live spot.
+ */
+const constitutionalUpdatePreview = () => {
+  const preview = document.getElementById("constitutional-silver-preview");
+  if (!preview) return;
+  const item = constitutionalReadFormItem();
+  const oz = typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
+  const spot = typeof spotPrices !== "undefined" && spotPrices ? Number(spotPrices.silver) || 0 : 0;
+  const melt = oz * spot;
+  const ozEl = preview.querySelector(".oz");
+  const meltEl = preview.querySelector(".melt");
+  const noteEl = preview.querySelector("#ccg-basis-note");
+  if (ozEl) ozEl.textContent = `${oz.toFixed(4)} ozt`;
+  if (meltEl) {
+    meltEl.textContent =
+      typeof formatCurrency === "function" ? formatCurrency(melt) : `$${melt.toFixed(2)}`;
+  }
+  if (noteEl) {
+    const isFresh =
+      typeof getConstitutionalWearFactor === "function" && getConstitutionalWearFactor() === 1;
+    noteEl.textContent = isFresh ? "· fresh (mint spec) basis" : "· worn basis";
+  }
+};
+window.constitutionalUpdatePreview = constitutionalUpdatePreview;
+
+/**
+ * Sets the constitutional entry mode, swaps the visible field group, updates the
+ * toggle's active button, and refreshes the preview.
+ * @param {string} mode - "denom" | "face"
+ */
+const constitutionalSetEntryMode = (mode) => {
+  _constitutionalEntryMode = mode === "face" ? "face" : "denom";
+  const toggle = document.getElementById("constitutional-entry-mode-toggle");
+  if (toggle) {
+    Array.from(toggle.children)
+      .filter((c) => c.dataset?.mode)
+      .forEach((btn) => {
+        const active = btn.dataset.mode === _constitutionalEntryMode;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-pressed", String(active));
+      });
+  }
+  const denomFields = document.getElementById("ccg-denom-fields");
+  const faceFields = document.getElementById("ccg-face-fields");
+  if (denomFields) denomFields.style.display = _constitutionalEntryMode === "denom" ? "" : "none";
+  if (faceFields) faceFields.style.display = _constitutionalEntryMode === "face" ? "" : "none";
+  constitutionalUpdatePreview();
+};
+window.constitutionalSetEntryMode = constitutionalSetEntryMode;
+window.constitutionalGetEntryMode = () => _constitutionalEntryMode;
+
+/**
+ * One-time wiring for the constitutional controls: populates the variant select,
+ * binds the entry-mode toggle buttons, and keeps the preview live on input.
+ */
+const setupConstitutionalControls = () => {
+  const variantSelect = document.getElementById("item-constitutional-variant");
+  if (
+    variantSelect &&
+    typeof CONSTITUTIONAL_VARIANTS !== "undefined" &&
+    variantSelect.options.length === 0
+  ) {
+    CONSTITUTIONAL_VARIANTS.forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v.id;
+      opt.textContent = v.label;
+      if (v.id === "con-90-quarter") opt.selected = true;
+      variantSelect.appendChild(opt);
+    });
+  }
+  const toggle = document.getElementById("constitutional-entry-mode-toggle");
+  if (toggle) {
+    Array.from(toggle.children)
+      .filter((c) => c.dataset?.mode)
+      .forEach((btn) => {
+        safeAttachListener(
+          btn,
+          "click",
+          () => constitutionalSetEntryMode(btn.dataset.mode),
+          `Constitutional entry mode ${btn.dataset.mode}`
+        );
+      });
+  }
+  ["item-constitutional-variant", "item-constitutional-count", "item-constitutional-face"].forEach(
+    (id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        safeAttachListener(
+          el,
+          "input",
+          constitutionalUpdatePreview,
+          `Constitutional preview ${id}`
+        );
+        safeAttachListener(
+          el,
+          "change",
+          constitutionalUpdatePreview,
+          `Constitutional preview ${id} change`
+        );
+      }
+    }
+  );
+  constitutionalSetEntryMode(_constitutionalEntryMode);
+};
+window.setupConstitutionalControls = setupConstitutionalControls;
+
 /**
  * Handles type-driven denomination/weight UI state changes.
  */
@@ -2134,6 +2340,7 @@ const handleTypeChange = () => {
   const unitGroup = unitSelect.closest(".form-group") || unitSelect.parentElement;
   const isGoldbackType = selectedType === "Goldback";
   const isSilverbackType = selectedType === "Silverback";
+  const isConstitutionalType = selectedType === "Constitutional";
 
   if (isGoldbackType || isSilverbackType) {
     unitSelect.value = isGoldbackType ? "gb" : "sb";
@@ -2151,8 +2358,23 @@ const handleTypeChange = () => {
     if (puritySelect && puritySelect.value !== "custom") {
       puritySelect.value = "0.999";
     }
+  } else if (isConstitutionalType) {
+    // STRK-235: constitutional / junk silver — force Silver + the "cu" unit and hide
+    // the raw weight/unit/purity row; toggleConstitutionalGroup reveals the dedicated
+    // denomination/face control group. Valuation ignores purity (ASW is pure silver).
+    unitSelect.value = "cu";
+    if (unitGroup) unitGroup.classList.add("hidden");
+    const metalSelect = elements.itemMetal;
+    if (metalSelect instanceof HTMLElement) {
+      const hasSilver = Array.from(metalSelect.options || []).some((o) => o.value === "Silver");
+      if (hasSilver) metalSelect.value = "Silver";
+    }
+    // Default a fresh add to denomination mode; editItem restores the stored mode after.
+    if (typeof window.constitutionalSetEntryMode === "function") {
+      window.constitutionalSetEntryMode("denom");
+    }
   } else {
-    if (unitSelect.value === "gb" || unitSelect.value === "sb") {
+    if (unitSelect.value === "gb" || unitSelect.value === "sb" || unitSelect.value === "cu") {
       unitSelect.value = "oz";
     }
     if (unitGroup) unitGroup.classList.remove("hidden");
@@ -2160,6 +2382,9 @@ const handleTypeChange = () => {
 
   if (typeof toggleGbDenomPicker === "function") {
     toggleGbDenomPicker();
+  }
+  if (typeof window.toggleConstitutionalGroup === "function") {
+    window.toggleConstitutionalGroup();
   }
 };
 
@@ -3112,6 +3337,12 @@ const setupItemFormListeners = () => {
       },
       "Type change updates denomination picker"
     );
+  }
+
+  // STRK-235: wire the constitutional / junk-silver entry controls (variant select,
+  // entry-mode toggle, live preview). Safe no-op if the markup is absent.
+  if (typeof setupConstitutionalControls === "function") {
+    setupConstitutionalControls();
   }
 
   // NUMISTA NAME SEARCH — triggers same logic as N# search but forces name-based

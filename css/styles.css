@@ -118,6 +118,9 @@
   --type-goldback-text: oklch(1 0 0);
   --type-silverback-bg: oklch(0.593 0.031 248.3);
   --type-silverback-text: oklch(1 0 0);
+  /* STRK-235: constitutional / junk silver — muted teal-pewter, distinct from silverback */
+  --type-constitutional-bg: oklch(0.585 0.046 197);
+  --type-constitutional-text: oklch(1 0 0);
   --type-set-bg: oklch(0.606 0.219 292.7);
   --type-set-text: oklch(1 0 0);
   --type-other-bg: oklch(0.495 0.22 293);
@@ -253,6 +256,9 @@
   --type-goldback-text: oklch(0.2 0.01 85);
   --type-silverback-bg: oklch(0.65 0.01 250);
   --type-silverback-text: oklch(0.2 0.01 85);
+  /* STRK-235: constitutional / junk silver */
+  --type-constitutional-bg: oklch(0.66 0.05 197);
+  --type-constitutional-text: oklch(0.2 0.01 197);
   --type-set-bg: oklch(0.62 0.18 295);
   --type-set-text: oklch(0.2 0.01 85);
   --type-other-bg: oklch(0.55 0.2 295);
@@ -377,6 +383,9 @@
   --type-goldback-text: #1e293b;
   --type-silverback-bg: #94a3b8;
   --type-silverback-text: #1e293b;
+  /* STRK-235: constitutional / junk silver */
+  --type-constitutional-bg: #6f9aa3;
+  --type-constitutional-text: #1e293b;
   --type-set-bg: #a78bfa;
   --type-set-text: #1e293b;
   --type-other-bg: #8b5cf6;
@@ -496,6 +505,9 @@
   --type-goldback-text: oklch(1 0 0);
   --type-silverback-bg: oklch(0.551 0.023 264.4);
   --type-silverback-text: oklch(1 0 0);
+  /* STRK-235: constitutional / junk silver */
+  --type-constitutional-bg: oklch(0.55 0.044 195);
+  --type-constitutional-text: oklch(1 0 0);
   --type-set-bg: oklch(0.541 0.247 293);
   --type-set-text: oklch(1 0 0);
   --type-other-bg: oklch(0.473 0.162 298.9);
@@ -14091,6 +14103,10 @@ th {
 .cv-chip-type.goldback {
   background: var(--type-goldback-bg);
   color: var(--type-goldback-text, #fff);
+}
+.cv-chip-type.constitutional {
+  background: var(--type-constitutional-bg);
+  color: var(--type-constitutional-text, #fff);
 }
 .cv-chip-type.silverback {
   background: var(--type-silverback-bg);
