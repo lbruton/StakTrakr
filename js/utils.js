@@ -462,11 +462,14 @@ const sanitizeObjectFields = (obj) => {
     if (typeof cleaned[key] === "string" && key !== "notes" && key !== "capsuleNotes") {
       // URL fields must not be sanitized — they contain :, /, . characters
       // UUID fields must not be sanitized — hyphens are part of the format
+      // constitutionalVariant is a hyphenated enum id (e.g. "con-90-quarter") validated
+      // against CONSTITUTIONAL_VARIANTS on read; stripping hyphens would break the lookup (STRK-235).
       if (
         key === "obverseImageUrl" ||
         key === "reverseImageUrl" ||
         key === "uuid" ||
-        key === "tradedFromUuid"
+        key === "tradedFromUuid" ||
+        key === "constitutionalVariant"
       ) {
         continue;
       }

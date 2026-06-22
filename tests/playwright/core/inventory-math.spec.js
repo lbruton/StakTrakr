@@ -1001,6 +1001,10 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     await page.waitForFunction(() => typeof window.openBulkEdit === "function");
     await page.evaluate(() => window.openBulkEdit());
     await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+    // Bulk-edit inputs are checkbox-gated — enable the Type and Weight Unit fields
+    // before interacting (established pattern, see strk-117-goldback-type.spec.js).
+    await page.click("#bulkField_type");
+    await page.click("#bulkField_weightUnit");
     await page.selectOption("#bulkFieldVal_type", "Constitutional");
     await expect
       .poll(() => page.evaluate(() => document.getElementById("bulkFieldVal_weightUnit")?.value))

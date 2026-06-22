@@ -283,6 +283,7 @@ const BULK_EDITABLE_FIELDS = [
       { value: "lb", label: "pound" },
       { value: "gb", label: "goldback" },
       { value: "sb", label: "silverback" },
+      { value: "cu", label: "constitutional" },
     ],
   },
   {
@@ -910,7 +911,24 @@ const wireBulkWeightDenomPicker = (panel) => {
     } else if (isSilverbackType) {
       bwUnitSelect.value = "sb";
       bulkFieldValues["weightUnit"] = "sb";
-    } else if (bwUnitSelect.value === "gb" || bwUnitSelect.value === "sb") {
+    } else if (typeValue === "Constitutional") {
+      // STRK-235: bulk type->Constitutional coerces the unit to cu and metal to Silver.
+      bwUnitSelect.value = "cu";
+      bulkFieldValues["weightUnit"] = "cu";
+      if (bulkMetalSelect) {
+        const hasSilver = Array.from(bulkMetalSelect.options || []).some(
+          (o) => o.value === "Silver"
+        );
+        if (hasSilver) {
+          bulkMetalSelect.value = "Silver";
+          bulkFieldValues["metal"] = "Silver";
+        }
+      }
+    } else if (
+      bwUnitSelect.value === "gb" ||
+      bwUnitSelect.value === "sb" ||
+      bwUnitSelect.value === "cu"
+    ) {
       bwUnitSelect.value = "oz";
       bulkFieldValues["weightUnit"] = "oz";
     }
