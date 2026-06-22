@@ -2612,10 +2612,10 @@ function _resolveViewChartLeadingRetail(
   purchaseDate,
   currentRetail
 ) {
-  const previousRetail = [...allRetailEntries]
+  const priorRetailEntries = [...allRetailEntries]
     .filter((entry) => Number(entry.retail) > 0 && entry.ts < firstSpotTs)
-    .sort((a, b) => a.ts - b.ts)
-    .at(-1);
+    .sort((a, b) => a.ts - b.ts);
+  const previousRetail = priorRetailEntries[priorRetailEntries.length - 1];
   if (previousRetail) {
     return previousRetail.retail;
   }
