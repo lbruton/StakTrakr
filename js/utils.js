@@ -985,6 +985,8 @@ const buildCsvValueCells = (item) => {
     item.qty,
     (parseFloat(item.weight) || 0).toFixed(4),
     item.weightUnit || "oz",
+    item.constitutionalVariant || "",
+    item.constitutionalEntryMode || "",
     parseFloat(item.purity) || 1.0,
     formatCurrency(purchasePrice),
     currentSpot > 0 ? formatCurrency(meltValue) : "—",

@@ -1909,6 +1909,8 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
         "type",
         "weight",
         "weightUnit",
+        "constitutionalVariant",
+        "constitutionalEntryMode",
         "price",
         "marketValue",
         "date",
@@ -2278,6 +2280,7 @@ const constitutionalSetEntryMode = (mode) => {
   constitutionalUpdatePreview();
 };
 window.constitutionalSetEntryMode = constitutionalSetEntryMode;
+/** @returns {string} The active constitutional entry mode ('denom' | 'face'). */
 window.constitutionalGetEntryMode = () => _constitutionalEntryMode;
 
 /**

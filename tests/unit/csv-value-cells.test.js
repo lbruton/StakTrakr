@@ -1,5 +1,5 @@
-// Unit tests for js/utils.js buildCsvValueCells — the shared 13-cell CSV value-column
-// builder (STRK-227).
+// Unit tests for js/utils.js buildCsvValueCells — the shared 15-cell CSV value-column
+// builder (STRK-227, extended by STRK-235 to add constitutionalVariant + constitutionalEntryMode).
 //
 // buildCsvValueCells is the single source of truth consumed by BOTH the full inventory
 // CSV export (csv-export.js) and the backup ZIP CSV (inventory-backup.js). Before STRK-227
@@ -55,7 +55,7 @@ describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
     }
   );
 
-  test("emits the 13 value cells in BACKUP_CSV_HEADERS[0..12] order", () => {
+  test("emits the 15 value cells in BACKUP_CSV_HEADERS[0..14] order (STRK-235 adds constitutional columns)", () => {
     const cells = fn({
       date: "2026-01-01",
       metal: "Silver",
@@ -77,6 +77,8 @@ describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
       2, // qty
       "1.0000", // weight (4dp)
       "oz", // weightUnit
+      "", // constitutionalVariant (STRK-235)
+      "", // constitutionalEntryMode (STRK-235)
       0.999, // purity
       "$25.00", // purchase price (from valuation)
       "$28.00", // melt value (currentSpot > 0)
@@ -101,9 +103,10 @@ describe("utils.js buildCsvValueCells — degenerate item guards (STRK-211/212 c
     });
     assert.equal(cells[1], "Silver", "missing metal defaults to Silver");
     assert.equal(cells[6], "0.0000", "non-numeric weight guards to 0.0000");
-    assert.equal(cells[8], 1, "missing purity defaults to 1.0");
-    assert.equal(cells[10], "—", "currentSpot 0 → melt placeholder em dash");
-    assert.equal(cells[11], "$0.00", "missing marketValue → $0.00");
-    assert.equal(cells[12], "—", "null gainLoss → em dash placeholder");
+    // Indices 8 and 9 are constitutionalVariant and constitutionalEntryMode (STRK-235)
+    assert.equal(cells[10], 1, "missing purity defaults to 1.0");
+    assert.equal(cells[12], "—", "currentSpot 0 → melt placeholder em dash");
+    assert.equal(cells[13], "$0.00", "missing marketValue → $0.00");
+    assert.equal(cells[14], "—", "null gainLoss → em dash placeholder");
   });
 });

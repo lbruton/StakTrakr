@@ -481,6 +481,9 @@
       type: normalizeType(row["Type"] || row["type"]),
       weight: row["Weight(oz)"] || row["weight"],
       weightUnit: row["Weight Unit"] || row["weightUnit"] || "oz",
+      constitutionalVariant: row["Constitutional Variant"] || row["constitutionalVariant"] || "",
+      constitutionalEntryMode:
+        row["Constitutional Entry Mode"] || row["constitutionalEntryMode"] || "",
       price,
       paymentMethod: row["Payment Method"] || row["paymentMethod"] || "",
       purchaseLocation: row["Purchase Location"] || "",
