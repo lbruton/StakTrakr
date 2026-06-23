@@ -12067,7 +12067,45 @@ th {
 }
 
 .settings-info-icon {
+  position: relative;
   cursor: help;
+}
+
+.settings-info-icon:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.settings-info-icon::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: 260px;
+  width: max-content;
+  white-space: normal;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-hover);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: 1.45;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.settings-info-icon:hover::after,
+.settings-info-icon:focus::after,
+.settings-info-icon:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Goldback pricing source — pill radio buttons */
