@@ -1030,6 +1030,64 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(title).toMatch(/worn/i);
   });
 
+  // STRK-237 follow-up (PR #1328 review, T10/Codex): the Weight column now displays derived
+  // silver oz for cu rows, so the column SORT must rank cu rows by that same derived oz — not
+  // the stored face value. A 40-quarter bag (~7.15 oz, $0.25/coin face) must sort ABOVE a lone
+  // silver dollar (~0.76 oz, $1.00 face); the old raw-weight sort ranked the dollar higher.
+  test("inventory table weight sort ranks constitutional rows by derived silver oz, not face", async ({
+    page,
+  }) => {
+    const CU_DOLLAR = {
+      ...CU_QUARTERS_40,
+      uuid: "core-cu-dollar-1",
+      name: "Core Silver Dollar",
+      constitutionalVariant: "con-90-dollar",
+      weight: 1,
+      qty: 1,
+      serial: 32,
+    };
+    await seedMoneyData(page, { inventory: [CU_DOLLAR, CU_QUARTERS_40] });
+    await page.addInitScript(() => {
+      localStorage.setItem("defaultSortColumn", "6"); // Weight column
+      localStorage.setItem("defaultSortDir", "desc");
+    });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    const names = await page
+      .locator("#inventoryTable tbody tr [data-column='name']")
+      .allTextContents();
+    // ~7.15 oz quarters outrank the ~0.76 oz dollar; the old raw-face sort ranked $1.00 > $0.25.
+    expect(names[0]).toContain("Core 40 Silver Quarters");
+    expect(names[1]).toContain("Core Silver Dollar");
+  });
+
+  // STRK-237 follow-up (PR #1328 review, T6/Copilot): in face-entry mode `weight` is already the
+  // TOTAL face (qty is 1 by contract), so the weight-cell tooltip must show the stored face
+  // directly — not weight × qty — even if legacy data carries qty > 1.
+  test("constitutional weight tooltip uses stored total face in face mode (ignores qty)", async ({
+    page,
+  }) => {
+    const CU_FACE_QTY2 = {
+      ...CU_FACE_50,
+      uuid: "core-cu-face-qty2",
+      name: "Core Face Mode Qty2",
+      weight: 50,
+      qty: 2,
+      serial: 33,
+    };
+    await seedMoneyData(page, { inventory: [CU_FACE_QTY2] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    const title = await page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core Face Mode Qty2" })
+      .locator("td[data-column='weight'] .filter-text")
+      .getAttribute("title");
+    // Stored total face is $50.00; the old weight × qty would have wrongly shown $100.00.
+    expect(title).toMatch(/\$50\.00 face/);
+    expect(title).not.toMatch(/\$100\.00/);
+  });
+
   test("constitutional rows have a dedicated type-color token defined", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
