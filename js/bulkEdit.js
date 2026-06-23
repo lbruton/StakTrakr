@@ -1751,15 +1751,17 @@ const applyBulkConstitutionalBundle = (valuesToApply) => {
   valuesToApply.metal = "Silver";
   valuesToApply.constitutionalEntryMode = "denom";
 
+  const variants = typeof CONSTITUTIONAL_VARIANTS !== "undefined" ? CONSTITUTIONAL_VARIANTS : [];
   const variantSelectEl = safeGetElement("bulkFieldVal_constitutionalVariant");
   const variantSelect = variantSelectEl instanceof HTMLSelectElement ? variantSelectEl : null;
-  const variantId = variantSelect && variantSelect.value ? variantSelect.value : "con-90-quarter";
+  // Default to the first defined variant (matches the picker's default option)
+  // rather than a hardcoded id — a renamed/missing variant id can't then silently
+  // reintroduce the 0-oz ghost this fix exists to prevent.
+  const defaultVariantId = variants.length ? variants[0].id : "";
+  const variantId = variantSelect && variantSelect.value ? variantSelect.value : defaultVariantId;
   valuesToApply.constitutionalVariant = variantId;
 
-  const variant =
-    typeof CONSTITUTIONAL_VARIANTS !== "undefined"
-      ? CONSTITUTIONAL_VARIANTS.find((v) => v.id === variantId)
-      : null;
+  const variant = variants.find((v) => v.id === variantId) || null;
   valuesToApply.weight = variant ? String(variant.facePerCoin) : "0";
 };
 

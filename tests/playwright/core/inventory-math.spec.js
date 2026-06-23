@@ -601,6 +601,19 @@ async function openConstitutionalSettings(page, section) {
   }, section);
 }
 
+// STRK-238: shared setup for the bulk constitutional-conversion tests — seed the
+// inventory, boot the app, open the bulk-edit modal, and select the seeded item.
+async function openBulkEditForConstitutional(page, inventory) {
+  await seedMoneyData(page, { inventory });
+  await gotoApp(page);
+  await page.waitForFunction(() => typeof window.openBulkEdit === "function");
+  await page.evaluate(() => window.openBulkEdit());
+  await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+  await page.click(
+    '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]'
+  );
+}
+
 test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   // ---- Group A: constants + registration (R3 data, R4-AC5, R6-AC3) -------
   test("CONSTITUTIONAL_VARIANTS exposes all 7 variants with mint-spec silver weights", async ({
@@ -1027,16 +1040,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk type→Constitutional with a denomination yields valid, non-zero-oz items", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [MONEY_ITEM] });
-    await gotoApp(page);
-    await page.waitForFunction(() => typeof window.openBulkEdit === "function");
-    await page.evaluate(() => window.openBulkEdit());
-    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
-
-    // Select the seeded item (serial 1) for the bulk operation.
-    await page.click(
-      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]'
-    );
+    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
 
     // Enable only the Type field, choose Constitutional, then pick a denomination
     // from the new sub-control. weightUnit/metal/entryMode/variant are coupled.
@@ -1066,6 +1070,44 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(result.mode).toBe("denom");
     expect(result.variant).toBe("con-90-quarter");
     expect(result.qty).toBe(4); // denom-only: existing qty preserved as coin count
+    expect(result.oz).toBeGreaterThan(0);
+    expect(result.oz).toBeCloseTo(result.expected, 6);
+  });
+
+  // STRK-238 — the picker must also trigger off a manual Weight-Unit→cu change
+  // (not only Type→Constitutional), and the same metadata bundle must apply.
+  test("bulk manual weight-unit→cu reveals the denomination picker and applies valid metadata", async ({
+    page,
+  }) => {
+    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
+
+    // Enable the Weight Unit field and pick cu directly — no Type change.
+    await page.click("#bulkField_weightUnit");
+    await page.selectOption("#bulkFieldVal_weightUnit", "cu");
+    await expect(page.locator("#bulkFieldVal_constitutionalVariant")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_constitutionalVariant", "con-90-dime");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      return {
+        weightUnit: it.weightUnit,
+        metal: it.metal,
+        mode: it.constitutionalEntryMode,
+        variant: it.constitutionalVariant,
+        qty: it.qty,
+        oz: window.getConstitutionalSilverOz(it),
+        expected: 0.07234 * window.getConstitutionalWearFactor() * it.qty,
+      };
+    });
+    expect(result.weightUnit).toBe("cu");
+    expect(result.metal).toBe("Silver");
+    expect(result.mode).toBe("denom");
+    expect(result.variant).toBe("con-90-dime");
+    expect(result.qty).toBe(4);
     expect(result.oz).toBeGreaterThan(0);
     expect(result.oz).toBeCloseTo(result.expected, 6);
   });
