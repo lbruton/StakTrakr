@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.51] - 2026-06-23
+
+### Added — STRK-238: Bulk-edit denomination sub-control for constitutional silver
+
+- **Bulk-convert items to constitutional silver without zeroing their value**: Bulk-editing an item's Type to Constitutional now surfaces a denomination picker, and applying it stages the full constitutional metadata (denomination variant + `denom` entry mode, with weight derived from the variant's face-per-coin) so converted items carry real derived silver content instead of registering as 0 ozt. Previously a bulk Type→Constitutional change coerced only the unit (`cu`) and metal (Silver) but dropped the denomination data, producing zero-silver "ghost" items. Each selected item keeps its existing quantity as the coin count, and the metadata bundle is applied past the per-field checkbox gate so only the Type field need be enabled (STRK-238).
+
+---
+
 ## [3.35.50] - 2026-06-22
 
 ### Added — STRK-235: Constitutional / junk silver tracking (90% / 40% / 35%)

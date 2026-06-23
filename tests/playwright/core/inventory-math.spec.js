@@ -1019,6 +1019,57 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .toBe("cu");
   });
 
+  // STRK-238 — bulk type→Constitutional must stage VALID constitutional metadata
+  // (denom-only sub-control) so the coerced item is not a 0-silver-oz ghost. The
+  // denomination picker drives constitutionalVariant + entryMode="denom"; each
+  // item keeps its existing qty as the coin count. The metadata bundle is
+  // force-applied past the checkbox gate (only Type need be enabled).
+  test("bulk type→Constitutional with a denomination yields valid, non-zero-oz items", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [MONEY_ITEM] });
+    await gotoApp(page);
+    await page.waitForFunction(() => typeof window.openBulkEdit === "function");
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+
+    // Select the seeded item (serial 1) for the bulk operation.
+    await page.click(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]'
+    );
+
+    // Enable only the Type field, choose Constitutional, then pick a denomination
+    // from the new sub-control. weightUnit/metal/entryMode/variant are coupled.
+    await page.click("#bulkField_type");
+    await page.selectOption("#bulkFieldVal_type", "Constitutional");
+    await expect(page.locator("#bulkFieldVal_constitutionalVariant")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_constitutionalVariant", "con-90-quarter");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      return {
+        weightUnit: it.weightUnit,
+        metal: it.metal,
+        mode: it.constitutionalEntryMode,
+        variant: it.constitutionalVariant,
+        qty: it.qty,
+        oz: window.getConstitutionalSilverOz(it),
+        expected: 0.18084 * window.getConstitutionalWearFactor() * it.qty,
+      };
+    });
+    expect(result.weightUnit).toBe("cu");
+    expect(result.metal).toBe("Silver");
+    expect(result.mode).toBe("denom");
+    expect(result.variant).toBe("con-90-quarter");
+    expect(result.qty).toBe(4); // denom-only: existing qty preserved as coin count
+    expect(result.oz).toBeGreaterThan(0);
+    expect(result.oz).toBeCloseTo(result.expected, 6);
+  });
+
   test("existing manually-entered 90% Silver coins are unaffected", async ({ page }) => {
     const legacyCoin = {
       ...MONEY_ITEM,
