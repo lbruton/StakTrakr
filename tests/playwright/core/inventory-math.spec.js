@@ -995,6 +995,32 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(oz).toBeLessThan(8);
   });
 
+  // STRK-233 — the Settings inventory summary card reports CURRENT in-stock holdings only.
+  // Disposed (sold/traded/gifted/lost/returned) items must drop out of the count, total
+  // weight, and melt figures via the canonical isDisposed() predicate — they otherwise
+  // inflate every total with stock the user no longer holds.
+  test("inventory summary card excludes disposed items from count and weight", async ({ page }) => {
+    const liveAse = { ...MONEY_ITEM, uuid: "strk233-live", serial: 1, qty: 4 };
+    const disposedAse = {
+      ...MONEY_ITEM,
+      uuid: "strk233-disposed",
+      serial: 2,
+      qty: 4,
+      disposition: { type: "sold", amount: 500, date: "2026-05-01" },
+    };
+    await seedMoneyData(page, { inventory: [liveAse, disposedAse] });
+    await gotoApp(page);
+    await openConstitutionalSettings(page, "system");
+    await expect(page.locator("#invSummaryCount")).toBeVisible();
+    // Count: only the 4 live units, NOT 8 (live + disposed).
+    await expect(page.locator("#invSummaryCount")).toHaveText("4 items");
+    // Weight: ~4 ozt (4 × 1 oz live), NOT ~8 ozt including the disposed bag.
+    const wText = await page.locator("#invSummaryWeight").textContent();
+    const liveOz = parseFloat(String(wText).replace(/[^0-9.]/g, ""));
+    expect(liveOz).toBeGreaterThan(3.5);
+    expect(liveOz).toBeLessThan(4.5);
+  });
+
   test("the per-item details view shows the variant and derived silver content", async ({
     page,
   }) => {

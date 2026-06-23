@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.53] - 2026-06-23
+
+### Changed — STRK-233: Settings inventory summary excludes disposed items
+
+- **Settings inventory summary reflects current stock only**: The Inventory summary card (Items / Total weight / Melt value / Last modified) in Settings no longer counts disposed (sold / traded / gifted / lost / returned) items, so the totals reflect what you currently hold instead of being inflated by stock that has left the stack. Uses the canonical `isDisposed()` predicate already applied across the card views, the inventory disposed-mode filter, and exports (STRK-233).
+
+---
+
 ## [3.35.52] - 2026-06-23
 
 ### Changed — STRK-237 / STRK-236: Constitutional weight display + Currency settings layout
