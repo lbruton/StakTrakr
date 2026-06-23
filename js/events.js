@@ -1466,12 +1466,11 @@ const setupTableSortListeners = () => {
   // in handleTypeChange so it owns the weight-cell visibility for the 'cu' case.
   window.toggleConstitutionalGroup = () => {
     const isCu = elements.itemWeightUnit?.value === "cu";
+    // STRK-235: the entire standard Purity/Qty/Weight/Unit row is REPLACED wholesale
+    // by the constitutional card (per the approved prototype) — not hidden cell-by-cell.
+    // gb/sb keep the standard row (toggleGbDenomPicker swaps weight↔denom within it).
+    showEl(document.getElementById("standardMeasureRow"), !isCu);
     showEl(document.getElementById("item-constitutional-group"), isCu);
-    [
-      elements.itemWeight?.closest("div"),
-      document.getElementById("itemPuritySelect")?.closest("div"),
-      document.getElementById("itemQty")?.closest("div"),
-    ].forEach((cell) => showEl(cell, !isCu));
     if (isCu && typeof window.constitutionalUpdatePreview === "function") {
       window.constitutionalUpdatePreview();
     }
@@ -2342,6 +2341,13 @@ const handleTypeChange = () => {
   const isSilverbackType = selectedType === "Silverback";
   const isConstitutionalType = selectedType === "Constitutional";
 
+  // STRK-235: reset the metal lock on every type change; only the Constitutional
+  // branch re-applies it (disabled select + "auto" pill). Other types are unchanged.
+  const metalEl = elements.itemMetal;
+  if (metalEl instanceof HTMLElement) metalEl.disabled = false;
+  const metalLockPill = document.getElementById("metalLock");
+  if (metalLockPill) metalLockPill.style.display = "none";
+
   if (isGoldbackType || isSilverbackType) {
     unitSelect.value = isGoldbackType ? "gb" : "sb";
     if (unitGroup) unitGroup.classList.add("hidden");
@@ -2359,16 +2365,18 @@ const handleTypeChange = () => {
       puritySelect.value = "0.999";
     }
   } else if (isConstitutionalType) {
-    // STRK-235: constitutional / junk silver — force Silver + the "cu" unit and hide
-    // the raw weight/unit/purity row; toggleConstitutionalGroup reveals the dedicated
-    // denomination/face control group. Valuation ignores purity (ASW is pure silver).
+    // STRK-235: constitutional / junk silver — force + LOCK Silver and switch to the
+    // "cu" unit. The whole standard Purity/Qty/Weight/Unit row is hidden and replaced
+    // by the dedicated control card (toggleConstitutionalGroup). Valuation ignores
+    // purity (ASW is already pure silver).
     unitSelect.value = "cu";
-    if (unitGroup) unitGroup.classList.add("hidden");
     const metalSelect = elements.itemMetal;
     if (metalSelect instanceof HTMLElement) {
       const hasSilver = Array.from(metalSelect.options || []).some((o) => o.value === "Silver");
       if (hasSilver) metalSelect.value = "Silver";
+      metalSelect.disabled = true; // auto-lock (value still readable for save)
     }
+    if (metalLockPill) metalLockPill.style.display = "";
     // Default a fresh add to denomination mode; editItem restores the stored mode after.
     if (typeof window.constitutionalSetEntryMode === "function") {
       window.constitutionalSetEntryMode("denom");

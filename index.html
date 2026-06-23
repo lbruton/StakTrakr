@@ -2029,18 +2029,8 @@
                  CORE FIELDS — Always visible
                  ═══════════════════════════════════════════════════════ -->
 
-            <!-- Row: Metal & Type (STAK-580 — required, identity fields precede descriptive fields) -->
+            <!-- Row: Type & Metal (STRK-235 — type-first; Metal auto-locks for forced-metal types) -->
             <div class="grid grid-2">
-              <div>
-                <label for="itemMetal">Metal</label>
-                <select id="itemMetal" required>
-                  <option value="" disabled selected>Select metal…</option>
-                  <option value="Silver">Silver</option>
-                  <option value="Gold">Gold</option>
-                  <option value="Platinum">Platinum</option>
-                  <option value="Palladium">Palladium</option>
-                </select>
-              </div>
               <div>
                 <label for="itemType">Type</label>
                 <select id="itemType" required>
@@ -2055,6 +2045,19 @@
                   <option value="Constitutional">Constitutional</option>
                   <option value="Set">Set</option>
                   <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label for="itemMetal"
+                  >Metal
+                  <span id="metalLock" class="lock-pill" style="display: none">auto</span></label
+                >
+                <select id="itemMetal" required>
+                  <option value="" disabled selected>Select metal…</option>
+                  <option value="Silver">Silver</option>
+                  <option value="Gold">Gold</option>
+                  <option value="Platinum">Platinum</option>
+                  <option value="Palladium">Palladium</option>
                 </select>
               </div>
             </div>
@@ -2100,8 +2103,8 @@
                 <input id="itemYear" type="text" placeholder="e.g. 2024" />
               </div>
             </div>
-            <!-- Row: Purity, Quantity, Weight, Unit -->
-            <div class="grid grid-purity-row">
+            <!-- Row: Purity, Quantity, Weight, Unit — replaced wholesale by the Constitutional card (STRK-235) -->
+            <div class="grid grid-purity-row" id="standardMeasureRow">
               <div>
                 <label for="itemPuritySelect"
                   >Purity <span style="font-weight: normal; opacity: 0.6">(fineness)</span></label
@@ -2176,7 +2179,9 @@
             <!-- Constitutional / junk silver controls (STRK-235) — shown only when type=Constitutional -->
             <div id="item-constitutional-group" class="constitutional-group" style="display: none">
               <div class="ccg-header">
-                <span class="ccg-title">Constitutional silver</span>
+                <span class="ccg-title">
+                  <span class="type-chip constitutional">Constitutional</span> silver
+                </span>
                 <div
                   class="chip-sort-toggle"
                   id="constitutional-entry-mode-toggle"
@@ -2193,7 +2198,7 @@
               </div>
 
               <!-- Denomination mode: variant + coin count -->
-              <div id="ccg-denom-fields" class="grid grid-2">
+              <div id="ccg-denom-fields" class="grid grid-variant-row">
                 <div>
                   <label for="item-constitutional-variant">Denomination</label>
                   <select id="item-constitutional-variant"></select>
@@ -2222,7 +2227,7 @@
 
               <!-- Live silver-content preview (populated by events.js) -->
               <div id="constitutional-silver-preview" class="ccg-preview" aria-live="polite">
-                <span class="oz">0.0000 ozt</span> silver &middot; melt
+                &asymp; <span class="oz">0.0000 ozt</span> silver &middot; melt
                 <span class="melt">$0.00</span>
                 <span id="ccg-basis-note" class="ccg-hint"></span>
               </div>

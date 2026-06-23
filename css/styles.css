@@ -1653,6 +1653,11 @@ section:hover {
   grid-template-columns: 2fr 1fr 1fr auto;
 }
 
+/* STRK-235: Constitutional denomination + coin-count row (variant select wider) */
+.grid-variant-row {
+  grid-template-columns: 2fr 1fr;
+}
+
 .grid-name-year {
   grid-template-columns: 3fr 2fr;
 }
@@ -11210,6 +11215,68 @@ th {
 .type-chip.other {
   background-color: var(--type-other-bg);
   color: var(--type-other-text);
+}
+.type-chip.constitutional {
+  background-color: var(--type-constitutional-bg);
+  color: var(--type-constitutional-text);
+}
+
+/* ── STRK-235: Constitutional / junk silver entry card ──────────────────────
+   Replaces the standard Purity/Qty/Weight/Unit row when type = Constitutional.
+   Sourced from the approved prototype (specs/.../artifacts/playground.html). */
+.lock-pill {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--type-constitutional-bg);
+  color: var(--type-constitutional-text);
+  font-weight: 700;
+  vertical-align: middle;
+}
+#item-constitutional-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--spacing-lg);
+  background: var(--bg-tertiary);
+  display: grid;
+  gap: var(--spacing);
+}
+.ccg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing);
+  flex-wrap: wrap;
+}
+.ccg-title {
+  font-weight: 700;
+  font-size: var(--font-size-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ccg-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+#constitutional-silver-preview {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  background: var(--bg-primary);
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  color: var(--text-primary);
+}
+#constitutional-silver-preview .melt {
+  color: var(--warning);
+  font-weight: 700;
+}
+#constitutional-silver-preview .oz {
+  color: var(--silver);
+  font-weight: 700;
 }
 
 /* =============================================================================
