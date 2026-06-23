@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.50] - 2026-06-22
+
+### Added — STRK-235: Constitutional / junk silver tracking (90% / 40% / 35%)
+
+- **Constitutional item type**: New first-class `Constitutional` type for U.S. junk silver. Add holdings by denomination + coin count (90% dime / quarter / half, 90% Morgan/Peace dollar, 40% Kennedy half, 40% Eisenhower dollar, 35% war nickel) or by total face value (treated as 90% subsidiary coinage). Actual silver content and melt value are derived from a verified per-variant silver table via deferred troy-oz conversion — mirroring the Goldback/Silverback pattern — so users never hand-calculate weight. Silver dollars are valued at their true ~0.7734 ozt/coin rather than the 0.7234/$ subsidiary rate, and the constitutional melt branch skips the coin-purity multiplier to avoid double-discounting an already-pure silver weight (STRK-235).
+- **Worn vs fresh valuation basis**: A new global Settings → Currency control toggles the wear basis — worn (~0.715 ozt/$1 face, default) or fresh ASW (~0.7234 ozt/$1 face) — applied uniformly across all constitutional items, persisted across reloads and included in cloud-sync scope. Changing it reprices the portfolio without per-item edits (STRK-235).
+
+---
+
 ## [3.35.49] - 2026-06-22
 
 ### Fixed — STRK-234: cloud-sync re-entrancy race nulled \_previewPullMeta on empty-diff silent pull

@@ -256,13 +256,34 @@ function _getViewMetrics(item) {
   const purity = parseFloat(item.purity) || 1.0;
   const isGb = item.weightUnit === "gb";
   const isSb = item.weightUnit === "sb";
-  const weightOz = isGb
+  const isCu = item.weightUnit === "cu";
+  let weightOz = isGb
     ? weight * GB_TO_OZT
     : isSb
       ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
       : weight;
+  let effectivePurity = purity;
+  if (isCu) {
+    // STRK-235: constitutional silver content is derived (variant table + wear) and
+    // is already pure silver. Expose it as a per-unit weightOz with purity 1 so every
+    // downstream `weightOz × qty × purity` calc stays correct and never double-discounts.
+    const totalOz =
+      typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
+    weightOz = qty > 0 ? totalOz / qty : totalOz;
+    effectivePurity = 1.0;
+  }
   const metalColor = typeof getMetalColor === "function" ? getMetalColor(metalKey) : null;
-  return { currentSpot, qty, weight, purity, isGb, isSb, weightOz, metalColor };
+  return {
+    currentSpot,
+    qty,
+    weight,
+    purity: effectivePurity,
+    isGb,
+    isSb,
+    isCu,
+    weightOz,
+    metalColor,
+  };
 }
 
 function _renderHeaderMeta(item, metrics) {
@@ -483,15 +504,31 @@ function _buildInventorySection(item, metrics) {
   _addDetail(invGrid, "Metal", item.composition || item.metal || "—");
   _addDetail(invGrid, "Type", item.type || "—");
   _addDetail(invGrid, "Year", item.year || "—");
-  _addDetail(
-    invGrid,
-    "Purity",
-    metrics.purity < 1
-      ? `.${String(metrics.purity).replace("0.", "")}`
-      : metrics.purity === 1
-        ? ".999+"
-        : String(metrics.purity)
-  );
+  // STRK-235: constitutional coins show their nominal fineness from the variant id —
+  // metrics.purity is forced to 1 for valuation (ASW is already pure), so the raw
+  // purity display would otherwise read ".999+" for a 90% coin.
+  const cuVariant =
+    item.weightUnit === "cu" && typeof CONSTITUTIONAL_VARIANTS !== "undefined"
+      ? CONSTITUTIONAL_VARIANTS.find((v) => v.id === item.constitutionalVariant)
+      : null;
+  let purityDisplay;
+  if (item.weightUnit === "cu") {
+    const finenessByPrefix = { "con-90": ".900", "con-40": ".400", "con-35": ".350" };
+    const prefix = String(item.constitutionalVariant || "")
+      .split("-")
+      .slice(0, 2)
+      .join("-");
+    purityDisplay =
+      item.constitutionalEntryMode === "face" ? ".900" : finenessByPrefix[prefix] || "—";
+  } else {
+    purityDisplay =
+      metrics.purity < 1
+        ? `.${String(metrics.purity).replace("0.", "")}`
+        : metrics.purity === 1
+          ? ".999+"
+          : String(metrics.purity);
+  }
+  _addDetail(invGrid, "Purity", purityDisplay);
   _addDetail(
     invGrid,
     "Weight",
@@ -500,6 +537,17 @@ function _buildInventorySection(item, metrics) {
       : `${metrics.weight} oz`
   );
   _addDetail(invGrid, "Qty", String(metrics.qty));
+  if (item.weightUnit === "cu") {
+    const label = cuVariant
+      ? cuVariant.label
+      : item.constitutionalEntryMode === "face"
+        ? "90% subsidiary"
+        : "Constitutional";
+    _addDetail(invGrid, "Denomination", label);
+    const silverOz =
+      typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
+    _addDetail(invGrid, "Silver content", `${silverOz.toFixed(4)} ozt`);
+  }
   invSection.appendChild(invGrid);
   const invGrid2 = _el("div", "view-detail-grid three-col");
   const dateVal = item.date

@@ -10,6 +10,7 @@
     lb: "Pounds (lb)",
     gb: "Goldback denomination",
     sb: "Silverback denomination",
+    cu: "Constitutional silver — face value (silver content derived from denomination)",
   };
 
   let _thumbBlobUrls = [];
@@ -67,6 +68,7 @@
     Aurum: "var(--type-aurum-bg)",
     Goldback: "var(--type-goldback-bg)",
     Silverback: "var(--type-silverback-bg)",
+    Constitutional: "var(--type-constitutional-bg)",
     Set: "var(--type-set-bg)",
     Other: "var(--type-other-bg)",
   };
@@ -1081,13 +1083,21 @@
       const price = parseFloat(item.price) || 0;
 
       totals.totalItems += qty;
-      const weightOz =
-        item.weightUnit === "gb"
-          ? weight * GB_TO_OZT
-          : item.weightUnit === "sb"
-            ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
-            : weight;
-      const itemWeight = qty * weightOz;
+      // STRK-235: constitutional ("cu") silver oz is derived from the variant table
+      // and already accounts for coin count, so it is NOT multiplied by qty again.
+      let itemWeight;
+      if (item.weightUnit === "cu") {
+        itemWeight =
+          typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
+      } else {
+        const weightOz =
+          item.weightUnit === "gb"
+            ? weight * GB_TO_OZT
+            : item.weightUnit === "sb"
+              ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+              : weight;
+        itemWeight = qty * weightOz;
+      }
       totals.totalWeight += itemWeight;
 
       const currentSpot = spotPrices[metalKey] || 0;

@@ -589,6 +589,12 @@ const formatWeight = (ozt, weightUnit) => {
     const w = parseFloat(ozt);
     return `${w % 1 === 0 ? w : w.toFixed(1)} sb`;
   }
+  if (weightUnit === "cu") {
+    // STRK-235: constitutional items store face value in `weight`; silver oz is
+    // derived separately via getConstitutionalSilverOz. Show the face value here.
+    const w = parseFloat(ozt) || 0;
+    return `$${w.toFixed(2)} face`;
+  }
   const weight = parseFloat(ozt);
   if (weightUnit === "kg") {
     return `${oztToKg(weight).toFixed(4)} kg`;

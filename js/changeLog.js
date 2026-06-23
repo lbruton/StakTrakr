@@ -145,6 +145,9 @@ const logItemChanges = (oldItem, newItem) => {
     "composition",
     "weight",
     "weightUnit",
+    // Constitutional (junk silver) — STRK-235
+    "constitutionalVariant",
+    "constitutionalEntryMode",
     "purity",
     "qty",
     "type",
