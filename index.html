@@ -5688,26 +5688,76 @@
                   </div>
                 </div>
 
-                <div class="settings-group">
-                  <div class="settings-group-label">Show spot ratios</div>
-                  <p class="settings-subtext">
-                    Display gold-to-metal ratio and Goldback chips on the spot price cards.
-                  </p>
-                  <div class="chip-sort-toggle" id="showSpotRatiosToggle">
-                    <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-                    <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                <!-- STRK-236: pair the two toggles side by side; explanations moved to info-icon tooltips -->
+                <div class="settings-toggle-grid">
+                  <div class="settings-group">
+                    <div class="settings-group-label">
+                      Show spot ratios
+                      <span
+                        class="form-info-icon settings-info-icon"
+                        tabindex="0"
+                        role="img"
+                        aria-label="Display gold-to-metal ratio and Goldback chips on the spot price cards."
+                        data-tip="Display gold-to-metal ratio and Goldback chips on the spot price cards."
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <div class="chip-sort-toggle" id="showSpotRatiosToggle">
+                      <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+                      <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                    </div>
                   </div>
-                </div>
 
-                <div class="settings-group">
-                  <div class="settings-group-label">Constitutional silver valuation basis</div>
-                  <p class="settings-subtext">
-                    Worn = ~0.715 ozt per $1 face (circulated, default). Fresh = ~0.7234 ozt per $1
-                    face (uncirculated mint spec). Applies to all constitutional silver items.
-                  </p>
-                  <div class="chip-sort-toggle" id="settings-constitutional-basis">
-                    <button type="button" class="chip-sort-btn active" data-val="worn">Worn</button>
-                    <button type="button" class="chip-sort-btn" data-val="fresh">Fresh</button>
+                  <div class="settings-group">
+                    <div class="settings-group-label">
+                      Constitutional silver valuation basis
+                      <span
+                        class="form-info-icon settings-info-icon"
+                        tabindex="0"
+                        role="img"
+                        aria-label="Worn = ~0.715 ozt per $1 face (circulated, default). Fresh = ~0.7234 ozt per $1 face (uncirculated mint spec). Applies to all constitutional silver items."
+                        data-tip="Worn = ~0.715 ozt per $1 face (circulated, default). Fresh = ~0.7234 ozt per $1 face (uncirculated mint spec). Applies to all constitutional silver items."
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <div class="chip-sort-toggle" id="settings-constitutional-basis">
+                      <button type="button" class="chip-sort-btn active" data-val="worn">
+                        Worn
+                      </button>
+                      <button type="button" class="chip-sort-btn" data-val="fresh">Fresh</button>
+                    </div>
                   </div>
                 </div>
               </div>

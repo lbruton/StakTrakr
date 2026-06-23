@@ -6038,6 +6038,11 @@ td .filter-text {
   font-weight: 600;
 }
 
+td .weight-static {
+  font-weight: 600;
+  cursor: help; /* has a title tooltip, not a click action */
+}
+
 .na-value {
   color: var(--text-muted);
   font-style: italic;
@@ -12020,6 +12025,8 @@ th {
 .currency-fields-row {
   display: grid;
   gap: 12px;
+  /* STRK-236: separate the dropdown row from the toggle grid below it */
+  margin-bottom: 1.25rem;
 }
 
 @media (min-width: 640px) {
@@ -12043,6 +12050,67 @@ th {
 
 .currency-field select {
   width: 100%;
+}
+
+/* STRK-236: Currency panel toggle pair — spot-ratios + constitutional-basis arranged side by
+   side, with the heavy descriptive paragraphs replaced by an info-icon tooltip on each label. */
+.settings-toggle-grid {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .settings-toggle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.settings-toggle-grid .settings-group {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.settings-info-icon {
+  position: relative;
+  cursor: help;
+}
+
+.settings-info-icon:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.settings-info-icon::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: 260px;
+  width: max-content;
+  white-space: normal;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-hover);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: 1.45;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.settings-info-icon:hover::after,
+.settings-info-icon:focus::after,
+.settings-info-icon:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Goldback pricing source — pill radio buttons */

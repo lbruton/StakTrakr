@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.52] - 2026-06-23
+
+### Changed — STRK-237 / STRK-236: Constitutional weight display + Currency settings layout
+
+- **Inventory table shows derived silver weight for constitutional rows**: The Weight column now renders a constitutional / junk-silver item's derived pure-silver troy ounces — consistent with every other row and the portfolio weight totals — instead of `$X.XX face`. The face value (total = face-per-coin × qty) and the active worn/fresh valuation basis move to the cell's hover tooltip (STRK-237).
+- **Settings → Currency layout tightened**: The Show spot ratios and Constitutional silver valuation basis toggles are arranged in a 2×1 grid with added spacing below the currency dropdowns, and their heavy descriptive paragraphs are replaced by compact info-icon (ⓘ) tooltips (STRK-236).
+
+---
+
 ## [3.35.51] - 2026-06-23
 
 ### Added — STRK-238: Bulk-edit denomination sub-control for constitutional silver

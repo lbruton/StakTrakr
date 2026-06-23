@@ -13,6 +13,30 @@
     cu: "Constitutional silver — face value (silver content derived from denomination)",
   };
 
+  // STRK-237: tooltip for a constitutional weight cell. The Weight column now shows the
+  // derived silver oz, so the face value moves here — total face = facePerCoin × qty (denom
+  // mode) or the entered face (face mode, qty = 1). The worn/fresh valuation basis is included
+  // because the displayed oz depends on it.
+  const cuWeightTooltip = (item, basis) => {
+    // Face mode stores the entered total face in `weight` (qty = 1 by contract); denom mode
+    // stores face-per-coin, so total face = weight × coin count. Mirror getConstitutionalSilverOz's
+    // qty handling (invalid/zero qty → 0) so the tooltip face and the cell oz stay consistent.
+    const face =
+      item.constitutionalEntryMode === "face"
+        ? parseFloat(item.weight) || 0
+        : (parseFloat(item.weight) || 0) * (Number(item.qty) || 0);
+    return `$${face.toFixed(2)} face value · ${basis} basis`;
+  };
+
+  // STRK-237 (PR #1328, Codex P2): the cu Weight cell shows DERIVED silver oz, but the column
+  // quick-filter (`applyColumnFilter('weight', …)`) compares the raw stored `weight` (face value).
+  // A click-to-filter would key on the face value the user no longer sees, so cu weight renders as
+  // plain non-filterable text — display + tooltip preserved, no misleading raw-weight filter entry.
+  const cuWeightCell = (item, basis) =>
+    `<span class="weight-static" style="color: var(--text-primary);" title="${sanitizeHtml(
+      cuWeightTooltip(item, basis)
+    )}">${sanitizeHtml(formatWeight(item.weight, item.weightUnit, item))}</span>`;
+
   let _thumbBlobUrls = [];
 
   window.addEventListener("beforeunload", () => {
@@ -753,7 +777,7 @@
    * @param {object} imgCtx - Table-image settings (on/off, sides, resolver).
    * @returns {string} The row's <tr> HTML.
    */
-  function _buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx) {
+  function _buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx, cuBasis) {
     const originalIdx = itemIndexMap.get(item);
     const currentSpot = spotPrices[item.metal.toLowerCase()] || 0;
     const v = _computeRowValuation(item, currentSpot);
@@ -811,7 +835,7 @@
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
-      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit), WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
+      <td class="shrink" data-column="weight" data-label="Weight">${item.weightUnit === "cu" ? cuWeightCell(item, cuBasis) : filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit), WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
       <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
@@ -973,6 +997,12 @@
       const rows = [];
       const chipConfig = typeof getInlineChipConfig === "function" ? getInlineChipConfig() : [];
       const itemIndexMap = getItemIndexMap();
+      const cuBasis =
+        typeof loadDataSync === "function" &&
+        typeof CONSTITUTIONAL_BASIS_KEY !== "undefined" &&
+        loadDataSync(CONSTITUTIONAL_BASIS_KEY, "worn") === "fresh"
+          ? "fresh"
+          : "worn";
       const imgCtx = {
         tableImagesOnSetting: localStorage.getItem("tableImagesEnabled") !== "false",
         tableImageSidesSetting: localStorage.getItem("tableImageSides") || "both",
@@ -983,7 +1013,7 @@
         const item = sortedInventory[i];
         debugLog("renderTable row", i, item.name);
 
-        rows.push(_buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx));
+        rows.push(_buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx, cuBasis));
       }
 
       const tbody = elements.inventoryTable || document.querySelector("#inventoryTable tbody");
