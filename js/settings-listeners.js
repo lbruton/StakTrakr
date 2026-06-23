@@ -98,9 +98,15 @@ const bindAppearanceAndHeaderListeners = () => {
   // (getConstitutionalWearFactor is read at compute time) and syncs to the cloud.
   (() => {
     const toggle = safeGetElement("settings-constitutional-basis");
-    if (!toggle) return;
+    if (!(toggle instanceof HTMLElement)) return; // safeGetElement returns a truthy sentinel
     const buttons = Array.from(toggle.querySelectorAll("[data-val]"));
     if (!buttons.length) return;
+    /**
+     * Syncs the worn/fresh chip toggle's active button + aria-pressed state from the
+     * persisted CONSTITUTIONAL_BASIS_KEY value (default "worn"). Exposed as
+     * window.syncConstitutionalBasis for re-sync after external basis changes.
+     * @returns {void}
+     */
     const syncActive = () => {
       const stored =
         typeof loadDataSync === "function"

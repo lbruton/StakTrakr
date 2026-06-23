@@ -783,7 +783,10 @@ const getConstitutionalSilverOz = (item) => {
       ? CONSTITUTIONAL_VARIANTS.find((v) => v.id === item.constitutionalVariant)
       : null;
   if (!variant) return 0;
-  return variant.silverOzFresh * wear * (Number(item.qty) || 1);
+  // Invalid/zero count → 0 oz (matches the add-modal preview); a blank count fails
+  // validation on save rather than silently counting one coin (STRK-235).
+  const qty = Number(item.qty);
+  return variant.silverOzFresh * wear * (Number.isFinite(qty) && qty > 0 ? qty : 0);
 };
 
 /**
@@ -798,7 +801,7 @@ const getConstitutionalSilverOz = (item) => {
  */
 const computeMeltValue = (item, spot) => {
   if (item.weightUnit === "cu") {
-    return getConstitutionalSilverOz(item) * spot;
+    return getConstitutionalSilverOz(item) * (Number(spot) || 0);
   }
   const weight = parseFloat(item.weight) || 0;
   const qty = Number(item.qty) || 1;

@@ -523,9 +523,9 @@ test.describe("core/inventory-math", () => {
 });
 
 // ---------------------------------------------------------------------------
-// STRK-235 — Constitutional / junk silver (TDD red phase: written BEFORE impl).
-// These assert the design.md contracts for tasks 1-10; they must fail now and
-// pass once the implementation lands. Maps every requirements.md AC (R1-R6).
+// STRK-235 — Constitutional / junk silver. Written TDD-first (red) and now green
+// against the landed implementation. Asserts the design.md contracts for tasks 1-10
+// and maps every requirements.md AC (R1-R6).
 // ---------------------------------------------------------------------------
 
 // Mint-spec fresh pure-silver troy oz per coin (design.md Data Models table).
@@ -793,19 +793,25 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("missing silver spot degrades to zero without crashing", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
-    const melt = await page.evaluate(() =>
-      window.computeMeltValue(
-        {
-          weightUnit: "cu",
-          constitutionalEntryMode: "face",
-          constitutionalVariant: "con-90-subsidiary",
-          weight: 10,
-          qty: 1,
-        },
-        0
-      )
+    const item = {
+      weightUnit: "cu",
+      constitutionalEntryMode: "face",
+      constitutionalVariant: "con-90-subsidiary",
+      weight: 10,
+      qty: 1,
+    };
+    // Exercise the genuinely-missing-spot path (undefined), not just 0 — the cu branch
+    // must coerce to 0 rather than returning NaN.
+    const results = await page.evaluate(
+      (it) => ({
+        undef: window.computeMeltValue(it, undefined),
+        zero: window.computeMeltValue(it, 0),
+      }),
+      item
     );
-    expect(melt).toBe(0);
+    expect(Number.isFinite(results.undef)).toBe(true);
+    expect(results.undef).toBe(0);
+    expect(results.zero).toBe(0);
   });
 
   test("constitutional value is melt-only (no retail premium added)", async ({ page }) => {

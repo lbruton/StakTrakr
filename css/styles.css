@@ -14154,7 +14154,7 @@ th {
 }
 .cv-chip-type.constitutional {
   background: var(--type-constitutional-bg);
-  color: var(--type-constitutional-text, #fff);
+  color: var(--type-constitutional-text);
 }
 .cv-chip-type.silverback {
   background: var(--type-silverback-bg);

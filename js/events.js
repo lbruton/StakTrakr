@@ -1460,10 +1460,14 @@ const setupTableSortListeners = () => {
     }
   };
 
-  // CONSTITUTIONAL / JUNK SILVER GROUP TOGGLE (STRK-235)
-  // When the unit is 'cu', hide the raw Purity/Quantity/Weight cells and reveal the
-  // constitutional control group (denomination↔face). Runs AFTER toggleGbDenomPicker
-  // in handleTypeChange so it owns the weight-cell visibility for the 'cu' case.
+  /**
+   * Constitutional / junk-silver group toggle (STRK-235). When the unit is `cu`, hides
+   * the entire standard Purity/Quantity/Weight/Unit row and reveals the constitutional
+   * control group (denomination↔face); otherwise restores the standard row. Runs after
+   * toggleGbDenomPicker in handleTypeChange so it owns the row visibility for the `cu`
+   * case. Refreshes the live silver preview when shown.
+   * @returns {void}
+   */
   window.toggleConstitutionalGroup = () => {
     const isCu = elements.itemWeightUnit?.value === "cu";
     // STRK-235: the entire standard Purity/Qty/Weight/Unit row is REPLACED wholesale
@@ -1573,7 +1577,7 @@ const parseConstitutionalFields = () => {
     mode: "denom",
     variant: variantId,
     weight: variant ? variant.facePerCoin : 0,
-    qty: Number.isFinite(count) && count > 0 ? count : 1,
+    qty: Number.isFinite(count) && count > 0 ? count : 0,
   };
 };
 
@@ -1597,7 +1601,10 @@ const parseItemFormFields = (isEditing, existingItem) => {
   const parsedQty = qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : Number(qtyInput);
   let priceInput = elements.itemPrice.value.trim();
 
-  if (purchasePriceToggle.getMode() === "lot" && priceInput !== "") {
+  // STRK-235: constitutional items price per-coin in "each" mode (the lot toggle is
+  // hidden because #itemQty stays 1); never run the lot÷qty division with that stale qty.
+  const isCuUnit = elements.itemWeightUnit?.value === "cu";
+  if (!isCuUnit && purchasePriceToggle.getMode() === "lot" && priceInput !== "") {
     const rawInput = parseFloat(priceInput) || 0;
     if (parsedQty > 0) {
       const exactLotPrice =
@@ -2419,7 +2426,8 @@ const filterTypesByMetal = (metalValue) => {
   const currentType = typeSelect.value;
   const incompatible =
     (currentType === "Goldback" && metalValue !== "Gold") ||
-    (currentType === "Silverback" && metalValue !== "Silver");
+    (currentType === "Silverback" && metalValue !== "Silver") ||
+    (currentType === "Constitutional" && metalValue !== "Silver");
   if (incompatible) {
     typeSelect.value = "";
     handleTypeChange();
