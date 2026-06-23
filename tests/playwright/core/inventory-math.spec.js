@@ -1028,6 +1028,10 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     const title = await weightCell.getAttribute("title");
     expect(title).toMatch(/\$10\.00 face/);
     expect(title).toMatch(/worn/i);
+    // STRK-237 (PR #1328, Codex P2): the displayed oz is derived, not the raw stored weight the
+    // column filter keys on — so the cu weight cell must NOT be a click-to-filter button.
+    await expect(weightCell).not.toHaveAttribute("onclick", /.+/);
+    await expect(weightCell).not.toHaveAttribute("role", "button");
   });
 
   // STRK-237 follow-up (PR #1328 review, T10/Codex): the Weight column now displays derived
