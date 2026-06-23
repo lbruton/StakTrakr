@@ -851,6 +851,31 @@ const wireBulkWeightDenomPicker = (panel) => {
     bulkFieldValues["weight"] = denomSelect.value;
   });
 
+  // STRK-238: constitutional (cu) denomination picker. Reuses the weight row the
+  // same way the goldback denom select does — when cu mode is active it replaces
+  // the raw weight input. The picked variant drives constitutionalVariant +
+  // entryMode="denom" + weight=facePerCoin at apply time (see applyBulkEdit).
+  const cuVariantSelect = document.createElement("select");
+  cuVariantSelect.className = "field-input";
+  cuVariantSelect.id = "bulkFieldVal_constitutionalVariant";
+  cuVariantSelect.style.display = "none";
+  if (typeof CONSTITUTIONAL_VARIANTS !== "undefined") {
+    CONSTITUTIONAL_VARIANTS.forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v.id;
+      opt.textContent = v.label;
+      cuVariantSelect.appendChild(opt);
+    });
+  }
+  denomSelect.parentNode.insertBefore(cuVariantSelect, denomSelect.nextSibling);
+  // Restore a persisted variant choice if one was staged.
+  if (bulkFieldValues["constitutionalVariant"] !== undefined) {
+    cuVariantSelect.value = String(bulkFieldValues["constitutionalVariant"]);
+  }
+  cuVariantSelect.addEventListener("change", () => {
+    bulkFieldValues["constitutionalVariant"] = cuVariantSelect.value;
+  });
+
   const bulkTypeSelectEl = safeGetElement("bulkFieldVal_type");
   // safeGetElement returns a truthy dummy on a DOM miss; collapse it back to null so the
   // downstream guards (`!bulkTypeSelect`, `bulkTypeSelect?.value`, `if (bulkTypeSelect)`)
@@ -861,13 +886,21 @@ const wireBulkWeightDenomPicker = (panel) => {
   // Swap function
   const toggleBulkGbPicker = () => {
     const isSb = bwUnitSelect.value === "sb" || bulkTypeSelect?.value === "Silverback";
-    const isGb = bwUnitSelect.value === "gb" && !isSb;
-    bwInput.style.display = isGb ? "none" : "";
+    const isCu = bwUnitSelect.value === "cu" || bulkTypeSelect?.value === "Constitutional";
+    const isGb = bwUnitSelect.value === "gb" && !isSb && !isCu;
+    bwInput.style.display = isGb || isCu ? "none" : "";
     denomSelect.style.display = isGb ? "" : "none";
-    if (bwLabel) bwLabel.textContent = isGb ? "DENOMINATION" : "Weight";
+    cuVariantSelect.style.display = isCu ? "" : "none";
+    if (bwLabel) bwLabel.textContent = isGb || isCu ? "DENOMINATION" : "Weight";
     if (isGb) {
       denomSelect.disabled = bwInput.disabled;
       bulkFieldValues["weight"] = denomSelect.value;
+    }
+    if (isCu) {
+      // The cu variant drives valuation directly at apply time, so it stays
+      // user-editable regardless of the weight checkbox's enabled state.
+      cuVariantSelect.disabled = false;
+      bulkFieldValues["constitutionalVariant"] = cuVariantSelect.value;
     }
   };
 
@@ -965,8 +998,8 @@ const wireBulkWeightDenomPicker = (panel) => {
     });
   }
 
-  // Initialize state (e.g. if weightUnit was persisted as 'gb' or 'sb')
-  if (bulkFieldValues["weightUnit"] === "gb" || bulkFieldValues["weightUnit"] === "sb") {
+  // Initialize state (e.g. if weightUnit was persisted as 'gb', 'sb', or 'cu')
+  if (["gb", "sb", "cu"].includes(bulkFieldValues["weightUnit"])) {
     bwUnitSelect.value = bulkFieldValues["weightUnit"];
     toggleBulkGbPicker();
   }
@@ -1702,6 +1735,36 @@ const recordBulkPriceHistory = () => {
   saveItemPriceHistory();
 };
 
+/**
+ * Force-stages the full constitutional (cu) metadata bundle into the apply set
+ * so a bulk Type→Constitutional (or manual cu weight-unit) coercion produces a
+ * valid, non-zero-silver item rather than a 0-oz ghost. Denom-only (STRK-238):
+ * the picked variant sets constitutionalVariant + entryMode="denom" +
+ * weight=facePerCoin; each item keeps its existing qty as the coin count (qty
+ * is intentionally NOT staged). Injected past the checkbox gate the same way the
+ * Silverback weightUnit coercion is, so only the Type field need be enabled.
+ * @param {Object<string, string>} valuesToApply - Collected field values (mutated)
+ * @returns {void}
+ */
+const applyBulkConstitutionalBundle = (valuesToApply) => {
+  valuesToApply.weightUnit = "cu";
+  valuesToApply.metal = "Silver";
+  valuesToApply.constitutionalEntryMode = "denom";
+
+  const variants = typeof CONSTITUTIONAL_VARIANTS !== "undefined" ? CONSTITUTIONAL_VARIANTS : [];
+  const variantSelectEl = safeGetElement("bulkFieldVal_constitutionalVariant");
+  const variantSelect = variantSelectEl instanceof HTMLSelectElement ? variantSelectEl : null;
+  // Default to the first defined variant (matches the picker's default option)
+  // rather than a hardcoded id — a renamed/missing variant id can't then silently
+  // reintroduce the 0-oz ghost this fix exists to prevent.
+  const defaultVariantId = variants.length ? variants[0].id : "";
+  const variantId = variantSelect && variantSelect.value ? variantSelect.value : defaultVariantId;
+  valuesToApply.constitutionalVariant = variantId;
+
+  const variant = variants.find((v) => v.id === variantId) || null;
+  valuesToApply.weight = variant ? String(variant.facePerCoin) : "0";
+};
+
 const applyBulkEdit = async () => {
   const count = bulkSelection.size;
   const enabledCount = bulkEnabledFields.size;
@@ -1716,6 +1779,16 @@ const applyBulkEdit = async () => {
   }
 
   normalizeBulkWeightValue(valuesToApply);
+
+  // STRK-238: a cu coercion (Type→Constitutional, or a manual cu weight-unit)
+  // must carry the full constitutional metadata bundle or it persists a
+  // 0-silver-oz ghost. Inject past the checkbox gate (mirrors Silverback above).
+  const isConstitutionalApply =
+    (bulkEnabledFields.has("type") && valuesToApply.type === "Constitutional") ||
+    (bulkEnabledFields.has("weightUnit") && valuesToApply.weightUnit === "cu");
+  if (isConstitutionalApply) {
+    applyBulkConstitutionalBundle(valuesToApply);
+  }
 
   const fieldNames = getBulkEnabledFieldNames();
   if (
