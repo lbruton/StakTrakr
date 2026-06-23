@@ -1005,6 +1005,31 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     await expect(page.locator("#viewItemModal")).toContainText(/90%\s*Quarter/i);
   });
 
+  // STRK-237 — the inventory-table Weight column must render a constitutional row as the
+  // derived pure-silver content (oz), consistent with every other row and the portfolio
+  // totals, with the face value relocated to the cell tooltip (no more in-column "$X.XX face").
+  test("inventory table weight column shows derived silver oz for constitutional rows, face in tooltip", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [CU_QUARTERS_40] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    const weightCell = page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core 40 Silver Quarters" })
+      .locator("td[data-column='weight'] .filter-text");
+    // 40 quarters worn ≈ 7.15 ozt silver — shown as a weight, NOT the raw "$10.00 face".
+    await expect(weightCell).toHaveText(/^\d+\.\d+\s*oz$/);
+    await expect(weightCell).not.toContainText("face");
+    const oz = parseFloat((await weightCell.textContent()).replace(/[^0-9.]/g, ""));
+    expect(oz).toBeGreaterThan(6.5);
+    expect(oz).toBeLessThan(8);
+    // Face value (40 × $0.25 = $10.00) + valuation basis move to the cell tooltip.
+    const title = await weightCell.getAttribute("title");
+    expect(title).toMatch(/\$10\.00 face/);
+    expect(title).toMatch(/worn/i);
+  });
+
   test("constitutional rows have a dedicated type-color token defined", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);

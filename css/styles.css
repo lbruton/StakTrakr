@@ -12020,6 +12020,8 @@ th {
 .currency-fields-row {
   display: grid;
   gap: 12px;
+  /* STRK-236: separate the dropdown row from the toggle grid below it */
+  margin-bottom: 1.25rem;
 }
 
 @media (min-width: 640px) {
@@ -12043,6 +12045,29 @@ th {
 
 .currency-field select {
   width: 100%;
+}
+
+/* STRK-236: Currency panel toggle pair — spot-ratios + constitutional-basis arranged side by
+   side, with the heavy descriptive paragraphs replaced by an info-icon tooltip on each label. */
+.settings-toggle-grid {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .settings-toggle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.settings-toggle-grid .settings-group {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.settings-info-icon {
+  cursor: help;
 }
 
 /* Goldback pricing source — pill radio buttons */

@@ -13,6 +13,21 @@
     cu: "Constitutional silver — face value (silver content derived from denomination)",
   };
 
+  // STRK-237: tooltip for a constitutional weight cell. The Weight column now shows the
+  // derived silver oz, so the face value moves here — total face = facePerCoin × qty (denom
+  // mode) or the entered face (face mode, qty = 1). The worn/fresh valuation basis is included
+  // because the displayed oz depends on it.
+  const cuWeightTooltip = (item) => {
+    const face = (parseFloat(item.weight) || 0) * (Number(item.qty) || 1);
+    const basis =
+      typeof loadDataSync === "function" &&
+      typeof CONSTITUTIONAL_BASIS_KEY !== "undefined" &&
+      loadDataSync(CONSTITUTIONAL_BASIS_KEY, "worn") === "fresh"
+        ? "fresh"
+        : "worn";
+    return `$${face.toFixed(2)} face value · ${basis} basis`;
+  };
+
   let _thumbBlobUrls = [];
 
   window.addEventListener("beforeunload", () => {
@@ -811,7 +826,7 @@
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
-      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit), WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
+      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit, item), item.weightUnit === "cu" ? cuWeightTooltip(item) : WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
       <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
