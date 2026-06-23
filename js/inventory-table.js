@@ -33,7 +33,7 @@
   // A click-to-filter would key on the face value the user no longer sees, so cu weight renders as
   // plain non-filterable text — display + tooltip preserved, no misleading raw-weight filter entry.
   const cuWeightCell = (item, basis) =>
-    `<span class="filter-text" style="color: var(--text-primary);" title="${sanitizeHtml(
+    `<span class="weight-static" style="color: var(--text-primary);" title="${sanitizeHtml(
       cuWeightTooltip(item, basis)
     )}">${sanitizeHtml(formatWeight(item.weight, item.weightUnit, item))}</span>`;
 

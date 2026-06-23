@@ -1017,7 +1017,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     const weightCell = page
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core 40 Silver Quarters" })
-      .locator("td[data-column='weight'] .filter-text");
+      .locator("td[data-column='weight'] .weight-static");
     // 40 quarters worn ≈ 7.15 ozt silver — shown as a weight, NOT the raw "$10.00 face".
     await expect(weightCell).toHaveText(/^\d+\.\d+\s*oz$/);
     await expect(weightCell).not.toContainText("face");
@@ -1030,6 +1030,9 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(title).toMatch(/worn/i);
     // STRK-237 (PR #1328, Codex P2): the displayed oz is derived, not the raw stored weight the
     // column filter keys on — so the cu weight cell must NOT be a click-to-filter button.
+    // Codex T2: cell must NOT carry .filter-text, which would make it a dead tap target on mobile
+    // (the _bindTableInteractions tap handler skips .filter-text, preventing row-open on narrow screens).
+    await expect(weightCell).not.toHaveClass(/\bfilter-text\b/);
     await expect(weightCell).not.toHaveAttribute("onclick", /.+/);
     await expect(weightCell).not.toHaveAttribute("role", "button");
   });
@@ -1085,7 +1088,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     const title = await page
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core Face Mode Qty2" })
-      .locator("td[data-column='weight'] .filter-text")
+      .locator("td[data-column='weight'] .weight-static")
       .getAttribute("title");
     // Stored total face is $50.00; the old weight × qty would have wrongly shown $100.00.
     expect(title).toMatch(/\$50\.00 face/);
