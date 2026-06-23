@@ -60,9 +60,17 @@ function _computePortfolioSummary() {
     purchase += valuation.purchaseTotal || 0;
     melt += valuation.meltValue || 0;
     retail += valuation.retailTotal || 0;
-    const w = parseFloat(item.weight) || 0;
-    const wOz = item.weightUnit === "gb" ? w * gbToOzt : item.weightUnit === "sb" ? w * sbToOzt : w;
-    totalWeight += qty * wOz;
+    // STRK-235: constitutional silver oz is pre-derived (includes qty + wear factor,
+    // already pure). Do NOT multiply by qty or purity again.
+    if (item.weightUnit === "cu") {
+      totalWeight +=
+        typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
+    } else {
+      const w = parseFloat(item.weight) || 0;
+      const wOz =
+        item.weightUnit === "gb" ? w * gbToOzt : item.weightUnit === "sb" ? w * sbToOzt : w;
+      totalWeight += qty * wOz;
+    }
   });
   return {
     purchase,
@@ -349,7 +357,13 @@ const generateSparklineSVG = (item, w, h, opts = {}) => {
   const weightOz = parseFloat(item.weight) || 1;
   const qty = Number(item.qty) || 1;
   const purity = parseFloat(item.purity) || 1;
-  const meltFactor = weightOz * qty * purity;
+  // STRK-235: for constitutional ("cu") items the derived total silver oz already
+  // incorporates qty and wear factor and is pure — use it directly as meltFactor.
+  // Multiplying again by qty or purity would double-count both.
+  const meltFactor =
+    item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
+      ? getConstitutionalSilverOz(item)
+      : weightOz * qty * purity;
   const purchasePerUnit = parseFloat(item.price) || 0;
   const purchaseTotal = purchasePerUnit * qty;
   const currentRetail = (parseFloat(item.marketValue) || 0) * qty;
@@ -667,7 +681,7 @@ const renderCardA = (item, idx, computed) => {
 
   return (
     `<article class="card-a ${_cardMetalClass(item.metal)}${isDisposed(item) ? " disposed-card" : ""}" data-idx="${idx}">` +
-    `<div class="card-a-chart-wrap"><canvas class="card-a-canvas" data-metal="${_cvEscapeAttr((item.metal || "").toLowerCase())}" data-weight="${parseFloat(item.weight) || 1}" data-qty="${Number(item.qty) || 1}" data-purity="${parseFloat(item.purity) || 1}" data-price="${parseFloat(item.price) || 0}" data-market="${parseFloat(item.marketValue) || 0}" data-date="${_cvEscapeAttr(item.date || "")}"></canvas></div>` +
+    `<div class="card-a-chart-wrap"><canvas class="card-a-canvas" data-metal="${_cvEscapeAttr((item.metal || "").toLowerCase())}" data-weight="${parseFloat(item.weight) || 1}" data-qty="${Number(item.qty) || 1}" data-purity="${parseFloat(item.purity) || 1}" data-price="${parseFloat(item.price) || 0}" data-market="${parseFloat(item.marketValue) || 0}" data-date="${_cvEscapeAttr(item.date || "")}" data-cu-oz="${item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0}"></canvas></div>` +
     `<div class="card-body">` +
     `<div class="cv-item-name">${sanitizeHtml(item.name || "")}${isDisposed(item) ? ` <span class="disposition-badge disposition-badge--${item.disposition.type}">${DISPOSITION_TYPES[item.disposition.type]?.label || item.disposition.type}</span>` : ""}</div>` +
     `<div class="cv-chips-img-row"><div class="cv-chips-row">${_cardChipsHTML(item)}</div><div class="cv-images-row cv-images-sm">${_cardImageHTML(item, "", "obverse")}${_cardImageHTML(item, "", "reverse")}</div></div>` +
@@ -858,7 +872,11 @@ function _initCardCharts(container) {
     const weightOz = parseFloat(canvas.dataset.weight) || 1;
     const qty = parseInt(canvas.dataset.qty, 10) || 1;
     const purity = parseFloat(canvas.dataset.purity) || 1;
-    const meltFactor = weightOz * qty * purity;
+    // STRK-235: for constitutional ("cu") items data-cu-oz carries the pre-derived
+    // total silver oz (already × qty, already pure). Use it directly as meltFactor
+    // to avoid double-counting qty and purity. Non-cu items: cuOz is 0, fallback.
+    const cuOz = parseFloat(canvas.dataset.cuOz) || 0;
+    const meltFactor = cuOz > 0 ? cuOz : weightOz * qty * purity;
     const purchasePerUnit = parseFloat(canvas.dataset.price) || 0;
     const purchaseTotal = purchasePerUnit * qty;
     const marketValue = parseFloat(canvas.dataset.market) || 0;

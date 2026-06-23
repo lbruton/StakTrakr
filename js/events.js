@@ -2394,6 +2394,22 @@ const handleTypeChange = () => {
     if (typeof window.constitutionalSetEntryMode === "function") {
       window.constitutionalSetEntryMode("face");
     }
+    // STRK-235: force purchase-price toggle to EACH mode so parseItemFormFields
+    // never divides a lot price by a stale qty when the type changes mid-entry.
+    // Also reset #itemQty to 1 — cu items own their own coin-count field in the
+    // constitutional control card; a stale qty > 1 would make updateVisibility()
+    // keep the toggle visible and allow a spurious lot÷qty division on save.
+    if (typeof purchasePriceToggle !== "undefined") {
+      purchasePriceToggle.setMode("each", { convertInput: false });
+      purchasePriceToggle.resetInteracted();
+    }
+    const qtyEl = document.getElementById("itemQty");
+    if (qtyEl instanceof HTMLElement) {
+      qtyEl.value = "1";
+    }
+    if (typeof purchasePriceToggle !== "undefined") {
+      purchasePriceToggle.updateVisibility();
+    }
   } else {
     if (unitSelect.value === "gb" || unitSelect.value === "sb" || unitSelect.value === "cu") {
       unitSelect.value = "oz";

@@ -99,6 +99,10 @@
     serialNumber: item.serialNumber || "",
     pcgsNumber: item.pcgsNumber || "",
     pcgsVerified: item.pcgsVerified || false,
+    // STRK-235: constitutional ("cu") entry-mode + variant must round-trip through
+    // ZIP backup so restored items value correctly via getConstitutionalSilverOz().
+    constitutionalVariant: item.constitutionalVariant || "",
+    constitutionalEntryMode: item.constitutionalEntryMode || "",
     serial: item.serial,
     uuid: item.uuid,
   });

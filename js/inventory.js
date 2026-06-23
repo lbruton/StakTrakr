@@ -2442,6 +2442,10 @@ const exportJson = () => {
     serialNumber: item.serialNumber || "",
     pcgsNumber: item.pcgsNumber || "",
     pcgsVerified: item.pcgsVerified || false,
+    // STRK-235: constitutional ("cu") entry-mode + variant must survive a JSON
+    // export→import round-trip so getConstitutionalSilverOz() returns the correct oz.
+    constitutionalVariant: item.constitutionalVariant || "",
+    constitutionalEntryMode: item.constitutionalEntryMode || "",
     serial: item.serial,
     uuid: item.uuid,
     obverseImageUrl: item.obverseImageUrl || "",
