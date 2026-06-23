@@ -11235,28 +11235,9 @@ th {
   font-weight: 700;
   vertical-align: middle;
 }
-#item-constitutional-group {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--spacing-lg);
-  background: var(--bg-tertiary);
-  display: grid;
-  gap: var(--spacing);
-}
-.ccg-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing);
-  flex-wrap: wrap;
-}
-.ccg-title {
-  font-weight: 700;
-  font-size: var(--font-size-md);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
+/* #item-constitutional-group reuses the shared .form-section / .form-section-header /
+   .form-section-body chrome (no dedicated card fill) so it matches the other modal
+   sections (Grading, Pricing). The entry-mode toggle sits in the header (margin-left:auto). */
 .ccg-hint {
   font-size: var(--font-size-sm);
   color: var(--text-muted);

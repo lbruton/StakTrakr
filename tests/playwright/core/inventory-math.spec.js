@@ -874,6 +874,8 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     await openAddModal(page);
     await page.selectOption("#itemMetal", "Silver");
     await page.selectOption("#itemType", "Constitutional");
+    // Face value is the default entry mode (STRK-235) — switch to denomination first.
+    await page.click('#constitutional-entry-mode-toggle [data-mode="denom"]');
     await page.selectOption("#item-constitutional-variant", "con-90-quarter");
     await page.fill("#item-constitutional-count", "40");
     await page.fill("#itemName", itemName);

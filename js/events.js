@@ -2190,7 +2190,7 @@ const updateDenomLabels = (typeValue = "") => {
 
 // STRK-235 — Constitutional / junk silver entry-mode + live preview wiring.
 // Module-scoped current entry mode ("denom" | "face"); read by parseConstitutionalFields.
-let _constitutionalEntryMode = "denom";
+let _constitutionalEntryMode = "face";
 
 /**
  * Builds a transient constitutional item from the current modal inputs, for the
@@ -2342,7 +2342,8 @@ const handleTypeChange = () => {
   const isConstitutionalType = selectedType === "Constitutional";
 
   // STRK-235: reset the metal lock on every type change; only the Constitutional
-  // branch re-applies it (disabled select + "auto" pill). Other types are unchanged.
+  // forced-metal branches (gb/sb/constitutional) re-show the "auto" pill. Other types
+  // are unchanged. The select is not disabled (a later type change must re-pick metal).
   const metalEl = elements.itemMetal;
   if (metalEl instanceof HTMLElement) metalEl.disabled = false;
   const metalLockPill = document.getElementById("metalLock");
@@ -2359,6 +2360,9 @@ const handleTypeChange = () => {
       );
       if (hasMetalOption) metalSelect.value = targetMetal;
     }
+    // STRK-235: Goldback/Silverback also force their metal — show the "auto" pill so
+    // the lock is consistent with Constitutional.
+    if (metalLockPill) metalLockPill.style.display = "";
     updateDenomLabels(selectedType);
     const puritySelect = document.getElementById("itemPuritySelect");
     if (puritySelect && puritySelect.value !== "custom") {
@@ -2374,12 +2378,11 @@ const handleTypeChange = () => {
     if (metalSelect instanceof HTMLElement) {
       const hasSilver = Array.from(metalSelect.options || []).some((o) => o.value === "Silver");
       if (hasSilver) metalSelect.value = "Silver";
-      metalSelect.disabled = true; // auto-lock (value still readable for save)
     }
     if (metalLockPill) metalLockPill.style.display = "";
-    // Default a fresh add to denomination mode; editItem restores the stored mode after.
+    // Default a fresh add to FACE-value mode; editItem restores the stored mode after.
     if (typeof window.constitutionalSetEntryMode === "function") {
-      window.constitutionalSetEntryMode("denom");
+      window.constitutionalSetEntryMode("face");
     }
   } else {
     if (unitSelect.value === "gb" || unitSelect.value === "sb" || unitSelect.value === "cu") {
