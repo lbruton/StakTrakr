@@ -118,6 +118,9 @@
   --type-goldback-text: oklch(1 0 0);
   --type-silverback-bg: oklch(0.593 0.031 248.3);
   --type-silverback-text: oklch(1 0 0);
+  /* STRK-235: constitutional / junk silver — muted teal-pewter, distinct from silverback */
+  --type-constitutional-bg: oklch(0.585 0.046 197);
+  --type-constitutional-text: oklch(1 0 0);
   --type-set-bg: oklch(0.606 0.219 292.7);
   --type-set-text: oklch(1 0 0);
   --type-other-bg: oklch(0.495 0.22 293);
@@ -253,6 +256,9 @@
   --type-goldback-text: oklch(0.2 0.01 85);
   --type-silverback-bg: oklch(0.65 0.01 250);
   --type-silverback-text: oklch(0.2 0.01 85);
+  /* STRK-235: constitutional / junk silver */
+  --type-constitutional-bg: oklch(0.66 0.05 197);
+  --type-constitutional-text: oklch(0.2 0.01 197);
   --type-set-bg: oklch(0.62 0.18 295);
   --type-set-text: oklch(0.2 0.01 85);
   --type-other-bg: oklch(0.55 0.2 295);
@@ -377,6 +383,9 @@
   --type-goldback-text: #1e293b;
   --type-silverback-bg: #94a3b8;
   --type-silverback-text: #1e293b;
+  /* STRK-235: constitutional / junk silver */
+  --type-constitutional-bg: #6f9aa3;
+  --type-constitutional-text: #1e293b;
   --type-set-bg: #a78bfa;
   --type-set-text: #1e293b;
   --type-other-bg: #8b5cf6;
@@ -496,6 +505,9 @@
   --type-goldback-text: oklch(1 0 0);
   --type-silverback-bg: oklch(0.551 0.023 264.4);
   --type-silverback-text: oklch(1 0 0);
+  /* STRK-235: constitutional / junk silver */
+  --type-constitutional-bg: oklch(0.55 0.044 195);
+  --type-constitutional-text: oklch(1 0 0);
   --type-set-bg: oklch(0.541 0.247 293);
   --type-set-text: oklch(1 0 0);
   --type-other-bg: oklch(0.473 0.162 298.9);
@@ -1639,6 +1651,11 @@ section:hover {
 
 .grid-purity-row {
   grid-template-columns: 2fr 1fr 1fr auto;
+}
+
+/* STRK-235: Constitutional denomination + coin-count row (variant select wider) */
+.grid-variant-row {
+  grid-template-columns: 2fr 1fr;
 }
 
 .grid-name-year {
@@ -11199,6 +11216,49 @@ th {
   background-color: var(--type-other-bg);
   color: var(--type-other-text);
 }
+.type-chip.constitutional {
+  background-color: var(--type-constitutional-bg);
+  color: var(--type-constitutional-text);
+}
+
+/* ── STRK-235: Constitutional / junk silver entry card ──────────────────────
+   Replaces the standard Purity/Qty/Weight/Unit row when type = Constitutional.
+   Sourced from the approved prototype (specs/.../artifacts/playground.html). */
+.lock-pill {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--type-constitutional-bg);
+  color: var(--type-constitutional-text);
+  font-weight: 700;
+  vertical-align: middle;
+}
+/* #item-constitutional-group reuses the shared .form-section / .form-section-header /
+   .form-section-body chrome (no dedicated card fill) so it matches the other modal
+   sections (Grading, Pricing). The entry-mode toggle sits in the header (margin-left:auto). */
+.ccg-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+#constitutional-silver-preview {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  background: var(--bg-primary);
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  color: var(--text-primary);
+}
+#constitutional-silver-preview .melt {
+  color: var(--warning);
+  font-weight: 700;
+}
+#constitutional-silver-preview .oz {
+  color: var(--silver);
+  font-weight: 700;
+}
 
 /* =============================================================================
    CONTROL SETTINGS - NEW LAYOUT
@@ -11960,6 +12020,8 @@ th {
 .currency-fields-row {
   display: grid;
   gap: 12px;
+  /* STRK-236: separate the dropdown row from the toggle grid below it */
+  margin-bottom: 1.25rem;
 }
 
 @media (min-width: 640px) {
@@ -11983,6 +12045,67 @@ th {
 
 .currency-field select {
   width: 100%;
+}
+
+/* STRK-236: Currency panel toggle pair — spot-ratios + constitutional-basis arranged side by
+   side, with the heavy descriptive paragraphs replaced by an info-icon tooltip on each label. */
+.settings-toggle-grid {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .settings-toggle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.settings-toggle-grid .settings-group {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.settings-info-icon {
+  position: relative;
+  cursor: help;
+}
+
+.settings-info-icon:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.settings-info-icon::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: 260px;
+  width: max-content;
+  white-space: normal;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-hover);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: 1.45;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.settings-info-icon:hover::after,
+.settings-info-icon:focus::after,
+.settings-info-icon:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Goldback pricing source — pill radio buttons */
@@ -14091,6 +14214,10 @@ th {
 .cv-chip-type.goldback {
   background: var(--type-goldback-bg);
   color: var(--type-goldback-text, #fff);
+}
+.cv-chip-type.constitutional {
+  background: var(--type-constitutional-bg);
+  color: var(--type-constitutional-text);
 }
 .cv-chip-type.silverback {
   background: var(--type-silverback-bg);

@@ -575,12 +575,16 @@ const oztToLb = (ozt) => ozt / LB_TO_OZT;
 /**
  * Formats a weight in troy ounces to either grams or ounces.
  * If weightUnit is 'gb' or 'sb', displays as denomination units (no gram auto-conversion).
+ * For 'cu' (constitutional silver) the stored `weight` is a face value, so a meaningful
+ * weight requires the whole item: pass `item` to display the derived pure-silver oz
+ * (STRK-237); 2-arg callers fall back to the face-value string.
  *
- * @param {number} ozt - Weight in troy ounces (or denomination value if weightUnit='gb'/'sb')
- * @param {string} [weightUnit] - Optional weight unit: 'oz', 'g', 'gb', or 'sb'
+ * @param {number} ozt - Weight in troy ounces (or denomination value if weightUnit='gb'/'sb'/'cu')
+ * @param {string} [weightUnit] - Optional weight unit: 'oz', 'g', 'kg', 'lb', 'gb', 'sb', or 'cu'
+ * @param {Object} [item] - The full inventory item; only used for 'cu' to derive silver oz
  * @returns {string} Formatted weight string with unit
  */
-const formatWeight = (ozt, weightUnit) => {
+const formatWeight = (ozt, weightUnit, item) => {
   if (weightUnit === "gb") {
     const w = parseFloat(ozt);
     return `${w % 1 === 0 ? w : w.toFixed(1)} gb`;
@@ -588,6 +592,17 @@ const formatWeight = (ozt, weightUnit) => {
   if (weightUnit === "sb") {
     const w = parseFloat(ozt);
     return `${w % 1 === 0 ? w : w.toFixed(1)} sb`;
+  }
+  if (weightUnit === "cu") {
+    // STRK-237: constitutional items store a face value in `weight`; the meaningful weight is
+    // the derived pure-silver oz (qty + worn/fresh basis folded in), matching every other row
+    // and the portfolio totals. Show that when the item is supplied; the face value moves to
+    // the cell tooltip. STRK-235 fallback (legacy 2-arg callers): the face-value string.
+    if (item && typeof getConstitutionalSilverOz === "function") {
+      return `${getConstitutionalSilverOz(item).toFixed(2)} oz`;
+    }
+    const w = parseFloat(ozt) || 0;
+    return `$${w.toFixed(2)} face`;
   }
   const weight = parseFloat(ozt);
   if (weightUnit === "kg") {

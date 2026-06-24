@@ -34,6 +34,9 @@ const DIFF_FIELDS = [
   "composition",
   "weight",
   "weightUnit",
+  // Constitutional (junk silver) — STRK-235
+  "constitutionalVariant",
+  "constitutionalEntryMode",
   "purity",
   "qty",
   "type",

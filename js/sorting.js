@@ -58,7 +58,12 @@ const sortInventory = (data = inventory) => {
         val = item.qty;
         break; // Qty
       case 6:
-        val = parseFloat(item.weight) || 0;
+        // STRK-237: cu rows display derived silver oz (not the stored face value), so sort by
+        // the same derived oz to keep the column's sort aligned with what is shown.
+        val =
+          item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
+            ? getConstitutionalSilverOz(item)
+            : parseFloat(item.weight) || 0;
         break; // Weight
       case 7:
         val = (parseFloat(item.price) || 0) * (Number(item.qty) || 0);

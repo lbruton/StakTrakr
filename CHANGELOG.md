@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.56] - 2026-06-24
+
+### Fixed — STRK-241 / STRK-243: Constitutional silver pre-ship fixes
+
+- **Cloud sync detects constitutional denomination/mode edits**: The inventory hash the cloud-sync poller compares now includes a constitutional item's `constitutionalVariant` and `constitutionalEntryMode`. Previously a remote edit that changed only a synced junk-silver item's denomination or entry mode on the same item produced an identical hash, so the poller silently recorded the pull and never opened the diff/merge path — the change was lost on the other device. Distinct denominations can share a face-per-coin value, so the stored weight could not catch it either (STRK-241).
+- **Constitutional unit is Type-driven, not a manual dropdown choice**: Picking "constitutional" directly from the weight-unit dropdown while Type was still Coin/Bar left the constitutional entry card hidden, so saving read blank fields and dead-ended on a "weight required" error with no weight field shown. The option is now hidden from manual selection; adding junk silver via Type → Constitutional remains the supported path and wires up the entry card correctly (STRK-243).
+
+---
+
+## [3.35.55] - 2026-06-24
+
+### Changed — STRK-240: Constitutional weight filter keys on derived silver ounces
+
+- **Constitutional weight cells filter by silver weight, not face value**: Clicking a constitutional (junk-silver) row's Weight cell now creates a filter chip keyed on the derived silver troy ounces shown in the cell, not the stored dollar face value — so filtering a `$10`-face bag no longer also pulls in unrelated 10 oz items. The face value stays in the cell's hover tooltip. Refines STRK-239 (v3.35.54), which keyed the filter on the face value and could collide with same-numbered weights (STRK-240).
+
+---
+
+## [3.35.54] - 2026-06-23
+
+### Changed — STRK-239: Restore click-to-filter on constitutional weight cells
+
+- **Constitutional weight cells filter again**: Clicking a constitutional (junk-silver) row's Weight cell creates a filter chip again, matching every other weight unit including goldback and silverback. The cell still displays the derived silver troy ounces and keeps the face value in its hover tooltip; the filter keys on the stored face value, the same way goldback/silverback filter on their stored weight. Reverses the STRK-237 decision (v3.35.52) that disabled it (STRK-239).
+
+---
+
+## [3.35.53] - 2026-06-23
+
+### Changed — STRK-233: Settings inventory summary excludes disposed items
+
+- **Settings inventory summary reflects current stock only**: The Inventory summary card (Items / Total weight / Melt value / Last modified) in Settings no longer counts disposed (sold / traded / gifted / lost / returned) items, so the totals reflect what you currently hold instead of being inflated by stock that has left the stack. Uses the canonical `isDisposed()` predicate already applied across the card views, the inventory disposed-mode filter, and exports (STRK-233).
+
+---
+
+## [3.35.52] - 2026-06-23
+
+### Changed — STRK-237 / STRK-236: Constitutional weight display + Currency settings layout
+
+- **Inventory table shows derived silver weight for constitutional rows**: The Weight column now renders a constitutional / junk-silver item's derived pure-silver troy ounces — consistent with every other row and the portfolio weight totals — instead of `$X.XX face`. The face value (total = face-per-coin × qty) and the active worn/fresh valuation basis move to the cell's hover tooltip (STRK-237).
+- **Settings → Currency layout tightened**: The Show spot ratios and Constitutional silver valuation basis toggles are arranged in a 2×1 grid with added spacing below the currency dropdowns, and their heavy descriptive paragraphs are replaced by compact info-icon (ⓘ) tooltips (STRK-236).
+
+---
+
+## [3.35.51] - 2026-06-23
+
+### Added — STRK-238: Bulk-edit denomination sub-control for constitutional silver
+
+- **Bulk-convert items to constitutional silver without zeroing their value**: Bulk-editing an item's Type to Constitutional now surfaces a denomination picker, and applying it stages the full constitutional metadata (denomination variant + `denom` entry mode, with weight derived from the variant's face-per-coin) so converted items carry real derived silver content instead of registering as 0 ozt. Previously a bulk Type→Constitutional change coerced only the unit (`cu`) and metal (Silver) but dropped the denomination data, producing zero-silver "ghost" items. Each selected item keeps its existing quantity as the coin count, and the metadata bundle is applied past the per-field checkbox gate so only the Type field need be enabled (STRK-238).
+
+---
+
+## [3.35.50] - 2026-06-22
+
+### Added — STRK-235: Constitutional / junk silver tracking (90% / 40% / 35%)
+
+- **Constitutional item type**: New first-class `Constitutional` type for U.S. junk silver. Add holdings by denomination + coin count (90% dime / quarter / half, 90% Morgan/Peace dollar, 40% Kennedy half, 40% Eisenhower dollar, 35% war nickel) or by total face value (treated as 90% subsidiary coinage). Actual silver content and melt value are derived from a verified per-variant silver table via deferred troy-oz conversion — mirroring the Goldback/Silverback pattern — so users never hand-calculate weight. Silver dollars are valued at their true ~0.7734 ozt/coin rather than the 0.7234/$ subsidiary rate, and the constitutional melt branch skips the coin-purity multiplier to avoid double-discounting an already-pure silver weight (STRK-235).
+- **Worn vs fresh valuation basis**: A new global Settings → Currency control toggles the wear basis — worn (~0.715 ozt/$1 face, default) or fresh ASW (~0.7234 ozt/$1 face) — applied uniformly across all constitutional items, persisted across reloads and included in cloud-sync scope. Changing it reprices the portfolio without per-item edits (STRK-235).
+
+---
+
+## [3.35.49] - 2026-06-22
+
+### Fixed — STRK-234: cloud-sync re-entrancy race nulled \_previewPullMeta on empty-diff silent pull
+
+- **Concurrent two-session cloud sync no longer errors with "Could not decrypt vault for preview"**: `_previewPullMeta` is a module-level mutable global that `pullWithPreview`'s empty-diff "silently record pull" branch set, then dereferenced after three network `await`s (image / attachment / item-price-history companion vaults). When two browsers synced at once, a second pull flow nulled the global mid-`await`, so the first flow crashed with `TypeError: ... _previewPullMeta is null` — surfaced in the Restore Preview modal. Two layers fix it: the silent branch now snapshots the global into a local before the awaits and records onto that snapshot (mirrors the existing guard in `_deferredVaultRestore`), and a new `_previewPullInFlight` re-entrancy guard serializes overlapping `pullWithPreview` invocations across all three entry routes so two pull cycles can't interleave on the shared global (the deferred pull is re-detected by the next poll). STRK-147 widened the race window (a new companion-vault fetch) which is why the symptom surfaced now on `itemPriceHistoryHash`; the image/attachment siblings shared the same latent flaw (STRK-234).
+
+---
+
 ## [3.35.48] - 2026-06-21
 
 ### Changed — STRK-232: keyboard activation for delegated reference chips

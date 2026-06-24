@@ -14,6 +14,8 @@
     "Qty",
     "Weight(oz)",
     "Weight Unit",
+    "Constitutional Variant",
+    "Constitutional Entry Mode",
     "Purity",
     "Purchase Price",
     "Melt Value",
@@ -97,6 +99,10 @@
     serialNumber: item.serialNumber || "",
     pcgsNumber: item.pcgsNumber || "",
     pcgsVerified: item.pcgsVerified || false,
+    // STRK-235: constitutional ("cu") entry-mode + variant must round-trip through
+    // ZIP backup so restored items value correctly via getConstitutionalSilverOz().
+    constitutionalVariant: item.constitutionalVariant || "",
+    constitutionalEntryMode: item.constitutionalEntryMode || "",
     serial: item.serial,
     uuid: item.uuid,
   });
@@ -219,7 +225,7 @@
    * Builds the identity/location/catalog/image cells of a CSV backup row.
    *
    * @param {Object} item - Inventory item.
-   * @returns {Array} 16 cells matching BACKUP_CSV_HEADERS[13..28].
+   * @returns {Array} 16 cells matching BACKUP_CSV_HEADERS[15..30].
    */
   const _backupCsvIdentityCells = (item) => [
     item.paymentMethod || "",
@@ -244,7 +250,7 @@
    * Builds the disposition + attachments cells of a CSV backup row.
    *
    * @param {Object} item - Inventory item.
-   * @returns {Array} 5 trailing cells matching BACKUP_CSV_HEADERS[29..33].
+   * @returns {Array} 5 trailing cells matching BACKUP_CSV_HEADERS[31..35].
    */
   const _backupCsvDispositionCells = (item) => [
     item.disposition

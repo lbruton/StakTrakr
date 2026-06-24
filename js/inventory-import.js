@@ -481,6 +481,9 @@
       type: normalizeType(row["Type"] || row["type"]),
       weight: row["Weight(oz)"] || row["weight"],
       weightUnit: row["Weight Unit"] || row["weightUnit"] || "oz",
+      constitutionalVariant: row["Constitutional Variant"] || row["constitutionalVariant"] || "",
+      constitutionalEntryMode:
+        row["Constitutional Entry Mode"] || row["constitutionalEntryMode"] || "",
       price,
       paymentMethod: row["Payment Method"] || row["paymentMethod"] || "",
       purchaseLocation: row["Purchase Location"] || "",
@@ -1330,6 +1333,11 @@
           const numistaData = raw.numistaData || undefined;
           const fieldMeta = raw.fieldMeta || undefined;
 
+          // STRK-235: carry constitutional metadata through JSON import so cu items
+          // round-trip correctly (getConstitutionalSilverOz requires both fields).
+          const constitutionalVariant = (raw.constitutionalVariant || "").toString().trim();
+          const constitutionalEntryMode = (raw.constitutionalEntryMode || "").toString().trim();
+
           const processedItem = sanitizeImportedItem({
             metal,
             composition,
@@ -1363,6 +1371,8 @@
             uuid,
             obverseImageUrl,
             reverseImageUrl,
+            ...(constitutionalVariant ? { constitutionalVariant } : {}),
+            ...(constitutionalEntryMode ? { constitutionalEntryMode } : {}),
             ...(numistaData ? { numistaData } : {}),
             ...(fieldMeta ? { fieldMeta } : {}),
           });

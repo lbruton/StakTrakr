@@ -39,7 +39,12 @@ const getBreakdownData = (metal) => {
         : item.weightUnit === "sb"
           ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
           : weight;
-    const itemWeight = qty * weightOz;
+    // STRK-235: constitutional silver oz is derived (variant table + wear) and already
+    // includes the coin count, so it must NOT be multiplied by qty again.
+    const itemWeight =
+      item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
+        ? getConstitutionalSilverOz(item)
+        : qty * weightOz;
     const valuation =
       typeof computeItemValuation === "function" ? computeItemValuation(item, currentSpot) : null;
     const purchasePrice = parseFloat(item.price) || 0;
@@ -105,7 +110,12 @@ const getAllMetalsBreakdownData = () => {
         : item.weightUnit === "sb"
           ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
           : weight;
-    const itemWeight = qty * weightOz;
+    // STRK-235: constitutional silver oz is derived (variant table + wear) and already
+    // includes the coin count, so it must NOT be multiplied by qty again.
+    const itemWeight =
+      item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
+        ? getConstitutionalSilverOz(item)
+        : qty * weightOz;
     const purchasePrice = parseFloat(item.price) || 0;
     const purchaseTotal = qty * purchasePrice;
     const currentSpot = spotPrices[item.metal.toLowerCase()] || 0;

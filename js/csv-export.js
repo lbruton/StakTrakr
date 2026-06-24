@@ -106,6 +106,8 @@
     "Qty",
     "Weight(oz)",
     "Weight Unit",
+    "Constitutional Variant",
+    "Constitutional Entry Mode",
     "Purity",
     "Purchase Price",
     "Melt Value",

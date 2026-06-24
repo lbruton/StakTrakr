@@ -10,6 +10,22 @@
     lb: "Pounds (lb)",
     gb: "Goldback denomination",
     sb: "Silverback denomination",
+    cu: "Constitutional silver — face value (silver content derived from denomination)",
+  };
+
+  // STRK-237: tooltip for a constitutional weight cell. The Weight column now shows the
+  // derived silver oz, so the face value moves here — total face = facePerCoin × qty (denom
+  // mode) or the entered face (face mode, qty = 1). The worn/fresh valuation basis is included
+  // because the displayed oz depends on it.
+  const cuWeightTooltip = (item, basis) => {
+    // Face mode stores the entered total face in `weight` (qty = 1 by contract); denom mode
+    // stores face-per-coin, so total face = weight × coin count. Mirror getConstitutionalSilverOz's
+    // qty handling (invalid/zero qty → 0) so the tooltip face and the cell oz stay consistent.
+    const face =
+      item.constitutionalEntryMode === "face"
+        ? parseFloat(item.weight) || 0
+        : (parseFloat(item.weight) || 0) * (Number(item.qty) || 0);
+    return `$${face.toFixed(2)} face value · ${basis} basis`;
   };
 
   let _thumbBlobUrls = [];
@@ -67,6 +83,7 @@
     Aurum: "var(--type-aurum-bg)",
     Goldback: "var(--type-goldback-bg)",
     Silverback: "var(--type-silverback-bg)",
+    Constitutional: "var(--type-constitutional-bg)",
     Set: "var(--type-set-bg)",
     Other: "var(--type-other-bg)",
   };
@@ -751,7 +768,7 @@
    * @param {object} imgCtx - Table-image settings (on/off, sides, resolver).
    * @returns {string} The row's <tr> HTML.
    */
-  function _buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx) {
+  function _buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx, cuBasis) {
     const originalIdx = itemIndexMap.get(item);
     const currentSpot = spotPrices[item.metal.toLowerCase()] || 0;
     const v = _computeRowValuation(item, currentSpot);
@@ -796,6 +813,13 @@
     const dispositionBadge = _buildDispositionBadge(item);
     const actionsCellInner = _buildActionsCellInner(item, originalIdx);
     const disposedRowClass = isDisposed(item) ? ' class="disposed-row"' : "";
+    // STRK-240: the cu Weight cell filter chip keys on the displayed derived oz (via the shared
+    // getItemFilterWeight helper) so a $10-face item doesn't collide with a 10 oz item; every
+    // other unit keeps its raw item.weight, so the non-cu onclick value is unchanged.
+    const weightFilterValue =
+      item.weightUnit === "cu" && typeof getItemFilterWeight === "function"
+        ? getItemFilterWeight(item)
+        : item.weight;
 
     return `
       <tr data-idx="${originalIdx}"${disposedRowClass}>
@@ -809,7 +833,7 @@
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
-      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit), WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
+      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", weightFilterValue, "var(--text-primary)", formatWeight(item.weight, item.weightUnit, item), item.weightUnit === "cu" ? cuWeightTooltip(item, cuBasis) : WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
       <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
@@ -971,6 +995,12 @@
       const rows = [];
       const chipConfig = typeof getInlineChipConfig === "function" ? getInlineChipConfig() : [];
       const itemIndexMap = getItemIndexMap();
+      const cuBasis =
+        typeof loadDataSync === "function" &&
+        typeof CONSTITUTIONAL_BASIS_KEY !== "undefined" &&
+        loadDataSync(CONSTITUTIONAL_BASIS_KEY, "worn") === "fresh"
+          ? "fresh"
+          : "worn";
       const imgCtx = {
         tableImagesOnSetting: localStorage.getItem("tableImagesEnabled") !== "false",
         tableImageSidesSetting: localStorage.getItem("tableImageSides") || "both",
@@ -981,7 +1011,7 @@
         const item = sortedInventory[i];
         debugLog("renderTable row", i, item.name);
 
-        rows.push(_buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx));
+        rows.push(_buildInventoryRow(item, chipConfig, itemIndexMap, imgCtx, cuBasis));
       }
 
       const tbody = elements.inventoryTable || document.querySelector("#inventoryTable tbody");
@@ -1081,13 +1111,21 @@
       const price = parseFloat(item.price) || 0;
 
       totals.totalItems += qty;
-      const weightOz =
-        item.weightUnit === "gb"
-          ? weight * GB_TO_OZT
-          : item.weightUnit === "sb"
-            ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
-            : weight;
-      const itemWeight = qty * weightOz;
+      // STRK-235: constitutional ("cu") silver oz is derived from the variant table
+      // and already accounts for coin count, so it is NOT multiplied by qty again.
+      let itemWeight;
+      if (item.weightUnit === "cu") {
+        itemWeight =
+          typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
+      } else {
+        const weightOz =
+          item.weightUnit === "gb"
+            ? weight * GB_TO_OZT
+            : item.weightUnit === "sb"
+              ? weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : GB_TO_OZT)
+              : weight;
+        itemWeight = qty * weightOz;
+      }
       totals.totalWeight += itemWeight;
 
       const currentSpot = spotPrices[metalKey] || 0;
