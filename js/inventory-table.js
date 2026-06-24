@@ -813,12 +813,12 @@
     const dispositionBadge = _buildDispositionBadge(item);
     const actionsCellInner = _buildActionsCellInner(item, originalIdx);
     const disposedRowClass = isDisposed(item) ? ' class="disposed-row"' : "";
-    // STRK-240: cu items store a face value in item.weight, but the cell displays the derived
-    // pure-silver oz. Filter on that displayed oz so the chip matches the clicked cell and a
-    // $10-face item no longer collides with a 10 oz item. Other units keep raw item.weight.
+    // STRK-240: the cu Weight cell filter chip keys on the displayed derived oz (via the shared
+    // getItemFilterWeight helper) so a $10-face item doesn't collide with a 10 oz item; every
+    // other unit keeps its raw item.weight, so the non-cu onclick value is unchanged.
     const weightFilterValue =
-      item.weightUnit === "cu" && typeof getConstitutionalFilterOz === "function"
-        ? getConstitutionalFilterOz(item)
+      item.weightUnit === "cu" && typeof getItemFilterWeight === "function"
+        ? getItemFilterWeight(item)
         : item.weight;
 
     return `

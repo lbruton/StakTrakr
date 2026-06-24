@@ -770,11 +770,13 @@ const getConstitutionalWearFactor = () => {
  * → 0 (corrupt or legacy import) rather than throwing (STRK-235).
  *
  * @param {Object} item - A weightUnit "cu" inventory item
+ * @param {number} [wearFactor] - Pre-loaded wear factor; when omitted it is read from storage
+ *   via getConstitutionalWearFactor(). Pass it to hoist the read out of a per-item loop.
  * @returns {number} Total pure silver troy oz (0 for an unknown variant)
  */
-const getConstitutionalSilverOz = (item) => {
+const getConstitutionalSilverOz = (item, wearFactor) => {
   if (!item) return 0;
-  const wear = getConstitutionalWearFactor();
+  const wear = wearFactor !== undefined ? wearFactor : getConstitutionalWearFactor();
   if (item.constitutionalEntryMode === "face") {
     return (Number(item.weight) || 0) * CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR * wear;
   }
@@ -790,14 +792,20 @@ const getConstitutionalSilverOz = (item) => {
 };
 
 /**
- * The constitutional ("cu") weight value used by the inventory-table Weight chip and the
- * weight filter (STRK-240): the derived pure-silver oz rounded to the 2 decimals shown in
- * the cell. Centralised so the table's filter-chip value and the filters.js predicate stay
- * in lockstep on precision — a cu cell must match its own chip.
- * @param {Object} item - A weightUnit "cu" inventory item
- * @returns {string} Derived pure-silver oz formatted to 2 decimals (e.g. "7.15")
+ * The string value used for weight filtering and the inventory-table Weight filter chip
+ * (STRK-240). Constitutional ("cu") items resolve to their displayed derived pure-silver oz
+ * (2 decimals); every other unit uses the raw stored `item.weight` — byte-identical to the
+ * legacy default weight filter, so non-cu filtering is unchanged. `wearFactor` lets a caller
+ * hoist the storage-backed wear basis out of a per-item loop (the filter predicate reads it
+ * once so a large cu inventory does not re-read storage for every row).
+ * @param {Object} item - Inventory item
+ * @param {number} [wearFactor] - Pre-loaded constitutional wear factor (optional)
+ * @returns {string} Filterable weight string (e.g. "7.15" for cu, "10" otherwise)
  */
-const getConstitutionalFilterOz = (item) => getConstitutionalSilverOz(item).toFixed(2);
+const getItemFilterWeight = (item, wearFactor) =>
+  item && item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
+    ? getConstitutionalSilverOz(item, wearFactor).toFixed(2)
+    : String(item?.weight ?? "");
 
 /**
  * Computes the melt value for an inventory item.
@@ -1349,7 +1357,7 @@ if (typeof window !== "undefined") {
   window.computeMeltValue = computeMeltValue;
   window.getConstitutionalWearFactor = getConstitutionalWearFactor;
   window.getConstitutionalSilverOz = getConstitutionalSilverOz;
-  window.getConstitutionalFilterOz = getConstitutionalFilterOz;
+  window.getItemFilterWeight = getItemFilterWeight;
   window.findItemByUuid = findInventoryItemByUuid;
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
@@ -1365,6 +1373,8 @@ if (typeof module !== "undefined" && module.exports) {
     sanitizeObjectFields,
     sanitizeImportedItem,
     computeMeltValue,
+    getConstitutionalSilverOz,
+    getItemFilterWeight,
     findItemByUuid: findInventoryItemByUuid,
     computeTradeValue,
     calculateRetailPrice,

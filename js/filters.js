@@ -1216,25 +1216,28 @@ const _filterByDefault = (result, values, exclude, field) => {
 };
 
 /**
- * Weight filter (STRK-240). Compares weights NUMERICALLY so values that are numerically
- * identical but formatted differently (e.g. "0.5" vs "0.50") still match. Constitutional
- * ("cu") items resolve to their displayed derived pure-silver oz (rounded to the shown 2
- * decimals via `getConstitutionalFilterOz`), so the chip matches the clicked cell and a
- * $10-face item no longer collides with a 10 oz item; every other unit uses its raw stored
- * `item.weight`.
+ * Weight filter (STRK-240). Resolves each item's filterable weight via `getItemFilterWeight`:
+ * constitutional ("cu") items use their displayed derived pure-silver oz (so the chip matches
+ * the clicked cell and a $10-face item no longer collides with a 10 oz item); every other unit
+ * keeps the raw `item.weight` string comparison, byte-identical to `_filterByDefault`. The
+ * storage-backed constitutional wear factor is read once per pass (not per item) so a large cu
+ * inventory keeps O(1) storage access inside the loop.
  * @param {Array<Object>} result - Items to filter
  * @param {Array<string>} values - Selected values
  * @param {boolean} exclude - Exclusion mode
  * @returns {Array<Object>} Filtered items
  */
 const _filterByWeight = (result, values, exclude) => {
-  const targets = values.map((v) => parseFloat(v));
+  const lowerVals = values.map((v) => String(v).toLowerCase());
+  // Hoist the storage-backed wear factor out of the per-item loop (STRK-240 review).
+  const wear =
+    typeof getConstitutionalWearFactor === "function" ? getConstitutionalWearFactor() : undefined;
   return result.filter((item) => {
-    const itemWeight =
-      item.weightUnit === "cu" && typeof getConstitutionalFilterOz === "function"
-        ? parseFloat(getConstitutionalFilterOz(item))
-        : parseFloat(item.weight);
-    const match = targets.some((t) => t === itemWeight);
+    const fieldVal =
+      typeof getItemFilterWeight === "function"
+        ? getItemFilterWeight(item, wear)
+        : String(item.weight ?? "");
+    const match = lowerVals.includes(fieldVal.toLowerCase());
     return exclude ? !match : match;
   });
 };
